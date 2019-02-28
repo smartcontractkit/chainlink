@@ -70,9 +70,9 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 }
 
 // NextTaskRunIndex returns the position of the next unfinished task
-func (jr JobRun) NextTaskRunIndex() (int, bool) {
+func (jr *JobRun) NextTaskRunIndex() (int, bool) {
 	for index, tr := range jr.TaskRuns {
-		if !(tr.Status.Completed() || tr.Status.Errored()) {
+		if tr.Status.CanStart() {
 			return index, true
 		}
 	}
@@ -81,7 +81,7 @@ func (jr JobRun) NextTaskRunIndex() (int, bool) {
 
 // NextTaskRun returns the next immediate TaskRun in the list
 // of unfinished TaskRuns.
-func (jr JobRun) NextTaskRun() *TaskRun {
+func (jr *JobRun) NextTaskRun() *TaskRun {
 	nextTaskIndex, runnable := jr.NextTaskRunIndex()
 	if runnable {
 		return &jr.TaskRuns[nextTaskIndex]
@@ -90,7 +90,7 @@ func (jr JobRun) NextTaskRun() *TaskRun {
 }
 
 // PreviousTaskRun returns the last task to be processed, if it exists
-func (jr JobRun) PreviousTaskRun() *TaskRun {
+func (jr *JobRun) PreviousTaskRun() *TaskRun {
 	index, runnable := jr.NextTaskRunIndex()
 	if runnable && index > 0 {
 		return &jr.TaskRuns[index-1]
@@ -99,34 +99,33 @@ func (jr JobRun) PreviousTaskRun() *TaskRun {
 }
 
 // TasksRemain returns true if there are unfinished tasks left for this job run
-func (jr JobRun) TasksRemain() bool {
+func (jr *JobRun) TasksRemain() bool {
 	_, runnable := jr.NextTaskRunIndex()
 	return runnable
 }
 
+// SetError sets this job run to failed and saves the error message
+func (jr *JobRun) SetError(err error) {
+	jr.Result.ErrorMessage = null.StringFrom(err.Error())
+	jr.Result.Status = RunStatusErrored
+	jr.Status = jr.Result.Status
+}
+
 // ApplyResult updates the JobRun's Result and Status
-func (jr JobRun) ApplyResult(result RunResult) JobRun {
-	id := jr.Result.ID
-
+func (jr *JobRun) ApplyResult(result RunResult) {
 	jr.Result = result
-	jr.Result.ID = id
-	jr.Result.CachedJobRunID = jr.ID
-	jr.Result.CachedTaskRunID = ""
-
 	jr.Status = result.Status
 	if jr.Status.Completed() {
 		jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
 	}
-	return jr
 }
 
 // MarkCompleted sets the JobRun's status to completed and records the
 // completed at time.
-func (jr JobRun) MarkCompleted() JobRun {
+func (jr *JobRun) MarkCompleted() {
 	jr.Status = RunStatusCompleted
 	jr.Result.Status = RunStatusCompleted
 	jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
-	return jr
 }
 
 // TaskRun stores the Task and represents the status of the
@@ -149,7 +148,7 @@ func (tr TaskRun) String() string {
 }
 
 // ForLogger formats the TaskRun info for a common formatting in the log.
-func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
+func (tr *TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"type", tr.TaskSpec.Type,
 		"params", tr.TaskSpec.Params,
@@ -164,25 +163,29 @@ func (tr TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 	return append(kvs, output...)
 }
 
+// SetError sets this task run to failed and saves the error message
+func (tr *TaskRun) SetError(err error) {
+	tr.Result.ErrorMessage = null.StringFrom(err.Error())
+	tr.Result.Status = RunStatusErrored
+	tr.Status = tr.Result.Status
+}
+
 // ApplyResult updates the TaskRun's Result and Status
-func (tr TaskRun) ApplyResult(result RunResult) TaskRun {
+func (tr *TaskRun) ApplyResult(result RunResult) {
 	tr.Result = result
 	tr.Status = result.Status
-	return tr
 }
 
 // MarkCompleted marks the task's status as completed.
-func (tr TaskRun) MarkCompleted() TaskRun {
+func (tr *TaskRun) MarkCompleted() {
 	tr.Status = RunStatusCompleted
 	tr.Result.Status = RunStatusCompleted
-	return tr
 }
 
 // MarkPendingConfirmations marks the task's status as blocked.
-func (tr TaskRun) MarkPendingConfirmations() TaskRun {
+func (tr *TaskRun) MarkPendingConfirmations() {
 	tr.Status = RunStatusPendingConfirmations
 	tr.Result.Status = RunStatusPendingConfirmations
-	return tr
 }
 
 // RunResult keeps track of the outcome of a TaskRun or JobRun. It stores the
@@ -197,67 +200,60 @@ type RunResult struct {
 	Amount          *assets.Link `json:"amount,omitempty" gorm:"type:varchar(255)"`
 }
 
-// WithResult returns a copy of the RunResult, overriding the "result" field of
-// Data and setting the status to completed.
-func (rr RunResult) WithResult(val interface{}) RunResult {
+// ApplyResult saves a value to a RunResult and marks it as completed
+func (rr *RunResult) ApplyResult(val interface{}) {
 	rr.Status = RunStatusCompleted
-	return rr.Add("result", val)
+	rr.Add("result", val)
 }
 
 // Add adds a key and result to the RunResult's JSON payload.
-func (rr RunResult) Add(key string, result interface{}) RunResult {
+func (rr *RunResult) Add(key string, result interface{}) {
 	data, err := rr.Data.Add(key, result)
 	if err != nil {
-		return rr.WithError(err)
+		rr.SetError(err)
+		return
 	}
 	rr.Data = data
-	return rr
 }
 
-// WithNull returns a copy of the RunResult, overriding the "result" field of
-// Data to null.
-func (rr RunResult) WithNull() RunResult {
+// ClearResult sets the "result" field to null
+func (rr *RunResult) ClearResult() {
 	data, err := rr.Data.Add("result", nil)
 	if err != nil {
-		return rr.WithError(err)
+		rr.SetError(err)
+		return
 	}
 	rr.Data = data
-	return rr
 }
 
-// WithError returns a copy of the RunResult, setting the error field
-// and setting the status to in progress.
-func (rr RunResult) WithError(err error) RunResult {
+// SetError marks the result as errored and saves the specified error message
+func (rr *RunResult) SetError(err error) {
 	rr.ErrorMessage = null.StringFrom(err.Error())
 	rr.Status = RunStatusErrored
-	return rr
 }
 
-// MarkPendingBridge returns a copy of RunResult but with status set to pending_bridge.
-func (rr RunResult) MarkPendingBridge() RunResult {
+// MarkPendingBridge sets the status to pending_bridge
+func (rr *RunResult) MarkPendingBridge() {
 	rr.Status = RunStatusPendingBridge
-	return rr
 }
 
-// MarkPendingConfirmations returns a copy of RunResult but with status set to pending_confirmations.
-func (rr RunResult) MarkPendingConfirmations() RunResult {
+// MarkPendingConfirmations sets the status to pending_confirmations.
+func (rr *RunResult) MarkPendingConfirmations() {
 	rr.Status = RunStatusPendingConfirmations
-	return rr
 }
 
-// MarkPendingConnection returns a copy of RunResult but with status set to pending_connection.
-func (rr RunResult) MarkPendingConnection() RunResult {
+// MarkPendingConnection sets the status to pending_connection.
+func (rr *RunResult) MarkPendingConnection() {
 	rr.Status = RunStatusPendingConnection
-	return rr
 }
 
 // Get searches for and returns the JSON at the given path.
-func (rr RunResult) Get(path string) gjson.Result {
+func (rr *RunResult) Get(path string) gjson.Result {
 	return rr.Data.Get(path)
 }
 
 // ResultString returns the string result of the Data JSON field.
-func (rr RunResult) ResultString() (string, error) {
+func (rr *RunResult) ResultString() (string, error) {
 	val := rr.Result()
 	if val.Type != gjson.String {
 		return "", fmt.Errorf("non string result")
@@ -266,54 +262,40 @@ func (rr RunResult) ResultString() (string, error) {
 }
 
 // Result returns the result as a gjson object
-func (rr RunResult) Result() gjson.Result {
+func (rr *RunResult) Result() gjson.Result {
 	return rr.Get("result")
 }
 
 // HasError returns true if the ErrorMessage is present.
-func (rr RunResult) HasError() bool {
+func (rr *RunResult) HasError() bool {
 	return rr.ErrorMessage.Valid
 }
 
 // Error returns the string value of the ErrorMessage field.
-func (rr RunResult) Error() string {
+func (rr *RunResult) Error() string {
 	return rr.ErrorMessage.String
 }
 
 // GetError returns the error of a RunResult if it is present.
-func (rr RunResult) GetError() error {
+func (rr *RunResult) GetError() error {
 	if rr.HasError() {
 		return fmt.Errorf("Run Result: %v", rr.Error())
 	}
 	return nil
 }
 
-// Merge returns a copy which is the result of joining the input RunResult
-// with the instance it is called on, preferring the RunResult results passed in,
-// but using the existing results if the input RunResult results are of their
-// respective zero value.
-//
-// Returns an error if called on a RunResult that already has an error.
-func (rr RunResult) Merge(in RunResult) (RunResult, error) {
-	if rr.HasError() {
-		err := fmt.Errorf("Cannot merge onto a RunResult with error: %v", rr.Error())
-		return rr, err
-	}
-
-	merged, err := rr.Data.Merge(in.Data)
+// Merge saves the specified result's data onto the receiving RunResult. The
+// input result's data takes preference over the receivers'.
+func (rr *RunResult) Merge(in RunResult) error {
+	var err error
+	rr.Data, err = rr.Data.Merge(in.Data)
 	if err != nil {
-		return in, fmt.Errorf("TaskRun#Merge merging JSON: %v", err.Error())
+		return err
 	}
-	in.Data = merged
-	if len(in.CachedJobRunID) == 0 {
-		in.CachedJobRunID = rr.CachedJobRunID
-	}
-	if in.Status.Errored() || rr.Status.Errored() {
-		in.Status = RunStatusErrored
-	} else if in.Status.PendingBridge() || rr.Status.PendingBridge() {
-		in = in.MarkPendingBridge()
-	}
-	return in, nil
+	rr.ErrorMessage = in.ErrorMessage
+	rr.Amount = in.Amount
+	rr.Status = in.Status
+	return nil
 }
 
 // BridgeRunResult handles the parsing of RunResults from external adapters.

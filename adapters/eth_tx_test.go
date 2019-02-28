@@ -228,7 +228,8 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 	assert.NoError(t, err)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithResult(a.Hash.String())
-	input := sentResult.MarkPendingConfirmations()
+	input := sentResult
+	input.MarkPendingConfirmations()
 
 	output := adapter.Perform(input, store)
 
@@ -268,7 +269,8 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	assert.NoError(t, err)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithResult(a.Hash.String())
-	input := sentResult.MarkPendingConfirmations()
+	input := sentResult
+	input.MarkPendingConfirmations()
 
 	output := adapter.Perform(input, store)
 
@@ -309,7 +311,8 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	a3, _ := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithResult(a3.Hash.String())
-	input := sentResult.MarkPendingConfirmations()
+	input := sentResult
+	input.MarkPendingConfirmations()
 
 	assert.False(t, tx.Confirmed)
 
@@ -363,9 +366,10 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithResult(a.Hash.String())
 
-	input := sentResult.MarkPendingConfirmations()
+	input := sentResult
+	input.MarkPendingConfirmations()
 	previousReceipt := strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt - 10)}
-	input = input.Add("ethereumReceipts", []strpkg.TxReceipt{previousReceipt})
+	input.Add("ethereumReceipts", []strpkg.TxReceipt{previousReceipt})
 
 	output := adapter.Perform(input, store)
 	assert.True(t, output.Status.Completed())

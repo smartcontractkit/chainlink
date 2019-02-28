@@ -182,7 +182,7 @@ func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
 			require.NoError(t, store.CreateJob(&job))
 			initr := job.Initiators[0]
 			run := job.NewRun(initr)
-			run = run.ApplyResult(models.RunResult{Status: test.status})
+			run.ApplyResult(models.RunResult{Status: test.status})
 			assert.Nil(t, store.CreateJobRun(&run))
 
 			js.OnNewHead(block)

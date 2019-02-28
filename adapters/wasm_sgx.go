@@ -27,11 +27,13 @@ type Wasm struct {
 func (wasm *Wasm) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	adapterJSON, err := json.Marshal(wasm)
 	if err != nil {
-		return input.WithError(err)
+		input.SetError(err)
+		return input
 	}
 	inputJSON, err := json.Marshal(input)
 	if err != nil {
-		return input.WithError(err)
+		input.SetError(err)
+		return input
 	}
 
 	cAdapter := C.CString(string(adapterJSON))
@@ -47,13 +49,15 @@ func (wasm *Wasm) Perform(input models.RunResult, _ *store.Store) models.RunResu
 
 	_, err = C.wasm(cAdapter, cInput, output, bufferCapacity, outputLenPtr)
 	if err != nil {
-		return input.WithError(fmt.Errorf("SGX wasm: %v", err))
+		input.SetError(fmt.Errorf("SGX wasm: %v", err))
+		return input
 	}
 
 	sgxResult := C.GoStringN(output, outputLen)
 	var result models.RunResult
 	if err := json.Unmarshal([]byte(sgxResult), &result); err != nil {
-		return input.WithError(fmt.Errorf("unmarshaling SGX result: %v", err))
+		input.SetError(fmt.Errorf("unmarshaling SGX result: %v", err))
+		return input
 	}
 
 	return result
