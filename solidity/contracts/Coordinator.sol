@@ -314,24 +314,22 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     returns (bool)
   {
     callbacks[_requestId].responses[msg.sender] = uint256(_data);
+    callbacks[_requestId].responseCount += 1;
 
     Callback memory callback = callbacks[_requestId];
-    callbacks[_requestId].responseCount += 1;
-    uint256 responseCount = callbacks[_requestId].responseCount;
-    bytes32 sAId = callbacks[_requestId].sAId;
-    address[] memory oracles = serviceAgreements[sAId].oracles;
-    if (oracles.length > responseCount) {
+    address[] memory oracles = serviceAgreements[callback.sAId].oracles;
+    if (oracles.length > callback.responseCount) {
       return true;
     }
 
     uint256 result;
     uint256 oraclePayment = callback.amount.div(oracles.length);
-    for (uint i = 0; i < responseCount; i++) {
+    for (uint i = 0; i < callback.responseCount; i++) {
       result = result.add(callbacks[_requestId].responses[oracles[i]]);
       delete callbacks[_requestId].responses[oracles[i]];
       withdrawableTokens[oracles[i]] = withdrawableTokens[oracles[i]].add(oraclePayment);
     }
-    result = result.div(responseCount);
+    result = result.div(callback.responseCount);
     delete callbacks[_requestId];
     return callback.addr.call(callback.functionId, _requestId, result); // solium-disable-line security/no-low-level-calls
   }
