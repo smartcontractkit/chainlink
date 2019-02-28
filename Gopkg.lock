@@ -341,12 +341,12 @@
   revision = "558ac7de985fc4f4057bff27c7bdf99e92fe0750"
 
 [[projects]]
-  digest = "1:ac02823572830fb544c7a94152465ca7833aaf1f186aeb4445ce9d34aacfcc4a"
+  digest = "1:a4724325f1d3bd4127dac415e980c7c28f2e08f4d0ba2513e7de9980906604ef"
   name = "github.com/gofrs/flock"
   packages = ["."]
   pruneopts = ""
-  revision = "7f43ea2e6a643ad441fc12d0ecc0d3388b300c53"
-  version = "v0.7.0"
+  revision = "392e7fae8f1b0bdbd67dad7237d23f618feb6dbb"
+  version = "v0.7.1"
 
 [[projects]]
   digest = "1:530233672f656641b365f8efb38ed9fba80e420baff2ce87633813ab3755ed6d"
