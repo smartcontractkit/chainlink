@@ -73,6 +73,7 @@ const styles = theme => {
 const SHARED_NAV_ITEMS = [
   ['/jobs', 'Jobs'],
   ['/bridges', 'Bridges'],
+  ['/transactions', 'Transactions'],
   ['/config', 'Configuration']
 ]
 

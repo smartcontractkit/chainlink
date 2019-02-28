@@ -367,3 +367,12 @@ export const deleteErroredJobRuns = updatedBefore =>
     ['errored'],
     updatedBefore
   )
+
+export const fetchTransactions = (page, size) =>
+  request(
+    'TRANSACTIONS',
+    api.getTransactions,
+    json => normalize(json, { endpoint: 'currentPageTransactions' }),
+    page,
+    size
+  )
