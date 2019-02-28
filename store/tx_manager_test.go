@@ -242,7 +242,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 			})
 
 			a, err := manager.CreateTx(to, data)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			tx, err := store.FindTx(a.ID)
 			require.NoError(t, err)
 			assert.NoError(t, err)

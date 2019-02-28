@@ -61,7 +61,7 @@ func NewRun(
 	run := job.NewRun(initiator)
 
 	run.Overrides = input
-	run = run.ApplyResult(input)
+	run.ApplyResult(input)
 	run.CreationHeight = models.NewBig(currentHeight.ToInt())
 	run.ObservedHeight = models.NewBig(currentHeight.ToInt())
 
@@ -70,7 +70,7 @@ func NewRun(
 		adapter, err := adapters.For(taskRun.TaskSpec, store)
 
 		if err != nil {
-			run = run.ApplyResult(run.Result.WithError(err))
+			run.SetError(err)
 			return &run, nil
 		}
 
@@ -100,7 +100,7 @@ func NewRun(
 				job.ID,
 				input.Amount,
 				store.Config.MinimumContractPayment().Text(10))
-			run = run.ApplyResult(input.WithError(err))
+			run.SetError(err)
 		}
 	}
 
@@ -124,21 +124,21 @@ func ResumeConfirmingTask(
 	run *models.JobRun,
 	store *store.Store,
 	currentBlockHeight *hexutil.Big,
-) (*models.JobRun, error) {
+) error {
 
 	logger.Debugw("New head resuming run", run.ForLogger()...)
 
 	if !run.Status.PendingConfirmations() {
-		return run, fmt.Errorf("Attempt to resume non confirming task")
+		return fmt.Errorf("Attempt to resume non confirming task")
 	}
 
 	currentTaskRun := run.NextTaskRun()
 	if currentTaskRun == nil {
-		return run, fmt.Errorf("Attempting to resume confirming run with no remaining tasks %s", run.ID)
+		return fmt.Errorf("Attempting to resume confirming run with no remaining tasks %s", run.ID)
 	}
 
 	if currentBlockHeight == nil {
-		return run, fmt.Errorf("Attempting to resume confirming run with no currentBlockHeight %s", run.ID)
+		return fmt.Errorf("Attempting to resume confirming run with no currentBlockHeight %s", run.ID)
 	}
 
 	run.ObservedHeight = models.NewBig(currentBlockHeight.ToInt())
@@ -151,28 +151,28 @@ func ResumeConfirmingTask(
 		run.Status = models.RunStatusPendingConfirmations
 	}
 
-	return run, updateAndTrigger(run, store)
+	return updateAndTrigger(run, store)
 }
 
 // ResumeConnectingTask resumes a run that was left in pending_connection.
 func ResumeConnectingTask(
 	run *models.JobRun,
 	store *store.Store,
-) (*models.JobRun, error) {
+) error {
 
 	logger.Debugw("New connection resuming run", run.ForLogger()...)
 
 	if !run.Status.PendingConnection() {
-		return run, fmt.Errorf("Attempt to resume non connecting task")
+		return fmt.Errorf("Attempt to resume non connecting task")
 	}
 
 	currentTaskRun := run.NextTaskRun()
 	if currentTaskRun == nil {
-		return run, fmt.Errorf("Attempting to resume connecting run with no remaining tasks %s", run.ID)
+		return fmt.Errorf("Attempting to resume connecting run with no remaining tasks %s", run.ID)
 	}
 
 	run.Status = models.RunStatusInProgress
-	return run, updateAndTrigger(run, store)
+	return updateAndTrigger(run, store)
 }
 
 // ResumePendingTask takes the body provided from an external adapter,
@@ -182,7 +182,7 @@ func ResumePendingTask(
 	run *models.JobRun,
 	store *store.Store,
 	input models.RunResult,
-) (*models.JobRun, error) {
+) error {
 
 	logger.Debugw("External adapter resuming job", []interface{}{
 		"run", run.ID,
@@ -193,31 +193,24 @@ func ResumePendingTask(
 	}...)
 
 	if !run.Status.PendingBridge() {
-		return run, fmt.Errorf("Attempting to resume non pending run %s", run.ID)
+		return fmt.Errorf("Attempting to resume non pending run %s", run.ID)
 	}
 
-	currentTaskRunIndex, ok := run.NextTaskRunIndex()
-	if !ok {
-		return run, fmt.Errorf("Attempting to resume pending run with no remaining tasks %s", run.ID)
-	}
-	currentTaskRun := run.TaskRuns[currentTaskRunIndex]
-
-	var err error
-	if run.Overrides, err = run.Overrides.Merge(input); err != nil {
-		run.TaskRuns[currentTaskRunIndex] = currentTaskRun.ApplyResult(input.WithError(err))
-		*run = run.ApplyResult(input.WithError(err))
-		return run, store.SaveJobRun(run)
+	currentTaskRun := run.NextTaskRun()
+	if currentTaskRun == nil {
+		return fmt.Errorf("Attempting to resume pending run with no remaining tasks %s", run.ID)
 	}
 
-	currentTaskRun = currentTaskRun.ApplyResult(input)
-	run.TaskRuns[currentTaskRunIndex] = currentTaskRun
+	run.Overrides.Merge(input)
+
+	currentTaskRun.ApplyResult(input)
 	if currentTaskRun.Status.Finished() && run.TasksRemain() {
 		run.Status = models.RunStatusInProgress
 	} else {
-		*run = run.ApplyResult(input)
+		run.ApplyResult(input)
 	}
 
-	return run, updateAndTrigger(run, store)
+	return updateAndTrigger(run, store)
 }
 
 // QueueSleepingTask creates a go routine which will wake up the job runner
@@ -225,40 +218,38 @@ func ResumePendingTask(
 func QueueSleepingTask(
 	run *models.JobRun,
 	store *store.Store,
-) (*models.JobRun, error) {
+) error {
 	if !run.Status.PendingSleep() {
-		return run, fmt.Errorf("Attempting to resume non sleeping run %s", run.ID)
+		return fmt.Errorf("Attempting to resume non sleeping run %s", run.ID)
 	}
 
-	currentTaskRunIndex, ok := run.NextTaskRunIndex()
-	if !ok {
-		return run, fmt.Errorf("Attempting to resume sleeping run with no remaining tasks %s", run.ID)
+	currentTaskRun := run.NextTaskRun()
+	if currentTaskRun == nil {
+		return fmt.Errorf("Attempting to resume sleeping run with no remaining tasks %s", run.ID)
 	}
-	currentTaskRun := run.TaskRuns[currentTaskRunIndex]
 
 	if !currentTaskRun.Status.PendingSleep() {
-		return run, fmt.Errorf("Attempting to resume sleeping run with non sleeping task %s", run.ID)
+		return fmt.Errorf("Attempting to resume sleeping run with non sleeping task %s", run.ID)
 	}
 
 	adapter, err := adapters.For(currentTaskRun.TaskSpec, store)
 
 	if err != nil {
-		run.TaskRuns[currentTaskRunIndex] = currentTaskRun.ApplyResult(run.Result.WithError(err))
-		*run = run.ApplyResult(run.Result.WithError(err))
-		return run, store.SaveJobRun(run)
+		currentTaskRun.SetError(err)
+		run.SetError(err)
+		return store.SaveJobRun(run)
 	}
 
 	if sleepAdapter, ok := adapter.BaseAdapter.(*adapters.Sleep); ok {
-		return run, performTaskSleep(run, &currentTaskRun, currentTaskRunIndex, sleepAdapter, store)
+		return performTaskSleep(run, currentTaskRun, sleepAdapter, store)
 	}
 
-	return run, fmt.Errorf("Attempting to resume non sleeping task for run %s (%s)", run.ID, currentTaskRun.TaskSpec.Type)
+	return fmt.Errorf("Attempting to resume non sleeping task for run %s (%s)", run.ID, currentTaskRun.TaskSpec.Type)
 }
 
 func performTaskSleep(
 	run *models.JobRun,
 	task *models.TaskRun,
-	currentTaskRunIndex int,
 	adapter *adapters.Sleep,
 	store *store.Store) error {
 
@@ -266,7 +257,6 @@ func performTaskSleep(
 	if duration <= 0 {
 		logger.Debugw("Sleep duration has already elapsed, completing task", run.ForLogger()...)
 		task.Status = models.RunStatusCompleted
-		run.TaskRuns[currentTaskRunIndex] = *task
 		run.Status = models.RunStatusInProgress
 		return updateAndTrigger(run, store)
 	}
@@ -277,13 +267,13 @@ func performTaskSleep(
 	runCopy.TaskRuns = make([]models.TaskRun, len(run.TaskRuns))
 	copy(runCopy.TaskRuns, run.TaskRuns)
 
-	go func(run models.JobRun, task models.TaskRun) {
+	go func(run models.JobRun) {
 		logger.Debugw("Task sleeping...", run.ForLogger()...)
 
 		<-store.Clock.After(duration)
 
+		task := run.NextTaskRun()
 		task.Status = models.RunStatusCompleted
-		run.TaskRuns[currentTaskRunIndex] = task
 		run.Status = models.RunStatusInProgress
 
 		logger.Debugw("Waking job up after sleep", run.ForLogger()...)
@@ -291,7 +281,7 @@ func performTaskSleep(
 		if err := updateAndTrigger(&run, store); err != nil {
 			logger.Errorw("Error resuming sleeping job:", "error", err)
 		}
-	}(runCopy, *task)
+	}(runCopy)
 
 	return nil
 }

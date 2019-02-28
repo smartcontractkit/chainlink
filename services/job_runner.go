@@ -88,7 +88,7 @@ func (rm *jobRunner) resumeRunsSinceLastShutdown() error {
 		return err
 	}
 	for _, run := range sleepingRuns {
-		if _, err := QueueSleepingTask(&run, rm.store); err != nil {
+		if err := QueueSleepingTask(&run, rm.store); err != nil {
 			logger.Errorw("Error resuming sleeping job", "error", err)
 		}
 	}
@@ -155,7 +155,7 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan struct{}) {
 				logger.Errorw(fmt.Sprint("Error finding run ", runID), run.ForLogger("error", err)...)
 			}
 
-			if run, err := executeRun(&run, rm.store); err != nil {
+			if err := executeRun(&run, rm.store); err != nil {
 				logger.Errorw(fmt.Sprint("Error executing run ", runID), run.ForLogger("error", err)...)
 				return
 			}
@@ -179,43 +179,47 @@ func (rm *jobRunner) workerCount() int {
 	return len(rm.workers)
 }
 
-func prepareTaskInput(run *models.JobRun, currentTaskRun *models.TaskRun) (models.RunResult, error) {
-	input := currentTaskRun.Result
+func prepareTaskInput(run *models.JobRun, input models.JSON) (models.JSON, error) {
 	previousTaskRun := run.PreviousTaskRun()
 
 	var err error
 	if previousTaskRun != nil {
-		if input.Data, err = previousTaskRun.Result.Data.Merge(input.Data); err != nil {
-			return models.RunResult{}, err
+		if input, err = previousTaskRun.Result.Data.Merge(input); err != nil {
+			return models.JSON{}, err
 		}
 	}
 
-	if input.Data, err = run.Overrides.Data.Merge(input.Data); err != nil {
-		return models.RunResult{}, err
+	if input, err = run.Overrides.Data.Merge(input); err != nil {
+		return models.JSON{}, err
 	}
 	return input, nil
 }
 
 func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *store.Store) models.RunResult {
 	taskCopy := currentTaskRun.TaskSpec // deliberately copied to keep mutations local
+
 	var err error
 	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides.Data); err != nil {
-		return currentTaskRun.Result.WithError(err)
+		currentTaskRun.Result.SetError(err)
+		return currentTaskRun.Result
 	}
 
 	adapter, err := adapters.For(taskCopy, store)
 	if err != nil {
-		return currentTaskRun.Result.WithError(err)
+		currentTaskRun.Result.SetError(err)
+		return currentTaskRun.Result
 	}
 
 	logger.Infow(fmt.Sprintf("Processing task %s", taskCopy.Type), []interface{}{"task", currentTaskRun.ID}...)
 
-	input, err := prepareTaskInput(run, currentTaskRun)
+	data, err := prepareTaskInput(run, currentTaskRun.Result.Data)
 	if err != nil {
-		return currentTaskRun.Result.WithError(err)
+		currentTaskRun.Result.SetError(err)
+		return currentTaskRun.Result
 	}
 
-	result := adapter.Perform(input, store)
+	currentTaskRun.Result.Data = data
+	result := adapter.Perform(currentTaskRun.Result, store)
 
 	logger.Infow(fmt.Sprintf("Finished processing task %s", taskCopy.Type), []interface{}{
 		"task", currentTaskRun.ID,
@@ -226,57 +230,44 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 	return result
 }
 
-func executeRun(run *models.JobRun, store *store.Store) (*models.JobRun, error) {
+func executeRun(run *models.JobRun, store *store.Store) error {
 	logger.Infow("Processing run", run.ForLogger()...)
 
 	if !run.Status.Runnable() {
-		return run, fmt.Errorf("Run triggered in non runnable state %s", run.Status)
+		return fmt.Errorf("Run triggered in non runnable state %s", run.Status)
 	}
 
-	if !run.TasksRemain() {
-		return run, errors.New("Run triggered with no remaining tasks")
+	currentTaskRun := run.NextTaskRun()
+	if currentTaskRun == nil {
+		return errors.New("Run triggered with no remaining tasks")
 	}
 
-	currentTaskRunIndex, _ := run.NextTaskRunIndex()
-	currentTaskRun := run.TaskRuns[currentTaskRunIndex]
+	result := executeTask(run, currentTaskRun, store)
 
-	result := executeTask(run, &currentTaskRun, store)
-
-	currentTaskRun = currentTaskRun.ApplyResult(result)
-	run.TaskRuns[currentTaskRunIndex] = currentTaskRun
-	*run = run.ApplyResult(result)
+	currentTaskRun.ApplyResult(result)
+	run.ApplyResult(result)
 
 	if currentTaskRun.Status.PendingSleep() {
 		logger.Debugw("Task is sleeping", []interface{}{"run", run.ID}...)
-		if run, err := QueueSleepingTask(run, store); err != nil {
-			return run, err
+		if err := QueueSleepingTask(run, store); err != nil {
+			return err
 		}
 	} else if !currentTaskRun.Status.Runnable() {
 		logger.Debugw("Task execution blocked", []interface{}{"run", run.ID, "task", currentTaskRun.ID, "state", currentTaskRun.Result.Status}...)
-	} else if run.TasksRemain() {
-		run = queueNextTask(run, store)
+	} else if futureTaskRun := run.NextTaskRun(); futureTaskRun != nil {
+		if meetsMinimumConfirmations(run, futureTaskRun, run.ObservedHeight) {
+			logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID}...)
+			run.Status = models.RunStatusInProgress
+		} else {
+			logger.Debugw("Blocking run pending incoming confirmations", []interface{}{"run", run.ID, "required_height", futureTaskRun.MinimumConfirmations}...)
+			run.Status = models.RunStatusPendingConfirmations
+		}
 	}
 
 	if err := updateAndTrigger(run, store); err != nil {
-		return run, err
+		return err
 	}
 	logger.Infow("Run finished processing", run.ForLogger()...)
 
-	return run, nil
-}
-
-func queueNextTask(run *models.JobRun, store *store.Store) *models.JobRun {
-	futureTaskRunIndex, _ := run.NextTaskRunIndex()
-	futureTaskRun := run.TaskRuns[futureTaskRunIndex]
-
-	if meetsMinimumConfirmations(run, &futureTaskRun, run.ObservedHeight) {
-		logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID}...)
-		run.Status = models.RunStatusInProgress
-	} else {
-		logger.Debugw("Blocking run pending incoming confirmations", []interface{}{"run", run.ID, "required_height", futureTaskRun.MinimumConfirmations}...)
-		run.Status = models.RunStatusPendingConfirmations
-	}
-
-	run.TaskRuns[futureTaskRunIndex] = futureTaskRun
-	return run
+	return nil
 }
