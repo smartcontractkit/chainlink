@@ -259,7 +259,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    * @dev Reverts if not sent from the LINK token
    */
   modifier onlyLINK() {
-    require(msg.sender == address(LINK), "Must use LINK token"); 
+    require(msg.sender == address(LINK), "Must use LINK token");
     _;
   }
 
@@ -313,11 +313,14 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     isValidRequest(_requestId)
     returns (bool)
   {
+    // update storage before pulling the record it into memory
     callbacks[_requestId].responses[msg.sender] = uint256(_data);
     callbacks[_requestId].responseCount += 1;
 
+    // pull callback into memory for gas savings
     Callback memory callback = callbacks[_requestId];
     address[] memory oracles = serviceAgreements[callback.sAId].oracles;
+    // exit early if not all response have been received
     if (oracles.length > callback.responseCount) {
       return true;
     }
@@ -325,11 +328,11 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     uint256 result;
     uint256 oraclePayment = callback.amount.div(oracles.length);
     for (uint i = 0; i < callback.responseCount; i++) {
-      result = result.add(callbacks[_requestId].responses[oracles[i]]);
-      delete callbacks[_requestId].responses[oracles[i]];
+      result = result.add(callbacks[_requestId].responses[oracles[i]]); // aggregate answers
+      delete callbacks[_requestId].responses[oracles[i]]; // must explicitly clean-up mappings for gas refund
       withdrawableTokens[oracles[i]] = withdrawableTokens[oracles[i]].add(oraclePayment);
     }
-    result = result.div(callback.responseCount);
+    result = result.div(callback.responseCount); // average aggregated answers
     delete callbacks[_requestId];
     return callback.addr.call(callback.functionId, _requestId, result); // solium-disable-line security/no-low-level-calls
   }
@@ -348,6 +351,10 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     _;
   }
 
+  /**
+   * @dev Reverts if amount requested is greater than withdrawable balance
+   * @param _amount The given amount to compare to `withdrawableTokens`
+   */
   modifier hasAvailableFunds(uint256 _amount) {
     require(withdrawableTokens[msg.sender] >= _amount, "Amount requested is greater than withdrawable balance");
     _;
