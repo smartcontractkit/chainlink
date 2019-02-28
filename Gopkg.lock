@@ -940,7 +940,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d0f4eb7abce3fbd3f0dcbbc03ffe18464846afd34c815928d2ae11c1e5aded04"
+  digest = "1:1b2c970c3a3f5791add48cfa6feb50aeac933afc5dac00bdbc77a114e5a1e50f"
   name = "golang.org/x/crypto"
   packages = [
     "acme",
@@ -953,7 +953,7 @@
     "ssh/terminal",
   ]
   pruneopts = ""
-  revision = "ffb98f73852f696ea2bb21a617a5c4b3e067a439"
+  revision = "31a38585487a4b1fd6ff4f8f3db26f1fb296ac82"
 
 [[projects]]
   branch = "master"
