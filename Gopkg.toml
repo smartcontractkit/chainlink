@@ -144,4 +144,4 @@
 
 [[constraint]]
   name = "github.com/gofrs/flock"
-  version = "0.7.0"
+  version = "0.7.1"
