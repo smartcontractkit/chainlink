@@ -68,33 +68,6 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   );
 
   /**
-   * @notice Called when LINK is sent to the contract via `transferAndCall`
-   * @dev The data payload's first 2 words will be overwritten by the `_sender` and `_amount`
-   * values to ensure correctness. Calls oracleRequest.
-   * @param _sender Address of the sender
-   * @param _amount Amount of LINK sent (specified in wei)
-   * @param _data Payload of the transaction
-   */
-  function onTokenTransfer(
-    address _sender,
-    uint256 _amount,
-    bytes _data
-  )
-    public
-    onlyLINK
-    permittedFunctionsForLINK
-  {
-    assembly {
-      // solium-disable-next-line security/no-low-level-calls
-      mstore(add(_data, 36), _sender) // ensure correct sender is passed
-      // solium-disable-next-line security/no-low-level-calls
-      mstore(add(_data, 68), _amount)    // ensure correct amount is passed
-    }
-    // solium-disable-next-line security/no-low-level-calls
-    require(address(this).delegatecall(_data), "Unable to create request"); // calls oracleRequest
-  }
-
-  /**
    * @notice Creates the Chainlink request
    * @dev Stores the params on-chain in a callback for the request.
    * Emits OracleRequest event for Chainlink nodes to detect.
@@ -141,28 +114,6 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       now.add(EXPIRY_TIME),
       _dataVersion,
       _data);
-  }
-
-
-  /**
-   * @notice Retrieve the Service Agreement ID for the given parameters
-   * @param _payment The amount of payment given (specified in wei)
-   * @param _expiration The expiration that nodes should respond by
-   * @param _endAt The date which the service agreement is no longer valid
-   * @param _oracles Array of oracle addresses which agreed to the service agreement
-   * @param _requestDigest Hash of the normalized job specification
-   * @return The Service Agreement ID, a keccak256 hash of the input params
-   */
-  function getId(
-    uint256 _payment,
-    uint256 _expiration,
-    uint256 _endAt,
-    address[] _oracles,
-    bytes32 _requestDigest
-  )
-    public pure returns (bytes32)
-  {
-    return keccak256(abi.encodePacked(_payment, _expiration, _endAt, _oracles, _requestDigest));
   }
 
   /**
@@ -264,40 +215,6 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   }
 
   /**
-   * @dev Reverts if the given data does not begin with the `oracleRequest` function selector
-   */
-  modifier permittedFunctionsForLINK() {
-    bytes4[1] memory funcSelector;
-    assembly {
-      // solium-disable-next-line security/no-low-level-calls
-      calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
-    }
-    require(funcSelector[0] == this.oracleRequest.selector, "Must use whitelisted functions");
-    _;
-  }
-
-  /**
-   * @dev Reverts if amount is not at least what was agreed upon in the service agreement
-   * @param _amount The payment for the request
-   * @param _sAId The service agreement ID which the request is for
-   */
-  modifier sufficientLINK(uint256 _amount, bytes32 _sAId) {
-    require(_amount >= serviceAgreements[_sAId].payment, "Below agreed payment");
-    _;
-  }
-
-  /**
-   * @dev Reverts if request ID does not exist
-   * @param _requestId The given request ID to check in stored `callbacks`
-   */
-  modifier isValidRequest(bytes32 _requestId) {
-    require(callbacks[_requestId].addr != address(0), "Must have a valid requestId");
-    require(callbacks[_requestId].responses[msg.sender] == 0, "Cannot respond twice");
-    require(allowedOracles[callbacks[_requestId].sAId][msg.sender], "Oracle not recognized on service agreement");
-    _;
-  }
-
-  /**
    * @notice Called by the Chainlink node to fulfill requests
    * @dev Response must have a valid callback, and will delete the associated callback storage
    * before calling the external contract.
@@ -338,9 +255,70 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   }
 
   /**
+   * @dev Allows the oracle operator to withdraw their LINK
+   * @param _recipient is the address the funds will be sent to
+   * @param _amount is the amount of LINK transfered from the Coordinator contract
+   */
+  function withdraw(address _recipient, uint256 _amount)
+    external
+    hasAvailableFunds(_amount)
+  {
+    withdrawableTokens[msg.sender] = withdrawableTokens[msg.sender].sub(_amount);
+    assert(LINK.transfer(_recipient, _amount));
+  }
+
+  /**
    * @dev Necessary to implement ChainlinkRequestInterface
    */
   function cancelOracleRequest(bytes32, uint256, bytes4, uint256) external {}
+
+  /**
+   * @notice Called when LINK is sent to the contract via `transferAndCall`
+   * @dev The data payload's first 2 words will be overwritten by the `_sender` and `_amount`
+   * values to ensure correctness. Calls oracleRequest.
+   * @param _sender Address of the sender
+   * @param _amount Amount of LINK sent (specified in wei)
+   * @param _data Payload of the transaction
+   */
+  function onTokenTransfer(
+    address _sender,
+    uint256 _amount,
+    bytes _data
+  )
+    public
+    onlyLINK
+    permittedFunctionsForLINK
+  {
+    assembly {
+      // solium-disable-next-line security/no-low-level-calls
+      mstore(add(_data, 36), _sender) // ensure correct sender is passed
+      // solium-disable-next-line security/no-low-level-calls
+      mstore(add(_data, 68), _amount)    // ensure correct amount is passed
+    }
+    // solium-disable-next-line security/no-low-level-calls
+    require(address(this).delegatecall(_data), "Unable to create request"); // calls oracleRequest
+  }
+
+  /**
+   * @notice Retrieve the Service Agreement ID for the given parameters
+   * @param _payment The amount of payment given (specified in wei)
+   * @param _expiration The expiration that nodes should respond by
+   * @param _endAt The date which the service agreement is no longer valid
+   * @param _oracles Array of oracle addresses which agreed to the service agreement
+   * @param _requestDigest Hash of the normalized job specification
+   * @return The Service Agreement ID, a keccak256 hash of the input params
+   */
+  function getId(
+    uint256 _payment,
+    uint256 _expiration,
+    uint256 _endAt,
+    address[] _oracles,
+    bytes32 _requestDigest
+  )
+    public pure returns (bytes32)
+  {
+    return keccak256(abi.encodePacked(_payment, _expiration, _endAt, _oracles, _requestDigest));
+  }
 
   /**
    * @dev Reverts if the callback address is the LINK token
@@ -361,15 +339,36 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   }
 
   /**
-   * @dev Allows the oracle operator to withdraw their LINK
-   * @param _recipient is the address the funds will be sent to
-   * @param _amount is the amount of LINK transfered from the Coordinator contract
+   * @dev Reverts if request ID does not exist
+   * @param _requestId The given request ID to check in stored `callbacks`
    */
-  function withdraw(address _recipient, uint256 _amount)
-    external
-    hasAvailableFunds(_amount)
-  {
-    withdrawableTokens[msg.sender] = withdrawableTokens[msg.sender].sub(_amount);
-    assert(LINK.transfer(_recipient, _amount));
+  modifier isValidRequest(bytes32 _requestId) {
+    require(callbacks[_requestId].addr != address(0), "Must have a valid requestId");
+    require(callbacks[_requestId].responses[msg.sender] == 0, "Cannot respond twice");
+    require(allowedOracles[callbacks[_requestId].sAId][msg.sender], "Oracle not recognized on service agreement");
+    _;
+  }
+
+  /**
+   * @dev Reverts if amount is not at least what was agreed upon in the service agreement
+   * @param _amount The payment for the request
+   * @param _sAId The service agreement ID which the request is for
+   */
+  modifier sufficientLINK(uint256 _amount, bytes32 _sAId) {
+    require(_amount >= serviceAgreements[_sAId].payment, "Below agreed payment");
+    _;
+  }
+
+  /**
+   * @dev Reverts if the given data does not begin with the `oracleRequest` function selector
+   */
+  modifier permittedFunctionsForLINK() {
+    bytes4[1] memory funcSelector;
+    assembly {
+      // solium-disable-next-line security/no-low-level-calls
+      calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
+    }
+    require(funcSelector[0] == this.oracleRequest.selector, "Must use whitelisted functions");
+    _;
   }
 }
