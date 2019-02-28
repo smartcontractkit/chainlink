@@ -499,12 +499,10 @@ contract('Coordinator', () => {
       })
 
       it('does not set the value with only one oracle', async () => {
-        await coordinator.fulfillOracleRequest(request.id, h.toHex(17),
+        const tx = await coordinator.fulfillOracleRequest(request.id, h.toHex(17),
           { from: oracle1 })
 
-        const currentValue = await mock.getUint256.call()
-        assertBigNum(h.bigNum(0), currentValue)
-        assertBigNum(h.bigNum(0), currentValue)
+        assert.equal(tx.receipt.logs.length, 0); // No logs emitted = consuming contract not called
       })
 
       it('sets the average of the reported values', async () => {
@@ -512,9 +510,10 @@ contract('Coordinator', () => {
           { from: oracle1 })
         await coordinator.fulfillOracleRequest(request.id, h.toHex(17),
           { from: oracle2 })
-        await coordinator.fulfillOracleRequest(request.id, h.toHex(18),
+        const lastTx = await coordinator.fulfillOracleRequest(request.id, h.toHex(18),
           { from: oracle3 })
 
+        assert.equal(lastTx.receipt.logs.length, 1);
         const currentValue = await mock.getUint256.call()
         assertBigNum(h.bigNum(17), currentValue)
       })
@@ -585,6 +584,7 @@ contract('Coordinator', () => {
       })
 
       it('oracle balances are updated', async () => {
+        // Given the 3 oracles from the SA, each should have the following balance after fulfillment
         const expected = h.bigNum('333333333333333333')
         const balance1 = await coordinator.withdrawableTokens.call(oracle1)
         assertBigNum(expected, balance1)
