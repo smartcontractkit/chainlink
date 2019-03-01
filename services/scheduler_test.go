@@ -159,24 +159,33 @@ func TestOneTime_AddJob(t *testing.T) {
 				Clock: store.Clock,
 				Store: store,
 			}
+			require.NoError(t, ot.Start())
+			defer ot.Stop()
 
 			j := cltest.NewJobWithRunAtInitiator(test.runAt)
-			assert.Nil(t, store.CreateJob(&j))
+			require.Nil(t, store.CreateJob(&j))
 
 			j.StartAt = test.startAt
 			j.EndAt = test.endAt
 
 			ot.AddJob(j)
 
-			gomega.NewGomegaWithT(t).Eventually(func() bool {
+			tester := func() bool {
 				completed := false
 				jobRuns, err := store.JobRunsFor(j.ID)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				if (len(jobRuns) > 0) && (jobRuns[0].Status == models.RunStatusCompleted) {
 					completed = true
 				}
 				return completed
-			}).Should(gomega.Equal(test.wantCompleted))
+			}
+
+			if test.wantCompleted {
+				gomega.NewGomegaWithT(t).Eventually(tester).Should(gomega.Equal(true))
+			} else {
+				gomega.NewGomegaWithT(t).Consistently(tester).Should(gomega.Equal(false))
+			}
+
 		})
 	}
 }
