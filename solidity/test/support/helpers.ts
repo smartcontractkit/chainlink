@@ -64,13 +64,22 @@ export const deployer = Deployer(wallet, utils)
 const bNToStringOrIdentity = (a: any): any => BN.isBN(a) ? a.toString() : a
 
 // Deal with transfer amount type truffle doesn't currently handle. (BN)
-export const wrappedERC20 = (contract: any) => ({
+export const wrappedERC20 = (contract: any): any => ({
   ...contract,
   transfer: async (address: any, amount: any) =>
     contract.transfer(address, bNToStringOrIdentity(amount)),
-  transferAndCall: async (address: any, amount: any, payload: any, options: any) =>
+  transferAndCall: async (
+    address: any,
+    amount: any,
+    payload: any,
+    options: any
+  ) =>
     contract.transferAndCall(
-      address, bNToStringOrIdentity(amount), payload, options),
+      address,
+      bNToStringOrIdentity(amount),
+      payload,
+      options
+    )
 })
 
 export const linkContract = async (): Promise<any> => {
