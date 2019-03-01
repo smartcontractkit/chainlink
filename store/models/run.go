@@ -128,6 +128,18 @@ func (jr *JobRun) MarkCompleted() {
 	jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
 }
 
+// JobRunsWithStatus filters passed job runs returning those that have
+// the desired status, entirely in memory.
+func JobRunsWithStatus(runs []JobRun, status RunStatus) []JobRun {
+	rval := []JobRun{}
+	for _, r := range runs {
+		if r.Status == status {
+			rval = append(rval, r)
+		}
+	}
+	return rval
+}
+
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
