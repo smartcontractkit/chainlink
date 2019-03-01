@@ -14,7 +14,9 @@ import (
 )
 
 var (
-	BridgeResultMustBeJSONObjectError = errors.New("Bridge result must be a valid JSON object")
+	// ErrBridgeResultMustBeJSONObject is returned when a Bridge POSTs a non JSON
+	// object to chainlink
+	ErrBridgeResultMustBeJSONObject = errors.New("Bridge result must be a valid JSON object")
 )
 
 // Bridge adapter is responsible for connecting the task pipeline to external
@@ -80,7 +82,7 @@ func responseToRunResult(body []byte, input *models.RunResult) error {
 	}
 
 	if brr.RunResult.Data.Exists() && !brr.RunResult.Data.IsObject() {
-		return BridgeResultMustBeJSONObjectError
+		return ErrBridgeResultMustBeJSONObject
 	}
 
 	input.Merge(brr.RunResult)
