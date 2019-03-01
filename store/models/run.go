@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -291,7 +292,7 @@ func (rr *RunResult) Error() string {
 // GetError returns the error of a RunResult if it is present.
 func (rr *RunResult) GetError() error {
 	if rr.HasError() {
-		return fmt.Errorf("Run Result: %v", rr.Error())
+		return errors.New(rr.ErrorMessage.ValueOrZero())
 	}
 	return nil
 }
