@@ -42,6 +42,28 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	assert.Equal(t, "Bearer "+bt.OutgoingToken, token)
 }
 
+func TestBridge_PerformRejectsNonJsonObjectResponses(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(""))
+
+	mock, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`,
+		func(h http.Header, b string) {},
+	)
+	defer cleanup()
+
+	bt := cltest.NewBridgeType("auctionBidding", mock.URL)
+	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
+	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
+
+	input := models.RunResult{
+		Data:   cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`),
+		Status: models.RunStatusUnstarted,
+	}
+	result := ba.Perform(input, store)
+	assert.Equal(t, result.GetError(), adapters.ErrBridgeResultMustBeJSONObject)
+}
+
 func TestBridge_Perform_transitionsTo(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
