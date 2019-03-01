@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
+	"go.uber.org/multierr"
 )
 
 // JobRunner safely handles coordinating job runs.
@@ -83,24 +84,25 @@ func (rm *jobRunner) Stop() {
 // ie. tries to run a job.
 // https://github.com/smartcontractkit/chainlink/pull/807
 func (rm *jobRunner) resumeRunsSinceLastShutdown() error {
-	sleepingRuns, err := rm.store.JobRunsWithStatus(models.RunStatusPendingSleep)
+	// Do all querying of run statuses since last shutdown before enqueuing
+	// runs in progress and asleep, to prevent the following race condition:
+	// 1. resume sleep, 2. awake from sleep, 3. in progress, 4. resume in progress (double enqueued).
+	resumableRuns, err := rm.store.JobRunsWithStatus(models.RunStatusInProgress, models.RunStatusPendingSleep)
 	if err != nil {
 		return err
 	}
-	for _, run := range sleepingRuns {
+
+	for _, run := range models.JobRunsWithStatus(resumableRuns, models.RunStatusPendingSleep) {
 		if err := QueueSleepingTask(&run, rm.store); err != nil {
 			logger.Errorw("Error resuming sleeping job", "error", err)
 		}
 	}
 
-	inProgressRuns, err := rm.store.JobRunsWithStatus(models.RunStatusInProgress)
-	if err != nil {
-		return err
+	var merr error
+	for _, run := range models.JobRunsWithStatus(resumableRuns, models.RunStatusInProgress) {
+		merr = multierr.Append(merr, rm.store.RunChannel.Send(run.ID))
 	}
-	for _, run := range inProgressRuns {
-		rm.store.RunChannel.Send(run.ID)
-	}
-	return nil
+	return merr
 }
 
 func (rm *jobRunner) demultiplexRuns(starterWg *sync.WaitGroup) {
