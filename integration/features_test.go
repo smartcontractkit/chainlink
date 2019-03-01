@@ -32,7 +32,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/scheduler_job.json")
 
-	cltest.WaitForRuns(t, j, app.Store, 1)
+	cltest.WaitForRunsAtLeast(t, j, app.Store, 1)
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorCron, initr.Type)
