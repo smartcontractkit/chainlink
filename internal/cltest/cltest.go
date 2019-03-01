@@ -760,6 +760,22 @@ func WaitForRuns(t *testing.T, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
+// WaitForRunsAtLeast waits for at least the passed number of runs to start.
+func WaitForRunsAtLeast(t *testing.T, j models.JobSpec, store *strpkg.Store, want int) {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	if want == 0 {
+		t.Fatal("must want more than 0 runs when waiting")
+	} else {
+		g.Eventually(func() int {
+			jrs, err := store.JobRunsFor(j.ID)
+			require.NoError(t, err)
+			return len(jrs)
+		}).Should(gomega.BeNumerically(">=", want))
+	}
+}
+
 func WaitForTxAttemptCount(t *testing.T, store *strpkg.Store, want int) []models.TxAttempt {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
