@@ -61,7 +61,7 @@ func TestBridge_PerformRejectsNonJsonObjectResponses(t *testing.T) {
 		Status: models.RunStatusUnstarted,
 	}
 	result := ba.Perform(input, store)
-	assert.Equal(t, result.GetError(), adapters.BridgeResultMustBeJSONObjectError)
+	assert.Equal(t, result.GetError(), adapters.ErrBridgeResultMustBeJSONObject)
 }
 
 func TestBridge_Perform_transitionsTo(t *testing.T) {
