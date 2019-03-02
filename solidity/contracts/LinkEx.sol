@@ -17,7 +17,11 @@ contract LinkEx {
   }
 
   function update(uint256 _rate) public {
-    rateHeight = block.number;
+    if (rateHeight != 0 && block.number == rateHeight) {
+      return;
+    }
+    historicRate = rate;
     rate = _rate;
+    rateHeight = block.number;
   }
 }
