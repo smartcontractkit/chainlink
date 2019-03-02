@@ -22,15 +22,15 @@ func TestScheduler_Start_LoadingRecurringJobs(t *testing.T) {
 	defer cleanup()
 
 	jobWCron := cltest.NewJobWithSchedule("* * * * * *")
-	assert.Nil(t, store.CreateJob(&jobWCron))
+	require.NoError(t, store.CreateJob(&jobWCron))
 	jobWoCron := cltest.NewJob()
-	assert.Nil(t, store.CreateJob(&jobWoCron))
+	require.NoError(t, store.CreateJob(&jobWoCron))
 
 	sched := services.NewScheduler(store)
-	assert.Nil(t, sched.Start())
+	require.NoError(t, sched.Start())
 	defer sched.Stop()
 
-	cltest.WaitForRuns(t, jobWCron, store, 1)
+	cltest.WaitForRunsAtLeast(t, jobWCron, store, 1)
 	cltest.WaitForRuns(t, jobWoCron, store, 0)
 }
 
@@ -73,7 +73,7 @@ func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
 
 	clock.SetTime(startAt)
 
-	cltest.WaitForRuns(t, j, store, 2)
+	cltest.WaitForRunsAtLeast(t, j, store, 2)
 
 	for _, log := range logs.All() {
 		assert.True(t, log.Level <= zapcore.WarnLevel)
