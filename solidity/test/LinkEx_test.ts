@@ -16,9 +16,9 @@ contract('ConcreteChainlinked', () => {
 
   describe('#updateRate', () => {
     it('returns last set value', async () => {
-      await contract.update(19)
+      await contract.update(19000000000)
       const rate = await contract.currentRate()
-      assert.equal(rate, 19)
+      assert.equal(rate, 19000000000)
     })
   })
 })
