@@ -67,6 +67,7 @@ const renderDetails = props =>
 
 export const Show = useHooks(props => {
   useEffect(() => {
+    document.title = 'Show Bridge'
     props.fetchBridgeSpec(props.match.params.bridgeId)
   }, [])
   return (

@@ -13,6 +13,7 @@ import Content from 'components/Content'
 import Button from 'components/Button'
 
 export const Index = props => {
+  document.title = 'Bridges'
   const {
     bridges,
     bridgeCount,

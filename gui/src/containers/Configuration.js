@@ -17,6 +17,7 @@ const buildInfo = extractBuildInfo()
 
 export const Configuration = useHooks(props => {
   useEffect(() => {
+    document.title = 'Configuration'
     props.fetchConfiguration()
   }, [])
 

@@ -20,6 +20,7 @@ import { useHooks, useEffect } from 'use-react-hooks'
 
 export const Index = useHooks(props => {
   useEffect(() => {
+    document.title = 'Dashboard'
     props.fetchAccountBalance()
     props.fetchRecentJobRuns(props.recentJobRunsCount)
     props.fetchRecentlyCreatedJobs(props.recentlyCreatedPageSize)

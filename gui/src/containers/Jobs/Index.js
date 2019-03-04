@@ -11,39 +11,41 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import jobsSelector from 'selectors/jobs'
 import { fetchJobs } from 'actions'
 
-export const Index = props => (
-  <Content>
-    <Grid container>
-      <Grid item xs={9}>
-        <Title>Jobs</Title>
-      </Grid>
-      <Grid item xs={3}>
-        <Grid container justify="flex-end">
-          <Grid item>
-            <Button
-              variant="secondary"
-              component={ReactStaticLinkComponent}
-              to={'/jobs/new'}
-            >
-              New Job
-            </Button>
+export const Index = props => {
+  document.title = 'Jobs'
+  return (
+    <Content>
+      <Grid container>
+        <Grid item xs={9}>
+          <Title>Jobs</Title>
+        </Grid>
+        <Grid item xs={3}>
+          <Grid container justify="flex-end">
+            <Grid item>
+              <Button
+                variant="secondary"
+                component={ReactStaticLinkComponent}
+                to={'/jobs/new'}
+              >
+                New Job
+              </Button>
+            </Grid>
           </Grid>
         </Grid>
+        <Grid item xs={12}>
+          <List
+            jobs={props.jobs}
+            jobCount={props.jobCount}
+            pageSize={props.pageSize}
+            fetchJobs={props.fetchJobs}
+            history={props.history}
+            match={props.match}
+          />
+        </Grid>
       </Grid>
-      <Grid item xs={12}>
-        <List
-          jobs={props.jobs}
-          jobCount={props.jobCount}
-          pageSize={props.pageSize}
-          fetchJobs={props.fetchJobs}
-          history={props.history}
-          match={props.match}
-        />
-      </Grid>
-    </Grid>
-  </Content>
-)
-
+    </Content>
+  )
+}
 Index.propTypes = {
   jobCount: PropTypes.number.isRequired,
   jobs: PropTypes.array,

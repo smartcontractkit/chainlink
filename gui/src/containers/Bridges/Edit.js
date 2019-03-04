@@ -25,6 +25,7 @@ const SuccessNotification = ({ name }) => (
 
 export const Edit = useHooks(props => {
   useEffect(() => {
+    document.title = 'Edit Bridge'
     const { fetchBridgeSpec, match } = props
     fetchBridgeSpec(match.params.bridgeId)
   }, [])
