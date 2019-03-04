@@ -13,6 +13,7 @@ import { hot } from 'react-hot-loader'
 import { submitSignIn } from 'actions'
 import HexagonLogo from 'components/Logos/Hexagon'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+import { get } from 'utils/storage'
 
 const styles = theme => ({
   container: {
@@ -51,7 +52,9 @@ export const SignIn = useHooks(props => {
   }
   const { classes, fetching, authenticated, errors } = props
 
-  if (authenticated) return <Redirect to="/" />
+  const hasPrevState = Object.keys(get('persistURL')).length !== 0
+  if (authenticated)
+    return <Redirect to={(hasPrevState && get('persistURL')) || '/'} />
   return (
     <Grid
       container

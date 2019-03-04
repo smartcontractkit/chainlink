@@ -5,6 +5,7 @@ import * as formik from 'formik'
 import { withStyles } from '@material-ui/core/styles'
 import { TextField, Grid } from '@material-ui/core'
 import Button from 'components/Button'
+import { set, get } from 'utils/storage'
 
 const styles = theme => ({
   textfield: {
@@ -135,16 +136,21 @@ Form.propTypes = {
 
 const formikOpts = {
   mapPropsToValues({ name, url, minimumContractPayment, confirmations }) {
-    return {
+    const shouldPersist = Object.keys(get('saveBridgeJSON')).length !== 0
+    let persistedJSON = shouldPersist && get('saveBridgeJSON')
+    if (shouldPersist) set('saveBridgeJSON', {})
+    const json = {
       name: name || '',
       url: url || '',
       minimumContractPayment: minimumContractPayment || 0,
       confirmations: confirmations || 0
     }
+    return (shouldPersist && persistedJSON) || json
   },
 
   handleSubmit(values, { props, setSubmitting }) {
     props.onSubmit(values, props.onSuccess, props.onError)
+    set('saveBridgeJSON', values)
     setTimeout(() => {
       setSubmitting(false)
     }, 1000)
