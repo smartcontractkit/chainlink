@@ -3,7 +3,7 @@ import { Provider } from 'react-redux'
 import createStore from './connectors/redux'
 import Layout from './Layout'
 import './index.css'
-import { set } from './utils/storage';
+import { set } from './utils/storage'
 
 const store = createStore()
 
