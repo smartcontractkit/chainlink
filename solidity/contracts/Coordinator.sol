@@ -148,7 +148,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
 
     serviceAgreementID = getId(_payment, _expiration, _endAt, _oracles, _requestDigest);
 
-    verifyOracleSignatures(serviceAgreementID, _oracles, _vs, _rs, _ss);
+    registerOracleSignatures(serviceAgreementID, _oracles, _vs, _rs, _ss);
 
     serviceAgreements[serviceAgreementID] = ServiceAgreement(
       _payment,
@@ -169,7 +169,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    * @param _rs Array of first 32 bytes of the oracle signatures
    * @param _ss Array of second 32 bytes of the oracle signatures
    */
-  function verifyOracleSignatures(
+  function registerOracleSignatures(
     bytes32 _serviceAgreementID,
     address[] _oracles,
     uint8[] _vs,
@@ -230,7 +230,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     isValidRequest(_requestId)
     returns (bool)
   {
-    // update storage before pulling the record it into memory
+    // Update callbacks mapping in storage before using memory instance
     callbacks[_requestId].responses[msg.sender] = uint256(_data);
     callbacks[_requestId].responseCount += 1;
 
