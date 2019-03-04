@@ -205,11 +205,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:da6bddf7fc81153568b27ebf0afab4582b4ab773a0bd29a160a9d3f3013fb3af"
+  digest = "1:fb342ac1cfc2221519c2971a53c62066067a5b1edf6d8c209d659eeba9113577"
   name = "github.com/gin-gonic/contrib"
   packages = ["sessions"]
   pruneopts = ""
-  revision = "1ed86e31c57a5e7474d61721fce674e0fce7e8ab"
+  revision = "54ff787f7c73aec36275e1384c705389b1772ba9"
 
 [[projects]]
   branch = "staticfs-noroute"
