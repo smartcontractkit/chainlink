@@ -14,8 +14,7 @@ contract TestLinkEx {
   function testUpdate() public {
     LinkEx ex = new LinkEx();
 
-    uint rate = 8616460799;
-    ex.update(rate);
-    Assert.equal(ex.currentRate(), rate, "Contract should return rate just set");
+    ex.update(8616460799);
+    Assert.equal(ex.currentRate(), 0, "Contract should only return the rate set for future blocks");
   }
 }
