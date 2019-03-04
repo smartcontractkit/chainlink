@@ -21,33 +21,36 @@ const SuccessNotification = ({ data }) => (
   </React.Fragment>
 )
 
-const New = props => (
-  <Content>
-    <Grid container spacing={40}>
-      <Grid item xs={12} md={11} lg={9}>
-        <Card>
-          <CardContent>
-            <Typography variant="h5" color="secondary">
-              New Job
-            </Typography>
-          </CardContent>
+const New = props => {
+  document.title = 'New Job'
+  return (
+    <Content>
+      <Grid container spacing={40}>
+        <Grid item xs={12} md={11} lg={9}>
+          <Card>
+            <CardContent>
+              <Typography variant="h5" color="secondary">
+                New Job
+              </Typography>
+            </CardContent>
 
-          <Divider />
+            <Divider />
 
-          <CardContent>
-            <Form
-              actionText="Create Job"
-              onSubmit={props.createJobSpec}
-              onSuccess={SuccessNotification}
-              onError={ErrorMessage}
-              {...props.location && props.location.state}
-            />
-          </CardContent>
-        </Card>
+            <CardContent>
+              <Form
+                actionText="Create Job"
+                onSubmit={props.createJobSpec}
+                onSuccess={SuccessNotification}
+                onError={ErrorMessage}
+                {...props.location && props.location.state}
+              />
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
-    </Grid>
-  </Content>
-)
+    </Content>
+  )
+}
 
 export const ConnectedNew = connect(
   null,
