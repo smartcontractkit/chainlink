@@ -10,18 +10,22 @@ contract LinkEx {
   uint256 private rateHeight;
 
   function currentRate() public view returns (uint256) {
-    if (rateHeight != 0 && block.number > rateHeight) {
+    if (isFutureBlock()) {
       return rate;
     }
     return historicRate;
   }
 
   function update(uint256 _rate) public {
-    if (rateHeight != 0 && block.number != rateHeight) {
+    if (isFutureBlock()) {
       return;
     }
     historicRate = rate;
     rate = _rate;
     rateHeight = block.number;
+  }
+
+  function isFutureBlock() internal view returns (bool) {
+    return rateHeight != 0 && block.number > rateHeight;
   }
 }
