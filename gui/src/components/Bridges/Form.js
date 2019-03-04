@@ -23,20 +23,12 @@ const styles = theme => ({
   }
 })
 
-const isDirty = ({
-  values,
-  name,
-  url,
-  minimumContractPayment,
-  confirmations,
-  submitCount
-}) => {
+const isDirty = ({ values, submitCount }) => {
   return (
-    (values.name !== name ||
-      values.url !== url ||
-      values.minimumContractPayment.toString() !==
-        minimumContractPayment.toString() ||
-      values.confirmations !== confirmations) &&
+    (values.name !== '' ||
+      values.url !== '' ||
+      (values.minimumContractPayment.toString() !== '0' &&
+        values.confirmations !== '0')) &&
     submitCount === 0
   )
 }
