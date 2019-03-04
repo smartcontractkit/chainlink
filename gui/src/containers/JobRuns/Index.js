@@ -27,7 +27,7 @@ const renderLatestRuns = (props, state, handleChangePage) => {
   const { jobSpecId, latestJobRuns, jobRunsCount, pageSize } = props
   const TableButtonsWithProps = () => (
     <TableButtons
-      {...props}
+      history={props.history}
       count={jobRunsCount}
       onChangePage={handleChangePage}
       page={state.page}
