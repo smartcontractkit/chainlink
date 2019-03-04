@@ -136,9 +136,9 @@ Form.propTypes = {
 
 const formikOpts = {
   mapPropsToValues({ name, url, minimumContractPayment, confirmations }) {
-    const shouldPersist = Object.keys(get('saveBridgeJSON')).length !== 0
-    let persistedJSON = shouldPersist && get('saveBridgeJSON')
-    if (shouldPersist) set('saveBridgeJSON', {})
+    const shouldPersist = Object.keys(get('persistBridge')).length !== 0
+    let persistedJSON = shouldPersist && get('persistBridge')
+    if (shouldPersist) set('persistBridge', {})
     const json = {
       name: name || '',
       url: url || '',
@@ -150,7 +150,7 @@ const formikOpts = {
 
   handleSubmit(values, { props, setSubmitting }) {
     props.onSubmit(values, props.onSuccess, props.onError)
-    set('saveBridgeJSON', values)
+    set('persistBridge', values)
     setTimeout(() => {
       setSubmitting(false)
     }, 1000)
