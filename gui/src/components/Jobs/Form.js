@@ -81,9 +81,9 @@ Form.propTypes = {
 
 const formikOpts = {
   mapPropsToValues({ definition }) {
-    const shouldPersist = Object.keys(get('saveSpecJSON')).length !== 0
-    let persistedJSON = shouldPersist && get('saveSpecJSON')
-    if (shouldPersist) set('saveSpecJSON', {})
+    const shouldPersist = Object.keys(get('persistSpec')).length !== 0
+    let persistedJSON = shouldPersist && get('persistSpec')
+    if (shouldPersist) set('persistSpec', {})
     const json =
       JSON.stringify(definition, null, '\t') ||
       (shouldPersist && persistedJSON) ||
@@ -105,7 +105,7 @@ const formikOpts = {
 
   handleSubmit(values, { props, setSubmitting }) {
     const definition = JSON.parse(values.json)
-    set('saveSpecJSON', values.json)
+    set('persistSpec', values.json)
     props.onSubmit(definition, props.onSuccess, props.onError)
     setTimeout(() => {
       setSubmitting(false)
