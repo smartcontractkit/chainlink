@@ -17,14 +17,14 @@ contract LinkEx {
   }
 
   function update(uint256 _rate) public {
-    if (!isFutureBlock()) {
+    if (isFutureBlock()) {
       historicRate = rate;
+      rateHeight = block.number;
     }
     rate = _rate;
-    rateHeight = block.number;
   }
 
   function isFutureBlock() internal view returns (bool) {
-    return rateHeight != 0 && block.number > rateHeight;
+    return block.number > rateHeight;
   }
 }
