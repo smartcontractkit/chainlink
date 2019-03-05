@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
@@ -26,13 +27,13 @@ func (tc *TransfersController) Create(c *gin.Context) {
 	store := tc.App.GetStore()
 
 	if err := c.ShouldBindJSON(&tr); err != nil {
-		publicError(c, 400, err)
+		publicError(c, http.StatusBadRequest, err)
 	} else if from, err := retrieveFromAddress(tr.FromAddress, store); err != nil {
-		publicError(c, 400, err)
+		publicError(c, http.StatusBadRequest, err)
 	} else if tx, err := store.TxManager.CreateTxWithEth(from, tr.DestinationAddress, tr.Amount); err != nil {
-		publicError(c, 400, fmt.Errorf("Transaction failed: %v", err))
+		publicError(c, http.StatusBadRequest, fmt.Errorf("Transaction failed: %v", err))
 	} else {
-		c.JSON(200, tx)
+		c.JSON(http.StatusOK, tx)
 	}
 }
 

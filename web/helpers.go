@@ -13,9 +13,9 @@ import (
 func StatusCodeForError(err interface{}) int {
 	switch err.(type) {
 	case *models.ValidationError:
-		return 400
+		return http.StatusBadRequest
 	default:
-		return 500
+		return http.StatusInternalServerError
 	}
 }
 
@@ -45,9 +45,9 @@ func paginatedResponse(
 	}
 
 	if err != nil {
-		c.AbortWithError(500, fmt.Errorf("error getting paged %s: %+v", name, err))
+		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("error getting paged %s: %+v", name, err))
 	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, resource); err != nil {
-		c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
+		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to marshal document: %+v", err))
 	} else {
 		c.Data(http.StatusOK, MediaType, buffer)
 	}
@@ -57,7 +57,7 @@ func paginatedRequest(action func(*gin.Context, int, int, int)) func(*gin.Contex
 	return func(c *gin.Context) {
 		size, page, offset, err := ParsePaginatedRequest(c.Query("size"), c.Query("page"))
 		if err != nil {
-			publicError(c, 422, err)
+			publicError(c, http.StatusUnprocessableEntity, err)
 			return
 		}
 		action(c, size, page, offset)

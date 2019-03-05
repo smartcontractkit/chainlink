@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
@@ -29,21 +30,21 @@ func (abc *WithdrawalsController) Create(c *gin.Context) {
 	wr := models.WithdrawalRequest{}
 
 	if err := c.ShouldBindJSON(&wr); err != nil {
-		publicError(c, 400, err)
+		publicError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	addressWasNotSpecifiedInRequest := utils.ZeroAddress
 
 	if wr.Amount.Cmp(naz) < 0 {
-		publicError(c, 400, fmt.Errorf(
+		publicError(c, http.StatusBadRequest, fmt.Errorf(
 			"Must withdraw at least %v LINK", naz.String()))
 	} else if wr.DestinationAddress == addressWasNotSpecifiedInRequest {
-		publicError(c, 400, errors.New("Invalid withdrawal address"))
+		publicError(c, http.StatusBadRequest, errors.New("Invalid withdrawal address"))
 	} else if linkBalance, err := txm.ContractLINKBalance(wr); err != nil {
-		_ = c.AbortWithError(500, err)
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
 	} else if linkBalance.Cmp(wr.Amount) < 0 {
-		publicError(c, 400, fmt.Errorf(
+		publicError(c, http.StatusBadRequest, fmt.Errorf(
 			"Insufficient link balance. Withdrawal Amount: %v "+
 				"Link Balance: %v",
 			wr.Amount.String(), linkBalance.String()))
@@ -52,8 +53,8 @@ func (abc *WithdrawalsController) Create(c *gin.Context) {
 
 	hash, err := txm.WithdrawLINK(wr)
 	if err != nil {
-		_ = c.AbortWithError(500, err)
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.JSON(200, hash)
+		c.JSON(http.StatusOK, hash)
 	}
 }
