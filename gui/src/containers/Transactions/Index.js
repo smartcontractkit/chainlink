@@ -9,25 +9,28 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import transactionsSelector from 'selectors/transactions'
 import { fetchTransactions } from 'actions'
 
-export const Index = props => (
-  <Content>
-    <Grid container>
-      <Grid item xs={12}>
-        <Title>Transactions</Title>
+export const Index = props => {
+  document.title = 'Transactions'
+  return (
+    <Content>
+      <Grid container>
+        <Grid item xs={12}>
+          <Title>Transactions</Title>
+        </Grid>
+        <Grid item xs={12}>
+          <List
+            transactions={props.transactions}
+            count={props.count}
+            pageSize={props.pageSize}
+            fetchTransactions={props.fetchTransactions}
+            history={props.history}
+            match={props.match}
+          />
+        </Grid>
       </Grid>
-      <Grid item xs={12}>
-        <List
-          transactions={props.transactions}
-          count={props.count}
-          pageSize={props.pageSize}
-          fetchTransactions={props.fetchTransactions}
-          history={props.history}
-          match={props.match}
-        />
-      </Grid>
-    </Grid>
-  </Content>
-)
+    </Content>
+  )
+}
 
 Index.propTypes = {
   count: PropTypes.number.isRequired,

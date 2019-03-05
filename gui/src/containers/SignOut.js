@@ -6,6 +6,7 @@ import { useHooks, useEffect } from 'use-react-hooks'
 
 export const SignOut = useHooks(props => {
   useEffect(() => {
+    document.title = 'Sign Out'
     props.receiveSignoutSuccess()
   }, [])
   return <React.Fragment />

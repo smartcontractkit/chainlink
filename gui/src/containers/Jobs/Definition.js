@@ -52,6 +52,7 @@ const renderDetails = ({ job, classes }) => {
 
 const Definition = useHooks(props => {
   useEffect(() => {
+    document.title = 'Job Definition'
     props.fetchJob(props.jobSpecId)
   }, [])
   const { jobSpecId, job } = props
