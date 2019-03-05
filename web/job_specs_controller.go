@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
@@ -50,7 +51,7 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 	} else if doc, err := jsonapi.Marshal(presenters.JobSpec{JobSpec: js, Runs: []presenters.JobRun{}}); err != nil {
 		c.AbortWithError(500, err)
 	} else {
-		c.Data(200, MediaType, doc)
+		c.Data(http.StatusOK, MediaType, doc)
 	}
 }
 
