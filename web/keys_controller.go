@@ -1,6 +1,8 @@
 package web
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/services"
@@ -19,16 +21,16 @@ type KeysController struct {
 func (c *KeysController) Create(ctx *gin.Context) {
 	request := models.CreateKeyRequest{}
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		publicError(ctx, 422, err)
+		publicError(ctx, http.StatusUnprocessableEntity, err)
 	} else if err := c.App.GetStore().KeyStore.Unlock(request.CurrentPassword); err != nil {
-		publicError(ctx, 401, err)
+		publicError(ctx, http.StatusUnauthorized, err)
 	} else if account, err := c.App.GetStore().KeyStore.NewAccount(request.CurrentPassword); err != nil {
-		ctx.AbortWithError(500, err)
+		ctx.AbortWithError(http.StatusInternalServerError, err)
 	} else if err := c.App.GetStore().SyncDiskKeyStoreToDB(); err != nil {
-		ctx.AbortWithError(500, err)
+		ctx.AbortWithError(http.StatusInternalServerError, err)
 	} else if doc, err := jsonapi.Marshal(&presenters.NewAccount{Account: &account}); err != nil {
-		ctx.AbortWithError(500, err)
+		ctx.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		ctx.Data(201, MediaType, doc)
+		ctx.Data(http.StatusCreated, MediaType, doc)
 	}
 }

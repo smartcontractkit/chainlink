@@ -25,11 +25,11 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	session := sessions.Default(c)
 	var sr models.SessionRequest
 	if err := c.ShouldBindJSON(&sr); err != nil {
-		publicError(c, 400, fmt.Errorf("error binding json %v", err))
+		publicError(c, http.StatusBadRequest, fmt.Errorf("error binding json %v", err))
 	} else if sid, err := sc.App.GetStore().CreateSession(sr); err != nil {
 		publicError(c, http.StatusUnauthorized, err)
 	} else if err := saveSessionID(session, sid); err != nil {
-		c.AbortWithError(500, multierr.Append(errors.New("Unable to save session id"), err))
+		c.AbortWithError(http.StatusInternalServerError, multierr.Append(errors.New("Unable to save session id"), err))
 	} else {
 		c.JSON(http.StatusOK, gin.H{"authenticated": true})
 	}
@@ -45,7 +45,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 	if !ok {
 		c.JSON(http.StatusOK, gin.H{"authenticated": false})
 	} else if err := sc.App.GetStore().DeleteUserSession(sessionID); err != nil {
-		c.AbortWithError(500, err)
+		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
 		c.JSON(http.StatusOK, gin.H{"authenticated": false})
 	}

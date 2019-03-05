@@ -24,11 +24,11 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 	bt := &models.BridgeType{}
 
 	if err := c.ShouldBindJSON(bt); err != nil {
-		c.AbortWithError(500, err)
+		c.AbortWithError(http.StatusInternalServerError, err)
 	} else if err = btc.App.AddAdapter(bt); err != nil {
 		publicError(c, StatusCodeForError(err), err)
 	} else if doc, err := jsonapi.Marshal(presenters.BridgeType{BridgeType: *bt}); err != nil {
-		c.AbortWithError(500, err)
+		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
 		c.Data(http.StatusOK, MediaType, doc)
 	}
@@ -49,11 +49,11 @@ func (btc *BridgeTypesController) Index(c *gin.Context, size, page, offset int) 
 func (btc *BridgeTypesController) Show(c *gin.Context) {
 	name := c.Param("BridgeName")
 	if bt, err := btc.App.GetStore().FindBridge(name); err == orm.ErrorNotFound {
-		publicError(c, 404, errors.New("bridge name not found"))
+		publicError(c, http.StatusNotFound, errors.New("bridge name not found"))
 	} else if err != nil {
-		c.AbortWithError(500, err)
+		c.AbortWithError(http.StatusInternalServerError, err)
 	} else if doc, err := jsonapi.Marshal(presenters.BridgeType{BridgeType: bt}); err != nil {
-		c.AbortWithError(500, err)
+		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
 		c.Data(http.StatusOK, MediaType, doc)
 	}
@@ -65,20 +65,20 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 	form, err := forms.NewUpdateBridgeType(btc.App.GetStore(), bn)
 
 	if err == orm.ErrorNotFound {
-		publicError(c, 404, errors.New("bridge name not found"))
+		publicError(c, http.StatusNotFound, errors.New("bridge name not found"))
 		return
 	}
 
 	c.BindJSON(&form)
 	err = form.Save()
 	if err != nil {
-		c.AbortWithError(500, err)
+		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
 	doc, err := form.Marshal()
 	if err != nil {
-		c.AbortWithError(500, err)
+		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
@@ -89,16 +89,16 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 	name := c.Param("BridgeName")
 	if bt, err := btc.App.GetStore().FindBridge(name); err == orm.ErrorNotFound {
-		publicError(c, 404, errors.New("bridge name not found"))
+		publicError(c, http.StatusNotFound, errors.New("bridge name not found"))
 	} else if err != nil {
-		c.AbortWithError(500, fmt.Errorf("Error searching for bridge for BTC Destroy: %+v", err))
+		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("Error searching for bridge for BTC Destroy: %+v", err))
 	} else if jobFounds, err := btc.App.GetStore().AnyJobWithType(name); err != nil {
-		c.AbortWithError(500, fmt.Errorf("Error searching for associated jobs for BTC Destroy: %+v", err))
+		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("Error searching for associated jobs for BTC Destroy: %+v", err))
 	} else if jobFounds {
-		c.AbortWithError(409, fmt.Errorf("Can't remove the bridge because there are jobs associated with it: %+v", err))
+		c.AbortWithError(http.StatusConflict, fmt.Errorf("Can't remove the bridge because there are jobs associated with it: %+v", err))
 	} else if err = btc.App.RemoveAdapter(&bt); err != nil {
 		c.AbortWithError(StatusCodeForError(err), fmt.Errorf("failed to initialise BTC Destroy: %+v", err))
 	} else {
-		c.JSON(200, presenters.BridgeType{BridgeType: bt})
+		c.JSON(http.StatusOK, presenters.BridgeType{BridgeType: bt})
 	}
 }
