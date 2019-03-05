@@ -84,18 +84,18 @@ func (c *UserController) AccountBalances(ctx *gin.Context) {
 	}
 
 	if json, err := jsonapi.Marshal(balances); err != nil {
-		ctx.AbortWithError(500, fmt.Errorf("failed to marshal account balances using jsonapi: %+v", err))
+		ctx.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to marshal account balances using jsonapi: %+v", err))
 	} else {
-		ctx.Data(200, MediaType, json)
+		ctx.Data(http.StatusOK, MediaType, json)
 	}
 }
 
 func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.AccountBalance {
 	txm := store.TxManager
 	if ethBalance, err := txm.GetEthBalance(account.Address); err != nil {
-		ctx.AbortWithError(500, err)
+		ctx.AbortWithError(http.StatusInternalServerError, err)
 	} else if linkBalance, err := txm.GetLINKBalance(account.Address); err != nil {
-		ctx.AbortWithError(500, err)
+		ctx.AbortWithError(http.StatusInternalServerError, err)
 	} else {
 		return presenters.AccountBalance{
 			Address:     account.Address.Hex(),
