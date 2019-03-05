@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
@@ -29,7 +30,7 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 	} else if doc, err := jsonapi.Marshal(presenters.BridgeType{BridgeType: *bt}); err != nil {
 		c.AbortWithError(500, err)
 	} else {
-		c.Data(200, MediaType, doc)
+		c.Data(http.StatusOK, MediaType, doc)
 	}
 }
 
@@ -54,7 +55,7 @@ func (btc *BridgeTypesController) Show(c *gin.Context) {
 	} else if doc, err := jsonapi.Marshal(presenters.BridgeType{BridgeType: bt}); err != nil {
 		c.AbortWithError(500, err)
 	} else {
-		c.Data(200, MediaType, doc)
+		c.Data(http.StatusOK, MediaType, doc)
 	}
 }
 
@@ -81,7 +82,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 		return
 	}
 
-	c.Data(200, MediaType, doc)
+	c.Data(http.StatusOK, MediaType, doc)
 }
 
 // Destroy removes a specific Bridge.

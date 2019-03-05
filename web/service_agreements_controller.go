@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
@@ -48,7 +49,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 	if buffer, err := NewJSONAPIResponse(&sa); err != nil {
 		_ = c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
 	} else {
-		c.Data(200, MediaType, buffer)
+		c.Data(http.StatusOK, MediaType, buffer)
 	}
 }
 

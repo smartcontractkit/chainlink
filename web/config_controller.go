@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
@@ -25,6 +26,6 @@ func (cc *ConfigController) Show(c *gin.Context) {
 	} else if json, err := jsonapi.Marshal(cw); err != nil {
 		c.AbortWithError(500, fmt.Errorf("failed to marshal config using jsonapi: %+v", err))
 	} else {
-		c.Data(200, MediaType, json)
+		c.Data(http.StatusOK, MediaType, json)
 	}
 }

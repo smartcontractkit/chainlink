@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -48,7 +49,7 @@ func paginatedResponse(
 	} else if buffer, err := NewPaginatedResponse(*c.Request.URL, size, page, count, resource); err != nil {
 		c.AbortWithError(500, fmt.Errorf("failed to marshal document: %+v", err))
 	} else {
-		c.Data(200, MediaType, buffer)
+		c.Data(http.StatusOK, MediaType, buffer)
 	}
 }
 
