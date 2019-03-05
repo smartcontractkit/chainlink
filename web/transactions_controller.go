@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
@@ -32,12 +33,12 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 func (tc *TransactionsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
 	if tx, err := tc.App.GetStore().FindTxByAttempt(hash); err == orm.ErrorNotFound {
-		c.AbortWithError(404, errors.New("Transaction not found"))
+		publicError(c, http.StatusNotFound, errors.New("Transaction not found"))
 	} else if err != nil {
-		c.AbortWithError(500, err)
+		c.AbortWithError(http.StatusInternalServerError, err)
 	} else if doc, err := jsonapi.Marshal(presenters.NewTx(tx)); err != nil {
-		c.AbortWithError(500, err)
+		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.Data(200, MediaType, doc)
+		c.Data(http.StatusOK, MediaType, doc)
 	}
 }

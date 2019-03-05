@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
@@ -21,10 +22,10 @@ func (cc *ConfigController) Show(c *gin.Context) {
 	cw, err := presenters.NewConfigWhitelist(cc.App.GetStore())
 
 	if err != nil {
-		c.AbortWithError(500, fmt.Errorf("failed to build config whitelist: %+v", err))
+		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to build config whitelist: %+v", err))
 	} else if json, err := jsonapi.Marshal(cw); err != nil {
-		c.AbortWithError(500, fmt.Errorf("failed to marshal config using jsonapi: %+v", err))
+		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to marshal config using jsonapi: %+v", err))
 	} else {
-		c.Data(200, MediaType, json)
+		c.Data(http.StatusOK, MediaType, json)
 	}
 }

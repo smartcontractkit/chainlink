@@ -1,6 +1,8 @@
 package web
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -17,12 +19,12 @@ type BulkDeletesController struct {
 func (c *BulkDeletesController) Delete(ctx *gin.Context) {
 	request := &models.BulkDeleteRunRequest{}
 	if err := ctx.ShouldBindJSON(request); err != nil {
-		ctx.AbortWithError(400, err)
+		ctx.AbortWithError(http.StatusBadRequest, err)
 	} else if err := models.ValidateBulkDeleteRunRequest(request); err != nil {
-		ctx.AbortWithError(422, err)
+		ctx.AbortWithError(http.StatusUnprocessableEntity, err)
 	} else if err := c.App.GetStore().BulkDeleteRuns(request); err != nil {
-		ctx.AbortWithError(500, err)
+		ctx.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		ctx.Status(204)
+		ctx.Status(http.StatusNoContent)
 	}
 }
