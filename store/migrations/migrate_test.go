@@ -7,6 +7,8 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1551816486"
+	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -130,4 +132,33 @@ func (m *testMigration0000000002) Migrate(orm *orm.ORM) error {
 
 func (m *testMigration0000000002) Timestamp() string {
 	return "0000000002"
+}
+
+func TestMigrate1551816486(t *testing.T) {
+	migrations.ExportedClearRegisteredMigrations()
+
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	tm := &migration1551816486.Migration{}
+	migrations.ExportedRegisterMigration(tm)
+
+	// seed db w old table
+	err := orm.DB.Exec(`
+		CREATE TABLE "bridge_types" ("name" varchar(255),"url" varchar(255),"confirmations" bigint,"incoming_token" varchar(255),"outgoing_token" varchar(255),"minimum_contract_payment" varchar(255), UNIQUE (name));
+	`).Error
+
+	require.NoError(t, err)
+
+	initial := models.BridgeType{
+		Name: "someUniqueName",
+		URL:  cltest.WebURL("http://someurl.com"),
+	}
+
+	require.NoError(t, orm.DB.Save(&initial).Error)
+	require.NoError(t, migrations.Migrate(orm))
+
+	migratedbt, err := orm.FindBridge(initial.Name.String())
+	require.NoError(t, err)
+	require.Equal(t, initial, migratedbt)
 }

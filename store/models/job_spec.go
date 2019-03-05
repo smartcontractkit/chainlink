@@ -287,7 +287,7 @@ func (t *TaskType) Scan(value interface{}) error {
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name                   TaskType    `json:"name" gorm:"unique_index"`
+	Name                   TaskType    `json:"name" gorm:"primary_key"`
 	URL                    WebURL      `json:"url"`
 	Confirmations          uint64      `json:"confirmations"`
 	IncomingToken          string      `json:"incomingToken"`
