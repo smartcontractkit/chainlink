@@ -1,4 +1,3 @@
-const clmigration = require('../clmigration.js')
 const request = require('request-promise').defaults({ jar: true })
 const UptimeSLA = artifacts.require('UptimeSLA')
 const Oracle = artifacts.require('Oracle')
@@ -20,7 +19,7 @@ let job = {
   ]
 }
 
-module.exports = clmigration(async function(truffleDeployer) {
+module.exports = async function(truffleDeployer) {
   let client = '0x542B68aE7029b7212A5223ec2867c6a94703BeE3'
   let serviceProvider = '0xB16E8460cCd76aEC437ca74891D3D358EA7d1d88'
 
@@ -40,4 +39,4 @@ module.exports = clmigration(async function(truffleDeployer) {
     body.id,
     { value: 1000000000 }
   )
-})
+}
