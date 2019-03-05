@@ -68,7 +68,11 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 		return
 	}
 
-	c.BindJSON(&form)
+	if err = c.BindJSON(&form); err != nil {
+		publicError(c, 400, fmt.Errorf("unable to parse JSON: %v", err))
+		return
+	}
+
 	err = form.Save()
 	if err != nil {
 		c.AbortWithError(500, err)

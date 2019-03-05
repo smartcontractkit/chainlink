@@ -748,6 +748,29 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	assert.Equal(t, key.JSON.String(), content)
 }
 
+func TestORM_UpdateBridgeType(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	firstBridge := &models.BridgeType{
+		Name: "UniqueName",
+		URL:  cltest.WebURL("http:/oneurl.com"),
+	}
+
+	require.NoError(t, store.CreateBridgeType(firstBridge))
+
+	updateBridge := models.BridgeType{
+		Name: "UniqueName",
+		URL:  cltest.WebURL("http:/updatedurl.com"),
+	}
+
+	require.NoError(t, store.UpdateBridgeType(&updateBridge))
+
+	foundbridge, err := store.FindBridge("UniqueName")
+	require.NoError(t, err)
+	require.Equal(t, updateBridge, foundbridge)
+}
+
 func isDirEmpty(t *testing.T, dir string) bool {
 	f, err := os.Open(dir)
 	if err != nil {
