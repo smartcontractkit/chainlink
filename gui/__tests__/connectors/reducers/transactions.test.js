@@ -1,5 +1,8 @@
 import reducer from 'connectors/redux/reducers'
-import { UPSERT_TRANSACTIONS } from 'connectors/redux/reducers/transactions'
+import {
+  UPSERT_TRANSACTIONS,
+  UPSERT_TRANSACTION
+} from 'connectors/redux/reducers/transactions'
 
 describe('connectors/reducers/transactions', () => {
   it('should return the initial state', () => {
@@ -30,5 +33,19 @@ describe('connectors/reducers/transactions', () => {
       a: { id: 'a' },
       b: { id: 'b' }
     })
+  })
+
+  it('UPSERT_TRANSACTION upserts items', () => {
+    const action = {
+      type: UPSERT_TRANSACTION,
+      data: {
+        txattempts: {
+          a: { id: 'a' }
+        }
+      }
+    }
+    const state = reducer(undefined, action)
+
+    expect(state.transactions.items).toEqual({ a: { id: 'a' } })
   })
 })
