@@ -37,6 +37,10 @@ const TransactionsIndex = universal(
   import('./containers/Transactions/Index'),
   uniOpts
 )
+const TransactionsShow = universal(
+  import('./containers/Transactions/Show'),
+  uniOpts
+)
 const Configuration = universal(import('./containers/Configuration'), uniOpts)
 
 const styles = theme => {
@@ -158,6 +162,11 @@ class Private extends React.Component {
                   exact
                   path="/transactions/page/:transactionsPage"
                   component={TransactionsIndex}
+                />
+                <PrivateRoute
+                  exact
+                  path="/transactions/:transactionId"
+                  component={TransactionsShow}
                 />
                 <PrivateRoute exact path="/config" component={Configuration} />
               </Switch>
