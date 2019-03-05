@@ -50,11 +50,11 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 	id := c.Param("SpecID")
 
 	if j, err := jrc.App.GetStore().FindJob(id); err == orm.ErrorNotFound {
-		c.AbortWithError(404, errors.New("Job not found"))
+		publicError(c, http.StatusNotFound, errors.New("Job not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
 	} else if !j.WebAuthorized() {
-		c.AbortWithError(403, errors.New("Job not available on web API, recreate with web initiator"))
+		publicError(c, http.StatusForbidden, errors.New("Job not available on web API, recreate with web initiator"))
 	} else if data, err := getRunData(c); err != nil {
 		c.AbortWithError(500, err)
 	} else if jr, err := services.ExecuteJob(j, j.InitiatorsFor(models.InitiatorWeb)[0], models.RunResult{Data: data}, nil, jrc.App.GetStore()); err != nil {
@@ -98,11 +98,11 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	id := c.Param("RunID")
 	var brr models.BridgeRunResult
 	if jr, err := jrc.App.GetStore().FindJobRun(id); err == orm.ErrorNotFound {
-		c.AbortWithError(404, errors.New("Job Run not found"))
+		publicError(c, http.StatusNotFound, errors.New("Job Run not found"))
 	} else if err != nil {
 		c.AbortWithError(500, err)
 	} else if !jr.Result.Status.PendingBridge() {
-		c.AbortWithError(405, errors.New("Cannot resume a job run that isn't pending"))
+		publicError(c, 405, errors.New("Cannot resume a job run that isn't pending"))
 	} else if err := c.ShouldBindJSON(&brr); err != nil {
 		c.AbortWithError(500, err)
 	} else if bt, err := jrc.App.GetStore().PendingBridgeType(jr); err != nil {
