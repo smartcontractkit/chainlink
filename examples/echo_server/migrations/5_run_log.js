@@ -1,4 +1,3 @@
-const clmigration = require('../clmigration.js')
 const request = require('request-promise').defaults({ jar: true })
 const LinkToken = artifacts.require('LinkToken')
 const Oracle = artifacts.require('Oracle')
@@ -14,7 +13,7 @@ let job = {
   tasks: [{ type: 'HttpPost', params: { url: 'http://localhost:6690' } }]
 }
 
-module.exports = clmigration(async function(truffleDeployer) {
+module.exports = async function(truffleDeployer) {
   await request.post(sessionsUrl, { json: credentials })
   let body = await request.post(specsUrl, { json: job })
   console.log(`Deploying Consumer Contract with JobID ${body.data.id}`)
@@ -24,4 +23,4 @@ module.exports = clmigration(async function(truffleDeployer) {
     Oracle.address,
     body.data.id
   )
-})
+}
