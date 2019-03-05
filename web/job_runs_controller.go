@@ -80,7 +80,7 @@ func getRunData(c *gin.Context) (models.JSON, error) {
 func (jrc *JobRunsController) Show(c *gin.Context) {
 	id := c.Param("RunID")
 	if jr, err := jrc.App.GetStore().FindJobRun(id); err == orm.ErrorNotFound {
-		c.AbortWithError(http.StatusNotFound, errors.New("Job Run not found"))
+		publicError(c, http.StatusNotFound, errors.New("Job Run not found"))
 	} else if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else if doc, err := jsonapi.Marshal(presenters.JobRun{JobRun: jr}); err != nil {
