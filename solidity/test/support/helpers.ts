@@ -90,7 +90,7 @@ export const linkContract = async (): Promise<any> => {
   return wrappedERC20(await deploy('link_token/contracts/LinkToken.sol'))
 }
 
-export const bigNum = (num: any): any => web3.utils.toBN(num)
+export const bigNum = (num: any): BigNumber => web3.utils.toBN(num)
 assertBigNum(bigNum('1'), bigNum(1), 'Different representations should give same BNs')
 
 // toWei(n) is n * 10**18, as a BN.
