@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-var Web3 = require('web3'),
-  contract = require('truffle-contract'),
-  path = require('path')
+var Web3 = require('web3')
+var contract = require('truffle-contract')
+var path = require('path')
 UptimeSLAJSON = require(path.join(__dirname, 'build/contracts/UptimeSLA.json'))
 
 var provider = new Web3.providers.HttpProvider('http://localhost:18545')
