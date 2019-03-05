@@ -18,32 +18,35 @@ const SuccessNotification = ({ name }) => (
   </React.Fragment>
 )
 
-const New = props => (
-  <Content>
-    <Grid container spacing={40}>
-      <Grid item xs={12} md={11} lg={9}>
-        <Card>
-          <CardContent>
-            <Typography variant="h5" color="secondary">
-              New Bridge
-            </Typography>
-          </CardContent>
+const New = props => {
+  document.title = 'New Bridge'
+  return (
+    <Content>
+      <Grid container spacing={40}>
+        <Grid item xs={12} md={11} lg={9}>
+          <Card>
+            <CardContent>
+              <Typography variant="h5" color="secondary">
+                New Bridge
+              </Typography>
+            </CardContent>
 
-          <Divider />
+            <Divider />
 
-          <CardContent>
-            <Form
-              actionText="Create Bridge"
-              onSubmit={props.createBridge}
-              onSuccess={SuccessNotification}
-              onError={ErrorMessage}
-            />
-          </CardContent>
-        </Card>
+            <CardContent>
+              <Form
+                actionText="Create Bridge"
+                onSubmit={props.createBridge}
+                onSuccess={SuccessNotification}
+                onError={ErrorMessage}
+              />
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
-    </Grid>
-  </Content>
-)
+    </Content>
+  )
+}
 
 export const ConnectedNew = connect(
   null,

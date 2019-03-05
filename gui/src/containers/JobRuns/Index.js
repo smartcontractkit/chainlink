@@ -70,6 +70,7 @@ const renderDetails = (props, state, handleChangePage) => {
 export const Index = useHooks(props => {
   const [page, setPage] = useState(FIRST_PAGE)
   useEffect(() => {
+    document.title = 'Job Runs'
     const queryPage = props.match
       ? parseInt(props.match.params.jobRunsPage, 10) || FIRST_PAGE
       : FIRST_PAGE

@@ -40,6 +40,7 @@ const renderDetails = ({ classes, fetching, jobRun }) => {
 
 export const Show = useHooks(props => {
   useEffect(() => {
+    document.title = 'Show Job Run'
     props.fetchJobRun(props.jobRunId)
   }, [])
 

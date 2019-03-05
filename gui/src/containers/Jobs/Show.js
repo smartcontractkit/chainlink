@@ -76,6 +76,7 @@ const renderDetails = props => {
 
 export const Show = useHooks(props => {
   useEffect(() => {
+    document.title = 'Show Job'
     fetchJob(jobSpecId)
   }, [])
   const { jobSpecId, job, fetchJob } = props
