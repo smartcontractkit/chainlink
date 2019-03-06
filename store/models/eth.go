@@ -227,11 +227,10 @@ func (h BlockHeader) ToIndexableBlockNumber() *IndexableBlockNumber {
 	return NewIndexableBlockNumber(h.Number.ToInt(), h.Hash())
 }
 
-// IndexableBlockNumber represents a BlockNumber, BlockHash and the number of Digits in the BlockNumber
+// IndexableBlockNumber represents a BlockNumber, BlockHash.
 type IndexableBlockNumber struct {
-	Number Big         `json:"number" gorm:"index;type:varchar(255);not null"`
-	Digits int         `json:"digits" gorm:"index"`
-	Hash   common.Hash `json:"hash"`
+	Hash   string `gorm:"primary_key;type:varchar"`
+	Number int64  `gorm:"index;type:bigint;not null"`
 }
 
 // NewIndexableBlockNumber creates an IndexableBlockNumber given a BlockNumber and BlockHash
@@ -239,11 +238,10 @@ func NewIndexableBlockNumber(bigint *big.Int, hash common.Hash) *IndexableBlockN
 	if bigint == nil {
 		return nil
 	}
-	number := hexutil.Big(*bigint)
+
 	return &IndexableBlockNumber{
-		Number: Big(number),
-		Digits: len(number.String()) - 2,
-		Hash:   hash,
+		Number: bigint.Int64(),
+		Hash:   hash.Hex()[2:], // remove 0x
 	}
 }
 
@@ -258,7 +256,16 @@ func (l *IndexableBlockNumber) ToInt() *big.Int {
 	if l == nil {
 		return nil
 	}
-	return l.Number.ToInt()
+	return big.NewInt(l.Number)
+}
+
+// ToHexUtilBig returns number as hexutil.Big.
+func (l *IndexableBlockNumber) ToHexUtilBig() *hexutil.Big {
+	if l == nil {
+		return nil
+	}
+	newb := hexutil.Big(*l.ToInt())
+	return &newb
 }
 
 // GreaterThan compares BlockNumbers and returns true if the reciever BlockNumber is greater than
@@ -270,7 +277,7 @@ func (l *IndexableBlockNumber) GreaterThan(r *IndexableBlockNumber) bool {
 	if l != nil && r == nil {
 		return true
 	}
-	return l.ToInt().Cmp(r.ToInt()) > 0
+	return l.Number > r.Number
 }
 
 // NextInt returns the next BlockNumber as big.int, or nil if nil to represent latest.

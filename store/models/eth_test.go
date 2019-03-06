@@ -121,7 +121,6 @@ func TestModels_IndexableBlockNumber_New(t *testing.T) {
 		t.Run(test.want, func(t *testing.T) {
 			num := cltest.IndexableBlockNumber(test.input)
 			assert.Equal(t, test.want, fmt.Sprintf("%x", num.ToInt()))
-			assert.Equal(t, len(test.want), num.Digits)
 		})
 	}
 }

@@ -461,7 +461,6 @@ func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
 	require.NoError(t, store.CreateJob(&job))
 
-	store.ORM.DB.LogMode(true)
 	initr := job.Initiators[0]
 	jr, err := services.ExecuteJob(
 		job,

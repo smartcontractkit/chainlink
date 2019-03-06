@@ -516,12 +516,6 @@ func (b *Big) ToInt() *big.Int {
 	return (*big.Int)(b)
 }
 
-// ToHexUtilBig returns this as a go-ethereum *hexutil.Big.
-func (b *Big) ToHexUtilBig() *hexutil.Big {
-	h := hexutil.Big(*b)
-	return &h
-}
-
 // String returns the base 10 encoding of b.
 func (b *Big) String() string {
 	return b.ToInt().Text(10)

@@ -69,7 +69,7 @@ func (ht *HeadTracker) Start() error {
 	}
 	number := ht.Head()
 	if number != nil {
-		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash.String())
+		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash)
 	}
 
 	ht.done = make(chan struct{})
@@ -112,7 +112,7 @@ func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
 		ht.headMutex.Unlock()
 	} else {
 		ht.headMutex.Unlock()
-		msg := fmt.Sprintf("Cannot save new head confirmation %v because it's equal to or less than current head %v with hash %v", n, ht.head, n.Hash.Hex())
+		msg := fmt.Sprintf("Cannot save new head confirmation %v because it's equal to or less than current head %v with hash %v", n, ht.head, n.Hash)
 		return errBlockNotLater{msg}
 	}
 	return ht.store.SaveHead(n)
