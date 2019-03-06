@@ -77,7 +77,6 @@
     "ethlint": "^1.2.2",
     "fetch-mock": "^7.2.5",
     "formik": "^1.0.3",
-    "ganache-cli": "^6.2.4-beta.2",
     "humps": "^2.0.1",
     "isomorphic-unfetch": "^3.0.0",
     "jest": "^24.1.0",
@@ -88,14 +87,12 @@
     "json-pretty-html": "^1.1.2",
     "local-storage-fallback": "^4.1.1",
     "mock-local-storage": "^1.0.5",
-    "moment": "^2.22.2",
     "numeral": "^2.0.6",
     "oclif": "^1.11.4",
     "prettier": "^1.16.4",
     "promise.prototype.finally": "^3.1.0",
     "prop-types": "^15.6.2",
     "puppeteer": "^1.10.0",
-    "query-string": "^6.1.0",
     "react": "^16.7.0",
     "react-copy-to-clipboard": "^5.0.1",
     "react-dom": "^16.7.0",
@@ -127,8 +124,7 @@
     "url": "^0.11.0",
     "use-react-hooks": "^1.0.7",
     "uuid": "^3.3.2",
-    "web3": "^1.0.0-beta.35",
-    "wscat": "^2.2.1"
+    "web3": "^1.0.0-beta.35"
   },
   "files": [
     "/tools/sa_requester/bin",
