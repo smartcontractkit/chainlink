@@ -239,7 +239,7 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 		JobSpecID: "4a1eb0e8df314cb894024a38991cff0f",
 	}
 	fromBlock := big.NewInt(42)
-	filter, err := models.FilterQueryFactory(i, cltest.IndexableBlockNumber(fromBlock))
+	filter, err := models.FilterQueryFactory(i, cltest.Head(fromBlock))
 	assert.NoError(t, err)
 
 	want := ethereum.FilterQuery{

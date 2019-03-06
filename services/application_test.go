@@ -83,6 +83,6 @@ func TestPendingConnectionResumer(t *testing.T) {
 	_ = cltest.CreateJobRunWithStatus(store, j, models.RunStatusInProgress)
 	_ = cltest.CreateJobRunWithStatus(store, j, models.RunStatusCompleted)
 
-	assert.NoError(t, pcr.Connect(cltest.IndexableBlockNumber(1)))
+	assert.NoError(t, pcr.Connect(cltest.Head(1)))
 	assert.Equal(t, []string{expectedRun.ID}, resumedRuns)
 }

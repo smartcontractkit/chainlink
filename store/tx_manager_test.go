@@ -469,7 +469,7 @@ func TestTxManager_Register(t *testing.T) {
 	ethMock.Register("eth_getTransactionCount", `0x2D0`)
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
 	txm.Register([]accounts.Account{account})
-	txm.Connect(cltest.IndexableBlockNumber(1))
+	txm.Connect(cltest.Head(1))
 	ethMock.EventuallyAllCalled(t)
 
 	aa := txm.NextActiveAccount()
@@ -497,7 +497,7 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	ethMock.Register("eth_getTransactionCount", `0x2D0`)
 
 	txm.Register(accounts)
-	txm.Connect(cltest.IndexableBlockNumber(1))
+	txm.Connect(cltest.Head(1))
 	ethMock.EventuallyAllCalled(t)
 
 	a0 := txm.NextActiveAccount()

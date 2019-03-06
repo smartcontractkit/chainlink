@@ -17,6 +17,10 @@ func (m Migration) Timestamp() string {
 // the primary key after table creation.
 // 2. number backed by int64 instead of string.
 func (m Migration) Migrate(orm *ormpkg.ORM) error {
+	if !orm.DB.HasTable("indexable_block_numbers") {
+		return nil
+	}
+
 	// db specific bytes -> hexadecimal conversion operation
 	conversion := "hex(hash)" // sqlite default
 	if orm.IsPostgres() {
@@ -25,16 +29,15 @@ func (m Migration) Migrate(orm *ormpkg.ORM) error {
 
 	tx := orm.DB.Begin()
 	err := tx.Exec(fmt.Sprintf(`
-		CREATE TABLE "indexable_block_numbers_refactored_1551895034" (
+		CREATE TABLE "heads" (
 			"number" bigint NOT NULL,
 			"hash" varchar,
 			PRIMARY KEY (hash));
-		INSERT INTO "indexable_block_numbers_refactored_1551895034"
+		INSERT INTO "heads"
 			SELECT CAST(number as bigint) as number, LOWER(%s) as hash
 			FROM "indexable_block_numbers";
 		DROP TABLE "indexable_block_numbers";
-		ALTER TABLE "indexable_block_numbers_refactored_1551895034" RENAME TO "indexable_block_numbers";
-		CREATE INDEX idx_indexable_block_numbers_number ON "indexable_block_numbers"("number");
+		CREATE INDEX idx_heads_number ON "heads"("number");
 	`, conversion)).Error
 	if err != nil {
 		tx.Rollback()

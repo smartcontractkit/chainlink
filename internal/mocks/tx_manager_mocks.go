@@ -55,7 +55,7 @@ func (mr *MockTxManagerMockRecorder) BumpGasUntilSafe(arg0 interface{}) *gomock.
 }
 
 // Connect mocks base method
-func (m *MockTxManager) Connect(arg0 *models.IndexableBlockNumber) error {
+func (m *MockTxManager) Connect(arg0 *models.Head) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Connect", arg0)
 	ret0, _ := ret[0].(error)

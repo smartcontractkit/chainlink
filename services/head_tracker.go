@@ -24,7 +24,7 @@ type HeadTracker struct {
 	headers               chan models.BlockHeader
 	headSubscription      models.EthSubscription
 	store                 *strpkg.Store
-	head                  *models.IndexableBlockNumber
+	head                  *models.Head
 	headMutex             sync.RWMutex
 	connected             *abool.AtomicBool
 	sleeper               utils.Sleeper
@@ -100,7 +100,7 @@ func (ht *HeadTracker) Stop() error {
 
 // Save updates the latest block number, if indeed the latest, and persists
 // this number in case of reboot. Thread safe.
-func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
+func (ht *HeadTracker) Save(n *models.Head) error {
 	if n == nil {
 		return errors.New("Cannot save a nil block header")
 	}
@@ -119,7 +119,7 @@ func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
 }
 
 // Head returns the latest block header being tracked, or nil.
-func (ht *HeadTracker) Head() *models.IndexableBlockNumber {
+func (ht *HeadTracker) Head() *models.Head {
 	ht.headMutex.RLock()
 	defer ht.headMutex.RUnlock()
 	return ht.head
@@ -147,7 +147,7 @@ func (ht *HeadTracker) Detach(id string) {
 // Connected returns whether or not this HeadTracker is connected.
 func (ht *HeadTracker) Connected() bool { return ht.connected.IsSet() }
 
-func (ht *HeadTracker) connect(bn *models.IndexableBlockNumber) {
+func (ht *HeadTracker) connect(bn *models.Head) {
 	ht.attachments.iter(func(t store.HeadTrackable) {
 		logger.WarnIf(t.Connect(bn))
 	})
@@ -213,8 +213,8 @@ func (ht *HeadTracker) receiveHeaders() error {
 			if !open {
 				return errors.New("HeadTracker headers prematurely closed")
 			}
-			number := header.ToIndexableBlockNumber()
-			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), number.Hash().String()), "hash", number.Hash().Hex())
+			number := header.ToHead()
+			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash().Hex())
 			if err := ht.Save(number); err != nil {
 				switch err.(type) {
 				case errBlockNotLater:

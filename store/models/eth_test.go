@@ -107,7 +107,7 @@ func TestModels_Header_UnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestModels_IndexableBlockNumber_New(t *testing.T) {
+func TestHead_NewHead(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		input *big.Int
@@ -119,26 +119,26 @@ func TestModels_IndexableBlockNumber_New(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
-			num := cltest.IndexableBlockNumber(test.input)
+			num := models.NewHead(test.input, cltest.NewHash())
 			assert.Equal(t, test.want, fmt.Sprintf("%x", num.ToInt()))
 		})
 	}
 }
 
-func TestModels_IndexableBlockNumber_GreaterThan(t *testing.T) {
+func TestHead_GreaterThan(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name    string
-		left    *models.IndexableBlockNumber
-		right   *models.IndexableBlockNumber
+		left    *models.Head
+		right   *models.Head
 		greater bool
 	}{
 		{"nil nil", nil, nil, false},
-		{"present nil", cltest.IndexableBlockNumber(1), nil, true},
-		{"nil present", nil, cltest.IndexableBlockNumber(1), false},
-		{"less", cltest.IndexableBlockNumber(1), cltest.IndexableBlockNumber(2), false},
-		{"equal", cltest.IndexableBlockNumber(2), cltest.IndexableBlockNumber(2), false},
-		{"greater", cltest.IndexableBlockNumber(2), cltest.IndexableBlockNumber(1), true},
+		{"present nil", cltest.Head(1), nil, true},
+		{"nil present", nil, cltest.Head(1), false},
+		{"less", cltest.Head(1), cltest.Head(2), false},
+		{"equal", cltest.Head(2), cltest.Head(2), false},
+		{"greater", cltest.Head(2), cltest.Head(1), true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -147,15 +147,15 @@ func TestModels_IndexableBlockNumber_GreaterThan(t *testing.T) {
 	}
 }
 
-func TestModels_IndexableBlockNumber_NextInt(t *testing.T) {
+func TestHead_NextInt(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name string
-		bn   *models.IndexableBlockNumber
+		bn   *models.Head
 		want *big.Int
 	}{
 		{"nil", nil, nil},
-		{"one", cltest.IndexableBlockNumber(1), big.NewInt(2)},
+		{"one", cltest.Head(1), big.NewInt(2)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -707,13 +707,13 @@ func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 }
 
 // SaveHead saves the indexable block number related to head tracker.
-func (orm *ORM) SaveHead(n *models.IndexableBlockNumber) error {
+func (orm *ORM) SaveHead(n *models.Head) error {
 	return orm.DB.Save(n).Error
 }
 
-// LastHead returns the last ordered IndexableBlockNumber.
-func (orm *ORM) LastHead() (*models.IndexableBlockNumber, error) {
-	number := &models.IndexableBlockNumber{}
+// LastHead returns the most recently persisted head entry.
+func (orm *ORM) LastHead() (*models.Head, error) {
+	number := &models.Head{}
 	err := orm.DB.Order("number desc").First(number).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil

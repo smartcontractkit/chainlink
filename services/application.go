@@ -211,7 +211,7 @@ func newHeadTrackableCallback(callback func()) store.HeadTrackable {
 	return &headTrackableCallback{onConnect: callback}
 }
 
-func (c *headTrackableCallback) Connect(*models.IndexableBlockNumber) error {
+func (c *headTrackableCallback) Connect(*models.Head) error {
 	c.onConnect()
 	return nil
 }
@@ -228,7 +228,7 @@ func newPendingConnectionResumer(store *store.Store) *pendingConnectionResumer {
 	return &pendingConnectionResumer{store: store, resumer: ResumeConnectingTask}
 }
 
-func (p *pendingConnectionResumer) Connect(head *models.IndexableBlockNumber) error {
+func (p *pendingConnectionResumer) Connect(head *models.Head) error {
 	pendingRuns, err := p.store.JobRunsWithStatus(models.RunStatusPendingConnection)
 	if err != nil {
 		return multierr.Append(errors.New("error resuming pending connections"), err)
