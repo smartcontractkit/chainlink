@@ -11,6 +11,11 @@
     "standard",
     "react-hooks"
   ],
+  "settings": {
+    "react": {
+      "version": "detect"
+    }
+  },
   "parserOptions": {
     "ecmaVersion": 2018,
   },
