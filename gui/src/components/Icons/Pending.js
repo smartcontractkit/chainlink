@@ -1,6 +1,6 @@
 import React from 'react'
 
-export default props => (
+const Pending = props => (
   <svg id="prefix__Layer_1" data-name="Layer 1" viewBox="0 0 48 48" {...props}>
     <defs>
       <style>{'.prefix__cls-3{fill:#ffb400}'}</style>
@@ -32,3 +32,5 @@ export default props => (
     </g>
   </svg>
 )
+
+export default Pending
