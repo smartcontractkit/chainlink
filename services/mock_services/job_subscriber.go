@@ -5,9 +5,10 @@
 package mock_services
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	models "github.com/smartcontractkit/chainlink/store/models"
-	reflect "reflect"
 )
 
 // MockJobSubscriber is a mock of JobSubscriber interface
@@ -80,7 +81,7 @@ func (mr *MockJobSubscriberMockRecorder) Jobs() *gomock.Call {
 }
 
 // OnNewHead mocks base method
-func (m *MockJobSubscriber) OnNewHead(arg0 *models.BlockHeader) {
+func (m *MockJobSubscriber) OnNewHead(arg0 *models.Head) {
 	m.ctrl.Call(m, "OnNewHead", arg0)
 }
 
