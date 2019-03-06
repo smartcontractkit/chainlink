@@ -89,7 +89,7 @@ func (js *jobSubscriber) OnNewHead(head *models.BlockHeader) {
 		logger.Error("error fetching pending job runs:", err.Error())
 	}
 
-	ibn := head.ToIndexableBlockNumber().Number.ToHexUtilBig()
+	ibn := head.ToIndexableBlockNumber().ToHexUtilBig()
 	logger.Debugw("Received new head",
 		"current_height", ibn.ToInt(),
 		"pending_run_count", len(pendingRuns),
