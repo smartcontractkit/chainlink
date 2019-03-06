@@ -2,6 +2,7 @@
 stories
 coverage
 gui/dist
+gui/artifacts
 internal
 node_modules
 vendor
