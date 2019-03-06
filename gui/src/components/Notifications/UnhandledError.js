@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 
-export default () => (
+const UnhandledError = () => (
   <React.Fragment>
     Unhandled error. Please help us by opening a{' '}
     <Link to="https://github.com/smartcontractkit/chainlink/issues/new">
@@ -9,3 +9,5 @@ export default () => (
     </Link>
   </React.Fragment>
 )
+
+export default UnhandledError

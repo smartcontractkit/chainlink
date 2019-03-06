@@ -11,11 +11,9 @@ export default (state = initialState, action = {}) => {
       })
     }
     case UPSERT_TRANSACTION: {
-      return Object.assign(
-        {},
-        state,
-        { items: Object.assign({}, state.items, action.data.txattempts) }
-      )
+      return Object.assign({}, state, {
+        items: Object.assign({}, state.items, action.data.txattempts)
+      })
     }
     default:
       return state
