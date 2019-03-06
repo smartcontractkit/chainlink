@@ -10,7 +10,9 @@ describe('selectors - transaction', () => {
       }
     }
 
-    expect(transactionSelector(state, 'transactionA')).toEqual({ id: 'transactionA' })
+    expect(transactionSelector(state, 'transactionA')).toEqual({
+      id: 'transactionA'
+    })
     expect(transactionSelector(state, 'transactiona')).toBeNull()
   })
 })
