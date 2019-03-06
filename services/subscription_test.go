@@ -27,7 +27,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 
 	var count int32
 	callback := func(*strpkg.Store, models.LogRequest) { atomic.AddInt32(&count, 1) }
-	fromBlock := cltest.IndexableBlockNumber(0)
+	fromBlock := cltest.Head(0)
 	sub, err := services.NewInitiatorSubscription(initr, job, store, fromBlock, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
@@ -77,7 +77,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 
 	var count int32
 	callback := func(*strpkg.Store, models.LogRequest) { atomic.AddInt32(&count, 1) }
-	head := cltest.IndexableBlockNumber(0)
+	head := cltest.Head(0)
 	sub, err := services.NewInitiatorSubscription(initr, job, store, head, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()

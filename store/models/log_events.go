@@ -86,7 +86,7 @@ func TopicFiltersForRunLog(logTopics []common.Hash, jobID string) ([][]common.Ha
 }
 
 // FilterQueryFactory returns the ethereum FilterQuery for this initiator.
-func FilterQueryFactory(i Initiator, from *IndexableBlockNumber) (ethereum.FilterQuery, error) {
+func FilterQueryFactory(i Initiator, from *Head) (ethereum.FilterQuery, error) {
 	switch i.Type {
 	case InitiatorEthLog:
 		return newInitiatorFilterQuery(i, from, nil), nil
@@ -105,7 +105,7 @@ func FilterQueryFactory(i Initiator, from *IndexableBlockNumber) (ethereum.Filte
 
 func newInitiatorFilterQuery(
 	initr Initiator,
-	fromBlock *IndexableBlockNumber,
+	fromBlock *Head,
 	topics [][]common.Hash,
 ) ethereum.FilterQuery {
 	// Exclude current block from future log subscription to prevent replay.
@@ -129,7 +129,7 @@ type LogRequest interface {
 	ForLogger(kvs ...interface{}) []interface{}
 	ContractPayment() (*assets.Link, error)
 	ValidateRequester() error
-	ToIndexableBlockNumber() *IndexableBlockNumber
+	ToHead() *Head
 }
 
 // InitiatorLogEvent encapsulates all information as a result of a received log from an
@@ -194,11 +194,11 @@ func (le InitiatorLogEvent) ToDebug() {
 	logger.Debugw(msg, le.ForLogger()...)
 }
 
-// ToIndexableBlockNumber returns an IndexableBlockNumber for the given InitiatorSubscriptionLogEvent Block
-func (le InitiatorLogEvent) ToIndexableBlockNumber() *IndexableBlockNumber {
+// ToHead returns a Head for the given InitiatorSubscriptionLogEvent Block
+func (le InitiatorLogEvent) ToHead() *Head {
 	num := new(big.Int)
 	num.SetUint64(le.Log.BlockNumber)
-	return NewIndexableBlockNumber(num, le.Log.BlockHash)
+	return NewHead(num, le.Log.BlockHash)
 }
 
 // Validate returns true, no validation on this log event type.

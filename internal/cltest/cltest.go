@@ -836,19 +836,19 @@ func ParseNullableTime(s string) null.Time {
 	return NullableTime(ParseISO8601(s))
 }
 
-// IndexableBlockNumber given the value convert it into an IndexableBlockNumber
-func IndexableBlockNumber(val interface{}) *models.IndexableBlockNumber {
+// Head given the value convert it into an Head
+func Head(val interface{}) *models.Head {
 	switch val.(type) {
 	case int:
-		return models.NewIndexableBlockNumber(big.NewInt(int64(val.(int))), NewHash())
+		return models.NewHead(big.NewInt(int64(val.(int))), NewHash())
 	case uint64:
-		return models.NewIndexableBlockNumber(big.NewInt(int64(val.(uint64))), NewHash())
+		return models.NewHead(big.NewInt(int64(val.(uint64))), NewHash())
 	case int64:
-		return models.NewIndexableBlockNumber(big.NewInt(val.(int64)), NewHash())
+		return models.NewHead(big.NewInt(val.(int64)), NewHash())
 	case *big.Int:
-		return models.NewIndexableBlockNumber(val.(*big.Int), NewHash())
+		return models.NewHead(val.(*big.Int), NewHash())
 	default:
-		logger.Panicf("Could not convert %v of type %T to IndexableBlockNumber", val, val)
+		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 		return nil
 	}
 }

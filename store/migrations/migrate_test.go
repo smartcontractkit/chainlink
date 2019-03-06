@@ -200,7 +200,7 @@ func TestMigrate1551895034(t *testing.T) {
 	// migrate
 	require.NoError(t, migrations.Migrate(orm))
 
-	retrieved := models.IndexableBlockNumber{}
+	retrieved := models.Head{}
 	err = orm.DB.First(&retrieved).Error
 	require.NoError(t, err)
 

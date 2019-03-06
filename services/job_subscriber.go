@@ -13,7 +13,7 @@ import (
 // node's websocket for specific jobs by subscribing to ethLogs.
 type JobSubscriber interface {
 	store.HeadTrackable
-	AddJob(job models.JobSpec, bn *models.IndexableBlockNumber) error
+	AddJob(job models.JobSpec, bn *models.Head) error
 	Jobs() []models.JobSpec
 }
 
@@ -31,7 +31,7 @@ func NewJobSubscriber(store *store.Store) JobSubscriber {
 
 // AddJob subscribes to ethereum log events for each "runlog" and "ethlog"
 // initiator in the passed job spec.
-func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.IndexableBlockNumber) error {
+func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 	if !job.IsLogInitiated() {
 		return nil
 	}
@@ -62,7 +62,7 @@ func (js *jobSubscriber) addSubscription(sub JobSubscription) {
 }
 
 // Connect connects the jobs to the ethereum node by creating corresponding subscriptions.
-func (js *jobSubscriber) Connect(bn *models.IndexableBlockNumber) error {
+func (js *jobSubscriber) Connect(bn *models.Head) error {
 	var merr error
 	err := js.store.Jobs(func(j models.JobSpec) bool {
 		merr = multierr.Append(merr, js.AddJob(j, bn))
@@ -89,7 +89,7 @@ func (js *jobSubscriber) OnNewHead(head *models.BlockHeader) {
 		logger.Error("error fetching pending job runs:", err.Error())
 	}
 
-	height := head.ToIndexableBlockNumber().ToInt()
+	height := head.ToHead().ToInt()
 	logger.Debugw("Received new head",
 		"current_height", height,
 		"pending_run_count", len(pendingRuns),

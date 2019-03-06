@@ -222,42 +222,41 @@ func (h BlockHeader) Hash() common.Hash {
 	return h.ParityHash
 }
 
-// ToIndexableBlockNumber converts a given BlockHeader to an IndexableBlockNumber
-func (h BlockHeader) ToIndexableBlockNumber() *IndexableBlockNumber {
-	return NewIndexableBlockNumber(h.Number.ToInt(), h.Hash())
+// ToHead converts a given BlockHeader to a Head instance.
+func (h BlockHeader) ToHead() *Head {
+	return NewHead(h.Number.ToInt(), h.Hash())
 }
 
-// IndexableBlockNumber represents a BlockNumber, BlockHash.
-type IndexableBlockNumber struct {
+// Head represents a BlockNumber, BlockHash.
+type Head struct {
 	HashRaw string `gorm:"primary_key;type:varchar;column:hash"`
 	Number  int64  `gorm:"index;type:bigint;not null"`
 }
 
-// NewIndexableBlockNumber creates an IndexableBlockNumber given a BlockNumber and BlockHash
-func NewIndexableBlockNumber(bigint *big.Int, hash common.Hash) *IndexableBlockNumber {
+// NewHead returns a Head instance with a BlockNumber and BlockHash.
+func NewHead(bigint *big.Int, hash common.Hash) *Head {
 	if bigint == nil {
 		return nil
 	}
 
-	return &IndexableBlockNumber{
+	return &Head{
 		Number:  bigint.Int64(),
 		HashRaw: hash.Hex()[2:], // remove 0x
 	}
 }
 
 // Hash returns the Hash instance related to this block height.
-func (l *IndexableBlockNumber) Hash() common.Hash {
+func (l *Head) Hash() common.Hash {
 	return common.HexToHash(l.HashRaw)
 }
 
 // String returns a string representation of this number.
-func (l *IndexableBlockNumber) String() string {
+func (l *Head) String() string {
 	return l.ToInt().String()
 }
 
-// ToInt Coerces the value into *big.Int. Also handles nil *IndexableBlockNumber values to
-// nil *big.Int.
-func (l *IndexableBlockNumber) ToInt() *big.Int {
+// ToInt return the height as a *big.Int. Also handles nil by returning nil.
+func (l *Head) ToInt() *big.Int {
 	if l == nil {
 		return nil
 	}
@@ -266,7 +265,7 @@ func (l *IndexableBlockNumber) ToInt() *big.Int {
 
 // GreaterThan compares BlockNumbers and returns true if the reciever BlockNumber is greater than
 // the supplied BlockNumber
-func (l *IndexableBlockNumber) GreaterThan(r *IndexableBlockNumber) bool {
+func (l *Head) GreaterThan(r *Head) bool {
 	if l == nil {
 		return false
 	}
@@ -277,7 +276,7 @@ func (l *IndexableBlockNumber) GreaterThan(r *IndexableBlockNumber) bool {
 }
 
 // NextInt returns the next BlockNumber as big.int, or nil if nil to represent latest.
-func (l *IndexableBlockNumber) NextInt() *big.Int {
+func (l *Head) NextInt() *big.Int {
 	if l == nil {
 		return nil
 	}

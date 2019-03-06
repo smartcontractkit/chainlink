@@ -34,7 +34,7 @@ func (m *MockJobSubscriber) EXPECT() *MockJobSubscriberMockRecorder {
 }
 
 // AddJob mocks base method
-func (m *MockJobSubscriber) AddJob(arg0 models.JobSpec, arg1 *models.IndexableBlockNumber) error {
+func (m *MockJobSubscriber) AddJob(arg0 models.JobSpec, arg1 *models.Head) error {
 	ret := m.ctrl.Call(m, "AddJob", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -46,7 +46,7 @@ func (mr *MockJobSubscriberMockRecorder) AddJob(arg0, arg1 interface{}) *gomock.
 }
 
 // Connect mocks base method
-func (m *MockJobSubscriber) Connect(arg0 *models.IndexableBlockNumber) error {
+func (m *MockJobSubscriber) Connect(arg0 *models.Head) error {
 	ret := m.ctrl.Call(m, "Connect", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

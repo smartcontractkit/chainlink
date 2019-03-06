@@ -102,7 +102,7 @@ func (txm *EthTxManager) Connected() bool {
 
 // Connect iterates over the available accounts to retrieve their nonce
 // for client side management.
-func (txm *EthTxManager) Connect(bn *models.IndexableBlockNumber) error {
+func (txm *EthTxManager) Connect(bn *models.Head) error {
 	txm.accountsMutex.Lock()
 	defer txm.accountsMutex.Unlock()
 
