@@ -6,12 +6,12 @@
 
 module.exports = function(callback) {
   return function(deployer, network) {
-    if (network == 'test') {
+    if (network === 'test') {
       console.log('===== SKIPPING MIGRATIONS IN TEST ENVIRONMENT =====')
     } else {
       deployer
         .then(async () => {
-          return await callback(deployer, network)
+          return callback(deployer, network)
         })
         .catch(console.log)
     }
