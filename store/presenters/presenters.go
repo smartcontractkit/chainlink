@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -508,12 +509,12 @@ func NewTx(tx *models.Tx) Tx {
 		Confirmed: tx.Confirmed,
 		Data:      hexutil.Bytes(tx.Data),
 		From:      tx.From,
-		GasLimit:  string(tx.GasLimit),
+		GasLimit:  strconv.FormatUint(tx.GasLimit, 10),
 		GasPrice:  tx.GasPrice.String(),
 		Hash:      tx.Hash,
 		Hex:       tx.Hex,
-		Nonce:     string(tx.Nonce),
-		SentAt:    string(tx.SentAt),
+		Nonce:     strconv.FormatUint(tx.Nonce, 10),
+		SentAt:    strconv.FormatUint(tx.SentAt, 10),
 		To:        tx.To,
 		Value:     tx.Value.String(),
 	}

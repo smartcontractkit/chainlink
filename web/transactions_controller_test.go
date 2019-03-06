@@ -32,8 +32,8 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	tx1 := cltest.CreateTxAndAttempt(store, from, 1)
 	_, err := store.AddTxAttempt(tx1, tx1.EthTx(big.NewInt(2)), 2)
 	require.NoError(t, err)
-	tx2 := cltest.CreateTxAndAttempt(store, from, 3)
-	tx3 := cltest.CreateTxAndAttempt(store, from, 4)
+	cltest.CreateTxAndAttempt(store, from, 3)
+	cltest.CreateTxAndAttempt(store, from, 4)
 	_, count, err := store.Transactions(0, 100)
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
@@ -50,8 +50,8 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	assert.Empty(t, links["prev"].Href)
 
 	require.Len(t, txs, 2)
-	require.Equal(t, string(tx3.SentAt), txs[0].SentAt, "expected tx attempts order by sentAt descending")
-	require.Equal(t, string(tx2.SentAt), txs[1].SentAt, "expected tx attempts order by sentAt descending")
+	require.Equal(t, "4", txs[0].SentAt, "expected tx attempts order by sentAt descending")
+	require.Equal(t, "3", txs[1].SentAt, "expected tx attempts order by sentAt descending")
 }
 
 func TestTransactionsController_Index_Error(t *testing.T) {
