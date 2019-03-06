@@ -2,22 +2,20 @@
 
 if (process.argv.length <= 3) {
   console.log(
-    'Usage: ' +
-      __filename +
-      ' <twilio_account_sid> <twilio_auth_token> <from_number> <to_number>'
+    `Usage: ${__filename} <twilio_account_sid> <twilio_auth_token> <from_number> <to_number>`
   )
   process.exit(-1)
 }
 
 const express = require('express')
-const body_parser = require('body-parser')
+const bodyParser = require('body-parser')
 const app = express()
 const PORT = 6691
 
 const [accountSid, authToken, from, to] = process.argv.slice(2)
 const client = require('twilio')(accountSid, authToken)
 
-app.use(body_parser.json())
+app.use(bodyParser.json())
 app.all('*', function(req, res) {
   let log = req.body
   let amount = parseInt(log.topics[1], 16)
