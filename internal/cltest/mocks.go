@@ -565,7 +565,7 @@ func (m *MockHeadTrackable) DisconnectedCount() int32 {
 }
 
 // OnNewHead increases the OnNewHeadCount count by one
-func (m *MockHeadTrackable) OnNewHead(*models.BlockHeader) { atomic.AddInt32(&m.onNewHeadCount, 1) }
+func (m *MockHeadTrackable) OnNewHead(*models.Head) { atomic.AddInt32(&m.onNewHeadCount, 1) }
 
 // OnNewHeadCount returns the count of new heads, safely.
 func (m *MockHeadTrackable) OnNewHeadCount() int32 {

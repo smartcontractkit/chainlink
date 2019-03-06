@@ -229,7 +229,7 @@ func (mr *MockTxManagerMockRecorder) NextActiveAccount() *gomock.Call {
 }
 
 // OnNewHead mocks base method
-func (m *MockTxManager) OnNewHead(arg0 *models.BlockHeader) {
+func (m *MockTxManager) OnNewHead(arg0 *models.Head) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "OnNewHead", arg0)
 }

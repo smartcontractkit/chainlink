@@ -126,7 +126,7 @@ func (txm *EthTxManager) Disconnect() {
 }
 
 // OnNewHead does nothing; exists to comply with interface.
-func (txm *EthTxManager) OnNewHead(*models.BlockHeader) {}
+func (txm *EthTxManager) OnNewHead(*models.Head) {}
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {

@@ -216,8 +216,8 @@ func (c *headTrackableCallback) Connect(*models.Head) error {
 	return nil
 }
 
-func (c *headTrackableCallback) Disconnect()                   {}
-func (c *headTrackableCallback) OnNewHead(*models.BlockHeader) {}
+func (c *headTrackableCallback) Disconnect()            {}
+func (c *headTrackableCallback) OnNewHead(*models.Head) {}
 
 type pendingConnectionResumer struct {
 	store   *store.Store
@@ -244,5 +244,5 @@ func (p *pendingConnectionResumer) Connect(head *models.Head) error {
 	return merr
 }
 
-func (p *pendingConnectionResumer) Disconnect()                   {}
-func (p *pendingConnectionResumer) OnNewHead(*models.BlockHeader) {}
+func (p *pendingConnectionResumer) Disconnect()            {}
+func (p *pendingConnectionResumer) OnNewHead(*models.Head) {}

@@ -9,5 +9,5 @@ import (
 type HeadTrackable interface {
 	Connect(*models.Head) error
 	Disconnect()
-	OnNewHead(*models.BlockHeader)
+	OnNewHead(*models.Head)
 }

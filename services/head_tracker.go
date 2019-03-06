@@ -159,7 +159,7 @@ func (ht *HeadTracker) disconnect() {
 	})
 }
 
-func (ht *HeadTracker) onNewHead(head *models.BlockHeader) {
+func (ht *HeadTracker) onNewHead(head *models.Head) {
 	ht.attachments.iter(func(t store.HeadTrackable) {
 		t.OnNewHead(head)
 	})
@@ -209,13 +209,13 @@ func (ht *HeadTracker) receiveHeaders() error {
 		select {
 		case <-ht.done:
 			return nil
-		case header, open := <-ht.headers:
+		case block, open := <-ht.headers:
 			if !open {
 				return errors.New("HeadTracker headers prematurely closed")
 			}
-			number := header.ToHead()
-			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash().Hex())
-			if err := ht.Save(number); err != nil {
+			head := block.ToHead()
+			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(head.ToInt()), block.Hash().String()), "hash", head.Hash().Hex())
+			if err := ht.Save(head); err != nil {
 				switch err.(type) {
 				case errBlockNotLater:
 					logger.Warn(err)
@@ -223,7 +223,7 @@ func (ht *HeadTracker) receiveHeaders() error {
 					logger.Error(err)
 				}
 			} else {
-				ht.onNewHead(&header)
+				ht.onNewHead(head)
 			}
 		case err, open := <-ht.headSubscription.Err():
 			if open && err != nil {

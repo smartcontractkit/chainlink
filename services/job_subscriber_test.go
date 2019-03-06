@@ -185,7 +185,7 @@ func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
 			run.ApplyResult(models.RunResult{Status: test.status})
 			assert.Nil(t, store.CreateJobRun(&run))
 
-			js.OnNewHead(block)
+			js.OnNewHead(block.ToHead())
 			if test.wantSend {
 				assert.Equal(t, 1, len(mockRunChannel.Runs))
 			} else {
