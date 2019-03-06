@@ -86,7 +86,7 @@ func TopicFiltersForRunLog(logTopics []common.Hash, jobID string) ([][]common.Ha
 }
 
 // FilterQueryFactory returns the ethereum FilterQuery for this initiator.
-func FilterQueryFactory(i Initiator, from *Head) (ethereum.FilterQuery, error) {
+func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error) {
 	switch i.Type {
 	case InitiatorEthLog:
 		return newInitiatorFilterQuery(i, from, nil), nil
@@ -105,12 +105,10 @@ func FilterQueryFactory(i Initiator, from *Head) (ethereum.FilterQuery, error) {
 
 func newInitiatorFilterQuery(
 	initr Initiator,
-	fromBlock *Head,
+	listenFrom *big.Int,
 	topics [][]common.Hash,
 ) ethereum.FilterQuery {
-	// Exclude current block from future log subscription to prevent replay.
-	listenFromNumber := fromBlock.NextInt()
-	q := utils.ToFilterQueryFor(listenFromNumber, []common.Address{initr.Address})
+	q := utils.ToFilterQueryFor(listenFrom, []common.Address{initr.Address})
 	q.Topics = topics
 	return q
 }
