@@ -69,7 +69,7 @@ func (ht *HeadTracker) Start() error {
 	}
 	number := ht.Head()
 	if number != nil {
-		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash)
+		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash().Hex())
 	}
 
 	ht.done = make(chan struct{})
@@ -112,7 +112,7 @@ func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
 		ht.headMutex.Unlock()
 	} else {
 		ht.headMutex.Unlock()
-		msg := fmt.Sprintf("Cannot save new head confirmation %v because it's equal to or less than current head %v with hash %v", n, ht.head, n.Hash)
+		msg := fmt.Sprintf("Cannot save new head confirmation %v because it's equal to or less than current head %v with hash %s", n, ht.head, n.Hash().Hex())
 		return errBlockNotLater{msg}
 	}
 	return ht.store.SaveHead(n)
@@ -214,7 +214,7 @@ func (ht *HeadTracker) receiveHeaders() error {
 				return errors.New("HeadTracker headers prematurely closed")
 			}
 			number := header.ToIndexableBlockNumber()
-			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash())
+			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), number.Hash().String()), "hash", number.Hash().Hex())
 			if err := ht.Save(number); err != nil {
 				switch err.(type) {
 				case errBlockNotLater:
