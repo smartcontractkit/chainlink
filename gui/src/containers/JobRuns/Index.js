@@ -27,7 +27,7 @@ const renderLatestRuns = (props, state, handleChangePage) => {
   const { jobSpecId, latestJobRuns, jobRunsCount, pageSize } = props
   const TableButtonsWithProps = () => (
     <TableButtons
-      {...props}
+      history={props.history}
       count={jobRunsCount}
       onChangePage={handleChangePage}
       page={state.page}
@@ -87,11 +87,11 @@ export const Index = useHooks(props => {
     <Content>
       <Breadcrumb className={classes.breadcrumb}>
         <BreadcrumbItem href="/">Dashboard</BreadcrumbItem>
-        <BreadcrumbItem>></BreadcrumbItem>
+        <BreadcrumbItem>&gt;</BreadcrumbItem>
         <BreadcrumbItem href={`/jobs/${jobSpecId}`}>
           Job ID: {jobSpecId}
         </BreadcrumbItem>
-        <BreadcrumbItem>></BreadcrumbItem>
+        <BreadcrumbItem>&gt;</BreadcrumbItem>
         <BreadcrumbItem>Runs</BreadcrumbItem>
       </Breadcrumb>
       <Title>Runs</Title>

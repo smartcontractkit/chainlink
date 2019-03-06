@@ -1,4 +1,4 @@
-const bigNum = number => web3.utils.toBN(number)
+const bigNum = (num: number): any => web3.utils.toBN(num)
 
 // Throws if a and b are not equal, as BN's
 export const assertBigNum = (a, b, failureMessage) =>

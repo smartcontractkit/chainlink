@@ -75,7 +75,7 @@ export const BridgeList = useHooks(props => {
   } = props
   const TableButtonsWithProps = () => (
     <TableButtons
-      {...props}
+      history={props.history}
       count={bridgeCount}
       onChangePage={handleChangePage}
       rowsPerPage={pageSize}

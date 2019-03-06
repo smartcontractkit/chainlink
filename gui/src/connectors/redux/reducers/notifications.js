@@ -4,6 +4,8 @@ import {
   NOTIFY_SUCCESS,
   NOTIFY_ERROR
 } from 'actions'
+import { set } from 'utils/storage'
+import { BadRequestError } from 'errors'
 
 const initialState = {
   errors: [],
@@ -36,7 +38,9 @@ export default (state = initialState, action = {}) => {
         component: action.component,
         props: action.props
       }
-
+      if (success.props.data && success.props.data.type === 'specs')
+        set('persistSpec', {})
+      else if (typeof success.props.url === 'string') set('persistBridge', {})
       return Object.assign({}, state, {
         successes: [success],
         errors: []
@@ -61,6 +65,7 @@ export default (state = initialState, action = {}) => {
       } else {
         notifications = [error]
       }
+      if (error instanceof BadRequestError) set('persistBridge', {})
 
       return Object.assign({}, state, {
         successes: [],

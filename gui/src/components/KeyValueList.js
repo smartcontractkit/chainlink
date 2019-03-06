@@ -44,7 +44,9 @@ const ErrorRow = ({ children }) => <SpanRow>{children}</SpanRow>
 
 const Col = ({ children }) => (
   <TableCell>
-    <Typography variant="body1">{children}</Typography>
+    <Typography variant="body1">
+      <span>{children}</span>
+    </Typography>
   </TableCell>
 )
 

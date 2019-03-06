@@ -5,6 +5,7 @@ import * as formik from 'formik'
 import { withStyles } from '@material-ui/core/styles'
 import { TextField, Grid } from '@material-ui/core'
 import Button from 'components/Button'
+import { set, get } from 'utils/storage'
 
 const styles = theme => ({
   textfield: {
@@ -23,20 +24,12 @@ const styles = theme => ({
   }
 })
 
-const isDirty = ({
-  values,
-  name,
-  url,
-  minimumContractPayment,
-  confirmations,
-  submitCount
-}) => {
+const isDirty = ({ values, submitCount }) => {
   return (
-    (values.name !== name ||
-      values.url !== url ||
-      values.minimumContractPayment.toString() !==
-        minimumContractPayment.toString() ||
-      values.confirmations !== confirmations) &&
+    (values.name !== '' ||
+      values.url !== '' ||
+      (values.minimumContractPayment.toString() !== '0' &&
+        values.confirmations !== '0')) &&
     submitCount === 0
   )
 }
@@ -135,16 +128,21 @@ Form.propTypes = {
 
 const formikOpts = {
   mapPropsToValues({ name, url, minimumContractPayment, confirmations }) {
-    return {
+    const shouldPersist = Object.keys(get('persistBridge')).length !== 0
+    let persistedJSON = shouldPersist && get('persistBridge')
+    if (shouldPersist) set('persistBridge', {})
+    const json = {
       name: name || '',
       url: url || '',
       minimumContractPayment: minimumContractPayment || 0,
       confirmations: confirmations || 0
     }
+    return (shouldPersist && persistedJSON) || json
   },
 
   handleSubmit(values, { props, setSubmitting }) {
     props.onSubmit(values, props.onSuccess, props.onError)
+    set('persistBridge', values)
     setTimeout(() => {
       setSubmitting(false)
     }, 1000)
