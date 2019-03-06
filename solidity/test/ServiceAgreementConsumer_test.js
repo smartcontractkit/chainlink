@@ -7,7 +7,7 @@ contract('ServiceAgreementConsumer', () => {
   let link, coord, cc, agreement
 
   beforeEach(async () => {
-    agreement = await h.newServiceAgreement({oracles: [h.oracleNode]})
+    agreement = await h.newServiceAgreement({ oracles: [h.oracleNode] })
     link = await h.linkContract()
     coord = await h.deploy('Coordinator.sol', link.address)
     await h.initiateServiceAgreement(coord, agreement)
@@ -81,7 +81,13 @@ contract('ServiceAgreementConsumer', () => {
 
       beforeEach(async () => {
         let funcSig = h.functionSelector('fulfill(bytes32,bytes32)')
-        let args = h.executeServiceAgreementBytes(agreement.id, cc.address, funcSig, 1, '')
+        let args = h.executeServiceAgreementBytes(
+          agreement.id,
+          cc.address,
+          funcSig,
+          1,
+          ''
+        )
         const tx = await h.requestDataFrom(coord, link, agreement.payment, args)
         request2 = h.decodeRunRequest(tx.receipt.logs[2])
       })
