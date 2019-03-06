@@ -27,7 +27,7 @@ const renderBody = (jobs, error) => {
     return (
       <TableRow>
         <TableCell component="th" scope="row" colSpan={3}>
-          You haven't created any jobs yet. Create a new job{' '}
+          You haven’t created any jobs yet. Create a new job{' '}
           <Link to={`/jobs/new`}>here</Link>
         </TableCell>
       </TableRow>

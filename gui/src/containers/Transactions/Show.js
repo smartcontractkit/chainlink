@@ -16,11 +16,13 @@ export const Show = useHooks(props => {
 
   return (
     <Content>
-      {transaction && <KeyValueList
-        title={transaction.id}
-        entries={Object.entries(transaction)}
-        titleize
-      />}
+      {transaction && (
+        <KeyValueList
+          title={transaction.id}
+          entries={Object.entries(transaction)}
+          titleize
+        />
+      )}
     </Content>
   )
 })

@@ -25,7 +25,7 @@ const renderBody = (transactions, error) => {
     return (
       <TableRow>
         <TableCell component="th" scope="row" colSpan={4}>
-          You haven't created any transactions yet.
+          You haven’t created any transactions yet.
         </TableCell>
       </TableRow>
     )

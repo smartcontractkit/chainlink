@@ -5,6 +5,7 @@ import { withStyles } from '@material-ui/core/styles'
 import Button from 'components/Button'
 import { TextField, Grid } from '@material-ui/core'
 import { Prompt } from 'react-router-dom'
+import { set, get } from 'utils/storage'
 
 const styles = theme => ({
   card: {
@@ -80,7 +81,13 @@ Form.propTypes = {
 
 const formikOpts = {
   mapPropsToValues({ definition }) {
-    const json = JSON.stringify(definition, null, '\t') || ''
+    const shouldPersist = Object.keys(get('persistSpec')).length !== 0
+    let persistedJSON = shouldPersist && get('persistSpec')
+    if (shouldPersist) set('persistSpec', {})
+    const json =
+      JSON.stringify(definition, null, '\t') ||
+      (shouldPersist && persistedJSON) ||
+      ''
     return { json }
   },
 
@@ -98,6 +105,7 @@ const formikOpts = {
 
   handleSubmit(values, { props, setSubmitting }) {
     const definition = JSON.parse(values.json)
+    set('persistSpec', values.json)
     props.onSubmit(definition, props.onSuccess, props.onError)
     setTimeout(() => {
       setSubmitting(false)

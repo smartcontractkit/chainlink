@@ -26,7 +26,7 @@ module.exports = function Utils(provider) {
             return resolve(receipt)
           }
         }
-        reject(`${txHash} unconfirmed!`)
+        reject(new Error(`${txHash} unconfirmed!`))
       })
     },
     send: async params => {

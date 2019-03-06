@@ -3,6 +3,14 @@ import { Provider } from 'react-redux'
 import createStore from './connectors/redux'
 import Layout from './Layout'
 import './index.css'
+import { set } from './utils/storage'
+
+const store = createStore()
+
+store.subscribe(() => {
+  const prevURL = store.getState().notifications.currentUrl
+  if(prevURL !== '/signin') set("persistURL", prevURL)
+})
 
 class App extends PureComponent {
   // Remove the server-side injected CSS.
@@ -15,7 +23,7 @@ class App extends PureComponent {
 
   render (): JSX.Element {
     return (
-      <Provider store={createStore()}>
+      <Provider store={store}>
         <Layout />
       </Provider>
     )

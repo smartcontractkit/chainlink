@@ -1,6 +1,6 @@
 import React from 'react'
 
-export default props => (
+const Success = props => (
   <svg data-name="Layer 1" viewBox="0 0 48 48" {...props}>
     <defs>
       <mask
@@ -28,3 +28,5 @@ export default props => (
     </g>
   </svg>
 )
+
+export default Success
