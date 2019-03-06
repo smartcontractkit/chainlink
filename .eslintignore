@@ -6,3 +6,9 @@ gui/artifacts
 internal
 node_modules
 vendor
+# ESLint doesn't support experimental import() syntax
+gui/src/Layout.js
+# ESLint doesn't support experimental import() syntax
+gui/src/Private.js
+# ESLint doesn't support experimental static attr syntax
+gui/src/PrivateRoute.js

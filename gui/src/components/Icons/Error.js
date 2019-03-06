@@ -1,6 +1,6 @@
 import React from 'react'
 
-export default props => (
+const Error = props => (
   <svg viewBox="0 0 48 48" {...props}>
     <path
       d="M24 48C10.8 48 0 37.2 0 24S10.8 0 24 0s24 10.8 24 24-10.8 24-24 24zm0-44C13 4 4 13 4 24s9 20 20 20 20-9 20-20S35 4 24 4z"
@@ -15,3 +15,5 @@ export default props => (
     />
   </svg>
 )
+
+export default Error
