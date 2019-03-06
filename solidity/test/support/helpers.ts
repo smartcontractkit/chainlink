@@ -379,32 +379,6 @@ export const concatTypedArrays = <T>(...arrays: Array<ArrayLike<T>>): ArrayLike<
   return result
 }
 
-export const stopMining = async () => {
-  await web3.currentProvider.send(
-    { jsonrpc: '2.0', method: 'evm_stop' },
-    (error: any, result: any) => {
-      if (error) {
-        // tslint:disable-next-line:no-console
-        console.log(`Error during helpers.stopMining! ${error}`)
-        throw error
-      }
-    }
-  )
-}
-
-export const startMining = async () => {
-  await web3.currentProvider.send(
-    { jsonrpc: '2.0', method: 'evm_start' },
-    (error: any, result: any) => {
-      if (error) {
-        // tslint:disable-next-line:no-console
-        console.log(`Error during helpers.startMining! ${error}`)
-        throw error
-      }
-    }
-  )
-}
-
 export const increaseTime5Minutes = async () => {
   await web3.currentProvider.send(
     {

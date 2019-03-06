@@ -1,4 +1,4 @@
-import { bigNum, deploy, startMining, stopMining } from './support/helpers'
+import { bigNum, deploy } from './support/helpers'
 
 contract('ConcreteChainlinked', () => {
   let contract: any
