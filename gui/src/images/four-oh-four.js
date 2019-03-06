@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 
-export default props => (
+const FourOhFour = props => (
   <svg
     id="Layer_1"
     data-name="Layer 1"
@@ -147,3 +147,5 @@ export default props => (
     />
   </svg>
 )
+
+export default FourOhFour

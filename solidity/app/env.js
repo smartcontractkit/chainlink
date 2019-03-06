@@ -3,7 +3,6 @@ const Eth = require('ethjs')
 const Utils = require('./utils.js')
 const Wallet = require('./wallet.js')
 const Web3 = require('web3')
-const abi = require('ethereumjs-abi')
 
 const privateKey =
   process.env['PRIVATE_KEY'] ||
