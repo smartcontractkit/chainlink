@@ -1,9 +1,12 @@
 {
-  "extends": [
-    "eslint:recommended",
-    "plugin:react/recommended"
-  ],
+  "parserOptions": {
+    "ecmaVersion": 2017,
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
   "rules": {
     "react/jsx-uses-vars": 2,
+    "react/prop-types": 0
   }
 }

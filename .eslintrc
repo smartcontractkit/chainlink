@@ -2,7 +2,8 @@
   "extends": [
     "standard",
     "prettier",
-    "prettier/standard"
+    "prettier/standard",
+    "plugin:react/recommended"
   ],
   "plugins": [
     "import",
@@ -11,7 +12,7 @@
     "react-hooks"
   ],
   "parserOptions": {
-    "ecmaVersion": 2017
+    "ecmaVersion": 2017,
   },
   "env": {
     "node": true,
