@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
@@ -31,7 +30,7 @@ func TestNewRun(t *testing.T) {
 	bt.MinimumContractPayment = *assets.NewLink(10)
 	assert.Nil(t, store.CreateBridgeType(&bt))
 
-	creationHeight := cltest.BigHexInt(1000)
+	creationHeight := big.NewInt(1000)
 
 	jobSpec := models.NewJob()
 	jobSpec.Tasks = []models.TaskSpec{{
@@ -42,7 +41,7 @@ func TestNewRun(t *testing.T) {
 	}}
 
 	inputResult := models.RunResult{Data: input}
-	run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, &creationHeight, store)
+	run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, creationHeight, store)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 1)
@@ -101,7 +100,7 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 	inputResult := models.RunResult{Data: input}
 
-	creationHeight := cltest.BigHexInt(1000)
+	creationHeight := big.NewInt(1000)
 
 	tests := []struct {
 		name                string
@@ -126,7 +125,7 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 				jobSpec,
 				jobSpec.Initiators[0],
 				inputResult,
-				&creationHeight,
+				creationHeight,
 				store)
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.expectedStatus), string(run.Status))
@@ -255,9 +254,8 @@ func TestResumeConfirmingTask(t *testing.T) {
 			},
 		}},
 	}
-	hexb := hexutil.Big(*creationHeight.ToInt())
 	require.NoError(t, store.CreateJobRun(run))
-	err = services.ResumeConfirmingTask(run, store, &hexb)
+	err = services.ResumeConfirmingTask(run, store, creationHeight.ToInt())
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingConfirmations), string(run.Status))
 
@@ -276,9 +274,9 @@ func TestResumeConfirmingTask(t *testing.T) {
 			},
 		}},
 	}
-	observedHeight := cltest.BigHexInt(1)
+	observedHeight := big.NewInt(1)
 	require.NoError(t, store.CreateJobRun(run))
-	err = services.ResumeConfirmingTask(run, store, &observedHeight)
+	err = services.ResumeConfirmingTask(run, store, observedHeight)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 }
