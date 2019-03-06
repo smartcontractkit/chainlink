@@ -127,7 +127,7 @@ type LogRequest interface {
 	ForLogger(kvs ...interface{}) []interface{}
 	ContractPayment() (*assets.Link, error)
 	ValidateRequester() error
-	ToHead() *Head
+	BlockNumber() *big.Int
 }
 
 // InitiatorLogEvent encapsulates all information as a result of a received log from an
@@ -192,11 +192,11 @@ func (le InitiatorLogEvent) ToDebug() {
 	logger.Debugw(msg, le.ForLogger()...)
 }
 
-// ToHead returns a Head for the given InitiatorSubscriptionLogEvent Block
-func (le InitiatorLogEvent) ToHead() *Head {
+// BlockNumber returns the block number for the given InitiatorSubscriptionLogEvent.
+func (le InitiatorLogEvent) BlockNumber() *big.Int {
 	num := new(big.Int)
 	num.SetUint64(le.Log.BlockNumber)
-	return NewHead(num, le.Log.BlockHash)
+	return num
 }
 
 // Validate returns true, no validation on this log event type.
