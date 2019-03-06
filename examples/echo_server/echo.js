@@ -2,10 +2,10 @@
 
 var echoes = 0
 var express = require('express')
-var body_parser = require('body-parser')
+var bodyParser = require('body-parser')
 var app = express()
 var PORT = process.argv[2]
-app.use(body_parser.json())
+app.use(bodyParser.json())
 
 app.get('/count', function(req, res) {
   res.json(echoes)

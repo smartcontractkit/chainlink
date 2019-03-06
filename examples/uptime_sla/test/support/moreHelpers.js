@@ -23,8 +23,6 @@ const autoAddMapDelimiters = data => {
   return buffer
 }
 
-const bigNum = number => web3.utils.toBN(number)
-
 const zeroX = value => (value.slice(0, 2) !== '0x' ? `0x${value}` : value)
 
 const toHexWithoutPrefix = arg => {
@@ -44,8 +42,6 @@ const toHexWithoutPrefix = arg => {
 const toHex = value => {
   return zeroX(toHexWithoutPrefix(value))
 }
-
-const hexToAddress = hex => zeroX(bigNum(hex).toString('hex'))
 
 export const assertActionThrows = action =>
   Promise.resolve()
