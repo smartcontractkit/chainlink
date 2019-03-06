@@ -204,9 +204,9 @@ func TestMigrate1551895034(t *testing.T) {
 	err = orm.DB.First(&retrieved).Error
 	require.NoError(t, err)
 
-	require.Equal(t, height.ToInt().Int64(), retrieved.Number)
+	require.Equal(t, height.ToInt(), retrieved.ToInt())
 	require.Equal(
 		t,
-		hash.String()[2:],
-		retrieved.Hash)
+		hash.String(),
+		retrieved.Hash().Hex())
 }

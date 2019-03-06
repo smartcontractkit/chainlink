@@ -229,8 +229,8 @@ func (h BlockHeader) ToIndexableBlockNumber() *IndexableBlockNumber {
 
 // IndexableBlockNumber represents a BlockNumber, BlockHash.
 type IndexableBlockNumber struct {
-	Hash   string `gorm:"primary_key;type:varchar"`
-	Number int64  `gorm:"index;type:bigint;not null"`
+	HashRaw string `gorm:"primary_key;type:varchar;column:hash"`
+	Number  int64  `gorm:"index;type:bigint;not null"`
 }
 
 // NewIndexableBlockNumber creates an IndexableBlockNumber given a BlockNumber and BlockHash
@@ -240,9 +240,14 @@ func NewIndexableBlockNumber(bigint *big.Int, hash common.Hash) *IndexableBlockN
 	}
 
 	return &IndexableBlockNumber{
-		Number: bigint.Int64(),
-		Hash:   hash.Hex()[2:], // remove 0x
+		Number:  bigint.Int64(),
+		HashRaw: hash.Hex()[2:], // remove 0x
 	}
+}
+
+// Hash returns the Hash instance related to this block height.
+func (l *IndexableBlockNumber) Hash() common.Hash {
+	return common.HexToHash(l.HashRaw)
 }
 
 // String returns a string representation of this number.
