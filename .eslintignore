@@ -1,0 +1,7 @@
+.storybook
+stories
+coverage
+gui/dist
+internal
+node_modules
+vendor
