@@ -89,13 +89,13 @@ func (js *jobSubscriber) OnNewHead(head *models.BlockHeader) {
 		logger.Error("error fetching pending job runs:", err.Error())
 	}
 
-	ibn := head.ToIndexableBlockNumber().ToHexUtilBig()
+	height := head.ToIndexableBlockNumber().ToInt()
 	logger.Debugw("Received new head",
-		"current_height", ibn.ToInt(),
+		"current_height", height,
 		"pending_run_count", len(pendingRuns),
 	)
 	for _, jr := range pendingRuns {
-		err := ResumeConfirmingTask(&jr, js.store, ibn)
+		err := ResumeConfirmingTask(&jr, js.store, height)
 		if err != nil {
 			logger.Error("JobSubscriber.OnNewHead: ", err.Error())
 		}

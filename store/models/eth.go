@@ -264,15 +264,6 @@ func (l *IndexableBlockNumber) ToInt() *big.Int {
 	return big.NewInt(l.Number)
 }
 
-// ToHexUtilBig returns number as hexutil.Big.
-func (l *IndexableBlockNumber) ToHexUtilBig() *hexutil.Big {
-	if l == nil {
-		return nil
-	}
-	newb := hexutil.Big(*l.ToInt())
-	return &newb
-}
-
 // GreaterThan compares BlockNumbers and returns true if the reciever BlockNumber is greater than
 // the supplied BlockNumber
 func (l *IndexableBlockNumber) GreaterThan(r *IndexableBlockNumber) bool {

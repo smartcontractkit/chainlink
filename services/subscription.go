@@ -160,8 +160,8 @@ func runJob(store *strpkg.Store, le models.LogRequest, data models.JSON) {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
 
-	currentHead := le.ToIndexableBlockNumber()
-	_, err = ExecuteJob(le.GetJobSpec(), le.GetInitiator(), input, currentHead.ToHexUtilBig(), store)
+	currentHead := le.ToIndexableBlockNumber().ToInt()
+	_, err = ExecuteJob(le.GetJobSpec(), le.GetInitiator(), input, currentHead, store)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
