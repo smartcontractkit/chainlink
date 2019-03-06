@@ -83,7 +83,7 @@ func NewInitiatorSubscription(
 	from *models.Head,
 	callback func(*strpkg.Store, models.LogRequest),
 ) (InitiatorSubscription, error) {
-	filter, err := models.FilterQueryFactory(initr, from)
+	filter, err := models.FilterQueryFactory(initr, from.NextInt()) // Exclude current block from subscription
 	if err != nil {
 		return InitiatorSubscription{}, err
 	}
