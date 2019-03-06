@@ -27,7 +27,7 @@ const renderRuns = runs => {
   if (runs && runs.length === 0) {
     return (
       <TableRow>
-        <TableCell colSpan={5}>The job hasn't run yet</TableCell>
+        <TableCell colSpan={5}>The job hasn’t run yet</TableCell>
       </TableRow>
     )
   } else if (runs) {
