@@ -189,14 +189,40 @@ func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
 	return jr, err
 }
 
+// convenientTransaction handles setup and teardown for a gorm database
+// transaction, handing off the database transaction to the callback parameter.
+// Encourages the use of transactions for gorm calls that translate
+// into multiple sql calls, i.e. orm.SaveJobRun(run), which are better suited
+// in a database transaction.
+// Improves efficiency in sqlite by preventing autocommit on each line, instead
+// batch committing at the end of the transaction.
+func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
+	dbtx := orm.DB.Begin()
+	if dbtx.Error != nil {
+		return dbtx.Error
+	}
+
+	err := callback(dbtx)
+	if err != nil {
+		dbtx.Rollback()
+		return err
+	}
+
+	return dbtx.Commit().Error
+}
+
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
-	return orm.DB.Save(run).Error
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return dbtx.Save(run).Error
+	})
 }
 
 // CreateJobRun inserts a new JobRun
 func (orm *ORM) CreateJobRun(run *models.JobRun) error {
-	return orm.DB.Create(run).Error
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return dbtx.Create(run).Error
+	})
 }
 
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
@@ -269,7 +295,10 @@ func (orm *ORM) CreateJob(job *models.JobSpec) error {
 	for i := range job.Initiators {
 		job.Initiators[i].JobSpecID = job.ID
 	}
-	return orm.DB.Create(job).Error
+
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return dbtx.Create(job).Error
+	})
 }
 
 // CreateServiceAgreement saves a service agreement and it's associations to the
@@ -320,7 +349,10 @@ func (orm *ORM) CreateTx(
 func (orm *ORM) ConfirmTx(tx *models.Tx, txat *models.TxAttempt) error {
 	txat.Confirmed = true
 	tx.AssignTxAttempt(txat)
-	return orm.DB.Save(tx).Save(txat).Error
+
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return dbtx.Save(tx).Save(txat).Error
+	})
 }
 
 // FindTx returns the specific transaction for the passed ID.
@@ -380,7 +412,10 @@ func (orm *ORM) AddTxAttempt(
 	if !tx.Confirmed {
 		tx.AssignTxAttempt(attempt)
 	}
-	err = orm.DB.Save(tx).Save(attempt).Error
+
+	err = orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return dbtx.Save(tx).Save(attempt).Error
+	})
 	return attempt, err
 }
 
@@ -693,24 +728,11 @@ func (orm *ORM) DeleteStaleSessions(before time.Time) error {
 
 // DeleteTransaction deletes a transaction an all of its attempts.
 func (orm *ORM) DeleteTransaction(ethtx *models.Tx) error {
-	tx := orm.DB.Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-
-	err := tx.Where("id = ?", ethtx.ID).Delete(models.Tx{}).Error
-	if err != nil {
-		tx.Rollback()
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		err := dbtx.Where("id = ?", ethtx.ID).Delete(models.Tx{}).Error
+		err = multierr.Append(err, dbtx.Where("tx_id = ?", ethtx.ID).Delete(models.TxAttempt{}).Error)
 		return err
-	}
-
-	err = tx.Where("tx_id = ?", ethtx.ID).Delete(models.TxAttempt{}).Error
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	return tx.Commit().Error
+	})
 }
 
 // BulkDeleteRuns removes JobRuns and their related records: TaskRuns and

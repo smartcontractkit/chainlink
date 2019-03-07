@@ -43,7 +43,7 @@ func TestORM_AllNotFound(t *testing.T) {
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
 }
 
-func TestORM_SaveJob(t *testing.T) {
+func TestORM_CreateJob(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
