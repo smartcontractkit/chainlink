@@ -691,6 +691,28 @@ func (orm *ORM) DeleteStaleSessions(before time.Time) error {
 	return orm.DB.Where("last_used < ?", before).Delete(models.Session{}).Error
 }
 
+// DeleteTransaction deletes a transaction an all of its attempts.
+func (orm *ORM) DeleteTransaction(ethtx *models.Tx) error {
+	tx := orm.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	err := tx.Where("id = ?", ethtx.ID).Delete(models.Tx{}).Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	err = tx.Where("tx_id = ?", ethtx.ID).Delete(models.TxAttempt{}).Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
 // BulkDeleteRuns removes JobRuns and their related records: TaskRuns and
 // RunResults.
 //
