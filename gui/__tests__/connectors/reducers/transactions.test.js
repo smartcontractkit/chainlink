@@ -39,7 +39,7 @@ describe('connectors/reducers/transactions', () => {
     const action = {
       type: UPSERT_TRANSACTION,
       data: {
-        txattempts: {
+        transactions: {
           a: { id: 'a' }
         }
       }
