@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/adapters"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
@@ -19,13 +18,13 @@ func ExecuteJob(
 	job models.JobSpec,
 	initiator models.Initiator,
 	input models.RunResult,
-	creationHeight *hexutil.Big,
+	creationHeight *big.Int,
 	store *store.Store) (*models.JobRun, error) {
 
 	logger.Debugw(fmt.Sprintf("New run triggered by %s", initiator.Type),
 		"job", job.ID,
 		"input_status", input.Status,
-		"creation_height", creationHeight.ToInt(),
+		"creation_height", creationHeight,
 	)
 
 	run, err := NewRun(job, initiator, input, creationHeight, store)
@@ -42,7 +41,7 @@ func NewRun(
 	job models.JobSpec,
 	initiator models.Initiator,
 	input models.RunResult,
-	currentHeight *hexutil.Big,
+	currentHeight *big.Int,
 	store *store.Store) (*models.JobRun, error) {
 
 	now := store.Clock.Now()
@@ -62,8 +61,8 @@ func NewRun(
 
 	run.Overrides = input
 	run.ApplyResult(input)
-	run.CreationHeight = models.NewBig(currentHeight.ToInt())
-	run.ObservedHeight = models.NewBig(currentHeight.ToInt())
+	run.CreationHeight = models.NewBig(currentHeight)
+	run.ObservedHeight = models.NewBig(currentHeight)
 
 	cost := assets.NewLink(0)
 	for i, taskRun := range run.TaskRuns {
@@ -123,7 +122,7 @@ func NewRun(
 func ResumeConfirmingTask(
 	run *models.JobRun,
 	store *store.Store,
-	currentBlockHeight *hexutil.Big,
+	currentBlockHeight *big.Int,
 ) error {
 
 	logger.Debugw("New head resuming run", run.ForLogger()...)
@@ -141,7 +140,7 @@ func ResumeConfirmingTask(
 		return fmt.Errorf("Attempting to resume confirming run with no currentBlockHeight %s", run.ID)
 	}
 
-	run.ObservedHeight = models.NewBig(currentBlockHeight.ToInt())
+	run.ObservedHeight = models.NewBig(currentBlockHeight)
 
 	if meetsMinimumConfirmations(run, currentTaskRun, run.ObservedHeight) {
 		logger.Debugw("Minimum confirmations met, resuming job", run.ForLogger()...)

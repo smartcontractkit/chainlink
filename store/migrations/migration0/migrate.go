@@ -25,7 +25,7 @@ func (m Migration) Migrate(orm *orm.ORM) error {
 		migrationHelper(orm, &models.Tx{}),
 		migrationHelper(orm, &models.TxAttempt{}),
 		migrationHelper(orm, &models.BridgeType{}),
-		migrationHelper(orm, &models.IndexableBlockNumber{}),
+		migrationHelper(orm, &models.Head{}),
 		migrationHelper(orm, &models.User{}),
 		migrationHelper(orm, &models.Session{}),
 		migrationHelper(orm, &models.Encumbrance{}),

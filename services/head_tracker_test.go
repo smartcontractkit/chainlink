@@ -22,10 +22,10 @@ func TestHeadTracker_New(t *testing.T) {
 	defer cleanup()
 
 	cltest.MockEthOnStore(store)
-	assert.Nil(t, store.SaveHead(cltest.IndexableBlockNumber(1)))
-	last := cltest.IndexableBlockNumber(16)
+	assert.Nil(t, store.SaveHead(cltest.Head(1)))
+	last := cltest.Head(16)
 	assert.Nil(t, store.SaveHead(last))
-	assert.Nil(t, store.SaveHead(cltest.IndexableBlockNumber(10)))
+	assert.Nil(t, store.SaveHead(cltest.Head(10)))
 
 	ht := services.NewHeadTracker(store)
 	assert.Nil(t, ht.Start())
@@ -35,18 +35,18 @@ func TestHeadTracker_New(t *testing.T) {
 func TestHeadTracker_Get(t *testing.T) {
 	t.Parallel()
 
-	start := cltest.IndexableBlockNumber(5)
+	start := cltest.Head(5)
 
 	tests := []struct {
 		name      string
-		initial   *models.IndexableBlockNumber
-		toSave    *models.IndexableBlockNumber
+		initial   *models.Head
+		toSave    *models.Head
 		want      *big.Int
 		wantError bool
 	}{
-		{"greater", start, cltest.IndexableBlockNumber(6), big.NewInt(6), false},
-		{"less than", start, cltest.IndexableBlockNumber(1), big.NewInt(5), true},
-		{"zero", start, cltest.IndexableBlockNumber(0), big.NewInt(5), true},
+		{"greater", start, cltest.Head(6), big.NewInt(6), false},
+		{"less than", start, cltest.Head(1), big.NewInt(5), true},
+		{"zero", start, cltest.Head(0), big.NewInt(5), true},
 		{"nil", start, nil, big.NewInt(5), true},
 		{"nil no initial", nil, nil, nil, true},
 	}
@@ -204,8 +204,8 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	currentBN := big.NewInt(2)
 	var connectedValue atomic.Value
 
-	require.NoError(t, ht.Save(models.NewIndexableBlockNumber(lastSavedBN, cltest.NewHash())))
-	checker := &cltest.MockHeadTrackable{ConnectedCallback: func(bn *models.IndexableBlockNumber) {
+	require.NoError(t, ht.Save(models.NewHead(lastSavedBN, cltest.NewHash())))
+	checker := &cltest.MockHeadTrackable{ConnectedCallback: func(bn *models.Head) {
 		connectedValue.Store(bn.ToInt())
 	}}
 

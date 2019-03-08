@@ -24,7 +24,7 @@ type HeadTracker struct {
 	headers               chan models.BlockHeader
 	headSubscription      models.EthSubscription
 	store                 *strpkg.Store
-	head                  *models.IndexableBlockNumber
+	head                  *models.Head
 	headMutex             sync.RWMutex
 	connected             *abool.AtomicBool
 	sleeper               utils.Sleeper
@@ -69,7 +69,7 @@ func (ht *HeadTracker) Start() error {
 	}
 	number := ht.Head()
 	if number != nil {
-		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash.String())
+		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash().Hex())
 	}
 
 	ht.done = make(chan struct{})
@@ -100,7 +100,7 @@ func (ht *HeadTracker) Stop() error {
 
 // Save updates the latest block number, if indeed the latest, and persists
 // this number in case of reboot. Thread safe.
-func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
+func (ht *HeadTracker) Save(n *models.Head) error {
 	if n == nil {
 		return errors.New("Cannot save a nil block header")
 	}
@@ -112,14 +112,14 @@ func (ht *HeadTracker) Save(n *models.IndexableBlockNumber) error {
 		ht.headMutex.Unlock()
 	} else {
 		ht.headMutex.Unlock()
-		msg := fmt.Sprintf("Cannot save new head confirmation %v because it's equal to or less than current head %v with hash %v", n, ht.head, n.Hash.Hex())
+		msg := fmt.Sprintf("Cannot save new head confirmation %v because it's equal to or less than current head %v with hash %s", n, ht.head, n.Hash().Hex())
 		return errBlockNotLater{msg}
 	}
 	return ht.store.SaveHead(n)
 }
 
 // Head returns the latest block header being tracked, or nil.
-func (ht *HeadTracker) Head() *models.IndexableBlockNumber {
+func (ht *HeadTracker) Head() *models.Head {
 	ht.headMutex.RLock()
 	defer ht.headMutex.RUnlock()
 	return ht.head
@@ -147,7 +147,7 @@ func (ht *HeadTracker) Detach(id string) {
 // Connected returns whether or not this HeadTracker is connected.
 func (ht *HeadTracker) Connected() bool { return ht.connected.IsSet() }
 
-func (ht *HeadTracker) connect(bn *models.IndexableBlockNumber) {
+func (ht *HeadTracker) connect(bn *models.Head) {
 	ht.attachments.iter(func(t store.HeadTrackable) {
 		logger.WarnIf(t.Connect(bn))
 	})
@@ -159,7 +159,7 @@ func (ht *HeadTracker) disconnect() {
 	})
 }
 
-func (ht *HeadTracker) onNewHead(head *models.BlockHeader) {
+func (ht *HeadTracker) onNewHead(head *models.Head) {
 	ht.attachments.iter(func(t store.HeadTrackable) {
 		t.OnNewHead(head)
 	})
@@ -209,13 +209,13 @@ func (ht *HeadTracker) receiveHeaders() error {
 		select {
 		case <-ht.done:
 			return nil
-		case header, open := <-ht.headers:
+		case block, open := <-ht.headers:
 			if !open {
 				return errors.New("HeadTracker headers prematurely closed")
 			}
-			number := header.ToIndexableBlockNumber()
-			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(number.ToInt()), header.Hash().String()), "hash", header.Hash())
-			if err := ht.Save(number); err != nil {
+			head := block.ToHead()
+			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(head.ToInt()), block.Hash().String()), "hash", head.Hash().Hex())
+			if err := ht.Save(head); err != nil {
 				switch err.(type) {
 				case errBlockNotLater:
 					logger.Warn(err)
@@ -223,7 +223,7 @@ func (ht *HeadTracker) receiveHeaders() error {
 					logger.Error(err)
 				}
 			} else {
-				ht.onNewHead(&header)
+				ht.onNewHead(head)
 			}
 		case err, open := <-ht.headSubscription.Err():
 			if open && err != nil {

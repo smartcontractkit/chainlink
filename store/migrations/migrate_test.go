@@ -1,13 +1,17 @@
 package migrations_test
 
 import (
+	"math/big"
 	"os"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1551816486"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1551895034"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1551895034/old"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/stretchr/testify/assert"
@@ -145,7 +149,14 @@ func TestMigrate1551816486(t *testing.T) {
 
 	// seed db w old table
 	err := orm.DB.Exec(`
-		CREATE TABLE "bridge_types" ("name" varchar(255),"url" varchar(255),"confirmations" bigint,"incoming_token" varchar(255),"outgoing_token" varchar(255),"minimum_contract_payment" varchar(255), UNIQUE (name));
+		CREATE TABLE "bridge_types" (
+			"name" varchar(255),
+			"url" varchar(255),
+			"confirmations" bigint,
+			"incoming_token" varchar(255),
+			"outgoing_token" varchar(255),
+			"minimum_contract_payment" varchar(255),
+			UNIQUE (name));
 	`).Error
 
 	require.NoError(t, err)
@@ -161,4 +172,41 @@ func TestMigrate1551816486(t *testing.T) {
 	migratedbt, err := orm.FindBridge(initial.Name.String())
 	require.NoError(t, err)
 	require.Equal(t, initial, migratedbt)
+}
+
+func TestMigrate1551895034(t *testing.T) {
+	migrations.ExportedClearRegisteredMigrations()
+
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	tm := &migration1551895034.Migration{}
+	migrations.ExportedRegisterMigration(tm)
+
+	height := models.NewBig(big.NewInt(1337))
+	hash := common.HexToHash("0xde3fb1df888c6c7f77f3a8e9c2582f87e7ad5277d98bd06cfd17cd2d7ea49f42")
+
+	previous := old.IndexableBlockNumber{
+		Number: *height,
+		Digits: 4,
+		Hash:   hash,
+	}
+	// seed w old schema and data
+	err := orm.DB.AutoMigrate(old.IndexableBlockNumber{}).Error
+	require.NoError(t, err)
+	err = orm.DB.Save(&previous).Error
+	require.NoError(t, err)
+
+	// migrate
+	require.NoError(t, migrations.Migrate(orm))
+
+	retrieved := models.Head{}
+	err = orm.DB.First(&retrieved).Error
+	require.NoError(t, err)
+
+	require.Equal(t, height.ToInt(), retrieved.ToInt())
+	require.Equal(
+		t,
+		hash.String(),
+		retrieved.Hash().Hex())
 }
