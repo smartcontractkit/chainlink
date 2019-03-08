@@ -93,6 +93,7 @@ func runAlways(orm *orm.ORM) error {
 	return multierr.Combine(
 		setTimezone(orm),
 		setForeignKeysOn(orm),
+		limitSqliteOpenConnections(orm),
 		automigrateMigrationsTable(orm),
 	)
 }
@@ -110,7 +111,20 @@ func setTimezone(orm *orm.ORM) error {
 
 func setForeignKeysOn(orm *orm.ORM) error {
 	if strings.HasPrefix(orm.DB.Dialect().GetName(), "sqlite") {
-		return orm.DB.Exec("PRAGMA foreign_keys = ON").Error
+		return orm.DB.Exec(`
+			PRAGMA foreign_keys = ON;
+			PRAGMA journal_mode = WAL;
+		`).Error
+	}
+	return nil
+}
+
+// limitSqliteOpenConnections deliberately limits Sqlites concurrency
+// to reduce contention, reduce errors, and improve performance:
+// https://stackoverflow.com/a/35805826/639773
+func limitSqliteOpenConnections(orm *orm.ORM) error {
+	if strings.HasPrefix(orm.DB.Dialect().GetName(), "sqlite") {
+		orm.DB.DB().SetMaxOpenConns(1)
 	}
 	return nil
 }
