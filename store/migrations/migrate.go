@@ -91,7 +91,7 @@ func availableMigrationTimestamps() []string {
 func runAlways(orm *orm.ORM) error {
 	return multierr.Combine(
 		setTimezone(orm),
-		setForeignKeysOn(orm),
+		setSqlitePragmas(orm),
 		limitSqliteOpenConnections(orm),
 		automigrateMigrationsTable(orm),
 	)
@@ -108,7 +108,7 @@ func setTimezone(orm *orm.ORM) error {
 	return nil
 }
 
-func setForeignKeysOn(orm *orm.ORM) error {
+func setSqlitePragmas(orm *orm.ORM) error {
 	if orm.IsSqlite() {
 		return orm.DB.Exec(`
 			PRAGMA foreign_keys = ON;
