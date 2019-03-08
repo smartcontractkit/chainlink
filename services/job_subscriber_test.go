@@ -28,7 +28,7 @@ func TestJobSubscriber_Connect_WithJobs(t *testing.T) {
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
 
-	assert.Nil(t, el.Connect(cltest.IndexableBlockNumber(1)))
+	assert.Nil(t, el.Connect(cltest.Head(1)))
 	eth.EventuallyAllCalled(t)
 }
 
@@ -51,14 +51,14 @@ func TestJobSubscriber_reconnectLoop_Resubscribing(t *testing.T) {
 	eth.RegisterSubscription("logs")
 
 	el := services.NewJobSubscriber(store)
-	assert.Nil(t, el.Connect(cltest.IndexableBlockNumber(1)))
+	assert.Nil(t, el.Connect(cltest.Head(1)))
 	assert.Equal(t, 2, len(el.Jobs()))
 	el.Disconnect()
 	assert.Equal(t, 0, len(el.Jobs()))
 
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
-	assert.Nil(t, el.Connect(cltest.IndexableBlockNumber(2)))
+	assert.Nil(t, el.Connect(cltest.Head(2)))
 	assert.Equal(t, 2, len(el.Jobs()))
 	el.Disconnect()
 	assert.Equal(t, 0, len(el.Jobs()))
@@ -130,7 +130,7 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 			initr.Address = test.initrAddr
 			job.Initiators = []models.Initiator{initr}
 			require.NoError(t, store.CreateJob(&job))
-			el.AddJob(job, cltest.IndexableBlockNumber(1))
+			el.AddJob(job, cltest.Head(1))
 
 			ht := services.NewHeadTracker(store)
 			ht.Attach(el)
@@ -185,7 +185,7 @@ func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
 			run.ApplyResult(models.RunResult{Status: test.status})
 			assert.Nil(t, store.CreateJobRun(&run))
 
-			js.OnNewHead(block)
+			js.OnNewHead(block.ToHead())
 			if test.wantSend {
 				assert.Equal(t, 1, len(mockRunChannel.Runs))
 			} else {

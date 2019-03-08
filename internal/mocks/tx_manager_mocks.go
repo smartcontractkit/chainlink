@@ -55,7 +55,7 @@ func (mr *MockTxManagerMockRecorder) BumpGasUntilSafe(arg0 interface{}) *gomock.
 }
 
 // Connect mocks base method
-func (m *MockTxManager) Connect(arg0 *models.IndexableBlockNumber) error {
+func (m *MockTxManager) Connect(arg0 *models.Head) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Connect", arg0)
 	ret0, _ := ret[0].(error)
@@ -229,7 +229,7 @@ func (mr *MockTxManagerMockRecorder) NextActiveAccount() *gomock.Call {
 }
 
 // OnNewHead mocks base method
-func (m *MockTxManager) OnNewHead(arg0 *models.BlockHeader) {
+func (m *MockTxManager) OnNewHead(arg0 *models.Head) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "OnNewHead", arg0)
 }

@@ -707,14 +707,14 @@ func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 }
 
 // SaveHead saves the indexable block number related to head tracker.
-func (orm *ORM) SaveHead(n *models.IndexableBlockNumber) error {
+func (orm *ORM) SaveHead(n *models.Head) error {
 	return orm.DB.Save(n).Error
 }
 
-// LastHead returns the last ordered IndexableBlockNumber.
-func (orm *ORM) LastHead() (*models.IndexableBlockNumber, error) {
-	number := &models.IndexableBlockNumber{}
-	err := orm.DB.Order("digits desc, number desc").First(number).Error
+// LastHead returns the most recently persisted head entry.
+func (orm *ORM) LastHead() (*models.Head, error) {
+	number := &models.Head{}
+	err := orm.DB.Order("number desc").First(number).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
@@ -834,4 +834,14 @@ func (orm *ORM) getRecords(collection interface{}, order string, offset, limit i
 		Set("gorm:auto_preload", true).
 		Order(order).Limit(limit).Offset(offset).
 		Find(collection).Error
+}
+
+// IsPostgres returns true if the underlying database is postgres.
+func (orm *ORM) IsPostgres() bool {
+	return orm.DB.Dialect().GetName() == "postgres"
+}
+
+// IsSqlite returns true if the underlying database is sqlite.
+func (orm *ORM) IsSqlite() bool {
+	return strings.HasPrefix(orm.DB.Dialect().GetName(), "sqlite")
 }

@@ -211,13 +211,13 @@ func newHeadTrackableCallback(callback func()) store.HeadTrackable {
 	return &headTrackableCallback{onConnect: callback}
 }
 
-func (c *headTrackableCallback) Connect(*models.IndexableBlockNumber) error {
+func (c *headTrackableCallback) Connect(*models.Head) error {
 	c.onConnect()
 	return nil
 }
 
-func (c *headTrackableCallback) Disconnect()                   {}
-func (c *headTrackableCallback) OnNewHead(*models.BlockHeader) {}
+func (c *headTrackableCallback) Disconnect()            {}
+func (c *headTrackableCallback) OnNewHead(*models.Head) {}
 
 type pendingConnectionResumer struct {
 	store   *store.Store
@@ -228,7 +228,7 @@ func newPendingConnectionResumer(store *store.Store) *pendingConnectionResumer {
 	return &pendingConnectionResumer{store: store, resumer: ResumeConnectingTask}
 }
 
-func (p *pendingConnectionResumer) Connect(head *models.IndexableBlockNumber) error {
+func (p *pendingConnectionResumer) Connect(head *models.Head) error {
 	pendingRuns, err := p.store.JobRunsWithStatus(models.RunStatusPendingConnection)
 	if err != nil {
 		return multierr.Append(errors.New("error resuming pending connections"), err)
@@ -244,5 +244,5 @@ func (p *pendingConnectionResumer) Connect(head *models.IndexableBlockNumber) er
 	return merr
 }
 
-func (p *pendingConnectionResumer) Disconnect()                   {}
-func (p *pendingConnectionResumer) OnNewHead(*models.BlockHeader) {}
+func (p *pendingConnectionResumer) Disconnect()            {}
+func (p *pendingConnectionResumer) OnNewHead(*models.Head) {}

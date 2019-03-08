@@ -7,7 +7,7 @@ import (
 // HeadTrackable represents any object that wishes to respond to ethereum events,
 // after being attached to HeadTracker.
 type HeadTrackable interface {
-	Connect(*models.IndexableBlockNumber) error
+	Connect(*models.Head) error
 	Disconnect()
-	OnNewHead(*models.BlockHeader)
+	OnNewHead(*models.Head)
 }

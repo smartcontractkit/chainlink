@@ -102,7 +102,7 @@ func (txm *EthTxManager) Connected() bool {
 
 // Connect iterates over the available accounts to retrieve their nonce
 // for client side management.
-func (txm *EthTxManager) Connect(bn *models.IndexableBlockNumber) error {
+func (txm *EthTxManager) Connect(bn *models.Head) error {
 	txm.accountsMutex.Lock()
 	defer txm.accountsMutex.Unlock()
 
@@ -126,7 +126,7 @@ func (txm *EthTxManager) Disconnect() {
 }
 
 // OnNewHead does nothing; exists to comply with interface.
-func (txm *EthTxManager) OnNewHead(*models.BlockHeader) {}
+func (txm *EthTxManager) OnNewHead(*models.Head) {}
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {

@@ -29,7 +29,7 @@ type JobSubscription struct {
 // StartJobSubscription constructs a JobSubscription which listens for and
 // tracks event logs corresponding to the specified job. Ignores any errors if
 // there is at least one successful subscription to an initiator log.
-func StartJobSubscription(job models.JobSpec, head *models.IndexableBlockNumber, store *strpkg.Store) (JobSubscription, error) {
+func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.Store) (JobSubscription, error) {
 	var merr error
 	var unsubscribers []Unsubscriber
 
@@ -80,10 +80,10 @@ func NewInitiatorSubscription(
 	initr models.Initiator,
 	job models.JobSpec,
 	store *strpkg.Store,
-	from *models.IndexableBlockNumber,
+	from *models.Head,
 	callback func(*strpkg.Store, models.LogRequest),
 ) (InitiatorSubscription, error) {
-	filter, err := models.FilterQueryFactory(initr, from)
+	filter, err := models.FilterQueryFactory(initr, from.NextInt()) // Exclude current block from subscription
 	if err != nil {
 		return InitiatorSubscription{}, err
 	}
@@ -160,8 +160,7 @@ func runJob(store *strpkg.Store, le models.LogRequest, data models.JSON) {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
 
-	currentHead := le.ToIndexableBlockNumber().Number
-	_, err = ExecuteJob(le.GetJobSpec(), le.GetInitiator(), input, currentHead.ToHexUtilBig(), store)
+	_, err = ExecuteJob(le.GetJobSpec(), le.GetInitiator(), input, le.BlockNumber(), store)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}

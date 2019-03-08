@@ -3,7 +3,6 @@ package migrations
 import (
 	"fmt"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/logger"
@@ -92,7 +91,7 @@ func availableMigrationTimestamps() []string {
 func runAlways(orm *orm.ORM) error {
 	return multierr.Combine(
 		setTimezone(orm),
-		setForeignKeysOn(orm),
+		setSqlitePragmas(orm),
 		limitSqliteOpenConnections(orm),
 		automigrateMigrationsTable(orm),
 	)
@@ -103,14 +102,14 @@ func automigrateMigrationsTable(orm *orm.ORM) error {
 }
 
 func setTimezone(orm *orm.ORM) error {
-	if orm.DB.Dialect().GetName() == "postgres" {
+	if orm.IsPostgres() {
 		return orm.DB.Exec(`SET TIME ZONE 'UTC'`).Error
 	}
 	return nil
 }
 
-func setForeignKeysOn(orm *orm.ORM) error {
-	if strings.HasPrefix(orm.DB.Dialect().GetName(), "sqlite") {
+func setSqlitePragmas(orm *orm.ORM) error {
+	if orm.IsSqlite() {
 		return orm.DB.Exec(`
 			PRAGMA foreign_keys = ON;
 			PRAGMA journal_mode = WAL;
@@ -123,7 +122,7 @@ func setForeignKeysOn(orm *orm.ORM) error {
 // to reduce contention, reduce errors, and improve performance:
 // https://stackoverflow.com/a/35805826/639773
 func limitSqliteOpenConnections(orm *orm.ORM) error {
-	if strings.HasPrefix(orm.DB.Dialect().GetName(), "sqlite") {
+	if orm.IsSqlite() {
 		orm.DB.DB().SetMaxOpenConns(1)
 	}
 	return nil
