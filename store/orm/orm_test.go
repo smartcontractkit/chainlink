@@ -43,7 +43,7 @@ func TestORM_AllNotFound(t *testing.T) {
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
 }
 
-func TestORM_SaveJob(t *testing.T) {
+func TestORM_CreateJob(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -558,6 +558,26 @@ func TestORM_CreateSession(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestORM_DeleteTransaction(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	_, err := store.KeyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+	defer cleanup()
+
+	from := cltest.GetAccountAddress(store)
+	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
+	require.NoError(t, err)
+
+	require.NoError(t, store.DeleteTransaction(tx))
+
+	_, err = store.FindTx(tx.ID)
+	assert.Error(t, err)
+	attempts, err := store.TxAttemptsFor(tx.ID)
+	assert.NoError(t, err)
+	assert.Empty(t, attempts)
 }
 
 func TestBulkDeleteRuns(t *testing.T) {

@@ -212,13 +212,10 @@ func (txm *EthTxManager) createEthTxWithNonceReload(
 		}
 
 		logger.Infow(fmt.Sprintf("Created ETH transaction, attempt #: %v", nrc), "from", ma.Address.String(), "to", to.String())
-		var txa *models.TxAttempt
-		txa, err = txm.createAttempt(tx, gasPriceWei, blkNum)
+		_, err = txm.createAttempt(tx, gasPriceWei, blkNum)
 		if err != nil {
-			txm.orm.DB.Delete(tx)
-			txm.orm.DB.Delete(txa)
-
-			return fmt.Errorf("TxManager CreateTX %v", err)
+			merr := multierr.Append(err, txm.orm.DeleteTransaction(tx))
+			return fmt.Errorf("TxManager CreateTX %v", merr)
 		}
 
 		return nil
