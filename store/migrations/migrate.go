@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1549496047"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1551816486"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1551895034"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	"go.uber.org/multierr"
 )
@@ -17,6 +18,7 @@ func init() {
 	registerMigration(migration0.Migration{})
 	registerMigration(migration1549496047.Migration{})
 	registerMigration(migration1551816486.Migration{})
+	registerMigration(migration1551895034.Migration{})
 }
 
 type migration interface {
