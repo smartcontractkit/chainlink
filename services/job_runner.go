@@ -94,7 +94,7 @@ func (rm *jobRunner) resumeRunsSinceLastShutdown() error {
 	}
 
 	for _, run := range models.JobRunsWithStatus(resumableRuns, models.RunStatusPendingSleep) {
-		if err := QueueSleepingTask(&run, rm.store); err != nil {
+		if err := QueueSleepingTask(&run, rm.store.Unscoped()); err != nil {
 			logger.Errorw("Error resuming sleeping job", "error", err)
 		}
 	}
