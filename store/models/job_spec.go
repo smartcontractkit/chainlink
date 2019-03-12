@@ -26,6 +26,7 @@ type JobSpec struct {
 	Tasks      []TaskSpec  `json:"tasks"`
 	StartAt    null.Time   `json:"startAt" gorm:"index"`
 	EndAt      null.Time   `json:"endAt" gorm:"index"`
+	DeletedAt  null.Time   `json:"-" gorm:"index"`
 }
 
 // JobSpecRequest represents a schema for the incoming job spec request as used by the API.
@@ -182,6 +183,7 @@ type Initiator struct {
 	Type            string    `json:"type" gorm:"index;not null"`
 	CreatedAt       time.Time `gorm:"index"`
 	InitiatorParams `json:"params,omitempty"`
+	DeletedAt       null.Time `json:"-" gorm:"index"`
 }
 
 // InitiatorParams is a collection of the possible parameters that different

@@ -29,6 +29,7 @@ type JobRun struct {
 	ObservedHeight *Big      `json:"observedHeight" gorm:"type:varchar(255)"`
 	Overrides      RunResult `json:"overrides"`
 	OverridesID    uint      `json:"-"`
+	DeletedAt      null.Time `json:"-" gorm:"index"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
