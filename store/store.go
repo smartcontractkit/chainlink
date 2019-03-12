@@ -153,6 +153,14 @@ func (s *Store) Close() error {
 	return s.ORM.Close()
 }
 
+// Unscoped returns a shallow copy of the store, with an unscoped ORM allowing
+// one to work with soft deleted records.
+func (s *Store) Unscoped() *Store {
+	cpy := *s
+	cpy.ORM = cpy.ORM.Unscoped()
+	return &cpy
+}
+
 // AuthorizedUserWithSession will return the one API user if the Session ID exists
 // and hasn't expired, and update session's LastUsed field.
 func (s *Store) AuthorizedUserWithSession(sessionID string) (models.User, error) {

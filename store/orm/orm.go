@@ -180,13 +180,23 @@ func (orm *ORM) preloadJobs() *gorm.DB {
 		})
 }
 
+func preloadTaskRuns(db *gorm.DB) *gorm.DB {
+	return db.
+		Preload("Result").
+		Preload("TaskSpec", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		})
+}
+
 func (orm *ORM) preloadJobRuns() *gorm.DB {
 	return orm.DB.
-		Preload("Initiator").
+		Preload("Initiator", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
 		Preload("Overrides").
 		Preload("Result").
 		Preload("TaskRuns", func(db *gorm.DB) *gorm.DB {
-			return db.Set("gorm:auto_preload", true).Order("task_spec_id asc")
+			return preloadTaskRuns(db).Order("task_spec_id asc")
 		})
 }
 
