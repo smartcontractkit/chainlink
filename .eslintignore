@@ -1,3 +1,7 @@
-assets/dependencies/**/*.js
+assets/*
+build/*
+node_modules/*
 views/**/*.ejs
-
+src/serviceWorker.js
+tasks/*
+config/*
