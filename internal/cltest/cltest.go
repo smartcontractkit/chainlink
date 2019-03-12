@@ -704,7 +704,7 @@ func WaitForJobRunStatus(
 	t.Helper()
 	var err error
 	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
-		jr, err = store.FindJobRun(jr.ID)
+		jr, err = store.Unscoped().FindJobRun(jr.ID)
 		assert.NoError(t, err)
 		return jr.Status
 	}).Should(gomega.Equal(status))

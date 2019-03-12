@@ -97,7 +97,8 @@ func (jrc *JobRunsController) Show(c *gin.Context) {
 func (jrc *JobRunsController) Update(c *gin.Context) {
 	id := c.Param("RunID")
 	var brr models.BridgeRunResult
-	if jr, err := jrc.App.GetStore().FindJobRun(id); err == orm.ErrorNotFound {
+	unscoped := jrc.App.GetStore().Unscoped()
+	if jr, err := unscoped.FindJobRun(id); err == orm.ErrorNotFound {
 		publicError(c, http.StatusNotFound, errors.New("Job Run not found"))
 	} else if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -105,11 +106,11 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		publicError(c, http.StatusMethodNotAllowed, errors.New("Cannot resume a job run that isn't pending"))
 	} else if err := c.ShouldBindJSON(&brr); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if bt, err := jrc.App.GetStore().PendingBridgeType(jr); err != nil {
+	} else if bt, err := unscoped.PendingBridgeType(jr); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else if _, err := bt.Authenticate(utils.StripBearer(c.Request.Header.Get("Authorization"))); err != nil {
 		publicError(c, http.StatusUnauthorized, err)
-	} else if err = services.ResumePendingTask(&jr, jrc.App.GetStore(), brr.RunResult); err != nil {
+	} else if err = services.ResumePendingTask(&jr, unscoped, brr.RunResult); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
 		c.JSON(http.StatusOK, gin.H{"id": jr.ID})

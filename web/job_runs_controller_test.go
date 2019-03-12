@@ -205,28 +205,45 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	app.Start()
 	defer cleanup()
 
-	bt := cltest.NewBridgeType()
-	assert.Nil(t, app.Store.CreateBridgeType(&bt))
-	j := cltest.NewJobWithWebInitiator()
-	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
-	assert.Nil(t, app.Store.CreateJob(&j))
-	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
-	assert.Nil(t, app.Store.CreateJobRun(&jr))
+	tests := []struct {
+		name     string
+		archived bool
+	}{
+		{"normal_job", false},
+		{"archived_job", true},
+	}
 
-	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
-	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
-	url := app.Config.ClientNodeURL() + "/v2/runs/" + jr.ID
-	resp, cleanup := cltest.UnauthenticatedPatch(url, bytes.NewBufferString(body), headers)
-	defer cleanup()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bt := cltest.NewBridgeType(test.name)
+			require.NoError(t, app.Store.CreateBridgeType(&bt))
+			j := cltest.NewJobWithWebInitiator()
+			j.Tasks = []models.TaskSpec{{Type: bt.Name}}
+			require.NoError(t, app.Store.CreateJob(&j))
+			jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
+			require.NoError(t, app.Store.CreateJobRun(&jr))
 
-	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
-	jrID := cltest.ParseCommonJSON(resp.Body).ID
-	assert.Equal(t, jr.ID, jrID)
+			if test.archived {
+				require.NoError(t, app.Store.ArchiveJob(j.ID))
+			}
 
-	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-	val, err := jr.Result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, "100", val)
+			// resume run
+			body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
+			headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
+			url := app.Config.ClientNodeURL() + "/v2/runs/" + jr.ID
+			resp, cleanup := cltest.UnauthenticatedPatch(url, bytes.NewBufferString(body), headers)
+			defer cleanup()
+
+			require.Equal(t, 200, resp.StatusCode, "Response should be successful")
+			jrID := cltest.ParseCommonJSON(resp.Body).ID
+			require.Equal(t, jr.ID, jrID)
+
+			jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+			val, err := jr.Result.ResultString()
+			assert.NoError(t, err)
+			assert.Equal(t, "100", val)
+		})
+	}
 }
 
 func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {

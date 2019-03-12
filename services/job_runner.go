@@ -35,7 +35,8 @@ type jobRunner struct {
 // NewJobRunner initializes a JobRunner.
 func NewJobRunner(str *store.Store) JobRunner {
 	return &jobRunner{
-		store:   str,
+		// Unscoped allows the processing of runs that are soft deleted asynchronously
+		store:   str.Unscoped(),
 		workers: make(map[string]chan struct{}),
 	}
 }
