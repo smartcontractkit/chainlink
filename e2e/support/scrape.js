@@ -1,6 +1,7 @@
 const pollUntilTimeout = (interval, cb, ...args) => {
   return new Promise((resolve, reject) => {
     const timer = setInterval(async () => {
+      /* eslint-disable standard/no-callback-literal */
       const result = await cb(...args)
       if (result !== false) {
         clearInterval(timer)
