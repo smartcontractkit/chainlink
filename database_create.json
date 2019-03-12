@@ -1,0 +1,8 @@
+{
+  "defaultEnv": "local",
+
+  "local": {
+    "driver": "pg",
+    "user": {"ENV": "STATS_DB_USER"}
+  }
+}
