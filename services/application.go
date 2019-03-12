@@ -236,7 +236,7 @@ func (p *pendingConnectionResumer) Connect(head *models.Head) error {
 
 	var merr error
 	for _, jr := range pendingRuns {
-		err := p.resumer(&jr, p.store)
+		err := p.resumer(&jr, p.store.Unscoped())
 		if err != nil {
 			merr = multierr.Append(merr, err)
 		}
