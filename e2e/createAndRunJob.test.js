@@ -8,7 +8,7 @@ describe('End to end', () => {
   beforeAll(async () => {
     browser = await puppeteer.launch({
       devtools: false,
-      headless: false,
+      headless: true,
       args: ['--no-sandbox']
     })
     page = await browser.newPage()
