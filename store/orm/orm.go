@@ -127,6 +127,14 @@ func (orm *ORM) Close() error {
 	)
 }
 
+// Unscoped returns a new instance of this ORM that includes soft deleted items.
+func (orm *ORM) Unscoped() *ORM {
+	return &ORM{
+		DB:              orm.DB.Unscoped(),
+		lockingStrategy: orm.lockingStrategy,
+	}
+}
+
 // Where fetches multiple objects with "Find".
 func (orm *ORM) Where(field string, value interface{}, instance interface{}) error {
 	return orm.DB.Where(fmt.Sprintf("%v = ?", field), value).Find(instance).Error
@@ -298,6 +306,23 @@ func (orm *ORM) CreateJob(job *models.JobSpec) error {
 
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		return dbtx.Create(job).Error
+	})
+}
+
+// ArchiveJob soft deletes the job and its associated job runs.
+func (orm *ORM) ArchiveJob(ID string) error {
+	j, err := orm.FindJob(ID)
+	if err != nil {
+		return err
+	}
+
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return multierr.Combine(
+			dbtx.Where("job_spec_id = ?", ID).Delete(&models.Initiator{}).Error,
+			dbtx.Where("job_spec_id = ?", ID).Delete(&models.TaskSpec{}).Error,
+			dbtx.Where("job_spec_id = ?", ID).Delete(&models.JobRun{}).Error,
+			dbtx.Delete(&j).Error,
+		)
 	})
 }
 

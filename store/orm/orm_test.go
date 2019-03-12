@@ -59,6 +59,46 @@ func TestORM_CreateJob(t *testing.T) {
 	assert.Equal(t, j2.ID, j2.Initiators[0].JobSpecID)
 }
 
+func first(_ interface{}, err error) error {
+	return err
+}
+
+func TestORM_Unscoped(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	orm := store.ORM
+	job := cltest.NewJob()
+	require.NoError(t, orm.CreateJob(&job))
+	require.NoError(t, orm.DB.Delete(&job).Error)
+	require.Error(t, orm.DB.First(&job).Error)
+	orm = store.ORM.Unscoped()
+	require.NoError(t, orm.DB.First(&job).Error)
+}
+
+func TestORM_ArchiveJob(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job := cltest.NewJobWithSchedule("* * * * *")
+	require.NoError(t, store.CreateJob(&job))
+
+	init := job.Initiators[0]
+	run := job.NewRun(init)
+	require.NoError(t, store.CreateJobRun(&run))
+
+	require.NoError(t, store.ArchiveJob(job.ID))
+
+	require.Error(t, first(store.FindJob(job.ID)))
+	require.Error(t, first(store.FindJobRun(run.ID)))
+
+	orm := store.ORM.Unscoped()
+	require.NoError(t, first(orm.FindJob(job.ID)))
+	require.NoError(t, first(orm.FindJobRun(run.ID)))
+}
+
 func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
