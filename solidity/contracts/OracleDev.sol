@@ -4,23 +4,17 @@ import "./Oracle.sol";
 import "./interfaces/LinkExInterface.sol";
 
 contract OracleDev is Oracle {
-  LinkExInterface internal usdFeed;
-  LinkExInterface internal ethFeed;
 
-  constructor(
-    address _link,
-    address _usdPriceFeed,
-    address _ethPriceFeed
-  ) public Oracle(_link) {
-    usdFeed = LinkExInterface(_usdPriceFeed);
-    ethFeed = LinkExInterface(_ethPriceFeed);
+  mapping(bytes32 => address) public priceFeeds;
+
+  constructor(address _link) public Oracle(_link) {}
+
+  function currentRate(bytes32 _currency) public view returns (uint256) {
+    LinkExInterface priceFeed = LinkExInterface(priceFeeds[_currency]);
+    return priceFeed.currentRate();
   }
 
-  function getEthPriceFeed() public view returns (address) {
-    return address(ethFeed);
-  }
-
-  function getUsdPriceFeed() public view returns (address) {
-    return address(usdFeed);
+  function setPriceFeed(address _priceFeed, bytes32 _currency) external onlyOwner {
+    priceFeeds[_currency] = _priceFeed;
   }
 }
