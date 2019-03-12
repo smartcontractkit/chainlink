@@ -332,10 +332,11 @@ func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
 	return orm.DB.Create(sa).Error
 }
 
-// JobRunsWithStatus returns the JobRuns which have the passed statuses.
-func (orm *ORM) JobRunsWithStatus(statuses ...models.RunStatus) ([]models.JobRun, error) {
+// UnscopedJobRunsWithStatus returns all JobRuns, including ones that have been
+// soft deleted, which have the passed statuses.
+func (orm *ORM) UnscopedJobRunsWithStatus(statuses ...models.RunStatus) ([]models.JobRun, error) {
 	runs := []models.JobRun{}
-	err := orm.preloadJobRuns().Where("status IN (?)", statuses).Find(&runs).Error
+	err := orm.preloadJobRuns().Unscoped().Where("status IN (?)", statuses).Find(&runs).Error
 	return runs, err
 }
 

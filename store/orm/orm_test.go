@@ -182,7 +182,7 @@ func TestORM_JobRunsSortedFor(t *testing.T) {
 	assert.Equal(t, []string{jr2.ID, jr1.ID}, actual)
 }
 
-func TestORM_JobRunsWithStatus(t *testing.T) {
+func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -197,6 +197,7 @@ func TestORM_JobRunsWithStatus(t *testing.T) {
 		models.RunStatusPendingBridge,
 		models.RunStatusPendingConfirmations,
 		models.RunStatusCompleted}
+
 	var seedIds []string
 	for _, status := range statuses {
 		run := j.NewRun(i)
@@ -226,7 +227,67 @@ func TestORM_JobRunsWithStatus(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 
-			pending, err := store.JobRunsWithStatus(test.statuses...)
+			pending, err := store.UnscopedJobRunsWithStatus(test.statuses...)
+			assert.NoError(t, err)
+
+			pendingIDs := []string{}
+			for _, jr := range pending {
+				pendingIDs = append(pendingIDs, jr.ID)
+			}
+			assert.ElementsMatch(t, pendingIDs, test.expected)
+		})
+	}
+}
+
+func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	j := cltest.NewJobWithWebInitiator()
+	assert.NoError(t, store.CreateJob(&j))
+	i := j.Initiators[0]
+	npr := j.NewRun(i)
+	require.NoError(t, store.CreateJobRun(&npr))
+
+	statuses := []models.RunStatus{
+		models.RunStatusPendingBridge,
+		models.RunStatusPendingConfirmations,
+		models.RunStatusPendingConnection,
+		models.RunStatusCompleted}
+
+	var seedIds []string
+	for _, status := range statuses {
+		run := j.NewRun(i)
+		run.Status = status
+		require.NoError(t, store.CreateJobRun(&run))
+		seedIds = append(seedIds, run.ID)
+	}
+
+	require.NoError(t, store.ArchiveJob(j.ID))
+
+	tests := []struct {
+		name     string
+		statuses []models.RunStatus
+		expected []string
+	}{
+		{
+			"single status",
+			[]models.RunStatus{models.RunStatusPendingBridge},
+			[]string{seedIds[0]},
+		},
+		{
+			"multiple status'",
+			[]models.RunStatus{models.RunStatusPendingBridge, models.RunStatusPendingConfirmations, models.RunStatusPendingConnection},
+			[]string{seedIds[0], seedIds[1], seedIds[2]},
+		},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+
+			pending, err := store.UnscopedJobRunsWithStatus(test.statuses...)
 			assert.NoError(t, err)
 
 			pendingIDs := []string{}

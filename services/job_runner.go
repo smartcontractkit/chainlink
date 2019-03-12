@@ -87,7 +87,7 @@ func (rm *jobRunner) resumeRunsSinceLastShutdown() error {
 	// Do all querying of run statuses since last shutdown before enqueuing
 	// runs in progress and asleep, to prevent the following race condition:
 	// 1. resume sleep, 2. awake from sleep, 3. in progress, 4. resume in progress (double enqueued).
-	resumableRuns, err := rm.store.JobRunsWithStatus(models.RunStatusInProgress, models.RunStatusPendingSleep)
+	resumableRuns, err := rm.store.UnscopedJobRunsWithStatus(models.RunStatusInProgress, models.RunStatusPendingSleep)
 	if err != nil {
 		return err
 	}
