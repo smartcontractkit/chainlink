@@ -9,7 +9,7 @@
     "storybook": "start-storybook -p 9001 -c .storybook",
     "lint": "eslint --fix '**/*.js'",
     "lint-ci": "eslint '**/*.js'",
-    "tslint": "tslint -c tslint.json '**/*.ts'",
+    "tslint": "tslint -c tslint.json '**/*.ts' '**/*.tsx'",
     "test": "NODE_ENV=test jest",
     "test-ci": "NODE_ENV=test yarn jest gui/ --runInBand --coverage --reporters jest-silent-reporter",
     "test-e2e": "NODE_ENV=test yarn jest e2e/ --runInBand",
