@@ -377,3 +377,17 @@ func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 401, resp.StatusCode, "Response should be forbidden")
 }
+
+func TestJobSpecsController_Destroy(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	client := app.NewHTTPClient()
+	job := cltest.NewJob()
+	require.NoError(t, app.Store.CreateJob(&job))
+
+	resp, cleanup := client.Delete("/v2/specs/" + job.ID)
+	defer cleanup()
+	assert.Equal(t, 204, resp.StatusCode)
+	assert.Error(t, cltest.JustError(app.Store.FindJob(job.ID)))
+}

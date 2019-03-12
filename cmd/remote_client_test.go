@@ -197,6 +197,27 @@ func TestClient_CreateJobSpec(t *testing.T) {
 	}
 }
 
+func TestClient_ArchiveJobSpec(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+
+	job := cltest.NewJob()
+	require.NoError(t, app.Store.CreateJob(&job))
+
+	client, _ := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("archive", 0)
+	set.Parse([]string{job.ID})
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.ArchiveJobSpec(c))
+
+	jobs := cltest.AllJobs(app.Store)
+	require.Len(t, jobs, 0)
+}
+
 func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
 	t.Parallel()
 
