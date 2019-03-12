@@ -47,7 +47,7 @@ func TestChainlinkApplication_AddJob(t *testing.T) {
 	app.AddJob(cltest.NewJob())
 }
 
-func TestChainlinkApplication_resumesPendingConnection(t *testing.T) {
+func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	store := app.Store
@@ -57,7 +57,23 @@ func TestChainlinkApplication_resumesPendingConnection(t *testing.T) {
 
 	jr := cltest.CreateJobRunWithStatus(store, j, models.RunStatusPendingConnection)
 
-	require.NoError(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
+	_ = cltest.WaitForJobRunToComplete(t, store, jr)
+}
+
+func TestChainlinkApplication_resumesPendingConnection_Archived(t *testing.T) {
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	store := app.Store
+
+	j := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&j))
+
+	jr := cltest.CreateJobRunWithStatus(store, j, models.RunStatusPendingConnection)
+
+	require.NoError(t, store.ArchiveJob(j.ID))
+
+	require.NoError(t, app.StartAndConnect())
 	_ = cltest.WaitForJobRunToComplete(t, store, jr)
 }
 
