@@ -119,6 +119,22 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &js)
 }
 
+// ArchiveJobSpec soft deletes a job and its associated runs.
+func (cli *Client) ArchiveJobSpec(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the job id to be archived"))
+	}
+	resp, err := cli.HTTP.Delete("/v2/specs/" + c.Args().First())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	_, err = cli.parseResponse(resp)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
 // CreateJobRun creates job run based on SpecID and optional JSON
 func (cli *Client) CreateJobRun(c *clipkg.Context) error {
 	if !c.Args().Present() {

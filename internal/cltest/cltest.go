@@ -1017,3 +1017,7 @@ func GetLastTxAttempt(t *testing.T, store *strpkg.Store) models.TxAttempt {
 	require.NotEqual(t, 0, count)
 	return attempt
 }
+
+func JustError(_ interface{}, err error) error {
+	return err
+}
