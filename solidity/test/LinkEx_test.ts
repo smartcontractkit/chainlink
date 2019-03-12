@@ -1,6 +1,6 @@
 import { bigNum, deploy } from './support/helpers'
 
-contract('ConcreteChainlinked', () => {
+contract('LinkEx', () => {
   let contract: any
 
   beforeEach(async () => {
