@@ -10,7 +10,6 @@
  */
 
 module.exports.bootstrap = async function() {
-
   // By convention, this is a good place to set up fake data during development.
   //
   // For example:
@@ -27,4 +26,9 @@ module.exports.bootstrap = async function() {
   // ]);
   // ```
 
-};
+  await JobRun.createEach([
+    { requestId: 'fa6a4bdc-2484-4a32-9533-f9f4e7fa06f0' },
+    { requestId: '7fa18278-4e3c-450c-87fe-ccdf1c9be681' },
+    { requestId: '9bac26e0-0429-4311-b9a5-54edeaf8f023' }
+  ])
+}
