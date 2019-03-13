@@ -6,6 +6,12 @@ TODO...
 
 ## Setup
 
+### Install packages
+
+```
+yarn install
+```
+
 ### Creating the database
 
 There is an odd behavior of `db-migrate` when creating the database using the 
