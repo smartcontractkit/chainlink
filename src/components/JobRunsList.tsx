@@ -13,12 +13,14 @@ const Empty = () => {
   )
 }
 
-const List = ({ jobRuns }) => {
+type ListProps = { jobRuns: any[] }
+
+const List = (props: ListProps) => {
   return (
     <>
       <h2>Latest Runs</h2>
       <ol>
-        {jobRuns.map((r, idx) => {
+        {props.jobRuns.map((r, idx) => {
           return <li key={idx}>{r.requestId}</li>
         })}
       </ol>
@@ -26,13 +28,15 @@ const List = ({ jobRuns }) => {
   )
 }
 
-const JobRunsList = ({ jobRuns }) => {
-  if (!jobRuns) {
+type JobRunsListProps = { jobRuns?: any[] }
+
+const JobRunsList = (props: JobRunsListProps) => {
+  if (!props.jobRuns) {
     return <Loading />
-  } else if (jobRuns.length === 0) {
+  } else if (props.jobRuns.length === 0) {
     return <Empty />
   } else {
-    return <List jobRuns={jobRuns} />
+    return <List jobRuns={props.jobRuns} />
   }
 }
 
