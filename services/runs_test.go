@@ -480,7 +480,9 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Archived(t
 	}
 	require.NoError(t, store.CreateJobRun(run))
 	require.NoError(t, store.ArchiveJob(jobSpec.ID))
-	err := services.QueueSleepingTask(run, store.Unscoped())
+
+	unscoped := store.Unscoped()
+	err := services.QueueSleepingTask(run, unscoped)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingSleep), string(run.TaskRuns[0].Status))
 	assert.Equal(t, string(models.RunStatusPendingSleep), string(run.Status))
@@ -491,7 +493,9 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Archived(t
 	assert.True(t, open)
 	assert.Equal(t, run.ID, runRequest.ID)
 
-	*run, err = store.ORM.FindJobRun(run.ID)
+	require.Error(t, cltest.JustError(store.FindJobRun(run.ID)), "archived runs should not be visible to normal store")
+
+	*run, err = unscoped.FindJobRun(run.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Status))
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
