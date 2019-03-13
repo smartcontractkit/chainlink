@@ -1,8 +1,5 @@
-// TODO: Figure out how to disable globals correctly
-// const JobRun = require('../../models/JobRun')
-
 const index = async (req, res) => {
-  const jobRuns = await JobRun.find({
+  const jobRuns = await sails.models.jobrun.find({
     limit: 10,
     sort: 'createdAt DESC'
   })
