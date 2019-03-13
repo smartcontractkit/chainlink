@@ -37,3 +37,27 @@ yarn db-migrate up
 # migrate down
 yarn db-migrate down
 ```
+
+## Typescript
+
+If you would like to add an npm package that doesn't have Typescript support you will need 
+to add the type definition yourself and make the Typescript transpiler aware of it. Custom 
+types are stored in the `types` directory.
+
+```
+echo "declare module 'my-package'" > types/my-package.d.ts
+```
+
+To make the the transpiler aware of the new type definition you will also need to add it to 
+the `"files": ...` section of `tsconfig.json`.
+
+```
+{
+  // ...
+
+  "files": [
+    // ...
+    "types/my-package.d.ts"
+  ]
+}
+```
