@@ -232,7 +232,7 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Save(run).Error
+		return dbtx.Unscoped().Omit("deleted_at").Save(run).Error
 	})
 }
 

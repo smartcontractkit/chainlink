@@ -136,6 +136,27 @@ func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
 		retrievedJob.Tasks[0].Params.String())
 }
 
+func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	store.ORM.DB.LogMode(true)
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+
+	jr := job.NewRun(job.Initiators[0])
+	require.NoError(t, store.CreateJobRun(&jr))
+
+	require.NoError(t, store.ArchiveJob(job.ID))
+
+	jr.Status = models.RunStatusInProgress
+	require.NoError(t, store.SaveJobRun(&jr))
+
+	require.Error(t, cltest.JustError(store.FindJobRun(jr.ID)))
+	require.NoError(t, cltest.JustError(store.Unscoped().FindJobRun(jr.ID)))
+}
+
 func coercedJSON(v string) string {
 	if v == "" {
 		return "{}"
