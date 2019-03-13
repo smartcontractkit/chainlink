@@ -15,9 +15,9 @@
   "scripts": {
     "server:dev": "yarn build:clean && yarn build && sails lift",
     "server:prod": "NODE_ENV=production node app.js",
-    "client": "react-scripts start",
+    "client": "craco start",
     "build:clean": "rm -rf assets",
-    "build": "react-scripts build && react-snapshot && mv build assets",
+    "build": "craco build && mv build assets",
     "test": "npm run lint && npm run custom-tests && echo 'Done.'",
     "lint": "eslint . --color",
     "custom-tests": "echo \"(No other custom tests yet.)\" && echo"
@@ -50,7 +50,9 @@
     "typescript": "^3.3.3333"
   },
   "devDependencies": {
+    "@craco/craco": "^3.6.0",
     "@types/jest": "^24.0.11",
+    "dynamic-cdn-webpack-plugin": "^4.0.0",
     "eslint-config-prettier": "^4.1.0",
     "eslint-config-prettier-standard": "^2.0.0",
     "eslint-config-standard": "^12.0.0",
@@ -60,6 +62,7 @@
     "eslint-plugin-promise": "^4.0.1",
     "eslint-plugin-react": "^7.12.4",
     "eslint-plugin-standard": "^4.0.0",
+    "module-to-cdn": "^3.1.2",
     "prettier": "^1.16.4",
     "react": "^16.8.4",
     "react-dom": "^16.8.4",
