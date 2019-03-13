@@ -23,6 +23,7 @@ type Application interface {
 	GetStore() *store.Store
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
+	ArchiveJob(ID string) error
 	AddServiceAgreement(*models.ServiceAgreement) error
 	AddAdapter(bt *models.BridgeType) error
 	RemoveAdapter(bt *models.BridgeType) error
@@ -136,6 +137,12 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 
 	app.Scheduler.AddJob(job)
 	return app.JobSubscriber.AddJob(job, nil) // nil for latest
+}
+
+// ArchiveJob silences the job from the system, preventing future job runs.
+func (app *ChainlinkApplication) ArchiveJob(ID string) error {
+	_ = app.JobSubscriber.RemoveJob(ID)
+	return app.Store.ArchiveJob(ID)
 }
 
 // AddServiceAgreement adds a Service Agreement which includes a job that needs

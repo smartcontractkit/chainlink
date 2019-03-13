@@ -88,7 +88,7 @@ func marshalSpecFromJSONAPI(j models.JobSpec, runs []models.JobRun) (*jsonapi.Do
 //  "<application>/specs/:SpecID"
 func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	id := c.Param("SpecID")
-	if err := jsc.App.GetStore().ArchiveJob(id); err == orm.ErrorNotFound {
+	if err := jsc.App.ArchiveJob(id); err == orm.ErrorNotFound {
 		publicError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 	} else if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
