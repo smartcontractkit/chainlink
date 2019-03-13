@@ -78,6 +78,25 @@ func (mock *EthMock) Context(context string, callback func(*EthMock)) {
 	mock.context = ""
 }
 
+func (mock *EthMock) ShouldCall(t *testing.T, setup func(mock *EthMock)) ethMockDuring {
+	assert.True(t, mock.AllCalled())
+	setup(mock)
+	return ethMockDuring{t: t, mock: mock}
+}
+
+type ethMockDuring struct {
+	mock *EthMock
+	t    *testing.T
+}
+
+func (emd ethMockDuring) During(action func()) {
+	action()
+	if !emd.mock.AllCalled() {
+		logger.Errorf("Remaining ethMockCalls: %v", emd.mock.Remaining())
+	}
+	require.True(emd.t, emd.mock.AllCalled())
+}
+
 // Register register mock responses and append to Ethmock
 func (mock *EthMock) Register(
 	method string,
