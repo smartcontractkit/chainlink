@@ -815,6 +815,7 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	err = tx.
 		Where("status IN (?)", bulkQuery.Status.ToStrings()).
 		Where("updated_at < ?", bulkQuery.UpdatedBefore).
+		Unscoped().
 		Delete(&[]models.JobRun{}).
 		Error
 	if err != nil {
