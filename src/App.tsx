@@ -2,12 +2,15 @@ import React, { Component } from 'react'
 import './App.css'
 import JobRunsList from './components/JobRunsList'
 
+type Props = {}
+type State = { jobRuns?: any[] }
+
 const getJobRuns = () => fetch('/api/v1/job_runs').then(r => r.json())
 
-class App extends Component {
-  constructor(props) {
+class App extends Component<Props, State> {
+  constructor(props: any) {
     super(props)
-    this.state = { jobRuns: null }
+    this.state = { jobRuns: undefined }
   }
 
   componentDidMount() {
