@@ -220,8 +220,8 @@ func TestMigrate1552418531(t *testing.T) {
 
 	// seed w old schema
 	err := orm.DB.Exec(`
-		CREATE TABLE "job_specs" ("id" varchar(255) NOT NULL,"created_at" datetime,"start_at" datetime,"end_at" datetime, PRIMARY KEY ("id"));
-		INSERT INTO "job_specs" VALUES ("testjobspec", CURRENT_TIMESTAMP, NULL, NULL);
+		CREATE TABLE "job_specs" ("id" varchar(255) NOT NULL,"created_at" timestamp,"start_at" timestamp,"end_at" timestamp, PRIMARY KEY ("id"));
+		INSERT INTO "job_specs" VALUES ('testjobspec', CURRENT_TIMESTAMP, NULL, NULL);
 	`).Error
 	require.NoError(t, err)
 
