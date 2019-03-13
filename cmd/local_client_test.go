@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -44,6 +45,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	eth.Register("eth_getTransactionCount", `0x1`)
 
 	assert.NoError(t, client.RunNode(c))
+	<-time.After(time.Second) // wait for client.RunNode to connect
 	logger.Sync()
 	logs, err := cltest.ReadLogs(app)
 	assert.NoError(t, err)
