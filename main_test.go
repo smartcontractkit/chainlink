@@ -44,6 +44,7 @@ func ExampleRun() {
 	//      jobspecs, jobs, j, specs  Get all jobs
 	//      show, s                   Show a specific job
 	//      create, c                 Create job spec from JSON
+	//      archivejob                Archive job and all associated runs
 	//      run, r                    Begin job run for specid
 	//      showrun, sr               Show a job run for a RunID
 	//      import, i                 Import a key file to use with the node
