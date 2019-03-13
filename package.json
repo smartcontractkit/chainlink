@@ -28,6 +28,7 @@
   "engines": {
     "node": "^11.11"
   },
+  "proxy": "http://localhost:1337",
   "dependencies": {
     "@sailshq/connect-redis": "^3.2.1",
     "@sailshq/lodash": "^3.10.3",
