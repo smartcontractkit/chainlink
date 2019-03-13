@@ -13,8 +13,10 @@
     "not op_mini all"
   ],
   "scripts": {
-    "server": "NODE_ENV=production node app.js",
+    "server:dev": "yarn build:clean && yarn build && sails lift",
+    "server:prod": "NODE_ENV=production node app.js",
     "client": "react-scripts start",
+    "build:clean": "rm -rf assets",
     "build": "react-scripts build && react-snapshot && mv build assets",
     "test": "npm run lint && npm run custom-tests && echo 'Done.'",
     "lint": "eslint . --color",
