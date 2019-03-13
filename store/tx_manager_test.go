@@ -410,19 +410,13 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
 			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
 		}, false, true},
-		{"early conf, no error", (safeAt + 1), func(ethMock *cltest.EthMock) {
+		{"early conf", (safeAt + 1), func(ethMock *cltest.EthMock) {
 			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
-			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
-		}, true, false},
-		{"early conf, later error", (safeAt + 1), func(ethMock *cltest.EthMock) {
-			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
-			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
 		}, true, false},
 		{"later conf, no error", (safeAt + 1), func(ethMock *cltest.EthMock) {
 			ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(0))
 			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
 			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
-			ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 		}, true, false},
 		{"later conf, early error", (safeAt + 1), func(ethMock *cltest.EthMock) {
 			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
@@ -432,7 +426,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey()
+			app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
 			defer cleanup()
 
 			store := app.Store
@@ -443,14 +437,15 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			assert.NoError(t, err)
 
 			ethMock := app.MockEthClient()
-			ethMock.Context("txm.BumpGasUntilSafe()", test.mockSetup)
-			ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.blockHeight))
+			ethMock.ShouldCall(t, test.mockSetup).During(func() {
+				ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.blockHeight))
+				require.NoError(t, app.StartAndConnect())
+				receipt, err := txm.BumpGasUntilSafe(a.Hash)
 
-			require.NoError(t, app.StartAndConnect())
-			receipt, err := txm.BumpGasUntilSafe(a.Hash)
-			receiptPresent := receipt != nil
-			assert.Equal(t, test.wantReceipt, receiptPresent)
-			cltest.AssertError(t, test.wantErrored, err)
+				receiptPresent := receipt != nil
+				require.Equal(t, test.wantReceipt, receiptPresent)
+				cltest.AssertError(t, test.wantErrored, err)
+			})
 		})
 	}
 }
