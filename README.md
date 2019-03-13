@@ -1,4 +1,4 @@
-# LINK Stats
+# LINK Stats [![CircleCI](https://circleci.com/gh/smartcontractkit/stats.svg?style=shield)](https://circleci.com/gh/smartcontractkit/stats)
 
 ## Deployment
 
@@ -14,7 +14,7 @@ yarn install
 
 ### Creating the database
 
-There is an odd behavior of `db-migrate` when creating the database using the 
+There is an odd behavior of `db-migrate` when creating the database using the
 default `yarn db-migrate db:create mydatabase_name` command. Use the following workaround:
 
 ```bash
