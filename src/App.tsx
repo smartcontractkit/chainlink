@@ -1,35 +1,30 @@
-import React, { Component } from 'react'
-import './App.css'
-import JobRunsList from './components/JobRunsList'
+import React from 'react'
+import CssBaseline from '@material-ui/core/CssBaseline'
+import Grid from '@material-ui/core/Grid'
+import Header from './components/Header'
+import Home from './containers/Home'
+import { withStyles } from '@material-ui/core/styles'
 
-type Props = {}
-type State = { jobRuns?: any[] }
-
-const getJobRuns = () => fetch('/api/v1/job_runs').then(r => r.json())
-
-class App extends Component<Props, State> {
-  constructor(props: any) {
-    super(props)
-    this.state = { jobRuns: undefined }
-  }
-
-  componentDidMount() {
-    getJobRuns().then(jr => {
-      this.setState({ jobRuns: jr })
-    })
-  }
-
-  render() {
-    return (
-      <div className="App">
-        <header className="App-header">
-          <h1>LINK Stats</h1>
-        </header>
-
-        <JobRunsList jobRuns={this.state.jobRuns} />
-      </div>
-    )
+const styles = () => {
+  return {
+    main: {
+      marginTop: 90
+    }
   }
 }
 
-export default App
+const App = (props: any) => {
+  return (
+    <Grid container>
+      <Grid item xs={12}>
+        <Header />
+
+        <main className={props.classes.main}>
+          <Home />
+        </main>
+      </Grid>
+    </Grid>
+  )
+}
+
+export default withStyles(styles)(App)

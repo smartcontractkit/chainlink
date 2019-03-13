@@ -51,7 +51,9 @@
   },
   "devDependencies": {
     "@craco/craco": "^3.6.0",
+    "@material-ui/core": "^3.9.2",
     "@types/jest": "^24.0.11",
+    "@types/material-ui": "^0.21.6",
     "brotli-webpack-plugin": "^1.1.0",
     "compression-webpack-plugin": "^2.0.0",
     "dynamic-cdn-webpack-plugin": "^4.0.0",
