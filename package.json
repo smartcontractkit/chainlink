@@ -32,9 +32,14 @@
   },
   "proxy": "http://localhost:1337",
   "dependencies": {
+    "@babel/preset-typescript": "^7.3.3",
     "@sailshq/connect-redis": "^3.2.1",
     "@sailshq/lodash": "^3.10.3",
     "@sailshq/socket.io-redis": "^5.2.0",
+    "@types/jest": "^24.0.11",
+    "@types/node": "^11.11.3",
+    "@types/react": "^16.8.8",
+    "@types/react-dom": "^16.8.2",
     "db-migrate": "^0.11.5",
     "db-migrate-pg": "^0.5.0",
     "grunt": "1.0.1",
@@ -42,7 +47,8 @@
     "sails-hook-grunt": "^3.1.0",
     "sails-hook-orm": "^2.1.1",
     "sails-hook-sockets": "^1.5.5",
-    "sails-postgresql": "^1.0.2"
+    "sails-postgresql": "^1.0.2",
+    "typescript": "^3.3.3333"
   },
   "devDependencies": {
     "eslint-config-prettier": "^4.1.0",
