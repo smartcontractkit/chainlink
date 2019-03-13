@@ -23,6 +23,6 @@
     "src"
   ],
   "files": [
-    "react-snapshot.d.ts"
+    "types/react-snapshot.d.ts"
   ]
 }
