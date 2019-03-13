@@ -16,3 +16,14 @@ More information can be found [here](https://github.com/db-migrate/node-db-migra
 ### Migrations
 
 https://db-migrate.readthedocs.io/en/latest/Getting%20Started/commands/#commands
+
+```
+# migrate create
+yarn db-migrate create createMyTable
+
+# migrate up
+yarn db-migrate up
+
+# migrate down
+yarn db-migrate down
+```
