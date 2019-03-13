@@ -553,6 +553,39 @@ type MockCronEntry struct {
 	Function func()
 }
 
+// ControlledCron holds a list of funcs, which a developer can then
+// manually trigger.
+type ControlledCron struct {
+	funcs []func()
+}
+
+// NewControlledCron returns an instance of a developer controlled cron.
+func NewControlledCron() *ControlledCron {
+	return &ControlledCron{
+		funcs: []func(){},
+	}
+}
+
+// Start is a noop.
+func (*ControlledCron) Start() {}
+
+// Stop is a noop.
+func (*ControlledCron) Stop() {}
+
+// AddFunc adds the function to the list of functions to run
+// when manually triggered.
+func (c *ControlledCron) AddFunc(schd string, fn func()) error {
+	c.funcs = append(c.funcs, fn)
+	return nil
+}
+
+// RunFuncs will manually invoke the functions added to this Cron.
+func (c *ControlledCron) RunFuncs() {
+	for _, f := range c.funcs {
+		f()
+	}
+}
+
 // MockHeadTrackable allows you to mock HeadTrackable
 type MockHeadTrackable struct {
 	connectedCount    int32

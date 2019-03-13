@@ -173,10 +173,10 @@ func (orm *ORM) FindInitiator(ID uint) (models.Initiator, error) {
 func (orm *ORM) preloadJobs() *gorm.DB {
 	return orm.DB.
 		Preload("Initiators", func(db *gorm.DB) *gorm.DB {
-			return db.Order("\"id\" asc")
+			return db.Unscoped().Order("\"id\" asc")
 		}).
 		Preload("Tasks", func(db *gorm.DB) *gorm.DB {
-			return db.Order("id asc")
+			return db.Unscoped().Order("id asc")
 		})
 }
 
@@ -239,8 +239,21 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 // CreateJobRun inserts a new JobRun
 func (orm *ORM) CreateJobRun(run *models.JobRun) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Create(run).Error
+		return updateDeletedAtFromJobSpec(run, dbtx.Create(run)).Error
 	})
+}
+
+// updateDeletedAtFromJobSpec will update a runs deleted_at from its parent
+// job spec.
+// This is of particular importance in the edge case when a runlog starts a run
+// at the same time a job is archived. Said run will never retain a deleted_at,
+// unless this is invoked.
+func updateDeletedAtFromJobSpec(run *models.JobRun, db *gorm.DB) *gorm.DB {
+	return db.Exec(fmt.Sprintf(`
+		UPDATE job_runs SET deleted_at = (
+			SELECT job_specs.deleted_at FROM job_specs WHERE job_specs.ID = '%s')
+		WHERE job_runs.job_spec_id = '%s'
+	`, run.JobSpecID, run.JobSpecID))
 }
 
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
@@ -317,6 +330,15 @@ func (orm *ORM) CreateJob(job *models.JobSpec) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		return dbtx.Create(job).Error
 	})
+}
+
+// Archived returns whether or not a job has been archived.
+func (orm *ORM) Archived(ID string) bool {
+	j, err := orm.Unscoped().FindJob(ID)
+	if err != nil {
+		return false
+	}
+	return j.DeletedAt.Valid
 }
 
 // ArchiveJob soft deletes the job and its associated job runs.

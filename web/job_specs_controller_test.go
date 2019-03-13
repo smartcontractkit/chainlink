@@ -383,11 +383,12 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 	client := app.NewHTTPClient()
-	job := cltest.NewJob()
+	job := cltest.NewJobWithLogInitiator()
 	require.NoError(t, app.Store.CreateJob(&job))
 
 	resp, cleanup := client.Delete("/v2/specs/" + job.ID)
 	defer cleanup()
 	assert.Equal(t, 204, resp.StatusCode)
 	assert.Error(t, cltest.JustError(app.Store.FindJob(job.ID)))
+	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 }

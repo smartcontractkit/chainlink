@@ -144,6 +144,22 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 	assert.Equal(t, "100", val)
 }
 
+func TestJobRunsController_Create_Archived(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	app.Start()
+	defer cleanup()
+
+	j := cltest.NewJobWithWebInitiator()
+	require.NoError(t, app.Store.CreateJob(&j))
+	require.NoError(t, app.Store.ArchiveJob(j.ID))
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bytes.NewBufferString(`{"result":"100"}`))
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 404)
+}
+
 func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()

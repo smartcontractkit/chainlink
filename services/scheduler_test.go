@@ -126,6 +126,31 @@ func TestRecurring_AddJob(t *testing.T) {
 	}
 }
 
+func TestRecurring_AddJob_Archived(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	r := services.NewRecurring(store)
+	cron := cltest.NewControlledCron()
+	r.Cron = cron
+	defer r.Stop()
+
+	job := cltest.NewJobWithSchedule("* * * * *")
+	require.NoError(t, store.CreateJob(&job))
+	r.AddJob(job)
+
+	cron.RunFuncs()
+	count, err := store.Unscoped().JobRunsCountFor(job.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+
+	require.NoError(t, store.ArchiveJob(job.ID))
+	cron.RunFuncs()
+
+	count, err = store.Unscoped().JobRunsCountFor(job.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+}
+
 func TestOneTime_AddJob(t *testing.T) {
 	nullTime := cltest.NullTime(nil)
 	pastTime := cltest.NullTime("2000-01-01T00:00:00.000Z")
@@ -295,4 +320,31 @@ func TestOneTime_RunJobAt_UnstartedRun(t *testing.T) {
 	j2, err := store.FindJob(j.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, false, j2.Initiators[0].Ran)
+}
+
+func TestOneTime_RunJobAt_ArchivedRun(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	ot := services.OneTime{
+		Clock: cltest.InstantClock{},
+		Store: store,
+	}
+
+	j := cltest.NewJobWithRunAtInitiator(time.Now())
+	j.EndAt = cltest.NullTime("2000-01-01T00:10:00.000Z")
+	require.NoError(t, store.CreateJob(&j))
+	require.NoError(t, store.ArchiveJob(j.ID))
+
+	ot.RunJobAt(j.Initiators[0], j)
+
+	unscoped := store.Unscoped()
+	j2, err := unscoped.FindJob(j.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, false, j2.Initiators[0].Ran)
+	count, err := unscoped.JobRunsCountFor(j.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count)
 }
