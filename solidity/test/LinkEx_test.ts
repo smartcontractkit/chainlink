@@ -19,8 +19,12 @@ contract('LinkEx', () => {
       const expected = 3542157117
       const updated = 8616460799
 
+      beforeEach(async () => {
+        await contract.addOracle(h.oracleNode, {from: h.defaultAccount})
+        await contract.update(expected, {from: h.oracleNode})
+      })
+
       it('returns the historic rate', async () => {
-        await contract.update(expected) // Set an initial rate
         await h.sendToEvm('miner_stop') // Stop mining blocks
         const txData = h.createTxData('update(uint256)', ['uint256'], [updated])
 
@@ -28,7 +32,7 @@ contract('LinkEx', () => {
         // use sendTransaction here otherwise Truffle will wait indefinitely for
         // the block to be mined before proceeding.
         h.eth.sendTransaction({
-          from: h.defaultAccount,
+          from: h.oracleNode,
           to: contract.address,
           data: txData
         })
@@ -45,10 +49,28 @@ contract('LinkEx', () => {
   })
 
   describe('#updateRate', () => {
-    it('returns last set value', async () => {
-      await contract.update(8616460799)
-      const historicRate = await contract.currentRate.call()
-      assert.equal(historicRate.toString(), '8616460799')
+    const expected = 8616460799
+
+    context('when called by a stranger', () => {
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await contract.update(expected, {from: h.stranger})
+        })
+        const rate = await contract.currentRate()
+        assert.equal(rate, 0)
+      })
+    })
+
+    context('when called by an authorized node', () => {
+      beforeEach(async () => {
+        await contract.addOracle(h.oracleNode, {from: h.defaultAccount})
+      })
+
+      it('updates the rate', async () => {
+        await contract.update(expected, {from: h.oracleNode})
+        const historicRate = await contract.currentRate.call()
+        assert.equal(historicRate.toString(), expected.toString())
+      })
     })
   })
 
@@ -92,6 +114,5 @@ contract('LinkEx', () => {
         assert.isNotTrue(await contract.authorizedNodes.call(h.oracleNode))
       })
     })
-
   })
 })
