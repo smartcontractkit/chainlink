@@ -17,6 +17,7 @@ jobs:
           key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "client/yarn.lock" }}
           paths:
             - ~/.cache/yarn
+            - /usr/local/share/.cache/yarn
       - run:
           name: Run Server Tests
           command: yarn test
