@@ -15,3 +15,4 @@ lib-cov
 *.out
 *.pid
 assets/*
+build/

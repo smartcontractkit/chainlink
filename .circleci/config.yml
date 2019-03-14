@@ -6,17 +6,24 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: dependency-cache-{{ checksum "package.json" }}
+          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "client/yarn.lock" }}
       - run:
-          name: Install Packages
+          name: Install Server Packages
           command: yarn install
       - run:
-          name: Test Contracts
-          command: yarn test
+          name: Install Client Packages
+          command: cd client && yarn install
       - save_cache:
-          key: dependency-cache-{{ checksum "package.json" }}
+          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "client/yarn.lock" }}
           paths:
-            - node_modules
+            - ~/.cache/yarn
+            - /usr/local/share/.cache/yarn
+      - run:
+          name: Run Server Tests
+          command: yarn test
+      - run:
+          name: Run Client Tests
+          command: cd client && yarn test
 
 workflows:
   version: 2
