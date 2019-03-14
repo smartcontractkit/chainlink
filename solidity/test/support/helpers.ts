@@ -400,18 +400,18 @@ export const increaseTime5Minutes = async () => {
   )
 }
 
-export const sendToEvm = async (method: string, ...params: any) => {
+export const sendToEvm = async (evmMethod: string, ...params: any) => {
   await web3.currentProvider.sendAsync(
     {
       id: 0,
       jsonrpc: '2.0',
-      method: method,
+      method: evmMethod,
       params: [...params]
     },
     (error: any, result: any) => {
       if (error) {
         // tslint:disable-next-line:no-console
-        console.log(`Error during ${method}! ${error}`)
+        console.log(`Error during ${evmMethod}! ${error}`)
         throw error
       }
     }
