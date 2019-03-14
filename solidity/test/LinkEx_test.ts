@@ -28,6 +28,7 @@ contract('LinkEx', () => {
         await h.assertActionThrows(async () => {
           await contract.addOracle(h.oracleNode, {from: h.stranger})
         })
+        assert.isNotTrue(await contract.authorizedNodes.call(h.oracleNode))
       })
     })
 
@@ -37,5 +38,30 @@ contract('LinkEx', () => {
         assert.isTrue(await contract.authorizedNodes.call(h.oracleNode))
       })
     })
+  })
+
+  describe('#removeOracle', () => {
+    beforeEach(async () => {
+      assert.isNotTrue(await contract.authorizedNodes.call(h.oracleNode))
+      await contract.addOracle(h.oracleNode, {from: h.defaultAccount})
+      assert.isTrue(await contract.authorizedNodes.call(h.oracleNode))
+    })
+
+    context('when called by a stranger', () => {
+      it('does not remove the oracle', async () => {
+        await h.assertActionThrows(async () => {
+          await contract.removeOracle(h.oracleNode, {from: h.stranger})
+        })
+        assert.isTrue(await contract.authorizedNodes.call(h.oracleNode))
+      })
+    })
+
+    context('when called by the owner', () => {
+      it('removes the oracle', async () => {
+        await contract.removeOracle(h.oracleNode, {from: h.defaultAccount})
+        assert.isNotTrue(await contract.authorizedNodes.call(h.oracleNode))
+      })
+    })
+
   })
 })
