@@ -3,6 +3,14 @@ import * as h from './support/helpers'
 contract('LinkEx', () => {
   let contract: any
 
+  // Need to mine some blocks so that the check in update doesn't
+  // fail when subtracting 25 from block.number.
+  before(async () => {
+    for (let i = 0; i < 50; i++) {
+      await h.sendToEvm('evm_mine')
+    }
+  })
+
   beforeEach(async () => {
     contract = await h.deploy('LinkEx.sol')
   })
@@ -32,9 +40,9 @@ contract('LinkEx', () => {
         // use sendTransaction here otherwise Truffle will wait indefinitely for
         // the block to be mined before proceeding.
         h.eth.sendTransaction({
+          data: txData,
           from: h.oracleNode,
-          to: contract.address,
-          data: txData
+          to: contract.address
         })
         const expectedRate = await contract.currentRate()
 
@@ -50,6 +58,10 @@ contract('LinkEx', () => {
 
   describe('#updateRate', () => {
     const expected = 8616460799
+    const expected2 = 8616460814
+    const expected3 = 8616460681
+    // Round down and discard any decimals, just like Solidity
+    const expectedAvg = Math.trunc((expected + expected2 + expected3) / 3)
 
     context('when called by a stranger', () => {
       it('reverts', async () => {
@@ -70,6 +82,56 @@ contract('LinkEx', () => {
         await contract.update(expected, {from: h.oracleNode})
         const historicRate = await contract.currentRate.call()
         assert.equal(historicRate.toString(), expected.toString())
+      })
+    })
+
+    context('when updated recently by oracles', () => {
+      beforeEach(async () => {
+        await contract.addOracle(h.oracleNode, {from: h.defaultAccount})
+        await contract.addOracle(h.oracleNode2, {from: h.defaultAccount})
+        await contract.addOracle(h.oracleNode3, {from: h.defaultAccount})
+
+        await contract.update(expected, {from: h.oracleNode})
+        await contract.update(expected2, {from: h.oracleNode2})
+        await contract.update(expected3, {from: h.oracleNode3})
+      })
+
+      it('has an expected aggregate value', async () => {
+        const rate = await contract.currentRate()
+        assert.equal(rate, expectedAvg)
+      })
+
+      context('after adding more oracles', () => {
+        const expected4 = 8616460198
+        const expected5 = 8616460756
+        const newExpectedAvg = Math.trunc((expected + expected2 + expected3 + expected4 + expected5) / 5)
+
+        beforeEach(async () => {
+          await contract.addOracle(h.accounts[8], {from: h.defaultAccount})
+          await contract.addOracle(h.accounts[9], {from: h.defaultAccount})
+
+          await contract.update(expected4, {from: h.accounts[8]})
+          await contract.update(expected5, {from: h.accounts[9]})
+        })
+
+        it('the new oracles contribute to the average', async () => {
+          const rate = await contract.currentRate()
+          assert.equal(rate, newExpectedAvg)
+        })
+      })
+
+      context('when updated by an oracle after 25 blocks', () => {
+        beforeEach(async () => {
+          for (let i = 0; i < 25; i++) {
+            await h.sendToEvm('evm_mine')
+          }
+          await contract.update(expected, {from: h.oracleNode})
+        })
+
+        it('adjusts the current rate', async () => {
+          const rate = await contract.currentRate()
+          assert.equal(rate, expected)
+        })
       })
     })
   })
