@@ -1,4 +1,7 @@
 import React from 'react'
+import Typography from '@material-ui/core/Typography'
+import List from '@material-ui/core/List'
+import ListItem from '@material-ui/core/ListItem'
 
 const Loading = () => {
   return <div>Loading...</div>
@@ -13,17 +16,18 @@ const Empty = () => {
   )
 }
 
-type ListProps = { jobRuns: any[] }
+type RunsListProps = { jobRuns: any[] }
 
-const List = (props: ListProps) => {
+const RunsList = (props: RunsListProps) => {
   return (
     <>
-      <h2>Latest Runs</h2>
-      <ol>
+      <Typography variant="h3">Latest Runs</Typography>
+
+      <List>
         {props.jobRuns.map((r, idx) => {
-          return <li key={idx}>{r.requestId}</li>
+          return <ListItem key={idx} disableGutters>{r.requestId}</ListItem>
         })}
-      </ol>
+      </List>
     </>
   )
 }
@@ -36,7 +40,7 @@ const JobRunsList = (props: JobRunsListProps) => {
   } else if (props.jobRuns.length === 0) {
     return <Empty />
   } else {
-    return <List jobRuns={props.jobRuns} />
+    return <RunsList jobRuns={props.jobRuns} />
   }
 }
 
