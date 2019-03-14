@@ -1,6 +1,6 @@
 import "reflect-metadata"
 import { createConnection } from "typeorm"
-import * as express from 'express'
+import express from "express"
 import { JobRun } from "./entity/JobRun"
 
 const PORT = process.env.SERVER_PORT || 8080
@@ -20,7 +20,7 @@ createConnection().then(async connection => {
 
   const app = express()
 
-  app.use(express.static('public'))
+  app.use(express.static('client/build'))
 
   app.get('/api/v1/job_runs', async (req, res) => {
     const jobRuns = await connection.manager.find(JobRun)
