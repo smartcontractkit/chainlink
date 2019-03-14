@@ -8,9 +8,39 @@ contract('LinkEx', () => {
   })
 
   describe('#currentRate', () => {
-    it('returns 0', async () => {
-      const rate = await contract.currentRate()
-      assert.equal(rate, 0)
+    context('after an initial deployment', () => {
+      it('returns 0', async () => {
+        const rate = await contract.currentRate()
+        assert.equal(rate, 0)
+      })
+    })
+
+    context('when requested in the same block as an update', () => {
+      const expected = 3542157117
+      const updated = 8616460799
+
+      it('returns the historic rate', async () => {
+        await contract.update(expected) // Set an initial rate
+        await h.sendToEvm('miner_stop') // Stop mining blocks
+        const txData = h.createTxData('update(uint256)', ['uint256'], [updated])
+
+        // Sends an update to the price without increasing the block. We need to
+        // use sendTransaction here otherwise Truffle will wait indefinitely for
+        // the block to be mined before proceeding.
+        h.eth.sendTransaction({
+          from: h.defaultAccount,
+          to: contract.address,
+          data: txData
+        })
+        const expectedRate = await contract.currentRate()
+
+        await h.sendToEvm('miner_start') // Start mining again
+        assert.equal(expectedRate.toString(), expected.toString())
+
+        // After a block has been mined, the rate is updated
+        const updatedRate = await contract.currentRate()
+        assert.equal(updatedRate.toString(), updated.toString())
+      })
     })
   })
 
