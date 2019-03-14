@@ -400,6 +400,34 @@ export const increaseTime5Minutes = async () => {
   )
 }
 
+export const sendToEvm = async (method: string, ...params: any) => {
+  await web3.currentProvider.sendAsync(
+    {
+      id: 0,
+      jsonrpc: '2.0',
+      method: method,
+      params: [...params]
+    },
+    (error: any, result: any) => {
+      if (error) {
+        // tslint:disable-next-line:no-console
+        console.log(`Error during ${method}! ${error}`)
+        throw error
+      }
+    }
+  )
+}
+
+export const createTxData = (
+  selector: string,
+  types: any,
+  values: any
+): any => {
+  const funcSelector = functionSelector(selector)
+  const encoded = abiEncode([...types], [...values])
+  return funcSelector + encoded
+}
+
 export const calculateSAID = ({
   payment,
   expiration,
