@@ -37,7 +37,7 @@ contract LinkEx is LinkExInterface, Ownable {
     }
   }
 
-  function update(uint256 _rate) external {
+  function update(uint256 _rate) external onlyAuthorizedNode {
     if (isFutureBlock()) {
       historicRate = rate;
       rateHeight = block.number;
@@ -51,5 +51,10 @@ contract LinkEx is LinkExInterface, Ownable {
 
   function setFulfillmentPermission(address _oracle, bool _status) private {
     authorizedNodes[_oracle] = _status;
+  }
+
+  modifier onlyAuthorizedNode() {
+    require(authorizedNodes[msg.sender], "Only an authorized node may call this function");
+    _;
   }
 }
