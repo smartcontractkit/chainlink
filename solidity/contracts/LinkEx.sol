@@ -27,6 +27,16 @@ contract LinkEx is LinkExInterface, Ownable {
     return historicRate;
   }
 
+  function removeOracle(address _oracle) external onlyOwner {
+    setFulfillmentPermission(_oracle, false);
+    delete authorizedNodes[_oracle];
+    for (uint i = 0; i < oracles.length; i++) {
+      if (oracles[i] == _oracle) {
+        delete oracles[i];
+      }
+    }
+  }
+
   function update(uint256 _rate) external {
     if (isFutureBlock()) {
       historicRate = rate;
