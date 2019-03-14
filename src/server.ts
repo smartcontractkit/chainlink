@@ -4,6 +4,7 @@ const PORT = process.env.SERVER_PORT || 8080
 
 const server = (dbConnection: any) => {
   let connections = 0
+
   const express = require('express')
   const app = express()
   app.set("port", PORT);
@@ -24,10 +25,12 @@ const server = (dbConnection: any) => {
   })
 
   io.on('connection', (socket: any) => {
-    console.log('a user connected')
+    connections = connections + 1
+    console.log(`websocket connected, total connections: ${connections}`);
 
     socket.on('disconnect', () => {
-      console.log('a user disconnected');
+      connections = connections - 1
+      console.log(`websocket disconnected, total connections: ${connections}`);
     })
   })
 }
