@@ -10,6 +10,14 @@ contract('OracleDev', () => {
   let usdFeed: any
   let ethFeed: any
 
+  // Need to mine some blocks so that the check in update doesn't
+  // fail when subtracting 25 from block.number.
+  before(async () => {
+    for (let i = 0; i < 50; i++) {
+      await h.sendToEvm('evm_mine')
+    }
+  })
+
   beforeEach(async () => {
     link = await h.linkContract()
     usdFeed = await h.deploy(priceFeed)
