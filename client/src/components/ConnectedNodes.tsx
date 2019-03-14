@@ -7,7 +7,7 @@ type State = {
 }
 
 class ConnectedNodes extends Component<Props, State> {
-  constructor(props: any) {
+  constructor(props: Props) {
     super(props)
     this.state = {}
   }
