@@ -130,7 +130,7 @@ func TestRecurring_AddJob_Archived(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	r := services.NewRecurring(store)
-	cron := cltest.NewControlledCron()
+	cron := cltest.NewMockCron()
 	r.Cron = cron
 	defer r.Stop()
 
@@ -138,13 +138,13 @@ func TestRecurring_AddJob_Archived(t *testing.T) {
 	require.NoError(t, store.CreateJob(&job))
 	r.AddJob(job)
 
-	cron.RunFuncs()
+	cron.RunEntries()
 	count, err := store.Unscoped().JobRunsCountFor(job.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
 
 	require.NoError(t, store.ArchiveJob(job.ID))
-	cron.RunFuncs()
+	cron.RunEntries()
 
 	count, err = store.Unscoped().JobRunsCountFor(job.ID)
 	require.NoError(t, err)
