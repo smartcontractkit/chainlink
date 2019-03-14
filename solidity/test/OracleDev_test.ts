@@ -39,8 +39,10 @@ contract('OracleDev', () => {
 
   describe('currentRate', () => {
     beforeEach(async () => {
-      await ethFeed.update(ethRate)
-      await usdFeed.update(usdRate)
+      await ethFeed.addOracle(h.oracleNode, {from: h.defaultAccount})
+      await usdFeed.addOracle(h.oracleNode, {from: h.defaultAccount})
+      await ethFeed.update(ethRate, {from: h.oracleNode})
+      await usdFeed.update(usdRate, {from: h.oracleNode})
       await ocd.setPriceFeed(ethFeed.address, 'ETH')
       await ocd.setPriceFeed(usdFeed.address, 'USD')
     })
