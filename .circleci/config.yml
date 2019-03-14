@@ -1,0 +1,25 @@
+version: 2
+jobs:
+  unit-tests:
+    docker:
+      - image: circleci/node:11
+    steps:
+      - checkout
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package.json" }}
+      - run:
+          name: Install Packages
+          command: yarn install
+      - run:
+          name: Test Contracts
+          command: yarn test
+      - save_cache:
+          key: dependency-cache-{{ checksum "package.json" }}
+          paths:
+            - node_modules
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - unit-tests
