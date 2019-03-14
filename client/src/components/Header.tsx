@@ -4,6 +4,7 @@ import Toolbar from '@material-ui/core/Toolbar'
 import Grid from '@material-ui/core/Grid'
 import Link from '@material-ui/core/Link';
 import { withStyles } from '@material-ui/core/styles'
+import ConnectedNodes from './ConnectedNodes'
 
 const styles = (theme: any) => {
   return {
@@ -27,6 +28,7 @@ const Header = (props: any) => {
             <Link href="/">
               LINK Stats
             </Link>
+            <ConnectedNodes />
           </Grid>
         </Grid>
       </Toolbar>
