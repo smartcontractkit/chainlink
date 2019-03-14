@@ -10,7 +10,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "concurrently \"cd client && yarn start\" \"ts-node-dev --respawn --transpileOnly ./src/index.ts\"",
     "build": "cd client && yarn build",
-    "prod": "ts-node ./src/index.ts"
+    "prod": "ts-node ./src/index.ts",
+    "test": "true"
   },
   "main": "src/index.ts",
   "repository": {
