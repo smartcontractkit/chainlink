@@ -28,9 +28,14 @@ const server = (dbConnection: any) => {
     connections = connections + 1
     console.log(`websocket connected, total connections: ${connections}`);
 
+    socket.emit('connectionCount', connections)
+    socket.broadcast.emit('connectionCount', connections)
+
     socket.on('disconnect', () => {
       connections = connections - 1
       console.log(`websocket disconnected, total connections: ${connections}`);
+
+      socket.broadcast.emit('connectionCount', connections)
     })
   })
 }
