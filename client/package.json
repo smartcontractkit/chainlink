@@ -1,5 +1,5 @@
 {
-  "name": "link-stats-client",
+  "name": "linkstats-client",
   "private": true,
   "version": "0.0.0",
   "description": "LINK Stats Client",
@@ -23,7 +23,7 @@
   "main": "app.js",
   "repository": {
     "type": "git",
-    "url": "git://github.com/smartcontractkit/link-stats"
+    "url": "git://github.com/smartcontractkit/linkstats"
   },
   "engines": {
     "node": "^11.11"
