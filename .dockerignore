@@ -1,3 +1,4 @@
+.git
 node_modules
 client/node_modules
-.git
+client/build
