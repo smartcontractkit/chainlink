@@ -1,14 +1,17 @@
-const pollUntilTimeout = (interval, cb, ...args) => {
-  return new Promise((resolve, reject) => {
-    const timer = setInterval(async () => {
-      /* eslint-disable standard/no-callback-literal */
-      const result = await cb(...args)
-      if (result !== false) {
-        clearInterval(timer)
-        resolve(result)
-      }
-    }, interval)
+const waitWithTimeout = async (promise, taskName, timeout) => {
+  let rejectCallback
+  const timeoutError = new Error(
+    `waiting for ${taskName} failed: timeout ${timeout}ms exceeded`
+  )
+  const timeoutPromise = new Promise((resolve, reject) => {
+    rejectCallback = reject
   })
+  const timeoutTimer = setTimeout(() => rejectCallback(timeoutError), timeout)
+  try {
+    return await Promise.race([promise, timeoutPromise])
+  } finally {
+    clearTimeout(timeoutTimer)
+  }
 }
 
 module.exports = {
@@ -16,9 +19,8 @@ module.exports = {
   // if any, it will refresh the page until the match is found or timeout
   // occurs.
   scrape: async (page, regex) => {
-    let match = await pollUntilTimeout(
-      3000,
-      async page => {
+    let match = await waitWithTimeout(
+      async () => {
         const content = await page.content()
         let match = content
           .replace(/\s+/g, ' ')
@@ -30,7 +32,8 @@ module.exports = {
         page.reload()
         return false
       },
-      page
+      'scrape',
+      30000
     )
     return match
   }
