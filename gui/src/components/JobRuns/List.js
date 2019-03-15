@@ -25,7 +25,7 @@ const styles = theme => {
       width: '40%'
     },
     statusCell: {
-      textAlign: 'center'
+      textAlign: 'end'
     },
     runDetails: {
       paddingTop: theme.spacing.unit * 2,
