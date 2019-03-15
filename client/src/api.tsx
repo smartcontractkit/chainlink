@@ -1,5 +1,8 @@
 import 'whatwg-fetch'
 
-const getJobRuns = () => fetch('/api/v1/job_runs').then((r: any) => r.json())
+const getJobRuns = async (): Promise<IJobRun[]> => {
+  const r: Response = await fetch('/api/v1/job_runs')
+  return r.json()
+}
 
 export { getJobRuns }

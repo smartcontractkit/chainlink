@@ -1,0 +1,4 @@
+interface IJobRun {
+  requestId: string
+}
+
