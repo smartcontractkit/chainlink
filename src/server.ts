@@ -16,7 +16,7 @@ const server = (dbConnection: any) => {
     console.log(`server started, listening on port ${PORT}`)
   })
 
-  app.use(express.static('public'))
+  app.use(express.static('client/build'))
 
   app.get('/api/v1/job_runs', async (req, res) => {
     const jobRuns = await dbConnection.manager.find(JobRun)
