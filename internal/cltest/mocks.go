@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gorilla/websocket"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/cmd"
 	"github.com/smartcontractkit/chainlink/logger"
@@ -712,4 +714,76 @@ type MockPasswordPrompter struct {
 
 func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
+}
+
+type CountingWebsocketServer struct {
+	*httptest.Server
+	entries   []string
+	m         *sync.RWMutex
+	t         *testing.T
+	Connected chan struct{}
+	Received  chan string
+	URL       *url.URL
+}
+
+func NewCountingWebsocketServer(t *testing.T) (*CountingWebsocketServer, func()) {
+	server := &CountingWebsocketServer{
+		entries:   []string{},
+		m:         &sync.RWMutex{},
+		t:         t,
+		Connected: make(chan struct{}, 1), // have buffer of one for easier assertions after the event
+		Received:  make(chan string, 1),
+	}
+
+	server.Server = httptest.NewServer(http.HandlerFunc(server.handler))
+	u, err := url.Parse(server.Server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u.Scheme = "ws"
+	server.URL = u
+	return server, func() {
+		server.Close()
+	}
+}
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
+
+func (c *CountingWebsocketServer) handler(w http.ResponseWriter, r *http.Request) {
+	select {
+	case c.Connected <- struct{}{}:
+	default:
+	}
+
+	var err error
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		c.t.Fatal(err)
+	}
+	for {
+		_, payload, err := conn.ReadMessage() // we only read
+		if err != nil && !websocket.IsCloseError(err) {
+			c.t.Fatal(err)
+		}
+
+		strp := string(payload)
+		c.m.Lock()
+		c.entries = append(c.entries)
+		c.m.Unlock()
+
+		select {
+		case c.Received <- strp:
+		default:
+		}
+	}
+}
+
+func (c *CountingWebsocketServer) Entries() []string {
+	c.m.RLock()
+	defer c.m.RUnlock()
+	tmp := make([]string, len(c.entries))
+	copy(tmp, c.entries)
+	return tmp
 }

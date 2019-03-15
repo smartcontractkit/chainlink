@@ -53,6 +53,7 @@ type ConfigSchema struct {
 	EthereumURL              string         `env:"ETH_URL" default:"ws://localhost:8546"`
 	JSONConsole              bool           `env:"JSON_CONSOLE" default:"false"`
 	LinkContractAddress      string         `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
+	LinkstatsURL             *url.URL       `env:"LINKSTATS_URL"`
 	LogLevel                 LogLevel       `env:"LOG_LEVEL" default:"info"`
 	LogToDisk                bool           `env:"LOG_TO_DISK" default:"true"`
 	MinIncomingConfirmations uint64         `env:"MIN_INCOMING_CONFIRMATIONS" default:"0"`
@@ -200,6 +201,20 @@ func (c Config) JSONConsole() bool {
 // LinkContractAddress represents the address
 func (c Config) LinkContractAddress() string {
 	return c.viper.GetString(c.envVarName("LinkContractAddress"))
+}
+
+// LinkstatsURL returns the websocket URL for this node to push stats to, or nil.
+func (c Config) LinkstatsURL() *url.URL {
+	rval := c.getWithFallback("LinkstatsURL", parseURL)
+	switch t := rval.(type) {
+	case nil:
+		return nil
+	case *url.URL:
+		return t
+	default:
+		logger.Panicf("invariant: LinkstatsURL returned as type %T", rval)
+		return nil
+	}
 }
 
 // OracleContractAddress represents the deployed Oracle contract's address.
@@ -359,6 +374,9 @@ func (c Config) defaultValue(name string) (string, bool) {
 func (c Config) zeroValue(name string) interface{} {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
+		if item.Type.Kind() == reflect.Ptr {
+			return nil
+		}
 		return reflect.New(item.Type).Interface()
 	}
 	log.Panicf("Invariant violated, no field of name %s found for zeroValue", name)
