@@ -2,7 +2,6 @@ package web_test
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -86,7 +85,19 @@ func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	jobs := createJobs(app, 3)
+	j2 := cltest.NewJobWithWebInitiator()
+	j2.CreatedAt = time.Now().AddDate(0, 0, 1)
+	require.NoError(t, app.Store.CreateJob(&j2))
+
+	j3 := cltest.NewJobWithWebInitiator()
+	j3.CreatedAt = time.Now().AddDate(0, 0, 2)
+	require.NoError(t, app.Store.CreateJob(&j3))
+
+	j1 := cltest.NewJobWithWebInitiator() // deliberately out of order
+	j1.CreatedAt = time.Now().AddDate(0, 0, -1)
+	require.NoError(t, app.Store.CreateJob(&j1))
+
+	jobs := []models.JobSpec{j1, j2, j3}
 
 	resp, cleanup := client.Get("/v2/specs?sort=createdAt&size=2")
 	defer cleanup()
@@ -139,19 +150,6 @@ func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec,
 	j2.Initiators[0].Ran = true
 	err = app.Store.CreateJob(&j2)
 	return &j1, err
-}
-
-func createJobs(app *cltest.TestApplication, n int) (jobs []*models.JobSpec) {
-	for i := 0; i < n; i++ {
-		j := cltest.NewJobWithWebInitiator()
-		err := app.Store.CreateJob(&j)
-		if err != nil {
-			panic(fmt.Sprintf("Could not save job: %v", err))
-		}
-		jobs = append(jobs, &j)
-	}
-
-	return jobs
 }
 
 func TestJobSpecsController_Create_HappyPath(t *testing.T) {
@@ -376,4 +374,19 @@ func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 	resp, err := http.Get(app.Server.URL + "/v2/specs/" + "garbage")
 	assert.NoError(t, err)
 	assert.Equal(t, 401, resp.StatusCode, "Response should be forbidden")
+}
+
+func TestJobSpecsController_Destroy(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	client := app.NewHTTPClient()
+	job := cltest.NewJobWithLogInitiator()
+	require.NoError(t, app.Store.CreateJob(&job))
+
+	resp, cleanup := client.Delete("/v2/specs/" + job.ID)
+	defer cleanup()
+	assert.Equal(t, 204, resp.StatusCode)
+	assert.Error(t, cltest.JustError(app.Store.FindJob(job.ID)))
+	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 }

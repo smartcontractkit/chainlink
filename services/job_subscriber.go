@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/logger"
@@ -14,19 +15,24 @@ import (
 type JobSubscriber interface {
 	store.HeadTrackable
 	AddJob(job models.JobSpec, bn *models.Head) error
+	RemoveJob(ID string) error
 	Jobs() []models.JobSpec
 }
 
 // jobSubscriber implementation
 type jobSubscriber struct {
 	store            *store.Store
-	jobSubscriptions []JobSubscription
-	jobsMutex        sync.RWMutex
+	jobSubscriptions map[string]JobSubscription
+	jobsMutex        *sync.RWMutex
 }
 
 // NewJobSubscriber returns a new job subscriber.
 func NewJobSubscriber(store *store.Store) JobSubscriber {
-	return &jobSubscriber{store: store}
+	return &jobSubscriber{
+		store:            store,
+		jobSubscriptions: map[string]JobSubscription{},
+		jobsMutex:        &sync.RWMutex{},
+	}
 }
 
 // AddJob subscribes to ethereum log events for each "runlog" and "ethlog"
@@ -44,13 +50,26 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 	return nil
 }
 
+// RemoveJob unsubscribes the job from a log subscription to trigger runs.
+func (js *jobSubscriber) RemoveJob(ID string) error {
+	js.jobsMutex.Lock()
+	sub, ok := js.jobSubscriptions[ID]
+	delete(js.jobSubscriptions, ID)
+	js.jobsMutex.Unlock()
+	if !ok {
+		return fmt.Errorf("JobSubscriber#RemoveJob: job %s not found", ID)
+	}
+	sub.Unsubscribe()
+	return nil
+}
+
 // Jobs returns the jobs being listened to.
 func (js *jobSubscriber) Jobs() []models.JobSpec {
 	js.jobsMutex.RLock()
 	defer js.jobsMutex.RUnlock()
 	var jobs []models.JobSpec
-	for _, js := range js.jobSubscriptions {
-		jobs = append(jobs, js.Job)
+	for _, sub := range js.jobSubscriptions {
+		jobs = append(jobs, sub.Job)
 	}
 	return jobs
 }
@@ -58,7 +77,7 @@ func (js *jobSubscriber) Jobs() []models.JobSpec {
 func (js *jobSubscriber) addSubscription(sub JobSubscription) {
 	js.jobsMutex.Lock()
 	defer js.jobsMutex.Unlock()
-	js.jobSubscriptions = append(js.jobSubscriptions, sub)
+	js.jobSubscriptions[sub.Job.ID] = sub
 }
 
 // Connect connects the jobs to the ethereum node by creating corresponding subscriptions.
@@ -79,12 +98,12 @@ func (js *jobSubscriber) Disconnect() {
 	for _, sub := range js.jobSubscriptions {
 		sub.Unsubscribe()
 	}
-	js.jobSubscriptions = []JobSubscription{}
+	js.jobSubscriptions = map[string]JobSubscription{}
 }
 
 // OnNewHead resumes all pending job runs based on the new head activity.
 func (js *jobSubscriber) OnNewHead(head *models.Head) {
-	pendingRuns, err := js.store.JobRunsWithStatus(models.RunStatusPendingConfirmations)
+	pendingRuns, err := js.store.UnscopedJobRunsWithStatus(models.RunStatusPendingConfirmations)
 	if err != nil {
 		logger.Error("error fetching pending job runs:", err.Error())
 	}
@@ -95,7 +114,7 @@ func (js *jobSubscriber) OnNewHead(head *models.Head) {
 		"pending_run_count", len(pendingRuns),
 	)
 	for _, jr := range pendingRuns {
-		err := ResumeConfirmingTask(&jr, js.store, height)
+		err := ResumeConfirmingTask(&jr, js.store.Unscoped(), height)
 		if err != nil {
 			logger.Error("JobSubscriber.OnNewHead: ", err.Error())
 		}

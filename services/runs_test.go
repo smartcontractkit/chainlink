@@ -400,7 +400,7 @@ func TestQueueSleepingTask(t *testing.T) {
 
 }
 
-func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed(t *testing.T) {
+func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Happy(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	store.Clock = cltest.NeverClock{}
@@ -443,6 +443,59 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed(t *testing
 	assert.Equal(t, run.ID, runRequest.ID)
 
 	*run, err = store.ORM.FindJobRun(run.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Status))
+	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
+}
+
+func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Archived(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+	store.Clock = cltest.NeverClock{}
+
+	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	require.NoError(t, store.ORM.CreateJob(&jobSpec))
+
+	// queue up next run if duration has not elapsed yet
+	clock := cltest.UseSettableClock(store)
+	store.Clock = clock
+	clock.SetTime(time.Time{})
+
+	inputFromTheFuture := sleepAdapterParams(60)
+	run := &models.JobRun{
+		ID:        utils.NewBytes32ID(),
+		JobSpecID: jobSpec.ID,
+		Status:    models.RunStatusPendingSleep,
+		TaskRuns: []models.TaskRun{
+			models.TaskRun{
+				ID:     utils.NewBytes32ID(),
+				Status: models.RunStatusPendingSleep,
+				TaskSpec: models.TaskSpec{
+					JobSpecID: jobSpec.ID,
+					Type:      adapters.TaskTypeSleep,
+					Params:    inputFromTheFuture,
+				},
+			},
+		},
+	}
+	require.NoError(t, store.CreateJobRun(run))
+	require.NoError(t, store.ArchiveJob(jobSpec.ID))
+
+	unscoped := store.Unscoped()
+	err := services.QueueSleepingTask(run, unscoped)
+	assert.NoError(t, err)
+	assert.Equal(t, string(models.RunStatusPendingSleep), string(run.TaskRuns[0].Status))
+	assert.Equal(t, string(models.RunStatusPendingSleep), string(run.Status))
+
+	// force the duration elapse
+	clock.SetTime((time.Time{}).Add(math.MaxInt64))
+	runRequest, open := <-store.RunChannel.Receive()
+	assert.True(t, open)
+	assert.Equal(t, run.ID, runRequest.ID)
+
+	require.Error(t, cltest.JustError(store.FindJobRun(run.ID)), "archived runs should not be visible to normal store")
+
+	*run, err = unscoped.FindJobRun(run.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Status))
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))

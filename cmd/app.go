@@ -93,6 +93,11 @@ func NewApp(client *Client) *cli.App {
 			Action:  client.CreateJobSpec,
 		},
 		{
+			Name:   "archivejob",
+			Usage:  "Archive job and all associated runs",
+			Action: client.ArchiveJobSpec,
+		},
+		{
 			Name:    "run",
 			Aliases: []string{"r"},
 			Usage:   "Begin job run for specid",

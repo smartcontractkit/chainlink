@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -107,7 +108,6 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 		{"ethlog matching address", "ethlog", sharedAddr, sharedAddr, 1, common.Hash{}, hexutil.Bytes{}},
 		{"ethlog all address", "ethlog", noAddr, newAddr(), 1, common.Hash{}, hexutil.Bytes{}},
 		{"runlog v0 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic0original, cltest.StringToVersionedLogData0(t, "id", `{"value":"100"}`)},
-		{"runlog v0 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic0original, cltest.StringToVersionedLogData0(t, "id", `{"value":"100"}`)},
 		{"runlog v20190123 w/o address", "runlog", noAddr, newAddr(), 1, models.RunLogTopic20190123withFullfillmentParams, cltest.StringToVersionedLogData20190123withFulfillmentParams(t, "id", `{"value":"100"}`)},
 		{"runlog v20190123 matching address", "runlog", sharedAddr, sharedAddr, 1, models.RunLogTopic20190123withFullfillmentParams, cltest.StringToVersionedLogData20190123withFulfillmentParams(t, "id", `{"value":"100"}`)},
 		{"runlog w non-matching topic", "runlog", sharedAddr, sharedAddr, 0, common.Hash{}, cltest.StringToVersionedLogData20190123withFulfillmentParams(t, "id", `{"value":"100"}`)},
@@ -154,24 +154,93 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 	}
 }
 
+func TestJobSubscriber_RemoveJob(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		initType string
+	}{
+		{"ethlog"},
+		{"runlog"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.initType, func(t *testing.T) {
+			store, el, cleanup := cltest.NewJobSubscriber()
+			defer cleanup()
+
+			eth := cltest.MockEthOnStore(store)
+			logChan := make(chan models.Log, 1)
+			eth.RegisterSubscription("logs", logChan)
+
+			addr := newAddr()
+			job := cltest.NewJob()
+			initr := models.Initiator{Type: test.initType}
+			initr.Address = addr
+			job.Initiators = []models.Initiator{initr}
+			require.NoError(t, store.CreateJob(&job))
+			el.AddJob(job, cltest.Head(1))
+			require.Len(t, el.Jobs(), 1)
+
+			require.NoError(t, el.RemoveJob(job.ID))
+			require.Len(t, el.Jobs(), 0)
+
+			ht := services.NewHeadTracker(store)
+			ht.Attach(el)
+			require.NoError(t, ht.Start())
+
+			// asserts that JobSubscriber unsubscribed the job specific channel
+			require.True(t, sendingOnClosedChannel(func() {
+				logChan <- models.Log{}
+			}))
+
+			cltest.WaitForRuns(t, job, store, 0)
+			eth.EventuallyAllCalled(t)
+		})
+	}
+}
+
+func sendingOnClosedChannel(callback func()) (rval bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			rerror := r.(error)
+			rval = rerror.Error() == "send on closed channel"
+		}
+	}()
+	callback()
+	return false
+}
+
 func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
 	t.Parallel()
 
 	block := cltest.NewBlockHeader(10)
+	prettyLabel := func(archived bool, rs models.RunStatus) string {
+		if archived {
+			return fmt.Sprintf("archived:%s", string(rs))
+		}
+		return string(rs)
+	}
 
 	tests := []struct {
 		status   models.RunStatus
+		archived bool
 		wantSend bool
 	}{
-		{models.RunStatusPendingConfirmations, true},
-		{models.RunStatusInProgress, false},
-		{models.RunStatusPendingBridge, false},
-		{models.RunStatusPendingSleep, false},
-		{models.RunStatusCompleted, false},
+		{models.RunStatusPendingConfirmations, false, true},
+		{models.RunStatusPendingConfirmations, true, true},
+		{models.RunStatusInProgress, false, false},
+		{models.RunStatusInProgress, true, false},
+		{models.RunStatusPendingBridge, false, false},
+		{models.RunStatusPendingBridge, true, false},
+		{models.RunStatusPendingSleep, false, false},
+		{models.RunStatusPendingSleep, true, false},
+		{models.RunStatusCompleted, false, false},
+		{models.RunStatusCompleted, true, false},
 	}
 
 	for _, test := range tests {
-		t.Run(string(test.status), func(t *testing.T) {
+		t.Run(prettyLabel(test.archived, test.status), func(t *testing.T) {
 			store, js, cleanup := cltest.NewJobSubscriber()
 			defer cleanup()
 
@@ -183,7 +252,11 @@ func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
 			initr := job.Initiators[0]
 			run := job.NewRun(initr)
 			run.ApplyResult(models.RunResult{Status: test.status})
-			assert.Nil(t, store.CreateJobRun(&run))
+			require.NoError(t, store.CreateJobRun(&run))
+
+			if test.archived {
+				require.NoError(t, store.ArchiveJob(job.ID))
+			}
 
 			js.OnNewHead(block.ToHead())
 			if test.wantSend {

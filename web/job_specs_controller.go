@@ -82,3 +82,17 @@ func marshalSpecFromJSONAPI(j models.JobSpec, runs []models.JobRun) (*jsonapi.Do
 	doc, err := jsonapi.MarshalToStruct(p, nil)
 	return doc, err
 }
+
+// Destroy soft deletes a job spec.
+// Example:
+//  "<application>/specs/:SpecID"
+func (jsc *JobSpecsController) Destroy(c *gin.Context) {
+	id := c.Param("SpecID")
+	if err := jsc.App.ArchiveJob(id); err == orm.ErrorNotFound {
+		publicError(c, http.StatusNotFound, errors.New("JobSpec not found"))
+	} else if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+	} else {
+		c.JSON(http.StatusNoContent, nil)
+	}
+}

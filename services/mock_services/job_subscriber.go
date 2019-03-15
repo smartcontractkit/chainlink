@@ -89,3 +89,15 @@ func (m *MockJobSubscriber) OnNewHead(arg0 *models.Head) {
 func (mr *MockJobSubscriberMockRecorder) OnNewHead(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OnNewHead", reflect.TypeOf((*MockJobSubscriber)(nil).OnNewHead), arg0)
 }
+
+// RemoveJob mocks base method
+func (m *MockJobSubscriber) RemoveJob(arg0 string) error {
+	ret := m.ctrl.Call(m, "RemoveJob", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveJob indicates an expected call of RemoveJob
+func (mr *MockJobSubscriberMockRecorder) RemoveJob(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveJob", reflect.TypeOf((*MockJobSubscriber)(nil).RemoveJob), arg0)
+}

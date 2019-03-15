@@ -59,6 +59,59 @@ func TestORM_CreateJob(t *testing.T) {
 	assert.Equal(t, j2.ID, j2.Initiators[0].JobSpecID)
 }
 
+func TestORM_Unscoped(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	orm := store.ORM
+	job := cltest.NewJob()
+	require.NoError(t, orm.CreateJob(&job))
+	require.NoError(t, orm.DB.Delete(&job).Error)
+	require.Error(t, orm.DB.First(&job).Error)
+	orm = store.ORM.Unscoped()
+	require.NoError(t, orm.DB.First(&job).Error)
+}
+
+func TestORM_ArchiveJob(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job := cltest.NewJobWithSchedule("* * * * *")
+	require.NoError(t, store.CreateJob(&job))
+
+	init := job.Initiators[0]
+	run := job.NewRun(init)
+	require.NoError(t, store.CreateJobRun(&run))
+
+	require.NoError(t, store.ArchiveJob(job.ID))
+
+	require.Error(t, cltest.JustError(store.FindJob(job.ID)))
+	require.Error(t, cltest.JustError(store.FindJobRun(run.ID)))
+
+	orm := store.ORM.Unscoped()
+	require.NoError(t, cltest.JustError(orm.FindJob(job.ID)))
+	require.NoError(t, cltest.JustError(orm.FindJobRun(run.ID)))
+}
+
+func TestORM_CreateJobRun_ArchivesRunIfJobArchived(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+
+	require.NoError(t, store.ArchiveJob(job.ID))
+
+	jr := job.NewRun(job.Initiators[0])
+	require.NoError(t, store.CreateJobRun(&jr))
+
+	require.Error(t, cltest.JustError(store.FindJobRun(jr.ID)))
+	require.NoError(t, cltest.JustError(store.Unscoped().FindJobRun(jr.ID)))
+}
+
 func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
@@ -81,6 +134,27 @@ func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
 		t,
 		coercedJSON(job.Tasks[0].Params.String()),
 		retrievedJob.Tasks[0].Params.String())
+}
+
+func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	store.ORM.DB.LogMode(true)
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+
+	jr := job.NewRun(job.Initiators[0])
+	require.NoError(t, store.CreateJobRun(&jr))
+
+	require.NoError(t, store.ArchiveJob(job.ID))
+
+	jr.Status = models.RunStatusInProgress
+	require.NoError(t, store.SaveJobRun(&jr))
+
+	require.Error(t, cltest.JustError(store.FindJobRun(jr.ID)))
+	require.NoError(t, cltest.JustError(store.Unscoped().FindJobRun(jr.ID)))
 }
 
 func coercedJSON(v string) string {
@@ -146,7 +220,7 @@ func TestORM_JobRunsSortedFor(t *testing.T) {
 	assert.Equal(t, []string{jr2.ID, jr1.ID}, actual)
 }
 
-func TestORM_JobRunsWithStatus(t *testing.T) {
+func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
@@ -161,6 +235,7 @@ func TestORM_JobRunsWithStatus(t *testing.T) {
 		models.RunStatusPendingBridge,
 		models.RunStatusPendingConfirmations,
 		models.RunStatusCompleted}
+
 	var seedIds []string
 	for _, status := range statuses {
 		run := j.NewRun(i)
@@ -190,7 +265,67 @@ func TestORM_JobRunsWithStatus(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 
-			pending, err := store.JobRunsWithStatus(test.statuses...)
+			pending, err := store.UnscopedJobRunsWithStatus(test.statuses...)
+			assert.NoError(t, err)
+
+			pendingIDs := []string{}
+			for _, jr := range pending {
+				pendingIDs = append(pendingIDs, jr.ID)
+			}
+			assert.ElementsMatch(t, pendingIDs, test.expected)
+		})
+	}
+}
+
+func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	j := cltest.NewJobWithWebInitiator()
+	assert.NoError(t, store.CreateJob(&j))
+	i := j.Initiators[0]
+	npr := j.NewRun(i)
+	require.NoError(t, store.CreateJobRun(&npr))
+
+	statuses := []models.RunStatus{
+		models.RunStatusPendingBridge,
+		models.RunStatusPendingConfirmations,
+		models.RunStatusPendingConnection,
+		models.RunStatusCompleted}
+
+	var seedIds []string
+	for _, status := range statuses {
+		run := j.NewRun(i)
+		run.Status = status
+		require.NoError(t, store.CreateJobRun(&run))
+		seedIds = append(seedIds, run.ID)
+	}
+
+	require.NoError(t, store.ArchiveJob(j.ID))
+
+	tests := []struct {
+		name     string
+		statuses []models.RunStatus
+		expected []string
+	}{
+		{
+			"single status",
+			[]models.RunStatus{models.RunStatusPendingBridge},
+			[]string{seedIds[0]},
+		},
+		{
+			"multiple status'",
+			[]models.RunStatus{models.RunStatusPendingBridge, models.RunStatusPendingConfirmations, models.RunStatusPendingConnection},
+			[]string{seedIds[0], seedIds[1], seedIds[2]},
+		},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+
+			pending, err := store.UnscopedJobRunsWithStatus(test.statuses...)
 			assert.NoError(t, err)
 
 			pendingIDs := []string{}
