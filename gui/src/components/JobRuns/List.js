@@ -13,10 +13,16 @@ import ReactStaticLinkComponent from '../ReactStaticLinkComponent'
 import classNames from 'classnames'
 import Button from 'components/Button'
 
-const classes = theme => {
+const styles = theme => {
   return {
     jobRunsCard: {
       overflow: 'auto'
+    },
+    idCellWidth: {
+      width: '38%'
+    },
+    stampCellWidth: {
+      width: '100%'
     },
     runDetails: {
       paddingTop: theme.spacing.unit * 2,
@@ -66,7 +72,7 @@ const renderRuns = (runs, classes) => {
   } else if (runs) {
     return runs.map(r => (
       <TableRow key={r.id}>
-        <TableCell style={{ width: '38%' }} scope="row">
+        <TableCell className={classes.idCellWidth} scope="row">
           <div className={classes.runDetails}>
             <Link to={`/jobs/${r.jobId}/runs/id/${r.id}`}>
               <Typography variant="h5" color="primary" component="span">
@@ -75,7 +81,7 @@ const renderRuns = (runs, classes) => {
             </Link>
           </div>
         </TableCell>
-        <TableCell style={{ width: '100%' }}>
+        <TableCell className={classes.stampCellWidth}>
           <Typography variant="body1" color="textSecondary">
             Created <TimeAgo>{r.createdAt}</TimeAgo>
           </Typography>
@@ -128,7 +134,9 @@ const List = ({ jobSpecId, jobRuns, runs, showJobRunsCount, classes }) => (
 
 List.propTypes = {
   jobSpecId: PropTypes.string.isRequired,
-  runs: PropTypes.array.isRequired
+  runs: PropTypes.array.isRequired,
+  jobRuns: PropTypes.any.isRequired,
+  showJobRunsCount: PropTypes.any.isRequired
 }
 
-export default withStyles(classes)(List)
+export default withStyles(styles)(List)
