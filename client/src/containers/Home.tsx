@@ -3,17 +3,17 @@ import JobRunsList from '../components/JobRunsList'
 import { getJobRuns } from '../api'
 
 type Props = {}
-type State = { jobRuns?: any[] }
+type State = { jobRuns?: IJobRun[] }
 
 class Home extends Component<Props, State> {
-  constructor(props: any) {
+  constructor(props: Props) {
     super(props)
     this.state = { jobRuns: undefined }
   }
 
   componentDidMount() {
-    getJobRuns().then((jr: any) => {
-      this.setState({ jobRuns: jr })
+    getJobRuns().then((jrs: IJobRun[]) => {
+      this.setState({ jobRuns: jrs })
     })
   }
 
