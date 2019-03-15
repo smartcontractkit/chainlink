@@ -18,11 +18,14 @@ const styles = theme => {
     jobRunsCard: {
       overflow: 'auto'
     },
-    idCellWidth: {
-      width: '38%'
+    idCell: {
+      width: '40%'
     },
-    stampCellWidth: {
-      width: '100%'
+    stampCell: {
+      width: '40%'
+    },
+    statusCell: {
+      textAlign: 'center'
     },
     runDetails: {
       paddingTop: theme.spacing.unit * 2,
@@ -33,7 +36,9 @@ const styles = theme => {
       paddingRight: theme.spacing.unit * 1.55,
       paddingTop: theme.spacing.unit / 2.1,
       paddingBottom: theme.spacing.unit / 2.1,
-      borderRadius: theme.spacing.unit * 2
+      borderRadius: theme.spacing.unit * 2,
+      width: 'fit-content',
+      display: 'inline-block'
     },
     failed: {
       backgroundColor: '#e9faf2',
@@ -51,8 +56,20 @@ const styles = theme => {
 }
 
 const statusText = status => {
-  if (status === 'pending_confirmations' || status === 'in_progress') {
+  if (status === 'in_progress') {
     return 'Pending'
+  }
+  if (status === 'pending_confirmations') {
+    return 'Pending Confirmations'
+  }
+  if (status === 'pending_sleep') {
+    return 'Pending Sleep'
+  }
+  if (status === 'pending_connection') {
+    return 'Pending Connection'
+  }
+  if (status === 'pending_bridge') {
+    return 'Pending Bridge'
   }
   if (status === 'error') {
     return 'Failed'
@@ -72,7 +89,7 @@ const renderRuns = (runs, classes) => {
   } else if (runs) {
     return runs.map(r => (
       <TableRow key={r.id}>
-        <TableCell className={classes.idCellWidth} scope="row">
+        <TableCell className={classes.idCell} scope="row">
           <div className={classes.runDetails}>
             <Link to={`/jobs/${r.jobId}/runs/id/${r.id}`}>
               <Typography variant="h5" color="primary" component="span">
@@ -81,17 +98,19 @@ const renderRuns = (runs, classes) => {
             </Link>
           </div>
         </TableCell>
-        <TableCell className={classes.stampCellWidth}>
+        <TableCell className={classes.stampCell}>
           <Typography variant="body1" color="textSecondary">
             Created <TimeAgo>{r.createdAt}</TimeAgo>
           </Typography>
         </TableCell>
-        <TableCell scope="row">
+        <TableCell className={classes.statusCell} scope="row">
           <Typography
             variant="body1"
             className={classNames(
               classes.status,
-              classes[statusText(r.status).toLowerCase()]
+              r.status.startsWith('pending')
+                ? classes['pending']
+                : classes[statusText(r.status).toLowerCase()]
             )}
           >
             {statusText(r.status)}
