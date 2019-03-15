@@ -25,7 +25,7 @@ describe('containers/JobRuns/Index', () => {
   const jobSpecId = 'c60b9927eeae43168ddbe92584937b1b'
 
   it('renders the runs for the job spec', async () => {
-    expect.assertions(4)
+    expect.assertions(3)
 
     const runsResponse = jsonApiJobSpecRunFactory(
       [
@@ -46,8 +46,7 @@ describe('containers/JobRuns/Index', () => {
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain(jobSpecId)
     expect(wrapper.text()).toContain(runsResponse.data[0].id)
-    expect(wrapper.text()).toContain('completed')
-    expect(wrapper.text()).toContain('{"result":"value"}')
+    expect(wrapper.text()).toContain('Complete')
   })
 
   it('can page through the list of runs', async () => {

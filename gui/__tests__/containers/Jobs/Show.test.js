@@ -42,10 +42,10 @@ describe('containers/Jobs/Show', () => {
     expect(wrapper.text()).toContain('Created a minute ago')
     expect(wrapper.text()).toContain('Run Count1')
     expect(wrapper.text()).toContain('{"value":"8400.00"}')
-    expect(wrapper.text()).not.toContain('Show More')
+    expect(wrapper.text()).not.toContain('View More')
   })
 
-  it('displays a show more link if there are more runs than the display count', async () => {
+  it('displays a view more link if there are more runs than the display count', async () => {
     const runs = [
       { id: 'runA', jobId: jobSpecId },
       { id: 'runB', jobId: jobSpecId },
@@ -63,6 +63,6 @@ describe('containers/Jobs/Show', () => {
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('Show More')
+    expect(wrapper.text()).toContain('View More')
   })
 })
