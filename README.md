@@ -1,4 +1,4 @@
-# LINK Stats [![CircleCI](https://circleci.com/gh/smartcontractkit/link-stats.svg?style=shield)](https://circleci.com/gh/smartcontractkit/link-stats)
+# LINK Stats [![CircleCI](https://circleci.com/gh/smartcontractkit/linkstats.svg?style=shield)](https://circleci.com/gh/smartcontractkit/linkstats)
 
 ## Deployment
 
