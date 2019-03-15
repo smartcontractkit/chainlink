@@ -5,7 +5,6 @@ import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
 import JobRunsList from 'components/JobRuns/List'
-import Link from 'components/Link'
 import KeyValueList from 'components/KeyValueList'
 import Content from 'components/Content'
 import RegionalNav from 'components/Jobs/RegionalNav'
@@ -21,11 +20,6 @@ const styles = theme => ({
   lastRun: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5
-  },
-  showMore: {
-    marginTop: theme.spacing.unit * 3,
-    marginLeft: theme.spacing.unit * 3,
-    display: 'block'
   }
 })
 
@@ -38,22 +32,17 @@ const renderJobSpec = ({ job }) => {
   return <KeyValueList entries={Object.entries(info)} titleize />
 }
 
-const renderLatestRuns = ({
-  job,
-  classes,
-  latestJobRuns,
-  showJobRunsCount
-}) => (
+const renderLatestRuns = ({ job, latestJobRuns, showJobRunsCount }) => (
   <React.Fragment>
     <Card>
       <CardTitle divider>Recent Job Runs</CardTitle>
-      <JobRunsList jobSpecId={job.id} runs={latestJobRuns} />
+      <JobRunsList
+        jobSpecId={job.id}
+        jobRuns={job.runs}
+        runs={latestJobRuns}
+        showJobRunsCount={showJobRunsCount}
+      />
     </Card>
-    {job.runs && job.runs.length > showJobRunsCount && (
-      <Link to={`/jobs/${job.id}/runs`} className={classes.showMore}>
-        Show More
-      </Link>
-    )}
   </React.Fragment>
 )
 
