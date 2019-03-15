@@ -4494,11 +4494,6 @@ commander@^2.11.0, commander@^2.12.1, commander@^2.18.0, commander@^2.19.0, comm
   resolved "https://registry.npmjs.org/commander/-/commander-2.19.0.tgz#f6198aa84e5b83c46054b94ddedbfed5ee9ff12a"
   integrity sha512-6tvAOO+D6OENvRAh524Dh9jcfKTYDQAqvqezbCW82xj5X0pSrcpxtvRKHLG0yBY6SD7PSDrJaj+0AiOcKVd1Xg==
 
-commander@~2.15.0:
-  version "2.15.1"
-  resolved "https://registry.npmjs.org/commander/-/commander-2.15.1.tgz#df46e867d0fc2aec66a34662b406a9ccafff5b0f"
-  integrity sha512-VlfT9F3V0v+jr4yxPc5gg9s62/fIVWsd2Bk2iD435um1NlGMYdVCq+MjcXnhYq2icNOizHr1kK+5TI6H0Hy0ag==
-
 commander@~2.8.1:
   version "2.8.1"
   resolved "https://registry.npmjs.org/commander/-/commander-2.8.1.tgz#06be367febfda0c330aa1e2a072d3dc9762425d4"
@@ -4868,6 +4863,14 @@ cross-env@^3.1.4:
   integrity sha1-ngWF8neGTtQhznVvgamA/w1piro=
   dependencies:
     cross-spawn "^5.1.0"
+    is-windows "^1.0.0"
+
+cross-env@^5.2.0:
+  version "5.2.0"
+  resolved "https://registry.yarnpkg.com/cross-env/-/cross-env-5.2.0.tgz#6ecd4c015d5773e614039ee529076669b9d126f2"
+  integrity sha512-jtdNFfFW1hB7sMhr/H6rW1Z45LFqyI431m3qU6bFXcQ3Eh7LtBuG3h74o7ohHZ3crrRkkqHlo4jYHFPcjroANg==
+  dependencies:
+    cross-spawn "^6.0.5"
     is-windows "^1.0.0"
 
 cross-spawn@6.0.5, cross-spawn@^6.0.0, cross-spawn@^6.0.5:
@@ -7716,7 +7719,7 @@ fuse.js@^3.0.1, fuse.js@^3.3.0:
   resolved "https://registry.npmjs.org/fuse.js/-/fuse.js-3.3.0.tgz#1e4fe172a60687230fb54a5cb247eb96e2e7e885"
   integrity sha512-ESBRkGLWMuVkapqYCcNO1uqMg5qbCKkgb+VS6wsy17Rix0/cMS9kSOZoYkjH8Ko//pgJ/EEGu0GTjk2mjX2LGQ==
 
-ganache-cli@^6.1.0, ganache-cli@^6.2.4-beta.2:
+ganache-cli@^6.1.0:
   version "6.2.5"
   resolved "https://registry.npmjs.org/ganache-cli/-/ganache-cli-6.2.5.tgz#efda5115fa3a0c62d7f5729fdd78da70ca55b1ad"
   integrity sha512-E4SP8QNeuc2N/ojFoCK+08OYHX8yrtGeFtipZmJPPTQ6U8Hmq3JcbXZDxQfChPQUY5mtbRSwptJa4EtiQyJjAQ==
@@ -11311,7 +11314,7 @@ mock-local-storage@^1.0.5:
     core-js "^0.8.3"
     global "^4.3.2"
 
-moment@^2.15.2, moment@^2.22.2:
+moment@^2.15.2:
   version "2.24.0"
   resolved "https://registry.npmjs.org/moment/-/moment-2.24.0.tgz#0d055d53f5052aa653c9f6eb68bb5d12bf5c2b5b"
   integrity sha512-bV7f+6l2QigeBBZSM/6yTNq4P2fNpSWj/0e7jQcy87A8e7o2nAfP/34/2ky5Vw4B9S446EtIhodAzkFCcR4dQg==
@@ -17939,7 +17942,7 @@ ws@^3.0.0:
     safe-buffer "~5.1.0"
     ultron "~1.1.0"
 
-ws@^5.2.0, ws@~5.2.0:
+ws@^5.2.0:
   version "5.2.2"
   resolved "https://registry.npmjs.org/ws/-/ws-5.2.2.tgz#dffef14866b8e8dc9133582514d1befaf96e980f"
   integrity sha512-jaHFD6PFv6UgoIVda6qZllptQsMlDEJkTQcybzzXDYM1XO9Y8em691FGMPmM46WGyLU4z9KMgQN+qrux/nhlHA==
@@ -17952,15 +17955,6 @@ ws@^6.0.0, ws@^6.1.0, ws@~6.1.0:
   integrity sha512-rfUqzvz0WxmSXtJpPMX2EeASXabOrSMk1ruMOV3JBTBjo4ac2lDjGGsbQSyxj8Odhw5fBib8ZKEjDNvgouNKYw==
   dependencies:
     async-limiter "~1.0.0"
-
-wscat@^2.2.1:
-  version "2.2.1"
-  resolved "https://registry.npmjs.org/wscat/-/wscat-2.2.1.tgz#c8640db425a1d6f021022af93dc1d4d1b019243c"
-  integrity sha512-8/qT8dpCD8eKm7zS+AowXzwoC6887uhT1yWFGjQpQQXG5/7J+xO42kY/YKZoJT1t/AC3Vd4TxSssdN2+KzPdZg==
-  dependencies:
-    commander "~2.15.0"
-    read "~1.0.7"
-    ws "~5.2.0"
 
 x-is-string@^0.1.0:
   version "0.1.0"
