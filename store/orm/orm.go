@@ -127,6 +127,14 @@ func (orm *ORM) Close() error {
 	)
 }
 
+// Unscoped returns a new instance of this ORM that includes soft deleted items.
+func (orm *ORM) Unscoped() *ORM {
+	return &ORM{
+		DB:              orm.DB.Unscoped(),
+		lockingStrategy: orm.lockingStrategy,
+	}
+}
+
 // Where fetches multiple objects with "Find".
 func (orm *ORM) Where(field string, value interface{}, instance interface{}) error {
 	return orm.DB.Where(fmt.Sprintf("%v = ?", field), value).Find(instance).Error
@@ -165,20 +173,30 @@ func (orm *ORM) FindInitiator(ID uint) (models.Initiator, error) {
 func (orm *ORM) preloadJobs() *gorm.DB {
 	return orm.DB.
 		Preload("Initiators", func(db *gorm.DB) *gorm.DB {
-			return db.Order("\"id\" asc")
+			return db.Unscoped().Order("\"id\" asc")
 		}).
 		Preload("Tasks", func(db *gorm.DB) *gorm.DB {
-			return db.Order("id asc")
+			return db.Unscoped().Order("id asc")
+		})
+}
+
+func preloadTaskRuns(db *gorm.DB) *gorm.DB {
+	return db.
+		Preload("Result").
+		Preload("TaskSpec", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
 		})
 }
 
 func (orm *ORM) preloadJobRuns() *gorm.DB {
 	return orm.DB.
-		Preload("Initiator").
+		Preload("Initiator", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
 		Preload("Overrides").
 		Preload("Result").
 		Preload("TaskRuns", func(db *gorm.DB) *gorm.DB {
-			return db.Set("gorm:auto_preload", true).Order("task_spec_id asc")
+			return preloadTaskRuns(db).Order("task_spec_id asc")
 		})
 }
 
@@ -214,15 +232,28 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Save(run).Error
+		return dbtx.Unscoped().Omit("deleted_at").Save(run).Error
 	})
 }
 
 // CreateJobRun inserts a new JobRun
 func (orm *ORM) CreateJobRun(run *models.JobRun) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Create(run).Error
+		return updateDeletedAtFromJobSpec(run, dbtx.Create(run)).Error
 	})
+}
+
+// updateDeletedAtFromJobSpec will update a runs deleted_at from its parent
+// job spec.
+// This is of particular importance in the edge case when a runlog starts a run
+// at the same time a job is archived. Said run will never retain a deleted_at,
+// unless this is invoked.
+func updateDeletedAtFromJobSpec(run *models.JobRun, db *gorm.DB) *gorm.DB {
+	return db.Exec(fmt.Sprintf(`
+		UPDATE job_runs SET deleted_at = (
+			SELECT job_specs.deleted_at FROM job_specs WHERE job_specs.ID = '%s')
+		WHERE job_runs.job_spec_id = '%s'
+	`, run.JobSpecID, run.JobSpecID))
 }
 
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
@@ -301,16 +332,43 @@ func (orm *ORM) CreateJob(job *models.JobSpec) error {
 	})
 }
 
+// Archived returns whether or not a job has been archived.
+func (orm *ORM) Archived(ID string) bool {
+	j, err := orm.Unscoped().FindJob(ID)
+	if err != nil {
+		return false
+	}
+	return j.DeletedAt.Valid
+}
+
+// ArchiveJob soft deletes the job and its associated job runs.
+func (orm *ORM) ArchiveJob(ID string) error {
+	j, err := orm.FindJob(ID)
+	if err != nil {
+		return err
+	}
+
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return multierr.Combine(
+			dbtx.Where("job_spec_id = ?", ID).Delete(&models.Initiator{}).Error,
+			dbtx.Where("job_spec_id = ?", ID).Delete(&models.TaskSpec{}).Error,
+			dbtx.Where("job_spec_id = ?", ID).Delete(&models.JobRun{}).Error,
+			dbtx.Delete(&j).Error,
+		)
+	})
+}
+
 // CreateServiceAgreement saves a service agreement and it's associations to the
 // database.
 func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
 	return orm.DB.Create(sa).Error
 }
 
-// JobRunsWithStatus returns the JobRuns which have the passed statuses.
-func (orm *ORM) JobRunsWithStatus(statuses ...models.RunStatus) ([]models.JobRun, error) {
+// UnscopedJobRunsWithStatus returns all JobRuns, including ones that have been
+// soft deleted, which have the passed statuses.
+func (orm *ORM) UnscopedJobRunsWithStatus(statuses ...models.RunStatus) ([]models.JobRun, error) {
 	runs := []models.JobRun{}
-	err := orm.preloadJobRuns().Where("status IN (?)", statuses).Find(&runs).Error
+	err := orm.Unscoped().preloadJobRuns().Where("status IN (?)", statuses).Find(&runs).Error
 	return runs, err
 }
 
@@ -779,6 +837,7 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	err = tx.
 		Where("status IN (?)", bulkQuery.Status.ToStrings()).
 		Where("updated_at < ?", bulkQuery.UpdatedBefore).
+		Unscoped().
 		Delete(&[]models.JobRun{}).
 		Error
 	if err != nil {

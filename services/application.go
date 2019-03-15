@@ -23,6 +23,7 @@ type Application interface {
 	GetStore() *store.Store
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
+	ArchiveJob(ID string) error
 	AddServiceAgreement(*models.ServiceAgreement) error
 	AddAdapter(bt *models.BridgeType) error
 	RemoveAdapter(bt *models.BridgeType) error
@@ -138,6 +139,12 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	return app.JobSubscriber.AddJob(job, nil) // nil for latest
 }
 
+// ArchiveJob silences the job from the system, preventing future job runs.
+func (app *ChainlinkApplication) ArchiveJob(ID string) error {
+	_ = app.JobSubscriber.RemoveJob(ID)
+	return app.Store.ArchiveJob(ID)
+}
+
 // AddServiceAgreement adds a Service Agreement which includes a job that needs
 // to be scheduled.
 func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement) error {
@@ -229,14 +236,14 @@ func newPendingConnectionResumer(store *store.Store) *pendingConnectionResumer {
 }
 
 func (p *pendingConnectionResumer) Connect(head *models.Head) error {
-	pendingRuns, err := p.store.JobRunsWithStatus(models.RunStatusPendingConnection)
+	pendingRuns, err := p.store.UnscopedJobRunsWithStatus(models.RunStatusPendingConnection)
 	if err != nil {
 		return multierr.Append(errors.New("error resuming pending connections"), err)
 	}
 
 	var merr error
 	for _, jr := range pendingRuns {
-		err := p.resumer(&jr, p.store)
+		err := p.resumer(&jr, p.store.Unscoped())
 		if err != nil {
 			merr = multierr.Append(merr, err)
 		}

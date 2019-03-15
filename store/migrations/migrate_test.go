@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1551816486"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1551895034"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1551895034/old"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1552418531"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/stretchr/testify/assert"
@@ -209,4 +210,38 @@ func TestMigrate1551895034(t *testing.T) {
 		t,
 		hash.String(),
 		retrieved.Hash().Hex())
+}
+
+func TestMigrate1552418531(t *testing.T) {
+	migrations.ExportedClearRegisteredMigrations()
+
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	// seed w old schema
+	err := orm.DB.Exec(`
+		CREATE TABLE "job_specs" ("id" varchar(255) NOT NULL,"created_at" timestamp,"start_at" timestamp,"end_at" timestamp, PRIMARY KEY ("id"));
+		INSERT INTO "job_specs" VALUES ('testjobspec', CURRENT_TIMESTAMP, NULL, NULL);
+	`).Error
+	require.NoError(t, err)
+
+	// migrate
+	tm := &migration1552418531.Migration{}
+	migrations.ExportedRegisterMigration(tm)
+
+	require.NoError(t, migrations.Migrate(orm))
+
+	retrieved := models.JobSpec{}
+	err = orm.DB.First(&retrieved).Error
+	require.NoError(t, err)
+
+	require.Equal(t, false, retrieved.DeletedAt.Valid)
+
+	err = orm.DB.Delete(&retrieved).Error
+	require.NoError(t, err)
+	err = orm.DB.First(&retrieved).Error
+	require.Error(t, err)
+	err = orm.DB.Unscoped().First(&retrieved).Error
+	require.NoError(t, err)
+	require.Equal(t, true, retrieved.DeletedAt.Valid)
 }

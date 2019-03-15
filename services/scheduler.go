@@ -124,7 +124,12 @@ func (r *Recurring) AddJob(job models.JobSpec) {
 	for _, i := range job.InitiatorsFor(models.InitiatorCron) {
 		initr := i
 		if !job.Ended(r.Clock.Now()) {
+			archived := false
 			r.Cron.AddFunc(string(initr.Schedule), func() {
+				if archived || r.store.Archived(job.ID) {
+					archived = true
+					return
+				}
 				_, err := ExecuteJob(job, initr, models.RunResult{}, nil, r.store)
 				if err != nil && !expectedRecurringScheduleJobError(err) {
 					logger.Errorw(err.Error())
@@ -169,6 +174,9 @@ func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 	select {
 	case <-ot.done:
 	case <-ot.Clock.After(utils.DurationFromNow(initr.Time.Time)):
+		if ot.Store.Archived(job.ID) {
+			return
+		}
 		if err := ot.Store.MarkRan(&initr, true); err != nil {
 			logger.Error(err.Error())
 			return
