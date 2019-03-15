@@ -17,12 +17,13 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+    "typeRoots": ["node_modules/@types", "@types"],
     "jsx": "preserve"
   },
   "include": [
     "src"
   ],
   "files": [
-    "types/react-snapshot.d.ts"
+    "@types/react-snapshot.d.ts"
   ]
 }

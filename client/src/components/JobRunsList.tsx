@@ -16,7 +16,7 @@ const Empty = () => {
   )
 }
 
-type RunsListProps = { jobRuns: any[] }
+type RunsListProps = { jobRuns: IJobRun[] }
 
 const RunsList = (props: RunsListProps) => {
   return (
