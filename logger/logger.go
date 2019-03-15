@@ -155,14 +155,21 @@ func Error(args ...interface{}) {
 	logger.Error(args...)
 }
 
-//WarnIf logs the error if present.
+// WarnIf logs the error if present.
 func WarnIf(err error) {
 	if err != nil {
 		logger.Warn(err)
 	}
 }
 
-//PanicIf logs the error if present.
+// ErrorIf logs the error if present.
+func ErrorIf(err error) {
+	if err != nil {
+		logger.Error(err)
+	}
+}
+
+// PanicIf logs the error if present.
 func PanicIf(err error) {
 	if err != nil {
 		logger.Panic(err)
