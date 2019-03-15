@@ -32,10 +32,10 @@ const styles = theme => {
       paddingBottom: theme.spacing.unit * 2
     },
     status: {
-      paddingLeft: theme.spacing.unit * 1.55,
-      paddingRight: theme.spacing.unit * 1.55,
-      paddingTop: theme.spacing.unit / 2.1,
-      paddingBottom: theme.spacing.unit / 2.1,
+      paddingLeft: theme.spacing.unit * 1.5,
+      paddingRight: theme.spacing.unit * 1.5,
+      paddingTop: theme.spacing.unit / 2,
+      paddingBottom: theme.spacing.unit / 2,
       borderRadius: theme.spacing.unit * 2,
       width: 'fit-content',
       display: 'inline-block'
