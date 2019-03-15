@@ -48,42 +48,35 @@ const styles = theme => {
       backgroundColor: '#fef7e5',
       color: '#fecb4c'
     },
-    complete: {
-      backgroundColro: '#e9faf2',
+    completed: {
+      backgroundColor: '#e9faf2',
       color: '#4ed495'
     }
   }
 }
 
+// insight from - https://github.com/sindresorhus/titleize
+const titleize = input =>
+  input
+    .toLowerCase()
+    .replace('_', ' ')
+    .replace(/(?:^|\s|-)\S/g, x => x.toUpperCase())
+
 const statusText = status => {
-  if (status === 'in_progress') {
-    return 'Pending'
-  }
-  if (status === 'pending_confirmations') {
-    return 'Pending Confirmations'
-  }
-  if (status === 'pending_sleep') {
-    return 'Pending Sleep'
-  }
-  if (status === 'pending_connection') {
-    return 'Pending Connection'
-  }
-  if (status === 'pending_bridge') {
-    return 'Pending Bridge'
-  }
-  if (status === 'error') {
-    return 'Failed'
-  }
-  if (status === 'completed') {
-    return 'Complete'
-  }
+  if (status === 'errored') return 'Failed'
+  if (status === 'completed') return 'Completed'
+  return titleize(status)
 }
 
 const renderRuns = (runs, classes) => {
   if (runs && runs.length === 0) {
     return (
       <TableRow>
-        <TableCell colSpan={5}>The job hasn’t run yet</TableCell>
+        <TableCell colSpan={5}>
+          <Typography variant="body1" color="textSecondary">
+            The job hasn’t run yet
+          </Typography>
+        </TableCell>
       </TableRow>
     )
   } else if (runs) {
@@ -108,7 +101,8 @@ const renderRuns = (runs, classes) => {
             variant="body1"
             className={classNames(
               classes.status,
-              r.status.startsWith('pending')
+              r.status.startsWith('pending') ||
+                r.status.startsWith('in_progress')
                 ? classes['pending']
                 : classes[statusText(r.status).toLowerCase()]
             )}
