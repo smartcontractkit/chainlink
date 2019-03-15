@@ -6,7 +6,7 @@ const { scrape } = require('./support/scrape.js')
 describe('End to end', () => {
   let browser, page, server
   beforeAll(async () => {
-    jest.setTimeout(30000)
+    jest.setTimeout(60000)
 
     browser = await puppeteer.launch({
       devtools: false,
