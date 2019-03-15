@@ -4,24 +4,23 @@ const { newServer } = require('./support/server.js')
 const { scrape } = require('./support/scrape.js')
 
 describe('End to end', () => {
-  let browser, page
+  let browser, page, server
   beforeAll(async () => {
+    jest.setTimeout(30000)
+
     browser = await puppeteer.launch({
       devtools: false,
       headless: true,
       args: ['--no-sandbox']
     })
     page = await browser.newPage()
-<<<<<<< HEAD
-=======
     server = await newServer(`{"last": "3843.95"}`)
 
     page.on('console', msg => console.log('PAGE LOG:', msg.text()))
->>>>>>> Add scrape command for pulling up matches, add console
   })
 
   afterAll(async () => {
-    await browser.close()
+    return Promise.all([browser.close(), server.close()])
   })
 
   it('creates a job that runs', async () => {
@@ -50,9 +49,6 @@ describe('End to end', () => {
     await expect(page).toClick('#created-job')
     await expect(page).toMatch('Job Spec Detail')
     await expect(page).toClick('button', { text: 'Run' })
-<<<<<<< HEAD
-    await expect(page).toMatch(/success.+run/i)
-=======
     await expect(page).toMatch(/success.+?run/i)
 
     // Transaction ID should eventually be coded on page like so:
@@ -62,13 +58,15 @@ describe('End to end', () => {
 
     // Navigate to transactions page
     await expect(page).toClick('button', { 'aria-label': 'open drawer' })
-    await expect(page).toClick('span', { text: 'Transactions' })
-    await expect(page).toMatchElement('h4', { text: 'Transactions' })
+    await expect(page).toClick('span', { text: 'Transactions', timeout: 30000 })
+    await expect(page).toMatchElement('h4', {
+      text: 'Transactions',
+      timeout: 30000
+    })
     await expect(page).toMatchElement('p', { text: txHash })
 
     // Navigate to transaction page and check for the transaction
     await expect(page).toClick('a', { text: txHash })
     await scrape(page, txHash)
->>>>>>> Add scrape command for pulling up matches, add console
   })
 })
