@@ -12,6 +12,10 @@ const styles = theme => ({
     left: '0',
     bottom: '0',
     width: '100%'
+  },
+  bareAnchor: {
+    color: '#000000',
+    textDecoration: 'none'
   }
 })
 
@@ -21,7 +25,15 @@ const Footnote = ({ classes }) => {
   return (
     <Card className={classes.style}>
       <Typography>
-        Chainlink Node {version} at commit {sha}
+        Chainlink Node {version} at commit{' '}
+        <a
+          target="_blank"
+          rel="noopener noreferrer"
+          href={`https://github.com/smartcontractkit/chainlink/commit/${sha}`}
+          className={classes.bareAnchor}
+        >
+          {sha}
+        </a>
       </Typography>
     </Card>
   )
