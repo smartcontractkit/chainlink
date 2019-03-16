@@ -718,18 +718,19 @@ func (m MockPasswordPrompter) Prompt() string {
 
 type CountingWebsocketServer struct {
 	*httptest.Server
-	entries   []string
-	m         *sync.RWMutex
-	t         *testing.T
-	Connected chan struct{}
-	Received  chan string
-	URL       *url.URL
+	entries     []string
+	mutex       *sync.RWMutex // shared mutex for safe access to arrays/maps.
+	t           *testing.T
+	connections []*websocket.Conn
+	Connected   chan struct{}
+	Received    chan string
+	URL         *url.URL
 }
 
 func NewCountingWebsocketServer(t *testing.T) (*CountingWebsocketServer, func()) {
 	server := &CountingWebsocketServer{
 		entries:   []string{},
-		m:         &sync.RWMutex{},
+		mutex:     &sync.RWMutex{},
 		t:         t,
 		Connected: make(chan struct{}, 1), // have buffer of one for easier assertions after the event
 		Received:  make(chan string, 1),
@@ -752,26 +753,28 @@ var upgrader = websocket.Upgrader{
 }
 
 func (c *CountingWebsocketServer) handler(w http.ResponseWriter, r *http.Request) {
-	select {
-	case c.Connected <- struct{}{}:
-	default:
-	}
-
 	var err error
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		c.t.Fatal(err)
 	}
+
+	c.addConnection(conn)
+	closeCodes := []int{websocket.CloseNormalClosure, websocket.CloseAbnormalClosure}
 	for {
 		_, payload, err := conn.ReadMessage() // we only read
-		if err != nil && !websocket.IsCloseError(err) {
+		if websocket.IsCloseError(err, closeCodes...) {
+			c.removeConnection(conn)
+			return
+		}
+		if err != nil {
 			c.t.Fatal(err)
 		}
 
 		strp := string(payload)
-		c.m.Lock()
+		c.mutex.Lock()
 		c.entries = append(c.entries)
-		c.m.Unlock()
+		c.mutex.Unlock()
 
 		select {
 		case c.Received <- strp:
@@ -780,10 +783,49 @@ func (c *CountingWebsocketServer) handler(w http.ResponseWriter, r *http.Request
 	}
 }
 
+func (c *CountingWebsocketServer) addConnection(conn *websocket.Conn) {
+	c.mutex.Lock()
+	c.connections = append(c.connections, conn)
+	c.mutex.Unlock()
+	select { // broadcast connected event
+	case c.Connected <- struct{}{}:
+	default:
+	}
+}
+
+func (c *CountingWebsocketServer) removeConnection(conn *websocket.Conn) {
+	newc := []*websocket.Conn{}
+	c.mutex.Lock()
+	for _, connection := range c.connections {
+		if connection != conn {
+			newc = append(newc, connection)
+		}
+	}
+	c.connections = newc
+	c.mutex.Unlock()
+}
+
 func (c *CountingWebsocketServer) Entries() []string {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 	tmp := make([]string, len(c.entries))
 	copy(tmp, c.entries)
 	return tmp
+}
+
+// WriteCloseMessage tells connected clients to disconnect.
+// Useful to emulate that the websocket server is shutting down without
+// actually shutting down.
+// This overcomes httptest.Server's inability to restart on the same URL:port.
+func (c *CountingWebsocketServer) WriteCloseMessage() {
+	c.mutex.RLock()
+	for _, connection := range c.connections {
+		err := connection.WriteMessage(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		if err != nil {
+			c.t.Error(err)
+		}
+	}
+	c.mutex.RUnlock()
 }
