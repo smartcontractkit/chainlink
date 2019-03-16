@@ -120,6 +120,21 @@ contract('LinkEx', () => {
         })
       })
 
+      context('after removing an oracle', () => {
+        const updated = 8616460198
+        const newExpectedAvg = Math.trunc((updated + expected2) / 2)
+
+        beforeEach(async () => {
+          await contract.removeOracle(h.oracleNode3, {from: h.defaultAccount})
+          await contract.update(updated, {from: h.oracleNode})
+        })
+
+        it('the removed oracles do not contribute to the average', async () => {
+          const rate = await contract.currentRate()
+          assert.equal(rate, newExpectedAvg)
+        })
+      })
+
       context('when updated by an oracle after 25 blocks', () => {
         beforeEach(async () => {
           for (let i = 0; i < 25; i++) {
