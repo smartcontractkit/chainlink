@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/utils"
 )
 
 // StatsPusher encapsulates all the functionality needed to
@@ -33,20 +34,23 @@ func (noopStatsPusher) Start() error { return nil }
 func (noopStatsPusher) Close() error { return nil }
 
 type websocketStatsPusher struct {
-	url     url.URL
-	conn    *websocket.Conn
-	send    chan []byte
 	boot    *sync.Mutex
+	conn    *websocket.Conn
+	done    chan struct{}
+	send    chan []byte
+	sleeper utils.Sleeper
 	started bool
+	url     url.URL
 }
 
 // NewWebsocketStatsPusher returns a stats pusher using a websocket for
 // delivery.
 func NewWebsocketStatsPusher(url *url.URL) StatsPusher {
 	return &websocketStatsPusher{
-		url:  *url,
-		send: make(chan []byte),
-		boot: &sync.Mutex{},
+		url:     *url,
+		send:    make(chan []byte),
+		boot:    &sync.Mutex{},
+		sleeper: utils.NewBackoffSleeper(),
 	}
 }
 
@@ -59,13 +63,11 @@ func (w *websocketStatsPusher) Start() error {
 		return nil
 	}
 
-	conn, _, err := websocket.DefaultDialer.Dial(w.url.String(), nil)
-	if err != nil {
-		return fmt.Errorf("websocketStatsPusher#Start(): %v", err)
-	}
-
-	w.conn = conn
-	go w.writePump()
+	w.done = make(chan struct{})
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go w.connectAndWritePump(wg, w.done)
+	wg.Wait()
 	w.started = true
 	return nil
 }
@@ -82,14 +84,42 @@ const (
 )
 
 // Inspired by https://github.com/gorilla/websocket/blob/master/examples/chat/client.go
-func (w *websocketStatsPusher) writePump() {
+// lexical confinement of done chan allows multiple connectAndWritePump routines
+// to clean up independent of itself by reducing shared state. i.e. a passed done, not w.done.
+func (w *websocketStatsPusher) connectAndWritePump(wg *sync.WaitGroup, done chan struct{}) {
+	wg.Done()
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-time.After(w.sleeper.After()):
+			if err := w.connect(); err != nil {
+				logger.Warn("Inability to connect to linkstats: ", err)
+				break
+			}
+
+			w.sleeper.Reset()
+
+			serverDone := make(chan struct{})
+			go w.readPumpForControlMessages(serverDone)
+			w.writePump(done, serverDone)
+		}
+	}
+}
+
+func (w *websocketStatsPusher) writePump(done chan struct{}, serverDone chan struct{}) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		wrapLoggerErrorIf(w.conn.Close())
+		wrapLoggerErrorIf(w.conn.Close()) // exclusive responsibility to close ws conn
 	}()
 	for {
 		select {
+		case <-done:
+			return
+		case <-serverDone:
+			return
 		case message, open := <-w.send:
 			if !open { // channel closed
 				wrapLoggerErrorIf(w.conn.WriteMessage(websocket.CloseMessage, []byte{}))
@@ -131,6 +161,29 @@ func (w *websocketStatsPusher) writePump() {
 	}
 }
 
+func (w *websocketStatsPusher) connect() error {
+	conn, _, err := websocket.DefaultDialer.Dial(w.url.String(), nil)
+	if err != nil {
+		return fmt.Errorf("websocketStatsPusher#connect: %v", err)
+	}
+
+	w.conn = conn
+	return nil
+}
+
+// readPumpForControlMessages listens on the websocket connection with the sole
+// intention of handling control messages, like server disconnect.
+// https://stackoverflow.com/a/48181794/639773
+func (w *websocketStatsPusher) readPumpForControlMessages(serverDone chan struct{}) {
+	for {
+		_, _, err := w.conn.ReadMessage()
+		if err != nil {
+			close(serverDone)
+			break
+		}
+	}
+}
+
 func wrapLoggerErrorIf(err error) {
 	if err != nil && !websocket.IsCloseError(err) {
 		logger.Error(fmt.Sprintf("websocketStatsPusher: %v", err))
@@ -141,9 +194,9 @@ func (w *websocketStatsPusher) Close() error {
 	w.boot.Lock()
 	defer w.boot.Unlock()
 
-	if w.send != nil {
-		close(w.send)
-		w.send = nil
+	if w.done != nil {
+		close(w.done)
+		w.done = nil
 	}
 	w.started = false
 	return nil
