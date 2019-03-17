@@ -475,3 +475,8 @@ func FileContents(path string) (string, error) {
 	}
 	return string(dat), nil
 }
+
+// JustError takes a tuple and returns the last entry, the error.
+func JustError(_ interface{}, err error) error {
+	return err
+}

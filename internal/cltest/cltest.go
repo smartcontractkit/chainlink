@@ -1018,10 +1018,6 @@ func GetLastTxAttempt(t *testing.T, store *strpkg.Store) models.TxAttempt {
 	return attempt
 }
 
-func JustError(_ interface{}, err error) error {
-	return err
-}
-
 func CallbackOrTimeout(t *testing.T, msg string, callback func(), durationParams ...time.Duration) {
 	t.Helper()
 
