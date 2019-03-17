@@ -493,7 +493,7 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Archived(t
 	assert.True(t, open)
 	assert.Equal(t, run.ID, runRequest.ID)
 
-	require.Error(t, cltest.JustError(store.FindJobRun(run.ID)), "archived runs should not be visible to normal store")
+	require.Error(t, utils.JustError(store.FindJobRun(run.ID)), "archived runs should not be visible to normal store")
 
 	*run, err = unscoped.FindJobRun(run.ID)
 	assert.NoError(t, err)

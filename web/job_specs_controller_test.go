@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/presenters"
+	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/smartcontractkit/chainlink/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -387,6 +388,6 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 	resp, cleanup := client.Delete("/v2/specs/" + job.ID)
 	defer cleanup()
 	assert.Equal(t, 204, resp.StatusCode)
-	assert.Error(t, cltest.JustError(app.Store.FindJob(job.ID)))
+	assert.Error(t, utils.JustError(app.Store.FindJob(job.ID)))
 	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 }
