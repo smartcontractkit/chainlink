@@ -10,7 +10,7 @@ import (
 )
 
 func TestWebsocketStatsPusher_StartCloseStart(t *testing.T) {
-	wsserver, cleanup := cltest.NewCountingWebsocketServer(t)
+	wsserver, cleanup := cltest.NewEventWebsocketServer(t)
 	defer cleanup()
 
 	pusher := store.NewWebsocketStatsPusher(wsserver.URL)
@@ -29,7 +29,7 @@ func TestWebsocketStatsPusher_StartCloseStart(t *testing.T) {
 }
 
 func TestWebsocketStatsPusher_ReconnectLoop(t *testing.T) {
-	wsserver, cleanup := cltest.NewCountingWebsocketServer(t)
+	wsserver, cleanup := cltest.NewEventWebsocketServer(t)
 	defer cleanup()
 
 	pusher := store.NewWebsocketStatsPusher(wsserver.URL)
@@ -47,7 +47,7 @@ func TestWebsocketStatsPusher_ReconnectLoop(t *testing.T) {
 }
 
 func TestWebsocketStatsPusher_Send(t *testing.T) {
-	wsserver, cleanup := cltest.NewCountingWebsocketServer(t)
+	wsserver, cleanup := cltest.NewEventWebsocketServer(t)
 	defer cleanup()
 
 	pusher := store.NewWebsocketStatsPusher(wsserver.URL)
