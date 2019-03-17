@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/utils"
+	"go.uber.org/multierr"
 )
 
 // StatsPusher encapsulates all the functionality needed to
@@ -81,6 +82,9 @@ const (
 
 	// Send pings to peer with this period. Must be less than pongWait.
 	pingPeriod = (pongWait * 9) / 10
+
+	// Maximum message size allowed from peer.
+	maxMessageSize = 512
 )
 
 // Inspired by https://github.com/gorilla/websocket/blob/master/examples/chat/client.go
@@ -108,6 +112,11 @@ func (w *websocketStatsPusher) connectAndWritePump(wg *sync.WaitGroup, done chan
 	}
 }
 
+var (
+	newline = []byte{'\n'}
+)
+
+// Inspired by https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L82
 func (w *websocketStatsPusher) writePump(done chan struct{}, serverDone chan struct{}) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -136,14 +145,17 @@ func (w *websocketStatsPusher) writePump(done chan struct{}, serverDone chan str
 			wrapLoggerErrorIf(err)
 
 			// Add queued messages to the current websocket message,
-			// batching sending for efficiency.
+			// batch sending for efficiency.
 			n := len(w.send)
 			for i := 0; i < n; i++ {
 				additionalMsg, open := <-w.send
 				if !open {
 					break
 				}
-				_, err = writer.Write(additionalMsg)
+				err = multierr.Append(
+					utils.JustError(writer.Write(newline)),
+					utils.JustError(writer.Write(additionalMsg)),
+				)
 				wrapLoggerErrorIf(err)
 			}
 
@@ -174,10 +186,21 @@ func (w *websocketStatsPusher) connect() error {
 // readPumpForControlMessages listens on the websocket connection with the sole
 // intention of handling control messages, like server disconnect.
 // https://stackoverflow.com/a/48181794/639773
+// https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
 func (w *websocketStatsPusher) readPumpForControlMessages(serverDone chan struct{}) {
+	w.conn.SetReadLimit(maxMessageSize)
+	logger.WarnIf(w.conn.SetReadDeadline(time.Now().Add(pongWait)))
+	w.conn.SetPongHandler(func(string) error {
+		logger.WarnIf(w.conn.SetReadDeadline(time.Now().Add(pongWait)))
+		return nil
+	})
+
 	for {
 		_, _, err := w.conn.ReadMessage()
 		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				logger.Warn(fmt.Sprintf("readPumpForControlMessages: %v", err))
+			}
 			close(serverDone)
 			break
 		}
