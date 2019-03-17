@@ -6,6 +6,7 @@ import { withStyles } from '@material-ui/core/styles'
 import { TextField, Grid } from '@material-ui/core'
 import Button from 'components/Button'
 import { set, get } from 'utils/storage'
+import normalizeUrl from 'normalize-url'
 
 const styles = theme => ({
   textfield: {
@@ -141,6 +142,7 @@ const formikOpts = {
   },
 
   handleSubmit(values, { props, setSubmitting }) {
+    values.url = normalizeUrl(values.url)
     props.onSubmit(values, props.onSuccess, props.onError)
     set('persistBridge', values)
     setTimeout(() => {
