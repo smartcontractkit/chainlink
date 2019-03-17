@@ -718,7 +718,6 @@ func (m MockPasswordPrompter) Prompt() string {
 
 type CountingWebsocketServer struct {
 	*httptest.Server
-	entries     []string
 	mutex       *sync.RWMutex // shared mutex for safe access to arrays/maps.
 	t           *testing.T
 	connections []*websocket.Conn
@@ -729,11 +728,10 @@ type CountingWebsocketServer struct {
 
 func NewCountingWebsocketServer(t *testing.T) (*CountingWebsocketServer, func()) {
 	server := &CountingWebsocketServer{
-		entries:   []string{},
 		mutex:     &sync.RWMutex{},
 		t:         t,
 		Connected: make(chan struct{}, 1), // have buffer of one for easier assertions after the event
-		Received:  make(chan string, 1),
+		Received:  make(chan string, 100),
 	}
 
 	server.Server = httptest.NewServer(http.HandlerFunc(server.handler))
@@ -771,13 +769,8 @@ func (c *CountingWebsocketServer) handler(w http.ResponseWriter, r *http.Request
 			c.t.Fatal(err)
 		}
 
-		strp := string(payload)
-		c.mutex.Lock()
-		c.entries = append(c.entries)
-		c.mutex.Unlock()
-
 		select {
-		case c.Received <- strp:
+		case c.Received <- string(payload):
 		default:
 		}
 	}
@@ -803,14 +796,6 @@ func (c *CountingWebsocketServer) removeConnection(conn *websocket.Conn) {
 	}
 	c.connections = newc
 	c.mutex.Unlock()
-}
-
-func (c *CountingWebsocketServer) Entries() []string {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	tmp := make([]string, len(c.entries))
-	copy(tmp, c.entries)
-	return tmp
 }
 
 // WriteCloseMessage tells connected clients to disconnect.

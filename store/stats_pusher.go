@@ -17,6 +17,7 @@ import (
 type StatsPusher interface {
 	Start() error
 	Close() error
+	Send([]byte)
 }
 
 // NewStatsPusher returns a functioning instance depending on the
@@ -33,6 +34,7 @@ type noopStatsPusher struct{}
 
 func (noopStatsPusher) Start() error { return nil }
 func (noopStatsPusher) Close() error { return nil }
+func (noopStatsPusher) Send([]byte)  {}
 
 type websocketStatsPusher struct {
 	boot    *sync.Mutex
@@ -49,7 +51,7 @@ type websocketStatsPusher struct {
 func NewWebsocketStatsPusher(url *url.URL) StatsPusher {
 	return &websocketStatsPusher{
 		url:     *url,
-		send:    make(chan []byte),
+		send:    make(chan []byte, 100), // TODO: figure out a better buffer (circular FIFO?)
 		boot:    &sync.Mutex{},
 		sleeper: utils.NewBackoffSleeper(),
 	}
@@ -183,22 +185,24 @@ func (w *websocketStatsPusher) connect() error {
 	return nil
 }
 
+var expectedCloseMessages = []int{websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure}
+
 // readPumpForControlMessages listens on the websocket connection with the sole
 // intention of handling control messages, like server disconnect.
 // https://stackoverflow.com/a/48181794/639773
 // https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
 func (w *websocketStatsPusher) readPumpForControlMessages(serverDone chan struct{}) {
 	w.conn.SetReadLimit(maxMessageSize)
-	logger.WarnIf(w.conn.SetReadDeadline(time.Now().Add(pongWait)))
+	_ = w.conn.SetReadDeadline(time.Now().Add(pongWait))
 	w.conn.SetPongHandler(func(string) error {
-		logger.WarnIf(w.conn.SetReadDeadline(time.Now().Add(pongWait)))
+		_ = w.conn.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
 
 	for {
 		_, _, err := w.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			if websocket.IsUnexpectedCloseError(err, expectedCloseMessages...) {
 				logger.Warn(fmt.Sprintf("readPumpForControlMessages: %v", err))
 			}
 			close(serverDone)
@@ -223,4 +227,14 @@ func (w *websocketStatsPusher) Close() error {
 	}
 	w.started = false
 	return nil
+}
+
+// Send sends data asynchronously across the websocket if it's open, or
+// holds it in a small buffer until connection, throwing away messages
+// once buffer is full.
+func (w *websocketStatsPusher) Send(data []byte) {
+	select {
+	case w.send <- data:
+	default:
+	}
 }
