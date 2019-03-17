@@ -101,10 +101,11 @@ func (w *websocketStatsPusher) connectAndWritePump(wg *sync.WaitGroup, done chan
 			return
 		case <-time.After(w.sleeper.After()):
 			if err := w.connect(); err != nil {
-				logger.Warn("Inability to connect to linkstats: ", err)
+				logger.Warn("Failed to connect to linkstats (", w.url.String(), "): ", err)
 				break
 			}
 
+			logger.Info("Connected to linkstats at ", w.url.String())
 			w.sleeper.Reset()
 
 			serverDone := make(chan struct{})
