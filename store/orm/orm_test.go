@@ -141,7 +141,6 @@ func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	store.ORM.DB.LogMode(true)
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
 
