@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWebsocketStatsPusher_New(t *testing.T) {
+func TestWebsocketStatsPusher_StartCloseStart(t *testing.T) {
 	wsserver, cleanup := cltest.NewCountingWebsocketServer(t)
 	defer cleanup()
 
@@ -44,4 +44,19 @@ func TestWebsocketStatsPusher_ReconnectLoop(t *testing.T) {
 		<-wsserver.Connected
 	}, 3*time.Second)
 	require.NoError(t, pusher.Close())
+}
+
+func TestWebsocketStatsPusher_Send(t *testing.T) {
+	wsserver, cleanup := cltest.NewCountingWebsocketServer(t)
+	defer cleanup()
+
+	pusher := store.NewWebsocketStatsPusher(wsserver.URL)
+	require.NoError(t, pusher.Start())
+	defer pusher.Close()
+
+	expectation := `{"hello": "world"}`
+	pusher.Send([]byte(expectation))
+	cltest.CallbackOrTimeout(t, "receive stats", func() {
+		require.Equal(t, expectation, <-wsserver.Received)
+	})
 }
