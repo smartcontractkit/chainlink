@@ -1,5 +1,5 @@
 {
-  "name": "link-stats",
+  "name": "linkstats",
   "private": true,
   "version": "0.0.0",
   "description": "LINK Stats",
@@ -15,7 +15,7 @@
   "main": "src/index.ts",
   "repository": {
     "type": "git",
-    "url": "git://github.com/smartcontractkit/link-stats"
+    "url": "git://github.com/smartcontractkit/linkstats"
   },
   "engines": {
     "node": "^11.11"
