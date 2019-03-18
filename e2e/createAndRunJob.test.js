@@ -37,7 +37,7 @@ describe('End to end', () => {
     await expect(page).toMatch('Jobs')
 
     // Create Job
-    await expect(page).toClick('a', { text: 'New Job' })
+    await expect(page).toClick('a > span', { text: 'New Job' })
     await expect(page).toMatch('New Job')
 
     const jobJson = `{
@@ -60,12 +60,8 @@ describe('End to end', () => {
     const txHash = match[1]
 
     // Navigate to transactions page
-    await expect(page).toClick('button', { 'aria-label': 'open drawer' })
-    await expect(page).toClick('span', { text: 'Transactions', timeout: 30000 })
-    await expect(page).toMatchElement('h4', {
-      text: 'Transactions',
-      timeout: 30000
-    })
+    await expect(page).toClick('li > a', { text: 'Transactions' })
+    await expect(page).toMatchElement('h4', { text: 'Transactions' })
     await expect(page).toMatchElement('p', { text: txHash })
 
     // Navigate to transaction page and check for the transaction
