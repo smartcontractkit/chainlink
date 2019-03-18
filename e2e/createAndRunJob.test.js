@@ -15,6 +15,8 @@ describe('End to end', () => {
       args: ['--no-sandbox']
     })
     page = await browser.newPage()
+    await page.setViewport({ width: 1366, height: 768 })
+
     server = await newServer(`{"last": "3843.95"}`)
 
     page.on('console', msg => console.log('PAGE LOG:', msg.text()))
