@@ -6,6 +6,13 @@ type State = {
   count?: number
 }
 
+const showCount = (count?: number): string => {
+  if (count === undefined) {
+    return '...'
+  }
+  return count.toString()
+}
+
 class ConnectedNodes extends Component<Props, State> {
   constructor(props: Props) {
     super(props)
@@ -21,12 +28,7 @@ class ConnectedNodes extends Component<Props, State> {
   }
 
   render() {
-    let count: string | number | undefined = this.state.count
-    if (count === undefined) {
-      count = '...'
-    }
-
-    return <div>Connected Nodes: {count}</div>
+    return <div>Connected Nodes: {showCount(this.state.count)}</div>
   }
 }
 
