@@ -11680,6 +11680,11 @@ normalize-url@^4.1.0:
   resolved "https://registry.npmjs.org/normalize-url/-/normalize-url-4.1.0.tgz#307e74c87473efa81969ad1b4bb91f1990178904"
   integrity sha512-X781mkWeK6PDMAZJfGn/wnwil4dV6pIdF9euiNqtA89uJvZuNDJO2YyJxiwpPhTQcF5pYUU1v+kcOxzYV6rZlA==
 
+normalize-url@^4.2.0:
+  version "4.2.0"
+  resolved "https://registry.yarnpkg.com/normalize-url/-/normalize-url-4.2.0.tgz#e747f16b58e6d7f391495fd86415fa04ec7c9897"
+  integrity sha512-n69+KXI+kZApR+sPwSkoAXpGlNkaiYyoHHqKOFPjJWvwZpew/EjKvuPE4+tStNgb42z5yLtdakgZCQI+LalSPg==
+
 npm-audit-report@^1.0.9:
   version "1.3.2"
   resolved "https://registry.npmjs.org/npm-audit-report/-/npm-audit-report-1.3.2.tgz#303bc78cd9e4c226415076a4f7e528c89fc77018"
