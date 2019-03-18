@@ -1,4 +1,6 @@
 import React from 'react'
+import { connect } from 'react-redux'
+import { bindActionCreators } from 'redux'
 import { withStyles } from '@material-ui/core/styles'
 import { useHooks, useState, useRef } from 'use-react-hooks'
 import { Link } from 'react-router-dom'
@@ -13,6 +15,7 @@ import Avatar from '@material-ui/core/Avatar'
 import Typography from '@material-ui/core/Typography'
 import { grey } from '@material-ui/core/colors'
 import face from 'images/face.svg'
+import { submitSignOut } from 'actions'
 
 const styles = theme => {
   return {
@@ -43,7 +46,7 @@ const styles = theme => {
   }
 }
 
-const AvatarMenu = useHooks(({ classes }) => {
+const AvatarMenu = useHooks(({ classes, submitSignOut }) => {
   const anchorEl = useRef(null)
   const [open, setOpenState] = useState(false)
   const handleToggle = () => setOpenState(!open)
@@ -53,6 +56,7 @@ const AvatarMenu = useHooks(({ classes }) => {
       return
     }
 
+    submitSignOut()
     setOpenState(false)
   }
 
@@ -101,4 +105,14 @@ const AvatarMenu = useHooks(({ classes }) => {
   )
 })
 
-export default withStyles(styles)(AvatarMenu)
+const mapStateToProps = state => ({})
+
+const mapDispatchToProps = dispatch =>
+  bindActionCreators({ submitSignOut }, dispatch)
+
+export const ConnectedAvatarMenu = connect(
+  mapStateToProps,
+  mapDispatchToProps
+)(AvatarMenu)
+
+export default withStyles(styles)(ConnectedAvatarMenu)
