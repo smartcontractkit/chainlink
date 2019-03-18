@@ -37,6 +37,7 @@ describe('End to end', () => {
     await expect(page).toMatch('Jobs')
 
     // Create Job
+    await page.waitFor(500)
     await expect(page).toClick('a > span', { text: 'New Job' })
     await expect(page).toMatchElement('h5', { text: 'New Job' })
 
