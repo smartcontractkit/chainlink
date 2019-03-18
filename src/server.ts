@@ -28,10 +28,6 @@ const server = (dbConnection: Connection) => {
   const statsclientio: socketio.Server = socketio(server, { path: '/client' })
   statsclientio.on('connection', (socket: Socket) => {
     statsclientio.emit(CLNODE_COUNT_EVENT, clnodeCount)
-
-    socket.on('disconnect', () => {
-      statsclientio.emit(CLNODE_COUNT_EVENT, clnodeCount)
-    })
   })
 
   const clnodeio: socketio.Server = socketio(server, { path: '/clnode' })
