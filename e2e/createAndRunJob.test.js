@@ -38,7 +38,7 @@ describe('End to end', () => {
 
     // Create Job
     await expect(page).toClick('a > span', { text: 'New Job' })
-    await expect(page).toMatch('New Job')
+    await expect(page).toMatchElement('h5', { text: 'New Job' })
 
     const jobJson = `{
       "initiators": [{"type": "web"}],
