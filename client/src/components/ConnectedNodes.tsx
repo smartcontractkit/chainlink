@@ -13,18 +13,20 @@ class ConnectedNodes extends Component<Props, State> {
   }
 
   componentDidMount() {
-    const socket = io('/')
-    socket.on('connectionCount', (count: number) => {
+    const socket = io('/', { path: '/client' })
+
+    socket.on('clnodeCount', (count: number) => {
       this.setState({ count: count })
     })
   }
 
   render() {
-    return (
-      <div>
-        Connected Nodes: {this.state.count || '...'}
-      </div>
-    )
+    let count: string | number | undefined = this.state.count
+    if (count === undefined) {
+      count = '...'
+    }
+
+    return <div>Connected Nodes: {count}</div>
   }
 }
 
