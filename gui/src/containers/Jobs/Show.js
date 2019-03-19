@@ -70,7 +70,6 @@ export const Show = useHooks(props => {
 })
 
 Show.propTypes = {
-  classes: PropTypes.object.isRequired,
   latestJobRuns: PropTypes.array.isRequired,
   job: PropTypes.object,
   showJobRunsCount: PropTypes.number

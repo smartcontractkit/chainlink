@@ -8,12 +8,11 @@ import { MemoryRouter } from 'react-router-dom'
 import { ConnectedShow as Show } from 'containers/Jobs/Show'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 
-const classes = {}
 const mountShow = props =>
   mount(
     <Provider store={createStore()}>
       <MemoryRouter>
-        <Show classes={classes} {...props} />
+        <Show {...props} />
       </MemoryRouter>
     </Provider>
   )
