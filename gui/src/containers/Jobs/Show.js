@@ -1,7 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
 import JobRunsList from 'components/JobRuns/List'
@@ -15,13 +14,6 @@ import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { useHooks, useEffect } from 'use-react-hooks'
-
-const styles = theme => ({
-  lastRun: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  }
-})
 
 const renderJobSpec = ({ job }) => {
   const info = {
@@ -106,4 +98,4 @@ export const ConnectedShow = connect(
   matchRouteAndMapDispatchToProps({ fetchJob })
 )(Show)
 
-export default withStyles(styles)(ConnectedShow)
+export default ConnectedShow
