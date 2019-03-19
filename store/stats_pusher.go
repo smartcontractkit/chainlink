@@ -10,7 +10,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/utils"
-	"go.uber.org/multierr"
 )
 
 // StatsPusher encapsulates all the functionality needed to
@@ -128,7 +127,7 @@ func (w *websocketStatsPusher) writePump(ctx context.Context) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		wrapLoggerErrorIf(w.conn.Close()) // exclusive responsibility to close ws conn
+		wrapConnErrorIf(w.conn.Close()) // exclusive responsibility to close ws conn
 	}()
 	for {
 		select {
@@ -136,42 +135,30 @@ func (w *websocketStatsPusher) writePump(ctx context.Context) {
 			return
 		case message, open := <-w.send:
 			if !open { // channel closed
-				wrapLoggerErrorIf(w.conn.WriteMessage(websocket.CloseMessage, []byte{}))
+				wrapConnErrorIf(w.conn.WriteMessage(websocket.CloseMessage, []byte{}))
 				return
 			}
 
-			wrapLoggerErrorIf(w.conn.SetWriteDeadline(time.Now().Add(writeWait)))
+			wrapConnErrorIf(w.conn.SetWriteDeadline(time.Now().Add(writeWait)))
 			writer, err := w.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
-				logger.Error(err)
+				logger.Error("websocketStatsPusher: ", err)
 				return
 			}
-			_, err = writer.Write(message)
-			wrapLoggerErrorIf(err)
 
-			// Add queued messages to the current websocket message,
-			// batch sending for efficiency.
-			n := len(w.send)
-			for i := 0; i < n; i++ {
-				additionalMsg, open := <-w.send
-				if !open {
-					break
-				}
-				err = multierr.Append(
-					utils.JustError(writer.Write(newline)),
-					utils.JustError(writer.Write(additionalMsg)),
-				)
-				wrapLoggerErrorIf(err)
+			if _, err := writer.Write(message); err != nil {
+				logger.Error("websocketStatsPusher: ", err)
+				return
 			}
 
 			if err := writer.Close(); err != nil {
-				logger.Error(err)
+				logger.Error("websocketStatsPusher: ", err)
 				return
 			}
 		case <-ticker.C:
-			wrapLoggerErrorIf(w.conn.SetWriteDeadline(time.Now().Add(writeWait)))
+			wrapConnErrorIf(w.conn.SetWriteDeadline(time.Now().Add(writeWait)))
 			if err := w.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				wrapLoggerErrorIf(err)
+				wrapConnErrorIf(err)
 				return
 			}
 		}
@@ -215,8 +202,8 @@ func (w *websocketStatsPusher) readPumpForControlMessages(cancel context.CancelF
 	}
 }
 
-func wrapLoggerErrorIf(err error) {
-	if err != nil && !websocket.IsCloseError(err) {
+func wrapConnErrorIf(err error) {
+	if err != nil && websocket.IsUnexpectedCloseError(err, expectedCloseMessages...) {
 		logger.Error(fmt.Sprintf("websocketStatsPusher: %v", err))
 	}
 }
