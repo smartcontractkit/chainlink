@@ -1,7 +1,11 @@
 module.exports = {
+  clickLink: async (page, title) => {
+    return expect(page).toClick('a', { text: title })
+  },
+
   clickNewJobButton: async page => {
     await page.waitFor(500)
-    return expect(page).toClick('a', { text: 'New Job' })
+    return this.clickLink(page, 'New Job')
   },
 
   clickTransactionsMenuItem: async page => {
