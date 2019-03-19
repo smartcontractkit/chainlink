@@ -8,6 +8,9 @@ const {
   clickTransactionsMenuItem
 } = require('./support/helpers.js')
 
+const AVERAGE_CLIENT_WIDTH = 1366
+const AVERAGE_CLIENT_HEIGHT = 768
+
 describe('End to end', () => {
   let browser, page, server
   beforeAll(async () => {
@@ -20,7 +23,10 @@ describe('End to end', () => {
       args: ['--no-sandbox']
     })
     page = await browser.newPage()
-    await page.setViewport({ width: 1366, height: 768 })
+    await page.setViewport({
+      width: AVERAGE_CLIENT_WIDTH,
+      height: AVERAGE_CLIENT_HEIGHT
+    })
 
     server = await newServer(`{"last": "3843.95"}`)
 
