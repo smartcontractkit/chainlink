@@ -24,11 +24,12 @@ import (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config     Config
-	Clock      AfterNower
-	KeyStore   *KeyStore
-	RunChannel RunChannel
-	TxManager  TxManager
+	Config      Config
+	Clock       AfterNower
+	KeyStore    *KeyStore
+	RunChannel  RunChannel
+	TxManager   TxManager
+	StatsPusher StatsPusher
 }
 
 type lazyRPCWrapper struct {
@@ -131,12 +132,13 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	keyStore := NewKeyStore(config.KeysDir())
 
 	store := &Store{
-		Clock:      Clock{},
-		Config:     config,
-		KeyStore:   keyStore,
-		ORM:        orm,
-		RunChannel: NewQueuedRunChannel(),
-		TxManager:  NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
+		Clock:       Clock{},
+		Config:      config,
+		KeyStore:    keyStore,
+		ORM:         orm,
+		RunChannel:  NewQueuedRunChannel(),
+		TxManager:   NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
+		StatsPusher: NewStatsPusher(config.LinkstatsURL()),
 	}
 	return store
 }
@@ -144,13 +146,19 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 // Start initiates all of Store's dependencies including the TxManager.
 func (s *Store) Start() error {
 	s.TxManager.Register(s.KeyStore.Accounts())
-	return s.SyncDiskKeyStoreToDB()
+	return multierr.Combine(
+		s.SyncDiskKeyStoreToDB(),
+		s.StatsPusher.Start(),
+	)
 }
 
 // Close shuts down all of the working parts of the store.
 func (s *Store) Close() error {
 	s.RunChannel.Close()
-	return s.ORM.Close()
+	return multierr.Combine(
+		s.ORM.Close(),
+		s.StatsPusher.Close(),
+	)
 }
 
 // Unscoped returns a shallow copy of the store, with an unscoped ORM allowing

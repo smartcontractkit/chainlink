@@ -87,12 +87,12 @@ func TestORM_ArchiveJob(t *testing.T) {
 
 	require.NoError(t, store.ArchiveJob(job.ID))
 
-	require.Error(t, cltest.JustError(store.FindJob(job.ID)))
-	require.Error(t, cltest.JustError(store.FindJobRun(run.ID)))
+	require.Error(t, utils.JustError(store.FindJob(job.ID)))
+	require.Error(t, utils.JustError(store.FindJobRun(run.ID)))
 
 	orm := store.ORM.Unscoped()
-	require.NoError(t, cltest.JustError(orm.FindJob(job.ID)))
-	require.NoError(t, cltest.JustError(orm.FindJobRun(run.ID)))
+	require.NoError(t, utils.JustError(orm.FindJob(job.ID)))
+	require.NoError(t, utils.JustError(orm.FindJobRun(run.ID)))
 }
 
 func TestORM_CreateJobRun_ArchivesRunIfJobArchived(t *testing.T) {
@@ -108,8 +108,8 @@ func TestORM_CreateJobRun_ArchivesRunIfJobArchived(t *testing.T) {
 	jr := job.NewRun(job.Initiators[0])
 	require.NoError(t, store.CreateJobRun(&jr))
 
-	require.Error(t, cltest.JustError(store.FindJobRun(jr.ID)))
-	require.NoError(t, cltest.JustError(store.Unscoped().FindJobRun(jr.ID)))
+	require.Error(t, utils.JustError(store.FindJobRun(jr.ID)))
+	require.NoError(t, utils.JustError(store.Unscoped().FindJobRun(jr.ID)))
 }
 
 func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
@@ -141,7 +141,6 @@ func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	store.ORM.DB.LogMode(true)
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
 
@@ -153,8 +152,8 @@ func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
 	jr.Status = models.RunStatusInProgress
 	require.NoError(t, store.SaveJobRun(&jr))
 
-	require.Error(t, cltest.JustError(store.FindJobRun(jr.ID)))
-	require.NoError(t, cltest.JustError(store.Unscoped().FindJobRun(jr.ID)))
+	require.Error(t, utils.JustError(store.FindJobRun(jr.ID)))
+	require.NoError(t, utils.JustError(store.Unscoped().FindJobRun(jr.ID)))
 }
 
 func coercedJSON(v string) string {
