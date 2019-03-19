@@ -418,6 +418,12 @@ export const sendToEvm = async (evmMethod: string, ...params: any) => {
   )
 }
 
+export const mineBlocks = async (blocks: number) => {
+  for (let i = 0; i < blocks; i++) {
+    await sendToEvm('evm_mine')
+  }
+}
+
 export const createTxData = (
   selector: string,
   types: any,
