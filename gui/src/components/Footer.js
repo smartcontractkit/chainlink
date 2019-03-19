@@ -14,7 +14,7 @@ const styles = theme => ({
     width: '100%'
   },
   bareAnchor: {
-    color: '#000000',
+    color: theme.palette.common.black,
     textDecoration: 'none'
   }
 })
