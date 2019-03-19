@@ -84,13 +84,13 @@ const AvatarMenu = useHooks(({ classes }) => {
             <Paper square={false}>
               <ClickAwayListener onClickAway={handleClose}>
                 <MenuList>
-                  <MenuItem onClick={handleClose} className={classes.menuItem}>
-                    <Link to="/signout" className={classes.link}>
+                  <Link to="/signout" className={classes.link}>
+                    <MenuItem className={classes.menuItem}>
                       <Typography variant="body1" className={classes.link}>
                         Log out
                       </Typography>
-                    </Link>
-                  </MenuItem>
+                    </MenuItem>
+                  </Link>
                 </MenuList>
               </ClickAwayListener>
             </Paper>
