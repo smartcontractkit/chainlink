@@ -3,6 +3,7 @@ const expect = require('expect-puppeteer')
 const { newServer } = require('./support/server.js')
 const { scrape } = require('./support/scrape.js')
 const {
+  signIn,
   clickNewJobButton,
   clickTransactionsMenuItem
 } = require('./support/helpers.js')
@@ -35,9 +36,7 @@ describe('End to end', () => {
     await expect(page).toMatch('Chainlink')
 
     // Login
-    await expect(page).toFill('form input[id=email]', 'notreal@fakeemail.ch')
-    await expect(page).toFill('form input[id=password]', 'twochains')
-    await expect(page).toClick('form button')
+    await signIn(page, 'notreal@fakeemail.ch', 'twochains')
     await expect(page).toMatch('Jobs')
 
     // Create Job
