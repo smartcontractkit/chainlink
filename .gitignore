@@ -16,4 +16,3 @@ lib-cov
 *.pid
 assets/*
 build/
-ormconfig.production.*
