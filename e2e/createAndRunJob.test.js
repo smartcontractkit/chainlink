@@ -2,6 +2,10 @@ const puppeteer = require('puppeteer')
 const expect = require('expect-puppeteer')
 const { newServer } = require('./support/server.js')
 const { scrape } = require('./support/scrape.js')
+const {
+  clickNewJobButton,
+  clickTransactionsMenuItem
+} = require('./support/helpers.js')
 
 describe('End to end', () => {
   let browser, page, server
@@ -37,8 +41,7 @@ describe('End to end', () => {
     await expect(page).toMatch('Jobs')
 
     // Create Job
-    await page.waitFor(500)
-    await expect(page).toClick('a > span', { text: 'New Job' })
+    await clickNewJobButton(page)
     await expect(page).toMatchElement('h5', { text: 'New Job' })
 
     const jobJson = `{
@@ -61,7 +64,7 @@ describe('End to end', () => {
     const txHash = match[1]
 
     // Navigate to transactions page
-    await expect(page).toClick('li > a', { text: 'Transactions' })
+    await clickTransactionsMenuItem(page)
     await expect(page).toMatchElement('h4', { text: 'Transactions' })
     await expect(page).toMatchElement('p', { text: txHash })
 
