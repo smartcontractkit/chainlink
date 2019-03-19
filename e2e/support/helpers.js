@@ -4,6 +4,8 @@ module.exports = {
   },
 
   clickNewJobButton: async page => {
+    // XXX: This button doesn't do anything if you click it too quickly, so for
+    // now, add a small delay
     await page.waitFor(500)
     return this.clickLink(page, 'New Job')
   },
