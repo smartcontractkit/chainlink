@@ -1,8 +1,3 @@
-require('@babel/register')({
-  ignore: ['node_modules']
-})
-require('@babel/polyfill')
-
 module.exports = {
   network: 'test',
   compilers: {
