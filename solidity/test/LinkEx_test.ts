@@ -6,9 +6,7 @@ contract('LinkEx', () => {
   // Need to mine some blocks so that the check in update doesn't
   // fail when subtracting 25 from block.number.
   before(async () => {
-    for (let i = 0; i < 50; i++) {
-      await h.sendToEvm('evm_mine')
-    }
+    h.mineBlocks(50)
   })
 
   beforeEach(async () => {
@@ -137,9 +135,7 @@ contract('LinkEx', () => {
 
       context('when updated by an oracle after 25 blocks', () => {
         beforeEach(async () => {
-          for (let i = 0; i < 25; i++) {
-            await h.sendToEvm('evm_mine')
-          }
+          h.mineBlocks(50)
           await contract.update(expected, {from: h.oracleNode})
         })
 
