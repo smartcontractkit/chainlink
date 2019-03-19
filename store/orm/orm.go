@@ -2,6 +2,7 @@ package orm
 
 import (
 	"crypto/subtle"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -66,10 +67,35 @@ func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to init DB: %+v", err)
 	}
-	return &ORM{
+
+	orm := &ORM{
 		DB:              db,
 		lockingStrategy: lockingStrategy,
-	}, nil
+	}
+
+	db.Callback().Create().After("gorm:update").Register("sync:run_after_create", createSyncEvents)
+
+	return orm, nil
+}
+
+func createSyncEvents(scope *gorm.Scope) {
+	if scope.HasError() {
+		return
+	}
+
+	if scope.TableName() == "job_runs" {
+		bodyBytes, err := json.Marshal(scope.Value)
+		if err != nil {
+			scope.Err(err)
+			return
+		}
+
+		event := models.SyncEvent{
+			Body: string(bodyBytes),
+		}
+		err = scope.DB().Save(&event).Error
+		scope.Err(err)
+	}
 }
 
 func displayTimeout(timeout time.Duration) string {
@@ -84,6 +110,7 @@ func initializeDatabase(dialect, path string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to open %s for gorm DB: %+v", path, err)
 	}
+
 	return db, nil
 }
 
@@ -210,6 +237,13 @@ func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
 	var jr models.JobRun
 	err := orm.preloadJobRuns().First(&jr, "id = ?", id).Error
 	return jr, err
+}
+
+// AllSyncEvents returns all sync events
+func (orm *ORM) AllSyncEvents() ([]models.SyncEvent, error) {
+	var events []models.SyncEvent
+	err := orm.DB.Find(&events).Error
+	return events, err
 }
 
 // convenientTransaction handles setup and teardown for a gorm database
