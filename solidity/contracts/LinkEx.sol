@@ -56,15 +56,15 @@ contract LinkEx is LinkExInterface, Ownable {
       rateHeight = block.number;
     }
 
-    uint256 tempRate;
+    uint256 rateSum;
     uint256 count;
     for (uint i = 0; i < oracles.length; i++) {
       if(rates[oracles[i]].blockNumber > block.number.sub(VALID_BLOCKS)) {
-        tempRate = tempRate.add(rates[oracles[i]].rate);
+        rateSum = rateSum.add(rates[oracles[i]].rate);
         count++;
 	    }
     }
-    rate = tempRate.div(count);
+    rate = rateSum.div(count);
   }
 
   function isFutureBlock() internal view returns (bool) {
