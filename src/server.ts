@@ -1,20 +1,19 @@
 import express from 'express'
 import http from "http"
-import socketio from "socket.io";
-import { JobRun } from "./entity/JobRun"
+import socketio, { Socket } from "socket.io";
 import { Connection } from "typeorm"
+import { JobRun } from "./entity/JobRun"
 
 const PORT = process.env.SERVER_PORT || 8080
+const CLNODE_COUNT_EVENT = 'clnodeCount'
 
 const server = (dbConnection: Connection) => {
-  let connections = 0
+  let clnodeCount = 0
 
   const app = express()
   app.set("port", PORT);
 
   const server = new http.Server(app)
-  const io = socketio(server)
-
   server.listen(PORT, () => {
     console.log(`server started, listening on port ${PORT}`)
   })
@@ -23,22 +22,24 @@ const server = (dbConnection: Connection) => {
 
   app.get('/api/v1/job_runs', async (req, res) => {
     const jobRuns = await dbConnection.manager.find(JobRun)
-
     return res.send(jobRuns)
   })
 
-  io.on('connection', (socket) => {
-    connections = connections + 1
-    console.log(`websocket connected, total connections: ${connections}`);
+  const statsclientio: socketio.Server = socketio(server, { path: '/client' })
+  statsclientio.on('connection', (socket: Socket) => {
+    socket.emit(CLNODE_COUNT_EVENT, clnodeCount)
+  })
 
-    socket.emit('connectionCount', connections)
-    socket.broadcast.emit('connectionCount', connections)
+  const clnodeio: socketio.Server = socketio(server, { path: '/clnode' })
+  clnodeio.on('connection', (socket: Socket) => {
+    clnodeCount = clnodeCount + 1
+    console.log(`websocket connected, total chainlink nodes connected: ${clnodeCount}`);
+    statsclientio.emit(CLNODE_COUNT_EVENT, clnodeCount)
 
     socket.on('disconnect', () => {
-      connections = connections - 1
-      console.log(`websocket disconnected, total connections: ${connections}`);
-
-      socket.broadcast.emit('connectionCount', connections)
+      clnodeCount = clnodeCount - 1
+      console.log(`websocket disconnected, total chainlink nodes connected: ${clnodeCount}`);
+      statsclientio.emit(CLNODE_COUNT_EVENT, clnodeCount)
     })
   })
 }
