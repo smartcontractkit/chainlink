@@ -9,6 +9,7 @@ Content-Type: application/json
 Content-Length: ${response.length}
 
 ${response}`)
+        socket.end()
       })
     })
     server.on('close', () => {
