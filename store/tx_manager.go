@@ -572,8 +572,8 @@ func NewManagedAccount(a accounts.Account, nonce uint64) *ManagedAccount {
 	return &ManagedAccount{Account: a, nonce: nonce, mutex: &sync.Mutex{}}
 }
 
-// GetNonce returns the client side managed nonce.
-func (a *ManagedAccount) GetNonce() uint64 {
+// Nonce returns the client side managed nonce.
+func (a *ManagedAccount) Nonce() uint64 {
 	return a.nonce
 }
 

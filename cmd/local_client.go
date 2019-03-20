@@ -88,7 +88,7 @@ func logIfNonceOutOfSync(store *strpkg.Store) {
 		return
 	}
 
-	if localNonceIsNotCurrent(lastNonce, account.GetNonce()) {
+	if localNonceIsNotCurrent(lastNonce, account.Nonce()) {
 		logger.Warn("The account is being used by another wallet and is not safe to use with chainlink")
 	}
 }
