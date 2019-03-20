@@ -10,7 +10,11 @@
     "dev": "concurrently \"cd client && yarn start\" \"ts-node-dev --respawn --transpileOnly ./src/index.ts\"",
     "build": "cd client && yarn build",
     "prod": "ts-node ./src/index.ts",
-    "test": "true"
+    "test": "true",
+    "schema:sync": "ts-node ./node_modules/.bin/typeorm schema:sync",
+    "migration:run": "ts-node ./node_modules/.bin/typeorm migration:run",
+    "migration:revert": "ts-node ./node_modules/.bin/typeorm migration:revert"
+
   },
   "main": "src/index.ts",
   "repository": {
