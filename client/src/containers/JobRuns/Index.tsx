@@ -1,11 +1,11 @@
 import React, { Component } from 'react'
-import JobRunsList from '../components/JobRunsList'
-import { getJobRuns } from '../api'
+import JobRunsList from '../../components/JobRunsList'
+import { getJobRuns } from '../../api'
 
 type Props = {}
 type State = { jobRuns?: IJobRun[] }
 
-class Home extends Component<Props, State> {
+class Index extends Component<Props, State> {
   constructor(props: Props) {
     super(props)
     this.state = { jobRuns: undefined }
@@ -22,4 +22,4 @@ class Home extends Component<Props, State> {
   }
 }
 
-export default Home
+export default Index
