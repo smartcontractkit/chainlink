@@ -1,7 +1,6 @@
 package store
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"regexp"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/gobuffalo/packr"
+	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -156,7 +156,7 @@ func (txm *EthTxManager) CreateTxWithEth(from, to common.Address, value *assets.
 
 func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
 	if !txm.Connected() {
-		return nil, ErrPendingConnection
+		return nil, errors.Wrap(ErrPendingConnection, "EthTxManager#nextAccount")
 	}
 
 	ma := txm.NextActiveAccount()
@@ -278,11 +278,11 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*TxReceipt, error) {
 	blkNum, err := txm.getBlockNumber()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "BumpGasUntilSafe getBlockNumber")
 	}
 	tx, attempts, err := txm.getTxAndAttempts(hash)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "BumpGasUntilSafe getTxAndAttempts")
 	}
 
 	var merr error
@@ -389,7 +389,7 @@ func (txm *EthTxManager) sendTransaction(tx *types.Transaction) error {
 		return err
 	}
 	if _, err = txm.SendRawTx(hex); err != nil {
-		return fmt.Errorf("TxManager sendTransaction: %v", err)
+		return errors.Wrapf(err, "TxManager#sendTransaction with nonce %d", tx.Nonce())
 	}
 	return nil
 }
@@ -401,7 +401,7 @@ func (txm *EthTxManager) checkAttempt(
 ) (*TxReceipt, error) {
 	receipt, err := txm.GetTxReceipt(txat.Hash)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "checkAttempt GetTxReceipt")
 	}
 
 	if receipt.Unconfirmed() {
@@ -501,12 +501,12 @@ func (txm *EthTxManager) handleUnconfirmed(
 func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	tx, err := txm.orm.FindTx(txat.TxID)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "bumpGas")
 	}
 	gasPrice := new(big.Int).Add(txat.GasPrice.ToInt(), txm.config.EthGasBumpWei())
 	bumpedTxAt, err := txm.createAttempt(tx, gasPrice, blkNum)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "bumpGas")
 	}
 	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, bumpedTxAt.Hash.String()), "txat", bumpedTxAt)
 	return nil
@@ -601,7 +601,7 @@ func (a *ManagedAccount) GetAndIncrementNonce(callback func(uint64) error) error
 
 func (txm *EthTxManager) getBlockNumber() (uint64, error) {
 	if !txm.Connected() {
-		return 0, ErrPendingConnection
+		return 0, errors.Wrap(ErrPendingConnection, "EthTxManager#getBlockNumber")
 	}
 
 	return txm.GetBlockNumber()
