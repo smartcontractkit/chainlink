@@ -119,6 +119,11 @@ func ignoreRecordNotFound(db *gorm.DB) error {
 	return merr
 }
 
+// EnableLogging turns on SQL statement logging
+func (orm *ORM) EnableLogging() {
+	orm.DB.LogMode(true)
+}
+
 // Close closes the underlying database connection.
 func (orm *ORM) Close() error {
 	return multierr.Append(
