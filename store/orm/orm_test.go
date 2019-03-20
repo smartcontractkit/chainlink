@@ -52,7 +52,8 @@ func TestORM_CreateJob(t *testing.T) {
 	store.CreateJob(&j1)
 
 	j2, err := store.FindJob(j1.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.Len(t, j2.Initiators, 1)
 	j1.Initiators[0].CreatedAt = j2.Initiators[0].CreatedAt
 	assert.Equal(t, j1.ID, j2.ID)
 	assert.Equal(t, j1.Initiators[0], j2.Initiators[0])
@@ -130,6 +131,8 @@ func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
 
 	retrievedJob, err := store.FindJob(job.ID)
 	require.NoError(t, err)
+	require.Len(t, job.Tasks, 1)
+	require.Len(t, retrievedJob.Tasks, 1)
 	assert.JSONEq(
 		t,
 		coercedJSON(job.Tasks[0].Params.String()),
