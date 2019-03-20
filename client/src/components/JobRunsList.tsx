@@ -20,15 +20,11 @@ type RunsListProps = { jobRuns: IJobRun[] }
 
 const RunsList = (props: RunsListProps) => {
   return (
-    <>
-      <Typography variant="h3">Latest Runs</Typography>
-
-      <List>
-        {props.jobRuns.map((r, idx) => {
-          return <ListItem key={idx} disableGutters>{r.requestId}</ListItem>
-        })}
-      </List>
-    </>
+    <List>
+      {props.jobRuns.map((r, idx) => {
+        return <ListItem key={idx} disableGutters>{r.requestId}</ListItem>
+      })}
+    </List>
   )
 }
 

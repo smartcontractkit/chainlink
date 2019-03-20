@@ -20,15 +20,19 @@ interface IProps extends WithStyles<typeof styles> {
 
 const App = (props: IProps) => {
   return (
-    <Grid container spacing={24}>
-      <Grid item xs={12}>
-        <Header />
+    <>
+      <CssBaseline />
 
-        <Paper className={props.classes.main} elevation={0}>
-          <Home />
-        </Paper>
+      <Grid container spacing={24}>
+        <Grid item xs={12}>
+          <Header />
+
+          <main className={props.classes.main}>
+            <Home />
+          </main>
+        </Grid>
       </Grid>
-    </Grid>
+    </>
   )
 }
 
