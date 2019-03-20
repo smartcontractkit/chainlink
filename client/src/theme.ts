@@ -14,11 +14,11 @@ const theme = {
       action: {
         hoverOpacity: 0.3
       },
-    primary: {
-      light: '#E5F1FF',
-      main: '#3c40c6',
-      contrastText: '#fff'
-    },
+      primary: {
+        light: '#E5F1FF',
+        main: '#3c40c6',
+        contrastText: '#fff'
+      },
       secondary: {
         main: '#3d5170'
       },
