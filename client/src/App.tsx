@@ -1,4 +1,5 @@
 import React from 'react'
+import { hot } from 'react-hot-loader/root'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Grid from '@material-ui/core/Grid'
 import Paper from '@material-ui/core/Paper'
@@ -31,4 +32,4 @@ const App = (props: IProps) => {
   )
 }
 
-export default withStyles(styles)(App)
+export default hot(withStyles(styles)(App))
