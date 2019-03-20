@@ -199,10 +199,10 @@ func (orm *ORM) preloadJobRuns() *gorm.DB {
 			return db.Unscoped()
 		}).
 		Preload("Overrides").
-		Preload("Result").
 		Preload("TaskRuns", func(db *gorm.DB) *gorm.DB {
 			return preloadTaskRuns(db).Order("task_spec_id asc")
-		})
+		}).
+		Preload("Result")
 }
 
 // FindJobRun looks up a JobRun by its ID.
