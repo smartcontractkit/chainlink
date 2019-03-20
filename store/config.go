@@ -56,6 +56,7 @@ type ConfigSchema struct {
 	LinkstatsURL             *url.URL       `env:"LINKSTATS_URL"`
 	LogLevel                 LogLevel       `env:"LOG_LEVEL" default:"info"`
 	LogToDisk                bool           `env:"LOG_TO_DISK" default:"true"`
+	LogSQLStatements         bool           `env:"LOG_SQL" default:"false"`
 	MinIncomingConfirmations uint64         `env:"MIN_INCOMING_CONFIRMATIONS" default:"0"`
 	MinOutgoingConfirmations uint64         `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
 	MinimumContractPayment   assets.Link    `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
@@ -233,6 +234,11 @@ func (c Config) LogLevel() LogLevel {
 // LogToDisk configures disk preservation of logs.
 func (c Config) LogToDisk() bool {
 	return c.viper.GetBool(c.envVarName("LogToDisk"))
+}
+
+// LogSQLStatements tells chainlink to log all SQL statements made using the default logger
+func (c Config) LogSQLStatements() bool {
+	return c.viper.GetBool(c.envVarName("LogSQLStatements"))
 }
 
 // MinIncomingConfirmations represents the minimum number of block
