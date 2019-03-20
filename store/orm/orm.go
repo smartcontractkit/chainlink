@@ -377,6 +377,54 @@ func (orm *ORM) UnscopedJobRunsWithStatus(statuses ...models.RunStatus) ([]model
 	return runs, err
 }
 
+// UnscopedJobRunsWithStatusCB passes all JobRuns to a callback, one by one,
+// including soft deleted ones.
+func (orm *ORM) UnscopedJobRunsWithStatusCB(cb func(*models.JobRun) error, statuses ...models.RunStatus) error {
+	runs := []models.JobRun{}
+	err := orm.DB.Unscoped().Where("status IN (?)", statuses).Order("status asc").Find(&runs).Error
+	if err != nil {
+		return err
+	}
+
+	for _, run := range runs {
+		err = orm.DB.Model(&run).
+			Unscoped().
+			Related(&run.Initiator).Error
+		if err != nil {
+			return err
+		}
+
+		err = orm.DB.Model(&run).
+			Related(&run.Overrides, "Overrides").Error
+		if err != nil {
+			return err
+		}
+
+		err = preloadTaskRuns(orm.DB).
+			Model(&run).
+			Related(&run.TaskRuns).
+			Order("task_spec_id asc").
+			Error
+		if err != nil {
+			return err
+		}
+
+		err = orm.DB.Model(&run).
+			Related(&run.Result, "Result").
+			Error
+		if err != nil {
+			return err
+		}
+
+		err = cb(&run)
+		if err != nil {
+			return err
+		}
+	}
+
+	return err
+}
+
 // AnyJobWithType returns true if there is at least one job associated with
 // the type name specified and false otherwise
 func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
