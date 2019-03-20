@@ -2,8 +2,9 @@ import React from 'react'
 import AppBar from '@material-ui/core/AppBar'
 import Toolbar from '@material-ui/core/Toolbar'
 import Grid from '@material-ui/core/Grid'
-import Link from '@material-ui/core/Link';
 import { createStyles, Theme, withStyles, WithStyles } from '@material-ui/core/styles'
+import Logo from './Logo'
+import Search from './Search'
 import ConnectedNodes from './ConnectedNodes'
 
 const styles = (theme: Theme) => createStyles({
@@ -14,6 +15,19 @@ const styles = (theme: Theme) => createStyles({
   toolbar: {
     paddingLeft: theme.spacing.unit * 5,
     paddingRight: theme.spacing.unit * 5
+  },
+  logoAndSearch: {
+    display: 'flex',
+    alignItems: 'center'
+  },
+  logo: {
+    width: 150
+  },
+  search: {
+    flexGrow: 1
+  },
+  connectedNodes: {
+    textAlign: 'right'
   }
 })
 
@@ -25,11 +39,15 @@ const Header = (props: IProps) => {
     <AppBar className={props.classes.appBar} color="default" position="absolute">
       <Toolbar className={props.classes.toolbar}>
         <Grid container alignItems="center">
-          <Grid item xs={12}>
-            <Link href="/">
-              LINK Stats
-            </Link>
-            <ConnectedNodes />
+          <Grid item xs={8}>
+            <div className={props.classes.logoAndSearch}>
+              <Logo className={props.classes.logo} />
+              <Search className={props.classes.search} />
+            </div>
+          </Grid>
+
+          <Grid item xs={4}>
+            <ConnectedNodes className={props.classes.connectedNodes} />
           </Grid>
         </Grid>
       </Toolbar>
