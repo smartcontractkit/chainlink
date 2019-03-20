@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/logger"
@@ -10,13 +9,15 @@ import (
 )
 
 type EventQueuer struct {
-	ORM    *orm.ORM
-	cancel context.CancelFunc
+	ORM         *orm.ORM
+	StatsPusher StatsPusher
+	cancel      context.CancelFunc
 }
 
-func NewEventQueuer(orm *orm.ORM) *EventQueuer {
+func NewEventQueuer(orm *orm.ORM, statsPusher StatsPusher) *EventQueuer {
 	eq := &EventQueuer{
-		ORM: orm,
+		ORM:         orm,
+		StatsPusher: statsPusher,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -44,8 +45,8 @@ func (eq EventQueuer) pollEvents(parentCtx context.Context) {
 				continue
 			}
 
-			for event := range events {
-				fmt.Println("syncing event", event)
+			for _, event := range events {
+				eq.StatsPusher.Send([]byte(event.Body))
 			}
 		}
 	}
