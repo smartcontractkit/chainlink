@@ -9,6 +9,9 @@ export class JobRun {
     @Column()
     requestId: string;
 
+    @Column()
+    jobId: string;
+
     @CreateDateColumn()
     createdAt: Date;
 
