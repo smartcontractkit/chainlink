@@ -3,7 +3,7 @@ import { hot } from 'react-hot-loader/root'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Grid from '@material-ui/core/Grid'
 import Header from './components/Header'
-import Home from './containers/Home'
+import JobRunsIndex from './containers/JobRuns/Index'
 import { createStyles, Theme, withStyles, WithStyles } from '@material-ui/core/styles'
 
 const styles = ({spacing}: Theme) => createStyles({
@@ -27,7 +27,7 @@ const App = (props: IProps) => {
           <Header />
 
           <main className={props.classes.main}>
-            <Home />
+            <JobRunsIndex />
           </main>
         </Grid>
       </Grid>
