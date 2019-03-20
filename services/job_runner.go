@@ -88,21 +88,25 @@ func (rm *jobRunner) resumeRunsSinceLastShutdown() error {
 	// Do all querying of run statuses since last shutdown before enqueuing
 	// runs in progress and asleep, to prevent the following race condition:
 	// 1. resume sleep, 2. awake from sleep, 3. in progress, 4. resume in progress (double enqueued).
-	resumableRuns, err := rm.store.UnscopedJobRunsWithStatus(models.RunStatusInProgress, models.RunStatusPendingSleep)
+	var merr error
+	err := rm.store.UnscopedJobRunsWithStatusCB(func(run *models.JobRun) error {
+
+		if run.Result.Status == models.RunStatusPendingSleep {
+			if err := QueueSleepingTask(run, rm.store.Unscoped()); err != nil {
+				logger.Errorw("Error resuming sleeping job", "error", err)
+			}
+		} else {
+			merr = multierr.Append(merr, rm.store.RunChannel.Send(run.ID))
+		}
+
+		return nil
+
+	}, models.RunStatusInProgress, models.RunStatusPendingSleep)
+
 	if err != nil {
 		return err
 	}
 
-	for _, run := range models.JobRunsWithStatus(resumableRuns, models.RunStatusPendingSleep) {
-		if err := QueueSleepingTask(&run, rm.store.Unscoped()); err != nil {
-			logger.Errorw("Error resuming sleeping job", "error", err)
-		}
-	}
-
-	var merr error
-	for _, run := range models.JobRunsWithStatus(resumableRuns, models.RunStatusInProgress) {
-		merr = multierr.Append(merr, rm.store.RunChannel.Send(run.ID))
-	}
 	return merr
 }
 
