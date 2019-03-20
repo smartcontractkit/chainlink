@@ -437,6 +437,7 @@ func (txm *EthTxManager) handleConfirmed(
 		fmt.Sprintf("Confirmed TX: %d attempt %s waiting on %v confirmations", txat.TxID, txat.Hash.Hex(), minConfs),
 		"txHash", txat.Hash.String(),
 		"txid", txat.TxID,
+		"nonce", tx.Nonce,
 		"gasPrice", txat.GasPrice.String(),
 		"from", tx.From.Hex(),
 		"receiptBlockNumber", rcpt.BlockNumber.ToInt(),
@@ -457,6 +458,8 @@ func (txm *EthTxManager) handleConfirmed(
 	logger.Infow(
 		fmt.Sprintf("Confirmed TX %d: %s", txat.TxID, txat.Hash.String()),
 		"txHash", txat.Hash.String(),
+		"txid", txat.TxID,
+		"nonce", tx.Nonce,
 		"ethBalance", ethBalance,
 		"linkBalance", linkBalance,
 		"receipt", rcpt,
@@ -479,6 +482,7 @@ func (txm *EthTxManager) handleUnconfirmed(
 	logParams := []interface{}{
 		"txHash", txAttempt.Hash.String(),
 		"txid", txAttempt.TxID,
+		"nonce", latestTx.Nonce,
 		"gasPrice", txAttempt.GasPrice.String(),
 		"from", latestTx.From.Hex(),
 		"blkNum", blkNum,
