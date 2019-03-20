@@ -132,6 +132,8 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	}
 	keyStore := NewKeyStore(config.KeysDir())
 
+	statsPusher := NewStatsPusher(config.LinkstatsURL())
+
 	store := &Store{
 		Clock:       Clock{},
 		Config:      config,
@@ -139,7 +141,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 		ORM:         orm,
 		RunChannel:  NewQueuedRunChannel(),
 		TxManager:   NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
-		EventQueuer: NewEventQueuer(orm),
+		EventQueuer: NewEventQueuer(orm, statsPusher),
 		StatsPusher: NewStatsPusher(config.LinkstatsURL()),
 	}
 	return store
