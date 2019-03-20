@@ -315,7 +315,7 @@ func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = manager.CreateTx(to, data)
-	assert.Equal(t, strpkg.ErrPendingConnection, err)
+	assert.Contains(t, err.Error(), strpkg.ErrPendingConnection.Error())
 }
 
 func TestTxManager_BumpGasUntilSafe(t *testing.T) {
