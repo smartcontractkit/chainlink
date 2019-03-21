@@ -240,10 +240,23 @@ func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
 }
 
 // AllSyncEvents returns all sync events
-func (orm *ORM) AllSyncEvents() ([]models.SyncEvent, error) {
-	var events []models.SyncEvent
-	err := orm.DB.Find(&events).Error
-	return events, err
+func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent)) error {
+	return batch(1000, func(offset, limit uint) (uint, error) {
+		var events []models.SyncEvent
+		err := orm.DB.
+			Limit(limit).
+			Offset(offset).
+			Find(&events).Error
+		if err != nil {
+			return 0, err
+		}
+
+		for _, event := range events {
+			cb(&event)
+		}
+
+		return uint(len(events)), err
+	})
 }
 
 // convenientTransaction handles setup and teardown for a gorm database

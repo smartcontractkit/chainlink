@@ -153,6 +153,7 @@ func (s *Store) Start() error {
 	return multierr.Combine(
 		s.SyncDiskKeyStoreToDB(),
 		s.StatsPusher.Start(),
+		s.EventQueuer.Start(),
 	)
 }
 
