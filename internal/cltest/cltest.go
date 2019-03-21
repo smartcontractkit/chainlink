@@ -1009,6 +1009,16 @@ func AllJobs(store *strpkg.Store) []models.JobSpec {
 	return all
 }
 
+func MustAllJobsWithStatus(t *testing.T, store *strpkg.Store, statuses ...models.RunStatus) []*models.JobRun {
+	var runs []*models.JobRun
+	err := store.UnscopedJobRunsWithStatus(func(jr *models.JobRun) error {
+		runs = append(runs, jr)
+		return nil
+	}, statuses...)
+	require.NoError(t, err)
+	return runs
+}
+
 func GetLastTxAttempt(t *testing.T, store *strpkg.Store) models.TxAttempt {
 	var attempt models.TxAttempt
 	var count int
