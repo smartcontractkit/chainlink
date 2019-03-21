@@ -371,7 +371,7 @@ func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun) error, statuse
 	err := orm.DB.Unscoped().
 		Table("job_runs").
 		Where("status IN (?)", statuses).
-		Order("status desc, created_at asc").
+		Order("created_at asc").
 		Pluck("ID", &runIDs).Error
 	if err != nil {
 		return fmt.Errorf("error finding job ids %v", err)

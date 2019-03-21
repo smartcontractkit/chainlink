@@ -347,6 +347,36 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 	}
 }
 
+func TestORM_UnscopedJobRunsWithStatus_OrdersByCreatedAt(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	j := cltest.NewJobWithWebInitiator()
+	assert.NoError(t, store.CreateJob(&j))
+	i := j.Initiators[0]
+
+	newPending := j.NewRun(i)
+	newPending.Status = models.RunStatusPendingSleep
+	newPending.CreatedAt = time.Now().Add(10 * time.Second)
+	require.NoError(t, store.CreateJobRun(&newPending))
+
+	oldPending := j.NewRun(i)
+	oldPending.Status = models.RunStatusPendingSleep
+	oldPending.CreatedAt = time.Now()
+	require.NoError(t, store.CreateJobRun(&oldPending))
+
+	var runs []*models.JobRun
+	err := store.UnscopedJobRunsWithStatus(func(jr *models.JobRun) error {
+		runs = append(runs, jr)
+		return nil
+	}, models.RunStatusInProgress, models.RunStatusPendingSleep)
+	require.NoError(t, err)
+	require.Len(t, runs, 2)
+	assert.Equal(t, runs[0].ID, oldPending.ID)
+	assert.Equal(t, runs[1].ID, newPending.ID)
+}
+
 func TestORM_AnyJobWithType(t *testing.T) {
 	t.Parallel()
 
