@@ -492,7 +492,7 @@ func (txm *EthTxManager) handleUnconfirmed(
 		return nil, txm.bumpGas(txAttempt, blkNum)
 	}
 	logger.Infow(
-		fmt.Sprintf("Unconfirmed TX %d has not yet met gas bump threshold", txAttempt.TxID),
+		fmt.Sprintf("Unconfirmed TX %d has not met gas bump threshold", txAttempt.TxID),
 		logParams...,
 	)
 	return nil, nil
