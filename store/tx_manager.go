@@ -446,11 +446,15 @@ func (txm *EthTxManager) handleConfirmed(
 		"confirmedAt", confirmedAt,
 	)
 
+	if err := txm.orm.MarkTxReceipt(tx, txat); err != nil {
+		return nil, err
+	}
+
 	if big.NewInt(int64(blkNum)).Cmp(confirmedAt) == -1 {
 		return nil, nil
 	}
 
-	if err := txm.orm.ConfirmTx(tx, txat); err != nil {
+	if err := txm.orm.MarkTxSafe(tx, txat); err != nil {
 		return nil, err
 	}
 
@@ -471,20 +475,20 @@ func (txm *EthTxManager) handleConfirmed(
 }
 
 func (txm *EthTxManager) handleUnconfirmed(
-	latestTx *models.Tx,
+	tx *models.Tx,
 	txAttempt *models.TxAttempt,
 	blkNum uint64,
 ) (*TxReceipt, error) {
-	if txAttempt.Hash != latestTx.Hash {
+	if !tx.IsBumpableAttempt(txAttempt) {
 		return nil, nil
 	}
 
 	logParams := []interface{}{
 		"txHash", txAttempt.Hash.String(),
 		"txid", txAttempt.TxID,
-		"nonce", latestTx.Nonce,
+		"nonce", tx.Nonce,
 		"gasPrice", txAttempt.GasPrice.String(),
-		"from", latestTx.From.Hex(),
+		"from", tx.From.Hex(),
 		"blkNum", blkNum,
 		"sentAt", txAttempt.SentAt,
 	}
