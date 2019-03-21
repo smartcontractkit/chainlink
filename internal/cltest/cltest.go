@@ -1011,9 +1011,8 @@ func AllJobs(store *strpkg.Store) []models.JobSpec {
 
 func MustAllJobsWithStatus(t *testing.T, store *strpkg.Store, statuses ...models.RunStatus) []*models.JobRun {
 	var runs []*models.JobRun
-	err := store.UnscopedJobRunsWithStatus(func(jr *models.JobRun) error {
+	err := store.UnscopedJobRunsWithStatus(func(jr *models.JobRun) {
 		runs = append(runs, jr)
-		return nil
 	}, statuses...)
 	require.NoError(t, err)
 	return runs
