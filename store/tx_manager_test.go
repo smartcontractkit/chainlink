@@ -421,7 +421,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 		{"later conf, early error", (safeAt + 1), func(ethMock *cltest.EthMock) {
 			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
 			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
-		}, true, true},
+		}, true, false},
 	}
 
 	for _, test := range tests {

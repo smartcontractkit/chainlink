@@ -289,8 +289,8 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*TxReceipt, error) 
 	for _, txat := range attempts {
 		receipt, err := txm.checkAttempt(tx, &txat, blkNum)
 		merr = multierr.Append(merr, err)
-		if receipt != nil {
-			return receipt, merr
+		if receipt != nil { // success, so all prior errors can be ignored.
+			return receipt, nil
 		}
 	}
 	return nil, merr
@@ -516,7 +516,7 @@ func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	if err != nil {
 		return errors.Wrap(err, "bumpGas")
 	}
-	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, bumpedTxAt.Hash.String()), "txat", bumpedTxAt)
+	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, bumpedTxAt.Hash.String()), "txat", bumpedTxAt, "nonce", tx.Nonce)
 	return nil
 }
 
