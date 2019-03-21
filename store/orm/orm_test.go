@@ -266,13 +266,7 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
-			var pending []*models.JobRun
-			err := store.UnscopedJobRunsWithStatus(func(jr *models.JobRun) error {
-				pending = append(pending, jr)
-				return nil
-			}, test.statuses...)
-			assert.NoError(t, err)
+			pending := cltest.MustAllJobsWithStatus(t, store, test.statuses...)
 
 			pendingIDs := []string{}
 			for _, jr := range pending {
@@ -330,13 +324,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
-			var pending []*models.JobRun
-			err := store.UnscopedJobRunsWithStatus(func(jr *models.JobRun) error {
-				pending = append(pending, jr)
-				return nil
-			}, test.statuses...)
-			assert.NoError(t, err)
+			pending := cltest.MustAllJobsWithStatus(t, store, test.statuses...)
 
 			pendingIDs := []string{}
 			for _, jr := range pending {
@@ -366,12 +354,7 @@ func TestORM_UnscopedJobRunsWithStatus_OrdersByCreatedAt(t *testing.T) {
 	oldPending.CreatedAt = time.Now()
 	require.NoError(t, store.CreateJobRun(&oldPending))
 
-	var runs []*models.JobRun
-	err := store.UnscopedJobRunsWithStatus(func(jr *models.JobRun) error {
-		runs = append(runs, jr)
-		return nil
-	}, models.RunStatusInProgress, models.RunStatusPendingSleep)
-	require.NoError(t, err)
+	runs := cltest.MustAllJobsWithStatus(t, store, models.RunStatusInProgress, models.RunStatusPendingSleep)
 	require.Len(t, runs, 2)
 	assert.Equal(t, runs[0].ID, oldPending.ID)
 	assert.Equal(t, runs[1].ID, newPending.ID)
