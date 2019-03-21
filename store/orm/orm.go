@@ -199,10 +199,10 @@ func (orm *ORM) preloadJobRuns() *gorm.DB {
 			return db.Unscoped()
 		}).
 		Preload("Overrides").
-		Preload("Result").
 		Preload("TaskRuns", func(db *gorm.DB) *gorm.DB {
 			return preloadTaskRuns(db).Order("task_spec_id asc")
-		})
+		}).
+		Preload("Result")
 }
 
 // FindJobRun looks up a JobRun by its ID.
@@ -269,29 +269,24 @@ func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error)
 
 // Jobs fetches all jobs.
 func (orm *ORM) Jobs(cb func(models.JobSpec) bool) error {
-	offset := 0
-	limit := 1000
-	for {
+	return batch(1000, func(offset, limit uint) (uint, error) {
 		jobs := []models.JobSpec{}
 		err := orm.preloadJobs().
 			Limit(limit).
 			Offset(offset).
 			Find(&jobs).Error
 		if err != nil {
-			return err
+			return 0, err
 		}
+
 		for _, j := range jobs {
 			if !cb(j) {
-				return nil
+				return 0, nil
 			}
 		}
 
-		if len(jobs) < limit {
-			return nil
-		}
-
-		offset += limit
-	}
+		return uint(len(jobs)), nil
+	})
 }
 
 // JobRunsFor fetches all JobRuns with a given Job ID,
@@ -369,12 +364,30 @@ func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
 	return orm.DB.Create(sa).Error
 }
 
-// UnscopedJobRunsWithStatus returns all JobRuns, including ones that have been
-// soft deleted, which have the passed statuses.
-func (orm *ORM) UnscopedJobRunsWithStatus(statuses ...models.RunStatus) ([]models.JobRun, error) {
-	runs := []models.JobRun{}
-	err := orm.Unscoped().preloadJobRuns().Where("status IN (?)", statuses).Find(&runs).Error
-	return runs, err
+// UnscopedJobRunsWithStatus passes all JobRuns to a callback, one by one,
+// including those that were soft deleted.
+func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun), statuses ...models.RunStatus) error {
+	var runIDs []string
+	err := orm.DB.Unscoped().
+		Table("job_runs").
+		Where("status IN (?)", statuses).
+		Order("created_at asc").
+		Pluck("ID", &runIDs).Error
+	if err != nil {
+		return fmt.Errorf("error finding job ids %v", err)
+	}
+
+	for _, id := range runIDs {
+		var run models.JobRun
+		err := orm.Unscoped().preloadJobRuns().First(&run, "id = ?", id).Error
+		if err != nil {
+			return fmt.Errorf("error finding job run %v", err)
+		}
+
+		cb(&run)
+	}
+
+	return nil
 }
 
 // AnyJobWithType returns true if there is at least one job associated with
@@ -908,4 +921,22 @@ func (orm *ORM) IsPostgres() bool {
 // IsSqlite returns true if the underlying database is sqlite.
 func (orm *ORM) IsSqlite() bool {
 	return strings.HasPrefix(orm.DB.Dialect().GetName(), "sqlite")
+}
+
+func batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
+	offset := uint(0)
+	limit := uint(1000)
+
+	for {
+		count, err := cb(offset, limit)
+		if err != nil {
+			return err
+		}
+
+		if count < limit {
+			return nil
+		}
+
+		offset += limit
+	}
 }

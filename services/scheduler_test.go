@@ -292,7 +292,8 @@ func TestOneTime_RunJobAt_RunTwice(t *testing.T) {
 	ot.RunJobAt(j.Initiators[0], j)
 
 	j2, err := ot.Store.FindJob(j.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.Len(t, j2.Initiators, 1)
 	ot.RunJobAt(j2.Initiators[0], j2)
 
 	jobRuns, err := store.JobRunsFor(j.ID)
@@ -318,7 +319,8 @@ func TestOneTime_RunJobAt_UnstartedRun(t *testing.T) {
 	ot.RunJobAt(j.Initiators[0], j)
 
 	j2, err := store.FindJob(j.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.Len(t, j2.Initiators, 1)
 	assert.Equal(t, false, j2.Initiators[0].Ran)
 }
 
@@ -342,7 +344,8 @@ func TestOneTime_RunJobAt_ArchivedRun(t *testing.T) {
 
 	unscoped := store.Unscoped()
 	j2, err := unscoped.FindJob(j.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.Len(t, j2.Initiators, 1)
 	assert.Equal(t, false, j2.Initiators[0].Ran)
 	count, err := unscoped.JobRunsCountFor(j.ID)
 	require.NoError(t, err)

@@ -189,8 +189,8 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 	// Check ORM
 	orm := app.GetStore().ORM
 	j, err = orm.FindJob(j.ID)
-	assert.NoError(t, err)
-	assert.Len(t, j.Initiators, 1)
+	require.NoError(t, err)
+	require.Len(t, j.Initiators, 1)
 	assert.Equal(t, models.InitiatorWeb, j.Initiators[0].Type)
 
 	adapter1, _ = adapters.For(j.Tasks[0], app.Store)
@@ -334,7 +334,9 @@ func TestJobSpecsController_Show(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, 200)
 
 	var respJob presenters.JobSpec
-	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &respJob))
+	require.NoError(t, cltest.ParseJSONAPIResponse(resp, &respJob))
+	require.Len(t, j.Initiators, 1)
+	require.Len(t, respJob.Initiators, 1)
 	assert.Equal(t, j.Initiators[0].Schedule, respJob.Initiators[0].Schedule, "should have the same schedule")
 	assert.Equal(t, jr[0].ID, respJob.Runs[0].ID, "should have job runs ordered by created at(descending)")
 	assert.Equal(t, jr[1].ID, respJob.Runs[1].ID, "should have job runs ordered by created at(descending)")

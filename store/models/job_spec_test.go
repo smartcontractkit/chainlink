@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -21,7 +22,8 @@ func TestJobSpec_Save(t *testing.T) {
 	initr := j1.Initiators[0]
 
 	j2, err := store.FindJob(j1.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.Len(t, j2.Initiators, 1)
 	assert.Equal(t, initr.Schedule, j2.Initiators[0].Schedule)
 }
 
