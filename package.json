@@ -21,7 +21,7 @@
     "url": "git://github.com/smartcontractkit/linkstats"
   },
   "engines": {
-    "node": "^11.11"
+    "node": "^11.12"
   },
   "dependencies": {
     "express": "^4.16.4",

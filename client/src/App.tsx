@@ -2,7 +2,7 @@ import React from 'react'
 import { hot } from 'react-hot-loader/root'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Grid from '@material-ui/core/Grid'
-import Header from './components/Header'
+import Header from './containers/Header'
 import JobRunsIndex from './containers/JobRuns/Index'
 import { createStyles, Theme, withStyles, WithStyles } from '@material-ui/core/styles'
 
