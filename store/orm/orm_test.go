@@ -267,7 +267,11 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 
-			pending, err := store.UnscopedJobRunsWithStatus(test.statuses...)
+			var pending []*models.JobRun
+			err := store.UnscopedJobRunsWithStatus(func(jr *models.JobRun) error {
+				pending = append(pending, jr)
+				return nil
+			}, test.statuses...)
 			assert.NoError(t, err)
 
 			pendingIDs := []string{}
@@ -327,7 +331,11 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 
-			pending, err := store.UnscopedJobRunsWithStatus(test.statuses...)
+			var pending []*models.JobRun
+			err := store.UnscopedJobRunsWithStatus(func(jr *models.JobRun) error {
+				pending = append(pending, jr)
+				return nil
+			}, test.statuses...)
 			assert.NoError(t, err)
 
 			pendingIDs := []string{}

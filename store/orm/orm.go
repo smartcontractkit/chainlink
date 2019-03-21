@@ -369,17 +369,9 @@ func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
 	return orm.DB.Create(sa).Error
 }
 
-// UnscopedJobRunsWithStatus returns all JobRuns, including ones that have been
-// soft deleted, which have the passed statuses.
-func (orm *ORM) UnscopedJobRunsWithStatus(statuses ...models.RunStatus) ([]models.JobRun, error) {
-	runs := []models.JobRun{}
-	err := orm.Unscoped().preloadJobRuns().Where("status IN (?)", statuses).Find(&runs).Error
-	return runs, err
-}
-
-// UnscopedJobRunsWithStatusCB passes all JobRuns to a callback, one by one,
-// including soft deleted ones.
-func (orm *ORM) UnscopedJobRunsWithStatusCB(cb func(*models.JobRun) error, statuses ...models.RunStatus) error {
+// UnscopedJobRunsWithStatus passes all JobRuns to a callback, one by one,
+// including those that were soft deleted.
+func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun) error, statuses ...models.RunStatus) error {
 	var runIDs []string
 	err := orm.DB.Unscoped().Table("job_runs").Where("status IN (?)", statuses).Order("status desc").Pluck("ID", &runIDs).Error
 	if err != nil {
