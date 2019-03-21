@@ -380,45 +380,22 @@ func (orm *ORM) UnscopedJobRunsWithStatus(statuses ...models.RunStatus) ([]model
 // UnscopedJobRunsWithStatusCB passes all JobRuns to a callback, one by one,
 // including soft deleted ones.
 func (orm *ORM) UnscopedJobRunsWithStatusCB(cb func(*models.JobRun) error, statuses ...models.RunStatus) error {
-	runs := []models.JobRun{}
-	err := orm.DB.Unscoped().Where("status IN (?)", statuses).Order("status asc").Find(&runs).Error
+	var runIDs []string
+	err := orm.DB.Unscoped().Table("job_runs").Where("status IN (?)", statuses).Order("status desc").Pluck("ID", &runIDs).Error
 	if err != nil {
-		return err
+		return fmt.Errorf("error finding job ids %v", err)
 	}
 
-	for _, run := range runs {
-		err = orm.DB.Model(&run).
-			Unscoped().
-			Related(&run.Initiator).Error
+	for _, id := range runIDs {
+		var run models.JobRun
+		err := orm.Unscoped().preloadJobRuns().First(&run, "id = ?", id).Error
 		if err != nil {
-			return err
-		}
-
-		err = orm.DB.Model(&run).
-			Related(&run.Overrides, "Overrides").Error
-		if err != nil {
-			return err
-		}
-
-		err = preloadTaskRuns(orm.DB).
-			Model(&run).
-			Related(&run.TaskRuns).
-			Order("task_spec_id asc").
-			Error
-		if err != nil {
-			return err
-		}
-
-		err = orm.DB.Model(&run).
-			Related(&run.Result, "Result").
-			Error
-		if err != nil {
-			return err
+			return fmt.Errorf("error finding job run %v", err)
 		}
 
 		err = cb(&run)
 		if err != nil {
-			return err
+			return fmt.Errorf("error returned by UnscopedJobRunsWithStatus callback %v", err)
 		}
 	}
 
