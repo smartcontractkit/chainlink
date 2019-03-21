@@ -366,7 +366,7 @@ func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
 
 // UnscopedJobRunsWithStatus passes all JobRuns to a callback, one by one,
 // including those that were soft deleted.
-func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun) error, statuses ...models.RunStatus) error {
+func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun), statuses ...models.RunStatus) error {
 	var runIDs []string
 	err := orm.DB.Unscoped().
 		Table("job_runs").
@@ -384,10 +384,7 @@ func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun) error, statuse
 			return fmt.Errorf("error finding job run %v", err)
 		}
 
-		err = cb(&run)
-		if err != nil {
-			return fmt.Errorf("error returned by UnscopedJobRunsWithStatus callback %v", err)
-		}
+		cb(&run)
 	}
 
 	return nil

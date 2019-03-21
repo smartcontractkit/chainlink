@@ -106,13 +106,12 @@ func (js *jobSubscriber) OnNewHead(head *models.Head) {
 	height := head.ToInt()
 	logger.Debugw("Received new head", "current_height", height)
 
-	err := js.store.UnscopedJobRunsWithStatus(func(run *models.JobRun) error {
+	err := js.store.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
 		err := ResumeConfirmingTask(run, js.store.Unscoped(), height)
 		if err != nil {
 			logger.Errorf("JobSubscriber.OnNewHead: %v", err)
 		}
 
-		return nil
 	}, models.RunStatusPendingConfirmations)
 
 	if err != nil {

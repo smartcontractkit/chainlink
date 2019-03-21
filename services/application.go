@@ -237,12 +237,11 @@ func newPendingConnectionResumer(store *store.Store) *pendingConnectionResumer {
 
 func (p *pendingConnectionResumer) Connect(head *models.Head) error {
 	var merr error
-	err := p.store.UnscopedJobRunsWithStatus(func(run *models.JobRun) error {
+	err := p.store.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
 		err := p.resumer(run, p.store.Unscoped())
 		if err != nil {
 			merr = multierr.Append(merr, err)
 		}
-		return nil
 	}, models.RunStatusPendingConnection)
 
 	if err != nil {
