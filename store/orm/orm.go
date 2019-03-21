@@ -367,34 +367,30 @@ func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
 // UnscopedJobRunsWithStatus passes all JobRuns to a callback, one by one,
 // including those that were soft deleted.
 func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun) error, statuses ...models.RunStatus) error {
-	return batch(1000, func(offset, limit uint) (uint, error) {
-		var runIDs []string
-		err := orm.DB.Unscoped().
-			Table("job_runs").
-			Where("status IN (?)", statuses).
-			Order("status desc").
-			Limit(limit).
-			Offset(offset).
-			Pluck("ID", &runIDs).Error
+	var runIDs []string
+	err := orm.DB.Unscoped().
+		Table("job_runs").
+		Where("status IN (?)", statuses).
+		Order("status desc, created_at asc").
+		Pluck("ID", &runIDs).Error
+	if err != nil {
+		return fmt.Errorf("error finding job ids %v", err)
+	}
+
+	for _, id := range runIDs {
+		var run models.JobRun
+		err := orm.Unscoped().preloadJobRuns().First(&run, "id = ?", id).Error
 		if err != nil {
-			return 0, fmt.Errorf("error finding job ids %v", err)
+			return fmt.Errorf("error finding job run %v", err)
 		}
 
-		for _, id := range runIDs {
-			var run models.JobRun
-			err := orm.Unscoped().preloadJobRuns().First(&run, "id = ?", id).Error
-			if err != nil {
-				return 0, fmt.Errorf("error finding job run %v", err)
-			}
-
-			err = cb(&run)
-			if err != nil {
-				return 0, fmt.Errorf("error returned by UnscopedJobRunsWithStatus callback %v", err)
-			}
+		err = cb(&run)
+		if err != nil {
+			return fmt.Errorf("error returned by UnscopedJobRunsWithStatus callback %v", err)
 		}
+	}
 
-		return uint(len(runIDs)), nil
-	})
+	return nil
 }
 
 // AnyJobWithType returns true if there is at least one job associated with
