@@ -269,29 +269,24 @@ func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error)
 
 // Jobs fetches all jobs.
 func (orm *ORM) Jobs(cb func(models.JobSpec) bool) error {
-	offset := 0
-	limit := 1000
-	for {
+	return batch(1000, func(offset, limit uint) (uint, error) {
 		jobs := []models.JobSpec{}
 		err := orm.preloadJobs().
 			Limit(limit).
 			Offset(offset).
 			Find(&jobs).Error
 		if err != nil {
-			return err
+			return 0, err
 		}
+
 		for _, j := range jobs {
 			if !cb(j) {
-				return nil
+				return 0, nil
 			}
 		}
 
-		if len(jobs) < limit {
-			return nil
-		}
-
-		offset += limit
-	}
+		return uint(len(jobs)), nil
+	})
 }
 
 // JobRunsFor fetches all JobRuns with a given Job ID,
@@ -372,10 +367,7 @@ func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
 // UnscopedJobRunsWithStatus passes all JobRuns to a callback, one by one,
 // including those that were soft deleted.
 func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun) error, statuses ...models.RunStatus) error {
-	offset := 0
-	limit := 1000
-
-	for {
+	return batch(1000, func(offset, limit uint) (uint, error) {
 		var runIDs []string
 		err := orm.DB.Unscoped().
 			Table("job_runs").
@@ -385,28 +377,24 @@ func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun) error, statuse
 			Offset(offset).
 			Pluck("ID", &runIDs).Error
 		if err != nil {
-			return fmt.Errorf("error finding job ids %v", err)
+			return 0, fmt.Errorf("error finding job ids %v", err)
 		}
 
 		for _, id := range runIDs {
 			var run models.JobRun
 			err := orm.Unscoped().preloadJobRuns().First(&run, "id = ?", id).Error
 			if err != nil {
-				return fmt.Errorf("error finding job run %v", err)
+				return 0, fmt.Errorf("error finding job run %v", err)
 			}
 
 			err = cb(&run)
 			if err != nil {
-				return fmt.Errorf("error returned by UnscopedJobRunsWithStatus callback %v", err)
+				return 0, fmt.Errorf("error returned by UnscopedJobRunsWithStatus callback %v", err)
 			}
 		}
 
-		if len(runIDs) < limit {
-			return nil
-		}
-
-		offset += limit
-	}
+		return uint(len(runIDs)), nil
+	})
 }
 
 // AnyJobWithType returns true if there is at least one job associated with
@@ -940,4 +928,22 @@ func (orm *ORM) IsPostgres() bool {
 // IsSqlite returns true if the underlying database is sqlite.
 func (orm *ORM) IsSqlite() bool {
 	return strings.HasPrefix(orm.DB.Dialect().GetName(), "sqlite")
+}
+
+func batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
+	offset := uint(0)
+	limit := uint(1000)
+
+	for {
+		count, err := cb(offset, limit)
+		if err != nil {
+			return err
+		}
+
+		if count < limit {
+			return nil
+		}
+
+		offset += limit
+	}
 }
