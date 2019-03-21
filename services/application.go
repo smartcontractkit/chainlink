@@ -236,18 +236,18 @@ func newPendingConnectionResumer(store *store.Store) *pendingConnectionResumer {
 }
 
 func (p *pendingConnectionResumer) Connect(head *models.Head) error {
-	pendingRuns, err := p.store.UnscopedJobRunsWithStatus(models.RunStatusPendingConnection)
+	var merr error
+	err := p.store.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
+		err := p.resumer(run, p.store.Unscoped())
+		if err != nil {
+			merr = multierr.Append(merr, err)
+		}
+	}, models.RunStatusPendingConnection)
+
 	if err != nil {
 		return multierr.Append(errors.New("error resuming pending connections"), err)
 	}
 
-	var merr error
-	for _, jr := range pendingRuns {
-		err := p.resumer(&jr, p.store.Unscoped())
-		if err != nil {
-			merr = multierr.Append(merr, err)
-		}
-	}
 	return merr
 }
 

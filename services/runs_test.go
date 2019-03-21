@@ -525,6 +525,7 @@ func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
 
 	retrievedJob, err := store.FindJob(job.ID)
 	require.NoError(t, err)
-
+	require.Len(t, job.Tasks, 1)
+	require.Len(t, retrievedJob.Tasks, 1)
 	assert.Equal(t, job.Tasks[0].Params, retrievedJob.Tasks[0].Params)
 }

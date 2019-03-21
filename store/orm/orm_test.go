@@ -52,7 +52,8 @@ func TestORM_CreateJob(t *testing.T) {
 	store.CreateJob(&j1)
 
 	j2, err := store.FindJob(j1.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.Len(t, j2.Initiators, 1)
 	j1.Initiators[0].CreatedAt = j2.Initiators[0].CreatedAt
 	assert.Equal(t, j1.ID, j2.ID)
 	assert.Equal(t, j1.Initiators[0], j2.Initiators[0])
@@ -130,6 +131,8 @@ func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
 
 	retrievedJob, err := store.FindJob(job.ID)
 	require.NoError(t, err)
+	require.Len(t, job.Tasks, 1)
+	require.Len(t, retrievedJob.Tasks, 1)
 	assert.JSONEq(
 		t,
 		coercedJSON(job.Tasks[0].Params.String()),
@@ -263,9 +266,7 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
-			pending, err := store.UnscopedJobRunsWithStatus(test.statuses...)
-			assert.NoError(t, err)
+			pending := cltest.MustAllJobsWithStatus(t, store, test.statuses...)
 
 			pendingIDs := []string{}
 			for _, jr := range pending {
@@ -323,9 +324,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
-			pending, err := store.UnscopedJobRunsWithStatus(test.statuses...)
-			assert.NoError(t, err)
+			pending := cltest.MustAllJobsWithStatus(t, store, test.statuses...)
 
 			pendingIDs := []string{}
 			for _, jr := range pending {
@@ -334,6 +333,31 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 			assert.ElementsMatch(t, pendingIDs, test.expected)
 		})
 	}
+}
+
+func TestORM_UnscopedJobRunsWithStatus_OrdersByCreatedAt(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	j := cltest.NewJobWithWebInitiator()
+	assert.NoError(t, store.CreateJob(&j))
+	i := j.Initiators[0]
+
+	newPending := j.NewRun(i)
+	newPending.Status = models.RunStatusPendingSleep
+	newPending.CreatedAt = time.Now().Add(10 * time.Second)
+	require.NoError(t, store.CreateJobRun(&newPending))
+
+	oldPending := j.NewRun(i)
+	oldPending.Status = models.RunStatusPendingSleep
+	oldPending.CreatedAt = time.Now()
+	require.NoError(t, store.CreateJobRun(&oldPending))
+
+	runs := cltest.MustAllJobsWithStatus(t, store, models.RunStatusInProgress, models.RunStatusPendingSleep)
+	require.Len(t, runs, 2)
+	assert.Equal(t, runs[0].ID, oldPending.ID)
+	assert.Equal(t, runs[1].ID, newPending.ID)
 }
 
 func TestORM_AnyJobWithType(t *testing.T) {

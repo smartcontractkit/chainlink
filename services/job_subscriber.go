@@ -103,20 +103,18 @@ func (js *jobSubscriber) Disconnect() {
 
 // OnNewHead resumes all pending job runs based on the new head activity.
 func (js *jobSubscriber) OnNewHead(head *models.Head) {
-	pendingRuns, err := js.store.UnscopedJobRunsWithStatus(models.RunStatusPendingConfirmations)
-	if err != nil {
-		logger.Error("error fetching pending job runs:", err.Error())
-	}
-
 	height := head.ToInt()
-	logger.Debugw("Received new head",
-		"current_height", height,
-		"pending_run_count", len(pendingRuns),
-	)
-	for _, jr := range pendingRuns {
-		err := ResumeConfirmingTask(&jr, js.store.Unscoped(), height)
+	logger.Debugw("Received new head", "current_height", height)
+
+	err := js.store.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
+		err := ResumeConfirmingTask(run, js.store.Unscoped(), height)
 		if err != nil {
-			logger.Error("JobSubscriber.OnNewHead: ", err.Error())
+			logger.Errorf("JobSubscriber.OnNewHead: %v", err)
 		}
+
+	}, models.RunStatusPendingConfirmations)
+
+	if err != nil {
+		logger.Errorf("error fetching pending job runs: %v", err)
 	}
 }
