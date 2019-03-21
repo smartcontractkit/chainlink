@@ -1,11 +1,13 @@
 import React from 'react'
+import { connect } from 'react-redux'
 import AppBar from '@material-ui/core/AppBar'
 import Toolbar from '@material-ui/core/Toolbar'
 import Grid from '@material-ui/core/Grid'
 import { createStyles, Theme, withStyles, WithStyles } from '@material-ui/core/styles'
-import Logo from './Logo'
-import Search from './Search'
-import ConnectedNodes from './ConnectedNodes'
+import Logo from '../components/Logo'
+import Search from '../components/Search'
+import ConnectedNodes from '../components/ConnectedNodes'
+import { IState } from '../reducers'
 
 const styles = (theme: Theme) => createStyles({
   appBar: {
@@ -55,4 +57,17 @@ const Header = (props: IProps) => {
   )
 }
 
-export default withStyles(styles)(Header)
+const mapStateToProps = (state: IState) => {
+  return {
+    search: state.search.query
+  }
+}
+
+const mapDispatchToProps = () => ({})
+
+const ConnectedHeader = connect(
+  mapStateToProps,
+  mapDispatchToProps
+)(Header)
+
+export default withStyles(styles)(ConnectedHeader)

@@ -1,41 +1,42 @@
 import React from 'react'
+import { connect } from 'react-redux'
 import Paper from '@material-ui/core/Paper';
 import IconButton from '@material-ui/core/IconButton'
 import SearchIcon from '@material-ui/icons/Search'
 import InputBase from '@material-ui/core/InputBase'
 import { createStyles, Theme, withStyles, WithStyles } from '@material-ui/core/styles'
 import classNames from 'classnames'
+import { IState } from '../reducers'
 
 interface IProps extends WithStyles<typeof styles> {
   className: string,
-  searchParams: URLSearchParams
+  query?: string
 }
 
 const styles = (theme: Theme) => createStyles({
+  form: {
+    display: 'flex'
+  },
   paper: {
     border: 'solid 1px',
     borderColor: theme.palette.primary.light
+  },
+  query: {
+    boxSizing: 'border-box',
+    flexGrow: 1
   }
 })
-
-const SEARCH_PARAM: string = 'search'
-
-const search = (searchParams: URLSearchParams): string | undefined => {
-  const search = searchParams.get(SEARCH_PARAM)
-  if (search) {
-    return search
-  }
-}
 
 const Search = (props: IProps) => {
   return (
     <Paper elevation={0} className={classNames(props.classes.paper, props.className)}>
-      <form method="GET">
-        <IconButton aria-label="Search">
+      <form method="GET" className={props.classes.form}>
+        <IconButton aria-label="Search" type="submit">
           <SearchIcon />
         </IconButton>
         <InputBase
-          value={search(props.searchParams)}
+          className={props.classes.query}
+          defaultValue={props.query}
           placeholder="Search for something"
           name="search"
         />
@@ -44,8 +45,17 @@ const Search = (props: IProps) => {
   )
 }
 
-Search.defaultProps = {
-  searchParams: (new URL(document.location.toString())).searchParams
+const mapStateToProps = (state: IState) => {
+  return {
+    query: state.search.query
+  }
 }
 
-export default withStyles(styles)(Search)
+const mapDispatchToProps = () => ({})
+
+const ConnectedSearch = connect(
+  mapStateToProps,
+  mapDispatchToProps
+)(Search)
+
+export default withStyles(styles)(ConnectedSearch)
