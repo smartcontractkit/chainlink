@@ -72,7 +72,10 @@ func TestJobRuns_SavesASyncEvent(t *testing.T) {
 	err = store.CreateJobRun(&jr)
 	assert.NoError(t, err)
 
-	events, err := store.AllSyncEvents()
+	var events []*models.SyncEvent
+	err = store.AllSyncEvents(func(event *models.SyncEvent) {
+		events = append(events, event)
+	})
 	require.NoError(t, err)
 	require.Len(t, events, 1)
 

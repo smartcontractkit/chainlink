@@ -616,3 +616,34 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 
 }
+
+func TestIntegration_SyncJobRuns(t *testing.T) {
+	wsserver, wsserverCleanup := cltest.NewEventWebsocketServer(t)
+	defer wsserverCleanup()
+
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	app.InstantClock()
+
+	app.Store.StatsPusher = store.NewStatsPusher(wsserver.URL)
+	app.Store.EventQueuer = store.NewEventQueuer(app.Store.ORM, app.Store.StatsPusher)
+	app.Store.EventQueuer.Period = 100 * time.Millisecond
+
+	app.Start()
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/run_at_job.json")
+
+	cltest.CallbackOrTimeout(t, "stats pusher connects", func() {
+		<-wsserver.Connected
+	}, 5*time.Second)
+
+	var message string
+	cltest.CallbackOrTimeout(t, "stats pusher sends", func() {
+		message = <-wsserver.Received
+	}, 5*time.Second)
+
+	var run models.JobRun
+	err := json.Unmarshal([]byte(message), &run)
+	require.NoError(t, err)
+	assert.Equal(t, j.ID, run.JobSpecID)
+}
