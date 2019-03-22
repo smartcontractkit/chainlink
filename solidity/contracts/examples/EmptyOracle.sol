@@ -3,6 +3,8 @@ pragma solidity 0.4.24;
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/OracleInterface.sol";
 
+/* solium-disable */
+
 contract EmptyOracle is ChainlinkRequestInterface, OracleInterface {
 
   function cancelOracleRequest(bytes32, uint256, bytes4, uint256) external {}

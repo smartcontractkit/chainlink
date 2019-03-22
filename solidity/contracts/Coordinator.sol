@@ -258,7 +258,9 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   /**
    * @dev Necessary to implement ChainlinkRequestInterface
    */
-  function cancelOracleRequest(bytes32, uint256, bytes4, uint256) external {}
+  function cancelOracleRequest(bytes32, uint256, bytes4, uint256)
+    external
+  {} // solium-disable-line no-empty-blocks
 
   /**
    * @notice Called when LINK is sent to the contract via `transferAndCall`
