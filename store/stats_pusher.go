@@ -20,16 +20,6 @@ type WebsocketClient interface {
 	Send([]byte)
 }
 
-// NewStatsPusher returns a functioning instance depending on the
-// URL passed: nil is a noop instance, url assumes a websocket instance.
-// No support for http.
-func NewStatsPusher(url *url.URL) WebsocketClient {
-	if url != nil {
-		return NewWebsocketClient(url)
-	}
-	return noopWebsocketClient{}
-}
-
 type noopWebsocketClient struct{}
 
 func (noopWebsocketClient) Start() error { return nil }
@@ -43,14 +33,14 @@ type websocketClient struct {
 	send    chan []byte
 	sleeper utils.Sleeper
 	started bool
-	url     url.URL
+	url     *url.URL
 }
 
 // NewWebsocketClient returns a stats pusher using a websocket for
 // delivery.
 func NewWebsocketClient(url *url.URL) WebsocketClient {
 	return &websocketClient{
-		url:     *url,
+		url:     url,
 		send:    make(chan []byte, 100), // TODO: figure out a better buffer (circular FIFO?)
 		boot:    &sync.Mutex{},
 		sleeper: utils.NewBackoffSleeper(),
@@ -95,7 +85,7 @@ const (
 // to clean up independent of itself by reducing shared state. i.e. a passed done, not w.done.
 func (w *websocketClient) connectAndWritePump(parentCtx context.Context, wg *sync.WaitGroup) {
 	wg.Done()
-	logger.Info("Connecting to linkstats at ", w.url.String())
+	logger.Infow("Connecting to linkstats", "url", w.url)
 
 	for {
 		select {

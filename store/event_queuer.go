@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/logger"
@@ -10,37 +11,45 @@ import (
 	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
-// StatsPusher polls for events and pushes them via a StatsPusher
+// StatsPusher polls for events and pushes them via a WebsocketClient
 type StatsPusher struct {
-	ORM         *orm.ORM
-	StatsPusher WebsocketClient
-	cancel      context.CancelFunc
-	Period      time.Duration
+	ORM      *orm.ORM
+	WSClient WebsocketClient
+	cancel   context.CancelFunc
+	Period   time.Duration
 }
 
 // NewEventQueuer returns a new event queuer
-func NewEventQueuer(orm *orm.ORM, statsPusher WebsocketClient) *StatsPusher {
+func NewEventQueuer(orm *orm.ORM, url *url.URL) *StatsPusher {
+	var wsClient WebsocketClient
+	wsClient = noopWebsocketClient{}
+	if url != nil {
+		wsClient = NewWebsocketClient(url)
+	}
 	return &StatsPusher{
-		ORM:         orm,
-		StatsPusher: statsPusher,
-		Period:      60 * time.Second,
+		ORM:      orm,
+		WSClient: wsClient,
+		Period:   60 * time.Second,
 	}
 }
 
-// Start starts the event queuer
-func (eq StatsPusher) Start() error {
+// Start starts the stats pusher
+func (eq *StatsPusher) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	eq.cancel = cancel
 	go eq.pollEvents(ctx)
 	return nil
 }
 
-// Shutdown stops the event queuer
-func (eq StatsPusher) Shutdown() {
-	eq.cancel()
+// Close shuts down the stats pusher
+func (eq *StatsPusher) Close() error {
+	if eq.cancel != nil {
+		eq.cancel()
+	}
+	return nil
 }
 
-func (eq StatsPusher) pollEvents(parentCtx context.Context) {
+func (eq *StatsPusher) pollEvents(parentCtx context.Context) {
 	pollTicker := time.NewTicker(eq.Period)
 
 	for {
@@ -51,7 +60,7 @@ func (eq StatsPusher) pollEvents(parentCtx context.Context) {
 			err := eq.ORM.AllSyncEvents(func(event *models.SyncEvent) {
 				fmt.Println("EventQueuer got event", event)
 
-				eq.StatsPusher.Send([]byte(event.Body))
+				eq.WSClient.Send([]byte(event.Body))
 
 				// TODO: This is fire and forget, we may want to get confirmation
 				// before deleting...
