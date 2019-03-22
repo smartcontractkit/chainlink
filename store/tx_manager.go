@@ -486,7 +486,7 @@ func (txm *EthTxManager) handleUnconfirmed(
 	txAttempt *models.TxAttempt,
 	blkNum uint64,
 ) (*TxReceipt, attemptState, error) {
-	if !tx.IsBumpableAttempt(txAttempt) {
+	if !isLatestAttempt(tx, txAttempt) {
 		return nil, unconfirmed, nil
 	}
 
@@ -513,17 +513,24 @@ func (txm *EthTxManager) handleUnconfirmed(
 	return nil, unconfirmed, nil
 }
 
+// isLatestAttempt returns true only if the attempt is the last
+// attempt associated with the transaction, alluding to the fact that
+// it has the highest gas price after subsequent bumps.
+func isLatestAttempt(tx *models.Tx, txat *models.TxAttempt) bool {
+	return tx.Hash == txat.Hash
+}
+
 func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	tx, err := txm.orm.FindTx(txat.TxID)
 	if err != nil {
-		return errors.Wrap(err, "bumpGas")
+		return errors.Wrapf(err, "bumpGas for txid %v", txat.TxID)
 	}
 	gasPrice := new(big.Int).Add(txat.GasPrice.ToInt(), txm.config.EthGasBumpWei())
 	bumpedTxAt, err := txm.createAttempt(tx, gasPrice, blkNum)
-	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, bumpedTxAt.Hash.String()), "txat", bumpedTxAt, "nonce", tx.Nonce)
 	if err != nil {
-		return errors.Wrap(err, "bumpGas")
+		return errors.Wrapf(err, "bumpGas from tx %s", txat.Hash.Hex())
 	}
+	logger.Infow(fmt.Sprintf("Bumped gas to %v for TX %v", txat.TxID, gasPrice), "bumpSource", txat.Hash.Hex(), "txat", bumpedTxAt, "nonce", tx.Nonce)
 	return nil
 }
 
