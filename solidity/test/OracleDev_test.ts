@@ -13,7 +13,7 @@ contract('OracleDev', () => {
   // Need to mine some blocks so that the check in update doesn't
   // fail when subtracting 25 from block.number.
   before(async () => {
-    h.mineBlocks(50)
+    h.mineBlocks(25)
   })
 
   beforeEach(async () => {
