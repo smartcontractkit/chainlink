@@ -12,19 +12,19 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
-// WebsocketClient encapsulates all the functionality needed to
+// WebSocketClient encapsulates all the functionality needed to
 // push run information to linkstats.
-type WebsocketClient interface {
+type WebSocketClient interface {
 	Start() error
 	Close() error
 	Send([]byte)
 }
 
-type noopWebsocketClient struct{}
+type noopWebSocketClient struct{}
 
-func (noopWebsocketClient) Start() error { return nil }
-func (noopWebsocketClient) Close() error { return nil }
-func (noopWebsocketClient) Send([]byte)  {}
+func (noopWebSocketClient) Start() error { return nil }
+func (noopWebSocketClient) Close() error { return nil }
+func (noopWebSocketClient) Send([]byte)  {}
 
 type websocketClient struct {
 	boot    *sync.Mutex
@@ -36,9 +36,9 @@ type websocketClient struct {
 	url     *url.URL
 }
 
-// NewWebsocketClient returns a stats pusher using a websocket for
+// NewWebSocketClient returns a stats pusher using a websocket for
 // delivery.
-func NewWebsocketClient(url *url.URL) WebsocketClient {
+func NewWebSocketClient(url *url.URL) WebSocketClient {
 	return &websocketClient{
 		url:     url,
 		send:    make(chan []byte, 100), // TODO: figure out a better buffer (circular FIFO?)
