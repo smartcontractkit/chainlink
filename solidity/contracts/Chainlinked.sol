@@ -226,6 +226,7 @@ contract Chainlinked {
   function fulfillChainlinkRequest(bytes32 _requestId)
     internal
     recordChainlinkFulfillment(_requestId)
+    // solium-disable-next-line no-empty-blocks
   {}
 
   /**

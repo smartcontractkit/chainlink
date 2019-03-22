@@ -1,6 +1,11 @@
 {
   "private": true,
-  "workspaces": ["chainlink", "operator-gui"],
+  "workspaces": [
+    "chainlink",
+    "operator-gui",
+    "example-echo-server",
+    "examples-twilio-sms"
+  ],
   "scripts": {
     "start": "cd gui && react-static start",
     "build": "cd gui && cross-env NODE_OPTIONS=--max_old_space_size=2048 react-static build",
@@ -15,6 +20,10 @@
     "test-sol": "./internal/ci/truffle_test",
     "watch": "cross-env NODE_ENV=test jest --watchAll --notify",
     "flatten": "./internal/bin/flatten-ropsten"
+  },
+  "dependencies": {
+    "ethlint": "^1.2.3",
+    "solium-plugin-zeppelin": "^0.0.2"
   },
   "license": "MIT"
 }
