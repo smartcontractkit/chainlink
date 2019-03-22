@@ -315,7 +315,7 @@ func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = manager.CreateTx(to, data)
-	assert.Equal(t, strpkg.ErrPendingConnection, err)
+	assert.Contains(t, err.Error(), strpkg.ErrPendingConnection.Error())
 }
 
 func TestTxManager_BumpGasUntilSafe(t *testing.T) {
@@ -421,7 +421,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 		{"later conf, early error", (safeAt + 1), func(ethMock *cltest.EthMock) {
 			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
 			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
-		}, true, true},
+		}, true, false},
 	}
 
 	for _, test := range tests {
@@ -469,7 +469,7 @@ func TestTxManager_Register(t *testing.T) {
 
 	aa := txm.NextActiveAccount()
 	assert.Equal(t, account.Address, aa.Address)
-	assert.Equal(t, uint64(0x2d0), aa.GetNonce())
+	assert.Equal(t, uint64(0x2d0), aa.Nonce())
 }
 
 func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
@@ -497,11 +497,11 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 
 	a0 := txm.NextActiveAccount()
 	assert.Equal(t, accounts[0].Address, a0.Address)
-	assert.Equal(t, uint64(0x1d0), a0.GetNonce())
+	assert.Equal(t, uint64(0x1d0), a0.Nonce())
 
 	a1 := txm.NextActiveAccount()
 	assert.Equal(t, accounts[1].Address, a1.Address)
-	assert.Equal(t, uint64(0x2d0), a1.GetNonce())
+	assert.Equal(t, uint64(0x2d0), a1.Nonce())
 
 	a2 := txm.NextActiveAccount()
 	assert.Equal(t, a0, a2)
@@ -526,7 +526,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 
 	assert.Equal(t, account.Address, ma.Address)
-	assert.Equal(t, uint64(0x2d1), ma.GetNonce())
+	assert.Equal(t, uint64(0x2d1), ma.Nonce())
 }
 
 func TestTxManager_WithdrawLink(t *testing.T) {
@@ -601,13 +601,13 @@ func TestManagedAccount_GetAndIncrementNonce_YieldsCurrentNonceAndIncrements(t *
 		assert.Equal(t, uint64(0), y)
 		return nil
 	})
-	assert.Equal(t, uint64(1), managedAccount.GetNonce())
+	assert.Equal(t, uint64(1), managedAccount.Nonce())
 
 	managedAccount.GetAndIncrementNonce(func(y uint64) error {
 		assert.Equal(t, uint64(1), y)
 		return nil
 	})
-	assert.Equal(t, uint64(2), managedAccount.GetNonce())
+	assert.Equal(t, uint64(2), managedAccount.Nonce())
 }
 
 func TestManagedAccount_GetAndIncrementNonce_DoesNotIncrementWhenCallbackThrowsException(t *testing.T) {
@@ -624,7 +624,7 @@ func TestManagedAccount_GetAndIncrementNonce_DoesNotIncrementWhenCallbackThrowsE
 		return errors.New("Should not increment again")
 	})
 	assert.Error(t, err)
-	assert.Equal(t, uint64(0), managedAccount.GetNonce())
+	assert.Equal(t, uint64(0), managedAccount.Nonce())
 }
 
 func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {

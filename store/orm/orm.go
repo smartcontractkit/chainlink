@@ -420,9 +420,11 @@ func (orm *ORM) CreateTx(
 	return &tx, orm.DB.Save(&tx).Error
 }
 
-// ConfirmTx updates the database for the given transaction to
-// show that the transaction has been confirmed on the blockchain.
-func (orm *ORM) ConfirmTx(tx *models.Tx, txat *models.TxAttempt) error {
+// MarkTxSafe updates the database for the given transaction and attempt to
+// show that the transaction has not just been confirmed,
+// but has met the minimum number of outgoing confirmations to be deemed
+// safely written on the blockchain.
+func (orm *ORM) MarkTxSafe(tx *models.Tx, txat *models.TxAttempt) error {
 	txat.Confirmed = true
 	tx.AssignTxAttempt(txat)
 

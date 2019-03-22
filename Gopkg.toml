@@ -145,3 +145,7 @@
 [[constraint]]
   name = "github.com/gofrs/flock"
   version = "0.7.1"
+
+[[constraint]]
+  name = "github.com/pkg/errors"
+  version = "0.8.1"

@@ -1,7 +1,6 @@
 package store
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"regexp"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/gobuffalo/packr"
+	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -156,7 +156,7 @@ func (txm *EthTxManager) CreateTxWithEth(from, to common.Address, value *assets.
 
 func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
 	if !txm.Connected() {
-		return nil, ErrPendingConnection
+		return nil, errors.Wrap(ErrPendingConnection, "EthTxManager#nextAccount")
 	}
 
 	ma := txm.NextActiveAccount()
@@ -278,20 +278,20 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*TxReceipt, error) {
 	blkNum, err := txm.getBlockNumber()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "BumpGasUntilSafe getBlockNumber")
 	}
 	tx, attempts, err := txm.getTxAndAttempts(hash)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "BumpGasUntilSafe getTxAndAttempts")
 	}
 
 	var merr error
 	for _, txat := range attempts {
-		receipt, err := txm.checkAttempt(tx, &txat, blkNum)
-		merr = multierr.Append(merr, err)
-		if receipt != nil {
-			return receipt, merr
+		receipt, state, err := txm.checkAttempt(tx, &txat, blkNum)
+		if state == safe || state == confirmed {
+			return receipt, err // success, so all other attempt errors can be ignored.
 		}
+		merr = multierr.Append(merr, err)
 	}
 	return nil, merr
 }
@@ -389,19 +389,27 @@ func (txm *EthTxManager) sendTransaction(tx *types.Transaction) error {
 		return err
 	}
 	if _, err = txm.SendRawTx(hex); err != nil {
-		return fmt.Errorf("TxManager sendTransaction: %v", err)
+		return errors.Wrapf(err, "TxManager#sendTransaction with nonce %d", tx.Nonce())
 	}
 	return nil
 }
+
+type attemptState int
+
+const (
+	unconfirmed attemptState = iota
+	confirmed
+	safe
+)
 
 func (txm *EthTxManager) checkAttempt(
 	tx *models.Tx,
 	txat *models.TxAttempt,
 	blkNum uint64,
-) (*TxReceipt, error) {
+) (*TxReceipt, attemptState, error) {
 	receipt, err := txm.GetTxReceipt(txat.Hash)
 	if err != nil {
-		return nil, err
+		return nil, unconfirmed, errors.Wrap(err, "checkAttempt GetTxReceipt")
 	}
 
 	if receipt.Unconfirmed() {
@@ -428,7 +436,7 @@ func (txm *EthTxManager) handleConfirmed(
 	txat *models.TxAttempt,
 	rcpt *TxReceipt,
 	blkNum uint64,
-) (*TxReceipt, error) {
+) (*TxReceipt, attemptState, error) {
 	minConfs := big.NewInt(int64(txm.config.MinOutgoingConfirmations()))
 	confirmedAt := big.NewInt(0).Add(minConfs, rcpt.BlockNumber.ToInt())
 	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // 0 based indexing since rcpt is 1 conf
@@ -437,6 +445,7 @@ func (txm *EthTxManager) handleConfirmed(
 		fmt.Sprintf("Confirmed TX: %d attempt %s waiting on %v confirmations", txat.TxID, txat.Hash.Hex(), minConfs),
 		"txHash", txat.Hash.String(),
 		"txid", txat.TxID,
+		"nonce", tx.Nonce,
 		"gasPrice", txat.GasPrice.String(),
 		"from", tx.From.Hex(),
 		"receiptBlockNumber", rcpt.BlockNumber.ToInt(),
@@ -446,17 +455,19 @@ func (txm *EthTxManager) handleConfirmed(
 	)
 
 	if big.NewInt(int64(blkNum)).Cmp(confirmedAt) == -1 {
-		return nil, nil
+		return nil, confirmed, nil
 	}
 
-	if err := txm.orm.ConfirmTx(tx, txat); err != nil {
-		return nil, err
+	if err := txm.orm.MarkTxSafe(tx, txat); err != nil {
+		return nil, confirmed, err
 	}
 
 	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
 	logger.Infow(
 		fmt.Sprintf("Confirmed TX %d: %s", txat.TxID, txat.Hash.String()),
 		"txHash", txat.Hash.String(),
+		"txid", txat.TxID,
+		"nonce", tx.Nonce,
 		"ethBalance", ethBalance,
 		"linkBalance", linkBalance,
 		"receipt", rcpt,
@@ -464,23 +475,24 @@ func (txm *EthTxManager) handleConfirmed(
 		"err", balanceErr,
 	)
 
-	return rcpt, nil
+	return rcpt, safe, nil
 }
 
 func (txm *EthTxManager) handleUnconfirmed(
-	latestTx *models.Tx,
+	tx *models.Tx,
 	txAttempt *models.TxAttempt,
 	blkNum uint64,
-) (*TxReceipt, error) {
-	if txAttempt.Hash != latestTx.Hash {
-		return nil, nil
+) (*TxReceipt, attemptState, error) {
+	if !isLatestAttempt(tx, txAttempt) {
+		return nil, unconfirmed, nil
 	}
 
 	logParams := []interface{}{
 		"txHash", txAttempt.Hash.String(),
 		"txid", txAttempt.TxID,
+		"nonce", tx.Nonce,
 		"gasPrice", txAttempt.GasPrice.String(),
-		"from", latestTx.From.Hex(),
+		"from", tx.From.Hex(),
 		"blkNum", blkNum,
 		"sentAt", txAttempt.SentAt,
 	}
@@ -489,26 +501,33 @@ func (txm *EthTxManager) handleUnconfirmed(
 			fmt.Sprintf("Unconfirmed TX %d attempt %s, bumping gas", txAttempt.TxID, txAttempt.Hash.Hex()),
 			logParams...,
 		)
-		return nil, txm.bumpGas(txAttempt, blkNum)
+		return nil, unconfirmed, txm.bumpGas(txAttempt, blkNum)
 	}
 	logger.Infow(
 		fmt.Sprintf("Unconfirmed TX %d has not met gas bump threshold", txAttempt.TxID),
 		logParams...,
 	)
-	return nil, nil
+	return nil, unconfirmed, nil
+}
+
+// isLatestAttempt returns true only if the attempt is the last
+// attempt associated with the transaction, alluding to the fact that
+// it has the highest gas price after subsequent bumps.
+func isLatestAttempt(tx *models.Tx, txat *models.TxAttempt) bool {
+	return tx.Hash == txat.Hash
 }
 
 func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	tx, err := txm.orm.FindTx(txat.TxID)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "bumpGas for txid %v", txat.TxID)
 	}
 	gasPrice := new(big.Int).Add(txat.GasPrice.ToInt(), txm.config.EthGasBumpWei())
 	bumpedTxAt, err := txm.createAttempt(tx, gasPrice, blkNum)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "bumpGas from tx %s", txat.Hash.Hex())
 	}
-	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, bumpedTxAt.Hash.String()), "txat", bumpedTxAt)
+	logger.Infow(fmt.Sprintf("Bumped gas to %v for TX %v", txat.TxID, gasPrice), "bumpSource", txat.Hash.Hex(), "txat", bumpedTxAt, "nonce", tx.Nonce)
 	return nil
 }
 
@@ -568,8 +587,8 @@ func NewManagedAccount(a accounts.Account, nonce uint64) *ManagedAccount {
 	return &ManagedAccount{Account: a, nonce: nonce, mutex: &sync.Mutex{}}
 }
 
-// GetNonce returns the client side managed nonce.
-func (a *ManagedAccount) GetNonce() uint64 {
+// Nonce returns the client side managed nonce.
+func (a *ManagedAccount) Nonce() uint64 {
 	return a.nonce
 }
 
@@ -601,7 +620,7 @@ func (a *ManagedAccount) GetAndIncrementNonce(callback func(uint64) error) error
 
 func (txm *EthTxManager) getBlockNumber() (uint64, error) {
 	if !txm.Connected() {
-		return 0, ErrPendingConnection
+		return 0, errors.Wrap(ErrPendingConnection, "EthTxManager#getBlockNumber")
 	}
 
 	return txm.GetBlockNumber()
