@@ -618,7 +618,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 }
 
 func TestIntegration_SyncJobRuns(t *testing.T) {
-	wsserver, wsserverCleanup := cltest.NewEventWebsocketServer(t)
+	wsserver, wsserverCleanup := cltest.NewEventWebSocketServer(t)
 	defer wsserverCleanup()
 
 	t.Parallel()

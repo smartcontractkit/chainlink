@@ -10,20 +10,20 @@ import (
 	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
-// StatsPusher polls for events and pushes them via a WebsocketClient
+// StatsPusher polls for events and pushes them via a WebSocketClient
 type StatsPusher struct {
 	ORM      *orm.ORM
-	WSClient WebsocketClient
+	WSClient WebSocketClient
 	cancel   context.CancelFunc
 	Period   time.Duration
 }
 
 // NewStatsPusher returns a new event queuer
 func NewStatsPusher(orm *orm.ORM, url *url.URL) *StatsPusher {
-	var wsClient WebsocketClient
-	wsClient = noopWebsocketClient{}
+	var wsClient WebSocketClient
+	wsClient = noopWebSocketClient{}
 	if url != nil {
-		wsClient = NewWebsocketClient(url)
+		wsClient = NewWebSocketClient(url)
 	}
 	return &StatsPusher{
 		ORM:      orm,
