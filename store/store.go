@@ -138,7 +138,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 		ORM:         orm,
 		RunChannel:  NewQueuedRunChannel(),
 		TxManager:   NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
-		StatsPusher: NewEventQueuer(orm, config.LinkstatsURL()),
+		StatsPusher: NewStatsPusher(orm, config.LinkstatsURL()),
 	}
 	return store
 }

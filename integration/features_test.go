@@ -626,7 +626,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	defer cleanup()
 	app.InstantClock()
 
-	app.Store.StatsPusher = store.NewEventQueuer(app.Store.ORM, wsserver.URL)
+	app.Store.StatsPusher = store.NewStatsPusher(app.Store.ORM, wsserver.URL)
 	app.Store.StatsPusher.Period = 100 * time.Millisecond
 
 	app.Start()
