@@ -28,7 +28,13 @@ describe('containers/Jobs/Show', () => {
       id: jobSpecId,
       initiators: [{ type: 'web' }],
       createdAt: minuteAgo,
-      runs: [{ id: 'runA', result: { data: { value: '8400.00' } } }]
+      runs: [
+        {
+          id: 'runA',
+          status: 'pending',
+          result: { data: { value: '8400.00' } }
+        }
+      ]
     })
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
 
@@ -40,7 +46,7 @@ describe('containers/Jobs/Show', () => {
     expect(wrapper.text()).toContain('Initiatorweb')
     expect(wrapper.text()).toContain('Created a minute ago')
     expect(wrapper.text()).toContain('Run Count1')
-    expect(wrapper.text()).toContain('{"value":"8400.00"}')
+    expect(wrapper.text()).toContain('Pending')
     expect(wrapper.text()).not.toContain('View More')
   })
 
