@@ -120,16 +120,33 @@ contract('LinkEx', () => {
 
       context('after removing an oracle', () => {
         const updated = 8616460198
-        const newExpectedAvg = Math.trunc((updated + expected2) / 2)
 
-        beforeEach(async () => {
-          await contract.removeOracle(h.oracleNode3, {from: h.defaultAccount})
-          await contract.update(updated, {from: h.oracleNode})
+        context('in the middle of the array', () => {
+          const newExpectedAvg = Math.trunc((updated + expected2) / 2)
+
+          beforeEach(async () => {
+            await contract.removeOracle(h.oracleNode, {from: h.defaultAccount})
+            await contract.update(updated, {from: h.oracleNode3})
+          })
+
+          it('the removed oracles do not contribute to the average', async () => {
+            const rate = await contract.currentRate()
+            assert.equal(rate.toString(), newExpectedAvg)
+          })
         })
 
-        it('the removed oracles do not contribute to the average', async () => {
-          const rate = await contract.currentRate()
-          assert.equal(rate, newExpectedAvg)
+        context('at the end of the array', () => {
+          const newExpectedAvg = Math.trunc((updated + expected) / 2)
+
+          beforeEach(async () => {
+            await contract.removeOracle(h.oracleNode3, {from: h.defaultAccount})
+            await contract.update(updated, {from: h.oracleNode2})
+          })
+
+          it('the removed oracles do not contribute to the average', async () => {
+            const rate = await contract.currentRate()
+            assert.equal(rate.toString(), newExpectedAvg)
+          })
         })
       })
 
