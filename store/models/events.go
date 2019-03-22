@@ -1,10 +1,12 @@
 package models
 
-import "github.com/jinzhu/gorm"
+import "time"
 
 // SyncEvent represents an event sourcing style event, which is used to sync
 // data upstream with another service
 type SyncEvent struct {
-	gorm.Model
-	Body string
+	ID        uint `gorm:"primary_key"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Body      string
 }
