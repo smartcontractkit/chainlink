@@ -10,8 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink/store/orm"
 )
 
-// EventQueuer polls for events and pushes them via a StatsPusher
-type EventQueuer struct {
+// StatsPusher polls for events and pushes them via a StatsPusher
+type StatsPusher struct {
 	ORM         *orm.ORM
 	StatsPusher WebsocketClient
 	cancel      context.CancelFunc
@@ -19,8 +19,8 @@ type EventQueuer struct {
 }
 
 // NewEventQueuer returns a new event queuer
-func NewEventQueuer(orm *orm.ORM, statsPusher WebsocketClient) *EventQueuer {
-	return &EventQueuer{
+func NewEventQueuer(orm *orm.ORM, statsPusher WebsocketClient) *StatsPusher {
+	return &StatsPusher{
 		ORM:         orm,
 		StatsPusher: statsPusher,
 		Period:      60 * time.Second,
@@ -28,7 +28,7 @@ func NewEventQueuer(orm *orm.ORM, statsPusher WebsocketClient) *EventQueuer {
 }
 
 // Start starts the event queuer
-func (eq EventQueuer) Start() error {
+func (eq StatsPusher) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	eq.cancel = cancel
 	go eq.pollEvents(ctx)
@@ -36,11 +36,11 @@ func (eq EventQueuer) Start() error {
 }
 
 // Shutdown stops the event queuer
-func (eq EventQueuer) Shutdown() {
+func (eq StatsPusher) Shutdown() {
 	eq.cancel()
 }
 
-func (eq EventQueuer) pollEvents(parentCtx context.Context) {
+func (eq StatsPusher) pollEvents(parentCtx context.Context) {
 	pollTicker := time.NewTicker(eq.Period)
 
 	for {
