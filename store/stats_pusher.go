@@ -27,14 +27,14 @@ func NewStatsPusher(url *url.URL) WebsocketClient {
 	if url != nil {
 		return NewWebsocketStatsPusher(url)
 	}
-	return noopStatsPusher{}
+	return noopWebsocketClient{}
 }
 
-type noopStatsPusher struct{}
+type noopWebsocketClient struct{}
 
-func (noopStatsPusher) Start() error { return nil }
-func (noopStatsPusher) Close() error { return nil }
-func (noopStatsPusher) Send([]byte)  {}
+func (noopWebsocketClient) Start() error { return nil }
+func (noopWebsocketClient) Close() error { return nil }
+func (noopWebsocketClient) Send([]byte)  {}
 
 type websocketStatsPusher struct {
 	boot    *sync.Mutex
