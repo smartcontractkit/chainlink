@@ -6,6 +6,7 @@ import { getJobRuns } from '../../actions/jobRuns'
 import { IState as IReduxState } from '../../reducers'
 
 type IProps = {
+  query?: string,
   jobRuns?: IJobRun[],
   getJobRuns: Function
 }
@@ -18,7 +19,8 @@ class Index extends Component<IProps, IState> {
   }
 
   componentDidMount() {
-    this.props.getJobRuns()
+    const { query, getJobRuns } = this.props
+    getJobRuns(query)
   }
 
   render() {
@@ -30,7 +32,7 @@ const jobRunsSelector = (state: IReduxState): IJobRun[] | undefined =>
   state.jobRuns.items
 
 const mapStateToProps = (state: IReduxState) => ({
-  search: state.search.query,
+  query: state.search.query,
   jobRuns: jobRunsSelector(state)
 })
 
