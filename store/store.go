@@ -30,7 +30,7 @@ type Store struct {
 	RunChannel  RunChannel
 	TxManager   TxManager
 	StatsPusher WebsocketClient
-	EventQueuer *EventQueuer
+	EventQueuer *StatsPusher
 }
 
 type lazyRPCWrapper struct {
