@@ -380,9 +380,6 @@ func (txm *EthTxManager) createAttempt(
 	if err != nil {
 		return nil, err
 	}
-	// race condition part 2: this can legitimately fail if the tx is confirmed
-	// on the eth node since the receipt was retrieved, since the start of the window
-	// in part 1. small window but possible nonetheless.
 	return a, txm.sendTransaction(etx)
 }
 
@@ -410,7 +407,7 @@ func (txm *EthTxManager) checkAttempt(
 	txat *models.TxAttempt,
 	blkNum uint64,
 ) (*TxReceipt, attemptState, error) {
-	receipt, err := txm.GetTxReceipt(txat.Hash) // race condition? part 1: start of window. see part 2
+	receipt, err := txm.GetTxReceipt(txat.Hash)
 	if err != nil {
 		return nil, unconfirmed, errors.Wrap(err, "checkAttempt GetTxReceipt")
 	}
