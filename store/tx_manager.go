@@ -287,11 +287,11 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*TxReceipt, error) 
 
 	var merr error
 	for _, txat := range attempts {
-		receipt, err := txm.checkAttempt(tx, &txat, blkNum)
-		merr = multierr.Append(merr, err)
-		if receipt != nil { // success, so all prior errors can be ignored.
-			return receipt, nil
+		receipt, state, err := txm.checkAttempt(tx, &txat, blkNum)
+		if state == safe || state == confirmed {
+			return receipt, err // success, so all other attempt errors can be ignored.
 		}
+		merr = multierr.Append(merr, err)
 	}
 	return nil, merr
 }
@@ -380,6 +380,9 @@ func (txm *EthTxManager) createAttempt(
 	if err != nil {
 		return nil, err
 	}
+	// race condition part 2: this can legitimately fail if the tx is confirmed
+	// on the eth node since the receipt was retrieved, since the start of the window
+	// in part 1. small window but possible nonetheless.
 	return a, txm.sendTransaction(etx)
 }
 
@@ -394,14 +397,22 @@ func (txm *EthTxManager) sendTransaction(tx *types.Transaction) error {
 	return nil
 }
 
+type attemptState int
+
+const (
+	unconfirmed attemptState = iota
+	confirmed
+	safe
+)
+
 func (txm *EthTxManager) checkAttempt(
 	tx *models.Tx,
 	txat *models.TxAttempt,
 	blkNum uint64,
-) (*TxReceipt, error) {
-	receipt, err := txm.GetTxReceipt(txat.Hash)
+) (*TxReceipt, attemptState, error) {
+	receipt, err := txm.GetTxReceipt(txat.Hash) // race condition? part 1: start of window. see part 2
 	if err != nil {
-		return nil, errors.Wrap(err, "checkAttempt GetTxReceipt")
+		return nil, unconfirmed, errors.Wrap(err, "checkAttempt GetTxReceipt")
 	}
 
 	if receipt.Unconfirmed() {
@@ -428,7 +439,7 @@ func (txm *EthTxManager) handleConfirmed(
 	txat *models.TxAttempt,
 	rcpt *TxReceipt,
 	blkNum uint64,
-) (*TxReceipt, error) {
+) (*TxReceipt, attemptState, error) {
 	minConfs := big.NewInt(int64(txm.config.MinOutgoingConfirmations()))
 	confirmedAt := big.NewInt(0).Add(minConfs, rcpt.BlockNumber.ToInt())
 	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // 0 based indexing since rcpt is 1 conf
@@ -447,15 +458,15 @@ func (txm *EthTxManager) handleConfirmed(
 	)
 
 	if err := txm.orm.MarkTxReceipt(tx, txat); err != nil {
-		return nil, err
+		return nil, confirmed, err
 	}
 
 	if big.NewInt(int64(blkNum)).Cmp(confirmedAt) == -1 {
-		return nil, nil
+		return nil, confirmed, nil
 	}
 
 	if err := txm.orm.MarkTxSafe(tx, txat); err != nil {
-		return nil, err
+		return nil, confirmed, err
 	}
 
 	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
@@ -471,16 +482,16 @@ func (txm *EthTxManager) handleConfirmed(
 		"err", balanceErr,
 	)
 
-	return rcpt, nil
+	return rcpt, safe, nil
 }
 
 func (txm *EthTxManager) handleUnconfirmed(
 	tx *models.Tx,
 	txAttempt *models.TxAttempt,
 	blkNum uint64,
-) (*TxReceipt, error) {
+) (*TxReceipt, attemptState, error) {
 	if !tx.IsBumpableAttempt(txAttempt) {
-		return nil, nil
+		return nil, unconfirmed, nil
 	}
 
 	logParams := []interface{}{
@@ -497,13 +508,13 @@ func (txm *EthTxManager) handleUnconfirmed(
 			fmt.Sprintf("Unconfirmed TX %d attempt %s, bumping gas", txAttempt.TxID, txAttempt.Hash.Hex()),
 			logParams...,
 		)
-		return nil, txm.bumpGas(txAttempt, blkNum)
+		return nil, unconfirmed, txm.bumpGas(txAttempt, blkNum)
 	}
 	logger.Infow(
 		fmt.Sprintf("Unconfirmed TX %d has not met gas bump threshold", txAttempt.TxID),
 		logParams...,
 	)
-	return nil, nil
+	return nil, unconfirmed, nil
 }
 
 func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
@@ -513,10 +524,10 @@ func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
 	}
 	gasPrice := new(big.Int).Add(txat.GasPrice.ToInt(), txm.config.EthGasBumpWei())
 	bumpedTxAt, err := txm.createAttempt(tx, gasPrice, blkNum)
+	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, bumpedTxAt.Hash.String()), "txat", bumpedTxAt, "nonce", tx.Nonce)
 	if err != nil {
 		return errors.Wrap(err, "bumpGas")
 	}
-	logger.Infow(fmt.Sprintf("Bumping gas to %v for transaction %v", gasPrice, bumpedTxAt.Hash.String()), "txat", bumpedTxAt, "nonce", tx.Nonce)
 	return nil
 }
 
