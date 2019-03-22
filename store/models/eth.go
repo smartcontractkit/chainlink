@@ -102,14 +102,6 @@ func (tx *Tx) AssignTxAttempt(txat *TxAttempt) {
 	tx.SentAt = txat.SentAt
 }
 
-// IsBumpableAttempt returns true only if the attempt is the last
-// attempt associated meaning it has the highest gas price after subsequent
-// bumps, or if the attempt that has received a TxReceipt,
-// being marked by MarkTxReceipt.
-func (tx *Tx) IsBumpableAttempt(txat *TxAttempt) bool {
-	return tx.Hash == txat.Hash
-}
-
 // TxAttempt is used for keeping track of transactions that
 // have been written to the Ethereum blockchain. This makes
 // it so that if the network is busy, a transaction can be
