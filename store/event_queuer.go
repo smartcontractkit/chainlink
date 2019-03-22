@@ -19,8 +19,8 @@ type StatsPusher struct {
 	Period   time.Duration
 }
 
-// NewEventQueuer returns a new event queuer
-func NewEventQueuer(orm *orm.ORM, url *url.URL) *StatsPusher {
+// NewStatsPusher returns a new event queuer
+func NewStatsPusher(orm *orm.ORM, url *url.URL) *StatsPusher {
 	var wsClient WebsocketClient
 	wsClient = noopWebsocketClient{}
 	if url != nil {
@@ -58,7 +58,7 @@ func (eq *StatsPusher) pollEvents(parentCtx context.Context) {
 			return
 		case <-pollTicker.C:
 			err := eq.ORM.AllSyncEvents(func(event *models.SyncEvent) {
-				fmt.Println("EventQueuer got event", event)
+				fmt.Println("StatsPusher got event", event)
 
 				eq.WSClient.Send([]byte(event.Body))
 
