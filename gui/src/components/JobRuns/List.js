@@ -56,16 +56,29 @@ const styles = theme => {
 }
 
 // insight from - https://github.com/sindresorhus/titleize
-const titleize = input =>
-  input
+const titleize = input => {
+  const normalized = input || ''
+  return normalized
     .toLowerCase()
     .replace('_', ' ')
     .replace(/(?:^|\s|-)\S/g, x => x.toUpperCase())
+}
 
 const statusText = status => {
   if (status === 'errored') return 'Failed'
   if (status === 'completed') return 'Completed'
   return titleize(status)
+}
+
+const classFromStatus = (classes, status) => {
+  if (
+    !status ||
+    status.startsWith('pending') ||
+    status.startsWith('in_progress')
+  ) {
+    return classes['pending']
+  }
+  return classes[statusText(status).toLowerCase()]
 }
 
 const renderRuns = (runs, classes) => {
@@ -101,10 +114,7 @@ const renderRuns = (runs, classes) => {
             variant="body1"
             className={classNames(
               classes.status,
-              r.status.startsWith('pending') ||
-                r.status.startsWith('in_progress')
-                ? classes['pending']
-                : classes[statusText(r.status).toLowerCase()]
+              classFromStatus(classes, r.status)
             )}
           >
             {statusText(r.status)}
