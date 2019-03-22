@@ -24,13 +24,12 @@ import (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config          Config
-	Clock           AfterNower
-	KeyStore        *KeyStore
-	RunChannel      RunChannel
-	TxManager       TxManager
-	WebsocketClient WebsocketClient
-	StatsPusher     *StatsPusher
+	Config      Config
+	Clock       AfterNower
+	KeyStore    *KeyStore
+	RunChannel  RunChannel
+	TxManager   TxManager
+	StatsPusher *StatsPusher
 }
 
 type lazyRPCWrapper struct {
@@ -132,17 +131,14 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	}
 	keyStore := NewKeyStore(config.KeysDir())
 
-	statsPusher := NewStatsPusher(config.LinkstatsURL())
-
 	store := &Store{
-		Clock:           Clock{},
-		Config:          config,
-		KeyStore:        keyStore,
-		ORM:             orm,
-		RunChannel:      NewQueuedRunChannel(),
-		TxManager:       NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
-		StatsPusher:     NewEventQueuer(orm, statsPusher),
-		WebsocketClient: NewStatsPusher(config.LinkstatsURL()),
+		Clock:       Clock{},
+		Config:      config,
+		KeyStore:    keyStore,
+		ORM:         orm,
+		RunChannel:  NewQueuedRunChannel(),
+		TxManager:   NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
+		StatsPusher: NewEventQueuer(orm, config.LinkstatsURL()),
 	}
 	return store
 }
@@ -152,7 +148,6 @@ func (s *Store) Start() error {
 	s.TxManager.Register(s.KeyStore.Accounts())
 	return multierr.Combine(
 		s.SyncDiskKeyStoreToDB(),
-		s.WebsocketClient.Start(),
 		s.StatsPusher.Start(),
 	)
 }
@@ -162,7 +157,7 @@ func (s *Store) Close() error {
 	s.RunChannel.Close()
 	return multierr.Combine(
 		s.ORM.Close(),
-		s.WebsocketClient.Close(),
+		s.StatsPusher.Close(),
 	)
 }
 
