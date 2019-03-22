@@ -29,7 +29,7 @@ type Store struct {
 	KeyStore    *KeyStore
 	RunChannel  RunChannel
 	TxManager   TxManager
-	StatsPusher StatsPusher
+	StatsPusher WebsocketClient
 	EventQueuer *EventQueuer
 }
 

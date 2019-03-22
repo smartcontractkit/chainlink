@@ -13,13 +13,13 @@ import (
 // EventQueuer polls for events and pushes them via a StatsPusher
 type EventQueuer struct {
 	ORM         *orm.ORM
-	StatsPusher StatsPusher
+	StatsPusher WebsocketClient
 	cancel      context.CancelFunc
 	Period      time.Duration
 }
 
 // NewEventQueuer returns a new event queuer
-func NewEventQueuer(orm *orm.ORM, statsPusher StatsPusher) *EventQueuer {
+func NewEventQueuer(orm *orm.ORM, statsPusher WebsocketClient) *EventQueuer {
 	return &EventQueuer{
 		ORM:         orm,
 		StatsPusher: statsPusher,
