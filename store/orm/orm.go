@@ -46,7 +46,7 @@ type ORM struct {
 }
 
 // NewORM initializes a new database file at the configured uri.
-func NewORM(uri string, timeout time.Duration) (*ORM, error) {
+func NewORM(uri string, timeout time.Duration, linkstatsURL *url.URL) (*ORM, error) {
 	dialect, err := DeduceDialect(uri)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,9 @@ func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 		lockingStrategy: lockingStrategy,
 	}
 
-	db.Callback().Create().After("gorm:update").Register("sync:run_after_create", createSyncEvents)
+	if linkstatsURL != nil {
+		db.Callback().Create().After("gorm:update").Register("sync:run_after_create", createSyncEvents)
+	}
 
 	return orm, nil
 }
