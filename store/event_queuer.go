@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"time"
 
@@ -58,7 +57,7 @@ func (eq *StatsPusher) pollEvents(parentCtx context.Context) {
 			return
 		case <-pollTicker.C:
 			err := eq.ORM.AllSyncEvents(func(event *models.SyncEvent) {
-				fmt.Println("StatsPusher got event", event)
+				logger.Debugw("StatsPusher got event", "event", event.ID)
 
 				eq.WSClient.Send([]byte(event.Body))
 
