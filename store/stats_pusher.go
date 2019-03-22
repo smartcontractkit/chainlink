@@ -36,7 +36,7 @@ func (noopWebsocketClient) Start() error { return nil }
 func (noopWebsocketClient) Close() error { return nil }
 func (noopWebsocketClient) Send([]byte)  {}
 
-type websocketStatsPusher struct {
+type websocketClient struct {
 	boot    *sync.Mutex
 	conn    *websocket.Conn
 	cancel  context.CancelFunc
@@ -49,7 +49,7 @@ type websocketStatsPusher struct {
 // NewWebsocketStatsPusher returns a stats pusher using a websocket for
 // delivery.
 func NewWebsocketStatsPusher(url *url.URL) WebsocketClient {
-	return &websocketStatsPusher{
+	return &websocketClient{
 		url:     *url,
 		send:    make(chan []byte, 100), // TODO: figure out a better buffer (circular FIFO?)
 		boot:    &sync.Mutex{},
@@ -58,7 +58,7 @@ func NewWebsocketStatsPusher(url *url.URL) WebsocketClient {
 }
 
 // Start starts a write pump over a websocket.
-func (w *websocketStatsPusher) Start() error {
+func (w *websocketClient) Start() error {
 	w.boot.Lock()
 	defer w.boot.Unlock()
 
@@ -93,7 +93,7 @@ const (
 // Inspired by https://github.com/gorilla/websocket/blob/master/examples/chat/client.go
 // lexical confinement of done chan allows multiple connectAndWritePump routines
 // to clean up independent of itself by reducing shared state. i.e. a passed done, not w.done.
-func (w *websocketStatsPusher) connectAndWritePump(parentCtx context.Context, wg *sync.WaitGroup) {
+func (w *websocketClient) connectAndWritePump(parentCtx context.Context, wg *sync.WaitGroup) {
 	wg.Done()
 	logger.Info("Connecting to linkstats at ", w.url.String())
 
@@ -123,7 +123,7 @@ var (
 )
 
 // Inspired by https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L82
-func (w *websocketStatsPusher) writePump(ctx context.Context) {
+func (w *websocketClient) writePump(ctx context.Context) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -165,7 +165,7 @@ func (w *websocketStatsPusher) writePump(ctx context.Context) {
 	}
 }
 
-func (w *websocketStatsPusher) connect(ctx context.Context) error {
+func (w *websocketClient) connect(ctx context.Context) error {
 	conn, _, err := websocket.DefaultDialer.DialContext(ctx, w.url.String(), nil)
 	if err != nil {
 		return fmt.Errorf("websocketStatsPusher#connect: %v", err)
@@ -181,7 +181,7 @@ var expectedCloseMessages = []int{websocket.CloseGoingAway, websocket.CloseAbnor
 // intention of handling control messages, like server disconnect.
 // https://stackoverflow.com/a/48181794/639773
 // https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
-func (w *websocketStatsPusher) readPumpForControlMessages(cancel context.CancelFunc) {
+func (w *websocketClient) readPumpForControlMessages(cancel context.CancelFunc) {
 	defer cancel()
 
 	w.conn.SetReadLimit(maxMessageSize)
@@ -208,7 +208,7 @@ func wrapConnErrorIf(err error) {
 	}
 }
 
-func (w *websocketStatsPusher) Close() error {
+func (w *websocketClient) Close() error {
 	w.boot.Lock()
 	defer w.boot.Unlock()
 
@@ -222,7 +222,7 @@ func (w *websocketStatsPusher) Close() error {
 // Send sends data asynchronously across the websocket if it's open, or
 // holds it in a small buffer until connection, throwing away messages
 // once buffer is full.
-func (w *websocketStatsPusher) Send(data []byte) {
+func (w *websocketClient) Send(data []byte) {
 	select {
 	case w.send <- data:
 	default:
