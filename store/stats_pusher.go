@@ -12,9 +12,9 @@ import (
 	"github.com/smartcontractkit/chainlink/utils"
 )
 
-// StatsPusher encapsulates all the functionality needed to
+// WebsocketClient encapsulates all the functionality needed to
 // push run information to linkstats.
-type StatsPusher interface {
+type WebsocketClient interface {
 	Start() error
 	Close() error
 	Send([]byte)
@@ -23,7 +23,7 @@ type StatsPusher interface {
 // NewStatsPusher returns a functioning instance depending on the
 // URL passed: nil is a noop instance, url assumes a websocket instance.
 // No support for http.
-func NewStatsPusher(url *url.URL) StatsPusher {
+func NewStatsPusher(url *url.URL) WebsocketClient {
 	if url != nil {
 		return NewWebsocketStatsPusher(url)
 	}
@@ -48,7 +48,7 @@ type websocketStatsPusher struct {
 
 // NewWebsocketStatsPusher returns a stats pusher using a websocket for
 // delivery.
-func NewWebsocketStatsPusher(url *url.URL) StatsPusher {
+func NewWebsocketStatsPusher(url *url.URL) WebsocketClient {
 	return &websocketStatsPusher{
 		url:     *url,
 		send:    make(chan []byte, 100), // TODO: figure out a better buffer (circular FIFO?)
