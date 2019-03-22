@@ -13,7 +13,7 @@ func TestWebsocketStatsPusher_StartCloseStart(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebsocketServer(t)
 	defer cleanup()
 
-	pusher := store.NewWebsocketStatsPusher(wsserver.URL)
+	pusher := store.NewWebsocketClient(wsserver.URL)
 	require.NoError(t, pusher.Start())
 	cltest.CallbackOrTimeout(t, "stats pusher connects", func() {
 		<-wsserver.Connected
@@ -32,7 +32,7 @@ func TestWebsocketStatsPusher_ReconnectLoop(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebsocketServer(t)
 	defer cleanup()
 
-	pusher := store.NewWebsocketStatsPusher(wsserver.URL)
+	pusher := store.NewWebsocketClient(wsserver.URL)
 	require.NoError(t, pusher.Start())
 	cltest.CallbackOrTimeout(t, "stats pusher connects", func() {
 		<-wsserver.Connected
@@ -50,7 +50,7 @@ func TestWebsocketStatsPusher_Send(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebsocketServer(t)
 	defer cleanup()
 
-	pusher := store.NewWebsocketStatsPusher(wsserver.URL)
+	pusher := store.NewWebsocketClient(wsserver.URL)
 	require.NoError(t, pusher.Start())
 	defer pusher.Close()
 

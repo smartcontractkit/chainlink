@@ -626,9 +626,9 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	defer cleanup()
 	app.InstantClock()
 
-	app.Store.StatsPusher = store.NewStatsPusher(wsserver.URL)
-	app.Store.EventQueuer = store.NewEventQueuer(app.Store.ORM, app.Store.StatsPusher)
-	app.Store.EventQueuer.Period = 100 * time.Millisecond
+	app.Store.WebsocketClient = store.NewStatsPusher(wsserver.URL)
+	app.Store.StatsPusher = store.NewEventQueuer(app.Store.ORM, app.Store.WebsocketClient)
+	app.Store.StatsPusher.Period = 100 * time.Millisecond
 
 	app.Start()
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/run_at_job.json")

@@ -25,7 +25,7 @@ type WebsocketClient interface {
 // No support for http.
 func NewStatsPusher(url *url.URL) WebsocketClient {
 	if url != nil {
-		return NewWebsocketStatsPusher(url)
+		return NewWebsocketClient(url)
 	}
 	return noopWebsocketClient{}
 }
@@ -46,9 +46,9 @@ type websocketClient struct {
 	url     url.URL
 }
 
-// NewWebsocketStatsPusher returns a stats pusher using a websocket for
+// NewWebsocketClient returns a stats pusher using a websocket for
 // delivery.
-func NewWebsocketStatsPusher(url *url.URL) WebsocketClient {
+func NewWebsocketClient(url *url.URL) WebsocketClient {
 	return &websocketClient{
 		url:     *url,
 		send:    make(chan []byte, 100), // TODO: figure out a better buffer (circular FIFO?)
