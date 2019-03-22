@@ -21,7 +21,13 @@ const server = (dbConnection: Connection) => {
   app.use(express.static('client/build'))
 
   app.get('/api/v1/job_runs', async (req, res) => {
-    const jobRuns = await dbConnection.manager.find(JobRun)
+    const searchQuery = req.query.query
+    let params = {}
+    if (searchQuery) {
+      params = { where: { jobId: searchQuery } }
+    }
+    const jobRuns = await dbConnection.manager.find(JobRun, params)
+
     return res.send(jobRuns)
   })
 
