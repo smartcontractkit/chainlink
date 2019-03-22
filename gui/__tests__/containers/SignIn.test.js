@@ -58,7 +58,11 @@ describe('containers/SignIn', () => {
     const newState = store.getState()
     expect(newState.notifications).toEqual({
       errors: [
-        { detail: 'Your email or password is incorrect. Please try again' }
+        {
+          props: {
+            msg: 'Your email or password is incorrect. Please try again'
+          }
+        }
       ],
       successes: [],
       currentUrl: '/signin'
