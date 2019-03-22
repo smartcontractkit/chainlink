@@ -30,7 +30,7 @@ export default (state = initialState, action = {}) => {
     case RECEIVE_SIGNIN_FAIL: {
       return Object.assign({}, state, {
         successes: [],
-        errors: [{ detail: SIGN_IN_FAIL_MSG }]
+        errors: [{ props: { msg: SIGN_IN_FAIL_MSG } }]
       })
     }
     case NOTIFY_SUCCESS: {
@@ -48,28 +48,28 @@ export default (state = initialState, action = {}) => {
     }
     case NOTIFY_ERROR: {
       const { component, error } = action
-      let notifications
+      let errorNotifications
 
       if (error.errors) {
-        notifications = error.errors.map(e => ({
+        errorNotifications = error.errors.map(e => ({
           component: component,
           props: { msg: e.detail }
         }))
       } else if (error.message) {
-        notifications = [
+        errorNotifications = [
           {
             component: component,
             props: { msg: error.message }
           }
         ]
       } else {
-        notifications = [error]
+        errorNotifications = [error]
       }
       if (error instanceof BadRequestError) set('persistBridge', {})
 
       return Object.assign({}, state, {
         successes: [],
-        errors: notifications
+        errors: errorNotifications
       })
     }
     default:
