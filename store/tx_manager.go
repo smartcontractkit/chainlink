@@ -457,10 +457,6 @@ func (txm *EthTxManager) handleConfirmed(
 		"confirmedAt", confirmedAt,
 	)
 
-	if err := txm.orm.MarkTxReceipt(tx, txat); err != nil {
-		return nil, confirmed, err
-	}
-
 	if big.NewInt(int64(blkNum)).Cmp(confirmedAt) == -1 {
 		return nil, confirmed, nil
 	}

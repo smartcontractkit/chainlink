@@ -420,16 +420,6 @@ func (orm *ORM) CreateTx(
 	return &tx, orm.DB.Save(&tx).Error
 }
 
-// MarkTxReceipt assigns the attempt onto the transaction since its
-// TxReceipt has been confirmed.
-func (orm *ORM) MarkTxReceipt(tx *models.Tx, txat *models.TxAttempt) error {
-	tx.AssignTxAttempt(txat)
-
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Save(tx).Error
-	})
-}
-
 // MarkTxSafe updates the database for the given transaction and attempt to
 // show that the transaction has not just been confirmed,
 // but has met the minimum number of outgoing confirmations to be deemed
