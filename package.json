@@ -41,10 +41,11 @@
     "@types/socket.io-client": "^1.4.32",
     "@types/supertest": "^2.0.7",
     "@types/whatwg-fetch": "^0.0.33",
+    "babel-jest": "23.6.0",
     "concurrently": "^4.1.0",
-    "jest": "^24.5.0",
+    "jest": "^23.6.0",
     "supertest": "^4.0.2",
-    "ts-jest": "^24.0.0",
+    "ts-jest": "^23.0.0",
     "ts-node-dev": "^1.0.0-pre.32"
   }
 }
