@@ -5,9 +5,14 @@ import options from '../ormconfig.json'
 
 const overridableKeys = ['host', 'port', 'username', 'password', 'database']
 
+const isEnvEqual = (optionName: string, env: string): boolean => {
+  return env == optionName ||
+    (env == "development" && optionName == "default")
+}
+
 const loadOptions = (env = process.env.NODE_ENV || "development") => {
   for (let option of options) {
-    if (option.name == env) {
+    if (isEnvEqual(option.name, env)) {
       return option
     }
   }
