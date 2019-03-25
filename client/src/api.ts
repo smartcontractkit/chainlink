@@ -13,4 +13,10 @@ const getJobRuns = async (query: Query): Promise<IJobRun[]> => {
   return r.json()
 }
 
-export { getJobRuns }
+const getJobRun = async (jobRunId?: string): Promise<IJobRun> => {
+  const url = new URL(`/api/v1/job_runs/${jobRunId}`, base())
+  const r: Response = await fetch(url.toString())
+  return r.json()
+}
+
+export { getJobRuns, getJobRun }

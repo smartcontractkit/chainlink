@@ -5,6 +5,7 @@ import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
+import { Link } from '@reach/router'
 
 const Loading = () => {
   return <div>Loading...</div>
@@ -35,7 +36,7 @@ const RunsList = (props: RunsListProps) => {
           {props.jobRuns.map((r: any, idx: number) => (
             <TableRow key={r.id}>
               <TableCell component="th" scope="row">
-                {r.id}
+                <Link to={`/job-runs/${r.id}`}>{r.id}</Link>
               </TableCell>
               <TableCell>{r.jobId}</TableCell>
             </TableRow>
