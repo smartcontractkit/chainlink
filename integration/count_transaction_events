@@ -9,9 +9,8 @@ const main = async (contractName, txID, fromAddress) => {
   const provider = new Web3.providers.HttpProvider(`http://localhost:${port}`)
   const web3 = new Web3(provider)
 
-  const transaction = await web3.eth
-    .getTransactionReceipt(txID)
-    .catch(abort('Error getting transaction receipt'))
+  const transaction = await web3.eth.getTransactionReceipt(txID)
+  // .catch(abort('Error getting transaction receipt')) // FIXME
 
   let count = 0
   for (let log of transaction.logs) {

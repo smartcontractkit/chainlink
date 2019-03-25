@@ -39,12 +39,13 @@ godep: ## Ensure chainlink's go dependencies are installed.
 
 yarndep: ## Ensure the frontend's dependencies are installed.
 	yarn install --frozen-lockfile
+	cd gui && yarn install --frozen-lockfile
 
 install: godep gui $(SGX_BUILD_ENCLAVE) ## Install chainlink
 	go install $(GOFLAGS)
 
 gui: yarndep ## Install GUI
-	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
+	cd gui && CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
 	CGO_ENABLED=0 go run gui/main.go "${CURDIR}/services"
 
 docker: ## Build the docker image.
