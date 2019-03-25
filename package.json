@@ -10,7 +10,7 @@
     "dev": "concurrently \"cd client && yarn start\" \"ts-node-dev --respawn --transpileOnly ./src/index.ts\"",
     "build": "cd client && yarn build",
     "prod": "ts-node ./src/index.ts",
-    "test": "true",
+    "test": "yarn jest --detectOpenHandles",
     "schema:sync": "ts-node ./node_modules/.bin/typeorm schema:sync",
     "migration:run": "ts-node ./node_modules/.bin/typeorm migration:run",
     "migration:revert": "ts-node ./node_modules/.bin/typeorm migration:revert"
@@ -34,12 +34,17 @@
   },
   "devDependencies": {
     "@types/express": "^4.16.1",
+    "@types/jest": "^24.0.11",
     "@types/material-ui": "^0.21.6",
     "@types/node": "^11.11.3",
     "@types/socket.io": "^2.1.2",
     "@types/socket.io-client": "^1.4.32",
+    "@types/supertest": "^2.0.7",
     "@types/whatwg-fetch": "^0.0.33",
     "concurrently": "^4.1.0",
+    "jest": "^24.5.0",
+    "supertest": "^4.0.2",
+    "ts-jest": "^24.0.0",
     "ts-node-dev": "^1.0.0-pre.32"
   }
 }
