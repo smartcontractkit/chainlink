@@ -2,13 +2,15 @@ export interface IState {
   query?: string
 }
 
+export type Query = string | undefined
+
 export type SearchAction =
   { type: 'UPDATE_SEARCH_QUERY', query?: string }
   | { type: '@@INIT' }
 
 const initialState = { query: undefined }
 
-const initQuery = (): string | undefined => {
+const initQuery = (): Query => {
   const searchParams = (new URL(document.location.toString())).searchParams
   const search = searchParams.get('search')
 
