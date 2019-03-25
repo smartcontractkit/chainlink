@@ -622,12 +622,13 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	defer wsserverCleanup()
 
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	config, _ := cltest.NewConfig()
+	config.Set("LINKSTATS_URL", wsserver.URL.String())
+	app, cleanup := cltest.NewApplicationWithConfig(config)
 	defer cleanup()
 	app.InstantClock()
 
-	app.Store.StatsPusher = store.NewStatsPusher(app.Store.ORM, wsserver.URL)
-	app.Store.StatsPusher.Period = 100 * time.Millisecond
+	app.Store.StatsPusher.Period = 300 * time.Millisecond
 
 	app.Start()
 	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/run_at_job.json")
