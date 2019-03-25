@@ -3,7 +3,7 @@ import http from 'http'
 import request from 'supertest'
 import jobRuns from './jobRuns'
 import seed from '../seed'
-import { createDbConnection } from '../database'
+import { createDbConnection, closeDbConnection } from '../database'
 import { clearDb } from '../testdatabase'
 
 const controller = express()
@@ -14,8 +14,9 @@ beforeAll(async () => {
   await createDbConnection()
   server = controller.listen(null)
 })
-afterAll(() => {
+afterAll(async () => {
   server.close()
+  await closeDbConnection()
 })
 beforeEach(async () => {
   await clearDb()
