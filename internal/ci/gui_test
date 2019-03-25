@@ -2,9 +2,12 @@
 
 set -e
 
-cd gui
-yarn tslint && yarn lint-ci && yarn test-ci
+yarn tslint && yarn lint-ci
 
-cd ..
-cc-test-reporter format-coverage --output "coverage/codeclimate.gui.json"
-gsutil cp "coverage/codeclimate.gui.json" gs://chainlink-test-coverage/$CIRCLE_WORKFLOW_ID/
+cd gui
+yarn install && yarn test-ci
+
+if [ -n "$CC_TEST_REPORTER_ID"  ]; then
+  cc-test-reporter format-coverage --output "coverage/codeclimate.gui.json"
+  gsutil cp "coverage/codeclimate.gui.json" gs://chainlink-test-coverage/$CIRCLE_WORKFLOW_ID/
+fi
