@@ -44,3 +44,7 @@ export const createDbConnection = async (): Promise<Connection> => {
 export const getDb = (): Connection => {
   return db
 }
+
+export const closeDbConnection = async (): Promise<void> => {
+  return db.close()
+}
