@@ -14,7 +14,8 @@
     "lint": "eslint . --color",
     "schema:sync": "ts-node ./node_modules/.bin/typeorm schema:sync",
     "migration:run": "ts-node ./node_modules/.bin/typeorm migration:run",
-    "migration:revert": "ts-node ./node_modules/.bin/typeorm migration:revert"
+    "migration:revert": "ts-node ./node_modules/.bin/typeorm migration:revert",
+    "test:db:prepare": "yarn schema:sync -c test"
   },
   "main": "src/index.ts",
   "repository": {
@@ -42,6 +43,8 @@
     "@types/socket.io-client": "^1.4.32",
     "@types/supertest": "^2.0.7",
     "@types/whatwg-fetch": "^0.0.33",
+    "babel-jest": "23.6.0",
+    "concurrently": "^4.1.0",
     "eslint": "5.12.0",
     "eslint-config-prettier": "^4.1.0",
     "eslint-config-prettier-standard": "^2.0.0",
@@ -52,10 +55,8 @@
     "eslint-plugin-promise": "^4.0.1",
     "eslint-plugin-react": "^7.12.4",
     "eslint-plugin-standard": "^4.0.0",
-    "prettier": "^1.16.4",
-    "babel-jest": "23.6.0",
-    "concurrently": "^4.1.0",
     "jest": "^23.6.0",
+    "prettier": "^1.16.4",
     "supertest": "^4.0.2",
     "ts-jest": "^23.0.0",
     "ts-node-dev": "^1.0.0-pre.32"
