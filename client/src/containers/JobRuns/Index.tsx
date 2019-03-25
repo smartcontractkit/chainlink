@@ -11,13 +11,12 @@ type IProps = {
   getJobRuns: Function
 }
 
-const Index = (props: IProps) => {
+const Index = ({ query, jobRuns, getJobRuns }: IProps) => {
   useEffect(() => {
-    const { query, getJobRuns } = props
     getJobRuns(query)
   }, [])
 
-  return <JobRunsList jobRuns={props.jobRuns} />
+  return <JobRunsList jobRuns={jobRuns} />
 }
 
 const jobRunsSelector = (state: IState): IJobRun[] | undefined =>
