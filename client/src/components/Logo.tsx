@@ -5,9 +5,9 @@ interface IProps {
   className: string
 }
 
-const Logo = (props: IProps) => {
+const Logo = ({ className }: IProps) => {
   return (
-    <Link href="/" className={props.className}>
+    <Link href="/" className={className}>
       Chainlink Stats
     </Link>
   )
