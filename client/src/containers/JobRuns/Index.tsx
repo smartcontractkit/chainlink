@@ -1,14 +1,17 @@
 import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
 import { bindActionCreators, Dispatch } from 'redux'
+import { denormalize } from 'normalizr'
 import JobRunsList from '../../components/JobRunsList'
 import { getJobRuns } from '../../actions/jobRuns'
 import { IState } from '../../reducers'
+import { JobRun } from '../../entities'
 
 type IProps = {
   query?: string
   jobRuns?: IJobRun[]
   getJobRuns: Function
+  path: string
 }
 
 const Index = ({ query, jobRuns, getJobRuns }: IProps) => {
@@ -19,8 +22,14 @@ const Index = ({ query, jobRuns, getJobRuns }: IProps) => {
   return <JobRunsList jobRuns={jobRuns} />
 }
 
-const jobRunsSelector = (state: IState): IJobRun[] | undefined =>
-  state.jobRuns.items
+const jobRunsSelector = ({
+  jobRunsIndex,
+  jobRuns
+}: IState): IJobRun[] | undefined => {
+  if (jobRunsIndex.items) {
+    return denormalize(jobRunsIndex.items, [JobRun], { jobRuns: jobRuns.items })
+  }
+}
 
 const mapStateToProps = (state: IState) => ({
   query: state.search.query,

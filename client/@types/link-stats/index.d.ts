@@ -1,3 +1,4 @@
 interface IJobRun {
-  requestId: string
+  id: string
+  jobId: string
 }
