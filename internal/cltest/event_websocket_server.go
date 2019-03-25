@@ -10,7 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type EventWebsocketServer struct {
+type EventWebSocketServer struct {
 	*httptest.Server
 	mutex       *sync.RWMutex // shared mutex for safe access to arrays/maps.
 	t           *testing.T
@@ -20,8 +20,8 @@ type EventWebsocketServer struct {
 	URL         *url.URL
 }
 
-func NewEventWebsocketServer(t *testing.T) (*EventWebsocketServer, func()) {
-	server := &EventWebsocketServer{
+func NewEventWebSocketServer(t *testing.T) (*EventWebSocketServer, func()) {
+	server := &EventWebSocketServer{
 		mutex:     &sync.RWMutex{},
 		t:         t,
 		Connected: make(chan struct{}, 1), // have buffer of one for easier assertions after the event
@@ -31,7 +31,7 @@ func NewEventWebsocketServer(t *testing.T) (*EventWebsocketServer, func()) {
 	server.Server = httptest.NewServer(http.HandlerFunc(server.handler))
 	u, err := url.Parse(server.Server.URL)
 	if err != nil {
-		t.Fatal("EventWebsocketServer: ", err)
+		t.Fatal("EventWebSocketServer: ", err)
 	}
 	u.Scheme = "ws"
 	server.URL = u
@@ -44,11 +44,11 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-func (wss *EventWebsocketServer) handler(w http.ResponseWriter, r *http.Request) {
+func (wss *EventWebSocketServer) handler(w http.ResponseWriter, r *http.Request) {
 	var err error
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		wss.t.Fatal("EventWebsocketServer Upgrade: ", err)
+		wss.t.Fatal("EventWebSocketServer Upgrade: ", err)
 	}
 
 	wss.addConnection(conn)
@@ -60,7 +60,7 @@ func (wss *EventWebsocketServer) handler(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		if err != nil {
-			wss.t.Fatal("EventWebsocketServer ReadMessage: ", err)
+			wss.t.Fatal("EventWebSocketServer ReadMessage: ", err)
 		}
 
 		select {
@@ -70,7 +70,7 @@ func (wss *EventWebsocketServer) handler(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (wss *EventWebsocketServer) addConnection(conn *websocket.Conn) {
+func (wss *EventWebSocketServer) addConnection(conn *websocket.Conn) {
 	wss.mutex.Lock()
 	wss.connections = append(wss.connections, conn)
 	wss.mutex.Unlock()
@@ -80,7 +80,7 @@ func (wss *EventWebsocketServer) addConnection(conn *websocket.Conn) {
 	}
 }
 
-func (wss *EventWebsocketServer) removeConnection(conn *websocket.Conn) {
+func (wss *EventWebSocketServer) removeConnection(conn *websocket.Conn) {
 	newc := []*websocket.Conn{}
 	wss.mutex.Lock()
 	for _, connection := range wss.connections {
@@ -96,7 +96,7 @@ func (wss *EventWebsocketServer) removeConnection(conn *websocket.Conn) {
 // Useful to emulate that the websocket server is shutting down without
 // actually shutting down.
 // This overcomes httptest.Server's inability to restart on the same URL:port.
-func (wss *EventWebsocketServer) WriteCloseMessage() {
+func (wss *EventWebSocketServer) WriteCloseMessage() {
 	wss.mutex.RLock()
 	for _, connection := range wss.connections {
 		err := connection.WriteMessage(

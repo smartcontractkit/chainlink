@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWebsocketStatsPusher_StartCloseStart(t *testing.T) {
-	wsserver, cleanup := cltest.NewEventWebsocketServer(t)
+func TestWebSocketStatsPusher_StartCloseStart(t *testing.T) {
+	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	pusher := store.NewWebsocketStatsPusher(wsserver.URL)
+	pusher := store.NewWebSocketClient(wsserver.URL)
 	require.NoError(t, pusher.Start())
 	cltest.CallbackOrTimeout(t, "stats pusher connects", func() {
 		<-wsserver.Connected
@@ -28,11 +28,11 @@ func TestWebsocketStatsPusher_StartCloseStart(t *testing.T) {
 	require.NoError(t, pusher.Close())
 }
 
-func TestWebsocketStatsPusher_ReconnectLoop(t *testing.T) {
-	wsserver, cleanup := cltest.NewEventWebsocketServer(t)
+func TestWebSocketStatsPusher_ReconnectLoop(t *testing.T) {
+	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	pusher := store.NewWebsocketStatsPusher(wsserver.URL)
+	pusher := store.NewWebSocketClient(wsserver.URL)
 	require.NoError(t, pusher.Start())
 	cltest.CallbackOrTimeout(t, "stats pusher connects", func() {
 		<-wsserver.Connected
@@ -46,11 +46,11 @@ func TestWebsocketStatsPusher_ReconnectLoop(t *testing.T) {
 	require.NoError(t, pusher.Close())
 }
 
-func TestWebsocketStatsPusher_Send(t *testing.T) {
-	wsserver, cleanup := cltest.NewEventWebsocketServer(t)
+func TestWebSocketStatsPusher_Send(t *testing.T) {
+	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	pusher := store.NewWebsocketStatsPusher(wsserver.URL)
+	pusher := store.NewWebSocketClient(wsserver.URL)
 	require.NoError(t, pusher.Start())
 	defer pusher.Close()
 
