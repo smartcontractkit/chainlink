@@ -33,23 +33,22 @@ const styles = (theme: Theme) => createStyles({
   }
 })
 
-interface IProps extends WithStyles<typeof styles> {
-}
+interface IProps extends WithStyles<typeof styles> {}
 
-const Header = (props: IProps) => {
+const Header = ({ classes }: IProps) => {
   return (
-    <AppBar className={props.classes.appBar} color="default" position="absolute">
-      <Toolbar className={props.classes.toolbar}>
+    <AppBar className={classes.appBar} color="default" position="absolute">
+      <Toolbar className={classes.toolbar}>
         <Grid container alignItems="center">
           <Grid item xs={8}>
-            <div className={props.classes.logoAndSearch}>
-              <Logo className={props.classes.logo} />
-              <Search className={props.classes.search} />
+            <div className={classes.logoAndSearch}>
+              <Logo className={classes.logo} />
+              <Search className={classes.search} />
             </div>
           </Grid>
 
           <Grid item xs={4}>
-            <ConnectedNodes className={props.classes.connectedNodes} />
+            <ConnectedNodes className={classes.connectedNodes} />
           </Grid>
         </Grid>
       </Toolbar>
