@@ -58,7 +58,9 @@ func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
 
 func TestJobRuns_SavesASyncEvent(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	config, _ := cltest.NewConfig()
+	config.Set("LINKSTATS_URL", "http://localhost:4201")
+	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
