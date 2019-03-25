@@ -56,6 +56,63 @@ func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
 	assert.JSONEq(t, data, run.Result.Data.String())
 }
 
+func TestJobRuns_SavesASyncEvent(t *testing.T) {
+	t.Parallel()
+	config, _ := cltest.NewConfig()
+	config.Set("LINKSTATS_URL", "http://localhost:4201")
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+
+	job := cltest.NewJobWithWebInitiator()
+	err := store.CreateJob(&job)
+	initr := job.Initiators[0]
+	assert.NoError(t, err)
+
+	jr := job.NewRun(initr)
+	data := `{"result":"921.02"}`
+	jr.Result = cltest.RunResultWithData(data)
+	err = store.CreateJobRun(&jr)
+	assert.NoError(t, err)
+
+	var events []*models.SyncEvent
+	err = store.AllSyncEvents(func(event *models.SyncEvent) {
+		events = append(events, event)
+	})
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+
+	var recoveredJobRun models.JobRun
+	err = json.Unmarshal([]byte(events[0].Body), &recoveredJobRun)
+	require.NoError(t, err)
+	assert.Equal(t, jr.Result.Data, recoveredJobRun.Result.Data)
+}
+
+func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
+	t.Parallel()
+	config, _ := cltest.NewConfig()
+	config.Set("LINKSTATS_URL", "")
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+
+	job := cltest.NewJobWithWebInitiator()
+	err := store.CreateJob(&job)
+	initr := job.Initiators[0]
+	assert.NoError(t, err)
+
+	jr := job.NewRun(initr)
+	data := `{"result":"921.02"}`
+	jr.Result = cltest.RunResultWithData(data)
+	err = store.CreateJobRun(&jr)
+	assert.NoError(t, err)
+
+	var events []*models.SyncEvent
+	err = store.AllSyncEvents(func(event *models.SyncEvent) {
+		events = append(events, event)
+	})
+	require.NoError(t, err)
+	require.Len(t, events, 0)
+}
+
 func TestJobRun_NextTaskRun(t *testing.T) {
 	t.Parallel()
 

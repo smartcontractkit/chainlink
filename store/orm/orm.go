@@ -66,10 +66,13 @@ func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to init DB: %+v", err)
 	}
-	return &ORM{
+
+	orm := &ORM{
 		DB:              db,
 		lockingStrategy: lockingStrategy,
-	}, nil
+	}
+
+	return orm, nil
 }
 
 func displayTimeout(timeout time.Duration) string {
@@ -84,6 +87,7 @@ func initializeDatabase(dialect, path string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to open %s for gorm DB: %+v", path, err)
 	}
+
 	return db, nil
 }
 
@@ -210,6 +214,26 @@ func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
 	var jr models.JobRun
 	err := orm.preloadJobRuns().First(&jr, "id = ?", id).Error
 	return jr, err
+}
+
+// AllSyncEvents returns all sync events
+func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent)) error {
+	return batch(1000, func(offset, limit uint) (uint, error) {
+		var events []models.SyncEvent
+		err := orm.DB.
+			Limit(limit).
+			Offset(offset).
+			Find(&events).Error
+		if err != nil {
+			return 0, err
+		}
+
+		for _, event := range events {
+			cb(&event)
+		}
+
+		return uint(len(events)), err
+	})
 }
 
 // convenientTransaction handles setup and teardown for a gorm database

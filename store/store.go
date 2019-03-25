@@ -29,7 +29,7 @@ type Store struct {
 	KeyStore    *KeyStore
 	RunChannel  RunChannel
 	TxManager   TxManager
-	StatsPusher StatsPusher
+	StatsPusher *StatsPusher
 }
 
 type lazyRPCWrapper struct {
@@ -138,7 +138,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 		ORM:         orm,
 		RunChannel:  NewQueuedRunChannel(),
 		TxManager:   NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
-		StatsPusher: NewStatsPusher(config.LinkstatsURL()),
+		StatsPusher: NewStatsPusher(orm, config.LinkstatsURL()),
 	}
 	return store
 }
