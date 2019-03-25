@@ -126,22 +126,10 @@ func (w *websocketClient) writePump(ctx context.Context) {
 		case message, open := <-w.send:
 			if !open { // channel closed
 				wrapConnErrorIf(w.conn.WriteMessage(websocket.CloseMessage, []byte{}))
-				return
 			}
 
-			wrapConnErrorIf(w.conn.SetWriteDeadline(time.Now().Add(writeWait)))
-			writer, err := w.conn.NextWriter(websocket.TextMessage)
+			err := w.writeMessage(message)
 			if err != nil {
-				logger.Error("websocketStatsPusher: ", err)
-				return
-			}
-
-			if _, err := writer.Write(message); err != nil {
-				logger.Error("websocketStatsPusher: ", err)
-				return
-			}
-
-			if err := writer.Close(); err != nil {
 				logger.Error("websocketStatsPusher: ", err)
 				return
 			}
@@ -153,6 +141,20 @@ func (w *websocketClient) writePump(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (w *websocketClient) writeMessage(message []byte) error {
+	wrapConnErrorIf(w.conn.SetWriteDeadline(time.Now().Add(writeWait)))
+	writer, err := w.conn.NextWriter(websocket.TextMessage)
+	if err != nil {
+		return err
+	}
+
+	if _, err := writer.Write(message); err != nil {
+		return err
+	}
+
+	return writer.Close()
 }
 
 func (w *websocketClient) connect(ctx context.Context) error {
