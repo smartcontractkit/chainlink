@@ -95,7 +95,7 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
 	cltest.WipePostgresDatabase(tc.Config)
 
-	orm, err := orm.NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout(), nil)
+	orm, err := orm.NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout())
 	require.NoError(t, err)
 
 	return orm, func() {
