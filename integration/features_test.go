@@ -46,7 +46,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	}
 	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse,
-		func (header http.Header, _ string) {
+		func(header http.Header, _ string) {
 			for key, values := range tickerHeaders {
 				assert.Equal(t, values, header[key])
 			}
@@ -618,10 +618,10 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 }
 
 func TestIntegration_SyncJobRuns(t *testing.T) {
+	t.Parallel()
 	wsserver, wsserverCleanup := cltest.NewEventWebSocketServer(t)
 	defer wsserverCleanup()
 
-	t.Parallel()
 	config, _ := cltest.NewConfig()
 	config.Set("LINKSTATS_URL", wsserver.URL.String())
 	app, cleanup := cltest.NewApplicationWithConfig(config)
