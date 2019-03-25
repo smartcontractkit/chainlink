@@ -34,6 +34,10 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL) *StatsPusher {
 
 // Start starts the stats pusher
 func (eq *StatsPusher) Start() error {
+	err := eq.WSClient.Start()
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	eq.cancel = cancel
 	go eq.pollEvents(ctx)
@@ -45,7 +49,7 @@ func (eq *StatsPusher) Close() error {
 	if eq.cancel != nil {
 		eq.cancel()
 	}
-	return nil
+	return eq.WSClient.Close()
 }
 
 func (eq *StatsPusher) pollEvents(parentCtx context.Context) {
