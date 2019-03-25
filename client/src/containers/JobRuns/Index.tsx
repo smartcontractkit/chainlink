@@ -1,9 +1,9 @@
-import React, { Component } from 'react'
+import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
 import { bindActionCreators, Dispatch } from 'redux'
 import JobRunsList from '../../components/JobRunsList'
 import { getJobRuns } from '../../actions/jobRuns'
-import { IState as IReduxState } from '../../reducers'
+import { IState } from '../../reducers'
 
 type IProps = {
   query?: string,
@@ -11,27 +11,19 @@ type IProps = {
   getJobRuns: Function
 }
 
-type IState = { }
-
-class Index extends Component<IProps, IState> {
-  constructor(props: IProps) {
-    super(props)
-  }
-
-  componentDidMount() {
-    const { query, getJobRuns } = this.props
+const Index = (props: IProps) => {
+  useEffect(() => {
+    const { query, getJobRuns } = props
     getJobRuns(query)
-  }
+  }, [])
 
-  render() {
-    return <JobRunsList jobRuns={this.props.jobRuns} />
-  }
+  return <JobRunsList jobRuns={props.jobRuns} />
 }
 
-const jobRunsSelector = (state: IReduxState): IJobRun[] | undefined =>
+const jobRunsSelector = (state: IState): IJobRun[] | undefined =>
   state.jobRuns.items
 
-const mapStateToProps = (state: IReduxState) => ({
+const mapStateToProps = (state: IState) => ({
   query: state.search.query,
   jobRuns: jobRunsSelector(state)
 })
