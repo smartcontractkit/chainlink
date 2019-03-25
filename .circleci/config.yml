@@ -3,6 +3,10 @@ jobs:
   unit-tests:
     docker:
       - image: circleci/node:11
+      - image: circleci/postgres:11-alpine
+        environment:
+          POSTGRES_USER: circleci_postgres
+          POSTGRES_DB: linkstats_test
     steps:
       - checkout
       - restore_cache:
@@ -18,6 +22,9 @@ jobs:
           paths:
             - ~/.cache/yarn
             - /usr/local/share/.cache/yarn
+      - run:
+          name: Prepare test database
+          command: yarn test:db:prepare
       - run:
           name: Run Server Tests
           command: yarn test
