@@ -27,16 +27,16 @@ const styles = (theme: Theme) => createStyles({
   }
 })
 
-const Search = (props: IProps) => {
+const Search = ({ classes, className, query }: IProps) => {
   return (
-    <Paper elevation={0} className={classNames(props.classes.paper, props.className)}>
-      <form method="GET" className={props.classes.form}>
+    <Paper elevation={0} className={classNames(classes.paper, className)}>
+      <form method="GET" className={classes.form}>
         <IconButton aria-label="Search" type="submit">
           <SearchIcon />
         </IconButton>
         <InputBase
-          className={props.classes.query}
-          defaultValue={props.query}
+          className={classes.query}
+          defaultValue={query}
           placeholder="Search for something"
           name="search"
         />
