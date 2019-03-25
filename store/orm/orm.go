@@ -2,7 +2,6 @@ package orm
 
 import (
 	"crypto/subtle"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -46,7 +45,7 @@ type ORM struct {
 }
 
 // NewORM initializes a new database file at the configured uri.
-func NewORM(uri string, timeout time.Duration, linkstatsURL *url.URL) (*ORM, error) {
+func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 	dialect, err := DeduceDialect(uri)
 	if err != nil {
 		return nil, err
@@ -73,31 +72,7 @@ func NewORM(uri string, timeout time.Duration, linkstatsURL *url.URL) (*ORM, err
 		lockingStrategy: lockingStrategy,
 	}
 
-	if linkstatsURL != nil {
-		db.Callback().Create().After("gorm:update").Register("sync:run_after_create", createSyncEvents)
-	}
-
 	return orm, nil
-}
-
-func createSyncEvents(scope *gorm.Scope) {
-	if scope.HasError() {
-		return
-	}
-
-	if scope.TableName() == "job_runs" {
-		bodyBytes, err := json.Marshal(scope.Value)
-		if err != nil {
-			scope.Err(err)
-			return
-		}
-
-		event := models.SyncEvent{
-			Body: string(bodyBytes),
-		}
-		err = scope.DB().Save(&event).Error
-		scope.Err(err)
-	}
 }
 
 func displayTimeout(timeout time.Duration) string {

@@ -2,9 +2,11 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
@@ -24,6 +26,10 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL) *StatsPusher {
 	wsClient = noopWebSocketClient{}
 	if url != nil {
 		wsClient = NewWebSocketClient(url)
+		orm.DB.Callback().
+			Create().
+			After("gorm:update").
+			Register("sync:run_after_create", createSyncEvents)
 	}
 	return &StatsPusher{
 		ORM:      orm,
@@ -81,5 +87,25 @@ func (eq *StatsPusher) pollEvents(parentCtx context.Context) {
 				logger.Warnf("Error querying for sync events: %v", err)
 			}
 		}
+	}
+}
+
+func createSyncEvents(scope *gorm.Scope) {
+	if scope.HasError() {
+		return
+	}
+
+	if scope.TableName() == "job_runs" {
+		bodyBytes, err := json.Marshal(scope.Value)
+		if err != nil {
+			scope.Err(err)
+			return
+		}
+
+		event := models.SyncEvent{
+			Body: string(bodyBytes),
+		}
+		err = scope.DB().Save(&event).Error
+		scope.Err(err)
 	}
 }
