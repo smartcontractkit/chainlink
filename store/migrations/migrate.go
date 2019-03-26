@@ -25,40 +25,28 @@ func Migrate(db *gorm.DB) error {
 
 	m := gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
 		{
-			ID: "0",
-			Migrate: func(tx *gorm.DB) error {
-				return migration0.Migration{}.Migrate(tx)
-			},
+			ID:      "0",
+			Migrate: migration0.Migration{}.Migrate,
 		},
 		{
-			ID: "1549496047",
-			Migrate: func(tx *gorm.DB) error {
-				return migration1549496047.Migration{}.Migrate(tx)
-			},
+			ID:      "1549496047",
+			Migrate: migration1549496047.Migration{}.Migrate,
 		},
 		{
-			ID: "1551816486",
-			Migrate: func(tx *gorm.DB) error {
-				return migration1551816486.Migration{}.Migrate(tx)
-			},
+			ID:      "1551816486",
+			Migrate: migration1551816486.Migration{}.Migrate,
 		},
 		{
-			ID: "1551895034",
-			Migrate: func(tx *gorm.DB) error {
-				return migration1551895034.Migration{}.Migrate(tx)
-			},
+			ID:      "1551895034",
+			Migrate: migration1551895034.Migration{}.Migrate,
 		},
 		{
-			ID: "1552418531",
-			Migrate: func(tx *gorm.DB) error {
-				return migration1552418531.Migration{}.Migrate(tx)
-			},
+			ID:      "1552418531",
+			Migrate: migration1552418531.Migration{}.Migrate,
 		},
 		{
-			ID: "1553029703",
-			Migrate: func(tx *gorm.DB) error {
-				return migration1553029703.Migration{}.Migrate(tx)
-			},
+			ID:      "1553029703",
+			Migrate: migration1553029703.Migration{}.Migrate,
 		},
 	})
 
