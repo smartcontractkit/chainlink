@@ -11,42 +11,42 @@ const theme = {
     }
   },
   palette: {
-      action: {
-        hoverOpacity: 0.3
-      },
-      primary: {
-        light: '#E5F1FF',
-        main: '#3c40c6',
-        contrastText: '#fff'
-      },
-      secondary: {
-        main: '#3d5170'
-      },
-      success: {
-        light: '#F9FFFC',
-        main: green.A700,
-        dark: green['700'],
-        contrastText: common.white
-      },
-      warning: {
-        light: '#FFFBF1',
-        main: '#fff6b6',
-        contrastText: '#fad27a'
-      },
-      error: {
-        light: '#ffdada',
-        main: '#f44336',
-        dark: '#d32f2f',
-        contrastText: '#fff'
-      },
-      background: {
-        default: '#f5f6f8',
-        appBar: '#3c40c6'
-      },
-      text: {
-        primary: darken(grey['A700'], 0.7),
-        secondary: '#818ea3'
-      }
+    action: {
+      hoverOpacity: 0.3
+    },
+    primary: {
+      light: '#E5F1FF',
+      main: '#3c40c6',
+      contrastText: '#fff'
+    },
+    secondary: {
+      main: '#3d5170'
+    },
+    success: {
+      light: '#F9FFFC',
+      main: green.A700,
+      dark: green['700'],
+      contrastText: common.white
+    },
+    warning: {
+      light: '#FFFBF1',
+      main: '#fff6b6',
+      contrastText: '#fad27a'
+    },
+    error: {
+      light: '#ffdada',
+      main: '#f44336',
+      dark: '#d32f2f',
+      contrastText: '#fff'
+    },
+    background: {
+      default: '#f5f6f8',
+      appBar: '#3c40c6'
+    },
+    text: {
+      primary: darken(grey['A700'], 0.7),
+      secondary: '#818ea3'
+    }
   },
   shape: {
     borderRadius: spacing.unit
