@@ -29,6 +29,13 @@ createdb linkstats_dev
 `ormconfig.<env>.json`. Therefore, if in development, it loads `ormconfig.development.json`,
 if production, `ormconfig.production.json`.
 
+##### Running alongside Chainlink Node (dev)
+
+```
+$ LINKSTATS_URL=ws://localhost:8080/clnode/\?transport=websocket cldev node
+$ yarn run dev # in another terminal
+```
+
 ##### Migrations
 
 Please see [TypeORM's migration guide](https://typeorm.io/#/migrations).
