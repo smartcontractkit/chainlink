@@ -228,7 +228,7 @@ func initializeORM(config Config) (*orm.ORM, error) {
 	if config.LogSQLStatements() {
 		orm.EnableLogging()
 	}
-	return orm, migrations.Migrate(orm)
+	return orm, migrations.Migrate(orm.DB)
 }
 
 // RunRequest is the type that the RunChannel uses to package all the necessary

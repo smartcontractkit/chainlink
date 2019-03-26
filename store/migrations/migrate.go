@@ -1,135 +1,61 @@
 package migrations
 
 import (
-	"fmt"
-	"sort"
-	"sync"
-
-	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1549496047"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1551816486"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1551895034"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1552418531"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1553029703"
-	"github.com/smartcontractkit/chainlink/store/orm"
-	"go.uber.org/multierr"
+	gormigrate "gopkg.in/gormigrate.v1"
 )
 
-func init() {
-	registerMigration(migration0.Migration{})
-	registerMigration(migration1549496047.Migration{})
-	registerMigration(migration1551816486.Migration{})
-	registerMigration(migration1551895034.Migration{})
-	registerMigration(migration1552418531.Migration{})
-	registerMigration(migration1553029703.Migration{})
-}
-
 type migration interface {
-	Migrate(orm *orm.ORM) error
-	Timestamp() string
-}
-
-// MigrationTimestamp tracks already run and available migrations.
-type MigrationTimestamp struct {
-	Timestamp string `json:"timestamp" gorm:"primary_key;type:varchar(12)"`
+	Migrate(tx *gorm.DB) error
 }
 
 // Migrate iterates through available migrations, running and tracking
 // migrations that have not been run.
-func Migrate(orm *orm.ORM) error {
-	if err := runAlways(orm); err != nil {
-		return err
-	}
+func Migrate(db *gorm.DB) error {
+	m := gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
+		{
+			ID: "0",
+			Migrate: func(tx *gorm.DB) error {
+				return migration0.Migration{}.Migrate(tx)
+			},
+		},
+		{
+			ID: "1549496047",
+			Migrate: func(tx *gorm.DB) error {
+				return migration1549496047.Migration{}.Migrate(tx)
+			},
+		},
+		{
+			ID: "1551816486",
+			Migrate: func(tx *gorm.DB) error {
+				return migration1551816486.Migration{}.Migrate(tx)
+			},
+		},
+		{
+			ID: "1551895034",
+			Migrate: func(tx *gorm.DB) error {
+				return migration1551895034.Migration{}.Migrate(tx)
+			},
+		},
+		{
+			ID: "1552418531",
+			Migrate: func(tx *gorm.DB) error {
+				return migration1552418531.Migration{}.Migrate(tx)
+			},
+		},
+		{
+			ID: "1553029703",
+			Migrate: func(tx *gorm.DB) error {
+				return migration1553029703.Migration{}.Migrate(tx)
+			},
+		},
+	})
 
-	db := orm.DB
-	var migrationTimestamps []MigrationTimestamp
-	err := db.Order("timestamp asc").Find(&migrationTimestamps).Error
-	if err != nil {
-		return err
-	}
-
-	alreadyMigratedSet := make(map[string]bool)
-	for _, mt := range migrationTimestamps {
-		alreadyMigratedSet[mt.Timestamp] = true
-	}
-
-	sortedTimestamps := availableMigrationTimestamps()
-	for _, ts := range sortedTimestamps {
-		_, already := alreadyMigratedSet[ts]
-		if !already {
-			logger.Debug("Migrating ", ts)
-			err = availableMigrations[ts].Migrate(orm)
-			if err != nil {
-				return multierr.Append(fmt.Errorf("Failed migration %v", ts), err)
-			}
-			err = db.Create(&MigrationTimestamp{Timestamp: ts}).Error
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-var migrationMutex sync.RWMutex
-var availableMigrations = make(map[string]migration)
-
-func registerMigration(migration migration) {
-	migrationMutex.Lock()
-	availableMigrations[migration.Timestamp()] = migration
-	migrationMutex.Unlock()
-}
-
-func availableMigrationTimestamps() []string {
-	migrationMutex.RLock()
-	defer migrationMutex.RUnlock()
-
-	var sortedTimestamps []string
-	for k := range availableMigrations {
-		sortedTimestamps = append(sortedTimestamps, k)
-	}
-	sort.Strings(sortedTimestamps)
-	return sortedTimestamps
-}
-
-func runAlways(orm *orm.ORM) error {
-	return multierr.Combine(
-		setTimezone(orm),
-		setSqlitePragmas(orm),
-		limitSqliteOpenConnections(orm),
-		automigrateMigrationsTable(orm),
-	)
-}
-
-func automigrateMigrationsTable(orm *orm.ORM) error {
-	return orm.DB.AutoMigrate(&MigrationTimestamp{}).Error
-}
-
-func setTimezone(orm *orm.ORM) error {
-	if orm.IsPostgres() {
-		return orm.DB.Exec(`SET TIME ZONE 'UTC'`).Error
-	}
-	return nil
-}
-
-func setSqlitePragmas(orm *orm.ORM) error {
-	if orm.IsSqlite() {
-		return orm.DB.Exec(`
-			PRAGMA foreign_keys = ON;
-			PRAGMA journal_mode = WAL;
-		`).Error
-	}
-	return nil
-}
-
-// limitSqliteOpenConnections deliberately limits Sqlites concurrency
-// to reduce contention, reduce errors, and improve performance:
-// https://stackoverflow.com/a/35805826/639773
-func limitSqliteOpenConnections(orm *orm.ORM) error {
-	if orm.IsSqlite() {
-		orm.DB.DB().SetMaxOpenConns(1)
-	}
-	return nil
+	return m.Migrate()
 }

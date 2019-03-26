@@ -1119,6 +1119,14 @@
   version = "v8.18.2"
 
 [[projects]]
+  digest = "1:afcc7ccae106419bc0b65c9bfa64525108acb72e4055b671f6489395bd8b6ff8"
+  name = "gopkg.in/gormigrate.v1"
+  packages = ["."]
+  pruneopts = ""
+  revision = "0c6141ae05e70da27c2216945e1c1b2d5ad4aa46"
+  version = "v1.4.0"
+
+[[projects]]
   digest = "1:1582dd711e6e5ef92d6245a5dd0646da19d0d0acb94ea615d43896b7b6c6620b"
   name = "gopkg.in/guregu/null.v3"
   packages = ["."]
@@ -1199,6 +1207,7 @@
     "golang.org/x/crypto/ssh/terminal",
     "golang.org/x/sync/errgroup",
     "golang.org/x/text/unicode/norm",
+    "gopkg.in/gormigrate.v1",
     "gopkg.in/guregu/null.v3",
   ]
   solver-name = "gps-cdcl"
