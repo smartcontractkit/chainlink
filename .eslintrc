@@ -1,4 +1,14 @@
 {
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 9,
+    "ecmaFeatures": {
+      "jsx": true
+    },
+    "project": "./tsconfig.json",
+    "tsconfigRootDir": "."
+  },
+
   "extends": [
     "prettier-standard",
     "plugin:react/recommended"
@@ -17,13 +27,19 @@
     "jest": true
   },
 
-  "parserOptions": {
-    "ecmaVersion": 9
-  },
-
   "globals": {
     "Promise": true,
     "sails": true,
     "_": true
-  }
+  },
+
+  "overrides": [
+    {
+      "files": ["**/*.ts", "**/*.tsx"],
+      "rules": {
+        "no-unused-vars": ["off"],
+        "no-undef": ["off"]
+      }
+    }
+  ]
 }

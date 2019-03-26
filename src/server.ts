@@ -27,12 +27,16 @@ const server = () => {
   const clnodeio: socketio.Server = socketio(server, { path: '/clnode' })
   clnodeio.on('connection', (socket: Socket) => {
     clnodeCount = clnodeCount + 1
-    console.log(`websocket connected, total chainlink nodes connected: ${clnodeCount}`)
+    console.log(
+      `websocket connected, total chainlink nodes connected: ${clnodeCount}`
+    )
     statsclientio.emit(CLNODE_COUNT_EVENT, clnodeCount)
 
     socket.on('disconnect', () => {
       clnodeCount = clnodeCount - 1
-      console.log(`websocket disconnected, total chainlink nodes connected: ${clnodeCount}`)
+      console.log(
+        `websocket disconnected, total chainlink nodes connected: ${clnodeCount}`
+      )
       statsclientio.emit(CLNODE_COUNT_EVENT, clnodeCount)
     })
   })
