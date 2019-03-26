@@ -34,38 +34,29 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 	}
 }
 
-type testGarbageModel struct {
-	Garbage int `json:"garbage" gorm:"primary_key"`
-}
+func TestMigrate_Migration0(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
 
-type testMigration0000000001 struct {
-	run bool
-}
+	db := orm.DB
+	tm := &migration0.Migration{}
 
-func (m *testMigration0000000001) Migrate(orm *orm.ORM) error {
-	m.run = true
-	return orm.DB.AutoMigrate(&testGarbageModel{}).Error
-}
+	require.NoError(t, tm.Migrate(db))
 
-func (m *testMigration0000000001) Timestamp() string {
-	return "0000000001"
-}
-
-type testFailingModel struct{}
-
-type testMigration0000000002 struct {
-	run bool
-}
-
-func (m *testMigration0000000002) Migrate(orm *orm.ORM) error {
-	m.run = true
-	var result string
-	err := orm.DB.Raw("SELECT * FROM non_existent_table;").Scan(&result).Error
-	return err
-}
-
-func (m *testMigration0000000002) Timestamp() string {
-	return "0000000002"
+	assert.True(t, db.HasTable("job_specs"))
+	assert.True(t, db.HasTable("task_specs"))
+	assert.True(t, db.HasTable("job_runs"))
+	assert.True(t, db.HasTable("task_runs"))
+	assert.True(t, db.HasTable("run_results"))
+	assert.True(t, db.HasTable("initiators"))
+	assert.True(t, db.HasTable("txes"))
+	assert.True(t, db.HasTable("tx_attempts"))
+	assert.True(t, db.HasTable("bridge_types"))
+	assert.True(t, db.HasTable("heads"))
+	assert.True(t, db.HasTable("users"))
+	assert.True(t, db.HasTable("sessions"))
+	assert.True(t, db.HasTable("encumbrances"))
+	assert.True(t, db.HasTable("service_agreements"))
 }
 
 func TestMigrate1551816486(t *testing.T) {
