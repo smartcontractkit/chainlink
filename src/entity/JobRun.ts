@@ -7,7 +7,7 @@ export class JobRun {
     id: number;
 
     @Column()
-    requestId: string;
+    jobRunId: string;
 
     @Column()
     jobId: string;
