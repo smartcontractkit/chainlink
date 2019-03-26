@@ -29,9 +29,10 @@ const styles = (theme: Theme) =>
       alignItems: 'center'
     },
     logo: {
-      width: 150
+      width: 160
     },
     search: {
+      marginLeft: theme.spacing.unit * 2,
       flexGrow: 1
     },
     connectedNodes: {

@@ -1,5 +1,6 @@
 import React from 'react'
 import Link from '@material-ui/core/Link'
+import logo from '../images/logo.svg'
 
 interface IProps {
   className: string
@@ -8,7 +9,7 @@ interface IProps {
 const Logo = ({ className }: IProps) => {
   return (
     <Link href="/" className={className}>
-      Chainlink Stats
+      <img src={logo} />
     </Link>
   )
 }
