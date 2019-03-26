@@ -5,7 +5,7 @@ jobs:
       - image: circleci/node:11
       - image: circleci/postgres:11-alpine
         environment:
-          POSTGRES_USER: circleci_postgres
+          POSTGRES_USER: root
           POSTGRES_DB: linkstats_test
     steps:
       - checkout
