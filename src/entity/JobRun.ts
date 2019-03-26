@@ -1,17 +1,9 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn
-} from 'typeorm'
+import { Entity, PrimaryColumn, Column, CreateDateColumn } from 'typeorm'
 
 @Entity()
 export class JobRun {
-  @PrimaryGeneratedColumn()
-  id: number
-
-  @Column()
-  jobRunId: string
+  @PrimaryColumn()
+  id: string
 
   @Column()
   jobId: string
