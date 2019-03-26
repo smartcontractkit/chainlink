@@ -26,6 +26,9 @@ jobs:
           name: Prepare test database
           command: yarn test:db:prepare
       - run:
+          name: Run Lint
+          command: yarn lint
+      - run:
           name: Run Server Tests
           command: yarn test
       - run:
