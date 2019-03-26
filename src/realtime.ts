@@ -1,30 +1,26 @@
 import http from 'http'
-import socketio, { Socket } from 'socket.io'
+import WebSocket from 'ws'
 
 const CLNODE_COUNT_EVENT = 'clnodeCount'
 
 export const bootstrapRealtime = (server: http.Server) => {
   let clnodeCount = 0
 
-  const statsclientio: socketio.Server = socketio(server, { path: '/client' })
-  statsclientio.on('connection', (socket: Socket) => {
-    socket.emit(CLNODE_COUNT_EVENT, clnodeCount)
-  })
-
-  const clnodeio: socketio.Server = socketio(server, { path: '/clnode' })
-  clnodeio.on('connection', (socket: Socket) => {
+  const wss = new WebSocket.Server({ server, perMessageDeflate: false })
+  wss.on('connection', function connection(ws) {
     clnodeCount = clnodeCount + 1
     console.log(
       `websocket connected, total chainlink nodes connected: ${clnodeCount}`
     )
-    statsclientio.emit(CLNODE_COUNT_EVENT, clnodeCount)
+    ws.on('message', function incoming(message) {
+      console.log('received: %s', message)
+    })
 
-    socket.on('disconnect', () => {
+    ws.on('close', () => {
       clnodeCount = clnodeCount - 1
       console.log(
         `websocket disconnected, total chainlink nodes connected: ${clnodeCount}`
       )
-      statsclientio.emit(CLNODE_COUNT_EVENT, clnodeCount)
     })
   })
 }
