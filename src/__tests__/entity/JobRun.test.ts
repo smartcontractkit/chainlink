@@ -10,8 +10,7 @@ beforeEach(async () => clearDb())
 describe('fromString', () => {
   it('successfully creates a run from json', async () => {
     const jr = fromString(JSON.stringify(fixture))
-    expect(jr.id).toBeUndefined()
-    expect(jr.jobRunId).toEqual(fixture.id)
+    expect(jr.id).toEqual(fixture.id)
     expect(jr.jobId).toEqual(fixture.jobId)
     expect(jr.createdAt).toEqual(new Date(fixture.createdAt))
 
