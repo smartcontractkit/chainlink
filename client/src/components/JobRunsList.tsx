@@ -1,7 +1,10 @@
 import React from 'react'
-import Typography from '@material-ui/core/Typography'
-import List from '@material-ui/core/List'
-import ListItem from '@material-ui/core/ListItem'
+import Paper from '@material-ui/core/Paper';
+import Table from '@material-ui/core/Table';
+import TableBody from '@material-ui/core/TableBody';
+import TableCell from '@material-ui/core/TableCell';
+import TableHead from '@material-ui/core/TableHead';
+import TableRow from '@material-ui/core/TableRow';
 
 const Loading = () => {
   return <div>Loading...</div>
@@ -20,15 +23,26 @@ type RunsListProps = { jobRuns: IJobRun[] }
 
 const RunsList = (props: RunsListProps) => {
   return (
-    <>
-      <Typography variant="h3">Latest Runs</Typography>
-
-      <List>
-        {props.jobRuns.map((r, idx) => {
-          return <ListItem key={idx} disableGutters>{r.requestId}</ListItem>
-        })}
-      </List>
-    </>
+    <Paper>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>Run ID</TableCell>
+            <TableCell>Job ID</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {props.jobRuns.map((r: any, idx: number) => (
+            <TableRow key={r.id}>
+              <TableCell component="th" scope="row">
+                {r.jobRunId}
+              </TableCell>
+              <TableCell>{r.jobId}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Paper>
   )
 }
 

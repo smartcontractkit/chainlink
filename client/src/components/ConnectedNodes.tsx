@@ -1,8 +1,11 @@
 import React, { Component } from 'react'
 import io from 'socket.io-client'
 
-type Props = {}
-type State = {
+interface IProps {
+  className: string
+}
+
+interface IState {
   count?: number
 }
 
@@ -13,8 +16,8 @@ const showCount = (count?: number): string => {
   return count.toString()
 }
 
-class ConnectedNodes extends Component<Props, State> {
-  constructor(props: Props) {
+class ConnectedNodes extends Component<IProps, IState> {
+  constructor(props: IProps) {
     super(props)
     this.state = {}
   }
@@ -28,7 +31,11 @@ class ConnectedNodes extends Component<Props, State> {
   }
 
   render() {
-    return <div>Connected Nodes: {showCount(this.state.count)}</div>
+    return (
+      <div className={this.props.className}>
+        Connected Nodes: {showCount(this.state.count)}
+      </div>
+    )
   }
 }
 
