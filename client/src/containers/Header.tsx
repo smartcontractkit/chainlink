@@ -11,7 +11,6 @@ import {
 } from '@material-ui/core/styles'
 import Logo from '../components/Logo'
 import Search from '../components/Search'
-import ConnectedNodes from '../components/ConnectedNodes'
 import { IState } from '../reducers'
 
 const styles = (theme: Theme) =>
@@ -52,10 +51,6 @@ const Header = ({ classes }: IProps) => {
               <Logo className={classes.logo} />
               <Search className={classes.search} />
             </div>
-          </Grid>
-
-          <Grid item xs={4}>
-            <ConnectedNodes className={classes.connectedNodes} />
           </Grid>
         </Grid>
       </Toolbar>
