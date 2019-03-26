@@ -18,6 +18,11 @@ type migration interface {
 // Migrate iterates through available migrations, running and tracking
 // migrations that have not been run.
 func Migrate(db *gorm.DB) error {
+	err := upgradeOldMigrationSchema(db)
+	if err != nil {
+		return err
+	}
+
 	m := gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
 		{
 			ID: "0",
@@ -58,4 +63,22 @@ func Migrate(db *gorm.DB) error {
 	})
 
 	return m.Migrate()
+}
+
+func upgradeOldMigrationSchema(db *gorm.DB) error {
+	if !db.HasTable("migration_timestamps") {
+		return nil
+	}
+
+	tx := db.Begin()
+	err := tx.Exec(`
+ALTER TABLE migration_timestamps RENAME TO migrations;
+ALTER TABLE migrations RENAME COLUMN timestamp to id;
+`).Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }
