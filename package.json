@@ -1,13 +1,6 @@
 {
   "private": true,
-  "workspaces": [
-    "gui",
-    "examples/**",
-    "solidity"
-  ],
-  "nohoist": [
-    "solidity"
-  ],
+  "license": "MIT",
   "scripts": {
     "start": "cd gui && react-static start",
     "build": "cd gui && cross-env NODE_OPTIONS=--max_old_space_size=2048 react-static build",
@@ -23,8 +16,6 @@
     "flatten": "./internal/bin/flatten-ropsten"
   },
   "dependencies": {
-    "@ensdomains/ens": "^0.1.1",
-    "@cnakazawa/watch": "^1.0.3",
     "babel-eslint": "^10.0.1",
     "body-parser": "^1.18.3",
     "cross-env": "^5.2.0",
@@ -64,6 +55,5 @@
     "truffle-contract": "^3.0.6",
     "tslint": "^5.14.0",
     "typescript": "^3.3.4000"
-  },
-  "license": "MIT"
+  }
 }

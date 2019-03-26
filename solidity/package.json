@@ -14,7 +14,6 @@
     "solidity-cborutils": "^1.0.2"
   },
   "devDependencies": {
-    "@cnakazawa/watch": "^1.0.3",
     "@babel/core": "^7.2.2",
     "@babel/plugin-proposal-class-properties": "^7.3.0",
     "@babel/plugin-proposal-export-namespace-from": "^7.2.0",
@@ -23,6 +22,7 @@
     "@babel/preset-env": "^7.3.1",
     "@babel/preset-typescript": "^7.1.0",
     "@babel/register": "^7.0.0",
+    "@resolver-engine/core": "^0.2.1",
     "bignumber.js": "^8.0.1",
     "cbor": "^4.1.1",
     "eth-ens-namehash": "^2.0.8",
