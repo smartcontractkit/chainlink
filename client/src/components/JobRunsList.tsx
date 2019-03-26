@@ -35,7 +35,7 @@ const RunsList = (props: RunsListProps) => {
           {props.jobRuns.map((r: any, idx: number) => (
             <TableRow key={r.id}>
               <TableCell component="th" scope="row">
-                {r.jobRunId}
+                {r.id}
               </TableCell>
               <TableCell>{r.jobId}</TableCell>
             </TableRow>
