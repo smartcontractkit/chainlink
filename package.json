@@ -1,10 +1,12 @@
 {
   "private": true,
   "workspaces": [
-    "chainlink",
-    "operator-gui",
-    "example-echo-server",
-    "examples-twilio-sms"
+    "gui",
+    "examples/**",
+    "solidity"
+  ],
+  "nohoist": [
+    "solidity"
   ],
   "scripts": {
     "start": "cd gui && react-static start",
@@ -21,6 +23,8 @@
     "flatten": "./internal/bin/flatten-ropsten"
   },
   "dependencies": {
+    "@ensdomains/ens": "^0.1.1",
+    "@cnakazawa/watch": "^1.0.3",
     "babel-eslint": "^10.0.1",
     "body-parser": "^1.18.3",
     "cross-env": "^5.2.0",
