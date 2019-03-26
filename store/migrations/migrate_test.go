@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1551895034"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1551895034/old"
@@ -32,6 +33,31 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 		cleanup()
 		os.RemoveAll(config.RootDir())
 	}
+}
+
+func TestMigrate_Upgrade(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+	db := orm.DB
+
+	// Create an old migration schema table
+	err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS "migration_timestamps" (
+			"timestamp" varchar(12),
+			PRIMARY KEY ("timestamp")
+		);
+		INSERT INTO migration_timestamps VALUES('0');
+		INSERT INTO migration_timestamps VALUES('1549496047');
+		INSERT INTO migration_timestamps VALUES('1551816486');
+		INSERT INTO migration_timestamps VALUES('1551895034');
+		INSERT INTO migration_timestamps VALUES('1552418531');
+		INSERT INTO migration_timestamps VALUES('1553029703');
+	`).Error
+	require.NoError(t, err)
+
+	require.NoError(t, migrations.Migrate(db))
+	assert.False(t, db.HasTable("migration_timestamps"))
+	assert.True(t, db.HasTable("migrations"))
 }
 
 func TestMigrate_Migration0(t *testing.T) {
