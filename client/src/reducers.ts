@@ -3,7 +3,7 @@ import search, { IState as ISearchState } from './reducers/search'
 import jobRuns, { IState as IJobRunsState } from './reducers/jobRuns'
 
 export interface IState {
-  search: ISearchState,
+  search: ISearchState
   jobRuns: IJobRunsState
 }
 

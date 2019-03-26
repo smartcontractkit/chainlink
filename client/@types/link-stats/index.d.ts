@@ -1,4 +1,3 @@
 interface IJobRun {
   requestId: string
 }
-
