@@ -20,7 +20,7 @@ export const bootstrapRealtime = (server: http.Server) => {
       db.manager
         .save(fromString(message))
         .then(entity => {
-          console.log('saved job run %s: %s', entity.id, entity.jobRunId)
+          console.log('saved job run %s', entity.id)
         })
         .catch(console.error)
     })
