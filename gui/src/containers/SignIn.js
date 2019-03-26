@@ -81,7 +81,7 @@ export const SignIn = useHooks(props => {
                 </Grid>
 
                 {errors.length > 0 &&
-                  errors.map(({ detail }, idx) => {
+                  errors.map(({ props }, idx) => {
                     return (
                       <Grid item xs={12} key={idx}>
                         <Card raised={false} className={classes.error}>
@@ -90,7 +90,7 @@ export const SignIn = useHooks(props => {
                               variant="body1"
                               className={classes.errorText}
                             >
-                              {detail}
+                              {props.msg}
                             </Typography>
                           </CardContent>
                         </Card>
