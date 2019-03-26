@@ -15,8 +15,10 @@ beforeAll(async () => {
   server = controller.listen(null)
 })
 afterAll(async () => {
-  server.close()
-  await closeDbConnection()
+  if (server) {
+    server.close()
+    await closeDbConnection()
+  }
 })
 beforeEach(async () => {
   await clearDb()

@@ -39,6 +39,7 @@
     "host": "localhost",
     "port": 5432,
     "database": "linkstats_test",
+    "username": "root",
     "synchronize": true,
     "logging": false,
     "entities": ["src/entity/**/*.ts"],
