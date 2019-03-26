@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "concurrently \"cd client && yarn start\" \"ts-node-dev --respawn --transpileOnly ./src/index.ts\"",
     "build": "cd client && yarn build",
-    "prod": "ts-node ./src/index.ts",
+    "prod": "yarn migration:run && ts-node ./src/index.ts",
     "test": "yarn jest --detectOpenHandles",
     "lint": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
     "lint:fix": "eslint --fix --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
