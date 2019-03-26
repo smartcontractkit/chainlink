@@ -1,5 +1,7 @@
 {
-  "name": "example-echo-server",
+  "name": "chainlink-echo-server",
+  "version": "0.6.0",
+  "license": "MIT",
   "private": true,
   "dependencies": {
     "cbor": "^4.0.0",
@@ -21,6 +23,5 @@
     "@babel/plugin-proposal-class-properties": "^7.2.3",
     "@babel/plugin-proposal-export-namespace-from": "^7.2.0",
     "@babel/plugin-proposal-throw-expressions": "^7.2.0"
-  },
-  "license": "MIT"
+  }
 }
