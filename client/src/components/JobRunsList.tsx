@@ -1,10 +1,10 @@
 import React from 'react'
-import Paper from '@material-ui/core/Paper';
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
-import TableCell from '@material-ui/core/TableCell';
-import TableHead from '@material-ui/core/TableHead';
-import TableRow from '@material-ui/core/TableRow';
+import Paper from '@material-ui/core/Paper'
+import Table from '@material-ui/core/Table'
+import TableBody from '@material-ui/core/TableBody'
+import TableCell from '@material-ui/core/TableCell'
+import TableHead from '@material-ui/core/TableHead'
+import TableRow from '@material-ui/core/TableRow'
 
 const Loading = () => {
   return <div>Loading...</div>
@@ -13,8 +13,8 @@ const Loading = () => {
 const Empty = () => {
   return (
     <div>
-      Hold the line! We're just getting started and haven't received any job
-      runs yet.
+      Hold the line! We&apos;re just getting started and haven&apos;t received
+      any job runs yet.
     </div>
   )
 }

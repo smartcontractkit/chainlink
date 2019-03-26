@@ -6,8 +6,8 @@ import { getJobRuns } from '../../actions/jobRuns'
 import { IState } from '../../reducers'
 
 type IProps = {
-  query?: string,
-  jobRuns?: IJobRun[],
+  query?: string
+  jobRuns?: IJobRun[]
   getJobRuns: Function
 }
 
