@@ -5,13 +5,16 @@ import options from '../ormconfig.json'
 
 const overridableKeys = ['host', 'port', 'username', 'password', 'database']
 
+// isEnvEqual returns true if the option name is the same as the env second paramter
+// with the following exception that development == default.
 const isEnvEqual = (optionName: string, env: string): boolean => {
   return (
-    (env === 'development' && optionName === 'default') || env === optionName
+    env === optionName || (env === 'development' && optionName === 'default')
   )
 }
 
-const loadOptions = (env = process.env.NODE_ENV || 'development') => {
+const loadOptions = (env?: string) => {
+  env = env || process.env.TYPEORM_NAME || process.env.NODE_ENV || 'default'
   for (let option of options) {
     if (isEnvEqual(option.name, env)) {
       return option

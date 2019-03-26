@@ -3,6 +3,8 @@ jobs:
   unit-tests:
     docker:
       - image: circleci/node:11
+        environment:
+          TYPEORM_NAME: ci
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: root
@@ -23,8 +25,8 @@ jobs:
             - ~/.cache/yarn
             - /usr/local/share/.cache/yarn
       - run:
-          name: Prepare test database
-          command: yarn test:db:prepare
+          name: Prepare CI database
+          command: yarn ci:schema:sync
       - run:
           name: Run Lint
           command: yarn lint
