@@ -1,9 +1,12 @@
+import { getDb } from './database'
 import http from 'http'
+import { fromString } from './entity/JobRun'
 import WebSocket from 'ws'
 
 const CLNODE_COUNT_EVENT = 'clnodeCount'
 
 export const bootstrapRealtime = (server: http.Server) => {
+  const db = getDb()
   let clnodeCount = 0
 
   const wss = new WebSocket.Server({ server, perMessageDeflate: false })
@@ -14,6 +17,12 @@ export const bootstrapRealtime = (server: http.Server) => {
     )
     ws.on('message', function incoming(message) {
       console.log('received: %s', message)
+      db.manager
+        .save(fromString(message))
+        .then(entity => {
+          console.log('saved job run %s: %s', entity.id, entity.jobRunId)
+        })
+        .catch(console.error)
     })
 
     ws.on('close', () => {
