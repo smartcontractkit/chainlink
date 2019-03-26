@@ -16,7 +16,8 @@
     "schema:sync": "ts-node ./node_modules/.bin/typeorm schema:sync",
     "migration:run": "ts-node ./node_modules/.bin/typeorm migration:run",
     "migration:revert": "ts-node ./node_modules/.bin/typeorm migration:revert",
-    "test:db:prepare": "yarn schema:sync -c test"
+    "test:schema:sync": "yarn schema:sync -c test",
+    "ci:schema:sync": "yarn schema:sync -c ci"
   },
   "main": "src/index.ts",
   "repository": {
