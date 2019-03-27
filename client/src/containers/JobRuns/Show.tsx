@@ -16,6 +16,7 @@ import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
+import TimeAgo from '../../components/TimeAgo'
 import { getJobRun } from '../../actions/jobRuns'
 import { IState } from '../../reducers'
 import { JobRun } from '../../entities'
@@ -49,7 +50,12 @@ const RegionalNav = withStyles(regionalNavStyles)(
           </Grid>
           <Grid item xs={12}>
             <Typography variant="subtitle2" color="textSecondary">
-              {jobRun && <>Created ({jobRun.createdAt})</>}
+              {jobRun && (
+                <>
+                  Created <TimeAgo tooltip={false}>{jobRun.createdAt}</TimeAgo>{' '}
+                  ({jobRun.createdAt})
+                </>
+              )}
             </Typography>
           </Grid>
         </Grid>
