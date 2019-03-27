@@ -1,4 +1,4 @@
-import { getDb } from './database'
+import { getDb } from '../database'
 
 if (process.env.NODE_ENV !== 'test') {
   throw Error(

@@ -8,4 +8,4 @@ const start = async () => {
   server()
 }
 
-start().catch(error => console.log(error))
+start().catch(console.error)

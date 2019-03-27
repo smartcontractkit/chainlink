@@ -44,7 +44,6 @@
     "@types/react-redux": "^7.0.5",
     "@types/redux-logger": "^3.0.7",
     "@types/redux-thunk": "^2.1.0",
-    "@types/socket.io-client": "^1.4.32",
     "brotli-webpack-plugin": "^1.1.0",
     "classnames": "^2.2.6",
     "compression-webpack-plugin": "^2.0.0",
@@ -69,7 +68,6 @@
     "redux-devtools-extension": "^2.13.8",
     "redux-logger": "^3.0.6",
     "redux-thunk": "^2.3.0",
-    "socket.io-client": "^2.2.0",
     "typescript": "^3.3.3333"
   }
 }
