@@ -12,13 +12,16 @@ export default async () => {
     const jobRunA = new JobRun()
     jobRunA.id = JOB_RUN_A_ID
     jobRunA.jobId = 'd9b0dd13-091f-4f55-b718-d9e725ab96dd'
-    await dbConnection.manager.save(jobRunA)
-    console.log('Saved a new job run with id: ' + jobRunA.id)
+    jobRunA.status = 'in_progress'
+    jobRunA.initiatorType = 'run_at'
 
     const jobRunB = new JobRun()
     jobRunB.id = JOB_RUN_B_ID
     jobRunB.jobId = 'dbbb5305-5ec9-46e8-9bab-0891d2ad4578'
+    jobRunB.status = 'completed'
+    jobRunB.initiatorType = 'run_at'
+
+    await dbConnection.manager.save(jobRunA)
     await dbConnection.manager.save(jobRunB)
-    console.log('Saved a new job run with id: ' + jobRunB.id)
   }
 }

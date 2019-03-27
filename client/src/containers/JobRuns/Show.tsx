@@ -17,93 +17,23 @@ import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import TimeAgo from '../../components/TimeAgo'
+import Details from '../../components/JobRuns/Details'
+import RegionalNav from '../../components/JobRuns/RegionalNav'
 import { getJobRun } from '../../actions/jobRuns'
 import { IState } from '../../reducers'
 import { JobRun } from '../../entities'
 
-const regionalNavStyles = ({ spacing, palette }: Theme) =>
-  createStyles({
-    container: {
-      padding: spacing.unit * 5,
-      paddingBottom: 0
-    }
-  })
-
-interface IRegionalNavProps extends WithStyles<typeof regionalNavStyles> {
-  jobRunId?: string
-  jobRun?: IJobRun
-}
-
-const RegionalNav = withStyles(regionalNavStyles)(
-  ({ jobRunId, jobRun, classes }: IRegionalNavProps) => {
-    return (
-      <Paper square className={classes.container}>
-        <Grid container spacing={0}>
-          <Grid item xs={12}>
-            <Grid container spacing={0} alignItems="center">
-              <Grid item xs={7}>
-                <Typography variant="h3" color="secondary" gutterBottom>
-                  {jobRunId}
-                </Typography>
-              </Grid>
-            </Grid>
-          </Grid>
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" color="textSecondary">
-              {jobRun && (
-                <>
-                  Created <TimeAgo tooltip={false}>{jobRun.createdAt}</TimeAgo>{' '}
-                  ({jobRun.createdAt})
-                </>
-              )}
-            </Typography>
-          </Grid>
-        </Grid>
-      </Paper>
-    )
-  }
+const Loading = () => (
+  <Table>
+    <TableBody>
+      <TableRow>
+        <TableCell component="th" scope="row" colSpan={3}>
+          Loading job run...
+        </TableCell>
+      </TableRow>
+    </TableBody>
+  </Table>
 )
-
-interface ISpanRowProps {
-  children: React.ReactNode
-}
-
-const SpanRow = ({ children }: ISpanRowProps) => (
-  <TableRow>
-    <TableCell component="th" scope="row" colSpan={3}>
-      {children}
-    </TableCell>
-  </TableRow>
-)
-
-const FetchingRow = () => <SpanRow>Loading job run...</SpanRow>
-
-interface IColProps {
-  children: React.ReactNode
-}
-
-const Col = ({ children }: IColProps) => (
-  <TableCell>
-    <Typography variant="body1">
-      <span>{children}</span>
-    </Typography>
-  </TableCell>
-)
-
-const renderBody = (jobRun?: IJobRun) => {
-  if (jobRun) {
-    return (
-      <>
-        <TableRow>
-          <Col>Job ID</Col>
-          <Col>{jobRun.jobId}</Col>
-        </TableRow>
-      </>
-    )
-  } else {
-    return <FetchingRow />
-  }
-}
 
 const styles = ({ spacing, palette }: Theme) =>
   createStyles({
@@ -131,21 +61,19 @@ const Show = withStyles(styles)(
     }, [])
 
     return (
-      <div>
+      <>
         <RegionalNav jobRunId={jobRunId} jobRun={jobRun} />
 
         <Grid container spacing={0}>
           <Grid item xs={12}>
             <div className={classes.container}>
               <Card className={classes.card}>
-                <Table>
-                  <TableBody>{renderBody(jobRun)}</TableBody>
-                </Table>
+                {jobRun ? <Details jobRun={jobRun} /> : <Loading />}
               </Card>
             </div>
           </Grid>
         </Grid>
-      </div>
+      </>
     )
   }
 )

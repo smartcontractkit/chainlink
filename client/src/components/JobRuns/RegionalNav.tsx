@@ -1,0 +1,56 @@
+import React from 'react'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
+import Grid from '@material-ui/core/Grid'
+import Paper from '@material-ui/core/Paper'
+import Typography from '@material-ui/core/Typography'
+import TimeAgo from '../../components/TimeAgo'
+
+const regionalNavStyles = ({ spacing, palette }: Theme) =>
+  createStyles({
+    container: {
+      padding: spacing.unit * 5,
+      paddingBottom: 0
+    }
+  })
+
+interface IRegionalNavProps extends WithStyles<typeof regionalNavStyles> {
+  jobRunId?: string
+  jobRun?: IJobRun
+}
+
+const RegionalNav = withStyles(regionalNavStyles)(
+  ({ jobRunId, jobRun, classes }: IRegionalNavProps) => {
+    return (
+      <Paper square className={classes.container}>
+        <Grid container spacing={0}>
+          <Grid item xs={12}>
+            <Grid container spacing={0} alignItems="center">
+              <Grid item xs={7}>
+                <Typography variant="h3" color="secondary" gutterBottom>
+                  {jobRunId}
+                </Typography>
+              </Grid>
+            </Grid>
+          </Grid>
+          <Grid item xs={12}>
+            <Typography variant="subtitle2" color="textSecondary">
+              {jobRun && (
+                <>
+                  Created <TimeAgo tooltip={false}>{jobRun.createdAt}</TimeAgo>{' '}
+                  ({jobRun.createdAt})
+                </>
+              )}
+            </Typography>
+          </Grid>
+        </Grid>
+      </Paper>
+    )
+  }
+)
+
+export default RegionalNav
