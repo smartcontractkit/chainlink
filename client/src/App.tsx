@@ -16,9 +16,7 @@ import JobRunsShow from './containers/JobRuns/Show'
 const styles = ({ spacing }: Theme) =>
   createStyles({
     main: {
-      marginTop: 90,
-      paddingLeft: spacing.unit * 5,
-      paddingRight: spacing.unit * 5
+      marginTop: 90
     }
   })
 
@@ -30,9 +28,7 @@ interface IProps extends WithStyles<typeof styles> {
 const Main = withStyles(styles)(({ children, classes }: IProps) => (
   <>
     <Header />
-    <main className={classes.main}>
-      {children}
-    </main>
+    <main className={classes.main}>{children}</main>
   </>
 ))
 
