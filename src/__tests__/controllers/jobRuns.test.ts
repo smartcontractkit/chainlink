@@ -1,9 +1,9 @@
 import express from 'express'
 import http from 'http'
 import request from 'supertest'
-import jobRuns from './jobRuns'
-import seed from '../seed'
-import { createDbConnection, closeDbConnection } from '../database'
+import jobRuns from '../../controllers/jobRuns'
+import seed from '../../seed'
+import { createDbConnection, closeDbConnection } from '../../database'
 import { clearDb } from '../testdatabase'
 
 const controller = express()
