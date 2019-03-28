@@ -69,8 +69,6 @@ func TestJobRuns_SavesASyncEvent(t *testing.T) {
 	assert.NoError(t, err)
 
 	jr := job.NewRun(initr)
-	data := `{"result":"921.02"}`
-	jr.Result = cltest.RunResultWithData(data)
 	err = store.CreateJobRun(&jr)
 	assert.NoError(t, err)
 
@@ -81,10 +79,18 @@ func TestJobRuns_SavesASyncEvent(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, events, 1)
 
+	var data map[string]interface{}
+	err = json.Unmarshal([]byte(events[0].Body), &data)
+	require.NoError(t, err)
+
 	var recoveredJobRun models.JobRun
 	err = json.Unmarshal([]byte(events[0].Body), &recoveredJobRun)
 	require.NoError(t, err)
 	assert.Equal(t, jr.Result.Data, recoveredJobRun.Result.Data)
+
+	assert.Contains(t, data, "RunID")
+	assert.Contains(t, data, "JobID")
+	assert.Contains(t, data, "Status")
 }
 
 func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
