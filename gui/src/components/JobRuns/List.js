@@ -12,6 +12,7 @@ import TimeAgo from 'components/TimeAgo'
 import ReactStaticLinkComponent from '../ReactStaticLinkComponent'
 import classNames from 'classnames'
 import Button from 'components/Button'
+import titleize from 'utils/titleize'
 
 const styles = theme => {
   return {
@@ -41,27 +42,18 @@ const styles = theme => {
       display: 'inline-block'
     },
     failed: {
-      backgroundColor: '#e9faf2',
-      color: '#ff6587'
+      backgroundColor: theme.palette.listSuccessStatus.background,
+      color: theme.palette.listSuccessStatus.color
     },
     pending: {
-      backgroundColor: '#fef7e5',
-      color: '#fecb4c'
+      backgroundColor: theme.palette.listPendingStatus.background,
+      color: theme.palette.listPendingStatus.color
     },
     completed: {
-      backgroundColor: '#e9faf2',
-      color: '#4ed495'
+      backgroundColor: theme.palette.listCompletedStatus.background,
+      color: theme.palette.listCompletedStatus.color
     }
   }
-}
-
-// insight from - https://github.com/sindresorhus/titleize
-const titleize = input => {
-  const normalized = input || ''
-  return normalized
-    .toLowerCase()
-    .replace('_', ' ')
-    .replace(/(?:^|\s|-)\S/g, x => x.toUpperCase())
 }
 
 const statusText = status => {
