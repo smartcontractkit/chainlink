@@ -10,6 +10,7 @@ TODO...
 
 ```
 yarn install
+cd client && yarn install && cd -
 ```
 
 ### Database Configuration
@@ -21,6 +22,7 @@ and in our case that will involve leverage postgresql's `createdb`:
 
 ```
 createdb linkstats_dev
+yarn migration:run
 ```
 
 ##### Connection
