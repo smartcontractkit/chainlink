@@ -24,8 +24,8 @@ func (m Migration) Migrate(tx *gorm.DB) error {
 		conversion = "encode(hash::bytea, 'hex')"
 	}
 
-	return tx.Exec(fmt.Sprintf(`
-		BEGIN TRANSACTION;
+	tx = tx.Begin()
+	err := tx.Exec(fmt.Sprintf(`
 		CREATE TABLE "heads" (
 			"number" bigint NOT NULL,
 			"hash" varchar,
@@ -35,6 +35,10 @@ func (m Migration) Migrate(tx *gorm.DB) error {
 			FROM "indexable_block_numbers";
 		DROP TABLE "indexable_block_numbers";
 		CREATE INDEX idx_heads_number ON "heads"("number");
-		COMMIT TRANSACTION;
 	`, conversion)).Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit().Error
 }
