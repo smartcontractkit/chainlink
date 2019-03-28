@@ -21,15 +21,16 @@ const styles = (theme: Theme) =>
       zIndex: theme.zIndex.modal + 1
     },
     toolbar: {
-      paddingLeft: theme.spacing.unit * 5,
-      paddingRight: theme.spacing.unit * 5
+      padding: theme.spacing.unit * 5,
+      paddingTop: theme.spacing.unit * 2,
+      paddingBottom: theme.spacing.unit * 2
     },
     logoAndSearch: {
       display: 'flex',
       alignItems: 'center'
     },
     logo: {
-      width: 160
+      width: 200
     },
     search: {
       marginLeft: theme.spacing.unit * 2,
