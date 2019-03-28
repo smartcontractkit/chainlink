@@ -1,6 +1,7 @@
 package synchronization
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/store/models"
@@ -10,29 +11,51 @@ import (
 
 func TestSyncJobRunPresenter(t *testing.T) {
 	jobRun := models.JobRun{
-		ID:        "AOC",
-		JobSpecID: "BSFTW",
+		ID:        "runID-411",
+		JobSpecID: "jobSpecID-312",
 		Status:    models.RunStatusInProgress,
+		TaskRuns: []models.TaskRun{
+			models.TaskRun{
+				ID:     "task0RunID-938",
+				Status: models.RunStatusPendingConfirmations,
+			},
+			models.TaskRun{
+				ID:     "task1RunID-17",
+				Status: models.RunStatusErrored,
+			},
+		},
 	}
 	p := SyncJobRunPresenter{JobRun: &jobRun}
 
 	bytes, err := p.MarshalJSON()
 	require.NoError(t, err)
-	json := string(bytes)
 
-	assert.Contains(t, json, `"RunID":"AOC"`)
-	assert.Contains(t, json, `"JobID":"BSFTW"`)
-	assert.Contains(t, json, `"Status":"in_progress"`)
-	assert.Contains(t, json, "Error")
-	assert.Contains(t, json, "CreatedAt")
-	assert.Contains(t, json, "Amount")
-	assert.Contains(t, json, "CompletedAt")
-	//assert.Contains(t, json, "Sender")
-	assert.Contains(t, json, "Tasks")
+	var data map[string]interface{}
+	err = json.Unmarshal(bytes, &data)
+	require.NoError(t, err)
 
-	//Task fields:
-	//- index
-	//- type
-	//- status
-	//- error
+	assert.Equal(t, data["RunID"], "runID-411")
+	assert.Equal(t, data["JobID"], "jobSpecID-312")
+	assert.Equal(t, data["Status"], "in_progress")
+	assert.Contains(t, data, "Error")
+	assert.Contains(t, data, "CreatedAt")
+	assert.Contains(t, data, "Amount")
+	assert.Contains(t, data, "CompletedAt")
+	assert.Contains(t, data, "Tasks")
+
+	tasks, ok := data["Tasks"].([]interface{})
+	require.True(t, ok)
+	require.Len(t, tasks, 2)
+	task0, ok := tasks[0].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, task0["Index"], float64(0))
+	assert.Contains(t, task0, "Type")
+	assert.Equal(t, task0["Status"], "pending_confirmations")
+	assert.Contains(t, task0, "Error")
+	task1, ok := tasks[1].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, task1["Index"], float64(1))
+	assert.Contains(t, task1, "Type")
+	assert.Equal(t, task1["Status"], "errored")
+	assert.Contains(t, task1, "Error")
 }
