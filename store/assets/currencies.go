@@ -28,6 +28,9 @@ func NewLink(w int64) *Link {
 
 // String returns Link formatted as a string.
 func (l *Link) String() string {
+	if l == nil {
+		return "0"
+	}
 	return format((*big.Int)(l), 18)
 }
 

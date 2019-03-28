@@ -1,4 +1,4 @@
-package store
+package synchronization
 
 import (
 	"context"
@@ -96,7 +96,13 @@ func createSyncEvents(scope *gorm.Scope) {
 	}
 
 	if scope.TableName() == "job_runs" {
-		bodyBytes, err := json.Marshal(scope.Value)
+		run, ok := scope.Value.(*models.JobRun)
+		if !ok {
+			return
+		}
+
+		presenter := SyncJobRunPresenter{run}
+		bodyBytes, err := json.Marshal(presenter)
 		if err != nil {
 			scope.Err(err)
 			return
