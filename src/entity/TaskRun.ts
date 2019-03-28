@@ -6,9 +6,18 @@ export class TaskRun {
   @PrimaryColumn()
   id: string
 
+  @ManyToOne(type => JobRun, jobRun => jobRun.taskRuns)
+  jobRun: JobRun
+
+  @Column()
+  index: number
+
   @Column()
   type: string
 
-  @ManyToOne(type => JobRun, jobRun => jobRun.taskRuns)
-  jobRun: JobRun
+  @Column()
+  status: string
+
+  @Column({ nullable: true })
+  error: string
 }

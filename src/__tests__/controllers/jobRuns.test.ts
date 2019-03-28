@@ -49,15 +49,16 @@ describe('#show', () => {
     await seed()
   })
 
-  it('returns empty', async () => {
+  it('returns the job run with task runs', async () => {
     const response = await request(server).get(
       `/api/v1/job_runs/${JOB_RUN_B_ID}`
     )
     expect(response.status).toEqual(200)
     expect(response.body.id).toEqual(JOB_RUN_B_ID)
+    expect(response.body.taskRuns.length).toEqual(1)
   })
 
-  it('returns runs', async () => {
+  it('returns a 404', async () => {
     const response = await request(server).get(`/api/v1/job_runs/not-found`)
     expect(response.status).toEqual(404)
   })
