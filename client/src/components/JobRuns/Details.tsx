@@ -41,10 +41,12 @@ const Details = ({ jobRun }: IProps) => {
           <Col>Completed At</Col>
           <Col>{jobRun.completedAt}</Col>
         </TableRow>
-        <TableRow>
-          <Col>Error</Col>
-          <Col>{jobRun.error}</Col>
-        </TableRow>
+        {jobRun.error && (
+          <TableRow>
+            <Col>Error</Col>
+            <Col>{jobRun.error}</Col>
+          </TableRow>
+        )}
       </TableBody>
     </Table>
   )
