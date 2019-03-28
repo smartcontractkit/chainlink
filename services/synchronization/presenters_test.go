@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	null "gopkg.in/guregu/null.v3"
 )
 
 func TestSyncJobRunPresenter(t *testing.T) {
@@ -22,6 +23,7 @@ func TestSyncJobRunPresenter(t *testing.T) {
 			models.TaskRun{
 				ID:     "task1RunID-17",
 				Status: models.RunStatusErrored,
+				Result: models.RunResult{ErrorMessage: null.StringFrom("yikes fam")},
 			},
 		},
 	}
@@ -51,11 +53,11 @@ func TestSyncJobRunPresenter(t *testing.T) {
 	assert.Equal(t, task0["index"], float64(0))
 	assert.Contains(t, task0, "type")
 	assert.Equal(t, task0["status"], "pending_confirmations")
-	assert.Contains(t, task0, "error")
+	assert.Equal(t, task0["error"], nil)
 	task1, ok := tasks[1].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, task1["index"], float64(1))
 	assert.Contains(t, task1, "type")
 	assert.Equal(t, task1["status"], "errored")
-	assert.Contains(t, task1, "error")
+	assert.Equal(t, task1["error"], "yikes fam")
 }
