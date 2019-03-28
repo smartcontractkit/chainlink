@@ -1,26 +1,23 @@
 package migration1552418531
 
 import (
-	"github.com/smartcontractkit/chainlink/store/orm"
-	"go.uber.org/multierr"
+	"github.com/jinzhu/gorm"
 	"gopkg.in/guregu/null.v3"
 )
 
 type Migration struct{}
 
-func (m Migration) Timestamp() string {
-	return "1552418531"
-}
-
 // Migrate creates a new bridge_types table with the correct primary key
 // because sqlite does not allow you to modify the primary key
 // after table creation.
-func (m Migration) Migrate(orm *orm.ORM) error {
-	return multierr.Combine(
-		orm.DB.AutoMigrate(&initiator{}).Error,
-		orm.DB.AutoMigrate(&jobSpec{}).Error,
-		orm.DB.AutoMigrate(&jobRun{}).Error,
-	)
+func (m Migration) Migrate(tx *gorm.DB) error {
+	if err := tx.AutoMigrate(&initiator{}).Error; err != nil {
+		return err
+	}
+	if err := tx.AutoMigrate(&jobSpec{}).Error; err != nil {
+		return err
+	}
+	return tx.AutoMigrate(&jobRun{}).Error
 }
 
 type jobSpec struct {

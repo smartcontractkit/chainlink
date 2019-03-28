@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration0"
-	"github.com/smartcontractkit/chainlink/store/migrations/migration1551816486"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1551895034"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1551895034/old"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1552418531"
@@ -18,75 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestMigrate_RunNewMigrations(t *testing.T) {
-	migrations.ExportedClearRegisteredMigrations()
-
-	orm, cleanup := bootstrapORM(t)
-	defer cleanup()
-
-	db := orm.DB
-	tm := &testMigration0000000001{}
-	migrations.ExportedRegisterMigration(tm)
-
-	timestamps := migrations.ExportedAvailableMigrationTimestamps()
-	assert.Len(t, timestamps, 1)
-	assert.Equal(t, tm.Timestamp(), timestamps[0], "New test migration should have been registered")
-
-	err := migrations.Migrate(orm)
-	require.NoError(t, err)
-
-	assert.True(t, tm.run, "Migration should have run")
-
-	var migrationTimestamps []migrations.MigrationTimestamp
-	err = db.Order("timestamp asc").Find(&migrationTimestamps).Error
-	assert.NoError(t, err)
-	assert.Equal(t, tm.Timestamp(), migrationTimestamps[0].Timestamp, "Migration should have been registered as run")
-}
-
-func TestMigrate_ErrorOnFailedMigration(t *testing.T) {
-	migrations.ExportedClearRegisteredMigrations()
-
-	orm, cleanup := bootstrapORM(t)
-	defer cleanup()
-
-	db := orm.DB
-	tm := &testMigration0000000002{}
-	migrations.ExportedRegisterMigration(tm)
-
-	err := migrations.Migrate(orm)
-	require.Error(t, err)
-
-	assert.True(t, tm.run, "Migration should not have run")
-
-	var migrationTimestamps []migrations.MigrationTimestamp
-	err = db.Order("timestamp asc").Find(&migrationTimestamps).Error
-	assert.NoError(t, err)
-
-	assert.Len(t, migrationTimestamps, 0, "Migration should have been registered as run")
-}
-
-func TestMigrate_Migration0(t *testing.T) {
-	migrations.ExportedClearRegisteredMigrations()
-
-	orm, cleanup := bootstrapORM(t)
-	defer cleanup()
-
-	db := orm.DB
-	tm := &migration0.Migration{}
-	migrations.ExportedRegisterMigration(tm)
-
-	timestamps := migrations.ExportedAvailableMigrationTimestamps()
-	assert.Equal(t, "0", timestamps[0], "Should have migration 0 available")
-
-	err := migrations.Migrate(orm)
-	require.NoError(t, err)
-
-	var migrationTimestamps []migrations.MigrationTimestamp
-	err = db.Order("timestamp asc").Find(&migrationTimestamps).Error
-	assert.NoError(t, err)
-	assert.Equal(t, tm.Timestamp(), migrationTimestamps[0].Timestamp, "Migration should have been registered as run")
-}
 
 func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 	tc, cleanup := cltest.NewConfig()
@@ -105,48 +35,59 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 	}
 }
 
-type testGarbageModel struct {
-	Garbage int `json:"garbage" gorm:"primary_key"`
+func TestMigrate_Upgrade(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+	db := orm.DB
+
+	// Create an old migration schema table
+	err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS "migration_timestamps" (
+			"timestamp" varchar(12),
+			PRIMARY KEY ("timestamp")
+		);
+		INSERT INTO migration_timestamps VALUES('0');
+		INSERT INTO migration_timestamps VALUES('1549496047');
+		INSERT INTO migration_timestamps VALUES('1551816486');
+		INSERT INTO migration_timestamps VALUES('1551895034');
+		INSERT INTO migration_timestamps VALUES('1552418531');
+		INSERT INTO migration_timestamps VALUES('1553029703');
+	`).Error
+	require.NoError(t, err)
+
+	require.NoError(t, migrations.Migrate(db))
+	assert.False(t, db.HasTable("migration_timestamps"))
+	assert.True(t, db.HasTable("migrations"))
 }
 
-type testMigration0000000001 struct {
-	run bool
-}
-
-func (m *testMigration0000000001) Migrate(orm *orm.ORM) error {
-	m.run = true
-	return orm.DB.AutoMigrate(&testGarbageModel{}).Error
-}
-
-func (m *testMigration0000000001) Timestamp() string {
-	return "0000000001"
-}
-
-type testFailingModel struct{}
-
-type testMigration0000000002 struct {
-	run bool
-}
-
-func (m *testMigration0000000002) Migrate(orm *orm.ORM) error {
-	m.run = true
-	var result string
-	err := orm.DB.Raw("SELECT * FROM non_existent_table;").Scan(&result).Error
-	return err
-}
-
-func (m *testMigration0000000002) Timestamp() string {
-	return "0000000002"
-}
-
-func TestMigrate1551816486(t *testing.T) {
-	migrations.ExportedClearRegisteredMigrations()
-
+func TestMigrate_Migration0(t *testing.T) {
 	orm, cleanup := bootstrapORM(t)
 	defer cleanup()
 
-	tm := &migration1551816486.Migration{}
-	migrations.ExportedRegisterMigration(tm)
+	db := orm.DB
+	tm := &migration0.Migration{}
+
+	require.NoError(t, tm.Migrate(db))
+
+	assert.True(t, db.HasTable("job_specs"))
+	assert.True(t, db.HasTable("task_specs"))
+	assert.True(t, db.HasTable("job_runs"))
+	assert.True(t, db.HasTable("task_runs"))
+	assert.True(t, db.HasTable("run_results"))
+	assert.True(t, db.HasTable("initiators"))
+	assert.True(t, db.HasTable("txes"))
+	assert.True(t, db.HasTable("tx_attempts"))
+	assert.True(t, db.HasTable("bridge_types"))
+	assert.True(t, db.HasTable("heads"))
+	assert.True(t, db.HasTable("users"))
+	assert.True(t, db.HasTable("sessions"))
+	assert.True(t, db.HasTable("encumbrances"))
+	assert.True(t, db.HasTable("service_agreements"))
+}
+
+func TestMigrate1551816486(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
 
 	// seed db w old table
 	err := orm.DB.Exec(`
@@ -168,7 +109,7 @@ func TestMigrate1551816486(t *testing.T) {
 	}
 
 	require.NoError(t, orm.DB.Save(&initial).Error)
-	require.NoError(t, migrations.Migrate(orm))
+	require.NoError(t, migration0.Migration{}.Migrate(orm.DB))
 
 	migratedbt, err := orm.FindBridge(initial.Name.String())
 	require.NoError(t, err)
@@ -176,13 +117,10 @@ func TestMigrate1551816486(t *testing.T) {
 }
 
 func TestMigrate1551895034(t *testing.T) {
-	migrations.ExportedClearRegisteredMigrations()
-
 	orm, cleanup := bootstrapORM(t)
 	defer cleanup()
 
 	tm := &migration1551895034.Migration{}
-	migrations.ExportedRegisterMigration(tm)
 
 	height := models.NewBig(big.NewInt(1337))
 	hash := common.HexToHash("0xde3fb1df888c6c7f77f3a8e9c2582f87e7ad5277d98bd06cfd17cd2d7ea49f42")
@@ -199,7 +137,7 @@ func TestMigrate1551895034(t *testing.T) {
 	require.NoError(t, err)
 
 	// migrate
-	require.NoError(t, migrations.Migrate(orm))
+	require.NoError(t, tm.Migrate(orm.DB))
 
 	retrieved := models.Head{}
 	err = orm.DB.First(&retrieved).Error
@@ -213,8 +151,6 @@ func TestMigrate1551895034(t *testing.T) {
 }
 
 func TestMigrate1552418531(t *testing.T) {
-	migrations.ExportedClearRegisteredMigrations()
-
 	orm, cleanup := bootstrapORM(t)
 	defer cleanup()
 
@@ -227,9 +163,8 @@ func TestMigrate1552418531(t *testing.T) {
 
 	// migrate
 	tm := &migration1552418531.Migration{}
-	migrations.ExportedRegisterMigration(tm)
 
-	require.NoError(t, migrations.Migrate(orm))
+	require.NoError(t, tm.Migrate(orm.DB))
 
 	retrieved := models.JobSpec{}
 	err = orm.DB.First(&retrieved).Error

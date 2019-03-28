@@ -17,6 +17,7 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 	_ "github.com/jinzhu/gorm/dialects/sqlite"   // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/store/dbutil"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	"go.uber.org/multierr"
@@ -86,6 +87,18 @@ func initializeDatabase(dialect, path string) (*gorm.DB, error) {
 	db, err := gorm.Open(dialect, path)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open %s for gorm DB: %+v", path, err)
+	}
+
+	if err := dbutil.SetTimezone(db); err != nil {
+		return nil, err
+	}
+
+	if err := dbutil.SetSqlitePragmas(db); err != nil {
+		return nil, err
+	}
+
+	if err := dbutil.LimitSqliteOpenConnections(db); err != nil {
+		return nil, err
 	}
 
 	return db, nil
@@ -937,16 +950,6 @@ func (orm *ORM) getRecords(collection interface{}, order string, offset, limit i
 		Set("gorm:auto_preload", true).
 		Order(order).Limit(limit).Offset(offset).
 		Find(collection).Error
-}
-
-// IsPostgres returns true if the underlying database is postgres.
-func (orm *ORM) IsPostgres() bool {
-	return orm.DB.Dialect().GetName() == "postgres"
-}
-
-// IsSqlite returns true if the underlying database is sqlite.
-func (orm *ORM) IsSqlite() bool {
-	return strings.HasPrefix(orm.DB.Dialect().GetName(), "sqlite")
 }
 
 func batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
