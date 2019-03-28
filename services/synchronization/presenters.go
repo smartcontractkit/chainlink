@@ -3,6 +3,7 @@ package synchronization
 import (
 	"encoding/json"
 
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
 	null "gopkg.in/guregu/null.v3"
@@ -36,7 +37,7 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 		Status      string                 `json:"status"`
 		Error       null.String            `json:"error"`
 		CreatedAt   string                 `json:"createdAt"`
-		Amount      string                 `json:"amount"`
+		Amount      *assets.Link           `json:"amount"`
 		CompletedAt null.Time              `json:"completedAt"`
 		Tasks       []SyncTaskRunPresenter `json:"tasks"`
 	}{
@@ -45,7 +46,7 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 		Status:      string(p.Status),
 		Error:       p.Result.ErrorMessage,
 		CreatedAt:   utils.ISO8601UTC(p.CreatedAt),
-		Amount:      p.Result.Amount.String(),
+		Amount:      p.Result.Amount,
 		CompletedAt: p.CompletedAt,
 		Tasks:       tasks,
 	})
