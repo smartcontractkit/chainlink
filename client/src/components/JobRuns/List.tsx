@@ -20,9 +20,11 @@ const Empty = () => {
   )
 }
 
-type RunsListProps = { jobRuns: IJobRun[] }
+interface IRunsProps {
+  jobRuns: IJobRun[]
+}
 
-const RunsList = (props: RunsListProps) => {
+const Runs = ({ jobRuns }: IRunsProps) => {
   return (
     <Paper>
       <Table>
@@ -33,7 +35,7 @@ const RunsList = (props: RunsListProps) => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {props.jobRuns.map((r: any, idx: number) => (
+          {jobRuns.map((r: any, idx: number) => (
             <TableRow key={r.id}>
               <TableCell component="th" scope="row">
                 <Link to={`/job-runs/${r.id}`}>{r.id}</Link>
@@ -47,16 +49,18 @@ const RunsList = (props: RunsListProps) => {
   )
 }
 
-type JobRunsListProps = { jobRuns?: any[] }
+interface IProps {
+  jobRuns?: any[]
+}
 
-const JobRunsList = (props: JobRunsListProps) => {
+const List = (props: IProps) => {
   if (!props.jobRuns) {
     return <Loading />
   } else if (props.jobRuns.length === 0) {
     return <Empty />
   } else {
-    return <RunsList jobRuns={props.jobRuns} />
+    return <Runs jobRuns={props.jobRuns} />
   }
 }
 
-export default JobRunsList
+export default List
