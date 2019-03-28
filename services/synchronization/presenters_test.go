@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,6 +16,7 @@ func TestSyncJobRunPresenter(t *testing.T) {
 		ID:        "runID-411",
 		JobSpecID: "jobSpecID-312",
 		Status:    models.RunStatusInProgress,
+		Result:    models.RunResult{Amount: assets.NewLink(2)},
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
 				ID:     "task0RunID-938",
@@ -41,7 +43,7 @@ func TestSyncJobRunPresenter(t *testing.T) {
 	assert.Equal(t, data["status"], "in_progress")
 	assert.Contains(t, data, "error")
 	assert.Contains(t, data, "createdAt")
-	assert.Contains(t, data, "amount")
+	assert.Equal(t, data["amount"], "2")
 	assert.Equal(t, data["completedAt"], nil)
 	assert.Contains(t, data, "tasks")
 
