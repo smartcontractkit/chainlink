@@ -1,4 +1,11 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn } from 'typeorm'
+import {
+  Entity,
+  PrimaryColumn,
+  Column,
+  CreateDateColumn,
+  OneToMany
+} from 'typeorm'
+import { TaskRun } from './TaskRun'
 
 @Entity()
 export class JobRun {
@@ -22,6 +29,11 @@ export class JobRun {
 
   @Column({ nullable: true })
   completedAt: Date
+
+  @OneToMany(type => TaskRun, taskRun => taskRun.jobRun, {
+    onDelete: 'CASCADE'
+  })
+  taskRuns: TaskRun[]
 }
 
 export const fromString = (str: any): JobRun => {
