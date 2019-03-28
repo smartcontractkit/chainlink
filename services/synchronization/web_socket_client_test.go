@@ -1,11 +1,11 @@
-package store_test
+package synchronization_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/services/synchronization"
 	"github.com/stretchr/testify/require"
 )
 
@@ -13,7 +13,7 @@ func TestWebSocketStatsPusher_StartCloseStart(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	pusher := store.NewWebSocketClient(wsserver.URL)
+	pusher := synchronization.NewWebSocketClient(wsserver.URL)
 	require.NoError(t, pusher.Start())
 	cltest.CallbackOrTimeout(t, "stats pusher connects", func() {
 		<-wsserver.Connected
@@ -32,7 +32,7 @@ func TestWebSocketStatsPusher_ReconnectLoop(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	pusher := store.NewWebSocketClient(wsserver.URL)
+	pusher := synchronization.NewWebSocketClient(wsserver.URL)
 	require.NoError(t, pusher.Start())
 	cltest.CallbackOrTimeout(t, "stats pusher connects", func() {
 		<-wsserver.Connected
@@ -50,7 +50,7 @@ func TestWebSocketStatsPusher_Send(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	pusher := store.NewWebSocketClient(wsserver.URL)
+	pusher := synchronization.NewWebSocketClient(wsserver.URL)
 	require.NoError(t, pusher.Start())
 	defer pusher.Close()
 

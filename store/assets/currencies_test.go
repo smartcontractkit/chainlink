@@ -26,6 +26,9 @@ func TestAssets_NewLinkAndString(t *testing.T) {
 
 	link.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639936", 10)
 	assert.Equal(t, "115792089237316195423570985008687907853269984665640564039457.584007913129639936", link.String())
+
+	var nilLink *assets.Link
+	assert.Equal(t, "0", nilLink.String())
 }
 
 func TestAssets_Link_MarshalJson(t *testing.T) {
