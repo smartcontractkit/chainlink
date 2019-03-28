@@ -88,9 +88,9 @@ func TestJobRuns_SavesASyncEvent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, jr.Result.Data, recoveredJobRun.Result.Data)
 
-	assert.Contains(t, data, "RunID")
-	assert.Contains(t, data, "JobID")
-	assert.Contains(t, data, "Status")
+	assert.Contains(t, data, "runID")
+	assert.Contains(t, data, "jobID")
+	assert.Contains(t, data, "status")
 }
 
 func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
