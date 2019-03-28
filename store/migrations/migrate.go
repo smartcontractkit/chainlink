@@ -23,7 +23,10 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
-	m := gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
+	options := gormigrate.DefaultOptions
+	options.IDColumnSize = 12
+
+	m := gormigrate.New(db, options, []*gormigrate.Migration{
 		{
 			ID:      "0",
 			Migrate: migration0.Migration{}.Migrate,

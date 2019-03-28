@@ -25,6 +25,7 @@ func (m Migration) Migrate(tx *gorm.DB) error {
 	}
 
 	return tx.Exec(fmt.Sprintf(`
+		BEGIN TRANSACTION;
 		CREATE TABLE "heads" (
 			"number" bigint NOT NULL,
 			"hash" varchar,
@@ -34,5 +35,6 @@ func (m Migration) Migrate(tx *gorm.DB) error {
 			FROM "indexable_block_numbers";
 		DROP TABLE "indexable_block_numbers";
 		CREATE INDEX idx_heads_number ON "heads"("number");
+		COMMIT TRANSACTION;
 	`, conversion)).Error
 }
