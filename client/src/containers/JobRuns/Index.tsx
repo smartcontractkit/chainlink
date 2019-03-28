@@ -2,25 +2,44 @@ import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
 import { bindActionCreators, Dispatch } from 'redux'
 import { denormalize } from 'normalizr'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
 import List from '../../components/JobRuns/List'
 import { getJobRuns } from '../../actions/jobRuns'
 import { IState } from '../../reducers'
 import { JobRun } from '../../entities'
 
-type IProps = {
+const styles = ({ spacing }: Theme) =>
+  createStyles({
+    container: {
+      margin: spacing.unit * 5
+    }
+  })
+
+interface IProps extends WithStyles<typeof styles> {
   query?: string
   jobRuns?: IJobRun[]
   getJobRuns: Function
   path: string
 }
 
-const Index = ({ query, jobRuns, getJobRuns }: IProps) => {
-  useEffect(() => {
-    getJobRuns(query)
-  }, [])
+const Index = withStyles(styles)(
+  ({ query, jobRuns, getJobRuns, classes }: IProps) => {
+    useEffect(() => {
+      getJobRuns(query)
+    }, [])
 
-  return <List jobRuns={jobRuns} />
-}
+    return (
+      <div className={classes.container}>
+        <List jobRuns={jobRuns} />
+      </div>
+    )
+  }
+)
 
 const jobRunsSelector = ({
   jobRunsIndex,

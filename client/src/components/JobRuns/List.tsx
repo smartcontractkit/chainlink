@@ -8,15 +8,23 @@ import TableRow from '@material-ui/core/TableRow'
 import { Link } from '@reach/router'
 
 const Loading = () => {
-  return <div>Loading...</div>
+  return (
+    <TableRow>
+      <TableCell component="th" scope="row" colSpan={2}>
+        Loading...
+      </TableCell>
+    </TableRow>
+  )
 }
 
 const Empty = () => {
   return (
-    <div>
-      Hold the line! We&apos;re just getting started and haven&apos;t received
-      any job runs yet.
-    </div>
+    <TableRow>
+      <TableCell component="th" scope="row" colSpan={2}>
+        Hold the line! We&apos;re just getting started and haven&apos;t received
+        any job runs yet.
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -26,7 +34,37 @@ interface IRunsProps {
 
 const Runs = ({ jobRuns }: IRunsProps) => {
   return (
-    <Paper>
+    <>
+      {jobRuns.map((r: any, idx: number) => (
+        <TableRow key={r.id}>
+          <TableCell component="th" scope="row">
+            <Link to={`/job-runs/${r.id}`}>{r.id}</Link>
+          </TableCell>
+          <TableCell>{r.jobId}</TableCell>
+        </TableRow>
+      ))}
+    </>
+  )
+}
+
+const renderBody = (jobRuns?: IJobRun[]) => {
+  if (!jobRuns) {
+    return <Loading />
+  } else if (jobRuns.length === 0) {
+    return <Empty />
+  } else {
+    return <Runs jobRuns={jobRuns} />
+  }
+}
+
+interface IProps {
+  jobRuns?: any[]
+  className?: string
+}
+
+const List = ({ jobRuns, className }: IProps) => {
+  return (
+    <Paper className={className}>
       <Table>
         <TableHead>
           <TableRow>
@@ -34,33 +72,10 @@ const Runs = ({ jobRuns }: IRunsProps) => {
             <TableCell>Job ID</TableCell>
           </TableRow>
         </TableHead>
-        <TableBody>
-          {jobRuns.map((r: any, idx: number) => (
-            <TableRow key={r.id}>
-              <TableCell component="th" scope="row">
-                <Link to={`/job-runs/${r.id}`}>{r.id}</Link>
-              </TableCell>
-              <TableCell>{r.jobId}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
+        <TableBody>{renderBody(jobRuns)}</TableBody>
       </Table>
     </Paper>
   )
-}
-
-interface IProps {
-  jobRuns?: any[]
-}
-
-const List = (props: IProps) => {
-  if (!props.jobRuns) {
-    return <Loading />
-  } else if (props.jobRuns.length === 0) {
-    return <Empty />
-  } else {
-    return <Runs jobRuns={props.jobRuns} />
-  }
 }
 
 export default List
