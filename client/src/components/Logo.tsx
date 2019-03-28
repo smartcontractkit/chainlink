@@ -1,5 +1,4 @@
 import React from 'react'
-import { Link } from '@reach/router'
 import logo from '../images/logo.svg'
 
 interface IProps {
@@ -8,9 +7,9 @@ interface IProps {
 
 const Logo = ({ className }: IProps) => {
   return (
-    <Link to="/" className={className}>
+    <a href="/" className={className}>
       <img src={logo} />
-    </Link>
+    </a>
   )
 }
 
