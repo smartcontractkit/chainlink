@@ -37,7 +37,7 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 		CreatedAt   string
 		Amount      string
 		CompletedAt string
-		Tasks       []interface{}
+		Tasks       []SyncTaskRunPresenter
 	}{
 		RunID:       p.ID,
 		JobID:       p.JobSpecID,
@@ -46,5 +46,6 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 		CreatedAt:   utils.ISO8601UTC(p.CreatedAt),
 		Amount:      p.Result.Amount.String(),
 		CompletedAt: utils.ISO8601UTC(p.CompletedAt.ValueOrZero()),
+		Tasks:       tasks,
 	})
 }
