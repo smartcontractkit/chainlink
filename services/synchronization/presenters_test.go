@@ -40,7 +40,7 @@ func TestSyncJobRunPresenter(t *testing.T) {
 	assert.Contains(t, data, "error")
 	assert.Contains(t, data, "createdAt")
 	assert.Contains(t, data, "amount")
-	assert.Contains(t, data, "completedAt")
+	assert.Equal(t, data["completedAt"], nil)
 	assert.Contains(t, data, "tasks")
 
 	tasks, ok := data["tasks"].([]interface{})
