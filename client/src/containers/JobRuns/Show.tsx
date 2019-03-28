@@ -38,7 +38,6 @@ const Loading = () => (
 const styles = ({ spacing, palette }: Theme) =>
   createStyles({
     container: {
-      marginTop: spacing.unit * 5,
       padding: spacing.unit * 5
     },
     card: {
