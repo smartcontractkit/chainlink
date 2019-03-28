@@ -19,8 +19,10 @@ export default async () => {
 
     const taskRunA = new TaskRun()
     taskRunA.id = '5828158b-e075-466e-aabb-f1a52827d3a5'
-    taskRunA.type = 'httpget'
     taskRunA.jobRun = jobRunA
+    taskRunA.index = 0
+    taskRunA.status = 'in_progress'
+    taskRunA.type = 'httpget'
     await dbConnection.manager.save(taskRunA)
 
     const jobRunB = new JobRun()
@@ -32,8 +34,10 @@ export default async () => {
 
     const taskRunB = new TaskRun()
     taskRunB.id = 'd62fbeb6-dc92-4191-87a3-b3c1ac4899ee'
-    taskRunB.type = 'ethbytes32'
     taskRunB.jobRun = jobRunB
+    taskRunB.index = 0
+    taskRunB.status = 'completed'
+    taskRunB.type = 'ethbytes32'
     await dbConnection.manager.save(taskRunB)
   }
 }
