@@ -2,12 +2,6 @@ import React, { useState } from 'react'
 import { hot } from 'react-hot-loader/root'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Grid from '@material-ui/core/Grid'
-import {
-  createStyles,
-  Theme,
-  withStyles,
-  WithStyles
-} from '@material-ui/core/styles'
 import { Router } from '@reach/router'
 import Header from './containers/Header'
 import JobRunsIndex from './containers/JobRuns/Index'
@@ -27,7 +21,7 @@ const Main = ({ children }: IProps) => {
   return (
     <>
       <Header onResize={onHeaderResize} />
-      <main style={{ marginTop: height }}>{children}</main>
+      <main style={{ paddingTop: height }}>{children}</main>
     </>
   )
 }
