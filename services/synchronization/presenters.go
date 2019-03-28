@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
+	null "gopkg.in/guregu/null.v3"
 )
 
 // SyncJobRunPresenter presents a JobRun for synchronization purposes
@@ -36,7 +37,7 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 		Error       string                 `json:"error"`
 		CreatedAt   string                 `json:"createdAt"`
 		Amount      string                 `json:"amount"`
-		CompletedAt string                 `json:"completedAt"`
+		CompletedAt null.Time              `json:"completedAt"`
 		Tasks       []SyncTaskRunPresenter `json:"tasks"`
 	}{
 		RunID:       p.ID,
@@ -45,7 +46,7 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 		Error:       p.Result.ErrorMessage.ValueOrZero(),
 		CreatedAt:   utils.ISO8601UTC(p.CreatedAt),
 		Amount:      p.Result.Amount.String(),
-		CompletedAt: utils.ISO8601UTC(p.CompletedAt.ValueOrZero()),
+		CompletedAt: p.CompletedAt,
 		Tasks:       tasks,
 	})
 }
