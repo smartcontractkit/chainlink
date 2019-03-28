@@ -12,8 +12,10 @@ interface IProps {
   path: string
 }
 
+const DEFAULT_HEIGHT = 82
+
 const Main = ({ children }: IProps) => {
-  const [height, setHeight] = useState<number | undefined>(undefined)
+  const [height, setHeight] = useState<number>(DEFAULT_HEIGHT)
   const onHeaderResize = (width: number, height: number) => {
     setHeight(height)
   }
