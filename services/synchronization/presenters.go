@@ -16,10 +16,10 @@ type SyncJobRunPresenter struct {
 // MarshalJSON returns the JobRun as JSON
 func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 	type SyncTaskRunPresenter struct {
-		Index  int    `json:"index"`
-		Type   string `json:"type"`
-		Status string `json:"status"`
-		Error  string `json:"error"`
+		Index  int         `json:"index"`
+		Type   string      `json:"type"`
+		Status string      `json:"status"`
+		Error  null.String `json:"error"`
 	}
 	tasks := []SyncTaskRunPresenter{}
 	for index, task := range p.TaskRuns {
@@ -27,7 +27,7 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 			Index:  index,
 			Type:   string(task.TaskSpec.Type),
 			Status: string(task.Status),
-			Error:  task.Result.ErrorMessage.ValueOrZero(),
+			Error:  task.Result.ErrorMessage,
 		})
 	}
 	return json.Marshal(&struct {
