@@ -13,8 +13,7 @@ import TimeAgo from '../../components/TimeAgo'
 const regionalNavStyles = ({ spacing, palette }: Theme) =>
   createStyles({
     container: {
-      padding: spacing.unit * 5,
-      paddingBottom: 0
+      padding: spacing.unit * 5
     }
   })
 
@@ -29,13 +28,9 @@ const RegionalNav = withStyles(regionalNavStyles)(
       <Paper square className={classes.container}>
         <Grid container spacing={0}>
           <Grid item xs={12}>
-            <Grid container spacing={0} alignItems="center">
-              <Grid item xs={7}>
-                <Typography variant="h3" color="secondary" gutterBottom>
-                  {jobRunId}
-                </Typography>
-              </Grid>
-            </Grid>
+            <Typography variant="h3" color="secondary" gutterBottom>
+              {jobRunId}
+            </Typography>
           </Grid>
           <Grid item xs={12}>
             <Typography variant="subtitle2" color="textSecondary">

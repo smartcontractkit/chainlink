@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { hot } from 'react-hot-loader/root'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Grid from '@material-ui/core/Grid'
@@ -13,24 +13,24 @@ import Header from './containers/Header'
 import JobRunsIndex from './containers/JobRuns/Index'
 import JobRunsShow from './containers/JobRuns/Show'
 
-const styles = ({ spacing }: Theme) =>
-  createStyles({
-    main: {
-      marginTop: 90
-    }
-  })
-
-interface IProps extends WithStyles<typeof styles> {
+interface IProps {
   children: any
   path: string
 }
 
-const Main = withStyles(styles)(({ children, classes }: IProps) => (
-  <>
-    <Header />
-    <main className={classes.main}>{children}</main>
-  </>
-))
+const Main = ({ children }: IProps) => {
+  const [height, setHeight] = useState<number | undefined>(undefined)
+  const onHeaderResize = (width: number, height: number) => {
+    setHeight(height)
+  }
+
+  return (
+    <>
+      <Header onResize={onHeaderResize} />
+      <main style={{ marginTop: height }}>{children}</main>
+    </>
+  )
+}
 
 const App = () => {
   return (
