@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/services/synchronization"
 	"github.com/smartcontractkit/chainlink/store/migrations"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
@@ -29,7 +30,7 @@ type Store struct {
 	KeyStore    *KeyStore
 	RunChannel  RunChannel
 	TxManager   TxManager
-	StatsPusher *StatsPusher
+	StatsPusher *synchronization.StatsPusher
 }
 
 type lazyRPCWrapper struct {
@@ -138,7 +139,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 		ORM:         orm,
 		RunChannel:  NewQueuedRunChannel(),
 		TxManager:   NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
-		StatsPusher: NewStatsPusher(orm, config.LinkstatsURL()),
+		StatsPusher: synchronization.NewStatsPusher(orm, config.LinkstatsURL()),
 	}
 	return store
 }
