@@ -8,8 +8,7 @@ const {
   LINK_TOKEN_ADDRESS,
   ORACLE_CONTRACT_ADDRESS
 } = process.env
-const Web3 = require('web3')
-const web3 = new Web3()
+const { utils } = require('../solidity/app/env.js')
 const url = require('url')
 
 process.env.SOLIDITY_INCLUDE = '../solidity/contracts'
@@ -39,7 +38,7 @@ const main = async () => {
     )
     .catch(abort(`Error loading LinkToken at address ${LINK_TOKEN_ADDRESS}`))
 
-  const amount = web3.toWei('1000')
+  const amount = utils.toWei('1000')
   await LinkToken.transfer(RunLog.address, amount, { gas: 100000 }).catch(
     abort('Error transferring link to RunLog')
   )
