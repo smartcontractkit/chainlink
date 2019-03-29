@@ -6,14 +6,14 @@ import clickLastPage from 'test-helpers/clickLastPage'
 import createStore from 'connectors/redux'
 import syncFetch from 'test-helpers/syncFetch'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRuns'
-import { mount } from 'enzyme'
+import mountWithTheme from 'test-helpers/mountWithTheme'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { ConnectedIndex as Index } from 'containers/JobRuns/Index'
 
 const classes = {}
 const mountIndex = props =>
-  mount(
+  mountWithTheme(
     <Provider store={createStore()}>
       <MemoryRouter>
         <Index classes={classes} {...props} />
