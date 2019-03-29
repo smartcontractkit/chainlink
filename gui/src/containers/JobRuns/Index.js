@@ -38,7 +38,11 @@ const renderLatestRuns = (props, state, handleChangePage) => {
   )
   return (
     <Card>
-      <List jobSpecId={jobSpecId} runs={latestJobRuns} />
+      <List
+        jobSpecId={jobSpecId}
+        runs={latestJobRuns}
+        showJobRunsCount={jobRunsCount}
+      />
       <TablePagination
         component="div"
         count={jobRunsCount}
