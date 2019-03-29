@@ -13,11 +13,9 @@
     "test": "yarn jest --detectOpenHandles",
     "lint": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
     "lint:fix": "eslint --fix --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
-    "schema:sync": "ts-node ./node_modules/.bin/typeorm schema:sync",
-    "migration:run": "ts-node ./node_modules/.bin/typeorm migration:run",
-    "migration:revert": "ts-node ./node_modules/.bin/typeorm migration:revert",
-    "test:schema:sync": "yarn schema:sync -c test",
-    "ci:schema:sync": "yarn schema:sync -c ci"
+    "migration:run": "ts-node ./src/bin/migrate.ts",
+    "test:migration:run": "TYPEORM_NAME=test ts-node ./src/bin/migrate.ts",
+    "ci:migration:run": "TYPEORM_NAME=ci ts-node ./src/bin/migrate.ts"
   },
   "main": "src/index.ts",
   "repository": {
