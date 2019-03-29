@@ -28,7 +28,7 @@ jobs:
             - /usr/local/share/.cache/yarn
       - run:
           name: Prepare CI database
-          command: yarn ci:schema:sync
+          command: yarn ci:migration:run
       - run:
           name: Run Lint
           command: yarn lint
