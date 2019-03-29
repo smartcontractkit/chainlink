@@ -9,10 +9,10 @@ const getJobRuns = (query: Query) => {
   return (dispatch: Dispatch<any>) => {
     api.getJobRuns(query).then((r: IJobRun[]) => {
       const normalizedData = normalize(r, [JobRun])
-      const action = {
+      const action: JobRunsAction = {
         type: 'UPSERT_JOB_RUNS',
         data: normalizedData
-      } as JobRunsAction
+      }
 
       dispatch(action)
     })
@@ -23,10 +23,10 @@ const getJobRun = (jobRunId?: string) => {
   return (dispatch: Dispatch<any>) => {
     api.getJobRun(jobRunId).then((r: IJobRun) => {
       const normalizedData = normalize(r, JobRun)
-      const action = {
+      const action: JobRunsAction = {
         type: 'UPSERT_JOB_RUN',
         data: normalizedData
-      } as JobRunsAction
+      }
 
       dispatch(action)
     })
