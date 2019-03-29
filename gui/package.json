@@ -8,7 +8,6 @@
     "build": "cross-env NODE_OPTIONS=--max_old_space_size=2048 react-static build",
     "serve": "serve dist -p 3000",
     "test": "cross-env NODE_ENV=test jest",
-    "test-ci": "cross-env NODE_ENV=test yarn jest gui/ --runInBand --coverage --reporters jest-silent-reporter",
     "watch": "cross-env NODE_ENV=test jest --watchAll --notify"
   },
   "dependencies": {
@@ -43,7 +42,7 @@
     "enzyme": "^3.4.4",
     "enzyme-adapter-react-16": "^1.2.0",
     "enzyme-matchers": "^7.0.1",
-    "fetch-mock": "^7.2.5",
+    "fetch-mock": "^7.3.1",
     "formik": "^1.0.3",
     "humps": "^2.0.1",
     "isomorphic-unfetch": "^3.0.0",

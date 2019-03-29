@@ -11,7 +11,7 @@ const providerURL = process.env['ETH_HTTP_URL'] || 'http://localhost:18545'
 const utils = new Utils(new Eth.HttpProvider(providerURL))
 const wallet = new Wallet(privateKey, utils)
 const deployer = Deployer(wallet, utils)
-const web3 = new Web3()
+const web3 = new Web3(providerURL)
 
 module.exports = {
   abi: require('ethereumjs-abi'),

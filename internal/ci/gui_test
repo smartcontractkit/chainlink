@@ -2,10 +2,12 @@
 
 set -e
 
-yarn tslint && yarn lint-ci
+yarn tslint
+yarn lint-ci
 
 cd gui
-yarn install && yarn test-ci
+../node_modules/.bin/cross-env NODE_ENV=test \
+  ../node_modules/.bin/jest --runInBand --coverage --reporters jest-silent-reporter
 
 if [ -n "$CC_TEST_REPORTER_ID"  ]; then
   cc-test-reporter format-coverage --output "coverage/codeclimate.gui.json"

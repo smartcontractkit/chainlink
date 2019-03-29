@@ -6,13 +6,10 @@ yarn solium --dir solidity/
 yarn solium --dir examples/
 
 cd solidity
-yarn install
-./node_modules/.bin/truffle test
+yarn truffle test
 
 cd ../examples/uptime_sla
-yarn install
-./node_modules/.bin/truffle test --network test
+../../node_modules/.bin/truffle test --network test
 
 cd ../echo_server
-yarn install
-./node_modules/.bin/truffle test --network test
+../../node_modules/.bin/truffle test --network test
