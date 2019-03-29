@@ -24,6 +24,8 @@
     "src"
   ],
   "files": [
-    "@types/react-snapshot.d.ts"
+    "@types/react-snapshot.d.ts",
+    "@types/react-time-ago.d.ts",
+    "@types/javascript-time-ago.d.ts"
   ]
 }

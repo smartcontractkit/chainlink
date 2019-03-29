@@ -1,15 +1,36 @@
 import { Dispatch } from 'redux'
+import { normalize, schema } from 'normalizr'
 import * as api from '../api'
 import { JobRunsAction } from '../reducers/jobRuns'
 import { Query } from '../reducers/search'
+import { JobRun } from '../entities'
 
 const getJobRuns = (query: Query) => {
   return (dispatch: Dispatch<any>) => {
     api.getJobRuns(query).then((r: IJobRun[]) => {
-      const action = { type: 'UPSERT_JOB_RUNS', items: r } as JobRunsAction
+      const normalizedData = normalize(r, [JobRun])
+      const action: JobRunsAction = {
+        type: 'UPSERT_JOB_RUNS',
+        data: normalizedData
+      }
+
       dispatch(action)
     })
   }
 }
 
-export { getJobRuns }
+const getJobRun = (jobRunId?: string) => {
+  return (dispatch: Dispatch<any>) => {
+    api.getJobRun(jobRunId).then((r: IJobRun) => {
+      const normalizedData = normalize(r, JobRun)
+      const action: JobRunsAction = {
+        type: 'UPSERT_JOB_RUN',
+        data: normalizedData
+      }
+
+      dispatch(action)
+    })
+  }
+}
+
+export { getJobRuns, getJobRun }

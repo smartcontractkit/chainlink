@@ -2,11 +2,15 @@ import React from 'react'
 import { render } from 'react-snapshot'
 import './index.css'
 import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'
+import JavascriptTimeAgo from 'javascript-time-ago'
+import en from 'javascript-time-ago/locale/en'
 import theme from './theme'
 import { Provider } from 'react-redux'
 import createStore from './createStore'
 import App from './App'
 import * as serviceWorker from './serviceWorker'
+
+JavascriptTimeAgo.locale(en)
 
 const muiTheme = createMuiTheme(theme)
 const store = createStore()

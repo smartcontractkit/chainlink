@@ -9,6 +9,7 @@ import {
   withStyles,
   WithStyles
 } from '@material-ui/core/styles'
+import ReactResizeDetector from 'react-resize-detector'
 import Logo from '../components/Logo'
 import Search from '../components/Search'
 import { IState } from '../reducers'
@@ -20,15 +21,16 @@ const styles = (theme: Theme) =>
       zIndex: theme.zIndex.modal + 1
     },
     toolbar: {
-      paddingLeft: theme.spacing.unit * 5,
-      paddingRight: theme.spacing.unit * 5
+      padding: theme.spacing.unit * 5,
+      paddingTop: theme.spacing.unit * 2,
+      paddingBottom: theme.spacing.unit * 2
     },
     logoAndSearch: {
       display: 'flex',
       alignItems: 'center'
     },
     logo: {
-      width: 160
+      width: 200
     },
     search: {
       marginLeft: theme.spacing.unit * 2,
@@ -39,21 +41,29 @@ const styles = (theme: Theme) =>
     }
   })
 
-interface IProps extends WithStyles<typeof styles> {}
+interface IProps extends WithStyles<typeof styles> {
+  onResize: (width: number, height: number) => void
+}
 
-const Header = ({ classes }: IProps) => {
+const Header = ({ classes, onResize }: IProps) => {
   return (
-    <AppBar className={classes.appBar} color="default" position="absolute">
-      <Toolbar className={classes.toolbar}>
-        <Grid container alignItems="center">
-          <Grid item xs={8}>
-            <div className={classes.logoAndSearch}>
-              <Logo className={classes.logo} />
-              <Search className={classes.search} />
-            </div>
+    <AppBar className={classes.appBar} color="default">
+      <ReactResizeDetector
+        refreshMode="debounce"
+        refreshRate={200}
+        handleWidth
+        onResize={onResize}>
+        <Toolbar className={classes.toolbar}>
+          <Grid container alignItems="center">
+            <Grid item xs={8}>
+              <div className={classes.logoAndSearch}>
+                <Logo className={classes.logo} />
+                <Search className={classes.search} />
+              </div>
+            </Grid>
           </Grid>
-        </Grid>
-      </Toolbar>
+        </Toolbar>
+      </ReactResizeDetector>
     </AppBar>
   )
 }

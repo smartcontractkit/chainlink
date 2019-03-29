@@ -1,7 +1,9 @@
 import reducer, { IState } from '../../reducers'
 import { JobRunsAction } from '../../reducers/jobRuns'
 
-describe('reducers/search', () => {
+const INITIAL_STATE = { jobRuns: { 'replace-me': { id: 'replace-me' } } }
+
+describe('reducers/jobRuns', () => {
   it('returns an initial state', () => {
     const action = {} as JobRunsAction
     const state = reducer({}, action) as IState
@@ -11,12 +13,45 @@ describe('reducers/search', () => {
     })
   })
 
-  it('can update the search query', () => {
-    const action = { type: 'UPSERT_JOB_RUNS', items: [] } as JobRunsAction
-    const state = reducer({}, action) as IState
+  describe('UPSERT_JOB_RUNS', () => {
+    it('can replace items', () => {
+      const jobRuns = {
+        '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
+          id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'
+        }
+      }
+      const data = { entities: { jobRuns: jobRuns } }
+      const action = { type: 'UPSERT_JOB_RUNS', data: data } as JobRunsAction
+      const state = reducer(INITIAL_STATE, action) as IState
 
-    expect(state.jobRuns).toEqual({
-      items: []
+      expect(state.jobRuns).toEqual({
+        items: {
+          '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
+            id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'
+          }
+        }
+      })
+    })
+  })
+
+  describe('UPSERT_JOB_RUN', () => {
+    it('can replace items', () => {
+      const jobRuns = {
+        '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
+          id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'
+        }
+      }
+      const data = { entities: { jobRuns: jobRuns } }
+      const action = { type: 'UPSERT_JOB_RUN', data: data } as JobRunsAction
+      const state = reducer(INITIAL_STATE, action) as IState
+
+      expect(state.jobRuns).toEqual({
+        items: {
+          '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
+            id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'
+          }
+        }
+      })
     })
   })
 })
