@@ -3,6 +3,7 @@ import { JobRun } from '../entity/JobRun'
 import { Router } from 'express'
 
 const router = Router()
+
 router.get('/job_runs', async (req, res) => {
   const searchQuery = req.query.query
   let params = {}
@@ -12,6 +13,18 @@ router.get('/job_runs', async (req, res) => {
   const jobRuns = await getDb().manager.find(JobRun, params)
 
   return res.send(jobRuns)
+})
+
+router.get('/job_runs/:id', async (req, res) => {
+  const id = req.params.id
+  const params = { where: { id: id } }
+  const jobRun = await getDb().manager.findOne(JobRun, params)
+
+  if (jobRun) {
+    return res.send(jobRun)
+  }
+
+  return res.sendStatus(404)
 })
 
 export default router

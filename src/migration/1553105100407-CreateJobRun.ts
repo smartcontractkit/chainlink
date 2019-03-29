@@ -5,7 +5,11 @@ export class CreateJobRun1553105100407 implements MigrationInterface {
     await queryRunner.query(`CREATE TABLE "job_run" (
       "id" character varying NOT NULL,
       "jobId" character varying NOT NULL,
+      "status" character varying NOT NULL,
+      "error" character varying,
+      "initiatorType" character varying NOT NULL,
       "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+      "completedAt" TIMESTAMP DEFAULT now(),
       CONSTRAINT "PK_96fe0b041b8bc157dcec25bd8ef" PRIMARY KEY ("id")
     )`)
     await queryRunner.query(`CREATE INDEX job_id_idx ON "job_run" ("jobId")`)

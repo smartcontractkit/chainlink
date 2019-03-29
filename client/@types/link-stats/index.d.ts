@@ -1,3 +1,9 @@
 interface IJobRun {
-  requestId: string
+  id: string
+  jobId: string
+  status: string
+  initiatorType: string
+  error?: string
+  createdAt: string
+  completedAt?: string
 }

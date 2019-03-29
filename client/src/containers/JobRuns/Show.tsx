@@ -1,0 +1,107 @@
+import React, { useEffect } from 'react'
+import { denormalize } from 'normalizr'
+import { connect } from 'react-redux'
+import { bindActionCreators, Dispatch } from 'redux'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
+import Grid from '@material-ui/core/Grid'
+import Paper from '@material-ui/core/Paper'
+import Card from '@material-ui/core/Card'
+import Typography from '@material-ui/core/Typography'
+import Table from '@material-ui/core/Table'
+import TableBody from '@material-ui/core/TableBody'
+import TableCell from '@material-ui/core/TableCell'
+import TableRow from '@material-ui/core/TableRow'
+import TimeAgo from '../../components/TimeAgo'
+import Details from '../../components/JobRuns/Details'
+import RegionalNav from '../../components/JobRuns/RegionalNav'
+import { getJobRun } from '../../actions/jobRuns'
+import { IState } from '../../reducers'
+import { JobRun } from '../../entities'
+
+const Loading = () => (
+  <Table>
+    <TableBody>
+      <TableRow>
+        <TableCell component="th" scope="row" colSpan={3}>
+          Loading job run...
+        </TableCell>
+      </TableRow>
+    </TableBody>
+  </Table>
+)
+
+const styles = ({ spacing, palette }: Theme) =>
+  createStyles({
+    container: {
+      padding: spacing.unit * 5
+    },
+    card: {
+      paddingTop: spacing.unit * 2,
+      paddingBottom: spacing.unit * 2
+    }
+  })
+
+interface IProps extends WithStyles<typeof styles> {
+  jobRunId?: string
+  jobRun?: IJobRun
+  getJobRun: Function
+  path: string
+}
+
+const Show = withStyles(styles)(
+  ({ jobRunId, jobRun, getJobRun, classes }: IProps) => {
+    useEffect(() => {
+      getJobRun(jobRunId)
+    }, [])
+
+    return (
+      <>
+        <RegionalNav jobRunId={jobRunId} jobRun={jobRun} />
+
+        <Grid container spacing={0}>
+          <Grid item xs={12}>
+            <div className={classes.container}>
+              <Card className={classes.card}>
+                {jobRun ? <Details jobRun={jobRun} /> : <Loading />}
+              </Card>
+            </div>
+          </Grid>
+        </Grid>
+      </>
+    )
+  }
+)
+
+const jobRunSelector = (
+  { jobRuns }: IState,
+  jobRunId?: string
+): IJobRun | undefined => {
+  if (jobRuns.items) {
+    return denormalize(jobRunId, JobRun, { jobRuns: jobRuns.items })
+  }
+}
+
+interface IOwnProps {
+  jobRunId?: string
+}
+
+const mapStateToProps = (state: IState, { jobRunId }: IOwnProps) => {
+  return {
+    jobRun: jobRunSelector(state, jobRunId)
+  }
+}
+
+const mapDispatchToProps = (dispatch: Dispatch<any>) =>
+  bindActionCreators({ getJobRun }, dispatch)
+
+const ConnectedShow = connect(
+  mapStateToProps,
+  mapDispatchToProps
+)(Show)
+
+export default withStyles(styles)(ConnectedShow)

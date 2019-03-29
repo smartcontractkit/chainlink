@@ -1,43 +1,50 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { hot } from 'react-hot-loader/root'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Grid from '@material-ui/core/Grid'
+import { Router } from '@reach/router'
 import Header from './containers/Header'
 import JobRunsIndex from './containers/JobRuns/Index'
-import {
-  createStyles,
-  Theme,
-  withStyles,
-  WithStyles
-} from '@material-ui/core/styles'
+import JobRunsShow from './containers/JobRuns/Show'
 
-const styles = ({ spacing }: Theme) =>
-  createStyles({
-    main: {
-      marginTop: 90,
-      paddingLeft: spacing.unit * 5,
-      paddingRight: spacing.unit * 5
-    }
-  })
+interface IProps {
+  children: any
+  path: string
+}
 
-interface IProps extends WithStyles<typeof styles> {}
+const DEFAULT_HEIGHT = 82
 
-const App = (props: IProps) => {
+const Main = ({ children }: IProps) => {
+  const [height, setHeight] = useState<number>(DEFAULT_HEIGHT)
+  const onHeaderResize = (width: number, height: number) => {
+    setHeight(height)
+  }
+
+  return (
+    <>
+      <Header onResize={onHeaderResize} />
+      <main style={{ paddingTop: height }}>{children}</main>
+    </>
+  )
+}
+
+const App = () => {
   return (
     <>
       <CssBaseline />
 
       <Grid container spacing={24}>
         <Grid item xs={12}>
-          <Header />
-
-          <main className={props.classes.main}>
-            <JobRunsIndex />
-          </main>
+          <Router>
+            <Main path="/">
+              <JobRunsIndex path="/" />
+              <JobRunsShow path="/job-runs/:jobRunId" />
+            </Main>
+          </Router>
         </Grid>
       </Grid>
     </>
   )
 }
 
-export default hot(withStyles(styles)(App))
+export default hot(App)
