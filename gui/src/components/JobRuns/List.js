@@ -123,12 +123,12 @@ const renderRuns = (runs, classes) => {
   )
 }
 
-const List = ({ jobSpecId, jobRuns, runs, showJobRunsCount, classes }) => (
+const List = ({ jobSpecId, runs, showJobRunsCount, classes }) => (
   <Card className={classes.jobRunsCard}>
     <Table>
       <TableBody>
         {renderRuns(runs, classes)}
-        {jobRuns && jobRuns.length > showJobRunsCount && (
+        {runs && runs.length > showJobRunsCount && (
           <TableRow>
             <TableCell>
               <div className={classes.runDetails}>
@@ -150,7 +150,6 @@ const List = ({ jobSpecId, jobRuns, runs, showJobRunsCount, classes }) => (
 List.propTypes = {
   jobSpecId: PropTypes.string.isRequired,
   runs: PropTypes.array.isRequired,
-  jobRuns: PropTypes.any.isRequired,
   showJobRunsCount: PropTypes.any.isRequired
 }
 
