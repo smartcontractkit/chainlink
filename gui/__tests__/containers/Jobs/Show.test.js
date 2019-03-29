@@ -2,14 +2,14 @@ import React from 'react'
 import createStore from 'connectors/redux'
 import syncFetch from 'test-helpers/syncFetch'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
-import { mount } from 'enzyme'
+import mountWithTheme from 'test-helpers/mountWithTheme'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { ConnectedShow as Show } from 'containers/Jobs/Show'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 
 const mountShow = props =>
-  mount(
+  mountWithTheme(
     <Provider store={createStore()}>
       <MemoryRouter>
         <Show {...props} />
