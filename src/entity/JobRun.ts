@@ -12,10 +12,13 @@ import { TaskRun } from './TaskRun'
 @Entity()
 export class JobRun {
   @PrimaryColumn()
-  id: string
+  id: number
 
   @Column()
-  jobId: string
+  runID: string
+
+  @Column()
+  jobID: string
 
   @Column()
   status: string
@@ -38,8 +41,8 @@ export class JobRun {
 export const fromString = (str: string): JobRun => {
   const json = JSON.parse(str)
   const jr = new JobRun()
-  jr.id = json.runID
-  jr.jobId = json.jobID
+  jr.runID = json.runID
+  jr.jobID = json.jobID
   jr.status = json.status
   jr.createdAt = new Date(json.createdAt)
   jr.completedAt = json.completedAt && new Date(json.completedAt)
@@ -62,6 +65,6 @@ export const search = async (
   searchTokens: Array<string>
 ): Promise<Array<JobRun>> => {
   return db.getRepository(JobRun).find({
-    where: [{ id: In(searchTokens) }, { jobId: In(searchTokens) }]
+    where: [{ runID: In(searchTokens) }, { jobID: In(searchTokens) }]
   })
 }

@@ -8,7 +8,7 @@ router.get('/job_runs', async (req: Request, res: Response) => {
   const searchQuery = req.query.query
   let params = {}
   if (searchQuery) {
-    params = { where: { jobId: searchQuery } }
+    params = { where: { jobID: searchQuery } }
   }
   const jobRuns = await getDb().manager.find(JobRun, params)
 
@@ -17,7 +17,7 @@ router.get('/job_runs', async (req: Request, res: Response) => {
 
 router.get('/job_runs/:id', async (req: Request, res: Response) => {
   const id = req.params.id
-  const params = { where: { id }, relations: ['taskRuns'] }
+  const params = { where: { runID }, relations: ['taskRuns'] }
   const jobRun = await getDb().manager.findOne(JobRun, params)
 
   if (jobRun) {
