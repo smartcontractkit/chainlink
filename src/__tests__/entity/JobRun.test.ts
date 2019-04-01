@@ -10,11 +10,11 @@ beforeEach(async () => clearDb())
 describe('fromString', () => {
   it('successfully creates a run and tasks from json', async () => {
     const jr = fromString(JSON.stringify(fixture))
-    expect(jr.id).toEqual('d19e1df47ecb40fa85e7f29b4c25cd6e')
-    expect(jr.jobId).toEqual('b7dbc97018ce4652b79f3f17e20fce00')
-    expect(jr.createdAt).toEqual(new Date('2019-03-25T12:33:34.956255-07:00'))
-    expect(jr.status).toEqual('in_progresss')
-    expect(jr.completedAt).toEqual(null)
+    expect(jr.id).toEqual('592f7aa58eca466bbeb21fefd0efe04f')
+    expect(jr.jobId).toEqual('aeb2861d306645b1ba012079aeb2e53a')
+    expect(jr.createdAt).toEqual(new Date('2019-04-01T22:07:04Z'))
+    expect(jr.status).toEqual('in_progress')
+    expect(jr.completedAt).toEqual(new Date('2018-04-01T22:07:04Z'))
     expect(jr.initiatorType).toEqual(fixture.initiator.type)
     expect(jr.taskRuns.length).toEqual(1)
     expect(jr.taskRuns[0].id).toEqual(fixture.taskRuns[0].id)
@@ -34,7 +34,7 @@ describe('fromString', () => {
       completedAt: null
     })
     const jr = fromString(JSON.stringify(fixtureWithoutCompletedAt))
-    expect(jr.id).toEqual(fixture.id)
+    expect(jr.id).toEqual('592f7aa58eca466bbeb21fefd0efe04f')
     expect(jr.completedAt).toEqual(null)
   })
 
@@ -62,7 +62,18 @@ describe('search', () => {
     const jr = fromString(JSON.stringify(fixture))
     await getDb().manager.save(jr)
 
-    const results = await search(getDb(), ['b7dbc97018ce4652b79f3f17e20fce00'])
+    const results = await search(getDb(), ['592f7aa58eca466bbeb21fefd0efe04f'])
+    expect(results).toHaveLength(1)
+  })
+
+  it('returns one result for an exact match on jobID and runID', async () => {
+    const jr = fromString(JSON.stringify(fixture))
+    await getDb().manager.save(jr)
+
+    const results = await search(getDb(), [
+      '592f7aa58eca466bbeb21fefd0efe04f',
+      'aeb2861d306645b1ba012079aeb2e53a'
+    ])
     expect(results).toHaveLength(1)
   })
 })

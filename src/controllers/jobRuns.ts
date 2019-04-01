@@ -15,7 +15,7 @@ router.get('/job_runs', async (req: Request, res: Response) => {
   return res.send(jobRuns)
 })
 
-router.get('/job_runs/:id', async (req: request, res: Response) => {
+router.get('/job_runs/:id', async (req: Request, res: Response) => {
   const id = req.params.id
   const params = { where: { id }, relations: ['taskRuns'] }
   const jobRun = await getDb().manager.findOne(JobRun, params)

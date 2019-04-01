@@ -23,9 +23,6 @@ export class JobRun {
   @Column({ nullable: true })
   error: string
 
-  @Column()
-  initiatorType: string
-
   @CreateDateColumn()
   createdAt: Date
 
@@ -44,7 +41,6 @@ export const fromString = (str: string): JobRun => {
   jr.id = json.runID
   jr.jobId = json.jobID
   jr.status = json.status
-  jr.initiatorType = json.initiator.type
   jr.createdAt = new Date(json.createdAt)
   jr.completedAt = json.completedAt && new Date(json.completedAt)
   jr.taskRuns = json.taskRuns.map((trstr: any, index: number) => {
