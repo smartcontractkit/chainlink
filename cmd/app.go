@@ -27,29 +27,41 @@ func NewApp(client *Client) *cli.App {
 	}
 	app.Commands = []cli.Command{
 		{
-			Name:    "node",
-			Aliases: []string{"n"},
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "api, a",
-					Usage: "text file holding the API email and password, each on a line",
+			Name:  "local",
+			Usage: "Commands which are run locally",
+			Subcommands: []cli.Command{
+				{
+					Name:    "node",
+					Aliases: []string{"n"},
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "api, a",
+							Usage: "text file holding the API email and password, each on a line",
+						},
+						cli.StringFlag{
+							Name:  "password, p",
+							Usage: "text file holding the password for the node's account",
+						},
+						cli.BoolFlag{
+							Name:  "debug, d",
+							Usage: "set logger level to debug",
+						},
+					},
+					Usage:  "Run the chainlink node",
+					Action: client.RunNode,
 				},
-				cli.StringFlag{
-					Name:  "password, p",
-					Usage: "text file holding the password for the node's account",
+				{
+					Name:   "deleteuser",
+					Usage:  "Erase the *local node's* user and corresponding session to force recreation on next node launch. Does not work remotely over API.",
+					Action: client.DeleteUser,
 				},
-				cli.BoolFlag{
-					Name:  "debug, d",
-					Usage: "set logger level to debug",
+				{
+					Name:    "import",
+					Aliases: []string{"i"},
+					Usage:   "Import a key file to use with the node",
+					Action:  client.ImportKey,
 				},
 			},
-			Usage:  "Run the chainlink node",
-			Action: client.RunNode,
-		},
-		{
-			Name:   "deleteuser",
-			Usage:  "Erase the *local node's* user and corresponding session to force recreation on next node launch. Does not work remotely over API.",
-			Action: client.DeleteUser,
 		},
 		{
 			Name:   "login",
@@ -108,12 +120,6 @@ func NewApp(client *Client) *cli.App {
 			Aliases: []string{"sr"},
 			Usage:   "Show a job run for a RunID",
 			Action:  client.ShowJobRun,
-		},
-		{
-			Name:    "import",
-			Aliases: []string{"i"},
-			Usage:   "Import a key file to use with the node",
-			Action:  client.ImportKey,
 		},
 		{
 			Name:   "bridge",
