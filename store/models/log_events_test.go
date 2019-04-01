@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	null "gopkg.in/guregu/null.v3"
 )
 
 func TestParseRunLog(t *testing.T) {
@@ -337,4 +338,14 @@ func TestRunLogEvent_Requester(t *testing.T) {
 			assert.Equal(t, test.want, received)
 		})
 	}
+}
+
+func TestRunLogEvent_InitiatorRun(t *testing.T) {
+	log := cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190207withoutIndexes.json")
+	rle := models.RunLogEvent{models.InitiatorLogEvent{Log: log}}
+	ir := rle.InitiatorRun()
+
+	assert.Equal(t, null.StringFrom("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"), ir.RequestID)
+	assert.Equal(t, "0x04250548cd0b5d03b3bf1331aa83f32b35879440db31a6008d151260a5f3cc76", ir.TxHash.Hex())
+	assert.Equal(t, common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40"), ir.Requester)
 }

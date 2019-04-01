@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/utils"
+	null "gopkg.in/guregu/null.v3"
 )
 
 // Descriptive indices of a RunLog's Topic array
@@ -128,6 +129,7 @@ type LogRequest interface {
 	ContractPayment() (*assets.Link, error)
 	ValidateRequester() error
 	BlockNumber() *big.Int
+	InitiatorRun() InitiatorRun
 }
 
 // InitiatorLogEvent encapsulates all information as a result of a received log from an
@@ -197,6 +199,14 @@ func (le InitiatorLogEvent) BlockNumber() *big.Int {
 	num := new(big.Int)
 	num.SetUint64(le.Log.BlockNumber)
 	return num
+}
+
+// InitiatorRun returns an initiator run with the transaction hash,
+// present on all log initiated runs.
+func (le InitiatorLogEvent) InitiatorRun() InitiatorRun {
+	return InitiatorRun{
+		TxHash: le.Log.TxHash,
+	}
 }
 
 // Validate returns true, no validation on this log event type.
@@ -304,6 +314,22 @@ func (le RunLogEvent) Requester() common.Address {
 		return common.BytesToAddress(le.Log.Topics[RequestLogTopicRequester].Bytes())
 	}
 	return common.BytesToAddress(le.Log.Data[:requesterSize])
+}
+
+// InitiatorRun returns an InitiatorRun instance with all parameters
+// from a run log topic, like RequestID.
+func (le RunLogEvent) InitiatorRun() InitiatorRun {
+	return InitiatorRun{
+		RequestID: null.StringFrom(le.parseRequestID()),
+		TxHash:    le.Log.TxHash,
+		Requester: le.Requester(),
+	}
+}
+
+func (le RunLogEvent) parseRequestID() string {
+	data := le.Log.Data
+	start := requesterSize
+	return common.BytesToHash(data[start : start+idSize]).Hex()
 }
 
 // JSON decodes the RunLogEvent's data converts it to a JSON object.
