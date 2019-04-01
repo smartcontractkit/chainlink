@@ -5,13 +5,13 @@ import {
   Entity,
   In,
   OneToMany,
-  PrimaryColumn
+  PrimaryGeneratedColumn
 } from 'typeorm'
 import { TaskRun } from './TaskRun'
 
 @Entity()
 export class JobRun {
-  @PrimaryColumn()
+  @PrimaryGeneratedColumn()
   id: number
 
   @Column()
