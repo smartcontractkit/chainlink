@@ -2,18 +2,17 @@ import React from 'react'
 import createStore from 'connectors/redux'
 import syncFetch from 'test-helpers/syncFetch'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
-import { mount } from 'enzyme'
+import mountWithTheme from 'test-helpers/mountWithTheme'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { ConnectedShow as Show } from 'containers/Jobs/Show'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 
-const classes = {}
 const mountShow = props =>
-  mount(
+  mountWithTheme(
     <Provider store={createStore()}>
       <MemoryRouter>
-        <Show classes={classes} {...props} />
+        <Show {...props} />
       </MemoryRouter>
     </Provider>
   )
@@ -29,7 +28,13 @@ describe('containers/Jobs/Show', () => {
       id: jobSpecId,
       initiators: [{ type: 'web' }],
       createdAt: minuteAgo,
-      runs: [{ id: 'runA', result: { data: { value: '8400.00' } } }]
+      runs: [
+        {
+          id: 'runA',
+          status: 'pending',
+          result: { data: { value: '8400.00' } }
+        }
+      ]
     })
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
 
@@ -41,11 +46,11 @@ describe('containers/Jobs/Show', () => {
     expect(wrapper.text()).toContain('Initiatorweb')
     expect(wrapper.text()).toContain('Created a minute ago')
     expect(wrapper.text()).toContain('Run Count1')
-    expect(wrapper.text()).toContain('{"value":"8400.00"}')
-    expect(wrapper.text()).not.toContain('Show More')
+    expect(wrapper.text()).toContain('Pending')
+    expect(wrapper.text()).not.toContain('View More')
   })
 
-  it('displays a show more link if there are more runs than the display count', async () => {
+  it('displays a view more link if there are more runs than the display count', async () => {
     const runs = [
       { id: 'runA', jobId: jobSpecId },
       { id: 'runB', jobId: jobSpecId },
@@ -63,6 +68,6 @@ describe('containers/Jobs/Show', () => {
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('Show More')
+    expect(wrapper.text()).toContain('View More')
   })
 })
