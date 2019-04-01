@@ -1,9 +1,11 @@
 import {
-  Entity,
-  PrimaryColumn,
   Column,
+  Connection,
   CreateDateColumn,
-  OneToMany
+  Entity,
+  In,
+  OneToMany,
+  PrimaryColumn
 } from 'typeorm'
 import { TaskRun } from './TaskRun'
 
@@ -36,11 +38,11 @@ export class JobRun {
   taskRuns: TaskRun[]
 }
 
-export const fromString = (str: any): JobRun => {
+export const fromString = (str: string): JobRun => {
   const json = JSON.parse(str)
   const jr = new JobRun()
-  jr.id = json.id
-  jr.jobId = json.jobId
+  jr.id = json.runID
+  jr.jobId = json.jobID
   jr.status = json.status
   jr.initiatorType = json.initiator.type
   jr.createdAt = new Date(json.createdAt)
@@ -57,4 +59,13 @@ export const fromString = (str: any): JobRun => {
   })
 
   return jr
+}
+
+export const search = async (
+  db: Connection,
+  searchTokens: Array<string>
+): Promise<Array<JobRun>> => {
+  return db.getRepository(JobRun).find({
+    where: [{ id: In(searchTokens) }, { jobId: In(searchTokens) }]
+  })
 }
