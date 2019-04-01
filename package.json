@@ -13,11 +13,10 @@
     "test": "yarn jest --detectOpenHandles",
     "lint": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
     "lint:fix": "eslint --fix --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
-    "schema:sync": "ts-node ./node_modules/.bin/typeorm schema:sync",
-    "migration:run": "ts-node ./node_modules/.bin/typeorm migration:run",
-    "migration:revert": "ts-node ./node_modules/.bin/typeorm migration:revert",
-    "test:schema:sync": "yarn schema:sync -c test",
-    "ci:schema:sync": "yarn schema:sync -c ci"
+    "migration:run": "ts-node ./src/bin/migrator.ts migrate",
+    "migration:revert": "ts-node ./src/bin/migrator.ts revert",
+    "test:migration:run": "TYPEORM_NAME=test ts-node ./src/bin/migrator.ts migrate",
+    "ci:migration:run": "TYPEORM_NAME=ci ts-node ./src/bin/migrator.ts migrate"
   },
   "main": "src/index.ts",
   "repository": {
@@ -28,14 +27,14 @@
     "node": "^11.12"
   },
   "dependencies": {
-    "@types/ws": "^6.0.1",
     "express": "^4.16.4",
     "pg": "^7.8.2",
     "reflect-metadata": "^0.1.13",
     "ts-node": "^8.0.3",
     "typeorm": "^0.2.15",
     "typescript": "^3.3.3333",
-    "ws": "^6.2.0"
+    "ws": "^6.2.0",
+    "yargs": "^13.2.2"
   },
   "devDependencies": {
     "@types/express": "^4.16.1",
@@ -44,6 +43,8 @@
     "@types/node": "^11.11.3",
     "@types/supertest": "^2.0.7",
     "@types/whatwg-fetch": "^0.0.33",
+    "@types/ws": "^6.0.1",
+    "@types/yargs": "^12.0.10",
     "@typescript-eslint/parser": "^1.5.0",
     "babel-jest": "23.6.0",
     "concurrently": "^4.1.0",
