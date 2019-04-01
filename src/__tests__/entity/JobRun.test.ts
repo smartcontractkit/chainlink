@@ -1,6 +1,7 @@
 import { createDbConnection, closeDbConnection, getDb } from '../../database'
 import { clearDb } from '../testdatabase'
 import { fromString, search } from '../../entity/JobRun'
+import { JOB_RUN_A_ID } from '../../seed'
 import fixture from './JobRun.fixture.json'
 
 beforeAll(async () => createDbConnection())
@@ -10,8 +11,8 @@ beforeEach(async () => clearDb())
 describe('fromString', () => {
   it('successfully creates a run and tasks from json', async () => {
     const jr = fromString(JSON.stringify(fixture))
-    expect(jr.id).toEqual('592f7aa58eca466bbeb21fefd0efe04f')
-    expect(jr.jobId).toEqual('aeb2861d306645b1ba012079aeb2e53a')
+    expect(jr.runID).toEqual(JOB_RUN_A_ID)
+    expect(jr.jobID).toEqual('aeb2861d306645b1ba012079aeb2e53a')
     expect(jr.createdAt).toEqual(new Date('2019-04-01T22:07:04Z'))
     expect(jr.status).toEqual('in_progress')
     expect(jr.completedAt).toEqual(new Date('2018-04-01T22:07:04Z'))
@@ -34,7 +35,7 @@ describe('fromString', () => {
       completedAt: null
     })
     const jr = fromString(JSON.stringify(fixtureWithoutCompletedAt))
-    expect(jr.id).toEqual('592f7aa58eca466bbeb21fefd0efe04f')
+    expect(jr.runID).toEqual(JOB_RUN_A_ID)
     expect(jr.completedAt).toEqual(null)
   })
 
@@ -48,7 +49,7 @@ describe('fromString', () => {
 })
 
 describe('search', () => {
-  beforeEach(async () => {
+  beforeAll(async () => {
     const jr = fromString(JSON.stringify(fixture))
     await getDb().manager.save(jr)
   })
@@ -59,10 +60,7 @@ describe('search', () => {
   })
 
   it('returns one result for an exact match on jobID', async () => {
-    const jr = fromString(JSON.stringify(fixture))
-    await getDb().manager.save(jr)
-
-    const results = await search(getDb(), ['592f7aa58eca466bbeb21fefd0efe04f'])
+    const results = await search(getDb(), [JOB_RUN_A_ID])
     expect(results).toHaveLength(1)
   })
 
@@ -71,7 +69,7 @@ describe('search', () => {
     await getDb().manager.save(jr)
 
     const results = await search(getDb(), [
-      '592f7aa58eca466bbeb21fefd0efe04f',
+      JOB_RUN_A_ID,
       'aeb2861d306645b1ba012079aeb2e53a'
     ])
     expect(results).toHaveLength(1)
