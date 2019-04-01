@@ -7,7 +7,6 @@ export class CreateJobRun1553105100407 implements MigrationInterface {
       "jobId" character varying NOT NULL,
       "status" character varying NOT NULL,
       "error" character varying,
-      "initiatorType" character varying NOT NULL,
       "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
       "completedAt" TIMESTAMP DEFAULT now(),
       CONSTRAINT "PK_96fe0b041b8bc157dcec25bd8ef" PRIMARY KEY ("id")
