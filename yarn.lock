@@ -2135,40 +2135,6 @@
     npmlog "^4.1.2"
     write-file-atomic "^2.3.0"
 
-"@machinomy/types-truffle-contract@^0.0.3":
-  version "0.0.3"
-  resolved "https://registry.npmjs.org/@machinomy/types-truffle-contract/-/types-truffle-contract-0.0.3.tgz#76442f485647382ce8d676af04ebcff35afee68f"
-  integrity sha1-dkQvSFZHOCzo1navBOvP81r+5o8=
-  dependencies:
-    "@machinomy/types-web3" "^0.0.4"
-    truffle-contract "^3.0.0"
-    web3 "^0.20.2"
-
-"@machinomy/types-truffle-contract@^0.0.4":
-  version "0.0.4"
-  resolved "https://registry.npmjs.org/@machinomy/types-truffle-contract/-/types-truffle-contract-0.0.4.tgz#0d0b0cef62ccc9a300aaef5d45f0881a932d0a42"
-  integrity sha512-rmJiDOnW7Ib3TxVSqELZWWPYuifIIGkH1kqP1ce5DL70uEXtEMDY4anTH56nfFtjlpjA4jFbs825ePtKUhcPDw==
-  dependencies:
-    "@machinomy/types-web3" "^0.0.4"
-    truffle-contract "^3.0.0"
-    web3 "^0.20.2"
-
-"@machinomy/types-truffle-deployer@^0.0.3":
-  version "0.0.3"
-  resolved "https://registry.npmjs.org/@machinomy/types-truffle-deployer/-/types-truffle-deployer-0.0.3.tgz#9e5883cc6932578e2ce6f6df6dcbba8cc35c43cb"
-  integrity sha1-nliDzGkyV44s5vbfbcu6jMNcQ8s=
-  dependencies:
-    "@machinomy/types-truffle-contract" "^0.0.3"
-    truffle-contract "^3.0.2"
-    truffle-deployer "^2.0.1"
-
-"@machinomy/types-web3@^0.0.4":
-  version "0.0.4"
-  resolved "https://registry.npmjs.org/@machinomy/types-web3/-/types-web3-0.0.4.tgz#aca033c0cabfc89757511410f5d5149af17fb497"
-  integrity sha1-rKAzwMq/yJdXURQQ9dUUmvF/tJc=
-  dependencies:
-    bignumber.js "^4.0.2"
-
 "@material-ui/core@^3.9.2":
   version "3.9.2"
   resolved "https://registry.npmjs.org/@material-ui/core/-/core-3.9.2.tgz#41ed1a470e981d199829eb5d9317a671c66a6f7d"
@@ -2813,6 +2779,11 @@
   dependencies:
     "@types/node" "*"
 
+"@types/estree@0.0.39":
+  version "0.0.39"
+  resolved "https://registry.yarnpkg.com/@types/estree/-/estree-0.0.39.tgz#e177e699ee1b8c22d23174caaa7422644389509f"
+  integrity sha512-EYNwp3bU+98cpU4lAWYYL7Zz+2gryWH1qbdDTidVd6hkiR6weksdbMadyXKXNPEkQFhXM+hVO9ZygomHXp+AIw==
+
 "@types/hoist-non-react-statics@^3.3.0":
   version "3.3.0"
   resolved "https://registry.npmjs.org/@types/hoist-non-react-statics/-/hoist-non-react-statics-3.3.0.tgz#a59c0c995cc885bef1b8ec2241b114f9b35b517b"
@@ -2847,6 +2818,11 @@
   version "10.14.4"
   resolved "https://registry.npmjs.org/@types/node/-/node-10.14.4.tgz#1c586b991457cbb58fef51bc4e0cfcfa347714b5"
   integrity sha512-DT25xX/YgyPKiHFOpNuANIQIVvYEwCWXgK2jYYwqgaMrYE6+tq+DtmMwlD3drl6DJbUwtlIDnn0d7tIn/EbXBg==
+
+"@types/node@^11.11.6":
+  version "11.13.0"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-11.13.0.tgz#b0df8d6ef9b5001b2be3a94d909ce3c29a80f9e1"
+  integrity sha512-rx29MMkRdVmzunmiA4lzBYJNnXsW/PhG4kMBy2ATsYaDjGGR75dCFEVVROKpNwlVdcUX3xxlghKQOeDPBJobng==
 
 "@types/node@^11.9.5":
   version "11.12.0"
@@ -3165,7 +3141,7 @@ acorn@^5.0.0, acorn@^5.5.0, acorn@^5.5.3:
   resolved "https://registry.npmjs.org/acorn/-/acorn-5.7.3.tgz#67aa231bf8812974b85235a96771eb6bd07ea279"
   integrity sha512-T/zvzYRfbVojPWahDsE5evJdHb3oJoQfFbsrKM7w5Zcs++Tr257tia3BmMP8XYVjp1S9RZXQMh7gao96BlqZOw==
 
-acorn@^6.0.1, acorn@^6.0.5, acorn@^6.0.7:
+acorn@^6.0.1, acorn@^6.0.5, acorn@^6.0.7, acorn@^6.1.1:
   version "6.1.1"
   resolved "https://registry.npmjs.org/acorn/-/acorn-6.1.1.tgz#7d25ae05bb8ad1f9b699108e1094ecd7884adc1f"
   integrity sha512-jPTiwtOxaHNaAPg/dmrJ/beuzLRnXtB0kQPQ8JpotKJgTB6rX6c8mlf315941pyjBSaPg8NHXS9fhP4u17DpGA==
@@ -13248,8 +13224,6 @@ openzeppelin-solidity@^1.12.0:
     "@babel/preset-stage-2" "^7.0.0"
     "@babel/preset-typescript" "^7.1.0"
     "@babel/register" "^7.0.0"
-    "@machinomy/types-truffle-contract" "^0.0.4"
-    "@machinomy/types-truffle-deployer" "^0.0.3"
     "@material-ui/core" "^3.9.2"
     "@material-ui/icons" "^3.0.1"
     "@storybook/react" "^4.0.9"
@@ -13259,11 +13233,9 @@ openzeppelin-solidity@^1.12.0:
     "@types/react-dom" "^16.7.0"
     "@types/react-redux" "^7.0.1"
     axios "^0.18.0"
-    babel-jest "^24.1.0"
     bignumber.js "^8.0.1"
     change-case "^3.0.2"
     console.table "^0.10.0"
-    cross-env "^5.2.0"
     enzyme "^3.4.4"
     enzyme-adapter-react-16 "^1.2.0"
     enzyme-matchers "^7.0.1"
@@ -13271,9 +13243,6 @@ openzeppelin-solidity@^1.12.0:
     formik "^1.0.3"
     humps "^2.0.1"
     isomorphic-unfetch "^3.0.0"
-    jest "^24.1.0"
-    jest-environment-enzyme "^7.0.1"
-    jest-silent-reporter "^0.1.0"
     json-api-normalizer "^0.4.13"
     json-pretty-html "^1.1.2"
     local-storage-fallback "^4.1.1"
@@ -15928,6 +15897,15 @@ rlp@^2.0.0:
     bn.js "^4.11.1"
     safe-buffer "^5.1.1"
 
+rollup@^1.7.4:
+  version "1.7.4"
+  resolved "https://registry.yarnpkg.com/rollup/-/rollup-1.7.4.tgz#dd9d1d4935d3db38f16e1caaef635d8d1b0831c4"
+  integrity sha512-nc86fETLHdozhRWlW/uNVIQ7ODuA1vU2/L8znAxP9TNMx1NA6GTth3llqoxxCle2kkyui+OfGzbKaQxD60NJjA==
+  dependencies:
+    "@types/estree" "0.0.39"
+    "@types/node" "^11.11.6"
+    acorn "^6.1.1"
+
 rootpath@0.1.2:
   version "0.1.2"
   resolved "https://registry.npmjs.org/rootpath/-/rootpath-0.1.2.tgz#5b379a87dca906e9b91d690a599439bef267ea6b"
@@ -17718,7 +17696,7 @@ truffle-contract-schema@^2.0.2:
     crypto-js "^3.1.9-1"
     debug "^3.1.0"
 
-truffle-contract@^3.0.0, truffle-contract@^3.0.2, truffle-contract@^3.0.6, truffle-contract@^3.0.7:
+truffle-contract@^3.0.6:
   version "3.0.7"
   resolved "https://registry.yarnpkg.com/truffle-contract/-/truffle-contract-3.0.7.tgz#487b2e1e9c5f01d223148766f6f320ba16bb4f63"
   integrity sha512-av4MTJDP29PI3oVh8TrvRzRHt+nZJH8ODSiil/TfcXrKMSes52DTA5LHj00siLvcadkxUgoEZfEZ04qqhNGoiA==
@@ -17729,23 +17707,10 @@ truffle-contract@^3.0.0, truffle-contract@^3.0.2, truffle-contract@^3.0.6, truff
     truffle-error "^0.0.3"
     web3 "0.20.6"
 
-truffle-deployer@^2.0.1:
-  version "2.0.8"
-  resolved "https://registry.npmjs.org/truffle-deployer/-/truffle-deployer-2.0.8.tgz#1bbc4307010a0c63a654f9c27399657273d0f1ea"
-  integrity sha512-g6pGDt4ld1mY+fA7eZAwKl974LH0nCIskGJUwHgMLA4kPIeXzZCAbDNY8jOgQy1D8JzquO7TMlaa97pK3bVrCw==
-  dependencies:
-    truffle-contract "^3.0.7"
-    truffle-expect "^0.0.4"
-
 truffle-error@^0.0.3:
   version "0.0.3"
   resolved "https://registry.yarnpkg.com/truffle-error/-/truffle-error-0.0.3.tgz#4bf55242e14deee1c7194932709182deff2c97ca"
   integrity sha1-S/VSQuFN7uHHGUkycJGC3v8sl8o=
-
-truffle-expect@^0.0.4:
-  version "0.0.4"
-  resolved "https://registry.npmjs.org/truffle-expect/-/truffle-expect-0.0.4.tgz#d5b27adea4c552f43b70dc00877236b7b68c75c8"
-  integrity sha1-1bJ63qTFUvQ7cNwAh3I2t7aMdcg=
 
 truffle-flattener@^1.3.0:
   version "1.3.0"
@@ -18662,17 +18627,6 @@ web3@^0.19.1:
     xhr2 "*"
     xmlhttprequest "*"
 
-web3@^0.20.2:
-  version "0.20.7"
-  resolved "https://registry.npmjs.org/web3/-/web3-0.20.7.tgz#1605e6d81399ed6f85a471a4f3da0c8be57df2f7"
-  integrity sha512-VU6/DSUX93d1fCzBz7WP/SGCQizO1rKZi4Px9j/3yRyfssHyFcZamMw2/sj4E8TlfMXONvZLoforR8B4bRoyTQ==
-  dependencies:
-    bignumber.js "git+https://github.com/frozeman/bignumber.js-nolookahead.git"
-    crypto-js "^3.1.4"
-    utf8 "^2.1.1"
-    xhr2-cookies "^1.1.0"
-    xmlhttprequest "*"
-
 web3@^1.0.0-beta.35:
   version "1.0.0-beta.50"
   resolved "https://registry.npmjs.org/web3/-/web3-1.0.0-beta.50.tgz#a82db1ac519e68696363eee46d9b233f52f37eed"
@@ -19125,7 +19079,7 @@ xhr-request@^1.0.1:
     url-set-query "^1.0.0"
     xhr "^2.0.4"
 
-xhr2-cookies@1.1.0, xhr2-cookies@^1.1.0:
+xhr2-cookies@1.1.0:
   version "1.1.0"
   resolved "https://registry.npmjs.org/xhr2-cookies/-/xhr2-cookies-1.1.0.tgz#7d77449d0999197f155cb73b23df72505ed89d48"
   integrity sha1-fXdEnQmZGX8VXLc7I99yUF7YnUg=

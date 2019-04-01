@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := build
-.PHONY: godep lerna build install gui docker dockerpush
+.PHONY: godep yarndep build install gui docker dockerpush
 
 ENVIRONMENT ?= release
 
@@ -37,14 +37,13 @@ godep: ## Ensure chainlink's go dependencies are installed.
 	fi || true
 	dep ensure -vendor-only
 
-lerna: ## Ensure the frontend's dependencies are installed.
+yarndep: ## Ensure the frontend's dependencies are installed.
 	yarn install --frozen-lockfile
-	lerna bootstrap
 
 install: godep gui $(SGX_BUILD_ENCLAVE) ## Install chainlink
 	go install $(GOFLAGS)
 
-gui: lerna ## Install GUI
+gui: yarndep ## Install GUI
 	cd gui && CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
 	CGO_ENABLED=0 go run gui/main.go "${CURDIR}/services"
 
