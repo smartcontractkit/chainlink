@@ -20,6 +20,25 @@ func ExecuteJob(
 	input models.RunResult,
 	creationHeight *big.Int,
 	store *store.Store) (*models.JobRun, error) {
+	return ExecuteJobWithInitiatorRun(
+		job,
+		initiator,
+		input,
+		creationHeight,
+		store,
+		models.NewInitiatorRun(),
+	)
+}
+
+// ExecuteJobWithInitiatorRun saves and immediately begins executing a run
+// for a specified job, assiging the passed initiator run, if it is ready.
+func ExecuteJobWithInitiatorRun(
+	job models.JobSpec,
+	initiator models.Initiator,
+	input models.RunResult,
+	creationHeight *big.Int,
+	store *store.Store,
+	initiatorRun models.InitiatorRun) (*models.JobRun, error) {
 
 	logger.Debugw(fmt.Sprintf("New run triggered by %s", initiator.Type),
 		"job", job.ID,
@@ -32,6 +51,7 @@ func ExecuteJob(
 		return nil, err
 	}
 
+	run.InitiatorRun = initiatorRun
 	return run, createAndTrigger(run, store)
 }
 

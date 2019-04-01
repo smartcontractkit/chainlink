@@ -147,11 +147,16 @@ func JobRunsWithStatus(runs []JobRun, status RunStatus) []JobRun {
 
 // InitiatorRun stores the fields used to initiate the parent job run.
 type InitiatorRun struct {
-	ID        uint
+	ID        uint `gorm:"primary_key"`
 	RequestID null.String
 	TxHash    common.Hash
 	Requester common.Address
 	CreatedAt time.Time
+}
+
+// NewInitiatorRun returns a new InitiatorRun instance.
+func NewInitiatorRun() InitiatorRun {
+	return InitiatorRun{}
 }
 
 // TaskRun stores the Task and represents the status of the
