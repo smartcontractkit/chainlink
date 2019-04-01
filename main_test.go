@@ -37,8 +37,7 @@ func ExampleRun() {
 	//    unset@unset
 	//
 	// COMMANDS:
-	//      node, n                   Run the chainlink node
-	//      deleteuser                Erase the *local node's* user and corresponding session to force recreation on next node launch. Does not work remotely over API.
+	//      local                     Commands which are run locally
 	//      login                     Login to remote client by creating a session cookie
 	//      account, a                Display the account address with its ETH & LINK balances
 	//      jobspecs, jobs, j, specs  Get all jobs
@@ -47,7 +46,6 @@ func ExampleRun() {
 	//      archivejob                Archive job and all associated runs
 	//      run, r                    Begin job run for specid
 	//      showrun, sr               Show a job run for a RunID
-	//      import, i                 Import a key file to use with the node
 	//      bridge                    Add a new bridge to the node
 	//      getbridges                List all bridges added to the node
 	//      showbridge                Show a specific bridge
