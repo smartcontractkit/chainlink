@@ -341,11 +341,47 @@ func TestRunLogEvent_Requester(t *testing.T) {
 }
 
 func TestRunLogEvent_InitiatorRun(t *testing.T) {
-	log := cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190207withoutIndexes.json")
-	rle := models.RunLogEvent{models.InitiatorLogEvent{Log: log}}
-	ir := rle.InitiatorRun()
+	t.Parallel()
 
-	assert.Equal(t, null.StringFrom("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"), ir.RequestID)
-	assert.Equal(t, "0x04250548cd0b5d03b3bf1331aa83f32b35879440db31a6008d151260a5f3cc76", ir.TxHash.Hex())
-	assert.Equal(t, common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40"), ir.Requester)
+	tests := []struct {
+		name      string
+		log       models.Log
+		requester common.Address
+		txhash    string
+		requestID string
+	}{
+		{
+			name:      "old non-commitment",
+			log:       cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog0original.json"),
+			requestID: "0x0000000000000000000000000000000000000000000000000000000000000017",
+			txhash:    "0xe05b171038320aca6634ce50de669bd0baa337130269c3ce3594ce4d45fc342a",
+			requester: common.HexToAddress("0xd352677fcded6c358e03c73ea2a8a2832dffc0a4"),
+		},
+		{
+			name:      "20190123 with fulfillment params",
+			log:       cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190123withFulfillmentParams.json"),
+			requestID: "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8",
+			txhash:    "0x04250548cd0b5d03b3bf1331aa83f32b35879440db31a6008d151260a5f3cc76",
+			requester: common.HexToAddress("0x9fbda871d559710256a2502a2517b794b482db41"),
+		},
+		{
+			name:      "20190207 without indexes",
+			log:       cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190207withoutIndexes.json"),
+			requestID: "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8",
+			txhash:    "0x04250548cd0b5d03b3bf1331aa83f32b35879440db31a6008d151260a5f3cc76",
+			requester: common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rle := models.RunLogEvent{models.InitiatorLogEvent{Log: test.log}}
+			ir, err := rle.InitiatorRun()
+			require.NoError(t, err)
+
+			assert.Equal(t, null.StringFrom(test.requestID), ir.RequestID)
+			assert.Equal(t, test.txhash, ir.TxHash.Hex())
+			assert.Equal(t, test.requester, ir.Requester)
+		})
+	}
 }

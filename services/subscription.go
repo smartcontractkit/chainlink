@@ -159,14 +159,18 @@ func runJob(store *strpkg.Store, le models.LogRequest, data models.JSON) {
 		input.SetError(err)
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
-
+	ir, err := le.InitiatorRun()
+	if err != nil {
+		input.SetError(err)
+		logger.Errorw(err.Error(), le.ForLogger()...)
+	}
 	_, err = ExecuteJobWithInitiatorRun(
 		le.GetJobSpec(),
 		le.GetInitiator(),
 		input,
 		le.BlockNumber(),
 		store.Unscoped(),
-		le.InitiatorRun(),
+		ir,
 	)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
