@@ -3,6 +3,7 @@ package synchronization
 import (
 	"encoding/json"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -16,30 +17,16 @@ type SyncJobRunPresenter struct {
 
 // MarshalJSON returns the JobRun as JSON
 func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
-	type SyncTaskRunPresenter struct {
-		Index  int         `json:"index"`
-		Type   string      `json:"type"`
-		Status string      `json:"status"`
-		Error  null.String `json:"error"`
-	}
-	tasks := []SyncTaskRunPresenter{}
-	for index, task := range p.TaskRuns {
-		tasks = append(tasks, SyncTaskRunPresenter{
-			Index:  index,
-			Type:   string(task.TaskSpec.Type),
-			Status: string(task.Status),
-			Error:  task.Result.ErrorMessage,
-		})
-	}
 	return json.Marshal(&struct {
-		JobID       string                 `json:"jobID"`
-		RunID       string                 `json:"runID"`
-		Status      string                 `json:"status"`
-		Error       null.String            `json:"error"`
-		CreatedAt   string                 `json:"createdAt"`
-		Amount      *assets.Link           `json:"amount"`
-		CompletedAt null.Time              `json:"completedAt"`
-		Tasks       []SyncTaskRunPresenter `json:"tasks"`
+		JobID       string                    `json:"jobID"`
+		RunID       string                    `json:"runID"`
+		Status      string                    `json:"status"`
+		Error       null.String               `json:"error"`
+		CreatedAt   string                    `json:"createdAt"`
+		Amount      *assets.Link              `json:"amount"`
+		CompletedAt null.Time                 `json:"completedAt"`
+		Initiator   syncInitiatorRunPresenter `json:"initiator"`
+		Tasks       []syncTaskRunPresenter    `json:"tasks"`
 	}{
 		RunID:       p.ID,
 		JobID:       p.JobSpecID,
@@ -48,6 +35,43 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 		CreatedAt:   utils.ISO8601UTC(p.CreatedAt),
 		Amount:      p.Result.Amount,
 		CompletedAt: p.CompletedAt,
-		Tasks:       tasks,
+		Initiator:   p.initiator(),
+		Tasks:       p.tasks(),
 	})
+}
+
+func (p SyncJobRunPresenter) initiator() syncInitiatorRunPresenter {
+	return syncInitiatorRunPresenter{
+		Type:      p.Initiator.Type,
+		RequestID: p.InitiatorRun.RequestID,
+		TxHash:    p.InitiatorRun.TxHash,
+		Requester: models.EIP55Address(p.InitiatorRun.Requester.Hex()),
+	}
+}
+
+func (p SyncJobRunPresenter) tasks() []syncTaskRunPresenter {
+	tasks := []syncTaskRunPresenter{}
+	for index, task := range p.TaskRuns {
+		tasks = append(tasks, syncTaskRunPresenter{
+			Index:  index,
+			Type:   string(task.TaskSpec.Type),
+			Status: string(task.Status),
+			Error:  task.Result.ErrorMessage,
+		})
+	}
+	return tasks
+}
+
+type syncInitiatorRunPresenter struct {
+	Type      string              `json:"type"`
+	RequestID null.String         `json:"requestId"`
+	TxHash    common.Hash         `json:"txHash"`
+	Requester models.EIP55Address `json:"requester"`
+}
+
+type syncTaskRunPresenter struct {
+	Index  int         `json:"index"`
+	Type   string      `json:"type"`
+	Status string      `json:"status"`
+	Error  null.String `json:"error"`
 }
