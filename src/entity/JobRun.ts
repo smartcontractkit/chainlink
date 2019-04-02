@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn
 } from 'typeorm'
 import { TaskRun } from './TaskRun'
+import { Option } from 'prelude-ts'
 
 @Entity()
 export class JobRun {
@@ -62,9 +63,16 @@ export const fromString = (str: string): JobRun => {
 
 export const search = async (
   db: Connection,
-  searchTokens: Array<string>
+  searchQueryOption: Option<string>
 ): Promise<Array<JobRun>> => {
-  return db.getRepository(JobRun).find({
-    where: [{ runId: In(searchTokens) }, { jobId: In(searchTokens) }]
-  })
+  let params = {}
+
+  if (searchQueryOption.isSome()) {
+    const searchTokens = searchQueryOption.get().split(/\s+/)
+    params = {
+      where: [{ runId: In(searchTokens) }, { jobId: In(searchTokens) }]
+    }
+  }
+
+  return db.getRepository(JobRun).find(params)
 }
