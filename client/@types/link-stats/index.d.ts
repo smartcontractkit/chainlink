@@ -1,8 +1,8 @@
 interface IJobRun {
-  id: string
+  id: number
+  runId: string
   jobId: string
   status: string
-  initiatorType: string
   error?: string
   createdAt: string
   completedAt?: string
@@ -10,6 +10,8 @@ interface IJobRun {
 }
 
 interface ITaskRun {
-  id: string
+  id: number
   type: string
+  status: string
+  error?: string
 }

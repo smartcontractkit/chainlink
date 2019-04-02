@@ -54,7 +54,7 @@ describe('#show', () => {
       `/api/v1/job_runs/${JOB_RUN_B_ID}`
     )
     expect(response.status).toEqual(200)
-    expect(response.body.runID).toEqual(JOB_RUN_B_ID)
+    expect(response.body.runId).toEqual(JOB_RUN_B_ID)
     expect(response.body.taskRuns.length).toEqual(1)
   })
 

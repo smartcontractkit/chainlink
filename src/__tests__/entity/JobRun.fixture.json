@@ -12,24 +12,6 @@
       "type": "httpget",
       "status": "",
       "error": null
-    },
-    {
-      "index": 1,
-      "type": "jsonparse",
-      "status": "",
-      "error": null
-    },
-    {
-      "index": 2,
-      "type": "ethbytes32",
-      "status": "",
-      "error": null
-    },
-    {
-      "index": 3,
-      "type": "ethtx",
-      "status": "",
-      "error": null
     }
   ]
 }

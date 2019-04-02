@@ -17,7 +17,6 @@ export default async () => {
     await dbConnection.manager.save(jobRunA)
 
     const taskRunA = new TaskRun()
-    taskRunA.id = '5828158b-e075-466e-aabb-f1a52827d3a5'
     taskRunA.jobRun = jobRunA
     taskRunA.index = 0
     taskRunA.status = 'in_progress'
@@ -33,7 +32,6 @@ export default async () => {
     await dbConnection.manager.save(jobRunB)
 
     const taskRunB = new TaskRun()
-    taskRunB.id = 'd62fbeb6-dc92-4191-87a3-b3c1ac4899ee'
     taskRunB.jobRun = jobRunB
     taskRunB.index = 0
     taskRunB.status = 'completed'

@@ -1,10 +1,10 @@
-import { Entity, PrimaryColumn, Column, ManyToOne } from 'typeorm'
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm'
 import { JobRun } from './JobRun'
 
 @Entity()
 export class TaskRun {
-  @PrimaryColumn()
-  id: string
+  @PrimaryGeneratedColumn()
+  id: number
 
   @ManyToOne(type => JobRun, jobRun => jobRun.taskRuns)
   jobRun: JobRun
@@ -19,5 +19,5 @@ export class TaskRun {
   status: string
 
   @Column({ nullable: true })
-  error: string
+  error?: string
 }
