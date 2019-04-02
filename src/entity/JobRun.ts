@@ -4,10 +4,12 @@ import {
   CreateDateColumn,
   Entity,
   In,
+  OneToOne,
   OneToMany,
   PrimaryGeneratedColumn
 } from 'typeorm'
 import { TaskRun } from './TaskRun'
+import { Initiator } from './Initiator'
 
 @Entity()
 export class JobRun {
@@ -36,6 +38,11 @@ export class JobRun {
     onDelete: 'CASCADE'
   })
   taskRuns: Array<TaskRun>
+
+  @OneToOne(type => Initiator, initiator => initiator.jobRun, {
+    onDelete: 'CASCADE'
+  })
+  initiator: Initiator
 }
 
 export const fromString = (str: string): JobRun => {
@@ -46,6 +53,7 @@ export const fromString = (str: string): JobRun => {
   jr.status = json.status
   jr.createdAt = new Date(json.createdAt)
   jr.completedAt = json.completedAt && new Date(json.completedAt)
+  jr.initiator = new Initiator()
   jr.taskRuns = json.tasks.map((trstr: any, index: number) => {
     const tr = new TaskRun()
     tr.index = index
