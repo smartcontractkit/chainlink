@@ -49,7 +49,7 @@ describe('fromString', () => {
 })
 
 describe('search', () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     const jr = fromString(JSON.stringify(fixture))
     await getDb().manager.save(jr)
   })
@@ -65,9 +65,6 @@ describe('search', () => {
   })
 
   it('returns one result for an exact match on jobID and runID', async () => {
-    const jr = fromString(JSON.stringify(fixture))
-    await getDb().manager.save(jr)
-
     const results = await search(getDb(), [
       JOB_RUN_A_ID,
       'aeb2861d306645b1ba012079aeb2e53a'
