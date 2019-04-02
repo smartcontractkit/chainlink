@@ -52,7 +52,7 @@ const Details = ({ classes, jobRun }: IProps) => {
         </TableRow>
         <TableRow>
           <Col>Initiator</Col>
-          <Col>{jobRun.initiatorType}</Col>
+          <Col>RunLog</Col>
         </TableRow>
         <TableRow>
           <Col>Completed At</Col>
