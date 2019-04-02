@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
@@ -12,11 +13,21 @@ import (
 )
 
 func TestSyncJobRunPresenter(t *testing.T) {
+	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
+
 	jobRun := models.JobRun{
 		ID:        "runID-411",
 		JobSpecID: "jobSpecID-312",
 		Status:    models.RunStatusInProgress,
 		Result:    models.RunResult{Amount: assets.NewLink(2)},
+		Initiator: models.Initiator{
+			Type: models.InitiatorRunLog,
+		},
+		InitiatorRun: models.InitiatorRun{
+			RequestID: null.StringFrom("RequestID"),
+			TxHash:    common.HexToHash("0xdeadbeef"),
+			Requester: newAddress,
+		},
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
 				ID:     "task0RunID-938",
@@ -46,6 +57,13 @@ func TestSyncJobRunPresenter(t *testing.T) {
 	assert.Equal(t, data["amount"], "2")
 	assert.Equal(t, data["completedAt"], nil)
 	assert.Contains(t, data, "tasks")
+
+	initiator, ok := data["initiator"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, initiator["type"], "runlog")
+	assert.Equal(t, initiator["requestId"], "RequestID")
+	assert.Equal(t, initiator["txHash"], "0x00000000000000000000000000000000000000000000000000000000deadbeef")
+	assert.Equal(t, initiator["requester"], newAddress.Hex())
 
 	tasks, ok := data["tasks"].([]interface{})
 	require.True(t, ok)
