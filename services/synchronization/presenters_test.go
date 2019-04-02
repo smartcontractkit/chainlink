@@ -95,6 +95,8 @@ func TestSyncJobRunPresenter_Initiators(t *testing.T) {
 		keyCount  int
 	}{
 		{models.InitiatorWeb, models.InitiatorRun{}, 1},
+		{models.InitiatorCron, models.InitiatorRun{}, 1},
+		{models.InitiatorRunAt, models.InitiatorRun{}, 1},
 		{models.InitiatorEthLog, models.InitiatorRun{TxHash: &txHash}, 2},
 		{
 			models.InitiatorRunLog,
