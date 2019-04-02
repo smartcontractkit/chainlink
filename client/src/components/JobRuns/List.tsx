@@ -1,14 +1,14 @@
 import React from 'react'
 import Paper from '@material-ui/core/Paper'
 import Table from '../Table'
-import { LinkColumn, TextColumn } from '../Table/TableCell'
+import { LinkColumn, TextColumn, TimeAgoColumn } from '../Table/TableCell'
 
 interface IProps {
   jobRuns?: any[]
   className?: string
 }
 
-const HEADERS = ['Run ID', 'Job ID']
+const HEADERS = ['Run ID', 'Job ID', 'Created At']
 
 const List = ({ jobRuns, className }: IProps) => {
   let rows
@@ -21,8 +21,12 @@ const List = ({ jobRuns, className }: IProps) => {
         to: `/job-runs/${r.id}`
       }
       const jobIdCol: TextColumn = { type: 'text', text: r.id }
+      const createdAtCol: TimeAgoColumn = {
+        type: 'time_ago',
+        text: r.createdAt
+      }
 
-      return [idCol, jobIdCol]
+      return [idCol, jobIdCol, createdAtCol]
     })
   }
 

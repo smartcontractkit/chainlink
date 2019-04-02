@@ -4,7 +4,7 @@ import Tooltip from './Tooltip'
 
 interface IProps {
   children: string
-  tooltip: boolean
+  tooltip?: boolean
 }
 
 const TimeAgo = ({ children, tooltip }: IProps) => {
