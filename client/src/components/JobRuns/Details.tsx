@@ -27,7 +27,7 @@ const Col = ({ children, className }: IColProps) => (
   </BaseCol>
 )
 
-const styles = ({ spacing }: Theme) =>
+const styles = () =>
   createStyles({
     bottomCol: {
       borderBottom: 'none'
