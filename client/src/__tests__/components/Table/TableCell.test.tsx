@@ -4,8 +4,9 @@ import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableRow from '@material-ui/core/TableRow'
 import TableCell, {
-  TextColumn,
-  LinkColumn
+  LinkColumn,
+  TimeAgoColumn,
+  TextColumn
 } from '../../../components/Table/TableCell'
 
 const mountWithinTableRow = (component: React.ReactNode) => {
@@ -36,5 +37,15 @@ describe('components/Table/TableCell', () => {
 
     expect(wrapper.text()).toContain('Hello World')
     expect(wrapper.find('a').props().href).toEqual('/world')
+  })
+
+  it('can render time ago columns', () => {
+    const col: TimeAgoColumn = {
+      type: 'time_ago',
+      text: new Date().toISOString()
+    }
+    const wrapper = mountWithinTableRow(<TableCell column={col} />)
+
+    expect(wrapper.text()).toContain('just now')
   })
 })
