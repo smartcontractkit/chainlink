@@ -9,7 +9,7 @@ export class CreateJobRun1553105100407 implements MigrationInterface {
       "status" character varying NOT NULL,
       "error" character varying,
       "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
-      "completedAt" TIMESTAMP DEFAULT now()
+      "completedAt" TIMESTAMP
     )`)
     await queryRunner.query(`CREATE INDEX job_id_idx ON "job_run" ("jobId")`)
   }

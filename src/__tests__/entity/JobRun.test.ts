@@ -11,23 +11,22 @@ beforeEach(async () => clearDb())
 describe('fromString', () => {
   it('successfully creates a run and tasks from json', async () => {
     const jr = fromString(JSON.stringify(fixture))
+    expect(jr.id).toBeUndefined()
     expect(jr.runId).toEqual(JOB_RUN_A_ID)
     expect(jr.jobId).toEqual('aeb2861d306645b1ba012079aeb2e53a')
     expect(jr.createdAt).toEqual(new Date('2019-04-01T22:07:04Z'))
     expect(jr.status).toEqual('in_progress')
     expect(jr.completedAt).toEqual(new Date('2018-04-01T22:07:04Z'))
-    expect(jr.initiatorType).toEqual(fixture.initiator.type)
     expect(jr.taskRuns.length).toEqual(1)
-    expect(jr.taskRuns[0].id).toEqual(fixture.taskRuns[0].id)
+    expect(jr.taskRuns[0].id).toBeUndefined()
     expect(jr.taskRuns[0].index).toEqual(0)
-    expect(jr.taskRuns[0].type).toEqual(fixture.taskRuns[0].task.type)
-    expect(jr.taskRuns[0].status).toEqual(fixture.taskRuns[0].status)
-    expect(jr.taskRuns[0].error).toEqual(fixture.taskRuns[0].result.error)
+    expect(jr.taskRuns[0].type).toEqual('httpget')
+    expect(jr.taskRuns[0].status).toEqual('')
+    expect(jr.taskRuns[0].error).toEqual(null)
 
     const r = await getDb().manager.save(jr)
     expect(r.id).toBeDefined()
     expect(r.taskRuns.length).toEqual(1)
-    expect(r.taskRuns[0].id).toBeDefined()
   })
 
   it('creates when completedAt is null', () => {

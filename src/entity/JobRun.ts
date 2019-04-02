@@ -35,7 +35,7 @@ export class JobRun {
   @OneToMany(type => TaskRun, taskRun => taskRun.jobRun, {
     onDelete: 'CASCADE'
   })
-  taskRuns: TaskRun[]
+  taskRuns: Array<TaskRun>
 }
 
 export const fromString = (str: string): JobRun => {
@@ -46,13 +46,12 @@ export const fromString = (str: string): JobRun => {
   jr.status = json.status
   jr.createdAt = new Date(json.createdAt)
   jr.completedAt = json.completedAt && new Date(json.completedAt)
-  jr.taskRuns = json.taskRuns.map((trstr: any, index: number) => {
+  jr.taskRuns = json.tasks.map((trstr: any, index: number) => {
     const tr = new TaskRun()
-    tr.id = trstr.id
     tr.index = index
-    tr.type = trstr.task.type
+    tr.type = trstr.type
     tr.status = trstr.status
-    tr.error = trstr.result.error
+    tr.error = trstr.error
 
     return tr
   })
