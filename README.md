@@ -40,7 +40,7 @@ Ethereum node versions currently tested and supported:
 
 To start your Chainlink node, simply run:
 ```bash
-$ chainlink node
+$ chainlink local node
 ```
 By default this will start on port 6688, where it exposes a [REST API](https://github.com/smartcontractkit/chainlink/wiki/REST-API).
 

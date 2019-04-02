@@ -33,17 +33,17 @@ if [ "$#" == 0 ]; then
   yarn install --no-progress | cat
   yarn build | cat
   popd >/dev/null
-  mainexec import $DEFAULT_KEY_PATH
-  mainexec node -d -p $ROOT/password.txt -a $ROOT/apicredentials
+  mainexec local import $DEFAULT_KEY_PATH
+  mainexec local node -d -p $ROOT/password.txt -a $ROOT/apicredentials
   exit
 fi
 
 case "$1" in
   node | n)
     echo "** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
-    mainexec import $DEFAULT_KEY_PATH
+    mainexec local import $DEFAULT_KEY_PATH
     echo "** Running node"
-    mainexec node -d -p $ROOT/password.txt -a $ROOT/apicredentials ${@:2}
+    mainexec local node -d -p $ROOT/password.txt -a $ROOT/apicredentials ${@:2}
     ;;
   clean)
     rm -f $ROOT/db.sqlite3 $ROOT/log.jsonl
