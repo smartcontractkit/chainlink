@@ -541,10 +541,10 @@ func TestExecuteJobWithRunRequest(t *testing.T) {
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
 	require.NoError(t, store.CreateJob(&job))
 
-	deadbeef := null.StringFrom("0xdeadbeef")
+	requestID := "RequestID"
 	initr := job.Initiators[0]
 	rr := models.NewRunRequest()
-	rr.RequestID = &deadbeef
+	rr.RequestID = &requestID
 	jr, err := services.ExecuteJobWithRunRequest(
 		job,
 		initr,

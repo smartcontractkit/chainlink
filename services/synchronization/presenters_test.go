@@ -14,7 +14,7 @@ import (
 
 func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
-	requestID := null.StringFrom("RequestID")
+	requestID := "RequestID"
 	txHash := common.HexToHash("0xdeadbeef")
 
 	jobRun := models.JobRun{
@@ -86,7 +86,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 
 func TestSyncJobRunPresenter_Initiators(t *testing.T) {
 	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
-	requestID := null.StringFrom("RequestID")
+	requestID := "RequestID"
 	txHash := common.HexToHash("0xdeadbeef")
 
 	tests := []struct {

@@ -71,7 +71,7 @@ func (p SyncJobRunPresenter) tasks() []syncTaskRunPresenter {
 
 type syncInitiatorPresenter struct {
 	Type      string               `json:"type"`
-	RequestID *null.String         `json:"requestId,omitempty"`
+	RequestID *string              `json:"requestId,omitempty"`
 	TxHash    *common.Hash         `json:"txHash,omitempty"`
 	Requester *models.EIP55Address `json:"requester,omitempty"`
 }

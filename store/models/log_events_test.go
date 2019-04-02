@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	null "gopkg.in/guregu/null.v3"
 )
 
 func TestParseRunLog(t *testing.T) {
@@ -379,8 +378,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 			rr, err := rle.RunRequest()
 			require.NoError(t, err)
 
-			requestID := null.StringFrom(test.wantRequestID)
-			assert.Equal(t, &requestID, rr.RequestID)
+			assert.Equal(t, &test.wantRequestID, rr.RequestID)
 			assert.Equal(t, test.wantTxHash, rr.TxHash.Hex())
 			assert.Equal(t, &test.wantRequester, rr.Requester)
 		})
