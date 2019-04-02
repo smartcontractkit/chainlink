@@ -13,9 +13,11 @@ export class CreateTaskRun1553796267817 implements MigrationInterface {
       )
     `)
     await queryRunner.query(
-      `CREATE INDEX job_run_id_idx ON "task_run" ("jobRunId")`
+      `CREATE INDEX task_run_job_run_id_idx ON "task_run" ("jobRunId")`
     )
-    await queryRunner.query(`CREATE INDEX index_idx ON "task_run" ("index")`)
+    await queryRunner.query(
+      `CREATE INDEX task_run_index_idx ON "task_run" ("index")`
+    )
   }
 
   public async down(queryRunner: QueryRunner): Promise<any> {
