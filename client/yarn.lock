@@ -4895,6 +4895,11 @@ gzip-size@5.0.0:
     duplexer "^0.1.1"
     pify "^3.0.0"
 
+hamt_plus@1.0.2:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/hamt_plus/-/hamt_plus-1.0.2.tgz#e21c252968c7e33b20f6a1b094cd85787a265601"
+  integrity sha1-4hwlKWjH4zsg9qGwlM2FeHomVgE=
+
 handle-thing@^2.0.0:
   version "2.0.0"
   resolved "https://registry.npmjs.org/handle-thing/-/handle-thing-2.0.0.tgz#0e039695ff50c93fc288557d696f3c1dc6776754"
@@ -6633,6 +6638,11 @@ levn@^0.3.0, levn@~0.3.0:
   dependencies:
     prelude-ls "~1.1.2"
     type-check "~0.3.2"
+
+list@2.0.16:
+  version "2.0.16"
+  resolved "https://registry.yarnpkg.com/list/-/list-2.0.16.tgz#c7f11ea9f4f413926e7d84239911e3a909932840"
+  integrity sha512-A/hl9z2uM/VChZbxNvt5QOCZW4f+eKeW4gfJB1npoE0RKp3g18K3/38hm9kkpXK45niy/BTAVjW8IDHKyCxzkg==
 
 load-json-file@^1.0.0:
   version "1.1.0"
@@ -8655,6 +8665,14 @@ prelude-ls@~1.1.2:
   version "1.1.2"
   resolved "https://registry.npmjs.org/prelude-ls/-/prelude-ls-1.1.2.tgz#21932a549f5e52ffd9a827f570e04be62a97da54"
   integrity sha1-IZMqVJ9eUv/ZqCf1cOBL5iqX2lQ=
+
+prelude-ts@^0.8.2:
+  version "0.8.2"
+  resolved "https://registry.yarnpkg.com/prelude-ts/-/prelude-ts-0.8.2.tgz#6035abc492077fac8d3e771040651bb430ae09d1"
+  integrity sha512-Y1whOc7QNfXCKVsBRzZy29R5+vnGVivtHUTNb8gHHGLZBNt/pRtMCv7nkEovMAnMpRO7BjQTht19xcw45abVaw==
+  dependencies:
+    hamt_plus "1.0.2"
+    list "2.0.16"
 
 preserve@^0.2.0:
   version "0.2.0"
