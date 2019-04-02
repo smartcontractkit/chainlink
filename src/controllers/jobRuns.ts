@@ -1,23 +1,17 @@
 import { getDb } from '../database'
-import { JobRun } from '../entity/JobRun'
-import { Router } from 'express'
+import { JobRun, search } from '../entity/JobRun'
+import { Router, Request, Response } from 'express'
 
 const router = Router()
 
-router.get('/job_runs', async (req, res) => {
-  const searchQuery = req.query.query
-  let params = {}
-  if (searchQuery) {
-    params = { where: { jobId: searchQuery } }
-  }
-  const jobRuns = await getDb().manager.find(JobRun, params)
-
+router.get('/job_runs', async (req: Request, res: Response) => {
+  const jobRuns = await search(getDb(), req.query.query)
   return res.send(jobRuns)
 })
 
-router.get('/job_runs/:id', async (req, res) => {
-  const id = req.params.id
-  const params = { where: { id }, relations: ['taskRuns'] }
+router.get('/job_runs/:id', async (req: Request, res: Response) => {
+  const runId = req.params.id
+  const params = { where: { runId }, relations: ['taskRuns'] }
   const jobRun = await getDb().manager.findOne(JobRun, params)
 
   if (jobRun) {
