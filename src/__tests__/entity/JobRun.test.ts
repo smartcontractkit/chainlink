@@ -3,7 +3,6 @@ import { clearDb } from '../testdatabase'
 import { fromString, search } from '../../entity/JobRun'
 import { JOB_RUN_A_ID, JOB_RUN_B_ID } from '../../seed'
 import fixture from './JobRun.fixture.json'
-import { Option } from 'prelude-ts'
 
 beforeAll(async () => createDbConnection())
 afterAll(async () => closeDbConnection())
@@ -63,33 +62,30 @@ describe('search', () => {
   })
 
   it('returns all results when no query is supplied', async () => {
-    const results = await search(getDb(), Option.none())
+    const results = await search(getDb(), undefined)
     expect(results).toHaveLength(2)
   })
 
   it('returns no results for blank search', async () => {
-    const results = await search(getDb(), Option.of(''))
+    const results = await search(getDb(), '')
     expect(results).toHaveLength(0)
   })
 
   it('returns one result for an exact match on jobId', async () => {
-    const results = await search(getDb(), Option.of(JOB_RUN_A_ID))
+    const results = await search(getDb(), JOB_RUN_A_ID)
     expect(results).toHaveLength(1)
   })
 
   it('returns one result for an exact match on jobId and runId', async () => {
     const results = await search(
       getDb(),
-      Option.of(`${JOB_RUN_A_ID} aeb2861d306645b1ba012079aeb2e53a`)
+      `${JOB_RUN_A_ID} aeb2861d306645b1ba012079aeb2e53a`
     )
     expect(results).toHaveLength(1)
   })
 
   it('returns two results when two matching runIds are supplied', async () => {
-    const results = await search(
-      getDb(),
-      Option.of(`${JOB_RUN_A_ID} ${JOB_RUN_B_ID}`)
-    )
+    const results = await search(getDb(), `${JOB_RUN_A_ID} ${JOB_RUN_B_ID}`)
     expect(results).toHaveLength(2)
   })
 })

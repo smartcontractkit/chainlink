@@ -1,12 +1,11 @@
 import { getDb } from '../database'
 import { JobRun, search } from '../entity/JobRun'
 import { Router, Request, Response } from 'express'
-import { Option } from 'prelude-ts'
 
 const router = Router()
 
 router.get('/job_runs', async (req: Request, res: Response) => {
-  const jobRuns = await search(getDb(), Option.of(req.query.query))
+  const jobRuns = await search(getDb(), req.query.query)
   return res.send(jobRuns)
 })
 
