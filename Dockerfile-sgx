@@ -59,4 +59,4 @@ RUN chmod +x ./chainlink-launcher-sgx.sh
 
 EXPOSE 6688
 ENTRYPOINT ["./chainlink-launcher-sgx.sh"]
-CMD ["node"]
+CMD ["local", "node"]

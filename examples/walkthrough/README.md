@@ -38,7 +38,7 @@ Spin up a local Ethereum node:
 In a separate window:
 
 ```bash
-CHAINLINK_DEV=true chainlink node
+CHAINLINK_DEV=true chainlink local node
 ... login ...
 > [INFO]  Link Balance for 0x79dBA5B14cBA2560360c2eF48e9329aC7Ab21573
 ```
