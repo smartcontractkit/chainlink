@@ -340,7 +340,7 @@ func TestRunLogEvent_Requester(t *testing.T) {
 	}
 }
 
-func TestRunLogEvent_InitiatorRun(t *testing.T) {
+func TestRunLogEvent_RunRequest(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -376,13 +376,13 @@ func TestRunLogEvent_InitiatorRun(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			rle := models.RunLogEvent{models.InitiatorLogEvent{Log: test.log}}
-			ir, err := rle.InitiatorRun()
+			rr, err := rle.RunRequest()
 			require.NoError(t, err)
 
 			requestID := null.StringFrom(test.wantRequestID)
-			assert.Equal(t, &requestID, ir.RequestID)
-			assert.Equal(t, test.wantTxHash, ir.TxHash.Hex())
-			assert.Equal(t, &test.wantRequester, ir.Requester)
+			assert.Equal(t, &requestID, rr.RequestID)
+			assert.Equal(t, test.wantTxHash, rr.TxHash.Hex())
+			assert.Equal(t, &test.wantRequester, rr.Requester)
 		})
 	}
 }

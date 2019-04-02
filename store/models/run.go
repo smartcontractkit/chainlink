@@ -15,24 +15,24 @@ import (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	ID             string       `json:"id" gorm:"primary_key;not null"`
-	JobSpecID      string       `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
-	Result         RunResult    `json:"result"`
-	ResultID       uint         `json:"-"`
-	InitiatorRun   InitiatorRun `json:"-"`
-	InitiatorRunID uint         `json:"-"`
-	Status         RunStatus    `json:"status" gorm:"index"`
-	TaskRuns       []TaskRun    `json:"taskRuns"`
-	CreatedAt      time.Time    `json:"createdAt" gorm:"index"`
-	CompletedAt    null.Time    `json:"completedAt"`
-	UpdatedAt      time.Time    `json:"updatedAt"`
-	Initiator      Initiator    `json:"initiator" gorm:"association_autoupdate:false;association_autocreate:false"`
-	InitiatorID    uint         `json:"-"`
-	CreationHeight *Big         `json:"creationHeight" gorm:"type:varchar(255)"`
-	ObservedHeight *Big         `json:"observedHeight" gorm:"type:varchar(255)"`
-	Overrides      RunResult    `json:"overrides"`
-	OverridesID    uint         `json:"-"`
-	DeletedAt      null.Time    `json:"-" gorm:"index"`
+	ID             string     `json:"id" gorm:"primary_key;not null"`
+	JobSpecID      string     `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
+	Result         RunResult  `json:"result"`
+	ResultID       uint       `json:"-"`
+	RunRequest     RunRequest `json:"-"`
+	RunRequestID   uint       `json:"-"`
+	Status         RunStatus  `json:"status" gorm:"index"`
+	TaskRuns       []TaskRun  `json:"taskRuns"`
+	CreatedAt      time.Time  `json:"createdAt" gorm:"index"`
+	CompletedAt    null.Time  `json:"completedAt"`
+	UpdatedAt      time.Time  `json:"updatedAt"`
+	Initiator      Initiator  `json:"initiator" gorm:"association_autoupdate:false;association_autocreate:false"`
+	InitiatorID    uint       `json:"-"`
+	CreationHeight *Big       `json:"creationHeight" gorm:"type:varchar(255)"`
+	ObservedHeight *Big       `json:"observedHeight" gorm:"type:varchar(255)"`
+	Overrides      RunResult  `json:"overrides"`
+	OverridesID    uint       `json:"-"`
+	DeletedAt      null.Time  `json:"-" gorm:"index"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -145,8 +145,8 @@ func JobRunsWithStatus(runs []JobRun, status RunStatus) []JobRun {
 	return rval
 }
 
-// InitiatorRun stores the fields used to initiate the parent job run.
-type InitiatorRun struct {
+// RunRequest stores the fields used to initiate the parent job run.
+type RunRequest struct {
 	ID        uint `gorm:"primary_key"`
 	RequestID *null.String
 	TxHash    *common.Hash
@@ -154,9 +154,9 @@ type InitiatorRun struct {
 	CreatedAt time.Time
 }
 
-// NewInitiatorRun returns a new InitiatorRun instance.
-func NewInitiatorRun() InitiatorRun {
-	return InitiatorRun{}
+// NewRunRequest returns a new RunRequest instance.
+func NewRunRequest() RunRequest {
+	return RunRequest{}
 }
 
 // TaskRun stores the Task and represents the status of the

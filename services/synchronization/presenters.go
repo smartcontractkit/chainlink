@@ -18,16 +18,16 @@ type SyncJobRunPresenter struct {
 // MarshalJSON returns the JobRun as JSON
 func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
-		ID          string                    `json:"id"`
-		JobID       string                    `json:"jobId"`
-		RunID       string                    `json:"runId"`
-		Status      string                    `json:"status"`
-		Error       null.String               `json:"error"`
-		CreatedAt   string                    `json:"createdAt"`
-		Amount      *assets.Link              `json:"amount"`
-		CompletedAt null.Time                 `json:"completedAt"`
-		Initiator   syncInitiatorRunPresenter `json:"initiator"`
-		Tasks       []syncTaskRunPresenter    `json:"tasks"`
+		ID          string                 `json:"id"`
+		JobID       string                 `json:"jobId"`
+		RunID       string                 `json:"runId"`
+		Status      string                 `json:"status"`
+		Error       null.String            `json:"error"`
+		CreatedAt   string                 `json:"createdAt"`
+		Amount      *assets.Link           `json:"amount"`
+		CompletedAt null.Time              `json:"completedAt"`
+		Initiator   syncInitiatorPresenter `json:"initiator"`
+		Tasks       []syncTaskRunPresenter `json:"tasks"`
 	}{
 		ID:          p.ID,
 		RunID:       p.ID,
@@ -42,16 +42,16 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (p SyncJobRunPresenter) initiator() syncInitiatorRunPresenter {
+func (p SyncJobRunPresenter) initiator() syncInitiatorPresenter {
 	var eip *models.EIP55Address
-	if p.InitiatorRun.Requester != nil {
-		coerced := models.EIP55Address(p.InitiatorRun.Requester.Hex())
+	if p.RunRequest.Requester != nil {
+		coerced := models.EIP55Address(p.RunRequest.Requester.Hex())
 		eip = &coerced
 	}
-	return syncInitiatorRunPresenter{
+	return syncInitiatorPresenter{
 		Type:      p.Initiator.Type,
-		RequestID: p.InitiatorRun.RequestID,
-		TxHash:    p.InitiatorRun.TxHash,
+		RequestID: p.RunRequest.RequestID,
+		TxHash:    p.RunRequest.TxHash,
 		Requester: eip,
 	}
 }
@@ -69,7 +69,7 @@ func (p SyncJobRunPresenter) tasks() []syncTaskRunPresenter {
 	return tasks
 }
 
-type syncInitiatorRunPresenter struct {
+type syncInitiatorPresenter struct {
 	Type      string               `json:"type"`
 	RequestID *null.String         `json:"requestId,omitempty"`
 	TxHash    *common.Hash         `json:"txHash,omitempty"`

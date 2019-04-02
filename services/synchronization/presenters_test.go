@@ -25,7 +25,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 		Initiator: models.Initiator{
 			Type: models.InitiatorRunLog,
 		},
-		InitiatorRun: models.InitiatorRun{
+		RunRequest: models.RunRequest{
 			RequestID: &requestID,
 			TxHash:    &txHash,
 			Requester: &newAddress,
@@ -91,16 +91,16 @@ func TestSyncJobRunPresenter_Initiators(t *testing.T) {
 
 	tests := []struct {
 		initrType string
-		ir        models.InitiatorRun
+		rr        models.RunRequest
 		keyCount  int
 	}{
-		{models.InitiatorWeb, models.InitiatorRun{}, 1},
-		{models.InitiatorCron, models.InitiatorRun{}, 1},
-		{models.InitiatorRunAt, models.InitiatorRun{}, 1},
-		{models.InitiatorEthLog, models.InitiatorRun{TxHash: &txHash}, 2},
+		{models.InitiatorWeb, models.RunRequest{}, 1},
+		{models.InitiatorCron, models.RunRequest{}, 1},
+		{models.InitiatorRunAt, models.RunRequest{}, 1},
+		{models.InitiatorEthLog, models.RunRequest{TxHash: &txHash}, 2},
 		{
 			models.InitiatorRunLog,
-			models.InitiatorRun{
+			models.RunRequest{
 				RequestID: &requestID,
 				TxHash:    &txHash,
 				Requester: &newAddress,
@@ -112,9 +112,9 @@ func TestSyncJobRunPresenter_Initiators(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.initrType, func(t *testing.T) {
 			jobRun := models.JobRun{
-				ID:           "runID-412",
-				Initiator:    models.Initiator{Type: test.initrType},
-				InitiatorRun: test.ir,
+				ID:         "runID-412",
+				Initiator:  models.Initiator{Type: test.initrType},
+				RunRequest: test.rr,
 			}
 
 			p := SyncJobRunPresenter{JobRun: &jobRun}
