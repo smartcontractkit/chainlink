@@ -15,10 +15,10 @@ export class JobRun {
   id: number
 
   @Column()
-  runID: string
+  runId: string
 
   @Column()
-  jobID: string
+  jobId: string
 
   @Column()
   status: string
@@ -41,8 +41,8 @@ export class JobRun {
 export const fromString = (str: string): JobRun => {
   const json = JSON.parse(str)
   const jr = new JobRun()
-  jr.runID = json.runID
-  jr.jobID = json.jobID
+  jr.runId = json.runId
+  jr.jobId = json.jobId
   jr.status = json.status
   jr.createdAt = new Date(json.createdAt)
   jr.completedAt = json.completedAt && new Date(json.completedAt)
@@ -65,6 +65,6 @@ export const search = async (
   searchTokens: Array<string>
 ): Promise<Array<JobRun>> => {
   return db.getRepository(JobRun).find({
-    where: [{ runID: In(searchTokens) }, { jobID: In(searchTokens) }]
+    where: [{ runId: In(searchTokens) }, { jobId: In(searchTokens) }]
   })
 }

@@ -11,8 +11,8 @@ export default async () => {
 
   if (count === 0) {
     const jobRunA = new JobRun()
-    jobRunA.runID = JOB_RUN_A_ID
-    jobRunA.jobID = 'cccccccccccccccccccccccccccccccc'
+    jobRunA.runId = JOB_RUN_A_ID
+    jobRunA.jobId = 'cccccccccccccccccccccccccccccccc'
     jobRunA.status = 'in_progress'
     await dbConnection.manager.save(jobRunA)
 
@@ -25,8 +25,8 @@ export default async () => {
     await dbConnection.manager.save(taskRunA)
 
     const jobRunB = new JobRun()
-    jobRunB.runID = JOB_RUN_B_ID
-    jobRunB.jobID = 'dddddddddddddddddddddddddddddddd'
+    jobRunB.runId = JOB_RUN_B_ID
+    jobRunB.jobId = 'dddddddddddddddddddddddddddddddd'
     jobRunB.status = 'completed'
 
     await dbConnection.manager.save(jobRunA)
