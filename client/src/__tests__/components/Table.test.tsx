@@ -13,7 +13,10 @@ describe('components/Table', () => {
   })
 
   it('renders the columns from each row', () => {
-    const rows = [['Michael', 'Jordan'], ['Charles', 'Barkley']]
+    const rows = [
+      [{ type: 'text', text: 'Michael' }, { type: 'text', text: 'Jordan' }],
+      [{ type: 'text', text: 'Charles' }, { type: 'text', text: 'Barkley' }]
+    ]
     const wrapper = mount(<Table headers={HEADERS} rows={rows} />)
 
     expect(wrapper.text()).toContain('Michael')
