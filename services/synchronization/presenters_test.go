@@ -14,6 +14,8 @@ import (
 
 func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
+	requestID := null.StringFrom("RequestID")
+	txHash := common.HexToHash("0xdeadbeef")
 
 	jobRun := models.JobRun{
 		ID:        "runID-411",
@@ -24,9 +26,9 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 			Type: models.InitiatorRunLog,
 		},
 		InitiatorRun: models.InitiatorRun{
-			RequestID: null.StringFrom("RequestID"),
-			TxHash:    common.HexToHash("0xdeadbeef"),
-			Requester: newAddress,
+			RequestID: &requestID,
+			TxHash:    &txHash,
+			Requester: &newAddress,
 		},
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
@@ -83,19 +85,23 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 }
 
 func TestSyncJobRunPresenter_Initiators(t *testing.T) {
+	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
+	requestID := null.StringFrom("RequestID")
+	txHash := common.HexToHash("0xdeadbeef")
+
 	tests := []struct {
 		initrType string
 		ir        models.InitiatorRun
 		keyCount  int
 	}{
 		{models.InitiatorWeb, models.InitiatorRun{}, 1},
-		{models.InitiatorEthLog, models.InitiatorRun{TxHash: common.HexToHash("0xdeadbeef")}, 2},
+		{models.InitiatorEthLog, models.InitiatorRun{TxHash: &txHash}, 2},
 		{
 			models.InitiatorRunLog,
 			models.InitiatorRun{
-				RequestID: null.StringFrom("RequestID"),
-				TxHash:    common.HexToHash("0xdeadbeef"),
-				Requester: common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40"),
+				RequestID: &requestID,
+				TxHash:    &txHash,
+				Requester: &newAddress,
 			},
 			4,
 		},

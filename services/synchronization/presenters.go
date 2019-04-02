@@ -43,25 +43,16 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 }
 
 func (p SyncJobRunPresenter) initiator() syncInitiatorRunPresenter {
-	if !p.Initiator.IsLogInitiated() {
-		return syncInitiatorRunPresenter{
-			Type: p.Initiator.Type,
-		}
+	var eip *models.EIP55Address
+	if p.InitiatorRun.Requester != nil {
+		coerced := models.EIP55Address(p.InitiatorRun.Requester.Hex())
+		eip = &coerced
 	}
-
-	if p.Initiator.Type == models.InitiatorEthLog {
-		return syncInitiatorRunPresenter{
-			Type:   p.Initiator.Type,
-			TxHash: &p.InitiatorRun.TxHash,
-		}
-	}
-
-	eip := models.EIP55Address(p.InitiatorRun.Requester.Hex())
 	return syncInitiatorRunPresenter{
 		Type:      p.Initiator.Type,
-		RequestID: &p.InitiatorRun.RequestID,
-		TxHash:    &p.InitiatorRun.TxHash,
-		Requester: &eip,
+		RequestID: p.InitiatorRun.RequestID,
+		TxHash:    p.InitiatorRun.TxHash,
+		Requester: eip,
 	}
 }
 

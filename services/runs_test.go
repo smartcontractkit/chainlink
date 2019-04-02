@@ -541,9 +541,10 @@ func TestExecuteJobWithInitiatorRun(t *testing.T) {
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
 	require.NoError(t, store.CreateJob(&job))
 
+	deadbeef := null.StringFrom("0xdeadbeef")
 	initr := job.Initiators[0]
 	ir := models.NewInitiatorRun()
-	ir.RequestID = null.StringFrom("0xdeadbeef")
+	ir.RequestID = &deadbeef
 	jr, err := services.ExecuteJobWithInitiatorRun(
 		job,
 		initr,
