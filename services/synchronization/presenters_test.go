@@ -49,8 +49,9 @@ func TestSyncJobRunPresenter(t *testing.T) {
 	err = json.Unmarshal(bytes, &data)
 	require.NoError(t, err)
 
-	assert.Equal(t, data["runID"], "runID-411")
-	assert.Equal(t, data["jobID"], "jobSpecID-312")
+	assert.Equal(t, data["id"], "runID-411")
+	assert.Equal(t, data["runId"], "runID-411")
+	assert.Equal(t, data["jobId"], "jobSpecID-312")
 	assert.Equal(t, data["status"], "in_progress")
 	assert.Contains(t, data, "error")
 	assert.Contains(t, data, "createdAt")
