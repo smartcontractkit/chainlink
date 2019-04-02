@@ -133,7 +133,7 @@ type LogRequest interface {
 	ContractPayment() (*assets.Link, error)
 	ValidateRequester() error
 	BlockNumber() *big.Int
-	InitiatorRun() (InitiatorRun, error)
+	RunRequest() (RunRequest, error)
 }
 
 // InitiatorLogEvent encapsulates all information as a result of a received log from an
@@ -205,11 +205,11 @@ func (le InitiatorLogEvent) BlockNumber() *big.Int {
 	return num
 }
 
-// InitiatorRun returns an initiator run with the transaction hash,
+// RunRequest returns a run request instance with the transaction hash,
 // present on all log initiated runs.
-func (le InitiatorLogEvent) InitiatorRun() (InitiatorRun, error) {
+func (le InitiatorLogEvent) RunRequest() (RunRequest, error) {
 	cp := common.BytesToHash(le.Log.TxHash.Bytes())
-	return InitiatorRun{
+	return RunRequest{
 		TxHash: &cp,
 	}, nil
 }
@@ -321,18 +321,18 @@ func (le RunLogEvent) Requester() common.Address {
 	return common.BytesToAddress(le.Log.Data[:requesterSize])
 }
 
-// InitiatorRun returns an InitiatorRun instance with all parameters
+// RunRequest returns an RunRequest instance with all parameters
 // from a run log topic, like RequestID.
-func (le RunLogEvent) InitiatorRun() (InitiatorRun, error) {
+func (le RunLogEvent) RunRequest() (RunRequest, error) {
 	parser, err := parserFromLog(le.Log)
 	if err != nil {
-		return InitiatorRun{}, err
+		return RunRequest{}, err
 	}
 
 	txhash := common.BytesToHash(le.Log.TxHash.Bytes())
 	str := null.StringFrom(parser.parseRequestID(le.Log))
 	requester := le.Requester()
-	return InitiatorRun{
+	return RunRequest{
 		RequestID: &str,
 		TxHash:    &txhash,
 		Requester: &requester,

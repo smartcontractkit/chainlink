@@ -8,7 +8,7 @@ import (
 // Migration is the singleton type for this migration
 type Migration struct{}
 
-// Migrate adds the initiator_runs table
+// Migrate adds the run request table
 func (m Migration) Migrate(tx *gorm.DB) error {
-	return tx.AutoMigrate(&models.InitiatorRun{}).Error
+	return tx.AutoMigrate(&models.RunRequest{}).Error
 }

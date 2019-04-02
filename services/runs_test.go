@@ -530,7 +530,7 @@ func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
 	assert.Equal(t, job.Tasks[0].Params, retrievedJob.Tasks[0].Params)
 }
 
-func TestExecuteJobWithInitiatorRun(t *testing.T) {
+func TestExecuteJobWithRunRequest(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
@@ -543,17 +543,17 @@ func TestExecuteJobWithInitiatorRun(t *testing.T) {
 
 	deadbeef := null.StringFrom("0xdeadbeef")
 	initr := job.Initiators[0]
-	ir := models.NewInitiatorRun()
-	ir.RequestID = &deadbeef
-	jr, err := services.ExecuteJobWithInitiatorRun(
+	rr := models.NewRunRequest()
+	rr.RequestID = &deadbeef
+	jr, err := services.ExecuteJobWithRunRequest(
 		job,
 		initr,
 		cltest.RunResultWithData(`{"random": "input"}`),
 		nil,
 		store,
-		ir,
+		rr,
 	)
 	require.NoError(t, err)
 	updatedJR := cltest.WaitForJobRunToComplete(t, store, *jr)
-	assert.Equal(t, ir.RequestID, updatedJR.InitiatorRun.RequestID)
+	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
 }
