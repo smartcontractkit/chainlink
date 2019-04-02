@@ -1,16 +1,23 @@
 import {
-  Entity,
-  PrimaryColumn,
   Column,
+  Connection,
   CreateDateColumn,
-  OneToMany
+  Entity,
+  In,
+  OneToOne,
+  OneToMany,
+  PrimaryGeneratedColumn
 } from 'typeorm'
 import { TaskRun } from './TaskRun'
+import { Initiator } from './Initiator'
 
 @Entity()
 export class JobRun {
-  @PrimaryColumn()
-  id: string
+  @PrimaryGeneratedColumn()
+  id: number
+
+  @Column()
+  runId: string
 
   @Column()
   jobId: string
@@ -21,9 +28,6 @@ export class JobRun {
   @Column({ nullable: true })
   error: string
 
-  @Column()
-  initiatorType: string
-
   @CreateDateColumn()
   createdAt: Date
 
@@ -33,28 +37,52 @@ export class JobRun {
   @OneToMany(type => TaskRun, taskRun => taskRun.jobRun, {
     onDelete: 'CASCADE'
   })
-  taskRuns: TaskRun[]
+  taskRuns: Array<TaskRun>
+
+  @OneToOne(type => Initiator, initiator => initiator.jobRun, {
+    onDelete: 'CASCADE'
+  })
+  initiator: Initiator
 }
 
-export const fromString = (str: any): JobRun => {
+export const fromString = (str: string): JobRun => {
   const json = JSON.parse(str)
   const jr = new JobRun()
-  jr.id = json.id
+  jr.runId = json.runId
   jr.jobId = json.jobId
   jr.status = json.status
-  jr.initiatorType = json.initiator.type
   jr.createdAt = new Date(json.createdAt)
   jr.completedAt = json.completedAt && new Date(json.completedAt)
-  jr.taskRuns = json.taskRuns.map((trstr: any, index: number) => {
+  jr.initiator = new Initiator()
+  jr.initiator.type = json.initiator.type
+  jr.initiator.requestId = json.initiator.requestId
+  jr.initiator.txHash = json.initiator.txHash
+  jr.initiator.requester = json.initiator.requester
+  jr.taskRuns = json.tasks.map((trstr: any, index: number) => {
     const tr = new TaskRun()
-    tr.id = trstr.id
     tr.index = index
-    tr.type = trstr.task.type
+    tr.type = trstr.type
     tr.status = trstr.status
-    tr.error = trstr.result.error
+    tr.error = trstr.error
 
     return tr
   })
 
   return jr
+}
+
+export const search = async (
+  db: Connection,
+  searchQuery?: string
+): Promise<Array<JobRun>> => {
+  let params = {}
+
+  if (searchQuery != null) {
+    const searchTokens = searchQuery.split(/\s+/)
+    params = {
+      where: [{ runId: In(searchTokens) }, { jobId: In(searchTokens) }]
+    }
+  }
+
+  return db.getRepository(JobRun).find(params)
 }
