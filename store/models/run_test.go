@@ -88,8 +88,9 @@ func TestJobRuns_SavesASyncEvent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, jr.Result.Data, recoveredJobRun.Result.Data)
 
-	assert.Contains(t, data, "runID")
-	assert.Contains(t, data, "jobID")
+	assert.Contains(t, data, "id")
+	assert.Contains(t, data, "runId")
+	assert.Contains(t, data, "jobId")
 	assert.Contains(t, data, "status")
 }
 

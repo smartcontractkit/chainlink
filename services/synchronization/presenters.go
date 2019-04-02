@@ -18,8 +18,9 @@ type SyncJobRunPresenter struct {
 // MarshalJSON returns the JobRun as JSON
 func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
-		JobID       string                    `json:"jobID"`
-		RunID       string                    `json:"runID"`
+		ID          string                    `json:"id"`
+		JobID       string                    `json:"jobId"`
+		RunID       string                    `json:"runId"`
 		Status      string                    `json:"status"`
 		Error       null.String               `json:"error"`
 		CreatedAt   string                    `json:"createdAt"`
@@ -28,6 +29,7 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 		Initiator   syncInitiatorRunPresenter `json:"initiator"`
 		Tasks       []syncTaskRunPresenter    `json:"tasks"`
 	}{
+		ID:          p.ID,
 		RunID:       p.ID,
 		JobID:       p.JobSpecID,
 		Status:      string(p.Status),
