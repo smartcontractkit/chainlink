@@ -43,11 +43,25 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 }
 
 func (p SyncJobRunPresenter) initiator() syncInitiatorRunPresenter {
+	if !p.Initiator.IsLogInitiated() {
+		return syncInitiatorRunPresenter{
+			Type: p.Initiator.Type,
+		}
+	}
+
+	if p.Initiator.Type == models.InitiatorEthLog {
+		return syncInitiatorRunPresenter{
+			Type:   p.Initiator.Type,
+			TxHash: &p.InitiatorRun.TxHash,
+		}
+	}
+
+	eip := models.EIP55Address(p.InitiatorRun.Requester.Hex())
 	return syncInitiatorRunPresenter{
 		Type:      p.Initiator.Type,
-		RequestID: p.InitiatorRun.RequestID,
-		TxHash:    p.InitiatorRun.TxHash,
-		Requester: models.EIP55Address(p.InitiatorRun.Requester.Hex()),
+		RequestID: &p.InitiatorRun.RequestID,
+		TxHash:    &p.InitiatorRun.TxHash,
+		Requester: &eip,
 	}
 }
 
@@ -65,10 +79,10 @@ func (p SyncJobRunPresenter) tasks() []syncTaskRunPresenter {
 }
 
 type syncInitiatorRunPresenter struct {
-	Type      string              `json:"type"`
-	RequestID null.String         `json:"requestId"`
-	TxHash    common.Hash         `json:"txHash"`
-	Requester models.EIP55Address `json:"requester"`
+	Type      string               `json:"type"`
+	RequestID *null.String         `json:"requestId,omitempty"`
+	TxHash    *common.Hash         `json:"txHash,omitempty"`
+	Requester *models.EIP55Address `json:"requester,omitempty"`
 }
 
 type syncTaskRunPresenter struct {

@@ -12,7 +12,7 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func TestSyncJobRunPresenter(t *testing.T) {
+func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
 
 	jobRun := models.JobRun{
@@ -49,7 +49,6 @@ func TestSyncJobRunPresenter(t *testing.T) {
 	err = json.Unmarshal(bytes, &data)
 	require.NoError(t, err)
 
-	assert.Equal(t, data["id"], "runID-411")
 	assert.Equal(t, data["runId"], "runID-411")
 	assert.Equal(t, data["jobId"], "jobSpecID-312")
 	assert.Equal(t, data["status"], "in_progress")
@@ -81,4 +80,48 @@ func TestSyncJobRunPresenter(t *testing.T) {
 	assert.Contains(t, task1, "type")
 	assert.Equal(t, task1["status"], "errored")
 	assert.Equal(t, task1["error"], "yikes fam")
+}
+
+func TestSyncJobRunPresenter_Initiators(t *testing.T) {
+	tests := []struct {
+		initrType string
+		ir        models.InitiatorRun
+		keyCount  int
+	}{
+		{models.InitiatorWeb, models.InitiatorRun{}, 1},
+		{models.InitiatorEthLog, models.InitiatorRun{TxHash: common.HexToHash("0xdeadbeef")}, 2},
+		{
+			models.InitiatorRunLog,
+			models.InitiatorRun{
+				RequestID: null.StringFrom("RequestID"),
+				TxHash:    common.HexToHash("0xdeadbeef"),
+				Requester: common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40"),
+			},
+			4,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.initrType, func(t *testing.T) {
+			jobRun := models.JobRun{
+				ID:           "runID-412",
+				Initiator:    models.Initiator{Type: test.initrType},
+				InitiatorRun: test.ir,
+			}
+
+			p := SyncJobRunPresenter{JobRun: &jobRun}
+
+			bytes, err := p.MarshalJSON()
+			require.NoError(t, err)
+
+			var data map[string]interface{}
+			err = json.Unmarshal(bytes, &data)
+			require.NoError(t, err)
+
+			initiator, ok := data["initiator"].(map[string]interface{})
+			require.True(t, ok)
+			assert.Len(t, initiator, test.keyCount)
+			assert.Equal(t, initiator["type"], test.initrType)
+		})
+	}
 }
