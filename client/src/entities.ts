@@ -1,3 +1,7 @@
 import { schema } from 'normalizr'
 
-export const JobRun = new schema.Entity('jobRuns')
+const TaskRun = new schema.Entity('taskRuns')
+
+export const JobRun = new schema.Entity('jobRuns', {
+  taskRuns: [TaskRun]
+})

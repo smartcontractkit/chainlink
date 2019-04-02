@@ -9,14 +9,11 @@ import {
   WithStyles
 } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
-import Paper from '@material-ui/core/Paper'
 import Card from '@material-ui/core/Card'
-import Typography from '@material-ui/core/Typography'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
-import TimeAgo from '../../components/TimeAgo'
 import Details from '../../components/JobRuns/Details'
 import RegionalNav from '../../components/JobRuns/RegionalNav'
 import { getJobRun } from '../../actions/jobRuns'
@@ -35,14 +32,14 @@ const Loading = () => (
   </Table>
 )
 
-const styles = ({ spacing, palette }: Theme) =>
+const styles = ({ spacing }: Theme) =>
   createStyles({
     container: {
       padding: spacing.unit * 5
     },
     card: {
-      paddingTop: spacing.unit * 2,
-      paddingBottom: spacing.unit * 2
+      paddingTop: spacing.unit,
+      paddingBottom: spacing.unit
     }
   })
 
@@ -78,11 +75,14 @@ const Show = withStyles(styles)(
 )
 
 const jobRunSelector = (
-  { jobRuns }: IState,
+  { jobRuns, taskRuns }: IState,
   jobRunId?: string
 ): IJobRun | undefined => {
   if (jobRuns.items) {
-    return denormalize(jobRunId, JobRun, { jobRuns: jobRuns.items })
+    return denormalize(jobRunId, JobRun, {
+      jobRuns: jobRuns.items,
+      taskRuns: taskRuns.items
+    })
   }
 }
 
