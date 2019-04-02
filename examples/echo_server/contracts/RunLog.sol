@@ -22,6 +22,6 @@ contract RunLog is Chainlinked {
   function fulfill(bytes32 _externalId, bytes32 _data)
     public
     recordChainlinkFulfillment(_externalId)
-  {
-  }
+  {} // solium-disable-line no-empty-blocks
+
 }

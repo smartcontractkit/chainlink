@@ -44,7 +44,7 @@ install: godep gui $(SGX_BUILD_ENCLAVE) ## Install chainlink
 	go install $(GOFLAGS)
 
 gui: yarndep ## Install GUI
-	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
+	cd gui && CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
 	CGO_ENABLED=0 go run gui/main.go "${CURDIR}/services"
 
 docker: ## Build the docker image.

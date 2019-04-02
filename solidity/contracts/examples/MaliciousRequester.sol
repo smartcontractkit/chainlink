@@ -50,5 +50,5 @@ contract MaliciousRequester is MaliciousChainlinked {
     );
   }
 
-  function doesNothing(bytes32, bytes32) public pure {}
+  function doesNothing(bytes32, bytes32) public pure {} // solium-disable-line no-empty-blocks
 }

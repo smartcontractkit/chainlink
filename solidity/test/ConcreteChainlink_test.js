@@ -1,4 +1,4 @@
-import util from 'ethereumjs-util'
+import { toBuffer } from 'ethereumjs-util'
 import abi from 'ethereumjs-abi'
 import { checkPublicABI, decodeDietCBOR, deploy } from './support/helpers'
 
@@ -23,7 +23,7 @@ contract('ConcreteChainlink', () => {
   })
 
   function parseCCLEvent(tx) {
-    const data = util.toBuffer(tx.receipt.logs[0].data)
+    const data = toBuffer(tx.receipt.logs[0].data)
     return abi.rawDecode(['bytes'], data)
   }
 
@@ -75,7 +75,7 @@ contract('ConcreteChainlink', () => {
       const tx = await ccl.closeEvent()
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      const expected = util.toBuffer('0xaabbccddeeff')
+      const expected = toBuffer('0xaabbccddeeff')
       assert.deepEqual(decoded, { first: expected })
     })
 
@@ -86,8 +86,8 @@ contract('ConcreteChainlink', () => {
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
 
-      const expectedFirst = util.toBuffer('0x756E6F')
-      const expectedSecond = util.toBuffer('0x646F73')
+      const expectedFirst = toBuffer('0x756E6F')
+      const expectedSecond = toBuffer('0x646F73')
       assert.deepEqual(decoded, {
         first: expectedFirst,
         second: expectedSecond
@@ -99,7 +99,7 @@ contract('ConcreteChainlink', () => {
       const tx = await ccl.closeEvent()
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      const expected = util.toBuffer('apple')
+      const expected = toBuffer('apple')
       assert.deepEqual(decoded, { first: expected })
     })
   })
