@@ -1,14 +1,11 @@
 #!/usr/bin/env node
 
 const { abort, port } = require('./common.js')
-const Web3 = require('web3')
+const { web3 } = require('../solidity/app/env.js')
 
 process.env.SOLIDITY_INCLUDE = '../solidity/contracts'
 
 const main = async (contractName, txID, fromAddress) => {
-  const provider = new Web3.providers.HttpProvider(`http://localhost:${port}`)
-  const web3 = new Web3(provider)
-
   const transaction = await web3.eth
     .getTransactionReceipt(txID)
     .catch(abort('Error getting transaction receipt'))

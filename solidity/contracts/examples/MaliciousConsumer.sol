@@ -51,5 +51,5 @@ contract MaliciousConsumer is Chainlinked {
     address(this).transfer(100);
   }
 
-  function doesNothing(bytes32, bytes32) public pure {}
+  function doesNothing(bytes32, bytes32) public pure {} // solium-disable-line no-empty-blocks
 }
