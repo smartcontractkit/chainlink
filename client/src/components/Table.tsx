@@ -1,9 +1,10 @@
 import React from 'react'
 import MuiTable from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
-import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
+import MuiTableCell from '@material-ui/core/TableCell'
+import TableCell, { Column } from './Table/TableCell'
 
 interface ILoadingProps {
   colCount: number
@@ -13,9 +14,9 @@ interface ILoadingProps {
 const Loading = ({ colCount, msg }: ILoadingProps) => {
   return (
     <TableRow>
-      <TableCell component="th" scope="row" colSpan={colCount}>
+      <MuiTableCell component="th" scope="row" colSpan={colCount}>
         {msg || 'Loading...'}
-      </TableCell>
+      </MuiTableCell>
     </TableRow>
   )
 }
@@ -28,9 +29,9 @@ interface IEmptyProps {
 const Empty = ({ colCount, msg }: IEmptyProps) => {
   return (
     <TableRow>
-      <TableCell component="th" scope="row" colSpan={colCount}>
+      <MuiTableCell component="th" scope="row" colSpan={colCount}>
         {msg || 'No results'}
-      </TableCell>
+      </MuiTableCell>
     </TableRow>
   )
 }
@@ -50,8 +51,8 @@ const renderRows = ({ headers, rows, loadingMsg, emptyMsg }: IProps) => {
   } else {
     return rows.map((r: any[], idx: number) => (
       <TableRow key={idx}>
-        {r.map((c: any, idx: number) => (
-          <TableCell key={idx}>{c}</TableCell>
+        {r.map((col: Column, idx: number) => (
+          <TableCell key={idx} column={col} />
         ))}
       </TableRow>
     ))
@@ -64,7 +65,7 @@ const Table = (props: IProps) => {
       <TableHead>
         <TableRow>
           {props.headers.map((h: string) => (
-            <TableCell key={h}>{h}</TableCell>
+            <MuiTableCell key={h}>{h}</MuiTableCell>
           ))}
         </TableRow>
       </TableHead>
