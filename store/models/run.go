@@ -148,7 +148,7 @@ func JobRunsWithStatus(runs []JobRun, status RunStatus) []JobRun {
 // RunRequest stores the fields used to initiate the parent job run.
 type RunRequest struct {
 	ID        uint `gorm:"primary_key"`
-	RequestID *null.String
+	RequestID *string
 	TxHash    *common.Hash
 	Requester *common.Address
 	CreatedAt time.Time

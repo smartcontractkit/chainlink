@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/utils"
-	null "gopkg.in/guregu/null.v3"
 )
 
 // Descriptive indices of a RunLog's Topic array
@@ -330,7 +329,7 @@ func (le RunLogEvent) RunRequest() (RunRequest, error) {
 	}
 
 	txhash := common.BytesToHash(le.Log.TxHash.Bytes())
-	str := null.StringFrom(parser.parseRequestID(le.Log))
+	str := parser.parseRequestID(le.Log)
 	requester := le.Requester()
 	return RunRequest{
 		RequestID: &str,
