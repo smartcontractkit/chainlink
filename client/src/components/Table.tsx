@@ -1,4 +1,10 @@
 import React from 'react'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
 import MuiTable from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableHead from '@material-ui/core/TableHead'
@@ -36,7 +42,14 @@ const Empty = ({ colCount, msg }: IEmptyProps) => {
   )
 }
 
-interface IProps {
+const styles = (theme: Theme) =>
+  createStyles({
+    header: {
+      backgroundColor: theme.palette.grey['50']
+    }
+  })
+
+interface IProps extends WithStyles<typeof styles> {
   headers: string[]
   rows?: any[][]
   loadingMsg?: string
@@ -65,7 +78,9 @@ const Table = (props: IProps) => {
       <TableHead>
         <TableRow>
           {props.headers.map((h: string) => (
-            <MuiTableCell key={h}>{h}</MuiTableCell>
+            <MuiTableCell key={h} className={props.classes.header}>
+              {h}
+            </MuiTableCell>
           ))}
         </TableRow>
       </TableHead>
@@ -74,4 +89,4 @@ const Table = (props: IProps) => {
   )
 }
 
-export default Table
+export default withStyles(styles)(Table)
