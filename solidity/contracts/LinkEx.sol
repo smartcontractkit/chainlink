@@ -40,6 +40,9 @@ contract LinkEx is LinkExInterface, Ownable {
 
   function removeOracle(address _oracle) external onlyOwner {
     require(_removeOracle(_oracle), "Oracle does not exist");
+    if (oracles.length > 0) {
+      _update();
+    }
   }
 
   function _removeOracle(address _oracle) private returns (bool) {
@@ -51,7 +54,6 @@ contract LinkEx is LinkExInterface, Ownable {
         delete oracles[i];
         if (i < size) {
           oracles[i] = oracles[size];
-          delete oracles[size];
         }
         oracles.length = size;
         return true;
@@ -62,6 +64,10 @@ contract LinkEx is LinkExInterface, Ownable {
 
   function update(uint256 _rate) external onlyAuthorizedNode {
     rates[msg.sender] = Rate(block.number, _rate);
+    _update();
+  }
+
+  function _update() private {
     if (isFutureBlock()) {
       historicRate = rate;
       rateHeight = block.number;
