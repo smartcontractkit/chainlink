@@ -50,6 +50,7 @@ func ExampleRun() {
 	//      getbridges                List all bridges added to the node
 	//      showbridge                Show a specific bridge
 	//      removebridge              Removes a specific bridge
+	//      externalinitiators, exi   Tasks for managing external initiators
 	//      agree, createsa           Creates a service agreement
 	//      withdraw, w               Withdraw, to an authorized Ethereum <address>, <amount> units of LINK. Withdraws from the configured oracle contract by default, or from contract optionally specified by a third command-line argument --from-oracle-contract-address=<contract address>. Address inputs must be in EIP55-compliant capitalization.
 	//      sendether                 Send <amount> ETH from the node's ETH account to an <address>.
