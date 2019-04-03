@@ -90,6 +90,7 @@ func (j JobSpec) NewRun(i Initiator) JobRun {
 		}
 	}
 
+	runRequest := NewRunRequest()
 	now := time.Now()
 	return JobRun{
 		ID:          jrid,
@@ -97,6 +98,7 @@ func (j JobSpec) NewRun(i Initiator) JobRun {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		TaskRuns:    taskRuns,
+		RunRequest:  runRequest,
 		Initiator:   i,
 		InitiatorID: i.ID,
 		Status:      RunStatusUnstarted,

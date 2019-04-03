@@ -529,3 +529,31 @@ func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
 	require.Len(t, retrievedJob.Tasks, 1)
 	assert.Equal(t, job.Tasks[0].Params, retrievedJob.Tasks[0].Params)
 }
+
+func TestExecuteJobWithRunRequest(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication()
+	defer cleanup()
+	app.Start()
+	store := app.Store
+
+	job := cltest.NewJobWithRunLogInitiator()
+	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
+	require.NoError(t, store.CreateJob(&job))
+
+	requestID := "RequestID"
+	initr := job.Initiators[0]
+	rr := models.NewRunRequest()
+	rr.RequestID = &requestID
+	jr, err := services.ExecuteJobWithRunRequest(
+		job,
+		initr,
+		cltest.RunResultWithData(`{"random": "input"}`),
+		nil,
+		store,
+		rr,
+	)
+	require.NoError(t, err)
+	updatedJR := cltest.WaitForJobRunToComplete(t, store, *jr)
+	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
+}

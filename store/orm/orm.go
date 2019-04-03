@@ -215,6 +215,7 @@ func (orm *ORM) preloadJobRuns() *gorm.DB {
 		Preload("Initiator", func(db *gorm.DB) *gorm.DB {
 			return db.Unscoped()
 		}).
+		Preload("RunRequest").
 		Preload("Overrides").
 		Preload("TaskRuns", func(db *gorm.DB) *gorm.DB {
 			return preloadTaskRuns(db).Order("task_spec_id asc")
