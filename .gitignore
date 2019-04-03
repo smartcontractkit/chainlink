@@ -16,3 +16,4 @@ lib-cov
 *.pid
 assets/*
 build/
+*.md5
