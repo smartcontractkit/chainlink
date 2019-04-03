@@ -5,9 +5,9 @@ import { JobRunsAction } from '../reducers/jobRuns'
 import { Query } from '../reducers/search'
 import { JobRun } from '../entities'
 
-const getJobRuns = (query: Query) => {
+const getJobRuns = (query: Query, page: number, size: number) => {
   return (dispatch: Dispatch<any>) => {
-    api.getJobRuns(query).then((r: IJobRun[]) => {
+    api.getJobRuns(query, page, size).then((r: IJobRun[]) => {
       const normalizedData = normalize(r, [JobRun])
       const action: JobRunsAction = {
         type: 'UPSERT_JOB_RUNS',
