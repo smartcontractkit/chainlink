@@ -122,11 +122,10 @@ contract('LinkEx', () => {
         const updated = 8616460198
 
         context('in the middle of the array', () => {
-          const newExpectedAvg = Math.trunc((updated + expected2) / 2)
+          const newExpectedAvg = Math.trunc((expected2 + expected3) / 2)
 
           beforeEach(async () => {
             await contract.removeOracle(h.oracleNode, {from: h.defaultAccount})
-            await contract.update(updated, {from: h.oracleNode3})
           })
 
           it('the removed oracles do not contribute to the average', async () => {
@@ -141,15 +140,14 @@ contract('LinkEx', () => {
           })
 
           context('then adding an oracle', () => {
-            const newUpdated = 8616460357
-            const newExpectedAvg2 = Math.trunc((updated + expected2 + newUpdated) / 3)
+            const newExpectedAvg2 = Math.trunc((updated + expected2 + expected3) / 3)
 
             beforeEach(async () => {
               await contract.addOracle(h.accounts[8], {from: h.defaultAccount})
             })
 
             it('the average is as expected', async () => {
-              await contract.update(newUpdated, {from: h.accounts[8]})
+              await contract.update(updated, {from: h.accounts[8]})
               const rate = await contract.currentRate()
               assert.equal(rate.toString(), newExpectedAvg2)
             })
@@ -253,9 +251,35 @@ contract('LinkEx', () => {
     })
 
     context('when called by the owner', () => {
-      it('removes the oracle', async () => {
-        await contract.removeOracle(h.oracleNode, {from: h.defaultAccount})
-        assert.isNotTrue(await contract.authorizedNodes.call(h.oracleNode))
+      context('if there was only one oracle', () => {
+        it('removes the oracle', async () => {
+          await contract.removeOracle(h.oracleNode, {from: h.defaultAccount})
+          assert.isNotTrue(await contract.authorizedNodes.call(h.oracleNode))
+        })
+      })
+
+      context('if there are multiple oracles', () => {
+        const badData = 9999999999
+        const expected2 = 8616460814
+        const expected3 = 8616460681
+        const badAvg = Math.trunc((badData + expected2 + expected3) / 3)
+        const goodAvg = Math.trunc((expected2 + expected3) / 2)
+
+        beforeEach(async () => {
+          await contract.update(badData, {from: h.oracleNode})
+          await contract.addOracle(h.oracleNode2, {from: h.defaultAccount})
+          await contract.addOracle(h.oracleNode3, {from: h.defaultAccount})
+          await contract.update(expected2, {from: h.oracleNode2})
+          await contract.update(expected3, {from: h.oracleNode3})
+        })
+
+        it('updates the average', async () => {
+          const beforeRate = await contract.currentRate()
+          assert.equal(beforeRate.toString(), badAvg)
+          await contract.removeOracle(h.oracleNode, {from: h.defaultAccount})
+          const afterRate = await contract.currentRate()
+          assert.equal(afterRate.toString(), goodAvg)
+        })
       })
 
       context('if the oracle does not exist', () => {
