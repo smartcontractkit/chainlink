@@ -11,15 +11,15 @@
     "build": "yarn autosetup && cd client && yarn build",
     "prod": "yarn migration:run && ts-node ./src/index.ts",
     "test": "TYPEORM_NAME=test yarn autosetup && yarn jest --detectOpenHandles",
+    "test-ci": "TYPEORM_NAME=ci yarn autosetup && yarn jest --detectOpenHandles",
     "lint": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
     "lint:fix": "eslint --fix --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
     "migration:run": "ts-node ./src/bin/migrator.ts migrate",
     "migration:revert": "ts-node ./src/bin/migrator.ts revert",
     "test:migration:run": "TYPEORM_NAME=test yarn autosetup && ts-node ./src/bin/migrator.ts migrate",
-    "ci:migration:run": "TYPEORM_NAME=ci ts-node ./src/bin/migrator.ts migrate",
     "autosetup": "yarn autoinstall && yarn automigrate",
-    "autoinstall": "md5sum --quiet --check .yarn.lock.md5 || yarn install && md5sum yarn.lock > .yarn.lock.md5",
-    "automigrate": "md5sum --quiet --check .migrations.$TYPEORM_NAME.md5 || yarn migration:run && md5sum src/bin/migrator.ts src/migration/* > .migrations.$TYPEORM_NAME.md5"
+    "autoinstall": "md5sum --quiet --check .yarn.lock.md5 2>/dev/null || yarn install && md5sum yarn.lock > .yarn.lock.md5",
+    "automigrate": "md5sum --quiet --check .migrations.$TYPEORM_NAME.md5 2>/dev/null || yarn migration:run && md5sum src/bin/migrator.ts src/migration/* > .migrations.$TYPEORM_NAME.md5"
   },
   "main": "src/index.ts",
   "repository": {
