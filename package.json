@@ -17,7 +17,7 @@
     "migration:revert": "ts-node ./src/bin/migrator.ts revert",
     "test:migration:run": "TYPEORM_NAME=test ts-node ./src/bin/migrator.ts migrate",
     "ci:migration:run": "TYPEORM_NAME=ci ts-node ./src/bin/migrator.ts migrate",
-    "autoinstall": "md5sum --check .package-lock.json.md5 || yarn install && md5sum package-lock.json > .package-lock.json.md5"
+    "autoinstall": "md5sum --quiet --check .yarn.lock.md5 || yarn install && md5sum yarn.lock > .yarn.lock.md5"
   },
   "main": "src/index.ts",
   "repository": {
