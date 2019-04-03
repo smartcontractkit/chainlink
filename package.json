@@ -16,7 +16,7 @@
     "lint:fix": "eslint --fix --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
     "migration:run": "ts-node ./src/bin/migrator.ts migrate",
     "migration:revert": "ts-node ./src/bin/migrator.ts revert",
-    "test:migration:run": "TYPEORM_NAME=test yarn autosetup && ts-node ./src/bin/migrator.ts migrate",
+    "test:migration:run": "TYPEORM_NAME=test yarn autoinstall && ts-node ./src/bin/migrator.ts migrate",
     "autosetup": "yarn autoinstall && yarn automigrate",
     "autoinstall": "md5sum --quiet --check .yarn.lock.md5 2>/dev/null || yarn install && md5sum yarn.lock > .yarn.lock.md5",
     "automigrate": "md5sum --quiet --check .migrations.${TYPEORM_NAME:-dev}.md5 2>/dev/null || yarn migration:run && md5sum src/bin/migrator.ts src/migration/* > .migrations.${TYPEORM_NAME:-dev}.md5"
