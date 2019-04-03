@@ -10,8 +10,8 @@ router.get('/job_runs', async (req: Request, res: Response) => {
 })
 
 router.get('/job_runs/:id', async (req: Request, res: Response) => {
-  const runId = req.params.id
-  const params = { where: { runId }, relations: ['taskRuns'] }
+  const id = req.params.id
+  const params = { where: { id }, relations: ['taskRuns'] }
   const jobRun = await getDb().manager.findOne(JobRun, params)
 
   if (jobRun) {
