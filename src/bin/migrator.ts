@@ -4,7 +4,7 @@ import { createDbConnection, closeDbConnection, getDb } from '../database'
 
 const migrate = async () => {
   return bootstrap(async (db: Connection) => {
-    console.log(`TYPEORM_NAME = ${db.options.database}`)
+    console.log(`Migrating [\x1b[32m${db.options.database}\x1b[0m]...`)
 
     const pendingMigrations = await db.runMigrations()
     for (let m of pendingMigrations) {
