@@ -48,7 +48,6 @@ func (sa ServiceAgreement) GetName() string {
 
 // SetID is used to set the ID of this structure when deserializing from jsonapi documents.
 func (sa *ServiceAgreement) SetID(value string) error {
-	//sa.ID.SetString(value)
 	sa.ID = value
 	return nil
 }
