@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
@@ -12,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1551895034"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1551895034/old"
 	"github.com/smartcontractkit/chainlink/store/migrations/migration1552418531"
+	"github.com/smartcontractkit/chainlink/store/migrations/migration1554131520"
 	"github.com/smartcontractkit/chainlink/store/models"
 	"github.com/smartcontractkit/chainlink/store/orm"
 	"github.com/stretchr/testify/assert"
@@ -52,6 +54,7 @@ func TestMigrate_Upgrade(t *testing.T) {
 		INSERT INTO migration_timestamps VALUES('1551895034');
 		INSERT INTO migration_timestamps VALUES('1552418531');
 		INSERT INTO migration_timestamps VALUES('1553029703');
+		INSERT INTO migration_timestamps VALUES('1554131520');
 	`).Error
 	require.NoError(t, err)
 
@@ -179,4 +182,91 @@ func TestMigrate1552418531(t *testing.T) {
 	err = orm.DB.Unscoped().First(&retrieved).Error
 	require.NoError(t, err)
 	require.Equal(t, true, retrieved.DeletedAt.Valid)
+}
+
+func TestMigrate1554131520(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	// seed w old schema
+	tm0 := &migration0.Migration{}
+	require.NoError(t, tm0.Migrate(orm.DB))
+
+	j := cltest.NewJob()
+	j.Initiators = []models.Initiator{
+		{
+			JobSpecID: j.ID,
+			Type:      models.InitiatorCron,
+			InitiatorParams: models.InitiatorParams{
+				Schedule: models.Cron("* * * * *"),
+			},
+		},
+		{
+			JobSpecID: j.ID,
+			Type:      models.InitiatorWeb,
+		},
+		{
+			JobSpecID: j.ID,
+			Type:      models.InitiatorEthLog,
+			InitiatorParams: models.InitiatorParams{
+				Address: cltest.NewAddress(),
+			},
+		},
+		{
+			JobSpecID: j.ID,
+			Type:      models.InitiatorRunLog,
+			InitiatorParams: models.InitiatorParams{
+				Address: cltest.NewAddress(),
+			},
+		},
+	}
+
+	require.NoError(t, orm.CreateJob(&j))
+
+	cronjr := j.NewRun(j.Initiators[0])
+	webjr := j.NewRun(j.Initiators[1])
+	ethlogjr := j.NewRun(j.Initiators[2])
+	runlogjr := j.NewRun(j.Initiators[3])
+
+	require.NoError(t, orm.CreateJobRun(&cronjr))
+	require.NoError(t, orm.CreateJobRun(&webjr))
+	require.NoError(t, orm.CreateJobRun(&ethlogjr))
+	require.NoError(t, orm.CreateJobRun(&runlogjr))
+
+	orm.DB.Exec(`
+		UPDATE job_runs SET run_request_id = NULL;
+	`)
+
+	// migrate
+	tm := &migration1554131520.Migration{}
+	require.NoError(t, tm.Migrate(orm.DB))
+
+	// check run request backfill
+	retrieved := models.JobRun{}
+	require.NoError(t, orm.DB.Where("ID = ?", cronjr.ID).Preload("RunRequest").First(&retrieved).Error)
+	assert.NotEqual(t, time.Time{}, retrieved.RunRequest.CreatedAt)
+	assert.Nil(t, retrieved.RunRequest.RequestID)
+	assert.Nil(t, retrieved.RunRequest.Requester)
+	assert.Nil(t, retrieved.RunRequest.TxHash)
+
+	retrieved = models.JobRun{}
+	require.NoError(t, orm.DB.Where("ID = ?", webjr.ID).Preload("RunRequest").First(&retrieved).Error)
+	assert.NotEqual(t, time.Time{}, retrieved.RunRequest.CreatedAt)
+	assert.Nil(t, retrieved.RunRequest.RequestID)
+	assert.Nil(t, retrieved.RunRequest.Requester)
+	assert.Nil(t, retrieved.RunRequest.TxHash)
+
+	retrieved = models.JobRun{}
+	require.NoError(t, orm.DB.Where("ID = ?", ethlogjr.ID).Preload("RunRequest").First(&retrieved).Error)
+	assert.NotEqual(t, time.Time{}, retrieved.RunRequest.CreatedAt)
+	assert.NotNil(t, retrieved.RunRequest.TxHash)
+	assert.Nil(t, retrieved.RunRequest.RequestID)
+	assert.Nil(t, retrieved.RunRequest.Requester)
+
+	retrieved = models.JobRun{}
+	require.NoError(t, orm.DB.Where("ID = ?", runlogjr.ID).Preload("RunRequest").First(&retrieved).Error)
+	assert.NotEqual(t, time.Time{}, retrieved.RunRequest.CreatedAt)
+	assert.NotNil(t, retrieved.RunRequest.TxHash)
+	assert.NotNil(t, retrieved.RunRequest.Requester)
+	assert.Equal(t, "BACKFILLED_FAKE", *retrieved.RunRequest.RequestID)
 }
