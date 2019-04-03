@@ -26,6 +26,7 @@ contract LinkEx is LinkExInterface, Ownable {
   address[] private oracles;
 
   function addOracle(address _oracle) external onlyOwner {
+    require(!authorizedNodes[_oracle], "Oracle is already added");
     setFulfillmentPermission(_oracle, true);
     oracles.push(_oracle);
   }
@@ -38,18 +39,25 @@ contract LinkEx is LinkExInterface, Ownable {
   }
 
   function removeOracle(address _oracle) external onlyOwner {
-    setFulfillmentPermission(_oracle, false);
+    require(_removeOracle(_oracle), "Oracle does not exist");
+  }
+
+  function _removeOracle(address _oracle) private returns (bool) {
     delete authorizedNodes[_oracle];
+    uint256 size = oracles.length.sub(1);
     for (uint i = 0; i < oracles.length; i++) {
       if (oracles[i] == _oracle) {
         delete rates[oracles[i]];
         delete oracles[i];
-        if (i < oracles.length.sub(1)) {
-          oracles[i] = oracles[oracles.length.sub(1)];
+        if (i < size) {
+          oracles[i] = oracles[size];
+          delete oracles[size];
         }
-        oracles.length = oracles.length.sub(1);
+        oracles.length = size;
+        return true;
       }
     }
+    return false;
   }
 
   function update(uint256 _rate) external onlyAuthorizedNode {
@@ -61,11 +69,12 @@ contract LinkEx is LinkExInterface, Ownable {
 
     uint256 rateSum;
     uint256 count;
+    uint256 fromBlock = block.number.sub(VALID_BLOCKS);
     for (uint i = 0; i < oracles.length; i++) {
-      if(rates[oracles[i]].blockNumber > block.number.sub(VALID_BLOCKS)) {
+      if(rates[oracles[i]].blockNumber > fromBlock) {
         rateSum = rateSum.add(rates[oracles[i]].rate);
         count++;
-	    }
+      }
     }
     rate = rateSum.div(count);
   }
