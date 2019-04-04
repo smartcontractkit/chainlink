@@ -1,6 +1,8 @@
 package models
 
 import (
+	"math/rand"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/utils"
@@ -34,7 +36,7 @@ func NewExternalInitiator(eia *ExternalInitiatorAuthentication) (*ExternalInitia
 func NewExternalInitiatorAuthentication() *ExternalInitiatorAuthentication {
 	return &ExternalInitiatorAuthentication{
 		AccessKey: utils.NewBytes32ID(),
-		Secret:    utils.NewBytes32ID(),
+		Secret:    NewSecret(),
 	}
 }
 
@@ -59,4 +61,14 @@ func (eia *ExternalInitiatorAuthentication) GetName() string {
 func (eia *ExternalInitiatorAuthentication) SetID(id string) error {
 	eia.AccessKey = id
 	return nil
+}
+
+// NewSecret returns a new secret for use for authenticating external initiators
+func NewSecret() string {
+	var characters = []rune("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	b := make([]rune, 64)
+	for i := range b {
+		b[i] = characters[rand.Intn(len(characters))]
+	}
+	return string(b)
 }
