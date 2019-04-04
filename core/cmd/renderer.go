@@ -58,6 +58,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		rt.renderServiceAgreement(*typed)
 	case *[]models.TxAttempt:
 		rt.renderTxAttempts(*typed)
+	case *models.ExternalInitiatorAuthentication:
+		rt.renderExternalInitiatorAuthentication(*typed)
 	default:
 		return fmt.Errorf("Unable to render object of type %T: %v", typed, typed)
 	}
@@ -228,6 +230,18 @@ func (rt RendererTable) renderServiceAgreement(sa presenters.ServiceAgreement) e
 		sa.FriendlyExpiration(),
 	})
 	render("Service Agreement", table)
+	return nil
+}
+
+func (rt RendererTable) renderExternalInitiatorAuthentication(eia models.ExternalInitiatorAuthentication) error {
+	table := rt.newTable([]string{"ID", "Value"})
+	table.Append([]string{
+		"AccessKey",
+		eia.AccessKey,
+		"Secret",
+		eia.Secret,
+	})
+	render("External Initiator Credentials", table)
 	return nil
 }
 

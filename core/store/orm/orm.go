@@ -286,6 +286,19 @@ func (orm *ORM) CreateJobRun(run *models.JobRun) error {
 	})
 }
 
+// CreateExternalInitiator inserts a new external initiator
+func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitiator) error {
+	return orm.DB.Save(externalInitiator).Error
+}
+
+// DeleteExternalInitiator removes an external initiator
+func (orm *ORM) DeleteExternalInitiator(accessKey string) error {
+	return orm.DB.
+		Where("access_key = ?", accessKey).
+		Delete(&models.ExternalInitiator{}).
+		Error
+}
+
 // updateDeletedAtFromJobSpec will update a runs deleted_at from its parent
 // job spec.
 // This is of particular importance in the edge case when a runlog starts a run
