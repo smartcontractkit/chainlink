@@ -1,12 +1,23 @@
 import reducer, { IState } from '../../reducers'
 import { JobRunsAction } from '../../reducers/jobRuns'
 
-const INITIAL_STATE = { jobRuns: { 'replace-me': { id: 'replace-me' } } }
+const STATE = {
+  jobRuns: {
+    items: { 'replace-me': { id: 'replace-me' } }
+  }
+}
 
 describe('reducers/jobRuns', () => {
-  it('returns an initial state', () => {
+  it('returns the current state for other actions', () => {
     const action = {} as JobRunsAction
-    const state = reducer({}, action) as IState
+    const state = reducer(STATE, action) as IState
+
+    expect(state.jobRuns).toEqual(STATE.jobRuns)
+  })
+
+  it('sets a blank state on init', () => {
+    const action: JobRunsAction = { type: '@@INIT' }
+    const state = reducer(STATE, action) as IState
 
     expect(state.jobRuns).toEqual({
       items: undefined
@@ -22,7 +33,7 @@ describe('reducers/jobRuns', () => {
       }
       const data = { entities: { jobRuns: jobRuns } }
       const action = { type: 'UPSERT_JOB_RUNS', data: data } as JobRunsAction
-      const state = reducer(INITIAL_STATE, action) as IState
+      const state = reducer(STATE, action) as IState
 
       expect(state.jobRuns).toEqual({
         items: {
@@ -43,7 +54,7 @@ describe('reducers/jobRuns', () => {
       }
       const data = { entities: { jobRuns: jobRuns } }
       const action = { type: 'UPSERT_JOB_RUN', data: data } as JobRunsAction
-      const state = reducer(INITIAL_STATE, action) as IState
+      const state = reducer(STATE, action) as IState
 
       expect(state.jobRuns).toEqual({
         items: {
