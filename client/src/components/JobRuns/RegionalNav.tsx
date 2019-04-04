@@ -18,18 +18,17 @@ const regionalNavStyles = ({ spacing, palette }: Theme) =>
   })
 
 interface IRegionalNavProps extends WithStyles<typeof regionalNavStyles> {
-  jobRunId?: string
   jobRun?: IJobRun
 }
 
 const RegionalNav = withStyles(regionalNavStyles)(
-  ({ jobRunId, jobRun, classes }: IRegionalNavProps) => {
+  ({ jobRun, classes }: IRegionalNavProps) => {
     return (
       <Paper square className={classes.container}>
         <Grid container spacing={0}>
           <Grid item xs={12}>
             <Typography variant="h3" color="secondary" gutterBottom>
-              {jobRunId}
+              {jobRun ? jobRun.runId : '...'}
             </Typography>
           </Grid>
           <Grid item xs={12}>

@@ -58,7 +58,7 @@ const Show = withStyles(styles)(
 
     return (
       <>
-        <RegionalNav jobRunId={jobRunId} jobRun={jobRun} />
+        <RegionalNav jobRun={jobRun} />
 
         <Grid container spacing={0}>
           <Grid item xs={12}>
