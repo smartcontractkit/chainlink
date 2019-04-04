@@ -137,6 +137,10 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		authv2.PATCH("/user/password", uc.UpdatePassword)
 		authv2.GET("/user/balances", uc.AccountBalances)
 
+		eia := ExternalInitiatorsController{app}
+		authv2.POST("/external_initiators", eia.Create)
+		authv2.DELETE("/external_initiators/:AccessKey", eia.Destroy)
+
 		j := JobSpecsController{app}
 		authv2.GET("/specs", paginatedRequest(j.Index))
 		authv2.POST("/specs", j.Create)

@@ -65,6 +65,32 @@ func (cli *Client) CreateServiceAgreement(c *clipkg.Context) error {
 	return cli.renderResponse(resp, &sa)
 }
 
+// CreateExternalInitiator adds an external initiator
+func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
+	resp, err := cli.HTTP.Post("/v2/external_initiators", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	var eia models.ExternalInitiatorAuthentication
+	return cli.renderAPIResponse(resp, &eia)
+}
+
+// DeleteExternalInitiator removes an external initiator
+func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the AccessKey for the external initiator to delete"))
+	}
+
+	resp, err := cli.HTTP.Delete("/v2/external_initiators/" + c.Args().First())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
 // ShowJobRun returns the status of the given Jobrun.
 func (cli *Client) ShowJobRun(c *clipkg.Context) error {
 	if !c.Args().Present() {
