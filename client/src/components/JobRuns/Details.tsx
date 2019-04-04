@@ -55,10 +55,6 @@ const Details = ({ classes, jobRun }: IProps) => {
           <Col>{jobRun.jobId}</Col>
         </TableRow>
         <TableRow>
-          <KeyCol>Status</KeyCol>
-          <Col>{jobRun.status}</Col>
-        </TableRow>
-        <TableRow>
           <KeyCol>Initiator</KeyCol>
           <Col>RunLog</Col>
         </TableRow>
