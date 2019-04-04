@@ -83,14 +83,14 @@ export const search = async (
 ): Promise<Array<JobRun>> => {
   let query = db.getRepository(JobRun).createQueryBuilder('jobRuns')
 
-  if (params.searchQuery !== undefined) {
+  if (params.searchQuery != null) {
     const searchTokens = params.searchQuery.split(/\s+/)
     query = query
       .where('jobRuns.runId IN(:...searchTokens)', { searchTokens })
       .orWhere('jobRuns.jobId IN(:...searchTokens)', { searchTokens })
   }
 
-  if (params.limit !== undefined) {
+  if (params.limit != null) {
     query = query.limit(params.limit)
   }
 
