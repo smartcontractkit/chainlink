@@ -17,10 +17,10 @@ const List = ({ jobRuns, className }: IProps) => {
     rows = jobRuns.map((r: IJobRun) => {
       const idCol: LinkColumn = {
         type: 'link',
-        text: r.id,
+        text: r.runId,
         to: `/job-runs/${r.id}`
       }
-      const jobIdCol: TextColumn = { type: 'text', text: r.id }
+      const jobIdCol: TextColumn = { type: 'text', text: r.jobId }
       const createdAtCol: TimeAgoColumn = {
         type: 'time_ago',
         text: r.createdAt
