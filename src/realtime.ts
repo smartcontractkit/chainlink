@@ -15,10 +15,10 @@ export const bootstrapRealtime = (server: http.Server) => {
     console.log(
       `websocket connected, total chainlink nodes connected: ${clnodeCount}`
     )
-    ws.on('message', function incoming(message) {
+    ws.on('message', function incoming(message: WebSocket.Data) {
       console.log('received: %s', message)
       db.manager
-        .save(fromString(message))
+        .save(fromString(message as string))
         .then(entity => {
           console.log('saved job run %s', entity.id)
         })
