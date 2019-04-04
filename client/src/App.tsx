@@ -4,6 +4,7 @@ import CssBaseline from '@material-ui/core/CssBaseline'
 import Grid from '@material-ui/core/Grid'
 import { Router } from '@reach/router'
 import Header from './containers/Header'
+import SearchCard from './components/Cards/Search'
 import JobRunsIndex from './containers/JobRuns/Index'
 import JobRunsShow from './containers/JobRuns/Show'
 
@@ -36,9 +37,11 @@ const App = () => {
       <Grid container spacing={24}>
         <Grid item xs={12}>
           <Router>
-            <Main path="/">
+            <SearchCard path="/" />
+
+            <Main path="/job-runs">
               <JobRunsIndex path="/" />
-              <JobRunsShow path="/job-runs/:jobRunId" />
+              <JobRunsShow path="/:jobRunId" />
             </Main>
           </Router>
         </Grid>

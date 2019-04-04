@@ -13,30 +13,32 @@ import {
 import classNames from 'classnames'
 import { IState } from '../reducers'
 
-const styles = (theme: Theme) =>
+const styles = ({ palette, spacing }: Theme) =>
   createStyles({
     form: {
       display: 'flex'
     },
     paper: {
       border: 'solid 1px',
-      borderColor: theme.palette.primary.light
+      borderColor: palette.grey['300'],
+      padding: spacing.unit
     },
     query: {
       boxSizing: 'border-box',
-      flexGrow: 1
+      flexGrow: 1,
+      color: palette.text.primary
     }
   })
 
 interface IProps extends WithStyles<typeof styles> {
-  className: string
+  className?: string
   query?: string
 }
 
 const Search = ({ classes, className, query }: IProps) => {
   return (
     <Paper elevation={0} className={classNames(classes.paper, className)}>
-      <form method="GET" className={classes.form}>
+      <form method="GET" action="/job-runs" className={classes.form}>
         <IconButton aria-label="Search" type="submit">
           <SearchIcon />
         </IconButton>

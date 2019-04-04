@@ -2,7 +2,7 @@ import React from 'react'
 import logo from '../images/logo.svg'
 
 interface IProps {
-  className: string
+  className?: string
 }
 
 const Logo = ({ className }: IProps) => {
