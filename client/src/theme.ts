@@ -22,17 +22,6 @@ const theme = {
     secondary: {
       main: '#3d5170'
     },
-    success: {
-      light: '#F9FFFC',
-      main: green.A700,
-      dark: green['700'],
-      contrastText: common.white
-    },
-    warning: {
-      light: '#FFFBF1',
-      main: '#fff6b6',
-      contrastText: '#fad27a'
-    },
     error: {
       light: '#ffdada',
       main: '#f44336',
@@ -44,7 +33,7 @@ const theme = {
       appBar: '#3c40c6'
     },
     text: {
-      primary: darken(grey['A700'], 0.7),
+      primary: '#3d5170',
       secondary: '#5a6169'
     }
   },

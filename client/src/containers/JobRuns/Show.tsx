@@ -16,6 +16,7 @@ import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import Details from '../../components/JobRuns/Details'
 import RegionalNav from '../../components/JobRuns/RegionalNav'
+import RunStatus from '../../components/JobRuns/RunStatus'
 import { getJobRun } from '../../actions/jobRuns'
 import { IState } from '../../reducers'
 import { JobRun } from '../../entities'
@@ -35,7 +36,8 @@ const Loading = () => (
 const styles = ({ spacing }: Theme) =>
   createStyles({
     container: {
-      padding: spacing.unit * 5
+      padding: spacing.unit * 5,
+      paddingBottom: 0
     },
     card: {
       paddingTop: spacing.unit,
@@ -62,6 +64,12 @@ const Show = withStyles(styles)(
 
         <Grid container spacing={0}>
           <Grid item xs={12}>
+            {jobRun && (
+              <div className={classes.container}>
+                <RunStatus jobRun={jobRun} />
+              </div>
+            )}
+
             <div className={classes.container}>
               <Card className={classes.card}>
                 {jobRun ? <Details jobRun={jobRun} /> : <Loading />}
