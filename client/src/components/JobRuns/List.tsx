@@ -38,7 +38,7 @@ const Runs = ({ jobRuns }: IRunsProps) => {
       {jobRuns.map((r: any, idx: number) => (
         <TableRow key={r.id}>
           <TableCell component="th" scope="row">
-            <Link to={`/job-runs/${r.id}`}>{r.id}</Link>
+            <Link to={`/job-runs/${r.id}`}>{r.runId}</Link>
           </TableCell>
           <TableCell>{r.jobId}</TableCell>
         </TableRow>
