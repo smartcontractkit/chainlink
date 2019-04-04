@@ -54,7 +54,8 @@ const theme = {
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Roboto", "Helvetica", "Arial", sans-serif',
     button: {
-      textTransform: 'none'
+      textTransform: 'none',
+      fontSize: '1.2em'
     } as TypographyStyleOptions,
     body1: {
       fontSize: '1.0rem',
