@@ -72,7 +72,10 @@ describe('search', () => {
   })
 
   it('returns all results when no query is supplied', async () => {
-    const results = await search(getDb(), { searchQuery: undefined })
+    let results
+    results = await search(getDb(), { searchQuery: undefined })
+    expect(results).toHaveLength(2)
+    results = await search(getDb(), { searchQuery: null })
     expect(results).toHaveLength(2)
   })
 
