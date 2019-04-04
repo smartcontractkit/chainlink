@@ -98,7 +98,7 @@ contract LinkEx is LinkExInterface, Ownable {
   }
 
   modifier onlyAuthorizedNode() {
-    require(authorizedNodes[msg.sender], "Only an authorized node may call this function");
+    require(authorizedNodes[msg.sender], "Not an authorized node");
     _;
   }
 }
