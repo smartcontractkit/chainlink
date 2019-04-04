@@ -25,6 +25,12 @@ createdb linkstats_dev
 yarn migration:run
 ```
 
+##### Deletion
+
+```
+dropdb linkstats_dev
+```
+
 ##### Connection
 
 [TypeORM](https://typeorm.io/#/migrations) has been configured to load
