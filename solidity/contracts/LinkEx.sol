@@ -25,8 +25,7 @@ contract LinkEx is LinkExInterface, Ownable {
   uint256 private rateHeight;
   address[] private oracles;
 
-  function addOracle(address _oracle) external onlyOwner {
-    require(!authorizedNodes[_oracle], "Oracle is already added");
+  function addOracle(address _oracle) external onlyOwner notExists(_oracle) {
     setFulfillmentPermission(_oracle, true);
     oracles.push(_oracle);
   }
@@ -91,6 +90,11 @@ contract LinkEx is LinkExInterface, Ownable {
 
   function setFulfillmentPermission(address _oracle, bool _status) private {
     authorizedNodes[_oracle] = _status;
+  }
+
+  modifier notExists(address _oracle) {
+    require(!authorizedNodes[_oracle], "Oracle is already added");
+    _;
   }
 
   modifier onlyAuthorizedNode() {
