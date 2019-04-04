@@ -39,13 +39,13 @@ contract LinkEx is LinkExInterface, Ownable {
   }
 
   function removeOracle(address _oracle) external onlyOwner {
-    require(_removeOracle(_oracle), "Oracle does not exist");
+    _removeOracle(_oracle);
     if (oracles.length > 0) {
       _update();
     }
   }
 
-  function _removeOracle(address _oracle) private returns (bool) {
+  function _removeOracle(address _oracle) private {
     delete authorizedNodes[_oracle];
     uint256 size = oracles.length.sub(1);
     for (uint i = 0; i < oracles.length; i++) {
@@ -56,10 +56,10 @@ contract LinkEx is LinkExInterface, Ownable {
           oracles[i] = oracles[size];
         }
         oracles.length = size;
-        return true;
+        return;
       }
     }
-    return false;
+    revert("Oracle does not exist");
   }
 
   function update(uint256 _rate) external onlyAuthorizedNode {
