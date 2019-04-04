@@ -27,6 +27,14 @@ const Col = ({ children, className }: IColProps) => (
   </BaseCol>
 )
 
+const KeyCol = ({ children, className }: IColProps) => (
+  <BaseCol className={className}>
+    <Typography variant="body1" color="textPrimary">
+      {children}
+    </Typography>
+  </BaseCol>
+)
+
 const styles = () =>
   createStyles({
     bottomCol: {
@@ -43,29 +51,29 @@ const Details = ({ classes, jobRun }: IProps) => {
     <Table>
       <TableBody>
         <TableRow>
-          <Col>Job ID</Col>
+          <KeyCol>Job ID</KeyCol>
           <Col>{jobRun.jobId}</Col>
         </TableRow>
         <TableRow>
-          <Col>Status</Col>
+          <KeyCol>Status</KeyCol>
           <Col>{jobRun.status}</Col>
         </TableRow>
         <TableRow>
-          <Col>Initiator</Col>
+          <KeyCol>Initiator</KeyCol>
           <Col>RunLog</Col>
         </TableRow>
         <TableRow>
-          <Col>Completed At</Col>
+          <KeyCol>Completed At</KeyCol>
           <Col>{jobRun.completedAt}</Col>
         </TableRow>
         {jobRun.error && (
           <TableRow>
-            <Col>Error</Col>
+            <KeyCol>Error</KeyCol>
             <Col>{jobRun.error}</Col>
           </TableRow>
         )}
         <TableRow>
-          <Col className={classes.bottomCol}>Tasks</Col>
+          <KeyCol className={classes.bottomCol}>Tasks</KeyCol>
           <BaseCol className={classes.bottomCol}>
             <TaskRuns taskRuns={jobRun.taskRuns} />
           </BaseCol>
