@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -22,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/unrolled/secure"
 )
 
@@ -96,13 +98,63 @@ func secureMiddleware(config store.Config) gin.HandlerFunc {
 	return secureFunc
 }
 
-func authRequired(store *store.Store) gin.HandlerFunc {
+var (
+	// ErrorAuthFailed is a generic authentication failed - but not because of
+	// some system failure on our behalf (i.e. HTTP 5xx), more detail is not
+	// given
+	ErrorAuthFailed = errors.New("Authentication failed")
+)
+
+func sessionAuth(store *store.Store, c *gin.Context) error {
+	session := sessions.Default(c)
+	sessionID, ok := session.Get(SessionIDKey).(string)
+	if !ok {
+		return ErrorAuthFailed
+	}
+
+	_, err := store.AuthorizedUserWithSession(sessionID)
+	return err
+}
+
+func tokenAuth(store *store.Store, c *gin.Context) error {
+	eia := &models.ExternalInitiatorAuthentication{
+		AccessKey: c.GetHeader("X-Chainlink-EA-AccessKey"),
+		Secret:    c.GetHeader("X-Chainlink-EA-Secret"),
+	}
+
+	ei, err := store.FindExternalInitiator(eia)
+	if err != nil {
+		return err
+	}
+
+	if !models.AuthenticateExternalInitiator(eia, ei) {
+		return ErrorAuthFailed
+	}
+
+	return nil
+}
+
+func sessionAuthRequired(store *store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		session := sessions.Default(c)
-		sessionID, ok := session.Get(SessionIDKey).(string)
-		if !ok {
+		err := sessionAuth(store, c)
+		if err != nil {
 			c.AbortWithStatus(http.StatusUnauthorized)
-		} else if _, err := store.AuthorizedUserWithSession(sessionID); err != nil {
+		} else {
+			c.Next()
+		}
+	}
+}
+
+// tokenAuthRequired first tries session authentication, then falls back to
+// token authentication, strictly for External Initiators
+func tokenAuthRequired(store *store.Store) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		err := sessionAuth(store, c)
+		if err == ErrorAuthFailed {
+			err = tokenAuth(store, c)
+		}
+
+		if err != nil {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		} else {
 			c.Next()
@@ -111,14 +163,14 @@ func authRequired(store *store.Store) gin.HandlerFunc {
 }
 
 func metricRoutes(app services.Application, engine *gin.Engine) {
-	auth := engine.Group("/", authRequired(app.GetStore()))
+	auth := engine.Group("/", sessionAuthRequired(app.GetStore()))
 	auth.GET("/debug/vars", expvar.Handler())
 }
 
 func sessionRoutes(app services.Application, engine *gin.Engine) {
 	sc := SessionsController{app}
 	engine.POST("/sessions", sc.Create)
-	auth := engine.Group("/", authRequired(app.GetStore()))
+	auth := engine.Group("/", sessionAuthRequired(app.GetStore()))
 	auth.DELETE("/sessions", sc.Destroy)
 }
 
@@ -131,7 +183,9 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 	sa := ServiceAgreementsController{app}
 	v2.POST("/service_agreements", sa.Create)
 
-	authv2 := engine.Group("/v2", authRequired(app.GetStore()))
+	j := JobSpecsController{app}
+
+	authv2 := engine.Group("/v2", sessionAuthRequired(app.GetStore()))
 	{
 		uc := UserController{app}
 		authv2.PATCH("/user/password", uc.UpdatePassword)
@@ -141,14 +195,11 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		authv2.POST("/external_initiators", eia.Create)
 		authv2.DELETE("/external_initiators/:AccessKey", eia.Destroy)
 
-		j := JobSpecsController{app}
 		authv2.GET("/specs", paginatedRequest(j.Index))
-		authv2.POST("/specs", j.Create)
 		authv2.GET("/specs/:SpecID", j.Show)
 		authv2.DELETE("/specs/:SpecID", j.Destroy)
 
 		authv2.GET("/runs", paginatedRequest(jr.Index))
-		authv2.POST("/specs/:SpecID/runs", jr.Create)
 		authv2.GET("/runs/:RunID", jr.Show)
 
 		authv2.GET("/service_agreements/:SAID", sa.Show)
@@ -184,6 +235,10 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		bdc := BulkDeletesController{app}
 		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
 	}
+
+	tokAuthv2 := engine.Group("/v2", tokenAuthRequired(app.GetStore()))
+	tokAuthv2.POST("/specs/:SpecID/runs", jr.Create)
+	tokAuthv2.POST("/specs", j.Create)
 }
 
 func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
