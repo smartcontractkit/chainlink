@@ -32,6 +32,19 @@ const (
 	SessionName = "clsession"
 	// SessionIDKey is the session ID key in the session map
 	SessionIDKey = "clsession_id"
+	// ExternalInitiatorAccessKeyHeader is the header name for the access key
+	// used by external initiators to authenticate
+	ExternalInitiatorAccessKeyHeader = "X-Chainlink-EA-AccessKey"
+	// ExternalInitiatorSecretHeader is the header name for the secret used by
+	// external initiators to authenticate
+	ExternalInitiatorSecretHeader = "X-Chainlink-EA-Secret"
+)
+
+var (
+	// ErrorAuthFailed is a generic authentication failed - but not because of
+	// some system failure on our behalf (i.e. HTTP 5xx), more detail is not
+	// given
+	ErrorAuthFailed = errors.New("Authentication failed")
 )
 
 // Router listens and responds to requests to the node for valid paths.
@@ -98,13 +111,6 @@ func secureMiddleware(config store.Config) gin.HandlerFunc {
 	return secureFunc
 }
 
-var (
-	// ErrorAuthFailed is a generic authentication failed - but not because of
-	// some system failure on our behalf (i.e. HTTP 5xx), more detail is not
-	// given
-	ErrorAuthFailed = errors.New("Authentication failed")
-)
-
 func sessionAuth(store *store.Store, c *gin.Context) error {
 	session := sessions.Default(c)
 	sessionID, ok := session.Get(SessionIDKey).(string)
@@ -118,8 +124,8 @@ func sessionAuth(store *store.Store, c *gin.Context) error {
 
 func tokenAuth(store *store.Store, c *gin.Context) error {
 	eia := &models.ExternalInitiatorAuthentication{
-		AccessKey: c.GetHeader("X-Chainlink-EA-AccessKey"),
-		Secret:    c.GetHeader("X-Chainlink-EA-Secret"),
+		AccessKey: c.GetHeader(ExternalInitiatorAccessKeyHeader),
+		Secret:    c.GetHeader(ExternalInitiatorSecretHeader),
 	}
 
 	ei, err := store.FindExternalInitiator(eia)
