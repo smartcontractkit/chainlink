@@ -15,6 +15,10 @@ func (m Migration) Migrate(tx *gorm.DB) error {
 		return err
 	}
 
+	if err := tx.AutoMigrate(&jobRun{}).Error; err != nil {
+		return err
+	}
+
 	if err := backfillRunRequests(tx, "runat", models.RunRequest{}); err != nil {
 		return err
 	}
@@ -70,4 +74,11 @@ func replaceRunRequest(tx *gorm.DB, jrid string, rr models.RunRequest) error {
 		return err
 	}
 	return nil
+}
+
+// jobRun private type here to capture and isolate the single change necessary
+// to job run, insulating this migration from future changes to models.JobRun.
+type jobRun struct {
+	ID           string `gorm:"primary_key"`
+	RunRequestID uint
 }
