@@ -11,6 +11,7 @@ import {
 } from '@material-ui/core/styles'
 import ReactResizeDetector from 'react-resize-detector'
 import Logo from '../components/Logo'
+import SearchForm from '../components/SearchForm'
 import SearchBox from '../components/SearchBox'
 import { IState } from '../reducers'
 
@@ -32,9 +33,11 @@ const styles = (theme: Theme) =>
     logo: {
       width: 200
     },
-    search: {
-      marginLeft: theme.spacing.unit * 2,
+    searchForm: {
       flexGrow: 1
+    },
+    search: {
+      marginLeft: theme.spacing.unit * 2
     },
     connectedNodes: {
       textAlign: 'right'
@@ -58,7 +61,9 @@ const Header = ({ classes, onResize }: IProps) => {
             <Grid item xs={8}>
               <div className={classes.logoAndSearch}>
                 <Logo className={classes.logo} />
-                <SearchBox className={classes.search} />
+                <SearchForm className={classes.searchForm}>
+                  <SearchBox className={classes.search} />
+                </SearchForm>
               </div>
             </Grid>
           </Grid>

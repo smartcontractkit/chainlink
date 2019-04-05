@@ -10,6 +10,7 @@ import {
 } from '@material-ui/core/styles'
 import Logo from '../Logo'
 import SearchBox from '../SearchBox'
+import SearchForm from '../SearchForm'
 
 const styles = ({ spacing }: Theme) =>
   createStyles({
@@ -41,19 +42,21 @@ const Search = ({ classes }: IProps) => {
       className={classes.container}>
       <Grid item xs={8}>
         <Card className={classes.card}>
-          <Grid container justify="center">
-            <Grid item>
-              <Logo className={classes.logo} />
+          <SearchForm>
+            <Grid container justify="center">
+              <Grid item>
+                <Logo className={classes.logo} />
+              </Grid>
+              <Grid item xs={12}>
+                <SearchBox />
+              </Grid>
+              <Grid item>
+                <Button variant="contained" color="primary" type="submit">
+                  Search
+                </Button>
+              </Grid>
             </Grid>
-            <Grid item xs={12}>
-              <SearchBox />
-            </Grid>
-            <Grid item>
-              <Button variant="contained" color="primary" type="submit">
-                Search
-              </Button>
-            </Grid>
-          </Grid>
+          </SearchForm>
         </Card>
       </Grid>
     </Grid>

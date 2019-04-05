@@ -15,17 +15,15 @@ import { IState } from '../reducers'
 
 const styles = ({ palette, spacing }: Theme) =>
   createStyles({
-    form: {
-      display: 'flex'
-    },
     paper: {
+      display: 'flex',
       border: 'solid 1px',
       borderColor: palette.grey['300'],
       padding: spacing.unit
     },
     query: {
-      boxSizing: 'border-box',
       flexGrow: 1,
+      boxSizing: 'border-box',
       color: palette.text.primary
     }
   })
@@ -38,17 +36,15 @@ interface IProps extends WithStyles<typeof styles> {
 const SearchBox = ({ classes, className, query }: IProps) => {
   return (
     <Paper elevation={0} className={classNames(classes.paper, className)}>
-      <form method="GET" action="/job-runs" className={classes.form}>
-        <IconButton aria-label="Search" type="submit">
-          <SearchIcon />
-        </IconButton>
-        <InputBase
-          className={classes.query}
-          defaultValue={query}
-          placeholder="Search for something"
-          name="search"
-        />
-      </form>
+      <IconButton aria-label="Search" type="submit">
+        <SearchIcon />
+      </IconButton>
+      <InputBase
+        className={classes.query}
+        defaultValue={query}
+        placeholder="Search for something"
+        name="search"
+      />
     </Paper>
   )
 }
