@@ -45,7 +45,7 @@ const theme = {
     },
     text: {
       primary: darken(grey['A700'], 0.7),
-      secondary: '#818ea3'
+      secondary: '#5a6169'
     }
   },
   shape: {

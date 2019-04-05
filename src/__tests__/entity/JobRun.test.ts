@@ -72,30 +72,64 @@ describe('search', () => {
   })
 
   it('returns all results when no query is supplied', async () => {
-    const results = await search(getDb(), undefined)
+    let results
+    results = await search(getDb(), { searchQuery: undefined })
+    expect(results).toHaveLength(2)
+    results = await search(getDb(), { searchQuery: null })
     expect(results).toHaveLength(2)
   })
 
+  it('returns results in descending order by createdAt', async () => {
+    const results = await search(getDb(), { searchQuery: undefined })
+    expect(results[0].runId).toEqual(JOB_RUN_B_ID)
+    expect(results[1].runId).toEqual(JOB_RUN_A_ID)
+  })
+
+  it('can set a limit', async () => {
+    const results = await search(getDb(), { searchQuery: undefined, limit: 1 })
+    expect(results[0].runId).toEqual(JOB_RUN_B_ID)
+    expect(results).toHaveLength(1)
+  })
+
+  it('can set a page with a 1 based index', async () => {
+    let results
+
+    results = await search(getDb(), {
+      searchQuery: undefined,
+      page: 1,
+      limit: 1
+    })
+    expect(results[0].runId).toEqual(JOB_RUN_B_ID)
+
+    results = await search(getDb(), {
+      searchQuery: undefined,
+      page: 2,
+      limit: 1
+    })
+    expect(results[0].runId).toEqual(JOB_RUN_A_ID)
+  })
+
   it('returns no results for blank search', async () => {
-    const results = await search(getDb(), '')
+    const results = await search(getDb(), { searchQuery: '' })
     expect(results).toHaveLength(0)
   })
 
   it('returns one result for an exact match on jobId', async () => {
-    const results = await search(getDb(), JOB_RUN_A_ID)
+    const results = await search(getDb(), { searchQuery: JOB_RUN_A_ID })
     expect(results).toHaveLength(1)
   })
 
   it('returns one result for an exact match on jobId and runId', async () => {
-    const results = await search(
-      getDb(),
-      `${JOB_RUN_A_ID} aeb2861d306645b1ba012079aeb2e53a`
-    )
+    const results = await search(getDb(), {
+      searchQuery: `${JOB_RUN_A_ID} aeb2861d306645b1ba012079aeb2e53a`
+    })
     expect(results).toHaveLength(1)
   })
 
   it('returns two results when two matching runIds are supplied', async () => {
-    const results = await search(getDb(), `${JOB_RUN_A_ID} ${JOB_RUN_B_ID}`)
+    const results = await search(getDb(), {
+      searchQuery: `${JOB_RUN_A_ID} ${JOB_RUN_B_ID}`
+    })
     expect(results).toHaveLength(2)
   })
 })

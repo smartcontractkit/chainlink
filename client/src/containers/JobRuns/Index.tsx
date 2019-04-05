@@ -25,12 +25,14 @@ interface IProps extends WithStyles<typeof styles> {
   jobRuns?: IJobRun[]
   getJobRuns: Function
   path: string
+  page: number
+  size: number
 }
 
 const Index = withStyles(styles)(
-  ({ query, jobRuns, getJobRuns, classes }: IProps) => {
+  ({ query, page, size, jobRuns, getJobRuns, classes }: IProps) => {
     useEffect(() => {
-      getJobRuns(query)
+      getJobRuns(query, page, size)
     }, [])
 
     return (
@@ -52,7 +54,9 @@ const jobRunsSelector = ({
 
 const mapStateToProps = (state: IState) => ({
   query: state.search.query,
-  jobRuns: jobRunsSelector(state)
+  jobRuns: jobRunsSelector(state),
+  page: 1,
+  size: 300
 })
 
 const mapDispatchToProps = (dispatch: Dispatch<any>) =>
