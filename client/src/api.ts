@@ -3,8 +3,14 @@ import { Query } from './reducers/search'
 
 const base = () => `${document.location.protocol}//${document.location.host}`
 
-const getJobRuns = async (query: Query): Promise<IJobRun[]> => {
+const getJobRuns = async (
+  query: Query,
+  page: number,
+  size: number
+): Promise<IJobRun[]> => {
   const url = new URL('/api/v1/job_runs', base())
+  url.searchParams.set('page', page.toString())
+  url.searchParams.set('size', size.toString())
   if (query) {
     url.searchParams.set('query', query)
   }

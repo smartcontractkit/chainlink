@@ -71,18 +71,33 @@ export const fromString = (str: string): JobRun => {
   return jr
 }
 
+export interface ISearchParams {
+  searchQuery?: string
+  page?: number
+  limit?: number
+}
+
 export const search = async (
   db: Connection,
-  searchQuery?: string
+  params: ISearchParams
 ): Promise<Array<JobRun>> => {
-  let params = {}
+  let query = db.getRepository(JobRun).createQueryBuilder('jobRuns')
 
-  if (searchQuery != null) {
-    const searchTokens = searchQuery.split(/\s+/)
-    params = {
-      where: [{ runId: In(searchTokens) }, { jobId: In(searchTokens) }]
-    }
+  if (params.searchQuery != null) {
+    const searchTokens = params.searchQuery.split(/\s+/)
+    query = query
+      .where('jobRuns.runId IN(:...searchTokens)', { searchTokens })
+      .orWhere('jobRuns.jobId IN(:...searchTokens)', { searchTokens })
   }
 
-  return db.getRepository(JobRun).find(params)
+  if (params.limit != null) {
+    query = query.limit(params.limit)
+  }
+
+  if (params.page !== undefined) {
+    const offset = (params.page - 1) * params.limit
+    query = query.offset(offset)
+  }
+
+  return query.orderBy('jobRuns.createdAt', 'DESC').getMany()
 }
