@@ -11,6 +11,8 @@ export default (
   action: JobRunsAction
 ): IState => {
   switch (action.type) {
+    case '@@INIT':
+      return INITIAL_STATE
     case 'UPSERT_JOB_RUNS':
       return { items: action.data.result }
     case 'UPSERT_JOB_RUN':

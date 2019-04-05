@@ -16,6 +16,8 @@ const INITIAL_STATE = { items: undefined }
 
 export default (state: IState = INITIAL_STATE, action: JobRunsAction) => {
   switch (action.type) {
+    case '@@INIT':
+      return INITIAL_STATE
     case 'UPSERT_JOB_RUNS':
       return { items: action.data.entities.jobRuns }
     case 'UPSERT_JOB_RUN':
