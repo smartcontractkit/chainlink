@@ -330,6 +330,8 @@ var blacklist = map[string]struct{}{
 	"oldpassword":          struct{}{},
 	"current_password":     struct{}{},
 	"new_account_password": struct{}{},
+	"accesskey":            struct{}{},
+	"secret":               struct{}{},
 }
 
 func isBlacklisted(k string) bool {
