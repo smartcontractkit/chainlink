@@ -9,7 +9,7 @@ import {
   WithStyles
 } from '@material-ui/core/styles'
 import Logo from '../Logo'
-import SearchBox from '../Search'
+import SearchBox from '../SearchBox'
 
 const styles = ({ spacing }: Theme) =>
   createStyles({

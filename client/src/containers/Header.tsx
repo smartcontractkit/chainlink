@@ -11,7 +11,7 @@ import {
 } from '@material-ui/core/styles'
 import ReactResizeDetector from 'react-resize-detector'
 import Logo from '../components/Logo'
-import Search from '../components/Search'
+import SearchBox from '../components/SearchBox'
 import { IState } from '../reducers'
 
 const styles = (theme: Theme) =>
@@ -58,7 +58,7 @@ const Header = ({ classes, onResize }: IProps) => {
             <Grid item xs={8}>
               <div className={classes.logoAndSearch}>
                 <Logo className={classes.logo} />
-                <Search className={classes.search} />
+                <SearchBox className={classes.search} />
               </div>
             </Grid>
           </Grid>
