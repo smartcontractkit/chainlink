@@ -35,7 +35,7 @@ interface IProps extends WithStyles<typeof styles> {
   query?: string
 }
 
-const Search = ({ classes, className, query }: IProps) => {
+const SearchBox = ({ classes, className, query }: IProps) => {
   return (
     <Paper elevation={0} className={classNames(classes.paper, className)}>
       <form method="GET" action="/job-runs" className={classes.form}>
@@ -61,9 +61,9 @@ const mapStateToProps = (state: IState) => {
 
 const mapDispatchToProps = () => ({})
 
-const ConnectedSearch = connect(
+const ConnectedSearchBox = connect(
   mapStateToProps,
   mapDispatchToProps
-)(Search)
+)(SearchBox)
 
-export default withStyles(styles)(ConnectedSearch)
+export default withStyles(styles)(ConnectedSearchBox)
