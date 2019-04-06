@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/adapters"
+	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/store"
 	"github.com/smartcontractkit/chainlink/store/models"
 )
