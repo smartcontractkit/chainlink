@@ -20,7 +20,7 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/store/assets"
-	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

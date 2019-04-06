@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/store/assets"
-	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Descriptive indices of a RunLog's Topic array

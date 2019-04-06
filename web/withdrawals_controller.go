@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/utils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // WithdrawalsController can send LINK tokens to another address
