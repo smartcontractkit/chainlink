@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/store"
+	"github.com/smartcontractkit/chainlink/core/store"
 )
 
 type storeReaper struct {
