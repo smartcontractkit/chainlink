@@ -18,7 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
 	homedir "github.com/mitchellh/go-homedir"
-	"github.com/smartcontractkit/chainlink/logger"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/store/assets"
 	"github.com/smartcontractkit/chainlink/utils"
 	"github.com/spf13/viper"
