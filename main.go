@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/cmd"
+	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/logger"
 	"github.com/smartcontractkit/chainlink/store"
 )
