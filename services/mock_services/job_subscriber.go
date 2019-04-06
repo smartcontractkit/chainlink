@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	models "github.com/smartcontractkit/chainlink/store/models"
+	models "github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // MockJobSubscriber is a mock of JobSubscriber interface

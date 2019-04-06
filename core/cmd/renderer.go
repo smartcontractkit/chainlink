@@ -6,8 +6,8 @@ import (
 	"strconv"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/smartcontractkit/chainlink/store/models"
-	"github.com/smartcontractkit/chainlink/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 

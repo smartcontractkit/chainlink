@@ -1,8 +1,8 @@
 package adapters
 
 import (
-	"github.com/smartcontractkit/chainlink/store"
-	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/tidwall/gjson"
 )
 
