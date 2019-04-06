@@ -3,6 +3,8 @@ package migrations_test
 import (
 	"math/big"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -61,6 +63,33 @@ func TestMigrate_Upgrade(t *testing.T) {
 	require.NoError(t, migrations.Migrate(db))
 	assert.False(t, db.HasTable("migration_timestamps"))
 	assert.True(t, db.HasTable("migrations"))
+}
+
+func TestMigrationFromExistingDB(t *testing.T) {
+	// configure ORM to use fixture db
+	tc, cfgCleanup := cltest.NewConfig()
+	defer cfgCleanup()
+	config := tc.Config
+	if strings.Contains(config.NormalizedDatabaseURL(), "postgres") {
+		t.Skip("Skipping; only able to seed an existing database on sqlite, not postgres")
+	}
+
+	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
+	cltest.WipePostgresDatabase(config)
+
+	fixtureDBPath := "../../../internal/fixtures/migrations/1554131520_db.sqlite3"
+	defaultDBPath := filepath.ToSlash(filepath.Join(config.RootDir(), "db.sqlite3"))
+	cltest.CopyFile(fixtureDBPath, defaultDBPath)
+	orm, err := orm.NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout())
+	require.NoError(t, err)
+
+	defer func() {
+		assert.NoError(t, orm.Close())
+		os.RemoveAll(config.RootDir())
+	}()
+
+	// test migration
+	require.NoError(t, migrations.Migrate(orm.DB))
 }
 
 func TestMigrate_Migration0(t *testing.T) {
