@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/adapters"
+	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/services"
 	"github.com/smartcontractkit/chainlink/store/assets"
