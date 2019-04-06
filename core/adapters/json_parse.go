@@ -8,8 +8,8 @@ import (
 
 	simplejson "github.com/bitly/go-simplejson"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/store"
-	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // JSONParse holds a path to the desired field in a JSON object,

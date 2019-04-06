@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink/store"
-	"github.com/smartcontractkit/chainlink/store/models"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {

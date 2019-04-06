@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/services"
-	"github.com/smartcontractkit/chainlink/store/models"
 	"go.uber.org/multierr"
 )
 
