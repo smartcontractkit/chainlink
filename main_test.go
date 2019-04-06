@@ -5,7 +5,7 @@ package main
 import (
 	"io/ioutil"
 
-	"github.com/smartcontractkit/chainlink/cmd"
+	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/internal/cltest"
 )
 
