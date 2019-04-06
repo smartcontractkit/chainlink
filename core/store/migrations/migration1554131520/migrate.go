@@ -66,11 +66,11 @@ func runIdsFor(tx *gorm.DB, initrType string) ([]string, error) {
 }
 
 func replaceRunRequest(tx *gorm.DB, jrid string, rr models.RunRequest) error {
-	jr := models.JobRun{ID: jrid}
 	if err := tx.Create(&rr).Error; err != nil {
 		return err
 	}
-	if err := tx.Model(&jr).Association("RunRequest").Replace(rr).Error; err != nil {
+
+	if err := tx.Exec(`UPDATE "job_runs" SET run_request_id = ? WHERE id = ?`, rr.ID, jrid).Error; err != nil {
 		return err
 	}
 	return nil
