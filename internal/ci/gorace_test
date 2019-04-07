@@ -4,4 +4,4 @@ set -e
 
 # Split up each test run to mitigate memory consumption
 go test -race -cpu 2 -parallel 1 github.com/smartcontractkit/chainlink/integration && \
-  go test -race -cpu 2 -parallel 1 github.com/smartcontractkit/chainlink/services
+  go test -race -cpu 2 -parallel 1 github.com/smartcontractkit/chainlink/core/services
