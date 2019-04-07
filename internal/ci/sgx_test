@@ -11,7 +11,7 @@ trap "rm -rf $tmpdir" EXIT HUP TERM INT
 libs="$PWD/sgx/target/$ENVIRONMENT"
 cp ./sgx/target/$ENVIRONMENT/enclave.signed.so $tmpdir/
 
-for t in ./adapters/ ./services/attestation/; do
+for t in ./core/adapters/ ./core/services/attestation/; do
   executable="$(basename $t)"
   go test -tags=sgx_enclave -ldflags "-r $libs" $t -c -o "$tmpdir/$executable.test"
 

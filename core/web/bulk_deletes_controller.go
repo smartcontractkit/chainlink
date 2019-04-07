@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/services"
+	"github.com/smartcontractkit/chainlink/core/services"
 )
 
 // BulkDeletesController manages background tasks that delete resources given a query

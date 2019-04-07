@@ -202,7 +202,7 @@ func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
 // NewBox returns the packr.Box instance that holds the static assets to
 // be delivered by the router.
 func (app *ChainlinkApplication) NewBox() packr.Box {
-	return packr.NewBox("../gui/dist")
+	return packr.NewBox("../../gui/dist")
 }
 
 // OnConnect invokes the passed callback when connected to the block chain.
