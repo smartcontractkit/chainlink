@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/internal/cltest"
-	"github.com/smartcontractkit/chainlink/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/stretchr/testify/require"
 )
 

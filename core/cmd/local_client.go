@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/services"
+	"github.com/smartcontractkit/chainlink/core/services"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
 )

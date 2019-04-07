@@ -9,7 +9,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/services"
+	"github.com/smartcontractkit/chainlink/core/services"
 )
 
 // TransactionsController displays Ethereum transactions requests.

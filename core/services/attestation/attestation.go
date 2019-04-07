@@ -3,9 +3,9 @@
 package attestation
 
 /*
-#cgo LDFLAGS: -L../../sgx/target/ -ladapters
+#cgo LDFLAGS: -L../../../sgx/target/ -ladapters
 #include <stdlib.h>
-#include "../../sgx/libadapters/adapters.h"
+#include "../../../sgx/libadapters/adapters.h"
 */
 import "C"
 import (
