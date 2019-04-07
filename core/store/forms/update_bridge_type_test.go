@@ -3,10 +3,10 @@ package forms_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/forms"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/stretchr/testify/assert"
 )
 

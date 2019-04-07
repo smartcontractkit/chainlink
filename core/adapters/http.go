@@ -9,11 +9,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
+
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {
-	URL models.WebURL `json:"url"`
-	GET models.WebURL `json:"get"`
-	Headers http.Header `json:"headers"`
+	URL     models.WebURL `json:"url"`
+	GET     models.WebURL `json:"get"`
+	Headers http.Header   `json:"headers"`
 }
 
 // Perform ensures that the adapter's URL responds to a GET request without
@@ -38,9 +39,9 @@ func (hga *HTTPGet) GetURL() string {
 
 // HTTPPost requires a URL which is used for a POST request when the adapter is called.
 type HTTPPost struct {
-	URL  models.WebURL `json:"url"`
-	POST models.WebURL `json:"post"`
-	Headers http.Header `json:"headers"`
+	URL     models.WebURL `json:"url"`
+	POST    models.WebURL `json:"post"`
+	Headers http.Header   `json:"headers"`
 }
 
 // Perform ensures that the adapter's URL responds to a POST request without

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/internal/cltest"
 	"github.com/stretchr/testify/require"
 )
 
