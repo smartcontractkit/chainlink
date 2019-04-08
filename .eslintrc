@@ -29,7 +29,6 @@
 
   "globals": {
     "Promise": true,
-    "sails": true,
     "_": true
   },
 
