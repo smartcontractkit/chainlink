@@ -1,6 +1,6 @@
 {
   "name": "chainlink.js",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "license": "MIT",
   "scripts": {
     "build": "truffle build",
@@ -14,9 +14,9 @@
     "solidity-cborutils": "^1.0.2"
   },
   "files": [
-    "/tools/sa_requester/bin",
-    "/tools/sa_requester/lib",
-    "/solidity",
-    "/zos.json"
+    "contracts",
+    "zos.json",
+    "zos.rinkeby.json",
+    "zos.ropsten.json"
   ]
 }
