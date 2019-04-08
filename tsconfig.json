@@ -4,6 +4,7 @@
       "es5",
       "es6"
     ],
+    "incremental": true,
     "target": "es6",
     "module": "commonjs",
     "moduleResolution": "node",
