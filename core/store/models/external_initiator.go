@@ -1,9 +1,12 @@
 package models
 
 import (
+	"crypto/subtle"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 
+	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -32,8 +35,12 @@ func NewExternalInitiator(eia *ExternalInitiatorAuthentication) (*ExternalInitia
 
 // AuthenticateExternalInitiator compares an auth against an initiator and
 // returns true if the password hashes match
-func AuthenticateExternalInitiator(eia *ExternalInitiatorAuthentication, ea *ExternalInitiator) bool {
-	return utils.CheckPasswordHash(hashInput(eia), ea.HashedSecret)
+func AuthenticateExternalInitiator(eia *ExternalInitiatorAuthentication, ea *ExternalInitiator) (bool, error) {
+	hashedSecret, err := HashedSecret(eia)
+	if err != nil {
+		return false, err
+	}
+	return subtle.ConstantTimeCompare([]byte(hashedSecret), []byte(ea.HashedSecret)) == 1, nil
 }
 
 // NewExternalInitiatorAuthentication returns a new
@@ -47,14 +54,19 @@ func NewExternalInitiatorAuthentication() *ExternalInitiatorAuthentication {
 	}
 }
 
-func hashInput(eia *ExternalInitiatorAuthentication) string {
-	return fmt.Sprintf("v0-%s-%s", eia.AccessKey, eia.Secret)
+func hashInput(eia *ExternalInitiatorAuthentication) []byte {
+	return []byte(fmt.Sprintf("v0-%s-%s", eia.AccessKey, eia.Secret))
 }
 
 // HashedSecret generates a hashed password for an external initiator
 // authentication
 func HashedSecret(eia *ExternalInitiatorAuthentication) (string, error) {
-	return utils.HashPassword(hashInput(eia))
+	hasher := sha3.NewKeccak256()
+	_, err := hasher.Write(hashInput(eia))
+	if err != nil {
+		return "", errors.Wrap(err, "error writing external initiator authentication to hasher")
+	}
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 // ExternalInitiatorAuthentication represents the credentials needed to

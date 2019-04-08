@@ -133,7 +133,12 @@ func tokenAuth(store *store.Store, c *gin.Context) error {
 		return err
 	}
 
-	if !models.AuthenticateExternalInitiator(eia, ei) {
+	ok, err := models.AuthenticateExternalInitiator(eia, ei)
+	if err != nil {
+		return err
+	}
+
+	if !ok {
 		return ErrorAuthFailed
 	}
 
