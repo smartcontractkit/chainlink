@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -61,12 +60,11 @@ func hashInput(eia *ExternalInitiatorAuthentication) []byte {
 // HashedSecret generates a hashed password for an external initiator
 // authentication
 func HashedSecret(eia *ExternalInitiatorAuthentication) (string, error) {
-	hasher := sha3.NewKeccak256()
-	_, err := hasher.Write(hashInput(eia))
+	hash, err := utils.Keccak256(hashInput(eia))
 	if err != nil {
 		return "", errors.Wrap(err, "error writing external initiator authentication to hasher")
 	}
-	return hex.EncodeToString(hasher.Sum(nil)), nil
+	return hex.EncodeToString(hash), nil
 }
 
 // ExternalInitiatorAuthentication represents the credentials needed to
