@@ -43,6 +43,7 @@ const (
 type ORM struct {
 	DB              *gorm.DB
 	lockingStrategy LockingStrategy
+	dialectName     DialectName
 }
 
 // NewORM initializes a new database file at the configured uri.
@@ -71,6 +72,7 @@ func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 	orm := &ORM{
 		DB:              db,
 		lockingStrategy: lockingStrategy,
+		dialectName:     dialect,
 	}
 
 	return orm, nil
@@ -134,6 +136,10 @@ func ignoreRecordNotFound(db *gorm.DB) error {
 		}
 	}
 	return merr
+}
+
+func (orm *ORM) DialectName() DialectName {
+	return orm.dialectName
 }
 
 // EnableLogging turns on SQL statement logging
