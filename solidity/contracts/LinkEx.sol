@@ -38,13 +38,13 @@ contract LinkEx is LinkExInterface, Ownable {
   }
 
   function removeOracle(address _oracle) external onlyOwner {
-    _removeOracle(_oracle);
+    deauthorizeAddress(_oracle);
     if (oracles.length > 0) {
       calculateAverage();
     }
   }
 
-  function _removeOracle(address _oracle) private {
+  function deauthorizeAddress(address _oracle) private {
     delete authorizedNodes[_oracle];
     uint256 size = oracles.length.sub(1);
     for (uint i = 0; i < oracles.length; i++) {
