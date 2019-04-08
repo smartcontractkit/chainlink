@@ -50,7 +50,6 @@ contract LinkEx is LinkExInterface, Ownable {
     for (uint i = 0; i < oracles.length; i++) {
       if (oracles[i] == _oracle) {
         delete rates[oracles[i]];
-        delete oracles[i];
         if (i < size) {
           oracles[i] = oracles[size];
         }
