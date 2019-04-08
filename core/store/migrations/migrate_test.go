@@ -252,15 +252,15 @@ func TestMigrate1554131520(t *testing.T) {
 
 	require.NoError(t, orm.CreateJob(&j))
 
-	cronjr := j.NewRun(j.Initiators[0])
-	webjr := j.NewRun(j.Initiators[1])
-	ethlogjr := j.NewRun(j.Initiators[2])
-	runlogjr := j.NewRun(j.Initiators[3])
+	cronjr := newRunWithoutRunRequest(j, j.Initiators[0])
+	webjr := newRunWithoutRunRequest(j, j.Initiators[1])
+	ethlogjr := newRunWithoutRunRequest(j, j.Initiators[2])
+	runlogjr := newRunWithoutRunRequest(j, j.Initiators[3])
 
-	require.NoError(t, orm.CreateJobRun(&cronjr))
-	require.NoError(t, orm.CreateJobRun(&webjr))
-	require.NoError(t, orm.CreateJobRun(&ethlogjr))
-	require.NoError(t, orm.CreateJobRun(&runlogjr))
+	require.NoError(t, orm.CreateJobRun(cronjr))
+	require.NoError(t, orm.CreateJobRun(webjr))
+	require.NoError(t, orm.CreateJobRun(ethlogjr))
+	require.NoError(t, orm.CreateJobRun(runlogjr))
 
 	orm.DB.Exec(`
 		UPDATE job_runs SET run_request_id = NULL;
@@ -298,4 +298,10 @@ func TestMigrate1554131520(t *testing.T) {
 	assert.NotNil(t, retrieved.RunRequest.TxHash)
 	assert.NotNil(t, retrieved.RunRequest.Requester)
 	assert.Equal(t, "BACKFILLED_FAKE", *retrieved.RunRequest.RequestID)
+}
+
+func newRunWithoutRunRequest(j models.JobSpec, i models.Initiator) *models.JobRun {
+	jr := j.NewRun(i)
+	jr.RunRequest = models.RunRequest{}
+	return &jr
 }

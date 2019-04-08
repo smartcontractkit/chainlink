@@ -156,7 +156,7 @@ type RunRequest struct {
 
 // NewRunRequest returns a new RunRequest instance.
 func NewRunRequest() RunRequest {
-	return RunRequest{}
+	return RunRequest{CreatedAt: time.Now()}
 }
 
 // TaskRun stores the Task and represents the status of the
