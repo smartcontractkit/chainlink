@@ -815,6 +815,11 @@ func TestBulkDeleteRuns(t *testing.T) {
 	err = db.Model(&models.RunResult{}).Count(&resultCount).Error
 	assert.NoError(t, err)
 	assert.Equal(t, 6, resultCount)
+
+	var requestCount int
+	err = db.Model(&models.RunRequest{}).Count(&requestCount).Error
+	assert.NoError(t, err)
+	assert.Equal(t, 3, requestCount)
 }
 
 func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {

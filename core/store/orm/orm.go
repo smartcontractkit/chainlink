@@ -877,6 +877,19 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 		return fmt.Errorf("error deleting JobRun's RunResults: %v", err)
 	}
 
+	// and run_requests
+	err = tx.Exec(`
+		DELETE
+		FROM run_requests
+		WHERE run_requests.id IN (SELECT run_request_id
+													   FROM job_runs
+														 WHERE status IN (?) AND updated_at < ?)`,
+		bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting JobRun's RunRequests: %v", err)
+	}
+
 	// and then task runs using a join in the subquery
 	err = tx.Exec(`
 		DELETE
