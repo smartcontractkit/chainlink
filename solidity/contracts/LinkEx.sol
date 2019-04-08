@@ -40,7 +40,7 @@ contract LinkEx is LinkExInterface, Ownable {
   function removeOracle(address _oracle) external onlyOwner {
     _removeOracle(_oracle);
     if (oracles.length > 0) {
-      _update();
+      calculateAverage();
     }
   }
 
@@ -63,10 +63,10 @@ contract LinkEx is LinkExInterface, Ownable {
 
   function update(uint256 _rate) external onlyAuthorizedNode {
     rates[msg.sender] = Rate(block.number, _rate);
-    _update();
+    calculateAverage();
   }
 
-  function _update() private {
+  function calculateAverage() private {
     if (isFutureBlock()) {
       historicRate = rate;
       rateHeight = block.number;
