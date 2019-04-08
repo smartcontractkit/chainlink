@@ -5,18 +5,19 @@ import PendingIcon from './Pending'
 
 interface IProps {
   children: string
+  className?: string
   width?: number
   height?: number
 }
 
-const StatusIcon = ({ children, width, height }: IProps) => {
+const StatusIcon = ({ className, children, width, height }: IProps) => {
   if (children === 'completed') {
-    return <SuccessIcon width={width} height={height} />
+    return <SuccessIcon className={className} width={width} height={height} />
   } else if (children === 'errored') {
-    return <ErrorIcon width={width} height={height} />
+    return <ErrorIcon className={className} width={width} height={height} />
   }
 
-  return <PendingIcon width={width} height={height} />
+  return <PendingIcon className={className} width={width} height={height} />
 }
 
 export default StatusIcon
