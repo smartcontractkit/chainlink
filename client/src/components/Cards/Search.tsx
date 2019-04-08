@@ -40,7 +40,7 @@ const Search = ({ classes }: IProps) => {
       justify="center"
       alignItems="center"
       className={classes.container}>
-      <Grid item xs={8}>
+      <Grid item md={8} lg={6} xl={4}>
         <Card className={classes.card}>
           <SearchForm>
             <Grid container justify="center">
