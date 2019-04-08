@@ -1,5 +1,4 @@
 import React from 'react'
-import { titleCase } from 'change-case'
 import classNames from 'classnames'
 import {
   createStyles,
@@ -12,6 +11,7 @@ import Typography from '@material-ui/core/Typography'
 import yellow from '@material-ui/core/colors/yellow'
 import StatusIcon from '../Icons/Status'
 import green from '../../colors/green'
+import statusText from '../../utils/statusText'
 
 const styles = ({ palette, spacing }: Theme) =>
   createStyles({
@@ -53,7 +53,7 @@ const StatusCard = ({ classes, jobRun }: IProps) => {
         className={classes.statusText}
         variant="h5"
         color="textPrimary">
-        {titleCase(jobRun.status)}
+        {statusText(jobRun.status)}
       </Typography>
     </Card>
   )
