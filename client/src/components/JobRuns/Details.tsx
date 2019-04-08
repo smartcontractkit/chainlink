@@ -1,4 +1,5 @@
 import React from 'react'
+import classNames from 'classnames'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableRow from '@material-ui/core/TableRow'
@@ -12,14 +13,34 @@ import {
 } from '@material-ui/core/styles'
 import TaskRuns from './TaskRuns'
 
-interface IColProps {
+const colStyles = ({ spacing }: Theme) =>
+  createStyles({
+    col: {
+      verticalAlign: 'top',
+      paddingTop: spacing.unit * 2,
+      paddingBottom: spacing.unit * 2
+    }
+  })
+
+interface IBaseColProps extends WithStyles<typeof colStyles> {
   children: React.ReactNode
   className?: string
 }
 
-const BaseCol = ({ children, className }: IColProps) => (
-  <TableCell className={className}>{children}</TableCell>
+const BaseCol = withStyles(colStyles)(
+  ({ children, className, classes }: IBaseColProps) => {
+    return (
+      <TableCell className={classNames(className, classes.col)}>
+        {children}
+      </TableCell>
+    )
+  }
 )
+
+interface IColProps {
+  children: React.ReactNode
+  className?: string
+}
 
 const Col = ({ children, className }: IColProps) => (
   <BaseCol className={className}>
