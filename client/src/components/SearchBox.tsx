@@ -13,40 +13,38 @@ import {
 import classNames from 'classnames'
 import { IState } from '../reducers'
 
-const styles = (theme: Theme) =>
+const styles = ({ palette, spacing }: Theme) =>
   createStyles({
-    form: {
-      display: 'flex'
-    },
     paper: {
+      display: 'flex',
       border: 'solid 1px',
-      borderColor: theme.palette.primary.light
+      borderColor: palette.grey['300'],
+      padding: spacing.unit
     },
     query: {
+      flexGrow: 1,
       boxSizing: 'border-box',
-      flexGrow: 1
+      color: palette.text.primary
     }
   })
 
 interface IProps extends WithStyles<typeof styles> {
-  className: string
+  className?: string
   query?: string
 }
 
-const Search = ({ classes, className, query }: IProps) => {
+const SearchBox = ({ classes, className, query }: IProps) => {
   return (
     <Paper elevation={0} className={classNames(classes.paper, className)}>
-      <form method="GET" className={classes.form}>
-        <IconButton aria-label="Search" type="submit">
-          <SearchIcon />
-        </IconButton>
-        <InputBase
-          className={classes.query}
-          defaultValue={query}
-          placeholder="Search for something"
-          name="search"
-        />
-      </form>
+      <IconButton aria-label="Search" type="submit">
+        <SearchIcon />
+      </IconButton>
+      <InputBase
+        className={classes.query}
+        defaultValue={query}
+        placeholder="Search for something"
+        name="search"
+      />
     </Paper>
   )
 }
@@ -59,9 +57,9 @@ const mapStateToProps = (state: IState) => {
 
 const mapDispatchToProps = () => ({})
 
-const ConnectedSearch = connect(
+const ConnectedSearchBox = connect(
   mapStateToProps,
   mapDispatchToProps
-)(Search)
+)(SearchBox)
 
-export default withStyles(styles)(ConnectedSearch)
+export default withStyles(styles)(ConnectedSearchBox)

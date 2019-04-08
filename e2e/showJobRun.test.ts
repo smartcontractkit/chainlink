@@ -30,9 +30,11 @@ describe('End to end', () => {
     return Promise.all([browser.close(), server.close(), closeDbConnection()])
   })
 
-  it('can run tests', async () => {
+  it('can search for job run', async () => {
     await page.goto('http://localhost:8080')
+    await expect(page).toFill('form input[name=search]', JOB_RUN_A_ID)
+    await expect(page).toClick('form button')
+    await page.waitForNavigation()
     await expect(page).toMatch(JOB_RUN_A_ID)
-    await expect(page).toMatch(JOB_RUN_B_ID)
   })
 })
