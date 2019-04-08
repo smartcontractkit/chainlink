@@ -3,11 +3,20 @@ import { darken } from '@material-ui/core/styles/colorManipulator'
 import spacing from '@material-ui/core/styles/spacing'
 import { GridSpacing } from '@material-ui/core/Grid'
 import { Shadows } from '@material-ui/core/styles/shadows'
+import { TypographyStyleOptions } from '@material-ui/core/styles/createTypography'
 
 const theme = {
   props: {
     MuiGrid: {
       spacing: 24 as GridSpacing
+    },
+    MuiButton: {
+      style: {
+        paddingTop: spacing.unit,
+        paddingBottom: spacing.unit,
+        paddingLeft: spacing.unit * 5,
+        paddingRight: spacing.unit * 5
+      }
     }
   },
   palette: {
@@ -44,6 +53,10 @@ const theme = {
     useNextVariants: true,
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Roboto", "Helvetica", "Arial", sans-serif',
+    button: {
+      textTransform: 'none',
+      fontSize: '1.2em'
+    } as TypographyStyleOptions,
     body1: {
       fontSize: '1.0rem',
       fontWeight: 400,

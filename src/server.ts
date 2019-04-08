@@ -11,6 +11,10 @@ const server = () => {
   app.use(express.static('client/build'))
   app.use('/api/v1', controllers.jobRuns)
 
+  app.get('/*', (_, res) => {
+    res.sendFile(`${__dirname}/public/index.html`)
+  })
+
   const server = new http.Server(app)
   bootstrapRealtime(server)
   return server.listen(PORT, () => {
