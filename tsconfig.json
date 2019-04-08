@@ -3,6 +3,7 @@
     "target": "es2017",
     "module": "esnext",
     "lib": ["es2017"],
+    "incremental": true,
     "moduleResolution": "node",
     "skipLibCheck": true,
     "isolatedModules": false,
