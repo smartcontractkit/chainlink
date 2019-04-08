@@ -8,13 +8,16 @@ import {
 } from '@material-ui/core/styles'
 import StatusIcon from '../Icons/Status'
 
-const styles = ({ spacing }: Theme) =>
+const styles = ({ spacing, palette }: Theme) =>
   createStyles({
     container: {
       margin: 0,
+      marginLeft: spacing.unit * 2,
       paddingLeft: 0
     },
     item: {
+      borderLeft: 'solid 2px',
+      borderColor: palette.grey[200],
       display: 'flex',
       alignItems: 'center',
       listStyle: 'none',
@@ -24,7 +27,8 @@ const styles = ({ spacing }: Theme) =>
       }
     },
     status: {
-      marginRight: spacing.unit * 2
+      marginRight: spacing.unit * 2,
+      marginLeft: -22
     }
   })
 
@@ -39,8 +43,12 @@ const TaskRuns = ({ taskRuns, classes }: IProps) => {
         taskRuns.map((run: ITaskRun) => {
           return (
             <li key={run.id} className={classes.item}>
-              <StatusIcon width={40} className={classes.status}>{run.status}</StatusIcon>
-              <Typography variant="body1" inline>{run.type}</Typography>
+              <StatusIcon width={40} className={classes.status}>
+                {run.status}
+              </StatusIcon>
+              <Typography variant="body1" inline>
+                {run.type}
+              </Typography>
             </li>
           )
         })}
