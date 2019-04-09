@@ -128,7 +128,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
-	sa := cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json")
+	sa := cltest.MustReadFile(t, "testdata/hello_world_agreement.json")
 
 	tests := []struct {
 		name        string
@@ -139,7 +139,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 		{"invalid json", "{bad son}", false, true},
 		{"bad file path", "bad/filepath/", false, true},
 		{"valid service agreement", string(sa), true, false},
-		{"service agreement specified as path", "../internal/fixtures/web/hello_world_agreement.json", true, false},
+		{"service agreement specified as path", "testdata/hello_world_agreement.json", true, false},
 	}
 
 	for _, tt := range tests {
@@ -297,7 +297,7 @@ func TestClient_AddBridge(t *testing.T) {
 		{"ValidString", `{ "name": "TestBridge", "url": "http://localhost:3000/randomNumber" }`, false},
 		{"InvalidString", `{ "noname": "", "nourl": "" }`, true},
 		{"InvalidChar", `{ "badname": "path/bridge", "nourl": "" }`, true},
-		{"ValidPath", "../internal/fixtures/web/create_random_number_bridge_type.json", false},
+		{"ValidPath", "testdata/create_random_number_bridge_type.json", false},
 		{"InvalidPath", "bad/filepath/", true},
 	}
 
