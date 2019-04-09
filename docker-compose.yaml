@@ -7,7 +7,7 @@ services:
     restart: on-failure
     command: --dev --mine --networkid 17 --wsorigins "*" --ws --dev.period 2 --wsaddr 172.16.1.100 --wsport 18546 --datadir /root/gethnet/datadir --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f" --ipcdisable --password /run/secrets/node_password
     volumes:
-      - ./internal/gethnet/:/root/gethnet
+      - ./tools/gethnet/:/root/gethnet
     networks:
       gethnet:
         ipv4_address: 172.16.1.100
