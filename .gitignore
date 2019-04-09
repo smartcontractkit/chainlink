@@ -5,6 +5,7 @@ vendor/
 tmp/
 
 /chainlink
+core/chainlink
 
 # GUI
 gui/dist

@@ -6,9 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"

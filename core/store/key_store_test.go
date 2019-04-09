@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/tools/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/stretchr/testify/assert"
 )
 

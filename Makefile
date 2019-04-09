@@ -41,7 +41,7 @@ yarndep: ## Ensure the frontend's dependencies are installed.
 	yarn install --frozen-lockfile
 
 install: godep gui $(SGX_BUILD_ENCLAVE) ## Install chainlink
-	go install $(GOFLAGS)
+	cd core && go build -i -o $(GOPATH)/bin/chainlink $(GOFLAGS)
 
 gui: yarndep ## Install GUI
 	cd gui && CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build

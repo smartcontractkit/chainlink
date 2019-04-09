@@ -7,8 +7,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

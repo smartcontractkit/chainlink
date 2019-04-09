@@ -8,11 +8,11 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/mock_services"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tevino/abool"

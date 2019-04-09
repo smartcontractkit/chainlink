@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
