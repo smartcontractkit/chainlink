@@ -16,8 +16,8 @@ jobs:
           key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
-      - run: ./internal/ci/init_gcloud
-      - run: ./internal/ci/go_test
+      - run: ./tools/ci/init_gcloud
+      - run: ./tools/ci/go_test
   go-sqlite-race:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -34,7 +34,7 @@ jobs:
           key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
-      - run: ./internal/ci/gorace_test
+      - run: ./tools/ci/gorace_test
   go-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -57,7 +57,7 @@ jobs:
           key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
-      - run: ./internal/ci/go_single_threaded_test
+      - run: ./tools/ci/go_single_threaded_test
   rust:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -74,7 +74,7 @@ jobs:
           key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
-      - run: ./internal/ci/rust_test
+      - run: ./tools/ci/rust_test
   sgx:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -98,7 +98,7 @@ jobs:
           paths:
             - ./vendor
       - run: make enclave
-      - run: ./internal/ci/sgx_test
+      - run: ./tools/ci/sgx_test
   geth-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -121,7 +121,7 @@ jobs:
           key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
-      - run: ./internal/ci/ethereum_test
+      - run: ./tools/ci/ethereum_test
   parity-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -148,7 +148,7 @@ jobs:
           key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
-      - run: ./internal/ci/ethereum_test parity
+      - run: ./tools/ci/ethereum_test parity
   truffle:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -165,7 +165,7 @@ jobs:
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
           paths:
             - /usr/local/share/.cache/yarn
-      - run: ./internal/ci/truffle_test
+      - run: ./tools/ci/truffle_test
   gui:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -182,15 +182,15 @@ jobs:
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
           paths:
             - /usr/local/share/.cache/yarn
-      - run: ./internal/ci/init_gcloud
-      - run: ./internal/ci/gui_test
+      - run: ./tools/ci/init_gcloud
+      - run: ./tools/ci/gui_test
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.17
     steps:
       - checkout
-      - run: ./internal/ci/init_gcloud
-      - run: ./internal/ci/report_coverage
+      - run: ./tools/ci/init_gcloud
+      - run: ./tools/ci/report_coverage
   deploy:
     docker:
       - image: smartcontract/deployer:latest
@@ -199,7 +199,7 @@ jobs:
       DOCKER_TAG: staging
     steps:
       - checkout
-      - run: ./internal/ci/init_gcloud
+      - run: ./tools/ci/init_gcloud
       - setup_remote_docker
       - run: echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin
       - run: make docker
