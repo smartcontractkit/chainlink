@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -128,7 +128,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
-	sa := cltest.MustReadFile(t, "../../internal/fixtures/web/hello_world_agreement.json")
+	sa := cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json")
 
 	tests := []struct {
 		name        string
@@ -139,7 +139,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 		{"invalid json", "{bad son}", false, true},
 		{"bad file path", "bad/filepath/", false, true},
 		{"valid service agreement", string(sa), true, false},
-		{"service agreement specified as path", "../../internal/fixtures/web/hello_world_agreement.json", true, false},
+		{"service agreement specified as path", "../internal/fixtures/web/hello_world_agreement.json", true, false},
 	}
 
 	for _, tt := range tests {
@@ -179,7 +179,7 @@ func TestClient_CreateJobSpec(t *testing.T) {
 		{"bad filepath", "bad/filepath/", 0, true},
 		{"web", `{"initiators":[{"type":"web"}],"tasks":[{"type":"NoOp"}]}`, 1, false},
 		{"runAt", `{"initiators":[{"type":"runAt","params":{"time":"2018-01-08T18:12:01.103Z"}}],"tasks":[{"type":"NoOp"}]}`, 2, false},
-		{"file", "../../internal/fixtures/web/end_at_job.json", 3, false},
+		{"file", "../internal/fixtures/web/end_at_job.json", 3, false},
 	}
 
 	for _, test := range tests {
@@ -297,7 +297,7 @@ func TestClient_AddBridge(t *testing.T) {
 		{"ValidString", `{ "name": "TestBridge", "url": "http://localhost:3000/randomNumber" }`, false},
 		{"InvalidString", `{ "noname": "", "nourl": "" }`, true},
 		{"InvalidChar", `{ "badname": "path/bridge", "nourl": "" }`, true},
-		{"ValidPath", "../../internal/fixtures/web/create_random_number_bridge_type.json", false},
+		{"ValidPath", "../internal/fixtures/web/create_random_number_bridge_type.json", false},
 		{"InvalidPath", "bad/filepath/", true},
 	}
 
@@ -401,7 +401,7 @@ func TestClient_RemoteLogin(t *testing.T) {
 		wantError  bool
 	}{
 		{"success prompt", "", cltest.APIEmail, cltest.Password, false},
-		{"success file", "../../internal/fixtures/apicredentials", "", "", false},
+		{"success file", "../internal/fixtures/apicredentials", "", "", false},
 		{"failure prompt", "", "wrong@email.com", "wrongpwd", true},
 		{"failure file", "/tmp/doesntexist", "", "", true},
 		{"failure file w correct prompt", "/tmp/doesntexist", cltest.APIEmail, cltest.Password, true},
@@ -556,7 +556,7 @@ func TestClient_ChangePassword(t *testing.T) {
 	otherClient := app.NewAuthenticatingClient(prompter)
 
 	set := flag.NewFlagSet("test", 0)
-	set.String("file", "../../internal/fixtures/apicredentials", "")
+	set.String("file", "../internal/fixtures/apicredentials", "")
 	c := cli.NewContext(nil, set, nil)
 	err := client.RemoteLogin(c)
 	assert.NoError(t, err)
@@ -659,7 +659,7 @@ func TestClient_CreateExtraKey(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.String("file", "../internal/fixtures/apicredentials", "")
+	set.String("file", "internal/fixtures/apicredentials", "")
 	c := cli.NewContext(nil, set, nil)
 	err := client.RemoteLogin(c)
 	assert.NoError(t, err)

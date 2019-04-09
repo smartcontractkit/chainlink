@@ -5,7 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -95,7 +95,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 		wantError bool
 	}{
 		{"missing", config.RootDir(), true},
-		{"correct fixture", "../../internal/fixtures", false},
+		{"correct fixture", "../internal/fixtures", false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -178,7 +178,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 		file      string
 		wantError bool
 	}{
-		{"correct", "../../internal/fixtures/apicredentials", false},
+		{"correct", "../internal/fixtures/apicredentials", false},
 		{"no file", "", true},
 		{"incorrect file", "/tmp/doesnotexist", true},
 	}
@@ -216,7 +216,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 		file      string
 		wantError bool
 	}{
-		{"correct", "../internal/fixtures/apicredentials", false},
+		{"correct", "internal/fixtures/apicredentials", false},
 		{"no file", "", true},
 		{"incorrect file", "/tmp/doesnotexist", true},
 	}
@@ -262,7 +262,7 @@ func TestFileSessionRequestBuilder(t *testing.T) {
 		wantError             bool
 	}{
 		{"empty", "", "", true},
-		{"correct file", "../../internal/fixtures/apicredentials", "email@test.net", false},
+		{"correct file", "../internal/fixtures/apicredentials", "email@test.net", false},
 		{"incorrect file", "/tmp/dontexist", "", true},
 	}
 

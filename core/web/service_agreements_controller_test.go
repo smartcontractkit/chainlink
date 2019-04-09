@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,7 +21,7 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 	eth.RegisterSubscription("logs")
 
 	client := app.NewHTTPClient()
-	base := string(cltest.MustReadFile(t, "../../internal/fixtures/web/hello_world_agreement.json"))
+	base := string(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json"))
 
 	tests := []struct {
 		name     string
@@ -73,14 +73,14 @@ func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	reader := bytes.NewBuffer(cltest.MustReadFile(t, "../../internal/fixtures/web/hello_world_agreement.json"))
+	reader := bytes.NewBuffer(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json"))
 	resp, cleanup := client.Post("/v2/service_agreements", reader)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 	response1 := models.ServiceAgreement{}
 	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &response1))
 
-	reader = bytes.NewBuffer(cltest.MustReadFile(t, "../../internal/fixtures/web/hello_world_agreement.json"))
+	reader = bytes.NewBuffer(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json"))
 	resp, cleanup = client.Post("/v2/service_agreements", reader)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
@@ -98,7 +98,7 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	input := cltest.MustReadFile(t, "../../internal/fixtures/web/hello_world_agreement.json")
+	input := cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json")
 	sa, err := cltest.ServiceAgreementFromString(string(input))
 	require.NoError(t, err)
 	require.NoError(t, app.Store.CreateJob(&sa.JobSpec))

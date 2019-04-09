@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,35 +22,35 @@ func TestValidateJob(t *testing.T) {
 		input []byte
 		want  error
 	}{
-		{"base case", cltest.MustReadFile(t, "../../internal/fixtures/web/hello_world_job.json"), nil},
+		{"base case", cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_job.json"), nil},
 		{
 			"error in job",
-			cltest.MustReadFile(t, "../../internal/fixtures/web/invalid_endat_job.json"),
+			cltest.MustReadFile(t, "../internal/fixtures/web/invalid_endat_job.json"),
 			models.NewJSONAPIErrorsWith("StartAt cannot be before EndAt"),
 		},
 		{
 			"error in runat initr",
-			cltest.MustReadFile(t, "../../internal/fixtures/web/run_at_wo_time_job.json"),
+			cltest.MustReadFile(t, "../internal/fixtures/web/run_at_wo_time_job.json"),
 			models.NewJSONAPIErrorsWith("RunAt must have a time"),
 		},
 		{
 			"error in task",
-			cltest.MustReadFile(t, "../../internal/fixtures/web/nonexistent_task_job.json"),
+			cltest.MustReadFile(t, "../internal/fixtures/web/nonexistent_task_job.json"),
 			models.NewJSONAPIErrorsWith("idonotexist is not a supported adapter type"),
 		},
 		{
 			"zero initiators",
-			cltest.MustReadFile(t, "../../internal/fixtures/web/zero_initiators.json"),
+			cltest.MustReadFile(t, "../internal/fixtures/web/zero_initiators.json"),
 			models.NewJSONAPIErrorsWith("Must have at least one Initiator and one Task"),
 		},
 		{
 			"one initiator only",
-			cltest.MustReadFile(t, "../../internal/fixtures/web/initiator_only_job.json"),
+			cltest.MustReadFile(t, "../internal/fixtures/web/initiator_only_job.json"),
 			models.NewJSONAPIErrorsWith("Must have at least one Initiator and one Task"),
 		},
 		{
 			"one task only",
-			cltest.MustReadFile(t, "../../internal/fixtures/web/task_only_job.json"),
+			cltest.MustReadFile(t, "../internal/fixtures/web/task_only_job.json"),
 			models.NewJSONAPIErrorsWith("Must have at least one Initiator and one Task"),
 		},
 	}
@@ -180,7 +180,7 @@ func TestValidateServiceAgreement(t *testing.T) {
 
 	oracles := []string{account.Address.Hex()}
 
-	basic := string(cltest.MustReadFile(t, "../../internal/fixtures/web/hello_world_agreement.json"))
+	basic := string(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json"))
 	basic = cltest.MustJSONSet(t, basic, "oracles", oracles)
 	threeDays, _ := time.ParseDuration("72h")
 	basic = cltest.MustJSONSet(t, basic, "endAt", time.Now().Add(threeDays))

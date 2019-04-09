@@ -8,13 +8,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEthClient_GetTxReceipt(t *testing.T) {
-	response := cltest.MustReadFile(t, "../../internal/fixtures/eth/getTransactionReceipt.json")
+	response := cltest.MustReadFile(t, "../internal/fixtures/eth/getTransactionReceipt.json")
 	mockServer, wsCleanup := cltest.NewWSServer(string(response))
 	defer wsCleanup()
 	config := cltest.NewConfigWithWSServer(mockServer)

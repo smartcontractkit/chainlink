@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -78,8 +78,8 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 		pwdfile      string
 		wantUnlocked bool
 	}{
-		{"correct", "../../internal/fixtures/correct_password.txt", true},
-		{"incorrect", "../../internal/fixtures/incorrect_password.txt", false},
+		{"correct", "../internal/fixtures/correct_password.txt", true},
+		{"incorrect", "../internal/fixtures/incorrect_password.txt", false},
 		{"wrongfile", "doesntexist.txt", false},
 	}
 
@@ -135,7 +135,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 		wantPrompt bool
 		wantError  bool
 	}{
-		{"correct", "../../internal/fixtures/apicredentials", false, false},
+		{"correct", "../internal/fixtures/apicredentials", false, false},
 		{"no file", "", true, false},
 		{"wrong file", "doesntexist.txt", false, true},
 	}
@@ -180,7 +180,7 @@ func TestClient_ImportKey(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("import", 0)
-	set.Parse([]string{"../../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json"})
+	set.Parse([]string{"../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json"})
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ImportKey(c))
 

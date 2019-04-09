@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
 )
@@ -81,13 +81,13 @@ func TestModels_Header_UnmarshalJSON(t *testing.T) {
 	}{
 		{
 			"parity",
-			"../../../internal/fixtures/eth/subscription_new_heads_parity.json",
+			"../../internal/fixtures/eth/subscription_new_heads_parity.json",
 			cltest.BigHexInt(1263817),
 			"0xf8e4691ceab8052d1cb478c6c5e0d9b122e747ad838023633f63bd5e81ec5114",
 		},
 		{
 			"geth",
-			"../../../internal/fixtures/eth/subscription_new_heads_geth.json",
+			"../../internal/fixtures/eth/subscription_new_heads_geth.json",
 			cltest.BigHexInt(1263817),
 			"0xf8e4691ceab8052d1cb478c6c5e0d9b122e747ad838023633f63bd5e81ec5fff",
 		},
