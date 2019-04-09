@@ -68,7 +68,7 @@ func TestMigrationFromExistingDB(t *testing.T) {
 	orm, cleanup := bootstrapORM(t)
 	defer cleanup()
 
-	fixtureDBPath := fmt.Sprintf("../../../internal/fixtures/migrations/1554131520_dump.%s.sql", orm.DialectName())
+	fixtureDBPath := fmt.Sprintf("testdata/1554131520_dump.%s.sql", orm.DialectName())
 	loadSqlDump(t, orm, fixtureDBPath)
 
 	require.NoError(t, migrations.Migrate(orm.DB))
