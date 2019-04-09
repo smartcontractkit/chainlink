@@ -14,7 +14,7 @@ Please click on each folder for more information.
 Each example requires the development environment, set up as follows:
 
 From the `chainlink/` directory:
-1. Run `./internal/bin/devnet` (or configure direnv `.envrc` to add `chainlink/internal/bin` to your `PATH`)
-2. Run `./internal/bin/cldev` in top level repo folder
+1. Run `./tools/bin/devnet` (or configure direnv `.envrc` to add `chainlink/tools/bin` to your `PATH`)
+2. Run `./tools/bin/cldev` in top level repo folder
 
 Go to our [development wiki](https://github.com/smartcontractkit/chainlink/wiki/Development-Tips) to read more.

@@ -32,7 +32,7 @@ chainlink help
 Spin up a local Ethereum node:
 
 ```bash
-./internal/bin/devnet
+./tools/bin/devnet
 ```
 
 In a separate window:
