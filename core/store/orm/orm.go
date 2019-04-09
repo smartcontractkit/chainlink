@@ -2,7 +2,6 @@ package orm
 
 import (
 	"crypto/subtle"
-	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -16,6 +15,7 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 	_ "github.com/jinzhu/gorm/dialects/sqlite"   // http://doc.gorm.io/database.html#connecting-to-a-database
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -290,6 +290,30 @@ func (orm *ORM) CreateJobRun(run *models.JobRun) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		return updateDeletedAtFromJobSpec(run, dbtx.Create(run)).Error
 	})
+}
+
+// CreateExternalInitiator inserts a new external initiator
+func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitiator) error {
+	return orm.DB.Create(externalInitiator).Error
+}
+
+// DeleteExternalInitiator removes an external initiator
+func (orm *ORM) DeleteExternalInitiator(accessKey string) error {
+	return orm.DB.
+		Where("access_key = ?", accessKey).
+		Delete(&models.ExternalInitiator{}).
+		Error
+}
+
+// FindExternalInitiator finds an external initiator given an authentication request
+func (orm *ORM) FindExternalInitiator(eia *models.ExternalInitiatorAuthentication) (*models.ExternalInitiator, error) {
+	initiator := &models.ExternalInitiator{}
+	err := orm.DB.Where("access_key = ?", eia.AccessKey).Find(initiator).Error
+	if err != nil {
+		return nil, errors.Wrap(err, "error finding external initiator")
+	}
+
+	return initiator, nil
 }
 
 // updateDeletedAtFromJobSpec will update a runs deleted_at from its parent

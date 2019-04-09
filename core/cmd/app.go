@@ -148,6 +148,23 @@ func NewApp(client *Client) *cli.App {
 			Action: client.RemoveBridge,
 		},
 		{
+			Name:    "externalinitiators",
+			Aliases: []string{"exi"},
+			Usage:   "Tasks for managing external initiators",
+			Subcommands: []cli.Command{
+				{
+					Name:   "create",
+					Usage:  "Create an authentication key for a user of external initiators",
+					Action: client.CreateExternalInitiator,
+				},
+				{
+					Name:   "delete",
+					Usage:  "Remove an authentication key",
+					Action: client.DeleteExternalInitiator,
+				},
+			},
+		},
+		{
 			Name:    "agree",
 			Aliases: []string{"createsa"},
 			Usage:   "Creates a service agreement",
