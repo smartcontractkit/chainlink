@@ -118,7 +118,7 @@ launch_chainlink() {
 
   clroot=$(mktemp -d)
   trap "rm -rf $clroot" EXIT HUP TERM INT
-  cp $SRCROOT/internal/clroot/{password.txt,apicredentials} $clroot/
+  cp $SRCROOT/tools/clroot/{password.txt,apicredentials} $clroot/
   echo running chainlink from ${clroot}
   chainlink local node -d -p $clroot/password.txt -a $clroot/apicredentials &>$SRCROOT/integration/chainlink.log &
 
