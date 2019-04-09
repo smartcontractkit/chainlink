@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/tools/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 )
 
 func ExampleRun() {
@@ -25,13 +25,13 @@ func ExampleRun() {
 		ChangePasswordPrompter: cltest.MockChangePasswordPrompter{},
 	}
 
-	Run(testClient, "chainlink.test", "--help")
+	Run(testClient, "core.test", "--help")
 	// Output:
 	// NAME:
-	//    chainlink.test - CLI for Chainlink
+	//    core.test - CLI for Chainlink
 	//
 	// USAGE:
-	//    chainlink.test [global options] command [command options] [arguments...]
+	//    core.test [global options] command [command options] [arguments...]
 	//
 	// VERSION:
 	//    unset@unset
@@ -79,7 +79,7 @@ func ExampleVersion() {
 		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Config),
 	}
 
-	Run(testClient, "chainlink.test", "--version")
+	Run(testClient, "core.test", "--version")
 	// Output:
-	// chainlink.test version unset@unset
+	// core.test version unset@unset
 }

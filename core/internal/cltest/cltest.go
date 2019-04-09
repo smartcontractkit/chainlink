@@ -207,7 +207,7 @@ func newServer(app services.Application) *httptest.Server {
 }
 
 func (ta *TestApplication) NewBox() packr.Box {
-	return packr.NewBox("../../core/internal/fixtures/gui/dist")
+	return packr.NewBox("../fixtures/gui/dist")
 }
 
 func (ta *TestApplication) StartAndConnect() error {
@@ -615,7 +615,7 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, bo
 
 // CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
 func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
-	buffer := MustReadFile(t, "../core/internal/fixtures/web/hello_world_job.json")
+	buffer := MustReadFile(t, "fixtures/web/hello_world_job.json")
 
 	var job models.JobSpec
 	err := json.Unmarshal(buffer, &job)
