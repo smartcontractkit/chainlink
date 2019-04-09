@@ -615,7 +615,7 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, bo
 
 // CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
 func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
-	buffer := MustReadFile(t, "fixtures/web/hello_world_job.json")
+	buffer := MustReadFile(t, "testdata/hello_world_job.json")
 
 	var job models.JobSpec
 	err := json.Unmarshal(buffer, &job)
