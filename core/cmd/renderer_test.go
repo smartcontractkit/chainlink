@@ -159,7 +159,7 @@ func TestRendererTable_Render_TxAttempts(t *testing.T) {
 func TestRendererTable_ServiceAgreementShow(t *testing.T) {
 	t.Parallel()
 
-	sa, err := cltest.ServiceAgreementFromString(string(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json")))
+	sa, err := cltest.ServiceAgreementFromString(string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json")))
 	assert.NoError(t, err)
 	psa := presenters.ServiceAgreement{ServiceAgreement: sa}
 
