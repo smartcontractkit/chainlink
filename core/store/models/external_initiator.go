@@ -16,13 +16,15 @@ import (
 type ExternalInitiator struct {
 	*gorm.Model
 	AccessKey    string
+	Salt         string
 	HashedSecret string
 }
 
 // NewExternalInitiator generates an ExternalInitiator from an
 // ExternalInitiatorAuthentication, hashing the password for storage
 func NewExternalInitiator(eia *ExternalInitiatorAuthentication) (*ExternalInitiator, error) {
-	hashedSecret, err := HashedSecret(eia)
+	salt := NewSecret()
+	hashedSecret, err := HashedSecret(eia, salt)
 	if err != nil {
 		return nil, errors.Wrap(err, "error hashing secret for external initiator")
 	}
@@ -30,13 +32,14 @@ func NewExternalInitiator(eia *ExternalInitiatorAuthentication) (*ExternalInitia
 	return &ExternalInitiator{
 		AccessKey:    eia.AccessKey,
 		HashedSecret: hashedSecret,
+		Salt:         salt,
 	}, nil
 }
 
 // AuthenticateExternalInitiator compares an auth against an initiator and
 // returns true if the password hashes match
 func AuthenticateExternalInitiator(eia *ExternalInitiatorAuthentication, ea *ExternalInitiator) (bool, error) {
-	hashedSecret, err := HashedSecret(eia)
+	hashedSecret, err := HashedSecret(eia, ea.Salt)
 	if err != nil {
 		return false, err
 	}
@@ -54,15 +57,15 @@ func NewExternalInitiatorAuthentication() *ExternalInitiatorAuthentication {
 	}
 }
 
-func hashInput(eia *ExternalInitiatorAuthentication) []byte {
-	return []byte(fmt.Sprintf("v0-%s-%s", eia.AccessKey, eia.Secret))
+func hashInput(eia *ExternalInitiatorAuthentication, salt string) []byte {
+	return []byte(fmt.Sprintf("v0-%s-%s-%s", eia.AccessKey, eia.Secret, salt))
 }
 
 // HashedSecret generates a hashed password for an external initiator
 // authentication
-func HashedSecret(eia *ExternalInitiatorAuthentication) (string, error) {
+func HashedSecret(eia *ExternalInitiatorAuthentication, salt string) (string, error) {
 	hasher := sha3.New256()
-	_, err := hasher.Write(hashInput(eia))
+	_, err := hasher.Write(hashInput(eia, salt))
 	if err != nil {
 		return "", errors.Wrap(err, "error writing external initiator authentication to hasher")
 	}
