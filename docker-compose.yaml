@@ -20,7 +20,7 @@ services:
     command: node -d -p /run/secrets/node_password -a /run/secrets/apicredentials
     restart: always
     volumes:
-      - ./internal/clroot/:/root/clroot
+      - ./tools/clroot/:/root/clroot
     environment:
       - LOG_LEVEL=debug
       - ROOT=/root/clroot
@@ -50,4 +50,4 @@ networks:
 
 secrets:
   node_password:
-    file: ./internal/clroot/password.txt
+    file: ./tools/clroot/password.txt
