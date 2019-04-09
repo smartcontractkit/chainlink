@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -30,7 +30,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 	defer cleanup()
 	app.Start()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/scheduler_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../core/internal/fixtures/web/scheduler_job.json")
 
 	cltest.WaitForRunsAtLeast(t, j, app.Store, 1)
 
@@ -199,7 +199,7 @@ func TestIntegration_RunAt(t *testing.T) {
 	defer cleanup()
 	app.InstantClock()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/run_at_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../core/internal/fixtures/web/run_at_job.json")
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorRunAt, initr.Type)
@@ -222,14 +222,14 @@ func TestIntegration_EthLog(t *testing.T) {
 	})
 	app.Start()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/eth_log_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../core/internal/fixtures/web/eth_log_job.json")
 	address := common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
-	logs <- cltest.LogFromFixture(t, "../internal/fixtures/eth/requestLog0original.json")
+	logs <- cltest.LogFromFixture(t, "../core/internal/fixtures/eth/requestLog0original.json")
 	cltest.WaitForRuns(t, j, app.Store, 1)
 }
 
@@ -248,7 +248,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	})
 	app.Start()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/runlog_noop_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../core/internal/fixtures/web/runlog_noop_job.json")
 	requiredConfs := 100
 
 	initr := j.Initiators[0]
@@ -282,7 +282,7 @@ func TestIntegration_EndAt(t *testing.T) {
 	app.Start()
 	client := app.NewHTTPClient()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/end_at_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../core/internal/fixtures/web/end_at_job.json")
 	endAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
 	assert.Equal(t, endAt, j.EndAt.Time)
 
@@ -309,7 +309,7 @@ func TestIntegration_StartAt(t *testing.T) {
 	app.Start()
 	client := app.NewHTTPClient()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/start_at_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../core/internal/fixtures/web/start_at_job.json")
 	startAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
 	assert.Equal(t, startAt, j.StartAt.Time)
 
@@ -346,7 +346,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v","confirmations":10}`, mockServer.URL)
 	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/log_initiated_bridge_type_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../core/internal/fixtures/web/log_initiated_bridge_type_job.json")
 
 	logBlockNumber := 1
 	logs <- cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
@@ -406,7 +406,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 
 	bridgeJSON := fmt.Sprintf(`{"name":"assetPrice","url":"%v"}`, ts.URL)
 	cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/bridge_type_copy_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../core/internal/fixtures/web/bridge_type_copy_job.json")
 	jr := cltest.WaitForJobRunToComplete(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j, `{"copyPath": ["price"]}`))
 
 	tr := jr.TaskRuns[0]
@@ -453,7 +453,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
 	bt = cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
-	j = cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/random_number_bridge_type_job.json")
+	j = cltest.FixtureCreateJobViaWeb(t, app, "../core/internal/fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	jr = cltest.WaitForJobRunToPendBridge(t, app.Store, jr)
 
@@ -485,7 +485,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 		eth.RegisterSubscription("logs", logs)
 	})
 
-	log := cltest.LogFromFixture(t, "../internal/fixtures/eth/requestLog0original.json")
+	log := cltest.LogFromFixture(t, "../core/internal/fixtures/eth/requestLog0original.json")
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
 		func(_ http.Header, body string) {
 			marshaledLog, err := json.Marshal(&log)
@@ -513,7 +513,7 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 	defer cleanup()
 	app.Start()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/int256_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../core/internal/fixtures/web/int256_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"-10221.30"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
@@ -527,7 +527,7 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 	defer cleanup()
 	app.Start()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/uint256_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../core/internal/fixtures/web/uint256_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"10221.30"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
@@ -542,7 +542,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey()
 	defer cleanup()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/web_initiated_eth_tx_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../core/internal/fixtures/web/web_initiated_eth_tx_job.json")
 
 	eth := app.MockEthClient()
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
@@ -590,7 +590,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 		eth.Register("eth_getTransactionCount", `0x100`)
 	})
 	assert.NoError(t, app.StartAndConnect())
-	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "../internal/fixtures/web/noop_agreement.json")
+	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "../core/internal/fixtures/web/noop_agreement.json")
 
 	assert.NotEqual(t, "", sa.ID)
 	j := cltest.FindJob(app.Store, sa.JobSpecID)
@@ -631,7 +631,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	app.Store.StatsPusher.Period = 300 * time.Millisecond
 
 	app.Start()
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/run_at_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../core/internal/fixtures/web/run_at_job.json")
 
 	cltest.CallbackOrTimeout(t, "stats pusher connects", func() {
 		<-wsserver.Connected

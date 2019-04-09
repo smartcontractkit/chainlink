@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -160,7 +160,7 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(cltest.MustReadFile(t, "../../internal/fixtures/web/hello_world_job.json")))
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_job.json")))
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -203,7 +203,7 @@ func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "../../internal/fixtures/web/caseinsensitive_hello_world_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../internal/fixtures/web/caseinsensitive_hello_world_job.json")
 
 	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
 	httpGet := adapter1.BaseAdapter.(*adapters.HTTPGet)
@@ -230,7 +230,7 @@ func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "../../internal/fixtures/web/nonexistent_task_job.json")
+	jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/nonexistent_task_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -246,7 +246,7 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "../../internal/fixtures/web/run_at_wo_time_job.json")
+	jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/run_at_wo_time_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -262,7 +262,7 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "../../internal/fixtures/web/invalid_cron.json")
+	jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/invalid_cron.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -278,7 +278,7 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "../../internal/fixtures/web/initiator_only_job.json")
+	jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/initiator_only_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -294,7 +294,7 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "../../internal/fixtures/web/task_only_job.json")
+	jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/task_only_job.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 

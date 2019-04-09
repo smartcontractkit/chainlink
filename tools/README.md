@@ -7,7 +7,7 @@ Usage:
 ### Single Oracle
 
 ```bash
-$ ./sa_requester/bin/run -a ../internal/fixtures/web/hello_world_agreement.json http://127.0.0.1:6688/v2/service_agreements
+$ ./sa_requester/bin/run -a ../core/internal/fixtures/web/hello_world_agreement.json http://127.0.0.1:6688/v2/service_agreements
 ┌─────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ (index) │                                                               signature                                                                │
 ├─────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
@@ -18,7 +18,7 @@ $ ./sa_requester/bin/run -a ../internal/fixtures/web/hello_world_agreement.json 
 ### Multiple Oracles
 
 ```bash
-$ ./sa_requester/bin/run -a ../internal/fixtures/web/hello_world_agreement.json "http://127.0.0.1:6688/v2/service_agreements http://localhost:6688/v2/service_agreements"
+$ ./sa_requester/bin/run -a ../core/internal/fixtures/web/hello_world_agreement.json "http://127.0.0.1:6688/v2/service_agreements http://localhost:6688/v2/service_agreements"
 ┌─────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ (index) │                                                               signature                                                                │
 ├─────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤

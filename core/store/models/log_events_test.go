@@ -10,7 +10,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +26,7 @@ func TestParseRunLog(t *testing.T) {
 	}{
 		{
 			name:        "old non-commitment",
-			log:         cltest.LogFromFixture(t, "../../../internal/fixtures/eth/requestLog0original.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog0original.json"),
 			wantErrored: false,
 			wantData: cltest.JSONFromString(t, `{
 				"url":"https://etherprice.com/api",
@@ -37,7 +37,7 @@ func TestParseRunLog(t *testing.T) {
 		},
 		{
 			name:        "20190123 fulfillment params",
-			log:         cltest.LogFromFixture(t, "../../../internal/fixtures/eth/requestLog20190123withFulfillmentParams.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190123withFulfillmentParams.json"),
 			wantErrored: false,
 			wantData: cltest.JSONFromString(t, `{
 				"url":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd,eur,jpy",
@@ -48,7 +48,7 @@ func TestParseRunLog(t *testing.T) {
 		},
 		{
 			name:        "20190207 without indexes",
-			log:         cltest.LogFromFixture(t, "../../../internal/fixtures/eth/requestLog20190207withoutIndexes.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190207withoutIndexes.json"),
 			wantErrored: false,
 			wantData: cltest.JSONFromString(t, `{
 				"url":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd,eur,jpy",
@@ -72,16 +72,16 @@ func TestParseRunLog(t *testing.T) {
 func TestEthLogEvent_JSON(t *testing.T) {
 	t.Parallel()
 
-	hwLog := cltest.LogFromFixture(t, "../../../internal/fixtures/eth/requestLog0original.json")
-	exampleLog := cltest.LogFromFixture(t, "../../../internal/fixtures/eth/subscription_logs.json")
+	hwLog := cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog0original.json")
+	exampleLog := cltest.LogFromFixture(t, "../../internal/fixtures/eth/subscription_logs.json")
 	tests := []struct {
 		name        string
 		el          models.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
-		{"example", exampleLog, false, cltest.JSONResultFromFixture(t, "../../../internal/fixtures/eth/subscription_logs.json")},
-		{"hello world", hwLog, false, cltest.JSONResultFromFixture(t, "../../../internal/fixtures/eth/requestLog0original.json")},
+		{"example", exampleLog, false, cltest.JSONResultFromFixture(t, "../../internal/fixtures/eth/subscription_logs.json")},
+		{"hello world", hwLog, false, cltest.JSONResultFromFixture(t, "../../internal/fixtures/eth/requestLog0original.json")},
 	}
 
 	for _, test := range tests {
@@ -269,19 +269,19 @@ func TestRunLogEvent_ContractPayment(t *testing.T) {
 	}{
 		{
 			name:        "old non-commitment",
-			log:         cltest.LogFromFixture(t, "../../../internal/fixtures/eth/requestLog0original.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog0original.json"),
 			wantErrored: false,
 			want:        assets.NewLink(1),
 		},
 		{
 			name:        "20190123 with fulfillment params",
-			log:         cltest.LogFromFixture(t, "../../../internal/fixtures/eth/requestLog20190123withFulfillmentParams.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190123withFulfillmentParams.json"),
 			wantErrored: false,
 			want:        assets.NewLink(1000000000000000000),
 		},
 		{
 			name:        "20190207 without indexes",
-			log:         cltest.LogFromFixture(t, "../../../internal/fixtures/eth/requestLog20190207withoutIndexes.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190207withoutIndexes.json"),
 			wantErrored: false,
 			want:        assets.NewLink(1000000000000000001),
 		},
@@ -310,19 +310,19 @@ func TestRunLogEvent_Requester(t *testing.T) {
 	}{
 		{
 			name:        "old non-commitment",
-			log:         cltest.LogFromFixture(t, "../../../internal/fixtures/eth/requestLog0original.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog0original.json"),
 			wantErrored: false,
 			want:        common.HexToAddress("0xd352677fcded6c358e03c73ea2a8a2832dffc0a4"),
 		},
 		{
 			name:        "20190123 with fulfillment params",
-			log:         cltest.LogFromFixture(t, "../../../internal/fixtures/eth/requestLog20190123withFulfillmentParams.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190123withFulfillmentParams.json"),
 			wantErrored: false,
 			want:        common.HexToAddress("0x9fbda871d559710256a2502a2517b794b482db41"),
 		},
 		{
 			name:        "20190207 without indexes",
-			log:         cltest.LogFromFixture(t, "../../../internal/fixtures/eth/requestLog20190207withoutIndexes.json"),
+			log:         cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190207withoutIndexes.json"),
 			wantErrored: false,
 			want:        common.HexToAddress("0x9fbda871d559710256a2502a2517b794b482db40"),
 		},
@@ -351,21 +351,21 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 	}{
 		{
 			name:          "old non-commitment",
-			log:           cltest.LogFromFixture(t, "../../../internal/fixtures/eth/requestLog0original.json"),
+			log:           cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog0original.json"),
 			wantRequestID: "0x0000000000000000000000000000000000000000000000000000000000000017",
 			wantTxHash:    "0xe05b171038320aca6634ce50de669bd0baa337130269c3ce3594ce4d45fc342a",
 			wantRequester: common.HexToAddress("0xd352677fcded6c358e03c73ea2a8a2832dffc0a4"),
 		},
 		{
 			name:          "20190123 with fulfillment params",
-			log:           cltest.LogFromFixture(t, "../../../internal/fixtures/eth/requestLog20190123withFulfillmentParams.json"),
+			log:           cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190123withFulfillmentParams.json"),
 			wantRequestID: "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8",
 			wantTxHash:    "0x04250548cd0b5d03b3bf1331aa83f32b35879440db31a6008d151260a5f3cc76",
 			wantRequester: common.HexToAddress("0x9fbda871d559710256a2502a2517b794b482db41"),
 		},
 		{
 			name:          "20190207 without indexes",
-			log:           cltest.LogFromFixture(t, "../../../internal/fixtures/eth/requestLog20190207withoutIndexes.json"),
+			log:           cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190207withoutIndexes.json"),
 			wantRequestID: "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8",
 			wantTxHash:    "0x04250548cd0b5d03b3bf1331aa83f32b35879440db31a6008d151260a5f3cc76",
 			wantRequester: common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40"),

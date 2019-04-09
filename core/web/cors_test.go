@@ -3,7 +3,7 @@ package web_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 )
 
 func TestCors_DefaultOrigins(t *testing.T) {
