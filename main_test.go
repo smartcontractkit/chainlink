@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 )
 
 func ExampleRun() {

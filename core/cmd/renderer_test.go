@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -159,7 +159,7 @@ func TestRendererTable_Render_TxAttempts(t *testing.T) {
 func TestRendererTable_ServiceAgreementShow(t *testing.T) {
 	t.Parallel()
 
-	sa, err := cltest.ServiceAgreementFromString(string(cltest.MustReadFile(t, "../../internal/fixtures/web/hello_world_agreement.json")))
+	sa, err := cltest.ServiceAgreementFromString(string(cltest.MustReadFile(t, "../internal/fixtures/web/hello_world_agreement.json")))
 	assert.NoError(t, err)
 	psa := presenters.ServiceAgreement{ServiceAgreement: sa}
 

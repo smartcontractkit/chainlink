@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/internal/cltest"
+	"github.com/smartcontractkit/chainlink/tools/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -106,7 +106,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
-		bytes.NewBuffer(cltest.MustReadFile(t, "../../internal/fixtures/web/create_random_number_bridge_type.json")),
+		bytes.NewBuffer(cltest.MustReadFile(t, "../internal/fixtures/web/create_random_number_bridge_type.json")),
 	)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
@@ -188,7 +188,7 @@ func TestBridgeController_Destroy(t *testing.T) {
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
 
-	bridgeJSON := cltest.MustReadFile(t, "../../internal/fixtures/web/create_random_number_bridge_type.json")
+	bridgeJSON := cltest.MustReadFile(t, "../internal/fixtures/web/create_random_number_bridge_type.json")
 	var bt models.BridgeType
 	err := json.Unmarshal(bridgeJSON, &bt)
 	assert.NoError(t, err)
@@ -222,7 +222,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
-		bytes.NewBuffer(cltest.MustReadFile(t, "../../internal/fixtures/web/existing_core_adapter.json")),
+		bytes.NewBuffer(cltest.MustReadFile(t, "../internal/fixtures/web/existing_core_adapter.json")),
 	)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 400)
