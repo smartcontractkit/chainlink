@@ -9,6 +9,7 @@ export interface INormalizedData {
 
 export type TaskRunsAction =
   | { type: 'UPSERT_JOB_RUN'; data: INormalizedData }
+  | { type: '@@redux/INIT' }
   | { type: '@@INIT' }
 
 const INITIAL_STATE = { items: undefined }
