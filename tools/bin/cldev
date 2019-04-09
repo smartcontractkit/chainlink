@@ -15,7 +15,7 @@ LDFLAGS=`$PROJECT_ROOT/tools/bin/ldflags`
 
 pushd $PROJECT_ROOT >/dev/null
 source tools/bin/clenv
-export ROOT=$PROJECT_ROOT/internal/clroot
+export ROOT=$PROJECT_ROOT/tools/clroot
 DEFAULT_KEY_PATH=$ROOT/keys/UTC--2017-01-05T20-42-24.637Z--9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f
 
 mainexec() {
