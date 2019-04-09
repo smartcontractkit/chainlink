@@ -423,7 +423,7 @@ func MustReadFile(t *testing.T, file string) []byte {
 	return content
 }
 
-func copyFile(src, dst string) {
+func CopyFile(src, dst string) {
 	from, err := os.Open(src)
 	mustNotErr(err)
 	defer from.Close()

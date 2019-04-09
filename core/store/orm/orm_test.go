@@ -113,6 +113,23 @@ func TestORM_CreateJobRun_ArchivesRunIfJobArchived(t *testing.T) {
 	require.NoError(t, utils.JustError(store.Unscoped().FindJobRun(jr.ID)))
 }
 
+func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+
+	jr := job.NewRun(job.Initiators[0])
+	require.NoError(t, store.CreateJobRun(&jr))
+
+	var requestCount int
+	err := store.ORM.DB.Model(&models.RunRequest{}).Count(&requestCount).Error
+	assert.NoError(t, err)
+	assert.Equal(t, 1, requestCount)
+}
+
 func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
@@ -798,6 +815,11 @@ func TestBulkDeleteRuns(t *testing.T) {
 	err = db.Model(&models.RunResult{}).Count(&resultCount).Error
 	assert.NoError(t, err)
 	assert.Equal(t, 6, resultCount)
+
+	var requestCount int
+	err = db.Model(&models.RunRequest{}).Count(&requestCount).Error
+	assert.NoError(t, err)
+	assert.Equal(t, 3, requestCount)
 }
 
 func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
