@@ -23,9 +23,7 @@ afterAll(async () => {
     await closeDbConnection()
   }
 })
-beforeEach(async () => {
-  await clearDb()
-})
+afterEach(async () => clearDb())
 
 describe('#index', () => {
   describe('with no runs', () => {
@@ -61,6 +59,7 @@ describe('#show', () => {
     expect(response.body.id).toEqual(jobRun.id)
     expect(response.body.runId).toEqual(JOB_RUN_B_ID)
     expect(response.body.taskRuns.length).toEqual(1)
+    expect(response.body.initiator.id).toBeDefined()
   })
 
   it('returns a 404', async () => {

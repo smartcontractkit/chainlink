@@ -6,7 +6,7 @@
     "port": 5432,
     "database": "linkstats_dev",
     "synchronize": false,
-    "logging": false,
+    "logging": true,
     "entities": ["src/entity/**/*.ts"],
     "migrations": ["src/migration/**/*.ts"],
     "subscribers": ["src/subscriber/**/*.ts"],
