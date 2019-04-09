@@ -75,7 +75,7 @@ launch_gethnet() {
   install_gethnet
 
   title "Starting geth..."
-  $SRCROOT/internal/bin/gethnet &>$SRCROOT/integration/gethnet.log &
+  $SRCROOT/tools/bin/gethnet &>$SRCROOT/integration/gethnet.log &
   waitForResponse $ETH_HTTP_URL
   title "Geth is running."
 }
@@ -89,7 +89,7 @@ launch_parity() {
   printf -- "[\033[31mstopped\033[0m]\n"
 
   title "Starting parity..."
-  $SRCROOT/internal/bin/devnet &>$SRCROOT/integration/devnet.log &
+  $SRCROOT/tools/bin/devnet &>$SRCROOT/integration/devnet.log &
   waitForResponse $ETH_HTTP_URL
   title "Parity is running."
 }

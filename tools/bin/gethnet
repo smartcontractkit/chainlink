@@ -6,7 +6,7 @@ GIT_ROOT=`git rev-parse --show-toplevel`
 PROJECT_ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
 
 pushd $PROJECT_ROOT >/dev/null
-source internal/bin/clenv
+source tools/bin/clenv
 popd >/dev/null
 
 ACCOUNT=0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f

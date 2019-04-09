@@ -5,7 +5,7 @@ regular chainlink, especially if you're on Mac OS X. The recommended way is to
 do your compilation and testing from within our builder image. This has the
 exact set of tools installed to build chainlink with.
 
-To enter the Docker image you call `internal/bin/sgx-env`.
+To enter the Docker image you call `tools/bin/sgx-env`.
 
 From there you can run `make install` to build the `chainlink` executable with
 SGX adapters.
