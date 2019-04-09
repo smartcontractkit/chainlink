@@ -2,8 +2,8 @@
 
 # Runs a Chainlink node preconfigured to communicate with gethnet, via docker.
 # Steps:
-# 1. ./internal/bin/gethnet
-# 2. ./internal/bin/cldocker
+# 1. ./tools/bin/gethnet
+# 2. ./tools/bin/cldocker
 
 GIT_ROOT=`git rev-parse --show-toplevel`
 PROJECT_ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
@@ -25,7 +25,7 @@ DOCKER="docker run -ti \
     --volume $PROJECT_ROOT/internal/clroot:/root/.chainlink \
     $REPO:$TAG"
 
-source $PROJECT_ROOT/internal/bin/clenv
+source $PROJECT_ROOT/tools/bin/clenv
 if [ "$#" == 0 ]; then
   $DOCKER node -d -p /root/.chainlink/password.txt -a /root/.chainlink/apicredentials
 elif [ "$1" == "node" ]; then

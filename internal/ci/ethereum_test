@@ -5,7 +5,7 @@ set -e
 GIT_ROOT=`git rev-parse --show-toplevel`
 
 export SRCROOT=${CIRCLE_WORKING_DIRECTORY:-${TRAVIS_BUILD_DIR:-$GIT_ROOT}}
-export PATH=$SRCROOT/internal/bin:./node_modules/.bin:$PATH
+export PATH=$SRCROOT/tools/bin:./node_modules/.bin:$PATH
 
 export ROOT="$SRCROOT/internal/clroot"
 
@@ -18,7 +18,7 @@ export CHAINLINK_URL=http://127.0.0.1:$CHAINLINK_PORT/
 pushd $SRCROOT >/dev/null
 
 source ./integration/common
-source ./internal/bin/clenv
+source ./tools/bin/clenv
 
 trap cleanup EXIT SIGTERM SIGINT
 trap exit_handler EXIT

@@ -2,19 +2,19 @@
 
 # Runs a Chainlink (CL) node preconfigured to communicate with gethnet.
 # Steps:
-# 1. ./internal/bin/gethnet
+# 1. ./tools/bin/gethnet
 # 2. yarn install
 # 3. cd solidity && truffle migrate && cd ..
-# 4. ./internal/bin/cldev
+# 4. ./tools/bin/cldev
 
 set -e
 
 GIT_ROOT=`git rev-parse --show-toplevel`
 PROJECT_ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
-LDFLAGS=`$PROJECT_ROOT/internal/bin/ldflags`
+LDFLAGS=`$PROJECT_ROOT/tools/bin/ldflags`
 
 pushd $PROJECT_ROOT >/dev/null
-source internal/bin/clenv
+source tools/bin/clenv
 export ROOT=$PROJECT_ROOT/internal/clroot
 DEFAULT_KEY_PATH=$ROOT/keys/UTC--2017-01-05T20-42-24.637Z--9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f
 
