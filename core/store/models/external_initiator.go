@@ -9,6 +9,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"golang.org/x/crypto/sha3"
 )
 
 // ExternalInitiator represents a user that can initiate runs remotely
@@ -60,11 +61,12 @@ func hashInput(eia *ExternalInitiatorAuthentication) []byte {
 // HashedSecret generates a hashed password for an external initiator
 // authentication
 func HashedSecret(eia *ExternalInitiatorAuthentication) (string, error) {
-	hash, err := utils.Keccak256(hashInput(eia))
+	hasher := sha3.New256()
+	_, err := hasher.Write(hashInput(eia))
 	if err != nil {
 		return "", errors.Wrap(err, "error writing external initiator authentication to hasher")
 	}
-	return hex.EncodeToString(hash), nil
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 // ExternalInitiatorAuthentication represents the credentials needed to
