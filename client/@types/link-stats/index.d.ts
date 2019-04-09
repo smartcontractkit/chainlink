@@ -6,6 +6,7 @@ interface IJobRun {
   error?: string
   createdAt: string
   completedAt?: string
+  initiator?: IInitiator
   taskRuns: ITaskRun[]
 }
 
@@ -14,4 +15,10 @@ interface ITaskRun {
   type: string
   status: string
   error?: string
+}
+
+interface IInitiator {
+  id: number
+  requester: string
+  requestId: string
 }

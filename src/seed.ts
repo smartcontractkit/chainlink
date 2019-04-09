@@ -1,6 +1,7 @@
 import { getDb } from './database'
 import { JobRun } from './entity/JobRun'
 import { TaskRun } from './entity/TaskRun'
+import { Initiator } from './entity/Initiator'
 
 export const JOB_RUN_A_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 export const JOB_RUN_B_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -14,7 +15,16 @@ export default async () => {
     jobRunA.runId = JOB_RUN_A_ID
     jobRunA.jobId = 'cccccccccccccccccccccccccccccccc'
     jobRunA.status = 'in_progress'
+    jobRunA.createdAt = new Date(Date.parse('2019-04-08T01:00:00.000Z'))
     await dbConnection.manager.save(jobRunA)
+
+    const initiatorA = new Initiator()
+    initiatorA.jobRun = jobRunA
+    initiatorA.txHash = 'txA'
+    initiatorA.requestId = 'requestIdA'
+    initiatorA.requester = 'requesterA'
+    initiatorA.createdAt = jobRunA.createdAt
+    await dbConnection.manager.save(initiatorA)
 
     const taskRunA = new TaskRun()
     taskRunA.jobRun = jobRunA
@@ -27,9 +37,16 @@ export default async () => {
     jobRunB.runId = JOB_RUN_B_ID
     jobRunB.jobId = 'dddddddddddddddddddddddddddddddd'
     jobRunB.status = 'completed'
-
-    await dbConnection.manager.save(jobRunA)
+    jobRunB.createdAt = new Date(Date.parse('2019-04-09T01:00:00.000Z'))
     await dbConnection.manager.save(jobRunB)
+
+    const initiatorB = new Initiator()
+    initiatorB.jobRun = jobRunB
+    initiatorB.txHash = 'txB'
+    initiatorB.requestId = 'requestIdB'
+    initiatorB.requester = 'requesterB'
+    initiatorB.createdAt = jobRunB.createdAt
+    await dbConnection.manager.save(initiatorB)
 
     const taskRunB = new TaskRun()
     taskRunB.jobRun = jobRunB

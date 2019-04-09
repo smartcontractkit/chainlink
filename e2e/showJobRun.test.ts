@@ -8,10 +8,11 @@ import server from '../src/server'
 
 const startServer = async () => {
   await createDbConnection()
-  await clearDb()
   await seed()
   return server()
 }
+
+afterEach(async () => clearDb())
 
 describe('End to end', () => {
   let browser: Browser, page: Page, server: Server

@@ -21,8 +21,13 @@ router.get('/job_runs', async (req: Request, res: Response) => {
 
 router.get('/job_runs/:id', async (req: Request, res: Response) => {
   const id = req.params.id
-  const params = { where: { id }, relations: ['taskRuns'] }
-  const jobRun = await getDb().manager.findOne(JobRun, params)
+  const jobRun = await getDb()
+    .getRepository(JobRun)
+    .createQueryBuilder('job_run')
+    .leftJoinAndSelect('job_run.taskRuns', 'task_run')
+    .leftJoinAndSelect('job_run.initiator', 'initiator')
+    .where('job_run.id = :id', { id })
+    .getOne()
 
   if (jobRun) {
     return res.send(jobRun)
