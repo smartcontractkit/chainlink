@@ -3,7 +3,7 @@ stories
 coverage
 gui/dist
 gui/artifacts
-internal
+tools/gethnet
 node_modules
 vendor
 # ESLint doesn't support experimental import() syntax
