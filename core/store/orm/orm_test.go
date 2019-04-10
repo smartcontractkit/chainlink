@@ -959,16 +959,15 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 
 	require.NoError(t, store.CreateBridgeType(firstBridge))
 
-	updateBridge := models.BridgeType{
-		Name: "UniqueName",
-		URL:  cltest.WebURL("http:/updatedurl.com"),
+	updateBridge := &models.BridgeTypeRequest{
+		URL: cltest.WebURL("http:/updatedurl.com"),
 	}
 
-	require.NoError(t, store.UpdateBridgeType(&updateBridge))
+	require.NoError(t, store.UpdateBridgeType(firstBridge, updateBridge))
 
 	foundbridge, err := store.FindBridge("UniqueName")
 	require.NoError(t, err)
-	require.Equal(t, updateBridge, foundbridge)
+	require.Equal(t, *updateBridge, foundbridge)
 }
 
 func isDirEmpty(t *testing.T, dir string) bool {
