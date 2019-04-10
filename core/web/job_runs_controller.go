@@ -111,8 +111,10 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else if bt, err := unscoped.PendingBridgeType(jr); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if _, err := models.AuthenticateBridgeType(&bt, authToken); err != nil {
-		publicError(c, http.StatusUnauthorized, err)
+	} else if ok, err := models.AuthenticateBridgeType(&bt, authToken); err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+	} else if !ok {
+		c.AbortWithStatus(http.StatusUnauthorized)
 	} else if err = services.ResumePendingTask(&jr, unscoped, brr.RunResult); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
