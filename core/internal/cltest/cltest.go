@@ -631,19 +631,19 @@ func UpdateJobRunViaWeb(
 	t *testing.T,
 	app *TestApplication,
 	jr models.JobRun,
+	bta *models.BridgeTypeAuthentication,
 	body string,
 ) models.JobRun {
 	t.Helper()
-	bt, err := app.Store.PendingBridgeType(jr)
-	require.NoError(t, err)
+
 	client := app.NewHTTPClient()
-	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
+	headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
 	defer cleanup()
 
 	AssertServerResponse(t, resp, 200)
 	jrID := ParseCommonJSON(resp.Body).ID
-	jr, err = app.Store.FindJobRun(jrID)
+	jr, err := app.Store.FindJobRun(jrID)
 	assert.NoError(t, err)
 	return jr
 }
@@ -653,7 +653,7 @@ func CreateBridgeTypeViaWeb(
 	t *testing.T,
 	app *TestApplication,
 	payload string,
-) models.BridgeType {
+) *models.BridgeTypeAuthentication {
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
@@ -661,8 +661,8 @@ func CreateBridgeTypeViaWeb(
 	)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
-	var bt models.BridgeType
-	err := ParseJSONAPIResponse(resp, &bt)
+	bt := &models.BridgeTypeAuthentication{}
+	err := ParseJSONAPIResponse(resp, bt)
 	require.NoError(t, err)
 
 	return bt
@@ -1047,4 +1047,9 @@ func CallbackOrTimeout(t *testing.T, msg string, callback func(), durationParams
 	case <-time.After(duration):
 		t.Fatal(fmt.Sprintf("CallbackOrTimeout: %s timed out", msg))
 	}
+}
+
+func MustSha256(in string) string {
+	out, _ := utils.Sha256(in)
+	return out
 }

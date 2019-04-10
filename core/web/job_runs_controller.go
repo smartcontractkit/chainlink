@@ -96,7 +96,10 @@ func (jrc *JobRunsController) Show(c *gin.Context) {
 //  "<application>/runs/:RunID"
 func (jrc *JobRunsController) Update(c *gin.Context) {
 	id := c.Param("RunID")
+	authToken := utils.StripBearer(c.Request.Header.Get("Authorization"))
+
 	var brr models.BridgeRunResult
+
 	unscoped := jrc.App.GetStore().Unscoped()
 	if jr, err := unscoped.FindJobRun(id); err == orm.ErrorNotFound {
 		publicError(c, http.StatusNotFound, errors.New("Job Run not found"))
@@ -108,7 +111,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else if bt, err := unscoped.PendingBridgeType(jr); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if _, err := bt.Authenticate(utils.StripBearer(c.Request.Header.Get("Authorization"))); err != nil {
+	} else if _, err := models.AuthenticateBridgeType(&bt, authToken); err != nil {
 		publicError(c, http.StatusUnauthorized, err)
 	} else if err = services.ResumePendingTask(&jr, unscoped, brr.RunResult); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)

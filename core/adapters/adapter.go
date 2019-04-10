@@ -119,7 +119,7 @@ func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 		}
-		b := Bridge{BridgeType: bt, Params: &task.Params}
+		b := Bridge{BridgeType: &bt, Params: &task.Params}
 		ba = &b
 		mic = b.Confirmations
 		mcp = bt.MinimumContractPayment

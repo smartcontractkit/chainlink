@@ -28,7 +28,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	)
 	defer cleanup()
 
-	bt := cltest.NewBridgeType("auctionBidding", mock.URL)
+	_, bt := cltest.NewBridgeType("auctionBidding", mock.URL)
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
 	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
 
@@ -52,7 +52,7 @@ func TestBridge_PerformRejectsNonJsonObjectResponses(t *testing.T) {
 	)
 	defer cleanup()
 
-	bt := cltest.NewBridgeType("auctionBidding", mock.URL)
+	_, bt := cltest.NewBridgeType("auctionBidding", mock.URL)
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
 	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
 
@@ -85,7 +85,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			mock, _ := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending": true}`)
-			bt := cltest.NewBridgeType("auctionBidding", mock.URL)
+			_, bt := cltest.NewBridgeType("auctionBidding", mock.URL)
 			ba := &adapters.Bridge{BridgeType: bt}
 
 			input := models.RunResult{
@@ -137,7 +137,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 				})
 			defer ensureCalled()
 
-			bt := cltest.NewBridgeType("auctionBidding", mock.URL)
+			_, bt := cltest.NewBridgeType("auctionBidding", mock.URL)
 			eb := &adapters.Bridge{BridgeType: bt}
 			input := cltest.RunResultWithResult("lot 49")
 			input.CachedJobRunID = runID
@@ -185,7 +185,8 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 				})
 			defer ensureCalled()
 
-			eb := &adapters.Bridge{BridgeType: cltest.NewBridgeType("auctionBidding", mock.URL)}
+			_, bt := cltest.NewBridgeType("auctionBidding", mock.URL)
+			eb := &adapters.Bridge{BridgeType: bt}
 			eb.Perform(input, store)
 		})
 	}

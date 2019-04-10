@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
 )
 
@@ -25,8 +24,6 @@ type Application interface {
 	AddJob(job models.JobSpec) error
 	ArchiveJob(ID string) error
 	AddServiceAgreement(*models.ServiceAgreement) error
-	AddAdapter(bt *models.BridgeType) error
-	RemoveAdapter(bt *models.BridgeType) error
 	NewBox() packr.Box
 }
 
@@ -160,43 +157,6 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 
 	app.Scheduler.AddJob(sa.JobSpec)
 	return app.JobSubscriber.AddJob(sa.JobSpec, nil) // nil for latest
-}
-
-// AddAdapter adds an adapter to the store. If another
-// adapter with the same name already exists the adapter
-// will not be added.
-func (app *ChainlinkApplication) AddAdapter(bt *models.BridgeType) error {
-	store := app.GetStore()
-
-	bt.IncomingToken = utils.NewBytes32ID()
-	bt.OutgoingToken = utils.NewBytes32ID()
-
-	app.bridgeTypeMutex.Lock()
-	defer app.bridgeTypeMutex.Unlock()
-
-	if err := ValidateAdapter(bt, store); err != nil {
-		return models.NewValidationError(err.Error())
-	}
-
-	if err := store.CreateBridgeType(bt); err != nil {
-		return models.NewDatabaseAccessError(err.Error())
-	}
-
-	return nil
-}
-
-// RemoveAdapter removes an adapter from the store.
-func (app *ChainlinkApplication) RemoveAdapter(bt *models.BridgeType) error {
-	store := app.GetStore()
-
-	app.bridgeTypeMutex.Lock()
-	defer app.bridgeTypeMutex.Unlock()
-
-	if err := store.DeleteBridgeType(bt.Name); err != nil {
-		return models.NewDatabaseAccessError(err.Error())
-	}
-
-	return nil
 }
 
 // NewBox returns the packr.Box instance that holds the static assets to

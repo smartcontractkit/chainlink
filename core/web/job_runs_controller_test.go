@@ -231,8 +231,8 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			bt := cltest.NewBridgeType(test.name)
-			require.NoError(t, app.Store.CreateBridgeType(&bt))
+			bta, bt := cltest.NewBridgeType(test.name)
+			require.NoError(t, app.Store.CreateBridgeType(bt))
 			j := cltest.NewJobWithWebInitiator()
 			j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 			require.NoError(t, app.Store.CreateJob(&j))
@@ -245,7 +245,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 
 			// resume run
 			body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
-			headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
+			headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
 			url := app.Config.ClientNodeURL() + "/v2/runs/" + jr.ID
 			resp, cleanup := cltest.UnauthenticatedPatch(url, bytes.NewBufferString(body), headers)
 			defer cleanup()
@@ -269,8 +269,8 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	bt := cltest.NewBridgeType()
-	assert.Nil(t, app.Store.CreateBridgeType(&bt))
+	_, bt := cltest.NewBridgeType()
+	assert.Nil(t, app.Store.CreateBridgeType(bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.CreateJob(&j))
@@ -294,8 +294,8 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	bt := cltest.NewBridgeType()
-	assert.Nil(t, app.Store.CreateBridgeType(&bt))
+	bta, bt := cltest.NewBridgeType()
+	assert.Nil(t, app.Store.CreateBridgeType(bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.CreateJob(&j))
@@ -303,7 +303,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
-	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
+	headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
 	defer cleanup()
 	assert.Equal(t, 405, resp.StatusCode, "Response should be unsuccessful")
@@ -316,8 +316,8 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	bt := cltest.NewBridgeType()
-	assert.Nil(t, app.Store.CreateBridgeType(&bt))
+	bta, bt := cltest.NewBridgeType()
+	assert.Nil(t, app.Store.CreateBridgeType(bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.CreateJob(&j))
@@ -325,7 +325,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"result": "0"}}`, jr.ID)
-	headers := map[string]string{"Authorization": "Bearer " + bt.IncomingToken}
+	headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
@@ -345,8 +345,8 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	bt := cltest.NewBridgeType()
-	assert.Nil(t, app.Store.CreateBridgeType(&bt))
+	_, bt := cltest.NewBridgeType()
+	assert.Nil(t, app.Store.CreateBridgeType(bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.CreateJob(&j))
@@ -369,8 +369,8 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	bt := cltest.NewBridgeType()
-	assert.Nil(t, app.Store.CreateBridgeType(&bt))
+	_, bt := cltest.NewBridgeType()
+	assert.Nil(t, app.Store.CreateBridgeType(bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.CreateJob(&j))

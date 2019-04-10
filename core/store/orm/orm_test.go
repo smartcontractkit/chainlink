@@ -494,8 +494,8 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	defer cleanup()
 	jobRunner.Start()
 
-	bt := cltest.NewBridgeType()
-	assert.NoError(t, store.CreateBridgeType(&bt))
+	_, bt := cltest.NewBridgeType()
+	require.NoError(t, store.CreateBridgeType(bt))
 
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
@@ -517,8 +517,8 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	bt := cltest.NewBridgeType()
-	assert.NoError(t, store.CreateBridgeType(&bt))
+	_, bt := cltest.NewBridgeType()
+	require.NoError(t, store.CreateBridgeType(bt))
 
 	job := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
