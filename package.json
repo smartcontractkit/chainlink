@@ -19,7 +19,6 @@
     "chainlink-uptime-sla": "file:examples/uptime_sla",
     "operator-gui": "file:gui"
   },
-  "name": "chainlink",
   "devDependencies": {
     "@babel/core": "^7.2.2",
     "@babel/plugin-proposal-class-properties": "^7.3.0",
