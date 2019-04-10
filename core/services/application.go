@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/gobuffalo/packr"
@@ -39,7 +38,6 @@ type ChainlinkApplication struct {
 	Store                                             *store.Store
 	SessionReaper                                     SleeperTask
 	pendingConnectionResumer                          *pendingConnectionResumer
-	bridgeTypeMutex                                   sync.Mutex
 	jobSubscriberID, txManagerID, connectionResumerID string
 }
 
