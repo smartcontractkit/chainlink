@@ -27,7 +27,7 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 	} else if bta, bt, err := models.NewBridgeType(btr); err != nil {
 		publicError(c, StatusCodeForError(err), err)
 	} else if err := services.ValidateAdapter(btr, btc.App.GetStore()); err != nil {
-		publicError(c, StatusCodeForError(err), err)
+		publicError(c, http.StatusBadRequest, err)
 	} else if err := btc.App.GetStore().CreateBridgeType(bt); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else if doc, err := jsonapi.Marshal(bta); err != nil {

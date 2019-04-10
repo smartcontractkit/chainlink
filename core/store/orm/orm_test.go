@@ -528,7 +528,7 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 	unfinishedRun := job.NewRun(initr)
 	retrievedBt, err := store.PendingBridgeType(unfinishedRun)
 	assert.NoError(t, err)
-	assert.Equal(t, bt, retrievedBt)
+	assert.Equal(t, retrievedBt, *bt)
 }
 
 func TestORM_GetLastNonce_StormNotFound(t *testing.T) {

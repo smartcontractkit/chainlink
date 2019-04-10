@@ -447,7 +447,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 			assert.Equal(t, data.Type, gjson.JSON)
 
 			token := utils.StripBearer(h.Get("Authorization"))
-			assert.Equal(t, bt.OutgoingToken, token)
+			assert.Equal(t, token, bt.OutgoingToken)
 		})
 	defer cleanup()
 

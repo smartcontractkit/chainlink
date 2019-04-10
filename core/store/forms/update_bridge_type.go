@@ -31,7 +31,7 @@ type UpdateBridgeType struct {
 	bridgeName             string
 	URL                    models.WebURL `json:"url"`
 	Confirmations          uint64        `json:"confirmations"`
-	MinimumContractPayment assets.Link   `json:"minimumContractPayment"`
+	MinimumContractPayment *assets.Link  `json:"minimumContractPayment"`
 }
 
 // Save updates the whitelisted attributes on the bridge

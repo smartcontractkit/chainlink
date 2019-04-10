@@ -119,7 +119,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	assert.Equal(t, "randomnumber", bt.Name.String())
 	assert.Equal(t, uint64(10), bt.Confirmations)
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
-	assert.Equal(t, *assets.NewLink(100), bt.MinimumContractPayment)
+	assert.Equal(t, assets.NewLink(100), bt.MinimumContractPayment)
 	assert.NotEmpty(t, bt.OutgoingToken)
 }
 

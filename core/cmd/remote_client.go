@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -12,10 +11,10 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -460,7 +459,7 @@ func fromFile(arg string) (*bytes.Buffer, error) {
 func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, links *jsonapi.Links) error {
 	b, err := cli.parseResponse(resp)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "parseResponse error")
 	}
 	if err = web.ParsePaginatedResponse(b, dst, links); err != nil {
 		return cli.errorOut(err)

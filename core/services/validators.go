@@ -35,7 +35,7 @@ func ValidateJob(j models.JobSpec, store *store.Store) error {
 }
 
 // ValidateAdapter checks that the bridge type doesn't have a duplicate or invalid name
-func ValidateAdapter(bt *models.BridgeTypeRequest, store *store.Store) (err error) {
+func ValidateAdapter(bt *models.BridgeTypeRequest, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
 	if len(bt.Name.String()) < 1 {
 		fe.Add("No name specified")

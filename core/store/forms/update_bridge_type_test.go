@@ -43,16 +43,16 @@ func TestFormsUpdateBridgeType_Save(t *testing.T) {
 	ubt, err := s.FindBridge("bridgea")
 	assert.Equal(t, cltest.WebURL("http://bridge"), ubt.URL)
 	assert.Equal(t, uint64(0), ubt.Confirmations)
-	assert.Equal(t, *assets.NewLink(0), ubt.MinimumContractPayment)
+	assert.Nil(t, ubt.MinimumContractPayment)
 
 	form.URL = cltest.WebURL("http://updatedbridge")
 	form.Confirmations = uint64(10)
-	form.MinimumContractPayment = *assets.NewLink(100)
+	form.MinimumContractPayment = assets.NewLink(100)
 	assert.NoError(t, form.Save())
 
 	ubt, err = s.FindBridge("bridgea")
 	assert.NoError(t, err)
 	assert.Equal(t, cltest.WebURL("http://updatedbridge"), ubt.URL)
 	assert.Equal(t, uint64(10), ubt.Confirmations)
-	assert.Equal(t, *assets.NewLink(100), ubt.MinimumContractPayment)
+	assert.Equal(t, assets.NewLink(100), ubt.MinimumContractPayment)
 }
