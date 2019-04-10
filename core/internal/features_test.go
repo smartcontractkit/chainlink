@@ -430,7 +430,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	defer cleanup()
 	app.Start()
 
-	bt := models.BridgeType{}
+	bta := &models.BridgeTypeAuthentication{}
 	var j models.JobSpec
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
 		func(h http.Header, b string) {
@@ -447,7 +447,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 			assert.Equal(t, data.Type, gjson.JSON)
 
 			token := utils.StripBearer(h.Get("Authorization"))
-			assert.Equal(t, token, bt.OutgoingToken)
+			assert.Equal(t, bta.OutgoingToken, token)
 		})
 	defer cleanup()
 
