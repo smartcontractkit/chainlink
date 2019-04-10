@@ -20,7 +20,7 @@ DEFAULT_KEY_PATH=$ROOT/keys/UTC--2017-01-05T20-42-24.637Z--9ca9d2d5e04012c9ed24c
 
 mainexec() {
   mkdir -p tmp
-  go build -o tmp/cldevbuild -ldflags "$LDFLAGS" main.go
+  go build -o tmp/cldevbuild -ldflags "$LDFLAGS" ./core/main.go
   tmp/cldevbuild $@
 }
 
