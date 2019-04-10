@@ -134,7 +134,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 		Name: models.MustNewTaskType("bridgea"),
 		URL:  cltest.WebURL("http://mybridge"),
 	}
-	assert.NoError(t, app.GetStore().CreateBridgeType(bt))
+	require.NoError(t, app.GetStore().CreateBridgeType(bt))
 
 	ud := bytes.NewBuffer([]byte(`{"url":"http://yourbridge"}`))
 	resp, cleanup := client.Patch("/v2/bridge_types/bridgea", ud)
