@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1551895034/old"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1552418531"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1554131520"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1554855314"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
@@ -287,4 +288,32 @@ func newRunWithoutRunRequest(j models.JobSpec, i models.Initiator) *models.JobRu
 	jr := j.NewRun(i)
 	jr.RunRequest = models.RunRequest{}
 	return &jr
+}
+
+func TestMigrate1554855314(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	// seed w old schema
+	tm0 := &migration0.Migration{}
+	require.NoError(t, tm0.Migrate(orm.DB))
+
+	oldBT := migration1551816486.BridgeType{
+		Name:                   "happyfuntimesuperadapter",
+		IncomingToken:          "horse-battery-staple",
+		URL:                    "http://localhost:8890/",
+		MinimumContractPayment: "0",
+	}
+	require.NoError(t, orm.DB.Create(&oldBT).Error)
+
+	// migrate
+	tm := &migration1554855314.Migration{}
+	require.NoError(t, tm.Migrate(orm.DB))
+
+	// verify migration
+	migratedBT := models.BridgeType{}
+	require.NoError(t, orm.DB.First(&migratedBT, "name = ?", oldBT.Name).Error)
+	require.Equal(t, models.TaskType(oldBT.Name), migratedBT.Name)
+	require.NotEmpty(t, migratedBT.Salt)
+	require.NotEmpty(t, migratedBT.IncomingTokenHash)
 }

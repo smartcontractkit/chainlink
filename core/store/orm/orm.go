@@ -238,7 +238,7 @@ func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
 
 // AllSyncEvents returns all sync events
 func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent)) error {
-	return batch(1000, func(offset, limit uint) (uint, error) {
+	return Batch(1000, func(offset, limit uint) (uint, error) {
 		var events []models.SyncEvent
 		err := orm.DB.
 			Limit(limit).
@@ -262,7 +262,7 @@ func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent)) error {
 // into multiple sql calls, i.e. orm.SaveJobRun(run), which are better suited
 // in a database transaction.
 // Improves efficiency in sqlite by preventing autocommit on each line, instead
-// batch committing at the end of the transaction.
+// Batch committing at the end of the transaction.
 func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	dbtx := orm.DB.Begin()
 	if dbtx.Error != nil {
@@ -337,7 +337,7 @@ func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error)
 
 // Jobs fetches all jobs.
 func (orm *ORM) Jobs(cb func(models.JobSpec) bool) error {
-	return batch(1000, func(offset, limit uint) (uint, error) {
+	return Batch(1000, func(offset, limit uint) (uint, error) {
 		jobs := []models.JobSpec{}
 		err := orm.preloadJobs().
 			Limit(limit).
@@ -996,7 +996,8 @@ func (orm *ORM) getRecords(collection interface{}, order string, offset, limit i
 		Find(collection).Error
 }
 
-func batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
+// Batch is an iterator _like_ for batches of records
+func Batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
 	offset := uint(0)
 	limit := uint(1000)
 
