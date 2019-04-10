@@ -98,7 +98,7 @@ func TestRendererTable_RenderBridgeShow(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.Nil(t, r.Render(&bridge))
+			assert.Nil(t, r.Render(bridge))
 			assert.True(t, tw.found)
 		})
 	}
@@ -122,7 +122,7 @@ func TestRendererTable_RenderBridgeList(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.Nil(t, r.Render(&[]*models.BridgeType{bridge}))
+			assert.Nil(t, r.Render(&[]models.BridgeType{*bridge}))
 			assert.Equal(t, test.wantFound, tw.found)
 		})
 	}

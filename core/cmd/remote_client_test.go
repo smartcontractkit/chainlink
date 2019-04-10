@@ -356,16 +356,15 @@ func TestClient_ShowBridge(t *testing.T) {
 		URL:           cltest.WebURL("https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	err := app.GetStore().CreateBridgeType(bt)
-	require.NoError(t, err)
+	require.NoError(t, app.GetStore().CreateBridgeType(bt))
 
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{bt.Name.String()})
 	c := cli.NewContext(nil, set, nil)
-	require.Nil(t, client.ShowBridge(c))
-	require.Equal(t, 1, len(r.Renders))
+	require.NoError(t, client.ShowBridge(c))
+	require.Len(t, r.Renders, 1)
 	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
 }
 
@@ -387,8 +386,8 @@ func TestClient_RemoveBridge(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{bt.Name.String()})
 	c := cli.NewContext(nil, set, nil)
-	require.Nil(t, client.RemoveBridge(c))
-	require.Equal(t, 1, len(r.Renders))
+	require.NoError(t, client.RemoveBridge(c))
+	require.Len(t, r.Renders, 1)
 	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
 }
 

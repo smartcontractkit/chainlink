@@ -131,30 +131,3 @@ func TestNewTaskType(t *testing.T) {
 		})
 	}
 }
-
-func TestBridgeType_Authenticate(t *testing.T) {
-	t.Parallel()
-
-	bta, bt := cltest.NewBridgeType()
-	tests := []struct {
-		name, token string
-		wantError   bool
-	}{
-		{"correct", bta.IncomingToken, false},
-		{"incorrect", "gibberish", true},
-		{"empty incorrect", "", true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			ok, err := models.AuthenticateBridgeType(bt, test.token)
-			if test.wantError {
-				assert.Error(t, err)
-				assert.False(t, ok)
-			} else {
-				assert.NoError(t, err)
-				assert.True(t, ok)
-			}
-		})
-	}
-}

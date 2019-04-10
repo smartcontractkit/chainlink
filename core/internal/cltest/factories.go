@@ -167,31 +167,23 @@ func randomBytes(n int) []byte {
 
 // NewBridgeType create new bridge type given info slice
 func NewBridgeType(info ...string) (*models.BridgeTypeAuthentication, *models.BridgeType) {
-	bt := &models.BridgeType{}
+	btr := &models.BridgeTypeRequest{}
 
 	if len(info) > 0 {
-		bt.Name = models.MustNewTaskType(info[0])
+		btr.Name = models.MustNewTaskType(info[0])
 	} else {
-		bt.Name = models.MustNewTaskType("defaultFixtureBridgeType")
+		btr.Name = models.MustNewTaskType("defaultFixtureBridgeType")
 	}
 
 	if len(info) > 1 {
-		bt.URL = WebURL(info[1])
+		btr.URL = WebURL(info[1])
 	} else {
-		bt.URL = WebURL("https://bridge.example.com/api")
+		btr.URL = WebURL("https://bridge.example.com/api")
 	}
 
-	incomingToken := utils.NewBytes32ID()
-	bt.IncomingTokenHash = MustSha256(incomingToken)
-	bt.OutgoingToken = utils.NewBytes32ID()
-
-	return &models.BridgeTypeAuthentication{
-		Name:                   bt.Name,
-		URL:                    bt.URL,
-		Confirmations:          bt.Confirmations,
-		IncomingToken:          incomingToken,
-		MinimumContractPayment: bt.MinimumContractPayment,
-	}, bt
+	bta, bt, err := models.NewBridgeType(btr)
+	mustNotErr(err)
+	return bta, bt
 }
 
 // NewBridgeTypeWithConfirmations creates a new bridge type with given default confs and info slice
