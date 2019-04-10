@@ -33,8 +33,6 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 	orm, err := orm.NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout())
 	require.NoError(t, err)
 
-	//orm.EnableLogging()
-
 	return orm, func() {
 		assert.NoError(t, orm.Close())
 		cleanup()

@@ -42,10 +42,6 @@ type BridgeTypeAuthentication struct {
 // password) and a bridge type (with hashed password, for persisting)
 func NewBridgeType(btr *BridgeTypeRequest) (*BridgeTypeAuthentication,
 	*BridgeType, error) {
-	//if err := services.ValidateAdapter(bt, store); err != nil {
-	//return nil, nil, NewValidationError(err.Error())
-	//}
-
 	incomingToken := utils.NewBytes32ID()
 	outgoingToken := utils.NewBytes32ID()
 	hash, err := utils.Sha256(incomingToken)
