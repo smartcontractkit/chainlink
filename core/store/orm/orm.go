@@ -838,8 +838,11 @@ func (orm *ORM) CreateBridgeType(bt *models.BridgeType) error {
 }
 
 // UpdateBridgeType updates the bridge type.
-func (orm *ORM) UpdateBridgeType(bt *models.BridgeType) error {
-	return orm.DB.Model(bt).Updates(bt).Error
+func (orm *ORM) UpdateBridgeType(bt *models.BridgeType, btr *models.BridgeTypeRequest) error {
+	bt.URL = btr.URL
+	bt.Confirmations = btr.Confirmations
+	bt.MinimumContractPayment = btr.MinimumContractPayment
+	return orm.DB.Save(bt).Error
 }
 
 // SaveTx saves the transaction.
