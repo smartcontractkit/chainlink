@@ -38,7 +38,15 @@ CREATE TABLE "bridge_types_with_incoming_token_hash" (
 		}
 
 		for _, bt := range bts {
-			newBT := bridgeType{
+			newBT := struct {
+				Name                   string `gorm:"primary_key"`
+				URL                    string
+				Confirmations          uint64
+				IncomingTokenHash      string
+				Salt                   string
+				OutgoingToken          string
+				MinimumContractPayment string `gorm:"type:varchar(255)"`
+			}{
 				Name:                   bt.Name,
 				URL:                    bt.URL,
 				Confirmations:          bt.Confirmations,
@@ -73,14 +81,4 @@ ALTER TABLE "bridge_types_with_incoming_token_hash" RENAME TO "bridge_types";
 	}
 
 	return tx.Commit().Error
-}
-
-type bridgeType struct {
-	Name                   string `gorm:"primary_key"`
-	URL                    string
-	Confirmations          uint64
-	IncomingTokenHash      string
-	Salt                   string
-	OutgoingToken          string
-	MinimumContractPayment string `gorm:"type:varchar(255)"`
 }
