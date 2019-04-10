@@ -26,9 +26,9 @@ func TestNewRun(t *testing.T) {
 
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
-	bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
+	_, bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
 	bt.MinimumContractPayment = *assets.NewLink(10)
-	assert.Nil(t, store.CreateBridgeType(&bt))
+	require.NoError(t, store.CreateBridgeType(bt))
 
 	creationHeight := big.NewInt(1000)
 
@@ -54,9 +54,9 @@ func TestNewRun_requiredPayment(t *testing.T) {
 
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
-	bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
+	_, bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
 	bt.MinimumContractPayment = *assets.NewLink(10)
-	assert.Nil(t, store.CreateBridgeType(&bt))
+	require.NoError(t, store.CreateBridgeType(bt))
 
 	tests := []struct {
 		name           string

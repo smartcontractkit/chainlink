@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1551816486"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1551895034"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1551895034/old"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1552418531"
@@ -31,6 +32,8 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 	orm, err := orm.NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout())
 	require.NoError(t, err)
 
+	//orm.EnableLogging()
+
 	return orm, func() {
 		assert.NoError(t, orm.Close())
 		cleanup()
@@ -49,13 +52,6 @@ func TestMigrate_Upgrade(t *testing.T) {
 			"timestamp" varchar(12),
 			PRIMARY KEY ("timestamp")
 		);
-		INSERT INTO migration_timestamps VALUES('0');
-		INSERT INTO migration_timestamps VALUES('1549496047');
-		INSERT INTO migration_timestamps VALUES('1551816486');
-		INSERT INTO migration_timestamps VALUES('1551895034');
-		INSERT INTO migration_timestamps VALUES('1552418531');
-		INSERT INTO migration_timestamps VALUES('1553029703');
-		INSERT INTO migration_timestamps VALUES('1554131520');
 	`).Error
 	require.NoError(t, err)
 
@@ -121,15 +117,16 @@ func TestMigrate1551816486(t *testing.T) {
 
 	require.NoError(t, err)
 
-	initial := models.BridgeType{
+	initial := migration1551816486.BridgeType{
 		Name: "someUniqueName",
-		URL:  cltest.WebURL("http://someurl.com"),
+		URL:  "http://someurl.com",
 	}
 
 	require.NoError(t, orm.DB.Save(&initial).Error)
 	require.NoError(t, migration0.Migration{}.Migrate(orm.DB))
 
-	migratedbt, err := orm.FindBridge(initial.Name.String())
+	var migratedbt migration1551816486.BridgeType
+	err = orm.DB.First(&migratedbt, "name = ?", initial.Name).Error
 	require.NoError(t, err)
 	require.Equal(t, initial, migratedbt)
 }

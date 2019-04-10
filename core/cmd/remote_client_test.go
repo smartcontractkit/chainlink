@@ -327,14 +327,16 @@ func TestClient_GetBridges(t *testing.T) {
 		URL:           cltest.WebURL("https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	app.AddAdapter(bt1)
+	err := app.GetStore().CreateBridgeType(bt1)
+	require.NoError(t, err)
 
 	bt2 := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges2"),
 		URL:           cltest.WebURL("https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	app.AddAdapter(bt2)
+	err = app.GetStore().CreateBridgeType(bt2)
+	require.NoError(t, err)
 
 	client, r := app.NewClientAndRenderer()
 
@@ -354,7 +356,8 @@ func TestClient_ShowBridge(t *testing.T) {
 		URL:           cltest.WebURL("https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	app.AddAdapter(bt)
+	err := app.GetStore().CreateBridgeType(bt)
+	require.NoError(t, err)
 
 	client, r := app.NewClientAndRenderer()
 
@@ -376,7 +379,8 @@ func TestClient_RemoveBridge(t *testing.T) {
 		URL:           cltest.WebURL("https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	app.AddAdapter(bt)
+	err := app.GetStore().CreateBridgeType(bt)
+	require.NoError(t, err)
 
 	client, r := app.NewClientAndRenderer()
 

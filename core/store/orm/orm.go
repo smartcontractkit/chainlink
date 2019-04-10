@@ -653,9 +653,9 @@ func (orm *ORM) DeleteUserSession(sessionID string) error {
 	return orm.DB.Where("id = ?", sessionID).Delete(models.Session{}).Error
 }
 
-// DeleteBridgeType removes the bridge type with passed name.
-func (orm *ORM) DeleteBridgeType(name models.TaskType) error {
-	return orm.DB.Delete(&models.BridgeType{}, "name = ?", name).Error
+// DeleteBridgeType removes the bridge type
+func (orm *ORM) DeleteBridgeType(bt *models.BridgeType) error {
+	return orm.DB.Delete(bt).Error
 }
 
 // DeleteJobRun deletes the job run and corresponding task runs.

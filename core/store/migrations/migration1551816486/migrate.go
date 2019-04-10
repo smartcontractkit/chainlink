@@ -1,6 +1,8 @@
 package migration1551816486
 
-import "github.com/jinzhu/gorm"
+import (
+	"github.com/jinzhu/gorm"
+)
 
 type Migration struct{}
 
@@ -20,4 +22,13 @@ func (m Migration) Migrate(tx *gorm.DB) error {
 		return err
 	}
 	return tx.Commit().Error
+}
+
+type BridgeType struct {
+	Name                   string
+	URL                    string
+	Confirmations          uint64
+	IncomingToken          string
+	OutgoingToken          string
+	MinimumContractPayment string
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/forms"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 )
 
 // BridgeTypesController manages BridgeType requests in the node.
@@ -21,13 +20,15 @@ type BridgeTypesController struct {
 
 // Create adds the BridgeType to the given context.
 func (btc *BridgeTypesController) Create(c *gin.Context) {
-	bt := &models.BridgeType{}
+	btr := &models.BridgeTypeRequest{}
 
-	if err := c.ShouldBindJSON(bt); err != nil {
+	if err := c.ShouldBindJSON(btr); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if err = btc.App.AddAdapter(bt); err != nil {
+	} else if bta, bt, err := models.NewBridgeType(btr); err != nil {
 		publicError(c, StatusCodeForError(err), err)
-	} else if doc, err := jsonapi.Marshal(presenters.BridgeType{BridgeType: *bt}); err != nil {
+	} else if err := btc.App.GetStore().CreateBridgeType(bt); err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+	} else if doc, err := jsonapi.Marshal(bta); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
 		c.Data(http.StatusOK, MediaType, doc)
@@ -37,12 +38,7 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 // Index lists Bridges, one page at a time.
 func (btc *BridgeTypesController) Index(c *gin.Context, size, page, offset int) {
 	bridges, count, err := btc.App.GetStore().BridgeTypes(offset, size)
-	pbt := make([]presenters.BridgeType, len(bridges))
-	for i, j := range bridges {
-		pbt[i] = presenters.BridgeType{BridgeType: j}
-	}
-
-	paginatedResponse(c, "Bridges", size, page, pbt, count, err)
+	paginatedResponse(c, "Bridges", size, page, bridges, count, err)
 }
 
 // Show returns the details of a specific Bridge.
@@ -52,7 +48,7 @@ func (btc *BridgeTypesController) Show(c *gin.Context) {
 		publicError(c, http.StatusNotFound, errors.New("bridge name not found"))
 	} else if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if doc, err := jsonapi.Marshal(presenters.BridgeType{BridgeType: bt}); err != nil {
+	} else if doc, err := jsonapi.Marshal(bt); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
 		c.Data(http.StatusOK, MediaType, doc)
@@ -100,9 +96,9 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("Error searching for associated jobs for BTC Destroy: %+v", err))
 	} else if jobFounds {
 		c.AbortWithError(http.StatusConflict, fmt.Errorf("Can't remove the bridge because there are jobs associated with it: %+v", err))
-	} else if err = btc.App.RemoveAdapter(&bt); err != nil {
+	} else if err = btc.App.GetStore().DeleteBridgeType(&bt); err != nil {
 		c.AbortWithError(StatusCodeForError(err), fmt.Errorf("failed to initialise BTC Destroy: %+v", err))
 	} else {
-		c.JSON(http.StatusOK, presenters.BridgeType{BridgeType: bt})
+		c.JSON(http.StatusOK, bt)
 	}
 }

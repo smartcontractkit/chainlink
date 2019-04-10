@@ -1,7 +1,6 @@
 package models
 
 import (
-	"crypto/subtle"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -286,43 +284,4 @@ func (t *TaskType) Scan(value interface{}) error {
 
 	*t = TaskType(temp)
 	return nil
-}
-
-// BridgeType is used for external adapters and has fields for
-// the name of the adapter and its URL.
-type BridgeType struct {
-	Name                   TaskType    `json:"name" gorm:"primary_key"`
-	URL                    WebURL      `json:"url"`
-	Confirmations          uint64      `json:"confirmations"`
-	IncomingToken          string      `json:"incomingToken"`
-	OutgoingToken          string      `json:"outgoingToken"`
-	MinimumContractPayment assets.Link `json:"minimumContractPayment" gorm:"type:varchar(255)"`
-}
-
-// GetID returns the ID of this structure for jsonapi serialization.
-func (bt BridgeType) GetID() string {
-	return bt.Name.String()
-}
-
-// GetName returns the pluralized "type" of this structure for jsonapi serialization.
-func (bt BridgeType) GetName() string {
-	return "bridges"
-}
-
-// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
-func (bt *BridgeType) SetID(value string) error {
-	name, err := NewTaskType(value)
-	bt.Name = name
-	return err
-}
-
-// Authenticate returns true if the passed token matches its IncomingToken, or
-// returns false with an error.
-func (bt BridgeType) Authenticate(token string) (bool, error) {
-	var asbytes [utils.NewBytes32Length]byte
-	copy(asbytes[:], token)
-	if subtle.ConstantTimeCompare(asbytes[:], []byte(bt.IncomingToken)) == 1 {
-		return true, nil
-	}
-	return false, fmt.Errorf("Incorrect access token for %s", bt.Name)
 }

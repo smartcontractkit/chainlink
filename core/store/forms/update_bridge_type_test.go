@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/forms"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFormsNewUpdateBridgeType(t *testing.T) {
@@ -16,8 +17,8 @@ func TestFormsNewUpdateBridgeType(t *testing.T) {
 	s, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	bt := cltest.NewBridgeType("bridgea")
-	assert.Nil(t, s.CreateBridgeType(&bt))
+	_, bt := cltest.NewBridgeType("bridgea")
+	require.NoError(t, s.CreateBridgeType(bt))
 
 	_, err := forms.NewUpdateBridgeType(s, "idontexist")
 	assert.Equal(t, err, orm.ErrorNotFound)
@@ -32,8 +33,8 @@ func TestFormsUpdateBridgeType_Save(t *testing.T) {
 	s, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	bt := cltest.NewBridgeType("bridgea", "http://bridge")
-	assert.Nil(t, s.CreateBridgeType(&bt))
+	_, bt := cltest.NewBridgeType("bridgea", "http://bridge")
+	require.NoError(t, s.CreateBridgeType(bt))
 
 	form, err := forms.NewUpdateBridgeType(s, "bridgea")
 	assert.NoError(t, err)

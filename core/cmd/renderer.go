@@ -116,12 +116,11 @@ func (rt RendererTable) renderBridges(bridges []models.BridgeType) error {
 }
 
 func (rt RendererTable) renderBridge(bridge models.BridgeType) error {
-	table := rt.newTable([]string{"Name", "URL", "Default Confirmations", "Incoming Token", "Outgoing Token"})
+	table := rt.newTable([]string{"Name", "URL", "Default Confirmations", "Outgoing Token"})
 	table.Append([]string{
 		bridge.Name.String(),
 		bridge.URL.String(),
 		strconv.FormatUint(bridge.Confirmations, 10),
-		bridge.IncomingToken,
 		bridge.OutgoingToken,
 	})
 	render("Bridge", table)

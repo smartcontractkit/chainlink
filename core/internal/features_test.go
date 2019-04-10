@@ -430,7 +430,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	defer cleanup()
 	app.Start()
 
-	var bt models.BridgeType
+	bt := models.BridgeType{}
 	var j models.JobSpec
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
 		func(h http.Header, b string) {
@@ -452,7 +452,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	defer cleanup()
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
-	bt = cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
+	bta := cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j = cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	jr = cltest.WaitForJobRunToPendBridge(t, app.Store, jr)
@@ -463,7 +463,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "", val)
 
-	jr = cltest.UpdateJobRunViaWeb(t, app, jr, `{"data":{"result":"100"}}`)
+	jr = cltest.UpdateJobRunViaWeb(t, app, jr, bta, `{"data":{"result":"100"}}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	tr = jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusCompleted, tr.Status)

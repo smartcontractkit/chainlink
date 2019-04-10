@@ -5,7 +5,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 )
 
 // NewUpdateBridgeType initializes the form attributes with the existing
@@ -56,7 +55,7 @@ func (ubt UpdateBridgeType) Marshal() ([]byte, error) {
 	}
 
 	return jsonapi.Marshal(
-		presenters.BridgeType{BridgeType: bt},
+		bt,
 	)
 }
 
