@@ -19,7 +19,7 @@ CREATE TABLE "bridge_types_with_incoming_token_hash" (
 	"name" varchar(255),
 	"url" varchar(255),
 	"confirmations" bigint,
-	"incoming_token_hash" VARCHAR(32),
+	"incoming_token_hash" VARCHAR(64),
 	"salt" VARCHAR(32),
 	"outgoing_token" varchar(255),
 	"minimum_contract_payment" varchar(255),
