@@ -2,13 +2,16 @@ import { createDbConnection } from '../database'
 import seed from '../seed'
 import server from '../server'
 
-export const start = async () => {
+export const DEFAULT_TEST_PORT =
+  parseInt(process.env.TEST_SERVER_PORT, 10) || 8081
+
+export const start = async (port: number = DEFAULT_TEST_PORT) => {
   await createDbConnection()
-  return server()
+  return server(port)
 }
 
-export const startAndSeed = async () => {
-  const server = await start()
+export const startAndSeed = async (port: number = DEFAULT_TEST_PORT) => {
+  const server = await start(port)
   seed()
   return server
 }
