@@ -2,11 +2,8 @@ import { Server } from 'http'
 import { Browser, launch, Page } from 'puppeteer'
 import expect from 'expect-puppeteer'
 import { closeDbConnection } from '../src/database'
-import { clearDb } from '../src/__tests__/testdatabase'
 import { JOB_RUN_A_ID } from '../src/seed'
 import { startAndSeed as startAndSeedServer } from '../src/support/server'
-
-afterEach(async () => clearDb())
 
 describe('End to end', () => {
   let browser: Browser, page: Page, server: Server
