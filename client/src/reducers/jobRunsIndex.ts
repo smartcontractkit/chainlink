@@ -11,6 +11,7 @@ export default (
   action: JobRunsAction
 ): IState => {
   switch (action.type) {
+    case '@@redux/INIT':
     case '@@INIT':
       return INITIAL_STATE
     case 'UPSERT_JOB_RUNS':
