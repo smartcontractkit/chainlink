@@ -3,7 +3,10 @@ import { Browser, launch, Page } from 'puppeteer'
 import expect from 'expect-puppeteer'
 import { closeDbConnection } from '../src/database'
 import { JOB_RUN_A_ID } from '../src/seed'
-import { startAndSeed as startAndSeedServer } from '../src/support/server'
+import {
+  DEFAULT_TEST_PORT,
+  startAndSeed as startAndSeedServer
+} from '../src/support/server'
 
 describe('End to end', () => {
   let browser: Browser, page: Page, server: Server
@@ -24,7 +27,7 @@ describe('End to end', () => {
   })
 
   it('can search for job run', async () => {
-    await page.goto('http://localhost:8080')
+    await page.goto(`http://localhost:${DEFAULT_TEST_PORT}`)
     await expect(page).toFill('form input[name=search]', JOB_RUN_A_ID)
     await expect(page).toClick('form button')
     await page.waitForNavigation()
