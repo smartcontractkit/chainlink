@@ -1,9 +1,7 @@
 import {
   Column,
   Connection,
-  CreateDateColumn,
   Entity,
-  In,
   OneToOne,
   OneToMany,
   PrimaryGeneratedColumn
@@ -28,7 +26,7 @@ export class JobRun {
   @Column({ nullable: true })
   error: string
 
-  @CreateDateColumn()
+  @Column()
   createdAt: Date
 
   @Column({ nullable: true })
@@ -54,7 +52,6 @@ export const fromString = (str: string): JobRun => {
   jr.createdAt = new Date(json.createdAt)
   jr.completedAt = json.completedAt && new Date(json.completedAt)
   jr.initiator = new Initiator()
-  jr.initiator.type = json.initiator.type
   jr.initiator.requestId = json.initiator.requestId
   jr.initiator.txHash = json.initiator.txHash
   jr.initiator.requester = json.initiator.requester
@@ -81,13 +78,13 @@ export const search = async (
   db: Connection,
   params: ISearchParams
 ): Promise<Array<JobRun>> => {
-  let query = db.getRepository(JobRun).createQueryBuilder('jobRuns')
+  let query = db.getRepository(JobRun).createQueryBuilder('job_run')
 
   if (params.searchQuery != null) {
     const searchTokens = params.searchQuery.split(/\s+/)
     query = query
-      .where('jobRuns.runId IN(:...searchTokens)', { searchTokens })
-      .orWhere('jobRuns.jobId IN(:...searchTokens)', { searchTokens })
+      .where('job_run.runId IN(:...searchTokens)', { searchTokens })
+      .orWhere('job_run.jobId IN(:...searchTokens)', { searchTokens })
   }
 
   if (params.limit != null) {
@@ -99,5 +96,5 @@ export const search = async (
     query = query.offset(offset)
   }
 
-  return query.orderBy('jobRuns.createdAt', 'DESC').getMany()
+  return query.orderBy('job_run.createdAt', 'DESC').getMany()
 }
