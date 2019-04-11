@@ -967,7 +967,7 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 
 	foundbridge, err := store.FindBridge("UniqueName")
 	require.NoError(t, err)
-	require.Equal(t, *updateBridge, foundbridge)
+	require.Equal(t, updateBridge.URL, foundbridge.URL)
 }
 
 func isDirEmpty(t *testing.T, dir string) bool {
