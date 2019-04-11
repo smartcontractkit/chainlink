@@ -15,7 +15,16 @@ describe('reducers/jobRuns', () => {
     expect(state.jobRuns).toEqual(STATE.jobRuns)
   })
 
-  it('sets a blank state on init', () => {
+  it('sets a blank state on default init', () => {
+    const action: JobRunsAction = { type: '@@redux/INIT' }
+    const state = reducer(STATE, action) as IState
+
+    expect(state.jobRuns).toEqual({
+      items: undefined
+    })
+  })
+
+  it('sets a blank state on dev tools init', () => {
     const action: JobRunsAction = { type: '@@INIT' }
     const state = reducer(STATE, action) as IState
 
