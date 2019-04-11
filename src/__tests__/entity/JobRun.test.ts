@@ -6,7 +6,7 @@ import fixture from './JobRun.fixture.json'
 
 beforeAll(async () => createDbConnection())
 afterAll(async () => closeDbConnection())
-beforeEach(async () => clearDb())
+afterEach(async () => clearDb())
 
 describe('fromString', () => {
   it('successfully creates a run and tasks from json', async () => {
@@ -19,7 +19,6 @@ describe('fromString', () => {
     expect(jr.completedAt).toEqual(new Date('2018-04-01T22:07:04Z'))
 
     expect(jr.initiator.id).toBeUndefined()
-    expect(jr.initiator.type).toEqual('runlog')
     expect(jr.initiator.requestId).toEqual('RequestID')
     expect(jr.initiator.txHash).toEqual(
       '0x00000000000000000000000000000000000000000000000000000000deadbeef'
@@ -61,6 +60,7 @@ describe('fromString', () => {
 describe('search', () => {
   beforeEach(async () => {
     const jrA = fromString(JSON.stringify(fixture))
+    jrA.createdAt = new Date(Date.parse('2019-04-08T01:00:00.000Z'))
     await getDb().manager.save(jrA)
 
     const fixtureB = Object.assign({}, fixture, {
@@ -68,6 +68,7 @@ describe('search', () => {
       jobId: JOB_RUN_B_ID
     })
     const jrB = fromString(JSON.stringify(fixtureB))
+    jrB.createdAt = new Date(Date.parse('2019-04-09T01:00:00.000Z'))
     await getDb().manager.save(jrB)
   })
 
