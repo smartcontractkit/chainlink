@@ -640,11 +640,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9452423cddeac377d2afc01f96164fc96d1f557862351745f287738264e5e6a5"
+  digest = "1:e8c47d4fefdf7114d57f2e6d17564b113fbbe72a8003dc7f6780aca456ce5435"
   name = "github.com/olekukonko/tablewriter"
   packages = ["."]
   pruneopts = ""
-  revision = "f82d31373321de71ad0289113725564fe180a301"
+  revision = "7e037d187b0c13d81ccf0dd1c6b990c2759e6597"
 
 [[projects]]
   digest = "1:dbafce2fddb1ca331646fe2ac9c9413980368b19a60a4406a6e5861680bd73be"
