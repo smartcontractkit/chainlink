@@ -125,7 +125,7 @@ func TestValidateAdapter(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
 			btr := &models.BridgeTypeRequest{Name: models.TaskType(test.name)}
-			result := services.ValidateAdapter(btr, store)
+			result := services.ValidateBridgeType(btr, store)
 			assert.Equal(t, test.want, result)
 		})
 	}
