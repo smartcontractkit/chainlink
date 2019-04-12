@@ -50,6 +50,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		rt.renderJobRun(*typed)
 	case *models.BridgeType:
 		rt.renderBridge(*typed)
+	case *models.BridgeTypeAuthentication:
+		rt.renderBridgeAuthentication(*typed)
 	case *[]models.BridgeType:
 		rt.renderBridges(*typed)
 	case *[]presenters.AccountBalance:
@@ -121,6 +123,19 @@ func (rt RendererTable) renderBridge(bridge models.BridgeType) error {
 		bridge.Name.String(),
 		bridge.URL.String(),
 		strconv.FormatUint(bridge.Confirmations, 10),
+		bridge.OutgoingToken,
+	})
+	render("Bridge", table)
+	return nil
+}
+
+func (rt RendererTable) renderBridgeAuthentication(bridge models.BridgeTypeAuthentication) error {
+	table := rt.newTable([]string{"Name", "URL", "Default Confirmations", "Incoming Token", "Outgoing Token"})
+	table.Append([]string{
+		bridge.Name.String(),
+		bridge.URL.String(),
+		strconv.FormatUint(bridge.Confirmations, 10),
+		bridge.IncomingToken,
 		bridge.OutgoingToken,
 	})
 	render("Bridge", table)

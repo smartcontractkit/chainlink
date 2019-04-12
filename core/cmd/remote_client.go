@@ -201,7 +201,7 @@ func (cli *Client) AddBridge(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 
-	var bridge models.BridgeType
+	var bridge models.BridgeTypeAuthentication
 	return cli.renderAPIResponse(resp, &bridge)
 }
 
