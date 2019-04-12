@@ -17,6 +17,7 @@
     "@babel/plugin-proposal-throw-expressions": "^7.2.0",
     "@babel/plugin-transform-member-expression-literals": "^7.2.0",
     "@babel/plugin-transform-property-literals": "^7.2.0",
+    "@babel/plugin-transform-reserved-words": "^7.2.0",
     "@babel/polyfill": "^7.2.5",
     "@babel/preset-env": "^7.3.1",
     "@babel/preset-react": "^7.0.0",
