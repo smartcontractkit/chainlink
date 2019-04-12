@@ -49,7 +49,7 @@ module.exports = function Deployer(wallet, utils) {
       const encodedArgs = encodeArgs(contractArgs, compiled.abi)
 
       const txHash = await wallet.send({
-        gas: 2500000,
+        gas: 2600000,
         gasPrice: 10000000000,
         from: wallet.address,
         data: `0x${getBytecode(compiled)}${encodedArgs}`
