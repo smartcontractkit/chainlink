@@ -329,15 +329,18 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    * @param _oracles is the list of oracle addresses
    */
   function aggregateAndPay(bytes32 _requestId, uint256 _paymentAmount, address[] memory _oracles) private returns (uint256) {
-    uint256 result;
+    uint256 sumQuotients;
+    uint256 sumRemainders;
     uint256 oraclePayment = _paymentAmount.div(_oracles.length);
     for (uint i = 0; i < _oracles.length; i++) {
-      result = result.add(callbacks[_requestId].responses[_oracles[i]]); // aggregate answers
+      uint256 response = callbacks[_requestId].responses[_oracles[i]];
+      sumQuotients = sumQuotients.add(response.div(_oracles.length)); // aggregate responses and protect from overflows
+      sumRemainders = sumRemainders.add(response % _oracles.length); 
       delete callbacks[_requestId].responses[_oracles[i]]; // must explicitly clean-up mappings for gas refund
       withdrawableTokens[_oracles[i]] = withdrawableTokens[_oracles[i]].add(oraclePayment);
     }
     delete callbacks[_requestId];
-    return result.div(_oracles.length); // average aggregated answers
+    return sumQuotients.add(sumRemainders.div(_oracles.length)); // recover lost accuracy from result 
   }
 
   /**

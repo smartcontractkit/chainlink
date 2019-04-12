@@ -547,6 +547,63 @@ contract('Coordinator', () => {
         assertBigNum(h.bigNum(17), currentValue)
       })
 
+      context('when large values are provided in response', async () => {
+        const largeValue1 =
+          '57896044618658097711785492504343953926634992332820282019728792003956564819967'
+
+        const largeValue2 = h
+          .bigNum(largeValue1)
+          .sub(h.bigNum('1'))
+          .toString()
+
+        const largeValue3 = h
+          .bigNum(largeValue1)
+          .add(h.bigNum('1'))
+          .toString()
+
+        beforeEach(async () => {
+          await coordinator.fulfillOracleRequest(request.id, largeValue1, {
+            from: oracle1
+          })
+          await coordinator.fulfillOracleRequest(request.id, largeValue2, {
+            from: oracle2
+          })
+        })
+
+        it('does not overflow', async () => {
+          await coordinator.fulfillOracleRequest(request.id, largeValue3, {
+            from: oracle3
+          })
+        })
+
+        it('sets the average of the reported values', async () => {
+          await coordinator.fulfillOracleRequest(request.id, largeValue3, {
+            from: oracle3
+          })
+          const currentValue = await mock.getUint256.call()
+          assertBigNum(h.bigNum(largeValue1), currentValue)
+          assert.notEqual(0, await mock.requestId.call()) // check if called
+        })
+      })
+
+      it('successfully sets average when responses equal largest uint256', async () => {
+        const largest =
+          '115792089237316195423570985008687907853269984665640564039457584007913129639935'
+
+        await coordinator.fulfillOracleRequest(request.id, largest, {
+          from: oracle1
+        })
+        await coordinator.fulfillOracleRequest(request.id, largest, {
+          from: oracle2
+        })
+        await coordinator.fulfillOracleRequest(request.id, largest, {
+          from: oracle3
+        })
+        const currentValue = await mock.getUint256.call()
+        assertBigNum(h.bigNum(largest), currentValue)
+        assert.notEqual(0, await mock.requestId.call()) // check if called
+      })
+
       it('rejects oracles not part of the service agreement', async () => {
         await h.assertActionThrows(async () => {
           await coordinator.fulfillOracleRequest(request.id, h.toHex(18), {
