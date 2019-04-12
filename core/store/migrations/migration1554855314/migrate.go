@@ -38,23 +38,15 @@ CREATE TABLE "bridge_types_with_incoming_token_hash" (
 		}
 
 		for _, bt := range bts {
-			newBT := struct {
-				Name                   string `gorm:"primary_key"`
-				URL                    string
-				Confirmations          uint64
-				IncomingTokenHash      string
-				Salt                   string
-				OutgoingToken          string
-				MinimumContractPayment string `gorm:"type:varchar(255)"`
-			}{
+			newBT := BridgeType{
 				Name:                   bt.Name,
 				URL:                    bt.URL,
 				Confirmations:          bt.Confirmations,
 				OutgoingToken:          bt.OutgoingToken,
 				MinimumContractPayment: bt.MinimumContractPayment,
+				Salt:                   utils.NewBytes32ID(),
 			}
 
-			newBT.Salt = utils.NewBytes32ID()
 			hash, err := utils.Sha256(bt.IncomingToken)
 			if err != nil {
 				return 0, errors.Wrap(err, "error generating new bridge type token hash")
@@ -81,4 +73,15 @@ ALTER TABLE "bridge_types_with_incoming_token_hash" RENAME TO "bridge_types";
 	}
 
 	return tx.Commit().Error
+}
+
+// BridgeType is for migrating between bridge type tables
+type BridgeType struct {
+	Name                   string `gorm:"primary_key"`
+	URL                    string
+	Confirmations          uint64
+	IncomingTokenHash      string
+	Salt                   string
+	OutgoingToken          string
+	MinimumContractPayment string `gorm:"type:varchar(255)"`
 }
