@@ -7,7 +7,7 @@
     "examples/*"
   ],
   "scripts": {
-    "storybook": "start-storybook -p 9001 -c .storybook",
+    "storybook": "start-storybook -p 9001 -c styleguide",
     "lint": "eslint --fix '**/*.js'",
     "lint-ci": "eslint '**/*.js'",
     "tslint": "tslint -c tslint.json '**/*.ts' '**/*.tsx'"
