@@ -1,0 +1,6 @@
+{
+  "name": "basic_bridge",
+  "url": "http://localhost:8080",
+  "confirmations": 0,
+  "minimumContractPayment": "0"
+}
