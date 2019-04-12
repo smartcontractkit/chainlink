@@ -5,7 +5,7 @@ export class CreateTaskRun1553796267817 implements MigrationInterface {
     await queryRunner.query(`
       CREATE TABLE "task_run" (
         "id" BIGSERIAL PRIMARY KEY,
-        "jobRunId" BIGINT REFERENCES "job_run" ("id") ON DELETE CASCADE,
+        "jobRunId" BIGINT REFERENCES "job_run" ("id") ON DELETE CASCADE NOT NULL,
         "index" integer NOT NULL,
         "type" character varying NOT NULL,
         "status" character varying NOT NULL,
