@@ -17,7 +17,7 @@ export CHAINLINK_URL=http://127.0.0.1:$CHAINLINK_PORT/
 
 pushd $SRCROOT >/dev/null
 
-source ./integration/common
+source ./tools/integration-tests/common
 source ./tools/bin/clenv
 
 trap cleanup EXIT SIGTERM SIGINT
@@ -38,7 +38,7 @@ chainlink login --file ./tools/clroot/apicredentials
 
 heading 'Running tests...'
 
-pushd integration >/dev/null
+pushd tools/integration-tests >/dev/null
 
 ./runlog_test
 ./ethlog_test
@@ -46,7 +46,7 @@ pushd integration >/dev/null
 title 'End to end tests.'
 
 set -o pipefail
-yarn cross-env NODE_ENV=test yarn jest integration/ --runInBand | tee e2e.tests.log
+yarn cross-env NODE_ENV=test yarn jest tools/integration-tests/ --runInBand | tee e2e.tests.log
 set +o pipefail
 
 title 'All tests passed.'
