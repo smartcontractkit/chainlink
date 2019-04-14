@@ -46,7 +46,7 @@ pushd integration >/dev/null
 title 'End to end tests.'
 
 set -o pipefail
-yarn cross-env NODE_ENV=test yarn jest e2e/ --runInBand | tee e2e.tests.log
+yarn cross-env NODE_ENV=test yarn jest integration/ --runInBand | tee e2e.tests.log
 set +o pipefail
 
 title 'All tests passed.'
