@@ -36,8 +36,8 @@ contract('BasicConsumer', () => {
 
       it('triggers a log event in the Oracle contract', async () => {
         const tx = await cc.requestEthereumPrice(currency)
-        const log = tx.receipt.logs[3]
-        assert.equal(log.address, oc.address)
+        const log = tx.receipt.rawLogs[3]
+        assert.equal(log.address.toLowerCase(), oc.address.toLowerCase())
 
         const request = h.decodeRunRequest(log)
         const expected = {
@@ -48,7 +48,7 @@ contract('BasicConsumer', () => {
 
         assert.equal(h.toHex(specId), request.jobId)
         assertBigNum(h.toWei('1', 'ether'), request.payment)
-        assert.equal(cc.address, request.requester)
+        assert.equal(cc.address.toLowerCase(), request.requester.toLowerCase())
         assert.equal(1, request.dataVersion)
         assert.deepEqual(expected, await cbor.decodeFirst(request.data))
       })
@@ -67,7 +67,7 @@ contract('BasicConsumer', () => {
     beforeEach(async () => {
       await link.transfer(cc.address, h.toWei('1', 'ether'))
       const tx = await cc.requestEthereumPrice(currency)
-      request = h.decodeRunRequest(tx.receipt.logs[3])
+      request = h.decodeRunRequest(tx.receipt.rawLogs[3])
     })
 
     it('records the data given to it by the oracle', async () => {
@@ -83,8 +83,8 @@ contract('BasicConsumer', () => {
       const tx = await h.fulfillOracleRequest(oc, request, response, {
         from: h.oracleNode
       })
-      assert.equal(2, tx.receipt.logs.length)
-      const log = tx.receipt.logs[1]
+      assert.equal(2, tx.receipt.rawLogs.length)
+      const log = tx.receipt.rawLogs[1]
 
       assert.equal(h.toUtf8(log.topics[2]), response)
     })
@@ -102,7 +102,7 @@ contract('BasicConsumer', () => {
           ''
         )
         const tx = await h.requestDataFrom(oc, link, 0, args)
-        otherRequest = h.decodeRunRequest(tx.receipt.logs[2])
+        otherRequest = h.decodeRunRequest(tx.receipt.rawLogs[2])
       })
 
       it('does not accept the data provided', async () => {
@@ -118,7 +118,9 @@ contract('BasicConsumer', () => {
     context('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
         await h.assertActionThrows(async () => {
-          await cc.fulfill(request.id, response, { from: h.oracleNode })
+          await cc.fulfill(request.id, h.toHex(response), {
+            from: h.oracleNode
+          })
         })
 
         let received = await cc.currentPrice.call()
@@ -134,7 +136,7 @@ contract('BasicConsumer', () => {
     beforeEach(async () => {
       await link.transfer(cc.address, depositAmount)
       const tx = await cc.requestEthereumPrice(currency)
-      request = h.decodeRunRequest(tx.receipt.logs[3])
+      request = h.decodeRunRequest(tx.receipt.rawLogs[3])
     })
 
     context('before 5 minutes', () => {
@@ -184,3 +186,4 @@ contract('BasicConsumer', () => {
     })
   })
 })
+

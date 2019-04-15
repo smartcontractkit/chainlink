@@ -8,12 +8,14 @@ import {
   getEvents,
   getLatestEvent,
   linkContract,
-  toHexWithoutPrefix
+  toHexWithoutPrefix,
+  toHex
 } from './support/helpers'
 
 contract('ConcreteChainlinked', () => {
   const sourcePath = 'examples/ConcreteChainlinked.sol'
-  let specId = '4c7b7ffb66b344fbaa64995af81e355a'
+  let specId =
+    '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   let cc, gs, oc, newoc, link
 
   beforeEach(async () => {
@@ -29,15 +31,18 @@ contract('ConcreteChainlinked', () => {
       let tx = await cc.publicNewRequest(
         specId,
         gs.address,
-        'requestedBytes32(bytes32,bytes32)'
+        toHex('requestedBytes32(bytes32,bytes32)')
       )
 
-      assert.equal(1, tx.receipt.logs.length)
-      let [jId, cbAddr, cbFId, cborData] = decodeRunABI(tx.receipt.logs[0])
+      assert.equal(1, tx.receipt.rawLogs.length)
+      let [jId, cbAddr, cbFId, cborData] = decodeRunABI(tx.receipt.rawLogs[0])
       let params = await decodeDietCBOR(cborData)
 
-      assert.equal(specId, jId)
-      assert.equal(gs.address, `0x${cbAddr}`)
+      assert.equal(
+        specId.toLowerCase(),
+        `0x${jId.toString('hex').toLowerCase()}`
+      )
+      assert.equal(gs.address.toLowerCase(), `0x${cbAddr.toLowerCase()}`)
       assert.equal('ed53e511', toHexWithoutPrefix(cbFId))
       assert.deepEqual({}, params)
     })
@@ -48,7 +53,7 @@ contract('ConcreteChainlinked', () => {
       await cc.publicRequest(
         specId,
         cc.address,
-        'fulfillRequest(bytes32,bytes32)',
+        toHex('fulfillRequest(bytes32,bytes32)'),
         0
       )
 
@@ -65,7 +70,7 @@ contract('ConcreteChainlinked', () => {
         newoc.address,
         specId,
         cc.address,
-        'fulfillRequest(bytes32,bytes32)',
+        toHex('fulfillRequest(bytes32,bytes32)'),
         0
       )
 
@@ -80,7 +85,7 @@ contract('ConcreteChainlinked', () => {
         newoc.address,
         specId,
         cc.address,
-        'fulfillRequest(bytes32,bytes32)',
+        toHex('fulfillRequest(bytes32,bytes32)'),
         0
       )
 
@@ -95,7 +100,7 @@ contract('ConcreteChainlinked', () => {
         newoc.address,
         specId,
         cc.address,
-        'fulfillRequest(bytes32,bytes32)',
+        toHex('fulfillRequest(bytes32,bytes32)'),
         0
       )
 
@@ -113,14 +118,14 @@ contract('ConcreteChainlinked', () => {
       await cc.publicRequest(
         specId,
         cc.address,
-        'fulfillRequest(bytes32,bytes32)',
+        toHex('fulfillRequest(bytes32,bytes32)'),
         0
       )
       requestId = (await getLatestEvent(cc)).args.id
     })
 
     it('emits an event from the contract showing the run was cancelled', async () => {
-      await cc.publicCancelRequest(requestId, 0, 0, 0)
+      await cc.publicCancelRequest(requestId, 0, toHex(0), 0)
 
       const events = await getEvents(cc)
       assert.equal(1, events.length)
@@ -131,7 +136,7 @@ contract('ConcreteChainlinked', () => {
 
     it('throws if given a bogus event ID', async () => {
       await assertActionThrows(async () => {
-        await cc.publicCancelRequest('bogusId', 0, 0, 0)
+        await cc.publicCancelRequest(toHex('bogusId'), 0, toHex(0), 0)
       })
     })
   })
@@ -143,14 +148,14 @@ contract('ConcreteChainlinked', () => {
       const tx = await cc.publicRequest(
         specId,
         cc.address,
-        'fulfillRequest(bytes32,bytes32)',
+        toHex('fulfillRequest(bytes32,bytes32)'),
         0
       )
-      request = decodeRunRequest(tx.receipt.logs[3])
+      request = decodeRunRequest(tx.receipt.rawLogs[3])
     })
 
     it('emits an event marking the request fulfilled', async () => {
-      await fulfillOracleRequest(oc, request, 'hi mom!')
+      await fulfillOracleRequest(oc, request, toHex('hi mom!'))
 
       let events = await getEvents(cc)
       assert.equal(1, events.length)
@@ -167,14 +172,14 @@ contract('ConcreteChainlinked', () => {
       const tx = await cc.publicRequest(
         specId,
         cc.address,
-        'publicFulfillChainlinkRequest(bytes32,bytes32)',
+        toHex('publicFulfillChainlinkRequest(bytes32,bytes32)'),
         0
       )
-      request = decodeRunRequest(tx.receipt.logs[3])
+      request = decodeRunRequest(tx.receipt.rawLogs[3])
     })
 
     it('emits an event marking the request fulfilled', async () => {
-      await fulfillOracleRequest(oc, request, 'hi mom!')
+      await fulfillOracleRequest(oc, request, toHex('hi mom!'))
 
       const events = await getEvents(cc)
       assert.equal(1, events.length)
@@ -199,15 +204,15 @@ contract('ConcreteChainlinked', () => {
       const tx = await cc.publicRequest(
         specId,
         mock.address,
-        'fulfillRequest(bytes32,bytes32)',
+        toHex('fulfillRequest(bytes32,bytes32)'),
         0
       )
-      request = decodeRunRequest(tx.receipt.logs[3])
+      request = decodeRunRequest(tx.receipt.rawLogs[3])
       await mock.publicAddExternalRequest(oc.address, request.id)
     })
 
     it('allows the external request to be fulfilled', async () => {
-      await fulfillOracleRequest(oc, request, 'hi mom!')
+      await fulfillOracleRequest(oc, request, toHex('hi mom!'))
     })
 
     it('does not allow the same requestId to be used', async () => {

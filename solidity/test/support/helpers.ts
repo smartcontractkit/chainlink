@@ -136,11 +136,10 @@ export const deploy = async (filePath: any, ...args: any[]) =>
 
 export const getEvents = (contract: any): Promise<any[]> =>
   new Promise((resolve, reject) =>
-    contract
-      .allEvents()
-      .get((error: any, events: any) =>
-        error ? reject(error) : resolve(events)
-      )
+  contract
+    .getPastEvents()
+    .then((events: any) => resolve(events))
+    .catch((error: any) => reject(error))
   )
 
 export const getLatestEvent = async (contract: any): Promise<any[]> => {
@@ -157,7 +156,8 @@ export const requestDataFrom = (
   options: any
 ): any => {
   if (!options) {
-    options = {}
+    // Equivalent to the empty object, but is actually interpreted as options
+    options = { value: 0 }
   }
   return link.transferAndCall(oc.address, amount, args, options)
 }
@@ -602,7 +602,9 @@ export const checkServiceAgreementAbsent = async (
   coordinator: any,
   serviceAgreementID: any
 ) => {
-  const sa = await coordinator.serviceAgreements.call(toHex(serviceAgreementID))
+  const sa = await coordinator.serviceAgreements.call(
+    toHex(serviceAgreementID).slice(0, 66)
+  )
   assertBigNum(sa[0], bigNum(0))
   assertBigNum(sa[1], bigNum(0))
   assertBigNum(sa[2], bigNum(0))
@@ -615,7 +617,7 @@ export const checkServiceAgreementAbsent = async (
 export const newServiceAgreement = async (params: any): Promise<any> => {
   const agreement: any = {}
   params = params || {}
-  agreement.payment = params.payment || 1000000000000000000
+  agreement.payment = params.payment || '1000000000000000000'
   agreement.expiration = params.expiration || 300
   agreement.endAt = params.endAt || sixMonthsFromNow()
   agreement.oracles = params.oracles || [oracleNode]
@@ -646,7 +648,7 @@ export const fulfillOracleRequest = async (
   options: any
 ): Promise<any> => {
   if (!options) {
-    options = {}
+    options = { value: 0 }
   }
 
   return oracle.fulfillOracleRequest(
@@ -655,7 +657,7 @@ export const fulfillOracleRequest = async (
     request.callbackAddr,
     request.callbackFunc,
     request.expiration,
-    response,
+    toHex(response),
     options
   )
 }

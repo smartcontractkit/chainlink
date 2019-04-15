@@ -82,8 +82,10 @@ contract('UpdatableConsumer', () => {
 
       it("updates the contract's oracle address", async () => {
         await uc.updateOracle()
-
-        assert.equal(newOracleAddress, await uc.getOracle.call())
+        assert.equal(
+          newOracleAddress.toLowerCase(),
+          (await uc.getOracle.call()).toLowerCase()
+        )
       })
     })
 
@@ -104,8 +106,8 @@ contract('UpdatableConsumer', () => {
 
     beforeEach(async () => {
       await link.transfer(uc.address, paymentAmount)
-      const tx = await uc.requestEthereumPrice(currency)
-      request = h.decodeRunRequest(tx.receipt.logs[3])
+      const tx = await uc.requestEthereumPrice(h.toHex(currency))
+      request = h.decodeRunRequest(tx.receipt.rawLogs[3])
     })
 
     it('records the data given to it by the oracle', async () => {
@@ -125,7 +127,10 @@ contract('UpdatableConsumer', () => {
             from: h.oracleNode
           })
           await uc.updateOracle()
-          assert.equal(newOracleAddress, await uc.getOracle.call())
+          assert.equal(
+            newOracleAddress.toLowerCase(),
+            (await uc.getOracle.call()).toLowerCase()
+          )
         })
 
         it('records the data given to it by the old oracle contract', async () => {
@@ -139,7 +144,9 @@ contract('UpdatableConsumer', () => {
 
         it('does not accept responses from the new oracle for the old requests', async () => {
           await h.assertActionThrows(async () => {
-            await uc.fulfill(request.id, response, { from: h.oracleNode })
+            await uc.fulfill(request.id, h.toHex(response), {
+              from: h.oracleNode
+            })
           })
 
           const currentPrice = await uc.currentPrice.call()

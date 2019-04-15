@@ -3,7 +3,7 @@ import { assertBigNum } from './support/matchers'
 
 contract('ServiceAgreementConsumer', () => {
   const sourcePath = 'examples/ServiceAgreementConsumer.sol'
-  const currency = 'USD'
+  const currency = h.toHex('USD')
   let link, coord, cc, agreement
 
   beforeEach(async () => {
@@ -36,17 +36,18 @@ contract('ServiceAgreementConsumer', () => {
 
       it('triggers a log event in the Coordinator contract', async () => {
         let tx = await cc.requestEthereumPrice(currency)
-        let log = tx.receipt.logs[3]
-        assert.equal(log.address, coord.address)
+        let log = tx.receipt.rawLogs[3]
+        assert.equal(log.address.toLowerCase(), coord.address.toLowerCase())
 
         const request = h.decodeRunRequest(log)
         let params = await h.decodeDietCBOR(request.data)
         assert.equal(agreement.id, request.jobId)
         assertBigNum(paymentAmount, h.bigNum(request.payment))
-        assert.equal(cc.address, request.requester)
+        assert.equal(cc.address.toLowerCase(), request.requester.toLowerCase())
         assertBigNum(1, request.dataVersion)
         const url =
           'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
+
         assert.deepEqual(params, { path: currency, url: url })
       })
 
@@ -58,13 +59,13 @@ contract('ServiceAgreementConsumer', () => {
   })
 
   describe('#fulfillOracleRequest', () => {
-    const response = '1,000,000.00'
+    const response = h.toHex('1,000,000.00')
     let request
 
     beforeEach(async () => {
       await link.transfer(cc.address, h.toWei(1, 'ether'))
       const tx = await cc.requestEthereumPrice(currency)
-      request = h.decodeRunRequest(tx.receipt.logs[3])
+      request = h.decodeRunRequest(tx.receipt.rawLogs[3])
     })
 
     it('records the data given to it by the oracle', async () => {
@@ -73,7 +74,7 @@ contract('ServiceAgreementConsumer', () => {
       })
 
       const currentPrice = await cc.currentPrice.call()
-      assert.equal(h.toUtf8(currentPrice), response)
+      assert.equal(h.toUtf8(currentPrice), h.toUtf8(response))
     })
 
     context('when the consumer does not recognize the request ID', () => {
@@ -89,7 +90,7 @@ contract('ServiceAgreementConsumer', () => {
           ''
         )
         const tx = await h.requestDataFrom(coord, link, agreement.payment, args)
-        request2 = h.decodeRunRequest(tx.receipt.logs[2])
+        request2 = h.decodeRunRequest(tx.receipt.rawLogs[2])
       })
 
       it('does not accept the data provided', async () => {
