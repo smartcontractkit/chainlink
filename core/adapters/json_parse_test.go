@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,26 +16,26 @@ func TestJsonParse_Perform(t *testing.T) {
 		name            string
 		result          string
 		path            []string
-		want            string
-		wantError       bool
+		wantData        string
+		wantStatus      models.RunStatus
 		wantResultError bool
 	}{
 		{"existing path", `{"high":"11850.00","last":"11779.99"}`, []string{"last"},
-			`{"result":"11779.99"}`, false, false},
+			`{"result":"11779.99"}`, models.RunStatusCompleted, false},
 		{"nonexistent path", `{"high":"11850.00","last":"11779.99"}`, []string{"doesnotexist"},
-			`{"result":null}`, true, false},
+			`{"result":null}`, models.RunStatusCompleted, false},
 		{"double nonexistent path", `{"high":"11850.00","last":"11779.99"}`, []string{"no", "really"},
-			`{"result":"{\"high\":\"11850.00\",\"last\":\"11779.99\"}"}`, true, true},
+			`{"result":"{\"high\":\"11850.00\",\"last\":\"11779.99\"}"}`, models.RunStatusErrored, true},
 		{"array index path", `{"data":[{"availability":"0.99991"}]}`, []string{"data", "0", "availability"},
-			`{"result":"0.99991"}`, false, false},
+			`{"result":"0.99991"}`, models.RunStatusCompleted, false},
 		{"float result", `{"availability":0.99991}`, []string{"availability"},
-			`{"result":0.99991}`, false, false},
+			`{"result":0.99991}`, models.RunStatusCompleted, false},
 		{
 			"index array",
 			`{"data": [0, 1]}`,
 			[]string{"data", "0"},
 			`{"result":0}`,
-			false,
+			models.RunStatusCompleted,
 			false,
 		},
 		{
@@ -42,7 +43,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			`{"data": [[0, 1]]}`,
 			[]string{"data", "0", "0"},
 			`{"result":0}`,
-			false,
+			models.RunStatusCompleted,
 			false,
 		},
 		{
@@ -50,7 +51,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			`{"data": [0, 1]}`,
 			[]string{"data", "-1"},
 			`{"result":1}`,
-			false,
+			models.RunStatusCompleted,
 			false,
 		},
 		{
@@ -58,7 +59,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			`{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]}`,
 			[]string{"data", "-10"},
 			`{"result":0}`,
-			false,
+			models.RunStatusCompleted,
 			false,
 		},
 		{
@@ -66,7 +67,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			`{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]}`,
 			[]string{"data", "-12"},
 			`{"result":null}`,
-			false,
+			models.RunStatusCompleted,
 			false,
 		},
 		{
@@ -74,7 +75,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			`{"data": [0, 1]}`,
 			[]string{"data", "18446744073709551615"},
 			`{"result":null}`,
-			false,
+			models.RunStatusCompleted,
 			false,
 		},
 		{
@@ -82,7 +83,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			`{"data": [0, 1]}`,
 			[]string{"data", "18446744073709551616"},
 			`{"result":null}`,
-			false,
+			models.RunStatusCompleted,
 			false,
 		},
 		{
@@ -90,7 +91,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			`{"data": [[0, 1]]}`,
 			[]string{"data", "0"},
 			`{"result":[0,1]}`,
-			false,
+			models.RunStatusCompleted,
 			false,
 		},
 		{
@@ -98,7 +99,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			`{"data": false}`,
 			[]string{"data"},
 			`{"result":false}`,
-			false,
+			models.RunStatusCompleted,
 			false,
 		},
 		{
@@ -106,7 +107,7 @@ func TestJsonParse_Perform(t *testing.T) {
 			`{"data": true}`,
 			[]string{"data"},
 			`{"result":true}`,
-			false,
+			models.RunStatusCompleted,
 			false,
 		},
 	}
@@ -117,7 +118,8 @@ func TestJsonParse_Perform(t *testing.T) {
 			input := cltest.RunResultWithResult(test.result)
 			adapter := adapters.JSONParse{Path: test.path}
 			result := adapter.Perform(input, nil)
-			assert.Equal(t, test.want, result.Data.String())
+			assert.Equal(t, test.wantData, result.Data.String())
+			assert.Equal(t, test.wantStatus, result.Status)
 
 			if test.wantResultError {
 				assert.Error(t, result.GetError())
