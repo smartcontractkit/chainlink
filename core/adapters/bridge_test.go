@@ -62,7 +62,7 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	}
 	result := ba.Perform(input, store)
 	assert.NoError(t, result.GetError())
-	assert.Equal(t, "251990120", result.Data.Get("result").Raw)
+	assert.Equal(t, "251990120", result.Data.Get("result").String())
 }
 
 func TestBridge_Perform_transitionsTo(t *testing.T) {
