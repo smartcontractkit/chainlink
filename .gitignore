@@ -7,7 +7,7 @@ tmp/
 /chainlink
 core/chainlink
 
-# GUI
+# Operator UI
 gui/dist
 gui/artifacts
 *-packr.go

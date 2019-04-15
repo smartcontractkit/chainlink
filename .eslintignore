@@ -1,5 +1,4 @@
-.storybook
-stories
+styleguide
 coverage
 gui/dist
 gui/artifacts
