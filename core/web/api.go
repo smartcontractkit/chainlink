@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -106,7 +107,7 @@ func NewPaginatedResponse(url url.URL, size, page, count int, resource interface
 func ParsePaginatedResponse(input []byte, resource interface{}, links *jsonapi.Links) error {
 	err := ParseJSONAPIResponse(input, resource)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "ParseJSONAPIResponse error")
 	}
 
 	// Unmarshal using the stdlib Unmarshal to extract the links part of the document

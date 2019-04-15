@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/jpillora/backoff"
+	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
@@ -361,6 +362,16 @@ func Keccak256(in []byte) ([]byte, error) {
 	hash := sha3.NewLegacyKeccak256()
 	_, err := hash.Write(in)
 	return hash.Sum(nil), err
+}
+
+// Sha256 returns a hexadecimal encoded string of a hashed input
+func Sha256(in string) (string, error) {
+	hasher := sha3.New256()
+	_, err := hasher.Write([]byte(in))
+	if err != nil {
+		return "", errors.Wrap(err, "sha256 write error")
+	}
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 // StripBearer removes the 'Bearer: ' prefix from the HTTP Authorization header.

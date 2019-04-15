@@ -93,21 +93,6 @@ type balanceable interface {
 	Symbol() string
 }
 
-// BridgeType holds a bridge.
-type BridgeType struct {
-	models.BridgeType
-}
-
-// MarshalJSON returns the JSON data of the Bridge.
-func (bt BridgeType) MarshalJSON() ([]byte, error) {
-	type Alias BridgeType
-	return json.Marshal(&struct {
-		Alias
-	}{
-		Alias(bt),
-	})
-}
-
 // AccountBalance holds the hex representation of the address plus it's ETH & LINK balances
 type AccountBalance struct {
 	Address     string       `json:"address"`

@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -82,7 +81,7 @@ func setupBridgeControllerIndex(app *cltest.TestApplication) ([]*models.BridgeTy
 		URL:           cltest.WebURL("https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	err := app.AddAdapter(bt1)
+	err := app.GetStore().CreateBridgeType(bt1)
 	if err != nil {
 		return nil, err
 	}
@@ -92,8 +91,7 @@ func setupBridgeControllerIndex(app *cltest.TestApplication) ([]*models.BridgeTy
 		URL:           cltest.WebURL("https://testing.com/tari"),
 		Confirmations: 0,
 	}
-	err = app.AddAdapter(bt2)
-
+	err = app.GetStore().CreateBridgeType(bt2)
 	return []*models.BridgeType{bt1, bt2}, err
 }
 
@@ -121,8 +119,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	assert.Equal(t, "randomnumber", bt.Name.String())
 	assert.Equal(t, uint64(10), bt.Confirmations)
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
-	assert.Equal(t, *assets.NewLink(100), bt.MinimumContractPayment)
-	assert.NotEmpty(t, bt.IncomingToken)
+	assert.Equal(t, assets.NewLink(100), bt.MinimumContractPayment)
 	assert.NotEmpty(t, bt.OutgoingToken)
 }
 
@@ -137,7 +134,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 		Name: models.MustNewTaskType("bridgea"),
 		URL:  cltest.WebURL("http://mybridge"),
 	}
-	assert.NoError(t, app.AddAdapter(bt))
+	require.NoError(t, app.GetStore().CreateBridgeType(bt))
 
 	ud := bytes.NewBuffer([]byte(`{"url":"http://yourbridge"}`))
 	resp, cleanup := client.Patch("/v2/bridge_types/bridgea", ud)
@@ -161,13 +158,13 @@ func TestBridgeController_Show(t *testing.T) {
 		URL:           cltest.WebURL("https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	assert.NoError(t, app.AddAdapter(bt))
+	require.NoError(t, app.GetStore().CreateBridgeType(bt))
 
 	resp, cleanup := client.Get("/v2/bridge_types/" + bt.Name.String())
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
-	var respBridge presenters.BridgeType
+	var respBridge models.BridgeTypeAuthentication
 	require.NoError(t, cltest.ParseJSONAPIResponse(resp, &respBridge))
 	assert.Equal(t, respBridge.Name, bt.Name, "should have the same schedule")
 	assert.Equal(t, respBridge.URL.String(), bt.URL.String(), "should have the same URL")
@@ -192,7 +189,7 @@ func TestBridgeController_Destroy(t *testing.T) {
 	var bt models.BridgeType
 	err := json.Unmarshal(bridgeJSON, &bt)
 	assert.NoError(t, err)
-	assert.NoError(t, app.AddAdapter(&bt))
+	require.NoError(t, app.GetStore().CreateBridgeType(&bt))
 
 	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
 	defer cleanup()
@@ -202,7 +199,7 @@ func TestBridgeController_Destroy(t *testing.T) {
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
 
-	assert.NoError(t, app.AddAdapter(&bt))
+	require.NoError(t, app.GetStore().CreateBridgeType(&bt))
 
 	js := cltest.NewJobWithWebInitiator()
 	js.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}

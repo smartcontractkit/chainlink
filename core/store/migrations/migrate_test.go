@@ -11,10 +11,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1551816486"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1551895034"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1551895034/old"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1552418531"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1554131520"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1554855314"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
@@ -49,13 +51,6 @@ func TestMigrate_Upgrade(t *testing.T) {
 			"timestamp" varchar(12),
 			PRIMARY KEY ("timestamp")
 		);
-		INSERT INTO migration_timestamps VALUES('0');
-		INSERT INTO migration_timestamps VALUES('1549496047');
-		INSERT INTO migration_timestamps VALUES('1551816486');
-		INSERT INTO migration_timestamps VALUES('1551895034');
-		INSERT INTO migration_timestamps VALUES('1552418531');
-		INSERT INTO migration_timestamps VALUES('1553029703');
-		INSERT INTO migration_timestamps VALUES('1554131520');
 	`).Error
 	require.NoError(t, err)
 
@@ -121,15 +116,16 @@ func TestMigrate1551816486(t *testing.T) {
 
 	require.NoError(t, err)
 
-	initial := models.BridgeType{
+	initial := migration1551816486.BridgeType{
 		Name: "someUniqueName",
-		URL:  cltest.WebURL("http://someurl.com"),
+		URL:  "http://someurl.com",
 	}
 
 	require.NoError(t, orm.DB.Save(&initial).Error)
 	require.NoError(t, migration0.Migration{}.Migrate(orm.DB))
 
-	migratedbt, err := orm.FindBridge(initial.Name.String())
+	var migratedbt migration1551816486.BridgeType
+	err = orm.DB.First(&migratedbt, "name = ?", initial.Name).Error
 	require.NoError(t, err)
 	require.Equal(t, initial, migratedbt)
 }
@@ -290,4 +286,32 @@ func newRunWithoutRunRequest(j models.JobSpec, i models.Initiator) *models.JobRu
 	jr := j.NewRun(i)
 	jr.RunRequest = models.RunRequest{}
 	return &jr
+}
+
+func TestMigrate1554855314(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	// seed w old schema
+	tm0 := &migration0.Migration{}
+	require.NoError(t, tm0.Migrate(orm.DB))
+
+	oldBT := migration1551816486.BridgeType{
+		Name:                   "happyfuntimesuperadapter",
+		IncomingToken:          "horse-battery-staple",
+		URL:                    "http://localhost:8890/",
+		MinimumContractPayment: "0",
+	}
+	require.NoError(t, orm.DB.Create(&oldBT).Error)
+
+	// migrate
+	tm := &migration1554855314.Migration{}
+	require.NoError(t, tm.Migrate(orm.DB))
+
+	// verify migration
+	migratedBT := models.BridgeType{}
+	require.NoError(t, orm.DB.First(&migratedBT, "name = ?", oldBT.Name).Error)
+	require.Equal(t, models.TaskType(oldBT.Name), migratedBT.Name)
+	require.NotEmpty(t, migratedBT.Salt)
+	require.NotEmpty(t, migratedBT.IncomingTokenHash)
 }

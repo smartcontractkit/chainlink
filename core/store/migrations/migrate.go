@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1553029703"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1554131520"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1554405357"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1554855314"
 	gormigrate "gopkg.in/gormigrate.v1"
 )
 
@@ -60,6 +61,10 @@ func Migrate(db *gorm.DB) error {
 		{
 			ID:      "1554405357",
 			Migrate: migration1554405357.Migration{}.Migrate,
+		},
+		{
+			ID:      "1554855314",
+			Migrate: migration1554855314.Migration{}.Migrate,
 		},
 	})
 

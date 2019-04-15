@@ -88,6 +88,7 @@ func TestValidateAdapter(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
+	// Create a duplicate
 	bt := models.BridgeType{}
 	bt.Name = models.MustNewTaskType("solargridreporting")
 	bt.URL = cltest.WebURL("https://denergy.eth")
@@ -123,8 +124,8 @@ func TestValidateAdapter(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			bt := &models.BridgeType{Name: models.TaskType(test.name)}
-			result := services.ValidateAdapter(bt, store)
+			btr := &models.BridgeTypeRequest{Name: models.TaskType(test.name)}
+			result := services.ValidateBridgeType(btr, store)
 			assert.Equal(t, test.want, result)
 		})
 	}
