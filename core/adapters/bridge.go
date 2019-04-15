@@ -3,7 +3,6 @@ package adapters
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -11,12 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-)
-
-var (
-	// ErrBridgeResultMustBeJSONObject is returned when a Bridge POSTs a non JSON
-	// object to chainlink
-	ErrBridgeResultMustBeJSONObject = errors.New("Bridge result must be a valid JSON object")
 )
 
 // Bridge adapter is responsible for connecting the task pipeline to external
@@ -82,11 +75,10 @@ func responseToRunResult(body []byte, input *models.RunResult) error {
 	}
 
 	if brr.RunResult.Data.Exists() && !brr.RunResult.Data.IsObject() {
-		return ErrBridgeResultMustBeJSONObject
+		input.ApplyResult(brr.RunResult.Data)
 	}
 
-	input.Merge(brr.RunResult)
-	return nil
+	return input.Merge(brr.RunResult)
 }
 
 func (ba *Bridge) postToExternalAdapter(input *models.RunResult, bridgeResponseURL *url.URL) ([]byte, error) {
