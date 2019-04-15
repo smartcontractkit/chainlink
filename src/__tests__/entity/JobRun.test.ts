@@ -48,7 +48,7 @@ describe('fromString', () => {
 
   it('errors on a malformed string', async () => {
     try {
-      const jr = fromString(`{"absolute":garbage`)
+      fromString(`{"absolute":garbage`)
     } catch (err) {
       expect(err).toBeDefined()
     }
