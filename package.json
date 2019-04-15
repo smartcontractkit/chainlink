@@ -8,6 +8,8 @@
   "keywords": [],
   "scripts": {
     "dev": "yarn autosetup && concurrently \"cd client && yarn start\" \"ts-node-dev --respawn --transpileOnly ./src/index.ts\"",
+    "dev:client": "cd client && yarn start",
+    "dev:server": "ts-node-dev --respawn --transpileOnly ./src/index.ts",
     "build": "yarn autosetup && cd client && yarn build",
     "prod": "yarn migration:run && ts-node ./src/index.ts",
     "test": "TYPEORM_NAME=test yarn autosetup && yarn jest --runInBand --detectOpenHandles",

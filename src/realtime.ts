@@ -1,30 +1,31 @@
 import { getDb } from './database'
 import http from 'http'
-import { fromString } from './entity/JobRun'
+import { JobRun, fromString } from './entity/JobRun'
+import { TaskRun } from './entity/TaskRun'
 import WebSocket from 'ws'
-
-const CLNODE_COUNT_EVENT = 'clnodeCount'
 
 export const bootstrapRealtime = (server: http.Server) => {
   const db = getDb()
   let clnodeCount = 0
 
   const wss = new WebSocket.Server({ server, perMessageDeflate: false })
-  wss.on('connection', function connection(ws) {
+  wss.on('connection', (ws: WebSocket) => {
     clnodeCount = clnodeCount + 1
     console.log(
       `websocket connected, total chainlink nodes connected: ${clnodeCount}`
     )
-    ws.on('message', function incoming(message: WebSocket.Data) {
+    ws.on('message', async (message: WebSocket.Data) => {
       let result
 
-      console.log('received: %s', message)
       try {
         const jobRun = fromString(message as string)
-        db.manager
+        await db.manager
           .save(jobRun)
           .then(entity => {
-            console.log('saved job run %s', entity.id)
+            jobRun.taskRuns.map(async (tr: TaskRun) => {
+              tr.jobRun = entity
+              await db.manager.save(tr).catch(console.error)
+            })
           })
           .catch(console.error)
         result = { status: 201 }
