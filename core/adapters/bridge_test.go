@@ -42,7 +42,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	assert.Equal(t, "Bearer "+bt.OutgoingToken, token)
 }
 
-func TestBridge_PerformRejectsNonJsonObjectResponses(t *testing.T) {
+func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(""))
@@ -61,7 +61,8 @@ func TestBridge_PerformRejectsNonJsonObjectResponses(t *testing.T) {
 		Status: models.RunStatusUnstarted,
 	}
 	result := ba.Perform(input, store)
-	assert.Equal(t, result.GetError(), adapters.ErrBridgeResultMustBeJSONObject)
+	assert.NoError(t, result.GetError())
+	assert.Equal(t, "251990120", result.Data.Get("result").Raw)
 }
 
 func TestBridge_Perform_transitionsTo(t *testing.T) {
