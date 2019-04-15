@@ -259,6 +259,8 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 		}
 	} else if !currentTaskRun.Status.Runnable() {
 		logger.Debugw("Task execution blocked", []interface{}{"run", run.ID, "task", currentTaskRun.ID, "state", currentTaskRun.Result.Status}...)
+	} else if currentTaskRun.Status.Unstarted() {
+		return fmt.Errorf("run %s task %s cannot return a status of empty string or Unstarted", run.ID, currentTaskRun.TaskSpec.Type)
 	} else if futureTaskRun := run.NextTaskRun(); futureTaskRun != nil {
 		if meetsMinimumConfirmations(run, futureTaskRun, run.ObservedHeight) {
 			logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID, "nextTask", futureTaskRun.TaskSpec.Type}...)
