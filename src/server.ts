@@ -1,6 +1,5 @@
 import express from 'express'
 import http from 'http'
-import { Connection } from 'typeorm'
 import * as controllers from './controllers'
 import { bootstrapRealtime } from './realtime'
 

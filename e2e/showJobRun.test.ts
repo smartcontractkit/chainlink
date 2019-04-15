@@ -1,21 +1,13 @@
 import { Server } from 'http'
 import { Browser, launch, Page } from 'puppeteer'
 import expect from 'expect-puppeteer'
-import { createDbConnection, closeDbConnection } from '../src/database'
-import { clearDb } from '../src/__tests__/testdatabase'
-import seed, { JOB_RUN_A_ID, JOB_RUN_B_ID } from '../src/seed'
-import server from '../src/server'
-
-const startServer = async () => {
-  await createDbConnection()
-  await seed()
-  return server()
-}
-
-afterEach(async () => clearDb())
+import { closeDbConnection } from '../src/database'
+import { JOB_RUN_A_ID } from '../src/seed'
+import { startAndSeed as startAndSeedServer } from '../src/support/server'
 
 describe('End to end', () => {
   let browser: Browser, page: Page, server: Server
+
   beforeAll(async () => {
     browser = await launch({
       devtools: false,
@@ -23,7 +15,7 @@ describe('End to end', () => {
       args: ['--no-sandbox']
     })
     page = await browser.newPage()
-    server = await startServer()
+    server = await startAndSeedServer()
     page.on('console', msg => console.log('PAGE LOG:', msg.text()))
   })
 
