@@ -16,13 +16,24 @@ export const bootstrapRealtime = (server: http.Server) => {
       `websocket connected, total chainlink nodes connected: ${clnodeCount}`
     )
     ws.on('message', function incoming(message: WebSocket.Data) {
+      let result
+
       console.log('received: %s', message)
-      db.manager
-        .save(fromString(message as string))
-        .then(entity => {
-          console.log('saved job run %s', entity.id)
-        })
-        .catch(console.error)
+      try {
+        const jobRun = fromString(message as string)
+        db.manager
+          .save(jobRun)
+          .then(entity => {
+            console.log('saved job run %s', entity.id)
+          })
+          .catch(console.error)
+        result = { status: 201 }
+      } catch (e) {
+        console.error(e)
+        result = { status: 422 }
+      }
+
+      ws.send(JSON.stringify(result))
     })
 
     ws.on('close', () => {
