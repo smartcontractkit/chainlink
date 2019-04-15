@@ -94,7 +94,9 @@ func NewRun(
 		}
 
 		mp := adapter.MinContractPayment()
-		cost.Add(cost, mp)
+		if mp != nil {
+			cost.Add(cost, mp)
+		}
 
 		if currentHeight != nil {
 			run.TaskRuns[i].MinimumConfirmations = utils.MaxUint64(

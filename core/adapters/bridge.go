@@ -22,7 +22,7 @@ var (
 // Bridge adapter is responsible for connecting the task pipeline to external
 // adapters, allowing for custom computations to be executed and included in runs.
 type Bridge struct {
-	models.BridgeType
+	*models.BridgeType
 	Params *models.JSON
 }
 

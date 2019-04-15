@@ -494,8 +494,8 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	defer cleanup()
 	jobRunner.Start()
 
-	bt := cltest.NewBridgeType()
-	assert.NoError(t, store.CreateBridgeType(&bt))
+	_, bt := cltest.NewBridgeType()
+	require.NoError(t, store.CreateBridgeType(bt))
 
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
@@ -517,8 +517,8 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
-	bt := cltest.NewBridgeType()
-	assert.NoError(t, store.CreateBridgeType(&bt))
+	_, bt := cltest.NewBridgeType()
+	require.NoError(t, store.CreateBridgeType(bt))
 
 	job := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
@@ -528,7 +528,7 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 	unfinishedRun := job.NewRun(initr)
 	retrievedBt, err := store.PendingBridgeType(unfinishedRun)
 	assert.NoError(t, err)
-	assert.Equal(t, bt, retrievedBt)
+	assert.Equal(t, retrievedBt, *bt)
 }
 
 func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
@@ -959,16 +959,15 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 
 	require.NoError(t, store.CreateBridgeType(firstBridge))
 
-	updateBridge := models.BridgeType{
-		Name: "UniqueName",
-		URL:  cltest.WebURL("http:/updatedurl.com"),
+	updateBridge := &models.BridgeTypeRequest{
+		URL: cltest.WebURL("http:/updatedurl.com"),
 	}
 
-	require.NoError(t, store.UpdateBridgeType(&updateBridge))
+	require.NoError(t, store.UpdateBridgeType(firstBridge, updateBridge))
 
 	foundbridge, err := store.FindBridge("UniqueName")
 	require.NoError(t, err)
-	require.Equal(t, updateBridge, foundbridge)
+	require.Equal(t, updateBridge.URL, foundbridge.URL)
 }
 
 func isDirEmpty(t *testing.T, dir string) bool {

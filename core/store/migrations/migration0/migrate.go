@@ -2,6 +2,7 @@ package migration0
 
 import (
 	"github.com/jinzhu/gorm"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1551816486"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -32,7 +33,7 @@ func (m Migration) Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&models.TxAttempt{}).Error; err != nil {
 		return err
 	}
-	if err := tx.AutoMigrate(&models.BridgeType{}).Error; err != nil {
+	if err := tx.AutoMigrate(&migration1551816486.BridgeType{}).Error; err != nil {
 		return err
 	}
 	if err := tx.AutoMigrate(&models.Head{}).Error; err != nil {

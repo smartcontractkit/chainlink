@@ -26,9 +26,9 @@ func TestNewRun(t *testing.T) {
 
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
-	bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
-	bt.MinimumContractPayment = *assets.NewLink(10)
-	assert.Nil(t, store.CreateBridgeType(&bt))
+	_, bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
+	bt.MinimumContractPayment = assets.NewLink(10)
+	require.NoError(t, store.CreateBridgeType(bt))
 
 	creationHeight := big.NewInt(1000)
 
@@ -54,21 +54,21 @@ func TestNewRun_requiredPayment(t *testing.T) {
 
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
-	bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
-	bt.MinimumContractPayment = *assets.NewLink(10)
-	assert.Nil(t, store.CreateBridgeType(&bt))
+	_, bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
+	bt.MinimumContractPayment = assets.NewLink(10)
+	require.NoError(t, store.CreateBridgeType(bt))
 
 	tests := []struct {
 		name           string
 		payment        *assets.Link
-		minimumPayment assets.Link
+		minimumPayment *assets.Link
 		expectedStatus models.RunStatus
 	}{
-		{"creates runnable job", nil, *assets.NewLink(0), models.RunStatusInProgress},
-		{"insufficient payment as specified by config", assets.NewLink(9), *assets.NewLink(10), models.RunStatusErrored},
-		{"sufficient payment as specified by config", assets.NewLink(10), *assets.NewLink(10), models.RunStatusInProgress},
-		{"insufficient payment as specified by adapter", assets.NewLink(9), *assets.NewLink(0), models.RunStatusErrored},
-		{"sufficient payment as specified by adapter", assets.NewLink(10), *assets.NewLink(0), models.RunStatusInProgress},
+		{"creates runnable job", nil, assets.NewLink(0), models.RunStatusInProgress},
+		{"insufficient payment as specified by config", assets.NewLink(9), assets.NewLink(10), models.RunStatusErrored},
+		{"sufficient payment as specified by config", assets.NewLink(10), assets.NewLink(10), models.RunStatusInProgress},
+		{"insufficient payment as specified by adapter", assets.NewLink(9), assets.NewLink(0), models.RunStatusErrored},
+		{"sufficient payment as specified by adapter", assets.NewLink(10), assets.NewLink(0), models.RunStatusInProgress},
 	}
 
 	for _, tt := range tests {

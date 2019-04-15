@@ -83,14 +83,13 @@ func (w *testWriter) Write(actual []byte) (int, error) {
 
 func TestRendererTable_RenderBridgeShow(t *testing.T) {
 	t.Parallel()
-	bridge := cltest.NewBridgeType("hapax", "http://hap.ax")
+	_, bridge := cltest.NewBridgeType("hapax", "http://hap.ax")
 	bridge.Confirmations = 0
 
 	tests := []struct {
 		name, content string
 	}{
 		{"name", bridge.Name.String()},
-		{"incoming token", bridge.IncomingToken},
 		{"outgoing token", bridge.OutgoingToken},
 	}
 
@@ -99,7 +98,31 @@ func TestRendererTable_RenderBridgeShow(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.Nil(t, r.Render(&bridge))
+			assert.Nil(t, r.Render(bridge))
+			assert.True(t, tw.found)
+		})
+	}
+}
+
+func TestRendererTable_RenderBridgeAdd(t *testing.T) {
+	t.Parallel()
+	bridge, _ := cltest.NewBridgeType("hapax", "http://hap.ax")
+	bridge.Confirmations = 0
+
+	tests := []struct {
+		name, content string
+	}{
+		{"name", bridge.Name.String()},
+		{"outgoing token", bridge.OutgoingToken},
+		{"incoming token", bridge.IncomingToken},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tw := &testWriter{test.content, t, false}
+			r := cmd.RendererTable{Writer: tw}
+
+			assert.Nil(t, r.Render(bridge))
 			assert.True(t, tw.found)
 		})
 	}
@@ -107,7 +130,7 @@ func TestRendererTable_RenderBridgeShow(t *testing.T) {
 
 func TestRendererTable_RenderBridgeList(t *testing.T) {
 	t.Parallel()
-	bridge := cltest.NewBridgeType("hapax", "http://hap.ax")
+	_, bridge := cltest.NewBridgeType("hapax", "http://hap.ax")
 	bridge.Confirmations = 0
 
 	tests := []struct {
@@ -115,7 +138,6 @@ func TestRendererTable_RenderBridgeList(t *testing.T) {
 		wantFound     bool
 	}{
 		{"name", bridge.Name.String(), true},
-		{"incoming token", bridge.IncomingToken, false},
 		{"outgoing token", bridge.OutgoingToken, false},
 	}
 
@@ -124,7 +146,7 @@ func TestRendererTable_RenderBridgeList(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.Nil(t, r.Render(&[]models.BridgeType{bridge}))
+			assert.Nil(t, r.Render(&[]models.BridgeType{*bridge}))
 			assert.Equal(t, test.wantFound, tw.found)
 		})
 	}
