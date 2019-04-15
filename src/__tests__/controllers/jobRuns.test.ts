@@ -6,7 +6,6 @@ import { JobRun } from '../../entity/JobRun'
 import jobRuns from '../../controllers/jobRuns'
 import seed, { JOB_RUN_B_ID } from '../../seed'
 import { createDbConnection, closeDbConnection } from '../../database'
-import { clearDb } from '../testdatabase'
 
 const controller = express()
 controller.use('/api/v1', jobRuns)
@@ -23,7 +22,6 @@ afterAll(async () => {
     await closeDbConnection()
   }
 })
-afterEach(async () => clearDb())
 
 describe('#index', () => {
   describe('with no runs', () => {
