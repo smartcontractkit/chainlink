@@ -1,7 +1,7 @@
 import { createDbConnection, closeDbConnection, getDb } from '../../database'
 import { fromString, search } from '../../entity/JobRun'
 import { JOB_RUN_A_ID, JOB_RUN_B_ID } from '../../seed'
-import fixture from './JobRun.fixture.json'
+import fixture from '../fixtures/JobRun.fixture.json'
 
 beforeAll(async () => createDbConnection())
 afterAll(async () => closeDbConnection())
