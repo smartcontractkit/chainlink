@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,26 +15,26 @@ func TestCopy_Perform(t *testing.T) {
 		name            string
 		result          string
 		copyPath        []string
-		want            string
-		wantError       bool
+		wantData        string
+		wantStatus      models.RunStatus
 		wantResultError bool
 	}{
 		{"existing path", `{"high":"11850.00","last":"11779.99"}`, []string{"last"},
-			`{"high":"11850.00","last":"11779.99","result":"11779.99"}`, false, false},
+			`{"high":"11850.00","last":"11779.99","result":"11779.99"}`, models.RunStatusCompleted, false},
 		{"nonexistent path", `{"high":"11850.00","last":"11779.99"}`, []string{"doesnotexist"},
-			`{"high":"11850.00","last":"11779.99","result":null}`, true, false},
+			`{"high":"11850.00","last":"11779.99","result":null}`, models.RunStatusCompleted, false},
 		{"double nonexistent path", `{"high":"11850.00","last":"11779.99"}`, []string{"no", "really"},
-			`{"high":"11850.00","last":"11779.99","result":"{\"high\":\"11850.00\",\"last\":\"11779.99\"}"}`, true, true},
+			`{"high":"11850.00","last":"11779.99","result":"{\"high\":\"11850.00\",\"last\":\"11779.99\"}"}`, models.RunStatusErrored, true},
 		{"array index path", `{"data":[{"availability":"0.99991"}]}`, []string{"data", "0", "availability"},
-			`{"data":[{"availability":"0.99991"}],"result":"0.99991"}`, false, false},
+			`{"data":[{"availability":"0.99991"}],"result":"0.99991"}`, models.RunStatusCompleted, false},
 		{"float result", `{"availability":0.99991}`, []string{"availability"},
-			`{"availability":0.99991,"result":0.99991}`, false, false},
+			`{"availability":0.99991,"result":0.99991}`, models.RunStatusCompleted, false},
 		{
 			"index array of array",
 			`{"data":[[0,1]]}`,
 			[]string{"data", "0", "0"},
 			`{"data":[[0,1]],"result":0}`,
-			false,
+			models.RunStatusCompleted,
 			false,
 		},
 	}
@@ -45,7 +46,8 @@ func TestCopy_Perform(t *testing.T) {
 			input := cltest.RunResultWithData(test.result)
 			adapter := adapters.Copy{CopyPath: test.copyPath}
 			result := adapter.Perform(input, nil)
-			assert.Equal(t, test.want, result.Data.String())
+			assert.Equal(t, test.wantData, result.Data.String())
+			assert.Equal(t, test.wantStatus, result.Status)
 
 			if test.wantResultError {
 				assert.NotNil(t, result.GetError())
