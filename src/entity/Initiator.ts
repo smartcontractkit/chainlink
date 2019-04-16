@@ -27,7 +27,4 @@ export class Initiator {
 
   @Column()
   requester: string
-
-  @Column()
-  createdAt: Date
 }
