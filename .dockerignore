@@ -1,4 +1,6 @@
 .git
 node_modules
+.yarn.lock.md5
 client/node_modules
 client/build
+client/.yarn.lock.md5
