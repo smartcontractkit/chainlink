@@ -52,7 +52,7 @@ contract('ServiceAgreementConsumer', () => {
 
       it('has a reasonable gas cost', async () => {
         const tx = await cc.requestEthereumPrice(currency)
-        assert.isBelow(tx.receipt.gasUsed, 169000)
+        assert.isBelow(tx.receipt.gasUsed, 170000)
       })
     })
   })
