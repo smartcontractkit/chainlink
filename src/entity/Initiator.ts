@@ -12,7 +12,7 @@ export class Initiator {
   @PrimaryGeneratedColumn()
   id: number
 
-  @OneToOne(type => JobRun)
+  @OneToOne(type => JobRun, jobRun => jobRun.initiator)
   @JoinColumn()
   jobRun: JobRun
 
