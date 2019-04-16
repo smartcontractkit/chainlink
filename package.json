@@ -12,13 +12,6 @@
     "styleguide": "start-storybook -p 9001 -c styleguide",
     "tslint": "tslint -c tslint.json '**/*.ts' '**/*.tsx'"
   },
-  "dependencies": {
-    "chainlink": "file:solidity",
-    "chainlink-echo-server": "file:examples/echo_server",
-    "chainlink-twilio-sms": "file:examples/twilio_sms",
-    "chainlink-uptime-sla": "file:examples/uptime_sla",
-    "operator-gui": "file:gui"
-  },
   "devDependencies": {
     "@babel/core": "^7.2.2",
     "@babel/plugin-proposal-class-properties": "^7.3.0",
