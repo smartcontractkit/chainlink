@@ -1,6 +1,6 @@
 pragma solidity 0.4.24;
 
-import "../../../solidity/contracts/Chainlinked.sol";
+import "../../../evm/contracts/Chainlinked.sol";
 
 contract UptimeSLA is Chainlinked {
   uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations

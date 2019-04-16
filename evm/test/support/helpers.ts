@@ -10,10 +10,10 @@ process.env.SOLIDITY_INCLUDE = [
   'contracts/',
   'contracts/examples/',
   'contracts/interfaces/',
-  'node_modules/',
-  'node_modules/link_token/contracts',
-  'node_modules/openzeppelin-solidity/contracts/ownership/',
-  'node_modules/@ensdomains/ens/contracts/'
+  '../node_modules/',
+  '../node_modules/link_token/contracts',
+  '../node_modules/openzeppelin-solidity/contracts/ownership/',
+  '../node_modules/@ensdomains/ens/contracts/',
 ]
   .map(p => join(contractPathHead, p))
   .join(':')

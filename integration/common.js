@@ -1,7 +1,7 @@
 const Eth = require('ethjs')
-const Deployer = require('../solidity/app/deployer.js')
-const Wallet = require('../solidity/app/wallet.js')
-const Utils = require('../solidity/app/utils.js')
+const Deployer = require('../evm/app/deployer.js')
+const Wallet = require('../evm/app/wallet.js')
+const Utils = require('../evm/app/utils.js')
 
 const port = process.env.ETH_HTTP_PORT || `18545`
 const utils = Utils(new Eth.HttpProvider(`http://localhost:${port}`))

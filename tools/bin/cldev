@@ -4,7 +4,7 @@
 # Steps:
 # 1. ./tools/bin/gethnet
 # 2. yarn install
-# 3. cd solidity && truffle migrate && cd ..
+# 3. cd evm && truffle migrate && cd ..
 # 4. ./tools/bin/cldev
 
 set -e

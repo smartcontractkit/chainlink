@@ -205,7 +205,7 @@ library CBOR {
     }
 }
 
-// File: ../solidity/contracts/Chainlink.sol
+// File: ../evm/contracts/Chainlink.sol
 
 /**
  * @title Library for common Chainlink functions
@@ -329,13 +329,13 @@ library Chainlink {
   }
 }
 
-// File: ../solidity/contracts/ENSResolver.sol
+// File: ../evm/contracts/ENSResolver.sol
 
 contract ENSResolver {
   function addr(bytes32 node) public view returns (address);
 }
 
-// File: ../solidity/contracts/interfaces/ENSInterface.sol
+// File: ../evm/contracts/interfaces/ENSInterface.sol
 
 interface ENSInterface {
 
@@ -362,7 +362,7 @@ interface ENSInterface {
 
 }
 
-// File: ../solidity/contracts/interfaces/LinkTokenInterface.sol
+// File: ../evm/contracts/interfaces/LinkTokenInterface.sol
 
 interface LinkTokenInterface {
   function allowance(address owner, address spender) external returns (bool success);
@@ -379,7 +379,7 @@ interface LinkTokenInterface {
   function transferFrom(address from, address to, uint256 value) external returns (bool success);
 }
 
-// File: ../solidity/contracts/interfaces/ChainlinkRequestInterface.sol
+// File: ../evm/contracts/interfaces/ChainlinkRequestInterface.sol
 
 interface ChainlinkRequestInterface {
   function oracleRequest(
@@ -401,7 +401,7 @@ interface ChainlinkRequestInterface {
   ) external;
 }
 
-// File: openzeppelin-solidity/contracts/math/SafeMath.sol
+// File: openzeppelin-evm/contracts/math/SafeMath.sol
 
 /**
  * @title SafeMath
@@ -453,7 +453,7 @@ library SafeMath {
   }
 }
 
-// File: ../solidity/contracts/Chainlinked.sol
+// File: ../evm/contracts/Chainlinked.sol
 
 /**
  * @title The Chainlinked contract

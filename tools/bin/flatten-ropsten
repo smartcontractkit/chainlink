@@ -3,4 +3,4 @@
 rm -f ../examples/ropsten/contracts/RopstenConsumer.sol
 rm -f ../examples/ropsten/contracts/Oracle.sol
 yarn truffle-flattener ../examples/ropsten/contracts/RopstenConsumerBase.sol > ../examples/ropsten/contracts/RopstenConsumer.sol
-yarn truffle-flattener ../solidity/contracts/Oracle.sol > ../examples/ropsten/contracts/Oracle.sol
+yarn truffle-flattener ../evm/contracts/Oracle.sol > ../examples/ropsten/contracts/Oracle.sol
