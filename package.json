@@ -54,7 +54,7 @@
     "@types/whatwg-fetch": "^0.0.33",
     "@types/ws": "^6.0.1",
     "@types/yargs": "^12.0.10",
-    "@typescript-eslint/parser": "^1.5.0",
+    "@typescript-eslint/parser": "^1.6.0",
     "babel-jest": "23.6.0",
     "concurrently": "^4.1.0",
     "eslint": "5.12.0",
