@@ -19,7 +19,8 @@ internal/clroot/*.jsonl
 
 sgx/target/
 
-gui/dist/
+operator_ui/dist/
+operator_ui/artifacts/
 *-packr.go
 
 Dockerfile

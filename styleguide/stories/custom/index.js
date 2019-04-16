@@ -7,7 +7,7 @@ import JavascriptTimeAgo from 'javascript-time-ago'
 import en from 'javascript-time-ago/locale/en'
 import TimeAgo from 'components/TimeAgo'
 import Logo from 'components/Logo'
-import theme from '../../../gui/src/theme'
+import theme from '../../../operator_ui/src/theme'
 
 const customTheme = createMuiTheme(theme)
 

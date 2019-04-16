@@ -3,7 +3,7 @@
   "license": "MIT",
   "workspaces": [
     "evm",
-    "gui",
+    "operator_ui",
     "examples/*"
   ],
   "scripts": {
@@ -13,13 +13,6 @@
     "lint:operator-ui": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./gui",
     "lint:evm": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./evm",
     "lint:examples": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./examples"
-  },
-  "dependencies": {
-    "chainlink": "file:solidity",
-    "chainlink-echo-server": "file:examples/echo_server",
-    "chainlink-twilio-sms": "file:examples/twilio_sms",
-    "chainlink-uptime-sla": "file:examples/uptime_sla",
-    "operator-gui": "file:gui"
   },
   "devDependencies": {
     "@babel/core": "^7.2.2",
