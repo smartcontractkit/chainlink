@@ -19,6 +19,7 @@ interface ITaskRun {
 
 interface IInitiator {
   id: number
+  type: string
   requester: string
   requestId: string
 }

@@ -52,6 +52,7 @@ export const fromString = (str: string): JobRun => {
   jr.createdAt = new Date(json.createdAt)
   jr.completedAt = json.completedAt && new Date(json.completedAt)
   jr.initiator = new Initiator()
+  jr.initiator.type = json.initiator.type
   jr.initiator.requestId = json.initiator.requestId
   jr.initiator.txHash = json.initiator.txHash
   jr.initiator.requester = json.initiator.requester
