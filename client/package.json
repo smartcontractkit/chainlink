@@ -19,7 +19,7 @@
     "lint": "eslint . --color",
     "test": "react-scripts test",
     "test-ci": "CI=true react-scripts test",
-    "autoinstall": "md5sum --quiet --check .yarn.lock.md5 2>/dev/null || yarn install && md5sum yarn.lock > .yarn.lock.md5"
+    "autoinstall": "md5sum -c .yarn.lock.md5 || yarn install && md5sum yarn.lock > .yarn.lock.md5"
   },
   "main": "app.js",
   "repository": {
