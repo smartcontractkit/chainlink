@@ -8,8 +8,11 @@
   ],
   "scripts": {
     "styleguide": "start-storybook -p 9001 -c styleguide",
-    "lint": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
-    "lint:fix": "eslint --fix --color --ext .js --ext .jsx --ext .ts --ext .tsx ."
+    "lint:fix": "eslint --fix --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
+    "lint:styleguide": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./styleguide",
+    "lint:operator-ui": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./gui",
+    "lint:solidity": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./solidity",
+    "lint:examples": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./examples"
   },
   "dependencies": {
     "chainlink": "file:solidity",
