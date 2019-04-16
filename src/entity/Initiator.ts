@@ -19,12 +19,12 @@ export class Initiator {
   @Column()
   type: string
 
-  @Column()
+  @Column({ nullable: true })
   requestId: string
 
-  @Column()
+  @Column({ nullable: true })
   txHash: string
 
-  @Column()
+  @Column({ nullable: true })
   requester: string
 }

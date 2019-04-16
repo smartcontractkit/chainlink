@@ -41,11 +41,8 @@ export default async () => {
     await dbConnection.manager.save(jobRunB)
 
     const initiatorB = new Initiator()
-    initiatorB.type = 'runlog'
+    initiatorB.type = 'web'
     initiatorB.jobRun = jobRunB
-    initiatorB.txHash = 'txB'
-    initiatorB.requestId = 'requestIdB'
-    initiatorB.requester = 'requesterB'
     await dbConnection.manager.save(initiatorB)
 
     const taskRunB = new TaskRun()
