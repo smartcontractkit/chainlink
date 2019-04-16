@@ -11,7 +11,7 @@
     "@ensdomains/ens": "^0.1.1",
     "link_token": "^1.0.3",
     "openzeppelin-solidity": "^1.12.0",
-    "solidity-cborutils": "^1.0.2"
+    "solidity-cborutils": "^1.0.4"
   },
   "files": [
     "contracts",
