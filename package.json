@@ -2,7 +2,7 @@
   "private": true,
   "license": "MIT",
   "workspaces": [
-    "solidity",
+    "evm",
     "gui",
     "examples/*"
   ],
@@ -11,7 +11,7 @@
     "lint:fix": "eslint --fix --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
     "lint:styleguide": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./styleguide",
     "lint:operator-ui": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./gui",
-    "lint:solidity": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./solidity",
+    "lint:evm": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./evm",
     "lint:examples": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./examples"
   },
   "dependencies": {

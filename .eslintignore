@@ -1,11 +1,10 @@
-.storybook
-stories
+styleguide
 coverage
-gui/dist
-gui/artifacts
 tools/gethnet
 node_modules
 vendor
+gui/dist
+gui/artifacts
 # ESLint doesn't support experimental import() syntax
 gui/src/Layout.js
 # ESLint doesn't support experimental import() syntax

@@ -9,9 +9,9 @@ node_modules/
 vendor/
 tmp/
 
-solidity/node_modules/
-solidity/build/
-solidity/.python-version
+evm/node_modules/
+evm/build/
+evm/.python-version
 
 internal/gethnet/datadir/geth
 internal/clroot/db.bolt
