@@ -1,5 +1,5 @@
 coverage
 styleguide
-gui/dist
+operator_ui/dist
 tools/gethnet
 vendor

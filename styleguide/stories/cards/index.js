@@ -12,7 +12,7 @@ import TokenBalance from 'components/Cards/TokenBalance'
 import StatusCard from 'components/JobRuns/StatusCard'
 import JobRunsList from 'components/JobRuns/List'
 import CardTitle from 'components/Cards/Title'
-import theme from '../../../gui/src/theme'
+import theme from '../../../operator_ui/src/theme'
 
 const customTheme = createMuiTheme(theme)
 

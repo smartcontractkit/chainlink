@@ -29,7 +29,7 @@ if [ "$#" == 0 ]; then
   CHAINLINK_VERSION="$(mainexec --version)"
   export CHAINLINK_VERSION
 
-  pushd gui >/dev/null
+  pushd operator_ui >/dev/null
   yarn install --no-progress | cat
   yarn build | cat
   popd >/dev/null

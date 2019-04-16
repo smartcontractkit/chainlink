@@ -160,7 +160,7 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 // NewBox returns the packr.Box instance that holds the static assets to
 // be delivered by the router.
 func (app *ChainlinkApplication) NewBox() packr.Box {
-	return packr.NewBox("../../gui/dist")
+	return packr.NewBox("../../operator_ui/dist")
 }
 
 // OnConnect invokes the passed callback when connected to the block chain.
