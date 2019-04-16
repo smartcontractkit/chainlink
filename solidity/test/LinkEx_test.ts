@@ -26,8 +26,8 @@ contract('LinkEx', () => {
       const updated = 8616460799
 
       beforeEach(async () => {
-        await contract.addOracle(h.oracleNode, {from: h.defaultAccount})
-        await contract.update(expected, {from: h.oracleNode})
+        await contract.addOracle(h.oracleNode, { from: h.defaultAccount })
+        await contract.update(expected, { from: h.oracleNode })
       })
 
       it('returns the historic rate', async () => {
@@ -64,7 +64,7 @@ contract('LinkEx', () => {
     context('when called by a stranger', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await contract.update(expected, {from: h.stranger})
+          await contract.update(expected, { from: h.stranger })
         })
         const rate = await contract.currentRate()
         assert.equal(rate, 0)
@@ -73,11 +73,11 @@ contract('LinkEx', () => {
 
     context('when called by an authorized node', () => {
       beforeEach(async () => {
-        await contract.addOracle(h.oracleNode, {from: h.defaultAccount})
+        await contract.addOracle(h.oracleNode, { from: h.defaultAccount })
       })
 
       it('updates the rate', async () => {
-        await contract.update(expected, {from: h.oracleNode})
+        await contract.update(expected, { from: h.oracleNode })
         const historicRate = await contract.currentRate.call()
         assert.equal(historicRate.toString(), expected.toString())
       })
@@ -85,13 +85,13 @@ contract('LinkEx', () => {
 
     context('when updated recently by oracles', () => {
       beforeEach(async () => {
-        await contract.addOracle(h.oracleNode, {from: h.defaultAccount})
-        await contract.addOracle(h.oracleNode2, {from: h.defaultAccount})
-        await contract.addOracle(h.oracleNode3, {from: h.defaultAccount})
+        await contract.addOracle(h.oracleNode, { from: h.defaultAccount })
+        await contract.addOracle(h.oracleNode2, { from: h.defaultAccount })
+        await contract.addOracle(h.oracleNode3, { from: h.defaultAccount })
 
-        await contract.update(expected, {from: h.oracleNode})
-        await contract.update(expected2, {from: h.oracleNode2})
-        await contract.update(expected3, {from: h.oracleNode3})
+        await contract.update(expected, { from: h.oracleNode })
+        await contract.update(expected2, { from: h.oracleNode2 })
+        await contract.update(expected3, { from: h.oracleNode3 })
       })
 
       it('has an expected aggregate value', async () => {
@@ -102,14 +102,16 @@ contract('LinkEx', () => {
       context('after adding more oracles', () => {
         const expected4 = 8616460198
         const expected5 = 8616460756
-        const newExpectedAvg = Math.trunc((expected + expected2 + expected3 + expected4 + expected5) / 5)
+        const newExpectedAvg = Math.trunc(
+          (expected + expected2 + expected3 + expected4 + expected5) / 5
+        )
 
         beforeEach(async () => {
-          await contract.addOracle(h.accounts[8], {from: h.defaultAccount})
-          await contract.addOracle(h.accounts[9], {from: h.defaultAccount})
+          await contract.addOracle(h.accounts[8], { from: h.defaultAccount })
+          await contract.addOracle(h.accounts[9], { from: h.defaultAccount })
 
-          await contract.update(expected4, {from: h.accounts[8]})
-          await contract.update(expected5, {from: h.accounts[9]})
+          await contract.update(expected4, { from: h.accounts[8] })
+          await contract.update(expected5, { from: h.accounts[9] })
         })
 
         it('the new oracles contribute to the average', async () => {
@@ -125,7 +127,9 @@ contract('LinkEx', () => {
           const newExpectedAvg = Math.trunc((expected2 + expected3) / 2)
 
           beforeEach(async () => {
-            await contract.removeOracle(h.oracleNode, {from: h.defaultAccount})
+            await contract.removeOracle(h.oracleNode, {
+              from: h.defaultAccount
+            })
           })
 
           it('the removed oracles do not contribute to the average', async () => {
@@ -135,19 +139,23 @@ contract('LinkEx', () => {
 
           it('the removed oracle cannot update the price', async () => {
             await h.assertActionThrows(async () => {
-              await contract.update(updated, {from: h.oracleNode})
+              await contract.update(updated, { from: h.oracleNode })
             })
           })
 
           context('then adding an oracle', () => {
-            const newExpectedAvg2 = Math.trunc((updated + expected2 + expected3) / 3)
+            const newExpectedAvg2 = Math.trunc(
+              (updated + expected2 + expected3) / 3
+            )
 
             beforeEach(async () => {
-              await contract.addOracle(h.accounts[8], {from: h.defaultAccount})
+              await contract.addOracle(h.accounts[8], {
+                from: h.defaultAccount
+              })
             })
 
             it('the average is as expected', async () => {
-              await contract.update(updated, {from: h.accounts[8]})
+              await contract.update(updated, { from: h.accounts[8] })
               const rate = await contract.currentRate()
               assert.equal(rate.toString(), newExpectedAvg2)
             })
@@ -158,8 +166,10 @@ contract('LinkEx', () => {
           const newExpectedAvg = Math.trunc((updated + expected) / 2)
 
           beforeEach(async () => {
-            await contract.removeOracle(h.oracleNode3, {from: h.defaultAccount})
-            await contract.update(updated, {from: h.oracleNode2})
+            await contract.removeOracle(h.oracleNode3, {
+              from: h.defaultAccount
+            })
+            await contract.update(updated, { from: h.oracleNode2 })
           })
 
           it('the removed oracles do not contribute to the average', async () => {
@@ -169,20 +179,24 @@ contract('LinkEx', () => {
 
           it('the removed oracle cannot update the price', async () => {
             await h.assertActionThrows(async () => {
-              await contract.update(updated, {from: h.oracleNode3})
+              await contract.update(updated, { from: h.oracleNode3 })
             })
           })
 
           context('then adding an oracle', () => {
             const newUpdated = 8616460357
-            const newExpectedAvg2 = Math.trunc((updated + expected + newUpdated) / 3)
+            const newExpectedAvg2 = Math.trunc(
+              (updated + expected + newUpdated) / 3
+            )
 
             beforeEach(async () => {
-              await contract.addOracle(h.accounts[8], {from: h.defaultAccount})
+              await contract.addOracle(h.accounts[8], {
+                from: h.defaultAccount
+              })
             })
 
             it('the average is as expected', async () => {
-              await contract.update(newUpdated, {from: h.accounts[8]})
+              await contract.update(newUpdated, { from: h.accounts[8] })
               const rate = await contract.currentRate()
               assert.equal(rate.toString(), newExpectedAvg2)
             })
@@ -193,7 +207,7 @@ contract('LinkEx', () => {
       context('when updated by an oracle after 25 blocks', () => {
         beforeEach(async () => {
           h.mineBlocks(25)
-          await contract.update(expected, {from: h.oracleNode})
+          await contract.update(expected, { from: h.oracleNode })
         })
 
         it('adjusts the current rate', async () => {
@@ -208,7 +222,7 @@ contract('LinkEx', () => {
     context('when called by a stranger', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await contract.addOracle(h.oracleNode, {from: h.stranger})
+          await contract.addOracle(h.oracleNode, { from: h.stranger })
         })
         assert.isNotTrue(await contract.authorizedNodes.call(h.oracleNode))
       })
@@ -216,18 +230,18 @@ contract('LinkEx', () => {
 
     context('when called by the owner', () => {
       it('adds the oracle', async () => {
-        await contract.addOracle(h.oracleNode, {from: h.defaultAccount})
+        await contract.addOracle(h.oracleNode, { from: h.defaultAccount })
         assert.isTrue(await contract.authorizedNodes.call(h.oracleNode))
       })
 
       context('when adding an oracle twice', () => {
         beforeEach(async () => {
-          await contract.addOracle(h.oracleNode, {from: h.defaultAccount})
+          await contract.addOracle(h.oracleNode, { from: h.defaultAccount })
         })
 
         it('rejects the addition of the oracle', async () => {
           await h.assertActionThrows(async () => {
-            await contract.addOracle(h.oracleNode, {from: h.defaultAccount})
+            await contract.addOracle(h.oracleNode, { from: h.defaultAccount })
           })
         })
       })
@@ -237,14 +251,14 @@ contract('LinkEx', () => {
   describe('#removeOracle', () => {
     beforeEach(async () => {
       assert.isNotTrue(await contract.authorizedNodes.call(h.oracleNode))
-      await contract.addOracle(h.oracleNode, {from: h.defaultAccount})
+      await contract.addOracle(h.oracleNode, { from: h.defaultAccount })
       assert.isTrue(await contract.authorizedNodes.call(h.oracleNode))
     })
 
     context('when called by a stranger', () => {
       it('does not remove the oracle', async () => {
         await h.assertActionThrows(async () => {
-          await contract.removeOracle(h.oracleNode, {from: h.stranger})
+          await contract.removeOracle(h.oracleNode, { from: h.stranger })
         })
         assert.isTrue(await contract.authorizedNodes.call(h.oracleNode))
       })
@@ -253,7 +267,7 @@ contract('LinkEx', () => {
     context('when called by the owner', () => {
       context('if there was only one oracle', () => {
         it('removes the oracle', async () => {
-          await contract.removeOracle(h.oracleNode, {from: h.defaultAccount})
+          await contract.removeOracle(h.oracleNode, { from: h.defaultAccount })
           assert.isNotTrue(await contract.authorizedNodes.call(h.oracleNode))
         })
       })
@@ -266,17 +280,17 @@ contract('LinkEx', () => {
         const goodAvg = Math.trunc((expected2 + expected3) / 2)
 
         beforeEach(async () => {
-          await contract.update(badData, {from: h.oracleNode})
-          await contract.addOracle(h.oracleNode2, {from: h.defaultAccount})
-          await contract.addOracle(h.oracleNode3, {from: h.defaultAccount})
-          await contract.update(expected2, {from: h.oracleNode2})
-          await contract.update(expected3, {from: h.oracleNode3})
+          await contract.update(badData, { from: h.oracleNode })
+          await contract.addOracle(h.oracleNode2, { from: h.defaultAccount })
+          await contract.addOracle(h.oracleNode3, { from: h.defaultAccount })
+          await contract.update(expected2, { from: h.oracleNode2 })
+          await contract.update(expected3, { from: h.oracleNode3 })
         })
 
         it('updates the average', async () => {
           const beforeRate = await contract.currentRate()
           assert.equal(beforeRate.toString(), badAvg)
-          await contract.removeOracle(h.oracleNode, {from: h.defaultAccount})
+          await contract.removeOracle(h.oracleNode, { from: h.defaultAccount })
           const afterRate = await contract.currentRate()
           assert.equal(afterRate.toString(), goodAvg)
         })
@@ -285,7 +299,9 @@ contract('LinkEx', () => {
       context('if the oracle does not exist', () => {
         it('reverts', async () => {
           await h.assertActionThrows(async () => {
-            await contract.removeOracle(h.oracleNode3, {from: h.defaultAccount})
+            await contract.removeOracle(h.oracleNode3, {
+              from: h.defaultAccount
+            })
           })
         })
       })
