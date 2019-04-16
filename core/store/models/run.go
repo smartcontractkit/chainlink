@@ -247,16 +247,6 @@ func (rr *RunResult) Add(key string, result interface{}) {
 	rr.Data = data
 }
 
-// ClearResult sets the "result" field to null
-func (rr *RunResult) ClearResult() {
-	data, err := rr.Data.Add("result", nil)
-	if err != nil {
-		rr.SetError(err)
-		return
-	}
-	rr.Data = data
-}
-
 // SetError marks the result as errored and saves the specified error message
 func (rr *RunResult) SetError(err error) {
 	rr.ErrorMessage = null.StringFrom(err.Error())
