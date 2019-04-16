@@ -2,8 +2,7 @@
 
 set -e
 
-yarn tslint
-yarn lint-ci
+yarn lint
 
 cd gui
 ../node_modules/.bin/cross-env NODE_ENV=test \

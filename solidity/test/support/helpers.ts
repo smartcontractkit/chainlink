@@ -53,12 +53,27 @@ const INVALIDVALUE = {
   unitializedValueProbablyShouldUseVaribleInMochaBeforeCallback: null
 }
 
-export let [accounts, defaultAccount, oracleNode1, oracleNode2, oracleNode3, stranger, consumer, oracleNode] =
-  Array(1000).fill(INVALIDVALUE)
+export let [
+  accounts,
+  defaultAccount,
+  oracleNode1,
+  oracleNode2,
+  oracleNode3,
+  stranger,
+  consumer,
+  oracleNode
+] = Array(1000).fill(INVALIDVALUE)
 
 before(async function queryEthClientForConstants() {
-  accounts = (await eth.getAccounts());
-  [defaultAccount, oracleNode1, oracleNode2, oracleNode3, stranger, consumer] = accounts.slice(0, 6)
+  accounts = await eth.getAccounts()
+  ;[
+    defaultAccount,
+    oracleNode1,
+    oracleNode2,
+    oracleNode3,
+    stranger,
+    consumer
+  ] = accounts.slice(0, 6)
   oracleNode = oracleNode1
 })
 
@@ -92,11 +107,20 @@ export const linkContract = async (): Promise<any> => {
 }
 
 export const bigNum = (num: any): BigNumber => web3.utils.toBN(num)
-assertBigNum(bigNum('1'), bigNum(1), 'Different representations should give same BNs')
+assertBigNum(
+  bigNum('1'),
+  bigNum(1),
+  'Different representations should give same BNs'
+)
 
 // toWei(n) is n * 10**18, as a BN.
-export const toWei = (num: string | number): any => bigNum(web3.utils.toWei(bigNum(num)))
-assertBigNum(toWei('1'), toWei(1), 'Different representations should give same BNs')
+export const toWei = (num: string | number): any =>
+  bigNum(web3.utils.toWei(bigNum(num)))
+assertBigNum(
+  toWei('1'),
+  toWei(1),
+  'Different representations should give same BNs'
+)
 
 export const toUtf8 = web3.utils.toUtf8
 
@@ -110,7 +134,8 @@ export const toHexWithoutPrefix = (arg: any): string => {
   } else if (arg instanceof Uint8Array) {
     return Array.prototype.reduce.call(
       arg,
-      (a: any, v: any) => a + v.toString('16').padStart(2, '0'), ''
+      (a: any, v: any) => a + v.toString('16').padStart(2, '0'),
+      ''
     )
   } else if (Number(arg) === arg) {
     return arg.toString(16).padStart(64, '0')
@@ -359,7 +384,9 @@ export const newAddress = (str: string): Uint8Array => {
 }
 
 // lengthTypedArrays sums the length of all specified TypedArrays
-export const lengthTypedArrays = <T>(...arrays: Array<ArrayLike<T>>): number => {
+export const lengthTypedArrays = <T>(
+  ...arrays: Array<ArrayLike<T>>
+): number => {
   return arrays.reduce((a, v) => a + v.length, 0)
 }
 
@@ -370,7 +397,9 @@ export const toBuffer = (uint8a: Uint8Array): Buffer => {
 // concatTypedArrays recursively concatenates TypedArrays into one big
 // TypedArray
 // TODO: Does not work recursively
-export const concatTypedArrays = <T>(...arrays: Array<ArrayLike<T>>): ArrayLike<T> => {
+export const concatTypedArrays = <T>(
+  ...arrays: Array<ArrayLike<T>>
+): ArrayLike<T> => {
   const size = lengthTypedArrays(...arrays)
   const arrayCtor: any = arrays[0].constructor
   const result = new arrayCtor(size)
@@ -544,7 +573,7 @@ export const initiateServiceAgreementArgs = ({
   oracleSignatures.map((os: any) => os.v),
   oracleSignatures.map((os: any) => toHex(os.r)),
   oracleSignatures.map((os: any) => toHex(os.s)),
-  toHex(requestDigest),
+  toHex(requestDigest)
 ]
 
 // Call coordinator contract to initiate the specified service agreement, and
@@ -620,8 +649,11 @@ export const newServiceAgreement = async (params: any): Promise<any> => {
   agreement.endAt = params.endAt || sixMonthsFromNow()
   agreement.oracles = params.oracles || [oracleNode]
   agreement.oracleSignatures = []
-  agreement.requestDigest = params.requestDigest ||
-    newHash('0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5')
+  agreement.requestDigest =
+    params.requestDigest ||
+    newHash(
+      '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5'
+    )
 
   const sAID = calculateSAID(agreement)
   agreement.id = toHex(sAID)

@@ -1,29 +1,38 @@
 {
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 9,
+    "ecmaFeatures": {
+      "jsx": true,
+      "modules": true
+    },
+    "sourceType": "module"
+  },
+
   "extends": [
-    "standard",
-    "prettier",
     "prettier/standard",
     "plugin:react/recommended"
   ],
+
   "plugins": [
     "import",
     "prettier",
     "standard",
     "react-hooks"
   ],
+
   "settings": {
     "react": {
       "version": "detect"
     }
   },
-  "parserOptions": {
-    "ecmaVersion": 2018,
-  },
+
   "env": {
     "node": true,
     "es6": true,
     "jest": true
   },
+
   "rules": {
     "new-cap": 0,
     "prettier/prettier": 2

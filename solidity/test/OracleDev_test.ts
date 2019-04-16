@@ -20,7 +20,7 @@ contract('OracleDev', () => {
     link = await h.linkContract()
     usdFeed = await h.deploy(priceFeed)
     ethFeed = await h.deploy(priceFeed)
-    ocd = await h.deploy(sourcePath, link.address, {from: h.defaultAccount})
+    ocd = await h.deploy(sourcePath, link.address, { from: h.defaultAccount })
   })
 
   it('extends the public interface of the Oracle contract', () => {
@@ -45,10 +45,10 @@ contract('OracleDev', () => {
 
   describe('currentRate', () => {
     beforeEach(async () => {
-      await ethFeed.addOracle(h.oracleNode, {from: h.defaultAccount})
-      await usdFeed.addOracle(h.oracleNode, {from: h.defaultAccount})
-      await ethFeed.update(ethRate, {from: h.oracleNode})
-      await usdFeed.update(usdRate, {from: h.oracleNode})
+      await ethFeed.addOracle(h.oracleNode, { from: h.defaultAccount })
+      await usdFeed.addOracle(h.oracleNode, { from: h.defaultAccount })
+      await ethFeed.update(ethRate, { from: h.oracleNode })
+      await usdFeed.update(usdRate, { from: h.oracleNode })
       await ocd.setPriceFeed(ethFeed.address, 'ETH')
       await ocd.setPriceFeed(usdFeed.address, 'USD')
     })
@@ -72,14 +72,16 @@ contract('OracleDev', () => {
     context('if a stranger tries setting a price feed', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await ocd.setPriceFeed(ethFeed.address, 'ETH', {from: h.stranger})
+          await ocd.setPriceFeed(ethFeed.address, 'ETH', { from: h.stranger })
         })
       })
     })
 
     context('owner setting an ETH price feed', () => {
       beforeEach(async () => {
-        await ocd.setPriceFeed(ethFeed.address, 'ETH', {from: h.defaultAccount})
+        await ocd.setPriceFeed(ethFeed.address, 'ETH', {
+          from: h.defaultAccount
+        })
       })
 
       it('sets the address of a price feed for a given currency', async () => {
