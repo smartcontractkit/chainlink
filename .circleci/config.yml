@@ -1,4 +1,5 @@
-version: 2
+version: 2.1
+
 jobs:
   go-sqlite:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
@@ -184,6 +185,42 @@ jobs:
             - /usr/local/share/.cache/yarn
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/operator_ui_test
+  explorer:
+    docker:
+      - image: circleci/node:10-browsers
+        environment:
+          TYPEORM_NAME: ci
+      - image: circleci/postgres:11-alpine
+        environment:
+          POSTGRES_USER: root
+          POSTGRES_DB: linkstats_test
+    steps:
+      - checkout
+      - restore_cache:
+          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "explorer/client/yarn.lock" }}
+      - run:
+          name: Install Server Packages
+          command: yarn install
+      - run:
+          name: Install Client Packages
+          command: cd explorer/client && yarn install
+      - save_cache:
+          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "explorer/client/yarn.lock" }}
+          paths:
+            - ~/.cache/yarn
+            - /usr/local/share/.cache/yarn
+      - run:
+          name: Run Lint
+          command: yarn lint:explorer
+      - run:
+          name: Run Server Tests
+          command: cd explorer && yarn test-ci
+      - run:
+          name: Run Client Tests
+          command: cd explorer/client && yarn test-ci
+      - run:
+          name: Run E2E Tests
+          command: cd explorer/client && yarn build && cd - && yarn test-ci:e2e
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.18
@@ -191,7 +228,7 @@ jobs:
       - checkout
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/report_coverage
-  deploy:
+  deploy-core:
     docker:
       - image: smartcontract/deployer:latest
     environment:
@@ -211,7 +248,6 @@ jobs:
                 "chainlink=smartcontract/chainlink:staging@%"
 
 workflows:
-  version: 2
   test:
     jobs:
       - go-sqlite
@@ -221,13 +257,14 @@ workflows:
       - geth-postgres
       - parity-postgres
       - operator-ui
+      - explorer
       - rust
       - sgx
       - reportcoverage:
           requires:
             - go-sqlite
             - operator-ui
-      - deploy:
+      - deploy-core:
           requires:
             - go-sqlite
             - go-sqlite-race
