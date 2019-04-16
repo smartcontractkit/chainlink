@@ -149,6 +149,23 @@ jobs:
           paths:
             - ./vendor
       - run: ./tools/ci/ethereum_test parity
+  lint:
+    working_directory: /go/src/github.com/smartcontractkit/chainlink
+    docker:
+      - image: smartcontract/builder:1.0.17
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - run: ./tools/ci/lint
   truffle:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -217,6 +234,7 @@ workflows:
       - go-sqlite
       - go-sqlite-race
       - go-postgres
+      - lint
       - truffle
       - geth-postgres
       - parity-postgres
@@ -232,6 +250,7 @@ workflows:
             - go-sqlite
             - go-sqlite-race
             - go-postgres
+            - lint
             - truffle
             - geth-postgres
             - parity-postgres

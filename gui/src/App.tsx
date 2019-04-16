@@ -9,7 +9,9 @@ const store = createStore()
 
 store.subscribe(() => {
   const prevURL = store.getState().notifications.currentUrl
-  if (prevURL !== '/signin') { set('persistURL', prevURL) }
+  if (prevURL !== '/signin') {
+    set('persistURL', prevURL)
+  }
 })
 
 class App extends PureComponent {
@@ -30,4 +32,4 @@ class App extends PureComponent {
   }
 }
 
-export default (App)
+export default App
