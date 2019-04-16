@@ -17,6 +17,9 @@ export class Initiator {
   jobRun: JobRun
 
   @Column()
+  type: string
+
+  @Column()
   requestId: string
 
   @Column()

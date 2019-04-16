@@ -19,6 +19,7 @@ export default async () => {
     await dbConnection.manager.save(jobRunA)
 
     const initiatorA = new Initiator()
+    initiatorA.type = 'runlog'
     initiatorA.jobRun = jobRunA
     initiatorA.txHash = 'txA'
     initiatorA.requestId = 'requestIdA'
@@ -41,6 +42,7 @@ export default async () => {
     await dbConnection.manager.save(jobRunB)
 
     const initiatorB = new Initiator()
+    initiatorB.type = 'runlog'
     initiatorB.jobRun = jobRunB
     initiatorB.txHash = 'txB'
     initiatorB.requestId = 'requestIdB'
