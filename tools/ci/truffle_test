@@ -4,6 +4,7 @@ set -e
 
 yarn solium --dir solidity/
 yarn solium --dir examples/
+yarn lint:solidity && yarn lint:examples
 
 cd solidity
 yarn truffle test
