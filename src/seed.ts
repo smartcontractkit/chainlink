@@ -24,7 +24,6 @@ export default async () => {
     initiatorA.txHash = 'txA'
     initiatorA.requestId = 'requestIdA'
     initiatorA.requester = 'requesterA'
-    initiatorA.createdAt = jobRunA.createdAt
     await dbConnection.manager.save(initiatorA)
 
     const taskRunA = new TaskRun()
@@ -47,7 +46,6 @@ export default async () => {
     initiatorB.txHash = 'txB'
     initiatorB.requestId = 'requestIdB'
     initiatorB.requester = 'requesterB'
-    initiatorB.createdAt = jobRunB.createdAt
     await dbConnection.manager.save(initiatorB)
 
     const taskRunB = new TaskRun()
