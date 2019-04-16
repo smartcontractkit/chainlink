@@ -38,11 +38,22 @@ jobs:
       - run:
           name: Run E2E Tests
           command: cd client && yarn build && cd .. && yarn test-ci:e2e
+  build-image:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Docker build
+          command: docker build .
 
 workflows:
   test:
     jobs:
       - unit-tests
+      - build-image:
+          filters:
+            branches:
+              ignore: master
       - aws-ecr/build_and_push_image:
           requires:
             - unit-tests
