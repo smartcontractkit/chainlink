@@ -19,15 +19,20 @@ export const bootstrapRealtime = (server: http.Server) => {
 
       try {
         const jobRun = fromString(message as string)
-        await db.manager
-          .save(jobRun)
-          .then(entity => {
-            jobRun.taskRuns.map(async (tr: TaskRun) => {
+        const entity = await db.manager.save(jobRun)
+
+        const initiator = jobRun.initiator
+        initiator.jobRun = entity
+        await db.manager.save(initiator)
+
+        await Promise.all(
+          jobRun.taskRuns.map(
+            (tr): Promise<TaskRun> => {
               tr.jobRun = entity
-              await db.manager.save(tr).catch(console.error)
-            })
-          })
-          .catch(console.error)
+              return db.manager.save(tr)
+            }
+          )
+        )
         result = { status: 201 }
       } catch (e) {
         console.error(e)
