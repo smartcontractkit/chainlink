@@ -2,7 +2,7 @@
 
 set -e
 
-yarn lint
+yarn lint:styleguide && yarn lint:operator-ui
 
 cd gui
 ../node_modules/.bin/cross-env NODE_ENV=test \
