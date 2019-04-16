@@ -4,9 +4,9 @@ RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
 ENV PATH /usr/src/app/node_modules/.bin:$PATH
 
-COPY package.json package.json
-COPY client/package.json client/package.json
-RUN yarn install && cd client/ && yarn install
+COPY package.json yarn.lock ./
+COPY client/package.json client/yarn.lock client/
+RUN yarn autoinstall
 
 ADD . .
 RUN yarn build
