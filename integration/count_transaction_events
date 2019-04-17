@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 const { abort, port } = require('./common.js')
-const { web3 } = require('../solidity/app/env.js')
+const { web3 } = require('../evm/app/env.js')
 
-process.env.SOLIDITY_INCLUDE = '../solidity/contracts'
+process.env.SOLIDITY_INCLUDE = '../evm/contracts'
 
 const main = async (contractName, txID, fromAddress) => {
   const transaction = await web3.eth

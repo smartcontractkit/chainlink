@@ -13,6 +13,9 @@
     "openzeppelin-solidity": "^1.12.0",
     "solidity-cborutils": "^1.0.4"
   },
+  "devDependencies": {
+    "truffle": "^5.0.1"
+  },
   "files": [
     "contracts",
     "zos.json",

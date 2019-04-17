@@ -1,14 +1,13 @@
-.storybook
-stories
+styleguide
 coverage
-gui/dist
-gui/artifacts
 tools/gethnet
 node_modules
 vendor
+operator_ui/dist
+operator_ui/artifacts
 # ESLint doesn't support experimental import() syntax
-gui/src/Layout.js
+operator_ui/src/Layout.js
 # ESLint doesn't support experimental import() syntax
-gui/src/Private.js
+operator_ui/src/Private.js
 # ESLint doesn't support experimental static attr syntax
-gui/src/PrivateRoute.js
+operator_ui/src/PrivateRoute.js

@@ -9,9 +9,9 @@ node_modules/
 vendor/
 tmp/
 
-solidity/node_modules/
-solidity/build/
-solidity/.python-version
+evm/node_modules/
+evm/build/
+evm/.python-version
 
 internal/gethnet/datadir/geth
 internal/clroot/db.bolt
@@ -19,7 +19,8 @@ internal/clroot/*.jsonl
 
 sgx/target/
 
-gui/dist/
+operator_ui/dist/
+operator_ui/artifacts/
 *-packr.go
 
 Dockerfile

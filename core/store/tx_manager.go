@@ -27,7 +27,7 @@ import (
 
 // DefaultGasLimit sets the default gas limit for outgoing transactions.
 // if updating DefaultGasLimit, be sure it matches with the
-// DefaultGasLimit specified in solidity/test/Oracle_test.js
+// DefaultGasLimit specified in evm/test/Oracle_test.js
 const DefaultGasLimit uint64 = 500000
 const nonceReloadLimit uint = 1
 
@@ -631,10 +631,10 @@ type Contract struct {
 	ABI abi.ABI
 }
 
-// GetContract loads the contract JSON file from ../solidity/build/contracts
+// GetContract loads the contract JSON file from ../evm/build/contracts
 // and parses the ABI JSON contents into an abi.ABI object
 func GetContract(name string) (*Contract, error) {
-	box := packr.NewBox("../../solidity/build/contracts")
+	box := packr.NewBox("../../evm/build/contracts")
 	jsonFile, err := box.MustBytes(name + ".json")
 	if err != nil {
 		return nil, errors.New("unable to read contract JSON")

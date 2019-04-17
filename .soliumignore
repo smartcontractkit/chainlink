@@ -4,4 +4,4 @@ examples/uptime_sla/node_modules
 examples/twilio_sms/node_modules
 examples/ropsten/contracts/RopstenConsumer.sol
 examples/ropsten/contracts/Oracle.sol
-solidity/contracts/lib
+evm/contracts/lib

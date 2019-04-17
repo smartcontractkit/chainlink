@@ -1,5 +1,5 @@
 coverage
-.storybook
-gui/dist
+styleguide
+operator_ui/dist
 tools/gethnet
 vendor
