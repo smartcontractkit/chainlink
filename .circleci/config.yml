@@ -166,7 +166,7 @@ jobs:
           paths:
             - /usr/local/share/.cache/yarn
       - run: ./tools/ci/truffle_test
-  gui:
+  operator-ui:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.17
@@ -183,7 +183,7 @@ jobs:
           paths:
             - /usr/local/share/.cache/yarn
       - run: ./tools/ci/init_gcloud
-      - run: ./tools/ci/gui_test
+      - run: ./tools/ci/operator_ui_test
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.17
@@ -220,13 +220,13 @@ workflows:
       - truffle
       - geth-postgres
       - parity-postgres
-      - gui
+      - operator-ui
       - rust
       - sgx
       - reportcoverage:
           requires:
             - go-sqlite
-            - gui
+            - operator-ui
       - deploy:
           requires:
             - go-sqlite
@@ -235,7 +235,7 @@ workflows:
             - truffle
             - geth-postgres
             - parity-postgres
-            - gui
+            - operator-ui
           filters:
             branches:
               only: master
