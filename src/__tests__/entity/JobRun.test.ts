@@ -17,6 +17,7 @@ describe('fromString', () => {
     expect(jr.completedAt).toEqual(new Date('2018-04-01T22:07:04Z'))
 
     expect(jr.initiator.id).toBeUndefined()
+    expect(jr.initiator.type).toEqual('runlog')
     expect(jr.initiator.requestId).toEqual('RequestID')
     expect(jr.initiator.txHash).toEqual(
       '0x00000000000000000000000000000000000000000000000000000000deadbeef'
@@ -34,6 +35,7 @@ describe('fromString', () => {
 
     const r = await getDb().manager.save(jr)
     expect(r.id).toBeDefined()
+    expect(r.initiator.type).toEqual('runlog')
     expect(r.taskRuns.length).toEqual(1)
   })
 

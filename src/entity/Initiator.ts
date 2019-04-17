@@ -12,19 +12,19 @@ export class Initiator {
   @PrimaryGeneratedColumn()
   id: number
 
-  @OneToOne(type => JobRun)
+  @OneToOne(type => JobRun, jobRun => jobRun.initiator)
   @JoinColumn()
   jobRun: JobRun
 
   @Column()
+  type: string
+
+  @Column({ nullable: true })
   requestId: string
 
-  @Column()
+  @Column({ nullable: true })
   txHash: string
 
-  @Column()
+  @Column({ nullable: true })
   requester: string
-
-  @Column()
-  createdAt: Date
 }
