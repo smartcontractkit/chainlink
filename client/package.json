@@ -26,9 +26,6 @@
     "type": "git",
     "url": "git://github.com/smartcontractkit/linkstats"
   },
-  "engines": {
-    "node": "^11.12"
-  },
   "proxy": "http://localhost:8080",
   "dependencies": {},
   "devDependencies": {

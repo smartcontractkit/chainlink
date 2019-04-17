@@ -4,7 +4,7 @@ orbs:
 jobs:
   unit-tests:
     docker:
-      - image: circleci/node:11-browsers
+      - image: circleci/node:10-browsers
         environment:
           TYPEORM_NAME: ci
       - image: circleci/postgres:11-alpine
