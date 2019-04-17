@@ -1,6 +1,11 @@
 import { toBuffer } from 'ethereumjs-util'
 import abi from 'ethereumjs-abi'
-import { checkPublicABI, decodeDietCBOR, deploy } from './support/helpers'
+import {
+  checkPublicABI,
+  decodeDietCBOR,
+  deploy,
+  toHex
+} from './support/helpers'
 
 contract('ConcreteChainlink', () => {
   const sourcePath = 'examples/ConcreteChainlink.sol'
@@ -23,7 +28,7 @@ contract('ConcreteChainlink', () => {
   })
 
   function parseCCLEvent(tx) {
-    const data = toBuffer(tx.receipt.logs[0].data)
+    const data = toBuffer(tx.receipt.rawLogs[0].data)
     return abi.rawDecode(['bytes'], data)
   }
 
@@ -95,7 +100,7 @@ contract('ConcreteChainlink', () => {
     })
 
     it('handles strings', async () => {
-      await ccl.addBytes('first', 'apple')
+      await ccl.addBytes('first', toHex('apple'))
       const tx = await ccl.closeEvent()
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
@@ -152,11 +157,14 @@ contract('ConcreteChainlink', () => {
 
   describe('#addStringArray', () => {
     it('stores and logs keys and values', async () => {
-      await ccl.addStringArray('word', ['seinfeld', '"4"', 'LIFE'])
+      await ccl.addStringArray('word', [
+        toHex('seinfeld'),
+        toHex('"4"'),
+        toHex('LIFE')
+      ])
       const tx = await ccl.closeEvent()
       const [payload] = parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-
       assert.deepEqual(decoded, { word: ['seinfeld', '"4"', 'LIFE'] })
     })
   })
