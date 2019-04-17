@@ -392,6 +392,30 @@ func (InstantClock) After(_ time.Duration) <-chan time.Time {
 	return c
 }
 
+// TriggerClock implements the AfterNower interface, but must be manually triggered
+// to resume computation on After.
+type TriggerClock struct {
+	triggers chan time.Time
+}
+
+// NewTriggerClock returns a new TriggerClock, that a test can manually fire
+// to continue processing in a Clock dependency.
+func NewTriggerClock() *TriggerClock {
+	return &TriggerClock{
+		triggers: make(chan time.Time),
+	}
+}
+
+// Trigger sends a time to unblock the After call.
+func (t *TriggerClock) Trigger() {
+	t.triggers <- time.Now()
+}
+
+// After waits on a manual trigger.
+func (t *TriggerClock) After(_ time.Duration) <-chan time.Time {
+	return t.triggers
+}
+
 // NeverClock a never clock
 type NeverClock struct{}
 
