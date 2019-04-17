@@ -157,7 +157,7 @@ contract('Coordinator', () => {
       })
 
       it('logs an event', async () => {
-        const log = tx.receipt.logs[2]
+        const log = tx.receipt.rawLogs[2]
         assert.equal(coordinator.address, log.address)
 
         // If updating this test, be sure to update
@@ -168,7 +168,7 @@ contract('Coordinator', () => {
         assert.equal(eventSignature, log.topics[0])
 
         assert.equal(agreement.id, log.topics[1])
-        const req = h.decodeRunRequest(tx.receipt.logs[2])
+        const req = h.decodeRunRequest(tx.receipt.rawLogs[2])
         assertBigNum(
           h.consumer,
           req.requester,
@@ -214,14 +214,14 @@ contract('Coordinator', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
           await coordinator.oracleRequest(
-            0,
+            '0x0000000000000000000000000000000000000000',
             0,
             agreement.id,
             to,
             fHash,
             1,
             1,
-            '',
+            '0x',
             { from: h.consumer }
           )
         })
@@ -252,18 +252,21 @@ contract('Coordinator', () => {
         const tx = await link.transferAndCall(
           coordinator.address,
           agreement.payment,
-          payload
+          payload,
+          { value: 0 }
         )
-        request = h.decodeRunRequest(tx.receipt.logs[2])
+        request = h.decodeRunRequest(tx.receipt.rawLogs[2])
       })
 
       context('when called by a non-owner', () => {
         // Turn this test on when multiple-oracle response aggregation is enabled
         xit('raises an error', async () => {
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillOracleRequest(request.id, 'Hello World!', {
-              from: h.stranger
-            })
+            await coordinator.fulfillOracleRequest(
+              request.id,
+              h.toHex('Hello World!'),
+              { from: h.stranger }
+            )
           })
         })
       })
@@ -271,16 +274,20 @@ contract('Coordinator', () => {
       context('when called by an owner', () => {
         it('raises an error if the request ID does not exist', async () => {
           await h.assertActionThrows(async () => {
-            await coordinator.fulfillOracleRequest(0xdeadbeef, 'Hello World!', {
-              from: h.oracleNode
-            })
+            await coordinator.fulfillOracleRequest(
+              '0xdeadbeef',
+              h.toHex('Hello World!'),
+              { from: h.oracleNode }
+            )
           })
         })
 
         it('sets the value on the requested contract', async () => {
-          await coordinator.fulfillOracleRequest(request.id, 'Hello World!', {
-            from: h.oracleNode
-          })
+          await coordinator.fulfillOracleRequest(
+            request.id,
+            h.toHex('Hello World!'),
+            { from: h.oracleNode }
+          )
 
           const mockRequestId = await mock.requestId.call()
           assert.equal(request.id, mockRequestId)
@@ -290,13 +297,15 @@ contract('Coordinator', () => {
         })
 
         it('does not allow a request to be fulfilled twice', async () => {
-          await coordinator.fulfillOracleRequest(request.id, 'First message!', {
-            from: h.oracleNode
-          })
+          await coordinator.fulfillOracleRequest(
+            request.id,
+            h.toHex('First message!'),
+            { from: h.oracleNode }
+          )
           await h.assertActionThrows(async () => {
             await coordinator.fulfillOracleRequest(
               request.id,
-              'Second message!!',
+              h.toHex('Second message!!'),
               { from: h.oracleNode }
             )
           })
@@ -330,7 +339,7 @@ contract('Coordinator', () => {
           await mock.request(
             agreement.id,
             link.address,
-            'transfer(address,uint256)'
+            h.toHex('transfer(address,uint256)')
           )
         })
       })
@@ -338,7 +347,7 @@ contract('Coordinator', () => {
       context('requester lies about amount of LINK sent', () => {
         it('the oracle uses the amount of LINK actually paid', async () => {
           const tx = await mock.maliciousPrice(agreement.id)
-          const req = h.decodeRunRequest(tx.receipt.logs[3])
+          const req = h.decodeRunRequest(tx.receipt.rawLogs[3])
           assertBigNum(
             paymentAmount,
             req.payment,
@@ -368,16 +377,16 @@ contract('Coordinator', () => {
         beforeEach(async () => {
           const tx = await mock.requestData(
             agreement.id,
-            'assertFail(bytes32,bytes32)'
+            h.toHex('assertFail(bytes32,bytes32)')
           )
-          request = h.decodeRunRequest(tx.receipt.logs[3])
+          request = h.decodeRunRequest(tx.receipt.rawLogs[3])
         })
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
           await coordinator.fulfillOracleRequest(
             request.id,
-            'hack the planet 101',
+            h.toHex('hack the planet 101'),
             { from: h.oracleNode }
           )
 
@@ -394,13 +403,13 @@ contract('Coordinator', () => {
         it("can't fulfill the data again", async () => {
           await coordinator.fulfillOracleRequest(
             request.id,
-            'hack the planet 101',
+            h.toHex('hack the planet 101'),
             { from: h.oracleNode }
           )
           await h.assertActionThrows(async () => {
             await coordinator.fulfillOracleRequest(
               request.id,
-              'hack the planet 102',
+              h.toHex('hack the planet 102'),
               { from: h.oracleNode }
             )
           })
@@ -413,7 +422,7 @@ contract('Coordinator', () => {
             agreement.id,
             'doesNothing(bytes32,bytes32)'
           )
-          request = h.decodeRunRequest(tx.receipt.logs[3])
+          request = h.decodeRunRequest(tx.receipt.rawLogs[3])
           await mock.remove()
         })
 
@@ -421,7 +430,7 @@ contract('Coordinator', () => {
         xit('allows the oracle node to receive their payment', async () => {
           await coordinator.fulfillOracleRequest(
             request.id,
-            'hack the planet 101',
+            h.toHex('hack the planet 101'),
             { from: h.oracleNode }
           )
 
@@ -440,24 +449,24 @@ contract('Coordinator', () => {
         beforeEach(async () => {
           const tx = await mock.requestData(
             agreement.id,
-            'cancelRequestOnFulfill(bytes32,bytes32)'
+            h.toHex('cancelRequestOnFulfill(bytes32,bytes32)')
           )
-          request = h.decodeRunRequest(tx.receipt.logs[3])
+          request = h.decodeRunRequest(tx.receipt.rawLogs[3])
 
           const mockBalance = await link.balanceOf.call(mock.address)
-          assert.isTrue(mockBalance.equals(0))
+          assertBigNum(mockBalance, h.bigNum(0))
         })
 
         // needs coordinator withdrawal functionality to meet parity
         xit('allows the oracle node to receive their payment', async () => {
           await coordinator.fulfillOracleRequest(
             request.id,
-            'hack the planet 101',
+            h.toHex('hack the planet 101'),
             { from: h.oracleNode }
           )
 
           const mockBalance = await link.balanceOf.call(mock.address)
-          assert.isTrue(mockBalance.equals(0))
+          assertBigNum(mockBalance, h.bigNum(0))
 
           const balance = await link.balanceOf.call(h.oracleNode)
           assert.isTrue(balance.equals(0))
@@ -472,13 +481,13 @@ contract('Coordinator', () => {
         it("can't fulfill the data again", async () => {
           await coordinator.fulfillOracleRequest(
             request.id,
-            'hack the planet 101',
+            h.toHex('hack the planet 101'),
             { from: h.oracleNode }
           )
           await h.assertActionThrows(async () => {
             await coordinator.fulfillOracleRequest(
               request.id,
-              'hack the planet 102',
+              h.toHex('hack the planet 102'),
               { from: h.oracleNode }
             )
           })
@@ -514,9 +523,10 @@ contract('Coordinator', () => {
         tx = await link.transferAndCall(
           coordinator.address,
           agreement.payment,
-          payload
+          payload,
+          { value: 0 }
         )
-        request = h.decodeRunRequest(tx.receipt.logs[2])
+        request = h.decodeRunRequest(tx.receipt.rawLogs[2])
       })
 
       it('does not set the value with only one oracle', async () => {
@@ -526,7 +536,7 @@ contract('Coordinator', () => {
           { from: oracle1 }
         )
 
-        assert.equal(tx.receipt.logs.length, 0) // No logs emitted = consuming contract not called
+        assert.equal(tx.receipt.rawLogs.length, 0) // No logs emitted = consuming contract not called
       })
 
       it('sets the average of the reported values', async () => {
@@ -542,24 +552,21 @@ contract('Coordinator', () => {
           { from: oracle3 }
         )
 
-        assert.equal(lastTx.receipt.logs.length, 1)
+        assert.equal(lastTx.receipt.rawLogs.length, 1)
         const currentValue = await mock.getUint256.call()
         assertBigNum(h.bigNum(17), currentValue)
       })
 
       context('when large values are provided in response', async () => {
+        // (uint256(-1) / 2) - 1
         const largeValue1 =
-          '57896044618658097711785492504343953926634992332820282019728792003956564819967'
-
-        const largeValue2 = h
-          .bigNum(largeValue1)
-          .sub(h.bigNum('1'))
-          .toString()
-
-        const largeValue3 = h
-          .bigNum(largeValue1)
-          .add(h.bigNum('1'))
-          .toString()
+          '0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe'
+        // (uint256(-1) / 2)
+        const largeValue2 =
+          '0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+        // (uint256(-1) / 2) + 1
+        const largeValue3 =
+          '0x8000000000000000000000000000000000000000000000000000000000000000'
 
         beforeEach(async () => {
           await coordinator.fulfillOracleRequest(request.id, largeValue1, {
@@ -581,14 +588,14 @@ contract('Coordinator', () => {
             from: oracle3
           })
           const currentValue = await mock.getUint256.call()
-          assertBigNum(h.bigNum(largeValue1), currentValue)
+          assertBigNum(h.bigNum(largeValue2), currentValue)
           assert.notEqual(0, await mock.requestId.call()) // check if called
         })
       })
 
       it('successfully sets average when responses equal largest uint256', async () => {
         const largest =
-          '115792089237316195423570985008687907853269984665640564039457584007913129639935'
+          '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 
         await coordinator.fulfillOracleRequest(request.id, largest, {
           from: oracle1
@@ -670,9 +677,10 @@ contract('Coordinator', () => {
         tx = await link.transferAndCall(
           coordinator.address,
           agreement.payment,
-          payload
+          payload,
+          { value: 0 }
         )
-        request = h.decodeRunRequest(tx.receipt.logs[2])
+        request = h.decodeRunRequest(tx.receipt.rawLogs[2])
 
         await coordinator.fulfillOracleRequest(request.id, h.toHex(16), {
           from: oracle1
@@ -723,9 +731,10 @@ contract('Coordinator', () => {
         tx = await link.transferAndCall(
           coordinator.address,
           agreement.payment,
-          payload
+          payload,
+          { value: 0 }
         )
-        request = h.decodeRunRequest(tx.receipt.logs[2])
+        request = h.decodeRunRequest(tx.receipt.rawLogs[2])
 
         await coordinator.fulfillOracleRequest(request.id, h.toHex(16), {
           from: oracle1
@@ -762,7 +771,7 @@ contract('Coordinator', () => {
 
       it('rejects amounts greater than allowed', async () => {
         const oracleBalance = await coordinator.withdrawableTokens.call(oracle1)
-        const withdrawAmount = oracleBalance.add(1)
+        const withdrawAmount = oracleBalance.add(h.bigNum(1))
         await h.assertActionThrows(async () => {
           await coordinator.withdraw(oracle1, withdrawAmount.toString(), {
             from: oracle1

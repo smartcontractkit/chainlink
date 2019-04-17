@@ -3,6 +3,8 @@ import * as h from './support/helpers'
 contract('OracleDev', () => {
   const sourcePath = 'OracleDev.sol'
   const priceFeed = 'LinkEx.sol'
+  const ethSymbol = h.toHex('ETH')
+  const usdSymbol = h.toHex('USD')
   const ethRate = 370160
   const usdRate = 500000
   let link: any
@@ -49,20 +51,20 @@ contract('OracleDev', () => {
       await usdFeed.addOracle(h.oracleNode, {from: h.defaultAccount})
       await ethFeed.update(ethRate, {from: h.oracleNode})
       await usdFeed.update(usdRate, {from: h.oracleNode})
-      await ocd.setPriceFeed(ethFeed.address, 'ETH')
-      await ocd.setPriceFeed(usdFeed.address, 'USD')
+      await ocd.setPriceFeed(ethFeed.address, ethSymbol)
+      await ocd.setPriceFeed(usdFeed.address, usdSymbol)
     })
 
     context('when requesting the ETH rate', () => {
       it('returns the current ETH rate', async () => {
-        const currentRate = await ocd.currentRate('ETH')
+        const currentRate = await ocd.currentRate(ethSymbol)
         assert.equal(currentRate.toString(), ethRate.toString())
       })
     })
 
     context('when requesting the USD rate', () => {
       it('returns the current USD rate', async () => {
-        const currentRate = await ocd.currentRate('USD')
+        const currentRate = await ocd.currentRate(usdSymbol)
         assert.equal(currentRate.toString(), usdRate.toString())
       })
     })
@@ -72,28 +74,28 @@ contract('OracleDev', () => {
     context('if a stranger tries setting a price feed', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await ocd.setPriceFeed(ethFeed.address, 'ETH', {from: h.stranger})
+          await ocd.setPriceFeed(ethFeed.address, ethSymbol, {from: h.stranger})
         })
       })
     })
 
     context('owner setting an ETH price feed', () => {
       beforeEach(async () => {
-        await ocd.setPriceFeed(ethFeed.address, 'ETH', {from: h.defaultAccount})
+        await ocd.setPriceFeed(ethFeed.address, ethSymbol, {from: h.defaultAccount})
       })
 
       it('sets the address of a price feed for a given currency', async () => {
-        assert.equal(await ocd.priceFeeds.call('ETH'), ethFeed.address)
+        assert.equal(await ocd.priceFeeds.call(ethSymbol), ethFeed.address)
       })
     })
 
     context('owner setting a USD price feed', () => {
       beforeEach(async () => {
-        await ocd.setPriceFeed(usdFeed.address, 'USD')
+        await ocd.setPriceFeed(usdFeed.address, usdSymbol)
       })
 
       it('sets the address of a price feed for a given currency', async () => {
-        assert.equal(await ocd.priceFeeds.call('USD'), usdFeed.address)
+        assert.equal(await ocd.priceFeeds.call(usdSymbol), usdFeed.address)
       })
     })
   })

@@ -1,11 +1,11 @@
-import { deploy, stranger, toUtf8 } from './support/helpers'
+import { deploy, stranger, toHex, toUtf8 } from './support/helpers'
 import { assertBigNum } from './support/matchers'
 
 contract('GetterSetter', () => {
   const sourcePath = 'examples/GetterSetter.sol'
   const requestId =
     '0x3bd198932d9cc01e2950ffc518fd38a303812200000000000000000000000000'
-  const bytes32 = 'Hi Mom!'
+  const bytes32 = toHex('Hi Mom!')
   const uint256 = 645746535432
   let gs
 
@@ -18,15 +18,15 @@ contract('GetterSetter', () => {
       await gs.setBytes32(bytes32, { from: stranger })
 
       let currentBytes32 = await gs.getBytes32.call()
-      assert.equal(toUtf8(currentBytes32), bytes32)
+      assert.equal(toUtf8(currentBytes32), toUtf8(bytes32))
     })
 
     it('logs an event', async () => {
       let tx = await gs.setBytes32(bytes32, { from: stranger })
 
       assert.equal(1, tx.logs.length)
-      assert.equal(stranger.toLowerCase(), tx.logs[0].args.from)
-      assert.equal(bytes32, toUtf8(tx.logs[0].args.value))
+      assert.equal(stranger.toLowerCase(), tx.logs[0].args.from.toLowerCase())
+      assert.equal(toUtf8(bytes32), toUtf8(tx.logs[0].args.value))
     })
   })
 
@@ -38,7 +38,7 @@ contract('GetterSetter', () => {
       assert.equal(currentRequestId, requestId)
 
       let currentBytes32 = await gs.getBytes32.call()
-      assert.equal(toUtf8(currentBytes32), bytes32)
+      assert.equal(toUtf8(currentBytes32), toUtf8(bytes32))
     })
   })
 
@@ -54,7 +54,7 @@ contract('GetterSetter', () => {
       let tx = await gs.setUint256(uint256, { from: stranger })
 
       assert.equal(1, tx.logs.length)
-      assert.equal(stranger.toLowerCase(), tx.logs[0].args.from)
+      assert.equal(stranger.toLowerCase(), tx.logs[0].args.from.toLowerCase())
       assertBigNum(uint256, tx.logs[0].args.value)
     })
   })
