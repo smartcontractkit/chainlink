@@ -42,7 +42,7 @@ const mergeOptions = (): PostgresConnectionOptions => {
 let db: Connection | undefined
 
 export const getDb = async (): Promise<Connection> => {
-  if (db == null) {
+  if (db === undefined) {
     db = await createConnection(mergeOptions())
   }
   if (db == null) {
