@@ -21,10 +21,6 @@ export const bootstrapRealtime = (server: http.Server) => {
         const jobRun = fromString(message as string)
         const entity = await db.manager.save(jobRun)
 
-        const initiator = jobRun.initiator
-        initiator.jobRun = entity
-        await db.manager.save(initiator)
-
         await Promise.all(
           jobRun.taskRuns.map(
             (tr): Promise<TaskRun> => {

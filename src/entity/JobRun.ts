@@ -7,7 +7,6 @@ import {
   PrimaryGeneratedColumn
 } from 'typeorm'
 import { TaskRun } from './TaskRun'
-import { Initiator } from './Initiator'
 
 @Entity()
 export class JobRun {
@@ -23,6 +22,18 @@ export class JobRun {
   @Column()
   status: string
 
+  @Column()
+  type: string
+
+  @Column({ nullable: true })
+  requestId: string
+
+  @Column({ nullable: true })
+  txHash: string
+
+  @Column({ nullable: true })
+  requester: string
+
   @Column({ nullable: true })
   error: string
 
@@ -36,11 +47,6 @@ export class JobRun {
     onDelete: 'CASCADE'
   })
   taskRuns: Array<TaskRun>
-
-  @OneToOne(type => Initiator, initiator => initiator.jobRun, {
-    onDelete: 'CASCADE'
-  })
-  initiator: Initiator
 }
 
 export const fromString = (str: string): JobRun => {
@@ -51,11 +57,12 @@ export const fromString = (str: string): JobRun => {
   jr.status = json.status
   jr.createdAt = new Date(json.createdAt)
   jr.completedAt = json.completedAt && new Date(json.completedAt)
-  jr.initiator = new Initiator()
-  jr.initiator.type = json.initiator.type
-  jr.initiator.requestId = json.initiator.requestId
-  jr.initiator.txHash = json.initiator.txHash
-  jr.initiator.requester = json.initiator.requester
+
+  jr.type = json.initiator.type
+  jr.requestId = json.initiator.requestId
+  jr.txHash = json.initiator.txHash
+  jr.requester = json.initiator.requester
+
   jr.taskRuns = json.tasks.map((trstr: any, index: number) => {
     const tr = new TaskRun()
     tr.index = index
