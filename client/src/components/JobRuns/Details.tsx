@@ -75,22 +75,18 @@ const Details = ({ classes, jobRun }: IProps) => {
           <KeyCol>Job ID</KeyCol>
           <Col>{jobRun.jobId}</Col>
         </TableRow>
-        {jobRun.initiator && (
-          <>
-            <TableRow>
-              <KeyCol>Initiator</KeyCol>
-              <Col>{jobRun.initiator.type}</Col>
-            </TableRow>
-            <TableRow>
-              <KeyCol>Requester</KeyCol>
-              <Col>{jobRun.initiator.requester}</Col>
-            </TableRow>
-            <TableRow>
-              <KeyCol>Request ID</KeyCol>
-              <Col>{jobRun.initiator.requestId}</Col>
-            </TableRow>
-          </>
-        )}
+        <TableRow>
+          <KeyCol>Initiator</KeyCol>
+          <Col>{jobRun.type}</Col>
+        </TableRow>
+        <TableRow>
+          <KeyCol>Requester</KeyCol>
+          <Col>{jobRun.requester}</Col>
+        </TableRow>
+        <TableRow>
+          <KeyCol>Request ID</KeyCol>
+          <Col>{jobRun.requestId}</Col>
+        </TableRow>
         <TableRow>
           <KeyCol>Completed At</KeyCol>
           <Col>{jobRun.completedAt}</Col>
