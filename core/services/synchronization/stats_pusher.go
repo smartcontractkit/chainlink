@@ -22,6 +22,11 @@ type StatsPusher struct {
 	clock    utils.Afterer
 }
 
+const (
+	createCallbackName = "sync:run_after_create"
+	updateCallbackName = "sync:run_after_update"
+)
+
 // NewStatsPusher returns a new event queuer
 func NewStatsPusher(orm *orm.ORM, url *url.URL, afters ...utils.Afterer) *StatsPusher {
 	var clock utils.Afterer
@@ -35,10 +40,8 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL, afters ...utils.Afterer) *StatsP
 	wsClient = noopWebSocketClient{}
 	if url != nil {
 		wsClient = NewWebSocketClient(url)
-		orm.DB.Callback().
-			Create().
-			After("gorm:update").
-			Register("sync:run_after_create", createSyncEvents)
+		orm.DB.Callback().Create().Register(createCallbackName, createSyncEvent)
+		orm.DB.Callback().Update().Register(updateCallbackName, createSyncEvent)
 	}
 	return &StatsPusher{
 		ORM:      orm,
@@ -65,6 +68,8 @@ func (eq *StatsPusher) Close() error {
 	if eq.cancel != nil {
 		eq.cancel()
 	}
+	eq.ORM.DB.Callback().Create().Remove(createCallbackName)
+	eq.ORM.DB.Callback().Update().Remove(updateCallbackName)
 	return eq.WSClient.Close()
 }
 
@@ -98,7 +103,7 @@ func (eq *StatsPusher) pollEvents(parentCtx context.Context) {
 	}
 }
 
-func createSyncEvents(scope *gorm.Scope) {
+func createSyncEvent(scope *gorm.Scope) {
 	if scope.HasError() {
 		return
 	}
