@@ -13,8 +13,8 @@ gui/artifacts
 *-packr.go
 
 # SQLite
-internal/clroot/db.sqlite3-shm
-internal/clroot/db.sqlite3-wal
+tools/clroot/db.sqlite3-shm
+tools/clroot/db.sqlite3-wal
 
 # Log files
 *.log
