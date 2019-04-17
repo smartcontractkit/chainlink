@@ -8,8 +8,8 @@ tmp/
 core/chainlink
 
 # GUI
-gui/dist
-gui/artifacts
+operator_ui/dist
+operator_ui/artifacts
 *-packr.go
 
 # SQLite

@@ -207,7 +207,7 @@ func newServer(app services.Application) *httptest.Server {
 }
 
 func (ta *TestApplication) NewBox() packr.Box {
-	return packr.NewBox("../fixtures/gui/dist")
+	return packr.NewBox("../fixtures/operator_ui/dist")
 }
 
 func (ta *TestApplication) StartAndConnect() error {

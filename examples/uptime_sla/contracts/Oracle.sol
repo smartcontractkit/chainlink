@@ -1,3 +1,3 @@
 pragma solidity 0.4.24;
 
-import "../../../solidity/contracts/Oracle.sol";
+import "../../../evm/contracts/Oracle.sol";

@@ -49,7 +49,7 @@ ORACLE_NODE=0x79dBA5B14cBA2560360c2eF48e9329aC7Ab21573
 ```
 
 ## Set up your LINK and Oracle contracts
-In the same window where you set ORACLE_NODE, move to the solidity directory: `cd solidity/`
+In the same window where you set ORACLE_NODE, move to the evm directory: `cd evm/`
 
 ```
 ./bin/fund_address # fund local wallet

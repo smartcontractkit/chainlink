@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := build
-.PHONY: godep yarndep build install gui docker dockerpush
+.PHONY: godep yarndep build install operator-ui docker dockerpush
 
 ENVIRONMENT ?= release
 
@@ -40,12 +40,12 @@ godep: ## Ensure chainlink's go dependencies are installed.
 yarndep: ## Ensure the frontend's dependencies are installed.
 	yarn install --frozen-lockfile
 
-install: godep gui $(SGX_BUILD_ENCLAVE) ## Install chainlink
+install: godep operator-ui $(SGX_BUILD_ENCLAVE) ## Install chainlink
 	cd core && go build -i -o $(GOPATH)/bin/chainlink $(GOFLAGS)
 
-gui: yarndep ## Install GUI
-	cd gui && CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
-	CGO_ENABLED=0 go run gui/main.go "${CURDIR}/core/services"
+operator-ui: yarndep ## Install Operator UI
+	cd operator_ui && CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
+	CGO_ENABLED=0 go run operator_ui/main.go "${CURDIR}/core/services"
 
 docker: ## Build the docker image.
 	docker build \
@@ -60,7 +60,7 @@ dockerpush: ## Push the docker image to dockerhub
 	docker push $(TAGGED_REPO)
 
 chainlink: $(SGX_BUILD_ENCLAVE)
-	CGO_ENABLED=0 go run gui/main.go "${CURDIR}/store"
+	CGO_ENABLED=0 go run operator_ui/main.go "${CURDIR}/store"
 	go build $(GOFLAGS) -o chainlink
 
 .PHONY: $(SGX_ENCLAVE)

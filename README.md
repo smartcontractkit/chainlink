@@ -96,7 +96,7 @@ $ go test ./...
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
 2. Install the dependencies:
 ```bash
-$ cd $GOPATH/src/github.com/smartcontractkit/chainlink/solidity
+$ cd $GOPATH/src/github.com/smartcontractkit/chainlink/evm
 $ yarn install
 ```
 3. Run tests:
