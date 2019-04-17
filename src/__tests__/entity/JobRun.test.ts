@@ -16,15 +16,12 @@ describe('fromString', () => {
     expect(jr.status).toEqual('in_progress')
     expect(jr.completedAt).toEqual(new Date('2018-04-01T22:07:04Z'))
 
-    expect(jr.initiator.id).toBeUndefined()
-    expect(jr.initiator.type).toEqual('runlog')
-    expect(jr.initiator.requestId).toEqual('RequestID')
-    expect(jr.initiator.txHash).toEqual(
+    expect(jr.type).toEqual('runlog')
+    expect(jr.requestId).toEqual('RequestID')
+    expect(jr.txHash).toEqual(
       '0x00000000000000000000000000000000000000000000000000000000deadbeef'
     )
-    expect(jr.initiator.requester).toEqual(
-      '0x9FBDa871d559710256a2502A2517b794B482Db40'
-    )
+    expect(jr.requester).toEqual('0x9FBDa871d559710256a2502A2517b794B482Db40')
 
     expect(jr.taskRuns.length).toEqual(1)
     expect(jr.taskRuns[0].id).toBeUndefined()
@@ -35,7 +32,7 @@ describe('fromString', () => {
 
     const r = await getDb().manager.save(jr)
     expect(r.id).toBeDefined()
-    expect(r.initiator.type).toEqual('runlog')
+    expect(r.type).toEqual('runlog')
     expect(r.taskRuns.length).toEqual(1)
   })
 

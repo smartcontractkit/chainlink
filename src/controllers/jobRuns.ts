@@ -25,7 +25,6 @@ router.get('/job_runs/:id', async (req: Request, res: Response) => {
     .getRepository(JobRun)
     .createQueryBuilder('job_run')
     .leftJoinAndSelect('job_run.taskRuns', 'task_run')
-    .leftJoinAndSelect('job_run.initiator', 'initiator')
     .where('job_run.id = :id', { id })
     .getOne()
 
