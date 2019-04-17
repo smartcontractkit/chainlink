@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -26,7 +25,7 @@ import (
 type Store struct {
 	*orm.ORM
 	Config      Config
-	Clock       AfterNower
+	Clock       utils.AfterNower
 	KeyStore    *KeyStore
 	RunChannel  RunChannel
 	TxManager   TxManager
@@ -133,7 +132,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	keyStore := NewKeyStore(config.KeysDir())
 
 	store := &Store{
-		Clock:       Clock{},
+		Clock:       utils.Clock{},
 		Config:      config,
 		KeyStore:    keyStore,
 		ORM:         orm,
@@ -198,26 +197,6 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 		}
 	}
 	return merr
-}
-
-// AfterNower is an interface that fulfills the `After()` and `Now()`
-// methods.
-type AfterNower interface {
-	After(d time.Duration) <-chan time.Time
-	Now() time.Time
-}
-
-// Clock is a basic type for scheduling events in the application.
-type Clock struct{}
-
-// Now returns the current time.
-func (Clock) Now() time.Time {
-	return time.Now()
-}
-
-// After returns the current time if the given duration has elapsed.
-func (Clock) After(d time.Duration) <-chan time.Time {
-	return time.After(d)
 }
 
 func initializeORM(config Config) (*orm.ORM, error) {
