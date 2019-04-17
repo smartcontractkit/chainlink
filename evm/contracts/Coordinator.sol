@@ -1,4 +1,5 @@
 pragma solidity 0.4.24;
+pragma experimental ABIEncoderV2; // solium-disable-line no-experimental 
 
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
@@ -13,14 +14,6 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
 
   uint256 constant public EXPIRY_TIME = 5 minutes;
   LinkTokenInterface internal LINK;
-
-  struct ServiceAgreement {
-    uint256 payment;
-    uint256 expiration;
-    uint256 endAt;
-    address[] oracles;
-    bytes32 requestDigest;
-  }
 
   struct Callback {
     bytes32 sAId;
@@ -120,45 +113,43 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    * @notice Stores a Service Agreement which has been signed by the given oracles
    * @dev Validates that each oracle has a valid signature.
    * Emits NewServiceAgreement event.
-   * @param _payment The amount of payment given (specified in wei)
-   * @param _expiration The expiration that nodes should respond by
-   * @param _endAt The date which the service agreement is no longer valid
-   * @param _oracles Array of oracle addresses which agreed to the service agreement
-   * @param _vs Array of recovery IDs of the oracle signatures
-   * @param _rs Array of first 32 bytes of the oracle signatures
-   * @param _ss Array of second 32 bytes of the oracle signatures
-   * @param _requestDigest Hash of the normalized job specification
+   * @param _agreement The Service Agreement to be initiated
+   * @param _signatures The signatures of the oracles in the agreement
    * @return The Service Agreement ID
    */
   function initiateServiceAgreement(
-    uint256 _payment,
-    uint256 _expiration,
-    uint256 _endAt,
-    address[] _oracles,
-    uint8[] _vs,
-    bytes32[] _rs,
-    bytes32[] _ss,
-    bytes32 _requestDigest
+    ServiceAgreement memory _agreement,
+    OracleSignatures memory _signatures
   )
-    external
+    public 
     returns (bytes32 serviceAgreementID)
   {
-    require(_oracles.length == _vs.length && _vs.length == _rs.length && _rs.length == _ss.length, "Must pass in as many signatures as oracles"); /* solium-disable-line max-len */
-    require(_endAt > block.timestamp, "End of ServiceAgreement must be in the future");
+    require(
+      _agreement.oracles.length == _signatures.vs.length && 
+      _signatures.vs.length == _signatures.rs.length && 
+      _signatures.rs.length == _signatures.ss.length, 
+      "Must pass in as many signatures as oracles"
+    ); 
+    require(_agreement.endAt > block.timestamp, "End of ServiceAgreement must be in the future");
 
-    serviceAgreementID = getId(_payment, _expiration, _endAt, _oracles, _requestDigest);
-
-    registerOracleSignatures(serviceAgreementID, _oracles, _vs, _rs, _ss);
-
-    serviceAgreements[serviceAgreementID] = ServiceAgreement(
-      _payment,
-      _expiration,
-      _endAt,
-      _oracles,
-      _requestDigest
+    serviceAgreementID = getId(
+      _agreement.payment, 
+      _agreement.expiration, 
+      _agreement.endAt, 
+      _agreement.oracles, 
+      _agreement.requestDigest
     );
 
-    emit NewServiceAgreement(serviceAgreementID, _requestDigest);
+    registerOracleSignatures(
+      serviceAgreementID, 
+      _agreement.oracles, 
+      _signatures.vs, 
+      _signatures.rs, 
+      _signatures.ss
+    );
+
+    serviceAgreements[serviceAgreementID] = _agreement; 
+    emit NewServiceAgreement(serviceAgreementID, _agreement.requestDigest);
   }
 
   /**
