@@ -9,53 +9,53 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWebSocketStatsPusher_StartCloseStart(t *testing.T) {
+func TestWebSocketClient_StartCloseStart(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	pusher := synchronization.NewWebSocketClient(wsserver.URL)
-	require.NoError(t, pusher.Start())
-	cltest.CallbackOrTimeout(t, "stats pusher connects", func() {
+	wsclient := synchronization.NewWebSocketClient(wsserver.URL)
+	require.NoError(t, wsclient.Start())
+	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
 	})
-	require.NoError(t, pusher.Close())
+	require.NoError(t, wsclient.Close())
 
 	// restart after client disconnect
-	require.NoError(t, pusher.Start())
-	cltest.CallbackOrTimeout(t, "stats pusher restarts", func() {
+	require.NoError(t, wsclient.Start())
+	cltest.CallbackOrTimeout(t, "ws client restarts", func() {
 		<-wsserver.Connected
 	}, 3*time.Second)
-	require.NoError(t, pusher.Close())
+	require.NoError(t, wsclient.Close())
 }
 
-func TestWebSocketStatsPusher_ReconnectLoop(t *testing.T) {
+func TestWebSocketClient_ReconnectLoop(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	pusher := synchronization.NewWebSocketClient(wsserver.URL)
-	require.NoError(t, pusher.Start())
-	cltest.CallbackOrTimeout(t, "stats pusher connects", func() {
+	wsclient := synchronization.NewWebSocketClient(wsserver.URL)
+	require.NoError(t, wsclient.Start())
+	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
 	})
 
 	// reconnect after server disconnect
 	wsserver.WriteCloseMessage()
-	cltest.CallbackOrTimeout(t, "stats pusher reconnects", func() {
+	cltest.CallbackOrTimeout(t, "ws client reconnects", func() {
 		<-wsserver.Connected
 	}, 3*time.Second)
-	require.NoError(t, pusher.Close())
+	require.NoError(t, wsclient.Close())
 }
 
-func TestWebSocketStatsPusher_Send(t *testing.T) {
+func TestWebSocketClient_Send(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	pusher := synchronization.NewWebSocketClient(wsserver.URL)
-	require.NoError(t, pusher.Start())
-	defer pusher.Close()
+	wsclient := synchronization.NewWebSocketClient(wsserver.URL)
+	require.NoError(t, wsclient.Start())
+	defer wsclient.Close()
 
 	expectation := `{"hello": "world"}`
-	pusher.Send([]byte(expectation))
+	wsclient.Send([]byte(expectation))
 	cltest.CallbackOrTimeout(t, "receive stats", func() {
 		require.Equal(t, expectation, <-wsserver.Received)
 	})
