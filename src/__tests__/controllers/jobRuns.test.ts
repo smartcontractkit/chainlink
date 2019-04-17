@@ -5,7 +5,7 @@ import { Connection } from 'typeorm'
 import { JobRun } from '../../entity/JobRun'
 import jobRuns from '../../controllers/jobRuns'
 import seed, { JOB_RUN_B_ID } from '../../seed'
-import { createDbConnection, closeDbConnection } from '../../database'
+import { closeDbConnection, getDb } from '../../database'
 
 const controller = express()
 controller.use('/api/v1', jobRuns)
@@ -13,7 +13,7 @@ controller.use('/api/v1', jobRuns)
 let server: http.Server
 let connection: Connection
 beforeAll(async () => {
-  connection = await createDbConnection()
+  connection = await getDb()
   server = controller.listen(null)
 })
 afterAll(async () => {

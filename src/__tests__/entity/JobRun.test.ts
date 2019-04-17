@@ -1,9 +1,15 @@
-import { createDbConnection, closeDbConnection, getDb } from '../../database'
+import { closeDbConnection, getDb } from '../../database'
+import { Connection } from 'typeorm'
 import { fromString, search } from '../../entity/JobRun'
 import { JOB_RUN_A_ID, JOB_RUN_B_ID } from '../../seed'
 import fixture from '../fixtures/JobRun.fixture.json'
 
-beforeAll(async () => createDbConnection())
+let db: Connection
+
+beforeAll(async () => {
+  db = await getDb()
+})
+
 afterAll(async () => closeDbConnection())
 
 describe('fromString', () => {
@@ -33,7 +39,7 @@ describe('fromString', () => {
     expect(jr.taskRuns[0].status).toEqual('')
     expect(jr.taskRuns[0].error).toEqual(null)
 
-    const r = await getDb().manager.save(jr)
+    const r = await db.manager.save(jr)
     expect(r.id).toBeDefined()
     expect(r.initiator.type).toEqual('runlog')
     expect(r.taskRuns.length).toEqual(1)
@@ -61,7 +67,7 @@ describe('search', () => {
   beforeEach(async () => {
     const jrA = fromString(JSON.stringify(fixture))
     jrA.createdAt = new Date(Date.parse('2019-04-08T01:00:00.000Z'))
-    await getDb().manager.save(jrA)
+    await db.manager.save(jrA)
 
     const fixtureB = Object.assign({}, fixture, {
       runId: JOB_RUN_B_ID,
@@ -69,25 +75,25 @@ describe('search', () => {
     })
     const jrB = fromString(JSON.stringify(fixtureB))
     jrB.createdAt = new Date(Date.parse('2019-04-09T01:00:00.000Z'))
-    await getDb().manager.save(jrB)
+    await db.manager.save(jrB)
   })
 
   it('returns all results when no query is supplied', async () => {
     let results
-    results = await search(getDb(), { searchQuery: undefined })
+    results = await search(db, { searchQuery: undefined })
     expect(results).toHaveLength(2)
-    results = await search(getDb(), { searchQuery: null })
+    results = await search(db, { searchQuery: null })
     expect(results).toHaveLength(2)
   })
 
   it('returns results in descending order by createdAt', async () => {
-    const results = await search(getDb(), { searchQuery: undefined })
+    const results = await search(db, { searchQuery: undefined })
     expect(results[0].runId).toEqual(JOB_RUN_B_ID)
     expect(results[1].runId).toEqual(JOB_RUN_A_ID)
   })
 
   it('can set a limit', async () => {
-    const results = await search(getDb(), { searchQuery: undefined, limit: 1 })
+    const results = await search(db, { searchQuery: undefined, limit: 1 })
     expect(results[0].runId).toEqual(JOB_RUN_B_ID)
     expect(results).toHaveLength(1)
   })
@@ -95,14 +101,14 @@ describe('search', () => {
   it('can set a page with a 1 based index', async () => {
     let results
 
-    results = await search(getDb(), {
+    results = await search(db, {
       searchQuery: undefined,
       page: 1,
       limit: 1
     })
     expect(results[0].runId).toEqual(JOB_RUN_B_ID)
 
-    results = await search(getDb(), {
+    results = await search(db, {
       searchQuery: undefined,
       page: 2,
       limit: 1
@@ -111,24 +117,24 @@ describe('search', () => {
   })
 
   it('returns no results for blank search', async () => {
-    const results = await search(getDb(), { searchQuery: '' })
+    const results = await search(db, { searchQuery: '' })
     expect(results).toHaveLength(0)
   })
 
   it('returns one result for an exact match on jobId', async () => {
-    const results = await search(getDb(), { searchQuery: JOB_RUN_A_ID })
+    const results = await search(db, { searchQuery: JOB_RUN_A_ID })
     expect(results).toHaveLength(1)
   })
 
   it('returns one result for an exact match on jobId and runId', async () => {
-    const results = await search(getDb(), {
+    const results = await search(db, {
       searchQuery: `${JOB_RUN_A_ID} aeb2861d306645b1ba012079aeb2e53a`
     })
     expect(results).toHaveLength(1)
   })
 
   it('returns two results when two matching runIds are supplied', async () => {
-    const results = await search(getDb(), {
+    const results = await search(db, {
       searchQuery: `${JOB_RUN_A_ID} ${JOB_RUN_B_ID}`
     })
     expect(results).toHaveLength(2)
