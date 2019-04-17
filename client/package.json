@@ -1,8 +1,8 @@
 {
-  "name": "linkstats-client",
+  "name": "explorer-client",
   "private": true,
   "version": "0.0.0",
-  "description": "LINK Stats Client",
+  "description": "LINK Explorer Client",
   "author": "Chainlink Dev Team",
   "license": "MIT",
   "keywords": [],
@@ -22,10 +22,6 @@
     "autoinstall": "md5sum -c .yarn.lock.md5 || yarn install && md5sum yarn.lock > .yarn.lock.md5"
   },
   "main": "app.js",
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/smartcontractkit/linkstats"
-  },
   "proxy": "http://localhost:8080",
   "dependencies": {},
   "devDependencies": {
