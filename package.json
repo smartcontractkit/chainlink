@@ -1,8 +1,8 @@
 {
-  "name": "linkstats",
+  "name": "explorer",
   "private": true,
   "version": "0.0.0",
-  "description": "LINK Stats",
+  "description": "LINK Explorer",
   "author": "Chainlink Dev Team",
   "license": "MIT",
   "keywords": [],
@@ -26,10 +26,6 @@
     "automigrate": "md5sum -c .migrations.${TYPEORM_NAME:-dev}.md5 2>/dev/null || yarn migration:run && md5sum src/bin/migrator.ts src/migration/* > .migrations.${TYPEORM_NAME:-dev}.md5"
   },
   "main": "src/index.ts",
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/smartcontractkit/linkstats"
-  },
   "engines": {
     "node": "^10.15"
   },
