@@ -4,7 +4,7 @@ import { assertBigNum } from './support/matchers'
 contract('Oracle', () => {
   const sourcePath = 'Oracle.sol'
   const fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
-  const specId = '4c7b7ffb66b344fbaa64995af81e355a'
+  const specId = h.toHex('4c7b7ffb66b344fbaa64995af81e355a')
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
   let link, oc, withdraw
 
@@ -83,14 +83,18 @@ contract('Oracle', () => {
       it('triggers the intended method', async () => {
         let callData = h.requestDataBytes(specId, to, fHash, 'id', '')
 
-        let tx = await link.transferAndCall(oc.address, 0, callData)
-        assert.equal(3, tx.receipt.logs.length)
+        let tx = await link.transferAndCall(oc.address, 0, callData, {
+          value: 0
+        })
+        assert.equal(3, tx.receipt.rawLogs.length)
       })
 
       context('with no data', () => {
         it('reverts', async () => {
           await h.assertActionThrows(async () => {
-            await link.transferAndCall(oc.address, 0, '')
+            await link.transferAndCall(oc.address, 0, '0x', {
+              value: 0
+            })
           })
         })
       })
@@ -120,8 +124,8 @@ contract('Oracle', () => {
         const ocNewBalance = await link.balanceOf.call(oc.address)
         const mockNewBalance = await link.balanceOf.call(mock.address)
 
-        assert.isTrue(ocOriginalBalance.equals(ocNewBalance))
-        assert.isTrue(mockNewBalance.equals(mockOriginalBalance))
+        assertBigNum(ocOriginalBalance, ocNewBalance)
+        assertBigNum(mockNewBalance, mockOriginalBalance)
       })
 
       context(
@@ -132,7 +136,7 @@ contract('Oracle', () => {
           it('the requesters ID will not match with the oracle contract', async () => {
             const tx = await mock.maliciousTargetConsumer(to)
             let events = await h.getEvents(oc)
-            const mockRequestId = tx.receipt.logs[0].data
+            const mockRequestId = tx.receipt.rawLogs[0].data
             const requestId = events[0].args.requestId
             assert.notEqual(mockRequestId, requestId)
           })
@@ -167,7 +171,9 @@ contract('Oracle', () => {
       const maliciousPayload = ottSelector + header + requestPayload.slice(2)
 
       await h.assertActionThrows(async () => {
-        await link.transferAndCall(oc.address, 0, maliciousPayload)
+        await link.transferAndCall(oc.address, 0, maliciousPayload, {
+          value: 0
+        })
       })
     })
   })
@@ -180,16 +186,16 @@ contract('Oracle', () => {
       beforeEach(async () => {
         let args = h.requestDataBytes(specId, to, fHash, 1, '')
         tx = await h.requestDataFrom(oc, link, paid, args)
-        assert.equal(3, tx.receipt.logs.length)
+        assert.equal(3, tx.receipt.rawLogs.length)
 
-        log = tx.receipt.logs[2]
+        log = tx.receipt.rawLogs[2]
       })
 
       it('logs an event', async () => {
         assert.equal(oc.address, log.address)
 
-        assert.equal(specId, h.toUtf8(log.topics[1]))
-        const req = h.decodeRunRequest(tx.receipt.logs[2])
+        assert.equal(h.toUtf8(specId), h.toUtf8(log.topics[1]))
+        const req = h.decodeRunRequest(tx.receipt.rawLogs[2])
         assert.equal(h.defaultAccount.toString().toLowerCase(), req.requester)
         assertBigNum(paid, req.payment)
       })
@@ -245,9 +251,17 @@ contract('Oracle', () => {
     context('when not called through the LINK token', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await oc.oracleRequest(0, 0, specId, to, fHash, 1, 1, '', {
-            from: h.oracleNode
-          })
+          await oc.oracleRequest(
+            '0x0000000000000000000000000000000000000000',
+            0,
+            specId,
+            to,
+            fHash,
+            1,
+            1,
+            '0x',
+            { from: h.oracleNode }
+          )
         })
       })
     })
@@ -269,7 +283,7 @@ contract('Oracle', () => {
         await link.transfer(mock.address, paymentAmount)
         const currency = 'USD'
         const tx = await mock.requestEthereumPrice(currency)
-        request = h.decodeRunRequest(tx.receipt.logs[3])
+        request = h.decodeRunRequest(tx.receipt.rawLogs[3])
       })
 
       context('when called by an unauthorized node', () => {
@@ -288,7 +302,7 @@ contract('Oracle', () => {
 
       context('when called by an authorized node', () => {
         it('raises an error if the request ID does not exist', async () => {
-          request.id = 0xdeadbeef
+          request.id = '0xdeadbeef'
           await h.assertActionThrows(async () => {
             await h.fulfillOracleRequest(oc, request, response, {
               from: h.oracleNode
@@ -369,21 +383,25 @@ contract('Oracle', () => {
         await h.assertActionThrows(async () => {
           await mock.maliciousRequestCancel(
             specId,
-            'doesNothing(bytes32,bytes32)'
+            h.toHex('doesNothing(bytes32,bytes32)')
           )
         })
       })
 
       it('cannot call functions on the LINK token through callbacks', async () => {
         await h.assertActionThrows(async () => {
-          await mock.request(specId, link.address, 'transfer(address,uint256)')
+          await mock.request(
+            specId,
+            link.address,
+            h.toHex('transfer(address,uint256)')
+          )
         })
       })
 
       context('requester lies about amount of LINK sent', () => {
         it('the oracle uses the amount of LINK actually paid', async () => {
           const tx = await mock.maliciousPrice(specId)
-          const req = h.decodeRunRequest(tx.receipt.logs[3])
+          const req = h.decodeRunRequest(tx.receipt.rawLogs[3])
 
           assert(h.toWei(1).eq(h.bigNum(req.payment)))
         })
@@ -406,9 +424,9 @@ contract('Oracle', () => {
         beforeEach(async () => {
           const tx = await mock.requestData(
             specId,
-            'assertFail(bytes32,bytes32)'
+            h.toHex('assertFail(bytes32,bytes32)')
           )
-          request = h.decodeRunRequest(tx.receipt.logs[3])
+          request = h.decodeRunRequest(tx.receipt.rawLogs[3])
         })
 
         it('allows the oracle node to receive their payment', async () => {
@@ -417,7 +435,7 @@ contract('Oracle', () => {
           })
 
           const balance = await link.balanceOf.call(h.oracleNode)
-          assert.isTrue(balance.equals(0))
+          assertBigNum(balance, h.bigNum(0))
 
           await withdraw(h.oracleNode, paymentAmount, {
             from: h.defaultAccount
@@ -445,9 +463,9 @@ contract('Oracle', () => {
         beforeEach(async () => {
           const tx = await mock.requestData(
             specId,
-            'doesNothing(bytes32,bytes32)'
+            h.toHex('doesNothing(bytes32,bytes32)')
           )
-          request = h.decodeRunRequest(tx.receipt.logs[3])
+          request = h.decodeRunRequest(tx.receipt.rawLogs[3])
           await mock.remove()
         })
 
@@ -457,7 +475,7 @@ contract('Oracle', () => {
           })
 
           const balance = await link.balanceOf.call(h.oracleNode)
-          assert.isTrue(balance.equals(0))
+          assertBigNum(balance, h.bigNum(0))
 
           await withdraw(h.oracleNode, paymentAmount, {
             from: h.defaultAccount
@@ -471,9 +489,9 @@ contract('Oracle', () => {
         beforeEach(async () => {
           const tx = await mock.requestData(
             specId,
-            'cancelRequestOnFulfill(bytes32,bytes32)'
+            h.toHex('cancelRequestOnFulfill(bytes32,bytes32)')
           )
-          request = h.decodeRunRequest(tx.receipt.logs[3])
+          request = h.decodeRunRequest(tx.receipt.rawLogs[3])
 
           assertBigNum(0, await link.balanceOf.call(mock.address))
         })
@@ -484,10 +502,10 @@ contract('Oracle', () => {
           })
 
           const mockBalance = await link.balanceOf.call(mock.address)
-          assert.isTrue(mockBalance.equals(0))
+          assertBigNum(mockBalance, h.bigNum(0))
 
           const balance = await link.balanceOf.call(h.oracleNode)
-          assert.isTrue(balance.equals(0))
+          assertBigNum(balance, h.bigNum(0))
 
           await withdraw(h.oracleNode, paymentAmount, {
             from: h.defaultAccount
@@ -515,9 +533,9 @@ contract('Oracle', () => {
         it('is not successful with call', async () => {
           const tx = await mock.requestData(
             specId,
-            'stealEthCall(bytes32,bytes32)'
+            h.toHex('stealEthCall(bytes32,bytes32)')
           )
-          request = h.decodeRunRequest(tx.receipt.logs[3])
+          request = h.decodeRunRequest(tx.receipt.rawLogs[3])
 
           await h.fulfillOracleRequest(oc, request, response, {
             from: h.oracleNode
@@ -529,9 +547,9 @@ contract('Oracle', () => {
         it('is not successful with send', async () => {
           const tx = await mock.requestData(
             specId,
-            'stealEthSend(bytes32,bytes32)'
+            h.toHex('stealEthSend(bytes32,bytes32)')
           )
-          request = h.decodeRunRequest(tx.receipt.logs[3])
+          request = h.decodeRunRequest(tx.receipt.rawLogs[3])
 
           await h.fulfillOracleRequest(oc, request, response, {
             from: h.oracleNode
@@ -542,9 +560,9 @@ contract('Oracle', () => {
         it('is not successful with transfer', async () => {
           const tx = await mock.requestData(
             specId,
-            'stealEthTransfer(bytes32,bytes32)'
+            h.toHex('stealEthTransfer(bytes32,bytes32)')
           )
-          request = h.decodeRunRequest(tx.receipt.logs[3])
+          request = h.decodeRunRequest(tx.receipt.rawLogs[3])
 
           await h.fulfillOracleRequest(oc, request, response, {
             from: h.oracleNode
@@ -576,8 +594,8 @@ contract('Oracle', () => {
         const mock = await h.deploy('examples/GetterSetter.sol')
         const args = h.requestDataBytes(specId, mock.address, fHash, 'id', '')
         const tx = await h.requestDataFrom(oc, link, payment, args)
-        assert.equal(3, tx.receipt.logs.length)
-        request = h.decodeRunRequest(tx.receipt.logs[2])
+        assert.equal(3, tx.receipt.rawLogs.length)
+        request = h.decodeRunRequest(tx.receipt.rawLogs[2])
       })
 
       context('but not freeing funds w fulfillOracleRequest', () => {
@@ -657,8 +675,8 @@ contract('Oracle', () => {
       const mock = await h.deploy('examples/GetterSetter.sol')
       const args = h.requestDataBytes(specId, mock.address, fHash, 'id', '')
       const tx = await h.requestDataFrom(oc, link, amount, args)
-      assert.equal(3, tx.receipt.logs.length)
-      request = h.decodeRunRequest(tx.receipt.logs[2])
+      assert.equal(3, tx.receipt.rawLogs.length)
+      request = h.decodeRunRequest(tx.receipt.rawLogs[2])
       await h.fulfillOracleRequest(oc, request, 'Hello World!', {
         from: h.oracleNode
       })
@@ -674,7 +692,7 @@ contract('Oracle', () => {
     context('with no pending requests', () => {
       it('fails', async () => {
         const fakeRequest = {
-          id: 1337,
+          id: h.toHex(1337),
           payment: 0,
           callbackFunc: h.functionSelector('requestedBytes32(bytes32,bytes32)'),
           expiration: 999999999999
@@ -700,8 +718,8 @@ contract('Oracle', () => {
         tx = await link.transferAndCall(oc.address, requestAmount, args, {
           from: h.consumer
         })
-        assert.equal(3, tx.receipt.logs.length)
-        request = h.decodeRunRequest(tx.receipt.logs[2])
+        assert.equal(3, tx.receipt.rawLogs.length)
+        request = h.decodeRunRequest(tx.receipt.rawLogs[2])
       })
 
       it('has correct initial balances', async () => {
@@ -734,8 +752,8 @@ contract('Oracle', () => {
             from: h.consumer
           })
 
-          assert.equal(tx.receipt.logs.length, 2)
-          assert.equal(request.id, tx.receipt.logs[0].topics[1])
+          assert.equal(tx.receipt.rawLogs.length, 2)
+          assert.equal(request.id, tx.receipt.rawLogs[0].topics[1])
         })
 
         it('fails when called twice', async () => {
