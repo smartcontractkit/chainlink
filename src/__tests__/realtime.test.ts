@@ -3,7 +3,6 @@ import WebSocket from 'ws'
 import { start as startServer, DEFAULT_TEST_PORT } from '../support/server'
 import { closeDbConnection, getDb } from '../database'
 import fixture from './fixtures/JobRun.fixture.json'
-import { Initiator } from '../entity/Initiator'
 import { JobRun } from '../entity/JobRun'
 import { TaskRun } from '../entity/TaskRun'
 
@@ -20,7 +19,7 @@ describe('realtime', () => {
   })
 
   it('create a job run for valid JSON', async (done: any) => {
-    expect.assertions(4)
+    expect.assertions(3)
 
     const db = await getDb()
 
@@ -34,9 +33,6 @@ describe('realtime', () => {
       expect(result.status).toEqual(201)
 
       const jobRunCount = await db.manager.count(JobRun)
-      expect(jobRunCount).toEqual(1)
-
-      const initiatorCount = await db.manager.count(Initiator)
       expect(jobRunCount).toEqual(1)
 
       const taskRunCount = await db.manager.count(TaskRun)
