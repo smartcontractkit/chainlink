@@ -10,18 +10,27 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // StatsPusher polls for events and pushes them via a WebSocketClient
 type StatsPusher struct {
 	ORM      *orm.ORM
 	WSClient WebSocketClient
-	cancel   context.CancelFunc
 	Period   time.Duration
+	cancel   context.CancelFunc
+	clock    utils.Afterer
 }
 
 // NewStatsPusher returns a new event queuer
-func NewStatsPusher(orm *orm.ORM, url *url.URL) *StatsPusher {
+func NewStatsPusher(orm *orm.ORM, url *url.URL, afters ...utils.Afterer) *StatsPusher {
+	var clock utils.Afterer
+	if len(afters) == 0 {
+		clock = utils.Clock{}
+	} else {
+		clock = afters[0]
+	}
+
 	var wsClient WebSocketClient
 	wsClient = noopWebSocketClient{}
 	if url != nil {
@@ -35,6 +44,7 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL) *StatsPusher {
 		ORM:      orm,
 		WSClient: wsClient,
 		Period:   60 * time.Second,
+		clock:    clock,
 	}
 }
 
@@ -59,13 +69,11 @@ func (eq *StatsPusher) Close() error {
 }
 
 func (eq *StatsPusher) pollEvents(parentCtx context.Context) {
-	pollTicker := time.NewTicker(eq.Period)
-
 	for {
 		select {
 		case <-parentCtx.Done():
 			return
-		case <-pollTicker.C:
+		case <-eq.clock.After(eq.Period):
 			err := eq.ORM.AllSyncEvents(func(event *models.SyncEvent) {
 				logger.Debugw("StatsPusher got event", "event", event.ID)
 

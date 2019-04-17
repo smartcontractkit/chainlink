@@ -18,7 +18,8 @@ func TestStatsPusher(t *testing.T) {
 	wsserver, wscleanup := cltest.NewEventWebSocketServer(t)
 	defer wscleanup()
 
-	pusher := synchronization.NewStatsPusher(store.ORM, wsserver.URL)
+	clock := cltest.NewTriggerClock()
+	pusher := synchronization.NewStatsPusher(store.ORM, wsserver.URL, clock)
 	pusher.Start()
 	defer pusher.Close()
 
@@ -29,6 +30,11 @@ func TestStatsPusher(t *testing.T) {
 	require.NoError(t, store.CreateJobRun(&jr))
 
 	assert.Equal(t, 1, lenSyncEvents(t, store.ORM))
+	clock.Trigger()
+	cltest.CallbackOrTimeout(t, "ws server receives sync event", func() {
+		<-wsserver.Received
+	})
+	assert.Equal(t, 0, lenSyncEvents(t, store.ORM))
 }
 
 func lenSyncEvents(t *testing.T, orm *orm.ORM) int {
