@@ -557,6 +557,19 @@ export const pad0xHexTo256Bit = (s: string): string =>
 export const padNumTo256Bit = (n: number): string =>
   padHexTo256Bit(n.toString(16))
 
+export const constructStructArgs = (
+  fieldNames: string[],
+  values: any[]
+): any[] => {
+  assert.equal(fieldNames.length, values.length)
+  let args = []
+  for (let i = 0; i < fieldNames.length; i++) {
+    args[i] = values[i]
+    args[fieldNames[i]] = values[i]
+  }
+  return args
+}
+
 export const initiateServiceAgreementArgs = ({
   payment,
   expiration,
@@ -564,16 +577,28 @@ export const initiateServiceAgreementArgs = ({
   oracles,
   oracleSignatures,
   requestDigest
-}: any): any[] => [
-  toHex(newHash(payment.toString())),
-  toHex(newHash(expiration.toString())),
-  toHex(newHash(endAt.toString())),
-  oracles.map(newAddress).map(toHex),
-  oracleSignatures.map((os: any) => os.v),
-  oracleSignatures.map((os: any) => toHex(os.r)),
-  oracleSignatures.map((os: any) => toHex(os.s)),
-  toHex(requestDigest)
-]
+}: any): any[] => {
+  return [
+    constructStructArgs(
+      ['payment', 'expiration', 'endAt', 'oracles', 'requestDigest'],
+      [
+        toHex(newHash(payment.toString())),
+        toHex(newHash(expiration.toString())),
+        toHex(newHash(endAt.toString())),
+        oracles.map(newAddress).map(toHex),
+        toHex(requestDigest)
+      ]
+    ),
+    constructStructArgs(
+      ['vs', 'rs', 'ss'],
+      [
+        oracleSignatures.map((os: any) => os.v),
+        oracleSignatures.map((os: any) => toHex(os.r)),
+        oracleSignatures.map((os: any) => toHex(os.s))
+      ]
+    )
+  ]
+}
 
 // Call coordinator contract to initiate the specified service agreement, and
 // get the return value
