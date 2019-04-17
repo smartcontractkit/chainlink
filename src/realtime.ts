@@ -4,8 +4,8 @@ import { JobRun, fromString } from './entity/JobRun'
 import { TaskRun } from './entity/TaskRun'
 import WebSocket from 'ws'
 
-export const bootstrapRealtime = (server: http.Server) => {
-  const db = getDb()
+export const bootstrapRealtime = async (server: http.Server) => {
+  const db = await getDb()
   let clnodeCount = 0
 
   const wss = new WebSocket.Server({ server, perMessageDeflate: false })

@@ -7,7 +7,7 @@ export const JOB_RUN_A_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 export const JOB_RUN_B_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
 export default async () => {
-  const dbConnection = getDb()
+  const dbConnection = await getDb()
   const count = await dbConnection.manager.count(JobRun)
 
   if (count === 0) {
