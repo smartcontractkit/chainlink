@@ -1,7 +1,7 @@
 {
   "name": "explorer",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.6.0",
   "description": "LINK Explorer",
   "author": "Chainlink Dev Team",
   "license": "MIT",
@@ -35,7 +35,7 @@
     "reflect-metadata": "^0.1.13",
     "ts-node": "^8.0.3",
     "typeorm": "^0.2.15",
-    "typescript": "^3.4.1",
+    "typescript": "^3.4.2",
     "ws": "^6.2.0",
     "yargs": "^13.2.2"
   },

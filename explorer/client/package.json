@@ -1,7 +1,7 @@
 {
   "name": "explorer-client",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.6.0",
   "description": "LINK Explorer Client",
   "author": "Chainlink Dev Team",
   "license": "MIT",
@@ -23,8 +23,7 @@
   },
   "main": "app.js",
   "proxy": "http://localhost:8080",
-  "dependencies": {},
-  "devDependencies": {
+  "dependencies": {
     "@babel/preset-typescript": "^7.3.3",
     "@craco/craco": "^4.1.0",
     "@material-ui/core": "^3.9.2",
@@ -68,12 +67,13 @@
     "react-hot-loader": "^4.8.0",
     "react-redux": "^6.0.1",
     "react-resize-detector": "^4.0.5",
-    "react-scripts": "2.1.8",
     "react-snapshot": "^1.3.0",
     "react-time-ago": "^5.0.2",
     "redux-devtools-extension": "^2.13.8",
     "redux-logger": "^3.0.6",
     "redux-thunk": "^2.3.0",
-    "typescript": "^3.4.1"
+    "react-scripts": "2.1.8",
+    "typescript": "^3.4.2",
+    "webpack": "4.28.3"
   }
 }

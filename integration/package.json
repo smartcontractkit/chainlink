@@ -14,7 +14,7 @@
     "jest": "^24.1.0",
     "jest-silent-reporter": "^0.1.0",
     "jest-environment-enzyme": "^7.0.1",
-    "link_token": "^1.0.3",
+    "link_token": "^1.0.4",
     "request-promise": "^4.2.4",
     "puppeteer": "^1.10.0"
   }
