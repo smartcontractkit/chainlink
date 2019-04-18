@@ -15,13 +15,15 @@ router.get('/job_runs', async (req: Request, res: Response) => {
     page: page,
     limit: size
   }
-  const jobRuns = await search(getDb(), searchParams)
+  const db = await getDb()
+  const jobRuns = await search(db, searchParams)
   return res.send(jobRuns)
 })
 
 router.get('/job_runs/:id', async (req: Request, res: Response) => {
   const id = req.params.id
-  const jobRun = await getDb()
+  const db = await getDb()
+  const jobRun = await db
     .getRepository(JobRun)
     .createQueryBuilder('job_run')
     .leftJoinAndSelect('job_run.taskRuns', 'task_run')

@@ -1,6 +1,6 @@
 import yargs from 'yargs'
 import { Connection } from 'typeorm'
-import { createDbConnection, closeDbConnection, getDb } from '../database'
+import { closeDbConnection, getDb } from '../database'
 
 const migrate = async () => {
   return bootstrap(async (db: Connection) => {
@@ -20,8 +20,7 @@ const revert = async () => {
 }
 
 const bootstrap = async (cb: any) => {
-  await createDbConnection()
-  const db = getDb()
+  const db = await getDb()
   try {
     await cb(db)
   } catch (err) {

@@ -39,16 +39,20 @@ const mergeOptions = (): PostgresConnectionOptions => {
   } as PostgresConnectionOptions
 }
 
-let db: Connection
-export const createDbConnection = async (): Promise<Connection> => {
-  db = await createConnection(mergeOptions())
-  return db
-}
+let db: Connection | undefined
 
-export const getDb = (): Connection => {
+export const getDb = async (): Promise<Connection> => {
+  if (db === undefined) {
+    db = await createConnection(mergeOptions())
+  }
+  if (db == null) {
+    throw new Error('no db connection returned')
+  }
   return db
 }
 
 export const closeDbConnection = async (): Promise<void> => {
-  return db.close()
+  const saveDb = db
+  db = null
+  return saveDb.close()
 }
