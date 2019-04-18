@@ -7,9 +7,5 @@ yarn solium --dir examples/
 yarn lint:evm && yarn lint:examples
 
 yarn workspace chainlink truffle test
-
-cd ./examples/uptime_sla
-../../node_modules/.bin/truffle test --network test
-
-cd ../echo_server
-../../node_modules/.bin/truffle test --network test
+yarn workspace chainlink-uptime-sla truffle test --network test
+yarn workspace chainlink-echo-server truffle test --network test
