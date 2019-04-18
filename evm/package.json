@@ -9,12 +9,13 @@
   },
   "dependencies": {
     "@ensdomains/ens": "^0.1.1",
-    "link_token": "^1.0.3",
+    "link_token": "^1.0.4",
     "openzeppelin-solidity": "^1.12.0",
     "solidity-cborutils": "^1.0.4"
   },
   "devDependencies": {
-    "truffle": "^5.0.1"
+    "truffle": "^5.0.1",
+    "typescript": "^3.4.2"
   },
   "files": [
     "contracts",
