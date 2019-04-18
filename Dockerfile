@@ -1,5 +1,5 @@
 # Build Chainlink
-FROM smartcontract/builder:1.0.17 as builder
+FROM smartcontract/builder:1.0.18 as builder
 
 # Have to reintroduce ENV vars from builder image
 ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
