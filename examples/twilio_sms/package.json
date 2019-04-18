@@ -9,5 +9,8 @@
     "truffle": "^4.1.12",
     "truffle-contract": "^3.0.6",
     "twilio": "^3.11.3"
+  },
+  "devDependencies": {
+    "body-parser": "^1.18.3"
   }
 }
