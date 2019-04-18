@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { abort, port } = require('./common.js')
-const { web3 } = require('../evm/app/env.js')
+const { web3 } = require('chainlink/app/env.js')
 
 process.env.SOLIDITY_INCLUDE = '../evm/contracts'
 

@@ -1,8 +1,8 @@
 {
+  "private": true,
   "name": "chainlink-twilio-sms",
   "version": "0.6.0",
   "license": "MIT",
-  "private": true,
   "dependencies": {
     "express": "^4.16.2",
     "request": "^2.83.0",
