@@ -6,10 +6,9 @@ yarn solium --dir evm/
 yarn solium --dir examples/
 yarn lint:evm && yarn lint:examples
 
-cd evm
-yarn truffle test
+yarn workspace chainlink truffle test
 
-cd ../examples/uptime_sla
+cd ./examples/uptime_sla
 ../../node_modules/.bin/truffle test --network test
 
 cd ../echo_server
