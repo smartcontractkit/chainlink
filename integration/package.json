@@ -7,7 +7,7 @@
     "chainlink": "0.6.1"
   },
   "devDependencies": {
-    "babel-jest": "^24.1.0",
+    "babel-jest": "^23.6.0",
     "body-parser": "^1.18.3",
     "ethjs": "^0.4.0",
     "expect-puppeteer": "^4.1.0",
