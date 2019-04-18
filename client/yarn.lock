@@ -871,10 +871,10 @@
     lodash "^4.17.11"
     to-fast-properties "^2.0.0"
 
-"@craco/craco@^3.6.0":
-  version "3.6.0"
-  resolved "https://registry.npmjs.org/@craco/craco/-/craco-3.6.0.tgz#4b4ce7dacda8ac64731c18b1542f70127cd3eb8e"
-  integrity sha512-01hBd0kefkDmfOsiXq5lAnSISVPgLqT1Qrr8Y062XRboeIlz9GQvOjJxhIxoqgVFYdeKURW6xza2qOEj5Til4w==
+"@craco/craco@^4.1.0":
+  version "4.1.0"
+  resolved "https://registry.npmjs.org/@craco/craco/-/craco-4.1.0.tgz#f8ffbce0324c2d68fd025291a8c1866359bbecfd"
+  integrity sha512-yaCjyC2GKFsAMZRtBkB61ZSAPcuEn5U3PKRTc+Cwy0IW5KgLDposutT9np44AfaZXOw1kd9Z0bgy+f0HiB9vNg==
   dependencies:
     cross-spawn "6.0.5"
     lodash.mergewith "4.6.1"
