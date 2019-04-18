@@ -26,7 +26,6 @@
     "@babel/preset-stage-2": "^7.0.0",
     "@babel/preset-typescript": "^7.1.0",
     "@babel/register": "^7.0.0",
-    "@resolver-engine/core": "^0.2.1",
     "@storybook/react": "4.0.9",
     "@types/mocha": "^5.2.0",
     "@typescript-eslint/parser": "^1.6.0",
