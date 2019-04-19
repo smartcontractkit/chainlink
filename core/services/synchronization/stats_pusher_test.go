@@ -34,7 +34,7 @@ func TestStatsPusher(t *testing.T) {
 	cltest.CallbackOrTimeout(t, "ws server receives jobrun creation", func() {
 		<-wsserver.Received
 	})
-	assert.Equal(t, 0, lenSyncEvents(t, store.ORM))
+	cltest.WaitForSyncEventCount(t, store.ORM, 0)
 
 	jr.ApplyResult(models.RunResult{Status: models.RunStatusCompleted})
 	require.NoError(t, store.SaveJobRun(&jr))
@@ -44,7 +44,7 @@ func TestStatsPusher(t *testing.T) {
 	cltest.CallbackOrTimeout(t, "ws server receives jobrun update", func() {
 		<-wsserver.Received
 	})
-	assert.Equal(t, 0, lenSyncEvents(t, store.ORM))
+	cltest.WaitForSyncEventCount(t, store.ORM, 0)
 }
 
 func lenSyncEvents(t *testing.T, orm *orm.ORM) int {
