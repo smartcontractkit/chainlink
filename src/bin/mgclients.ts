@@ -1,7 +1,7 @@
 import yargs from 'yargs'
 import { Connection } from 'typeorm'
 import { Client, createClient, deleteClient } from '../entity/Client'
-import { createDbConnection, closeDbConnection, getDb } from '../database'
+import { closeDbConnection, getDb } from '../database'
 
 const add = async (name: string) => {
   return bootstrap(async (db: Connection) => {
@@ -19,16 +19,15 @@ const remove = async (name: string) => {
 }
 
 const bootstrap = async (cb: any) => {
-  await createDbConnection()
-  const db = getDb()
+  const db = await getDb()
   try {
     await cb(db)
   } catch (e) {
     console.error(e)
   }
-  //try {
-    //await closeDbConnection()
-  //} catch (e) {}
+  try {
+    await closeDbConnection()
+  } catch (e) {}
 }
 
 const _ = yargs
