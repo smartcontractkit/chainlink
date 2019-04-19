@@ -2,7 +2,8 @@ import { Server } from 'http'
 import WebSocket from 'ws'
 import { start as startServer, DEFAULT_TEST_PORT } from '../support/server'
 import { closeDbConnection, getDb } from '../database'
-import fixture from './fixtures/JobRun.fixture.json'
+import createFixture from './fixtures/JobRun.fixture.json'
+import updateFixture from './fixtures/JobRunUpdate.fixture.json'
 import { JobRun } from '../entity/JobRun'
 import { TaskRun } from '../entity/TaskRun'
 
@@ -25,7 +26,7 @@ describe('realtime', () => {
 
     const ws = new WebSocket(ENDPOINT)
     ws.on('open', () => {
-      ws.send(JSON.stringify(fixture))
+      ws.send(JSON.stringify(createFixture))
     })
 
     ws.on('message', async (data: any) => {
@@ -40,6 +41,44 @@ describe('realtime', () => {
 
       ws.close()
       done()
+    })
+  })
+
+  it('can create and update a job run and task runs', async (done: any) => {
+    expect.assertions(6)
+
+    const db = await getDb()
+    const assertionCallback = async () => {
+      const jobRunCount = await db.manager.count(JobRun)
+      expect(jobRunCount).toEqual(1)
+
+      const taskRunCount = await db.manager.count(TaskRun)
+      expect(taskRunCount).toEqual(1)
+
+      const jr = await db.manager.findOne(JobRun, { relations: ['taskRuns'] })
+      expect(jr.status).toEqual('completed')
+
+      const tr = jr.taskRuns[0]
+      expect(tr.status).toEqual('completed')
+      done()
+    }
+
+    const ws = new WebSocket(ENDPOINT)
+    let responses = 0
+    ws.on('message', (data: any) => {
+      responses += 1
+      const result = JSON.parse(data)
+      expect(result.status).toEqual(201)
+      if (responses === 2) {
+        ws.close()
+        return assertionCallback()
+      }
+    })
+
+    // send payloads
+    ws.on('open', () => {
+      ws.send(JSON.stringify(createFixture))
+      ws.send(JSON.stringify(updateFixture))
     })
   })
 

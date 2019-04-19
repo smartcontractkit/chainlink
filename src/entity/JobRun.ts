@@ -106,3 +106,46 @@ export const search = async (
 
   return query.orderBy('job_run.createdAt', 'DESC').getMany()
 }
+
+export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
+  await db.manager.transaction(async manager => {
+    const builder = manager.createQueryBuilder()
+
+    const response = await builder
+      .insert()
+      .into(JobRun)
+      .values(jobRun)
+      .onConflict(
+        `("runId") DO UPDATE SET
+        "status" = :status
+        ,"error" = :error
+        ,"completedAt" = :completedAt
+      `
+      )
+      .setParameter('status', jobRun.status)
+      .setParameter('error', jobRun.error)
+      .setParameter('completedAt', jobRun.completedAt)
+      .execute()
+
+    await Promise.all(
+      jobRun.taskRuns.map(tr => {
+        // new builder since execute stmnt above seems to mutate.
+        const builder = manager.createQueryBuilder()
+        tr.jobRun = jobRun
+        return builder
+          .insert()
+          .into(TaskRun)
+          .values(tr)
+          .onConflict(
+            `("index", "jobRunId") DO UPDATE SET
+              "status" = :status
+              ,"error" = :error
+              `
+          )
+          .setParameter('status', tr.status)
+          .setParameter('error', tr.error)
+          .execute()
+      })
+    )
+  })
+}
