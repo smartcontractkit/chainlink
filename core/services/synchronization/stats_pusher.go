@@ -46,7 +46,7 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL, afters ...utils.Afterer) *StatsP
 	return &StatsPusher{
 		ORM:      orm,
 		WSClient: wsClient,
-		Period:   60 * time.Second,
+		Period:   5 * time.Second,
 		clock:    clock,
 	}
 }
