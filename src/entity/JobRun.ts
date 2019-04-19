@@ -14,7 +14,7 @@ export class JobRun {
   @PrimaryGeneratedColumn()
   id: number
 
-  @Column()
+  @Column({ nullable: true })
   clientId: number
 
   @Column()
