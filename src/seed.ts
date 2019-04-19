@@ -1,18 +1,18 @@
 import { getDb } from './database'
 import { JobRun } from './entity/JobRun'
 import { TaskRun } from './entity/TaskRun'
-import { createClient } from './entity/Client'
+import { Client, createClient } from './entity/Client'
 
 export const JOB_RUN_A_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 export const JOB_RUN_B_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
 export default async () => {
   const dbConnection = await getDb()
-  const count = await dbConnection.manager.count(JobRun)
-
-  const [client, _] = await createClient(dbConnection, 'default')
+  const count = await dbConnection.manager.count(Client)
 
   if (count === 0) {
+    const [client, _] = await createClient(dbConnection, 'default')
+
     const jobRunA = new JobRun()
     jobRunA.clientId = client.id
     jobRunA.runId = JOB_RUN_A_ID
