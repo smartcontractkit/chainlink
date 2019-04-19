@@ -17,7 +17,9 @@ jobs:
           paths:
             - ./vendor
       - run: ./tools/ci/init_gcloud
-      - run: ./tools/ci/go_test
+      - run: ./tools/ci/go_test | tee /tmp/go_test.txt
+      - store_artifacts:
+          path: /tmp/go_test.txt
   go-sqlite-race:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
