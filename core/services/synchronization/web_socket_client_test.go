@@ -13,7 +13,7 @@ func TestWebSocketClient_StartCloseStart(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	wsclient := synchronization.NewWebSocketClient(wsserver.URL)
+	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
 	require.NoError(t, wsclient.Start())
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
@@ -32,7 +32,7 @@ func TestWebSocketClient_ReconnectLoop(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	wsclient := synchronization.NewWebSocketClient(wsserver.URL)
+	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
 	require.NoError(t, wsclient.Start())
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
@@ -50,7 +50,7 @@ func TestWebSocketClient_Send(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	wsclient := synchronization.NewWebSocketClient(wsserver.URL)
+	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
 	require.NoError(t, wsclient.Start())
 	defer wsclient.Close()
 
