@@ -3,7 +3,6 @@ package services
 import (
 	"errors"
 	"sync"
-	"time"
 
 	"github.com/mrwonko/cron"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -93,7 +92,7 @@ func (s *Scheduler) AddJob(job models.JobSpec) {
 // Instances of Recurring must be initialized using NewRecurring().
 type Recurring struct {
 	Cron  Cron
-	Clock Nower
+	Clock utils.Nower
 	store *store.Store
 }
 
@@ -142,7 +141,7 @@ func (r *Recurring) AddJob(job models.JobSpec) {
 // OneTime represents runs that are to be executed only once.
 type OneTime struct {
 	Store *store.Store
-	Clock Afterer
+	Clock utils.Afterer
 	done  chan struct{}
 }
 
@@ -220,16 +219,4 @@ func newChainlinkCron() *chainlinkCron {
 func (cc *chainlinkCron) Stop() {
 	cc.Cron.Stop()
 	cc.Cron.Wait()
-}
-
-// Nower is an interface that fulfills the Now method,
-// following the behavior of time.Now.
-type Nower interface {
-	Now() time.Time
-}
-
-// Afterer is an interface that fulfills the After method,
-// following the behavior of time.After.
-type Afterer interface {
-	After(d time.Duration) <-chan time.Time
 }
