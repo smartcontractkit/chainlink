@@ -7,11 +7,15 @@ import {
   PrimaryGeneratedColumn
 } from 'typeorm'
 import { TaskRun } from './TaskRun'
+import { Client } from './Client'
 
 @Entity()
 export class JobRun {
   @PrimaryGeneratedColumn()
   id: number
+
+  @Column()
+  clientId: number
 
   @Column()
   runId: string
@@ -47,6 +51,9 @@ export class JobRun {
     onDelete: 'CASCADE'
   })
   taskRuns: Array<TaskRun>
+
+  @OneToOne(type => Client, client => client.jobRuns)
+  client: Client
 }
 
 export const fromString = (str: string): JobRun => {

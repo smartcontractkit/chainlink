@@ -1,6 +1,7 @@
 import { getDb } from './database'
 import { JobRun } from './entity/JobRun'
 import { TaskRun } from './entity/TaskRun'
+import { createClient } from './entity/Client'
 
 export const JOB_RUN_A_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 export const JOB_RUN_B_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -9,8 +10,11 @@ export default async () => {
   const dbConnection = await getDb()
   const count = await dbConnection.manager.count(JobRun)
 
+  const [client, _] = await createClient(dbConnection, 'default')
+
   if (count === 0) {
     const jobRunA = new JobRun()
+    jobRunA.clientId = client.id
     jobRunA.runId = JOB_RUN_A_ID
     jobRunA.jobId = 'cccccccccccccccccccccccccccccccc'
     jobRunA.status = 'in_progress'
@@ -29,6 +33,7 @@ export default async () => {
     await dbConnection.manager.save(taskRunA)
 
     const jobRunB = new JobRun()
+    jobRunB.clientId = client.id
     jobRunB.runId = JOB_RUN_B_ID
     jobRunB.jobId = 'dddddddddddddddddddddddddddddddd'
     jobRunB.status = 'completed'
