@@ -25,7 +25,7 @@ describe('createClient', () => {
 
   it('returns a secret of at least 16 characters', async () => {
     const [_, secret] = await createClient(db, 'default')
-    expect(secret).toHaveLength(16)
+    expect(secret).toHaveLength(64)
   })
 
   it('reject duplicate client names', async () => {
