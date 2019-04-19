@@ -6,10 +6,13 @@ export class AddClient1555095655268 implements MigrationInterface {
       "id" BIGSERIAL PRIMARY KEY,
       "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
       "name" CHARACTER VARYING UNIQUE,
-      "accessKey" VARCHAR(32) NOT NULL,
+      "accessKey" VARCHAR(32) UNIQUE,
       "hashedSecret" VARCHAR(64) NOT NULL,
       "salt" VARCHAR(64) NOT NULL
     )`)
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX access_key_idx ON "client" ("accessKey")`
+    )
   }
 
   public async down(queryRunner: QueryRunner): Promise<any> {
