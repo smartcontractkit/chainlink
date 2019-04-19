@@ -72,6 +72,9 @@ describe('search', () => {
     })
     const jrB = fromString(JSON.stringify(fixtureB))
     jrB.createdAt = new Date(Date.parse('2019-04-09T01:00:00.000Z'))
+    jrB.txHash = 'fixtureBTxHash'
+    jrB.requester = 'fixtureBRequester'
+    jrB.requestId = 'fixtureBRequestID'
     await db.manager.save(jrB)
   })
 
@@ -135,5 +138,23 @@ describe('search', () => {
       searchQuery: `${JOB_RUN_A_ID} ${JOB_RUN_B_ID}`
     })
     expect(results).toHaveLength(2)
+  })
+
+  it('returns one result for an exact match on requester', async () => {
+    const requester = 'fixtureBRequester'
+    const results = await search(db, { searchQuery: requester })
+    expect(results).toHaveLength(1)
+  })
+
+  it('returns one result for an exact match on requestId', async () => {
+    const requestId = 'fixtureBRequestID'
+    const results = await search(db, { searchQuery: requestId })
+    expect(results).toHaveLength(1)
+  })
+
+  it('returns one result for an exact match on txHash', async () => {
+    const txHash = 'fixtureBTxHash'
+    const results = await search(db, { searchQuery: txHash })
+    expect(results).toHaveLength(1)
   })
 })
