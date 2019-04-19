@@ -22,10 +22,7 @@ export const authenticate = async (
 
   if (client != null) {
     const hash = hashCredentials(accessKey, secret, client.salt)
-    if (
-      timingSafeEqual(Buffer.from(hash), Buffer.from(client.hashedSecret)) ===
-      true
-    ) {
+    if (timingSafeEqual(Buffer.from(hash), Buffer.from(client.hashedSecret))) {
       return {
         clientId: client.id,
         accessKey: accessKey
