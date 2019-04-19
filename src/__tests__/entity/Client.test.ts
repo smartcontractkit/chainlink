@@ -1,5 +1,6 @@
 import { Connection } from 'typeorm'
 import {
+  Client,
   createClient,
   deleteClient,
   hashCredentials
@@ -29,18 +30,18 @@ describe('createClient', () => {
 
   it('reject duplicate client names', async () => {
     await createClient(db, 'identical')
-    await expect(async () => createClient(db, 'identical')).rejects.toThrow()
+    await expect(createClient(db, 'identical')).rejects.toThrow()
   })
 })
 
 describe('deleteClient', () => {
-  it('returns a valid client record', async () => {
+  it('deletes a client with the specified name', async () => {
     const [client, _] = await createClient(db, 'default')
+    let count = await db.manager.count(Client)
+    expect(count).toBe(1)
     await deleteClient(db, 'default')
-  })
-
-  it('no matching client throws error', async () => {
-    await expect(async () => deleteClient(db, 'rare-name')).rejects.toThrow()
+    count = await db.manager.count(Client)
+    expect(count).toBe(0)
   })
 })
 

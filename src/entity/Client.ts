@@ -57,8 +57,8 @@ export const createClient = async (
   return [await db.manager.save(client), secret]
 }
 
-export const deleteClient = (db: Connection, name: string) => {
-  db.manager
+export const deleteClient = async (db: Connection, name: string) => {
+  return db.manager
     .createQueryBuilder()
     .delete()
     .from(Client)
