@@ -1,5 +1,5 @@
 pragma solidity 0.4.24;
-pragma experimental ABIEncoderV2;
+pragma experimental ABIEncoderV2; // solium-disable-line no-experimental 
 
 contract CoordinatorInterface {
 
@@ -17,10 +17,7 @@ contract CoordinatorInterface {
     bytes32[] ss;
   }
 
-  function initiateServiceAgreement(
-    ServiceAgreement memory _agreement, 
-    OracleSignatures memory _signatures
-  ) public returns (bytes32);
+  function initiateServiceAgreement(ServiceAgreement memory _agreement, OracleSignatures memory _signatures) public returns (bytes32);
 
   function fulfillOracleRequest(bytes32 requestId, bytes32 data) external returns (bool);
 }

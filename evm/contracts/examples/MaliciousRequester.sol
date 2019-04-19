@@ -35,6 +35,11 @@ contract MaliciousRequester is MaliciousChainlinked {
     requestId = chainlinkPriceRequest(req, ORACLE_PAYMENT);
   }
 
+  function maliciousPricePayload(bytes32 _id, bytes memory _payload) public returns (bytes32 requestId) {
+    Chainlink.Request memory req = newRequest(_id, this, this.doesNothing.selector);
+    requestId = chainlinkPriceRequestPayload(req, ORACLE_PAYMENT, _payload);
+  }
+
   function maliciousTargetConsumer(address _target) public returns (bytes32 requestId) {
     Chainlink.Request memory req = newRequest("specId", _target, bytes4(keccak256("fulfill(bytes32,bytes32)")));
     requestId = chainlinkTargetRequest(_target, req, ORACLE_PAYMENT);

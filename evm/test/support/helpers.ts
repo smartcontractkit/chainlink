@@ -31,6 +31,7 @@ const PRIVATE_KEY =
 const Wallet = require('../../app/wallet.js')
 const Utils = require('../../app/utils.js')
 const Deployer = require('../../app/deployer.js')
+const Encoder = require('web3-eth-abi')
 
 const abi = require('ethereumjs-abi')
 const util = require('ethereumjs-util')
@@ -522,30 +523,82 @@ export const personalSign = async (
   return newSignature(await web3.eth.sign(toHex(message), account))
 }
 
-export const executeServiceAgreementBytes = (
+export const createOracleRequestBytes = ( 
+  sender: any,
+  amount: any,
   sAID: any,
   to: any,
   fHash: any,
   nonce: any,
   data: any
 ): any => {
-  const types = [
-    'address',
-    'uint256',
-    'bytes32',
-    'address',
-    'bytes4',
-    'uint256',
-    'uint256',
-    'bytes'
-  ]
-  const values = [0, 0, sAID, to, fHash, nonce, 1, data]
-  const encoded = abiEncode(types, values)
-  const funcSelector = functionSelector(
-    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)'
+  const args = constructStructArgs(
+    [
+      'sAId',
+      'callbackAddress',
+      'callbackFunctionId',
+      'nonce',
+      'dataVersion',
+      'data'
+    ],
+    [sAID, to, fHash, nonce, 1, data]
   )
-  return funcSelector + encoded
+  return Encoder.encodeFunctionCall(
+    {
+      name: 'oracleRequest',
+      type: 'function',
+      inputs: [
+        {
+          name: '_sender',
+          type: 'address'
+        },
+        {
+          name: '_amount',
+          type: 'uint256'
+        },
+        {
+          components: [
+            {
+              name: 'sAId',
+              type: 'bytes32'
+            },
+            {
+              name: 'callbackAddress',
+              type: 'address'
+            },
+            {
+              name: 'callbackFunctionId',
+              type: 'bytes4'
+            },
+            {
+              name: 'nonce',
+              type: 'uint256'
+            },
+            {
+              name: 'dataVersion',
+              type: 'uint256'
+            },
+            {
+              name: 'data',
+              type: 'bytes'
+            }
+          ],
+          name: '_request',
+          type: 'tuple'
+        }
+      ]
+    },
+    [sender, amount, args]
+  )
 }
+
+export const executeServiceAgreementBytes = (
+  sAID: any,
+  to: any,
+  fHash: any,
+  nonce: any,
+  data: any
+): any => createOracleRequestBytes('0x0000000000000000000000000000000000000000', 0, sAID, to, fHash, nonce, data)
 
 // Convenience functions for constructing hexadecimal representations of
 // binary serializations.
@@ -580,7 +633,7 @@ export const initiateServiceAgreementArgs = ({
 }: any): any[] => {
   return [
     constructStructArgs(
-      ['payment', 'expiration', 'endAt', 'oracles', 'requestDigest'], 
+      ['payment', 'expiration', 'endAt', 'oracles', 'requestDigest'],
       [
         toHex(newHash(payment.toString())),
         toHex(newHash(expiration.toString())),
@@ -589,12 +642,12 @@ export const initiateServiceAgreementArgs = ({
         toHex(requestDigest)
       ]
     ),
-    constructStructArgs( 
-      ['vs', 'rs', 'ss'], 
-      [ 
+    constructStructArgs(
+      ['vs', 'rs', 'ss'],
+      [
         oracleSignatures.map((os: any) => os.v),
         oracleSignatures.map((os: any) => toHex(os.r)),
-        oracleSignatures.map((os: any) => toHex(os.s)) 
+        oracleSignatures.map((os: any) => toHex(os.s))
       ]
     )
   ]

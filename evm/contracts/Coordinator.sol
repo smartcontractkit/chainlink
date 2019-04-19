@@ -1,15 +1,15 @@
 pragma solidity 0.4.24;
-pragma experimental ABIEncoderV2;
+pragma experimental ABIEncoderV2; // solium-disable-line no-experimental 
+
 
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/CoordinatorInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 
 /**
  * @title The Chainlink Coordinator handles oracle service aggreements between one or more oracles
  */
-contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
+contract Coordinator is CoordinatorInterface {
   using SafeMath for uint256;
 
   uint256 constant public EXPIRY_TIME = 5 minutes;
@@ -23,6 +23,15 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     uint64 cancelExpiration;
     uint8 responseCount;
     mapping(address => uint256) responses;
+  }
+
+  struct Request {
+    bytes32 sAId;
+    address callbackAddress;
+    bytes4 callbackFunctionId;
+    uint256 nonce;
+    uint256 dataVersion;
+    bytes data;
   }
 
   mapping(bytes32 => Callback) private callbacks;
@@ -66,47 +75,37 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    * Emits OracleRequest event for Chainlink nodes to detect.
    * @param _sender The sender of the request
    * @param _amount The amount of payment given (specified in wei)
-   * @param _sAId The Service Agreement ID
-   * @param _callbackAddress The callback address for the response
-   * @param _callbackFunctionId The callback function ID for the response
-   * @param _nonce The nonce sent by the requester
-   * @param _dataVersion The specified data version
-   * @param _data The CBOR payload of the request
+   * @param _request The request to be created
    */
   function oracleRequest(
     address _sender,
     uint256 _amount,
-    bytes32 _sAId,
-    address _callbackAddress,
-    bytes4 _callbackFunctionId,
-    uint256 _nonce,
-    uint256 _dataVersion,
-    bytes _data
+    Request memory _request
   )
-    external
+    public
     onlyLINK
-    sufficientLINK(_amount, _sAId)
-    checkCallbackAddress(_callbackAddress)
+    sufficientLINK(_amount, _request.sAId)
+    checkCallbackAddress(_request.callbackAddress)
   {
-    bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
+    bytes32 requestId = keccak256(abi.encodePacked(_sender, _request.nonce));
     require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
 
-    callbacks[requestId].sAId = _sAId;
+    callbacks[requestId].sAId = _request.sAId;
     callbacks[requestId].amount = _amount;
-    callbacks[requestId].addr = _callbackAddress;
-    callbacks[requestId].functionId = _callbackFunctionId;
+    callbacks[requestId].addr = _request.callbackAddress;
+    callbacks[requestId].functionId = _request.callbackFunctionId;
     callbacks[requestId].cancelExpiration = uint64(now.add(EXPIRY_TIME));
 
     emit OracleRequest(
-      _sAId,
+      _request.sAId,
       _sender,
       requestId,
       _amount,
-      _callbackAddress,
-      _callbackFunctionId,
+      _request.callbackAddress,
+      _request.callbackFunctionId,
       now.add(EXPIRY_TIME),
-      _dataVersion,
-      _data);
+      _request.dataVersion,
+      _request.data);
   }
 
   /**

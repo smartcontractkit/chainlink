@@ -1,4 +1,5 @@
 pragma solidity 0.4.24;
+pragma experimental ABIEncoderV2; // solium-disable-line no-experimental 
 
 import "./MaliciousChainlink.sol";
 import "../Chainlinked.sol";
@@ -51,6 +52,21 @@ contract MaliciousChainlinked is Chainlinked {
     return requestId;
   }
 
+  function chainlinkPriceRequestPayload(Chainlink.Request memory _req, uint256 _amount, bytes memory _payload)
+    internal
+    returns(bytes32 requestId)
+  {
+    requestId = keccak256(abi.encodePacked(this, maliciousRequests));
+    _req.nonce = maliciousRequests;
+    maliciousPendingRequests[requestId] = oracleAddress();
+    emit ChainlinkRequested(requestId);
+    LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
+    require(link.transferAndCall(oracleAddress(), _amount, _payload), "Unable to transferAndCall to oracle");
+    maliciousRequests += 1;
+
+    return requestId;
+  }
+
   function chainlinkWithdrawRequest(MaliciousChainlink.WithdrawRequest memory _req, uint256 _wei)
     internal
     returns(bytes32 requestId)
@@ -92,7 +108,7 @@ contract MaliciousChainlinked is Chainlinked {
   }
 
   function encodePriceRequest(Chainlink.Request memory _req)
-    internal pure returns (bytes memory)
+    internal view returns (bytes memory)
   {
     return abi.encodeWithSelector(
       bytes4(keccak256("oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)")),

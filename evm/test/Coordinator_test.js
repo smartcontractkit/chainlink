@@ -146,7 +146,7 @@ contract('Coordinator', () => {
           to,
           fHash,
           '1',
-          ''
+          '0x'
         )
         tx = await link.transferAndCall(
           coordinator.address,
@@ -191,7 +191,7 @@ contract('Coordinator', () => {
             to,
             fHash,
             '1',
-            ''
+            '0x'
           )
           const underPaid = h
             .bigNum(agreement.payment)
@@ -212,16 +212,22 @@ contract('Coordinator', () => {
 
     context('when not called through the LINK token', () => {
       it('reverts', async () => {
+        let requestStruct = h.constructStructArgs(
+          [
+            'sAId',
+            'callbackAddress',
+            'callbackFunctionId',
+            'nonce',
+            'dataVersion',
+            'data'
+          ],
+          [agreement.id, to, fHash, 1, 1, '0x']
+        )
         await h.assertActionThrows(async () => {
           await coordinator.oracleRequest(
             '0x0000000000000000000000000000000000000000',
             0,
-            agreement.id,
-            to,
-            fHash,
-            1,
-            1,
-            '0x',
+            requestStruct,
             { from: h.consumer }
           )
         })
@@ -247,7 +253,7 @@ contract('Coordinator', () => {
           mock.address,
           fHash,
           1,
-          ''
+          '0x'
         )
         const tx = await link.transferAndCall(
           coordinator.address,
@@ -346,8 +352,21 @@ contract('Coordinator', () => {
 
       context('requester lies about amount of LINK sent', () => {
         it('the oracle uses the amount of LINK actually paid', async () => {
-          const tx = await mock.maliciousPrice(agreement.id)
+          console.log(1)
+          console.log(agreement.id)
+          let payload = h.createOracleRequestBytes(
+            '0x0000000000000000000000000000000000000000', 
+            h.toHex(2000000000000000000),
+            agreement.id,
+            link.address,
+            h.functionSelector('doesNothing(bytes32,bytes32)'),
+            h.toHex(1),
+            '0x'
+          )
+          const tx = await mock.maliciousPricePayload(agreement.id, payload)
+          console.log(2)
           const req = h.decodeRunRequest(tx.receipt.rawLogs[3])
+          console.log(3)
           assertBigNum(
             paymentAmount,
             req.payment,
@@ -357,6 +376,7 @@ contract('Coordinator', () => {
               `(${req.payment}) than the requester paid (${paymentAmount})`
             ].join(' ')
           )
+          console.log(4)
         })
       })
     })
@@ -401,11 +421,13 @@ contract('Coordinator', () => {
         })
 
         it("can't fulfill the data again", async () => {
+          console.log(1)
           await coordinator.fulfillOracleRequest(
             request.id,
             h.toHex('hack the planet 101'),
             { from: h.oracleNode }
           )
+          console.log(2)
           await h.assertActionThrows(async () => {
             await coordinator.fulfillOracleRequest(
               request.id,
@@ -413,6 +435,7 @@ contract('Coordinator', () => {
               { from: h.oracleNode }
             )
           })
+          console.log(3)
         })
       })
 
@@ -518,7 +541,7 @@ contract('Coordinator', () => {
           mock.address,
           fHash,
           1,
-          ''
+          '0x'
         )
         tx = await link.transferAndCall(
           coordinator.address,
@@ -672,7 +695,7 @@ contract('Coordinator', () => {
           mock.address,
           fHash,
           1,
-          ''
+          '0x'
         )
         tx = await link.transferAndCall(
           coordinator.address,
@@ -726,7 +749,7 @@ contract('Coordinator', () => {
           mock.address,
           fHash,
           1,
-          ''
+          '0x'
         )
         tx = await link.transferAndCall(
           coordinator.address,
