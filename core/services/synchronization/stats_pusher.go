@@ -28,7 +28,7 @@ const (
 )
 
 // NewStatsPusher returns a new event queuer
-func NewStatsPusher(orm *orm.ORM, url *url.URL, afters ...utils.Afterer) *StatsPusher {
+func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters ...utils.Afterer) *StatsPusher {
 	var clock utils.Afterer
 	if len(afters) == 0 {
 		clock = utils.Clock{}
@@ -39,7 +39,7 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL, afters ...utils.Afterer) *StatsP
 	var wsClient WebSocketClient
 	wsClient = noopWebSocketClient{}
 	if url != nil {
-		wsClient = NewWebSocketClient(url)
+		wsClient = NewWebSocketClient(url, accessKey, secret)
 		orm.DB.Callback().Create().Register(createCallbackName, createSyncEvent)
 		orm.DB.Callback().Update().Register(updateCallbackName, createSyncEvent)
 	}
