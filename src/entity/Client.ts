@@ -17,8 +17,7 @@ export class Client {
     this.accessKey = generateRandomString(16)
     this.salt = generateRandomString(32)
 
-    const hashInput = `v0-${this.accessKey}-${secret}-${this.salt}`
-    this.hashedSecret = sha256(hashInput)
+    this.hashedSecret = hashCredentials(this.accessKey, secret, this.salt)
   }
 
   @PrimaryGeneratedColumn()
@@ -66,4 +65,12 @@ export const deleteClient = (db: Connection, name: string) => {
       name: name
     })
     .execute()
+}
+
+export const hashCredentials = (
+  accessKey: string,
+  secret: string,
+  salt: string
+): string => {
+  return sha256(`v0-${accessKey}-${secret}-${salt}`)
 }

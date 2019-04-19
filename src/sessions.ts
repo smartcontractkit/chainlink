@@ -1,5 +1,5 @@
 import { Connection } from 'typeorm'
-import { Client } from './entity/Client'
+import { Client, hashCredentials } from './entity/Client'
 import { sha256 } from 'js-sha256'
 import { timingSafeEqual } from 'crypto'
 
@@ -21,8 +21,7 @@ export const authenticate = async (
   })
 
   if (client != null) {
-    const hashInput = `v0-${accessKey}-${secret}-${client.salt}`
-    const hash = sha256(hashInput)
+    const hash = hashCredentials(accessKey, secret, client.salt)
     if (
       timingSafeEqual(Buffer.from(hash), Buffer.from(client.hashedSecret)) ===
       true
