@@ -11,7 +11,7 @@ import { Client, createClient, deleteClient } from '../entity/Client'
 
 const ENDPOINT = `ws://localhost:${DEFAULT_TEST_PORT}`
 
-const newExploreclient = (
+const newExplorerClient = (
   url: string,
   accessKey: string,
   secret: string
@@ -54,7 +54,7 @@ describe('realtime', () => {
   it('create a job run for valid JSON', async () => {
     expect.assertions(3)
 
-    const ws = await newExploreclient(ENDPOINT, client.accessKey, secret)
+    const ws = await newExplorerClient(ENDPOINT, client.accessKey, secret)
 
     ws.send(JSON.stringify(createFixture))
 
@@ -115,7 +115,7 @@ describe('realtime', () => {
   it('rejects malformed json events with code 422', async (done: any) => {
     expect.assertions(2)
 
-    const ws = await newExploreclient(ENDPOINT, client.accessKey, secret)
+    const ws = await newExplorerClient(ENDPOINT, client.accessKey, secret)
 
     ws.send('{invalid json}')
 
@@ -134,7 +134,7 @@ describe('realtime', () => {
   it('reject invalid authentication', async (done: any) => {
     expect.assertions(1)
 
-    newExploreclient(ENDPOINT, client.accessKey, 'lol-no').catch(error => {
+    newExplorerClient(ENDPOINT, client.accessKey, 'lol-no').catch(error => {
       expect(error).toBeDefined()
       done()
     })
