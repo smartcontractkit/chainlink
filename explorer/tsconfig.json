@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "lib": [
+      "es5",
+      "es6"
+    ],
+    "incremental": true,
+    "target": "es6",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noEmit": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "noImplicitAny": true,
+    "baseUrl": ".",
+    "typeRoots": ["node_modules/@types", "@types"]
+  },
+  "include": [
+    "src/**/*",
+    "e2e/**/*"
+  ]
+}

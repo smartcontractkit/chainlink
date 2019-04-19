@@ -1,0 +1,10 @@
+assets/*
+build/*
+client/build/*
+node_modules/*
+client/node_modules/*
+views/**/*.ejs
+src/serviceWorker.js
+src/public/*.js
+tasks/*
+config/*
