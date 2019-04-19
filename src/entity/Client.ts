@@ -45,6 +45,7 @@ const generateRandomString = (size: number): string => {
   return randomBytes(size)
     .toString('base64')
     .replace(/[/+=]/g, '')
+    .substring(0, size)
 }
 
 export const createClient = async (

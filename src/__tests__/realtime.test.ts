@@ -51,7 +51,7 @@ describe('realtime', () => {
     return Promise.all([server.close(), closeDbConnection()])
   })
 
-  it('create a job run for valid JSON', async (done: any) => {
+  it('create a job run for valid JSON', async () => {
     expect.assertions(3)
 
     const ws = await newExploreclient(ENDPOINT, client.accessKey, secret)
@@ -72,8 +72,6 @@ describe('realtime', () => {
 
     const taskRunCount = await db.manager.count(TaskRun)
     expect(taskRunCount).toEqual(1)
-
-    done()
   })
 
   it('can create and update a job run and task runs', async (done: any) => {
