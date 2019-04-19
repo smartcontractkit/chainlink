@@ -2,6 +2,7 @@ import { closeDbConnection, getDb } from '../../database'
 import { Connection } from 'typeorm'
 import { fromString, search } from '../../entity/JobRun'
 import { JOB_RUN_A_ID, JOB_RUN_B_ID } from '../../seed'
+import { createClient } from '../../entity/Client'
 import fixture from '../fixtures/JobRun.fixture.json'
 
 let db: Connection
@@ -36,6 +37,8 @@ describe('fromString', () => {
     expect(jr.taskRuns[0].status).toEqual('')
     expect(jr.taskRuns[0].error).toEqual(null)
 
+    const [client, _] = await createClient(db, 'default')
+    jr.clientId = client.id
     const r = await db.manager.save(jr)
     expect(r.id).toBeDefined()
     expect(r.type).toEqual('runlog')
@@ -62,7 +65,10 @@ describe('fromString', () => {
 
 describe('search', () => {
   beforeEach(async () => {
+    const [client, _] = await createClient(db, 'default')
+
     const jrA = fromString(JSON.stringify(fixture))
+    jrA.clientId = client.id
     jrA.createdAt = new Date(Date.parse('2019-04-08T01:00:00.000Z'))
     await db.manager.save(jrA)
 
@@ -71,6 +77,7 @@ describe('search', () => {
       jobId: JOB_RUN_B_ID
     })
     const jrB = fromString(JSON.stringify(fixtureB))
+    jrB.clientId = client.id
     jrB.createdAt = new Date(Date.parse('2019-04-09T01:00:00.000Z'))
     await db.manager.save(jrB)
   })

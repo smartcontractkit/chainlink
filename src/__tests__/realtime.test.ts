@@ -1,20 +1,52 @@
 import { Server } from 'http'
 import WebSocket from 'ws'
 import { start as startServer, DEFAULT_TEST_PORT } from '../support/server'
+import { Connection } from 'typeorm'
 import { closeDbConnection, getDb } from '../database'
 import createFixture from './fixtures/JobRun.fixture.json'
 import updateFixture from './fixtures/JobRunUpdate.fixture.json'
 import { JobRun } from '../entity/JobRun'
 import { TaskRun } from '../entity/TaskRun'
+import { Client, createClient, deleteClient } from '../entity/Client'
 
 const ENDPOINT = `ws://localhost:${DEFAULT_TEST_PORT}`
 
+const newExploreclient = (
+  url: string,
+  accessKey: string,
+  secret: string
+): Promise<WebSocket> => {
+  const ws = new WebSocket(ENDPOINT, {
+    headers: {
+      'X-Explore-Chainlink-AccessKey': accessKey,
+      'X-Explore-Chainlink-Secret': secret
+    }
+  })
+
+  return new Promise((resolve: (arg0: WebSocket) => void, reject) => {
+    ws.on('error', (error: Error) => {
+      reject(error)
+    })
+
+    ws.on('open', () => resolve(ws))
+  })
+}
+
 describe('realtime', () => {
   let server: Server
+  let db: Connection
+  let client: Client
+  let secret: string
 
   beforeAll(async () => {
     server = await startServer()
+    db = await getDb()
   })
+
+  beforeEach(async () => {
+    ;[client, secret] = await createClient(db, 'explore client')
+  })
+
   afterAll(async () => {
     return Promise.all([server.close(), closeDbConnection()])
   })
@@ -22,26 +54,26 @@ describe('realtime', () => {
   it('create a job run for valid JSON', async (done: any) => {
     expect.assertions(3)
 
-    const db = await getDb()
+    const ws = await newExploreclient(ENDPOINT, client.accessKey, secret)
 
-    const ws = new WebSocket(ENDPOINT)
-    ws.on('open', () => {
-      ws.send(JSON.stringify(createFixture))
+    ws.send(JSON.stringify(createFixture))
+
+    await new Promise(resolve => {
+      ws.on('message', (data: WebSocket.Data) => {
+        const result = JSON.parse(data as string)
+        expect(result.status).toEqual(201)
+        ws.close()
+        resolve()
+      })
     })
 
-    ws.on('message', async (data: any) => {
-      const result = JSON.parse(data)
-      expect(result.status).toEqual(201)
+    const jobRunCount = await db.manager.count(JobRun)
+    expect(jobRunCount).toEqual(1)
 
-      const jobRunCount = await db.manager.count(JobRun)
-      expect(jobRunCount).toEqual(1)
+    const taskRunCount = await db.manager.count(TaskRun)
+    expect(taskRunCount).toEqual(1)
 
-      const taskRunCount = await db.manager.count(TaskRun)
-      expect(taskRunCount).toEqual(1)
-
-      ws.close()
-      done()
-    })
+    done()
   })
 
   it('can create and update a job run and task runs', async (done: any) => {
@@ -82,28 +114,31 @@ describe('realtime', () => {
     })
   })
 
-  it('can handle malformed JSON', async (done: any) => {
+  it('rejects malformed json events with code 422', async (done: any) => {
     expect.assertions(2)
 
-    const db = await getDb()
+    const ws = await newExploreclient(ENDPOINT, client.accessKey, secret)
 
-    const ws = new WebSocket(ENDPOINT)
-    ws.on('open', () => {
-      ws.send('{invalid json}')
-    })
+    ws.send('{invalid json}')
+
     ws.on('message', async (data: any) => {
       const result = JSON.parse(data)
       expect(result.status).toEqual(422)
 
       const count = await db.manager.count(JobRun)
       expect(count).toEqual(0)
-      ws.close()
 
-      const secondWs = new WebSocket(ENDPOINT)
-      secondWs.on('open', () => {
-        secondWs.close()
-        done()
-      })
+      ws.close()
+      done()
+    })
+  })
+
+  it('reject invalid authentication', async (done: any) => {
+    expect.assertions(1)
+
+    newExploreclient(ENDPOINT, client.accessKey, 'lol-no').catch(error => {
+      expect(error).toBeDefined()
+      done()
     })
   })
 })
