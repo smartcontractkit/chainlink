@@ -52,7 +52,7 @@ export const createClient = async (
   db: Connection,
   name: string
 ): Promise<[Client, string]> => {
-  const secret = generateRandomString(16)
+  const secret = generateRandomString(64)
   const client = new Client(name, secret)
   return [await db.manager.save(client), secret]
 }
