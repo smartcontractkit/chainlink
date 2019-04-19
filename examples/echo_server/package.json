@@ -14,5 +14,8 @@
     "truffle": "^5.0.0-next.24",
     "truffle-contract": "^3.0.6",
     "web3": "^1.0.0-beta.35"
+  },
+  "devDependencies": {
+    "body-parser": "^1.18.3"
   }
 }
