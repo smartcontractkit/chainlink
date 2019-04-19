@@ -1,6 +1,7 @@
 import { getDb } from './database'
+import { Connection } from 'typeorm'
 import http from 'http'
-import { JobRun, fromString } from './entity/JobRun'
+import { JobRun, fromString, saveJobRunTree } from './entity/JobRun'
 import { TaskRun } from './entity/TaskRun'
 import WebSocket from 'ws'
 
@@ -19,16 +20,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
 
       try {
         const jobRun = fromString(message as string)
-        const entity = await db.manager.save(jobRun)
-
-        await Promise.all(
-          jobRun.taskRuns.map(
-            (tr): Promise<TaskRun> => {
-              tr.jobRun = entity
-              return db.manager.save(tr)
-            }
-          )
-        )
+        await saveJobRunTree(db, jobRun)
         result = { status: 201 }
       } catch (e) {
         console.error(e)
