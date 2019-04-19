@@ -820,6 +820,21 @@ func WaitForJobs(t *testing.T, store *strpkg.Store, want int) []models.JobSpec {
 	return jobs
 }
 
+// WaitForSyncEventCount checks if the sync event count eventually reaches
+// the amound specified in parameter want.
+func WaitForSyncEventCount(
+	t *testing.T,
+	orm *orm.ORM,
+	want int,
+) {
+	t.Helper()
+	gomega.NewGomegaWithT(t).Eventually(func() int {
+		var count int
+		assert.NoError(t, orm.DB.Model(&models.SyncEvent{}).Count(&count).Error)
+		return count
+	}).Should(gomega.Equal(want))
+}
+
 // ParseISO8601 given the time string it Must parse the time and return it
 func ParseISO8601(s string) time.Time {
 	t, err := time.Parse(time.RFC3339Nano, s)
