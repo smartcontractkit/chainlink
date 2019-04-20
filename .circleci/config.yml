@@ -197,7 +197,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "explorer/client/yarn.lock" }}
+          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "yarn.lock" }}
       - run:
           name: Install Server Packages
           command: yarn install
@@ -205,7 +205,7 @@ jobs:
           name: Install Client Packages
           command: cd explorer/client && yarn install
       - save_cache:
-          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "explorer/client/yarn.lock" }}
+          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "yarn.lock" }}
           paths:
             - ~/.cache/yarn
             - /usr/local/share/.cache/yarn
