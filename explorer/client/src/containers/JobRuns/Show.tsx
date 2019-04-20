@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { denormalize } from 'normalizr'
 import { connect } from 'react-redux'
-import { bindActionCreators, Dispatch } from 'redux'
+import { bindActionCreators, Dispatch, Action } from 'redux'
 import {
   createStyles,
   Theme,
@@ -104,7 +104,7 @@ const mapStateToProps = (state: IState, { jobRunId }: IOwnProps) => {
   }
 }
 
-const mapDispatchToProps = (dispatch: Dispatch<any>) =>
+const mapDispatchToProps = (dispatch: Dispatch<Action<any>>) =>
   bindActionCreators({ getJobRun }, dispatch)
 
 const ConnectedShow = connect(
