@@ -65,11 +65,11 @@
     "react-hot-loader": "^4.8.0",
     "react-redux": "^7.0.2",
     "react-resize-detector": "^4.0.5",
+    "react-scripts": "2.1.8",
     "react-snapshot": "^1.3.0",
     "react-time-ago": "^5.0.2",
     "redux-devtools-extension": "^2.13.8",
     "redux-thunk": "^2.3.0",
-    "react-scripts": "2.1.8",
     "typescript": "^3.4.2",
     "webpack": "4.28.3"
   }

@@ -76,5 +76,8 @@
     "use-react-hooks": "^1.0.7",
     "uuid": "^3.3.2",
     "webpack": "4.28.3"
+  },
+  "devDependencies": {
+    "@types/react-redux": "^7.0.8"
   }
 }
