@@ -4,8 +4,6 @@
   "workspaces": [
     "evm",
     "examples/*",
-    "explorer/client",
-    "explorer",
     "integration",
     "operator_ui"
   ],
@@ -28,6 +26,7 @@
     "@babel/preset-typescript": "^7.1.0",
     "@babel/register": "^7.0.0",
     "@types/mocha": "^5.2.0",
+    "@types/node": "^11.13.6",
     "@typescript-eslint/parser": "^1.6.0",
     "babel-eslint": "^9.0.0",
     "cbor": "^4.1.1",
