@@ -2,7 +2,7 @@ import { closeDbConnection, getDb } from '../../database'
 import { Connection } from 'typeorm'
 import { fromString, search } from '../../entity/JobRun'
 import { JOB_RUN_A_ID, JOB_RUN_B_ID } from '../../seed'
-import { createClient } from '../../entity/Client'
+import { createChainlinkNode } from '../../entity/ChainlinkNode'
 import fixture from '../fixtures/JobRun.fixture.json'
 
 let db: Connection
@@ -37,8 +37,11 @@ describe('fromString', () => {
     expect(jr.taskRuns[0].status).toEqual('')
     expect(jr.taskRuns[0].error).toEqual(null)
 
-    const [client, _] = await createClient(db, 'job-run-fromString-client')
-    jr.clientId = client.id
+    const [chainlinkNode, _] = await createChainlinkNode(
+      db,
+      'job-run-fromString-chainlink-node'
+    )
+    jr.chainlinkNodeId = chainlinkNode.id
     const r = await db.manager.save(jr)
     expect(r.id).toBeDefined()
     expect(r.type).toEqual('runlog')
@@ -65,10 +68,13 @@ describe('fromString', () => {
 
 describe('search', () => {
   beforeEach(async () => {
-    const [client, _] = await createClient(db, 'job-run-search-client')
+    const [chainlinkNode, _] = await createChainlinkNode(
+      db,
+      'job-run-search-chainlink-node'
+    )
 
     const jrA = fromString(JSON.stringify(fixture))
-    jrA.clientId = client.id
+    jrA.chainlinkNodeId = chainlinkNode.id
     jrA.createdAt = new Date(Date.parse('2019-04-08T01:00:00.000Z'))
     await db.manager.save(jrA)
 
@@ -77,7 +83,7 @@ describe('search', () => {
       jobId: JOB_RUN_B_ID
     })
     const jrB = fromString(JSON.stringify(fixtureB))
-    jrB.clientId = client.id
+    jrB.chainlinkNodeId = chainlinkNode.id
     jrB.createdAt = new Date(Date.parse('2019-04-09T01:00:00.000Z'))
     await db.manager.save(jrB)
   })

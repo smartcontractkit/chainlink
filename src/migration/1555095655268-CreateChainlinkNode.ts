@@ -1,8 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
-export class AddClient1555095655268 implements MigrationInterface {
+export class AddChainlinkNode1555095655268 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<any> {
-    await queryRunner.query(`CREATE TABLE "client" (
+    await queryRunner.query(`CREATE TABLE "chainlink_node" (
       "id" BIGSERIAL PRIMARY KEY,
       "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
       "name" CHARACTER VARYING UNIQUE,
@@ -11,7 +11,7 @@ export class AddClient1555095655268 implements MigrationInterface {
       "salt" VARCHAR(64) NOT NULL
     )`)
     await queryRunner.query(
-      `CREATE UNIQUE INDEX client_access_key_idx ON "client" ("accessKey")`
+      `CREATE UNIQUE INDEX chainlink_node_access_key_idx ON "chainlink_node" ("accessKey")`
     )
   }
 

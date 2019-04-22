@@ -1,20 +1,24 @@
 import yargs from 'yargs'
 import { Connection } from 'typeorm'
-import { Client, createClient, deleteClient } from '../entity/Client'
+import {
+  ChainlinkNode,
+  createChainlinkNode,
+  deleteChainlinkNode
+} from '../entity/ChainlinkNode'
 import { closeDbConnection, getDb } from '../database'
 
 const add = async (name: string) => {
   return bootstrap(async (db: Connection) => {
-    const [client, secret] = await createClient(db, name)
-    console.log('created new client with id %s', client.id)
-    console.log('AccessKey', client.accessKey)
+    const [chainlinkNode, secret] = await createChainlinkNode(db, name)
+    console.log('created new chainlink node with id %s', chainlinkNode.id)
+    console.log('AccessKey', chainlinkNode.accessKey)
     console.log('Secret', secret)
   })
 }
 
 const remove = async (name: string) => {
   return bootstrap(async (db: Connection) => {
-    deleteClient(db, name)
+    deleteChainlinkNode(db, name)
   })
 }
 
@@ -35,10 +39,10 @@ const _ = yargs
   .command({
     command: 'add <name>',
     aliases: 'create',
-    describe: 'Add a client',
+    describe: 'Add a chainlink node',
     builder: (yargs): any => {
       yargs.positional('name', {
-        describe: 'The name of the Core node to create',
+        describe: 'The name of the Chainlink Node to create',
         type: 'string'
       })
     },
@@ -47,10 +51,10 @@ const _ = yargs
   .command({
     command: 'delete <name>',
     aliases: 'rm',
-    describe: 'Remove a client',
+    describe: 'Remove a chainlink node',
     builder: (yargs): any => {
       yargs.positional('name', {
-        describe: 'The name of the Core node to remove',
+        describe: 'The name of the Chainlink Node to remove',
         type: 'string'
       })
     },
@@ -58,4 +62,4 @@ const _ = yargs
   })
   .help('h')
   .alias('h', 'help')
-  .demandCommand(1).argv // final argv call invokes command
+  .demandCommand(1).argv

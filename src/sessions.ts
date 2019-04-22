@@ -1,30 +1,35 @@
 import { Connection } from 'typeorm'
-import { Client, hashCredentials } from './entity/Client'
+import { ChainlinkNode, hashCredentials } from './entity/ChainlinkNode'
 import { sha256 } from 'js-sha256'
 import { timingSafeEqual } from 'crypto'
 
-// Session contains a client's ID and access key
+// Session contains a chainlink node's ID and access key
 export interface Session {
-  clientId: number
+  chainlinkNodeId: number
   accessKey: string
 }
 
-// authenticate looks up a client by accessKey and attempts to verify the
+// authenticate looks up a chainlink node by accessKey and attempts to verify the
 // provided secret, if verification succeeds a Session is returned
 export const authenticate = async (
   db: Connection,
   accessKey: string,
   secret: string
 ): Promise<Session | null> => {
-  const client = await db.getRepository(Client).findOne({
+  const chainlinkNode = await db.getRepository(ChainlinkNode).findOne({
     accessKey: accessKey
   })
 
-  if (client != null) {
-    const hash = hashCredentials(accessKey, secret, client.salt)
-    if (timingSafeEqual(Buffer.from(hash), Buffer.from(client.hashedSecret))) {
+  if (chainlinkNode != null) {
+    const hash = hashCredentials(accessKey, secret, chainlinkNode.salt)
+    if (
+      timingSafeEqual(
+        Buffer.from(hash),
+        Buffer.from(chainlinkNode.hashedSecret)
+      )
+    ) {
       return {
-        clientId: client.id,
+        chainlinkNodeId: chainlinkNode.id,
         accessKey: accessKey
       }
     }
