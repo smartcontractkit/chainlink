@@ -4,7 +4,6 @@ const CompressionPlugin = require('compression-webpack-plugin')
 const BrotliPlugin = require('brotli-webpack-plugin')
 
 module.exports = {
-  workspace: true,
   webpack: {
     plugins: [
       new HtmlWebpackPlugin(),
