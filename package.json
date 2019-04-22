@@ -4,8 +4,8 @@
   "workspaces": [
     "evm",
     "examples/*",
-    "explorer",
     "explorer/client",
+    "explorer",
     "integration",
     "operator_ui"
   ],
