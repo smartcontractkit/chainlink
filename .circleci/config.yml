@@ -1,4 +1,6 @@
-version: 2
+version: 2.1
+orbs:
+  aws-ecr: circleci/aws-ecr@0.0.2
 jobs:
   go-sqlite:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
@@ -187,6 +189,7 @@ jobs:
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/operator_ui_test
   explorer:
+    working_directory: ~/chainlink/explorer
     docker:
       - image: circleci/node:10-browsers
         environment:
@@ -196,32 +199,40 @@ jobs:
           POSTGRES_USER: root
           POSTGRES_DB: linkstats_test
     steps:
-      - checkout
+      - checkout:
+          path: ~/chainlink
       - restore_cache:
-          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "explorer/client/yarn.lock" }}
+          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "client/yarn.lock" }}
       - run:
           name: Install Server Packages
           command: yarn install
       - run:
           name: Install Client Packages
-          command: cd explorer/client && yarn install
+          command: cd client && yarn install
       - save_cache:
-          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "explorer/client/yarn.lock" }}
+          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "client/yarn.lock" }}
           paths:
             - ~/.cache/yarn
             - /usr/local/share/.cache/yarn
       - run:
           name: Run Lint
-          command: yarn lint:explorer
+          command: yarn lint
       - run:
           name: Run Server Tests
-          command: cd explorer && yarn test-ci
+          command: yarn test-ci
       - run:
           name: Run Client Tests
-          command: cd explorer/client && yarn test-ci
+          command: cd client && yarn test-ci
       - run:
           name: Run E2E Tests
-          command: cd explorer/client && yarn build && cd - && yarn test-ci:e2e
+          command: cd client && yarn build && cd .. && yarn test-ci:e2e
+  build-explorer-image:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Docker build
+          command: cd explorer && docker build .
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.18
@@ -259,9 +270,24 @@ workflows:
       - geth-postgres
       - parity-postgres
       - operator-ui
-      - explorer
       - rust
       - sgx
+      - explorer
+      - build-explorer-image:
+          filters:
+            branches:
+              ignore: master
+      - aws-ecr/build_and_push_image:
+          requires:
+            - explorer
+          filters:
+            branches:
+              only: master
+          account-url: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+          repo: "${AWS_RESOURCE_NAME_PREFIX}"
+          region: ${AWS_DEFAULT_REGION}
+          tag: "${CIRCLE_SHA1}"
+          path: ./explorer
       - reportcoverage:
           requires:
             - go-sqlite
