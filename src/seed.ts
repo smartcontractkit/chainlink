@@ -1,16 +1,23 @@
 import { getDb } from './database'
 import { JobRun } from './entity/JobRun'
 import { TaskRun } from './entity/TaskRun'
+import { ChainlinkNode, createChainlinkNode } from './entity/ChainlinkNode'
 
 export const JOB_RUN_A_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 export const JOB_RUN_B_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
 export default async () => {
   const dbConnection = await getDb()
-  const count = await dbConnection.manager.count(JobRun)
+  const count = await dbConnection.manager.count(ChainlinkNode)
 
   if (count === 0) {
+    const [chainlinkNode, _] = await createChainlinkNode(
+      dbConnection,
+      'default'
+    )
+
     const jobRunA = new JobRun()
+    jobRunA.chainlinkNodeId = chainlinkNode.id
     jobRunA.runId = JOB_RUN_A_ID
     jobRunA.jobId = 'cccccccccccccccccccccccccccccccc'
     jobRunA.status = 'in_progress'
@@ -29,6 +36,7 @@ export default async () => {
     await dbConnection.manager.save(taskRunA)
 
     const jobRunB = new JobRun()
+    jobRunB.chainlinkNodeId = chainlinkNode.id
     jobRunB.runId = JOB_RUN_B_ID
     jobRunB.jobId = 'dddddddddddddddddddddddddddddddd'
     jobRunB.status = 'completed'
