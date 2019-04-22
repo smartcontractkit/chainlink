@@ -78,9 +78,8 @@ func TestMigrate_Migration0(t *testing.T) {
 	defer cleanup()
 
 	db := orm.DB
-	tm := &migration0.Migration{}
 
-	require.NoError(t, tm.Migrate(db))
+	require.NoError(t, migration0.Migrate(db))
 
 	assert.True(t, db.HasTable("job_specs"))
 	assert.True(t, db.HasTable("task_specs"))
@@ -122,7 +121,7 @@ func TestMigrate1551816486(t *testing.T) {
 	}
 
 	require.NoError(t, orm.DB.Save(&initial).Error)
-	require.NoError(t, migration0.Migration{}.Migrate(orm.DB))
+	require.NoError(t, migration0.Migrate(orm.DB))
 
 	var migratedbt migration1551816486.BridgeType
 	err = orm.DB.First(&migratedbt, "name = ?", initial.Name).Error
@@ -133,8 +132,6 @@ func TestMigrate1551816486(t *testing.T) {
 func TestMigrate1551895034(t *testing.T) {
 	orm, cleanup := bootstrapORM(t)
 	defer cleanup()
-
-	tm := &migration1551895034.Migration{}
 
 	height := models.NewBig(big.NewInt(1337))
 	hash := common.HexToHash("0xde3fb1df888c6c7f77f3a8e9c2582f87e7ad5277d98bd06cfd17cd2d7ea49f42")
@@ -151,7 +148,7 @@ func TestMigrate1551895034(t *testing.T) {
 	require.NoError(t, err)
 
 	// migrate
-	require.NoError(t, tm.Migrate(orm.DB))
+	require.NoError(t, migration1551895034.Migrate(orm.DB))
 
 	retrieved := models.Head{}
 	err = orm.DB.First(&retrieved).Error
@@ -175,10 +172,7 @@ func TestMigrate1552418531(t *testing.T) {
 	`).Error
 	require.NoError(t, err)
 
-	// migrate
-	tm := &migration1552418531.Migration{}
-
-	require.NoError(t, tm.Migrate(orm.DB))
+	require.NoError(t, migration1552418531.Migrate(orm.DB))
 
 	retrieved := models.JobSpec{}
 	err = orm.DB.First(&retrieved).Error
@@ -200,8 +194,7 @@ func TestMigrate1554131520(t *testing.T) {
 	defer cleanup()
 
 	// seed w old schema
-	tm0 := &migration0.Migration{}
-	require.NoError(t, tm0.Migrate(orm.DB))
+	require.NoError(t, migration0.Migrate(orm.DB))
 
 	j := cltest.NewJob()
 	j.Initiators = []models.Initiator{
@@ -248,9 +241,7 @@ func TestMigrate1554131520(t *testing.T) {
 		UPDATE job_runs SET run_request_id = NULL;
 	`)
 
-	// migrate
-	tm := &migration1554131520.Migration{}
-	require.NoError(t, tm.Migrate(orm.DB))
+	require.NoError(t, migration1554131520.Migrate(orm.DB))
 
 	// check run request backfill
 	retrieved := models.JobRun{}
@@ -293,8 +284,7 @@ func TestMigrate1554855314(t *testing.T) {
 	defer cleanup()
 
 	// seed w old schema
-	tm0 := &migration0.Migration{}
-	require.NoError(t, tm0.Migrate(orm.DB))
+	require.NoError(t, migration0.Migrate(orm.DB))
 
 	oldBT := migration1551816486.BridgeType{
 		Name:                   "happyfuntimesuperadapter",
@@ -304,9 +294,7 @@ func TestMigrate1554855314(t *testing.T) {
 	}
 	require.NoError(t, orm.DB.Create(&oldBT).Error)
 
-	// migrate
-	tm := &migration1554855314.Migration{}
-	require.NoError(t, tm.Migrate(orm.DB))
+	require.NoError(t, migration1554855314.Migrate(orm.DB))
 
 	// verify migration
 	migratedBT := models.BridgeType{}
