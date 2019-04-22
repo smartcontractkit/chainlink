@@ -123,7 +123,7 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
       .into(JobRun)
       .values(jobRun)
       .onConflict(
-        `("runId") DO UPDATE SET
+        `("runId", "clientId") DO UPDATE SET
         "status" = :status
         ,"error" = :error
         ,"completedAt" = :completedAt
