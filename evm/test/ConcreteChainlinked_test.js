@@ -8,6 +8,7 @@ import {
   getEvents,
   getLatestEvent,
   linkContract,
+  Ox,
   toHexWithoutPrefix,
   toHex
 } from './support/helpers'
@@ -38,10 +39,7 @@ contract('ConcreteChainlinked', () => {
       let [jId, cbAddr, cbFId, cborData] = decodeRunABI(tx.receipt.rawLogs[0])
       let params = await decodeDietCBOR(cborData)
 
-      assert.equal(
-        specId.toLowerCase(),
-        `0x${jId.toString('hex').toLowerCase()}`
-      )
+      assert.equal(specId.toLowerCase(), toHex(jId))
       assert.equal(gs.address.toLowerCase(), `0x${cbAddr.toLowerCase()}`)
       assert.equal('ed53e511', toHexWithoutPrefix(cbFId))
       assert.deepEqual({}, params)
