@@ -132,20 +132,12 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     ); 
     require(_agreement.endAt > block.timestamp, "End of ServiceAgreement must be in the future");
 
-    serviceAgreementID = getId(
-      _agreement.payment, 
-      _agreement.expiration, 
-      _agreement.endAt, 
-      _agreement.oracles, 
-      _agreement.requestDigest
-    );
+    serviceAgreementID = getId(_agreement);
 
     registerOracleSignatures(
       serviceAgreementID, 
       _agreement.oracles, 
-      _signatures.vs, 
-      _signatures.rs, 
-      _signatures.ss
+      _signatures
     );
 
     serviceAgreements[serviceAgreementID] = _agreement; 
@@ -156,21 +148,22 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    * @dev Validates that each signer address matches for the given oracles
    * @param _serviceAgreementID Service agreement ID
    * @param _oracles Array of oracle addresses which agreed to the service agreement
-   * @param _vs Array of recovery IDs of the oracle signatures
-   * @param _rs Array of first 32 bytes of the oracle signatures
-   * @param _ss Array of second 32 bytes of the oracle signatures
+   * @param _signatures A
    */
   function registerOracleSignatures(
     bytes32 _serviceAgreementID,
     address[] _oracles,
-    uint8[] _vs,
-    bytes32[] _rs,
-    bytes32[] _ss
+    OracleSignatures memory _signatures
   )
     private
   {
     for (uint i = 0; i < _oracles.length; i++) {
-      address signer = getOracleAddressFromSASignature(_serviceAgreementID, _vs[i], _rs[i], _ss[i]);
+      address signer = getOracleAddressFromSASignature(
+        _serviceAgreementID, 
+        _signatures.vs[i], 
+        _signatures.rs[i], 
+        _signatures.ss[i]
+      );
       require(_oracles[i] == signer, "Invalid oracle signature specified in SA");
       allowedOracles[_serviceAgreementID][_oracles[i]] = true;
     }
@@ -282,23 +275,18 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
 
   /**
    * @notice Retrieve the Service Agreement ID for the given parameters
-   * @param _payment The amount of payment given (specified in wei)
-   * @param _expiration The expiration that nodes should respond by
-   * @param _endAt The date which the service agreement is no longer valid
-   * @param _oracles Array of oracle addresses which agreed to the service agreement
-   * @param _requestDigest Hash of the normalized job specification
+   * @param _agreement A
    * @return The Service Agreement ID, a keccak256 hash of the input params
    */
-  function getId(
-    uint256 _payment,
-    uint256 _expiration,
-    uint256 _endAt,
-    address[] _oracles,
-    bytes32 _requestDigest
-  )
-    public pure returns (bytes32)
+  function getId(ServiceAgreement memory _agreement) public pure returns (bytes32)
   {
-    return keccak256(abi.encodePacked(_payment, _expiration, _endAt, _oracles, _requestDigest));
+    return keccak256(abi.encodePacked(
+      _agreement.payment, 
+      _agreement.expiration, 
+      _agreement.endAt, 
+      _agreement.oracles, 
+      _agreement.requestDigest
+    ));
   }
 
   /**
