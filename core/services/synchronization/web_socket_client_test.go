@@ -82,7 +82,7 @@ func TestWebSocketClient_Authentiation(t *testing.T) {
 
 	cltest.CallbackOrTimeout(t, "receive authentication headers", func() {
 		headers := <-headerChannel
-		assert.Equal(t, []string{"accessKey"}, headers["X-Explore-Chainlink-AccessKey"])
+		assert.Equal(t, []string{"accessKey"}, headers["X-Explore-Chainlink-Accesskey"])
 		assert.Equal(t, []string{"secret"}, headers["X-Explore-Chainlink-Secret"])
 	})
 }
