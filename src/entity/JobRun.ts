@@ -100,6 +100,9 @@ export const search = async (
     query = query
       .where('job_run.runId IN(:...searchTokens)', { searchTokens })
       .orWhere('job_run.jobId IN(:...searchTokens)', { searchTokens })
+      .orWhere('job_run.requester IN(:...searchTokens)', { searchTokens })
+      .orWhere('job_run.requestId IN(:...searchTokens)', { searchTokens })
+      .orWhere('job_run.txHash IN(:...searchTokens)', { searchTokens })
   }
 
   if (params.limit != null) {
