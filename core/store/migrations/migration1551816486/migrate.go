@@ -4,12 +4,10 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-type Migration struct{}
-
 // Migrate creates a new bridge_types table with the correct primary key
 // because sqlite does not allow you to modify the primary key
 // after table creation.
-func (m Migration) Migrate(tx *gorm.DB) error {
+func Migrate(tx *gorm.DB) error {
 	tx = tx.Begin()
 	err := tx.Exec(`
 		CREATE TABLE "bridge_types_with_pk" (

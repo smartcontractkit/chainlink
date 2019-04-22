@@ -5,12 +5,10 @@ import (
 	"gopkg.in/guregu/null.v3"
 )
 
-type Migration struct{}
-
 // Migrate creates a new bridge_types table with the correct primary key
 // because sqlite does not allow you to modify the primary key
 // after table creation.
-func (m Migration) Migrate(tx *gorm.DB) error {
+func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&initiator{}).Error; err != nil {
 		return err
 	}

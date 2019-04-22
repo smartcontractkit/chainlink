@@ -7,13 +7,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 )
 
-type Migration struct{}
-
 // Migrate creates a new indexable_block_numbers table with
 // 1. the correct primary key because sqlite does not allow you to modify
 // the primary key after table creation.
 // 2. number backed by int64 instead of string.
-func (m Migration) Migrate(tx *gorm.DB) error {
+func Migrate(tx *gorm.DB) error {
 	if !tx.HasTable("indexable_block_numbers") {
 		return nil
 	}
