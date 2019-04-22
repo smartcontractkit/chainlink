@@ -8,6 +8,7 @@ import updateFixture from './fixtures/JobRunUpdate.fixture.json'
 import { JobRun } from '../entity/JobRun'
 import { TaskRun } from '../entity/TaskRun'
 import { Client, createClient, deleteClient } from '../entity/Client'
+import { clearDb } from './testdatabase'
 
 const ENDPOINT = `ws://localhost:${DEFAULT_TEST_PORT}`
 
@@ -44,7 +45,8 @@ describe('realtime', () => {
   })
 
   beforeEach(async () => {
-    ;[client, secret] = await createClient(db, 'explore client')
+    clearDb()
+    ;[client, secret] = await createClient(db, 'explore realtime test client')
   })
 
   afterAll(async () => {
@@ -74,42 +76,44 @@ describe('realtime', () => {
     expect(taskRunCount).toEqual(1)
   })
 
-  it('can create and update a job run and task runs', async (done: any) => {
+  it('can create and update a job run and task runs', async () => {
     expect.assertions(6)
 
-    const db = await getDb()
-    const assertionCallback = async () => {
-      const jobRunCount = await db.manager.count(JobRun)
-      expect(jobRunCount).toEqual(1)
+    const ws = await newExplorerClient(ENDPOINT, client.accessKey, secret)
 
-      const taskRunCount = await db.manager.count(TaskRun)
-      expect(taskRunCount).toEqual(1)
+    ws.send(JSON.stringify(createFixture))
 
-      const jr = await db.manager.findOne(JobRun, { relations: ['taskRuns'] })
-      expect(jr.status).toEqual('completed')
+    await new Promise(resolve => {
+      let responses = 0
+      ws.on('message', (data: any) => {
+        console.log('message', data as string)
+        responses += 1
+        const result = JSON.parse(data)
 
-      const tr = jr.taskRuns[0]
-      expect(tr.status).toEqual('completed')
-      done()
-    }
+        if (responses === 1) {
+          expect(result.status).toEqual(201)
+          ws.send(JSON.stringify(updateFixture))
+        }
 
-    const ws = new WebSocket(ENDPOINT)
-    let responses = 0
-    ws.on('message', (data: any) => {
-      responses += 1
-      const result = JSON.parse(data)
-      expect(result.status).toEqual(201)
-      if (responses === 2) {
-        ws.close()
-        return assertionCallback()
-      }
+        if (responses === 2) {
+          expect(result.status).toEqual(201)
+          ws.close()
+          resolve()
+        }
+      })
     })
 
-    // send payloads
-    ws.on('open', () => {
-      ws.send(JSON.stringify(createFixture))
-      ws.send(JSON.stringify(updateFixture))
-    })
+    const jobRunCount = await db.manager.count(JobRun)
+    expect(jobRunCount).toEqual(1)
+
+    const taskRunCount = await db.manager.count(TaskRun)
+    expect(taskRunCount).toEqual(1)
+
+    const jr = await db.manager.findOne(JobRun, { relations: ['taskRuns'] })
+    expect(jr.status).toEqual('completed')
+
+    const tr = jr.taskRuns[0]
+    expect(tr.status).toEqual('completed')
   })
 
   it('rejects malformed json events with code 422', async (done: any) => {

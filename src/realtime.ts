@@ -20,10 +20,7 @@ const handleMessage = async (
     const jobRun = fromString(message)
     jobRun.clientId = clientId
 
-    const entity = await db.manager.save(jobRun)
-
     await saveJobRunTree(db, jobRun)
-
     return { status: 201 }
   } catch (e) {
     console.error(e)
