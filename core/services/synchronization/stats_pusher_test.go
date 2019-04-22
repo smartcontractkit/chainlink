@@ -19,7 +19,7 @@ func TestStatsPusher(t *testing.T) {
 	defer wscleanup()
 
 	clock := cltest.NewTriggerClock()
-	pusher := synchronization.NewStatsPusher(store.ORM, wsserver.URL, clock)
+	pusher := synchronization.NewStatsPusher(store.ORM, wsserver.URL, "", "", clock)
 	pusher.Start()
 	defer pusher.Close()
 

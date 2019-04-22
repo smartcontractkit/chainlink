@@ -3,6 +3,7 @@ package synchronization
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"sync"
 	"time"
@@ -13,7 +14,7 @@ import (
 )
 
 // WebSocketClient encapsulates all the functionality needed to
-// push run information to linkstats.
+// push run information to explorer.
 type WebSocketClient interface {
 	Start() error
 	Close() error
@@ -27,23 +28,27 @@ func (noopWebSocketClient) Close() error { return nil }
 func (noopWebSocketClient) Send([]byte)  {}
 
 type websocketClient struct {
-	boot    *sync.Mutex
-	conn    *websocket.Conn
-	cancel  context.CancelFunc
-	send    chan []byte
-	sleeper utils.Sleeper
-	started bool
-	url     *url.URL
+	boot      *sync.Mutex
+	conn      *websocket.Conn
+	cancel    context.CancelFunc
+	send      chan []byte
+	sleeper   utils.Sleeper
+	started   bool
+	url       *url.URL
+	accessKey string
+	secret    string
 }
 
 // NewWebSocketClient returns a stats pusher using a websocket for
 // delivery.
-func NewWebSocketClient(url *url.URL) WebSocketClient {
+func NewWebSocketClient(url *url.URL, accessKey, secret string) WebSocketClient {
 	return &websocketClient{
-		url:     url,
-		send:    make(chan []byte, 100), // TODO: figure out a better buffer (circular FIFO?)
-		boot:    &sync.Mutex{},
-		sleeper: utils.NewBackoffSleeper(),
+		url:       url,
+		send:      make(chan []byte, 100), // TODO: figure out a better buffer (circular FIFO?)
+		boot:      &sync.Mutex{},
+		sleeper:   utils.NewBackoffSleeper(),
+		accessKey: accessKey,
+		secret:    secret,
 	}
 }
 
@@ -85,7 +90,7 @@ const (
 // to clean up independent of itself by reducing shared state. i.e. a passed done, not w.done.
 func (w *websocketClient) connectAndWritePump(parentCtx context.Context, wg *sync.WaitGroup) {
 	wg.Done()
-	logger.Infow("Connecting to linkstats", "url", w.url)
+	logger.Infow("Connecting to explorer", "url", w.url)
 
 	for {
 		select {
@@ -96,11 +101,11 @@ func (w *websocketClient) connectAndWritePump(parentCtx context.Context, wg *syn
 			defer cancel()
 
 			if err := w.connect(connectionCtx); err != nil {
-				logger.Warn("Failed to connect to linkstats (", w.url.String(), "): ", err)
+				logger.Warn("Failed to connect to explorer (", w.url.String(), "): ", err)
 				break
 			}
 
-			logger.Info("Connected to linkstats at ", w.url.String())
+			logger.Info("Connected to explorer at ", w.url.String())
 			w.sleeper.Reset()
 			go w.readPumpForControlMessages(cancel)
 			w.writePump(connectionCtx)
@@ -158,7 +163,11 @@ func (w *websocketClient) writeMessage(message []byte) error {
 }
 
 func (w *websocketClient) connect(ctx context.Context) error {
-	conn, _, err := websocket.DefaultDialer.DialContext(ctx, w.url.String(), nil)
+	authHeader := http.Header{}
+	authHeader.Add("X-Explore-Chainlink-AccessKey", w.accessKey)
+	authHeader.Add("X-Explore-Chainlink-Secret", w.secret)
+
+	conn, _, err := websocket.DefaultDialer.DialContext(ctx, w.url.String(), authHeader)
 	if err != nil {
 		return fmt.Errorf("websocketStatsPusher#connect: %v", err)
 	}
