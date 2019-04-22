@@ -1068,3 +1068,11 @@ func MustSha256(in string) string {
 	out, _ := utils.Sha256(in)
 	return out
 }
+
+func MustParseURL(input string) *url.URL {
+	u, err := url.Parse(input)
+	if err != nil {
+		logger.Panic(err)
+	}
+	return u
+}

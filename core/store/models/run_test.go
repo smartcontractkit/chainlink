@@ -59,7 +59,7 @@ func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
 func TestJobRuns_SavesASyncEvent(t *testing.T) {
 	t.Parallel()
 	config, _ := cltest.NewConfig()
-	config.Set("LINKSTATS_URL", "http://localhost:4201")
+	config.Set("EXPLORER_URL", "http://localhost:4201")
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 
@@ -97,7 +97,7 @@ func TestJobRuns_SavesASyncEvent(t *testing.T) {
 func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
 	t.Parallel()
 	config, _ := cltest.NewConfig()
-	config.Set("LINKSTATS_URL", "")
+	config.Set("EXPLORER_URL", "")
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 

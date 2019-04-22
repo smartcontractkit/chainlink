@@ -623,7 +623,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	defer wsserverCleanup()
 
 	config, _ := cltest.NewConfig()
-	config.Set("LINKSTATS_URL", wsserver.URL.String())
+	config.Set("EXPLORER_URL", wsserver.URL.String())
 	app, cleanup := cltest.NewApplicationWithConfig(config)
 	defer cleanup()
 	app.InstantClock()
