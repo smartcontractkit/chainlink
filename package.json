@@ -5,6 +5,7 @@
     "evm",
     "examples/*",
     "integration",
+    "styleguide",
     "operator_ui"
   ],
   "scripts": {
