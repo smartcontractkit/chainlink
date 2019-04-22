@@ -7,12 +7,16 @@ import createFixture from './fixtures/JobRun.fixture.json'
 import updateFixture from './fixtures/JobRunUpdate.fixture.json'
 import { JobRun } from '../entity/JobRun'
 import { TaskRun } from '../entity/TaskRun'
-import { Client, createClient, deleteClient } from '../entity/Client'
+import {
+  ChainlinkNode,
+  createChainlinkNode,
+  deleteChainlinkNode
+} from '../entity/ChainlinkNode'
 import { clearDb } from './testdatabase'
 
 const ENDPOINT = `ws://localhost:${DEFAULT_TEST_PORT}`
 
-const newExplorerClient = (
+const newChainlinkNode = (
   url: string,
   accessKey: string,
   secret: string
@@ -36,7 +40,7 @@ const newExplorerClient = (
 describe('realtime', () => {
   let server: Server
   let db: Connection
-  let client: Client
+  let chainlinkNode: ChainlinkNode
   let secret: string
 
   beforeAll(async () => {
@@ -46,7 +50,10 @@ describe('realtime', () => {
 
   beforeEach(async () => {
     clearDb()
-    ;[client, secret] = await createClient(db, 'explore realtime test client')
+    ;[chainlinkNode, secret] = await createChainlinkNode(
+      db,
+      'explore realtime test chainlinkNode'
+    )
   })
 
   afterAll(async () => {
@@ -56,7 +63,7 @@ describe('realtime', () => {
   it('create a job run for valid JSON', async () => {
     expect.assertions(3)
 
-    const ws = await newExplorerClient(ENDPOINT, client.accessKey, secret)
+    const ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
 
     ws.send(JSON.stringify(createFixture))
 
@@ -79,7 +86,7 @@ describe('realtime', () => {
   it('can create and update a job run and task runs', async () => {
     expect.assertions(6)
 
-    const ws = await newExplorerClient(ENDPOINT, client.accessKey, secret)
+    const ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
 
     ws.send(JSON.stringify(createFixture))
 
@@ -119,7 +126,7 @@ describe('realtime', () => {
   it('rejects malformed json events with code 422', async (done: any) => {
     expect.assertions(2)
 
-    const ws = await newExplorerClient(ENDPOINT, client.accessKey, secret)
+    const ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
 
     ws.send('{invalid json}')
 
@@ -138,9 +145,11 @@ describe('realtime', () => {
   it('reject invalid authentication', async (done: any) => {
     expect.assertions(1)
 
-    newExplorerClient(ENDPOINT, client.accessKey, 'lol-no').catch(error => {
-      expect(error).toBeDefined()
-      done()
-    })
+    newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, 'lol-no').catch(
+      error => {
+        expect(error).toBeDefined()
+        done()
+      }
+    )
   })
 })

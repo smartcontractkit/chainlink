@@ -7,7 +7,7 @@ import {
   PrimaryGeneratedColumn
 } from 'typeorm'
 import { TaskRun } from './TaskRun'
-import { Client } from './Client'
+import { ChainlinkNode } from './ChainlinkNode'
 
 @Entity()
 export class JobRun {
@@ -15,7 +15,7 @@ export class JobRun {
   id: number
 
   @Column({ nullable: true })
-  clientId: number
+  chainlinkNodeId: number
 
   @Column()
   runId: string
@@ -52,8 +52,8 @@ export class JobRun {
   })
   taskRuns: Array<TaskRun>
 
-  @OneToOne(type => Client, client => client.jobRuns)
-  client: Client
+  @OneToOne(type => ChainlinkNode, ChainlinkNode => ChainlinkNode.jobRuns)
+  chainlinkNode: ChainlinkNode
 }
 
 export const fromString = (str: string): JobRun => {
@@ -123,7 +123,7 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
       .into(JobRun)
       .values(jobRun)
       .onConflict(
-        `("runId", "clientId") DO UPDATE SET
+        `("runId", "chainlinkNodeId") DO UPDATE SET
         "status" = :status
         ,"error" = :error
         ,"completedAt" = :completedAt

@@ -2,7 +2,7 @@ import http from 'http'
 import { JobRun, fromString, saveJobRunTree } from './entity/JobRun'
 import { TaskRun } from './entity/TaskRun'
 import WebSocket from 'ws'
-import { Client } from './entity/Client'
+import { ChainlinkNode } from './entity/ChainlinkNode'
 import { Connection } from 'typeorm'
 import { Express } from 'express'
 import { getDb } from './database'
@@ -13,12 +13,12 @@ const CLNODE_COUNT_EVENT = 'clnodeCount'
 
 const handleMessage = async (
   message: string,
-  clientId: number,
+  chainlinkNodeId: number,
   db: Connection
 ) => {
   try {
     const jobRun = fromString(message)
-    jobRun.clientId = clientId
+    jobRun.chainlinkNodeId = chainlinkNodeId
 
     await saveJobRunTree(db, jobRun)
     return { status: 201 }
@@ -81,7 +81,11 @@ export const bootstrapRealtime = async (server: http.Server) => {
         return
       }
 
-      let result = await handleMessage(message as string, session.clientId, db)
+      let result = await handleMessage(
+        message as string,
+        session.chainlinkNodeId,
+        db
+      )
       ws.send(JSON.stringify(result))
     })
 

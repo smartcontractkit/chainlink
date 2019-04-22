@@ -11,7 +11,7 @@ import { sha256 } from 'js-sha256'
 import { randomBytes } from 'crypto'
 
 @Entity()
-export class Client {
+export class ChainlinkNode {
   constructor(name: string, secret: string) {
     this.name = name
     this.accessKey = generateRandomString(16)
@@ -35,7 +35,7 @@ export class Client {
   @Column()
   salt: string
 
-  @OneToMany(type => JobRun, jobRun => jobRun.client, {
+  @OneToMany(type => JobRun, jobRun => jobRun.chainlinkNode, {
     onDelete: 'CASCADE'
   })
   jobRuns: Array<JobRun>
@@ -48,20 +48,20 @@ const generateRandomString = (size: number): string => {
     .substring(0, size)
 }
 
-export const createClient = async (
+export const createChainlinkNode = async (
   db: Connection,
   name: string
-): Promise<[Client, string]> => {
+): Promise<[ChainlinkNode, string]> => {
   const secret = generateRandomString(64)
-  const client = new Client(name, secret)
-  return [await db.manager.save(client), secret]
+  const chainlinkNode = new ChainlinkNode(name, secret)
+  return [await db.manager.save(chainlinkNode), secret]
 }
 
-export const deleteClient = async (db: Connection, name: string) => {
+export const deleteChainlinkNode = async (db: Connection, name: string) => {
   return db.manager
     .createQueryBuilder()
     .delete()
-    .from(Client)
+    .from(ChainlinkNode)
     .where('name = :name', {
       name: name
     })

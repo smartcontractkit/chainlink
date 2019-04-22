@@ -24,7 +24,7 @@
     "autosetup": "yarn autoinstall && yarn automigrate",
     "autoinstall": "cd client && yarn autoinstall && cd - && md5sum -c .yarn.lock.md5 || yarn install && md5sum yarn.lock > .yarn.lock.md5",
     "automigrate": "md5sum -c .migrations.${TYPEORM_NAME:-dev}.md5 2>/dev/null || yarn migration:run && md5sum src/bin/migrator.ts src/migration/* > .migrations.${TYPEORM_NAME:-dev}.md5",
-    "addclient": "ts-node src/bin/mgclients.ts add"
+    "addclnode": "ts-node src/bin/clnodes.ts add"
   },
   "main": "src/index.ts",
   "engines": {

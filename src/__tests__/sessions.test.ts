@@ -1,6 +1,6 @@
 import { Connection } from 'typeorm'
 import { closeDbConnection, getDb } from '../database'
-import { createClient } from '../entity/Client'
+import { createChainlinkNode } from '../entity/ChainlinkNode'
 import { authenticate } from '../sessions'
 
 describe('sessions', () => {
@@ -14,20 +14,30 @@ describe('sessions', () => {
 
   describe('authenticate', () => {
     it('returns the session', async () => {
-      const [client, secret] = await createClient(db, 'valid-client')
-      const session = await authenticate(db, client.accessKey, secret)
+      const [chainlinkNode, secret] = await createChainlinkNode(
+        db,
+        'valid-chainlink-node'
+      )
+      const session = await authenticate(db, chainlinkNode.accessKey, secret)
       expect(session).toBeDefined()
-      expect(session.clientId).toEqual(client.id)
+      expect(session.chainlinkNodeId).toEqual(chainlinkNode.id)
     })
 
-    it('returns null if no client exists', async () => {
+    it('returns null if no chainlink node exists', async () => {
       const result = await authenticate(db, '', '')
       expect(result).toBeNull()
     })
 
     it('returns null if the secret is incorrect', async () => {
-      const [client, _] = await createClient(db, 'invalid-client')
-      const result = await authenticate(db, client.accessKey, 'wrong-secret')
+      const [chainlinkNode, _] = await createChainlinkNode(
+        db,
+        'invalid-chainlink-node'
+      )
+      const result = await authenticate(
+        db,
+        chainlinkNode.accessKey,
+        'wrong-secret'
+      )
       expect(result).toBeNull()
     })
   })
