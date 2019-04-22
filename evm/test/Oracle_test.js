@@ -4,7 +4,8 @@ import { assertBigNum } from './support/matchers'
 contract('Oracle', () => {
   const sourcePath = 'Oracle.sol'
   const fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
-  const specId = h.toHex('4c7b7ffb66b344fbaa64995af81e355a')
+  const specId = 
+    '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
   let link, oc, withdraw
 
@@ -131,8 +132,6 @@ contract('Oracle', () => {
       context(
         'if the requester tries to create a requestId for another contract',
         () => {
-          let specId = h.newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
-
           it('the requesters ID will not match with the oracle contract', async () => {
             const tx = await mock.maliciousTargetConsumer(to)
             let events = await h.getEvents(oc)
@@ -146,7 +145,7 @@ contract('Oracle', () => {
               'examples/BasicConsumer.sol',
               link.address,
               oc.address,
-              h.toHex(specId)
+              specId
             )
             await link.transfer(requester.address, paymentAmount)
             await mock.maliciousTargetConsumer(requester.address)
@@ -194,7 +193,7 @@ contract('Oracle', () => {
       it('logs an event', async () => {
         assert.equal(oc.address, log.address)
 
-        assert.equal(h.toUtf8(specId), h.toUtf8(log.topics[1]))
+        assert.equal(specId, log.topics[1])
         const req = h.decodeRunRequest(tx.receipt.rawLogs[2])
         assert.equal(h.defaultAccount.toString().toLowerCase(), req.requester)
         assertBigNum(paid, req.payment)

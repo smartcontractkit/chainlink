@@ -69,8 +69,9 @@ contract('Coordinator', () => {
     })
 
     context('with valid oracle signatures', () => {
-      it('saves a service agreement struct from the parameters', async () => {
-        await h.initiateServiceAgreement(coordinator, agreement)
+      it.only('saves a service agreement struct from the parameters', async () => {
+        let tx = await h.initiateServiceAgreement(coordinator, agreement)
+        console.log(tx)
         await h.checkServiceAgreementPresent(coordinator, agreement)
       })
 
