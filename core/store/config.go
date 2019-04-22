@@ -53,7 +53,7 @@ type ConfigSchema struct {
 	EthereumURL              string         `env:"ETH_URL" default:"ws://localhost:8546"`
 	JSONConsole              bool           `env:"JSON_CONSOLE" default:"false"`
 	LinkContractAddress      string         `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
-	LinkstatsURL             *url.URL       `env:"LINKSTATS_URL"`
+	ExplorerURL              *url.URL       `env:"EXPLORER_URL"`
 	ExplorerAccessKey        string         `env:"EXPLORER_ACCESS_KEY"`
 	ExplorerSecret           string         `env:"EXPLORER_SECRET"`
 	LogLevel                 LogLevel       `env:"LOG_LEVEL" default:"info"`
@@ -206,16 +206,16 @@ func (c Config) LinkContractAddress() string {
 	return c.viper.GetString(c.envVarName("LinkContractAddress"))
 }
 
-// LinkstatsURL returns the websocket URL for this node to push stats to, or nil.
-func (c Config) LinkstatsURL() *url.URL {
-	rval := c.getWithFallback("LinkstatsURL", parseURL)
+// ExplorerURL returns the websocket URL for this node to push stats to, or nil.
+func (c Config) ExplorerURL() *url.URL {
+	rval := c.getWithFallback("ExplorerURL", parseURL)
 	switch t := rval.(type) {
 	case nil:
 		return nil
 	case *url.URL:
 		return t
 	default:
-		logger.Panicf("invariant: LinkstatsURL returned as type %T", rval)
+		logger.Panicf("invariant: ExplorerURL returned as type %T", rval)
 		return nil
 	}
 }

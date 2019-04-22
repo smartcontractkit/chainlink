@@ -133,7 +133,7 @@ type whitelist struct {
 	EthGasPriceDefault       *big.Int        `json:"ethGasPriceDefault"`
 	JSONConsole              bool            `json:"jsonConsole"`
 	LinkContractAddress      string          `json:"linkContractAddress"`
-	LinkstatsURL             string          `json:"linkstatsUrl"`
+	ExplorerURL              string          `json:"explorerUrl"`
 	LogLevel                 store.LogLevel  `json:"logLevel"`
 	LogToDisk                bool            `json:"logToDisk"`
 	MinimumContractPayment   *assets.Link    `json:"minimumContractPayment"`
@@ -157,9 +157,9 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 		return ConfigWhitelist{}, err
 	}
 
-	linkstatsURL := ""
-	if config.LinkstatsURL() != nil {
-		linkstatsURL = config.LinkstatsURL().String()
+	explorerURL := ""
+	if config.ExplorerURL() != nil {
+		explorerURL = config.ExplorerURL().String()
 	}
 	return ConfigWhitelist{
 		AccountAddress: account.Address.Hex(),
@@ -176,7 +176,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			EthGasPriceDefault:       config.EthGasPriceDefault(),
 			JSONConsole:              config.JSONConsole(),
 			LinkContractAddress:      config.LinkContractAddress(),
-			LinkstatsURL:             linkstatsURL,
+			ExplorerURL:              explorerURL,
 			LogLevel:                 config.LogLevel(),
 			LogToDisk:                config.LogToDisk(),
 			MinimumContractPayment:   config.MinimumContractPayment(),
