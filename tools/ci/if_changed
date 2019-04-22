@@ -1,0 +1,6 @@
+#!/bin/bash
+
+git diff --quiet --exit-code origin/master..HEAD $1
+if [[ $? -eq 1 ]]; then
+    $2
+fi

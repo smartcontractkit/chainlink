@@ -1,4 +1,43 @@
-version: 2
+version: 2.1
+
+aliases:
+  restore-go-cache: &restore-go-cache
+    - restore_cache:
+        name: Restore Go Vendor Cache
+        key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+  restore-yarn-cache: &restore-yarn-cache
+    - restore_cache:
+        name: Restore Go Vendor Cache
+        key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+  save-go-cache: &save-go-cache
+    - save_cache:
+        name: Save Go Vendor Cache
+        key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+        paths:
+          - ./vendor
+  save-yarn-cache: &save-yarn-cache
+    - save_cache:
+        name: Save Yarn Package Cache
+        key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+        paths:
+          - /usr/local/share/.cache/yarn
+
+commands:
+  if-changed:
+    parameters:
+      folder:
+        type: string
+        default: "core"
+      command:
+        type: string
+    steps:
+      - run: ./tools/ci/if_changed << parameters.folder >> "<< parameters.command >>"
+  dep-ensure:
+    steps:
+      - if-changed:
+          folder: "core"
+          command: "dep ensure -vendor-only"
+
 jobs:
   go-sqlite:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
@@ -7,19 +46,13 @@ jobs:
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-          paths:
-            - ./vendor
-      - run: ./tools/ci/init_gcloud
-      - run: ./tools/ci/go_test | tee /tmp/go_test.txt
-      - store_artifacts:
-          path: /tmp/go_test.txt
+      - <<: *restore-go-cache
+      - dep-ensure
+      - <<: *save-go-cache
+      - if-changed:
+          command: ./tools/ci/init_gcloud
+      - if-changed:
+          command: ./tools/ci/go_test
   go-sqlite-race:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -27,16 +60,13 @@ jobs:
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-          paths:
-            - ./vendor
-      - run: ./tools/ci/gorace_test
+      - <<: *restore-go-cache
+      - dep-ensure
+      - <<: *save-go-cache
+      - if-changed:
+          command: ./tools/ci/init_gcloud
+      - if-changed:
+          command: ./tools/ci/gorace_test
   go-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -50,16 +80,11 @@ jobs:
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-          paths:
-            - ./vendor
-      - run: ./tools/ci/go_single_threaded_test
+      - <<: *restore-go-cache
+      - dep-ensure
+      - <<: *save-go-cache
+      - if-changed:
+          command: ./tools/ci/go_single_threaded_test
   rust:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -67,16 +92,11 @@ jobs:
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-          paths:
-            - ./vendor
-      - run: ./tools/ci/rust_test
+      - <<: *restore-go-cache
+      - dep-ensure
+      - <<: *save-go-cache
+      - if-changed:
+          command: ./tools/ci/rust_test
   sgx:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -90,17 +110,13 @@ jobs:
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-          paths:
-            - ./vendor
-      - run: make enclave
-      - run: ./tools/ci/sgx_test
+      - <<: *restore-go-cache
+      - dep-ensure
+      - <<: *save-go-cache
+      - if-changed:
+          command: make enclave
+      - if-changed:
+          command: ./tools/ci/sgx_test
   geth-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -114,16 +130,11 @@ jobs:
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-          paths:
-            - ./vendor
-      - run: ./tools/ci/ethereum_test
+      - <<: *restore-go-cache
+      - dep-ensure
+      - <<: *save-go-cache
+      - if-changed:
+          command: ./tools/ci/ethereum_test
   parity-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -141,16 +152,11 @@ jobs:
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-          paths:
-            - ./vendor
-      - run: ./tools/ci/ethereum_test parity
+      - <<: *restore-go-cache
+      - dep-ensure
+      - <<: *save-go-cache
+      - if-changed:
+          command: ./tools/ci/ethereum_test parity
   truffle:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -158,16 +164,14 @@ jobs:
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
-      - run: yarn install
-      - save_cache:
-          name: Save Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
-          paths:
-            - /usr/local/share/.cache/yarn
-      - run: ./tools/ci/truffle_test
+      - <<: *restore-yarn-cache
+      - if-changed:
+          folder: evm
+          command: yarn install
+      - <<: *save-yarn-cache
+      - if-changed:
+          folder: evm
+          command: ./tools/ci/truffle_test
   operator-ui:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
@@ -175,24 +179,26 @@ jobs:
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
-      - run: yarn install
-      - save_cache:
-          name: Save Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
-          paths:
-            - /usr/local/share/.cache/yarn
-      - run: ./tools/ci/init_gcloud
-      - run: ./tools/ci/operator_ui_test
+      - <<: *restore-yarn-cache
+      - if-changed:
+          folder: operator_ui
+          command: yarn install
+      - <<: *save-yarn-cache
+      - if-changed:
+          folder: operator_ui
+          command: ./tools/ci/init_gcloud
+      - if-changed:
+          folder: operator_ui
+          command: ./tools/ci/operator-ui_test
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.18
     steps:
       - checkout
-      - run: ./tools/ci/init_gcloud
-      - run: ./tools/ci/report_coverage
+      - if-changed:
+          command: ./tools/ci/init_gcloud
+      - if-changed:
+          command: ./tools/ci/report_coverage
   deploy:
     docker:
       - image: smartcontract/deployer:latest
