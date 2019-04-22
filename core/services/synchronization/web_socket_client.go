@@ -14,7 +14,7 @@ import (
 )
 
 // WebSocketClient encapsulates all the functionality needed to
-// push run information to linkstats.
+// push run information to explorer.
 type WebSocketClient interface {
 	Start() error
 	Close() error
@@ -90,7 +90,7 @@ const (
 // to clean up independent of itself by reducing shared state. i.e. a passed done, not w.done.
 func (w *websocketClient) connectAndWritePump(parentCtx context.Context, wg *sync.WaitGroup) {
 	wg.Done()
-	logger.Infow("Connecting to linkstats", "url", w.url)
+	logger.Infow("Connecting to explorer", "url", w.url)
 
 	for {
 		select {
@@ -101,11 +101,11 @@ func (w *websocketClient) connectAndWritePump(parentCtx context.Context, wg *syn
 			defer cancel()
 
 			if err := w.connect(connectionCtx); err != nil {
-				logger.Warn("Failed to connect to linkstats (", w.url.String(), "): ", err)
+				logger.Warn("Failed to connect to explorer (", w.url.String(), "): ", err)
 				break
 			}
 
-			logger.Info("Connected to linkstats at ", w.url.String())
+			logger.Info("Connected to explorer at ", w.url.String())
 			w.sleeper.Reset()
 			go w.readPumpForControlMessages(cancel)
 			w.writePump(connectionCtx)
