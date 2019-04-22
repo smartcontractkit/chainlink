@@ -37,7 +37,7 @@ describe('fromString', () => {
     expect(jr.taskRuns[0].status).toEqual('')
     expect(jr.taskRuns[0].error).toEqual(null)
 
-    const [client, _] = await createClient(db, 'default')
+    const [client, _] = await createClient(db, 'job-run-fromString-client')
     jr.clientId = client.id
     const r = await db.manager.save(jr)
     expect(r.id).toBeDefined()
@@ -65,7 +65,7 @@ describe('fromString', () => {
 
 describe('search', () => {
   beforeEach(async () => {
-    const [client, _] = await createClient(db, 'default')
+    const [client, _] = await createClient(db, 'job-run-search-client')
 
     const jrA = fromString(JSON.stringify(fixture))
     jrA.clientId = client.id

@@ -17,14 +17,10 @@ afterAll(async () => closeDbConnection())
 
 describe('createClient', () => {
   it('returns a valid client record', async () => {
-    const [client, _] = await createClient(db, 'default')
+    const [client, secret] = await createClient(db, 'new-valid-client-record')
     expect(client.accessKey).toHaveLength(16)
     expect(client.salt).toHaveLength(32)
     expect(client.hashedSecret).toBeDefined()
-  })
-
-  it('returns a secret of at least 16 characters', async () => {
-    const [_, secret] = await createClient(db, 'default')
     expect(secret).toHaveLength(64)
   })
 
@@ -36,10 +32,10 @@ describe('createClient', () => {
 
 describe('deleteClient', () => {
   it('deletes a client with the specified name', async () => {
-    const [client, _] = await createClient(db, 'default')
+    const [client, _] = await createClient(db, 'client-to-be-deleted')
     let count = await db.manager.count(Client)
     expect(count).toBe(1)
-    await deleteClient(db, 'default')
+    await deleteClient(db, 'client-to-be-deleted')
     count = await db.manager.count(Client)
     expect(count).toBe(0)
   })
