@@ -23,7 +23,8 @@
     "test:migration:run": "TYPEORM_NAME=test ts-node ./src/bin/migrator.ts migrate",
     "autosetup": "yarn autoinstall && yarn automigrate",
     "autoinstall": "cd client && yarn autoinstall && cd - && md5sum -c .yarn.lock.md5 || yarn install && md5sum yarn.lock > .yarn.lock.md5",
-    "automigrate": "md5sum -c .migrations.${TYPEORM_NAME:-dev}.md5 2>/dev/null || yarn migration:run && md5sum src/bin/migrator.ts src/migration/* > .migrations.${TYPEORM_NAME:-dev}.md5"
+    "automigrate": "md5sum -c .migrations.${TYPEORM_NAME:-dev}.md5 2>/dev/null || yarn migration:run && md5sum src/bin/migrator.ts src/migration/* > .migrations.${TYPEORM_NAME:-dev}.md5",
+    "addclnode": "ts-node src/bin/clnodes.ts add"
   },
   "main": "src/index.ts",
   "engines": {
@@ -31,6 +32,7 @@
   },
   "dependencies": {
     "express": "^4.16.4",
+    "js-sha256": "^0.9.0",
     "pg": "^7.8.2",
     "reflect-metadata": "^0.1.13",
     "ts-node": "^8.0.3",

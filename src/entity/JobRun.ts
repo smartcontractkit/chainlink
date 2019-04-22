@@ -7,11 +7,15 @@ import {
   PrimaryGeneratedColumn
 } from 'typeorm'
 import { TaskRun } from './TaskRun'
+import { ChainlinkNode } from './ChainlinkNode'
 
 @Entity()
 export class JobRun {
   @PrimaryGeneratedColumn()
   id: number
+
+  @Column({ nullable: true })
+  chainlinkNodeId: number
 
   @Column()
   runId: string
@@ -47,6 +51,9 @@ export class JobRun {
     onDelete: 'CASCADE'
   })
   taskRuns: Array<TaskRun>
+
+  @OneToOne(type => ChainlinkNode, ChainlinkNode => ChainlinkNode.jobRuns)
+  chainlinkNode: ChainlinkNode
 }
 
 export const fromString = (str: string): JobRun => {
@@ -116,7 +123,7 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
       .into(JobRun)
       .values(jobRun)
       .onConflict(
-        `("runId") DO UPDATE SET
+        `("runId", "chainlinkNodeId") DO UPDATE SET
         "status" = :status
         ,"error" = :error
         ,"completedAt" = :completedAt

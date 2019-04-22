@@ -9,6 +9,6 @@ if (process.env.NODE_ENV !== 'test') {
 export const clearDb = async () => {
   const db = await getDb()
   if (db) {
-    await db.query(`TRUNCATE TABLE job_run CASCADE`)
+    await db.query(`TRUNCATE TABLE chainlink_node CASCADE`)
   }
 }
