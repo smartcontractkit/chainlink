@@ -11,11 +11,9 @@ export class AddClient1555095655268 implements MigrationInterface {
       "salt" VARCHAR(64) NOT NULL
     )`)
     await queryRunner.query(
-      `CREATE UNIQUE INDEX access_key_idx ON "client" ("accessKey")`
+      `CREATE UNIQUE INDEX client_access_key_idx ON "client" ("accessKey")`
     )
   }
 
-  public async down(queryRunner: QueryRunner): Promise<any> {
-    await queryRunner.query(`DROP TABLE "client"`)
-  }
+  public async down(queryRunner: QueryRunner): Promise<any> {}
 }
