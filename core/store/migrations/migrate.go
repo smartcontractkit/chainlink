@@ -32,39 +32,39 @@ func Migrate(db *gorm.DB) error {
 	m := gormigrate.New(db, options, []*gormigrate.Migration{
 		{
 			ID:      "0",
-			Migrate: migration0.Migration{}.Migrate,
+			Migrate: migration0.Migrate,
 		},
 		{
 			ID:      "1549496047",
-			Migrate: migration1549496047.Migration{}.Migrate,
+			Migrate: migration1549496047.Migrate,
 		},
 		{
 			ID:      "1551816486",
-			Migrate: migration1551816486.Migration{}.Migrate,
+			Migrate: migration1551816486.Migrate,
 		},
 		{
 			ID:      "1551895034",
-			Migrate: migration1551895034.Migration{}.Migrate,
+			Migrate: migration1551895034.Migrate,
 		},
 		{
 			ID:      "1552418531",
-			Migrate: migration1552418531.Migration{}.Migrate,
+			Migrate: migration1552418531.Migrate,
 		},
 		{
 			ID:      "1553029703",
-			Migrate: migration1553029703.Migration{}.Migrate,
+			Migrate: migration1553029703.Migrate,
 		},
 		{
 			ID:      "1554131520",
-			Migrate: migration1554131520.Migration{}.Migrate,
+			Migrate: migration1554131520.Migrate,
 		},
 		{
 			ID:      "1554405357",
-			Migrate: migration1554405357.Migration{}.Migrate,
+			Migrate: migration1554405357.Migrate,
 		},
 		{
 			ID:      "1554855314",
-			Migrate: migration1554855314.Migration{}.Migrate,
+			Migrate: migration1554855314.Migrate,
 		},
 	})
 

@@ -8,11 +8,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// Migration is the singleton type for this migration
-type Migration struct{}
-
 // Migrate adds the sync_events table
-func (m Migration) Migrate(tx *gorm.DB) error {
+func Migrate(tx *gorm.DB) error {
 	tx = tx.Begin()
 	if err := tx.Exec(`
 CREATE TABLE "bridge_types_with_incoming_token_hash" (

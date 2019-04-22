@@ -5,8 +5,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-type Migration struct{}
-
-func (m Migration) Migrate(tx *gorm.DB) error {
+func Migrate(tx *gorm.DB) error {
 	return tx.AutoMigrate(&models.Key{}).Error
 }

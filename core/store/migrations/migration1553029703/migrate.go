@@ -5,10 +5,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-// Migration is the singleton type for this migration
-type Migration struct{}
-
 // Migrate adds the sync_events table
-func (m Migration) Migrate(tx *gorm.DB) error {
+func Migrate(tx *gorm.DB) error {
 	return tx.AutoMigrate(&models.SyncEvent{}).Error
 }
