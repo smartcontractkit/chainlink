@@ -1,0 +1,23 @@
+{
+  "jobId": "aeb2861d306645b1ba012079aeb2e53a",
+  "runId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "status": "completed",
+  "error": null,
+  "createdAt": "2019-04-01T22:07:04Z",
+  "amount": null,
+  "completedAt": "2018-04-01T22:07:04Z",
+  "initiator": {
+    "type": "runlog",
+    "requestId": "RequestID",
+    "txHash": "0x00000000000000000000000000000000000000000000000000000000deadbeef",
+    "requester": "0x9FBDa871d559710256a2502A2517b794B482Db40"
+  },
+  "tasks": [
+    {
+      "index": 0,
+      "type": "httpget",
+      "status": "completed",
+      "error": null
+    }
+  ]
+}
