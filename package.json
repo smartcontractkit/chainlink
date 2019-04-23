@@ -4,8 +4,7 @@
   "workspaces": [
     "evm",
     "examples/*",
-    "integration",
-    "styleguide"
+    "integration"
   ],
   "scripts": {
     "lint:fix": "eslint --fix --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
