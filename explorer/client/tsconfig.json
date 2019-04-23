@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": [
+      "es5",
+      "es6",
+      "dom"
+    ],
+    "incremental": true,
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "typeRoots": ["node_modules/@types", "@types"],
+    "jsx": "preserve"
+  },
+  "include": [
+    "src"
+  ],
+  "files": [
+    "@types/react-snapshot.d.ts",
+    "@types/react-time-ago.d.ts",
+    "@types/javascript-time-ago.d.ts"
+  ]
+}
