@@ -1,7 +1,9 @@
 package migrations
 
 import (
+	gormigrate "github.com/j16r/gormigrate"
 	"github.com/jinzhu/gorm"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1549496047"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1551816486"
@@ -11,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1554131520"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1554405357"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1554855314"
-	gormigrate "gopkg.in/gormigrate.v1"
 )
 
 type migration interface {
@@ -23,11 +24,12 @@ type migration interface {
 func Migrate(db *gorm.DB) error {
 	err := upgradeOldMigrationSchema(db)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to upgrade an old schema")
 	}
 
 	options := gormigrate.DefaultOptions
 	options.IDColumnSize = 12
+	options.UseTransaction = true
 
 	m := gormigrate.New(db, options, []*gormigrate.Migration{
 		{
@@ -68,7 +70,11 @@ func Migrate(db *gorm.DB) error {
 		},
 	})
 
-	return m.Migrate()
+	err = m.Migrate()
+	if err != nil {
+		return errors.Wrap(err, "error running migrations")
+	}
+	return nil
 }
 
 func upgradeOldMigrationSchema(db *gorm.DB) error {

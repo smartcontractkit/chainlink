@@ -447,6 +447,13 @@
   version = "v1.0"
 
 [[projects]]
+  digest = "1:770b0e707ad1a8abd74a27f2fe79bd0a444be097cc020df22a0f58d48c6907d0"
+  name = "github.com/j16r/gormigrate"
+  packages = ["."]
+  pruneopts = ""
+  revision = "9bf65eb549213b8ce47995f12847b4ad4551f67b"
+
+[[projects]]
   branch = "master"
   digest = "1:860e1118ccf3d852a848b510624521344c0d4d0f35026ae2438fa96a0ec28740"
   name = "github.com/jessevdk/go-assets"
@@ -1119,14 +1126,6 @@
   version = "v8.18.2"
 
 [[projects]]
-  digest = "1:afcc7ccae106419bc0b65c9bfa64525108acb72e4055b671f6489395bd8b6ff8"
-  name = "gopkg.in/gormigrate.v1"
-  packages = ["."]
-  pruneopts = ""
-  revision = "0c6141ae05e70da27c2216945e1c1b2d5ad4aa46"
-  version = "v1.4.0"
-
-[[projects]]
   digest = "1:1582dd711e6e5ef92d6245a5dd0646da19d0d0acb94ea615d43896b7b6c6620b"
   name = "gopkg.in/guregu/null.v3"
   packages = ["."]
@@ -1177,6 +1176,7 @@
     "github.com/gorilla/securecookie",
     "github.com/gorilla/sessions",
     "github.com/gorilla/websocket",
+    "github.com/j16r/gormigrate",
     "github.com/jinzhu/gorm",
     "github.com/jinzhu/gorm/dialects/postgres",
     "github.com/jinzhu/gorm/dialects/sqlite",
@@ -1207,7 +1207,6 @@
     "golang.org/x/crypto/ssh/terminal",
     "golang.org/x/sync/errgroup",
     "golang.org/x/text/unicode/norm",
-    "gopkg.in/gormigrate.v1",
     "gopkg.in/guregu/null.v3",
   ]
   solver-name = "gps-cdcl"

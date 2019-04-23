@@ -8,8 +8,7 @@ import (
 // because sqlite does not allow you to modify the primary key
 // after table creation.
 func Migrate(tx *gorm.DB) error {
-	tx = tx.Begin()
-	err := tx.Exec(`
+	return tx.Exec(`
 		CREATE TABLE "bridge_types_with_pk" (
 			"name" varchar(255),
 			"url" varchar(255),
@@ -23,11 +22,6 @@ func Migrate(tx *gorm.DB) error {
 		DROP TABLE "bridge_types";
 		ALTER TABLE "bridge_types_with_pk" RENAME TO "bridge_types";
 	`).Error
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit().Error
 }
 
 type BridgeType struct {
