@@ -4,12 +4,13 @@
   "workspaces": [
     "evm",
     "examples/*",
-    "integration"
+    "integration",
+    "operator_ui"
   ],
   "scripts": {
     "lint:fix": "eslint --fix --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
-    "lint:styleguide": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./styleguide",
-    "lint:operator-ui": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./gui",
+    "lint:styleguide": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./styleguide/**.*",
+    "lint:operator-ui": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./operator_ui",
     "lint:evm": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./evm",
     "lint:examples": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./examples"
   },

@@ -2,9 +2,8 @@
 
 set -e
 
-yarn lint:styleguide && yarn lint:operator_ui
-
 cd operator_ui
+yarn lint
 ../node_modules/.bin/cross-env NODE_ENV=test \
   ../node_modules/.bin/jest --runInBand --coverage --reporters jest-silent-reporter
 
