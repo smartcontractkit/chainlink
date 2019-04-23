@@ -5,8 +5,7 @@
     "evm",
     "examples/*",
     "integration",
-    "styleguide",
-    "operator_ui"
+    "styleguide"
   ],
   "scripts": {
     "lint:fix": "eslint --fix --color --ext .js --ext .jsx --ext .ts --ext .tsx .",

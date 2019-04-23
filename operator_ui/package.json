@@ -31,6 +31,7 @@
     "@types/react-dom": "^16.7.0",
     "axios": "^0.18.0",
     "babel-jest": "^23.6.0",
+    "babel-plugin-universal-import": "^4.0.0",
     "bignumber.js": "^8.0.1",
     "change-case": "^3.0.2",
     "console.table": "^0.10.0",
