@@ -3,7 +3,7 @@ jobs:
   go-sqlite:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.18
+      - image: smartcontract/builder:1.0.19
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -23,7 +23,7 @@ jobs:
   go-sqlite-race:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.18
+      - image: smartcontract/builder:1.0.19
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -40,7 +40,7 @@ jobs:
   go-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.18
+      - image: smartcontract/builder:1.0.19
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -63,7 +63,7 @@ jobs:
   rust:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.18
+      - image: smartcontract/builder:1.0.19
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -80,7 +80,7 @@ jobs:
   sgx:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.18
+      - image: smartcontract/builder:1.0.19
     environment:
       SGX_ENABLED: yes
       # XXX: These are set in the base image but circleci seems to wipe them out
@@ -104,7 +104,7 @@ jobs:
   geth-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.18
+      - image: smartcontract/builder:1.0.19
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -127,7 +127,7 @@ jobs:
   parity-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.18
+      - image: smartcontract/builder:1.0.19
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -154,7 +154,7 @@ jobs:
   truffle:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.18
+      - image: smartcontract/builder:1.0.19
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -171,7 +171,7 @@ jobs:
   operator-ui:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.18
+      - image: smartcontract/builder:1.0.19
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -188,7 +188,7 @@ jobs:
       - run: ./tools/ci/operator_ui_test
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.18
+      - image: smartcontract/builder:1.0.19
     steps:
       - checkout
       - run: ./tools/ci/init_gcloud
