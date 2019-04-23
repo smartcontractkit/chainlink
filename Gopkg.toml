@@ -152,3 +152,4 @@
 
 [[constraint]]
   name = "github.com/j16r/gormigrate"
+  branch = "master"
