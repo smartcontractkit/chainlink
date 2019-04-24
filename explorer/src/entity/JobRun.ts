@@ -48,6 +48,7 @@ export class JobRun {
   completedAt: Date
 
   @OneToMany(type => TaskRun, taskRun => taskRun.jobRun, {
+    eager: true,
     onDelete: 'CASCADE'
   })
   taskRuns: Array<TaskRun>
