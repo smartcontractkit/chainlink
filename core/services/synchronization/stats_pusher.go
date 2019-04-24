@@ -73,6 +73,10 @@ func (eq *StatsPusher) Close() error {
 	return eq.WSClient.Close()
 }
 
+type response struct {
+	Result int `json:"result"`
+}
+
 func (eq *StatsPusher) pollEvents(parentCtx context.Context) {
 	for {
 		select {
@@ -84,15 +88,28 @@ func (eq *StatsPusher) pollEvents(parentCtx context.Context) {
 
 				eq.WSClient.Send([]byte(event.Body))
 
-				// TODO: This is fire and forget, we may want to get confirmation
-				// before deleting...
+				message, err := eq.WSClient.Receive()
+				if err != nil {
+					logger.Errorw("Error receiving ack from Explorer", "event_id", event.ID, "error", err)
+					return
+				}
 
-				// TODO: This should also likely have backoff logic to avoid the
-				// stampeding herd problem on the link stats server
+				var response response
+				err = json.Unmarshal(message, &response)
+				if err != nil {
+					logger.Errorw("Error unmarshalling Explorer ack response", "event_id", event.ID, "error", err)
+					return
+				}
 
-				err := eq.ORM.DB.Delete(event).Error
+				if response.Result != 201 {
+					logger.Errorw("Error synchronizing", "event_id", event.ID, "result", response.Result, "error", err)
+					return
+				}
+
+				err = eq.ORM.DB.Delete(event).Error
 				if err != nil {
 					logger.Errorw("Error deleting event", "event_id", event.ID, "error", err)
+					return
 				}
 			})
 
