@@ -284,7 +284,8 @@ workflows:
             branches:
               only: master
           path: ./explorer
-          repo: chainlink
+          dockerfile: ./explorer/Dockerfile
+          repo: explorer
       - reportcoverage:
           requires:
             - go-sqlite
