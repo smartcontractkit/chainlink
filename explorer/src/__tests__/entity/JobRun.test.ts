@@ -159,6 +159,12 @@ describe('search', () => {
     expect(results).toHaveLength(1)
   })
 
+  it('returns one result for a case insensitive match on requester', async () => {
+    const requester = 'FIXTUREBREQUESTER'
+    const results = await search(db, { searchQuery: requester })
+    expect(results).toHaveLength(1)
+  })
+
   it('returns one result for an exact match on requestId', async () => {
     const requestId = 'fixtureBRequestID'
     const results = await search(db, { searchQuery: requestId })
