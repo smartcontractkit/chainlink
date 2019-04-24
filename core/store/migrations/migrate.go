@@ -2,6 +2,7 @@ package migrations
 
 import (
 	"github.com/jinzhu/gorm"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1549496047"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1551816486"
@@ -23,11 +24,12 @@ type migration interface {
 func Migrate(db *gorm.DB) error {
 	err := upgradeOldMigrationSchema(db)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to upgrade an old schema")
 	}
 
 	options := gormigrate.DefaultOptions
 	options.IDColumnSize = 12
+	options.UseTransaction = true
 
 	m := gormigrate.New(db, options, []*gormigrate.Migration{
 		{
@@ -68,7 +70,11 @@ func Migrate(db *gorm.DB) error {
 		},
 	})
 
-	return m.Migrate()
+	err = m.Migrate()
+	if err != nil {
+		return errors.Wrap(err, "error running migrations")
+	}
+	return nil
 }
 
 func upgradeOldMigrationSchema(db *gorm.DB) error {

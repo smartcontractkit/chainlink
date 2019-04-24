@@ -10,7 +10,6 @@ import (
 
 // Migrate adds the sync_events table
 func Migrate(tx *gorm.DB) error {
-	tx = tx.Begin()
 	if err := tx.Exec(`
 CREATE TABLE "bridge_types_with_incoming_token_hash" (
 	"name" varchar(255),
@@ -22,7 +21,6 @@ CREATE TABLE "bridge_types_with_incoming_token_hash" (
 	"minimum_contract_payment" varchar(255),
 	PRIMARY KEY ("name")
 );`).Error; err != nil {
-		tx.Rollback()
 		return errors.Wrap(err, "error creating temporary bridge_types_with_incoming_token_hash table")
 	}
 
@@ -57,7 +55,6 @@ CREATE TABLE "bridge_types_with_incoming_token_hash" (
 
 		return uint(len(bts)), nil
 	}); err != nil {
-		tx.Rollback()
 		return errors.Wrap(err, "error migrating hash for bridge_types")
 	}
 
@@ -65,11 +62,10 @@ CREATE TABLE "bridge_types_with_incoming_token_hash" (
 DROP TABLE "bridge_types";
 ALTER TABLE "bridge_types_with_incoming_token_hash" RENAME TO "bridge_types";
 	`).Error; err != nil {
-		tx.Rollback()
 		return errors.Wrap(err, "error renaming temporary bridge_types_with_incoming_token_hash table")
 	}
 
-	return tx.Commit().Error
+	return nil
 }
 
 // BridgeType is for migrating between bridge type tables
