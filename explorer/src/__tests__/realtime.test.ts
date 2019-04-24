@@ -116,7 +116,7 @@ describe('realtime', () => {
     const taskRunCount = await db.manager.count(TaskRun)
     expect(taskRunCount).toEqual(1)
 
-    const jr = await db.manager.findOne(JobRun, { relations: ['taskRuns'] })
+    const jr = await db.manager.findOne(JobRun)
     expect(jr.status).toEqual('completed')
 
     const tr = jr.taskRuns[0]
