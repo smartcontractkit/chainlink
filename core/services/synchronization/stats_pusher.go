@@ -3,6 +3,7 @@ package synchronization
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/url"
 	"time"
 
@@ -77,6 +78,32 @@ type response struct {
 	Result int `json:"result"`
 }
 
+func (eq *StatsPusher) syncEvent(event *models.SyncEvent) error {
+	eq.WSClient.Send([]byte(event.Body))
+
+	message, err := eq.WSClient.Receive()
+	if err != nil {
+		return err
+	}
+
+	var response response
+	err = json.Unmarshal(message, &response)
+	if err != nil {
+		return err
+	}
+
+	if response.Result != 201 {
+		return errors.New("event not created")
+	}
+
+	err = eq.ORM.DB.Delete(event).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (eq *StatsPusher) pollEvents(parentCtx context.Context) {
 	for {
 		select {
@@ -85,31 +112,9 @@ func (eq *StatsPusher) pollEvents(parentCtx context.Context) {
 		case <-eq.clock.After(eq.Period):
 			err := eq.ORM.AllSyncEvents(func(event *models.SyncEvent) {
 				logger.Debugw("StatsPusher got event", "event", event.ID)
-
-				eq.WSClient.Send([]byte(event.Body))
-
-				message, err := eq.WSClient.Receive()
+				err := eq.syncEvent(event)
 				if err != nil {
-					logger.Errorw("Error receiving ack from Explorer", "event_id", event.ID, "error", err)
-					return
-				}
-
-				var response response
-				err = json.Unmarshal(message, &response)
-				if err != nil {
-					logger.Errorw("Error unmarshalling Explorer ack response", "event_id", event.ID, "error", err)
-					return
-				}
-
-				if response.Result != 201 {
-					logger.Errorw("Error synchronizing", "event_id", event.ID, "result", response.Result, "error", err)
-					return
-				}
-
-				err = eq.ORM.DB.Delete(event).Error
-				if err != nil {
-					logger.Errorw("Error deleting event", "event_id", event.ID, "error", err)
-					return
+					logger.Errorw("Error synchronizing event", "event_id", event.ID, "error", err)
 				}
 			})
 
