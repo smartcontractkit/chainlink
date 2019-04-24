@@ -25,7 +25,7 @@ export default async () => {
     jobRunA.txHash = 'txA'
     jobRunA.requestId = 'requestIdA'
     jobRunA.requester = 'requesterA'
-    jobRunA.createdAt = new Date(Date.parse('2019-04-08T01:00:00.000Z'))
+    jobRunA.createdAt = new Date('2019-04-08T01:00:00.000Z')
     await dbConnection.manager.save(jobRunA)
 
     const taskRunA = new TaskRun()
@@ -41,7 +41,7 @@ export default async () => {
     jobRunB.jobId = 'dddddddddddddddddddddddddddddddd'
     jobRunB.status = 'completed'
     jobRunB.type = 'web'
-    jobRunB.createdAt = new Date(Date.parse('2019-04-09T01:00:00.000Z'))
+    jobRunB.createdAt = new Date('2019-04-09T01:00:00.000Z')
     await dbConnection.manager.save(jobRunB)
 
     const taskRunB = new TaskRun()
