@@ -1119,12 +1119,13 @@
   version = "v8.18.2"
 
 [[projects]]
-  digest = "1:afcc7ccae106419bc0b65c9bfa64525108acb72e4055b671f6489395bd8b6ff8"
+  branch = "master"
+  digest = "1:9f4f645802715c8c4710f9002335ebd5d7f6b30a077b1119be9d23b177d6a7af"
   name = "gopkg.in/gormigrate.v1"
   packages = ["."]
   pruneopts = ""
-  revision = "0c6141ae05e70da27c2216945e1c1b2d5ad4aa46"
-  version = "v1.4.0"
+  revision = "118c063bb882b29f2a2249f9a773e0e9dd70582d"
+  source = "github.com/j16r/gormigrate"
 
 [[projects]]
   digest = "1:1582dd711e6e5ef92d6245a5dd0646da19d0d0acb94ea615d43896b7b6c6620b"
