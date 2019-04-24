@@ -75,7 +75,7 @@ describe('search', () => {
 
     const jrA = fromString(JSON.stringify(fixture))
     jrA.chainlinkNodeId = chainlinkNode.id
-    jrA.createdAt = new Date(Date.parse('2019-04-08T01:00:00.000Z'))
+    jrA.createdAt = new Date('2019-04-08T01:00:00.000Z')
     await db.manager.save(jrA)
 
     const fixtureB = Object.assign({}, fixture, {
@@ -84,7 +84,7 @@ describe('search', () => {
     })
     const jrB = fromString(JSON.stringify(fixtureB))
     jrB.chainlinkNodeId = chainlinkNode.id
-    jrB.createdAt = new Date(Date.parse('2019-04-09T01:00:00.000Z'))
+    jrB.createdAt = new Date('2019-04-09T01:00:00.000Z')
     jrB.txHash = 'fixtureBTxHash'
     jrB.requester = 'fixtureBRequester'
     jrB.requestId = 'fixtureBRequestID'
