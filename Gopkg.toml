@@ -151,5 +151,6 @@
   version = "0.8.1"
 
 [[constraint]]
-  name = "github.com/j16r/gormigrate"
+  name = "gopkg.in/gormigrate.v1"
+  source = "github.com/j16r/gormigrate"
   branch = "master"

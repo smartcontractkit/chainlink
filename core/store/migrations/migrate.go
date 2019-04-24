@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	gormigrate "github.com/j16r/gormigrate"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
@@ -13,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1554131520"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1554405357"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1554855314"
+	gormigrate "gopkg.in/gormigrate.v1"
 )
 
 type migration interface {
