@@ -3,7 +3,9 @@ import http from 'http'
 import request from 'supertest'
 import { Connection } from 'typeorm'
 import { JobRun } from '../../entity/JobRun'
+import { TaskRun } from '../../entity/TaskRun'
 import jobRuns from '../../controllers/jobRuns'
+import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import seed, { JOB_RUN_B_ID } from '../../seed'
 import { closeDbConnection, getDb } from '../../database'
 
@@ -57,6 +59,51 @@ describe('#show', () => {
     expect(response.body.id).toEqual(jobRun.id)
     expect(response.body.runId).toEqual(JOB_RUN_B_ID)
     expect(response.body.taskRuns.length).toEqual(1)
+  })
+
+  describe('with out of order task runs', () => {
+    let jobRunId: number
+    beforeEach(async () => {
+      const [chainlinkNode, _] = await createChainlinkNode(
+        connection,
+        'testOutOfOrderTaskRuns'
+      )
+      const jobRun = new JobRun()
+      jobRun.chainlinkNodeId = chainlinkNode.id
+      jobRun.runId = 'OutOfOrderTaskRuns'
+      jobRun.jobId = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+      jobRun.status = 'in_progress'
+      jobRun.type = 'runlog'
+      jobRun.txHash = 'txA'
+      jobRun.requestId = 'requestIdA'
+      jobRun.requester = 'requesterA'
+      jobRun.createdAt = new Date('2019-04-08T01:00:00.000Z')
+      await connection.manager.save(jobRun)
+      jobRunId = jobRun.id
+
+      const taskRunB = new TaskRun()
+      taskRunB.jobRun = jobRun
+      taskRunB.index = 1
+      taskRunB.status = ''
+      taskRunB.type = 'jsonparse'
+      await connection.manager.save(taskRunB)
+
+      const taskRunA = new TaskRun()
+      taskRunA.jobRun = jobRun
+      taskRunA.index = 0
+      taskRunA.status = 'in_progress'
+      taskRunA.type = 'httpget'
+      await connection.manager.save(taskRunA)
+    })
+
+    it('returns ordered task runs', async () => {
+      const response = await request(server).get(`/api/v1/job_runs/${jobRunId}`)
+      expect(response.status).toEqual(200)
+      expect(response.body.taskRuns.length).toEqual(2)
+      const jr = JSON.parse(response.text)
+      expect(jr.taskRuns[0].index).toEqual(0)
+      expect(jr.taskRuns[1].index).toEqual(1)
+    })
   })
 
   it('returns a 404', async () => {
