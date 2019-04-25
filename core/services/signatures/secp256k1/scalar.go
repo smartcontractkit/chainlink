@@ -142,8 +142,12 @@ func (s *secp256k1Scalar) Pick(rand cipher.Stream) kyber.Scalar {
 // MarshalBinary returns the big-endian byte representation of s, or an error on
 // failure
 func (s *secp256k1Scalar) MarshalBinary() ([]byte, error) {
-	b := ToInt(s.modG()).Bytes()                             // modG ⇒ len ≤ 32
-	rv := append(make([]byte, s.MarshalSize()-len(b)), b...) // leftpad with zeros
+	b := ToInt(s.modG()).Bytes()
+	// leftpad with zeros
+	rv := append(make([]byte, s.MarshalSize()-len(b)), b...)
+	if len(rv) != s.MarshalSize() {
+		return nil, fmt.Errorf("marshalled scalar to wrong length")
+	}
 	return rv, nil
 }
 
