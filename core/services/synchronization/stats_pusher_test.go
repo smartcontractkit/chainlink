@@ -33,7 +33,7 @@ func TestStatsPusher(t *testing.T) {
 	clock.Trigger()
 	cltest.CallbackOrTimeout(t, "ws server receives jobrun creation", func() {
 		<-wsserver.Received
-		err := wsserver.Broadcast(`{"result": 201}`)
+		err := wsserver.Broadcast(`{"status": 201}`)
 		assert.NoError(t, err)
 	})
 	cltest.WaitForSyncEventCount(t, store.ORM, 0)
@@ -45,7 +45,7 @@ func TestStatsPusher(t *testing.T) {
 	clock.Trigger()
 	cltest.CallbackOrTimeout(t, "ws server receives jobrun update", func() {
 		<-wsserver.Received
-		err := wsserver.Broadcast(`{"result": 201}`)
+		err := wsserver.Broadcast(`{"status": 201}`)
 		assert.NoError(t, err)
 	})
 	cltest.WaitForSyncEventCount(t, store.ORM, 0)
@@ -99,7 +99,7 @@ func TestStatsPusher_BadSyncLeavesEvent(t *testing.T) {
 	clock.Trigger()
 	cltest.CallbackOrTimeout(t, "ws server receives jobrun creation", func() {
 		<-wsserver.Received
-		err := wsserver.Broadcast(`{"result": 500}`)
+		err := wsserver.Broadcast(`{"status": 500}`)
 		assert.NoError(t, err)
 	})
 	cltest.AssertSyncEventCountStays(t, store.ORM, 1)
