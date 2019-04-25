@@ -18,6 +18,7 @@
     "eth-ens-namehash": "^2.0.8",
     "ethereumjs-abi": "^0.6.7",
     "ethereumjs-util": "^6.1.0",
+    "@ensdomains/ens": "^0.1.1",
     "link_token": "^1.0.3",
     "openzeppelin-solidity": "^1.12.0",
     "solidity-cborutils": "^1.0.4",

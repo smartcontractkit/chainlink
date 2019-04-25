@@ -1,4 +1,4 @@
-pragma solidity 0.4.24;
+pragma solidity ^0.4.24;
 
 contract SchnorrSECP256K1 {
   // See https://en.bitcoin.it/wiki/Secp256k1 for this constant.
