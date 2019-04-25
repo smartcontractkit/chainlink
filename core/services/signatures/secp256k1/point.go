@@ -249,6 +249,10 @@ func (P *secp256k1Point) UnmarshalBinary(buf []byte) error {
 	P.Y.Set(maybeY)
 	if (buf[32] == 0 && !isEven) || (buf[32] == 1 && isEven) {
 		P.Y.Neg(P.Y)
+	} else {
+		if buf[32] != 0 && buf[32] != 1 {
+			return fmt.Errorf("parity byte must be 0 or 1")
+		}
 	}
 	return nil
 }
@@ -315,8 +319,8 @@ func Coordinates(p kyber.Point) (*big.Int, *big.Int) {
 	return p.(*secp256k1Point).X.int(), p.(*secp256k1Point).Y.int()
 }
 
-// Half base characteristic + 1. See SchnorrSECP256K1.sol for explanation.
-var halfQ = big.NewInt(0).Add(big.NewInt(0).Rsh(q, 1), big.NewInt(1))
+var halfQ = big.NewInt(0).Add(big.NewInt(0).Rsh(GroupOrder, 1),
+	big.NewInt(1)) // Half secp256k1 group order + 1
 
 // ValidPublicKey returns true iff p can be used in the optimized on-chain
 // Schnorr-signature verification. See SchnorrSECP256K1.sol for details.

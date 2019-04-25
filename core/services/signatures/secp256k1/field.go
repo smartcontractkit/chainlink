@@ -117,6 +117,9 @@ func (f *fieldElt) SetBytes(buf [32]byte) *fieldElt {
 // Bytes returns the 32-byte big-endian representation of f
 func (f *fieldElt) Bytes() [32]byte {
 	bytes := f.modQ().int().Bytes()
+	if len(bytes) > 32 {
+		panic("field element longer than 256 bits")
+	}
 	var rv [32]byte
 	copy(rv[32-len(bytes):], bytes) // leftpad w zeros
 	return rv
