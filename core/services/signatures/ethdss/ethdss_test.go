@@ -123,7 +123,7 @@ func TestDSSPartialSigs(t *testing.T) {
 
 	// if not enough partial signatures, can't generate signature
 	sig, err := dss1.Signature()
-	assert.Nil(t, sig)
+	assert.Nil(t, sig) // XXX: Should also check err is nil?
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not enough")
 
