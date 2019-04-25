@@ -207,7 +207,10 @@ func (P *secp256k1Point) MarshalBinary() ([]byte, error) {
 	rv := make([]byte, P.MarshalSize())
 	signByte := P.MarshalSize() - 1 // Last byte contains sign of Y.
 	xordinate := P.X.Bytes()
-	copy(rv[:signByte], xordinate[:])
+	copyLen := copy(rv[:signByte], xordinate[:])
+	if copyLen != P.MarshalSize()-1 {
+		return []byte{}, fmt.Errorf("marshal of x ordinate too short")
+	}
 	if P.Y.isEven() {
 		rv[signByte] = 0
 	} else {
