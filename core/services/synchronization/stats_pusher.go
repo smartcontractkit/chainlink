@@ -66,7 +66,7 @@ func (eq *StatsPusher) Start() error {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	eq.cancel = cancel
-	go eq.pollEvents(ctx)
+	go eq.eventLoop(ctx)
 	return nil
 }
 
@@ -81,7 +81,7 @@ func (eq *StatsPusher) Close() error {
 }
 
 type response struct {
-	Result int `json:"result"`
+	Status int `json:"status"`
 }
 
 func (eq *StatsPusher) syncEvent(event *models.SyncEvent) error {
@@ -98,7 +98,7 @@ func (eq *StatsPusher) syncEvent(event *models.SyncEvent) error {
 		return err
 	}
 
-	if response.Result != 201 {
+	if response.Status != 201 {
 		return errors.New("event not created")
 	}
 
@@ -117,18 +117,21 @@ func (eq *StatsPusher) eventLoop(parentCtx context.Context) {
 			return
 		}
 
-		logger.Errorw("Error during event synchronization", "error", err)
+		duration := eq.backoffSleeper.Duration()
+		logger.Errorw("Error during event synchronization", "error", err, "sleep_duration", duration)
 
 		select {
 		case <-parentCtx.Done():
 			return
-		case <-eq.clock.After(eq.backoffSleeper.Duration()):
+		case <-eq.clock.After(duration):
 			continue
 		}
 	}
 }
 
 func (eq *StatsPusher) pollEvents(parentCtx context.Context) error {
+	logger.Debugw("Polling for events to synchronize")
+
 	for {
 		select {
 		case <-parentCtx.Done():
