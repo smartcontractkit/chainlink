@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jinzhu/gorm"
+	"github.com/jpillora/backoff"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -16,11 +17,12 @@ import (
 
 // StatsPusher polls for events and pushes them via a WebSocketClient
 type StatsPusher struct {
-	ORM      *orm.ORM
-	WSClient WebSocketClient
-	Period   time.Duration
-	cancel   context.CancelFunc
-	clock    utils.Afterer
+	ORM            *orm.ORM
+	WSClient       WebSocketClient
+	Period         time.Duration
+	cancel         context.CancelFunc
+	clock          utils.Afterer
+	backoffSleeper backoff.Backoff
 }
 
 const (
@@ -49,6 +51,10 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters
 		WSClient: wsClient,
 		Period:   5 * time.Second,
 		clock:    clock,
+		backoffSleeper: backoff.Backoff{
+			Min: 1 * time.Second,
+			Max: 5 * time.Minute,
+		},
 	}
 }
 
@@ -104,23 +110,40 @@ func (eq *StatsPusher) syncEvent(event *models.SyncEvent) error {
 	return nil
 }
 
-func (eq *StatsPusher) pollEvents(parentCtx context.Context) {
+func (eq *StatsPusher) eventLoop(parentCtx context.Context) {
 	for {
+		err := eq.pollEvents(parentCtx)
+		if err == nil {
+			return
+		}
+
+		logger.Errorw("Error during event synchronization", "error", err)
+
 		select {
 		case <-parentCtx.Done():
 			return
+		case <-eq.clock.After(eq.backoffSleeper.Duration()):
+			continue
+		}
+	}
+}
+
+func (eq *StatsPusher) pollEvents(parentCtx context.Context) error {
+	for {
+		select {
+		case <-parentCtx.Done():
+			return nil
 		case <-eq.clock.After(eq.Period):
-			err := eq.ORM.AllSyncEvents(func(event *models.SyncEvent) {
+			err := eq.ORM.AllSyncEvents(func(event *models.SyncEvent) error {
 				logger.Debugw("StatsPusher got event", "event", event.ID)
-				err := eq.syncEvent(event)
-				if err != nil {
-					logger.Errorw("Error synchronizing event", "event_id", event.ID, "error", err)
-				}
+				return eq.syncEvent(event)
 			})
 
 			if err != nil {
-				logger.Warnf("Error querying for sync events: %v", err)
+				return err
 			}
+
+			eq.backoffSleeper.Reset()
 		}
 	}
 }
