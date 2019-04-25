@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -40,7 +41,11 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	})
 	assert.NoError(t, app.StartAndConnect())
 
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		return manager.Connected()
+	}).Should(gomega.Equal(true))
 	require.True(t, manager.Connected())
+
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_sendRawTransaction", hash)
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
