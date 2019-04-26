@@ -15,7 +15,7 @@ const List = ({ jobRuns, className }: IProps) => {
 
   if (jobRuns) {
     rows = jobRuns.map((r: IJobRun) => {
-      const nodeCol: TextColumn = { type: 'text', text: r.publicChainlinkNode.name }
+      const nodeCol: TextColumn = { type: 'text', text: r.chainlinkNode.name }
       const idCol: LinkColumn = {
         type: 'link',
         text: r.runId,

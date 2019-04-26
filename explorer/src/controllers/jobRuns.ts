@@ -1,5 +1,5 @@
 import { getDb } from '../database'
-import { JobRun, search } from '../entity/JobRun'
+import { JobRun, present, search } from '../entity/JobRun'
 import { Router, Request, Response } from 'express'
 
 const router = Router()
@@ -17,7 +17,7 @@ router.get('/job_runs', async (req: Request, res: Response) => {
   }
   const db = await getDb()
   const jobRuns = await search(db, searchParams)
-  return res.send(jobRuns)
+  return res.send(jobRuns.map(jr => present(jr)))
 })
 
 router.get('/job_runs/:id', async (req: Request, res: Response) => {
@@ -27,6 +27,7 @@ router.get('/job_runs/:id', async (req: Request, res: Response) => {
     .getRepository(JobRun)
     .createQueryBuilder('job_run')
     .leftJoinAndSelect('job_run.taskRuns', 'task_run')
+    .leftJoinAndSelect('job_run.chainlinkNode', 'chainlink_node')
     .orderBy('job_run.createdAt, task_run.index', 'ASC')
     .where('job_run.id = :id', { id })
     .getOne()
