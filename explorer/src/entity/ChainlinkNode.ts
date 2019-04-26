@@ -10,14 +10,20 @@ import { JobRun } from './JobRun'
 import { sha256 } from 'js-sha256'
 import { randomBytes } from 'crypto'
 
+export interface IChainlinkNodePresenter {
+  id: number
+  name: string
+}
+
 @Entity()
 export class ChainlinkNode {
-  constructor(name: string, secret: string) {
-    this.name = name
-    this.accessKey = generateRandomString(16)
-    this.salt = generateRandomString(32)
-
-    this.hashedSecret = hashCredentials(this.accessKey, secret, this.salt)
+  public static build(name: string, secret: string): ChainlinkNode {
+    const cl = new ChainlinkNode()
+    cl.name = name
+    cl.accessKey = generateRandomString(16)
+    cl.salt = generateRandomString(32)
+    cl.hashedSecret = hashCredentials(cl.accessKey, secret, cl.salt)
+    return cl
   }
 
   @PrimaryGeneratedColumn()
@@ -39,6 +45,13 @@ export class ChainlinkNode {
     onDelete: 'CASCADE'
   })
   jobRuns: Array<JobRun>
+
+  public present(): IChainlinkNodePresenter {
+    return {
+      id: this.id,
+      name: this.name
+    }
+  }
 }
 
 const generateRandomString = (size: number): string => {
@@ -53,7 +66,7 @@ export const createChainlinkNode = async (
   name: string
 ): Promise<[ChainlinkNode, string]> => {
   const secret = generateRandomString(64)
-  const chainlinkNode = new ChainlinkNode(name, secret)
+  const chainlinkNode = ChainlinkNode.build(name, secret)
   return [await db.manager.save(chainlinkNode), secret]
 }
 
