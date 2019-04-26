@@ -33,7 +33,7 @@ router.get('/job_runs/:id', async (req: Request, res: Response) => {
     .getOne()
 
   if (jobRun) {
-    return res.send(jobRun)
+    return res.send(present(jobRun))
   }
 
   return res.sendStatus(404)
