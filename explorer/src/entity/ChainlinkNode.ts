@@ -12,12 +12,13 @@ import { randomBytes } from 'crypto'
 
 @Entity()
 export class ChainlinkNode {
-  constructor(name: string, secret: string) {
-    this.name = name
-    this.accessKey = generateRandomString(16)
-    this.salt = generateRandomString(32)
-
-    this.hashedSecret = hashCredentials(this.accessKey, secret, this.salt)
+  public static build(name: string, secret: string): ChainlinkNode {
+    const cl = new ChainlinkNode()
+    cl.name = name
+    cl.accessKey = generateRandomString(16)
+    cl.salt = generateRandomString(32)
+    cl.hashedSecret = hashCredentials(cl.accessKey, secret, cl.salt)
+    return cl
   }
 
   @PrimaryGeneratedColumn()
@@ -53,7 +54,7 @@ export const createChainlinkNode = async (
   name: string
 ): Promise<[ChainlinkNode, string]> => {
   const secret = generateRandomString(64)
-  const chainlinkNode = new ChainlinkNode(name, secret)
+  const chainlinkNode = ChainlinkNode.build(name, secret)
   return [await db.manager.save(chainlinkNode), secret]
 }
 
