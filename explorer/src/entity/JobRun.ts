@@ -2,12 +2,14 @@ import {
   Column,
   Connection,
   Entity,
-  OneToOne,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn
 } from 'typeorm'
 import { TaskRun } from './TaskRun'
 import { ChainlinkNode } from './ChainlinkNode'
+import { PublicChainlinkNode } from './PublicChainlinkNode'
 
 @Entity()
 export class JobRun {
@@ -53,8 +55,14 @@ export class JobRun {
   })
   taskRuns: Array<TaskRun>
 
-  @OneToOne(type => ChainlinkNode, ChainlinkNode => ChainlinkNode.jobRuns)
+  @ManyToOne(type => ChainlinkNode, ChainlinkNode => ChainlinkNode.jobRuns, {
+    eager: true
+  })
   chainlinkNode: ChainlinkNode
+
+  @ManyToOne(type => PublicChainlinkNode)
+  @JoinColumn({ name: 'chainlinkNodeId' })
+  publicChainlinkNode: PublicChainlinkNode
 }
 
 export const fromString = (str: string): JobRun => {
@@ -115,7 +123,10 @@ export const search = async (
     query = query.offset(offset)
   }
 
-  return query.orderBy('job_run.createdAt', 'DESC').getMany()
+  return query
+    .leftJoinAndSelect('job_run.publicChainlinkNode', 'public_chainlink_node')
+    .orderBy('job_run.createdAt', 'DESC')
+    .getMany()
 }
 
 export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {

@@ -8,13 +8,14 @@ interface IProps {
   className?: string
 }
 
-const HEADERS = ['Run ID', 'Job ID', 'Created At']
+const HEADERS = ['Node', 'Run ID', 'Job ID', 'Created At']
 
 const List = ({ jobRuns, className }: IProps) => {
   let rows
 
   if (jobRuns) {
     rows = jobRuns.map((r: IJobRun) => {
+      const nodeCol: TextColumn = { type: 'text', text: r.publicChainlinkNode.name }
       const idCol: LinkColumn = {
         type: 'link',
         text: r.runId,
@@ -26,7 +27,7 @@ const List = ({ jobRuns, className }: IProps) => {
         text: r.createdAt
       }
 
-      return [idCol, jobIdCol, createdAtCol]
+      return [nodeCol, idCol, jobIdCol, createdAtCol]
     })
   }
 
