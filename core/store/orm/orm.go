@@ -237,7 +237,7 @@ func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
 }
 
 // AllSyncEvents returns all sync events
-func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent)) error {
+func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent) error) error {
 	return Batch(1000, func(offset, limit uint) (uint, error) {
 		var events []models.SyncEvent
 		err := orm.DB.
@@ -249,7 +249,10 @@ func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent)) error {
 		}
 
 		for _, event := range events {
-			cb(&event)
+			err = cb(&event)
+			if err != nil {
+				return 0, err
+			}
 		}
 
 		return uint(len(events)), err

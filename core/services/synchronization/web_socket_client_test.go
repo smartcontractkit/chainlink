@@ -1,7 +1,6 @@
 package synchronization_test
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -68,7 +67,6 @@ func TestWebSocketClient_Send(t *testing.T) {
 func TestWebSocketClient_Authentiation(t *testing.T) {
 	headerChannel := make(chan http.Header)
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("handler", w, r)
 		headerChannel <- r.Header
 	}
 	server := httptest.NewServer(http.HandlerFunc(handler))
@@ -85,4 +83,48 @@ func TestWebSocketClient_Authentiation(t *testing.T) {
 		assert.Equal(t, []string{"accessKey"}, headers["X-Explore-Chainlink-Accesskey"])
 		assert.Equal(t, []string{"secret"}, headers["X-Explore-Chainlink-Secret"])
 	})
+}
+
+func TestWebSocketClient_SendWithAck(t *testing.T) {
+	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
+	defer cleanup()
+
+	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
+	require.NoError(t, wsclient.Start())
+	defer wsclient.Close()
+
+	expectation := `{"hello": "world"}`
+	wsclient.Send([]byte(expectation))
+	cltest.CallbackOrTimeout(t, "receive stats", func() {
+		require.Equal(t, expectation, <-wsserver.Received)
+		err := wsserver.Broadcast(`{"result": 200}`)
+		assert.NoError(t, err)
+	})
+
+	cltest.CallbackOrTimeout(t, "receive response", func() {
+		response, err := wsclient.Receive()
+		assert.NoError(t, err)
+		assert.NotNil(t, response)
+	})
+}
+
+func TestWebSocketClient_SendWithAckTimeout(t *testing.T) {
+	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
+	defer cleanup()
+
+	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
+	require.NoError(t, wsclient.Start())
+	defer wsclient.Close()
+
+	expectation := `{"hello": "world"}`
+	wsclient.Send([]byte(expectation))
+	cltest.CallbackOrTimeout(t, "receive stats", func() {
+		require.Equal(t, expectation, <-wsserver.Received)
+	})
+
+	cltest.CallbackOrTimeout(t, "receive response", func() {
+		_, err := wsclient.Receive(100 * time.Millisecond)
+		assert.Error(t, err)
+		assert.Equal(t, err, synchronization.ErrReceiveTimeout)
+	}, 300*time.Millisecond)
 }

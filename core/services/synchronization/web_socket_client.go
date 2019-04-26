@@ -2,6 +2,7 @@ package synchronization
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -13,25 +14,34 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+var (
+	// ErrReceiveTimeout is returned when no message is received after a
+	// specified duration in Receive
+	ErrReceiveTimeout = errors.New("timeout waiting for message")
+)
+
 // WebSocketClient encapsulates all the functionality needed to
 // push run information to explorer.
 type WebSocketClient interface {
 	Start() error
 	Close() error
 	Send([]byte)
+	Receive(...time.Duration) ([]byte, error)
 }
 
 type noopWebSocketClient struct{}
 
-func (noopWebSocketClient) Start() error { return nil }
-func (noopWebSocketClient) Close() error { return nil }
-func (noopWebSocketClient) Send([]byte)  {}
+func (noopWebSocketClient) Start() error                             { return nil }
+func (noopWebSocketClient) Close() error                             { return nil }
+func (noopWebSocketClient) Send([]byte)                              {}
+func (noopWebSocketClient) Receive(...time.Duration) ([]byte, error) { return nil, nil }
 
 type websocketClient struct {
 	boot      *sync.Mutex
 	conn      *websocket.Conn
 	cancel    context.CancelFunc
 	send      chan []byte
+	receive   chan []byte
 	sleeper   utils.Sleeper
 	started   bool
 	url       *url.URL
@@ -45,6 +55,7 @@ func NewWebSocketClient(url *url.URL, accessKey, secret string) WebSocketClient 
 	return &websocketClient{
 		url:       url,
 		send:      make(chan []byte, 100), // TODO: figure out a better buffer (circular FIFO?)
+		receive:   make(chan []byte),
 		boot:      &sync.Mutex{},
 		sleeper:   utils.NewBackoffSleeper(),
 		accessKey: accessKey,
@@ -69,6 +80,32 @@ func (w *websocketClient) Start() error {
 	wg.Wait()
 	w.started = true
 	return nil
+}
+
+// Send sends data asynchronously across the websocket if it's open, or
+// holds it in a small buffer until connection, throwing away messages
+// once buffer is full.
+func (w *websocketClient) Send(data []byte) {
+	select {
+	case w.send <- data:
+	default:
+	}
+}
+
+// Receive blocks the caller while waiting for a response from the server,
+// returning the raw response bytes
+func (w *websocketClient) Receive(durationParams ...time.Duration) ([]byte, error) {
+	duration := 30 * time.Second
+	if len(durationParams) > 0 {
+		duration = durationParams[0]
+	}
+
+	select {
+	case <-time.After(duration):
+		return nil, ErrReceiveTimeout
+	case data := <-w.receive:
+		return data, nil
+	}
 }
 
 const (
@@ -107,7 +144,7 @@ func (w *websocketClient) connectAndWritePump(parentCtx context.Context, wg *syn
 
 			logger.Info("Connected to explorer at ", w.url.String())
 			w.sleeper.Reset()
-			go w.readPumpForControlMessages(cancel)
+			go w.readPump(cancel)
 			w.writePump(connectionCtx)
 		}
 	}
@@ -178,11 +215,13 @@ func (w *websocketClient) connect(ctx context.Context) error {
 
 var expectedCloseMessages = []int{websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure}
 
-// readPumpForControlMessages listens on the websocket connection with the sole
-// intention of handling control messages, like server disconnect.
-// https://stackoverflow.com/a/48181794/639773
-// https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
-func (w *websocketClient) readPumpForControlMessages(cancel context.CancelFunc) {
+// readPump listens on the websocket connection for control messages and
+// response messages (text)
+//
+// For more details on how disconnection messages are handled, see:
+//  * https://stackoverflow.com/a/48181794/639773
+//  * https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
+func (w *websocketClient) readPump(cancel context.CancelFunc) {
 	defer cancel()
 
 	w.conn.SetReadLimit(maxMessageSize)
@@ -193,12 +232,17 @@ func (w *websocketClient) readPumpForControlMessages(cancel context.CancelFunc) 
 	})
 
 	for {
-		_, _, err := w.conn.ReadMessage()
+		messageType, message, err := w.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, expectedCloseMessages...) {
-				logger.Warn(fmt.Sprintf("readPumpForControlMessages: %v", err))
+				logger.Warn(fmt.Sprintf("readPump: %v", err))
 			}
 			return
+		}
+
+		switch messageType {
+		case websocket.TextMessage:
+			w.receive <- message
 		}
 	}
 }
@@ -218,14 +262,4 @@ func (w *websocketClient) Close() error {
 	}
 	w.started = false
 	return nil
-}
-
-// Send sends data asynchronously across the websocket if it's open, or
-// holds it in a small buffer until connection, throwing away messages
-// once buffer is full.
-func (w *websocketClient) Send(data []byte) {
-	select {
-	case w.send <- data:
-	default:
-	}
 }
