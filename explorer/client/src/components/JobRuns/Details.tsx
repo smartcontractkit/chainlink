@@ -76,6 +76,10 @@ const Details = ({ classes, jobRun }: IProps) => {
           <Col>{jobRun.jobId}</Col>
         </TableRow>
         <TableRow>
+          <KeyCol>Node</KeyCol>
+          <Col>{jobRun.chainlinkNode.name}</Col>
+        </TableRow>
+        <TableRow>
           <KeyCol>Initiator</KeyCol>
           <Col>{jobRun.type}</Col>
         </TableRow>
