@@ -38,9 +38,14 @@ describe('#index', () => {
       await seed()
     })
 
-    it('returns runs', async () => {
+    it('returns runs with chainlink node names', async () => {
       const response = await request(server).get(`/api/v1/job_runs`)
       expect(response.status).toEqual(200)
+      const jr = response.body[0]
+      expect(jr.chainlinkNode.name).toBeDefined()
+      expect(jr.chainlinkNode.accessKey).not.toBeDefined()
+      expect(jr.chainlinkNode.salt).not.toBeDefined()
+      expect(jr.chainlinkNode.hashedSecret).not.toBeDefined()
     })
   })
 })
@@ -104,6 +109,21 @@ describe('#show', () => {
       expect(jr.taskRuns[0].index).toEqual(0)
       expect(jr.taskRuns[1].index).toEqual(1)
     })
+  })
+
+  it('returns the job run with only public chainlink node information', async () => {
+    const jobRun = await connection.manager.findOne(JobRun, {
+      where: { runId: JOB_RUN_B_ID }
+    })
+    const response = await request(server).get(`/api/v1/job_runs/${jobRun.id}`)
+    expect(response.status).toEqual(200)
+    const clnode = response.body.chainlinkNode
+    expect(clnode).toBeDefined()
+    expect(clnode.id).toBeDefined()
+    expect(clnode.name).toEqual('default')
+    expect(clnode.accessKey).not.toBeDefined()
+    expect(clnode.hashedSecret).not.toBeDefined()
+    expect(clnode.salt).not.toBeDefined()
   })
 
   it('returns a 404', async () => {

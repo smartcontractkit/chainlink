@@ -2,12 +2,13 @@ import {
   Column,
   Connection,
   Entity,
-  OneToOne,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn
 } from 'typeorm'
 import { TaskRun } from './TaskRun'
-import { ChainlinkNode } from './ChainlinkNode'
+import { ChainlinkNode, IChainlinkNodePresenter } from './ChainlinkNode'
 
 @Entity()
 export class JobRun {
@@ -53,7 +54,9 @@ export class JobRun {
   })
   taskRuns: Array<TaskRun>
 
-  @OneToOne(type => ChainlinkNode, ChainlinkNode => ChainlinkNode.jobRuns)
+  @ManyToOne(type => ChainlinkNode, ChainlinkNode => ChainlinkNode.jobRuns, {
+    eager: true
+  })
   chainlinkNode: ChainlinkNode
 }
 
@@ -93,7 +96,7 @@ export interface ISearchParams {
 export const search = async (
   db: Connection,
   params: ISearchParams
-): Promise<Array<JobRun>> => {
+): Promise<JobRun[]> => {
   let query = db.getRepository(JobRun).createQueryBuilder('job_run')
 
   if (params.searchQuery != null) {
@@ -115,7 +118,23 @@ export const search = async (
     query = query.offset(offset)
   }
 
-  return query.orderBy('job_run.createdAt', 'DESC').getMany()
+  return query
+    .leftJoinAndSelect('job_run.chainlinkNode', 'chainlink_node')
+    .orderBy('job_run.createdAt', 'DESC')
+    .getMany()
+}
+
+type Modify<T, R> = Pick<T, Exclude<keyof T, keyof R>> & R
+interface IChainlinkPresenterOverride {
+  chainlinkNode: IChainlinkNodePresenter
+}
+type JobRunPresenter = Modify<JobRun, IChainlinkPresenterOverride>
+
+export const present = (jr: JobRun): JobRunPresenter => {
+  return {
+    ...jr,
+    chainlinkNode: jr.chainlinkNode.present()
+  }
 }
 
 export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
