@@ -38,9 +38,14 @@ describe('#index', () => {
       await seed()
     })
 
-    it('returns runs', async () => {
+    it('returns runs with chainlink node names', async () => {
       const response = await request(server).get(`/api/v1/job_runs`)
       expect(response.status).toEqual(200)
+      const jr = response.body[0]
+      expect(jr.publicChainlinkNode.name).toBeDefined()
+      expect(jr.publicChainlinkNode.accessKey).not.toBeDefined()
+      expect(jr.publicChainlinkNode.salt).not.toBeDefined()
+      expect(jr.publicChainlinkNode.hashedSecret).not.toBeDefined()
     })
   })
 })
