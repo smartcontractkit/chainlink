@@ -10,7 +10,7 @@ interface IJobRun {
   error?: string
   createdAt: string
   completedAt?: string
-  publicChainlinkNode: any
+  chainlinkNode: IChainlinkNode
   taskRuns: ITaskRun[]
 }
 
@@ -19,4 +19,9 @@ interface ITaskRun {
   type: string
   status: string
   error?: string
+}
+
+interface IChainlinkNode {
+  id: number
+  name: string
 }

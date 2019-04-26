@@ -10,6 +10,11 @@ import { JobRun } from './JobRun'
 import { sha256 } from 'js-sha256'
 import { randomBytes } from 'crypto'
 
+export interface IChainlinkNodePresenter {
+  id: number
+  name: string
+}
+
 @Entity()
 export class ChainlinkNode {
   public static build(name: string, secret: string): ChainlinkNode {
@@ -40,6 +45,13 @@ export class ChainlinkNode {
     onDelete: 'CASCADE'
   })
   jobRuns: Array<JobRun>
+
+  public present(): IChainlinkNodePresenter {
+    return {
+      id: this.id,
+      name: this.name
+    }
+  }
 }
 
 const generateRandomString = (size: number): string => {
