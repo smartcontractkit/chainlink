@@ -44,7 +44,6 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		return manager.Connected()
 	}).Should(gomega.Equal(true))
-	require.True(t, manager.Connected())
 
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_sendRawTransaction", hash)
