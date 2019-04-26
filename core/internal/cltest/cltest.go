@@ -835,6 +835,21 @@ func WaitForSyncEventCount(
 	}).Should(gomega.Equal(want))
 }
 
+// AssertSyncEventCountStays ensures that the event sync count stays consistent
+// for a period of time
+func AssertSyncEventCountStays(
+	t *testing.T,
+	orm *orm.ORM,
+	want int,
+) {
+	t.Helper()
+	gomega.NewGomegaWithT(t).Consistently(func() int {
+		var count int
+		assert.NoError(t, orm.DB.Model(&models.SyncEvent{}).Count(&count).Error)
+		return count
+	}).Should(gomega.Equal(want))
+}
+
 // ParseISO8601 given the time string it Must parse the time and return it
 func ParseISO8601(s string) time.Time {
 	t, err := time.Parse(time.RFC3339Nano, s)

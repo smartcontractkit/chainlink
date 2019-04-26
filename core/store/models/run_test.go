@@ -73,8 +73,9 @@ func TestJobRuns_SavesASyncEvent(t *testing.T) {
 	assert.NoError(t, err)
 
 	var events []*models.SyncEvent
-	err = store.AllSyncEvents(func(event *models.SyncEvent) {
+	err = store.AllSyncEvents(func(event *models.SyncEvent) error {
 		events = append(events, event)
+		return nil
 	})
 	require.NoError(t, err)
 	require.Len(t, events, 1)
@@ -113,8 +114,9 @@ func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
 	assert.NoError(t, err)
 
 	var events []*models.SyncEvent
-	err = store.AllSyncEvents(func(event *models.SyncEvent) {
+	err = store.AllSyncEvents(func(event *models.SyncEvent) error {
 		events = append(events, event)
+		return nil
 	})
 	require.NoError(t, err)
 	require.Len(t, events, 0)
