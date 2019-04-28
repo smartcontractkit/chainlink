@@ -239,7 +239,8 @@ func (cli *Client) ShowBridge(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the name of the bridge to be shown"))
 	}
-	resp, err := cli.HTTP.Get("/v2/bridge_types/" + c.Args().First())
+	bridgeName := c.Args().First()
+	resp, err := cli.HTTP.Get("/v2/bridge_types/" + bridgeName)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -253,13 +254,14 @@ func (cli *Client) RemoveBridge(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the name of the bridge to be removed"))
 	}
-	resp, err := cli.HTTP.Delete("/v2/bridge_types/" + c.Args().First())
+	bridgeName := c.Args().First()
+	resp, err := cli.HTTP.Delete("/v2/bridge_types/" + bridgeName)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 	defer resp.Body.Close()
 	var bridge models.BridgeType
-	return cli.renderResponse(resp, &bridge)
+	return cli.renderAPIResponse(resp, &bridge)
 }
 
 // RemoteLogin creates a cookie session to run remote commands.

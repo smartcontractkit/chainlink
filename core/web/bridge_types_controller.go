@@ -89,7 +89,9 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		c.AbortWithError(http.StatusConflict, fmt.Errorf("Can't remove the bridge because there are jobs associated with it: %+v", err))
 	} else if err = btc.App.GetStore().DeleteBridgeType(&bt); err != nil {
 		c.AbortWithError(StatusCodeForError(err), fmt.Errorf("failed to initialise BTC Destroy: %+v", err))
+	} else if doc, err := jsonapi.Marshal(bt); err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.JSON(http.StatusOK, bt)
+		c.Data(http.StatusOK, MediaType, doc)
 	}
 }
