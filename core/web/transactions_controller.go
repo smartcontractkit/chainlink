@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
-	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -36,9 +35,7 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 		publicError(c, http.StatusNotFound, errors.New("Transaction not found"))
 	} else if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if doc, err := jsonapi.Marshal(presenters.NewTx(tx)); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.Data(http.StatusOK, MediaType, doc)
+		jsonAPIResponse(c, presenters.NewTx(tx), "transaction")
 	}
 }

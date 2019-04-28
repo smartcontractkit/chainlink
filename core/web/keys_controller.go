@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -18,19 +17,17 @@ type KeysController struct {
 // Create adds a new account
 // Example:
 //  "<application>/keys"
-func (c *KeysController) Create(ctx *gin.Context) {
+func (kc *KeysController) Create(c *gin.Context) {
 	request := models.CreateKeyRequest{}
-	if err := ctx.ShouldBindJSON(&request); err != nil {
-		publicError(ctx, http.StatusUnprocessableEntity, err)
-	} else if err := c.App.GetStore().KeyStore.Unlock(request.CurrentPassword); err != nil {
-		publicError(ctx, http.StatusUnauthorized, err)
-	} else if account, err := c.App.GetStore().KeyStore.NewAccount(request.CurrentPassword); err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-	} else if err := c.App.GetStore().SyncDiskKeyStoreToDB(); err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-	} else if doc, err := jsonapi.Marshal(&presenters.NewAccount{Account: &account}); err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+	if err := c.ShouldBindJSON(&request); err != nil {
+		publicError(c, http.StatusUnprocessableEntity, err)
+	} else if err := kc.App.GetStore().KeyStore.Unlock(request.CurrentPassword); err != nil {
+		publicError(c, http.StatusUnauthorized, err)
+	} else if account, err := kc.App.GetStore().KeyStore.NewAccount(request.CurrentPassword); err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+	} else if err := kc.App.GetStore().SyncDiskKeyStoreToDB(); err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		ctx.Data(http.StatusCreated, MediaType, doc)
+		jsonAPIResponseWithStatus(c, presenters.NewAccount{Account: &account}, "account", http.StatusCreated)
 	}
 }

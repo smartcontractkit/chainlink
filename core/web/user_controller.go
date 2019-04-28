@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -32,10 +31,8 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 		publicError(ctx, http.StatusConflict, errors.New("Old password does not match"))
 	} else if err := c.updateUserPassword(ctx, &user, request.NewPassword); err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err)
-	} else if json, err := jsonapi.Marshal(presenters.UserPresenter{User: &user}); err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to marshal password reset response using jsonapi: %+v", err))
 	} else {
-		ctx.Data(http.StatusOK, MediaType, json)
+		jsonAPIResponse(ctx, presenters.UserPresenter{User: &user}, "user")
 	}
 }
 
@@ -54,11 +51,7 @@ func (c *UserController) AccountBalances(ctx *gin.Context) {
 		balances = append(balances, pa)
 	}
 
-	if json, err := jsonapi.Marshal(balances); err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to marshal account balances using jsonapi: %+v", err))
-	} else {
-		ctx.Data(http.StatusOK, MediaType, json)
-	}
+	jsonAPIResponse(ctx, balances, "balances")
 }
 
 func (c *UserController) getCurrentSessionID(ctx *gin.Context) (string, error) {

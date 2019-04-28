@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -29,10 +28,8 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		publicError(c, http.StatusBadRequest, err)
 	} else if err := btc.App.GetStore().CreateBridgeType(bt); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if doc, err := jsonapi.Marshal(bta); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.Data(http.StatusOK, MediaType, doc)
+		jsonAPIResponse(c, bta, "bridge")
 	}
 }
 
@@ -49,10 +46,8 @@ func (btc *BridgeTypesController) Show(c *gin.Context) {
 		publicError(c, http.StatusNotFound, errors.New("bridge not found"))
 	} else if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if doc, err := jsonapi.Marshal(bt); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.Data(http.StatusOK, MediaType, doc)
+		jsonAPIResponse(c, bt, "bridge")
 	}
 }
 
@@ -69,10 +64,8 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else if err := btc.App.GetStore().UpdateBridgeType(&bt, btr); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if doc, err := jsonapi.Marshal(bt); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.Data(http.StatusOK, MediaType, doc)
+		jsonAPIResponse(c, bt, "bridge")
 	}
 }
 
@@ -89,9 +82,7 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		c.AbortWithError(http.StatusConflict, fmt.Errorf("Can't remove the bridge because there are jobs associated with it: %+v", err))
 	} else if err = btc.App.GetStore().DeleteBridgeType(&bt); err != nil {
 		c.AbortWithError(StatusCodeForError(err), fmt.Errorf("failed to initialise BTC Destroy: %+v", err))
-	} else if doc, err := jsonapi.Marshal(bt); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.Data(http.StatusOK, MediaType, doc)
+		jsonAPIResponse(c, bt, "bridge")
 	}
 }
