@@ -42,6 +42,6 @@ func (eic *ExternalInitiatorsController) Destroy(c *gin.Context) {
 	if err := eic.App.GetStore().DeleteExternalInitiator(id); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.JSON(http.StatusNoContent, nil)
+		jsonAPIResponseWithStatus(c, nil, "external initiator", http.StatusNoContent)
 	}
 }
