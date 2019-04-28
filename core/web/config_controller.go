@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 )
@@ -20,12 +19,9 @@ type ConfigController struct {
 //  "<application>/config"
 func (cc *ConfigController) Show(c *gin.Context) {
 	cw, err := presenters.NewConfigWhitelist(cc.App.GetStore())
-
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to build config whitelist: %+v", err))
-	} else if json, err := jsonapi.Marshal(cw); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to marshal config using jsonapi: %+v", err))
 	} else {
-		c.Data(http.StatusOK, MediaType, json)
+		jsonAPIResponse(c, cw, "config")
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -59,10 +58,8 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else if jr, err := services.ExecuteJob(j, j.InitiatorsFor(models.InitiatorWeb)[0], models.RunResult{Data: data}, nil, jrc.App.GetStore()); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if doc, err := jsonapi.Marshal(presenters.JobRun{JobRun: *jr}); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.Data(http.StatusOK, MediaType, doc)
+		jsonAPIResponse(c, presenters.JobRun{JobRun: *jr}, "job run")
 	}
 }
 
@@ -80,13 +77,11 @@ func getRunData(c *gin.Context) (models.JSON, error) {
 func (jrc *JobRunsController) Show(c *gin.Context) {
 	id := c.Param("RunID")
 	if jr, err := jrc.App.GetStore().FindJobRun(id); err == orm.ErrorNotFound {
-		publicError(c, http.StatusNotFound, errors.New("Job Run not found"))
+		publicError(c, http.StatusNotFound, errors.New("Job run not found"))
 	} else if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if doc, err := jsonapi.Marshal(presenters.JobRun{JobRun: jr}); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.Data(http.StatusOK, MediaType, doc)
+		jsonAPIResponse(c, presenters.JobRun{JobRun: jr}, "job run")
 	}
 }
 

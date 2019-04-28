@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
@@ -62,4 +63,17 @@ func paginatedRequest(action func(*gin.Context, int, int, int)) func(*gin.Contex
 		}
 		action(c, size, page, offset)
 	}
+}
+
+func jsonAPIResponseWithStatus(c *gin.Context, resource interface{}, name string, status int) {
+	json, err := jsonapi.Marshal(resource)
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to marshal %s using jsonapi: %+v", name, err))
+	} else {
+		c.Data(status, MediaType, json)
+	}
+}
+
+func jsonAPIResponse(c *gin.Context, resource interface{}, name string) {
+	jsonAPIResponseWithStatus(c, resource, name, http.StatusOK)
 }

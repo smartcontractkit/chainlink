@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -48,10 +47,8 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 		publicError(c, http.StatusBadRequest, err)
 	} else if err = jsc.App.AddJob(js); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if doc, err := jsonapi.Marshal(presenters.JobSpec{JobSpec: js, Runs: []presenters.JobRun{}}); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.Data(http.StatusOK, MediaType, doc)
+		jsonAPIResponse(c, presenters.JobSpec{JobSpec: js}, "job")
 	}
 }
 
@@ -66,21 +63,9 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else if runs, err := jsc.App.GetStore().JobRunsFor(j.ID); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if doc, err := marshalSpecFromJSONAPI(j, runs); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.JSON(http.StatusOK, doc)
+		jsonAPIResponse(c, jobPresenter(j, runs), "job")
 	}
-}
-
-func marshalSpecFromJSONAPI(j models.JobSpec, runs []models.JobRun) (*jsonapi.Document, error) {
-	pruns := make([]presenters.JobRun, len(runs))
-	for i, r := range runs {
-		pruns[i] = presenters.JobRun{r}
-	}
-	p := presenters.JobSpec{JobSpec: j, Runs: pruns}
-	doc, err := jsonapi.MarshalToStruct(p, nil)
-	return doc, err
 }
 
 // Destroy soft deletes a job spec.
@@ -95,4 +80,12 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	} else {
 		c.JSON(http.StatusNoContent, nil)
 	}
+}
+
+func jobPresenter(j models.JobSpec, runs []models.JobRun) presenters.JobSpec {
+	pruns := make([]presenters.JobRun, len(runs))
+	for i, r := range runs {
+		pruns[i] = presenters.JobRun{r}
+	}
+	return presenters.JobSpec{JobSpec: j, Runs: pruns}
 }
