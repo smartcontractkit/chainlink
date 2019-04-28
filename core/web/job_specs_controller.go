@@ -78,7 +78,7 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	} else if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.JSON(http.StatusNoContent, nil)
+		jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 	}
 }
 
