@@ -2,12 +2,10 @@ package web
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
-	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -46,11 +44,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 			return
 		}
 	}
-	if buffer, err := NewJSONAPIResponse(&sa); err != nil {
-		_ = c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to marshal document: %+v", err))
-	} else {
-		c.Data(http.StatusOK, MediaType, buffer)
-	}
+	jsonAPIResponse(c, sa, "service agreement")
 }
 
 // Show returns the details of a ServiceAgreement.
@@ -62,11 +56,7 @@ func (sac *ServiceAgreementsController) Show(c *gin.Context) {
 		publicError(c, http.StatusNotFound, errors.New("ServiceAgreement not found"))
 	} else if err != nil {
 		_ = c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	} else if doc, err := jsonapi.MarshalToStruct(presenters.ServiceAgreement{ServiceAgreement: sa}, nil); err != nil {
-		_ = c.AbortWithError(http.StatusInternalServerError, err)
-		return
 	} else {
-		c.JSON(http.StatusOK, doc)
+		jsonAPIResponse(c, presenters.ServiceAgreement{ServiceAgreement: sa}, "service agreement")
 	}
 }

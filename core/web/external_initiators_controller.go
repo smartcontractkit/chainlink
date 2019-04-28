@@ -26,10 +26,8 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else if err := eic.App.GetStore().CreateExternalInitiator(ea); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
-	} else if buffer, err := NewJSONAPIResponse(eia); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.Data(http.StatusCreated, MediaType, buffer)
+		jsonAPIResponseWithStatus(c, eia, "external initiator authenticaion", http.StatusCreated)
 	}
 }
 
