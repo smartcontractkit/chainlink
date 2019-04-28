@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -33,7 +34,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 	} else if tx, err := store.TxManager.CreateTxWithEth(from, tr.DestinationAddress, tr.Amount); err != nil {
 		publicError(c, http.StatusBadRequest, fmt.Errorf("Transaction failed: %v", err))
 	} else {
-		c.JSON(http.StatusOK, tx)
+		jsonAPIResponse(c, presenters.NewTx(tx), "transaction")
 	}
 }
 
