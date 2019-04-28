@@ -40,6 +40,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 		bytes.NewBufferString(`{"newPassword": "password", "oldPassword": "password"}`))
 	defer cleanup()
 	errors = cltest.ParseJSONAPIErrors(resp.Body)
+	assert.Len(t, errors.Errors, 0)
 	assert.Equal(t, 200, resp.StatusCode)
 }
 

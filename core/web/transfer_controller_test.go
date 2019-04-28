@@ -44,7 +44,9 @@ func TestTransfersController_CreateSuccess(t *testing.T) {
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
 	defer cleanup()
 
-	cltest.AssertServerResponse(t, resp, 200)
+	errors := cltest.ParseJSONAPIErrors(resp.Body)
+	assert.Equal(t, 200, resp.StatusCode)
+	assert.Len(t, errors.Errors, 0)
 
 	ethMock.AllCalled()
 }
@@ -80,7 +82,9 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
 	defer cleanup()
 
-	cltest.AssertServerResponse(t, resp, 200)
+	errors := cltest.ParseJSONAPIErrors(resp.Body)
+	assert.Equal(t, 200, resp.StatusCode)
+	assert.Len(t, errors.Errors, 0)
 
 	ethMock.AllCalled()
 }
