@@ -21,35 +21,6 @@ type UserController struct {
 	App services.Application
 }
 
-func (c *UserController) getCurrentSessionID(ctx *gin.Context) (string, error) {
-	session := sessions.Default(ctx)
-	sessionID, ok := session.Get(SessionIDKey).(string)
-	if !ok {
-		return "", errors.New("unable to get current session ID")
-	}
-	return sessionID, nil
-}
-
-func (c *UserController) saveNewPassword(user *models.User, newPassword string) error {
-	hashedPassword, err := utils.HashPassword(newPassword)
-	if err != nil {
-		return err
-	}
-	user.HashedPassword = hashedPassword
-	return c.App.GetStore().SaveUser(user)
-}
-
-func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User, newPassword string) error {
-	if sessionID, err := c.getCurrentSessionID(ctx); err != nil {
-		return err
-	} else if err := c.App.GetStore().ClearNonCurrentSessions(sessionID); err != nil {
-		return fmt.Errorf("failed to clear non current user sessions: %+v", err)
-	} else if err := c.saveNewPassword(user, newPassword); err != nil {
-		return fmt.Errorf("failed to update current user password: %+v", err)
-	}
-	return nil
-}
-
 // UpdatePassword changes the password for the current User.
 func (c *UserController) UpdatePassword(ctx *gin.Context) {
 	var request models.ChangePasswordRequest
@@ -88,6 +59,35 @@ func (c *UserController) AccountBalances(ctx *gin.Context) {
 	} else {
 		ctx.Data(http.StatusOK, MediaType, json)
 	}
+}
+
+func (c *UserController) getCurrentSessionID(ctx *gin.Context) (string, error) {
+	session := sessions.Default(ctx)
+	sessionID, ok := session.Get(SessionIDKey).(string)
+	if !ok {
+		return "", errors.New("unable to get current session ID")
+	}
+	return sessionID, nil
+}
+
+func (c *UserController) saveNewPassword(user *models.User, newPassword string) error {
+	hashedPassword, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	user.HashedPassword = hashedPassword
+	return c.App.GetStore().SaveUser(user)
+}
+
+func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User, newPassword string) error {
+	if sessionID, err := c.getCurrentSessionID(ctx); err != nil {
+		return err
+	} else if err := c.App.GetStore().ClearNonCurrentSessions(sessionID); err != nil {
+		return fmt.Errorf("failed to clear non current user sessions: %+v", err)
+	} else if err := c.saveNewPassword(user, newPassword); err != nil {
+		return fmt.Errorf("failed to update current user password: %+v", err)
+	}
+	return nil
 }
 
 func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.AccountBalance {
