@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
@@ -642,9 +643,10 @@ func UpdateJobRunViaWeb(
 	defer cleanup()
 
 	AssertServerResponse(t, resp, 200)
-	jrID := ParseCommonJSON(resp.Body).ID
-	jr, err := app.Store.FindJobRun(jrID)
-	assert.NoError(t, err)
+	var respJobRun presenters.JobRun
+	assert.NoError(t, ParseJSONAPIResponse(resp, &respJobRun))
+	assert.Equal(t, jr.ID, respJobRun.ID)
+	jr = respJobRun.JobRun
 	return jr
 }
 

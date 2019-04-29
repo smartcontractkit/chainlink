@@ -113,6 +113,6 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	} else if err = services.ResumePendingTask(&jr, unscoped, brr.RunResult); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.JSON(http.StatusOK, gin.H{"id": jr.ID})
+		jsonAPIResponse(c, jr, "job run")
 	}
 }
