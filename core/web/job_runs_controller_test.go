@@ -251,8 +251,9 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 			defer cleanup()
 
 			require.Equal(t, 200, resp.StatusCode, "Response should be successful")
-			jrID := cltest.ParseCommonJSON(resp.Body).ID
-			require.Equal(t, jr.ID, jrID)
+			var respJobRun presenters.JobRun
+			assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &respJobRun))
+			require.Equal(t, jr.ID, respJobRun.ID)
 
 			jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 			val, err := jr.Result.ResultString()
@@ -329,8 +330,9 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
-	jrID := cltest.ParseCommonJSON(resp.Body).ID
-	assert.Equal(t, jr.ID, jrID)
+	var respJobRun presenters.JobRun
+	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &respJobRun))
+	assert.Equal(t, jr.ID, respJobRun.ID)
 
 	jr = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusErrored)
 	val, err := jr.Result.ResultString()
