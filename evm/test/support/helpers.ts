@@ -8,6 +8,7 @@ const contractPathHead = pathResolve(join(__dirname, '/../..'))
 // See compile.js for more info.
 process.env.SOLIDITY_INCLUDE = [
   'contracts/',
+  'contracts/dev',
   'contracts/examples/',
   'contracts/interfaces/',
   '../node_modules/',
@@ -66,7 +67,7 @@ export let [
 
 before(async function queryEthClientForConstants() {
   accounts = await eth.getAccounts()
-  ;[
+  ; [
     defaultAccount,
     oracleNode1,
     oracleNode2,

@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
-import "./Oracle.sol";
-import "./interfaces/LinkExInterface.sol";
+import "../Oracle.sol";
+import "./LinkExInterface.sol";
 
 contract OracleDev is Oracle {
 

@@ -1,6 +1,6 @@
 pragma solidity 0.4.24;
 
-import "./interfaces/LinkExInterface.sol";
+import "./LinkExInterface.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
