@@ -924,7 +924,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:89abea1025a69b50951a492765445526d71b95f3e58bb2652f67c157bd53f44a"
+  digest = "1:82e4b22f46ebcb2788b8562531e877238323c7de35f04004fe926cb8846803c8"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -936,7 +936,7 @@
     "zaptest/observer",
   ]
   pruneopts = ""
-  revision = "badef736563f8135e0add3232b06f58656da03c8"
+  revision = "cada3b3e434a735ead0d5e818f6e31d7d94af517"
   source = "github.com/uber-go/zap"
 
 [[projects]]
