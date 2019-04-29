@@ -481,17 +481,17 @@ func (a NewAccount) GetName() string {
 
 // Tx is a jsonapi wrapper for an Ethereum Transaction.
 type Tx struct {
-	Confirmed bool           `json:"confirmed"`
-	Data      hexutil.Bytes  `json:"data"`
-	From      common.Address `json:"from"`
-	GasLimit  string         `json:"gasLimit"`
-	GasPrice  string         `json:"gasPrice"`
+	Confirmed bool           `json:"confirmed,omitempty"`
+	Data      hexutil.Bytes  `json:"data,omitempty"`
+	From      common.Address `json:"from,omitempty"`
+	GasLimit  string         `json:"gasLimit,omitempty"`
+	GasPrice  string         `json:"gasPrice,omitempty"`
 	Hash      common.Hash    `json:"hash"`
-	Hex       string         `json:"rawHex"`
-	Nonce     string         `json:"nonce"`
-	SentAt    string         `json:"sentAt"`
-	To        common.Address `json:"to"`
-	Value     string         `json:"value"`
+	Hex       string         `json:"rawHex,omitempty"`
+	Nonce     string         `json:"nonce,omitempty"`
+	SentAt    string         `json:"sentAt,omitempty"`
+	To        common.Address `json:"to,omitempty"`
+	Value     string         `json:"value,omitempty"`
 }
 
 // NewTx builds a transaction presenter.
