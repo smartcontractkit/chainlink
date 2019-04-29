@@ -1,8 +1,8 @@
 pragma solidity 0.4.24;
 
-import "../Chainlinked.sol";
+import "../ChainlinkClient.sol";
 
-contract Consumer is Chainlinked {
+contract Consumer is ChainlinkClient {
   bytes32 internal specId;
   bytes32 public currentPrice;
 
