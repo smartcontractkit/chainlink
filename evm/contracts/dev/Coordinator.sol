@@ -1,10 +1,10 @@
 pragma solidity 0.4.24;
 pragma experimental ABIEncoderV2; // solium-disable-line no-experimental 
 
+import "./CoordinatorInterface.sol";
+import "../interfaces/ChainlinkRequestInterface.sol";
+import "../interfaces/LinkTokenInterface.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "./interfaces/ChainlinkRequestInterface.sol";
-import "./interfaces/CoordinatorInterface.sol";
-import "./interfaces/LinkTokenInterface.sol";
 
 /**
  * @title The Chainlink Coordinator handles oracle service aggreements between one or more oracles
