@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -55,6 +56,6 @@ func (abc *WithdrawalsController) Create(c *gin.Context) {
 	if err != nil {
 		_ = c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.JSON(http.StatusOK, hash)
+		jsonAPIResponse(c, presenters.Tx{Hash: hash}, "transaction")
 	}
 }
