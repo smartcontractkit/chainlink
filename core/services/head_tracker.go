@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/tevino/abool"
 )
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
@@ -26,7 +25,7 @@ type HeadTracker struct {
 	store                 *strpkg.Store
 	head                  *models.Head
 	headMutex             sync.RWMutex
-	connected             *abool.AtomicBool
+	connected             bool
 	sleeper               utils.Sleeper
 	done                  chan struct{}
 	started               bool
@@ -49,7 +48,6 @@ func NewHeadTracker(store *strpkg.Store, sleepers ...utils.Sleeper) *HeadTracker
 		store:       store,
 		attachments: newAttachmentCollection(),
 		sleeper:     sleeper,
-		connected:   abool.New(),
 	}
 }
 
@@ -122,6 +120,7 @@ func (ht *HeadTracker) Save(n *models.Head) error {
 func (ht *HeadTracker) Head() *models.Head {
 	ht.headMutex.RLock()
 	defer ht.headMutex.RUnlock()
+
 	return ht.head
 }
 
@@ -129,37 +128,57 @@ func (ht *HeadTracker) Head() *models.Head {
 // such as Connect. If the HeadTracker is already connected, Connect will be
 // called on the newly attached parameter.
 func (ht *HeadTracker) Attach(t store.HeadTrackable) string {
+	ht.headMutex.Lock()
+	defer ht.headMutex.Unlock()
+
 	rval := ht.attachments.attach(t)
-	if ht.connected.IsSet() {
-		logger.WarnIf(t.Connect(ht.Head()))
+	if ht.connected {
+		logger.WarnIf(t.Connect(ht.head))
 	}
 	return rval
 }
 
 // Detach deregisters an object from having HeadTrackable events fired.
 func (ht *HeadTracker) Detach(id string) {
+	ht.headMutex.Lock()
+	defer ht.headMutex.Unlock()
+
 	t, present := ht.attachments.detach(id)
-	if ht.connected.IsSet() && present {
+	if ht.connected && present {
 		t.Disconnect()
 	}
 }
 
 // Connected returns whether or not this HeadTracker is connected.
-func (ht *HeadTracker) Connected() bool { return ht.connected.IsSet() }
+func (ht *HeadTracker) Connected() bool {
+	ht.headMutex.RLock()
+	defer ht.headMutex.RUnlock()
+
+	return ht.connected
+}
 
 func (ht *HeadTracker) connect(bn *models.Head) {
+	ht.headMutex.Lock()
+	defer ht.headMutex.Unlock()
+
 	ht.attachments.iter(func(t store.HeadTrackable) {
 		logger.WarnIf(t.Connect(bn))
 	})
 }
 
 func (ht *HeadTracker) disconnect() {
+	ht.headMutex.Lock()
+	defer ht.headMutex.Unlock()
+
 	ht.attachments.iter(func(t store.HeadTrackable) {
 		t.Disconnect()
 	})
 }
 
 func (ht *HeadTracker) onNewHead(head *models.Head) {
+	ht.headMutex.Lock()
+	defer ht.headMutex.Unlock()
+
 	ht.attachments.iter(func(t store.HeadTrackable) {
 		t.OnNewHead(head)
 	})
@@ -240,7 +259,7 @@ func (ht *HeadTracker) subscribeToHead() error {
 		return err
 	}
 	ht.headSubscription = sub
-	ht.connected.Set()
+	ht.connected = true
 	ht.connect(ht.Head())
 	return nil
 }
@@ -254,7 +273,7 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 	ht.disconnect()
 	close(ht.headers)
 
-	ht.connected.UnSet()
+	ht.connected = false
 	return nil
 }
 
@@ -269,27 +288,22 @@ func (ht *HeadTracker) updateHeadFromDb() error {
 	return nil
 }
 
-// attachmentCollection is a thread safe ordered collection
-// of HeadTrackables that are attached to HeadTracker.
+// attachmentCollection is a **NOT THREAD SAFE** ordered collection of
+// HeadTrackables that are attached to HeadTracker.
 type attachmentCollection struct {
 	trackables map[string]store.HeadTrackable
 	sortedIDs  []string // map order is non-deterministic, so keep order.
-	mutex      *sync.RWMutex
 }
 
 func newAttachmentCollection() *attachmentCollection {
 	return &attachmentCollection{
 		trackables: map[string]strpkg.HeadTrackable{},
 		sortedIDs:  []string{},
-		mutex:      &sync.RWMutex{},
 	}
 }
 
 func (a *attachmentCollection) attach(t store.HeadTrackable) string {
 	id := uuid.Must(uuid.NewV4()).String()
-
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
 
 	a.sortedIDs = append(a.sortedIDs, id)
 	a.trackables[id] = t
@@ -297,9 +311,6 @@ func (a *attachmentCollection) attach(t store.HeadTrackable) string {
 }
 
 func (a *attachmentCollection) detach(id string) (store.HeadTrackable, bool) {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
 	t, present := a.trackables[id]
 	if present {
 		a.sortedIDs = removeTrackableID(id, a.sortedIDs, t)
@@ -312,9 +323,6 @@ func (a *attachmentCollection) detach(id string) (store.HeadTrackable, bool) {
 // iter iterates over the collection in an ordered thread safe manner, invoking
 // the passed callback on each entry.
 func (a *attachmentCollection) iter(cb func(store.HeadTrackable)) {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
-
 	for _, id := range a.sortedIDs {
 		cb(a.trackables[id])
 	}
