@@ -4,7 +4,7 @@ import { assertBigNum } from './support/matchers'
 contract('Oracle', () => {
   const sourcePath = 'Oracle.sol'
   const fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
-  const specId = 
+  const specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
   let link, oc, withdraw
