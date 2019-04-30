@@ -133,7 +133,7 @@ func (ht *HeadTracker) Attach(t store.HeadTrackable) string {
 
 	rval := ht.attachments.attach(t)
 	if ht.connected {
-		logger.WarnIf(t.Connect(ht.head))
+		ht.connect(ht.head)
 	}
 	return rval
 }
@@ -143,10 +143,10 @@ func (ht *HeadTracker) Detach(id string) {
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
 
-	t, present := ht.attachments.detach(id)
-	if ht.connected && present {
-		t.Disconnect()
+	if !ht.connected {
+		ht.disconnect()
 	}
+	ht.attachments.detach(id)
 }
 
 // Connected returns whether or not this HeadTracker is connected.
@@ -158,18 +158,12 @@ func (ht *HeadTracker) Connected() bool {
 }
 
 func (ht *HeadTracker) connect(bn *models.Head) {
-	ht.headMutex.Lock()
-	defer ht.headMutex.Unlock()
-
 	ht.attachments.iter(func(t store.HeadTrackable) {
 		logger.WarnIf(t.Connect(bn))
 	})
 }
 
 func (ht *HeadTracker) disconnect() {
-	ht.headMutex.Lock()
-	defer ht.headMutex.Unlock()
-
 	ht.attachments.iter(func(t store.HeadTrackable) {
 		t.Disconnect()
 	})
@@ -253,27 +247,37 @@ func (ht *HeadTracker) receiveHeaders() error {
 }
 
 func (ht *HeadTracker) subscribeToHead() error {
+	ht.headMutex.Lock()
+	defer ht.headMutex.Unlock()
+
 	ht.headers = make(chan models.BlockHeader)
 	sub, err := ht.store.TxManager.SubscribeToNewHeads(ht.headers)
 	if err != nil {
 		return err
 	}
 	ht.headSubscription = sub
-	ht.connected = true
-	ht.connect(ht.Head())
+	if !ht.connected {
+		ht.connect(ht.head)
+		ht.connected = true
+	}
 	return nil
 }
 
 func (ht *HeadTracker) unsubscribeFromHead() error {
-	if !ht.Connected() {
+	ht.headMutex.Lock()
+	defer ht.headMutex.Unlock()
+
+	if !ht.connected {
 		return nil
 	}
 
 	timedUnsubscribe(ht.headSubscription)
-	ht.disconnect()
-	close(ht.headers)
 
-	ht.connected = false
+	if ht.connected {
+		ht.disconnect()
+		ht.connected = false
+	}
+	close(ht.headers)
 	return nil
 }
 
