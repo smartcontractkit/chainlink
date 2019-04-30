@@ -131,7 +131,7 @@ func (ht *HeadTracker) Attach(t store.HeadTrackable) string {
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
 
-	rval := ht.attachments.attach(t)
+	rval := ht.attachments.attach(&headTrackableWrapper{HeadTrackable: t})
 	if ht.connected {
 		ht.connect(ht.head)
 	}
@@ -158,14 +158,20 @@ func (ht *HeadTracker) Connected() bool {
 }
 
 func (ht *HeadTracker) connect(bn *models.Head) {
-	ht.attachments.iter(func(t store.HeadTrackable) {
-		logger.WarnIf(t.Connect(bn))
+	ht.attachments.iter(func(t *headTrackableWrapper) {
+		if !t.connected {
+			logger.WarnIf(t.Connect(bn))
+			t.connected = true
+		}
 	})
 }
 
 func (ht *HeadTracker) disconnect() {
-	ht.attachments.iter(func(t store.HeadTrackable) {
-		t.Disconnect()
+	ht.attachments.iter(func(t *headTrackableWrapper) {
+		if t.connected {
+			t.Disconnect()
+			t.connected = false
+		}
 	})
 }
 
@@ -173,7 +179,7 @@ func (ht *HeadTracker) onNewHead(head *models.Head) {
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
 
-	ht.attachments.iter(func(t store.HeadTrackable) {
+	ht.attachments.iter(func(t *headTrackableWrapper) {
 		t.OnNewHead(head)
 	})
 }
@@ -256,10 +262,8 @@ func (ht *HeadTracker) subscribeToHead() error {
 		return err
 	}
 	ht.headSubscription = sub
-	if !ht.connected {
-		ht.connect(ht.head)
-		ht.connected = true
-	}
+	ht.connect(ht.head)
+	ht.connected = true
 	return nil
 }
 
@@ -273,10 +277,8 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 
 	timedUnsubscribe(ht.headSubscription)
 
-	if ht.connected {
-		ht.disconnect()
-		ht.connected = false
-	}
+	ht.disconnect()
+	ht.connected = false
 	close(ht.headers)
 	return nil
 }
@@ -292,29 +294,34 @@ func (ht *HeadTracker) updateHeadFromDb() error {
 	return nil
 }
 
+type headTrackableWrapper struct {
+	strpkg.HeadTrackable
+	connected bool
+}
+
 // attachmentCollection is a **NOT THREAD SAFE** ordered collection of
 // HeadTrackables that are attached to HeadTracker.
 type attachmentCollection struct {
-	trackables map[string]store.HeadTrackable
+	trackables map[string]*headTrackableWrapper
 	sortedIDs  []string // map order is non-deterministic, so keep order.
 }
 
 func newAttachmentCollection() *attachmentCollection {
 	return &attachmentCollection{
-		trackables: map[string]strpkg.HeadTrackable{},
+		trackables: map[string]*headTrackableWrapper{},
 		sortedIDs:  []string{},
 	}
 }
 
-func (a *attachmentCollection) attach(t store.HeadTrackable) string {
+func (a *attachmentCollection) attach(t *headTrackableWrapper) string {
 	id := uuid.Must(uuid.NewV4()).String()
 
 	a.sortedIDs = append(a.sortedIDs, id)
-	a.trackables[id] = t
+	a.trackables[id] = &headTrackableWrapper{HeadTrackable: t}
 	return id
 }
 
-func (a *attachmentCollection) detach(id string) (store.HeadTrackable, bool) {
+func (a *attachmentCollection) detach(id string) (*headTrackableWrapper, bool) {
 	t, present := a.trackables[id]
 	if present {
 		a.sortedIDs = removeTrackableID(id, a.sortedIDs, t)
@@ -324,15 +331,15 @@ func (a *attachmentCollection) detach(id string) (store.HeadTrackable, bool) {
 	return nil, false
 }
 
-// iter iterates over the collection in an ordered thread safe manner, invoking
-// the passed callback on each entry.
-func (a *attachmentCollection) iter(cb func(store.HeadTrackable)) {
+// iter iterates over the collection in order, invoking the passed callback on
+// each entry.
+func (a *attachmentCollection) iter(cb func(*headTrackableWrapper)) {
 	for _, id := range a.sortedIDs {
 		cb(a.trackables[id])
 	}
 }
 
-func removeTrackableID(id string, old []string, t store.HeadTrackable) []string {
+func removeTrackableID(id string, old []string, t *headTrackableWrapper) []string {
 	idx := indexOf(id, old)
 	if idx == -1 {
 		logger.Panicf("invariant violated: id %s for %T exists in trackables but not in sortedIDs in attachmentCollection", id, t)
