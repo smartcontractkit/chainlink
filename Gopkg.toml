@@ -152,5 +152,4 @@
 
 [[constraint]]
   name = "gopkg.in/gormigrate.v1"
-  source = "github.com/j16r/gormigrate"
-  branch = "master"
+  version = "1.5.0"
