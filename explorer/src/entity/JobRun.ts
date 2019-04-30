@@ -12,8 +12,8 @@ import { ChainlinkNode, IChainlinkNodePresenter } from './ChainlinkNode'
 
 @Entity()
 export class JobRun {
-  @PrimaryGeneratedColumn()
-  id: number
+  @PrimaryGeneratedColumn('uuid')
+  id: string
 
   @Column({ nullable: true })
   chainlinkNodeId: number
