@@ -1,5 +1,5 @@
 interface IJobRun {
-  id: number
+  id: string
   runId: string
   jobId: string
   status: string
