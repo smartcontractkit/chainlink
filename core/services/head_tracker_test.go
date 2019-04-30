@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
@@ -219,4 +220,67 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	assert.Equal(t, lastSavedBN, connectedBN)
 	g.Eventually(func() *big.Int { return ht.Head().ToInt() }).Should(gomega.Equal(currentBN))
 	assert.NoError(t, ht.Stop())
+}
+
+func TestHeadTracker_OnlyCallsConnectCallbackOnce(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	cltest.MockEthOnStore(store)
+
+	heads := make(chan int)
+	headTrackable := &lockableHeadTrackable{heads: heads, id: 1}
+
+	ht := services.NewHeadTracker(store)
+	assert.Nil(t, ht.Start())
+}
+
+type lockableHeadTrackable struct {
+	heads chan int
+	id    int
+}
+
+func (t *lockableHeadTrackable) Connect(*models.Head) error {
+	t.heads <- t.id
+	return nil
+}
+
+func (t *lockableHeadTrackable) Disconnect()            {}
+func (t *lockableHeadTrackable) OnNewHead(*models.Head) {}
+
+func TestHeadTracker_AttachAlwaysRespectsConnectOrder(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	cltest.MockEthOnStore(store)
+
+	heads := make(chan int)
+	firstHeadTrackable := &lockableHeadTrackable{heads: heads, id: 1}
+	secondHeadTrackable := &lockableHeadTrackable{heads: heads, id: 2}
+	thirdHeadTrackable := &lockableHeadTrackable{heads: heads, id: 3}
+
+	ht := services.NewHeadTracker(store)
+	assert.Nil(t, ht.Start())
+
+	go func() {
+		ht.Attach(firstHeadTrackable)
+		ht.Attach(secondHeadTrackable)
+		ht.Attach(thirdHeadTrackable)
+	}()
+
+	logger.Debug("waiting for firstHead")
+	firstHead := <-heads
+	require.Equal(t, 1, firstHead)
+
+	logger.Debug("waiting for secondHead")
+	secondHead := <-heads
+	require.Equal(t, 2, secondHead)
+
+	logger.Debug("waiting for thirdHead")
+	thirdHead := <-heads
+	require.Equal(t, 3, thirdHead)
 }
