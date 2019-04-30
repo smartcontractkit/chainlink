@@ -275,7 +275,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
 
   /**
    * @notice Retrieve the Service Agreement ID for the given parameters
-   * @param _agreement A
+      * @param _agreement contains all of the terms of the service agreement that can be verified on-chain.
    * @return The Service Agreement ID, a keccak256 hash of the input params
    */
   function getId(ServiceAgreement memory _agreement) public pure returns (bytes32)
