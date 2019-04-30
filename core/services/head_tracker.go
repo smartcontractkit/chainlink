@@ -144,10 +144,10 @@ func (ht *HeadTracker) Detach(id string) {
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
 
-	if !ht.connected {
-		ht.disconnect()
+	t, present := ht.attachments.detach(id)
+	if ht.connected && present {
+		t.Disconnect()
 	}
-	ht.attachments.detach(id)
 }
 
 // Connected returns whether or not this HeadTracker is connected.
