@@ -29,7 +29,6 @@ func Migrate(db *gorm.DB) error {
 
 	options := gormigrate.DefaultOptions
 	options.IDColumnSize = 12
-	options.UseTransaction = true
 
 	m := gormigrate.New(db, options, []*gormigrate.Migration{
 		{

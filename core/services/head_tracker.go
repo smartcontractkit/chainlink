@@ -286,7 +286,7 @@ func newAttachmentCollection() *attachmentCollection {
 }
 
 func (a *attachmentCollection) attach(t store.HeadTrackable) string {
-	id := uuid.Must(uuid.NewV4()).String()
+	id := uuid.NewV4().String()
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
