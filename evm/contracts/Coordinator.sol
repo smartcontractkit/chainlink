@@ -1,7 +1,6 @@
 pragma solidity 0.4.24;
 pragma experimental ABIEncoderV2; // solium-disable-line no-experimental 
 
-
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "./interfaces/CoordinatorInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
@@ -88,6 +87,7 @@ contract Coordinator is CoordinatorInterface {
     checkCallbackAddress(_request.callbackAddress)
   {
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _request.nonce));
+
     require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
 
     callbacks[requestId].sAId = _request.sAId;

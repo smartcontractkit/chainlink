@@ -1,6 +1,8 @@
 pragma solidity 0.4.24;
+pragma experimental ABIEncoderV2; // solium-disable-line no-experimental 
 
 import "./Chainlink.sol";
+import "./Coordinator.sol";
 import "./ENSResolver.sol";
 import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
@@ -210,12 +212,15 @@ contract Chainlinked {
       oracle.oracleRequest.selector,
       SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
       AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
-      _req.id,
-      _req.callbackAddress,
-      _req.callbackFunctionId,
-      _req.nonce,
-      ARGS_VERSION,
-      _req.buf.buf);
+      Coordinator.Request(
+        _req.id,
+        _req.callbackAddress,
+        _req.callbackFunctionId,
+        _req.nonce,
+        ARGS_VERSION,
+        _req.buf.buf
+      )
+    );
   }
 
   /**

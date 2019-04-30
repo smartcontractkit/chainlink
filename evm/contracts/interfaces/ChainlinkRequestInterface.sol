@@ -1,16 +1,21 @@
 pragma solidity 0.4.24;
+pragma experimental ABIEncoderV2; // solium-disable-line no-experimental 
 
-interface ChainlinkRequestInterface {
+contract ChainlinkRequestInterface {
+  struct Request {
+    bytes32 sAId;
+    address callbackAddress;
+    bytes4 callbackFunctionId;
+    uint256 nonce;
+    uint256 dataVersion;
+    bytes data;
+  }
+
   function oracleRequest(
     address sender,
     uint256 payment,
-    bytes32 id,
-    address callbackAddress,
-    bytes4 callbackFunctionId,
-    uint256 nonce,
-    uint256 version,
-    bytes data
-  ) external;
+    Request memory request
+  ) public;
 
   function cancelOracleRequest(
     bytes32 requestId,

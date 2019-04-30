@@ -352,21 +352,17 @@ contract('Coordinator', () => {
 
       context('requester lies about amount of LINK sent', () => {
         it('the oracle uses the amount of LINK actually paid', async () => {
-          console.log(1)
-          console.log(agreement.id)
           let payload = h.createOracleRequestBytes(
-            '0x0000000000000000000000000000000000000000', 
+            '0x0000000000000000000000000000000000000000',
             h.toHex(2000000000000000000),
             agreement.id,
-            link.address,
+            mock.address,
             h.functionSelector('doesNothing(bytes32,bytes32)'),
             h.toHex(1),
             '0x'
           )
           const tx = await mock.maliciousPricePayload(agreement.id, payload)
-          console.log(2)
           const req = h.decodeRunRequest(tx.receipt.rawLogs[3])
-          console.log(3)
           assertBigNum(
             paymentAmount,
             req.payment,
@@ -376,7 +372,6 @@ contract('Coordinator', () => {
               `(${req.payment}) than the requester paid (${paymentAmount})`
             ].join(' ')
           )
-          console.log(4)
         })
       })
     })
@@ -395,11 +390,14 @@ contract('Coordinator', () => {
 
       context('fails during fulfillment', () => {
         beforeEach(async () => {
+          console.log(1)
           const tx = await mock.requestData(
             agreement.id,
             h.toHex('assertFail(bytes32,bytes32)')
           )
+          console.log(2)
           request = h.decodeRunRequest(tx.receipt.rawLogs[3])
+          console.log(3)
         })
 
         // needs coordinator withdrawal functionality to meet parity
@@ -420,14 +418,12 @@ contract('Coordinator', () => {
           assert.isTrue(paymentAmount.equals(newBalance))
         })
 
-        it("can't fulfill the data again", async () => {
-          console.log(1)
+        it.only("can't fulfill the data again", async () => {
           await coordinator.fulfillOracleRequest(
             request.id,
             h.toHex('hack the planet 101'),
             { from: h.oracleNode }
           )
-          console.log(2)
           await h.assertActionThrows(async () => {
             await coordinator.fulfillOracleRequest(
               request.id,
@@ -435,7 +431,6 @@ contract('Coordinator', () => {
               { from: h.oracleNode }
             )
           })
-          console.log(3)
         })
       })
 
