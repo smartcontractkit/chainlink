@@ -67,7 +67,7 @@ describe('#show', () => {
   })
 
   describe('with out of order task runs', () => {
-    let jobRunId: number
+    let jobRunId: string
     beforeEach(async () => {
       const [chainlinkNode, _] = await createChainlinkNode(
         connection,
