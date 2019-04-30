@@ -31,7 +31,6 @@ type HeadTracker struct {
 	started               bool
 	listenForNewHeadsWg   sync.WaitGroup
 	subscriptionSucceeded chan struct{}
-	bootMutex             sync.Mutex
 }
 
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
@@ -55,8 +54,8 @@ func NewHeadTracker(store *strpkg.Store, sleepers ...utils.Sleeper) *HeadTracker
 // subscribes to new heads, and if successful fires Connect on the
 // HeadTrackable argument.
 func (ht *HeadTracker) Start() error {
-	ht.bootMutex.Lock()
-	defer ht.bootMutex.Unlock()
+	ht.headMutex.Lock()
+	defer ht.headMutex.Unlock()
 
 	if ht.started {
 		return nil
@@ -65,7 +64,7 @@ func (ht *HeadTracker) Start() error {
 	if err := ht.updateHeadFromDb(); err != nil {
 		return err
 	}
-	number := ht.Head()
+	number := ht.head
 	if number != nil {
 		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash().Hex())
 	}
@@ -82,17 +81,19 @@ func (ht *HeadTracker) Start() error {
 
 // Stop unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
-	ht.bootMutex.Lock()
-	defer ht.bootMutex.Unlock()
+	ht.headMutex.Lock()
 
 	if !ht.started {
+		ht.headMutex.Unlock()
 		return nil
 	}
 
 	close(ht.done)
-	ht.listenForNewHeadsWg.Wait()
 	close(ht.subscriptionSucceeded)
 	ht.started = false
+	ht.headMutex.Unlock()
+
+	ht.listenForNewHeadsWg.Wait()
 	return nil
 }
 
@@ -288,9 +289,7 @@ func (ht *HeadTracker) updateHeadFromDb() error {
 	if err != nil {
 		return err
 	}
-	ht.headMutex.Lock()
 	ht.head = number
-	ht.headMutex.Unlock()
 	return nil
 }
 
