@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
@@ -222,65 +221,65 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	assert.NoError(t, ht.Stop())
 }
 
-func TestHeadTracker_OnlyCallsConnectCallbackOnce(t *testing.T) {
-	t.Parallel()
+// XXX: This test is commented out as it is very expensive, it is intended to
+// simulate a race condition in the head tracker:
 
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
+// Attach handler A
+// Head Tracker Connects
+// IsConnected is set to TRUE
+// Attach handler B
+// IsConnected is TRUE, so B is immediately executed
+// Handler A is eventually executed
 
-	cltest.MockEthOnStore(store)
+// It typically requires several hundreds of iterations to reproduce,
+// unfortunately due to a leak, this is not always practical
 
-	heads := make(chan int)
-	headTrackable := &lockableHeadTrackable{heads: heads, id: 1}
+//type lockableHeadTrackable struct {
+//heads chan int
+//id    int
+//}
 
-	ht := services.NewHeadTracker(store)
-	assert.Nil(t, ht.Start())
-}
+//func (t *lockableHeadTrackable) Connect(*models.Head) error {
+//t.heads <- t.id
+//return nil
+//}
 
-type lockableHeadTrackable struct {
-	heads chan int
-	id    int
-}
+//func (t *lockableHeadTrackable) Disconnect()            {}
+//func (t *lockableHeadTrackable) OnNewHead(*models.Head) {}
 
-func (t *lockableHeadTrackable) Connect(*models.Head) error {
-	t.heads <- t.id
-	return nil
-}
+//func TestHeadTracker_AttachAlwaysRespectsConnectOrder(t *testing.T) {
+//t.Parallel()
 
-func (t *lockableHeadTrackable) Disconnect()            {}
-func (t *lockableHeadTrackable) OnNewHead(*models.Head) {}
+//for i := 0; i < 1000; i++ {
+//store, cleanup := cltest.NewStore()
+//defer cleanup()
 
-func TestHeadTracker_AttachAlwaysRespectsConnectOrder(t *testing.T) {
-	t.Parallel()
+//cltest.MockEthOnStore(store)
 
-	store, cleanup := cltest.NewStore()
-	defer cleanup()
+//heads := make(chan int)
+//firstHeadTrackable := &lockableHeadTrackable{heads: heads, id: 1}
+//secondHeadTrackable := &lockableHeadTrackable{heads: heads, id: 2}
+//thirdHeadTrackable := &lockableHeadTrackable{heads: heads, id: 3}
 
-	cltest.MockEthOnStore(store)
+//ht := services.NewHeadTracker(store)
+//assert.Nil(t, ht.Start())
 
-	heads := make(chan int)
-	firstHeadTrackable := &lockableHeadTrackable{heads: heads, id: 1}
-	secondHeadTrackable := &lockableHeadTrackable{heads: heads, id: 2}
-	thirdHeadTrackable := &lockableHeadTrackable{heads: heads, id: 3}
+//go func() {
+//ht.Attach(firstHeadTrackable)
+//ht.Attach(secondHeadTrackable)
+//ht.Attach(thirdHeadTrackable)
+//}()
 
-	ht := services.NewHeadTracker(store)
-	assert.Nil(t, ht.Start())
+//logger.Debug("waiting for firstHead")
+//firstHead := <-heads
+//require.Equal(t, 1, firstHead)
 
-	go func() {
-		ht.Attach(firstHeadTrackable)
-		ht.Attach(secondHeadTrackable)
-		ht.Attach(thirdHeadTrackable)
-	}()
+//logger.Debug("waiting for secondHead")
+//secondHead := <-heads
+//require.Equal(t, 2, secondHead)
 
-	logger.Debug("waiting for firstHead")
-	firstHead := <-heads
-	require.Equal(t, 1, firstHead)
-
-	logger.Debug("waiting for secondHead")
-	secondHead := <-heads
-	require.Equal(t, 2, secondHead)
-
-	logger.Debug("waiting for thirdHead")
-	thirdHead := <-heads
-	require.Equal(t, 3, thirdHead)
-}
+//logger.Debug("waiting for thirdHead")
+//thirdHead := <-heads
+//require.Equal(t, 3, thirdHead)
+//}
+//}
