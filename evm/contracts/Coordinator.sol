@@ -280,12 +280,13 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    */
   function getId(ServiceAgreement memory _agreement) public pure returns (bytes32)
   {
-    return keccak256(abi.encodePacked(
-      _agreement.payment, 
-      _agreement.expiration, 
-      _agreement.endAt, 
-      _agreement.oracles, 
-      _agreement.requestDigest
+    return keccak256(
+      abi.encodePacked(
+        _agreement.payment,
+        _agreement.expiration,
+        _agreement.endAt,
+        _agreement.oracles,
+        _agreement.requestDigest
     ));
   }
 
