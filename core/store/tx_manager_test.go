@@ -47,7 +47,7 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	})
 
 	tx, err := manager.CreateTx(to, data)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_, err = store.FindTx(tx.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, nonce, tx.Nonce)
