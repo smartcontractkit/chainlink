@@ -115,9 +115,10 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 // TestApplication holds the test application and test servers
 type TestApplication struct {
 	*services.ChainlinkApplication
-	Config   strpkg.Config
-	Server   *httptest.Server
-	wsServer *httptest.Server
+	Config           strpkg.Config
+	Server           *httptest.Server
+	wsServer         *httptest.Server
+	connectedChannel chan struct{}
 }
 
 func newWSServer() (*httptest.Server, func()) {
@@ -161,28 +162,6 @@ func NewApplication() (*TestApplication, func()) {
 	}
 }
 
-// NewApplicationWithConfig creates a New TestApplication with specified test config
-func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
-	WipePostgresDatabase(tc.Config)
-	app := services.NewApplication(tc.Config).(*services.ChainlinkApplication)
-	ethMock := MockEthOnStore(app.Store)
-	ta := &TestApplication{ChainlinkApplication: app}
-
-	server := newServer(ta)
-	tc.Config.Set("CLIENT_NODE_URL", server.URL)
-	app.Store.Config = tc.Config
-
-	ta.Config = tc.Config
-	ta.Server = server
-	ta.wsServer = tc.wsServer
-	return ta, func() {
-		if !ethMock.AllCalled() {
-			panic("mock expectations set and not used on default TestApplication ethMock!!!")
-		}
-		mustNotErr(ta.Stop())
-	}
-}
-
 // NewApplicationWithKey creates a new TestApplication along with a new config
 func NewApplicationWithKey() (*TestApplication, func()) {
 	config, cfgCleanup := NewConfig()
@@ -201,6 +180,31 @@ func NewApplicationWithConfigAndKey(tc *TestConfig) (*TestApplication, func()) {
 	return app, cleanup
 }
 
+// NewApplicationWithConfig creates a New TestApplication with specified test config
+func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
+	WipePostgresDatabase(tc.Config)
+	ta := &TestApplication{connectedChannel: make(chan struct{}, 1)}
+	app := services.NewApplication(tc.Config, func(app services.Application) {
+		ta.connectedChannel <- struct{}{}
+	}).(*services.ChainlinkApplication)
+	ta.ChainlinkApplication = app
+	ethMock := MockEthOnStore(app.Store)
+
+	server := newServer(ta)
+	tc.Config.Set("CLIENT_NODE_URL", server.URL)
+	app.Store.Config = tc.Config
+
+	ta.Config = tc.Config
+	ta.Server = server
+	ta.wsServer = tc.wsServer
+	return ta, func() {
+		if !ethMock.AllCalled() {
+			panic("mock expectations set and not used on default TestApplication ethMock!!!")
+		}
+		mustNotErr(ta.Stop())
+	}
+}
+
 func newServer(app services.Application) *httptest.Server {
 	engine := web.Router(app)
 	return httptest.NewServer(engine)
@@ -216,15 +220,10 @@ func (ta *TestApplication) StartAndConnect() error {
 		return err
 	}
 
-	done := make(chan struct{}, 1)
-	ta.OnConnect(func() { // Invoked after Start to make sure it's the last callback.
-		done <- struct{}{}
-	})
-
 	select {
 	case <-time.After(4 * time.Second):
 		return errors.New("TestApplication#StartAndConnect() timed out")
-	case <-done:
+	case <-ta.connectedChannel:
 		return nil
 	}
 }

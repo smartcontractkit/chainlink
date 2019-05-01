@@ -9,6 +9,7 @@ import (
 	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"go.uber.org/multierr"
 )
@@ -17,7 +18,6 @@ import (
 type Application interface {
 	Start() error
 	Stop() error
-	OnConnect(func())
 	GetStore() *store.Store
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
@@ -30,34 +30,50 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	Exiter                                            func(int)
-	HeadTracker                                       *HeadTracker
-	JobRunner                                         JobRunner
-	JobSubscriber                                     JobSubscriber
-	Scheduler                                         *Scheduler
-	Store                                             *store.Store
-	SessionReaper                                     SleeperTask
-	pendingConnectionResumer                          *pendingConnectionResumer
-	jobSubscriberID, txManagerID, connectionResumerID string
+	Exiter                   func(int)
+	HeadTracker              *HeadTracker
+	JobRunner                JobRunner
+	JobSubscriber            JobSubscriber
+	Scheduler                *Scheduler
+	Store                    *store.Store
+	SessionReaper            SleeperTask
+	pendingConnectionResumer *pendingConnectionResumer
 }
 
 // NewApplication initializes a new store if one is not already
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config store.Config) Application {
+func NewApplication(config store.Config, onConnectCallbacks ...func(Application)) Application {
 	store := store.NewStore(config)
-	ht := NewHeadTracker(store)
-	return &ChainlinkApplication{
-		HeadTracker:              ht,
-		JobSubscriber:            NewJobSubscriber(store),
+
+	jobSubscriber := NewJobSubscriber(store)
+	pendingConnectionResumer := newPendingConnectionResumer(store)
+
+	app := &ChainlinkApplication{
+		JobSubscriber:            jobSubscriber,
 		JobRunner:                NewJobRunner(store),
 		Scheduler:                NewScheduler(store),
 		Store:                    store,
 		SessionReaper:            NewStoreReaper(store),
 		Exiter:                   os.Exit,
-		pendingConnectionResumer: newPendingConnectionResumer(store),
+		pendingConnectionResumer: pendingConnectionResumer,
 	}
+
+	headTrackables := []strpkg.HeadTrackable{
+		store.TxManager,
+		jobSubscriber,
+		pendingConnectionResumer,
+	}
+	for _, onConnectCallback := range onConnectCallbacks {
+		headTrackable := &headTrackableCallback{func() {
+			onConnectCallback(app)
+		}}
+		headTrackables = append(headTrackables, headTrackable)
+	}
+	app.HeadTracker = NewHeadTracker(store, headTrackables)
+
+	return app
 }
 
 // Start runs the JobSubscriber and Scheduler. If successful,
@@ -73,10 +89,6 @@ func (app *ChainlinkApplication) Start() error {
 		app.Stop()
 		app.Exiter(0)
 	}()
-
-	app.txManagerID = app.HeadTracker.Attach(app.Store.TxManager)
-	app.jobSubscriberID = app.HeadTracker.Attach(app.JobSubscriber)
-	app.connectionResumerID = app.HeadTracker.Attach(app.pendingConnectionResumer)
 
 	return multierr.Combine(
 		app.Store.Start(),
@@ -105,9 +117,6 @@ func (app *ChainlinkApplication) Stop() error {
 	merr = multierr.Append(merr, app.HeadTracker.Stop())
 	app.JobRunner.Stop()
 	merr = multierr.Append(merr, app.SessionReaper.Stop())
-	app.HeadTracker.Detach(app.jobSubscriberID)
-	app.HeadTracker.Detach(app.txManagerID)
-	app.HeadTracker.Detach(app.connectionResumerID)
 	return multierr.Append(merr, app.Store.Close())
 }
 
@@ -162,27 +171,6 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../../operator_ui/dist")
 }
-
-// OnConnect invokes the passed callback when connected to the block chain.
-func (app *ChainlinkApplication) OnConnect(callback func()) {
-	app.HeadTracker.Attach(newHeadTrackableCallback(callback))
-}
-
-type headTrackableCallback struct {
-	onConnect func()
-}
-
-func newHeadTrackableCallback(callback func()) store.HeadTrackable {
-	return &headTrackableCallback{onConnect: callback}
-}
-
-func (c *headTrackableCallback) Connect(*models.Head) error {
-	c.onConnect()
-	return nil
-}
-
-func (c *headTrackableCallback) Disconnect()            {}
-func (c *headTrackableCallback) OnNewHead(*models.Head) {}
 
 type pendingConnectionResumer struct {
 	store   *store.Store

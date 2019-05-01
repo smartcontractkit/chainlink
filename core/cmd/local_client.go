@@ -29,7 +29,11 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error initializing SGX enclave: %+v", err))
 	}
 
-	app := cli.AppFactory.NewApplication(config)
+	app := cli.AppFactory.NewApplication(config, func(app services.Application) {
+		store := app.GetStore()
+		logNodeBalance(store)
+		logIfNonceOutOfSync(store)
+	})
 	store := app.GetStore()
 	pwd, err := passwordFromFile(c.String("password"))
 	if err != nil {
@@ -56,11 +60,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 	defer loggedStop(app)
 	logConfigVariables(store)
-
-	app.OnConnect(func() {
-		logNodeBalance(store)
-		logIfNonceOutOfSync(store)
-	})
 
 	return cli.errorOut(cli.Runner.Run(app))
 }
