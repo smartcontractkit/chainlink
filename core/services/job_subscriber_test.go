@@ -10,6 +10,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -81,14 +82,10 @@ func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
 
-	ht := services.NewHeadTracker(store)
+	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{el})
 	assert.Nil(t, ht.Start())
-	id := ht.Attach(el)
 	g.Eventually(func() int { return len(el.Jobs()) }).Should(gomega.Equal(2))
 	eth.EventuallyAllCalled(t)
-
-	ht.Detach(id)
-	assert.Equal(t, 0, len(el.Jobs()))
 }
 
 func TestJobSubscriber_AddJob_Listening(t *testing.T) {
@@ -132,8 +129,7 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 			require.NoError(t, store.CreateJob(&job))
 			el.AddJob(job, cltest.Head(1))
 
-			ht := services.NewHeadTracker(store)
-			ht.Attach(el)
+			ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{el})
 			require.NoError(t, ht.Start())
 
 			logChan <- models.Log{
@@ -185,8 +181,7 @@ func TestJobSubscriber_RemoveJob(t *testing.T) {
 			require.NoError(t, el.RemoveJob(job.ID))
 			require.Len(t, el.Jobs(), 0)
 
-			ht := services.NewHeadTracker(store)
-			ht.Attach(el)
+			ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{el})
 			require.NoError(t, ht.Start())
 
 			// asserts that JobSubscriber unsubscribed the job specific channel
