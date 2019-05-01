@@ -1,25 +1,59 @@
-pragma solidity 0.4.24;
 
-// File: solidity-cborutils/contracts/Buffer.sol
+// File: @ensdomains/buffer/contracts/Buffer.sol
 
+pragma solidity >0.4.18;
+
+/**
+* @dev A library for working with mutable byte buffers in Solidity.
+*
+* Byte buffers are mutable and expandable, and provide a variety of primitives
+* for writing to them. At any time you can fetch a bytes object containing the
+* current contents of the buffer. The bytes object should not be stored between
+* operations, as it may change due to resizing of the buffer.
+*/
 library Buffer {
+    /**
+    * @dev Represents a mutable buffer. Buffers have a current value (buf) and
+    *      a capacity. The capacity may be longer than the current value, in
+    *      which case it can be extended without the need to allocate more memory.
+    */
     struct buffer {
         bytes buf;
         uint capacity;
     }
 
-    uint constant capacityMask = (2 ** 256) - 32; // ~0x1f
-
-    function init(buffer memory buf, uint _capacity) internal pure {
-        uint capacity = max(32, (_capacity + 0x1f) & capacityMask);
+    /**
+    * @dev Initializes a buffer with an initial capacity.
+    * @param buf The buffer to initialize.
+    * @param capacity The number of bytes of space to allocate the buffer.
+    * @return The buffer, for chaining.
+    */
+    function init(buffer memory buf, uint capacity) internal pure returns(buffer memory) {
+        if (capacity % 32 != 0) {
+            capacity += 32 - (capacity % 32);
+        }
         // Allocate space for the buffer data
         buf.capacity = capacity;
         assembly {
             let ptr := mload(0x40)
             mstore(buf, ptr)
             mstore(ptr, 0)
-            mstore(0x40, add(ptr, capacity))
+            mstore(0x40, add(32, add(ptr, capacity)))
         }
+        return buf;
+    }
+
+    /**
+    * @dev Initializes a new buffer from an existing bytes object.
+    *      Changes to the buffer may mutate the original value.
+    * @param b The bytes object to initialize the buffer with.
+    * @return A new buffer.
+    */
+    function fromBytes(bytes memory b) internal pure returns(buffer memory) {
+        buffer memory buf;
+        buf.buf = b;
+        buf.capacity = b.length;
+        return buf;
     }
 
     function resize(buffer memory buf, uint capacity) private pure {
@@ -29,41 +63,59 @@ library Buffer {
     }
 
     function max(uint a, uint b) private pure returns(uint) {
-        if(a > b) {
+        if (a > b) {
             return a;
         }
         return b;
     }
 
     /**
-     * @dev Appends a byte array to the end of the buffer. Resizes if doing so
-     * would exceed the capacity of the buffer.
-     * @param buf The buffer to append to.
-     * @param data The data to append.
-     * @return The original buffer.
-     */
-    function append(buffer memory buf, bytes data) internal pure returns(buffer memory) {
-        if(data.length + buf.buf.length > buf.capacity) {
-            resize(buf, max(buf.capacity, data.length) * 2);
+    * @dev Sets buffer length to 0.
+    * @param buf The buffer to truncate.
+    * @return The original buffer, for chaining..
+    */
+    function truncate(buffer memory buf) internal pure returns (buffer memory) {
+        assembly {
+            let bufptr := mload(buf)
+            mstore(bufptr, 0)
+        }
+        return buf;
+    }
+
+    /**
+    * @dev Writes a byte string to a buffer. Resizes if doing so would exceed
+    *      the capacity of the buffer.
+    * @param buf The buffer to append to.
+    * @param off The start offset to write to.
+    * @param data The data to append.
+    * @param len The number of bytes to copy.
+    * @return The original buffer, for chaining.
+    */
+    function write(buffer memory buf, uint off, bytes memory data, uint len) internal pure returns(buffer memory) {
+        require(len <= data.length);
+
+        if (off + len > buf.capacity) {
+            resize(buf, max(buf.capacity, len + off) * 2);
         }
 
         uint dest;
         uint src;
-        uint len = data.length;
         assembly {
             // Memory address of the buffer data
             let bufptr := mload(buf)
             // Length of existing buffer data
             let buflen := mload(bufptr)
-            // Start address = buffer address + buffer length + sizeof(buffer length)
-            dest := add(add(bufptr, buflen), 32)
-            // Update buffer length
-            mstore(bufptr, add(buflen, mload(data)))
+            // Start address = buffer address + offset + sizeof(buffer length)
+            dest := add(add(bufptr, 32), off)
+            // Update buffer length if we're extending it
+            if gt(add(len, off), buflen) {
+                mstore(bufptr, add(len, off))
+            }
             src := add(data, 32)
         }
 
         // Copy word-length chunks while possible
-        for(; len >= 32; len -= 32) {
+        for (; len >= 32; len -= 32) {
             assembly {
                 mstore(dest, mload(src))
             }
@@ -83,14 +135,38 @@ library Buffer {
     }
 
     /**
-     * @dev Appends a byte to the end of the buffer. Resizes if doing so would
-     * exceed the capacity of the buffer.
-     * @param buf The buffer to append to.
-     * @param data The data to append.
-     * @return The original buffer.
-     */
-    function append(buffer memory buf, uint8 data) internal pure {
-        if(buf.buf.length + 1 > buf.capacity) {
+    * @dev Appends a byte string to a buffer. Resizes if doing so would exceed
+    *      the capacity of the buffer.
+    * @param buf The buffer to append to.
+    * @param data The data to append.
+    * @param len The number of bytes to copy.
+    * @return The original buffer, for chaining.
+    */
+    function append(buffer memory buf, bytes memory data, uint len) internal pure returns (buffer memory) {
+        return write(buf, buf.buf.length, data, len);
+    }
+
+    /**
+    * @dev Appends a byte string to a buffer. Resizes if doing so would exceed
+    *      the capacity of the buffer.
+    * @param buf The buffer to append to.
+    * @param data The data to append.
+    * @return The original buffer, for chaining.
+    */
+    function append(buffer memory buf, bytes memory data) internal pure returns (buffer memory) {
+        return write(buf, buf.buf.length, data, data.length);
+    }
+
+    /**
+    * @dev Writes a byte to the buffer. Resizes if doing so would exceed the
+    *      capacity of the buffer.
+    * @param buf The buffer to append to.
+    * @param off The offset to write the byte at.
+    * @param data The data to append.
+    * @return The original buffer, for chaining.
+    */
+    function writeUint8(buffer memory buf, uint off, uint8 data) internal pure returns(buffer memory) {
+        if (off >= buf.capacity) {
             resize(buf, buf.capacity * 2);
         }
 
@@ -99,12 +175,120 @@ library Buffer {
             let bufptr := mload(buf)
             // Length of existing buffer data
             let buflen := mload(bufptr)
-            // Address = buffer address + buffer length + sizeof(buffer length)
-            let dest := add(add(bufptr, buflen), 32)
+            // Address = buffer address + sizeof(buffer length) + off
+            let dest := add(add(bufptr, off), 32)
             mstore8(dest, data)
-            // Update buffer length
-            mstore(bufptr, add(buflen, 1))
+            // Update buffer length if we extended it
+            if eq(off, buflen) {
+                mstore(bufptr, add(buflen, 1))
+            }
         }
+        return buf;
+    }
+
+    /**
+    * @dev Appends a byte to the buffer. Resizes if doing so would exceed the
+    *      capacity of the buffer.
+    * @param buf The buffer to append to.
+    * @param data The data to append.
+    * @return The original buffer, for chaining.
+    */
+    function appendUint8(buffer memory buf, uint8 data) internal pure returns(buffer memory) {
+        return writeUint8(buf, buf.buf.length, data);
+    }
+
+    /**
+    * @dev Writes up to 32 bytes to the buffer. Resizes if doing so would
+    *      exceed the capacity of the buffer.
+    * @param buf The buffer to append to.
+    * @param off The offset to write at.
+    * @param data The data to append.
+    * @param len The number of bytes to write (left-aligned).
+    * @return The original buffer, for chaining.
+    */
+    function write(buffer memory buf, uint off, bytes32 data, uint len) private pure returns(buffer memory) {
+        if (len + off > buf.capacity) {
+            resize(buf, (len + off) * 2);
+        }
+
+        uint mask = 256 ** len - 1;
+        // Right-align data
+        data = data >> (8 * (32 - len));
+        assembly {
+            // Memory address of the buffer data
+            let bufptr := mload(buf)
+            // Address = buffer address + sizeof(buffer length) + off + len
+            let dest := add(add(bufptr, off), len)
+            mstore(dest, or(and(mload(dest), not(mask)), data))
+            // Update buffer length if we extended it
+            if gt(add(off, len), mload(bufptr)) {
+                mstore(bufptr, add(off, len))
+            }
+        }
+        return buf;
+    }
+
+    /**
+    * @dev Writes a bytes20 to the buffer. Resizes if doing so would exceed the
+    *      capacity of the buffer.
+    * @param buf The buffer to append to.
+    * @param off The offset to write at.
+    * @param data The data to append.
+    * @return The original buffer, for chaining.
+    */
+    function writeBytes20(buffer memory buf, uint off, bytes20 data) internal pure returns (buffer memory) {
+        return write(buf, off, bytes32(data), 20);
+    }
+
+    /**
+    * @dev Appends a bytes20 to the buffer. Resizes if doing so would exceed
+    *      the capacity of the buffer.
+    * @param buf The buffer to append to.
+    * @param data The data to append.
+    * @return The original buffer, for chhaining.
+    */
+    function appendBytes20(buffer memory buf, bytes20 data) internal pure returns (buffer memory) {
+        return write(buf, buf.buf.length, bytes32(data), 20);
+    }
+
+    /**
+    * @dev Appends a bytes32 to the buffer. Resizes if doing so would exceed
+    *      the capacity of the buffer.
+    * @param buf The buffer to append to.
+    * @param data The data to append.
+    * @return The original buffer, for chaining.
+    */
+    function appendBytes32(buffer memory buf, bytes32 data) internal pure returns (buffer memory) {
+        return write(buf, buf.buf.length, data, 32);
+    }
+
+    /**
+    * @dev Writes an integer to the buffer. Resizes if doing so would exceed
+    *      the capacity of the buffer.
+    * @param buf The buffer to append to.
+    * @param off The offset to write at.
+    * @param data The data to append.
+    * @param len The number of bytes to write (right-aligned).
+    * @return The original buffer, for chaining.
+    */
+    function writeInt(buffer memory buf, uint off, uint data, uint len) private pure returns(buffer memory) {
+        if (len + off > buf.capacity) {
+            resize(buf, (len + off) * 2);
+        }
+
+        uint mask = 256 ** len - 1;
+        assembly {
+            // Memory address of the buffer data
+            let bufptr := mload(buf)
+            // Address = buffer address + off + sizeof(buffer length) + len
+            let dest := add(add(bufptr, off), len)
+            mstore(dest, or(and(mload(dest), not(mask)), data))
+            // Update buffer length if we extended it
+            if gt(add(off, len), mload(bufptr)) {
+                mstore(bufptr, add(off, len))
+            }
+        }
+        return buf;
     }
 
     /**
@@ -115,27 +299,14 @@ library Buffer {
      * @return The original buffer.
      */
     function appendInt(buffer memory buf, uint data, uint len) internal pure returns(buffer memory) {
-        if(len + buf.buf.length > buf.capacity) {
-            resize(buf, max(buf.capacity, len) * 2);
-        }
-
-        uint mask = 256 ** len - 1;
-        assembly {
-            // Memory address of the buffer data
-            let bufptr := mload(buf)
-            // Length of existing buffer data
-            let buflen := mload(bufptr)
-            // Address = buffer address + buffer length + len
-            let dest := add(add(bufptr, buflen), len)
-            mstore(dest, or(and(mload(dest), not(mask)), data))
-            // Update buffer length
-            mstore(bufptr, add(buflen, len))
-        }
-        return buf;
+        return writeInt(buf, buf.buf.length, data, len);
     }
 }
 
 // File: solidity-cborutils/contracts/CBOR.sol
+
+pragma solidity ^0.4.19;
+
 
 library CBOR {
     using Buffer for Buffer.buffer;
@@ -150,24 +321,24 @@ library CBOR {
 
     function encodeType(Buffer.buffer memory buf, uint8 major, uint value) private pure {
         if(value <= 23) {
-            buf.append(uint8((major << 5) | value));
+            buf.appendUint8(uint8((major << 5) | value));
         } else if(value <= 0xFF) {
-            buf.append(uint8((major << 5) | 24));
+            buf.appendUint8(uint8((major << 5) | 24));
             buf.appendInt(value, 1);
         } else if(value <= 0xFFFF) {
-            buf.append(uint8((major << 5) | 25));
+            buf.appendUint8(uint8((major << 5) | 25));
             buf.appendInt(value, 2);
         } else if(value <= 0xFFFFFFFF) {
-            buf.append(uint8((major << 5) | 26));
+            buf.appendUint8(uint8((major << 5) | 26));
             buf.appendInt(value, 4);
         } else if(value <= 0xFFFFFFFFFFFFFFFF) {
-            buf.append(uint8((major << 5) | 27));
+            buf.appendUint8(uint8((major << 5) | 27));
             buf.appendInt(value, 8);
         }
     }
 
     function encodeIndefiniteLengthType(Buffer.buffer memory buf, uint8 major) private pure {
-        buf.append(uint8((major << 5) | 31));
+        buf.appendUint8(uint8((major << 5) | 31));
     }
 
     function encodeUInt(Buffer.buffer memory buf, uint value) internal pure {
@@ -205,7 +376,10 @@ library CBOR {
     }
 }
 
-// File: ../evm/contracts/Chainlink.sol
+// File: contracts/Chainlink.sol
+
+pragma solidity 0.4.24;
+
 
 /**
  * @title Library for common Chainlink functions
@@ -329,13 +503,17 @@ library Chainlink {
   }
 }
 
-// File: ../evm/contracts/ENSResolver.sol
+// File: contracts/ENSResolver.sol
+
+pragma solidity 0.4.24;
 
 contract ENSResolver {
   function addr(bytes32 node) public view returns (address);
 }
 
-// File: ../evm/contracts/interfaces/ENSInterface.sol
+// File: contracts/interfaces/ENSInterface.sol
+
+pragma solidity ^0.4.18;
 
 interface ENSInterface {
 
@@ -362,7 +540,9 @@ interface ENSInterface {
 
 }
 
-// File: ../evm/contracts/interfaces/LinkTokenInterface.sol
+// File: contracts/interfaces/LinkTokenInterface.sol
+
+pragma solidity 0.4.24;
 
 interface LinkTokenInterface {
   function allowance(address owner, address spender) external returns (bool success);
@@ -379,7 +559,9 @@ interface LinkTokenInterface {
   function transferFrom(address from, address to, uint256 value) external returns (bool success);
 }
 
-// File: ../evm/contracts/interfaces/ChainlinkRequestInterface.sol
+// File: contracts/interfaces/ChainlinkRequestInterface.sol
+
+pragma solidity 0.4.24;
 
 interface ChainlinkRequestInterface {
   function oracleRequest(
@@ -401,7 +583,10 @@ interface ChainlinkRequestInterface {
   ) external;
 }
 
-// File: openzeppelin-evm/contracts/math/SafeMath.sol
+// File: openzeppelin-solidity/contracts/math/SafeMath.sol
+
+pragma solidity ^0.4.24;
+
 
 /**
  * @title SafeMath
@@ -453,7 +638,15 @@ library SafeMath {
   }
 }
 
-// File: ../evm/contracts/Chainlinked.sol
+// File: contracts/Chainlinked.sol
+
+pragma solidity 0.4.24;
+
+
+
+
+
+
 
 /**
  * @title The Chainlinked contract
@@ -612,7 +805,7 @@ contract Chainlinked {
   {
     pendingRequests[_requestId] = _oracle;
   }
- 
+
   /**
    * @notice Sets the stored oracle and LINK token contracts with the addresses resolved by ENS
    * @dev Accounts for subnodes having different resolvers
@@ -650,7 +843,7 @@ contract Chainlinked {
    * @return The bytes payload for the `transferAndCall` method
    */
   function encodeRequest(Chainlink.Request memory _req)
-    internal
+    private
     view
     returns (bytes memory)
   {
@@ -674,6 +867,7 @@ contract Chainlinked {
   function fulfillChainlinkRequest(bytes32 _requestId)
     internal
     recordChainlinkFulfillment(_requestId)
+    // solium-disable-next-line no-empty-blocks
   {}
 
   /**
@@ -698,7 +892,10 @@ contract Chainlinked {
   }
 }
 
-// File: ../node_modules/openzeppelin-solidity/contracts/ownership/Ownable.sol
+// File: openzeppelin-solidity/contracts/ownership/Ownable.sol
+
+pragma solidity ^0.4.24;
+
 
 /**
  * @title Ownable
@@ -763,6 +960,10 @@ contract Ownable {
 }
 
 // File: ../examples/ropsten/contracts/RopstenConsumerBase.sol
+
+pragma solidity 0.4.24;
+
+
 
 contract ARopstenConsumer is Chainlinked, Ownable {
   uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations

@@ -1,6 +1,8 @@
-pragma solidity 0.4.24;
 
 // File: openzeppelin-solidity/contracts/ownership/Ownable.sol
+
+pragma solidity ^0.4.24;
+
 
 /**
  * @title Ownable
@@ -66,6 +68,9 @@ contract Ownable {
 
 // File: openzeppelin-solidity/contracts/math/SafeMath.sol
 
+pragma solidity ^0.4.24;
+
+
 /**
  * @title SafeMath
  * @dev Math operations with safety checks that throw on error
@@ -118,6 +123,8 @@ library SafeMath {
 
 // File: contracts/interfaces/ChainlinkRequestInterface.sol
 
+pragma solidity 0.4.24;
+
 interface ChainlinkRequestInterface {
   function oracleRequest(
     address sender,
@@ -140,6 +147,8 @@ interface ChainlinkRequestInterface {
 
 // File: contracts/interfaces/OracleInterface.sol
 
+pragma solidity 0.4.24;
+
 interface OracleInterface {
   function fulfillOracleRequest(
     bytes32 requestId,
@@ -157,6 +166,8 @@ interface OracleInterface {
 
 // File: contracts/interfaces/LinkTokenInterface.sol
 
+pragma solidity 0.4.24;
+
 interface LinkTokenInterface {
   function allowance(address owner, address spender) external returns (bool success);
   function approve(address spender, uint256 value) external returns (bool success);
@@ -173,6 +184,13 @@ interface LinkTokenInterface {
 }
 
 // File: contracts/Oracle.sol
+
+pragma solidity 0.4.24;
+
+
+
+
+
 
 /**
  * @title The Chainlink Oracle contract
