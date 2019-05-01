@@ -164,7 +164,7 @@ contract Chainlinked {
   {
     pendingRequests[_requestId] = _oracle;
   }
- 
+
   /**
    * @notice Sets the stored oracle and LINK token contracts with the addresses resolved by ENS
    * @dev Accounts for subnodes having different resolvers
@@ -202,7 +202,7 @@ contract Chainlinked {
    * @return The bytes payload for the `transferAndCall` method
    */
   function encodeRequest(Chainlink.Request memory _req)
-    internal
+    private
     view
     returns (bytes memory)
   {
