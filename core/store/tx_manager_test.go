@@ -399,26 +399,37 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 		wantErrored bool
 	}{
 		{"no conf, no error", (sentAt2 + 1), func(ethMock *cltest.EthMock) {
+			ethMock.Register("eth_getTransactionCount", "0x0")
 			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
 			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
 		}, false, false},
 		{"no conf, early error", (sentAt2 + 1), func(ethMock *cltest.EthMock) {
+			ethMock.Register("eth_getTransactionCount", "0x0")
 			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
 			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
 		}, false, true},
 		{"no conf, later error", (sentAt2 + 1), func(ethMock *cltest.EthMock) {
+			ethMock.Register("eth_getTransactionCount", "0x0")
 			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
 			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
 		}, false, true},
 		{"early conf", (safeAt + 1), func(ethMock *cltest.EthMock) {
+			ethMock.Register("eth_getTransactionCount", "0x0")
+			ethMock.Register("eth_call", "0x0100")
+			ethMock.Register("eth_getBalance", "0x0100")
 			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
 		}, true, false},
 		{"later conf, no error", (safeAt + 1), func(ethMock *cltest.EthMock) {
+			ethMock.Register("eth_call", "0x0100")
+			ethMock.Register("eth_getBalance", "0x0100")
 			ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(0))
 			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
 			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
 		}, true, false},
 		{"later conf, early error", (safeAt + 1), func(ethMock *cltest.EthMock) {
+			ethMock.Register("eth_getTransactionCount", "0x0")
+			ethMock.Register("eth_call", "0x0100")
+			ethMock.Register("eth_getBalance", "0x0100")
 			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
 			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
 		}, true, false},
@@ -436,7 +447,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt2)
 			assert.NoError(t, err)
 
-			ethMock := app.MockEthClient()
+			ethMock := app.MockEthClient(cltest.Strict)
 			ethMock.ShouldCall(t, test.mockSetup).During(func() {
 				ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.blockHeight))
 				require.NoError(t, app.StartAndConnect())
