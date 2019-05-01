@@ -87,8 +87,8 @@ func (ht *HeadTracker) Stop() error {
 	}
 
 	if ht.connected {
-		ht.disconnect()
 		ht.connected = false
+		ht.disconnect()
 	}
 	close(ht.done)
 	close(ht.subscriptionSucceeded)
@@ -234,8 +234,8 @@ func (ht *HeadTracker) subscribeToHead() error {
 		return err
 	}
 	ht.headSubscription = sub
-	ht.connect(ht.head)
 	ht.connected = true
+	ht.connect(ht.head)
 	return nil
 }
 
@@ -249,8 +249,8 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 
 	timedUnsubscribe(ht.headSubscription)
 
-	ht.disconnect()
 	ht.connected = false
+	ht.disconnect()
 	close(ht.headers)
 	return nil
 }
