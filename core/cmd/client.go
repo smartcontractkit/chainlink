@@ -55,15 +55,15 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(store.Config) services.Application
+	NewApplication(store.Config, ...func(services.Application)) services.Application
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(config store.Config) services.Application {
-	return services.NewApplication(config)
+func (n ChainlinkAppFactory) NewApplication(config store.Config, onConnectCallbacks ...func(services.Application)) services.Application {
+	return services.NewApplication(config, onConnectCallbacks...)
 }
 
 // Runner implements the Run method.

@@ -446,7 +446,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config store.Config) services.Application {
+func (f InstanceAppFactory) NewApplication(config store.Config, onConnectCallbacks ...func(services.Application)) services.Application {
 	return f.App
 }
 
@@ -454,7 +454,7 @@ type seededAppFactory struct {
 	Application services.Application
 }
 
-func (s seededAppFactory) NewApplication(config store.Config) services.Application {
+func (s seededAppFactory) NewApplication(config store.Config, onConnectCallbacks ...func(services.Application)) services.Application {
 	return noopStopApplication{s.Application}
 }
 
