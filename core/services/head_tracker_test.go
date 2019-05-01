@@ -10,6 +10,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,7 +28,7 @@ func TestHeadTracker_New(t *testing.T) {
 	assert.Nil(t, store.SaveHead(last))
 	assert.Nil(t, store.SaveHead(cltest.Head(10)))
 
-	ht := services.NewHeadTracker(store)
+	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
 	assert.Nil(t, ht.Start())
 	assert.Equal(t, last.Number, ht.Head().Number)
 }
@@ -61,7 +62,7 @@ func TestHeadTracker_Get(t *testing.T) {
 				assert.Nil(t, store.SaveHead(test.initial))
 			}
 
-			ht := services.NewHeadTracker(store)
+			ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
 			ht.Start()
 			defer ht.Stop()
 
@@ -83,7 +84,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
-	ht := services.NewHeadTracker(store)
+	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
 	defer ht.Stop()
 
 	eth.RegisterSubscription("newHeads")
@@ -99,10 +100,9 @@ func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
-	ht := services.NewHeadTracker(store, cltest.NeverSleeper{})
 
 	checker := &cltest.MockHeadTrackable{}
-	ht.Attach(checker)
+	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
 	headers := make(chan models.BlockHeader)
 	eth.RegisterSubscription("newHeads", headers)
@@ -130,14 +130,13 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
-	ht := services.NewHeadTracker(store, cltest.NeverSleeper{})
+
+	checker := &cltest.MockHeadTrackable{}
+	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
 	firstSub := eth.RegisterSubscription("newHeads")
 	headers := make(chan models.BlockHeader)
 	eth.RegisterSubscription("newHeads", headers)
-
-	checker := &cltest.MockHeadTrackable{}
-	ht.Attach(checker)
 
 	// connect
 	assert.Nil(t, ht.Start())
@@ -166,11 +165,11 @@ func TestHeadTracker_ReconnectAndStopDoesntDeadlock(t *testing.T) {
 	defer cleanup()
 	eth := cltest.MockEthOnStore(store)
 	eth.NoMagic()
-	ht := services.NewHeadTracker(store, cltest.NeverSleeper{})
+
+	checker := &cltest.MockHeadTrackable{}
+	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
 	firstConnection := eth.RegisterSubscription("newHeads")
-	checker := &cltest.MockHeadTrackable{}
-	ht.Attach(checker)
 
 	// connect
 	assert.Nil(t, ht.Start())
@@ -198,18 +197,16 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	headers := make(chan models.BlockHeader)
 	eth.RegisterSubscription("newHeads", headers)
 
-	ht := services.NewHeadTracker(store, cltest.NeverSleeper{})
-
 	lastSavedBN := big.NewInt(1)
 	currentBN := big.NewInt(2)
 	var connectedValue atomic.Value
 
-	require.NoError(t, ht.Save(models.NewHead(lastSavedBN, cltest.NewHash())))
 	checker := &cltest.MockHeadTrackable{ConnectedCallback: func(bn *models.Head) {
 		connectedValue.Store(bn.ToInt())
 	}}
+	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
-	ht.Attach(checker)
+	require.NoError(t, ht.Save(models.NewHead(lastSavedBN, cltest.NewHash())))
 
 	assert.Nil(t, ht.Start())
 	headers <- models.BlockHeader{Number: hexutil.Big(*currentBN)}
