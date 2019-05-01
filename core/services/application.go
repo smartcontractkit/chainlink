@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/gobuffalo/packr"
@@ -40,6 +41,7 @@ type ChainlinkApplication struct {
 	SessionReaper            SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
 	onConnect                func()
+	onConnectMutex           sync.Mutex
 }
 
 // NewApplication initializes a new store if one is not already
@@ -63,6 +65,9 @@ func NewApplication(config store.Config) Application {
 	}
 
 	callback := func() {
+		app.onConnectMutex.Lock()
+		defer app.onConnectMutex.Unlock()
+
 		if app.onConnect != nil {
 			app.onConnect()
 		}
@@ -178,15 +183,14 @@ func (app *ChainlinkApplication) NewBox() packr.Box {
 
 // OnConnect invokes the passed callback when connected to the block chain.
 func (app *ChainlinkApplication) OnConnect(callback func()) {
+	app.onConnectMutex.Lock()
+	defer app.onConnectMutex.Unlock()
+
 	app.onConnect = callback
 }
 
 type headTrackableCallback struct {
 	onConnect func()
-}
-
-func newHeadTrackableCallback(callback func()) store.HeadTrackable {
-	return &headTrackableCallback{onConnect: callback}
 }
 
 func (c *headTrackableCallback) Connect(*models.Head) error {
