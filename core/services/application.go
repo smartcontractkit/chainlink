@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/gobuffalo/packr"
@@ -19,7 +18,6 @@ import (
 type Application interface {
 	Start() error
 	Stop() error
-	OnConnect(func())
 	GetStore() *store.Store
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
@@ -40,15 +38,13 @@ type ChainlinkApplication struct {
 	Store                    *store.Store
 	SessionReaper            SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
-	onConnect                func()
-	onConnectMutex           sync.Mutex
 }
 
 // NewApplication initializes a new store if one is not already
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config store.Config) Application {
+func NewApplication(config store.Config, onConnectCallbacks ...func(Application)) Application {
 	store := store.NewStore(config)
 
 	jobSubscriber := NewJobSubscriber(store)
@@ -64,21 +60,16 @@ func NewApplication(config store.Config) Application {
 		pendingConnectionResumer: pendingConnectionResumer,
 	}
 
-	callback := func() {
-		app.onConnectMutex.Lock()
-		defer app.onConnectMutex.Unlock()
-
-		if app.onConnect != nil {
-			app.onConnect()
-		}
-	}
-	onConnectCallback := &headTrackableCallback{onConnect: callback}
-
 	headTrackables := []strpkg.HeadTrackable{
 		store.TxManager,
 		jobSubscriber,
 		pendingConnectionResumer,
-		onConnectCallback,
+	}
+	for _, onConnectCallback := range onConnectCallbacks {
+		headTrackable := &headTrackableCallback{func() {
+			onConnectCallback(app)
+		}}
+		headTrackables = append(headTrackables, headTrackable)
 	}
 	app.HeadTracker = NewHeadTracker(store, headTrackables)
 
@@ -180,26 +171,6 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 func (app *ChainlinkApplication) NewBox() packr.Box {
 	return packr.NewBox("../../operator_ui/dist")
 }
-
-// OnConnect invokes the passed callback when connected to the block chain.
-func (app *ChainlinkApplication) OnConnect(callback func()) {
-	app.onConnectMutex.Lock()
-	defer app.onConnectMutex.Unlock()
-
-	app.onConnect = callback
-}
-
-type headTrackableCallback struct {
-	onConnect func()
-}
-
-func (c *headTrackableCallback) Connect(*models.Head) error {
-	c.onConnect()
-	return nil
-}
-
-func (c *headTrackableCallback) Disconnect()            {}
-func (c *headTrackableCallback) OnNewHead(*models.Head) {}
 
 type pendingConnectionResumer struct {
 	store   *store.Store
