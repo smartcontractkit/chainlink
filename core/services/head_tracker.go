@@ -86,6 +86,10 @@ func (ht *HeadTracker) Stop() error {
 		return nil
 	}
 
+	if ht.connected {
+		ht.disconnect()
+		ht.connected = false
+	}
 	close(ht.done)
 	close(ht.subscriptionSucceeded)
 	ht.started = false
