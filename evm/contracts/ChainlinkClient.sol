@@ -95,6 +95,17 @@ contract ChainlinkClient is Chainlinked {
   }
 
   /**
+   * @notice Ensures that the fulfillment is valid for this contract
+   * @dev Use if the contract developer prefers methods instead of modifiers for validation
+   * @param _requestId The request ID for fulfillment
+   */
+  function validateChainlinkCallback(bytes32 _requestId)
+    internal
+    recordChainlinkFulfillment(_requestId)
+    // solium-disable-next-line no-empty-blocks
+  {}
+
+  /**
    * @notice Allows for a request which was created on another contract to be fulfilled
    * on this contract
    * @param _oracle The address of the oracle contract that will fulfill the request
