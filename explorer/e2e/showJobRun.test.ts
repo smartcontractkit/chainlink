@@ -1,24 +1,33 @@
+import expect from 'expect-puppeteer'
 import { Server } from 'http'
 import { Browser, launch, Page } from 'puppeteer'
-import expect from 'expect-puppeteer'
-import { closeDbConnection } from '../src/database'
-import { JOB_RUN_A_ID } from '../src/seed'
-import {
-  DEFAULT_TEST_PORT,
-  startAndSeed as startAndSeedServer
-} from '../src/support/server'
+import { closeDbConnection, getDb } from '../src/database'
+import { createChainlinkNode } from '../src/entity/ChainlinkNode'
+import { JobRun } from '../src/entity/JobRun'
+import { DEFAULT_TEST_PORT, start as startServer } from '../src/support/server'
+import { createJobRun } from '../src/factories'
 
 describe('End to end', () => {
-  let browser: Browser, page: Page, server: Server
+  let browser: Browser
+  let page: Page
+  let server: Server
+  let jobRunA: JobRun
 
   beforeAll(async () => {
     browser = await launch({
+      args: ['--no-sandbox'],
       devtools: false,
-      headless: true,
-      args: ['--no-sandbox']
+      headless: true
     })
     page = await browser.newPage()
-    server = await startAndSeedServer()
+    server = await startServer()
+
+    const db = await getDb()
+
+    const [node, _] = await createChainlinkNode(db, 'endToEndChainlinkNode')
+
+    jobRunA = await createJobRun(db, node)
+
     page.on('console', msg => console.log('PAGE LOG:', msg.text()))
   })
 
@@ -28,9 +37,9 @@ describe('End to end', () => {
 
   it('can search for job run', async () => {
     await page.goto(`http://localhost:${DEFAULT_TEST_PORT}`)
-    await expect(page).toFill('form input[name=search]', JOB_RUN_A_ID)
+    await expect(page).toFill('form input[name=search]', jobRunA.id)
     await expect(page).toClick('form button')
     await page.waitForNavigation()
-    await expect(page).toMatch(JOB_RUN_A_ID)
+    await expect(page).toMatch(jobRunA.id)
   })
 })
