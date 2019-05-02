@@ -3950,6 +3950,16 @@ center-align@^0.1.1:
     align-text "^0.1.3"
     lazy-cache "^1.0.3"
 
+chainlink@0.6.1:
+  version "0.6.1"
+  resolved "https://registry.npmjs.org/chainlink/-/chainlink-0.6.1.tgz#f658b44525d788dbbbdbe40b770eefdbac6b66a1"
+  integrity sha512-rTfd22GpYkTbNSuwoNi7T+aE9wsE3e0Qh5NG4zXit6OPi5FzYjL/ib15/HrNsK5STd0enfHzCK/FnxhGMtH8GA==
+  dependencies:
+    "@ensdomains/ens" "^0.1.1"
+    link_token "^1.0.3"
+    openzeppelin-solidity "^1.12.0"
+    solidity-cborutils "^1.0.2"
+
 chalk@2.4.1:
   version "2.4.1"
   resolved "https://registry.npmjs.org/chalk/-/chalk-2.4.1.tgz#18c49ab16a037b6eb0152cc83e3471338215b66e"
@@ -15149,6 +15159,14 @@ solc@0.5.0:
     require-from-string "^2.0.0"
     semver "^5.5.0"
     yargs "^11.0.0"
+
+solidity-cborutils@^1.0.2:
+  version "1.0.5"
+  resolved "https://registry.npmjs.org/solidity-cborutils/-/solidity-cborutils-1.0.5.tgz#25a2875d942c18d4b61e889c0b56604de1f41063"
+  integrity sha512-SHwp1Un9s6Ki8rXMod18w/6VAqzuBor61SqPS6uy7s1fPDx1rUwnhcx3zWK8CfA0Pm7UY31Apy9NOBu/Vo4ZMg==
+  dependencies:
+    "@ensdomains/buffer" "0.0.10"
+    cbor ">=4.0.0"
 
 solidity-cborutils@^1.0.4:
   version "1.0.4"
