@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -157,8 +158,9 @@ func (eth *EthClient) SubscribeToNewHeads(
 // TxReceipt holds the block number and the transaction hash of a signed
 // transaction that has been written to the blockchain.
 type TxReceipt struct {
-	BlockNumber *models.Big `json:"blockNumber" gorm:"type:numeric"`
-	Hash        common.Hash `json:"transactionHash"`
+	BlockNumber *models.Big     `json:"blockNumber" gorm:"type:numeric"`
+	Hash        common.Hash     `json:"transactionHash"`
+	Status      TxReceiptStatus `json:"status"`
 }
 
 var emptyHash = common.Hash{}
@@ -166,4 +168,34 @@ var emptyHash = common.Hash{}
 // Unconfirmed returns true if the transaction is not confirmed.
 func (txr *TxReceipt) Unconfirmed() bool {
 	return txr.Hash == emptyHash || txr.BlockNumber == nil
+}
+
+// TxReceiptStatus encapsulates the different return values available
+// for an ethereum transaction receipt as defined by
+// http://eips.ethereum.org/EIPS/eip-658
+type TxReceiptStatus string
+
+const (
+	// TxReceiptRevert represents the status that results in any failure and
+	// resulting revert.
+	TxReceiptRevert TxReceiptStatus = "0x0"
+	// TxReceiptSuccess represents a successful transaction, not resulting in a
+	// revert.
+	TxReceiptSuccess = "0x1"
+)
+
+// UnmarshalText parses text input to a predefined transaction receipt
+// status as defined by Ethereum or an EIP. Returns an error if we encounter
+// unexpected input.
+func (trs *TxReceiptStatus) UnmarshalText(input []byte) error {
+	switch TxReceiptStatus(input) {
+	case TxReceiptRevert:
+		*trs = TxReceiptRevert
+	case TxReceiptSuccess:
+		*trs = TxReceiptSuccess
+	default:
+		return fmt.Errorf("unable to convert %s to %T", string(input), trs)
+	}
+
+	return nil
 }
