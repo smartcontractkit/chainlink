@@ -67,7 +67,7 @@ export let [
 
 before(async function queryEthClientForConstants() {
   accounts = await eth.getAccounts()
-  ; [
+  ;[
     defaultAccount,
     oracleNode1,
     oracleNode2,
