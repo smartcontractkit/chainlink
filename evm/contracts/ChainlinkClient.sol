@@ -1,13 +1,39 @@
 pragma solidity 0.4.24;
 
-import "./Chainlinked.sol";
+import "./Chainlink.sol";
+import "./ENSResolver.sol";
+import "./interfaces/ENSInterface.sol";
+import "./interfaces/LinkTokenInterface.sol";
+import "./interfaces/ChainlinkRequestInterface.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 /**
  * @title The ChainlinkClient contract
  * @notice Contract writers can inherit this contract in order to create requests for the
- * Chainlink network. ChainlinkClient is an alias of the Chainlinked contract.
+ * Chainlink network
  */
-contract ChainlinkClient is Chainlinked {
+contract ChainlinkClient {
+  using Chainlink for Chainlink.Request;
+  using SafeMath for uint256;
+
+  uint256 constant internal LINK = 10**18;
+  uint256 constant private AMOUNT_OVERRIDE = 0;
+  address constant private SENDER_OVERRIDE = 0x0;
+  uint256 constant private ARGS_VERSION = 1;
+  bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
+  bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
+
+  ENSInterface private ens;
+  bytes32 private ensNode;
+  LinkTokenInterface private link;
+  ChainlinkRequestInterface private oracle;
+  uint256 private requests = 1;
+  mapping(bytes32 => address) private pendingRequests;
+
+  event ChainlinkRequested(bytes32 indexed id);
+  event ChainlinkFulfilled(bytes32 indexed id);
+  event ChainlinkCancelled(bytes32 indexed id);
+
   /**
    * @notice Creates a request that can hold additional parameters
    * @param _specId The Job Specification ID that the request will be created for
@@ -20,12 +46,13 @@ contract ChainlinkClient is Chainlinked {
     address _callbackAddress,
     bytes4 _callbackFunctionSignature
   ) internal pure returns (Chainlink.Request memory) {
-    return newRequest(_specId, _callbackAddress, _callbackFunctionSignature);
+    Chainlink.Request memory req;
+    return req.initialize(_specId, _callbackAddress, _callbackFunctionSignature);
   }
 
   /**
    * @notice Creates a Chainlink request to the stored oracle address
-   * @dev Calls `sendChainlinkRequestTo` with the stored oracle address
+   * @dev Calls `chainlinkRequestTo` with the stored oracle address
    * @param _req The initialized Chainlink Request
    * @param _payment The amount of LINK to send for the request
    * @return The request ID
@@ -34,7 +61,7 @@ contract ChainlinkClient is Chainlinked {
     internal
     returns (bytes32)
   {
-    return chainlinkRequest(_req, _payment);
+    return sendChainlinkRequestTo(oracle, _req, _payment);
   }
 
   /**
@@ -51,7 +78,38 @@ contract ChainlinkClient is Chainlinked {
     internal
     returns (bytes32 requestId)
   {
-    return chainlinkRequestTo(_oracle, _req, _payment);
+    requestId = keccak256(abi.encodePacked(this, requests));
+    _req.nonce = requests;
+    pendingRequests[requestId] = _oracle;
+    emit ChainlinkRequested(requestId);
+    require(link.transferAndCall(_oracle, _payment, encodeRequest(_req)), "unable to transferAndCall to oracle");
+    requests += 1;
+
+    return requestId;
+  }
+
+  /**
+   * @notice Allows a request to be cancelled if it has not been fulfilled
+   * @dev Requires keeping track of the expiration value emitted from the oracle contract.
+   * Deletes the request from the `pendingRequests` mapping.
+   * Emits ChainlinkCancelled event.
+   * @param _requestId The request ID
+   * @param _payment The amount of LINK sent for the request
+   * @param _callbackFunc The callback function specified for the request
+   * @param _expiration The time of the expiration for the request
+   */
+  function cancelChainlinkRequest(
+    bytes32 _requestId,
+    uint256 _payment,
+    bytes4 _callbackFunc,
+    uint256 _expiration
+  )
+    internal
+  {
+    ChainlinkRequestInterface requested = ChainlinkRequestInterface(pendingRequests[_requestId]);
+    delete pendingRequests[_requestId];
+    emit ChainlinkCancelled(_requestId);
+    requested.cancelOracleRequest(_requestId, _payment, _callbackFunc, _expiration);
   }
 
   /**
@@ -59,7 +117,7 @@ contract ChainlinkClient is Chainlinked {
    * @param _oracle The address of the oracle contract
    */
   function setChainlinkOracle(address _oracle) internal {
-    setOracle(_oracle);
+    oracle = ChainlinkRequestInterface(_oracle);
   }
 
   /**
@@ -67,7 +125,7 @@ contract ChainlinkClient is Chainlinked {
    * @param _link The address of the LINK token contract
    */
   function setChainlinkToken(address _link) internal {
-    setLinkToken(_link);
+    link = LinkTokenInterface(_link);
   }
 
   /**
@@ -79,7 +137,7 @@ contract ChainlinkClient is Chainlinked {
     view
     returns (address)
   {
-    return chainlinkToken();
+    return address(link);
   }
 
   /**
@@ -91,7 +149,73 @@ contract ChainlinkClient is Chainlinked {
     view
     returns (address)
   {
-    return oracleAddress();
+    return address(oracle);
+  }
+
+  /**
+   * @notice Allows for a request which was created on another contract to be fulfilled
+   * on this contract
+   * @param _oracle The address of the oracle contract that will fulfill the request
+   * @param _requestId The request ID used for the response
+   */
+  function addChainlinkExternalRequest(address _oracle, bytes32 _requestId)
+    internal
+    notPendingRequest(_requestId)
+  {
+    pendingRequests[_requestId] = _oracle;
+  }
+
+  /**
+   * @notice Sets the stored oracle and LINK token contracts with the addresses resolved by ENS
+   * @dev Accounts for subnodes having different resolvers
+   * @param _ens The address of the ENS contract
+   * @param _node The ENS node hash
+   */
+  function useChainlinkWithENS(address _ens, bytes32 _node)
+    internal
+  {
+    ens = ENSInterface(_ens);
+    ensNode = _node;
+    bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ENS_TOKEN_SUBNAME));
+    ENSResolver resolver = ENSResolver(ens.resolver(linkSubnode));
+    setChainlinkToken(resolver.addr(linkSubnode));
+    updateChainlinkOracleWithENS();
+  }
+
+  /**
+   * @notice Sets the stored oracle contract with the address resolved by ENS
+   * @dev This may be called on its own as long as `useChainlinkWithENS` has been called previously
+   */
+  function updateChainlinkOracleWithENS()
+    internal
+  {
+    bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ENS_ORACLE_SUBNAME));
+    ENSResolver resolver = ENSResolver(ens.resolver(oracleSubnode));
+    setChainlinkOracle(resolver.addr(oracleSubnode));
+  }
+
+  /**
+   * @notice Encodes the request to be sent to the oracle contract
+   * @dev The Chainlink node expects values to be in order for the request to be picked up. Order of types
+   * will be validated in the oracle contract.
+   * @param _req The initialized Chainlink Request
+   * @return The bytes payload for the `transferAndCall` method
+   */
+  function encodeRequest(Chainlink.Request memory _req)
+    private
+    view
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      oracle.oracleRequest.selector,
+      SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
+      AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
+      _req.id,
+      _req.callbackAddress,
+      _req.callbackFunctionId,
+      _req.nonce,
+      ARGS_VERSION,
+      _req.buf.buf);
   }
 
   /**
@@ -106,36 +230,23 @@ contract ChainlinkClient is Chainlinked {
   {}
 
   /**
-   * @notice Allows for a request which was created on another contract to be fulfilled
-   * on this contract
-   * @param _oracle The address of the oracle contract that will fulfill the request
-   * @param _requestId The request ID used for the response
+   * @dev Reverts if the sender is not the oracle of the request.
+   * Emits ChainlinkFulfilled event.
+   * @param _requestId The request ID for fulfillment
    */
-  function addChainlinkExternalRequest(address _oracle, bytes32 _requestId)
-    internal
-  {
-    addExternalRequest(_oracle, _requestId);
+  modifier recordChainlinkFulfillment(bytes32 _requestId) {
+    require(msg.sender == pendingRequests[_requestId], "Source must be the oracle of the request");
+    delete pendingRequests[_requestId];
+    emit ChainlinkFulfilled(_requestId);
+    _;
   }
 
   /**
-   * @notice Sets the stored oracle and LINK token contracts with the addresses resolved by ENS
-   * @dev Accounts for subnodes having different resolvers
-   * @param _ens The address of the ENS contract
-   * @param _node The ENS node hash
+   * @dev Reverts if the request is already pending
+   * @param _requestId The request ID for fulfillment
    */
-  function useChainlinkWithENS(address _ens, bytes32 _node)
-    internal
-  {
-    setChainlinkWithENS(_ens, _node);
-  }
-
-  /**
-   * @notice Sets the stored oracle contract with the address resolved by ENS
-   * @dev This may be called on its own as long as `setChainlinkWithENS` has been called previously
-   */
-  function updateChainlinkOracleWithENS()
-    internal
-  {
-    setOracleWithENS();
+  modifier notPendingRequest(bytes32 _requestId) {
+    require(pendingRequests[_requestId] == address(0), "Request is already pending");
+    _;
   }
 }
