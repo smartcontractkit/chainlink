@@ -2,6 +2,7 @@ package synchronization
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -132,4 +134,63 @@ func TestSyncJobRunPresenter_Initiators(t *testing.T) {
 			assert.Equal(t, initiator["type"], test.initrType)
 		})
 	}
+}
+
+func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
+	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
+	requestID := "RequestID"
+	requestTxHash := common.HexToHash("0xdeadbeef")
+	fulfillmentTxHash := "0x1111111111111111111111111111111111111111111111111111111111111111"
+	dataJSON, err := models.ParseJSON([]byte(fmt.Sprintf(`
+		{"ethereumReceipts": [
+			{"status": "0x1", "transactionHash": "%s", "blockNumber": "0x6"}
+		]}
+	`, fulfillmentTxHash)))
+	require.NoError(t, err)
+
+	taskSpec := models.TaskSpec{
+		Type: "ethtx",
+	}
+
+	jobRun := models.JobRun{
+		ID:        "runID-411",
+		JobSpecID: "jobSpecID-312",
+		Status:    models.RunStatusCompleted,
+		Result:    models.RunResult{Amount: assets.NewLink(2)},
+		Initiator: models.Initiator{
+			Type: models.InitiatorRunLog,
+		},
+		RunRequest: models.RunRequest{
+			RequestID: &requestID,
+			TxHash:    &requestTxHash,
+			Requester: &newAddress,
+		},
+		TaskRuns: []models.TaskRun{
+			models.TaskRun{
+				ID:       "task0RunID-938",
+				TaskSpec: taskSpec,
+				Status:   models.RunStatusPendingConfirmations,
+				Result:   models.RunResult{Data: dataJSON},
+			},
+		},
+	}
+	p := SyncJobRunPresenter{JobRun: &jobRun}
+
+	bytes, err := p.MarshalJSON()
+	require.NoError(t, err)
+
+	require.True(t, gjson.ValidBytes(bytes))
+	data := gjson.ParseBytes(bytes)
+
+	tasks := data.Get("tasks").Array()
+	require.Len(t, tasks, 1)
+	task0 := tasks[0].Map()
+	assert.Equal(t, task0["index"].Float(), float64(0))
+	assert.Contains(t, task0["type"].String(), "ethtx")
+	assert.Equal(t, task0["status"].String(), "pending_confirmations")
+	assert.Equal(t, task0["error"].Type, gjson.Null)
+
+	txresult := task0["result"].Map()
+	assert.Equal(t, "0x1", txresult["status"].String())
+	assert.Equal(t, fulfillmentTxHash, txresult["transactionHash"].String())
 }
