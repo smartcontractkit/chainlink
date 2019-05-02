@@ -31,14 +31,17 @@
     "node": "^10.15"
   },
   "dependencies": {
+    "@types/express-winston": "^3.0.1",
     "@types/uuid": "^3.4.4",
     "express": "^4.16.4",
+    "express-winston": "^3.1.0",
     "js-sha256": "^0.9.0",
     "pg": "^7.8.2",
     "reflect-metadata": "^0.1.13",
     "ts-node": "^8.0.3",
     "typeorm": "^0.2.15",
     "typescript": "^3.4.1",
+    "winston": "^3.2.1",
     "ws": "^6.2.0",
     "yargs": "^13.2.2"
   },
