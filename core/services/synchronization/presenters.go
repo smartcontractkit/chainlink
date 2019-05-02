@@ -58,15 +58,27 @@ func (p SyncJobRunPresenter) initiator() syncInitiatorPresenter {
 
 func (p SyncJobRunPresenter) tasks() []syncTaskRunPresenter {
 	tasks := []syncTaskRunPresenter{}
-	for index, task := range p.TaskRuns {
+	for index, tr := range p.TaskRuns {
 		tasks = append(tasks, syncTaskRunPresenter{
 			Index:  index,
-			Type:   string(task.TaskSpec.Type),
-			Status: string(task.Status),
-			Error:  task.Result.ErrorMessage,
+			Type:   string(tr.TaskSpec.Type),
+			Status: string(tr.Status),
+			Error:  tr.Result.ErrorMessage,
+			Result: fetchLastEthereumReceipt(tr),
 		})
 	}
 	return tasks
+}
+
+func fetchLastEthereumReceipt(tr models.TaskRun) interface{} {
+	if tr.TaskSpec.Type == "ethtx" {
+		receipts := tr.Result.Data.Get("ethereumReceipts")
+		if receipts.IsArray() {
+			arr := receipts.Array()
+			return arr[len(arr)-1].Value()
+		}
+	}
+	return nil
 }
 
 type syncInitiatorPresenter struct {
@@ -81,4 +93,5 @@ type syncTaskRunPresenter struct {
 	Type   string      `json:"type"`
 	Status string      `json:"status"`
 	Error  null.String `json:"error"`
+	Result interface{} `json:"result,omitempty"`
 }
