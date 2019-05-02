@@ -11,22 +11,21 @@ describe('End to end', () => {
   let browser: Browser
   let page: Page
   let server: Server
-  let jobRunA: JobRun
+  let jobRun: JobRun
 
   beforeAll(async () => {
+    const db = await getDb()
+    const [node, _] = await createChainlinkNode(db, 'endToEndChainlinkNode')
+    jobRun = await createJobRun(db, node)
+
     browser = await launch({
       args: ['--no-sandbox'],
       devtools: false,
-      headless: true
+      headless: false
     })
+
     page = await browser.newPage()
     server = await startServer()
-
-    const db = await getDb()
-
-    const [node, _] = await createChainlinkNode(db, 'endToEndChainlinkNode')
-
-    jobRunA = await createJobRun(db, node)
 
     page.on('console', msg => console.log('PAGE LOG:', msg.text()))
   })
@@ -37,9 +36,9 @@ describe('End to end', () => {
 
   it('can search for job run', async () => {
     await page.goto(`http://localhost:${DEFAULT_TEST_PORT}`)
-    await expect(page).toFill('form input[name=search]', jobRunA.id)
+    await expect(page).toFill('form input[name=search]', jobRun.id)
     await expect(page).toClick('form button')
     await page.waitForNavigation()
-    await expect(page).toMatch(jobRunA.id)
+    await expect(page).toMatch(jobRun.id)
   })
 })
