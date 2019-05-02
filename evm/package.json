@@ -1,6 +1,6 @@
 {
   "name": "chainlink",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "license": "MIT",
   "scripts": {
     "build": "truffle build",
