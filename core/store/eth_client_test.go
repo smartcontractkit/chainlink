@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -123,4 +124,69 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 	expected.SetString("100000000000000000000000000000000000000", 10)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)
+}
+
+func TestTxReceiptStatus_UnmarshalText_Success(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input    string
+		expected store.TxReceiptStatus
+	}{
+		{"0x0", store.TxReceiptRevert},
+		{"0x1", store.TxReceiptSuccess},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			var ptrs store.TxReceiptStatus
+			err := ptrs.UnmarshalText([]byte(test.input))
+			assert.NoError(t, err)
+			assert.Equal(t, test.expected, ptrs)
+		})
+	}
+}
+
+func TestTxReceiptStatus_UnmarshalText_Error(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input string
+	}{
+		{""},
+		{"0x"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			var ptrs store.TxReceiptStatus
+			err := ptrs.UnmarshalText([]byte(test.input))
+			assert.Error(t, err)
+		})
+	}
+}
+
+func TestTxReceiptStatus_UnmarshalJSON_Success(t *testing.T) {
+	t.Parallel()
+
+	type subject struct {
+		Status store.TxReceiptStatus `json:"status"`
+	}
+
+	tests := []struct {
+		input    string
+		expected store.TxReceiptStatus
+	}{
+		{`{"status": "0x0"}`, store.TxReceiptRevert},
+		{`{"status": "0x1"}`, store.TxReceiptSuccess},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			var dst subject
+			err := json.Unmarshal([]byte(test.input), &dst)
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, dst.Status)
+		})
+	}
 }
