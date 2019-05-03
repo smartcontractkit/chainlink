@@ -3,6 +3,7 @@ import { Connection } from 'typeorm'
 import { fromString, search } from '../../entity/JobRun'
 import { JOB_RUN_A_ID, JOB_RUN_B_ID } from '../../seed'
 import { createChainlinkNode } from '../../entity/ChainlinkNode'
+import ethtxFixture from '../fixtures/JobRun.ethtx.fixture.json'
 import fixture from '../fixtures/JobRun.fixture.json'
 
 let db: Connection
@@ -46,6 +47,22 @@ describe('fromString', () => {
     expect(r.id).toBeDefined()
     expect(r.type).toEqual('runlog')
     expect(r.taskRuns.length).toEqual(1)
+  })
+
+  it('successfully creates an ethtx tasks with transaction info', async () => {
+    const jr = fromString(JSON.stringify(ethtxFixture))
+
+    expect(jr.taskRuns.length).toEqual(4)
+    const ethtxTask = jr.taskRuns[3]
+    expect(ethtxTask.id).toBeUndefined()
+    expect(ethtxTask.index).toEqual(3)
+    expect(ethtxTask.type).toEqual('ethtx')
+    expect(ethtxTask.status).toEqual('completed')
+    expect(ethtxTask.error).toEqual(null)
+    expect(ethtxTask.transactionHash).toEqual(
+      '0x1111111111111111111111111111111111111111111111111111111111111111'
+    )
+    expect(ethtxTask.transactionStatus).toEqual('0x1')
   })
 
   it('creates when completedAt is null', () => {

@@ -81,6 +81,11 @@ export const fromString = (str: string): JobRun => {
     tr.status = trstr.status
     tr.error = trstr.error
 
+    if (trstr.result) {
+      tr.transactionHash = trstr.result.transactionHash
+      tr.transactionStatus = trstr.result.status
+    }
+
     return tr
   })
 
@@ -170,10 +175,14 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
             `("index", "jobRunId") DO UPDATE SET
               "status" = :status
               ,"error" = :error
+              ,"transactionHash" = :transactionHash
+              ,"transactionStatus" = :transactionStatus
               `
           )
           .setParameter('status', tr.status)
           .setParameter('error', tr.error)
+          .setParameter('transactionHash', tr.transactionHash)
+          .setParameter('transactionStatus', tr.transactionStatus)
           .execute()
       })
     )

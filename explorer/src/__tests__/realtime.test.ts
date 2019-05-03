@@ -3,6 +3,7 @@ import WebSocket from 'ws'
 import { start as startServer, DEFAULT_TEST_PORT } from '../support/server'
 import { Connection } from 'typeorm'
 import { closeDbConnection, getDb } from '../database'
+import ethtxFixture from './fixtures/JobRun.ethtx.fixture.json'
 import createFixture from './fixtures/JobRun.fixture.json'
 import updateFixture from './fixtures/JobRunUpdate.fixture.json'
 import { JobRun } from '../entity/JobRun'
@@ -93,7 +94,6 @@ describe('realtime', () => {
     await new Promise(resolve => {
       let responses = 0
       ws.on('message', (data: any) => {
-        console.log('message', data as string)
         responses += 1
         const result = JSON.parse(data)
 
@@ -121,6 +121,40 @@ describe('realtime', () => {
 
     const tr = jr.taskRuns[0]
     expect(tr.status).toEqual('completed')
+  })
+
+  it('can create a task run with transactionHash and status', async () => {
+    expect.assertions(7)
+
+    const ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+
+    const messageReceived = new Promise(resolve => {
+      ws.on('message', (data: any) => {
+        const result = JSON.parse(data)
+        expect(result.status).toEqual(201)
+        resolve()
+      })
+    })
+
+    ws.send(JSON.stringify(ethtxFixture))
+    await messageReceived
+
+    const jobRunCount = await db.manager.count(JobRun)
+    expect(jobRunCount).toEqual(1)
+
+    const taskRunCount = await db.manager.count(TaskRun)
+    expect(taskRunCount).toEqual(4)
+
+    const jr = await db.manager.findOne(JobRun)
+    expect(jr.status).toEqual('completed')
+
+    const tr = jr.taskRuns[3]
+    expect(tr.status).toEqual('completed')
+    expect(tr.transactionHash).toEqual(
+      '0x1111111111111111111111111111111111111111111111111111111111111111'
+    )
+    expect(tr.transactionStatus).toEqual('0x1')
+    ws.close()
   })
 
   it('rejects malformed json events with code 422', async (done: any) => {
