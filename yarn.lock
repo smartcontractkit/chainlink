@@ -1343,6 +1343,18 @@
   resolved "https://registry.npmjs.org/@ensdomains/buffer/-/buffer-0.0.10.tgz#3b9f8b6a34c6160ae8a8cb8f0f033aa35c1a9970"
   integrity sha512-EOFqiWnN36EyyBAgHFTsabFcFICUALt41SiDm/4pAw4V36R4lD4wHcnZcqCYki9m1fMaeWGHrdqxmrMa8iiSTQ==
 
+"@ensdomains/ens@0.1.1":
+  version "0.1.1"
+  resolved "https://registry.npmjs.org/@ensdomains/ens/-/ens-0.1.1.tgz#69f4a86162a229824bb1123bc794f05d4622e79c"
+  integrity sha512-W6kguGEgTcK4aDTgB7cRycYiwJ0tqzjcB4hoXWd0WPJst0BJ4DKJ6fnTwrtfGUvkVyvH3LYBGLHCyAvh0lB0Vg==
+  dependencies:
+    eth-ens-namehash "^1.0.2"
+    ethereumjs-testrpc "^6.0.3"
+    ganache-cli "^6.1.0"
+    solc "^0.4.20"
+    testrpc "0.0.1"
+    web3-utils "^1.0.0-beta.31"
+
 "@ensdomains/ens@^0.1.1":
   version "0.1.2"
   resolved "https://registry.npmjs.org/@ensdomains/ens/-/ens-0.1.2.tgz#f6e4cfe4aa6fbd94de40dd85ef0471e9bd787892"

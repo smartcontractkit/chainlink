@@ -5,10 +5,10 @@
   "scripts": {
     "build": "truffle build",
     "test": "truffle test",
-    "flatten": "../tools/bin/flatten-ropsten"
+    "flatten": "../tools/bin/flatten-testnet"
   },
   "dependencies": {
-    "@ensdomains/ens": "^0.1.1",
+    "@ensdomains/ens": "0.1.1",
     "link_token": "^1.0.3",
     "openzeppelin-solidity": "^1.12.0",
     "solidity-cborutils": "^1.0.4"
