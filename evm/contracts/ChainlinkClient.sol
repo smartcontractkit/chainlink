@@ -22,6 +22,14 @@ contract ChainlinkClient {
   uint256 constant private ARGS_VERSION = 1;
   bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
+  bytes32 constant private CHAINLINK_ENS_NODE = 0xead9c0180f6d685e43522fcfe277c2f0465fe930fb32b5b415826eacf9803727;
+  address constant private ROPSTEN_ENS = 0x112234455C3a32FD11230C42E7Bccd4A84e02010;
+
+  address constant private ROPSTEN_LINK_TOKEN = 0x20fE562d797A42Dcb3399062AE9546cd06f63280;
+  address constant private RINKEBY_LINK_TOKEN = 0x01BE23585060835E02B77ef475b0Cc51aA1e0709;
+  address constant private KOVAN_LINK_TOKEN = 0xa36085F69e2889c224210F603D836748e7dC0088;
+  address constant private RINKEBY_ORACLE = 0x7AFe1118Ea78C1eae84ca8feE5C65Bc76CcF879e;
+  address constant private KOVAN_ORACLE = 0x2f90A6D021db21e1B2A077c5a37B3C7E75D15b7e;
 
   ENSInterface private ens;
   bytes32 private ensNode;
@@ -192,6 +200,43 @@ contract ChainlinkClient {
     bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ENS_ORACLE_SUBNAME));
     ENSResolver resolver = ENSResolver(ens.resolver(oracleSubnode));
     setChainlinkOracle(resolver.addr(oracleSubnode));
+  }
+
+  /**
+   * @notice Determines whether the given address is a contract
+   * @param _addr The address to check
+   */
+  function isContract(address _addr)
+    private
+    view
+    returns (bool)
+  {
+    uint length;
+    assembly { length := extcodesize(_addr) }
+    return length > 0;
+  }
+
+  /**
+   * @notice Sets the Chainlink token and oracle address for
+   * the public network detected by the LINK token deployment
+   * @dev In order to save gas, we return early based on usage
+   * of the networks: Ropsten > Rinkeby > Kovan
+   */
+  function setChainlinkNetwork() internal {
+    if(isContract(ROPSTEN_LINK_TOKEN)) {
+      useChainlinkWithENS(ROPSTEN_ENS, CHAINLINK_ENS_NODE);
+      return;
+    }
+    if(isContract(RINKEBY_LINK_TOKEN)) {
+      setChainlinkToken(RINKEBY_LINK_TOKEN);
+      setChainlinkOracle(RINKEBY_ORACLE);
+      return;
+    }
+    if(isContract(KOVAN_LINK_TOKEN)) {
+      setChainlinkToken(KOVAN_LINK_TOKEN);
+      setChainlinkOracle(KOVAN_ORACLE);
+      return;
+    }
   }
 
   /**
