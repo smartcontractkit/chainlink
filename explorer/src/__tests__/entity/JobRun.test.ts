@@ -3,7 +3,6 @@ import { closeDbConnection, getDb } from '../../database'
 import { Connection } from 'typeorm'
 import { createChainlinkNode } from '../../entity/ChainlinkNode'
 import ethtxFixture from '../fixtures/JobRun.ethtx.fixture.json'
-import fixture from '../fixtures/JobRun.fixture.json'
 import { fromString, search } from '../../entity/JobRun'
 
 let db: Connection
