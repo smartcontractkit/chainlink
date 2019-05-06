@@ -9,13 +9,7 @@ import seed from './seed'
 
 export const DEFAULT_PORT = parseInt(process.env.SERVER_PORT, 10) || 8080
 
-const server = (port: number = DEFAULT_PORT) => {
-  if (process.env.NODE_ENV === 'development') {
-    seed()
-  }
-
-  const app = express()
-
+const addLogging = (app: express.Express) => {
   const consoleTransport = new winston.transports.Console()
 
   app.use(
@@ -32,6 +26,14 @@ const server = (port: number = DEFAULT_PORT) => {
       transports: [consoleTransport]
     })
   )
+}
+
+const server = (port: number = DEFAULT_PORT) => {
+  if (process.env.NODE_ENV === 'development') {
+    seed()
+  }
+
+  const app = express()
 
   app.use(express.static('client/build'))
   app.use('/api/v1', controllers.jobRuns)
