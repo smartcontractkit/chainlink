@@ -40,7 +40,7 @@ if production, `ormconfig.production.json`.
 ##### Running alongside Chainlink Node (dev)
 
 ```
-$ LINKSTATS_URL=ws://localhost:8080 cldev node
+$ EXPLORER_URL=ws://localhost:8080 cldev node
 $ yarn run dev # in another terminal
 ```
 
