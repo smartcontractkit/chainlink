@@ -33,9 +33,7 @@
   "dependencies": {
     "@types/express-winston": "^3.0.1",
     "@types/uuid": "^3.4.4",
-    "bunyan": "^1.8.12",
     "express": "^4.16.4",
-    "express-bunyan-logger": "^1.3.3",
     "express-winston": "^3.1.0",
     "js-sha256": "^0.9.0",
     "pg": "^7.8.2",
