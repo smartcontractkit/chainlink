@@ -47,11 +47,12 @@ describe('#index', () => {
     it('returns runs with chainlink node names', async () => {
       const response = await request(server).get('/api/v1/job_runs')
       expect(response.status).toEqual(200)
-      const jr = response.body[0]
-      expect(jr.chainlinkNode.name).toBeDefined()
-      expect(jr.chainlinkNode.accessKey).not.toBeDefined()
-      expect(jr.chainlinkNode.salt).not.toBeDefined()
-      expect(jr.chainlinkNode.hashedSecret).not.toBeDefined()
+
+      const chainlinkNode = response.body.included[0]
+      expect(chainlinkNode.attributes.name).toBeDefined()
+      expect(chainlinkNode.attributes.accessKey).not.toBeDefined()
+      expect(chainlinkNode.attributes.salt).not.toBeDefined()
+      expect(chainlinkNode.attributes.hashedSecret).not.toBeDefined()
     })
   })
 })
@@ -71,9 +72,9 @@ describe('#show', () => {
     const jobRun = await createJobRun(db, node)
     const response = await request(server).get(`/api/v1/job_runs/${jobRun.id}`)
     expect(response.status).toEqual(200)
-    expect(response.body.id).toEqual(jobRun.id)
-    expect(response.body.runId).toEqual(jobRun.runId)
-    expect(response.body.taskRuns.length).toEqual(1)
+    expect(response.body.data.id).toEqual(jobRun.id)
+    expect(response.body.data.attributes.runId).toEqual(jobRun.runId)
+    expect(response.body.data.relationships.taskRuns.data.length).toEqual(1)
   })
 
   describe('with out of order task runs', () => {
@@ -114,10 +115,12 @@ describe('#show', () => {
     it('returns ordered task runs', async () => {
       const response = await request(server).get(`/api/v1/job_runs/${jobRunId}`)
       expect(response.status).toEqual(200)
-      expect(response.body.taskRuns.length).toEqual(2)
-      const jr = JSON.parse(response.text)
-      expect(jr.taskRuns[0].index).toEqual(0)
-      expect(jr.taskRuns[1].index).toEqual(1)
+      expect(response.body.data.relationships.taskRuns.data.length).toEqual(2)
+
+      const taskRun1 = response.body.included[1]
+      const taskRun2 = response.body.included[2]
+      expect(taskRun1.attributes.index).toEqual(0)
+      expect(taskRun2.attributes.index).toEqual(1)
     })
   })
 
@@ -126,13 +129,14 @@ describe('#show', () => {
 
     const response = await request(server).get(`/api/v1/job_runs/${jobRun.id}`)
     expect(response.status).toEqual(200)
-    const clnode = response.body.chainlinkNode
+
+    const clnode = response.body.included[0]
     expect(clnode).toBeDefined()
     expect(clnode.id).toBeDefined()
-    expect(clnode.name).toEqual('jobRunsShowTestChainlinkNode')
-    expect(clnode.accessKey).not.toBeDefined()
-    expect(clnode.hashedSecret).not.toBeDefined()
-    expect(clnode.salt).not.toBeDefined()
+    expect(clnode.attributes.name).toEqual('jobRunsShowTestChainlinkNode')
+    expect(clnode.attributes.accessKey).not.toBeDefined()
+    expect(clnode.attributes.hashedSecret).not.toBeDefined()
+    expect(clnode.attributes.salt).not.toBeDefined()
   })
 
   it('returns a 404', async () => {

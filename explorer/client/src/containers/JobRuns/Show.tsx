@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { denormalize } from 'normalizr'
+import build from 'redux-object'
 import { connect } from 'react-redux'
 import { bindActionCreators, Dispatch } from 'redux'
 import {
@@ -19,7 +19,6 @@ import RegionalNav from '../../components/JobRuns/RegionalNav'
 import RunStatus from '../../components/JobRuns/RunStatus'
 import { getJobRun } from '../../actions/jobRuns'
 import { IState } from '../../reducers'
-import { JobRun } from '../../entities'
 
 const Loading = () => (
   <Table>
@@ -83,14 +82,16 @@ const Show = withStyles(styles)(
 )
 
 const jobRunSelector = (
-  { jobRuns, taskRuns }: IState,
+  { jobRuns, taskRuns, chainlinkNodes }: IState,
   jobRunId?: string
 ): IJobRun | undefined => {
   if (jobRuns.items) {
-    return denormalize(jobRunId, JobRun, {
+    const document = {
       jobRuns: jobRuns.items,
-      taskRuns: taskRuns.items
-    })
+      taskRuns: taskRuns.items,
+      chainlinkNodes: chainlinkNodes.items
+    }
+    return build(document, 'jobRuns', jobRunId)
   }
 }
 
@@ -99,9 +100,8 @@ interface IOwnProps {
 }
 
 const mapStateToProps = (state: IState, { jobRunId }: IOwnProps) => {
-  return {
-    jobRun: jobRunSelector(state, jobRunId)
-  }
+  const jobRun = jobRunSelector(state, jobRunId)
+  return { jobRun }
 }
 
 const mapDispatchToProps = (dispatch: Dispatch<any>) =>

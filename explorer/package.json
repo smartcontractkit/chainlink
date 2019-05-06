@@ -32,10 +32,12 @@
   },
   "dependencies": {
     "@types/express-winston": "^3.0.1",
+    "@types/jsonapi-serializer": "^3.6.1",
     "@types/uuid": "^3.4.4",
     "express": "^4.16.4",
     "express-winston": "^3.1.0",
     "js-sha256": "^0.9.0",
+    "jsonapi-serializer": "^3.6.4",
     "pg": "^7.8.2",
     "reflect-metadata": "^0.1.13",
     "ts-node": "^8.0.3",

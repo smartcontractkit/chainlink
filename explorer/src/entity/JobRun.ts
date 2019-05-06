@@ -2,7 +2,7 @@ import {
   Column,
   Connection,
   Entity,
-  JoinColumn,
+  SelectQueryBuilder,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn
@@ -98,10 +98,10 @@ export interface ISearchParams {
   limit?: number
 }
 
-export const search = async (
+const searchBuilder = (
   db: Connection,
   params: ISearchParams
-): Promise<JobRun[]> => {
+): SelectQueryBuilder<JobRun> => {
   let query = db.getRepository(JobRun).createQueryBuilder('job_run')
 
   if (params.searchQuery != null) {
@@ -126,20 +126,20 @@ export const search = async (
   return query
     .leftJoinAndSelect('job_run.chainlinkNode', 'chainlink_node')
     .orderBy('job_run.createdAt', 'DESC')
-    .getMany()
 }
 
-type Modify<T, R> = Pick<T, Exclude<keyof T, keyof R>> & R
-interface IChainlinkPresenterOverride {
-  chainlinkNode: IChainlinkNodePresenter
+export const search = async (
+  db: Connection,
+  params: ISearchParams
+): Promise<JobRun[]> => {
+  return searchBuilder(db, params).getMany()
 }
-type JobRunPresenter = Modify<JobRun, IChainlinkPresenterOverride>
 
-export const present = (jr: JobRun): JobRunPresenter => {
-  return {
-    ...jr,
-    chainlinkNode: jr.chainlinkNode.present()
-  }
+export const count = async (
+  db: Connection,
+  params: ISearchParams
+): Promise<number> => {
+  return searchBuilder(db, params).getCount()
 }
 
 export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {

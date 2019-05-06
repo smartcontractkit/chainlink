@@ -1,20 +1,23 @@
 import React from 'react'
 import Paper from '@material-ui/core/Paper'
-import Table from '../Table'
+import Table, { ChangePageEvent } from '../Table'
 import { LinkColumn, TextColumn, TimeAgoColumn } from '../Table/TableCell'
 
 interface IProps {
+  currentPage: number
+  onChangePage: (event: ChangePageEvent, page: number) => void
   jobRuns?: any[]
+  count?: number
   className?: string
 }
 
 const HEADERS = ['Node', 'Run ID', 'Job ID', 'Created At']
 
-const List = ({ jobRuns, className }: IProps) => {
+const List = (props: IProps) => {
   let rows
 
-  if (jobRuns) {
-    rows = jobRuns.map((r: IJobRun) => {
+  if (props.jobRuns) {
+    rows = props.jobRuns.map((r: IJobRun) => {
       const nodeCol: TextColumn = { type: 'text', text: r.chainlinkNode.name }
       const idCol: LinkColumn = {
         type: 'link',
@@ -32,8 +35,14 @@ const List = ({ jobRuns, className }: IProps) => {
   }
 
   return (
-    <Paper className={className}>
-      <Table headers={HEADERS} rows={rows} />
+    <Paper className={props.className}>
+      <Table
+        headers={HEADERS}
+        currentPage={props.currentPage}
+        rows={rows}
+        count={props.count}
+        onChangePage={props.onChangePage}
+      />
     </Paper>
   )
 }

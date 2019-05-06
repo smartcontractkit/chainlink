@@ -31,20 +31,29 @@ describe('reducers/jobRunsIndex', () => {
 
   describe('UPSERT_JOB_RUNS', () => {
     it('can replace items', () => {
-      const ids = ['9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e']
-      const data = { result: ids, entities: {} }
+      const jobRuns = [{ id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e' }]
+      const data = {
+        meta: {
+          jobRuns: {
+            data: jobRuns,
+            meta: { count: 100 }
+          }
+        },
+        entities: {}
+      }
       const action = { type: 'UPSERT_JOB_RUNS', data: data } as JobRunsAction
       const state = reducer(STATE, action) as IState
 
       expect(state.jobRunsIndex).toEqual({
-        items: ['9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e']
+        items: ['9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'],
+        count: 100
       })
     })
   })
 
   describe('UPSERT_JOB_RUN', () => {
     it('clears items', () => {
-      const data = { entities: {} }
+      const data = { jobRuns: {} }
       const action = { type: 'UPSERT_JOB_RUN', data: data } as JobRunsAction
       const state = reducer(STATE, action) as IState
 
