@@ -152,7 +152,9 @@ describe('search', () => {
   })
 
   it('returns one result for an exact match on jobId', async () => {
-    const results = await search(db, { searchQuery: 'f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa' })
+    const results = await search(db, {
+      searchQuery: 'f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa'
+    })
     expect(results).toHaveLength(1)
   })
 

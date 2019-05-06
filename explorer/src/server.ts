@@ -15,16 +15,26 @@ const server = (port: number = DEFAULT_PORT) => {
   }
 
   const app = express()
-  app.use(express.static('client/build'))
-  app.use('/api/v1', controllers.jobRuns)
+
+  const consoleTransport = new winston.transports.Console()
+
   app.use(
     expressWinston.logger({
       expressFormat: true,
       meta: true,
       msg: 'HTTP {{req.method}} {{req.url}}',
-      transports: [new winston.transports.Console()]
+      transports: [consoleTransport]
     })
   )
+
+  app.use(
+    expressWinston.errorLogger({
+      transports: [consoleTransport]
+    })
+  )
+
+  app.use(express.static('client/build'))
+  app.use('/api/v1', controllers.jobRuns)
 
   app.get('/*', (_, res) => {
     res.sendFile(`${__dirname}/public/index.html`)
