@@ -4,8 +4,6 @@ import { createChainlinkNode } from '../src/entity/ChainlinkNode'
 import { createJobRun } from './factories'
 import { getDb } from './database'
 
-export const JOB_RUN_B_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
-
 export default async () => {
   const db = await getDb()
   const count = await db.manager.count(ChainlinkNode)

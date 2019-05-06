@@ -9,9 +9,6 @@ import { JobRun } from '../../entity/JobRun'
 import { TaskRun } from '../../entity/TaskRun'
 import { createJobRun } from '../../factories'
 
-export const JOB_RUN_A_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-export const JOB_RUN_B_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
-
 const controller = express()
 controller.use('/api/v1', jobRuns)
 
