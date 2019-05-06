@@ -26,8 +26,10 @@
     "src"
   ],
   "files": [
+    "@types/javascript-time-ago.d.ts",
+    "@types/json-api-normalizer.d.ts",
+    "@types/redux-object.d.ts",
     "@types/react-snapshot.d.ts",
-    "@types/react-time-ago.d.ts",
-    "@types/javascript-time-ago.d.ts"
+    "@types/react-time-ago.d.ts"
   ]
 }

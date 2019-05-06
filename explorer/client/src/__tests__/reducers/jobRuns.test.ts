@@ -35,12 +35,21 @@ describe('reducers/jobRuns', () => {
 
   describe('UPSERT_JOB_RUNS', () => {
     it('can replace items', () => {
-      const jobRuns = {
+      const normalizedJobRuns = {
         '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
           id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'
         }
       }
-      const data = { entities: { jobRuns: jobRuns } }
+      const orderedJobRuns = [{ id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e' }]
+      const data = {
+        jobRuns: normalizedJobRuns,
+        meta: {
+          jobRuns: {
+            data: orderedJobRuns,
+            meta: {}
+          }
+        }
+      }
       const action = { type: 'UPSERT_JOB_RUNS', data: data } as JobRunsAction
       const state = reducer(STATE, action) as IState
 
@@ -56,12 +65,12 @@ describe('reducers/jobRuns', () => {
 
   describe('UPSERT_JOB_RUN', () => {
     it('can replace items', () => {
-      const jobRuns = {
+      const normalizedJobRuns = {
         '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
           id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'
         }
       }
-      const data = { entities: { jobRuns: jobRuns } }
+      const data = { jobRuns: normalizedJobRuns }
       const action = { type: 'UPSERT_JOB_RUN', data: data } as JobRunsAction
       const state = reducer(STATE, action) as IState
 

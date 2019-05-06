@@ -1,3 +1,7 @@
+interface IChainlinkNode {
+  name: string
+}
+
 interface IJobRun {
   id: string
   runId: string

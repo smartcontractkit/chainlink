@@ -11,6 +11,12 @@ import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import MuiTableCell from '@material-ui/core/TableCell'
 import TableCell, { Column } from './Table/TableCell'
+import TableFooter from '@material-ui/core/TableFooter'
+import TablePagination from '@material-ui/core/TablePagination'
+import PaginationActions from './Table/PaginationActions'
+
+export const DEFAULT_ROWS_PER_PAGE = 10
+export const DEFAULT_CURRENT_PAGE = 0
 
 interface ILoadingProps {
   colCount: number
@@ -49,9 +55,15 @@ const styles = (theme: Theme) =>
     }
   })
 
+export type ChangePageEvent = React.MouseEvent<HTMLButtonElement> | null
+
 interface IProps extends WithStyles<typeof styles> {
   headers: string[]
+  rowsPerPage: number
+  currentPage: number
+  onChangePage: (event: ChangePageEvent, page: number) => void
   rows?: any[][]
+  count?: number
   loadingMsg?: string
   emptyMsg?: string
 }
@@ -85,8 +97,29 @@ const Table = (props: IProps) => {
         </TableRow>
       </TableHead>
       <TableBody>{renderRows(props)}</TableBody>
+      <TableFooter>
+        <TableRow>
+          <TablePagination
+            colSpan={3}
+            count={props.count || 0}
+            rowsPerPageOptions={[]}
+            rowsPerPage={props.rowsPerPage}
+            page={props.currentPage}
+            SelectProps={{
+              native: true
+            }}
+            onChangePage={props.onChangePage}
+            ActionsComponent={PaginationActions}
+          />
+        </TableRow>
+      </TableFooter>
     </MuiTable>
   )
+}
+
+Table.defaultProps = {
+  rowsPerPage: DEFAULT_ROWS_PER_PAGE,
+  currentPage: DEFAULT_CURRENT_PAGE
 }
 
 export default withStyles(styles)(Table)

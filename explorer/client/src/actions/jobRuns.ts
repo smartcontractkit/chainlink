@@ -1,14 +1,13 @@
 import { Dispatch } from 'redux'
-import { normalize, schema } from 'normalizr'
+import normalize from 'json-api-normalizer'
 import * as api from '../api'
 import { JobRunsAction } from '../reducers/jobRuns'
 import { Query } from '../reducers/search'
-import { JobRun } from '../entities'
 
 const getJobRuns = (query: Query, page: number, size: number) => {
   return (dispatch: Dispatch<any>) => {
     api.getJobRuns(query, page, size).then((r: IJobRun[]) => {
-      const normalizedData = normalize(r, [JobRun])
+      const normalizedData = normalize(r, { endpoint: 'jobRuns' })
       const action: JobRunsAction = {
         type: 'UPSERT_JOB_RUNS',
         data: normalizedData
@@ -22,7 +21,7 @@ const getJobRuns = (query: Query, page: number, size: number) => {
 const getJobRun = (jobRunId?: string) => {
   return (dispatch: Dispatch<any>) => {
     api.getJobRun(jobRunId).then((r: IJobRun) => {
-      const normalizedData = normalize(r, JobRun)
+      const normalizedData = normalize(r)
       const action: JobRunsAction = {
         type: 'UPSERT_JOB_RUN',
         data: normalizedData
