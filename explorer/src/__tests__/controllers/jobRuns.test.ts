@@ -64,7 +64,7 @@ describe('#show', () => {
 
   beforeEach(async () => {
     let secret: string
-    [node, secret] = await createChainlinkNode(
+    ;[node, secret] = await createChainlinkNode(
       db,
       'jobRunsShowTestChainlinkNode'
     )
