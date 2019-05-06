@@ -9,7 +9,7 @@ export const createJobRun = async (
   db: Connection,
   chainlinkNode: ChainlinkNode,
   id?: string
-) => {
+): Promise<JobRun> => {
   const jobRun = new JobRun()
   jobRun.chainlinkNodeId = chainlinkNode.id
   jobRun.runId = id || uuid()

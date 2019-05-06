@@ -11,17 +11,12 @@ describe('End to end', () => {
   let browser: Browser
   let page: Page
   let server: Server
-  let jobRun: JobRun
 
   beforeAll(async () => {
-    const db = await getDb()
-    const [node, _] = await createChainlinkNode(db, 'endToEndChainlinkNode')
-    jobRun = await createJobRun(db, node)
-
     browser = await launch({
       args: ['--no-sandbox'],
       devtools: false,
-      headless: false
+      headless: true
     })
 
     page = await browser.newPage()
@@ -35,10 +30,14 @@ describe('End to end', () => {
   })
 
   it('can search for job run', async () => {
+    const db = await getDb()
+    const [node, _] = await createChainlinkNode(db, 'endToEndChainlinkNode')
+    const jobRun = await createJobRun(db, node)
+
     await page.goto(`http://localhost:${DEFAULT_TEST_PORT}`)
-    await expect(page).toFill('form input[name=search]', jobRun.id)
+    await expect(page).toFill('form input[name=search]', jobRun.runId)
     await expect(page).toClick('form button')
     await page.waitForNavigation()
-    await expect(page).toMatch(jobRun.id)
+    await expect(page).toMatch(jobRun.runId)
   })
 })
