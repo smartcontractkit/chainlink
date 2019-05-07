@@ -92,7 +92,7 @@ const Details = ({ classes, jobRun }: IProps) => {
           <Col>{jobRun.requestId}</Col>
         </TableRow>
         <TableRow>
-          <KeyCol>Transaction Hash</KeyCol>
+          <KeyCol>Request Transaction Hash</KeyCol>
           <Col>{jobRun.txHash}</Col>
         </TableRow>
         <TableRow>
