@@ -40,6 +40,7 @@ func TestTxReceipt_UnmarshalJSON(t *testing.T) {
 	}{
 		{"basic", "testdata/getTransactionReceipt.json", store.TxReceiptSuccess, 0},
 		{"runlog request", "testdata/runlogReceipt.json", store.TxReceiptSuccess, 4},
+		{"runlog response", "testdata/responseReceipt.json", store.TxReceiptSuccess, 2},
 	}
 
 	for _, test := range tests {
@@ -51,6 +52,25 @@ func TestTxReceipt_UnmarshalJSON(t *testing.T) {
 
 			assert.Equal(t, test.wantStatus, receipt.Status)
 			assert.Equal(t, test.wantLogLen, len(receipt.Logs))
+		})
+	}
+}
+
+func TestTxReceipt_FulfilledRunlog(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{"basic", "testdata/getTransactionReceipt.json", false},
+		{"runlog request", "testdata/runlogReceipt.json", false},
+		{"runlog response", "testdata/responseReceipt.json", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			receipt := cltest.TxReceiptFromFixture(t, test.path)
+			assert.Equal(t, test.want, receipt.FulfilledRunLog())
 		})
 	}
 }
