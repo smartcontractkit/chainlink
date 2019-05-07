@@ -3,7 +3,18 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
 export class ConvertJobRunSearchableColsToCitext1556119396403
   implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<any> {
-    await queryRunner.query('CREATE EXTENSION IF NOT EXISTS citext;')
+    await queryRunner.query(`
+      DO
+      $do$
+      BEGIN
+
+      IF EXISTS (select usesuper from pg_user where usename = CURRENT_USER) THEN
+        CREATE EXTENSION IF NOT EXISTS citext;
+      END IF;
+
+      END
+      $do$
+    `)
     await queryRunner.query(`
       DROP INDEX job_run_chainlink_node_id_run_id_idx;
       DROP INDEX job_id_idx;
