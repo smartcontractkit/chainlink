@@ -287,6 +287,7 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
 				}
 				return
 			}
+			defer file.Close()
 
 			http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 		}
