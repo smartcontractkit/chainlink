@@ -1,21 +1,21 @@
 import express from 'express'
 import http from 'http'
+import jobRuns from '../../controllers/jobRuns'
 import request from 'supertest'
+import { closeDbConnection, getDb } from '../../database'
 import { Connection } from 'typeorm'
+import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun } from '../../entity/JobRun'
 import { TaskRun } from '../../entity/TaskRun'
-import jobRuns from '../../controllers/jobRuns'
-import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
-import seed, { JOB_RUN_B_ID } from '../../seed'
-import { closeDbConnection, getDb } from '../../database'
+import { createJobRun } from '../../factories'
 
 const controller = express()
 controller.use('/api/v1', jobRuns)
 
 let server: http.Server
-let connection: Connection
+let db: Connection
 beforeAll(async () => {
-  connection = await getDb()
+  db = await getDb()
   server = controller.listen(null)
 })
 afterAll(async () => {
@@ -28,18 +28,24 @@ afterAll(async () => {
 describe('#index', () => {
   describe('with no runs', () => {
     it('returns empty', async () => {
-      const response = await request(server).get(`/api/v1/job_runs`)
+      const response = await request(server).get('/api/v1/job_runs')
       expect(response.status).toEqual(200)
     })
   })
 
   describe('with runs', () => {
+    let jobRun: JobRun
+
     beforeEach(async () => {
-      await seed()
+      const [node, _] = await createChainlinkNode(
+        db,
+        'jobRunsIndexTestChainlinkNode'
+      )
+      jobRun = await createJobRun(db, node)
     })
 
     it('returns runs with chainlink node names', async () => {
-      const response = await request(server).get(`/api/v1/job_runs`)
+      const response = await request(server).get('/api/v1/job_runs')
       expect(response.status).toEqual(200)
       const jr = response.body[0]
       expect(jr.chainlinkNode.name).toBeDefined()
@@ -51,18 +57,22 @@ describe('#index', () => {
 })
 
 describe('#show', () => {
+  let node: ChainlinkNode
+
   beforeEach(async () => {
-    await seed()
+    let secret: string
+    ;[node, secret] = await createChainlinkNode(
+      db,
+      'jobRunsShowTestChainlinkNode'
+    )
   })
 
   it('returns the job run with task runs', async () => {
-    const jobRun = await connection.manager.findOne(JobRun, {
-      where: { runId: JOB_RUN_B_ID }
-    })
+    const jobRun = await createJobRun(db, node)
     const response = await request(server).get(`/api/v1/job_runs/${jobRun.id}`)
     expect(response.status).toEqual(200)
     expect(response.body.id).toEqual(jobRun.id)
-    expect(response.body.runId).toEqual(JOB_RUN_B_ID)
+    expect(response.body.runId).toEqual(jobRun.runId)
     expect(response.body.taskRuns.length).toEqual(1)
   })
 
@@ -70,7 +80,7 @@ describe('#show', () => {
     let jobRunId: string
     beforeEach(async () => {
       const [chainlinkNode, _] = await createChainlinkNode(
-        connection,
+        db,
         'testOutOfOrderTaskRuns'
       )
       const jobRun = new JobRun()
@@ -83,7 +93,7 @@ describe('#show', () => {
       jobRun.requestId = 'requestIdA'
       jobRun.requester = 'requesterA'
       jobRun.createdAt = new Date('2019-04-08T01:00:00.000Z')
-      await connection.manager.save(jobRun)
+      await db.manager.save(jobRun)
       jobRunId = jobRun.id
 
       const taskRunB = new TaskRun()
@@ -91,14 +101,14 @@ describe('#show', () => {
       taskRunB.index = 1
       taskRunB.status = ''
       taskRunB.type = 'jsonparse'
-      await connection.manager.save(taskRunB)
+      await db.manager.save(taskRunB)
 
       const taskRunA = new TaskRun()
       taskRunA.jobRun = jobRun
       taskRunA.index = 0
       taskRunA.status = 'in_progress'
       taskRunA.type = 'httpget'
-      await connection.manager.save(taskRunA)
+      await db.manager.save(taskRunA)
     })
 
     it('returns ordered task runs', async () => {
@@ -112,22 +122,21 @@ describe('#show', () => {
   })
 
   it('returns the job run with only public chainlink node information', async () => {
-    const jobRun = await connection.manager.findOne(JobRun, {
-      where: { runId: JOB_RUN_B_ID }
-    })
+    const jobRun = await createJobRun(db, node)
+
     const response = await request(server).get(`/api/v1/job_runs/${jobRun.id}`)
     expect(response.status).toEqual(200)
     const clnode = response.body.chainlinkNode
     expect(clnode).toBeDefined()
     expect(clnode.id).toBeDefined()
-    expect(clnode.name).toEqual('default')
+    expect(clnode.name).toEqual('jobRunsShowTestChainlinkNode')
     expect(clnode.accessKey).not.toBeDefined()
     expect(clnode.hashedSecret).not.toBeDefined()
     expect(clnode.salt).not.toBeDefined()
   })
 
   it('returns a 404', async () => {
-    const response = await request(server).get(`/api/v1/job_runs/-1`)
+    const response = await request(server).get('/api/v1/job_runs/1')
     expect(response.status).toEqual(404)
   })
 })

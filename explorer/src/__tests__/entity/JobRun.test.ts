@@ -1,10 +1,9 @@
+import fixture from '../fixtures/JobRun.fixture.json'
 import { closeDbConnection, getDb } from '../../database'
 import { Connection } from 'typeorm'
-import { fromString, search } from '../../entity/JobRun'
-import { JOB_RUN_A_ID, JOB_RUN_B_ID } from '../../seed'
 import { createChainlinkNode } from '../../entity/ChainlinkNode'
 import ethtxFixture from '../fixtures/JobRun.ethtx.fixture.json'
-import fixture from '../fixtures/JobRun.fixture.json'
+import { fromString, search } from '../../entity/JobRun'
 
 let db: Connection
 
@@ -18,7 +17,7 @@ describe('fromString', () => {
   it('successfully creates a run and tasks from json', async () => {
     const jr = fromString(JSON.stringify(fixture))
     expect(jr.id).toBeUndefined()
-    expect(jr.runId).toEqual(JOB_RUN_A_ID)
+    expect(jr.runId).toEqual('f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa')
     expect(jr.jobId).toEqual('aeb2861d306645b1ba012079aeb2e53a')
     expect(jr.createdAt).toEqual(new Date('2019-04-01T22:07:04Z'))
     expect(jr.status).toEqual('in_progress')
@@ -70,13 +69,13 @@ describe('fromString', () => {
       completedAt: null
     })
     const jr = fromString(JSON.stringify(fixtureWithoutCompletedAt))
-    expect(jr.runId).toEqual(JOB_RUN_A_ID)
+    expect(jr.runId).toEqual('f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa')
     expect(jr.completedAt).toEqual(null)
   })
 
   it('errors on a malformed string', async () => {
     try {
-      fromString(`{"absolute":garbage`)
+      fromString('{"absolute":garbage')
     } catch (err) {
       expect(err).toBeDefined()
     }
@@ -96,8 +95,8 @@ describe('search', () => {
     await db.manager.save(jrA)
 
     const fixtureB = Object.assign({}, fixture, {
-      runId: JOB_RUN_B_ID,
-      jobId: JOB_RUN_B_ID
+      jobId: 'f1xtureBbbbbbbbbbbbbbbbbbbbbbbbb',
+      runId: 'f1xtureBbbbbbbbbbbbbbbbbbbbbbbbb'
     })
     const jrB = fromString(JSON.stringify(fixtureB))
     jrB.chainlinkNodeId = chainlinkNode.id
@@ -118,13 +117,13 @@ describe('search', () => {
 
   it('returns results in descending order by createdAt', async () => {
     const results = await search(db, { searchQuery: undefined })
-    expect(results[0].runId).toEqual(JOB_RUN_B_ID)
-    expect(results[1].runId).toEqual(JOB_RUN_A_ID)
+    expect(results[0].runId).toEqual('f1xtureBbbbbbbbbbbbbbbbbbbbbbbbb')
+    expect(results[1].runId).toEqual('f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa')
   })
 
   it('can set a limit', async () => {
     const results = await search(db, { searchQuery: undefined, limit: 1 })
-    expect(results[0].runId).toEqual(JOB_RUN_B_ID)
+    expect(results[0].runId).toEqual('f1xtureBbbbbbbbbbbbbbbbbbbbbbbbb')
     expect(results).toHaveLength(1)
   })
 
@@ -132,18 +131,18 @@ describe('search', () => {
     let results
 
     results = await search(db, {
-      searchQuery: undefined,
+      limit: 1,
       page: 1,
-      limit: 1
+      searchQuery: undefined
     })
-    expect(results[0].runId).toEqual(JOB_RUN_B_ID)
+    expect(results[0].runId).toEqual('f1xtureBbbbbbbbbbbbbbbbbbbbbbbbb')
 
     results = await search(db, {
-      searchQuery: undefined,
+      limit: 1,
       page: 2,
-      limit: 1
+      searchQuery: undefined
     })
-    expect(results[0].runId).toEqual(JOB_RUN_A_ID)
+    expect(results[0].runId).toEqual('f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa')
   })
 
   it('returns no results for blank search', async () => {
@@ -152,20 +151,22 @@ describe('search', () => {
   })
 
   it('returns one result for an exact match on jobId', async () => {
-    const results = await search(db, { searchQuery: JOB_RUN_A_ID })
+    const results = await search(db, {
+      searchQuery: 'f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa'
+    })
     expect(results).toHaveLength(1)
   })
 
   it('returns one result for an exact match on jobId and runId', async () => {
     const results = await search(db, {
-      searchQuery: `${JOB_RUN_A_ID} aeb2861d306645b1ba012079aeb2e53a`
+      searchQuery: `${'f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa'} aeb2861d306645b1ba012079aeb2e53a`
     })
     expect(results).toHaveLength(1)
   })
 
   it('returns two results when two matching runIds are supplied', async () => {
     const results = await search(db, {
-      searchQuery: `${JOB_RUN_A_ID} ${JOB_RUN_B_ID}`
+      searchQuery: `${'f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa'} ${'f1xtureBbbbbbbbbbbbbbbbbbbbbbbbb'}`
     })
     expect(results).toHaveLength(2)
   })
