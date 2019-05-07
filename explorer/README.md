@@ -1,4 +1,4 @@
-# LINK Stats [![CircleCI](https://circleci.com/gh/smartcontractkit/linkstats.svg?style=shield)](https://circleci.com/gh/smartcontractkit/linkstats)
+# Explorer
 
 ## Deployment
 
@@ -21,14 +21,14 @@ cd client && yarn install && cd -
 and in our case that will involve leverage postgresql's `createdb`:
 
 ```
-createdb linkstats_dev
+createdb explorer_dev
 yarn migration:run
 ```
 
 ##### Deletion
 
 ```
-dropdb linkstats_dev
+dropdb explorer_dev
 ```
 
 ##### Connection
