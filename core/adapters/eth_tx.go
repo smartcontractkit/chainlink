@@ -116,8 +116,8 @@ func ensureTxRunResult(input *models.RunResult, str *store.Store) {
 	addReceiptToResult(receipt, input)
 }
 
-func addReceiptToResult(receipt *store.TxReceipt, in *models.RunResult) {
-	receipts := []store.TxReceipt{}
+func addReceiptToResult(receipt *models.TxReceipt, in *models.RunResult) {
+	receipts := []models.TxReceipt{}
 
 	if !in.Get("ethereumReceipts").IsArray() {
 		in.Add("ethereumReceipts", receipts)
