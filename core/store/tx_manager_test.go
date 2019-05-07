@@ -97,7 +97,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 
 	// bump gas
 	ethMock.Context("manager.bumpGas#1", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
+		ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold()))
 	})
@@ -338,17 +338,17 @@ func TestTxManager_BumpGasUntilSafe(t *testing.T) {
 	tests := []struct {
 		name             string
 		currentHeight    uint64
-		receipt          strpkg.TxReceipt
+		receipt          models.TxReceipt
 		sendsTransaction bool
 		wantReceipt      bool
 		wantLength       int
 	}{
-		{"< gas bump threshold", (gasThreshold - 1), strpkg.TxReceipt{}, false, false, 1},
-		{"== gas bump threshold", gasThreshold, strpkg.TxReceipt{}, true, false, 2},
-		{"> gas bump threshold", (gasThreshold + 1), strpkg.TxReceipt{}, true, false, 2},
-		{"confirmed && < min confs", (gasThreshold + minConfs - 1), strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)}, false, false, 1},
-		{"confirmed && == min confs", (gasThreshold + minConfs), strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)}, false, true, 1},
-		{"confirmed && > min confs", (gasThreshold + minConfs + 1), strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)}, false, true, 1},
+		{"< gas bump threshold", (gasThreshold - 1), models.TxReceipt{}, false, false, 1},
+		{"== gas bump threshold", gasThreshold, models.TxReceipt{}, true, false, 2},
+		{"> gas bump threshold", (gasThreshold + 1), models.TxReceipt{}, true, false, 2},
+		{"confirmed && < min confs", (gasThreshold + minConfs - 1), models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)}, false, false, 1},
+		{"confirmed && == min confs", (gasThreshold + minConfs), models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)}, false, true, 1},
+		{"confirmed && > min confs", (gasThreshold + minConfs + 1), models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)}, false, true, 1},
 	}
 
 	for _, test := range tests {
@@ -388,8 +388,8 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	confirmedAt := sentAt2 + 1
 	safeAt := confirmedAt + config.MinOutgoingConfirmations()
 
-	nonConfedReceipt := strpkg.TxReceipt{}
-	confedReceipt := strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(confirmedAt)}
+	nonConfedReceipt := models.TxReceipt{}
+	confedReceipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(confirmedAt)}
 
 	tests := []struct {
 		name        string
@@ -662,7 +662,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	mockedEthBalance := "0x100"
 	mockedLinkBalance := "256000000000000000000"
 	confirmedHeight := sentAt + config.MinOutgoingConfirmations()
-	confirmedReceipt := strpkg.TxReceipt{
+	confirmedReceipt := models.TxReceipt{
 		Hash:        hash,
 		BlockNumber: cltest.Int(sentAt),
 	}

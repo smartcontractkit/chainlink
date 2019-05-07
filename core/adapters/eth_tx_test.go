@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
@@ -54,7 +53,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 			return nil
 		})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
-	receipt := strpkg.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
+	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
@@ -116,7 +115,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 			return nil
 		})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
-	receipt := strpkg.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
+	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
@@ -177,7 +176,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 			return nil
 		})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
-	receipt := strpkg.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
+	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
@@ -215,7 +214,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 	config := store.Config
 
 	ethMock := app.MockEthClient()
-	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
+	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	sentAt := uint64(23456)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold()-1))
 
@@ -257,7 +256,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 
 	sentAt := uint64(23456)
 	ethMock.Context("ethtx perform", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
+		ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold()))
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 	})
@@ -295,9 +294,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	sentAt := uint64(23456)
 
 	ethMock := app.MockEthClient()
-	ethMock.Register("eth_getTransactionReceipt", strpkg.TxReceipt{})
+	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	confirmedHash := cltest.NewHash()
-	receipt := strpkg.TxReceipt{Hash: confirmedHash, BlockNumber: cltest.Int(sentAt), Status: strpkg.TxReceiptSuccess}
+	receipt := models.TxReceipt{Hash: confirmedHash, BlockNumber: cltest.Int(sentAt), Status: models.TxReceiptSuccess}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmedAt))
@@ -333,7 +332,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	assert.False(t, attempts[2].Confirmed)
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
-	var receipts []strpkg.TxReceipt
+	var receipts []models.TxReceipt
 	assert.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
 	assert.Equal(t, 1, len(receipts))
 	assert.Equal(t, receipt, receipts[0])
@@ -352,7 +351,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	sentAt := uint64(23456)
 
 	ethMock := app.MockEthClient()
-	receipt := strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt), Status: strpkg.TxReceiptSuccess}
+	receipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt), Status: models.TxReceiptSuccess}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmedAt))
@@ -368,15 +367,15 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 
 	input := sentResult
 	input.MarkPendingConfirmations()
-	previousReceipt := strpkg.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt - 10), Status: strpkg.TxReceiptSuccess}
-	input.Add("ethereumReceipts", []strpkg.TxReceipt{previousReceipt})
+	previousReceipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt - 10), Status: models.TxReceiptSuccess}
+	input.Add("ethereumReceipts", []models.TxReceipt{previousReceipt})
 
 	output := adapter.Perform(input, store)
 	assert.True(t, output.Status.Completed())
 	receiptsJSON := output.Get("ethereumReceipts").String()
-	var receipts []strpkg.TxReceipt
+	var receipts []models.TxReceipt
 	assert.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
-	assert.Equal(t, []strpkg.TxReceipt{previousReceipt, receipt}, receipts)
+	assert.Equal(t, []models.TxReceipt{previousReceipt, receipt}, receipts)
 
 	ethMock.EventuallyAllCalled(t)
 }
