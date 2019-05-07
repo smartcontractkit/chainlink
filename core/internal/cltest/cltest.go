@@ -520,19 +520,6 @@ func ReadLogs(app *TestApplication) (string, error) {
 	return string(b), err
 }
 
-// FixtureCreateJobViaWeb creates a job from a fixture using /v2/specs
-func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
-	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(MustReadFile(t, path)))
-	defer cleanup()
-	AssertServerResponse(t, resp, 200)
-
-	var job models.JobSpec
-	err := ParseJSONAPIResponse(resp, &job)
-	require.NoError(t, err)
-	return job
-}
-
 // FindJob returns JobSpec for given JobID
 func FindJob(s *strpkg.Store, id string) models.JobSpec {
 	j, err := s.FindJob(id)
@@ -554,29 +541,6 @@ func FindServiceAgreement(s *strpkg.Store, id string) models.ServiceAgreement {
 	mustNotErr(err)
 
 	return sa
-}
-
-// FixtureCreateServiceAgreementViaWeb creates a service agreement from a fixture using /v2/service_agreements
-func FixtureCreateServiceAgreementViaWeb(
-	t *testing.T,
-	app *TestApplication,
-	path string,
-) models.ServiceAgreement {
-	client := app.NewHTTPClient()
-
-	agreementWithoutOracle := string(MustReadFile(t, path))
-	from := GetAccountAddress(app.ChainlinkApplication.GetStore())
-	agreementWithOracle := MustJSONSet(t, agreementWithoutOracle, "oracles", []string{from.Hex()})
-
-	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBufferString(agreementWithOracle))
-	defer cleanup()
-
-	AssertServerResponse(t, resp, 200)
-	responseSA := models.ServiceAgreement{}
-	err := ParseJSONAPIResponse(resp, &responseSA)
-	require.NoError(t, err)
-
-	return FindServiceAgreement(app.Store, responseSA.ID)
 }
 
 // CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
