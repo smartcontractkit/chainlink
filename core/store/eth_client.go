@@ -171,6 +171,15 @@ func (txr *TxReceipt) Unconfirmed() bool {
 	return txr.Hash == emptyHash || txr.BlockNumber == nil
 }
 
+func (txr TxReceipt) FulfilledRunLog() bool {
+	for _, log := range txr.Logs {
+		if log.Topics[0] == models.ChainlinkFulfilledTopic {
+			return true
+		}
+	}
+	return false
+}
+
 // TxReceiptStatus encapsulates the different return values available
 // for an ethereum transaction receipt as defined by
 // http://eips.ethereum.org/EIPS/eip-658
