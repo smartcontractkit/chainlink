@@ -1,12 +1,40 @@
+import * as controllers from './controllers'
+import * as expressWinston from 'express-winston'
+import * as winston from 'winston'
 import express from 'express'
 import http from 'http'
-import * as controllers from './controllers'
 import { bootstrapRealtime } from './realtime'
+import { ChainlinkNode, createChainlinkNode } from './entity/ChainlinkNode'
+import seed from './seed'
 
 export const DEFAULT_PORT = parseInt(process.env.SERVER_PORT, 10) || 8080
 
+const addLogging = (app: express.Express) => {
+  const consoleTransport = new winston.transports.Console()
+
+  app.use(
+    expressWinston.logger({
+      expressFormat: true,
+      meta: true,
+      msg: 'HTTP {{req.method}} {{req.url}}',
+      transports: [consoleTransport]
+    })
+  )
+
+  app.use(
+    expressWinston.errorLogger({
+      transports: [consoleTransport]
+    })
+  )
+}
+
 const server = (port: number = DEFAULT_PORT) => {
+  if (process.env.NODE_ENV === 'development') {
+    seed()
+  }
+
   const app = express()
+
   app.use(express.static('client/build'))
   app.use('/api/v1', controllers.jobRuns)
 
