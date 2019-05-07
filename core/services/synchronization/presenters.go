@@ -17,6 +17,11 @@ type SyncJobRunPresenter struct {
 
 // MarshalJSON returns the JobRun as JSON
 func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
+	tasks, err := p.tasks()
+	if err != nil {
+		return []byte{}, err
+	}
+
 	return json.Marshal(&struct {
 		ID          string                 `json:"id"`
 		JobID       string                 `json:"jobId"`
@@ -38,7 +43,7 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 		Amount:      p.Result.Amount,
 		CompletedAt: p.CompletedAt,
 		Initiator:   p.initiator(),
-		Tasks:       p.tasks(),
+		Tasks:       tasks,
 	})
 }
 
@@ -56,29 +61,52 @@ func (p SyncJobRunPresenter) initiator() syncInitiatorPresenter {
 	}
 }
 
-func (p SyncJobRunPresenter) tasks() []syncTaskRunPresenter {
+func (p SyncJobRunPresenter) tasks() ([]syncTaskRunPresenter, error) {
 	tasks := []syncTaskRunPresenter{}
 	for index, tr := range p.TaskRuns {
+		erp, err := fetchLastEthereumReceipt(tr)
+		if err != nil {
+			return []syncTaskRunPresenter{}, err
+		}
 		tasks = append(tasks, syncTaskRunPresenter{
 			Index:  index,
 			Type:   string(tr.TaskSpec.Type),
 			Status: string(tr.Status),
 			Error:  tr.Result.ErrorMessage,
-			Result: fetchLastEthereumReceipt(tr),
+			Result: erp,
 		})
 	}
-	return tasks
+	return tasks, nil
 }
 
-func fetchLastEthereumReceipt(tr models.TaskRun) interface{} {
+func fetchLastEthereumReceipt(tr models.TaskRun) (*syncReceiptPresenter, error) {
 	if tr.TaskSpec.Type == "ethtx" {
 		receipts := tr.Result.Data.Get("ethereumReceipts")
 		if receipts.IsArray() {
 			arr := receipts.Array()
-			return arr[len(arr)-1].Value()
+			return formatEthereumReceipt(arr[len(arr)-1].String())
 		}
 	}
-	return nil
+	return nil, nil
+}
+
+func formatEthereumReceipt(str string) (*syncReceiptPresenter, error) {
+	var receipt models.TxReceipt
+	err := json.Unmarshal([]byte(str), &receipt)
+	if err != nil {
+		return nil, err
+	}
+	return &syncReceiptPresenter{
+		Hash:   receipt.Hash.Hex(),
+		Status: runlogStatusPresenter(receipt),
+	}, nil
+}
+
+func runlogStatusPresenter(receipt models.TxReceipt) string {
+	if receipt.FulfilledRunLog() {
+		return "fulfilledRunlog"
+	}
+	return "noFulfilledRunlog"
 }
 
 type syncInitiatorPresenter struct {
@@ -86,6 +114,11 @@ type syncInitiatorPresenter struct {
 	RequestID *string              `json:"requestId,omitempty"`
 	TxHash    *common.Hash         `json:"txHash,omitempty"`
 	Requester *models.EIP55Address `json:"requester,omitempty"`
+}
+
+type syncReceiptPresenter struct {
+	Hash   string `json:"transactionHash"`
+	Status string `json:"status"`
 }
 
 type syncTaskRunPresenter struct {
