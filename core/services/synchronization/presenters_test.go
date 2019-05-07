@@ -2,7 +2,7 @@ package synchronization
 
 import (
 	"encoding/json"
-	"fmt"
+	"io/ioutil"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -136,17 +136,20 @@ func TestSyncJobRunPresenter_Initiators(t *testing.T) {
 	}
 }
 
+func JSONFromFixture(t *testing.T, path string) models.JSON {
+	body, err := ioutil.ReadFile(path)
+	require.NoError(t, err)
+	j, err := models.ParseJSON(body)
+	require.NoError(t, err)
+	return j
+}
+
 func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
 	requestID := "RequestID"
 	requestTxHash := common.HexToHash("0xdeadbeef")
+	dataJSON := JSONFromFixture(t, "testdata/resultWithReceipt.json")
 	fulfillmentTxHash := "0x1111111111111111111111111111111111111111111111111111111111111111"
-	dataJSON, err := models.ParseJSON([]byte(fmt.Sprintf(`
-		{"ethereumReceipts": [
-			{"status": "0x1", "transactionHash": "%s", "blockNumber": "0x6"}
-		]}
-	`, fulfillmentTxHash)))
-	require.NoError(t, err)
 
 	taskSpec := models.TaskSpec{
 		Type: "ethtx",
@@ -191,6 +194,6 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 	assert.Equal(t, task0["error"].Type, gjson.Null)
 
 	txresult := task0["result"].Map()
-	assert.Equal(t, "0x1", txresult["status"].String())
+	assert.Equal(t, "fulfilledRunlog", txresult["status"].String())
 	assert.Equal(t, fulfillmentTxHash, txresult["transactionHash"].String())
 }
