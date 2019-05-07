@@ -663,14 +663,11 @@ contract ChainlinkClient {
   uint256 constant private ARGS_VERSION = 1;
   bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
-  bytes32 constant private CHAINLINK_ENS_NODE = 0xead9c0180f6d685e43522fcfe277c2f0465fe930fb32b5b415826eacf9803727;
-  address constant private ROPSTEN_ENS = 0x112234455C3a32FD11230C42E7Bccd4A84e02010;
 
+  address constant private MAINNET_LINK_TOKEN = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
   address constant private ROPSTEN_LINK_TOKEN = 0x20fE562d797A42Dcb3399062AE9546cd06f63280;
   address constant private RINKEBY_LINK_TOKEN = 0x01BE23585060835E02B77ef475b0Cc51aA1e0709;
   address constant private KOVAN_LINK_TOKEN = 0xa36085F69e2889c224210F603D836748e7dC0088;
-  address constant private RINKEBY_ORACLE = 0x7AFe1118Ea78C1eae84ca8feE5C65Bc76CcF879e;
-  address constant private KOVAN_ORACLE = 0x2f90A6D021db21e1B2A077c5a37B3C7E75D15b7e;
 
   ENSInterface private ens;
   bytes32 private ensNode;
@@ -771,10 +768,16 @@ contract ChainlinkClient {
 
   /**
    * @notice Sets the LINK token address
+   * @dev Send in the 0 address for public networks to automatically
+   * detect the network which the LINK token is deployed
    * @param _link The address of the LINK token contract
    */
   function setChainlinkToken(address _link) internal {
-    link = LinkTokenInterface(_link);
+    if(_link == address(0)) {
+      setPublicChainlinkToken();
+    } else {
+      link = LinkTokenInterface(_link);
+    }
   }
 
   /**
@@ -858,24 +861,26 @@ contract ChainlinkClient {
   }
 
   /**
-   * @notice Sets the Chainlink token and oracle address for
-   * the public network detected by the LINK token deployment
+   * @notice Sets the Chainlink token address for the public
+   * network detected by the LINK token deployment
    * @dev In order to save gas, we return early based on usage
-   * of the networks: Ropsten > Rinkeby > Kovan
+   * of the networks: Mainnet > Ropsten > Rinkeby > Kovan
    */
-  function setChainlinkNetwork() internal {
+  function setPublicChainlinkToken() internal {
+    if(isContract(MAINNET_LINK_TOKEN)) {
+      setChainlinkToken(MAINNET_LINK_TOKEN);
+      return;
+    }
     if(isContract(ROPSTEN_LINK_TOKEN)) {
-      useChainlinkWithENS(ROPSTEN_ENS, CHAINLINK_ENS_NODE);
+      setChainlinkToken(ROPSTEN_LINK_TOKEN);
       return;
     }
     if(isContract(RINKEBY_LINK_TOKEN)) {
       setChainlinkToken(RINKEBY_LINK_TOKEN);
-      setChainlinkOracle(RINKEBY_ORACLE);
       return;
     }
     if(isContract(KOVAN_LINK_TOKEN)) {
       setChainlinkToken(KOVAN_LINK_TOKEN);
-      setChainlinkOracle(KOVAN_ORACLE);
       return;
     }
   }
@@ -1033,10 +1038,10 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
   );
 
   constructor() Ownable() public {
-    setChainlinkNetwork();
+    setChainlinkToken(address(0));
   }
 
-  function requestEthereumPrice(string _jobId, string _currency)
+  function requestEthereumPrice(address _oracle, string _jobId, string _currency)
     public
     onlyOwner
   {
@@ -1046,10 +1051,10 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
     path[0] = _currency;
     req.addStringArray("path", path);
     req.addInt("times", 100);
-    sendChainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
   }
 
-  function requestEthereumChange(string _jobId, string _currency)
+  function requestEthereumChange(address _oracle, string _jobId, string _currency)
     public
     onlyOwner
   {
@@ -1062,10 +1067,10 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
     path[3] = "CHANGEPCTDAY";
     req.addStringArray("path", path);
     req.addInt("times", 1000000000);
-    sendChainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
   }
 
-  function requestEthereumLastMarket(string _jobId, string _currency)
+  function requestEthereumLastMarket(address _oracle, string _jobId, string _currency)
     public
     onlyOwner
   {
@@ -1077,7 +1082,7 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
     path[2] = _currency;
     path[3] = "LASTMARKET";
     req.addStringArray("path", path);
-    sendChainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
   }
 
   function fulfillEthereumPrice(bytes32 _requestId, uint256 _price)

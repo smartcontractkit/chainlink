@@ -26,10 +26,10 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
   );
 
   constructor() Ownable() public {
-    setChainlinkNetwork();
+    setChainlinkToken(address(0));
   }
 
-  function requestEthereumPrice(string _jobId, string _currency)
+  function requestEthereumPrice(address _oracle, string _jobId, string _currency)
     public
     onlyOwner
   {
@@ -39,10 +39,10 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
     path[0] = _currency;
     req.addStringArray("path", path);
     req.addInt("times", 100);
-    sendChainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
   }
 
-  function requestEthereumChange(string _jobId, string _currency)
+  function requestEthereumChange(address _oracle, string _jobId, string _currency)
     public
     onlyOwner
   {
@@ -55,10 +55,10 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
     path[3] = "CHANGEPCTDAY";
     req.addStringArray("path", path);
     req.addInt("times", 1000000000);
-    sendChainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
   }
 
-  function requestEthereumLastMarket(string _jobId, string _currency)
+  function requestEthereumLastMarket(address _oracle, string _jobId, string _currency)
     public
     onlyOwner
   {
@@ -70,7 +70,7 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
     path[2] = _currency;
     path[3] = "LASTMARKET";
     req.addStringArray("path", path);
-    sendChainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
   }
 
   function fulfillEthereumPrice(bytes32 _requestId, uint256 _price)
