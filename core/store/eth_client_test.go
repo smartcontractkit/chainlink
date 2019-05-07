@@ -36,8 +36,10 @@ func TestTxReceipt_UnmarshalJSON(t *testing.T) {
 		name       string
 		path       string
 		wantStatus store.TxReceiptStatus
+		wantLogLen int
 	}{
-		{"basic", "testdata/getTransactionReceipt.json", store.TxReceiptSuccess},
+		{"basic", "testdata/getTransactionReceipt.json", store.TxReceiptSuccess, 0},
+		{"runlog request", "testdata/runlogReceipt.json", store.TxReceiptSuccess, 4},
 	}
 
 	for _, test := range tests {
@@ -48,6 +50,7 @@ func TestTxReceipt_UnmarshalJSON(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, test.wantStatus, receipt.Status)
+			assert.Equal(t, test.wantLogLen, len(receipt.Logs))
 		})
 	}
 }

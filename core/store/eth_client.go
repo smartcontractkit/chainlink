@@ -161,6 +161,7 @@ type TxReceipt struct {
 	BlockNumber *models.Big     `json:"blockNumber" gorm:"type:numeric"`
 	Hash        common.Hash     `json:"transactionHash"`
 	Status      TxReceiptStatus `json:"status"`
+	Logs        []models.Log    `json:"logs"`
 }
 
 var emptyHash = common.Hash{}
