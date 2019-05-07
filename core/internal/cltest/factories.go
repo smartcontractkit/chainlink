@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/binary"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"math/big"
@@ -24,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
 	null "gopkg.in/guregu/null.v3"
@@ -223,26 +221,6 @@ func NullTime(val interface{}) null.Time {
 	default:
 		panic("cannot create a null time of any type other than string or nil")
 	}
-}
-
-// LogFromFixture create ethtypes.log from file path
-func LogFromFixture(t *testing.T, path string) models.Log {
-	value := gjson.Get(string(MustReadFile(t, path)), "params.result")
-	var el models.Log
-	require.NoError(t, json.Unmarshal([]byte(value.String()), &el))
-
-	return el
-}
-
-// JSONFromFixture create models.JSON from file path
-func JSONFromFixture(t *testing.T, path string) models.JSON {
-	return JSONFromBytes(t, MustReadFile(t, path))
-}
-
-// JSONResultFromFixture create model.JSON with params.result found in the given file path
-func JSONResultFromFixture(t *testing.T, path string) models.JSON {
-	res := gjson.Get(string(MustReadFile(t, path)), "params.result")
-	return JSONFromString(t, res.String())
 }
 
 // JSONFromString create JSON from given body and arguments
