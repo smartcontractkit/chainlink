@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -63,8 +62,8 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold() + 1
 	safe := confirmed + config.MinOutgoingConfirmations() - 1
-	unconfirmedReceipt := store.TxReceipt{}
-	confirmedReceipt := store.TxReceipt{
+	unconfirmedReceipt := models.TxReceipt{}
+	confirmedReceipt := models.TxReceipt{
 		Hash:        attempt1Hash,
 		BlockNumber: cltest.Int(confirmed),
 	}
@@ -118,8 +117,8 @@ func TestIntegration_FeeBump(t *testing.T) {
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold() + 1
 	safe := confirmed + config.MinOutgoingConfirmations() - 1
-	unconfirmedReceipt := store.TxReceipt{}
-	confirmedReceipt := store.TxReceipt{
+	unconfirmedReceipt := models.TxReceipt{}
+	confirmedReceipt := models.TxReceipt{
 		Hash:        attempt1Hash,
 		BlockNumber: cltest.Int(confirmed),
 	}
@@ -556,7 +555,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 			eth.Register("eth_blockNumber", utils.Uint64ToHex(blockNumber))
 			eth.Register("eth_sendRawTransaction", hash)
 
-			eth.Register("eth_getTransactionReceipt", store.TxReceipt{
+			eth.Register("eth_getTransactionReceipt", models.TxReceipt{
 				Hash:        hash,
 				BlockNumber: cltest.Int(blockNumber),
 			})

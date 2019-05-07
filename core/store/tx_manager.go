@@ -42,7 +42,7 @@ type TxManager interface {
 	CreateTx(to common.Address, data []byte) (*models.Tx, error)
 	CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
 	CreateTxWithEth(from, to common.Address, value *assets.Eth) (*models.Tx, error)
-	BumpGasUntilSafe(hash common.Hash) (*TxReceipt, error)
+	BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, error)
 	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
 	GetLINKBalance(address common.Address) (*assets.Link, error)
@@ -275,7 +275,7 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 
 // BumpGasUntilSafe returns true if the given transaction hash has been
 // confirmed on the blockchain.
-func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*TxReceipt, error) {
+func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, error) {
 	blkNum, err := txm.getBlockNumber()
 	if err != nil {
 		return nil, errors.Wrap(err, "BumpGasUntilSafe getBlockNumber")
@@ -406,7 +406,7 @@ func (txm *EthTxManager) checkAttempt(
 	tx *models.Tx,
 	txat *models.TxAttempt,
 	blkNum uint64,
-) (*TxReceipt, attemptState, error) {
+) (*models.TxReceipt, attemptState, error) {
 	receipt, err := txm.GetTxReceipt(txat.Hash)
 	if err != nil {
 		return nil, unconfirmed, errors.Wrap(err, "checkAttempt GetTxReceipt")
@@ -434,9 +434,9 @@ func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*big.Int
 func (txm *EthTxManager) handleConfirmed(
 	tx *models.Tx,
 	txat *models.TxAttempt,
-	rcpt *TxReceipt,
+	rcpt *models.TxReceipt,
 	blkNum uint64,
-) (*TxReceipt, attemptState, error) {
+) (*models.TxReceipt, attemptState, error) {
 	minConfs := big.NewInt(int64(txm.config.MinOutgoingConfirmations()))
 	confirmedAt := big.NewInt(0).Add(minConfs, rcpt.BlockNumber.ToInt())
 	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // 0 based indexing since rcpt is 1 conf
@@ -482,7 +482,7 @@ func (txm *EthTxManager) handleUnconfirmed(
 	tx *models.Tx,
 	txAttempt *models.TxAttempt,
 	blkNum uint64,
-) (*TxReceipt, attemptState, error) {
+) (*models.TxReceipt, attemptState, error) {
 	if !isLatestAttempt(tx, txAttempt) {
 		return nil, unconfirmed, nil
 	}

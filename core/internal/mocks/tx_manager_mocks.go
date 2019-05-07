@@ -40,10 +40,10 @@ func (m *MockTxManager) EXPECT() *MockTxManagerMockRecorder {
 }
 
 // BumpGasUntilSafe mocks base method
-func (m *MockTxManager) BumpGasUntilSafe(arg0 common.Hash) (*store.TxReceipt, error) {
+func (m *MockTxManager) BumpGasUntilSafe(arg0 common.Hash) (*models.TxReceipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BumpGasUntilSafe", arg0)
-	ret0, _ := ret[0].(*store.TxReceipt)
+	ret0, _ := ret[0].(*models.TxReceipt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
