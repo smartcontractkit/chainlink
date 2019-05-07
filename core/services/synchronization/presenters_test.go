@@ -136,7 +136,7 @@ func TestSyncJobRunPresenter_Initiators(t *testing.T) {
 	}
 }
 
-func JSONFromFixture(t *testing.T, path string) models.JSON {
+func jsonFromFixture(t *testing.T, path string) models.JSON {
 	body, err := ioutil.ReadFile(path)
 	require.NoError(t, err)
 	j, err := models.ParseJSON(body)
@@ -145,55 +145,67 @@ func JSONFromFixture(t *testing.T, path string) models.JSON {
 }
 
 func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
-	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
-	requestID := "RequestID"
-	requestTxHash := common.HexToHash("0xdeadbeef")
-	dataJSON := JSONFromFixture(t, "testdata/resultWithReceipt.json")
-	fulfillmentTxHash := "0x1111111111111111111111111111111111111111111111111111111111111111"
-
-	taskSpec := models.TaskSpec{
-		Type: "ethtx",
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{"fulfilled", "testdata/fulfilledReceiptResponse.json", "fulfilledRunlog"},
+		{"not fulfilled", "testdata/notFulfilledReceiptResponse.json", "noFulfilledRunlog"},
 	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
+			requestID := "RequestID"
+			requestTxHash := common.HexToHash("0xdeadbeef")
+			dataJSON := jsonFromFixture(t, test.path)
+			fulfillmentTxHash := "0x1111111111111111111111111111111111111111111111111111111111111111"
 
-	jobRun := models.JobRun{
-		ID:        "runID-411",
-		JobSpecID: "jobSpecID-312",
-		Status:    models.RunStatusCompleted,
-		Result:    models.RunResult{Amount: assets.NewLink(2)},
-		Initiator: models.Initiator{
-			Type: models.InitiatorRunLog,
-		},
-		RunRequest: models.RunRequest{
-			RequestID: &requestID,
-			TxHash:    &requestTxHash,
-			Requester: &newAddress,
-		},
-		TaskRuns: []models.TaskRun{
-			models.TaskRun{
-				ID:       "task0RunID-938",
-				TaskSpec: taskSpec,
-				Status:   models.RunStatusPendingConfirmations,
-				Result:   models.RunResult{Data: dataJSON},
-			},
-		},
+			taskSpec := models.TaskSpec{
+				Type: "ethtx",
+			}
+
+			jobRun := models.JobRun{
+				ID:        "runID-411",
+				JobSpecID: "jobSpecID-312",
+				Status:    models.RunStatusCompleted,
+				Result:    models.RunResult{Amount: assets.NewLink(2)},
+				Initiator: models.Initiator{
+					Type: models.InitiatorRunLog,
+				},
+				RunRequest: models.RunRequest{
+					RequestID: &requestID,
+					TxHash:    &requestTxHash,
+					Requester: &newAddress,
+				},
+				TaskRuns: []models.TaskRun{
+					models.TaskRun{
+						ID:       "task0RunID-938",
+						TaskSpec: taskSpec,
+						Status:   models.RunStatusPendingConfirmations,
+						Result:   models.RunResult{Data: dataJSON},
+					},
+				},
+			}
+			p := SyncJobRunPresenter{JobRun: &jobRun}
+
+			bytes, err := p.MarshalJSON()
+			require.NoError(t, err)
+
+			require.True(t, gjson.ValidBytes(bytes))
+			data := gjson.ParseBytes(bytes)
+
+			tasks := data.Get("tasks").Array()
+			require.Len(t, tasks, 1)
+			task0 := tasks[0].Map()
+			assert.Equal(t, task0["index"].Float(), float64(0))
+			assert.Contains(t, task0["type"].String(), "ethtx")
+			assert.Equal(t, task0["status"].String(), "pending_confirmations")
+			assert.Equal(t, task0["error"].Type, gjson.Null)
+
+			txresult := task0["result"].Map()
+			assert.Equal(t, test.want, txresult["status"].String())
+			assert.Equal(t, fulfillmentTxHash, txresult["transactionHash"].String())
+		})
 	}
-	p := SyncJobRunPresenter{JobRun: &jobRun}
-
-	bytes, err := p.MarshalJSON()
-	require.NoError(t, err)
-
-	require.True(t, gjson.ValidBytes(bytes))
-	data := gjson.ParseBytes(bytes)
-
-	tasks := data.Get("tasks").Array()
-	require.Len(t, tasks, 1)
-	task0 := tasks[0].Map()
-	assert.Equal(t, task0["index"].Float(), float64(0))
-	assert.Contains(t, task0["type"].String(), "ethtx")
-	assert.Equal(t, task0["status"].String(), "pending_confirmations")
-	assert.Equal(t, task0["error"].Type, gjson.Null)
-
-	txresult := task0["result"].Map()
-	assert.Equal(t, "fulfilledRunlog", txresult["status"].String())
-	assert.Equal(t, fulfillmentTxHash, txresult["transactionHash"].String())
 }
