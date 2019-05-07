@@ -197,7 +197,7 @@ jobs:
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: root
-          POSTGRES_DB: linkstats_test
+          POSTGRES_DB: explorer_test
     steps:
       - checkout:
           path: ~/chainlink
