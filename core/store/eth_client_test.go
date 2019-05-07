@@ -32,10 +32,24 @@ func TestEthClient_GetTxReceipt(t *testing.T) {
 }
 
 func TestTxReceipt_UnmarshalJSON(t *testing.T) {
-	jsonStr := `{"blockNumber":3857489,"transactionHash":"0x6941ab7592a5f8ec5158b0de17129939170db06675b10c8b3e4e9f6ca2d0882b"}`
-	var receipt strpkg.TxReceipt
-	err := json.Unmarshal([]byte(jsonStr), &receipt)
-	require.NoError(t, err)
+	tests := []struct {
+		name       string
+		path       string
+		wantStatus store.TxReceiptStatus
+	}{
+		{"basic", "testdata/getTransactionReceipt.json", store.TxReceiptSuccess},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			jsonStr := cltest.JSONFromFixture(t, test.path).Get("result").String()
+			var receipt strpkg.TxReceipt
+			err := json.Unmarshal([]byte(jsonStr), &receipt)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.wantStatus, receipt.Status)
+		})
+	}
 }
 
 func TestEthClient_GetNonce(t *testing.T) {
