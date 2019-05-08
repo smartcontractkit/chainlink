@@ -150,8 +150,8 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 		path string
 		want string
 	}{
-		{"fulfilled", "testdata/fulfilledReceiptResponse.json", "fulfilledRunlog"},
-		{"not fulfilled", "testdata/notFulfilledReceiptResponse.json", "noFulfilledRunlog"},
+		{"fulfilled", "testdata/fulfilledReceiptResponse.json", "fulfilledRunLog"},
+		{"not fulfilled", "testdata/notFulfilledReceiptResponse.json", "noFulfilledRunLog"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

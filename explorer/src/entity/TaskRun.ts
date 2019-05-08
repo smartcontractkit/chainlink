@@ -1,7 +1,7 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm'
 import { JobRun } from './JobRun'
 
-type TransactionStatus = '0x0' | '0x1'
+type TransactionStatus = 'fulfilledRunLog' | 'noFulfilledRunLog'
 
 @Entity()
 export class TaskRun {
