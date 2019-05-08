@@ -220,7 +220,7 @@ export const createBridge = (data, successCallback, errorCallback) => {
       .createBridge(data)
       .then(res => {
         dispatch(receiveCreateSuccess(res))
-        dispatch(notifySuccess(successCallback, data))
+        dispatch(notifySuccess(successCallback, res.data))
       })
       .catch(error => {
         curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)

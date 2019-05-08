@@ -42,7 +42,9 @@ func (btc *BridgeTypesController) Index(c *gin.Context, size, page, offset int) 
 // Show returns the details of a specific Bridge.
 func (btc *BridgeTypesController) Show(c *gin.Context) {
 	name := c.Param("BridgeName")
-	if bt, err := btc.App.GetStore().FindBridge(name); err == orm.ErrorNotFound {
+	if taskType, err := models.NewTaskType(name); err != nil {
+		publicError(c, http.StatusUnprocessableEntity, err)
+	} else if bt, err := btc.App.GetStore().FindBridge(taskType); err == orm.ErrorNotFound {
 		publicError(c, http.StatusNotFound, errors.New("bridge not found"))
 	} else if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -56,7 +58,9 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 	name := c.Param("BridgeName")
 	btr := &models.BridgeTypeRequest{}
 
-	if bt, err := btc.App.GetStore().FindBridge(name); err == orm.ErrorNotFound {
+	if taskType, err := models.NewTaskType(name); err != nil {
+		publicError(c, http.StatusUnprocessableEntity, err)
+	} else if bt, err := btc.App.GetStore().FindBridge(taskType); err == orm.ErrorNotFound {
 		publicError(c, http.StatusNotFound, errors.New("bridge not found"))
 	} else if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -72,7 +76,10 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 // Destroy removes a specific Bridge.
 func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 	name := c.Param("BridgeName")
-	if bt, err := btc.App.GetStore().FindBridge(name); err == orm.ErrorNotFound {
+
+	if taskType, err := models.NewTaskType(name); err != nil {
+		publicError(c, http.StatusUnprocessableEntity, err)
+	} else if bt, err := btc.App.GetStore().FindBridge(taskType); err == orm.ErrorNotFound {
 		publicError(c, http.StatusNotFound, errors.New("bridge not found"))
 	} else if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("Error searching for bridge for BTC Destroy: %+v", err))

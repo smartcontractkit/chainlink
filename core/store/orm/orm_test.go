@@ -467,11 +467,11 @@ func TestORM_FindBridge(t *testing.T) {
 
 	cases := []struct {
 		description string
-		name        string
+		name        models.TaskType
 		want        models.BridgeType
 		errored     bool
 	}{
-		{"actual external adapter", bt.Name.String(), bt, false},
+		{"actual external adapter", bt.Name, bt, false},
 		{"core adapter", "ethtx", models.BridgeType{}, true},
 		{"non-existent adapter", "nonExistent", models.BridgeType{}, true},
 	}
