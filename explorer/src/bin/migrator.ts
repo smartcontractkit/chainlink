@@ -25,6 +25,7 @@ const bootstrap = async (cb: any) => {
     await cb(db)
   } catch (err) {
     console.error(err)
+    process.exit(1)
   } finally {
     await closeDbConnection()
   }
