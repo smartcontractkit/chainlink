@@ -35,12 +35,11 @@ func TestTxReceipt_UnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		name       string
 		path       string
-		wantStatus models.TxReceiptStatus
 		wantLogLen int
 	}{
-		{"basic", "testdata/getTransactionReceipt.json", models.TxReceiptSuccess, 0},
-		{"runlog request", "testdata/runlogReceipt.json", models.TxReceiptSuccess, 4},
-		{"runlog response", "testdata/responseReceipt.json", models.TxReceiptSuccess, 2},
+		{"basic", "testdata/getTransactionReceipt.json", 0},
+		{"runlog request", "testdata/runlogReceipt.json", 4},
+		{"runlog response", "testdata/responseReceipt.json", 2},
 	}
 
 	for _, test := range tests {
@@ -50,7 +49,6 @@ func TestTxReceipt_UnmarshalJSON(t *testing.T) {
 			err := json.Unmarshal([]byte(jsonStr), &receipt)
 			require.NoError(t, err)
 
-			assert.Equal(t, test.wantStatus, receipt.Status)
 			assert.Equal(t, test.wantLogLen, len(receipt.Logs))
 		})
 	}
@@ -161,69 +159,4 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 	expected.SetString("100000000000000000000000000000000000000", 10)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)
-}
-
-func TestTxReceiptStatus_UnmarshalText_Success(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		input    string
-		expected models.TxReceiptStatus
-	}{
-		{"0x0", models.TxReceiptRevert},
-		{"0x1", models.TxReceiptSuccess},
-	}
-
-	for _, test := range tests {
-		t.Run(test.input, func(t *testing.T) {
-			var ptrs models.TxReceiptStatus
-			err := ptrs.UnmarshalText([]byte(test.input))
-			assert.NoError(t, err)
-			assert.Equal(t, test.expected, ptrs)
-		})
-	}
-}
-
-func TestTxReceiptStatus_UnmarshalText_Error(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		input string
-	}{
-		{""},
-		{"0x"},
-	}
-
-	for _, test := range tests {
-		t.Run(test.input, func(t *testing.T) {
-			var ptrs models.TxReceiptStatus
-			err := ptrs.UnmarshalText([]byte(test.input))
-			assert.Error(t, err)
-		})
-	}
-}
-
-func TestTxReceiptStatus_UnmarshalJSON_Success(t *testing.T) {
-	t.Parallel()
-
-	type subject struct {
-		Status models.TxReceiptStatus `json:"status"`
-	}
-
-	tests := []struct {
-		input    string
-		expected models.TxReceiptStatus
-	}{
-		{`{"status": "0x0"}`, models.TxReceiptRevert},
-		{`{"status": "0x1"}`, models.TxReceiptSuccess},
-	}
-
-	for _, test := range tests {
-		t.Run(test.input, func(t *testing.T) {
-			var dst subject
-			err := json.Unmarshal([]byte(test.input), &dst)
-			require.NoError(t, err)
-			assert.Equal(t, test.expected, dst.Status)
-		})
-	}
 }
