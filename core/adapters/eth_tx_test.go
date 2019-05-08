@@ -296,7 +296,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	confirmedHash := cltest.NewHash()
-	receipt := models.TxReceipt{Hash: confirmedHash, BlockNumber: cltest.Int(sentAt), Status: models.TxReceiptSuccess}
+	receipt := models.TxReceipt{Hash: confirmedHash, BlockNumber: cltest.Int(sentAt)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmedAt))
@@ -351,7 +351,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	sentAt := uint64(23456)
 
 	ethMock := app.MockEthClient()
-	receipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt), Status: models.TxReceiptSuccess}
+	receipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmedAt))
@@ -367,7 +367,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 
 	input := sentResult
 	input.MarkPendingConfirmations()
-	previousReceipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt - 10), Status: models.TxReceiptSuccess}
+	previousReceipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt - 10)}
 	input.Add("ethereumReceipts", []models.TxReceipt{previousReceipt})
 
 	output := adapter.Perform(input, store)
