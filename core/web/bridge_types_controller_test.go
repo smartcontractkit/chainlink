@@ -114,7 +114,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	assert.NotEmpty(t, respJSON.Get("data.attributes.incomingToken").String())
 	assert.NotEmpty(t, respJSON.Get("data.attributes.outgoingToken").String())
 
-	bt, err := app.Store.FindBridge(btName)
+	bt, err := app.Store.FindBridge(models.MustNewTaskType(btName))
 	assert.NoError(t, err)
 	assert.Equal(t, "randomnumber", bt.Name.String())
 	assert.Equal(t, uint64(10), bt.Confirmations)
@@ -131,7 +131,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	bt := &models.BridgeType{
-		Name: models.MustNewTaskType("bridgea"),
+		Name: models.MustNewTaskType("BRidgea"),
 		URL:  cltest.WebURL("http://mybridge"),
 	}
 	require.NoError(t, app.GetStore().CreateBridgeType(bt))
@@ -141,7 +141,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
-	ubt, err := app.Store.FindBridge(bt.Name.String())
+	ubt, err := app.Store.FindBridge(bt.Name)
 	assert.NoError(t, err)
 	assert.Equal(t, cltest.WebURL("http://yourbridge"), ubt.URL)
 }
