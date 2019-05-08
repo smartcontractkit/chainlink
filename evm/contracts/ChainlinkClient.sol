@@ -5,6 +5,7 @@ import "./ENSResolver.sol";
 import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
+import "./interfaces/ChainlinkRegistryInterface.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 /**
@@ -22,11 +23,7 @@ contract ChainlinkClient {
   uint256 constant private ARGS_VERSION = 1;
   bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
-
-  address constant private MAINNET_LINK_TOKEN = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
-  address constant private ROPSTEN_LINK_TOKEN = 0x20fE562d797A42Dcb3399062AE9546cd06f63280;
-  address constant private RINKEBY_LINK_TOKEN = 0x01BE23585060835E02B77ef475b0Cc51aA1e0709;
-  address constant private KOVAN_LINK_TOKEN = 0xa36085F69e2889c224210F603D836748e7dC0088;
+  address constant private CHAINLINK_REGISTRY = 0xFf4C35dE072E83a9495008d9082AE080a8a96465;
 
   ENSInterface private ens;
   bytes32 private ensNode;
@@ -206,42 +203,11 @@ contract ChainlinkClient {
   }
 
   /**
-   * @notice Determines whether the given address is a contract
-   * @param _addr The address to check
-   */
-  function isContract(address _addr)
-    private
-    view
-    returns (bool)
-  {
-    uint length;
-    assembly { length := extcodesize(_addr) }
-    return length > 0;
-  }
-
-  /**
    * @notice Sets the Chainlink token address for the public
-   * network detected by the LINK token deployment
-   * @dev In order to save gas, we return early based on usage
-   * of the networks: Mainnet > Ropsten > Rinkeby > Kovan
+   * network as given by the ChainlinkRegistry contract
    */
   function setPublicChainlinkToken() internal {
-    if(isContract(MAINNET_LINK_TOKEN)) {
-      setChainlinkToken(MAINNET_LINK_TOKEN);
-      return;
-    }
-    if(isContract(ROPSTEN_LINK_TOKEN)) {
-      setChainlinkToken(ROPSTEN_LINK_TOKEN);
-      return;
-    }
-    if(isContract(RINKEBY_LINK_TOKEN)) {
-      setChainlinkToken(RINKEBY_LINK_TOKEN);
-      return;
-    }
-    if(isContract(KOVAN_LINK_TOKEN)) {
-      setChainlinkToken(KOVAN_LINK_TOKEN);
-      return;
-    }
+    setChainlinkToken(ChainlinkRegistryInterface(CHAINLINK_REGISTRY).getChainlinkTokenAddress());
   }
 
   /**
