@@ -153,7 +153,7 @@ describe('realtime', () => {
     expect(tr.transactionHash).toEqual(
       '0x1111111111111111111111111111111111111111111111111111111111111111'
     )
-    expect(tr.transactionStatus).toEqual('0x1')
+    expect(tr.transactionStatus).toEqual('fulfilledRunLog')
     ws.close()
   })
 

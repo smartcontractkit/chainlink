@@ -61,7 +61,7 @@ describe('fromString', () => {
     expect(ethtxTask.transactionHash).toEqual(
       '0x1111111111111111111111111111111111111111111111111111111111111111'
     )
-    expect(ethtxTask.transactionStatus).toEqual('0x1')
+    expect(ethtxTask.transactionStatus).toEqual('fulfilledRunLog')
   })
 
   it('creates when completedAt is null', () => {

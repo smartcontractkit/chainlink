@@ -97,16 +97,32 @@ func formatEthereumReceipt(str string) (*syncReceiptPresenter, error) {
 		return nil, err
 	}
 	return &syncReceiptPresenter{
-		Hash:   receipt.Hash.Hex(),
-		Status: runlogStatusPresenter(receipt),
+		Hash:   receipt.Hash,
+		Status: runLogStatusPresenter(receipt),
 	}, nil
 }
 
-func runlogStatusPresenter(receipt models.TxReceipt) string {
+type syncReceiptPresenter struct {
+	Hash   common.Hash `json:"transactionHash"`
+	Status TxStatus    `json:"status"`
+}
+
+type TxStatus string
+
+const (
+	// StatusNoFulfilledRunlog indicates that a ChainlinkFulfilled event was
+	// detected in the transaction receipt.
+	StatusFulfilledRunLog TxStatus = "fulfilledRunLog"
+	// StatusNoFulfilledRunlog indicates that no ChainlinkFulfilled events were
+	// detected in the transaction receipt.
+	StatusNoFulfilledRunLog TxStatus = "noFulfilledRunLog"
+)
+
+func runLogStatusPresenter(receipt models.TxReceipt) TxStatus {
 	if receipt.FulfilledRunLog() {
-		return "fulfilledRunlog"
+		return StatusFulfilledRunLog
 	}
-	return "noFulfilledRunlog"
+	return StatusNoFulfilledRunLog
 }
 
 type syncInitiatorPresenter struct {
@@ -114,11 +130,6 @@ type syncInitiatorPresenter struct {
 	RequestID *string              `json:"requestId,omitempty"`
 	TxHash    *common.Hash         `json:"txHash,omitempty"`
 	Requester *models.EIP55Address `json:"requester,omitempty"`
-}
-
-type syncReceiptPresenter struct {
-	Hash   string `json:"transactionHash"`
-	Status string `json:"status"`
 }
 
 type syncTaskRunPresenter struct {
