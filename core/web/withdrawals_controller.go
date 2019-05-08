@@ -56,6 +56,7 @@ func (abc *WithdrawalsController) Create(c *gin.Context) {
 	if err != nil {
 		_ = c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		jsonAPIResponse(c, presenters.Tx{Hash: hash}, "transaction")
+		tx := models.Tx{Hash: hash}
+		jsonAPIResponse(c, presenters.NewTx(&tx), "transaction")
 	}
 }
