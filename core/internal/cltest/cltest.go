@@ -915,6 +915,8 @@ func AssertServerResponse(t *testing.T, resp *http.Response, expectedStatusCode 
 		return
 	}
 
+	t.Logf("expected status code %d got %d", expectedStatusCode, resp.StatusCode)
+
 	if resp.StatusCode >= 300 && resp.StatusCode < 600 {
 		b, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
