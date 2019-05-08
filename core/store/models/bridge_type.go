@@ -68,7 +68,7 @@ type BridgeType struct {
 	Confirmations          uint64   `json:"confirmations"`
 	IncomingTokenHash      string
 	Salt                   string
-	OutgoingToken          string
+	OutgoingToken          string       `json:"outgoingToken"`
 	MinimumContractPayment *assets.Link `json:"minimumContractPayment" gorm:"type:varchar(255)"`
 }
 
