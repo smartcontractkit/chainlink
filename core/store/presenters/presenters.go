@@ -481,17 +481,17 @@ func (a NewAccount) GetName() string {
 
 // Tx is a jsonapi wrapper for an Ethereum Transaction.
 type Tx struct {
-	Confirmed bool           `json:"confirmed,omitempty"`
-	Data      hexutil.Bytes  `json:"data,omitempty"`
-	From      common.Address `json:"from,omitempty"`
-	GasLimit  string         `json:"gasLimit,omitempty"`
-	GasPrice  string         `json:"gasPrice,omitempty"`
-	Hash      common.Hash    `json:"hash"`
-	Hex       string         `json:"rawHex,omitempty"`
-	Nonce     string         `json:"nonce,omitempty"`
-	SentAt    string         `json:"sentAt,omitempty"`
-	To        common.Address `json:"to,omitempty"`
-	Value     string         `json:"value,omitempty"`
+	Confirmed bool            `json:"confirmed,omitempty"`
+	Data      hexutil.Bytes   `json:"data,omitempty"`
+	From      *common.Address `json:"from,omitempty"`
+	GasLimit  string          `json:"gasLimit,omitempty"`
+	GasPrice  string          `json:"gasPrice,omitempty"`
+	Hash      common.Hash     `json:"hash,omitempty"`
+	Hex       string          `json:"rawHex,omitempty"`
+	Nonce     string          `json:"nonce,omitempty"`
+	SentAt    string          `json:"sentAt,omitempty"`
+	To        *common.Address `json:"to,omitempty"`
+	Value     string          `json:"value,omitempty"`
 }
 
 // NewTx builds a transaction presenter.
@@ -499,14 +499,14 @@ func NewTx(tx *models.Tx) Tx {
 	return Tx{
 		Confirmed: tx.Confirmed,
 		Data:      hexutil.Bytes(tx.Data),
-		From:      tx.From,
+		From:      &tx.From,
 		GasLimit:  strconv.FormatUint(tx.GasLimit, 10),
 		GasPrice:  tx.GasPrice.String(),
 		Hash:      tx.Hash,
 		Hex:       tx.Hex,
 		Nonce:     strconv.FormatUint(tx.Nonce, 10),
 		SentAt:    strconv.FormatUint(tx.SentAt, 10),
-		To:        tx.To,
+		To:        &tx.To,
 		Value:     tx.Value.String(),
 	}
 }
@@ -523,7 +523,7 @@ func (Tx) GetName() string {
 
 // SetID is used to conform to the UnmarshallIdentifier interface for
 // deserializing from jsonapi documents.
-func (t *Tx) SetID(hash string) error {
-	t.Hash = common.HexToHash(hash)
+func (t *Tx) SetID(hex string) error {
+	t.Hash = common.HexToHash(hex)
 	return nil
 }
