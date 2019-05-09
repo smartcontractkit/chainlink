@@ -21,7 +21,7 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 	btr := &models.BridgeTypeRequest{}
 
 	if err := c.ShouldBindJSON(btr); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusUnprocessableEntity, err)
 	} else if bta, bt, err := models.NewBridgeType(btr); err != nil {
 		publicError(c, StatusCodeForError(err), err)
 	} else if err := services.ValidateBridgeType(btr, btc.App.GetStore()); err != nil {
@@ -65,7 +65,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 	} else if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else if err := c.ShouldBindJSON(btr); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusUnprocessableEntity, err)
 	} else if err := btc.App.GetStore().UpdateBridgeType(&bt, btr); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {

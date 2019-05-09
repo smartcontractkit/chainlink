@@ -237,7 +237,7 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 		bytes.NewBufferString("}"),
 	)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 500)
+	cltest.AssertServerResponse(t, resp, 422)
 }
 
 func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
