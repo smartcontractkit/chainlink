@@ -60,8 +60,8 @@
     "eslint-plugin-react": "^7.12.4",
     "eslint-plugin-standard": "^4.0.0",
     "javascript-time-ago": "^2.0.1",
+    "json-api-normalizer": "^0.4.14",
     "module-to-cdn": "^3.1.2",
-    "normalizr": "^3.3.0",
     "prettier": "^1.16.4",
     "react": "^16.8.4",
     "react-dom": "^16.8.4",
@@ -73,6 +73,7 @@
     "react-time-ago": "^5.0.2",
     "redux-devtools-extension": "^2.13.8",
     "redux-logger": "^3.0.6",
+    "redux-object": "^0.5.9",
     "redux-thunk": "^2.3.0",
     "typescript": "^3.4.1"
   }

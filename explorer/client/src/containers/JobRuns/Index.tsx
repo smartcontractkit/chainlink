@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { connect } from 'react-redux'
 import { bindActionCreators, Dispatch } from 'redux'
-import { denormalize } from 'normalizr'
+import build from 'redux-object'
 import {
   createStyles,
   Theme,
@@ -11,7 +11,7 @@ import {
 import List from '../../components/JobRuns/List'
 import { getJobRuns } from '../../actions/jobRuns'
 import { IState } from '../../reducers'
-import { JobRun } from '../../entities'
+import { IJobRun } from '../../models'
 
 const styles = ({ spacing }: Theme) =>
   createStyles({
@@ -21,42 +21,62 @@ const styles = ({ spacing }: Theme) =>
   })
 
 interface IProps extends WithStyles<typeof styles> {
+  path: string
+  rowsPerPage: number
   query?: string
   jobRuns?: IJobRun[]
+  count?: number
   getJobRuns: Function
-  path: string
-  page: number
-  size: number
 }
 
-const Index = withStyles(styles)(
-  ({ query, page, size, jobRuns, getJobRuns, classes }: IProps) => {
-    useEffect(() => {
-      getJobRuns(query, page, size)
-    }, [])
-
-    return (
-      <div className={classes.container}>
-        <List jobRuns={jobRuns} />
-      </div>
-    )
+const Index = withStyles(styles)((props: IProps) => {
+  const [currentPage, setCurrentPage] = useState(0)
+  const onChangePage = (event: any, page: number) => {
+    setCurrentPage(page)
+    props.getJobRuns(props.query, page + 1, props.rowsPerPage)
   }
-)
+
+  useEffect(() => {
+    props.getJobRuns(props.query, currentPage + 1, props.rowsPerPage)
+  }, [])
+
+  return (
+    <div className={props.classes.container}>
+      <List
+        currentPage={currentPage}
+        jobRuns={props.jobRuns}
+        count={props.count}
+        onChangePage={onChangePage}
+      />
+    </div>
+  )
+})
 
 const jobRunsSelector = ({
   jobRunsIndex,
-  jobRuns
+  jobRuns,
+  chainlinkNodes
 }: IState): IJobRun[] | undefined => {
   if (jobRunsIndex.items) {
-    return denormalize(jobRunsIndex.items, [JobRun], { jobRuns: jobRuns.items })
+    return jobRunsIndex.items.map((id: string) => {
+      const document = {
+        jobRuns: jobRuns.items,
+        chainlinkNodes: chainlinkNodes.items
+      }
+      return build(document, 'jobRuns', id)
+    })
   }
 }
 
+const jobRunsCountSelector = (state: IState) => {
+  return state.jobRunsIndex.count
+}
+
 const mapStateToProps = (state: IState) => ({
+  rowsPerPage: 10,
   query: state.search.query,
   jobRuns: jobRunsSelector(state),
-  page: 1,
-  size: 300
+  count: jobRunsCountSelector(state)
 })
 
 const mapDispatchToProps = (dispatch: Dispatch<any>) =>

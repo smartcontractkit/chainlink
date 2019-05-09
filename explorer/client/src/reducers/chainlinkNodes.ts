@@ -1,23 +1,9 @@
 export interface IState {
-  items?: IJobRun[]
-}
-
-export interface IMeta {
-  count: number
-}
-
-export interface INormalizedEndpoint {
-  data: any[]
-  meta: IMeta
-}
-
-export interface INormalizedMeta {
-  jobRuns: INormalizedEndpoint
+  items?: IChainlinkNode[]
 }
 
 export interface INormalizedData {
-  jobRuns: any
-  meta: INormalizedMeta
+  chainlinkNodes: any[]
 }
 
 export type JobRunsAction =
@@ -34,9 +20,9 @@ export default (state: IState = INITIAL_STATE, action: JobRunsAction) => {
     case '@@INIT':
       return INITIAL_STATE
     case 'UPSERT_JOB_RUNS':
-      return { items: action.data.jobRuns }
+      return { items: action.data.chainlinkNodes }
     case 'UPSERT_JOB_RUN':
-      return { items: action.data.jobRuns }
+      return { items: action.data.chainlinkNodes }
     default:
       return state
   }
