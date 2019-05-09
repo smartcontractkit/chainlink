@@ -59,7 +59,7 @@ func TestSessionsController_Create(t *testing.T) {
 
 				b, err := ioutil.ReadAll(resp.Body)
 				assert.NoError(t, err)
-				assert.Equal(t, `{"authenticated":true}`, string(b))
+				assert.Contains(t, string(b), `"attributes":{"authenticated":true}`)
 			} else {
 				require.True(t, resp.StatusCode >= 400, "Should not be able to create session")
 				sessions, err := app.Store.Sessions(0, 1)
