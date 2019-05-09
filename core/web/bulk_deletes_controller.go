@@ -16,15 +16,15 @@ type BulkDeletesController struct {
 // Delete removes all runs given a query
 // Example:
 //  "<application>/bulk_delete_runs"
-func (c *BulkDeletesController) Delete(ctx *gin.Context) {
+func (bdc *BulkDeletesController) Delete(c *gin.Context) {
 	request := &models.BulkDeleteRunRequest{}
-	if err := ctx.ShouldBindJSON(request); err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+	if err := c.ShouldBindJSON(request); err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
 	} else if err := models.ValidateBulkDeleteRunRequest(request); err != nil {
-		ctx.AbortWithError(http.StatusUnprocessableEntity, err)
-	} else if err := c.App.GetStore().BulkDeleteRuns(request); err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		c.AbortWithError(http.StatusUnprocessableEntity, err)
+	} else if err := bdc.App.GetStore().BulkDeleteRuns(request); err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		ctx.Status(http.StatusNoContent)
+		jsonAPIResponseWithStatus(c, nil, "nil", http.StatusNoContent)
 	}
 }
