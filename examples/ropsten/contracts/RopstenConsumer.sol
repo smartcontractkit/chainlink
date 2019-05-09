@@ -638,7 +638,7 @@ library SafeMath {
   }
 }
 
-// File: contracts/Chainlinked.sol
+// File: contracts/ChainlinkClient.sol
 
 pragma solidity 0.4.24;
 
@@ -649,11 +649,11 @@ pragma solidity 0.4.24;
 
 
 /**
- * @title The Chainlinked contract
+ * @title The ChainlinkClient contract
  * @notice Contract writers can inherit this contract in order to create requests for the
  * Chainlink network
  */
-contract Chainlinked {
+contract ChainlinkClient {
   using Chainlink for Chainlink.Request;
   using SafeMath for uint256;
 
@@ -682,7 +682,7 @@ contract Chainlinked {
    * @param _callbackFunctionSignature The callback function signature to use for the callback address
    * @return A Chainlink Request struct in memory
    */
-  function newRequest(
+  function buildChainlinkRequest(
     bytes32 _specId,
     address _callbackAddress,
     bytes4 _callbackFunctionSignature
@@ -698,11 +698,11 @@ contract Chainlinked {
    * @param _payment The amount of LINK to send for the request
    * @return The request ID
    */
-  function chainlinkRequest(Chainlink.Request memory _req, uint256 _payment)
+  function sendChainlinkRequest(Chainlink.Request memory _req, uint256 _payment)
     internal
     returns (bytes32)
   {
-    return chainlinkRequestTo(oracle, _req, _payment);
+    return sendChainlinkRequestTo(oracle, _req, _payment);
   }
 
   /**
@@ -715,7 +715,7 @@ contract Chainlinked {
    * @param _payment The amount of LINK to send for the request
    * @return The request ID
    */
-  function chainlinkRequestTo(address _oracle, Chainlink.Request memory _req, uint256 _payment)
+  function sendChainlinkRequestTo(address _oracle, Chainlink.Request memory _req, uint256 _payment)
     internal
     returns (bytes32 requestId)
   {
@@ -757,7 +757,7 @@ contract Chainlinked {
    * @notice Sets the stored oracle address
    * @param _oracle The address of the oracle contract
    */
-  function setOracle(address _oracle) internal {
+  function setChainlinkOracle(address _oracle) internal {
     oracle = ChainlinkRequestInterface(_oracle);
   }
 
@@ -765,7 +765,7 @@ contract Chainlinked {
    * @notice Sets the LINK token address
    * @param _link The address of the LINK token contract
    */
-  function setLinkToken(address _link) internal {
+  function setChainlinkToken(address _link) internal {
     link = LinkTokenInterface(_link);
   }
 
@@ -773,7 +773,7 @@ contract Chainlinked {
    * @notice Retrieves the stored address of the LINK token
    * @return The address of the LINK token
    */
-  function chainlinkToken()
+  function chainlinkTokenAddress()
     internal
     view
     returns (address)
@@ -785,7 +785,7 @@ contract Chainlinked {
    * @notice Retrieves the stored address of the oracle contract
    * @return The address of the oracle contract
    */
-  function oracleAddress()
+  function chainlinkOracleAddress()
     internal
     view
     returns (address)
@@ -799,7 +799,7 @@ contract Chainlinked {
    * @param _oracle The address of the oracle contract that will fulfill the request
    * @param _requestId The request ID used for the response
    */
-  function addExternalRequest(address _oracle, bytes32 _requestId)
+  function addChainlinkExternalRequest(address _oracle, bytes32 _requestId)
     internal
     notPendingRequest(_requestId)
   {
@@ -812,27 +812,27 @@ contract Chainlinked {
    * @param _ens The address of the ENS contract
    * @param _node The ENS node hash
    */
-  function setChainlinkWithENS(address _ens, bytes32 _node)
+  function useChainlinkWithENS(address _ens, bytes32 _node)
     internal
   {
     ens = ENSInterface(_ens);
     ensNode = _node;
     bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ENS_TOKEN_SUBNAME));
     ENSResolver resolver = ENSResolver(ens.resolver(linkSubnode));
-    setLinkToken(resolver.addr(linkSubnode));
-    setOracleWithENS();
+    setChainlinkToken(resolver.addr(linkSubnode));
+    updateChainlinkOracleWithENS();
   }
 
   /**
    * @notice Sets the stored oracle contract with the address resolved by ENS
-   * @dev This may be called on its own as long as `setChainlinkWithENS` has been called previously
+   * @dev This may be called on its own as long as `useChainlinkWithENS` has been called previously
    */
-  function setOracleWithENS()
+  function updateChainlinkOracleWithENS()
     internal
   {
     bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ENS_ORACLE_SUBNAME));
     ENSResolver resolver = ENSResolver(ens.resolver(oracleSubnode));
-    setOracle(resolver.addr(oracleSubnode));
+    setChainlinkOracle(resolver.addr(oracleSubnode));
   }
 
   /**
@@ -864,7 +864,7 @@ contract Chainlinked {
    * @dev Use if the contract developer prefers methods instead of modifiers for validation
    * @param _requestId The request ID for fulfillment
    */
-  function fulfillChainlinkRequest(bytes32 _requestId)
+  function validateChainlinkCallback(bytes32 _requestId)
     internal
     recordChainlinkFulfillment(_requestId)
     // solium-disable-next-line no-empty-blocks
@@ -889,6 +889,149 @@ contract Chainlinked {
   modifier notPendingRequest(bytes32 _requestId) {
     require(pendingRequests[_requestId] == address(0), "Request is already pending");
     _;
+  }
+}
+
+// File: contracts/Chainlinked.sol
+
+pragma solidity 0.4.24;
+
+
+/**
+ * @title The Chainlinked contract
+ * @notice Contract writers can inherit this contract in order to create requests for the
+ * Chainlink network. ChainlinkClient is an alias of the Chainlinked contract.
+ */
+contract Chainlinked is ChainlinkClient {
+  /**
+   * @notice Creates a request that can hold additional parameters
+   * @param _specId The Job Specification ID that the request will be created for
+   * @param _callbackAddress The callback address that the response will be sent to
+   * @param _callbackFunctionSignature The callback function signature to use for the callback address
+   * @return A Chainlink Request struct in memory
+   */
+  function newRequest(
+    bytes32 _specId,
+    address _callbackAddress,
+    bytes4 _callbackFunctionSignature
+  ) internal pure returns (Chainlink.Request memory) {
+    return buildChainlinkRequest(_specId, _callbackAddress, _callbackFunctionSignature);
+  }
+
+  /**
+   * @notice Creates a Chainlink request to the stored oracle address
+   * @dev Calls `sendChainlinkRequestTo` with the stored oracle address
+   * @param _req The initialized Chainlink Request
+   * @param _payment The amount of LINK to send for the request
+   * @return The request ID
+   */
+  function chainlinkRequest(Chainlink.Request memory _req, uint256 _payment)
+    internal
+    returns (bytes32)
+  {
+    return sendChainlinkRequest(_req, _payment);
+  }
+
+  /**
+   * @notice Creates a Chainlink request to the specified oracle address
+   * @dev Generates and stores a request ID, increments the local nonce, and uses `transferAndCall` to
+   * send LINK which creates a request on the target oracle contract.
+   * Emits ChainlinkRequested event.
+   * @param _oracle The address of the oracle for the request
+   * @param _req The initialized Chainlink Request
+   * @param _payment The amount of LINK to send for the request
+   * @return The request ID
+   */
+  function chainlinkRequestTo(address _oracle, Chainlink.Request memory _req, uint256 _payment)
+    internal
+    returns (bytes32 requestId)
+  {
+    return sendChainlinkRequestTo(_oracle, _req, _payment);
+  }
+
+  /**
+   * @notice Sets the stored oracle address
+   * @param _oracle The address of the oracle contract
+   */
+  function setOracle(address _oracle) internal {
+    setChainlinkOracle(_oracle);
+  }
+
+  /**
+   * @notice Sets the LINK token address
+   * @param _link The address of the LINK token contract
+   */
+  function setLinkToken(address _link) internal {
+    setChainlinkToken(_link);
+  }
+
+  /**
+   * @notice Retrieves the stored address of the LINK token
+   * @return The address of the LINK token
+   */
+  function chainlinkToken()
+    internal
+    view
+    returns (address)
+  {
+    return chainlinkTokenAddress();
+  }
+
+  /**
+   * @notice Retrieves the stored address of the oracle contract
+   * @return The address of the oracle contract
+   */
+  function oracleAddress()
+    internal
+    view
+    returns (address)
+  {
+    return chainlinkOracleAddress();
+  }
+
+  /**
+   * @notice Ensures that the fulfillment is valid for this contract
+   * @dev Use if the contract developer prefers methods instead of modifiers for validation
+   * @param _requestId The request ID for fulfillment
+   */
+  function fulfillChainlinkRequest(bytes32 _requestId)
+    internal
+    recordChainlinkFulfillment(_requestId)
+    // solium-disable-next-line no-empty-blocks
+  {}
+
+  /**
+   * @notice Sets the stored oracle and LINK token contracts with the addresses resolved by ENS
+   * @dev Accounts for subnodes having different resolvers
+   * @param _ens The address of the ENS contract
+   * @param _node The ENS node hash
+   */
+  function useChainlinkWithENS(address _ens, bytes32 _node)
+    internal
+  {
+    useChainlinkWithENS(_ens, _node);
+  }
+
+  /**
+   * @notice Sets the stored oracle contract with the address resolved by ENS
+   * @dev This may be called on its own as long as `setChainlinkWithENS` has been called previously
+   */
+  function setOracleWithENS()
+    internal
+  {
+    updateChainlinkOracleWithENS();
+  }
+
+  /**
+   * @notice Allows for a request which was created on another contract to be fulfilled
+   * on this contract
+   * @param _oracle The address of the oracle contract that will fulfill the request
+   * @param _requestId The request ID used for the response
+   */
+  function addExternalRequest(address _oracle, bytes32 _requestId)
+    internal
+  {
+    addChainlinkExternalRequest(_oracle, _requestId);
   }
 }
 
@@ -991,27 +1134,27 @@ contract ARopstenConsumer is Chainlinked, Ownable {
   );
 
   constructor() Ownable() public {
-    setChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
+    useChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
   }
 
   function requestEthereumPrice(string _jobId, string _currency) 
     public
     onlyOwner
   {
-    Chainlink.Request memory req = newRequest(stringToBytes32(_jobId), this, this.fulfillEthereumPrice.selector);
+    Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumPrice.selector);
     req.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
     req.addStringArray("path", path);
     req.addInt("times", 100);
-    chainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function requestEthereumChange(string _jobId, string _currency)
     public
     onlyOwner
   {
-    Chainlink.Request memory req = newRequest(stringToBytes32(_jobId), this, this.fulfillEthereumChange.selector);
+    Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumChange.selector);
     req.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
@@ -1020,14 +1163,14 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     path[3] = "CHANGEPCTDAY";
     req.addStringArray("path", path);
     req.addInt("times", 1000000000);
-    chainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function requestEthereumLastMarket(string _jobId, string _currency)
     public
     onlyOwner
   {
-    Chainlink.Request memory req = newRequest(stringToBytes32(_jobId), this, this.fulfillEthereumLastMarket.selector);
+    Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumLastMarket.selector);
     req.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
@@ -1035,7 +1178,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     path[2] = _currency;
     path[3] = "LASTMARKET";
     req.addStringArray("path", path);
-    chainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function fulfillEthereumPrice(bytes32 _requestId, uint256 _price)
@@ -1063,19 +1206,19 @@ contract ARopstenConsumer is Chainlinked, Ownable {
   }
 
   function updateChainlinkAddresses() public onlyOwner {
-    setChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
+    useChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
   }
 
   function getChainlinkToken() public view returns (address) {
-    return chainlinkToken();
+    return chainlinkTokenAddress();
   }
-  
+
   function getOracle() public view returns (address) {
-    return oracleAddress();
+    return chainlinkOracleAddress();
   }
 
   function withdrawLink() public onlyOwner {
-    LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
+    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
     require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
   }
 
