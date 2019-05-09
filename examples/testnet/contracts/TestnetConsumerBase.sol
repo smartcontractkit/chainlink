@@ -37,7 +37,7 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
    * in the ChainlinkClient contract to automatically set the correct LINK token address
    */
   constructor() Ownable() public {
-    setChainlinkToken(address(0));
+    setPublicChainlinkToken();
   }
 
   /**

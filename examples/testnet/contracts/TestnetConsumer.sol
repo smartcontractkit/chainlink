@@ -778,11 +778,7 @@ contract ChainlinkClient {
    * @param _link The address of the LINK token contract
    */
   function setChainlinkToken(address _link) internal {
-    if(_link == address(0)) {
-      setPublicChainlinkToken();
-    } else {
-      link = LinkTokenInterface(_link);
-    }
+    link = LinkTokenInterface(_link);
   }
 
   /**
@@ -1023,7 +1019,7 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
    * in the ChainlinkClient contract to automatically set the correct LINK token address
    */
   constructor() Ownable() public {
-    setChainlinkToken(address(0));
+    setPublicChainlinkToken();
   }
 
   /**

@@ -129,11 +129,7 @@ contract ChainlinkClient {
    * @param _link The address of the LINK token contract
    */
   function setChainlinkToken(address _link) internal {
-    if(_link == address(0)) {
-      setPublicChainlinkToken();
-    } else {
-      link = LinkTokenInterface(_link);
-    }
+    link = LinkTokenInterface(_link);
   }
 
   /**
