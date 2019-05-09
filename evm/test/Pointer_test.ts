@@ -1,7 +1,7 @@
 import * as h from './support/helpers'
 
-contract('ChainlinkRegistry', () => {
-  const sourcePath = 'ChainlinkRegistry.sol'
+contract('Pointer', () => {
+  const sourcePath = 'Pointer.sol'
   let contract: any
   let link: any
 
@@ -11,14 +11,12 @@ contract('ChainlinkRegistry', () => {
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(artifacts.require(sourcePath), [
-      'getChainlinkTokenAddress'
-    ])
+    h.checkPublicABI(artifacts.require(sourcePath), ['getAddress'])
   })
 
-  describe('#getChainlinkTokenAddress', () => {
+  describe('#getAddress', () => {
     it('returns the LINK token address', async () => {
-      assert.equal(await contract.getChainlinkTokenAddress(), link.address)
+      assert.equal(await contract.getAddress(), link.address)
     })
   })
 })
