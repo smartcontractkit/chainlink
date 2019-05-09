@@ -4,7 +4,6 @@ import * as winston from 'winston'
 import express from 'express'
 import http from 'http'
 import { bootstrapRealtime } from './realtime'
-import { ChainlinkNode, createChainlinkNode } from './entity/ChainlinkNode'
 import seed from './seed'
 
 export const DEFAULT_PORT = parseInt(process.env.SERVER_PORT, 10) || 8080
