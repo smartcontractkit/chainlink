@@ -29,27 +29,27 @@ contract ARopstenConsumer is Chainlinked, Ownable {
   );
 
   constructor() Ownable() public {
-    setChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
+    useChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
   }
 
   function requestEthereumPrice(string _jobId, string _currency) 
     public
     onlyOwner
   {
-    Chainlink.Request memory req = newRequest(stringToBytes32(_jobId), this, this.fulfillEthereumPrice.selector);
+    Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumPrice.selector);
     req.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
     req.addStringArray("path", path);
     req.addInt("times", 100);
-    chainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function requestEthereumChange(string _jobId, string _currency)
     public
     onlyOwner
   {
-    Chainlink.Request memory req = newRequest(stringToBytes32(_jobId), this, this.fulfillEthereumChange.selector);
+    Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumChange.selector);
     req.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
@@ -58,14 +58,14 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     path[3] = "CHANGEPCTDAY";
     req.addStringArray("path", path);
     req.addInt("times", 1000000000);
-    chainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function requestEthereumLastMarket(string _jobId, string _currency)
     public
     onlyOwner
   {
-    Chainlink.Request memory req = newRequest(stringToBytes32(_jobId), this, this.fulfillEthereumLastMarket.selector);
+    Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumLastMarket.selector);
     req.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](4);
     path[0] = "RAW";
@@ -73,7 +73,7 @@ contract ARopstenConsumer is Chainlinked, Ownable {
     path[2] = _currency;
     path[3] = "LASTMARKET";
     req.addStringArray("path", path);
-    chainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function fulfillEthereumPrice(bytes32 _requestId, uint256 _price)
@@ -101,19 +101,19 @@ contract ARopstenConsumer is Chainlinked, Ownable {
   }
 
   function updateChainlinkAddresses() public onlyOwner {
-    setChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
+    useChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
   }
 
   function getChainlinkToken() public view returns (address) {
-    return chainlinkToken();
+    return chainlinkTokenAddress();
   }
-  
+
   function getOracle() public view returns (address) {
-    return oracleAddress();
+    return chainlinkOracleAddress();
   }
 
   function withdrawLink() public onlyOwner {
-    LinkTokenInterface link = LinkTokenInterface(chainlinkToken());
+    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
     require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
   }
 
