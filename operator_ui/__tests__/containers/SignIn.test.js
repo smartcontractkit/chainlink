@@ -28,10 +28,18 @@ const submitForm = wrapper => {
   wrapper.find('form').simulate('submit')
 }
 
+const AUTHENTICATED_RESPONSE = {
+  data: {
+    type: 'session',
+    id: 'sessionID',
+    attributes: { authenticated: true }
+  }
+}
+
 describe('containers/SignIn', () => {
   it('unauthenticated user can input credentials and sign in', async () => {
     const store = createStore()
-    global.fetch.postOnce(`/sessions`, { authenticated: true })
+    global.fetch.postOnce(`/sessions`, AUTHENTICATED_RESPONSE)
 
     const wrapper = mountSignIn(store)
     submitForm(wrapper)

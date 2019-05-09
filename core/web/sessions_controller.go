@@ -29,9 +29,9 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	} else if sid, err := sc.App.GetStore().CreateSession(sr); err != nil {
 		publicError(c, http.StatusUnauthorized, err)
 	} else if err := saveSessionID(session, sid); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, multierr.Append(errors.New("Unable to save session id"), err))
+		publicError(c, http.StatusInternalServerError, multierr.Append(errors.New("Unable to save session id"), err))
 	} else {
-		c.JSON(http.StatusOK, gin.H{"authenticated": true})
+		jsonAPIResponse(c, Session{Authenticated: true}, "session")
 	}
 }
 
@@ -43,15 +43,35 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 	defer session.Clear()
 	sessionID, ok := session.Get(SessionIDKey).(string)
 	if !ok {
-		c.JSON(http.StatusOK, gin.H{"authenticated": false})
+		jsonAPIResponse(c, Session{Authenticated: false}, "session")
 	} else if err := sc.App.GetStore().DeleteUserSession(sessionID); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else {
-		c.JSON(http.StatusOK, gin.H{"authenticated": false})
+		jsonAPIResponse(c, Session{Authenticated: false}, "session")
 	}
 }
 
 func saveSessionID(session sessions.Session, sessionID string) error {
 	session.Set(SessionIDKey, sessionID)
 	return session.Save()
+}
+
+type Session struct {
+	Authenticated bool `json:"authenticated"`
+}
+
+// GetID returns the jsonapi ID.
+func (s Session) GetID() string {
+	return "sessionID"
+}
+
+// GetName returns the collection name for jsonapi.
+func (Session) GetName() string {
+	return "session"
+}
+
+// SetID is used to conform to the UnmarshallIdentifier interface for
+// deserializing from jsonapi documents.
+func (*Session) SetID(string) error {
+	return nil
 }

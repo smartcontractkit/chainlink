@@ -112,11 +112,13 @@ export const RECEIVE_SIGNIN_SUCCESS = 'RECEIVE_SIGNIN_SUCCESS'
 export const RECEIVE_SIGNIN_FAIL = 'RECEIVE_SIGNIN_FAIL'
 export const RECEIVE_SIGNIN_ERROR = 'RECEIVE_SIGNIN_ERROR'
 
-const receiveSignInSuccess = json => ({
-  type: RECEIVE_SIGNIN_SUCCESS,
-  authenticated: json.authenticated,
-  errors: json.errors
-})
+const receiveSignInSuccess = json => {
+  return {
+    type: RECEIVE_SIGNIN_SUCCESS,
+    authenticated: json.data.attributes.authenticated,
+    errors: json.errors
+  }
+}
 
 const receiveSignInFail = () => ({ type: RECEIVE_SIGNIN_FAIL })
 
