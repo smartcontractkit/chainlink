@@ -235,8 +235,8 @@ export const updateBridge = (data, successCallback, errorCallback) => {
     return api
       .updateBridge(data)
       .then(res => {
-        dispatch(receiveUpdateSuccess(res))
-        dispatch(notifySuccess(successCallback, data))
+        dispatch(receiveUpdateSuccess(res.data))
+        dispatch(notifySuccess(successCallback, res.data))
       })
       .catch(error => {
         curryErrorHandler(dispatch, RECEIVE_UPDATE_ERROR)(error)
