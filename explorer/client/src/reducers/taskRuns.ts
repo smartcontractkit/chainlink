@@ -3,7 +3,7 @@ export interface IState {
 }
 
 export interface INormalizedData {
-  entities: any
+  taskRuns: any[]
   result: any
 }
 
@@ -17,7 +17,7 @@ const INITIAL_STATE = { items: undefined }
 export default (state: IState = INITIAL_STATE, action: TaskRunsAction) => {
   switch (action.type) {
     case 'UPSERT_JOB_RUN':
-      return { items: action.data.entities.taskRuns }
+      return { items: action.data.taskRuns }
     default:
       return state
   }

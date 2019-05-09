@@ -6474,6 +6474,13 @@ jsesc@~0.5.0:
   resolved "https://registry.npmjs.org/jsesc/-/jsesc-0.5.0.tgz#e7dee66e35d6fc16f710fe91d5cf69f70f08911d"
   integrity sha1-597mbjXW/Bb3EP6R1c9p9w8IkR0=
 
+json-api-normalizer@^0.4.14:
+  version "0.4.14"
+  resolved "https://registry.npmjs.org/json-api-normalizer/-/json-api-normalizer-0.4.14.tgz#9d2603f884f6b071c30d0d1f559c2ce1fc33c6f6"
+  integrity sha512-Ma/st3Mvp2aaRfSERwzeRGzKim0NhbgVw4reYs6M9ujblz2QcFXSwxAyVGIi/Mm+B/iTMgj8ptPyS+sIAqoPEg==
+  dependencies:
+    lodash "^4.17.11"
+
 json-parse-better-errors@^1.0.1, json-parse-better-errors@^1.0.2:
   version "1.0.2"
   resolved "https://registry.npmjs.org/json-parse-better-errors/-/json-parse-better-errors-1.0.2.tgz#bb867cfb3450e69107c131d1c514bab3dc8bcaa9"
@@ -7444,11 +7451,6 @@ normalize-url@^3.0.0:
   version "3.3.0"
   resolved "https://registry.npmjs.org/normalize-url/-/normalize-url-3.3.0.tgz#b2e1c4dc4f7c6d57743df733a4f5978d18650559"
   integrity sha512-U+JJi7duF1o+u2pynbp2zXDW2/PADgC30f0GsHZtRh+HOcXHnw137TrNlyxxRvWW5fjKd3bcLHPxofWuCjaeZg==
-
-normalizr@^3.3.0:
-  version "3.3.0"
-  resolved "https://registry.npmjs.org/normalizr/-/normalizr-3.3.0.tgz#6f44b95e8bf2201845a9e551920c4e5861166d27"
-  integrity sha512-u8Us8Ms5KpY0mmNwML4OBxNKvlmSKeXfPBIXU9XmcejrZUjhIvUOd8RYBq62UL4JHxrcO4wqo2sL4s8B74Hadw==
 
 npm-bundled@^1.0.1:
   version "1.0.6"
@@ -9408,6 +9410,11 @@ redux-logger@^3.0.6:
   integrity sha1-91VZZvMJjzyIYExEnPC69XeCdL8=
   dependencies:
     deep-diff "^0.3.5"
+
+redux-object@^0.5.9:
+  version "0.5.9"
+  resolved "https://registry.npmjs.org/redux-object/-/redux-object-0.5.9.tgz#1023db22389a442ae7dee90e9e6c621cc8128952"
+  integrity sha512-XUI/pJrjYBE221qilRTwbTVlFBiT4lo56OnWCG6FBfAs8iFsQFziGEvB/wVoelfP/lprMi2dzPTXzQqM5L91Hg==
 
 redux-thunk@*, redux-thunk@^2.3.0:
   version "2.3.0"

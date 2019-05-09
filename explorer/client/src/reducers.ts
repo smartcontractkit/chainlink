@@ -2,21 +2,26 @@ import { combineReducers } from 'redux'
 import search, { IState as ISearchState } from './reducers/search'
 import jobRuns, { IState as IJobRunsState } from './reducers/jobRuns'
 import taskRuns, { IState as ITaskRunsState } from './reducers/taskRuns'
+import chainlinkNodes, {
+  IState as IChainlinkNodesState
+} from './reducers/chainlinkNodes'
 import jobRunsIndex, {
   IState as IJobRunsIndexState
 } from './reducers/jobRunsIndex'
 
 export interface IState {
-  search: ISearchState
-  taskRuns: ITaskRunsState
+  chainlinkNodes: IChainlinkNodesState
   jobRuns: IJobRunsState
+  taskRuns: ITaskRunsState
+  search: ISearchState
   jobRunsIndex: IJobRunsIndexState
 }
 
 const reducer = combineReducers({
-  search,
-  taskRuns,
+  chainlinkNodes,
   jobRuns,
+  taskRuns,
+  search,
   jobRunsIndex
 })
 

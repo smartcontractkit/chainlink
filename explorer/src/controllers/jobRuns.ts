@@ -1,23 +1,32 @@
 import { getDb } from '../database'
-import { JobRun, present, search } from '../entity/JobRun'
+import { JobRun, search, count, ISearchParams } from '../entity/JobRun'
 import { Router, Request, Response } from 'express'
+import jobRunsSerializer from '../serializers/jobRunsSerializer'
+import jobRunSerializer from '../serializers/jobRunSerializer'
 
 const router = Router()
 
 const DEFAULT_PAGE = 1
 const DEFAULT_SIZE = 10
 
-router.get('/job_runs', async (req: Request, res: Response) => {
+const searchParams = (req: Request): ISearchParams => {
   const page = parseInt(req.query.page, 10) || DEFAULT_PAGE
   const size = parseInt(req.query.size, 10) || DEFAULT_SIZE
-  const searchParams = {
+
+  return {
     searchQuery: req.query.query,
     page: page,
     limit: size
   }
+}
+
+router.get('/job_runs', async (req: Request, res: Response) => {
+  const params = searchParams(req)
   const db = await getDb()
-  const jobRuns = await search(db, searchParams)
-  return res.send(jobRuns.map(jr => present(jr)))
+  const runs = await search(db, params)
+  const runCount = await count(db, params)
+  const json = jobRunsSerializer(runs, runCount)
+  return res.send(json)
 })
 
 router.get('/job_runs/:id', async (req: Request, res: Response) => {
@@ -33,7 +42,8 @@ router.get('/job_runs/:id', async (req: Request, res: Response) => {
     .getOne()
 
   if (jobRun) {
-    return res.send(present(jobRun))
+    const json = jobRunSerializer(jobRun)
+    return res.send(json)
   }
 
   return res.sendStatus(404)
