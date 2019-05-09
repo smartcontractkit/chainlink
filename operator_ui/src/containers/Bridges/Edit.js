@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Link } from 'react-static'
+import { Link } from 'react-router-dom'
 import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
@@ -17,11 +17,13 @@ import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import Content from 'components/Content'
 import { useHooks, useEffect } from 'use-react-hooks'
 
-const SuccessNotification = ({ name }) => (
-  <React.Fragment>
-    Successfully updated <Link to={`/bridges/${name}`}>{name}</Link>
-  </React.Fragment>
-)
+const SuccessNotification = ({ id }) => {
+  return (
+    <React.Fragment>
+      Successfully updated <Link to={`/bridges/${id}`}>{id}</Link>
+    </React.Fragment>
+  )
+}
 
 export const Edit = useHooks(props => {
   useEffect(() => {
