@@ -34,6 +34,7 @@ const server = (port: number = DEFAULT_PORT) => {
   }
 
   const app = express()
+  addLogging(app)
 
   app.use(express.static('client/build'))
   app.use('/api/v1', controllers.jobRuns)
