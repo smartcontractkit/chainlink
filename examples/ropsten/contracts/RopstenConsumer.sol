@@ -583,6 +583,14 @@ interface ChainlinkRequestInterface {
   ) external;
 }
 
+// File: contracts/interfaces/PointerInterface.sol
+
+pragma solidity 0.4.24;
+
+interface PointerInterface {
+  function getAddress() external view returns (address);
+}
+
 // File: openzeppelin-solidity/contracts/math/SafeMath.sol
 
 pragma solidity ^0.4.24;
@@ -648,6 +656,7 @@ pragma solidity 0.4.24;
 
 
 
+
 /**
  * @title The ChainlinkClient contract
  * @notice Contract writers can inherit this contract in order to create requests for the
@@ -663,6 +672,7 @@ contract ChainlinkClient {
   uint256 constant private ARGS_VERSION = 1;
   bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
+  address constant private LINK_TOKEN_POINTER = 0xC89bD4E1632D3A43CB03AAAd5262cbe4038Bc571;
 
   ENSInterface private ens;
   bytes32 private ensNode;
@@ -767,6 +777,14 @@ contract ChainlinkClient {
    */
   function setChainlinkToken(address _link) internal {
     link = LinkTokenInterface(_link);
+  }
+
+  /**
+   * @notice Sets the Chainlink token address for the public
+   * network as given by the Pointer contract
+   */
+  function setPublicChainlinkToken() internal {
+    setChainlinkToken(PointerInterface(LINK_TOKEN_POINTER).getAddress());
   }
 
   /**
