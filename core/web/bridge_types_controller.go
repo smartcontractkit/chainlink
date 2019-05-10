@@ -21,13 +21,13 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 	btr := &models.BridgeTypeRequest{}
 
 	if err := c.ShouldBindJSON(btr); err != nil {
-		publicError(c, http.StatusUnprocessableEntity, err)
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 	} else if bta, bt, err := models.NewBridgeType(btr); err != nil {
-		publicError(c, StatusCodeForError(err), err)
+		jsonAPIError(c, StatusCodeForError(err), err)
 	} else if err := services.ValidateBridgeType(btr, btc.App.GetStore()); err != nil {
-		publicError(c, http.StatusBadRequest, err)
+		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if err := btc.App.GetStore().CreateBridgeType(bt); err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, bta, "bridge")
 	}
@@ -43,11 +43,11 @@ func (btc *BridgeTypesController) Index(c *gin.Context, size, page, offset int) 
 func (btc *BridgeTypesController) Show(c *gin.Context) {
 	name := c.Param("BridgeName")
 	if taskType, err := models.NewTaskType(name); err != nil {
-		publicError(c, http.StatusUnprocessableEntity, err)
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 	} else if bt, err := btc.App.GetStore().FindBridge(taskType); err == orm.ErrorNotFound {
-		publicError(c, http.StatusNotFound, errors.New("bridge not found"))
+		jsonAPIError(c, http.StatusNotFound, errors.New("bridge not found"))
 	} else if err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, bt, "bridge")
 	}
@@ -59,15 +59,15 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 	btr := &models.BridgeTypeRequest{}
 
 	if taskType, err := models.NewTaskType(name); err != nil {
-		publicError(c, http.StatusUnprocessableEntity, err)
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 	} else if bt, err := btc.App.GetStore().FindBridge(taskType); err == orm.ErrorNotFound {
-		publicError(c, http.StatusNotFound, errors.New("bridge not found"))
+		jsonAPIError(c, http.StatusNotFound, errors.New("bridge not found"))
 	} else if err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if err := c.ShouldBindJSON(btr); err != nil {
-		publicError(c, http.StatusUnprocessableEntity, err)
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 	} else if err := btc.App.GetStore().UpdateBridgeType(&bt, btr); err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, bt, "bridge")
 	}
@@ -78,17 +78,17 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 	name := c.Param("BridgeName")
 
 	if taskType, err := models.NewTaskType(name); err != nil {
-		publicError(c, http.StatusUnprocessableEntity, err)
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 	} else if bt, err := btc.App.GetStore().FindBridge(taskType); err == orm.ErrorNotFound {
-		publicError(c, http.StatusNotFound, errors.New("bridge not found"))
+		jsonAPIError(c, http.StatusNotFound, errors.New("bridge not found"))
 	} else if err != nil {
-		publicError(c, http.StatusInternalServerError, fmt.Errorf("Error searching for bridge for BTC Destroy: %+v", err))
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("Error searching for bridge for BTC Destroy: %+v", err))
 	} else if jobFounds, err := btc.App.GetStore().AnyJobWithType(name); err != nil {
-		publicError(c, http.StatusInternalServerError, fmt.Errorf("Error searching for associated jobs for BTC Destroy: %+v", err))
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("Error searching for associated jobs for BTC Destroy: %+v", err))
 	} else if jobFounds {
-		publicError(c, http.StatusConflict, fmt.Errorf("Can't remove the bridge because there are jobs associated with it: %+v", err))
+		jsonAPIError(c, http.StatusConflict, fmt.Errorf("Can't remove the bridge because there are jobs associated with it: %+v", err))
 	} else if err = btc.App.GetStore().DeleteBridgeType(&bt); err != nil {
-		publicError(c, StatusCodeForError(err), fmt.Errorf("failed to initialise BTC Destroy: %+v", err))
+		jsonAPIError(c, StatusCodeForError(err), fmt.Errorf("failed to initialise BTC Destroy: %+v", err))
 	} else {
 		jsonAPIResponse(c, bt, "bridge")
 	}

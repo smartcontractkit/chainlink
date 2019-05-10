@@ -20,13 +20,13 @@ type KeysController struct {
 func (kc *KeysController) Create(c *gin.Context) {
 	request := models.CreateKeyRequest{}
 	if err := c.ShouldBindJSON(&request); err != nil {
-		publicError(c, http.StatusUnprocessableEntity, err)
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 	} else if err := kc.App.GetStore().KeyStore.Unlock(request.CurrentPassword); err != nil {
-		publicError(c, http.StatusUnauthorized, err)
+		jsonAPIError(c, http.StatusUnauthorized, err)
 	} else if account, err := kc.App.GetStore().KeyStore.NewAccount(request.CurrentPassword); err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if err := kc.App.GetStore().SyncDiskKeyStoreToDB(); err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponseWithStatus(c, presenters.NewAccount{Account: &account}, "account", http.StatusCreated)
 	}

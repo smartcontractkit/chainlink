@@ -31,21 +31,21 @@ func (abc *WithdrawalsController) Create(c *gin.Context) {
 	wr := models.WithdrawalRequest{}
 
 	if err := c.ShouldBindJSON(&wr); err != nil {
-		publicError(c, http.StatusBadRequest, err)
+		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	addressWasNotSpecifiedInRequest := utils.ZeroAddress
 
 	if wr.Amount.Cmp(naz) < 0 {
-		publicError(c, http.StatusBadRequest, fmt.Errorf(
+		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf(
 			"Must withdraw at least %v LINK", naz.String()))
 	} else if wr.DestinationAddress == addressWasNotSpecifiedInRequest {
-		publicError(c, http.StatusBadRequest, errors.New("Invalid withdrawal address"))
+		jsonAPIError(c, http.StatusBadRequest, errors.New("Invalid withdrawal address"))
 	} else if linkBalance, err := txm.ContractLINKBalance(wr); err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if linkBalance.Cmp(wr.Amount) < 0 {
-		publicError(c, http.StatusBadRequest, fmt.Errorf(
+		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf(
 			"Insufficient link balance. Withdrawal Amount: %v "+
 				"Link Balance: %v",
 			wr.Amount.String(), linkBalance.String()))
@@ -54,7 +54,7 @@ func (abc *WithdrawalsController) Create(c *gin.Context) {
 
 	hash, err := txm.WithdrawLINK(wr)
 	if err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		tx := models.Tx{Hash: hash}
 		jsonAPIResponse(c, presenters.NewTx(&tx), "transaction")
