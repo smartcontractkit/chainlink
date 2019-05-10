@@ -9,3 +9,5 @@ yarn lint:evm && yarn lint:examples
 yarn workspace chainlink truffle test
 yarn workspace chainlink-uptime-sla truffle test --network test
 yarn workspace chainlink-echo-server truffle test --network test
+yarn workspace chainlink flatten
+yarn workspace chainlink-ropsten truffle build

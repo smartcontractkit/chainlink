@@ -959,7 +959,7 @@ contract Ownable {
   }
 }
 
-// File: ../examples/ropsten/contracts/RopstenConsumerBase.sol
+// File: ../examples/ropsten/RopstenConsumerBase.sol
 
 pragma solidity 0.4.24;
 
