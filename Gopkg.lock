@@ -172,12 +172,12 @@
   revision = "16278e9db8130ac7ec405dc174cfb94344f16325"
 
 [[projects]]
-  digest = "1:629d5458c77f7df2e78f011d535da90aaf117cee238e44407952d65691a954a0"
+  digest = "1:c41ed9a3da7653d2829b55b45be576bbb9754060a057198e1997947b0e0bca19"
   name = "github.com/gin-contrib/cors"
   packages = ["."]
   pruneopts = ""
-  revision = "cf4846e6a636a76237a28d9286f163c132e841bc"
-  version = "v1.2"
+  revision = "5f50d4fb4e0306dcacc6f8e9bea2dcee784dbbdf"
+  version = "v1.3.0"
 
 [[projects]]
   branch = "master"
