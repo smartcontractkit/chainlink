@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
-import "../../../evm/contracts/ChainlinkClient.sol";
-import "../../../node_modules/openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "../../evm/contracts/ChainlinkClient.sol";
+import "../../node_modules/openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract ARopstenConsumer is ChainlinkClient, Ownable {
   uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations

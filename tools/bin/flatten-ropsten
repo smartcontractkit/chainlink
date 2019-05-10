@@ -2,5 +2,5 @@
 
 rm -f ../examples/ropsten/contracts/RopstenConsumer.sol
 rm -f ../examples/ropsten/contracts/Oracle.sol
-yarn truffle-flattener ../examples/ropsten/contracts/RopstenConsumerBase.sol --output ../examples/ropsten/contracts/RopstenConsumer.sol
+yarn truffle-flattener ../examples/ropsten/RopstenConsumerBase.sol --output ../examples/ropsten/contracts/RopstenConsumer.sol
 yarn truffle-flattener ../evm/contracts/Oracle.sol --output ../examples/ropsten/contracts/Oracle.sol
