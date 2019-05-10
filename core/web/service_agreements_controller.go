@@ -40,7 +40,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 			publicError(c, http.StatusUnprocessableEntity, err)
 			return
 		} else if err = sac.App.AddServiceAgreement(&sa); err != nil {
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			publicError(c, http.StatusInternalServerError, err)
 			return
 		}
 	}
@@ -55,7 +55,7 @@ func (sac *ServiceAgreementsController) Show(c *gin.Context) {
 	if sa, err := sac.App.GetStore().FindServiceAgreement(id.String()); err == orm.ErrorNotFound {
 		publicError(c, http.StatusNotFound, errors.New("ServiceAgreement not found"))
 	} else if err != nil {
-		_ = c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.ServiceAgreement{ServiceAgreement: sa}, "service agreement")
 	}

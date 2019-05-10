@@ -19,11 +19,11 @@ type BulkDeletesController struct {
 func (bdc *BulkDeletesController) Delete(c *gin.Context) {
 	request := &models.BulkDeleteRunRequest{}
 	if err := c.ShouldBindJSON(request); err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
+		publicError(c, http.StatusBadRequest, err)
 	} else if err := models.ValidateBulkDeleteRunRequest(request); err != nil {
-		c.AbortWithError(http.StatusUnprocessableEntity, err)
+		publicError(c, http.StatusUnprocessableEntity, err)
 	} else if err := bdc.App.GetStore().BulkDeleteRuns(request); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponseWithStatus(c, nil, "nil", http.StatusNoContent)
 	}

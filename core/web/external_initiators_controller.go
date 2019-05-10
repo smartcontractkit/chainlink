@@ -23,9 +23,9 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 
 	eia := models.NewExternalInitiatorAuthentication()
 	if ea, err := models.NewExternalInitiator(eia); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else if err := eic.App.GetStore().CreateExternalInitiator(ea); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponseWithStatus(c, eia, "external initiator authenticaion", http.StatusCreated)
 	}
@@ -40,7 +40,7 @@ func (eic *ExternalInitiatorsController) Destroy(c *gin.Context) {
 
 	id := c.Param("AccessKey")
 	if err := eic.App.GetStore().DeleteExternalInitiator(id); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponseWithStatus(c, nil, "external initiator", http.StatusNoContent)
 	}

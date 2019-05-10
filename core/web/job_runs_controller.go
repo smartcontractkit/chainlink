@@ -51,13 +51,13 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 	if j, err := jrc.App.GetStore().FindJob(id); err == orm.ErrorNotFound {
 		publicError(c, http.StatusNotFound, errors.New("Job not found"))
 	} else if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else if !j.WebAuthorized() {
 		publicError(c, http.StatusForbidden, errors.New("Job not available on web API, recreate with web initiator"))
 	} else if data, err := getRunData(c); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else if jr, err := services.ExecuteJob(j, j.InitiatorsFor(models.InitiatorWeb)[0], models.RunResult{Data: data}, nil, jrc.App.GetStore()); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.JobRun{JobRun: *jr}, "job run")
 	}
@@ -79,7 +79,7 @@ func (jrc *JobRunsController) Show(c *gin.Context) {
 	if jr, err := jrc.App.GetStore().FindJobRun(id); err == orm.ErrorNotFound {
 		publicError(c, http.StatusNotFound, errors.New("Job run not found"))
 	} else if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.JobRun{JobRun: jr}, "job run")
 	}
@@ -99,19 +99,19 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	if jr, err := unscoped.FindJobRun(id); err == orm.ErrorNotFound {
 		publicError(c, http.StatusNotFound, errors.New("Job Run not found"))
 	} else if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else if !jr.Result.Status.PendingBridge() {
 		publicError(c, http.StatusMethodNotAllowed, errors.New("Cannot resume a job run that isn't pending"))
 	} else if err := c.ShouldBindJSON(&brr); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else if bt, err := unscoped.PendingBridgeType(jr); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else if ok, err := models.AuthenticateBridgeType(&bt, authToken); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else if !ok {
 		c.AbortWithStatus(http.StatusUnauthorized)
 	} else if err = services.ResumePendingTask(&jr, unscoped, brr.RunResult); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, jr, "job run")
 	}
