@@ -64,6 +64,7 @@ export let [
   consumer,
   oracleNode
 ] = Array(1000).fill(INVALIDVALUE)
+export let personas = {}
 
 before(async function queryEthClientForConstants() {
   accounts = await eth.getAccounts()
@@ -76,6 +77,14 @@ before(async function queryEthClientForConstants() {
     consumer
   ] = accounts.slice(0, 6)
   oracleNode = oracleNode1
+
+  // allow personas instead of roles
+  personas.Default = defaultAccount
+  personas.Neil = oracleNode1
+  personas.Ned = oracleNode2
+  personas.Nelly = oracleNode3
+  personas.Carol = consumer
+  personas.Eddy = stranger
 })
 
 export const utils = Utils(web3.currentProvider)
