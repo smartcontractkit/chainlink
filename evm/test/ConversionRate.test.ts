@@ -2,7 +2,7 @@ import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
 const personas = h.personas
 
-contract('ConverstionRate', () => {
+contract.only('ConverstionRate', () => {
   const SOURCE_PATH: string = 'ConversionRate.sol'
   const jobId = '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   let link, oc, rate
@@ -11,18 +11,16 @@ contract('ConverstionRate', () => {
     link = await h.linkContract()
     oc = await h.deploy('Oracle.sol', link.address)
     await oc.transferOwnership(personas.Neil, { from: personas.Default })
-    rate = await h.deploy(SOURCE_PATH, link.address, oc.address, jobId)
+    rate = await h.deploy(SOURCE_PATH, link.address, [oc.address], [jobId])
     await rate.transferOwnership(personas.Carol, { from: personas.Default })
   })
 
   it('has a limited public interface', () => {
     h.checkPublicABI(artifacts.require(SOURCE_PATH), [
+      'chainlinkCallback',
       'currentRate',
-      'getJobId',
-      'getOracle',
-      'updateCallback',
-      'updateJobId',
-      'updateOracle',
+      'jobIds',
+      'oracles',
       'update',
       // Owable
       'owner',
@@ -54,59 +52,6 @@ contract('ConverstionRate', () => {
 
       const current = await rate.currentRate.call()
       assertBigNum(response, current)
-    })
-  })
-
-  describe('#updateOracle', () => {
-    const updatedAddress = '0x12512b4b88566e455bf3bfbf98752da51925871a'
-
-    beforeEach(async () => {
-      assert.equal(oc.address, await rate.getOracle.call())
-    })
-
-    context('when called by the contract owner', () => {
-      it('updates the oracle address', async () => {
-        await rate.updateOracle(updatedAddress, { from: personas.Carol })
-
-        const current = await rate.getOracle.call()
-        assert.equal(updatedAddress, current.toLowerCase())
-      })
-    })
-
-    context('when called by a non-owner', () => {
-      it('does not update the oracle address', async () => {
-        h.assertActionThrows(async () => {
-          await rate.updateOracle(updatedAddress, { from: personas.Eddy })
-        })
-
-        assert.equal(oc.address, await rate.getOracle.call())
-      })
-    })
-  })
-
-  describe('#updateJobId', () => {
-    const newJobId = '0x5d7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
-
-    beforeEach(async () => {
-      assert.equal(jobId, await rate.getJobId.call())
-    })
-
-    context('when called by the contract owner', () => {
-      it('updates the job ID', async () => {
-        await rate.updateJobId(newJobId, { from: personas.Carol })
-
-        assert.equal(newJobId, await rate.getJobId.call())
-      })
-    })
-
-    context('when called by a non-owner', () => {
-      it('does not update the job ID', async () => {
-        h.assertActionThrows(async () => {
-          await rate.updateJobId(newJobId, { from: personas.Eddy })
-        })
-
-        assert.equal(jobId, await rate.getJobId.call())
-      })
     })
   })
 })
