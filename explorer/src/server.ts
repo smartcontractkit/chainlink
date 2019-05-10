@@ -1,19 +1,27 @@
 import * as controllers from './controllers'
-import * as expressWinston from 'express-winston'
+import { requestWhitelist, logger, errorLogger } from 'express-winston'
 import * as winston from 'winston'
 import express from 'express'
 import http from 'http'
 import { bootstrapRealtime } from './realtime'
-import { ChainlinkNode, createChainlinkNode } from './entity/ChainlinkNode'
 import seed from './seed'
 
 export const DEFAULT_PORT = parseInt(process.env.SERVER_PORT, 10) || 8080
+
+const LOGGER_WHITELIST = [
+  'url',
+  'method',
+  'httpVersion',
+  'originalUrl',
+  'query'
+]
+requestWhitelist.splice(0, requestWhitelist.length, ...LOGGER_WHITELIST)
 
 const addLogging = (app: express.Express) => {
   const consoleTransport = new winston.transports.Console()
 
   app.use(
-    expressWinston.logger({
+    logger({
       expressFormat: true,
       meta: true,
       msg: 'HTTP {{req.method}} {{req.url}}',
@@ -22,7 +30,7 @@ const addLogging = (app: express.Express) => {
   )
 
   app.use(
-    expressWinston.errorLogger({
+    errorLogger({
       transports: [consoleTransport]
     })
   )
