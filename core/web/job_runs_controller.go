@@ -49,15 +49,15 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 	id := c.Param("SpecID")
 
 	if j, err := jrc.App.GetStore().FindJob(id); err == orm.ErrorNotFound {
-		publicError(c, http.StatusNotFound, errors.New("Job not found"))
+		jsonAPIError(c, http.StatusNotFound, errors.New("Job not found"))
 	} else if err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if !j.WebAuthorized() {
-		publicError(c, http.StatusForbidden, errors.New("Job not available on web API, recreate with web initiator"))
+		jsonAPIError(c, http.StatusForbidden, errors.New("Job not available on web API, recreate with web initiator"))
 	} else if data, err := getRunData(c); err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if jr, err := services.ExecuteJob(j, j.InitiatorsFor(models.InitiatorWeb)[0], models.RunResult{Data: data}, nil, jrc.App.GetStore()); err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.JobRun{JobRun: *jr}, "job run")
 	}
@@ -77,9 +77,9 @@ func getRunData(c *gin.Context) (models.JSON, error) {
 func (jrc *JobRunsController) Show(c *gin.Context) {
 	id := c.Param("RunID")
 	if jr, err := jrc.App.GetStore().FindJobRun(id); err == orm.ErrorNotFound {
-		publicError(c, http.StatusNotFound, errors.New("Job run not found"))
+		jsonAPIError(c, http.StatusNotFound, errors.New("Job run not found"))
 	} else if err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.JobRun{JobRun: jr}, "job run")
 	}
@@ -97,21 +97,21 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 
 	unscoped := jrc.App.GetStore().Unscoped()
 	if jr, err := unscoped.FindJobRun(id); err == orm.ErrorNotFound {
-		publicError(c, http.StatusNotFound, errors.New("Job Run not found"))
+		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
 	} else if err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if !jr.Result.Status.PendingBridge() {
-		publicError(c, http.StatusMethodNotAllowed, errors.New("Cannot resume a job run that isn't pending"))
+		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("Cannot resume a job run that isn't pending"))
 	} else if err := c.ShouldBindJSON(&brr); err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if bt, err := unscoped.PendingBridgeType(jr); err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if ok, err := models.AuthenticateBridgeType(&bt, authToken); err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if !ok {
 		c.AbortWithStatus(http.StatusUnauthorized)
 	} else if err = services.ResumePendingTask(&jr, unscoped, brr.RunResult); err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, jr, "job run")
 	}

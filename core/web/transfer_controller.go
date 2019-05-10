@@ -28,11 +28,11 @@ func (tc *TransfersController) Create(c *gin.Context) {
 	store := tc.App.GetStore()
 
 	if err := c.ShouldBindJSON(&tr); err != nil {
-		publicError(c, http.StatusBadRequest, err)
+		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if from, err := retrieveFromAddress(tr.FromAddress, store); err != nil {
-		publicError(c, http.StatusBadRequest, err)
+		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if tx, err := store.TxManager.CreateTxWithEth(from, tr.DestinationAddress, tr.Amount); err != nil {
-		publicError(c, http.StatusBadRequest, fmt.Errorf("Transaction failed: %v", err))
+		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("Transaction failed: %v", err))
 	} else {
 		jsonAPIResponse(c, presenters.NewTx(tx), "transaction")
 	}

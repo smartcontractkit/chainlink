@@ -32,9 +32,9 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 func (tc *TransactionsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
 	if tx, err := tc.App.GetStore().FindTxByAttempt(hash); err == orm.ErrorNotFound {
-		publicError(c, http.StatusNotFound, errors.New("Transaction not found"))
+		jsonAPIError(c, http.StatusNotFound, errors.New("Transaction not found"))
 	} else if err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.NewTx(tx), "transaction")
 	}
