@@ -107,13 +107,14 @@ type syncReceiptPresenter struct {
 	Status TxStatus    `json:"status"`
 }
 
+// TxStatus indicates if a transaction is fulfiled or not
 type TxStatus string
 
 const (
-	// StatusNoFulfilledRunlog indicates that a ChainlinkFulfilled event was
+	// StatusFulfilledRunLog indicates that a ChainlinkFulfilled event was
 	// detected in the transaction receipt.
 	StatusFulfilledRunLog TxStatus = "fulfilledRunLog"
-	// StatusNoFulfilledRunlog indicates that no ChainlinkFulfilled events were
+	// StatusNoFulfilledRunLog indicates that no ChainlinkFulfilled events were
 	// detected in the transaction receipt.
 	StatusNoFulfilledRunLog TxStatus = "noFulfilledRunLog"
 )

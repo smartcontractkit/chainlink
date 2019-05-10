@@ -54,7 +54,7 @@ type websocketClient struct {
 func NewWebSocketClient(url *url.URL, accessKey, secret string) WebSocketClient {
 	return &websocketClient{
 		url:       url,
-		send:      make(chan []byte, 100), // TODO: figure out a better buffer (circular FIFO?)
+		send:      make(chan []byte),
 		receive:   make(chan []byte),
 		boot:      &sync.Mutex{},
 		sleeper:   utils.NewBackoffSleeper(),
@@ -86,10 +86,7 @@ func (w *websocketClient) Start() error {
 // holds it in a small buffer until connection, throwing away messages
 // once buffer is full.
 func (w *websocketClient) Send(data []byte) {
-	select {
-	case w.send <- data:
-	default:
-	}
+	w.send <- data
 }
 
 // Receive blocks the caller while waiting for a response from the server,
