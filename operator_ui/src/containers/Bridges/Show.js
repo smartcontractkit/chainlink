@@ -47,13 +47,6 @@ const renderLoaded = props => (
     </Typography>
 
     <Typography variant="subtitle1" color="textSecondary">
-      Incoming Token
-    </Typography>
-    <Typography variant="body1" color="inherit">
-      {props.bridge.incomingToken}
-    </Typography>
-
-    <Typography variant="subtitle1" color="textSecondary">
       Outgoing Token
     </Typography>
     <Typography variant="body1" color="inherit">

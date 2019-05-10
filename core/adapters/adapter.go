@@ -115,7 +115,7 @@ func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
 		ba = &Wasm{}
 		err = unmarshalParams(task.Params, ba)
 	default:
-		bt, err := store.FindBridge(task.Type.String())
+		bt, err := store.FindBridge(task.Type)
 		if err != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 		}

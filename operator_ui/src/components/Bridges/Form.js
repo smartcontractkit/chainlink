@@ -142,7 +142,11 @@ const formikOpts = {
   },
 
   handleSubmit(values, { props, setSubmitting }) {
-    values.url = normalizeUrl(values.url)
+    try {
+      values.url = normalizeUrl(values.url)
+    } catch(exception) {
+      values.url = ''
+    }
     props.onSubmit(values, props.onSuccess, props.onError)
     set('persistBridge', values)
     setTimeout(() => {
