@@ -243,6 +243,7 @@ func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent) error) error {
 		err := orm.DB.
 			Limit(limit).
 			Offset(offset).
+			Order("created_at desc").
 			Find(&events).Error
 		if err != nil {
 			return 0, err
