@@ -111,7 +111,7 @@ contract Chainlinked is ChainlinkClient {
    * @param _ens The address of the ENS contract
    * @param _node The ENS node hash
    */
-  function useChainlinkWithENS(address _ens, bytes32 _node)
+  function setChainlinkWithENS(address _ens, bytes32 _node)
     internal
   {
     useChainlinkWithENS(_ens, _node);
