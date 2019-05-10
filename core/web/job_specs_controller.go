@@ -42,11 +42,11 @@ func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
 func (jsc *JobSpecsController) Create(c *gin.Context) {
 	js := models.NewJob()
 	if err := c.ShouldBindJSON(&js); err != nil {
-		publicError(c, http.StatusBadRequest, err)
+		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if err := services.ValidateJob(js, jsc.App.GetStore()); err != nil {
-		publicError(c, http.StatusBadRequest, err)
+		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if err = jsc.App.AddJob(js); err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.JobSpec{JobSpec: js}, "job")
 	}
@@ -58,11 +58,11 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 func (jsc *JobSpecsController) Show(c *gin.Context) {
 	id := c.Param("SpecID")
 	if j, err := jsc.App.GetStore().FindJob(id); err == orm.ErrorNotFound {
-		publicError(c, http.StatusNotFound, errors.New("JobSpec not found"))
+		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 	} else if err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if runs, err := jsc.App.GetStore().JobRunsFor(j.ID); err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, jobPresenter(j, runs), "job")
 	}
@@ -74,9 +74,9 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	id := c.Param("SpecID")
 	if err := jsc.App.ArchiveJob(id); err == orm.ErrorNotFound {
-		publicError(c, http.StatusNotFound, errors.New("JobSpec not found"))
+		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 	} else if err != nil {
-		publicError(c, http.StatusInternalServerError, err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 	}

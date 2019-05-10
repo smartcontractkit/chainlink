@@ -283,7 +283,7 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
 				} else {
 					err := fmt.Errorf("failed to open static file '%s': %+v", path, err)
 					logger.Error(err.Error())
-					publicError(c, http.StatusInternalServerError, err)
+					jsonAPIError(c, http.StatusInternalServerError, err)
 				}
 				return
 			}
