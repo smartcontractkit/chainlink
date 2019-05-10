@@ -46,7 +46,7 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 	} else if err := services.ValidateJob(js, jsc.App.GetStore()); err != nil {
 		publicError(c, http.StatusBadRequest, err)
 	} else if err = jsc.App.AddJob(js); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.JobSpec{JobSpec: js}, "job")
 	}
@@ -60,9 +60,9 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 	if j, err := jsc.App.GetStore().FindJob(id); err == orm.ErrorNotFound {
 		publicError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 	} else if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else if runs, err := jsc.App.GetStore().JobRunsFor(j.ID); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, jobPresenter(j, runs), "job")
 	}
@@ -76,7 +76,7 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	if err := jsc.App.ArchiveJob(id); err == orm.ErrorNotFound {
 		publicError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 	} else if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 	}
