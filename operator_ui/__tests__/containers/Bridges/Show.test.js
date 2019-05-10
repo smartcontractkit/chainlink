@@ -18,7 +18,7 @@ const mountShow = props =>
 
 describe('containers/Bridges/Show', () => {
   it('renders the details of the bridge spec', async () => {
-    expect.assertions(6)
+    expect.assertions(5)
     const response = {
       data: {
         id: 'tallbridge',
@@ -27,7 +27,6 @@ describe('containers/Bridges/Show', () => {
           name: 'Tall Bridge',
           url: 'https://localhost.com:712/endpoint',
           confirmations: 9,
-          incomingToken: 'incomingToken',
           outgoingToken: 'outgoingToken'
         }
       }
@@ -42,7 +41,6 @@ describe('containers/Bridges/Show', () => {
     expect(wrapper.text()).toContain('Tall Bridge')
     expect(wrapper.text()).toContain('Confirmations')
     expect(wrapper.text()).toContain('https://localhost.com:712/endpoint')
-    expect(wrapper.text()).toContain('incomingToken')
     expect(wrapper.text()).toContain('outgoingToken')
     expect(wrapper.text()).toContain('9')
   })

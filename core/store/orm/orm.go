@@ -169,9 +169,9 @@ func (orm *ORM) Where(field string, value interface{}, instance interface{}) err
 }
 
 // FindBridge looks up a Bridge by its Name.
-func (orm *ORM) FindBridge(name string) (models.BridgeType, error) {
+func (orm *ORM) FindBridge(name models.TaskType) (models.BridgeType, error) {
 	var bt models.BridgeType
-	return bt, orm.DB.First(&bt, "name = ?", name).Error
+	return bt, orm.DB.First(&bt, "name = ?", name.String()).Error
 }
 
 // PendingBridgeType returns the bridge type of the current pending task,
@@ -181,7 +181,7 @@ func (orm *ORM) PendingBridgeType(jr models.JobRun) (models.BridgeType, error) {
 	if nextTask == nil {
 		return models.BridgeType{}, errors.New("Cannot find the pending bridge type of a job run with no unfinished tasks")
 	}
-	return orm.FindBridge(nextTask.TaskSpec.Type.String())
+	return orm.FindBridge(nextTask.TaskSpec.Type)
 }
 
 // FindJob looks up a Job by its ID.

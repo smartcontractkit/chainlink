@@ -63,12 +63,12 @@ func (bt *BridgeTypeAuthentication) SetID(value string) error {
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name                   TaskType `json:"name" gorm:"primary_key"`
-	URL                    WebURL   `json:"url"`
-	Confirmations          uint64   `json:"confirmations"`
-	IncomingTokenHash      string
-	Salt                   string
-	OutgoingToken          string
+	Name                   TaskType     `json:"name" gorm:"primary_key"`
+	URL                    WebURL       `json:"url"`
+	Confirmations          uint64       `json:"confirmations"`
+	IncomingTokenHash      string       `json:"-"`
+	Salt                   string       `json:"-"`
+	OutgoingToken          string       `json:"outgoingToken"`
 	MinimumContractPayment *assets.Link `json:"minimumContractPayment" gorm:"type:varchar(255)"`
 }
 
