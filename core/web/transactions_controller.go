@@ -34,7 +34,7 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 	if tx, err := tc.App.GetStore().FindTxByAttempt(hash); err == orm.ErrorNotFound {
 		publicError(c, http.StatusNotFound, errors.New("Transaction not found"))
 	} else if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.NewTx(tx), "transaction")
 	}

@@ -43,7 +43,7 @@ func (abc *WithdrawalsController) Create(c *gin.Context) {
 	} else if wr.DestinationAddress == addressWasNotSpecifiedInRequest {
 		publicError(c, http.StatusBadRequest, errors.New("Invalid withdrawal address"))
 	} else if linkBalance, err := txm.ContractLINKBalance(wr); err != nil {
-		_ = c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else if linkBalance.Cmp(wr.Amount) < 0 {
 		publicError(c, http.StatusBadRequest, fmt.Errorf(
 			"Insufficient link balance. Withdrawal Amount: %v "+
@@ -54,7 +54,7 @@ func (abc *WithdrawalsController) Create(c *gin.Context) {
 
 	hash, err := txm.WithdrawLINK(wr)
 	if err != nil {
-		_ = c.AbortWithError(http.StatusInternalServerError, err)
+		publicError(c, http.StatusInternalServerError, err)
 	} else {
 		tx := models.Tx{Hash: hash}
 		jsonAPIResponse(c, presenters.NewTx(&tx), "transaction")

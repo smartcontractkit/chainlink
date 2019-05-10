@@ -26,11 +26,11 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		publicError(ctx, http.StatusUnprocessableEntity, err)
 	} else if user, err := c.App.GetStore().FindUser(); err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
+		publicError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 	} else if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
 		publicError(ctx, http.StatusConflict, errors.New("Old password does not match"))
 	} else if err := c.updateUserPassword(ctx, &user, request.NewPassword); err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		publicError(ctx, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(ctx, presenters.UserPresenter{User: &user}, "user")
 	}
@@ -86,9 +86,9 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User,
 func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.AccountBalance {
 	txm := store.TxManager
 	if ethBalance, err := txm.GetEthBalance(account.Address); err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		publicError(ctx, http.StatusInternalServerError, err)
 	} else if linkBalance, err := txm.GetLINKBalance(account.Address); err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		publicError(ctx, http.StatusInternalServerError, err)
 	} else {
 		return presenters.AccountBalance{
 			Address:     account.Address.Hex(),
