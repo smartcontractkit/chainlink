@@ -11,7 +11,7 @@ dependencies = [
 
 [[package]]
 name = "bigdecimal"
-version = "0.0.14"
+version = "0.1.0"
 dependencies = [
  "num-bigint 0.2.0",
  "num-integer 0.1.39",
@@ -38,7 +38,7 @@ name = "enclave"
 version = "0.1.0"
 dependencies = [
  "base64 0.9.2",
- "bigdecimal 0.0.14",
+ "bigdecimal 0.1.0",
  "num 0.1.40",
  "serde 1.0.84",
  "serde_derive 1.0.84",
