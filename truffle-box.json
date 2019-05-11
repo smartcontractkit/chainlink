@@ -1,0 +1,38 @@
+{
+  "ignore": [
+    "chainlink-launcher-sgx.sh",
+    "chainlink-launcher.sh",
+    "core",
+    "docker-compose.yaml",
+    "Dockerfile",
+    "Dockerfile-sgx",
+    "docs",
+    "evm",
+    "examples",
+    "explorer",
+    "Gopkg.lock",
+    "Gopkg.toml",
+    "integration",
+    "LICENSE",
+    "Makefile",
+    "operator_ui",
+    "package.json",
+    "README.md",
+    "sgx",
+    "styleguide",
+    "tools",
+    "tsconfig.json",
+    "tslint.json",
+    "VERSION",
+    "yarn.lock"
+  ],
+  "commands": {
+    "Run tests": "npm test",
+    "Compile contracts": "npm run compile",
+    "Migrate to development network": "npm run migrate:dev",
+    "Migrate to live network": "npm run migrate:live"
+  },
+  "hooks": {
+    "post-unpack": "bash unbox.sh && rm unbox.sh && npm install"
+  }
+}
