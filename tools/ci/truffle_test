@@ -11,3 +11,4 @@ yarn workspace chainlink-uptime-sla truffle test --network test
 yarn workspace chainlink-echo-server truffle test --network test
 yarn workspace chainlink flatten
 yarn workspace chainlink-testnet truffle build
+yarn workspace chainlink-box truffle test --network test

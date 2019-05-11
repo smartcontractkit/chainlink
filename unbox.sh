@@ -2,5 +2,6 @@
 
 set -e
 
-mv box/* .
-rm -rf box
+mv evm/box/* .
+rm -rf evm
+rm box-img*

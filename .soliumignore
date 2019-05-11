@@ -5,3 +5,4 @@ examples/twilio_sms/node_modules
 examples/testnet/contracts/TestnetConsumer.sol
 examples/testnet/contracts/Oracle.sol
 evm/contracts/lib
+evm/box/node_modules

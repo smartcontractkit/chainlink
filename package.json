@@ -3,6 +3,7 @@
   "license": "MIT",
   "workspaces": [
     "evm",
+    "evm/box",
     "operator_ui",
     "integration",
     "examples/*"
