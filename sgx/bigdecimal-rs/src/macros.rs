@@ -67,7 +67,6 @@ macro_rules! forward_val_assignop {
     };
 }
 
-
 macro_rules! impl_div_for_uint_primitive {
     // (impl $imp:ident for $res:ty, $method:ident) => {
     ($res:ty) => {
