@@ -6,31 +6,31 @@ version = "0.9.2"
 dependencies = [
  "byteorder 1.2.1",
  "safemem 0.3.0",
- "sgx_tstd 1.0.5",
+ "sgx_tstd 1.0.7",
 ]
 
 [[package]]
 name = "bigdecimal"
-version = "0.0.14"
+version = "0.1.0"
 dependencies = [
  "num-bigint 0.2.0",
  "num-integer 0.1.39",
  "num-traits 0.2.5",
  "serde 1.0.84",
- "sgx_tstd 1.0.5",
- "sgx_types 1.0.5",
+ "sgx_tstd 1.0.7",
+ "sgx_types 1.0.7",
 ]
 
 [[package]]
 name = "byteorder"
 version = "1.2.1"
 dependencies = [
- "sgx_tstd 1.0.5",
+ "sgx_tstd 1.0.7",
 ]
 
 [[package]]
 name = "byteorder"
-version = "1.2.6"
+version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -38,17 +38,16 @@ name = "enclave"
 version = "0.1.0"
 dependencies = [
  "base64 0.9.2",
- "bigdecimal 0.0.14",
+ "bigdecimal 0.1.0",
  "num 0.1.40",
  "serde 1.0.84",
  "serde_derive 1.0.84",
  "serde_json 1.0.36",
- "sgx_rand 1.0.5",
- "sgx_tcrypto 1.0.5",
- "sgx_tse 1.0.5",
- "sgx_tstd 1.0.5",
- "sgx_types 1.0.5",
- "sgx_urts 1.0.5",
+ "sgx_rand 1.0.7",
+ "sgx_tcrypto 1.0.7",
+ "sgx_tse 1.0.7",
+ "sgx_tstd 1.0.7",
+ "sgx_types 1.0.7",
  "utils 0.1.0",
  "wabt-core 0.4.0",
  "wasmi 0.4.0",
@@ -58,13 +57,8 @@ dependencies = [
 name = "itoa"
 version = "0.4.1"
 dependencies = [
- "sgx_tstd 1.0.5",
+ "sgx_tstd 1.0.7",
 ]
-
-[[package]]
-name = "libc"
-version = "0.2.48"
-source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "memory_units"
@@ -75,7 +69,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "nan-preserving-float"
 version = "0.1.0"
 dependencies = [
- "sgx_tstd 1.0.5",
+ "sgx_tstd 1.0.7",
 ]
 
 [[package]]
@@ -96,7 +90,7 @@ dependencies = [
  "num-integer 0.1.39",
  "num-traits 0.2.5",
  "serde 1.0.84",
- "sgx_tstd 1.0.5",
+ "sgx_tstd 1.0.7",
 ]
 
 [[package]]
@@ -112,7 +106,7 @@ name = "num-integer"
 version = "0.1.39"
 dependencies = [
  "num-traits 0.2.5",
- "sgx_tstd 1.0.5",
+ "sgx_tstd 1.0.7",
 ]
 
 [[package]]
@@ -121,14 +115,14 @@ version = "0.1.34"
 dependencies = [
  "num-integer 0.1.39",
  "num-traits 0.2.5",
- "sgx_tstd 1.0.5",
+ "sgx_tstd 1.0.7",
 ]
 
 [[package]]
 name = "num-traits"
 version = "0.2.5"
 dependencies = [
- "sgx_tstd 1.0.5",
+ "sgx_tstd 1.0.7",
 ]
 
 [[package]]
@@ -136,12 +130,12 @@ name = "parity-wasm"
 version = "0.31.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "byteorder 1.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "byteorder 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "proc-macro2"
-version = "0.4.20"
+version = "0.4.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "unicode-xid 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -154,38 +148,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "quote"
-version = "0.6.8"
+version = "0.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "proc-macro2 0.4.20 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "ryu"
-version = "0.2.7"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "safemem"
 version = "0.3.0"
 dependencies = [
- "sgx_tstd 1.0.5",
+ "sgx_tstd 1.0.7",
 ]
 
 [[package]]
 name = "serde"
 version = "1.0.84"
 dependencies = [
- "sgx_tstd 1.0.5",
+ "sgx_tstd 1.0.7",
 ]
 
 [[package]]
 name = "serde_derive"
 version = "1.0.84"
 dependencies = [
- "proc-macro2 0.4.20 (registry+https://github.com/rust-lang/crates.io-index)",
- "quote 0.6.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "syn 0.15.26 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn 0.15.34 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -193,16 +187,16 @@ name = "serde_json"
 version = "1.0.36"
 dependencies = [
  "itoa 0.4.1",
- "ryu 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ryu 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.84",
- "sgx_tstd 1.0.5",
+ "sgx_tstd 1.0.7",
 ]
 
 [[package]]
 name = "sgx_alloc"
-version = "1.0.5"
+version = "1.0.7"
 dependencies = [
- "sgx_trts 1.0.5",
+ "sgx_trts 1.0.7",
 ]
 
 [[package]]
@@ -211,80 +205,72 @@ version = "0.1.0"
 
 [[package]]
 name = "sgx_libc"
-version = "1.0.5"
+version = "1.0.7"
 dependencies = [
- "sgx_types 1.0.5",
+ "sgx_types 1.0.7",
 ]
 
 [[package]]
 name = "sgx_rand"
-version = "1.0.5"
+version = "1.0.7"
 dependencies = [
- "sgx_trts 1.0.5",
- "sgx_tstd 1.0.5",
- "sgx_types 1.0.5",
+ "sgx_trts 1.0.7",
+ "sgx_tstd 1.0.7",
+ "sgx_types 1.0.7",
 ]
 
 [[package]]
 name = "sgx_tcrypto"
-version = "1.0.5"
+version = "1.0.7"
 dependencies = [
- "sgx_types 1.0.5",
+ "sgx_types 1.0.7",
 ]
 
 [[package]]
 name = "sgx_tprotected_fs"
-version = "1.0.5"
+version = "1.0.7"
 dependencies = [
- "sgx_trts 1.0.5",
- "sgx_types 1.0.5",
+ "sgx_trts 1.0.7",
+ "sgx_types 1.0.7",
 ]
 
 [[package]]
 name = "sgx_trts"
-version = "1.0.5"
+version = "1.0.7"
 dependencies = [
- "sgx_libc 1.0.5",
- "sgx_types 1.0.5",
+ "sgx_libc 1.0.7",
+ "sgx_types 1.0.7",
 ]
 
 [[package]]
 name = "sgx_tse"
-version = "1.0.5"
+version = "1.0.7"
 dependencies = [
- "sgx_types 1.0.5",
+ "sgx_types 1.0.7",
 ]
 
 [[package]]
 name = "sgx_tstd"
-version = "1.0.5"
+version = "1.0.7"
 dependencies = [
- "sgx_alloc 1.0.5",
+ "sgx_alloc 1.0.7",
  "sgx_build_helper 0.1.0",
- "sgx_libc 1.0.5",
- "sgx_tprotected_fs 1.0.5",
- "sgx_trts 1.0.5",
- "sgx_types 1.0.5",
+ "sgx_libc 1.0.7",
+ "sgx_tprotected_fs 1.0.7",
+ "sgx_trts 1.0.7",
+ "sgx_types 1.0.7",
  "sgx_unwind 0.0.1",
 ]
 
 [[package]]
 name = "sgx_types"
-version = "1.0.5"
+version = "1.0.7"
 
 [[package]]
 name = "sgx_unwind"
 version = "0.0.1"
 dependencies = [
- "sgx_trts 1.0.5",
-]
-
-[[package]]
-name = "sgx_urts"
-version = "1.0.5"
-dependencies = [
- "libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)",
- "sgx_types 1.0.5",
+ "sgx_trts 1.0.7",
 ]
 
 [[package]]
@@ -297,11 +283,11 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "0.15.26"
+version = "0.15.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "proc-macro2 0.4.20 (registry+https://github.com/rust-lang/crates.io-index)",
- "quote 0.6.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicode-xid 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -314,7 +300,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "utils"
 version = "0.1.0"
 dependencies = [
- "sgx_tstd 1.0.5",
+ "sgx_tstd 1.0.7",
 ]
 
 [[package]]
@@ -324,8 +310,8 @@ dependencies = [
  "serde 1.0.84",
  "serde_derive 1.0.84",
  "serde_json 1.0.36",
- "sgx_tstd 1.0.5",
- "sgx_types 1.0.5",
+ "sgx_tstd 1.0.7",
+ "sgx_types 1.0.7",
 ]
 
 [[package]]
@@ -338,18 +324,17 @@ dependencies = [
  "parity-wasm 0.31.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.84",
  "serde_derive 1.0.84",
- "sgx_tstd 1.0.5",
+ "sgx_tstd 1.0.7",
 ]
 
 [metadata]
-"checksum byteorder 1.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "90492c5858dd7d2e78691cfb89f90d273a2800fc11d98f60786e5d87e2f83781"
-"checksum libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)" = "e962c7641008ac010fa60a7dfdc1712449f29c44ef2d4702394aea943ee75047"
+"checksum byteorder 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a019b10a2a7cdeb292db131fc8113e57ea2a908f6e7894b0c3c671893b65dbeb"
 "checksum memory_units 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 "checksum parity-wasm 0.31.3 (registry+https://github.com/rust-lang/crates.io-index)" = "511379a8194230c2395d2f5fa627a5a7e108a9f976656ce723ae68fca4097bfc"
-"checksum proc-macro2 0.4.20 (registry+https://github.com/rust-lang/crates.io-index)" = "3d7b7eaaa90b4a90a932a9ea6666c95a389e424eff347f0f793979289429feee"
+"checksum proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)" = "cf3d2011ab5c909338f7887f4fc896d35932e29146c12c8d01da6b22a80ba759"
 "checksum quote 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "b0f1847d90ff21d41b08f7f9f8e82dff613c3e2c5ebc9f8a10aeee1a0c4d7d17"
-"checksum quote 0.6.8 (registry+https://github.com/rust-lang/crates.io-index)" = "dd636425967c33af890042c483632d33fa7a18f19ad1d7ea72e8998c6ef8dea5"
-"checksum ryu 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)" = "eb9e9b8cde282a9fe6a42dd4681319bfb63f121b8a8ee9439c6f4107e58a46f7"
-"checksum syn 0.15.26 (registry+https://github.com/rust-lang/crates.io-index)" = "f92e629aa1d9c827b2bb8297046c1ccffc57c99b947a680d3ccff1f136a3bee9"
+"checksum quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)" = "faf4799c5d274f3868a4aae320a0a182cbd2baee377b378f080e16a23e9d80db"
+"checksum ryu 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "b96a9549dc8d48f2c283938303c4b5a77aa29bfbc5b54b084fb1630408899a8f"
+"checksum syn 0.15.34 (registry+https://github.com/rust-lang/crates.io-index)" = "a1393e4a97a19c01e900df2aec855a29f71cf02c402e2f443b8d2747c25c5dbe"
 "checksum syn 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2d25c61533bd33b0badb0b96178731a19407586f8a2547753095109c142e5242"
 "checksum unicode-xid 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fc72304796d0818e357ead4e000d19c9c174ab23dc11093ac919054d20a6a7fc"
