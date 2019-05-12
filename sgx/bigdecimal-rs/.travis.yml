@@ -2,12 +2,40 @@ language: rust
 rust:
   - 1.16.0
   - 1.22.0
-  - 1.26.0
+  - 1.30.0
   - stable
   - beta
   - nightly
+
 sudo: false
+
 script:
   - cargo build --verbose
   - cargo test
   - cargo test --features serde
+
+matrix:
+  allow_failures:
+    - rust: nightly
+
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - cmake
+      - gcc
+      - binutils-dev
+      - libiberty-dev
+
+after_success: |
+  curl -L https://github.com/SimonKagstrom/kcov/archive/master.tar.gz | tar xz &&
+  pushd kcov-master &&
+    mkdir build &&
+    cmake -DCMAKE_INSTALL_PREFIX=$HOME . &&
+    make install &&
+  popd &&
+  for file in target/debug/bigdecimal-*[^\.d]; do mkdir -p "target/cov/$(basename $file)"; $HOME/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
+  bash <(curl -s https://codecov.io/bash) &&
+  echo "Uploaded code coverage"

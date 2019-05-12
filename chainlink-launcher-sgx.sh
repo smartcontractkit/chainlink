@@ -13,7 +13,7 @@ if [ "$command" != "n" ] && [ "$command" != "node" ]; then
 fi
 
 if [ "$SGX_SIMULATION" != "yes" ]; then
-  /opt/intel/sgxpsw/aesm/aesm_service &
+  LD_LIBRARY_PATH=/opt/intel/libsgx-enclave-common/aesm /opt/intel/sgxpsw/aesm/aesm_service &
   aesm_pid=$!
   trap "kill $aesm_pid 2>/dev/null || true" SIGINT SIGTERM EXIT
 fi
