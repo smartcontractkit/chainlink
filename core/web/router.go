@@ -75,7 +75,7 @@ func Router(app services.Application) *gin.Engine {
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
-		rateLimiter(),
+		rateLimiter(1*time.Minute, 500),
 		sessions.Sessions(SessionName, sessionStore),
 		secureMiddleware(config),
 	)
@@ -88,11 +88,11 @@ func Router(app services.Application) *gin.Engine {
 	return engine
 }
 
-func rateLimiter() gin.HandlerFunc {
+func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 	store := memory.NewStore()
 	rate := limiter.Rate{
-		Period: 1 * time.Minute,
-		Limit:  500,
+		Period: period,
+		Limit:  limit,
 	}
 	return mgin.NewMiddleware(limiter.New(store, rate))
 }
@@ -200,8 +200,9 @@ func metricRoutes(app services.Application, engine *gin.Engine) {
 }
 
 func sessionRoutes(app services.Application, engine *gin.Engine) {
+	ultraLimited := engine.Group("/", rateLimiter(1*time.Second, 4))
 	sc := SessionsController{app}
-	engine.POST("/sessions", sc.Create)
+	ultraLimited.POST("/sessions", sc.Create)
 	auth := engine.Group("/", sessionAuthRequired(app.GetStore()))
 	auth.DELETE("/sessions", sc.Destroy)
 }
