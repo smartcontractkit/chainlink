@@ -78,7 +78,7 @@ type ChainlinkRunner struct{}
 // for input and return data.
 func (n ChainlinkRunner) Run(app services.Application) error {
 	gin.SetMode(app.GetStore().Config.LogLevel().ForGin())
-	server := web.Router(app.(*services.ChainlinkApplication))
+	handler := web.Router(app.(*services.ChainlinkApplication))
 	config := app.GetStore().Config
 	var g errgroup.Group
 
@@ -87,18 +87,49 @@ func (n ChainlinkRunner) Run(app services.Application) error {
 	}
 
 	if config.Port() != 0 {
-		url := fmt.Sprintf(":%d", config.Port())
-		g.Go(func() error { return server.Run(url) })
+		g.Go(func() error { return runServer(handler, config.Port()) })
 	}
 
 	if config.TLSPort() != 0 {
-		certFile := config.CertFile()
-		keyFile := config.KeyFile()
-		url := fmt.Sprintf(":%d", config.TLSPort())
-		g.Go(func() error { return server.RunTLS(url, certFile, keyFile) })
+		g.Go(func() error {
+			return runServerTLS(
+				handler,
+				config.TLSPort(),
+				config.CertFile(),
+				config.KeyFile())
+		})
 	}
 
 	return g.Wait()
+}
+
+func runServer(handler *gin.Engine, port uint16) error {
+	logger.Infof("Listening and serving HTTP on port %d", port)
+	server := createServer(handler, port)
+	err := server.ListenAndServe()
+	logger.ErrorIf(err)
+	return err
+}
+
+func runServerTLS(handler *gin.Engine, port uint16, certFile, keyFile string) error {
+	logger.Infof("Listening and serving HTTPS on port %d", port)
+	server := createServer(handler, port)
+	err := server.ListenAndServeTLS(certFile, keyFile)
+	logger.ErrorIf(err)
+	return err
+}
+
+func createServer(handler *gin.Engine, port uint16) *http.Server {
+	url := fmt.Sprintf(":%d", port)
+	s := &http.Server{
+		Addr:           url,
+		Handler:        handler,
+		ReadTimeout:    5 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		IdleTimeout:    60 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	return s
 }
 
 // HTTPClient encapsulates all methods used to interact with a chainlink node API.
