@@ -24,6 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/ulule/limiter"
+	mgin "github.com/ulule/limiter/drivers/middleware/gin"
+	"github.com/ulule/limiter/drivers/store/memory"
 	"github.com/unrolled/secure"
 )
 
@@ -72,6 +75,7 @@ func Router(app services.Application) *gin.Engine {
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
+		rateLimiter(),
 		sessions.Sessions(SessionName, sessionStore),
 		secureMiddleware(config),
 	)
@@ -82,6 +86,15 @@ func Router(app services.Application) *gin.Engine {
 	guiAssetRoutes(app.NewBox(), engine)
 
 	return engine
+}
+
+func rateLimiter() gin.HandlerFunc {
+	store := memory.NewStore()
+	rate := limiter.Rate{
+		Period: 1 * time.Minute,
+		Limit:  500,
+	}
+	return mgin.NewMiddleware(limiter.New(store, rate))
 }
 
 // secureOptions configure security options for the secure middleware, mostly
