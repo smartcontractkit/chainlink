@@ -22,8 +22,7 @@
 
 [[constraint]]
   name = "github.com/gin-gonic/gin"
-  source = "github.com/smartcontractkit/gin"
-  branch = "staticfs-noroute"
+  version = "1.4.0"
 
 [[constraint]]
   name = "github.com/mitchellh/go-homedir"
