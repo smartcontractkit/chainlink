@@ -95,3 +95,31 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 
 	assert.Equal(t, 401, resp.StatusCode)
 }
+
+func TestSessions_RateLimited(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKey()
+	defer cleanup()
+
+	router := web.Router(app)
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	client := http.Client{}
+	input := `{"email":"brute@force.com", "password": "wrongpassword"}`
+
+	for i := 0; i < 4; i++ {
+		request, err := http.NewRequest("POST", ts.URL+"/sessions", bytes.NewBufferString(input))
+		require.NoError(t, err)
+
+		resp, err := client.Do(request)
+		require.NoError(t, err)
+		assert.Equal(t, 401, resp.StatusCode)
+	}
+
+	request, err := http.NewRequest("POST", ts.URL+"/sessions", bytes.NewBufferString(input))
+	require.NoError(t, err)
+
+	resp, err := client.Do(request)
+	require.NoError(t, err)
+	assert.Equal(t, 429, resp.StatusCode)
+}
