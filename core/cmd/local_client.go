@@ -59,7 +59,10 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
 	}
 	defer loggedStop(app)
-	logConfigVariables(store)
+	err = logConfigVariables(store)
+	if err != nil {
+		return err
+	}
 
 	return cli.errorOut(cli.Runner.Run(app))
 }
@@ -125,13 +128,14 @@ func logAccountBalance(kv map[string]interface{}) {
 	logger.Infow(fmt.Sprint(kv["message"]), "address", kv["address"], "balance", kv["balance"])
 }
 
-func logConfigVariables(store *strpkg.Store) {
+func logConfigVariables(store *strpkg.Store) error {
 	wlc, err := presenters.NewConfigWhitelist(store)
 	if err != nil {
-		logger.Error("Failed to build environment variables\n", err)
-	} else {
-		logger.Debug("Environment variables\n", wlc)
+		return err
 	}
+
+	logger.Debug("Environment variables\n", wlc)
+	return nil
 }
 
 // DeleteUser is run locally to remove the User row from the node's database.
