@@ -402,7 +402,8 @@
   version = "v1.0"
 
 [[projects]]
-  digest = "1:7d4958827c8f2d9d31e24d9a3a52194eb179f77d854692e57954c516ecf76748"
+  branch = "feature/on_defer_rollback_should_not_print_error_message"
+  digest = "1:c561ed4278be7f4199bda4cf400e4d9878e3fb120eae96ea57734f2f338368a1"
   name = "github.com/jinzhu/gorm"
   packages = [
     ".",
@@ -410,8 +411,8 @@
     "dialects/sqlite",
   ]
   pruneopts = ""
-  revision = "472c70caa40267cb89fd8facb07fe6454b578626"
-  version = "v1.9.2"
+  revision = "9f02beef1cddd6516e7eb234a8cd3826bedbb349"
+  source = "github.com/smartcontractkit/gorm"
 
 [[projects]]
   branch = "master"
