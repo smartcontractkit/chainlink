@@ -97,6 +97,10 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 	return mgin.NewMiddleware(limiter.New(store, rate))
 }
 
+func unauthedRateLimiter() gin.HandlerFunc {
+	return rateLimiter(time.Second, 4)
+}
+
 // secureOptions configure security options for the secure middleware, mostly
 // for TLS redirection
 func secureOptions(config store.Config) secure.Options {
@@ -200,21 +204,21 @@ func metricRoutes(app services.Application, engine *gin.Engine) {
 }
 
 func sessionRoutes(app services.Application, engine *gin.Engine) {
-	ultraLimited := engine.Group("/", rateLimiter(1*time.Second, 4))
+	unauth := engine.Group("/", unauthedRateLimiter())
 	sc := SessionsController{app}
-	ultraLimited.POST("/sessions", sc.Create)
+	unauth.POST("/sessions", sc.Create)
 	auth := engine.Group("/", sessionAuthRequired(app.GetStore()))
 	auth.DELETE("/sessions", sc.Destroy)
 }
 
 func v2Routes(app services.Application, engine *gin.Engine) {
-	v2 := engine.Group("/v2")
+	unauthedv2 := engine.Group("/v2", unauthedRateLimiter())
 
 	jr := JobRunsController{app}
-	v2.PATCH("/runs/:RunID", jr.Update)
+	unauthedv2.PATCH("/runs/:RunID", jr.Update)
 
 	sa := ServiceAgreementsController{app}
-	v2.POST("/service_agreements", sa.Create)
+	unauthedv2.POST("/service_agreements", sa.Create)
 
 	j := JobSpecsController{app}
 
@@ -269,7 +273,7 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
 	}
 
-	tokAuthv2 := engine.Group("/v2", tokenAuthRequired(app.GetStore()))
+	tokAuthv2 := engine.Group("/v2", unauthedRateLimiter(), tokenAuthRequired(app.GetStore()))
 	tokAuthv2.POST("/specs/:SpecID/runs", jr.Create)
 	tokAuthv2.POST("/specs", j.Create)
 }
