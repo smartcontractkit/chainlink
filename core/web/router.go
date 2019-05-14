@@ -327,7 +327,7 @@ func loggerFunc() gin.HandlerFunc {
 		buf, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
 			logger.Error("Web request log error: ", err.Error())
-			c.Next()
+			c.AbortWithStatus(http.StatusRequestEntityTooLarge)
 			return
 		}
 		rdr := bytes.NewBuffer(buf)
