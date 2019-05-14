@@ -152,3 +152,7 @@
 [[constraint]]
   name = "gopkg.in/gormigrate.v1"
   version = "1.5.0"
+
+[[constraint]]
+  name = "github.com/ulule/limiter"
+  branch = "v3-dep"

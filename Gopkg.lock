@@ -814,6 +814,19 @@
   version = "v1.1.4"
 
 [[projects]]
+  branch = "v3-dep"
+  digest = "1:dd055ff2095e206392d56db972e8508b4641664ae49e2e9a9e018a088477721d"
+  name = "github.com/ulule/limiter"
+  packages = [
+    ".",
+    "drivers/middleware/gin",
+    "drivers/store/common",
+    "drivers/store/memory",
+  ]
+  pruneopts = ""
+  revision = "7873d115fc4e48361b8e452e339520e306f23990"
+
+[[projects]]
   branch = "master"
   digest = "1:b57a5c6a6381d7492c91a3bc147bf33ef9dcb7e15592f0c3277ff9959b29cfbf"
   name = "github.com/unrolled/secure"
@@ -1053,6 +1066,9 @@
     "github.com/tidwall/gjson",
     "github.com/tidwall/sjson",
     "github.com/ugorji/go/codec",
+    "github.com/ulule/limiter",
+    "github.com/ulule/limiter/drivers/middleware/gin",
+    "github.com/ulule/limiter/drivers/store/memory",
     "github.com/unrolled/secure",
     "github.com/urfave/cli",
     "github.com/willf/pad",
