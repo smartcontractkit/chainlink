@@ -32,6 +32,10 @@ func init() {
 	SetLogger(zl)
 }
 
+func GetLogger() *Logger {
+	return logger
+}
+
 func prettyConsoleSink(s zap.Sink) func(*url.URL) (zap.Sink, error) {
 	return func(*url.URL) (zap.Sink, error) {
 		return PrettyConsole{s}, nil
