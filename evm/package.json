@@ -5,7 +5,7 @@
   "scripts": {
     "build": "truffle build",
     "test": "truffle test",
-    "flatten": "../tools/bin/flatten-ropsten"
+    "flatten": "../tools/bin/flatten-testnet"
   },
   "dependencies": {
     "@ensdomains/ens": "^0.1.1",
