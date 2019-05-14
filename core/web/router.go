@@ -75,13 +75,19 @@ func Router(app services.Application) *gin.Engine {
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
-		sessions.Sessions(SessionName, sessionStore),
 		secureMiddleware(config),
 	)
 
-	metricRoutes(app, engine)
-	sessionRoutes(app, engine)
-	v2Routes(app, engine)
+	api := engine.Group(
+		"/",
+		rateLimiter(1*time.Minute, 1000),
+		sessions.Sessions(SessionName, sessionStore),
+	)
+
+	metricRoutes(app, api)
+	sessionRoutes(app, api)
+	v2Routes(app, api)
+
 	guiAssetRoutes(app.NewBox(), engine)
 
 	return engine
@@ -193,21 +199,21 @@ func tokenAuthRequired(store *store.Store) gin.HandlerFunc {
 	}
 }
 
-func metricRoutes(app services.Application, engine *gin.Engine) {
-	auth := engine.Group("/", sessionAuthRequired(app.GetStore()))
+func metricRoutes(app services.Application, r *gin.RouterGroup) {
+	auth := r.Group("/", sessionAuthRequired(app.GetStore()))
 	auth.GET("/debug/vars", expvar.Handler())
 }
 
-func sessionRoutes(app services.Application, engine *gin.Engine) {
-	unauth := engine.Group("/", rateLimiter(20*time.Second, 5))
+func sessionRoutes(app services.Application, r *gin.RouterGroup) {
+	unauth := r.Group("/", rateLimiter(20*time.Second, 5))
 	sc := SessionsController{app}
 	unauth.POST("/sessions", sc.Create)
-	auth := engine.Group("/", sessionAuthRequired(app.GetStore()))
+	auth := r.Group("/", sessionAuthRequired(app.GetStore()))
 	auth.DELETE("/sessions", sc.Destroy)
 }
 
-func v2Routes(app services.Application, engine *gin.Engine) {
-	unauthedv2 := engine.Group("/v2")
+func v2Routes(app services.Application, r *gin.RouterGroup) {
+	unauthedv2 := r.Group("/v2")
 
 	jr := JobRunsController{app}
 	unauthedv2.PATCH("/runs/:RunID", jr.Update)
@@ -217,7 +223,7 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 
 	j := JobSpecsController{app}
 
-	authv2 := engine.Group("/v2", sessionAuthRequired(app.GetStore()))
+	authv2 := r.Group("/v2", sessionAuthRequired(app.GetStore()))
 	{
 		uc := UserController{app}
 		authv2.PATCH("/user/password", uc.UpdatePassword)
@@ -268,7 +274,7 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
 	}
 
-	tokAuthv2 := engine.Group("/v2", tokenAuthRequired(app.GetStore()))
+	tokAuthv2 := r.Group("/v2", tokenAuthRequired(app.GetStore()))
 	tokAuthv2.POST("/specs/:SpecID/runs", jr.Create)
 	tokAuthv2.POST("/specs", j.Create)
 }
