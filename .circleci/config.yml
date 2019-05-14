@@ -271,7 +271,6 @@ workflows:
       - parity-postgres
       - operator-ui
       - rust
-      - sgx
       - explorer
       - build-explorer-image:
           filters:
