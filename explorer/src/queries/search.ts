@@ -21,6 +21,8 @@ const searchBuilder = (
       .orWhere('job_run.requester IN(:...searchTokens)', { searchTokens })
       .orWhere('job_run.requestId IN(:...searchTokens)', { searchTokens })
       .orWhere('job_run.txHash IN(:...searchTokens)', { searchTokens })
+  } else {
+    query = query.where('true = false')
   }
 
   if (params.limit != null) {

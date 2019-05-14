@@ -26,8 +26,8 @@ describe('search', () => {
     await db.manager.save(jrA)
 
     const fixtureB = Object.assign({}, fixture, {
-      jobId: 'f1xtureBbbbbbbbbbbbbbbbbbbbbbbbb',
-      runId: 'f1xtureBbbbbbbbbbbbbbbbbbbbbbbbb'
+      jobId: 'jobB',
+      runId: 'runB'
     })
     const jrB = fromString(JSON.stringify(fixtureB))
     jrB.chainlinkNodeId = chainlinkNode.id
@@ -36,26 +36,39 @@ describe('search', () => {
     jrB.requester = 'fixtureBRequester'
     jrB.requestId = 'fixtureBRequestID'
     await db.manager.save(jrB)
+
+    const fixtureC = Object.assign({}, fixture, {
+      jobId: 'jobB',
+      runId: 'runC'
+    })
+    const jrC = fromString(JSON.stringify(fixtureC))
+    jrC.chainlinkNodeId = chainlinkNode.id
+    jrC.createdAt = new Date('2019-05-09T01:00:00.000Z')
+    jrC.txHash = 'fixtureCTxHash'
+    jrC.requester = 'fixtureCRequester'
+    jrC.requestId = 'fixtureCRequestID'
+    await db.manager.save(jrC)
   })
 
-  it('returns all results when no query is supplied', async () => {
+  it('returns no results when no query is supplied', async () => {
     let results
     results = await search(db, { searchQuery: undefined })
-    expect(results).toHaveLength(2)
+    expect(results).toHaveLength(0)
     results = await search(db, { searchQuery: null })
-    expect(results).toHaveLength(2)
+    expect(results).toHaveLength(0)
   })
 
   it('returns results in descending order by createdAt', async () => {
-    const results = await search(db, { searchQuery: undefined })
-    expect(results[0].runId).toEqual('f1xtureBbbbbbbbbbbbbbbbbbbbbbbbb')
-    expect(results[1].runId).toEqual('f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa')
+    const results = await search(db, { searchQuery: 'jobB' })
+    expect(results.length).toEqual(2)
+    expect(results[0].runId).toEqual('runC')
+    expect(results[1].runId).toEqual('runB')
   })
 
   it('can set a limit', async () => {
-    const results = await search(db, { searchQuery: undefined, limit: 1 })
-    expect(results[0].runId).toEqual('f1xtureBbbbbbbbbbbbbbbbbbbbbbbbb')
+    const results = await search(db, { searchQuery: 'jobB', limit: 1 })
     expect(results).toHaveLength(1)
+    expect(results[0].runId).toEqual('runC')
   })
 
   it('can set a page with a 1 based index', async () => {
@@ -64,16 +77,16 @@ describe('search', () => {
     results = await search(db, {
       limit: 1,
       page: 1,
-      searchQuery: undefined
+      searchQuery: 'jobB'
     })
-    expect(results[0].runId).toEqual('f1xtureBbbbbbbbbbbbbbbbbbbbbbbbb')
+    expect(results[0].runId).toEqual('runC')
 
     results = await search(db, {
       limit: 1,
       page: 2,
-      searchQuery: undefined
+      searchQuery: 'jobB'
     })
-    expect(results[0].runId).toEqual('f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa')
+    expect(results[0].runId).toEqual('runB')
   })
 
   it('returns no results for blank search', async () => {
@@ -96,9 +109,7 @@ describe('search', () => {
   })
 
   it('returns two results when two matching runIds are supplied', async () => {
-    const results = await search(db, {
-      searchQuery: `${'f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa'} ${'f1xtureBbbbbbbbbbbbbbbbbbbbbbbbb'}`
-    })
+    const results = await search(db, { searchQuery: 'runB runC' })
     expect(results).toHaveLength(2)
   })
 
