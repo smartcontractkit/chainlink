@@ -101,7 +101,6 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 	input := cltest.MustReadFile(t, "testdata/hello_world_agreement.json")
 	sa, err := cltest.ServiceAgreementFromString(string(input))
 	require.NoError(t, err)
-	require.NoError(t, app.Store.CreateJob(&sa.JobSpec))
 	require.NoError(t, app.Store.CreateServiceAgreement(&sa))
 
 	resp, cleanup := client.Get("/v2/service_agreements/" + sa.ID)
