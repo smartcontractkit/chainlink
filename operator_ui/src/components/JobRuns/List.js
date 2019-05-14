@@ -42,8 +42,8 @@ const styles = theme => {
       display: 'inline-block'
     },
     failed: {
-      backgroundColor: theme.palette.listSuccessStatus.background,
-      color: theme.palette.listSuccessStatus.color
+      backgroundColor: theme.palette.error.light,
+      color: theme.palette.error.main
     },
     pending: {
       backgroundColor: theme.palette.listPendingStatus.background,
