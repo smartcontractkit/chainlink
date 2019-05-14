@@ -91,6 +91,8 @@ func initializeDatabase(dialect, path string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("unable to open %s for gorm DB: %+v", path, err)
 	}
 
+	db.SetLogger(ormLogWrapper{logger.GetLogger()})
+
 	if err := dbutil.SetTimezone(db); err != nil {
 		return nil, err
 	}
