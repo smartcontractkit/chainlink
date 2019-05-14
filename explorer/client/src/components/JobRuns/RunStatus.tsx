@@ -40,11 +40,10 @@ interface IProps extends WithStyles<typeof styles> {
   jobRun: IJobRun
 }
 
-type Status = 'completed' | 'errored' | 'pending'
-
 const StatusCard = ({ classes, jobRun }: IProps) => {
-  const statusKey = jobRun.status as Status
-  const statusClass = classes[statusKey] || classes.pending
+  const text = statusText(jobRun)
+  const key = statusKey(jobRun, text)
+  const statusClass = classes[key] || classes.pending
 
   return (
     <Card className={classNames(classes.statusCard, statusClass)}>
@@ -53,10 +52,19 @@ const StatusCard = ({ classes, jobRun }: IProps) => {
         className={classes.statusText}
         variant="h5"
         color="textPrimary">
-        {statusText(jobRun)}
+        {text}
       </Typography>
     </Card>
   )
+}
+
+type Status = 'completed' | 'errored' | 'pending'
+
+const statusKey = (jobRun: IJobRun, text: string): Status => {
+  if (text.includes('but Not Fullfilled')) {
+    return 'errored' as Status
+  }
+  return jobRun.status as Status
 }
 
 export default withStyles(styles)(StatusCard)
