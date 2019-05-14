@@ -17,6 +17,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/expvar"
+	limits "github.com/gin-contrib/size"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
@@ -58,6 +59,8 @@ var (
 	ErrorAuthFailed = errors.New("Authentication failed")
 )
 
+const maxPostSize = 64 * 1024
+
 // Router listens and responds to requests to the node for valid paths.
 func Router(app services.Application) *gin.Engine {
 	engine := gin.New()
@@ -72,6 +75,7 @@ func Router(app services.Application) *gin.Engine {
 	cors := uiCorsHandler(config)
 
 	engine.Use(
+		limits.RequestSizeLimiter(maxPostSize),
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
@@ -327,7 +331,7 @@ func loggerFunc() gin.HandlerFunc {
 		buf, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
 			logger.Error("Web request log error: ", err.Error())
-			c.Next()
+			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
 		rdr := bytes.NewBuffer(buf)

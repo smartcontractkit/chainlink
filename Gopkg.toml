@@ -156,3 +156,7 @@
 [[constraint]]
   name = "github.com/ulule/limiter"
   branch = "v3-dep"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/gin-contrib/size"
