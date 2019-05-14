@@ -24,6 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/ulule/limiter"
+	mgin "github.com/ulule/limiter/drivers/middleware/gin"
+	"github.com/ulule/limiter/drivers/store/memory"
 	"github.com/unrolled/secure"
 )
 
@@ -72,16 +75,31 @@ func Router(app services.Application) *gin.Engine {
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
-		sessions.Sessions(SessionName, sessionStore),
 		secureMiddleware(config),
 	)
 
-	metricRoutes(app, engine)
-	sessionRoutes(app, engine)
-	v2Routes(app, engine)
+	api := engine.Group(
+		"/",
+		rateLimiter(1*time.Minute, 1000),
+		sessions.Sessions(SessionName, sessionStore),
+	)
+
+	metricRoutes(app, api)
+	sessionRoutes(app, api)
+	v2Routes(app, api)
+
 	guiAssetRoutes(app.NewBox(), engine)
 
 	return engine
+}
+
+func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
+	store := memory.NewStore()
+	rate := limiter.Rate{
+		Period: period,
+		Limit:  limit,
+	}
+	return mgin.NewMiddleware(limiter.New(store, rate))
 }
 
 // secureOptions configure security options for the secure middleware, mostly
@@ -181,30 +199,31 @@ func tokenAuthRequired(store *store.Store) gin.HandlerFunc {
 	}
 }
 
-func metricRoutes(app services.Application, engine *gin.Engine) {
-	auth := engine.Group("/", sessionAuthRequired(app.GetStore()))
+func metricRoutes(app services.Application, r *gin.RouterGroup) {
+	auth := r.Group("/", sessionAuthRequired(app.GetStore()))
 	auth.GET("/debug/vars", expvar.Handler())
 }
 
-func sessionRoutes(app services.Application, engine *gin.Engine) {
+func sessionRoutes(app services.Application, r *gin.RouterGroup) {
+	unauth := r.Group("/", rateLimiter(20*time.Second, 5))
 	sc := SessionsController{app}
-	engine.POST("/sessions", sc.Create)
-	auth := engine.Group("/", sessionAuthRequired(app.GetStore()))
+	unauth.POST("/sessions", sc.Create)
+	auth := r.Group("/", sessionAuthRequired(app.GetStore()))
 	auth.DELETE("/sessions", sc.Destroy)
 }
 
-func v2Routes(app services.Application, engine *gin.Engine) {
-	v2 := engine.Group("/v2")
+func v2Routes(app services.Application, r *gin.RouterGroup) {
+	unauthedv2 := r.Group("/v2")
 
 	jr := JobRunsController{app}
-	v2.PATCH("/runs/:RunID", jr.Update)
+	unauthedv2.PATCH("/runs/:RunID", jr.Update)
 
 	sa := ServiceAgreementsController{app}
-	v2.POST("/service_agreements", sa.Create)
+	unauthedv2.POST("/service_agreements", sa.Create)
 
 	j := JobSpecsController{app}
 
-	authv2 := engine.Group("/v2", sessionAuthRequired(app.GetStore()))
+	authv2 := r.Group("/v2", sessionAuthRequired(app.GetStore()))
 	{
 		uc := UserController{app}
 		authv2.PATCH("/user/password", uc.UpdatePassword)
@@ -255,7 +274,7 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
 	}
 
-	tokAuthv2 := engine.Group("/v2", tokenAuthRequired(app.GetStore()))
+	tokAuthv2 := r.Group("/v2", tokenAuthRequired(app.GetStore()))
 	tokAuthv2.POST("/specs/:SpecID/runs", jr.Create)
 	tokAuthv2.POST("/specs", j.Create)
 }
