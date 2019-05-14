@@ -159,6 +159,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:b2e8aa936539cbbff2feb5b606f13f073466736b4ba67fc3c7758633305bfa9f"
+  name = "github.com/gin-contrib/size"
+  packages = ["."]
+  pruneopts = ""
+  revision = "6fb8220baadb46fd93031cc9107d935b15a0927a"
+
+[[projects]]
+  branch = "master"
   digest = "1:a51eb85be143ad19788dc14fb6ae4d7b04e4fb4f7fb451f9f23411146cb421c6"
   name = "github.com/gin-contrib/sse"
   packages = ["."]
@@ -1040,6 +1048,7 @@
     "github.com/fatih/color",
     "github.com/gin-contrib/cors",
     "github.com/gin-contrib/expvar",
+    "github.com/gin-contrib/size",
     "github.com/gin-gonic/contrib/sessions",
     "github.com/gin-gonic/gin",
     "github.com/gobuffalo/packr",

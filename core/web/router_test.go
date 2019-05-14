@@ -123,3 +123,22 @@ func TestSessions_RateLimited(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 429, resp.StatusCode)
 }
+
+func TestRouter_LargePOSTBody(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKey()
+	defer cleanup()
+
+	router := web.Router(app)
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	client := http.Client{}
+
+	body := string(make([]byte, 70000))
+	request, err := http.NewRequest("POST", ts.URL+"/sessions", bytes.NewBufferString(body))
+	require.NoError(t, err)
+
+	resp, err := client.Do(request)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, resp.StatusCode)
+}
