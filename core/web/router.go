@@ -75,7 +75,6 @@ func Router(app services.Application) *gin.Engine {
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
-		rateLimiter(1*time.Minute, 500),
 		sessions.Sessions(SessionName, sessionStore),
 		secureMiddleware(config),
 	)
@@ -95,10 +94,6 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 		Limit:  limit,
 	}
 	return mgin.NewMiddleware(limiter.New(store, rate))
-}
-
-func unauthedRateLimiter() gin.HandlerFunc {
-	return rateLimiter(time.Second, 4)
 }
 
 // secureOptions configure security options for the secure middleware, mostly
@@ -204,7 +199,7 @@ func metricRoutes(app services.Application, engine *gin.Engine) {
 }
 
 func sessionRoutes(app services.Application, engine *gin.Engine) {
-	unauth := engine.Group("/", unauthedRateLimiter())
+	unauth := engine.Group("/", rateLimiter(20*time.Second, 5))
 	sc := SessionsController{app}
 	unauth.POST("/sessions", sc.Create)
 	auth := engine.Group("/", sessionAuthRequired(app.GetStore()))
@@ -212,7 +207,7 @@ func sessionRoutes(app services.Application, engine *gin.Engine) {
 }
 
 func v2Routes(app services.Application, engine *gin.Engine) {
-	unauthedv2 := engine.Group("/v2", unauthedRateLimiter())
+	unauthedv2 := engine.Group("/v2")
 
 	jr := JobRunsController{app}
 	unauthedv2.PATCH("/runs/:RunID", jr.Update)
@@ -273,7 +268,7 @@ func v2Routes(app services.Application, engine *gin.Engine) {
 		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
 	}
 
-	tokAuthv2 := engine.Group("/v2", unauthedRateLimiter(), tokenAuthRequired(app.GetStore()))
+	tokAuthv2 := engine.Group("/v2", tokenAuthRequired(app.GetStore()))
 	tokAuthv2.POST("/specs/:SpecID/runs", jr.Create)
 	tokAuthv2.POST("/specs", j.Create)
 }

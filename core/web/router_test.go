@@ -107,7 +107,7 @@ func TestSessions_RateLimited(t *testing.T) {
 	client := http.Client{}
 	input := `{"email":"brute@force.com", "password": "wrongpassword"}`
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 5; i++ {
 		request, err := http.NewRequest("POST", ts.URL+"/sessions", bytes.NewBufferString(input))
 		require.NoError(t, err)
 
@@ -122,44 +122,4 @@ func TestSessions_RateLimited(t *testing.T) {
 	resp, err := client.Do(request)
 	require.NoError(t, err)
 	assert.Equal(t, 429, resp.StatusCode)
-}
-
-func TestUnauthenticatedRoutes_RateLimited(t *testing.T) {
-	client := http.Client{}
-
-	tests := []struct {
-		verb, url, input string
-	}{
-		{"PATCH", "/v2/runs/someid", `{}`},
-		{"POST", "/v2/service_agreements", `{}`},
-		{"POST", "/v2/specs/somespecid/runs", `{}`},
-		{"POST", "/v2/specs", `{}`},
-	}
-	for _, test := range tests {
-		t.Run(test.url, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey()
-			defer cleanup()
-
-			router := web.Router(app)
-			ts := httptest.NewServer(router)
-			defer ts.Close()
-
-			for i := 0; i < 4; i++ {
-				request, err := http.NewRequest(test.verb, ts.URL+test.url, bytes.NewBufferString(test.input))
-				require.NoError(t, err)
-
-				resp, err := client.Do(request)
-				require.NoError(t, err)
-				assert.NotEqual(t, 429, resp.StatusCode)
-				assert.True(t, resp.StatusCode >= 400)
-			}
-
-			request, err := http.NewRequest(test.verb, ts.URL+test.url, bytes.NewBufferString(test.input))
-			require.NoError(t, err)
-
-			resp, err := client.Do(request)
-			require.NoError(t, err)
-			assert.Equal(t, 429, resp.StatusCode)
-		})
-	}
 }
