@@ -977,21 +977,18 @@ contract Ownable {
   }
 }
 
-// File: ../examples/ropsten/RopstenConsumerBase.sol
+// File: ../examples/testnet/TestnetConsumerBase.sol
 
 pragma solidity 0.4.24;
 
 
 
-contract ARopstenConsumer is ChainlinkClient, Ownable {
+contract ATestnetConsumer is ChainlinkClient, Ownable {
   uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
 
   uint256 public currentPrice;
   int256 public changeDay;
   bytes32 public lastMarket;
-
-  address constant ROPSTEN_ENS = 0x112234455C3a32FD11230C42E7Bccd4A84e02010;
-  bytes32 constant ROPSTEN_CHAINLINK_ENS = 0xead9c0180f6d685e43522fcfe277c2f0465fe930fb32b5b415826eacf9803727;
 
   event RequestEthereumPriceFulfilled(
     bytes32 indexed requestId,
@@ -1009,51 +1006,44 @@ contract ARopstenConsumer is ChainlinkClient, Ownable {
   );
 
   constructor() Ownable() public {
-    useChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
+    setPublicChainlinkToken();
   }
 
-  function requestEthereumPrice(string _jobId, string _currency) 
+  function requestEthereumPrice(address _oracle, string _jobId)
     public
     onlyOwner
   {
     Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumPrice.selector);
-    req.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
-    string[] memory path = new string[](1);
-    path[0] = _currency;
-    req.addStringArray("path", path);
+    req.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD");
+    req.add("path", "USD");
     req.addInt("times", 100);
-    sendChainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
   }
 
-  function requestEthereumChange(string _jobId, string _currency)
+  function requestEthereumChange(address _oracle, string _jobId)
     public
     onlyOwner
   {
     Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumChange.selector);
-    req.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
-    string[] memory path = new string[](4);
-    path[0] = "RAW";
-    path[1] = "ETH";
-    path[2] = _currency;
-    path[3] = "CHANGEPCTDAY";
-    req.addStringArray("path", path);
+    req.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD");
+    req.add("path", "RAW.ETH.USD.CHANGEPCTDAY");
     req.addInt("times", 1000000000);
-    sendChainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
   }
 
-  function requestEthereumLastMarket(string _jobId, string _currency)
+  function requestEthereumLastMarket(address _oracle, string _jobId)
     public
     onlyOwner
   {
     Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumLastMarket.selector);
-    req.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD,EUR,JPY");
+    req.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD");
     string[] memory path = new string[](4);
     path[0] = "RAW";
     path[1] = "ETH";
-    path[2] = _currency;
+    path[2] = "USD";
     path[3] = "LASTMARKET";
     req.addStringArray("path", path);
-    sendChainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
   }
 
   function fulfillEthereumPrice(bytes32 _requestId, uint256 _price)
@@ -1080,16 +1070,8 @@ contract ARopstenConsumer is ChainlinkClient, Ownable {
     lastMarket = _market;
   }
 
-  function updateChainlinkAddresses() public onlyOwner {
-    useChainlinkWithENS(ROPSTEN_ENS, ROPSTEN_CHAINLINK_ENS);
-  }
-
   function getChainlinkToken() public view returns (address) {
     return chainlinkTokenAddress();
-  }
-
-  function getOracle() public view returns (address) {
-    return chainlinkOracleAddress();
   }
 
   function withdrawLink() public onlyOwner {

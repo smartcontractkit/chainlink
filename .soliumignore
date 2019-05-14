@@ -2,6 +2,6 @@ node_modules
 examples/echo_server/node_modules
 examples/uptime_sla/node_modules
 examples/twilio_sms/node_modules
-examples/ropsten/contracts/RopstenConsumer.sol
-examples/ropsten/contracts/Oracle.sol
+examples/testnet/contracts/TestnetConsumer.sol
+examples/testnet/contracts/Oracle.sol
 evm/contracts/lib

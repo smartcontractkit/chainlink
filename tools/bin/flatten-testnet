@@ -1,0 +1,6 @@
+#!/bin/bash
+
+rm -f ../examples/testnet/contracts/TestnetConsumer.sol
+rm -f ../examples/testnet/contracts/Oracle.sol
+yarn truffle-flattener ../examples/testnet/TestnetConsumerBase.sol --output ../examples/testnet/contracts/TestnetConsumer.sol
+yarn truffle-flattener ../evm/contracts/Oracle.sol --output ../examples/testnet/contracts/Oracle.sol
