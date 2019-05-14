@@ -53,7 +53,7 @@ const StatusCard = ({ classes, jobRun }: IProps) => {
         className={classes.statusText}
         variant="h5"
         color="textPrimary">
-        {statusText(jobRun.status)}
+        {statusText(jobRun)}
       </Typography>
     </Card>
   )
