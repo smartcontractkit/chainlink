@@ -11,7 +11,7 @@ import Typography from '@material-ui/core/Typography'
 import yellow from '@material-ui/core/colors/yellow'
 import StatusIcon from '../Icons/Status'
 import green from '../../colors/green'
-import statusText from '../../utils/statusText'
+import status from '../../utils/status'
 
 const styles = ({ palette, spacing }: Theme) =>
   createStyles({
@@ -41,8 +41,8 @@ interface IProps extends WithStyles<typeof styles> {
 }
 
 const StatusCard = ({ classes, jobRun }: IProps) => {
-  const text = statusText(jobRun)
-  const key = statusKey(jobRun, text)
+  const [text, unfulfilled] = status(jobRun)
+  const key = statusKey(jobRun, unfulfilled)
   const statusClass = classes[key] || classes.pending
 
   return (
@@ -52,7 +52,7 @@ const StatusCard = ({ classes, jobRun }: IProps) => {
         className={classes.statusText}
         variant="h5"
         color="textPrimary">
-        {text}
+        {text} {unfulfilled && '(but Not Fulfilled)'}
       </Typography>
     </Card>
   )
@@ -60,11 +60,8 @@ const StatusCard = ({ classes, jobRun }: IProps) => {
 
 type Status = 'completed' | 'errored' | 'pending'
 
-const statusKey = (jobRun: IJobRun, text: string): Status => {
-  if (text.includes('but Not Fullfilled')) {
-    return 'errored' as Status
-  }
-  return jobRun.status as Status
+const statusKey = (jobRun: IJobRun, unfulfilled: boolean): Status => {
+  return (unfulfilled ? 'errored' : jobRun.status) as Status
 }
 
 export default withStyles(styles)(StatusCard)
