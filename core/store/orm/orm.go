@@ -397,13 +397,17 @@ func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 
 // CreateJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) CreateJob(job *models.JobSpec) error {
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return orm.createJob(dbtx, job)
+	})
+}
+
+func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 	for i := range job.Initiators {
 		job.Initiators[i].JobSpecID = job.ID
 	}
 
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Create(job).Error
-	})
+	return tx.Create(job).Error
 }
 
 // Archived returns whether or not a job has been archived.
@@ -432,10 +436,17 @@ func (orm *ORM) ArchiveJob(ID string) error {
 	})
 }
 
-// CreateServiceAgreement saves a service agreement and it's associations to the
-// database.
+// CreateServiceAgreement saves a Service Agreement, its JobSpec and its
+// associations to the database.
 func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
-	return orm.DB.Create(sa).Error
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		err := orm.createJob(dbtx, &sa.JobSpec)
+		if err != nil {
+			return errors.Wrap(err, "Failed to create job for SA")
+		}
+
+		return dbtx.Create(sa).Error
+	})
 }
 
 // UnscopedJobRunsWithStatus passes all JobRuns to a callback, one by one,
