@@ -8,8 +8,14 @@ import TimeAgo from 'components/TimeAgo'
 import Link from 'components/Link'
 import SimpleListCard from 'components/Cards/SimpleList'
 import SimpleListCardItem from 'components/Cards/SimpleListItem'
+import { withStyles } from '@material-ui/core/styles'
 
-const RecentlyCreated = ({ jobs }) => {
+const styles = () => ({
+  block: { display: 'block' },
+  overflowEllipsis: { textOverflow: 'ellipsis', overflow: 'hidden' }
+})
+
+const RecentlyCreated = ({ jobs, classes }) => {
   let status
 
   if (!jobs) {
@@ -39,8 +45,16 @@ const RecentlyCreated = ({ jobs }) => {
           <SimpleListCardItem key={j.id}>
             <Grid container spacing={0}>
               <Grid item xs={12}>
-                <Link to={`/jobs/${j.id}`}>
-                  <Typography variant="body1" component="span" color="primary">
+                <Link
+                  to={`/jobs/${j.id}`}
+                  classes={{ linkContent: classes.block }}
+                >
+                  <Typography
+                    className={classes.overflowEllipsis}
+                    variant="body1"
+                    component="span"
+                    color="primary"
+                  >
                     {j.id}
                   </Typography>
                 </Link>
@@ -64,4 +78,4 @@ RecentlyCreated.propTypes = {
   jobs: PropTypes.array
 }
 
-export default RecentlyCreated
+export default withStyles(styles)(RecentlyCreated)
