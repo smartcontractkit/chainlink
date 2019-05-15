@@ -108,7 +108,7 @@ const RecentActivity = ({ classes, runs }) => {
                             color="primary"
                             component="span"
                           >
-                            {r.jobId}
+                            Job: {r.jobId}
                           </Typography>
                         </Link>
                       </Grid>
@@ -119,7 +119,7 @@ const RecentActivity = ({ classes, runs }) => {
                             color="textSecondary"
                             component="span"
                           >
-                            {r.id}
+                            Run: {r.id}
                           </Typography>
                         </Link>
                       </Grid>
