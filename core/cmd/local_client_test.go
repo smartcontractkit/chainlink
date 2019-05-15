@@ -44,10 +44,9 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	eth.Register("eth_getTransactionCount", `0x1`)
 
 	assert.NoError(t, client.RunNode(c))
-	require.NoError(t, app.WaitForConnection())
 	logger.Sync()
 	logs, err := cltest.ReadLogs(app)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	assert.Contains(t, logs, "LOG_LEVEL: debug\\n")
 	assert.Contains(t, logs, "LOG_TO_DISK: true")
