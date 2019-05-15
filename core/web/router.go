@@ -59,7 +59,7 @@ var (
 	ErrorAuthFailed = errors.New("Authentication failed")
 )
 
-const maxPostSize = 64 * 1024
+const maxPostSize = 32 * 1024
 
 // Router listens and responds to requests to the node for valid paths.
 func Router(app services.Application) *gin.Engine {
@@ -384,11 +384,16 @@ func uiCorsHandler(config store.Config) gin.HandlerFunc {
 
 func readBody(reader io.Reader) string {
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(reader)
+	_, err := buf.ReadFrom(reader)
+	if err != nil {
+		logger.Warn("unable to read from body for sanitization: ", err)
+		return "*FAILED TO READ BODY*"
+	}
 
 	s, err := readSanitizedJSON(buf)
 	if err != nil {
-		return buf.String()
+		logger.Warn("unable to sanitize json for logging: ", err)
+		return "*FAILED TO READ BODY*"
 	}
 	return s
 }
