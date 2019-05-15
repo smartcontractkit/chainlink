@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -753,6 +754,40 @@ func TestORM_DeleteTransaction(t *testing.T) {
 	attempts, err := store.TxAttemptsFor(tx.ID)
 	assert.NoError(t, err)
 	assert.Empty(t, attempts)
+}
+
+func TestORM_AllSyncEvents(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	orm := store.ORM
+	synchronization.NewStatsPusher(orm, cltest.MustParseURL("http://localhost"), "", "")
+
+	// Create two events via job run callback
+	job := cltest.NewJobWithWebInitiator()
+	job.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeNoOp}}
+	require.NoError(t, store.ORM.CreateJob(&job))
+	initiator := job.Initiators[0]
+
+	oldIncompleteRun := job.NewRun(initiator)
+	oldIncompleteRun.Status = models.RunStatusInProgress
+	err := orm.CreateJobRun(&oldIncompleteRun)
+	require.NoError(t, err)
+
+	newCompletedRun := job.NewRun(initiator)
+	newCompletedRun.Status = models.RunStatusCompleted
+	err = orm.CreateJobRun(&newCompletedRun)
+	require.NoError(t, err)
+
+	events := []models.SyncEvent{}
+	err = orm.AllSyncEvents(func(event *models.SyncEvent) error {
+		events = append(events, *event)
+		return nil
+	})
+	require.NoError(t, err)
+
+	assert.Len(t, events, 2)
+	assert.Greater(t, events[1].ID, events[0].ID)
 }
 
 func TestBulkDeleteRuns(t *testing.T) {
