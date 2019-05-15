@@ -397,13 +397,17 @@ func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 
 // CreateJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) CreateJob(job *models.JobSpec) error {
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return orm.createJob(dbtx, job)
+	})
+}
+
+func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 	for i := range job.Initiators {
 		job.Initiators[i].JobSpecID = job.ID
 	}
 
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Create(job).Error
-	})
+	return tx.Create(job).Error
 }
 
 // Archived returns whether or not a job has been archived.
@@ -432,10 +436,17 @@ func (orm *ORM) ArchiveJob(ID string) error {
 	})
 }
 
-// CreateServiceAgreement saves a service agreement and it's associations to the
-// database.
+// CreateServiceAgreement saves a Service Agreement, its JobSpec and its
+// associations to the database.
 func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
-	return orm.DB.Create(sa).Error
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		err := orm.createJob(dbtx, &sa.JobSpec)
+		if err != nil {
+			return errors.Wrap(err, "Failed to create job for SA")
+		}
+
+		return dbtx.Create(sa).Error
+	})
 }
 
 // UnscopedJobRunsWithStatus passes all JobRuns to a callback, one by one,
@@ -581,19 +592,18 @@ func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
 // MarkRan will set Ran to true for a given initiator
 func (orm *ORM) MarkRan(i *models.Initiator, ran bool) error {
 	tx := orm.DB.Begin()
+	defer tx.Rollback()
+
 	var newi models.Initiator
 	if err := tx.Select("ran").First(&newi, "ID = ?", i.ID).Error; err != nil {
-		tx.Rollback()
 		return err
 	}
 
 	if ran && newi.Ran {
-		tx.Rollback()
 		return fmt.Errorf("Initiator %v for job spec %s has already been run", i.ID, i.JobSpecID)
 	}
 
 	if err := tx.Model(i).UpdateColumn("ran", ran).Error; err != nil {
-		tx.Rollback()
 		return err
 	}
 
@@ -641,13 +651,13 @@ func (orm *ORM) DeleteUser() (models.User, error) {
 	}
 
 	tx := orm.DB.Begin()
+	defer tx.Rollback()
+
 	if err := tx.Delete(&user).Error; err != nil {
-		tx.Rollback()
 		return user, err
 	}
 
 	if err := tx.Delete(models.Session{}).Error; err != nil {
-		tx.Rollback()
 		return user, err
 	}
 
@@ -667,13 +677,12 @@ func (orm *ORM) DeleteBridgeType(bt *models.BridgeType) error {
 // DeleteJobRun deletes the job run and corresponding task runs.
 func (orm *ORM) DeleteJobRun(ID string) error {
 	tx := orm.DB.Begin()
+	defer tx.Rollback()
 	if err := tx.Where("id = ?", ID).Delete(models.JobRun{}).Error; err != nil {
-		tx.Rollback()
 		return err
 	}
 
 	if err := tx.Where("job_run_id = ?", ID).Delete(models.TaskRun{}).Error; err != nil {
-		tx.Rollback()
 		return err
 	}
 
@@ -898,6 +907,7 @@ func (orm *ORM) DeleteTransaction(ethtx *models.Tx) error {
 // keys on a record creates an ambiguity with gorm.
 func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	tx := orm.DB.Begin()
+	defer tx.Rollback()
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -912,7 +922,6 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 														 WHERE status IN (?) AND updated_at < ?)`,
 		bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
 	if err != nil {
-		tx.Rollback()
 		return fmt.Errorf("error deleting JobRun's RunResults: %v", err)
 	}
 
@@ -925,7 +934,6 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 														 WHERE status IN (?) AND updated_at < ?)`,
 		bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
 	if err != nil {
-		tx.Rollback()
 		return fmt.Errorf("error deleting JobRun's RunRequests: %v", err)
 	}
 
@@ -940,7 +948,6 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 														 WHERE job_runs.status IN (?) AND job_runs.updated_at < ?)`,
 		bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
 	if err != nil {
-		tx.Rollback()
 		return fmt.Errorf("error deleting TaskRuns's RunResults: %v", err)
 	}
 
@@ -951,7 +958,6 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 		Delete(&[]models.JobRun{}).
 		Error
 	if err != nil {
-		tx.Rollback()
 		return err
 	}
 	return tx.Commit().Error
