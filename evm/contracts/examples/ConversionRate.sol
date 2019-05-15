@@ -68,12 +68,10 @@ contract ConversionRate is ChainlinkClient, Ownable {
     private
     checkAllResponsesReceived(_answerId)
   {
-    emit Here(1111, _answerId);
     updateRate(_answerId);
     delete answers[_answerId];
   }
 
-  event Here(uint256 a, uint256 b);
   function updateRate(uint256 _answerId)
     private
     checkLatestAnswer(_answerId)
@@ -91,7 +89,6 @@ contract ConversionRate is ChainlinkClient, Ownable {
   }
 
   modifier checkAllResponsesReceived(uint256 _answerId) {
-    emit Here(answers[_answerId].responses.length, answers[_answerId].expectedResponses);
     if (answers[_answerId].responses.length == answers[_answerId].expectedResponses) {
       _;
     }
