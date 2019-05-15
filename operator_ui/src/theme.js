@@ -45,10 +45,6 @@ export default {
       primary: darken(grey['A700'], 0.7),
       secondary: '#818ea3'
     },
-    listSuccessStatus: {
-      background: '#e9faf2',
-      color: '#ff6587'
-    },
     listPendingStatus: {
       background: '#fef7e5',
       color: '#fecb4c'
