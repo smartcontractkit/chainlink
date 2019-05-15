@@ -21,6 +21,7 @@ contract('ConverstionRate', () => {
       'jobIds',
       'oracles',
       'update',
+      'updateOracles',
       // Ownable
       'owner',
       'renounceOwnership',
@@ -110,6 +111,48 @@ contract('ConverstionRate', () => {
         }
 
         assertBigNum(response2, await rate.currentRate.call())
+      })
+    })
+  })
+
+  describe('#updateOracles', () => {
+    beforeEach(async () => {
+      rate = await h.deploy(SOURCE_PATH, link.address, [oc1.address], [jobId1])
+      await rate.transferOwnership(personas.Carol)
+
+      oc2 = await h.deploy('Oracle.sol', link.address)
+
+      await link.transfer(rate.address, h.toWei('1', 'ether'))
+
+      const current = await rate.currentRate.call()
+      assertBigNum(h.bigNum(0), current)
+    })
+
+    context('when called by the owner', () => {
+      it('succeeds', async () => {
+        await rate.updateOracles([oc2.address], [jobId2], {
+          from: personas.Carol
+        })
+      })
+
+      context('and the number of jobs does not match number of oracles', () => {
+        it('fails', async () => {
+          await h.assertActionThrows(async () => {
+            await rate.updateOracles([oc1.address, oc2.address], [jobId2], {
+              from: personas.Carol
+            })
+          })
+        })
+      })
+    })
+
+    context('when called by a non-owner', () => {
+      it('fails', async () => {
+        await h.assertActionThrows(async () => {
+          await rate.updateOracles([oc2.address], [jobId2], {
+            from: personas.Eddy
+          })
+        })
       })
     })
   })
