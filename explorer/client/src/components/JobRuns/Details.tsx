@@ -1,10 +1,6 @@
 import React from 'react'
 import classNames from 'classnames'
-import Table from '@material-ui/core/Table'
-import TableBody from '@material-ui/core/TableBody'
-import TableRow from '@material-ui/core/TableRow'
-import TableCell from '@material-ui/core/TableCell'
-import Typography from '@material-ui/core/Typography'
+import moment from 'moment'
 import {
   createStyles,
   Theme,
@@ -12,6 +8,11 @@ import {
   WithStyles
 } from '@material-ui/core/styles'
 import TaskRuns from './TaskRuns'
+import Table from '@material-ui/core/Table'
+import TableBody from '@material-ui/core/TableBody'
+import TableRow from '@material-ui/core/TableRow'
+import TableCell from '@material-ui/core/TableCell'
+import Typography from '@material-ui/core/Typography'
 
 const colStyles = ({ spacing }: Theme) =>
   createStyles({
@@ -97,7 +98,7 @@ const Details = ({ classes, jobRun }: IProps) => {
         </TableRow>
         <TableRow>
           <KeyCol>Completed At</KeyCol>
-          <Col>{jobRun.completedAt}</Col>
+          <Col>{jobRun.completedAt && moment(jobRun.completedAt).format()}</Col>
         </TableRow>
         {jobRun.error && (
           <TableRow>
