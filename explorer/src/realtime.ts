@@ -1,15 +1,9 @@
 import http from 'http'
-import { JobRun, fromString, saveJobRunTree } from './entity/JobRun'
-import { TaskRun } from './entity/TaskRun'
+import { fromString, saveJobRunTree } from './entity/JobRun'
 import WebSocket from 'ws'
-import { ChainlinkNode } from './entity/ChainlinkNode'
 import { Connection } from 'typeorm'
-import { Express } from 'express'
 import { getDb } from './database'
 import { Session, authenticate } from './sessions'
-import { Socket } from 'net'
-
-const CLNODE_COUNT_EVENT = 'clnodeCount'
 
 const handleMessage = async (
   message: string,
