@@ -22,6 +22,8 @@ interface ITaskRun {
   id: number
   type: string
   status: string
+  transactionHash?: string
+  transactionStatus?: string
   error?: string
 }
 
