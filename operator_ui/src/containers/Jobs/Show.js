@@ -24,6 +24,17 @@ const renderJobSpec = ({ job }) => {
   return <KeyValueList entries={Object.entries(info)} titleize />
 }
 
+const renderTaskList = ({ job }) => {
+  let list = {}
+  job.tasks.forEach(element => (list[element.type] = ''))
+  return (
+    <Card>
+      <CardTitle divider>Task List</CardTitle>
+      <KeyValueList entries={Object.entries(list)} titleize />
+    </Card>
+  )
+}
+
 const renderLatestRuns = ({ job, latestJobRuns, showJobRunsCount }) => (
   <React.Fragment>
     <Card>
@@ -46,7 +57,10 @@ const renderDetails = props => {
           {renderLatestRuns(props)}
         </Grid>
         <Grid item xs={4}>
-          {renderJobSpec(props)}
+          <Grid container direction="column">
+            <Grid item>{renderTaskList(props)}</Grid>
+            <Grid item>{renderJobSpec(props)}</Grid>
+          </Grid>
         </Grid>
       </Grid>
     )
