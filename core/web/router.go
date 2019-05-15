@@ -59,7 +59,7 @@ var (
 	ErrorAuthFailed = errors.New("Authentication failed")
 )
 
-const maxPostSize = 64 * 1024
+const maxPostSize = 32 * 1024
 
 // Router listens and responds to requests to the node for valid paths.
 func Router(app services.Application) *gin.Engine {
