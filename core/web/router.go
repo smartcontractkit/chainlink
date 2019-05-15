@@ -388,7 +388,8 @@ func readBody(reader io.Reader) string {
 
 	s, err := readSanitizedJSON(buf)
 	if err != nil {
-		return buf.String()
+		logger.Warn("unable to sanitize json for logging: ", err)
+		return "*FAILED TO READ BODY*"
 	}
 	return s
 }
