@@ -152,12 +152,7 @@ func (app *ChainlinkApplication) ArchiveJob(ID string) error {
 // AddServiceAgreement adds a Service Agreement which includes a job that needs
 // to be scheduled.
 func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement) error {
-	err := app.Store.CreateJob(&sa.JobSpec)
-	if err != nil {
-		return err
-	}
-
-	err = app.Store.CreateServiceAgreement(sa)
+	err := app.Store.CreateServiceAgreement(sa)
 	if err != nil {
 		return err
 	}
