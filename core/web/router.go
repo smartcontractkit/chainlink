@@ -331,7 +331,14 @@ func loggerFunc() gin.HandlerFunc {
 		buf, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
 			logger.Error("Web request log error: ", err.Error())
-			c.AbortWithStatus(http.StatusBadRequest)
+			// Implicitly relies on limits.RequestSizeLimiter
+			// overriding of c.Request.Body to abort gin's Context
+			// inside ioutil.ReadAll.
+			// Functions as we would like, but horrible from an architecture
+			// and design pattern perspective.
+			if !c.IsAborted() {
+				c.AbortWithStatus(http.StatusBadRequest)
+			}
 			return
 		}
 		rdr := bytes.NewBuffer(buf)
