@@ -122,7 +122,7 @@ contract('ConverstionRate', () => {
 
       oc2 = await h.deploy('Oracle.sol', link.address)
 
-      await link.transfer(rate.address, h.toWei('1', 'ether'))
+      await link.transfer(rate.address, h.toWei('100', 'ether'))
 
       const current = await rate.currentRate.call()
       assertBigNum(h.bigNum(0), current)
@@ -153,6 +153,41 @@ contract('ConverstionRate', () => {
             from: personas.Eddy
           })
         })
+      })
+    })
+
+    context('when it is called before an answer is fulfilled', () => {
+      beforeEach(async () => {
+        rate = await h.deploy(SOURCE_PATH, link.address, [oc1.address], [jobId1])
+        await link.transfer(rate.address, h.toWei('100', 'ether'))
+
+        oc2 = await h.deploy('Oracle.sol', link.address)
+        oc3 = await h.deploy('Oracle.sol', link.address)
+      })
+
+      it('accepts answers from oracles at the time the request was made', async () => {
+        // make request 1
+        const request1Tx = await rate.update()
+        const request1 = h.decodeRunRequest(request1Tx.receipt.rawLogs[3])
+
+        // change oracles
+        await rate.updateOracles([oc2.address, oc3.address], [jobId2, jobId3])
+
+        // make new request
+        const request2Tx = await rate.update()
+        const request2 = h.decodeRunRequest(request2Tx.receipt.rawLogs[3])
+        const request3 = h.decodeRunRequest(request2Tx.receipt.rawLogs[7])
+
+        // fulfill request 1
+        const response1 = 100
+        await h.fulfillOracleRequest(oc1, request1, response1)
+        assertBigNum(response1, await rate.currentRate.call())
+
+        // fulfill request 2
+        const response2 = 200
+        await h.fulfillOracleRequest(oc2, request2, response2)
+        await h.fulfillOracleRequest(oc3, request3, response2)
+        assertBigNum(response2, await rate.currentRate.call())
       })
     })
   })
