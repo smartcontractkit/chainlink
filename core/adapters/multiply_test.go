@@ -25,6 +25,7 @@ func TestMultiply_Perform(t *testing.T) {
 		{"object", `{"times":100}`, `{"result":{"foo":"bar"}}`, "", true, false},
 		{"zero integer string", `{"times":0}`, `{"result":"1.23"}`, "0", false, false},
 		{"negative integer string", `{"times":-5}`, `{"result":"1.23"}`, "-6.15", false, false},
+		{"no times parameter", `{}`, `{"result":"3.14"}`, "3.14", false, false},
 
 		{"string string", `{"times":"100"}`, `{"result":"1.23"}`, "123", false, false},
 		{"string integer", `{"times":"100"}`, `{"result":123}`, "12300", false, false},
