@@ -84,7 +84,7 @@ func Router(app services.Application) *gin.Engine {
 
 	api := engine.Group(
 		"/",
-		rateLimiter(1*time.Minute, 1000),
+		//rateLimiter(1*time.Minute, 1000),
 		sessions.Sessions(SessionName, sessionStore),
 	)
 
@@ -209,7 +209,7 @@ func metricRoutes(app services.Application, r *gin.RouterGroup) {
 }
 
 func sessionRoutes(app services.Application, r *gin.RouterGroup) {
-	unauth := r.Group("/", rateLimiter(20*time.Second, 5))
+	unauth := r.Group("/")
 	sc := SessionsController{app}
 	unauth.POST("/sessions", sc.Create)
 	auth := r.Group("/", sessionAuthRequired(app.GetStore()))
