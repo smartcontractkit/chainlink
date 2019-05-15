@@ -384,7 +384,11 @@ func uiCorsHandler(config store.Config) gin.HandlerFunc {
 
 func readBody(reader io.Reader) string {
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(reader)
+	_, err := buf.ReadFrom(reader)
+	if err != nil {
+		logger.Warn("unable to read from body for sanitization: ", err)
+		return "*FAILED TO READ BODY*"
+	}
 
 	s, err := readSanitizedJSON(buf)
 	if err != nil {
