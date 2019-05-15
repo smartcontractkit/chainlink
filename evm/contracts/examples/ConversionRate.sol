@@ -1,8 +1,9 @@
 pragma solidity 0.4.24;
 
 import "../ChainlinkClient.sol";
+import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
-contract ConversionRate is ChainlinkClient {
+contract ConversionRate is ChainlinkClient, Ownable {
   uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
 
   struct Answer {
@@ -13,12 +14,16 @@ contract ConversionRate is ChainlinkClient {
   uint256 public currentRate;
   bytes32[] public jobIds;
   address[] public oracles;
+
   uint256 private answerCounter = 1;
   uint256 private latestCompletedAnswer;
   mapping(bytes32 => uint256) private requestAnswers;
   mapping(uint256 => Answer) private answers;
 
-  constructor(address _link, address[] _oracles, bytes32[] _jobIds) public {
+  constructor(address _link, address[] _oracles, bytes32[] _jobIds)
+    public
+    Ownable()
+  {
     setChainlinkToken(_link);
     jobIds = _jobIds;
     oracles = _oracles;

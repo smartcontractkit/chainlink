@@ -21,6 +21,10 @@ contract('ConverstionRate', () => {
       'jobIds',
       'oracles',
       'update',
+      // Ownable
+      'owner',
+      'renounceOwnership',
+      'transferOwnership'
     ])
   })
 
