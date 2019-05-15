@@ -22,6 +22,7 @@ contract('ConverstionRate', () => {
       'oracles',
       'update',
       'updateOracles',
+      'transferLINK',
       // Ownable
       'owner',
       'renounceOwnership',
@@ -188,6 +189,50 @@ contract('ConverstionRate', () => {
         await h.fulfillOracleRequest(oc2, request2, response2)
         await h.fulfillOracleRequest(oc3, request3, response2)
         assertBigNum(response2, await rate.currentRate.call())
+      })
+    })
+  })
+
+  describe('#transferLINK', () => {
+    beforeEach(async () => {
+      rate = await h.deploy(SOURCE_PATH, link.address, [oc1.address], [jobId1])
+      await rate.transferOwnership(personas.Carol)
+      await link.transfer(rate.address, h.toWei('100'))
+      assertBigNum(h.toWei('100'), await link.balanceOf.call(rate.address))
+    })
+
+    context('when called by the owner', () => {
+      it('succeeds', async () => {
+        await rate.transferLINK(personas.Carol, h.toWei('100'), {
+          from: personas.Carol
+        })
+
+        assertBigNum(h.toWei('0'), await link.balanceOf.call(rate.address))
+        assertBigNum(h.toWei('100'), await link.balanceOf.call(personas.Carol))
+      })
+
+      context('with a number higher than the LINK balance', () => {
+        it('fails', async () => {
+          await h.assertActionThrows(async () => {
+            await rate.transferLINK(personas.Carol, h.toWei('101'), {
+              from: personas.Carol
+            })
+          })
+
+          assertBigNum(h.toWei('100'), await link.balanceOf.call(rate.address))
+        })
+      })
+    })
+
+    context('when called by a non-owner', () => {
+      it('fails', async () => {
+        await h.assertActionThrows(async () => {
+          await rate.transferLINK(personas.Carol, h.toWei('100'), {
+            from: personas.Eddy
+          })
+        })
+
+        assertBigNum(h.toWei('100'), await link.balanceOf.call(rate.address))
       })
     })
   })

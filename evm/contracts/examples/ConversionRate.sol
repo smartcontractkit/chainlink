@@ -43,15 +43,6 @@ contract ConversionRate is ChainlinkClient, Ownable {
     answerCounter = answerCounter.add(1);
   }
 
-  function updateOracles(address[] _oracles, bytes32[] _jobIds)
-    public
-    onlyOwner
-  {
-    require(_oracles.length == _jobIds.length);
-    jobIds = _jobIds;
-    oracles = _oracles;
-  }
-
   function chainlinkCallback(bytes32 _clRequestId, uint256 _rate)
     public
   {
@@ -62,6 +53,23 @@ contract ConversionRate is ChainlinkClient, Ownable {
     answers[answerId].responses.push(_rate);
 
     updateRecords(answerId);
+  }
+
+  function updateOracles(address[] _oracles, bytes32[] _jobIds)
+    public
+    onlyOwner
+  {
+    require(_oracles.length == _jobIds.length);
+    jobIds = _jobIds;
+    oracles = _oracles;
+  }
+
+  function transferLINK(address _recipient, uint256 _amount)
+    public
+    onlyOwner
+  {
+    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
+    require(link.transfer(_recipient, _amount));
   }
 
   function updateRecords(uint256 _answerId)
