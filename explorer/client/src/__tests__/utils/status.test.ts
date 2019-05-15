@@ -38,29 +38,29 @@ describe('utils/status', () => {
     expect(unfulfilledEthTx).toEqual(false)
   })
 
-  it('is Failed not fulfilled for a status of "error" without successful ethx transaction', () => {
+  it('is Errored not fulfilled for a status of "error" without successful ethx transaction', () => {
     const taskRuns: ITaskRun[] = [COMPLETED_ETHTX_WITHOUT_STATUS]
     const jobRun = { status: 'error', taskRuns: taskRuns } as IJobRun
 
     const [text, unfulfilledEthTx] = status(jobRun)
-    expect(text).toEqual('Failed')
+    expect(text).toEqual('Errored')
     expect(unfulfilledEthTx).toEqual(true)
   })
 
-  it('is Failed for a status of "error" with ethx successful transaction', () => {
+  it('is Errored for a status of "error" with ethx successful transaction', () => {
     const taskRuns: ITaskRun[] = [COMPLETED_ETHTX_WITH_STATUS]
     const jobRun = { status: 'error', taskRuns: taskRuns } as IJobRun
 
     const [text, unfulfilledEthTx] = status(jobRun)
-    expect(text).toEqual('Failed')
+    expect(text).toEqual('Errored')
     expect(unfulfilledEthTx).toEqual(false)
   })
 
-  it('is Failed for a status of "error"', () => {
+  it('is Errored for a status of "error"', () => {
     const jobRun = { status: 'error' } as IJobRun
 
     const [text, unfulfilledEthTx] = status(jobRun)
-    expect(text).toEqual('Failed')
+    expect(text).toEqual('Errored')
     expect(unfulfilledEthTx).toEqual(false)
   })
 
