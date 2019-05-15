@@ -1,16 +1,18 @@
-import React from 'react'
-import { render } from 'react-snapshot'
-import './index.css'
-import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'
+import { createMuiTheme, MuiThemeProvider } from '@material-ui/core/styles'
 import JavascriptTimeAgo from 'javascript-time-ago'
 import en from 'javascript-time-ago/locale/en'
-import theme from './theme'
+import moment from 'moment'
+import React from 'react'
 import { Provider } from 'react-redux'
-import createStore from './createStore'
+import { render } from 'react-snapshot'
 import App from './App'
+import createStore from './createStore'
+import './index.css'
 import * as serviceWorker from './serviceWorker'
+import theme from './theme'
 
 JavascriptTimeAgo.locale(en)
+moment.defaultFormat = 'YYYY-MM-DD h:mm:ss A'
 
 const muiTheme = createMuiTheme(theme)
 const store = createStore()
