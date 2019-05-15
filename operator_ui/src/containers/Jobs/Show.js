@@ -25,8 +25,10 @@ const renderJobSpec = ({ job }) => {
 }
 
 const renderTaskList = ({ job }) => {
-  let list = {}
-  job.tasks.forEach(element => (list[element.type] = ''))
+  const list = Object.assign(
+    {},
+    ...job.tasks.map(item => ({ [item.type]: '' }))
+  )
   return (
     <Card>
       <CardTitle divider>Task List</CardTitle>
