@@ -410,8 +410,7 @@
   version = "v1.0"
 
 [[projects]]
-  branch = "feature/on_defer_rollback_should_not_print_error_message"
-  digest = "1:c561ed4278be7f4199bda4cf400e4d9878e3fb120eae96ea57734f2f338368a1"
+  digest = "1:ac0cf20506076f1243a12c66052b862988915b1cd41881987addf0da946077c6"
   name = "github.com/jinzhu/gorm"
   packages = [
     ".",
@@ -419,8 +418,8 @@
     "dialects/sqlite",
   ]
   pruneopts = ""
-  revision = "9f02beef1cddd6516e7eb234a8cd3826bedbb349"
-  source = "github.com/smartcontractkit/gorm"
+  revision = "b7156195f7f3415f97c20abbd6aff894b847fee8"
+  version = "v1.9.8"
 
 [[projects]]
   branch = "master"
@@ -894,7 +893,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6f48274ef261d59303214646f131664f5dfa7acec5c405a71802b6e373174466"
+  digest = "1:5b3e9450868bcf9ecbca2b01ac04f142255b5744d89ec97e1ceedf57d4522645"
   name = "golang.org/x/crypto"
   packages = [
     "bcrypt",
@@ -905,7 +904,7 @@
     "ssh/terminal",
   ]
   pruneopts = ""
-  revision = "cbcb750295291b33242907a04be40e80801d0cfc"
+  revision = "22d7a77e9e5f409e934ed268692e56707cd169e5"
 
 [[projects]]
   branch = "master"
