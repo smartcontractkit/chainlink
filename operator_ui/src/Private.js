@@ -109,7 +109,7 @@ class Private extends React.Component {
                 />
                 <PrivateRoute
                   exact
-                  path="/jobs/:jobSpecId/definition"
+                  path="/jobs/:jobSpecId/json"
                   component={JobsDefinition}
                 />
                 <PrivateRoute
