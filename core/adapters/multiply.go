@@ -30,7 +30,7 @@ func (m *Multiplier) UnmarshalJSON(input []byte) error {
 
 // Multiply holds the a number to multiply the given value by.
 type Multiply struct {
-	Times Multiplier `json:"times"`
+	Times *Multiplier `json:"times"`
 }
 
 // Perform returns the input's "result" field, multiplied times the adapter's
@@ -46,7 +46,9 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 		return input
 	}
 
-	i.Mul(i, big.NewFloat(float64(ma.Times)))
+	if ma.Times != nil {
+		i.Mul(i, big.NewFloat(float64(*ma.Times)))
+	}
 	input.ApplyResult(i.String())
 	return input
 }
