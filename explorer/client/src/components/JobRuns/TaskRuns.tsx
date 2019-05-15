@@ -1,5 +1,6 @@
 import React from 'react'
 import Typography from '@material-ui/core/Typography'
+import Grid from '@material-ui/core/Grid'
 import {
   createStyles,
   Theme,
@@ -7,6 +8,7 @@ import {
   WithStyles
 } from '@material-ui/core/styles'
 import StatusIcon from '../Icons/Status'
+import EtherscanLink from './EtherscanLink'
 
 const styles = ({ spacing, palette }: Theme) =>
   createStyles({
@@ -29,6 +31,10 @@ const styles = ({ spacing, palette }: Theme) =>
     status: {
       marginRight: spacing.unit * 2,
       marginLeft: -22
+    },
+    track: {
+      display: 'flex',
+      alignItems: 'center'
     }
   })
 
@@ -43,12 +49,21 @@ const TaskRuns = ({ taskRuns, classes }: IProps) => {
         taskRuns.map((run: ITaskRun) => {
           return (
             <li key={run.id} className={classes.item}>
-              <StatusIcon width={40} className={classes.status}>
-                {run.status}
-              </StatusIcon>
-              <Typography variant="body1" inline>
-                {run.type}
-              </Typography>
+              <Grid container alignItems="center">
+                <Grid item xs={3}>
+                  <div className={classes.track}>
+                    <StatusIcon width={40} className={classes.status}>
+                      {run.status}
+                    </StatusIcon>
+                    <Typography variant="body1">{run.type}</Typography>
+                  </div>
+                </Grid>
+                <Grid item xs={9}>
+                  {run.transactionHash && (
+                    <EtherscanLink txHash={run.transactionHash} />
+                  )}
+                </Grid>
+              </Grid>
             </li>
           )
         })}
