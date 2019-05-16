@@ -59,7 +59,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	assert.Contains(t, data, "error")
 	assert.Contains(t, data, "createdAt")
 	assert.Equal(t, data["amount"], "2")
-	assert.Equal(t, data["completedAt"], nil)
+	assert.Equal(t, data["finishedAt"], nil)
 	assert.Contains(t, data, "tasks")
 
 	initiator, ok := data["initiator"].(map[string]interface{})

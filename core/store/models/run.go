@@ -24,7 +24,7 @@ type JobRun struct {
 	Status         RunStatus  `json:"status" gorm:"index"`
 	TaskRuns       []TaskRun  `json:"taskRuns"`
 	CreatedAt      time.Time  `json:"createdAt" gorm:"index"`
-	CompletedAt    null.Time  `json:"completedAt"`
+	FinishedAt     null.Time  `json:"finishedAt"`
 	UpdatedAt      time.Time  `json:"updatedAt"`
 	Initiator      Initiator  `json:"initiator" gorm:"association_autoupdate:false;association_autocreate:false"`
 	InitiatorID    uint       `json:"-"`
@@ -122,11 +122,9 @@ func (jr *JobRun) ApplyResult(result RunResult) {
 	jr.Status = result.Status
 }
 
-// MarkCompleted sets the JobRun's completed at time.
-func (jr *JobRun) MarkCompleted() {
-	if jr.Status.Completed() {
-		jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
-	}
+// SetFinishedAt sets the JobRun's finished at time to now.
+func (jr *JobRun) SetFinishedAt() {
+	jr.FinishedAt = null.TimeFrom(time.Now())
 }
 
 // JobRunsWithStatus filters passed job runs returning those that have

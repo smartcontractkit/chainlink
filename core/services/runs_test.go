@@ -216,7 +216,7 @@ func TestResumePendingTask(t *testing.T) {
 	err = services.ResumePendingTask(run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.Status))
-	assert.True(t, run.CompletedAt.Valid)
+	assert.True(t, run.FinishedAt.Valid)
 	assert.Len(t, run.TaskRuns, 1)
 	assert.Equal(t, run.ID, run.TaskRuns[0].Result.CachedJobRunID)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Result.Status))

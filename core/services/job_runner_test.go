@@ -51,7 +51,7 @@ func TestJobRunner_resumeRunsSinceLastShutdown(t *testing.T) {
 	assert.ElementsMatch(t, expectedMessages, messages)
 }
 
-func TestJobRunner_executeRun_correctlyPopulatesCompletedAt(t *testing.T) {
+func TestJobRunner_executeRun_correctlyPopulatesFinishedAt(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()
 
@@ -68,11 +68,11 @@ func TestJobRunner_executeRun_correctlyPopulatesCompletedAt(t *testing.T) {
 	require.NoError(t, store.CreateJobRun(&run))
 
 	require.NoError(t, services.ExportedExecuteRun(&run, store))
-	assert.False(t, run.CompletedAt.Valid)
+	assert.False(t, run.FinishedAt.Valid)
 	assert.Equal(t, models.RunStatusInProgress, run.Status)
 
 	require.NoError(t, services.ExportedExecuteRun(&run, store))
-	assert.False(t, run.CompletedAt.Valid)
+	assert.False(t, run.FinishedAt.Valid)
 	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 }
 

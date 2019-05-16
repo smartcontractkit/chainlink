@@ -23,27 +23,27 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(&struct {
-		ID          string                 `json:"id"`
-		JobID       string                 `json:"jobId"`
-		RunID       string                 `json:"runId"`
-		Status      string                 `json:"status"`
-		Error       null.String            `json:"error"`
-		CreatedAt   string                 `json:"createdAt"`
-		Amount      *assets.Link           `json:"amount"`
-		CompletedAt null.Time              `json:"completedAt"`
-		Initiator   syncInitiatorPresenter `json:"initiator"`
-		Tasks       []syncTaskRunPresenter `json:"tasks"`
+		ID         string                 `json:"id"`
+		JobID      string                 `json:"jobId"`
+		RunID      string                 `json:"runId"`
+		Status     string                 `json:"status"`
+		Error      null.String            `json:"error"`
+		CreatedAt  string                 `json:"createdAt"`
+		Amount     *assets.Link           `json:"amount"`
+		FinishedAt null.Time              `json:"finishedAt"`
+		Initiator  syncInitiatorPresenter `json:"initiator"`
+		Tasks      []syncTaskRunPresenter `json:"tasks"`
 	}{
-		ID:          p.ID,
-		RunID:       p.ID,
-		JobID:       p.JobSpecID,
-		Status:      string(p.Status),
-		Error:       p.Result.ErrorMessage,
-		CreatedAt:   utils.ISO8601UTC(p.CreatedAt),
-		Amount:      p.Result.Amount,
-		CompletedAt: p.CompletedAt,
-		Initiator:   p.initiator(),
-		Tasks:       tasks,
+		ID:         p.ID,
+		RunID:      p.ID,
+		JobID:      p.JobSpecID,
+		Status:     string(p.Status),
+		Error:      p.Result.ErrorMessage,
+		CreatedAt:  utils.ISO8601UTC(p.CreatedAt),
+		Amount:     p.Result.Amount,
+		FinishedAt: p.FinishedAt,
+		Initiator:  p.initiator(),
+		Tasks:      tasks,
 	})
 }
 

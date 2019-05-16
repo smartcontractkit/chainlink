@@ -229,7 +229,7 @@ func ResumePendingTask(
 		run.Status = models.RunStatusInProgress
 	} else if currentTaskRun.Status.Finished() {
 		run.ApplyResult(input)
-		run.MarkCompleted()
+		run.SetFinishedAt()
 	} else {
 		run.ApplyResult(input)
 	}

@@ -21,7 +21,7 @@ describe('fromString', () => {
     expect(jr.jobId).toEqual('aeb2861d306645b1ba012079aeb2e53a')
     expect(jr.createdAt).toEqual(new Date('2019-04-01T22:07:04Z'))
     expect(jr.status).toEqual('in_progress')
-    expect(jr.completedAt).toEqual(new Date('2018-04-01T22:07:04Z'))
+    expect(jr.finishedAt).toEqual(new Date('2018-04-01T22:07:04Z'))
 
     expect(jr.type).toEqual('runlog')
     expect(jr.requestId).toEqual('RequestID')
@@ -64,13 +64,13 @@ describe('fromString', () => {
     expect(ethtxTask.transactionStatus).toEqual('fulfilledRunLog')
   })
 
-  it('creates when completedAt is null', () => {
-    const fixtureWithoutCompletedAt = Object.assign({}, fixture, {
-      completedAt: null
+  it('creates when finishedAt is null', () => {
+    const fixtureWithoutFinishedAt = Object.assign({}, fixture, {
+      finishedAt: null
     })
-    const jr = fromString(JSON.stringify(fixtureWithoutCompletedAt))
+    const jr = fromString(JSON.stringify(fixtureWithoutFinishedAt))
     expect(jr.runId).toEqual('f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa')
-    expect(jr.completedAt).toEqual(null)
+    expect(jr.finishedAt).toEqual(null)
   })
 
   it('errors on a malformed string', async () => {

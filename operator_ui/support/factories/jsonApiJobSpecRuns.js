@@ -27,7 +27,7 @@ export default (jobs, jobSpecId, count) => {
           },
           status: 'completed',
           createdAt: '2018-06-18T15:49:33.015913563-04:00',
-          completedAt: '2018-06-18T15:49:33.023078819-04:00'
+          finishedAt: '2018-06-18T15:49:33.023078819-04:00'
         }
       }
     })
