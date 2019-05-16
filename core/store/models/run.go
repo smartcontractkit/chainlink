@@ -120,6 +120,10 @@ func (jr *JobRun) SetError(err error) {
 func (jr *JobRun) ApplyResult(result RunResult) {
 	jr.Result = result
 	jr.Status = result.Status
+}
+
+// MarkCompleted sets the JobRun's completed at time.
+func (jr *JobRun) MarkCompleted() {
 	if jr.Status.Completed() {
 		jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
 	}
