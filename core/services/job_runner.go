@@ -166,7 +166,7 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan struct{}) {
 			}
 
 			if run.Status.Finished() {
-				run.MarkCompleted()
+				run.SetFinishedAt()
 				logger.Debugw("All tasks complete for run", "run", run.ID)
 				return
 			}

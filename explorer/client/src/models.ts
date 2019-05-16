@@ -1,6 +1,6 @@
 export interface IJobRun {
   chainlinkNode: any
-  completedAt: string
+  finishedAt: string
   createdAt: string
   error?: string
   id: string
