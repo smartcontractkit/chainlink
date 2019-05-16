@@ -41,7 +41,7 @@ const styles = theme => {
       width: 'fit-content',
       display: 'inline-block'
     },
-    failed: {
+    errored: {
       backgroundColor: theme.palette.error.light,
       color: theme.palette.error.main
     },
@@ -56,12 +56,6 @@ const styles = theme => {
   }
 }
 
-const statusText = status => {
-  if (status === 'errored') return 'Failed'
-  if (status === 'completed') return 'Completed'
-  return titleize(status)
-}
-
 const classFromStatus = (classes, status) => {
   if (
     !status ||
@@ -70,7 +64,7 @@ const classFromStatus = (classes, status) => {
   ) {
     return classes['pending']
   }
-  return classes[statusText(status).toLowerCase()]
+  return classes[status.toLowerCase()]
 }
 
 const renderRuns = (runs, classes) => {
@@ -109,7 +103,7 @@ const renderRuns = (runs, classes) => {
               classFromStatus(classes, r.status)
             )}
           >
-            {statusText(r.status)}
+            {titleize(r.status)}
           </Typography>
         </TableCell>
       </TableRow>
