@@ -51,6 +51,31 @@ func TestJobRunner_resumeRunsSinceLastShutdown(t *testing.T) {
 	assert.ElementsMatch(t, expectedMessages, messages)
 }
 
+func TestJobRunner_executeRun_correctlyPopulatesCompletedAt(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	j := models.NewJob()
+	i := models.Initiator{Type: models.InitiatorWeb}
+	j.Initiators = []models.Initiator{i}
+	j.Tasks = []models.TaskSpec{
+		cltest.NewTask(t, "noop"),
+		cltest.NewTask(t, "nooppend"),
+	}
+	assert.NoError(t, store.CreateJob(&j))
+
+	run := j.NewRun(i)
+	require.NoError(t, store.CreateJobRun(&run))
+
+	require.NoError(t, services.ExportedExecuteRun(&run, store))
+	assert.False(t, run.CompletedAt.Valid)
+	assert.Equal(t, models.RunStatusInProgress, run.Status)
+
+	require.NoError(t, services.ExportedExecuteRun(&run, store))
+	assert.False(t, run.CompletedAt.Valid)
+	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+}
+
 func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {
 	t.Parallel()
 
