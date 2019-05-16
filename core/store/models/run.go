@@ -125,14 +125,6 @@ func (jr *JobRun) ApplyResult(result RunResult) {
 	}
 }
 
-// MarkCompleted sets the JobRun's status to completed and records the
-// completed at time.
-func (jr *JobRun) MarkCompleted() {
-	jr.Status = RunStatusCompleted
-	jr.Result.Status = RunStatusCompleted
-	jr.CompletedAt = null.Time{Time: time.Now(), Valid: true}
-}
-
 // JobRunsWithStatus filters passed job runs returning those that have
 // the desired status, entirely in memory.
 func JobRunsWithStatus(runs []JobRun, status RunStatus) []JobRun {
@@ -205,12 +197,6 @@ func (tr *TaskRun) SetError(err error) {
 func (tr *TaskRun) ApplyResult(result RunResult) {
 	tr.Result = result
 	tr.Status = result.Status
-}
-
-// MarkCompleted marks the task's status as completed.
-func (tr *TaskRun) MarkCompleted() {
-	tr.Status = RunStatusCompleted
-	tr.Result.Status = RunStatusCompleted
 }
 
 // MarkPendingConfirmations marks the task's status as blocked.
