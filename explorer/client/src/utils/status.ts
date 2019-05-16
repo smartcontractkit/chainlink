@@ -18,7 +18,7 @@ export default (jobRun: IJobRun): [string, boolean] => {
     text = 'Pending'
     unfulfilledEthTx = hasUnfulfilledEthTx(jobRun)
   } else if (jobRun.status === 'error') {
-    text = 'Failed'
+    text = 'Errored'
     unfulfilledEthTx = hasUnfulfilledEthTx(jobRun)
   } else if (jobRun.status === 'completed') {
     text = 'Complete'
