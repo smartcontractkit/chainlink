@@ -20,9 +20,9 @@ contract('ConverstionRate', () => {
       'currentRate',
       'jobIds',
       'oracles',
-      'update',
-      'updateOracles',
+      'requestRateUpdate',
       'transferLINK',
+      'updateOracles',
       // Ownable
       'owner',
       'renounceOwnership',
@@ -30,7 +30,7 @@ contract('ConverstionRate', () => {
     ])
   })
 
-  describe('#update', () => {
+  describe('#requestRateUpdate', () => {
     const response = 100
 
     context('with one oracle', () => {
@@ -44,7 +44,7 @@ contract('ConverstionRate', () => {
       })
 
       it('triggeers a request to the oracle and accepts a response', async () => {
-        const requestTx = await rate.update()
+        const requestTx = await rate.requestRateUpdate()
 
         const log = requestTx.receipt.rawLogs[3]
         assert.equal(oc1.address, log.address)
@@ -72,7 +72,7 @@ contract('ConverstionRate', () => {
       })
 
       it('triggeers a request to the oracle and averages the responses', async () => {
-        const requestTx = await rate.update()
+        const requestTx = await rate.requestRateUpdate()
         const responses = [101, 102, 103]
 
         for (let i = 0; i < oracles.length; i++) {
@@ -89,7 +89,7 @@ contract('ConverstionRate', () => {
       })
 
       it('does not accept old responses', async () => {
-        const request1 = await rate.update()
+        const request1 = await rate.requestRateUpdate()
         const response1 = 100
 
         const requests = [
@@ -98,7 +98,7 @@ contract('ConverstionRate', () => {
           h.decodeRunRequest(request1.receipt.rawLogs[11])
         ]
 
-        const request2 = await rate.update()
+        const request2 = await rate.requestRateUpdate()
         const response2 = 200
         for (let i = 0; i < oracles.length; i++) {
              const log = request2.receipt.rawLogs[(i * 4) + 3]
@@ -168,14 +168,14 @@ contract('ConverstionRate', () => {
 
       it('accepts answers from oracles at the time the request was made', async () => {
         // make request 1
-        const request1Tx = await rate.update()
+        const request1Tx = await rate.requestRateUpdate()
         const request1 = h.decodeRunRequest(request1Tx.receipt.rawLogs[3])
 
         // change oracles
         await rate.updateOracles([oc2.address, oc3.address], [jobId2, jobId3])
 
         // make new request
-        const request2Tx = await rate.update()
+        const request2Tx = await rate.requestRateUpdate()
         const request2 = h.decodeRunRequest(request2Tx.receipt.rawLogs[3])
         const request3 = h.decodeRunRequest(request2Tx.receipt.rawLogs[7])
 
