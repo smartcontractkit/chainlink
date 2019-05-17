@@ -15,7 +15,7 @@ export const BASE_ATTRIBUTES = [
   'requester',
   'error',
   'createdAt',
-  'completedAt'
+  'finishedAt'
 ]
 
 export const chainlinkNode = {

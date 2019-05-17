@@ -5,10 +5,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-func ExportedExecuteRunAtBlock(
+func ExportedExecuteRun(
 	run *models.JobRun,
 	store *store.Store,
-	input models.RunResult,
 ) error {
 	return executeRun(run, store)
 }

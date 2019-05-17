@@ -13,7 +13,7 @@ interface IJobRun {
   txHash: string
   error?: string
   createdAt: string
-  completedAt?: string
+  finishedAt?: string
   chainlinkNode: IChainlinkNode
   taskRuns: ITaskRun[]
 }
