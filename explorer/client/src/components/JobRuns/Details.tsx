@@ -97,7 +97,7 @@ const Details = ({ classes, jobRun }: IProps) => {
           <Col>{jobRun.txHash}</Col>
         </TableRow>
         <TableRow>
-          <KeyCol>Completed At</KeyCol>
+          <KeyCol>Finished At</KeyCol>
           <Col>{jobRun.finishedAt && moment(jobRun.finishedAt).format()}</Col>
         </TableRow>
         {jobRun.error && (
