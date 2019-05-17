@@ -96,6 +96,15 @@ contract ConversionRate is ChainlinkClient, Ownable {
     latestCompletedAnswer = _answerId;
   }
 
+  function destroy()
+    public
+    onlyOwner
+  {
+    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
+    transferLINK(owner, link.balanceOf(address(this)));
+    selfdestruct(owner);
+  }
+
   /**
    * @dev Prevents taking an action if not all responses are received for an answer.
    * @param _answerId The the identifier of the answer that keeps track of the responses.
