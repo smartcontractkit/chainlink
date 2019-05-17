@@ -221,6 +221,11 @@ func (ta *TestApplication) StartAndConnect() error {
 		return err
 	}
 
+	return ta.WaitForConnection()
+}
+
+// WaitForConnection wait for the StartAndConnect callback to be called
+func (ta *TestApplication) WaitForConnection() error {
 	select {
 	case <-time.After(4 * time.Second):
 		return errors.New("TestApplication#StartAndConnect() timed out")
