@@ -476,6 +476,17 @@ func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) (str
 	return a.Callback(store, pwd)
 }
 
+// BlockedRunner is a Runner that blocks until its channel is posted to
+type BlockedRunner struct {
+	Done chan struct{}
+}
+
+// Run runs the blocked runner, doesn't return until the channel is signalled
+func (r BlockedRunner) Run(app services.Application) error {
+	<-r.Done
+	return nil
+}
+
 // EmptyRunner is an EmptyRunner
 type EmptyRunner struct{}
 
