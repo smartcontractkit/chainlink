@@ -28,12 +28,13 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	defer cleanup()
 
 	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) (string, error) { return "", nil }}
+	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
 		Config:                 app.Store.Config,
 		AppFactory:             cltest.InstanceAppFactory{App: app.ChainlinkApplication},
 		KeyStoreAuthenticator:  auth,
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
-		Runner:                 cltest.EmptyRunner{},
+		Runner:                 runner,
 	}
 
 	set := flag.NewFlagSet("test", 0)
@@ -43,8 +44,17 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	eth := app.MockEthClient()
 	eth.Register("eth_getTransactionCount", `0x1`)
 
-	assert.NoError(t, client.RunNode(c))
+	// Start RunNode in a goroutine, it will block until we resume the runner
+	go func() {
+		assert.NoError(t, client.RunNode(c))
+	}()
+
+	// Wait for RunNode to connect the app
 	require.NoError(t, app.WaitForConnection())
+
+	// Unlock the runner to the client can begin shutdown
+	runner.Done <- struct{}{}
+
 	logger.Sync()
 	logs, err := cltest.ReadLogs(app)
 	require.NoError(t, err)
