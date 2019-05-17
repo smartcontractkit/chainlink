@@ -26,7 +26,7 @@
     }
   ],
   "createdAt": "2018-08-02T09:40:00.000466903-05:00",
-  "completedAt": null,
+  "finishedAt": null,
   "initiator": {
     "id": 23,
     "jobId": "1e25ad32c0f14e10b8e0da192e4023a5",

@@ -1,5 +1,5 @@
-import React from 'react'
 import { mount } from 'enzyme'
+import React from 'react'
 import Details from '../../../components/JobRuns/Details'
 
 describe('components/JobRuns/Details', () => {

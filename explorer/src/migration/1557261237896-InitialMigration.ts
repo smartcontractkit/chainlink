@@ -33,7 +33,7 @@ CREATE TABLE job_run (
   "status" character varying NOT NULL,
   "error" character varying,
   "createdAt" timestamp without time zone DEFAULT now() NOT NULL,
-  "completedAt" timestamp without time zone,
+  "finishedAt" timestamp without time zone,
   "type" character varying NOT NULL,
   "requestId" citext,
   "txHash" citext,

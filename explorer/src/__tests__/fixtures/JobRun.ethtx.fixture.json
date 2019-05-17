@@ -6,7 +6,7 @@
   "error": null,
   "createdAt": "2019-05-03T15:21:35Z",
   "amount": null,
-  "completedAt": "2019-05-03T11:21:36.01197-04:00",
+  "finishedAt": "2019-05-03T11:21:36.01197-04:00",
   "initiator": { "type": "web" },
   "tasks": [
     { "index": 0, "type": "httpget", "status": "completed", "error": null },

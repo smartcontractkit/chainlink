@@ -46,7 +46,7 @@ export class JobRun {
   createdAt: Date
 
   @Column({ nullable: true })
-  completedAt: Date
+  finishedAt: Date
 
   @OneToMany(type => TaskRun, taskRun => taskRun.jobRun, {
     eager: true,
@@ -67,7 +67,7 @@ export const fromString = (str: string): JobRun => {
   jr.jobId = json.jobId
   jr.status = json.status
   jr.createdAt = new Date(json.createdAt)
-  jr.completedAt = json.completedAt && new Date(json.completedAt)
+  jr.finishedAt = json.finishedAt && new Date(json.finishedAt)
 
   jr.type = json.initiator.type
   jr.requestId = json.initiator.requestId
@@ -154,12 +154,12 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
         `("runId", "chainlinkNodeId") DO UPDATE SET
         "status" = :status
         ,"error" = :error
-        ,"completedAt" = :completedAt
+        ,"finishedAt" = :finishedAt
       `
       )
       .setParameter('status', jobRun.status)
       .setParameter('error', jobRun.error)
-      .setParameter('completedAt', jobRun.completedAt)
+      .setParameter('finishedAt', jobRun.finishedAt)
       .execute()
 
     await Promise.all(
