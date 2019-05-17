@@ -7,8 +7,11 @@ module.exports = clmigration(function(deployer) {
   LinkToken.deployed().then(async function(linkInstance) {
     await RunLog.deployed()
       .then(async function(runLogInstance) {
-        await linkInstance.transfer(runLogInstance.address, web3.toWei(1000))
-        await linkInstance.transfer(devnetAddress, web3.toWei(1000))
+        await linkInstance.transfer(
+          runLogInstance.address,
+          web3.utils.toWei('1000')
+        )
+        await linkInstance.transfer(devnetAddress, web3.utils.toWei('1000'))
       })
       .catch(console.log)
   })
