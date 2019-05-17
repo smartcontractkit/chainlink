@@ -28,7 +28,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
     updateOracles(_oracles, _jobIds);
   }
 
-  function update()
+  function requestRateUpdate()
     public
   {
     Chainlink.Request memory request;
