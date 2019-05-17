@@ -22,7 +22,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
 
   constructor(address _link, address[] _oracles, bytes32[] _jobIds)
     public
-    Ownable()
+    Ownable
   {
     setChainlinkToken(_link);
     updateOracles(_oracles, _jobIds);
@@ -74,7 +74,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
 
   function updateRecords(uint256 _answerId)
     private
-    checkAllResponsesReceived(_answerId)
+    ensureAllResponsesReceived(_answerId)
   {
     updateRate(_answerId);
     delete answers[_answerId];
@@ -82,7 +82,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
 
   function updateRate(uint256 _answerId)
     private
-    checkLatestAnswer(_answerId)
+    ensureOnlyLatestAnswer(_answerId)
   {
     uint256 sumQuotients;
     uint256 sumRemainders;
@@ -96,13 +96,22 @@ contract ConversionRate is ChainlinkClient, Ownable {
     latestCompletedAnswer = _answerId;
   }
 
-  modifier checkAllResponsesReceived(uint256 _answerId) {
+  /**
+   * @dev Prevents taking an action if not all responses are received for an answer.
+   * @param _answerId The the identifier of the answer that keeps track of the responses.
+   */
+  modifier ensureAllResponsesReceived(uint256 _answerId) {
     if (answers[_answerId].responses.length == answers[_answerId].expectedResponses) {
       _;
     }
   }
 
-  modifier checkLatestAnswer(uint256 _answerId) {
+  /**
+   * @dev Prevents taking an action if a newer answer has been recorded.
+   * @param _answerId The current answer's identifier.
+   * Answer IDs are in ascending order.
+   */
+  modifier ensureOnlyLatestAnswer(uint256 _answerId) {
     if (latestCompletedAnswer < _answerId) {
       _;
     }
