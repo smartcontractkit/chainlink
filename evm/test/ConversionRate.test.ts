@@ -18,6 +18,7 @@ contract('ConverstionRate', () => {
     h.checkPublicABI(artifacts.require(SOURCE_PATH), [
       'chainlinkCallback',
       'currentRate',
+      'destroy',
       'jobIds',
       'oracles',
       'requestRateUpdate',
@@ -233,6 +234,37 @@ contract('ConverstionRate', () => {
         })
 
         assertBigNum(h.toWei('100'), await link.balanceOf.call(rate.address))
+      })
+    })
+  })
+
+  describe('#destroy', () => {
+    beforeEach(async () => {
+      rate = await h.deploy(SOURCE_PATH, link.address, [oc1.address], [jobId1])
+      await rate.transferOwnership(personas.Carol)
+      await link.transfer(rate.address, h.toWei('100'))
+      assertBigNum(h.toWei('100'), await link.balanceOf.call(rate.address))
+    })
+
+    context('when called by the owner', () => {
+      it('succeeds', async () => {
+        await rate.destroy({ from: personas.Carol })
+
+        assertBigNum(h.toWei('0'), await link.balanceOf.call(rate.address))
+        assertBigNum(h.toWei('100'), await link.balanceOf.call(personas.Carol))
+
+        assert.equal('0x', await web3.eth.getCode(rate.address))
+      })
+    })
+
+    context('when called by a non-owner', () => {
+      it('fails', async () => {
+        await h.assertActionThrows(async () => {
+          await rate.destroy({ from: personas.Eddy })
+        })
+
+        assertBigNum(h.toWei('100'), await link.balanceOf.call(rate.address))
+        assert.notEqual('0x', await web3.eth.getCode(rate.address))
       })
     })
   })
