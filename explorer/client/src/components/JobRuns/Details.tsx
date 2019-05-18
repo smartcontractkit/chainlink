@@ -86,15 +86,24 @@ const Details = ({ classes, jobRun }: IProps) => {
         </TableRow>
         <TableRow>
           <KeyCol>Requester</KeyCol>
-          <Col>{jobRun.requester}</Col>
+          <Col>
+            {jobRun.requester && '0x'}
+            {jobRun.requester}
+          </Col>
         </TableRow>
         <TableRow>
           <KeyCol>Request ID</KeyCol>
-          <Col>{jobRun.requestId}</Col>
+          <Col>
+            {jobRun.requestId && '0x'}
+            {jobRun.requestId}
+          </Col>
         </TableRow>
         <TableRow>
           <KeyCol>Request Transaction Hash</KeyCol>
-          <Col>{jobRun.txHash}</Col>
+          <Col>
+            {jobRun.txHash && '0x'}
+            {jobRun.txHash}
+          </Col>
         </TableRow>
         <TableRow>
           <KeyCol>Finished At</KeyCol>

@@ -103,9 +103,16 @@ const searchBuilder = (
   params: ISearchParams
 ): SelectQueryBuilder<JobRun> => {
   let query = db.getRepository(JobRun).createQueryBuilder('job_run')
-
   if (params.searchQuery != null) {
-    const searchTokens = params.searchQuery.split(/\s+/)
+    let searchTokens = params.searchQuery.split(/\s+/)
+    searchTokens = searchTokens.map(token => {
+      if (
+        token.substring(0, 2) === '0x' &&
+        (token.length === 66 || token.length === 42)
+      )
+        return token.substring(2)
+      else return token
+    })
     query = query
       .where('job_run.runId IN(:...searchTokens)', { searchTokens })
       .orWhere('job_run.jobId IN(:...searchTokens)', { searchTokens })
@@ -143,9 +150,15 @@ export const count = async (
 }
 
 export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
+  const normalizeHash = (hash: string) => {
+    if (hash && hash.includes('0x')) return hash.split('0x')[1]
+  }
   await db.manager.transaction(async manager => {
     const builder = manager.createQueryBuilder()
-
+    // modify hash to have no prefix
+    jobRun.requestId = normalizeHash(jobRun.requestId)
+    jobRun.requester = normalizeHash(jobRun.requester)
+    jobRun.txHash = normalizeHash(jobRun.txHash)
     const response = await builder
       .insert()
       .into(JobRun)
