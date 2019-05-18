@@ -8,7 +8,7 @@ import {
   PrimaryGeneratedColumn
 } from 'typeorm'
 import { TaskRun } from './TaskRun'
-import { ChainlinkNode, IChainlinkNodePresenter } from './ChainlinkNode'
+import { ChainlinkNode } from './ChainlinkNode'
 
 @Entity()
 export class JobRun {
@@ -48,13 +48,13 @@ export class JobRun {
   @Column({ nullable: true })
   finishedAt: Date
 
-  @OneToMany(type => TaskRun, taskRun => taskRun.jobRun, {
+  @OneToMany(() => TaskRun, taskRun => taskRun.jobRun, {
     eager: true,
     onDelete: 'CASCADE'
   })
   taskRuns: Array<TaskRun>
 
-  @ManyToOne(type => ChainlinkNode, ChainlinkNode => ChainlinkNode.jobRuns, {
+  @ManyToOne(() => ChainlinkNode, ChainlinkNode => ChainlinkNode.jobRuns, {
     eager: true
   })
   chainlinkNode: ChainlinkNode
@@ -146,7 +146,7 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
   await db.manager.transaction(async manager => {
     const builder = manager.createQueryBuilder()
 
-    const response = await builder
+    await builder
       .insert()
       .into(JobRun)
       .values(jobRun)
