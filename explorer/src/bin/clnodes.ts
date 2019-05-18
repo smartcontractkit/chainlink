@@ -1,7 +1,6 @@
 import yargs from 'yargs'
 import { Connection } from 'typeorm'
 import {
-  ChainlinkNode,
   createChainlinkNode,
   deleteChainlinkNode
 } from '../entity/ChainlinkNode'

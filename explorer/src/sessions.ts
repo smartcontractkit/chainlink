@@ -1,6 +1,5 @@
 import { Connection } from 'typeorm'
 import { ChainlinkNode, hashCredentials } from './entity/ChainlinkNode'
-import { sha256 } from 'js-sha256'
 import { timingSafeEqual } from 'crypto'
 
 // Session contains a chainlink node's ID and access key

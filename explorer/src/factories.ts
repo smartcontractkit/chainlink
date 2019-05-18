@@ -1,7 +1,6 @@
 import { Connection } from 'typeorm'
 import { v4 as uuid } from 'uuid'
-import { getDb } from './database'
-import { ChainlinkNode, createChainlinkNode } from './entity/ChainlinkNode'
+import { ChainlinkNode } from './entity/ChainlinkNode'
 import { JobRun } from './entity/JobRun'
 import { TaskRun } from './entity/TaskRun'
 
