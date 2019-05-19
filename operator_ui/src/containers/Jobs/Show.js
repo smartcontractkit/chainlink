@@ -14,6 +14,7 @@ import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { useHooks, useEffect } from 'use-react-hooks'
+import TaskRuns from './TaskRuns'
 
 const renderJobSpec = ({ job }) => {
   const info = {
@@ -23,6 +24,13 @@ const renderJobSpec = ({ job }) => {
 
   return <KeyValueList entries={Object.entries(info)} titleize />
 }
+
+const renderTaskRuns = ({ job }) => (
+  <Card>
+    <CardTitle divider>Task List</CardTitle>
+    <TaskRuns taskRuns={job.tasks} />
+  </Card>
+)
 
 const renderLatestRuns = ({ job, latestJobRuns, showJobRunsCount }) => (
   <React.Fragment>
@@ -46,7 +54,10 @@ const renderDetails = props => {
           {renderLatestRuns(props)}
         </Grid>
         <Grid item xs={4}>
-          {renderJobSpec(props)}
+          <Grid container direction="column">
+            <Grid item>{renderTaskRuns(props)}</Grid>
+            <Grid item>{renderJobSpec(props)}</Grid>
+          </Grid>
         </Grid>
       </Grid>
     )
