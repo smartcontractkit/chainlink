@@ -7,8 +7,8 @@ import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
-import Link from 'components/Link'
 import { fetchJob, createJobRun } from 'actions'
+import Link from 'components/Link'
 
 const styles = theme => {
   return {
@@ -42,11 +42,16 @@ const styles = theme => {
   }
 }
 
-const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }) => {
+const RegionalNav = ({ classes, jobSpecId, jobRunId }) => {
   return (
     <Card className={classes.container}>
       <Grid container spacing={0}>
         <Grid item xs={12}>
+          <Link to={`/jobs/${jobSpecId}`}>
+            <Typography variant="subtitle1" color="primary">
+              {jobSpecId}
+            </Typography>
+          </Link>
           <Typography variant="h3" color="secondary">
             Job Run Detail
           </Typography>
