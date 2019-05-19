@@ -18,10 +18,9 @@ module.exports = clmigration(async function(truffleDeployer) {
   await request.post(sessionsUrl, { json: credentials })
   let body = await request.post(specsUrl, { json: job })
   console.log(`Deploying Consumer Contract with JobID ${body.data.id}`)
-  await truffleDeployer.deploy(
-    RunLog,
-    LinkToken.address,
-    Oracle.address,
-    body.data.id
-  )
+  let jobid = body.data.id
+  if (jobid && jobid.slice(0, 2) != '0x') {
+    jobid = `0x${jobid}` // hack to prefix 0x to satisfy bytes32 requirement
+  }
+  await truffleDeployer.deploy(RunLog, LinkToken.address, Oracle.address, jobid)
 })
