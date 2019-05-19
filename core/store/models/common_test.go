@@ -157,6 +157,7 @@ func TestJSON_Add(t *testing.T) {
 		{"adding string", "b", "2", false, `{"a":"1","b":"2"}`},
 		{"adding int", "b", 2, false, `{"a":"1","b":2}`},
 		{"overriding", "a", "2", false, `{"a":"2"}`},
+		{"escaped quote", "a", `"2"`, false, `{"a":"\"2\""}`},
 	}
 
 	for _, test := range tests {
