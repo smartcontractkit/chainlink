@@ -49,7 +49,7 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId }) => {
         <Grid item xs={12}>
           <Link to={`/jobs/${jobSpecId}`}>
             <Typography variant="subtitle1" color="primary">
-              @{jobSpecId}
+              {jobSpecId}
             </Typography>
           </Link>
           <Typography variant="h3" color="secondary">
