@@ -8,6 +8,7 @@ interface IProps {
   onChangePage: (event: ChangePageEvent, page: number) => void
   jobRuns?: any[]
   count?: number
+  emptyMsg?: string
   className?: string
 }
 
@@ -42,6 +43,7 @@ const List = (props: IProps) => {
         rows={rows}
         count={props.count}
         onChangePage={props.onChangePage}
+        emptyMsg={props.emptyMsg}
       />
     </Paper>
   )

@@ -52,6 +52,9 @@ const styles = (theme: Theme) =>
   createStyles({
     header: {
       backgroundColor: theme.palette.grey['50']
+    },
+    table: {
+      minHeight: 200
     }
   })
 
@@ -86,7 +89,7 @@ const renderRows = ({ headers, rows, loadingMsg, emptyMsg }: IProps) => {
 
 const Table = (props: IProps) => {
   return (
-    <MuiTable>
+    <MuiTable className={props.classes.table}>
       <TableHead>
         <TableRow>
           {props.headers.map((h: string) => (

@@ -45,7 +45,9 @@ describe('#index', () => {
     })
 
     it('returns runs with chainlink node names', async () => {
-      const response = await request(server).get('/api/v1/job_runs')
+      const response = await request(server).get(
+        `/api/v1/job_runs?query=${jobRun.runId}`
+      )
       expect(response.status).toEqual(200)
 
       const chainlinkNode = response.body.included[0]

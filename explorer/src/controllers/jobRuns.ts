@@ -1,6 +1,7 @@
 import { getDb } from '../database'
-import { JobRun, search, count, ISearchParams } from '../entity/JobRun'
+import { JobRun } from '../entity/JobRun'
 import { Router, Request, Response } from 'express'
+import { search, count, ISearchParams } from '../queries/search'
 import jobRunsSerializer from '../serializers/jobRunsSerializer'
 import jobRunSerializer from '../serializers/jobRunSerializer'
 
