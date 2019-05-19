@@ -58,8 +58,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
   function updateOracles(address[] _oracles, bytes32[] _jobIds)
     public
     onlyOwner
+    checkEqualLengths(_oracles, _jobIds)
   {
-    require(_oracles.length == _jobIds.length);
     jobIds = _jobIds;
     oracles = _oracles;
   }
@@ -124,6 +124,16 @@ contract ConversionRate is ChainlinkClient, Ownable {
     if (latestCompletedAnswer < _answerId) {
       _;
     }
+  }
+
+  /**
+   * @dev Ensures corresponding number of oracles and jobs.
+   * @param _oracles The list of oracles.
+   * @param _jobIds The list of jobs.
+   */
+  modifier checkEqualLengths(address[] _oracles, bytes32[] _jobIds) {
+    require(_oracles.length == _jobIds.length);
+    _;
   }
 
 }
