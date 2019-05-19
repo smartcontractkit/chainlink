@@ -364,9 +364,10 @@ func (c Config) SessionSecret() ([]byte, error) {
 // SessionOptions returns the sesssions.Options struct used to configure
 // the session store.
 func (c Config) SessionOptions() sessions.Options {
+	secure := !c.Dev()
 	return sessions.Options{
-		Secure:   !c.Dev(),
-		HttpOnly: true,
+		Secure:   secure,
+		HttpOnly: !secure,
 		MaxAge:   86400 * 30,
 	}
 }
