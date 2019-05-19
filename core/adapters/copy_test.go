@@ -29,6 +29,8 @@ func TestCopy_Perform(t *testing.T) {
 			`{"data":[{"availability":"0.99991"}],"result":"0.99991"}`, models.RunStatusCompleted, false},
 		{"float result", `{"availability":0.99991}`, []string{"availability"},
 			`{"availability":0.99991,"result":0.99991}`, models.RunStatusCompleted, false},
+		{"result with quotes", `{"availability":"\""}`, []string{`"`},
+			`{"availability":"\"","result":null}`, models.RunStatusCompleted, false},
 		{
 			"index array of array",
 			`{"data":[[0,1]]}`,
