@@ -161,9 +161,10 @@ contract('ConverstionRate', () => {
     })
 
     context('when called by the owner', () => {
-      it('succeeds', async () => {
+      it('changes the amout of LINK sent on a request', async () => {
+        const uniquePayment = 7777777
         await rate.updateRequestDetails(
-          basePayment,
+          uniquePayment,
           1,
           [oc2.address],
           [jobId2],
@@ -171,6 +172,10 @@ contract('ConverstionRate', () => {
             from: personas.Carol
           }
         )
+
+        await rate.requestRateUpdate({ from: personas.Carol })
+
+        assertBigNum(uniquePayment, await link.balanceOf.call(oc2.address))
       })
 
       context('and the number of jobs does not match number of oracles', () => {
