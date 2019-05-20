@@ -144,13 +144,21 @@ launch_explorer() {
   yarn build &>$SRCROOT/integration/explorer-yarn.log
   yarn prod &>$SRCROOT/integration/explorer.log &
   waitForResponse $explorer_url
-  yarn addclnode test-$(date +%s) > /tmp/addclnode.txt
-  tail -n 3 /tmp/addclnode.txt | head -n 2 | awk -F" " '{print $2}' > /tmp/keyAndSecret.txt
-  export EXPLORER_ACCESS_KEY=`head -n 1 /tmp/keyAndSecret.txt`
-  export EXPLORER_SECRET=`tail -n 1 /tmp/keyAndSecret.txt`
-  export EXPLORER_URL="ws://127.0.0.1:8080"
   popd >/dev/null
   title "Explorer is running."
+}
+
+add_clnode_to_explorer() {
+  title "Adding CL Node to Explorer..."
+
+  pushd explorer >/dev/null
+  clnode_name="test-$(date +%s)"
+  response=`yarn addclnode $clnode_name`
+  export EXPLORER_ACCESS_KEY=$(echo $response | grep -o "AccessKey [a-zA-Z0-9]*" | awk '{print $2}')
+  export EXPLORER_SECRET=$(echo $response | grep -o "Secret [a-zA-Z0-9]*" | awk '{print $2}')
+  export EXPLORER_URL="ws://localhost:8080"
+  popd >/dev/null
+  title "Added CL Node $clnode_name to Explorer."
 }
 
 deploy_oracle_and_linktoken_contracts() {
