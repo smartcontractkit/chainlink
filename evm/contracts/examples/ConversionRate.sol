@@ -10,8 +10,6 @@ import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
  * as the contract receives answers.
  */
 contract ConversionRate is ChainlinkClient, Ownable {
-  uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
-
   struct Answer {
     uint256 expectedResponses;
     uint256[] responses;
@@ -67,10 +65,11 @@ contract ConversionRate is ChainlinkClient, Ownable {
   {
     Chainlink.Request memory request;
     bytes32 requestId;
+    uint256 oraclePayment = paymentAmount;
 
     for (uint i = 0; i < oracles.length; i++) {
       request = buildChainlinkRequest(jobIds[i], this, this.chainlinkCallback.selector);
-      requestId = sendChainlinkRequestTo(oracles[i], request, ORACLE_PAYMENT);
+      requestId = sendChainlinkRequestTo(oracles[i], request, oraclePayment);
       requestAnswers[requestId] = answerCounter;
     }
     answers[answerCounter].expectedResponses = oracles.length;
