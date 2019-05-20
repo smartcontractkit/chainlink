@@ -91,7 +91,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    */
   function updateOracles(address[] _oracles, bytes32[] _jobIds)
     public
-    onlyOwner
+    onlyOwner()
     checkEqualLengths(_oracles, _jobIds)
   {
     jobIds = _jobIds;
@@ -107,10 +107,23 @@ contract ConversionRate is ChainlinkClient, Ownable {
    */
   function transferLINK(address _recipient, uint256 _amount)
     public
-    onlyOwner
+    onlyOwner()
   {
     LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
     require(link.transfer(_recipient, _amount));
+  }
+
+  /**
+   * @notice Called by the owner to kill the contract. This transfers all LINK
+   * balance and ETH balance (if there is any) to the owner.
+   */
+  function destroy()
+    public
+    onlyOwner()
+  {
+    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
+    transferLINK(owner, link.balanceOf(address(this)));
+    selfdestruct(owner);
   }
 
   /**
@@ -145,19 +158,6 @@ contract ConversionRate is ChainlinkClient, Ownable {
     }
     currentRate = sumQuotients.add(sumRemainders.div(answer.expectedResponses)); // recover lost accuracy from result 
     latestCompletedAnswer = _answerId;
-  }
-
-  /**
-   * @notice Called by the owner to kill the contract. This transfers all LINK
-   * balance and ETH balance (if there is any) to the owner.
-   */
-  function destroy()
-    public
-    onlyOwner
-  {
-    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-    transferLINK(owner, link.balanceOf(address(this)));
-    selfdestruct(owner);
   }
 
   /**
