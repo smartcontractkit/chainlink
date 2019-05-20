@@ -505,6 +505,15 @@ func (orm *ORM) CreateTx(
 	return &tx, orm.DB.Save(&tx).Error
 }
 
+// CreateTxAndAttempt persists a TX and its first attempt
+func (orm *ORM) CreateTxAndAttempt(
+	tx *models.Tx,
+) error {
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return dbtx.Create(tx).Error
+	})
+}
+
 // MarkTxSafe updates the database for the given transaction and attempt to
 // show that the transaction has not just been confirmed,
 // but has met the minimum number of outgoing confirmations to be deemed

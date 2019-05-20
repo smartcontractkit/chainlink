@@ -65,7 +65,9 @@ type logMarshaling struct {
 // Tx contains fields necessary for an Ethereum transaction with
 // an additional field for the TxAttempt.
 type Tx struct {
-	ID       uint64         `gorm:"primary_key;auto_increment"`
+	ID       uint64       `gorm:"primary_key;auto_increment"`
+	Attempts []*TxAttempt `json:"-"`
+
 	From     common.Address `gorm:"index;not null"`
 	To       common.Address `gorm:"not null"`
 	Data     []byte
@@ -107,8 +109,8 @@ func (tx *Tx) AssignTxAttempt(txat *TxAttempt) {
 // it so that if the network is busy, a transaction can be
 // resubmitted with a higher GasPrice.
 type TxAttempt struct {
+	TxID      uint64      `gorm:"index;type:bigint REFERENCES txes(id) ON DELETE CASCADE"`
 	Hash      common.Hash `gorm:"primary_key;not null"`
-	TxID      uint64      `gorm:"index"`
 	GasPrice  *Big        `gorm:"type:varchar(255)"`
 	Confirmed bool
 	Hex       string `gorm:"type:text"`

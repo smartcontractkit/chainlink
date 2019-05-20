@@ -132,7 +132,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *testing.T) {
+func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 	t.Parallel()
 
 	config, configCleanup := cltest.NewConfig()
@@ -166,11 +166,11 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 
 	txs, _, err := store.Transactions(0, 10)
 	assert.NoError(t, err)
-	assert.Equal(t, 0, len(txs))
+	assert.Len(t, txs, 1)
 
 	txAttempts, _, err := store.TxAttempts(0, 100)
 	assert.NoError(t, err)
-	assert.Equal(t, 0, len(txAttempts))
+	assert.Len(t, txAttempts, 1)
 
 	hash := cltest.NewHash()
 	ethMock.Context("manager.CreateTx#2", func(ethMock *cltest.EthMock) {
@@ -681,7 +681,8 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	confirmedTx, err := manager.CreateTx(to, data)
 	assert.NoError(t, err)
 	txTransmissionAttempts, err := app.Store.TxAttemptsFor(confirmedTx.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.Len(t, txTransmissionAttempts, 1)
 	initialSuccessfulAttempt := txTransmissionAttempts[0]
 
 	receipt, err := manager.BumpGasUntilSafe(initialSuccessfulAttempt.Hash)
@@ -752,7 +753,7 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 
 			attempts, err := store.TxAttemptsFor(tx.ID)
 			assert.NoError(t, err)
-			assert.Equal(t, 1, len(attempts))
+			require.Len(t, attempts, 1)
 			assert.Equal(t, test.expectedGasPrice, attempts[0].GasPrice)
 
 			ethMock.EventuallyAllCalled(t)
