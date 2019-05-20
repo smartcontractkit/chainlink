@@ -23,6 +23,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
   address[] public oracles;
 
   uint256 private answerCounter = 1;
+  mapping(address => bool) public authorizedRequesters;
   mapping(bytes32 => uint256) private requestAnswers;
   mapping(uint256 => Answer) private answers;
 
@@ -51,6 +52,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    */
   function requestRateUpdate()
     public
+    ensureAuthorizedRequester()
   {
     Chainlink.Request memory request;
     bytes32 requestId;
@@ -111,6 +113,20 @@ contract ConversionRate is ChainlinkClient, Ownable {
   {
     LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
     require(link.transfer(_recipient, _amount));
+  }
+
+  /**
+   * @notice Called by the owner to permission other addresses to generate new
+   * requests to oracles.
+   * @param _requester the address whose permissions are being set
+   * @param _allowed boolean that determines whether the requester is
+   * permissioned or not
+   */
+  function setAuthorization(address _requester, bool _allowed)
+    public
+    onlyOwner
+  {
+    authorizedRequesters[_requester] = _allowed;
   }
 
   /**
@@ -188,6 +204,14 @@ contract ConversionRate is ChainlinkClient, Ownable {
    */
   modifier checkEqualLengths(address[] _oracles, bytes32[] _jobIds) {
     require(_oracles.length == _jobIds.length);
+    _;
+  }
+
+  /**
+   * @dev Reverts if `msg.sender` is not authorized to make requests.
+   */
+  modifier ensureAuthorizedRequester() {
+    require(authorizedRequesters[msg.sender] || msg.sender == owner, "Not an authorized address for creating requests");
     _;
   }
 
