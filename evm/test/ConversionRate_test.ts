@@ -16,6 +16,7 @@ contract('ConverstionRate', () => {
 
   it('has a limited public interface', () => {
     h.checkPublicABI(artifacts.require(SOURCE_PATH), [
+      'authorizedRequesters',
       'chainlinkCallback',
       'currentRate',
       'destroy',
@@ -23,6 +24,7 @@ contract('ConverstionRate', () => {
       'latestCompletedAnswer',
       'oracles',
       'requestRateUpdate',
+      'setAuthorization',
       'transferLINK',
       'updateOracles',
       // Ownable
@@ -266,6 +268,45 @@ contract('ConverstionRate', () => {
 
         assertBigNum(h.toWei('100'), await link.balanceOf.call(rate.address))
         assert.notEqual('0x', await web3.eth.getCode(rate.address))
+      })
+    })
+  })
+
+  describe('#setAuthorization', async () => {
+    beforeEach(async () => {
+      rate = await h.deploy(SOURCE_PATH, link.address, [oc1.address], [jobId1])
+      await link.transfer(rate.address, h.toWei('100', 'ether'))
+    })
+
+    context('when called by an authorized address', () => {
+      beforeEach(async () => {
+        await rate.setAuthorization(personas.Eddy, true)
+        assert.equal(true, await rate.authorizedRequesters.call(personas.Eddy))
+      })
+
+      it('succeeds', async () => {
+        await rate.requestRateUpdate({ from: personas.Eddy })
+      })
+
+      it('can be unset', async () => {
+        await rate.setAuthorization(personas.Eddy, false)
+        assert.equal(false, await rate.authorizedRequesters.call(personas.Eddy))
+
+        await h.assertActionThrows(async () => {
+          await rate.requestRateUpdate({ from: personas.Eddy })
+        })
+      })
+    })
+
+    context('when called by a non-authorized address', () => {
+      beforeEach(async () => {
+        assert.equal(false, await rate.authorizedRequesters.call(personas.Eddy))
+      })
+
+      it('fails', async () => {
+        await h.assertActionThrows(async () => {
+          await rate.requestRateUpdate({ from: personas.Eddy })
+        })
       })
     })
   })
