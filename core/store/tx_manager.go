@@ -232,7 +232,7 @@ func (txm *EthTxManager) createEthTxWithNonceReload(
 			},
 		}
 
-		err = txm.orm.CreateTxAndAttempt(tx)
+		err = txm.orm.CreateTx(tx)
 		if err != nil {
 			return err
 		}
