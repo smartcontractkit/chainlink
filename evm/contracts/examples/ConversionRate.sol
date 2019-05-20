@@ -38,7 +38,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    */
   constructor(address _link, address[] _oracles, bytes32[] _jobIds)
     public
-    Ownable
+    Ownable()
   {
     setChainlinkToken(_link);
     updateOracles(_oracles, _jobIds);
@@ -141,7 +141,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
     for (uint i = 0; i < answer.expectedResponses; i++) {
       uint256 response = answer.responses[i];
       sumQuotients = sumQuotients.add(response.div(answer.expectedResponses)); // aggregate responses and protect from overflows
-      sumRemainders = sumRemainders.add(response % answer.expectedResponses); 
+      sumRemainders = sumRemainders.add(response % answer.expectedResponses);
     }
     currentRate = sumQuotients.add(sumRemainders.div(answer.expectedResponses)); // recover lost accuracy from result 
     latestCompletedAnswer = _answerId;
