@@ -3,7 +3,6 @@ package orm
 import (
 	"crypto/subtle"
 	"fmt"
-	"math/big"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -485,28 +484,8 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 	return found, ignoreRecordNotFound(rval)
 }
 
-// CreateTx saves the properties of an Ethereum transaction to the database.
-func (orm *ORM) CreateTx(
-	from common.Address,
-	nonce uint64,
-	to common.Address,
-	data []byte,
-	value *big.Int,
-	gasLimit uint64,
-) (*models.Tx, error) {
-	tx := models.Tx{
-		From:     from,
-		To:       to,
-		Nonce:    nonce,
-		Data:     data,
-		Value:    models.NewBig(value),
-		GasLimit: gasLimit,
-	}
-	return &tx, orm.DB.Save(&tx).Error
-}
-
 // CreateTxAndAttempt persists a TX and its first attempt
-func (orm *ORM) CreateTxAndAttempt(
+func (orm *ORM) CreateTx(
 	tx *models.Tx,
 ) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {

@@ -438,21 +438,30 @@ func TestORM_CreatingTx(t *testing.T) {
 	data, err := hex.DecodeString("0987612345abcdef")
 	assert.NoError(t, err)
 
-	_, err = store.CreateTx(from, nonce, to, data, value, gasLimit)
+	tx := &models.Tx{
+		From:     from,
+		To:       to,
+		Nonce:    nonce,
+		Data:     data,
+		Value:    models.NewBig(value),
+		GasLimit: gasLimit,
+	}
+
+	err = store.CreateTx(tx)
 	assert.NoError(t, err)
 
 	txs := []models.Tx{}
 	assert.NoError(t, store.Where("Nonce", nonce, &txs))
-	assert.Equal(t, 1, len(txs))
-	tx := txs[0]
+	require.Len(t, txs, 1)
+	ntx := txs[0]
 
-	assert.NotNil(t, tx.ID)
-	assert.Equal(t, from, tx.From)
-	assert.Equal(t, to, tx.To)
-	assert.Equal(t, data, tx.Data)
-	assert.Equal(t, nonce, tx.Nonce)
-	assert.Equal(t, value, tx.Value.ToInt())
-	assert.Equal(t, gasLimit, tx.GasLimit)
+	assert.NotNil(t, ntx.ID)
+	assert.Equal(t, from, ntx.From)
+	assert.Equal(t, to, ntx.To)
+	assert.Equal(t, data, ntx.Data)
+	assert.Equal(t, nonce, ntx.Nonce)
+	assert.Equal(t, value, ntx.Value.ToInt())
+	assert.Equal(t, gasLimit, ntx.GasLimit)
 }
 
 func TestORM_FindBridge(t *testing.T) {
