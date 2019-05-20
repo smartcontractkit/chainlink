@@ -1,5 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import Hidden from '@material-ui/core/Hidden'
 import AppBar from '@material-ui/core/AppBar'
 import Toolbar from '@material-ui/core/Toolbar'
 import Grid from '@material-ui/core/Grid'
@@ -14,6 +15,8 @@ import Logo from '../components/Logo'
 import SearchForm from '../components/SearchForm'
 import SearchBox from '../components/SearchBox'
 import { IState } from '../reducers'
+
+const STACKED_LOGO_HEIGHT = 40
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -31,13 +34,14 @@ const styles = (theme: Theme) =>
       alignItems: 'center'
     },
     logo: {
+      marginRight: theme.spacing.unit * 2,
       width: 200
+    },
+    stackedLogo: {
+      display: 'block'
     },
     searchForm: {
       flexGrow: 1
-    },
-    search: {
-      marginLeft: theme.spacing.unit * 2
     },
     connectedNodes: {
       textAlign: 'right'
@@ -57,16 +61,33 @@ const Header = ({ classes, onResize }: IProps) => {
         handleWidth
         onResize={onResize}>
         <Toolbar className={classes.toolbar}>
-          <Grid container alignItems="center">
-            <Grid item xs={8}>
-              <div className={classes.logoAndSearch}>
-                <Logo className={classes.logo} />
-                <SearchForm className={classes.searchForm}>
-                  <SearchBox className={classes.search} />
-                </SearchForm>
-              </div>
+          <Hidden xsDown>
+            <Grid container alignItems="center">
+              <Grid item sm={12} md={10} lg={9}>
+                <div className={classes.logoAndSearch}>
+                  <Logo className={classes.logo} />
+                  <SearchForm className={classes.searchForm}>
+                    <SearchBox />
+                  </SearchForm>
+                </div>
+              </Grid>
             </Grid>
-          </Grid>
+          </Hidden>
+          <Hidden smUp>
+            <Grid container alignItems="center" spacing={0}>
+              <Grid item xs={12}>
+                <Logo
+                  className={classes.stackedLogo}
+                  height={STACKED_LOGO_HEIGHT}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <SearchForm className={classes.searchForm}>
+                  <SearchBox />
+                </SearchForm>
+              </Grid>
+            </Grid>
+          </Hidden>
         </Toolbar>
       </ReactResizeDetector>
     </AppBar>
