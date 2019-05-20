@@ -131,9 +131,15 @@ launch_chainlink() {
 }
 
 launch_explorer() {
+  explorer_url="http://127.0.0.1:8080"
+  printf -- "\033[34m%-50s\033[0m" "Checking for explorer"
+  if curl -s $explorer_url >/dev/null; then
+    printf -- "[\033[32mrunning\033[0m]\n"
+    return
+  fi
+  printf -- "[\033[31mstopped\033[0m]\n"
   title "Starting explorer..."
 
-  explorer_url="http://127.0.0.1:8080"
   pushd explorer >/dev/null
   yarn build &>$SRCROOT/integration/explorer-yarn.log
   yarn prod &>$SRCROOT/integration/explorer.log &
