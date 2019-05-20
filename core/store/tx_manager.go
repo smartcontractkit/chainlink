@@ -199,45 +199,26 @@ func (txm *EthTxManager) createEthTxWithNonceReload(
 
 	var tx *models.Tx
 	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
-		tx = &models.Tx{
-			From:     ma.Address,
-			To:       to,
-			Nonce:    nonce,
-			Data:     data,
-			Value:    models.NewBig(value.ToInt()),
-			GasLimit: gasLimit,
-		}
+		ethTx := types.NewTransaction(
+			nonce,
+			to,
+			value.ToInt(),
+			gasLimit,
+			gasPriceWei,
+			data,
+		)
 
-		etx := tx.EthTx(gasPriceWei)
-		etx, err := txm.keyStore.SignTx(ma.Account, etx, txm.config.ChainID())
+		ethTx, err := txm.keyStore.SignTx(ma.Account, ethTx, txm.config.ChainID())
 		if err != nil {
 			return err
 		}
 
-		hex, err := utils.EncodeTxToHex(etx)
+		tx, err = txm.orm.CreateTx(ethTx, &ma.Address, blkNum)
 		if err != nil {
 			return err
 		}
 
-		tx.Hex = hex
-		tx.Hash = etx.Hash()
-		tx.GasPrice = models.NewBig(etx.GasPrice())
-
-		tx.Attempts = []*models.TxAttempt{
-			&models.TxAttempt{
-				Hash:     tx.Hash,
-				GasPrice: tx.GasPrice,
-				SentAt:   blkNum,
-				Hex:      tx.Hex,
-			},
-		}
-
-		err = txm.orm.CreateTx(tx)
-		if err != nil {
-			return err
-		}
-
-		return txm.sendTransaction(etx)
+		return txm.sendTransaction(ethTx)
 	})
 
 	if err != nil {

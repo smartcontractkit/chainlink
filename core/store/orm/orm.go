@@ -486,11 +486,37 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 
 // CreateTxAndAttempt persists a TX and its first attempt
 func (orm *ORM) CreateTx(
-	tx *models.Tx,
-) error {
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Create(tx).Error
-	})
+	ethTx *types.Transaction,
+	from *common.Address,
+	sentAt uint64,
+) (*models.Tx, error) {
+	hex, err := utils.EncodeTxToHex(ethTx)
+	if err != nil {
+		return nil, err
+	}
+
+	tx := &models.Tx{
+		From:     *from,
+		To:       *ethTx.To(),
+		Nonce:    ethTx.Nonce(),
+		Data:     ethTx.Data(),
+		Value:    models.NewBig(ethTx.Value()),
+		GasLimit: ethTx.Gas(),
+		GasPrice: models.NewBig(ethTx.GasPrice()),
+		Hex:      hex,
+		Hash:     ethTx.Hash(),
+	}
+
+	tx.Attempts = []*models.TxAttempt{
+		&models.TxAttempt{
+			Hash:     tx.Hash,
+			GasPrice: tx.GasPrice,
+			SentAt:   sentAt,
+			Hex:      tx.Hex,
+		},
+	}
+
+	return tx, orm.DB.Create(tx).Error
 }
 
 // MarkTxSafe updates the database for the given transaction and attempt to
