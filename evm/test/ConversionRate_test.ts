@@ -20,6 +20,7 @@ contract('ConverstionRate', () => {
       'currentRate',
       'destroy',
       'jobIds',
+      'latestCompletedAnswer',
       'oracles',
       'requestRateUpdate',
       'transferLINK',

@@ -18,11 +18,11 @@ contract ConversionRate is ChainlinkClient, Ownable {
   }
 
   uint256 public currentRate;
+  uint256 public latestCompletedAnswer;
   bytes32[] public jobIds;
   address[] public oracles;
 
   uint256 private answerCounter = 1;
-  uint256 private latestCompletedAnswer;
   mapping(bytes32 => uint256) private requestAnswers;
   mapping(uint256 => Answer) private answers;
 
