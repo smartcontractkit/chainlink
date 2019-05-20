@@ -100,7 +100,7 @@ describe('End to end', () => {
     await pupExpect(page).toClick('a', { text: txHash })
 
     // Navigate to Explorer
-    await new Promise(resolve => setTimeout(resolve, 5000)) // FIXME not sure why we need to wait here
+    await new Promise(resolve => setTimeout(resolve, 5000)) // Wait for CL Node to push SyncEvent
     await page.goto('http://localhost:8080')
     await pupExpect(page).toMatch('Search')
     await pupExpect(page).toFill('form input', runId)

@@ -34,6 +34,7 @@ else
 fi
 
 launch_explorer
+add_clnode_to_explorer
 launch_chainlink
 deploy_oracle_and_linktoken_contracts
 launch_echo_server
