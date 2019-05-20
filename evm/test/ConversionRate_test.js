@@ -3,13 +3,14 @@ import { assertBigNum } from './support/matchers'
 const personas = h.personas
 
 contract('ConverstionRate', () => {
-  const SOURCE_PATH: string = 'ConversionRate.sol'
+  const SOURCE_PATH = 'ConversionRate.sol'
   const jobId1 =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000001'
   const jobId2 =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000002'
   const jobId3 =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000003'
+  const basePayment = h.toWei('1')
   let link, rate, oc1, oc2, oc3, oracles
 
   beforeEach(async () => {
@@ -25,11 +26,13 @@ contract('ConverstionRate', () => {
       'destroy',
       'jobIds',
       'latestCompletedAnswer',
+      'minimumResponses',
       'oracles',
+      'paymentAmount',
       'requestRateUpdate',
       'setAuthorization',
       'transferLINK',
-      'updateOracles',
+      'updateRequestDetails',
       // Ownable
       'owner',
       'renounceOwnership',
@@ -45,11 +48,13 @@ contract('ConverstionRate', () => {
         rate = await h.deploy(
           SOURCE_PATH,
           link.address,
+          basePayment,
+          1,
           [oc1.address],
           [jobId1]
         )
 
-        await link.transfer(rate.address, h.toWei('1', 'ether'))
+        await link.transfer(rate.address, h.toWei('1'))
 
         const current = await rate.currentRate.call()
         assertBigNum(h.bigNum(0), current)
@@ -78,11 +83,13 @@ contract('ConverstionRate', () => {
         rate = await h.deploy(
           SOURCE_PATH,
           link.address,
+          basePayment,
+          oracles.length,
           oracles.map(o => o.address),
           [jobId1, jobId2, jobId3]
         )
 
-        await link.transfer(rate.address, h.toWei('100', 'ether'))
+        await link.transfer(rate.address, h.toWei('100'))
 
         const current = await rate.currentRate.call()
         assertBigNum(h.bigNum(0), current)
@@ -133,14 +140,21 @@ contract('ConverstionRate', () => {
     })
   })
 
-  describe('#updateOracles', () => {
+  describe('#updateRequestDetails', () => {
     beforeEach(async () => {
-      rate = await h.deploy(SOURCE_PATH, link.address, [oc1.address], [jobId1])
+      rate = await h.deploy(
+        SOURCE_PATH,
+        link.address,
+        basePayment,
+        1,
+        [oc1.address],
+        [jobId1]
+      )
       await rate.transferOwnership(personas.Carol)
 
       oc2 = await h.deploy('Oracle.sol', link.address)
 
-      await link.transfer(rate.address, h.toWei('100', 'ether'))
+      await link.transfer(rate.address, h.toWei('100'))
 
       const current = await rate.currentRate.call()
       assertBigNum(h.bigNum(0), current)
@@ -148,17 +162,29 @@ contract('ConverstionRate', () => {
 
     context('when called by the owner', () => {
       it('succeeds', async () => {
-        await rate.updateOracles([oc2.address], [jobId2], {
-          from: personas.Carol
-        })
+        await rate.updateRequestDetails(
+          basePayment,
+          1,
+          [oc2.address],
+          [jobId2],
+          {
+            from: personas.Carol
+          }
+        )
       })
 
       context('and the number of jobs does not match number of oracles', () => {
         it('fails', async () => {
           await h.assertActionThrows(async () => {
-            await rate.updateOracles([oc1.address, oc2.address], [jobId2], {
-              from: personas.Carol
-            })
+            await rate.updateRequestDetails(
+              basePayment,
+              2,
+              [oc1.address, oc2.address],
+              [jobId2],
+              {
+                from: personas.Carol
+              }
+            )
           })
         })
       })
@@ -167,9 +193,15 @@ contract('ConverstionRate', () => {
     context('when called by a non-owner', () => {
       it('fails', async () => {
         await h.assertActionThrows(async () => {
-          await rate.updateOracles([oc2.address], [jobId2], {
-            from: personas.Eddy
-          })
+          await rate.updateRequestDetails(
+            basePayment,
+            1,
+            [oc2.address],
+            [jobId2],
+            {
+              from: personas.Eddy
+            }
+          )
         })
       })
     })
@@ -179,10 +211,12 @@ contract('ConverstionRate', () => {
         rate = await h.deploy(
           SOURCE_PATH,
           link.address,
+          basePayment,
+          1,
           [oc1.address],
           [jobId1]
         )
-        await link.transfer(rate.address, h.toWei('100', 'ether'))
+        await link.transfer(rate.address, h.toWei('100'))
 
         oc2 = await h.deploy('Oracle.sol', link.address)
         oc3 = await h.deploy('Oracle.sol', link.address)
@@ -194,7 +228,12 @@ contract('ConverstionRate', () => {
         const request1 = h.decodeRunRequest(request1Tx.receipt.rawLogs[3])
 
         // change oracles
-        await rate.updateOracles([oc2.address, oc3.address], [jobId2, jobId3])
+        await rate.updateRequestDetails(
+          basePayment,
+          2,
+          [oc2.address, oc3.address],
+          [jobId2, jobId3]
+        )
 
         // make new request
         const request2Tx = await rate.requestRateUpdate()
@@ -217,7 +256,14 @@ contract('ConverstionRate', () => {
 
   describe('#transferLINK', () => {
     beforeEach(async () => {
-      rate = await h.deploy(SOURCE_PATH, link.address, [oc1.address], [jobId1])
+      rate = await h.deploy(
+        SOURCE_PATH,
+        link.address,
+        basePayment,
+        1,
+        [oc1.address],
+        [jobId1]
+      )
       await rate.transferOwnership(personas.Carol)
       await link.transfer(rate.address, h.toWei('100'))
       assertBigNum(h.toWei('100'), await link.balanceOf.call(rate.address))
@@ -261,7 +307,14 @@ contract('ConverstionRate', () => {
 
   describe('#destroy', () => {
     beforeEach(async () => {
-      rate = await h.deploy(SOURCE_PATH, link.address, [oc1.address], [jobId1])
+      rate = await h.deploy(
+        SOURCE_PATH,
+        link.address,
+        basePayment,
+        1,
+        [oc1.address],
+        [jobId1]
+      )
       await rate.transferOwnership(personas.Carol)
       await link.transfer(rate.address, h.toWei('100'))
       assertBigNum(h.toWei('100'), await link.balanceOf.call(rate.address))
@@ -292,8 +345,15 @@ contract('ConverstionRate', () => {
 
   describe('#setAuthorization', async () => {
     beforeEach(async () => {
-      rate = await h.deploy(SOURCE_PATH, link.address, [oc1.address], [jobId1])
-      await link.transfer(rate.address, h.toWei('100', 'ether'))
+      rate = await h.deploy(
+        SOURCE_PATH,
+        link.address,
+        basePayment,
+        1,
+        [oc1.address],
+        [jobId1]
+      )
+      await link.transfer(rate.address, h.toWei('100'))
     })
 
     context('when called by an authorized address', () => {

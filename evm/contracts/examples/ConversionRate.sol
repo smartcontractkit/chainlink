@@ -19,6 +19,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
 
   uint256 public currentRate;
   uint256 public latestCompletedAnswer;
+  uint256 public paymentAmount;
+  uint256 public minimumResponses;
   bytes32[] public jobIds;
   address[] public oracles;
 
@@ -34,15 +36,24 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @dev Sets the LinkToken address for the network, addresses of the oracles,
    * and jobIds in storage.
    * @param _link The address of the LINK token
+   * @param _paymentAmount the amount of LINK to be sent to each oracle for each request
+   * @param _minimumResponses the minimum number of responses
+   * before an answer will be calculated
    * @param _oracles An array of oracle addresses
    * @param _jobIds An array of Job IDs
    */
-  constructor(address _link, address[] _oracles, bytes32[] _jobIds)
+  constructor(
+    address _link,
+    uint256 _paymentAmount,
+    uint256 _minimumResponses,
+    address[] _oracles,
+    bytes32[] _jobIds
+  )
     public
     Ownable()
   {
     setChainlinkToken(_link);
-    updateOracles(_oracles, _jobIds);
+    updateRequestDetails(_paymentAmount, _minimumResponses, _oracles, _jobIds);
   }
 
   /**
@@ -88,14 +99,24 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @notice Updates the arrays of oracles and jobIds with new values,
    * overwriting the old values.
    * @dev Arrays are validated to be equal length.
+   * @param _paymentAmount the amount of LINK to be sent to each oracle for each request
+   * @param _minimumResponses the minimum number of responses
+   * before an answer will be calculated
    * @param _oracles An array of oracle addresses
    * @param _jobIds An array of Job IDs
    */
-  function updateOracles(address[] _oracles, bytes32[] _jobIds)
+  function updateRequestDetails(
+    uint256 _paymentAmount,
+    uint256 _minimumResponses,
+    address[] _oracles,
+    bytes32[] _jobIds
+  )
     public
     onlyOwner()
     checkEqualLengths(_oracles, _jobIds)
   {
+    paymentAmount = _paymentAmount;
+    minimumResponses = _minimumResponses;
     jobIds = _jobIds;
     oracles = _oracles;
   }
