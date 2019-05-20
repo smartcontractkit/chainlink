@@ -11,7 +11,7 @@ import Typography from '@material-ui/core/Typography'
 import moment from 'moment'
 import TimeAgo from '../../components/TimeAgo'
 
-const regionalNavStyles = ({ spacing, palette }: Theme) =>
+const regionalNavStyles = ({ spacing }: Theme) =>
   createStyles({
     container: {
       padding: spacing.unit * 5
