@@ -172,6 +172,8 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, txAttempts, 1)
 
+	assert.Equal(t, txs[0].Hash, txAttempts[0].Hash)
+
 	hash := cltest.NewHash()
 	ethMock.Context("manager.CreateTx#2", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_sendRawTransaction", hash)
@@ -679,7 +681,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	assert.NoError(t, app.StartAndConnect())
 
 	confirmedTx, err := manager.CreateTx(to, data)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	txTransmissionAttempts, err := app.Store.TxAttemptsFor(confirmedTx.ID)
 	require.NoError(t, err)
 	require.Len(t, txTransmissionAttempts, 1)
@@ -748,7 +750,9 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 			})
 
 			tx, err := manager.CreateTxWithGas(to, data, test.gasPrice.ToInt(), test.gasLimit)
-			assert.NoError(t, err)
+			require.NoError(t, err)
+			require.NotNil(t, tx)
+			require.NotNil(t, tx.GasLimit)
 			assert.Equal(t, test.expectedGasLimit, tx.GasLimit)
 
 			attempts, err := store.TxAttemptsFor(tx.ID)

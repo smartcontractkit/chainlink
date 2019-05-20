@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
@@ -438,16 +439,16 @@ func TestORM_CreatingTx(t *testing.T) {
 	data, err := hex.DecodeString("0987612345abcdef")
 	assert.NoError(t, err)
 
-	tx := &models.Tx{
-		From:     from,
-		To:       to,
-		Nonce:    nonce,
-		Data:     data,
-		Value:    models.NewBig(value),
-		GasLimit: gasLimit,
-	}
+	ethTx := types.NewTransaction(
+		nonce,
+		to,
+		value,
+		gasLimit,
+		new(big.Int),
+		data,
+	)
 
-	err = store.CreateTx(tx)
+	_, err = store.CreateTx(ethTx, &from, 0)
 	assert.NoError(t, err)
 
 	txs := []models.Tx{}
