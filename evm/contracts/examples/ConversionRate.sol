@@ -3,6 +3,12 @@ pragma solidity 0.4.24;
 import "../ChainlinkClient.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
+/**
+ * @title An example Chainlink contract with aggregation
+ * @notice Requesters can use this contract as a framework for creating
+ * requests to multiple Chainlink nodes and running aggregation
+ * as the contract receives answers.
+ */
 contract ConversionRate is ChainlinkClient, Ownable {
   uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
 
@@ -20,6 +26,16 @@ contract ConversionRate is ChainlinkClient, Ownable {
   mapping(bytes32 => uint256) private requestAnswers;
   mapping(uint256 => Answer) private answers;
 
+  /**
+   * @notice Deploy with the address of the LINK token and arrays of matching
+   * length containing the addresses of the oracles and their corresponding
+   * Job IDs.
+   * @dev Sets the LinkToken address for the network, addresses of the oracles,
+   * and jobIds in storage.
+   * @param _link The address of the LINK token
+   * @param _oracles An array of oracle addresses
+   * @param _jobIds An array of Job IDs
+   */
   constructor(address _link, address[] _oracles, bytes32[] _jobIds)
     public
     Ownable
@@ -28,6 +44,11 @@ contract ConversionRate is ChainlinkClient, Ownable {
     updateOracles(_oracles, _jobIds);
   }
 
+  /**
+   * @notice Creates a Chainlink request for each oracle in the oracles array.
+   * @dev This example does not include request parameters. Reference any documentation
+   * associated with the Job IDs used to determine the required parameters per-request.
+   */
   function requestRateUpdate()
     public
   {
@@ -43,6 +64,12 @@ contract ConversionRate is ChainlinkClient, Ownable {
     answerCounter = answerCounter.add(1);
   }
 
+  /**
+   * @notice Receives the answer from the Chainlink node.
+   * @dev This function can only be called by the oracle that received the request.
+   * @param _clRequestId The Chainlink request ID associated with the answer
+   * @param _rate The answer provided by the Chainlink node
+   */
   function chainlinkCallback(bytes32 _clRequestId, uint256 _rate)
     public
   {
@@ -55,6 +82,13 @@ contract ConversionRate is ChainlinkClient, Ownable {
     updateRecords(answerId);
   }
 
+  /**
+   * @notice Updates the arrays of oracles and jobIds with new values,
+   * overwriting the old values.
+   * @dev Arrays are validated to be equal length.
+   * @param _oracles An array of oracle addresses
+   * @param _jobIds An array of Job IDs
+   */
   function updateOracles(address[] _oracles, bytes32[] _jobIds)
     public
     onlyOwner
@@ -64,6 +98,13 @@ contract ConversionRate is ChainlinkClient, Ownable {
     oracles = _oracles;
   }
 
+  /**
+   * @notice Allows the owner of the contract to withdraw any LINK balance
+   * available on the contract.
+   * @dev The contract will need to have a LINK balance in order to create requests.
+   * @param _recipient The address to receive the LINK tokens
+   * @param _amount The amount of LINK to send from the contract
+   */
   function transferLINK(address _recipient, uint256 _amount)
     public
     onlyOwner
@@ -72,6 +113,12 @@ contract ConversionRate is ChainlinkClient, Ownable {
     require(link.transfer(_recipient, _amount));
   }
 
+  /**
+   * @dev Due to the ensureAllResponsesReceived modifier, this function
+   * will only run if all answers have been received by the _answerId and
+   * will clean up the answers mapping before running aggregation.
+   * @param _answerId The answer ID associated with the group of requests
+   */
   function updateRecords(uint256 _answerId)
     private
     ensureAllResponsesReceived(_answerId)
@@ -80,6 +127,10 @@ contract ConversionRate is ChainlinkClient, Ownable {
     delete answers[_answerId];
   }
 
+  /**
+   * @dev Performs aggregation of the answers received from the Chainlink nodes.
+   * @param _answerId The answer ID associated with the group of requests
+   */
   function updateRate(uint256 _answerId)
     private
     ensureOnlyLatestAnswer(_answerId)
@@ -96,6 +147,10 @@ contract ConversionRate is ChainlinkClient, Ownable {
     latestCompletedAnswer = _answerId;
   }
 
+  /**
+   * @notice Called by the owner to kill the contract. This transfers all LINK
+   * balance and ETH balance (if there is any) to the owner.
+   */
   function destroy()
     public
     onlyOwner
