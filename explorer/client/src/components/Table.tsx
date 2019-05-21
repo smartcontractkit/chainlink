@@ -54,7 +54,7 @@ const styles = (theme: Theme) =>
       backgroundColor: theme.palette.grey['50']
     },
     table: {
-      minHeight: 200
+      minHeight: 150
     }
   })
 
@@ -89,34 +89,32 @@ const renderRows = ({ headers, rows, loadingMsg, emptyMsg }: IProps) => {
 
 const Table = (props: IProps) => {
   return (
-    <MuiTable className={props.classes.table}>
-      <TableHead>
-        <TableRow>
-          {props.headers.map((h: string) => (
-            <MuiTableCell key={h} className={props.classes.header}>
-              {h}
-            </MuiTableCell>
-          ))}
-        </TableRow>
-      </TableHead>
-      <TableBody>{renderRows(props)}</TableBody>
-      <TableFooter>
-        <TableRow>
-          <TablePagination
-            colSpan={3}
-            count={props.count || 0}
-            rowsPerPageOptions={[]}
-            rowsPerPage={props.rowsPerPage}
-            page={props.currentPage}
-            SelectProps={{
-              native: true
-            }}
-            onChangePage={props.onChangePage}
-            ActionsComponent={PaginationActions}
-          />
-        </TableRow>
-      </TableFooter>
-    </MuiTable>
+    <>
+      <MuiTable className={props.classes.table}>
+        <TableHead>
+          <TableRow>
+            {props.headers.map((h: string) => (
+              <MuiTableCell key={h} className={props.classes.header}>
+                {h}
+              </MuiTableCell>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>{renderRows(props)}</TableBody>
+      </MuiTable>
+      <TablePagination
+        component="div"
+        count={props.count || 0}
+        rowsPerPageOptions={[]}
+        rowsPerPage={props.rowsPerPage}
+        page={props.currentPage}
+        SelectProps={{
+          native: true
+        }}
+        onChangePage={props.onChangePage}
+        ActionsComponent={PaginationActions}
+      />
+    </>
   )
 }
 
