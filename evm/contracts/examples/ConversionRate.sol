@@ -11,7 +11,8 @@ import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
  */
 contract ConversionRate is ChainlinkClient, Ownable {
   struct Answer {
-    uint256 expectedResponses;
+    uint256 minimumResponses;
+    uint256 maxResponses;
     uint256[] responses;
   }
 
@@ -72,7 +73,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
       requestId = sendChainlinkRequestTo(oracles[i], request, oraclePayment);
       requestAnswers[requestId] = answerCounter;
     }
-    answers[answerCounter].expectedResponses = oracles.length;
+    answers[answerCounter].minimumResponses = minimumResponses;
+    answers[answerCounter].maxResponses = oracles.length;
     answerCounter = answerCounter.add(1);
   }
 
@@ -91,7 +93,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
     delete requestAnswers[_clRequestId];
     answers[answerId].responses.push(_rate);
 
-    updateRecords(answerId);
+    updateLatestAnswer(answerId);
+    deleteAnswer(answerId);
   }
 
   /**
@@ -106,16 +109,16 @@ contract ConversionRate is ChainlinkClient, Ownable {
    */
   function updateRequestDetails(
     uint256 _paymentAmount,
-    uint256 _minResponses,
+    uint256 _minimumResponses,
     address[] _oracles,
     bytes32[] _jobIds
   )
     public
     onlyOwner()
-    validateAnswerRequirements(_minResponses, _oracles, _jobIds)
+    validateAnswerRequirements(_minimumResponses, _oracles, _jobIds)
   {
     paymentAmount = _paymentAmount;
-    minimumResponses = _minResponses;
+    minimumResponses = _minimumResponses;
     jobIds = _jobIds;
     oracles = _oracles;
   }
@@ -172,7 +175,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
     private
     ensureAllResponsesReceived(_answerId)
   {
-    updateRate(_answerId);
+    updateLatestAnswer(_answerId);
     delete answers[_answerId];
   }
 
@@ -180,20 +183,41 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @dev Performs aggregation of the answers received from the Chainlink nodes.
    * @param _answerId The answer ID associated with the group of requests
    */
-  function updateRate(uint256 _answerId)
+  function updateLatestAnswer(uint256 _answerId)
     private
+    ensureMinResponsesReceived(_answerId)
     ensureOnlyLatestAnswer(_answerId)
   {
     uint256 sumQuotients;
     uint256 sumRemainders;
     Answer memory answer = answers[_answerId];
-    for (uint i = 0; i < answer.expectedResponses; i++) {
+    uint256 responseCount = answer.responses.length;
+    for (uint i = 0; i < responseCount; i++) {
       uint256 response = answer.responses[i];
-      sumQuotients = sumQuotients.add(response.div(answer.expectedResponses)); // aggregate responses and protect from overflows
-      sumRemainders = sumRemainders.add(response % answer.expectedResponses);
+      sumQuotients = sumQuotients.add(response.div(responseCount)); // aggregate responses and protect from overflows
+      sumRemainders = sumRemainders.add(response % responseCount);
     }
-    currentRate = sumQuotients.add(sumRemainders.div(answer.expectedResponses)); // recover lost accuracy from result 
+    currentRate = sumQuotients.add(sumRemainders.div(responseCount)); // recover lost accuracy from result 
     latestCompletedAnswer = _answerId;
+  }
+
+  function deleteAnswer(uint256 _answerId)
+    private
+    ensureAllResponsesReceived(_answerId)
+  {
+    delete answers[_answerId];
+  }
+
+
+  /**
+   * @dev Prevents taking an action if the minimum number of responses has not
+   * been received for an answer.
+   * @param _answerId The the identifier of the answer that keeps track of the responses.
+   */
+  modifier ensureMinResponsesReceived(uint256 _answerId) {
+    if (answers[_answerId].responses.length >= answers[_answerId].minimumResponses) {
+      _;
+    }
   }
 
   /**
@@ -201,7 +225,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @param _answerId The the identifier of the answer that keeps track of the responses.
    */
   modifier ensureAllResponsesReceived(uint256 _answerId) {
-    if (answers[_answerId].responses.length == answers[_answerId].expectedResponses) {
+    if (answers[_answerId].responses.length == answers[_answerId].maxResponses) {
       _;
     }
   }
@@ -212,7 +236,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * Answer IDs are in ascending order.
    */
   modifier ensureOnlyLatestAnswer(uint256 _answerId) {
-    if (latestCompletedAnswer < _answerId) {
+    if (latestCompletedAnswer <= _answerId) {
       _;
     }
   }
@@ -222,8 +246,12 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @param _oracles The list of oracles.
    * @param _jobIds The list of jobs.
    */
-  modifier validateAnswerRequirements(uint256 _minResponses, address[] _oracles, bytes32[] _jobIds) {
-    require(_oracles.length >= _minResponses);
+  modifier validateAnswerRequirements(
+    uint256 _minimumResponses,
+    address[] _oracles,
+    bytes32[] _jobIds
+  ) {
+    require(_oracles.length >= _minimumResponses);
     require(_oracles.length == _jobIds.length);
     _;
   }
