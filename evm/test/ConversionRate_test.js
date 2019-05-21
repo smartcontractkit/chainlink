@@ -193,6 +193,22 @@ contract('ConverstionRate', () => {
           })
         })
       })
+
+      context('and the oracles required exceeds the available amount', () => {
+        it('fails', async () => {
+          await h.assertActionThrows(async () => {
+            await rate.updateRequestDetails(
+              basePayment,
+              3,
+              [oc1.address, oc2.address],
+              [jobId1, jobId2],
+              {
+                from: personas.Carol
+              }
+            )
+          })
+        })
+      })
     })
 
     context('when called by a non-owner', () => {
