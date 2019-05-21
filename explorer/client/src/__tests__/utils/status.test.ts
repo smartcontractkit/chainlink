@@ -64,7 +64,7 @@ describe('utils/status', () => {
     expect(unfulfilledEthTx).toEqual(false)
   })
 
-  it('is "Complete (but Not Fullfilled)" for a status of "completed" without ethtx successful transaction', () => {
+  it('is Complete not fullfilled for a status of "completed" without ethtx successful transaction', () => {
     const taskRuns: ITaskRun[] = [COMPLETED_ETHTX_WITHOUT_STATUS]
     const jobRun = { status: 'completed', taskRuns: taskRuns } as IJobRun
 
@@ -73,7 +73,7 @@ describe('utils/status', () => {
     expect(unfulfilledEthTx).toEqual(true)
   })
 
-  it('is "Complete" for a status of "completed" without ethtx successful transaction', () => {
+  it('is Complete for a status of "completed" without ethtx successful transaction', () => {
     const taskRuns: ITaskRun[] = [COMPLETED_ETHTX_WITH_STATUS]
     const jobRun = { status: 'completed', taskRuns: taskRuns } as IJobRun
 
@@ -82,7 +82,7 @@ describe('utils/status', () => {
     expect(unfulfilledEthTx).toEqual(false)
   })
 
-  it('is "Complete" for a status of "completed"', () => {
+  it('is Complete for a status of "completed"', () => {
     const jobRun = { status: 'completed' } as IJobRun
 
     const [text, unfulfilledEthTx] = status(jobRun)
