@@ -166,20 +166,6 @@ contract ConversionRate is ChainlinkClient, Ownable {
   }
 
   /**
-   * @dev Due to the ensureAllResponsesReceived modifier, this function
-   * will only run if all answers have been received by the _answerId and
-   * will clean up the answers mapping before running aggregation.
-   * @param _answerId The answer ID associated with the group of requests
-   */
-  function updateRecords(uint256 _answerId)
-    private
-    ensureAllResponsesReceived(_answerId)
-  {
-    updateLatestAnswer(_answerId);
-    delete answers[_answerId];
-  }
-
-  /**
    * @dev Performs aggregation of the answers received from the Chainlink nodes.
    * @param _answerId The answer ID associated with the group of requests
    */
