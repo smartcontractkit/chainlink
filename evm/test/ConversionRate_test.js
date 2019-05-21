@@ -176,7 +176,7 @@ contract('ConverstionRate', () => {
         assertBigNum(uniquePayment, await link.balanceOf.call(oc2.address))
       })
 
-      it('can be configured to accept less responses than oracles', async () => {
+      it('can be configured to accept fewer responses than oracles', async () => {
         await rate.updateRequestDetails(
           basePayment,
           1,
@@ -249,7 +249,7 @@ contract('ConverstionRate', () => {
       })
     })
 
-    context('when called before past a answer is fulfilled', () => {
+    context('when called before a past answer is fulfilled', () => {
       beforeEach(async () => {
         rate = await h.deploy(
           SOURCE_PATH,
