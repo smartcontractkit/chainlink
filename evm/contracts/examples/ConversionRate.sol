@@ -106,16 +106,16 @@ contract ConversionRate is ChainlinkClient, Ownable {
    */
   function updateRequestDetails(
     uint256 _paymentAmount,
-    uint256 _minimumResponses,
+    uint256 _minResponses,
     address[] _oracles,
     bytes32[] _jobIds
   )
     public
     onlyOwner()
-    checkEqualLengths(_oracles, _jobIds)
+    validateAnswerRequirements(_minResponses, _oracles, _jobIds)
   {
     paymentAmount = _paymentAmount;
-    minimumResponses = _minimumResponses;
+    minimumResponses = _minResponses;
     jobIds = _jobIds;
     oracles = _oracles;
   }
@@ -222,7 +222,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @param _oracles The list of oracles.
    * @param _jobIds The list of jobs.
    */
-  modifier checkEqualLengths(address[] _oracles, bytes32[] _jobIds) {
+  modifier validateAnswerRequirements(uint256 _minResponses, address[] _oracles, bytes32[] _jobIds) {
+    require(_oracles.length >= _minResponses);
     require(_oracles.length == _jobIds.length);
     _;
   }
