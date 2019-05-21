@@ -116,7 +116,7 @@ const (
 	StatusFulfilledRunLog TxStatus = "fulfilledRunLog"
 	// StatusNoFulfilledRunLog indicates that no ChainlinkFulfilled events were
 	// detected in the transaction receipt.
-	StatusNoFulfilledRunLog TxStatus = "noFulfilledRunLog"
+	StatusNoFulfilledRunLog = "noFulfilledRunLog"
 )
 
 func runLogStatusPresenter(receipt models.TxReceipt) TxStatus {
