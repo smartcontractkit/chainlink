@@ -107,10 +107,18 @@ jobs:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.20
+        environment:
+          TYPEORM_NAME: ci
+          TYPEORM_HOST: explorerdb
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
           POSTGRES_DB: circleci_test
+      - image: circleci/postgres:11-alpine
+        name: explorerdb
+        environment:
+          POSTGRES_USER: root
+          POSTGRES_DB: explorer_test
     environment:
       DATABASE_URL: postgres://circleci_postgres@localhost:5432/circleci_test?sslmode=disable
     steps:
@@ -130,10 +138,18 @@ jobs:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.20
+        environment:
+          TYPEORM_NAME: ci
+          TYPEORM_HOST: explorerdb
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
           POSTGRES_DB: circleci_test
+      - image: circleci/postgres:11-alpine
+        name: explorerdb
+        environment:
+          POSTGRES_USER: root
+          POSTGRES_DB: explorer_test
       - image: smartcontract/devnet:latest
     environment:
       DATABASE_URL: postgres://circleci_postgres@localhost:5432/circleci_test?sslmode=disable
