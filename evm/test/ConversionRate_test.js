@@ -151,9 +151,7 @@ contract('ConverstionRate', () => {
         [jobId1]
       )
       await rate.transferOwnership(personas.Carol)
-
       oc2 = await h.deploy('Oracle.sol', link.address)
-
       await link.transfer(rate.address, h.toWei('100'))
 
       const current = await rate.currentRate.call()
@@ -176,6 +174,30 @@ contract('ConverstionRate', () => {
         await rate.requestRateUpdate({ from: personas.Carol })
 
         assertBigNum(uniquePayment, await link.balanceOf.call(oc2.address))
+      })
+
+      it('can be configured to accept less responses than oracles', async () => {
+        await rate.updateRequestDetails(
+          basePayment,
+          1,
+          [oc1.address, oc2.address],
+          [jobId1, jobId2],
+          {
+            from: personas.Carol
+          }
+        )
+
+        const requestTx = await rate.requestRateUpdate({ from: personas.Carol })
+        const request1 = h.decodeRunRequest(requestTx.receipt.rawLogs[3])
+        const request2 = h.decodeRunRequest(requestTx.receipt.rawLogs[7])
+
+        const response1 = 100
+        await h.fulfillOracleRequest(oc1, request1, response1)
+        assertBigNum(response1, await rate.currentRate.call())
+
+        const response2 = 200
+        await h.fulfillOracleRequest(oc2, request2, response2)
+        assertBigNum((response1 + response2) / 2, await rate.currentRate.call())
       })
 
       context('and the number of jobs does not match number of oracles', () => {
@@ -227,7 +249,7 @@ contract('ConverstionRate', () => {
       })
     })
 
-    context('when it is called before an answer is fulfilled', () => {
+    context('when called before past a answer is fulfilled', () => {
       beforeEach(async () => {
         rate = await h.deploy(
           SOURCE_PATH,
