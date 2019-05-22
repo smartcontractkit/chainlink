@@ -10,12 +10,18 @@ contract('ConverstionRate', () => {
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000002'
   const jobId3 =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000003'
+  const jobId4 =
+    '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000004'
   const basePayment = h.toWei('1')
-  let link, rate, oc1, oc2, oc3, oracles
+  let link, rate, oc1, oc2, oc3, oc4, oracles
 
   beforeEach(async () => {
     link = await h.linkContract()
     oc1 = await h.deploy('Oracle.sol', link.address)
+    oc2 = await h.deploy('Oracle.sol', link.address)
+    oc3 = await h.deploy('Oracle.sol', link.address)
+    oc4 = await h.deploy('Oracle.sol', link.address)
+    oracles = [oc1, oc2, oc3]
   })
 
   it('has a limited public interface', () => {
@@ -76,10 +82,6 @@ contract('ConverstionRate', () => {
 
     context('with multiple oracles', () => {
       beforeEach(async () => {
-        oc2 = await h.deploy('Oracle.sol', link.address)
-        oc3 = await h.deploy('Oracle.sol', link.address)
-        oracles = [oc1, oc2, oc3]
-
         rate = await h.deploy(
           SOURCE_PATH,
           link.address,
@@ -95,9 +97,9 @@ contract('ConverstionRate', () => {
         assertBigNum(h.bigNum(0), current)
       })
 
-      it('triggeers a request to the oracle and averages the responses', async () => {
+      it('triggers requests to the oracles and the median of the responses', async () => {
         const requestTx = await rate.requestRateUpdate()
-        const responses = [101, 102, 103]
+        const responses = [77, 66, 111]
 
         for (let i = 0; i < oracles.length; i++) {
           const oracle = oracles[i]
@@ -105,11 +107,11 @@ contract('ConverstionRate', () => {
           assert.equal(oracle.address, log.address)
           const request = h.decodeRunRequest(log)
 
-          await h.fulfillOracleRequest(oracle, request, responses[i])
+          const tx = await h.fulfillOracleRequest(oracle, request, responses[i])
         }
 
         const current = await rate.currentRate.call()
-        assertBigNum(102, current)
+        assertBigNum(77, current)
       })
 
       it('does not accept old responses', async () => {
@@ -136,6 +138,42 @@ contract('ConverstionRate', () => {
         }
 
         assertBigNum(response2, await rate.currentRate.call())
+      })
+    })
+
+    context('with an even number of oracles', () => {
+      beforeEach(async () => {
+        oracles = [oc1, oc2, oc3, oc4]
+        rate = await h.deploy(
+          SOURCE_PATH,
+          link.address,
+          basePayment,
+          oracles.length,
+          oracles.map(o => o.address),
+          [jobId1, jobId2, jobId3, jobId4]
+        )
+
+        await link.transfer(rate.address, h.toWei('100'))
+
+        const current = await rate.currentRate.call()
+        assertBigNum(h.bigNum(0), current)
+      })
+
+      it('triggers requests to the oracles and the median of the responses', async () => {
+        const requestTx = await rate.requestRateUpdate()
+        const responses = [66, 76, 78, 111]
+
+        for (let i = 0; i < oracles.length; i++) {
+          const oracle = oracles[i]
+          const log = requestTx.receipt.rawLogs[i * 4 + 3]
+          assert.equal(oracle.address, log.address)
+          const request = h.decodeRunRequest(log)
+
+          await h.fulfillOracleRequest(oracle, request, responses[i])
+        }
+
+        const current = await rate.currentRate.call()
+        assertBigNum(77, current)
       })
     })
   })
