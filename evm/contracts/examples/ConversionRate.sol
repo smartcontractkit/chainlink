@@ -135,7 +135,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
     onlyOwner()
   {
     LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-    require(link.transfer(_recipient, _amount));
+    require(link.transfer(_recipient, _amount), "LINK transfer failed");
   }
 
   /**
@@ -174,15 +174,12 @@ contract ConversionRate is ChainlinkClient, Ownable {
     ensureMinResponsesReceived(_answerId)
     ensureOnlyLatestAnswer(_answerId)
   {
-    uint256 sumQuotients;
-    uint256 sumRemainders;
     Answer memory answer = answers[_answerId];
-
     uint256 responseLength = answer.responses.length;
-    uint256 middleIndex = responseLength / 2;
+    uint256 middleIndex = responseLength.div(2);
     if (responseLength % 2 == 0) {
       uint256 median1 = answers[_answerId].responses[middleIndex];
-      uint256 median2 = answers[_answerId].responses[middleIndex - 1];
+      uint256 median2 = answers[_answerId].responses[middleIndex.sub(1)];
       currentRate = median1.add(median2).div(2);
     } else {
       currentRate = answers[_answerId].responses[middleIndex];
@@ -248,7 +245,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
     returns (uint256)
   {
     for (uint256 j = _responseLength; j > _index; j--) {
-      answers[_id].responses[j] = answers[_id].responses[j - 1];
+      answers[_id].responses[j] = answers[_id].responses[j.sub(1)];
     }
   }
 
@@ -306,8 +303,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
     address[] _oracles,
     bytes32[] _jobIds
   ) {
-    require(_oracles.length >= _minimumResponses);
-    require(_oracles.length == _jobIds.length);
+    require(_oracles.length >= _minimumResponses, "must have at least as many oracles as responses");
+    require(_oracles.length == _jobIds.length, "must have exactly as many oracles as job IDs");
     _;
   }
 
