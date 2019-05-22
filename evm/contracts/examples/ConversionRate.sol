@@ -82,17 +82,17 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @notice Receives the answer from the Chainlink node.
    * @dev This function can only be called by the oracle that received the request.
    * @param _clRequestId The Chainlink request ID associated with the answer
-   * @param _rate The answer provided by the Chainlink node
+   * @param _response The answer provided by the Chainlink node
    */
-  function chainlinkCallback(bytes32 _clRequestId, uint256 _rate)
+  function chainlinkCallback(bytes32 _clRequestId, uint256 _response)
     public
   {
     validateChainlinkCallback(_clRequestId);
 
     uint256 answerId = requestAnswers[_clRequestId];
     delete requestAnswers[_clRequestId];
-    answers[answerId].responses.push(_rate);
 
+    insertResponse(answerId, _response);
     updateLatestAnswer(answerId);
     deleteAnswer(answerId);
   }
@@ -177,14 +177,59 @@ contract ConversionRate is ChainlinkClient, Ownable {
     uint256 sumQuotients;
     uint256 sumRemainders;
     Answer memory answer = answers[_answerId];
-    uint256 responseCount = answer.responses.length;
-    for (uint i = 0; i < responseCount; i++) {
-      uint256 response = answer.responses[i];
-      sumQuotients = sumQuotients.add(response.div(responseCount)); // aggregate responses and protect from overflows
-      sumRemainders = sumRemainders.add(response % responseCount);
+
+    uint256 responseLength = answer.responses.length;
+    uint256 middleIndex = responseLength / 2;
+    if (responseLength % 2 == 0) {
+      uint256 median1 = answers[_answerId].responses[middleIndex];
+      uint256 median2 = answers[_answerId].responses[middleIndex - 1];
+      currentRate = median1.add(median2).div(2);
+    } else {
+      currentRate = answers[_answerId].responses[middleIndex];
     }
-    currentRate = sumQuotients.add(sumRemainders.div(responseCount)); // recover lost accuracy from result 
+
     latestCompletedAnswer = _answerId;
+  }
+
+  function insertResponse(uint256 _id, uint256 _response)
+    private
+  {
+    uint256 responseLength = answers[_id].responses.length;
+    answers[_id].responses.length++;
+    uint256 index = findInsertionIndex(_id, _response, responseLength);
+    shiftResponses(_id, responseLength, index);
+    answers[_id].responses[index] = _response;
+  }
+
+  function findInsertionIndex(
+    uint256 _id,
+    uint256 _response,
+    uint256 _responseLength
+  )
+    private
+    view
+    returns (uint256)
+  {
+    uint256 index;
+    for (index = 0; index < _responseLength; index++) {
+      if (answers[_id].responses[index] > _response) {
+        break;
+      }
+    }
+    return index;
+  }
+
+  function shiftResponses(
+    uint256 _id,
+    uint256 _responseLength,
+    uint256 _index
+  )
+    private
+    returns (uint256)
+  {
+    for (uint256 j = _responseLength; j > _index; j--) {
+      answers[_id].responses[j] = answers[_id].responses[j - 1];
+    }
   }
 
   function deleteAnswer(uint256 _answerId)
