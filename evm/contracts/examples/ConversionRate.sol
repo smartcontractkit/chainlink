@@ -191,6 +191,11 @@ contract ConversionRate is ChainlinkClient, Ownable {
     latestCompletedAnswer = _answerId;
   }
 
+  /**
+   * @dev Inserts the response in an ordered list.
+   * @param _id The answer ID associated with the group of requests
+   * @param _response The oracle's response to the given query.
+   */
   function insertResponse(uint256 _id, uint256 _response)
     private
   {
@@ -201,6 +206,13 @@ contract ConversionRate is ChainlinkClient, Ownable {
     answers[_id].responses[index] = _response;
   }
 
+  /**
+   * @dev Finds where in the ordered list to inser an answer.
+   * @param _id The answer ID associated with the group of requests
+   * @param _response The oracle's response to the given query.
+   * @param _responseLength The number of responses recorded for an answer,
+   * passed as a parameter as an optimization to avoid reading from storage
+   */
   function findInsertionIndex(
     uint256 _id,
     uint256 _response,
@@ -219,6 +231,14 @@ contract ConversionRate is ChainlinkClient, Ownable {
     return index;
   }
 
+  /**
+   * @dev Shifts responses to make room at the specified index.
+   * @param _id The answer ID associated with the group of requests
+   * @param _responseLength The number of responses recorded for an answer,
+   * passed as a parameter as an optimization to avoid reading from storage
+   * @param _index The number of responses recorded for an answer,
+   * passed as a parameter as an optimization to avoid reading from storage
+   */
   function shiftResponses(
     uint256 _id,
     uint256 _responseLength,
@@ -232,6 +252,10 @@ contract ConversionRate is ChainlinkClient, Ownable {
     }
   }
 
+  /**
+   * @dev Cleans up the answer record if all responses have been received.
+   * @param _answerId The identifier of the answer to be deleted
+   */
   function deleteAnswer(uint256 _answerId)
     private
     ensureAllResponsesReceived(_answerId)
