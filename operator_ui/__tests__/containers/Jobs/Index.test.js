@@ -31,7 +31,10 @@ describe('containers/Jobs/Index', () => {
         createdAt: new Date().toISOString()
       }
     ])
-    global.fetch.getOnce('/v2/specs?page=1&size=10', jobSpecsResponse)
+    global.fetch.getOnce(
+      '/v2/specs?sort=-createdAt&page=1&size=10',
+      jobSpecsResponse
+    )
 
     const wrapper = mountIndex()
 
@@ -48,7 +51,10 @@ describe('containers/Jobs/Index', () => {
       [{ id: 'ID-ON-FIRST-PAGE' }],
       2
     )
-    global.fetch.getOnce('/v2/specs?page=1&size=1', pageOneResponse)
+    global.fetch.getOnce(
+      '/v2/specs?sort=-createdAt&page=1&size=1',
+      pageOneResponse
+    )
 
     const wrapper = mountIndex({ pageSize: 1 })
 
@@ -60,14 +66,20 @@ describe('containers/Jobs/Index', () => {
       [{ id: 'ID-ON-SECOND-PAGE' }],
       2
     )
-    global.fetch.getOnce('/v2/specs?page=2&size=1', pageTwoResponse)
+    global.fetch.getOnce(
+      '/v2/specs?sort=-createdAt&page=2&size=1',
+      pageTwoResponse
+    )
     clickNextPage(wrapper)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).toContain('ID-ON-SECOND-PAGE')
 
-    global.fetch.getOnce('/v2/specs?page=1&size=1', pageOneResponse)
+    global.fetch.getOnce(
+      '/v2/specs?sort=-createdAt&page=1&size=1',
+      pageOneResponse
+    )
     clickPreviousPage(wrapper)
 
     await syncFetch(wrapper)
