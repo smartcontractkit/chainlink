@@ -22,9 +22,9 @@ type JobSpecsController struct {
 func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
 	var order orm.SortType
 	if c.Query("sort") == "-createdAt" {
-		order = orm.Descending
-	} else {
 		order = orm.Ascending
+	} else {
+		order = orm.Descending
 	}
 
 	jobs, count, err := jsc.App.GetStore().JobsSorted(order, offset, size)
