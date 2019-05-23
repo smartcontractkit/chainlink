@@ -73,7 +73,7 @@ const RegionalNav = withStyles(regionalNavStyles)(
 
           <Hidden smUp>
             <Grid item xs={12}>
-              <JobRunId jobRun={jobRun} variant="h5" />
+              <JobRunId jobRun={jobRun} variant="subtitle1" />
             </Grid>
             <Grid item xs={12}>
               <Created jobRun={jobRun} />
