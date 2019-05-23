@@ -5,13 +5,30 @@ import {
   withStyles,
   WithStyles
 } from '@material-ui/core/styles'
+import { ThemeStyle } from '@material-ui/core/styles/createTypography'
 import Grid from '@material-ui/core/Grid'
 import Paper from '@material-ui/core/Paper'
 import Typography from '@material-ui/core/Typography'
+import Hidden from '@material-ui/core/Hidden'
 import moment from 'moment'
 import TimeAgo from '../../components/TimeAgo'
 
-const regionalNavStyles = ({ spacing, palette }: Theme) =>
+type Variant = ThemeStyle | 'srOnly' | 'inherit'
+
+interface IJobRunProps {
+  jobRun?: IJobRun
+  variant: Variant
+}
+
+const JobRunId = ({ jobRun, variant }: IJobRunProps) => {
+  return (
+    <Typography variant={variant} color="secondary" gutterBottom>
+      {jobRun ? jobRun.runId : '...'}
+    </Typography>
+  )
+}
+
+const regionalNavStyles = ({ spacing }: Theme) =>
   createStyles({
     container: {
       padding: spacing.unit * 5
@@ -28,9 +45,12 @@ const RegionalNav = withStyles(regionalNavStyles)(
       <Paper square className={classes.container}>
         <Grid container spacing={0}>
           <Grid item xs={12}>
-            <Typography variant="h3" color="secondary" gutterBottom>
-              {jobRun ? jobRun.runId : '...'}
-            </Typography>
+            <Hidden xsDown>
+              <JobRunId jobRun={jobRun} variant="h3" />
+            </Hidden>
+            <Hidden smUp>
+              <JobRunId jobRun={jobRun} variant="h5" />
+            </Hidden>
           </Grid>
           <Grid item xs={12}>
             <Typography variant="subtitle2" color="textSecondary">
