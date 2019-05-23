@@ -46,10 +46,19 @@ const Created = ({ jobRun, showTimeAgo }: ICreatedProps) => {
   )
 }
 
-const regionalNavStyles = ({ spacing }: Theme) =>
+const regionalNavStyles = ({ spacing, breakpoints }: Theme) =>
   createStyles({
     container: {
-      padding: spacing.unit * 5
+      paddingTop: spacing.unit * 2,
+      paddingBottom: spacing.unit * 2,
+      paddingLeft: spacing.unit * 2,
+      paddingRight: spacing.unit * 2,
+      [breakpoints.up('sm')]: {
+        paddingTop: spacing.unit * 3,
+        paddingBottom: spacing.unit * 3,
+        paddingLeft: spacing.unit * 3,
+        paddingRight: spacing.unit * 3
+      }
     }
   })
 
