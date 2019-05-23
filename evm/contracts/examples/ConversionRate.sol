@@ -92,7 +92,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
     uint256 answerId = requestAnswers[_clRequestId];
     delete requestAnswers[_clRequestId];
 
-    insertResponse(answerId, _response);
+    answers[answerId].responses.push(_response);
     updateLatestAnswer(answerId);
     deleteAnswer(answerId);
   }
@@ -166,6 +166,55 @@ contract ConversionRate is ChainlinkClient, Ownable {
   }
 
   /**
+   * @dev Returns the kth value of the ordered array
+   * See: http://www.cs.yale.edu/homes/aspnes/pinewiki/QuickSelect.html
+   * @param _list The list of elements to pull from
+   * @param _k The index, 1 based, of the elements you want to pull from when ordered
+   */
+  function quickselect(uint256[] memory _list, uint256 _k)
+    private
+    returns (uint256)
+  {
+    uint256 pivot = _list[_list.length / 2];
+    uint256[] memory lt = new uint256[](_list.length);
+    uint256[] memory gt = new uint256[](_list.length);
+    uint256 ltLen = 0;
+    uint256 gtLen = 0;
+    for (uint256 i = 0; i < _list.length; i++) {
+      if (_list[i] < pivot) {
+        lt[ltLen] = _list[i];
+        ltLen++;
+      } else if (_list[i] > pivot) {
+        gt[gtLen] = _list[i];
+        gtLen++;
+      }
+    }
+    if (_k <= ltLen) {
+      return quickselect(trim(lt, ltLen), _k);
+    } else if (_k > (_list.length - gtLen)) {
+      return quickselect(trim(gt, gtLen), (_k - (_list.length - gtLen)));
+    } else {
+      return pivot;
+    }
+  }
+
+  /**
+   * @dev Returns a copy of the array, truncated to the specified length.
+   * @param _list The list that will be copied and truncated
+   * @param _length The length to turncate the list to
+   */
+  function trim(uint256[] memory _list, uint256 _length)
+    private
+    returns (uint256[] memory)
+  {
+      uint256[] memory trimmed = new uint256[](_length);
+      for (uint256 i = 0; i < _length; i++) {
+        trimmed[i] = _list[i];
+      }
+      return trimmed;
+  }
+
+  /**
    * @dev Performs aggregation of the answers received from the Chainlink nodes.
    * Assumes that at least half the oracles are honest and so can't contol the
    * middle of the ordered responses.
@@ -180,75 +229,14 @@ contract ConversionRate is ChainlinkClient, Ownable {
     uint256 responseLength = answer.responses.length;
     uint256 middleIndex = responseLength.div(2);
     if (responseLength % 2 == 0) {
-      uint256 median1 = answers[_answerId].responses[middleIndex];
-      uint256 median2 = answers[_answerId].responses[middleIndex.sub(1)];
+      uint256 median1 = quickselect(answers[_answerId].responses, middleIndex);
+      uint256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1));
       currentRate = median1.add(median2).div(2);
     } else {
-      currentRate = answers[_answerId].responses[middleIndex];
+      currentRate = quickselect(answers[_answerId].responses, middleIndex.add(1));
     }
 
     latestCompletedAnswer = _answerId;
-  }
-
-  /**
-   * @dev Inserts the response in an ordered list.
-   * @param _id The answer ID associated with the group of requests
-   * @param _response The oracle's response to the given query.
-   */
-  function insertResponse(uint256 _id, uint256 _response)
-    private
-  {
-    uint256 responseLength = answers[_id].responses.length;
-    answers[_id].responses.length++;
-    uint256 index = findInsertionIndex(_id, _response, responseLength);
-    shiftResponses(_id, responseLength, index);
-    answers[_id].responses[index] = _response;
-  }
-
-  /**
-   * @dev Finds where in the ordered list to inser an answer.
-   * @param _id The answer ID associated with the group of requests
-   * @param _response The oracle's response to the given query.
-   * @param _responseLength The number of responses recorded for an answer,
-   * passed as a parameter as an optimization to avoid reading from storage
-   */
-  function findInsertionIndex(
-    uint256 _id,
-    uint256 _response,
-    uint256 _responseLength
-  )
-    private
-    view
-    returns (uint256)
-  {
-    uint256 index;
-    for (index = 0; index < _responseLength; index++) {
-      if (answers[_id].responses[index] > _response) {
-        break;
-      }
-    }
-    return index;
-  }
-
-  /**
-   * @dev Shifts responses to make room at the specified index.
-   * @param _id The answer ID associated with the group of requests
-   * @param _responseLength The number of responses recorded for an answer,
-   * passed as a parameter as an optimization to avoid reading from storage
-   * @param _index The number of responses recorded for an answer,
-   * passed as a parameter as an optimization to avoid reading from storage
-   */
-  function shiftResponses(
-    uint256 _id,
-    uint256 _responseLength,
-    uint256 _index
-  )
-    private
-    returns (uint256)
-  {
-    for (uint256 j = _responseLength; j > _index; j--) {
-      answers[_id].responses[j] = answers[_id].responses[j.sub(1)];
-    }
   }
 
   /**
