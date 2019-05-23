@@ -167,6 +167,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
 
   /**
    * @dev Performs aggregation of the answers received from the Chainlink nodes.
+   * Assumes that at least half the oracles are honest and so can't contol the
+   * middle of the ordered responses.
    * @param _answerId The answer ID associated with the group of requests
    */
   function updateLatestAnswer(uint256 _answerId)
