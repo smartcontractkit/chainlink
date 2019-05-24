@@ -40,7 +40,6 @@ func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.Run
 
 	if !input.Status.PendingConfirmations() {
 		createTxRunResult(etx, &input, store)
-		return input
 	}
 	ensureTxRunResult(&input, store)
 	return input
@@ -89,7 +88,6 @@ func createTxRunResult(
 	}
 
 	input.ApplyResult(tx.Hash.String())
-	ensureTxRunResult(input, store)
 }
 
 func ensureTxRunResult(input *models.RunResult, str *store.Store) {
