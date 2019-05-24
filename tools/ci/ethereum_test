@@ -15,6 +15,8 @@ export ECHO_SERVER_URL=http://127.0.0.1:$ECHO_SERVER_PORT/count
 export CHAINLINK_PORT=6688
 export CHAINLINK_URL=http://127.0.0.1:$CHAINLINK_PORT/
 
+export MIN_OUTGOING_CONFIRMATIONS=0
+
 pushd $SRCROOT >/dev/null
 
 source ./integration/common
@@ -31,6 +33,8 @@ else
   launch_gethnet
 fi
 
+launch_explorer
+add_clnode_to_explorer
 launch_chainlink
 deploy_oracle_and_linktoken_contracts
 launch_echo_server
@@ -46,7 +50,7 @@ pushd integration >/dev/null
 title 'End to end tests.'
 
 set -o pipefail
-yarn cross-env NODE_ENV=test yarn jest integration/ --runInBand | tee e2e.tests.log
+yarn cross-env NODE_ENV=test yarn jest integration/ --runInBand | tee $SRCROOT/integration/e2e.tests.log
 set +o pipefail
 
 title 'All tests passed.'

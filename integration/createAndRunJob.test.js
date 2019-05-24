@@ -1,5 +1,5 @@
 const puppeteer = require('puppeteer')
-const expect = require('expect-puppeteer')
+const pupExpect = require('expect-puppeteer')
 const { newServer } = require('./support/server.js')
 const { scrape } = require('./support/scrape.js')
 const {
@@ -15,7 +15,7 @@ describe('End to end', () => {
   let browser, page, server
   beforeAll(async () => {
     jest.setTimeout(30000)
-    expect.setDefaultOptions({ timeout: 3000 })
+    pupExpect.setDefaultOptions({ timeout: 3000 })
 
     browser = await puppeteer.launch({
       devtools: false,
@@ -39,20 +39,20 @@ describe('End to end', () => {
 
   it('creates a job that runs', async () => {
     await page.goto('http://localhost:6688')
-    await expect(page).toMatch('Chainlink')
+    await pupExpect(page).toMatch('Chainlink')
 
     // Login
     await signIn(page, 'notreal@fakeemail.ch', 'twochains')
-    await expect(page).toMatch('Jobs')
+    await pupExpect(page).toMatch('Jobs')
 
     // Create Job
     await clickNewJobButton(page)
-    await expect(page).toMatchElement('h5', { text: 'New Job' })
+    await pupExpect(page).toMatchElement('h5', { text: 'New Job' })
 
     // prettier-ignore
     const jobJson = `{
       "initiators": [{"type": "web"}],
-	    "tasks": [
+      "tasks": [
         {"type": "httpget", "params": {"get": "http://localhost:${server.port}"}},
         {"type": "jsonparse", "params": {"path": ["last"]}},
         {
@@ -66,28 +66,51 @@ describe('End to end', () => {
       ]
     }`
 
-    await expect(page).toFill('form textarea', jobJson)
-    await expect(page).toClick('button', { text: 'Create Job' })
-    await expect(page).toMatch(/success.+job/i)
+    await pupExpect(page).toFill('form textarea', jobJson)
+    await pupExpect(page).toClick('button', { text: 'Create Job' })
+    await pupExpect(page).toMatch(/success.+job/i)
 
     // Run Job
-    await expect(page).toClick('#created-job')
-    await expect(page).toMatch('Job Spec Detail')
-    await expect(page).toClick('button', { text: 'Run' })
-    await expect(page).toMatch(/success.+?run/i)
+    await pupExpect(page).toClick('#created-job')
+    await pupExpect(page).toMatch('Job Spec Detail')
+    await pupExpect(page).toClick('button', { text: 'Run' })
+    await pupExpect(page).toMatch(/success.+?run/i)
+    const flashMessage = await page.$x(
+      "//p[contains(text(), 'Successfully created job run')]"
+    )
+    await new Promise(resolve => setTimeout(resolve, 2000)) // FIXME timeout until we can reload again
+    const jobRunLink = await flashMessage[0].$('a')
+    const runId = await flashMessage[0].$eval('a', async link => link.innerText)
+    await jobRunLink.click()
 
     // Transaction ID should eventually be coded on page like so:
     //    {"result":"0x6736ad06da823692cc66c5a51032c4aed83bfca9778eb1a7ad24de67f3f472fc"}
-    const match = await scrape(page, /"result":"(0x[0-9a-f]{64})"/)
+    await pupExpect(page).toClick('a', { text: 'JSON' })
+    const match = await scrape(page, /0x([0-9a-f]{64})/)
+    expect(match).toBeDefined()
     const txHash = match[1]
+    expect(txHash).toBeDefined()
 
     // Navigate to transactions page
     await clickTransactionsMenuItem(page)
-    await expect(page).toMatchElement('h4', { text: 'Transactions' })
-    await expect(page).toMatchElement('p', { text: txHash })
+    await pupExpect(page).toMatchElement('h4', { text: 'Transactions' })
+    await pupExpect(page).toMatchElement('p', { text: txHash })
 
     // Navigate to transaction page and check for the transaction
-    await expect(page).toClick('a', { text: txHash })
-    await scrape(page, txHash)
+    await pupExpect(page).toClick('a', { text: txHash })
+
+    // Navigate to Explorer
+    await new Promise(resolve => setTimeout(resolve, 5000)) // Wait for CL Node to push SyncEvent
+    await page.goto('http://localhost:8080')
+    await pupExpect(page).toMatch('Search')
+    await pupExpect(page).toFill('form input', runId)
+    await pupExpect(page).toClick('button', { text: 'Search' })
+
+    await new Promise(resolve => setTimeout(resolve, 500)) // FIXME not sure why we need to wait here
+    await pupExpect(page).toMatch(runId)
+    await pupExpect(page).toClick('a', { text: runId })
+
+    await scrape(page, /Complete/)
+    await pupExpect(page).toMatchElement('h5', { text: 'Complete' })
   })
 })
