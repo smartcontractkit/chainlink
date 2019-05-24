@@ -147,7 +147,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    */
   function setAuthorization(address _requester, bool _allowed)
     public
-    onlyOwner
+    onlyOwner()
   {
     authorizedRequesters[_requester] = _allowed;
   }
@@ -181,10 +181,10 @@ contract ConversionRate is ChainlinkClient, Ownable {
     uint256 middleIndex = responseLength.div(2);
     if (responseLength % 2 == 0) {
       uint256 median1 = quickselect(answers[_answerId].responses, middleIndex);
-      uint256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1));
+      uint256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
       currentRate = median1.add(median2).div(2);
     } else {
-      currentRate = quickselect(answers[_answerId].responses, middleIndex.add(1));
+      currentRate = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
     }
     latestCompletedAnswer = _answerId;
   }
@@ -192,46 +192,46 @@ contract ConversionRate is ChainlinkClient, Ownable {
   /**
    * @dev Returns the kth value of the ordered array
    * See: http://www.cs.yale.edu/homes/aspnes/pinewiki/QuickSelect.html
-   * @param _list The list of elements to pull from
+   * @param _a The list of elements to pull from
    * @param _k The index, 1 based, of the elements you want to pull from when ordered
    */
   // solium-disable-next-line security/no-assign-params
-  function quickselect(uint256[] memory _list, uint256 _k)
+  function quickselect(uint256[] memory _a, uint256 _k)
     private
     pure
     returns (uint256)
   {
-    uint256 listLen = _list.length;
-    uint256[] memory lt = new uint256[](listLen);
-    uint256[] memory gt = new uint256[](listLen);
+    uint256 aLen = _a.length;
+    uint256[] memory a1 = new uint256[](aLen);
+    uint256[] memory a2 = new uint256[](aLen);
+    uint256 a1Len;
+    uint256 a2Len;
     uint256 pivot;
-    uint256 ltLen;
-    uint256 gtLen;
     uint256 i;
 
     while (true) {
-      pivot = _list[listLen.div(2)];
-      ltLen = 0;
-      gtLen = 0;
-      for (i = 0; i < listLen; i++) {
-        if (_list[i] < pivot) {
-          lt[ltLen] = _list[i];
-          ltLen++;
-        } else if (_list[i] > pivot) {
-          gt[gtLen] = _list[i];
-          gtLen++;
+      pivot = _a[aLen.div(2)];
+      a1Len = 0;
+      a2Len = 0;
+      for (i = 0; i < aLen; i++) {
+        if (_a[i] < pivot) {
+          a1[a1Len] = _a[i];
+          a1Len++;
+        } else if (_a[i] > pivot) {
+          a2[a2Len] = _a[i];
+          a2Len++;
         }
       }
-      if (_k <= ltLen) {
-        listLen = ltLen;
-        for (i = 0; i < ltLen; i++) {
-          _list[i] = lt[i];
+      if (_k <= a1Len) {
+        aLen = a1Len;
+        for (i = 0; i < a1Len; i++) {
+          _a[i] = a1[i];
         }
-      } else if (_k > (listLen.sub(gtLen))) {
-        _k = _k.sub(listLen.sub(gtLen));
-        listLen = gtLen;
-        for (i = 0; i < gtLen; i++) {
-          _list[i] = gt[i];
+      } else if (_k > (aLen.sub(a2Len))) {
+        _k = _k.sub(aLen.sub(a2Len));
+        aLen = a2Len;
+        for (i = 0; i < a2Len; i++) {
+          _a[i] = a2[i];
         }
       } else {
         return pivot;
