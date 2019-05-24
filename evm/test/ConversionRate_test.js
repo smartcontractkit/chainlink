@@ -12,8 +12,10 @@ contract('ConverstionRate', () => {
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000003'
   const jobId4 =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000004'
+  const deposit = h.toWei('100')
   const basePayment = h.toWei('1')
   let link, rate, oc1, oc2, oc3, oc4, oracles
+  let jobIds = []
 
   beforeEach(async () => {
     link = await h.linkContract()
@@ -190,7 +192,7 @@ contract('ConverstionRate', () => {
       )
       await rate.transferOwnership(personas.Carol)
       oc2 = await h.deploy('Oracle.sol', link.address)
-      await link.transfer(rate.address, h.toWei('100'))
+      await link.transfer(rate.address, deposit)
 
       const current = await rate.currentRate.call()
       assertBigNum(h.bigNum(0), current)
@@ -297,7 +299,7 @@ contract('ConverstionRate', () => {
           [oc1.address],
           [jobId1]
         )
-        await link.transfer(rate.address, h.toWei('100'))
+        await link.transfer(rate.address, deposit)
 
         oc2 = await h.deploy('Oracle.sol', link.address)
         oc3 = await h.deploy('Oracle.sol', link.address)
@@ -336,8 +338,6 @@ contract('ConverstionRate', () => {
   })
 
   describe('#transferLINK', () => {
-    const amountHeld = h.toWei('100')
-
     beforeEach(async () => {
       rate = await h.deploy(
         SOURCE_PATH,
@@ -348,18 +348,18 @@ contract('ConverstionRate', () => {
         [jobId1]
       )
       await rate.transferOwnership(personas.Carol)
-      await link.transfer(rate.address, amountHeld)
+      await link.transfer(rate.address, deposit)
       assertBigNum(h.toWei('100'), await link.balanceOf.call(rate.address))
     })
 
     context('when called by the owner', () => {
       it('succeeds', async () => {
-        await rate.transferLINK(personas.Carol, amountHeld, {
+        await rate.transferLINK(personas.Carol, deposit, {
           from: personas.Carol
         })
 
         assertBigNum(h.toWei('0'), await link.balanceOf.call(rate.address))
-        assertBigNum(amountHeld, await link.balanceOf.call(personas.Carol))
+        assertBigNum(deposit, await link.balanceOf.call(personas.Carol))
       })
 
       context('with a number higher than the LINK balance', () => {
@@ -370,7 +370,7 @@ contract('ConverstionRate', () => {
             })
           })
 
-          assertBigNum(amountHeld, await link.balanceOf.call(rate.address))
+          assertBigNum(deposit, await link.balanceOf.call(rate.address))
         })
       })
     })
@@ -378,18 +378,18 @@ contract('ConverstionRate', () => {
     context('when called by a non-owner', () => {
       it('fails', async () => {
         await h.assertActionThrows(async () => {
-          await rate.transferLINK(personas.Carol, amountHeld, {
+          await rate.transferLINK(personas.Carol, deposit, {
             from: personas.Eddy
           })
         })
 
-        assertBigNum(amountHeld, await link.balanceOf.call(rate.address))
+        assertBigNum(deposit, await link.balanceOf.call(rate.address))
       })
     })
   })
 
   describe('#destroy', () => {
-    const amountHeld = h.toWei('100')
+    const deposit = h.toWei('100')
 
     beforeEach(async () => {
       rate = await h.deploy(
@@ -401,8 +401,8 @@ contract('ConverstionRate', () => {
         [jobId1]
       )
       await rate.transferOwnership(personas.Carol)
-      await link.transfer(rate.address, amountHeld)
-      assertBigNum(amountHeld, await link.balanceOf.call(rate.address))
+      await link.transfer(rate.address, deposit)
+      assertBigNum(deposit, await link.balanceOf.call(rate.address))
     })
 
     context('when called by the owner', () => {
@@ -410,7 +410,7 @@ contract('ConverstionRate', () => {
         await rate.destroy({ from: personas.Carol })
 
         assertBigNum(h.toWei('0'), await link.balanceOf.call(rate.address))
-        assertBigNum(amountHeld, await link.balanceOf.call(personas.Carol))
+        assertBigNum(deposit, await link.balanceOf.call(personas.Carol))
 
         assert.equal('0x', await web3.eth.getCode(rate.address))
       })
@@ -422,7 +422,7 @@ contract('ConverstionRate', () => {
           await rate.destroy({ from: personas.Eddy })
         })
 
-        assertBigNum(amountHeld, await link.balanceOf.call(rate.address))
+        assertBigNum(deposit, await link.balanceOf.call(rate.address))
         assert.notEqual('0x', await web3.eth.getCode(rate.address))
       })
     })
@@ -472,5 +472,98 @@ contract('ConverstionRate', () => {
         })
       })
     })
+  })
+
+  context('testing various sets of inputs', () => {
+    const tests = [
+      {
+        name: 'ordered ascending',
+        responses: [0, 1, 2, 3, 4, 5, 6, 7],
+        want: 3
+      },
+      {
+        name: 'ordered descending',
+        responses: [7, 6, 5, 4, 3, 2, 1, 0],
+        want: 3
+      },
+      {
+        name: 'unordered 1',
+        responses: [1001, 1, 101, 10, 11, 0, 111],
+        want: 11
+      },
+      {
+        name: 'unordered 2',
+        responses: [5, 5, 4, 8, 8, 7, 9, 5, 9],
+        want: 7
+      },
+      {
+        name: 'unordered 3',
+        responses: [33, 44, 89, 101, 67, 7, 23, 55, 88, 324, 0, 88],
+        want: 61 // 67 + 55 / 2
+      },
+      {
+        name: 'long unordered',
+        responses: [
+          333121,
+          323453,
+          337654,
+          345363,
+          345363,
+          333456,
+          335477,
+          333323,
+          332352,
+          354648,
+          983260,
+          333856,
+          335468,
+          376987,
+          333253,
+          388867,
+          337879,
+          333324,
+          338678
+        ],
+        want: 335477
+      }
+    ]
+
+    beforeEach(async () => {
+      rate = await h.deploy(SOURCE_PATH, link.address, basePayment, 0, [], [])
+      await link.transfer(rate.address, h.toWei('10000000'))
+    })
+
+    for (let test of tests) {
+      const responses = test.responses
+      let oracles = []
+      let jobIds = []
+
+      it(test.name, async () => {
+        for (let i = 0; i < responses.length; i++) {
+          oracles[i] = await h.deploy('Oracle.sol', link.address)
+          jobIds[i] = jobId1 // doesn't really matter in this test
+        }
+
+        await rate.updateRequestDetails(
+          basePayment,
+          oracles.length,
+          oracles.map(o => o.address),
+          jobIds
+        )
+
+        const requestTx = await rate.requestRateUpdate()
+
+        for (let i = 0; i < responses.length; i++) {
+          const oracle = oracles[i]
+          const log = requestTx.receipt.rawLogs[i * 4 + 3]
+          assert.equal(oracle.address, log.address)
+          const request = h.decodeRunRequest(log)
+
+          await h.fulfillOracleRequest(oracle, request, responses[i])
+        }
+
+        assertBigNum(test.want, await rate.currentRate.call())
+      })
+    }
   })
 })
