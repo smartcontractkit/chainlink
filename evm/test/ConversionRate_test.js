@@ -107,7 +107,7 @@ contract('ConverstionRate', () => {
           assert.equal(oracle.address, log.address)
           const request = h.decodeRunRequest(log)
 
-          const tx = await h.fulfillOracleRequest(oracle, request, responses[i])
+          await h.fulfillOracleRequest(oracle, request, responses[i])
         }
 
         const current = await rate.currentRate.call()
