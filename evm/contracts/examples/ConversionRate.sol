@@ -166,55 +166,6 @@ contract ConversionRate is ChainlinkClient, Ownable {
   }
 
   /**
-   * @dev Returns the kth value of the ordered array
-   * See: http://www.cs.yale.edu/homes/aspnes/pinewiki/QuickSelect.html
-   * @param _list The list of elements to pull from
-   * @param _k The index, 1 based, of the elements you want to pull from when ordered
-   */
-  function quickselect(uint256[] memory _list, uint256 _k)
-    private
-    returns (uint256)
-  {
-    uint256 pivot = _list[_list.length / 2];
-    uint256[] memory lt = new uint256[](_list.length);
-    uint256[] memory gt = new uint256[](_list.length);
-    uint256 ltLen = 0;
-    uint256 gtLen = 0;
-    for (uint256 i = 0; i < _list.length; i++) {
-      if (_list[i] < pivot) {
-        lt[ltLen] = _list[i];
-        ltLen++;
-      } else if (_list[i] > pivot) {
-        gt[gtLen] = _list[i];
-        gtLen++;
-      }
-    }
-    if (_k <= ltLen) {
-      return quickselect(trim(lt, ltLen), _k);
-    } else if (_k > (_list.length - gtLen)) {
-      return quickselect(trim(gt, gtLen), (_k - (_list.length - gtLen)));
-    } else {
-      return pivot;
-    }
-  }
-
-  /**
-   * @dev Returns a copy of the array, truncated to the specified length.
-   * @param _list The list that will be copied and truncated
-   * @param _length The length to turncate the list to
-   */
-  function trim(uint256[] memory _list, uint256 _length)
-    private
-    returns (uint256[] memory)
-  {
-      uint256[] memory trimmed = new uint256[](_length);
-      for (uint256 i = 0; i < _length; i++) {
-        trimmed[i] = _list[i];
-      }
-      return trimmed;
-  }
-
-  /**
    * @dev Performs aggregation of the answers received from the Chainlink nodes.
    * Assumes that at least half the oracles are honest and so can't contol the
    * middle of the ordered responses.
@@ -235,8 +186,56 @@ contract ConversionRate is ChainlinkClient, Ownable {
     } else {
       currentRate = quickselect(answers[_answerId].responses, middleIndex.add(1));
     }
-
     latestCompletedAnswer = _answerId;
+  }
+
+  /**
+   * @dev Returns the kth value of the ordered array
+   * See: http://www.cs.yale.edu/homes/aspnes/pinewiki/QuickSelect.html
+   * @param _list The list of elements to pull from
+   * @param _k The index, 1 based, of the elements you want to pull from when ordered
+   */
+  function quickselect(uint256[] memory _list, uint256 _k)
+    private
+    pure
+    returns (uint256)
+  {
+    uint256 listLen = _list.length;
+    uint256[] memory lt = new uint256[](listLen);
+    uint256[] memory gt = new uint256[](listLen);
+    uint256 pivot;
+    uint256 ltLen;
+    uint256 gtLen;
+    uint256 i;
+
+    while (true) {
+      pivot = _list[listLen.div(2)];
+      ltLen = 0;
+      gtLen = 0;
+      for (i = 0; i < listLen; i++) {
+        if (_list[i] < pivot) {
+          lt[ltLen] = _list[i];
+          ltLen++;
+        } else if (_list[i] > pivot) {
+          gt[gtLen] = _list[i];
+          gtLen++;
+        }
+      }
+      if (_k <= ltLen) {
+        listLen = ltLen;
+        for (i = 0; i < ltLen; i++) {
+          _list[i] = lt[i];
+        }
+      } else if (_k > (listLen.sub(gtLen))) {
+        _k = _k.sub(listLen.sub(gtLen));
+        listLen = gtLen;
+        for (i = 0; i < gtLen; i++) {
+          _list[i] = gt[i];
+        }
+      } else {
+        return pivot;
+      }
+    }
   }
 
   /**
