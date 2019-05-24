@@ -195,13 +195,14 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @param _a The list of elements to pull from
    * @param _k The index, 1 based, of the elements you want to pull from when ordered
    */
-  // solium-disable-next-line security/no-assign-params
   function quickselect(uint256[] memory _a, uint256 _k)
     private
     pure
     returns (uint256)
   {
-    uint256 aLen = _a.length;
+    uint256[] memory a = _a;
+    uint256 k = _k;
+    uint256 aLen = a.length;
     uint256[] memory a1 = new uint256[](aLen);
     uint256[] memory a2 = new uint256[](aLen);
     uint256 a1Len;
@@ -210,33 +211,42 @@ contract ConversionRate is ChainlinkClient, Ownable {
     uint256 i;
 
     while (true) {
-      pivot = _a[aLen.div(2)];
+      pivot = a[aLen.div(2)];
       a1Len = 0;
       a2Len = 0;
       for (i = 0; i < aLen; i++) {
-        if (_a[i] < pivot) {
-          a1[a1Len] = _a[i];
+        if (a[i] < pivot) {
+          a1[a1Len] = a[i];
           a1Len++;
-        } else if (_a[i] > pivot) {
-          a2[a2Len] = _a[i];
+        } else if (a[i] > pivot) {
+          a2[a2Len] = a[i];
           a2Len++;
         }
       }
-      if (_k <= a1Len) {
+      if (k <= a1Len) {
         aLen = a1Len;
-        for (i = 0; i < a1Len; i++) {
-          _a[i] = a1[i];
-        }
-      } else if (_k > (aLen.sub(a2Len))) {
-        _k = _k.sub(aLen.sub(a2Len));
+        (a, a1) = swap(a, a1);
+      } else if (k > (aLen.sub(a2Len))) {
+        k = k.sub(aLen.sub(a2Len));
         aLen = a2Len;
-        for (i = 0; i < a2Len; i++) {
-          _a[i] = a2[i];
-        }
+        (a, a2) = swap(a, a2);
       } else {
         return pivot;
       }
     }
+  }
+
+  /**
+   * @dev Swaps the pointers to two uint256 arrays in memory;
+   * @param _a The pointer to the first in memroy array
+   * @param _b The pointer to the second in memroy array
+   */
+  function swap(uint256[] memory _a, uint256[] memory _b)
+    private
+    pure
+    returns(uint256[] memory, uint256[] memory)
+  {
+    return (_b, _a);
   }
 
   /**
@@ -249,7 +259,6 @@ contract ConversionRate is ChainlinkClient, Ownable {
   {
     delete answers[_answerId];
   }
-
 
   /**
    * @dev Prevents taking an action if the minimum number of responses has not
