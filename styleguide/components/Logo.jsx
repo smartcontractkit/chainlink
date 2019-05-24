@@ -1,8 +1,8 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import pick from 'lodash/pick'
-import Image from './Image'
 import { withStyles } from '@material-ui/core/styles'
+import Image from './Image'
 
 const styles = theme => {
   return {

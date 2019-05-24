@@ -7,12 +7,12 @@ import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
-import CardTitle from 'components/Cards/Title'
 import { titleCase } from 'change-case'
+import CardTitle from './Cards/Title'
 
-const renderKey = (k: string, titleize: boolean) => (titleize ? titleCase(k) : k)
+const renderKey = (k, titleize) => (titleize ? titleCase(k) : k)
 
-const renderEntries = (entries: Array<Array<string>>, titleize: boolean) =>
+const renderEntries = (entries, titleize) =>
   entries.map(([k, v]) => (
     <TableRow key={k}>
       <Col>{renderKey(k, titleize)}</Col>
@@ -20,7 +20,7 @@ const renderEntries = (entries: Array<Array<string>>, titleize: boolean) =>
     </TableRow>
   ))
 
-const renderBody = (entries: Array<Array<string>>, error: string, titleize: boolean) => {
+const renderBody = (entries, error, titleize) => {
   if (error) {
     return <ErrorRow>{error}</ErrorRow>
   } else if (entries.length === 0) {
@@ -58,15 +58,13 @@ const HeadCol = ({ children }) => (
   </TableCell>
 )
 
-interface IPropsKVList {
-  entries: Array<Array<string>>
-  titleize: boolean
-  showHead: boolean
-  title?: string
-  error?: string
-}
-
-const KeyValueList = ({ entries, error = '', showHead = false, title, titleize = false } : IPropsKVList) => (
+const KeyValueList = ({
+  entries,
+  error = '',
+  showHead = false,
+  title,
+  titleize = false
+}) => (
   <Card>
     {title && <CardTitle divider>{title}</CardTitle>}
 
