@@ -195,6 +195,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @param _list The list of elements to pull from
    * @param _k The index, 1 based, of the elements you want to pull from when ordered
    */
+  // solium-disable-next-line security/no-assign-params
   function quickselect(uint256[] memory _list, uint256 _k)
     private
     pure
