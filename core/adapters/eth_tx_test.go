@@ -2,6 +2,7 @@ package adapters_test
 
 import (
 	"encoding/json"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -536,4 +537,79 @@ func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 
 	assert.False(t, data.HasError())
 	assert.Equal(t, models.RunStatusPendingConnection, data.Status)
+}
+
+func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey()
+	defer cleanup()
+	store := app.Store
+	config := store.Config
+
+	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock.Register("eth_getTransactionCount", `0x1`)
+	ethMock.Register("eth_getTransactionCount", `0x2`)
+	app.AddUnlockedKey()
+
+	address := cltest.NewAddress()
+	fHash := models.HexToFunctionSelector("b3f98adc")
+	dataPrefix := hexutil.Bytes(
+		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
+	inputValue := "0x9786856756"
+
+	assert.Nil(t, app.StartAndConnect())
+
+	// Run the adapter, but make sure the transaction sending fails
+
+	hash := cltest.NewHash()
+	sentAt := uint64(9183)
+	ethMock.Register("eth_getBalance", "0x100")
+	ethMock.Register("eth_call", "0x100")
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	var firstTxData []interface{}
+	ethMock.Register("eth_sendRawTransaction", hash,
+		func(_ interface{}, data ...interface{}) error {
+			firstTxData = data
+			return errors.New("no bueno")
+		})
+
+	adapter := adapters.EthTx{
+		Address:          address,
+		DataPrefix:       dataPrefix,
+		FunctionSelector: fHash,
+	}
+	input := cltest.RunResultWithResult(inputValue)
+	data := adapter.Perform(input, store)
+	assert.Error(t, data.GetError())
+
+	// Run the adapter again
+
+	confirmed := sentAt + 1
+	safe := confirmed + config.MinOutgoingConfirmations()
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
+
+	var secondTxData []interface{}
+	ethMock.Register("eth_sendRawTransaction", hash,
+		func(_ interface{}, data ...interface{}) error {
+			secondTxData = data
+			return nil
+		})
+	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
+	ethMock.Register("eth_getTransactionReceipt", receipt)
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
+
+	data = adapter.Perform(input, store)
+	assert.NoError(t, data.GetError())
+
+	assert.Equal(t, firstTxData, secondTxData)
+
+	from := cltest.GetAccountAddress(store)
+	txs, err := store.TxFrom(from)
+	require.NoError(t, err)
+	require.Len(t, txs, 1)
+	attempts, _ := store.TxAttemptsFor(txs[0].ID)
+	assert.Len(t, attempts, 1)
+
+	ethMock.EventuallyAllCalled(t)
 }
