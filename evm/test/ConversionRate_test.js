@@ -493,7 +493,7 @@ contract('ConverstionRate', () => {
       },
       {
         name: 'unordered 2',
-        responses: [5, 5, 4, 8, 8, 7, 9, 5, 9],
+        responses: [8, 8, 4, 5, 5, 7, 9, 5, 9],
         want: 7
       },
       {
