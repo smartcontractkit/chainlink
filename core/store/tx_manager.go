@@ -541,12 +541,9 @@ func (txm *EthTxManager) NextActiveAccount() *ManagedAccount {
 		return nil
 	}
 
-	current := txm.availableAccountIdx
-	txm.availableAccountIdx++
-	if txm.availableAccountIdx >= len(txm.availableAccounts) {
-		txm.availableAccountIdx = 0
-	}
-	return txm.availableAccounts[current]
+	account := txm.availableAccounts[txm.availableAccountIdx]
+	txm.availableAccountIdx = (txm.availableAccountIdx + 1) % len(txm.availableAccounts)
+	return account
 }
 
 func (txm *EthTxManager) getAccount(from common.Address) *ManagedAccount {

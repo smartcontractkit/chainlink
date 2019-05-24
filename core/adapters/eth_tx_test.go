@@ -602,6 +602,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	data = adapter.Perform(input, store)
 	assert.NoError(t, data.GetError())
 
+	// The first and second transaction should have the same data
 	assert.Equal(t, firstTxData, secondTxData)
 
 	from := cltest.GetAccountAddress(store)
