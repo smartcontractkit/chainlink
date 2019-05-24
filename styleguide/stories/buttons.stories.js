@@ -3,7 +3,7 @@ import { storiesOf } from '@storybook/react'
 import { muiTheme } from 'storybook-addon-material-ui'
 import { createMuiTheme } from '@material-ui/core/styles'
 import Button from '@material-ui/core/Button'
-import theme from '../../../operator_ui/src/theme'
+import theme from '../theme'
 
 const customTheme = createMuiTheme(theme)
 

@@ -12,10 +12,10 @@ import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import classNames from 'classnames'
+import TimeAgo from '@chainlink/styleguide/components/TimeAgo'
+import localizedTimestamp from '@chainlink/styleguide/utils/localizedTimestamp'
 import { fetchJob, createJobRun } from '../../actions'
-import localizedTimestamp from '../../utils/localizedTimestamp'
 import Link from '../Link'
-import TimeAgo from '../TimeAgo'
 
 const navItemStyles = ({ palette, spacing }: Theme) =>
   createStyles({
