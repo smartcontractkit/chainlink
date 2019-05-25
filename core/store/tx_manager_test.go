@@ -284,6 +284,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 
 	sentAt := uint64(23456)
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce1))
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 		ethMock.RegisterError("eth_sendRawTransaction", "nonce is too low")
 	})
@@ -299,7 +300,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	assert.EqualError(
 		t,
 		err,
-		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: 1, Reattempt: 1",
+		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: 2",
 	)
 
 	ethMock.EventuallyAllCalled(t)

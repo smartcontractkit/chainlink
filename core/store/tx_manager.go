@@ -29,7 +29,7 @@ import (
 // if updating DefaultGasLimit, be sure it matches with the
 // DefaultGasLimit specified in evm/test/Oracle_test.js
 const DefaultGasLimit uint64 = 500000
-const nonceReloadLimit uint = 1
+const nonceReloadLimit int = 2
 
 // ErrPendingConnection is the error returned if TxManager is not connected.
 var ErrPendingConnection = errors.New("Cannot talk to chain, pending connection")
@@ -141,7 +141,7 @@ func (txm *EthTxManager) CreateTxWithGas(to common.Address, data []byte, gasPric
 	}
 
 	gasPriceWei, gasLimit = normalize(gasPriceWei, gasLimit, txm.config)
-	return txm.createTxWithNonceReload(ma, to, data, gasPriceWei, gasLimit, 0)
+	return txm.createTx(ma, to, data, gasPriceWei, gasLimit, nil)
 }
 
 // CreateTxWithEth signs and sends a transaction with some ETH to transfer.
@@ -151,7 +151,7 @@ func (txm *EthTxManager) CreateTxWithEth(from, to common.Address, value *assets.
 		return nil, errors.New("account does not exist")
 	}
 
-	return txm.createEthTxWithNonceReload(ma, to, []byte{}, txm.config.EthGasPriceDefault(), DefaultGasLimit, value, 0)
+	return txm.createTx(ma, to, []byte{}, txm.config.EthGasPriceDefault(), DefaultGasLimit, value)
 }
 
 func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
@@ -183,84 +183,64 @@ func normalize(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, 
 	return gasPriceWei, gasLimit
 }
 
-func (txm *EthTxManager) createEthTxWithNonceReload(
+func (txm *EthTxManager) createTx(
 	ma *ManagedAccount,
 	to common.Address,
 	data []byte,
 	gasPriceWei *big.Int,
 	gasLimit uint64,
-	value *assets.Eth,
-	nrc uint) (*models.Tx, error) {
+	value *assets.Eth) (*models.Tx, error) {
 
-	blkNum, err := txm.getBlockNumber()
-	if err != nil {
-		return nil, err
-	}
-
-	var tx *models.Tx
-	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
-		ethTx := types.NewTransaction(
-			nonce,
-			to,
-			value.ToInt(),
-			gasLimit,
-			gasPriceWei,
-			data,
-		)
-
-		ethTx, err := txm.keyStore.SignTx(ma.Account, ethTx, txm.config.ChainID())
+	for nrc := 0; nrc < nonceReloadLimit; nrc++ {
+		blkNum, err := txm.getBlockNumber()
 		if err != nil {
-			return err
+			return nil, errors.Wrap(err, "TxManager getBlockNumber")
 		}
 
-		tx, err = txm.orm.CreateTx(ethTx, &ma.Address, blkNum)
-		if err != nil {
-			return err
-		}
+		var tx *models.Tx
+		err = ma.GetAndIncrementNonce(func(nonce uint64) error {
+			ethTx := types.NewTransaction(
+				nonce,
+				to,
+				value.ToInt(),
+				gasLimit,
+				gasPriceWei,
+				data,
+			)
 
-		return txm.sendTransaction(ethTx)
-	})
-
-	if err != nil {
-		nonceErr, _ := regexp.MatchString("nonce .*too low", err.Error())
-		if nonceErr {
-			if nrc >= nonceReloadLimit {
-				err = fmt.Errorf(
-					"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v, Reattempt: %v",
-					nonceReloadLimit,
-					nrc,
-				)
-				return tx, err
+			ethTx, err := txm.keyStore.SignTx(ma.Account, ethTx, txm.config.ChainID())
+			if err != nil {
+				return errors.Wrap(err, "TxManager keyStore.SignTx")
 			}
 
-			logger.Warnw("Transaction nonce is too low. Reloading the nonce from the network and reattempting the transaction.")
+			tx, err = txm.orm.CreateTx(ethTx, &ma.Address, blkNum)
+			if err != nil {
+				return errors.Wrap(err, "TxManager CreateTx")
+			}
+
+			return txm.sendTransaction(ethTx)
+		})
+		if err == nil {
+			return tx, nil
+		}
+
+		if nonceErr, _ := regexp.MatchString("nonce .*too low", err.Error()); nonceErr {
+			logger.Warnw("Transaction nonce is too low. Reattempting TX with refreshed nonce.")
+
 			err = ma.ReloadNonce(txm)
 			if err != nil {
-				return tx, fmt.Errorf("TxManager CreateTX ReloadNonce %v", err)
+				return tx, errors.Wrap(err, "TxManager CreateTX ReloadNonce")
 			}
-
-			return txm.createTxWithNonceReload(ma, to, data, gasPriceWei, gasLimit, nrc+1)
+		} else {
+			return tx, err
 		}
 	}
 
-	return tx, err
-}
-
-func (txm *EthTxManager) createTxWithNonceReload(
-	ma *ManagedAccount,
-	to common.Address,
-	data []byte,
-	gasPriceWei *big.Int,
-	gasLimit uint64,
-	nrc uint) (*models.Tx, error) {
-	return txm.createEthTxWithNonceReload(
-		ma,
-		to,
-		data,
-		gasPriceWei,
-		gasLimit,
-		assets.NewEth(0),
-		nrc)
+	err := fmt.Errorf(
+		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v",
+		nonceReloadLimit,
+	)
+	return nil, err
 }
 
 // GetLINKBalance returns the balance of LINK at the given address
