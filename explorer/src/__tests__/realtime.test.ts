@@ -8,11 +8,7 @@ import createFixture from './fixtures/JobRun.fixture.json'
 import updateFixture from './fixtures/JobRunUpdate.fixture.json'
 import { JobRun } from '../entity/JobRun'
 import { TaskRun } from '../entity/TaskRun'
-import {
-  ChainlinkNode,
-  createChainlinkNode,
-  deleteChainlinkNode
-} from '../entity/ChainlinkNode'
+import { ChainlinkNode, createChainlinkNode } from '../entity/ChainlinkNode'
 import { clearDb } from './testdatabase'
 
 const ENDPOINT = `ws://localhost:${DEFAULT_TEST_PORT}`

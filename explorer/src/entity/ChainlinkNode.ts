@@ -2,7 +2,6 @@ import {
   Column,
   Connection,
   Entity,
-  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn
 } from 'typeorm'
@@ -41,7 +40,7 @@ export class ChainlinkNode {
   @Column()
   salt: string
 
-  @OneToMany(type => JobRun, jobRun => jobRun.chainlinkNode, {
+  @OneToMany(() => JobRun, jobRun => jobRun.chainlinkNode, {
     onDelete: 'CASCADE'
   })
   jobRuns: Array<JobRun>
