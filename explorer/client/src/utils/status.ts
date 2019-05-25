@@ -5,7 +5,7 @@ const hasUnfulfilledEthTx = (jobRun: IJobRun) => {
     return (
       tr.type === 'ethtx' &&
       tr.status === 'completed' &&
-      tr.transactionStatus !== '0x1'
+      tr.transactionStatus !== 'fulfilledRunLog'
     )
   })
 }
