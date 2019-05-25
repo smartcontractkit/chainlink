@@ -8,7 +8,7 @@ const COMPLETED_ETHTX_WITHOUT_STATUS = {
 const COMPLETED_ETHTX_WITH_STATUS = {
   type: 'ethtx',
   status: 'completed',
-  transactionStatus: '0x1'
+  transactionStatus: 'fulfilledRunLog'
 } as ITaskRun
 
 describe('utils/status', () => {
