@@ -47,13 +47,13 @@ export class JobRun {
   @Column({ nullable: true })
   finishedAt: Date
 
-  @OneToMany(type => TaskRun, taskRun => taskRun.jobRun, {
+  @OneToMany(() => TaskRun, taskRun => taskRun.jobRun, {
     eager: true,
     onDelete: 'CASCADE'
   })
   taskRuns: Array<TaskRun>
 
-  @ManyToOne(type => ChainlinkNode, ChainlinkNode => ChainlinkNode.jobRuns, {
+  @ManyToOne(() => ChainlinkNode, ChainlinkNode => ChainlinkNode.jobRuns, {
     eager: true
   })
   chainlinkNode: ChainlinkNode
