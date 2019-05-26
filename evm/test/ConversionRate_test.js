@@ -29,6 +29,7 @@ contract('ConverstionRate', () => {
   it('has a limited public interface', () => {
     h.checkPublicABI(artifacts.require(SOURCE_PATH), [
       'authorizedRequesters',
+      'cancelRequest',
       'chainlinkCallback',
       'currentRate',
       'destroy',
@@ -62,7 +63,7 @@ contract('ConverstionRate', () => {
           [jobId1]
         )
 
-        await link.transfer(rate.address, h.toWei('1'))
+        await link.transfer(rate.address, deposit)
 
         const current = await rate.currentRate.call()
         assertBigNum(h.bigNum(0), current)
@@ -565,5 +566,41 @@ contract('ConverstionRate', () => {
         assertBigNum(test.want, await rate.currentRate.call())
       })
     }
+  })
+
+  describe('#cancelRequest', () => {
+    beforeEach(async () => {
+      rate = await h.deploy(
+        SOURCE_PATH,
+        link.address,
+        basePayment,
+        1,
+        [oc1.address],
+        [jobId1]
+      )
+
+      await link.transfer(rate.address, basePayment)
+
+      const current = await rate.currentRate.call()
+      assertBigNum(h.bigNum(0), current)
+    })
+
+    it('gets the LINK deposited back from the oracle', async () => {
+      assertBigNum(basePayment, await link.balanceOf.call(rate.address))
+      assertBigNum(0, await link.balanceOf.call(oc1.address))
+
+      const requestTx = await rate.requestRateUpdate()
+      const request = h.decodeRunRequest(requestTx.receipt.rawLogs[3])
+
+      assertBigNum(0, await link.balanceOf.call(rate.address))
+      assertBigNum(basePayment, await link.balanceOf.call(oc1.address))
+
+      await h.increaseTime5Minutes() // wait for request to expire
+
+      await rate.cancelRequest(request.id, request.payment, request.expiration)
+
+      assertBigNum(basePayment, await link.balanceOf.call(rate.address))
+      assertBigNum(0, await link.balanceOf.call(oc1.address))
+    })
   })
 })

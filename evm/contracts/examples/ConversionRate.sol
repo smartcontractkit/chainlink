@@ -153,6 +153,31 @@ contract ConversionRate is ChainlinkClient, Ownable {
   }
 
   /**
+   * @notice Cancels an outstanding Chainlink request.
+   * The oracle contract requires the request ID and additional metadata to
+   * validate the cancellation.
+   * @param _requestId is the identifier for the chainlink request being cancelled
+   * @param _payment is the amount of LINK paid to the oracle for the request
+   * @param _expiration is the time when the request expires
+   */
+  function cancelRequest(
+    bytes32 _requestId,
+    uint256 _payment,
+    uint256 _expiration
+  )
+    public
+    ensureAuthorizedRequester()
+  {
+    cancelChainlinkRequest(
+      _requestId,
+      _payment,
+      this.chainlinkCallback.selector,
+      _expiration
+    );
+    delete requestAnswers[_requestId];
+  }
+
+  /**
    * @notice Called by the owner to kill the contract. This transfers all LINK
    * balance and ETH balance (if there is any) to the owner.
    */
