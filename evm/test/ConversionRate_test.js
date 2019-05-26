@@ -569,6 +569,8 @@ contract('ConverstionRate', () => {
   })
 
   describe('#cancelRequest', () => {
+    let request
+
     beforeEach(async () => {
       rate = await h.deploy(
         SOURCE_PATH,
@@ -581,26 +583,51 @@ contract('ConverstionRate', () => {
 
       await link.transfer(rate.address, basePayment)
 
-      const current = await rate.currentRate.call()
-      assertBigNum(h.bigNum(0), current)
-    })
-
-    it('gets the LINK deposited back from the oracle', async () => {
       assertBigNum(basePayment, await link.balanceOf.call(rate.address))
       assertBigNum(0, await link.balanceOf.call(oc1.address))
 
       const requestTx = await rate.requestRateUpdate()
-      const request = h.decodeRunRequest(requestTx.receipt.rawLogs[3])
+      request = h.decodeRunRequest(requestTx.receipt.rawLogs[3])
 
       assertBigNum(0, await link.balanceOf.call(rate.address))
       assertBigNum(basePayment, await link.balanceOf.call(oc1.address))
 
       await h.increaseTime5Minutes() // wait for request to expire
+    })
 
-      await rate.cancelRequest(request.id, request.payment, request.expiration)
+    context('when a later answer has been provided', () => {
+      beforeEach(async () => {
+        await link.transfer(rate.address, basePayment)
+        const requestTx2 = await rate.requestRateUpdate()
+        const request2 = h.decodeRunRequest(requestTx2.receipt.rawLogs[3])
+        await h.fulfillOracleRequest(oc1, request2, 17)
+      })
 
-      assertBigNum(basePayment, await link.balanceOf.call(rate.address))
-      assertBigNum(0, await link.balanceOf.call(oc1.address))
+      it('gets the LINK deposited back from the oracle', async () => {
+        await rate.cancelRequest(
+          request.id,
+          request.payment,
+          request.expiration
+        )
+
+        assertBigNum(basePayment, await link.balanceOf.call(rate.address))
+        assertBigNum(basePayment, await link.balanceOf.call(oc1.address))
+      })
+    })
+
+    context('when a later answer has not been provided', () => {
+      it('does not allow the request to be cancelled', async () => {
+        h.assertActionThrows(async () => {
+          await rate.cancelRequest(
+            request.id,
+            request.payment,
+            request.expiration
+          )
+        })
+
+        assertBigNum(0, await link.balanceOf.call(rate.address))
+        assertBigNum(basePayment, await link.balanceOf.call(oc1.address))
+      })
     })
   })
 })
