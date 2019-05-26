@@ -59,7 +59,7 @@ type ConfigSchema struct {
 	LogLevel                 LogLevel       `env:"LOG_LEVEL" default:"info"`
 	LogToDisk                bool           `env:"LOG_TO_DISK" default:"true"`
 	LogSQLStatements         bool           `env:"LOG_SQL" default:"false"`
-	MinIncomingConfirmations uint64         `env:"MIN_INCOMING_CONFIRMATIONS" default:"0"`
+	MinIncomingConfirmations uint64         `env:"MIN_INCOMING_CONFIRMATIONS" default:"3"`
 	MinOutgoingConfirmations uint64         `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
 	MinimumContractPayment   assets.Link    `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
 	MinimumRequestExpiration uint64         `env:"MINIMUM_REQUEST_EXPIRATION" default:"300" `
