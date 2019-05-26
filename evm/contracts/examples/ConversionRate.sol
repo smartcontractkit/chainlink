@@ -155,7 +155,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
   /**
    * @notice Cancels an outstanding Chainlink request.
    * The oracle contract requires the request ID and additional metadata to
-   * validate the cancellation.
+   * validate the cancellation. Only old answers can be cancelled.
    * @param _requestId is the identifier for the chainlink request being cancelled
    * @param _payment is the amount of LINK paid to the oracle for the request
    * @param _expiration is the time when the request expires
@@ -168,13 +168,19 @@ contract ConversionRate is ChainlinkClient, Ownable {
     public
     ensureAuthorizedRequester()
   {
+    uint256 answerId = requestAnswers[_requestId];
+    require(answerId < latestCompletedAnswer, "Cannot modify an in-progress answer");
+
     cancelChainlinkRequest(
       _requestId,
       _payment,
       this.chainlinkCallback.selector,
       _expiration
     );
+
     delete requestAnswers[_requestId];
+    answers[answerId].responses.push(0);
+    deleteAnswer(answerId);
   }
 
   /**
