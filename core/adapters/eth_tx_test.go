@@ -222,10 +222,8 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 	require.NoError(t, app.StartAndConnect())
 
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.NewTx(from, sentAt)
-	assert.Nil(t, store.SaveTx(tx))
-	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
-	assert.NoError(t, err)
+	tx := cltest.CreateTx(t, store, from, sentAt)
+	a := tx.Attempts[0]
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithResult(a.Hash.String())
 	input := sentResult
@@ -235,10 +233,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 
 	assert.False(t, output.HasError())
 	assert.True(t, output.Status.PendingConfirmations())
-	_, err = store.FindTx(tx.ID)
-	assert.NoError(t, err)
-	attempts, _ := store.TxAttemptsFor(tx.ID)
-	assert.Equal(t, 1, len(attempts))
+	tx, err := store.FindTx(tx.ID)
+	require.NoError(t, err)
+	assert.Len(t, tx.Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -263,10 +260,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	})
 
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.NewTx(from, sentAt)
-	assert.Nil(t, store.SaveTx(tx))
-	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), 1)
-	assert.NoError(t, err)
+	tx := cltest.CreateTx(t, store, from, sentAt)
+	a := tx.Attempts[0]
+
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithResult(a.Hash.String())
 	input := sentResult
@@ -276,10 +272,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 
 	assert.False(t, output.HasError())
 	assert.True(t, output.Status.PendingConfirmations())
-	_, err = store.FindTx(tx.ID)
-	assert.NoError(t, err)
-	attempts, _ := store.TxAttemptsFor(tx.ID)
-	assert.Equal(t, 2, len(attempts))
+	tx, err := store.FindTx(tx.ID)
+	require.NoError(t, err)
+	assert.Len(t, tx.Attempts, 2)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -687,8 +682,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 	txs, err := store.TxFrom(from)
 	require.NoError(t, err)
 	require.Len(t, txs, 1)
-	attempts, _ := store.TxAttemptsFor(txs[0].ID)
-	assert.Len(t, attempts, 1)
+	assert.Len(t, txs[0].Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
 }
