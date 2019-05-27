@@ -18,8 +18,8 @@ import { useHooks, useEffect, useState } from 'use-react-hooks'
 
 const styles = theme => ({
   breadcrumb: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
+    marginTop: theme.spacing(5),
+    marginBottom: theme.spacing(5)
   }
 })
 

@@ -40,14 +40,14 @@ const styles = theme => {
       height: '100%'
     },
     runDetails: {
-      paddingTop: theme.spacing.unit * 3,
-      paddingBottom: theme.spacing.unit * 3,
-      paddingLeft: theme.spacing.unit * 4,
-      paddingRight: theme.spacing.unit * 4
+      paddingTop: theme.spacing(3),
+      paddingBottom: theme.spacing(3),
+      paddingLeft: theme.spacing(4),
+      paddingRight: theme.spacing(4)
     },
     noActivity: {
       backgroundColor: theme.palette.primary.light,
-      padding: theme.spacing.unit * 3
+      padding: theme.spacing(3)
     }
   }
 }

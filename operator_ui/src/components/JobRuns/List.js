@@ -29,15 +29,15 @@ const styles = theme => {
       textAlign: 'end'
     },
     runDetails: {
-      paddingTop: theme.spacing.unit * 2,
-      paddingBottom: theme.spacing.unit * 2
+      paddingTop: theme.spacing(2),
+      paddingBottom: theme.spacing(2)
     },
     status: {
-      paddingLeft: theme.spacing.unit * 1.5,
-      paddingRight: theme.spacing.unit * 1.5,
-      paddingTop: theme.spacing.unit / 2,
-      paddingBottom: theme.spacing.unit / 2,
-      borderRadius: theme.spacing.unit * 2,
+      paddingLeft: theme.spacing(3 / 2),
+      paddingRight: theme.spacing(3 / 2),
+      paddingTop: theme.spacing(1 / 2),
+      paddingBottom: theme.spacing(1 / 2),
+      borderRadius: theme.spacing(2),
       width: 'fit-content',
       display: 'inline-block'
     },

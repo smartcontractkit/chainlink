@@ -6,8 +6,8 @@ import { withStyles } from '@material-ui/core/styles'
 const styles = theme => ({
   node: {
     display: 'inline-block',
-    marginLeft: theme.spacing.unit / 2,
-    marginRight: theme.spacing.unit / 2
+    marginLeft: theme.spacing(1 / 2),
+    marginRight: theme.spacing(1 / 2)
   }
 })
 

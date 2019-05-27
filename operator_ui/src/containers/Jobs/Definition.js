@@ -17,12 +17,12 @@ import { useHooks, useEffect } from 'use-react-hooks'
 
 const styles = theme => ({
   definitionTitle: {
-    marginTop: theme.spacing.unit * 2,
-    marginBottom: theme.spacing.unit * 2
+    marginTop: theme.spacing(2),
+    marginBottom: theme.spacing(2)
   },
   divider: {
-    marginTop: theme.spacing.unit,
-    marginBottom: theme.spacing.unit * 3
+    marginTop: theme.spacing(1),
+    marginBottom: theme.spacing(3)
   }
 })
 

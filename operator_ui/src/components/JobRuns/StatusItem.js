@@ -37,7 +37,7 @@ const styles = theme => {
       margin: '12px 0 !important'
     },
     details: {
-      padding: theme.spacing.unit * 2
+      padding: theme.spacing(2)
     },
     expansionPanel: {
       boxShadow: 'none'

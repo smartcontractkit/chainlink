@@ -15,16 +15,17 @@ import HexagonLogo from 'components/Logos/Hexagon'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { get } from 'utils/storage'
 
-const styles = theme => ({
+const styles = theme => {
+  return ({
   container: {
     height: '100%'
   },
   cardContent: {
-    paddingTop: theme.spacing.unit * 6,
-    paddingLeft: theme.spacing.unit * 4,
-    paddingRight: theme.spacing.unit * 4,
+    paddingTop: theme.spacing(6),
+    paddingLeft: theme.spacing(4),
+    paddingRight: theme.spacing(4),
     '&:last-child': {
-      paddingBottom: theme.spacing.unit * 6
+      paddingBottom: theme.spacing(6)
     }
   },
   headerRow: {
@@ -32,12 +33,12 @@ const styles = theme => ({
   },
   error: {
     backgroundColor: theme.palette.error.light,
-    marginTop: theme.spacing.unit * 2
+    marginTop: theme.spacing(2)
   },
   errorText: {
     color: theme.palette.error.main
   }
-})
+})}
 
 export const SignIn = useHooks(props => {
   document.title = 'Sign In'

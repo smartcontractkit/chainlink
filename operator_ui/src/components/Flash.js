@@ -11,8 +11,8 @@ const styles = theme => {
 
   return {
     base: {
-      paddingLeft: theme.spacing.unit * 5,
-      paddingRight: theme.spacing.unit * 5
+      paddingLeft: theme.spacing(5),
+      paddingRight: theme.spacing(5)
     },
     success: {
       backgroundColor: success.main,

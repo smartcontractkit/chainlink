@@ -14,8 +14,8 @@ import { deleteCompletedJobRuns, deleteErroredJobRuns } from 'actions'
 const styles = theme => {
   return {
     deleteRunsDivider: {
-      marginTop: theme.spacing.unit * 3,
-      marginBottom: theme.spacing.unit * 2
+      marginTop: theme.spacing(3),
+      marginBottom: theme.spacing(2)
     }
   }
 }

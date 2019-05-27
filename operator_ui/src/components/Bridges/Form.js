@@ -10,18 +10,18 @@ import normalizeUrl from 'normalize-url'
 
 const styles = theme => ({
   textfield: {
-    paddingTop: theme.spacing.unit * 1.25
+    paddingTop: theme.spacing(1.25)
   },
   card: {
-    paddingBottom: theme.spacing.unit * 2
+    paddingBottom: theme.spacing(2)
   },
   button: {
-    marginTop: theme.spacing.unit * 3
+    marginTop: theme.spacing(3)
   },
   flash: {
     textAlign: 'center',
-    paddingTop: theme.spacing.unit,
-    paddingBottom: theme.spacing.unit
+    paddingTop: theme.spacing(1),
+    paddingBottom: theme.spacing(1)
   }
 })
 

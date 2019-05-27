@@ -20,7 +20,7 @@ const styles = theme => ({
     display: 'flex',
     alignItems: 'center',
     '&:last-child': {
-      paddingBottom: theme.spacing.unit * 2
+      paddingBottom: theme.spacing(2)
     }
   },
   statusIcon: {
@@ -28,7 +28,7 @@ const styles = theme => ({
   },
   statusText: {
     display: 'inline-block',
-    paddingLeft: theme.spacing.unit * 2,
+    paddingLeft: theme.spacing(2),
     textTransform: 'capitalize'
   }
 })

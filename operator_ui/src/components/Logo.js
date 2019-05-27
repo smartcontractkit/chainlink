@@ -9,8 +9,8 @@ const styles = theme => {
     text: {
       color: theme.palette.primary.main,
       display: 'inline-block',
-      marginLeft: theme.spacing.unit * 2,
-      paddingTop: theme.spacing.unit,
+      marginLeft: theme.spacing(2),
+      paddingTop: theme.spacing(1),
       verticalAlign: 'top'
     }
   }

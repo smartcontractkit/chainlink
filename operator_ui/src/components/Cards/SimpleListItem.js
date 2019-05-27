@@ -8,9 +8,9 @@ const styles = theme => ({
     borderColor: theme.palette.divider,
     borderTop: `1px solid`,
     borderBottom: 'none',
-    paddingTop: theme.spacing.unit * 2,
-    paddingBottom: theme.spacing.unit * 2,
-    paddingLeft: theme.spacing.unit * 2
+    paddingTop: theme.spacing(2),
+    paddingBottom: theme.spacing(2),
+    paddingLeft: theme.spacing(2)
   }
 })
 

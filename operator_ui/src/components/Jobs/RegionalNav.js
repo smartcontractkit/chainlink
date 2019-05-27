@@ -21,12 +21,12 @@ const styles = theme => {
   return {
     container: {
       backgroundColor: theme.palette.common.white,
-      padding: theme.spacing.unit * 5,
+      padding: theme.spacing(5),
       paddingBottom: 0
     },
     duplicate: {
-      marginLeft: theme.spacing.unit,
-      marginRight: theme.spacing.unit
+      marginLeft: theme.spacing(1),
+      marginRight: theme.spacing(1)
     },
     horizontalNav: {
       paddingBottom: 0
@@ -36,8 +36,8 @@ const styles = theme => {
     },
     horizontalNavLink: {
       color: theme.palette.secondary.main,
-      paddingTop: theme.spacing.unit * 4,
-      paddingBottom: theme.spacing.unit * 4,
+      paddingTop: theme.spacing(4),
+      paddingBottom: theme.spacing(4),
       textDecoration: 'none',
       display: 'inline-block',
       borderBottom: 'solid 1px',

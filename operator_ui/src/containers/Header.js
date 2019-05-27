@@ -32,11 +32,11 @@ const styles = theme => {
       zIndex: theme.zIndex.modal + 1
     },
     toolbar: {
-      paddingLeft: theme.spacing.unit * 5,
-      paddingRight: theme.spacing.unit * 5
+      paddingLeft: theme.spacing(5),
+      paddingRight: theme.spacing(5)
     },
     menuitem: {
-      padding: theme.spacing.unit * 3,
+      padding: theme.spacing(3),
       display: 'block'
     },
     horizontalNav: {
@@ -48,8 +48,8 @@ const styles = theme => {
     },
     horizontalNavLink: {
       color: theme.palette.secondary.main,
-      paddingTop: theme.spacing.unit * 3,
-      paddingBottom: theme.spacing.unit * 3,
+      paddingTop: theme.spacing(3),
+      paddingBottom: theme.spacing(3),
       textDecoration: 'none',
       display: 'inline-block',
       borderBottom: 'solid 1px',
@@ -61,7 +61,7 @@ const styles = theme => {
     },
     drawerPaper: {
       backgroundColor: theme.palette.common.white,
-      paddingTop: theme.spacing.unit * 7,
+      paddingTop: theme.spacing(7),
       width: drawerWidth
     },
     drawerList: {

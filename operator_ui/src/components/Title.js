@@ -6,7 +6,7 @@ import classNames from 'classnames'
 
 const styles = theme => ({
   title: {
-    marginBottom: theme.spacing.unit * 5
+    marginBottom: theme.spacing(5)
   }
 })
 
