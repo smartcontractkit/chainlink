@@ -175,11 +175,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:17a38d1c9548175c8cff6a77792dfae6dae7bd9671f93bb760c48de48ad49a36"
+  digest = "1:5bd743623a905b34bed83afec5876e8a9c2b4436f45e2efeaf224fc08fcb6713"
   name = "github.com/gin-gonic/contrib"
   packages = ["sessions"]
   pruneopts = ""
-  revision = "87e961e51ccc67921e9eb6f448276459e71f502e"
+  revision = "7fb7810ed2a0c49532e0005d77953bb5572f0525"
 
 [[projects]]
   digest = "1:e11e53fe8a044e4a1e4f4dbec534f00e19d0132535c7fb2e94c7b98ab4c65af8"
