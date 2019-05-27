@@ -559,17 +559,6 @@ func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, error) {
 	return tx, nil
 }
 
-// TxAttemptsFor returns the Transaction Attempts (TxAttempt) for a
-// given Transaction ID (TxID).
-func (orm *ORM) TxAttemptsFor(id uint64) ([]models.TxAttempt, error) {
-	attempts := []models.TxAttempt{}
-	err := orm.DB.
-		Order("created_at asc").
-		Where("tx_id = ?", id).
-		Find(&attempts).Error
-	return attempts, err
-}
-
 // AddTxAttempt creates a new transaction attempt and stores it
 // in the database.
 func (orm *ORM) AddTxAttempt(

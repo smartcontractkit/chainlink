@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v3"
 )
 
 func TestORM_WhereNotFound(t *testing.T) {
@@ -448,7 +449,7 @@ func TestORM_CreatingTx(t *testing.T) {
 		data,
 	)
 
-	_, err = store.CreateTx(nil, ethTx, &from, 0)
+	_, err = store.CreateTx(null.String{}, ethTx, &from, 0)
 	assert.NoError(t, err)
 
 	txs := []models.Tx{}
@@ -571,7 +572,7 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 	assert.NoError(t, app.StartAndConnect())
 
 	to := cltest.NewAddress()
-	_, err := manager.CreateTx(nil, to, []byte{})
+	_, err := manager.CreateTx(to, []byte{})
 	assert.NoError(t, err)
 
 	account := cltest.GetAccountAddress(t, store)
@@ -759,11 +760,8 @@ func TestORM_DeleteTransaction(t *testing.T) {
 
 	require.NoError(t, store.DeleteTransaction(tx))
 
-	_, err = store.FindTx(tx.ID)
-	assert.Error(t, err)
-	attempts, err := store.TxAttemptsFor(tx.ID)
-	assert.NoError(t, err)
-	assert.Empty(t, attempts)
+	tx, err = store.FindTx(tx.ID)
+	require.Error(t, err)
 }
 
 func TestORM_AllSyncEvents(t *testing.T) {
