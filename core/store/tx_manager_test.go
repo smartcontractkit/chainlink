@@ -46,7 +46,7 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
 
-	tx, err := manager.CreateTx(to, data)
+	tx, err := manager.CreateTx(nil, to, data)
 	require.NoError(t, err)
 	_, err = store.FindTx(tx.ID)
 	assert.NoError(t, err)
@@ -88,7 +88,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
 
-	createdTx1, err := manager.CreateTx(to, data)
+	createdTx1, err := manager.CreateTx(nil, to, data)
 	require.NoError(t, err)
 
 	attempts, err := store.TxAttemptsFor(createdTx1.ID)
@@ -124,7 +124,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
 
-	createdTx2, err := manager.CreateTx(to, data)
+	createdTx2, err := manager.CreateTx(nil, to, data)
 	assert.NoError(t, err)
 
 	require.NotEqual(t, createdTx1.From.Hex(), createdTx2.From.Hex(), "should come from a different account")
@@ -161,7 +161,7 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
 
-	_, err = manager.CreateTx(to, data)
+	_, err = manager.CreateTx(nil, to, data)
 	assert.Error(t, err)
 
 	txs, _, err := store.Transactions(0, 10)
@@ -180,7 +180,7 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
 
-	tx, err := manager.CreateTx(to, data)
+	tx, err := manager.CreateTx(nil, to, data)
 	assert.NoError(t, err)
 	_, err = store.FindTx(tx.ID)
 	assert.NoError(t, err)
@@ -243,7 +243,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 				ethMock.Register("eth_sendRawTransaction", hash)
 			})
 
-			a, err := manager.CreateTx(to, data)
+			a, err := manager.CreateTx(nil, to, data)
 			require.NoError(t, err)
 			tx, err := store.FindTx(a.ID)
 			require.NoError(t, err)
@@ -296,7 +296,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 		ethMock.RegisterError("eth_sendRawTransaction", "nonce is too low")
 	})
 
-	_, err = manager.CreateTx(to, data)
+	_, err = manager.CreateTx(nil, to, data)
 	assert.EqualError(
 		t,
 		err,
@@ -317,7 +317,7 @@ func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 	data, err := hex.DecodeString("0000abcdef")
 	assert.NoError(t, err)
 
-	_, err = manager.CreateTx(to, data)
+	_, err = manager.CreateTx(nil, to, data)
 	assert.Contains(t, err.Error(), strpkg.ErrPendingConnection.Error())
 }
 
@@ -681,7 +681,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	})
 	assert.NoError(t, app.StartAndConnect())
 
-	confirmedTx, err := manager.CreateTx(to, data)
+	confirmedTx, err := manager.CreateTx(nil, to, data)
 	require.NoError(t, err)
 	txTransmissionAttempts, err := app.Store.TxAttemptsFor(confirmedTx.ID)
 	require.NoError(t, err)
@@ -750,7 +750,7 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 				ethMock.Register("eth_blockNumber", utils.Uint64ToHex(1))
 			})
 
-			tx, err := manager.CreateTxWithGas(to, data, test.gasPrice.ToInt(), test.gasLimit)
+			tx, err := manager.CreateTxWithGas(nil, to, data, test.gasPrice.ToInt(), test.gasLimit)
 			require.NoError(t, err)
 			require.NotNil(t, tx)
 			require.NotNil(t, tx.GasLimit)

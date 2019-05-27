@@ -401,7 +401,7 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 	output := adapter.Perform(input, store)
 
 	assert.True(t, output.HasError())
-	assert.Equal(t, "Cannot connect to nodes", output.Error())
+	assert.Contains(t, output.Error(), "Cannot connect to nodes")
 }
 
 func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
@@ -424,7 +424,7 @@ func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
 	output := adapter.Perform(input, store)
 
 	assert.True(t, output.HasError())
-	assert.Equal(t, "Cannot connect to nodes", output.Error())
+	assert.Contains(t, output.Error(), "Cannot connect to nodes")
 }
 
 func TestEthTxAdapter_Perform_PendingConfirmations_WithErrorInTxManager(t *testing.T) {
@@ -549,8 +549,6 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 
 	ethMock := app.MockEthClient(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", `0x1`)
-	ethMock.Register("eth_getTransactionCount", `0x2`)
-	app.AddUnlockedKey()
 
 	address := cltest.NewAddress()
 	fHash := models.HexToFunctionSelector("b3f98adc")
@@ -573,6 +571,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 			firstTxData = data
 			return errors.New("no bueno")
 		})
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 
 	adapter := adapters.EthTx{
 		Address:          address,
@@ -605,6 +604,85 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	// The first and second transaction should have the same data
 	assert.Equal(t, firstTxData, secondTxData)
 
+	// Only one transaction should be created
+	from := cltest.GetAccountAddress(store)
+	txs, err := store.TxFrom(from)
+	require.NoError(t, err)
+	require.Len(t, txs, 1)
+	attempts, _ := store.TxAttemptsFor(txs[0].ID)
+	assert.Len(t, attempts, 1)
+
+	ethMock.EventuallyAllCalled(t)
+}
+
+func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey()
+	defer cleanup()
+	store := app.Store
+	config := store.Config
+
+	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock.Register("eth_getTransactionCount", `0x1`)
+	ethMock.Register("eth_getTransactionCount", `0x2`)
+	app.AddUnlockedKey()
+
+	address := cltest.NewAddress()
+	fHash := models.HexToFunctionSelector("b3f98adc")
+	dataPrefix := hexutil.Bytes(
+		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
+	inputValue := "0x9786856756"
+
+	assert.Nil(t, app.StartAndConnect())
+
+	// Run the adapter, but make sure the transaction sending fails
+
+	hash := cltest.NewHash()
+	sentAt := uint64(9183)
+	ethMock.Register("eth_getBalance", "0x100")
+	ethMock.Register("eth_call", "0x100")
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	var firstTxData []interface{}
+	ethMock.Register("eth_sendRawTransaction", hash,
+		func(_ interface{}, data ...interface{}) error {
+			firstTxData = data
+			return errors.New("no bueno")
+		})
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+
+	adapter := adapters.EthTx{
+		Address:          address,
+		DataPrefix:       dataPrefix,
+		FunctionSelector: fHash,
+	}
+	input := cltest.RunResultWithResult(inputValue)
+	data := adapter.Perform(input, store)
+	assert.Error(t, data.GetError())
+
+	// Run the adapter again
+
+	confirmed := sentAt + 1
+	safe := confirmed + config.MinOutgoingConfirmations()
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
+
+	var secondTxData []interface{}
+	ethMock.Register("eth_sendRawTransaction", hash,
+		func(_ interface{}, data ...interface{}) error {
+			secondTxData = data
+			return nil
+		})
+	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
+	ethMock.Register("eth_getTransactionReceipt", receipt)
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
+
+	data = adapter.Perform(input, store)
+	assert.NoError(t, data.GetError())
+
+	// Since the nonce (and from address) changed, the data should also change
+	assert.NotEqual(t, firstTxData, secondTxData)
+
+	// Only one transaction should be created
 	from := cltest.GetAccountAddress(store)
 	txs, err := store.TxFrom(from)
 	require.NoError(t, err)
