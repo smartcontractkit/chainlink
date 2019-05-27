@@ -8,7 +8,7 @@ const useStyles = makeStyles(({ spacing, palette }) => {
   return {
     container: {
       margin: 0,
-      marginLeft: spacing.unit * 2,
+      marginLeft: spacing(2),
       paddingLeft: 0
     },
     item: {
@@ -17,12 +17,12 @@ const useStyles = makeStyles(({ spacing, palette }) => {
       display: 'flex',
       alignItems: 'center',
       listStyle: 'none',
-      paddingBottom: spacing.unit * 1,
-      paddingTop: spacing.unit * 1,
-      marginLeft: spacing.unit * 2
+      paddingBottom: spacing(1),
+      paddingTop: spacing(1),
+      marginLeft: spacing(2)
     },
     status: {
-      marginRight: spacing.unit * 2,
+      marginRight: spacing(2),
       marginLeft: -22
     }
   }
