@@ -2,11 +2,11 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import Typography from '@material-ui/core/Typography'
 import { Link as ReactStaticLink } from 'react-router-dom'
-import { withStyles } from '@material-ui/core/styles'
 import { grey } from '@material-ui/core/colors'
 import classNames from 'classnames'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = () => ({
+const useStyles = makeStyles(() => ({
   link: {
     color: grey[900],
     textDecoration: 'none'
@@ -14,18 +14,25 @@ const styles = () => ({
   linkContent: {
     display: 'inline-block'
   }
-})
+}))
 
-const Link = ({ children, classes, className, to }) => (
-  <ReactStaticLink to={to} className={classNames(classes.link, className)}>
-    <Typography variant="body1" color="inherit" className={classes.linkContent}>
-      {children}
-    </Typography>
-  </ReactStaticLink>
-)
+const Link = ({ children, className, to }) => {
+  const classes = useStyles()
+  return (
+    <ReactStaticLink to={to} className={classNames(classes.link, className)}>
+      <Typography
+        variant="body1"
+        color="inherit"
+        className={classes.linkContent}
+      >
+        {children}
+      </Typography>
+    </ReactStaticLink>
+  )
+}
 
 Link.propTypes = {
   classes: PropTypes.object.isRequired
 }
 
-export default withStyles(styles)(Link)
+export default Link

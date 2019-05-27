@@ -1,17 +1,18 @@
 import React from 'react'
-import { withStyles } from '@material-ui/core/styles'
 import Tooltip from '@material-ui/core/Tooltip'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => ({
+const useStyles = makeStyles(theme => ({
   lightTooltip: {
     background: theme.palette.primary.contrastText,
     color: theme.palette.text.primary,
     boxShadow: theme.shadows[24],
     ...theme.typography.h6
   }
-})
+}))
 
-const StyledTooltip = ({ title, children, classes }) => {
+const StyledTooltip = ({ title, children }) => {
+  const classes = useStyles()
   return (
     <Tooltip title={title} classes={{ tooltip: classes.lightTooltip }}>
       {children}
@@ -19,4 +20,4 @@ const StyledTooltip = ({ title, children, classes }) => {
   )
 }
 
-export default withStyles(styles)(StyledTooltip)
+export default StyledTooltip

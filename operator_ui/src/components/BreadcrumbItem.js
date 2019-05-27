@@ -1,23 +1,26 @@
 import React from 'react'
 import Typography from '@material-ui/core/Typography'
 import Link from 'components/Link'
-import { withStyles } from '@material-ui/core/styles'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => ({
+const useStyles = makeStyles(theme => ({
   node: {
     display: 'inline-block',
     marginLeft: theme.spacing(1 / 2),
     marginRight: theme.spacing(1 / 2)
   }
-})
+}))
 
 const renderLink = ({ children, href }) => <Link to={href}>{children}</Link>
 
-const renderNode = ({ classes, children }) => (
-  <Typography variant="body1" color="textSecondary" className={classes.node}>
-    {children}
-  </Typography>
-)
+const renderNode = ({ children }) => {
+  const classes = useStyles()
+  return (
+    <Typography variant="body1" color="textSecondary" className={classes.node}>
+      {children}
+    </Typography>
+  )
+}
 
 const BreadcrumbItem = props => {
   if (props.href) {
@@ -27,4 +30,4 @@ const BreadcrumbItem = props => {
   }
 }
 
-export default withStyles(styles)(BreadcrumbItem)
+export default BreadcrumbItem

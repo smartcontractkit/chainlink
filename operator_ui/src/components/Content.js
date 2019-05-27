@@ -1,14 +1,15 @@
 import React from 'react'
-import { withStyles } from '@material-ui/core/styles'
+import { makeStyles } from '@material-ui/core'
 
-const styles = theme => ({
+const useStyles = makeStyles(theme => ({
   content: {
     padding: theme.spacing(5)
   }
-})
+}))
 
-const Content = ({ children, classes }) => {
+const Content = ({ children }) => {
+  const classes = useStyles()
   return <div className={classes.content}>{children}</div>
 }
 
-export default withStyles(styles)(Content)
+export default Content

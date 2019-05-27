@@ -1,12 +1,12 @@
 import React from 'react'
-import { withStyles } from '@material-ui/core/styles'
 import PaddedCard from 'components/PaddedCard'
 import StatusIcon from 'components/JobRuns/StatusIcon'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
 import { titleCase } from 'change-case'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => ({
+const useStyles = makeStyles(theme => ({
   completed: {
     backgroundColor: theme.palette.success.light
   },
@@ -31,9 +31,10 @@ const styles = theme => ({
     paddingLeft: theme.spacing(2),
     textTransform: 'capitalize'
   }
-})
+}))
 
-const StatusCard = ({ classes, children }) => {
+const StatusCard = ({ children }) => {
+  const classes = useStyles()
   return (
     <PaddedCard
       className={classNames(
@@ -51,4 +52,4 @@ const StatusCard = ({ classes, children }) => {
   )
 }
 
-export default withStyles(styles)(StatusCard)
+export default StatusCard

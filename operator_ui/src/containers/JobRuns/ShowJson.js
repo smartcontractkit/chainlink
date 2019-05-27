@@ -1,7 +1,5 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
-import { useHooks, useEffect } from 'use-react-hooks'
-import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import PaddedCard from 'components/PaddedCard'
 import PrettyJson from 'components/PrettyJson'
@@ -11,13 +9,6 @@ import jobRunSelector from 'selectors/jobRun'
 import Content from 'components/Content'
 import RegionalNav from 'components/JobRuns/RegionalNav'
 import StatusCard from 'components/JobRuns/StatusCard'
-
-const styles = theme => ({
-  breadcrumb: {
-    marginTop: theme.spacing(5),
-    marginBottom: theme.spacing(5)
-  }
-})
 
 const renderDetails = ({ fetching, jobRun }) => {
   if (fetching || !jobRun) {
@@ -38,7 +29,7 @@ const renderDetails = ({ fetching, jobRun }) => {
   )
 }
 
-const Show = useHooks(props => {
+const Show = props => {
   useEffect(() => {
     props.fetchJobRun(props.jobRunId)
   }, [])
@@ -54,7 +45,7 @@ const Show = useHooks(props => {
       <Content>{renderDetails(props)}</Content>
     </div>
   )
-})
+}
 
 const mapStateToProps = (state, ownProps) => {
   const { jobSpecId, jobRunId } = ownProps.match.params
@@ -74,4 +65,4 @@ export const ConnectedShow = connect(
   matchRouteAndMapDispatchToProps({ fetchJobRun })
 )(Show)
 
-export default withStyles(styles)(ConnectedShow)
+export default ConnectedShow

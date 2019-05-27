@@ -1,9 +1,9 @@
 import React from 'react'
-import { withStyles } from '@material-ui/core/styles'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => ({
+const useStyles = makeStyles(theme => ({
   cell: {
     borderColor: theme.palette.divider,
     borderTop: `1px solid`,
@@ -12,9 +12,10 @@ const styles = theme => ({
     paddingBottom: theme.spacing(2),
     paddingLeft: theme.spacing(2)
   }
-})
+}))
 
-const SimpleListItem = ({ children, classes }) => {
+const SimpleListItem = ({ children }) => {
+  const classes = useStyles()
   return (
     <TableRow>
       <TableCell scope="row" className={classes.cell}>
@@ -24,4 +25,4 @@ const SimpleListItem = ({ children, classes }) => {
   )
 }
 
-export default withStyles(styles)(SimpleListItem)
+export default SimpleListItem

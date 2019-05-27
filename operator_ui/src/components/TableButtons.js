@@ -1,19 +1,21 @@
-import { IconButton, withStyles } from '@material-ui/core'
+import { IconButton } from '@material-ui/core'
 import FirstPageIcon from '@material-ui/icons/FirstPage'
 import KeyboardArrowLeft from '@material-ui/icons/KeyboardArrowLeft'
 import KeyboardArrowRight from '@material-ui/icons/KeyboardArrowRight'
 import LastPageIcon from '@material-ui/icons/LastPage'
 import React from 'react'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => ({
+const useStyles = makeStyles(theme => ({
   customButtons: {
     flexShrink: 0,
     color: theme.palette.text.secondary,
     marginLeft: theme.spacing(2.5)
   }
-})
+}))
 
 const TableButtons = props => {
+  const classes = useStyles()
   const firstPage = 1
   const currentPage = props.page
   const lastPage = Math.ceil(props.count / props.rowsPerPage)
@@ -25,7 +27,7 @@ const TableButtons = props => {
   }
 
   return (
-    <div className={props.classes.customButtons}>
+    <div className={classes.customButtons}>
       <IconButton
         onClick={handlePage(firstPage)}
         disabled={currentPage <= firstPage}
@@ -59,4 +61,4 @@ const TableButtons = props => {
 }
 
 export const FIRST_PAGE = 1
-export default withStyles(styles)(TableButtons)
+export default TableButtons

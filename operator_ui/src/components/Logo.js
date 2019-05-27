@@ -2,9 +2,9 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import pick from 'lodash/pick'
 import Image from './Image'
-import { withStyles } from '@material-ui/core/styles'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => {
+const useStyles = makeStyles(theme => {
   return {
     text: {
       color: theme.palette.primary.main,
@@ -14,10 +14,12 @@ const styles = theme => {
       verticalAlign: 'top'
     }
   }
-}
+})
 
 const Logo = props => {
-  const imageProps = pick(props, ['src', 'width', 'height', 'alt'])
+  const classes = useStyles()
+  const propsExt = { ...classes, ...props }
+  const imageProps = pick(propsExt, ['src', 'width', 'height', 'alt'])
   return <Image {...imageProps} />
 }
 
@@ -28,4 +30,4 @@ Logo.propTypes = {
   alt: PropTypes.string
 }
 
-export default withStyles(styles)(Logo)
+export default Logo

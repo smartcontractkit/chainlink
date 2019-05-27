@@ -1,8 +1,8 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { withStyles } from '@material-ui/core/styles'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => {
+const useStyles = makeStyles(() => {
   return {
     animate: {
       animation: 'spin 4s linear infinite'
@@ -13,9 +13,10 @@ const styles = theme => {
       }
     }
   }
-}
+})
 
-const Image = ({ src, width, height, spin, alt, classes }) => {
+const Image = ({ src, width, height, spin, alt }) => {
+  const classes = useStyles()
   const size = {}
   if (width >= 0) {
     size.width = width
@@ -46,4 +47,4 @@ Image.defaultProps = {
   spin: false
 }
 
-export default withStyles(styles)(Image)
+export default Image

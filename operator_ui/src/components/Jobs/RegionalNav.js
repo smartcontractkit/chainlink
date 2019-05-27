@@ -1,7 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { Link as BaseLink } from 'react-router-dom'
-import { withStyles } from '@material-ui/core/styles'
 import Card from '@material-ui/core/Card'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
@@ -16,8 +15,9 @@ import TimeAgo from 'components/TimeAgo'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
 import { isWebInitiator } from 'utils/jobSpecInitiators'
 import { fetchJob, createJobRun } from 'actions'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => {
+const useStyles = makeStyles(theme => {
   return {
     container: {
       backgroundColor: theme.palette.common.white,
@@ -52,7 +52,7 @@ const styles = theme => {
       textOverflow: 'ellipsis'
     }
   }
-}
+})
 
 const SuccessNotification = ({ data }) => (
   <React.Fragment>
@@ -63,7 +63,8 @@ const SuccessNotification = ({ data }) => (
   </React.Fragment>
 )
 
-const RegionalNav = ({ classes, createJobRun, fetchJob, jobSpecId, job }) => {
+const RegionalNav = ({ createJobRun, fetchJob, jobSpecId, job }) => {
+  const classes = useStyles()
   const definition = job && jobSpecDefinition(job)
   const handleClick = () => {
     createJobRun(job.id, SuccessNotification, ErrorMessage).then(() =>
@@ -150,4 +151,4 @@ export const ConnectedRegionalNav = connect(
   { fetchJob, createJobRun }
 )(RegionalNav)
 
-export default withStyles(styles)(ConnectedRegionalNav)
+export default ConnectedRegionalNav

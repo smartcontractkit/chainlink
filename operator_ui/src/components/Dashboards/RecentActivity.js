@@ -1,6 +1,5 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { withStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import Table from '@material-ui/core/Table'
@@ -15,8 +14,9 @@ import Link from 'components/Link'
 import TimeAgo from 'components/TimeAgo'
 import StatusIcon from 'components/JobRuns/StatusIcon'
 import NoContentLogo from 'components/Logos/NoContent'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => {
+const useStyles = makeStyles(theme => {
   return {
     cell: {
       borderColor: theme.palette.divider,
@@ -50,29 +50,31 @@ const styles = theme => {
       padding: theme.spacing(3)
     }
   }
+})
+const NoRecentActivity = () => {
+  const classes = useStyles()
+  return (
+    <CardContent>
+      <Card elevation={0} className={classes.noActivity}>
+        <Grid container alignItems="center" spacing={16}>
+          <Grid item>
+            <NoContentLogo width={40} />
+          </Grid>
+          <Grid item>
+            <Typography variant="body1" color="textPrimary" inline>
+              No recent activity
+            </Typography>
+          </Grid>
+        </Grid>
+      </Card>
+    </CardContent>
+  )
 }
 
-const NoRecentActivity = ({ classes }) => (
-  <CardContent>
-    <Card elevation={0} className={classes.noActivity}>
-      <Grid container alignItems="center" spacing={16}>
-        <Grid item>
-          <NoContentLogo width={40} />
-        </Grid>
-        <Grid item>
-          <Typography variant="body1" color="textPrimary" inline>
-            No recent activity
-          </Typography>
-        </Grid>
-      </Grid>
-    </Card>
-  </CardContent>
-)
-
-const RecentActivity = ({ classes, runs }) => {
+const RecentActivity = ({ runs }) => {
   const loading = !runs
   let activity
-
+  const classes = useStyles()
   if (loading) {
     activity = (
       <CardContent>
@@ -160,4 +162,4 @@ RecentActivity.propTypes = {
   runs: PropTypes.array
 }
 
-export default withStyles(styles)(RecentActivity)
+export default RecentActivity

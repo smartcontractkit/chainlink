@@ -1,6 +1,5 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { withStyles } from '@material-ui/core/styles'
 import ExpansionPanel from '@material-ui/core/ExpansionPanel'
 import ExpansionPanelSummary from '@material-ui/core/ExpansionPanelSummary'
 import ExpansionPanelDetails from '@material-ui/core/ExpansionPanelDetails'
@@ -8,8 +7,9 @@ import Typography from '@material-ui/core/Typography'
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
 import StatusIcon from 'components/JobRuns/StatusIcon'
 import classNames from 'classnames'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => {
+const useStyles = makeStyles(theme => {
   return {
     borderTop: {
       borderTop: 'solid 1px',
@@ -43,9 +43,10 @@ const styles = theme => {
       boxShadow: 'none'
     }
   }
-}
+})
 
-const render = (summary, children, classes) => {
+const render = (summary, children) => {
+  const classes = useStyles()
   if (children) {
     return (
       <ExpansionPanel className={classes.expansionPanel}>
@@ -64,16 +65,23 @@ const render = (summary, children, classes) => {
   return <Typography>{summary}</Typography>
 }
 
-const StatusItem = ({ status, summary, borderTop, children, classes }) => (
-  <div className={classNames(classes.item, { [classes.borderTop]: borderTop })}>
-    <div className={classes.status}>
-      <StatusIcon width={38} height={38}>
-        {status}
-      </StatusIcon>
+const StatusItem = ({ status, summary, borderTop, children }) => {
+  const classes = useStyles()
+  return (
+    <div
+      className={classNames(classes.item, { [classes.borderTop]: borderTop })}
+    >
+      <div className={classes.status}>
+        <StatusIcon width={38} height={38}>
+          {status}
+        </StatusIcon>
+      </div>
+      <div className={classes.details}>
+        {render(summary, children, classes)}
+      </div>
     </div>
-    <div className={classes.details}>{render(summary, children, classes)}</div>
-  </div>
-)
+  )
+}
 
 StatusItem.defaultProps = {
   borderTop: true
@@ -84,4 +92,4 @@ StatusItem.propTypes = {
   borderTop: PropTypes.bool.isRequired
 }
 
-export default withStyles(styles)(StatusItem)
+export default StatusItem

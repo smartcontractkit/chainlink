@@ -1,5 +1,4 @@
-import React from 'react'
-import { withStyles } from '@material-ui/core/styles'
+import React, { useEffect } from 'react'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
@@ -13,9 +12,9 @@ import { fetchJob, createJobRun } from 'actions'
 import jobSelector from 'selectors/job'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
-import { useHooks, useEffect } from 'use-react-hooks'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => ({
+const useStyles = makeStyles(theme => ({
   definitionTitle: {
     marginTop: theme.spacing(2),
     marginBottom: theme.spacing(2)
@@ -24,11 +23,11 @@ const styles = theme => ({
     marginTop: theme.spacing(1),
     marginBottom: theme.spacing(3)
   }
-})
+}))
 
-const renderDetails = ({ job, classes }) => {
+const renderDetails = ({ job }) => {
   const definition = job && jobSpecDefinition(job)
-
+  const classes = useStyles()
   if (definition) {
     return (
       <Grid container spacing={0}>
@@ -50,7 +49,7 @@ const renderDetails = ({ job, classes }) => {
   return <React.Fragment>Fetching ...</React.Fragment>
 }
 
-const Definition = useHooks(props => {
+const Definition = props => {
   useEffect(() => {
     document.title = 'Job Definition'
     props.fetchJob(props.jobSpecId)
@@ -67,7 +66,7 @@ const Definition = useHooks(props => {
       </Content>
     </div>
   )
-})
+}
 
 const mapStateToProps = (state, ownProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId
@@ -84,4 +83,4 @@ export const ConnectedDefinition = connect(
   matchRouteAndMapDispatchToProps({ fetchJob, createJobRun })
 )(Definition)
 
-export default withStyles(styles)(ConnectedDefinition)
+export default ConnectedDefinition

@@ -1,10 +1,10 @@
 import React from 'react'
-import { withStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import Card from '@material-ui/core/Card'
 import extractBuildInfo from 'utils/extractBuildInfo'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => ({
+const useStyles = makeStyles(theme => ({
   style: {
     textAlign: 'center',
     padding: theme.spacing(2.5),
@@ -17,11 +17,12 @@ const styles = theme => ({
     color: theme.palette.common.black,
     textDecoration: 'none'
   }
-})
+}))
 
 const { version, sha } = extractBuildInfo()
 
-const Footnote = ({ classes }) => {
+const Footnote = () => {
+  const classes = useStyles()
   return (
     <Card className={classes.style}>
       <Typography>
@@ -39,4 +40,4 @@ const Footnote = ({ classes }) => {
   )
 }
 
-export default withStyles(styles)(Footnote)
+export default Footnote

@@ -1,13 +1,13 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import * as formik from 'formik'
-import { withStyles } from '@material-ui/core/styles'
 import Button from 'components/Button'
 import { TextField, Grid } from '@material-ui/core'
 import { Prompt } from 'react-router-dom'
 import { set, get } from 'utils/storage'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => ({
+const useStyles = makeStyles(theme => ({
   card: {
     paddingBottom: theme.spacing(2)
   },
@@ -19,18 +19,18 @@ const styles = theme => ({
   button: {
     marginTop: theme.spacing(2)
   }
-})
+}))
 
 const Form = ({
   actionText,
   isSubmitting,
-  classes,
   handleChange,
   values,
   touched,
   errors,
   submitCount
 }) => {
+  const classes = useStyles()
   return (
     <React.Fragment>
       <Prompt
@@ -115,4 +115,4 @@ const formikOpts = {
 
 const FormikForm = formik.withFormik(formikOpts)(Form)
 
-export default withStyles(styles)(FormikForm)
+export default FormikForm

@@ -1,20 +1,23 @@
 import React from 'react'
 import NotFoundSVG from 'images/four-oh-four.js'
-import { withStyles } from '@material-ui/core/styles'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = () => ({
+const useStyles = makeStyles(() => ({
   logo: {
     top: '30%',
     left: '50%',
     transform: 'translate(-50%, -30%)',
     position: 'absolute'
   }
-})
+}))
 
-const Logo = ({ classes }) => (
-  <div className={classes.logo}>
-    <NotFoundSVG />
-  </div>
-)
+const Logo = () => {
+  const classes = useStyles()
+  return (
+    <div className={classes.logo}>
+      <NotFoundSVG />
+    </div>
+  )
+}
 
-export default withStyles(styles)(Logo)
+export default Logo

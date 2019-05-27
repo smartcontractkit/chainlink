@@ -1,46 +1,46 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { connect } from 'react-redux'
 import { Redirect } from 'react-router-dom'
-import { withStyles } from '@material-ui/core/styles'
 import Button from 'components/Button'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
 import Typography from '@material-ui/core/Typography'
 import TextField from '@material-ui/core/TextField'
 import { Grid } from '@material-ui/core'
-import { useHooks, useState } from 'use-react-hooks'
 import { hot } from 'react-hot-loader'
 import { submitSignIn } from 'actions'
 import HexagonLogo from 'components/Logos/Hexagon'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { get } from 'utils/storage'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => {
-  return ({
-  container: {
-    height: '100%'
-  },
-  cardContent: {
-    paddingTop: theme.spacing(6),
-    paddingLeft: theme.spacing(4),
-    paddingRight: theme.spacing(4),
-    '&:last-child': {
-      paddingBottom: theme.spacing(6)
+const useStyles = makeStyles(theme => {
+  return {
+    container: {
+      height: '100%'
+    },
+    cardContent: {
+      paddingTop: theme.spacing(6),
+      paddingLeft: theme.spacing(4),
+      paddingRight: theme.spacing(4),
+      '&:last-child': {
+        paddingBottom: theme.spacing(6)
+      }
+    },
+    headerRow: {
+      textAlign: 'center'
+    },
+    error: {
+      backgroundColor: theme.palette.error.light,
+      marginTop: theme.spacing(2)
+    },
+    errorText: {
+      color: theme.palette.error.main
     }
-  },
-  headerRow: {
-    textAlign: 'center'
-  },
-  error: {
-    backgroundColor: theme.palette.error.light,
-    marginTop: theme.spacing(2)
-  },
-  errorText: {
-    color: theme.palette.error.main
   }
-})}
+})
 
-export const SignIn = useHooks(props => {
+export const SignIn = props => {
   document.title = 'Sign In'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -52,7 +52,8 @@ export const SignIn = useHooks(props => {
     e.preventDefault()
     props.submitSignIn({ email, password })
   }
-  const { classes, fetching, authenticated, errors } = props
+  const { fetching, authenticated, errors } = props
+  const classes = useStyles()
 
   const hasPrevState = Object.keys(get('persistURL')).length !== 0
   if (authenticated)
@@ -146,7 +147,7 @@ export const SignIn = useHooks(props => {
       </Grid>
     </Grid>
   )
-})
+}
 
 const mapStateToProps = state => ({
   fetching: state.authentication.fetching,
@@ -159,4 +160,4 @@ export const ConnectedSignIn = connect(
   matchRouteAndMapDispatchToProps({ submitSignIn })
 )(SignIn)
 
-export default hot(module)(withStyles(styles)(ConnectedSignIn))
+export default hot(module)(ConnectedSignIn)

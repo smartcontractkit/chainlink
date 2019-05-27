@@ -1,8 +1,6 @@
-import React from 'react'
+import React, { useState, useRef } from 'react'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import { withStyles } from '@material-ui/core/styles'
-import { useHooks, useState, useRef } from 'use-react-hooks'
 import { Link } from 'react-router-dom'
 import Popper from '@material-ui/core/Popper'
 import Grow from '@material-ui/core/Grow'
@@ -16,8 +14,9 @@ import Typography from '@material-ui/core/Typography'
 import { grey } from '@material-ui/core/colors'
 import face from 'images/face.svg'
 import { submitSignOut } from 'actions'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => {
+const useStyles = makeStyles(theme => {
   return {
     button: {
       marginTop: -4
@@ -44,9 +43,10 @@ const styles = theme => {
       }
     }
   }
-}
+})
 
-const AvatarMenu = useHooks(({ classes, submitSignOut }) => {
+const AvatarMenu = ({ submitSignOut }) => {
+  const classes = useStyles()
   const anchorEl = useRef(null)
   const [open, setOpenState] = useState(false)
   const handleToggle = () => setOpenState(!open)
@@ -103,7 +103,7 @@ const AvatarMenu = useHooks(({ classes, submitSignOut }) => {
       </Popper>
     </React.Fragment>
   )
-})
+}
 
 const mapStateToProps = state => ({})
 
@@ -115,4 +115,4 @@ export const ConnectedAvatarMenu = connect(
   mapDispatchToProps
 )(AvatarMenu)
 
-export default withStyles(styles)(ConnectedAvatarMenu)
+export default ConnectedAvatarMenu

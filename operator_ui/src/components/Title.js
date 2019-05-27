@@ -1,24 +1,27 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { withStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => ({
+const useStyles = makeStyles(theme => ({
   title: {
     marginBottom: theme.spacing(5)
   }
-})
+}))
 
-const Title = ({ children, classes, className }) => (
-  <Typography
-    variant="h4"
-    color="inherit"
-    className={classNames(className, classes.title)}
-  >
-    {children}
-  </Typography>
-)
+const Title = ({ children, className }) => {
+  const classes = useStyles()
+  return (
+    <Typography
+      variant="h4"
+      color="inherit"
+      className={classNames(className, classes.title)}
+    >
+      {children}
+    </Typography>
+  )
+}
 
 Title.propTypes = {
   children: PropTypes.oneOfType([
@@ -27,4 +30,4 @@ Title.propTypes = {
   ])
 }
 
-export default withStyles(styles)(Title)
+export default Title

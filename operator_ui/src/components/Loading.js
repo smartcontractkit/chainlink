@@ -1,25 +1,28 @@
 import React from 'react'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
-import { withStyles } from '@material-ui/core/styles'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => ({
+const useStyles = makeStyles(theme => ({
   wrapper: {
     marginTop: theme.spacing(5)
   },
   text: {
     textAlign: 'center'
   }
-})
+}))
 
-const Loading = ({ classes }) => (
-  <Grid container alignItems="center">
-    <Grid item xs={12} className={classes.wrapper}>
-      <Typography variant="h4" className={classes.text}>
-        Loading...
-      </Typography>
+const Loading = () => {
+  const classes = useStyles()
+  return (
+    <Grid container alignItems="center">
+      <Grid item xs={12} className={classes.wrapper}>
+        <Typography variant="h4" className={classes.text}>
+          Loading...
+        </Typography>
+      </Grid>
     </Grid>
-  </Grid>
-)
+  )
+}
 
-export default withStyles(styles)(Loading)
+export default Loading

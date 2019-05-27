@@ -8,16 +8,16 @@ import TimeAgo from 'components/TimeAgo'
 import Link from 'components/Link'
 import SimpleListCard from 'components/Cards/SimpleList'
 import SimpleListCardItem from 'components/Cards/SimpleListItem'
-import { withStyles } from '@material-ui/core/styles'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = () => ({
+const useStyles = makeStyles(() => ({
   block: { display: 'block' },
   overflowEllipsis: { textOverflow: 'ellipsis', overflow: 'hidden' }
-})
+}))
 
-const RecentlyCreated = ({ jobs, classes }) => {
+const RecentlyCreated = ({ jobs }) => {
   let status
-
+  const classes = useStyles()
   if (!jobs) {
     status = (
       <TableRow>
@@ -78,4 +78,4 @@ RecentlyCreated.propTypes = {
   jobs: PropTypes.array
 }
 
-export default withStyles(styles)(RecentlyCreated)
+export default RecentlyCreated

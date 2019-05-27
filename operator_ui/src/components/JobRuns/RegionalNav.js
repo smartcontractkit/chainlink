@@ -1,7 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { withStyles } from '@material-ui/core/styles'
 import Card from '@material-ui/core/Card'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
@@ -9,8 +8,9 @@ import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import { fetchJob, createJobRun } from 'actions'
 import Link from 'components/Link'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => {
+const useStyles = makeStyles(theme => {
   return {
     container: {
       backgroundColor: theme.palette.common.white,
@@ -40,9 +40,10 @@ const styles = theme => {
       }
     }
   }
-}
+})
 
-const RegionalNav = ({ classes, jobSpecId, jobRunId }) => {
+const RegionalNav = ({ jobSpecId, jobRunId }) => {
+  const classes = useStyles()
   return (
     <Card className={classes.container}>
       <Grid container spacing={0}>
@@ -97,4 +98,4 @@ export const ConnectedRegionalNav = connect(
   { fetchJob, createJobRun }
 )(RegionalNav)
 
-export default withStyles(styles)(ConnectedRegionalNav)
+export default ConnectedRegionalNav

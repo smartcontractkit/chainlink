@@ -1,9 +1,9 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import LinearProgress from '@material-ui/core/LinearProgress'
-import { withStyles } from '@material-ui/core/styles'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => ({
+const useStyles = makeStyles(theme => ({
   root: {
     flexGrow: 1,
     height: 3,
@@ -15,9 +15,9 @@ const styles = theme => ({
   barColorPrimary: {
     backgroundColor: theme.palette.primary.main
   }
-})
-
-const LoadingBar = ({ classes, fetchCount }) => {
+}))
+const LoadingBar = ({ fetchCount }) => {
+  const classes = useStyles()
   const progressClasses = {
     colorPrimary: classes.colorPrimary,
     barColorPrimary: classes.barColorPrimary
@@ -36,4 +36,4 @@ LoadingBar.propTypes = {
   fetchCount: PropTypes.number.isRequired
 }
 
-export default withStyles(styles)(LoadingBar)
+export default LoadingBar

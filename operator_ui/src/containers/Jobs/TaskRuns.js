@@ -1,11 +1,11 @@
 import React from 'react'
 import Typography from '@material-ui/core/Typography'
-import { createStyles, withStyles } from '@material-ui/core/styles'
+import { makeStyles } from '@material-ui/styles'
 import StatusIcon from 'components/Icons/TaskStatus'
 import titleize from 'utils/titleize'
 
-const styles = ({ spacing, palette }) =>
-  createStyles({
+const useStyles = makeStyles(({ spacing, palette }) => {
+  return {
     container: {
       margin: 0,
       marginLeft: spacing.unit * 2,
@@ -25,9 +25,11 @@ const styles = ({ spacing, palette }) =>
       marginRight: spacing.unit * 2,
       marginLeft: -22
     }
-  })
+  }
+})
 
-const TaskRuns = ({ taskRuns, classes }) => {
+const TaskRuns = ({ taskRuns }) => {
+  const classes = useStyles()
   return (
     <ul className={classes.container}>
       {taskRuns &&
@@ -47,4 +49,4 @@ const TaskRuns = ({ taskRuns, classes }) => {
   )
 }
 
-export default withStyles(styles)(TaskRuns)
+export default TaskRuns

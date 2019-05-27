@@ -1,7 +1,5 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
-import { useHooks, useEffect } from 'use-react-hooks'
-import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
@@ -12,14 +10,7 @@ import RegionalNav from 'components/JobRuns/RegionalNav'
 import StatusCard from 'components/JobRuns/StatusCard'
 import TaskExpansionPanel from 'components/JobRuns/TaskExpansionPanel'
 
-const styles = theme => ({
-  breadcrumb: {
-    marginTop: theme.spacing(5),
-    marginBottom: theme.spacing(5)
-  }
-})
-
-const renderDetails = ({ classes, fetching, jobRun }) => {
+const renderDetails = ({ fetching, jobRun }) => {
   if (fetching || !jobRun) {
     return <div>Fetching job run...</div>
   }
@@ -38,7 +29,7 @@ const renderDetails = ({ classes, fetching, jobRun }) => {
   )
 }
 
-export const Show = useHooks(props => {
+export const Show = props => {
   useEffect(() => {
     document.title = 'Show Job Run'
     props.fetchJobRun(props.jobRunId)
@@ -55,7 +46,7 @@ export const Show = useHooks(props => {
       <Content>{renderDetails(props)}</Content>
     </div>
   )
-})
+}
 
 const mapStateToProps = (state, ownProps) => {
   const { jobSpecId, jobRunId } = ownProps.match.params
@@ -75,4 +66,4 @@ export const ConnectedShow = connect(
   matchRouteAndMapDispatchToProps({ fetchJobRun })
 )(Show)
 
-export default withStyles(styles)(ConnectedShow)
+export default ConnectedShow

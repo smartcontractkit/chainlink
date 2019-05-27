@@ -1,7 +1,6 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { withStyles } from '@material-ui/core/styles'
 import Card from '@material-ui/core/Card'
 import TablePagination from '@material-ui/core/TablePagination'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
@@ -14,14 +13,14 @@ import List from 'components/JobRuns/List'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Title from 'components/Title'
 import Content from 'components/Content'
-import { useHooks, useEffect, useState } from 'use-react-hooks'
+import { makeStyles } from '@material-ui/styles'
 
-const styles = theme => ({
+const useStyles = makeStyles(theme => ({
   breadcrumb: {
     marginTop: theme.spacing(5),
     marginBottom: theme.spacing(5)
   }
-})
+}))
 
 const renderLatestRuns = (props, state, handleChangePage) => {
   const { jobSpecId, latestJobRuns, jobRunsCount, pageSize } = props
@@ -71,7 +70,7 @@ const renderDetails = (props, state, handleChangePage) => {
   }
 }
 
-export const Index = useHooks(props => {
+export const Index = props => {
   const [page, setPage] = useState(FIRST_PAGE)
   useEffect(() => {
     document.title = 'Job Runs'
@@ -81,11 +80,12 @@ export const Index = useHooks(props => {
     setPage(queryPage)
     fetchJobRuns(jobSpecId, queryPage, pageSize)
   }, [])
-  const { classes, jobSpecId, fetchJobRuns, pageSize } = props
+  const { jobSpecId, fetchJobRuns, pageSize } = props
   const handleChangePage = (e, pageNum) => {
     fetchJobRuns(jobSpecId, pageNum, pageSize)
     setPage(pageNum)
   }
+  const classes = useStyles()
 
   return (
     <Content>
@@ -102,7 +102,7 @@ export const Index = useHooks(props => {
       {renderDetails(props, { page }, handleChangePage)}
     </Content>
   )
-})
+}
 
 Index.propTypes = {
   classes: PropTypes.object.isRequired,
@@ -133,4 +133,4 @@ export const ConnectedIndex = connect(
   matchRouteAndMapDispatchToProps({ fetchJobRuns })
 )(Index)
 
-export default withStyles(styles)(ConnectedIndex)
+export default ConnectedIndex
