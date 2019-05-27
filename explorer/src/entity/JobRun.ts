@@ -82,7 +82,7 @@ export const fromString = (str: string): JobRun => {
 
     if (trstr.result) {
       tr.transactionHash = trstr.result.transactionHash
-      tr.transactionStatus = trstr.result.status
+      tr.transactionStatus = trstr.result.transactionStatus
     }
 
     return tr
