@@ -356,9 +356,10 @@ func TestTxManager_BumpGasUntilSafe(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tx := cltest.CreateTxAndAttempt(store, from, sentAt)
+			tx := cltest.CreateTx(t, store, from, sentAt)
 			attempts, err := store.TxAttemptsFor(tx.ID)
-			assert.NoError(t, err)
+			require.NoError(t, err)
+			require.Len(t, attempts, 1)
 			a := attempts[0]
 
 			ethMock.Register("eth_getTransactionReceipt", test.receipt)
@@ -446,7 +447,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			store := app.Store
 			txm := store.TxManager
 			from := cltest.GetAccountAddress(store)
-			tx := cltest.CreateTxAndAttempt(store, from, sentAt1)
+			tx := cltest.CreateTx(t, store, from, sentAt1)
 			a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt2)
 			assert.NoError(t, err)
 

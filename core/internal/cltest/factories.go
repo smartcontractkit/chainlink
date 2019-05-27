@@ -122,7 +122,7 @@ func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 
 // NewTx create a tx given from address and sentat
 func NewTx(from common.Address, sentAt uint64) *models.Tx {
-	return &models.Tx{
+	tx := &models.Tx{
 		From:     from,
 		Nonce:    0,
 		Data:     []byte{},
@@ -130,20 +130,25 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 		GasLimit: 250000,
 		SentAt:   sentAt,
 	}
+	copy(tx.Hash[:len(tx.Hash)], randomBytes(common.HashLength))
+	return tx
 }
 
-// CreateTxAndAttempt create tx attempt with given store, from address, and sentat
-func CreateTxAndAttempt(
+// CreateTx creates an example Tx from address, and sentAt
+func CreateTx(
+	t *testing.T,
 	store *strpkg.Store,
 	from common.Address,
 	sentAt uint64,
 ) *models.Tx {
 	tx := NewTx(from, sentAt)
+	tx.GasPrice = models.NewBig(big.NewInt(1))
+
 	b := make([]byte, 36)
 	binary.LittleEndian.PutUint64(b, uint64(sentAt))
 	tx.Data = b
-	copy(tx.Hash[:len(tx.Hash)], randomBytes(common.HashLength))
-	mustNotErr(store.SaveTx(tx))
+
+	require.NoError(t, store.SaveTx(tx))
 	return tx
 }
 

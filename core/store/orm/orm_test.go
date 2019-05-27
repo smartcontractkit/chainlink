@@ -753,7 +753,7 @@ func TestORM_DeleteTransaction(t *testing.T) {
 	defer cleanup()
 
 	from := cltest.GetAccountAddress(store)
-	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	tx := cltest.CreateTx(t, store, from, 1)
 	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
 	require.NoError(t, err)
 
@@ -877,7 +877,7 @@ func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
 
 	from := cltest.GetAccountAddress(store)
 
-	tx1 := cltest.CreateTxAndAttempt(store, from, 1)
+	tx1 := cltest.CreateTx(t, store, from, 1)
 	tx2, err := store.FindTxByAttempt(tx1.Hash)
 
 	require.Equal(t, tx1.ID, tx2.ID)
@@ -903,7 +903,7 @@ func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
 	defer cleanup()
 
 	from := cltest.GetAccountAddress(store)
-	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	tx := cltest.CreateTx(t, store, from, 1)
 	tx1 := *tx
 	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
 	require.NoError(t, err)
