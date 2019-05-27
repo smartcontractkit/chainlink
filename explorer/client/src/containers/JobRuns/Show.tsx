@@ -32,11 +32,19 @@ const Loading = () => (
   </Table>
 )
 
-const styles = ({ spacing }: Theme) =>
+const styles = ({ spacing, breakpoints }: Theme) =>
   createStyles({
     container: {
-      padding: spacing.unit * 5,
-      paddingBottom: 0
+      paddingTop: spacing.unit * 2,
+      paddingBottom: spacing.unit * 2,
+      paddingLeft: spacing.unit * 2,
+      paddingRight: spacing.unit * 2,
+      [breakpoints.up('sm')]: {
+        paddingTop: spacing.unit * 3,
+        paddingBottom: spacing.unit * 3,
+        paddingLeft: spacing.unit * 3,
+        paddingRight: spacing.unit * 3
+      }
     },
     card: {
       paddingTop: spacing.unit,
