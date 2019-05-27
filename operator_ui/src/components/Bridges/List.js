@@ -10,7 +10,6 @@ import TableRow from '@material-ui/core/TableRow'
 import TablePagination from '@material-ui/core/TablePagination'
 import Typography from '@material-ui/core/Typography'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
-import { useHooks, useState, useEffect } from 'use-react-hooks'
 
 const renderFetching = () => (
   <TableRow>
@@ -56,9 +55,9 @@ const renderBody = (bridges, fetching, error) => {
   }
 }
 
-export const BridgeList = useHooks(props => {
-  const [page, setPage] = useState(FIRST_PAGE)
-  useEffect(() => {
+export const BridgeList = props => {
+  const [page, setPage] = React.useState(FIRST_PAGE)
+  React.useEffect(() => {
     const queryPage =
       (props.match && parseInt(props.match.params.bridgePage, 10)) || FIRST_PAGE
     setPage(queryPage)
@@ -133,7 +132,7 @@ export const BridgeList = useHooks(props => {
       />
     </Card>
   )
-})
+}
 
 BridgeList.propTypes = {
   bridges: PropTypes.array.isRequired,

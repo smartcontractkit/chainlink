@@ -12,7 +12,6 @@ import { fetchBridgeSpec } from 'actions'
 import bridgeSelector from 'selectors/bridge'
 import Content from 'components/Content'
 import Button from 'components/Button'
-import { useHooks, useEffect } from 'use-react-hooks'
 
 const renderLoading = () => <div>Loading...</div>
 
@@ -58,8 +57,8 @@ const renderLoaded = props => (
 const renderDetails = props =>
   props.bridge ? renderLoaded(props) : renderLoading(props)
 
-export const Show = useHooks(props => {
-  useEffect(() => {
+export const Show = props => {
+  React.useEffect(() => {
     document.title = 'Show Bridge'
     props.fetchBridgeSpec(props.match.params.bridgeId)
   }, [])
@@ -101,7 +100,7 @@ export const Show = useHooks(props => {
       </Grid>
     </Content>
   )
-})
+}
 
 Show.propTypes = {
   bridge: PropTypes.object

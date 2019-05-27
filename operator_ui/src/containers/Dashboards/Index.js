@@ -16,10 +16,9 @@ import {
 import accountBalanceSelector from 'selectors/accountBalance'
 import recentJobRunsSelector from 'selectors/recentJobRuns'
 import recentlyCreatedJobsSelector from 'selectors/recentlyCreatedJobs'
-import { useHooks, useEffect } from 'use-react-hooks'
 
-export const Index = useHooks(props => {
-  useEffect(() => {
+export const Index = props => {
+  React.useEffect(() => {
     document.title = 'Dashboard'
     props.fetchAccountBalance()
     props.fetchRecentJobRuns(props.recentJobRunsCount)
@@ -55,7 +54,7 @@ export const Index = useHooks(props => {
       <Footer />
     </Content>
   )
-})
+}
 
 Index.propTypes = {
   accountBalance: PropTypes.object,

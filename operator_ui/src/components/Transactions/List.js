@@ -10,7 +10,6 @@ import TablePagination from '@material-ui/core/TablePagination'
 import Typography from '@material-ui/core/Typography'
 import Link from 'components/Link'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
-import { useHooks, useState, useEffect } from 'use-react-hooks'
 
 const renderBody = (transactions, error) => {
   if (error) {
@@ -57,9 +56,9 @@ const renderBody = (transactions, error) => {
   )
 }
 
-export const List = useHooks(props => {
-  const [page, setPage] = useState(FIRST_PAGE)
-  useEffect(() => {
+export const List = props => {
+  const [page, setPage] = React.useState(FIRST_PAGE)
+  React.useEffect(() => {
     const queryPage =
       (props.match && parseInt(props.match.params.transactionsPage, 10)) ||
       FIRST_PAGE
@@ -127,7 +126,7 @@ export const List = useHooks(props => {
       />
     </Card>
   )
-})
+}
 
 List.propTypes = {
   count: PropTypes.number.isRequired,

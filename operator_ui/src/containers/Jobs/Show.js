@@ -13,7 +13,6 @@ import jobSelector from 'selectors/job'
 import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { useHooks, useEffect } from 'use-react-hooks'
 import TaskRuns from './TaskRuns'
 
 const renderJobSpec = ({ job }) => {
@@ -66,8 +65,8 @@ const renderDetails = props => {
   return <div>Fetching...</div>
 }
 
-export const Show = useHooks(props => {
-  useEffect(() => {
+export const Show = props => {
+  React.useEffect(() => {
     document.title = 'Show Job'
     fetchJob(jobSpecId)
   }, [])
@@ -78,7 +77,7 @@ export const Show = useHooks(props => {
       <Content>{renderDetails(props)}</Content>
     </div>
   )
-})
+}
 
 Show.propTypes = {
   latestJobRuns: PropTypes.array.isRequired,

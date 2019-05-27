@@ -28,8 +28,8 @@
     "@material-ui/icons": "^4.0.1",
     "@material-ui/styles": "^4.0.1",
     "@types/node": "^11.9.5",
-    "@types/react": "^16.7.0",
-    "@types/react-dom": "^16.7.0",
+    "@types/react": "^16.8.4",
+    "@types/react-dom": "^16.8.4",
     "@types/react-redux": "^7.0.1",
     "axios": "^0.18.0",
     "babel-jest": "^24.1.0",
@@ -54,9 +54,9 @@
     "oclif": "^1.11.4",
     "promise.prototype.finally": "^3.1.0",
     "prop-types": "^15.6.2",
-    "react": "^16.7.0",
+    "react": "^16.8.4",
     "react-copy-to-clipboard": "^5.0.1",
-    "react-dom": "^16.7.0",
+    "react-dom": "^16.8.4",
     "react-hot-loader": "^4.6.3",
     "react-jss": "^10.0.0-alpha.16",
     "react-redux": "^5.0.7",
@@ -74,7 +74,6 @@
     "redux-thunk": "^2.3.0",
     "serve": "^10.0.0",
     "url": "^0.11.0",
-    "use-react-hooks": "^1.0.7",
     "uuid": "^3.3.2"
   }
 }

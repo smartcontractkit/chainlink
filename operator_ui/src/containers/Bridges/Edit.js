@@ -15,7 +15,6 @@ import { fetchBridgeSpec, updateBridge } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import Content from 'components/Content'
-import { useHooks, useEffect } from 'use-react-hooks'
 
 const SuccessNotification = ({ id }) => {
   return (
@@ -25,8 +24,8 @@ const SuccessNotification = ({ id }) => {
   )
 }
 
-export const Edit = useHooks(props => {
-  useEffect(() => {
+export const Edit = props => {
+  React.useEffect(() => {
     document.title = 'Edit Bridge'
     const { fetchBridgeSpec, match } = props
     fetchBridgeSpec(match.params.bridgeId)
@@ -89,7 +88,7 @@ export const Edit = useHooks(props => {
       </Grid>
     </Content>
   )
-})
+}
 
 Edit.propTypes = {
   bridge: PropTypes.object
