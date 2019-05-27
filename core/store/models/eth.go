@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
+	null "gopkg.in/guregu/null.v3"
 )
 
 //go:generate gencodec -type Log -field-override logMarshaling -out gen_log_json.go
@@ -71,7 +72,7 @@ type Tx struct {
 	// SurrogateID is used to look up a transaction using a secondary ID, used to
 	// associate jobs with transactions so that we don't double spend in certain
 	// failure scenarios
-	SurrogateID *string `gorm:"index;unique"`
+	SurrogateID null.String `gorm:"index;unique"`
 
 	Attempts []*TxAttempt `json:"-"`
 
@@ -109,6 +110,7 @@ func (tx *Tx) AfterCreate(db *gorm.DB) (err error) {
 		SentAt:   tx.SentAt,
 		Hex:      tx.Hex,
 	}
+	tx.Attempts = []*TxAttempt{&attempt}
 	return db.Create(&attempt).Error
 }
 

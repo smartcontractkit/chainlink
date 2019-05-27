@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v3"
 )
 
 var (
@@ -487,7 +488,7 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 // CreateTx returns a transaction by its surrogate key, if it exists, or
 // creates it and its attempts
 func (orm *ORM) CreateTx(
-	surrogateID *string,
+	surrogateID null.String,
 	ethTx *types.Transaction,
 	from *common.Address,
 	sentAt uint64,
@@ -499,8 +500,8 @@ func (orm *ORM) CreateTx(
 
 	var tx models.Tx
 	query := orm.DB
-	if surrogateID != nil {
-		query = orm.DB.Where("surrogate_id = ?", *surrogateID)
+	if surrogateID.Valid {
+		query = orm.DB.Where("surrogate_id = ?", surrogateID.ValueOrZero())
 	}
 	err = query.
 		FirstOrCreate(&tx, models.Tx{
