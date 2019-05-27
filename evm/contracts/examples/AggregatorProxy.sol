@@ -11,14 +11,7 @@ contract AggregatorProxy is Ownable, CurrentAnswerInterface {
     public
     Ownable()
   {
-    updateAggregator(_aggregator);
-  }
-
-  function updateAggregator(address _aggregator)
-    public
-    onlyOwner()
-  {
-    aggregator = CurrentAnswerInterface(_aggregator);
+    setAggregator(_aggregator);
   }
 
   function currentAnswer()
@@ -26,6 +19,13 @@ contract AggregatorProxy is Ownable, CurrentAnswerInterface {
     returns (uint256)
   {
     return aggregator.currentAnswer();
+  }
+
+  function setAggregator(address _aggregator)
+    public
+    onlyOwner()
+  {
+    aggregator = CurrentAnswerInterface(_aggregator);
   }
 
 }
