@@ -590,7 +590,7 @@ func TestClient_GetTransactions(t *testing.T) {
 
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
+	tx := cltest.CreateTx(t, store, from, 1)
 
 	client, r := app.NewClientAndRenderer()
 
@@ -624,7 +624,7 @@ func TestClient_GetTxAttempts(t *testing.T) {
 
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
+	tx := cltest.CreateTx(t, store, from, 1)
 	attempts, err := store.TxAttemptsFor(tx.ID)
 	require.NoError(t, err)
 

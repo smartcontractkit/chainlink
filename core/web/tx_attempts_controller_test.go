@@ -28,7 +28,7 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
+	tx := cltest.CreateTx(t, store, from, 1)
 	_, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), 2)
 	require.NoError(t, err)
 	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
