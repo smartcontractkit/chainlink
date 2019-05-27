@@ -5,6 +5,9 @@
 package mocks
 
 import (
+	big "math/big"
+	reflect "reflect"
+
 	go_ethereum "github.com/ethereum/go-ethereum"
 	accounts "github.com/ethereum/go-ethereum/accounts"
 	common "github.com/ethereum/go-ethereum/common"
@@ -12,8 +15,6 @@ import (
 	store "github.com/smartcontractkit/chainlink/core/store"
 	assets "github.com/smartcontractkit/chainlink/core/store/assets"
 	models "github.com/smartcontractkit/chainlink/core/store/models"
-	big "math/big"
-	reflect "reflect"
 )
 
 // MockTxManager is a mock of TxManager interface
@@ -98,7 +99,7 @@ func (mr *MockTxManagerMockRecorder) ContractLINKBalance(arg0 interface{}) *gomo
 }
 
 // CreateTx mocks base method
-func (m *MockTxManager) CreateTx(arg0 common.Address, arg1 []byte) (*models.Tx, error) {
+func (m *MockTxManager) CreateTx(txID *string, arg0 common.Address, arg1 []byte) (*models.Tx, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateTx", arg0, arg1)
 	ret0, _ := ret[0].(*models.Tx)
@@ -107,13 +108,13 @@ func (m *MockTxManager) CreateTx(arg0 common.Address, arg1 []byte) (*models.Tx, 
 }
 
 // CreateTx indicates an expected call of CreateTx
-func (mr *MockTxManagerMockRecorder) CreateTx(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockTxManagerMockRecorder) CreateTx(txID *string, arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTx", reflect.TypeOf((*MockTxManager)(nil).CreateTx), arg0, arg1)
 }
 
 // CreateTxWithEth mocks base method
-func (m *MockTxManager) CreateTxWithEth(arg0, arg1 common.Address, arg2 *assets.Eth) (*models.Tx, error) {
+func (m *MockTxManager) CreateTxWithEth(txID *string, arg0, arg1 common.Address, arg2 *assets.Eth) (*models.Tx, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateTxWithEth", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*models.Tx)
@@ -122,13 +123,13 @@ func (m *MockTxManager) CreateTxWithEth(arg0, arg1 common.Address, arg2 *assets.
 }
 
 // CreateTxWithEth indicates an expected call of CreateTxWithEth
-func (mr *MockTxManagerMockRecorder) CreateTxWithEth(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockTxManagerMockRecorder) CreateTxWithEth(txID *string, arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTxWithEth", reflect.TypeOf((*MockTxManager)(nil).CreateTxWithEth), arg0, arg1, arg2)
 }
 
 // CreateTxWithGas mocks base method
-func (m *MockTxManager) CreateTxWithGas(arg0 common.Address, arg1 []byte, arg2 *big.Int, arg3 uint64) (*models.Tx, error) {
+func (m *MockTxManager) CreateTxWithGas(txID *string, arg0 common.Address, arg1 []byte, arg2 *big.Int, arg3 uint64) (*models.Tx, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateTxWithGas", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*models.Tx)

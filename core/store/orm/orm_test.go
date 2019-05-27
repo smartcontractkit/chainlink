@@ -448,7 +448,7 @@ func TestORM_CreatingTx(t *testing.T) {
 		data,
 	)
 
-	_, err = store.CreateTx(ethTx, &from, 0)
+	_, err = store.CreateTx(nil, ethTx, &from, 0)
 	assert.NoError(t, err)
 
 	txs := []models.Tx{}
@@ -571,7 +571,7 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 	assert.NoError(t, app.StartAndConnect())
 
 	to := cltest.NewAddress()
-	_, err := manager.CreateTx(to, []byte{})
+	_, err := manager.CreateTx(nil, to, []byte{})
 	assert.NoError(t, err)
 
 	account := cltest.GetAccountAddress(t, store)

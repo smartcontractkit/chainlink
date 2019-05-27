@@ -129,6 +129,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 		Data:     []byte{},
 		Value:    models.NewBig(big.NewInt(0)),
 		GasLimit: 250000,
+		SentAt:   sentAt,
 	}
 }
 
@@ -143,9 +144,8 @@ func CreateTxAndAttempt(
 	b := make([]byte, 36)
 	binary.LittleEndian.PutUint64(b, uint64(sentAt))
 	tx.Data = b
+	copy(tx.Hash[:len(tx.Hash)], randomBytes(common.HashLength))
 	require.NoError(t, store.SaveTx(tx))
-	_, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
-	require.NoError(t, err)
 	return tx
 }
 

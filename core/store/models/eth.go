@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
@@ -65,7 +66,13 @@ type logMarshaling struct {
 // Tx contains fields necessary for an Ethereum transaction with
 // an additional field for the TxAttempt.
 type Tx struct {
-	ID       uint64       `gorm:"primary_key;auto_increment"`
+	ID uint64 `gorm:"primary_key;auto_increment"`
+
+	// SurrogateID is used to look up a transaction using a secondary ID, used to
+	// associate jobs with transactions so that we don't double spend in certain
+	// failure scenarios
+	SurrogateID *string `gorm:"index;unique"`
+
 	Attempts []*TxAttempt `json:"-"`
 
 	From     common.Address `gorm:"index;not null"`
@@ -80,6 +87,29 @@ type Tx struct {
 	Confirmed bool
 	Hex       string `gorm:"type:text"`
 	SentAt    uint64
+}
+
+// String implements Stringer for Tx
+func (tx *Tx) String() string {
+	return fmt.Sprintf("Tx{ID: %d, From: %s, To: %s, Hash: %s, SentAt: %d}",
+		tx.ID,
+		tx.From.String(),
+		tx.To.String(),
+		tx.Hash.String(),
+		tx.SentAt)
+}
+
+// AfterCreate is used to add the default attempt to a TX after it is created
+// for the first time
+func (tx *Tx) AfterCreate(db *gorm.DB) (err error) {
+	attempt := TxAttempt{
+		TxID:     tx.ID,
+		Hash:     tx.Hash,
+		GasPrice: tx.GasPrice,
+		SentAt:   tx.SentAt,
+		Hex:      tx.Hex,
+	}
+	return db.Create(&attempt).Error
 }
 
 // EthTx creates a new Ethereum transaction with a given gasPrice in wei
