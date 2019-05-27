@@ -44,7 +44,7 @@ const server = (port: number = DEFAULT_PORT) => {
   const app = express()
   addLogging(app)
 
-  app.use(express.static('client/build'))
+  app.use(express.static('client/build', { maxAge: '365d' }))
   app.use('/api/v1', controllers.jobRuns)
 
   app.get('/*', (_, res) => {
