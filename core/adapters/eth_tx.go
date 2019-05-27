@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gopkg.in/guregu/null.v3"
 )
 
 const (
@@ -81,7 +82,13 @@ func createTxRunResult(
 		return
 	}
 
-	tx, err := store.TxManager.CreateTxWithGas(&input.CachedJobRunID, e.Address, data, e.GasPrice.ToInt(), e.GasLimit)
+	tx, err := store.TxManager.CreateTxWithGas(
+		null.StringFrom(input.CachedJobRunID),
+		e.Address,
+		data,
+		e.GasPrice.ToInt(),
+		e.GasLimit,
+	)
 	if err != nil {
 		input.SetError(err)
 		return

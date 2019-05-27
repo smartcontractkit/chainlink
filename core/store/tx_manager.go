@@ -11,6 +11,7 @@ import (
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
+	"gopkg.in/guregu/null.v3"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
@@ -39,10 +40,13 @@ type TxManager interface {
 	HeadTrackable
 	Connected() bool
 	Register(accounts []accounts.Account)
-	CreateTx(surrogateID *string, to common.Address, data []byte) (*models.Tx, error)
-	CreateTxWithGas(surrogateID *string, to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
-	CreateTxWithEth(surrogateID *string, from, to common.Address, value *assets.Eth) (*models.Tx, error)
+
+	CreateTx(to common.Address, data []byte) (*models.Tx, error)
+	CreateTxWithGas(surrogateID null.String, to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
+	CreateTxWithEth(from, to common.Address, value *assets.Eth) (*models.Tx, error)
+
 	BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, error)
+
 	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
 	GetLINKBalance(address common.Address) (*assets.Link, error)
@@ -129,12 +133,12 @@ func (txm *EthTxManager) Disconnect() {
 func (txm *EthTxManager) OnNewHead(*models.Head) {}
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
-func (txm *EthTxManager) CreateTx(surrogateID *string, to common.Address, data []byte) (*models.Tx, error) {
-	return txm.CreateTxWithGas(surrogateID, to, data, txm.config.EthGasPriceDefault(), DefaultGasLimit)
+func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
+	return txm.CreateTxWithGas(null.String{}, to, data, txm.config.EthGasPriceDefault(), DefaultGasLimit)
 }
 
 // CreateTxWithGas signs and sends a transaction to the Ethereum blockchain.
-func (txm *EthTxManager) CreateTxWithGas(surrogateID *string, to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error) {
+func (txm *EthTxManager) CreateTxWithGas(surrogateID null.String, to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error) {
 	ma, err := txm.nextAccount()
 	if err != nil {
 		return nil, err
@@ -145,13 +149,13 @@ func (txm *EthTxManager) CreateTxWithGas(surrogateID *string, to common.Address,
 }
 
 // CreateTxWithEth signs and sends a transaction with some ETH to transfer.
-func (txm *EthTxManager) CreateTxWithEth(surrogateID *string, from, to common.Address, value *assets.Eth) (*models.Tx, error) {
+func (txm *EthTxManager) CreateTxWithEth(from, to common.Address, value *assets.Eth) (*models.Tx, error) {
 	ma := txm.getAccount(from)
 	if ma == nil {
 		return nil, errors.New("account does not exist")
 	}
 
-	return txm.createTx(surrogateID, ma, to, []byte{}, txm.config.EthGasPriceDefault(), DefaultGasLimit, value)
+	return txm.createTx(null.String{}, ma, to, []byte{}, txm.config.EthGasPriceDefault(), DefaultGasLimit, value)
 }
 
 func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
@@ -184,7 +188,7 @@ func normalize(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, 
 }
 
 func (txm *EthTxManager) createTx(
-	surrogateID *string,
+	surrogateID null.String,
 	ma *ManagedAccount,
 	to common.Address,
 	data []byte,
@@ -335,7 +339,7 @@ func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash,
 		contractAddress = txm.config.OracleContractAddress()
 	}
 
-	tx, err := txm.CreateTx(nil, *contractAddress, data)
+	tx, err := txm.CreateTx(*contractAddress, data)
 	if err != nil {
 		return common.Hash{}, err
 	}

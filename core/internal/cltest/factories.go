@@ -120,7 +120,7 @@ func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 	return j
 }
 
-// NewTx create a tx given from address and sentat
+// NewTx returns a Tx using a specified from address and sentAt
 func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	tx := &models.Tx{
 		From:     from,
@@ -134,7 +134,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	return tx
 }
 
-// CreateTx creates an example Tx from address, and sentAt
+// CreateTx creates a Tx from a specified address, and sentAt
 func CreateTx(
 	t *testing.T,
 	store *strpkg.Store,
