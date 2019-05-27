@@ -59,8 +59,6 @@ var (
 	ErrorAuthFailed = errors.New("Authentication failed")
 )
 
-const maxPostSize = 32 * 1024
-
 // Router listens and responds to requests to the node for valid paths.
 func Router(app services.Application) *gin.Engine {
 	engine := gin.New()
@@ -75,7 +73,7 @@ func Router(app services.Application) *gin.Engine {
 	cors := uiCorsHandler(config)
 
 	engine.Use(
-		limits.RequestSizeLimiter(maxPostSize),
+		limits.RequestSizeLimiter(models.DefaultHTTPLimit),
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
