@@ -2,23 +2,18 @@ import React from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
-import JssProvider from 'react-jss/lib/JssProvider'
-import { SheetsRegistry } from 'react-jss/lib/jss'
-import {
-  MuiThemeProvider,
-  createMuiTheme,
-  createGenerateClassName
-} from '@material-ui/core/styles'
+import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'
 import theme from 'theme'
 import createStore from 'connectors/redux'
+import { SheetsRegistry } from 'jss'
+import { StylesProvider, createGenerateClassName } from '@material-ui/styles'
 
 const sheetsRegistry = new SheetsRegistry()
 const muiTheme = createMuiTheme(theme)
 const generateClassName = createGenerateClassName()
-
 export default (children, opts = {}) =>
   mount(
-    <JssProvider
+    <StylesProvider
       registry={sheetsRegistry}
       generateClassName={generateClassName}
     >
@@ -27,5 +22,5 @@ export default (children, opts = {}) =>
           <MemoryRouter initialEntries={['/']}>{children}</MemoryRouter>
         </Provider>
       </MuiThemeProvider>
-    </JssProvider>
+    </StylesProvider>
   )
