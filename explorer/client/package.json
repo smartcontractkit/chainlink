@@ -13,7 +13,7 @@
     "not op_mini all"
   ],
   "scripts": {
-    "start": "PORT=3001 craco start",
+    "start": "cross-env PORT=3001 craco start",
     "build:clean": "rm -rf build",
     "build": "craco build",
     "lint": "eslint . --color",
