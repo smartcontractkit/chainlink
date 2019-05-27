@@ -31,7 +31,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if from, err := retrieveFromAddress(tr.FromAddress, store); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
-	} else if tx, err := store.TxManager.CreateTxWithEth(from, tr.DestinationAddress, tr.Amount); err != nil {
+	} else if tx, err := store.TxManager.CreateTxWithEth(nil, from, tr.DestinationAddress, tr.Amount); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("Transaction failed: %v", err))
 	} else {
 		jsonAPIResponse(c, presenters.NewTx(tx), "transaction")

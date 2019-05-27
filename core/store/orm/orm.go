@@ -484,8 +484,10 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 	return found, ignoreRecordNotFound(rval)
 }
 
-// CreateTxAndAttempt persists a TX and its first attempt
+// CreateTx returns a transaction by its surrogate key, if it exists, or
+// creates it and its attempts
 func (orm *ORM) CreateTx(
+	surrogateID *string,
 	ethTx *types.Transaction,
 	from *common.Address,
 	sentAt uint64,
@@ -495,28 +497,26 @@ func (orm *ORM) CreateTx(
 		return nil, err
 	}
 
-	tx := &models.Tx{
-		From:     *from,
-		To:       *ethTx.To(),
-		Nonce:    ethTx.Nonce(),
-		Data:     ethTx.Data(),
-		Value:    models.NewBig(ethTx.Value()),
-		GasLimit: ethTx.Gas(),
-		GasPrice: models.NewBig(ethTx.GasPrice()),
-		Hex:      hex,
-		Hash:     ethTx.Hash(),
+	var tx models.Tx
+	query := orm.DB
+	if surrogateID != nil {
+		query = orm.DB.Where("surrogate_id = ?", *surrogateID)
 	}
-
-	tx.Attempts = []*models.TxAttempt{
-		&models.TxAttempt{
-			Hash:     tx.Hash,
-			GasPrice: tx.GasPrice,
-			SentAt:   sentAt,
-			Hex:      tx.Hex,
-		},
-	}
-
-	return tx, orm.DB.Create(tx).Error
+	err = query.
+		FirstOrCreate(&tx, models.Tx{
+			SurrogateID: surrogateID,
+			From:        *from,
+			To:          *ethTx.To(),
+			Nonce:       ethTx.Nonce(),
+			Data:        ethTx.Data(),
+			Value:       models.NewBig(ethTx.Value()),
+			GasLimit:    ethTx.Gas(),
+			GasPrice:    models.NewBig(ethTx.GasPrice()),
+			Hex:         hex,
+			Hash:        ethTx.Hash(),
+			SentAt:      sentAt,
+		}).Error
+	return &tx, err
 }
 
 // MarkTxSafe updates the database for the given transaction and attempt to

@@ -81,7 +81,7 @@ func createTxRunResult(
 		return
 	}
 
-	tx, err := store.TxManager.CreateTxWithGas(e.Address, data, e.GasPrice.ToInt(), e.GasLimit)
+	tx, err := store.TxManager.CreateTxWithGas(&input.CachedJobRunID, e.Address, data, e.GasPrice.ToInt(), e.GasLimit)
 	if err != nil {
 		input.SetError(err)
 		return
@@ -105,7 +105,7 @@ func ensureTxRunResult(input *models.RunResult, str *store.Store) {
 
 	receipt, err := str.TxManager.BumpGasUntilSafe(hash)
 	if err != nil {
-		logger.Error("EthTx Adapter Perform Resuming: ", err)
+		logger.Warn("EthTx Adapter Perform Resuming: ", err)
 	}
 	if receipt == nil {
 		input.MarkPendingConfirmations()

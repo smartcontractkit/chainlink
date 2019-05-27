@@ -39,9 +39,9 @@ type TxManager interface {
 	HeadTrackable
 	Connected() bool
 	Register(accounts []accounts.Account)
-	CreateTx(to common.Address, data []byte) (*models.Tx, error)
-	CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
-	CreateTxWithEth(from, to common.Address, value *assets.Eth) (*models.Tx, error)
+	CreateTx(surrogateID *string, to common.Address, data []byte) (*models.Tx, error)
+	CreateTxWithGas(surrogateID *string, to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
+	CreateTxWithEth(surrogateID *string, from, to common.Address, value *assets.Eth) (*models.Tx, error)
 	BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, error)
 	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
@@ -129,29 +129,29 @@ func (txm *EthTxManager) Disconnect() {
 func (txm *EthTxManager) OnNewHead(*models.Head) {}
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
-func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
-	return txm.CreateTxWithGas(to, data, txm.config.EthGasPriceDefault(), DefaultGasLimit)
+func (txm *EthTxManager) CreateTx(surrogateID *string, to common.Address, data []byte) (*models.Tx, error) {
+	return txm.CreateTxWithGas(surrogateID, to, data, txm.config.EthGasPriceDefault(), DefaultGasLimit)
 }
 
 // CreateTxWithGas signs and sends a transaction to the Ethereum blockchain.
-func (txm *EthTxManager) CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error) {
+func (txm *EthTxManager) CreateTxWithGas(surrogateID *string, to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error) {
 	ma, err := txm.nextAccount()
 	if err != nil {
 		return nil, err
 	}
 
 	gasPriceWei, gasLimit = normalize(gasPriceWei, gasLimit, txm.config)
-	return txm.createTx(ma, to, data, gasPriceWei, gasLimit, nil)
+	return txm.createTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, nil)
 }
 
 // CreateTxWithEth signs and sends a transaction with some ETH to transfer.
-func (txm *EthTxManager) CreateTxWithEth(from, to common.Address, value *assets.Eth) (*models.Tx, error) {
+func (txm *EthTxManager) CreateTxWithEth(surrogateID *string, from, to common.Address, value *assets.Eth) (*models.Tx, error) {
 	ma := txm.getAccount(from)
 	if ma == nil {
 		return nil, errors.New("account does not exist")
 	}
 
-	return txm.createTx(ma, to, []byte{}, txm.config.EthGasPriceDefault(), DefaultGasLimit, value)
+	return txm.createTx(surrogateID, ma, to, []byte{}, txm.config.EthGasPriceDefault(), DefaultGasLimit, value)
 }
 
 func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
@@ -184,6 +184,7 @@ func normalize(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, 
 }
 
 func (txm *EthTxManager) createTx(
+	surrogateID *string,
 	ma *ManagedAccount,
 	to common.Address,
 	data []byte,
@@ -192,13 +193,9 @@ func (txm *EthTxManager) createTx(
 	value *assets.Eth) (*models.Tx, error) {
 
 	for nrc := 0; nrc < nonceReloadLimit; nrc++ {
-		blkNum, err := txm.getBlockNumber()
-		if err != nil {
-			return nil, errors.Wrap(err, "TxManager getBlockNumber")
-		}
-
 		var tx *models.Tx
-		err = ma.GetAndIncrementNonce(func(nonce uint64) error {
+
+		err := ma.GetAndIncrementNonce(func(nonce uint64) error {
 			ethTx := types.NewTransaction(
 				nonce,
 				to,
@@ -213,7 +210,12 @@ func (txm *EthTxManager) createTx(
 				return errors.Wrap(err, "TxManager keyStore.SignTx")
 			}
 
-			tx, err = txm.orm.CreateTx(ethTx, &ma.Address, blkNum)
+			blkNum, err := txm.getBlockNumber()
+			if err != nil {
+				return errors.Wrap(err, "TxManager getBlockNumber")
+			}
+
+			tx, err = txm.orm.CreateTx(surrogateID, ethTx, &ma.Address, blkNum)
 			if err != nil {
 				return errors.Wrap(err, "TxManager CreateTx")
 			}
@@ -359,7 +361,7 @@ func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash,
 		contractAddress = txm.config.OracleContractAddress()
 	}
 
-	tx, err := txm.CreateTx(*contractAddress, data)
+	tx, err := txm.CreateTx(nil, *contractAddress, data)
 	if err != nil {
 		return common.Hash{}, err
 	}
