@@ -504,7 +504,7 @@ func (orm *ORM) CreateTx(
 		query = orm.DB.Where("surrogate_id = ?", surrogateID.ValueOrZero())
 	}
 	err = query.
-		FirstOrCreate(&tx, models.Tx{
+		Attrs(models.Tx{
 			SurrogateID: surrogateID,
 			From:        *from,
 			To:          *ethTx.To(),
@@ -516,8 +516,9 @@ func (orm *ORM) CreateTx(
 			Hex:         hex,
 			Hash:        ethTx.Hash(),
 			SentAt:      sentAt,
-		}).Error
-	return &tx, err
+		}).
+		FirstOrCreate(&tx).Error
+	return &tx, errors.Wrap(err, "FirstOrCreate failed")
 }
 
 // MarkTxSafe updates the database for the given transaction and attempt to
