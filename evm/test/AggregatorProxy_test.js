@@ -95,7 +95,7 @@ contract('AggregatorProxy', () => {
     })
 
     context('when called by the owner', () => {
-      it('pulls the rate from the new aggregator', async () => {
+      it('sets the address of the new aggregator', async () => {
         await proxy.setAggregator(aggregator2.address, {
           from: personas.Carol
         })
