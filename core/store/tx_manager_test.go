@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v3"
 )
 
 func TestTxManager_CreateTx_Success(t *testing.T) {
@@ -46,18 +47,17 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
 
-	tx, err := manager.CreateTx(nil, to, data)
+	tx, err := manager.CreateTx(to, data)
 	require.NoError(t, err)
-	_, err = store.FindTx(tx.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, nonce, tx.Nonce)
-	assert.Equal(t, data, tx.Data)
-	assert.Equal(t, to, tx.To)
-	assert.Equal(t, from, tx.From)
-	assert.Equal(t, nonce, tx.Nonce)
-	attempts, err := store.TxAttemptsFor(tx.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(attempts))
+
+	ntx, err := store.FindTx(tx.ID)
+	require.NoError(t, err)
+	assert.Equal(t, nonce, ntx.Nonce)
+	assert.Equal(t, data, ntx.Data)
+	assert.Equal(t, to, ntx.To)
+	assert.Equal(t, from, ntx.From)
+	assert.Equal(t, nonce, ntx.Nonce)
+	assert.Len(t, ntx.Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -88,12 +88,9 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
 
-	createdTx1, err := manager.CreateTx(nil, to, data)
+	createdTx1, err := manager.CreateTx(to, data)
 	require.NoError(t, err)
-
-	attempts, err := store.TxAttemptsFor(createdTx1.ID)
-	require.NoError(t, err)
-	require.Len(t, attempts, 1)
+	require.Len(t, createdTx1.Attempts, 1)
 
 	// bump gas
 	ethMock.Context("manager.bumpGas#1", func(ethMock *cltest.EthMock) {
@@ -102,14 +99,14 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold()))
 	})
 
-	_, err = manager.BumpGasUntilSafe(attempts[0].Hash)
+	_, err = manager.BumpGasUntilSafe(createdTx1.Attempts[0].Hash)
 	require.NoError(t, err)
 
 	// retrieve new gas bumped second attempt
-	attempts, err = store.TxAttemptsFor(createdTx1.ID)
+	createdTx1, err = store.FindTx(createdTx1.ID)
 	require.NoError(t, err)
-	require.Len(t, attempts, 2)
-	a2 := attempts[1]
+	require.Len(t, createdTx1.Attempts, 2)
+	a2 := createdTx1.Attempts[1]
 
 	// ensure gas bumped attempt does not round robin on the From Address
 	// best way to ensure the same from address atm is to compare Hashes, since
@@ -124,7 +121,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
 
-	createdTx2, err := manager.CreateTx(nil, to, data)
+	createdTx2, err := manager.CreateTx(to, data)
 	assert.NoError(t, err)
 
 	require.NotEqual(t, createdTx1.From.Hex(), createdTx2.From.Hex(), "should come from a different account")
@@ -161,7 +158,7 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
 
-	_, err = manager.CreateTx(nil, to, data)
+	_, err = manager.CreateTx(to, data)
 	assert.Error(t, err)
 
 	txs, _, err := store.Transactions(0, 10)
@@ -180,20 +177,17 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	})
 
-	tx, err := manager.CreateTx(nil, to, data)
-	assert.NoError(t, err)
-	_, err = store.FindTx(tx.ID)
-	assert.NoError(t, err)
-	assert.NoError(t, err)
-	assert.Equal(t, nonce, tx.Nonce)
-	assert.Equal(t, data, tx.Data)
-	assert.Equal(t, to, tx.To)
-	assert.Equal(t, from, tx.From)
+	tx, err := manager.CreateTx(to, data)
+	require.NoError(t, err)
 
-	assert.Equal(t, nonce, tx.Nonce)
-	attempts, err := store.TxAttemptsFor(tx.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(attempts))
+	ntx, err := store.FindTx(tx.ID)
+	require.NoError(t, err)
+	assert.Equal(t, nonce, ntx.Nonce)
+	assert.Equal(t, data, ntx.Data)
+	assert.Equal(t, to, ntx.To)
+	assert.Equal(t, from, ntx.From)
+	assert.Equal(t, nonce, ntx.Nonce)
+	assert.Len(t, ntx.Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -243,23 +237,17 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 				ethMock.Register("eth_sendRawTransaction", hash)
 			})
 
-			a, err := manager.CreateTx(nil, to, data)
+			a, err := manager.CreateTx(to, data)
 			require.NoError(t, err)
 			tx, err := store.FindTx(a.ID)
 			require.NoError(t, err)
-			assert.NoError(t, err)
 			assert.Equal(t, nonce2, tx.Nonce)
 			assert.Equal(t, data, tx.Data)
 			assert.Equal(t, to, tx.To)
-
 			assert.Equal(t, from, tx.From)
-			assert.Equal(t, nonce2, tx.Nonce)
-			attempts, err := store.TxAttemptsFor(tx.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 1, len(attempts))
+			assert.Len(t, tx.Attempts, 1)
 
 			ethMock.EventuallyAllCalled(t)
-
 		})
 	}
 }
@@ -296,7 +284,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 		ethMock.RegisterError("eth_sendRawTransaction", "nonce is too low")
 	})
 
-	_, err = manager.CreateTx(nil, to, data)
+	_, err = manager.CreateTx(to, data)
 	assert.EqualError(
 		t,
 		err,
@@ -317,7 +305,7 @@ func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 	data, err := hex.DecodeString("0000abcdef")
 	assert.NoError(t, err)
 
-	_, err = manager.CreateTx(nil, to, data)
+	_, err = manager.CreateTx(to, data)
 	assert.Contains(t, err.Error(), strpkg.ErrPendingConnection.Error())
 }
 
@@ -357,10 +345,8 @@ func TestTxManager_BumpGasUntilSafe(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			tx := cltest.CreateTx(t, store, from, sentAt)
-			attempts, err := store.TxAttemptsFor(tx.ID)
-			require.NoError(t, err)
-			require.Len(t, attempts, 1)
-			a := attempts[0]
+			require.Len(t, tx.Attempts, 1)
+			a := tx.Attempts[0]
 
 			ethMock.Register("eth_getTransactionReceipt", test.receipt)
 			ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.currentHeight))
@@ -372,9 +358,10 @@ func TestTxManager_BumpGasUntilSafe(t *testing.T) {
 			assert.NoError(t, err)
 			receiptPresent := receipt != nil
 			assert.Equal(t, test.wantReceipt, receiptPresent)
-			attempts, err = store.TxAttemptsFor(tx.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, test.wantLength, len(attempts))
+
+			tx, err = store.FindTx(tx.ID)
+			require.NoError(t, err)
+			assert.Len(t, tx.Attempts, test.wantLength)
 
 			ethMock.EventuallyAllCalled(t)
 		})
@@ -682,12 +669,10 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	})
 	assert.NoError(t, app.StartAndConnect())
 
-	confirmedTx, err := manager.CreateTx(nil, to, data)
+	confirmedTx, err := manager.CreateTx(to, data)
 	require.NoError(t, err)
-	txTransmissionAttempts, err := app.Store.TxAttemptsFor(confirmedTx.ID)
-	require.NoError(t, err)
-	require.Len(t, txTransmissionAttempts, 1)
-	initialSuccessfulAttempt := txTransmissionAttempts[0]
+	require.Len(t, confirmedTx.Attempts, 1)
+	initialSuccessfulAttempt := confirmedTx.Attempts[0]
 
 	receipt, err := manager.BumpGasUntilSafe(initialSuccessfulAttempt.Hash)
 	assert.NoError(t, err)
@@ -751,16 +736,12 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 				ethMock.Register("eth_blockNumber", utils.Uint64ToHex(1))
 			})
 
-			tx, err := manager.CreateTxWithGas(nil, to, data, test.gasPrice.ToInt(), test.gasLimit)
+			tx, err := manager.CreateTxWithGas(null.String{}, to, data, test.gasPrice.ToInt(), test.gasLimit)
 			require.NoError(t, err)
-			require.NotNil(t, tx)
-			require.NotNil(t, tx.GasLimit)
 			assert.Equal(t, test.expectedGasLimit, tx.GasLimit)
 
-			attempts, err := store.TxAttemptsFor(tx.ID)
-			assert.NoError(t, err)
-			require.Len(t, attempts, 1)
-			assert.Equal(t, test.expectedGasPrice, attempts[0].GasPrice)
+			require.Len(t, tx.Attempts, 1)
+			assert.Equal(t, test.expectedGasPrice, tx.Attempts[0].GasPrice)
 
 			ethMock.EventuallyAllCalled(t)
 		})

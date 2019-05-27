@@ -72,9 +72,8 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	from := cltest.GetAccountAddress(store)
 	txs, err := store.TxFrom(from)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(txs))
-	attempts, _ := store.TxAttemptsFor(txs[0].ID)
-	assert.Equal(t, 1, len(attempts))
+	require.Len(t, txs, 1)
+	assert.Len(t, txs[0].Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -135,9 +134,8 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	from := cltest.GetAccountAddress(store)
 	txs, err := store.TxFrom(from)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(txs))
-	attempts, _ := store.TxAttemptsFor(txs[0].ID)
-	assert.Equal(t, 1, len(attempts))
+	require.Len(t, txs, 1)
+	assert.Len(t, txs[0].Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -201,8 +199,8 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 		assert.NoError(t, err)
 		return txs
 	}).Should(gomega.HaveLen(1))
-	attempts, _ := store.TxAttemptsFor(txs[0].ID)
-	assert.Equal(t, 1, len(attempts))
+	require.Len(t, txs, 1)
+	assert.Len(t, txs[0].Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -321,12 +319,12 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	assert.Equal(t, confirmedHash.String(), value)
 
 	tx, err = store.FindTx(tx.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, tx.Confirmed)
-	attempts, _ := store.TxAttemptsFor(tx.ID)
-	assert.False(t, attempts[0].Confirmed)
-	assert.True(t, attempts[1].Confirmed)
-	assert.False(t, attempts[2].Confirmed)
+	require.Len(t, tx.Attempts, 3)
+	assert.False(t, tx.Attempts[0].Confirmed)
+	assert.True(t, tx.Attempts[1].Confirmed)
+	assert.False(t, tx.Attempts[2].Confirmed)
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
 	var receipts []models.TxReceipt
@@ -607,8 +605,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	txs, err := store.TxFrom(from)
 	require.NoError(t, err)
 	require.Len(t, txs, 1)
-	attempts, _ := store.TxAttemptsFor(txs[0].ID)
-	assert.Len(t, attempts, 1)
+	assert.Len(t, txs[0].Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
 }
