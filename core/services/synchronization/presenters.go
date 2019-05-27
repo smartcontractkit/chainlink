@@ -104,7 +104,7 @@ func formatEthereumReceipt(str string) (*syncReceiptPresenter, error) {
 
 type syncReceiptPresenter struct {
 	Hash   common.Hash `json:"transactionHash"`
-	Status TxStatus    `json:"status"`
+	Status TxStatus    `json:"transactionStatus"`
 }
 
 // TxStatus indicates if a transaction is fulfiled or not

@@ -204,7 +204,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 			assert.Equal(t, task0["error"].Type, gjson.Null)
 
 			txresult := task0["result"].Map()
-			assert.Equal(t, test.want, txresult["status"].String())
+			assert.Equal(t, test.want, txresult["transactionStatus"].String())
 			assert.Equal(t, fulfillmentTxHash, txresult["transactionHash"].String())
 		})
 	}

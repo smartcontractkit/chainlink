@@ -19,7 +19,7 @@
       "error": null,
       "result": {
         "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
-        "status": "fulfilledRunLog",
+        "transactionStatus": "fulfilledRunLog",
         "blockNumber": "0x6"
       }
     }
