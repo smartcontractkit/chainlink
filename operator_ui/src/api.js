@@ -77,7 +77,7 @@ const destroy = (path, body) =>
     .then(parseResponse)
 
 export const getJobs = (page, size) =>
-  get('/v2/specs', { page: page, size: size })
+  get('/v2/specs', { sort: '-createdAt', page: page, size: size })
 
 export const getRecentlyCreatedJobs = size =>
   get('/v2/specs', { size: size, sort: '-createdAt' })
