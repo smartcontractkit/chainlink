@@ -28,10 +28,37 @@ const JobRunId = ({ jobRun, variant }: IJobRunProps) => {
   )
 }
 
-const regionalNavStyles = ({ spacing }: Theme) =>
+interface ICreatedProps {
+  jobRun?: IJobRun
+  showTimeAgo?: boolean
+}
+
+const Created = ({ jobRun, showTimeAgo }: ICreatedProps) => {
+  return (
+    <>
+      {jobRun && (
+        <Typography variant="subtitle2" color="textSecondary">
+          Created <TimeAgo tooltip={false}>{jobRun.createdAt}</TimeAgo>
+          {showTimeAgo && ` (${moment(jobRun.createdAt).format()})`}
+        </Typography>
+      )}
+    </>
+  )
+}
+
+const regionalNavStyles = ({ spacing, breakpoints }: Theme) =>
   createStyles({
     container: {
-      padding: spacing.unit * 5
+      paddingTop: spacing.unit * 2,
+      paddingBottom: spacing.unit * 2,
+      paddingLeft: spacing.unit * 2,
+      paddingRight: spacing.unit * 2,
+      [breakpoints.up('sm')]: {
+        paddingTop: spacing.unit * 3,
+        paddingBottom: spacing.unit * 3,
+        paddingLeft: spacing.unit * 3,
+        paddingRight: spacing.unit * 3
+      }
     }
   })
 
@@ -44,24 +71,23 @@ const RegionalNav = withStyles(regionalNavStyles)(
     return (
       <Paper square className={classes.container}>
         <Grid container spacing={0}>
-          <Grid item xs={12}>
-            <Hidden xsDown>
+          <Hidden xsDown>
+            <Grid item xs={12}>
               <JobRunId jobRun={jobRun} variant="h3" />
-            </Hidden>
-            <Hidden smUp>
-              <JobRunId jobRun={jobRun} variant="h5" />
-            </Hidden>
-          </Grid>
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" color="textSecondary">
-              {jobRun && (
-                <>
-                  Created <TimeAgo tooltip={false}>{jobRun.createdAt}</TimeAgo>{' '}
-                  ({moment(jobRun.createdAt).format()})
-                </>
-              )}
-            </Typography>
-          </Grid>
+            </Grid>
+            <Grid item xs={12}>
+              <Created jobRun={jobRun} showTimeAgo />
+            </Grid>
+          </Hidden>
+
+          <Hidden smUp>
+            <Grid item xs={12}>
+              <JobRunId jobRun={jobRun} variant="subtitle1" />
+            </Grid>
+            <Grid item xs={12}>
+              <Created jobRun={jobRun} />
+            </Grid>
+          </Hidden>
         </Grid>
       </Paper>
     )

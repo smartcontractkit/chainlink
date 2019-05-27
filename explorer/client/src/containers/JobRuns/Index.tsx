@@ -16,10 +16,19 @@ import { IJobRun } from '../../models'
 const EMPTY_MSG =
   "We couldn't find any results for your search query. Try again with the job id, run id, requester, requester id or transaction hash"
 
-const styles = ({ spacing }: Theme) =>
+const styles = ({ spacing, breakpoints }: Theme) =>
   createStyles({
     container: {
-      margin: spacing.unit * 5
+      paddingTop: spacing.unit * 2,
+      paddingBottom: spacing.unit * 2,
+      paddingLeft: spacing.unit * 2,
+      paddingRight: spacing.unit * 2,
+      [breakpoints.up('sm')]: {
+        paddingTop: spacing.unit * 3,
+        paddingBottom: spacing.unit * 3,
+        paddingLeft: spacing.unit * 3,
+        paddingRight: spacing.unit * 3
+      }
     }
   })
 

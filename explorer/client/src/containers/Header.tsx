@@ -25,7 +25,6 @@ const styles = (theme: Theme) =>
       zIndex: theme.zIndex.modal + 1
     },
     toolbar: {
-      padding: theme.spacing.unit * 5,
       paddingTop: theme.spacing.unit * 2,
       paddingBottom: theme.spacing.unit * 2
     },
