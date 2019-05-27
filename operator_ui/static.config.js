@@ -1,12 +1,10 @@
 import React, { Component } from 'react'
-import { createGenerateClassName } from '@material-ui/core/styles'
 import OS from 'os'
 
 const MAX_EXPORT_HTML_THREADS =
   process.env.MAX_EXPORT_HTML_THREADS &&
   parseInt(process.env.MAX_EXPORT_HTML_THREADS, 10)
 const CORES = Math.max(OS.cpus().length, 1)
-const generateClassName = createGenerateClassName()
 
 export default {
   maxThreads: MAX_EXPORT_HTML_THREADS || CORES,
@@ -18,7 +16,6 @@ export default {
   },
   beforeRenderToElement: (render, Comp) => render(Comp),
   plugins: [
-    ['react-static-plugin-jss', { providerProps: { generateClassName } }],
     'react-static-plugin-react-router',
     'react-static-plugin-typescript'
   ],
