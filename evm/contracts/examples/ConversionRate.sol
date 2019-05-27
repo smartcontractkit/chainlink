@@ -16,7 +16,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
     uint256[] responses;
   }
 
-  uint256 public currentRate;
+  uint256 public currentAnswer;
   uint256 public latestCompletedAnswer;
   uint256 public paymentAmount;
   uint256 public minimumResponses;
@@ -213,9 +213,9 @@ contract ConversionRate is ChainlinkClient, Ownable {
     if (responseLength % 2 == 0) {
       uint256 median1 = quickselect(answers[_answerId].responses, middleIndex);
       uint256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
-      currentRate = median1.add(median2).div(2);
+      currentAnswer = median1.add(median2).div(2);
     } else {
-      currentRate = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
+      currentAnswer = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
     }
     latestCompletedAnswer = _answerId;
   }

@@ -31,7 +31,7 @@ contract('ConverstionRate', () => {
       'authorizedRequesters',
       'cancelRequest',
       'chainlinkCallback',
-      'currentRate',
+      'currentAnswer',
       'destroy',
       'jobIds',
       'latestCompletedAnswer',
@@ -65,7 +65,7 @@ contract('ConverstionRate', () => {
 
         await link.transfer(rate.address, deposit)
 
-        const current = await rate.currentRate.call()
+        const current = await rate.currentAnswer.call()
         assertBigNum(h.bigNum(0), current)
       })
 
@@ -78,7 +78,7 @@ contract('ConverstionRate', () => {
 
         await h.fulfillOracleRequest(oc1, request, response)
 
-        const current = await rate.currentRate.call()
+        const current = await rate.currentAnswer.call()
         assertBigNum(response, current)
       })
     })
@@ -96,7 +96,7 @@ contract('ConverstionRate', () => {
 
         await link.transfer(rate.address, deposit)
 
-        const current = await rate.currentRate.call()
+        const current = await rate.currentAnswer.call()
         assertBigNum(h.bigNum(0), current)
       })
 
@@ -113,7 +113,7 @@ contract('ConverstionRate', () => {
           await h.fulfillOracleRequest(oracle, request, responses[i])
         }
 
-        const current = await rate.currentRate.call()
+        const current = await rate.currentAnswer.call()
         assertBigNum(77, current)
       })
 
@@ -134,13 +134,13 @@ contract('ConverstionRate', () => {
           const request = h.decodeRunRequest(log)
           await h.fulfillOracleRequest(oracles[i], request, response2)
         }
-        assertBigNum(response2, await rate.currentRate.call())
+        assertBigNum(response2, await rate.currentAnswer.call())
 
         for (let i = 0; i < oracles.length; i++) {
           await h.fulfillOracleRequest(oracles[i], requests[i], response1)
         }
 
-        assertBigNum(response2, await rate.currentRate.call())
+        assertBigNum(response2, await rate.currentAnswer.call())
       })
     })
 
@@ -158,7 +158,7 @@ contract('ConverstionRate', () => {
 
         await link.transfer(rate.address, deposit)
 
-        const current = await rate.currentRate.call()
+        const current = await rate.currentAnswer.call()
         assertBigNum(h.bigNum(0), current)
       })
 
@@ -175,7 +175,7 @@ contract('ConverstionRate', () => {
           await h.fulfillOracleRequest(oracle, request, responses[i])
         }
 
-        const current = await rate.currentRate.call()
+        const current = await rate.currentAnswer.call()
         assertBigNum(77, current)
       })
     })
@@ -195,7 +195,7 @@ contract('ConverstionRate', () => {
       oc2 = await h.deploy('Oracle.sol', link.address)
       await link.transfer(rate.address, deposit)
 
-      const current = await rate.currentRate.call()
+      const current = await rate.currentAnswer.call()
       assertBigNum(h.bigNum(0), current)
     })
 
@@ -234,11 +234,14 @@ contract('ConverstionRate', () => {
 
         const response1 = 100
         await h.fulfillOracleRequest(oc1, request1, response1)
-        assertBigNum(response1, await rate.currentRate.call())
+        assertBigNum(response1, await rate.currentAnswer.call())
 
         const response2 = 200
         await h.fulfillOracleRequest(oc2, request2, response2)
-        assertBigNum((response1 + response2) / 2, await rate.currentRate.call())
+        assertBigNum(
+          (response1 + response2) / 2,
+          await rate.currentAnswer.call()
+        )
       })
 
       context('and the number of jobs does not match number of oracles', () => {
@@ -327,13 +330,13 @@ contract('ConverstionRate', () => {
         // fulfill request 1
         const response1 = 100
         await h.fulfillOracleRequest(oc1, request1, response1)
-        assertBigNum(response1, await rate.currentRate.call())
+        assertBigNum(response1, await rate.currentAnswer.call())
 
         // fulfill request 2
         const responses2 = [202, 222]
         await h.fulfillOracleRequest(oc2, request2, responses2[0])
         await h.fulfillOracleRequest(oc3, request3, responses2[1])
-        assertBigNum(212, await rate.currentRate.call())
+        assertBigNum(212, await rate.currentAnswer.call())
       })
     })
   })
@@ -626,7 +629,7 @@ contract('ConverstionRate', () => {
           await h.fulfillOracleRequest(oracle, request, responses[i])
         }
 
-        assertBigNum(test.want, await rate.currentRate.call())
+        assertBigNum(test.want, await rate.currentAnswer.call())
       })
     }
   })
