@@ -25,7 +25,7 @@ export const Index = props => {
   } = props
   return (
     <Content>
-      <Grid container spacing={8}>
+      <Grid container spacing={1}>
         <Grid item xs={9}>
           <Title>Bridges</Title>
         </Grid>
@@ -43,7 +43,7 @@ export const Index = props => {
           </Grid>
         </Grid>
       </Grid>
-      <Grid container spacing={40}>
+      <Grid container spacing={5}>
         <Grid item xs={12}>
           <BridgeList
             bridges={bridges}

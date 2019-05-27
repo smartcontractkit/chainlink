@@ -56,7 +56,7 @@ const NoRecentActivity = () => {
   return (
     <CardContent>
       <Card elevation={0} className={classes.noActivity}>
-        <Grid container alignItems="center" spacing={16}>
+        <Grid container alignItems="center" spacing={2}>
           <Grid item>
             <NoContentLogo width={40} />
           </Grid>

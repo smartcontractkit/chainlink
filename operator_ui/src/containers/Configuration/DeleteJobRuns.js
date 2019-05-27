@@ -49,7 +49,7 @@ const DeleteJobRuns = ({ deleteCompletedJobRuns, deleteErroredJobRuns }) => {
 
       <Divider className={classes.deleteRunsDivider} />
 
-      <Grid container spacing={16}>
+      <Grid container spacing={2}>
         <Grid item xs={12}>
           {!showCompletedConfirm && (
             <Slide

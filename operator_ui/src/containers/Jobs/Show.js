@@ -49,7 +49,7 @@ const renderLatestRuns = ({ job, latestJobRuns, showJobRunsCount }) => (
 const renderDetails = props => {
   if (props.job) {
     return (
-      <Grid container spacing={24}>
+      <Grid container spacing={4}>
         <Grid item xs={8}>
           {renderLatestRuns(props)}
         </Grid>

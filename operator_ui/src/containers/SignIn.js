@@ -70,7 +70,7 @@ export const SignIn = props => {
         <Card>
           <CardContent className={classes.cardContent}>
             <form noValidate onSubmit={onSubmit}>
-              <Grid container spacing={8}>
+              <Grid container spacing={1}>
                 <Grid item xs={12}>
                   <Grid container spacing={0}>
                     <Grid item xs={12} className={classes.headerRow}>
