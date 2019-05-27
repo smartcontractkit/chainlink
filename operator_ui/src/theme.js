@@ -1,11 +1,10 @@
 import { common, green, grey } from '@material-ui/core/colors'
-import { darken } from '@material-ui/core/styles/colorManipulator'
-import spacing from '@material-ui/core/styles/spacing'
+import { darken } from '@material-ui/core/styles'
 
 export default {
   props: {
     MuiGrid: {
-      spacing: spacing.unit * 3
+      spacing: 3
     }
   },
   palette: {
@@ -55,18 +54,17 @@ export default {
     }
   },
   shape: {
-    borderRadius: spacing.unit
+    borderRadius: 8
   },
   overrides: {
     MuiButton: {
       root: {
-        borderRadius: spacing.unit / 2,
+        borderRadius: 4,
         textTransform: 'none'
       }
     }
   },
   typography: {
-    useNextVariants: true,
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Roboto", "Helvetica", "Arial", sans-serif',
     body1: {
@@ -187,6 +185,7 @@ export default {
       letterSpacing: -0.4
     }
   },
+  spacing: 8,
   shadows: [
     'none',
     '0px 1px 3px 0px rgba(0, 0, 0, 0.1),0px 1px 1px 0px rgba(0, 0, 0, 0.04),0px 2px 1px -1px rgba(0, 0, 0, 0.02)',
