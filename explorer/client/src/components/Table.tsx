@@ -11,9 +11,9 @@ import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import MuiTableCell from '@material-ui/core/TableCell'
 import TableCell, { Column } from './Table/TableCell'
-import TableFooter from '@material-ui/core/TableFooter'
 import TablePagination from '@material-ui/core/TablePagination'
 import PaginationActions from './Table/PaginationActions'
+import { Hidden, Paper } from '@material-ui/core'
 
 export const DEFAULT_ROWS_PER_PAGE = 10
 export const DEFAULT_CURRENT_PAGE = 0
@@ -54,7 +54,12 @@ const styles = (theme: Theme) =>
       backgroundColor: theme.palette.grey['50']
     },
     table: {
-      minHeight: 150
+      minHeight: 150,
+      whiteSpace: 'nowrap'
+    },
+    root: {
+      width: '100%',
+      overflowX: 'auto'
     }
   })
 
@@ -62,6 +67,7 @@ export type ChangePageEvent = React.MouseEvent<HTMLButtonElement> | null
 
 interface IProps extends WithStyles<typeof styles> {
   headers: string[]
+  mobileHeaders: string[]
   rowsPerPage: number
   currentPage: number
   onChangePage: (event: ChangePageEvent, page: number) => void
@@ -71,6 +77,13 @@ interface IProps extends WithStyles<typeof styles> {
   emptyMsg?: string
 }
 
+const renderCells = ({ r, idx }: { r: any[]; idx: number }) => (
+  <TableRow key={idx}>
+    {r &&
+      r.map((col: Column, idx: number) => <TableCell key={idx} column={col} />)}
+  </TableRow>
+)
+
 const renderRows = ({ headers, rows, loadingMsg, emptyMsg }: IProps) => {
   if (!rows) {
     return <Loading colCount={headers.length} msg={loadingMsg} />
@@ -78,27 +91,36 @@ const renderRows = ({ headers, rows, loadingMsg, emptyMsg }: IProps) => {
     return <Empty colCount={headers.length} msg={emptyMsg} />
   } else {
     return rows.map((r: any[], idx: number) => (
-      <TableRow key={idx}>
-        {r.map((col: Column, idx: number) => (
-          <TableCell key={idx} column={col} />
-        ))}
-      </TableRow>
+      <>
+        <Hidden xsDown>{renderCells({ r, idx })}</Hidden>
+        <Hidden smUp>
+          {renderCells({ r: [r[2], r[1], r[3], r[0]], idx: idx })}
+        </Hidden>
+      </>
     ))
   }
 }
 
 const Table = (props: IProps) => {
   return (
-    <>
+    <Paper className={props.classes.root}>
       <MuiTable className={props.classes.table}>
         <TableHead>
-          <TableRow>
-            {props.headers.map((h: string) => (
-              <MuiTableCell key={h} className={props.classes.header}>
-                {h}
-              </MuiTableCell>
-            ))}
-          </TableRow>
+          <Hidden xsDown>
+            <TableRow className={props.classes.header}>
+              {props.headers.map((h: string) => (
+                <MuiTableCell key={h}>{h}</MuiTableCell>
+              ))}
+            </TableRow>
+          </Hidden>
+          <Hidden smUp>
+            <TableRow className={props.classes.header}>
+              {props.mobileHeaders &&
+                props.mobileHeaders.map((h: string) => (
+                  <MuiTableCell key={h}>{h}</MuiTableCell>
+                ))}
+            </TableRow>
+          </Hidden>
         </TableHead>
         <TableBody>{renderRows(props)}</TableBody>
       </MuiTable>
@@ -114,7 +136,7 @@ const Table = (props: IProps) => {
         onChangePage={props.onChangePage}
         ActionsComponent={PaginationActions}
       />
-    </>
+    </Paper>
   )
 }
 

@@ -13,6 +13,7 @@ interface IProps {
 }
 
 const HEADERS = ['Node', 'Run ID', 'Job ID', 'Created At']
+const MOBILE_HEADERS = ['Run ID', 'Job ID', 'Created At', 'Node']
 
 const List = (props: IProps) => {
   let rows
@@ -39,6 +40,7 @@ const List = (props: IProps) => {
     <Paper className={props.className}>
       <Table
         headers={HEADERS}
+        mobileHeaders={MOBILE_HEADERS}
         currentPage={props.currentPage}
         rows={rows}
         count={props.count}
