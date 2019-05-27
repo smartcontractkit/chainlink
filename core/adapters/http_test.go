@@ -30,7 +30,9 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 	}
 }
 
-func TestHttpGet_Perform(t *testing.T) {
+func TestHTTPGet_Perform(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		name        string
 		status      int
@@ -54,7 +56,6 @@ func TestHttpGet_Perform(t *testing.T) {
 	for _, tt := range cases {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			input := cltest.RunResultWithResult("inputValue")
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "GET", test.response,
 				func(header http.Header, body string) {
@@ -65,7 +66,9 @@ func TestHttpGet_Perform(t *testing.T) {
 				})
 			defer cleanup()
 
-			hga := adapters.HTTPGet{URL: cltest.WebURL(mock.URL), Headers: test.headers}
+			hga := adapters.NewHTTPGet(models.DefaultHTTPLimit)
+			hga.URL = cltest.WebURL(mock.URL)
+			hga.Headers = test.headers
 			result := hga.Perform(input, nil)
 
 			val, err := result.ResultString()
@@ -75,6 +78,19 @@ func TestHttpGet_Perform(t *testing.T) {
 			assert.Equal(t, false, result.Status.PendingBridge())
 		})
 	}
+}
+
+func TestHTTPGet_TooLarge(t *testing.T) {
+	input := cltest.RunResultWithResult("inputValue")
+	largePayload := "123456789"
+	mock, cleanup := cltest.NewHTTPMockServer(t, 200, "GET", largePayload)
+	defer cleanup()
+
+	hga := adapters.NewHTTPGet(1)
+	hga.URL = cltest.WebURL(mock.URL)
+	result := hga.Perform(input, nil)
+
+	assert.Equal(t, true, result.HasError())
 }
 
 func TestHttpPost_Perform(t *testing.T) {
