@@ -42,7 +42,7 @@ const SearchBox = ({ classes, className, query }: IProps) => {
       <InputBase
         className={classes.query}
         defaultValue={query}
-        placeholder="Search for your Chainlink's Job ID, Run ID, Request Transaction, or Requesting Contract"
+        placeholder="Search for Job IDs, Run IDs, Transaction Hashes, or Requesting Addresses"
         name="search"
       />
     </Paper>
