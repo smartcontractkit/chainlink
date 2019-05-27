@@ -58,6 +58,7 @@
     "react-copy-to-clipboard": "^5.0.1",
     "react-dom": "^16.7.0",
     "react-hot-loader": "^4.6.3",
+    "react-jss": "^10.0.0-alpha.16",
     "react-redux": "^5.0.7",
     "react-resize-detector": "^3.4.0",
     "react-router-dom": "^4.3.1",

@@ -8203,7 +8203,7 @@ hoist-non-react-statics@^2.2.1, hoist-non-react-statics@^2.5.0, hoist-non-react-
   resolved "https://registry.npmjs.org/hoist-non-react-statics/-/hoist-non-react-statics-2.5.5.tgz#c5903cf409c0dfd908f388e619d86b9c1174cb47"
   integrity sha512-rqcy4pJo55FTTLWt+bU8ukscqHeE/e9KWvsOW2b/a3afxQZhwkQdT1rPPCJ0rYXdj4vNcasY8zHTH+jF/qStxw==
 
-hoist-non-react-statics@^3.1.0, hoist-non-react-statics@^3.2.1, hoist-non-react-statics@^3.3.0:
+hoist-non-react-statics@^3.1.0, hoist-non-react-statics@^3.2.0, hoist-non-react-statics@^3.2.1, hoist-non-react-statics@^3.3.0:
   version "3.3.0"
   resolved "https://registry.npmjs.org/hoist-non-react-statics/-/hoist-non-react-statics-3.3.0.tgz#b09178f0122184fb95acf525daaecb4d8f45958b"
   integrity sha512-0XsbTXxgiaCDYDIWFcwkmerZPSwywfUqYmwT4jzewKTQSWoE6FCMoUVOeBJWK3E/CrWbxRG3m5GzY4lnIwGRBA==
@@ -9939,7 +9939,7 @@ jsprim@^1.2.2:
     json-schema "0.2.3"
     verror "1.10.0"
 
-jss-plugin-camel-case@^10.0.0-alpha.16:
+jss-plugin-camel-case@10.0.0-alpha.16, jss-plugin-camel-case@^10.0.0-alpha.16:
   version "10.0.0-alpha.16"
   resolved "https://registry.yarnpkg.com/jss-plugin-camel-case/-/jss-plugin-camel-case-10.0.0-alpha.16.tgz#36023c9aa35fd2e898f117be136f31dfa76ffef9"
   integrity sha512-nki+smHEsFyoZ0OlOYtaxVqcQA0ZHVJCE1slRnk+1TklbmxbBiO4TwITMTEaNIDv0U0Uyb0Z8wVgFgRwCCIFog==
@@ -9948,7 +9948,16 @@ jss-plugin-camel-case@^10.0.0-alpha.16:
     hyphenate-style-name "^1.0.3"
     jss "10.0.0-alpha.16"
 
-jss-plugin-default-unit@^10.0.0-alpha.16:
+jss-plugin-compose@10.0.0-alpha.16:
+  version "10.0.0-alpha.16"
+  resolved "https://registry.yarnpkg.com/jss-plugin-compose/-/jss-plugin-compose-10.0.0-alpha.16.tgz#13b39f6e63f4b659fd654a82f93819fa589feaae"
+  integrity sha512-MeOc5RuDSqB3czoUFM32pBq370+sKKjG1K4aamVWpAUWpsphLi/YlotrFOkk/FCb2So1ga4W7/zrCc/50OeRAQ==
+  dependencies:
+    "@babel/runtime" "^7.3.1"
+    jss "10.0.0-alpha.16"
+    tiny-warning "^1.0.2"
+
+jss-plugin-default-unit@10.0.0-alpha.16, jss-plugin-default-unit@^10.0.0-alpha.16:
   version "10.0.0-alpha.16"
   resolved "https://registry.yarnpkg.com/jss-plugin-default-unit/-/jss-plugin-default-unit-10.0.0-alpha.16.tgz#ef96b529fcb9f8d730c14a489a1d7e71e243447e"
   integrity sha512-jjGW4F/r9yKvoyUk22M8nWhdMfvoWzJw/oFO2cDRXCk2onnWFiRALfqeUsEDyocwdZbyVF9WhZbSHn4GL03kSw==
@@ -9956,7 +9965,24 @@ jss-plugin-default-unit@^10.0.0-alpha.16:
     "@babel/runtime" "^7.3.1"
     jss "10.0.0-alpha.16"
 
-jss-plugin-global@^10.0.0-alpha.16:
+jss-plugin-expand@10.0.0-alpha.16:
+  version "10.0.0-alpha.16"
+  resolved "https://registry.yarnpkg.com/jss-plugin-expand/-/jss-plugin-expand-10.0.0-alpha.16.tgz#6ef1e6ca41e2d3021ee0dc672994a014e8476028"
+  integrity sha512-Q3m0PDWGojfcmWBCkegRJxonq2q9lI6ZfixoFgvTvi+b9zKza0KXkHBUzGjeFyM36U/WRWj43SC33dajcI9jAg==
+  dependencies:
+    "@babel/runtime" "^7.3.1"
+    jss "10.0.0-alpha.16"
+
+jss-plugin-extend@10.0.0-alpha.16:
+  version "10.0.0-alpha.16"
+  resolved "https://registry.yarnpkg.com/jss-plugin-extend/-/jss-plugin-extend-10.0.0-alpha.16.tgz#7a61b9d6e3f64dce982489cb16d5e7c14c9c4c05"
+  integrity sha512-nJ8H5b/dBZlqaPYCLNmcaHRQgzSlnAwhZUcIo30s0IgvhTtN/TaiRtEbrJZjfXPzatTsnFoRwZzJqs8Sakev+A==
+  dependencies:
+    "@babel/runtime" "^7.3.1"
+    jss "10.0.0-alpha.16"
+    tiny-warning "^1.0.2"
+
+jss-plugin-global@10.0.0-alpha.16, jss-plugin-global@^10.0.0-alpha.16:
   version "10.0.0-alpha.16"
   resolved "https://registry.yarnpkg.com/jss-plugin-global/-/jss-plugin-global-10.0.0-alpha.16.tgz#6da34ad63e0a4669a35412d716d39820bd10ede4"
   integrity sha512-B1mm2ZF9OEsWPmzkG5ZUXqV88smDqpc4unILLXhWVuj0U5JeT0DNitH+QbXFrSueDJzkWVfvqyckvWDR/0qeDg==
@@ -9964,7 +9990,7 @@ jss-plugin-global@^10.0.0-alpha.16:
     "@babel/runtime" "^7.3.1"
     jss "10.0.0-alpha.16"
 
-jss-plugin-nested@^10.0.0-alpha.16:
+jss-plugin-nested@10.0.0-alpha.16, jss-plugin-nested@^10.0.0-alpha.16:
   version "10.0.0-alpha.16"
   resolved "https://registry.yarnpkg.com/jss-plugin-nested/-/jss-plugin-nested-10.0.0-alpha.16.tgz#282ce431cc6c7c4b2e2509b80dc5cc1de7f7102f"
   integrity sha512-3l/MB6COnIpq4GOXQFae6UydoaIPa81UxhuBTEQuiAojgTeUla9L7nB3h18Q4zAhQQpjxaEsyppAKuEzIP7kPQ==
@@ -9973,7 +9999,7 @@ jss-plugin-nested@^10.0.0-alpha.16:
     jss "10.0.0-alpha.16"
     tiny-warning "^1.0.2"
 
-jss-plugin-props-sort@^10.0.0-alpha.16:
+jss-plugin-props-sort@10.0.0-alpha.16, jss-plugin-props-sort@^10.0.0-alpha.16:
   version "10.0.0-alpha.16"
   resolved "https://registry.yarnpkg.com/jss-plugin-props-sort/-/jss-plugin-props-sort-10.0.0-alpha.16.tgz#d91566d6c73ebd906ff81fdfb93135d16bbfb067"
   integrity sha512-+Yn9nugHAH58nf/d43H2uxMvlCFPDgLKRSmKO4Q4m1IGYjMbHsWt1Rk2HfC9IiCanqcqpc8hstwtzf+HG7PWFQ==
@@ -9981,7 +10007,7 @@ jss-plugin-props-sort@^10.0.0-alpha.16:
     "@babel/runtime" "^7.3.1"
     jss "10.0.0-alpha.16"
 
-jss-plugin-rule-value-function@^10.0.0-alpha.16:
+jss-plugin-rule-value-function@10.0.0-alpha.16, jss-plugin-rule-value-function@^10.0.0-alpha.16:
   version "10.0.0-alpha.16"
   resolved "https://registry.yarnpkg.com/jss-plugin-rule-value-function/-/jss-plugin-rule-value-function-10.0.0-alpha.16.tgz#42bf684dae0a73a02df0a3297b747becf9854449"
   integrity sha512-MQap9ne6ZGZH0NlpSQTMSm6QalBTF0hYpd2uaGQwam+GlT7IKeO+sTjd46I1WgO3kyOmwb0pIY6CnuLQGXKtSA==
@@ -9989,7 +10015,25 @@ jss-plugin-rule-value-function@^10.0.0-alpha.16:
     "@babel/runtime" "^7.3.1"
     jss "10.0.0-alpha.16"
 
-jss-plugin-vendor-prefixer@^10.0.0-alpha.16:
+jss-plugin-rule-value-observable@10.0.0-alpha.16:
+  version "10.0.0-alpha.16"
+  resolved "https://registry.yarnpkg.com/jss-plugin-rule-value-observable/-/jss-plugin-rule-value-observable-10.0.0-alpha.16.tgz#32da23090f61160394702e1ae7d2ec57b62537ae"
+  integrity sha512-Gmj1sVKWM2KVZpG0Wn3Z+SArvskdXEtSCrww43g/OO+j8DN9O+UEV47tM/HYfdiyLICnvKHc2XGmhNz9LHcpNQ==
+  dependencies:
+    "@babel/runtime" "^7.3.1"
+    jss "10.0.0-alpha.16"
+    symbol-observable "^1.2.0"
+
+jss-plugin-template@10.0.0-alpha.16:
+  version "10.0.0-alpha.16"
+  resolved "https://registry.yarnpkg.com/jss-plugin-template/-/jss-plugin-template-10.0.0-alpha.16.tgz#cb1279329b01664add611dfb39c4d27d7efca769"
+  integrity sha512-L1epTMTDINJPUZkFuyohCXQtJDTMj1CNTBv9ysqVyMc3qjkifAvPEws6XuoRSC9jy1ZvqDTWlxPfbmoJ2r6BWg==
+  dependencies:
+    "@babel/runtime" "^7.3.1"
+    jss "10.0.0-alpha.16"
+    tiny-warning "^1.0.2"
+
+jss-plugin-vendor-prefixer@10.0.0-alpha.16, jss-plugin-vendor-prefixer@^10.0.0-alpha.16:
   version "10.0.0-alpha.16"
   resolved "https://registry.yarnpkg.com/jss-plugin-vendor-prefixer/-/jss-plugin-vendor-prefixer-10.0.0-alpha.16.tgz#f59d92db7331d6615b33aa108ee54cbf1ab6ce84"
   integrity sha512-70yJ6QE5dN8VlPUGKld5jK2SKyrteheEL/ismexpybIufunMs6iJgkhDndbOfv8ia13yZgUVqeakMdhRKYwK1A==
@@ -9997,6 +10041,26 @@ jss-plugin-vendor-prefixer@^10.0.0-alpha.16:
     "@babel/runtime" "^7.3.1"
     css-vendor "^2.0.1"
     jss "10.0.0-alpha.16"
+
+jss-preset-default@10.0.0-alpha.16:
+  version "10.0.0-alpha.16"
+  resolved "https://registry.yarnpkg.com/jss-preset-default/-/jss-preset-default-10.0.0-alpha.16.tgz#1f126fd50ddbffe26a874c7a684d7cc76866b124"
+  integrity sha512-YBq2XE4iJdl16klxfw0xTaKksfAIXSoC2kPZQ4dmw4n/KMFOz/A26eN30FwWixyObfDMKyZp94vwCKal7711IQ==
+  dependencies:
+    "@babel/runtime" "^7.3.1"
+    jss "10.0.0-alpha.16"
+    jss-plugin-camel-case "10.0.0-alpha.16"
+    jss-plugin-compose "10.0.0-alpha.16"
+    jss-plugin-default-unit "10.0.0-alpha.16"
+    jss-plugin-expand "10.0.0-alpha.16"
+    jss-plugin-extend "10.0.0-alpha.16"
+    jss-plugin-global "10.0.0-alpha.16"
+    jss-plugin-nested "10.0.0-alpha.16"
+    jss-plugin-props-sort "10.0.0-alpha.16"
+    jss-plugin-rule-value-function "10.0.0-alpha.16"
+    jss-plugin-rule-value-observable "10.0.0-alpha.16"
+    jss-plugin-template "10.0.0-alpha.16"
+    jss-plugin-vendor-prefixer "10.0.0-alpha.16"
 
 jss@10.0.0-alpha.16, jss@^10.0.0-alpha.16:
   version "10.0.0-alpha.16"
@@ -13424,6 +13488,11 @@ react-dev-utils@^6.1.0, react-dev-utils@^6.1.1:
     strip-ansi "4.0.0"
     text-table "0.2.0"
 
+react-display-name@^0.2.4:
+  version "0.2.4"
+  resolved "https://registry.yarnpkg.com/react-display-name/-/react-display-name-0.2.4.tgz#e2a670b81d79a2204335510c01246f4c92ff12cf"
+  integrity sha512-zvU6iouW+SWwHTyThwxGICjJYCMZFk/6r/+jmOdC7ntQoPlS/Pqb81MkxaMf2bHTSq9TN3K3zX2/ayMW/jCtyA==
+
 react-docgen@^3.0.0:
   version "3.0.0"
   resolved "https://registry.npmjs.org/react-docgen/-/react-docgen-3.0.0.tgz#79c6e1b1870480c3c2bc1a65bede0577a11c38cd"
@@ -13519,6 +13588,19 @@ react-is@^16.8.0:
   version "16.8.6"
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-16.8.6.tgz#5bbc1e2d29141c9fbdfed456343fe2bc430a6a16"
   integrity sha512-aUk3bHfZ2bRSVFFbbeVS4i+lNPZr3/WM5jT2J5omUVV1zzcs1nAaf3l51ctA5FFvCRbhrH0bdAsRRQddFJZPtA==
+
+react-jss@^10.0.0-alpha.16:
+  version "10.0.0-alpha.16"
+  resolved "https://registry.yarnpkg.com/react-jss/-/react-jss-10.0.0-alpha.16.tgz#c34945c4dad30495c35eacd85aaba40d1d0f478c"
+  integrity sha512-nGIerGVDV9V6cpRXhkJZgoV0MsoJbKMdAiCoPzCDnsdR+om6zLyhQEvVHNtd0mB16dO+pzNaovhBvElhdj/3ug==
+  dependencies:
+    "@babel/runtime" "^7.3.1"
+    hoist-non-react-statics "^3.2.0"
+    jss "10.0.0-alpha.16"
+    jss-preset-default "10.0.0-alpha.16"
+    prop-types "^15.6.0"
+    theming "^3.0.3"
+    tiny-warning "^1.0.2"
 
 react-lifecycles-compat@^3.0.0, react-lifecycles-compat@^3.0.2, react-lifecycles-compat@^3.0.4:
   version "3.0.4"
@@ -15962,6 +16044,16 @@ textextensions@^2.4.0:
   version "2.4.0"
   resolved "https://registry.npmjs.org/textextensions/-/textextensions-2.4.0.tgz#6a143a985464384cc2cff11aea448cd5b018e72b"
   integrity sha512-qftQXnX1DzpSV8EddtHIT0eDDEiBF8ywhFYR2lI9xrGtxqKN+CvLXhACeCIGbCpQfxxERbrkZEFb8cZcDKbVZA==
+
+theming@^3.0.3:
+  version "3.2.0"
+  resolved "https://registry.yarnpkg.com/theming/-/theming-3.2.0.tgz#237b13ae46e0596a7d1dc2ce4a31bcfce52cad8e"
+  integrity sha512-n0fSNYXkX63rcFBBeAthy14IcgPZLHp0OGkGZheaj64j7cBoP7INLd6+7HIXqWVjFn1M5cYSiZ1nszi+jo/Szg==
+  dependencies:
+    hoist-non-react-statics "^3.3.0"
+    prop-types "^15.5.8"
+    react-display-name "^0.2.4"
+    tiny-warning "^1.0.2"
 
 thenify-all@^1.0.0, thenify-all@^1.6.0:
   version "1.6.0"
