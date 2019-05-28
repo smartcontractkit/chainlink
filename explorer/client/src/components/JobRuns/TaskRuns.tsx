@@ -22,6 +22,7 @@ const styles = ({ spacing, palette }: Theme) =>
       borderColor: palette.grey[200],
       display: 'flex',
       alignItems: 'center',
+      flexWrap: 'wrap',
       listStyle: 'none',
       paddingBottom: spacing.unit * 2,
       '&:last-child': {
@@ -34,7 +35,11 @@ const styles = ({ spacing, palette }: Theme) =>
     },
     track: {
       display: 'flex',
-      alignItems: 'center'
+      alignItems: 'center',
+      flexGrow: 1
+    },
+    etherscan: {
+      marginLeft: spacing.unit
     }
   })
 
@@ -50,24 +55,19 @@ const TaskRuns = ({ etherscanHost, taskRuns, classes }: IProps) => {
         taskRuns.map((run: ITaskRun) => {
           return (
             <li key={run.id} className={classes.item}>
-              <Grid container alignItems="center">
-                <Grid item xs={3}>
-                  <div className={classes.track}>
-                    <StatusIcon width={40} className={classes.status}>
-                      {run.status}
-                    </StatusIcon>
-                    <Typography variant="body1">{run.type}</Typography>
-                  </div>
-                </Grid>
-                <Grid item xs={9}>
-                  {run.transactionHash && (
-                    <EtherscanLink
-                      txHash={run.transactionHash}
-                      host={etherscanHost}
-                    />
-                  )}
-                </Grid>
-              </Grid>
+              <div className={classes.track}>
+                <StatusIcon width={40} className={classes.status}>
+                  {run.status}
+                </StatusIcon>
+                <Typography variant="body1">{run.type}</Typography>
+              </div>
+              {run.transactionHash && (
+                <EtherscanLink
+                  txHash={run.transactionHash}
+                  host={etherscanHost}
+                  className={classes.etherscan}
+                />
+              )}
             </li>
           )
         })}
