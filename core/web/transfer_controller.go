@@ -33,8 +33,10 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if tx, err := store.TxManager.CreateTxWithEth(from, tr.DestinationAddress, tr.Amount); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("Transaction failed: %v", err))
+	} else if txp, err := presenters.NewTx(tx); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
-		jsonAPIResponse(c, presenters.NewTx(tx), "transaction")
+		jsonAPIResponse(c, txp, "transaction")
 	}
 }
 

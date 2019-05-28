@@ -6,7 +6,6 @@ package presenters
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -17,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
@@ -495,7 +495,12 @@ type Tx struct {
 }
 
 // NewTx builds a transaction presenter.
-func NewTx(tx *models.Tx) Tx {
+func NewTx(tx *models.Tx) (Tx, error) {
+	hex, err := utils.EncodeTxToHex(tx.EthTx(tx.GasPrice.ToInt()))
+	if err != nil {
+		return Tx{}, errors.Wrap(nil, "EncodeTxToHex error")
+	}
+
 	return Tx{
 		Confirmed: tx.Confirmed,
 		Data:      hexutil.Bytes(tx.Data),
@@ -503,12 +508,12 @@ func NewTx(tx *models.Tx) Tx {
 		GasLimit:  strconv.FormatUint(tx.GasLimit, 10),
 		GasPrice:  tx.GasPrice.String(),
 		Hash:      tx.Hash,
-		Hex:       tx.Hex,
+		Hex:       hex,
 		Nonce:     strconv.FormatUint(tx.Nonce, 10),
 		SentAt:    strconv.FormatUint(tx.SentAt, 10),
 		To:        &tx.To,
 		Value:     tx.Value.String(),
-	}
+	}, nil
 }
 
 // GetID returns the jsonapi ID.
