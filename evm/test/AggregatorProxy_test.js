@@ -34,7 +34,7 @@ contract('AggregatorProxy', () => {
       'aggregator',
       'currentAnswer',
       'setAggregator',
-      // Ownable
+      // Ownable methods:
       'owner',
       'renounceOwnership',
       'transferOwnership'
