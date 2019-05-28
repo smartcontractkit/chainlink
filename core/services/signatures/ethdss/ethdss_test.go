@@ -54,11 +54,13 @@ func init() {
 }
 
 func TestDSSNew(t *testing.T) {
-	dss, err := NewDSS(partSec[0], partPubs, longterms[0], randoms[0], msg, 4)
+	dssArgs := DSSArgs{secret: partSec[0], participants: partPubs, 
+		long: longterms[0], random: randoms[0], msg: msg, T: 4}
+	dss, err := NewDSS(dssArgs)
 	assert.NotNil(t, dss)
 	assert.Nil(t, err)
-
-	dss, err = NewDSS(suite.Scalar().Zero(), partPubs, longterms[0], randoms[0], msg, 4)
+	dssArgs.secret = suite.Scalar().Zero()
+	dss, err = NewDSS(dssArgs)
 	assert.Nil(t, dss)
 	assert.Error(t, err)
 }
@@ -179,7 +181,8 @@ func TestPartialSig_Hash(t *testing.T) {
 
 
 func getDSS(i int) *DSS {
-	dss, err := NewDSS(partSec[i], partPubs, longterms[i], randoms[i], msg, t)
+	dss, err := NewDSS(DSSArgs{secret: partSec[i], participants: partPubs,
+		long: longterms[i], random: randoms[i], msg: msg, T: t})
 	if dss == nil || err != nil {
 		panic("nil dss")
 	}
