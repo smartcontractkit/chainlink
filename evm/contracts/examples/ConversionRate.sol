@@ -29,6 +29,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
   mapping(bytes32 => uint256) private requestAnswers;
   mapping(uint256 => Answer) private answers;
 
+  event AnswerUpdated(uint256 current);
+
   /**
    * @notice Deploy with the address of the LINK token and arrays of matching
    * length containing the addresses of the oracles and their corresponding
@@ -220,6 +222,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
     }
     latestCompletedAnswer = _answerId;
     updatedHeight = block.number;
+    emit AnswerUpdated(currentAnswer);
   }
 
   /**
