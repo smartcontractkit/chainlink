@@ -7,60 +7,113 @@ import {
   withStyles,
   WithStyles
 } from '@material-ui/core/styles'
-import TaskRuns from './TaskRuns'
-import Table from '@material-ui/core/Table'
-import TableBody from '@material-ui/core/TableBody'
-import TableRow from '@material-ui/core/TableRow'
-import TableCell from '@material-ui/core/TableCell'
+import Grid, { GridSize } from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
+import TaskRuns from './TaskRuns'
 
-const colStyles = ({ spacing }: Theme) =>
+interface IBaseItemProps {
+  children: React.ReactNode
+  className?: string
+  sm: GridSize
+  md: GridSize
+}
+
+const BaseItem = ({ children, className, sm, md }: IBaseItemProps) => {
+  return (
+    <Grid item xs={sm} sm={sm} md={md} className={className}>
+      {children}
+    </Grid>
+  )
+}
+
+const itemContentStyles = ({ spacing, breakpoints }: Theme) =>
   createStyles({
-    col: {
-      verticalAlign: 'top',
-      paddingTop: spacing.unit * 2,
-      paddingBottom: spacing.unit * 2
+    text: {
+      paddingLeft: spacing.unit * 2,
+      paddingRight: spacing.unit * 2,
+      paddingBottom: spacing.unit
+    },
+    key: {
+      paddingTop: spacing.unit * 2
+    },
+    value: {
+      paddingTop: 0,
+      [breakpoints.up('md')]: {
+        paddingTop: spacing.unit * 2,
+        paddingBottom: spacing.unit
+      }
     }
   })
 
-interface IBaseColProps extends WithStyles<typeof colStyles> {
+interface IItemProps extends WithStyles<typeof itemContentStyles> {
   children: React.ReactNode
-  className?: string
 }
 
-const BaseCol = withStyles(colStyles)(
-  ({ children, className, classes }: IBaseColProps) => {
-    return (
-      <TableCell className={classNames(className, classes.col)}>
+const Key = withStyles(itemContentStyles)(
+  ({ children, classes }: IItemProps) => (
+    <BaseItem sm={12} md={4}>
+      <Typography
+        variant="body1"
+        color="textPrimary"
+        className={classNames(classes.key, classes.text)}>
         {children}
-      </TableCell>
-    )
-  }
+      </Typography>
+    </BaseItem>
+  )
 )
 
-interface IColProps {
+const Value = withStyles(itemContentStyles)(
+  ({ children, classes }: IItemProps) => (
+    <BaseItem sm={12} md={8}>
+      <Typography
+        variant="body1"
+        className={classNames(classes.value, classes.text)}>
+        {children}
+      </Typography>
+    </BaseItem>
+  )
+)
+
+const rowStyles = ({ palette }: Theme) =>
+  createStyles({
+    row: {
+      borderBottom: 'solid 1px',
+      borderBottomColor: palette.divider,
+      display: 'block',
+      width: '100%'
+    }
+  })
+
+interface IRowProps extends WithStyles<typeof rowStyles> {
   children: React.ReactNode
   className?: string
 }
 
-const Col = ({ children, className }: IColProps) => (
-  <BaseCol className={className}>
-    <Typography variant="body1">{children}</Typography>
-  </BaseCol>
+const Row = withStyles(rowStyles)(
+  ({ children, classes, className }: IRowProps) => (
+    <div className={classNames(classes.row, className)}>
+      <Grid container spacing={0}>
+        {children}
+      </Grid>
+    </div>
+  )
 )
 
-const KeyCol = ({ children, className }: IColProps) => (
-  <BaseCol className={className}>
-    <Typography variant="body1" color="textPrimary">
-      {children}
-    </Typography>
-  </BaseCol>
-)
-
-const styles = () =>
+const styles = ({ spacing, palette }: Theme) =>
   createStyles({
-    bottomCol: {
+    row: {
+      borderBottom: 'solid 1px',
+      borderBottomColor: palette.divider,
+      display: 'block',
+      width: '100%'
+    },
+    bottomRow: {
       borderBottom: 'none'
+    },
+    task: {
+      paddingLeft: spacing.unit * 2,
+      paddingRight: spacing.unit * 2,
+      paddingTop: spacing.unit
     }
   })
 
@@ -70,50 +123,56 @@ interface IProps extends WithStyles<typeof styles> {
 
 const Details = ({ classes, jobRun }: IProps) => {
   return (
-    <Table>
-      <TableBody>
-        <TableRow>
-          <KeyCol>Job ID</KeyCol>
-          <Col>{jobRun.jobId}</Col>
-        </TableRow>
-        <TableRow>
-          <KeyCol>Node</KeyCol>
-          <Col>{jobRun.chainlinkNode.name}</Col>
-        </TableRow>
-        <TableRow>
-          <KeyCol>Initiator</KeyCol>
-          <Col>{jobRun.type}</Col>
-        </TableRow>
-        <TableRow>
-          <KeyCol>Requester</KeyCol>
-          <Col>{jobRun.requester}</Col>
-        </TableRow>
-        <TableRow>
-          <KeyCol>Request ID</KeyCol>
-          <Col>{jobRun.requestId}</Col>
-        </TableRow>
-        <TableRow>
-          <KeyCol>Request Transaction Hash</KeyCol>
-          <Col>{jobRun.txHash}</Col>
-        </TableRow>
-        <TableRow>
-          <KeyCol>Finished At</KeyCol>
-          <Col>{jobRun.finishedAt && moment(jobRun.finishedAt).format()}</Col>
-        </TableRow>
-        {jobRun.error && (
-          <TableRow>
-            <KeyCol>Error</KeyCol>
-            <Col>{jobRun.error}</Col>
-          </TableRow>
-        )}
-        <TableRow>
-          <KeyCol className={classes.bottomCol}>Tasks</KeyCol>
-          <BaseCol className={classes.bottomCol}>
-            <TaskRuns taskRuns={jobRun.taskRuns} />
-          </BaseCol>
-        </TableRow>
-      </TableBody>
-    </Table>
+    <div>
+      <Row>
+        <Key>Job ID</Key>
+        <Value>{jobRun.jobId}</Value>
+      </Row>
+
+      <Row>
+        <Key>Node</Key>
+        <Value>{jobRun.chainlinkNode.name}</Value>
+      </Row>
+
+      <Row>
+        <Key>Initiator</Key>
+        <Value>{jobRun.type}</Value>
+      </Row>
+
+      <Row>
+        <Key>Requester</Key>
+        <Value>{jobRun.requester}</Value>
+      </Row>
+
+      <Row>
+        <Key>Request ID</Key>
+        <Value>{jobRun.requestId}</Value>
+      </Row>
+
+      <Row>
+        <Key>Request Transaction Hash</Key>
+        <Value>{jobRun.txHash}</Value>
+      </Row>
+
+      <Row>
+        <Key>Finished At</Key>
+        <Value>{jobRun.finishedAt && moment(jobRun.finishedAt).format()}</Value>
+      </Row>
+
+      {jobRun.error && (
+        <Row>
+          <Key>Error</Key>
+          <Value>{jobRun.error}</Value>
+        </Row>
+      )}
+
+      <Row className={classes.bottomRow}>
+        <Key>Tasks</Key>
+        <BaseItem sm={12} md={8} className={classes.task}>
+          <TaskRuns taskRuns={jobRun.taskRuns} />
+        </BaseItem>
+      </Row>
+    </div>
   )
 }
 
