@@ -16,6 +16,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
     uint256[] responses;
   }
 
+  event AnswerUpdated(uint256 current);
+
   uint256 public currentAnswer;
   uint256 public latestCompletedAnswer;
   uint256 public updatedHeight;
@@ -29,7 +31,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
   mapping(bytes32 => uint256) private requestAnswers;
   mapping(uint256 => Answer) private answers;
 
-  event AnswerUpdated(uint256 current);
+  uint256 constant private MAX_ORACLE_COUNT = 45;
 
   /**
    * @notice Deploy with the address of the LINK token and arrays of matching
@@ -274,8 +276,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
 
   /**
    * @dev Swaps the pointers to two uint256 arrays in memory;
-   * @param _a The pointer to the first in memroy array
-   * @param _b The pointer to the second in memroy array
+   * @param _a The pointer to the first in memory array
+   * @param _b The pointer to the second in memory array
    */
   function swap(uint256[] memory _a, uint256[] memory _b)
     private
@@ -338,6 +340,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
     address[] _oracles,
     bytes32[] _jobIds
   ) {
+    require(_oracles.length <= MAX_ORACLE_COUNT, "cannot have more than 45 oracles");
     require(_oracles.length >= _minimumResponses, "must have at least as many oracles as responses");
     require(_oracles.length == _jobIds.length, "must have exactly as many oracles as job IDs");
     _;
