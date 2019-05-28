@@ -55,7 +55,7 @@ type TxManager interface {
 	GetLogs(q ethereum.FilterQuery) ([]models.Log, error)
 }
 
-//go:generate mockgen -package=mocks -destination=core/internal/mocks/tx_manager_mocks.go github.com/smartcontractkit/chainlink/core/store TxManager
+//go:generate mockgen -package=mocks -destination=../internal/mocks/tx_manager_mocks.go github.com/smartcontractkit/chainlink/core/store TxManager
 
 // EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
