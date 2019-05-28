@@ -18,6 +18,7 @@ func leanStore() *store.Store {
 func TestHttpAdapters_NotAUrlError(t *testing.T) {
 	t.Parallel()
 
+	store := leanStore()
 	tests := []struct {
 		name    string
 		adapter adapters.BaseAdapter
@@ -29,7 +30,7 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			result := test.adapter.Perform(models.RunResult{}, leanStore())
+			result := test.adapter.Perform(models.RunResult{}, store)
 			assert.Equal(t, models.JSON{}, result.Data)
 			assert.True(t, result.HasError())
 		})
@@ -40,7 +41,6 @@ func TestHTTPGet_Perform(t *testing.T) {
 	t.Parallel()
 
 	store := leanStore()
-	config := store.Config
 	cases := []struct {
 		name        string
 		status      int
@@ -74,9 +74,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 				})
 			defer cleanup()
 
-			hga := adapters.NewHTTPGet(config.DefaultHTTPLimit())
-			hga.URL = cltest.WebURL(mock.URL)
-			hga.Headers = test.headers
+			hga := adapters.HTTPGet{URL: cltest.WebURL(mock.URL), Headers: test.headers}
 			result := hga.Perform(input, store)
 
 			val, err := result.ResultString()
@@ -94,8 +92,7 @@ func TestHTTPGet_TooLarge(t *testing.T) {
 	mock, cleanup := cltest.NewHTTPMockServer(t, 200, "GET", largePayload)
 	defer cleanup()
 
-	hga := adapters.NewHTTPGet(1)
-	hga.URL = cltest.WebURL(mock.URL)
+	hga := adapters.HTTPGet{URL: cltest.WebURL(mock.URL)}
 	result := hga.Perform(input, leanStore())
 
 	assert.Equal(t, true, result.HasError())
