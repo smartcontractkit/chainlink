@@ -495,7 +495,7 @@ func (txm *EthTxManager) handleConfirmed(
 	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // 0 based indexing since rcpt is 1 conf
 
 	logger.Debugw(
-		fmt.Sprintf("Confirmed TX: %d attempt %s waiting on %v confirmations", txat.TxID, txat.Hash.Hex(), minConfs),
+		fmt.Sprintf("TX %d checking for minimum of %v confirmations", txat.TxID, minConfs),
 		"txHash", txat.Hash.String(),
 		"txid", txat.TxID,
 		"nonce", tx.Nonce,
@@ -517,7 +517,7 @@ func (txm *EthTxManager) handleConfirmed(
 
 	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
 	logger.Infow(
-		fmt.Sprintf("Confirmed TX %d: %s", txat.TxID, txat.Hash.String()),
+		fmt.Sprintf("TX %d got minimum confirmations (%d)", txat.TxID, minConfs),
 		"txHash", txat.Hash.String(),
 		"txid", txat.TxID,
 		"nonce", tx.Nonce,
