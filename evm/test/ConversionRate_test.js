@@ -42,7 +42,7 @@ contract('ConverstionRate', () => {
       'setAuthorization',
       'transferLINK',
       'updateRequestDetails',
-      // Ownable
+      // Ownable methods:
       'owner',
       'renounceOwnership',
       'transferOwnership'
