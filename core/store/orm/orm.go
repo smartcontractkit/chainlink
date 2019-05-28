@@ -499,7 +499,7 @@ func (orm *ORM) CreateTx(
 	}
 
 	var tx models.Tx
-	err = orm.DB.Where("surrogate_id = ?", surrogateID.ValueOrZero()).
+	err = orm.DB.Where("surrogate_id = ? OR hash = ?", surrogateID.ValueOrZero(), ethTx.Hash().String()).
 		Attrs(models.Tx{
 			SurrogateID: surrogateID,
 			From:        *from,
