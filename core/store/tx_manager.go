@@ -240,25 +240,23 @@ func (txm *EthTxManager) sendInitialTx(
 	gasLimit uint64,
 	value *assets.Eth) (*models.Tx, error) {
 
+	blkNum, err := txm.getBlockNumber()
+	if err != nil {
+		return nil, errors.Wrap(err, "TxManager getBlockNumber")
+	}
+
 	var tx *models.Tx
-	err := ma.GetAndIncrementNonce(func(nonce uint64) error {
-		ethTx := types.NewTransaction(
+	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
+		ethTx, err := txm.newEthTx(
+			ma.Account,
 			nonce,
 			to,
 			value.ToInt(),
 			gasLimit,
 			gasPriceWei,
-			data,
-		)
-
-		ethTx, err := txm.keyStore.SignTx(ma.Account, ethTx, txm.config.ChainID())
+			data)
 		if err != nil {
-			return errors.Wrap(err, "TxManager keyStore.SignTx")
-		}
-
-		blkNum, err := txm.getBlockNumber()
-		if err != nil {
-			return errors.Wrap(err, "TxManager getBlockNumber")
+			return errors.Wrap(err, "TxManager newEthTx")
 		}
 
 		tx, err = txm.orm.CreateTx(surrogateID, ethTx, &ma.Address, blkNum)
@@ -279,24 +277,22 @@ func (txm *EthTxManager) retryInitialTx(
 	ma *ManagedAccount,
 	gasPriceWei *big.Int) error {
 
+	blkNum, err := txm.getBlockNumber()
+	if err != nil {
+		return errors.Wrap(err, "TxManager getBlockNumber")
+	}
+
 	return ma.GetAndIncrementNonce(func(nonce uint64) error {
-		ethTx := types.NewTransaction(
+		ethTx, err := txm.newEthTx(
+			ma.Account,
 			nonce,
 			tx.To,
 			tx.Value.ToInt(),
 			tx.GasLimit,
 			gasPriceWei,
-			tx.Data,
-		)
-
-		ethTx, err := txm.keyStore.SignTx(ma.Account, ethTx, txm.config.ChainID())
+			tx.Data)
 		if err != nil {
-			return errors.Wrap(err, "TxManager keyStore.SignTx")
-		}
-
-		blkNum, err := txm.getBlockNumber()
-		if err != nil {
-			return errors.Wrap(err, "TxManager getBlockNumber")
+			return errors.Wrap(err, "TxManager newEthTx")
 		}
 
 		err = txm.orm.UpdateTx(tx, ethTx, &ma.Address, blkNum)
@@ -306,6 +302,26 @@ func (txm *EthTxManager) retryInitialTx(
 
 		return txm.sendTransaction(ethTx)
 	})
+}
+
+// newEthTx returns a newly signed Ethereum Transaction
+func (txm *EthTxManager) newEthTx(
+	account accounts.Account,
+	nonce uint64,
+	to common.Address,
+	amount *big.Int,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	data []byte) (*types.Transaction, error) {
+
+	ethTx := types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data)
+
+	ethTx, err := txm.keyStore.SignTx(account, ethTx, txm.config.ChainID())
+	if err != nil {
+		return nil, errors.Wrap(err, "TxManager keyStore.SignTx")
+	}
+
+	return ethTx, nil
 }
 
 // GetLINKBalance returns the balance of LINK at the given address
