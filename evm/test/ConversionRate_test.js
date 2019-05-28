@@ -42,6 +42,7 @@ contract('ConverstionRate', () => {
       'setAuthorization',
       'transferLINK',
       'updateRequestDetails',
+      'updatedHeight',
       // Ownable methods:
       'owner',
       'renounceOwnership',
@@ -52,7 +53,7 @@ contract('ConverstionRate', () => {
   describe('#requestRateUpdate', () => {
     const response = 100
 
-    context('with one oracle', () => {
+    context('basic updates', () => {
       beforeEach(async () => {
         rate = await h.deploy(
           SOURCE_PATH,
@@ -69,7 +70,7 @@ contract('ConverstionRate', () => {
         assertBigNum(h.bigNum(0), current)
       })
 
-      it('triggeers a request to the oracle and accepts a response', async () => {
+      it('trigger a request to the oracle and accepts a response', async () => {
         const requestTx = await rate.requestRateUpdate()
 
         const log = requestTx.receipt.rawLogs[3]
@@ -80,6 +81,18 @@ contract('ConverstionRate', () => {
 
         const current = await rate.currentAnswer.call()
         assertBigNum(response, current)
+      })
+
+      it('change the updatedAt record', async () => {
+        let updatedAt = await rate.updatedHeight.call()
+        assert.equal('0', updatedAt.toString())
+
+        const requestTx = await rate.requestRateUpdate()
+        const request = h.decodeRunRequest(requestTx.receipt.rawLogs[3])
+        await h.fulfillOracleRequest(oc1, request, response)
+
+        updatedAt = await rate.updatedHeight.call()
+        assert.notEqual('0', updatedAt.toString())
       })
     })
 
