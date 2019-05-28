@@ -70,7 +70,12 @@ describe('reducers/jobRuns', () => {
           id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'
         }
       }
-      const data = { jobRuns: normalizedJobRuns }
+      const data = {
+        jobRuns: normalizedJobRuns,
+        meta: {
+          jobRun: { meta: {} }
+        }
+      }
       const action = { type: 'UPSERT_JOB_RUN', data: data } as JobRunsAction
       const state = reducer(STATE, action) as IState
 
