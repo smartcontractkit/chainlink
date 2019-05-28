@@ -144,7 +144,7 @@ func (txm *EthTxManager) CreateTxWithGas(surrogateID null.String, to common.Addr
 		return nil, err
 	}
 
-	gasPriceWei, gasLimit = normalize(gasPriceWei, gasLimit, txm.config)
+	gasPriceWei, gasLimit = normalizeGasParams(gasPriceWei, gasLimit, txm.config)
 	return txm.createTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, nil)
 }
 
@@ -171,7 +171,7 @@ func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
 	return ma, nil
 }
 
-func normalize(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, uint64) {
+func normalizeGasParams(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, uint64) {
 	if !config.Dev() {
 		return config.EthGasPriceDefault(), DefaultGasLimit
 	}
@@ -191,6 +191,8 @@ var (
 	nonceTooLowRegex = regexp.MustCompile("nonce .*too low")
 )
 
+// createTx creates an ethereum transaction, and retries to submit the
+// transaction if a nonce too low error is returned
 func (txm *EthTxManager) createTx(
 	surrogateID null.String,
 	ma *ManagedAccount,
