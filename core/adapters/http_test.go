@@ -86,19 +86,38 @@ func TestHTTPGet_Perform(t *testing.T) {
 	}
 }
 
-func TestHTTPGet_TooLarge(t *testing.T) {
-	input := cltest.RunResultWithResult("inputValue")
-	largePayload := "123456789"
-	mock, cleanup := cltest.NewHTTPMockServer(t, 200, "GET", largePayload)
-	defer cleanup()
+func TestHTTP_TooLarge(t *testing.T) {
+	cfg := store.NewConfig()
+	cfg.Set("DEFAULT_HTTP_LIMIT", "1")
+	store := &store.Store{Config: cfg}
 
-	hga := adapters.HTTPGet{URL: cltest.WebURL(mock.URL)}
-	result := hga.Perform(input, leanStore())
+	tests := []struct {
+		verb    string
+		factory func(models.WebURL) adapters.BaseAdapter
+	}{
+		{"GET", func(url models.WebURL) adapters.BaseAdapter { return &adapters.HTTPGet{URL: url} }},
+		{"POST", func(url models.WebURL) adapters.BaseAdapter { return &adapters.HTTPPost{URL: url} }},
+	}
+	for _, test := range tests {
+		t.Run(test.verb, func(t *testing.T) {
+			input := cltest.RunResultWithResult("inputValue")
+			largePayload := "12"
+			mock, cleanup := cltest.NewHTTPMockServer(t, 200, test.verb, largePayload)
+			defer cleanup()
 
-	assert.Equal(t, true, result.HasError())
+			hga := test.factory(cltest.WebURL(mock.URL))
+			result := hga.Perform(input, store)
+
+			assert.Equal(t, true, result.HasError())
+			assert.Equal(t, "HTTP request too large, must be less than 1 bytes", result.Error())
+			assert.Equal(t, "inputValue", result.Result().String())
+		})
+	}
 }
 
 func TestHttpPost_Perform(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		name        string
 		status      int
@@ -122,7 +141,6 @@ func TestHttpPost_Perform(t *testing.T) {
 	for _, tt := range cases {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			input := cltest.RunResultWithResult("inputVal")
 			wantedBody := `{"result":"inputVal"}`
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
