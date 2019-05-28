@@ -311,23 +311,6 @@ func matchesNonceTooLowError(err error) bool {
 	return nonceTooLowRegex.MatchString(err.Error()) || sameHashRegex.MatchString(err.Error())
 }
 
-func (txm *EthTxManager) createTxWithNonceReload(
-	ma *ManagedAccount,
-	to common.Address,
-	data []byte,
-	gasPriceWei *big.Int,
-	gasLimit uint64,
-	nrc uint) (*models.Tx, error) {
-	return txm.createEthTxWithNonceReload(
-		ma,
-		to,
-		data,
-		gasPriceWei,
-		gasLimit,
-		assets.NewEth(0),
-		nrc)
-}
-
 // GetLINKBalance returns the balance of LINK at the given address
 func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, error) {
 	contractAddress := common.HexToAddress(txm.config.LinkContractAddress())
