@@ -288,7 +288,11 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	config := store.Config
 	sentAt := uint64(23456)
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock.Register("eth_getTransactionCount", `0x100`)
+	ethMock.Register("eth_call", "0x1")
+	ethMock.Register("eth_getBalance", "0x100")
+
 	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	confirmedHash := cltest.NewHash()
 	receipt := models.TxReceipt{Hash: confirmedHash, BlockNumber: cltest.Int(sentAt)}
@@ -300,7 +304,6 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 
 	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
 	require.NoError(t, store.DB.Save(tx).Error)
-	store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
 	a3, _ := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
 	adapter := adapters.EthTx{}
