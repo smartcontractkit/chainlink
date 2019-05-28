@@ -4,5 +4,6 @@ examples/uptime_sla/node_modules
 examples/twilio_sms/node_modules
 examples/testnet/contracts/TestnetConsumer.sol
 examples/testnet/contracts/Oracle.sol
+examples/testnet/contracts/ConversionRate.sol
 evm/contracts/lib
 evm/box/node_modules
