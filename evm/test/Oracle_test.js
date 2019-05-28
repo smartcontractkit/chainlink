@@ -26,13 +26,14 @@ contract('Oracle', () => {
       'fulfillOracleRequest',
       'getAuthorizationStatus',
       'onTokenTransfer',
-      'owner',
-      'renounceOwnership',
       'oracleRequest',
       'setFulfillmentPermission',
-      'transferOwnership',
       'withdraw',
-      'withdrawable'
+      'withdrawable',
+      // Ownable methods:
+      'owner',
+      'renounceOwnership',
+      'transferOwnership'
     ])
   })
 
