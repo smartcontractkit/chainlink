@@ -554,7 +554,7 @@ func (txm *EthTxManager) handleUnconfirmed(
 			fmt.Sprintf("Unconfirmed TX %d attempt %s, bumping gas", txAttempt.TxID, txAttempt.Hash.Hex()),
 			logParams...,
 		)
-		return nil, unconfirmed, txm.bumpGas(txAttempt, blkNum)
+		return nil, unconfirmed, txm.bumpGas(tx, txAttempt, blkNum)
 	}
 	logger.Infow(
 		fmt.Sprintf("Unconfirmed TX %d has not met gas bump threshold", txAttempt.TxID),
@@ -566,21 +566,17 @@ func (txm *EthTxManager) handleUnconfirmed(
 // isLatestAttempt returns true only if the attempt is the last
 // attempt associated with the transaction, alluding to the fact that
 // it has the highest gas price after subsequent bumps.
-func isLatestAttempt(tx *models.Tx, txat *models.TxAttempt) bool {
-	return tx.Hash == txat.Hash
+func isLatestAttempt(tx *models.Tx, txAttempt *models.TxAttempt) bool {
+	return tx.Hash == txAttempt.Hash
 }
 
-func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
-	tx, err := txm.orm.FindTx(txat.TxID)
+func (txm *EthTxManager) bumpGas(tx *models.Tx, txAttempt *models.TxAttempt, blkNum uint64) error {
+	gasPrice := new(big.Int).Add(txAttempt.GasPrice.ToInt(), txm.config.EthGasBumpWei())
+	bumpedTxAttempt, err := txm.createAttempt(tx, gasPrice, blkNum)
 	if err != nil {
-		return errors.Wrapf(err, "bumpGas for txid %v", txat.TxID)
+		return errors.Wrapf(err, "bumpGas from tx %s", txAttempt.Hash.Hex())
 	}
-	gasPrice := new(big.Int).Add(txat.GasPrice.ToInt(), txm.config.EthGasBumpWei())
-	bumpedTxAt, err := txm.createAttempt(tx, gasPrice, blkNum)
-	if err != nil {
-		return errors.Wrapf(err, "bumpGas from tx %s", txat.Hash.Hex())
-	}
-	logger.Infow(fmt.Sprintf("Bumped gas to %v for TX %v", txat.TxID, gasPrice), "bumpSource", txat.Hash.Hex(), "txat", bumpedTxAt, "nonce", tx.Nonce)
+	logger.Infow(fmt.Sprintf("Bumped gas to %v for TX %v", txAttempt.TxID, gasPrice), "bumpSource", txAttempt.Hash.Hex(), "attempt", bumpedTxAttempt, "nonce", tx.Nonce)
 	return nil
 }
 
