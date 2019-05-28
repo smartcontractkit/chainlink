@@ -94,6 +94,15 @@ contract('ConverstionRate', () => {
         updatedAt = await rate.updatedHeight.call()
         assert.notEqual('0', updatedAt.toString())
       })
+
+      it('emits a log with the new answer', async () => {
+        const requestTx = await rate.requestRateUpdate()
+        const request = h.decodeRunRequest(requestTx.receipt.rawLogs[3])
+        const tx = await h.fulfillOracleRequest(oc1, request, response)
+
+        const payload = web3.utils.hexToNumber(tx.receipt.rawLogs[1].data)
+        assert.equal(response, payload)
+      })
     })
 
     context('with multiple oracles', () => {
