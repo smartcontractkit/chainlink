@@ -493,13 +493,8 @@ func (orm *ORM) CreateTx(
 	from *common.Address,
 	sentAt uint64,
 ) (*models.Tx, error) {
-	hex, err := utils.EncodeTxToHex(ethTx)
-	if err != nil {
-		return nil, err
-	}
-
 	var tx models.Tx
-	err = orm.DB.Where("surrogate_id = ? OR hash = ?", surrogateID.ValueOrZero(), ethTx.Hash().String()).
+	err := orm.DB.Where("surrogate_id = ? OR hash = ?", surrogateID.ValueOrZero(), ethTx.Hash().String()).
 		Attrs(models.Tx{
 			SurrogateID: surrogateID,
 			From:        *from,
@@ -509,7 +504,6 @@ func (orm *ORM) CreateTx(
 			Value:       models.NewBig(ethTx.Value()),
 			GasLimit:    ethTx.Gas(),
 			GasPrice:    models.NewBig(ethTx.GasPrice()),
-			Hex:         hex,
 			Hash:        ethTx.Hash(),
 			SentAt:      sentAt,
 		}).
@@ -525,17 +519,11 @@ func (orm *ORM) UpdateTx(
 	from *common.Address,
 	sentAt uint64,
 ) error {
-	hex, err := utils.EncodeTxToHex(ethTx)
-	if err != nil {
-		return err
-	}
-
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		err := dbtx.Model(tx).Update(models.Tx{
 			From:     *from,
 			Nonce:    ethTx.Nonce(),
 			GasPrice: models.NewBig(ethTx.GasPrice()),
-			Hex:      hex,
 			Hash:     ethTx.Hash(),
 			SentAt:   sentAt,
 		}).Error
@@ -546,7 +534,6 @@ func (orm *ORM) UpdateTx(
 			Hash:     tx.Hash,
 			GasPrice: tx.GasPrice,
 			SentAt:   tx.SentAt,
-			Hex:      tx.Hex,
 		}).Error
 	})
 }
@@ -584,7 +571,6 @@ func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, error) {
 	tx.Hash = txat.Hash
 	tx.GasPrice = txat.GasPrice
 	tx.Confirmed = txat.Confirmed
-	tx.Hex = txat.Hex
 	tx.SentAt = txat.SentAt
 	return tx, nil
 }
@@ -596,14 +582,9 @@ func (orm *ORM) AddTxAttempt(
 	etx *types.Transaction,
 	blkNum uint64,
 ) (*models.TxAttempt, error) {
-	hex, err := utils.EncodeTxToHex(etx)
-	if err != nil {
-		return nil, err
-	}
 	attempt := &models.TxAttempt{
 		Hash:     etx.Hash(),
 		GasPrice: models.NewBig(etx.GasPrice()),
-		Hex:      hex,
 		TxID:     tx.ID,
 		SentAt:   blkNum,
 	}
@@ -611,7 +592,7 @@ func (orm *ORM) AddTxAttempt(
 		tx.AssignTxAttempt(attempt)
 	}
 
-	err = orm.convenientTransaction(func(dbtx *gorm.DB) error {
+	err := orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		return dbtx.Save(tx).Save(attempt).Error
 	})
 	return attempt, err
