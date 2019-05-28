@@ -8,10 +8,6 @@ import {
   WithStyles
 } from '@material-ui/core/styles'
 import Grid, { GridSize } from '@material-ui/core/Grid'
-import Table from '@material-ui/core/Table'
-import TableBody from '@material-ui/core/TableBody'
-import TableRow from '@material-ui/core/TableRow'
-import TableCell from '@material-ui/core/TableCell'
 import Typography from '@material-ui/core/Typography'
 import TaskRuns from './TaskRuns'
 
@@ -30,7 +26,7 @@ const BaseItem = ({ children, className, sm, md }: IBaseItemProps) => {
   )
 }
 
-const itemContentStyles = ({ spacing, breakpoints, palette }: Theme) =>
+const itemContentStyles = ({ spacing, breakpoints }: Theme) =>
   createStyles({
     text: {
       paddingLeft: spacing.unit * 2,
@@ -51,11 +47,10 @@ const itemContentStyles = ({ spacing, breakpoints, palette }: Theme) =>
 
 interface IItemProps extends WithStyles<typeof itemContentStyles> {
   children: React.ReactNode
-  className?: string
 }
 
 const Key = withStyles(itemContentStyles)(
-  ({ children, className, classes }: IItemProps) => (
+  ({ children, classes }: IItemProps) => (
     <BaseItem sm={12} md={4}>
       <Typography
         variant="body1"
@@ -68,7 +63,7 @@ const Key = withStyles(itemContentStyles)(
 )
 
 const Value = withStyles(itemContentStyles)(
-  ({ children, className, classes }: IItemProps) => (
+  ({ children, classes }: IItemProps) => (
     <BaseItem sm={12} md={8}>
       <Typography
         variant="body1"
@@ -76,6 +71,31 @@ const Value = withStyles(itemContentStyles)(
         {children}
       </Typography>
     </BaseItem>
+  )
+)
+
+const rowStyles = ({ palette }: Theme) =>
+  createStyles({
+    row: {
+      borderBottom: 'solid 1px',
+      borderBottomColor: palette.divider,
+      display: 'block',
+      width: '100%'
+    }
+  })
+
+interface IRowProps extends WithStyles<typeof rowStyles> {
+  children: React.ReactNode
+  className?: string
+}
+
+const Row = withStyles(rowStyles)(
+  ({ children, classes, className }: IRowProps) => (
+    <div className={classNames(classes.row, className)}>
+      <Grid container spacing={0}>
+        {children}
+      </Grid>
+    </div>
   )
 )
 
@@ -104,74 +124,54 @@ interface IProps extends WithStyles<typeof styles> {
 const Details = ({ classes, jobRun }: IProps) => {
   return (
     <div>
-      <div className={classes.row}>
-        <Grid container spacing={0}>
-          <Key>Job ID</Key>
-          <Value>{jobRun.jobId}</Value>
-        </Grid>
-      </div>
+      <Row>
+        <Key>Job ID</Key>
+        <Value>{jobRun.jobId}</Value>
+      </Row>
 
-      <div className={classes.row}>
-        <Grid container spacing={0}>
-          <Key>Node</Key>
-          <Value>{jobRun.chainlinkNode.name}</Value>
-        </Grid>
-      </div>
+      <Row>
+        <Key>Node</Key>
+        <Value>{jobRun.chainlinkNode.name}</Value>
+      </Row>
 
-      <div className={classes.row}>
-        <Grid container spacing={0}>
-          <Key>Initiator</Key>
-          <Value>{jobRun.type}</Value>
-        </Grid>
-      </div>
+      <Row>
+        <Key>Initiator</Key>
+        <Value>{jobRun.type}</Value>
+      </Row>
 
-      <div className={classes.row}>
-        <Grid container spacing={0}>
-          <Key>Requester</Key>
-          <Value>{jobRun.requester}</Value>
-        </Grid>
-      </div>
+      <Row>
+        <Key>Requester</Key>
+        <Value>{jobRun.requester}</Value>
+      </Row>
 
-      <div className={classes.row}>
-        <Grid container spacing={0}>
-          <Key>Request ID</Key>
-          <Value>{jobRun.requestId}</Value>
-        </Grid>
-      </div>
+      <Row>
+        <Key>Request ID</Key>
+        <Value>{jobRun.requestId}</Value>
+      </Row>
 
-      <div className={classes.row}>
-        <Grid container spacing={0}>
-          <Key>Request Transaction Hash</Key>
-          <Value>{jobRun.txHash}</Value>
-        </Grid>
-      </div>
+      <Row>
+        <Key>Request Transaction Hash</Key>
+        <Value>{jobRun.txHash}</Value>
+      </Row>
 
-      <div className={classes.row}>
-        <Grid container spacing={0}>
-          <Key>Finished At</Key>
-          <Value>
-            {jobRun.finishedAt && moment(jobRun.finishedAt).format()}
-          </Value>
-        </Grid>
-      </div>
+      <Row>
+        <Key>Finished At</Key>
+        <Value>{jobRun.finishedAt && moment(jobRun.finishedAt).format()}</Value>
+      </Row>
 
       {jobRun.error && (
-        <Grid container spacing={0}>
-          <div className={classes.row}>
-            <Key>Error</Key>
-            <Value>{jobRun.error}</Value>
-          </div>
-        </Grid>
+        <Row>
+          <Key>Error</Key>
+          <Value>{jobRun.error}</Value>
+        </Row>
       )}
 
-      <div className={classNames(classes.row, classes.bottomRow)}>
-        <Grid container spacing={0}>
-          <Key>Tasks</Key>
-          <BaseItem sm={12} md={8} className={classes.task}>
-            <TaskRuns taskRuns={jobRun.taskRuns} />
-          </BaseItem>
-        </Grid>
-      </div>
+      <Row className={classes.bottomRow}>
+        <Key>Tasks</Key>
+        <BaseItem sm={12} md={8} className={classes.task}>
+          <TaskRuns taskRuns={jobRun.taskRuns} />
+        </BaseItem>
+      </Row>
     </div>
   )
 }
