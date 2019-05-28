@@ -55,8 +55,9 @@ func (abc *WithdrawalsController) Create(c *gin.Context) {
 	hash, err := txm.WithdrawLINK(wr)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
+	} else if txp, err := presenters.NewTx(&models.Tx{Hash: hash}); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
-		tx := models.Tx{Hash: hash}
-		jsonAPIResponse(c, presenters.NewTx(&tx), "transaction")
+		jsonAPIResponse(c, txp, "transaction")
 	}
 }

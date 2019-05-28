@@ -86,7 +86,6 @@ type Tx struct {
 	Hash      common.Hash
 	GasPrice  *Big `gorm:"type:varchar(255)"`
 	Confirmed bool
-	Hex       string `gorm:"type:text"`
 	SentAt    uint64
 }
 
@@ -108,7 +107,6 @@ func (tx *Tx) AfterCreate(db *gorm.DB) (err error) {
 		Hash:     tx.Hash,
 		GasPrice: tx.GasPrice,
 		SentAt:   tx.SentAt,
-		Hex:      tx.Hex,
 	}
 	tx.Attempts = []*TxAttempt{&attempt}
 	return db.Create(&attempt).Error
@@ -132,7 +130,6 @@ func (tx *Tx) AssignTxAttempt(txat *TxAttempt) {
 	tx.Hash = txat.Hash
 	tx.GasPrice = txat.GasPrice
 	tx.Confirmed = txat.Confirmed
-	tx.Hex = txat.Hex
 	tx.SentAt = txat.SentAt
 }
 
@@ -145,7 +142,6 @@ type TxAttempt struct {
 	Hash      common.Hash `gorm:"primary_key;not null"`
 	GasPrice  *Big        `gorm:"type:varchar(255)"`
 	Confirmed bool
-	Hex       string `gorm:"type:text"`
 	SentAt    uint64
 	CreatedAt time.Time `gorm:"index"`
 }

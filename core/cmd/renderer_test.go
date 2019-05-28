@@ -161,7 +161,6 @@ func TestRendererTable_Render_TxAttempts(t *testing.T) {
 			TxID:      1,
 			GasPrice:  models.NewBig(big.NewInt(1)),
 			Confirmed: false,
-			Hex:       "0xdeadbeef",
 			SentAt:    1,
 		},
 	}

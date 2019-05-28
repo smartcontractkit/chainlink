@@ -888,7 +888,6 @@ func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
 
 	require.Equal(t, tx1.Hash, tx2.Hash)
 	require.Equal(t, tx1.GasPrice, tx2.GasPrice)
-	require.Equal(t, tx1.Hex, tx2.Hex)
 	require.Equal(t, tx1.SentAt, tx2.SentAt)
 }
 
@@ -918,7 +917,6 @@ func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
 	require.Equal(t, tx.Confirmed, tx2.Confirmed)
 	require.NotEqual(t, tx.Hash, tx2.Hash)
 	require.NotEqual(t, tx.GasPrice, tx2.GasPrice)
-	require.NotEqual(t, tx.Hex, tx2.Hex)
 	require.NotEqual(t, tx.SentAt, tx2.SentAt)
 
 	require.Equal(t, tx1.ID, tx2.ID)
@@ -930,7 +928,6 @@ func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
 	require.Equal(t, tx1.Confirmed, tx2.Confirmed)
 	require.Equal(t, tx1.Hash, tx2.Hash)
 	require.Equal(t, tx1.GasPrice, tx2.GasPrice)
-	require.Equal(t, tx1.Hex, tx2.Hex)
 	require.Equal(t, tx1.SentAt, tx2.SentAt)
 }
 

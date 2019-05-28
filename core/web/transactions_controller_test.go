@@ -109,7 +109,9 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 			require.NoError(t, cltest.ParseJSONAPIResponse(resp, &ptx))
 
 			test.want.ID = 0
-			assert.Equal(t, presenters.NewTx(&test.want), ptx)
+			txp, err := presenters.NewTx(&test.want)
+			require.NoError(t, err)
+			assert.Equal(t, txp, ptx)
 		})
 	}
 }
