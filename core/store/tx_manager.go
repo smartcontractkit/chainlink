@@ -196,36 +196,8 @@ func (txm *EthTxManager) createTx(
 	gasLimit uint64,
 	value *assets.Eth) (*models.Tx, error) {
 
-	for nrc := 0; nrc < nonceReloadLimit; nrc++ {
-		var tx *models.Tx
-
-		err := ma.GetAndIncrementNonce(func(nonce uint64) error {
-			ethTx := types.NewTransaction(
-				nonce,
-				to,
-				value.ToInt(),
-				gasLimit,
-				gasPriceWei,
-				data,
-			)
-
-			ethTx, err := txm.keyStore.SignTx(ma.Account, ethTx, txm.config.ChainID())
-			if err != nil {
-				return errors.Wrap(err, "TxManager keyStore.SignTx")
-			}
-
-			blkNum, err := txm.getBlockNumber()
-			if err != nil {
-				return errors.Wrap(err, "TxManager getBlockNumber")
-			}
-
-			tx, err = txm.orm.CreateTx(surrogateID, ethTx, &ma.Address, blkNum)
-			if err != nil {
-				return errors.Wrap(err, "TxManager CreateTx")
-			}
-
-			return txm.sendTransaction(ethTx)
-		})
+	tx, err := txm.sendInitialTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, value)
+	for nrc := 1; ; nrc++ {
 		if err == nil {
 			return tx, nil
 		}
@@ -233,20 +205,101 @@ func (txm *EthTxManager) createTx(
 		if matchesNonceTooLowError(err) {
 			logger.Warnw("Transaction nonce is too low. Reattempting TX with refreshed nonce.")
 
+			if nrc >= nonceReloadLimit {
+				err = fmt.Errorf(
+					"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v",
+					nonceReloadLimit,
+				)
+				return nil, err
+			}
+
 			err = ma.ReloadNonce(txm)
 			if err != nil {
 				return tx, errors.Wrap(err, "TxManager CreateTX ReloadNonce")
 			}
-		} else {
-			return tx, err
+
+			err = txm.retryInitialTx(tx, ma, gasPriceWei)
 		}
 	}
+}
 
-	err := fmt.Errorf(
-		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v",
-		nonceReloadLimit,
-	)
-	return nil, err
+// sendInitialTx creates the initial TX record + attempt for an Ethereum TX,
+// there should only ever be one of those for a "job"
+func (txm *EthTxManager) sendInitialTx(
+	surrogateID null.String,
+	ma *ManagedAccount,
+	to common.Address,
+	data []byte,
+	gasPriceWei *big.Int,
+	gasLimit uint64,
+	value *assets.Eth) (*models.Tx, error) {
+
+	var tx *models.Tx
+	err := ma.GetAndIncrementNonce(func(nonce uint64) error {
+		ethTx := types.NewTransaction(
+			nonce,
+			to,
+			value.ToInt(),
+			gasLimit,
+			gasPriceWei,
+			data,
+		)
+
+		ethTx, err := txm.keyStore.SignTx(ma.Account, ethTx, txm.config.ChainID())
+		if err != nil {
+			return errors.Wrap(err, "TxManager keyStore.SignTx")
+		}
+
+		blkNum, err := txm.getBlockNumber()
+		if err != nil {
+			return errors.Wrap(err, "TxManager getBlockNumber")
+		}
+
+		tx, err = txm.orm.CreateTx(surrogateID, ethTx, &ma.Address, blkNum)
+		if err != nil {
+			return errors.Wrap(err, "TxManager CreateTx")
+		}
+
+		return txm.sendTransaction(ethTx)
+	})
+
+	return tx, err
+}
+
+// retryInitialTx is used to update the TX record and attempt for an Ethereum
+// TX when a TX is reattempted because of a nonce too low error
+func (txm *EthTxManager) retryInitialTx(
+	tx *models.Tx,
+	ma *ManagedAccount,
+	gasPriceWei *big.Int) error {
+
+	return ma.GetAndIncrementNonce(func(nonce uint64) error {
+		ethTx := types.NewTransaction(
+			nonce,
+			tx.To,
+			tx.Value.ToInt(),
+			tx.GasLimit,
+			gasPriceWei,
+			tx.Data,
+		)
+
+		ethTx, err := txm.keyStore.SignTx(ma.Account, ethTx, txm.config.ChainID())
+		if err != nil {
+			return errors.Wrap(err, "TxManager keyStore.SignTx")
+		}
+
+		blkNum, err := txm.getBlockNumber()
+		if err != nil {
+			return errors.Wrap(err, "TxManager getBlockNumber")
+		}
+
+		err = txm.orm.UpdateTx(tx, ethTx, &ma.Address, blkNum)
+		if err != nil {
+			return errors.Wrap(err, "TxManager UpdateTx")
+		}
+
+		return txm.sendTransaction(ethTx)
+	})
 }
 
 var (

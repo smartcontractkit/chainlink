@@ -499,11 +499,7 @@ func (orm *ORM) CreateTx(
 	}
 
 	var tx models.Tx
-	query := orm.DB
-	if surrogateID.Valid {
-		query = orm.DB.Where("surrogate_id = ?", surrogateID.ValueOrZero())
-	}
-	err = query.
+	err = orm.DB.Where("surrogate_id = ?", surrogateID.ValueOrZero()).
 		Attrs(models.Tx{
 			SurrogateID: surrogateID,
 			From:        *from,
@@ -519,6 +515,35 @@ func (orm *ORM) CreateTx(
 		}).
 		FirstOrCreate(&tx).Error
 	return &tx, errors.Wrap(err, "FirstOrCreate failed")
+}
+
+// UpdateTx assigns new EthTx details to a transaction, typically used after a
+// failed Eth transaction attempt
+func (orm *ORM) UpdateTx(
+	tx *models.Tx,
+	ethTx *types.Transaction,
+	from *common.Address,
+	sentAt uint64,
+) error {
+	hex, err := utils.EncodeTxToHex(ethTx)
+	if err != nil {
+		return err
+	}
+
+	tx.From = *from
+	tx.Nonce = ethTx.Nonce()
+	tx.GasPrice = models.NewBig(ethTx.GasPrice())
+	tx.Hex = hex
+	tx.Hash = ethTx.Hash()
+	tx.SentAt = sentAt
+	for _, attempt := range tx.Attempts {
+		attempt.Hash = tx.Hash
+		attempt.GasPrice = tx.GasPrice
+		attempt.SentAt = tx.SentAt
+		attempt.Hex = tx.Hex
+	}
+
+	return orm.DB.Save(tx).Error
 }
 
 // MarkTxSafe updates the database for the given transaction and attempt to
@@ -863,11 +888,6 @@ func (orm *ORM) UpdateBridgeType(bt *models.BridgeType, btr *models.BridgeTypeRe
 	bt.Confirmations = btr.Confirmations
 	bt.MinimumContractPayment = btr.MinimumContractPayment
 	return orm.DB.Save(bt).Error
-}
-
-// SaveTx saves the transaction.
-func (orm *ORM) SaveTx(tx *models.Tx) error {
-	return orm.DB.Save(tx).Error
 }
 
 // CreateInitiator saves the initiator.

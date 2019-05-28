@@ -149,7 +149,7 @@ func CreateTx(
 	binary.LittleEndian.PutUint64(b, uint64(sentAt))
 	tx.Data = b
 	copy(tx.Hash[:len(tx.Hash)], randomBytes(common.HashLength))
-	require.NoError(t, store.SaveTx(tx))
+	require.NoError(t, store.DB.Save(tx).Error)
 	return tx
 }
 
