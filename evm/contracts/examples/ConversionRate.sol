@@ -11,8 +11,8 @@ import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
  */
 contract ConversionRate is ChainlinkClient, Ownable {
   struct Answer {
-    uint256 minimumResponses;
-    uint256 maxResponses;
+    uint128 minimumResponses;
+    uint128 maxResponses;
     uint256[] responses;
   }
 
@@ -21,8 +21,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
   uint256 public currentAnswer;
   uint256 public latestCompletedAnswer;
   uint256 public updatedHeight;
-  uint256 public paymentAmount;
-  uint256 public minimumResponses;
+  uint128 public paymentAmount;
+  uint128 public minimumResponses;
   bytes32[] public jobIds;
   address[] public oracles;
 
@@ -48,8 +48,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
    */
   constructor(
     address _link,
-    uint256 _paymentAmount,
-    uint256 _minimumResponses,
+    uint128 _paymentAmount,
+    uint128 _minimumResponses,
     address[] _oracles,
     bytes32[] _jobIds
   )
@@ -79,7 +79,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
       requestAnswers[requestId] = answerCounter;
     }
     answers[answerCounter].minimumResponses = minimumResponses;
-    answers[answerCounter].maxResponses = oracles.length;
+    answers[answerCounter].maxResponses = uint128(oracles.length);
     answerCounter = answerCounter.add(1);
   }
 
@@ -113,8 +113,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @param _jobIds An array of Job IDs
    */
   function updateRequestDetails(
-    uint256 _paymentAmount,
-    uint256 _minimumResponses,
+    uint128 _paymentAmount,
+    uint128 _minimumResponses,
     address[] _oracles,
     bytes32[] _jobIds
   )
