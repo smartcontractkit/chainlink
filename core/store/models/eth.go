@@ -150,6 +150,15 @@ type TxAttempt struct {
 	CreatedAt time.Time `gorm:"index"`
 }
 
+// String implements Stringer for TxAttempt
+func (txa *TxAttempt) String() string {
+	return fmt.Sprintf("TxAttempt{TxID: %d, Hash: %s, SentAt: %d, Confirmed: %t}",
+		txa.TxID,
+		txa.Hash.String(),
+		txa.SentAt,
+		txa.Confirmed)
+}
+
 // GetID returns the ID of this structure for jsonapi serialization.
 func (txa TxAttempt) GetID() string {
 	return txa.Hash.Hex()
