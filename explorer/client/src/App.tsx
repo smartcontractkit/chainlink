@@ -5,6 +5,7 @@ import Grid from '@material-ui/core/Grid'
 import { Router } from '@reach/router'
 import Header from './containers/Header'
 import SearchCard from './components/Cards/Search'
+import TermsOfUse from './components/TermsOfUse'
 import JobRunsIndex from './containers/JobRuns/Index'
 import JobRunsShow from './containers/JobRuns/Show'
 
@@ -44,6 +45,9 @@ const App = () => {
               <JobRunsShow path="/:jobRunId" />
             </Main>
           </Router>
+        </Grid>
+        <Grid item xs={12}>
+          <TermsOfUse />
         </Grid>
       </Grid>
     </>
