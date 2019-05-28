@@ -1,5 +1,4 @@
 import React from 'react'
-import { Link } from '@reach/router'
 import {
   createStyles,
   Theme,
@@ -8,6 +7,7 @@ import {
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import Icon from '@material-ui/core/Icon'
+import classNames from 'classnames'
 
 const styles = ({ palette, spacing }: Theme) =>
   createStyles({
@@ -29,17 +29,18 @@ const styles = ({ palette, spacing }: Theme) =>
 interface IProps extends WithStyles<typeof styles> {
   txHash: string
   host: string
+  className?: string
 }
 
 const url = (host: string, txHash: string) => `https://${host}/tx/${txHash}`
 
-const Details = ({ classes, host, txHash }: IProps) => {
+const EtherscanLink = ({ classes, host, txHash, className }: IProps) => {
   return (
     <a
       href={url(host, txHash)}
       target="_blank"
       rel="noopener noreferrer"
-      className={classes.link}>
+      className={classNames(classes.link, className)}>
       <Typography variant="body1" className={classes.linkText} inline>
         {txHash}
       </Typography>
@@ -49,4 +50,4 @@ const Details = ({ classes, host, txHash }: IProps) => {
   )
 }
 
-export default withStyles(styles)(Details)
+export default withStyles(styles)(EtherscanLink)
