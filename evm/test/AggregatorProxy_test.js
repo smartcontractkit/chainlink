@@ -33,6 +33,7 @@ contract('AggregatorProxy', () => {
     h.checkPublicABI(artifacts.require(SOURCE_PATH), [
       'aggregator',
       'currentAnswer',
+      'destroy',
       'setAggregator',
       // Ownable methods:
       'owner',
@@ -113,6 +114,30 @@ contract('AggregatorProxy', () => {
         })
 
         assert.equal(aggregator.address, await proxy.aggregator.call())
+      })
+    })
+  })
+
+  describe('#destroy', () => {
+    beforeEach(async () => {
+      await proxy.transferOwnership(personas.Carol)
+    })
+
+    context('when called by the owner', () => {
+      it('succeeds', async () => {
+        await proxy.destroy({ from: personas.Carol })
+
+        assert.equal('0x', await web3.eth.getCode(proxy.address))
+      })
+    })
+
+    context('when called by a non-owner', () => {
+      it('fails', async () => {
+        await h.assertActionThrows(async () => {
+          await proxy.destroy({ from: personas.Eddy })
+        })
+
+        assert.notEqual('0x', await web3.eth.getCode(proxy.address))
       })
     })
   })
