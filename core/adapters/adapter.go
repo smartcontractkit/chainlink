@@ -91,7 +91,7 @@ func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
 		mcp = store.Config.MinimumContractPayment()
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeHTTPGet:
-		ba = NewHTTPGet(store.Config.DefaultHTTPLimit())
+		ba = &HTTPGet{}
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeHTTPPost:
 		ba = &HTTPPost{}

@@ -17,27 +17,18 @@ type HTTPGet struct {
 	URL     models.WebURL `json:"url"`
 	GET     models.WebURL `json:"get"`
 	Headers http.Header   `json:"headers"`
-	limit   int64
-}
-
-// NewHTTPGet returns a new instance of HTTPGet with
-// the passed size limit.
-func NewHTTPGet(limit int64) *HTTPGet {
-	return &HTTPGet{
-		limit: limit,
-	}
 }
 
 // Perform ensures that the adapter's URL responds to a GET request without
 // errors and returns the response body as the "value" field of the result.
-func (hga *HTTPGet) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (hga *HTTPGet) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	request, err := http.NewRequest("GET", hga.GetURL(), nil)
 	if err != nil {
 		input.SetError(err)
 		return input
 	}
 	setHeaders(request, hga.Headers, "")
-	return sendRequest(input, request, &hga.limit)
+	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
 }
 
 // GetURL retrieves the GET field if set otherwise returns the URL field
@@ -57,7 +48,7 @@ type HTTPPost struct {
 
 // Perform ensures that the adapter's URL responds to a POST request without
 // errors and returns the response body as the "value" field of the result.
-func (hpa *HTTPPost) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (hpa *HTTPPost) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	reqBody := bytes.NewBufferString(input.Data.String())
 	request, err := http.NewRequest("POST", hpa.GetURL(), reqBody)
 	if err != nil {
@@ -65,7 +56,7 @@ func (hpa *HTTPPost) Perform(input models.RunResult, _ *store.Store) models.RunR
 		return input
 	}
 	setHeaders(request, hpa.Headers, "application/json")
-	return sendRequest(input, request, nil)
+	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
 }
 
 // GetURL retrieves the POST field if set otherwise returns the URL field
@@ -85,7 +76,7 @@ func setHeaders(request *http.Request, headers http.Header, contentType string) 
 	}
 }
 
-func sendRequest(input models.RunResult, request *http.Request, limit *int64) models.RunResult {
+func sendRequest(input models.RunResult, request *http.Request, limit int64) models.RunResult {
 	tr := &http.Transport{
 		DisableCompression: true,
 	}
@@ -98,10 +89,7 @@ func sendRequest(input models.RunResult, request *http.Request, limit *int64) mo
 
 	defer response.Body.Close()
 
-	source := response.Body
-	if limit != nil {
-		source = newMaxBytesReader(response.Body, *limit)
-	}
+	source := newMaxBytesReader(response.Body, limit)
 	bytes, err := ioutil.ReadAll(source)
 	if err != nil {
 		input.SetError(err)
