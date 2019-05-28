@@ -64,7 +64,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * associated with the Job IDs used to determine the required parameters per-request.
    */
   function requestRateUpdate()
-    public
+    external
     ensureAuthorizedRequester()
   {
     Chainlink.Request memory request;
@@ -88,7 +88,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @param _response The answer provided by the Chainlink node
    */
   function chainlinkCallback(bytes32 _clRequestId, uint256 _response)
-    public
+    external
   {
     validateChainlinkCallback(_clRequestId);
 
@@ -149,7 +149,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * permissioned or not
    */
   function setAuthorization(address _requester, bool _allowed)
-    public
+    external
     onlyOwner()
   {
     authorizedRequesters[_requester] = _allowed;
@@ -168,7 +168,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
     uint256 _payment,
     uint256 _expiration
   )
-    public
+    external
     ensureAuthorizedRequester()
   {
     uint256 answerId = requestAnswers[_requestId];
@@ -191,7 +191,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * balance and ETH balance (if there is any) to the owner.
    */
   function destroy()
-    public
+    external
     onlyOwner()
   {
     LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
