@@ -219,6 +219,8 @@ func (txm *EthTxManager) createTx(
 			}
 
 			err = txm.retryInitialTx(tx, ma, gasPriceWei)
+		} else {
+			return nil, err
 		}
 	}
 }
