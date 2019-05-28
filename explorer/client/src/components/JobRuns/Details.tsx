@@ -169,7 +169,10 @@ const Details = ({ classes, jobRun }: IProps) => {
       <Row className={classes.bottomRow}>
         <Key>Tasks</Key>
         <BaseItem sm={12} md={8} className={classes.task}>
-          <TaskRuns taskRuns={jobRun.taskRuns} />
+          <TaskRuns
+            taskRuns={jobRun.taskRuns}
+            etherscanHost={jobRun.etherscanHost}
+          />
         </BaseItem>
       </Row>
     </div>

@@ -39,10 +39,11 @@ const styles = ({ spacing, palette }: Theme) =>
   })
 
 interface IProps extends WithStyles<typeof styles> {
+  etherscanHost: string
   taskRuns?: ITaskRun[]
 }
 
-const TaskRuns = ({ taskRuns, classes }: IProps) => {
+const TaskRuns = ({ etherscanHost, taskRuns, classes }: IProps) => {
   return (
     <ul className={classes.container}>
       {taskRuns &&
@@ -60,7 +61,7 @@ const TaskRuns = ({ taskRuns, classes }: IProps) => {
                 </Grid>
                 <Grid item xs={9}>
                   {run.transactionHash && (
-                    <EtherscanLink txHash={run.transactionHash} />
+                    <EtherscanLink txHash={run.transactionHash} host={etherscanHost} />
                   )}
                 </Grid>
               </Grid>

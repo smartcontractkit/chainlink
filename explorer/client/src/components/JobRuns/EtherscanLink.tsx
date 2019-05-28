@@ -28,15 +28,15 @@ const styles = ({ palette, spacing }: Theme) =>
 
 interface IProps extends WithStyles<typeof styles> {
   txHash: string
+  host: string
 }
 
-const host = process.env.ETHERSCAN_HOST || 'ropsten.etherscan.io'
-const url = (txHash: string) => `https://${host}/tx/${txHash}`
+const url = (host: string, txHash: string) => `https://${host}/tx/${txHash}`
 
-const Details = ({ classes, txHash }: IProps) => {
+const Details = ({ classes, host, txHash }: IProps) => {
   return (
     <a
-      href={url(txHash)}
+      href={url(host, txHash)}
       target="_blank"
       rel="noopener noreferrer"
       className={classes.link}>
