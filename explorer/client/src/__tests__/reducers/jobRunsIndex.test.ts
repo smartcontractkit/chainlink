@@ -53,7 +53,12 @@ describe('reducers/jobRunsIndex', () => {
 
   describe('UPSERT_JOB_RUN', () => {
     it('clears items', () => {
-      const data = { jobRuns: {} }
+      const data = {
+        jobRuns: {},
+        meta: {
+          jobRun: { meta: {} }
+        }
+      }
       const action = { type: 'UPSERT_JOB_RUN', data: data } as JobRunsAction
       const state = reducer(STATE, action) as IState
 

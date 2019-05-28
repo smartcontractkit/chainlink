@@ -15,6 +15,7 @@ interface IJobRun {
   createdAt: string
   finishedAt?: string
   chainlinkNode: IChainlinkNode
+  etherscanHost: string
   taskRuns: ITaskRun[]
 }
 
