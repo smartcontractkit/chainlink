@@ -361,6 +361,53 @@ contract('ConverstionRate', () => {
         assertBigNum(212, await rate.currentAnswer.call())
       })
     })
+
+    context('when calling with a large number of oracles', () => {
+      const maxOracleCount = 45
+
+      beforeEach(() => {
+        oracles = []
+        jobIds = []
+      })
+
+      it(`does not revert with up to ${maxOracleCount} oracles`, async () => {
+        for (let i = 0; i < maxOracleCount; i++) {
+          oracles.push(oc1.address)
+          jobIds.push(jobId1)
+        }
+        assert.equal(maxOracleCount, oracles.length)
+        assert.equal(maxOracleCount, jobIds.length)
+
+        await rate.updateRequestDetails(
+          basePayment,
+          maxOracleCount,
+          oracles,
+          jobIds,
+          { from: personas.Carol }
+        )
+      })
+
+      it(`reverts with more than ${maxOracleCount} oracles`, async () => {
+        const overMaxOracles = maxOracleCount + 1
+
+        for (let i = 0; i < overMaxOracles; i++) {
+          oracles.push(oc1.address)
+          jobIds.push(jobId1)
+        }
+        assert.equal(overMaxOracles, oracles.length)
+        assert.equal(overMaxOracles, jobIds.length)
+
+        await h.assertActionThrows(async () => {
+          await rate.updateRequestDetails(
+            basePayment,
+            overMaxOracles,
+            oracles,
+            jobIds,
+            { from: personas.Carol }
+          )
+        })
+      })
+    })
   })
 
   describe('#transferLINK', () => {
