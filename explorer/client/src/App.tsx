@@ -34,7 +34,7 @@ const App = () => {
     <>
       <CssBaseline />
 
-      <Grid container spacing={24} style={{ width: '100%' }}>
+      <Grid container spacing={24}>
         <Grid item xs={12}>
           <Router>
             <SearchCard path="/" />
