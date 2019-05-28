@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559081901"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,13 +29,14 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 	}
 }
 
-func TestMigrate_Migration0(t *testing.T) {
+func TestMigrate_Migrations(t *testing.T) {
 	orm, cleanup := bootstrapORM(t)
 	defer cleanup()
 
 	db := orm.DB
 
 	require.NoError(t, migration0.Migrate(db))
+	require.NoError(t, migration1559081901.Migrate(db))
 
 	assert.True(t, db.HasTable("bridge_types"))
 	assert.True(t, db.HasTable("encumbrances"))
