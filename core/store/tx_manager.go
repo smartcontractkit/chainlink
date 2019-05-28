@@ -187,6 +187,10 @@ func normalize(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, 
 	return gasPriceWei, gasLimit
 }
 
+var (
+	nonceTooLowRegex = regexp.MustCompile("nonce .*too low")
+)
+
 func (txm *EthTxManager) createTx(
 	surrogateID null.String,
 	ma *ManagedAccount,
@@ -202,7 +206,7 @@ func (txm *EthTxManager) createTx(
 			return tx, nil
 		}
 
-		if nonceErr, _ := regexp.MatchString("nonce .*too low", err.Error()); nonceErr {
+		if nonceTooLowRegex.MatchString(err.Error()) {
 			logger.Warnw("Transaction nonce is too low. Reattempting TX with refreshed nonce.")
 
 			if nrc >= nonceReloadLimit {
