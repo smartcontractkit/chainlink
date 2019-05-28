@@ -182,7 +182,9 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 
 	err := fmt.Errorf("EthMock: Method %v not registered", method)
 	if mock.strict {
-		log.Fatal(err)
+		logger.Panic(err)
+	} else {
+		logger.Error(err)
 	}
 	return err
 }
