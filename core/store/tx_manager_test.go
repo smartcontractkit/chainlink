@@ -200,7 +200,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 		ethClientErrorMsg string
 	}{
 		{"geth", "nonce too low"},
-		{"parity", "Transaction nonce is too low. Try incrementing the nonce"},
+		{"parity", "TX nonce too low, retrying with network nonce"},
 	}
 
 	for _, test := range tests {
