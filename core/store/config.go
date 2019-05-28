@@ -157,6 +157,11 @@ func (c Config) DatabaseURL() string {
 	return c.viper.GetString(c.envVarName("DatabaseURL"))
 }
 
+// DefaultHTTPLimit defines the limit for HTTP requests.
+func (c Config) DefaultHTTPLimit() int64 {
+	return 32 * 1024
+}
+
 // Dev configures "development" mode for chainlink.
 func (c Config) Dev() bool {
 	return c.viper.GetBool(c.envVarName("Dev"))

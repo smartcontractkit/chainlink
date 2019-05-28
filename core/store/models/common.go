@@ -29,9 +29,6 @@ var (
 	ErrorCannotMergeNonObject = errors.New("Cannot merge, expected object '{}'")
 )
 
-// DefaultHTTPLimit defines the limit for HTTP requests.
-const DefaultHTTPLimit = 32 * 1024
-
 // RunStatus is a string that represents the run status
 type RunStatus string
 

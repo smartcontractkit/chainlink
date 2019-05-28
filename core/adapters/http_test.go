@@ -6,11 +6,18 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
+func leanStore() *store.Store {
+	return &store.Store{Config: store.NewConfig()}
+}
+
 func TestHttpAdapters_NotAUrlError(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		adapter adapters.BaseAdapter
@@ -22,8 +29,7 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			result := test.adapter.Perform(models.RunResult{}, nil)
+			result := test.adapter.Perform(models.RunResult{}, leanStore())
 			assert.Equal(t, models.JSON{}, result.Data)
 			assert.True(t, result.HasError())
 		})
@@ -33,6 +39,8 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 func TestHTTPGet_Perform(t *testing.T) {
 	t.Parallel()
 
+	store := leanStore()
+	config := store.Config
 	cases := []struct {
 		name        string
 		status      int
@@ -66,10 +74,10 @@ func TestHTTPGet_Perform(t *testing.T) {
 				})
 			defer cleanup()
 
-			hga := adapters.NewHTTPGet(models.DefaultHTTPLimit)
+			hga := adapters.NewHTTPGet(config.DefaultHTTPLimit())
 			hga.URL = cltest.WebURL(mock.URL)
 			hga.Headers = test.headers
-			result := hga.Perform(input, nil)
+			result := hga.Perform(input, store)
 
 			val, err := result.ResultString()
 			assert.NoError(t, err)
@@ -88,7 +96,7 @@ func TestHTTPGet_TooLarge(t *testing.T) {
 
 	hga := adapters.NewHTTPGet(1)
 	hga.URL = cltest.WebURL(mock.URL)
-	result := hga.Perform(input, nil)
+	result := hga.Perform(input, leanStore())
 
 	assert.Equal(t, true, result.HasError())
 }
@@ -130,7 +138,7 @@ func TestHttpPost_Perform(t *testing.T) {
 			defer cleanup()
 
 			hpa := adapters.HTTPPost{URL: cltest.WebURL(mock.URL), Headers: test.headers}
-			result := hpa.Perform(input, nil)
+			result := hpa.Perform(input, leanStore())
 
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())
