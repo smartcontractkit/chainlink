@@ -565,11 +565,17 @@ func isLatestAttempt(tx *models.Tx, txAttempt *models.TxAttempt) bool {
 
 func (txm *EthTxManager) bumpGas(tx *models.Tx, txAttempt *models.TxAttempt, blkNum uint64) error {
 	gasPrice := new(big.Int).Add(txAttempt.GasPrice.ToInt(), txm.config.EthGasBumpWei())
+
 	bumpedTxAttempt, err := txm.createAttempt(tx, gasPrice, blkNum)
 	if err != nil {
 		return errors.Wrapf(err, "bumpGas from tx %s", txAttempt.Hash.Hex())
 	}
-	logger.Infow(fmt.Sprintf("Bumped gas to %v for TX %v", txAttempt.TxID, gasPrice), "bumpSource", txAttempt.Hash.Hex(), "attempt", bumpedTxAttempt, "nonce", tx.Nonce)
+
+	logger.Infow(
+		fmt.Sprintf("Bumped gas to %v for TX %v", txAttempt.TxID, gasPrice),
+		"bumpSource", txAttempt.Hash.Hex(),
+		"attempt", bumpedTxAttempt,
+		"nonce", tx.Nonce)
 	return nil
 }
 
