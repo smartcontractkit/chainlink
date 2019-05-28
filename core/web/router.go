@@ -73,7 +73,7 @@ func Router(app services.Application) *gin.Engine {
 	cors := uiCorsHandler(config)
 
 	engine.Use(
-		limits.RequestSizeLimiter(models.DefaultHTTPLimit),
+		limits.RequestSizeLimiter(config.DefaultHTTPLimit()),
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
