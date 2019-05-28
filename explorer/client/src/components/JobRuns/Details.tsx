@@ -119,9 +119,10 @@ const styles = ({ spacing, palette }: Theme) =>
 
 interface IProps extends WithStyles<typeof styles> {
   jobRun: IJobRun
+  etherscanHost: string
 }
 
-const Details = ({ classes, jobRun }: IProps) => {
+const Details = ({ classes, jobRun, etherscanHost }: IProps) => {
   return (
     <div>
       <Row>
@@ -169,10 +170,7 @@ const Details = ({ classes, jobRun }: IProps) => {
       <Row className={classes.bottomRow}>
         <Key>Tasks</Key>
         <BaseItem sm={12} md={8} className={classes.task}>
-          <TaskRuns
-            taskRuns={jobRun.taskRuns}
-            etherscanHost={jobRun.etherscanHost}
-          />
+          <TaskRuns taskRuns={jobRun.taskRuns} etherscanHost={etherscanHost} />
         </BaseItem>
       </Row>
     </div>

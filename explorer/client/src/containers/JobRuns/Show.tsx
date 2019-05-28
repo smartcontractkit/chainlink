@@ -55,12 +55,13 @@ const styles = ({ spacing, breakpoints }: Theme) =>
 interface IProps extends WithStyles<typeof styles> {
   jobRunId?: string
   jobRun?: IJobRun
+  etherscanHost?: string
   getJobRun: Function
   path: string
 }
 
 const Show = withStyles(styles)(
-  ({ jobRunId, jobRun, getJobRun, classes }: IProps) => {
+  ({ jobRunId, jobRun, getJobRun, classes, etherscanHost }: IProps) => {
     useEffect(() => {
       getJobRun(jobRunId)
     }, [])
@@ -79,7 +80,14 @@ const Show = withStyles(styles)(
 
             <div className={classes.container}>
               <Card className={classes.card}>
-                {jobRun ? <Details jobRun={jobRun} /> : <Loading />}
+                {jobRun && etherscanHost ? (
+                  <Details
+                    jobRun={jobRun}
+                    etherscanHost={etherscanHost.toString()}
+                  />
+                ) : (
+                  <Loading />
+                )}
               </Card>
             </div>
           </Grid>
@@ -103,13 +111,19 @@ const jobRunSelector = (
   }
 }
 
+const etherscanHostSelector = ({ config }: IState) => {
+  return config.etherscanHost
+}
+
 interface IOwnProps {
   jobRunId?: string
 }
 
 const mapStateToProps = (state: IState, { jobRunId }: IOwnProps) => {
   const jobRun = jobRunSelector(state, jobRunId)
-  return { jobRun }
+  const etherscanHost = etherscanHostSelector(state)
+
+  return { jobRun, etherscanHost }
 }
 
 const mapDispatchToProps = (dispatch: Dispatch<any>) =>

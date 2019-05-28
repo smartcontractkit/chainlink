@@ -61,7 +61,10 @@ const TaskRuns = ({ etherscanHost, taskRuns, classes }: IProps) => {
                 </Grid>
                 <Grid item xs={9}>
                   {run.transactionHash && (
-                    <EtherscanLink txHash={run.transactionHash} host={etherscanHost} />
+                    <EtherscanLink
+                      txHash={run.transactionHash}
+                      host={etherscanHost}
+                    />
                   )}
                 </Grid>
               </Grid>
