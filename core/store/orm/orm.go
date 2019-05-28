@@ -530,19 +530,25 @@ func (orm *ORM) UpdateTx(
 		return err
 	}
 
-	tx.From = *from
-	tx.Nonce = ethTx.Nonce()
-	tx.GasPrice = models.NewBig(ethTx.GasPrice())
-	tx.Hex = hex
-	tx.Hash = ethTx.Hash()
-	tx.SentAt = sentAt
-	attempt := tx.Attempts[0]
-	attempt.Hash = tx.Hash
-	attempt.GasPrice = tx.GasPrice
-	attempt.SentAt = tx.SentAt
-	attempt.Hex = tx.Hex
-
-	return orm.DB.Save(tx).Error
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		err := dbtx.Model(tx).Update(models.Tx{
+			From:     *from,
+			Nonce:    ethTx.Nonce(),
+			GasPrice: models.NewBig(ethTx.GasPrice()),
+			Hex:      hex,
+			Hash:     ethTx.Hash(),
+			SentAt:   sentAt,
+		}).Error
+		if err != nil {
+			return errors.Wrap(err, "Update(tx) failed")
+		}
+		return dbtx.Table("tx_attempts").Where("hash = ?", tx.Hash).Update(models.TxAttempt{
+			Hash:     tx.Hash,
+			GasPrice: tx.GasPrice,
+			SentAt:   tx.SentAt,
+			Hex:      tx.Hex,
+		}).Error
+	})
 }
 
 // MarkTxSafe updates the database for the given transaction and attempt to
