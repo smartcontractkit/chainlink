@@ -229,11 +229,15 @@ func (P *secp256k1Point) MarshalID() [8]byte {
 // UnmarshalBinary sets P to the point represented by contents of buf, or
 // returns an non-nil error
 func (P *secp256k1Point) UnmarshalBinary(buf []byte) error {
+	var err error
 	if len(buf) != P.MarshalSize() {
-		return fmt.Errorf("wrong length for marshalled point")
+		err = fmt.Errorf("wrong length for marshalled point")
 	}
-	if !(buf[32] == 0 || buf[32] == 1) {
-		return fmt.Errorf("bad sign byte (the last one)")
+	if err == nil && !(buf[32] == 0 || buf[32] == 1) {
+		err = fmt.Errorf("bad sign byte (the last one)")
+	}
+	if err != nil {
+		return err
 	}
 	var xordinate [32]byte
 	copy(xordinate[:], buf[:32])
