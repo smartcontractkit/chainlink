@@ -28,4 +28,11 @@ contract AggregatorProxy is Ownable, CurrentAnswerInterface {
     aggregator = CurrentAnswerInterface(_aggregator);
   }
 
+  function destroy()
+    public
+    onlyOwner()
+  {
+    selfdestruct(owner);
+  }
+
 }
