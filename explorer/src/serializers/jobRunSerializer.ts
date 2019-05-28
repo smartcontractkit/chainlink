@@ -36,15 +36,20 @@ export const taskRuns = {
   ]
 }
 
-const jobRunsSerializer = (run: JobRun) => {
+const ETHERSCAN_HOST = process.env.ETHERSCAN_HOST || 'ropsten.etherscan.io'
+
+const jobRunSerializer = (run: JobRun) => {
   const opts = {
     attributes: BASE_ATTRIBUTES.concat(['taskRuns']),
     keyForAttribute: 'camelCase',
     chainlinkNode: chainlinkNode,
-    taskRuns: taskRuns
+    taskRuns: taskRuns,
+    meta: {
+      etherscanHost: ETHERSCAN_HOST
+    }
   } as SerializerOptions
 
   return new JSONAPISerializer('job_runs', opts).serialize(run)
 }
 
-export default jobRunsSerializer
+export default jobRunSerializer

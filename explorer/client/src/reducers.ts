@@ -1,4 +1,5 @@
 import { combineReducers } from 'redux'
+import config, { IState as IConfigState } from './reducers/config'
 import search, { IState as ISearchState } from './reducers/search'
 import jobRuns, { IState as IJobRunsState } from './reducers/jobRuns'
 import taskRuns, { IState as ITaskRunsState } from './reducers/taskRuns'
@@ -10,6 +11,7 @@ import jobRunsIndex, {
 } from './reducers/jobRunsIndex'
 
 export interface IState {
+  config: IConfigState
   chainlinkNodes: IChainlinkNodesState
   jobRuns: IJobRunsState
   taskRuns: ITaskRunsState
@@ -18,6 +20,7 @@ export interface IState {
 }
 
 const reducer = combineReducers({
+  config,
   chainlinkNodes,
   jobRuns,
   taskRuns,

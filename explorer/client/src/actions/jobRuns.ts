@@ -21,7 +21,7 @@ const getJobRuns = (query: Query, page: number, size: number) => {
 const getJobRun = (jobRunId?: string) => {
   return (dispatch: Dispatch<any>) => {
     api.getJobRun(jobRunId).then((r: IJobRun) => {
-      const normalizedData = normalize(r)
+      const normalizedData = normalize(r, { endpoint: 'jobRun' })
       const action: JobRunsAction = {
         type: 'UPSERT_JOB_RUN',
         data: normalizedData
