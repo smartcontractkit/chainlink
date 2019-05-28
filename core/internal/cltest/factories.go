@@ -148,7 +148,7 @@ func CreateTx(
 	binary.LittleEndian.PutUint64(b, uint64(sentAt))
 	tx.Data = b
 
-	require.NoError(t, store.SaveTx(tx))
+	require.NoError(t, store.DB.Save(tx).Error)
 	return tx
 }
 

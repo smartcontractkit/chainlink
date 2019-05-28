@@ -714,6 +714,8 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 	customGasPrice := models.NewBig(big.NewInt(1337))
 	customGasLimit := uint64(10009)
 
+	defaultGasPrice := models.NewBig(store.Config.EthGasPriceDefault())
+
 	tests := []struct {
 		name             string
 		dev              bool
@@ -723,9 +725,9 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 		expectedGasLimit uint64
 	}{
 		{"dev", true, customGasPrice, customGasLimit, customGasPrice, customGasLimit},
-		{"dev but not set", true, nil, 0, models.NewBig(store.Config.EthGasPriceDefault()), strpkg.DefaultGasLimit},
-		{"not dev", false, customGasPrice, customGasLimit, models.NewBig(store.Config.EthGasPriceDefault()), strpkg.DefaultGasLimit},
-		{"not dev not set", false, nil, 0, models.NewBig(store.Config.EthGasPriceDefault()), strpkg.DefaultGasLimit},
+		{"dev but not set", true, nil, 0, defaultGasPrice, strpkg.DefaultGasLimit},
+		{"not dev", false, customGasPrice, customGasLimit, defaultGasPrice, strpkg.DefaultGasLimit},
+		{"not dev not set", false, nil, 0, defaultGasPrice, strpkg.DefaultGasLimit},
 	}
 
 	for _, test := range tests {
