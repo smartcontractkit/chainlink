@@ -255,7 +255,7 @@ func (txm *EthTxManager) sendInitialTx(
 			return errors.Wrap(err, "TxManager CreateTx")
 		}
 
-		return txm.sendTransaction(ethTx)
+		return txm.sendEthTx(ethTx)
 	})
 
 	return tx, err
@@ -296,7 +296,7 @@ func (txm *EthTxManager) retryInitialTx(
 			return errors.Wrap(err, "TxManager UpdateTx")
 		}
 
-		return txm.sendTransaction(ethTx)
+		return txm.sendEthTx(ethTx)
 	})
 }
 
@@ -425,14 +425,15 @@ func (txm *EthTxManager) createAttempt(
 	if err != nil {
 		return nil, err
 	}
-	return a, txm.sendTransaction(etx)
+	return a, txm.sendEthTx(etx)
 }
 
-func (txm *EthTxManager) sendTransaction(tx *types.Transaction) error {
+func (txm *EthTxManager) sendEthTx(tx *types.Transaction) error {
 	hex, err := utils.EncodeTxToHex(tx)
 	if err != nil {
 		return err
 	}
+
 	if _, err = txm.SendRawTx(hex); err != nil {
 		return errors.Wrapf(err, "TxManager#sendTransaction with nonce %d", tx.Nonce())
 	}
