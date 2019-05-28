@@ -15,7 +15,7 @@ contract AggregatorProxy is Ownable, CurrentAnswerInterface {
   }
 
   function currentAnswer()
-    public
+    external
     returns (uint256)
   {
     return aggregator.currentAnswer();
@@ -29,7 +29,7 @@ contract AggregatorProxy is Ownable, CurrentAnswerInterface {
   }
 
   function destroy()
-    public
+    external
     onlyOwner()
   {
     selfdestruct(owner);
