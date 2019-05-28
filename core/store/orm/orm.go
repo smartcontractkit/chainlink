@@ -536,12 +536,11 @@ func (orm *ORM) UpdateTx(
 	tx.Hex = hex
 	tx.Hash = ethTx.Hash()
 	tx.SentAt = sentAt
-	for _, attempt := range tx.Attempts {
-		attempt.Hash = tx.Hash
-		attempt.GasPrice = tx.GasPrice
-		attempt.SentAt = tx.SentAt
-		attempt.Hex = tx.Hex
-	}
+	attempt := tx.Attempts[0]
+	attempt.Hash = tx.Hash
+	attempt.GasPrice = tx.GasPrice
+	attempt.SentAt = tx.SentAt
+	attempt.Hex = tx.Hex
 
 	return orm.DB.Save(tx).Error
 }
