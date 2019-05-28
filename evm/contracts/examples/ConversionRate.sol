@@ -18,6 +18,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
 
   uint256 public currentAnswer;
   uint256 public latestCompletedAnswer;
+  uint256 public updatedHeight;
   uint256 public paymentAmount;
   uint256 public minimumResponses;
   bytes32[] public jobIds;
@@ -218,6 +219,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
       currentAnswer = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
     }
     latestCompletedAnswer = _answerId;
+    updatedHeight = block.number;
   }
 
   /**
