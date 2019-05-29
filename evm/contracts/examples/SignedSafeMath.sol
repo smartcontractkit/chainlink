@@ -15,12 +15,8 @@ library SignedSafeMath {
   {
     // solium-disable-next-line zeppelin/no-arithmetic-operations
     int256 c = _a + _b;
-    if (_a > 0 && _b > 0) {
-      require(c > _a, "SafeMath: addition overflow");
-    } else if (_a < 0 && _b < 0) {
-      require(c < _a, "SafeMath: addition overflow");
-    }
+    require((_b >= 0 && c >= _a) || (_b < 0 && c < _a), "SignedSafeMath: addition overflow");
+
     return c;
   }
-
 }
