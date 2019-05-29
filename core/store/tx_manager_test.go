@@ -382,8 +382,6 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	nonConfedReceipt := models.TxReceipt{}
 	confedReceipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(confirmedAt)}
 
-	hash := cltest.NewHash()
-
 	tests := []struct {
 		name        string
 		blockHeight uint64
@@ -418,7 +416,6 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(0))
 			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
 			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
-			ethMock.Register("eth_sendRawTransaction", hash)
 		}, true, false},
 		{"later conf, early error", (safeAt + 1), func(ethMock *cltest.EthMock) {
 			ethMock.Register("eth_getTransactionCount", "0x0")
