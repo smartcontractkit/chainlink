@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"math/big"
@@ -477,4 +478,24 @@ func CreateJobRunWithStatus(store *store.Store, j models.JobSpec, status models.
 	run.Status = status
 	mustNotErr(store.CreateJobRun(&run))
 	return run
+}
+
+func BuildInitiatorRequests(t *testing.T, initrs []models.Initiator) []models.InitiatorRequest {
+	bytes, err := json.Marshal(initrs)
+	require.NoError(t, err)
+
+	var dst []models.InitiatorRequest
+	err = json.Unmarshal(bytes, &dst)
+	require.NoError(t, err)
+	return dst
+}
+
+func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpecRequest {
+	bytes, err := json.Marshal(initrs)
+	require.NoError(t, err)
+
+	var dst []models.TaskSpecRequest
+	err = json.Unmarshal(bytes, &dst)
+	require.NoError(t, err)
+	return dst
 }
