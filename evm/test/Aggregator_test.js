@@ -2,8 +2,8 @@ import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
 const personas = h.personas
 
-contract('ConverstionRate', () => {
-  const SOURCE_PATH = 'ConversionRate.sol'
+contract('Aggregator', () => {
+  const SOURCE_PATH = 'Aggregator.sol'
   const jobId1 =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000001'
   const jobId2 =
