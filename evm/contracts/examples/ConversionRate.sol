@@ -1,6 +1,7 @@
 pragma solidity 0.4.24;
 
 import "../ChainlinkClient.sol";
+import "./SignedSafeMath.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 /**
@@ -10,6 +11,8 @@ import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
  * as the contract receives answers.
  */
 contract ConversionRate is ChainlinkClient, Ownable {
+  using SignedSafeMath for int256;
+
   struct Answer {
     uint128 minimumResponses;
     uint128 maxResponses;
@@ -219,7 +222,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
       int256 median1 = quickselect(answers[_answerId].responses, middleIndex);
       int256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
       // solium-disable-next-line zeppelin/no-arithmetic-operations
-      currentAnswer = safeAdd(median1, median2) / 2; // signed integers are not supported by SafeMath
+      currentAnswer = median1.add(median2) / 2; // signed integers are not supported by SafeMath
     } else {
       currentAnswer = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
     }
@@ -286,24 +289,6 @@ contract ConversionRate is ChainlinkClient, Ownable {
     returns(int256[] memory, int256[] memory)
   {
     return (_b, _a);
-  }
-
-  /**
-   * @dev Adds two int256s and makes sure the result doesn't overflow. Signed 
-   * integers aren't supported by the SafeMath library, thus this method
-   * @param _a The first number to be added
-   * @param _a The second number to be added
-   */
-  function safeAdd(int256 _a, int256 _b)
-    private
-    pure
-    returns (int256)
-  {
-    // solium-disable-next-line zeppelin/no-arithmetic-operations
-    int256 c = _a + _b; // signed integers are not supported by SafeMath
-    require(c >= _a, "SafeMath: addition overflow");
-
-    return c;
   }
 
   /**
