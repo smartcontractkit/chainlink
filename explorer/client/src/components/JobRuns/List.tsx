@@ -1,50 +1,90 @@
 import React from 'react'
 import Paper from '@material-ui/core/Paper'
+import Hidden from '@material-ui/core/Hidden'
 import Table, { ChangePageEvent } from '../Table'
 import { LinkColumn, TextColumn, TimeAgoColumn } from '../Table/TableCell'
 
 interface IProps {
   currentPage: number
   onChangePage: (event: ChangePageEvent, page: number) => void
-  jobRuns?: any[]
+  jobRuns?: IJobRun[]
   count?: number
   emptyMsg?: string
   className?: string
 }
 
-const HEADERS = ['Node', 'Run ID', 'Job ID', 'Created At']
+const DEFAULT_HEADERS = ['Node', 'Run ID', 'Job ID', 'Created At']
+const MOBILE_HEADERS = ['Run ID', 'Job ID', 'Created At', 'Node']
+
+const buildNodeCol = (jobRun: IJobRun): TextColumn => {
+  return { type: 'text', text: jobRun.chainlinkNode.name }
+}
+
+const buildIdCol = (jobRun: IJobRun): LinkColumn => {
+  return {
+    type: 'link',
+    text: jobRun.runId,
+    to: `/job-runs/${jobRun.id}`
+  }
+}
+
+const buildJobIdCol = (jobRun: IJobRun): TextColumn => {
+  return { type: 'text', text: jobRun.jobId }
+}
+
+const buildCreatedAtCol = (jobRun: IJobRun): TimeAgoColumn => {
+  return {
+    type: 'time_ago',
+    text: jobRun.createdAt
+  }
+}
+
+const mobileRows = (jobRuns: IJobRun[]) => {
+  return jobRuns.map((r: IJobRun) => {
+    return [
+      buildIdCol(r),
+      buildJobIdCol(r),
+      buildCreatedAtCol(r),
+      buildNodeCol(r)
+    ]
+  })
+}
+
+const defaultRows = (jobRuns: IJobRun[]) => {
+  return jobRuns.map((r: IJobRun) => {
+    return [
+      buildNodeCol(r),
+      buildIdCol(r),
+      buildJobIdCol(r),
+      buildCreatedAtCol(r)
+    ]
+  })
+}
 
 const List = (props: IProps) => {
-  let rows
-
-  if (props.jobRuns) {
-    rows = props.jobRuns.map((r: IJobRun) => {
-      const nodeCol: TextColumn = { type: 'text', text: r.chainlinkNode.name }
-      const idCol: LinkColumn = {
-        type: 'link',
-        text: r.runId,
-        to: `/job-runs/${r.id}`
-      }
-      const jobIdCol: TextColumn = { type: 'text', text: r.jobId }
-      const createdAtCol: TimeAgoColumn = {
-        type: 'time_ago',
-        text: r.createdAt
-      }
-
-      return [nodeCol, idCol, jobIdCol, createdAtCol]
-    })
-  }
-
+  const jobRuns = props.jobRuns || []
   return (
     <Paper className={props.className}>
-      <Table
-        headers={HEADERS}
-        currentPage={props.currentPage}
-        rows={rows}
-        count={props.count}
-        onChangePage={props.onChangePage}
-        emptyMsg={props.emptyMsg}
-      />
+      <Hidden xsDown>
+        <Table
+          headers={DEFAULT_HEADERS}
+          currentPage={props.currentPage}
+          rows={defaultRows(jobRuns)}
+          count={props.count}
+          onChangePage={props.onChangePage}
+          emptyMsg={props.emptyMsg}
+        />
+      </Hidden>
+      <Hidden smUp>
+        <Table
+          headers={MOBILE_HEADERS}
+          currentPage={props.currentPage}
+          rows={mobileRows(jobRuns)}
+          count={props.count}
+          onChangePage={props.onChangePage}
+          emptyMsg={props.emptyMsg}
+        />
+      </Hidden>
     </Paper>
   )
 }
