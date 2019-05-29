@@ -52,7 +52,7 @@ const StatusCard = ({ classes, jobRun }: IProps) => {
         className={classes.statusText}
         variant="h5"
         color="textPrimary">
-        {text} {unfulfilled && '(but not fulfilled)'}
+        {text} {unfulfilled && '(Receiver Reverted)'}
       </Typography>
     </Card>
   )
