@@ -15,7 +15,7 @@ import (
 )
 
 func TestJobRunner_resumeRunsSinceLastShutdown(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	rm, cleanup := cltest.NewJobRunner(store)
 	defer cleanup()
@@ -52,7 +52,7 @@ func TestJobRunner_resumeRunsSinceLastShutdown(t *testing.T) {
 }
 
 func TestJobRunner_executeRun_correctlyPopulatesFinishedAt(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	j := models.NewJob()
@@ -79,7 +79,7 @@ func TestJobRunner_executeRun_correctlyPopulatesFinishedAt(t *testing.T) {
 func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	rm, cleanup := cltest.NewJobRunner(store)
 	defer cleanup()
@@ -101,7 +101,7 @@ func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {
 func TestJobRunner_ChannelForRun_sendAfterClosing(t *testing.T) {
 	t.Parallel()
 
-	s, cleanup := cltest.NewStore()
+	s, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	rm, cleanup := cltest.NewJobRunner(s)
 	defer cleanup()
@@ -128,7 +128,7 @@ func TestJobRunner_ChannelForRun_sendAfterClosing(t *testing.T) {
 func TestJobRunner_ChannelForRun_equalityWithoutClosing(t *testing.T) {
 	t.Parallel()
 
-	s, cleanup := cltest.NewStore()
+	s, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	rm, cleanup := cltest.NewJobRunner(s)
 	defer cleanup()
@@ -153,7 +153,7 @@ func TestJobRunner_ChannelForRun_equalityWithoutClosing(t *testing.T) {
 func TestJobRunner_Stop(t *testing.T) {
 	t.Parallel()
 
-	s, cleanup := cltest.NewStore()
+	s, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	rm, cleanup := cltest.NewJobRunner(s)
 	defer cleanup()

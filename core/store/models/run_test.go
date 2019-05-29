@@ -17,7 +17,7 @@ import (
 
 func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
@@ -36,7 +36,7 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 
 func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
@@ -58,7 +58,7 @@ func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
 
 func TestJobRuns_SavesASyncEvent(t *testing.T) {
 	t.Parallel()
-	config, _ := cltest.NewConfig()
+	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", "http://localhost:4201")
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
@@ -97,7 +97,7 @@ func TestJobRuns_SavesASyncEvent(t *testing.T) {
 
 func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
 	t.Parallel()
-	config, _ := cltest.NewConfig()
+	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", "")
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
@@ -125,7 +125,7 @@ func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
 func TestJobRun_NextTaskRun(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	jobRunner, cleanup := cltest.NewJobRunner(store)
 	defer cleanup()

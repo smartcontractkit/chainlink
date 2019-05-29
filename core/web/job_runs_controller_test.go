@@ -25,7 +25,7 @@ type JobRun struct {
 }
 
 func BenchmarkJobRunsController_Index(b *testing.B) {
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(b)
 	defer cleanup()
 	app.Start()
 	run1, _, _ := setupJobRunsControllerIndex(b, app)
@@ -42,7 +42,7 @@ func BenchmarkJobRunsController_Index(b *testing.B) {
 func TestJobRunsController_Index(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -130,7 +130,7 @@ func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication)
 
 func TestJobRunsController_Create_Success(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 
@@ -146,7 +146,7 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 
 func TestJobRunsController_Create_Archived(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 
@@ -162,7 +162,7 @@ func TestJobRunsController_Create_Archived(t *testing.T) {
 
 func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 
@@ -175,7 +175,7 @@ func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 
 func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -190,7 +190,7 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 
 func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -205,7 +205,7 @@ func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 
 func TestJobRunsController_Create_NotFound(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -217,7 +217,7 @@ func TestJobRunsController_Create_NotFound(t *testing.T) {
 
 func TestJobRunsController_Update_Success(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 
@@ -265,7 +265,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 
 func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -290,7 +290,7 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 
 func TestJobRunsController_Update_NotPending(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -312,7 +312,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 
 func TestJobRunsController_Update_WithError(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -342,7 +342,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 
 func TestJobRunsController_Update_BadInput(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -366,7 +366,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 
 func TestJobRunsController_Update_NotFound(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -391,7 +391,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 func TestJobRunsController_Show_Found(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -414,7 +414,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 
 func TestJobRunsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -426,7 +426,7 @@ func TestJobRunsController_Show_NotFound(t *testing.T) {
 
 func TestJobRunsController_Show_Unauthenticated(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	app.Start()
 	defer cleanup()
 

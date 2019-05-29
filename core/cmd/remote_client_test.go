@@ -17,7 +17,7 @@ import (
 func TestClient_DisplayAccountBalance(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	ethMock := app.MockEthClient()
@@ -36,7 +36,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 func TestClient_GetJobSpecs(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
 	j1 := cltest.NewJob()
@@ -55,7 +55,7 @@ func TestClient_GetJobSpecs(t *testing.T) {
 func TestClient_ShowJobRun_Exists(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
 	j := cltest.NewJobWithWebInitiator()
@@ -76,7 +76,7 @@ func TestClient_ShowJobRun_Exists(t *testing.T) {
 func TestClient_ShowJobRun_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
 	client, r := app.NewClientAndRenderer()
@@ -91,7 +91,7 @@ func TestClient_ShowJobRun_NotFound(t *testing.T) {
 func TestClient_ShowJobSpec_Exists(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	job := cltest.NewJob()
 	app.Store.CreateJob(&job)
@@ -109,7 +109,7 @@ func TestClient_ShowJobSpec_Exists(t *testing.T) {
 func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
 	client, r := app.NewClientAndRenderer()
@@ -124,7 +124,7 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 func TestClient_CreateServiceAgreement(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
@@ -166,7 +166,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 func TestClient_CreateJobSpec(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
@@ -200,7 +200,7 @@ func TestClient_CreateJobSpec(t *testing.T) {
 func TestClient_ArchiveJobSpec(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
 	job := cltest.NewJob()
@@ -221,7 +221,7 @@ func TestClient_ArchiveJobSpec(t *testing.T) {
 func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
@@ -237,7 +237,7 @@ func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
 func TestClient_CreateJobRun(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
@@ -284,7 +284,7 @@ func TestClient_CreateJobRun(t *testing.T) {
 func TestClient_AddBridge(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
@@ -320,7 +320,7 @@ func TestClient_AddBridge(t *testing.T) {
 func TestClient_GetBridges(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	bt1 := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
@@ -349,7 +349,7 @@ func TestClient_GetBridges(t *testing.T) {
 func TestClient_ShowBridge(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	bt := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
@@ -371,7 +371,7 @@ func TestClient_ShowBridge(t *testing.T) {
 func TestClient_RemoveBridge(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	bt := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
@@ -394,7 +394,7 @@ func TestClient_RemoveBridge(t *testing.T) {
 func TestClient_RemoteLogin(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	app.Start()
 
@@ -432,7 +432,7 @@ func TestClient_RemoteLogin(t *testing.T) {
 func TestClient_WithdrawSuccess(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup, _ := setupWithdrawalsApplication()
+	app, cleanup, _ := setupWithdrawalsApplication(t)
 	defer cleanup()
 
 	assert.NoError(t, app.StartAndConnect())
@@ -449,7 +449,7 @@ func TestClient_WithdrawSuccess(t *testing.T) {
 func TestClient_WithdrawNoArgs(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup, _ := setupWithdrawalsApplication()
+	app, cleanup, _ := setupWithdrawalsApplication(t)
 	defer cleanup()
 
 	assert.NoError(t, app.StartAndConnect())
@@ -470,7 +470,7 @@ func TestClient_WithdrawNoArgs(t *testing.T) {
 func TestClient_WithdrawFromSpecifiedContractAddress(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup, ethMockCheck := setupWithdrawalsApplication()
+	app, cleanup, ethMockCheck := setupWithdrawalsApplication(t)
 	defer cleanup()
 
 	assert.NoError(t, app.StartAndConnect())
@@ -485,11 +485,11 @@ func TestClient_WithdrawFromSpecifiedContractAddress(t *testing.T) {
 	ethMockCheck(t)
 }
 
-func setupWithdrawalsApplication() (*cltest.TestApplication, func(), func(*testing.T)) {
-	config, _ := cltest.NewConfig()
+func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func(), func(*testing.T)) {
+	config, _ := cltest.NewConfig(t)
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 
 	hash := cltest.NewHash()
 	sentAt := "0x5BA0"
@@ -512,7 +512,7 @@ func setupWithdrawalsApplication() (*cltest.TestApplication, func(), func(*testi
 func TestClient_SendEther(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup, _ := setupWithdrawalsApplication()
+	app, cleanup, _ := setupWithdrawalsApplication(t)
 	defer cleanup()
 
 	assert.NoError(t, app.StartAndConnect())
@@ -529,7 +529,7 @@ func TestClient_SendEther(t *testing.T) {
 func TestClient_SendEther_From(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup, _ := setupWithdrawalsApplication()
+	app, cleanup, _ := setupWithdrawalsApplication(t)
 	defer cleanup()
 
 	assert.NoError(t, app.StartAndConnect())
@@ -548,7 +548,7 @@ func TestClient_SendEther_From(t *testing.T) {
 func TestClient_ChangePassword(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	app.Start()
 
@@ -585,7 +585,7 @@ func TestClient_ChangePassword(t *testing.T) {
 func TestClient_GetTransactions(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	store := app.GetStore()
@@ -619,7 +619,7 @@ func TestClient_GetTransactions(t *testing.T) {
 func TestClient_GetTxAttempts(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	store := app.GetStore()
@@ -653,7 +653,7 @@ func TestClient_GetTxAttempts(t *testing.T) {
 func TestClient_CreateExtraKey(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	app.Start()
 

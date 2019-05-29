@@ -194,7 +194,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey()
+			app, cleanup := cltest.NewApplicationWithKey(t)
 			defer cleanup()
 
 			eth := app.MockEthClient()

@@ -13,7 +13,7 @@ import (
 )
 
 func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
-	tc, cleanup := cltest.NewConfig()
+	tc, cleanup := cltest.NewConfig(t)
 	config := tc.Config
 
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))

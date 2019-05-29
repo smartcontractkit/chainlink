@@ -55,7 +55,7 @@ func TestValidateJob(t *testing.T) {
 		},
 	}
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	for _, test := range tests {
@@ -69,7 +69,7 @@ func TestValidateJob(t *testing.T) {
 }
 
 func TestValidateJob_DevRejectsSleepAdapter(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	sleepingJob := cltest.NewJobWithWebInitiator()
@@ -85,7 +85,7 @@ func TestValidateJob_DevRejectsSleepAdapter(t *testing.T) {
 func TestValidateAdapter(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	// Create a duplicate
@@ -169,7 +169,7 @@ func TestValidateInitiator(t *testing.T) {
 func TestValidateServiceAgreement(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	_, err := store.KeyStore.NewAccount("password") // matches correct_password.txt
 	assert.NoError(t, err)
 	err = store.KeyStore.Unlock("password")

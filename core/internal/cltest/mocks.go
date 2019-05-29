@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -35,12 +36,12 @@ func (ta *TestApplication) MockEthClient(flags ...string) *EthMock {
 	if ta.ChainlinkApplication.HeadTracker.Connected() {
 		logger.Panic("Cannot mock eth client after being connected")
 	}
-	return MockEthOnStore(ta.Store, flags...)
+	return MockEthOnStore(ta.t, ta.Store, flags...)
 }
 
 // MockEthOnStore given store return new EthMock Client
-func MockEthOnStore(s *store.Store, flags ...string) *EthMock {
-	mock := &EthMock{}
+func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
+	mock := &EthMock{t: t}
 	for _, flag := range flags {
 		if flag == Strict {
 			mock.strict = true
@@ -64,7 +65,7 @@ type EthMock struct {
 	mutex          sync.RWMutex
 	context        string
 	strict         bool
-	t              *testing.T
+	t              testing.TB
 }
 
 // Dial mock dial
@@ -79,19 +80,17 @@ func (mock *EthMock) Context(context string, callback func(*EthMock)) {
 	mock.context = ""
 }
 
-func (mock *EthMock) ShouldCall(t *testing.T, setup func(mock *EthMock)) ethMockDuring {
-	mock.t = t
+func (mock *EthMock) ShouldCall(setup func(mock *EthMock)) ethMockDuring {
 	if !mock.AllCalled() {
-		t.Errorf("Remaining ethMockCalls: %v", mock.Remaining())
-		t.Fail()
+		mock.t.Errorf("Remaining ethMockCalls: %v", mock.Remaining())
+		mock.t.Fail()
 	}
 	setup(mock)
-	return ethMockDuring{t: t, mock: mock}
+	return ethMockDuring{mock: mock}
 }
 
 type ethMockDuring struct {
 	mock *EthMock
-	t    *testing.T
 }
 
 func (emd ethMockDuring) During(action func()) {
@@ -187,9 +186,9 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 
 	err := fmt.Errorf("EthMock: Method %v not registered", method)
 	if mock.strict {
-		logger.Panic(err)
+		mock.t.Errorf("%s\n%s", err, debug.Stack())
 	} else {
-		logger.Error(err)
+		mock.t.Logf("%s\n%s", err, debug.Stack())
 	}
 	return err
 }

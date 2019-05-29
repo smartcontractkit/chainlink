@@ -229,12 +229,12 @@ func NullTime(val interface{}) null.Time {
 }
 
 // JSONFromString create JSON from given body and arguments
-func JSONFromString(t *testing.T, body string, args ...interface{}) models.JSON {
+func JSONFromString(t testing.TB, body string, args ...interface{}) models.JSON {
 	return JSONFromBytes(t, []byte(fmt.Sprintf(body, args...)))
 }
 
 // JSONFromBytes creates JSON from a given byte array
-func JSONFromBytes(t *testing.T, body []byte) models.JSON {
+func JSONFromBytes(t testing.TB, body []byte) models.JSON {
 	j, err := models.ParseJSON(body)
 	require.NoError(t, err)
 	return j

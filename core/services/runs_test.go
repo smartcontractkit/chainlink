@@ -21,7 +21,7 @@ import (
 )
 
 func TestNewRun(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
@@ -49,7 +49,7 @@ func TestNewRun(t *testing.T) {
 }
 
 func TestNewRun_requiredPayment(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
@@ -94,7 +94,7 @@ func TestNewRun_requiredPayment(t *testing.T) {
 }
 
 func TestNewRun_minimumConfirmations(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
@@ -150,7 +150,7 @@ func TestNewRun_startAtAndEndAt(t *testing.T) {
 		{"job ended", nullTime, pastTime, true},
 	}
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	clock := cltest.UseSettableClock(store)
 	clock.SetTime(time.Now())
@@ -174,7 +174,7 @@ func TestNewRun_startAtAndEndAt(t *testing.T) {
 }
 
 func TestResumePendingTask(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	// reject a run with an invalid state
@@ -224,7 +224,7 @@ func TestResumePendingTask(t *testing.T) {
 }
 
 func TestResumeConfirmingTask(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	// reject a run with an invalid state
@@ -284,7 +284,7 @@ func TestResumeConfirmingTask(t *testing.T) {
 }
 
 func TestResumeConnectingTask(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	// reject a run with an invalid state
@@ -324,7 +324,7 @@ func sleepAdapterParams(n int) models.JSON {
 }
 
 func TestQueueSleepingTask(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	store.Clock = cltest.NeverClock{}
 
@@ -403,7 +403,7 @@ func TestQueueSleepingTask(t *testing.T) {
 }
 
 func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Happy(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	store.Clock = cltest.NeverClock{}
 
@@ -451,7 +451,7 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Happy(t *t
 }
 
 func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Archived(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	store.Clock = cltest.NeverClock{}
 
@@ -505,7 +505,7 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Archived(t
 
 func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	app.Start()
 	store := app.Store
@@ -534,7 +534,7 @@ func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
 
 func TestExecuteJobWithRunRequest(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	app.Start()
 	store := app.Store

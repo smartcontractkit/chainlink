@@ -23,7 +23,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplication()
+			app, cleanup := cltest.NewApplication(t)
 			defer cleanup()
 
 			sr := models.SessionRequest{Email: test.email, Password: test.pwd}
@@ -43,7 +43,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	app.MustSeedUserSession()
 
@@ -85,7 +85,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 func TestDiskCookieStore_Retrieve(t *testing.T) {
 	t.Parallel()
 
-	tc, cleanup := cltest.NewConfig()
+	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 	config := tc.Config
 
@@ -129,7 +129,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore()
+			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
 			mock := &cltest.MockCountingPrompter{EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
@@ -155,7 +155,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	initialUser := cltest.MustUser(cltest.APIEmail, cltest.Password)
@@ -184,7 +184,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore()
+			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
 			tfi := cmd.NewFileAPIInitializer(test.file)
@@ -205,7 +205,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	initialUser := cltest.MustUser(cltest.APIEmail, cltest.Password)
