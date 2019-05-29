@@ -288,7 +288,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	assert.EqualError(
 		t,
 		err,
-		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: 2",
+		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: 1",
 	)
 
 	ethMock.EventuallyAllCalled(t)
