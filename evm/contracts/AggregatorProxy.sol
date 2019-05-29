@@ -1,6 +1,6 @@
 pragma solidity 0.4.24;
 
-import "../interfaces/AggregatorInterface.sol";
+import "./interfaces/AggregatorInterface.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 /**
