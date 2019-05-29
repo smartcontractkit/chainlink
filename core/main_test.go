@@ -4,13 +4,14 @@ package main
 
 import (
 	"io/ioutil"
+	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 )
 
 func ExampleRun() {
-	tc, cleanup := cltest.NewConfig()
+	tc, cleanup := cltest.NewConfig(&testing.T{})
 	defer cltest.WipePostgresDatabase(tc.Config)
 	defer cleanup()
 	tc.Config.Set("CHAINLINK_DEV", false)
@@ -66,7 +67,7 @@ func ExampleRun() {
 }
 
 func ExampleVersion() {
-	tc, cleanup := cltest.NewConfig()
+	tc, cleanup := cltest.NewConfig(&testing.T{})
 	defer cltest.WipePostgresDatabase(tc.Config)
 	defer cleanup()
 	testClient := &cmd.Client{

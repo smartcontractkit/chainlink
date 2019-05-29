@@ -19,10 +19,10 @@ import (
 func TestHeadTracker_New(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	cltest.MockEthOnStore(store)
+	cltest.MockEthOnStore(t, store)
 	assert.Nil(t, store.SaveHead(cltest.Head(1)))
 	last := cltest.Head(16)
 	assert.Nil(t, store.SaveHead(last))
@@ -54,10 +54,10 @@ func TestHeadTracker_Get(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore()
+			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			cltest.MockEthOnStore(store)
+			cltest.MockEthOnStore(t, store)
 			if test.initial != nil {
 				assert.Nil(t, store.SaveHead(test.initial))
 			}
@@ -81,9 +81,9 @@ func TestHeadTracker_Get(t *testing.T) {
 func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
+	eth := cltest.MockEthOnStore(t, store)
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
 	defer ht.Stop()
 
@@ -97,9 +97,9 @@ func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
+	eth := cltest.MockEthOnStore(t, store)
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
@@ -127,9 +127,9 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
+	eth := cltest.MockEthOnStore(t, store)
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
@@ -161,9 +161,9 @@ func TestHeadTracker_ReconnectAndStopDoesntDeadlock(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
+	eth := cltest.MockEthOnStore(t, store)
 	eth.NoMagic()
 
 	checker := &cltest.MockHeadTrackable{}
@@ -191,9 +191,9 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
+	eth := cltest.MockEthOnStore(t, store)
 	headers := make(chan models.BlockHeader)
 	eth.RegisterSubscription("newHeads", headers)
 

@@ -26,10 +26,10 @@ func verifyLinkBalanceCheck(address common.Address, t *testing.T) func(interface
 func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	t.Parallel()
 
-	config, _ := cltest.NewConfig()
+	config, _ := cltest.NewConfig(t)
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 	hash := cltest.NewHash()
 	client := app.NewHTTPClient()
@@ -71,10 +71,10 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
 	t.Parallel()
 
-	config, _ := cltest.NewConfig()
+	config, _ := cltest.NewConfig(t)
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 	client := app.NewHTTPClient()
 

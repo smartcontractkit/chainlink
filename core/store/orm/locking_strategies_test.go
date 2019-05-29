@@ -13,7 +13,7 @@ import (
 )
 
 func TestNewLockingStrategy(t *testing.T) {
-	tc, cleanup := cltest.NewConfig()
+	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 	c := tc.Config
 
@@ -40,7 +40,7 @@ func TestNewLockingStrategy(t *testing.T) {
 const delay = 10 * time.Millisecond
 
 func TestFileLockingStrategy_Lock(t *testing.T) {
-	tc, cleanup := cltest.NewConfig()
+	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 	c := tc.Config
 
@@ -63,7 +63,7 @@ func TestFileLockingStrategy_Lock(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_Lock(t *testing.T) {
-	tc, cleanup := cltest.NewConfig()
+	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 	c := tc.Config
 
