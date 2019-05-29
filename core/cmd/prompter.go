@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"golang.org/x/crypto/ssh/terminal"
@@ -74,7 +75,7 @@ func withTerminalResetter(f func()) {
 	}
 
 	c := make(chan os.Signal)
-	signal.Notify(c, os.Interrupt, os.Kill)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
 		terminal.Restore(osSafeStdin, initialTermState)
