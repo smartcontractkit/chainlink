@@ -25,7 +25,7 @@ contract AggregatorProxy is Ownable, CurrentAnswerInterface {
    */
   function currentAnswer()
     external
-    returns (uint256)
+    returns (int256)
   {
     return aggregator.currentAnswer();
   }
