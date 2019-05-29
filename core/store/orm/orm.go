@@ -555,7 +555,11 @@ func (orm *ORM) MarkTxSafe(tx *models.Tx, txat *models.TxAttempt) error {
 // FindTx returns the specific transaction for the passed ID.
 func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
 	tx := &models.Tx{}
-	err := orm.DB.Set("gorm:auto_preload", true).First(tx, "id = ?", ID).Error
+	err := orm.DB.
+		Preload("Attempts", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at asc")
+		}).
+		First(tx, "id = ?", ID).Error
 	return tx, err
 }
 

@@ -437,7 +437,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt2)
 			assert.NoError(t, err)
 
-			ethMock := app.MockEthClient()
+			ethMock := app.MockEthClient(cltest.Strict)
 			ethMock.ShouldCall(t, test.mockSetup).During(func() {
 				ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.blockHeight))
 				require.NoError(t, app.StartAndConnect())
