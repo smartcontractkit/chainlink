@@ -17,7 +17,7 @@ contract('AggregatorProxy', () => {
     link = await h.linkContract()
     oc1 = await h.deploy('Oracle.sol', link.address)
     aggregator = await h.deploy(
-      'ConversionRate.sol',
+      'Aggregator.sol',
       link.address,
       basePayment,
       1,
@@ -58,7 +58,7 @@ contract('AggregatorProxy', () => {
     context('after being updated to another contract', () => {
       beforeEach(async () => {
         aggregator2 = await h.deploy(
-          'ConversionRate.sol',
+          'Aggregator.sol',
           link.address,
           basePayment,
           1,
@@ -99,7 +99,7 @@ contract('AggregatorProxy', () => {
     context('after being updated to another contract', () => {
       beforeEach(async () => {
         aggregator2 = await h.deploy(
-          'ConversionRate.sol',
+          'Aggregator.sol',
           link.address,
           basePayment,
           1,
@@ -130,7 +130,7 @@ contract('AggregatorProxy', () => {
       await proxy.transferOwnership(personas.Carol)
 
       aggregator2 = await h.deploy(
-        'ConversionRate.sol',
+        'Aggregator.sol',
         link.address,
         basePayment,
         1,
