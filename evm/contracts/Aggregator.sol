@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
-import "../ChainlinkClient.sol";
-import "./SignedSafeMath.sol";
+import "./ChainlinkClient.sol";
+import "./examples/SignedSafeMath.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 /**
@@ -10,7 +10,7 @@ import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
  * requests to multiple Chainlink nodes and running aggregation
  * as the contract receives answers.
  */
-contract ConversionRate is ChainlinkClient, Ownable {
+contract Aggregator is ChainlinkClient, Ownable {
   using SignedSafeMath for int256;
 
   struct Answer {
