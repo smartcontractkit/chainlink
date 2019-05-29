@@ -225,10 +225,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 	a := tx.Attempts[0]
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithResult(a.Hash.String())
-	input := sentResult
-	input.MarkPendingConfirmations()
+	sentResult.MarkPendingConfirmations()
 
-	output := adapter.Perform(input, store)
+	output := adapter.Perform(sentResult, store)
 
 	assert.False(t, output.HasError())
 	assert.True(t, output.Status.PendingConfirmations())
@@ -264,11 +263,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithResult(a.Hash.String())
-	input := sentResult
-	input.MarkPendingConfirmations()
+	sentResult.MarkPendingConfirmations()
 
-	output := adapter.Perform(input, store)
-
+	output := adapter.Perform(sentResult, store)
 	assert.False(t, output.HasError())
 	assert.True(t, output.Status.PendingConfirmations())
 	tx, err := store.FindTx(tx.ID)
@@ -308,12 +305,11 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	a3, _ := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithResult(a3.Hash.String())
-	input := sentResult
-	input.MarkPendingConfirmations()
+	sentResult.MarkPendingConfirmations()
 
 	assert.False(t, tx.Confirmed)
 
-	output := adapter.Perform(input, store)
+	output := adapter.Perform(sentResult, store)
 
 	assert.True(t, output.Status.Completed())
 	assert.False(t, output.HasError())
