@@ -910,6 +910,31 @@ contract ChainlinkClient {
   }
 }
 
+// File: contracts/SignedSafeMath.sol
+
+pragma solidity 0.4.24;
+
+library SignedSafeMath {
+
+  /**
+   * @dev Adds two int256s and makes sure the result doesn't overflow. Signed 
+   * integers aren't supported by the SafeMath library, thus this method
+   * @param _a The first number to be added
+   * @param _a The second number to be added
+   */
+  function add(int256 _a, int256 _b)
+    internal
+    pure
+    returns (int256)
+  {
+    // solium-disable-next-line zeppelin/no-arithmetic-operations
+    int256 c = _a + _b;
+    require((_b >= 0 && c >= _a) || (_b < 0 && c < _a), "SignedSafeMath: addition overflow");
+
+    return c;
+  }
+}
+
 // File: openzeppelin-solidity/contracts/ownership/Ownable.sol
 
 pragma solidity ^0.4.24;
@@ -977,9 +1002,10 @@ contract Ownable {
   }
 }
 
-// File: contracts/examples/ConversionRate.sol
+// File: contracts/Aggregator.sol
 
 pragma solidity 0.4.24;
+
 
 
 
@@ -989,17 +1015,23 @@ pragma solidity 0.4.24;
  * requests to multiple Chainlink nodes and running aggregation
  * as the contract receives answers.
  */
-contract ConversionRate is ChainlinkClient, Ownable {
+contract Aggregator is ChainlinkClient, Ownable {
+  using SignedSafeMath for int256;
+
   struct Answer {
-    uint256 minimumResponses;
-    uint256 maxResponses;
-    uint256[] responses;
+    uint128 minimumResponses;
+    uint128 maxResponses;
+    int256[] responses;
   }
 
-  uint256 public currentAnswer;
+  event ResponseReceived(int256 indexed response, uint256 indexed answerId, address indexed sender);
+  event AnswerUpdated(int256 indexed current, uint256 indexed answerId);
+
+  int256 public currentAnswer;
   uint256 public latestCompletedAnswer;
-  uint256 public paymentAmount;
-  uint256 public minimumResponses;
+  uint256 public updatedHeight;
+  uint128 public paymentAmount;
+  uint128 public minimumResponses;
   bytes32[] public jobIds;
   address[] public oracles;
 
@@ -1007,6 +1039,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
   mapping(address => bool) public authorizedRequesters;
   mapping(bytes32 => uint256) private requestAnswers;
   mapping(uint256 => Answer) private answers;
+
+  uint256 constant private MAX_ORACLE_COUNT = 45;
 
   /**
    * @notice Deploy with the address of the LINK token and arrays of matching
@@ -1023,8 +1057,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
    */
   constructor(
     address _link,
-    uint256 _paymentAmount,
-    uint256 _minimumResponses,
+    uint128 _paymentAmount,
+    uint128 _minimumResponses,
     address[] _oracles,
     bytes32[] _jobIds
   )
@@ -1041,7 +1075,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * associated with the Job IDs used to determine the required parameters per-request.
    */
   function requestRateUpdate()
-    public
+    external
     ensureAuthorizedRequester()
   {
     Chainlink.Request memory request;
@@ -1054,7 +1088,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
       requestAnswers[requestId] = answerCounter;
     }
     answers[answerCounter].minimumResponses = minimumResponses;
-    answers[answerCounter].maxResponses = oracles.length;
+    answers[answerCounter].maxResponses = uint128(oracles.length);
     answerCounter = answerCounter.add(1);
   }
 
@@ -1064,8 +1098,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @param _clRequestId The Chainlink request ID associated with the answer
    * @param _response The answer provided by the Chainlink node
    */
-  function chainlinkCallback(bytes32 _clRequestId, uint256 _response)
-    public
+  function chainlinkCallback(bytes32 _clRequestId, int256 _response)
+    external
   {
     validateChainlinkCallback(_clRequestId);
 
@@ -1073,6 +1107,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
     delete requestAnswers[_clRequestId];
 
     answers[answerId].responses.push(_response);
+    emit ResponseReceived(_response, answerId, msg.sender);
     updateLatestAnswer(answerId);
     deleteAnswer(answerId);
   }
@@ -1088,8 +1123,8 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @param _jobIds An array of Job IDs
    */
   function updateRequestDetails(
-    uint256 _paymentAmount,
-    uint256 _minimumResponses,
+    uint128 _paymentAmount,
+    uint128 _minimumResponses,
     address[] _oracles,
     bytes32[] _jobIds
   )
@@ -1126,7 +1161,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * permissioned or not
    */
   function setAuthorization(address _requester, bool _allowed)
-    public
+    external
     onlyOwner()
   {
     authorizedRequesters[_requester] = _allowed;
@@ -1145,7 +1180,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
     uint256 _payment,
     uint256 _expiration
   )
-    public
+    external
     ensureAuthorizedRequester()
   {
     uint256 answerId = requestAnswers[_requestId];
@@ -1168,7 +1203,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * balance and ETH balance (if there is any) to the owner.
    */
   function destroy()
-    public
+    external
     onlyOwner()
   {
     LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
@@ -1187,17 +1222,19 @@ contract ConversionRate is ChainlinkClient, Ownable {
     ensureMinResponsesReceived(_answerId)
     ensureOnlyLatestAnswer(_answerId)
   {
-    Answer memory answer = answers[_answerId];
-    uint256 responseLength = answer.responses.length;
+    uint256 responseLength = answers[_answerId].responses.length;
     uint256 middleIndex = responseLength.div(2);
     if (responseLength % 2 == 0) {
-      uint256 median1 = quickselect(answers[_answerId].responses, middleIndex);
-      uint256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
-      currentAnswer = median1.add(median2).div(2);
+      int256 median1 = quickselect(answers[_answerId].responses, middleIndex);
+      int256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
+      // solium-disable-next-line zeppelin/no-arithmetic-operations
+      currentAnswer = median1.add(median2) / 2; // signed integers are not supported by SafeMath
     } else {
       currentAnswer = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
     }
     latestCompletedAnswer = _answerId;
+    updatedHeight = block.number;
+    emit AnswerUpdated(currentAnswer, _answerId);
   }
 
   /**
@@ -1206,19 +1243,19 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @param _a The list of elements to pull from
    * @param _k The index, 1 based, of the elements you want to pull from when ordered
    */
-  function quickselect(uint256[] memory _a, uint256 _k)
+  function quickselect(int256[] memory _a, uint256 _k)
     private
     pure
-    returns (uint256)
+    returns (int256)
   {
-    uint256[] memory a = _a;
+    int256[] memory a = _a;
     uint256 k = _k;
     uint256 aLen = a.length;
-    uint256[] memory a1 = new uint256[](aLen);
-    uint256[] memory a2 = new uint256[](aLen);
+    int256[] memory a1 = new int256[](aLen);
+    int256[] memory a2 = new int256[](aLen);
     uint256 a1Len;
     uint256 a2Len;
-    uint256 pivot;
+    int256 pivot;
     uint256 i;
 
     while (true) {
@@ -1248,14 +1285,14 @@ contract ConversionRate is ChainlinkClient, Ownable {
   }
 
   /**
-   * @dev Swaps the pointers to two uint256 arrays in memory;
-   * @param _a The pointer to the first in memroy array
-   * @param _b The pointer to the second in memroy array
+   * @dev Swaps the pointers to two uint256 arrays in memory
+   * @param _a The pointer to the first in memory array
+   * @param _b The pointer to the second in memory array
    */
-  function swap(uint256[] memory _a, uint256[] memory _b)
+  function swap(int256[] memory _a, int256[] memory _b)
     private
     pure
-    returns(uint256[] memory, uint256[] memory)
+    returns(int256[] memory, int256[] memory)
   {
     return (_b, _a);
   }
@@ -1313,6 +1350,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
     address[] _oracles,
     bytes32[] _jobIds
   ) {
+    require(_oracles.length <= MAX_ORACLE_COUNT, "cannot have more than 45 oracles");
     require(_oracles.length >= _minimumResponses, "must have at least as many oracles as responses");
     require(_oracles.length == _jobIds.length, "must have exactly as many oracles as job IDs");
     _;
