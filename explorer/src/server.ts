@@ -3,6 +3,7 @@ import { requestWhitelist, logger, errorLogger } from 'express-winston'
 import * as winston from 'winston'
 import express from 'express'
 import http from 'http'
+import mime from 'mime-types'
 import { bootstrapRealtime } from './realtime'
 import seed from './seed'
 
@@ -44,7 +45,16 @@ const server = (port: number = DEFAULT_PORT) => {
   const app = express()
   addLogging(app)
 
-  app.use(express.static('client/build', { maxAge: '365d' }))
+  app.use(
+    express.static('client/build', {
+      maxAge: '1y',
+      setHeaders: function(res, path) {
+        if (mime.lookup(path) === 'text/html') {
+          res.setHeader('Cache-Control', 'public, max-age=0')
+        }
+      }
+    })
+  )
   app.use('/api/v1', controllers.jobRuns)
 
   app.get('/*', (_, res) => {
