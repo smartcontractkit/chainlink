@@ -11,8 +11,8 @@ import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import MuiTableCell from '@material-ui/core/TableCell'
 import TableCell, { Column } from './Table/TableCell'
-import TableFooter from '@material-ui/core/TableFooter'
 import TablePagination from '@material-ui/core/TablePagination'
+import Paper from '@material-ui/core/Paper'
 import PaginationActions from './Table/PaginationActions'
 
 export const DEFAULT_ROWS_PER_PAGE = 10
@@ -54,7 +54,12 @@ const styles = (theme: Theme) =>
       backgroundColor: theme.palette.grey['50']
     },
     table: {
-      minHeight: 150
+      minHeight: 150,
+      whiteSpace: 'nowrap'
+    },
+    root: {
+      width: '100%',
+      overflowX: 'auto'
     }
   })
 
@@ -89,14 +94,12 @@ const renderRows = ({ headers, rows, loadingMsg, emptyMsg }: IProps) => {
 
 const Table = (props: IProps) => {
   return (
-    <>
+    <Paper className={props.classes.root}>
       <MuiTable className={props.classes.table}>
         <TableHead>
-          <TableRow>
+          <TableRow className={props.classes.header}>
             {props.headers.map((h: string) => (
-              <MuiTableCell key={h} className={props.classes.header}>
-                {h}
-              </MuiTableCell>
+              <MuiTableCell key={h}>{h}</MuiTableCell>
             ))}
           </TableRow>
         </TableHead>
@@ -114,7 +117,7 @@ const Table = (props: IProps) => {
         onChangePage={props.onChangePage}
         ActionsComponent={PaginationActions}
       />
-    </>
+    </Paper>
   )
 }
 
