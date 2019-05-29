@@ -147,10 +147,6 @@ func (w *websocketClient) connectAndWritePump(parentCtx context.Context, wg *syn
 	}
 }
 
-var (
-	newline = []byte{'\n'}
-)
-
 // Inspired by https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L82
 func (w *websocketClient) writePump(ctx context.Context) {
 	ticker := time.NewTicker(pingPeriod)

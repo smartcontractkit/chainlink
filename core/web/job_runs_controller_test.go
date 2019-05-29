@@ -16,14 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type JobRunsJSON struct {
-	Runs []JobRun `json:"runs"`
-}
-
-type JobRun struct {
-	ID string `json:"id"`
-}
-
 func BenchmarkJobRunsController_Index(b *testing.B) {
 	app, cleanup := cltest.NewApplication()
 	defer cleanup()
