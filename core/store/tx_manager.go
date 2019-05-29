@@ -30,7 +30,7 @@ import (
 // if updating DefaultGasLimit, be sure it matches with the
 // DefaultGasLimit specified in evm/test/Oracle_test.js
 const DefaultGasLimit uint64 = 500000
-const nonceReloadLimit int = 2
+const nonceReloadLimit int = 1
 
 // ErrPendingConnection is the error returned if TxManager is not connected.
 var ErrPendingConnection = errors.New("Cannot talk to chain, pending connection")
@@ -203,7 +203,7 @@ func (txm *EthTxManager) createTx(
 	value *assets.Eth) (*models.Tx, error) {
 
 	tx, err := txm.sendInitialTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, value)
-	for nrc := 1; err != nil && nonceTooLowRegex.MatchString(err.Error()); nrc++ {
+	for nrc := 0; err != nil && nonceTooLowRegex.MatchString(err.Error()); nrc++ {
 		logger.Warnw("TX nonce too low, retrying with network nonce")
 
 		if nrc >= nonceReloadLimit {
