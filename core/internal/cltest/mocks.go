@@ -97,9 +97,9 @@ type ethMockDuring struct {
 func (emd ethMockDuring) During(action func()) {
 	action()
 	if !emd.mock.AllCalled() {
-		logger.Errorf("Remaining ethMockCalls: %v", emd.mock.Remaining())
+		emd.mock.t.Errorf("Remaining ethMockCalls: %v", emd.mock.Remaining())
+		emd.mock.t.Fail()
 	}
-	require.True(emd.t, emd.mock.AllCalled())
 }
 
 // Register register mock responses and append to Ethmock
