@@ -24,8 +24,7 @@ const styles = ({ spacing }: Theme) =>
       paddingRight: spacing.unit * 8
     },
     logo: {
-      display: 'flex',
-      width: 300
+      display: 'flex'
     }
   })
 
@@ -45,7 +44,7 @@ const Search = ({ classes }: IProps) => {
           <SearchForm>
             <Grid container justify="center">
               <Grid item>
-                <Logo className={classes.logo} />
+                <Logo className={classes.logo} width={300} height={80} />
               </Grid>
               <Grid item xs={12}>
                 <SearchBox />
