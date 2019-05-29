@@ -13,12 +13,12 @@ contract ConversionRate is ChainlinkClient, Ownable {
   struct Answer {
     uint128 minimumResponses;
     uint128 maxResponses;
-    uint256[] responses;
+    int256[] responses;
   }
 
-  event AnswerUpdated(uint256 current);
+  event AnswerUpdated(int256 current);
 
-  uint256 public currentAnswer;
+  int256 public currentAnswer;
   uint256 public latestCompletedAnswer;
   uint256 public updatedHeight;
   uint128 public paymentAmount;
@@ -89,7 +89,7 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @param _clRequestId The Chainlink request ID associated with the answer
    * @param _response The answer provided by the Chainlink node
    */
-  function chainlinkCallback(bytes32 _clRequestId, uint256 _response)
+  function chainlinkCallback(bytes32 _clRequestId, int256 _response)
     external
   {
     validateChainlinkCallback(_clRequestId);
@@ -216,9 +216,10 @@ contract ConversionRate is ChainlinkClient, Ownable {
     uint256 responseLength = answer.responses.length;
     uint256 middleIndex = responseLength.div(2);
     if (responseLength % 2 == 0) {
-      uint256 median1 = quickselect(answers[_answerId].responses, middleIndex);
-      uint256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
-      currentAnswer = median1.add(median2).div(2);
+      int256 median1 = quickselect(answers[_answerId].responses, middleIndex);
+      int256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
+      // solium-disable-next-line zeppelin/no-arithmetic-operations
+      currentAnswer = safeAdd(median1, median2) / 2; // signed integers are not supported by SafeMath
     } else {
       currentAnswer = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
     }
@@ -233,19 +234,19 @@ contract ConversionRate is ChainlinkClient, Ownable {
    * @param _a The list of elements to pull from
    * @param _k The index, 1 based, of the elements you want to pull from when ordered
    */
-  function quickselect(uint256[] memory _a, uint256 _k)
+  function quickselect(int256[] memory _a, uint256 _k)
     private
     pure
-    returns (uint256)
+    returns (int256)
   {
-    uint256[] memory a = _a;
+    int256[] memory a = _a;
     uint256 k = _k;
     uint256 aLen = a.length;
-    uint256[] memory a1 = new uint256[](aLen);
-    uint256[] memory a2 = new uint256[](aLen);
+    int256[] memory a1 = new int256[](aLen);
+    int256[] memory a2 = new int256[](aLen);
     uint256 a1Len;
     uint256 a2Len;
-    uint256 pivot;
+    int256 pivot;
     uint256 i;
 
     while (true) {
@@ -275,16 +276,34 @@ contract ConversionRate is ChainlinkClient, Ownable {
   }
 
   /**
-   * @dev Swaps the pointers to two uint256 arrays in memory;
+   * @dev Swaps the pointers to two uint256 arrays in memory
    * @param _a The pointer to the first in memory array
    * @param _b The pointer to the second in memory array
    */
-  function swap(uint256[] memory _a, uint256[] memory _b)
+  function swap(int256[] memory _a, int256[] memory _b)
     private
     pure
-    returns(uint256[] memory, uint256[] memory)
+    returns(int256[] memory, int256[] memory)
   {
     return (_b, _a);
+  }
+
+  /**
+   * @dev Adds two int256s and makes sure the result doesn't overflow. Signed 
+   * integers aren't supported by the SafeMath library, thus this method
+   * @param _a The first number to be added
+   * @param _a The second number to be added
+   */
+  function safeAdd(int256 _a, int256 _b)
+    private
+    pure
+    returns (int256)
+  {
+    // solium-disable-next-line zeppelin/no-arithmetic-operations
+    int256 c = _a + _b; // signed integers are not supported by SafeMath
+    require(c >= _a, "SafeMath: addition overflow");
+
+    return c;
   }
 
   /**
