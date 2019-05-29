@@ -536,7 +536,7 @@ func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
 	config := store.Config
@@ -612,7 +612,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
 	config := store.Config
