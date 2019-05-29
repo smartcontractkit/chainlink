@@ -24,9 +24,6 @@ type fieldElt big.Int
 // newFieldZero returns a newly allocated field element.
 func newFieldZero() *fieldElt { return (*fieldElt)(big.NewInt(0)) }
 
-// newBigInt allocates a new big.Int and returns it
-func newBigInt() *big.Int { return big.NewInt(0) }
-
 // Int returns f as a big.Int
 func (f *fieldElt) int() *big.Int { return (*big.Int)(f) }
 
@@ -120,9 +117,6 @@ func (f *fieldElt) SetBytes(buf [32]byte) *fieldElt {
 // Bytes returns the 32-byte big-endian representation of f
 func (f *fieldElt) Bytes() [32]byte {
 	bytes := f.modQ().int().Bytes()
-	if len(bytes) > 32 {
-		panic("field element longer than 256 bits")
-	}
 	var rv [32]byte
 	copy(rv[32-len(bytes):], bytes) // leftpad w zeros
 	return rv

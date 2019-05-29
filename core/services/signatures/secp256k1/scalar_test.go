@@ -1,6 +1,7 @@
 package secp256k1
 
 import (
+	"bytes"
 	"encoding/hex"
 	"math/big"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go.dedis.ch/kyber"
+	"go.dedis.ch/kyber/group/curve25519"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 )
@@ -107,6 +109,15 @@ func TestScalar_Marshal(t *testing.T) {
 			"roundtrip through serialization should give same "+
 				"result back: failed with %s", f)
 	}
+	marshalID := f.(*secp256k1Scalar).MarshalID()
+	require.Equal(t, string(marshalID[:]), "sp256.sc")
+	data := make([]byte, 33)
+	require.Contains(t, f.UnmarshalBinary(data).Error(), "wrong length")
+	var buf bytes.Buffer
+	_, err := f.MarshalTo(&buf)
+	require.NoError(t, err)
+	_, err = f.UnmarshalFrom(&buf)
+	require.NoError(t, err)
 }
 
 func TestScalar_MulDivInv(t *testing.T) {
@@ -131,4 +142,48 @@ func TestScalar_MulDivInv(t *testing.T) {
 		k.Mul(h, k.Neg(f))
 		require.True(t, j.Equal(k), "-(h*f) != h*(-f)")
 	}
+}
+
+func TestScalar_AllowVarTime(t *testing.T) {
+	defer func() { require.Contains(t, recover(), "not constant-time!") }()
+	newScalar(bigZero).(*secp256k1Scalar).AllowVarTime(false)
+}
+
+func TestScalar_String(t *testing.T) {
+	require.Equal(t, newScalar(bigZero).String(), "scalar{0}")
+}
+
+func TestScalar_SetInt64(t *testing.T) {
+	require.Equal(t, newScalar(bigZero).SetInt64(1), newScalar(big.NewInt(1)))
+	require.True(t, newScalar(big.NewInt(1)).Zero().Equal(newScalar(bigZero)))
+	require.Equal(t, newScalar(bigZero).One(), newScalar(big.NewInt(1)))
+}
+
+func TestScalar_DivPanicsOnZeroDivisor(t *testing.T) {
+	defer func() { require.Contains(t, recover(), "divide by zero") }()
+	newScalar(bigZero).Div(newScalar(bigZero).One(), newScalar(bigZero))
+}
+
+func TestScalar_InvPanicsOnZero(t *testing.T) {
+	defer func() { require.Contains(t, recover(), "divide by zero") }()
+	newScalar(bigZero).Inv(newScalar(bigZero))
+}
+
+func TestScalar_SetBytes(t *testing.T) {
+	u256Cardinality := zero().Lsh(big.NewInt(1), 256)
+	newScalar(bigZero).(*secp256k1Scalar).int().Cmp(
+		zero().Sub(u256Cardinality, GroupOrder))
+}
+
+func TestScalar_IsSecp256k1Scalar(t *testing.T) {
+	c := curve25519.NewBlakeSHA256Curve25519(true)
+	require.False(t, IsSecp256k1Scalar(c.Scalar()))
+	require.True(t, IsSecp256k1Scalar(newScalar(bigZero)))
+}
+
+func TestScalar_IntToScalar(t *testing.T) {
+	u256Cardinality := zero().Lsh(big.NewInt(1), 256)
+	IntToScalar(u256Cardinality)
+	require.Equal(t, u256Cardinality, zero().Sub(zero().Lsh(big.NewInt(1), 256),
+		GroupOrder))
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go.dedis.ch/kyber"
+	"go.dedis.ch/kyber/group/curve25519"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
@@ -77,4 +78,37 @@ func TestShortSchnorr_SignAndVerify(t *testing.T) {
 	if printTests {
 		fmt.Println("]")
 	}
+	// Check other validations
+	edSuite := curve25519.NewBlakeSHA256Curve25519(false)
+	badScalar := edSuite.Scalar()
+	_, err := Sign(badScalar, i())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not a secp256k1 scalar")
+	err = Verify(edSuite.Point(), i(), NewSignature())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not a secp256k1 point")
+	err = Verify(secp256k1Suite.Point(), i(), &signature{Signature: big.NewInt(-1)})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not a valid signature")
+	err = Verify(secp256k1Suite.Point(), i(), &signature{Signature: u256Cardinality})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not a valid signature")
+}
+
+func TestShortSchnorr_NewSignature(t *testing.T) {
+	s := NewSignature()
+	require.Equal(t, s.Signature, big.NewInt(0))
+}
+
+func TestShortSchnorr_ChallengeHash(t *testing.T) {
+	point := secp256k1Group.Point()
+	var hash [20]byte
+	h, err := ChallengeHash(point, hash, big.NewInt(-1))
+	require.Nil(t, h)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "msg must be a uint256")
+	h, err = ChallengeHash(point, hash, u256Cardinality)
+	require.Nil(t, h)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "msg must be a uint256")
 }
