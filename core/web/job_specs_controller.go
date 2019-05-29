@@ -40,9 +40,10 @@ func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
 // Example:
 //  "<application>/specs"
 func (jsc *JobSpecsController) Create(c *gin.Context) {
-	js := models.NewJob()
-	if err := c.ShouldBindJSON(&js); err != nil {
+	var jsr models.JobSpecRequest
+	if err := c.ShouldBindJSON(&jsr); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
+	} else if js := models.NewJobFromRequest(jsr); false {
 	} else if err := services.ValidateJob(js, jsc.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if err = jsc.App.AddJob(js); err != nil {
