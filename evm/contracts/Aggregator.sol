@@ -215,8 +215,7 @@ contract Aggregator is ChainlinkClient, Ownable {
     ensureMinResponsesReceived(_answerId)
     ensureOnlyLatestAnswer(_answerId)
   {
-    Answer memory answer = answers[_answerId];
-    uint256 responseLength = answer.responses.length;
+    uint256 responseLength = answers[_answerId].responses.length;
     uint256 middleIndex = responseLength.div(2);
     if (responseLength % 2 == 0) {
       int256 median1 = quickselect(answers[_answerId].responses, middleIndex);
