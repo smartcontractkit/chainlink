@@ -44,6 +44,7 @@ type ConfigSchema struct {
 	ClientNodeURL            string         `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
 	DatabaseTimeout          time.Duration  `env:"DATABASE_TIMEOUT" default:"500ms"`
 	DatabaseURL              string         `env:"DATABASE_URL"`
+	DefaultHTTPLimit         int64          `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
 	Dev                      bool           `env:"CHAINLINK_DEV" default:"false"`
 	MaximumServiceDuration   time.Duration  `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
 	MinimumServiceDuration   time.Duration  `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
@@ -155,6 +156,11 @@ func (c Config) DatabaseTimeout() time.Duration {
 // an empty string, so the application defaults to .chainlink/db.sqlite.
 func (c Config) DatabaseURL() string {
 	return c.viper.GetString(c.envVarName("DatabaseURL"))
+}
+
+// DefaultHTTPLimit defines the limit for HTTP requests.
+func (c Config) DefaultHTTPLimit() int64 {
+	return c.viper.GetInt64(c.envVarName("DefaultHTTPLimit"))
 }
 
 // Dev configures "development" mode for chainlink.
