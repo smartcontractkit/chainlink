@@ -64,6 +64,7 @@ type EthMock struct {
 	mutex          sync.RWMutex
 	context        string
 	strict         bool
+	t              *testing.T
 }
 
 // Dial mock dial
@@ -79,7 +80,11 @@ func (mock *EthMock) Context(context string, callback func(*EthMock)) {
 }
 
 func (mock *EthMock) ShouldCall(t *testing.T, setup func(mock *EthMock)) ethMockDuring {
-	assert.True(t, mock.AllCalled())
+	mock.t = t
+	if !mock.AllCalled() {
+		t.Errorf("Remaining ethMockCalls: %v", mock.Remaining())
+		t.Fail()
+	}
 	setup(mock)
 	return ethMockDuring{t: t, mock: mock}
 }
@@ -92,9 +97,9 @@ type ethMockDuring struct {
 func (emd ethMockDuring) During(action func()) {
 	action()
 	if !emd.mock.AllCalled() {
-		logger.Errorf("Remaining ethMockCalls: %v", emd.mock.Remaining())
+		emd.mock.t.Errorf("Remaining ethMockCalls: %v", emd.mock.Remaining())
+		emd.mock.t.Fail()
 	}
-	require.True(emd.t, emd.mock.AllCalled())
 }
 
 // Register register mock responses and append to Ethmock
