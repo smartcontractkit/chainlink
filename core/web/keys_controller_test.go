@@ -13,8 +13,8 @@ import (
 func TestKeysController_CreateSuccess(t *testing.T) {
 	t.Parallel()
 
-	config, _ := cltest.NewConfig()
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
+	config, _ := cltest.NewConfig(t)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
 	ethMock := app.MockEthClient()
@@ -45,8 +45,8 @@ func TestKeysController_CreateSuccess(t *testing.T) {
 func TestKeysController_InvalidPassword(t *testing.T) {
 	t.Parallel()
 
-	config, _ := cltest.NewConfig()
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
+	config, _ := cltest.NewConfig(t)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
 	ethMock := app.MockEthClient()
@@ -77,8 +77,8 @@ func TestKeysController_InvalidPassword(t *testing.T) {
 func TestKeysController_JSONBindingError(t *testing.T) {
 	t.Parallel()
 
-	config, _ := cltest.NewConfig()
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
+	config, _ := cltest.NewConfig(t)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
 	ethMock := app.MockEthClient()

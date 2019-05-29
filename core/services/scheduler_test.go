@@ -18,7 +18,7 @@ import (
 func TestScheduler_Start_LoadingRecurringJobs(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	jobWCron := cltest.NewJobWithSchedule("* * * * * *")
@@ -37,7 +37,7 @@ func TestScheduler_Start_LoadingRecurringJobs(t *testing.T) {
 func TestScheduler_AddJob_WhenStopped(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	sched := services.NewScheduler(store)
 	defer sched.Stop()
@@ -52,7 +52,7 @@ func TestScheduler_AddJob_WhenStopped(t *testing.T) {
 func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
 	logs := cltest.ObserveLogs()
 
-	store, cleanupStore := cltest.NewStore()
+	store, cleanupStore := cltest.NewStore(t)
 	defer cleanupStore()
 	clock := cltest.UseSettableClock(store)
 
@@ -99,7 +99,7 @@ func TestRecurring_AddJob(t *testing.T) {
 		{"start at after end at", futureTime, pastTime, 0, 0},
 	}
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	for _, tt := range tests {
 		test := tt
@@ -127,7 +127,7 @@ func TestRecurring_AddJob(t *testing.T) {
 }
 
 func TestRecurring_AddJob_Archived(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	r := services.NewRecurring(store)
 	cron := cltest.NewMockCron()
@@ -171,7 +171,7 @@ func TestOneTime_AddJob(t *testing.T) {
 		{"start at after end at", futureTime, pastTime, pastRunTime, false},
 	}
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	jobRunner, cleanup := cltest.NewJobRunner(store)
 	defer cleanup()
@@ -218,7 +218,7 @@ func TestOneTime_AddJob(t *testing.T) {
 func TestOneTime_RunJobAt_StopJobBeforeExecution(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	ot := services.OneTime{
@@ -249,7 +249,7 @@ func TestOneTime_RunJobAt_StopJobBeforeExecution(t *testing.T) {
 func TestOneTime_RunJobAt_ExecuteLateJob(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	ot := services.OneTime{
@@ -279,7 +279,7 @@ func TestOneTime_RunJobAt_ExecuteLateJob(t *testing.T) {
 func TestOneTime_RunJobAt_RunTwice(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	ot := services.OneTime{
@@ -304,7 +304,7 @@ func TestOneTime_RunJobAt_RunTwice(t *testing.T) {
 func TestOneTime_RunJobAt_UnstartedRun(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	ot := services.OneTime{
@@ -327,7 +327,7 @@ func TestOneTime_RunJobAt_UnstartedRun(t *testing.T) {
 func TestOneTime_RunJobAt_ArchivedRun(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	ot := services.OneTime{

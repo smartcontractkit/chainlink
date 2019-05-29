@@ -13,7 +13,7 @@ import (
 
 func TestCreatingAdapterWithConfig(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	task := models.TaskSpec{Type: adapters.TaskTypeNoOp}
@@ -24,7 +24,7 @@ func TestCreatingAdapterWithConfig(t *testing.T) {
 
 func TestAdapterFor(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	_, bt := cltest.NewBridgeType("rideShare", "https://dUber.eth")

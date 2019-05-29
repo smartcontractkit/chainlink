@@ -12,7 +12,7 @@ import (
 )
 
 func TestStatsPusher(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	wsserver, wscleanup := cltest.NewEventWebSocketServer(t)
@@ -52,7 +52,7 @@ func TestStatsPusher(t *testing.T) {
 }
 
 func TestStatsPusher_NoAckLeavesEvent(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	wsserver, wscleanup := cltest.NewEventWebSocketServer(t)
@@ -78,7 +78,7 @@ func TestStatsPusher_NoAckLeavesEvent(t *testing.T) {
 }
 
 func TestStatsPusher_BadSyncLeavesEvent(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	wsserver, wscleanup := cltest.NewEventWebSocketServer(t)

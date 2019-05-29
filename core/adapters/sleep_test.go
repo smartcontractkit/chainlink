@@ -11,7 +11,7 @@ import (
 )
 
 func TestSleep_Perform(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	adapter := adapters.Sleep{}

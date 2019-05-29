@@ -19,9 +19,9 @@ import (
 func TestJobSubscriber_Connect_WithJobs(t *testing.T) {
 	t.Parallel()
 
-	store, el, cleanup := cltest.NewJobSubscriber()
+	store, el, cleanup := cltest.NewJobSubscriber(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
+	eth := cltest.MockEthOnStore(t, store)
 
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
@@ -41,9 +41,9 @@ func newAddr() common.Address {
 func TestJobSubscriber_reconnectLoop_Resubscribing(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
+	eth := cltest.MockEthOnStore(t, store)
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
 	assert.Nil(t, store.CreateJob(&j1))
@@ -71,9 +71,9 @@ func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
-	store, el, cleanup := cltest.NewJobSubscriber()
+	store, el, cleanup := cltest.NewJobSubscriber(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(store)
+	eth := cltest.MockEthOnStore(t, store)
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
 	assert.Nil(t, store.CreateJob(&j1))
@@ -115,10 +115,10 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, el, cleanup := cltest.NewJobSubscriber()
+			store, el, cleanup := cltest.NewJobSubscriber(t)
 			defer cleanup()
 
-			eth := cltest.MockEthOnStore(store)
+			eth := cltest.MockEthOnStore(t, store)
 			logChan := make(chan models.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 
@@ -162,10 +162,10 @@ func TestJobSubscriber_RemoveJob(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.initType, func(t *testing.T) {
-			store, el, cleanup := cltest.NewJobSubscriber()
+			store, el, cleanup := cltest.NewJobSubscriber(t)
 			defer cleanup()
 
-			eth := cltest.MockEthOnStore(store)
+			eth := cltest.MockEthOnStore(t, store)
 			logChan := make(chan models.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 
@@ -236,7 +236,7 @@ func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(prettyLabel(test.archived, test.status), func(t *testing.T) {
-			store, js, cleanup := cltest.NewJobSubscriber()
+			store, js, cleanup := cltest.NewJobSubscriber(t)
 			defer cleanup()
 
 			mockRunChannel := cltest.NewMockRunChannel()

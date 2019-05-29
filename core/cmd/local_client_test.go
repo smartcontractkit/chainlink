@@ -19,12 +19,12 @@ import (
 func TestClient_RunNodeShowsEnv(t *testing.T) {
 	t.Parallel()
 
-	config, configCleanup := cltest.NewConfig()
+	config, configCleanup := cltest.NewConfig(t)
 	defer configCleanup()
 	config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
 	config.Set("CHAINLINK_PORT", 6688)
 
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
 	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) (string, error) { return "", nil }}
@@ -94,7 +94,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplication()
+			app, cleanup := cltest.NewApplication(t)
 			defer cleanup()
 			_, err := app.Store.KeyStore.NewAccount("password") // matches correct_password.txt
 			assert.NoError(t, err)
@@ -151,7 +151,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey()
+			app, cleanup := cltest.NewApplicationWithKey(t)
 			defer cleanup()
 
 			noauth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) (string, error) { return "", nil }}
@@ -184,7 +184,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 func TestClient_ImportKey(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
@@ -218,7 +218,7 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config, configCleanup := cltest.NewConfig()
+			config, configCleanup := cltest.NewConfig(t)
 			defer configCleanup()
 			config.Set("CHAINLINK_DEV", true)
 			config.Set("LOG_TO_DISK", tt.logToDiskValue)

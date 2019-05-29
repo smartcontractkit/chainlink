@@ -18,7 +18,7 @@ func TestEthClient_GetTxReceipt(t *testing.T) {
 	response := cltest.MustReadFile(t, "../internal/fixtures/eth/getTransactionReceipt.json")
 	mockServer, wsCleanup := cltest.NewWSServer(string(response))
 	defer wsCleanup()
-	config := cltest.NewConfigWithWSServer(mockServer)
+	config := cltest.NewConfigWithWSServer(t, mockServer)
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 
@@ -75,7 +75,7 @@ func TestTxReceipt_FulfilledRunlog(t *testing.T) {
 
 func TestEthClient_GetNonce(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	ethMock := app.MockEthClient()
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
@@ -88,7 +88,7 @@ func TestEthClient_GetNonce(t *testing.T) {
 
 func TestEthClient_GetBlockNumber(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	ethMock := app.MockEthClient()
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
@@ -101,7 +101,7 @@ func TestEthClient_GetBlockNumber(t *testing.T) {
 
 func TestEthClient_SendRawTx(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	ethMock := app.MockEthClient()
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
@@ -113,7 +113,7 @@ func TestEthClient_SendRawTx(t *testing.T) {
 
 func TestEthClient_GetEthBalance(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	tests := []struct {
@@ -140,7 +140,7 @@ func TestEthClient_GetEthBalance(t *testing.T) {
 
 func TestEthClient_GetERC20Balance(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	ethMock := app.MockEthClient()

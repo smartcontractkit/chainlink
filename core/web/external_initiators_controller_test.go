@@ -12,7 +12,7 @@ import (
 func TestExternalInitiatorsController_Create(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	client := app.NewHTTPClient()
@@ -25,7 +25,7 @@ func TestExternalInitiatorsController_Create(t *testing.T) {
 func TestExternalInitiatorsController_Delete(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	client := app.NewHTTPClient()
@@ -38,7 +38,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	err := app.GetStore().CreateExternalInitiator(&models.ExternalInitiator{
 		AccessKey: "abracadabra",

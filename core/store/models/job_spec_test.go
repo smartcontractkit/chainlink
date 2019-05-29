@@ -14,7 +14,7 @@ import (
 
 func TestNewJobFromRequest(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	j1 := cltest.NewJobWithSchedule("* * * * 7")
@@ -43,7 +43,7 @@ func TestNewJobFromRequest(t *testing.T) {
 
 func TestJobSpec_Save(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	j1 := cltest.NewJobWithSchedule("* * * * 7")
@@ -58,7 +58,7 @@ func TestJobSpec_Save(t *testing.T) {
 
 func TestJobSpec_NewRun(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	job := cltest.NewJobWithSchedule("1 * * * *")
