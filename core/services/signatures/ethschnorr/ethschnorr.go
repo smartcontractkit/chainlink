@@ -21,13 +21,8 @@ import (
 	"go.dedis.ch/kyber"
 )
 
-var secp256k1Suite *secp256k1.SuiteSecp256k1
-var secp256k1Group kyber.Group
-
-func init() {
-	secp256k1Suite = secp256k1.NewBlakeKeccackSecp256k1()
-	secp256k1Group = secp256k1Suite
-}
+var secp256k1Suite = secp256k1.NewBlakeKeccackSecp256k1()
+var secp256k1Group kyber.Group = secp256k1Suite
 
 type signature = struct {
 	CommitmentPublicAddress [20]byte
@@ -131,10 +126,6 @@ func Verify(public kyber.Point, msg *big.Int, s Signature) error {
 	if err == nil && (msg.Cmp(zero) == -1 || msg.Cmp(maxUint256) == 1) {
 		err = fmt.Errorf("msg is not a uint256")
 	}
-	sigScalar := secp256k1.IntToScalar(s.Signature)
-	if err == nil && !secp256k1.IsSecp256k1Scalar(sigScalar) {
-		err = fmt.Errorf("s is not a secp256k1 scalar")
-	}
 	var challenge kyber.Scalar
 	var herr error
 	if err == nil {
@@ -146,6 +137,7 @@ func Verify(public kyber.Point, msg *big.Int, s Signature) error {
 	if err != nil {
 		return err
 	}
+	sigScalar := secp256k1.IntToScalar(s.Signature)
 	// s*g + challenge*public = s*g + challenge*(secretKey*g) =
 	// commitmentSecretKey*g = commitmentPublicKey
 	maybeCommitmentPublicKey := secp256k1Group.Point().Add(

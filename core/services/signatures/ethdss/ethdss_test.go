@@ -54,7 +54,7 @@ func init() {
 }
 
 func TestDSSNew(t *testing.T) {
-	dssArgs := DSSArgs{secret: partSec[0], participants: partPubs, 
+	dssArgs := DSSArgs{secret: partSec[0], participants: partPubs,
 		long: longterms[0], random: randoms[0], msg: msg, T: 4}
 	dss, err := NewDSS(dssArgs)
 	assert.NotNil(t, dss)
@@ -81,8 +81,18 @@ func TestDSSPartialSigs(t *testing.T) {
 	// wrong index
 	goodI := ps0.Partial.I
 	ps0.Partial.I = 100
-	assert.Error(t, dss1.ProcessPartialSig(ps0))
+	err = dss1.ProcessPartialSig(ps0)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid index")
 	ps0.Partial.I = goodI
+
+	// wrong sessionID
+	goodSessionID := ps0.SessionID
+	ps0.SessionID = []byte("ahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh")
+	err = dss1.ProcessPartialSig(ps0)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "dss: session id")
+	ps0.SessionID = goodSessionID
 
 	// wrong Signature
 	goodSig := ps0.Signature
@@ -112,8 +122,8 @@ func TestDSSPartialSigs(t *testing.T) {
 	assert.Error(t, dss1.ProcessPartialSig(ps0))
 
 	// if not enough partial signatures, can't generate signature
-	buff, err := dss1.Signature()
-	assert.Nil(t, buff)
+	sig, err := dss1.Signature()
+	assert.Nil(t, sig)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not enough")
 
@@ -125,6 +135,9 @@ func TestDSSPartialSigs(t *testing.T) {
 		require.Nil(t, dss1.ProcessPartialSig(ps))
 	}
 	assert.True(t, dss1.EnoughPartialSig())
+	sig, err = dss1.Signature()
+	assert.NoError(t, err)
+	assert.NoError(t, Verify(dss1.long.Commitments()[0], msg, sig))
 }
 
 var printTests = false
@@ -178,7 +191,6 @@ func TestPartialSig_Hash(t *testing.T) {
 		observedHashes[hash] = true
 	}
 }
-
 
 func getDSS(i int) *DSS {
 	dss, err := NewDSS(DSSArgs{secret: partSec[i], participants: partPubs,
