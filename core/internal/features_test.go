@@ -270,7 +270,8 @@ func TestIntegration_RunLog(t *testing.T) {
 
 	safeNumber := logBlockNumber + requiredConfs
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
-	cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	assert.True(t, jr.FinishedAt.Valid)
 }
 
 func TestIntegration_EndAt(t *testing.T) {

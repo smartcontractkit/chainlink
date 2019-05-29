@@ -166,7 +166,6 @@ func (rm *jobRunner) workerLoop(runID string, workerChannel chan struct{}) {
 			}
 
 			if run.Status.Finished() {
-				run.SetFinishedAt()
 				logger.Debugw("All tasks complete for run", "run", run.ID)
 				return
 			}
@@ -270,6 +269,10 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 			logger.Debugw("Blocking run pending incoming confirmations", []interface{}{"run", run.ID, "required_height", futureTaskRun.MinimumConfirmations}...)
 			run.Status = models.RunStatusPendingConfirmations
 		}
+	}
+
+	if run.Status.Finished() {
+		run.SetFinishedAt()
 	}
 
 	if err := updateAndTrigger(run, store); err != nil {
