@@ -110,8 +110,10 @@ contract('AggregatorProxy', () => {
         const requestTx = await aggregator2.requestRateUpdate()
         const request = h.decodeRunRequest(requestTx.receipt.rawLogs[3])
         await h.fulfillOracleRequest(oc1, request, response2)
-        const height = await aggregator2.updatedHeight.call()
-        assert.notEqual('0', height.toString())
+        const height2 = await aggregator2.updatedHeight.call()
+        assert.notEqual('0', height2.toString())
+        const height1 = await aggregator.updatedHeight.call()
+        assert.notEqual(height1.toString(), height2.toString())
 
         await proxy.setAggregator(aggregator2.address)
       })
