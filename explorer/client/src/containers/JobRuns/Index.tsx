@@ -11,7 +11,6 @@ import {
 import List from '../../components/JobRuns/List'
 import { getJobRuns } from '../../actions/jobRuns'
 import { IState } from '../../reducers'
-import { IJobRun } from '../../models'
 
 const EMPTY_MSG =
   "We couldn't find any results for your search query. Try again with the job id, run id, requester, requester id or transaction hash"
