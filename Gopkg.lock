@@ -159,11 +159,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b2e8aa936539cbbff2feb5b606f13f073466736b4ba67fc3c7758633305bfa9f"
+  digest = "1:68376e7ec7a82ebbfaadfa52406c04f55d57cb44ce82b043d6e26cbf0f7e1ffc"
   name = "github.com/gin-contrib/size"
   packages = ["."]
   pruneopts = ""
-  revision = "6fb8220baadb46fd93031cc9107d935b15a0927a"
+  revision = "355431950c5715640c5e02f091070c58f0b0f208"
 
 [[projects]]
   branch = "master"
