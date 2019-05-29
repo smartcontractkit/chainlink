@@ -45,6 +45,16 @@ func TestField_SetIntAndEqual(t *testing.T) {
 	}
 }
 
+func TestField_String(t *testing.T) {
+	require.Equal(t, fieldZero.String(), "fieldElt{0}")
+}
+
+func TestField_Equal(t *testing.T) {
+	require.True(t, (*fieldElt)(nil).Equal((*fieldElt)(nil)))
+	require.False(t, (*fieldElt)(nil).Equal(fieldZero))
+	require.False(t, fieldZero.Equal((*fieldElt)(nil)))
+}
+
 func TestField_Set(t *testing.T) {
 	f := fieldEltFromInt(1)
 	g := newFieldZero()

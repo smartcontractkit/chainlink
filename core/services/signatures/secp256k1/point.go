@@ -66,6 +66,12 @@ func (P *secp256k1Point) Pick(rand cipher.Stream) kyber.Point {
 		maybeRHS := rightHandSide(P.X)
 		if maybeY := maybeSqrtInField(maybeRHS); maybeY != (*fieldElt)(nil) {
 			P.Y.Set(maybeY)
+			// Take the negative with 50% probability
+			b := make([]byte, 1)
+			rand.XORKeyStream(b[:], b[:])
+			if b[0]&1 == 0 {
+				P.Y.Neg(P.Y)
+			}
 			return P
 		}
 	}
@@ -96,14 +102,9 @@ func (*secp256k1Point) EmbedLen() int {
 func (P *secp256k1Point) Embed(data []byte, r cipher.Stream) kyber.Point {
 	numEmbedBytes := P.EmbedLen()
 	if len(data) > numEmbedBytes {
-		panic(fmt.Errorf("too much data to embed in a point"))
+		panic("too much data to embed in a point")
 	}
-	if numEmbedBytes > len(data) {
-		numEmbedBytes = len(data)
-	}
-	if (numEmbedBytes > 255) || (numEmbedBytes < 0) {
-		panic("can't embed that much data")
-	}
+	numEmbedBytes = len(data)
 	var x [32]byte
 	randStart := 1 // First byte to fill with random data
 	if data != nil {
@@ -206,10 +207,7 @@ func (P *secp256k1Point) MarshalBinary() ([]byte, error) {
 	rv := make([]byte, P.MarshalSize())
 	signByte := P.MarshalSize() - 1 // Last byte contains sign of Y.
 	xordinate := P.X.Bytes()
-	copyLen := copy(rv[:signByte], xordinate[:])
-	if copyLen != P.MarshalSize()-1 {
-		return []byte{}, fmt.Errorf("marshal of x ordinate too short")
-	}
+	copy(rv[:signByte], xordinate[:])
 	if P.Y.isEven() {
 		rv[signByte] = 0
 	} else {
@@ -231,7 +229,7 @@ func (P *secp256k1Point) MarshalID() [8]byte {
 func (P *secp256k1Point) UnmarshalBinary(buf []byte) error {
 	var err error
 	if len(buf) != P.MarshalSize() {
-		err = fmt.Errorf("wrong length for marshalled point")
+		err = fmt.Errorf("wrong length for marshaled point")
 	}
 	if err == nil && !(buf[32] == 0 || buf[32] == 1) {
 		err = fmt.Errorf("bad sign byte (the last one)")
@@ -251,10 +249,6 @@ func (P *secp256k1Point) UnmarshalBinary(buf []byte) error {
 	P.Y.Set(maybeY)
 	if (buf[32] == 0 && !isEven) || (buf[32] == 1 && isEven) {
 		P.Y.Neg(P.Y)
-	} else {
-		if buf[32] != 0 && buf[32] != 1 {
-			return fmt.Errorf("parity byte must be 0 or 1")
-		}
 	}
 	return nil
 }
@@ -321,17 +315,20 @@ func Coordinates(p kyber.Point) (*big.Int, *big.Int) {
 	return p.(*secp256k1Point).X.int(), p.(*secp256k1Point).Y.int()
 }
 
-var halfQ = big.NewInt(0).Add(big.NewInt(0).Rsh(GroupOrder, 1),
-	big.NewInt(1)) // Half secp256k1 group order + 1
+// Half base characteristic + 1. See SchnorrSECP256K1.sol for explanation.
+var halfQ = big.NewInt(0).Add(big.NewInt(0).Rsh(q, 1), big.NewInt(1))
 
 // ValidPublicKey returns true iff p can be used in the optimized on-chain
-// Schnorr-signature verification.
+// Schnorr-signature verification. See SchnorrSECP256K1.sol for details.
 func ValidPublicKey(p kyber.Point) bool {
 	if p == (*secp256k1Point)(nil) || p == nil {
 		return false
 	}
+	P := p.(*secp256k1Point)
 	x, _ := Coordinates(p)
-	return x.Cmp(halfQ) == -1
+	maybeY := maybeSqrtInField(rightHandSide(P.X))
+	return x.Cmp(halfQ) == -1 && maybeY != nil &&
+		(P.Y.Equal(maybeY) || P.Y.Equal(maybeY.Neg(maybeY)))
 }
 
 // Generate generates a public/private key pair, which can be verified cheaply

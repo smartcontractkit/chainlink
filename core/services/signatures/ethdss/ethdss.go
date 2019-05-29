@@ -72,25 +72,25 @@ type DSS struct {
 	// Message to be signed
 	msg *big.Int
 	// The partial signatures collected so far.
-	partials    []*share.PriShare
+	partials []*share.PriShare
 	// Indices for the participants who have provided their partial signatures to
 	// this participant.
 	partialsIdx map[int]bool
 	// True iff the partial signature for this dss has been signed by its owner.
-	signed      bool
+	signed bool
 	// String which uniquely identifies this signature, shared by all
 	// participants.
-	sessionID   []byte
+	sessionID []byte
 }
 
 // DSSArgs is the arguments to NewDSS, as a struct. See NewDSS for details.
 type DSSArgs = struct {
-	secret kyber.Scalar
+	secret       kyber.Scalar
 	participants []kyber.Point
-	long DistKeyShare
-	random DistKeyShare
-	msg *big.Int
-	T int
+	long         DistKeyShare
+	random       DistKeyShare
+	msg          *big.Int
+	T            int
 }
 
 // NewDSS returns a DSS struct out of the suite, the longterm secret of this
@@ -181,14 +181,14 @@ func (d *DSS) ProcessPartialSig(ps *PartialSig) error {
 	if !ok {
 		err = errors.New("dss: partial signature with invalid index")
 	}
+	// nothing secret here
+	if err == nil && !bytes.Equal(ps.SessionID, d.sessionID) {
+		err = errors.New("dss: session id do not match")
+	}
 	if err == nil {
 		if vrr := ethschnorr.Verify(public, ps.Hash(), ps.Signature); vrr != nil {
 			err = vrr
 		}
-	}
-	// nothing secret here
-	if err == nil && !bytes.Equal(ps.SessionID, d.sessionID) {
-		err = errors.New("dss: session id do not match")
 	}
 	if err == nil {
 		if _, ok := d.partialsIdx[ps.Partial.I]; ok {
