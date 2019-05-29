@@ -275,7 +275,7 @@ func (txm *EthTxManager) retryInitialTx(
 
 	err := ma.ReloadNonce(txm)
 	if err != nil {
-		return errors.Wrap(err, "TxManager#createTX ReloadNonce")
+		return errors.Wrap(err, "TxManager#retryInitialTx ReloadNonce")
 	}
 
 	blkNum, err := txm.getBlockNumber()
