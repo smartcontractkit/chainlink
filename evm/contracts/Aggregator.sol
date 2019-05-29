@@ -19,7 +19,8 @@ contract Aggregator is ChainlinkClient, Ownable {
     int256[] responses;
   }
 
-  event AnswerUpdated(int256 current);
+  event ResponseReceived(int256 indexed response, uint256 indexed answerId, address indexed sender);
+  event AnswerUpdated(int256 indexed current, uint256 indexed answerId);
 
   int256 public currentAnswer;
   uint256 public latestCompletedAnswer;
@@ -101,6 +102,7 @@ contract Aggregator is ChainlinkClient, Ownable {
     delete requestAnswers[_clRequestId];
 
     answers[answerId].responses.push(_response);
+    emit ResponseReceived(_response, answerId, msg.sender);
     updateLatestAnswer(answerId);
     deleteAnswer(answerId);
   }
@@ -227,7 +229,7 @@ contract Aggregator is ChainlinkClient, Ownable {
     }
     latestCompletedAnswer = _answerId;
     updatedHeight = block.number;
-    emit AnswerUpdated(currentAnswer);
+    emit AnswerUpdated(currentAnswer, _answerId);
   }
 
   /**
