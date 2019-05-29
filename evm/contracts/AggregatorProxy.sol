@@ -25,6 +25,7 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
    */
   function currentAnswer()
     external
+    view
     returns (int256)
   {
     return aggregator.currentAnswer();
@@ -35,6 +36,7 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
    */
   function updatedHeight()
     external
+    view
     returns (uint256)
   {
     return aggregator.updatedHeight();

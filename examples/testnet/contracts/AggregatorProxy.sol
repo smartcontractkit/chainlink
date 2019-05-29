@@ -4,8 +4,8 @@
 pragma solidity 0.4.24;
 
 interface AggregatorInterface {
-  function currentAnswer() external returns (int256);
-  function updatedHeight() external returns (uint256);
+  function currentAnswer() external view returns (int256);
+  function updatedHeight() external view returns (uint256);
 }
 
 // File: openzeppelin-solidity/contracts/ownership/Ownable.sol
@@ -103,6 +103,7 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
    */
   function currentAnswer()
     external
+    view
     returns (int256)
   {
     return aggregator.currentAnswer();
@@ -113,6 +114,7 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
    */
   function updatedHeight()
     external
+    view
     returns (uint256)
   {
     return aggregator.updatedHeight();
