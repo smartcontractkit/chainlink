@@ -227,10 +227,6 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 	}
 }
 
-func first(a models.JobSpec, b interface{}) models.JobSpec {
-	return a
-}
-
 func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 	t.Parallel()
 

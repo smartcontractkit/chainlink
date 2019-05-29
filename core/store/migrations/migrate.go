@@ -7,10 +7,6 @@ import (
 	gormigrate "gopkg.in/gormigrate.v1"
 )
 
-type migration interface {
-	Migrate(tx *gorm.DB) error
-}
-
 // Migrate iterates through available migrations, running and tracking
 // migrations that have not been run.
 func Migrate(db *gorm.DB) error {
