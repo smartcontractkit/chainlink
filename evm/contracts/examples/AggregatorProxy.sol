@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
+import "../interfaces/AggregatorInterface.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
-import "../interfaces/CurrentAnswerInterface.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
@@ -9,9 +9,9 @@ import "../interfaces/CurrentAnswerInterface.sol";
  * CurrentAnwerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  */
-contract AggregatorProxy is Ownable, CurrentAnswerInterface {
+contract AggregatorProxy is AggregatorInterface, Ownable {
 
-  CurrentAnswerInterface public aggregator;
+  AggregatorInterface public aggregator;
 
   constructor(address _aggregator)
     public
@@ -48,7 +48,7 @@ contract AggregatorProxy is Ownable, CurrentAnswerInterface {
     public
     onlyOwner()
   {
-    aggregator = CurrentAnswerInterface(_aggregator);
+    aggregator = AggregatorInterface(_aggregator);
   }
 
   /**
