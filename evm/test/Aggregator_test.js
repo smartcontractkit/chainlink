@@ -95,13 +95,36 @@ contract('Aggregator', () => {
         assert.notEqual('0', updatedAt.toString())
       })
 
+      it('emits a log with the response, answer ID, and sender', async () => {
+        const requestTx = await rate.requestRateUpdate()
+        const request = h.decodeRunRequest(requestTx.receipt.rawLogs[3])
+        const tx = await h.fulfillOracleRequest(oc1, request, response)
+
+        const answerId = 1
+        const receivedLog = tx.receipt.rawLogs[1]
+        assert.equal(response, web3.utils.hexToNumber(receivedLog.topics[1]))
+        assert.equal(answerId, web3.utils.hexToNumber(receivedLog.topics[2]))
+        assert.equal(
+          oc1.address,
+          web3.utils.toChecksumAddress(receivedLog.topics[3].slice(26, 66))
+        )
+      })
+
       it('emits a log with the new answer', async () => {
         const requestTx = await rate.requestRateUpdate()
         const request = h.decodeRunRequest(requestTx.receipt.rawLogs[3])
         const tx = await h.fulfillOracleRequest(oc1, request, response)
 
-        const payload = web3.utils.hexToNumber(tx.receipt.rawLogs[1].data)
-        assert.equal(response, payload)
+        const answerId = 1
+        const answerUpdatedLog = tx.receipt.rawLogs[2]
+        assert.equal(
+          response,
+          web3.utils.hexToNumber(answerUpdatedLog.topics[1])
+        )
+        assert.equal(
+          answerId,
+          web3.utils.hexToNumber(answerUpdatedLog.topics[2])
+        )
       })
     })
 
