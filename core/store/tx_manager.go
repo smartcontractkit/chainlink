@@ -229,7 +229,7 @@ func (txm *EthTxManager) sendInitialTx(
 
 	blkNum, err := txm.getBlockNumber()
 	if err != nil {
-		return nil, errors.Wrap(err, "TxManager getBlockNumber")
+		return nil, errors.Wrap(err, "TxManager#sendInitialTx getBlockNumber")
 	}
 
 	var tx *models.Tx
@@ -243,17 +243,26 @@ func (txm *EthTxManager) sendInitialTx(
 			gasPriceWei,
 			data)
 		if err != nil {
-			return errors.Wrap(err, "TxManager newEthTx")
+			return errors.Wrap(err, "TxManager#sendInitialTx newEthTx")
 		}
 
 		tx, err = txm.orm.CreateTx(surrogateID, ethTx, &ma.Address, blkNum)
 		if err != nil {
-			return errors.Wrap(err, "TxManager CreateTx")
+			return errors.Wrap(err, "TxManager#sendInitialTx CreateTx")
 		}
 
-		return txm.sendEthTx(ethTx)
+		err = txm.sendEthTx(ethTx)
+		if err != nil {
+			return errors.Wrap(err, "TxManager#sendInitialTx sendEthTx")
+		}
+
+		return nil
 	})
 
+	// XXX: Small subtlety here: return the tx as it is initialized and is passed to retryInitialTx
+	if err != nil {
+		err = errors.Wrap(err, "TxManager#sendInitialTx ma#GetAndIncrementNonce")
+	}
 	return tx, err
 }
 
@@ -266,15 +275,15 @@ func (txm *EthTxManager) retryInitialTx(
 
 	err := ma.ReloadNonce(txm)
 	if err != nil {
-		return errors.Wrap(err, "TxManager createTX ReloadNonce")
+		return errors.Wrap(err, "TxManager#createTX ReloadNonce")
 	}
 
 	blkNum, err := txm.getBlockNumber()
 	if err != nil {
-		return errors.Wrap(err, "TxManager getBlockNumber")
+		return errors.Wrap(err, "TxManager#retryInitialTx getBlockNumber")
 	}
 
-	return ma.GetAndIncrementNonce(func(nonce uint64) error {
+	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
 		ethTx, err := txm.newEthTx(
 			ma.Account,
 			nonce,
@@ -284,16 +293,26 @@ func (txm *EthTxManager) retryInitialTx(
 			gasPriceWei,
 			tx.Data)
 		if err != nil {
-			return errors.Wrap(err, "TxManager newEthTx")
+			return errors.Wrap(err, "TxManager#retryInitialTx newEthTx")
 		}
 
 		err = txm.orm.UpdateTx(tx, ethTx, &ma.Address, blkNum)
 		if err != nil {
-			return errors.Wrap(err, "TxManager UpdateTx")
+			return errors.Wrap(err, "TxManager#retryInitialTx UpdateTx")
 		}
 
-		return txm.sendEthTx(ethTx)
+		err = txm.sendEthTx(ethTx)
+		if err != nil {
+			return errors.Wrap(err, "TxManager#retryInitialTx sendEthTx")
+		}
+
+		return nil
 	})
+
+	if err != nil {
+		return errors.Wrap(err, "TxManager#retryInitialTx ma#GetAndIncrementNonce")
+	}
+	return nil
 }
 
 var (
