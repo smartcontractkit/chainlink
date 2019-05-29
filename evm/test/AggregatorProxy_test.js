@@ -35,6 +35,7 @@ contract('AggregatorProxy', () => {
       'currentAnswer',
       'destroy',
       'setAggregator',
+      'updatedHeight',
       // Ownable methods:
       'owner',
       'renounceOwnership',
@@ -75,6 +76,51 @@ contract('AggregatorProxy', () => {
 
       it('pulls the rate from the new aggregator', async () => {
         assertBigNum(response2, await proxy.currentAnswer.call())
+      })
+    })
+  })
+
+  describe('#updatedHeight', () => {
+    beforeEach(async () => {
+      const requestTx = await aggregator.requestRateUpdate()
+      const request = h.decodeRunRequest(requestTx.receipt.rawLogs[3])
+      await h.fulfillOracleRequest(oc1, request, response)
+      const height = await aggregator.updatedHeight.call()
+      assert.notEqual('0', height.toString())
+    })
+
+    it('pulls the height from the aggregator', async () => {
+      assertBigNum(
+        await aggregator.updatedHeight.call(),
+        await proxy.updatedHeight.call()
+      )
+    })
+
+    context('after being updated to another contract', () => {
+      beforeEach(async () => {
+        aggregator2 = await h.deploy(
+          'ConversionRate.sol',
+          link.address,
+          basePayment,
+          1,
+          [oc1.address],
+          [jobId1]
+        )
+        await link.transfer(aggregator2.address, deposit)
+        const requestTx = await aggregator2.requestRateUpdate()
+        const request = h.decodeRunRequest(requestTx.receipt.rawLogs[3])
+        await h.fulfillOracleRequest(oc1, request, response2)
+        const height = await aggregator2.updatedHeight.call()
+        assert.notEqual('0', height.toString())
+
+        await proxy.setAggregator(aggregator2.address)
+      })
+
+      it('pulls the height from the new aggregator', async () => {
+        assertBigNum(
+          await aggregator2.updatedHeight.call(),
+          await proxy.updatedHeight.call()
+        )
       })
     })
   })

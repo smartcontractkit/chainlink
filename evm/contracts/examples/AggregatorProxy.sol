@@ -31,6 +31,16 @@ contract AggregatorProxy is Ownable, CurrentAnswerInterface {
   }
 
   /**
+   * @notice Reads the last updated height from aggregator delegated to.
+   */
+  function updatedHeight()
+    external
+    returns (uint256)
+  {
+    return aggregator.updatedHeight();
+  }
+
+  /**
    * @notice Allows the owner to update the aggregator address.
    * @param _aggregator The new address for the aggregator contract
    */
