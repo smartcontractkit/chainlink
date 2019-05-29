@@ -59,7 +59,7 @@ Check out the [wiki](https://github.com/smartcontractkit/chainlink/wiki)'s pages
 
 ## Configure
 
-You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding environment variable is found. The latest information on configuration variables are available in [the wiki](https://github.com/smartcontractkit/chainlink/wiki/Configuration-Variables).
+You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding environment variable is found. The latest information on configuration variables are available in [the docs](https://docs.chain.link/docs/configuration-variables).
 
 ## External Adapters
 
