@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
 import "./ChainlinkClient.sol";
-import "./examples/SignedSafeMath.sol";
+import "./SignedSafeMath.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 /**
