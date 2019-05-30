@@ -12,6 +12,35 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
+func TestNewJobFromRequest(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	j1 := cltest.NewJobWithSchedule("* * * * 7")
+	require.NoError(t, store.CreateJob(&j1))
+
+	jsr := models.JobSpecRequest{
+		Initiators: cltest.BuildInitiatorRequests(t, j1.Initiators),
+		Tasks:      cltest.BuildTaskRequests(t, j1.Tasks),
+		StartAt:    j1.StartAt,
+		EndAt:      j1.EndAt,
+	}
+
+	j2 := models.NewJobFromRequest(jsr)
+	require.NoError(t, store.CreateJob(&j2))
+
+	fetched1, err := store.FindJob(j1.ID)
+	assert.NoError(t, err)
+	assert.Len(t, fetched1.Initiators, 1)
+	assert.Len(t, fetched1.Tasks, 1)
+
+	fetched2, err := store.FindJob(j2.ID)
+	assert.NoError(t, err)
+	assert.Len(t, fetched2.Initiators, 1)
+	assert.Len(t, fetched2.Tasks, 1)
+}
+
 func TestJobSpec_Save(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore()
