@@ -222,8 +222,7 @@ func (txm *EthTxManager) createEthTxWithNonceReload(
 	})
 
 	if err != nil {
-		nonceErr, _ := regexp.MatchString("nonce .*too low", err.Error())
-		if nonceErr {
+		if matchesNonceTooLowError(err) {
 			if nrc >= nonceReloadLimit {
 				err = fmt.Errorf(
 					"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v, Reattempt: %v",
@@ -244,6 +243,15 @@ func (txm *EthTxManager) createEthTxWithNonceReload(
 	}
 
 	return tx, err
+}
+
+var (
+	nonceTooLowRegex = regexp.MustCompile("nonce .*too low")
+	sameHashRegex    = regexp.MustCompile("same hash was already imported")
+)
+
+func matchesNonceTooLowError(err error) bool {
+	return nonceTooLowRegex.MatchString(err.Error()) || sameHashRegex.MatchString(err.Error())
 }
 
 func (txm *EthTxManager) createTxWithNonceReload(
