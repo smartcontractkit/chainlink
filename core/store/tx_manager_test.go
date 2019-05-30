@@ -205,6 +205,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 	}{
 		{"geth", "nonce too low"},
 		{"parity", "Transaction nonce is too low. Try incrementing the nonce"},
+		{"parity", "Transaction with the same hash was already imported"},
 	}
 
 	for _, test := range tests {
