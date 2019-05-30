@@ -1,6 +1,7 @@
 package models_test
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -9,7 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
 
@@ -162,4 +166,44 @@ func TestHead_NextInt(t *testing.T) {
 			assert.Equal(t, test.want, test.bn.NextInt())
 		})
 	}
+}
+
+func TestTx_PresenterMatchesHex(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	store := app.Store
+	manager := store.TxManager
+	account := store.KeyStore.Accounts()[0]
+	to := cltest.NewAddress()
+	data, err := hex.DecodeString("0000abcdef")
+	require.NoError(t, err)
+
+	ethMock := app.MockEthClient()
+	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", "0x00")
+		ethMock.Register("eth_getTransactionCount", "0x10")
+	})
+
+	require.NoError(t, app.StartAndConnect())
+
+	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(1))
+	})
+
+	createdTx, err := manager.CreateTx(to, data)
+	require.NoError(t, err)
+
+	unsigned := createdTx.EthTx(createdTx.GasPrice.ToInt())
+	signed, err := store.KeyStore.SignTx(account, unsigned, store.Config.ChainID())
+	require.NoError(t, err)
+
+	signedHex, err := utils.EncodeTxToHex(signed)
+	assert.NoError(t, err)
+
+	ptx, err := presenters.NewTx(createdTx)
+	assert.NoError(t, err)
+
+	assert.Equal(t, signedHex, ptx.Hex)
 }
