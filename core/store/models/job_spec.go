@@ -14,6 +14,27 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
+// JobSpecRequest represents a schema for the incoming job spec request as used by the API.
+type JobSpecRequest struct {
+	Initiators []InitiatorRequest `json:"initiators"`
+	Tasks      []TaskSpecRequest  `json:"tasks"`
+	StartAt    null.Time          `json:"startAt"`
+	EndAt      null.Time          `json:"endAt"`
+}
+
+// InitiatorRequest represents a schema for incoming initiator requests as used by the API.
+type InitiatorRequest struct {
+	Type            string `json:"type"`
+	InitiatorParams `json:"params,omitempty"`
+}
+
+// TaskSpecRequest represents a schema for incoming TaskSpec requests as used by the API.
+type TaskSpecRequest struct {
+	Type          TaskType `json:"type"`
+	Confirmations uint64   `json:"confirmations"`
+	Params        JSON     `json:"params"`
+}
+
 // JobSpec is the definition for all the work to be carried out by the node
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
@@ -25,14 +46,6 @@ type JobSpec struct {
 	StartAt    null.Time   `json:"startAt" gorm:"index"`
 	EndAt      null.Time   `json:"endAt" gorm:"index"`
 	DeletedAt  null.Time   `json:"-" gorm:"index"`
-}
-
-// JobSpecRequest represents a schema for the incoming job spec request as used by the API.
-type JobSpecRequest struct {
-	Initiators []Initiator `json:"initiators"`
-	Tasks      []TaskSpec  `json:"tasks"`
-	StartAt    null.Time   `json:"startAt" gorm:"index"`
-	EndAt      null.Time   `json:"endAt" gorm:"index"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -63,11 +76,25 @@ func NewJob() JobSpec {
 // JobSpecRequest
 func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 	jobSpec := NewJob()
-	jobSpec.Initiators = jsr.Initiators
-	for _, initr := range jobSpec.Initiators {
-		initr.JobSpecID = jobSpec.ID
+	for _, initr := range jsr.Initiators {
+		jobSpec.Initiators = append(jobSpec.Initiators, Initiator{
+			JobSpecID: jobSpec.ID,
+			// Type must be downcast to comply with Initiator deserialization
+			// logic. Ideally, Initiator.Type should be its own type (InitiatorType)
+			// that handles deserialization validation.
+			Type:            strings.ToLower(initr.Type),
+			InitiatorParams: initr.InitiatorParams,
+		})
 	}
-	jobSpec.Tasks = jsr.Tasks
+	for _, task := range jsr.Tasks {
+		jobSpec.Tasks = append(jobSpec.Tasks, TaskSpec{
+			JobSpecID:     jobSpec.ID,
+			Type:          task.Type,
+			Confirmations: task.Confirmations,
+			Params:        task.Params,
+		})
+	}
+
 	jobSpec.EndAt = jsr.EndAt
 	jobSpec.StartAt = jsr.StartAt
 	return jobSpec
