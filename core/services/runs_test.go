@@ -173,6 +173,20 @@ func TestNewRun_startAtAndEndAt(t *testing.T) {
 	}
 }
 
+func TestNewRun_noTasksErrorsInsteadOfPanic(t *testing.T) {
+	store, cleanup := cltest.NewStore()
+	defer cleanup()
+
+	job := cltest.NewJobWithWebInitiator()
+	job.Tasks = []models.TaskSpec{}
+	require.NoError(t, store.CreateJob(&job))
+
+	jr, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store)
+	assert.NoError(t, err)
+	assert.True(t, jr.Status.Errored())
+	assert.True(t, jr.Result.HasError())
+}
+
 func TestResumePendingTask(t *testing.T) {
 	store, cleanup := cltest.NewStore()
 	defer cleanup()

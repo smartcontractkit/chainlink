@@ -125,6 +125,10 @@ func NewRun(
 		}
 	}
 
+	if len(run.TaskRuns) == 0 {
+		run.SetError(fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID))
+	}
+
 	if !run.Status.Runnable() {
 		return &run, nil
 	}
