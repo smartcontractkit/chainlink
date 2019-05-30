@@ -15,7 +15,7 @@ import (
 func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(""))
+	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 
 	data := ""
 	token := ""
@@ -28,7 +28,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	)
 	defer cleanup()
 
-	_, bt := cltest.NewBridgeType("auctionBidding", mock.URL)
+	_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
 	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
 
@@ -45,14 +45,14 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(""))
+	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 
 	mock, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`,
 		func(h http.Header, b string) {},
 	)
 	defer cleanup()
 
-	_, bt := cltest.NewBridgeType("auctionBidding", mock.URL)
+	_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
 	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
 
@@ -86,7 +86,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			mock, _ := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending": true}`)
-			_, bt := cltest.NewBridgeType("auctionBidding", mock.URL)
+			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			ba := &adapters.Bridge{BridgeType: bt}
 
 			input := models.RunResult{
@@ -138,7 +138,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 				})
 			defer ensureCalled()
 
-			_, bt := cltest.NewBridgeType("auctionBidding", mock.URL)
+			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			eb := &adapters.Bridge{BridgeType: bt}
 			input := cltest.RunResultWithResult("lot 49")
 			input.CachedJobRunID = runID
@@ -164,12 +164,12 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 	}{
 		{
 			name:          "basic URL",
-			configuredURL: cltest.WebURL("https://chain.link"),
+			configuredURL: cltest.WebURL(t, "https://chain.link"),
 			want:          `{"id":"1234","data":{"result":"lot 49"},"responseURL":"https://chain.link/v2/runs/1234"}`,
 		},
 		{
 			name:          "blank URL",
-			configuredURL: cltest.WebURL(""),
+			configuredURL: cltest.WebURL(t, ""),
 			want:          `{"id":"1234","data":{"result":"lot 49"}}`,
 		},
 	}
@@ -186,7 +186,7 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 				})
 			defer ensureCalled()
 
-			_, bt := cltest.NewBridgeType("auctionBidding", mock.URL)
+			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			eb := &adapters.Bridge{BridgeType: bt}
 			eb.Perform(input, store)
 		})

@@ -40,7 +40,7 @@ func TestNewUnsignedServiceAgreementFromRequest(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, test.wantDigest, us.ID.String())
 			assert.Equal(t, test.wantPayment, us.Encumbrance.Payment)
-			assert.Equal(t, cltest.NormalizedJSON([]byte(test.input)), us.RequestBody)
+			assert.Equal(t, cltest.NormalizedJSON(t, []byte(test.input)), us.RequestBody)
 		})
 	}
 }
@@ -75,7 +75,7 @@ func TestBuildServiceAgreement(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, test.wantDigest, sa.ID)
 			assert.Equal(t, test.wantPayment, sa.Encumbrance.Payment)
-			assert.Equal(t, cltest.NormalizedJSON([]byte(test.input)), sa.RequestBody)
+			assert.Equal(t, cltest.NormalizedJSON(t, []byte(test.input)), sa.RequestBody)
 			assert.NotEqual(t, models.AnyTime{}, sa.CreatedAt)
 			assert.NotEqual(t, "", sa.Signature.String())
 		})

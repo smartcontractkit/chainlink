@@ -28,7 +28,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 
 	assert.Nil(t, client.DisplayAccountBalance(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
-	from := cltest.GetAccountAddress(app.GetStore())
+	from := cltest.GetAccountAddress(t, app.GetStore())
 	balances := *r.Renders[0].(*[]presenters.AccountBalance)
 	assert.Equal(t, from.Hex(), balances[0].Address)
 }
@@ -153,7 +153,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 			err := client.CreateServiceAgreement(c)
 
 			cltest.AssertError(t, test.errored, err)
-			jobs := cltest.AllJobs(app.Store)
+			jobs := cltest.AllJobs(t, app.Store)
 			if test.jobsCreated {
 				assert.True(t, len(jobs) > 0)
 			} else {
@@ -191,7 +191,7 @@ func TestClient_CreateJobSpec(t *testing.T) {
 			err := client.CreateJobSpec(c)
 			cltest.AssertError(t, test.errored, err)
 
-			numberOfJobs := cltest.AllJobs(app.Store)
+			numberOfJobs := cltest.AllJobs(t, app.Store)
 			assert.Equal(t, test.nJobs, len(numberOfJobs))
 		})
 	}
@@ -214,7 +214,7 @@ func TestClient_ArchiveJobSpec(t *testing.T) {
 
 	require.NoError(t, client.ArchiveJobSpec(c))
 
-	jobs := cltest.AllJobs(app.Store)
+	jobs := cltest.AllJobs(t, app.Store)
 	require.Len(t, jobs, 0)
 }
 
@@ -324,7 +324,7 @@ func TestClient_GetBridges(t *testing.T) {
 	defer cleanup()
 	bt1 := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           cltest.WebURL("https://testing.com/bridges"),
+		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
 	err := app.GetStore().CreateBridgeType(bt1)
@@ -332,7 +332,7 @@ func TestClient_GetBridges(t *testing.T) {
 
 	bt2 := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges2"),
-		URL:           cltest.WebURL("https://testing.com/bridges"),
+		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
 	err = app.GetStore().CreateBridgeType(bt2)
@@ -353,7 +353,7 @@ func TestClient_ShowBridge(t *testing.T) {
 	defer cleanup()
 	bt := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           cltest.WebURL("https://testing.com/bridges"),
+		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
 	require.NoError(t, app.GetStore().CreateBridgeType(bt))
@@ -375,7 +375,7 @@ func TestClient_RemoveBridge(t *testing.T) {
 	defer cleanup()
 	bt := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           cltest.WebURL("https://testing.com/bridges"),
+		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
 	err := app.GetStore().CreateBridgeType(bt)
@@ -589,8 +589,8 @@ func TestClient_GetTransactions(t *testing.T) {
 	defer cleanup()
 
 	store := app.GetStore()
-	from := cltest.GetAccountAddress(store)
-	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
 
 	client, r := app.NewClientAndRenderer()
 
@@ -623,8 +623,8 @@ func TestClient_GetTxAttempts(t *testing.T) {
 	defer cleanup()
 
 	store := app.GetStore()
-	from := cltest.GetAccountAddress(store)
-	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
 	attempts, err := store.TxAttemptsFor(tx.ID)
 	require.NoError(t, err)
 

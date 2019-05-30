@@ -243,7 +243,7 @@ func (ta *TestApplication) Stop() error {
 	// We would prefer to invoke a method on an interface that
 	// cleans up only in test.
 	require.NoError(ta.t, ta.ChainlinkApplication.Stop())
-	cleanUpStore(ta.Store)
+	cleanUpStore(ta.t, ta.Store)
 	if ta.Server != nil {
 		ta.Server.Close()
 	}
@@ -325,7 +325,7 @@ func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
 	WipePostgresDatabase(config.Config)
 	s := strpkg.NewStore(config.Config)
 	return s, func() {
-		cleanUpStore(s)
+		cleanUpStore(config.t, s)
 	}
 }
 
@@ -339,14 +339,14 @@ func NewStore(t testing.TB) (*strpkg.Store, func()) {
 	}
 }
 
-func cleanUpStore(store *strpkg.Store) {
+func cleanUpStore(t testing.TB, store *strpkg.Store) {
 	defer func() {
 		if err := os.RemoveAll(store.Config.RootDir()); err != nil {
 			logger.Warn("unable to clear test store:", err)
 		}
 	}()
 	logger.Sync()
-	mustNotErr(store.Close())
+	require.NoError(t, store.Close())
 }
 
 func WipePostgresDatabase(c strpkg.Config) {
@@ -387,17 +387,17 @@ type CommonJSON struct {
 }
 
 // ParseCommonJSON will unmarshall given body into CommonJSON
-func ParseCommonJSON(body io.Reader) CommonJSON {
+func ParseCommonJSON(t testing.TB, body io.Reader) CommonJSON {
 	b, err := ioutil.ReadAll(body)
-	mustNotErr(err)
+	require.NoError(t, err)
 	var respJSON CommonJSON
 	json.Unmarshal(b, &respJSON)
 	return respJSON
 }
 
-func ParseJSON(body io.Reader) models.JSON {
+func ParseJSON(t testing.TB, body io.Reader) models.JSON {
 	b, err := ioutil.ReadAll(body)
-	mustNotErr(err)
+	require.NoError(t, err)
 	return models.JSON{Result: gjson.ParseBytes(b)}
 }
 
@@ -407,17 +407,17 @@ type ErrorsJSON struct {
 }
 
 // ParseErrorsJSON will unmarshall given body into ErrorsJSON
-func ParseErrorsJSON(body io.Reader) ErrorsJSON {
+func ParseErrorsJSON(t testing.TB, body io.Reader) ErrorsJSON {
 	b, err := ioutil.ReadAll(body)
-	mustNotErr(err)
+	require.NoError(t, err)
 	var respJSON ErrorsJSON
 	json.Unmarshal(b, &respJSON)
 	return respJSON
 }
 
-func ParseJSONAPIErrors(body io.Reader) *models.JSONAPIErrors {
+func ParseJSONAPIErrors(t testing.TB, body io.Reader) *models.JSONAPIErrors {
 	b, err := ioutil.ReadAll(body)
-	mustNotErr(err)
+	require.NoError(t, err)
 	var respJSON models.JSONAPIErrors
 	json.Unmarshal(b, &respJSON)
 	return &respJSON
@@ -430,54 +430,59 @@ func MustReadFile(t testing.TB, file string) []byte {
 	return content
 }
 
-func CopyFile(src, dst string) {
+func CopyFile(t testing.TB, src, dst string) {
 	from, err := os.Open(src)
-	mustNotErr(err)
+	require.NoError(t, err)
 	defer from.Close()
 
 	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE, 0666)
-	mustNotErr(err)
+	require.NoError(t, err)
 
 	_, err = io.Copy(to, from)
-	mustNotErr(err)
-	mustNotErr(to.Close())
+	require.NoError(t, err)
+	require.NoError(t, to.Close())
 }
 
 type HTTPClientCleaner struct {
 	HTTPClient cmd.HTTPClient
+	t          testing.TB
 }
 
 func (r *HTTPClientCleaner) Get(path string, headers ...map[string]string) (*http.Response, func()) {
-	return bodyCleaner(r.HTTPClient.Get(path, headers...))
+	resp, err := r.HTTPClient.Get(path, headers...)
+	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Post(path string, body io.Reader) (*http.Response, func()) {
-	return bodyCleaner(r.HTTPClient.Post(path, body))
+	resp, err := r.HTTPClient.Post(path, body)
+	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Patch(path string, body io.Reader, headers ...map[string]string) (*http.Response, func()) {
-	return bodyCleaner(r.HTTPClient.Patch(path, body, headers...))
+	resp, err := r.HTTPClient.Patch(path, body, headers...)
+	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Delete(path string) (*http.Response, func()) {
-	return bodyCleaner(r.HTTPClient.Delete(path))
+	resp, err := r.HTTPClient.Delete(path)
+	return bodyCleaner(r.t, resp, err)
 }
 
-func bodyCleaner(resp *http.Response, err error) (*http.Response, func()) {
-	mustNotErr(err)
-	return resp, func() { mustNotErr(resp.Body.Close()) }
+func bodyCleaner(t testing.TB, resp *http.Response, err error) (*http.Response, func()) {
+	require.NoError(t, err)
+	return resp, func() { require.NoError(t, resp.Body.Close()) }
 }
 
 // ParseResponseBody will parse the given response into a byte slice
-func ParseResponseBody(resp *http.Response) []byte {
+func ParseResponseBody(t testing.TB, resp *http.Response) []byte {
 	b, err := ioutil.ReadAll(resp.Body)
-	mustNotErr(err)
+	require.NoError(t, err)
 	return b
 }
 
 // ParseJSONAPIResponse parses the response and returns the JSONAPI resource.
-func ParseJSONAPIResponse(resp *http.Response, resource interface{}) error {
-	input := ParseResponseBody(resp)
+func ParseJSONAPIResponse(t testing.TB, resp *http.Response, resource interface{}) error {
+	input := ParseResponseBody(t, resp)
 	err := jsonapi.Unmarshal(input, resource)
 	if err != nil {
 		return fmt.Errorf("web: unable to unmarshal data, %+v", err)
@@ -528,24 +533,24 @@ func ReadLogs(app *TestApplication) (string, error) {
 }
 
 // FindJob returns JobSpec for given JobID
-func FindJob(s *strpkg.Store, id string) models.JobSpec {
+func FindJob(t testing.TB, s *strpkg.Store, id string) models.JobSpec {
 	j, err := s.FindJob(id)
-	mustNotErr(err)
+	require.NoError(t, err)
 
 	return j
 }
 
 // FindJobRun returns JobRun for given JobRunID
-func FindJobRun(s *strpkg.Store, id string) models.JobRun {
+func FindJobRun(t testing.TB, s *strpkg.Store, id string) models.JobRun {
 	j, err := s.FindJobRun(id)
-	mustNotErr(err)
+	require.NoError(t, err)
 
 	return j
 }
 
-func FindServiceAgreement(s *strpkg.Store, id string) models.ServiceAgreement {
+func FindServiceAgreement(t testing.TB, s *strpkg.Store, id string) models.ServiceAgreement {
 	sa, err := s.FindServiceAgreement(id)
-	mustNotErr(err)
+	require.NoError(t, err)
 
 	return sa
 }
@@ -560,7 +565,7 @@ func CreateJobSpecViaWeb(t testing.TB, app *TestApplication, job models.JobSpec)
 	AssertServerResponse(t, resp, 200)
 
 	var createdJob models.JobSpec
-	err = ParseJSONAPIResponse(resp, &createdJob)
+	err = ParseJSONAPIResponse(t, resp, &createdJob)
 	require.NoError(t, err)
 	return createdJob
 }
@@ -577,7 +582,7 @@ func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, bo
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	var jr models.JobRun
-	err := ParseJSONAPIResponse(resp, &jr)
+	err := ParseJSONAPIResponse(t, resp, &jr)
 	require.NoError(t, err)
 
 	assert.Equal(t, j.ID, jr.JobSpecID)
@@ -614,7 +619,7 @@ func UpdateJobRunViaWeb(
 
 	AssertServerResponse(t, resp, 200)
 	var respJobRun presenters.JobRun
-	assert.NoError(t, ParseJSONAPIResponse(resp, &respJobRun))
+	assert.NoError(t, ParseJSONAPIResponse(t, resp, &respJobRun))
 	assert.Equal(t, jr.ID, respJobRun.ID)
 	jr = respJobRun.JobRun
 	return jr
@@ -634,7 +639,7 @@ func CreateBridgeTypeViaWeb(
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	bt := &models.BridgeTypeAuthentication{}
-	err := ParseJSONAPIResponse(resp, bt)
+	err := ParseJSONAPIResponse(t, resp, bt)
 	require.NoError(t, err)
 
 	return bt
@@ -780,12 +785,12 @@ func WaitForJobs(t testing.TB, store *strpkg.Store, want int) []models.JobSpec {
 	var jobs []models.JobSpec
 	if want == 0 {
 		g.Consistently(func() []models.JobSpec {
-			jobs = AllJobs(store)
+			jobs = AllJobs(t, store)
 			return jobs
 		}).Should(gomega.HaveLen(want))
 	} else {
 		g.Eventually(func() []models.JobSpec {
-			jobs = AllJobs(store)
+			jobs = AllJobs(t, store)
 			return jobs
 		}).Should(gomega.HaveLen(want))
 	}
@@ -823,10 +828,10 @@ func AssertSyncEventCountStays(
 }
 
 // ParseISO8601 given the time string it Must parse the time and return it
-func ParseISO8601(s string) time.Time {
-	t, err := time.Parse(time.RFC3339Nano, s)
-	mustNotErr(err)
-	return t
+func ParseISO8601(t testing.TB, s string) time.Time {
+	tm, err := time.Parse(time.RFC3339Nano, s)
+	require.NoError(t, err)
+	return tm
 }
 
 // NullableTime will return a valid nullable time given time.Time
@@ -835,8 +840,8 @@ func NullableTime(t time.Time) null.Time {
 }
 
 // ParseNullableTime given a time string parse it into a null.Time
-func ParseNullableTime(s string) null.Time {
-	return NullableTime(ParseISO8601(s))
+func ParseNullableTime(t testing.TB, s string) null.Time {
+	return NullableTime(ParseISO8601(t, s))
 }
 
 // Head given the value convert it into an Head
@@ -861,17 +866,10 @@ func NewBlockHeader(number int) *models.BlockHeader {
 	return &models.BlockHeader{Number: BigHexInt(number)}
 }
 
-// XXX: Please don't use this, use require.NoError instead
-func mustNotErr(err error) {
-	if err != nil {
-		logger.Panic(err)
-	}
-}
-
 // GetAccountAddress returns Address of the account in the keystore of the passed in store
-func GetAccountAddress(store *strpkg.Store) common.Address {
+func GetAccountAddress(t testing.TB, store *strpkg.Store) common.Address {
 	account, err := store.KeyStore.GetFirstAccount()
-	mustNotErr(err)
+	require.NoError(t, err)
 
 	return account.Address
 }
@@ -967,9 +965,9 @@ func MustGenerateSessionCookie(value string) *http.Cookie {
 	return sessions.NewCookie(web.SessionName, encoded, &sessions.Options{})
 }
 
-func NormalizedJSON(input []byte) string {
+func NormalizedJSON(t testing.TB, input []byte) string {
 	normalized, err := utils.NormalizedJSON(input)
-	mustNotErr(err)
+	require.NoError(t, err)
 	return normalized
 }
 
@@ -981,22 +979,22 @@ func AssertError(t testing.TB, want bool, err error) {
 	}
 }
 
-func UnauthenticatedPatch(url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
+func UnauthenticatedPatch(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
 	client := http.Client{}
 	request, err := http.NewRequest("PATCH", url, body)
-	mustNotErr(err)
+	require.NoError(t, err)
 	request.Header.Set("Content-Type", "application/json")
 	for key, value := range headers {
 		request.Header.Add(key, value)
 	}
 	resp, err := client.Do(request)
-	mustNotErr(err)
+	require.NoError(t, err)
 	return resp, func() { resp.Body.Close() }
 }
 
-func MustParseDuration(durationStr string) time.Duration {
+func MustParseDuration(t testing.TB, durationStr string) time.Duration {
 	duration, err := time.ParseDuration(durationStr)
-	mustNotErr(err)
+	require.NoError(t, err)
 	return duration
 }
 
@@ -1008,10 +1006,10 @@ func NewSession(optionalSessionID ...string) models.Session {
 	return session
 }
 
-func AllJobs(store *strpkg.Store) []models.JobSpec {
+func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {
 	var all []models.JobSpec
 	err := store.ORM.DB.Find(&all).Error
-	mustNotErr(err)
+	require.NoError(t, err)
 	return all
 }
 

@@ -48,7 +48,7 @@ func TestJobSpecsController_Index_noSort(t *testing.T) {
 	resp, cleanup = client.Get("/v2/specs?size=1")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
-	body := cltest.ParseResponseBody(resp)
+	body := cltest.ParseResponseBody(t, resp)
 
 	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
 	assert.NoError(t, err)
@@ -69,7 +69,7 @@ func TestJobSpecsController_Index_noSort(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, 200)
 
 	jobs = []models.JobSpec{}
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &jobs, &links)
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &jobs, &links)
 	assert.NoError(t, err)
 	assert.Empty(t, links["next"])
 	assert.NotEmpty(t, links["prev"])
@@ -103,7 +103,7 @@ func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 	resp, cleanup := client.Get("/v2/specs?sort=createdAt&size=2")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
-	body := cltest.ParseResponseBody(resp)
+	body := cltest.ParseResponseBody(t, resp)
 
 	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
 	assert.NoError(t, err)
@@ -123,7 +123,7 @@ func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 	resp, cleanup = client.Get("/v2/specs?sort=-createdAt&size=2")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
-	body = cltest.ParseResponseBody(resp)
+	body = cltest.ParseResponseBody(t, resp)
 
 	metaCount, err = cltest.ParseJSONAPIResponseMetaCount(body)
 	assert.NoError(t, err)
@@ -166,7 +166,7 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 
 	// Check Response
 	var j models.JobSpec
-	err := cltest.ParseJSONAPIResponse(resp, &j)
+	err := cltest.ParseJSONAPIResponse(t, resp, &j)
 	require.NoError(t, err)
 
 	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
@@ -237,7 +237,7 @@ func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"idonotexist is not a supported adapter type"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
+	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
 }
 
 func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
@@ -253,7 +253,7 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"RunAt must have a time"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
+	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
 }
 
 func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
@@ -269,7 +269,7 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"Cron: Failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
+	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
 }
 
 func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
@@ -285,7 +285,7 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"Must have at least one Initiator and one Task"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
+	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
 }
 
 func TestJobSpecsController_Create_Task_Only(t *testing.T) {
@@ -301,7 +301,7 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"Must have at least one Initiator and one Task"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(resp)))
+	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
 }
 
 func BenchmarkJobSpecsController_Show(b *testing.B) {
@@ -334,7 +334,7 @@ func TestJobSpecsController_Show(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, 200)
 
 	var respJob presenters.JobSpec
-	require.NoError(t, cltest.ParseJSONAPIResponse(resp, &respJob))
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJob))
 	require.Len(t, j.Initiators, 1)
 	require.Len(t, respJob.Initiators, 1)
 	assert.Equal(t, j.Initiators[0].Schedule, respJob.Initiators[0].Schedule, "should have the same schedule")

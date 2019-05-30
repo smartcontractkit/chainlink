@@ -91,7 +91,7 @@ func TestValidateAdapter(t *testing.T) {
 	// Create a duplicate
 	bt := models.BridgeType{}
 	bt.Name = models.MustNewTaskType("solargridreporting")
-	bt.URL = cltest.WebURL("https://denergy.eth")
+	bt.URL = cltest.WebURL(t, "https://denergy.eth")
 	assert.NoError(t, store.CreateBridgeType(&bt))
 
 	tests := []struct {
