@@ -55,7 +55,7 @@ func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&j))
 
-	jr := cltest.CreateJobRunWithStatus(store, j, models.RunStatusPendingConnection)
+	jr := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingConnection)
 
 	require.NoError(t, app.StartAndConnect())
 	_ = cltest.WaitForJobRunToComplete(t, store, jr)
@@ -69,7 +69,7 @@ func TestChainlinkApplication_resumesPendingConnection_Archived(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&j))
 
-	jr := cltest.CreateJobRunWithStatus(store, j, models.RunStatusPendingConnection)
+	jr := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingConnection)
 
 	require.NoError(t, store.ArchiveJob(j.ID))
 
@@ -91,13 +91,13 @@ func TestPendingConnectionResumer(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&j))
 
-	expectedRun := cltest.CreateJobRunWithStatus(store, j, models.RunStatusPendingConnection)
-	_ = cltest.CreateJobRunWithStatus(store, j, models.RunStatusPendingConfirmations)
-	_ = cltest.CreateJobRunWithStatus(store, j, models.RunStatusInProgress)
-	_ = cltest.CreateJobRunWithStatus(store, j, models.RunStatusUnstarted)
-	_ = cltest.CreateJobRunWithStatus(store, j, models.RunStatusPendingBridge)
-	_ = cltest.CreateJobRunWithStatus(store, j, models.RunStatusInProgress)
-	_ = cltest.CreateJobRunWithStatus(store, j, models.RunStatusCompleted)
+	expectedRun := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingConnection)
+	_ = cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingConfirmations)
+	_ = cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusInProgress)
+	_ = cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusUnstarted)
+	_ = cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingBridge)
+	_ = cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusInProgress)
+	_ = cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusCompleted)
 
 	assert.NoError(t, pcr.Connect(cltest.Head(1)))
 	assert.Equal(t, []string{expectedRun.ID}, resumedRuns)

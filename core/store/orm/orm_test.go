@@ -463,7 +463,7 @@ func TestORM_FindBridge(t *testing.T) {
 
 	bt := models.BridgeType{}
 	bt.Name = models.MustNewTaskType("solargridreporting")
-	bt.URL = cltest.WebURL("https://denergy.eth")
+	bt.URL = cltest.WebURL(t, "https://denergy.eth")
 	assert.NoError(t, store.CreateBridgeType(&bt))
 
 	cases := []struct {
@@ -495,7 +495,7 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	defer cleanup()
 	jobRunner.Start()
 
-	_, bt := cltest.NewBridgeType()
+	_, bt := cltest.NewBridgeType(t)
 	require.NoError(t, store.CreateBridgeType(bt))
 
 	job := cltest.NewJobWithWebInitiator()
@@ -518,7 +518,7 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	_, bt := cltest.NewBridgeType()
+	_, bt := cltest.NewBridgeType(t)
 	require.NoError(t, store.CreateBridgeType(bt))
 
 	job := cltest.NewJobWithWebInitiator()
@@ -538,7 +538,7 @@ func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 
-	account := cltest.GetAccountAddress(store)
+	account := cltest.GetAccountAddress(t, store)
 	nonce, err := store.GetLastNonce(account)
 
 	assert.NoError(t, err)
@@ -564,7 +564,7 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 	_, err := manager.CreateTx(to, []byte{})
 	assert.NoError(t, err)
 
-	account := cltest.GetAccountAddress(store)
+	account := cltest.GetAccountAddress(t, store)
 	nonce, err := store.GetLastNonce(account)
 
 	assert.NoError(t, err)
@@ -631,16 +631,16 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 		wantError       bool
 		wantEmail       string
 	}{
-		{"authorized", "correctID", cltest.MustParseDuration("3m"), false, "have@email"},
-		{"expired", "correctID", cltest.MustParseDuration("0m"), true, ""},
-		{"incorrect", "wrong", cltest.MustParseDuration("3m"), true, ""},
-		{"empty", "", cltest.MustParseDuration("3m"), true, ""},
+		{"authorized", "correctID", cltest.MustParseDuration(t, "3m"), false, "have@email"},
+		{"expired", "correctID", cltest.MustParseDuration(t, "0m"), true, ""},
+		{"incorrect", "wrong", cltest.MustParseDuration(t, "3m"), true, ""},
+		{"empty", "", cltest.MustParseDuration(t, "3m"), true, ""},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			prevSession := cltest.NewSession("correctID")
-			prevSession.LastUsed = time.Now().Add(-cltest.MustParseDuration("2m"))
+			prevSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "2m"))
 			require.NoError(t, store.SaveSession(&prevSession))
 
 			expectedTime := utils.ISO8601UTC(time.Now())
@@ -742,8 +742,8 @@ func TestORM_DeleteTransaction(t *testing.T) {
 	require.NoError(t, err)
 	defer cleanup()
 
-	from := cltest.GetAccountAddress(store)
-	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
 	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
 	require.NoError(t, err)
 
@@ -806,32 +806,32 @@ func TestBulkDeleteRuns(t *testing.T) {
 	oldIncompleteRun.Status = models.RunStatusInProgress
 	err := orm.CreateJobRun(&oldIncompleteRun)
 	require.NoError(t, err)
-	db.Model(&oldIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601("2018-01-01T00:00:00Z"))
+	db.Model(&oldIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
 
 	// matches one of the statuses and the updated before
 	oldCompletedRun := job.NewRun(initiator)
 	oldCompletedRun.Status = models.RunStatusCompleted
 	err = orm.CreateJobRun(&oldCompletedRun)
 	require.NoError(t, err)
-	db.Model(&oldCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601("2018-01-01T00:00:00Z"))
+	db.Model(&oldCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
 
 	// matches one of the statuses but not the updated before
 	newCompletedRun := job.NewRun(initiator)
 	newCompletedRun.Status = models.RunStatusCompleted
 	err = orm.CreateJobRun(&newCompletedRun)
 	require.NoError(t, err)
-	db.Model(&newCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601("2018-01-30T00:00:00Z"))
+	db.Model(&newCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
 
 	// matches nothing
 	newIncompleteRun := job.NewRun(initiator)
 	newIncompleteRun.Status = models.RunStatusCompleted
 	err = orm.CreateJobRun(&newIncompleteRun)
 	require.NoError(t, err)
-	db.Model(&newIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601("2018-01-30T00:00:00Z"))
+	db.Model(&newIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
 
 	err = store.ORM.BulkDeleteRuns(&models.BulkDeleteRunRequest{
 		Status:        []models.RunStatus{models.RunStatusCompleted},
-		UpdatedBefore: cltest.ParseISO8601("2018-01-15T00:00:00Z"),
+		UpdatedBefore: cltest.ParseISO8601(t, "2018-01-15T00:00:00Z"),
 	})
 
 	require.NoError(t, err)
@@ -865,9 +865,9 @@ func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
 	require.NoError(t, err)
 	defer cleanup()
 
-	from := cltest.GetAccountAddress(store)
+	from := cltest.GetAccountAddress(t, store)
 
-	tx1 := cltest.CreateTxAndAttempt(store, from, 1)
+	tx1 := cltest.CreateTxAndAttempt(t, store, from, 1)
 	tx2, err := store.FindTxByAttempt(tx1.Hash)
 
 	require.Equal(t, tx1.ID, tx2.ID)
@@ -892,8 +892,8 @@ func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
 	require.NoError(t, err)
 	defer cleanup()
 
-	from := cltest.GetAccountAddress(store)
-	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
 	tx1 := *tx
 	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
 	require.NoError(t, err)
@@ -989,13 +989,13 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 
 	firstBridge := &models.BridgeType{
 		Name: "UniqueName",
-		URL:  cltest.WebURL("http:/oneurl.com"),
+		URL:  cltest.WebURL(t, "http:/oneurl.com"),
 	}
 
 	require.NoError(t, store.CreateBridgeType(firstBridge))
 
 	updateBridge := &models.BridgeTypeRequest{
-		URL: cltest.WebURL("http:/updatedurl.com"),
+		URL: cltest.WebURL(t, "http:/updatedurl.com"),
 	}
 
 	require.NoError(t, store.UpdateBridgeType(firstBridge, updateBridge))

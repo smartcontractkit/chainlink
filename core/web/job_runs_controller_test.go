@@ -52,7 +52,7 @@ func TestJobRunsController_Index(t *testing.T) {
 	var links jsonapi.Links
 	var runs []models.JobRun
 
-	err := web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &runs, &links)
+	err := web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &runs, &links)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
@@ -67,7 +67,7 @@ func TestJobRunsController_Index(t *testing.T) {
 	var nextPageLinks jsonapi.Links
 	var nextPageRuns = []models.JobRun{}
 
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &nextPageRuns, &nextPageLinks)
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &nextPageRuns, &nextPageLinks)
 	assert.NoError(t, err)
 	assert.Empty(t, nextPageLinks["next"])
 	assert.NotEmpty(t, nextPageLinks["prev"])
@@ -82,7 +82,7 @@ func TestJobRunsController_Index(t *testing.T) {
 	var allJobRunLinks jsonapi.Links
 	var allJobRuns []models.JobRun
 
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &allJobRuns, &allJobRunLinks)
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &allJobRuns, &allJobRunLinks)
 	assert.NoError(t, err)
 	assert.Empty(t, allJobRunLinks["next"].Href)
 	assert.Empty(t, allJobRunLinks["prev"].Href)
@@ -223,7 +223,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			bta, bt := cltest.NewBridgeType(test.name)
+			bta, bt := cltest.NewBridgeType(t, test.name)
 			require.NoError(t, app.Store.CreateBridgeType(bt))
 			j := cltest.NewJobWithWebInitiator()
 			j.Tasks = []models.TaskSpec{{Type: bt.Name}}
@@ -239,12 +239,12 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 			body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
 			headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
 			url := app.Config.ClientNodeURL() + "/v2/runs/" + jr.ID
-			resp, cleanup := cltest.UnauthenticatedPatch(url, bytes.NewBufferString(body), headers)
+			resp, cleanup := cltest.UnauthenticatedPatch(t, url, bytes.NewBufferString(body), headers)
 			defer cleanup()
 
 			require.Equal(t, 200, resp.StatusCode, "Response should be successful")
 			var respJobRun presenters.JobRun
-			assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &respJobRun))
+			assert.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJobRun))
 			require.Equal(t, jr.ID, respJobRun.ID)
 
 			jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
@@ -262,7 +262,7 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	_, bt := cltest.NewBridgeType()
+	_, bt := cltest.NewBridgeType(t)
 	assert.Nil(t, app.Store.CreateBridgeType(bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
@@ -287,7 +287,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	bta, bt := cltest.NewBridgeType()
+	bta, bt := cltest.NewBridgeType(t)
 	assert.Nil(t, app.Store.CreateBridgeType(bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
@@ -309,7 +309,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	bta, bt := cltest.NewBridgeType()
+	bta, bt := cltest.NewBridgeType(t)
 	assert.Nil(t, app.Store.CreateBridgeType(bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
@@ -323,7 +323,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	defer cleanup()
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 	var respJobRun presenters.JobRun
-	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &respJobRun))
+	assert.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJobRun))
 	assert.Equal(t, jr.ID, respJobRun.ID)
 
 	jr = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusErrored)
@@ -339,7 +339,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	_, bt := cltest.NewBridgeType()
+	_, bt := cltest.NewBridgeType(t)
 	assert.Nil(t, app.Store.CreateBridgeType(bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
@@ -363,7 +363,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	_, bt := cltest.NewBridgeType()
+	_, bt := cltest.NewBridgeType(t)
 	assert.Nil(t, app.Store.CreateBridgeType(bt))
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
@@ -399,7 +399,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	require.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
 	var respJobRun presenters.JobRun
-	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &respJobRun))
+	assert.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJobRun))
 	assert.Equal(t, jr.Initiator.Schedule, respJobRun.Initiator.Schedule, "should have the same schedule")
 	assert.Equal(t, jr.ID, respJobRun.ID, "should have job run id")
 }

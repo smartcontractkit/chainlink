@@ -20,7 +20,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 	// Invalid request
 	resp, cleanup := client.Patch("/v2/user/password", bytes.NewBufferString(""))
 	defer cleanup()
-	errors := cltest.ParseJSONAPIErrors(resp.Body)
+	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
 	require.Equal(t, 422, resp.StatusCode)
 	assert.Len(t, errors.Errors, 1)
 
@@ -29,7 +29,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 		"/v2/user/password",
 		bytes.NewBufferString(`{"oldPassword": "wrong password"}`))
 	defer cleanup()
-	errors = cltest.ParseJSONAPIErrors(resp.Body)
+	errors = cltest.ParseJSONAPIErrors(t, resp.Body)
 	require.Equal(t, 409, resp.StatusCode)
 	assert.Len(t, errors.Errors, 1)
 	assert.Equal(t, "Old password does not match", errors.Errors[0].Detail)
@@ -39,7 +39,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 		"/v2/user/password",
 		bytes.NewBufferString(`{"newPassword": "password", "oldPassword": "password"}`))
 	defer cleanup()
-	errors = cltest.ParseJSONAPIErrors(resp.Body)
+	errors = cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Len(t, errors.Errors, 0)
 	assert.Equal(t, 200, resp.StatusCode)
 }
@@ -55,7 +55,7 @@ func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
 	defer cleanup()
 
 	balances := []presenters.AccountBalance{}
-	err := cltest.ParseJSONAPIResponse(resp, &balances)
+	err := cltest.ParseJSONAPIResponse(t, resp, &balances)
 	assert.NoError(t, err)
 
 	assert.Equal(t, 200, resp.StatusCode)
@@ -86,7 +86,7 @@ func TestUserController_AccountBalances_Success(t *testing.T) {
 
 	expectedAccounts := appWithAccount.Store.KeyStore.Accounts()
 	actualBalances := []presenters.AccountBalance{}
-	err := cltest.ParseJSONAPIResponse(resp, &actualBalances)
+	err := cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
 	assert.NoError(t, err)
 
 	first := actualBalances[0]

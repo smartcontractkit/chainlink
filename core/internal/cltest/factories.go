@@ -134,6 +134,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 
 // CreateTxAndAttempt create tx attempt with given store, from address, and sentat
 func CreateTxAndAttempt(
+	t testing.TB,
 	store *strpkg.Store,
 	from common.Address,
 	sentAt uint64,
@@ -142,9 +143,9 @@ func CreateTxAndAttempt(
 	b := make([]byte, 36)
 	binary.LittleEndian.PutUint64(b, uint64(sentAt))
 	tx.Data = b
-	mustNotErr(store.SaveTx(tx))
+	require.NoError(t, store.SaveTx(tx))
 	_, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
-	mustNotErr(err)
+	require.NoError(t, err)
 	return tx
 }
 
@@ -165,7 +166,7 @@ func randomBytes(n int) []byte {
 }
 
 // NewBridgeType create new bridge type given info slice
-func NewBridgeType(info ...string) (*models.BridgeTypeAuthentication, *models.BridgeType) {
+func NewBridgeType(t testing.TB, info ...string) (*models.BridgeTypeAuthentication, *models.BridgeType) {
 	btr := &models.BridgeTypeRequest{}
 
 	if len(info) > 0 {
@@ -175,28 +176,28 @@ func NewBridgeType(info ...string) (*models.BridgeTypeAuthentication, *models.Br
 	}
 
 	if len(info) > 1 {
-		btr.URL = WebURL(info[1])
+		btr.URL = WebURL(t, info[1])
 	} else {
-		btr.URL = WebURL("https://bridge.example.com/api")
+		btr.URL = WebURL(t, "https://bridge.example.com/api")
 	}
 
 	bta, bt, err := models.NewBridgeType(btr)
-	mustNotErr(err)
+	require.NoError(t, err)
 	return bta, bt
 }
 
 // NewBridgeTypeWithConfirmations creates a new bridge type with given default confs and info slice
-func NewBridgeTypeWithConfirmations(confirmations uint64, info ...string) *models.BridgeType {
-	_, bt := NewBridgeType(info...)
+func NewBridgeTypeWithConfirmations(t testing.TB, confirmations uint64, info ...string) *models.BridgeType {
+	_, bt := NewBridgeType(t, info...)
 	bt.Confirmations = confirmations
 
 	return bt
 }
 
 // WebURL parses a url into a models.WebURL
-func WebURL(unparsed string) models.WebURL {
+func WebURL(t testing.TB, unparsed string) models.WebURL {
 	parsed, err := url.Parse(unparsed)
-	mustNotErr(err)
+	require.NoError(t, err)
 	return models.WebURL(*parsed)
 }
 
@@ -213,10 +214,10 @@ func NullString(val interface{}) null.String {
 }
 
 // NullTime creates a null.Time from given value
-func NullTime(val interface{}) null.Time {
+func NullTime(t testing.TB, val interface{}) null.Time {
 	switch val.(type) {
 	case string:
-		return ParseNullableTime(val.(string))
+		return ParseNullableTime(t, val.(string))
 	case nil:
 		return null.NewTime(time.Unix(0, 0), false)
 	default:
@@ -472,11 +473,11 @@ func EmptyCLIContext() *cli.Context {
 	return cli.NewContext(nil, set, nil)
 }
 
-func CreateJobRunWithStatus(store *store.Store, j models.JobSpec, status models.RunStatus) models.JobRun {
+func CreateJobRunWithStatus(t testing.TB, store *store.Store, j models.JobSpec, status models.RunStatus) models.JobRun {
 	initr := j.Initiators[0]
 	run := j.NewRun(initr)
 	run.Status = status
-	mustNotErr(store.CreateJobRun(&run))
+	require.NoError(t, store.CreateJobRun(&run))
 	return run
 }
 

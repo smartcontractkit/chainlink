@@ -26,7 +26,7 @@ func TestNewRun(t *testing.T) {
 
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
-	_, bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
+	_, bt := cltest.NewBridgeType(t, "timecube", "http://http://timecube.2enp.com/")
 	bt.MinimumContractPayment = assets.NewLink(10)
 	require.NoError(t, store.CreateBridgeType(bt))
 
@@ -54,7 +54,7 @@ func TestNewRun_requiredPayment(t *testing.T) {
 
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
-	_, bt := cltest.NewBridgeType("timecube", "http://http://timecube.2enp.com/")
+	_, bt := cltest.NewBridgeType(t, "timecube", "http://http://timecube.2enp.com/")
 	bt.MinimumContractPayment = assets.NewLink(10)
 	require.NoError(t, store.CreateBridgeType(bt))
 
@@ -134,8 +134,8 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 }
 
 func TestNewRun_startAtAndEndAt(t *testing.T) {
-	pastTime := cltest.ParseNullableTime("2000-01-01T00:00:00.000Z")
-	futureTime := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
+	pastTime := cltest.ParseNullableTime(t, "2000-01-01T00:00:00.000Z")
+	futureTime := cltest.ParseNullableTime(t, "3000-01-01T00:00:00.000Z")
 	nullTime := null.Time{Valid: false}
 
 	tests := []struct {
@@ -331,10 +331,10 @@ func TestResumeConnectingTask(t *testing.T) {
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 }
 
-func sleepAdapterParams(n int) models.JSON {
+func sleepAdapterParams(t testing.TB, n int) models.JSON {
 	d := time.Duration(n)
 	json := []byte(fmt.Sprintf(`{"until":%v}`, time.Now().Add(d*time.Second).Unix()))
-	return cltest.ParseJSON(bytes.NewBuffer(json))
+	return cltest.ParseJSON(t, bytes.NewBuffer(json))
 }
 
 func TestQueueSleepingTask(t *testing.T) {
@@ -370,7 +370,7 @@ func TestQueueSleepingTask(t *testing.T) {
 	assert.Error(t, err)
 
 	// error decoding params into adapter
-	inputFromTheFuture := cltest.ParseJSON(bytes.NewBuffer([]byte(`{"until": -1}`)))
+	inputFromTheFuture := cltest.ParseJSON(t, bytes.NewBuffer([]byte(`{"until": -1}`)))
 	run = &models.JobRun{
 		ID:        utils.NewBytes32ID(),
 		JobSpecID: jobSpec.ID,
@@ -429,7 +429,7 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Happy(t *t
 	store.Clock = clock
 	clock.SetTime(time.Time{})
 
-	inputFromTheFuture := sleepAdapterParams(60)
+	inputFromTheFuture := sleepAdapterParams(t, 60)
 	run := &models.JobRun{
 		ID:        utils.NewBytes32ID(),
 		JobSpecID: jobSpec.ID,
@@ -477,7 +477,7 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Archived(t
 	store.Clock = clock
 	clock.SetTime(time.Time{})
 
-	inputFromTheFuture := sleepAdapterParams(60)
+	inputFromTheFuture := sleepAdapterParams(t, 60)
 	run := &models.JobRun{
 		ID:        utils.NewBytes32ID(),
 		JobSpecID: jobSpec.ID,

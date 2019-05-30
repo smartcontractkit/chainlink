@@ -67,7 +67,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 
 	assert.False(t, data.HasError())
 
-	from := cltest.GetAccountAddress(store)
+	from := cltest.GetAccountAddress(t, store)
 	txs, err := store.TxFrom(from)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(txs))
@@ -130,7 +130,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 
 	assert.False(t, data.HasError())
 
-	from := cltest.GetAccountAddress(store)
+	from := cltest.GetAccountAddress(t, store)
 	txs, err := store.TxFrom(from)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(txs))
@@ -191,7 +191,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 	assert.False(t, data.HasError())
 	assert.Equal(t, string(models.RunStatusCompleted), string(data.Status))
 
-	from := cltest.GetAccountAddress(store)
+	from := cltest.GetAccountAddress(t, store)
 	var txs []models.Tx
 	gomega.NewGomegaWithT(t).Eventually(func() []models.Tx {
 		var err error
@@ -220,7 +220,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 
 	require.NoError(t, app.StartAndConnect())
 
-	from := cltest.GetAccountAddress(store)
+	from := cltest.GetAccountAddress(t, store)
 	tx := cltest.NewTx(from, sentAt)
 	assert.Nil(t, store.SaveTx(tx))
 	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
@@ -261,7 +261,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 	})
 
-	from := cltest.GetAccountAddress(store)
+	from := cltest.GetAccountAddress(t, store)
 	tx := cltest.NewTx(from, sentAt)
 	assert.Nil(t, store.SaveTx(tx))
 	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), 1)
