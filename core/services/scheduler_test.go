@@ -56,7 +56,7 @@ func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
 	defer cleanupStore()
 	clock := cltest.UseSettableClock(store)
 
-	startAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
+	startAt := cltest.ParseISO8601(t, "3000-01-01T00:00:00.000Z")
 	j := cltest.NewJobWithSchedule("* * * * *")
 	j.StartAt = cltest.NullableTime(startAt)
 	assert.Nil(t, store.CreateJob(&j))
@@ -81,9 +81,9 @@ func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
 }
 
 func TestRecurring_AddJob(t *testing.T) {
-	nullTime := cltest.NullTime(nil)
-	pastTime := cltest.NullTime("2000-01-01T00:00:00.000Z")
-	futureTime := cltest.NullTime("3000-01-01T00:00:00.000Z")
+	nullTime := cltest.NullTime(t, nil)
+	pastTime := cltest.NullTime(t, "2000-01-01T00:00:00.000Z")
+	futureTime := cltest.NullTime(t, "3000-01-01T00:00:00.000Z")
 	tests := []struct {
 		name        string
 		startAt     null.Time
@@ -152,9 +152,9 @@ func TestRecurring_AddJob_Archived(t *testing.T) {
 }
 
 func TestOneTime_AddJob(t *testing.T) {
-	nullTime := cltest.NullTime(nil)
-	pastTime := cltest.NullTime("2000-01-01T00:00:00.000Z")
-	futureTime := cltest.NullTime("3000-01-01T00:00:00.000Z")
+	nullTime := cltest.NullTime(t, nil)
+	pastTime := cltest.NullTime(t, "2000-01-01T00:00:00.000Z")
+	futureTime := cltest.NullTime(t, "3000-01-01T00:00:00.000Z")
 	pastRunTime := time.Now().Add(time.Hour * -1)
 	tests := []struct {
 		name          string
@@ -313,7 +313,7 @@ func TestOneTime_RunJobAt_UnstartedRun(t *testing.T) {
 	}
 
 	j := cltest.NewJobWithRunAtInitiator(time.Now())
-	j.EndAt = cltest.NullTime("2000-01-01T00:10:00.000Z")
+	j.EndAt = cltest.NullTime(t, "2000-01-01T00:10:00.000Z")
 	assert.NoError(t, store.CreateJob(&j))
 
 	ot.RunJobAt(j.Initiators[0], j)
@@ -336,7 +336,7 @@ func TestOneTime_RunJobAt_ArchivedRun(t *testing.T) {
 	}
 
 	j := cltest.NewJobWithRunAtInitiator(time.Now())
-	j.EndAt = cltest.NullTime("2000-01-01T00:10:00.000Z")
+	j.EndAt = cltest.NullTime(t, "2000-01-01T00:10:00.000Z")
 	require.NoError(t, store.CreateJob(&j))
 	require.NoError(t, store.ArchiveJob(j.ID))
 

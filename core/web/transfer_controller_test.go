@@ -44,7 +44,7 @@ func TestTransfersController_CreateSuccess(t *testing.T) {
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
 	defer cleanup()
 
-	errors := cltest.ParseJSONAPIErrors(resp.Body)
+	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Len(t, errors.Errors, 0)
 
@@ -82,7 +82,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
 	defer cleanup()
 
-	errors := cltest.ParseJSONAPIErrors(resp.Body)
+	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Len(t, errors.Errors, 0)
 

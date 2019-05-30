@@ -27,7 +27,7 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	store := app.Store
 	manager := store.TxManager
 
-	from := cltest.GetAccountAddress(app.GetStore())
+	from := cltest.GetAccountAddress(t, app.GetStore())
 	to := cltest.NewAddress()
 	data, err := hex.DecodeString("0000abcdef")
 	assert.NoError(t, err)
@@ -144,7 +144,7 @@ func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *tes
 	store := app.Store
 	manager := store.TxManager
 
-	from := cltest.GetAccountAddress(app.GetStore())
+	from := cltest.GetAccountAddress(t, app.GetStore())
 	to := cltest.NewAddress()
 	data, err := hex.DecodeString("0000abcdef")
 	assert.NoError(t, err)
@@ -215,7 +215,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 			store := app.Store
 			manager := store.TxManager
 
-			from := cltest.GetAccountAddress(store)
+			from := cltest.GetAccountAddress(t, store)
 			to := cltest.NewAddress()
 			data, err := hex.DecodeString("0000abcdef")
 			assert.NoError(t, err)
@@ -330,7 +330,7 @@ func TestTxManager_BumpGasUntilSafe(t *testing.T) {
 	store := app.Store
 	config := store.Config
 	txm := store.TxManager
-	from := cltest.GetAccountAddress(store)
+	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(23456)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
 	minConfs := config.MinOutgoingConfirmations() - 1
@@ -353,7 +353,7 @@ func TestTxManager_BumpGasUntilSafe(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tx := cltest.CreateTxAndAttempt(store, from, sentAt)
+			tx := cltest.CreateTxAndAttempt(t, store, from, sentAt)
 			attempts, err := store.TxAttemptsFor(tx.ID)
 			assert.NoError(t, err)
 			a := attempts[0]
@@ -442,8 +442,8 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 
 			store := app.Store
 			txm := store.TxManager
-			from := cltest.GetAccountAddress(store)
-			tx := cltest.CreateTxAndAttempt(store, from, sentAt1)
+			from := cltest.GetAccountAddress(t, store)
+			tx := cltest.CreateTxAndAttempt(t, store, from, sentAt1)
 			a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt2)
 			assert.NoError(t, err)
 
@@ -551,7 +551,7 @@ func TestTxManager_WithdrawLink(t *testing.T) {
 
 	txm := app.Store.TxManager
 
-	from := cltest.GetAccountAddress(app.GetStore())
+	from := cltest.GetAccountAddress(t, app.GetStore())
 	to := cltest.NewAddress()
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)

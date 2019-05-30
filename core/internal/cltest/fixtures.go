@@ -22,7 +22,7 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 	AssertServerResponse(t, resp, 200)
 
 	var job models.JobSpec
-	err := ParseJSONAPIResponse(resp, &job)
+	err := ParseJSONAPIResponse(t, resp, &job)
 	require.NoError(t, err)
 	return job
 }
@@ -36,7 +36,7 @@ func FixtureCreateServiceAgreementViaWeb(
 	client := app.NewHTTPClient()
 
 	agreementWithoutOracle := string(MustReadFile(t, path))
-	from := GetAccountAddress(app.ChainlinkApplication.GetStore())
+	from := GetAccountAddress(t, app.ChainlinkApplication.GetStore())
 	agreementWithOracle := MustJSONSet(t, agreementWithoutOracle, "oracles", []string{from.Hex()})
 
 	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBufferString(agreementWithOracle))
@@ -44,10 +44,10 @@ func FixtureCreateServiceAgreementViaWeb(
 
 	AssertServerResponse(t, resp, 200)
 	responseSA := models.ServiceAgreement{}
-	err := ParseJSONAPIResponse(resp, &responseSA)
+	err := ParseJSONAPIResponse(t, resp, &responseSA)
 	require.NoError(t, err)
 
-	return FindServiceAgreement(app.Store, responseSA.ID)
+	return FindServiceAgreement(t, app.Store, responseSA.ID)
 }
 
 // JSONFromFixture create models.JSON from file path

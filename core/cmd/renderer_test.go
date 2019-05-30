@@ -83,7 +83,7 @@ func (w *testWriter) Write(actual []byte) (int, error) {
 
 func TestRendererTable_RenderBridgeShow(t *testing.T) {
 	t.Parallel()
-	_, bridge := cltest.NewBridgeType("hapax", "http://hap.ax")
+	_, bridge := cltest.NewBridgeType(t, "hapax", "http://hap.ax")
 	bridge.Confirmations = 0
 
 	tests := []struct {
@@ -106,7 +106,7 @@ func TestRendererTable_RenderBridgeShow(t *testing.T) {
 
 func TestRendererTable_RenderBridgeAdd(t *testing.T) {
 	t.Parallel()
-	bridge, _ := cltest.NewBridgeType("hapax", "http://hap.ax")
+	bridge, _ := cltest.NewBridgeType(t, "hapax", "http://hap.ax")
 	bridge.Confirmations = 0
 
 	tests := []struct {
@@ -130,7 +130,7 @@ func TestRendererTable_RenderBridgeAdd(t *testing.T) {
 
 func TestRendererTable_RenderBridgeList(t *testing.T) {
 	t.Parallel()
-	_, bridge := cltest.NewBridgeType("hapax", "http://hap.ax")
+	_, bridge := cltest.NewBridgeType(t, "hapax", "http://hap.ax")
 	bridge.Confirmations = 0
 
 	tests := []struct {

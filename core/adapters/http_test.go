@@ -23,8 +23,8 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 		name    string
 		adapter adapters.BaseAdapter
 	}{
-		{"HTTPGet", &adapters.HTTPGet{URL: cltest.WebURL("NotAURL")}},
-		{"HTTPPost", &adapters.HTTPPost{URL: cltest.WebURL("NotAURL")}},
+		{"HTTPGet", &adapters.HTTPGet{URL: cltest.WebURL(t, "NotAURL")}},
+		{"HTTPPost", &adapters.HTTPPost{URL: cltest.WebURL(t, "NotAURL")}},
 	}
 
 	for _, tt := range tests {
@@ -74,7 +74,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 				})
 			defer cleanup()
 
-			hga := adapters.HTTPGet{URL: cltest.WebURL(mock.URL), Headers: test.headers}
+			hga := adapters.HTTPGet{URL: cltest.WebURL(t, mock.URL), Headers: test.headers}
 			result := hga.Perform(input, store)
 
 			val, err := result.ResultString()
@@ -105,7 +105,7 @@ func TestHTTP_TooLarge(t *testing.T) {
 			mock, cleanup := cltest.NewHTTPMockServer(t, 200, test.verb, largePayload)
 			defer cleanup()
 
-			hga := test.factory(cltest.WebURL(mock.URL))
+			hga := test.factory(cltest.WebURL(t, mock.URL))
 			result := hga.Perform(input, store)
 
 			assert.Equal(t, true, result.HasError())
@@ -152,7 +152,7 @@ func TestHttpPost_Perform(t *testing.T) {
 				})
 			defer cleanup()
 
-			hpa := adapters.HTTPPost{URL: cltest.WebURL(mock.URL), Headers: test.headers}
+			hpa := adapters.HTTPPost{URL: cltest.WebURL(t, mock.URL), Headers: test.headers}
 			result := hpa.Perform(input, leanStore())
 
 			val := result.Result()

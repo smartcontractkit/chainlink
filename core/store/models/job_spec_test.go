@@ -82,7 +82,7 @@ func TestJobSpec_NewRun(t *testing.T) {
 func TestJobEnded(t *testing.T) {
 	t.Parallel()
 
-	endAt := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
+	endAt := cltest.ParseNullableTime(t, "3000-01-01T00:00:00.000Z")
 
 	tests := []struct {
 		name    string
@@ -109,7 +109,7 @@ func TestJobEnded(t *testing.T) {
 func TestJobSpec_Started(t *testing.T) {
 	t.Parallel()
 
-	startAt := cltest.ParseNullableTime("3000-01-01T00:00:00.000Z")
+	startAt := cltest.ParseNullableTime(t, "3000-01-01T00:00:00.000Z")
 
 	tests := []struct {
 		name    string
