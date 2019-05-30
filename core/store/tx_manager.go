@@ -199,7 +199,7 @@ func (txm *EthTxManager) createTx(
 	value *assets.Eth) (*models.Tx, error) {
 
 	tx, err := txm.sendInitialTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, value)
-	for nrc := 0; matchesNonceTooLowError(err); nrc++ {
+	for nrc := 0; isNonceTooLowError(err); nrc++ {
 		logger.Warnw("TX nonce too low, retrying with network nonce")
 
 		if nrc >= nonceReloadLimit {
@@ -316,12 +316,11 @@ func (txm *EthTxManager) retryInitialTx(
 }
 
 var (
-	nonceTooLowRegex = regexp.MustCompile("nonce .*too low")
-	sameHashRegex    = regexp.MustCompile("same hash was already imported")
+	nonceTooLowRegex = regexp.MustCompile("(nonce .*too low|same hash was already imported)")
 )
 
-func matchesNonceTooLowError(err error) bool {
-	return nonceTooLowRegex.MatchString(err.Error()) || sameHashRegex.MatchString(err.Error())
+func isNonceTooLowError(err error) bool {
+	return err != nil && nonceTooLowRegex.MatchString(err.Error())
 }
 
 // newEthTx returns a newly signed Ethereum Transaction
