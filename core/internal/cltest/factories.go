@@ -131,7 +131,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 		GasLimit: 250000,
 		SentAt:   sentAt,
 	}
-	copy(tx.Hash[:len(tx.Hash)], randomBytes(common.HashLength))
+	copy(tx.Hash[:], randomBytes(common.HashLength))
 	return tx
 }
 
