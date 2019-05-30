@@ -25,7 +25,7 @@ import (
 func TestIntegration_Scheduler(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	app.Start()
 
@@ -52,7 +52,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		})
 	defer assertCalled()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	config := app.Config
 	eth := app.MockEthClient(cltest.Strict)
@@ -106,7 +106,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse)
 	defer assertCalled()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	config := app.Config
 	eth := app.MockEthClient(cltest.Strict)
@@ -195,7 +195,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 
 func TestIntegration_RunAt(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	app.InstantClock()
 
@@ -212,7 +212,7 @@ func TestIntegration_RunAt(t *testing.T) {
 
 func TestIntegration_EthLog(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
 	eth := app.MockEthClient()
@@ -234,10 +234,10 @@ func TestIntegration_EthLog(t *testing.T) {
 }
 
 func TestIntegration_RunLog(t *testing.T) {
-	config, cfgCleanup := cltest.NewConfig()
+	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
 	config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
-	app, cleanup := cltest.NewApplicationWithConfig(config)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 
 	eth := app.MockEthClient()
@@ -277,7 +277,7 @@ func TestIntegration_RunLog(t *testing.T) {
 func TestIntegration_EndAt(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
@@ -304,7 +304,7 @@ func TestIntegration_EndAt(t *testing.T) {
 func TestIntegration_StartAt(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
@@ -327,7 +327,7 @@ func TestIntegration_StartAt(t *testing.T) {
 func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
 	eth := app.MockEthClient()
@@ -374,7 +374,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	bridgeURL := cltest.WebURL("https://test.chain.link/always")
 	app.Store.Config.Set("BRIDGE_RESPONSE_URL", bridgeURL)
@@ -427,7 +427,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	app.Start()
 
@@ -476,7 +476,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 func TestIntegration_WeiWatchers(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
 	eth := app.MockEthClient()
@@ -510,7 +510,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 }
 
 func TestIntegration_MultiplierInt256(t *testing.T) {
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	app.Start()
 
@@ -524,7 +524,7 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 }
 
 func TestIntegration_MultiplierUint256(t *testing.T) {
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	app.Start()
 
@@ -540,7 +540,7 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
@@ -581,7 +581,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	eth := app.MockEthClient()
@@ -623,9 +623,9 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	wsserver, wsserverCleanup := cltest.NewEventWebSocketServer(t)
 	defer wsserverCleanup()
 
-	config, _ := cltest.NewConfig()
+	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", wsserver.URL.String())
-	app, cleanup := cltest.NewApplicationWithConfig(config)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 	app.InstantClock()
 

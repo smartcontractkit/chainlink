@@ -22,7 +22,7 @@ import (
 
 func TestORM_WhereNotFound(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	j1 := models.NewJob()
@@ -35,7 +35,7 @@ func TestORM_WhereNotFound(t *testing.T) {
 
 func TestORM_AllNotFound(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	var jobs []models.JobSpec
@@ -46,7 +46,7 @@ func TestORM_AllNotFound(t *testing.T) {
 
 func TestORM_CreateJob(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	j1 := cltest.NewJobWithSchedule("* * * * *")
@@ -63,7 +63,7 @@ func TestORM_CreateJob(t *testing.T) {
 
 func TestORM_Unscoped(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	orm := store.ORM
@@ -77,7 +77,7 @@ func TestORM_Unscoped(t *testing.T) {
 
 func TestORM_ArchiveJob(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	job := cltest.NewJobWithSchedule("* * * * *")
@@ -99,7 +99,7 @@ func TestORM_ArchiveJob(t *testing.T) {
 
 func TestORM_CreateJobRun_ArchivesRunIfJobArchived(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
@@ -116,7 +116,7 @@ func TestORM_CreateJobRun_ArchivesRunIfJobArchived(t *testing.T) {
 
 func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
@@ -133,7 +133,7 @@ func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 
 func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	job := cltest.NewJobWithSchedule("* * * * *")
@@ -159,7 +159,7 @@ func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
 
 func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
@@ -187,7 +187,7 @@ func coercedJSON(v string) string {
 func TestORM_JobRunsFor(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
@@ -212,7 +212,7 @@ func TestORM_JobRunsFor(t *testing.T) {
 func TestORM_JobRunsSortedFor(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	includedJob := cltest.NewJobWithWebInitiator()
@@ -242,7 +242,7 @@ func TestORM_JobRunsSortedFor(t *testing.T) {
 
 func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	j := cltest.NewJobWithWebInitiator()
@@ -297,7 +297,7 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 
 func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	j := cltest.NewJobWithWebInitiator()
@@ -355,7 +355,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 
 func TestORM_UnscopedJobRunsWithStatus_OrdersByCreatedAt(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	j := cltest.NewJobWithWebInitiator()
@@ -381,7 +381,7 @@ func TestORM_UnscopedJobRunsWithStatus_OrdersByCreatedAt(t *testing.T) {
 func TestORM_AnyJobWithType(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	js := cltest.NewJobWithWebInitiator()
@@ -399,7 +399,7 @@ func TestORM_AnyJobWithType(t *testing.T) {
 func TestORM_JobRunsCountFor(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
@@ -427,7 +427,7 @@ func TestORM_JobRunsCountFor(t *testing.T) {
 
 func TestORM_CreatingTx(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
@@ -458,7 +458,7 @@ func TestORM_CreatingTx(t *testing.T) {
 func TestORM_FindBridge(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	bt := models.BridgeType{}
@@ -489,7 +489,7 @@ func TestORM_FindBridge(t *testing.T) {
 func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	jobRunner, cleanup := cltest.NewJobRunner(store)
 	defer cleanup()
@@ -515,7 +515,7 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 func TestORM_PendingBridgeType_success(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	_, bt := cltest.NewBridgeType()
@@ -534,7 +534,7 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 
 func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
 
@@ -547,7 +547,7 @@ func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 
 func TestORM_GetLastNonce_Valid(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
 	manager := store.TxManager
@@ -574,7 +574,7 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 func TestORM_MarkRan(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	js := models.NewJob()
@@ -600,7 +600,7 @@ func TestORM_MarkRan(t *testing.T) {
 func TestORM_FindUser(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	user1 := cltest.MustUser("test1@email1.net", "password1")
 	user2 := cltest.MustUser("test2@email2.net", "password2")
@@ -618,7 +618,7 @@ func TestORM_FindUser(t *testing.T) {
 func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	user := cltest.MustUser("have@email", "password")
@@ -662,7 +662,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 func TestORM_DeleteUser(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	user := cltest.MustUser("test1@email1.net", "password1")
 	require.NoError(t, store.SaveUser(&user))
@@ -677,7 +677,7 @@ func TestORM_DeleteUser(t *testing.T) {
 func TestORM_DeleteUserSession(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	user := cltest.MustUser("test1@email1.net", "password1")
 	require.NoError(t, store.SaveUser(&user))
@@ -699,7 +699,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 func TestORM_CreateSession(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	initial := cltest.MustUser(cltest.APIEmail, cltest.Password)
@@ -737,7 +737,7 @@ func TestORM_CreateSession(t *testing.T) {
 }
 
 func TestORM_DeleteTransaction(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	_, err := store.KeyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	defer cleanup()
@@ -757,7 +757,7 @@ func TestORM_DeleteTransaction(t *testing.T) {
 }
 
 func TestORM_AllSyncEvents(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	orm := store.ORM
@@ -791,7 +791,7 @@ func TestORM_AllSyncEvents(t *testing.T) {
 }
 
 func TestBulkDeleteRuns(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	orm := store.ORM
@@ -860,7 +860,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	_, err := store.KeyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	defer cleanup()
@@ -887,7 +887,7 @@ func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
 func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	_, err := store.KeyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	defer cleanup()
@@ -955,7 +955,7 @@ func TestORM_DeduceDialect(t *testing.T) {
 }
 
 func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
 	store := app.GetStore()
@@ -984,7 +984,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 }
 
 func TestORM_UpdateBridgeType(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	firstBridge := &models.BridgeType{

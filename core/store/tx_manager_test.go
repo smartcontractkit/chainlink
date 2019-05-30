@@ -22,7 +22,7 @@ import (
 
 func TestTxManager_CreateTx_Success(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
 	manager := store.TxManager
@@ -64,7 +64,7 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 
 func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	app.AddUnlockedKey() // second account
 	config := app.Config
@@ -135,10 +135,10 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 func TestTxManager_CreateTx_AttemptErrorDeletesTxAndDoesNotIncrementNonce(t *testing.T) {
 	t.Parallel()
 
-	config, configCleanup := cltest.NewConfig()
+	config, configCleanup := cltest.NewConfig(t)
 	defer configCleanup()
 
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
 	store := app.Store
@@ -210,7 +210,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 
-			app, cleanup := cltest.NewApplicationWithKey()
+			app, cleanup := cltest.NewApplicationWithKey(t)
 			defer cleanup()
 			store := app.Store
 			manager := store.TxManager
@@ -264,7 +264,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 
 func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
 	manager := store.TxManager
@@ -305,7 +305,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 
 func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
 	manager := store.TxManager
@@ -321,7 +321,7 @@ func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 func TestTxManager_BumpGasUntilSafe(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", "0x0")
@@ -380,7 +380,7 @@ func TestTxManager_BumpGasUntilSafe(t *testing.T) {
 func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig()
+	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
 	sentAt1 := uint64(23456)
@@ -437,7 +437,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
+			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 			defer cleanup()
 
 			store := app.Store
@@ -448,7 +448,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			assert.NoError(t, err)
 
 			ethMock := app.MockEthClient(cltest.Strict)
-			ethMock.ShouldCall(t, test.mockSetup).During(func() {
+			ethMock.ShouldCall(test.mockSetup).During(func() {
 				ethMock.Register("eth_blockNumber", utils.Uint64ToHex(test.blockHeight))
 				require.NoError(t, app.StartAndConnect())
 				receipt, err := txm.BumpGasUntilSafe(a.Hash)
@@ -542,11 +542,11 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 
 func TestTxManager_WithdrawLink(t *testing.T) {
 	t.Parallel()
-	config, configCleanup := cltest.NewConfig()
+	config, configCleanup := cltest.NewConfig(t)
 	defer configCleanup()
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
 	txm := app.Store.TxManager
@@ -585,7 +585,7 @@ func TestTxManager_WithdrawLink(t *testing.T) {
 
 func TestTxManager_WithdrawLink_Unconfigured_Oracle(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	nonce := uint64(256)
@@ -643,12 +643,12 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 
 	logsToCheckForBalance := cltest.ObserveLogs()
 
-	config, configCleanup := cltest.NewConfig()
+	config, configCleanup := cltest.NewConfig(t)
 	defer configCleanup()
 	oracleAddress := "0xDEADB3333333F"
 	oca := common.HexToAddress(oracleAddress)
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
 	manager := app.Store.TxManager
@@ -706,7 +706,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 func TestTxManager_CreateTxWithGas(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
 	manager := store.TxManager

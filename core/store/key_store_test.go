@@ -12,7 +12,7 @@ const correctPassphrase = "p@ssword"
 
 func TestCreateEthereumAccount(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	_, err := store.KeyStore.NewAccount(correctPassphrase)
@@ -24,7 +24,7 @@ func TestCreateEthereumAccount(t *testing.T) {
 
 func TestUnlockKey_SingleAddress(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	store.KeyStore.NewAccount(correctPassphrase)
@@ -48,7 +48,7 @@ func TestUnlockKey_MultipleAddresses(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore()
+			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
 			store.KeyStore.NewAccount(test.passphrase1)
@@ -66,7 +66,7 @@ func TestUnlockKey_MultipleAddresses(t *testing.T) {
 func TestKeyStore_SignSuccess(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	_, err := store.KeyStore.NewAccount(correctPassphrase)
@@ -81,7 +81,7 @@ func TestKeyStore_SignSuccess(t *testing.T) {
 func TestKeyStore_SignAccountLocked(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	account, err := store.KeyStore.NewAccount(correctPassphrase)

@@ -19,7 +19,7 @@ import (
 func TestStore_Start(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	store := app.Store
@@ -33,7 +33,7 @@ func TestStore_Start(t *testing.T) {
 func TestStore_Close(t *testing.T) {
 	t.Parallel()
 
-	s, cleanup := cltest.NewStore()
+	s, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	s.RunChannel.Send("whatever")
@@ -55,7 +55,7 @@ func TestStore_Close(t *testing.T) {
 func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	store := app.GetStore()
 
@@ -88,7 +88,7 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	app.AddUnlockedKey() // second account
 	defer cleanup()
 
@@ -136,7 +136,7 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	require.NoError(t, app.StartAndConnect())
 	store := app.GetStore()

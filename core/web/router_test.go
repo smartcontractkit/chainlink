@@ -14,7 +14,7 @@ import (
 )
 
 func TestTokenAuthRequired_NoCredentials(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	router := web.Router(app)
@@ -28,7 +28,7 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	router := web.Router(app)
@@ -43,7 +43,7 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	router := web.Router(app)
@@ -70,7 +70,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	router := web.Router(app)
@@ -97,7 +97,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 }
 
 func TestSessions_RateLimited(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	router := web.Router(app)
@@ -125,7 +125,7 @@ func TestSessions_RateLimited(t *testing.T) {
 }
 
 func TestRouter_LargePOSTBody(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	router := web.Router(app)
