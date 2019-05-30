@@ -38,7 +38,7 @@ const App = () => {
     <>
       <CssBaseline />
 
-      <Router style={{ display: 'flex', height: '100%' }}>
+      <Router style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
         <SearchCard path="/" />
 
         <Main path="/job-runs">
