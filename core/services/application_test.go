@@ -19,9 +19,9 @@ import (
 )
 
 func TestChainlinkApplication_SignalShutdown(t *testing.T) {
-	config, cleanup := cltest.NewConfig()
+	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	app, appCleanUp := cltest.NewApplicationWithConfig(config)
+	app, appCleanUp := cltest.NewApplicationWithConfig(t, config)
 	defer appCleanUp()
 
 	completed := abool.New()
@@ -38,7 +38,7 @@ func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 }
 
 func TestChainlinkApplication_AddJob(t *testing.T) {
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	ctrl := gomock.NewController(t)
 	jobSubscriberMock := mock_services.NewMockJobSubscriber(ctrl)
@@ -48,7 +48,7 @@ func TestChainlinkApplication_AddJob(t *testing.T) {
 }
 
 func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	store := app.Store
 
@@ -62,7 +62,7 @@ func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
 }
 
 func TestChainlinkApplication_resumesPendingConnection_Archived(t *testing.T) {
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	store := app.Store
 
@@ -78,7 +78,7 @@ func TestChainlinkApplication_resumesPendingConnection_Archived(t *testing.T) {
 }
 
 func TestPendingConnectionResumer(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	resumedRuns := []string{}

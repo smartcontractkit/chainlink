@@ -11,7 +11,7 @@ import (
 func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesAccount(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
 	prompt := &cltest.MockCountingPrompter{EnteredStrings: []string{
@@ -29,7 +29,7 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesAccount(t *testing.
 func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication()
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{}}
@@ -44,7 +44,7 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *te
 func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	// prompt loop tries all in array
@@ -61,7 +61,7 @@ func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing
 func TestTerminalKeyStoreAuthenticator_WithAcctAndPwd(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	tests := []struct {

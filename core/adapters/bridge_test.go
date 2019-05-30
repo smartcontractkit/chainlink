@@ -13,7 +13,7 @@ import (
 )
 
 func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(""))
 
@@ -43,7 +43,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 }
 
 func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(""))
 
@@ -79,7 +79,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 		{"from completed", models.RunStatusCompleted, models.RunStatusCompleted},
 	}
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", "")
 
@@ -124,7 +124,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 		{"unsetting result", 200, "", false, false, `{"data":{"result":null}}`},
 	}
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", "")
 	runID := utils.NewBytes32ID()
@@ -176,7 +176,7 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore()
+			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 			store.Config.Set("BRIDGE_RESPONSE_URL", test.configuredURL)
 

@@ -73,18 +73,19 @@ func init() {
 
 // TestConfig struct with test store and wsServer
 type TestConfig struct {
+	t testing.TB
 	strpkg.Config
 	wsServer *httptest.Server
 }
 
 // NewConfig returns a new TestConfig
-func NewConfig() (*TestConfig, func()) {
+func NewConfig(t testing.TB) (*TestConfig, func()) {
 	wsserver, cleanup := newWSServer()
-	return NewConfigWithWSServer(wsserver), cleanup
+	return NewConfigWithWSServer(t, wsserver), cleanup
 }
 
 // NewConfigWithWSServer return new config with specified wsserver
-func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
+func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig {
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	rawConfig := strpkg.NewConfig()
@@ -100,7 +101,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 	rawConfig.Set("ROOT", rootdir)
 	rawConfig.Set("SESSION_TIMEOUT", "2m")
 	rawConfig.SecretGenerator = mockSecretGenerator{}
-	config := TestConfig{Config: rawConfig}
+	config := TestConfig{t: t, Config: rawConfig}
 	config.SetEthereumServer(wsserver)
 	return &config
 }
@@ -108,7 +109,7 @@ func NewConfigWithWSServer(wsserver *httptest.Server) *TestConfig {
 // SetEthereumServer sets the ethereum server for testconfig with given wsserver
 func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 	u, err := url.Parse(wss.URL)
-	mustNotErr(err)
+	require.NoError(tc.t, err)
 	u.Scheme = "ws"
 	tc.Set("ETH_URL", u.String())
 	tc.wsServer = wss
@@ -116,6 +117,7 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 
 // TestApplication holds the test application and test servers
 type TestApplication struct {
+	t testing.TB
 	*services.ChainlinkApplication
 	Config           strpkg.Config
 	Server           *httptest.Server
@@ -155,9 +157,9 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 }
 
 // NewApplication creates a New TestApplication along with a NewConfig
-func NewApplication() (*TestApplication, func()) {
-	c, cfgCleanup := NewConfig()
-	app, cleanup := NewApplicationWithConfig(c)
+func NewApplication(t testing.TB) (*TestApplication, func()) {
+	c, cfgCleanup := NewConfig(t)
+	app, cleanup := NewApplicationWithConfig(t, c)
 	return app, func() {
 		cleanup()
 		cfgCleanup()
@@ -165,9 +167,9 @@ func NewApplication() (*TestApplication, func()) {
 }
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
-func NewApplicationWithKey() (*TestApplication, func()) {
-	config, cfgCleanup := NewConfig()
-	app, cleanup := NewApplicationWithConfigAndKey(config)
+func NewApplicationWithKey(t testing.TB) (*TestApplication, func()) {
+	config, cfgCleanup := NewConfig(t)
+	app, cleanup := NewApplicationWithConfigAndKey(t, config)
 	return app, func() {
 		cleanup()
 		cfgCleanup()
@@ -176,21 +178,21 @@ func NewApplicationWithKey() (*TestApplication, func()) {
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testconfig
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(tc *TestConfig) (*TestApplication, func()) {
-	app, cleanup := NewApplicationWithConfig(tc)
+func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig) (*TestApplication, func()) {
+	app, cleanup := NewApplicationWithConfig(t, tc)
 	app.ImportKey(key3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea)
 	return app, cleanup
 }
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config
-func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
+func NewApplicationWithConfig(t testing.TB, tc *TestConfig) (*TestApplication, func()) {
 	WipePostgresDatabase(tc.Config)
-	ta := &TestApplication{connectedChannel: make(chan struct{}, 1)}
+	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
 	app := services.NewApplication(tc.Config, func(app services.Application) {
 		ta.connectedChannel <- struct{}{}
 	}).(*services.ChainlinkApplication)
 	ta.ChainlinkApplication = app
-	ethMock := MockEthOnStore(app.Store)
+	ethMock := MockEthOnStore(t, app.Store)
 
 	server := newServer(ta)
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
@@ -203,7 +205,7 @@ func NewApplicationWithConfig(tc *TestConfig) (*TestApplication, func()) {
 		if !ethMock.AllCalled() {
 			panic("mock expectations set and not used on default TestApplication ethMock!!!")
 		}
-		mustNotErr(ta.Stop())
+		require.NoError(t, ta.Stop())
 	}
 }
 
@@ -240,8 +242,7 @@ func (ta *TestApplication) Stop() error {
 	// TODO: Here we double close, which is less than ideal.
 	// We would prefer to invoke a method on an interface that
 	// cleans up only in test.
-	err := ta.ChainlinkApplication.Stop()
-	mustNotErr(err)
+	require.NoError(ta.t, ta.ChainlinkApplication.Stop())
 	cleanUpStore(ta.Store)
 	if ta.Server != nil {
 		ta.Server.Close()
@@ -254,23 +255,23 @@ func (ta *TestApplication) Stop() error {
 
 func (ta *TestApplication) MustSeedUserSession() models.User {
 	mockUser := MustUser(APIEmail, Password)
-	mustNotErr(ta.Store.SaveUser(&mockUser))
+	require.NoError(ta.t, ta.Store.SaveUser(&mockUser))
 	session := NewSession(APISessionID)
-	mustNotErr(ta.Store.SaveSession(&session))
+	require.NoError(ta.t, ta.Store.SaveSession(&session))
 	return mockUser
 }
 
 // ImportKey adds private key to the application disk keystore, not database.
 func (ta *TestApplication) ImportKey(content string) {
 	_, err := ta.Store.KeyStore.Import([]byte(content), Password, Password)
-	mustNotErr(err)
-	mustNotErr(ta.Store.KeyStore.Unlock(Password))
+	require.NoError(ta.t, err)
+	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
 }
 
 func (ta *TestApplication) AddUnlockedKey() {
 	_, err := ta.Store.KeyStore.NewAccount(Password)
-	mustNotErr(err)
-	mustNotErr(ta.Store.KeyStore.Unlock(Password))
+	require.NoError(ta.t, err)
+	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
 }
 
 func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
@@ -329,8 +330,8 @@ func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
 }
 
 // NewStore creates a new store
-func NewStore() (*strpkg.Store, func()) {
-	c, cleanup := NewConfig()
+func NewStore(t testing.TB) (*strpkg.Store, func()) {
+	c, cleanup := NewConfig(t)
 	store, storeCleanup := NewStoreWithConfig(c)
 	return store, func() {
 		storeCleanup()
@@ -370,8 +371,8 @@ END $$;
 }
 
 // NewJobSubscriber creates a new JobSubscriber
-func NewJobSubscriber() (*strpkg.Store, services.JobSubscriber, func()) {
-	store, cl := NewStore()
+func NewJobSubscriber(t testing.TB) (*strpkg.Store, services.JobSubscriber, func()) {
+	store, cl := NewStore(t)
 	nl := services.NewJobSubscriber(store)
 	return store, nl, func() {
 		cl()
@@ -423,7 +424,7 @@ func ParseJSONAPIErrors(body io.Reader) *models.JSONAPIErrors {
 }
 
 // MustReadFile loads a file but should never fail
-func MustReadFile(t *testing.T, file string) []byte {
+func MustReadFile(t testing.TB, file string) []byte {
 	content, err := ioutil.ReadFile(file)
 	require.NoError(t, err)
 	return content
@@ -550,7 +551,7 @@ func FindServiceAgreement(s *strpkg.Store, id string) models.ServiceAgreement {
 }
 
 // CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
-func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec) models.JobSpec {
+func CreateJobSpecViaWeb(t testing.TB, app *TestApplication, job models.JobSpec) models.JobSpec {
 	client := app.NewHTTPClient()
 	marshaled, err := json.Marshal(&job)
 	assert.NoError(t, err)
@@ -565,7 +566,7 @@ func CreateJobSpecViaWeb(t *testing.T, app *TestApplication, job models.JobSpec)
 }
 
 // CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
-func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
+func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
 	t.Helper()
 	bodyBuffer := &bytes.Buffer{}
 	if len(body) > 0 {
@@ -584,7 +585,7 @@ func CreateJobRunViaWeb(t *testing.T, app *TestApplication, j models.JobSpec, bo
 }
 
 // CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
-func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) models.JobSpec {
+func CreateHelloWorldJobViaWeb(t testing.TB, app *TestApplication, url string) models.JobSpec {
 	buffer := MustReadFile(t, "testdata/hello_world_job.json")
 
 	var job models.JobSpec
@@ -598,7 +599,7 @@ func CreateHelloWorldJobViaWeb(t *testing.T, app *TestApplication, url string) m
 
 // UpdateJobRunViaWeb updates jobrun via web using /v2/runs/ID
 func UpdateJobRunViaWeb(
-	t *testing.T,
+	t testing.TB,
 	app *TestApplication,
 	jr models.JobRun,
 	bta *models.BridgeTypeAuthentication,
@@ -621,7 +622,7 @@ func UpdateJobRunViaWeb(
 
 // CreateBridgeTypeViaWeb creates a bridgetype via web using /v2/bridge_types
 func CreateBridgeTypeViaWeb(
-	t *testing.T,
+	t testing.TB,
 	app *TestApplication,
 	payload string,
 ) *models.BridgeTypeAuthentication {
@@ -641,7 +642,7 @@ func CreateBridgeTypeViaWeb(
 
 // WaitForJobRunToComplete waits for a JobRun to reach Completed Status
 func WaitForJobRunToComplete(
-	t *testing.T,
+	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 ) models.JobRun {
@@ -650,7 +651,7 @@ func WaitForJobRunToComplete(
 
 // WaitForJobRunToPendBridge waits for a JobRun to reach PendingBridge Status
 func WaitForJobRunToPendBridge(
-	t *testing.T,
+	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 ) models.JobRun {
@@ -659,7 +660,7 @@ func WaitForJobRunToPendBridge(
 
 // WaitForJobRunToPendConfirmations waits for a JobRun to reach PendingConfirmations Status
 func WaitForJobRunToPendConfirmations(
-	t *testing.T,
+	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 ) models.JobRun {
@@ -668,7 +669,7 @@ func WaitForJobRunToPendConfirmations(
 
 // WaitForJobRunStatus waits for a JobRun to reach given status
 func WaitForJobRunStatus(
-	t *testing.T,
+	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 	status models.RunStatus,
@@ -685,7 +686,7 @@ func WaitForJobRunStatus(
 
 // JobRunStays tests if a JobRun will consistently stay at the specified status
 func JobRunStays(
-	t *testing.T,
+	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 	status models.RunStatus,
@@ -702,7 +703,7 @@ func JobRunStays(
 
 // JobRunStaysPendingConfirmations tests if a JobRun will stay at the PendingConfirmations Status
 func JobRunStaysPendingConfirmations(
-	t *testing.T,
+	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 ) models.JobRun {
@@ -710,7 +711,7 @@ func JobRunStaysPendingConfirmations(
 }
 
 // WaitForRuns waits for the wanted number of runs then returns a slice of the JobRuns
-func WaitForRuns(t *testing.T, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
+func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
@@ -733,7 +734,7 @@ func WaitForRuns(t *testing.T, j models.JobSpec, store *strpkg.Store, want int) 
 }
 
 // WaitForRunsAtLeast waits for at least the passed number of runs to start.
-func WaitForRunsAtLeast(t *testing.T, j models.JobSpec, store *strpkg.Store, want int) {
+func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
@@ -748,7 +749,7 @@ func WaitForRunsAtLeast(t *testing.T, j models.JobSpec, store *strpkg.Store, wan
 	}
 }
 
-func WaitForTxAttemptCount(t *testing.T, store *strpkg.Store, want int) []models.TxAttempt {
+func WaitForTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models.TxAttempt {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
@@ -772,7 +773,7 @@ func WaitForTxAttemptCount(t *testing.T, store *strpkg.Store, want int) []models
 }
 
 // WaitForJobs waits for the wanted number of jobs.
-func WaitForJobs(t *testing.T, store *strpkg.Store, want int) []models.JobSpec {
+func WaitForJobs(t testing.TB, store *strpkg.Store, want int) []models.JobSpec {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
@@ -794,7 +795,7 @@ func WaitForJobs(t *testing.T, store *strpkg.Store, want int) []models.JobSpec {
 // WaitForSyncEventCount checks if the sync event count eventually reaches
 // the amound specified in parameter want.
 func WaitForSyncEventCount(
-	t *testing.T,
+	t testing.TB,
 	orm *orm.ORM,
 	want int,
 ) {
@@ -809,7 +810,7 @@ func WaitForSyncEventCount(
 // AssertSyncEventCountStays ensures that the event sync count stays consistent
 // for a period of time
 func AssertSyncEventCountStays(
-	t *testing.T,
+	t testing.TB,
 	orm *orm.ORM,
 	want int,
 ) {
@@ -860,6 +861,7 @@ func NewBlockHeader(number int) *models.BlockHeader {
 	return &models.BlockHeader{Number: BigHexInt(number)}
 }
 
+// XXX: Please don't use this, use require.NoError instead
 func mustNotErr(err error) {
 	if err != nil {
 		logger.Panic(err)
@@ -900,7 +902,7 @@ func isHex(str string) bool {
 
 // AssertValidHash checks that a string matches a specific hash format,
 // includes a leading 0x and has a specific length (in bytes)
-func AssertValidHash(t *testing.T, length int, hash string) {
+func AssertValidHash(t testing.TB, length int, hash string) {
 	if !hasHexPrefix(hash) {
 		assert.FailNowf(t, "Missing hash prefix", `"%+v" is missing hash prefix`, hash)
 	}
@@ -916,7 +918,7 @@ func AssertValidHash(t *testing.T, length int, hash string) {
 
 // AssertServerResponse is used to match against a client response, will print
 // any errors returned if the request fails.
-func AssertServerResponse(t *testing.T, resp *http.Response, expectedStatusCode int) {
+func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode int) {
 	if resp.StatusCode == expectedStatusCode {
 		return
 	}
@@ -971,7 +973,7 @@ func NormalizedJSON(input []byte) string {
 	return normalized
 }
 
-func AssertError(t *testing.T, want bool, err error) {
+func AssertError(t testing.TB, want bool, err error) {
 	if want {
 		assert.Error(t, err)
 	} else {
@@ -1013,7 +1015,7 @@ func AllJobs(store *strpkg.Store) []models.JobSpec {
 	return all
 }
 
-func MustAllJobsWithStatus(t *testing.T, store *strpkg.Store, statuses ...models.RunStatus) []*models.JobRun {
+func MustAllJobsWithStatus(t testing.TB, store *strpkg.Store, statuses ...models.RunStatus) []*models.JobRun {
 	var runs []*models.JobRun
 	err := store.UnscopedJobRunsWithStatus(func(jr *models.JobRun) {
 		runs = append(runs, jr)
@@ -1022,7 +1024,7 @@ func MustAllJobsWithStatus(t *testing.T, store *strpkg.Store, statuses ...models
 	return runs
 }
 
-func GetLastTxAttempt(t *testing.T, store *strpkg.Store) models.TxAttempt {
+func GetLastTxAttempt(t testing.TB, store *strpkg.Store) models.TxAttempt {
 	var attempt models.TxAttempt
 	var count int
 	err := store.ORM.DB.Order("created_at desc").First(&attempt).Count(&count).Error
@@ -1031,7 +1033,7 @@ func GetLastTxAttempt(t *testing.T, store *strpkg.Store) models.TxAttempt {
 	return attempt
 }
 
-func CallbackOrTimeout(t *testing.T, msg string, callback func(), durationParams ...time.Duration) {
+func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams ...time.Duration) {
 	t.Helper()
 
 	duration := 100 * time.Millisecond

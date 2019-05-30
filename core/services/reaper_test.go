@@ -15,7 +15,7 @@ import (
 func TestStoreReaper_ReapSessions(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore()
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	r := services.NewStoreReaper(store)

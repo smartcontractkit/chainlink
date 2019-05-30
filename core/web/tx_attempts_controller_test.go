@@ -15,7 +15,7 @@ import (
 func TestTxAttemptsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	ethMock := app.MockEthClient()
@@ -53,7 +53,7 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 func TestTxAttemptsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey()
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	ethMock := app.MockEthClient()
 	ethMock.Register("eth_getTransactionCount", "0x100")
