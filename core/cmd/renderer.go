@@ -43,30 +43,28 @@ type RendererTable struct {
 func (rt RendererTable) Render(v interface{}) error {
 	switch typed := v.(type) {
 	case *[]models.JobSpec:
-		rt.renderJobs(*typed)
+		return rt.renderJobs(*typed)
 	case *presenters.JobSpec:
-		rt.renderJob(*typed)
+		return rt.renderJob(*typed)
 	case *presenters.JobRun:
-		rt.renderJobRun(*typed)
+		return rt.renderJobRun(*typed)
 	case *models.BridgeType:
-		rt.renderBridge(*typed)
+		return rt.renderBridge(*typed)
 	case *models.BridgeTypeAuthentication:
-		rt.renderBridgeAuthentication(*typed)
+		return rt.renderBridgeAuthentication(*typed)
 	case *[]models.BridgeType:
-		rt.renderBridges(*typed)
+		return rt.renderBridges(*typed)
 	case *[]presenters.AccountBalance:
-		rt.renderAccountBalances(*typed)
+		return rt.renderAccountBalances(*typed)
 	case *presenters.ServiceAgreement:
-		rt.renderServiceAgreement(*typed)
+		return rt.renderServiceAgreement(*typed)
 	case *[]models.TxAttempt:
-		rt.renderTxAttempts(*typed)
+		return rt.renderTxAttempts(*typed)
 	case *models.ExternalInitiatorAuthentication:
-		rt.renderExternalInitiatorAuthentication(*typed)
+		return rt.renderExternalInitiatorAuthentication(*typed)
 	default:
 		return fmt.Errorf("Unable to render object of type %T: %v", typed, typed)
 	}
-
-	return nil
 }
 
 func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
