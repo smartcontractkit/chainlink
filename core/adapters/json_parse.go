@@ -54,7 +54,7 @@ func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.Run
 
 func dig(js *simplejson.Json, path []string) (*simplejson.Json, error) {
 	var ok bool
-	for _, k := range path[:len(path)] {
+	for _, k := range path[:] {
 		if isArray(js, k) {
 			js, ok = arrayGet(js, k)
 		} else {

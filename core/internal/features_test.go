@@ -96,7 +96,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
-	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	eth.EventuallyAllCalled(t)
 }
@@ -566,7 +566,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
 		})
 
 		jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"0x11"}`)
-		jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+		cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 		attempt := cltest.GetLastTxAttempt(t, app.Store)
 		tx, err := app.Store.FindTx(attempt.TxID)
