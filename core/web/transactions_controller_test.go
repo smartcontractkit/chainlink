@@ -28,12 +28,12 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	store := app.GetStore()
 	client := app.NewHTTPClient()
 
-	from := cltest.GetAccountAddress(store)
-	tx1 := cltest.CreateTxAndAttempt(store, from, 1)
+	from := cltest.GetAccountAddress(t, store)
+	tx1 := cltest.CreateTxAndAttempt(t, store, from, 1)
 	_, err := store.AddTxAttempt(tx1, tx1.EthTx(big.NewInt(2)), 2)
 	require.NoError(t, err)
-	cltest.CreateTxAndAttempt(store, from, 3)
-	cltest.CreateTxAndAttempt(store, from, 4)
+	cltest.CreateTxAndAttempt(t, store, from, 3)
+	cltest.CreateTxAndAttempt(t, store, from, 4)
 	_, count, err := store.Transactions(0, 100)
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
@@ -44,7 +44,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 	var links jsonapi.Links
 	var txs []presenters.Tx
-	body := cltest.ParseResponseBody(resp)
+	body := cltest.ParseResponseBody(t, resp)
 	require.NoError(t, web.ParsePaginatedResponse(body, &txs, &links))
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
@@ -83,8 +83,8 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	require.NoError(t, app.Start())
 	store := app.GetStore()
 	client := app.NewHTTPClient()
-	from := cltest.GetAccountAddress(store)
-	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
 	tx1 := *tx
 	_, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), 2)
 	require.NoError(t, err)
@@ -106,7 +106,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 			cltest.AssertServerResponse(t, resp, 200)
 
 			ptx := presenters.Tx{}
-			require.NoError(t, cltest.ParseJSONAPIResponse(resp, &ptx))
+			require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &ptx))
 
 			test.want.ID = 0
 			assert.Equal(t, presenters.NewTx(&test.want), ptx)
@@ -128,8 +128,8 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	require.NoError(t, app.Start())
 	store := app.GetStore()
 	client := app.NewHTTPClient()
-	from := cltest.GetAccountAddress(store)
-	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
 
 	resp, cleanup := client.Get("/v2/transactions/" + (tx.Hash.String() + "1"))
 	defer cleanup()

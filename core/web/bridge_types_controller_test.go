@@ -35,7 +35,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	bt, err := setupBridgeControllerIndex(app)
+	bt, err := setupBridgeControllerIndex(t, app)
 	assert.NoError(t, err)
 
 	resp, cleanup := client.Get("/v2/specs?size=x")
@@ -49,7 +49,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	var links jsonapi.Links
 	bridges := []models.BridgeType{}
 
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &bridges, &links)
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &bridges, &links)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
@@ -64,7 +64,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, 200)
 
 	bridges = []models.BridgeType{}
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(resp), &bridges, &links)
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &bridges, &links)
 	assert.NoError(t, err)
 	assert.Empty(t, links["next"])
 	assert.NotEmpty(t, links["prev"])
@@ -74,11 +74,11 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	assert.Equal(t, bt[1].Confirmations, bridges[0].Confirmations, "should have the same Confirmations")
 }
 
-func setupBridgeControllerIndex(app *cltest.TestApplication) ([]*models.BridgeType, error) {
+func setupBridgeControllerIndex(t testing.TB, app *cltest.TestApplication) ([]*models.BridgeType, error) {
 
 	bt1 := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           cltest.WebURL("https://testing.com/bridges"),
+		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
 	err := app.GetStore().CreateBridgeType(bt1)
@@ -88,7 +88,7 @@ func setupBridgeControllerIndex(app *cltest.TestApplication) ([]*models.BridgeTy
 
 	bt2 := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges2"),
-		URL:           cltest.WebURL("https://testing.com/tari"),
+		URL:           cltest.WebURL(t, "https://testing.com/tari"),
 		Confirmations: 0,
 	}
 	err = app.GetStore().CreateBridgeType(bt2)
@@ -108,7 +108,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
-	respJSON := cltest.ParseJSON(resp.Body)
+	respJSON := cltest.ParseJSON(t, resp.Body)
 	btName := respJSON.Get("data.attributes.name").String()
 
 	assert.NotEmpty(t, respJSON.Get("data.attributes.incomingToken").String())
@@ -132,7 +132,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 
 	bt := &models.BridgeType{
 		Name: models.MustNewTaskType("BRidgea"),
-		URL:  cltest.WebURL("http://mybridge"),
+		URL:  cltest.WebURL(t, "http://mybridge"),
 	}
 	require.NoError(t, app.GetStore().CreateBridgeType(bt))
 
@@ -143,7 +143,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 
 	ubt, err := app.Store.FindBridge(bt.Name)
 	assert.NoError(t, err)
-	assert.Equal(t, cltest.WebURL("http://yourbridge"), ubt.URL)
+	assert.Equal(t, cltest.WebURL(t, "http://yourbridge"), ubt.URL)
 }
 
 func TestBridgeController_Show(t *testing.T) {
@@ -155,7 +155,7 @@ func TestBridgeController_Show(t *testing.T) {
 
 	bt := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           cltest.WebURL("https://testing.com/bridges"),
+		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
 	require.NoError(t, app.GetStore().CreateBridgeType(bt))
@@ -165,7 +165,7 @@ func TestBridgeController_Show(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
 
 	var respBridge models.BridgeTypeAuthentication
-	require.NoError(t, cltest.ParseJSONAPIResponse(resp, &respBridge))
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respBridge))
 	assert.Equal(t, respBridge.Name, bt.Name, "should have the same schedule")
 	assert.Equal(t, respBridge.URL.String(), bt.URL.String(), "should have the same URL")
 	assert.Equal(t, respBridge.Confirmations, bt.Confirmations, "should have the same Confirmations")

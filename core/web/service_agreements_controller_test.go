@@ -42,12 +42,12 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 			if test.wantCode == 200 {
 				responseSA := models.ServiceAgreement{}
 
-				err := cltest.ParseJSONAPIResponse(resp, &responseSA)
+				err := cltest.ParseJSONAPIResponse(t, resp, &responseSA)
 				assert.NoError(t, err)
 				assert.NotEqual(t, "", responseSA.ID)
 				assert.NotEqual(t, "", responseSA.Signature.String())
 
-				createdSA := cltest.FindServiceAgreement(app.Store, responseSA.ID)
+				createdSA := cltest.FindServiceAgreement(t, app.Store, responseSA.ID)
 				assert.NotEqual(t, "", createdSA.ID)
 				assert.NotEqual(t, "", createdSA.Signature.String())
 				assert.Equal(t, time.Unix(1571523439, 0).UTC(), createdSA.Encumbrance.EndAt.Time)
@@ -78,14 +78,14 @@ func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 	response1 := models.ServiceAgreement{}
-	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &response1))
+	assert.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &response1))
 
 	reader = bytes.NewBuffer(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
 	resp, cleanup = client.Post("/v2/service_agreements", reader)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 	response2 := models.ServiceAgreement{}
-	assert.NoError(t, cltest.ParseJSONAPIResponse(resp, &response2))
+	assert.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &response2))
 
 	assert.Equal(t, response1.ID, response2.ID)
 	assert.Equal(t, response1.JobSpec.ID, response2.JobSpec.ID)
@@ -109,7 +109,7 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 
 	b, err := ioutil.ReadAll(resp.Body)
 	assert.NoError(t, err)
-	normalizedInput := cltest.NormalizedJSON(input)
+	normalizedInput := cltest.NormalizedJSON(t, input)
 	saBody := cltest.JSONFromBytes(t, b).Get("data").Get("attributes")
 	assert.Equal(t, normalizedInput, saBody.String())
 }

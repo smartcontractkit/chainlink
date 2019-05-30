@@ -284,7 +284,7 @@ func TestIntegration_EndAt(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/end_at_job.json")
-	endAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
+	endAt := cltest.ParseISO8601(t, "3000-01-01T00:00:00.000Z")
 	assert.Equal(t, endAt, j.EndAt.Time)
 
 	cltest.CreateJobRunViaWeb(t, app, j)
@@ -311,7 +311,7 @@ func TestIntegration_StartAt(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/start_at_job.json")
-	startAt := cltest.ParseISO8601("3000-01-01T00:00:00.000Z")
+	startAt := cltest.ParseISO8601(t, "3000-01-01T00:00:00.000Z")
 	assert.Equal(t, startAt, j.StartAt.Time)
 
 	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", &bytes.Buffer{})
@@ -376,7 +376,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	bridgeURL := cltest.WebURL("https://test.chain.link/always")
+	bridgeURL := cltest.WebURL(t, "https://test.chain.link/always")
 	app.Store.Config.Set("BRIDGE_RESPONSE_URL", bridgeURL)
 	app.Start()
 
@@ -594,7 +594,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "fixtures/web/noop_agreement.json")
 
 	assert.NotEqual(t, "", sa.ID)
-	j := cltest.FindJob(app.Store, sa.JobSpecID)
+	j := cltest.FindJob(t, app.Store, sa.JobSpecID)
 
 	assert.Equal(t, assets.NewLink(1000000000000000000), sa.Encumbrance.Payment)
 	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)

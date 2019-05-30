@@ -81,7 +81,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	defer cleanup()
 
 	staleSession := cltest.NewSession()
-	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration("241h"))
+	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
 	require.NoError(t, app.Store.SaveSession(&staleSession))
 
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, "email@test.net", "password123")
@@ -158,7 +158,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	cookie := cltest.MustGenerateSessionCookie(correctSession.ID)
 
 	staleSession := cltest.NewSession()
-	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration("241h"))
+	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
 	require.NoError(t, app.Store.SaveSession(&staleSession))
 
 	request, err := http.NewRequest("DELETE", app.Config.ClientNodeURL()+"/sessions", nil)

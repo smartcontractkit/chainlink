@@ -12,7 +12,7 @@ import (
 func TestBridgeType_Authenticate(t *testing.T) {
 	t.Parallel()
 
-	bta, bt := cltest.NewBridgeType()
+	bta, bt := cltest.NewBridgeType(t)
 	tests := []struct {
 		name, token string
 		wantError   bool

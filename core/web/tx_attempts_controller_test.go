@@ -27,8 +27,8 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	store := app.GetStore()
 	client := app.NewHTTPClient()
 
-	from := cltest.GetAccountAddress(store)
-	tx := cltest.CreateTxAndAttempt(store, from, 1)
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
 	_, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), 2)
 	require.NoError(t, err)
 	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
@@ -40,7 +40,7 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 
 	var links jsonapi.Links
 	var attempts []models.TxAttempt
-	body := cltest.ParseResponseBody(resp)
+	body := cltest.ParseResponseBody(t, resp)
 	require.NoError(t, web.ParsePaginatedResponse(body, &attempts, &links))
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
