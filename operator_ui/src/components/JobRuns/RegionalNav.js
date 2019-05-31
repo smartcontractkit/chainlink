@@ -9,6 +9,7 @@ import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import { fetchJob, createJobRun } from 'actions'
 import Link from 'components/Link'
+import TimeAgo from 'components/TimeAgo'
 
 const styles = theme => {
   return {
@@ -42,23 +43,32 @@ const styles = theme => {
   }
 }
 
-const RegionalNav = ({ classes, jobSpecId, jobRunId }) => {
+const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }) => {
   return (
     <Card className={classes.container}>
       <Grid container spacing={0}>
         <Grid item xs={12}>
+          <Typography variant="subtitle2" color="secondary" gutterBottom>
+            Job Run Detail
+          </Typography>
           <Link to={`/jobs/${jobSpecId}`}>
             <Typography variant="subtitle1" color="primary">
               {jobSpecId}
             </Typography>
           </Link>
-          <Typography variant="h3" color="secondary">
-            Job Run Detail
+        </Grid>
+        <Grid item xs={12}>
+          <Typography variant="h3" color="secondary" gutterBottom>
+            {jobRunId}
           </Typography>
         </Grid>
         <Grid item xs={12}>
-          <Typography variant="subtitle1" color="textSecondary">
-            #{jobRunId}
+          <Typography variant="subtitle2" color="textSecondary">
+            {jobRun && (
+              <React.Fragment>
+                Started <TimeAgo>{jobRun.createdAt}</TimeAgo>
+              </React.Fragment>
+            )}
           </Typography>
         </Grid>
         <Grid item xs={12}>
