@@ -23,14 +23,19 @@ const styles = theme => {
       width: '40%'
     },
     stampCell: {
-      width: '40%'
+      width: '30%'
     },
     statusCell: {
-      textAlign: 'end'
+      textAlign: 'end',
+      width: '30%'
     },
     runDetails: {
       paddingTop: theme.spacing.unit * 2,
-      paddingBottom: theme.spacing.unit * 2
+      paddingBottom: theme.spacing.unit * 2,
+      paddingLeft: theme.spacing.unit * 2
+    },
+    stamp: {
+      paddingLeft: theme.spacing.unit
     },
     status: {
       paddingLeft: theme.spacing.unit * 1.5,
@@ -38,6 +43,7 @@ const styles = theme => {
       paddingTop: theme.spacing.unit / 2,
       paddingBottom: theme.spacing.unit / 2,
       borderRadius: theme.spacing.unit * 2,
+      marginRight: theme.spacing.unit,
       width: 'fit-content',
       display: 'inline-block'
     },
@@ -98,7 +104,11 @@ const renderRuns = (runs, classes) => {
           </div>
         </TableCell>
         <TableCell className={classes.stampCell}>
-          <Typography variant="body1" color="textSecondary">
+          <Typography
+            variant="body1"
+            color="textSecondary"
+            className={classes.stamp}
+          >
             Created <TimeAgo>{r.createdAt}</TimeAgo>
           </Typography>
         </TableCell>
@@ -127,7 +137,7 @@ const renderRuns = (runs, classes) => {
 const List = ({ jobSpecId, runs, count, showJobRunsCount, classes }) => {
   return (
     <Card className={classes.jobRunsCard}>
-      <Table>
+      <Table padding="none">
         <TableBody>
           {renderRuns(runs, classes)}
           {runs && count > showJobRunsCount && (
