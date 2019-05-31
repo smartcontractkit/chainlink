@@ -366,8 +366,8 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, 
 	}
 
 	var merr error
-	for _, txat := range tx.Attempts {
-		receipt, state, err := txm.checkAttempt(tx, txat, blkNum)
+	for _, txAttempt := range tx.Attempts {
+		receipt, state, err := txm.checkAttempt(tx, txAttempt, blkNum)
 		if state == safe || state == confirmed {
 			return receipt, err // success, so all other attempt errors can be ignored.
 		}
@@ -473,18 +473,18 @@ const (
 
 func (txm *EthTxManager) checkAttempt(
 	tx *models.Tx,
-	txat *models.TxAttempt,
+	txAttempt *models.TxAttempt,
 	blkNum uint64,
 ) (*models.TxReceipt, attemptState, error) {
-	receipt, err := txm.GetTxReceipt(txat.Hash)
+	receipt, err := txm.GetTxReceipt(txAttempt.Hash)
 	if err != nil {
 		return nil, unconfirmed, errors.Wrap(err, "checkAttempt GetTxReceipt")
 	}
 
 	if receipt.Unconfirmed() {
-		return txm.handleUnconfirmed(tx, txat, blkNum)
+		return txm.handleUnconfirmed(tx, txAttempt, blkNum)
 	}
-	return txm.handleConfirmed(tx, txat, receipt, blkNum)
+	return txm.handleConfirmed(tx, txAttempt, receipt, blkNum)
 }
 
 // GetETHAndLINKBalances attempts to retrieve the ethereum node's perception of
@@ -502,7 +502,7 @@ func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*big.Int
 // was successfully recorded as confirmed.
 func (txm *EthTxManager) handleConfirmed(
 	tx *models.Tx,
-	txat *models.TxAttempt,
+	txAttempt *models.TxAttempt,
 	rcpt *models.TxReceipt,
 	blkNum uint64,
 ) (*models.TxReceipt, attemptState, error) {
@@ -511,11 +511,11 @@ func (txm *EthTxManager) handleConfirmed(
 	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // 0 based indexing since rcpt is 1 conf
 
 	logger.Debugw(
-		fmt.Sprintf("Tx %d checking for minimum of %v confirmations", txat.TxID, minConfs),
-		"txHash", txat.Hash.String(),
-		"txid", txat.TxID,
+		fmt.Sprintf("Tx %d checking for minimum of %v confirmations", txAttempt.TxID, minConfs),
+		"txHash", txAttempt.Hash.String(),
+		"txid", txAttempt.TxID,
 		"nonce", tx.Nonce,
-		"gasPrice", txat.GasPrice.String(),
+		"gasPrice", txAttempt.GasPrice.String(),
 		"from", tx.From.Hex(),
 		"receiptBlockNumber", rcpt.BlockNumber.ToInt(),
 		"currentBlockNumber", blkNum,
@@ -527,20 +527,20 @@ func (txm *EthTxManager) handleConfirmed(
 		return nil, confirmed, nil
 	}
 
-	if err := txm.orm.MarkTxSafe(tx, txat); err != nil {
+	if err := txm.orm.MarkTxSafe(tx, txAttempt); err != nil {
 		return nil, confirmed, err
 	}
 
 	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
 	logger.Infow(
-		fmt.Sprintf("Tx %d got minimum confirmations (%d)", txat.TxID, minConfs),
-		"txHash", txat.Hash.String(),
-		"txid", txat.TxID,
+		fmt.Sprintf("Tx %d got minimum confirmations (%d)", txAttempt.TxID, minConfs),
+		"txHash", txAttempt.Hash.String(),
+		"txid", txAttempt.TxID,
 		"nonce", tx.Nonce,
 		"ethBalance", ethBalance,
 		"linkBalance", linkBalance,
 		"receipt", rcpt,
-		"txat", txat,
+		"txAttempt", txAttempt,
 		"err", balanceErr,
 	)
 
