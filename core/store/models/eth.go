@@ -99,7 +99,7 @@ func (tx *Tx) String() string {
 		tx.SentAt)
 }
 
-// AfterCreate is used to add the default attempt to a TX after it is created
+// AfterCreate is used to add the default attempt to a Tx after it is created
 // for the first time
 func (tx *Tx) AfterCreate(db *gorm.DB) (err error) {
 	attempt := TxAttempt{

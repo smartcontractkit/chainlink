@@ -537,7 +537,7 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 	assert.Equal(t, "0x00000000000000000000000000000000000000000000000000000000000f98b2", val)
 }
 
-func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
+func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)

@@ -200,7 +200,7 @@ func (txm *EthTxManager) createTx(
 
 	tx, err := txm.sendInitialTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, value)
 	for nrc := 0; isNonceTooLowError(err); nrc++ {
-		logger.Warnw("TX nonce too low, retrying with network nonce")
+		logger.Warnw("Tx nonce too low, retrying with network nonce")
 
 		if nrc >= nonceReloadLimit {
 			err = fmt.Errorf(
@@ -216,7 +216,7 @@ func (txm *EthTxManager) createTx(
 	return tx, err
 }
 
-// sendInitialTx creates the initial TX record + attempt for an Ethereum TX,
+// sendInitialTx creates the initial Tx record + attempt for an Ethereum Tx,
 // there should only ever be one of those for a "job"
 func (txm *EthTxManager) sendInitialTx(
 	surrogateID null.String,
@@ -266,8 +266,8 @@ func (txm *EthTxManager) sendInitialTx(
 	return tx, err
 }
 
-// retryInitialTx is used to update the TX record and attempt for an Ethereum
-// TX when a TX is reattempted because of a nonce too low error
+// retryInitialTx is used to update the Tx record and attempt for an Ethereum
+// Tx when a Tx is reattempted because of a nonce too low error
 func (txm *EthTxManager) retryInitialTx(
 	tx *models.Tx,
 	ma *ManagedAccount,
@@ -511,7 +511,7 @@ func (txm *EthTxManager) handleConfirmed(
 	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // 0 based indexing since rcpt is 1 conf
 
 	logger.Debugw(
-		fmt.Sprintf("TX %d checking for minimum of %v confirmations", txat.TxID, minConfs),
+		fmt.Sprintf("Tx %d checking for minimum of %v confirmations", txat.TxID, minConfs),
 		"txHash", txat.Hash.String(),
 		"txid", txat.TxID,
 		"nonce", tx.Nonce,
@@ -533,7 +533,7 @@ func (txm *EthTxManager) handleConfirmed(
 
 	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
 	logger.Infow(
-		fmt.Sprintf("TX %d got minimum confirmations (%d)", txat.TxID, minConfs),
+		fmt.Sprintf("Tx %d got minimum confirmations (%d)", txat.TxID, minConfs),
 		"txHash", txat.Hash.String(),
 		"txid", txat.TxID,
 		"nonce", tx.Nonce,
@@ -567,13 +567,13 @@ func (txm *EthTxManager) handleUnconfirmed(
 	}
 	if blkNum >= txAttempt.SentAt+txm.config.EthGasBumpThreshold() {
 		logger.Debugw(
-			fmt.Sprintf("Unconfirmed TX %d attempt %s, bumping gas", txAttempt.TxID, txAttempt.Hash.Hex()),
+			fmt.Sprintf("Unconfirmed Tx %d attempt %s, bumping gas", txAttempt.TxID, txAttempt.Hash.Hex()),
 			logParams...,
 		)
 		return nil, unconfirmed, txm.bumpGas(tx, txAttempt, blkNum)
 	}
 	logger.Infow(
-		fmt.Sprintf("Unconfirmed TX %d has not met gas bump threshold", txAttempt.TxID),
+		fmt.Sprintf("Unconfirmed Tx %d has not met gas bump threshold", txAttempt.TxID),
 		logParams...,
 	)
 	return nil, unconfirmed, nil
@@ -595,7 +595,7 @@ func (txm *EthTxManager) bumpGas(tx *models.Tx, txAttempt *models.TxAttempt, blk
 	}
 
 	logger.Infow(
-		fmt.Sprintf("Bumped gas to %v for TX %v", txAttempt.TxID, gasPrice),
+		fmt.Sprintf("Bumped gas to %v for Tx %v", txAttempt.TxID, gasPrice),
 		"bumpSource", txAttempt.Hash.Hex(),
 		"attempt", bumpedTxAttempt,
 		"nonce", tx.Nonce)
