@@ -680,7 +680,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 
 	ethMock.EventuallyAllCalled(t)
 
-	targetLog := fmt.Sprintf("TX %d checking for minimum of 6 confirmations",
+	targetLog := fmt.Sprintf("Tx %d checking for minimum of 6 confirmations",
 		initialSuccessfulAttempt.TxID)
 	targetLogSeen := false
 	for _, log := range logsToCheckForBalance.All() {
