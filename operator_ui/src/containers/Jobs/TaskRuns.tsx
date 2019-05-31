@@ -1,10 +1,15 @@
 import React from 'react'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
-import { createStyles, withStyles } from '@material-ui/core/styles'
-import titleize from 'utils/titleize'
 import ListIcon from '../../components/Icons/ListIcon'
+import titleize from '../../utils/titleize'
 
-const styles = ({ spacing, palette }) =>
+const styles = ({ spacing, palette }: Theme) =>
   createStyles({
     container: {
       margin: 0,
@@ -27,7 +32,11 @@ const styles = ({ spacing, palette }) =>
     }
   })
 
-const TaskRuns = ({ taskRuns, classes }) => {
+interface IProps extends WithStyles<typeof styles> {
+  taskRuns: any[]
+}
+
+const TaskRuns = ({ taskRuns, classes }: IProps) => {
   return (
     <ul className={classes.container}>
       {taskRuns &&
