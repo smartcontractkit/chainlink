@@ -3,9 +3,7 @@ package store_test
 import (
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"math/big"
-	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -680,16 +678,12 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 
 	ethMock.EventuallyAllCalled(t)
 
-	targetLog := fmt.Sprintf("Tx %d checking for minimum of 6 confirmations",
-		initialSuccessfulAttempt.TxID)
-	targetLogSeen := false
+	messages := []string{}
 	for _, log := range logsToCheckForBalance.All() {
-		if strings.Contains(log.Entry.Message, targetLog) {
-			targetLogSeen = true
-			break
-		}
+		messages = append(messages, log.Message)
 	}
-	assert.True(t, targetLogSeen)
+
+	assert.Contains(t, messages, "Tx #0 checking for minimum of 6 confirmations")
 }
 
 func TestTxManager_CreateTxWithGas(t *testing.T) {

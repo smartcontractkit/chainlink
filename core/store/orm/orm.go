@@ -598,7 +598,7 @@ func (orm *ORM) AddTxAttempt(
 	}
 
 	err := orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Save(tx).Save(attempt).Error
+		return dbtx.Save(tx).Create(attempt).Error
 	})
 	return attempt, err
 }

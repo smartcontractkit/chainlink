@@ -160,7 +160,7 @@ func (mock *EthMock) Remaining() string {
 func (mock *EthMock) EventuallyAllCalled(t *testing.T) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
-	g.Eventually(mock.AllCalled).Should(gomega.BeTrue())
+	g.Eventually(mock.Remaining).Should(gomega.HaveLen(0))
 }
 
 // Call will call given method and set the result
