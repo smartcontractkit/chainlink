@@ -14,7 +14,7 @@ interface IProps {
   path: string
 }
 
-const DEFAULT_HEIGHT = 82
+const DEFAULT_HEIGHT = 98
 
 const Main = ({ children }: IProps) => {
   const [height, setHeight] = useState<number>(DEFAULT_HEIGHT)
