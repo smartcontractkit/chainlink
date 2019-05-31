@@ -2,7 +2,7 @@ import React from 'react'
 import Typography from '@material-ui/core/Typography'
 import { createStyles, withStyles } from '@material-ui/core/styles'
 import titleize from 'utils/titleize'
-import ListIcon from '../../components/Icons/ListIcon';
+import ListIcon from '../../components/Icons/ListIcon'
 
 const styles = ({ spacing, palette }) =>
   createStyles({
@@ -31,9 +31,9 @@ const TaskRuns = ({ taskRuns, classes }) => {
   return (
     <ul className={classes.container}>
       {taskRuns &&
-        taskRuns.map(run => {
+        taskRuns.map((run, idx) => {
           return (
-            <li key={run.id} className={classes.item}>
+            <li key={idx} className={classes.item}>
               <ListIcon width={40} className={classes.status}>
                 {run.status}
               </ListIcon>
