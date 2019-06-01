@@ -122,12 +122,16 @@ interface IProps extends WithStyles<typeof styles> {
   etherscanHost: string
 }
 
+const buildSearchQuery = (id: string) => `/job-runs?search=${id}`
+
 const Details = ({ classes, jobRun, etherscanHost }: IProps) => {
   return (
     <div>
       <Row>
         <Key>Job ID</Key>
-        <Value>{jobRun.jobId}</Value>
+        <Value>
+          <a href={buildSearchQuery(jobRun.jobId)}>{jobRun.jobId}</a>
+        </Value>
       </Row>
 
       <Row>
@@ -142,12 +146,16 @@ const Details = ({ classes, jobRun, etherscanHost }: IProps) => {
 
       <Row>
         <Key>Requester</Key>
-        <Value>{jobRun.requester}</Value>
+        <Value>
+          <a href={buildSearchQuery(jobRun.requester)}>{jobRun.requester}</a>
+        </Value>
       </Row>
 
       <Row>
         <Key>Request ID</Key>
-        <Value>{jobRun.requestId}</Value>
+        <Value>
+          <a href={buildSearchQuery(jobRun.requestId)}>{jobRun.requestId}</a>
+        </Value>
       </Row>
 
       <Row>
