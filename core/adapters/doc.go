@@ -62,4 +62,13 @@
 // For example:
 //  {"id":"b8004e2989e24e1d8e4449afad2eb480","data":{}}
 //
+// Random
+//
+// The Random adapter generates a cryptographically secure random number in the interval
+// specified by the start and end parameters that default to 0 if not specified.
+// For example:
+//  {"start":"500","end":"1500"}
+//  {end":"100"}
+//  {start:"-100"}
+//
 package adapters
