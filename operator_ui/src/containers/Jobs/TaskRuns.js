@@ -1,8 +1,8 @@
 import React from 'react'
 import Typography from '@material-ui/core/Typography'
 import { createStyles, withStyles } from '@material-ui/core/styles'
-import StatusIcon from 'components/Icons/TaskStatus'
 import titleize from 'utils/titleize'
+import ListIcon from '../../components/Icons/ListIcon';
 
 const styles = ({ spacing, palette }) =>
   createStyles({
@@ -34,9 +34,9 @@ const TaskRuns = ({ taskRuns, classes }) => {
         taskRuns.map(run => {
           return (
             <li key={run.id} className={classes.item}>
-              <StatusIcon width={40} className={classes.status}>
+              <ListIcon width={40} className={classes.status}>
                 {run.status}
-              </StatusIcon>
+              </ListIcon>
               <Typography variant="body1" inline>
                 {titleize(run.type)}
               </Typography>
