@@ -653,12 +653,11 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	t.Parallel()
 
 	sleepSeconds := 3
-	specJSON := "{\"initiators\":[{\"type\":\"web\"}],\"tasks\":[{\"type\":\"sleep\"},{\"type\":\"noop\"}]}"
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	app.Start()
 
-	j := cltest.CreateSpecViaWeb(t, app, specJSON)
+	j := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/sleep_job.json")
 
 	runInput := fmt.Sprintf("{\"until\": \"%s\"}", time.Now().Local().Add(time.Second*time.Duration(sleepSeconds)))
 	jr := cltest.CreateJobRunViaWeb(t, app, j, runInput)

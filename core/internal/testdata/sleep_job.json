@@ -1,0 +1,9 @@
+{
+  "initiators": [
+    {"type": "web"}
+  ],
+  "tasks": [
+    {"type": "sleep"},
+    {"type": "noop"}
+  ]
+}
