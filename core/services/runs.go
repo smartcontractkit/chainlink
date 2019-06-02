@@ -208,7 +208,6 @@ func ResumePendingTask(
 	store *store.Store,
 	input models.RunResult,
 ) error {
-
 	logger.Debugw("External adapter resuming job", []interface{}{
 		"run", run.ID,
 		"job", run.JobSpecID,
@@ -260,8 +259,7 @@ func QueueSleepingTask(
 		return fmt.Errorf("Attempting to resume sleeping run with non sleeping task %s", run.ID)
 	}
 
-	adapter, err := adapters.For(currentTaskRun.TaskSpec, store)
-
+	adapter, err := prepareAdapter(currentTaskRun, run.Overrides.Data, store)
 	if err != nil {
 		currentTaskRun.SetError(err)
 		run.SetError(err)

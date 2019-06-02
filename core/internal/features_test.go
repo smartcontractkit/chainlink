@@ -648,3 +648,22 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, j.ID, run.JobSpecID)
 }
+
+func TestIntegration_SleepAdapter(t *testing.T) {
+	t.Parallel()
+
+	sleepSeconds := 3
+	specJSON := "{\"initiators\":[{\"type\":\"web\"}],\"tasks\":[{\"type\":\"sleep\"},{\"type\":\"noop\"}]}"
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+	app.Start()
+
+	j := cltest.CreateSpecViaWeb(t, app, specJSON)
+
+	runInput := fmt.Sprintf("{\"until\": \"%s\"}", time.Now().Local().Add(time.Second*time.Duration(sleepSeconds)))
+	jr := cltest.CreateJobRunViaWeb(t, app, j, runInput)
+
+	cltest.WaitForJobRunToPendSleep(t, app.Store, jr)
+	cltest.JobRunStays(t, app.Store, jr, models.RunStatusPendingSleep, time.Second*2)
+	cltest.WaitForJobRunToComplete(t, app.Store, jr)
+}
