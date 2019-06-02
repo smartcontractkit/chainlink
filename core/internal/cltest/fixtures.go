@@ -16,15 +16,7 @@ const (
 
 // FixtureCreateJobViaWeb creates a job from a fixture using /v2/specs
 func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
-	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(MustReadFile(t, path)))
-	defer cleanup()
-	AssertServerResponse(t, resp, 200)
-
-	var job models.JobSpec
-	err := ParseJSONAPIResponse(t, resp, &job)
-	require.NoError(t, err)
-	return job
+	return CreateSpecViaWeb(t, app, string(MustReadFile(t, path)))
 }
 
 // FixtureCreateServiceAgreementViaWeb creates a service agreement from a fixture using /v2/service_agreements

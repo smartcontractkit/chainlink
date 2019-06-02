@@ -557,15 +557,20 @@ func FindServiceAgreement(t testing.TB, s *strpkg.Store, id string) models.Servi
 
 // CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
 func CreateJobSpecViaWeb(t testing.TB, app *TestApplication, job models.JobSpec) models.JobSpec {
-	client := app.NewHTTPClient()
 	marshaled, err := json.Marshal(&job)
 	assert.NoError(t, err)
-	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(marshaled))
+	return CreateSpecViaWeb(t, app, string(marshaled))
+}
+
+// CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
+func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.JobSpec {
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBufferString(spec))
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 
 	var createdJob models.JobSpec
-	err = ParseJSONAPIResponse(t, resp, &createdJob)
+	err := ParseJSONAPIResponse(t, resp, &createdJob)
 	require.NoError(t, err)
 	return createdJob
 }
