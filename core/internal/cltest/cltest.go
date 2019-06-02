@@ -700,14 +700,21 @@ func JobRunStays(
 	store *strpkg.Store,
 	jr models.JobRun,
 	status models.RunStatus,
+	optionalDuration ...time.Duration,
 ) models.JobRun {
 	t.Helper()
+
+	duration := time.Second
+	if len(optionalDuration) > 0 {
+		duration = optionalDuration[0]
+	}
+
 	var err error
 	gomega.NewGomegaWithT(t).Consistently(func() models.RunStatus {
 		jr, err = store.FindJobRun(jr.ID)
 		assert.NoError(t, err)
 		return jr.Status
-	}).Should(gomega.Equal(status))
+	}, duration).Should(gomega.Equal(status))
 	return jr
 }
 
