@@ -677,6 +677,15 @@ func WaitForJobRunToPendConfirmations(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingConfirmations)
 }
 
+// WaitForJobRunToPendSleep waits for a JobRun to reach PendingBridge Status
+func WaitForJobRunToPendSleep(
+	t testing.TB,
+	store *strpkg.Store,
+	jr models.JobRun,
+) models.JobRun {
+	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingSleep)
+}
+
 // WaitForJobRunStatus waits for a JobRun to reach given status
 func WaitForJobRunStatus(
 	t testing.TB,
