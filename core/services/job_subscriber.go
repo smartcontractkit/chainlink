@@ -104,7 +104,6 @@ func (js *jobSubscriber) Disconnect() {
 // OnNewHead resumes all pending job runs based on the new head activity.
 func (js *jobSubscriber) OnNewHead(head *models.Head) {
 	height := head.ToInt()
-	logger.Debugw("Received new head", "current_height", height)
 
 	err := js.store.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
 		err := ResumeConfirmingTask(run, js.store.Unscoped(), height)
