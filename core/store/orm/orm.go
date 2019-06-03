@@ -617,7 +617,6 @@ func (orm *ORM) AddTxAttempt(
 	tx.GasPrice = txAttempt.GasPrice
 	tx.Confirmed = txAttempt.Confirmed
 	tx.SentAt = txAttempt.SentAt
-	tx.SignedRawTx = signedRawTx
 	tx.Attempts = append(tx.Attempts, txAttempt)
 
 	err = orm.convenientTransaction(func(dbtx *gorm.DB) error {
