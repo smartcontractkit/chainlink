@@ -7,10 +7,6 @@ import (
 )
 
 func Migrate(tx *gorm.DB) error {
-	// If any of these tables somehow ended up with a duplicate hash, moving to a
-	// unique constraint puts us in a bit of a difficult position. Do we delete
-	// old txes? Use some algorithm to choose one to keep? For now, archive, and
-	// make new, stricter tables.
 	if err := tx.Exec(
 		`DROP INDEX idx_txes_from;
 		 DROP INDEX idx_txes_nonce;
@@ -18,7 +14,7 @@ func Migrate(tx *gorm.DB) error {
 		 DROP INDEX idx_tx_attempts_created_at;
 		 ALTER TABLE txes RENAME TO txes_archive;
 		 ALTER TABLE tx_attempts RENAME TO tx_attempts_archive;
-		 `,
+	`,
 	).Error; err != nil {
 		return errors.Wrap(err, "failed to drop txes and txattempts")
 	}
@@ -27,6 +23,24 @@ func Migrate(tx *gorm.DB) error {
 	}
 	if err := tx.AutoMigrate(&models.TxAttempt{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate TxAttempt")
+	}
+	if err := tx.Exec(
+		`INSERT INTO txes (
+			"from", "to", "data", "nonce", "value", "gas_limit", "hash", "gas_price", "confirmed", "sent_at"
+		 )
+		 SELECT
+			"from", "to", "data", "nonce", "value", "gas_limit", "hash", "gas_price", "confirmed", "sent_at"
+		 FROM txes_archive;
+		 INSERT INTO tx_attempts (
+			"hash", "tx_id", "gas_price", "confirmed", "sent_at", "created_at"
+		 )
+		 SELECT
+			"hash", "tx_id", "gas_price", "confirmed", "sent_at", "created_at"
+		 FROM tx_attempts_archive;
+		 DROP TABLE txes_archive;
+		 DROP TABLE tx_attempts_archive;
+		 `).Error; err != nil {
+		return errors.Wrap(err, "failed to migrate old Txes, TxAttempts")
 	}
 	return nil
 }

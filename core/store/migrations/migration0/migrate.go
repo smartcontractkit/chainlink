@@ -67,6 +67,7 @@ func Migrate(tx *gorm.DB) error {
 	return nil
 }
 
+// Tx is a capture of the model representing Txes before migration1559081901
 type Tx struct {
 	ID        uint64         `gorm:"primary_key;auto_increment"`
 	From      common.Address `gorm:"index;not null"`
@@ -82,6 +83,7 @@ type Tx struct {
 	SentAt    uint64
 }
 
+// TxAttempt is a capture of the model representing TxAttempts before migration1559081901
 type TxAttempt struct {
 	Hash      common.Hash `gorm:"primary_key;not null"`
 	TxID      uint64      `gorm:"index"`

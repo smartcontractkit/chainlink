@@ -543,13 +543,13 @@ func (orm *ORM) UpdateTx(
 // show that the transaction has not just been confirmed,
 // but has met the minimum number of outgoing confirmations to be deemed
 // safely written on the blockchain.
-func (orm *ORM) MarkTxSafe(tx *models.Tx, txat *models.TxAttempt) error {
-	txat.Confirmed = true
-	tx.AssignTxAttempt(txat)
-
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Save(tx).Save(txat).Error
-	})
+func (orm *ORM) MarkTxSafe(tx *models.Tx, txAttempt *models.TxAttempt) error {
+	txAttempt.Confirmed = true
+	tx.Hash = txAttempt.Hash
+	tx.GasPrice = txAttempt.GasPrice
+	tx.Confirmed = txAttempt.Confirmed
+	tx.SentAt = txAttempt.SentAt
+	return orm.DB.Save(tx).Error
 }
 
 // FindTx returns the specific transaction for the passed ID.
@@ -565,18 +565,18 @@ func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
 
 // FindTxByAttempt returns the specific transaction attempt with the hash.
 func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, error) {
-	txat := &models.TxAttempt{}
-	if err := orm.DB.Set("gorm:auto_preload", true).First(txat, "hash = ?", hash).Error; err != nil {
+	txAttempt := &models.TxAttempt{}
+	if err := orm.DB.Set("gorm:auto_preload", true).First(txAttempt, "hash = ?", hash).Error; err != nil {
 		return nil, err
 	}
-	tx, err := orm.FindTx(txat.TxID)
+	tx, err := orm.FindTx(txAttempt.TxID)
 	if err != nil {
 		return nil, err
 	}
-	tx.Hash = txat.Hash
-	tx.GasPrice = txat.GasPrice
-	tx.Confirmed = txat.Confirmed
-	tx.SentAt = txat.SentAt
+	tx.Hash = txAttempt.Hash
+	tx.GasPrice = txAttempt.GasPrice
+	tx.Confirmed = txAttempt.Confirmed
+	tx.SentAt = txAttempt.SentAt
 	return tx, nil
 }
 
