@@ -558,7 +558,7 @@ func (txm *EthTxManager) handleUnconfirmed(
 	gasBumpThreshold := txm.config.EthGasBumpThreshold()
 	logParams := []interface{}{
 		"txHash", txAttempt.Hash.String(),
-		"txid", txAttempt.TxID,
+		"txId", tx.ID,
 		"nonce", tx.Nonce,
 		"gasPrice", txAttempt.GasPrice.String(),
 		"from", tx.From.Hex(),
@@ -574,7 +574,7 @@ func (txm *EthTxManager) handleUnconfirmed(
 		return nil, unconfirmed, txm.bumpGas(tx, attemptIndex, blockNumber)
 	}
 	logger.Infow(
-		fmt.Sprintf("Tx #%d unconfirmed, waiting for more blocks to bump gas", attemptIndex),
+		fmt.Sprintf("Tx #%d unconfirmed, not yet ready to bump gas", attemptIndex),
 		logParams...,
 	)
 	return nil, unconfirmed, nil

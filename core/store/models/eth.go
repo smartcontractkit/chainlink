@@ -125,14 +125,6 @@ func (tx Tx) EthTx(gasPriceWei *big.Int) *types.Transaction {
 	)
 }
 
-// AssignTxAttempt assigns the values of the attempt to the top level Tx.
-func (tx *Tx) AssignTxAttempt(txat *TxAttempt) {
-	tx.Hash = txat.Hash
-	tx.GasPrice = txat.GasPrice
-	tx.Confirmed = txat.Confirmed
-	tx.SentAt = txat.SentAt
-}
-
 // TxAttempt is used for keeping track of transactions that
 // have been written to the Ethereum blockchain. This makes
 // it so that if the network is busy, a transaction can be
