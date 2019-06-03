@@ -591,6 +591,7 @@ func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, error) {
 	tx.GasPrice = txAttempt.GasPrice
 	tx.Confirmed = txAttempt.Confirmed
 	tx.SentAt = txAttempt.SentAt
+	tx.SignedRawTx = txAttempt.SignedRawTx
 	return tx, nil
 }
 
@@ -617,6 +618,7 @@ func (orm *ORM) AddTxAttempt(
 	tx.GasPrice = txAttempt.GasPrice
 	tx.Confirmed = txAttempt.Confirmed
 	tx.SentAt = txAttempt.SentAt
+	tx.SignedRawTx = txAttempt.SignedRawTx
 	tx.Attempts = append(tx.Attempts, txAttempt)
 
 	err = orm.convenientTransaction(func(dbtx *gorm.DB) error {

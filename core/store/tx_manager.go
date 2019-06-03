@@ -443,16 +443,16 @@ func (txm *EthTxManager) createAttempt(
 		return nil, errors.Wrap(err, "createAttempt#SignTx failed")
 	}
 
-	a, err := txm.orm.AddTxAttempt(tx, etx, blockNumber)
+	txAttempt, err := txm.orm.AddTxAttempt(tx, etx, blockNumber)
 	if err != nil {
 		return nil, errors.Wrap(err, "createAttempt#AddTxAttempt failed")
 	}
 
-	if _, err = txm.SendRawTx(tx.SignedRawTx); err != nil {
+	if _, err = txm.SendRawTx(txAttempt.SignedRawTx); err != nil {
 		return nil, errors.Wrap(err, "createAttempt#SendRawTx failed")
 	}
 
-	return a, nil
+	return txAttempt, nil
 }
 
 type attemptState int
