@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -142,14 +143,11 @@ func CreateTx(
 	from common.Address,
 	sentAt uint64,
 ) *models.Tx {
-	tx := NewTx(from, sentAt)
-	tx.GasPrice = models.NewBig(big.NewInt(1))
-
-	b := make([]byte, 36)
-	binary.LittleEndian.PutUint64(b, uint64(sentAt))
-	tx.Data = b
-	copy(tx.Hash[:len(tx.Hash)], randomBytes(common.HashLength))
-	require.NoError(t, store.DB.Save(tx).Error)
+	data := make([]byte, 36)
+	binary.LittleEndian.PutUint64(data, sentAt)
+	ethTx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), data)
+	tx, err := store.CreateTx(null.String{}, ethTx, &from, sentAt)
+	require.NoError(t, err)
 	return tx
 }
 
