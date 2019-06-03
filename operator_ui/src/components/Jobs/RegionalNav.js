@@ -16,6 +16,7 @@ import TimeAgo from 'components/TimeAgo'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
 import { isWebInitiator } from 'utils/jobSpecInitiators'
 import { fetchJob, createJobRun } from 'actions'
+import classNames from 'classnames'
 
 const styles = theme => {
   return {
@@ -35,7 +36,6 @@ const styles = theme => {
       display: 'inline'
     },
     horizontalNavLink: {
-      color: theme.palette.secondary.main,
       paddingTop: theme.spacing.unit * 4,
       paddingBottom: theme.spacing.unit * 4,
       textDecoration: 'none',
@@ -43,9 +43,12 @@ const styles = theme => {
       borderBottom: 'solid 1px',
       borderBottomColor: theme.palette.common.white,
       '&:hover': {
-        color: theme.palette.primary.main,
         borderBottomColor: theme.palette.primary.main
       }
+    },
+    activeNavLink: {
+      color: theme.palette.primary.main,
+      borderBottomColor: theme.palette.primary.main
     },
     jobSpecId: {
       overflow: 'hidden',
@@ -63,7 +66,16 @@ const SuccessNotification = ({ data }) => (
   </React.Fragment>
 )
 
-const RegionalNav = ({ classes, createJobRun, fetchJob, jobSpecId, job }) => {
+const RegionalNav = ({
+  classes,
+  createJobRun,
+  fetchJob,
+  jobSpecId,
+  job,
+  url
+}) => {
+  const navOverviewActive = url && !url.includes('json')
+  const navDefinitionACtive = !navOverviewActive
   const definition = job && jobSpecDefinition(job)
   const handleClick = () => {
     createJobRun(job.id, SuccessNotification, ErrorMessage).then(() =>
@@ -125,15 +137,21 @@ const RegionalNav = ({ classes, createJobRun, fetchJob, jobSpecId, job }) => {
             <ListItem className={classes.horizontalNavItem}>
               <Link
                 to={`/jobs/${jobSpecId}`}
-                className={classes.horizontalNavLink}
+                className={classNames(
+                  classes.horizontalNavLink,
+                  navOverviewActive && classes.activeNavLink
+                )}
               >
                 Overview
               </Link>
             </ListItem>
             <ListItem className={classes.horizontalNavItem}>
               <Link
-                to={`/jobs/${jobSpecId}/definition`}
-                className={classes.horizontalNavLink}
+                to={`/jobs/${jobSpecId}/json`}
+                className={classNames(
+                  classes.horizontalNavLink,
+                  navDefinitionACtive && classes.activeNavLink
+                )}
               >
                 JSON
               </Link>
@@ -145,8 +163,12 @@ const RegionalNav = ({ classes, createJobRun, fetchJob, jobSpecId, job }) => {
   )
 }
 
+const mapStateToProps = state => ({
+  url: state.notifications.currentUrl
+})
+
 export const ConnectedRegionalNav = connect(
-  null,
+  mapStateToProps,
   { fetchJob, createJobRun }
 )(RegionalNav)
 

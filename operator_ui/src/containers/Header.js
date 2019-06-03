@@ -22,6 +22,7 @@ import AvatarMenu from 'components/AvatarMenu'
 import { submitSignOut } from 'actions'
 import fetchCountSelector from 'selectors/fetchCount'
 import ReactResizeDetector from 'react-resize-detector'
+import classNames from 'classnames'
 
 const drawerWidth = 240
 
@@ -55,9 +56,12 @@ const styles = theme => {
       borderBottom: 'solid 1px',
       borderBottomColor: theme.palette.common.white,
       '&:hover': {
-        color: theme.palette.primary.main,
         borderBottomColor: theme.palette.primary.main
       }
+    },
+    activeNavLink: {
+      color: theme.palette.primary.main,
+      borderBottomColor: theme.palette.primary.main
     },
     drawerPaper: {
       backgroundColor: theme.palette.common.white,
@@ -92,8 +96,8 @@ class Header extends React.Component {
   render() {
     const toggleDrawer = () => this.setDrawerOpen(!this.state.drawerOpen)
     const signOut = () => this.props.submitSignOut()
-    const { classes, fetchCount } = this.props
-
+    const { classes, fetchCount, url } = this.props
+    const isNavActive = (current, to) => `${to && to.toLowerCase()}` === current
     const drawer = (
       <Drawer
         anchor="right"
@@ -131,7 +135,13 @@ class Header extends React.Component {
         <List className={classes.horizontalNav}>
           {SHARED_NAV_ITEMS.map(([to, text]) => (
             <ListItem key={to} className={classes.horizontalNavItem}>
-              <Link to={to} className={classes.horizontalNavLink}>
+              <Link
+                to={to}
+                className={classNames(
+                  classes.horizontalNavLink,
+                  isNavActive(to, url) && classes.activeNavLink
+                )}
+              >
                 {text}
               </Link>
             </ListItem>
@@ -193,7 +203,8 @@ Header.propTypes = {
 
 const mapStateToProps = state => ({
   authenticated: state.authentication.allowed,
-  fetchCount: fetchCountSelector(state)
+  fetchCount: fetchCountSelector(state),
+  url: state.notifications.currentUrl
 })
 
 const mapDispatchToProps = dispatch =>
