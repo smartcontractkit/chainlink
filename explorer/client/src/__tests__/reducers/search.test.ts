@@ -1,9 +1,9 @@
 import reducer, { IState } from '../../reducers'
-import { SearchAction } from '../../reducers/search'
+import { Action } from '../../reducers/search'
 
 describe('reducers/search', () => {
   it('returns an initial state', () => {
-    const action = {} as SearchAction
+    const action = {} as Action
     const state = reducer({}, action) as IState
 
     expect(state.search).toEqual({
@@ -11,15 +11,13 @@ describe('reducers/search', () => {
     })
   })
 
-  it('can update the search query', () => {
-    const action = {
-      type: 'UPDATE_SEARCH_QUERY',
-      query: 'something'
-    } as SearchAction
+  it('can parse the search query from a query param', () => {
+    const location = { toString: () => 'http://localhost/?search=find-me' }
+    const action = { location } as Action
     const state = reducer({}, action) as IState
 
     expect(state.search).toEqual({
-      query: 'something'
+      query: 'find-me'
     })
   })
 })
