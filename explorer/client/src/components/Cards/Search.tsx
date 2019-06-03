@@ -8,6 +8,7 @@ import {
   withStyles,
   WithStyles
 } from '@material-ui/core/styles'
+import TermsOfUse from '../TermsOfUse'
 import Logo from '../Logo'
 import SearchBox from '../SearchBox'
 import SearchForm from '../SearchForm'
@@ -15,7 +16,9 @@ import SearchForm from '../SearchForm'
 const styles = ({ spacing }: Theme) =>
   createStyles({
     container: {
-      height: '100vh'
+      display: 'flex',
+      alignItems: 'center',
+      width: '100%'
     },
     card: {
       paddingTop: spacing.unit * 5,
@@ -34,31 +37,36 @@ interface IProps extends WithStyles<typeof styles> {
 
 const Search = ({ classes }: IProps) => {
   return (
-    <Grid
-      container
-      justify="center"
-      alignItems="center"
-      className={classes.container}>
-      <Grid item md={8} lg={6} xl={4}>
-        <Card className={classes.card}>
-          <SearchForm>
-            <Grid container justify="center">
-              <Grid item>
-                <Logo className={classes.logo} width={300} height={80} />
-              </Grid>
-              <Grid item xs={12}>
-                <SearchBox />
-              </Grid>
-              <Grid item>
-                <Button variant="contained" color="primary" type="submit">
-                  Search
-                </Button>
-              </Grid>
+    <div className={classes.container}>
+      <Grid container justify="center" alignItems="center">
+        <Grid item md={8} lg={6} xl={4}>
+          <Grid container>
+            <Grid item xs={12}>
+              <Card className={classes.card}>
+                <SearchForm>
+                  <Grid container justify="center">
+                    <Grid item>
+                      <Logo className={classes.logo} width={300} height={80} />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <SearchBox />
+                    </Grid>
+                    <Grid item>
+                      <Button variant="contained" color="primary" type="submit">
+                        Search
+                      </Button>
+                    </Grid>
+                  </Grid>
+                </SearchForm>
+              </Card>
             </Grid>
-          </SearchForm>
-        </Card>
+            <Grid item xs={12}>
+              <TermsOfUse />
+            </Grid>
+          </Grid>
+        </Grid>
       </Grid>
-    </Grid>
+    </div>
   )
 }
 
