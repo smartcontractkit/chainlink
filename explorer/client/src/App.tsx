@@ -9,24 +9,27 @@ import TermsOfUse from './components/TermsOfUse'
 import JobRunsIndex from './containers/JobRuns/Index'
 import JobRunsShow from './containers/JobRuns/Show'
 
-interface IProps {
+interface IMainProps {
   children: any
   path: string
 }
 
 const DEFAULT_HEIGHT = 98
 
-const Main = ({ children }: IProps) => {
+const Main = ({ children }: IMainProps) => {
   const [height, setHeight] = useState<number>(DEFAULT_HEIGHT)
   const onHeaderResize = (width: number, height: number) => {
     setHeight(height)
   }
 
   return (
-    <>
-      <Header onResize={onHeaderResize} />
-      <main style={{ paddingTop: height }}>{children}</main>
-    </>
+    <Grid container spacing={24}>
+      <Grid item xs={12}>
+        <Header onResize={onHeaderResize} />
+        <main style={{ paddingTop: height }}>{children}</main>
+        <TermsOfUse />
+      </Grid>
+    </Grid>
   )
 }
 
@@ -35,21 +38,14 @@ const App = () => {
     <>
       <CssBaseline />
 
-      <Grid container spacing={24}>
-        <Grid item xs={12}>
-          <Router>
-            <SearchCard path="/" />
+      <Router style={{ display: 'flex', height: '100%', overflowX: 'hidden' }}>
+        <SearchCard path="/" />
 
-            <Main path="/job-runs">
-              <JobRunsIndex path="/" />
-              <JobRunsShow path="/:jobRunId" />
-            </Main>
-          </Router>
-        </Grid>
-        <Grid item xs={12}>
-          <TermsOfUse />
-        </Grid>
-      </Grid>
+        <Main path="/job-runs">
+          <JobRunsIndex path="/" />
+          <JobRunsShow path="/:jobRunId" />
+        </Main>
+      </Router>
     </>
   )
 }
