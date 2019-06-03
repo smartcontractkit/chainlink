@@ -78,15 +78,16 @@ type Tx struct {
 
 	From     common.Address `gorm:"index;not null"`
 	To       common.Address `gorm:"not null"`
-	Data     []byte
-	Nonce    uint64 `gorm:"index"`
-	Value    *Big   `gorm:"type:varchar(255)"`
-	GasLimit uint64
+	Data     []byte         `gorm:"not null"`
+	Nonce    uint64         `gorm:"index;not null"`
+	Value    *Big           `gorm:"type:varchar(78);not null"`
+	GasLimit uint64         `gorm:"not null"`
+
 	// TxAttempt fields manually included; can't embed another primary_key
-	Hash      common.Hash
-	GasPrice  *Big `gorm:"type:varchar(255)"`
-	Confirmed bool
-	SentAt    uint64
+	Hash      common.Hash `gorm:"not null"`
+	GasPrice  *Big        `gorm:"type:varchar(78);not null"`
+	Confirmed bool        `gorm:"not null"`
+	SentAt    uint64      `gorm:"not null"`
 }
 
 // String implements Stringer for Tx
@@ -130,17 +131,19 @@ func (tx Tx) EthTx(gasPriceWei *big.Int) *types.Transaction {
 // it so that if the network is busy, a transaction can be
 // resubmitted with a higher GasPrice.
 type TxAttempt struct {
+	ID        uint64      `gorm:"primary_key;auto_increment"`
 	TxID      uint64      `gorm:"index;type:bigint REFERENCES txes(id) ON DELETE CASCADE"`
-	Hash      common.Hash `gorm:"primary_key;not null"`
-	GasPrice  *Big        `gorm:"type:varchar(255)"`
-	Confirmed bool
-	SentAt    uint64
-	CreatedAt time.Time `gorm:"index"`
+	Hash      common.Hash `gorm:"index;not null"`
+	GasPrice  *Big        `gorm:"type:varchar(78);not null"`
+	Confirmed bool        `gorm:"not null"`
+	SentAt    uint64      `gorm:"not null"`
+	CreatedAt time.Time   `gorm:"index;not null"`
 }
 
 // String implements Stringer for TxAttempt
 func (txa *TxAttempt) String() string {
-	return fmt.Sprintf("TxAttempt{TxID: %d, Hash: %s, SentAt: %d, Confirmed: %t}",
+	return fmt.Sprintf("TxAttempt{ID: %d, TxID: %d, Hash: %s, SentAt: %d, Confirmed: %t}",
+		txa.ID,
 		txa.TxID,
 		txa.Hash.String(),
 		txa.SentAt,
