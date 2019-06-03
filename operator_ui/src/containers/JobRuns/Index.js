@@ -103,7 +103,7 @@ Index.propTypes = {
 
 Index.defaultProps = {
   latestJobRuns: [],
-  pageSize: 10
+  pageSize: 25
 }
 
 const mapStateToProps = (state, ownProps) => {

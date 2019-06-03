@@ -36,7 +36,7 @@ describe('containers/JobRuns/Index', () => {
       jobSpecId
     )
     global.fetch.getOnce(
-      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=10`,
+      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=25`,
       runsResponse
     )
 
