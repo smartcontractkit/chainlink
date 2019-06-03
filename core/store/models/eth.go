@@ -84,10 +84,11 @@ type Tx struct {
 	GasLimit uint64         `gorm:"not null"`
 
 	// TxAttempt fields manually included; can't embed another primary_key
-	Hash      common.Hash `gorm:"not null"`
-	GasPrice  *Big        `gorm:"type:varchar(78);not null"`
-	Confirmed bool        `gorm:"not null"`
-	SentAt    uint64      `gorm:"not null"`
+	Hash        common.Hash `gorm:"not null"`
+	GasPrice    *Big        `gorm:"type:varchar(78);not null"`
+	Confirmed   bool        `gorm:"not null"`
+	SentAt      uint64      `gorm:"not null"`
+	SignedRawTx string      `gorm:"type:text;not null"`
 }
 
 // String implements Stringer for Tx
@@ -131,13 +132,15 @@ func (tx Tx) EthTx(gasPriceWei *big.Int) *types.Transaction {
 // it so that if the network is busy, a transaction can be
 // resubmitted with a higher GasPrice.
 type TxAttempt struct {
-	ID        uint64      `gorm:"primary_key;auto_increment"`
-	TxID      uint64      `gorm:"index;type:bigint REFERENCES txes(id) ON DELETE CASCADE"`
-	Hash      common.Hash `gorm:"index;not null"`
-	GasPrice  *Big        `gorm:"type:varchar(78);not null"`
-	Confirmed bool        `gorm:"not null"`
-	SentAt    uint64      `gorm:"not null"`
-	CreatedAt time.Time   `gorm:"index;not null"`
+	ID        uint64    `gorm:"primary_key;auto_increment"`
+	TxID      uint64    `gorm:"index;type:bigint REFERENCES txes(id) ON DELETE CASCADE"`
+	CreatedAt time.Time `gorm:"index;not null"`
+
+	Hash        common.Hash `gorm:"index;not null"`
+	GasPrice    *Big        `gorm:"type:varchar(78);not null"`
+	Confirmed   bool        `gorm:"not null"`
+	SentAt      uint64      `gorm:"not null"`
+	SignedRawTx string      `gorm:"type:text;not null"`
 }
 
 // String implements Stringer for TxAttempt

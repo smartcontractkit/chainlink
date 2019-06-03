@@ -496,11 +496,6 @@ type Tx struct {
 
 // NewTx builds a transaction presenter.
 func NewTx(tx *models.Tx) (Tx, error) {
-	hex, err := utils.EncodeTxToHex(tx.EthTx(tx.GasPrice.ToInt()))
-	if err != nil {
-		return Tx{}, errors.Wrap(nil, "EncodeTxToHex error")
-	}
-
 	return Tx{
 		Confirmed: tx.Confirmed,
 		Data:      hexutil.Bytes(tx.Data),
@@ -508,7 +503,7 @@ func NewTx(tx *models.Tx) (Tx, error) {
 		GasLimit:  strconv.FormatUint(tx.GasLimit, 10),
 		GasPrice:  tx.GasPrice.String(),
 		Hash:      tx.Hash,
-		Hex:       hex,
+		Hex:       tx.SignedRawTx,
 		Nonce:     strconv.FormatUint(tx.Nonce, 10),
 		SentAt:    strconv.FormatUint(tx.SentAt, 10),
 		To:        &tx.To,

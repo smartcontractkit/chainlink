@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
 )
@@ -251,9 +250,9 @@ func (txm *EthTxManager) sendInitialTx(
 			return errors.Wrap(err, "TxManager#sendInitialTx CreateTx")
 		}
 
-		err = txm.sendEthTx(ethTx)
+		_, err = txm.SendRawTx(tx.SignedRawTx)
 		if err != nil {
-			return errors.Wrap(err, "TxManager#sendInitialTx sendEthTx")
+			return errors.Wrap(err, "TxManager#sendInitialTx SendRawTx")
 		}
 
 		return nil
@@ -301,9 +300,9 @@ func (txm *EthTxManager) retryInitialTx(
 			return errors.Wrap(err, "TxManager#retryInitialTx UpdateTx")
 		}
 
-		err = txm.sendEthTx(ethTx)
+		_, err = txm.SendRawTx(tx.SignedRawTx)
 		if err != nil {
-			return errors.Wrap(err, "TxManager#retryInitialTx sendEthTx")
+			return errors.Wrap(err, "TxManager#retryInitialTx SendRawTx")
 		}
 
 		return nil
@@ -441,26 +440,19 @@ func (txm *EthTxManager) createAttempt(
 	etx := tx.EthTx(gasPriceWei)
 	etx, err := txm.keyStore.SignTx(ma.Account, etx, txm.config.ChainID())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "createAttempt#SignTx failed")
 	}
 
 	a, err := txm.orm.AddTxAttempt(tx, etx, blockNumber)
 	if err != nil {
-		return nil, err
-	}
-	return a, txm.sendEthTx(etx)
-}
-
-func (txm *EthTxManager) sendEthTx(tx *types.Transaction) error {
-	hex, err := utils.EncodeTxToHex(tx)
-	if err != nil {
-		return err
+		return nil, errors.Wrap(err, "createAttempt#AddTxAttempt failed")
 	}
 
-	if _, err = txm.SendRawTx(hex); err != nil {
-		return errors.Wrapf(err, "TxManager#sendTransaction with nonce %d", tx.Nonce())
+	if _, err = txm.SendRawTx(tx.SignedRawTx); err != nil {
+		return nil, errors.Wrap(err, "createAttempt#SendRawTx failed")
 	}
-	return nil
+
+	return a, nil
 }
 
 type attemptState int
