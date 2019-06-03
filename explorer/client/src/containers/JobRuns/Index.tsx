@@ -11,6 +11,7 @@ import {
 import List from '../../components/JobRuns/List'
 import { getJobRuns } from '../../actions/jobRuns'
 import { IState } from '../../reducers'
+import { ChangePageEvent } from '../../components/Table'
 
 const EMPTY_MSG =
   "We couldn't find any results for your search query. Try again with the job id, run id, requester, requester id or transaction hash"
@@ -42,14 +43,14 @@ interface IProps extends WithStyles<typeof styles> {
 
 const Index = withStyles(styles)((props: IProps) => {
   const [currentPage, setCurrentPage] = useState(0)
-  const onChangePage = (event: any, page: number) => {
+  const onChangePage = (_event: ChangePageEvent, page: number) => {
     setCurrentPage(page)
     props.getJobRuns(props.query, page + 1, props.rowsPerPage)
   }
 
   useEffect(() => {
     props.getJobRuns(props.query, currentPage + 1, props.rowsPerPage)
-  }, [])
+  }, [props.query])
 
   return (
     <div className={props.classes.container}>
