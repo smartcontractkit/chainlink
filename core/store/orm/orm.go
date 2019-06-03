@@ -587,20 +587,22 @@ func (orm *ORM) AddTxAttempt(
 	etx *types.Transaction,
 	blkNum uint64,
 ) (*models.TxAttempt, error) {
-	attempt := &models.TxAttempt{
+	txAttempt := &models.TxAttempt{
 		Hash:     etx.Hash(),
 		GasPrice: models.NewBig(etx.GasPrice()),
 		TxID:     tx.ID,
 		SentAt:   blkNum,
 	}
-	if !tx.Confirmed {
-		tx.AssignTxAttempt(attempt)
-	}
+	tx.Hash = txAttempt.Hash
+	tx.GasPrice = txAttempt.GasPrice
+	tx.Confirmed = txAttempt.Confirmed
+	tx.SentAt = txAttempt.SentAt
+	tx.Attempts = append(tx.Attempts, txAttempt)
 
 	err := orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Save(tx).Create(attempt).Error
+		return dbtx.Save(tx).Error
 	})
-	return attempt, err
+	return txAttempt, err
 }
 
 // GetLastNonce retrieves the last known nonce in the database for an account
