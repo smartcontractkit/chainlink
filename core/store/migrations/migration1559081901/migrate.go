@@ -26,16 +26,16 @@ func Migrate(tx *gorm.DB) error {
 	}
 	if err := tx.Exec(
 		`INSERT INTO txes (
-			"from", "to", "data", "nonce", "value", "gas_limit", "hash", "gas_price", "confirmed", "sent_at"
+			"from", "to", "data", "nonce", "value", "gas_limit", "hash", "gas_price", "confirmed", "sent_at", "signed_raw_tx"
 		 )
 		 SELECT
-			"from", "to", "data", "nonce", "value", "gas_limit", "hash", "gas_price", "confirmed", "sent_at"
+			"from", "to", "data", "nonce", "value", "gas_limit", "hash", "gas_price", "confirmed", "sent_at", "hex"
 		 FROM txes_archive;
 		 INSERT INTO tx_attempts (
-			"hash", "tx_id", "gas_price", "confirmed", "sent_at", "created_at"
+			"hash", "tx_id", "gas_price", "confirmed", "sent_at", "created_at", "signed_raw_tx"
 		 )
 		 SELECT
-			"hash", "tx_id", "gas_price", "confirmed", "sent_at", "created_at"
+			"hash", "tx_id", "gas_price", "confirmed", "sent_at", "created_at", "hex"
 		 FROM tx_attempts_archive;
 		 DROP TABLE txes_archive;
 		 DROP TABLE tx_attempts_archive;
