@@ -75,7 +75,8 @@ describe('connectors/reducers/jobs', () => {
       data: {
         specs: {
           a: { id: 'a' }
-        }
+        },
+        runs: {}
       }
     }
     const state = reducer(undefined, action)
