@@ -12,6 +12,9 @@
     "sourceMap": true,
     "removeComments": false,
     "strict": true,
-    "esModuleInterop": true,
+    "esModuleInterop": true
   },
+  "files": [
+    "@types/use-react-hooks.d.ts"
+  ]
 }

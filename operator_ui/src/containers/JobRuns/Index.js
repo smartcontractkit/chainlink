@@ -8,8 +8,6 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import { fetchJobRuns } from 'actions'
 import jobRunsSelector from 'selectors/jobRuns'
 import jobRunsCountSelector from 'selectors/jobRunsCount'
-import Breadcrumb from 'components/Breadcrumb'
-import BreadcrumbItem from 'components/BreadcrumbItem'
 import List from 'components/JobRuns/List'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Title from 'components/Title'
@@ -89,16 +87,8 @@ export const Index = useHooks(props => {
 
   return (
     <Content>
-      <Breadcrumb className={classes.breadcrumb}>
-        <BreadcrumbItem href="/">Dashboard</BreadcrumbItem>
-        <BreadcrumbItem>&gt;</BreadcrumbItem>
-        <BreadcrumbItem href={`/jobs/${jobSpecId}`}>
-          Job ID: {jobSpecId}
-        </BreadcrumbItem>
-        <BreadcrumbItem>&gt;</BreadcrumbItem>
-        <BreadcrumbItem>Runs</BreadcrumbItem>
-      </Breadcrumb>
       <Title>Runs</Title>
+
       {renderDetails(props, { page }, handleChangePage)}
     </Content>
   )
@@ -113,7 +103,7 @@ Index.propTypes = {
 
 Index.defaultProps = {
   latestJobRuns: [],
-  pageSize: 10
+  pageSize: 25
 }
 
 const mapStateToProps = (state, ownProps) => {

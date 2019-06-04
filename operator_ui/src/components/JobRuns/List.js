@@ -23,14 +23,19 @@ const styles = theme => {
       width: '40%'
     },
     stampCell: {
-      width: '40%'
+      width: '30%'
     },
     statusCell: {
-      textAlign: 'end'
+      textAlign: 'end',
+      width: '30%'
     },
     runDetails: {
       paddingTop: theme.spacing.unit * 2,
-      paddingBottom: theme.spacing.unit * 2
+      paddingBottom: theme.spacing.unit * 2,
+      paddingLeft: theme.spacing.unit * 2
+    },
+    stamp: {
+      paddingLeft: theme.spacing.unit
     },
     status: {
       paddingLeft: theme.spacing.unit * 1.5,
@@ -38,6 +43,7 @@ const styles = theme => {
       paddingTop: theme.spacing.unit / 2,
       paddingBottom: theme.spacing.unit / 2,
       borderRadius: theme.spacing.unit * 2,
+      marginRight: theme.spacing.unit,
       width: 'fit-content',
       display: 'inline-block'
     },
@@ -52,6 +58,9 @@ const styles = theme => {
     completed: {
       backgroundColor: theme.palette.listCompletedStatus.background,
       color: theme.palette.listCompletedStatus.color
+    },
+    noRuns: {
+      padding: theme.spacing.unit * 2
     }
   }
 }
@@ -72,7 +81,11 @@ const renderRuns = (runs, classes) => {
     return (
       <TableRow>
         <TableCell colSpan={5}>
-          <Typography variant="body1" color="textSecondary">
+          <Typography
+            variant="body1"
+            color="textSecondary"
+            className={classes.noRuns}
+          >
             The job hasn’t run yet
           </Typography>
         </TableCell>
@@ -91,7 +104,11 @@ const renderRuns = (runs, classes) => {
           </div>
         </TableCell>
         <TableCell className={classes.stampCell}>
-          <Typography variant="body1" color="textSecondary">
+          <Typography
+            variant="body1"
+            color="textSecondary"
+            className={classes.stamp}
+          >
             Created <TimeAgo>{r.createdAt}</TimeAgo>
           </Typography>
         </TableCell>
@@ -117,33 +134,36 @@ const renderRuns = (runs, classes) => {
   )
 }
 
-const List = ({ jobSpecId, runs, showJobRunsCount, classes }) => (
-  <Card className={classes.jobRunsCard}>
-    <Table>
-      <TableBody>
-        {renderRuns(runs, classes)}
-        {runs && runs.length > showJobRunsCount && (
-          <TableRow>
-            <TableCell>
-              <div className={classes.runDetails}>
-                <Button
-                  to={`/jobs/${jobSpecId}/runs`}
-                  component={ReactStaticLinkComponent}
-                >
-                  View More
-                </Button>
-              </div>
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
-  </Card>
-)
+const List = ({ jobSpecId, runs, count, showJobRunsCount, classes }) => {
+  return (
+    <Card className={classes.jobRunsCard}>
+      <Table padding="none">
+        <TableBody>
+          {renderRuns(runs, classes)}
+          {runs && count > showJobRunsCount && (
+            <TableRow>
+              <TableCell>
+                <div className={classes.runDetails}>
+                  <Button
+                    to={`/jobs/${jobSpecId}/runs`}
+                    component={ReactStaticLinkComponent}
+                  >
+                    View More
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </Card>
+  )
+}
 
 List.propTypes = {
   jobSpecId: PropTypes.string.isRequired,
   runs: PropTypes.array.isRequired,
+  count: PropTypes.number.isRequired,
   showJobRunsCount: PropTypes.any.isRequired
 }
 
