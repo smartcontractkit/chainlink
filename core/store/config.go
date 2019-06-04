@@ -367,11 +367,11 @@ func (c Config) SessionSecret() ([]byte, error) {
 	return c.SecretGenerator.Generate(c)
 }
 
-// SessionOptions returns the sesssions.Options struct used to configure
+// SessionOptions returns the sessions.Options struct used to configure
 // the session store.
 func (c Config) SessionOptions() sessions.Options {
 	return sessions.Options{
-		Secure:   !c.Dev(),
+		Secure:   !c.Dev() && c.TLSPort() != 0,
 		HttpOnly: true,
 		MaxAge:   86400 * 30,
 	}

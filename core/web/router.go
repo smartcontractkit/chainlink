@@ -77,8 +77,10 @@ func Router(app services.Application) *gin.Engine {
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
-		secureMiddleware(config),
 	)
+	if config.TLSPort() != 0 {
+		engine.Use(secureMiddleware(config))
+	}
 
 	api := engine.Group(
 		"/",
