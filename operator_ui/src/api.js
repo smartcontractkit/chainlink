@@ -5,7 +5,7 @@ import {
   BadRequestError,
   ServerError,
   UnknownResponseError
-} from './errors'
+} from './api/errors'
 import serializeBridgeType from 'api/serializers/bridgeType'
 
 const formatURI = (path, query = {}) => {
