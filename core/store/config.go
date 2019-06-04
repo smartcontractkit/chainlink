@@ -68,6 +68,7 @@ type ConfigSchema struct {
 	Port                     uint16         `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration         time.Duration  `env:"REAPER_EXPIRATION" default:"240h"`
 	RootDir                  string         `env:"ROOT" default:"~/.chainlink"`
+	SecureCookies            bool           `env:"SECURE_COOKIES" default:"true"`
 	SessionTimeout           time.Duration  `env:"SESSION_TIMEOUT" default:"15m"`
 	TLSCertPath              string         `env:"TLS_CERT_PATH" `
 	TLSHost                  string         `env:"CHAINLINK_TLS_HOST" `
@@ -300,6 +301,11 @@ func (c Config) RootDir() string {
 	return c.getWithFallback("RootDir", parseHomeDir).(string)
 }
 
+// SecureCookies allows toggling of the secure cookies HTTP flag
+func (c Config) SecureCookies() bool {
+	return c.viper.GetBool(c.envVarName("SecureCookies"))
+}
+
 // SessionTimeout is the maximum duration that a user session can persist without any activity.
 func (c Config) SessionTimeout() time.Duration {
 	return c.viper.GetDuration(c.envVarName("SessionTimeout"))
@@ -371,7 +377,7 @@ func (c Config) SessionSecret() ([]byte, error) {
 // the session store.
 func (c Config) SessionOptions() sessions.Options {
 	return sessions.Options{
-		Secure:   !c.Dev(),
+		Secure:   c.SecureCookies(),
 		HttpOnly: true,
 		MaxAge:   86400 * 30,
 	}
