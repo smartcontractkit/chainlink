@@ -122,7 +122,7 @@ func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
 
 func (sp *StatsPusher) eventLoop(parentCtx context.Context) {
 	for {
-		err := sp.pollEvents(parentCtx)
+		err := sp.pusherLoop(parentCtx)
 		if err == nil {
 			return
 		}
@@ -139,25 +139,37 @@ func (sp *StatsPusher) eventLoop(parentCtx context.Context) {
 	}
 }
 
-func (sp *StatsPusher) pollEvents(parentCtx context.Context) error {
-	logger.Debugw("Polling for events to synchronize")
+func (sp *StatsPusher) pushEvents() error {
+	err := sp.ORM.AllSyncEvents(func(event *models.SyncEvent) error {
+		logger.Debugw("StatsPusher got event", "event", event.ID)
+		return sp.syncEvent(event)
+	})
+
+	if err != nil {
+		return err
+	}
+
+	sp.backoffSleeper.Reset()
+	return nil
+}
+
+func (sp *StatsPusher) pusherLoop(parentCtx context.Context) error {
+	logger.Debugw("Waiting for events to synchronize")
 
 	for {
 		select {
 		case <-parentCtx.Done():
 			return nil
 		case <-sp.waker:
-		case <-sp.clock.After(sp.Period):
-			err := sp.ORM.AllSyncEvents(func(event *models.SyncEvent) error {
-				logger.Debugw("StatsPusher got event", "event", event.ID)
-				return sp.syncEvent(event)
-			})
-
+			err := sp.pushEvents()
 			if err != nil {
 				return err
 			}
-
-			sp.backoffSleeper.Reset()
+		case <-sp.clock.After(sp.Period):
+			err := sp.pushEvents()
+			if err != nil {
+				return err
+			}
 		}
 	}
 }
