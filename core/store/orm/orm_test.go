@@ -449,8 +449,11 @@ func TestORM_CreateTx(t *testing.T) {
 		data,
 	)
 
-	_, err = store.CreateTx(null.String{}, ethTx, &from, 0)
-	assert.NoError(t, err)
+	tx, err := store.CreateTx(null.String{}, ethTx, &from, 0)
+	require.NoError(t, err)
+
+	// CreateTx should also include an initial attempt
+	assert.Len(t, tx.Attempts, 1)
 
 	txs := []models.Tx{}
 	assert.NoError(t, store.Where("Nonce", nonce, &txs))
@@ -466,7 +469,57 @@ func TestORM_CreateTx(t *testing.T) {
 	assert.Equal(t, gasLimit, ntx.GasLimit)
 }
 
-func TestORM_CreateTx_IsIdempotent(t *testing.T) {
+func TestORM_CreateTx_WithSurrogateIDIsIdempotent(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
+	to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
+	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
+	nonce := uint64(1232421)
+	gasLimit := uint64(50000)
+	data, err := hex.DecodeString("0987612345abcdef")
+	assert.NoError(t, err)
+
+	surrogateID := null.StringFrom("1")
+
+	ethTx := types.NewTransaction(
+		nonce,
+		to,
+		value,
+		gasLimit,
+		new(big.Int),
+		data,
+	)
+
+	tx1, err := store.CreateTx(surrogateID, ethTx, &from, 0)
+	assert.NoError(t, err)
+
+	ethTxWithNewNonce := types.NewTransaction(
+		nonce+1,
+		to,
+		value,
+		gasLimit,
+		new(big.Int),
+		data,
+	)
+
+	tx2, err := store.CreateTx(surrogateID, ethTxWithNewNonce, &from, 0)
+	assert.NoError(t, err)
+
+	// IDs should be the same because only record should ever be created
+	assert.Equal(t, tx1.ID, tx2.ID)
+
+	// New nonce should be saved
+	assert.NotEqual(t, tx1.Nonce, tx2.Nonce)
+
+	// New nonce should change the signature generated and hash
+	assert.NotEqual(t, tx1.SignedRawTx, tx2.SignedRawTx)
+	assert.NotEqual(t, tx1.Hash, tx2.Hash)
+}
+
+func TestORM_UpdateTx(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -488,8 +541,12 @@ func TestORM_CreateTx_IsIdempotent(t *testing.T) {
 		data,
 	)
 
-	tx1, err := store.CreateTx(null.String{}, ethTx, &from, 0)
+	tx, err := store.CreateTx(null.String{}, ethTx, &from, 0)
 	assert.NoError(t, err)
+
+	oldNonce := tx.Nonce
+	oldHash := tx.Hash
+	oldSignedRawTx := tx.SignedRawTx
 
 	ethTxWithNewNonce := types.NewTransaction(
 		nonce+1,
@@ -500,18 +557,16 @@ func TestORM_CreateTx_IsIdempotent(t *testing.T) {
 		data,
 	)
 
-	tx2, err := store.CreateTx(null.String{}, ethTxWithNewNonce, &from, 0)
+	err = store.UpdateTx(tx, ethTxWithNewNonce, &from, 0)
 	assert.NoError(t, err)
 
-	// IDs should be the same because only record should ever be created
-	assert.Equal(t, tx1.ID, tx2.ID)
+	// tx fields are updated to match new ethTx
+	assert.NotEqual(t, tx.Nonce, oldNonce)
+	assert.NotEqual(t, tx.SignedRawTx, oldSignedRawTx)
+	assert.NotEqual(t, tx.Hash, oldHash)
 
-	// New nonce should be saved
-	assert.NotEqual(t, tx1.Nonce, tx2.Nonce)
-
-	// New nonce should change the signature generated and hash
-	assert.NotEqual(t, tx1.SignedRawTx, tx2.SignedRawTx)
-	assert.NotEqual(t, tx1.Hash, tx2.Hash)
+	// No additional attempts are created
+	assert.Len(t, tx.Attempts, 1)
 }
 
 func TestORM_FindBridge(t *testing.T) {
