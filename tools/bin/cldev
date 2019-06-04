@@ -39,7 +39,7 @@ if [ "$#" == 0 ]; then
 fi
 
 case "$1" in
-  node | n)
+  node | core | n)
     echo "** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
     mainexec local import $DEFAULT_KEY_PATH
     echo "** Running node"
