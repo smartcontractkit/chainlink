@@ -94,6 +94,62 @@ type response struct {
 	Status int `json:"status"`
 }
 
+func (sp *StatsPusher) eventLoop(parentCtx context.Context) {
+	logger.Debugw("Entered StatsPusher event loop")
+	for {
+		err := sp.pusherLoop(parentCtx)
+		if err == nil {
+			return
+		}
+
+		duration := sp.backoffSleeper.Duration()
+		logger.Warnw("Failure during event synchronization", "error", err.Error(), "sleep_duration", duration)
+
+		select {
+		case <-parentCtx.Done():
+			return
+		case <-sp.clock.After(duration):
+			continue
+		}
+	}
+}
+
+func (sp *StatsPusher) pusherLoop(parentCtx context.Context) error {
+	logger.Debugw("Entered StatsPusher push loop")
+
+	for {
+		select {
+		case <-sp.waker:
+			err := sp.pushEvents()
+			if err != nil {
+				return err
+			}
+		case <-sp.clock.After(sp.Period):
+			err := sp.pushEvents()
+			if err != nil {
+				return err
+			}
+		case <-parentCtx.Done():
+			logger.Debugw("StatsPusher got done signal, shutting down")
+			return nil
+		}
+	}
+}
+
+func (sp *StatsPusher) pushEvents() error {
+	err := sp.ORM.AllSyncEvents(func(event *models.SyncEvent) error {
+		logger.Debugw("StatsPusher got event", "event", event.ID)
+		return sp.syncEvent(event)
+	})
+
+	if err != nil {
+		return errors.Wrap(err, "pushEvents#AllSyncEvents failed")
+	}
+
+	sp.backoffSleeper.Reset()
+	return nil
+}
+
 func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
 	sp.WSClient.Send([]byte(event.Body))
 
@@ -120,62 +176,6 @@ func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
 	return nil
 }
 
-func (sp *StatsPusher) eventLoop(parentCtx context.Context) {
-	logger.Debugw("Entered StatsPusher event loop")
-	for {
-		err := sp.pusherLoop(parentCtx)
-		if err == nil {
-			return
-		}
-
-		duration := sp.backoffSleeper.Duration()
-		logger.Warnw("Failure during event synchronization", "error", err.Error(), "sleep_duration", duration)
-
-		select {
-		case <-parentCtx.Done():
-			return
-		case <-sp.clock.After(duration):
-			continue
-		}
-	}
-}
-
-func (sp *StatsPusher) pushEvents() error {
-	err := sp.ORM.AllSyncEvents(func(event *models.SyncEvent) error {
-		logger.Debugw("StatsPusher got event", "event", event.ID)
-		return sp.syncEvent(event)
-	})
-
-	if err != nil {
-		return errors.Wrap(err, "pushEvents#AllSyncEvents failed")
-	}
-
-	sp.backoffSleeper.Reset()
-	return nil
-}
-
-func (sp *StatsPusher) pusherLoop(parentCtx context.Context) error {
-	logger.Debugw("Entered StatsPusher push loop")
-
-	for {
-		select {
-		case <-parentCtx.Done():
-			logger.Debugw("StatsPusher got done signal, shutting down")
-			return nil
-		case <-sp.waker:
-			err := sp.pushEvents()
-			if err != nil {
-				return err
-			}
-		case <-sp.clock.After(sp.Period):
-			err := sp.pushEvents()
-			if err != nil {
-				return err
-			}
-		}
-	}
-}
-
 func createSyncEventWithStatsPusher(sp *StatsPusher) func(*gorm.Scope) {
 	return func(scope *gorm.Scope) {
 		if scope.HasError() {
@@ -188,6 +188,7 @@ func createSyncEventWithStatsPusher(sp *StatsPusher) func(*gorm.Scope) {
 
 		run, ok := scope.Value.(*models.JobRun)
 		if !ok {
+			logger.Error("Invariant violated scope.Value is not type *models.JobRun, but TableName was job_runes")
 			return
 		}
 
