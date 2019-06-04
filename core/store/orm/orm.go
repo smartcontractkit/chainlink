@@ -498,24 +498,36 @@ func (orm *ORM) CreateTx(
 		return nil, err
 	}
 
-	var tx models.Tx
-	err = orm.DB.
-		Where("hash = ? OR surrogate_id = ?", ethTx.Hash(), surrogateID.ValueOrZero()).
-		Attrs(models.Tx{
-			SurrogateID: surrogateID,
-			From:        *from,
-			To:          *ethTx.To(),
-			Nonce:       ethTx.Nonce(),
-			Data:        ethTx.Data(),
-			Value:       models.NewBig(ethTx.Value()),
-			GasLimit:    ethTx.Gas(),
-			GasPrice:    models.NewBig(ethTx.GasPrice()),
-			Hash:        ethTx.Hash(),
-			SentAt:      sentAt,
-			SignedRawTx: signedRawTx,
-		}).
-		FirstOrCreate(&tx).Error
-	return &tx, errors.Wrap(err, "CreateTx#FirstOrCreate failed")
+	tx := &models.Tx{}
+	err = orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		if surrogateID.Valid {
+			err = preloadAttempts(dbtx).First(tx, "surrogate_id = ?", surrogateID.ValueOrZero()).Error
+		} else {
+			err = preloadAttempts(dbtx).First(tx, "hash = ?", ethTx.Hash()).Error
+		}
+
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return errors.Wrap(err, "CreateTx#First failed")
+		}
+
+		tx.SurrogateID = surrogateID
+		tx.From = *from
+		tx.To = *ethTx.To()
+		tx.Nonce = ethTx.Nonce()
+		tx.Data = ethTx.Data()
+		tx.Value = models.NewBig(ethTx.Value())
+		tx.GasLimit = ethTx.Gas()
+		tx.GasPrice = models.NewBig(ethTx.GasPrice())
+		tx.Hash = ethTx.Hash()
+		tx.SentAt = sentAt
+		tx.SignedRawTx = signedRawTx
+		if err == gorm.ErrRecordNotFound {
+			return dbtx.Create(tx).Error
+		}
+
+		return dbtx.Save(tx).Error
+	})
+	return tx, nil
 }
 
 // UpdateTx assigns new EthTx details to a transaction, typically used after a
@@ -531,25 +543,19 @@ func (orm *ORM) UpdateTx(
 		return errors.Wrap(err, "Update(tx) EncodeTxToHex failed")
 	}
 
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		err := dbtx.Model(tx).Update(models.Tx{
-			From:        *from,
-			Nonce:       ethTx.Nonce(),
-			GasPrice:    models.NewBig(ethTx.GasPrice()),
-			Hash:        ethTx.Hash(),
-			SentAt:      sentAt,
-			SignedRawTx: signedRawTx,
-		}).Error
-		if err != nil {
-			return errors.Wrap(err, "Update(tx) Model().Update() failed")
-		}
-		return dbtx.Table("tx_attempts").Where("hash = ?", tx.Hash).Update(models.TxAttempt{
-			Hash:        tx.Hash,
-			GasPrice:    tx.GasPrice,
-			SentAt:      tx.SentAt,
-			SignedRawTx: signedRawTx,
-		}).Error
-	})
+	tx.From = *from
+	tx.Nonce = ethTx.Nonce()
+	tx.GasPrice = models.NewBig(ethTx.GasPrice())
+	tx.Hash = ethTx.Hash()
+	tx.SentAt = sentAt
+	tx.SignedRawTx = signedRawTx
+	txAttempt := tx.Attempts[0]
+	txAttempt.Hash = tx.Hash
+	txAttempt.GasPrice = tx.GasPrice
+	txAttempt.SentAt = tx.SentAt
+	txAttempt.SignedRawTx = tx.SignedRawTx
+
+	return orm.DB.Save(tx).Error
 }
 
 // MarkTxSafe updates the database for the given transaction and attempt to
@@ -566,14 +572,17 @@ func (orm *ORM) MarkTxSafe(tx *models.Tx, txAttempt *models.TxAttempt) error {
 	return orm.DB.Save(tx).Error
 }
 
+func preloadAttempts(dbtx *gorm.DB) *gorm.DB {
+	return dbtx.
+		Preload("Attempts", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at asc")
+		})
+}
+
 // FindTx returns the specific transaction for the passed ID.
 func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
 	tx := &models.Tx{}
-	err := orm.DB.
-		Preload("Attempts", func(db *gorm.DB) *gorm.DB {
-			return db.Order("created_at asc")
-		}).
-		First(tx, "id = ?", ID).Error
+	err := preloadAttempts(orm.DB).First(tx, "id = ?", ID).Error
 	return tx, err
 }
 
@@ -809,9 +818,7 @@ func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSp
 // TxFrom returns all transactions from a particular address.
 func (orm *ORM) TxFrom(from common.Address) ([]models.Tx, error) {
 	txs := []models.Tx{}
-	return txs, orm.DB.
-		Set("gorm:auto_preload", true).
-		Find(&txs, "\"from\" = ?", from).Error
+	return txs, preloadAttempts(orm.DB).Find(&txs, `"from" = ?`, from).Error
 }
 
 // Transactions returns all transactions limited by passed parameters.

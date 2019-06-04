@@ -560,7 +560,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	sentAt := uint64(9183)
 	ethMock.Register("eth_getBalance", "0x100")
 	ethMock.Register("eth_call", "0x100")
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+
 	var firstTxData []interface{}
 	ethMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
@@ -601,12 +601,14 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	// The first and second transaction should have the same data
 	assert.Equal(t, firstTxData, secondTxData)
 
-	// Only one transaction should be created
-	from := cltest.GetAccountAddress(t, store)
-	txs, err := store.TxFrom(from)
+	addresses := cltest.GetAccountAddresses(store)
+	require.Len(t, addresses, 1)
+
+	// There should only be one transaction with one attempt
+	transactions, err := store.TxFrom(addresses[0])
 	require.NoError(t, err)
-	require.Len(t, txs, 1)
-	assert.Len(t, txs[0].Attempts, 1)
+	require.Len(t, transactions, 1)
+	assert.Len(t, transactions[0].Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -617,12 +619,14 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
-	config := store.Config
 
 	ethMock := app.MockEthClient(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", `0x1`)
 	ethMock.Register("eth_getTransactionCount", `0x2`)
 	app.AddUnlockedKey()
+
+	addresses := cltest.GetAccountAddresses(store)
+	require.Len(t, addresses, 2)
 
 	address := cltest.NewAddress()
 	fHash := models.HexToFunctionSelector("b3f98adc")
@@ -636,8 +640,6 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 
 	hash := cltest.NewHash()
 	sentAt := uint64(9183)
-	ethMock.Register("eth_getBalance", "0x100")
-	ethMock.Register("eth_call", "0x100")
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	var firstTxData []interface{}
 	ethMock.Register("eth_sendRawTransaction", hash,
@@ -660,7 +662,6 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 	// Run the adapter again
 
 	confirmed := sentAt + 1
-	safe := confirmed + config.MinOutgoingConfirmations()
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
 
 	var secondTxData []interface{}
@@ -669,9 +670,6 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 			secondTxData = data
 			return nil
 		})
-	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
-	ethMock.Register("eth_getTransactionReceipt", receipt)
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
 	data = adapter.Perform(input, store)
 	assert.NoError(t, data.GetError())
@@ -679,9 +677,13 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 	// Since the nonce (and from address) changed, the data should also change
 	assert.NotEqual(t, firstTxData, secondTxData)
 
-	// Only one transaction should be created
-	from := cltest.GetAccountAddress(t, store)
-	txs, err := store.TxFrom(from)
+	// The original account should have no txes, because it was reassigned
+	txs, err := store.TxFrom(addresses[0])
+	require.NoError(t, err)
+	assert.Len(t, txs, 0)
+
+	// The second account should have only one tx
+	txs, err = store.TxFrom(addresses[1])
 	require.NoError(t, err)
 	require.Len(t, txs, 1)
 	assert.Len(t, txs[0].Attempts, 1)

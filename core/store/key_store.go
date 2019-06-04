@@ -103,3 +103,8 @@ func (ks *KeyStore) GetFirstAccount() (accounts.Account, error) {
 	}
 	return ks.Accounts()[0], nil
 }
+
+// GetAccounts returns all accounts
+func (ks *KeyStore) GetAccounts() []accounts.Account {
+	return ks.Accounts()
+}
