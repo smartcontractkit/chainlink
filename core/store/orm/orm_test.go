@@ -569,6 +569,76 @@ func TestORM_UpdateTx(t *testing.T) {
 	assert.Len(t, tx.Attempts, 1)
 }
 
+func TestORM_AddTxAttempt(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
+	to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
+	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
+	nonce := uint64(1232421)
+	gasLimit := uint64(50000)
+	data, err := hex.DecodeString("0987612345abcdef")
+	assert.NoError(t, err)
+
+	ethTx := types.NewTransaction(
+		nonce,
+		to,
+		value,
+		gasLimit,
+		new(big.Int),
+		data,
+	)
+
+	tx, err := store.CreateTx(null.String{}, ethTx, &from, 0)
+	assert.NoError(t, err)
+
+	ethTxWithNewNonce := types.NewTransaction(
+		nonce+1,
+		to,
+		value,
+		gasLimit,
+		new(big.Int),
+		data,
+	)
+
+	// New EthTx generates a new attempt record
+	txAttempt, err := store.AddTxAttempt(tx, ethTxWithNewNonce, 1)
+	assert.NoError(t, err)
+
+	assert.Len(t, tx.Attempts, 2)
+	assert.Equal(t, tx.ID, txAttempt.TxID)
+	assert.Equal(t, tx.Attempts[1], txAttempt)
+
+	// Another attempt with exact same EthTx still generates a new attempt record
+	txAttempt, err = store.AddTxAttempt(tx, ethTxWithNewNonce, 1)
+	assert.NoError(t, err)
+
+	assert.Len(t, tx.Attempts, 3)
+	assert.Equal(t, tx.ID, txAttempt.TxID)
+	assert.Equal(t, tx.Attempts[2], txAttempt)
+
+	ethTxWithNewGasLimit := types.NewTransaction(
+		nonce+1,
+		to,
+		value,
+		gasLimit+1,
+		new(big.Int),
+		data,
+	)
+
+	// Another attempt with new EthTx updates Tx hash/rawTx etc.
+	txAttempt, err = store.AddTxAttempt(tx, ethTxWithNewGasLimit, 1)
+	assert.NoError(t, err)
+
+	assert.Len(t, tx.Attempts, 4)
+	assert.Equal(t, tx.ID, txAttempt.TxID)
+	assert.Equal(t, tx.Attempts[3], txAttempt)
+	assert.Equal(t, tx.Hash, txAttempt.Hash)
+	assert.Equal(t, tx.SignedRawTx, txAttempt.SignedRawTx)
+}
+
 func TestORM_FindBridge(t *testing.T) {
 	t.Parallel()
 
