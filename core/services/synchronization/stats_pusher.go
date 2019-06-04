@@ -154,11 +154,12 @@ func (sp *StatsPusher) pushEvents() error {
 }
 
 func (sp *StatsPusher) pusherLoop(parentCtx context.Context) error {
-	logger.Debugw("Waiting for events to synchronize")
+	logger.Debugw("Entered main pusher loop")
 
 	for {
 		select {
 		case <-parentCtx.Done():
+			logger.Debugw("StatsPusher got done signal, shutting down")
 			return nil
 		case <-sp.waker:
 			err := sp.pushEvents()
@@ -180,29 +181,31 @@ func createSyncEventWithStatsPusher(sp *StatsPusher) func(*gorm.Scope) {
 			return
 		}
 
-		if scope.TableName() == "job_runs" {
-			run, ok := scope.Value.(*models.JobRun)
-			if !ok {
-				return
-			}
-
-			presenter := SyncJobRunPresenter{run}
-			bodyBytes, err := json.Marshal(presenter)
-			if err != nil {
-				scope.Err(err)
-				return
-			}
-
-			event := models.SyncEvent{
-				Body: string(bodyBytes),
-			}
-			err = scope.DB().Save(&event).Error
-			if err != nil {
-				scope.Err(err)
-				return
-			}
-
-			sp.PushNow()
+		if scope.TableName() != "job_runs" {
+			return
 		}
+
+		run, ok := scope.Value.(*models.JobRun)
+		if !ok {
+			return
+		}
+
+		presenter := SyncJobRunPresenter{run}
+		bodyBytes, err := json.Marshal(presenter)
+		if err != nil {
+			scope.Err(err)
+			return
+		}
+
+		event := models.SyncEvent{
+			Body: string(bodyBytes),
+		}
+		err = scope.DB().Save(&event).Error
+		if err != nil {
+			scope.Err(err)
+			return
+		}
+
+		sp.PushNow()
 	}
 }
