@@ -49,22 +49,13 @@ func TestConfig_sessionOptions(t *testing.T) {
 	t.Parallel()
 	config := NewConfig()
 
-	tests := []struct {
-		name string
-		dev  bool
-		want bool
-	}{
-		{"dev", true, false},
-		{"production", false, true},
-	}
+	config.Set("SECURE_COOKIES", false)
+	opts := config.SessionOptions()
+	require.False(t, opts.Secure)
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			config.Set("CHAINLINK_DEV", test.dev)
-			opts := config.SessionOptions()
-			require.Equal(t, test.want, opts.Secure)
-		})
-	}
+	config.Set("SECURE_COOKIES", true)
+	opts = config.SessionOptions()
+	require.True(t, opts.Secure)
 }
 
 func TestConfig_readFromFile(t *testing.T) {
