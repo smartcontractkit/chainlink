@@ -3,12 +3,12 @@ package synchronization
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/url"
 	"time"
 
 	"github.com/jinzhu/gorm"
 	"github.com/jpillora/backoff"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -99,13 +99,13 @@ func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
 
 	message, err := sp.WSClient.Receive()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "syncEvent#WSClient.Receive failed")
 	}
 
 	var response response
 	err = json.Unmarshal(message, &response)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "syncEvent#json.Unmarshal failed")
 	}
 
 	if response.Status != 201 {
@@ -114,13 +114,14 @@ func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
 
 	err = sp.ORM.DB.Delete(event).Error
 	if err != nil {
-		return err
+		return errors.Wrap(err, "syncEvent#DB.Delete failed")
 	}
 
 	return nil
 }
 
 func (sp *StatsPusher) eventLoop(parentCtx context.Context) {
+	logger.Debugw("Entered StatsPusher event loop")
 	for {
 		err := sp.pusherLoop(parentCtx)
 		if err == nil {
@@ -128,7 +129,7 @@ func (sp *StatsPusher) eventLoop(parentCtx context.Context) {
 		}
 
 		duration := sp.backoffSleeper.Duration()
-		logger.Errorw("Error during event synchronization", "error", err, "sleep_duration", duration)
+		logger.Warnw("Failure during event synchronization", "error", err.Error(), "sleep_duration", duration)
 
 		select {
 		case <-parentCtx.Done():
@@ -146,7 +147,7 @@ func (sp *StatsPusher) pushEvents() error {
 	})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err, "pushEvents#AllSyncEvents failed")
 	}
 
 	sp.backoffSleeper.Reset()
@@ -154,7 +155,7 @@ func (sp *StatsPusher) pushEvents() error {
 }
 
 func (sp *StatsPusher) pusherLoop(parentCtx context.Context) error {
-	logger.Debugw("Entered main pusher loop")
+	logger.Debugw("Entered StatsPusher push loop")
 
 	for {
 		select {
@@ -193,7 +194,7 @@ func createSyncEventWithStatsPusher(sp *StatsPusher) func(*gorm.Scope) {
 		presenter := SyncJobRunPresenter{run}
 		bodyBytes, err := json.Marshal(presenter)
 		if err != nil {
-			scope.Err(err)
+			scope.Err(errors.Wrap(err, "createSyncEvent#json.Marshal failed"))
 			return
 		}
 
@@ -202,7 +203,7 @@ func createSyncEventWithStatsPusher(sp *StatsPusher) func(*gorm.Scope) {
 		}
 		err = scope.DB().Save(&event).Error
 		if err != nil {
-			scope.Err(err)
+			scope.Err(errors.Wrap(err, "createSyncEvent#Save failed"))
 			return
 		}
 

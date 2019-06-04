@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStatsPusher(t *testing.T) {
+func TestStatsPusher_PushNow(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -31,6 +31,46 @@ func TestStatsPusher(t *testing.T) {
 
 	assert.Equal(t, 1, lenSyncEvents(t, store.ORM), "jobrun sync event should be created")
 	clock.Trigger()
+	cltest.CallbackOrTimeout(t, "ws server receives jobrun creation", func() {
+		<-wsserver.Received
+		err := wsserver.Broadcast(`{"status": 201}`)
+		assert.NoError(t, err)
+	})
+	cltest.WaitForSyncEventCount(t, store.ORM, 0)
+
+	jr.ApplyResult(models.RunResult{Status: models.RunStatusCompleted})
+	require.NoError(t, store.SaveJobRun(&jr))
+	assert.Equal(t, 1, lenSyncEvents(t, store.ORM))
+
+	clock.Trigger()
+	cltest.CallbackOrTimeout(t, "ws server receives jobrun update", func() {
+		<-wsserver.Received
+		err := wsserver.Broadcast(`{"status": 201}`)
+		assert.NoError(t, err)
+	})
+	cltest.WaitForSyncEventCount(t, store.ORM, 0)
+}
+
+func TestStatsPusher_ClockTrigger(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	wsserver, wscleanup := cltest.NewEventWebSocketServer(t)
+	defer wscleanup()
+
+	clock := cltest.NewTriggerClock()
+	pusher := synchronization.NewStatsPusher(store.ORM, wsserver.URL, "", "", clock)
+	pusher.Start()
+	defer pusher.Close()
+
+	j := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&j))
+
+	jr := j.NewRun(j.Initiators[0])
+	require.NoError(t, store.CreateJobRun(&jr))
+
+	assert.Equal(t, 1, lenSyncEvents(t, store.ORM), "jobrun sync event should be created")
+	pusher.PushNow()
 	cltest.CallbackOrTimeout(t, "ws server receives jobrun creation", func() {
 		<-wsserver.Received
 		err := wsserver.Broadcast(`{"status": 201}`)
