@@ -92,7 +92,7 @@ func (w *websocketClient) Send(data []byte) {
 // Receive blocks the caller while waiting for a response from the server,
 // returning the raw response bytes
 func (w *websocketClient) Receive(durationParams ...time.Duration) ([]byte, error) {
-	duration := 30 * time.Second
+	duration := defaultReceiveTimeout
 	if len(durationParams) > 0 {
 		duration = durationParams[0]
 	}
@@ -117,6 +117,9 @@ const (
 
 	// Maximum message size allowed from peer.
 	maxMessageSize = 512
+
+	// defaultReceiveTimeout is the default amount of time to wait for receipt of messages
+	defaultReceiveTimeout = 30 * time.Second
 )
 
 // Inspired by https://github.com/gorilla/websocket/blob/master/examples/chat/client.go
