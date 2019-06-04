@@ -427,7 +427,7 @@ func TestORM_JobRunsCountFor(t *testing.T) {
 	assert.Equal(t, 1, count)
 }
 
-func TestORM_CreatingTx(t *testing.T) {
+func TestORM_CreateTx(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -464,6 +464,54 @@ func TestORM_CreatingTx(t *testing.T) {
 	assert.Equal(t, nonce, ntx.Nonce)
 	assert.Equal(t, value, ntx.Value.ToInt())
 	assert.Equal(t, gasLimit, ntx.GasLimit)
+}
+
+func TestORM_CreateTx_IsIdempotent(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
+	to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
+	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
+	nonce := uint64(1232421)
+	gasLimit := uint64(50000)
+	data, err := hex.DecodeString("0987612345abcdef")
+	assert.NoError(t, err)
+
+	ethTx := types.NewTransaction(
+		nonce,
+		to,
+		value,
+		gasLimit,
+		new(big.Int),
+		data,
+	)
+
+	tx1, err := store.CreateTx(null.String{}, ethTx, &from, 0)
+	assert.NoError(t, err)
+
+	ethTxWithNewNonce := types.NewTransaction(
+		nonce+1,
+		to,
+		value,
+		gasLimit,
+		new(big.Int),
+		data,
+	)
+
+	tx2, err := store.CreateTx(null.String{}, ethTxWithNewNonce, &from, 0)
+	assert.NoError(t, err)
+
+	// IDs should be the same because only record should ever be created
+	assert.Equal(t, tx1.ID, tx2.ID)
+
+	// New nonce should be saved
+	assert.NotEqual(t, tx1.Nonce, tx2.Nonce)
+
+	// New nonce should change the signature generated and hash
+	assert.NotEqual(t, tx1.SignedRawTx, tx2.SignedRawTx)
+	assert.NotEqual(t, tx1.Hash, tx2.Hash)
 }
 
 func TestORM_FindBridge(t *testing.T) {
