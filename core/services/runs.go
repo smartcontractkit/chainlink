@@ -134,15 +134,7 @@ func NewRun(
 	}
 
 	initialTask := run.TaskRuns[0]
-	if !meetsMinimumConfirmations(&run, &initialTask, run.CreationHeight) {
-		logger.Debugw("Insufficient confirmations to begin job", run.ForLogger()...)
-		run.Status = models.RunStatusPendingConfirmations
-	} else if err := validateOnMainChain(&run, store); err != nil {
-		run.SetError(err)
-	} else {
-		run.Status = models.RunStatusInProgress
-	}
-
+	validateMinimumConfirmations(&run, &initialTask, run.CreationHeight, store)
 	return &run, nil
 }
 
@@ -170,16 +162,7 @@ func ResumeConfirmingTask(
 
 	run.ObservedHeight = models.NewBig(currentBlockHeight)
 
-	if !meetsMinimumConfirmations(run, currentTaskRun, run.ObservedHeight) {
-		logger.Debugw("Insufficient confirmations to wake job", run.ForLogger()...)
-		run.Status = models.RunStatusPendingConfirmations
-	} else if err := validateOnMainChain(run, store); err != nil {
-		run.SetError(err)
-	} else {
-		logger.Debugw("Minimum confirmations met, resuming job", run.ForLogger()...)
-		run.Status = models.RunStatusInProgress
-	}
-
+	validateMinimumConfirmations(run, currentTaskRun, run.ObservedHeight, store)
 	return updateAndTrigger(run, store)
 }
 
@@ -314,6 +297,22 @@ func performTaskSleep(
 	}(runCopy)
 
 	return nil
+}
+
+func validateMinimumConfirmations(
+	run *models.JobRun,
+	taskRun *models.TaskRun,
+	currentHeight *models.Big,
+	store *store.Store) {
+	if !meetsMinimumConfirmations(run, taskRun, run.ObservedHeight) {
+		logger.Debugw("Run cannot continue because it lacks sufficient confirmations", []interface{}{"run", run.ID, "required_height", taskRun.MinimumConfirmations}...)
+		run.Status = models.RunStatusPendingConfirmations
+	} else if err := validateOnMainChain(run, store); err != nil {
+		run.SetError(err)
+	} else {
+		logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID, "nextTask", taskRun.TaskSpec.Type}...)
+		run.Status = models.RunStatusInProgress
+	}
 }
 
 func validateOnMainChain(run *models.JobRun, store *store.Store) error {
