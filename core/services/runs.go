@@ -134,11 +134,13 @@ func NewRun(
 	}
 
 	initialTask := run.TaskRuns[0]
-	if meetsMinimumConfirmations(&run, &initialTask, run.CreationHeight) {
-		run.Status = models.RunStatusInProgress
-	} else {
+	if !meetsMinimumConfirmations(&run, &initialTask, run.CreationHeight) {
 		logger.Debugw("Insufficient confirmations to begin job", run.ForLogger()...)
 		run.Status = models.RunStatusPendingConfirmations
+	} else if err := validateOnMainChain(&run, store); err != nil {
+		run.SetError(err)
+	} else {
+		run.Status = models.RunStatusInProgress
 	}
 
 	return &run, nil
@@ -168,12 +170,14 @@ func ResumeConfirmingTask(
 
 	run.ObservedHeight = models.NewBig(currentBlockHeight)
 
-	if meetsMinimumConfirmations(run, currentTaskRun, run.ObservedHeight) {
-		logger.Debugw("Minimum confirmations met, resuming job", run.ForLogger()...)
-		run.Status = models.RunStatusInProgress
-	} else {
+	if !meetsMinimumConfirmations(run, currentTaskRun, run.ObservedHeight) {
 		logger.Debugw("Insufficient confirmations to wake job", run.ForLogger()...)
 		run.Status = models.RunStatusPendingConfirmations
+	} else if err := validateOnMainChain(run, store); err != nil {
+		run.SetError(err)
+	} else {
+		logger.Debugw("Minimum confirmations met, resuming job", run.ForLogger()...)
+		run.Status = models.RunStatusInProgress
 	}
 
 	return updateAndTrigger(run, store)
@@ -309,6 +313,26 @@ func performTaskSleep(
 		}
 	}(runCopy)
 
+	return nil
+}
+
+func validateOnMainChain(run *models.JobRun, store *store.Store) error {
+	txhash := run.RunRequest.TxHash
+	if txhash == nil {
+		return nil
+	}
+
+	receipt, err := store.TxManager.GetTxReceipt(*txhash)
+	if err != nil {
+		return err
+	}
+	if receipt.Unconfirmed() {
+		return fmt.Errorf(
+			"TxHash %s initiating run %s not on main chain; presumably has been uncled",
+			txhash.Hex(),
+			run.ID,
+		)
+	}
 	return nil
 }
 
