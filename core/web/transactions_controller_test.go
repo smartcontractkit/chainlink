@@ -108,8 +108,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 			ptx := presenters.Tx{}
 			require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &ptx))
 
-			txp, err := presenters.NewTx(&test.want)
-			require.NoError(t, err)
+			txp := presenters.NewTx(&test.want)
 			assert.Equal(t, txp.Confirmed, ptx.Confirmed)
 			assert.Equal(t, txp.Data, ptx.Data)
 			assert.Equal(t, txp.GasLimit, ptx.GasLimit)

@@ -202,8 +202,6 @@ func TestTx_PresenterMatchesHex(t *testing.T) {
 	signedHex, err := utils.EncodeTxToHex(signed)
 	assert.NoError(t, err)
 
-	ptx, err := presenters.NewTx(createdTx)
-	assert.NoError(t, err)
-
+	ptx := presenters.NewTx(createdTx)
 	assert.Equal(t, signedHex, ptx.Hex)
 }
