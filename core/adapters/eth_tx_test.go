@@ -2,12 +2,14 @@ package adapters_test
 
 import (
 	"encoding/json"
+	"errors"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -70,9 +72,8 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	from := cltest.GetAccountAddress(t, store)
 	txs, err := store.TxFrom(from)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(txs))
-	attempts, _ := store.TxAttemptsFor(txs[0].ID)
-	assert.Equal(t, 1, len(attempts))
+	require.Len(t, txs, 1)
+	assert.Len(t, txs[0].Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -133,9 +134,8 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	from := cltest.GetAccountAddress(t, store)
 	txs, err := store.TxFrom(from)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(txs))
-	attempts, _ := store.TxAttemptsFor(txs[0].ID)
-	assert.Equal(t, 1, len(attempts))
+	require.Len(t, txs, 1)
+	assert.Len(t, txs[0].Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -199,8 +199,8 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 		assert.NoError(t, err)
 		return txs
 	}).Should(gomega.HaveLen(1))
-	attempts, _ := store.TxAttemptsFor(txs[0].ID)
-	assert.Equal(t, 1, len(attempts))
+	require.Len(t, txs, 1)
+	assert.Len(t, txs[0].Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -221,23 +221,19 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 	require.NoError(t, app.StartAndConnect())
 
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.NewTx(from, sentAt)
-	assert.Nil(t, store.SaveTx(tx))
-	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
-	assert.NoError(t, err)
+	tx := cltest.CreateTx(t, store, from, sentAt)
+	a := tx.Attempts[0]
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithResult(a.Hash.String())
-	input := sentResult
-	input.MarkPendingConfirmations()
+	sentResult.MarkPendingConfirmations()
 
-	output := adapter.Perform(input, store)
+	output := adapter.Perform(sentResult, store)
 
 	assert.False(t, output.HasError())
 	assert.True(t, output.Status.PendingConfirmations())
-	_, err = store.FindTx(tx.ID)
-	assert.NoError(t, err)
-	attempts, _ := store.TxAttemptsFor(tx.ID)
-	assert.Equal(t, 1, len(attempts))
+	tx, err := store.FindTx(tx.ID)
+	require.NoError(t, err)
+	assert.Len(t, tx.Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -262,23 +258,19 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	})
 
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.NewTx(from, sentAt)
-	assert.Nil(t, store.SaveTx(tx))
-	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), 1)
-	assert.NoError(t, err)
+	tx := cltest.CreateTx(t, store, from, sentAt)
+	a := tx.Attempts[0]
+
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithResult(a.Hash.String())
-	input := sentResult
-	input.MarkPendingConfirmations()
+	sentResult.MarkPendingConfirmations()
 
-	output := adapter.Perform(input, store)
-
+	output := adapter.Perform(sentResult, store)
 	assert.False(t, output.HasError())
 	assert.True(t, output.Status.PendingConfirmations())
-	_, err = store.FindTx(tx.ID)
-	assert.NoError(t, err)
-	attempts, _ := store.TxAttemptsFor(tx.ID)
-	assert.Equal(t, 2, len(attempts))
+	tx, err := store.FindTx(tx.ID)
+	require.NoError(t, err)
+	assert.Len(t, tx.Attempts, 2)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -293,7 +285,11 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	config := store.Config
 	sentAt := uint64(23456)
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock.Register("eth_getTransactionCount", `0x100`)
+	ethMock.Register("eth_call", "0x1")
+	ethMock.Register("eth_getBalance", "0x100")
+
 	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	confirmedHash := cltest.NewHash()
 	receipt := models.TxReceipt{Hash: confirmedHash, BlockNumber: cltest.Int(sentAt)}
@@ -304,18 +300,17 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	require.NoError(t, app.StartAndConnect())
 
 	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
-	assert.Nil(t, store.SaveTx(tx))
-	store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
+	tx.GasPrice = models.NewBig(config.EthGasPriceDefault())
+	require.NoError(t, store.DB.Save(tx).Error)
 	store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
 	a3, _ := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithResult(a3.Hash.String())
-	input := sentResult
-	input.MarkPendingConfirmations()
+	sentResult.MarkPendingConfirmations()
 
 	assert.False(t, tx.Confirmed)
 
-	output := adapter.Perform(input, store)
+	output := adapter.Perform(sentResult, store)
 
 	assert.True(t, output.Status.Completed())
 	assert.False(t, output.HasError())
@@ -324,12 +319,12 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	assert.Equal(t, confirmedHash.String(), value)
 
 	tx, err = store.FindTx(tx.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, tx.Confirmed)
-	attempts, _ := store.TxAttemptsFor(tx.ID)
-	assert.False(t, attempts[0].Confirmed)
-	assert.True(t, attempts[1].Confirmed)
-	assert.False(t, attempts[2].Confirmed)
+	require.Len(t, tx.Attempts, 3)
+	assert.False(t, tx.Attempts[0].Confirmed)
+	assert.True(t, tx.Attempts[1].Confirmed)
+	assert.False(t, tx.Attempts[2].Confirmed)
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
 	var receipts []models.TxReceipt
@@ -359,7 +354,8 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	require.NoError(t, app.StartAndConnect())
 
 	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
-	assert.Nil(t, store.SaveTx(tx))
+	tx.GasPrice = models.NewBig(config.EthGasPriceDefault())
+	require.NoError(t, store.DB.Save(tx).Error)
 	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
 	assert.NoError(t, err)
 	adapter := adapters.EthTx{}
@@ -400,7 +396,7 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 	output := adapter.Perform(input, store)
 
 	assert.True(t, output.HasError())
-	assert.Equal(t, "Cannot connect to nodes", output.Error())
+	assert.Contains(t, output.Error(), "Cannot connect to nodes")
 }
 
 func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
@@ -423,7 +419,7 @@ func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
 	output := adapter.Perform(input, store)
 
 	assert.True(t, output.HasError())
-	assert.Equal(t, "Cannot connect to nodes", output.Error())
+	assert.Contains(t, output.Error(), "Cannot connect to nodes")
 }
 
 func TestEthTxAdapter_Perform_PendingConfirmations_WithErrorInTxManager(t *testing.T) {
@@ -457,7 +453,7 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	store.TxManager = txmMock
 	txmMock.EXPECT().Register(gomock.Any())
 	txmMock.EXPECT().Connected().Return(true).AnyTimes()
-	txmMock.EXPECT().CreateTxWithGas(gomock.Any(), hexutil.MustDecode(
+	txmMock.EXPECT().CreateTxWithGas(gomock.Any(), gomock.Any(), hexutil.MustDecode(
 		"0x00000000"+
 			"0000000000000000000000000000000000000000000000000000000000000020"+
 			"000000000000000000000000000000000000000000000000000000000000000b"+
@@ -502,6 +498,7 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 	txmMock.EXPECT().CreateTxWithGas(
 		gomock.Any(),
 		gomock.Any(),
+		gomock.Any(),
 		gasPrice,
 		gasLimit,
 	).Return(&models.Tx{}, nil)
@@ -536,4 +533,160 @@ func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 
 	assert.False(t, data.HasError())
 	assert.Equal(t, models.RunStatusPendingConnection, data.Status)
+}
+
+func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	store := app.Store
+	config := store.Config
+
+	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock.Register("eth_getTransactionCount", `0x1`)
+
+	address := cltest.NewAddress()
+	fHash := models.HexToFunctionSelector("b3f98adc")
+	dataPrefix := hexutil.Bytes(
+		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
+	inputValue := "0x9786856756"
+
+	assert.Nil(t, app.StartAndConnect())
+
+	// Run the adapter, but make sure the transaction sending fails
+
+	hash := cltest.NewHash()
+	sentAt := uint64(9183)
+	ethMock.Register("eth_getBalance", "0x100")
+	ethMock.Register("eth_call", "0x100")
+
+	var firstTxData []interface{}
+	ethMock.Register("eth_sendRawTransaction", hash,
+		func(_ interface{}, data ...interface{}) error {
+			firstTxData = data
+			return errors.New("no bueno")
+		})
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+
+	adapter := adapters.EthTx{
+		Address:          address,
+		DataPrefix:       dataPrefix,
+		FunctionSelector: fHash,
+	}
+	input := cltest.RunResultWithResult(inputValue)
+	input.CachedJobRunID = uuid.Must(uuid.NewV4()).String()
+	data := adapter.Perform(input, store)
+	assert.Error(t, data.GetError())
+
+	// Run the adapter again
+
+	confirmed := sentAt + 1
+	safe := confirmed + config.MinOutgoingConfirmations()
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
+
+	var secondTxData []interface{}
+	ethMock.Register("eth_sendRawTransaction", hash,
+		func(_ interface{}, data ...interface{}) error {
+			secondTxData = data
+			return nil
+		})
+	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
+	ethMock.Register("eth_getTransactionReceipt", receipt)
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
+
+	data = adapter.Perform(input, store)
+	assert.NoError(t, data.GetError())
+
+	// The first and second transaction should have the same data
+	assert.Equal(t, firstTxData, secondTxData)
+
+	addresses := cltest.GetAccountAddresses(store)
+	require.Len(t, addresses, 1)
+
+	// There should only be one transaction with one attempt
+	transactions, err := store.TxFrom(addresses[0])
+	require.NoError(t, err)
+	require.Len(t, transactions, 1)
+	assert.Len(t, transactions[0].Attempts, 1)
+
+	ethMock.EventuallyAllCalled(t)
+}
+
+func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	store := app.Store
+
+	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock.Register("eth_getTransactionCount", `0x1`)
+	ethMock.Register("eth_getTransactionCount", `0x2`)
+	app.AddUnlockedKey()
+
+	addresses := cltest.GetAccountAddresses(store)
+	require.Len(t, addresses, 2)
+
+	address := cltest.NewAddress()
+	fHash := models.HexToFunctionSelector("b3f98adc")
+	dataPrefix := hexutil.Bytes(
+		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
+	inputValue := "0x9786856756"
+
+	assert.Nil(t, app.StartAndConnect())
+
+	// Run the adapter, but make sure the transaction sending fails
+
+	hash := cltest.NewHash()
+	sentAt := uint64(9183)
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	var firstTxData []interface{}
+	ethMock.Register("eth_sendRawTransaction", hash,
+		func(_ interface{}, data ...interface{}) error {
+			firstTxData = data
+			return errors.New("no bueno")
+		})
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+
+	adapter := adapters.EthTx{
+		Address:          address,
+		DataPrefix:       dataPrefix,
+		FunctionSelector: fHash,
+	}
+	input := cltest.RunResultWithResult(inputValue)
+	input.CachedJobRunID = uuid.Must(uuid.NewV4()).String()
+	data := adapter.Perform(input, store)
+	assert.Error(t, data.GetError())
+
+	// Run the adapter again
+
+	confirmed := sentAt + 1
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
+
+	var secondTxData []interface{}
+	ethMock.Register("eth_sendRawTransaction", hash,
+		func(_ interface{}, data ...interface{}) error {
+			secondTxData = data
+			return nil
+		})
+
+	data = adapter.Perform(input, store)
+	assert.NoError(t, data.GetError())
+
+	// Since the nonce (and from address) changed, the data should also change
+	assert.NotEqual(t, firstTxData, secondTxData)
+
+	// The original account should have no txes, because it was reassigned
+	txs, err := store.TxFrom(addresses[0])
+	require.NoError(t, err)
+	assert.Len(t, txs, 0)
+
+	// The second account should have only one tx
+	txs, err = store.TxFrom(addresses[1])
+	require.NoError(t, err)
+	require.Len(t, txs, 1)
+	assert.Len(t, txs[0].Attempts, 1)
+
+	ethMock.EventuallyAllCalled(t)
 }

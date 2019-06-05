@@ -590,7 +590,7 @@ func TestClient_GetTransactions(t *testing.T) {
 
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
+	tx := cltest.CreateTx(t, store, from, 1)
 
 	client, r := app.NewClientAndRenderer()
 
@@ -624,9 +624,7 @@ func TestClient_GetTxAttempts(t *testing.T) {
 
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
-	attempts, err := store.TxAttemptsFor(tx.ID)
-	require.NoError(t, err)
+	tx := cltest.CreateTx(t, store, from, 1)
 
 	client, r := app.NewClientAndRenderer()
 
@@ -638,8 +636,8 @@ func TestClient_GetTxAttempts(t *testing.T) {
 	assert.NoError(t, client.GetTxAttempts(c))
 
 	renderedAttempts := *r.Renders[0].(*[]models.TxAttempt)
-	assert.Equal(t, 1, len(renderedAttempts))
-	assert.Equal(t, attempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
+	require.Len(t, tx.Attempts, 1)
+	assert.Equal(t, tx.Attempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test transactions", 0)

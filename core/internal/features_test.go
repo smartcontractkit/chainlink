@@ -160,7 +160,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed)} // 23460
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
-	cltest.WaitForTxAttemptCount(t, app.Store, 2)
+	cltest.WaitForTxAttemptCount(t, app.Store, 3)
 
 	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
@@ -172,7 +172,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
 	eth.EventuallyAllCalled(t)
-	cltest.WaitForTxAttemptCount(t, app.Store, 2)
+	cltest.WaitForTxAttemptCount(t, app.Store, 4)
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
@@ -537,7 +537,7 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 	assert.Equal(t, "0x00000000000000000000000000000000000000000000000000000000000f98b2", val)
 }
 
-func TestIntegration_NonceManagement_firstRunWithExistingTXs(t *testing.T) {
+func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)

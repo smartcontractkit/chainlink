@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -121,30 +122,31 @@ func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 	return j
 }
 
-// NewTx create a tx given from address and sentat
+// NewTx returns a Tx using a specified from address and sentAt
 func NewTx(from common.Address, sentAt uint64) *models.Tx {
-	return &models.Tx{
+	tx := &models.Tx{
 		From:     from,
 		Nonce:    0,
 		Data:     []byte{},
 		Value:    models.NewBig(big.NewInt(0)),
 		GasLimit: 250000,
+		SentAt:   sentAt,
 	}
+	copy(tx.Hash[:], randomBytes(common.HashLength))
+	return tx
 }
 
-// CreateTxAndAttempt create tx attempt with given store, from address, and sentat
-func CreateTxAndAttempt(
+// CreateTx creates a Tx from a specified address, and sentAt
+func CreateTx(
 	t testing.TB,
 	store *strpkg.Store,
 	from common.Address,
 	sentAt uint64,
 ) *models.Tx {
-	tx := NewTx(from, sentAt)
-	b := make([]byte, 36)
-	binary.LittleEndian.PutUint64(b, uint64(sentAt))
-	tx.Data = b
-	require.NoError(t, store.SaveTx(tx))
-	_, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
+	data := make([]byte, 36)
+	binary.LittleEndian.PutUint64(data, sentAt)
+	ethTx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), data)
+	tx, err := store.CreateTx(null.String{}, ethTx, &from, sentAt)
 	require.NoError(t, err)
 	return tx
 }

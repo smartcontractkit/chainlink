@@ -12,6 +12,7 @@ import (
 	store "github.com/smartcontractkit/chainlink/core/store"
 	assets "github.com/smartcontractkit/chainlink/core/store/assets"
 	models "github.com/smartcontractkit/chainlink/core/store/models"
+	null_v3 "gopkg.in/guregu/null.v3"
 	big "math/big"
 	reflect "reflect"
 )
@@ -128,18 +129,18 @@ func (mr *MockTxManagerMockRecorder) CreateTxWithEth(arg0, arg1, arg2 interface{
 }
 
 // CreateTxWithGas mocks base method
-func (m *MockTxManager) CreateTxWithGas(arg0 common.Address, arg1 []byte, arg2 *big.Int, arg3 uint64) (*models.Tx, error) {
+func (m *MockTxManager) CreateTxWithGas(arg0 null_v3.String, arg1 common.Address, arg2 []byte, arg3 *big.Int, arg4 uint64) (*models.Tx, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateTxWithGas", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "CreateTxWithGas", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(*models.Tx)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateTxWithGas indicates an expected call of CreateTxWithGas
-func (mr *MockTxManagerMockRecorder) CreateTxWithGas(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockTxManagerMockRecorder) CreateTxWithGas(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTxWithGas", reflect.TypeOf((*MockTxManager)(nil).CreateTxWithGas), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTxWithGas", reflect.TypeOf((*MockTxManager)(nil).CreateTxWithGas), arg0, arg1, arg2, arg3, arg4)
 }
 
 // Disconnect mocks base method

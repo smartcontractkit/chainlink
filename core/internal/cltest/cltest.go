@@ -895,6 +895,17 @@ func GetAccountAddress(t testing.TB, store *strpkg.Store) common.Address {
 	return account.Address
 }
 
+// GetAccountAddresses returns the Address of all registered accounts
+func GetAccountAddresses(store *strpkg.Store) []common.Address {
+	accounts := store.KeyStore.GetAccounts()
+
+	addresses := []common.Address{}
+	for _, account := range accounts {
+		addresses = append(addresses, account.Address)
+	}
+	return addresses
+}
+
 func StringToHash(s string) common.Hash {
 	return common.BytesToHash([]byte(s))
 }

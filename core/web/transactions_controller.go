@@ -21,7 +21,12 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 	txs, count, err := tc.App.GetStore().Transactions(offset, size)
 	ptxs := make([]presenters.Tx, len(txs))
 	for i, tx := range txs {
-		ptxs[i] = presenters.NewTx(&tx)
+		txp, err := presenters.NewTx(&tx)
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+		ptxs[i] = txp
 	}
 	paginatedResponse(c, "Transactions", size, page, ptxs, count, err)
 }
@@ -35,7 +40,9 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Transaction not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
+	} else if txp, err := presenters.NewTx(tx); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
-		jsonAPIResponse(c, presenters.NewTx(tx), "transaction")
+		jsonAPIResponse(c, txp, "transaction")
 	}
 }
