@@ -763,7 +763,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 
 	app.InstantClock()
 
-	app.Store.StatsPusher.Period = 300 * time.Millisecond
+	app.Store.ExplorerPusher.Period = 300 * time.Millisecond
 
 	app.Start()
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/run_at_job.json")

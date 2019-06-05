@@ -128,3 +128,26 @@ func TestWebSocketClient_SendWithAckTimeout(t *testing.T) {
 		assert.Equal(t, err, synchronization.ErrReceiveTimeout)
 	}, 300*time.Millisecond)
 }
+
+func TestWebSocketClient_Status(t *testing.T) {
+	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
+	defer cleanup()
+
+	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
+	assert.Equal(t, "not_started", wsclient.Status())
+
+	require.NoError(t, wsclient.Start())
+	cltest.CallbackOrTimeout(t, "ws client connects", func() {
+		<-wsserver.Connected
+	})
+	assert.Equal(t, "not_connected", wsclient.Status())
+
+	expectation := `{"hello": "world"}`
+	wsclient.Send([]byte(expectation))
+	cltest.CallbackOrTimeout(t, "receive stats", func() {
+		require.Equal(t, expectation, <-wsserver.Received)
+		err := wsserver.Broadcast(`{"result": 200}`)
+		assert.NoError(t, err)
+	})
+	assert.Equal(t, "connected", wsclient.Status())
+}

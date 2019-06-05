@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -66,6 +67,19 @@ var (
 	ErrorAuthFailed = errors.New("Authentication failed")
 )
 
+func explorerStatus(app services.Application) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		es := presenters.NewExplorerStatus(app.GetStore())
+		b, err := json.Marshal(es)
+		if err != nil {
+			panic(err)
+		}
+
+		c.SetCookie("explorer", (string)(b), 0, "", "", false, false)
+		c.Next()
+	}
+}
+
 // Router listens and responds to requests to the node for valid paths.
 func Router(app services.Application) *gin.Engine {
 	engine := gin.New()
@@ -87,6 +101,8 @@ func Router(app services.Application) *gin.Engine {
 		secureMiddleware(config),
 	)
 	engine.Use(helmet.Default())
+
+	engine.Use(explorerStatus(app))
 
 	api := engine.Group(
 		"/",

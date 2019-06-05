@@ -23,6 +23,8 @@ var (
 // WebSocketClient encapsulates all the functionality needed to
 // push run information to explorer.
 type WebSocketClient interface {
+	Url() *url.URL
+	Status() string
 	Start() error
 	Close() error
 	Send([]byte)
@@ -31,6 +33,8 @@ type WebSocketClient interface {
 
 type noopWebSocketClient struct{}
 
+func (noopWebSocketClient) Url() *url.URL                            { return nil }
+func (noopWebSocketClient) Status() string                           { return "" }
 func (noopWebSocketClient) Start() error                             { return nil }
 func (noopWebSocketClient) Close() error                             { return nil }
 func (noopWebSocketClient) Send([]byte)                              {}
@@ -44,6 +48,7 @@ type websocketClient struct {
 	receive   chan []byte
 	sleeper   utils.Sleeper
 	started   bool
+	connected bool
 	url       *url.URL
 	accessKey string
 	secret    string
@@ -61,6 +66,22 @@ func NewWebSocketClient(url *url.URL, accessKey, secret string) WebSocketClient 
 		accessKey: accessKey,
 		secret:    secret,
 	}
+}
+
+// Url returns a copy of the URL the client was initialized with
+func (w *websocketClient) Url() *url.URL {
+	return w.url
+}
+
+// Status represented as a single string
+func (w *websocketClient) Status() string {
+	if !w.started {
+		return "not_started"
+	}
+	if w.connected {
+		return "connected"
+	}
+	return "not_connected"
 }
 
 // Start starts a write pump over a websocket.
@@ -138,10 +159,12 @@ func (w *websocketClient) connectAndWritePump(parentCtx context.Context, wg *syn
 			defer cancel()
 
 			if err := w.connect(connectionCtx); err != nil {
+				w.connected = false
 				logger.Warn("Failed to connect to explorer (", w.url.String(), "): ", err)
 				break
 			}
 
+			w.connected = true
 			logger.Info("Connected to explorer at ", w.url.String())
 			w.sleeper.Reset()
 			go w.readPump(cancel)
@@ -168,7 +191,7 @@ func (w *websocketClient) writePump(ctx context.Context) {
 
 			err := w.writeMessage(message)
 			if err != nil {
-				logger.Error("websocketStatsPusher: ", err)
+				logger.Error("websocketExplorerPusher: ", err)
 				return
 			}
 		case <-ticker.C:
@@ -202,7 +225,7 @@ func (w *websocketClient) connect(ctx context.Context) error {
 
 	conn, _, err := websocket.DefaultDialer.DialContext(ctx, w.url.String(), authHeader)
 	if err != nil {
-		return fmt.Errorf("websocketStatsPusher#connect: %v", err)
+		return fmt.Errorf("websocketExplorerPusher#connect: %v", err)
 	}
 
 	w.conn = conn
@@ -245,7 +268,7 @@ func (w *websocketClient) readPump(cancel context.CancelFunc) {
 
 func wrapConnErrorIf(err error) {
 	if err != nil && websocket.IsUnexpectedCloseError(err, expectedCloseMessages...) {
-		logger.Error(fmt.Sprintf("websocketStatsPusher: %v", err))
+		logger.Error(fmt.Sprintf("websocketExplorerPusher: %v", err))
 	}
 }
 
