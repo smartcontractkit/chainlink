@@ -271,12 +271,14 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 	} else if currentTaskRun.Status.Unstarted() {
 		return fmt.Errorf("run %s task %s cannot return a status of empty string or Unstarted", run.ID, currentTaskRun.TaskSpec.Type)
 	} else if futureTaskRun := run.NextTaskRun(); futureTaskRun != nil {
-		if meetsMinimumConfirmations(run, futureTaskRun, run.ObservedHeight) {
-			logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID, "nextTask", futureTaskRun.TaskSpec.Type}...)
-			run.Status = models.RunStatusInProgress
-		} else {
+		if !meetsMinimumConfirmations(run, futureTaskRun, run.ObservedHeight) {
 			logger.Debugw("Blocking run pending incoming confirmations", []interface{}{"run", run.ID, "required_height", futureTaskRun.MinimumConfirmations}...)
 			run.Status = models.RunStatusPendingConfirmations
+		} else if err := validateOnMainChain(run, store); err != nil {
+			run.SetError(err)
+		} else {
+			logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID, "nextTask", futureTaskRun.TaskSpec.Type}...)
+			run.Status = models.RunStatusInProgress
 		}
 	}
 

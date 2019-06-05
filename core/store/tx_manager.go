@@ -56,6 +56,7 @@ type TxManager interface {
 	GetBlockByNumber(hex string) (models.BlockHeader, error)
 	SubscribeToLogs(channel chan<- models.Log, q ethereum.FilterQuery) (models.EthSubscription, error)
 	GetLogs(q ethereum.FilterQuery) ([]models.Log, error)
+	GetTxReceipt(common.Hash) (*models.TxReceipt, error)
 }
 
 //go:generate mockgen -package=mocks -destination=../internal/mocks/tx_manager_mocks.go github.com/smartcontractkit/chainlink/core/store TxManager

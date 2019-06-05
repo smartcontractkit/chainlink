@@ -215,6 +215,21 @@ func (mr *MockTxManagerMockRecorder) GetLogs(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLogs", reflect.TypeOf((*MockTxManager)(nil).GetLogs), arg0)
 }
 
+// GetTxReceipt mocks base method
+func (m *MockTxManager) GetTxReceipt(arg0 common.Hash) (*models.TxReceipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTxReceipt", arg0)
+	ret0, _ := ret[0].(*models.TxReceipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTxReceipt indicates an expected call of GetTxReceipt
+func (mr *MockTxManagerMockRecorder) GetTxReceipt(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTxReceipt", reflect.TypeOf((*MockTxManager)(nil).GetTxReceipt), arg0)
+}
+
 // NextActiveAccount mocks base method
 func (m *MockTxManager) NextActiveAccount() *store.ManagedAccount {
 	m.ctrl.T.Helper()
