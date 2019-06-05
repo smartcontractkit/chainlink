@@ -443,6 +443,8 @@ func (txm *EthTxManager) createAttempt(
 		return nil, errors.Wrap(err, "createAttempt#SignTx failed")
 	}
 
+	logger.Debugw(fmt.Sprintf("Adding Tx attempt #%d", len(tx.Attempts)+1), "txId", tx.ID)
+
 	txAttempt, err := txm.orm.AddTxAttempt(tx, etx, blockNumber)
 	if err != nil {
 		return nil, errors.Wrap(err, "createAttempt#AddTxAttempt failed")
@@ -469,6 +471,8 @@ func (txm *EthTxManager) checkAttempt(
 	blockNumber uint64,
 ) (*models.TxReceipt, attemptState, error) {
 	txAttempt := tx.Attempts[attemptIndex]
+
+	logger.Debugw(fmt.Sprintf("Checking Tx attempt #%d", attemptIndex), "txId", tx.ID)
 
 	receipt, err := txm.GetTxReceipt(txAttempt.Hash)
 	if err != nil {
