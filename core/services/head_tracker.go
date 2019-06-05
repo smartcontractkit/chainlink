@@ -205,7 +205,11 @@ func (ht *HeadTracker) receiveHeaders() error {
 				return errors.New("HeadTracker headers prematurely closed")
 			}
 			head := block.ToHead()
-			logger.Debugw(fmt.Sprintf("Received header %v with hash %s", presenters.FriendlyBigInt(head.ToInt()), block.Hash().String()), "hash", head.Hash().Hex())
+			logger.Debugw(
+				fmt.Sprintf("Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
+				"blockHeight", head.ToInt(),
+				"blockHash", block.Hash(),
+				"hash", head.Hash())
 			if err := ht.Save(head); err != nil {
 				switch err.(type) {
 				case errBlockNotLater:

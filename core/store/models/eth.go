@@ -11,9 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
+	null "gopkg.in/guregu/null.v3"
 )
 
 //go:generate gencodec -type Log -field-override logMarshaling -out gen_log_json.go
@@ -65,19 +67,51 @@ type logMarshaling struct {
 // Tx contains fields necessary for an Ethereum transaction with
 // an additional field for the TxAttempt.
 type Tx struct {
-	ID       uint64         `gorm:"primary_key;auto_increment"`
+	ID uint64 `gorm:"primary_key;auto_increment"`
+
+	// SurrogateID is used to look up a transaction using a secondary ID, used to
+	// associate jobs with transactions so that we don't double spend in certain
+	// failure scenarios
+	SurrogateID null.String `gorm:"index;unique"`
+
+	Attempts []*TxAttempt `json:"-"`
+
 	From     common.Address `gorm:"index;not null"`
 	To       common.Address `gorm:"not null"`
-	Data     []byte
-	Nonce    uint64 `gorm:"index"`
-	Value    *Big   `gorm:"type:varchar(255)"`
-	GasLimit uint64
+	Data     []byte         `gorm:"not null"`
+	Nonce    uint64         `gorm:"index;not null"`
+	Value    *Big           `gorm:"type:varchar(78);not null"`
+	GasLimit uint64         `gorm:"not null"`
+
 	// TxAttempt fields manually included; can't embed another primary_key
-	Hash      common.Hash
-	GasPrice  *Big `gorm:"type:varchar(255)"`
-	Confirmed bool
-	Hex       string `gorm:"type:text"`
-	SentAt    uint64
+	Hash        common.Hash `gorm:"not null"`
+	GasPrice    *Big        `gorm:"type:varchar(78);not null"`
+	Confirmed   bool        `gorm:"not null"`
+	SentAt      uint64      `gorm:"not null"`
+	SignedRawTx string      `gorm:"type:text;not null"`
+}
+
+// String implements Stringer for Tx
+func (tx *Tx) String() string {
+	return fmt.Sprintf("Tx{ID: %d, From: %s, To: %s, Hash: %s, SentAt: %d}",
+		tx.ID,
+		tx.From.String(),
+		tx.To.String(),
+		tx.Hash.String(),
+		tx.SentAt)
+}
+
+// AfterCreate is used to add the default attempt to a Tx after it is created
+// for the first time
+func (tx *Tx) AfterCreate(db *gorm.DB) (err error) {
+	attempt := TxAttempt{
+		TxID:     tx.ID,
+		Hash:     tx.Hash,
+		GasPrice: tx.GasPrice,
+		SentAt:   tx.SentAt,
+	}
+	tx.Attempts = []*TxAttempt{&attempt}
+	return db.Create(&attempt).Error
 }
 
 // EthTx creates a new Ethereum transaction with a given gasPrice in wei
@@ -93,27 +127,30 @@ func (tx Tx) EthTx(gasPriceWei *big.Int) *types.Transaction {
 	)
 }
 
-// AssignTxAttempt assigns the values of the attempt to the top level Tx.
-func (tx *Tx) AssignTxAttempt(txat *TxAttempt) {
-	tx.Hash = txat.Hash
-	tx.GasPrice = txat.GasPrice
-	tx.Confirmed = txat.Confirmed
-	tx.Hex = txat.Hex
-	tx.SentAt = txat.SentAt
-}
-
 // TxAttempt is used for keeping track of transactions that
 // have been written to the Ethereum blockchain. This makes
 // it so that if the network is busy, a transaction can be
 // resubmitted with a higher GasPrice.
 type TxAttempt struct {
-	Hash      common.Hash `gorm:"primary_key;not null"`
-	TxID      uint64      `gorm:"index"`
-	GasPrice  *Big        `gorm:"type:varchar(255)"`
-	Confirmed bool
-	Hex       string `gorm:"type:text"`
-	SentAt    uint64
-	CreatedAt time.Time `gorm:"index"`
+	ID        uint64    `gorm:"primary_key;auto_increment"`
+	TxID      uint64    `gorm:"index;type:bigint REFERENCES txes(id) ON DELETE CASCADE"`
+	CreatedAt time.Time `gorm:"index;not null"`
+
+	Hash        common.Hash `gorm:"index;not null"`
+	GasPrice    *Big        `gorm:"type:varchar(78);not null"`
+	Confirmed   bool        `gorm:"not null"`
+	SentAt      uint64      `gorm:"not null"`
+	SignedRawTx string      `gorm:"type:text;not null"`
+}
+
+// String implements Stringer for TxAttempt
+func (txa *TxAttempt) String() string {
+	return fmt.Sprintf("TxAttempt{ID: %d, TxID: %d, Hash: %s, SentAt: %d, Confirmed: %t}",
+		txa.ID,
+		txa.TxID,
+		txa.Hash.String(),
+		txa.SentAt,
+		txa.Confirmed)
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.

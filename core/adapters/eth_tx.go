@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gopkg.in/guregu/null.v3"
 )
 
 const (
@@ -82,7 +83,13 @@ func createTxRunResult(
 		return
 	}
 
-	tx, err := store.TxManager.CreateTxWithGas(e.Address, data, e.GasPrice.ToInt(), e.GasLimit)
+	tx, err := store.TxManager.CreateTxWithGas(
+		null.StringFrom(input.CachedJobRunID),
+		e.Address,
+		data,
+		e.GasPrice.ToInt(),
+		e.GasLimit,
+	)
 	if err != nil {
 		input.SetError(err)
 		return
@@ -107,7 +114,7 @@ func ensureTxRunResult(input *models.RunResult, str *store.Store) {
 
 	receipt, err := str.TxManager.BumpGasUntilSafe(hash)
 	if err != nil {
-		logger.Error("EthTx Adapter Perform Resuming: ", err)
+		logger.Warn("EthTx Adapter Perform Resuming: ", err)
 	}
 	if receipt == nil {
 		input.MarkPendingConfirmations()

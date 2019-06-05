@@ -3,7 +3,6 @@ package orm
 import (
 	"crypto/subtle"
 	"fmt"
-	"math/big"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -21,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v3"
 )
 
 var (
@@ -485,73 +485,123 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 	return found, ignoreRecordNotFound(rval)
 }
 
-// CreateTx saves the properties of an Ethereum transaction to the database.
+// CreateTx returns a transaction by its surrogate key, if it exists, or
+// creates it and its attempts
 func (orm *ORM) CreateTx(
-	from common.Address,
-	nonce uint64,
-	to common.Address,
-	data []byte,
-	value *big.Int,
-	gasLimit uint64,
+	surrogateID null.String,
+	ethTx *types.Transaction,
+	from *common.Address,
+	sentAt uint64,
 ) (*models.Tx, error) {
-	tx := models.Tx{
-		From:     from,
-		To:       to,
-		Nonce:    nonce,
-		Data:     data,
-		Value:    models.NewBig(value),
-		GasLimit: gasLimit,
+	signedRawTx, err := utils.EncodeTxToHex(ethTx)
+	if err != nil {
+		return nil, err
 	}
-	return &tx, orm.DB.Save(&tx).Error
+
+	tx := &models.Tx{}
+	err = orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		if surrogateID.Valid {
+			err = preloadAttempts(dbtx).First(tx, "surrogate_id = ?", surrogateID.ValueOrZero()).Error
+		} else {
+			err = preloadAttempts(dbtx).First(tx, "hash = ?", ethTx.Hash()).Error
+		}
+
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return errors.Wrap(err, "CreateTx#First failed")
+		}
+
+		tx.SurrogateID = surrogateID
+		tx.From = *from
+		tx.To = *ethTx.To()
+		tx.Nonce = ethTx.Nonce()
+		tx.Data = ethTx.Data()
+		tx.Value = models.NewBig(ethTx.Value())
+		tx.GasLimit = ethTx.Gas()
+		tx.GasPrice = models.NewBig(ethTx.GasPrice())
+		tx.Hash = ethTx.Hash()
+		tx.SentAt = sentAt
+		tx.SignedRawTx = signedRawTx
+		if err == gorm.ErrRecordNotFound {
+			return dbtx.Create(tx).Error
+		}
+
+		return dbtx.Save(tx).Error
+	})
+	return tx, nil
+}
+
+// UpdateTx assigns new EthTx details to a transaction, typically used after a
+// failed Eth transaction attempt
+func (orm *ORM) UpdateTx(
+	tx *models.Tx,
+	ethTx *types.Transaction,
+	from *common.Address,
+	sentAt uint64,
+) error {
+	signedRawTx, err := utils.EncodeTxToHex(ethTx)
+	if err != nil {
+		return errors.Wrap(err, "Update(tx) EncodeTxToHex failed")
+	}
+
+	tx.From = *from
+	tx.Nonce = ethTx.Nonce()
+	tx.GasPrice = models.NewBig(ethTx.GasPrice())
+	tx.Hash = ethTx.Hash()
+	tx.SentAt = sentAt
+	tx.SignedRawTx = signedRawTx
+	txAttempt := tx.Attempts[0]
+	txAttempt.Hash = tx.Hash
+	txAttempt.GasPrice = tx.GasPrice
+	txAttempt.SentAt = tx.SentAt
+	txAttempt.SignedRawTx = tx.SignedRawTx
+
+	return orm.DB.Save(tx).Error
 }
 
 // MarkTxSafe updates the database for the given transaction and attempt to
 // show that the transaction has not just been confirmed,
 // but has met the minimum number of outgoing confirmations to be deemed
 // safely written on the blockchain.
-func (orm *ORM) MarkTxSafe(tx *models.Tx, txat *models.TxAttempt) error {
-	txat.Confirmed = true
-	tx.AssignTxAttempt(txat)
+func (orm *ORM) MarkTxSafe(tx *models.Tx, txAttempt *models.TxAttempt) error {
+	txAttempt.Confirmed = true
+	tx.Hash = txAttempt.Hash
+	tx.GasPrice = txAttempt.GasPrice
+	tx.Confirmed = txAttempt.Confirmed
+	tx.SentAt = txAttempt.SentAt
+	tx.SignedRawTx = txAttempt.SignedRawTx
+	return orm.DB.Save(tx).Error
+}
 
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Save(tx).Save(txat).Error
-	})
+func preloadAttempts(dbtx *gorm.DB) *gorm.DB {
+	return dbtx.
+		Preload("Attempts", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at asc")
+		})
 }
 
 // FindTx returns the specific transaction for the passed ID.
 func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
 	tx := &models.Tx{}
-	err := orm.DB.Set("gorm:auto_preload", true).First(tx, "id = ?", ID).Error
+	err := preloadAttempts(orm.DB).First(tx, "id = ?", ID).Error
 	return tx, err
 }
 
 // FindTxByAttempt returns the specific transaction attempt with the hash.
 func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, error) {
-	txat := &models.TxAttempt{}
-	if err := orm.DB.Set("gorm:auto_preload", true).First(txat, "hash = ?", hash).Error; err != nil {
+	txAttempt := &models.TxAttempt{}
+	if err := orm.DB.Set("gorm:auto_preload", true).First(txAttempt, "hash = ?", hash).Error; err != nil {
 		return nil, err
 	}
-	tx, err := orm.FindTx(txat.TxID)
+	tx, err := orm.FindTx(txAttempt.TxID)
 	if err != nil {
 		return nil, err
 	}
-	tx.Hash = txat.Hash
-	tx.GasPrice = txat.GasPrice
-	tx.Confirmed = txat.Confirmed
-	tx.Hex = txat.Hex
-	tx.SentAt = txat.SentAt
+	tx.Hash = txAttempt.Hash
+	tx.GasPrice = txAttempt.GasPrice
+	tx.Confirmed = txAttempt.Confirmed
+	tx.SentAt = txAttempt.SentAt
+	tx.SignedRawTx = txAttempt.SignedRawTx
 	return tx, nil
-}
-
-// TxAttemptsFor returns the Transaction Attempts (TxAttempt) for a
-// given Transaction ID (TxID).
-func (orm *ORM) TxAttemptsFor(id uint64) ([]models.TxAttempt, error) {
-	attempts := []models.TxAttempt{}
-	err := orm.DB.
-		Order("created_at asc").
-		Where("tx_id = ?", id).
-		Find(&attempts).Error
-	return attempts, err
 }
 
 // AddTxAttempt creates a new transaction attempt and stores it
@@ -561,25 +611,29 @@ func (orm *ORM) AddTxAttempt(
 	etx *types.Transaction,
 	blkNum uint64,
 ) (*models.TxAttempt, error) {
-	hex, err := utils.EncodeTxToHex(etx)
+	signedRawTx, err := utils.EncodeTxToHex(etx)
 	if err != nil {
-		return nil, err
-	}
-	attempt := &models.TxAttempt{
-		Hash:     etx.Hash(),
-		GasPrice: models.NewBig(etx.GasPrice()),
-		Hex:      hex,
-		TxID:     tx.ID,
-		SentAt:   blkNum,
-	}
-	if !tx.Confirmed {
-		tx.AssignTxAttempt(attempt)
+		return nil, errors.Wrap(err, "AddTxAttempt#EncodeTxToHex failed")
 	}
 
+	txAttempt := &models.TxAttempt{
+		Hash:        etx.Hash(),
+		GasPrice:    models.NewBig(etx.GasPrice()),
+		TxID:        tx.ID,
+		SentAt:      blkNum,
+		SignedRawTx: signedRawTx,
+	}
+	tx.Hash = txAttempt.Hash
+	tx.GasPrice = txAttempt.GasPrice
+	tx.Confirmed = txAttempt.Confirmed
+	tx.SentAt = txAttempt.SentAt
+	tx.SignedRawTx = txAttempt.SignedRawTx
+	tx.Attempts = append(tx.Attempts, txAttempt)
+
 	err = orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Save(tx).Save(attempt).Error
+		return dbtx.Save(tx).Error
 	})
-	return attempt, err
+	return txAttempt, errors.Wrap(err, "AddTxAttempt#Save(tx) failed")
 }
 
 // GetLastNonce retrieves the last known nonce in the database for an account
@@ -764,9 +818,7 @@ func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSp
 // TxFrom returns all transactions from a particular address.
 func (orm *ORM) TxFrom(from common.Address) ([]models.Tx, error) {
 	txs := []models.Tx{}
-	return txs, orm.DB.
-		Set("gorm:auto_preload", true).
-		Find(&txs, "\"from\" = ?", from).Error
+	return txs, preloadAttempts(orm.DB).Find(&txs, `"from" = ?`, from).Error
 }
 
 // Transactions returns all transactions limited by passed parameters.
@@ -858,11 +910,6 @@ func (orm *ORM) UpdateBridgeType(bt *models.BridgeType, btr *models.BridgeTypeRe
 	bt.Confirmations = btr.Confirmations
 	bt.MinimumContractPayment = btr.MinimumContractPayment
 	return orm.DB.Save(bt).Error
-}
-
-// SaveTx saves the transaction.
-func (orm *ORM) SaveTx(tx *models.Tx) error {
-	return orm.DB.Save(tx).Error
 }
 
 // CreateInitiator saves the initiator.

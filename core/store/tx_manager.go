@@ -11,6 +11,7 @@ import (
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
+	"gopkg.in/guregu/null.v3"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
@@ -20,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
 )
@@ -29,7 +29,7 @@ import (
 // if updating DefaultGasLimit, be sure it matches with the
 // DefaultGasLimit specified in evm/test/Oracle_test.js
 const DefaultGasLimit uint64 = 500000
-const nonceReloadLimit uint = 1
+const nonceReloadLimit int = 1
 
 // ErrPendingConnection is the error returned if TxManager is not connected.
 var ErrPendingConnection = errors.New("Cannot talk to chain, pending connection")
@@ -39,10 +39,13 @@ type TxManager interface {
 	HeadTrackable
 	Connected() bool
 	Register(accounts []accounts.Account)
+
 	CreateTx(to common.Address, data []byte) (*models.Tx, error)
-	CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
+	CreateTxWithGas(surrogateID null.String, to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
 	CreateTxWithEth(from, to common.Address, value *assets.Eth) (*models.Tx, error)
+
 	BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, error)
+
 	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
 	GetLINKBalance(address common.Address) (*assets.Link, error)
@@ -130,18 +133,18 @@ func (txm *EthTxManager) OnNewHead(*models.Head) {}
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
-	return txm.CreateTxWithGas(to, data, txm.config.EthGasPriceDefault(), DefaultGasLimit)
+	return txm.CreateTxWithGas(null.String{}, to, data, txm.config.EthGasPriceDefault(), DefaultGasLimit)
 }
 
 // CreateTxWithGas signs and sends a transaction to the Ethereum blockchain.
-func (txm *EthTxManager) CreateTxWithGas(to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error) {
+func (txm *EthTxManager) CreateTxWithGas(surrogateID null.String, to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error) {
 	ma, err := txm.nextAccount()
 	if err != nil {
 		return nil, err
 	}
 
-	gasPriceWei, gasLimit = normalize(gasPriceWei, gasLimit, txm.config)
-	return txm.createTxWithNonceReload(ma, to, data, gasPriceWei, gasLimit, 0)
+	gasPriceWei, gasLimit = normalizeGasParams(gasPriceWei, gasLimit, txm.config)
+	return txm.createTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, nil)
 }
 
 // CreateTxWithEth signs and sends a transaction with some ETH to transfer.
@@ -151,7 +154,7 @@ func (txm *EthTxManager) CreateTxWithEth(from, to common.Address, value *assets.
 		return nil, errors.New("account does not exist")
 	}
 
-	return txm.createEthTxWithNonceReload(ma, to, []byte{}, txm.config.EthGasPriceDefault(), DefaultGasLimit, value, 0)
+	return txm.createTx(null.String{}, ma, to, []byte{}, txm.config.EthGasPriceDefault(), DefaultGasLimit, value)
 }
 
 func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
@@ -167,7 +170,7 @@ func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
 	return ma, nil
 }
 
-func normalize(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, uint64) {
+func normalizeGasParams(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, uint64) {
 	if !config.Dev() {
 		return config.EthGasPriceDefault(), DefaultGasLimit
 	}
@@ -183,92 +186,160 @@ func normalize(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, 
 	return gasPriceWei, gasLimit
 }
 
-func (txm *EthTxManager) createEthTxWithNonceReload(
+// createTx creates an ethereum transaction, and retries to submit the
+// transaction if a nonce too low error is returned
+func (txm *EthTxManager) createTx(
+	surrogateID null.String,
 	ma *ManagedAccount,
 	to common.Address,
 	data []byte,
 	gasPriceWei *big.Int,
 	gasLimit uint64,
-	value *assets.Eth,
-	nrc uint) (*models.Tx, error) {
+	value *assets.Eth) (*models.Tx, error) {
 
-	blkNum, err := txm.getBlockNumber()
+	tx, err := txm.sendInitialTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, value)
+	for nrc := 0; isNonceTooLowError(err); nrc++ {
+		logger.Warnw("Tx #0: nonce too low, retrying with network nonce")
+
+		if nrc >= nonceReloadLimit {
+			err = fmt.Errorf(
+				"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v",
+				nonceReloadLimit,
+			)
+			return nil, err
+		}
+
+		err = txm.retryInitialTx(tx, ma, gasPriceWei)
+	}
+
+	return tx, err
+}
+
+// sendInitialTx creates the initial Tx record + attempt for an Ethereum Tx,
+// there should only ever be one of those for a "job"
+func (txm *EthTxManager) sendInitialTx(
+	surrogateID null.String,
+	ma *ManagedAccount,
+	to common.Address,
+	data []byte,
+	gasPriceWei *big.Int,
+	gasLimit uint64,
+	value *assets.Eth) (*models.Tx, error) {
+
+	blockNumber, err := txm.getBlockNumber()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "TxManager#sendInitialTx getBlockNumber")
 	}
 
 	var tx *models.Tx
 	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
-		tx, err = txm.orm.CreateTx(
-			ma.Address,
+		ethTx, err := txm.newEthTx(
+			ma.Account,
 			nonce,
 			to,
-			data,
 			value.ToInt(),
 			gasLimit,
-		)
+			gasPriceWei,
+			data)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "TxManager#sendInitialTx newEthTx")
 		}
 
-		logger.Infow(fmt.Sprintf("Created ETH transaction, attempt #: %v", nrc), "from", ma.Address.String(), "to", to.String())
-		_, err = txm.createAttempt(tx, gasPriceWei, blkNum)
+		tx, err = txm.orm.CreateTx(surrogateID, ethTx, &ma.Address, blockNumber)
 		if err != nil {
-			merr := multierr.Append(err, txm.orm.DeleteTransaction(tx))
-			return fmt.Errorf("TxManager CreateTX %v", merr)
+			return errors.Wrap(err, "TxManager#sendInitialTx CreateTx")
+		}
+
+		_, err = txm.SendRawTx(tx.SignedRawTx)
+		if err != nil {
+			return errors.Wrap(err, "TxManager#sendInitialTx SendRawTx")
+		}
+
+		return nil
+	})
+
+	// XXX: Small subtlety here: return the tx as it is initialized and is passed to retryInitialTx
+	if err != nil {
+		err = errors.Wrap(err, "TxManager#sendInitialTx ma#GetAndIncrementNonce")
+	}
+	return tx, err
+}
+
+// retryInitialTx is used to update the Tx record and attempt for an Ethereum
+// Tx when a Tx is reattempted because of a nonce too low error
+func (txm *EthTxManager) retryInitialTx(
+	tx *models.Tx,
+	ma *ManagedAccount,
+	gasPriceWei *big.Int) error {
+
+	err := ma.ReloadNonce(txm)
+	if err != nil {
+		return errors.Wrap(err, "TxManager#retryInitialTx ReloadNonce")
+	}
+
+	blockNumber, err := txm.getBlockNumber()
+	if err != nil {
+		return errors.Wrap(err, "TxManager#retryInitialTx getBlockNumber")
+	}
+
+	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
+		ethTx, err := txm.newEthTx(
+			ma.Account,
+			nonce,
+			tx.To,
+			tx.Value.ToInt(),
+			tx.GasLimit,
+			gasPriceWei,
+			tx.Data)
+		if err != nil {
+			return errors.Wrap(err, "TxManager#retryInitialTx newEthTx")
+		}
+
+		err = txm.orm.UpdateTx(tx, ethTx, &ma.Address, blockNumber)
+		if err != nil {
+			return errors.Wrap(err, "TxManager#retryInitialTx UpdateTx")
+		}
+
+		_, err = txm.SendRawTx(tx.SignedRawTx)
+		if err != nil {
+			return errors.Wrap(err, "TxManager#retryInitialTx SendRawTx")
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		if matchesNonceTooLowError(err) {
-			if nrc >= nonceReloadLimit {
-				err = fmt.Errorf(
-					"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v, Reattempt: %v",
-					nonceReloadLimit,
-					nrc,
-				)
-				return tx, err
-			}
-
-			logger.Warnw("Transaction nonce is too low. Reloading the nonce from the network and reattempting the transaction.")
-			err = ma.ReloadNonce(txm)
-			if err != nil {
-				return tx, fmt.Errorf("TxManager CreateTX ReloadNonce %v", err)
-			}
-
-			return txm.createTxWithNonceReload(ma, to, data, gasPriceWei, gasLimit, nrc+1)
-		}
+		return errors.Wrap(err, "TxManager#retryInitialTx ma#GetAndIncrementNonce")
 	}
-
-	return tx, err
+	return nil
 }
 
 var (
-	nonceTooLowRegex = regexp.MustCompile("nonce .*too low")
-	sameHashRegex    = regexp.MustCompile("same hash was already imported")
+	nonceTooLowRegex = regexp.MustCompile("(nonce .*too low|same hash was already imported)")
 )
 
-func matchesNonceTooLowError(err error) bool {
-	return nonceTooLowRegex.MatchString(err.Error()) || sameHashRegex.MatchString(err.Error())
+func isNonceTooLowError(err error) bool {
+	return err != nil && nonceTooLowRegex.MatchString(err.Error())
 }
 
-func (txm *EthTxManager) createTxWithNonceReload(
-	ma *ManagedAccount,
+// newEthTx returns a newly signed Ethereum Transaction
+func (txm *EthTxManager) newEthTx(
+	account accounts.Account,
+	nonce uint64,
 	to common.Address,
-	data []byte,
-	gasPriceWei *big.Int,
+	amount *big.Int,
 	gasLimit uint64,
-	nrc uint) (*models.Tx, error) {
-	return txm.createEthTxWithNonceReload(
-		ma,
-		to,
-		data,
-		gasPriceWei,
-		gasLimit,
-		assets.NewEth(0),
-		nrc)
+	gasPrice *big.Int,
+	data []byte) (*types.Transaction, error) {
+
+	ethTx := types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data)
+
+	ethTx, err := txm.keyStore.SignTx(account, ethTx, txm.config.ChainID())
+	if err != nil {
+		return nil, errors.Wrap(err, "TxManager keyStore.SignTx")
+	}
+
+	return ethTx, nil
 }
 
 // GetLINKBalance returns the balance of LINK at the given address
@@ -284,36 +355,24 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 // BumpGasUntilSafe returns true if the given transaction hash has been
 // confirmed on the blockchain.
 func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, error) {
-	blkNum, err := txm.getBlockNumber()
+	blockNumber, err := txm.getBlockNumber()
 	if err != nil {
 		return nil, errors.Wrap(err, "BumpGasUntilSafe getBlockNumber")
 	}
-	tx, attempts, err := txm.getTxAndAttempts(hash)
+	tx, err := txm.orm.FindTxByAttempt(hash)
 	if err != nil {
-		return nil, errors.Wrap(err, "BumpGasUntilSafe getTxAndAttempts")
+		return nil, errors.Wrap(err, "BumpGasUntilSafe FindTxByAttempt")
 	}
 
 	var merr error
-	for _, txat := range attempts {
-		receipt, state, err := txm.checkAttempt(tx, &txat, blkNum)
+	for attemptIndex := range tx.Attempts {
+		receipt, state, err := txm.checkAttempt(tx, attemptIndex, blockNumber)
 		if state == safe || state == confirmed {
 			return receipt, err // success, so all other attempt errors can be ignored.
 		}
 		merr = multierr.Append(merr, err)
 	}
 	return nil, merr
-}
-
-func (txm *EthTxManager) getTxAndAttempts(hash common.Hash) (*models.Tx, []models.TxAttempt, error) {
-	tx, err := txm.orm.FindTxByAttempt(hash)
-	if err != nil {
-		return nil, []models.TxAttempt{}, err
-	}
-	attempts, err := txm.orm.TxAttemptsFor(tx.ID)
-	if err != nil {
-		return nil, []models.TxAttempt{}, err
-	}
-	return tx, attempts, nil
 }
 
 // ContractLINKBalance returns the balance for the contract associated with this
@@ -372,7 +431,7 @@ func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash,
 func (txm *EthTxManager) createAttempt(
 	tx *models.Tx,
 	gasPriceWei *big.Int,
-	blkNum uint64,
+	blockNumber uint64,
 ) (*models.TxAttempt, error) {
 	ma := txm.getAccount(tx.From)
 	if ma == nil {
@@ -381,25 +440,19 @@ func (txm *EthTxManager) createAttempt(
 	etx := tx.EthTx(gasPriceWei)
 	etx, err := txm.keyStore.SignTx(ma.Account, etx, txm.config.ChainID())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "createAttempt#SignTx failed")
 	}
 
-	a, err := txm.orm.AddTxAttempt(tx, etx, blkNum)
+	txAttempt, err := txm.orm.AddTxAttempt(tx, etx, blockNumber)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "createAttempt#AddTxAttempt failed")
 	}
-	return a, txm.sendTransaction(etx)
-}
 
-func (txm *EthTxManager) sendTransaction(tx *types.Transaction) error {
-	hex, err := utils.EncodeTxToHex(tx)
-	if err != nil {
-		return err
+	if _, err = txm.SendRawTx(txAttempt.SignedRawTx); err != nil {
+		return nil, errors.Wrap(err, "createAttempt#SendRawTx failed")
 	}
-	if _, err = txm.SendRawTx(hex); err != nil {
-		return errors.Wrapf(err, "TxManager#sendTransaction with nonce %d", tx.Nonce())
-	}
-	return nil
+
+	return txAttempt, nil
 }
 
 type attemptState int
@@ -412,18 +465,20 @@ const (
 
 func (txm *EthTxManager) checkAttempt(
 	tx *models.Tx,
-	txat *models.TxAttempt,
-	blkNum uint64,
+	attemptIndex int,
+	blockNumber uint64,
 ) (*models.TxReceipt, attemptState, error) {
-	receipt, err := txm.GetTxReceipt(txat.Hash)
+	txAttempt := tx.Attempts[attemptIndex]
+
+	receipt, err := txm.GetTxReceipt(txAttempt.Hash)
 	if err != nil {
 		return nil, unconfirmed, errors.Wrap(err, "checkAttempt GetTxReceipt")
 	}
 
 	if receipt.Unconfirmed() {
-		return txm.handleUnconfirmed(tx, txat, blkNum)
+		return txm.handleUnconfirmed(tx, attemptIndex, blockNumber)
 	}
-	return txm.handleConfirmed(tx, txat, receipt, blkNum)
+	return txm.handleConfirmed(tx, attemptIndex, receipt, blockNumber)
 }
 
 // GetETHAndLINKBalances attempts to retrieve the ethereum node's perception of
@@ -441,45 +496,40 @@ func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*big.Int
 // was successfully recorded as confirmed.
 func (txm *EthTxManager) handleConfirmed(
 	tx *models.Tx,
-	txat *models.TxAttempt,
+	attemptIndex int,
 	rcpt *models.TxReceipt,
-	blkNum uint64,
+	blockNumber uint64,
 ) (*models.TxReceipt, attemptState, error) {
+	txAttempt := tx.Attempts[attemptIndex]
+
 	minConfs := big.NewInt(int64(txm.config.MinOutgoingConfirmations()))
 	confirmedAt := big.NewInt(0).Add(minConfs, rcpt.BlockNumber.ToInt())
 	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // 0 based indexing since rcpt is 1 conf
 
 	logger.Debugw(
-		fmt.Sprintf("Confirmed TX: %d attempt %s waiting on %v confirmations", txat.TxID, txat.Hash.Hex(), minConfs),
-		"txHash", txat.Hash.String(),
-		"txid", txat.TxID,
-		"nonce", tx.Nonce,
-		"gasPrice", txat.GasPrice.String(),
-		"from", tx.From.Hex(),
+		fmt.Sprintf("Tx #%d checking for minimum of %v confirmations", attemptIndex, minConfs),
+		"txHash", txAttempt.Hash.String(),
+		"txid", txAttempt.TxID,
 		"receiptBlockNumber", rcpt.BlockNumber.ToInt(),
-		"currentBlockNumber", blkNum,
+		"currentBlockNumber", blockNumber,
 		"receiptHash", rcpt.Hash.Hex(),
-		"confirmedAt", confirmedAt,
 	)
 
-	if big.NewInt(int64(blkNum)).Cmp(confirmedAt) == -1 {
+	if big.NewInt(int64(blockNumber)).Cmp(confirmedAt) == -1 {
 		return nil, confirmed, nil
 	}
 
-	if err := txm.orm.MarkTxSafe(tx, txat); err != nil {
+	if err := txm.orm.MarkTxSafe(tx, txAttempt); err != nil {
 		return nil, confirmed, err
 	}
 
 	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
 	logger.Infow(
-		fmt.Sprintf("Confirmed TX %d: %s", txat.TxID, txat.Hash.String()),
-		"txHash", txat.Hash.String(),
-		"txid", txat.TxID,
-		"nonce", tx.Nonce,
+		fmt.Sprintf("Tx #%d got minimum confirmations (%d)", txAttempt.TxID, minConfs),
+		"txHash", txAttempt.Hash.String(),
+		"txid", txAttempt.TxID,
 		"ethBalance", ethBalance,
 		"linkBalance", linkBalance,
-		"receipt", rcpt,
-		"txat", txat,
 		"err", balanceErr,
 	)
 
@@ -488,31 +538,35 @@ func (txm *EthTxManager) handleConfirmed(
 
 func (txm *EthTxManager) handleUnconfirmed(
 	tx *models.Tx,
-	txAttempt *models.TxAttempt,
-	blkNum uint64,
+	attemptIndex int,
+	blockNumber uint64,
 ) (*models.TxReceipt, attemptState, error) {
+	txAttempt := tx.Attempts[attemptIndex]
+
 	if !isLatestAttempt(tx, txAttempt) {
 		return nil, unconfirmed, nil
 	}
 
+	gasBumpThreshold := txm.config.EthGasBumpThreshold()
 	logParams := []interface{}{
 		"txHash", txAttempt.Hash.String(),
-		"txid", txAttempt.TxID,
+		"txId", tx.ID,
 		"nonce", tx.Nonce,
 		"gasPrice", txAttempt.GasPrice.String(),
 		"from", tx.From.Hex(),
-		"blkNum", blkNum,
+		"blockNumber", blockNumber,
 		"sentAt", txAttempt.SentAt,
+		"gasBumpThreshold", gasBumpThreshold,
 	}
-	if blkNum >= txAttempt.SentAt+txm.config.EthGasBumpThreshold() {
+	if blockNumber >= txAttempt.SentAt+gasBumpThreshold {
 		logger.Debugw(
-			fmt.Sprintf("Unconfirmed TX %d attempt %s, bumping gas", txAttempt.TxID, txAttempt.Hash.Hex()),
+			fmt.Sprintf("Tx #%d unconfirmed, bumping gas", attemptIndex),
 			logParams...,
 		)
-		return nil, unconfirmed, txm.bumpGas(txAttempt, blkNum)
+		return nil, unconfirmed, txm.bumpGas(tx, attemptIndex, blockNumber)
 	}
 	logger.Infow(
-		fmt.Sprintf("Unconfirmed TX %d has not met gas bump threshold", txAttempt.TxID),
+		fmt.Sprintf("Tx #%d unconfirmed, not yet ready to bump gas", attemptIndex),
 		logParams...,
 	)
 	return nil, unconfirmed, nil
@@ -521,21 +575,24 @@ func (txm *EthTxManager) handleUnconfirmed(
 // isLatestAttempt returns true only if the attempt is the last
 // attempt associated with the transaction, alluding to the fact that
 // it has the highest gas price after subsequent bumps.
-func isLatestAttempt(tx *models.Tx, txat *models.TxAttempt) bool {
-	return tx.Hash == txat.Hash
+func isLatestAttempt(tx *models.Tx, txAttempt *models.TxAttempt) bool {
+	return tx.Hash == txAttempt.Hash
 }
 
-func (txm *EthTxManager) bumpGas(txat *models.TxAttempt, blkNum uint64) error {
-	tx, err := txm.orm.FindTx(txat.TxID)
+func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockNumber uint64) error {
+	txAttempt := tx.Attempts[attemptIndex]
+	originalGasPrice := txAttempt.GasPrice.ToInt()
+	bumpedGasPrice := new(big.Int).Add(originalGasPrice, txm.config.EthGasBumpWei())
+
+	bumpedTxAttempt, err := txm.createAttempt(tx, bumpedGasPrice, blockNumber)
 	if err != nil {
-		return errors.Wrapf(err, "bumpGas for txid %v", txat.TxID)
+		return errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
 	}
-	gasPrice := new(big.Int).Add(txat.GasPrice.ToInt(), txm.config.EthGasBumpWei())
-	bumpedTxAt, err := txm.createAttempt(tx, gasPrice, blkNum)
-	if err != nil {
-		return errors.Wrapf(err, "bumpGas from tx %s", txat.Hash.Hex())
-	}
-	logger.Infow(fmt.Sprintf("Bumped gas to %v for TX %v", txat.TxID, gasPrice), "bumpSource", txat.Hash.Hex(), "txat", bumpedTxAt, "nonce", tx.Nonce)
+
+	logger.Infow(
+		fmt.Sprintf("Tx #%d created with bumped gas %v", attemptIndex+1, bumpedGasPrice),
+		"originalTxHash", txAttempt.Hash,
+		"newTxHash", bumpedTxAttempt.Hash)
 	return nil
 }
 
@@ -549,12 +606,9 @@ func (txm *EthTxManager) NextActiveAccount() *ManagedAccount {
 		return nil
 	}
 
-	current := txm.availableAccountIdx
-	txm.availableAccountIdx++
-	if txm.availableAccountIdx >= len(txm.availableAccounts) {
-		txm.availableAccountIdx = 0
-	}
-	return txm.availableAccounts[current]
+	account := txm.availableAccounts[txm.availableAccountIdx]
+	txm.availableAccountIdx = (txm.availableAccountIdx + 1) % len(txm.availableAccounts)
+	return account
 }
 
 func (txm *EthTxManager) getAccount(from common.Address) *ManagedAccount {

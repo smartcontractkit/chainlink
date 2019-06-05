@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_NewTx(t *testing.T) {
@@ -18,7 +19,8 @@ func Test_NewTx(t *testing.T) {
 		Nonce:    uint64(100),
 		SentAt:   uint64(300),
 	}
-	ptx := NewTx(&tx)
+	ptx, err := NewTx(&tx)
+	require.NoError(t, err)
 
 	assert.Equal(t, "5000", ptx.GasLimit)
 	assert.Equal(t, "100", ptx.Nonce)

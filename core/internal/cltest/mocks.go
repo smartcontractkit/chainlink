@@ -73,6 +73,17 @@ func (mock *EthMock) Dial(url string) (store.CallerSubscriber, error) {
 	return mock, nil
 }
 
+// Clear all stubs/mocks/expectations
+func (mock *EthMock) Clear() {
+	mock.mutex.Lock()
+	defer mock.mutex.Unlock()
+
+	mock.Responses = nil
+	mock.Subscriptions = nil
+	mock.newHeadsCalled = false
+	mock.logsCalled = false
+}
+
 // Context adds helpful context to EthMock values set in the callback function.
 func (mock *EthMock) Context(context string, callback func(*EthMock)) {
 	mock.context = context
@@ -83,7 +94,6 @@ func (mock *EthMock) Context(context string, callback func(*EthMock)) {
 func (mock *EthMock) ShouldCall(setup func(mock *EthMock)) ethMockDuring {
 	if !mock.AllCalled() {
 		mock.t.Errorf("Remaining ethMockCalls: %v", mock.Remaining())
-		mock.t.Fail()
 	}
 	setup(mock)
 	return ethMockDuring{mock: mock}
@@ -97,9 +107,8 @@ type ethMockDuring struct {
 func (emd ethMockDuring) During(action func()) {
 	action()
 	if !emd.mock.AllCalled() {
-		logger.Errorf("Remaining ethMockCalls: %v", emd.mock.Remaining())
+		emd.mock.t.Errorf("Remaining ethMockCalls: %v", emd.mock.Remaining())
 	}
-	require.True(emd.t, emd.mock.AllCalled())
 }
 
 // Register register mock responses and append to Ethmock
@@ -160,7 +169,7 @@ func (mock *EthMock) Remaining() string {
 func (mock *EthMock) EventuallyAllCalled(t *testing.T) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
-	g.Eventually(mock.AllCalled).Should(gomega.BeTrue())
+	g.Eventually(mock.Remaining).Should(gomega.HaveLen(0))
 }
 
 // Call will call given method and set the result

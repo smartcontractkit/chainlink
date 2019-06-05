@@ -29,11 +29,11 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	from := cltest.GetAccountAddress(t, store)
-	tx1 := cltest.CreateTxAndAttempt(t, store, from, 1)
+	tx1 := cltest.CreateTx(t, store, from, 1)
 	_, err := store.AddTxAttempt(tx1, tx1.EthTx(big.NewInt(2)), 2)
 	require.NoError(t, err)
-	cltest.CreateTxAndAttempt(t, store, from, 3)
-	cltest.CreateTxAndAttempt(t, store, from, 4)
+	cltest.CreateTx(t, store, from, 3)
+	cltest.CreateTx(t, store, from, 4)
 	_, count, err := store.Transactions(0, 100)
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
@@ -84,7 +84,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	store := app.GetStore()
 	client := app.NewHTTPClient()
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
+	tx := cltest.CreateTx(t, store, from, 1)
 	tx1 := *tx
 	_, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), 2)
 	require.NoError(t, err)
@@ -108,8 +108,17 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 			ptx := presenters.Tx{}
 			require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &ptx))
 
-			test.want.ID = 0
-			assert.Equal(t, presenters.NewTx(&test.want), ptx)
+			txp, err := presenters.NewTx(&test.want)
+			require.NoError(t, err)
+			assert.Equal(t, txp.Confirmed, ptx.Confirmed)
+			assert.Equal(t, txp.Data, ptx.Data)
+			assert.Equal(t, txp.GasLimit, ptx.GasLimit)
+			assert.Equal(t, txp.GasPrice, ptx.GasPrice)
+			assert.Equal(t, txp.Hash, ptx.Hash)
+			assert.Equal(t, txp.Nonce, ptx.Nonce)
+			assert.Equal(t, txp.SentAt, ptx.SentAt)
+			assert.Equal(t, txp.To, ptx.To)
+			assert.Equal(t, txp.Value, ptx.Value)
 		})
 	}
 }
@@ -129,7 +138,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	store := app.GetStore()
 	client := app.NewHTTPClient()
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTxAndAttempt(t, store, from, 1)
+	tx := cltest.CreateTx(t, store, from, 1)
 
 	resp, cleanup := client.Get("/v2/transactions/" + (tx.Hash.String() + "1"))
 	defer cleanup()
