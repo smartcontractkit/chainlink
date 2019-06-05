@@ -652,7 +652,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 func TestIntegration_SleepAdapter(t *testing.T) {
 	t.Parallel()
 
-	sleepSeconds := 3
+	sleepSeconds := 4
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	app.Start()
