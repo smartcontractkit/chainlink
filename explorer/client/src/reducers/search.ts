@@ -4,15 +4,12 @@ export interface IState {
 
 export type Query = string | undefined
 
-export type SearchAction =
-  | { type: 'UPDATE_SEARCH_QUERY'; query?: string }
-  | { type: '@@redux/INIT' }
-  | { type: '@@INIT' }
+export type Action = { type: string; location?: Location }
 
 const initialState = { query: undefined }
 
-const initQuery = (): Query => {
-  const searchParams = new URL(document.location.toString()).searchParams
+const parseQuery = (location: Location = document.location): Query => {
+  const searchParams = new URL(location.toString()).searchParams
   const search = searchParams.get('search')
 
   if (search) {
@@ -20,14 +17,6 @@ const initQuery = (): Query => {
   }
 }
 
-export default (state: IState = initialState, action: SearchAction) => {
-  switch (action.type) {
-    case '@@redux/INIT':
-    case '@@INIT':
-      return Object.assign({}, state, { query: initQuery() })
-    case 'UPDATE_SEARCH_QUERY':
-      return Object.assign({}, state, { query: action.query })
-    default:
-      return state
-  }
+export default (state: IState = initialState, action: Action) => {
+  return Object.assign({}, state, { query: parseQuery(action.location) })
 }
