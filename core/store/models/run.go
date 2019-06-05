@@ -164,6 +164,7 @@ type TaskRun struct {
 	TaskSpec             TaskSpec  `json:"task" gorm:"association_autoupdate:false;association_autocreate:false"`
 	TaskSpecID           uint      `json:"-" gorm:"index;not null REFERENCES task_specs(id)"`
 	MinimumConfirmations uint64    `json:"minimumConfirmations"`
+	Confirmations        uint64    `json:"confirmations" gorm:"not null"`
 	CreatedAt            time.Time `json:"-" gorm:"index"`
 }
 

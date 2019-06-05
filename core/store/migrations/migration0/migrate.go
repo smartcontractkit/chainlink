@@ -49,7 +49,7 @@ func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&models.SyncEvent{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate SyncEvent")
 	}
-	if err := tx.AutoMigrate(&models.TaskRun{}).Error; err != nil {
+	if err := tx.AutoMigrate(&TaskRun{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate TaskRun")
 	}
 	if err := tx.AutoMigrate(&models.TaskSpec{}).Error; err != nil {
@@ -92,4 +92,16 @@ type TxAttempt struct {
 	Hex       string `gorm:"type:text"`
 	SentAt    uint64
 	CreatedAt time.Time `gorm:"index"`
+}
+
+// TaskRun stores the Task and represents the status of the
+// Task to be ran.
+type TaskRun struct {
+	ID                   string    `json:"id" gorm:"primary_key;not null"`
+	JobRunID             string    `json:"-" gorm:"index;not null;type:varchar(36) REFERENCES job_runs(id) ON DELETE CASCADE"`
+	ResultID             uint      `json:"-"`
+	Status               string    `json:"status"`
+	TaskSpecID           uint      `json:"-" gorm:"index;not null REFERENCES task_specs(id)"`
+	MinimumConfirmations uint64    `json:"minimumConfirmations"`
+	CreatedAt            time.Time `json:"-" gorm:"index"`
 }
