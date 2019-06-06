@@ -7,7 +7,7 @@ import dashboardIndex, { State as DashboardState } from './dashboardIndex'
 import fetching from './fetching'
 import jobRuns, { State as JobRunsState } from './jobRuns'
 import jobs from './jobs'
-import notifications from './notifications'
+import notifications, { State as NotificationsState } from './notifications'
 import redirect from './redirect'
 import transactions from './transactions'
 import transactionsIndex from './transactionsIndex'
@@ -17,6 +17,7 @@ export interface AppState {
   configuration: ConfigurationState
   dashboardIndex: DashboardState
   jobRuns: JobRunsState
+  notifications: NotificationsState
 }
 
 const reducer = combineReducers({
@@ -24,13 +25,13 @@ const reducer = combineReducers({
   authentication,
   bridges,
   configuration,
+  dashboardIndex,
   fetching,
   jobRuns,
   jobs,
-  transactions,
   notifications,
   redirect,
-  dashboardIndex,
+  transactions,
   transactionsIndex,
 })
 

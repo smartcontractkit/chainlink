@@ -43,7 +43,22 @@ describe('containers/Notifications', () => {
     expect(wrapper.text()).toContain('Error 2')
   })
 
-  it('renders an unhandled error message when there is no component', () => {
+  it('can render an error msg without a component', () => {
+    const errors = [{ props: { msg: 'Error String' } }]
+    const state = {
+      notifications: {
+        successes: [],
+        errors: errors,
+        currentUrl: null
+      }
+    }
+    const store = mockStore(state)
+    let wrapper = mountNotifications(store)
+
+    expect(wrapper.text()).toContain('Error String')
+  })
+
+  it('renders an unhandled error when there is no component or msg', () => {
     const state = {
       notifications: {
         successes: [],
