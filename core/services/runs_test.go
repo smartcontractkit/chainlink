@@ -621,6 +621,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_mainChain(t *testing.T) {
 	require.NoError(t, err)
 	updatedJR := cltest.WaitForJobRunToComplete(t, store, *jr)
 	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
+	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
 
 func TestExecuteJobWithRunRequest_fromRunLog_uncled(t *testing.T) {
@@ -667,4 +668,5 @@ func TestExecuteJobWithRunRequest_fromRunLog_uncled(t *testing.T) {
 	require.NoError(t, err)
 	updatedJR := cltest.WaitForJobRunStatus(t, store, *jr, models.RunStatusErrored)
 	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
+	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
