@@ -200,28 +200,22 @@ func prepareTaskInput(run *models.JobRun, input models.JSON) (models.JSON, error
 	return input, nil
 }
 
-func prepareAdapter(
-	taskRun *models.TaskRun,
-	data models.JSON,
-	store *store.Store,
-) (*adapters.PipelineAdapter, error) {
-	taskCopy := taskRun.TaskSpec // deliberately copied to keep mutations local
-
-	merged, err := taskCopy.Params.Merge(data)
-	if err != nil {
-		return nil, err
-	}
-	taskCopy.Params = merged
-
-	return adapters.For(taskCopy, store)
-}
-
 func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *store.Store) models.RunResult {
-	adapter, err := prepareAdapter(currentTaskRun, run.Overrides.Data, store)
+	taskCopy := currentTaskRun.TaskSpec // deliberately copied to keep mutations local
+
+	var err error
+	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides.Data); err != nil {
+		currentTaskRun.Result.SetError(err)
+		return currentTaskRun.Result
+	}
+
+	adapter, err := adapters.For(taskCopy, store)
 	if err != nil {
 		currentTaskRun.Result.SetError(err)
 		return currentTaskRun.Result
 	}
+
+	logger.Infow(fmt.Sprintf("Processing task %s", taskCopy.Type), []interface{}{"task", currentTaskRun.ID}...)
 
 	data, err := prepareTaskInput(run, currentTaskRun.Result.Data)
 	if err != nil {
@@ -229,13 +223,10 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 		return currentTaskRun.Result
 	}
 
-	taskSpec := currentTaskRun.TaskSpec
-	logger.Infow(fmt.Sprintf("Processing task %s", taskSpec.Type), []interface{}{"task", currentTaskRun.ID}...)
-
 	currentTaskRun.Result.Data = data
 	result := adapter.Perform(currentTaskRun.Result, store)
 
-	logger.Infow(fmt.Sprintf("Finished processing task %s", taskSpec.Type), []interface{}{
+	logger.Infow(fmt.Sprintf("Finished processing task %s", taskCopy.Type), []interface{}{
 		"task", currentTaskRun.ID,
 		"result", result.Status,
 		"result_data", result.Data,
