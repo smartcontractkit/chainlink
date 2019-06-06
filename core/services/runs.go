@@ -227,6 +227,22 @@ func ResumePendingTask(
 	return updateAndTrigger(run, store)
 }
 
+func prepareAdapter(
+	taskRun *models.TaskRun,
+	data models.JSON,
+	store *store.Store,
+) (*adapters.PipelineAdapter, error) {
+	taskCopy := taskRun.TaskSpec // deliberately copied to keep mutations local
+
+	merged, err := taskCopy.Params.Merge(data)
+	if err != nil {
+		return nil, err
+	}
+	taskCopy.Params = merged
+
+	return adapters.For(taskCopy, store)
+}
+
 // QueueSleepingTask creates a go routine which will wake up the job runner
 // once the sleep's time has elapsed
 func QueueSleepingTask(
