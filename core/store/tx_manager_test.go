@@ -659,6 +659,33 @@ func TestTxManager_CheckAttempt(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
+func TestTxManager_CheckAttempt_error(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+
+	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock.Register("eth_getTransactionCount", "0x0")
+	require.NoError(t, app.StartAndConnect())
+
+	store := app.Store
+	txm := store.TxManager
+
+	sentAt := uint64(14770)
+
+	// Initial check, no receipt, no change of the block height
+	ethMock.RegisterError("eth_getTransactionReceipt", "that aint gonna work chief")
+
+	txAttempt := &models.TxAttempt{}
+	receipt, state, err := txm.CheckAttempt(txAttempt, sentAt)
+	require.Error(t, err)
+	assert.Equal(t, state, strpkg.Unknown)
+	assert.Nil(t, receipt)
+
+	ethMock.EventuallyAllCalled(t)
+}
+
 func TestTxManager_Register(t *testing.T) {
 	t.Parallel()
 
