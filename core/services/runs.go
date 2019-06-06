@@ -321,8 +321,7 @@ func updateTaskRunConfirmations(currentHeight *models.Big, jr *models.JobRun, ta
 	if jr.CreationHeight == nil || currentHeight == nil {
 		return
 	}
-	diff := new(big.Int).Sub(currentHeight.ToInt(), jr.CreationHeight.ToInt())
-	taskRun.Confirmations = diff.Uint64() + 1 // creation alone warrants one confirmation
+	taskRun.Confirmations = blockNumberDifference(currentHeight, jr.CreationHeight)
 	if taskRun.Confirmations > taskRun.MinimumConfirmations {
 		taskRun.Confirmations = taskRun.MinimumConfirmations
 	}
@@ -356,10 +355,13 @@ func meetsMinimumConfirmations(
 		return true
 	}
 
-	diff := new(big.Int).Sub(currentHeight.ToInt(), run.CreationHeight.ToInt())
-	min := new(big.Int).SetUint64(taskRun.MinimumConfirmations)
-	min = min.Sub(min, big.NewInt(1))
-	return diff.Cmp(min) >= 0
+	diff := blockNumberDifference(currentHeight, run.CreationHeight)
+	return diff >= taskRun.MinimumConfirmations
+}
+
+func blockNumberDifference(currentHeight, creationHeight *models.Big) uint64 {
+	diff := new(big.Int).Sub(currentHeight.ToInt(), creationHeight.ToInt())
+	return diff.Uint64() + 1 // creation of runlog alone warrants 1 confirmation
 }
 
 func updateAndTrigger(run *models.JobRun, store *store.Store) error {
