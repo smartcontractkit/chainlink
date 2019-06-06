@@ -252,6 +252,8 @@ func (txm *EthTxManager) sendInitialTx(
 			return errors.Wrap(err, "TxManager#sendInitialTx CreateTx")
 		}
 
+		logger.Debugw(fmt.Sprintf("Adding Tx attempt #%d", 0), "txID", tx.ID)
+
 		_, err = txm.SendRawTx(tx.SignedRawTx)
 		if err != nil {
 			return errors.Wrap(err, "TxManager#sendInitialTx SendRawTx")

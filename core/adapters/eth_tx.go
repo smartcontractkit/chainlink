@@ -98,16 +98,31 @@ func createTxRunResult(
 	input.ApplyResult(tx.Hash.String())
 
 	txAttempt := tx.Attempts[0]
-	receipt, _, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
+	logger.Debugw(
+		fmt.Sprintf("Tx #0 checking on-chain state"),
+		"txHash", txAttempt.Hash.String(),
+		"txID", txAttempt.TxID,
+	)
+
+	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
 	if err != nil {
 		input.SetError(err)
 		return
 	}
 
-	if receipt == nil {
+	if receipt == nil || state != strpkg.Safe {
 		input.MarkPendingConfirmations()
 		return
 	}
+
+	logger.Debugw(
+		fmt.Sprintf("Tx #0 is %s", state),
+		"txHash", txAttempt.Hash.String(),
+		"txID", txAttempt.TxID,
+		"receiptBlockNumber", receipt.BlockNumber.ToInt(),
+		"currentBlockNumber", tx.SentAt,
+		"receiptHash", receipt.Hash.Hex(),
+	)
 
 	addReceiptToResult(receipt, input)
 }
