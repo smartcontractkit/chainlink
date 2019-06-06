@@ -451,6 +451,8 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
+
+	tx := &models.Tx{Attempts: []*models.TxAttempt{&models.TxAttempt{}}}
 	txmMock.EXPECT().Register(gomock.Any())
 	txmMock.EXPECT().Connected().Return(true).AnyTimes()
 	txmMock.EXPECT().CreateTxWithGas(gomock.Any(), gomock.Any(), hexutil.MustDecode(
@@ -458,7 +460,7 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 			"0000000000000000000000000000000000000000000000000000000000000020"+
 			"000000000000000000000000000000000000000000000000000000000000000b"+
 			"68656c6c6f20776f726c64000000000000000000000000000000000000000000"),
-		gomock.Any(), gomock.Any()).Return(&models.Tx{}, nil)
+		gomock.Any(), gomock.Any()).Return(tx, nil)
 	txmMock.EXPECT().BumpGasUntilSafe(gomock.Any())
 
 	task := models.TaskSpec{}

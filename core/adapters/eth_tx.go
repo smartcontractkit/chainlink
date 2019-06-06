@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v3"
@@ -33,7 +33,7 @@ type EthTx struct {
 // Perform creates the run result for the transaction if the existing run result
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
-func (etx *EthTx) Perform(input models.RunResult, store *store.Store) models.RunResult {
+func (etx *EthTx) Perform(input models.RunResult, store *strpkg.Store) models.RunResult {
 	if !store.TxManager.Connected() {
 		input.MarkPendingConnection()
 		return input
@@ -69,7 +69,7 @@ func getTxData(e *EthTx, input *models.RunResult) ([]byte, error) {
 func createTxRunResult(
 	e *EthTx,
 	input *models.RunResult,
-	store *store.Store,
+	store *strpkg.Store,
 ) {
 	value, err := getTxData(e, input)
 	if err != nil {
@@ -96,10 +96,22 @@ func createTxRunResult(
 	}
 
 	input.ApplyResult(tx.Hash.String())
-	ensureTxRunResult(input, store)
+
+	txAttempt := tx.Attempts[0]
+	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, int64(tx.SentAt))
+	if err != nil {
+		input.SetError(err)
+		return
+	}
+
+	if state == strpkg.Safe || state == strpkg.Confirmed {
+		addReceiptToResult(receipt, input)
+	} else {
+		input.MarkPendingConfirmations()
+	}
 }
 
-func ensureTxRunResult(input *models.RunResult, str *store.Store) {
+func ensureTxRunResult(input *models.RunResult, str *strpkg.Store) {
 	val, err := input.ResultString()
 	if err != nil {
 		input.SetError(err)

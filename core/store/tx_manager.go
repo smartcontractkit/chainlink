@@ -43,6 +43,7 @@ type TxManager interface {
 	CreateTx(to common.Address, data []byte) (*models.Tx, error)
 	CreateTxWithGas(surrogateID null.String, to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
 	CreateTxWithEth(from, to common.Address, value *assets.Eth) (*models.Tx, error)
+	CheckAttempt(txAttempt *models.TxAttempt, blockHeight int64) (*models.TxReceipt, AttemptState, error)
 
 	BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, error)
 
@@ -368,7 +369,7 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, 
 	var merr error
 	for attemptIndex := range tx.Attempts {
 		receipt, state, err := txm.checkAttempt(tx, attemptIndex, blockNumber)
-		if state == safe || state == confirmed {
+		if state == Safe || state == Confirmed {
 			return receipt, err // success, so all other attempt errors can be ignored.
 		}
 		merr = multierr.Append(merr, err)
@@ -458,26 +459,62 @@ func (txm *EthTxManager) createAttempt(
 	return txAttempt, nil
 }
 
-type attemptState int
+// CheckAttempt retrieves a receipt for a transaction attempt, and check if it
+// meets the minimum number of confirmations
+func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight int64) (*models.TxReceipt, AttemptState, error) {
+	receipt, err := txm.GetTxReceipt(txAttempt.Hash)
+	if err != nil {
+		return nil, Unknown, errors.Wrap(err, "checkAttempt GetTxReceipt")
+	}
+
+	if receipt.Unconfirmed() {
+		return receipt, Unconfirmed, nil
+	}
+
+	minimumConfirmations := big.NewInt(int64(txm.config.MinOutgoingConfirmations()))
+	confirmedAt := big.NewInt(0).
+		Add(minimumConfirmations, receipt.BlockNumber.ToInt())
+
+	// 0 based indexing since receipt is 1 conf
+	confirmedAt.Sub(confirmedAt, big.NewInt(1))
+
+	if big.NewInt(blockHeight).Cmp(confirmedAt) == -1 {
+		return receipt, Confirmed, nil
+	}
+
+	return receipt, Safe, nil
+}
+
+// AttemptState enumerates the possible states of a transaction attempt as it
+// gets accepted and confirmed by the blockchain
+type AttemptState int
 
 const (
-	unconfirmed attemptState = iota
-	confirmed
-	safe
+	// Unknown is returned when the state of a transaction could not be
+	// determined because of an error
+	Unknown AttemptState = iota
+	// Unconfirmed means that a transaction has had no confirmations at all
+	Unconfirmed
+	// Confirmed means that a transaftion has had at least one transaction, but
+	// not enough to satisfy the minimum number of confirmations configuration
+	// option
+	Confirmed
+	// Safe has the required number of confirmations or more
+	Safe
 )
 
 func (txm *EthTxManager) checkAttempt(
 	tx *models.Tx,
 	attemptIndex int,
 	blockNumber uint64,
-) (*models.TxReceipt, attemptState, error) {
+) (*models.TxReceipt, AttemptState, error) {
 	txAttempt := tx.Attempts[attemptIndex]
 
 	logger.Debugw(fmt.Sprintf("Checking Tx attempt #%d", attemptIndex), "txId", tx.ID)
 
 	receipt, err := txm.GetTxReceipt(txAttempt.Hash)
 	if err != nil {
-		return nil, unconfirmed, errors.Wrap(err, "checkAttempt GetTxReceipt")
+		return nil, Unconfirmed, errors.Wrap(err, "checkAttempt GetTxReceipt")
 	}
 
 	if receipt.Unconfirmed() {
@@ -504,7 +541,7 @@ func (txm *EthTxManager) handleConfirmed(
 	attemptIndex int,
 	rcpt *models.TxReceipt,
 	blockNumber uint64,
-) (*models.TxReceipt, attemptState, error) {
+) (*models.TxReceipt, AttemptState, error) {
 	txAttempt := tx.Attempts[attemptIndex]
 
 	minConfs := big.NewInt(int64(txm.config.MinOutgoingConfirmations()))
@@ -521,11 +558,11 @@ func (txm *EthTxManager) handleConfirmed(
 	)
 
 	if big.NewInt(int64(blockNumber)).Cmp(confirmedAt) == -1 {
-		return nil, confirmed, nil
+		return nil, Confirmed, nil
 	}
 
 	if err := txm.orm.MarkTxSafe(tx, txAttempt); err != nil {
-		return nil, confirmed, err
+		return nil, Confirmed, err
 	}
 
 	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
@@ -538,18 +575,18 @@ func (txm *EthTxManager) handleConfirmed(
 		"err", balanceErr,
 	)
 
-	return rcpt, safe, nil
+	return rcpt, Safe, nil
 }
 
 func (txm *EthTxManager) handleUnconfirmed(
 	tx *models.Tx,
 	attemptIndex int,
 	blockNumber uint64,
-) (*models.TxReceipt, attemptState, error) {
+) (*models.TxReceipt, AttemptState, error) {
 	txAttempt := tx.Attempts[attemptIndex]
 
 	if !isLatestAttempt(tx, txAttempt) {
-		return nil, unconfirmed, nil
+		return nil, Unconfirmed, nil
 	}
 
 	gasBumpThreshold := txm.config.EthGasBumpThreshold()
@@ -568,13 +605,13 @@ func (txm *EthTxManager) handleUnconfirmed(
 			fmt.Sprintf("Tx #%d unconfirmed, bumping gas", attemptIndex),
 			logParams...,
 		)
-		return nil, unconfirmed, txm.bumpGas(tx, attemptIndex, blockNumber)
+		return nil, Unconfirmed, txm.bumpGas(tx, attemptIndex, blockNumber)
 	}
 	logger.Infow(
 		fmt.Sprintf("Tx #%d unconfirmed, not yet ready to bump gas", attemptIndex),
 		logParams...,
 	)
-	return nil, unconfirmed, nil
+	return nil, Unconfirmed, nil
 }
 
 // isLatestAttempt returns true only if the attempt is the last
