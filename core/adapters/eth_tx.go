@@ -98,17 +98,18 @@ func createTxRunResult(
 	input.ApplyResult(tx.Hash.String())
 
 	txAttempt := tx.Attempts[0]
-	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
+	receipt, _, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
 	if err != nil {
 		input.SetError(err)
 		return
 	}
 
-	if state == strpkg.Safe || state == strpkg.Confirmed {
-		addReceiptToResult(receipt, input)
-	} else {
+	if receipt == nil {
 		input.MarkPendingConfirmations()
+		return
 	}
+
+	addReceiptToResult(receipt, input)
 }
 
 func ensureTxRunResult(input *models.RunResult, str *strpkg.Store) {
