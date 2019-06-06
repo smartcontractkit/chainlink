@@ -36,9 +36,7 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Transaction not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if txp := presenters.NewTx(tx); false {
-		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
-		jsonAPIResponse(c, txp, "transaction")
+		jsonAPIResponse(c, presenters.NewTx(tx), "transaction")
 	}
 }
