@@ -535,14 +535,14 @@ func (txm *EthTxManager) processAttempt(
 		return receipt, state, txm.handleSafe(tx, attemptIndex)
 
 	case Confirmed: // nothing to do, need to wait
-		return nil, state, nil
+		return receipt, state, nil
 
 	case Unconfirmed:
 		if isLatestAttempt(tx, txAttempt) && txm.hasTxAttemptMetGasBumpThreshold(tx, attemptIndex, blockHeight) {
-			return nil, state, txm.bumpGas(tx, attemptIndex, blockHeight)
+			err = txm.bumpGas(tx, attemptIndex, blockHeight)
 		}
 
-		return nil, state, nil
+		return receipt, state, err
 	}
 
 	panic("invariant violated, 'Unknown' state returned without error")

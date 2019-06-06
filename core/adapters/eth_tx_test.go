@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
@@ -453,7 +454,7 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 			"000000000000000000000000000000000000000000000000000000000000000b"+
 			"68656c6c6f20776f726c64000000000000000000000000000000000000000000"),
 		gomock.Any(), gomock.Any()).Return(tx, nil)
-	txmMock.EXPECT().CheckAttempt(txAttempt, uint64(0))
+	txmMock.EXPECT().CheckAttempt(txAttempt, uint64(0)).Return(models.TxReceipt{}, strpkg.Unconfirmed, nil)
 
 	task := models.TaskSpec{}
 	err := json.Unmarshal([]byte(`{"type": "EthTx", "params": {"format": "bytes"}}`), &task)
