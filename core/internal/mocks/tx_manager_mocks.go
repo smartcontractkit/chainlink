@@ -56,7 +56,7 @@ func (mr *MockTxManagerMockRecorder) BumpGasUntilSafe(arg0 interface{}) *gomock.
 }
 
 // CheckAttempt mocks base method
-func (m *MockTxManager) CheckAttempt(arg0 *models.TxAttempt, arg1 int64) (*models.TxReceipt, store.AttemptState, error) {
+func (m *MockTxManager) CheckAttempt(arg0 *models.TxAttempt, arg1 uint64) (*models.TxReceipt, store.AttemptState, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckAttempt", arg0, arg1)
 	ret0, _ := ret[0].(*models.TxReceipt)
