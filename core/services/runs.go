@@ -134,13 +134,7 @@ func NewRun(
 	}
 
 	initialTask := run.TaskRuns[0]
-	if meetsMinimumConfirmations(&run, &initialTask, run.CreationHeight) {
-		run.Status = models.RunStatusInProgress
-	} else {
-		logger.Debugw("Insufficient confirmations to begin job", run.ForLogger()...)
-		run.Status = models.RunStatusPendingConfirmations
-	}
-
+	validateMinimumConfirmations(&run, &initialTask, run.CreationHeight, store)
 	return &run, nil
 }
 
@@ -168,14 +162,7 @@ func ResumeConfirmingTask(
 
 	run.ObservedHeight = models.NewBig(currentBlockHeight)
 
-	if meetsMinimumConfirmations(run, currentTaskRun, run.ObservedHeight) {
-		logger.Debugw("Minimum confirmations met, resuming job", run.ForLogger()...)
-		run.Status = models.RunStatusInProgress
-	} else {
-		logger.Debugw("Insufficient confirmations to wake job", run.ForLogger()...)
-		run.Status = models.RunStatusPendingConfirmations
-	}
-
+	validateMinimumConfirmations(run, currentTaskRun, run.ObservedHeight, store)
 	return updateAndTrigger(run, store)
 }
 
@@ -309,6 +296,42 @@ func performTaskSleep(
 		}
 	}(runCopy)
 
+	return nil
+}
+
+func validateMinimumConfirmations(
+	run *models.JobRun,
+	taskRun *models.TaskRun,
+	currentHeight *models.Big,
+	store *store.Store) {
+	if !meetsMinimumConfirmations(run, taskRun, run.ObservedHeight) {
+		logger.Debugw("Run cannot continue because it lacks sufficient confirmations", []interface{}{"run", run.ID, "required_height", taskRun.MinimumConfirmations}...)
+		run.Status = models.RunStatusPendingConfirmations
+	} else if err := validateOnMainChain(run, taskRun, store); err != nil {
+		run.SetError(err)
+	} else {
+		logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID, "nextTask", taskRun.TaskSpec.Type}...)
+		run.Status = models.RunStatusInProgress
+	}
+}
+
+func validateOnMainChain(jr *models.JobRun, taskRun *models.TaskRun, store *store.Store) error {
+	txhash := jr.RunRequest.TxHash
+	if txhash == nil || taskRun.MinimumConfirmations == 0 {
+		return nil
+	}
+
+	receipt, err := store.TxManager.GetTxReceipt(*txhash)
+	if err != nil {
+		return err
+	}
+	if receipt.Unconfirmed() {
+		return fmt.Errorf(
+			"TxHash %s initiating run %s not on main chain; presumably has been uncled",
+			txhash.Hex(),
+			jr.ID,
+		)
+	}
 	return nil
 }
 

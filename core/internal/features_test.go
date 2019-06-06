@@ -255,7 +255,8 @@ func TestIntegration_RunLog(t *testing.T) {
 	assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
 	logBlockNumber := 1
-	logs <- cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
+	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
+	logs <- runlog
 	cltest.WaitForRuns(t, j, app.Store, 1)
 
 	runs, err := app.Store.JobRunsFor(j.ID)
@@ -270,8 +271,17 @@ func TestIntegration_RunLog(t *testing.T) {
 
 	safeNumber := logBlockNumber + requiredConfs
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
+	confirmedReceipt := models.TxReceipt{
+		Hash:        runlog.TxHash,
+		BlockNumber: cltest.Int(logBlockNumber),
+	}
+	eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
+		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
+	})
+
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	assert.True(t, jr.FinishedAt.Valid)
+	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
 
 func TestIntegration_EndAt(t *testing.T) {
@@ -350,12 +360,21 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/log_initiated_bridge_type_job.json")
 
 	logBlockNumber := 1
-	logs <- cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
+	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
+	logs <- runlog
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 8)}
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+
+	confirmedReceipt := models.TxReceipt{
+		Hash:        runlog.TxHash,
+		BlockNumber: cltest.Int(logBlockNumber),
+	}
+	eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
+		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
+	})
 
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 9)}
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
@@ -367,6 +386,8 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	assert.Equal(t, eaValue, val)
 	res := tr.Result.Get("extra")
 	assert.Equal(t, eaExtra, res.String())
+
+	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
 
 // This test ensures that the response body of an external adapter are supplied

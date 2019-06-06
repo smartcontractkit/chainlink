@@ -267,6 +267,7 @@ func NewRunLog(
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        StringToVersionedLogData20190207withoutIndexes(t, "internalID", requester, json),
+		TxHash:      NewHash(),
 		Topics: []common.Hash{
 			models.RunLogTopic20190207withoutIndexes,
 			StringToHash(jobID),
