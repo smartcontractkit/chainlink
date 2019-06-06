@@ -34,8 +34,10 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 		},
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
-				ID:     "task0RunID-938",
-				Status: models.RunStatusPendingConfirmations,
+				ID:                   "task0RunID-938",
+				Status:               models.RunStatusPendingConfirmations,
+				Confirmations:        1,
+				MinimumConfirmations: 3,
 			},
 			models.TaskRun{
 				ID:     "task1RunID-17",
@@ -78,6 +80,8 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	assert.Contains(t, task0, "type")
 	assert.Equal(t, task0["status"], "pending_confirmations")
 	assert.Equal(t, task0["error"], nil)
+	assert.Equal(t, float64(1), task0["confirmations"])
+	assert.Equal(t, float64(3), task0["minimumConfirmations"])
 	task1, ok := tasks[1].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, task1["index"], float64(1))
