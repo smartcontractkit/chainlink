@@ -25,7 +25,6 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
-	config := store.Config
 
 	address := cltest.NewAddress()
 	fHash := models.HexToFunctionSelector("b3f98adc")
@@ -40,7 +39,6 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
-	safe := confirmed + config.MinOutgoingConfirmations()
 	ethMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
 			rlp := data[0].([]interface{})[0].(string)
@@ -57,7 +55,6 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
 	adapter := adapters.EthTx{
 		Address:          address,
@@ -84,7 +81,6 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
-	config := store.Config
 
 	address := cltest.NewAddress()
 	fHash := models.HexToFunctionSelector("b3f98adc")
@@ -99,7 +95,6 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
-	safe := confirmed + config.MinOutgoingConfirmations()
 	ethMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
 			rlp := data[0].([]interface{})[0].(string)
@@ -118,7 +113,6 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
 	adapter := adapters.EthTx{
 		Address:          address,
@@ -146,7 +140,6 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
-	config := store.Config
 
 	address := cltest.NewAddress()
 	fHash := models.HexToFunctionSelector("b3f98adc")
@@ -160,7 +153,6 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
-	safe := confirmed + config.MinOutgoingConfirmations()
 	ethMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
 			rlp := data[0].([]interface{})[0].(string)
@@ -178,7 +170,6 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
 	adapter := adapters.EthTx{
 		Address:          address,
@@ -452,7 +443,8 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
 
-	tx := &models.Tx{Attempts: []*models.TxAttempt{&models.TxAttempt{}}}
+	txAttempt := &models.TxAttempt{}
+	tx := &models.Tx{Attempts: []*models.TxAttempt{txAttempt}}
 	txmMock.EXPECT().Register(gomock.Any())
 	txmMock.EXPECT().Connected().Return(true).AnyTimes()
 	txmMock.EXPECT().CreateTxWithGas(gomock.Any(), gomock.Any(), hexutil.MustDecode(
@@ -461,7 +453,7 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 			"000000000000000000000000000000000000000000000000000000000000000b"+
 			"68656c6c6f20776f726c64000000000000000000000000000000000000000000"),
 		gomock.Any(), gomock.Any()).Return(tx, nil)
-	txmMock.EXPECT().BumpGasUntilSafe(gomock.Any())
+	txmMock.EXPECT().CheckAttempt(txAttempt, uint64(0))
 
 	task := models.TaskSpec{}
 	err := json.Unmarshal([]byte(`{"type": "EthTx", "params": {"format": "bytes"}}`), &task)
@@ -543,8 +535,6 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
-	config := store.Config
-
 	ethMock := app.MockEthClient(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", `0x1`)
 
@@ -560,8 +550,6 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 
 	hash := cltest.NewHash()
 	sentAt := uint64(9183)
-	ethMock.Register("eth_getBalance", "0x100")
-	ethMock.Register("eth_call", "0x100")
 
 	var firstTxData []interface{}
 	ethMock.Register("eth_sendRawTransaction", hash,
@@ -584,7 +572,6 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	// Run the adapter again
 
 	confirmed := sentAt + 1
-	safe := confirmed + config.MinOutgoingConfirmations()
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
 
 	var secondTxData []interface{}
@@ -595,7 +582,6 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 		})
 	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 
 	data = adapter.Perform(input, store)
 	assert.NoError(t, data.GetError())
@@ -649,7 +635,8 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 			firstTxData = data
 			return errors.New("no bueno")
 		})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(sentAt)}
+	ethMock.Register("eth_getTransactionReceipt", receipt)
 
 	adapter := adapters.EthTx{
 		Address:          address,
