@@ -495,7 +495,7 @@ type Tx struct {
 }
 
 // NewTx builds a transaction presenter.
-func NewTx(tx *models.Tx) (Tx, error) {
+func NewTx(tx *models.Tx) Tx {
 	return Tx{
 		Confirmed: tx.Confirmed,
 		Data:      hexutil.Bytes(tx.Data),
@@ -508,7 +508,7 @@ func NewTx(tx *models.Tx) (Tx, error) {
 		SentAt:    strconv.FormatUint(tx.SentAt, 10),
 		To:        &tx.To,
 		Value:     tx.Value.String(),
-	}, nil
+	}
 }
 
 // GetID returns the jsonapi ID.
