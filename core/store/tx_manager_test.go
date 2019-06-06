@@ -437,7 +437,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed_lessThanGasThreshold(t *testing.T)
 
 	receipt, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	assert.NoError(t, err)
-	assert.Nil(t, receipt)
+	assert.NotNil(t, receipt)
 
 	tx, err = store.FindTx(tx.ID)
 	require.NoError(t, err)

@@ -110,11 +110,6 @@ func createTxRunResult(
 		return
 	}
 
-	if receipt == nil || state != strpkg.Safe {
-		input.MarkPendingConfirmations()
-		return
-	}
-
 	logger.Debugw(
 		fmt.Sprintf("Tx #0 is %s", state),
 		"txHash", txAttempt.Hash.String(),
@@ -123,6 +118,11 @@ func createTxRunResult(
 		"currentBlockNumber", tx.SentAt,
 		"receiptHash", receipt.Hash.Hex(),
 	)
+
+	if state != strpkg.Safe {
+		input.MarkPendingConfirmations()
+		return
+	}
 
 	addReceiptToResult(receipt, input)
 }
