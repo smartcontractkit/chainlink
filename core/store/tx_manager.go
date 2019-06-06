@@ -455,8 +455,7 @@ func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight u
 	}
 
 	minimumConfirmations := new(big.Int).SetUint64(txm.config.MinOutgoingConfirmations())
-	confirmedAt := big.NewInt(0).
-		Add(minimumConfirmations, receipt.BlockNumber.ToInt())
+	confirmedAt := new(big.Int).Add(minimumConfirmations, receipt.BlockNumber.ToInt())
 
 	// 0 based indexing since receipt is 1 conf
 	confirmedAt.Sub(confirmedAt, big.NewInt(1))

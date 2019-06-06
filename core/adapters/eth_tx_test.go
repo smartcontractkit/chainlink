@@ -153,7 +153,6 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
-	confirmed := sentAt + 1
 	ethMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
 			rlp := data[0].([]interface{})[0].(string)
@@ -169,7 +168,8 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 			return nil
 		})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
-	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
+	safe := sentAt - store.Config.MinOutgoingConfirmations()
+	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(safe)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 
 	adapter := adapters.EthTx{
@@ -454,7 +454,7 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 			"000000000000000000000000000000000000000000000000000000000000000b"+
 			"68656c6c6f20776f726c64000000000000000000000000000000000000000000"),
 		gomock.Any(), gomock.Any()).Return(tx, nil)
-	txmMock.EXPECT().CheckAttempt(txAttempt, uint64(0)).Return(models.TxReceipt{}, strpkg.Unconfirmed, nil)
+	txmMock.EXPECT().CheckAttempt(txAttempt, uint64(0)).Return(&models.TxReceipt{}, strpkg.Unconfirmed, nil)
 
 	task := models.TaskSpec{}
 	err := json.Unmarshal([]byte(`{"type": "EthTx", "params": {"format": "bytes"}}`), &task)
