@@ -249,13 +249,13 @@ func TestIntegration_RunLog(t *testing.T) {
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
-	requiredConfs := 100
+	requiredConfs := uint64(100)
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
-	logBlockNumber := 1
-	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
+	creationHeight := uint64(1)
+	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
 	logs <- runlog
 	cltest.WaitForRuns(t, j, app.Store, 1)
 
@@ -263,17 +263,20 @@ func TestIntegration_RunLog(t *testing.T) {
 	assert.NoError(t, err)
 	jr := runs[0]
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	assert.Equal(t, uint64(0), jr.TaskRuns[0].Confirmations)
 
-	minConfigHeight := logBlockNumber + int(app.Store.Config.MinIncomingConfirmations())
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(minConfigHeight)}
+	blockIncrease := app.Store.Config.MinIncomingConfirmations()
+	minGlobalHeight := creationHeight + blockIncrease
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(minGlobalHeight)}
 	<-time.After(time.Second)
-	cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
+	jr = cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
+	assert.Equal(t, creationHeight+blockIncrease, jr.TaskRuns[0].Confirmations)
 
-	safeNumber := logBlockNumber + requiredConfs
+	safeNumber := creationHeight + requiredConfs
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
 	confirmedReceipt := models.TxReceipt{
 		Hash:        runlog.TxHash,
-		BlockNumber: cltest.Int(logBlockNumber),
+		BlockNumber: cltest.Int(creationHeight),
 	}
 	eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
@@ -281,6 +284,7 @@ func TestIntegration_RunLog(t *testing.T) {
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	assert.True(t, jr.FinishedAt.Valid)
+	assert.Equal(t, requiredConfs, jr.TaskRuns[0].Confirmations)
 	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
 
