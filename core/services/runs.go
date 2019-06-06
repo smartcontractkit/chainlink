@@ -304,6 +304,8 @@ func validateMinimumConfirmations(
 	taskRun *models.TaskRun,
 	currentHeight *models.Big,
 	store *store.Store) {
+
+	updateTaskRunConfirmations(currentHeight, run, taskRun)
 	if !meetsMinimumConfirmations(run, taskRun, run.ObservedHeight) {
 		logger.Debugw("Run cannot continue because it lacks sufficient confirmations", []interface{}{"run", run.ID, "required_height", taskRun.MinimumConfirmations}...)
 		run.Status = models.RunStatusPendingConfirmations
@@ -312,6 +314,17 @@ func validateMinimumConfirmations(
 	} else {
 		logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID, "nextTask", taskRun.TaskSpec.Type}...)
 		run.Status = models.RunStatusInProgress
+	}
+}
+
+func updateTaskRunConfirmations(currentHeight *models.Big, jr *models.JobRun, taskRun *models.TaskRun) {
+	if jr.CreationHeight == nil || currentHeight == nil {
+		return
+	}
+	diff := new(big.Int).Sub(currentHeight.ToInt(), jr.CreationHeight.ToInt())
+	taskRun.Confirmations = diff.Uint64() + 1 // creation alone warrants one confirmation
+	if taskRun.Confirmations > taskRun.MinimumConfirmations {
+		taskRun.Confirmations = taskRun.MinimumConfirmations
 	}
 }
 
