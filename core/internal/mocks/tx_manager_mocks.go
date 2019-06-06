@@ -55,6 +55,22 @@ func (mr *MockTxManagerMockRecorder) BumpGasUntilSafe(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BumpGasUntilSafe", reflect.TypeOf((*MockTxManager)(nil).BumpGasUntilSafe), arg0)
 }
 
+// CheckAttempt mocks base method
+func (m *MockTxManager) CheckAttempt(arg0 *models.TxAttempt, arg1 int64) (*models.TxReceipt, store.AttemptState, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckAttempt", arg0, arg1)
+	ret0, _ := ret[0].(*models.TxReceipt)
+	ret1, _ := ret[1].(store.AttemptState)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// CheckAttempt indicates an expected call of CheckAttempt
+func (mr *MockTxManagerMockRecorder) CheckAttempt(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAttempt", reflect.TypeOf((*MockTxManager)(nil).CheckAttempt), arg0, arg1)
+}
+
 // Connect mocks base method
 func (m *MockTxManager) Connect(arg0 *models.Head) error {
 	m.ctrl.T.Helper()

@@ -78,7 +78,6 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	eth.Context("ethTx.Perform()#1 at block 23456", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 		eth.Register("eth_sendRawTransaction", attempt1Hash) // Initial tx attempt sent
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
@@ -133,7 +132,6 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth.Context("ethTx.Perform()#1 at block 23456", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 		eth.Register("eth_sendRawTransaction", attempt1Hash) // Initial tx attempt sent
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
