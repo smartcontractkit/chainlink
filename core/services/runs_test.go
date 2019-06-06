@@ -46,6 +46,7 @@ func TestNewRun(t *testing.T) {
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 1)
 	assert.Equal(t, input, run.Overrides.Data)
+	assert.Equal(t, uint64(0), run.TaskRuns[0].Confirmations)
 }
 
 func TestNewRun_requiredPayment(t *testing.T) {
@@ -129,6 +130,9 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 				store)
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.expectedStatus), string(run.Status))
+			require.Len(t, run.TaskRuns, 1)
+			max := utils.MaxUint64(test.taskConfirmations, test.configConfirmations)
+			assert.Equal(t, max, run.TaskRuns[0].MinimumConfirmations)
 		})
 	}
 }
@@ -579,7 +583,8 @@ func TestExecuteJobWithRunRequest_fromRunLog_mainChain(t *testing.T) {
 
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
-	config.Set("MIN_INCOMING_CONFIRMATIONS", 2)
+	minimumConfirmations := uint64(2)
+	config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 
@@ -621,6 +626,8 @@ func TestExecuteJobWithRunRequest_fromRunLog_mainChain(t *testing.T) {
 	require.NoError(t, err)
 	updatedJR := cltest.WaitForJobRunToComplete(t, store, *jr)
 	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
+	assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].MinimumConfirmations)
+	assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].Confirmations, "task run should track its current confirmations")
 	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
 

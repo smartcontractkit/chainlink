@@ -69,11 +69,13 @@ func (p SyncJobRunPresenter) tasks() ([]syncTaskRunPresenter, error) {
 			return []syncTaskRunPresenter{}, err
 		}
 		tasks = append(tasks, syncTaskRunPresenter{
-			Index:  index,
-			Type:   string(tr.TaskSpec.Type),
-			Status: string(tr.Status),
-			Error:  tr.Result.ErrorMessage,
-			Result: erp,
+			Index:                index,
+			Type:                 string(tr.TaskSpec.Type),
+			Status:               string(tr.Status),
+			Error:                tr.Result.ErrorMessage,
+			Result:               erp,
+			Confirmations:        tr.Confirmations,
+			MinimumConfirmations: tr.MinimumConfirmations,
 		})
 	}
 	return tasks, nil
@@ -134,9 +136,11 @@ type syncInitiatorPresenter struct {
 }
 
 type syncTaskRunPresenter struct {
-	Index  int         `json:"index"`
-	Type   string      `json:"type"`
-	Status string      `json:"status"`
-	Error  null.String `json:"error"`
-	Result interface{} `json:"result,omitempty"`
+	Index                int         `json:"index"`
+	Type                 string      `json:"type"`
+	Status               string      `json:"status"`
+	Error                null.String `json:"error"`
+	Result               interface{} `json:"result,omitempty"`
+	Confirmations        uint64      `json:"confirmations"`
+	MinimumConfirmations uint64      `json:"minimumConfirmations"`
 }
