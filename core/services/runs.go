@@ -304,6 +304,8 @@ func validateMinimumConfirmations(
 	taskRun *models.TaskRun,
 	currentHeight *models.Big,
 	store *store.Store) {
+
+	updateTaskRunConfirmations(currentHeight, run, taskRun)
 	if !meetsMinimumConfirmations(run, taskRun, run.ObservedHeight) {
 		logger.Debugw("Run cannot continue because it lacks sufficient confirmations", []interface{}{"run", run.ID, "required_height", taskRun.MinimumConfirmations}...)
 		run.Status = models.RunStatusPendingConfirmations
@@ -312,6 +314,16 @@ func validateMinimumConfirmations(
 	} else {
 		logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID, "nextTask", taskRun.TaskSpec.Type}...)
 		run.Status = models.RunStatusInProgress
+	}
+}
+
+func updateTaskRunConfirmations(currentHeight *models.Big, jr *models.JobRun, taskRun *models.TaskRun) {
+	if jr.CreationHeight == nil || currentHeight == nil {
+		return
+	}
+	taskRun.Confirmations = blockNumberDifference(currentHeight, jr.CreationHeight)
+	if taskRun.Confirmations > taskRun.MinimumConfirmations {
+		taskRun.Confirmations = taskRun.MinimumConfirmations
 	}
 }
 
@@ -343,10 +355,13 @@ func meetsMinimumConfirmations(
 		return true
 	}
 
-	diff := new(big.Int).Sub(currentHeight.ToInt(), run.CreationHeight.ToInt())
-	min := new(big.Int).SetUint64(taskRun.MinimumConfirmations)
-	min = min.Sub(min, big.NewInt(1))
-	return diff.Cmp(min) >= 0
+	diff := blockNumberDifference(currentHeight, run.CreationHeight)
+	return diff >= taskRun.MinimumConfirmations
+}
+
+func blockNumberDifference(currentHeight, creationHeight *models.Big) uint64 {
+	diff := new(big.Int).Sub(currentHeight.ToInt(), creationHeight.ToInt())
+	return diff.Uint64() + 1 // creation of runlog alone warrants 1 confirmation
 }
 
 func updateAndTrigger(run *models.JobRun, store *store.Store) error {
