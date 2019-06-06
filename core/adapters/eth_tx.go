@@ -98,7 +98,7 @@ func createTxRunResult(
 	input.ApplyResult(tx.Hash.String())
 
 	txAttempt := tx.Attempts[0]
-	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, int64(tx.SentAt))
+	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
 	if err != nil {
 		input.SetError(err)
 		return

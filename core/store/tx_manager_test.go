@@ -327,12 +327,10 @@ func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	a := tx.Attempts[0]
-
 	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(gasThreshold-1))
 
-	receipt, err := txm.BumpGasUntilSafe(a.Hash)
+	receipt, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	assert.NoError(t, err)
 	assert.Nil(t, receipt)
 
@@ -363,13 +361,11 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	a := tx.Attempts[0]
-
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(gasThreshold))
+	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
-	receipt, err := txm.BumpGasUntilSafe(a.Hash)
+	receipt, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	assert.NoError(t, err)
 	assert.Nil(t, receipt)
 
@@ -400,13 +396,11 @@ func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	a := tx.Attempts[0]
-
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(gasThreshold+1))
+	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
-	receipt, err := txm.BumpGasUntilSafe(a.Hash)
+	receipt, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	assert.NoError(t, err)
 	assert.Nil(t, receipt)
 
@@ -438,12 +432,10 @@ func TestTxManager_BumpGasUntilSafe_confirmed_lessThanGasThreshold(t *testing.T)
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	a := tx.Attempts[0]
-
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(gasThreshold+minConfs-1))
+	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
 
-	receipt, err := txm.BumpGasUntilSafe(a.Hash)
+	receipt, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	assert.NoError(t, err)
 	assert.Nil(t, receipt)
 
@@ -475,14 +467,12 @@ func TestTxManager_BumpGasUntilSafe_confirmed_atGasBumpThreshold(t *testing.T) {
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	a := tx.Attempts[0]
-
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(gasThreshold+minConfs))
+	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
 	ethMock.Register("eth_getBalance", "0x100")
 	ethMock.Register("eth_call", "0x100")
 
-	receipt, err := txm.BumpGasUntilSafe(a.Hash)
+	receipt, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	assert.NoError(t, err)
 	assert.NotNil(t, receipt)
 
@@ -514,14 +504,12 @@ func TestTxManager_BumpGasUntilSafe_confirmed_exceedsGasBumpThreshold(t *testing
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	a := tx.Attempts[0]
-
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(gasThreshold+minConfs+1))
+	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
 	ethMock.Register("eth_getBalance", "0x100")
 	ethMock.Register("eth_call", "0x100")
 
-	receipt, err := txm.BumpGasUntilSafe(a.Hash)
+	receipt, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	assert.NoError(t, err)
 	assert.NotNil(t, receipt)
 
@@ -826,8 +814,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 		ethMock.Register("eth_sendRawTransaction", hash)
 		ethMock.Register("eth_getTransactionReceipt", confirmedReceipt)
-		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(
-			confirmedHeight))
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmedHeight))
 		ethMock.Register("eth_getBalance", mockedEthBalance)
 		ethMock.Register("eth_call", mockedLinkBalance)
 	})
@@ -849,7 +836,10 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 		messages = append(messages, log.Message)
 	}
 
-	assert.Contains(t, messages, "Tx #0 checking for minimum of 6 confirmations")
+	assert.Contains(t, messages, "Tx #0 checking on-chain state")
+	assert.Contains(t, messages, "Tx #0 is safe")
+	// This message includes the amounts
+	assert.Contains(t, messages, "Tx #0 got minimum confirmations (6)")
 }
 
 func TestTxManager_CreateTxWithGas(t *testing.T) {
