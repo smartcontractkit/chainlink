@@ -74,6 +74,7 @@ type ConfigSchema struct {
 	TLSHost                  string         `env:"CHAINLINK_TLS_HOST" `
 	TLSKeyPath               string         `env:"TLS_KEY_PATH" `
 	TLSPort                  uint16         `env:"CHAINLINK_TLS_PORT" default:"6689"`
+	TLSRedirect              bool           `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
 }
 
 var configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
@@ -333,6 +334,12 @@ func (c Config) TLSKeyPath() string {
 func (c Config) TLSPort() uint16 {
 	return c.getWithFallback("TLSPort", parsePort).(uint16)
 }
+
+// TLSRedirect forces TLS redirect for unencrypted connections
+func (c Config) TLSRedirect() bool {
+	return c.viper.GetBool(c.envVarName("TLSRedirect"))
+}
+
 
 // KeysDir returns the path of the keys directory (used for keystore files).
 func (c Config) KeysDir() string {

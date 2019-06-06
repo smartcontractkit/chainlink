@@ -110,7 +110,7 @@ func secureOptions(config store.Config) secure.Options {
 	return secure.Options{
 		FrameDeny:     true,
 		IsDevelopment: config.Dev(),
-		SSLRedirect:   config.TLSPort() != 0,
+		SSLRedirect:   config.TLSRedirect(),
 		SSLHost:       config.TLSHost(),
 	}
 }
