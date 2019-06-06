@@ -281,6 +281,7 @@ func TestIntegration_RunLog(t *testing.T) {
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	assert.True(t, jr.FinishedAt.Valid)
+	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
 
 func TestIntegration_EndAt(t *testing.T) {
@@ -385,6 +386,8 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	assert.Equal(t, eaValue, val)
 	res := tr.Result.Get("extra")
 	assert.Equal(t, eaExtra, res.String())
+
+	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
 
 // This test ensures that the response body of an external adapter are supplied
