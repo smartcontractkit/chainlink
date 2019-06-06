@@ -307,7 +307,7 @@ func validateMinimumConfirmations(
 	if !meetsMinimumConfirmations(run, taskRun, run.ObservedHeight) {
 		logger.Debugw("Run cannot continue because it lacks sufficient confirmations", []interface{}{"run", run.ID, "required_height", taskRun.MinimumConfirmations}...)
 		run.Status = models.RunStatusPendingConfirmations
-	} else if err := validateOnMainChain(run, store); err != nil {
+	} else if err := validateOnMainChain(run, taskRun, store); err != nil {
 		run.SetError(err)
 	} else {
 		logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID, "nextTask", taskRun.TaskSpec.Type}...)
@@ -315,9 +315,9 @@ func validateMinimumConfirmations(
 	}
 }
 
-func validateOnMainChain(run *models.JobRun, store *store.Store) error {
-	txhash := run.RunRequest.TxHash
-	if txhash == nil {
+func validateOnMainChain(jr *models.JobRun, taskRun *models.TaskRun, store *store.Store) error {
+	txhash := jr.RunRequest.TxHash
+	if txhash == nil || taskRun.MinimumConfirmations == 0 {
 		return nil
 	}
 
@@ -329,7 +329,7 @@ func validateOnMainChain(run *models.JobRun, store *store.Store) error {
 		return fmt.Errorf(
 			"TxHash %s initiating run %s not on main chain; presumably has been uncled",
 			txhash.Hex(),
-			run.ID,
+			jr.ID,
 		)
 	}
 	return nil
