@@ -604,6 +604,61 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	}
 }
 
+func TestTxManager_CheckAttempt(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+
+	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock.Register("eth_getTransactionCount", "0x0")
+	require.NoError(t, app.StartAndConnect())
+
+	store := app.Store
+	config := store.Config
+	txm := store.TxManager
+
+	from := cltest.GetAccountAddress(t, store)
+	sentAt := uint64(14770)
+	hash := cltest.NewHash()
+	gasBumpThreshold := sentAt + config.EthGasBumpThreshold()
+
+	tx := cltest.CreateTx(t, store, from, sentAt)
+	require.Len(t, tx.Attempts, 1)
+
+	// Initial check, no receipt, no change of the block height
+	retrievedReceipt := models.TxReceipt{}
+	ethMock.Register("eth_getTransactionReceipt", retrievedReceipt)
+
+	receipt, state, err := txm.CheckAttempt(tx.Attempts[0], sentAt)
+	require.NoError(t, err)
+	assert.Equal(t, state, strpkg.Unconfirmed)
+	assert.Equal(t, receipt, &retrievedReceipt)
+
+	ethMock.EventuallyAllCalled(t)
+
+	// A receipt is found, but is not yet safe
+	retrievedReceipt = models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(sentAt)}
+	ethMock.Register("eth_getTransactionReceipt", retrievedReceipt)
+
+	receipt, state, err = txm.CheckAttempt(tx.Attempts[0], sentAt)
+	require.NoError(t, err)
+	assert.Equal(t, state, strpkg.Confirmed)
+	assert.Equal(t, receipt, &retrievedReceipt)
+
+	ethMock.EventuallyAllCalled(t)
+
+	// A receipt is found, and now is safe
+	ethMock.Register("eth_getTransactionReceipt", retrievedReceipt)
+
+	receipt, state, err = txm.CheckAttempt(tx.Attempts[0], sentAt+gasBumpThreshold)
+	require.NoError(t, err)
+	assert.Equal(t, state, strpkg.Safe)
+	assert.Equal(t, receipt, &retrievedReceipt)
+
+	ethMock.EventuallyAllCalled(t)
+}
+
 func TestTxManager_Register(t *testing.T) {
 	t.Parallel()
 
