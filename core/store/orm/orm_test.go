@@ -611,6 +611,10 @@ func TestORM_AddTxAttempt(t *testing.T) {
 	assert.Equal(t, tx.ID, txAttempt.TxID)
 	assert.Equal(t, tx.Attempts[1], txAttempt)
 
+	tx, err = store.FindTx(tx.ID)
+	require.NoError(t, err)
+	assert.Equal(t, tx.Hash, txAttempt.Hash)
+
 	// Another attempt with exact same EthTx still generates a new attempt record
 	txAttempt, err = store.AddTxAttempt(tx, ethTxWithNewNonce, 1)
 	assert.NoError(t, err)
@@ -637,6 +641,10 @@ func TestORM_AddTxAttempt(t *testing.T) {
 	assert.Equal(t, tx.Attempts[3], txAttempt)
 	assert.Equal(t, tx.Hash, txAttempt.Hash)
 	assert.Equal(t, tx.SignedRawTx, txAttempt.SignedRawTx)
+
+	tx, err = store.FindTx(tx.ID)
+	require.NoError(t, err)
+	assert.Equal(t, tx.Hash, txAttempt.Hash)
 }
 
 func TestORM_FindBridge(t *testing.T) {
