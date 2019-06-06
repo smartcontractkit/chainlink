@@ -570,22 +570,21 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 
 	eth := app.MockEthClient()
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionCount", `0x0100`) // activate account nonce
+		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
 	})
 	require.NoError(t, app.StartAndConnect())
 
 	createCompletedJobRun := func(blockNumber uint64, expectedNonce uint64) {
 		hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
+		confirmedBlockNumber := blockNumber - app.Store.Config.MinOutgoingConfirmations()
+
 		eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
 			eth.Register("eth_blockNumber", utils.Uint64ToHex(blockNumber))
 			eth.Register("eth_sendRawTransaction", hash)
-
 			eth.Register("eth_getTransactionReceipt", models.TxReceipt{
 				Hash:        hash,
-				BlockNumber: cltest.Int(blockNumber),
+				BlockNumber: cltest.Int(confirmedBlockNumber),
 			})
-			confirmedBlockNumber := blockNumber + app.Store.Config.MinOutgoingConfirmations()
-			eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmedBlockNumber))
 		})
 
 		jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"0x11"}`)
@@ -597,8 +596,8 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 		assert.Equal(t, expectedNonce, tx.Nonce)
 	}
 
-	createCompletedJobRun(100, uint64(0x0100))
-	createCompletedJobRun(200, uint64(0x0101))
+	createCompletedJobRun(100, uint64(0x100))
+	createCompletedJobRun(200, uint64(0x101))
 }
 
 func TestIntegration_CreateServiceAgreement(t *testing.T) {
