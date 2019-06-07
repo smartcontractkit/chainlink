@@ -140,14 +140,23 @@ func ensureTxRunResult(input *models.RunResult, str *strpkg.Store) {
 		return
 	}
 
-	receipt, err := str.TxManager.BumpGasUntilSafe(hash)
+	receipt, state, err := str.TxManager.BumpGasUntilSafe(hash)
 	if err != nil {
+		if state == strpkg.Unknown {
+			input.SetError(err)
+			return
+		}
+
+		// We failed to get one of the TxAttempt receipts, so we won't mark this
+		// run as errored in order to try again
 		logger.Warn("EthTx Adapter Perform Resuming: ", err)
 	}
-	if receipt == nil {
+
+	if state != strpkg.Safe {
 		input.MarkPendingConfirmations()
 		return
 	}
+
 	addReceiptToResult(receipt, input)
 }
 
