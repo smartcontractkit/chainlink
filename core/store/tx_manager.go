@@ -45,7 +45,7 @@ type TxManager interface {
 	CreateTxWithEth(from, to common.Address, value *assets.Eth) (*models.Tx, error)
 	CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*models.TxReceipt, AttemptState, error)
 
-	BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, error)
+	BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, AttemptState, error)
 
 	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
@@ -358,25 +358,26 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 
 // BumpGasUntilSafe process a collection of related TxAttempts, trying to get
 // at least one TxAttempt into a safe state, bumping gas if needed
-func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, error) {
+func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, AttemptState, error) {
 	blockHeight, err := txm.getBlockNumber()
 	if err != nil {
-		return nil, errors.Wrap(err, "BumpGasUntilSafe getBlockNumber")
+		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe getBlockNumber")
 	}
 	tx, err := txm.orm.FindTxByAttempt(hash)
 	if err != nil {
-		return nil, errors.Wrap(err, "BumpGasUntilSafe FindTxByAttempt")
+		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe FindTxByAttempt")
 	}
 
 	var merr error
 	for attemptIndex := range tx.Attempts {
 		receipt, state, err := txm.processAttempt(tx, attemptIndex, blockHeight)
 		if state == Safe || state == Confirmed {
-			return receipt, err // success, so all other attempt errors can be ignored.
+			return receipt, state, err // success, so all other attempt errors can be ignored.
 		}
 		merr = multierr.Append(merr, err)
 	}
-	return nil, merr
+
+	return nil, Unconfirmed, merr
 }
 
 // ContractLINKBalance returns the balance for the contract associated with this
