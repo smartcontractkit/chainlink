@@ -434,7 +434,7 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *
 	ethMock.RegisterError("eth_blockNumber", "Invalid node id")
 	output := adapter.Perform(input, store)
 
-	ethMock.EventuallyAllCalled(t)
+	ethMock.AssertAllCalled()
 
 	assert.Equal(t, models.RunStatusErrored, output.Status)
 	assert.NotNil(t, output.Error())
@@ -465,7 +465,7 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 	}
 	output := adapter.Perform(input, store)
 
-	ethMock.EventuallyAllCalled(t)
+	ethMock.AssertAllCalled()
 
 	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status)
 	assert.NoError(t, output.GetError())
