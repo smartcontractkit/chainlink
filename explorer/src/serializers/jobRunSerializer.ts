@@ -30,6 +30,8 @@ export const taskRuns = {
     'index',
     'type',
     'status',
+    'confirmations',
+    'minimumConfirmations',
     'error',
     'transactionHash',
     'transactionStatus'
@@ -41,9 +43,9 @@ const ETHERSCAN_HOST = process.env.ETHERSCAN_HOST || 'ropsten.etherscan.io'
 const jobRunSerializer = (run: JobRun) => {
   const opts = {
     attributes: BASE_ATTRIBUTES.concat(['taskRuns']),
+    chainlinkNode,
     keyForAttribute: 'camelCase',
-    chainlinkNode: chainlinkNode,
-    taskRuns: taskRuns,
+    taskRuns,
     meta: {
       etherscanHost: ETHERSCAN_HOST
     }
