@@ -79,6 +79,8 @@ export const fromString = (str: string): JobRun => {
     tr.type = trstr.type
     tr.status = trstr.status
     tr.error = trstr.error
+    tr.minimumConfirmations = trstr.minimumConfirmations
+    tr.confirmations = trstr.confirmations
 
     if (trstr.result) {
       tr.transactionHash = trstr.result.transactionHash

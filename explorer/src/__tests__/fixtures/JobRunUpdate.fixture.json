@@ -17,6 +17,8 @@
       "index": 0,
       "type": "httpget",
       "status": "completed",
+      "confirmations": 3,
+      "minimumConfirmations": 3,
       "error": null
     }
   ]
