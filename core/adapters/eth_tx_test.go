@@ -422,14 +422,16 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *
 
 	store := app.Store
 	ethMock := app.MockEthClient(cltest.Strict)
-	ethMock.Register("eth_getTransactionCount", `0x0100`)
+	ethMock.Register("eth_getTransactionCount", `0x17`)
 	assert.Nil(t, app.Start())
+
+	require.NoError(t, app.WaitForConnection())
 
 	adapter := adapters.EthTx{
 		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
-	input := cltest.RunResultWithResult("")
+	input := cltest.RunResultWithResult(cltest.NewHash().String())
 	input.Status = models.RunStatusPendingConfirmations
 	ethMock.RegisterError("eth_blockNumber", "Invalid node id")
 	output := adapter.Perform(input, store)
@@ -448,7 +450,7 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 
 	store := app.Store
 	ethMock := app.MockEthClient(cltest.Strict)
-	ethMock.Register("eth_getTransactionCount", `0x0100`)
+	ethMock.Register("eth_getTransactionCount", `0x12`)
 	assert.Nil(t, app.Start())
 
 	from := cltest.GetAccountAddress(t, store)
@@ -458,6 +460,8 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 
 	ethMock.Register("eth_blockNumber", "0x100")
 	ethMock.RegisterError("eth_getTransactionReceipt", "Connection reset by peer")
+
+	require.NoError(t, app.WaitForConnection())
 
 	adapter := adapters.EthTx{
 		Address:          cltest.NewAddress(),
