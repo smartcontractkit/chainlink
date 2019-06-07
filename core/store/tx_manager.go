@@ -363,7 +363,7 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, 
 	if err != nil {
 		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe getBlockNumber")
 	}
-	tx, err := txm.orm.FindTxByAttempt(hash)
+	tx, _, err := txm.orm.FindTxByAttempt(hash)
 	if err != nil {
 		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe FindTxByAttempt")
 	}
