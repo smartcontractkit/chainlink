@@ -9,7 +9,14 @@
   "finishedAt": "2019-05-03T11:21:36.01197-04:00",
   "initiator": { "type": "web" },
   "tasks": [
-    { "index": 0, "type": "httpget", "status": "completed", "error": null },
+    {
+      "index": 0,
+      "type": "httpget",
+      "status": "completed",
+      "confirmations": 3,
+      "minimumConfirmations": 3,
+      "error": null
+    },
     { "index": 1, "type": "jsonparse", "status": "completed", "error": null },
     { "index": 2, "type": "ethbytes32", "status": "completed", "error": null },
     {
