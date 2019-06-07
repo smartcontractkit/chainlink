@@ -414,14 +414,14 @@ func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
 	assert.Contains(t, output.Error(), "Cannot connect to nodes")
 }
 
-func TestEthTxAdapter_Perform_PendingConfirmations_WithErrorInTxManager(t *testing.T) {
+func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
 	store := app.Store
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthClient(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
 	assert.Nil(t, app.Start())
 
@@ -431,10 +431,44 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithErrorInTxManager(t *testi
 	}
 	input := cltest.RunResultWithResult("")
 	input.Status = models.RunStatusPendingConfirmations
-	ethMock.RegisterError("eth_blockNumber", "Cannot connect to nodes")
+	ethMock.RegisterError("eth_blockNumber", "Invalid node id")
 	output := adapter.Perform(input, store)
 
-	assert.False(t, output.HasError())
+	ethMock.EventuallyAllCalled(t)
+
+	assert.Equal(t, models.RunStatusErrored, output.Status)
+	assert.NotNil(t, output.Error())
+}
+
+func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManager(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+
+	store := app.Store
+	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock.Register("eth_getTransactionCount", `0x0100`)
+	assert.Nil(t, app.Start())
+
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTx(t, store, from, uint64(14372))
+	input := cltest.RunResultWithResult(tx.Attempts[0].Hash.String())
+	input.Status = models.RunStatusPendingConfirmations
+
+	ethMock.Register("eth_blockNumber", "0x100")
+	ethMock.RegisterError("eth_getTransactionReceipt", "Connection reset by peer")
+
+	adapter := adapters.EthTx{
+		Address:          cltest.NewAddress(),
+		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
+	}
+	output := adapter.Perform(input, store)
+
+	ethMock.EventuallyAllCalled(t)
+
+	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status)
+	assert.NoError(t, output.GetError())
 }
 
 func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
