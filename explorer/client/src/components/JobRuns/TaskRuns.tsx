@@ -37,6 +37,9 @@ const styles = ({ spacing, palette }: Theme) =>
       alignItems: 'center',
       flexGrow: 1
     },
+    pendingConfirmations: {
+      marginLeft: spacing.unit
+    },
     etherscan: {
       marginLeft: spacing.unit
     }
@@ -59,6 +62,15 @@ const TaskRuns = ({ etherscanHost, taskRuns, classes }: IProps) => {
                   {run.status}
                 </StatusIcon>
                 <Typography variant="body1">{run.type}</Typography>
+                {run.minimumConfirmations && (
+                  <Typography
+                    variant="subtitle2"
+                    color="textSecondary"
+                    className={classes.pendingConfirmations}>
+                    ({run.confirmations} / {run.minimumConfirmations} pending
+                    confirmations)
+                  </Typography>
+                )}
               </div>
               {run.transactionHash && (
                 <EtherscanLink
