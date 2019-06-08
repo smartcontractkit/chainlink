@@ -130,6 +130,8 @@ func TestIntegration_FeeBump(t *testing.T) {
 	assert.NoError(t, app.Start())
 	eth.EventuallyAllCalled(t)
 
+	// This first run of the EthTx adapter creates an initial transaction which
+	// starts unconfirmed
 	eth.Context("ethTx.Perform()#1 at block 23456", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 		eth.Register("eth_sendRawTransaction", attempt1Hash) // Initial tx attempt sent
@@ -141,6 +143,8 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
+	// At the next head, the transaction remains unconfirmed but the gas bump
+	// threshold has been met, so a new transaction is made with increased gas
 	eth.Context("ethTx.Perform()#2 at block 23459", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
@@ -151,6 +155,19 @@ func TestIntegration_FeeBump(t *testing.T) {
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 2)
 
+	// At the next head, the block height is sufficient to consider the first
+	// transaction as confirmed
+	//
+	// BUT:
+	//
+	// The order here is a bit weird!
+	// For two reasons:
+	//
+	//	When EthTx cycles through existing attempts for bumping, it doesn't
+	//	update the run result to store the new attempts Hash.
+	//  FindTxByAttempt saves the TxAttempt that it looks up to the Tx, which is the test to see if an attempt is the "latest"
+	//
+	//  So the old transaction attempt is actually considered the latest and a new transaction attempt is created with bumped gas!
 	eth.Context("ethTx.Perform()#3 at block 23460", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
@@ -162,6 +179,9 @@ func TestIntegration_FeeBump(t *testing.T) {
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 3)
 
+	// Finally, the transaction with higher gas is confirmed and has met the
+	// minimum number of confirmations, the amount remaining in the account is
+	// printed (eth_getBalance, eth_call)
 	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
 		eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
