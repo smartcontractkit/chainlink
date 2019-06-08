@@ -135,7 +135,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
+func TestEthTxAdapter_Perform_SafeWithBytesAndNoDataPrefix(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
@@ -152,7 +152,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 	require.NoError(t, app.StartAndConnect())
 
 	hash := cltest.NewHash()
-	sentAt := uint64(23456)
+	currentHeight := uint64(23456)
 	ethMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
 			rlp := data[0].([]interface{})[0].(string)
@@ -167,8 +167,8 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytesAndNoDataPrefix(t *testing.T) {
 			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
 			return nil
 		})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
-	safe := sentAt - store.Config.MinOutgoingConfirmations()
+	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(currentHeight))
+	safe := currentHeight - store.Config.MinOutgoingConfirmations()
 	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(safe)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 
