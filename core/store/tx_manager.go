@@ -539,6 +539,11 @@ func (txm *EthTxManager) processAttempt(
 
 	case Unconfirmed:
 		if isLatestAttempt(tx, attemptIndex) && txm.hasTxAttemptMetGasBumpThreshold(tx, attemptIndex, blockHeight) {
+			logger.Debugw(
+				fmt.Sprintf("Tx #%d has met gas bump threshold, bumping gas", attemptIndex),
+				"txHash", txAttempt.Hash.String(),
+				"txID", txAttempt.TxID,
+			)
 			err = txm.bumpGas(tx, attemptIndex, blockHeight)
 		}
 
