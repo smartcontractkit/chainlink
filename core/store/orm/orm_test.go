@@ -1046,6 +1046,52 @@ func TestBulkDeleteRuns(t *testing.T) {
 	assert.Equal(t, 3, requestCount)
 }
 
+func TestORM_FindTxAttempt_CurrentAttempt(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	_, err := store.KeyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+	defer cleanup()
+
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTx(t, store, from, 1)
+
+	txAttempt, err := store.FindTxAttempt(tx.Attempts[0].Hash)
+	require.NoError(t, err)
+
+	assert.Equal(t, tx.ID, txAttempt.ID)
+	assert.Equal(t, tx.Confirmed, txAttempt.Confirmed)
+	assert.Equal(t, tx.Hash, txAttempt.Hash)
+	assert.Equal(t, tx.GasPrice, txAttempt.GasPrice)
+	assert.Equal(t, tx.SentAt, txAttempt.SentAt)
+	assert.Equal(t, tx.SignedRawTx, txAttempt.SignedRawTx)
+}
+
+func TestORM_FindTxAttempt_PastAttempt(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	_, err := store.KeyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+	defer cleanup()
+
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTx(t, store, from, 1)
+	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
+	require.NoError(t, err)
+
+	txAttempt, err := store.FindTxAttempt(tx.Attempts[0].Hash)
+	require.NoError(t, err)
+
+	assert.Equal(t, tx.ID, txAttempt.TxID)
+	assert.Equal(t, tx.Confirmed, txAttempt.Confirmed)
+	assert.NotEqual(t, tx.Hash, txAttempt.Hash)
+	assert.NotEqual(t, tx.GasPrice, txAttempt.GasPrice)
+	assert.NotEqual(t, tx.SentAt, txAttempt.SentAt)
+	assert.NotEqual(t, tx.SignedRawTx, txAttempt.SignedRawTx)
+}
+
 func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
 	t.Parallel()
 
@@ -1056,20 +1102,25 @@ func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
 
 	from := cltest.GetAccountAddress(t, store)
 
-	tx1 := cltest.CreateTx(t, store, from, 1)
-	tx2, err := store.FindTxByAttempt(tx1.Hash)
+	createdTx := cltest.CreateTx(t, store, from, 1)
+	fetchedTx, fetchedTxAttempt, err := store.FindTxByAttempt(createdTx.Hash)
 
-	require.Equal(t, tx1.ID, tx2.ID)
-	require.Equal(t, tx1.From, tx2.From)
-	require.Equal(t, tx1.To, tx2.To)
-	require.Equal(t, tx1.Nonce, tx1.Nonce)
-	require.Equal(t, tx1.Value, tx2.Value)
-	require.Equal(t, tx1.GasLimit, tx2.GasLimit)
-	require.Equal(t, tx1.Confirmed, tx2.Confirmed)
+	assert.Equal(t, createdTx.ID, fetchedTx.ID)
+	assert.Equal(t, createdTx.From, fetchedTx.From)
+	assert.Equal(t, createdTx.To, fetchedTx.To)
+	assert.Equal(t, createdTx.Nonce, fetchedTx.Nonce)
+	assert.Equal(t, createdTx.Value, fetchedTx.Value)
+	assert.Equal(t, createdTx.GasLimit, fetchedTx.GasLimit)
+	assert.Equal(t, createdTx.Confirmed, fetchedTx.Confirmed)
+	assert.Equal(t, createdTx.Hash, fetchedTx.Hash)
+	assert.Equal(t, createdTx.GasPrice, fetchedTx.GasPrice)
+	assert.Equal(t, createdTx.SentAt, fetchedTx.SentAt)
 
-	require.Equal(t, tx1.Hash, tx2.Hash)
-	require.Equal(t, tx1.GasPrice, tx2.GasPrice)
-	require.Equal(t, tx1.SentAt, tx2.SentAt)
+	assert.Equal(t, createdTx.ID, fetchedTxAttempt.ID)
+	assert.Equal(t, createdTx.Confirmed, fetchedTxAttempt.Confirmed)
+	assert.Equal(t, createdTx.Hash, fetchedTxAttempt.Hash)
+	assert.Equal(t, createdTx.GasPrice, fetchedTxAttempt.GasPrice)
+	assert.Equal(t, createdTx.SentAt, fetchedTxAttempt.SentAt)
 }
 
 func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
@@ -1081,35 +1132,30 @@ func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
 	defer cleanup()
 
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, 1)
-	tx1 := *tx
-	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
+	createdTx := cltest.CreateTx(t, store, from, 1)
+	pastTxAttempt := createdTx.Attempts[0]
+	_, err = store.AddTxAttempt(createdTx, createdTx.EthTx(big.NewInt(3)), 3)
 	require.NoError(t, err)
 
-	tx2, err := store.FindTxByAttempt(tx1.Hash)
+	fetchedTx, pastTxAttempt, err := store.FindTxByAttempt(pastTxAttempt.Hash)
 	require.NoError(t, err)
 
-	require.Equal(t, tx.ID, tx2.ID)
-	require.Equal(t, tx.From, tx2.From)
-	require.Equal(t, tx.To, tx2.To)
-	require.Equal(t, tx.Nonce, tx1.Nonce)
-	require.Equal(t, tx.Value, tx2.Value)
-	require.Equal(t, tx.GasLimit, tx2.GasLimit)
-	require.Equal(t, tx.Confirmed, tx2.Confirmed)
-	require.NotEqual(t, tx.Hash, tx2.Hash)
-	require.NotEqual(t, tx.GasPrice, tx2.GasPrice)
-	require.NotEqual(t, tx.SentAt, tx2.SentAt)
+	assert.Equal(t, createdTx.ID, fetchedTx.ID)
+	assert.Equal(t, createdTx.From, fetchedTx.From)
+	assert.Equal(t, createdTx.To, fetchedTx.To)
+	assert.Equal(t, createdTx.Nonce, fetchedTx.Nonce)
+	assert.Equal(t, createdTx.Value, fetchedTx.Value)
+	assert.Equal(t, createdTx.GasLimit, fetchedTx.GasLimit)
+	assert.Equal(t, createdTx.Confirmed, fetchedTx.Confirmed)
+	assert.Equal(t, createdTx.Hash, fetchedTx.Hash)
+	assert.Equal(t, createdTx.GasPrice, fetchedTx.GasPrice)
+	assert.Equal(t, createdTx.SentAt, fetchedTx.SentAt)
 
-	require.Equal(t, tx1.ID, tx2.ID)
-	require.Equal(t, tx1.From, tx2.From)
-	require.Equal(t, tx1.To, tx2.To)
-	require.Equal(t, tx1.Nonce, tx1.Nonce)
-	require.Equal(t, tx1.Value, tx2.Value)
-	require.Equal(t, tx1.GasLimit, tx2.GasLimit)
-	require.Equal(t, tx1.Confirmed, tx2.Confirmed)
-	require.Equal(t, tx1.Hash, tx2.Hash)
-	require.Equal(t, tx1.GasPrice, tx2.GasPrice)
-	require.Equal(t, tx1.SentAt, tx2.SentAt)
+	assert.Equal(t, createdTx.ID, pastTxAttempt.TxID)
+	assert.NotEqual(t, createdTx.Hash, pastTxAttempt.Hash)
+	assert.NotEqual(t, createdTx.GasPrice, pastTxAttempt.GasPrice)
+	assert.NotEqual(t, createdTx.SentAt, pastTxAttempt.SentAt)
+	assert.NotEqual(t, createdTx.SignedRawTx, pastTxAttempt.SignedRawTx)
 }
 
 func TestORM_DeduceDialect(t *testing.T) {

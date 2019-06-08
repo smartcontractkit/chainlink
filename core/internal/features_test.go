@@ -108,20 +108,37 @@ func TestIntegration_FeeBump(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	config := app.Config
-	eth := app.MockEthClient(cltest.Strict)
+
+	// Put some distance between these two values so we can explore more of the state space
+	config.Set("ETH_GAS_BUMP_THRESHOLD", 10)
+	config.Set("MIN_OUTGOING_CONFIRMATIONS", 20)
+
+	attempt1Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000001")
+	attempt2Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000002")
+	attempt3Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000003")
+
+	unconfirmedReceipt := models.TxReceipt{}
+
+	// Enumerate the different block heights at which various state changes
+	// happen for the transaction attempts created during this test
+	firstTxSentAt := uint64(23456)
+	firstTxGasBumpAt := firstTxSentAt + config.EthGasBumpThreshold()
+	firstTxRemainsUnconfirmedAt := firstTxGasBumpAt - 1
+
+	secondTxSentAt := firstTxGasBumpAt
+	secondTxGasBumpAt := secondTxSentAt + config.EthGasBumpThreshold()
+	secondTxRemainsUnconfirmedAt := secondTxGasBumpAt - 1
+
+	thirdTxSentAt := secondTxGasBumpAt
+	thirdTxConfirmedAt := thirdTxSentAt + 1
+	thirdTxConfirmedReceipt := models.TxReceipt{
+		Hash:        attempt1Hash,
+		BlockNumber: cltest.Int(thirdTxConfirmedAt),
+	}
+	thirdTxSafeAt := thirdTxSentAt + config.MinOutgoingConfirmations()
 
 	newHeads := make(chan models.BlockHeader)
-	attempt1Hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
-	attempt2Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000002")
-	sentAt := uint64(23456)
-	confirmed := sentAt + config.EthGasBumpThreshold() + 1
-	safe := confirmed + config.MinOutgoingConfirmations() - 1
-	unconfirmedReceipt := models.TxReceipt{}
-	confirmedReceipt := models.TxReceipt{
-		Hash:        attempt1Hash,
-		BlockNumber: cltest.Int(confirmed),
-	}
-
+	eth := app.MockEthClient(cltest.Strict)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
@@ -129,9 +146,11 @@ func TestIntegration_FeeBump(t *testing.T) {
 	assert.NoError(t, app.Start())
 	eth.EventuallyAllCalled(t)
 
-	eth.Context("ethTx.Perform()#1 at block 23456", func(eth *cltest.EthMock) {
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
-		eth.Register("eth_sendRawTransaction", attempt1Hash) // Initial tx attempt sent
+	// This first run of the EthTx adapter creates an initial transaction which
+	// starts unconfirmed
+	eth.Context("ethTx.Perform()#1", func(eth *cltest.EthMock) {
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(firstTxSentAt))
+		eth.Register("eth_sendRawTransaction", attempt1Hash)
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
@@ -139,39 +158,77 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
-	eth.Context("ethTx.Perform()#2 at block 23459", func(eth *cltest.EthMock) {
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed-1))
+	// At the next head, the transaction is still unconfirmed, but no thresholds
+	// have been met so we just wait...
+	eth.Context("ethTx.Perform()#2", func(eth *cltest.EthMock) {
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(firstTxRemainsUnconfirmedAt))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_sendRawTransaction", attempt2Hash) // Gas bumped tx attempt sent
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed - 1)} // 23459: For Gas Bump
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(firstTxRemainsUnconfirmedAt)}
+	eth.EventuallyAllCalled(t)
+	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+
+	// At the next head, the transaction remains unconfirmed but the gas bump
+	// threshold has been met, so a new transaction is made with a higher amount
+	// of gas ("bumped gas")
+	eth.Context("ethTx.Perform()#3", func(eth *cltest.EthMock) {
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(firstTxGasBumpAt))
+		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+		eth.Register("eth_sendRawTransaction", attempt2Hash)
+	})
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(firstTxGasBumpAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 2)
 
-	eth.Context("ethTx.Perform()#3 at block 23460", func(eth *cltest.EthMock) {
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
+	// Another head comes in and both transactions are still unconfirmed, more
+	// waiting...
+	eth.Context("ethTx.Perform()#4", func(eth *cltest.EthMock) {
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(secondTxRemainsUnconfirmedAt))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_sendRawTransaction", attempt2Hash)
-		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
+		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(confirmed)} // 23460
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(secondTxRemainsUnconfirmedAt)}
+	eth.EventuallyAllCalled(t)
+	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+
+	// Now the second transaction attempt meets the gas bump threshold, so a
+	// final transaction attempt shoud be made
+	eth.Context("ethTx.Perform()#5", func(eth *cltest.EthMock) {
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(secondTxGasBumpAt))
+		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+		eth.Register("eth_sendRawTransaction", attempt3Hash)
+	})
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(secondTxGasBumpAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 3)
 
-	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(safe))
+	// This third attempt has enough gas and gets confirmed, but has not yet
+	// received sufficient confirmations, so we wait again...
+	eth.Context("ethTx.Perform()#6", func(eth *cltest.EthMock) {
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(thirdTxConfirmedAt))
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
-		eth.Register("eth_sendRawTransaction", attempt2Hash)
-		eth.Register("eth_getBalance", "0x0100")
-		eth.Register("eth_call", "0x0100")
+		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(thirdTxConfirmedAt)}
 	eth.EventuallyAllCalled(t)
-	cltest.WaitForTxAttemptCount(t, app.Store, 4)
+	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
+	// Finally the third attempt gets to a minimum number of safe confirmations,
+	// the amount remaining in the account is printed (eth_getBalance, eth_call)
+	eth.Context("ethTx.Perform()#7", func(eth *cltest.EthMock) {
+		eth.Register("eth_blockNumber", utils.Uint64ToHex(thirdTxSafeAt))
+		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
+		eth.Register("eth_getBalance", "0x100")
+		eth.Register("eth_call", "0x100")
+	})
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(thirdTxSafeAt)}
+	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	val, err := jr.TaskRuns[0].Result.ResultString()
@@ -187,8 +244,6 @@ func TestIntegration_FeeBump(t *testing.T) {
 	assert.Equal(t, attempt1Hash.String(), val)
 	assert.NoError(t, err)
 	assert.Equal(t, jr.Result.CachedJobRunID, jr.ID)
-
-	eth.EventuallyAllCalled(t)
 }
 
 func TestIntegration_RunAt(t *testing.T) {

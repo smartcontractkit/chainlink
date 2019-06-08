@@ -587,21 +587,25 @@ func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
 }
 
 // FindTxByAttempt returns the specific transaction attempt with the hash.
-func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, error) {
+func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, *models.TxAttempt, error) {
 	txAttempt := &models.TxAttempt{}
-	if err := orm.DB.Set("gorm:auto_preload", true).First(txAttempt, "hash = ?", hash).Error; err != nil {
-		return nil, err
+	if err := orm.DB.First(txAttempt, "hash = ?", hash).Error; err != nil {
+		return nil, nil, err
 	}
 	tx, err := orm.FindTx(txAttempt.TxID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	tx.Hash = txAttempt.Hash
-	tx.GasPrice = txAttempt.GasPrice
-	tx.Confirmed = txAttempt.Confirmed
-	tx.SentAt = txAttempt.SentAt
-	tx.SignedRawTx = txAttempt.SignedRawTx
-	return tx, nil
+	return tx, txAttempt, nil
+}
+
+// FindTxAttempt returns an individual TxAttempt
+func (orm *ORM) FindTxAttempt(hash common.Hash) (*models.TxAttempt, error) {
+	txAttempt := &models.TxAttempt{}
+	if err := orm.DB.Preload("Tx").First(txAttempt, "hash = ?", hash).Error; err != nil {
+		return nil, errors.Wrap(err, "FindTxByAttempt First(txAttempt) failed")
+	}
+	return txAttempt, nil
 }
 
 // AddTxAttempt creates a new transaction attempt and stores it

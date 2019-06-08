@@ -363,7 +363,7 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, 
 	if err != nil {
 		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe getBlockNumber")
 	}
-	tx, err := txm.orm.FindTxByAttempt(hash)
+	tx, _, err := txm.orm.FindTxByAttempt(hash)
 	if err != nil {
 		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe FindTxByAttempt")
 	}
@@ -538,7 +538,12 @@ func (txm *EthTxManager) processAttempt(
 		return receipt, state, nil
 
 	case Unconfirmed:
-		if isLatestAttempt(tx, txAttempt) && txm.hasTxAttemptMetGasBumpThreshold(tx, attemptIndex, blockHeight) {
+		if isLatestAttempt(tx, attemptIndex) && txm.hasTxAttemptMetGasBumpThreshold(tx, attemptIndex, blockHeight) {
+			logger.Debugw(
+				fmt.Sprintf("Tx #%d has met gas bump threshold, bumping gas", attemptIndex),
+				"txHash", txAttempt.Hash.String(),
+				"txID", txAttempt.TxID,
+			)
 			err = txm.bumpGas(tx, attemptIndex, blockHeight)
 		}
 
@@ -565,8 +570,8 @@ func (txm *EthTxManager) hasTxAttemptMetGasBumpThreshold(
 // isLatestAttempt returns true only if the attempt is the last
 // attempt associated with the transaction, alluding to the fact that
 // it has the highest gas price after subsequent bumps.
-func isLatestAttempt(tx *models.Tx, txAttempt *models.TxAttempt) bool {
-	return tx.Hash == txAttempt.Hash
+func isLatestAttempt(tx *models.Tx, attemptIndex int) bool {
+	return attemptIndex+1 == len(tx.Attempts)
 }
 
 // handleSafe marks a transaction as safe, no more work needs to be done
