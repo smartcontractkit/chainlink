@@ -48,17 +48,23 @@ func TestHTTPGet_Perform(t *testing.T) {
 		wantErrored bool
 		response    string
 		headers     http.Header
+		queryParams adapters.QueryParameters
 	}{
-		{"success", 200, "results!", false, `results!`, nil},
-		{"success but error in body", 200, `{"error": "results!"}`, false, `{"error": "results!"}`, nil},
-		{"success with HTML", 200, `<html>results!</html>`, false, `<html>results!</html>`, nil},
+		{"success", 200, "results!", false, `results!`, nil, nil},
+		{"success but error in body", 200, `{"error": "results!"}`, false, `{"error": "results!"}`, nil, nil},
+		{"success with HTML", 200, `<html>results!</html>`, false, `<html>results!</html>`, nil, nil},
 		{"success with headers", 200, "results!", false, `results!`,
 			http.Header{
 				"Key1": []string{"value"},
 				"Key2": []string{"value", "value"},
+			}, nil},
+		{"not found", 400, "inputValue", true, `<html>so bad</html>`, nil, nil},
+		{"server error", 400, "inputValue", true, `Invalid request`, nil, nil},
+		{"success with params", 200, "results!", false, `results!`, nil,
+			adapters.QueryParameters{
+				"Key1": []string{"value0"},
+				"Key2": []string{"value1", "value2"},
 			}},
-		{"not found", 400, "inputValue", true, `<html>so bad</html>`, nil},
-		{"server error", 400, "inputValue", true, `Invalid request`, nil},
 	}
 
 	for _, tt := range cases {
@@ -74,7 +80,15 @@ func TestHTTPGet_Perform(t *testing.T) {
 				})
 			defer cleanup()
 
-			hga := adapters.HTTPGet{URL: cltest.WebURL(t, mock.URL), Headers: test.headers}
+			hga := adapters.HTTPGet{
+				URL: cltest.WebURL(t, mock.URL),
+				Headers: test.headers,
+				QueryParams: test.queryParams,
+			}
+			for key, _ := range hga.QueryParams {
+				assert.Equal(t, test.queryParams[key], hga.QueryParams[key])
+			}
+
 			result := hga.Perform(input, store)
 
 			val, err := result.ResultString()
@@ -125,17 +139,23 @@ func TestHttpPost_Perform(t *testing.T) {
 		wantErrored bool
 		response    string
 		headers     http.Header
+		queryParams adapters.QueryParameters
 	}{
-		{"success", 200, "results!", false, `results!`, nil},
-		{"success but error in body", 200, `{"error": "results!"}`, false, `{"error": "results!"}`, nil},
-		{"success with HTML", 200, `<html>results!</html>`, false, `<html>results!</html>`, nil},
+		{"success", 200, "results!", false, `results!`, nil, nil},
+		{"success but error in body", 200, `{"error": "results!"}`, false, `{"error": "results!"}`, nil, nil},
+		{"success with HTML", 200, `<html>results!</html>`, false, `<html>results!</html>`, nil, nil},
 		{"success with headers", 200, "results!", false, `results!`,
 			http.Header{
 				"Key1": []string{"value"},
 				"Key2": []string{"value", "value"},
+			}, nil},
+		{"not found", 400, "inputVal", true, `<html>so bad</html>`, nil, nil},
+		{"server error", 500, "inputVal", true, `big error`, nil, nil},
+		{"success with params", 200, "results!", false, `results!`, nil,
+			adapters.QueryParameters{
+				"Key1": []string{"value"},
+				"Key2": []string{"value", "value"},
 			}},
-		{"not found", 400, "inputVal", true, `<html>so bad</html>`, nil},
-		{"server error", 500, "inputVal", true, `big error`, nil},
 	}
 
 	for _, tt := range cases {
@@ -152,7 +172,15 @@ func TestHttpPost_Perform(t *testing.T) {
 				})
 			defer cleanup()
 
-			hpa := adapters.HTTPPost{URL: cltest.WebURL(t, mock.URL), Headers: test.headers}
+			hpa := adapters.HTTPPost{
+				URL: cltest.WebURL(t, mock.URL),
+				Headers: test.headers,
+				QueryParams: test.queryParams,
+			}
+			for key, _ := range hpa.QueryParams {
+				assert.Equal(t, test.queryParams[key], hpa.QueryParams[key])
+			}
+
 			result := hpa.Perform(input, leanStore())
 
 			val := result.Result()
