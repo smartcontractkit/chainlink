@@ -25,6 +25,8 @@ interface ITaskRun {
   status: string
   transactionHash?: string
   transactionStatus?: string
+  confirmations?: number
+  minimumConfirmations?: number
   error?: string
 }
 
