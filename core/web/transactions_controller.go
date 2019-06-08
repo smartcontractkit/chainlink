@@ -1,11 +1,11 @@
 package web
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -32,11 +32,11 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 //  "<application>/transactions/:TxHash"
 func (tc *TransactionsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
-	if tx, err := tc.App.GetStore().FindTxByAttempt(hash); err == orm.ErrorNotFound {
+	if txAttempt, err := tc.App.GetStore().FindTxAttempt(hash); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Transaction not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
-		jsonAPIResponse(c, presenters.NewTx(tx), "transaction")
+		jsonAPIResponse(c, presenters.NewTxFromAttempt(*txAttempt), "transaction")
 	}
 }
