@@ -172,6 +172,11 @@ func (mock *EthMock) EventuallyAllCalled(t *testing.T) {
 	g.Eventually(mock.Remaining).Should(gomega.HaveLen(0))
 }
 
+// AssertAllCalled immediately checks that all calls have been made
+func (mock *EthMock) AssertAllCalled() {
+	assert.Empty(mock.t, mock.Remaining())
+}
+
 // Call will call given method and set the result
 func (mock *EthMock) Call(result interface{}, method string, args ...interface{}) error {
 	mock.mutex.Lock()
