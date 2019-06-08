@@ -3,21 +3,27 @@ package adapters
 import (
 	"bytes"
 	"errors"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {
-	URL     models.WebURL `json:"url"`
-	GET     models.WebURL `json:"get"`
-	Headers http.Header   `json:"headers"`
+	URL         models.WebURL   `json:"url"`
+	GET         models.WebURL   `json:"get"`
+	Headers     http.Header     `json:"headers"`
+	QueryParams QueryParameters `json:"queryParams"`
 }
+
 
 // Perform ensures that the adapter's URL responds to a GET request without
 // errors and returns the response body as the "value" field of the result.
@@ -27,6 +33,7 @@ func (hga *HTTPGet) Perform(input models.RunResult, store *store.Store) models.R
 		input.SetError(err)
 		return input
 	}
+	appendQueryParams(request, hga.QueryParams)
 	setHeaders(request, hga.Headers, "")
 	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
 }
@@ -41,9 +48,10 @@ func (hga *HTTPGet) GetURL() string {
 
 // HTTPPost requires a URL which is used for a POST request when the adapter is called.
 type HTTPPost struct {
-	URL     models.WebURL `json:"url"`
-	POST    models.WebURL `json:"post"`
-	Headers http.Header   `json:"headers"`
+	URL         models.WebURL   `json:"url"`
+	POST        models.WebURL   `json:"post"`
+	Headers     http.Header     `json:"headers"`
+	QueryParams QueryParameters `json:"queryParams"`
 }
 
 // Perform ensures that the adapter's URL responds to a POST request without
@@ -55,6 +63,7 @@ func (hpa *HTTPPost) Perform(input models.RunResult, store *store.Store) models.
 		input.SetError(err)
 		return input
 	}
+	appendQueryParams(request, hpa.QueryParams)
 	setHeaders(request, hpa.Headers, "application/json")
 	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
 }
@@ -65,6 +74,21 @@ func (hpa *HTTPPost) GetURL() string {
 		return hpa.POST.String()
 	}
 	return hpa.URL.String()
+}
+
+func appendQueryParams(request *http.Request, queryParams QueryParameters) {
+	q := request.URL.Query()
+	for k, v := range queryParams {
+		if !keyExists(k, request, queryParams) {
+			q.Add(k, v[0])
+		}
+	}
+	request.URL.RawQuery = q.Encode()
+}
+
+func keyExists(key string, request *http.Request, queryParams QueryParameters) bool {
+	_, ok := request.URL.Query()[key]
+	return ok
 }
 
 func setHeaders(request *http.Request, headers http.Header, contentType string) {
@@ -164,4 +188,48 @@ func (mbr *maxBytesReader) tooLarge() (int, error) {
 
 func (mbr *maxBytesReader) Close() error {
 	return mbr.rc.Close()
+}
+
+// QueryParameters are the keys and values to append to the URL
+type QueryParameters url.Values
+
+// UnmarshalJSON implements the Unmarshaler interface
+func (qp *QueryParameters) UnmarshalJSON(input []byte) error {
+	values := url.Values{}
+	strs := []string{}
+	var err error
+	// input is a string like "someKey0=someVal0&someKey1=someVal1"
+	if utils.IsQuoted(input) {
+		var decoded string
+		err := json.Unmarshal(input, &decoded)
+		if err != nil {
+			return fmt.Errorf("unable to unmarshal query parameters: %s", input)
+		}
+		strs = strings.FieldsFunc(decoded, splitQueryString)
+	// input is an array of strings like
+	// ["someKey0", "someVal0", "someKey1", "someVal1"]
+	} else {
+		err = json.Unmarshal(input, &strs)
+	}
+	values, err = buildValues(strs)
+	if err != nil {
+		return fmt.Errorf("unable to build query parameters: %s", input)
+	}
+	*qp = QueryParameters(values)
+	return err
+}
+
+func splitQueryString(r rune) bool {
+    return r == '=' || r == '&'
+}
+
+func buildValues(input []string) (url.Values, error) {
+	values := url.Values{}
+	if len(input) % 2 != 0 {
+		return nil, fmt.Errorf("invalid number of parameters: %s", input)
+	}
+	for i := 0; i < len(input); i = i + 2 {
+		values.Add(input[i], input[i+1])
+	}
+	return values, nil
 }
