@@ -28,4 +28,10 @@ export class TaskRun {
 
   @Column({ nullable: true })
   transactionStatus?: TransactionStatus
+
+  @Column({ nullable: true })
+  minimumConfirmations?: number
+
+  @Column({ nullable: true })
+  confirmations?: number
 }
