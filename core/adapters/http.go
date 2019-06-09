@@ -197,6 +197,7 @@ func (qp *QueryParameters) UnmarshalJSON(input []byte) error {
 	values := url.Values{}
 	strs := []string{}
 	var err error
+
 	// input is a string like "someKey0=someVal0&someKey1=someVal1"
 	if utils.IsQuoted(input) {
 		var decoded string
@@ -204,12 +205,14 @@ func (qp *QueryParameters) UnmarshalJSON(input []byte) error {
 		if err != nil {
 			return fmt.Errorf("unable to unmarshal query parameters: %s", input)
 		}
-		strs = strings.FieldsFunc(decoded, splitQueryString)
+		strs = strings.FieldsFunc(trimQuestion(decoded), splitQueryString)
+
 	// input is an array of strings like
 	// ["someKey0", "someVal0", "someKey1", "someVal1"]
 	} else {
 		err = json.Unmarshal(input, &strs)
 	}
+
 	values, err = buildValues(strs)
 	if err != nil {
 		return fmt.Errorf("unable to build query parameters: %s", input)
@@ -220,6 +223,10 @@ func (qp *QueryParameters) UnmarshalJSON(input []byte) error {
 
 func splitQueryString(r rune) bool {
     return r == '=' || r == '&'
+}
+
+func trimQuestion(input string) string {
+	return strings.Replace(input, "?", "", -1)
 }
 
 func buildValues(input []string) (url.Values, error) {

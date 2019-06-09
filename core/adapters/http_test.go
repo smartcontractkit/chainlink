@@ -236,6 +236,16 @@ func TestQueryParameters(t *testing.T) {
 			true,
 			adapters.QueryParameters{},
 		},
+		{
+			"string has question mark",
+			`"?firstKey=firstVal&secondKey=secondVal"`,
+			baseUrl,
+			false,
+			adapters.QueryParameters{
+				"firstKey": []string{"firstVal"},
+				"secondKey": []string{"secondVal"},
+			},
+		},
 	}
 
 	for _, tt := range cases {
@@ -248,6 +258,7 @@ func TestQueryParameters(t *testing.T) {
 				QueryParams: qp,
 			}
 			if test.wantErrored {
+				assert.Equal(t, test.expected, hga.QueryParams)
 				assert.NotNil(t, err)
 			} else {
 				assert.Equal(t, test.expected, hga.QueryParams)
