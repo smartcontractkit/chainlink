@@ -24,7 +24,6 @@ type HTTPGet struct {
 	QueryParams QueryParameters `json:"queryParams"`
 }
 
-
 // Perform ensures that the adapter's URL responds to a GET request without
 // errors and returns the response body as the "value" field of the result.
 func (hga *HTTPGet) Perform(input models.RunResult, store *store.Store) models.RunResult {

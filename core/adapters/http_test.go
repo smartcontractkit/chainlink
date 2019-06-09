@@ -1,6 +1,7 @@
 package adapters_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -85,9 +86,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 				Headers: test.headers,
 				QueryParams: test.queryParams,
 			}
-			for key, _ := range hga.QueryParams {
-				assert.Equal(t, test.queryParams[key], hga.QueryParams[key])
-			}
+			assert.Equal(t, test.queryParams, hga.QueryParams)
 
 			result := hga.Perform(input, store)
 
@@ -177,9 +176,7 @@ func TestHttpPost_Perform(t *testing.T) {
 				Headers: test.headers,
 				QueryParams: test.queryParams,
 			}
-			for key, _ := range hpa.QueryParams {
-				assert.Equal(t, test.queryParams[key], hpa.QueryParams[key])
-			}
+			assert.Equal(t, test.queryParams, hpa.QueryParams)
 
 			result := hpa.Perform(input, leanStore())
 
@@ -188,6 +185,74 @@ func TestHttpPost_Perform(t *testing.T) {
 			assert.Equal(t, true, val.Exists())
 			assert.Equal(t, test.wantErrored, result.HasError())
 			assert.Equal(t, false, result.Status.PendingBridge())
+		})
+	}
+}
+
+func TestQueryParameters(t *testing.T) {
+	t.Parallel()
+
+	baseUrl := "http://example.com"
+
+	cases := []struct {
+		name        string
+		queryParams string
+		startingUrl	string
+		wantErrored bool
+		expected    adapters.QueryParameters
+	}{
+		{"empty", `""`, baseUrl, false, adapters.QueryParameters{}},
+		{
+			"array of params",
+			`["firstKey","firstVal","secondKey","secondVal"]`,
+			baseUrl,
+			false,
+			adapters.QueryParameters{
+				"firstKey": []string{"firstVal"},
+				"secondKey": []string{"secondVal"},
+			},
+		},
+		{
+			"string of params",
+			`"firstKey=firstVal&secondKey=secondVal"`,
+			baseUrl,
+			false,
+			adapters.QueryParameters{
+				"firstKey": []string{"firstVal"},
+				"secondKey": []string{"secondVal"},
+			},
+		},
+		{
+			"odd number of params",
+			`["firstKey","firstVal","secondKey","secondVal","bad"]`,
+			baseUrl,
+			true,
+			adapters.QueryParameters{},
+		},
+		{
+			"bad format of string",
+			`"firstKey=firstVal&secondKey=secondVal&bad"`,
+			baseUrl,
+			true,
+			adapters.QueryParameters{},
+		},
+	}
+
+	for _, tt := range cases {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			qp := adapters.QueryParameters{}
+			err := json.Unmarshal([]byte(test.queryParams), &qp)
+			hga := adapters.HTTPGet{
+				URL: cltest.WebURL(t, baseUrl),
+				QueryParams: qp,
+			}
+			if test.wantErrored {
+				assert.NotNil(t, err)
+			} else {
+				assert.Equal(t, test.expected, hga.QueryParams)
+				assert.Nil(t, err)
+			}
 		})
 	}
 }
