@@ -237,6 +237,10 @@ func (ht *HeadTracker) subscribeToHead() error {
 	if err != nil {
 		return err
 	}
+
+	if err = verifyEthereumChainID(ht); err != nil {
+		return err
+	}
 	ht.headSubscription = sub
 	ht.connected = true
 	ht.connect(ht.head)
@@ -274,4 +278,23 @@ type errBlockNotLater struct {
 
 func (e errBlockNotLater) Error() string {
 	return e.message
+}
+
+// chainIDVerify checks whether or not the ChainID from the Chainlink config
+// matches the ChainID reported by the ETH node connected to this Chainlink node.
+func verifyEthereumChainID(ht *HeadTracker) error {
+	ethereumChainID, err := ht.store.TxManager.GetChainID()
+
+	if err != nil {
+		return err
+	}
+
+	if ht.store.Config.ChainID() != ethereumChainID {
+		return fmt.Errorf(
+			"Ethereum ChainID doesn't match chainlink config.ChainID: config ID=%d, eth RPC ID=%d",
+			ht.store.Config.ChainID(),
+			ethereumChainID,
+		)
+	}
+	return nil
 }

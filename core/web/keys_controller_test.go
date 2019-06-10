@@ -21,6 +21,7 @@ func TestKeysController_CreateSuccess(t *testing.T) {
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+		ethMock.Register("eth_chainId", *cltest.Int(config.ChainID()))
 	})
 
 	client := app.NewHTTPClient()
@@ -49,10 +50,12 @@ func TestKeysController_InvalidPassword(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
+	chainId := cltest.Int(config.ChainID())
 	ethMock := app.MockEthClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+		ethMock.Register("eth_chainId", *chainId)
 	})
 
 	client := app.NewHTTPClient()
@@ -85,6 +88,7 @@ func TestKeysController_JSONBindingError(t *testing.T) {
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+		ethMock.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
 	})
 
 	client := app.NewHTTPClient()

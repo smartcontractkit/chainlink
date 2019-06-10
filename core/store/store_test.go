@@ -138,7 +138,7 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, utils.JustError(app.MockStartAndConnect()))
 	store := app.GetStore()
 
 	// assert sync worked on NewApplication

@@ -71,6 +71,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
+		eth.Register("eth_chainId", *cltest.Int(config.ChainID()))
 	})
 	assert.NoError(t, app.Start())
 	eth.EventuallyAllCalled(t)
@@ -141,6 +142,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth := app.MockEthClient(cltest.Strict)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
+		eth.Register("eth_chainId", *cltest.Int(config.ChainID()))
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
 	})
 	assert.NoError(t, app.Start())
@@ -299,6 +301,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 	})
+	eth.Register("eth_chainId", *cltest.Int(config.ChainID()))
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
@@ -398,6 +401,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
+	eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
 	logs := make(chan models.Log, 1)
 	newHeads := make(chan models.BlockHeader, 10)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
@@ -621,11 +625,16 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
+	config, configCleanup := cltest.NewConfig(t)
+	defer configCleanup()
+
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
 
 	eth := app.MockEthClient()
+	chainId := cltest.Int(config.ChainID())
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
+		eth.Register("eth_chainId", *chainId)
 	})
 	require.NoError(t, app.StartAndConnect())
 
@@ -666,6 +675,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 		eth.Register("eth_getTransactionCount", `0x100`)
+		eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
 	})
 	assert.NoError(t, app.StartAndConnect())
 	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "fixtures/web/noop_agreement.json")
