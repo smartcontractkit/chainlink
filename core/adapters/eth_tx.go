@@ -152,12 +152,24 @@ func ensureTxRunResult(input *models.RunResult, str *strpkg.Store) {
 		logger.Warn("EthTx Adapter Perform Resuming: ", err)
 	}
 
+	recordLatestTxHash(receipt, input)
 	if state != strpkg.Safe {
 		input.MarkPendingConfirmations()
 		return
 	}
 
 	addReceiptToResult(receipt, input)
+}
+
+var zero = common.Hash{}
+
+// recordLatestTxHash adds the current tx hash to the run result
+func recordLatestTxHash(receipt *models.TxReceipt, in *models.RunResult) {
+	if receipt == nil || receipt.Unconfirmed() {
+		return
+	}
+	hex := receipt.Hash.String()
+	in.Add("latestOutgoingTxHash", hex)
 }
 
 func addReceiptToResult(receipt *models.TxReceipt, in *models.RunResult) {

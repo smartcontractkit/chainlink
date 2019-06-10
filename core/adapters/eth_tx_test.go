@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
@@ -323,6 +324,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	assert.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
 	assert.Equal(t, 1, len(receipts))
 	assert.Equal(t, receipt, receipts[0])
+
+	confirmedTxHex := output.Get("latestOutgoingTxHash").String()
+	assert.Equal(t, confirmedHash, common.HexToHash(confirmedTxHex))
 
 	ethMock.EventuallyAllCalled(t)
 }
