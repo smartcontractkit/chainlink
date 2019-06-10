@@ -10,6 +10,7 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
@@ -91,4 +92,34 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	eth.EventuallyAllCalled(t)
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() int32 { return atomic.LoadInt32(&count) }).Should(gomega.Equal(int32(2)))
+}
+
+func TestServices_ReceiveLogRequest_IgnoredLogWithRemovedFlag(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	jobSpec := cltest.NewJobWithLogInitiator()
+	require.NoError(t, store.CreateJob(&jobSpec))
+
+	log := models.InitiatorLogEvent{
+		JobSpec: jobSpec,
+		Log: models.Log{
+			Removed: true,
+		},
+	}
+
+	originalCount := 0
+	err := store.ORM.DB.Model(&models.JobRun{}).Count(&originalCount).Error
+	require.NoError(t, err)
+
+	services.ReceiveLogRequest(store, log)
+
+	gomega.NewGomegaWithT(t).Consistently(func() int {
+		count := 0
+		err := store.ORM.DB.Model(&models.JobRun{}).Count(&count).Error
+		require.NoError(t, err)
+		return count - originalCount
+	}).Should(gomega.Equal(0))
 }

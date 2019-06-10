@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -31,7 +32,7 @@ func ExecuteJob(
 }
 
 // ExecuteJobWithRunRequest saves and immediately begins executing a run
-// for a specified job if it is ready, assiging the passed initiator run.
+// for a specified job if it is ready, assigning the passed initiator run.
 func ExecuteJobWithRunRequest(
 	job models.JobSpec,
 	initiator models.Initiator,
@@ -48,7 +49,7 @@ func ExecuteJobWithRunRequest(
 
 	run, err := NewRun(job, initiator, input, creationHeight, store)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "NewRun failed")
 	}
 
 	run.RunRequest = runRequest
@@ -389,7 +390,7 @@ func updateAndTrigger(run *models.JobRun, store *store.Store) error {
 
 func createAndTrigger(run *models.JobRun, store *store.Store) error {
 	if err := store.CreateJobRun(run); err != nil {
-		return err
+		return errors.Wrap(err, "CreateJobRun failed")
 	}
 	return triggerIfReady(run, store)
 }
