@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/mock_services"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tevino/abool"
@@ -57,7 +58,7 @@ func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
 
 	jr := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingConnection)
 
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, utils.JustError(app.MockStartAndConnect()))
 	_ = cltest.WaitForJobRunToComplete(t, store, jr)
 }
 
@@ -73,7 +74,7 @@ func TestChainlinkApplication_resumesPendingConnection_Archived(t *testing.T) {
 
 	require.NoError(t, store.ArchiveJob(j.ID))
 
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, utils.JustError(app.MockStartAndConnect()))
 	_ = cltest.WaitForJobRunToComplete(t, store, jr)
 }
 

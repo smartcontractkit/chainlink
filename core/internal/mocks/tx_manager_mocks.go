@@ -187,6 +187,21 @@ func (mr *MockTxManagerMockRecorder) GetBlockByNumber(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByNumber", reflect.TypeOf((*MockTxManager)(nil).GetBlockByNumber), arg0)
 }
 
+// GetChainID mocks base method
+func (m *MockTxManager) GetChainID() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetChainID")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetChainID indicates an expected call of GetChainID
+func (mr *MockTxManagerMockRecorder) GetChainID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetChainID", reflect.TypeOf((*MockTxManager)(nil).GetChainID))
+}
+
 // GetEthBalance mocks base method
 func (m *MockTxManager) GetEthBalance(arg0 common.Address) (*assets.Eth, error) {
 	m.ctrl.T.Helper()
