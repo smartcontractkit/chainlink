@@ -134,6 +134,11 @@ func ReceiveLogRequest(store *strpkg.Store, le models.LogRequest) {
 		return
 	}
 
+	if le.GetLog().Removed {
+		logger.Debugw("Skipping run for removed log", "log", le.GetLog(), "jobId", le.GetJobSpec().ID)
+		return
+	}
+
 	le.ToDebug()
 	data, err := le.JSON()
 	if err != nil {
@@ -163,11 +168,6 @@ func runJob(store *strpkg.Store, le models.LogRequest, data models.JSON) {
 	if err != nil {
 		input.SetError(err)
 		logger.Errorw(err.Error(), le.ForLogger()...)
-	}
-
-	if le.GetLog().Removed {
-		logger.Debugw("Skipping run for removed log", "log", le.GetLog(), "jobId", le.GetJobSpec().ID)
-		return
 	}
 
 	_, err = ExecuteJobWithRunRequest(
