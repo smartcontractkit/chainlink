@@ -20,7 +20,7 @@ func TestWebSocketClient_StartCloseStart(t *testing.T) {
 	require.NoError(t, wsclient.Start())
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
-	})
+	}, 5*time.Second)
 	require.NoError(t, wsclient.Close())
 
 	// restart after client disconnect
@@ -39,7 +39,7 @@ func TestWebSocketClient_ReconnectLoop(t *testing.T) {
 	require.NoError(t, wsclient.Start())
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
-	})
+	}, 5*time.Second)
 
 	// reconnect after server disconnect
 	wsserver.WriteCloseMessage()
@@ -61,7 +61,7 @@ func TestWebSocketClient_Send(t *testing.T) {
 	wsclient.Send([]byte(expectation))
 	cltest.CallbackOrTimeout(t, "receive stats", func() {
 		require.Equal(t, expectation, <-wsserver.Received)
-	})
+	}, 3*time.Second)
 }
 
 func TestWebSocketClient_Authentiation(t *testing.T) {
@@ -82,7 +82,7 @@ func TestWebSocketClient_Authentiation(t *testing.T) {
 		headers := <-headerChannel
 		assert.Equal(t, []string{"accessKey"}, headers["X-Explore-Chainlink-Accesskey"])
 		assert.Equal(t, []string{"secret"}, headers["X-Explore-Chainlink-Secret"])
-	})
+	}, 3*time.Second)
 }
 
 func TestWebSocketClient_SendWithAck(t *testing.T) {
@@ -99,13 +99,13 @@ func TestWebSocketClient_SendWithAck(t *testing.T) {
 		require.Equal(t, expectation, <-wsserver.Received)
 		err := wsserver.Broadcast(`{"result": 200}`)
 		assert.NoError(t, err)
-	})
+	}, 3*time.Second)
 
 	cltest.CallbackOrTimeout(t, "receive response", func() {
 		response, err := wsclient.Receive()
 		assert.NoError(t, err)
 		assert.NotNil(t, response)
-	})
+	}, 3*time.Second)
 }
 
 func TestWebSocketClient_SendWithAckTimeout(t *testing.T) {
@@ -120,11 +120,11 @@ func TestWebSocketClient_SendWithAckTimeout(t *testing.T) {
 	wsclient.Send([]byte(expectation))
 	cltest.CallbackOrTimeout(t, "receive stats", func() {
 		require.Equal(t, expectation, <-wsserver.Received)
-	})
+	}, 3*time.Second)
 
 	cltest.CallbackOrTimeout(t, "receive response", func() {
 		_, err := wsclient.Receive(100 * time.Millisecond)
 		assert.Error(t, err)
 		assert.Equal(t, err, synchronization.ErrReceiveTimeout)
-	}, 300*time.Millisecond)
+	}, 3*time.Second)
 }
