@@ -3,6 +3,7 @@ package adapters
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -90,7 +91,10 @@ func createTxRunResult(
 		e.GasPrice.ToInt(),
 		e.GasLimit,
 	)
-	if err != nil {
+	if isClientRetriable(err) {
+		input.MarkPendingConnection()
+		return
+	} else if err != nil {
 		input.SetError(err)
 		return
 	}
@@ -187,4 +191,12 @@ func addReceiptToResult(receipt *models.TxReceipt, in *models.RunResult) {
 	receipts = append(receipts, *receipt)
 	in.Add("ethereumReceipts", receipts)
 	in.CompleteWithResult(receipt.Hash.String())
+}
+
+var (
+	clientRetryableErrorRegex = regexp.MustCompile("connection timed out")
+)
+
+func isClientRetriable(err error) bool {
+	return err != nil && clientRetryableErrorRegex.MatchString(err.Error())
 }
