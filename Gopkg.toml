@@ -154,6 +154,10 @@
   version = "1.5.0"
 
 [[constraint]]
+  name = "github.com/jinzhu/gorm"
+  branch = "master"
+
+[[constraint]]
   name = "github.com/ulule/limiter"
   branch = "v3-dep"
 
