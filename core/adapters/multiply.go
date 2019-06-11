@@ -49,6 +49,6 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	if ma.Times != nil {
 		i.Mul(i, big.NewFloat(float64(*ma.Times)))
 	}
-	input.ApplyResult(i.String())
+	input.CompleteWithResult(i.String())
 	return input
 }

@@ -64,7 +64,7 @@ func (p SyncJobRunPresenter) initiator() syncInitiatorPresenter {
 func (p SyncJobRunPresenter) tasks() ([]syncTaskRunPresenter, error) {
 	tasks := []syncTaskRunPresenter{}
 	for index, tr := range p.TaskRuns {
-		erp, err := fetchLastEthereumReceipt(tr)
+		erp, err := fetchLatestOutgoingTxHash(tr)
 		if err != nil {
 			return []syncTaskRunPresenter{}, err
 		}
@@ -81,12 +81,14 @@ func (p SyncJobRunPresenter) tasks() ([]syncTaskRunPresenter, error) {
 	return tasks, nil
 }
 
-func fetchLastEthereumReceipt(tr models.TaskRun) (*syncReceiptPresenter, error) {
+func fetchLatestOutgoingTxHash(tr models.TaskRun) (*syncReceiptPresenter, error) {
 	if tr.TaskSpec.Type == "ethtx" {
 		receipts := tr.Result.Data.Get("ethereumReceipts")
 		if receipts.IsArray() {
 			arr := receipts.Array()
 			return formatEthereumReceipt(arr[len(arr)-1].String())
+		} else if latestHash := tr.Result.Data.Get("latestOutgoingTxHash").String(); latestHash != "" {
+			return &syncReceiptPresenter{Hash: common.HexToHash(latestHash)}, nil
 		}
 	}
 	return nil, nil

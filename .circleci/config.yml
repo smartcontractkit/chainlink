@@ -38,7 +38,9 @@ jobs:
           key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
           paths:
             - ./vendor
-      - run: ./tools/ci/gorace_test
+      - run: ./tools/ci/gorace_test | tee /tmp/gorace_test.txt
+      - store_artifacts:
+          path: /tmp/gorace_test.txt
   go-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
