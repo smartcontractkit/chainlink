@@ -258,6 +258,17 @@ func TestQueryParameters(t *testing.T) {
 			},
 			"http://example.com?firstKey=firstVal&secondKey=secondVal",
 		},
+		{
+			"starting URL has existing params",
+			`"?firstKey=firstVal&secondKey=secondVal"`,
+			"http://example.com?firstKey=hardVal",
+			false,
+			adapters.QueryParameters{
+				"firstKey":  []string{"firstVal"},
+				"secondKey": []string{"secondVal"},
+			},
+			"http://example.com?firstKey=hardVal&secondKey=secondVal",
+		},
 	}
 
 	for _, tt := range cases {
@@ -266,11 +277,11 @@ func TestQueryParameters(t *testing.T) {
 			qp := adapters.QueryParameters{}
 			err := json.Unmarshal([]byte(test.queryParams), &qp)
 			hga := adapters.HTTPGet{
-				URL:         cltest.WebURL(t, baseUrl),
+				URL:         cltest.WebURL(t, test.startingUrl),
 				QueryParams: qp,
 			}
 			hpa := adapters.HTTPPost{
-				URL:         cltest.WebURL(t, baseUrl),
+				URL:         cltest.WebURL(t, test.startingUrl),
 				QueryParams: qp,
 			}
 			if test.wantErrored {

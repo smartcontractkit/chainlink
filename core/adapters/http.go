@@ -97,15 +97,15 @@ func (hpa *HTTPPost) GetRequest(body string) (*http.Request, error) {
 func appendQueryParams(request *http.Request, queryParams QueryParameters) {
 	q := request.URL.Query()
 	for k, v := range queryParams {
-		if !keyExists(k, request, queryParams) {
+		if !keyExists(k, q) {
 			q.Add(k, v[0])
 		}
 	}
 	request.URL.RawQuery = q.Encode()
 }
 
-func keyExists(key string, request *http.Request, queryParams QueryParameters) bool {
-	_, ok := request.URL.Query()[key]
+func keyExists(key string, query url.Values) bool {
+	_, ok := query[key]
 	return ok
 }
 
