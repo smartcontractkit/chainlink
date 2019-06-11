@@ -169,6 +169,7 @@ func recordLatestTxHash(receipt *models.TxReceipt, in *models.RunResult) {
 		return
 	}
 	hex := receipt.Hash.String()
+	in.ApplyResult(hex)
 	in.Add("latestOutgoingTxHash", hex)
 }
 
