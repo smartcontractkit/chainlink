@@ -1,27 +1,31 @@
 import React from 'react'
-import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { withStyles } from '@material-ui/core/styles'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
 import Card from '@material-ui/core/Card'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
-import { fetchJob, createJobRun } from 'actions'
-import Link from 'components/Link'
-import TimeAgo from 'components/TimeAgo'
 import classNames from 'classnames'
-import localizedTimestamp from 'utils/localizedTimestamp'
+import { fetchJob, createJobRun } from '../../actions'
+import localizedTimestamp from '../../utils/localizedTimestamp'
+import Link from '../Link'
+import TimeAgo from '../TimeAgo'
 
-const styles = theme => {
-  return {
+const styles = ({ palette, spacing }: Theme) =>
+  createStyles({
     container: {
-      backgroundColor: theme.palette.common.white,
-      padding: theme.spacing.unit * 5,
+      backgroundColor: palette.common.white,
+      padding: spacing.unit * 5,
       paddingBottom: 0
     },
     duplicate: {
-      margin: theme.spacing.unit
+      margin: spacing.unit
     },
     horizontalNav: {
       paddingBottom: 0
@@ -30,24 +34,30 @@ const styles = theme => {
       display: 'inline'
     },
     horizontalNavLink: {
-      paddingTop: theme.spacing.unit * 4,
-      paddingBottom: theme.spacing.unit * 4,
+      paddingTop: spacing.unit * 4,
+      paddingBottom: spacing.unit * 4,
       textDecoration: 'none',
       display: 'inline-block',
       borderBottom: 'solid 1px',
-      borderBottomColor: theme.palette.common.white,
+      borderBottomColor: palette.common.white,
       '&:hover': {
-        borderBottomColor: theme.palette.primary.main
+        borderBottomColor: palette.primary.main
       }
     },
     activeNavLink: {
-      color: theme.palette.primary.main,
-      borderBottomColor: theme.palette.primary.main
+      color: palette.primary.main,
+      borderBottomColor: palette.primary.main
     }
-  }
+  })
+
+interface IProps extends WithStyles<typeof styles> {
+  jobSpecId: string
+  jobRunId: string
+  jobRun?: any
+  url?: string
 }
 
-const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun, url }) => {
+const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun, url }: IProps) => {
   const navOverviewActive = url && !url.includes('json')
   const navDefinitionACtive = !navOverviewActive
   return (
@@ -70,7 +80,8 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun, url }) => {
           <Typography variant="subtitle2" color="textSecondary">
             {jobRun && (
               <React.Fragment>
-                Started <TimeAgo tooltip={false}>{jobRun.createdAt}</TimeAgo> ({localizedTimestamp(jobRun.createdAt)})
+                Started <TimeAgo tooltip={false}>{jobRun.createdAt}</TimeAgo> (
+                {localizedTimestamp(jobRun.createdAt)})
               </React.Fragment>
             )}
           </Typography>
@@ -104,12 +115,6 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun, url }) => {
       </Grid>
     </Card>
   )
-}
-
-RegionalNav.propTypes = {
-  jobSpecId: PropTypes.string.isRequired,
-  jobRunId: PropTypes.string.isRequired,
-  jobRun: PropTypes.object
 }
 
 const mapStateToProps = state => ({
