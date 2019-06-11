@@ -17,6 +17,49 @@ import localizedTimestamp from '../../utils/localizedTimestamp'
 import Link from '../Link'
 import TimeAgo from '../TimeAgo'
 
+const navItemStyles = ({ palette, spacing }: Theme) =>
+  createStyles({
+    item: {
+      display: 'inline'
+    },
+    link: {
+      paddingTop: spacing.unit * 4,
+      paddingBottom: spacing.unit * 4,
+      textDecoration: 'none',
+      display: 'inline-block',
+      borderBottom: 'solid 1px',
+      borderBottomColor: palette.common.white,
+      '&:hover': {
+        borderBottomColor: palette.primary.main
+      }
+    },
+    activeLink: {
+      color: palette.primary.main,
+      borderBottomColor: palette.primary.main
+    }
+  })
+
+interface INavItemProps extends WithStyles<typeof navItemStyles> {
+  children: React.ReactNode
+  to: string
+}
+
+const NavItem = withStyles(navItemStyles)(
+  ({ children, to, classes }: INavItemProps) => {
+    const pathname = global.document ? global.document.location.pathname : ''
+    const active = pathname === to
+    const className = classNames(classes.link, active && classes.activeLink)
+
+    return (
+      <ListItem className={classes.item}>
+        <Link to={to} className={className}>
+          {children}
+        </Link>
+      </ListItem>
+    )
+  }
+)
+
 const styles = ({ palette, spacing }: Theme) =>
   createStyles({
     container: {
@@ -29,24 +72,6 @@ const styles = ({ palette, spacing }: Theme) =>
     },
     horizontalNav: {
       paddingBottom: 0
-    },
-    horizontalNavItem: {
-      display: 'inline'
-    },
-    horizontalNavLink: {
-      paddingTop: spacing.unit * 4,
-      paddingBottom: spacing.unit * 4,
-      textDecoration: 'none',
-      display: 'inline-block',
-      borderBottom: 'solid 1px',
-      borderBottomColor: palette.common.white,
-      '&:hover': {
-        borderBottomColor: palette.primary.main
-      }
-    },
-    activeNavLink: {
-      color: palette.primary.main,
-      borderBottomColor: palette.primary.main
     }
   })
 
@@ -54,12 +79,9 @@ interface IProps extends WithStyles<typeof styles> {
   jobSpecId: string
   jobRunId: string
   jobRun?: any
-  url?: string
 }
 
-const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun, url }: IProps) => {
-  const navOverviewActive = url && !url.includes('json')
-  const navDefinitionACtive = !navOverviewActive
+const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }: IProps) => {
   return (
     <Card className={classes.container}>
       <Grid container spacing={0}>
@@ -88,28 +110,12 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun, url }: IProps) => {
         </Grid>
         <Grid item xs={12}>
           <List className={classes.horizontalNav}>
-            <ListItem className={classes.horizontalNavItem}>
-              <Link
-                to={`/jobs/${jobSpecId}/runs/id/${jobRunId}`}
-                className={classNames(
-                  classes.horizontalNavLink,
-                  navOverviewActive && classes.activeNavLink
-                )}
-              >
-                Overview
-              </Link>
-            </ListItem>
-            <ListItem className={classes.horizontalNavItem}>
-              <Link
-                to={`/jobs/${jobSpecId}/runs/id/${jobRunId}/json`}
-                className={classNames(
-                  classes.horizontalNavLink,
-                  navDefinitionACtive && classes.activeNavLink
-                )}
-              >
-                JSON
-              </Link>
-            </ListItem>
+            <NavItem to={`/jobs/${jobSpecId}/runs/id/${jobRunId}`}>
+              Overview
+            </NavItem>
+            <NavItem to={`/jobs/${jobSpecId}/runs/id/${jobRunId}/json`}>
+              JSON
+            </NavItem>
           </List>
         </Grid>
       </Grid>
@@ -117,12 +123,8 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun, url }: IProps) => {
   )
 }
 
-const mapStateToProps = state => ({
-  url: state.notifications.currentUrl
-})
-
 export const ConnectedRegionalNav = connect(
-  mapStateToProps,
+  null,
   { fetchJob, createJobRun }
 )(RegionalNav)
 
