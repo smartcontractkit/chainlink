@@ -2,8 +2,8 @@ package adapters
 
 import (
 	"bytes"
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -27,13 +27,11 @@ type HTTPGet struct {
 // Perform ensures that the adapter's URL responds to a GET request without
 // errors and returns the response body as the "value" field of the result.
 func (hga *HTTPGet) Perform(input models.RunResult, store *store.Store) models.RunResult {
-	request, err := http.NewRequest("GET", hga.GetURL(), nil)
+	request, err := hga.GetRequest()
 	if err != nil {
 		input.SetError(err)
 		return input
 	}
-	appendQueryParams(request, hga.QueryParams)
-	setHeaders(request, hga.Headers, "")
 	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
 }
 
@@ -43,6 +41,17 @@ func (hga *HTTPGet) GetURL() string {
 		return hga.GET.String()
 	}
 	return hga.URL.String()
+}
+
+// GetRequest returns the HTTP request including query parameters and headers
+func (hga *HTTPGet) GetRequest() (*http.Request, error) {
+	request, err := http.NewRequest("GET", hga.GetURL(), nil)
+	if err != nil {
+		return nil, err
+	}
+	appendQueryParams(request, hga.QueryParams)
+	setHeaders(request, hga.Headers, "")
+	return request, nil
 }
 
 // HTTPPost requires a URL which is used for a POST request when the adapter is called.
@@ -56,14 +65,11 @@ type HTTPPost struct {
 // Perform ensures that the adapter's URL responds to a POST request without
 // errors and returns the response body as the "value" field of the result.
 func (hpa *HTTPPost) Perform(input models.RunResult, store *store.Store) models.RunResult {
-	reqBody := bytes.NewBufferString(input.Data.String())
-	request, err := http.NewRequest("POST", hpa.GetURL(), reqBody)
+	request, err := hpa.GetRequest(input.Data.String())
 	if err != nil {
 		input.SetError(err)
 		return input
 	}
-	appendQueryParams(request, hpa.QueryParams)
-	setHeaders(request, hpa.Headers, "application/json")
 	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
 }
 
@@ -73,6 +79,19 @@ func (hpa *HTTPPost) GetURL() string {
 		return hpa.POST.String()
 	}
 	return hpa.URL.String()
+}
+
+// GetRequest takes the request body and returns the HTTP request including
+// query parameters and headers
+func (hpa *HTTPPost) GetRequest(body string) (*http.Request, error) {
+	reqBody := bytes.NewBufferString(body)
+	request, err := http.NewRequest("POST", hpa.GetURL(), reqBody)
+	if err != nil {
+		return nil, err
+	}
+	appendQueryParams(request, hpa.QueryParams)
+	setHeaders(request, hpa.Headers, "application/json")
+	return request, nil
 }
 
 func appendQueryParams(request *http.Request, queryParams QueryParameters) {
@@ -222,7 +241,7 @@ func (qp *QueryParameters) UnmarshalJSON(input []byte) error {
 }
 
 func splitQueryString(r rune) bool {
-    return r == '=' || r == '&'
+	return r == '=' || r == '&'
 }
 
 func trimQuestion(input string) string {
@@ -231,7 +250,7 @@ func trimQuestion(input string) string {
 
 func buildValues(input []string) (url.Values, error) {
 	values := url.Values{}
-	if len(input) % 2 != 0 {
+	if len(input)%2 != 0 {
 		return nil, fmt.Errorf("invalid number of parameters: %s", input)
 	}
 	for i := 0; i < len(input); i = i + 2 {

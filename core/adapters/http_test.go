@@ -82,8 +82,8 @@ func TestHTTPGet_Perform(t *testing.T) {
 			defer cleanup()
 
 			hga := adapters.HTTPGet{
-				URL: cltest.WebURL(t, mock.URL),
-				Headers: test.headers,
+				URL:         cltest.WebURL(t, mock.URL),
+				Headers:     test.headers,
 				QueryParams: test.queryParams,
 			}
 			assert.Equal(t, test.queryParams, hga.QueryParams)
@@ -172,8 +172,8 @@ func TestHttpPost_Perform(t *testing.T) {
 			defer cleanup()
 
 			hpa := adapters.HTTPPost{
-				URL: cltest.WebURL(t, mock.URL),
-				Headers: test.headers,
+				URL:         cltest.WebURL(t, mock.URL),
+				Headers:     test.headers,
 				QueryParams: test.queryParams,
 			}
 			assert.Equal(t, test.queryParams, hpa.QueryParams)
@@ -195,22 +195,30 @@ func TestQueryParameters(t *testing.T) {
 	baseUrl := "http://example.com"
 
 	cases := []struct {
-		name        string
-		queryParams string
-		startingUrl	string
-		wantErrored bool
-		expected    adapters.QueryParameters
+		name           string
+		queryParams    string
+		startingUrl    string
+		wantErrored    bool
+		expectedParams adapters.QueryParameters
+		expectedURL    string
 	}{
-		{"empty", `""`, baseUrl, false, adapters.QueryParameters{}},
+		{"empty",
+			`""`,
+			baseUrl,
+			false,
+			adapters.QueryParameters{},
+			baseUrl,
+		},
 		{
 			"array of params",
 			`["firstKey","firstVal","secondKey","secondVal"]`,
 			baseUrl,
 			false,
 			adapters.QueryParameters{
-				"firstKey": []string{"firstVal"},
+				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
 			},
+			"http://example.com?firstKey=firstVal&secondKey=secondVal",
 		},
 		{
 			"string of params",
@@ -218,9 +226,10 @@ func TestQueryParameters(t *testing.T) {
 			baseUrl,
 			false,
 			adapters.QueryParameters{
-				"firstKey": []string{"firstVal"},
+				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
 			},
+			"http://example.com?firstKey=firstVal&secondKey=secondVal",
 		},
 		{
 			"odd number of params",
@@ -228,6 +237,7 @@ func TestQueryParameters(t *testing.T) {
 			baseUrl,
 			true,
 			adapters.QueryParameters{},
+			baseUrl,
 		},
 		{
 			"bad format of string",
@@ -235,6 +245,7 @@ func TestQueryParameters(t *testing.T) {
 			baseUrl,
 			true,
 			adapters.QueryParameters{},
+			baseUrl,
 		},
 		{
 			"string has question mark",
@@ -242,9 +253,10 @@ func TestQueryParameters(t *testing.T) {
 			baseUrl,
 			false,
 			adapters.QueryParameters{
-				"firstKey": []string{"firstVal"},
+				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
 			},
+			"http://example.com?firstKey=firstVal&secondKey=secondVal",
 		},
 	}
 
@@ -254,14 +266,28 @@ func TestQueryParameters(t *testing.T) {
 			qp := adapters.QueryParameters{}
 			err := json.Unmarshal([]byte(test.queryParams), &qp)
 			hga := adapters.HTTPGet{
-				URL: cltest.WebURL(t, baseUrl),
+				URL:         cltest.WebURL(t, baseUrl),
+				QueryParams: qp,
+			}
+			hpa := adapters.HTTPPost{
+				URL:         cltest.WebURL(t, baseUrl),
 				QueryParams: qp,
 			}
 			if test.wantErrored {
-				assert.Equal(t, test.expected, hga.QueryParams)
+				requestGET, _ := hga.GetRequest()
+				assert.Equal(t, test.expectedURL, requestGET.URL.String())
+				assert.Equal(t, test.expectedParams, hga.QueryParams)
+				requestPOST, _ := hpa.GetRequest("")
+				assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+				assert.Equal(t, test.expectedParams, hpa.QueryParams)
 				assert.NotNil(t, err)
 			} else {
-				assert.Equal(t, test.expected, hga.QueryParams)
+				requestGET, _ := hga.GetRequest()
+				assert.Equal(t, test.expectedURL, requestGET.URL.String())
+				assert.Equal(t, test.expectedParams, hga.QueryParams)
+				requestPOST, _ := hpa.GetRequest("")
+				assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+				assert.Equal(t, test.expectedParams, hpa.QueryParams)
 				assert.Nil(t, err)
 			}
 		})
