@@ -2,32 +2,36 @@ package adapters
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {
-	URL     models.WebURL `json:"url"`
-	GET     models.WebURL `json:"get"`
-	Headers http.Header   `json:"headers"`
+	URL         models.WebURL   `json:"url"`
+	GET         models.WebURL   `json:"get"`
+	Headers     http.Header     `json:"headers"`
+	QueryParams QueryParameters `json:"queryParams"`
 }
 
 // Perform ensures that the adapter's URL responds to a GET request without
 // errors and returns the response body as the "value" field of the result.
 func (hga *HTTPGet) Perform(input models.RunResult, store *store.Store) models.RunResult {
-	request, err := http.NewRequest("GET", hga.GetURL(), nil)
+	request, err := hga.GetRequest()
 	if err != nil {
 		input.SetError(err)
 		return input
 	}
-	setHeaders(request, hga.Headers, "")
 	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
 }
 
@@ -39,23 +43,33 @@ func (hga *HTTPGet) GetURL() string {
 	return hga.URL.String()
 }
 
+// GetRequest returns the HTTP request including query parameters and headers
+func (hga *HTTPGet) GetRequest() (*http.Request, error) {
+	request, err := http.NewRequest("GET", hga.GetURL(), nil)
+	if err != nil {
+		return nil, err
+	}
+	appendQueryParams(request, hga.QueryParams)
+	setHeaders(request, hga.Headers, "")
+	return request, nil
+}
+
 // HTTPPost requires a URL which is used for a POST request when the adapter is called.
 type HTTPPost struct {
-	URL     models.WebURL `json:"url"`
-	POST    models.WebURL `json:"post"`
-	Headers http.Header   `json:"headers"`
+	URL         models.WebURL   `json:"url"`
+	POST        models.WebURL   `json:"post"`
+	Headers     http.Header     `json:"headers"`
+	QueryParams QueryParameters `json:"queryParams"`
 }
 
 // Perform ensures that the adapter's URL responds to a POST request without
 // errors and returns the response body as the "value" field of the result.
 func (hpa *HTTPPost) Perform(input models.RunResult, store *store.Store) models.RunResult {
-	reqBody := bytes.NewBufferString(input.Data.String())
-	request, err := http.NewRequest("POST", hpa.GetURL(), reqBody)
+	request, err := hpa.GetRequest(input.Data.String())
 	if err != nil {
 		input.SetError(err)
 		return input
 	}
-	setHeaders(request, hpa.Headers, "application/json")
 	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
 }
 
@@ -65,6 +79,34 @@ func (hpa *HTTPPost) GetURL() string {
 		return hpa.POST.String()
 	}
 	return hpa.URL.String()
+}
+
+// GetRequest takes the request body and returns the HTTP request including
+// query parameters and headers
+func (hpa *HTTPPost) GetRequest(body string) (*http.Request, error) {
+	reqBody := bytes.NewBufferString(body)
+	request, err := http.NewRequest("POST", hpa.GetURL(), reqBody)
+	if err != nil {
+		return nil, err
+	}
+	appendQueryParams(request, hpa.QueryParams)
+	setHeaders(request, hpa.Headers, "application/json")
+	return request, nil
+}
+
+func appendQueryParams(request *http.Request, queryParams QueryParameters) {
+	q := request.URL.Query()
+	for k, v := range queryParams {
+		if !keyExists(k, q) {
+			q.Add(k, v[0])
+		}
+	}
+	request.URL.RawQuery = q.Encode()
+}
+
+func keyExists(key string, query url.Values) bool {
+	_, ok := query[key]
+	return ok
 }
 
 func setHeaders(request *http.Request, headers http.Header, contentType string) {
@@ -164,4 +206,55 @@ func (mbr *maxBytesReader) tooLarge() (int, error) {
 
 func (mbr *maxBytesReader) Close() error {
 	return mbr.rc.Close()
+}
+
+// QueryParameters are the keys and values to append to the URL
+type QueryParameters url.Values
+
+// UnmarshalJSON implements the Unmarshaler interface
+func (qp *QueryParameters) UnmarshalJSON(input []byte) error {
+	values := url.Values{}
+	strs := []string{}
+	var err error
+
+	// input is a string like "someKey0=someVal0&someKey1=someVal1"
+	if utils.IsQuoted(input) {
+		var decoded string
+		err := json.Unmarshal(input, &decoded)
+		if err != nil {
+			return fmt.Errorf("unable to unmarshal query parameters: %s", input)
+		}
+		strs = strings.FieldsFunc(trimQuestion(decoded), splitQueryString)
+
+	// input is an array of strings like
+	// ["someKey0", "someVal0", "someKey1", "someVal1"]
+	} else {
+		err = json.Unmarshal(input, &strs)
+	}
+
+	values, err = buildValues(strs)
+	if err != nil {
+		return fmt.Errorf("unable to build query parameters: %s", input)
+	}
+	*qp = QueryParameters(values)
+	return err
+}
+
+func splitQueryString(r rune) bool {
+	return r == '=' || r == '&'
+}
+
+func trimQuestion(input string) string {
+	return strings.Replace(input, "?", "", -1)
+}
+
+func buildValues(input []string) (url.Values, error) {
+	values := url.Values{}
+	if len(input)%2 != 0 {
+		return nil, fmt.Errorf("invalid number of parameters: %s", input)
+	}
+	for i := 0; i < len(input); i = i + 2 {
+		values.Add(input[i], input[i+1])
+	}
+	return values, nil
 }
