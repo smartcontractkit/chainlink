@@ -185,5 +185,5 @@ func addReceiptToResult(receipt *models.TxReceipt, in *models.RunResult) {
 
 	receipts = append(receipts, *receipt)
 	in.Add("ethereumReceipts", receipts)
-	in.ApplyResult(receipt.Hash.String())
+	in.CompleteWithResult(receipt.Hash.String())
 }

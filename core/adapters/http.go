@@ -102,7 +102,7 @@ func sendRequest(input models.RunResult, request *http.Request, limit int64) mod
 		return input
 	}
 
-	input.ApplyResult(responseBody)
+	input.CompleteWithResult(responseBody)
 	return input
 }
 
