@@ -410,7 +410,8 @@
   version = "v1.0"
 
 [[projects]]
-  digest = "1:ac0cf20506076f1243a12c66052b862988915b1cd41881987addf0da946077c6"
+  branch = "master"
+  digest = "1:3fe3e9cf80e997a2a0a8b280711bcc832d527b0b01a552e8bb3b3ed3592326d5"
   name = "github.com/jinzhu/gorm"
   packages = [
     ".",
@@ -418,8 +419,7 @@
     "dialects/sqlite",
   ]
   pruneopts = ""
-  revision = "b7156195f7f3415f97c20abbd6aff894b847fee8"
-  version = "v1.9.8"
+  revision = "712c4655605f094d283047501ae613db9c798850"
 
 [[projects]]
   branch = "master"
@@ -587,11 +587,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f3c6d48db6804c1523627370e2f506dbf89303c5b848383ca757beec36033898"
+  digest = "1:0242ec37c1d6cba3bdf78f9bce27cc3247859ccc1c4613940011c9f4a8be69ba"
   name = "github.com/olekukonko/tablewriter"
   packages = ["."]
   pruneopts = ""
-  revision = "1c0837c15a0bac7871496dfce5dcdd308e0a330f"
+  revision = "195002e6e56a4077c291aef35ff88ff39b8a074d"
 
 [[projects]]
   digest = "1:dbafce2fddb1ca331646fe2ac9c9413980368b19a60a4406a6e5861680bd73be"

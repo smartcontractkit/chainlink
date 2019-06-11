@@ -511,6 +511,28 @@ func NewTx(tx *models.Tx) Tx {
 	}
 }
 
+// NewTxFromAttempt builds a transaction presenter from a TxAttempt
+//
+// models.Tx represents a transaction in progress, with a series of
+// models.TxAttempts, each one of these represents an ethereum transaction. A
+// TxAttempt only stores the unique details of an ethereum transaction, with
+// the rest of the details on its related Tx.
+//
+// So for presenting a TxAttempt, we take its Hash, GasPrice etc. and get the
+// rest of the details from its Tx.
+//
+// NOTE: We take a copy here as we don't want side effects.
+//
+func NewTxFromAttempt(txAttempt models.TxAttempt) Tx {
+	tx := txAttempt.Tx
+	tx.Hash = txAttempt.Hash
+	tx.GasPrice = txAttempt.GasPrice
+	tx.Confirmed = txAttempt.Confirmed
+	tx.SentAt = txAttempt.SentAt
+	tx.SignedRawTx = txAttempt.SignedRawTx
+	return NewTx(tx)
+}
+
 // GetID returns the jsonapi ID.
 func (t Tx) GetID() string {
 	return t.Hash.String()

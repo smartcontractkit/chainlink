@@ -20,10 +20,10 @@ type EthBool struct{}
 func (*EthBool) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	r := input.Result()
 	if boolean(r.Type) {
-		input.ApplyResult(evmTrue)
+		input.CompleteWithResult(evmTrue)
 		return input
 	}
-	input.ApplyResult(evmFalse)
+	input.CompleteWithResult(evmFalse)
 	return input
 }
 

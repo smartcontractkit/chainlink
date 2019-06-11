@@ -105,10 +105,11 @@ func (tx *Tx) String() string {
 // for the first time
 func (tx *Tx) AfterCreate(db *gorm.DB) (err error) {
 	attempt := TxAttempt{
-		TxID:     tx.ID,
-		Hash:     tx.Hash,
-		GasPrice: tx.GasPrice,
-		SentAt:   tx.SentAt,
+		TxID:        tx.ID,
+		Hash:        tx.Hash,
+		GasPrice:    tx.GasPrice,
+		SentAt:      tx.SentAt,
+		SignedRawTx: tx.SignedRawTx,
 	}
 	tx.Attempts = []*TxAttempt{&attempt}
 	return db.Create(&attempt).Error
@@ -132,8 +133,11 @@ func (tx Tx) EthTx(gasPriceWei *big.Int) *types.Transaction {
 // it so that if the network is busy, a transaction can be
 // resubmitted with a higher GasPrice.
 type TxAttempt struct {
-	ID        uint64    `gorm:"primary_key;auto_increment"`
-	TxID      uint64    `gorm:"index;type:bigint REFERENCES txes(id) ON DELETE CASCADE"`
+	ID uint64 `gorm:"primary_key;auto_increment"`
+
+	TxID uint64 `gorm:"index;type:bigint REFERENCES txes(id) ON DELETE CASCADE"`
+	Tx   *Tx    `json:"-" gorm:"PRELOAD:false;foreignkey:TxID"`
+
 	CreatedAt time.Time `gorm:"index;not null"`
 
 	Hash        common.Hash `gorm:"index;not null"`

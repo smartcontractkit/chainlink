@@ -154,8 +154,9 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 		path string
 		want string
 	}{
-		{"fulfilled", "testdata/fulfilledReceiptResponse.json", "fulfilledRunLog"},
-		{"not fulfilled", "testdata/notFulfilledReceiptResponse.json", "noFulfilledRunLog"},
+		{"confirmed", "testdata/confirmedEthTxData.json", ""},
+		{"safe fulfilled", "testdata/fulfilledReceiptResponse.json", "fulfilledRunLog"},
+		{"safe not fulfilled", "testdata/notFulfilledReceiptResponse.json", "noFulfilledRunLog"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -163,7 +164,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 			requestID := "RequestID"
 			requestTxHash := common.HexToHash("0xdeadbeef")
 			dataJSON := jsonFromFixture(t, test.path)
-			fulfillmentTxHash := "0x1111111111111111111111111111111111111111111111111111111111111111"
+			outgoingTxHash := "0x1111111111111111111111111111111111111111111111111111111111111111"
 
 			taskSpec := models.TaskSpec{
 				Type: "ethtx",
@@ -209,7 +210,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 
 			txresult := task0["result"].Map()
 			assert.Equal(t, test.want, txresult["transactionStatus"].String())
-			assert.Equal(t, fulfillmentTxHash, txresult["transactionHash"].String())
+			assert.Equal(t, outgoingTxHash, txresult["transactionHash"].String())
 		})
 	}
 }
