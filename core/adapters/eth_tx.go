@@ -7,7 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -197,6 +199,10 @@ var (
 	clientRetryableErrorRegex = regexp.MustCompile("connection timed out")
 )
 
+// isClientRetriable does its best effort to see if an error indicates one that
+// might have a different outcome if we retried the operation
 func isClientRetriable(err error) bool {
-	return err != nil && clientRetryableErrorRegex.MatchString(err.Error())
+	return err != nil &&
+		(errors.Cause(err) == store.ErrPendingConnection ||
+			clientRetryableErrorRegex.MatchString(err.Error()))
 }
