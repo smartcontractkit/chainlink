@@ -33,6 +33,10 @@ const JobRunsShowJson = universal(
   import('./containers/JobRuns/ShowJson'),
   uniOpts
 )
+const JobRunsShowErrorLog = universal(
+  import('./containers/JobRuns/ShowErrorLog'),
+  uniOpts
+)
 const TransactionsIndex = universal(
   import('./containers/Transactions/Index'),
   uniOpts
@@ -131,6 +135,11 @@ class Private extends React.Component {
                   exact
                   path="/jobs/:jobSpecId/runs/id/:jobRunId/json"
                   component={JobRunsShowJson}
+                />
+                <PrivateRoute
+                  exact
+                  path="/jobs/:jobSpecId/runs/id/:jobRunId/error_log"
+                  component={JobRunsShowErrorLog}
                 />
                 <PrivateRoute exact path="/bridges" component={BridgesIndex} />
                 <PrivateRoute

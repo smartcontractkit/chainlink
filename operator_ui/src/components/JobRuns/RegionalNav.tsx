@@ -36,23 +36,38 @@ const navItemStyles = ({ palette, spacing }: Theme) =>
     activeLink: {
       color: palette.primary.main,
       borderBottomColor: palette.primary.main
+    },
+    error: {
+      color: palette.error.main,
+      '&:hover': {
+        borderBottomColor: palette.error.main
+      }
+    },
+    errorAndActiveLink: {
+      borderBottomColor: palette.error.main
     }
   })
 
 interface INavItemProps extends WithStyles<typeof navItemStyles> {
   children: React.ReactNode
   to: string
+  error?: boolean
 }
 
 const NavItem = withStyles(navItemStyles)(
-  ({ children, to, classes }: INavItemProps) => {
+  ({ children, to, classes, error }: INavItemProps) => {
     const pathname = global.document ? global.document.location.pathname : ''
     const active = pathname === to
-    const className = classNames(classes.link, active && classes.activeLink)
+    const linkClasses = classNames(
+      classes.link,
+      error && classes.error,
+      active && classes.activeLink,
+      error && active && classes.errorAndActiveLink
+    )
 
     return (
       <ListItem className={classes.item}>
-        <Link to={to} className={className}>
+        <Link to={to} className={linkClasses}>
           {children}
         </Link>
       </ListItem>
@@ -116,6 +131,14 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }: IProps) => {
             <NavItem to={`/jobs/${jobSpecId}/runs/id/${jobRunId}/json`}>
               JSON
             </NavItem>
+            {jobRun && jobRun.status === 'errored' && (
+              <NavItem
+                to={`/jobs/${jobSpecId}/runs/id/${jobRunId}/error_log`}
+                error
+              >
+                Error Log
+              </NavItem>
+            )}
           </List>
         </Grid>
       </Grid>
