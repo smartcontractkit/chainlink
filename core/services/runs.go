@@ -148,7 +148,7 @@ func ResumeConfirmingTask(
 
 	logger.Debugw("New head resuming run", run.ForLogger()...)
 
-	if !run.Status.PendingConfirmations() {
+	if !run.Status.PendingConfirmations() && !run.Status.PendingConnection() {
 		return fmt.Errorf("Attempt to resume non confirming task")
 	}
 
