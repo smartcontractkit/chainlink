@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"syscall"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -590,7 +591,7 @@ func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testin
 		gomock.Any(),
 		gomock.Any(),
 		gomock.Any(),
-	).Return(nil, errors.New("connection timed out"))
+	).Return(nil, syscall.ETIMEDOUT)
 
 	adapter := adapters.EthTx{}
 	input := models.RunResult{}
@@ -621,7 +622,7 @@ func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T
 	).Return(&models.Tx{
 		Attempts: []*models.TxAttempt{&models.TxAttempt{}},
 	}, nil)
-	txmMock.EXPECT().CheckAttempt(gomock.Any(), gomock.Any()).Return(nil, strpkg.Unknown, errors.New("connection reset by peer"))
+	txmMock.EXPECT().CheckAttempt(gomock.Any(), gomock.Any()).Return(nil, strpkg.Unknown, syscall.EWOULDBLOCK)
 
 	adapter := adapters.EthTx{}
 	input := models.RunResult{}
@@ -780,4 +781,28 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 	assert.Len(t, txs[0].Attempts, 1)
 
 	ethMock.EventuallyAllCalled(t)
+}
+
+func TestEthTxAdapter_IsClientRetriable(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		error     error
+		retriable bool
+	}{
+		{"nil error", nil, false},
+		{"http invalid method", errors.New("net/http: invalid method SGET"), false},
+		{"syscall.ECONNRESET", syscall.ECONNRESET, false},
+		{"syscall.ECONNABORTED", syscall.ECONNABORTED, false},
+		{"syscall.EWOULDBLOCK", syscall.EWOULDBLOCK, true},
+		{"syscall.ETIMEDOUT", syscall.ETIMEDOUT, true},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.retriable, adapters.IsClientRetriable(test.error))
+		})
+	}
 }

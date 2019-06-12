@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"regexp"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -94,7 +93,7 @@ func createTxRunResult(
 		e.GasPrice.ToInt(),
 		e.GasLimit,
 	)
-	if isClientRetriable(err) {
+	if IsClientRetriable(err) {
 		input.MarkPendingConnection()
 		return
 	} else if err != nil {
@@ -112,7 +111,7 @@ func createTxRunResult(
 	)
 
 	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
-	if isClientRetriable(err) {
+	if IsClientRetriable(err) {
 		input.MarkPendingConnection()
 		return
 	} else if err != nil {
@@ -199,22 +198,16 @@ func addReceiptToResult(receipt *models.TxReceipt, in *models.RunResult) {
 	in.CompleteWithResult(receipt.Hash.String())
 }
 
-var (
-	clientRetryableErrorRegex = regexp.MustCompile("(connection timed out|connection reset by peer|Client.Timeout exceeded while awaiting headers)")
-)
-
-// isClientRetriable does its best effort to see if an error indicates one that
+// IsClientRetriable does its best effort to see if an error indicates one that
 // might have a different outcome if we retried the operation
-func isClientRetriable(err error) bool {
+func IsClientRetriable(err error) bool {
 	if err == nil {
 		return false
 	}
 
-	if net, ok := err.(net.Error); ok {
-		return net.Timeout() || net.Temporary()
+	if err, ok := err.(net.Error); ok {
+		return err.Timeout() || err.Temporary()
 	} else if errors.Cause(err) == store.ErrPendingConnection {
-		return true
-	} else if clientRetryableErrorRegex.MatchString(err.Error()) {
 		return true
 	}
 
