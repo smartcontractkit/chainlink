@@ -1,4 +1,4 @@
-export function AuthenticationError(response) {
+export function AuthenticationError(response: Response) {
   this.errors = [
     {
       status: response.status,
@@ -11,7 +11,7 @@ export function BadRequestError({ errors }) {
   this.errors = errors
 }
 
-export function ServerError(response) {
+export function ServerError(response: Response) {
   this.errors = [
     {
       status: response.status,
@@ -20,7 +20,7 @@ export function ServerError(response) {
   ]
 }
 
-export function UnknownResponseError(response) {
+export function UnknownResponseError(response: Response) {
   this.errors = [
     {
       status: response.status,
