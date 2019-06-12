@@ -24,6 +24,8 @@ type CallerSubscriber interface {
 	EthSubscribe(context.Context, interface{}, ...interface{}) (models.EthSubscription, error)
 }
 
+//go:generate mockgen -package=mocks -destination=../internal/mocks/caller_subscriber_mocks.go github.com/smartcontractkit/chainlink/core/store CallerSubscriber
+
 // GetNonce returns the nonce (transaction count) for a given address.
 func (eth *EthClient) GetNonce(address common.Address) (uint64, error) {
 	result := ""

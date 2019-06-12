@@ -39,6 +39,14 @@ func (ta *TestApplication) MockEthClient(flags ...string) *EthMock {
 	return MockEthOnStore(ta.t, ta.Store, flags...)
 }
 
+func (ta *TestApplication) InjectEthClient(ethClient store.CallerSubscriber) {
+	if txm, ok := ta.Store.TxManager.(*store.EthTxManager); ok {
+		txm.EthClient = &store.EthClient{CallerSubscriber: ethClient}
+	} else {
+		log.Panic("MockEthOnStore only works on EthTxManager")
+	}
+}
+
 // MockEthOnStore given store return new EthMock Client
 func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 	mock := &EthMock{t: t}
@@ -219,7 +227,7 @@ func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) 
 
 	sub := MockSubscription{
 		name:    name,
-		channel: channel,
+		Channel: channel,
 		Errors:  make(chan error, 1),
 	}
 	mock.mutex.Lock()
@@ -252,9 +260,9 @@ func (mock *EthMock) EthSubscribe(
 			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)
 			switch channel.(type) {
 			case chan<- models.Log:
-				fwdLogs(channel, sub.channel)
+				fwdLogs(channel, sub.Channel)
 			case chan<- models.BlockHeader:
-				fwdHeaders(channel, sub.channel)
+				fwdHeaders(channel, sub.Channel)
 			default:
 				return nil, errors.New("Channel type not supported by ethMock")
 			}
@@ -267,7 +275,7 @@ func (mock *EthMock) EthSubscribe(
 	} else if args[0] == "logs" && !mock.logsCalled {
 		mock.logsCalled = true
 		return MockSubscription{
-			channel: make(chan models.Log),
+			Channel: make(chan models.Log),
 			Errors:  make(chan error),
 		}, nil
 	} else if args[0] == "newHeads" {
@@ -317,13 +325,13 @@ func fwdHeaders(actual, mock interface{}) {
 // MockSubscription a mock subscription
 type MockSubscription struct {
 	name    string
-	channel interface{}
+	Channel interface{}
 	Errors  chan error
 }
 
 // EmptyMockSubscription return empty MockSubscription
 func EmptyMockSubscription() MockSubscription {
-	return MockSubscription{Errors: make(chan error, 1), channel: make(chan struct{})}
+	return MockSubscription{Errors: make(chan error, 1), Channel: make(chan struct{})}
 }
 
 // Err returns error channel from mes
@@ -331,15 +339,15 @@ func (mes MockSubscription) Err() <-chan error { return mes.Errors }
 
 // Unsubscribe closes the subscription
 func (mes MockSubscription) Unsubscribe() {
-	switch mes.channel.(type) {
+	switch mes.Channel.(type) {
 	case chan struct{}:
-		close(mes.channel.(chan struct{}))
+		close(mes.Channel.(chan struct{}))
 	case chan models.Log:
-		close(mes.channel.(chan models.Log))
+		close(mes.Channel.(chan models.Log))
 	case chan models.BlockHeader:
-		close(mes.channel.(chan models.BlockHeader))
+		close(mes.Channel.(chan models.BlockHeader))
 	default:
-		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
+		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.Channel))
 	}
 	close(mes.Errors)
 }

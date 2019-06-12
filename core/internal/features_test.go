@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -138,97 +140,109 @@ func TestIntegration_FeeBump(t *testing.T) {
 	thirdTxSafeAt := thirdTxSentAt + config.MinOutgoingConfirmations()
 
 	newHeads := make(chan models.BlockHeader)
-	eth := app.MockEthClient(cltest.Strict)
-	eth.Context("app.Start()", func(eth *cltest.EthMock) {
-		eth.RegisterSubscription("newHeads", newHeads)
-		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
-	})
+	mockEthSubscription := cltest.MockSubscription{Errors: make(chan error, 1), Channel: newHeads}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	eth := mocks.NewMockCallerSubscriber(ctrl)
+	app.InjectEthClient(eth)
+
+	readyForNextHead := make(chan struct{})
+	triggerNextHead := func(...interface{}) { readyForNextHead <- struct{}{} }
+	waitForNextHead := func() { <-readyForNextHead }
+
+	gomock.InOrder(
+		eth.EXPECT().EthSubscribe(gomock.Any(), gomock.Any(), "newHeads").Return(mockEthSubscription, nil),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionCount", gomock.Any(), "latest").SetArg(0, "0x100").Do(triggerNextHead),
+	)
 	assert.NoError(t, app.Start())
-	eth.EventuallyAllCalled(t)
+
+	cltest.CallbackOrTimeout(t, "waiting for last mock call", waitForNextHead, 3*time.Second)
 
 	// This first run of the EthTx adapter creates an initial transaction which
 	// starts unconfirmed
-	eth.Context("ethTx.Perform()#1", func(eth *cltest.EthMock) {
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(firstTxSentAt))
-		eth.Register("eth_sendRawTransaction", attempt1Hash)
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-	})
+	gomock.InOrder(
+		eth.EXPECT().Call(gomock.Any(), "eth_blockNumber").SetArg(0, utils.Uint64ToHex(firstTxSentAt)),
+		eth.EXPECT().Call(gomock.Any(), "eth_sendRawTransaction", attempt1Hash).SetArg(0, attempt1Hash),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionReceipt", attempt1Hash).SetArg(0, unconfirmedReceipt).Do(triggerNextHead),
+	)
+
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
 	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
-	eth.EventuallyAllCalled(t)
+	cltest.CallbackOrTimeout(t, "waiting for last mock call", waitForNextHead, 3*time.Second)
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
 	// At the next head, the transaction is still unconfirmed, but no thresholds
 	// have been met so we just wait...
-	eth.Context("ethTx.Perform()#2", func(eth *cltest.EthMock) {
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(firstTxRemainsUnconfirmedAt))
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-	})
+	gomock.InOrder(
+		eth.EXPECT().Call(gomock.Any(), "eth_blockNumber", gomock.Any(), "latest").SetArg(0, utils.Uint64ToHex(firstTxSentAt)),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionReceipt", attempt1Hash).SetArg(0, unconfirmedReceipt).Do(triggerNextHead),
+	)
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(firstTxRemainsUnconfirmedAt)}
-	eth.EventuallyAllCalled(t)
+	cltest.CallbackOrTimeout(t, "waiting for last mock call", waitForNextHead, 3*time.Second)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
 	// At the next head, the transaction remains unconfirmed but the gas bump
 	// threshold has been met, so a new transaction is made with a higher amount
 	// of gas ("bumped gas")
-	eth.Context("ethTx.Perform()#3", func(eth *cltest.EthMock) {
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(firstTxGasBumpAt))
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_sendRawTransaction", attempt2Hash)
-	})
+	gomock.InOrder(
+		eth.EXPECT().Call(gomock.Any(), "eth_blockNumber", gomock.Any(), "latest").SetArg(0, utils.Uint64ToHex(firstTxGasBumpAt)),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionReceipt", attempt1Hash).SetArg(0, unconfirmedReceipt),
+		eth.EXPECT().Call(gomock.Any(), "eth_sendRawTransaction", attempt2Hash).SetArg(0, attempt2Hash).Do(triggerNextHead),
+	)
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(firstTxGasBumpAt)}
-	eth.EventuallyAllCalled(t)
+	cltest.CallbackOrTimeout(t, "waiting for last mock call", waitForNextHead, 3*time.Second)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 2)
 
 	// Another head comes in and both transactions are still unconfirmed, more
 	// waiting...
-	eth.Context("ethTx.Perform()#4", func(eth *cltest.EthMock) {
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(secondTxRemainsUnconfirmedAt))
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-	})
+	gomock.InOrder(
+		eth.EXPECT().Call(gomock.Any(), "eth_blockNumber", gomock.Any(), "latest").SetArg(0, utils.Uint64ToHex(secondTxRemainsUnconfirmedAt)),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionReceipt", attempt1Hash).SetArg(0, unconfirmedReceipt),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionReceipt", attempt2Hash).SetArg(0, unconfirmedReceipt).Do(triggerNextHead),
+	)
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(secondTxRemainsUnconfirmedAt)}
-	eth.EventuallyAllCalled(t)
+	cltest.CallbackOrTimeout(t, "waiting for last mock call", waitForNextHead, 3*time.Second)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
 	// Now the second transaction attempt meets the gas bump threshold, so a
 	// final transaction attempt shoud be made
-	eth.Context("ethTx.Perform()#5", func(eth *cltest.EthMock) {
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(secondTxGasBumpAt))
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_sendRawTransaction", attempt3Hash)
-	})
+	gomock.InOrder(
+		eth.EXPECT().Call(gomock.Any(), "eth_blockNumber", gomock.Any(), "latest").SetArg(0, utils.Uint64ToHex(secondTxGasBumpAt)),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionReceipt", attempt1Hash).SetArg(0, unconfirmedReceipt),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionReceipt", attempt2Hash).SetArg(0, unconfirmedReceipt),
+		eth.EXPECT().Call(gomock.Any(), "eth_sendRawTransaction", attempt3Hash).SetArg(0, attempt3Hash).Do(triggerNextHead),
+	)
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(secondTxGasBumpAt)}
-	eth.EventuallyAllCalled(t)
+	cltest.CallbackOrTimeout(t, "waiting for last mock call", waitForNextHead, 3*time.Second)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 3)
 
 	// This third attempt has enough gas and gets confirmed, but has not yet
 	// received sufficient confirmations, so we wait again...
-	eth.Context("ethTx.Perform()#6", func(eth *cltest.EthMock) {
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(thirdTxConfirmedAt))
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
-	})
+	gomock.InOrder(
+		eth.EXPECT().Call(gomock.Any(), "eth_blockNumber", gomock.Any(), "latest").SetArg(0, utils.Uint64ToHex(thirdTxConfirmedAt)),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionReceipt", attempt1Hash).SetArg(0, unconfirmedReceipt),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionReceipt", attempt2Hash).SetArg(0, unconfirmedReceipt),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionReceipt", attempt3Hash).SetArg(0, thirdTxConfirmedReceipt).Do(triggerNextHead),
+	)
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(thirdTxConfirmedAt)}
-	eth.EventuallyAllCalled(t)
+	cltest.CallbackOrTimeout(t, "waiting for last mock call", waitForNextHead, 3*time.Second)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
 	// Finally the third attempt gets to a minimum number of safe confirmations,
 	// the amount remaining in the account is printed (eth_getBalance, eth_call)
-	eth.Context("ethTx.Perform()#7", func(eth *cltest.EthMock) {
-		eth.Register("eth_blockNumber", utils.Uint64ToHex(thirdTxSafeAt))
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
-		eth.Register("eth_getBalance", "0x100")
-		eth.Register("eth_call", "0x100")
-	})
+	gomock.InOrder(
+		eth.EXPECT().Call(gomock.Any(), "eth_blockNumber", gomock.Any(), "latest").SetArg(0, utils.Uint64ToHex(thirdTxSafeAt)),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionReceipt", attempt1Hash).SetArg(0, unconfirmedReceipt),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionReceipt", attempt2Hash).SetArg(0, unconfirmedReceipt),
+		eth.EXPECT().Call(gomock.Any(), "eth_getTransactionReceipt", attempt3Hash).SetArg(0, thirdTxConfirmedReceipt),
+		eth.EXPECT().Call(gomock.Any(), "eth_getBalance", gomock.Any(), "latest").SetArg(0, "0x100"),
+		eth.EXPECT().Call(gomock.Any(), "eth_call", gomock.Any(), "latest").SetArg(0, "0x100").Do(triggerNextHead),
+	)
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(thirdTxSafeAt)}
-	eth.EventuallyAllCalled(t)
+	cltest.CallbackOrTimeout(t, "waiting for last mock call", waitForNextHead, 3*time.Second)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	val, err := jr.TaskRuns[0].Result.ResultString()
