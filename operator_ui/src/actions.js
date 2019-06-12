@@ -1,5 +1,5 @@
 import * as api from 'api'
-import { AuthenticationError } from 'errors'
+import { AuthenticationError } from './api/errors'
 import { pascalCase } from 'change-case'
 import normalize from 'json-api-normalizer'
 
