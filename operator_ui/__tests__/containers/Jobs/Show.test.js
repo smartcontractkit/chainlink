@@ -37,6 +37,7 @@ describe('containers/Jobs/Show', () => {
       ]
     })
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
+    global.fetch.getOnce(`/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=5`, jobSpecResponse)
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)
@@ -63,6 +64,7 @@ describe('containers/Jobs/Show', () => {
     })
 
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
+    global.fetch.getOnce(`/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=5`, jobSpecResponse)
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)
