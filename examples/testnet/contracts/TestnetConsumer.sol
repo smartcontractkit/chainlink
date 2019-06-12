@@ -1014,7 +1014,7 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
     onlyOwner
   {
     Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumPrice.selector);
-    req.add("url", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD");
+    req.add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD");
     req.add("path", "USD");
     req.addInt("times", 100);
     sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
@@ -1025,7 +1025,7 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
     onlyOwner
   {
     Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumChange.selector);
-    req.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD");
+    req.add("get", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD");
     req.add("path", "RAW.ETH.USD.CHANGEPCTDAY");
     req.addInt("times", 1000000000);
     sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
@@ -1036,7 +1036,7 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
     onlyOwner
   {
     Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillEthereumLastMarket.selector);
-    req.add("url", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD");
+    req.add("get", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD");
     string[] memory path = new string[](4);
     path[0] = "RAW";
     path[1] = "ETH";
