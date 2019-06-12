@@ -109,7 +109,7 @@ const renderRuns = (runs, classes) => {
             color="textSecondary"
             className={classes.stamp}
           >
-            Created <TimeAgo>{r.createdAt}</TimeAgo>
+            Created <TimeAgo tooltip>{r.createdAt}</TimeAgo>
           </Typography>
         </TableCell>
         <TableCell className={classes.statusCell} scope="row">

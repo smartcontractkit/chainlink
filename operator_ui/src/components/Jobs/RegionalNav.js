@@ -17,6 +17,7 @@ import jobSpecDefinition from 'utils/jobSpecDefinition'
 import { isWebInitiator } from 'utils/jobSpecInitiators'
 import { fetchJob, createJobRun } from 'actions'
 import classNames from 'classnames'
+import localizedTimestamp from 'utils/localizedTimestamp'
 
 const styles = theme => {
   return {
@@ -127,7 +128,7 @@ const RegionalNav = ({
           <Typography variant="subtitle2" color="textSecondary">
             {job && (
               <React.Fragment>
-                Created <TimeAgo>{job.createdAt}</TimeAgo>
+                Created <TimeAgo tooltip={false}>{job.createdAt}</TimeAgo> ({localizedTimestamp(job.createdAt)})
               </React.Fragment>
             )}
           </Typography>
