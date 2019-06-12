@@ -3,10 +3,13 @@ package adapters
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -90,7 +93,10 @@ func createTxRunResult(
 		e.GasPrice.ToInt(),
 		e.GasLimit,
 	)
-	if err != nil {
+	if IsClientRetriable(err) {
+		input.MarkPendingConnection()
+		return
+	} else if err != nil {
 		input.SetError(err)
 		return
 	}
@@ -105,7 +111,10 @@ func createTxRunResult(
 	)
 
 	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
-	if err != nil {
+	if IsClientRetriable(err) {
+		input.MarkPendingConnection()
+		return
+	} else if err != nil {
 		input.SetError(err)
 		return
 	}
@@ -187,4 +196,20 @@ func addReceiptToResult(receipt *models.TxReceipt, in *models.RunResult) {
 	receipts = append(receipts, *receipt)
 	in.Add("ethereumReceipts", receipts)
 	in.CompleteWithResult(receipt.Hash.String())
+}
+
+// IsClientRetriable does its best effort to see if an error indicates one that
+// might have a different outcome if we retried the operation
+func IsClientRetriable(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if err, ok := err.(net.Error); ok {
+		return err.Timeout() || err.Temporary()
+	} else if errors.Cause(err) == store.ErrPendingConnection {
+		return true
+	}
+
+	return false
 }

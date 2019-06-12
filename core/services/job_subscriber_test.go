@@ -206,7 +206,7 @@ func sendingOnClosedChannel(callback func()) (rval bool) {
 	return false
 }
 
-func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
+func TestJobSubscriber_OnNewHead_ResumePendingConfirmationsAndPendingConnections(t *testing.T) {
 	t.Parallel()
 
 	block := cltest.NewBlockHeader(10)
@@ -222,6 +222,8 @@ func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
 		archived bool
 		wantSend bool
 	}{
+		{models.RunStatusPendingConnection, false, true},
+		{models.RunStatusPendingConnection, true, true},
 		{models.RunStatusPendingConfirmations, false, true},
 		{models.RunStatusPendingConfirmations, true, true},
 		{models.RunStatusInProgress, false, false},
