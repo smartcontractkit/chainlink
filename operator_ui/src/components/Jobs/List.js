@@ -40,7 +40,7 @@ const renderBody = (jobs, error) => {
         </TableCell>
         <TableCell>
           <Typography variant="body1">
-            <TimeAgo>{j.createdAt}</TimeAgo>
+            <TimeAgo tooltip>{j.createdAt}</TimeAgo>
           </Typography>
         </TableCell>
         <TableCell>

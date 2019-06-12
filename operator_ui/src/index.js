@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import promiseFinally from 'promise.prototype.finally'
 import JavascriptTimeAgo from 'javascript-time-ago'
+import moment from 'moment'
 import en from 'javascript-time-ago/locale/en'
 import { AppContainer } from 'react-hot-loader'
 import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'
@@ -13,6 +14,7 @@ promiseFinally.shim(Promise)
 
 window.JavascriptTimeAgo = JavascriptTimeAgo
 JavascriptTimeAgo.locale(en)
+moment.defaultFormat = 'YYYY-MM-DD h:mm:ss A'
 
 export default App
 

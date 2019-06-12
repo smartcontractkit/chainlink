@@ -48,6 +48,7 @@
     "json-pretty-html": "^1.1.2",
     "local-storage-fallback": "^4.1.1",
     "mock-local-storage": "^1.0.5",
+    "moment": "^2.24.0",
     "normalize-url": "^4.2.0",
     "numeral": "^2.0.6",
     "oclif": "^1.11.4",

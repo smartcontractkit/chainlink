@@ -11,6 +11,7 @@ import { fetchJob, createJobRun } from 'actions'
 import Link from 'components/Link'
 import TimeAgo from 'components/TimeAgo'
 import classNames from 'classnames'
+import localizedTimestamp from 'utils/localizedTimestamp'
 
 const styles = theme => {
   return {
@@ -69,7 +70,7 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun, url }) => {
           <Typography variant="subtitle2" color="textSecondary">
             {jobRun && (
               <React.Fragment>
-                Started <TimeAgo>{jobRun.createdAt}</TimeAgo>
+                Started <TimeAgo tooltip={false}>{jobRun.createdAt}</TimeAgo> ({localizedTimestamp(jobRun.createdAt)})
               </React.Fragment>
             )}
           </Typography>
