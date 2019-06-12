@@ -572,7 +572,7 @@ func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 	assert.Equal(t, models.RunStatusPendingConnection, data.Status)
 }
 
-func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T) {
+func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
@@ -591,6 +591,37 @@ func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T
 		gomock.Any(),
 		gomock.Any(),
 	).Return(nil, errors.New("connection timed out"))
+
+	adapter := adapters.EthTx{}
+	input := models.RunResult{}
+	data := adapter.Perform(input, store)
+
+	assert.False(t, data.HasError())
+	assert.Equal(t, models.RunStatusPendingConnection, data.Status)
+}
+
+func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	store := app.Store
+
+	ctrl := gomock.NewController(t)
+	txmMock := mocks.NewMockTxManager(ctrl)
+	store.TxManager = txmMock
+	txmMock.EXPECT().Register(gomock.Any())
+	txmMock.EXPECT().Connected().Return(true)
+	txmMock.EXPECT().CreateTxWithGas(
+		gomock.Any(),
+		gomock.Any(),
+		gomock.Any(),
+		gomock.Any(),
+		gomock.Any(),
+	).Return(&models.Tx{
+		Attempts: []*models.TxAttempt{&models.TxAttempt{}},
+	}, nil)
+	txmMock.EXPECT().CheckAttempt(gomock.Any(), gomock.Any()).Return(nil, strpkg.Unknown, errors.New("connection reset by peer"))
 
 	adapter := adapters.EthTx{}
 	input := models.RunResult{}
