@@ -3,6 +3,7 @@ package adapters
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"regexp"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -199,13 +200,23 @@ func addReceiptToResult(receipt *models.TxReceipt, in *models.RunResult) {
 }
 
 var (
-	clientRetryableErrorRegex = regexp.MustCompile("(connection timed out|connection reset by peer)")
+	clientRetryableErrorRegex = regexp.MustCompile("(connection timed out|connection reset by peer|Client.Timeout exceeded while awaiting headers)")
 )
 
 // isClientRetriable does its best effort to see if an error indicates one that
 // might have a different outcome if we retried the operation
 func isClientRetriable(err error) bool {
-	return err != nil &&
-		(errors.Cause(err) == store.ErrPendingConnection ||
-			clientRetryableErrorRegex.MatchString(err.Error()))
+	if err == nil {
+		return false
+	}
+
+	if net, ok := err.(net.Error); ok {
+		return net.Timeout() || net.Temporary()
+	} else if errors.Cause(err) == store.ErrPendingConnection {
+		return true
+	} else if clientRetryableErrorRegex.MatchString(err.Error()) {
+		return true
+	}
+
+	return false
 }
