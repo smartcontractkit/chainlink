@@ -28,13 +28,16 @@ const BridgesNew = universal(import('./containers/Bridges/New'), uniOpts)
 const BridgesShow = universal(import('./containers/Bridges/Show'), uniOpts)
 const BridgesEdit = universal(import('./containers/Bridges/Edit'), uniOpts)
 const JobRunsIndex = universal(import('./containers/JobRuns/Index'), uniOpts)
-const JobRunsShow = universal(import('./containers/JobRuns/Show'), uniOpts)
+const JobRunsShowOverview = universal(
+  import('./containers/JobRuns/Show/Overview'),
+  uniOpts
+)
 const JobRunsShowJson = universal(
-  import('./containers/JobRuns/ShowJson'),
+  import('./containers/JobRuns/Show/Json'),
   uniOpts
 )
 const JobRunsShowErrorLog = universal(
-  import('./containers/JobRuns/ShowErrorLog'),
+  import('./containers/JobRuns/Show/ErrorLog'),
   uniOpts
 )
 const TransactionsIndex = universal(
@@ -129,7 +132,7 @@ class Private extends React.Component {
                 <PrivateRoute
                   exact
                   path="/jobs/:jobSpecId/runs/id/:jobRunId"
-                  component={JobRunsShow}
+                  component={JobRunsShowOverview}
                 />
                 <PrivateRoute
                   exact

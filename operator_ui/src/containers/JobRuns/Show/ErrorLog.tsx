@@ -9,14 +9,14 @@ import {
 } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
-import { fetchJobRun } from '../../actions'
-import jobRunSelector from '../../selectors/jobRun'
-import PaddedCard from '../../components/PaddedCard'
-import PrettyJson from '../../components/PrettyJson'
-import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatchToProps'
-import Content from '../../components/Content'
-import RegionalNav from '../../components/JobRuns/RegionalNav'
-import StatusCard from '../../components/JobRuns/StatusCard'
+import { fetchJobRun } from '../../../actions'
+import jobRunSelector from '../../../selectors/jobRun'
+import PaddedCard from '../../../components/PaddedCard'
+import PrettyJson from '../../../components/PrettyJson'
+import matchRouteAndMapDispatchToProps from '../../../utils/matchRouteAndMapDispatchToProps'
+import Content from '../../../components/Content'
+import RegionalNav from '../../../components/JobRuns/RegionalNav'
+import StatusCard from '../../../components/JobRuns/StatusCard'
 
 const filterErrorTaskRuns = jobRun => {
   return jobRun.taskRuns.filter(tr => {
