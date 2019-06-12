@@ -47,7 +47,7 @@ contract('ServiceAgreementConsumer', () => {
         assertBigNum(1, request.dataVersion)
         const url =
           'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
-        assert.deepEqual(params, { path: currency, url: url })
+        assert.deepEqual(params, { path: currency, get: url })
       })
 
       it('has a reasonable gas cost', async () => {
