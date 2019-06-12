@@ -111,7 +111,10 @@ func createTxRunResult(
 	)
 
 	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
-	if err != nil {
+	if isClientRetriable(err) {
+		input.MarkPendingConnection()
+		return
+	} else if err != nil {
 		input.SetError(err)
 		return
 	}
@@ -196,7 +199,7 @@ func addReceiptToResult(receipt *models.TxReceipt, in *models.RunResult) {
 }
 
 var (
-	clientRetryableErrorRegex = regexp.MustCompile("connection timed out")
+	clientRetryableErrorRegex = regexp.MustCompile("(connection timed out|connection reset by peer)")
 )
 
 // isClientRetriable does its best effort to see if an error indicates one that
