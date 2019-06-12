@@ -49,7 +49,7 @@ contract('UptimeSLA', accounts => {
 
       const decoded = await h.decodeDietCBOR(events[0].args.data)
       assert.deepEqual(decoded, {
-        url: 'https://status.heroku.com/api/ui/availabilities',
+        get: 'https://status.heroku.com/api/ui/availabilities',
         path: ['data', '0', 'attributes', 'calculation']
       })
     })
