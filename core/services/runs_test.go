@@ -278,6 +278,7 @@ func TestResumeConfirmingTask(t *testing.T) {
 	err = services.ResumeConfirmingTask(run, store, creationHeight.ToInt())
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingConfirmations), string(run.Status))
+	assert.Equal(t, uint64(1), run.TaskRuns[0].Confirmations)
 
 	// input, should go from pending -> in progress and save the input
 	run = &models.JobRun{

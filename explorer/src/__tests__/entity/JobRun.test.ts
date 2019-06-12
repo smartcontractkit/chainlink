@@ -1,9 +1,10 @@
-import fixture from '../fixtures/JobRun.fixture.json'
-import { closeDbConnection, getDb } from '../../database'
 import { Connection } from 'typeorm'
+import { closeDbConnection, getDb } from '../../database'
 import { createChainlinkNode } from '../../entity/ChainlinkNode'
+import { fromString, JobRun, saveJobRunTree } from '../../entity/JobRun'
 import ethtxFixture from '../fixtures/JobRun.ethtx.fixture.json'
-import { fromString } from '../../entity/JobRun'
+import fixture from '../fixtures/JobRun.fixture.json'
+import updateFixture from '../fixtures/JobRunUpdate.fixture.json'
 
 let db: Connection
 
@@ -13,7 +14,7 @@ beforeAll(async () => {
 
 afterAll(async () => closeDbConnection())
 
-describe('fromString', () => {
+describe('entity/jobRun/fromString', () => {
   it('successfully creates a run and tasks from json', async () => {
     const jr = fromString(JSON.stringify(fixture))
     expect(jr.id).toBeUndefined()
@@ -81,5 +82,28 @@ describe('fromString', () => {
     } catch (err) {
       expect(err).toBeDefined()
     }
+  })
+})
+
+describe('entity/jobRun/saveJobRunTree', () => {
+  it('overwrites taskRun values on conflict', async () => {
+    const [chainlinkNode, _] = await createChainlinkNode(
+      db,
+      'testOverwriteTaskRunsOnConflict'
+    )
+
+    const jr = fromString(JSON.stringify(fixture))
+    jr.chainlinkNodeId = chainlinkNode.id
+    await saveJobRunTree(db, jr)
+
+    const initial = await db.manager.findOne(JobRun)
+    expect(initial.taskRuns[0].confirmations).toEqual(0)
+
+    const updatedJr = fromString(JSON.stringify(updateFixture))
+    updatedJr.chainlinkNodeId = chainlinkNode.id
+    await saveJobRunTree(db, updatedJr)
+
+    const actual = await db.manager.findOne(JobRun)
+    expect(actual.taskRuns[0].confirmations).toEqual(3)
   })
 })
