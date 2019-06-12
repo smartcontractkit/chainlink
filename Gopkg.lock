@@ -411,7 +411,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3fe3e9cf80e997a2a0a8b280711bcc832d527b0b01a552e8bb3b3ed3592326d5"
+  digest = "1:d436567834c79c80a07642c1634b69e9832984bfe71fa056530f5b506207562b"
   name = "github.com/jinzhu/gorm"
   packages = [
     ".",
@@ -419,7 +419,7 @@
     "dialects/sqlite",
   ]
   pruneopts = ""
-  revision = "712c4655605f094d283047501ae613db9c798850"
+  revision = "321c636b9da51a621d51b938b404ccd5a131e299"
 
 [[projects]]
   branch = "master"
