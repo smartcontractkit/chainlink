@@ -1,6 +1,6 @@
 [Eth]
 NetworkId = 17
-SyncMode = "fast"
+SyncMode = "full"
 NoPruning = false
 NoPrefetch = false
 LightPeers = 100
@@ -52,18 +52,20 @@ MinimumAcceptedPOW = 2e-01
 RestrictConnectionBetweenLightClients = true
 
 [Node]
-# Fill this in with the path to the datadir *in the container*
-DataDir = "/home/ubuntu/chainlink/chainlink/integration/forks/gethnet/datadir1" 
+# Fill this in with the path to the datadir and keystore *in the container*
+DataDir = "/root/gethnet/datadir1"
+KeyStoreDir = "/root/gethnet/datadir1/keystore"
 omitempty = ""
+InsecureUnlockAllowed = true
 HTTPPort = 8545
 HTTPVirtualHosts = ["localhost"]
 HTTPModules = ["net", "web3", "eth", "shh"]
 # Fill this in with the IP address assigned to the node in docker-compose.yaml
 # "172.16.1.100"
 # "127.0.0.1"
-WSHost="127.0.0.1" 
-WSOrigins=["*"]
+WSHost = "127.0.0.1" 
 WSPort = 8546
+WSOrigins = ["*"]
 WSModules = ["net", "web3", "eth", "shh"]
 GraphQLPort = 8547
 
@@ -74,7 +76,7 @@ BootstrapNodes = []
 BootstrapNodesV5 = []
 # Fill StaticNodes in with the enode addresses for the other nodes of the
 # private network
-StaticNodes = ["enode://6d18febe4549a0fdc0583bb514a018b40df02f29c038f2f8b57e90389c39d51ba5677516fcb5d44c6e64f012afa934a64d4b3efb2e154ab8c5aafef249ba4bff@172.16.1.101:30303"]
+StaticNodes = ["enode://d5a5cc165e20bfa99f163b7dd6a70aae051b8e24162515b98cb238c962807f1b2c358393ce03466d039c47d2f0b40c95a833314563ac546daf50c310dce8d4a5@172.16.1.101:30303"]
 TrustedNodes = []
 ListenAddr = ":30303"
 EnableMsgEvents = false

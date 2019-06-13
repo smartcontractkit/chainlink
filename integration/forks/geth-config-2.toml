@@ -1,6 +1,6 @@
 [Eth]
 NetworkId = 17
-SyncMode = "fast"
+SyncMode = "full"
 NoPruning = false
 NoPrefetch = false
 LightPeers = 100
@@ -52,14 +52,18 @@ MinimumAcceptedPOW = 2e-01
 RestrictConnectionBetweenLightClients = true
 
 [Node]
-DataDir = "/root/gethnet/datadir2" # Fill this in with the path to the datadir
+# Fill this in with the path to the datadir and keystore *in the container*
+DataDir = "/root/gethnet/datadir2"
+KeyStoreDir = "/root/gethnet/datadir2/keystore"
 omitempty = ""
+InsecureUnlockAllowed = true
 HTTPPort = 8545
 HTTPVirtualHosts = ["localhost"]
 HTTPModules = ["net", "web3", "eth", "shh"]
-WSHost="127.0.0.1" # Fill this in with the IP address of the node
-WSOrigins=["*"]
+# Fill this in with the IP address assigned to the node in docker-compose.yaml
+WSHost="127.0.0.1"
 WSPort = 8546
+WSOrigins = ["*"]
 WSModules = ["net", "web3", "eth", "shh"]
 GraphQLPort = 8547
 
@@ -70,7 +74,7 @@ BootstrapNodes = []
 BootstrapNodesV5 = []
 # Fill StaticNodes in with the enode addresses for the other nodes of the
 # private network
-StaticNodes = ["enode://61f23401744658574a2a620e77072fc560780a0cbaf7b9b1efd53cf0fae2b546cdea534382d06410e0b12a65f2326c2018d643a34533618844c33422b5011132@172.16.1.100:30303"]
+StaticNodes = ["enode://84d6781578958e4c3bf02a889651700c42b5928717d25df1c639deb40afbcd21e0bfc3df5fff8952dc5f69424174d934ade93ded5cddf95a99b98a94eb0b83ec@172.16.1.100:30303"]
 TrustedNodes = []
 ListenAddr = ":30303"
 EnableMsgEvents = false

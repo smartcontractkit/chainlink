@@ -63,6 +63,8 @@ echo "the nodes you want this node to participate with. Be sure to change the"
 echo "IP address to the assigned to the node in docker-compose.yaml."
 echo $enode_address
 
+sudo chown -R $USER.$USER .
+
 # Copy the keystore for the devnet key into this datadir
 keystore_dir=$datadir/keystore/
 mkdir -p $keystore_dir
