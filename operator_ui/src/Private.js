@@ -68,7 +68,7 @@ class Private extends React.Component {
     let drawerContainer
 
     return (
-      <Grid container>
+      <Grid container spacing={0}>
         <Grid item xs={12}>
           <Header
             onResize={this.setHeaderHeight}
