@@ -1,0 +1,80 @@
+version: '3.1'
+
+services:
+
+  geth1:
+    image: ethereum/client-go
+    restart: on-failure
+    command:
+      --mine
+      --config /root/geth-config-1.toml
+      --allow-insecure-unlock
+      --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
+      --password /run/secrets/node_password
+      --keystore /root/gethnet/datadir1/keystore/
+      --nousb
+    volumes:
+      - .:/root
+    networks:
+      gethnet:
+        ipv4_address: 172.16.1.100
+    ports: []
+    secrets:
+      - node_password
+
+  geth2:
+    image: ethereum/client-go
+    restart: on-failure
+    command:
+      --mine
+      --config /root/geth-config-2.toml
+      --allow-insecure-unlock
+      --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
+      --password /run/secrets/node_password
+      --keystore /root/gethnet/datadir2/keystore/
+      --nousb
+    volumes:
+      - .:/root
+    networks:
+      gethnet:
+        ipv4_address: 172.16.1.101
+    ports: []
+    secrets:
+      - node_password
+      
+  chainlink:
+    image: smartcontract/chainlink
+    command: local node -d -p /run/secrets/node_password
+    restart: always
+    volumes:
+      - ./tools/clroot/:/root/clroot
+    environment:
+      - LOG_LEVEL=debug
+      - ROOT=/root/clroot
+      - ETH_HOST=172.16.1.100
+      - ETH_CHAIN_ID=17
+      - MIN_OUTGOING_CONFIRMATIONS=2
+      - MINIMUM_CONTRACT_PAYMENT=1000000000000
+      - RUST_BACKTRACE=1
+      - CHAINLINK_DEV=true
+    networks:
+      gethnet:
+        ipv4_address: 172.16.1.102
+    depends_on:
+      - geth1
+    ports:
+      - 6688:6688
+    secrets:
+      - node_password
+
+networks:
+  gethnet:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: 172.16.1.0/24
+
+secrets:
+  node_password:
+    file: ./secrets/password.txt
