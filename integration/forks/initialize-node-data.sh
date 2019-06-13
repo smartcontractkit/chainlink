@@ -17,9 +17,6 @@
 # It attempts to delete the existing data directory, assuming that's of the form
 # ./gethnet/datadir<num>. It then initializes a new chain for that directory.
 #
-# It creates a new account, to ensure that the node has a coinbase address to
-# mine to. The account's credentials are otherwise unnecessary for this test.
-#
 # It prints out the enode address for the resulting geth node. Copy that into
 # the StaticNodes list of the other nodes you want it to participate with. Be
 # sure to edit the IP address it contains, to match the IP address you assigned
