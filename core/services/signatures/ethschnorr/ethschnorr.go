@@ -69,12 +69,12 @@ func ChallengeHash(public kyber.Point, rAddress [20]byte, msg *big.Int) (
 	}
 	if err == nil {
 		if _, herr := h.Write(msg.Bytes()); herr != nil {
-			err = fmt.Errorf("failed to hash message for signature: %s", err)
+			err = fmt.Errorf("failed to hash message for signature: %s", herr)
 		}
 	}
 	if err == nil {
 		if _, herr := h.Write(rAddress[:]); herr != nil {
-			err = fmt.Errorf("failed to hash r for signature: %s", err)
+			err = fmt.Errorf("failed to hash r for signature: %s", herr)
 		}
 	}
 	if err != nil {
