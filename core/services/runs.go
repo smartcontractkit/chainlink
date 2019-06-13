@@ -338,10 +338,12 @@ func updateTaskRunConfirmations(currentHeight *models.Big, jr *models.JobRun, ta
 	if jr.CreationHeight == nil || currentHeight == nil {
 		return
 	}
-	taskRun.Confirmations = blockNumberDifference(currentHeight, jr.CreationHeight)
-	if taskRun.Confirmations > taskRun.MinimumConfirmations {
-		taskRun.Confirmations = taskRun.MinimumConfirmations
+
+	diff := blockNumberDifference(currentHeight, jr.CreationHeight)
+	if diff > taskRun.MinimumConfirmations {
+		diff = taskRun.MinimumConfirmations
 	}
+	taskRun.Confirmations = &diff
 }
 
 func validateOnMainChain(jr *models.JobRun, taskRun *models.TaskRun, store *store.Store) error {

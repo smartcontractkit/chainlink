@@ -62,7 +62,7 @@ const TaskRuns = ({ etherscanHost, taskRuns, classes }: IProps) => {
                   {run.status}
                 </StatusIcon>
                 <Typography variant="body1">{run.type}</Typography>
-                {run.minimumConfirmations && (
+                {run.confirmations != null && (
                   <Typography
                     variant="subtitle2"
                     color="textSecondary"

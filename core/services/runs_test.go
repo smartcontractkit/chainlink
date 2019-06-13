@@ -46,7 +46,7 @@ func TestNewRun(t *testing.T) {
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 1)
 	assert.Equal(t, input, run.Overrides.Data)
-	assert.Equal(t, uint64(0), run.TaskRuns[0].Confirmations)
+	assert.Equal(t, (*uint64)(nil), run.TaskRuns[0].Confirmations)
 }
 
 func TestNewRun_requiredPayment(t *testing.T) {
@@ -278,7 +278,7 @@ func TestResumeConfirmingTask(t *testing.T) {
 	err = services.ResumeConfirmingTask(run, store, creationHeight.ToInt())
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingConfirmations), string(run.Status))
-	assert.Equal(t, uint64(1), run.TaskRuns[0].Confirmations)
+	assert.Equal(t, uint64(1), *run.TaskRuns[0].Confirmations)
 
 	// input, should go from pending -> in progress and save the input
 	run = &models.JobRun{
@@ -628,7 +628,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_mainChain(t *testing.T) {
 	updatedJR := cltest.WaitForJobRunToComplete(t, store, *jr)
 	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
 	assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].MinimumConfirmations)
-	assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].Confirmations, "task run should track its current confirmations")
+	assert.Equal(t, minimumConfirmations, *updatedJR.TaskRuns[0].Confirmations, "task run should track its current confirmations")
 	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
 
