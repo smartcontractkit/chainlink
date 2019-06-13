@@ -316,14 +316,14 @@ func TestIntegration_RunLog(t *testing.T) {
 	assert.NoError(t, err)
 	jr := runs[0]
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
-	assert.Equal(t, uint64(0), jr.TaskRuns[0].Confirmations)
+	assert.Equal(t, (*uint64)(nil), jr.TaskRuns[0].Confirmations)
 
 	blockIncrease := app.Store.Config.MinIncomingConfirmations()
 	minGlobalHeight := creationHeight + blockIncrease
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(minGlobalHeight)}
 	<-time.After(time.Second)
 	jr = cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
-	assert.Equal(t, creationHeight+blockIncrease, jr.TaskRuns[0].Confirmations)
+	assert.Equal(t, creationHeight+blockIncrease, *jr.TaskRuns[0].Confirmations)
 
 	safeNumber := creationHeight + requiredConfs
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
@@ -337,7 +337,7 @@ func TestIntegration_RunLog(t *testing.T) {
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	assert.True(t, jr.FinishedAt.Valid)
-	assert.Equal(t, requiredConfs, jr.TaskRuns[0].Confirmations)
+	assert.Equal(t, requiredConfs, *jr.TaskRuns[0].Confirmations)
 	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
 

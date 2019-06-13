@@ -5,27 +5,10 @@ import TaskRuns from '../../../components/JobRuns/TaskRuns'
 const etherscanHost = 'ropsten.etherscan.io'
 
 describe('components/JobRuns/TaskRuns', () => {
-  it('hides incoming pending confirmations with NO minimumConfirmations', () => {
+  it('hides incoming pending confirmations with NO confirmations', () => {
     const taskRuns = [
       {
         id: 1,
-        status: 'completed',
-        type: 'httpget'
-      } as ITaskRun
-    ]
-
-    const wrapper = mount(
-      <TaskRuns taskRuns={taskRuns} etherscanHost={etherscanHost} />
-    )
-    expect(wrapper.text()).not.toContain('pending confirmations')
-  })
-
-  it('hides incoming pending confirmations with 0 minimumConfirmations', () => {
-    const taskRuns = [
-      {
-        confirmations: 0,
-        id: 1,
-        minimumConfirmations: 0,
         status: 'completed',
         type: 'httpget'
       } as ITaskRun
