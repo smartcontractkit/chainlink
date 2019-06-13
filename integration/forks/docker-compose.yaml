@@ -7,12 +7,13 @@ services:
     restart: on-failure
     command:
       --mine
+      --minerthreads 1
       --config /root/geth-config-1.toml
       --allow-insecure-unlock
       --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
       --password /run/secrets/node_password
       --keystore /root/gethnet/datadir1/keystore/
-      --nousb
+      --nat extip:172.16.1.101
     volumes:
       - .:/root
     networks:
@@ -27,12 +28,13 @@ services:
     restart: on-failure
     command:
       --mine
+      --minerthreads 1
       --config /root/geth-config-2.toml
       --allow-insecure-unlock
       --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
       --password /run/secrets/node_password
       --keystore /root/gethnet/datadir2/keystore/
-      --nousb
+      --nat extip:172.16.1.100
     volumes:
       - .:/root
     networks:
