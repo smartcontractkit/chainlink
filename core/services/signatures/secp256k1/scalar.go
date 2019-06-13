@@ -136,6 +136,7 @@ func (s *secp256k1Scalar) Inv(a kyber.Scalar) kyber.Scalar {
 // Pick sets s to a random value mod GroupOrder sampled from rand, and returns
 // it
 func (s *secp256k1Scalar) Pick(rand cipher.Stream) kyber.Scalar {
+	// random.Int safe to use because GroupOrder ≅ 2²⁵⁶, GroupOrder < 2²⁵⁶.
 	return s.Set((*secp256k1Scalar)(random.Int(GroupOrder, rand)))
 }
 
