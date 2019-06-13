@@ -95,7 +95,7 @@ func (f *fieldElt) SetInt(v *big.Int) *fieldElt {
 
 // Pick samples uniformly from {0, ..., q-1}, assigns sample to f, and returns f
 func (f *fieldElt) Pick(rand cipher.Stream) *fieldElt {
-	return f.SetInt(random.Int(q, rand))
+	return f.SetInt(random.Int(q, rand)) // random.Int safe because q≅2²⁵⁶, q<2²⁵⁶
 }
 
 // Neg sets f to the negation of g modulo q, and returns it
