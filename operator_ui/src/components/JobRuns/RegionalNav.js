@@ -56,10 +56,8 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun, url }) => {
           <Typography variant="subtitle2" color="secondary" gutterBottom>
             Job Run Detail
           </Typography>
-          <Link to={`/jobs/${jobSpecId}`}>
-            <Typography variant="subtitle1" color="primary">
-              {jobSpecId}
-            </Typography>
+          <Link to={`/jobs/${jobSpecId}`} variant="subtitle1" color="primary">
+            {jobSpecId}
           </Link>
         </Grid>
         <Grid item xs={12}>
