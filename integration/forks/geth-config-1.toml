@@ -63,7 +63,7 @@ HTTPModules = ["net", "web3", "eth", "shh"]
 # Fill this in with the IP address assigned to the node in docker-compose.yaml
 # "172.16.1.100"
 # "127.0.0.1"
-WSHost = "127.0.0.1" 
+WSHost = "172.16.1.100"
 WSPort = 8546
 WSOrigins = ["*"]
 WSModules = ["net", "web3", "eth", "shh"]

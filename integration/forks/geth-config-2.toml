@@ -58,10 +58,10 @@ KeyStoreDir = "/root/gethnet/datadir2/keystore"
 omitempty = ""
 InsecureUnlockAllowed = true
 HTTPPort = 8545
-HTTPVirtualHosts = ["localhost"]
+HTTPVirtualHosts = ["172.16.1.101"]
 HTTPModules = ["net", "web3", "eth", "shh"]
 # Fill this in with the IP address assigned to the node in docker-compose.yaml
-WSHost="127.0.0.1"
+WSHost="172.16.1.101"
 WSPort = 8546
 WSOrigins = ["*"]
 WSModules = ["net", "web3", "eth", "shh"]
