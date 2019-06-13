@@ -23,7 +23,7 @@ var (
 // WebSocketClient encapsulates all the functionality needed to
 // push run information to explorer.
 type WebSocketClient interface {
-	Url() *url.URL
+	Url() url.URL
 	Status() string
 	Start() error
 	Close() error
@@ -33,7 +33,7 @@ type WebSocketClient interface {
 
 type noopWebSocketClient struct{}
 
-func (noopWebSocketClient) Url() *url.URL                            { return nil }
+func (noopWebSocketClient) Url() url.URL                             { return url.URL{} }
 func (noopWebSocketClient) Status() string                           { return "" }
 func (noopWebSocketClient) Start() error                             { return nil }
 func (noopWebSocketClient) Close() error                             { return nil }
@@ -68,9 +68,9 @@ func NewWebSocketClient(url *url.URL, accessKey, secret string) WebSocketClient 
 	}
 }
 
-// Url returns a copy of the URL the client was initialized with
-func (w *websocketClient) Url() *url.URL {
-	return w.url
+// Url dereferences the URL the client was initialized with
+func (w *websocketClient) Url() url.URL {
+	return *w.url
 }
 
 // Status represented as a single string

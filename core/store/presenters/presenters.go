@@ -645,13 +645,10 @@ type ExplorerStatus struct {
 // NewExplorerStatus initializes the struct with the connections endpoint & current status
 func NewExplorerStatus(store *store.Store) ExplorerStatus {
 	client := store.ExplorerPusher.WSClient
-	url := ""
-	if client.Url() != nil {
-		url = client.Url().String()
-	}
+	url := client.Url()
 
 	return ExplorerStatus{
 		Status: client.Status(),
-		Url:    url,
+		Url:    url.String(),
 	}
 }
