@@ -12,10 +12,10 @@ import (
 // Migrate iterates through available migrations, running and tracking
 // migrations that have not been run.
 func Migrate(db *gorm.DB) error {
-	options := gormigrate.DefaultOptions
+	options := *gormigrate.DefaultOptions
 	options.UseTransaction = true
 
-	m := gormigrate.New(db, options, []*gormigrate.Migration{
+	m := gormigrate.New(db, &options, []*gormigrate.Migration{
 		{
 			ID:      "0",
 			Migrate: migration0.Migrate,
