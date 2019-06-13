@@ -5,59 +5,63 @@ services:
   geth1:
     image: ethereum/client-go
     restart: on-failure
+    # --miner.threads must be positive, or geth won't mine!
     command:
       --mine
-      --minerthreads 1
+      --miner.threads 1 
       --config /root/geth-config-1.toml
-      --allow-insecure-unlock
       --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
       --password /run/secrets/node_password
-      --keystore /root/gethnet/datadir1/keystore/
-      --nat extip:172.16.1.101
+      --nat extip:172.16.1.100 # Must match ipv4_address for this container
     volumes:
       - .:/root
     networks:
       gethnet:
         ipv4_address: 172.16.1.100
-    ports: []
+    ports:
+      - 8456
     secrets:
       - node_password
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
 
   geth2:
     image: ethereum/client-go
     restart: on-failure
+    # --miner.threads must be positive, or geth won't mine!
     command:
       --mine
-      --minerthreads 1
+      --miner.threads 1
       --config /root/geth-config-2.toml
-      --allow-insecure-unlock
-      --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
-      --password /run/secrets/node_password
-      --keystore /root/gethnet/datadir2/keystore/
-      --nat extip:172.16.1.100
+      --nat extip:172.16.1.101 # Must match ipv4_address for this container
     volumes:
       - .:/root
     networks:
       gethnet:
         ipv4_address: 172.16.1.101
-    ports: []
     secrets:
       - node_password
+    deploy:
+      resources:
+        limits:
+          cpus: "3"
       
   chainlink:
     image: smartcontract/chainlink
-    command: local node -d -p /run/secrets/node_password
+    command:
+      local node -d -p /run/secrets/node_password -a /run/secrets/node_api
     restart: always
     volumes:
-      - ./tools/clroot/:/root/clroot
+      - ../../tools/clroot/:/root/clroot
     environment:
       - LOG_LEVEL=debug
+      - ETH_URL=ws://geth1:8546
       - ROOT=/root/clroot
-      - ETH_HOST=172.16.1.100
       - ETH_CHAIN_ID=17
       - MIN_OUTGOING_CONFIRMATIONS=2
       - MINIMUM_CONTRACT_PAYMENT=1000000000000
-      - RUST_BACKTRACE=1
       - CHAINLINK_DEV=true
     networks:
       gethnet:
@@ -65,9 +69,14 @@ services:
     depends_on:
       - geth1
     ports:
-      - 6688:6688
+      - 6688
     secrets:
       - node_password
+      - node_api
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
 
 networks:
   gethnet:
@@ -80,3 +89,5 @@ networks:
 secrets:
   node_password:
     file: ./secrets/password.txt
+  node_api:
+    file: ./secrets/apicredentials
