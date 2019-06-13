@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -54,8 +55,10 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters
 
 	if url != nil {
 		sp.WSClient = NewWebSocketClient(url, accessKey, secret)
+		gormCallbacksMutex.Lock()
 		orm.DB.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp))
 		orm.DB.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp))
+		gormCallbacksMutex.Unlock()
 	}
 	return sp
 }
@@ -77,9 +80,11 @@ func (sp *StatsPusher) Close() error {
 	if sp.cancel != nil {
 		sp.cancel()
 	}
+	gormCallbacksMutex.Lock()
 	callbacks := sp.ORM.DB.Callback()
 	callbacks.Create().Remove(createCallbackName)
 	callbacks.Update().Remove(updateCallbackName)
+	gormCallbacksMutex.Unlock()
 	return sp.WSClient.Close()
 }
 
@@ -211,4 +216,12 @@ func createSyncEventWithStatsPusher(sp *StatsPusher) func(*gorm.Scope) {
 
 		sp.PushNow()
 	}
+}
+
+var (
+	gormCallbacksMutex *sync.Mutex
+)
+
+func init() {
+	gormCallbacksMutex = new(sync.Mutex)
 }
