@@ -77,8 +77,9 @@ func (sp *StatsPusher) Close() error {
 	if sp.cancel != nil {
 		sp.cancel()
 	}
-	sp.ORM.DB.Callback().Create().Remove(createCallbackName)
-	sp.ORM.DB.Callback().Update().Remove(updateCallbackName)
+	callbacks := sp.ORM.DB.Callback()
+	callbacks.Create().Remove(createCallbackName)
+	callbacks.Update().Remove(updateCallbackName)
 	return sp.WSClient.Close()
 }
 
