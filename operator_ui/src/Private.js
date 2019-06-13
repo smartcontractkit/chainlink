@@ -68,7 +68,7 @@ class Private extends React.Component {
     let drawerContainer
 
     return (
-      <Grid container style={{width: '100%'}}> {/* Horizontal Scrollbar Fix for MUI Container calc(100% + Npx) width */}
+      <Grid container spacing={0}>
         <Grid item xs={12}>
           <Header
             onResize={this.setHeaderHeight}
