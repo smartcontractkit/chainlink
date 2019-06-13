@@ -102,13 +102,12 @@ func Router(app services.Application) *gin.Engine {
 	)
 	engine.Use(helmet.Default())
 
-	engine.Use(explorerStatus(app))
-
 	api := engine.Group(
 		"/",
 		rateLimiter(1*time.Minute, 1000),
 		sessions.Sessions(SessionName, sessionStore),
 	)
+	api.Use(explorerStatus(app))
 
 	metricRoutes(app, api)
 	sessionRoutes(app, api)
