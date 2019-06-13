@@ -27,7 +27,8 @@ services:
     # --miner.threads must be positive, or geth won't mine!
     command:
       --mine
-      --miner.threads 1 
+      --miner.threads 1
+      --rpc
       --config /root/geth-config-1.toml
       --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
       --password /run/secrets/node_password
