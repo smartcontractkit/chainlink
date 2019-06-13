@@ -13,16 +13,13 @@ type Random struct{}
 
 // Perform returns a random uint256 number in 0 | 2**256-1 range
 func (ra *Random) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	var uint256Max big.Int
-	one := big.NewInt(1)
-	base := big.NewInt(2)
-	exp := big.NewInt(256)
-	uint256Max.Sub(base.Exp(base, exp, nil), one)
-	randVal, err := rand.Int(rand.Reader, &uint256Max)
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
 	if err != nil {
 		input.SetError(err)
 		return input
 	}
-	input.ApplyResult(randVal.String())
+	ran := new(big.Int).SetBytes(b)
+	input.ApplyResult(ran.String())
 	return input
 }
