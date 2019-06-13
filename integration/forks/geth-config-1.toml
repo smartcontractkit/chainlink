@@ -1,0 +1,90 @@
+[Eth]
+NetworkId = 17
+SyncMode = "fast"
+NoPruning = false
+NoPrefetch = false
+LightPeers = 100
+OnlyAnnounce = false
+DatabaseCache = 2048
+TrieCleanCache = 1024
+TrieDirtyCache = 1024
+TrieTimeout = 3600000000000
+EnablePreimageRecording = false
+EWASMInterpreter = ""
+EVMInterpreter = ""
+
+[Eth.Miner]
+GasFloor = 8000000
+GasCeil = 8000000
+GasPrice = 1000000000
+Recommit = 3000000000
+Noverify = false
+
+[Eth.Ethash]
+CacheDir = "ethash"
+CachesInMem = 2
+CachesOnDisk = 3
+DatasetDir = "/root/.ethash"
+DatasetsInMem = 1
+DatasetsOnDisk = 2
+PowMode = 0
+
+[Eth.TxPool]
+Locals = []
+NoLocals = false
+Journal = "transactions.rlp"
+Rejournal = 3600000000000
+PriceLimit = 1
+PriceBump = 10
+AccountSlots = 16
+GlobalSlots = 4096
+AccountQueue = 64
+GlobalQueue = 1024
+Lifetime = 10800000000000
+
+[Eth.GPO]
+Blocks = 20
+Percentile = 60
+
+[Shh]
+MaxMessageSize = 1048576
+MinimumAcceptedPOW = 2e-01
+RestrictConnectionBetweenLightClients = true
+
+[Node]
+# Fill this in with the path to the datadir *in the container*
+DataDir = "/home/ubuntu/chainlink/chainlink/integration/forks/gethnet/datadir1" 
+omitempty = ""
+HTTPPort = 8545
+HTTPVirtualHosts = ["localhost"]
+HTTPModules = ["net", "web3", "eth", "shh"]
+# Fill this in with the IP address assigned to the node in docker-compose.yaml
+# "172.16.1.100"
+# "127.0.0.1"
+WSHost="127.0.0.1" 
+WSOrigins=["*"]
+WSPort = 8546
+WSModules = ["net", "web3", "eth", "shh"]
+GraphQLPort = 8547
+
+[Node.P2P]
+MaxPeers = 50
+NoDiscovery = false
+BootstrapNodes = []
+BootstrapNodesV5 = []
+# Fill StaticNodes in with the enode addresses for the other nodes of the
+# private network
+StaticNodes = ["enode://6d18febe4549a0fdc0583bb514a018b40df02f29c038f2f8b57e90389c39d51ba5677516fcb5d44c6e64f012afa934a64d4b3efb2e154ab8c5aafef249ba4bff@172.16.1.101:30303"]
+TrustedNodes = []
+ListenAddr = ":30303"
+EnableMsgEvents = false
+
+[Node.HTTPTimeouts]
+ReadTimeout = 30000000000
+WriteTimeout = 30000000000
+IdleTimeout = 120000000000
+
+[Dashboard]
+Host = "localhost"
+Port = 8080
+Refresh = 5000000000

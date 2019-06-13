@@ -1,0 +1,30 @@
+=============== Jun 12, 2019 (EDT) ===============
+19:48:18.242863 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+19:48:18.279190 db@open opening
+19:48:18.287076 version@stat F·[] S·0B[] Sc·[]
+19:48:18.296433 db@janitor F·2 G·0
+19:48:18.296449 db@open done T·17.237507ms
+=============== Jun 12, 2019 (EDT) ===============
+19:49:19.151450 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+19:49:19.151972 version@stat F·[] S·0B[] Sc·[]
+19:49:19.151994 db@open opening
+19:49:19.152055 journal@recovery F·1
+19:49:19.159957 journal@recovery recovering @1
+19:49:19.223879 memdb@flush created L0@2 N·21261 S·1MiB "\x00\x00\xae..\x82\x88\x11,v9389":"\xff\xfc\x94..\xa5\x05\xa1,v9518"
+19:49:19.229920 version@stat F·[1] S·1MiB[1MiB] Sc·[0.25]
+19:49:19.259662 db@janitor F·3 G·0
+19:49:19.259723 db@open done T·107.71042ms
+19:49:23.043120 db@close closing
+19:49:23.043255 db@close done T·133.401µs
+=============== Jun 12, 2019 (EDT) ===============
+19:50:34.661700 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+19:50:34.661961 version@stat F·[1] S·1MiB[1MiB] Sc·[0.25]
+19:50:34.661986 db@open opening
+19:50:34.662046 journal@recovery F·1
+19:50:34.669399 journal@recovery recovering @3
+19:50:34.685332 memdb@flush created L0@5 N·2 S·497B "Las..der,v21264":"eth..ˏ\xa3,v21263"
+19:50:34.692241 version@stat F·[2] S·1MiB[1MiB] Sc·[0.50]
+19:50:34.721962 db@janitor F·4 G·0
+19:50:34.722013 db@open done T·60.014097ms
+19:50:40.363495 db@close closing
+19:50:40.363765 db@close done T·267.838µs
