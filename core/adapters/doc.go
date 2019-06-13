@@ -64,11 +64,8 @@
 //
 // Random
 //
-// The Random adapter generates a cryptographically secure random number in the interval
-// specified by the start and end parameters that default to 0 if not specified.
-// For example:
-//  {"start":"500","end":"1500"}
-//  {end":"100"}
-//  {start:"-100"}
+// The Random adapter generates a cryptographically secure random uint256
+// number in the interval from 0 to 2**256-1
+//  { "type": "Random" }
 //
 package adapters
