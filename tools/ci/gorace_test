@@ -1,4 +1,4 @@
 #!/bin/bash
 
 set -e
-GORACE="halt_on_error=1" go test -race -parallel 2 -p 1 github.com/smartcontractkit/chainlink/core/internal github.com/smartcontractkit/chainlink/core/services
+GORACE="halt_on_error=1" go test -v -race -parallel 2 -p 1 github.com/smartcontractkit/chainlink/core/internal github.com/smartcontractkit/chainlink/core/services
