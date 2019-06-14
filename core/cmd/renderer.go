@@ -46,6 +46,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderJobs(*typed)
 	case *presenters.JobSpec:
 		return rt.renderJob(*typed)
+	case *[]presenters.JobRun:
+		return rt.renderJobRuns(*typed)
 	case *presenters.JobRun:
 		return rt.renderJobRun(*typed)
 	case *models.BridgeType:
