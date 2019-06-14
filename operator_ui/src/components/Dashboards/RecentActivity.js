@@ -98,7 +98,7 @@ const RecentActivity = ({ classes, runs }) => {
                     <Grid container spacing={0}>
                       <Grid item xs={12}>
                         <Typography variant="body1" color="textSecondary">
-                          <TimeAgo>{r.createdAt}</TimeAgo>
+                          <TimeAgo tooltip>{r.createdAt}</TimeAgo>
                         </Typography>
                       </Grid>
                       <Grid item xs={12}>
