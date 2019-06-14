@@ -19,15 +19,15 @@ assert "Jobs count" "chainlink -j j | jq length" $expected_job_count
 # Check job runs
 jid=`chainlink -j j | jq 'last | .id' | tr -d '"'`
 echo "Test created Job: $jid"
-assert "RunLog Runs count" "chainlink -j s $jid | jq '.runs | length'" 1
+assert "RunLog Runs count" "chainlink -j lr --jobid $jid | jq 'length'" 1
 
 # Check that the run completed
-assert "Run completed" 'chainlink -j s $jid | jq ".runs[].result.status" | sed s/\"//g' completed
+assert "Run completed" 'chainlink -j lr --jobid $jid | jq ".result.status" | sed s/\"//g' completed
 
-txid=$(chainlink -j s $jid | jq '.runs[].result.data.result' | sed 's/"//g')
+txid=$(chainlink -j lr --jobid $jid | jq 'result.data.result' | sed 's/"//g')
 echo "Test created TX: $txid"
 
-tx_receiver=$(chainlink -j s $jid | jq '.runs[].result.data.address' | sed 's/"//g')
+tx_receiver=$(chainlink -j lr --jobid $jid | jq 'result.data.address' | sed 's/"//g')
 echo "Test sent TX to: $tx_receiver"
 
 # Check for the Fullfillment event
