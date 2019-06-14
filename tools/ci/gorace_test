@@ -1,7 +1,4 @@
 #!/bin/bash
 
 set -e
-
-# Split up each test run to mitigate memory consumption
-go test -race -cpu 2 -parallel 1 github.com/smartcontractkit/chainlink/core/internal && \
-  go test -race -cpu 2 -parallel 1 github.com/smartcontractkit/chainlink/core/services
+GORACE="halt_on_error=1" go test -v -race -parallel 2 -p 1 github.com/smartcontractkit/chainlink/core/internal github.com/smartcontractkit/chainlink/core/services
