@@ -47,7 +47,7 @@ func ExampleRun() {
 	//      archivejob                Archive job and all associated runs
 	//      run, r                    Begin job run for specid
 	//      showrun, sr               Show a job run for a RunID
-	//      listruns, lr              List all runs
+	//      listruns, lr              List all job runs
 	//      bridge                    Add a new bridge to the node
 	//      getbridges                List all bridges added to the node
 	//      showbridge                Show a specific bridge
