@@ -8,7 +8,7 @@ environment:
   CC: gcc.exe
   CGO_ENABLED: 1
   GOPATH: c:\gopath
-  GOVERSION: 1.11
+  GOVERSION: 1.12
   MSYS2_ARCH: x86_64
   MSYS2_BITS: 64
   MSYSTEM: MINGW64
