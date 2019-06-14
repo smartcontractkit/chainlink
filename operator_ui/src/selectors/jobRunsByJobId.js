@@ -7,7 +7,7 @@ export default (state, jobId, take) => {
       const dateA = new Date(a.createdAt)
       const dateB = new Date(b.createdAt)
 
-       return dateA < dateB ? 1 : -1
+      return dateA < dateB ? 1 : -1
     })
     .slice(0, take)
 }
