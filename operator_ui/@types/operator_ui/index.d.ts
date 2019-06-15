@@ -1,5 +1,5 @@
 import * as dbTypes from "../db"
-import { status } from "../constants"
+import { status, adapterTypes } from "../constants"
 
 interface runResult {
     data: { result: string | null }
@@ -9,15 +9,12 @@ interface runResult {
     status: status
 }
 
-export interface IBridgeType extends Omit<dbTypes.bridgeType, 'incoming_token_hash' | 'salt'> {
-}
+export interface IBridgeType extends Omit<dbTypes.bridgeType, 'incoming_token_hash' | 'salt'> { }
 
 //REVIEW what to do with this?
-export interface IExternalInitiator extends Omit<dbTypes.externalInitiator, 'salt' | 'hashed_secret' | 'access_key'> {
-}
+export interface IExternalInitiator extends Omit<dbTypes.externalInitiator, 'salt' | 'hashed_secret' | 'access_key'> { }
 
-export interface IInitiator extends dbTypes.Initiator {
-}
+export interface IInitiator extends dbTypes.Initiator { }
 
 export interface IJobRun extends Omit<dbTypes.jobRun, 'initiator_id' | 'overrides_id' | 'job_spec_id'> {
     initiator: dbTypes.Initiator
@@ -36,14 +33,13 @@ export interface ITaskRun extends Omit<dbTypes.taskRun, 'task_spec_id' | 'job_ru
     result: runResult
     task: ITaskSpec
     updatedAt: Date
+    type: adapterTypes
 }
 
-export interface ITaskSpec extends Omit<dbTypes.taskSpec, 'job_spec_id'> {
-}
+export interface ITaskSpec extends Omit<dbTypes.taskSpec, 'job_spec_id'> { }
 
 //Review Not needed?
-export interface ITxAttempt extends dbTypes.txAttempt {
-}
+export interface ITxAttempt extends dbTypes.txAttempt { }
 
 
 export interface ITransaction extends Omit<dbTypes.Tx, 'surrogateId' | 'signedRawTx'> {
