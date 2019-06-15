@@ -4,10 +4,10 @@ export interface bridgeType {
     name: string
     url: string | null
     confirmations: number | null
-    incoming_token_hash: string | null
+    incomingTokenHash: string | null
     salt: string | null
-    outgoing_token: string | null
-    minimum_contract_payment: string | null
+    outgoingToken: string | null
+    minimumContractPayment: string | null
 }
 
 export interface externalInitiator {
@@ -15,14 +15,14 @@ export interface externalInitiator {
     createdAt: Date | null
     updatedAt: Date | null
     deletedAt: Date | null
-    access_key: string | null
+    accessKey: string | null
     salt: string | null
-    hashed_secret: string | null
+    hashedSecret: string | null
 }
 
 export interface Initiator {
     id: number
-    job_spec_id: string | null
+    jobSpecId: string | null
     type: initiatorTypes
     createdAt: Date | null
     schedule: string | null
@@ -35,17 +35,17 @@ export interface Initiator {
 
 export interface jobRun {
     id: string
-    job_spec_id: string
-    result_id: number | null
-    run_request_id: number | null
+    jobSpecId: string
+    resultId: number | null
+    runRequestId: number | null
     status: status
     createdAt: Date | null
     finishedAt: Date | null
     updatedAt: Date | null
-    initiator_id: number | null
+    initiatorId: number | null
     creationHeight: string | null
     observedHeight: string | null
-    overrides_id: number | null
+    overridesId: number | null
     deletedAt: Date | null
 }
 
@@ -59,18 +59,18 @@ export interface jobSpec {
 
 export interface runRequests {
     id: number
-    request_id: string | null
-    tx_hash: string | null
+    requestId: string | null
+    txHash: string | null
     requester: string | null
     createdAt: Date | null
 }
 
 export interface taskRun {
     id: string
-    job_run_id: string
-    result_id: number | null
+    jobRunId: string
+    resultId: number | null
     status: status
-    task_spec_id: number | null
+    taskSpecId: number | null
     minimumConfirmations: number | null
     createdAt: Date | null
     confirmations: number
@@ -81,21 +81,21 @@ export interface taskSpec {
     createdAt: Date | null
     updatedAt: Date | null
     deletedAt: Date | null
-    job_spec_id: string | null
+    jobSpecId: string | null
     type: adapterTypes
     confirmations: number | null
-    params: string | null // Review add conditional params for known adapter types that are listed 2 lines above?
+    params: string | null //REVIEW add conditional params for known adapter types that are listed 2 lines above?
 }
 
 export interface txAttempt {
     id: number
-    tx_id: number | null
+    txId: number | null
     createdAt: Date
     hash: string
-    gas_price: string
+    gasPrice: string
     confirmed: boolean
-    sent_at: number
-    signed_raw_tx: string
+    sentAt: number
+    signedRawTx: string
 }
 
 
