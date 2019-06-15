@@ -1,4 +1,4 @@
-export interface bridge_types {
+export interface bridgeType {
     name: string;
     url: string | null;
     confirmations: number | null;
@@ -8,97 +8,87 @@ export interface bridge_types {
     minimum_contract_payment: string | null;
 }
 
-export interface external_initiators {
+export interface externalInitiator {
     id: number;
-    created_at: Date | null;
-    updated_at: Date | null;
-    deleted_at: Date | null;
+    createdAt: Date | null;
+    updatedAt: Date | null;
+    deletedAt: Date | null;
     access_key: string | null;
     salt: string | null;
     hashed_secret: string | null;
 }
 
-export interface initiators {
+export interface Initiator {
     id: number;
     job_spec_id: string | null;
     type: string;
-    created_at: Date | null;
+    createdAt: Date | null;
     schedule: string | null;
     time: Date | null;
     ran: boolean | null;
     address: string | null;
     requesters: string | null;
-    deleted_at: Date | null;
+    deletedAt: Date | null;
 }
 
-export interface job_runs {
+export interface jobRun {
     id: string;
     job_spec_id: string;
     result_id: number | null;
     run_request_id: number | null;
     status: string | null;
-    created_at: Date | null;
-    finished_at: Date | null;
-    updated_at: Date | null;
+    createdAt: Date | null;
+    finishedAt: Date | null;
+    updatedAt: Date | null;
     initiator_id: number | null;
-    creation_height: string | null;
-    observed_height: string | null;
+    creationHeight: string | null;
+    observedHeight: string | null;
     overrides_id: number | null;
-    deleted_at: Date | null;
+    deletedAt: Date | null;
 }
 
-export interface job_specs {
+export interface jobSpec {
     id: string;
-    created_at: Date | null;
-    start_at: Date | null;
-    end_at: Date | null;
-    deleted_at: Date | null;
+    createdAt: Date | null;
+    startAt: Date | null;
+    endAt: Date | null;
+    deletedAt: Date | null;
 }
 
-export interface run_requests {
+export interface runRequests {
     id: number;
     request_id: string | null;
     tx_hash: string | null;
     requester: string | null;
-    created_at: Date | null;
+    createdAt: Date | null;
 }
 
-export interface run_results {
-    id: number;
-    cached_job_run_id: string | null;
-    cached_task_run_id: string | null;
-    data: string | null;
-    status: string | null;
-    error_message: string | null;
-    amount: string | null;
-}
-
-export interface task_runs {
+export interface taskRun {
     id: string;
     job_run_id: string;
     result_id: number | null;
     status: string | null;
     task_spec_id: number | null;
-    minimum_confirmations: number | null;
-    created_at: Date | null;
+    minimumConfirmations: number | null;
+    createdAt: Date | null;
     confirmations: number;
 }
 
-export interface task_specs {
+export interface taskSpec {
     id: number;
-    created_at: Date | null;
-    updated_at: Date | null;
-    deleted_at: Date | null;
+    createdAt: Date | null;
+    updatedAt: Date | null;
+    deletedAt: Date | null;
     job_spec_id: string | null;
     type: string;
     confirmations: number | null;
     params: string | null;
 }
 
-export interface tx_attempts {
+export interface txAttempt {
     id: number;
     tx_id: number | null;
-    created_at: Date;
+    createdAt: Date;
     hash: string;
     gas_price: string;
     confirmed: boolean;
@@ -107,18 +97,18 @@ export interface tx_attempts {
 }
 
 
-export interface txes {
+export interface Tx {
     id: number;
-    surrogate_id: string | null;
+    surrogateId: string | null;
     from: string;
     to: string;
     data: string;
     nonce: number;
     value: string;
-    gas_limit: number;
+    gasLimit: number;
     hash: string;
-    gas_price: string;
+    gasPrice: string;
     confirmed: boolean;
-    sent_at: number;
-    signed_raw_tx: string;
+    sentAt: number;
+    signedRawTx: string;
 }
