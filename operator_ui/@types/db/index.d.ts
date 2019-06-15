@@ -36,7 +36,7 @@ export interface jobRun {
     job_spec_id: string;
     result_id: number | null;
     run_request_id: number | null;
-    status: string | null;
+    status: "In Progress" | "Pending Confirmations" | "Pending Connection" | "Pending Bridge" | "Pending Sleep" | "Errored" | "Completed" | null
     createdAt: Date | null;
     finishedAt: Date | null;
     updatedAt: Date | null;
@@ -67,7 +67,7 @@ export interface taskRun {
     id: string;
     job_run_id: string;
     result_id: number | null;
-    status: string | null;
+    status: "In Progress" | "Pending Confirmations" | "Pending Connection" | "Pending Bridge" | "Pending Sleep" | "Errored" | "Completed" | null
     task_spec_id: number | null;
     minimumConfirmations: number | null;
     createdAt: Date | null;

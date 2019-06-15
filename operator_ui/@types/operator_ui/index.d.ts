@@ -5,15 +5,12 @@ interface initiatorParams {
     params: Object
 }
 
-interface runStatus {
-    status: "In Progress" | "Pending Confirmations" | "Pending Connection" | "Pending Bridge" | "Pending Sleep" | "Errored" | "Completed" | null
-}
-
-interface runResult extends runStatus {
+interface runResult {
     data: { result: string | null }
     error: boolean | null
     jobRunId: string
     taskRunId: string
+    status: "In Progress" | "Pending Confirmations" | "Pending Connection" | "Pending Bridge" | "Pending Sleep" | "Errored" | "Completed" | null
 }
 
 export interface IBridgeType extends Omit<dbTypes.bridgeType, 'incoming_token_hash' | 'salt'> {
