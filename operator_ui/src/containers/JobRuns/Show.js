@@ -1,7 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { useHooks, useEffect } from 'use-react-hooks'
-import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
@@ -11,19 +10,18 @@ import Content from 'components/Content'
 import RegionalNav from 'components/JobRuns/RegionalNav'
 import StatusCard from 'components/JobRuns/StatusCard'
 import TaskExpansionPanel from 'components/JobRuns/TaskExpansionPanel'
+import StyledTooltip from 'components/Tooltip'
 
-const styles = theme => ({
-  breadcrumb: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  }
-})
 
-const renderDetails = ({ classes, fetching, jobRun }) => {
+const renderDetails = ({ fetching, jobRun }) => {
   if (fetching || !jobRun) {
     return <div>Fetching job run...</div>
   }
-
+  const result =
+    jobRun &&
+    jobRun.result &&
+    jobRun.result.data &&
+    `Result: ${jobRun.result.data.result || 'unavailable'}`
   return (
     <Grid container spacing={40}>
       <Grid item xs={8}>
@@ -32,7 +30,11 @@ const renderDetails = ({ classes, fetching, jobRun }) => {
         </Card>
       </Grid>
       <Grid item xs={4}>
-        <StatusCard>{jobRun.status}</StatusCard>
+        <StyledTooltip title={result} placement="bottom">
+          <Grid item>
+            <StatusCard>{jobRun.status}</StatusCard>
+          </Grid>
+        </StyledTooltip>
       </Grid>
     </Grid>
   )
@@ -75,4 +77,4 @@ export const ConnectedShow = connect(
   matchRouteAndMapDispatchToProps({ fetchJobRun })
 )(Show)
 
-export default withStyles(styles)(ConnectedShow)
+export default ConnectedShow
