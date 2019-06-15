@@ -304,3 +304,225 @@ func TestQueryParameters(t *testing.T) {
 		})
 	}
 }
+
+func TestExtendedPath(t *testing.T) {
+	t.Parallel()
+
+	baseUrl := "http://example.com"
+
+	cases := []struct {
+		name         string
+		startingUrl  string
+		path         string
+		wantErrored  bool
+		expectedPath adapters.ExtendedPath
+		expectedURL  string
+	}{
+		{
+			"empty",
+			baseUrl,
+			`""`,
+			false,
+			adapters.ExtendedPath{""},
+			baseUrl,
+		},
+		{
+			"two paths",
+			baseUrl,
+			`"one/two"`,
+			false,
+			adapters.ExtendedPath{
+				"one",
+				"two",
+			},
+			"http://example.com/one/two",
+		},
+		{
+			"existing path no trailing slash",
+			"http://example.com/one",
+			`"two/three"`,
+			false,
+			adapters.ExtendedPath{
+				"two",
+				"three",
+			},
+			"http://example.com/one/two/three",
+		},
+		{
+			"existing path with trailing slash",
+			"http://example.com/one/",
+			`"two/three"`,
+			false,
+			adapters.ExtendedPath{
+				"two",
+				"three",
+			},
+			"http://example.com/one/two/three",
+		},
+		{
+			"input as arrays",
+			baseUrl,
+			`["one","two"]`,
+			false,
+			adapters.ExtendedPath{
+				"one",
+				"two",
+			},
+			"http://example.com/one/two",
+		},
+		{
+			"input begins with slash",
+			baseUrl,
+			`"/one/two"`,
+			false,
+			adapters.ExtendedPath{
+				"",
+				"one",
+				"two",
+			},
+			"http://example.com/one/two",
+		},
+		{
+			"input ends with slash",
+			baseUrl,
+			`"one/two/"`,
+			false,
+			adapters.ExtendedPath{
+				"one",
+				"two",
+				"",
+			},
+			"http://example.com/one/two",
+		},
+		{
+			"bad array input",
+			baseUrl,
+			`["one","two"`,
+			true,
+			adapters.ExtendedPath{},
+			baseUrl,
+		},
+	}
+
+	for _, tt := range cases {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			ep := adapters.ExtendedPath{}
+			err := json.Unmarshal([]byte(test.path), &ep)
+			hga := adapters.HTTPGet{
+				URL:     cltest.WebURL(t, test.startingUrl),
+				ExtPath: ep,
+			}
+			hpa := adapters.HTTPPost{
+				URL:     cltest.WebURL(t, test.startingUrl),
+				ExtPath: ep,
+			}
+			if test.wantErrored {
+				requestGET, _ := hga.GetRequest()
+				assert.Equal(t, test.expectedURL, requestGET.URL.String())
+				assert.Equal(t, test.expectedPath, hga.ExtPath)
+				requestPOST, _ := hpa.GetRequest("")
+				assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+				assert.Equal(t, test.expectedPath, hpa.ExtPath)
+				assert.NotNil(t, err)
+			} else {
+				requestGET, _ := hga.GetRequest()
+				assert.Equal(t, test.expectedURL, requestGET.URL.String())
+				assert.Equal(t, test.expectedPath, hga.ExtPath)
+				requestPOST, _ := hpa.GetRequest("")
+				assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+				assert.Equal(t, test.expectedPath, hpa.ExtPath)
+				assert.Nil(t, err)
+			}
+		})
+	}
+}
+
+func TestHTTP_BuildingURL(t *testing.T) {
+	t.Parallel()
+
+	baseUrl := "http://example.com"
+
+	cases := []struct {
+		name        string
+		startingUrl string
+		path        string
+		queryParams string
+		expectedURL string
+	}{
+		{
+			"one of each",
+			baseUrl,
+			`"one"`,
+			`"firstKey=firstVal"`,
+			"http://example.com/one?firstKey=firstVal",
+		},
+		{
+			"query params no path",
+			baseUrl,
+			`""`,
+			`"firstKey=firstVal"`,
+			"http://example.com?firstKey=firstVal",
+		},
+		{
+			"path no query params",
+			baseUrl,
+			`"one"`,
+			`""`,
+			"http://example.com/one",
+		},
+		{
+			"many of each",
+			baseUrl,
+			`"one/two/three"`,
+			`"firstKey=firstVal&secondKey=secondVal"`,
+			"http://example.com/one/two/three?firstKey=firstVal&secondKey=secondVal",
+		},
+		{
+			"existing path",
+			"http://example.com/one",
+			`"two"`,
+			`"firstKey=firstVal"`,
+			"http://example.com/one/two?firstKey=firstVal",
+		},
+		{
+			"existing query param",
+			"http://example.com?firstKey=firstVal",
+			`"one"`,
+			`"secondKey=secondVal"`,
+			"http://example.com/one?firstKey=firstVal&secondKey=secondVal",
+		},
+		{
+			"existing path and query param",
+			"http://example.com/one?firstKey=firstVal",
+			`"two"`,
+			`"secondKey=secondVal"`,
+			"http://example.com/one/two?firstKey=firstVal&secondKey=secondVal",
+		},
+	}
+
+	for _, tt := range cases {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			ep := adapters.ExtendedPath{}
+			qp := adapters.QueryParameters{}
+			err := json.Unmarshal([]byte(test.path), &ep)
+			err = json.Unmarshal([]byte(test.queryParams), &qp)
+			hga := adapters.HTTPGet{
+				URL:         cltest.WebURL(t, test.startingUrl),
+				QueryParams: qp,
+				ExtPath:     ep,
+			}
+			hpa := adapters.HTTPPost{
+				URL:         cltest.WebURL(t, test.startingUrl),
+				QueryParams: qp,
+				ExtPath:     ep,
+			}
+			requestGET, _ := hga.GetRequest()
+			assert.Equal(t, test.expectedURL, requestGET.URL.String())
+			requestPOST, _ := hpa.GetRequest("")
+			assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+			assert.Nil(t, err)
+		})
+	}
+}
