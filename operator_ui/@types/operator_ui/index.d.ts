@@ -9,14 +9,14 @@ interface runResult {
     status: status
 }
 
-export interface IBridgeType extends Omit<dbTypes.bridgeType, 'incoming_token_hash' | 'salt'> { }
+export interface IBridgeType extends Omit<dbTypes.bridgeType, 'incomingTokenHash' | 'salt'> { }
 
 //REVIEW what to do with this?
-export interface IExternalInitiator extends Omit<dbTypes.externalInitiator, 'salt' | 'hashed_secret' | 'access_key'> { }
+export interface IExternalInitiator extends Omit<dbTypes.externalInitiator, 'salt' | 'hashedSecret' | 'accessKey'> { }
 
 export interface IInitiator extends dbTypes.Initiator { }
 
-export interface IJobRun extends Omit<dbTypes.jobRun, 'initiator_id' | 'overrides_id' | 'job_spec_id'> {
+export interface IJobRun extends Omit<dbTypes.jobRun, 'initiatorId' | 'overridesId' | 'jobSpecId'> {
     initiator: dbTypes.Initiator
     jobId: string
     overrides: runResult
@@ -30,18 +30,17 @@ export interface IJobSpec extends dbTypes.jobSpec {
     runs: ITaskRuns
 }
 
-export interface ITaskRun extends Omit<dbTypes.taskRun, 'task_spec_id' | 'job_run_id' | 'result_id'> {
+export interface ITaskRun extends Omit<dbTypes.taskRun, 'taskSpecId' | 'jobRunId' | 'resultId'> {
     result: runResult
     task: ITaskSpec
     updatedAt: Date
     type: adapterTypes
 }
 
-export interface ITaskSpec extends Omit<dbTypes.taskSpec, 'job_spec_id'> { }
+export interface ITaskSpec extends Omit<dbTypes.taskSpec, 'jobSpecId'> { }
 
-//Review Not needed?
+//REVIEW Not needed?
 export interface ITxAttempt extends dbTypes.txAttempt { }
-
 
 export interface ITransaction extends Omit<dbTypes.Tx, 'surrogateId' | 'signedRawTx'> {
     rawHex: string
