@@ -1,3 +1,5 @@
+import { status, adapterTypes, initiatorTypes } from "../constants"
+
 export interface bridgeType {
     name: string;
     url: string | null;
@@ -21,7 +23,7 @@ export interface externalInitiator {
 export interface Initiator {
     id: number;
     job_spec_id: string | null;
-    type: string;
+    type: initiatorTypes
     createdAt: Date | null;
     schedule: string | null;
     time: Date | null;
@@ -36,7 +38,7 @@ export interface jobRun {
     job_spec_id: string;
     result_id: number | null;
     run_request_id: number | null;
-    status: "In Progress" | "Pending Confirmations" | "Pending Connection" | "Pending Bridge" | "Pending Sleep" | "Errored" | "Completed" | null
+    status: status
     createdAt: Date | null;
     finishedAt: Date | null;
     updatedAt: Date | null;
@@ -67,7 +69,7 @@ export interface taskRun {
     id: string;
     job_run_id: string;
     result_id: number | null;
-    status: "In Progress" | "Pending Confirmations" | "Pending Connection" | "Pending Bridge" | "Pending Sleep" | "Errored" | "Completed" | null
+    status: status
     task_spec_id: number | null;
     minimumConfirmations: number | null;
     createdAt: Date | null;
@@ -80,9 +82,9 @@ export interface taskSpec {
     updatedAt: Date | null;
     deletedAt: Date | null;
     job_spec_id: string | null;
-    type: string;
+    type: adapterTypes
     confirmations: number | null;
-    params: string | null;
+    params: string | null; // Review add conditional params for known adapter types that are listed 2 lines above?
 }
 
 export interface txAttempt {

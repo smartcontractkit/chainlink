@@ -1,16 +1,12 @@
 import * as dbTypes from "../db"
-
-interface initiatorParams {
-    type: String
-    params: Object
-}
+import { status } from "../constants"
 
 interface runResult {
     data: { result: string | null }
     error: boolean | null
     jobRunId: string
     taskRunId: string
-    status: "In Progress" | "Pending Confirmations" | "Pending Connection" | "Pending Bridge" | "Pending Sleep" | "Errored" | "Completed" | null
+    status: status
 }
 
 export interface IBridgeType extends Omit<dbTypes.bridgeType, 'incoming_token_hash' | 'salt'> {
@@ -24,20 +20,20 @@ export interface IInitiator extends dbTypes.Initiator {
 }
 
 export interface IJobRun extends Omit<dbTypes.jobRun, 'initiator_id' | 'overrides_id' | 'job_spec_id'> {
-    initiator: initiatorParams
+    initiator: dbTypes.Initiator
     jobId: string
-    overrides: RunResult
-    result: RunResult
+    overrides: runResult
+    result: runResult
     taskRuns: ITaskRuns
 }
 
 export interface IJobSpec extends dbTypes.jobSpec {
-    initiators: initiatorParams
+    initiators: dbTypes.Initiator
     tasks: ITaskRuns
 }
 
 export interface ITaskRun extends Omit<dbTypes.taskRun, 'task_spec_id' | 'job_run_id' | 'result_id'> {
-    result: RunResult
+    result: runResult
     task: ITaskSpec
     updatedAt: Date
 }
@@ -49,7 +45,8 @@ export interface ITaskSpec extends Omit<dbTypes.taskSpec, 'job_spec_id'> {
 export interface ITxAttempt extends dbTypes.txAttempt {
 }
 
-export interface ITransaction extends Omit<dbTypes.Txes, 'surrogateId' | 'signedRawTx'> {
+
+export interface ITransaction extends Omit<dbTypes.Tx, 'surrogateId' | 'signedRawTx'> {
     rawHex: string
 }
 
