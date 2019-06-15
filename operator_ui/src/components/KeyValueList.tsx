@@ -10,9 +10,9 @@ import Typography from '@material-ui/core/Typography'
 import CardTitle from 'components/Cards/Title'
 import { titleCase } from 'change-case'
 
-const renderKey = (k, titleize) => (titleize ? titleCase(k) : k)
+const renderKey = (k: string, titleize: boolean) => (titleize ? titleCase(k) : k)
 
-const renderEntries = (entries, titleize) =>
+const renderEntries = (entries: Array<Array<string>>, titleize: boolean) =>
   entries.map(([k, v]) => (
     <TableRow key={k}>
       <Col>{renderKey(k, titleize)}</Col>
@@ -20,7 +20,7 @@ const renderEntries = (entries, titleize) =>
     </TableRow>
   ))
 
-const renderBody = (entries, error, titleize) => {
+const renderBody = (entries: Array<Array<string>>, error: string, titleize: boolean) => {
   if (error) {
     return <ErrorRow>{error}</ErrorRow>
   } else if (entries.length === 0) {
@@ -58,7 +58,15 @@ const HeadCol = ({ children }) => (
   </TableCell>
 )
 
-const KeyValueList = ({ entries, error, showHead, title, titleize }) => (
+interface IPropsKVList {
+  entries: Array<Array<string>>
+  titleize: boolean
+  showHead: boolean
+  title?: string
+  error?: string
+}
+
+const KeyValueList = ({ entries, error = '', showHead = false, title, titleize = false } : IPropsKVList) => (
   <Card>
     {title && <CardTitle divider>{title}</CardTitle>}
 
@@ -75,18 +83,5 @@ const KeyValueList = ({ entries, error, showHead, title, titleize }) => (
     </Table>
   </Card>
 )
-
-KeyValueList.propTypes = {
-  showHead: PropTypes.bool.isRequired,
-  titleize: PropTypes.bool.isRequired,
-  entries: PropTypes.array.isRequired,
-  title: PropTypes.string,
-  error: PropTypes.string
-}
-
-KeyValueList.defaultProps = {
-  showHead: false,
-  titleize: false
-}
 
 export default KeyValueList

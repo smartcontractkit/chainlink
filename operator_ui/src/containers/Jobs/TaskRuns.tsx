@@ -8,6 +8,7 @@ import {
 import Typography from '@material-ui/core/Typography'
 import ListIcon from '../../components/Icons/ListIcon'
 import titleize from '../../utils/titleize'
+import { ITaskRuns } from '../../../@types/operator_ui'
 
 const styles = ({ spacing, palette }: Theme) =>
   createStyles({
@@ -33,7 +34,7 @@ const styles = ({ spacing, palette }: Theme) =>
   })
 
 interface IProps extends WithStyles<typeof styles> {
-  taskRuns: any[]
+  taskRuns: ITaskRuns
 }
 
 const TaskRuns = ({ taskRuns, classes }: IProps) => {
