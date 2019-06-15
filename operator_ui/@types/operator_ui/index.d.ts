@@ -26,7 +26,8 @@ export interface IJobRun extends Omit<dbTypes.jobRun, 'initiator_id' | 'override
 
 export interface IJobSpec extends dbTypes.jobSpec {
     initiators: dbTypes.Initiator
-    tasks: ITaskRuns
+    tasks: ITaskSpecs
+    runs: ITaskRuns
 }
 
 export interface ITaskRun extends Omit<dbTypes.taskRun, 'task_spec_id' | 'job_run_id' | 'result_id'> {
