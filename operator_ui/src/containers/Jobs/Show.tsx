@@ -15,28 +15,29 @@ import jobsShowRunCountSelector from '../../selectors/jobsShowRunCount'
 import { formatInitiators } from '../../utils/jobSpecInitiators'
 import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatchToProps'
 import TaskRuns from './TaskRuns'
+import { IJobSpec, IJobRuns } from '../../../@types/operator_ui'
 
-const renderJobSpec = job => {
+const renderJobSpec = (job: IJobSpec) => {
   const info = {
     runCount: job.runs && job.runs.length,
     initiator: formatInitiators(job.initiators)
   }
 
-  return <KeyValueList entries={Object.entries(info)} titleize />
+  return <KeyValueList showHead={false} entries={Object.entries(info)} titleize />
 }
 
-const renderTaskRuns = job => (
+const renderTaskRuns = (job: IJobSpec) => (
   <Card>
     <CardTitle divider>Task List</CardTitle>
-    <TaskRuns taskRuns={job.tasks} />
+    <TaskRuns taskRuns={job.runs} />
   </Card>
 )
 
 const renderLatestRuns = (
-  job,
-  recentRuns,
-  recentRunsCount,
-  showJobRunsCount
+  job: IJobSpec,
+  recentRuns: IJobRuns,
+  recentRunsCount: number,
+  showJobRunsCount: number
 ) => (
   <React.Fragment>
     <Card>
@@ -52,9 +53,9 @@ const renderLatestRuns = (
 )
 
 interface IDetailsProps {
-  recentRuns: any[]
+  recentRuns: IJobRuns
   recentRunsCount: number
-  job?: any
+  job?: IJobSpec
   showJobRunsCount: number
 }
 
@@ -85,8 +86,8 @@ const Details = ({
 
 interface IProps {
   jobSpecId: string
-  job?: any
-  recentRuns: any[]
+  job?: IJobSpec
+  recentRuns: IJobRuns
   recentRunsCount: number
   showJobRunsCount: number
   fetchJob: (string) => Promise<any>
