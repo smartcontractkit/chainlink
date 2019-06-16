@@ -11,10 +11,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559081901"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559767166"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559767168"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560433987"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560791143"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881846"
@@ -175,6 +177,28 @@ func TestMigrate_Migration1560881846(t *testing.T) {
 	require.NoError(t, db.Where("id = (SELECT MAX(id) FROM heads)").Find(&headFound).Error)
 	assert.Equal(t, "0xdad0000000000000000000000000000000000000000000000000000000000b0d", headFound.Hash.Hex())
 	assert.Equal(t, int64(8616460799), headFound.Number)
+}
+
+func TestMigrate_Migration1559767168(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+	db := orm.DB
+
+	require.NoError(t, migration0.Migrate(db))
+	require.NoError(t, migration1559767168.Migrate(db))
+	specNoPayment := models.NewJobFromRequest(models.JobSpecRequest{})
+	specWithPayment := models.NewJobFromRequest(models.JobSpecRequest{
+		MinPayment: assets.NewLink(5),
+	})
+	specOneFound := models.JobSpec{}
+	specTwoFound := models.JobSpec{}
+
+	require.NoError(t, db.Create(&specWithPayment).Error)
+	require.NoError(t, db.Create(&specNoPayment).Error)
+	require.NoError(t, db.Where("id = ?", specNoPayment.ID).Find(&specOneFound).Error)
+	require.Equal(t, assets.NewLink(0), specNoPayment.MinPayment)
+	require.NoError(t, db.Where("id = ?", specWithPayment.ID).Find(&specTwoFound).Error)
+	require.Equal(t, assets.NewLink(5), specWithPayment.MinPayment)
 }
 
 func TestMigrate_NewerVersionGuard(t *testing.T) {

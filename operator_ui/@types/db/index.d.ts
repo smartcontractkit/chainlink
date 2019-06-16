@@ -51,6 +51,7 @@ export interface JobRun {
 
 export interface JobSpec {
     id: string
+    minPayment: number
     createdAt: string
     startAt: Date | null
     endAt: Date | null

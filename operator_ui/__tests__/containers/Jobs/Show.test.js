@@ -8,7 +8,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { ConnectedShow as Show } from 'containers/Jobs/Show'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 import jsonApiJobSpecRunsFactory from 'factories/jsonApiJobSpecRuns'
-import { GWEI_PER_TOKEN } from '../../../src/utils/constants'
+import { GWEI_PER_TOKEN, WEI_PER_TOKEN } from '../../../src/utils/constants'
 
 const mountShow = props =>
   mountWithTheme(
@@ -30,7 +30,8 @@ describe('containers/Jobs/Show', () => {
       id: jobSpecId,
       initiators: [{ type: 'web' }],
       createdAt: minuteAgo,
-      earnings: GWEI_PER_TOKEN
+      earnings: GWEI_PER_TOKEN,
+      minPayment: 100 * WEI_PER_TOKEN
     })
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
 
@@ -56,6 +57,7 @@ describe('containers/Jobs/Show', () => {
     expect(wrapper.text()).toContain('1.000000')
     expect(wrapper.text()).toContain('Httpget')
     expect(wrapper.text()).toContain('Run Count1')
+    expect(wrapper.text()).toContain('Minimum Payment100 Link')
     expect(wrapper.text()).toContain('Pending')
     expect(wrapper.text()).not.toContain('View More')
   })
