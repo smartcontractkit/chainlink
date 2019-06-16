@@ -121,7 +121,7 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 			store.Config.Set("MIN_INCOMING_CONFIRMATIONS", test.configConfirmations)
 
 			jobSpec := cltest.NewJobWithLogInitiator()
-			jobSpec.Tasks[0].Confirmations = clnull.USmallFrom(test.taskConfirmations)
+			jobSpec.Tasks[0].Confirmations = clnull.Uint32From(test.taskConfirmations)
 
 			run, err := services.NewRun(
 				jobSpec,

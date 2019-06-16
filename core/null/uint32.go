@@ -8,28 +8,28 @@ import (
 	"strconv"
 )
 
-type USmall struct {
+type Uint32 struct {
 	Uint32 uint32
 	Valid  bool
 }
 
-func NewUSmall(i uint32, valid bool) USmall {
-	return USmall{
+func NewUint32(i uint32, valid bool) Uint32 {
+	return Uint32{
 		Uint32: i,
 		Valid:  valid,
 	}
 }
 
-// USmallFrom creates a new USmall that will always be valid.
-func USmallFrom(i uint32) USmall {
-	return NewUSmall(i, true)
+// Uint32From creates a new Uint32 that will always be valid.
+func Uint32From(i uint32) Uint32 {
+	return NewUint32(i, true)
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
 // It supports number and null input.
 // 0 will not be considered a null Int.
 // It also supports unmarshalling a sql.NullInt64.
-func (i *USmall) UnmarshalJSON(data []byte) error {
+func (i *Uint32) UnmarshalJSON(data []byte) error {
 	var err error
 	var v interface{}
 	if err = json.Unmarshal(data, &v); err != nil {
@@ -50,16 +50,16 @@ func (i *USmall) UnmarshalJSON(data []byte) error {
 		i.Valid = false
 		return nil
 	default:
-		err = fmt.Errorf("json: cannot unmarshal %v into Go value of type null.USmall", reflect.TypeOf(v).Name())
+		err = fmt.Errorf("json: cannot unmarshal %v into Go value of type null.Uint32", reflect.TypeOf(v).Name())
 	}
 	i.Valid = err == nil
 	return err
 }
 
 // UnmarshalText implements encoding.TextUnmarshaler.
-// It will unmarshal to a null USmall if the input is a blank or not an integer.
+// It will unmarshal to a null Uint32 if the input is a blank or not an integer.
 // It will return an error if the input is not an integer, blank, or "null".
-func (i *USmall) UnmarshalText(text []byte) error {
+func (i *Uint32) UnmarshalText(text []byte) error {
 	str := string(text)
 	if str == "" || str == "null" {
 		i.Valid = false
@@ -77,8 +77,8 @@ func parse(str string) (uint32, error) {
 }
 
 // MarshalJSON implements json.Marshaler.
-// It will encode null if this USmall is null.
-func (i USmall) MarshalJSON() ([]byte, error) {
+// It will encode null if this Uint32 is null.
+func (i Uint32) MarshalJSON() ([]byte, error) {
 	if !i.Valid {
 		return []byte("null"), nil
 	}
@@ -86,22 +86,22 @@ func (i USmall) MarshalJSON() ([]byte, error) {
 }
 
 // MarshalText implements encoding.TextMarshaler.
-// It will encode a blank string if this USmall is null.
-func (i USmall) MarshalText() ([]byte, error) {
+// It will encode a blank string if this Uint32 is null.
+func (i Uint32) MarshalText() ([]byte, error) {
 	if !i.Valid {
 		return []byte{}, nil
 	}
 	return []byte(strconv.FormatUint(uint64(i.Uint32), 10)), nil
 }
 
-// SetValid changes this USmall's value and also sets it to be non-null.
-func (i *USmall) SetValid(n uint32) {
+// SetValid changes this Uint32's value and also sets it to be non-null.
+func (i *Uint32) SetValid(n uint32) {
 	i.Uint32 = n
 	i.Valid = true
 }
 
 // Value returns this instance serialized for database storage.
-func (i USmall) Value() (driver.Value, error) {
+func (i Uint32) Value() (driver.Value, error) {
 	if !i.Valid {
 		return nil, nil
 	}
@@ -114,9 +114,9 @@ func (i USmall) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (i *USmall) Scan(value interface{}) error {
+func (i *Uint32) Scan(value interface{}) error {
 	if value == nil {
-		*i = USmall{}
+		*i = Uint32{}
 		return nil
 	}
 
@@ -124,17 +124,17 @@ func (i *USmall) Scan(value interface{}) error {
 	case int:
 		safe := uint32(typed)
 		if int(safe) != typed {
-			return fmt.Errorf("Unable to convert %v of %T to USmall; overflow", value, value)
+			return fmt.Errorf("Unable to convert %v of %T to Uint32; overflow", value, value)
 		}
-		*i = USmallFrom(safe)
+		*i = Uint32From(safe)
 	case int64:
 		safe := uint32(typed)
 		if int64(safe) != typed {
-			return fmt.Errorf("Unable to convert %v of %T to USmall; overflow", value, value)
+			return fmt.Errorf("Unable to convert %v of %T to Uint32; overflow", value, value)
 		}
-		*i = USmallFrom(safe)
+		*i = Uint32From(safe)
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to USmall", value, value)
+		return fmt.Errorf("Unable to convert %v of %T to Uint32", value, value)
 	}
 	return nil
 }
