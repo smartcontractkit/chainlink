@@ -240,10 +240,9 @@ func (c *ConfigWhitelist) SetID(value string) error {
 	return nil
 }
 
-// JobSpec holds the JobSpec definition and each run associated with that Job.
+// JobSpec holds the JobSpec definition
 type JobSpec struct {
 	models.JobSpec
-	Runs []JobRun `json:"runs,omitempty"`
 }
 
 // MarshalJSON returns the JSON data of the Job and its Initiators.
