@@ -57,6 +57,7 @@ DataDir = "/root/gethnet/datadir2"
 KeyStoreDir = "/root/gethnet/datadir2/keystore"
 omitempty = ""
 InsecureUnlockAllowed = true
+HTTPHost = "172.16.1.101" # Should be docker-compose.yaml IP address
 HTTPPort = 8545
 HTTPVirtualHosts = ["172.16.1.101"]
 HTTPModules = ["net", "web3", "eth", "shh"]

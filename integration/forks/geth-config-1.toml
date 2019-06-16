@@ -55,14 +55,12 @@ RestrictConnectionBetweenLightClients = true
 # Fill this in with the path to the datadir and keystore *in the container*
 DataDir = "/root/gethnet/datadir1"
 KeyStoreDir = "/root/gethnet/datadir1/keystore"
-omitempty = ""
 InsecureUnlockAllowed = true
+HTTPHost = "172.16.1.100" # Should be docker-compose.yaml IP address
 HTTPPort = 8545
-HTTPVirtualHosts = ["localhost"]
+HTTPVirtualHosts = ["172.16.1.100"] # Should be docker-compose.yaml IP address
 HTTPModules = ["net", "web3", "eth", "shh"]
 # Fill this in with the IP address assigned to the node in docker-compose.yaml
-# "172.16.1.100"
-# "127.0.0.1"
 WSHost = "172.16.1.100"
 WSPort = 8546
 WSOrigins = ["*"]
