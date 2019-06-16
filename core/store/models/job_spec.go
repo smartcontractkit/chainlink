@@ -11,16 +11,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	null "gopkg.in/guregu/null.v3"
 )
 
 // JobSpecRequest represents a schema for the incoming job spec request as used by the API.
 type JobSpecRequest struct {
-	Initiators []InitiatorRequest `json:"initiators"`
-	Tasks      []TaskSpecRequest  `json:"tasks"`
-	StartAt    null.Time          `json:"startAt"`
-	EndAt      null.Time          `json:"endAt"`
+	Initiators        []InitiatorRequest `json:"initiators"`
+	Tasks             []TaskSpecRequest  `json:"tasks"`
+	StartAt           null.Time          `json:"startAt"`
+	EndAt             null.Time          `json:"endAt"`
+	MinimumJobPayment *assets.Link       `json:"minimumJobPayment" gorm:"type:varchar(255)"`
 }
 
 // InitiatorRequest represents a schema for incoming initiator requests as used by the API.
@@ -40,13 +42,14 @@ type TaskSpecRequest struct {
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID         string      `json:"id,omitempty" gorm:"primary_key;not null"`
-	CreatedAt  time.Time   `json:"createdAt" gorm:"index"`
-	Initiators []Initiator `json:"initiators"`
-	Tasks      []TaskSpec  `json:"tasks"`
-	StartAt    null.Time   `json:"startAt" gorm:"index"`
-	EndAt      null.Time   `json:"endAt" gorm:"index"`
-	DeletedAt  null.Time   `json:"-" gorm:"index"`
+	ID                string       `json:"id,omitempty" gorm:"primary_key;not null"`
+	CreatedAt         time.Time    `json:"createdAt" gorm:"index"`
+	Initiators        []Initiator  `json:"initiators"`
+	MinimumJobPayment *assets.Link `json:"minimumJobPayment" gorm:"type:varchar(255)"`
+	Tasks             []TaskSpec   `json:"tasks"`
+	StartAt           null.Time    `json:"startAt" gorm:"index"`
+	EndAt             null.Time    `json:"endAt" gorm:"index"`
+	DeletedAt         null.Time    `json:"-" gorm:"index"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -98,6 +101,7 @@ func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 
 	jobSpec.EndAt = jsr.EndAt
 	jobSpec.StartAt = jsr.StartAt
+	jobSpec.MinimumJobPayment = jsr.MinimumJobPayment
 	return jobSpec
 }
 

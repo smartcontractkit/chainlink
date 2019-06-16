@@ -20,7 +20,8 @@ import { IJobSpec, IJobRuns } from '../../../@types/operator_ui'
 const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
   const info = {
     runCount: recentRunsCount,
-    initiator: formatInitiators(job.initiators)
+    initiator: formatInitiators(job.initiators),
+    minimumPayment: `${job.minimumJobPayment || 0} Link`
   }
 
   return (
