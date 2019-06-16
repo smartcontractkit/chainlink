@@ -345,7 +345,7 @@ func updateTaskRunConfirmations(currentHeight *models.Big, jr *models.JobRun, ta
 	if diff > taskRun.MinimumConfirmations {
 		diff = taskRun.MinimumConfirmations
 	}
-	taskRun.Confirmations = clnull.USmallFrom(uint32(diff))
+	taskRun.Confirmations = clnull.Uint32From(uint32(diff))
 	if uint64(taskRun.Confirmations.Uint32) != diff {
 		// difference overflowed, set to max uint32.
 		logger.Warnf("confirmations for task %s past max uint32 with %d, capping to max uint32", taskRun.ID, diff)

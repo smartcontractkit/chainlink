@@ -18,52 +18,52 @@ var (
 	boolJSON       = []byte(`true`)
 )
 
-func TestUSmallFrom(t *testing.T) {
-	i := USmallFrom(12345)
-	assertUSmall(t, i, "USmallFrom()")
+func TestUint32From(t *testing.T) {
+	i := Uint32From(12345)
+	assertUint32(t, i, "Uint32From()")
 
-	zero := USmallFrom(0)
+	zero := Uint32From(0)
 	if !zero.Valid {
-		t.Error("USmallFrom(0)", "is invalid, but should be valid")
+		t.Error("Uint32From(0)", "is invalid, but should be valid")
 	}
 }
 
 // TODO: Make table driven
-func TestUnmarshalUSmall(t *testing.T) {
-	var i USmall
+func TestUnmarshalUint32(t *testing.T) {
+	var i Uint32
 	err := json.Unmarshal(intJSON, &i)
 	require.NoError(t, err)
-	assertUSmall(t, i, "int json")
+	assertUint32(t, i, "int json")
 
-	var si USmall
+	var si Uint32
 	err = json.Unmarshal(intStringJSON, &si)
 	require.NoError(t, err)
-	assertUSmall(t, si, "int string json")
+	assertUint32(t, si, "int string json")
 
-	var bi USmall
+	var bi Uint32
 	err = json.Unmarshal(floatBlankJSON, &bi)
 	require.NoError(t, err)
-	assertNullUSmall(t, bi, "blank json string")
+	assertNullUint32(t, bi, "blank json string")
 
-	var null USmall
+	var null Uint32
 	err = json.Unmarshal(nullJSON, &null)
 	require.NoError(t, err)
-	assertNullUSmall(t, null, "null json")
+	assertNullUint32(t, null, "null json")
 
-	var badType USmall
+	var badType Uint32
 	require.Error(t, json.Unmarshal(boolJSON, &badType))
-	assertNullUSmall(t, badType, "wrong type json")
+	assertNullUint32(t, badType, "wrong type json")
 
-	var invalid USmall
+	var invalid Uint32
 	err = invalid.UnmarshalJSON(invalidJSON)
 	if _, ok := err.(*json.SyntaxError); !ok {
 		t.Errorf("expected json.SyntaxError, not %T", err)
 	}
-	assertNullUSmall(t, invalid, "invalid json")
+	assertNullUint32(t, invalid, "invalid json")
 }
 
 func TestUnmarshalNonIntegerNumber(t *testing.T) {
-	var i USmall
+	var i Uint32
 	floatJSON := []byte(`1.2345`)
 	require.Error(t, json.Unmarshal(floatJSON, &i))
 }
@@ -72,7 +72,7 @@ func TestUnmarshalInt64Overflow(t *testing.T) {
 	int32Overflow := uint64(math.MaxInt32)
 
 	// Max int32 should decode successfully
-	var i USmall
+	var i Uint32
 	err := json.Unmarshal([]byte(strconv.FormatUint(int32Overflow, 10)), &i)
 	require.NoError(t, err)
 
@@ -83,72 +83,72 @@ func TestUnmarshalInt64Overflow(t *testing.T) {
 }
 
 func TestTextUnmarshalInt(t *testing.T) {
-	var i USmall
+	var i Uint32
 	err := i.UnmarshalText([]byte("12345"))
 	require.NoError(t, err)
-	assertUSmall(t, i, "UnmarshalText() int")
+	assertUint32(t, i, "UnmarshalText() int")
 
-	var blank USmall
+	var blank Uint32
 	err = blank.UnmarshalText([]byte(""))
 	require.NoError(t, err)
-	assertNullUSmall(t, blank, "UnmarshalText() empty int")
+	assertNullUint32(t, blank, "UnmarshalText() empty int")
 
-	var null USmall
+	var null Uint32
 	err = null.UnmarshalText([]byte("null"))
 	require.NoError(t, err)
-	assertNullUSmall(t, null, `UnmarshalText() "null"`)
+	assertNullUint32(t, null, `UnmarshalText() "null"`)
 }
 
 func TestMarshalInt(t *testing.T) {
-	i := USmallFrom(12345)
+	i := Uint32From(12345)
 	data, err := json.Marshal(i)
 	require.NoError(t, err)
 	assertJSONEquals(t, data, "12345", "non-empty json marshal")
 
 	// invalid values should be encoded as null
-	null := NewUSmall(0, false)
+	null := NewUint32(0, false)
 	data, err = json.Marshal(null)
 	require.NoError(t, err)
 	assertJSONEquals(t, data, "null", "null json marshal")
 }
 
 func TestMarshalIntText(t *testing.T) {
-	i := USmallFrom(12345)
+	i := Uint32From(12345)
 	data, err := i.MarshalText()
 	require.NoError(t, err)
 	assertJSONEquals(t, data, "12345", "non-empty text marshal")
 
 	// invalid values should be encoded as null
-	null := NewUSmall(0, false)
+	null := NewUint32(0, false)
 	data, err = null.MarshalText()
 	require.NoError(t, err)
 	assertJSONEquals(t, data, "", "null text marshal")
 }
 
-func TestUSmallSetValid(t *testing.T) {
-	change := NewUSmall(0, false)
-	assertNullUSmall(t, change, "SetValid()")
+func TestUint32SetValid(t *testing.T) {
+	change := NewUint32(0, false)
+	assertNullUint32(t, change, "SetValid()")
 	change.SetValid(12345)
-	assertUSmall(t, change, "SetValid()")
+	assertUint32(t, change, "SetValid()")
 }
 
-func TestUSmallScan(t *testing.T) {
-	var i USmall
+func TestUint32Scan(t *testing.T) {
+	var i Uint32
 	err := i.Scan(12345)
 	require.NoError(t, err)
-	assertUSmall(t, i, "scanned int")
+	assertUint32(t, i, "scanned int")
 
 	err = i.Scan(int64(12345))
 	require.NoError(t, err)
-	assertUSmall(t, i, "scanned int")
+	assertUint32(t, i, "scanned int")
 
-	var null USmall
+	var null Uint32
 	err = null.Scan(nil)
 	require.NoError(t, err)
-	assertNullUSmall(t, null, "scanned null")
+	assertNullUint32(t, null, "scanned null")
 }
 
-func assertUSmall(t *testing.T, i USmall, from string) {
+func assertUint32(t *testing.T, i Uint32, from string) {
 	if i.Uint32 != 12345 {
 		t.Errorf("bad %s int: %d ≠ %d\n", from, i.Uint32, 12345)
 	}
@@ -157,7 +157,7 @@ func assertUSmall(t *testing.T, i USmall, from string) {
 	}
 }
 
-func assertNullUSmall(t *testing.T, i USmall, from string) {
+func assertNullUint32(t *testing.T, i Uint32, from string) {
 	if i.Valid {
 		t.Error(from, "is valid, but should be invalid")
 	}

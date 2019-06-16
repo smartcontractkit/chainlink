@@ -32,7 +32,7 @@ type InitiatorRequest struct {
 // TaskSpecRequest represents a schema for incoming TaskSpec requests as used by the API.
 type TaskSpecRequest struct {
 	Type          TaskType      `json:"type"`
-	Confirmations clnull.USmall `json:"confirmations"`
+	Confirmations clnull.Uint32 `json:"confirmations"`
 	Params        JSON          `json:"params"`
 }
 
@@ -251,7 +251,7 @@ type TaskSpec struct {
 	gorm.Model
 	JobSpecID     string        `json:"-" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
 	Type          TaskType      `json:"type" gorm:"index;not null"`
-	Confirmations clnull.USmall `json:"confirmations"`
+	Confirmations clnull.Uint32 `json:"confirmations"`
 	Params        JSON          `json:"params" gorm:"type:text"`
 }
 
