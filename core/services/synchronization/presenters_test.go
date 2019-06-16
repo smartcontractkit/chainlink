@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +19,6 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
 	requestID := "RequestID"
 	txHash := common.HexToHash("0xdeadbeef")
-	confs := uint64(1)
 
 	jobRun := models.JobRun{
 		ID:        "runID-411",
@@ -37,7 +37,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 			models.TaskRun{
 				ID:                   "task0RunID-938",
 				Status:               models.RunStatusPendingConfirmations,
-				Confirmations:        &confs,
+				Confirmations:        clnull.USmallFrom(1),
 				MinimumConfirmations: 3,
 			},
 			models.TaskRun{

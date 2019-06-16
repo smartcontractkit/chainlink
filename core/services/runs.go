@@ -2,11 +2,13 @@ package services
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -102,7 +104,7 @@ func NewRun(
 		if currentHeight != nil {
 			run.TaskRuns[i].MinimumConfirmations = utils.MaxUint64(
 				store.Config.MinIncomingConfirmations(),
-				taskRun.TaskSpec.Confirmations,
+				uint64(taskRun.TaskSpec.Confirmations.Uint32),
 				adapter.MinConfs())
 		}
 	}
@@ -343,7 +345,12 @@ func updateTaskRunConfirmations(currentHeight *models.Big, jr *models.JobRun, ta
 	if diff > taskRun.MinimumConfirmations {
 		diff = taskRun.MinimumConfirmations
 	}
-	taskRun.Confirmations = &diff
+	taskRun.Confirmations = clnull.USmallFrom(uint32(diff))
+	if uint64(taskRun.Confirmations.Uint32) != diff {
+		// difference overflowed, set to max uint32.
+		logger.Warnf("confirmations for task %s past max uint32 with %d, capping to max uint32", taskRun.ID, diff)
+		taskRun.Confirmations.SetValid(math.MaxUint32)
+	}
 }
 
 func validateOnMainChain(jr *models.JobRun, taskRun *models.TaskRun, store *store.Store) error {
