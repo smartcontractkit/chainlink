@@ -226,8 +226,8 @@ func (qp *QueryParameters) UnmarshalJSON(input []byte) error {
 		}
 		strs = strings.FieldsFunc(trimQuestion(decoded), splitQueryString)
 
-	// input is an array of strings like
-	// ["someKey0", "someVal0", "someKey1", "someVal1"]
+		// input is an array of strings like
+		// ["someKey0", "someVal0", "someKey1", "someVal1"]
 	} else {
 		err = json.Unmarshal(input, &strs)
 	}
