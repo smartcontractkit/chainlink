@@ -22,7 +22,7 @@ describe('entity/jobRun/fromString', () => {
     expect(jr.jobId).toEqual('aeb2861d306645b1ba012079aeb2e53a')
     expect(jr.createdAt).toEqual(new Date('2019-04-01T22:07:04Z'))
     expect(jr.status).toEqual('in_progress')
-    expect(jr.finishedAt).toEqual(new Date('2018-04-01T22:07:04Z'))
+    expect(jr.finishedAt).toBeNull()
 
     expect(jr.type).toEqual('runlog')
     expect(jr.requestId).toEqual('RequestID')
@@ -86,6 +86,31 @@ describe('entity/jobRun/fromString', () => {
 })
 
 describe('entity/jobRun/saveJobRunTree', () => {
+  it('updates jobRun error', async () => {
+    const [chainlinkNode, _] = await createChainlinkNode(
+      db,
+      'testOverwriteJobRunsErrorOnConflict'
+    )
+
+    const jr = fromString(JSON.stringify(fixture))
+    jr.chainlinkNodeId = chainlinkNode.id
+    await saveJobRunTree(db, jr)
+
+    const initial = await db.manager.findOne(JobRun)
+    expect(initial.status).toEqual('in_progress')
+    expect(initial.finishedAt).toBeNull()
+
+    jr.status = 'errored'
+    jr.error = 'something bad happened'
+    jr.finishedAt = new Date('2018-04-01T22:07:04Z')
+    await saveJobRunTree(db, jr)
+
+    const actual = await db.manager.findOne(JobRun)
+    expect(actual.status).toEqual(jr.status)
+    expect(actual.finishedAt).toEqual(jr.finishedAt)
+    expect(actual.error).toEqual(jr.error)
+  })
+
   it('overwrites taskRun values on conflict', async () => {
     const [chainlinkNode, _] = await createChainlinkNode(
       db,
@@ -96,14 +121,25 @@ describe('entity/jobRun/saveJobRunTree', () => {
     jr.chainlinkNodeId = chainlinkNode.id
     await saveJobRunTree(db, jr)
 
-    const initial = await db.manager.findOne(JobRun)
-    expect(initial.taskRuns[0].confirmations).toEqual(0)
+    const modifications = {
+      confirmations: 2,
+      error: 'something bad happened',
+      minimumConfirmations: 3,
+      status: 'errored',
+      transactionHash:
+        '0x2222222222222222222222222222222222222222222222222222222222222222',
+      transactionStatus: 'fulfilledRunLog'
+    }
 
-    const updatedJr = fromString(JSON.stringify(updateFixture))
-    updatedJr.chainlinkNodeId = chainlinkNode.id
-    await saveJobRunTree(db, updatedJr)
+    const initial = await db.manager.findOne(JobRun)
+    const initialTask = initial.taskRuns[0]
+    expect(initialTask).not.toMatchObject(modifications)
+
+    Object.assign(jr.taskRuns[0], modifications)
+    await saveJobRunTree(db, jr)
 
     const actual = await db.manager.findOne(JobRun)
-    expect(actual.taskRuns[0].confirmations).toEqual(3)
+    const actualTask = actual.taskRuns[0]
+    expect(actualTask).toMatchObject(modifications)
   })
 })
