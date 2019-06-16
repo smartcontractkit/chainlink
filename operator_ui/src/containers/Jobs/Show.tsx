@@ -25,11 +25,13 @@ import { GWEI_PER_TOKEN } from '../../utils/constants'
 import { formatInitiators } from '../../utils/jobSpecInitiators'
 import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatchToProps'
 import RegionalNav from './RegionalNav'
+import formatMinPayment from '../../utils/formatWeiAsset'
 
 const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
   const info = {
     runCount: recentRunsCount,
-    initiator: formatInitiators(job.initiators)
+    initiator: formatInitiators(job.initiators),
+    minimumPayment: `${formatMinPayment(job.minPayment) || 0} Link`
   }
 
   return (

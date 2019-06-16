@@ -57,6 +57,18 @@ func ExecuteJobWithRunRequest(
 	return run, createAndTrigger(run, store)
 }
 
+// MeetsMinimumPayment is a helper that returns true if jobrun received
+// sufficient payment (more than jobspec's MinimumPayment) to be considered successful
+func MeetsMinimumPayment(
+	expectedMinJobPayment *assets.Link,
+	actualRunPayment *assets.Link) bool {
+	// input.Amount is always present for runs triggered by ethlogs
+	if actualRunPayment == nil || expectedMinJobPayment == nil || expectedMinJobPayment.IsZero() {
+		return true
+	}
+	return expectedMinJobPayment != nil && expectedMinJobPayment.Cmp(actualRunPayment) < 1
+}
+
 // NewRun returns a run from an input job, in an initial state ready for
 // processing by the job runner system
 func NewRun(
@@ -85,6 +97,22 @@ func NewRun(
 	run.ApplyResult(input)
 	run.CreationHeight = models.NewBig(currentHeight)
 	run.ObservedHeight = models.NewBig(currentHeight)
+
+	if !MeetsMinimumPayment(job.MinPayment, input.Amount) {
+		logger.Debugw("Rejecting run with insufficient payment", []interface{}{
+			"run", run.ID,
+			"job", run.JobSpecID,
+			"input_amount", input.Amount,
+			"required_amount", job.MinPayment,
+		}...)
+
+		err := fmt.Errorf(
+			"Rejecting job %s with payment %s below job-specific-minimum threshold (%s)",
+			job.ID,
+			input.Amount,
+			job.MinPayment.Text(10))
+		run.SetError(err)
+	}
 
 	cost := assets.NewLink(0)
 	for i, taskRun := range run.TaskRuns {
