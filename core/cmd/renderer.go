@@ -90,7 +90,7 @@ func render(name string, table *tablewriter.Table) {
 }
 
 func jobRowToStrings(job models.JobSpec) []string {
-	p := presenters.JobSpec{JobSpec: job, Runs: nil}
+	p := presenters.JobSpec{JobSpec: job}
 	return []string{
 		p.ID,
 		p.FriendlyCreatedAt(),
@@ -151,11 +151,7 @@ func (rt RendererTable) renderJob(job presenters.JobSpec) error {
 		return err
 	}
 
-	if err := rt.renderJobTasks(job); err != nil {
-		return err
-	}
-
-	err := rt.renderJobRuns(job.Runs)
+	err := rt.renderJobTasks(job)
 	return err
 }
 
