@@ -28,7 +28,6 @@ services:
     command:
       --mine
       --miner.threads 1
-      --rpc
       --config /root/geth-config-1.toml
       --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
       --password /run/secrets/node_password
@@ -38,8 +37,6 @@ services:
     networks:
       gethnet:
         ipv4_address: 172.16.1.100
-    ports:
-      - 8456
     secrets:
       - node_password
     deploy:
@@ -59,6 +56,8 @@ services:
       --mine
       --miner.threads 1
       --config /root/geth-config-2.toml
+      --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
+      --password /run/secrets/node_password
       --nat extip:172.16.1.101 # Must match ipv4_address for this container
     volumes:
       - .:/root
@@ -95,7 +94,7 @@ services:
         ipv4_address: 172.16.1.102
     depends_on:
       - geth1
-    ports:
+    expose:
       - 6688
     secrets:
       - node_password
