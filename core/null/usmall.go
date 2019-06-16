@@ -105,7 +105,12 @@ func (i USmall) Value() (driver.Value, error) {
 	if !i.Valid {
 		return nil, nil
 	}
-	return i.Uint32, nil
+
+	// golang's sql driver types as determined by IsValue
+	// only supports:
+	// []byte, bool, float64, int64, string, time.Time
+	// https://golang.org/src/database/sql/driver/types.go
+	return int64(i.Uint32), nil
 }
 
 // Scan reads the database value and returns an instance.

@@ -10,7 +10,7 @@ import (
 // default or nullability.
 func Migrate(tx *gorm.DB) error {
 	err := tx.Exec(`
-		ALTER TABLE task_runs ADD COLUMN confirmations_new1560433987 integer;
+		ALTER TABLE task_runs ADD COLUMN confirmations_new1560433987 bigint;
 		UPDATE task_runs SET confirmations_new1560433987 = confirmations;
 		ALTER TABLE task_runs RENAME COLUMN confirmations TO confirmations_old1560433987;
 		ALTER TABLE task_runs RENAME COLUMN confirmations_new1560433987 TO confirmations;
