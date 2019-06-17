@@ -2,101 +2,125 @@ package null
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	intJSON        = []byte(`12345`)
-	intStringJSON  = []byte(`"12345"`)
-	floatBlankJSON = []byte(`""`)
-	nullJSON       = []byte(`null`)
-	invalidJSON    = []byte(`:)`)
-	boolJSON       = []byte(`true`)
-)
-
 func TestUint32From(t *testing.T) {
-	i := Uint32From(12345)
-	assertUint32(t, i, "Uint32From()")
+	tests := []struct {
+		input uint32
+	}{
+		{12345},
+		{0},
+	}
 
-	zero := Uint32From(0)
-	if !zero.Valid {
-		t.Error("Uint32From(0)", "is invalid, but should be valid")
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%d", test.input), func(t *testing.T) {
+			i := Uint32From(test.input)
+			assert.True(t, i.Valid)
+			assert.Equal(t, test.input, i.Uint32)
+		})
 	}
 }
 
-// TODO: Make table driven
-func TestUnmarshalUint32(t *testing.T) {
-	var i Uint32
-	err := json.Unmarshal(intJSON, &i)
-	require.NoError(t, err)
-	assertUint32(t, i, "int json")
-
-	var si Uint32
-	err = json.Unmarshal(intStringJSON, &si)
-	require.NoError(t, err)
-	assertUint32(t, si, "int string json")
-
-	var bi Uint32
-	err = json.Unmarshal(floatBlankJSON, &bi)
-	require.NoError(t, err)
-	assertNullUint32(t, bi, "blank json string")
-
-	var null Uint32
-	err = json.Unmarshal(nullJSON, &null)
-	require.NoError(t, err)
-	assertNullUint32(t, null, "null json")
-
-	var badType Uint32
-	require.Error(t, json.Unmarshal(boolJSON, &badType))
-	assertNullUint32(t, badType, "wrong type json")
-
-	var invalid Uint32
-	err = invalid.UnmarshalJSON(invalidJSON)
-	if _, ok := err.(*json.SyntaxError); !ok {
-		t.Errorf("expected json.SyntaxError, not %T", err)
+func TestUnmarshalUint32_Valid(t *testing.T) {
+	tests := []struct {
+		name, input string
+	}{
+		{"int json", `12345`},
+		{"int string json", `"12345"`},
 	}
-	assertNullUint32(t, invalid, "invalid json")
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var i Uint32
+			err := json.Unmarshal([]byte(test.input), &i)
+			require.NoError(t, err)
+			assert.True(t, i.Valid)
+			assert.Equal(t, uint32(12345), i.Uint32)
+		})
+	}
 }
 
-func TestUnmarshalNonIntegerNumber(t *testing.T) {
-	var i Uint32
-	floatJSON := []byte(`1.2345`)
-	require.Error(t, json.Unmarshal(floatJSON, &i))
+func TestUnmarshalUint32_Invalid(t *testing.T) {
+	tests := []struct {
+		name, input string
+	}{
+		{"blank json string", `""`},
+		{"null json", `null`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var i Uint32
+			err := json.Unmarshal([]byte(test.input), &i)
+			require.NoError(t, err)
+			assert.False(t, i.Valid)
+		})
+	}
 }
 
-func TestUnmarshalInt64Overflow(t *testing.T) {
-	int32Overflow := uint64(math.MaxInt32)
+func TestUnmarshalUint32_Error(t *testing.T) {
+	tests := []struct {
+		name, input string
+	}{
+		{"wrong type json", `true`},
+		{"invalid json", `:)`},
+		{"float", `1.2345`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var i Uint32
+			err := json.Unmarshal([]byte(test.input), &i)
+			require.Error(t, err)
+			assert.False(t, i.Valid)
+		})
+	}
+}
+
+func TestUnmarshalUint32Overflow(t *testing.T) {
+	maxUint32 := uint64(math.MaxUint32)
 
 	// Max int32 should decode successfully
 	var i Uint32
-	err := json.Unmarshal([]byte(strconv.FormatUint(int32Overflow, 10)), &i)
+	err := json.Unmarshal([]byte(strconv.FormatUint(maxUint32, 10)), &i)
 	require.NoError(t, err)
 
 	// Attempt to overflow
-	int32Overflow = math.MaxUint64
-	err = json.Unmarshal([]byte(strconv.FormatUint(int32Overflow, 10)), &i)
+	err = json.Unmarshal([]byte(strconv.FormatUint(maxUint32+1, 10)), &i)
 	require.Error(t, err)
 }
 
-func TestTextUnmarshalInt(t *testing.T) {
+func TestTextUnmarshalInt_Valid(t *testing.T) {
 	var i Uint32
 	err := i.UnmarshalText([]byte("12345"))
 	require.NoError(t, err)
-	assertUint32(t, i, "UnmarshalText() int")
+	assert.True(t, i.Valid)
+	assert.Equal(t, uint32(12345), i.Uint32)
+}
 
-	var blank Uint32
-	err = blank.UnmarshalText([]byte(""))
-	require.NoError(t, err)
-	assertNullUint32(t, blank, "UnmarshalText() empty int")
+func TestTextUnmarshalInt_Invalid(t *testing.T) {
+	tests := []struct {
+		name, input string
+	}{
+		{"empty", ""},
+		{"null", "null"},
+	}
 
-	var null Uint32
-	err = null.UnmarshalText([]byte("null"))
-	require.NoError(t, err)
-	assertNullUint32(t, null, `UnmarshalText() "null"`)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var i Uint32
+			err := i.UnmarshalText([]byte(test.input))
+			require.NoError(t, err)
+			assert.False(t, i.Valid)
+		})
+	}
 }
 
 func TestMarshalInt(t *testing.T) {
@@ -127,40 +151,26 @@ func TestMarshalIntText(t *testing.T) {
 
 func TestUint32SetValid(t *testing.T) {
 	change := NewUint32(0, false)
-	assertNullUint32(t, change, "SetValid()")
 	change.SetValid(12345)
-	assertUint32(t, change, "SetValid()")
+	assert.True(t, change.Valid)
+	assert.Equal(t, uint32(12345), change.Uint32)
 }
 
 func TestUint32Scan(t *testing.T) {
 	var i Uint32
 	err := i.Scan(12345)
 	require.NoError(t, err)
-	assertUint32(t, i, "scanned int")
+	assert.True(t, i.Valid)
+	assert.Equal(t, uint32(12345), i.Uint32)
 
 	err = i.Scan(int64(12345))
 	require.NoError(t, err)
-	assertUint32(t, i, "scanned int")
+	assert.True(t, i.Valid)
+	assert.Equal(t, uint32(12345), i.Uint32)
 
-	var null Uint32
-	err = null.Scan(nil)
+	err = i.Scan(nil)
 	require.NoError(t, err)
-	assertNullUint32(t, null, "scanned null")
-}
-
-func assertUint32(t *testing.T, i Uint32, from string) {
-	if i.Uint32 != 12345 {
-		t.Errorf("bad %s int: %d ≠ %d\n", from, i.Uint32, 12345)
-	}
-	if !i.Valid {
-		t.Error(from, "is invalid, but should be valid")
-	}
-}
-
-func assertNullUint32(t *testing.T, i Uint32, from string) {
-	if i.Valid {
-		t.Error(from, "is valid, but should be invalid")
-	}
+	assert.False(t, i.Valid)
 }
 
 func assertJSONEquals(t *testing.T, data []byte, cmp string, from string) {
