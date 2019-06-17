@@ -50,11 +50,41 @@ interface IProps extends WithStyles<typeof styles> {
   taskRuns?: ITaskRun[]
 }
 
+const renderConfirmations = (
+  { confirmations, minimumConfirmations }: ITaskRun,
+  prevConfs: number,
+  classes: any
+) => {
+  if (minimumConfirmations && minimumConfirmations > prevConfs) {
+    return (
+      <Typography
+        variant="subtitle2"
+        color="textSecondary"
+        className={classes.pendingConfirmations}>
+        ({confirmations} / {minimumConfirmations} pending confirmations)
+      </Typography>
+    )
+  }
+  return null
+}
+
+const calculatePrevConfs = (taskRuns: ITaskRun[] | undefined): number[] => {
+  if (taskRuns) {
+    const prevMinConfs = taskRuns.map(
+      taskRun => taskRun.minimumConfirmations
+    ) as number[]
+    prevMinConfs.unshift(0)
+    return prevMinConfs
+  }
+  return []
+}
+
 const TaskRuns = ({ etherscanHost, taskRuns, classes }: IProps) => {
+  const prevConfs = calculatePrevConfs(taskRuns)
   return (
     <ul className={classes.container}>
       {taskRuns &&
-        taskRuns.map((run: ITaskRun) => {
+        taskRuns.map((run: ITaskRun, i: number) => {
           return (
             <li key={run.id} className={classes.item}>
               <div className={classes.track}>
@@ -62,15 +92,7 @@ const TaskRuns = ({ etherscanHost, taskRuns, classes }: IProps) => {
                   {run.status}
                 </StatusIcon>
                 <Typography variant="body1">{run.type}</Typography>
-                {run.confirmations != null && (
-                  <Typography
-                    variant="subtitle2"
-                    color="textSecondary"
-                    className={classes.pendingConfirmations}>
-                    ({run.confirmations} / {run.minimumConfirmations} pending
-                    confirmations)
-                  </Typography>
-                )}
+                {renderConfirmations(run, prevConfs[i], classes)}
               </div>
               {run.transactionHash && (
                 <EtherscanLink
