@@ -66,6 +66,9 @@ const SuccessNotification = ({ data }) => (
   </React.Fragment>
 )
 
+const DEFAULT_PAGE = 1
+const RECENT_RUNS_COUNT = 5
+
 const RegionalNav = ({
   classes,
   createJobRun,
@@ -79,7 +82,7 @@ const RegionalNav = ({
   const definition = job && jobSpecDefinition(job)
   const handleClick = () => {
     createJobRun(job.id, SuccessNotification, ErrorMessage).then(() =>
-      fetchJobRuns(job.id, 1, 5)
+      fetchJobRuns(job.id, DEFAULT_PAGE, RECENT_RUNS_COUNT)
     )
   }
 

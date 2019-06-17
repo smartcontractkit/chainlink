@@ -93,6 +93,9 @@ interface IProps {
   fetchJobRuns: (string, number, number) => Promise<any>
 }
 
+const DEFAULT_PAGE = 1
+const RECENT_RUNS_COUNT = 5
+
 export const Show = useHooks(
   ({
     jobSpecId,
@@ -106,7 +109,7 @@ export const Show = useHooks(
     useEffect(() => {
       document.title = 'Show Job'
       fetchJob(jobSpecId)
-      fetchJobRuns(jobSpecId, 1, 5)
+      fetchJobRuns(jobSpecId, DEFAULT_PAGE, RECENT_RUNS_COUNT)
     }, [])
     return (
       <div>
