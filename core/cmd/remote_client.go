@@ -104,6 +104,16 @@ func (cli *Client) ShowJobRun(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &job)
 }
 
+// GetJobRuns returns the list of all job runs for a specific job
+// if no jobid is passed, defaults to returning all jobruns
+func (cli *Client) GetJobRuns(c *clipkg.Context) error {
+	jobID := c.String("jobid")
+	if jobID != "" {
+		return cli.getPage("/v2/runs?jobSpecId="+jobID, c.Int("page"), &[]presenters.JobRun{})
+	}
+	return cli.getPage("/v2/runs", c.Int("page"), &[]presenters.JobRun{})
+}
+
 // ShowJobSpec returns the status of the given JobID.
 func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	if !c.Args().Present() {

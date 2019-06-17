@@ -46,6 +46,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderJobs(*typed)
 	case *presenters.JobSpec:
 		return rt.renderJob(*typed)
+	case *[]presenters.JobRun:
+		return rt.renderJobRuns(*typed)
 	case *presenters.JobRun:
 		return rt.renderJobRun(*typed)
 	case *models.BridgeType:
@@ -88,7 +90,7 @@ func render(name string, table *tablewriter.Table) {
 }
 
 func jobRowToStrings(job models.JobSpec) []string {
-	p := presenters.JobSpec{JobSpec: job, Runs: nil}
+	p := presenters.JobSpec{JobSpec: job}
 	return []string{
 		p.ID,
 		p.FriendlyCreatedAt(),
@@ -149,11 +151,7 @@ func (rt RendererTable) renderJob(job presenters.JobSpec) error {
 		return err
 	}
 
-	if err := rt.renderJobTasks(job); err != nil {
-		return err
-	}
-
-	err := rt.renderJobRuns(job.Runs)
+	err := rt.renderJobTasks(job)
 	return err
 }
 

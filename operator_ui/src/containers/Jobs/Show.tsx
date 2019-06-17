@@ -8,7 +8,7 @@ import KeyValueList from '../../components/KeyValueList'
 import Content from '../../components/Content'
 import RegionalNav from '../../components/Jobs/RegionalNav'
 import CardTitle from '../../components/Cards/Title'
-import { fetchJob } from '../../actions'
+import { fetchJob, fetchJobRuns } from '../../actions'
 import jobSelector from '../../selectors/job'
 import jobRunsByJobIdSelector from '../../selectors/jobRunsByJobId'
 import jobsShowRunCountSelector from '../../selectors/jobsShowRunCount'
@@ -16,9 +16,9 @@ import { formatInitiators } from '../../utils/jobSpecInitiators'
 import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatchToProps'
 import TaskRuns from './TaskRuns'
 
-const renderJobSpec = job => {
+const renderJobSpec = (job, recentRunsCount) => {
   const info = {
-    runCount: job.runs && job.runs.length,
+    runCount: recentRunsCount,
     initiator: formatInitiators(job.initiators)
   }
 
@@ -73,7 +73,7 @@ const Details = ({
         <Grid item xs={4}>
           <Grid container direction="column">
             <Grid item>{renderTaskRuns(job)}</Grid>
-            <Grid item>{renderJobSpec(job)}</Grid>
+            <Grid item>{renderJobSpec(job, recentRunsCount)}</Grid>
           </Grid>
         </Grid>
       </Grid>
@@ -90,13 +90,18 @@ interface IProps {
   recentRunsCount: number
   showJobRunsCount: number
   fetchJob: (string) => Promise<any>
+  fetchJobRuns: (string, number, number) => Promise<any>
 }
+
+const DEFAULT_PAGE = 1
+const RECENT_RUNS_COUNT = 5
 
 export const Show = useHooks(
   ({
     jobSpecId,
     job,
     fetchJob,
+    fetchJobRuns,
     recentRunsCount,
     recentRuns = [],
     showJobRunsCount = 2
@@ -104,8 +109,8 @@ export const Show = useHooks(
     useEffect(() => {
       document.title = 'Show Job'
       fetchJob(jobSpecId)
+      fetchJobRuns(jobSpecId, DEFAULT_PAGE, RECENT_RUNS_COUNT)
     }, [])
-
     return (
       <div>
         <RegionalNav jobSpecId={jobSpecId} job={job} />
@@ -137,7 +142,7 @@ const mapStateToProps = (state, ownProps) => {
 
 export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJob })
+  matchRouteAndMapDispatchToProps({ fetchJob, fetchJobRuns })
 )(Show)
 
 export default ConnectedShow

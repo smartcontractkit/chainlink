@@ -326,9 +326,6 @@ func TestJobSpecsController_Show(t *testing.T) {
 
 	j := setupJobSpecsControllerShow(t, app)
 
-	jr, err := app.Store.JobRunsFor(j.ID)
-	assert.NoError(t, err)
-
 	resp, cleanup := client.Get("/v2/specs/" + j.ID)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
@@ -338,8 +335,6 @@ func TestJobSpecsController_Show(t *testing.T) {
 	require.Len(t, j.Initiators, 1)
 	require.Len(t, respJob.Initiators, 1)
 	assert.Equal(t, j.Initiators[0].Schedule, respJob.Initiators[0].Schedule, "should have the same schedule")
-	assert.Equal(t, jr[0].ID, respJob.Runs[0].ID, "should have job runs ordered by created at(descending)")
-	assert.Equal(t, jr[1].ID, respJob.Runs[1].ID, "should have job runs ordered by created at(descending)")
 }
 
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
