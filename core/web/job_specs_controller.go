@@ -62,10 +62,8 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if runs, err := jsc.App.GetStore().JobRunsFor(j.ID); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
-		jsonAPIResponse(c, jobPresenter(j, runs), "job")
+		jsonAPIResponse(c, jobPresenter(j), "job")
 	}
 }
 
@@ -83,10 +81,6 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	}
 }
 
-func jobPresenter(j models.JobSpec, runs []models.JobRun) presenters.JobSpec {
-	pruns := make([]presenters.JobRun, len(runs))
-	for i, r := range runs {
-		pruns[i] = presenters.JobRun{r}
-	}
-	return presenters.JobSpec{JobSpec: j, Runs: pruns}
+func jobPresenter(j models.JobSpec) presenters.JobSpec {
+	return presenters.JobSpec{JobSpec: j}
 }

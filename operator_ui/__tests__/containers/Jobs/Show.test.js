@@ -7,6 +7,7 @@ import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { ConnectedShow as Show } from 'containers/Jobs/Show'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
+import jsonApiJobSpecRunsFactory from 'factories/jsonApiJobSpecRuns'
 
 const mountShow = props =>
   mountWithTheme(
@@ -19,7 +20,7 @@ const mountShow = props =>
 
 describe('containers/Jobs/Show', () => {
   const jobSpecId = 'c60b9927eeae43168ddbe92584937b1b'
-
+  const jobRunId = 'ad24b72c12f441b99b9877bcf6cb506e'
   it('renders the details of the job spec and its latest runs', async () => {
     expect.assertions(6)
 
@@ -36,7 +37,12 @@ describe('containers/Jobs/Show', () => {
         }
       ]
     })
+    const jobRunResponse = jsonApiJobSpecRunsFactory([{
+      id: jobRunId,
+      jobId: jobSpecId,
+    }])
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
+    global.fetch.getOnce(`/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=5`, jobRunResponse)
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)
@@ -58,11 +64,12 @@ describe('containers/Jobs/Show', () => {
     ]
 
     const jobSpecResponse = jsonApiJobSpecFactory({
-      id: jobSpecId,
-      runs: runs
+      id: jobSpecId
     })
+    const jobRunsResponse = jsonApiJobSpecRunsFactory(runs)
 
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
+    global.fetch.getOnce(`/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=5`, jobRunsResponse)
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)

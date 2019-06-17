@@ -15,7 +15,7 @@ import ErrorMessage from 'components/Notifications/DefaultError'
 import TimeAgo from 'components/TimeAgo'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
 import { isWebInitiator } from 'utils/jobSpecInitiators'
-import { fetchJob, createJobRun } from 'actions'
+import { fetchJobRuns, createJobRun } from 'actions'
 import classNames from 'classnames'
 import localizedTimestamp from 'utils/localizedTimestamp'
 
@@ -67,10 +67,13 @@ const SuccessNotification = ({ data }) => (
   </React.Fragment>
 )
 
+const DEFAULT_PAGE = 1
+const RECENT_RUNS_COUNT = 5
+
 const RegionalNav = ({
   classes,
   createJobRun,
-  fetchJob,
+  fetchJobRuns,
   jobSpecId,
   job,
   url
@@ -80,7 +83,7 @@ const RegionalNav = ({
   const definition = job && jobSpecDefinition(job)
   const handleClick = () => {
     createJobRun(job.id, SuccessNotification, ErrorMessage).then(() =>
-      fetchJob(job.id)
+      fetchJobRuns(job.id, DEFAULT_PAGE, RECENT_RUNS_COUNT)
     )
   }
 
@@ -170,7 +173,7 @@ const mapStateToProps = state => ({
 
 export const ConnectedRegionalNav = connect(
   mapStateToProps,
-  { fetchJob, createJobRun }
+  { fetchJobRuns, createJobRun }
 )(RegionalNav)
 
 export default withStyles(styles)(ConnectedRegionalNav)
