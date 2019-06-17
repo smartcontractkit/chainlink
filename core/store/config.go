@@ -263,8 +263,8 @@ func (c Config) LogSQLStatements() bool {
 // MinIncomingConfirmations represents the minimum number of block
 // confirmations that need to be recorded since a job run started before a task
 // can proceed.
-func (c Config) MinIncomingConfirmations() uint64 {
-	return uint64(c.viper.GetInt64(c.envVarName("MinIncomingConfirmations")))
+func (c Config) MinIncomingConfirmations() uint32 {
+	return uint32(c.viper.GetInt32(c.envVarName("MinIncomingConfirmations")))
 }
 
 // MinOutgoingConfirmations represents the minimum number of block

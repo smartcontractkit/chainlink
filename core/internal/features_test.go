@@ -302,12 +302,12 @@ func TestIntegration_RunLog(t *testing.T) {
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
-	requiredConfs := uint64(100)
+	requiredConfs := uint32(100)
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
-	creationHeight := uint64(1)
+	creationHeight := uint32(1)
 	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
 	logs <- runlog
 	cltest.WaitForRuns(t, j, app.Store, 1)
@@ -337,7 +337,7 @@ func TestIntegration_RunLog(t *testing.T) {
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	assert.True(t, jr.FinishedAt.Valid)
-	assert.Equal(t, uint32(requiredConfs), jr.TaskRuns[0].Confirmations.Uint32)
+	assert.Equal(t, requiredConfs, jr.TaskRuns[0].Confirmations.Uint32)
 	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
 

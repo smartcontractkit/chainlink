@@ -38,7 +38,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 				ID:                   "task0RunID-938",
 				Status:               models.RunStatusPendingConfirmations,
 				Confirmations:        clnull.Uint32From(1),
-				MinimumConfirmations: 3,
+				MinimumConfirmations: clnull.Uint32From(3),
 			},
 			models.TaskRun{
 				ID:     "task1RunID-17",

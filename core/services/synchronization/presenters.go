@@ -145,5 +145,5 @@ type syncTaskRunPresenter struct {
 	Error                null.String   `json:"error"`
 	Result               interface{}   `json:"result,omitempty"`
 	Confirmations        clnull.Uint32 `json:"confirmations"`
-	MinimumConfirmations uint64        `json:"minimumConfirmations"`
+	MinimumConfirmations clnull.Uint32 `json:"minimumConfirmations"`
 }
