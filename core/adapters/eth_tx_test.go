@@ -315,10 +315,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	tx, err = store.FindTx(tx.ID)
 	require.NoError(t, err)
 	assert.True(t, tx.Confirmed)
-	require.Len(t, tx.Attempts, 3)
+	require.Len(t, tx.Attempts, 2)
 	assert.False(t, tx.Attempts[0].Confirmed)
 	assert.True(t, tx.Attempts[1].Confirmed)
-	assert.False(t, tx.Attempts[2].Confirmed)
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
 	var receipts []models.TxReceipt
