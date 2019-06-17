@@ -529,6 +529,14 @@ func (orm *ORM) CreateTx(
 		tx.SentAt = sentAt
 		tx.SignedRawTx = signedRawTx
 		if err == gorm.ErrRecordNotFound {
+			attempt := models.TxAttempt{
+				TxID:        tx.ID,
+				Hash:        tx.Hash,
+				GasPrice:    tx.GasPrice,
+				SentAt:      tx.SentAt,
+				SignedRawTx: tx.SignedRawTx,
+			}
+			tx.Attempts = []*models.TxAttempt{&attempt}
 			return dbtx.Create(tx).Error
 		}
 
