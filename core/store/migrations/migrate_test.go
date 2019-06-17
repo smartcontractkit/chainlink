@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559081901"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560791143"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
@@ -59,7 +60,7 @@ func TestMigrate_Migrations(t *testing.T) {
 	assert.True(t, db.HasTable("users"))
 }
 
-func TestMigrate_Migration1559081901(t *testing.T) {
+func TestMigrate_Migration1560791143(t *testing.T) {
 	orm, cleanup := bootstrapORM(t)
 	defer cleanup()
 
@@ -79,4 +80,17 @@ func TestMigrate_Migration1559081901(t *testing.T) {
 
 	txFound := models.Tx{}
 	require.NoError(t, db.Where("id = ?", tx.ID).Find(&txFound).Error)
+
+	require.NoError(t, migration1560791143.Migrate(db))
+
+	txNoID := models.Tx{
+		Data:     make([]byte, 10),
+		Value:    models.NewBig(big.NewInt(2)),
+		GasPrice: models.NewBig(big.NewInt(119)),
+	}
+	require.NoError(t, db.Create(&txNoID).Error)
+	assert.Equal(t, uint64(1338), txNoID.ID)
+
+	noIDTxFound := models.Tx{}
+	require.NoError(t, db.Where("id = ?", tx.ID).Find(&noIDTxFound).Error)
 }
