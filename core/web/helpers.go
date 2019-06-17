@@ -42,7 +42,7 @@ func paginatedResponse(
 	err error,
 ) {
 	if err == orm.ErrorNotFound {
-		err = nil
+		jsonAPIError(c, http.StatusNotFound, fmt.Errorf("Page not found"))
 	}
 
 	if err != nil {

@@ -816,6 +816,9 @@ func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSp
 	var jobs []models.JobSpec
 	order := fmt.Sprintf("created_at %s", sort.String())
 	err = orm.getRecords(&jobs, order, offset, limit)
+	if len(jobs) == 0 && count != 0 {
+		return jobs, count, gorm.ErrRecordNotFound
+	}
 	return jobs, count, err
 }
 
