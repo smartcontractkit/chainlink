@@ -282,6 +282,17 @@ func MaxUint64(uints ...uint64) uint64 {
 	return max
 }
 
+// MaxUint32 finds the maximum value of a list of uint64s.
+func MaxUint32(uints ...uint32) uint32 {
+	var max uint32
+	for _, n := range uints {
+		if n > max {
+			max = n
+		}
+	}
+	return max
+}
+
 // MaxInt finds the maximum value of a list of ints.
 func MaxInt(ints ...int) int {
 	var max int

@@ -138,7 +138,7 @@ type whitelist struct {
 	LogToDisk                bool            `json:"logToDisk"`
 	MinimumContractPayment   *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration uint64          `json:"minimumRequestExpiration"`
-	MinIncomingConfirmations uint64          `json:"minIncomingConfirmations"`
+	MinIncomingConfirmations uint32          `json:"minIncomingConfirmations"`
 	MinOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
 	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
 	Port                     uint16          `json:"chainlinkPort"`

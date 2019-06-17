@@ -103,7 +103,7 @@ func bridgeRowToStrings(bridge models.BridgeType) []string {
 	return []string{
 		bridge.Name.String(),
 		bridge.URL.String(),
-		strconv.FormatUint(bridge.Confirmations, 10),
+		strconv.FormatUint(uint64(bridge.Confirmations), 10),
 	}
 }
 
@@ -122,7 +122,7 @@ func (rt RendererTable) renderBridge(bridge models.BridgeType) error {
 	table.Append([]string{
 		bridge.Name.String(),
 		bridge.URL.String(),
-		strconv.FormatUint(bridge.Confirmations, 10),
+		strconv.FormatUint(uint64(bridge.Confirmations), 10),
 		bridge.OutgoingToken,
 	})
 	render("Bridge", table)
@@ -134,7 +134,7 @@ func (rt RendererTable) renderBridgeAuthentication(bridge models.BridgeTypeAuthe
 	table.Append([]string{
 		bridge.Name.String(),
 		bridge.URL.String(),
-		strconv.FormatUint(bridge.Confirmations, 10),
+		strconv.FormatUint(uint64(bridge.Confirmations), 10),
 		bridge.IncomingToken,
 		bridge.OutgoingToken,
 	})

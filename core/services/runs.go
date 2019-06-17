@@ -102,10 +102,12 @@ func NewRun(
 		}
 
 		if currentHeight != nil {
-			run.TaskRuns[i].MinimumConfirmations = utils.MaxUint64(
-				store.Config.MinIncomingConfirmations(),
-				uint64(taskRun.TaskSpec.Confirmations.Uint32),
-				adapter.MinConfs())
+			run.TaskRuns[i].MinimumConfirmations = clnull.Uint32From(
+				utils.MaxUint32(
+					store.Config.MinIncomingConfirmations(),
+					taskRun.TaskSpec.Confirmations.Uint32,
+					adapter.MinConfs()),
+			)
 		}
 	}
 
@@ -337,25 +339,20 @@ func validateMinimumConfirmations(
 }
 
 func updateTaskRunConfirmations(currentHeight *models.Big, jr *models.JobRun, taskRun *models.TaskRun) {
-	if jr.CreationHeight == nil || currentHeight == nil {
+	if !taskRun.MinimumConfirmations.Valid || jr.CreationHeight == nil || currentHeight == nil {
 		return
 	}
 
 	diff := blockNumberDifference(currentHeight, jr.CreationHeight)
-	if diff > taskRun.MinimumConfirmations {
-		diff = taskRun.MinimumConfirmations
+	if diff > taskRun.MinimumConfirmations.Uint32 {
+		diff = taskRun.MinimumConfirmations.Uint32
 	}
-	taskRun.Confirmations = clnull.Uint32From(uint32(diff))
-	if uint64(taskRun.Confirmations.Uint32) != diff {
-		// difference overflowed, set to max uint32.
-		logger.Warnf("confirmations for task %s past max uint32 with %d, capping to max uint32", taskRun.ID, diff)
-		taskRun.Confirmations.SetValid(math.MaxUint32)
-	}
+	taskRun.Confirmations = clnull.Uint32From(diff)
 }
 
 func validateOnMainChain(jr *models.JobRun, taskRun *models.TaskRun, store *store.Store) error {
 	txhash := jr.RunRequest.TxHash
-	if txhash == nil || taskRun.MinimumConfirmations == 0 {
+	if txhash == nil || !taskRun.MinimumConfirmations.Valid || taskRun.MinimumConfirmations.Uint32 == 0 {
 		return nil
 	}
 
@@ -377,17 +374,25 @@ func meetsMinimumConfirmations(
 	run *models.JobRun,
 	taskRun *models.TaskRun,
 	currentHeight *models.Big) bool {
-	if run.CreationHeight == nil || currentHeight == nil {
+	if !taskRun.MinimumConfirmations.Valid || run.CreationHeight == nil || currentHeight == nil {
 		return true
 	}
 
 	diff := blockNumberDifference(currentHeight, run.CreationHeight)
-	return diff >= taskRun.MinimumConfirmations
+	return diff >= taskRun.MinimumConfirmations.Uint32
 }
 
-func blockNumberDifference(currentHeight, creationHeight *models.Big) uint64 {
-	diff := new(big.Int).Sub(currentHeight.ToInt(), creationHeight.ToInt())
-	return diff.Uint64() + 1 // creation of runlog alone warrants 1 confirmation
+func blockNumberDifference(currentHeight, creationHeight *models.Big) uint32 {
+	bigDiff := new(big.Int).Sub(currentHeight.ToInt(), creationHeight.ToInt())
+	diff := bigDiff.Uint64() + 1 // creation of runlog alone warrants 1 confirmation
+
+	small := uint32(diff)
+	if uint64(small) != diff {
+		// difference overflowed, set to max uint32.
+		logger.Warnf("confirmations for task past max uint32 with %d, capping to max uint32", diff)
+		return math.MaxUint32
+	}
+	return small
 }
 
 func updateAndTrigger(run *models.JobRun, store *store.Store) error {
