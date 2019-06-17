@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"math"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -343,11 +342,12 @@ func updateTaskRunConfirmations(currentHeight *models.Big, jr *models.JobRun, ta
 		return
 	}
 
-	diff := blockConfirmations(currentHeight, jr.CreationHeight)
-	if diff > taskRun.MinimumConfirmations.Uint32 {
-		diff = taskRun.MinimumConfirmations.Uint32
-	}
-	taskRun.Confirmations = clnull.Uint32From(diff)
+	confs := blockConfirmations(currentHeight, jr.CreationHeight)
+	diff := utils.MinBigs(confs, big.NewInt(int64(taskRun.MinimumConfirmations.Uint32)))
+
+	// diff's ceiling is guaranteed to be MaxUint32 since MinimumConfirmations
+	// ceiling is MaxUint32.
+	taskRun.Confirmations = clnull.Uint32From(uint32(diff.Int64()))
 }
 
 func validateOnMainChain(jr *models.JobRun, taskRun *models.TaskRun, store *store.Store) error {
@@ -379,20 +379,12 @@ func meetsMinimumConfirmations(
 	}
 
 	diff := blockConfirmations(currentHeight, run.CreationHeight)
-	return diff >= taskRun.MinimumConfirmations.Uint32
+	return diff.Cmp(big.NewInt(int64(taskRun.MinimumConfirmations.Uint32))) >= 0
 }
 
-func blockConfirmations(currentHeight, creationHeight *models.Big) uint32 {
+func blockConfirmations(currentHeight, creationHeight *models.Big) *big.Int {
 	bigDiff := new(big.Int).Sub(currentHeight.ToInt(), creationHeight.ToInt())
-	diff := bigDiff.Uint64() + 1 // creation of runlog alone warrants 1 confirmation
-
-	truncated := uint32(diff)
-	if uint64(truncated) != diff {
-		// Difference overflowed, set to max uint32,
-		// which is max MinimumConfirmations value.
-		return math.MaxUint32
-	}
-	return truncated
+	return bigDiff.Add(bigDiff, big.NewInt(1)) // creation of runlog alone warrants 1 confirmation
 }
 
 func updateAndTrigger(run *models.JobRun, store *store.Store) error {

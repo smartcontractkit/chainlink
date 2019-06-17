@@ -1,6 +1,8 @@
 package utils_test
 
 import (
+	"fmt"
+	"math/big"
 	"reflect"
 	"strings"
 	"testing"
@@ -11,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/multierr"
 )
 
@@ -208,4 +211,28 @@ func TestClient_ParseEthereumAddress(t *testing.T) {
 	assert.Error(t, notHexErr)
 	_, tooLongErr := parse("0x0123456789abcdef0123456789abcdef0123456789abcdef")
 	assert.Error(t, tooLongErr)
+}
+
+func TestMinBigs(t *testing.T) {
+	tests := []struct {
+		min, max string
+	}{
+		{"0", "0"},
+		{"-1", "0"},
+		{"99", "100"},
+		{"0", "1"},
+		{"4294967295", "4294967296"},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%s < %s", test.min, test.max), func(t *testing.T) {
+			left, ok := big.NewInt(0).SetString(test.min, 10)
+			require.True(t, ok)
+			right, ok := big.NewInt(0).SetString(test.max, 10)
+			require.True(t, ok)
+
+			min := utils.MinBigs(left, right)
+			assert.Equal(t, left, min)
+		})
+	}
 }
