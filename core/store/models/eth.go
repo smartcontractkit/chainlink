@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
@@ -99,20 +98,6 @@ func (tx *Tx) String() string {
 		tx.To.String(),
 		tx.Hash.String(),
 		tx.SentAt)
-}
-
-// AfterCreate is used to add the default attempt to a Tx after it is created
-// for the first time
-func (tx *Tx) AfterCreate(db *gorm.DB) (err error) {
-	attempt := TxAttempt{
-		TxID:        tx.ID,
-		Hash:        tx.Hash,
-		GasPrice:    tx.GasPrice,
-		SentAt:      tx.SentAt,
-		SignedRawTx: tx.SignedRawTx,
-	}
-	tx.Attempts = []*TxAttempt{&attempt}
-	return db.Create(&attempt).Error
 }
 
 // EthTx creates a new Ethereum transaction with a given gasPrice in wei
