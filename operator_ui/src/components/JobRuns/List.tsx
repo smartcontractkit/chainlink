@@ -11,15 +11,15 @@ import Typography from '@material-ui/core/Typography'
 import TableRow from '@material-ui/core/TableRow'
 import TableCell from '@material-ui/core/TableCell'
 import Card from '@material-ui/core/Card'
-import Link from 'components/Link'
-import TimeAgo from 'components/TimeAgo'
-import ReactStaticLinkComponent from '../ReactStaticLinkComponent'
 import classNames from 'classnames'
-import Button from 'components/Button'
-import titleize from 'utils/titleize'
 import { IJobRuns } from '../../../@types/operator_ui'
+import titleize from '../../utils/titleize'
+import ReactStaticLinkComponent from '../ReactStaticLinkComponent'
+import Link from '../Link'
+import TimeAgo from '../TimeAgo'
+import Button from '../Button'
 
-const styles = ({ spacing, palette }: Theme) =>
+const styles = ({ palette, spacing }: Theme) =>
   createStyles({
     jobRunsCard: {
       overflow: 'auto'
@@ -68,8 +68,6 @@ const styles = ({ spacing, palette }: Theme) =>
       padding: spacing.unit * 2
     }
   })
-
-interface IStyleProps extends WithStyles<typeof styles> {}
 
 const classFromStatus = (classes, status) => {
   if (
@@ -140,11 +138,11 @@ const renderRuns = (runs: IJobRuns, classes) => {
   )
 }
 
-interface IListProps extends IStyleProps {
+interface IProps extends WithStyles<typeof styles> {
   jobSpecId: string
   runs: IJobRuns
   count: number
-  showJobRunsCount: number
+  showJobRunsCount: boolean
 }
 
 const List = ({
@@ -153,7 +151,7 @@ const List = ({
   count,
   showJobRunsCount,
   classes
-}: IListProps) => {
+}: IProps) => {
   return (
     <Card className={classes.jobRunsCard}>
       <Table padding="none">
