@@ -8,11 +8,14 @@ import (
 	"strconv"
 )
 
+// Uint32 encapsulates the value and validity (not null) of a uint32 value,
+// to differentiate nil from 0 in json and sql.
 type Uint32 struct {
 	Uint32 uint32
 	Valid  bool
 }
 
+// NewUint32 returns an instance of Uint32 with the passed parameters.
 func NewUint32(i uint32, valid bool) Uint32 {
 	return Uint32{
 		Uint32: i,
@@ -28,7 +31,6 @@ func Uint32From(i uint32) Uint32 {
 // UnmarshalJSON implements json.Unmarshaler.
 // It supports number and null input.
 // 0 will not be considered a null Int.
-// It also supports unmarshalling a sql.NullInt64.
 func (i *Uint32) UnmarshalJSON(data []byte) error {
 	var err error
 	var v interface{}
@@ -106,8 +108,7 @@ func (i Uint32) Value() (driver.Value, error) {
 		return nil, nil
 	}
 
-	// golang's sql driver types as determined by IsValue
-	// only supports:
+	// golang's sql driver types as determined by IsValue only supports:
 	// []byte, bool, float64, int64, string, time.Time
 	// https://golang.org/src/database/sql/driver/types.go
 	return int64(i.Uint32), nil

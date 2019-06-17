@@ -87,7 +87,7 @@ func TestUnmarshalUint32_Error(t *testing.T) {
 func TestUnmarshalUint32Overflow(t *testing.T) {
 	maxUint32 := uint64(math.MaxUint32)
 
-	// Max int32 should decode successfully
+	// Max uint32 should decode successfully
 	var i Uint32
 	err := json.Unmarshal([]byte(strconv.FormatUint(maxUint32, 10)), &i)
 	require.NoError(t, err)
