@@ -55,7 +55,7 @@ const styles = ({ palette, spacing }: Theme) =>
     }
   })
 
-const NoRecentActivity = ({ classes }) => (
+const NoActivity = ({ classes }) => (
   <CardContent>
     <Card elevation={0} className={classes.noActivity}>
       <Grid container alignItems="center" spacing={16}>
@@ -76,7 +76,7 @@ interface IProps extends WithStyles<typeof styles> {
   runs?: any[]
 }
 
-const RecentActivity = ({ classes, runs }: IProps) => {
+const Activity = ({ classes, runs }: IProps) => {
   const loading = !runs
   let activity
 
@@ -89,7 +89,7 @@ const RecentActivity = ({ classes, runs }: IProps) => {
       </CardContent>
     )
   } else if (runs.length === 0) {
-    activity = <NoRecentActivity classes={classes} />
+    activity = <NoActivity classes={classes} />
   } else {
     activity = (
       <Table>
@@ -163,4 +163,4 @@ const RecentActivity = ({ classes, runs }: IProps) => {
   )
 }
 
-export default withStyles(styles)(RecentActivity)
+export default withStyles(styles)(Activity)

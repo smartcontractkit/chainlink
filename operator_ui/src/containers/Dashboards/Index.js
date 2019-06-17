@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
-import RecentActivity from 'components/Dashboards/RecentActivity'
+import Activity from 'components/Dashboards/Activity'
 import TokenBalanceCard from 'components/Cards/TokenBalance'
 import RecentlyCreatedJobs from 'components/Jobs/RecentlyCreated'
 import Footer from 'components/Footer'
@@ -30,7 +30,7 @@ export const Index = useHooks(props => {
     <Content>
       <Grid container>
         <Grid item xs={9}>
-          <RecentActivity runs={props.recentJobRuns} />
+          <Activity runs={props.recentJobRuns} />
         </Grid>
         <Grid item xs={3}>
           <Grid container>
