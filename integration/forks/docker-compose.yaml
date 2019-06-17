@@ -22,7 +22,7 @@ services:
 
   # Slow-mining geth node which chainlink connects to.
   geth1:
-    image: ethereum/client-go
+    image: geth
     restart: on-failure
     # --miner.threads must be positive, or geth won't mine!
     command:
@@ -49,7 +49,7 @@ services:
   # Fast-mining geth node which generates the block re-organization, when it's
   # reconnected to geth1.
   geth2:
-    image: ethereum/client-go
+    image: geth
     restart: on-failure
     # --miner.threads must be positive, or geth won't mine!
     command:

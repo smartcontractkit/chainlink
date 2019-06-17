@@ -55,17 +55,13 @@ RestrictConnectionBetweenLightClients = true
 # Fill this in with the path to the datadir and keystore *in the container*
 DataDir = "/root/gethnet/datadir2"
 KeyStoreDir = "/root/gethnet/datadir2/keystore"
-omitempty = ""
 InsecureUnlockAllowed = true
-HTTPHost = "172.16.1.101" # Should be docker-compose.yaml IP address
+# It is necessary to interact with geth2 via docker, because we want to inject
+# the transaction while it's disconnected from the network. That means HTTPHost
+# has to listen on localhost.
+HTTPHost = "localhost"
 HTTPPort = 8545
-HTTPVirtualHosts = ["172.16.1.101"]
 HTTPModules = ["net", "web3", "eth", "shh"]
-# Fill this in with the IP address assigned to the node in docker-compose.yaml
-WSHost="172.16.1.101"
-WSPort = 8546
-WSOrigins = ["*"]
-WSModules = ["net", "web3", "eth", "shh"]
 GraphQLPort = 8547
 
 [Node.P2P]
