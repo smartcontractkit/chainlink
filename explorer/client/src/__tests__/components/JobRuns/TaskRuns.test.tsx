@@ -57,4 +57,54 @@ describe('components/JobRuns/TaskRuns', () => {
     expect(wrapper.text()).toContain('1')
     expect(wrapper.text()).toContain('3')
   })
+
+  it('does not display repeated pending confirmations', () => {
+    const taskRuns = [
+      {
+        confirmations: 3,
+        id: 1,
+        minimumConfirmations: 3,
+        status: 'completed',
+        type: 'httpget'
+      } as ITaskRun,
+      {
+        confirmations: 3,
+        id: 2,
+        minimumConfirmations: 3,
+        status: 'completed',
+        type: 'jsonparse'
+      } as ITaskRun
+    ]
+
+    const wrapper = mount(
+      <TaskRuns taskRuns={taskRuns} etherscanHost={etherscanHost} />
+    )
+    const pendingConfs = wrapper.text().match(/pending confirmation/g)
+    expect(pendingConfs).toHaveLength(1)
+  })
+
+  it('does display increasing pending confirmations', () => {
+    const taskRuns = [
+      {
+        confirmations: 3,
+        id: 1,
+        minimumConfirmations: 3,
+        status: 'completed',
+        type: 'httpget'
+      } as ITaskRun,
+      {
+        confirmations: 4,
+        id: 2,
+        minimumConfirmations: 5,
+        status: 'completed',
+        type: 'jsonparse'
+      } as ITaskRun
+    ]
+
+    const wrapper = mount(
+      <TaskRuns taskRuns={taskRuns} etherscanHost={etherscanHost} />
+    )
+    const pendingConfs = wrapper.text().match(/pending confirmation/g)
+    expect(pendingConfs).toHaveLength(2)
+  })
 })
