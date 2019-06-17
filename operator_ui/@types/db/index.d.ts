@@ -1,6 +1,6 @@
 import { status, adapterTypes, initiatorTypes } from "../constants"
 
-export interface bridgeType {
+export interface BridgeType {
     name: string
     url: string | null
     confirmations: number | null
@@ -10,7 +10,7 @@ export interface bridgeType {
     minimumContractPayment: string | null
 }
 
-export interface externalInitiator {
+export interface ExternalInitiator {
     id: number
     createdAt: Date | null
     updatedAt: Date | null
@@ -33,7 +33,7 @@ export interface Initiator {
     deletedAt: Date | null
 }
 
-export interface jobRun {
+export interface JobRun {
     id: string
     jobSpecId: string
     resultId: number | null
@@ -49,7 +49,7 @@ export interface jobRun {
     deletedAt: Date | null
 }
 
-export interface jobSpec {
+export interface JobSpec {
     id: string
     createdAt: Date | null
     startAt: Date | null
@@ -57,7 +57,7 @@ export interface jobSpec {
     deletedAt: Date | null
 }
 
-export interface runRequests {
+export interface RunRequests {
     id: number
     requestId: string | null
     txHash: string | null
@@ -65,7 +65,7 @@ export interface runRequests {
     createdAt: Date | null
 }
 
-export interface taskRun {
+export interface TaskRun {
     id: string
     jobRunId: string
     resultId: number | null
@@ -76,7 +76,7 @@ export interface taskRun {
     confirmations: number
 }
 
-export interface taskSpec {
+export interface TaskSpec {
     id: number
     createdAt: Date | null
     updatedAt: Date | null
@@ -87,7 +87,7 @@ export interface taskSpec {
     params: string | null //REVIEW add conditional params for known adapter types that are listed 2 lines above?
 }
 
-export interface txAttempt {
+export interface TxAttempt {
     id: number
     txId: number | null
     createdAt: Date
