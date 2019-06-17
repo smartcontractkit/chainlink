@@ -271,6 +271,17 @@ func (cs ConstantSleeper) Duration() time.Duration {
 	return cs.interval
 }
 
+// MinBigs finds the minimum value of a list of big.Ints.
+func MinBigs(first *big.Int, bigs ...*big.Int) *big.Int {
+	min := first
+	for _, n := range bigs {
+		if min.Cmp(n) > 0 {
+			min = n
+		}
+	}
+	return min
+}
+
 // MaxUint64 finds the maximum value of a list of uint64s.
 func MaxUint64(uints ...uint64) uint64 {
 	var max uint64
@@ -282,7 +293,7 @@ func MaxUint64(uints ...uint64) uint64 {
 	return max
 }
 
-// MaxUint32 finds the maximum value of a list of uint64s.
+// MaxUint32 finds the maximum value of a list of uint32s.
 func MaxUint32(uints ...uint32) uint32 {
 	var max uint32
 	for _, n := range uints {
