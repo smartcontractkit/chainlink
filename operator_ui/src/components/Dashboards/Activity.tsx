@@ -84,7 +84,7 @@ const Activity = ({ classes, runs }: IProps) => {
     activity = (
       <CardContent>
         <Typography variant="body1" color="textSecondary">
-          ...
+          Loading ...
         </Typography>
       </CardContent>
     )
