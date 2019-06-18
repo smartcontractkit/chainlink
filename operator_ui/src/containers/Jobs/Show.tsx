@@ -23,7 +23,9 @@ const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
     initiator: formatInitiators(job.initiators)
   }
 
-  return <KeyValueList showHead={false} entries={Object.entries(info)} titleize />
+  return (
+    <KeyValueList showHead={false} entries={Object.entries(info)} titleize />
+  )
 }
 
 const renderTaskRuns = (job: IJobSpec) => (
@@ -110,7 +112,11 @@ export const Show = useHooks(
     useEffect(() => {
       document.title = 'Show Job'
       fetchJob(jobSpecId)
-      fetchJobRuns(jobSpecId, DEFAULT_PAGE, RECENT_RUNS_COUNT)
+      fetchJobRuns({
+        jobSpecId: jobSpecId,
+        page: DEFAULT_PAGE,
+        size: RECENT_RUNS_COUNT
+      })
     }, [])
     return (
       <div>

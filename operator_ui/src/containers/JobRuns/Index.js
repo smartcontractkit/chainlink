@@ -23,6 +23,8 @@ const styles = theme => ({
 
 const renderLatestRuns = (props, state, handleChangePage) => {
   const { jobSpecId, latestJobRuns, jobRunsCount, pageSize } = props
+  const pagePath = props.pagePath.replace(':jobSpecId', jobSpecId)
+
   const TableButtonsWithProps = () => (
     <TableButtons
       history={props.history}
@@ -31,7 +33,7 @@ const renderLatestRuns = (props, state, handleChangePage) => {
       page={state.page}
       specID={jobSpecId}
       rowsPerPage={pageSize}
-      replaceWith={`/jobs/${jobSpecId}/runs/page`}
+      replaceWith={pagePath}
     />
   )
   return (
@@ -59,13 +61,13 @@ const renderLatestRuns = (props, state, handleChangePage) => {
   )
 }
 
-const renderFetching = () => <div>Fetching...</div>
+const Fetching = () => <div>Fetching...</div>
 
 const renderDetails = (props, state, handleChangePage) => {
   if (props.latestJobRuns && props.latestJobRuns.length > 0) {
     return renderLatestRuns(props, state, handleChangePage)
   } else {
-    return renderFetching()
+    return <Fetching />
   }
 }
 
@@ -77,11 +79,11 @@ export const Index = useHooks(props => {
       ? parseInt(props.match.params.jobRunsPage, 10) || FIRST_PAGE
       : FIRST_PAGE
     setPage(queryPage)
-    fetchJobRuns(jobSpecId, queryPage, pageSize)
+    fetchJobRuns({ jobSpecId: jobSpecId, page: queryPage, size: pageSize })
   }, [])
   const { classes, jobSpecId, fetchJobRuns, pageSize } = props
   const handleChangePage = (e, pageNum) => {
-    fetchJobRuns(jobSpecId, pageNum, pageSize)
+    fetchJobRuns({ jobSpecId: jobSpecId, page: pageNum, size: pageSize })
     setPage(pageNum)
   }
 
@@ -98,7 +100,8 @@ Index.propTypes = {
   classes: PropTypes.object.isRequired,
   latestJobRuns: PropTypes.array,
   jobRunsCount: PropTypes.number,
-  pageSize: PropTypes.number.isRequired
+  pageSize: PropTypes.number.isRequired,
+  pagePath: PropTypes.string.isRequired
 }
 
 Index.defaultProps = {

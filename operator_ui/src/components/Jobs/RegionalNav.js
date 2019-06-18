@@ -83,7 +83,11 @@ const RegionalNav = ({
   const definition = job && jobSpecDefinition(job)
   const handleClick = () => {
     createJobRun(job.id, SuccessNotification, ErrorMessage).then(() =>
-      fetchJobRuns(job.id, DEFAULT_PAGE, RECENT_RUNS_COUNT)
+      fetchJobRuns({
+        jobSpecId: job.id,
+        page: DEFAULT_PAGE,
+        size: RECENT_RUNS_COUNT
+      })
     )
   }
 
@@ -131,7 +135,8 @@ const RegionalNav = ({
           <Typography variant="subtitle2" color="textSecondary">
             {job && (
               <React.Fragment>
-                Created <TimeAgo tooltip={false}>{job.createdAt}</TimeAgo> ({localizedTimestamp(job.createdAt)})
+                Created <TimeAgo tooltip={false}>{job.createdAt}</TimeAgo> (
+                {localizedTimestamp(job.createdAt)})
               </React.Fragment>
             )}
           </Typography>

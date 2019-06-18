@@ -37,12 +37,17 @@ describe('containers/Jobs/Show', () => {
         }
       ]
     })
-    const jobRunResponse = jsonApiJobSpecRunsFactory([{
-      id: jobRunId,
-      jobId: jobSpecId,
-    }])
+    const jobRunResponse = jsonApiJobSpecRunsFactory([
+      {
+        id: jobRunId,
+        jobId: jobSpecId
+      }
+    ])
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
-    global.fetch.getOnce(`/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=5`, jobRunResponse)
+    global.fetch.getOnce(
+      `/v2/runs?sort=-createdAt&page=1&size=5&jobSpecId=${jobSpecId}`,
+      jobRunResponse
+    )
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)
@@ -69,7 +74,10 @@ describe('containers/Jobs/Show', () => {
     const jobRunsResponse = jsonApiJobSpecRunsFactory(runs)
 
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
-    global.fetch.getOnce(`/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=5`, jobRunsResponse)
+    global.fetch.getOnce(
+      `/v2/runs?sort=-createdAt&page=1&size=5&jobSpecId=${jobSpecId}`,
+      jobRunsResponse
+    )
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)
