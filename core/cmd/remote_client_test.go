@@ -88,6 +88,29 @@ func TestClient_ShowJobRun_NotFound(t *testing.T) {
 	assert.Empty(t, r.Renders)
 }
 
+func TestClient_GetJobRuns(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+
+	j := cltest.NewJobWithWebInitiator()
+	assert.NoError(t, app.Store.CreateJob(&j))
+
+	jr0 := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"100"}`)
+	jr1 := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"105"}`)
+	jr2 := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"110"}`)
+
+	client, r := app.NewClientAndRenderer()
+
+	require.Nil(t, client.GetJobRuns(cltest.EmptyCLIContext()))
+	runs := *r.Renders[0].(*[]presenters.JobRun)
+	require.Equal(t, 3, len(runs))
+	assert.Equal(t, jr0.Result, runs[0].Result)
+	assert.Equal(t, jr1.Result, runs[1].Result)
+	assert.Equal(t, jr2.Result, runs[2].Result)
+}
+
 func TestClient_ShowJobSpec_Exists(t *testing.T) {
 	t.Parallel()
 
