@@ -60,7 +60,7 @@ type ConfigSchema struct {
 	LogLevel                 LogLevel       `env:"LOG_LEVEL" default:"info"`
 	LogToDisk                bool           `env:"LOG_TO_DISK" default:"true"`
 	LogSQLStatements         bool           `env:"LOG_SQL" default:"false"`
-	MinIncomingConfirmations uint64         `env:"MIN_INCOMING_CONFIRMATIONS" default:"3"`
+	MinIncomingConfirmations uint32         `env:"MIN_INCOMING_CONFIRMATIONS" default:"3"`
 	MinOutgoingConfirmations uint64         `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
 	MinimumContractPayment   assets.Link    `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
 	MinimumRequestExpiration uint64         `env:"MINIMUM_REQUEST_EXPIRATION" default:"300" `
@@ -263,8 +263,8 @@ func (c Config) LogSQLStatements() bool {
 // MinIncomingConfirmations represents the minimum number of block
 // confirmations that need to be recorded since a job run started before a task
 // can proceed.
-func (c Config) MinIncomingConfirmations() uint64 {
-	return uint64(c.viper.GetInt64(c.envVarName("MinIncomingConfirmations")))
+func (c Config) MinIncomingConfirmations() uint32 {
+	return c.viper.GetUint32(c.envVarName("MinIncomingConfirmations"))
 }
 
 // MinOutgoingConfirmations represents the minimum number of block

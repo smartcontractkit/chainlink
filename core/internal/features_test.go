@@ -302,12 +302,12 @@ func TestIntegration_RunLog(t *testing.T) {
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
-	requiredConfs := uint64(100)
+	requiredConfs := uint32(100)
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
-	creationHeight := uint64(1)
+	creationHeight := uint32(1)
 	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
 	logs <- runlog
 	cltest.WaitForRuns(t, j, app.Store, 1)
@@ -316,14 +316,14 @@ func TestIntegration_RunLog(t *testing.T) {
 	assert.NoError(t, err)
 	jr := runs[0]
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
-	assert.Equal(t, uint64(0), jr.TaskRuns[0].Confirmations)
+	assert.False(t, jr.TaskRuns[0].Confirmations.Valid)
 
 	blockIncrease := app.Store.Config.MinIncomingConfirmations()
 	minGlobalHeight := creationHeight + blockIncrease
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(minGlobalHeight)}
 	<-time.After(time.Second)
 	jr = cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
-	assert.Equal(t, creationHeight+blockIncrease, jr.TaskRuns[0].Confirmations)
+	assert.Equal(t, uint32(creationHeight+blockIncrease), jr.TaskRuns[0].Confirmations.Uint32)
 
 	safeNumber := creationHeight + requiredConfs
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
@@ -337,7 +337,7 @@ func TestIntegration_RunLog(t *testing.T) {
 
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	assert.True(t, jr.FinishedAt.Valid)
-	assert.Equal(t, requiredConfs, jr.TaskRuns[0].Confirmations)
+	assert.Equal(t, requiredConfs, jr.TaskRuns[0].Confirmations.Uint32)
 	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
 

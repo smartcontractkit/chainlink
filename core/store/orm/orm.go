@@ -365,9 +365,16 @@ func (orm *ORM) Jobs(cb func(models.JobSpec) bool) error {
 
 // JobRunsFor fetches all JobRuns with a given Job ID,
 // sorted by their created at time.
-func (orm *ORM) JobRunsFor(jobSpecID string) ([]models.JobRun, error) {
+func (orm *ORM) JobRunsFor(jobSpecID string, limit ...int) ([]models.JobRun, error) {
 	runs := []models.JobRun{}
+	var lim int
+	if len(limit) == 0 {
+		lim = 100
+	} else if len(limit) >= 1 {
+		lim = limit[0]
+	}
 	err := orm.preloadJobRuns().
+		Limit(lim).
 		Where("job_spec_id = ?", jobSpecID).
 		Order("created_at desc").
 		Find(&runs).Error
@@ -522,6 +529,14 @@ func (orm *ORM) CreateTx(
 		tx.SentAt = sentAt
 		tx.SignedRawTx = signedRawTx
 		if err == gorm.ErrRecordNotFound {
+			attempt := models.TxAttempt{
+				TxID:        tx.ID,
+				Hash:        tx.Hash,
+				GasPrice:    tx.GasPrice,
+				SentAt:      tx.SentAt,
+				SignedRawTx: tx.SignedRawTx,
+			}
+			tx.Attempts = []*models.TxAttempt{&attempt}
 			return dbtx.Create(tx).Error
 		}
 

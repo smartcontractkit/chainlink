@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
@@ -36,8 +37,8 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 			models.TaskRun{
 				ID:                   "task0RunID-938",
 				Status:               models.RunStatusPendingConfirmations,
-				Confirmations:        1,
-				MinimumConfirmations: 3,
+				Confirmations:        clnull.Uint32From(1),
+				MinimumConfirmations: clnull.Uint32From(3),
 			},
 			models.TaskRun{
 				ID:     "task1RunID-17",

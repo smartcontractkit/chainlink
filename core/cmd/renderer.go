@@ -46,6 +46,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderJobs(*typed)
 	case *presenters.JobSpec:
 		return rt.renderJob(*typed)
+	case *[]presenters.JobRun:
+		return rt.renderJobRuns(*typed)
 	case *presenters.JobRun:
 		return rt.renderJobRun(*typed)
 	case *models.BridgeType:
@@ -88,7 +90,7 @@ func render(name string, table *tablewriter.Table) {
 }
 
 func jobRowToStrings(job models.JobSpec) []string {
-	p := presenters.JobSpec{JobSpec: job, Runs: nil}
+	p := presenters.JobSpec{JobSpec: job}
 	return []string{
 		p.ID,
 		p.FriendlyCreatedAt(),
@@ -101,7 +103,7 @@ func bridgeRowToStrings(bridge models.BridgeType) []string {
 	return []string{
 		bridge.Name.String(),
 		bridge.URL.String(),
-		strconv.FormatUint(bridge.Confirmations, 10),
+		strconv.FormatUint(uint64(bridge.Confirmations), 10),
 	}
 }
 
@@ -120,7 +122,7 @@ func (rt RendererTable) renderBridge(bridge models.BridgeType) error {
 	table.Append([]string{
 		bridge.Name.String(),
 		bridge.URL.String(),
-		strconv.FormatUint(bridge.Confirmations, 10),
+		strconv.FormatUint(uint64(bridge.Confirmations), 10),
 		bridge.OutgoingToken,
 	})
 	render("Bridge", table)
@@ -132,7 +134,7 @@ func (rt RendererTable) renderBridgeAuthentication(bridge models.BridgeTypeAuthe
 	table.Append([]string{
 		bridge.Name.String(),
 		bridge.URL.String(),
-		strconv.FormatUint(bridge.Confirmations, 10),
+		strconv.FormatUint(uint64(bridge.Confirmations), 10),
 		bridge.IncomingToken,
 		bridge.OutgoingToken,
 	})
@@ -149,11 +151,7 @@ func (rt RendererTable) renderJob(job presenters.JobSpec) error {
 		return err
 	}
 
-	if err := rt.renderJobTasks(job); err != nil {
-		return err
-	}
-
-	err := rt.renderJobRuns(job.Runs)
+	err := rt.renderJobTasks(job)
 	return err
 }
 

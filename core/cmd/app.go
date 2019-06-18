@@ -122,6 +122,22 @@ func NewApp(client *Client) *cli.App {
 			Action:  client.ShowJobRun,
 		},
 		{
+			Name:    "listruns",
+			Aliases: []string{"lr"},
+			Usage:   "List all job runs",
+			Action:  client.GetJobRuns,
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "page",
+					Usage: "page of results to display",
+				},
+				cli.StringFlag{
+					Name:  "jobid",
+					Usage: "filter all runs to match the given jobid",
+				},
+			},
+		},
+		{
 			Name:   "bridge",
 			Usage:  "Add a new bridge to the node",
 			Action: client.AddBridge,

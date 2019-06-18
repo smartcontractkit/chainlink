@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -100,10 +101,12 @@ func NewRun(
 		}
 
 		if currentHeight != nil {
-			run.TaskRuns[i].MinimumConfirmations = utils.MaxUint64(
-				store.Config.MinIncomingConfirmations(),
-				taskRun.TaskSpec.Confirmations,
-				adapter.MinConfs())
+			run.TaskRuns[i].MinimumConfirmations = clnull.Uint32From(
+				utils.MaxUint32(
+					store.Config.MinIncomingConfirmations(),
+					taskRun.TaskSpec.Confirmations.Uint32,
+					adapter.MinConfs()),
+			)
 		}
 	}
 
@@ -335,18 +338,21 @@ func validateMinimumConfirmations(
 }
 
 func updateTaskRunConfirmations(currentHeight *models.Big, jr *models.JobRun, taskRun *models.TaskRun) {
-	if jr.CreationHeight == nil || currentHeight == nil {
+	if !taskRun.MinimumConfirmations.Valid || jr.CreationHeight == nil || currentHeight == nil {
 		return
 	}
-	taskRun.Confirmations = blockNumberDifference(currentHeight, jr.CreationHeight)
-	if taskRun.Confirmations > taskRun.MinimumConfirmations {
-		taskRun.Confirmations = taskRun.MinimumConfirmations
-	}
+
+	confs := blockConfirmations(currentHeight, jr.CreationHeight)
+	diff := utils.MinBigs(confs, big.NewInt(int64(taskRun.MinimumConfirmations.Uint32)))
+
+	// diff's ceiling is guaranteed to be MaxUint32 since MinimumConfirmations
+	// ceiling is MaxUint32.
+	taskRun.Confirmations = clnull.Uint32From(uint32(diff.Int64()))
 }
 
 func validateOnMainChain(jr *models.JobRun, taskRun *models.TaskRun, store *store.Store) error {
 	txhash := jr.RunRequest.TxHash
-	if txhash == nil || taskRun.MinimumConfirmations == 0 {
+	if txhash == nil || !taskRun.MinimumConfirmations.Valid || taskRun.MinimumConfirmations.Uint32 == 0 {
 		return nil
 	}
 
@@ -368,17 +374,17 @@ func meetsMinimumConfirmations(
 	run *models.JobRun,
 	taskRun *models.TaskRun,
 	currentHeight *models.Big) bool {
-	if run.CreationHeight == nil || currentHeight == nil {
+	if !taskRun.MinimumConfirmations.Valid || run.CreationHeight == nil || currentHeight == nil {
 		return true
 	}
 
-	diff := blockNumberDifference(currentHeight, run.CreationHeight)
-	return diff >= taskRun.MinimumConfirmations
+	diff := blockConfirmations(currentHeight, run.CreationHeight)
+	return diff.Cmp(big.NewInt(int64(taskRun.MinimumConfirmations.Uint32))) >= 0
 }
 
-func blockNumberDifference(currentHeight, creationHeight *models.Big) uint64 {
-	diff := new(big.Int).Sub(currentHeight.ToInt(), creationHeight.ToInt())
-	return diff.Uint64() + 1 // creation of runlog alone warrants 1 confirmation
+func blockConfirmations(currentHeight, creationHeight *models.Big) *big.Int {
+	bigDiff := new(big.Int).Sub(currentHeight.ToInt(), creationHeight.ToInt())
+	return bigDiff.Add(bigDiff, big.NewInt(1)) // creation of runlog alone warrants 1 confirmation
 }
 
 func updateAndTrigger(run *models.JobRun, store *store.Store) error {
