@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/common"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -138,11 +139,11 @@ type syncInitiatorPresenter struct {
 }
 
 type syncTaskRunPresenter struct {
-	Index                int         `json:"index"`
-	Type                 string      `json:"type"`
-	Status               string      `json:"status"`
-	Error                null.String `json:"error"`
-	Result               interface{} `json:"result,omitempty"`
-	Confirmations        uint64      `json:"confirmations"`
-	MinimumConfirmations uint64      `json:"minimumConfirmations"`
+	Index                int           `json:"index"`
+	Type                 string        `json:"type"`
+	Status               string        `json:"status"`
+	Error                null.String   `json:"error"`
+	Result               interface{}   `json:"result,omitempty"`
+	Confirmations        clnull.Uint32 `json:"confirmations"`
+	MinimumConfirmations clnull.Uint32 `json:"minimumConfirmations"`
 }
