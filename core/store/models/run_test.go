@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -120,6 +122,49 @@ func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, events, 0)
+}
+
+func TestForLogger(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+	jr := job.NewRun(job.Initiators[0])
+	jr.JobSpecID = job.ID
+	linkReward := assets.NewLink(5)
+
+	jr.Result = cltest.RunResultWithDataAndLinkPayout(`{"result":"11850.00"}`, linkReward)
+	logsBeforeCompletion := jr.ForLogger()
+	assert.Equal(t, logsBeforeCompletion[0], "job")
+	assert.Equal(t, logsBeforeCompletion[1], jr.JobSpecID)
+	assert.Equal(t, logsBeforeCompletion[2], "run")
+	assert.Equal(t, logsBeforeCompletion[3], jr.ID)
+	assert.Equal(t, logsBeforeCompletion[4], "status")
+	assert.Equal(t, logsBeforeCompletion[5], jr.Status)
+
+	jr.Status = "completed"
+	logsAfterCompletion := jr.ForLogger()
+	assert.Equal(t, logsAfterCompletion[4], "status")
+	assert.Equal(t, logsAfterCompletion[5], jr.Status)
+	assert.Equal(t, logsAfterCompletion[6], "link_earned")
+	assert.Equal(t, logsAfterCompletion[7], linkReward)
+
+	jr.CreationHeight = models.NewBig(big.NewInt(5))
+	jr.ObservedHeight = models.NewBig(big.NewInt(10))
+	logsAfterCompletion = jr.ForLogger()
+	assert.Equal(t, logsAfterCompletion[6], "creation_height")
+	assert.Equal(t, logsAfterCompletion[7], big.NewInt(5))
+	assert.Equal(t, logsAfterCompletion[8], "observed_height")
+	assert.Equal(t, logsAfterCompletion[9], big.NewInt(10))
+
+	jrErr := job.NewRun(job.Initiators[0])
+	jrErr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
+	logsErr := jrErr.ForLogger()
+	assert.Equal(t, logsErr[6], "job_error")
+	assert.Equal(t, logsErr[7], jrErr.Result.Error())
+
 }
 
 func TestJobRun_NextTaskRun(t *testing.T) {
