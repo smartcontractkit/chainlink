@@ -431,6 +431,16 @@ func RunResultWithData(val string) models.RunResult {
 	return models.RunResult{Data: data}
 }
 
+// RunResultWithDataAndLinkPayout creates a run result with a given data JSON object
+// and link amount as a payout
+func RunResultWithDataAndLinkPayout(val string, amt *assets.Link) models.RunResult {
+	data, err := models.ParseJSON([]byte(val))
+	if err != nil {
+		return RunResultWithError(err)
+	}
+	return models.RunResult{Data: data, Amount: amt}
+}
+
 // RunResultWithError creates a runresult with given error
 func RunResultWithError(err error) models.RunResult {
 	return models.RunResult{
