@@ -72,6 +72,7 @@ func (sp *StatsPusher) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	sp.cancel = cancel
 	go sp.eventLoop(ctx)
+	logger.Infow("Started StatsPusher")
 	return nil
 }
 

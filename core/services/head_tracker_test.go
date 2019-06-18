@@ -23,10 +23,10 @@ func TestHeadTracker_New(t *testing.T) {
 	defer cleanup()
 
 	cltest.MockEthOnStore(t, store)
-	assert.Nil(t, store.SaveHead(cltest.Head(1)))
+	assert.Nil(t, store.CreateHead(cltest.Head(1)))
 	last := cltest.Head(16)
-	assert.Nil(t, store.SaveHead(last))
-	assert.Nil(t, store.SaveHead(cltest.Head(10)))
+	assert.Nil(t, store.CreateHead(last))
+	assert.Nil(t, store.CreateHead(cltest.Head(10)))
 
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
 	assert.Nil(t, ht.Start())
@@ -59,7 +59,7 @@ func TestHeadTracker_Get(t *testing.T) {
 
 			cltest.MockEthOnStore(t, store)
 			if test.initial != nil {
-				assert.Nil(t, store.SaveHead(test.initial))
+				assert.Nil(t, store.CreateHead(test.initial))
 			}
 
 			ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
