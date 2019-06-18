@@ -4,7 +4,7 @@ import syncFetch from 'test-helpers/syncFetch'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRun'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
-import { ConnectedShow as Show } from 'containers/JobRuns/Show'
+import { ConnectedShow as Show } from 'containers/JobRuns/Show/Overview'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 import mountWithTheme from 'test-helpers/mountWithTheme'
 
@@ -18,7 +18,7 @@ const mountShow = props =>
     </Provider>
   )
 
-describe('containers/JobRuns/Show', () => {
+describe('containers/JobRuns/Show/Overview', () => {
   const jobSpecId = '942e8b218d414e10a053-000455fdd470'
   const jobRunId = 'ad24b72c12f441b99b9877bcf6cb506e'
 
