@@ -410,28 +410,28 @@ func TestExtendedPath(t *testing.T) {
 			ep := adapters.ExtendedPath{}
 			err := json.Unmarshal([]byte(test.path), &ep)
 			hga := adapters.HTTPGet{
-				URL:     cltest.WebURL(t, test.startingUrl),
-				ExtPath: ep,
+				URL:          cltest.WebURL(t, test.startingUrl),
+				ExtendedPath: ep,
 			}
 			hpa := adapters.HTTPPost{
-				URL:     cltest.WebURL(t, test.startingUrl),
-				ExtPath: ep,
+				URL:          cltest.WebURL(t, test.startingUrl),
+				ExtendedPath: ep,
 			}
 			if test.wantErrored {
 				requestGET, _ := hga.GetRequest()
 				assert.Equal(t, test.expectedURL, requestGET.URL.String())
-				assert.Equal(t, test.expectedPath, hga.ExtPath)
+				assert.Equal(t, test.expectedPath, hga.ExtendedPath)
 				requestPOST, _ := hpa.GetRequest("")
 				assert.Equal(t, test.expectedURL, requestPOST.URL.String())
-				assert.Equal(t, test.expectedPath, hpa.ExtPath)
+				assert.Equal(t, test.expectedPath, hpa.ExtendedPath)
 				assert.NotNil(t, err)
 			} else {
 				requestGET, _ := hga.GetRequest()
 				assert.Equal(t, test.expectedURL, requestGET.URL.String())
-				assert.Equal(t, test.expectedPath, hga.ExtPath)
+				assert.Equal(t, test.expectedPath, hga.ExtendedPath)
 				requestPOST, _ := hpa.GetRequest("")
 				assert.Equal(t, test.expectedURL, requestPOST.URL.String())
-				assert.Equal(t, test.expectedPath, hpa.ExtPath)
+				assert.Equal(t, test.expectedPath, hpa.ExtendedPath)
 				assert.Nil(t, err)
 			}
 		})
@@ -509,14 +509,14 @@ func TestHTTP_BuildingURL(t *testing.T) {
 			err := json.Unmarshal([]byte(test.path), &ep)
 			err = json.Unmarshal([]byte(test.queryParams), &qp)
 			hga := adapters.HTTPGet{
-				URL:         cltest.WebURL(t, test.startingUrl),
-				QueryParams: qp,
-				ExtPath:     ep,
+				URL:          cltest.WebURL(t, test.startingUrl),
+				QueryParams:  qp,
+				ExtendedPath: ep,
 			}
 			hpa := adapters.HTTPPost{
-				URL:         cltest.WebURL(t, test.startingUrl),
-				QueryParams: qp,
-				ExtPath:     ep,
+				URL:          cltest.WebURL(t, test.startingUrl),
+				QueryParams:  qp,
+				ExtendedPath: ep,
 			}
 			requestGET, _ := hga.GetRequest()
 			assert.Equal(t, test.expectedURL, requestGET.URL.String())

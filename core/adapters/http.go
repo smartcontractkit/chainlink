@@ -19,11 +19,11 @@ import (
 
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {
-	URL         models.WebURL   `json:"url"`
-	GET         models.WebURL   `json:"get"`
-	Headers     http.Header     `json:"headers"`
-	QueryParams QueryParameters `json:"queryParams"`
-	ExtPath     ExtendedPath    `json:"extPath"`
+	URL          models.WebURL   `json:"url"`
+	GET          models.WebURL   `json:"get"`
+	Headers      http.Header     `json:"headers"`
+	QueryParams  QueryParameters `json:"queryParams"`
+	ExtendedPath ExtendedPath    `json:"extPath"`
 }
 
 // Perform ensures that the adapter's URL responds to a GET request without
@@ -51,7 +51,7 @@ func (hga *HTTPGet) GetRequest() (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	appendExtendedPath(request, hga.ExtPath)
+	appendExtendedPath(request, hga.ExtendedPath)
 	appendQueryParams(request, hga.QueryParams)
 	setHeaders(request, hga.Headers, "")
 	return request, nil
@@ -59,11 +59,11 @@ func (hga *HTTPGet) GetRequest() (*http.Request, error) {
 
 // HTTPPost requires a URL which is used for a POST request when the adapter is called.
 type HTTPPost struct {
-	URL         models.WebURL   `json:"url"`
-	POST        models.WebURL   `json:"post"`
-	Headers     http.Header     `json:"headers"`
-	QueryParams QueryParameters `json:"queryParams"`
-	ExtPath     ExtendedPath    `json:"extPath"`
+	URL          models.WebURL   `json:"url"`
+	POST         models.WebURL   `json:"post"`
+	Headers      http.Header     `json:"headers"`
+	QueryParams  QueryParameters `json:"queryParams"`
+	ExtendedPath ExtendedPath    `json:"extPath"`
 }
 
 // Perform ensures that the adapter's URL responds to a POST request without
@@ -93,7 +93,7 @@ func (hpa *HTTPPost) GetRequest(body string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	appendExtendedPath(request, hpa.ExtPath)
+	appendExtendedPath(request, hpa.ExtendedPath)
 	appendQueryParams(request, hpa.QueryParams)
 	setHeaders(request, hpa.Headers, "application/json")
 	return request, nil
