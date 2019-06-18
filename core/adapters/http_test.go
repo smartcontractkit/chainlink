@@ -28,8 +28,7 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 		{"HTTPPost", &adapters.HTTPPost{URL: cltest.WebURL(t, "NotAURL")}},
 	}
 
-	for _, tt := range tests {
-		test := tt
+	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			result := test.adapter.Perform(models.RunResult{}, store)
 			assert.Equal(t, models.JSON{}, result.Data)
@@ -68,8 +67,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 			}},
 	}
 
-	for _, tt := range cases {
-		test := tt
+	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			input := cltest.RunResultWithResult("inputValue")
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "GET", test.response,
@@ -157,8 +155,7 @@ func TestHttpPost_Perform(t *testing.T) {
 			}},
 	}
 
-	for _, tt := range cases {
-		test := tt
+	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			input := cltest.RunResultWithResult("inputVal")
 			wantedBody := `{"result":"inputVal"}`
@@ -189,7 +186,7 @@ func TestHttpPost_Perform(t *testing.T) {
 	}
 }
 
-func TestQueryParameters(t *testing.T) {
+func TestQueryParameters_Success(t *testing.T) {
 	t.Parallel()
 
 	baseUrl := "http://example.com"
@@ -198,14 +195,12 @@ func TestQueryParameters(t *testing.T) {
 		name           string
 		queryParams    string
 		startingUrl    string
-		wantErrored    bool
 		expectedParams adapters.QueryParameters
 		expectedURL    string
 	}{
 		{"empty",
 			`""`,
 			baseUrl,
-			false,
 			adapters.QueryParameters{},
 			baseUrl,
 		},
@@ -213,7 +208,6 @@ func TestQueryParameters(t *testing.T) {
 			"array of params",
 			`["firstKey","firstVal","secondKey","secondVal"]`,
 			baseUrl,
-			false,
 			adapters.QueryParameters{
 				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
@@ -224,7 +218,6 @@ func TestQueryParameters(t *testing.T) {
 			"string of params",
 			`"firstKey=firstVal&secondKey=secondVal"`,
 			baseUrl,
-			false,
 			adapters.QueryParameters{
 				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
@@ -232,26 +225,9 @@ func TestQueryParameters(t *testing.T) {
 			"http://example.com?firstKey=firstVal&secondKey=secondVal",
 		},
 		{
-			"odd number of params",
-			`["firstKey","firstVal","secondKey","secondVal","bad"]`,
-			baseUrl,
-			true,
-			adapters.QueryParameters{},
-			baseUrl,
-		},
-		{
-			"bad format of string",
-			`"firstKey=firstVal&secondKey=secondVal&bad"`,
-			baseUrl,
-			true,
-			adapters.QueryParameters{},
-			baseUrl,
-		},
-		{
 			"string has question mark",
 			`"?firstKey=firstVal&secondKey=secondVal"`,
 			baseUrl,
-			false,
 			adapters.QueryParameters{
 				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
@@ -262,7 +238,6 @@ func TestQueryParameters(t *testing.T) {
 			"starting URL has existing params",
 			`"?firstKey=firstVal&secondKey=secondVal"`,
 			"http://example.com?firstKey=hardVal",
-			false,
 			adapters.QueryParameters{
 				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
@@ -271,8 +246,7 @@ func TestQueryParameters(t *testing.T) {
 		},
 	}
 
-	for _, tt := range cases {
-		test := tt
+	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			qp := adapters.QueryParameters{}
 			err := json.Unmarshal([]byte(test.queryParams), &qp)
@@ -284,23 +258,303 @@ func TestQueryParameters(t *testing.T) {
 				URL:         cltest.WebURL(t, test.startingUrl),
 				QueryParams: qp,
 			}
-			if test.wantErrored {
-				requestGET, _ := hga.GetRequest()
-				assert.Equal(t, test.expectedURL, requestGET.URL.String())
-				assert.Equal(t, test.expectedParams, hga.QueryParams)
-				requestPOST, _ := hpa.GetRequest("")
-				assert.Equal(t, test.expectedURL, requestPOST.URL.String())
-				assert.Equal(t, test.expectedParams, hpa.QueryParams)
-				assert.NotNil(t, err)
-			} else {
-				requestGET, _ := hga.GetRequest()
-				assert.Equal(t, test.expectedURL, requestGET.URL.String())
-				assert.Equal(t, test.expectedParams, hga.QueryParams)
-				requestPOST, _ := hpa.GetRequest("")
-				assert.Equal(t, test.expectedURL, requestPOST.URL.String())
-				assert.Equal(t, test.expectedParams, hpa.QueryParams)
-				assert.Nil(t, err)
+			requestGET, _ := hga.GetRequest()
+			assert.Equal(t, test.expectedURL, requestGET.URL.String())
+			assert.Equal(t, test.expectedParams, hga.QueryParams)
+			requestPOST, _ := hpa.GetRequest("")
+			assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+			assert.Equal(t, test.expectedParams, hpa.QueryParams)
+			assert.Nil(t, err)
+		})
+	}
+}
+
+func TestQueryParameters_Error(t *testing.T) {
+	t.Parallel()
+
+	baseUrl := "http://example.com"
+
+	cases := []struct {
+		name           string
+		queryParams    string
+		startingUrl    string
+		expectedParams adapters.QueryParameters
+		expectedURL    string
+	}{
+		{
+			"odd number of params",
+			`["firstKey","firstVal","secondKey","secondVal","bad"]`,
+			baseUrl,
+			adapters.QueryParameters{},
+			baseUrl,
+		},
+		{
+			"bad format of string",
+			`"firstKey=firstVal&secondKey=secondVal&bad"`,
+			baseUrl,
+			adapters.QueryParameters{},
+			baseUrl,
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			qp := adapters.QueryParameters{}
+			err := json.Unmarshal([]byte(test.queryParams), &qp)
+			hga := adapters.HTTPGet{
+				URL:         cltest.WebURL(t, test.startingUrl),
+				QueryParams: qp,
 			}
+			hpa := adapters.HTTPPost{
+				URL:         cltest.WebURL(t, test.startingUrl),
+				QueryParams: qp,
+			}
+			requestGET, _ := hga.GetRequest()
+			assert.Equal(t, test.expectedURL, requestGET.URL.String())
+			assert.Equal(t, test.expectedParams, hga.QueryParams)
+			requestPOST, _ := hpa.GetRequest("")
+			assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+			assert.Equal(t, test.expectedParams, hpa.QueryParams)
+			assert.NotNil(t, err)
+		})
+	}
+}
+
+func TestExtendedPath_Success(t *testing.T) {
+	t.Parallel()
+
+	baseUrl := "http://example.com"
+
+	cases := []struct {
+		name         string
+		startingUrl  string
+		path         string
+		expectedPath adapters.ExtendedPath
+		expectedURL  string
+	}{
+		{
+			"empty",
+			baseUrl,
+			`""`,
+			adapters.ExtendedPath{""},
+			baseUrl,
+		},
+		{
+			"two paths",
+			baseUrl,
+			`"one/two"`,
+			adapters.ExtendedPath{
+				"one",
+				"two",
+			},
+			"http://example.com/one/two",
+		},
+		{
+			"existing path no trailing slash",
+			"http://example.com/one",
+			`"two/three"`,
+			adapters.ExtendedPath{
+				"two",
+				"three",
+			},
+			"http://example.com/one/two/three",
+		},
+		{
+			"existing path with trailing slash",
+			"http://example.com/one/",
+			`"two/three"`,
+			adapters.ExtendedPath{
+				"two",
+				"three",
+			},
+			"http://example.com/one/two/three",
+		},
+		{
+			"input as arrays",
+			baseUrl,
+			`["one","two"]`,
+			adapters.ExtendedPath{
+				"one",
+				"two",
+			},
+			"http://example.com/one/two",
+		},
+		{
+			"input begins with slash",
+			baseUrl,
+			`"/one/two"`,
+			adapters.ExtendedPath{
+				"",
+				"one",
+				"two",
+			},
+			"http://example.com/one/two",
+		},
+		{
+			"input ends with slash",
+			baseUrl,
+			`"one/two/"`,
+			adapters.ExtendedPath{
+				"one",
+				"two",
+				"",
+			},
+			"http://example.com/one/two",
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			ep := adapters.ExtendedPath{}
+			err := json.Unmarshal([]byte(test.path), &ep)
+			hga := adapters.HTTPGet{
+				URL:          cltest.WebURL(t, test.startingUrl),
+				ExtendedPath: ep,
+			}
+			hpa := adapters.HTTPPost{
+				URL:          cltest.WebURL(t, test.startingUrl),
+				ExtendedPath: ep,
+			}
+			requestGET, _ := hga.GetRequest()
+			assert.Equal(t, test.expectedURL, requestGET.URL.String())
+			assert.Equal(t, test.expectedPath, hga.ExtendedPath)
+			requestPOST, _ := hpa.GetRequest("")
+			assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+			assert.Equal(t, test.expectedPath, hpa.ExtendedPath)
+			assert.Nil(t, err)
+		})
+	}
+}
+
+func TestExtendedPath_Error(t *testing.T) {
+	t.Parallel()
+
+	baseUrl := "http://example.com"
+
+	cases := []struct {
+		name         string
+		startingUrl  string
+		path         string
+		expectedPath adapters.ExtendedPath
+		expectedURL  string
+	}{
+		{
+			"bad array input",
+			baseUrl,
+			`["one","two"`,
+			adapters.ExtendedPath{},
+			baseUrl,
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			ep := adapters.ExtendedPath{}
+			err := json.Unmarshal([]byte(test.path), &ep)
+			hga := adapters.HTTPGet{
+				URL:          cltest.WebURL(t, test.startingUrl),
+				ExtendedPath: ep,
+			}
+			hpa := adapters.HTTPPost{
+				URL:          cltest.WebURL(t, test.startingUrl),
+				ExtendedPath: ep,
+			}
+			requestGET, _ := hga.GetRequest()
+			assert.Equal(t, test.expectedURL, requestGET.URL.String())
+			assert.Equal(t, test.expectedPath, hga.ExtendedPath)
+			requestPOST, _ := hpa.GetRequest("")
+			assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+			assert.Equal(t, test.expectedPath, hpa.ExtendedPath)
+			assert.NotNil(t, err)
+
+		})
+	}
+}
+
+func TestHTTP_BuildingURL(t *testing.T) {
+	t.Parallel()
+
+	baseUrl := "http://example.com"
+
+	cases := []struct {
+		name        string
+		startingUrl string
+		path        string
+		queryParams string
+		expectedURL string
+	}{
+		{
+			"one of each",
+			baseUrl,
+			`"one"`,
+			`"firstKey=firstVal"`,
+			"http://example.com/one?firstKey=firstVal",
+		},
+		{
+			"query params no path",
+			baseUrl,
+			`""`,
+			`"firstKey=firstVal"`,
+			"http://example.com?firstKey=firstVal",
+		},
+		{
+			"path no query params",
+			baseUrl,
+			`"one"`,
+			`""`,
+			"http://example.com/one",
+		},
+		{
+			"many of each",
+			baseUrl,
+			`"one/two/three"`,
+			`"firstKey=firstVal&secondKey=secondVal"`,
+			"http://example.com/one/two/three?firstKey=firstVal&secondKey=secondVal",
+		},
+		{
+			"existing path",
+			"http://example.com/one",
+			`"two"`,
+			`"firstKey=firstVal"`,
+			"http://example.com/one/two?firstKey=firstVal",
+		},
+		{
+			"existing query param",
+			"http://example.com?firstKey=firstVal",
+			`"one"`,
+			`"secondKey=secondVal"`,
+			"http://example.com/one?firstKey=firstVal&secondKey=secondVal",
+		},
+		{
+			"existing path and query param",
+			"http://example.com/one?firstKey=firstVal",
+			`"two"`,
+			`"secondKey=secondVal"`,
+			"http://example.com/one/two?firstKey=firstVal&secondKey=secondVal",
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			ep := adapters.ExtendedPath{}
+			qp := adapters.QueryParameters{}
+			err := json.Unmarshal([]byte(test.path), &ep)
+			err = json.Unmarshal([]byte(test.queryParams), &qp)
+			hga := adapters.HTTPGet{
+				URL:          cltest.WebURL(t, test.startingUrl),
+				QueryParams:  qp,
+				ExtendedPath: ep,
+			}
+			hpa := adapters.HTTPPost{
+				URL:          cltest.WebURL(t, test.startingUrl),
+				QueryParams:  qp,
+				ExtendedPath: ep,
+			}
+			requestGET, _ := hga.GetRequest()
+			assert.Equal(t, test.expectedURL, requestGET.URL.String())
+			requestPOST, _ := hpa.GetRequest("")
+			assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+			assert.Nil(t, err)
 		})
 	}
 }
