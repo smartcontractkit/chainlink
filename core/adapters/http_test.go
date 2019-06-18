@@ -189,7 +189,7 @@ func TestHttpPost_Perform(t *testing.T) {
 	}
 }
 
-func TestQueryParameters(t *testing.T) {
+func TestQueryParameters_Success(t *testing.T) {
 	t.Parallel()
 
 	baseUrl := "http://example.com"
@@ -198,14 +198,12 @@ func TestQueryParameters(t *testing.T) {
 		name           string
 		queryParams    string
 		startingUrl    string
-		wantErrored    bool
 		expectedParams adapters.QueryParameters
 		expectedURL    string
 	}{
 		{"empty",
 			`""`,
 			baseUrl,
-			false,
 			adapters.QueryParameters{},
 			baseUrl,
 		},
@@ -213,7 +211,6 @@ func TestQueryParameters(t *testing.T) {
 			"array of params",
 			`["firstKey","firstVal","secondKey","secondVal"]`,
 			baseUrl,
-			false,
 			adapters.QueryParameters{
 				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
@@ -224,7 +221,6 @@ func TestQueryParameters(t *testing.T) {
 			"string of params",
 			`"firstKey=firstVal&secondKey=secondVal"`,
 			baseUrl,
-			false,
 			adapters.QueryParameters{
 				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
@@ -232,26 +228,9 @@ func TestQueryParameters(t *testing.T) {
 			"http://example.com?firstKey=firstVal&secondKey=secondVal",
 		},
 		{
-			"odd number of params",
-			`["firstKey","firstVal","secondKey","secondVal","bad"]`,
-			baseUrl,
-			true,
-			adapters.QueryParameters{},
-			baseUrl,
-		},
-		{
-			"bad format of string",
-			`"firstKey=firstVal&secondKey=secondVal&bad"`,
-			baseUrl,
-			true,
-			adapters.QueryParameters{},
-			baseUrl,
-		},
-		{
 			"string has question mark",
 			`"?firstKey=firstVal&secondKey=secondVal"`,
 			baseUrl,
-			false,
 			adapters.QueryParameters{
 				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
@@ -262,7 +241,6 @@ func TestQueryParameters(t *testing.T) {
 			"starting URL has existing params",
 			`"?firstKey=firstVal&secondKey=secondVal"`,
 			"http://example.com?firstKey=hardVal",
-			false,
 			adapters.QueryParameters{
 				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
@@ -284,28 +262,70 @@ func TestQueryParameters(t *testing.T) {
 				URL:         cltest.WebURL(t, test.startingUrl),
 				QueryParams: qp,
 			}
-			if test.wantErrored {
-				requestGET, _ := hga.GetRequest()
-				assert.Equal(t, test.expectedURL, requestGET.URL.String())
-				assert.Equal(t, test.expectedParams, hga.QueryParams)
-				requestPOST, _ := hpa.GetRequest("")
-				assert.Equal(t, test.expectedURL, requestPOST.URL.String())
-				assert.Equal(t, test.expectedParams, hpa.QueryParams)
-				assert.NotNil(t, err)
-			} else {
-				requestGET, _ := hga.GetRequest()
-				assert.Equal(t, test.expectedURL, requestGET.URL.String())
-				assert.Equal(t, test.expectedParams, hga.QueryParams)
-				requestPOST, _ := hpa.GetRequest("")
-				assert.Equal(t, test.expectedURL, requestPOST.URL.String())
-				assert.Equal(t, test.expectedParams, hpa.QueryParams)
-				assert.Nil(t, err)
-			}
+			requestGET, _ := hga.GetRequest()
+			assert.Equal(t, test.expectedURL, requestGET.URL.String())
+			assert.Equal(t, test.expectedParams, hga.QueryParams)
+			requestPOST, _ := hpa.GetRequest("")
+			assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+			assert.Equal(t, test.expectedParams, hpa.QueryParams)
+			assert.Nil(t, err)
 		})
 	}
 }
 
-func TestExtendedPath(t *testing.T) {
+func TestQueryParameters_Error(t *testing.T) {
+	t.Parallel()
+
+	baseUrl := "http://example.com"
+
+	cases := []struct {
+		name           string
+		queryParams    string
+		startingUrl    string
+		expectedParams adapters.QueryParameters
+		expectedURL    string
+	}{
+		{
+			"odd number of params",
+			`["firstKey","firstVal","secondKey","secondVal","bad"]`,
+			baseUrl,
+			adapters.QueryParameters{},
+			baseUrl,
+		},
+		{
+			"bad format of string",
+			`"firstKey=firstVal&secondKey=secondVal&bad"`,
+			baseUrl,
+			adapters.QueryParameters{},
+			baseUrl,
+		},
+	}
+
+	for _, tt := range cases {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			qp := adapters.QueryParameters{}
+			err := json.Unmarshal([]byte(test.queryParams), &qp)
+			hga := adapters.HTTPGet{
+				URL:         cltest.WebURL(t, test.startingUrl),
+				QueryParams: qp,
+			}
+			hpa := adapters.HTTPPost{
+				URL:         cltest.WebURL(t, test.startingUrl),
+				QueryParams: qp,
+			}
+			requestGET, _ := hga.GetRequest()
+			assert.Equal(t, test.expectedURL, requestGET.URL.String())
+			assert.Equal(t, test.expectedParams, hga.QueryParams)
+			requestPOST, _ := hpa.GetRequest("")
+			assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+			assert.Equal(t, test.expectedParams, hpa.QueryParams)
+			assert.NotNil(t, err)
+		})
+	}
+}
+
+func TestExtendedPath_Success(t *testing.T) {
 	t.Parallel()
 
 	baseUrl := "http://example.com"
@@ -314,7 +334,6 @@ func TestExtendedPath(t *testing.T) {
 		name         string
 		startingUrl  string
 		path         string
-		wantErrored  bool
 		expectedPath adapters.ExtendedPath
 		expectedURL  string
 	}{
@@ -322,7 +341,6 @@ func TestExtendedPath(t *testing.T) {
 			"empty",
 			baseUrl,
 			`""`,
-			false,
 			adapters.ExtendedPath{""},
 			baseUrl,
 		},
@@ -330,7 +348,6 @@ func TestExtendedPath(t *testing.T) {
 			"two paths",
 			baseUrl,
 			`"one/two"`,
-			false,
 			adapters.ExtendedPath{
 				"one",
 				"two",
@@ -341,7 +358,6 @@ func TestExtendedPath(t *testing.T) {
 			"existing path no trailing slash",
 			"http://example.com/one",
 			`"two/three"`,
-			false,
 			adapters.ExtendedPath{
 				"two",
 				"three",
@@ -352,7 +368,6 @@ func TestExtendedPath(t *testing.T) {
 			"existing path with trailing slash",
 			"http://example.com/one/",
 			`"two/three"`,
-			false,
 			adapters.ExtendedPath{
 				"two",
 				"three",
@@ -363,7 +378,6 @@ func TestExtendedPath(t *testing.T) {
 			"input as arrays",
 			baseUrl,
 			`["one","two"]`,
-			false,
 			adapters.ExtendedPath{
 				"one",
 				"two",
@@ -374,7 +388,6 @@ func TestExtendedPath(t *testing.T) {
 			"input begins with slash",
 			baseUrl,
 			`"/one/two"`,
-			false,
 			adapters.ExtendedPath{
 				"",
 				"one",
@@ -386,7 +399,6 @@ func TestExtendedPath(t *testing.T) {
 			"input ends with slash",
 			baseUrl,
 			`"one/two/"`,
-			false,
 			adapters.ExtendedPath{
 				"one",
 				"two",
@@ -394,11 +406,48 @@ func TestExtendedPath(t *testing.T) {
 			},
 			"http://example.com/one/two",
 		},
+	}
+
+	for _, tt := range cases {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			ep := adapters.ExtendedPath{}
+			err := json.Unmarshal([]byte(test.path), &ep)
+			hga := adapters.HTTPGet{
+				URL:          cltest.WebURL(t, test.startingUrl),
+				ExtendedPath: ep,
+			}
+			hpa := adapters.HTTPPost{
+				URL:          cltest.WebURL(t, test.startingUrl),
+				ExtendedPath: ep,
+			}
+			requestGET, _ := hga.GetRequest()
+			assert.Equal(t, test.expectedURL, requestGET.URL.String())
+			assert.Equal(t, test.expectedPath, hga.ExtendedPath)
+			requestPOST, _ := hpa.GetRequest("")
+			assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+			assert.Equal(t, test.expectedPath, hpa.ExtendedPath)
+			assert.Nil(t, err)
+		})
+	}
+}
+
+func TestExtendedPath_Error(t *testing.T) {
+	t.Parallel()
+
+	baseUrl := "http://example.com"
+
+	cases := []struct {
+		name         string
+		startingUrl  string
+		path         string
+		expectedPath adapters.ExtendedPath
+		expectedURL  string
+	}{
 		{
 			"bad array input",
 			baseUrl,
 			`["one","two"`,
-			true,
 			adapters.ExtendedPath{},
 			baseUrl,
 		},
@@ -417,23 +466,14 @@ func TestExtendedPath(t *testing.T) {
 				URL:          cltest.WebURL(t, test.startingUrl),
 				ExtendedPath: ep,
 			}
-			if test.wantErrored {
-				requestGET, _ := hga.GetRequest()
-				assert.Equal(t, test.expectedURL, requestGET.URL.String())
-				assert.Equal(t, test.expectedPath, hga.ExtendedPath)
-				requestPOST, _ := hpa.GetRequest("")
-				assert.Equal(t, test.expectedURL, requestPOST.URL.String())
-				assert.Equal(t, test.expectedPath, hpa.ExtendedPath)
-				assert.NotNil(t, err)
-			} else {
-				requestGET, _ := hga.GetRequest()
-				assert.Equal(t, test.expectedURL, requestGET.URL.String())
-				assert.Equal(t, test.expectedPath, hga.ExtendedPath)
-				requestPOST, _ := hpa.GetRequest("")
-				assert.Equal(t, test.expectedURL, requestPOST.URL.String())
-				assert.Equal(t, test.expectedPath, hpa.ExtendedPath)
-				assert.Nil(t, err)
-			}
+			requestGET, _ := hga.GetRequest()
+			assert.Equal(t, test.expectedURL, requestGET.URL.String())
+			assert.Equal(t, test.expectedPath, hga.ExtendedPath)
+			requestPOST, _ := hpa.GetRequest("")
+			assert.Equal(t, test.expectedURL, requestPOST.URL.String())
+			assert.Equal(t, test.expectedPath, hpa.ExtendedPath)
+			assert.NotNil(t, err)
+
 		})
 	}
 }
