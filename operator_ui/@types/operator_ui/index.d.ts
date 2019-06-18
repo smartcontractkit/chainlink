@@ -9,15 +9,17 @@ interface RunResult {
     status: status
 }
 
-export interface IBridgeType extends Omit<dbTypes.BridgeType, 'incomingTokenHash' | 'salt'> { }
+export interface IBridgeType extends Omit<dbTypes.BridgeType, 'incomingTokenHash' | 'salt'> {
+    id: string
+}
 
 //REVIEW what to do with this?
 export interface IExternalInitiator extends Omit<dbTypes.ExternalInitiator, 'salt' | 'hashedSecret' | 'accessKey'> { }
 
 export interface IInitiator extends dbTypes.Initiator { }
 
-export interface IJobRun extends Omit<dbTypes.JobRun, 'initiatorId' | 'overridesId' | 'jobSpecId'> {
-    initiator: dbTypes.Initiator
+export interface IJobRun extends Omit<dbTypes.JobRun, 'initiatorId' | 'overridesId' | 'jobSpecId' | 'resultId'> {
+    initiator: IInitiator
     jobId: string
     overrides: RunResult
     result: RunResult
@@ -25,7 +27,7 @@ export interface IJobRun extends Omit<dbTypes.JobRun, 'initiatorId' | 'overrides
 }
 
 export interface IJobSpec extends dbTypes.JobSpec {
-    initiators: dbTypes.Initiator
+    initiators: IInitiators
     tasks: ITaskSpecs
     runs: ITaskRuns
 }
