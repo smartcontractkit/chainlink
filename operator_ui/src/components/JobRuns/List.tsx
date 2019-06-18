@@ -1,6 +1,10 @@
 import React from 'react'
-import PropTypes from 'prop-types'
-import { withStyles } from '@material-ui/core/styles'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import Typography from '@material-ui/core/Typography'
@@ -13,9 +17,10 @@ import ReactStaticLinkComponent from '../ReactStaticLinkComponent'
 import classNames from 'classnames'
 import Button from 'components/Button'
 import titleize from 'utils/titleize'
+import { IJobRuns } from '../../../@types/operator_ui'
 
-const styles = theme => {
-  return {
+const styles = ({ spacing, palette }: Theme) =>
+  createStyles({
     jobRunsCard: {
       overflow: 'auto'
     },
@@ -30,40 +35,41 @@ const styles = theme => {
       width: '30%'
     },
     runDetails: {
-      paddingTop: theme.spacing.unit * 2,
-      paddingBottom: theme.spacing.unit * 2,
-      paddingLeft: theme.spacing.unit * 2
+      paddingTop: spacing.unit * 2,
+      paddingBottom: spacing.unit * 2,
+      paddingLeft: spacing.unit * 2
     },
     stamp: {
-      paddingLeft: theme.spacing.unit
+      paddingLeft: spacing.unit
     },
     status: {
-      paddingLeft: theme.spacing.unit * 1.5,
-      paddingRight: theme.spacing.unit * 1.5,
-      paddingTop: theme.spacing.unit / 2,
-      paddingBottom: theme.spacing.unit / 2,
-      borderRadius: theme.spacing.unit * 2,
-      marginRight: theme.spacing.unit,
+      paddingLeft: spacing.unit * 1.5,
+      paddingRight: spacing.unit * 1.5,
+      paddingTop: spacing.unit / 2,
+      paddingBottom: spacing.unit / 2,
+      borderRadius: spacing.unit * 2,
+      marginRight: spacing.unit,
       width: 'fit-content',
       display: 'inline-block'
     },
     errored: {
-      backgroundColor: theme.palette.error.light,
-      color: theme.palette.error.main
+      backgroundColor: palette.error.light,
+      color: palette.error.main
     },
     pending: {
-      backgroundColor: theme.palette.listPendingStatus.background,
-      color: theme.palette.listPendingStatus.color
+      backgroundColor: palette.listPendingStatus.background,
+      color: palette.listPendingStatus.color
     },
     completed: {
-      backgroundColor: theme.palette.listCompletedStatus.background,
-      color: theme.palette.listCompletedStatus.color
+      backgroundColor: palette.listCompletedStatus.background,
+      color: palette.listCompletedStatus.color
     },
     noRuns: {
-      padding: theme.spacing.unit * 2
+      padding: spacing.unit * 2
     }
-  }
-}
+  })
+
+interface IStyleProps extends WithStyles<typeof styles> {}
 
 const classFromStatus = (classes, status) => {
   if (
@@ -76,7 +82,7 @@ const classFromStatus = (classes, status) => {
   return classes[status.toLowerCase()]
 }
 
-const renderRuns = (runs, classes) => {
+const renderRuns = (runs: IJobRuns, classes) => {
   if (runs && runs.length === 0) {
     return (
       <TableRow>
@@ -134,7 +140,20 @@ const renderRuns = (runs, classes) => {
   )
 }
 
-const List = ({ jobSpecId, runs, count, showJobRunsCount, classes }) => {
+interface IListProps extends IStyleProps {
+  jobSpecId: string
+  runs: IJobRuns
+  count: number
+  showJobRunsCount: number
+}
+
+const List = ({
+  jobSpecId,
+  runs,
+  count,
+  showJobRunsCount,
+  classes
+}: IListProps) => {
   return (
     <Card className={classes.jobRunsCard}>
       <Table padding="none">
@@ -158,13 +177,6 @@ const List = ({ jobSpecId, runs, count, showJobRunsCount, classes }) => {
       </Table>
     </Card>
   )
-}
-
-List.propTypes = {
-  jobSpecId: PropTypes.string.isRequired,
-  runs: PropTypes.array.isRequired,
-  count: PropTypes.number.isRequired,
-  showJobRunsCount: PropTypes.any.isRequired
 }
 
 export default withStyles(styles)(List)
