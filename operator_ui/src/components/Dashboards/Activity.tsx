@@ -11,6 +11,7 @@ import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
+import TableFooter from '@material-ui/core/TableFooter'
 import CardContent from '@material-ui/core/CardContent'
 import Card from '@material-ui/core/Card'
 import Button from '../Button'
@@ -27,6 +28,12 @@ const styles = ({ palette, spacing }: Theme) =>
       borderTop: `1px solid`,
       borderBottom: 'none',
       padding: 0
+    },
+    footer: {
+      borderColor: palette.divider,
+      borderTop: `1px solid`,
+      paddingTop: spacing.unit * 2,
+      paddingBottom: spacing.unit * 2
     },
     content: {
       position: 'relative',
@@ -73,10 +80,12 @@ const NoActivity = ({ classes }) => (
 )
 
 interface IProps extends WithStyles<typeof styles> {
+  pageSize: number
   runs?: any[]
+  count?: number
 }
 
-const Activity = ({ classes, runs }: IProps) => {
+const Activity = ({ classes, runs, count, pageSize }: IProps) => {
   const loading = !runs
   let activity
 
@@ -137,6 +146,17 @@ const Activity = ({ classes, runs }: IProps) => {
             </TableRow>
           ))}
         </TableBody>
+        {count > pageSize && (
+          <TableFooter>
+            <TableRow>
+              <TableCell scope="row" className={classes.footer}>
+                <Button to={`/runs`} component={ReactStaticLinkComponent}>
+                  View More
+                </Button>
+              </TableCell>
+            </TableRow>
+          </TableFooter>
+        )}
       </Table>
     )
   }

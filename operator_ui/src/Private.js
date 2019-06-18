@@ -122,12 +122,22 @@ class Private extends React.Component {
                 <PrivateRoute
                   exact
                   path="/jobs/:jobSpecId/runs"
-                  component={JobRunsIndex}
+                  render={props => (
+                    <JobRunsIndex
+                      {...props}
+                      pagePath="/jobs/:jobSpecId/runs/page"
+                    />
+                  )}
                 />
                 <PrivateRoute
                   exact
                   path="/jobs/:jobSpecId/runs/page/:jobRunsPage"
-                  component={JobRunsIndex}
+                  render={props => (
+                    <JobRunsIndex
+                      {...props}
+                      pagePath="/jobs/:jobSpecId/runs/page"
+                    />
+                  )}
                 />
                 <PrivateRoute
                   exact
@@ -143,6 +153,20 @@ class Private extends React.Component {
                   exact
                   path="/jobs/:jobSpecId/runs/id/:jobRunId/error_log"
                   component={JobRunsShowErrorLog}
+                />
+                <PrivateRoute
+                  exact
+                  path="/runs"
+                  render={props => (
+                    <JobRunsIndex {...props} pagePath="/runs/page" />
+                  )}
+                />
+                <PrivateRoute
+                  exact
+                  path="/runs/page/:jobRunsPage"
+                  render={props => (
+                    <JobRunsIndex {...props} pagePath="/runs/page" />
+                  )}
                 />
                 <PrivateRoute exact path="/bridges" component={BridgesIndex} />
                 <PrivateRoute
