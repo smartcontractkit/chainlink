@@ -137,6 +137,7 @@ func TestForLogger(t *testing.T) {
 
 	jr.Result = cltest.RunResultWithDataAndLinkPayout(`{"result":"11850.00"}`, linkReward)
 	logsBeforeCompletion := jr.ForLogger()
+	require.Len(t, logsBeforeCompletion, 6)
 	assert.Equal(t, logsBeforeCompletion[0], "job")
 	assert.Equal(t, logsBeforeCompletion[1], jr.JobSpecID)
 	assert.Equal(t, logsBeforeCompletion[2], "run")
@@ -146,6 +147,7 @@ func TestForLogger(t *testing.T) {
 
 	jr.Status = "completed"
 	logsAfterCompletion := jr.ForLogger()
+	require.Len(t, logsAfterCompletion, 8)
 	assert.Equal(t, logsAfterCompletion[4], "status")
 	assert.Equal(t, logsAfterCompletion[5], jr.Status)
 	assert.Equal(t, logsAfterCompletion[6], "link_earned")
@@ -153,17 +155,18 @@ func TestForLogger(t *testing.T) {
 
 	jr.CreationHeight = models.NewBig(big.NewInt(5))
 	jr.ObservedHeight = models.NewBig(big.NewInt(10))
-	logsAfterCompletion = jr.ForLogger()
-	assert.Equal(t, logsAfterCompletion[6], "creation_height")
-	assert.Equal(t, logsAfterCompletion[7], big.NewInt(5))
-	assert.Equal(t, logsAfterCompletion[8], "observed_height")
-	assert.Equal(t, logsAfterCompletion[9], big.NewInt(10))
+	logsWithBlockHeights := jr.ForLogger()
+	require.Len(t, logsWithBlockHeights, 12)
+	assert.Equal(t, logsWithBlockHeights[6], "creation_height")
+	assert.Equal(t, logsWithBlockHeights[7], big.NewInt(5))
+	assert.Equal(t, logsWithBlockHeights[8], "observed_height")
+	assert.Equal(t, logsWithBlockHeights[9], big.NewInt(10))
 
 	jrErr := job.NewRun(job.Initiators[0])
 	jrErr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
-	logsErr := jrErr.ForLogger()
-	assert.Equal(t, logsErr[6], "job_error")
-	assert.Equal(t, logsErr[7], jrErr.Result.Error())
+	logsWithErr := jrErr.ForLogger()
+	assert.Equal(t, logsWithErr[6], "job_error")
+	assert.Equal(t, logsWithErr[7], jrErr.Result.Error())
 
 }
 
