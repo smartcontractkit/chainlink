@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -18,10 +19,11 @@ import (
 
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {
-	URL         models.WebURL   `json:"url"`
-	GET         models.WebURL   `json:"get"`
-	Headers     http.Header     `json:"headers"`
-	QueryParams QueryParameters `json:"queryParams"`
+	URL          models.WebURL   `json:"url"`
+	GET          models.WebURL   `json:"get"`
+	Headers      http.Header     `json:"headers"`
+	QueryParams  QueryParameters `json:"queryParams"`
+	ExtendedPath ExtendedPath    `json:"extPath"`
 }
 
 // Perform ensures that the adapter's URL responds to a GET request without
@@ -49,6 +51,7 @@ func (hga *HTTPGet) GetRequest() (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+	appendExtendedPath(request, hga.ExtendedPath)
 	appendQueryParams(request, hga.QueryParams)
 	setHeaders(request, hga.Headers, "")
 	return request, nil
@@ -56,10 +59,11 @@ func (hga *HTTPGet) GetRequest() (*http.Request, error) {
 
 // HTTPPost requires a URL which is used for a POST request when the adapter is called.
 type HTTPPost struct {
-	URL         models.WebURL   `json:"url"`
-	POST        models.WebURL   `json:"post"`
-	Headers     http.Header     `json:"headers"`
-	QueryParams QueryParameters `json:"queryParams"`
+	URL          models.WebURL   `json:"url"`
+	POST         models.WebURL   `json:"post"`
+	Headers      http.Header     `json:"headers"`
+	QueryParams  QueryParameters `json:"queryParams"`
+	ExtendedPath ExtendedPath    `json:"extPath"`
 }
 
 // Perform ensures that the adapter's URL responds to a POST request without
@@ -89,9 +93,14 @@ func (hpa *HTTPPost) GetRequest(body string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+	appendExtendedPath(request, hpa.ExtendedPath)
 	appendQueryParams(request, hpa.QueryParams)
 	setHeaders(request, hpa.Headers, "application/json")
 	return request, nil
+}
+
+func appendExtendedPath(request *http.Request, extPath ExtendedPath) {
+	request.URL.Path = path.Join(append([]string{request.URL.Path}, []string(extPath)...)...)
 }
 
 func appendQueryParams(request *http.Request, queryParams QueryParameters) {
@@ -257,4 +266,22 @@ func buildValues(input []string) (url.Values, error) {
 		values.Add(input[i], input[i+1])
 	}
 	return values, nil
+}
+
+// ExtendedPath is the path to append to a base URL
+type ExtendedPath []string
+
+// UnmarshalJSON implements the Unmarshaler interface
+func (ep *ExtendedPath) UnmarshalJSON(input []byte) error {
+	values := []string{}
+	var err error
+	// if input is a string like "a/b/c"
+	if utils.IsQuoted(input) {
+		values = strings.Split(string(utils.RemoveQuotes(input)), "/")
+	// if input is an array of strings like ["a", "b", "c"]
+	} else {
+		err = json.Unmarshal(input, &values)
+	}
+	*ep = ExtendedPath(values)
+	return err
 }
