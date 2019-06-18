@@ -100,9 +100,7 @@ func (hpa *HTTPPost) GetRequest(body string) (*http.Request, error) {
 }
 
 func appendExtendedPath(request *http.Request, extPath ExtendedPath) {
-	for _, element := range extPath {
-		request.URL.Path = path.Join(request.URL.Path, element)
-	}
+	request.URL.Path = path.Join(append([]string{request.URL.Path}, []string(extPath)...)...)
 }
 
 func appendQueryParams(request *http.Request, queryParams QueryParameters) {
