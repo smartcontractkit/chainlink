@@ -346,6 +346,7 @@ func (k *Key) WriteToDisk(path string) error {
 // transaction that has been written to the blockchain.
 type TxReceipt struct {
 	BlockNumber *Big        `json:"blockNumber" gorm:"type:numeric"`
+	BlockHash   common.Hash `json:"blockHash"`
 	Hash        common.Hash `json:"transactionHash"`
 	Logs        []Log       `json:"logs"`
 }

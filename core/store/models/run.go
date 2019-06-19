@@ -149,6 +149,7 @@ type RunRequest struct {
 	ID        uint `gorm:"primary_key"`
 	RequestID *string
 	TxHash    *common.Hash
+	BlockHash *common.Hash
 	Requester *common.Address
 	CreatedAt time.Time
 }
