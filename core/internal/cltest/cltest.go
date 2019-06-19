@@ -772,17 +772,6 @@ func WaitForJobRunToPendSleep(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingSleep)
 }
 
-// WaitForJobRunToError waits for a JobRun to reach Error Status
-func WaitForJobRunToError(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-) models.JobRun {
-	t.Helper()
-
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusErrored)
-}
-
 // WaitForJobRunStatus waits for a JobRun to reach given status
 func WaitForJobRunStatus(
 	t testing.TB,
