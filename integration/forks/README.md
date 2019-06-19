@@ -96,4 +96,28 @@ To reproduce a rough facsimile of the artifacts in this directory, follow these 
    geth1_1      | INFO [06-13|07:27:59.247] 🔗 block reached canonical chain          number=8  hash=a922c6…b0a076
        ^                                                                                             ^^^^^^^^^^^^^
    ```
-   This means that container `geth1_1`'s block with hash a922c6…b0a076 was imported and accepted by container `geth2_1`.
+   This means that container `geth1_1`'s block with hash a922c6…b0a076 was imported and accepted by container `geth2_1**.
+
+## Constructing the trigger transaction
+
+The goal of this framework is to test how chainlink responds to logs from the
+ethereum blockchain in the context of a re-org. Therefore, we need to construct
+a transaction which emits a log. Here is how I did this. You may want to
+automate this, if you're adjusting your solidity contract a lot.
+
+1. Get the binary for `Trigger.sol` with `solc --bin contracts/Trigger.sol`.
+2. Place that binary output in the assignment to `contract_data` in
+   `generate_tx.rb`.
+3. `sudo apt install ruby ruby-dev ruby-bundler`
+4. Build `digest-sha3-ruby` with `CFLAGS+-Wno-format-security`. (Straight `gem
+   install eth` fails for me, [as described
+   here](https://github.com/phusion/digest-sha3-ruby/issues/7).)
+   
+   `git clone https://github.com/izetex/digest-sha3-ruby` 
+   
+   `cd digest-sha3-ruby; gem build digest-sha3.gemspec` 
+   
+   `sudo gem install digest-sha3-1.1.0.gem`
+5. `sudo gem install eth`
+6. Test the script by running `ruby generate_tx.rb`. The output from this is
+   assigned to `${TRANSACTION_HEX}` in `Makefile`.
