@@ -344,6 +344,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 		log           models.Log
 		wantRequestID string
 		wantTxHash    string
+		wantBlockHash string
 		wantRequester common.Address
 	}{
 		{
@@ -351,6 +352,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 			log:           cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog0original.json"),
 			wantRequestID: "0x0000000000000000000000000000000000000000000000000000000000000017",
 			wantTxHash:    "0xe05b171038320aca6634ce50de669bd0baa337130269c3ce3594ce4d45fc342a",
+			wantBlockHash: "0xde3fb1df888c6c7f77f3a8e9c2582f87e7ad5277d98bd06cfd17cd2d7ea49f42",
 			wantRequester: common.HexToAddress("0xd352677fcded6c358e03c73ea2a8a2832dffc0a4"),
 		},
 		{
@@ -358,6 +360,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 			log:           cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190123withFulfillmentParams.json"),
 			wantRequestID: "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8",
 			wantTxHash:    "0x04250548cd0b5d03b3bf1331aa83f32b35879440db31a6008d151260a5f3cc76",
+			wantBlockHash: "0xfa0c0d01ce8bd7100b73b1609ababc020e7f51dac75186bb799277c6b4b71e1c",
 			wantRequester: common.HexToAddress("0x9fbda871d559710256a2502a2517b794b482db41"),
 		},
 		{
@@ -365,6 +368,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 			log:           cltest.LogFromFixture(t, "../../internal/fixtures/eth/requestLog20190207withoutIndexes.json"),
 			wantRequestID: "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8",
 			wantTxHash:    "0x04250548cd0b5d03b3bf1331aa83f32b35879440db31a6008d151260a5f3cc76",
+			wantBlockHash: "0x000c0d01ce8bd7100b73b1609ababc020e7f51dac75186bb799277c6b4b71e1c",
 			wantRequester: common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40"),
 		},
 	}
@@ -377,6 +381,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 
 			assert.Equal(t, &test.wantRequestID, rr.RequestID)
 			assert.Equal(t, test.wantTxHash, rr.TxHash.Hex())
+			assert.Equal(t, test.wantBlockHash, rr.BlockHash.Hex())
 			assert.Equal(t, &test.wantRequester, rr.Requester)
 		})
 	}

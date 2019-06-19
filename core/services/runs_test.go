@@ -591,6 +591,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_mainChain(t *testing.T) {
 	defer cleanup()
 
 	initiatingTxHash := cltest.NewHash()
+	initiatingBlockHash := cltest.NewHash()
 	eth := app.MockEthClient()
 	app.Start()
 
@@ -605,6 +606,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_mainChain(t *testing.T) {
 	rr := models.NewRunRequest()
 	rr.RequestID = &requestID
 	rr.TxHash = &initiatingTxHash
+	rr.BlockHash = &initiatingBlockHash
 	jr, err := services.ExecuteJobWithRunRequest(
 		job,
 		initr,
@@ -617,7 +619,8 @@ func TestExecuteJobWithRunRequest_fromRunLog_mainChain(t *testing.T) {
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
 
 	confirmedReceipt := models.TxReceipt{
-		Hash:        *rr.TxHash,
+		Hash:        initiatingTxHash,
+		BlockHash:   initiatingBlockHash,
 		BlockNumber: cltest.Int(3),
 	}
 	eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
@@ -645,6 +648,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_uncled(t *testing.T) {
 	defer cleanup()
 
 	initiatingTxHash := cltest.NewHash()
+	initiatingBlockHash := cltest.NewHash()
 	eth := app.MockEthClient()
 	app.Start()
 
@@ -659,6 +663,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_uncled(t *testing.T) {
 	rr := models.NewRunRequest()
 	rr.RequestID = &requestID
 	rr.TxHash = &initiatingTxHash
+	rr.BlockHash = &initiatingBlockHash
 	jr, err := services.ExecuteJobWithRunRequest(
 		job,
 		initr,
@@ -670,9 +675,13 @@ func TestExecuteJobWithRunRequest_fromRunLog_uncled(t *testing.T) {
 	require.NoError(t, err)
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
 
-	unconfirmedReceipt := models.TxReceipt{}
+	receipt := models.TxReceipt{
+		Hash:        initiatingTxHash,
+		BlockHash:   cltest.NewHash(),
+		BlockNumber: cltest.Int(3),
+	}
 	eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+		eth.Register("eth_getTransactionReceipt", receipt)
 	})
 
 	err = services.ResumeConfirmingTask(jr, store, big.NewInt(2))

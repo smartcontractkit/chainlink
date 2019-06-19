@@ -289,59 +289,91 @@ func TestIntegration_EthLog(t *testing.T) {
 }
 
 func TestIntegration_RunLog(t *testing.T) {
-	config, cfgCleanup := cltest.NewConfig(t)
-	defer cfgCleanup()
-	config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
-	defer cleanup()
+	triggeringBlockHash := cltest.NewHash()
+	otherBlockHash := cltest.NewHash()
 
-	eth := app.MockEthClient()
-	logs := make(chan models.Log, 1)
-	newHeads := eth.RegisterNewHeads()
-	eth.Context("app.Start()", func(eth *cltest.EthMock) {
-		eth.RegisterSubscription("logs", logs)
-	})
-	eth.Register("eth_chainId", *cltest.Int(config.ChainID()))
-	app.Start()
-
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
-	requiredConfs := uint32(100)
-
-	initr := j.Initiators[0]
-	assert.Equal(t, models.InitiatorRunLog, initr.Type)
-
-	creationHeight := uint32(1)
-	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
-	logs <- runlog
-	cltest.WaitForRuns(t, j, app.Store, 1)
-
-	runs, err := app.Store.JobRunsFor(j.ID)
-	assert.NoError(t, err)
-	jr := runs[0]
-	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
-	assert.False(t, jr.TaskRuns[0].Confirmations.Valid)
-
-	blockIncrease := app.Store.Config.MinIncomingConfirmations()
-	minGlobalHeight := creationHeight + blockIncrease
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(minGlobalHeight)}
-	<-time.After(time.Second)
-	jr = cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
-	assert.Equal(t, uint32(creationHeight+blockIncrease), jr.TaskRuns[0].Confirmations.Uint32)
-
-	safeNumber := creationHeight + requiredConfs
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
-	confirmedReceipt := models.TxReceipt{
-		Hash:        runlog.TxHash,
-		BlockNumber: cltest.Int(creationHeight),
+	tests := []struct {
+		name             string
+		logBlockHash     common.Hash
+		receiptBlockHash common.Hash
+		wantStatus       models.RunStatus
+		wantFinishedAt   bool
+	}{
+		{
+			name:             "completed",
+			logBlockHash:     triggeringBlockHash,
+			receiptBlockHash: triggeringBlockHash,
+			wantStatus:       models.RunStatusCompleted,
+			wantFinishedAt:   true,
+		},
+		{
+			name:             "ommered request block",
+			logBlockHash:     triggeringBlockHash,
+			receiptBlockHash: otherBlockHash,
+			wantStatus:       models.RunStatusErrored,
+			wantFinishedAt:   false,
+		},
 	}
-	eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
-	})
 
-	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-	assert.True(t, jr.FinishedAt.Valid)
-	assert.Equal(t, requiredConfs, jr.TaskRuns[0].Confirmations.Uint32)
-	assert.True(t, eth.AllCalled(), eth.Remaining())
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config, cfgCleanup := cltest.NewConfig(t)
+			defer cfgCleanup()
+			config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
+			app, cleanup := cltest.NewApplicationWithConfig(t, config)
+			defer cleanup()
+
+			eth := app.MockEthClient()
+			logs := make(chan models.Log, 1)
+			newHeads := eth.RegisterNewHeads()
+			eth.Context("app.Start()", func(eth *cltest.EthMock) {
+				eth.RegisterSubscription("logs", logs)
+			})
+			eth.Register("eth_chainId", *cltest.Int(config.ChainID()))
+			app.Start()
+
+			j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
+			requiredConfs := uint32(100)
+
+			initr := j.Initiators[0]
+			assert.Equal(t, models.InitiatorRunLog, initr.Type)
+
+			creationHeight := uint32(1)
+			runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
+			runlog.BlockHash = test.logBlockHash
+			logs <- runlog
+			cltest.WaitForRuns(t, j, app.Store, 1)
+
+			runs, err := app.Store.JobRunsFor(j.ID)
+			assert.NoError(t, err)
+			jr := runs[0]
+			cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+			assert.False(t, jr.TaskRuns[0].Confirmations.Valid)
+
+			blockIncrease := app.Store.Config.MinIncomingConfirmations()
+			minGlobalHeight := creationHeight + blockIncrease
+			newHeads <- models.BlockHeader{Number: cltest.BigHexInt(minGlobalHeight)}
+			<-time.After(time.Second)
+			jr = cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
+			assert.Equal(t, uint32(creationHeight+blockIncrease), jr.TaskRuns[0].Confirmations.Uint32)
+
+			safeNumber := creationHeight + requiredConfs
+			newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
+			confirmedReceipt := models.TxReceipt{
+				Hash:        runlog.TxHash,
+				BlockHash:   test.receiptBlockHash,
+				BlockNumber: cltest.Int(creationHeight),
+			}
+			eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
+				eth.Register("eth_getTransactionReceipt", confirmedReceipt)
+			})
+
+			jr = cltest.WaitForJobRunStatus(t, app.Store, jr, test.wantStatus)
+			assert.Equal(t, test.wantFinishedAt, jr.FinishedAt.Valid)
+			assert.Equal(t, requiredConfs, jr.TaskRuns[0].Confirmations.Uint32)
+			assert.True(t, eth.AllCalled(), eth.Remaining())
+		})
+	}
 }
 
 func TestIntegration_EndAt(t *testing.T) {
@@ -431,6 +463,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 
 	confirmedReceipt := models.TxReceipt{
 		Hash:        runlog.TxHash,
+		BlockHash:   runlog.BlockHash,
 		BlockNumber: cltest.Int(logBlockNumber),
 	}
 	eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
