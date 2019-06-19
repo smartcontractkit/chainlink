@@ -1,5 +1,5 @@
 import React from 'react'
-import PropTypes from 'prop-types'
+import { useHooks, useState } from 'use-react-hooks'
 import {
   createStyles,
   Theme,
@@ -17,7 +17,7 @@ import Typography from '@material-ui/core/Typography'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import ListItemText from '@material-ui/core/ListItemText'
-import Drawer from '@material-ui/core/Drawer'
+import MuiDrawer from '@material-ui/core/Drawer'
 import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
 import Portal from '@material-ui/core/Portal'
@@ -86,27 +86,34 @@ const SHARED_NAV_ITEMS = [
   ['/config', 'Configuration']
 ]
 
-class Header extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = { drawerOpen: false }
-  }
+const isNavActive = (current, to) => `${to && to.toLowerCase()}` === current
 
-  setDrawerOpen(isOpen) {
-    this.setState({
-      drawerOpen: isOpen
-    })
-  }
+interface IProps extends WithStyles<typeof styles> {
+  fetchCount: number
+  authenticated: boolean
+  drawerContainer: React.ReactNode
+  submitSignOut: () => undefined
+  onResize: () => undefined
+  url?: string
+}
 
-  render() {
-    const toggleDrawer = () => this.setDrawerOpen(!this.state.drawerOpen)
-    const signOut = () => this.props.submitSignOut()
-    const { classes, fetchCount, url } = this.props
-    const isNavActive = (current, to) => `${to && to.toLowerCase()}` === current
+const Header = useHooks(
+  ({
+    authenticated,
+    classes,
+    fetchCount,
+    url,
+    drawerContainer,
+    onResize,
+    submitSignOut
+  }: IProps) => {
+    const [drawerOpen, setDrawerOpen] = useState(false)
+    const toggleDrawer = () => setDrawerOpen(!drawerOpen)
+
     const drawer = (
-      <Drawer
+      <MuiDrawer
         anchor="right"
-        open={this.state.drawerOpen}
+        open={drawerOpen}
         classes={{
           paper: classes.drawerPaper
         }}
@@ -125,14 +132,18 @@ class Header extends React.Component {
                 <ListItemText primary={text} />
               </ListItem>
             ))}
-            {this.props.authenticated && (
-              <ListItem button onClick={signOut} className={classes.menuitem}>
+            {authenticated && (
+              <ListItem
+                button
+                onClick={submitSignOut}
+                className={classes.menuitem}
+              >
                 <ListItemText primary="Sign Out" />
               </ListItem>
             )}
           </List>
         </div>
-      </Drawer>
+      </MuiDrawer>
     )
 
     const nav = (
@@ -151,7 +162,7 @@ class Header extends React.Component {
               </Link>
             </ListItem>
           ))}
-          {this.props.authenticated && (
+          {authenticated && (
             <ListItem className={classes.horizontalNavItem}>
               <AvatarMenu />
             </ListItem>
@@ -165,7 +176,7 @@ class Header extends React.Component {
         <ReactResizeDetector
           refreshMode="debounce"
           refreshRate={200}
-          onResize={this.props.onResize}
+          onResize={onResize}
           handleHeight
         >
           <LoadingBar fetchCount={fetchCount} />
@@ -195,16 +206,11 @@ class Header extends React.Component {
             </Grid>
           </Toolbar>
         </ReactResizeDetector>
-        <Portal container={this.props.drawerContainer}>{drawer}</Portal>
+        <Portal container={drawerContainer}>{drawer}</Portal>
       </AppBar>
     )
   }
-}
-
-Header.propTypes = {
-  onResize: PropTypes.func.isRequired,
-  drawerContainer: PropTypes.object
-}
+)
 
 const mapStateToProps = state => ({
   authenticated: state.authentication.allowed,
