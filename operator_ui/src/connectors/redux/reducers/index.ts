@@ -10,8 +10,12 @@ import jobs from './jobs'
 import transactions from './transactions'
 import notifications from './notifications'
 import redirect from './redirect'
-import dashboardIndex from './dashboardIndex'
+import dashboardIndex, { IState as IDashboardState } from './dashboardIndex'
 import transactionsIndex from './transactionsIndex'
+
+export interface IState {
+  dashboardIndex: IDashboardState
+}
 
 const reducer = combineReducers({
   accountBalances,
