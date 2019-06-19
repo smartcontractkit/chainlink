@@ -255,9 +255,8 @@ func (h BlockHeader) ToHead() *Head {
 
 // Head represents a BlockNumber, BlockHash.
 type Head struct {
-	ID     uint64      `gorm:"primary_key;auto_increment"`
-	Hash   common.Hash `gorm:"not null"`
-	Number int64       `gorm:"index;not null"`
+	HashRaw string `gorm:"primary_key;type:varchar;column:hash"`
+	Number  int64  `gorm:"index;type:bigint;not null"`
 }
 
 // NewHead returns a Head instance with a BlockNumber and BlockHash.
@@ -267,9 +266,14 @@ func NewHead(bigint *big.Int, hash common.Hash) *Head {
 	}
 
 	return &Head{
-		Number: bigint.Int64(),
-		Hash:   hash,
+		Number:  bigint.Int64(),
+		HashRaw: hash.Hex()[2:], // remove 0x
 	}
+}
+
+// Hash returns the Hash instance related to this block height.
+func (l *Head) Hash() common.Hash {
+	return common.HexToHash(l.HashRaw)
 }
 
 // String returns a string representation of this number.

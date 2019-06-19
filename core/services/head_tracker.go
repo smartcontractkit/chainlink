@@ -64,7 +64,7 @@ func (ht *HeadTracker) Start() error {
 	}
 	number := ht.head
 	if number != nil {
-		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash.Hex())
+		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash().Hex())
 	}
 
 	ht.done = make(chan struct{})
@@ -113,10 +113,10 @@ func (ht *HeadTracker) Save(n *models.Head) error {
 		ht.headMutex.Unlock()
 	} else {
 		ht.headMutex.Unlock()
-		msg := fmt.Sprintf("Cannot save new head confirmation %v because it's equal to or less than current head %v with hash %s", n, ht.head, n.Hash.Hex())
+		msg := fmt.Sprintf("Cannot save new head confirmation %v because it's equal to or less than current head %v with hash %s", n, ht.head, n.Hash().Hex())
 		return errBlockNotLater{msg}
 	}
-	return ht.store.CreateHead(n)
+	return ht.store.SaveHead(n)
 }
 
 // Head returns the latest block header being tracked, or nil.
@@ -209,7 +209,7 @@ func (ht *HeadTracker) receiveHeaders() error {
 				fmt.Sprintf("Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
 				"blockHeight", head.ToInt(),
 				"blockHash", block.Hash(),
-				"hash", head.Hash)
+				"hash", head.Hash())
 			if err := ht.Save(head); err != nil {
 				switch err.(type) {
 				case errBlockNotLater:

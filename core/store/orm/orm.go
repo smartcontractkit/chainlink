@@ -936,9 +936,9 @@ func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 	return orm.DB.Create(initr).Error
 }
 
-// CreateHead creates a head record that tracks which block heads we've observed in the HeadTracker
-func (orm *ORM) CreateHead(n *models.Head) error {
-	return orm.DB.Create(n).Error
+// SaveHead saves the indexable block number related to head tracker.
+func (orm *ORM) SaveHead(n *models.Head) error {
+	return orm.DB.Save(n).Error
 }
 
 // LastHead returns the most recently persisted head entry.

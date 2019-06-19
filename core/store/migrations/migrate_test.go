@@ -8,11 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559081901"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559767166"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560433987"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560791143"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881846"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560886530"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
@@ -97,31 +93,4 @@ func TestMigrate_Migration1560791143(t *testing.T) {
 
 	noIDTxFound := models.Tx{}
 	require.NoError(t, db.Where("id = ?", tx.ID).Find(&noIDTxFound).Error)
-}
-
-func TestMigrate_Migration1560881846(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
-	defer cleanup()
-
-	db := orm.DB
-
-	require.NoError(t, migration0.Migrate(db))
-	require.NoError(t, migration1559081901.Migrate(db))
-	require.NoError(t, migration1559767166.Migrate(db))
-	require.NoError(t, migration1560433987.Migrate(db))
-	require.NoError(t, migration1560791143.Migrate(db))
-	require.NoError(t, migration1560881846.Migrate(db))
-
-	head := migration0.Head{
-		HashRaw: "dad0000000000000000000000000000000000000000000000000000000000b0d",
-		Number:  8616460799,
-	}
-	require.NoError(t, db.Create(&head).Error)
-
-	require.NoError(t, migration1560886530.Migrate(db))
-
-	headFound := models.Head{}
-	require.NoError(t, db.Where("id = (SELECT MAX(id) FROM heads)").Find(&headFound).Error)
-	assert.Equal(t, "0xdad0000000000000000000000000000000000000000000000000000000000b0d", headFound.Hash.Hex())
-	assert.Equal(t, int64(8616460799), headFound.Number)
 }

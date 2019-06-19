@@ -105,9 +105,3 @@ type TaskRun struct {
 	MinimumConfirmations uint64    `json:"minimumConfirmations"`
 	CreatedAt            time.Time `json:"-" gorm:"index"`
 }
-
-// Head is a capture of the model representing Head before migration1560881846
-type Head struct {
-	HashRaw string `gorm:"primary_key;type:varchar;column:hash"`
-	Number  int64  `gorm:"index;type:bigint;not null"`
-}
