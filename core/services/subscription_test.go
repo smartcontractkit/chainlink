@@ -22,7 +22,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
-	log := cltest.LogFromFixture(t, "../internal/fixtures/eth/subscription_logs.json")
+	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 	eth.Register("eth_getLogs", []models.Log{log})
 	eth.RegisterSubscription("logs")
 
@@ -71,7 +71,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
 
-	log := cltest.LogFromFixture(t, "../internal/fixtures/eth/subscription_logs.json")
+	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 	eth.Register("eth_getLogs", []models.Log{log}) // backfill
 	logsChan := make(chan models.Log)
 	eth.RegisterSubscription("logs", logsChan)
@@ -86,7 +86,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	// Add the same original log
 	logsChan <- log
 	// Add a log after the repeated log to make sure it gets processed
-	log2 := cltest.LogFromFixture(t, "../internal/fixtures/eth/requestLog0original.json")
+	log2 := cltest.LogFromFixture(t, "testdata/requestLog0original.json")
 	logsChan <- log2
 
 	eth.EventuallyAllCalled(t)

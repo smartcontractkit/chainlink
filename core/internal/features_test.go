@@ -284,7 +284,7 @@ func TestIntegration_EthLog(t *testing.T) {
 	assert.Equal(t, models.InitiatorEthLog, initr.Type)
 	assert.Equal(t, address, initr.Address)
 
-	logs <- cltest.LogFromFixture(t, "fixtures/eth/requestLog0original.json")
+	logs <- cltest.LogFromFixture(t, "testdata/requestLog0original.json")
 	cltest.WaitForRuns(t, j, app.Store, 1)
 }
 
@@ -601,7 +601,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 		eth.RegisterSubscription("logs", logs)
 	})
 
-	log := cltest.LogFromFixture(t, "fixtures/eth/requestLog0original.json")
+	log := cltest.LogFromFixture(t, "testdata/requestLog0original.json")
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
 		func(_ http.Header, body string) {
 			marshaledLog, err := json.Marshal(&log)
