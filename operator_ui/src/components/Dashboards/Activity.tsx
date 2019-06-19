@@ -20,6 +20,7 @@ import Link from '../Link'
 import TimeAgo from '../TimeAgo'
 import StatusIcon from '../JobRuns/StatusIcon'
 import NoContentLogo from '../Logos/NoContent'
+import { IJobRuns } from '../../../@types/operator_ui'
 
 const styles = ({ palette, spacing }: Theme) =>
   createStyles({
@@ -81,7 +82,7 @@ const NoActivity = ({ classes }) => (
 
 interface IProps extends WithStyles<typeof styles> {
   pageSize: number
-  runs?: any[]
+  runs?: IJobRuns[]
   count?: number
 }
 
