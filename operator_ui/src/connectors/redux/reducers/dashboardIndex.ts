@@ -8,7 +8,28 @@ const initialState = {
   jobRunsCount: undefined
 }
 
-export type Action = { type: 'UPSERT_RECENT_JOB_RUNS'; data: any }
+interface IRecentJobRun {
+  id: string
+}
+
+interface IRecentJobRunsMeta {
+  count: number
+}
+
+interface IRecentJobRuns {
+  data: IRecentJobRun[]
+  meta: IRecentJobRunsMeta
+}
+
+interface IMeta {
+  recentJobRuns: IRecentJobRuns
+}
+
+interface IData {
+  meta: IMeta
+}
+
+export type Action = { type: 'UPSERT_RECENT_JOB_RUNS'; data: IData }
 
 export default (state: IState = initialState, action: Action) => {
   switch (action.type) {
