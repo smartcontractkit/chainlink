@@ -278,7 +278,7 @@ func (ep *ExtendedPath) UnmarshalJSON(input []byte) error {
 	// if input is a string like "a/b/c"
 	if utils.IsQuoted(input) {
 		values = strings.Split(string(utils.RemoveQuotes(input)), "/")
-	// if input is an array of strings like ["a", "b", "c"]
+		// if input is an array of strings like ["a", "b", "c"]
 	} else {
 		err = json.Unmarshal(input, &values)
 	}
