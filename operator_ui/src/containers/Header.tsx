@@ -29,44 +29,19 @@ import AvatarMenu from '../components/AvatarMenu'
 import { submitSignOut } from '../actions'
 import fetchCountSelector from '../selectors/fetchCount'
 
-const drawerWidth = 240
+const SHARED_NAV_ITEMS = [
+  ['/jobs', 'Jobs'],
+  ['/runs', 'Runs'],
+  ['/bridges', 'Bridges'],
+  ['/transactions', 'Transactions'],
+  ['/config', 'Configuration']
+]
 
-const styles = ({ palette, spacing, zIndex }: Theme) =>
+const drawerStyles = ({ palette, spacing, zIndex }: Theme) =>
   createStyles({
-    appBar: {
-      backgroundColor: palette.common.white,
-      zIndex: zIndex.modal + 1
-    },
-    toolbar: {
-      paddingLeft: spacing.unit * 5,
-      paddingRight: spacing.unit * 5
-    },
     menuitem: {
       padding: spacing.unit * 3,
       display: 'block'
-    },
-    horizontalNav: {
-      paddingTop: 0,
-      paddingBottom: 0
-    },
-    horizontalNavItem: {
-      display: 'inline'
-    },
-    horizontalNavLink: {
-      color: palette.secondary.main,
-      paddingTop: spacing.unit * 3,
-      paddingBottom: spacing.unit * 3,
-      textDecoration: 'none',
-      display: 'inline-block',
-      borderBottom: 'solid 1px',
-      borderBottomColor: palette.common.white,
-      '&:hover': {
-        borderBottomColor: palette.primary.main
-      }
-    },
-    activeNavLink: {
-      color: palette.primary.main,
-      borderBottomColor: palette.primary.main
     },
     drawerPaper: {
       backgroundColor: palette.common.white,
@@ -78,39 +53,15 @@ const styles = ({ palette, spacing, zIndex }: Theme) =>
     }
   })
 
-const SHARED_NAV_ITEMS = [
-  ['/jobs', 'Jobs'],
-  ['/runs', 'Runs'],
-  ['/bridges', 'Bridges'],
-  ['/transactions', 'Transactions'],
-  ['/config', 'Configuration']
-]
-
-const isNavActive = (current, to) => `${to && to.toLowerCase()}` === current
-
-interface IProps extends WithStyles<typeof styles> {
-  fetchCount: number
+interface IDrawerProps extends WithStyles<typeof drawerStyles> {
   authenticated: boolean
-  drawerContainer: React.ReactNode
-  submitSignOut: () => undefined
-  onResize: () => undefined
-  url?: string
+  drawerOpen: boolean
+  toggleDrawer: () => undefined
 }
 
-const Header = useHooks(
-  ({
-    authenticated,
-    classes,
-    fetchCount,
-    url,
-    drawerContainer,
-    onResize,
-    submitSignOut
-  }: IProps) => {
-    const [drawerOpen, setDrawerOpen] = useState(false)
-    const toggleDrawer = () => setDrawerOpen(!drawerOpen)
-
-    const drawer = (
+const Drawer = withStyles(drawerStyles)(
+  ({ drawerOpen, toggleDrawer, authenticated, classes }: IDrawerProps) => {
+    return (
       <MuiDrawer
         anchor="right"
         open={drawerOpen}
@@ -145,8 +96,46 @@ const Header = useHooks(
         </div>
       </MuiDrawer>
     )
+  }
+)
 
-    const nav = (
+const navStyles = ({ palette, spacing, zIndex }: Theme) =>
+  createStyles({
+    horizontalNav: {
+      paddingTop: 0,
+      paddingBottom: 0
+    },
+    horizontalNavItem: {
+      display: 'inline'
+    },
+    horizontalNavLink: {
+      color: palette.secondary.main,
+      paddingTop: spacing.unit * 3,
+      paddingBottom: spacing.unit * 3,
+      textDecoration: 'none',
+      display: 'inline-block',
+      borderBottom: 'solid 1px',
+      borderBottomColor: palette.common.white,
+      '&:hover': {
+        borderBottomColor: palette.primary.main
+      }
+    },
+    activeNavLink: {
+      color: palette.primary.main,
+      borderBottomColor: palette.primary.main
+    }
+  })
+
+const isNavActive = (current, to) => `${to && to.toLowerCase()}` === current
+
+interface INavProps extends WithStyles<typeof navStyles> {
+  authenticated: boolean
+  url?: string
+}
+
+const Nav = withStyles(navStyles)(
+  ({ authenticated, url, classes }: INavProps) => {
+    return (
       <Typography variant="body1" component="div">
         <List className={classes.horizontalNav}>
           {SHARED_NAV_ITEMS.map(([to, text]) => (
@@ -170,6 +159,44 @@ const Header = useHooks(
         </List>
       </Typography>
     )
+  }
+)
+
+const drawerWidth = 240
+
+const styles = ({ palette, spacing, zIndex }: Theme) =>
+  createStyles({
+    appBar: {
+      backgroundColor: palette.common.white,
+      zIndex: zIndex.modal + 1
+    },
+    toolbar: {
+      paddingLeft: spacing.unit * 5,
+      paddingRight: spacing.unit * 5
+    }
+  })
+
+interface IProps extends WithStyles<typeof styles> {
+  fetchCount: number
+  authenticated: boolean
+  drawerContainer: React.ReactNode
+  submitSignOut: () => undefined
+  onResize: () => undefined
+  url?: string
+}
+
+const Header = useHooks(
+  ({
+    authenticated,
+    classes,
+    fetchCount,
+    url,
+    drawerContainer,
+    onResize,
+    submitSignOut
+  }: IProps) => {
+    const [drawerOpen, setDrawerOpen] = useState(false)
+    const toggleDrawer = () => setDrawerOpen(!drawerOpen)
 
     return (
       <AppBar className={classes.appBar} color="default" position="absolute">
@@ -199,14 +226,22 @@ const Header = useHooks(
                         <MenuIcon />
                       </IconButton>
                     </Hidden>
-                    <Hidden smDown>{nav}</Hidden>
+                    <Hidden smDown>
+                      <Nav authenticated={authenticated} url={url} />
+                    </Hidden>
                   </Grid>
                 </Grid>
               </Grid>
             </Grid>
           </Toolbar>
         </ReactResizeDetector>
-        <Portal container={drawerContainer}>{drawer}</Portal>
+        <Portal container={drawerContainer}>
+          <Drawer
+            toggleDrawer={toggleDrawer}
+            drawerOpen={drawerOpen}
+            authenticated={authenticated}
+          />
+        </Portal>
       </AppBar>
     )
   }
