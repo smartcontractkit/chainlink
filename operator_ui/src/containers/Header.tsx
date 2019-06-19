@@ -1,6 +1,11 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { withStyles } from '@material-ui/core/styles'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
 import { Link } from 'react-router-dom'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
@@ -16,28 +21,28 @@ import Drawer from '@material-ui/core/Drawer'
 import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
 import Portal from '@material-ui/core/Portal'
-import LoadingBar from 'components/LoadingBar'
-import MainLogo from 'components/Logos/Main'
-import AvatarMenu from 'components/AvatarMenu'
-import { submitSignOut } from 'actions'
-import fetchCountSelector from 'selectors/fetchCount'
 import ReactResizeDetector from 'react-resize-detector'
 import classNames from 'classnames'
+import LoadingBar from '../components/LoadingBar'
+import MainLogo from '../components/Logos/Main'
+import AvatarMenu from '../components/AvatarMenu'
+import { submitSignOut } from '../actions'
+import fetchCountSelector from '../selectors/fetchCount'
 
 const drawerWidth = 240
 
-const styles = theme => {
-  return {
+const styles = ({ palette, spacing, zIndex }: Theme) =>
+  createStyles({
     appBar: {
-      backgroundColor: theme.palette.common.white,
-      zIndex: theme.zIndex.modal + 1
+      backgroundColor: palette.common.white,
+      zIndex: zIndex.modal + 1
     },
     toolbar: {
-      paddingLeft: theme.spacing.unit * 5,
-      paddingRight: theme.spacing.unit * 5
+      paddingLeft: spacing.unit * 5,
+      paddingRight: spacing.unit * 5
     },
     menuitem: {
-      padding: theme.spacing.unit * 3,
+      padding: spacing.unit * 3,
       display: 'block'
     },
     horizontalNav: {
@@ -48,34 +53,34 @@ const styles = theme => {
       display: 'inline'
     },
     horizontalNavLink: {
-      color: theme.palette.secondary.main,
-      paddingTop: theme.spacing.unit * 3,
-      paddingBottom: theme.spacing.unit * 3,
+      color: palette.secondary.main,
+      paddingTop: spacing.unit * 3,
+      paddingBottom: spacing.unit * 3,
       textDecoration: 'none',
       display: 'inline-block',
       borderBottom: 'solid 1px',
-      borderBottomColor: theme.palette.common.white,
+      borderBottomColor: palette.common.white,
       '&:hover': {
-        borderBottomColor: theme.palette.primary.main
+        borderBottomColor: palette.primary.main
       }
     },
     activeNavLink: {
-      color: theme.palette.primary.main,
-      borderBottomColor: theme.palette.primary.main
+      color: palette.primary.main,
+      borderBottomColor: palette.primary.main
     },
     drawerPaper: {
-      backgroundColor: theme.palette.common.white,
-      paddingTop: theme.spacing.unit * 7,
+      backgroundColor: palette.common.white,
+      paddingTop: spacing.unit * 7,
       width: drawerWidth
     },
     drawerList: {
       padding: 0
     }
-  }
-}
+  })
 
 const SHARED_NAV_ITEMS = [
   ['/jobs', 'Jobs'],
+  ['/runs', 'Runs'],
   ['/bridges', 'Bridges'],
   ['/transactions', 'Transactions'],
   ['/config', 'Configuration']
