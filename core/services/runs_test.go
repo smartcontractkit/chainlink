@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
@@ -580,113 +581,86 @@ func TestExecuteJobWithRunRequest(t *testing.T) {
 	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
 }
 
-func TestExecuteJobWithRunRequest_fromRunLog_mainChain(t *testing.T) {
+func TestExecuteJobWithRunRequest_fromRunLog(t *testing.T) {
 	t.Parallel()
 
-	config, cfgCleanup := cltest.NewConfig(t)
-	defer cfgCleanup()
-	minimumConfirmations := uint32(2)
-	config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
-	defer cleanup()
-
 	initiatingTxHash := cltest.NewHash()
-	initiatingBlockHash := cltest.NewHash()
-	eth := app.MockEthClient()
-	app.Start()
+	triggeringBlockHash := cltest.NewHash()
+	otherBlockHash := cltest.NewHash()
 
-	store := app.GetStore()
-	job := cltest.NewJobWithRunLogInitiator()
-	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
-	require.NoError(t, store.CreateJob(&job))
-
-	creationHeight := big.NewInt(1)
-	requestID := "RequestID"
-	initr := job.Initiators[0]
-	rr := models.NewRunRequest()
-	rr.RequestID = &requestID
-	rr.TxHash = &initiatingTxHash
-	rr.BlockHash = &initiatingBlockHash
-	jr, err := services.ExecuteJobWithRunRequest(
-		job,
-		initr,
-		cltest.RunResultWithData(`{"random": "input"}`),
-		creationHeight,
-		store,
-		rr,
-	)
-	require.NoError(t, err)
-	cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
-
-	confirmedReceipt := models.TxReceipt{
-		Hash:        initiatingTxHash,
-		BlockHash:   initiatingBlockHash,
-		BlockNumber: cltest.Int(3),
+	tests := []struct {
+		name             string
+		logBlockHash     common.Hash
+		receiptBlockHash common.Hash
+		wantStatus       models.RunStatus
+	}{
+		{
+			name:             "main chain",
+			logBlockHash:     triggeringBlockHash,
+			receiptBlockHash: triggeringBlockHash,
+			wantStatus:       models.RunStatusCompleted,
+		},
+		{
+			name:             "ommered chain",
+			logBlockHash:     triggeringBlockHash,
+			receiptBlockHash: otherBlockHash,
+			wantStatus:       models.RunStatusErrored,
+		},
 	}
-	eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
-	})
 
-	err = services.ResumeConfirmingTask(jr, store, big.NewInt(2))
-	require.NoError(t, err)
-	updatedJR := cltest.WaitForJobRunToComplete(t, store, *jr)
-	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
-	assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].MinimumConfirmations.Uint32)
-	assert.True(t, updatedJR.TaskRuns[0].MinimumConfirmations.Valid)
-	assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].Confirmations.Uint32, "task run should track its current confirmations")
-	assert.True(t, updatedJR.TaskRuns[0].Confirmations.Valid)
-	assert.True(t, eth.AllCalled(), eth.Remaining())
-}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config, cfgCleanup := cltest.NewConfig(t)
+			defer cfgCleanup()
+			minimumConfirmations := uint32(2)
+			config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
+			app, cleanup := cltest.NewApplicationWithConfig(t, config)
+			defer cleanup()
 
-func TestExecuteJobWithRunRequest_fromRunLog_uncled(t *testing.T) {
-	t.Parallel()
+			eth := app.MockEthClient()
+			app.Start()
 
-	config, cfgCleanup := cltest.NewConfig(t)
-	defer cfgCleanup()
-	config.Set("MIN_INCOMING_CONFIRMATIONS", 2)
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
-	defer cleanup()
+			store := app.GetStore()
+			job := cltest.NewJobWithRunLogInitiator()
+			job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
+			require.NoError(t, store.CreateJob(&job))
 
-	initiatingTxHash := cltest.NewHash()
-	initiatingBlockHash := cltest.NewHash()
-	eth := app.MockEthClient()
-	app.Start()
+			creationHeight := big.NewInt(1)
+			requestID := "RequestID"
+			initr := job.Initiators[0]
+			rr := models.NewRunRequest()
+			rr.RequestID = &requestID
+			rr.TxHash = &initiatingTxHash
+			rr.BlockHash = &test.logBlockHash
+			jr, err := services.ExecuteJobWithRunRequest(
+				job,
+				initr,
+				cltest.RunResultWithData(`{"random": "input"}`),
+				creationHeight,
+				store,
+				rr,
+			)
+			require.NoError(t, err)
+			cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
 
-	store := app.GetStore()
-	job := cltest.NewJobWithRunLogInitiator()
-	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
-	require.NoError(t, store.CreateJob(&job))
+			confirmedReceipt := models.TxReceipt{
+				Hash:        initiatingTxHash,
+				BlockHash:   test.receiptBlockHash,
+				BlockNumber: cltest.Int(3),
+			}
+			eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
+				eth.Register("eth_getTransactionReceipt", confirmedReceipt)
+			})
 
-	creationHeight := big.NewInt(1)
-	requestID := "RequestID"
-	initr := job.Initiators[0]
-	rr := models.NewRunRequest()
-	rr.RequestID = &requestID
-	rr.TxHash = &initiatingTxHash
-	rr.BlockHash = &initiatingBlockHash
-	jr, err := services.ExecuteJobWithRunRequest(
-		job,
-		initr,
-		cltest.RunResultWithData(`{"random": "input"}`),
-		creationHeight,
-		store,
-		rr,
-	)
-	require.NoError(t, err)
-	cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
-
-	receipt := models.TxReceipt{
-		Hash:        initiatingTxHash,
-		BlockHash:   cltest.NewHash(),
-		BlockNumber: cltest.Int(3),
+			err = services.ResumeConfirmingTask(jr, store, big.NewInt(2))
+			require.NoError(t, err)
+			updatedJR := cltest.WaitForJobRunStatus(t, store, *jr, test.wantStatus)
+			assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
+			assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].MinimumConfirmations.Uint32)
+			assert.True(t, updatedJR.TaskRuns[0].MinimumConfirmations.Valid)
+			assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].Confirmations.Uint32, "task run should track its current confirmations")
+			assert.True(t, updatedJR.TaskRuns[0].Confirmations.Valid)
+			assert.True(t, eth.AllCalled(), eth.Remaining())
+		})
 	}
-	eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", receipt)
-	})
-
-	err = services.ResumeConfirmingTask(jr, store, big.NewInt(2))
-	require.NoError(t, err)
-	updatedJR := cltest.WaitForJobRunStatus(t, store, *jr, models.RunStatusErrored)
-	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
-	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
