@@ -1,4 +1,4 @@
-export interface State {
+export interface IState {
   recentJobRuns?: string
   jobRunsCount?: number
 }
@@ -10,7 +10,7 @@ const initialState = {
 
 export type Action = { type: 'UPSERT_RECENT_JOB_RUNS'; data: any }
 
-export default (state: State = initialState, action: Action) => {
+export default (state: IState = initialState, action: Action) => {
   switch (action.type) {
     case 'UPSERT_RECENT_JOB_RUNS': {
       return Object.assign({}, state, {
