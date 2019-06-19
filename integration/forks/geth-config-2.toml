@@ -56,9 +56,6 @@ RestrictConnectionBetweenLightClients = true
 DataDir = "/root/gethnet/datadir2"
 KeyStoreDir = "/root/gethnet/datadir2/keystore"
 InsecureUnlockAllowed = true
-# It is necessary to interact with geth2 via docker, because we want to inject
-# the transaction while it's disconnected from the network. That means HTTPHost
-# has to listen on localhost.
 HTTPHost = "localhost"
 HTTPPort = 8545
 HTTPModules = ["net", "web3", "eth", "shh"]
