@@ -72,7 +72,8 @@ func (j *JobSpec) SetID(value string) error {
 // the CreatedAt field to the time of invokation.
 func NewJob() JobSpec {
 	return JobSpec{
-		ID: utils.NewBytes32ID(),
+		ID:                utils.NewBytes32ID(),
+		MinimumJobPayment: assets.NewLink(0),
 	}
 }
 
@@ -101,7 +102,9 @@ func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 
 	jobSpec.EndAt = jsr.EndAt
 	jobSpec.StartAt = jsr.StartAt
-	jobSpec.MinimumJobPayment = jsr.MinimumJobPayment
+	if jsr.MinimumJobPayment != nil {
+		jobSpec.MinimumJobPayment = jsr.MinimumJobPayment
+	}
 	return jobSpec
 }
 

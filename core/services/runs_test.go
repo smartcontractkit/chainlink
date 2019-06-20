@@ -61,22 +61,25 @@ func TestNewRun_requiredPayment(t *testing.T) {
 	require.NoError(t, store.CreateBridgeType(bt))
 
 	tests := []struct {
-		name           string
-		payment        *assets.Link
-		minimumPayment *assets.Link
-		expectedStatus models.RunStatus
+		name                  string
+		payment               *assets.Link
+		minimumConfigPayment  *assets.Link
+		minimumJobSpecPayment *assets.Link
+		expectedStatus        models.RunStatus
 	}{
-		{"creates runnable job", nil, assets.NewLink(0), models.RunStatusInProgress},
-		{"insufficient payment as specified by config", assets.NewLink(9), assets.NewLink(10), models.RunStatusErrored},
-		{"sufficient payment as specified by config", assets.NewLink(10), assets.NewLink(10), models.RunStatusInProgress},
-		{"insufficient payment as specified by adapter", assets.NewLink(9), assets.NewLink(0), models.RunStatusErrored},
-		{"sufficient payment as specified by adapter", assets.NewLink(10), assets.NewLink(0), models.RunStatusInProgress},
+		{"creates runnable job", nil, assets.NewLink(0), assets.NewLink(0), models.RunStatusInProgress},
+		{"insufficient payment as specified by config", assets.NewLink(9), assets.NewLink(10), assets.NewLink(0), models.RunStatusErrored},
+		{"sufficient payment as specified by config", assets.NewLink(10), assets.NewLink(10), assets.NewLink(0), models.RunStatusInProgress},
+		{"insufficient payment as specified by adapter", assets.NewLink(9), assets.NewLink(0), assets.NewLink(0), models.RunStatusErrored},
+		{"sufficient payment as specified by adapter", assets.NewLink(10), assets.NewLink(0), assets.NewLink(0), models.RunStatusInProgress},
+		{"insufficient payment as specified by jobSpec MinPayment", assets.NewLink(9), assets.NewLink(0), assets.NewLink(10), models.RunStatusErrored},
+		{"sufficient payment as specified by jobSpec MinPayment", assets.NewLink(10), assets.NewLink(0), assets.NewLink(10), models.RunStatusInProgress},
 	}
 
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			store.Config.Set("MINIMUM_CONTRACT_PAYMENT", test.minimumPayment)
+			store.Config.Set("MINIMUM_CONTRACT_PAYMENT", test.minimumConfigPayment)
 
 			jobSpec := models.NewJob()
 			jobSpec.Tasks = []models.TaskSpec{{
@@ -85,6 +88,7 @@ func TestNewRun_requiredPayment(t *testing.T) {
 			jobSpec.Initiators = []models.Initiator{{
 				Type: models.InitiatorEthLog,
 			}}
+			jobSpec.MinimumJobPayment = test.minimumJobSpecPayment
 
 			inputResult := models.RunResult{Data: input, Amount: test.payment}
 

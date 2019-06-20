@@ -86,7 +86,7 @@ func NewRun(
 	run.CreationHeight = models.NewBig(currentHeight)
 	run.ObservedHeight = models.NewBig(currentHeight)
 
-	if job.MinimumJobPayment != nil && job.MinimumJobPayment.Cmp(input.Amount) > 0 {
+	if !job.MinimumJobPayment.IsZero() && job.MinimumJobPayment != nil && input.Amount != nil && job.MinimumJobPayment.Cmp(input.Amount) == -1 {
 		logger.Debugw("Rejecting run with insufficient payment", []interface{}{
 			"run", run.ID,
 			"job", run.JobSpecID,

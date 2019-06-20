@@ -288,6 +288,9 @@ func (job JobSpec) FriendlyEndAt() string {
 // FriendlyMinPayment returns a formatted string of the Job's
 // Minimum Link Payment threshold
 func (job JobSpec) FriendlyMinPayment() string {
+	if job.MinimumJobPayment == nil {
+		return assets.NewLink(0).Text(10)
+	}
 	return job.MinimumJobPayment.Text(10)
 }
 

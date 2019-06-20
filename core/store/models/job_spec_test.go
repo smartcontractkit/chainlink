@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,10 +22,11 @@ func TestNewJobFromRequest(t *testing.T) {
 	require.NoError(t, store.CreateJob(&j1))
 
 	jsr := models.JobSpecRequest{
-		Initiators: cltest.BuildInitiatorRequests(t, j1.Initiators),
-		Tasks:      cltest.BuildTaskRequests(t, j1.Tasks),
-		StartAt:    j1.StartAt,
-		EndAt:      j1.EndAt,
+		Initiators:        cltest.BuildInitiatorRequests(t, j1.Initiators),
+		Tasks:             cltest.BuildTaskRequests(t, j1.Tasks),
+		StartAt:           j1.StartAt,
+		EndAt:             j1.EndAt,
+		MinimumJobPayment: assets.NewLink(5),
 	}
 
 	j2 := models.NewJobFromRequest(jsr)
@@ -34,11 +36,13 @@ func TestNewJobFromRequest(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, fetched1.Initiators, 1)
 	assert.Len(t, fetched1.Tasks, 1)
+	assert.Equal(t, fetched1.MinimumJobPayment, assets.NewLink(0))
 
 	fetched2, err := store.FindJob(j2.ID)
 	assert.NoError(t, err)
 	assert.Len(t, fetched2.Initiators, 1)
 	assert.Len(t, fetched2.Tasks, 1)
+	assert.Equal(t, fetched2.MinimumJobPayment, assets.NewLink(5))
 }
 
 func TestJobSpec_Save(t *testing.T) {
