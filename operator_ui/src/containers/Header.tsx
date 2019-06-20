@@ -57,10 +57,17 @@ interface IDrawerProps extends WithStyles<typeof drawerStyles> {
   authenticated: boolean
   drawerOpen: boolean
   toggleDrawer: () => undefined
+  submitSignOut: () => undefined
 }
 
 const Drawer = withStyles(drawerStyles)(
-  ({ drawerOpen, toggleDrawer, authenticated, classes }: IDrawerProps) => {
+  ({
+    drawerOpen,
+    toggleDrawer,
+    authenticated,
+    classes,
+    submitSignOut
+  }: IDrawerProps) => {
     return (
       <MuiDrawer
         anchor="right"
@@ -240,6 +247,7 @@ const Header = useHooks(
             toggleDrawer={toggleDrawer}
             drawerOpen={drawerOpen}
             authenticated={authenticated}
+            submitSignOut={submitSignOut}
           />
         </Portal>
       </AppBar>
