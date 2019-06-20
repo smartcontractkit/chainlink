@@ -37,7 +37,7 @@ const SHARED_NAV_ITEMS = [
   ['/config', 'Configuration']
 ]
 
-const drawerStyles = ({ palette, spacing, zIndex }: Theme) =>
+const drawerStyles = ({ palette, spacing }: Theme) =>
   createStyles({
     menuitem: {
       padding: spacing.unit * 3,
@@ -99,7 +99,7 @@ const Drawer = withStyles(drawerStyles)(
   }
 )
 
-const navStyles = ({ palette, spacing, zIndex }: Theme) =>
+const navStyles = ({ palette, spacing }: Theme) =>
   createStyles({
     horizontalNav: {
       paddingTop: 0,
