@@ -548,3 +548,20 @@ func (t *Tx) SetID(hex string) error {
 	t.Hash = common.HexToHash(hex)
 	return nil
 }
+
+// ExplorerStatus represents the connected server and status of the connection
+type ExplorerStatus struct {
+	Status string `json:"status"`
+	Url    string `json:"url"`
+}
+
+// NewExplorerStatus initializes the struct with the connections endpoint & current status
+func NewExplorerStatus(store *store.Store) ExplorerStatus {
+	client := store.ExplorerPusher.WSClient
+	url := client.Url()
+
+	return ExplorerStatus{
+		Status: string(client.Status()),
+		Url:    url.String(),
+	}
+}

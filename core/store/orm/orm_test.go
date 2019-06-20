@@ -960,7 +960,7 @@ func TestORM_AllSyncEvents(t *testing.T) {
 	defer cleanup()
 
 	orm := store.ORM
-	synchronization.NewStatsPusher(orm, cltest.MustParseURL("http://localhost"), "", "")
+	synchronization.NewExplorerPusher(orm, cltest.MustParseURL("http://localhost"), "", "")
 
 	// Create two events via job run callback
 	job := cltest.NewJobWithWebInitiator()

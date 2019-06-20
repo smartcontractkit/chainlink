@@ -24,12 +24,12 @@ import (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config      Config
-	Clock       utils.AfterNower
-	KeyStore    *KeyStore
-	RunChannel  RunChannel
-	TxManager   TxManager
-	StatsPusher *synchronization.StatsPusher
+	Config         Config
+	Clock          utils.AfterNower
+	KeyStore       *KeyStore
+	RunChannel     RunChannel
+	TxManager      TxManager
+	ExplorerPusher *synchronization.ExplorerPusher
 }
 
 type lazyRPCWrapper struct {
@@ -132,13 +132,13 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 	keyStore := NewKeyStore(config.KeysDir())
 
 	store := &Store{
-		Clock:       utils.Clock{},
-		Config:      config,
-		KeyStore:    keyStore,
-		ORM:         orm,
-		RunChannel:  NewQueuedRunChannel(),
-		TxManager:   NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
-		StatsPusher: synchronization.NewStatsPusher(orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret()),
+		Clock:          utils.Clock{},
+		Config:         config,
+		KeyStore:       keyStore,
+		ORM:            orm,
+		RunChannel:     NewQueuedRunChannel(),
+		TxManager:      NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
+		ExplorerPusher: synchronization.NewExplorerPusher(orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret()),
 	}
 	return store
 }
@@ -148,7 +148,7 @@ func (s *Store) Start() error {
 	s.TxManager.Register(s.KeyStore.Accounts())
 	return multierr.Combine(
 		s.SyncDiskKeyStoreToDB(),
-		s.StatsPusher.Start(),
+		s.ExplorerPusher.Start(),
 	)
 }
 
@@ -157,7 +157,7 @@ func (s *Store) Close() error {
 	s.RunChannel.Close()
 	return multierr.Combine(
 		s.ORM.Close(),
-		s.StatsPusher.Close(),
+		s.ExplorerPusher.Close(),
 	)
 }
 

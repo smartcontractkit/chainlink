@@ -257,7 +257,8 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest models.SessionR
 	if len(cookies) == 0 {
 		return nil, errors.New("Did not receive cookie with session id")
 	}
-	return cookies[0], t.store.Save(cookies[0])
+	sc := web.FindSession(cookies)
+	return sc, t.store.Save(sc)
 }
 
 // CookieStore is a place to store and retrieve cookies.

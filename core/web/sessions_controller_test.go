@@ -11,6 +11,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,9 +50,12 @@ func TestSessionsController_Create(t *testing.T) {
 
 			if test.wantSession {
 				require.Equal(t, 200, resp.StatusCode)
+
 				cookies := resp.Cookies()
-				require.Equal(t, 1, len(cookies))
-				decrypted, err := cltest.DecodeSessionCookie(cookies[0].Value)
+				sessionCookie := web.FindSession(cookies)
+				require.NotNil(t, sessionCookie)
+
+				decrypted, err := cltest.DecodeSessionCookie(sessionCookie.Value)
 				require.NoError(t, err)
 				user, err := app.Store.AuthorizedUserWithSession(decrypted)
 				assert.NoError(t, err)
