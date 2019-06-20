@@ -16,7 +16,11 @@ const mountIndex = props =>
   mountWithTheme(
     <Provider store={createStore()}>
       <MemoryRouter>
-        <Index classes={classes} {...props} />
+        <Index
+          classes={classes}
+          pagePath="/jobs/:jobSpecId/runs/page"
+          {...props}
+        />
       </MemoryRouter>
     </Provider>
   )
@@ -36,7 +40,7 @@ describe('containers/JobRuns/Index', () => {
       jobSpecId
     )
     global.fetch.getOnce(
-      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=25`,
+      `/v2/runs?sort=-createdAt&page=1&size=25&jobSpecId=${jobSpecId}`,
       runsResponse
     )
 
@@ -57,7 +61,7 @@ describe('containers/JobRuns/Index', () => {
       3
     )
     global.fetch.getOnce(
-      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=1`,
+      `/v2/runs?sort=-createdAt&page=1&size=1&jobSpecId=${jobSpecId}`,
       pageOneResponse
     )
 
@@ -74,7 +78,7 @@ describe('containers/JobRuns/Index', () => {
       3
     )
     global.fetch.getOnce(
-      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=2&size=1`,
+      `/v2/runs?sort=-createdAt&page=2&size=1&jobSpecId=${jobSpecId}`,
       pageTwoResponse
     )
     clickNextPage(wrapper)
@@ -84,7 +88,7 @@ describe('containers/JobRuns/Index', () => {
     expect(wrapper.text()).toContain('ID-ON-SECOND-PAGE')
 
     global.fetch.getOnce(
-      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=1`,
+      `/v2/runs?sort=-createdAt&page=1&size=1&jobSpecId=${jobSpecId}`,
       pageOneResponse
     )
     clickPreviousPage(wrapper)
@@ -99,7 +103,7 @@ describe('containers/JobRuns/Index', () => {
       3
     )
     global.fetch.getOnce(
-      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=3&size=1`,
+      `/v2/runs?sort=-createdAt&page=3&size=1&jobSpecId=${jobSpecId}`,
       pageThreeResponse
     )
     clickLastPage(wrapper)
@@ -110,7 +114,7 @@ describe('containers/JobRuns/Index', () => {
     expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
 
     global.fetch.getOnce(
-      `/v2/runs?jobSpecId=${jobSpecId}&sort=-createdAt&page=1&size=1`,
+      `/v2/runs?sort=-createdAt&page=1&size=1&jobSpecId=${jobSpecId}`,
       pageOneResponse
     )
     clickFirstPage(wrapper)
