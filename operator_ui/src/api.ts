@@ -87,8 +87,20 @@ export const getJobSpec = id => get(`/v2/specs/${id}`)
 export const getRecentJobRuns = size =>
   get(`/v2/runs`, { sort: '-createdAt', size: size })
 
-export const getJobSpecRuns = (id, page, size) =>
-  get(`/v2/runs`, { jobSpecId: id, sort: '-createdAt', page: page, size: size })
+export interface JobSpecRunsOpts {
+  page: number
+  size: number
+  jobSpecId?: string
+}
+
+export const getJobSpecRuns = ({ jobSpecId, page, size }: JobSpecRunsOpts) => {
+  const opts = { sort: '-createdAt', page, size }
+  if (jobSpecId) {
+    opts.jobSpecId = jobSpecId
+  }
+
+  return get(`/v2/runs`, opts)
+}
 
 export const getJobSpecRun = id => get(`/v2/runs/${id}`)
 

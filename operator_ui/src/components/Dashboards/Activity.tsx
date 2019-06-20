@@ -1,28 +1,40 @@
 import React from 'react'
-import PropTypes from 'prop-types'
-import { withStyles } from '@material-ui/core/styles'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
-import Button from 'components/Button'
+import TableFooter from '@material-ui/core/TableFooter'
 import CardContent from '@material-ui/core/CardContent'
 import Card from '@material-ui/core/Card'
-import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
-import Link from 'components/Link'
-import TimeAgo from 'components/TimeAgo'
-import StatusIcon from 'components/JobRuns/StatusIcon'
-import NoContentLogo from 'components/Logos/NoContent'
+import Button from '../Button'
+import ReactStaticLinkComponent from '../ReactStaticLinkComponent'
+import Link from '../Link'
+import TimeAgo from '../TimeAgo'
+import StatusIcon from '../JobRuns/StatusIcon'
+import NoContentLogo from '../Logos/NoContent'
+import { IJobRuns } from '../../../@types/operator_ui'
 
-const styles = theme => {
-  return {
+const styles = ({ palette, spacing }: Theme) =>
+  createStyles({
     cell: {
-      borderColor: theme.palette.divider,
+      borderColor: palette.divider,
       borderTop: `1px solid`,
       borderBottom: 'none',
       padding: 0
+    },
+    footer: {
+      borderColor: palette.divider,
+      borderTop: `1px solid`,
+      paddingTop: spacing.unit * 2,
+      paddingBottom: spacing.unit * 2
     },
     content: {
       position: 'relative',
@@ -35,24 +47,23 @@ const styles = theme => {
       paddingTop: 18,
       paddingLeft: 30,
       borderRight: 'solid 1px',
-      borderRightColor: theme.palette.divider,
+      borderRightColor: palette.divider,
       width: 50,
       height: '100%'
     },
     runDetails: {
-      paddingTop: theme.spacing.unit * 3,
-      paddingBottom: theme.spacing.unit * 3,
-      paddingLeft: theme.spacing.unit * 4,
-      paddingRight: theme.spacing.unit * 4
+      paddingTop: spacing.unit * 3,
+      paddingBottom: spacing.unit * 3,
+      paddingLeft: spacing.unit * 4,
+      paddingRight: spacing.unit * 4
     },
     noActivity: {
-      backgroundColor: theme.palette.primary.light,
-      padding: theme.spacing.unit * 3
+      backgroundColor: palette.primary.light,
+      padding: spacing.unit * 3
     }
-  }
-}
+  })
 
-const NoRecentActivity = ({ classes }) => (
+const NoActivity = ({ classes }) => (
   <CardContent>
     <Card elevation={0} className={classes.noActivity}>
       <Grid container alignItems="center" spacing={16}>
@@ -69,7 +80,13 @@ const NoRecentActivity = ({ classes }) => (
   </CardContent>
 )
 
-const RecentActivity = ({ classes, runs }) => {
+interface IProps extends WithStyles<typeof styles> {
+  pageSize: number
+  runs?: IJobRuns[]
+  count?: number
+}
+
+const Activity = ({ classes, runs, count, pageSize }: IProps) => {
   const loading = !runs
   let activity
 
@@ -77,12 +94,12 @@ const RecentActivity = ({ classes, runs }) => {
     activity = (
       <CardContent>
         <Typography variant="body1" color="textSecondary">
-          ...
+          Loading ...
         </Typography>
       </CardContent>
     )
   } else if (runs.length === 0) {
-    activity = <NoRecentActivity classes={classes} />
+    activity = <NoActivity classes={classes} />
   } else {
     activity = (
       <Table>
@@ -130,6 +147,17 @@ const RecentActivity = ({ classes, runs }) => {
             </TableRow>
           ))}
         </TableBody>
+        {count > pageSize && (
+          <TableFooter>
+            <TableRow>
+              <TableCell scope="row" className={classes.footer}>
+                <Button to={`/runs`} component={ReactStaticLinkComponent}>
+                  View More
+                </Button>
+              </TableCell>
+            </TableRow>
+          </TableFooter>
+        )}
       </Table>
     )
   }
@@ -156,8 +184,4 @@ const RecentActivity = ({ classes, runs }) => {
   )
 }
 
-RecentActivity.propTypes = {
-  runs: PropTypes.array
-}
-
-export default withStyles(styles)(RecentActivity)
+export default withStyles(styles)(Activity)

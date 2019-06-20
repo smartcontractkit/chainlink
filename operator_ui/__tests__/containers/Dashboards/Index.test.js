@@ -6,8 +6,7 @@ import mountWithTheme from 'test-helpers/mountWithTheme'
 import Index from 'containers/Dashboards/Index'
 
 const classes = {}
-const mountIndex = (opts = {}) =>
-  mountWithTheme(<Index classes={classes} pageSize={opts.pageSize} />)
+const mountIndex = (opts = {}) => mountWithTheme(<Index classes={classes} />)
 
 describe('containers/Dashboards/Index', () => {
   it('renders the recent activity, account balances & recently created jobs', async () => {
@@ -33,7 +32,8 @@ describe('containers/Dashboards/Index', () => {
             status: 'completed'
           }
         }
-      ]
+      ],
+      meta: { count: 2 }
     }
     global.fetch.getOnce('/v2/runs?sort=-createdAt&size=2', recentJobRuns)
 
