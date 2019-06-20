@@ -648,7 +648,7 @@ func NewExplorerStatus(store *store.Store) ExplorerStatus {
 	url := client.Url()
 
 	return ExplorerStatus{
-		Status: client.Status(),
+		Status: string(client.Status()),
 		Url:    url.String(),
 	}
 }

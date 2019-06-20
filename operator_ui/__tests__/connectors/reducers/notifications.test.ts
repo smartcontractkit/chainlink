@@ -18,7 +18,7 @@ describe('connectors/reducers/notifications', () => {
   })
 
   describe('explorer status', () => {
-    it('adds a notification when the explorer status is "not_connected"', () => {
+    it('adds a notification when the explorer status is "error"', () => {
       const previousState = {
         notifications: {
           errors: [],
@@ -28,7 +28,7 @@ describe('connectors/reducers/notifications', () => {
       }
 
       const cookie =
-        'explorer=%7B%22status%22%3A%22not_connected%22%2C%22url%22%3A%22ws%3A%2F%2Flocalhost%3A8081%22%7D'
+        'explorer=%7B%22status%22%3A%22error%22%2C%22url%22%3A%22ws%3A%2F%2Flocalhost%3A8081%22%7D'
       const action = { type: 'ANY', cookie: cookie }
       let state = reducer(previousState, action)
 
@@ -67,7 +67,7 @@ describe('connectors/reducers/notifications', () => {
       }
 
       const cookie =
-        'explorer=%7B%22status%22%3A%22not_connected%22%2C%22url%22%3A%22http%3A%2F%2Flocalhost%3A8081%22%7D'
+        'explorer=%7B%22status%22%3A%22error%22%2C%22url%22%3A%22http%3A%2F%2Flocalhost%3A8081%22%7D'
       const action = { type: 'ANY', cookie: cookie }
       let state = reducer(previousState, action)
 

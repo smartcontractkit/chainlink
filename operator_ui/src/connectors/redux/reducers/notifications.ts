@@ -101,7 +101,7 @@ function beforeCookieState(state: State, action: Action): State {
   }
 }
 
-const NOT_CONNECTED = 'not_connected'
+const EXPLORER_STATUS_ERROR = 'error'
 
 const hasExplorerStatus = (errors: any, msg: any) => {
   return errors.find(({ props }: any) => props && props.msg === msg)
@@ -117,7 +117,7 @@ function afterCookieState(state: State, action: Action): State {
     try {
       const json = JSON.parse(cookies.explorer)
 
-      if (json.status === NOT_CONNECTED) {
+      if (json.status === EXPLORER_STATUS_ERROR) {
         let msg = `Can't connect to explorer: ${json.url}`
         if (!json.url.match(/^wss?:.+/)) {
           msg = `${msg}. You must use a websocket.`

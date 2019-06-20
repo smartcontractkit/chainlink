@@ -20,11 +20,22 @@ var (
 	ErrReceiveTimeout = errors.New("timeout waiting for message")
 )
 
+type ConnectionStatus string
+
+const (
+	// ConnectionStatusDisconnected is the default state
+	ConnectionStatusDisconnected = ConnectionStatus("")
+	// ConnectionStatusConnected is used when the client is successfully connected
+	ConnectionStatusConnected = ConnectionStatus("connected")
+	// ConnectionStatusError is used when there is an error
+	ConnectionStatusError = ConnectionStatus("error")
+)
+
 // WebSocketClient encapsulates all the functionality needed to
 // push run information to explorer.
 type WebSocketClient interface {
 	Url() url.URL
-	Status() string
+	Status() ConnectionStatus
 	Start() error
 	Close() error
 	Send([]byte)
@@ -33,8 +44,9 @@ type WebSocketClient interface {
 
 type noopWebSocketClient struct{}
 
-func (noopWebSocketClient) Url() url.URL                             { return url.URL{} }
-func (noopWebSocketClient) Status() string                           { return "" }
+func (noopWebSocketClient) Url() url.URL { return url.URL{} }
+
+func (noopWebSocketClient) Status() ConnectionStatus                 { return ConnectionStatusDisconnected }
 func (noopWebSocketClient) Start() error                             { return nil }
 func (noopWebSocketClient) Close() error                             { return nil }
 func (noopWebSocketClient) Send([]byte)                              {}
@@ -48,7 +60,7 @@ type websocketClient struct {
 	receive   chan []byte
 	sleeper   utils.Sleeper
 	started   bool
-	connected bool
+	status    ConnectionStatus
 	url       *url.URL
 	accessKey string
 	secret    string
@@ -73,15 +85,9 @@ func (w *websocketClient) Url() url.URL {
 	return *w.url
 }
 
-// Status represented as a single string
-func (w *websocketClient) Status() string {
-	if !w.started {
-		return "not_started"
-	}
-	if w.connected {
-		return "connected"
-	}
-	return "not_connected"
+// Status returns the private attribute
+func (w *websocketClient) Status() ConnectionStatus {
+	return w.status
 }
 
 // Start starts a write pump over a websocket.
@@ -147,29 +153,40 @@ const (
 // lexical confinement of done chan allows multiple connectAndWritePump routines
 // to clean up independent of itself by reducing shared state. i.e. a passed done, not w.done.
 func (w *websocketClient) connectAndWritePump(parentCtx context.Context, wg *sync.WaitGroup) {
-	wg.Done()
+	doneWaiting := false
 	logger.Infow("Connecting to explorer", "url", w.url)
 
 	for {
 		select {
 		case <-parentCtx.Done():
+			if !doneWaiting {
+				wg.Done()
+			}
 			return
 		case <-time.After(w.sleeper.After()):
 			connectionCtx, cancel := context.WithCancel(parentCtx)
 			defer cancel()
 
 			if err := w.connect(connectionCtx); err != nil {
-				w.connected = false
+				w.status = ConnectionStatusError
+				if !doneWaiting {
+					wg.Done()
+				}
 				logger.Warn("Failed to connect to explorer (", w.url.String(), "): ", err)
 				break
 			}
 
-			w.connected = true
+			w.status = ConnectionStatusConnected
+			if !doneWaiting {
+				wg.Done()
+			}
 			logger.Info("Connected to explorer at ", w.url.String())
 			w.sleeper.Reset()
 			go w.readPump(cancel)
 			w.writePump(connectionCtx)
 		}
+
+		doneWaiting = true
 	}
 }
 
@@ -178,7 +195,7 @@ func (w *websocketClient) writePump(ctx context.Context) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		wrapConnErrorIf(w.conn.Close()) // exclusive responsibility to close ws conn
+		w.wrapConnErrorIf(w.conn.Close()) // exclusive responsibility to close ws conn
 	}()
 	for {
 		select {
@@ -186,7 +203,7 @@ func (w *websocketClient) writePump(ctx context.Context) {
 			return
 		case message, open := <-w.send:
 			if !open { // channel closed
-				wrapConnErrorIf(w.conn.WriteMessage(websocket.CloseMessage, []byte{}))
+				w.wrapConnErrorIf(w.conn.WriteMessage(websocket.CloseMessage, []byte{}))
 			}
 
 			err := w.writeMessage(message)
@@ -195,9 +212,9 @@ func (w *websocketClient) writePump(ctx context.Context) {
 				return
 			}
 		case <-ticker.C:
-			wrapConnErrorIf(w.conn.SetWriteDeadline(time.Now().Add(writeWait)))
+			w.wrapConnErrorIf(w.conn.SetWriteDeadline(time.Now().Add(writeWait)))
 			if err := w.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				wrapConnErrorIf(err)
+				w.wrapConnErrorIf(err)
 				return
 			}
 		}
@@ -205,7 +222,7 @@ func (w *websocketClient) writePump(ctx context.Context) {
 }
 
 func (w *websocketClient) writeMessage(message []byte) error {
-	wrapConnErrorIf(w.conn.SetWriteDeadline(time.Now().Add(writeWait)))
+	w.wrapConnErrorIf(w.conn.SetWriteDeadline(time.Now().Add(writeWait)))
 	writer, err := w.conn.NextWriter(websocket.TextMessage)
 	if err != nil {
 		return err
@@ -266,8 +283,9 @@ func (w *websocketClient) readPump(cancel context.CancelFunc) {
 	}
 }
 
-func wrapConnErrorIf(err error) {
+func (w *websocketClient) wrapConnErrorIf(err error) {
 	if err != nil && websocket.IsUnexpectedCloseError(err, expectedCloseMessages...) {
+		w.status = ConnectionStatusError
 		logger.Error(fmt.Sprintf("websocketExplorerPusher: %v", err))
 	}
 }

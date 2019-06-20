@@ -3,6 +3,7 @@ package synchronization_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -64,7 +65,7 @@ func TestWebSocketClient_Send(t *testing.T) {
 	})
 }
 
-func TestWebSocketClient_Authentiation(t *testing.T) {
+func TestWebSocketClient_Authentication(t *testing.T) {
 	headerChannel := make(chan http.Header)
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		headerChannel <- r.Header
@@ -129,25 +130,35 @@ func TestWebSocketClient_SendWithAckTimeout(t *testing.T) {
 	}, 300*time.Millisecond)
 }
 
-func TestWebSocketClient_Status(t *testing.T) {
+func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
 	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
-	assert.Equal(t, "not_started", wsclient.Status())
+	defer wsclient.Close()
+	assert.Equal(t, synchronization.ConnectionStatusDisconnected, wsclient.Status())
 
 	require.NoError(t, wsclient.Start())
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
 	})
-	assert.Equal(t, "not_connected", wsclient.Status())
+	assert.Equal(t, synchronization.ConnectionStatusConnected, wsclient.Status())
 
-	expectation := `{"hello": "world"}`
-	wsclient.Send([]byte(expectation))
-	cltest.CallbackOrTimeout(t, "receive stats", func() {
-		require.Equal(t, expectation, <-wsserver.Received)
-		err := wsserver.Broadcast(`{"result": 200}`)
-		assert.NoError(t, err)
-	})
-	assert.Equal(t, "connected", wsclient.Status())
+	wsserver.WriteCloseMessage()
+	wsserver.Close()
+	time.Sleep(100 * time.Millisecond)
+	assert.Equal(t, synchronization.ConnectionStatusError, wsclient.Status())
+
+}
+
+func TestWebSocketClient_Status_ConnectError(t *testing.T) {
+	badURL, err := url.Parse("http://badhost.com")
+	require.NoError(t, err)
+
+	errorwsclient := synchronization.NewWebSocketClient(badURL, "", "")
+	require.NoError(t, errorwsclient.Start())
+	time.Sleep(100 * time.Millisecond)
+
+	assert.Equal(t, synchronization.ConnectionStatusError, errorwsclient.Status())
+
 }
