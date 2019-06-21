@@ -48,6 +48,7 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 			verifyLinkBalanceCheck(oca, t))
 		ethMock.Register("eth_sendRawTransaction", hash)
 		ethMock.Register("eth_blockNumber", sentAt)
+		ethMock.Register("eth_chainId", *cltest.Int(config.ChainID()))
 	})
 
 	assert.NoError(t, app.StartAndConnect())
@@ -91,6 +92,7 @@ func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
 
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
+		ethMock.Register("eth_chainId", *cltest.Int(config.ChainID()))
 	})
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_call", "0x0",
