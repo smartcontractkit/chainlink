@@ -1,10 +1,9 @@
 import React from 'react'
 import Grid from '@material-ui/core/Grid'
 import StatusItem from 'components/JobRuns/StatusItem'
-import PrettyJson from 'components/PrettyJson'
 import capitalize from 'lodash/capitalize'
 import { IInitiator, ITaskRuns, IJobRun } from '../../../@types/operator_ui'
-import { createStyles, Typography } from '@material-ui/core'
+import { createStyles } from '@material-ui/core'
 import { withStyles, WithStyles } from '@material-ui/core/styles'
 
 const fontStyles = () =>
@@ -34,11 +33,11 @@ const Item = withStyles(fontStyles)(
     <Grid container>
       <Grid item sm={2}>
         <p className={classes.header}>{keyOne}</p>
-        <p className={classes.subHeader}>{valOne}</p>
+        <p className={classes.subHeader}>{valOne || 'No Value Available'}</p>
       </Grid>
       <Grid item md={10}>
         <p className={classes.header}>{keyTwo}</p>
-        <p className={classes.subHeader}>{valTwo}</p>
+        <p className={classes.subHeader}>{valTwo || 'No Value Available'}</p>
       </Grid>
     </Grid>
   )
@@ -46,22 +45,24 @@ const Item = withStyles(fontStyles)(
 
 const renderInitiator = (params: object) => {
   const paramsArr = Object.entries(params)
+
   return (
     <>
       {JSON.stringify(paramsArr) === '[]' ? (
         <Item
-          keyOne="Initiator Params"
-          valOne="Value"
-          keyTwo="Values"
-          valTwo={'No input Parameters'}
+          keyOne='Initiator Params'
+          valOne='Value'
+          keyTwo='Values'
+          valTwo='No input Parameters'
         />
       ) : (
-        paramsArr.map(par => (
+        paramsArr.map((par, idx) => (
           <Item
             keyOne="Initiator Params"
             valOne={par[0]}
             keyTwo="Values"
             valTwo={par[1]}
+            key={idx}
           />
         ))
       )}
@@ -71,16 +72,16 @@ const renderInitiator = (params: object) => {
 
 const renderParams = (params: object) => {
   return (
-    <>
-      {Object.entries(params).map(par => (
-        <Item keyOne="Params" valOne={par[0]} keyTwo="Values" valTwo={par[1]} />
+    <div>
+      {Object.entries(params).map((par, idx) => (
+        <Item keyOne="Params" valOne={par[0]} keyTwo="Values" valTwo={par[1]} key={idx} />
       ))}
-    </>
+    </div>
   )
 }
 
 const renderResult = (result: string) => (
-  <Item keyOne="Result" valOne="Value" keyTwo="Values" valTwo={result} />
+  <Item keyOne="Result" valOne="Task Run Data" keyTwo="Values" valTwo={result} />
 )
 
 const TaskExpansionPanel = ({ children }: { children: IJobRun }) => {
@@ -94,6 +95,8 @@ const TaskExpansionPanel = ({ children }: { children: IJobRun }) => {
           summary={capitalize(initiator.type)}
           status={children.status}
           borderTop={false}
+          confirmations={0}
+          minConfirmations={0}
         >
           {renderInitiator(initiator.params)}
         </StatusItem>
@@ -107,8 +110,8 @@ const TaskExpansionPanel = ({ children }: { children: IJobRun }) => {
             minConfirmations={taskRun.minimumConfirmations}
           >
             <Grid container direction="column">
-              <Grid item>{renderParams(taskRun.task.params)}</Grid>
-              <Grid item>{renderResult(taskRun.result.data.result)}</Grid>
+              <Grid item>{renderParams(taskRun.task && taskRun.task.params)}</Grid>
+              <Grid item>{renderResult(taskRun.result && taskRun.result.data && taskRun.result.data.result)}</Grid>
             </Grid>
           </StatusItem>
         </Grid>
