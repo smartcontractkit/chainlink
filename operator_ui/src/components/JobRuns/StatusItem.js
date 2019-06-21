@@ -8,6 +8,7 @@ import Typography from '@material-ui/core/Typography'
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
 import StatusIcon from 'components/JobRuns/StatusIcon'
 import classNames from 'classnames'
+import { Grid } from '@material-ui/core'
 
 const styles = theme => {
   return {
@@ -45,7 +46,13 @@ const styles = theme => {
   }
 }
 
-const render = (summary, children, classes) => {
+const render = (
+  summary,
+  children,
+  classes,
+  confirmations,
+  minConfirmations
+) => {
   if (children) {
     return (
       <ExpansionPanel className={classes.expansionPanel}>
@@ -54,7 +61,20 @@ const render = (summary, children, classes) => {
           classes={{ content: classes.content }}
           expandIcon={<ExpandMoreIcon />}
         >
-          <Typography variant="h5">{summary}</Typography>
+          <Grid container alignItems='baseline'>
+            <Grid item sm={10}>
+              <Typography variant="h5">{summary}</Typography>
+            </Grid>
+            {minConfirmations ? (
+              <Grid item>
+                <Typography variant="h6" color="secondary">
+                  Confirmations {confirmations}/{minConfirmations}
+                </Typography>
+              </Grid>
+            ) : (
+              <></>
+            )}
+          </Grid>
         </ExpansionPanelSummary>
         <ExpansionPanelDetails>{children}</ExpansionPanelDetails>
       </ExpansionPanel>
@@ -64,14 +84,24 @@ const render = (summary, children, classes) => {
   return <Typography>{summary}</Typography>
 }
 
-const StatusItem = ({ status, summary, borderTop, children, classes }) => (
+const StatusItem = ({
+  status,
+  summary,
+  borderTop,
+  children,
+  classes,
+  confirmations,
+  minConfirmations
+}) => (
   <div className={classNames(classes.item, { [classes.borderTop]: borderTop })}>
     <div className={classes.status}>
       <StatusIcon width={38} height={38}>
         {status}
       </StatusIcon>
     </div>
-    <div className={classes.details}>{render(summary, children, classes)}</div>
+    <div className={classes.details}>
+      {render(summary, children, classes, confirmations, minConfirmations)}
+    </div>
   </div>
 )
 
