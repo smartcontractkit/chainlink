@@ -4,21 +4,8 @@ import StatusItem from 'components/JobRuns/StatusItem'
 import PrettyJson from 'components/PrettyJson'
 import capitalize from 'lodash/capitalize'
 import { IInitiator, ITaskRuns, IJobRun } from '../../../@types/operator_ui'
-import { createStyles } from '@material-ui/core'
+import { createStyles, Typography } from '@material-ui/core'
 import { withStyles, WithStyles } from '@material-ui/core/styles'
-
-const renderConfirmations = (
-  confirmations: number,
-  minimumConfirmations: number
-) => {
-  if (minimumConfirmations) {
-    return (
-      <div>
-        {confirmations}/{minimumConfirmations} confirmations
-      </div>
-    )
-  }
-}
 
 const fontStyles = () =>
   createStyles({
@@ -28,7 +15,11 @@ const fontStyles = () =>
       fontSize: '14px',
       color: '#818ea3'
     },
-    subHeader: { fontFamily: 'Roboto Mono', fontSize: '12px', color: '#818ea3' }
+    subHeader: {
+      fontFamily: 'Roboto Mono',
+      fontSize: '12px',
+      color: '#818ea3'
+    }
   })
 
 interface IItemProps extends WithStyles<typeof fontStyles> {
@@ -87,11 +78,9 @@ const TaskExpansionPanel = ({ children }: { children: IJobRun }) => {
           <StatusItem
             summary={capitalize(taskRun.task.type)}
             status={taskRun.status}
+            confirmations={taskRun.task.confirmations}
+            minConfirmations={taskRun.minimumConfirmations}
           >
-            {renderConfirmations(
-              taskRun.task.confirmations,
-              taskRun.minimumConfirmations
-            )}
             <Grid container direction="column">
               <Grid item>{renderParams(taskRun.task.params)}</Grid>
               <Grid item>{renderResult(taskRun.result.data.result)}</Grid>
