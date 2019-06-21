@@ -84,7 +84,7 @@ export interface TaskSpec {
     jobSpecId: string | null
     type: adapterTypes
     confirmations: number | null
-    params: string | null //REVIEW add conditional params for known adapter types that are listed 2 lines above?
+    params: object | null //REVIEW add conditional params for known adapter types that are listed 2 lines above?
 }
 
 export interface TxAttempt {
