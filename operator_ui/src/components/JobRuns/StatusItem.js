@@ -61,19 +61,19 @@ const render = (
           classes={{ content: classes.content }}
           expandIcon={<ExpandMoreIcon />}
         >
-          <Grid container alignItems='baseline'>
+          <Grid container alignItems="baseline">
             <Grid item sm={10}>
               <Typography variant="h5">{summary}</Typography>
             </Grid>
-            {minConfirmations ? (
-              <Grid item>
+            <Grid item>
+              {minConfirmations ? (
                 <Typography variant="h6" color="secondary">
                   Confirmations {confirmations}/{minConfirmations}
                 </Typography>
-              </Grid>
-            ) : (
-              <></>
-            )}
+              ) : (
+                <div />
+              )}
+            </Grid>
           </Grid>
         </ExpansionPanelSummary>
         <ExpansionPanelDetails>{children}</ExpansionPanelDetails>
