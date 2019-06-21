@@ -29,8 +29,10 @@ trap exit_handler EXIT
 heading 'Setup...'
 
 if [ "$1" == "parity" ]; then
+  export ETH_CHAIN_ID=34055
   launch_parity
 else
+  export ETH_CHAIN_ID=1337
   launch_gethnet
 fi
 

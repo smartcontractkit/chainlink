@@ -183,6 +183,7 @@ func TestTx_PresenterMatchesHex(t *testing.T) {
 	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x00")
 		ethMock.Register("eth_getTransactionCount", "0x10")
+		ethMock.Register("eth_chainId", *cltest.Int(store.Config.ChainID()))
 	})
 
 	require.NoError(t, app.StartAndConnect())

@@ -253,6 +253,22 @@ func (ta *TestApplication) WaitForConnection() error {
 	}
 }
 
+func (ta *TestApplication) MockStartAndConnect() (*EthMock, error) {
+	chainID := Int(ta.Config.ChainID())
+	ethMock := ta.MockEthClient()
+	ethMock.Context("TestApplication#MockStartAndConnect()", func(ethMock *EthMock) {
+		ethMock.Register("eth_chainId", *chainID)
+		ethMock.Register("eth_getTransactionCount", `0x0`)
+	})
+
+	err := ta.Start()
+	if err != nil {
+		return ethMock, err
+	}
+
+	return ethMock, ta.WaitForConnection()
+}
+
 // Stop will stop the test application and perform cleanup
 func (ta *TestApplication) Stop() error {
 	// TODO: Here we double close, which is less than ideal.

@@ -133,6 +133,13 @@ func (eth *EthClient) GetLogs(q ethereum.FilterQuery) ([]models.Log, error) {
 	return results, err
 }
 
+// GetChainID returns the ethereum ChainID.
+func (eth *EthClient) GetChainID() (uint64, error) {
+	var intermediary models.Big
+	err := eth.Call(&intermediary, "eth_chainId")
+	return intermediary.ToInt().Uint64(), err
+}
+
 // SubscribeToLogs registers a subscription for push notifications of logs
 // from a given address.
 func (eth *EthClient) SubscribeToLogs(

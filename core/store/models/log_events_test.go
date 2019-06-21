@@ -202,6 +202,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			eth.Context("app.Start()", func(eth *cltest.EthMock) {
 				eth.Register("eth_getTransactionCount", "0x1")
 				eth.RegisterSubscription("logs", logs)
+				eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
 			})
 			assert.NoError(t, app.StartAndConnect())
 

@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -475,7 +476,7 @@ func TestClient_WithdrawNoArgs(t *testing.T) {
 	app, cleanup, _ := setupWithdrawalsApplication(t)
 	defer cleanup()
 
-	assert.NoError(t, app.StartAndConnect())
+	assert.NoError(t, utils.JustError(app.MockStartAndConnect()))
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("withdraw", 0)
@@ -521,6 +522,7 @@ func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func(),
 
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", nonce)
+		ethMock.Register("eth_chainId", *cltest.Int(config.ChainID()))
 	})
 
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
