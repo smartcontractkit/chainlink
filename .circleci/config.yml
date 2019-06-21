@@ -23,6 +23,7 @@ jobs:
       - store_artifacts:
           path: /tmp/go_test.txt
   go-sqlite-race:
+    resource_class: large
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.21
