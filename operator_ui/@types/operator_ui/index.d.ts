@@ -16,7 +16,9 @@ export interface IBridgeType extends Omit<dbTypes.BridgeType, 'incomingTokenHash
 //REVIEW what to do with this?
 export interface IExternalInitiator extends Omit<dbTypes.ExternalInitiator, 'salt' | 'hashedSecret' | 'accessKey'> { }
 
-export interface IInitiator extends dbTypes.Initiator { }
+export interface IInitiator extends dbTypes.Initiator {
+    params: object
+}
 
 export interface IJobRun extends Omit<dbTypes.JobRun, 'initiatorId' | 'overridesId' | 'jobSpecId' | 'resultId'> {
     initiator: IInitiator
