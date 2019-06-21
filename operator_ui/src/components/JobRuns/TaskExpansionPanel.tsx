@@ -44,6 +44,31 @@ const Item = withStyles(fontStyles)(
   )
 )
 
+const renderInitiator = (params: object) => {
+  const paramsArr = Object.entries(params)
+  return (
+    <>
+      {JSON.stringify(paramsArr) === '[]' ? (
+        <Item
+          keyOne="Initiator Params"
+          valOne="Value"
+          keyTwo="Values"
+          valTwo={'No input Parameters'}
+        />
+      ) : (
+        paramsArr.map(par => (
+          <Item
+            keyOne="Initiator Params"
+            valOne={par[0]}
+            keyTwo="Values"
+            valTwo={par[1]}
+          />
+        ))
+      )}
+    </>
+  )
+}
+
 const renderParams = (params: object) => {
   return (
     <>
@@ -70,7 +95,7 @@ const TaskExpansionPanel = ({ children }: { children: IJobRun }) => {
           status={children.status}
           borderTop={false}
         >
-          <PrettyJson object={initiator.params} />
+          {renderInitiator(initiator.params)}
         </StatusItem>
       </Grid>
       {taskRuns.map(taskRun => (
