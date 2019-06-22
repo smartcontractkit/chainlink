@@ -8,7 +8,7 @@ import {
 import Typography from '@material-ui/core/Typography'
 import ListIcon from '../../components/Icons/ListIcon'
 import titleize from '../../utils/titleize'
-import { ITaskRuns } from '../../../@types/operator_ui'
+import { ITaskSpecs } from '../../../@types/operator_ui'
 
 const styles = ({ spacing, palette }: Theme) =>
   createStyles({
@@ -34,7 +34,7 @@ const styles = ({ spacing, palette }: Theme) =>
   })
 
 interface IProps extends WithStyles<typeof styles> {
-  taskRuns: ITaskRuns
+  taskRuns: ITaskSpecs
 }
 
 const TaskRuns = ({ taskRuns, classes }: IProps) => {
@@ -44,9 +44,7 @@ const TaskRuns = ({ taskRuns, classes }: IProps) => {
         taskRuns.map((run, idx) => {
           return (
             <li key={idx} className={classes.item}>
-              <ListIcon width={40} className={classes.status}>
-                {run.status}
-              </ListIcon>
+              <ListIcon width={40} className={classes.status} />
               <Typography variant="body1" inline>
                 {titleize(run.type)}
               </Typography>
