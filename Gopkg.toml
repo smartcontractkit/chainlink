@@ -164,3 +164,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/gin-contrib/size"
+
+[[constraint]]
+  name = "github.com/asaskevich/govalidator"
+  version = "9.0.0"

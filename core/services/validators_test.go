@@ -97,34 +97,45 @@ func TestValidateAdapter(t *testing.T) {
 	tests := []struct {
 		description string
 		name        string
+		url         models.WebURL
 		want        error
 	}{
 		{
 			"existing external adapter",
 			"solargridreporting",
+			bt.URL,
 			models.NewJSONAPIErrorsWith("Adapter solargridreporting already exists"),
 		},
 		{
 			"existing core adapter",
 			"ethtx",
+			bt.URL,
 			models.NewJSONAPIErrorsWith("Adapter ethtx already exists"),
 		},
 		{
 			"no adapter name",
 			"",
+			bt.URL,
 			models.NewJSONAPIErrorsWith("No name specified"),
 		},
 		{
 			"invalid adapter name",
 			"invalid/adapter",
+			bt.URL,
 			models.NewJSONAPIErrorsWith("Task Type validation: name invalid/adapter contains invalid characters"),
 		},
-		{"new external adapter", "gdaxprice", nil},
+		{
+			"invalid adapter url",
+			"adapterwithinvalidurl",
+			cltest.WebURL(t, "//denergy"),
+			models.NewJSONAPIErrorsWith("Invalid URL format"),
+		},
+		{"new external adapter", "gdaxprice", bt.URL, nil},
 	}
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			btr := &models.BridgeTypeRequest{Name: models.TaskType(test.name)}
+			btr := &models.BridgeTypeRequest{Name: models.TaskType(test.name), URL: test.url}
 			result := services.ValidateBridgeType(btr, store)
 			assert.Equal(t, test.want, result)
 		})
