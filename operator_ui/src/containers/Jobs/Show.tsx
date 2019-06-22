@@ -31,7 +31,7 @@ const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
 const renderTaskRuns = (job: IJobSpec) => (
   <Card>
     <CardTitle divider>Task List</CardTitle>
-    <TaskRuns taskRuns={job.runs} />
+    <TaskRuns taskRuns={job.tasks} />
   </Card>
 )
 
@@ -93,7 +93,15 @@ interface IProps {
   recentRunsCount: number
   showJobRunsCount: number
   fetchJob: (string) => Promise<any>
-  fetchJobRuns: (string, number, number) => Promise<any>
+  fetchJobRuns: ({
+    jobSpecId,
+    page,
+    size
+  }: {
+    jobSpecId: string
+    page: number
+    size: number
+  }) => Promise<any>
 }
 
 const DEFAULT_PAGE = 1
