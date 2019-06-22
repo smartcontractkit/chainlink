@@ -16,6 +16,7 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"   // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -294,6 +295,41 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 // CreateJobRun inserts a new JobRun
 func (orm *ORM) CreateJobRun(run *models.JobRun) error {
 	return orm.DB.Create(run).Error
+}
+
+// AddLinkEarned updates old JobSpec earnings
+func (orm *ORM) AddLinkEarned(earning *models.LinkEarned) error {
+	return orm.DB.Create(earning).Error
+}
+
+// LinkEarningsFor lists the individual link earnings for a job
+func (orm *ORM) LinkEarningsFor(jobSpecID string, limit ...int) ([]models.LinkEarned, error) {
+	earnings := []models.LinkEarned{}
+	var lim int
+	if len(limit) == 0 {
+		lim = 100
+	} else if len(limit) >= 1 {
+		lim = limit[0]
+	}
+	err := orm.DB.
+		Limit(lim).
+		Where("job_spec_id = ?", jobSpecID).
+		Find(&earnings).Error
+	return earnings, err
+}
+
+// LinkEarnedFor shows the total link earnings for a job
+func (orm *ORM) LinkEarnedFor(jobSpecID string) (*assets.Link, error) {
+	all, err := orm.LinkEarningsFor(jobSpecID)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	sum := assets.NewLink(0)
+	for _, ear := range all {
+		sum = sum.Add(sum, ear.Earned)
+	}
+	return sum, nil
 }
 
 // CreateExternalInitiator inserts a new external initiator

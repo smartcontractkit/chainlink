@@ -18,6 +18,7 @@ import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatc
 import TaskList from '../../components/Jobs/TaskList'
 import { IJobSpec, IJobRuns } from '../../../@types/operator_ui'
 import { IState } from '../../connectors/redux/reducers'
+import { Typography } from '@material-ui/core'
 
 const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
   const info = {
@@ -43,6 +44,27 @@ interface IRecentJobRunsProps {
   recentRunsCount: number
   showJobRunsCount: number
 }
+
+const totalLinkEarned = (job: IJobSpec) => {
+  if (job && !job.earnings) return '0.000000'
+  return ((job.earnings / 1e18).toString() + '.').padEnd(8, '0')
+}
+
+const renderChart = (job: IJobSpec) => (
+  <Card>
+    <Grid
+      item
+      style={{ marginLeft: '25px', marginTop: '15px', marginBottom: '15px' }}
+    >
+      <Typography style={{ color: '#3d5170', fontWeight: 450 }} variant="h5">
+        Link Payment
+      </Typography>
+      <Typography style={{ color: '#818ea3', fontSize: '15px' }}>
+        {totalLinkEarned(job)}
+      </Typography>
+    </Grid>
+  </Card>
+)
 
 const RecentJobRuns = ({
   job,
@@ -90,8 +112,15 @@ const Details = ({
         </Grid>
         <Grid item xs={4}>
           <Grid container direction="column">
-            <Grid item>{renderTaskRuns(job)}</Grid>
-            <Grid item>{renderJobSpec(job, recentRunsCount)}</Grid>
+            <Grid item xs>
+              {renderChart(job)}
+            </Grid>
+            <Grid item xs>
+              {renderTaskRuns(job)}
+            </Grid>
+            <Grid item xs>
+              {renderJobSpec(job, recentRunsCount)}
+            </Grid>
           </Grid>
         </Grid>
       </Grid>
