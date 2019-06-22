@@ -63,7 +63,7 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
-		jsonAPIResponse(c, jobPresenter(j), "job")
+		jsonAPIResponse(c, jobPresenter(jsc, j), "job")
 	}
 }
 
@@ -81,6 +81,8 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	}
 }
 
-func jobPresenter(j models.JobSpec) presenters.JobSpec {
-	return presenters.JobSpec{JobSpec: j}
+func jobPresenter(jsc *JobSpecsController, j models.JobSpec) presenters.JobSpec {
+	st := jsc.App.GetStore()
+	jobLinkEarned, _ := st.LinkEarnedFor(j.ID)
+	return presenters.JobSpec{JobSpec: j, Earnings: jobLinkEarned}
 }
