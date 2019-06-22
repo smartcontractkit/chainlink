@@ -37,6 +37,14 @@
   revision = "2166578f34481200ec14ddd6b9c4115db36c7b62"
 
 [[projects]]
+  digest = "1:d8a2bb36a048d1571bcc1aee208b61f39dc16c6c53823feffd37449dde162507"
+  name = "github.com/asaskevich/govalidator"
+  packages = ["."]
+  pruneopts = ""
+  revision = "ccb8e960c48f04d6935e72476ae4a51028f9e22f"
+  version = "v9"
+
+[[projects]]
   digest = "1:512883404c2a99156e410e9880e3bb35ecccc0c07c1159eb204b5f3ef3c431b3"
   name = "github.com/bitly/go-simplejson"
   packages = ["."]
@@ -1034,6 +1042,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/araddon/dateparse",
+    "github.com/asaskevich/govalidator",
     "github.com/bitly/go-simplejson",
     "github.com/ethereum/go-ethereum",
     "github.com/ethereum/go-ethereum/accounts",
