@@ -142,7 +142,7 @@ interface IProps extends WithStyles<typeof styles> {
   jobSpecId: string
   runs: IJobRuns
   count: number
-  showJobRunsCount: boolean
+  showJobRunsCount: number
 }
 
 const List = ({
