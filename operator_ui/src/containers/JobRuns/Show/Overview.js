@@ -32,7 +32,7 @@ const renderDetails = ({ classes, fetching, jobRun }) => {
         </Card>
       </Grid>
       <Grid item xs={4}>
-        <StatusCard title={jobRun.status} />
+        <StatusCard title={jobRun.status} jobRun={jobRun} />
       </Grid>
     </Grid>
   )

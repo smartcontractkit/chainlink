@@ -11,7 +11,12 @@ interface IProps {
 
 const StatusIcon = ({ children, width, height }: IProps) => {
   if (children === 'completed') {
-    return <SuccessIcon width={width} height={height} />
+    return (
+      <SuccessIcon
+        width={width}
+        height={height}
+      />
+    )
   } else if (children === 'errored') {
     return <ErrorIcon width={width} height={height} />
   }

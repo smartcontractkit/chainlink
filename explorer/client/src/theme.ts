@@ -29,6 +29,17 @@ const theme = {
     secondary: {
       main: '#3d5170'
     },
+    success: {
+      light: '#e8faf1',
+      main: green.A700,
+      dark: green['700'],
+      contrastText: common.white
+    },
+    warning: {
+      light: '#FFFBF1',
+      main: '#fff6b6',
+      contrastText: '#fad27a'
+    },
     error: {
       light: '#ffdada',
       main: '#f44336',
