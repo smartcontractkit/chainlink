@@ -27,7 +27,7 @@ ALTER TABLE heads RENAME TO heads_archive;`).Error; err != nil {
 	if dbutil.IsPostgres(tx) {
 		err = tx.Exec(`
 INSERT INTO heads ("hash", "number")
-SELECT decode(convert_from("hash", 'utf-8'), 'hex'), "number"
+SELECT decode("hash"::text, 'hex'), "number"
 FROM heads_archive;
 DROP TABLE heads_archive;`).Error
 	} else {
