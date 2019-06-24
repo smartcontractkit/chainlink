@@ -45,6 +45,7 @@ func Migrate(db *gorm.DB) error {
 		},
 	})
 
+	db.LogMode(true)
 	err := m.Migrate()
 	if err != nil {
 		return errors.Wrap(err, "error running migrations")
