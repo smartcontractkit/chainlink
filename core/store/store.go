@@ -204,9 +204,7 @@ func initializeORM(config Config) (*orm.ORM, error) {
 	if err != nil {
 		return nil, err
 	}
-	if config.LogSQLStatements() {
-		orm.EnableLogging()
-	}
+	orm.SetLogging(config.LogSQLStatements())
 	return orm, migrations.Migrate(orm.DB)
 }
 

@@ -144,9 +144,9 @@ func (orm *ORM) DialectName() DialectName {
 	return orm.dialectName
 }
 
-// EnableLogging turns on SQL statement logging
-func (orm *ORM) EnableLogging() {
-	orm.DB.LogMode(true)
+// SetLogging turns on SQL statement logging
+func (orm *ORM) SetLogging(enabled bool) {
+	orm.DB.LogMode(enabled)
 }
 
 // Close closes the underlying database connection.
