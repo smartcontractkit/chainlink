@@ -7,20 +7,20 @@ import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
-import Button from 'components/Button'
-import BaseLink from 'components/BaseLink'
-import Link from 'components/Link'
-import CopyJobSpec from 'components/CopyJobSpec'
-import ErrorMessage from 'components/Notifications/DefaultError'
-import TimeAgo from '@chainlink/styleguide/components/TimeAgo'
-import jobSpecDefinition from 'utils/jobSpecDefinition'
-import { isWebInitiator } from 'utils/jobSpecInitiators'
-import { fetchJobRuns, createJobRun } from 'actions'
-import classNames from 'classnames'
-import localizedTimestamp from '@chainlink/styleguide/utils/localizedTimestamp'
-import { deleteJobSpec } from '../../actions'
 import Dialog from '@material-ui/core/Dialog'
-import Close from 'components/Icons/Close'
+import TimeAgo from '@chainlink/styleguide/src/components/TimeAgo'
+import localizedTimestamp from '@chainlink/styleguide/src/utils/localizedTimestamp'
+import Button from '../../components/Button'
+import BaseLink from '../../components/BaseLink'
+import Link from '../../components/Link'
+import CopyJobSpec from '../../components/CopyJobSpec'
+import ErrorMessage from '../../components/Notifications/DefaultError'
+import jobSpecDefinition from '../../utils/jobSpecDefinition'
+import { isWebInitiator } from '../../utils/jobSpecInitiators'
+import { fetchJobRuns, createJobRun } from '../../actions'
+import classNames from 'classnames'
+import { deleteJobSpec } from '../../actions'
+import Close from '../../components/Icons/Close'
 import { IJobSpec } from '../../../@types/operator_ui'
 
 const styles = (theme: Theme) => ({
@@ -89,7 +89,7 @@ const styles = (theme: Theme) => ({
   }
 })
 
-const CreateRunSuccessNotification = ({ data }) => (
+const CreateRunSuccessNotification = ({ data }: any) => (
   <React.Fragment>
     Successfully created job run{' '}
     <BaseLink href={`/jobs/${data.attributes.jobId}/runs/id/${data.id}`}>
@@ -98,7 +98,7 @@ const CreateRunSuccessNotification = ({ data }) => (
   </React.Fragment>
 )
 
-const DeleteSuccessNotification = ({ id }) => (
+const DeleteSuccessNotification = ({ id }: any) => (
   <React.Fragment>Successfully archived job {id}</React.Fragment>
 )
 
@@ -221,7 +221,7 @@ const RegionalNav = ({
                   {jobSpecId}
                 </Typography>
               </Grid>
-              <Grid item align="right" xs={5}>
+              <Grid item xs={5}>
                 <Button
                   className={classes.duplicate}
                   onClick={() => setModalOpen(true)}
@@ -231,18 +231,7 @@ const RegionalNav = ({
                 {job && isWebInitiator(job.initiators) && (
                   <Button onClick={handleRun}>Run</Button>
                 )}
-                {definition && (
-                  <Button
-                    href={{
-                      pathname: '/jobs/new',
-                      state: { definition: definition }
-                    }}
-                    component={BaseLink}
-                    className={classes.duplicate}
-                  >
-                    Duplicate
-                  </Button>
-                )}
+                {/* TODO: RE-ADD DEFINTION BUTTON */}
                 {definition && <CopyJobSpec JobSpec={definition} />}
               </Grid>
             </Grid>
@@ -289,7 +278,7 @@ const RegionalNav = ({
   )
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state: any) => ({
   url: state.notifications.currentUrl
 })
 

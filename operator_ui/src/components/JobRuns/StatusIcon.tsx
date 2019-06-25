@@ -1,9 +1,15 @@
 import React from 'react'
-import SuccessIcon from 'components/Icons/Success'
-import ErrorIcon from 'components/Icons/Error'
-import PendingIcon from 'components/Icons/Pending'
+import SuccessIcon from '../Icons/Success'
+import ErrorIcon from '../Icons/Error'
+import PendingIcon from '../Icons/Pending'
 
-const StatusIcon = ({ children, width, height }) => {
+interface IProps {
+  children: React.ReactNode
+  width?: number
+  height?: number
+}
+
+const StatusIcon = ({ children, width, height }: IProps) => {
   if (children === 'completed') {
     return <SuccessIcon width={width} height={height} />
   } else if (children === 'errored') {

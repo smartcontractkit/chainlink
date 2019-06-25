@@ -5,7 +5,7 @@ import bridges from './bridges'
 import configuration from './configuration'
 import create from './create'
 import fetching from './fetching'
-import jobRuns from './jobRuns'
+import jobRuns, { IState as IJobRunsState } from './jobRuns'
 import jobs from './jobs'
 import transactions from './transactions'
 import notifications from './notifications'
@@ -14,6 +14,7 @@ import dashboardIndex, { IState as IDashboardState } from './dashboardIndex'
 import transactionsIndex from './transactionsIndex'
 
 export interface IState {
+  jobRuns: IJobRunsState
   dashboardIndex: IDashboardState
 }
 

@@ -9,17 +9,18 @@ import {
 } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
+import PaddedCard from '@chainlink/styleguide/src/components/PaddedCard'
 import { fetchJobRun } from '../../../actions'
 import jobRunSelector from '../../../selectors/jobRun'
-import PaddedCard from '../../../components/PaddedCard'
 import PrettyJson from '../../../components/PrettyJson'
 import matchRouteAndMapDispatchToProps from '../../../utils/matchRouteAndMapDispatchToProps'
 import Content from '../../../components/Content'
 import RegionalNav from './RegionalNav'
 import StatusCard from '../../../components/JobRuns/StatusCard'
+import { IJobRun, ITaskRun } from '../../../../@types/operator_ui'
 
-const filterErrorTaskRuns = jobRun => {
-  return jobRun.taskRuns.filter(tr => {
+const filterErrorTaskRuns = (jobRun: IJobRun) => {
+  return jobRun.taskRuns.filter((tr: ITaskRun) => {
     return tr.status === 'errored'
   })
 }
@@ -48,7 +49,7 @@ const Details = withStyles(detailsStyles)(
         <Grid item xs={12}>
           <StatusCard title={jobRun.status}>
             <ul className={classes.list}>
-              {errorTaskRuns.map(tr => (
+              {errorTaskRuns.map((tr: ITaskRun) => (
                 <li key={tr.id}>
                   <Typography variant="body1">{tr.result.error}</Typography>
                 </li>
@@ -68,7 +69,7 @@ interface IProps extends WithStyles<typeof styles> {
   jobSpecId: string
   jobRunId: string
   jobRun?: any
-  fetchJobRun: (string) => Promise<any>
+  fetchJobRun: (id: string) => Promise<any>
 }
 
 const ShowErrorLog = useHooks(
@@ -93,7 +94,7 @@ const ShowErrorLog = useHooks(
   }
 )
 
-const mapStateToProps = (state, ownProps) => {
+const mapStateToProps = (state: any, ownProps: any) => {
   const { jobSpecId, jobRunId } = ownProps.match.params
   const jobRun = jobRunSelector(state, jobRunId)
   const fetching = state.jobRuns.fetching

@@ -1,6 +1,6 @@
 import React from 'react'
 
-const Close = props => (
+const Close = (props: any) => (
   <svg
     style={{ cursor: 'pointer' }}
     width="46"

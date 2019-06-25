@@ -1,8 +1,13 @@
 import React from 'react'
 import Grid from '@material-ui/core/Grid'
-import StatusItem from 'components/JobRuns/StatusItem'
+import StatusItem from './StatusItem'
 import capitalize from 'lodash/capitalize'
-import { IInitiator, ITaskRuns, IJobRun } from '../../../@types/operator_ui'
+import {
+  IInitiator,
+  ITaskRuns,
+  ITaskRun,
+  IJobRun
+} from '../../../@types/operator_ui'
 import { createStyles } from '@material-ui/core'
 import { withStyles, WithStyles } from '@material-ui/core/styles'
 
@@ -25,7 +30,7 @@ interface IItemProps extends WithStyles<typeof fontStyles> {
   keyOne: string
   valOne: string
   keyTwo: string
-  valTwo: string
+  valTwo: string | null
 }
 
 const Item = withStyles(fontStyles)(
@@ -43,26 +48,30 @@ const Item = withStyles(fontStyles)(
   )
 )
 
-const renderInitiator = (params: object) => {
+interface IInitiatorProps {
+  params: object
+}
+
+const Initiator = ({ params }: IInitiatorProps) => {
   const paramsArr = Object.entries(params)
 
   return (
     <>
       {JSON.stringify(paramsArr) === '[]' ? (
         <Item
-          keyOne='Initiator Params'
-          valOne='Value'
-          keyTwo='Values'
-          valTwo='No input Parameters'
+          keyOne="Initiator Params"
+          valOne="Value"
+          keyTwo="Values"
+          valTwo="No input Parameters"
         />
       ) : (
         paramsArr.map((par, idx) => (
           <Item
+            key={idx}
             keyOne="Initiator Params"
             valOne={par[0]}
             keyTwo="Values"
             valTwo={par[1]}
-            key={idx}
           />
         ))
       )}
@@ -70,48 +79,79 @@ const renderInitiator = (params: object) => {
   )
 }
 
-const renderParams = (params: object) => {
+interface IParamsProps {
+  params?: object
+}
+
+const Params = ({ params }: IParamsProps) => {
   return (
     <div>
-      {Object.entries(params).map((par, idx) => (
-        <Item keyOne="Params" valOne={par[0]} keyTwo="Values" valTwo={par[1]} key={idx} />
+      {Object.entries(params || {}).map((p, idx) => (
+        <Item
+          key={idx}
+          keyOne="Params"
+          valOne={p[0]}
+          keyTwo="Values"
+          valTwo={p[1]}
+        />
       ))}
     </div>
   )
 }
 
-const renderResult = (result: string) => (
-  <Item keyOne="Result" valOne="Task Run Data" keyTwo="Values" valTwo={result} />
-)
+interface IResultProps {
+  run: ITaskRun
+}
 
-const TaskExpansionPanel = ({ children }: { children: IJobRun }) => {
-  const initiator: IInitiator = children.initiator
-  const taskRuns: ITaskRuns = children.taskRuns
+const Result = ({ run }: IResultProps) => {
+  const result = run.result && run.result.data && run.result.data.result
+
+  return (
+    <Item
+      keyOne="Result"
+      valOne="Task Run Data"
+      keyTwo="Values"
+      valTwo={result}
+    />
+  )
+}
+
+interface IProps {
+  jobRun: IJobRun
+}
+
+const TaskExpansionPanel = ({ jobRun }: IProps) => {
+  const initiator = jobRun.initiator
 
   return (
     <Grid container spacing={0}>
       <Grid item xs={12}>
         <StatusItem
           summary={capitalize(initiator.type)}
-          status={children.status}
+          status={jobRun.status}
           borderTop={false}
           confirmations={0}
           minConfirmations={0}
         >
-          {renderInitiator(initiator.params)}
+          <Initiator params={initiator.params} />
         </StatusItem>
       </Grid>
-      {taskRuns.map(taskRun => (
+      {jobRun.taskRuns.map((taskRun: ITaskRun) => (
         <Grid item xs={12} key={taskRun.id}>
           <StatusItem
-            summary={capitalize(taskRun.task.type)}
+            borderTop
+            summary={capitalize(taskRun.type)}
             status={taskRun.status}
             confirmations={taskRun.task.confirmations}
             minConfirmations={taskRun.minimumConfirmations}
           >
             <Grid container direction="column">
-              <Grid item>{renderParams(taskRun.task && taskRun.task.params)}</Grid>
-              <Grid item>{renderResult(taskRun.result && taskRun.result.data && taskRun.result.data.result)}</Grid>
+              <Grid item>
+                {taskRun.task && <Params params={taskRun.task.params} />}
+              </Grid>
+              <Grid item>
+                <Result run={taskRun} />
+              </Grid>
             </Grid>
           </StatusItem>
         </Grid>

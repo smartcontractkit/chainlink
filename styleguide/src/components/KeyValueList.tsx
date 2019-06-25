@@ -7,12 +7,12 @@ import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
-import { titleCase } from 'change-case'
 import CardTitle from './Cards/Title'
+import { titleCase } from 'change-case'
 
-const renderKey = (k, titleize) => (titleize ? titleCase(k) : k)
+const renderKey = (k: string, titleize: boolean) => (titleize ? titleCase(k) : k)
 
-const renderEntries = (entries, titleize) =>
+const renderEntries = (entries: Array<Array<string>>, titleize: boolean) =>
   entries.map(([k, v]) => (
     <TableRow key={k}>
       <Col>{renderKey(k, titleize)}</Col>
@@ -20,7 +20,7 @@ const renderEntries = (entries, titleize) =>
     </TableRow>
   ))
 
-const renderBody = (entries, error, titleize) => {
+const renderBody = (entries: Array<Array<string>>, error: string, titleize: boolean) => {
   if (error) {
     return <ErrorRow>{error}</ErrorRow>
   } else if (entries.length === 0) {
@@ -30,7 +30,11 @@ const renderBody = (entries, error, titleize) => {
   }
 }
 
-const SpanRow = ({ children }) => (
+interface ISpanRowProps {
+  children: React.ReactNode
+}
+
+const SpanRow = ({ children }: ISpanRowProps) => (
   <TableRow>
     <TableCell component="th" scope="row" colSpan={3}>
       {children}
@@ -40,9 +44,17 @@ const SpanRow = ({ children }) => (
 
 const FetchingRow = () => <SpanRow>...</SpanRow>
 
-const ErrorRow = ({ children }) => <SpanRow>{children}</SpanRow>
+interface IErrorRowProps {
+  children: React.ReactNode
+}
 
-const Col = ({ children }) => (
+const ErrorRow = ({ children }: IErrorRowProps) => <SpanRow>{children}</SpanRow>
+
+interface IColProps {
+  children: React.ReactNode
+}
+
+const Col = ({ children }: IColProps) => (
   <TableCell>
     <Typography variant="body1">
       <span>{children}</span>
@@ -50,7 +62,11 @@ const Col = ({ children }) => (
   </TableCell>
 )
 
-const HeadCol = ({ children }) => (
+interface IHeadColProps {
+  children: React.ReactNode
+}
+
+const HeadCol = ({ children }: IHeadColProps) => (
   <TableCell>
     <Typography variant="body1" color="textSecondary">
       {children}
@@ -58,13 +74,15 @@ const HeadCol = ({ children }) => (
   </TableCell>
 )
 
-const KeyValueList = ({
-  entries,
-  error = '',
-  showHead = false,
-  title,
-  titleize = false
-}) => (
+interface IProps {
+  entries: Array<Array<string>>
+  titleize: boolean
+  showHead: boolean
+  title?: string
+  error?: string
+}
+
+const KeyValueList = ({ entries, error = '', showHead = false, title, titleize = false } : IProps) => (
   <Card>
     {title && <CardTitle divider>{title}</CardTitle>}
 

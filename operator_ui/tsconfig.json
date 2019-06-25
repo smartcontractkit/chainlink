@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "declaration": true,
     "target": "es2015",
     "module": "esnext",
     "lib": ["es2015", "dom"],
@@ -14,7 +15,15 @@
     "strict": true,
     "esModuleInterop": true
   },
+  "include": [
+    "src/**/*"
+  ],
+  "references": [
+    { "path": "../styleguide" }
+  ],
   "files": [
+    "@types/json-api-normalizer.d.ts",
+    "@types/redux-object.d.ts",
     "@types/use-react-hooks.d.ts"
   ]
 }

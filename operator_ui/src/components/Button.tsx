@@ -1,12 +1,18 @@
 import React from 'react'
-import PropTypes from 'prop-types'
-import { withStyles } from '@material-ui/core/styles'
-import MuiButton from '@material-ui/core/Button'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
+import MuiButton, {
+  ButtonProps as MuiButtonProps
+} from '@material-ui/core/Button'
 import pick from 'lodash/pick'
 import classNames from 'classnames'
 
-const styles = theme => {
-  return {
+const styles = (theme: Theme) =>
+  createStyles({
     default: {
       borderColor: '#BECAD6',
       '&:hover': {
@@ -44,8 +50,7 @@ const styles = theme => {
     defaultRipple: {
       color: '#818EA3'
     }
-  }
-}
+  })
 
 const PROPS_WHITELIST = ['component', 'disabled', 'onClick', 'type', 'href']
 const DEFAULT = 'default'
@@ -68,7 +73,7 @@ const DEFAULT_MUI_PROPS = {
   color: 'secondary'
 }
 
-const buildMuiProps = props => {
+const buildMuiProps = (props: any) => {
   switch (props.variant) {
     case PRIMARY:
       return PRIMARY_MUI_PROPS
@@ -77,35 +82,56 @@ const buildMuiProps = props => {
     case DANGER:
       return DANGER_MUI_PROPS
     default: {
-      return Object.assign({}, DEFAULT_MUI_PROPS, {
-        TouchRippleProps: {
-          classes: {
-            root: props.classes.defaultRipple
-          }
-        }
-      })
+      return DEFAULT_MUI_PROPS
+      // return Object.assign({}, DEFAULT_MUI_PROPS, {
+      //   TouchRippleProps: {
+      //     classes: {
+      //       root: props.classes.defaultRipple
+      //     }
+      //   }
+      // })
     }
   }
 }
 
-const Button = props => {
+export type ButtonVariant =
+  | 'text'
+  | 'flat'
+  | 'outlined'
+  | 'contained'
+  | 'raised'
+  | 'fab'
+  | 'extendedFab'
+  | 'danger' // This seems to be a custom variant
+
+interface IProps extends WithStyles<typeof styles> {
+  children?: React.ReactNode
+  className?: string
+  variant?: ButtonVariant
+  component?: any
+  // component?: React.ReactNode
+  // component?: React.ReactType<MuiButtonProps>
+  type?: any
+  onClick?: any
+}
+
+const Button = (props: IProps) => {
   const wprops = pick(props, PROPS_WHITELIST)
-  const muiProps = Object.assign({}, wprops, buildMuiProps(props))
-  const className = classNames(props.classes[props.variant], props.className)
+  // const muiProps = Object.assign({}, wprops, buildMuiProps(props))
+  const muiProps = { type: props.type }
+  const variant = props.variant || DEFAULT
+  // const className = classNames(
+  //   props.classes[variant as keyof typeof props.classes],
+  //   props.className
+  // )
 
-  return (
-    <MuiButton {...muiProps} className={className}>
-      {props.children}
-    </MuiButton>
-  )
-}
-
-Button.propTypes = {
-  variant: PropTypes.oneOf(VARIANTS)
-}
-
-Button.defaultProps = {
-  variant: DEFAULT
+  // return (
+  //   <MuiButton {...muiProps} className={className}>
+  //     {props.children}
+  //   </MuiButton>
+  // )
+  return <MuiButton {...muiProps}>{props.children}</MuiButton>
+  // return <MuiButton>{props.children}</MuiButton>
 }
 
 export default withStyles(styles)(Button)

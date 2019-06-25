@@ -1,5 +1,3 @@
-import { common, green, grey } from '@material-ui/core/colors'
-import { darken } from '@material-ui/core/styles/colorManipulator'
 import spacing from '@material-ui/core/styles/spacing'
 import { GridSpacing } from '@material-ui/core/Grid'
 import { Shadows } from '@material-ui/core/styles/shadows'

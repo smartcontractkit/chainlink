@@ -1,8 +1,13 @@
 import React from 'react'
-import { withStyles, WithStyles } from '@material-ui/core/styles'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
 import MuiTooltip from '@material-ui/core/Tooltip'
 
-const styles = ({ palette, shadows, typography }) => ({
+const styles = ({ palette, shadows, typography }: Theme) => createStyles({
   lightTooltip: {
     background: palette.primary.contrastText,
     color: palette.text.primary,
@@ -11,7 +16,12 @@ const styles = ({ palette, shadows, typography }) => ({
   }
 })
 
-const Tooltip = ({ title, children, classes }) => {
+interface IProps extends WithStyles<typeof styles> {
+  children: React.ReactElement<any>
+  title: string
+}
+
+const Tooltip = ({ title, children, classes }: IProps) => {
   return (
     <MuiTooltip title={title} classes={{ tooltip: classes.lightTooltip }}>
       {children}

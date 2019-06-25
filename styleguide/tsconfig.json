@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "strict": true,
+    "noEmitOnError": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node",
+    "target": "es2017",
+    "module": "es2015",
+    "lib": ["es2015", "es2016", "es2017", "es2018", "dom"],
+    "jsx": "preserve",
+    "sourceMap": true,
+    "removeComments": false
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "files": [
+    "@types/react-time-ago.d.ts"
+  ]
+}
