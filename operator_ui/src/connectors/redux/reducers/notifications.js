@@ -5,7 +5,7 @@ import {
   NOTIFY_ERROR
 } from 'actions'
 import { set } from 'utils/storage'
-import { BadRequestError } from 'errors'
+import { BadRequestError } from '../../../api/errors'
 
 const initialState = {
   errors: [],

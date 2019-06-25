@@ -75,7 +75,7 @@ func responseToRunResult(body []byte, input *models.RunResult) error {
 	}
 
 	if brr.RunResult.Data.Exists() && !brr.RunResult.Data.IsObject() {
-		input.ApplyResult(brr.RunResult.Data.String())
+		input.CompleteWithResult(brr.RunResult.Data.String())
 	}
 
 	return input.Merge(brr.RunResult)

@@ -138,7 +138,7 @@ type whitelist struct {
 	LogToDisk                bool            `json:"logToDisk"`
 	MinimumContractPayment   *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration uint64          `json:"minimumRequestExpiration"`
-	MinIncomingConfirmations uint64          `json:"minIncomingConfirmations"`
+	MinIncomingConfirmations uint32          `json:"minIncomingConfirmations"`
 	MinOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
 	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
 	Port                     uint16          `json:"chainlinkPort"`
@@ -240,10 +240,9 @@ func (c *ConfigWhitelist) SetID(value string) error {
 	return nil
 }
 
-// JobSpec holds the JobSpec definition and each run associated with that Job.
+// JobSpec holds the JobSpec definition
 type JobSpec struct {
 	models.JobSpec
-	Runs []JobRun `json:"runs,omitempty"`
 }
 
 // MarshalJSON returns the JSON data of the Job and its Initiators.

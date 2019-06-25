@@ -12,7 +12,7 @@ import (
 type BridgeTypeRequest struct {
 	Name                   TaskType     `json:"name"`
 	URL                    WebURL       `json:"url"`
-	Confirmations          uint64       `json:"confirmations"`
+	Confirmations          uint32       `json:"confirmations"`
 	MinimumContractPayment *assets.Link `json:"minimumContractPayment"`
 }
 
@@ -37,7 +37,7 @@ func (bt *BridgeTypeRequest) SetID(value string) error {
 type BridgeTypeAuthentication struct {
 	Name                   TaskType     `json:"name"`
 	URL                    WebURL       `json:"url"`
-	Confirmations          uint64       `json:"confirmations"`
+	Confirmations          uint32       `json:"confirmations"`
 	IncomingToken          string       `json:"incomingToken"`
 	OutgoingToken          string       `json:"outgoingToken"`
 	MinimumContractPayment *assets.Link `json:"minimumContractPayment"`
@@ -65,7 +65,7 @@ func (bt *BridgeTypeAuthentication) SetID(value string) error {
 type BridgeType struct {
 	Name                   TaskType     `json:"name" gorm:"primary_key"`
 	URL                    WebURL       `json:"url"`
-	Confirmations          uint64       `json:"confirmations"`
+	Confirmations          uint32       `json:"confirmations"`
 	IncomingTokenHash      string       `json:"-"`
 	Salt                   string       `json:"-"`
 	OutgoingToken          string       `json:"outgoingToken"`

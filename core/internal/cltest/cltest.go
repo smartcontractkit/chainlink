@@ -80,12 +80,16 @@ type TestConfig struct {
 
 // NewConfig returns a new TestConfig
 func NewConfig(t testing.TB) (*TestConfig, func()) {
+	t.Helper()
+
 	wsserver, cleanup := newWSServer()
 	return NewConfigWithWSServer(t, wsserver), cleanup
 }
 
 // NewConfigWithWSServer return new config with specified wsserver
 func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig {
+	t.Helper()
+
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	rawConfig := strpkg.NewConfig()
@@ -158,6 +162,8 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 
 // NewApplication creates a New TestApplication along with a NewConfig
 func NewApplication(t testing.TB) (*TestApplication, func()) {
+	t.Helper()
+
 	c, cfgCleanup := NewConfig(t)
 	app, cleanup := NewApplicationWithConfig(t, c)
 	return app, func() {
@@ -168,6 +174,8 @@ func NewApplication(t testing.TB) (*TestApplication, func()) {
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 func NewApplicationWithKey(t testing.TB) (*TestApplication, func()) {
+	t.Helper()
+
 	config, cfgCleanup := NewConfig(t)
 	app, cleanup := NewApplicationWithConfigAndKey(t, config)
 	return app, func() {
@@ -179,6 +187,8 @@ func NewApplicationWithKey(t testing.TB) (*TestApplication, func()) {
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testconfig
 // it will also provide an unlocked account on the keystore
 func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig) (*TestApplication, func()) {
+	t.Helper()
+
 	app, cleanup := NewApplicationWithConfig(t, tc)
 	app.ImportKey(key3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea)
 	return app, cleanup
@@ -186,6 +196,8 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig) (*TestApplicat
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config
 func NewApplicationWithConfig(t testing.TB, tc *TestConfig) (*TestApplication, func()) {
+	t.Helper()
+
 	WipePostgresDatabase(tc.Config)
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
 	app := services.NewApplication(tc.Config, func(app services.Application) {
@@ -215,10 +227,14 @@ func newServer(app services.Application) *httptest.Server {
 }
 
 func (ta *TestApplication) NewBox() packr.Box {
+	ta.t.Helper()
+
 	return packr.NewBox("../fixtures/operator_ui/dist")
 }
 
 func (ta *TestApplication) StartAndConnect() error {
+	ta.t.Helper()
+
 	err := ta.Start()
 	if err != nil {
 		return err
@@ -235,6 +251,22 @@ func (ta *TestApplication) WaitForConnection() error {
 	case <-ta.connectedChannel:
 		return nil
 	}
+}
+
+func (ta *TestApplication) MockStartAndConnect() (*EthMock, error) {
+	chainID := Int(ta.Config.ChainID())
+	ethMock := ta.MockEthClient()
+	ethMock.Context("TestApplication#MockStartAndConnect()", func(ethMock *EthMock) {
+		ethMock.Register("eth_chainId", *chainID)
+		ethMock.Register("eth_getTransactionCount", `0x0`)
+	})
+
+	err := ta.Start()
+	if err != nil {
+		return ethMock, err
+	}
+
+	return ethMock, ta.WaitForConnection()
 }
 
 // Stop will stop the test application and perform cleanup
@@ -275,9 +307,12 @@ func (ta *TestApplication) AddUnlockedKey() {
 }
 
 func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
+	ta.t.Helper()
+
 	ta.MustSeedUserSession()
 	return HTTPClientCleaner{
 		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Config),
+		t:          ta.t,
 	}
 }
 
@@ -331,6 +366,8 @@ func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
 
 // NewStore creates a new store
 func NewStore(t testing.TB) (*strpkg.Store, func()) {
+	t.Helper()
+
 	c, cleanup := NewConfig(t)
 	store, storeCleanup := NewStoreWithConfig(c)
 	return store, func() {
@@ -340,6 +377,8 @@ func NewStore(t testing.TB) (*strpkg.Store, func()) {
 }
 
 func cleanUpStore(t testing.TB, store *strpkg.Store) {
+	t.Helper()
+
 	defer func() {
 		if err := os.RemoveAll(store.Config.RootDir()); err != nil {
 			logger.Warn("unable to clear test store:", err)
@@ -372,6 +411,8 @@ END $$;
 
 // NewJobSubscriber creates a new JobSubscriber
 func NewJobSubscriber(t testing.TB) (*strpkg.Store, services.JobSubscriber, func()) {
+	t.Helper()
+
 	store, cl := NewStore(t)
 	nl := services.NewJobSubscriber(store)
 	return store, nl, func() {
@@ -388,6 +429,8 @@ type CommonJSON struct {
 
 // ParseCommonJSON will unmarshall given body into CommonJSON
 func ParseCommonJSON(t testing.TB, body io.Reader) CommonJSON {
+	t.Helper()
+
 	b, err := ioutil.ReadAll(body)
 	require.NoError(t, err)
 	var respJSON CommonJSON
@@ -396,6 +439,8 @@ func ParseCommonJSON(t testing.TB, body io.Reader) CommonJSON {
 }
 
 func ParseJSON(t testing.TB, body io.Reader) models.JSON {
+	t.Helper()
+
 	b, err := ioutil.ReadAll(body)
 	require.NoError(t, err)
 	return models.JSON{Result: gjson.ParseBytes(b)}
@@ -408,6 +453,8 @@ type ErrorsJSON struct {
 
 // ParseErrorsJSON will unmarshall given body into ErrorsJSON
 func ParseErrorsJSON(t testing.TB, body io.Reader) ErrorsJSON {
+	t.Helper()
+
 	b, err := ioutil.ReadAll(body)
 	require.NoError(t, err)
 	var respJSON ErrorsJSON
@@ -416,6 +463,8 @@ func ParseErrorsJSON(t testing.TB, body io.Reader) ErrorsJSON {
 }
 
 func ParseJSONAPIErrors(t testing.TB, body io.Reader) *models.JSONAPIErrors {
+	t.Helper()
+
 	b, err := ioutil.ReadAll(body)
 	require.NoError(t, err)
 	var respJSON models.JSONAPIErrors
@@ -425,12 +474,16 @@ func ParseJSONAPIErrors(t testing.TB, body io.Reader) *models.JSONAPIErrors {
 
 // MustReadFile loads a file but should never fail
 func MustReadFile(t testing.TB, file string) []byte {
+	t.Helper()
+
 	content, err := ioutil.ReadFile(file)
 	require.NoError(t, err)
 	return content
 }
 
 func CopyFile(t testing.TB, src, dst string) {
+	t.Helper()
+
 	from, err := os.Open(src)
 	require.NoError(t, err)
 	defer from.Close()
@@ -469,12 +522,16 @@ func (r *HTTPClientCleaner) Delete(path string) (*http.Response, func()) {
 }
 
 func bodyCleaner(t testing.TB, resp *http.Response, err error) (*http.Response, func()) {
+	t.Helper()
+
 	require.NoError(t, err)
 	return resp, func() { require.NoError(t, resp.Body.Close()) }
 }
 
 // ParseResponseBody will parse the given response into a byte slice
 func ParseResponseBody(t testing.TB, resp *http.Response) []byte {
+	t.Helper()
+
 	b, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
 	return b
@@ -482,6 +539,8 @@ func ParseResponseBody(t testing.TB, resp *http.Response) []byte {
 
 // ParseJSONAPIResponse parses the response and returns the JSONAPI resource.
 func ParseJSONAPIResponse(t testing.TB, resp *http.Response, resource interface{}) error {
+	t.Helper()
+
 	input := ParseResponseBody(t, resp)
 	err := jsonapi.Unmarshal(input, resource)
 	if err != nil {
@@ -534,6 +593,8 @@ func ReadLogs(app *TestApplication) (string, error) {
 
 // FindJob returns JobSpec for given JobID
 func FindJob(t testing.TB, s *strpkg.Store, id string) models.JobSpec {
+	t.Helper()
+
 	j, err := s.FindJob(id)
 	require.NoError(t, err)
 
@@ -542,6 +603,8 @@ func FindJob(t testing.TB, s *strpkg.Store, id string) models.JobSpec {
 
 // FindJobRun returns JobRun for given JobRunID
 func FindJobRun(t testing.TB, s *strpkg.Store, id string) models.JobRun {
+	t.Helper()
+
 	j, err := s.FindJobRun(id)
 	require.NoError(t, err)
 
@@ -549,6 +612,8 @@ func FindJobRun(t testing.TB, s *strpkg.Store, id string) models.JobRun {
 }
 
 func FindServiceAgreement(t testing.TB, s *strpkg.Store, id string) models.ServiceAgreement {
+	t.Helper()
+
 	sa, err := s.FindServiceAgreement(id)
 	require.NoError(t, err)
 
@@ -557,6 +622,8 @@ func FindServiceAgreement(t testing.TB, s *strpkg.Store, id string) models.Servi
 
 // CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
 func CreateJobSpecViaWeb(t testing.TB, app *TestApplication, job models.JobSpec) models.JobSpec {
+	t.Helper()
+
 	marshaled, err := json.Marshal(&job)
 	assert.NoError(t, err)
 	return CreateSpecViaWeb(t, app, string(marshaled))
@@ -564,6 +631,8 @@ func CreateJobSpecViaWeb(t testing.TB, app *TestApplication, job models.JobSpec)
 
 // CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
 func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.JobSpec {
+	t.Helper()
+
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBufferString(spec))
 	defer cleanup()
@@ -578,6 +647,7 @@ func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.Jo
 // CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
 func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
 	t.Helper()
+
 	bodyBuffer := &bytes.Buffer{}
 	if len(body) > 0 {
 		bodyBuffer = bytes.NewBufferString(body[0])
@@ -596,6 +666,8 @@ func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, bo
 
 // CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
 func CreateHelloWorldJobViaWeb(t testing.TB, app *TestApplication, url string) models.JobSpec {
+	t.Helper()
+
 	buffer := MustReadFile(t, "testdata/hello_world_job.json")
 
 	var job models.JobSpec
@@ -636,6 +708,8 @@ func CreateBridgeTypeViaWeb(
 	app *TestApplication,
 	payload string,
 ) *models.BridgeTypeAuthentication {
+	t.Helper()
+
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
@@ -656,6 +730,8 @@ func WaitForJobRunToComplete(
 	store *strpkg.Store,
 	jr models.JobRun,
 ) models.JobRun {
+	t.Helper()
+
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusCompleted)
 }
 
@@ -665,6 +741,8 @@ func WaitForJobRunToPendBridge(
 	store *strpkg.Store,
 	jr models.JobRun,
 ) models.JobRun {
+	t.Helper()
+
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingBridge)
 }
 
@@ -674,6 +752,8 @@ func WaitForJobRunToPendConfirmations(
 	store *strpkg.Store,
 	jr models.JobRun,
 ) models.JobRun {
+	t.Helper()
+
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingConfirmations)
 }
 
@@ -683,6 +763,8 @@ func WaitForJobRunToPendSleep(
 	store *strpkg.Store,
 	jr models.JobRun,
 ) models.JobRun {
+	t.Helper()
+
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingSleep)
 }
 
@@ -694,6 +776,7 @@ func WaitForJobRunStatus(
 	status models.RunStatus,
 ) models.JobRun {
 	t.Helper()
+
 	var err error
 	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
@@ -733,6 +816,8 @@ func JobRunStaysPendingConfirmations(
 	store *strpkg.Store,
 	jr models.JobRun,
 ) models.JobRun {
+	t.Helper()
+
 	return JobRunStays(t, store, jr, models.RunStatusPendingConfirmations)
 }
 
@@ -850,6 +935,8 @@ func AssertSyncEventCountStays(
 
 // ParseISO8601 given the time string it Must parse the time and return it
 func ParseISO8601(t testing.TB, s string) time.Time {
+	t.Helper()
+
 	tm, err := time.Parse(time.RFC3339Nano, s)
 	require.NoError(t, err)
 	return tm
@@ -862,6 +949,8 @@ func NullableTime(t time.Time) null.Time {
 
 // ParseNullableTime given a time string parse it into a null.Time
 func ParseNullableTime(t testing.TB, s string) null.Time {
+	t.Helper()
+
 	return NullableTime(ParseISO8601(t, s))
 }
 
@@ -889,6 +978,8 @@ func NewBlockHeader(number int) *models.BlockHeader {
 
 // GetAccountAddress returns Address of the account in the keystore of the passed in store
 func GetAccountAddress(t testing.TB, store *strpkg.Store) common.Address {
+	t.Helper()
+
 	account, err := store.KeyStore.GetFirstAccount()
 	require.NoError(t, err)
 
@@ -933,6 +1024,8 @@ func isHex(str string) bool {
 // AssertValidHash checks that a string matches a specific hash format,
 // includes a leading 0x and has a specific length (in bytes)
 func AssertValidHash(t testing.TB, length int, hash string) {
+	t.Helper()
+
 	if !hasHexPrefix(hash) {
 		assert.FailNowf(t, "Missing hash prefix", `"%+v" is missing hash prefix`, hash)
 	}
@@ -949,6 +1042,8 @@ func AssertValidHash(t testing.TB, length int, hash string) {
 // AssertServerResponse is used to match against a client response, will print
 // any errors returned if the request fails.
 func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode int) {
+	t.Helper()
+
 	if resp.StatusCode == expectedStatusCode {
 		return
 	}
@@ -998,12 +1093,16 @@ func MustGenerateSessionCookie(value string) *http.Cookie {
 }
 
 func NormalizedJSON(t testing.TB, input []byte) string {
+	t.Helper()
+
 	normalized, err := utils.NormalizedJSON(input)
 	require.NoError(t, err)
 	return normalized
 }
 
 func AssertError(t testing.TB, want bool, err error) {
+	t.Helper()
+
 	if want {
 		assert.Error(t, err)
 	} else {
@@ -1012,6 +1111,8 @@ func AssertError(t testing.TB, want bool, err error) {
 }
 
 func UnauthenticatedPatch(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
+	t.Helper()
+
 	client := http.Client{}
 	request, err := http.NewRequest("PATCH", url, body)
 	require.NoError(t, err)
@@ -1025,6 +1126,8 @@ func UnauthenticatedPatch(t testing.TB, url string, body io.Reader, headers map[
 }
 
 func MustParseDuration(t testing.TB, durationStr string) time.Duration {
+	t.Helper()
+
 	duration, err := time.ParseDuration(durationStr)
 	require.NoError(t, err)
 	return duration
@@ -1039,6 +1142,8 @@ func NewSession(optionalSessionID ...string) models.Session {
 }
 
 func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {
+	t.Helper()
+
 	var all []models.JobSpec
 	err := store.ORM.DB.Find(&all).Error
 	require.NoError(t, err)
@@ -1046,6 +1151,8 @@ func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {
 }
 
 func MustAllJobsWithStatus(t testing.TB, store *strpkg.Store, statuses ...models.RunStatus) []*models.JobRun {
+	t.Helper()
+
 	var runs []*models.JobRun
 	err := store.UnscopedJobRunsWithStatus(func(jr *models.JobRun) {
 		runs = append(runs, jr)
@@ -1055,6 +1162,8 @@ func MustAllJobsWithStatus(t testing.TB, store *strpkg.Store, statuses ...models
 }
 
 func GetLastTxAttempt(t testing.TB, store *strpkg.Store) models.TxAttempt {
+	t.Helper()
+
 	var attempt models.TxAttempt
 	var count int
 	err := store.ORM.DB.Order("created_at desc").First(&attempt).Count(&count).Error

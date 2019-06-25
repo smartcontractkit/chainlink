@@ -5,7 +5,7 @@
   "error": null,
   "createdAt": "2019-04-01T22:07:04Z",
   "amount": null,
-  "finishedAt": "2018-04-01T22:07:04Z",
+  "finishedAt": null,
   "initiator": {
     "type": "runlog",
     "requestId": "RequestID",

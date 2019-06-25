@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
-import RecentActivity from 'components/Dashboards/RecentActivity'
+import Activity from 'components/Dashboards/Activity'
 import TokenBalanceCard from 'components/Cards/TokenBalance'
 import RecentlyCreatedJobs from 'components/Jobs/RecentlyCreated'
 import Footer from 'components/Footer'
@@ -14,6 +14,7 @@ import {
   fetchAccountBalance
 } from 'actions'
 import accountBalanceSelector from 'selectors/accountBalance'
+import dashboardJobRunsCountSelector from 'selectors/dashboardJobRunsCount'
 import recentJobRunsSelector from 'selectors/recentJobRuns'
 import recentlyCreatedJobsSelector from 'selectors/recentlyCreatedJobs'
 import { useHooks, useEffect } from 'use-react-hooks'
@@ -30,7 +31,11 @@ export const Index = useHooks(props => {
     <Content>
       <Grid container>
         <Grid item xs={9}>
-          <RecentActivity runs={props.recentJobRuns} />
+          <Activity
+            runs={props.recentJobRuns}
+            pageSize={props.recentJobRunsCount}
+            count={props.jobRunsCount}
+          />
         </Grid>
         <Grid item xs={3}>
           <Grid container>
@@ -60,6 +65,7 @@ export const Index = useHooks(props => {
 Index.propTypes = {
   accountBalance: PropTypes.object,
   recentJobRunsCount: PropTypes.number.isRequired,
+  jobRunsCount: PropTypes.number,
   recentJobRuns: PropTypes.array,
   recentlyCreatedJobs: PropTypes.array,
   recentlyCreatedPageSize: PropTypes.number
@@ -73,6 +79,7 @@ Index.defaultProps = {
 const mapStateToProps = state => {
   return {
     accountBalance: accountBalanceSelector(state),
+    jobRunsCount: dashboardJobRunsCountSelector(state),
     recentJobRuns: recentJobRunsSelector(state),
     recentlyCreatedJobs: recentlyCreatedJobsSelector(state)
   }

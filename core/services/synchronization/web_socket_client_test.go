@@ -20,7 +20,7 @@ func TestWebSocketClient_StartCloseStart(t *testing.T) {
 	require.NoError(t, wsclient.Start())
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
-	})
+	}, 1*time.Second)
 	require.NoError(t, wsclient.Close())
 
 	// restart after client disconnect
@@ -39,7 +39,7 @@ func TestWebSocketClient_ReconnectLoop(t *testing.T) {
 	require.NoError(t, wsclient.Start())
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
-	})
+	}, 1*time.Second)
 
 	// reconnect after server disconnect
 	wsserver.WriteCloseMessage()

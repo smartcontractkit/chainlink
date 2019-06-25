@@ -1,6 +1,11 @@
 import React from 'react'
-import PropTypes from 'prop-types'
-import { withStyles } from '@material-ui/core/styles'
+import { useHooks, useState } from 'use-react-hooks'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
 import { Link } from 'react-router-dom'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
@@ -12,96 +17,61 @@ import Typography from '@material-ui/core/Typography'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import ListItemText from '@material-ui/core/ListItemText'
-import Drawer from '@material-ui/core/Drawer'
+import MuiDrawer from '@material-ui/core/Drawer'
 import IconButton from '@material-ui/core/IconButton'
 import MenuIcon from '@material-ui/icons/Menu'
 import Portal from '@material-ui/core/Portal'
-import LoadingBar from 'components/LoadingBar'
-import MainLogo from 'components/Logos/Main'
-import AvatarMenu from 'components/AvatarMenu'
-import { submitSignOut } from 'actions'
-import fetchCountSelector from 'selectors/fetchCount'
 import ReactResizeDetector from 'react-resize-detector'
 import classNames from 'classnames'
-
-const drawerWidth = 240
-
-const styles = theme => {
-  return {
-    appBar: {
-      backgroundColor: theme.palette.common.white,
-      zIndex: theme.zIndex.modal + 1
-    },
-    toolbar: {
-      paddingLeft: theme.spacing.unit * 5,
-      paddingRight: theme.spacing.unit * 5
-    },
-    menuitem: {
-      padding: theme.spacing.unit * 3,
-      display: 'block'
-    },
-    horizontalNav: {
-      paddingTop: 0,
-      paddingBottom: 0
-    },
-    horizontalNavItem: {
-      display: 'inline'
-    },
-    horizontalNavLink: {
-      color: theme.palette.secondary.main,
-      paddingTop: theme.spacing.unit * 3,
-      paddingBottom: theme.spacing.unit * 3,
-      textDecoration: 'none',
-      display: 'inline-block',
-      borderBottom: 'solid 1px',
-      borderBottomColor: theme.palette.common.white,
-      '&:hover': {
-        borderBottomColor: theme.palette.primary.main
-      }
-    },
-    activeNavLink: {
-      color: theme.palette.primary.main,
-      borderBottomColor: theme.palette.primary.main
-    },
-    drawerPaper: {
-      backgroundColor: theme.palette.common.white,
-      paddingTop: theme.spacing.unit * 7,
-      width: drawerWidth
-    },
-    drawerList: {
-      padding: 0
-    }
-  }
-}
+import LoadingBar from '../components/LoadingBar'
+import MainLogo from '../components/Logos/Main'
+import AvatarMenu from '../components/AvatarMenu'
+import { submitSignOut } from '../actions'
+import fetchCountSelector from '../selectors/fetchCount'
 
 const SHARED_NAV_ITEMS = [
   ['/jobs', 'Jobs'],
+  ['/runs', 'Runs'],
   ['/bridges', 'Bridges'],
   ['/transactions', 'Transactions'],
   ['/config', 'Configuration']
 ]
 
-class Header extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = { drawerOpen: false }
-  }
+const drawerStyles = ({ palette, spacing }: Theme) =>
+  createStyles({
+    menuitem: {
+      padding: spacing.unit * 3,
+      display: 'block'
+    },
+    drawerPaper: {
+      backgroundColor: palette.common.white,
+      paddingTop: spacing.unit * 7,
+      width: drawerWidth
+    },
+    drawerList: {
+      padding: 0
+    }
+  })
 
-  setDrawerOpen(isOpen) {
-    this.setState({
-      drawerOpen: isOpen
-    })
-  }
+interface IDrawerProps extends WithStyles<typeof drawerStyles> {
+  authenticated: boolean
+  drawerOpen: boolean
+  toggleDrawer: () => undefined
+  submitSignOut: () => undefined
+}
 
-  render() {
-    const toggleDrawer = () => this.setDrawerOpen(!this.state.drawerOpen)
-    const signOut = () => this.props.submitSignOut()
-    const { classes, fetchCount, url } = this.props
-    const isNavActive = (current, to) => `${to && to.toLowerCase()}` === current
-    const drawer = (
-      <Drawer
+const Drawer = withStyles(drawerStyles)(
+  ({
+    drawerOpen,
+    toggleDrawer,
+    authenticated,
+    classes,
+    submitSignOut
+  }: IDrawerProps) => {
+    return (
+      <MuiDrawer
         anchor="right"
-        open={this.state.drawerOpen}
+        open={drawerOpen}
         classes={{
           paper: classes.drawerPaper
         }}
@@ -120,17 +90,59 @@ class Header extends React.Component {
                 <ListItemText primary={text} />
               </ListItem>
             ))}
-            {this.props.authenticated && (
-              <ListItem button onClick={signOut} className={classes.menuitem}>
+            {authenticated && (
+              <ListItem
+                button
+                onClick={submitSignOut}
+                className={classes.menuitem}
+              >
                 <ListItemText primary="Sign Out" />
               </ListItem>
             )}
           </List>
         </div>
-      </Drawer>
+      </MuiDrawer>
     )
+  }
+)
 
-    const nav = (
+const navStyles = ({ palette, spacing }: Theme) =>
+  createStyles({
+    horizontalNav: {
+      paddingTop: 0,
+      paddingBottom: 0
+    },
+    horizontalNavItem: {
+      display: 'inline'
+    },
+    horizontalNavLink: {
+      color: palette.secondary.main,
+      paddingTop: spacing.unit * 3,
+      paddingBottom: spacing.unit * 3,
+      textDecoration: 'none',
+      display: 'inline-block',
+      borderBottom: 'solid 1px',
+      borderBottomColor: palette.common.white,
+      '&:hover': {
+        borderBottomColor: palette.primary.main
+      }
+    },
+    activeNavLink: {
+      color: palette.primary.main,
+      borderBottomColor: palette.primary.main
+    }
+  })
+
+const isNavActive = (current, to) => `${to && to.toLowerCase()}` === current
+
+interface INavProps extends WithStyles<typeof navStyles> {
+  authenticated: boolean
+  url?: string
+}
+
+const Nav = withStyles(navStyles)(
+  ({ authenticated, url, classes }: INavProps) => {
+    return (
       <Typography variant="body1" component="div">
         <List className={classes.horizontalNav}>
           {SHARED_NAV_ITEMS.map(([to, text]) => (
@@ -146,7 +158,7 @@ class Header extends React.Component {
               </Link>
             </ListItem>
           ))}
-          {this.props.authenticated && (
+          {authenticated && (
             <ListItem className={classes.horizontalNavItem}>
               <AvatarMenu />
             </ListItem>
@@ -154,13 +166,51 @@ class Header extends React.Component {
         </List>
       </Typography>
     )
+  }
+)
+
+const drawerWidth = 240
+
+const styles = ({ palette, spacing, zIndex }: Theme) =>
+  createStyles({
+    appBar: {
+      backgroundColor: palette.common.white,
+      zIndex: zIndex.modal + 1
+    },
+    toolbar: {
+      paddingLeft: spacing.unit * 5,
+      paddingRight: spacing.unit * 5
+    }
+  })
+
+interface IProps extends WithStyles<typeof styles> {
+  fetchCount: number
+  authenticated: boolean
+  drawerContainer: React.ReactNode
+  submitSignOut: () => undefined
+  onResize: () => undefined
+  url?: string
+}
+
+const Header = useHooks(
+  ({
+    authenticated,
+    classes,
+    fetchCount,
+    url,
+    drawerContainer,
+    onResize,
+    submitSignOut
+  }: IProps) => {
+    const [drawerOpen, setDrawerOpen] = useState(false)
+    const toggleDrawer = () => setDrawerOpen(!drawerOpen)
 
     return (
       <AppBar className={classes.appBar} color="default" position="absolute">
         <ReactResizeDetector
           refreshMode="debounce"
           refreshRate={200}
-          onResize={this.props.onResize}
+          onResize={onResize}
           handleHeight
         >
           <LoadingBar fetchCount={fetchCount} />
@@ -183,23 +233,27 @@ class Header extends React.Component {
                         <MenuIcon />
                       </IconButton>
                     </Hidden>
-                    <Hidden smDown>{nav}</Hidden>
+                    <Hidden smDown>
+                      <Nav authenticated={authenticated} url={url} />
+                    </Hidden>
                   </Grid>
                 </Grid>
               </Grid>
             </Grid>
           </Toolbar>
         </ReactResizeDetector>
-        <Portal container={this.props.drawerContainer}>{drawer}</Portal>
+        <Portal container={drawerContainer}>
+          <Drawer
+            toggleDrawer={toggleDrawer}
+            drawerOpen={drawerOpen}
+            authenticated={authenticated}
+            submitSignOut={submitSignOut}
+          />
+        </Portal>
       </AppBar>
     )
   }
-}
-
-Header.propTypes = {
-  onResize: PropTypes.func.isRequired,
-  drawerContainer: PropTypes.object
-}
+)
 
 const mapStateToProps = state => ({
   authenticated: state.authentication.allowed,

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/common"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -64,7 +65,7 @@ func (p SyncJobRunPresenter) initiator() syncInitiatorPresenter {
 func (p SyncJobRunPresenter) tasks() ([]syncTaskRunPresenter, error) {
 	tasks := []syncTaskRunPresenter{}
 	for index, tr := range p.TaskRuns {
-		erp, err := fetchLastEthereumReceipt(tr)
+		erp, err := fetchLatestOutgoingTxHash(tr)
 		if err != nil {
 			return []syncTaskRunPresenter{}, err
 		}
@@ -81,12 +82,14 @@ func (p SyncJobRunPresenter) tasks() ([]syncTaskRunPresenter, error) {
 	return tasks, nil
 }
 
-func fetchLastEthereumReceipt(tr models.TaskRun) (*syncReceiptPresenter, error) {
+func fetchLatestOutgoingTxHash(tr models.TaskRun) (*syncReceiptPresenter, error) {
 	if tr.TaskSpec.Type == "ethtx" {
 		receipts := tr.Result.Data.Get("ethereumReceipts")
 		if receipts.IsArray() {
 			arr := receipts.Array()
 			return formatEthereumReceipt(arr[len(arr)-1].String())
+		} else if latestHash := tr.Result.Data.Get("latestOutgoingTxHash").String(); latestHash != "" {
+			return &syncReceiptPresenter{Hash: common.HexToHash(latestHash)}, nil
 		}
 	}
 	return nil, nil
@@ -136,11 +139,11 @@ type syncInitiatorPresenter struct {
 }
 
 type syncTaskRunPresenter struct {
-	Index                int         `json:"index"`
-	Type                 string      `json:"type"`
-	Status               string      `json:"status"`
-	Error                null.String `json:"error"`
-	Result               interface{} `json:"result,omitempty"`
-	Confirmations        uint64      `json:"confirmations"`
-	MinimumConfirmations uint64      `json:"minimumConfirmations"`
+	Index                int           `json:"index"`
+	Type                 string        `json:"type"`
+	Status               string        `json:"status"`
+	Error                null.String   `json:"error"`
+	Result               interface{}   `json:"result,omitempty"`
+	Confirmations        clnull.Uint32 `json:"confirmations"`
+	MinimumConfirmations clnull.Uint32 `json:"minimumConfirmations"`
 }

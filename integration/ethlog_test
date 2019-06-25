@@ -18,7 +18,7 @@ assert "Echo count" "curl -sS $ECHO_SERVER_URL" $expected_echo_count
 assert "Jobs count" "chainlink -j j | jq length" $expected_job_count
 
 # Check job runs
-assert "EthLog Runs count" "chainlink -j s $jid | jq '.runs | length'" 1
+assert "EthLog Runs count" "chainlink -j lr --jobid $jid | jq length" 1
 
 # Check that the run completed
-assert "Run completed" 'chainlink -j s $jid | jq ".runs[].result.status" | sed s/\"//g' completed
+assert "Run completed" 'chainlink -j lr --jobid $jid | jq ".[].result.status" | sed s/\"//g' completed

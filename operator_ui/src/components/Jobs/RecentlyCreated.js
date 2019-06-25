@@ -61,7 +61,7 @@ const RecentlyCreated = ({ jobs, classes }) => {
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="body1" color="textSecondary">
-                  Created <TimeAgo>{j.createdAt}</TimeAgo>
+                  Created <TimeAgo tooltip>{j.createdAt}</TimeAgo>
                 </Typography>
               </Grid>
             </Grid>

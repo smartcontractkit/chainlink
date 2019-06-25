@@ -49,12 +49,12 @@ type BaseAdapter interface {
 // PipelineAdapter wraps a BaseAdapter with requirements for execution in the pipeline.
 type PipelineAdapter struct {
 	BaseAdapter
-	minConfs           uint64
+	minConfs           uint32
 	minContractPayment *assets.Link
 }
 
 // MinConfs returns the private attribute
-func (p PipelineAdapter) MinConfs() uint64 {
+func (p PipelineAdapter) MinConfs() uint32 {
 	return p.minConfs
 }
 

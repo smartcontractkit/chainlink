@@ -60,7 +60,7 @@ type ConfigSchema struct {
 	LogLevel                 LogLevel       `env:"LOG_LEVEL" default:"info"`
 	LogToDisk                bool           `env:"LOG_TO_DISK" default:"true"`
 	LogSQLStatements         bool           `env:"LOG_SQL" default:"false"`
-	MinIncomingConfirmations uint64         `env:"MIN_INCOMING_CONFIRMATIONS" default:"3"`
+	MinIncomingConfirmations uint32         `env:"MIN_INCOMING_CONFIRMATIONS" default:"3"`
 	MinOutgoingConfirmations uint64         `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
 	MinimumContractPayment   assets.Link    `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
 	MinimumRequestExpiration uint64         `env:"MINIMUM_REQUEST_EXPIRATION" default:"300" `
@@ -139,7 +139,7 @@ func (c Config) BridgeResponseURL() *url.URL {
 
 // ChainID represents the chain ID to use for transactions.
 func (c Config) ChainID() uint64 {
-	return uint64(c.viper.GetInt64(c.envVarName("ChainID")))
+	return c.viper.GetUint64(c.envVarName("ChainID"))
 }
 
 // ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
@@ -184,7 +184,7 @@ func (c Config) MinimumServiceDuration() time.Duration {
 // EthGasBumpThreshold represents the maximum amount a transaction's ETH amount
 // should be increased in order to facilitate a transaction.
 func (c Config) EthGasBumpThreshold() uint64 {
-	return uint64(c.viper.GetInt64(c.envVarName("EthGasBumpThreshold")))
+	return c.viper.GetUint64(c.envVarName("EthGasBumpThreshold"))
 }
 
 // EthGasBumpWei represents the intervals in which ETH should be increased when
@@ -263,15 +263,15 @@ func (c Config) LogSQLStatements() bool {
 // MinIncomingConfirmations represents the minimum number of block
 // confirmations that need to be recorded since a job run started before a task
 // can proceed.
-func (c Config) MinIncomingConfirmations() uint64 {
-	return uint64(c.viper.GetInt64(c.envVarName("MinIncomingConfirmations")))
+func (c Config) MinIncomingConfirmations() uint32 {
+	return c.viper.GetUint32(c.envVarName("MinIncomingConfirmations"))
 }
 
 // MinOutgoingConfirmations represents the minimum number of block
 // confirmations that need to be recorded on an outgoing transaction before a
 // task is completed.
 func (c Config) MinOutgoingConfirmations() uint64 {
-	return uint64(c.viper.GetInt64(c.envVarName("MinOutgoingConfirmations")))
+	return c.viper.GetUint64(c.envVarName("MinOutgoingConfirmations"))
 }
 
 // MinimumContractPayment represents the minimum amount of ETH that must be
@@ -282,7 +282,7 @@ func (c Config) MinimumContractPayment() *assets.Link {
 
 // MinimumRequestExpiration is the minimum allowed request expiration for a Service Agreement.
 func (c Config) MinimumRequestExpiration() uint64 {
-	return uint64(c.viper.GetInt64(c.envVarName("MinimumRequestExpiration")))
+	return c.viper.GetUint64(c.envVarName("MinimumRequestExpiration"))
 }
 
 // Port represents the port Chainlink should listen on for client requests.

@@ -135,7 +135,7 @@
 
 [[override]]
   name = "github.com/spf13/viper.git"
-  version = "1.3.1"
+  version = "1.4.0"
 
 [[override]]
   name = "github.com/mattn/go-sqlite3"
@@ -152,6 +152,10 @@
 [[constraint]]
   name = "gopkg.in/gormigrate.v1"
   version = "1.5.0"
+
+[[constraint]]
+  name = "github.com/jinzhu/gorm"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/ulule/limiter"

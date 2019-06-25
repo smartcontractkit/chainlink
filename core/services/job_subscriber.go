@@ -111,7 +111,7 @@ func (js *jobSubscriber) OnNewHead(head *models.Head) {
 			logger.Errorf("JobSubscriber.OnNewHead: %v", err)
 		}
 
-	}, models.RunStatusPendingConfirmations)
+	}, models.RunStatusPendingConnection, models.RunStatusPendingConfirmations)
 
 	if err != nil {
 		logger.Errorf("error fetching pending job runs: %v", err)

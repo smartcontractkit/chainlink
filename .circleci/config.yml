@@ -5,7 +5,7 @@ jobs:
   go-sqlite:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.20
+      - image: smartcontract/builder:1.0.21
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -23,9 +23,10 @@ jobs:
       - store_artifacts:
           path: /tmp/go_test.txt
   go-sqlite-race:
+    resource_class: large
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.20
+      - image: smartcontract/builder:1.0.21
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -44,7 +45,7 @@ jobs:
   go-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.20
+      - image: smartcontract/builder:1.0.21
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -67,7 +68,7 @@ jobs:
   rust:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.20
+      - image: smartcontract/builder:1.0.21
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -84,7 +85,7 @@ jobs:
   sgx:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.20
+      - image: smartcontract/builder:1.0.21
     environment:
       SGX_ENABLED: yes
       # XXX: These are set in the base image but circleci seems to wipe them out
@@ -108,7 +109,7 @@ jobs:
   geth-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.20
+      - image: smartcontract/builder:1.0.21
         environment:
           TYPEORM_NAME: ci
           TYPEORM_HOST: explorerdb
@@ -139,7 +140,7 @@ jobs:
   parity-postgres:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.20
+      - image: smartcontract/builder:1.0.21
         environment:
           TYPEORM_NAME: ci
           TYPEORM_HOST: explorerdb
@@ -174,7 +175,7 @@ jobs:
   truffle:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.20
+      - image: smartcontract/builder:1.0.21
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -191,7 +192,7 @@ jobs:
   operator-ui:
     working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.20
+      - image: smartcontract/builder:1.0.21
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -237,13 +238,13 @@ jobs:
           command: yarn lint
       - run:
           name: Run Server Tests
-          command: yarn test-ci
+          command: yarn test-ci:silent
       - run:
           name: Run Client Tests
-          command: cd client && yarn test-ci
+          command: cd client && yarn test-ci:silent
       - run:
           name: Run E2E Tests
-          command: cd client && yarn build && cd .. && yarn test-ci:e2e
+          command: cd client && yarn build && cd .. && yarn test-ci:e2e:silent
   build-explorer-image:
     machine: true
     steps:
@@ -253,7 +254,7 @@ jobs:
           command: cd explorer && docker build .
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.20
+      - image: smartcontract/builder:1.0.21
     steps:
       - checkout
       - run: ./tools/ci/init_gcloud

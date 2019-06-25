@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tevino/abool"
-	"go.uber.org/zap/zapcore"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -50,8 +49,6 @@ func TestScheduler_AddJob_WhenStopped(t *testing.T) {
 }
 
 func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
-	logs := cltest.ObserveLogs()
-
 	store, cleanupStore := cltest.NewStore(t)
 	defer cleanupStore()
 	clock := cltest.UseSettableClock(store)
@@ -74,10 +71,6 @@ func TestScheduler_Start_AddingUnstartedJob(t *testing.T) {
 	clock.SetTime(startAt)
 
 	cltest.WaitForRunsAtLeast(t, j, store, 2)
-
-	for _, log := range logs.All() {
-		assert.True(t, log.Level <= zapcore.WarnLevel)
-	}
 }
 
 func TestRecurring_AddJob(t *testing.T) {

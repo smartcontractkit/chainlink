@@ -42,7 +42,7 @@ contract('BasicConsumer', () => {
         const request = h.decodeRunRequest(log)
         const expected = {
           path: ['USD'],
-          url:
+          get:
             'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
         }
 

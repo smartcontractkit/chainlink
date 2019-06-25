@@ -29,7 +29,7 @@ contract UptimeSLA is Chainlinked {
 
   function updateUptime(string _when) public {
     Chainlink.Request memory req = newRequest(jobId, this, this.report.selector);
-    req.add("url", "https://status.heroku.com/api/ui/availabilities");
+    req.add("get", "https://status.heroku.com/api/ui/availabilities");
     string[] memory path = new string[](4);
     path[0] = "data";
     path[1] = _when;
