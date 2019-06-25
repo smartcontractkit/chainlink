@@ -106,8 +106,8 @@ func Router(app services.Application) *gin.Engine {
 		"/",
 		rateLimiter(1*time.Minute, 1000),
 		sessions.Sessions(SessionName, sessionStore),
+		explorerStatus(app),
 	)
-	api.Use(explorerStatus(app))
 
 	metricRoutes(app, api)
 	sessionRoutes(app, api)
