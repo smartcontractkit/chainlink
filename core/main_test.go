@@ -11,8 +11,9 @@ import (
 )
 
 func ExampleRun() {
-	tc, cleanup := cltest.NewConfig(&testing.T{})
-	defer cltest.WipePostgresDatabase(tc.Config)
+	t := &testing.T{}
+	tc, cleanup := cltest.NewConfig(t)
+	defer cltest.WipePostgresDatabase(t, tc.Config)
 	defer cleanup()
 	tc.Config.Set("CHAINLINK_DEV", false)
 	testClient := &cmd.Client{
@@ -68,8 +69,9 @@ func ExampleRun() {
 }
 
 func ExampleVersion() {
-	tc, cleanup := cltest.NewConfig(&testing.T{})
-	defer cltest.WipePostgresDatabase(tc.Config)
+	t := &testing.T{}
+	tc, cleanup := cltest.NewConfig(t)
+	defer cltest.WipePostgresDatabase(t, tc.Config)
 	defer cleanup()
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
