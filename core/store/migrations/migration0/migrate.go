@@ -19,7 +19,7 @@ func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&models.ExternalInitiator{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate ExternalInitiator")
 	}
-	if err := tx.AutoMigrate(&models.Head{}).Error; err != nil {
+	if err := tx.AutoMigrate(&Head{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate Head")
 	}
 	if err := tx.AutoMigrate(&models.JobSpec{}).Error; err != nil {
