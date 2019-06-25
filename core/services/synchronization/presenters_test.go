@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
@@ -36,8 +37,8 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 			models.TaskRun{
 				ID:                   "task0RunID-938",
 				Status:               models.RunStatusPendingConfirmations,
-				Confirmations:        1,
-				MinimumConfirmations: 3,
+				Confirmations:        clnull.Uint32From(1),
+				MinimumConfirmations: clnull.Uint32From(3),
 			},
 			models.TaskRun{
 				ID:     "task1RunID-17",
@@ -154,8 +155,9 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 		path string
 		want string
 	}{
-		{"fulfilled", "testdata/fulfilledReceiptResponse.json", "fulfilledRunLog"},
-		{"not fulfilled", "testdata/notFulfilledReceiptResponse.json", "noFulfilledRunLog"},
+		{"confirmed", "testdata/confirmedEthTxData.json", ""},
+		{"safe fulfilled", "testdata/fulfilledReceiptResponse.json", "fulfilledRunLog"},
+		{"safe not fulfilled", "testdata/notFulfilledReceiptResponse.json", "noFulfilledRunLog"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -163,7 +165,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 			requestID := "RequestID"
 			requestTxHash := common.HexToHash("0xdeadbeef")
 			dataJSON := jsonFromFixture(t, test.path)
-			fulfillmentTxHash := "0x1111111111111111111111111111111111111111111111111111111111111111"
+			outgoingTxHash := "0x1111111111111111111111111111111111111111111111111111111111111111"
 
 			taskSpec := models.TaskSpec{
 				Type: "ethtx",
@@ -209,7 +211,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 
 			txresult := task0["result"].Map()
 			assert.Equal(t, test.want, txresult["transactionStatus"].String())
-			assert.Equal(t, fulfillmentTxHash, txresult["transactionHash"].String())
+			assert.Equal(t, outgoingTxHash, txresult["transactionHash"].String())
 		})
 	}
 }

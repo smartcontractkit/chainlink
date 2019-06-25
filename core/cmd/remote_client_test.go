@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -86,6 +87,29 @@ func TestClient_ShowJobRun_NotFound(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 	assert.Error(t, client.ShowJobRun(c))
 	assert.Empty(t, r.Renders)
+}
+
+func TestClient_GetJobRuns(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+
+	j := cltest.NewJobWithWebInitiator()
+	assert.NoError(t, app.Store.CreateJob(&j))
+
+	jr0 := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"100"}`)
+	jr1 := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"105"}`)
+	jr2 := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"110"}`)
+
+	client, r := app.NewClientAndRenderer()
+
+	require.Nil(t, client.GetJobRuns(cltest.EmptyCLIContext()))
+	runs := *r.Renders[0].(*[]presenters.JobRun)
+	require.Equal(t, 3, len(runs))
+	assert.Equal(t, jr0.Result, runs[0].Result)
+	assert.Equal(t, jr1.Result, runs[1].Result)
+	assert.Equal(t, jr2.Result, runs[2].Result)
 }
 
 func TestClient_ShowJobSpec_Exists(t *testing.T) {
@@ -452,7 +476,7 @@ func TestClient_WithdrawNoArgs(t *testing.T) {
 	app, cleanup, _ := setupWithdrawalsApplication(t)
 	defer cleanup()
 
-	assert.NoError(t, app.StartAndConnect())
+	assert.NoError(t, utils.JustError(app.MockStartAndConnect()))
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("withdraw", 0)
@@ -498,6 +522,7 @@ func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func(),
 
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", nonce)
+		ethMock.Register("eth_chainId", *cltest.Int(config.ChainID()))
 	})
 
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {

@@ -21,12 +21,6 @@ WORKDIR /root
 
 COPY --from=builder /go/bin/chainlink /usr/local/bin/
 
-COPY --from=builder \
-  /go/src/github.com/smartcontractkit/chainlink/chainlink-launcher.sh \
-  /root/
-
-RUN chmod +x ./chainlink-launcher.sh
-
 EXPOSE 6688
-ENTRYPOINT ["./chainlink-launcher.sh"]
+ENTRYPOINT ["chainlink"]
 CMD ["local", "node"]

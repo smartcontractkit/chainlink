@@ -209,6 +209,16 @@ func TestORM_JobRunsFor(t *testing.T) {
 	assert.NoError(t, err)
 	actual := []string{runs[0].ID, runs[1].ID, runs[2].ID}
 	assert.Equal(t, []string{jr2.ID, jr1.ID, jr3.ID}, actual)
+
+	limRuns, limErr := store.JobRunsFor(job.ID, 2)
+	assert.NoError(t, limErr)
+	limActual := []string{limRuns[0].ID, limRuns[1].ID}
+	assert.Equal(t, []string{jr2.ID, jr1.ID}, limActual)
+
+	_, limZeroErr := store.JobRunsFor(job.ID, 0)
+	assert.NoError(t, limZeroErr)
+	limZeroActual := []string{}
+	assert.Equal(t, []string{}, limZeroActual)
 }
 
 func TestORM_JobRunsSortedFor(t *testing.T) {
@@ -749,6 +759,7 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 	ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(one))
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(one))
 	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+	ethMock.Register("eth_chainId", *cltest.Int(store.Config.ChainID()))
 
 	assert.NoError(t, app.StartAndConnect())
 

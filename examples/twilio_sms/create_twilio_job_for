@@ -8,7 +8,7 @@ if (process.argv.length <= 2) {
 const job = {
   "_comment": "An ethlog with a specific address only listens to that address.",
   "initiators": [{ "type": "ethlog", "address": process.argv[2]}],
-  "tasks": [{ "type": "HttpPost", "params": { "url": "http://localhost:6691" }}]
+  "tasks": [{ "type": "HttpPost", "params": { "post": "http://localhost:6691" }}]
 };
 
 const request = require("request").defaults({jar: true});

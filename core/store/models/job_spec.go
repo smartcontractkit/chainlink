@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -30,9 +31,9 @@ type InitiatorRequest struct {
 
 // TaskSpecRequest represents a schema for incoming TaskSpec requests as used by the API.
 type TaskSpecRequest struct {
-	Type          TaskType `json:"type"`
-	Confirmations uint64   `json:"confirmations"`
-	Params        JSON     `json:"params"`
+	Type          TaskType      `json:"type"`
+	Confirmations clnull.Uint32 `json:"confirmations"`
+	Params        JSON          `json:"params"`
 }
 
 // JobSpec is the definition for all the work to be carried out by the node
@@ -248,10 +249,10 @@ func (i Initiator) IsLogInitiated() bool {
 // additional information that adapter would need to operate.
 type TaskSpec struct {
 	gorm.Model
-	JobSpecID     string   `json:"-" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
-	Type          TaskType `json:"type" gorm:"index;not null"`
-	Confirmations uint64   `json:"confirmations"`
-	Params        JSON     `json:"params" gorm:"type:text"`
+	JobSpecID     string        `json:"-" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+	Type          TaskType      `json:"type" gorm:"index;not null"`
+	Confirmations clnull.Uint32 `json:"confirmations"`
+	Params        JSON          `json:"params" gorm:"type:text"`
 }
 
 // TaskType defines what Adapter a TaskSpec will use.

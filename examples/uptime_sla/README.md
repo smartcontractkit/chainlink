@@ -33,7 +33,7 @@ The ChainLink Job is configured to not take any specific URL or JSON path, so th
 ```solidity
 function updateUptime(string _when) public {
    Chainlink.Request memory req = newRequest(jobId, this, "report(uint256,uint256)");
-   req.add("url", "https://status.heroku.com/api/ui/availabilities");
+   req.add("get", "https://status.heroku.com/api/ui/availabilities");
    string[] memory path = new string[](4);
    path[0] = "data";
    path[1] = _when;           //pick which data point in the array you want to examine

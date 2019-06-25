@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -46,7 +47,7 @@ func TestNewRun(t *testing.T) {
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 1)
 	assert.Equal(t, input, run.Overrides.Data)
-	assert.Equal(t, uint64(0), run.TaskRuns[0].Confirmations)
+	assert.False(t, run.TaskRuns[0].Confirmations.Valid)
 }
 
 func TestNewRun_requiredPayment(t *testing.T) {
@@ -105,8 +106,8 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 
 	tests := []struct {
 		name                string
-		configConfirmations uint64
-		taskConfirmations   uint64
+		configConfirmations uint32
+		taskConfirmations   uint32
 		expectedStatus      models.RunStatus
 	}{
 		{"creates runnable job", 0, 0, models.RunStatusInProgress},
@@ -120,7 +121,7 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 			store.Config.Set("MIN_INCOMING_CONFIRMATIONS", test.configConfirmations)
 
 			jobSpec := cltest.NewJobWithLogInitiator()
-			jobSpec.Tasks[0].Confirmations = test.taskConfirmations
+			jobSpec.Tasks[0].Confirmations = clnull.Uint32From(test.taskConfirmations)
 
 			run, err := services.NewRun(
 				jobSpec,
@@ -131,8 +132,8 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.expectedStatus), string(run.Status))
 			require.Len(t, run.TaskRuns, 1)
-			max := utils.MaxUint64(test.taskConfirmations, test.configConfirmations)
-			assert.Equal(t, max, run.TaskRuns[0].MinimumConfirmations)
+			max := utils.MaxUint32(test.taskConfirmations, test.configConfirmations)
+			assert.Equal(t, max, run.TaskRuns[0].MinimumConfirmations.Uint32)
 		})
 	}
 }
@@ -267,7 +268,7 @@ func TestResumeConfirmingTask(t *testing.T) {
 		Status:         models.RunStatusPendingConfirmations,
 		TaskRuns: []models.TaskRun{models.TaskRun{
 			ID:                   utils.NewBytes32ID(),
-			MinimumConfirmations: 2,
+			MinimumConfirmations: clnull.Uint32From(2),
 			TaskSpec: models.TaskSpec{
 				JobSpecID: jobSpec.ID,
 				Type:      adapters.TaskTypeNoOp,
@@ -278,6 +279,7 @@ func TestResumeConfirmingTask(t *testing.T) {
 	err = services.ResumeConfirmingTask(run, store, creationHeight.ToInt())
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusPendingConfirmations), string(run.Status))
+	assert.Equal(t, uint32(1), run.TaskRuns[0].Confirmations.Uint32)
 
 	// input, should go from pending -> in progress and save the input
 	run = &models.JobRun{
@@ -287,7 +289,7 @@ func TestResumeConfirmingTask(t *testing.T) {
 		Status:         models.RunStatusPendingConfirmations,
 		TaskRuns: []models.TaskRun{models.TaskRun{
 			ID:                   utils.NewBytes32ID(),
-			MinimumConfirmations: 1,
+			MinimumConfirmations: clnull.Uint32From(1),
 			TaskSpec: models.TaskSpec{
 				JobSpecID: jobSpec.ID,
 				Type:      adapters.TaskTypeNoOp,
@@ -583,7 +585,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_mainChain(t *testing.T) {
 
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
-	minimumConfirmations := uint64(2)
+	minimumConfirmations := uint32(2)
 	config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
@@ -626,8 +628,10 @@ func TestExecuteJobWithRunRequest_fromRunLog_mainChain(t *testing.T) {
 	require.NoError(t, err)
 	updatedJR := cltest.WaitForJobRunToComplete(t, store, *jr)
 	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
-	assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].MinimumConfirmations)
-	assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].Confirmations, "task run should track its current confirmations")
+	assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].MinimumConfirmations.Uint32)
+	assert.True(t, updatedJR.TaskRuns[0].MinimumConfirmations.Valid)
+	assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].Confirmations.Uint32, "task run should track its current confirmations")
+	assert.True(t, updatedJR.TaskRuns[0].Confirmations.Valid)
 	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
 

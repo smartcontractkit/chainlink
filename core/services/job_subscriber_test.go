@@ -73,7 +73,9 @@ func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
 
 	store, el, cleanup := cltest.NewJobSubscriber(t)
 	defer cleanup()
+
 	eth := cltest.MockEthOnStore(t, store)
+	chainId := cltest.Int(store.Config.ChainID())
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
 	assert.Nil(t, store.CreateJob(&j1))
@@ -81,6 +83,7 @@ func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
 
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
+	eth.Register("eth_chainId", *chainId)
 
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{el})
 	assert.Nil(t, ht.Start())
@@ -206,7 +209,7 @@ func sendingOnClosedChannel(callback func()) (rval bool) {
 	return false
 }
 
-func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
+func TestJobSubscriber_OnNewHead_ResumePendingConfirmationsAndPendingConnections(t *testing.T) {
 	t.Parallel()
 
 	block := cltest.NewBlockHeader(10)
@@ -222,6 +225,8 @@ func TestJobSubscriber_OnNewHead_OnlyResumePendingConfirmations(t *testing.T) {
 		archived bool
 		wantSend bool
 	}{
+		{models.RunStatusPendingConnection, false, true},
+		{models.RunStatusPendingConnection, true, true},
 		{models.RunStatusPendingConfirmations, false, true},
 		{models.RunStatusPendingConfirmations, true, true},
 		{models.RunStatusInProgress, false, false},

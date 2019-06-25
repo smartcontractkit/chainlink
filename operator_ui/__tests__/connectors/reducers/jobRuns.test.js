@@ -51,7 +51,7 @@ describe('connectors/reducers/jobRuns', () => {
       data: {
         runs: { a: { id: 'a' } },
         meta: {
-          recentJobRuns: { data: [] }
+          recentJobRuns: { data: [], meta: {} }
         }
       }
     }

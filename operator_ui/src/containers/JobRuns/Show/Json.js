@@ -12,12 +12,7 @@ import Content from 'components/Content'
 import RegionalNav from 'components/JobRuns/RegionalNav'
 import StatusCard from 'components/JobRuns/StatusCard'
 
-const styles = theme => ({
-  breadcrumb: {
-    marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  }
-})
+const styles = theme => ({})
 
 const renderDetails = ({ fetching, jobRun }) => {
   if (fetching || !jobRun) {
@@ -32,7 +27,7 @@ const renderDetails = ({ fetching, jobRun }) => {
         </PaddedCard>
       </Grid>
       <Grid item xs={4}>
-        <StatusCard>{jobRun.status}</StatusCard>
+        <StatusCard title={jobRun.status} />
       </Grid>
     </Grid>
   )

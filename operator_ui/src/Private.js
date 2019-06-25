@@ -28,9 +28,16 @@ const BridgesNew = universal(import('./containers/Bridges/New'), uniOpts)
 const BridgesShow = universal(import('./containers/Bridges/Show'), uniOpts)
 const BridgesEdit = universal(import('./containers/Bridges/Edit'), uniOpts)
 const JobRunsIndex = universal(import('./containers/JobRuns/Index'), uniOpts)
-const JobRunsShow = universal(import('./containers/JobRuns/Show'), uniOpts)
+const JobRunsShowOverview = universal(
+  import('./containers/JobRuns/Show/Overview'),
+  uniOpts
+)
 const JobRunsShowJson = universal(
-  import('./containers/JobRuns/ShowJson'),
+  import('./containers/JobRuns/Show/Json'),
+  uniOpts
+)
+const JobRunsShowErrorLog = universal(
+  import('./containers/JobRuns/Show/ErrorLog'),
   uniOpts
 )
 const TransactionsIndex = universal(
@@ -68,7 +75,7 @@ class Private extends React.Component {
     let drawerContainer
 
     return (
-      <Grid container style={{width: '100%'}}> {/* Horizontal Scrollbar Fix for MUI Container calc(100% + Npx) width */}
+      <Grid container spacing={0}>
         <Grid item xs={12}>
           <Header
             onResize={this.setHeaderHeight}
@@ -115,22 +122,51 @@ class Private extends React.Component {
                 <PrivateRoute
                   exact
                   path="/jobs/:jobSpecId/runs"
-                  component={JobRunsIndex}
+                  render={props => (
+                    <JobRunsIndex
+                      {...props}
+                      pagePath="/jobs/:jobSpecId/runs/page"
+                    />
+                  )}
                 />
                 <PrivateRoute
                   exact
                   path="/jobs/:jobSpecId/runs/page/:jobRunsPage"
-                  component={JobRunsIndex}
+                  render={props => (
+                    <JobRunsIndex
+                      {...props}
+                      pagePath="/jobs/:jobSpecId/runs/page"
+                    />
+                  )}
                 />
                 <PrivateRoute
                   exact
                   path="/jobs/:jobSpecId/runs/id/:jobRunId"
-                  component={JobRunsShow}
+                  component={JobRunsShowOverview}
                 />
                 <PrivateRoute
                   exact
                   path="/jobs/:jobSpecId/runs/id/:jobRunId/json"
                   component={JobRunsShowJson}
+                />
+                <PrivateRoute
+                  exact
+                  path="/jobs/:jobSpecId/runs/id/:jobRunId/error_log"
+                  component={JobRunsShowErrorLog}
+                />
+                <PrivateRoute
+                  exact
+                  path="/runs"
+                  render={props => (
+                    <JobRunsIndex {...props} pagePath="/runs/page" />
+                  )}
+                />
+                <PrivateRoute
+                  exact
+                  path="/runs/page/:jobRunsPage"
+                  render={props => (
+                    <JobRunsIndex {...props} pagePath="/runs/page" />
+                  )}
                 />
                 <PrivateRoute exact path="/bridges" component={BridgesIndex} />
                 <PrivateRoute

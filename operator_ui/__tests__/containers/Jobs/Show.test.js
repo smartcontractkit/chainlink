@@ -7,6 +7,7 @@ import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { ConnectedShow as Show } from 'containers/Jobs/Show'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
+import jsonApiJobSpecRunsFactory from 'factories/jsonApiJobSpecRuns'
 
 const mountShow = props =>
   mountWithTheme(
@@ -19,9 +20,9 @@ const mountShow = props =>
 
 describe('containers/Jobs/Show', () => {
   const jobSpecId = 'c60b9927eeae43168ddbe92584937b1b'
-
-  it('renders the details of the job spec and its latest runs', async () => {
-    expect.assertions(6)
+  const jobRunId = 'ad24b72c12f441b99b9877bcf6cb506e'
+  it('renders the details of the job spec, its latest runs and task list entries,', async () => {
+    expect.assertions(7)
 
     const minuteAgo = isoDate(Date.now() - MINUTE_MS)
     const jobSpecResponse = jsonApiJobSpecFactory({
@@ -36,7 +37,17 @@ describe('containers/Jobs/Show', () => {
         }
       ]
     })
+    const jobRunResponse = jsonApiJobSpecRunsFactory([
+      {
+        id: jobRunId,
+        jobId: jobSpecId
+      }
+    ])
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
+    global.fetch.getOnce(
+      `/v2/runs?sort=-createdAt&page=1&size=5&jobSpecId=${jobSpecId}`,
+      jobRunResponse
+    )
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)
@@ -45,6 +56,7 @@ describe('containers/Jobs/Show', () => {
     expect(wrapper.text()).toContain('c60b9927eeae43168ddbe92584937b1b')
     expect(wrapper.text()).toContain('Initiatorweb')
     expect(wrapper.text()).toContain('Created a minute ago')
+    expect(wrapper.text()).toContain('Httpget')
     expect(wrapper.text()).toContain('Run Count1')
     expect(wrapper.text()).toContain('Pending')
     expect(wrapper.text()).not.toContain('View More')
@@ -58,11 +70,15 @@ describe('containers/Jobs/Show', () => {
     ]
 
     const jobSpecResponse = jsonApiJobSpecFactory({
-      id: jobSpecId,
-      runs: runs
+      id: jobSpecId
     })
+    const jobRunsResponse = jsonApiJobSpecRunsFactory(runs)
 
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
+    global.fetch.getOnce(
+      `/v2/runs?sort=-createdAt&page=1&size=5&jobSpecId=${jobSpecId}`,
+      jobRunsResponse
+    )
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)

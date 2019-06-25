@@ -22,11 +22,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:64f3fd0662694752496f8fc1848727a2cff42499a8b81afb7c75b44078031d2b"
+  digest = "1:b96c87d5985f5ebefb43dda53d3086437749023c332a3224af49d80c3af2faf8"
   name = "github.com/araddon/dateparse"
   packages = ["."]
   pruneopts = ""
-  revision = "d2ba70357e924a4dc132001c6faebb8a5ea9878a"
+  revision = "0fb0a474d195a3449cf412ae0176faa193f0ef0b"
 
 [[projects]]
   branch = "master"
@@ -410,7 +410,8 @@
   version = "v1.0"
 
 [[projects]]
-  digest = "1:ac0cf20506076f1243a12c66052b862988915b1cd41881987addf0da946077c6"
+  branch = "master"
+  digest = "1:109124d16db1dbb262a0d22c7d2490ab90bc210c4c4f99c694143dd0db24622d"
   name = "github.com/jinzhu/gorm"
   packages = [
     ".",
@@ -418,8 +419,7 @@
     "dialects/sqlite",
   ]
   pruneopts = ""
-  revision = "b7156195f7f3415f97c20abbd6aff894b847fee8"
-  version = "v1.9.8"
+  revision = "01b66011427614f01e84a473b0303c917179f2a0"
 
 [[projects]]
   branch = "master"
@@ -539,11 +539,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:389bd889a2c59c2dbb836ccb1c2fe952c5bef98c3b095b51ba32e4aed10edde9"
+  digest = "1:c743ab9e9dd2133b4a0f4083d58e43093ab081ceabe3043448c655c8918fa89d"
   name = "github.com/mattn/go-sqlite3"
   packages = ["."]
   pruneopts = ""
-  revision = "070b17a2fdf5109d2dd54acb6bbfb507872115cf"
+  revision = "5dd71670cca4bc0ee90371eabd0f1bdba1ac6f35"
 
 [[projects]]
   branch = "master"
@@ -587,11 +587,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f3c6d48db6804c1523627370e2f506dbf89303c5b848383ca757beec36033898"
+  digest = "1:6ad2df2c4d9e1e97e7a087a95a3753128ebad070f65d7ead633578870b06d09d"
   name = "github.com/olekukonko/tablewriter"
   packages = ["."]
   pruneopts = ""
-  revision = "1c0837c15a0bac7871496dfce5dcdd308e0a330f"
+  revision = "cc27d85e17cec9768d2ac401ea5d619a9628f16d"
 
 [[projects]]
   digest = "1:dbafce2fddb1ca331646fe2ac9c9413980368b19a60a4406a6e5861680bd73be"
@@ -734,12 +734,12 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:b98ee2c3f1469ab3b494859d3a9c9e595ec2c63660dea130a5154cfcd427b608"
+  digest = "1:9b483544fcf4fc0155e566f49ee669c205fba12a36eb18e7f80510796a606db4"
   name = "github.com/spf13/viper"
   packages = ["."]
   pruneopts = ""
-  revision = "6d33b5a963d922d182c91e8a1c88d81fd150cfd4"
-  version = "v1.3.1"
+  revision = "b5bf975e5823809fb22c7644d008757f78a4259e"
+  version = "v1.4.0"
 
 [[projects]]
   branch = "master"
@@ -836,11 +836,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b57a5c6a6381d7492c91a3bc147bf33ef9dcb7e15592f0c3277ff9959b29cfbf"
+  digest = "1:30a85c92f9ef077c062d78e4514c17db6a90e5a7a41cab6232a8fd40fe19268c"
   name = "github.com/unrolled/secure"
   packages = ["."]
   pruneopts = ""
-  revision = "4e32686ccfd4360eba208873a5c397fef3b50cc4"
+  revision = "716474489ad3d350e961ec6de19a6ab24e40f006"
 
 [[projects]]
   digest = "1:e85837cb04b78f61688c6eba93ea9d14f60d611e2aaf8319999b1a60d2dafbfa"
@@ -876,7 +876,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:37983643c2b6785e17e518d702c89633c9166178cd257e9d40a1595d807d2734"
+  digest = "1:3caac34064d7af9979e79f6192e8cb59e5f06582549a2cbb829a14aa028af427"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -888,12 +888,12 @@
     "zaptest/observer",
   ]
   pruneopts = ""
-  revision = "8a2ee5670ced5d94154bf385dc6a362722945daf"
+  revision = "853ac185800f276677ad5ffa70fd7eda356c8d46"
   source = "github.com/uber-go/zap"
 
 [[projects]]
   branch = "master"
-  digest = "1:9d150270ca2c3356f2224a0878daa1652e4d0b25b345f18b4f6e156cc4b8ec5e"
+  digest = "1:90722da867436e04650b8491e5d9f690aeb2a4e305d548666bdd541d68d6cdbd"
   name = "golang.org/x/crypto"
   packages = [
     "bcrypt",
@@ -904,7 +904,7 @@
     "ssh/terminal",
   ]
   pruneopts = ""
-  revision = "f99c8df09eb5bff426315721bfa5f16a99cad32c"
+  revision = "cc06ce4a13d484c0101a9e92913248488a75786d"
 
 [[projects]]
   branch = "master"
