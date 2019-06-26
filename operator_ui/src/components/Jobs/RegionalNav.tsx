@@ -90,7 +90,7 @@ const styles = (theme: Theme) => ({
   }
 })
 
-const SuccessNotification = ({ data }) => (
+const CreateRunSuccessNotification = ({ data }) => (
   <React.Fragment>
     Successfully created job run{' '}
     <BaseLink to={`/jobs/${data.attributes.jobId}/runs/id/${data.id}`}>
@@ -99,13 +99,17 @@ const SuccessNotification = ({ data }) => (
   </React.Fragment>
 )
 
+const DeleteSuccessNotification = ({ id }) => (
+  <React.Fragment>Successfully archived job {id}</React.Fragment>
+)
+
 const DEFAULT_PAGE = 1
 const RECENT_RUNS_COUNT = 5
 
 interface IProps extends WithStyles<typeof styles> {
   fetchJobRuns: Function
   createJobRun: Function
-  deleteJobSpec: (id) => void
+  deleteJobSpec: Function
   jobSpecId: string
   job: IJobSpec
   url: String
@@ -126,7 +130,7 @@ const RegionalNav = ({
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
   const handleRun = () => {
-    createJobRun(job.id, SuccessNotification, ErrorMessage).then(() =>
+    createJobRun(job.id, CreateRunSuccessNotification, ErrorMessage).then(() =>
       fetchJobRuns({
         jobSpecId: job.id,
         page: DEFAULT_PAGE,
@@ -135,7 +139,7 @@ const RegionalNav = ({
     )
   }
   const handleDelete = (id: string) => {
-    deleteJobSpec(id)
+    deleteJobSpec(id, () => DeleteSuccessNotification({ id }), ErrorMessage)
     setArchived(true)
   }
   return (
