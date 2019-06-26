@@ -214,9 +214,11 @@ export const deleteJobSpec = (data, successCallback, errorCallback) => {
     return api.destroyJobSpec(data)
       .then(res => {
         dispatch(receiveDeleteSuccess(res))
+        dispatch(notifySuccess(successCallback, res))
       })
       .catch(error => {
         curryErrorHandler(dispatch, RECEIVE_DELETE_ERROR)(error)
+        dispatch(notifyError(errorCallback, error))
       })
   }
 }
