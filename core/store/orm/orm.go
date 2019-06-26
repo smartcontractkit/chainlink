@@ -144,9 +144,9 @@ func (orm *ORM) DialectName() DialectName {
 	return orm.dialectName
 }
 
-// EnableLogging turns on SQL statement logging
-func (orm *ORM) EnableLogging() {
-	orm.DB.LogMode(true)
+// SetLogging turns on SQL statement logging
+func (orm *ORM) SetLogging(enabled bool) {
+	orm.DB.LogMode(enabled)
 }
 
 // Close closes the underlying database connection.
@@ -936,9 +936,9 @@ func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 	return orm.DB.Create(initr).Error
 }
 
-// SaveHead saves the indexable block number related to head tracker.
-func (orm *ORM) SaveHead(n *models.Head) error {
-	return orm.DB.Save(n).Error
+// CreateHead creates a head record that tracks which block heads we've observed in the HeadTracker
+func (orm *ORM) CreateHead(n *models.Head) error {
+	return orm.DB.Create(n).Error
 }
 
 // LastHead returns the most recently persisted head entry.
