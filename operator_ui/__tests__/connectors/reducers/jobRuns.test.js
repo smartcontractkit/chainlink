@@ -5,6 +5,7 @@ import {
   UPSERT_JOB_RUN,
   UPSERT_JOB
 } from 'connectors/redux/reducers/jobRuns'
+import { RECEIVE_DELETE_SUCCESS } from '../../../src/actions'
 
 describe('connectors/reducers/jobRuns', () => {
   it('should return the initial state', () => {
@@ -92,5 +93,25 @@ describe('connectors/reducers/jobRuns', () => {
     expect(state.jobRuns.items).toEqual({
       b: { id: 'b' }
     })
+  })
+  it('RECEIVE_DELETE_SUCCESS deletes jobrun associations', () => {
+    const upsertAction = {
+      type: UPSERT_JOB,
+      data: {
+        runs: {
+          b: { id: 'b' }
+        }
+      }
+    }
+    const preDeleteState = reducer(undefined, upsertAction)
+    expect(preDeleteState.jobRuns.items).toEqual({
+      b: { id: 'b' }
+    })
+    const deleteAction = {
+      type: RECEIVE_DELETE_SUCCESS,
+      data: 'b'
+    }
+    const postDeleteState = reducer(undefined, deleteAction)
+    expect(postDeleteState.jobRuns.items).toEqual({})
   })
 })

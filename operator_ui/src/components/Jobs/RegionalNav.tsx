@@ -1,7 +1,6 @@
 import React from 'react'
 import { Redirect } from 'react-router-dom'
 import { connect } from 'react-redux'
-import { Link as BaseLink } from 'react-router-dom'
 import { withStyles, WithStyles, Theme } from '@material-ui/core/styles'
 import Card from '@material-ui/core/Card'
 import Typography from '@material-ui/core/Typography'
@@ -9,16 +8,17 @@ import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import Button from 'components/Button'
+import BaseLink from 'components/BaseLink'
 import Link from 'components/Link'
 import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import CopyJobSpec from 'components/CopyJobSpec'
 import ErrorMessage from 'components/Notifications/DefaultError'
-import TimeAgo from 'components/TimeAgo'
+import TimeAgo from '@chainlink/styleguide/components/TimeAgo'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
 import { isWebInitiator } from 'utils/jobSpecInitiators'
 import { fetchJobRuns, createJobRun } from 'actions'
 import classNames from 'classnames'
-import localizedTimestamp from 'utils/localizedTimestamp'
+import localizedTimestamp from '@chainlink/styleguide/utils/localizedTimestamp'
 import { deleteJobSpec } from '../../actions'
 import Dialog from '@material-ui/core/Dialog'
 import Close from 'components/Icons/Close'
@@ -238,7 +238,7 @@ const RegionalNav = ({
                       pathname: '/jobs/new',
                       state: { definition: definition }
                     }}
-                    component={ReactStaticLinkComponent}
+                    component={BaseLink}
                     className={classes.duplicate}
                   >
                     Duplicate
