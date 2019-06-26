@@ -198,7 +198,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig) (*TestApplicat
 func NewApplicationWithConfig(t testing.TB, tc *TestConfig) (*TestApplication, func()) {
 	t.Helper()
 
-	WipePostgresDatabase(tc.Config)
+	WipePostgresDatabase(t, tc.Config)
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
 	app := services.NewApplication(tc.Config, func(app services.Application) {
 		ta.connectedChannel <- struct{}{}
@@ -357,7 +357,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
-	WipePostgresDatabase(config.Config)
+	WipePostgresDatabase(config.t, config.Config)
 	s := strpkg.NewStore(config.Config)
 	return s, func() {
 		cleanUpStore(config.t, s)
@@ -388,16 +388,18 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 	require.NoError(t, store.Close())
 }
 
-func WipePostgresDatabase(c strpkg.Config) {
+func WipePostgresDatabase(t testing.TB, c strpkg.Config) {
+	t.Helper()
+
 	if strings.HasPrefix(strings.ToLower(c.NormalizedDatabaseURL()), string(orm.DialectPostgres)) {
 		db, err := gorm.Open(string(orm.DialectPostgres), c.NormalizedDatabaseURL())
 		if err != nil {
-			logger.Warn("unable to wipe postgres database", err)
+			t.Fatalf("unable to open postgres database for wiping: %+v", err)
 			return
 		}
 		defer db.Close()
 
-		logger.WarnIf(db.Exec(`
+		if err := db.Exec(`
 DO $$ DECLARE
     r RECORD;
 BEGIN
@@ -405,7 +407,9 @@ BEGIN
         EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
     END LOOP;
 END $$;
-		`).Error)
+		`).Error; err != nil {
+			t.Fatalf("unable to wipe postgres database: %+v", err)
+		}
 	}
 }
 

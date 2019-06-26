@@ -124,4 +124,20 @@ describe('containers/JobRuns/Index', () => {
     expect(wrapper.text()).not.toContain('ID-ON-THIRD-PAGE')
     expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
   })
+
+  it('displays an empty message', async () => {
+    expect.assertions(1)
+
+    const runsResponse = jsonApiJobSpecRunFactory([], jobSpecId)
+    global.fetch.getOnce(
+      `/v2/runs?sort=-createdAt&page=1&size=25&jobSpecId=${jobSpecId}`,
+      runsResponse
+    )
+
+    const props = { match: { params: { jobSpecId: jobSpecId } } }
+    const wrapper = mountIndex(props)
+
+    await syncFetch(wrapper)
+    expect(wrapper.text()).toContain('No jobs have been run yet')
+  })
 })
