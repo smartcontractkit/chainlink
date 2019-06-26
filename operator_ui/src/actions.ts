@@ -166,6 +166,15 @@ const receiveCreateSuccess = response => ({
   response: response
 })
 
+export const REQUEST_DELETE = 'REQUEST_DELETE'
+export const RECEIVE_DELETE_SUCCESS = 'RECEIVE_DELETE_SUCCESS'
+export const RECEIVE_DELETE_ERROR = 'RECEIVE_DELETE_ERROR'
+
+const receiveDeleteSuccess = response => ({
+  type: RECEIVE_DELETE_SUCCESS,
+  response: response
+})
+
 export const REQUEST_UPDATE = 'REQUEST_UPDATE'
 export const RECEIVE_UPDATE_SUCCESS = 'RECEIVE_UPDATE_SUCCESS'
 export const RECEIVE_UPDATE_ERROR = 'RECEIVE_UPDATE_ERROR'
@@ -195,6 +204,19 @@ export const createJobSpec = (data, successCallback, errorCallback) => {
       .catch(error => {
         curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)
         dispatch(notifyError(errorCallback, error))
+      })
+  }
+}
+
+export const deleteJobSpec = (data, successCallback, errorCallback) => {
+  return dispatch => {
+    dispatch(createAction(REQUEST_DELETE))
+    return api.destroyJobSpec(data)
+      .then(res => {
+        dispatch(receiveDeleteSuccess(res))
+      })
+      .catch(error => {
+        curryErrorHandler(dispatch, RECEIVE_DELETE_ERROR)(error)
       })
   }
 }
