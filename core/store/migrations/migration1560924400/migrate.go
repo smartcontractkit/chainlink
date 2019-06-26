@@ -17,6 +17,8 @@ func Migrate(tx *gorm.DB) error {
 	return nil
 }
 
+// RunRequest stores the fields used to initiate the parent job run.
+// This migration introduces the BlockHash column onto the table.
 type RunRequest struct {
 	ID        uint `gorm:"primary_key"`
 	RequestID *string
