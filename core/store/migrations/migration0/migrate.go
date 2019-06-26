@@ -19,7 +19,7 @@ func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&models.ExternalInitiator{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate ExternalInitiator")
 	}
-	if err := tx.AutoMigrate(&models.Head{}).Error; err != nil {
+	if err := tx.AutoMigrate(&Head{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate Head")
 	}
 	if err := tx.AutoMigrate(&models.JobSpec{}).Error; err != nil {
@@ -104,4 +104,10 @@ type TaskRun struct {
 	TaskSpecID           uint      `json:"-" gorm:"index;not null REFERENCES task_specs(id)"`
 	MinimumConfirmations uint64    `json:"minimumConfirmations"`
 	CreatedAt            time.Time `json:"-" gorm:"index"`
+}
+
+// Head is a capture of the model representing Head before migration1560881846
+type Head struct {
+	HashRaw string `gorm:"primary_key;type:varchar;column:hash"`
+	Number  int64  `gorm:"index;type:bigint;not null"`
 }
