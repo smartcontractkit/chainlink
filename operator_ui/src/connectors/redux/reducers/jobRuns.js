@@ -1,3 +1,5 @@
+import { RECEIVE_DELETE_SUCCESS } from '../../../actions'
+
 const initialState = {
   items: {},
   currentPage: null,
@@ -27,6 +29,16 @@ export default (state = initialState, action = {}) => {
     case UPSERT_JOB: {
       return Object.assign({}, state, {
         items: Object.assign({}, state.items, action.data.runs)
+      })
+    }
+    case RECEIVE_DELETE_SUCCESS: {
+      return Object.assign({}, state, {
+        items: Object.assign(
+          {},
+          Object.keys(state.items)
+            .filter(i => state.items[i].attributes.jobId !== action.response)
+            .reduce((res, key) => ((res[key] = state.items[key]), res), {})
+        )
       })
     }
     default:

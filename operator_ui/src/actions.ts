@@ -213,7 +213,7 @@ export const deleteJobSpec = (data, successCallback, errorCallback) => {
     dispatch(createAction(REQUEST_DELETE))
     return api.destroyJobSpec(data)
       .then(res => {
-        dispatch(receiveDeleteSuccess(res))
+        dispatch(receiveDeleteSuccess(data))
         dispatch(notifySuccess(successCallback, res))
       })
       .catch(error => {
