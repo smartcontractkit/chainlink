@@ -64,7 +64,7 @@ const renderLatestRuns = (props, state, handleChangePage) => {
 const Fetching = () => <div>Fetching...</div>
 
 const renderDetails = (props, state, handleChangePage) => {
-  if (props.latestJobRuns && props.latestJobRuns.length > 0) {
+  if (props.latestJobRuns) {
     return renderLatestRuns(props, state, handleChangePage)
   } else {
     return <Fetching />
