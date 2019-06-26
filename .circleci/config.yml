@@ -113,15 +113,17 @@ jobs:
         environment:
           TYPEORM_NAME: ci
           TYPEORM_HOST: explorerdb
-      - image: circleci/postgres:11-alpine
+      - image: circleci/postgres:11
         environment:
           POSTGRES_USER: circleci_postgres
           POSTGRES_DB: circleci_test
-      - image: circleci/postgres:11-alpine
+          POSTGRES_INITDB_ARGS: "--lc-collate=C --lc-ctype=C"
+      - image: circleci/postgres:11
         name: explorerdb
         environment:
           POSTGRES_USER: root
           POSTGRES_DB: explorer_test
+          POSTGRES_INITDB_ARGS: "--lc-collate=C --lc-ctype=C"
     environment:
       DATABASE_URL: postgres://circleci_postgres@localhost:5432/circleci_test?sslmode=disable
     steps:

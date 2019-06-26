@@ -90,7 +90,7 @@ const renderRuns = (runs: IJobRuns, classes) => {
             color="textSecondary"
             className={classes.noRuns}
           >
-            The job hasn’t run yet
+            No jobs have been run yet
           </Typography>
         </TableCell>
       </TableRow>
