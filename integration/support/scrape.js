@@ -20,8 +20,9 @@ module.exports = {
   // occurs.
   scrape: async (page, regex) => {
     checkPage = async () => {
-      const content = await page.content()
-      let match = content
+      const element = await page.$('body')
+      const text = await (await element.getProperty('textContent')).jsonValue()
+      let match = text
         .replace(/\s+/g, ' ')
         .trim()
         .match(regex)
@@ -32,6 +33,7 @@ module.exports = {
       return await checkPage(page, regex)
     }
     let match = await waitWithTimeout(checkPage, 'scrape', 30000)
-    return await match()
+    expect(match).toBeDefined()
+    return (await match())[1]
   }
 }
