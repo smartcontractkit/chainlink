@@ -2,9 +2,9 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import numeral from 'numeral'
 import { BigNumber } from 'bignumber.js'
-import StyledTooltip from 'components/Tooltip'
 import Typography from '@material-ui/core/Typography'
-import PaddedCard from 'components/PaddedCard'
+import PaddedCard from '@chainlink/styleguide/components/PaddedCard'
+import Tooltip from '@chainlink/styleguide/components/Tooltip'
 
 const WEI_PER_TOKEN = new BigNumber(10 ** 18)
 
@@ -44,9 +44,9 @@ const TokenBalance = props => {
         {props.title}
       </Typography>
       <Typography variant="body1" color="textSecondary">
-        <StyledTooltip title={tooltip} placement="left">
+        <Tooltip title={tooltip} placement="left">
           <span>{val}</span>
-        </StyledTooltip>
+        </Tooltip>
       </Typography>
     </PaddedCard>
   )

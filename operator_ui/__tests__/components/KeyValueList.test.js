@@ -1,6 +1,6 @@
 import React from 'react'
 import { render } from 'enzyme'
-import KeyValueList from 'components/KeyValueList'
+import KeyValueList from '@chainlink/styleguide/components/KeyValueList'
 
 describe('components/KeyValueList', () => {
   it('can display a title', () => {
