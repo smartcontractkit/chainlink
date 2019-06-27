@@ -892,9 +892,8 @@ func TestManagedAccount_GetAndIncrementNonce_DoesNotIncrementWhenCallbackThrowsE
 }
 
 func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
-	t.Parallel()
-
-	logsToCheckForBalance := cltest.ObserveLogs()
+	logsToCheckForBalance, cleanup := cltest.ObserveLogs()
+	defer cleanup()
 
 	config, configCleanup := cltest.NewConfig(t)
 	defer configCleanup()
