@@ -34,19 +34,19 @@ const styles = ({ spacing, palette }: Theme) =>
   })
 
 interface IProps extends WithStyles<typeof styles> {
-  taskRuns: ITaskSpecs
+  tasks: ITaskSpecs
 }
 
-const TaskRuns = ({ taskRuns, classes }: IProps) => {
+const TaskList = ({ tasks, classes }: IProps) => {
   return (
     <ul className={classes.container}>
-      {taskRuns &&
-        taskRuns.map((run, idx) => {
+      {tasks &&
+        tasks.map((task, idx) => {
           return (
             <li key={idx} className={classes.item}>
               <ListIcon width={40} className={classes.status} />
               <Typography variant="body1" inline>
-                {titleize(run.type)}
+                {titleize(task.type)}
               </Typography>
             </li>
           )
@@ -55,4 +55,4 @@ const TaskRuns = ({ taskRuns, classes }: IProps) => {
   )
 }
 
-export default withStyles(styles)(TaskRuns)
+export default withStyles(styles)(TaskList)
