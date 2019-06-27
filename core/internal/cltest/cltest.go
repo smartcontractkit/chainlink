@@ -582,10 +582,13 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 }
 
 // ObserveLogs returns the observed logs
-func ObserveLogs() *observer.ObservedLogs {
+func ObserveLogs() (*observer.ObservedLogs, func()) {
+	previousLogger := logger.GetLogger()
 	core, observed := observer.New(zapcore.DebugLevel)
 	logger.SetLogger(zap.New(core))
-	return observed
+	return observed, func() {
+		logger.SetLogger(previousLogger.Desugar())
+	}
 }
 
 // ReadLogs returns the contents of the applications log file as a string
