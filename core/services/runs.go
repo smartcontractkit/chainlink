@@ -360,7 +360,7 @@ func validateOnMainChain(jr *models.JobRun, taskRun *models.TaskRun, store *stor
 	if err != nil {
 		return err
 	}
-	if receipt.Unconfirmed() {
+	if invalidRequest(jr.RunRequest, receipt) {
 		return fmt.Errorf(
 			"TxHash %s initiating run %s not on main chain; presumably has been uncled",
 			txhash.Hex(),
@@ -368,6 +368,11 @@ func validateOnMainChain(jr *models.JobRun, taskRun *models.TaskRun, store *stor
 		)
 	}
 	return nil
+}
+
+func invalidRequest(request models.RunRequest, receipt *models.TxReceipt) bool {
+	return receipt.Unconfirmed() ||
+		(request.BlockHash != nil && *request.BlockHash != receipt.BlockHash)
 }
 
 func meetsMinimumConfirmations(

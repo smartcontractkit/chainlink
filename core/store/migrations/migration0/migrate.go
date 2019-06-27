@@ -34,7 +34,7 @@ func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&models.Key{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate Key")
 	}
-	if err := tx.AutoMigrate(&models.RunRequest{}).Error; err != nil {
+	if err := tx.AutoMigrate(&RunRequest{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate RunRequest")
 	}
 	if err := tx.AutoMigrate(&models.RunResult{}).Error; err != nil {
@@ -110,4 +110,13 @@ type TaskRun struct {
 type Head struct {
 	HashRaw string `gorm:"primary_key;type:varchar;column:hash"`
 	Number  int64  `gorm:"index;type:bigint;not null"`
+}
+
+// RunRequest stores the fields used to initiate the parent job run.
+type RunRequest struct {
+	ID        uint `gorm:"primary_key"`
+	RequestID *string
+	TxHash    *common.Hash
+	Requester *common.Address
+	CreatedAt time.Time
 }
