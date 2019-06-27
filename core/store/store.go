@@ -204,8 +204,11 @@ func initializeORM(config Config) (*orm.ORM, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err = migrations.Migrate(orm.DB); err != nil {
+		return nil, err
+	}
 	orm.SetLogging(config.LogSQLStatements())
-	return orm, migrations.Migrate(orm.DB)
+	return orm, nil
 }
 
 // RunRequest is the type that the RunChannel uses to package all the necessary
