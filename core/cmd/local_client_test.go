@@ -17,8 +17,6 @@ import (
 )
 
 func TestClient_RunNodeShowsEnv(t *testing.T) {
-	t.Parallel()
-
 	config, configCleanup := cltest.NewConfig(t)
 	defer configCleanup()
 	config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
@@ -207,8 +205,6 @@ func TestClient_ImportKey(t *testing.T) {
 }
 
 func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name            string
 		logToDiskValue  bool
