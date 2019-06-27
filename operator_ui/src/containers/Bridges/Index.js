@@ -5,7 +5,7 @@ import PropTypes from 'prop-types'
 import Grid from '@material-ui/core/Grid'
 import Title from 'components/Title'
 import BridgeList from 'components/Bridges/List'
-import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
+import BaseLink from 'components/BaseLink'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import bridgesSelector from 'selectors/bridges'
 import { fetchBridges } from 'actions'
@@ -34,7 +34,7 @@ export const Index = props => {
             <Grid item>
               <Button
                 variant="secondary"
-                component={ReactStaticLinkComponent}
+                component={BaseLink}
                 to={'/bridges/new'}
               >
                 New Bridge
