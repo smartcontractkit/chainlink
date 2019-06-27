@@ -5,9 +5,9 @@ import { createMuiTheme } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import JavascriptTimeAgo from 'javascript-time-ago'
 import en from 'javascript-time-ago/locale/en'
-import TimeAgo from 'components/TimeAgo'
-import Logo from 'components/Logo'
-import theme from '../../../operator_ui/src/theme'
+import TimeAgo from '../components/TimeAgo'
+import Logo from '../components/Logo'
+import theme from '../theme'
 
 const customTheme = createMuiTheme(theme)
 

@@ -7,8 +7,8 @@ import {
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
+import PaddedCard from '@chainlink/styleguide/components/PaddedCard'
 import { titleCase } from 'change-case'
-import PaddedCard from '../PaddedCard'
 import StatusIcon from '../JobRuns/StatusIcon'
 
 const styles = (theme: Theme) =>

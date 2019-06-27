@@ -12,11 +12,11 @@ import TableRow from '@material-ui/core/TableRow'
 import TableCell from '@material-ui/core/TableCell'
 import Card from '@material-ui/core/Card'
 import classNames from 'classnames'
+import TimeAgo from '@chainlink/styleguide/components/TimeAgo'
 import { IJobRuns } from '../../../@types/operator_ui'
 import titleize from '../../utils/titleize'
 import BaseLink from '../BaseLink'
 import Link from '../Link'
-import TimeAgo from '../TimeAgo'
 import Button from '../Button'
 
 const styles = ({ palette, spacing }: Theme) =>
