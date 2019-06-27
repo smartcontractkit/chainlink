@@ -1,23 +1,22 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Link as BaseLink } from 'react-router-dom'
 import { withStyles } from '@material-ui/core/styles'
 import Card from '@material-ui/core/Card'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
+import classNames from 'classnames'
+import TimeAgo from '@chainlink/styleguide/components/TimeAgo'
+import localizedTimestamp from '@chainlink/styleguide/utils/localizedTimestamp'
 import Button from 'components/Button'
 import Link from 'components/Link'
-import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
+import BaseLink from 'components/BaseLink'
 import CopyJobSpec from 'components/CopyJobSpec'
 import ErrorMessage from 'components/Notifications/DefaultError'
-import TimeAgo from 'components/TimeAgo'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
 import { isWebInitiator } from 'utils/jobSpecInitiators'
 import { fetchJobRuns, createJobRun } from 'actions'
-import classNames from 'classnames'
-import localizedTimestamp from 'utils/localizedTimestamp'
 
 const styles = theme => {
   return {
@@ -121,7 +120,7 @@ const RegionalNav = ({
                     pathname: '/jobs/new',
                     state: { definition: definition }
                   }}
-                  component={ReactStaticLinkComponent}
+                  component={BaseLink}
                   className={classes.duplicate}
                 >
                   Duplicate

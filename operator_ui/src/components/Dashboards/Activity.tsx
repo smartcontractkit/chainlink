@@ -14,10 +14,10 @@ import TableRow from '@material-ui/core/TableRow'
 import TableFooter from '@material-ui/core/TableFooter'
 import CardContent from '@material-ui/core/CardContent'
 import Card from '@material-ui/core/Card'
+import TimeAgo from '@chainlink/styleguide/components/TimeAgo'
 import Button from '../Button'
-import ReactStaticLinkComponent from '../ReactStaticLinkComponent'
+import BaseLink from '../BaseLink'
 import Link from '../Link'
-import TimeAgo from '../TimeAgo'
 import StatusIcon from '../JobRuns/StatusIcon'
 import NoContentLogo from '../Logos/NoContent'
 import { IJobRuns } from '../../../@types/operator_ui'
@@ -151,7 +151,7 @@ const Activity = ({ classes, runs, count, pageSize }: IProps) => {
           <TableFooter>
             <TableRow>
               <TableCell scope="row" className={classes.footer}>
-                <Button to={`/runs`} component={ReactStaticLinkComponent}>
+                <Button to={`/runs`} component={BaseLink}>
                   View More
                 </Button>
               </TableCell>
@@ -172,7 +172,7 @@ const Activity = ({ classes, runs, count, pageSize }: IProps) => {
             </Typography>
           </Grid>
           <Grid item xs={12} sm={4} align="right">
-            <Button component={ReactStaticLinkComponent} to={'/jobs/new'}>
+            <Button component={BaseLink} to={'/jobs/new'}>
               New Job
             </Button>
           </Grid>

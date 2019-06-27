@@ -9,10 +9,10 @@ import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import TablePagination from '@material-ui/core/TablePagination'
 import Typography from '@material-ui/core/Typography'
+import TimeAgo from '@chainlink/styleguide/components/TimeAgo'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Link from 'components/Link'
-import TimeAgo from 'components/TimeAgo'
 
 const renderBody = (jobs, error) => {
   if (error) {

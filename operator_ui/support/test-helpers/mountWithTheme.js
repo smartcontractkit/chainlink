@@ -9,7 +9,7 @@ import {
   createMuiTheme,
   createGenerateClassName
 } from '@material-ui/core/styles'
-import theme from 'theme'
+import theme from '@chainlink/styleguide/theme'
 import createStore from 'connectors/redux'
 
 const sheetsRegistry = new SheetsRegistry()
