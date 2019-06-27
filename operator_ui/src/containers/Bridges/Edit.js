@@ -13,7 +13,7 @@ import Button from 'components/Button'
 import bridgeSelector from 'selectors/bridge'
 import { fetchBridgeSpec, updateBridge } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
+import BaseLink from 'components/BaseLink'
 import Content from 'components/Content'
 import { useHooks, useEffect } from 'use-react-hooks'
 
@@ -55,7 +55,7 @@ export const Edit = useHooks(props => {
                     <Grid item>
                       {bridge && (
                         <Button
-                          component={ReactStaticLinkComponent}
+                          component={BaseLink}
                           to={`/bridges/${bridge.id}`}
                         >
                           Cancel

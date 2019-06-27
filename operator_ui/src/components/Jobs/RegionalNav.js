@@ -1,6 +1,5 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Link as BaseLink } from 'react-router-dom'
 import { withStyles } from '@material-ui/core/styles'
 import Card from '@material-ui/core/Card'
 import Typography from '@material-ui/core/Typography'
@@ -9,7 +8,7 @@ import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import Button from 'components/Button'
 import Link from 'components/Link'
-import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
+import BaseLink from 'components/BaseLink'
 import CopyJobSpec from 'components/CopyJobSpec'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import TimeAgo from 'components/TimeAgo'
@@ -121,7 +120,7 @@ const RegionalNav = ({
                     pathname: '/jobs/new',
                     state: { definition: definition }
                   }}
-                  component={ReactStaticLinkComponent}
+                  component={BaseLink}
                   className={classes.duplicate}
                 >
                   Duplicate
