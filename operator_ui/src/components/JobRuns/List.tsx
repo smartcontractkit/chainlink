@@ -14,7 +14,7 @@ import Card from '@material-ui/core/Card'
 import classNames from 'classnames'
 import { IJobRuns } from '../../../@types/operator_ui'
 import titleize from '../../utils/titleize'
-import ReactStaticLinkComponent from '../ReactStaticLinkComponent'
+import BaseLink from '../BaseLink'
 import Link from '../Link'
 import TimeAgo from '../TimeAgo'
 import Button from '../Button'
@@ -161,10 +161,7 @@ const List = ({
             <TableRow>
               <TableCell>
                 <div className={classes.runDetails}>
-                  <Button
-                    to={`/jobs/${jobSpecId}/runs`}
-                    component={ReactStaticLinkComponent}
-                  >
+                  <Button to={`/jobs/${jobSpecId}/runs`} component={BaseLink}>
                     View More
                   </Button>
                 </div>
