@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link as ReactStaticLink } from 'react-router-dom'
+import BaseLink from './BaseLink'
 import {
   createStyles,
   Theme,
@@ -39,11 +39,11 @@ const Link = ({ children, classes, className, to, variant, color }: IProps) => {
   const c = color || 'inherit'
 
   return (
-    <ReactStaticLink to={to} className={classNames(classes.link, className)}>
+    <BaseLink to={to} className={classNames(classes.link, className)}>
       <Typography variant={v} color={c} className={classes.linkContent}>
         {children}
       </Typography>
-    </ReactStaticLink>
+    </BaseLink>
   )
 }
 

@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import Logo from '../Logo'
+import Logo from '@chainlink/styleguide/components/Logo'
 import src from '../../images/icon-logo-blue.svg'
 
 const Hexagon = props => {
