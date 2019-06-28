@@ -1,7 +1,6 @@
 package services_test
 
 import (
-	"bytes"
 	"fmt"
 	"math"
 	"math/big"
@@ -243,6 +242,31 @@ func TestResumePendingTask(t *testing.T) {
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Result.Status))
 }
 
+func TestResumePendingTask_ParamsPriority(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	// Params in the job spec should have the highest priority and not get overridden
+	jobSpec := cltest.NewJobWithWebInitiator()
+	jobSpec.Tasks = []models.TaskSpec{cltest.NewTask(t, "BridgeType", `{"highPriority": 999}`)}
+	require.NoError(t, store.ORM.CreateJob(&jobSpec))
+
+	// Params in the run request should have higher priority than bridge adapter responses
+	runRequestInput := models.RunResult{Data: cltest.ParseJSONStr(t, `{"highPriority": 0, "mediumPriority": 999}`)}
+	run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], runRequestInput, nil, store)
+	require.NoError(t, err)
+	run.Status = models.RunStatusPendingBridge
+	require.NoError(t, store.ORM.CreateJobRun(run))
+
+	// Bridge adapter responses should have the lowest priority
+	input := models.JSON{Result: gjson.Parse(`{"highPriority": 0, "mediumPriority": 0, "lowPriority": 999}`)}
+	err = services.ResumePendingTask(run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
+	require.NoError(t, err)
+	assert.Equal(t, string(models.RunStatusCompleted), string(run.Result.Status))
+	assert.JSONEq(t, `{"highPriority": 0, "mediumPriority": 0, "lowPriority": 999}`, run.Result.Data.String())
+	assert.JSONEq(t, `{"highPriority":0, "mediumPriority":999}`, run.Overrides.Data.String())
+}
+
 func TestResumeConfirmingTask(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -340,8 +364,8 @@ func TestResumeConnectingTask(t *testing.T) {
 
 func sleepAdapterParams(t testing.TB, n int) models.JSON {
 	d := time.Duration(n)
-	json := []byte(fmt.Sprintf(`{"until":%v}`, time.Now().Add(d*time.Second).Unix()))
-	return cltest.ParseJSON(t, bytes.NewBuffer(json))
+	json := fmt.Sprintf(`{"until":%v}`, time.Now().Add(d*time.Second).Unix())
+	return cltest.ParseJSONStr(t, json)
 }
 
 func TestQueueSleepingTask(t *testing.T) {
@@ -377,7 +401,7 @@ func TestQueueSleepingTask(t *testing.T) {
 	assert.Error(t, err)
 
 	// error decoding params into adapter
-	inputFromTheFuture := cltest.ParseJSON(t, bytes.NewBuffer([]byte(`{"until": -1}`)))
+	inputFromTheFuture := cltest.ParseJSONStr(t, `{"until": -1}`)
 	run = &models.JobRun{
 		ID:        utils.NewBytes32ID(),
 		JobSpecID: jobSpec.ID,

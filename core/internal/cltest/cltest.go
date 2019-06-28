@@ -442,6 +442,11 @@ func ParseCommonJSON(t testing.TB, body io.Reader) CommonJSON {
 	return respJSON
 }
 
+func ParseJSONStr(t testing.TB, body string) models.JSON {
+	t.Helper()
+	return ParseJSON(t, bytes.NewBuffer([]byte(body)))
+}
+
 func ParseJSON(t testing.TB, body io.Reader) models.JSON {
 	t.Helper()
 
