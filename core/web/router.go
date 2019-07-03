@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"math"
 	"net/http"
+	"net/http/pprof"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -202,8 +203,32 @@ func tokenAuthRequired(store *store.Store) gin.HandlerFunc {
 }
 
 func metricRoutes(app services.Application, r *gin.RouterGroup) {
-	auth := r.Group("/", sessionAuthRequired(app.GetStore()))
-	auth.GET("/debug/vars", expvar.Handler())
+	group := r.Group("/debug", sessionAuthRequired(app.GetStore()))
+	group.GET("/vars", expvar.Handler())
+
+	if app.GetStore().Config.Dev() {
+		// No authentication because `go tool pprof` doesn't support it
+		pprofGroup := r.Group("/debug/pprof")
+		pprofGroup.GET("/", pprofHandler(pprof.Index))
+		pprofGroup.GET("/cmdline", pprofHandler(pprof.Cmdline))
+		pprofGroup.GET("/profile", pprofHandler(pprof.Profile))
+		pprofGroup.POST("/symbol", pprofHandler(pprof.Symbol))
+		pprofGroup.GET("/symbol", pprofHandler(pprof.Symbol))
+		pprofGroup.GET("/trace", pprofHandler(pprof.Trace))
+		pprofGroup.GET("/allocs", pprofHandler(pprof.Handler("allocs").ServeHTTP))
+		pprofGroup.GET("/block", pprofHandler(pprof.Handler("block").ServeHTTP))
+		pprofGroup.GET("/goroutine", pprofHandler(pprof.Handler("goroutine").ServeHTTP))
+		pprofGroup.GET("/heap", pprofHandler(pprof.Handler("heap").ServeHTTP))
+		pprofGroup.GET("/mutex", pprofHandler(pprof.Handler("mutex").ServeHTTP))
+		pprofGroup.GET("/threadcreate", pprofHandler(pprof.Handler("threadcreate").ServeHTTP))
+	}
+}
+
+func pprofHandler(h http.HandlerFunc) gin.HandlerFunc {
+	handler := http.HandlerFunc(h)
+	return func(c *gin.Context) {
+		handler.ServeHTTP(c.Writer, c.Request)
+	}
 }
 
 func sessionRoutes(app services.Application, r *gin.RouterGroup) {
