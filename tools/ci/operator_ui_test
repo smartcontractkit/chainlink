@@ -10,5 +10,5 @@ cd operator_ui
 
 if [ -n "$CC_TEST_REPORTER_ID"  ]; then
   cc-test-reporter format-coverage --output "coverage/codeclimate.operator_ui.json"
-  gsutil cp "coverage/codeclimate.operator_ui.json" gs://chainlink-test-coverage/$CIRCLE_WORKFLOW_ID/
+  gsutil cp "coverage/codeclimate.operator_ui.json" gs://codeclimate-aggregation/$CIRCLE_WORKFLOW_ID/
 fi
