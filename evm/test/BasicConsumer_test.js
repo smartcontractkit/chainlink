@@ -3,16 +3,16 @@ import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
 
 contract('BasicConsumer', () => {
-  const sourcePath = 'examples/BasicConsumer.sol'
+  const BasicConsumer = artifacts.require('./BasicConsumer.sol')
+  const Oracle = artifacts.require('./Oracle.sol')
   let specId = h.newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
   let currency = 'USD'
   let link, oc, cc
 
   beforeEach(async () => {
     link = await h.linkContract()
-    oc = await h.deploy('Oracle.sol', link.address)
-    await oc.transferOwnership(h.oracleNode, { from: h.defaultAccount })
-    cc = await h.deploy(sourcePath, link.address, oc.address, h.toHex(specId))
+    oc = await Oracle.new(link.address, { from: h.oracleNode })
+    cc = await BasicConsumer.new(link.address, oc.address, h.toHex(specId))
   })
 
   it('has a predictable gas price', async () => {
