@@ -204,11 +204,11 @@ func tokenAuthRequired(store *store.Store) gin.HandlerFunc {
 
 func metricRoutes(app services.Application, r *gin.RouterGroup) {
 	group := r.Group("/debug", sessionAuthRequired(app.GetStore()))
-
 	group.GET("/vars", expvar.Handler())
 
 	if app.GetStore().Config.Dev() {
-		pprofGroup := group.Group("/pprof")
+		// No authentication because `go tool pprof` doesn't support it
+		pprofGroup := r.Group("/debug/pprof")
 		pprofGroup.GET("/", pprofHandler(pprof.Index))
 		pprofGroup.GET("/cmdline", pprofHandler(pprof.Cmdline))
 		pprofGroup.GET("/profile", pprofHandler(pprof.Profile))
