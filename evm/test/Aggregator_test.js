@@ -1,9 +1,10 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
 const personas = h.personas
+const Aggregator = artifacts.require('Aggregator.sol')
+const Oracle = artifacts.require('Oracle.sol')
 
 contract('Aggregator', () => {
-  const SOURCE_PATH = 'Aggregator.sol'
   const jobId1 =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000001'
   const jobId2 =
@@ -19,15 +20,15 @@ contract('Aggregator', () => {
 
   beforeEach(async () => {
     link = await h.linkContract()
-    oc1 = await h.deploy('Oracle.sol', link.address)
-    oc2 = await h.deploy('Oracle.sol', link.address)
-    oc3 = await h.deploy('Oracle.sol', link.address)
-    oc4 = await h.deploy('Oracle.sol', link.address)
+    oc1 = await Oracle.new(link.address)
+    oc2 = await Oracle.new(link.address)
+    oc3 = await Oracle.new(link.address)
+    oc4 = await Oracle.new(link.address)
     oracles = [oc1, oc2, oc3]
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(artifacts.require(SOURCE_PATH), [
+    h.checkPublicABI(Aggregator, [
       'authorizedRequesters',
       'cancelRequest',
       'chainlinkCallback',
@@ -55,8 +56,7 @@ contract('Aggregator', () => {
 
     context('basic updates', () => {
       beforeEach(async () => {
-        rate = await h.deploy(
-          SOURCE_PATH,
+        rate = await Aggregator.new(
           link.address,
           basePayment,
           1,
@@ -130,8 +130,7 @@ contract('Aggregator', () => {
 
     context('with multiple oracles', () => {
       beforeEach(async () => {
-        rate = await h.deploy(
-          SOURCE_PATH,
+        rate = await Aggregator.new(
           link.address,
           basePayment,
           oracles.length,
@@ -192,8 +191,7 @@ contract('Aggregator', () => {
     context('with an even number of oracles', () => {
       beforeEach(async () => {
         oracles = [oc1, oc2, oc3, oc4]
-        rate = await h.deploy(
-          SOURCE_PATH,
+        rate = await Aggregator.new(
           link.address,
           basePayment,
           oracles.length,
@@ -228,8 +226,7 @@ contract('Aggregator', () => {
 
   describe('#updateRequestDetails', () => {
     beforeEach(async () => {
-      rate = await h.deploy(
-        SOURCE_PATH,
+      rate = await Aggregator.new(
         link.address,
         basePayment,
         1,
@@ -237,7 +234,7 @@ contract('Aggregator', () => {
         [jobId1]
       )
       await rate.transferOwnership(personas.Carol)
-      oc2 = await h.deploy('Oracle.sol', link.address)
+      oc2 = await Oracle.new(link.address)
       await link.transfer(rate.address, deposit)
 
       const current = await rate.currentAnswer.call()
@@ -340,8 +337,7 @@ contract('Aggregator', () => {
 
     context('when called before a past answer is fulfilled', () => {
       beforeEach(async () => {
-        rate = await h.deploy(
-          SOURCE_PATH,
+        rate = await Aggregator.new(
           link.address,
           basePayment,
           1,
@@ -350,8 +346,8 @@ contract('Aggregator', () => {
         )
         await link.transfer(rate.address, deposit)
 
-        oc2 = await h.deploy('Oracle.sol', link.address)
-        oc3 = await h.deploy('Oracle.sol', link.address)
+        oc2 = await Oracle.new(link.address)
+        oc3 = await Oracle.new(link.address)
       })
 
       it('accepts answers from oracles at the time the request was made', async () => {
@@ -435,8 +431,7 @@ contract('Aggregator', () => {
 
   describe('#transferLINK', () => {
     beforeEach(async () => {
-      rate = await h.deploy(
-        SOURCE_PATH,
+      rate = await Aggregator.new(
         link.address,
         basePayment,
         1,
@@ -486,8 +481,7 @@ contract('Aggregator', () => {
 
   describe('#destroy', () => {
     beforeEach(async () => {
-      rate = await h.deploy(
-        SOURCE_PATH,
+      rate = await Aggregator.new(
         link.address,
         basePayment,
         1,
@@ -524,8 +518,7 @@ contract('Aggregator', () => {
 
   describe('#setAuthorization', async () => {
     beforeEach(async () => {
-      rate = await h.deploy(
-        SOURCE_PATH,
+      rate = await Aggregator.new(
         link.address,
         basePayment,
         1,
@@ -572,8 +565,7 @@ contract('Aggregator', () => {
     let request
 
     beforeEach(async () => {
-      rate = await h.deploy(
-        SOURCE_PATH,
+      rate = await Aggregator.new(
         link.address,
         basePayment,
         1,
@@ -688,7 +680,7 @@ contract('Aggregator', () => {
     ]
 
     beforeEach(async () => {
-      rate = await h.deploy(SOURCE_PATH, link.address, basePayment, 0, [], [])
+      rate = await Aggregator.new(link.address, basePayment, 0, [], [])
       await link.transfer(rate.address, deposit)
     })
 
@@ -699,7 +691,7 @@ contract('Aggregator', () => {
 
       it(test.name, async () => {
         for (let i = 0; i < responses.length; i++) {
-          oracles[i] = await h.deploy('Oracle.sol', link.address)
+          oracles[i] = await Oracle.new(link.address)
           jobIds[i] = jobId1 // doesn't really matter in this test
         }
 

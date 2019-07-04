@@ -1,8 +1,12 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
+const BasicConsumer = artifacts.require('BasicConsumer.sol')
+const GetterSetter = artifacts.require('GetterSetter.sol')
+const MaliciousRequester = artifacts.require('MaliciousRequester.sol')
+const MaliciousConsumer = artifacts.require('MaliciousConsumer.sol')
+const Oracle = artifacts.require('Oracle.sol')
 
 contract('Oracle', () => {
-  const sourcePath = 'Oracle.sol'
   const fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
   const specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
@@ -11,16 +15,14 @@ contract('Oracle', () => {
 
   beforeEach(async () => {
     link = await h.linkContract()
-    oc = await h.deploy(sourcePath, link.address)
-    await oc.setFulfillmentPermission(h.oracleNode, true, {
-      from: h.defaultAccount
-    })
+    oc = await Oracle.new(link.address)
+    await oc.setFulfillmentPermission(h.oracleNode, true)
     withdraw = async (address, amount, options) =>
       oc.withdraw(address, amount.toString(), options)
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(artifacts.require(sourcePath), [
+    h.checkPublicABI(Oracle, [
       'EXPIRY_TIME',
       'cancelOracleRequest',
       'fulfillOracleRequest',
@@ -107,11 +109,7 @@ contract('Oracle', () => {
       const paymentAmount = h.toWei('1', 'ether')
 
       beforeEach(async () => {
-        mock = await h.deploy(
-          'examples/MaliciousRequester.sol',
-          link.address,
-          oc.address
-        )
+        mock = await MaliciousRequester.new(link.address, oc.address)
         await link.transfer(mock.address, paymentAmount)
       })
 
@@ -142,8 +140,7 @@ contract('Oracle', () => {
           })
 
           it('the target requester can still create valid requests', async () => {
-            requester = await h.deploy(
-              'examples/BasicConsumer.sol',
+            requester = await BasicConsumer.new(
               link.address,
               oc.address,
               specId
@@ -273,12 +270,7 @@ contract('Oracle', () => {
 
     context('cooperative consumer', () => {
       beforeEach(async () => {
-        mock = await h.deploy(
-          'examples/BasicConsumer.sol',
-          link.address,
-          oc.address,
-          specId
-        )
+        mock = await BasicConsumer.new(link.address, oc.address, specId)
         const paymentAmount = h.toWei(1)
         await link.transfer(mock.address, paymentAmount)
         const currency = 'USD'
@@ -371,11 +363,7 @@ contract('Oracle', () => {
     context('with a malicious requester', () => {
       beforeEach(async () => {
         const paymentAmount = h.toWei(1)
-        mock = await h.deploy(
-          'examples/MaliciousRequester.sol',
-          link.address,
-          oc.address
-        )
+        mock = await MaliciousRequester.new(link.address, oc.address)
         await link.transfer(mock.address, paymentAmount)
       })
 
@@ -412,11 +400,7 @@ contract('Oracle', () => {
       const paymentAmount = h.toWei(1)
 
       beforeEach(async () => {
-        mock = await h.deploy(
-          'examples/MaliciousConsumer.sol',
-          link.address,
-          oc.address
-        )
+        mock = await MaliciousConsumer.new(link.address, oc.address)
         await link.transfer(mock.address, paymentAmount)
       })
 
@@ -591,7 +575,7 @@ contract('Oracle', () => {
       let request
 
       beforeEach(async () => {
-        const mock = await h.deploy('examples/GetterSetter.sol')
+        const mock = await GetterSetter.new()
         const args = h.requestDataBytes(specId, mock.address, fHash, 'id', '')
         const tx = await h.requestDataFrom(oc, link, payment, args)
         assert.equal(3, tx.receipt.rawLogs.length)
@@ -672,7 +656,7 @@ contract('Oracle', () => {
 
     beforeEach(async () => {
       const amount = h.toWei(1, 'ether').toString()
-      const mock = await h.deploy('examples/GetterSetter.sol')
+      const mock = await GetterSetter.new()
       const args = h.requestDataBytes(specId, mock.address, fHash, 'id', '')
       const tx = await h.requestDataFrom(oc, link, amount, args)
       assert.equal(3, tx.receipt.rawLogs.length)
