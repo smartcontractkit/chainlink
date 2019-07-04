@@ -1,10 +1,10 @@
 import cbor from 'cbor'
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
+const BasicConsumer = artifacts.require('BasicConsumer.sol')
+const Oracle = artifacts.require('Oracle.sol')
 
 contract('BasicConsumer', () => {
-  const BasicConsumer = artifacts.require('./BasicConsumer.sol')
-  const Oracle = artifacts.require('./Oracle.sol')
   let specId = h.newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
   let currency = 'USD'
   let link, oc, cc

@@ -3,7 +3,6 @@ import {
   decodeRunABI,
   decodeDietCBOR,
   decodeRunRequest,
-  deploy,
   fulfillOracleRequest,
   getEvents,
   getLatestEvent,
@@ -12,19 +11,22 @@ import {
   toHexWithoutPrefix,
   toHex
 } from './support/helpers'
+const ConcreteChainlinked = artifacts.require('ConcreteChainlinked.sol')
+const EmptyOracle = artifacts.require('EmptyOracle.sol')
+const GetterSetter = artifacts.require('GetterSetter.sol')
+const Oracle = artifacts.require('Oracle.sol')
 
 contract('ConcreteChainlinked', () => {
-  const sourcePath = 'examples/ConcreteChainlinked.sol'
   let specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   let cc, gs, oc, newoc, link
 
   beforeEach(async () => {
     link = await linkContract()
-    oc = await deploy('Oracle.sol', link.address)
-    newoc = await deploy('Oracle.sol', link.address)
-    gs = await deploy('examples/GetterSetter.sol')
-    cc = await deploy(sourcePath, link.address, oc.address)
+    oc = await Oracle.new(link.address)
+    newoc = await Oracle.new(link.address)
+    gs = await GetterSetter.new()
+    cc = await ConcreteChainlinked.new(link.address, oc.address)
   })
 
   describe('#newRequest', () => {
@@ -111,8 +113,8 @@ contract('ConcreteChainlinked', () => {
     let requestId
 
     beforeEach(async () => {
-      oc = await deploy('examples/EmptyOracle.sol')
-      cc = await deploy(sourcePath, link.address, oc.address)
+      oc = await EmptyOracle.new()
+      cc = await ConcreteChainlinked.new(link.address, oc.address)
       await cc.publicRequest(
         specId,
         cc.address,
@@ -198,7 +200,7 @@ contract('ConcreteChainlinked', () => {
     let mock, request
 
     beforeEach(async () => {
-      mock = await deploy(sourcePath, link.address, oc.address)
+      mock = await ConcreteChainlinked.new(link.address, oc.address)
       const tx = await cc.publicRequest(
         specId,
         mock.address,

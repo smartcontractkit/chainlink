@@ -1,10 +1,12 @@
 import * as h from './support/helpers'
 import namehash from 'eth-ens-namehash'
 import { assertBigNum } from './support/matchers'
+const ENSRegistry = artifacts.require('ENSRegistry.sol')
+const Oracle = artifacts.require('Oracle.sol')
+const PublicResolver = artifacts.require('PublicResolver.sol')
+const UpdatableConsumer = artifacts.require('UpdatableConsumer.sol')
 
 contract('UpdatableConsumer', () => {
-  const sourcePath = 'examples/UpdatableConsumer.sol'
-
   const ensRoot = namehash.hash()
   const tld = 'cltest'
   const tldSubnode = namehash.hash(tld)
@@ -21,10 +23,9 @@ contract('UpdatableConsumer', () => {
 
   beforeEach(async () => {
     link = await h.linkContract()
-    oc = await h.deploy('Oracle.sol', link.address)
-    await oc.transferOwnership(h.oracleNode, { from: h.defaultAccount })
-    ens = await h.deploy('ENSRegistry.sol')
-    ensResolver = await h.deploy('PublicResolver.sol', ens.address)
+    oc = await Oracle.new(link.address, { from: h.oracleNode })
+    ens = await ENSRegistry.new()
+    ensResolver = await PublicResolver.new(ens.address)
 
     // register tld
     await ens.setSubnodeOwner(ensRoot, h.keccak(tld), h.defaultAccount)
@@ -59,7 +60,7 @@ contract('UpdatableConsumer', () => {
     await ensResolver.setAddr(oracleSubnode, oc.address, { from: h.oracleNode })
 
     // deploy updatable consumer contract
-    uc = await h.deploy(sourcePath, specId, ens.address, domainNode)
+    uc = await UpdatableConsumer.new(specId, ens.address, domainNode)
   })
 
   describe('constructor', () => {

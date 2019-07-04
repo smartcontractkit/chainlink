@@ -1,8 +1,8 @@
 import { deploy, stranger, toHex, toUtf8 } from './support/helpers'
 import { assertBigNum } from './support/matchers'
+const GetterSetter = artifacts.require('GetterSetter.sol')
 
 contract('GetterSetter', () => {
-  const sourcePath = 'examples/GetterSetter.sol'
   const requestId =
     '0x3bd198932d9cc01e2950ffc518fd38a303812200000000000000000000000000'
   const bytes32 = toHex('Hi Mom!')
@@ -10,7 +10,7 @@ contract('GetterSetter', () => {
   let gs
 
   beforeEach(async () => {
-    gs = await deploy(sourcePath)
+    gs = await GetterSetter.new()
   })
 
   describe('#setBytes32Val', () => {
