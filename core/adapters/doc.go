@@ -64,8 +64,15 @@
 //
 // Random
 //
-// The Random adapter generates a cryptographically secure random uint256
-// number in the interval from 0 to 2**256-1
+// Random adapter generates a number between 0 and 2**256-1
+// WARNING: The random adapter as implemented is not verifiable.
+// Outputs from this adapters are not verifiable onchain as a fairly-drawn random samples.
+// As a result, the oracle potentially has complete discretion to instead deliberately choose
+// values with favorable onchain outcomes. Don't use it for a lottery, for instance, unless 
+// you fully trust the oracle not to pick its own tickets.
+// We intend to either improve it in the future, or introduce a verifiable alternative.
+// For now it is provided as an alternative to making web requests for random numbers,
+// which is similarly unverifiable and has additional possible points of failure.
 //  { "type": "Random" }
 //
 package adapters
