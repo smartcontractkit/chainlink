@@ -1,8 +1,8 @@
 import * as h from './support/helpers'
+const LinkEx = artifacts.require('LinkEx.sol')
+const OracleDev = artifacts.require('OracleDev.sol')
 
 contract('OracleDev', () => {
-  const sourcePath = 'OracleDev.sol'
-  const priceFeed = 'LinkEx.sol'
   const ethRate = 370160
   const usdRate = 500000
   const ethSymbol = h.toHex('ETH')
@@ -20,13 +20,13 @@ contract('OracleDev', () => {
 
   beforeEach(async () => {
     link = await h.linkContract()
-    usdFeed = await h.deploy(priceFeed)
-    ethFeed = await h.deploy(priceFeed)
-    ocd = await h.deploy(sourcePath, link.address, { from: h.defaultAccount })
+    usdFeed = await LinkEx.new()
+    ethFeed = await LinkEx.new()
+    ocd = await OracleDev.new(link.address)
   })
 
   it('extends the public interface of the Oracle contract', () => {
-    h.checkPublicABI(artifacts.require(sourcePath), [
+    h.checkPublicABI(OracleDev, [
       'EXPIRY_TIME',
       'cancelOracleRequest',
       'currentRate',

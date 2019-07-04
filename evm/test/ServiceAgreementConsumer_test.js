@@ -1,17 +1,24 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
+const Coordinator = artifacts.require('Coordinator.sol')
+const ServiceAgreementConsumer = artifacts.require(
+  'ServiceAgreementConsumer.sol'
+)
 
 contract('ServiceAgreementConsumer', () => {
-  const sourcePath = 'examples/ServiceAgreementConsumer.sol'
   const currency = h.toHex('USD')
   let link, coord, cc, agreement
 
   beforeEach(async () => {
     agreement = await h.newServiceAgreement({ oracles: [h.oracleNode] })
     link = await h.linkContract()
-    coord = await h.deploy('Coordinator.sol', link.address)
+    coord = await Coordinator.new(link.address)
     await h.initiateServiceAgreement(coord, agreement)
-    cc = await h.deploy(sourcePath, link.address, coord.address, agreement.id)
+    cc = await ServiceAgreementConsumer.new(
+      link.address,
+      coord.address,
+      agreement.id
+    )
   })
 
   it('gas price of contract deployment is predictable', async () => {
@@ -52,7 +59,7 @@ contract('ServiceAgreementConsumer', () => {
 
       it('has a reasonable gas cost', async () => {
         const tx = await cc.requestEthereumPrice(currency)
-        assert.isBelow(tx.receipt.gasUsed, 172000)
+        assert.isBelow(tx.receipt.gasUsed, 175000)
       })
     })
   })
