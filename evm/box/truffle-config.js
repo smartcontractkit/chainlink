@@ -1,9 +1,8 @@
 const HDWalletProvider = require('truffle-hdwallet-provider')
 
 module.exports = {
-  network: 'test',
   networks: {
-    development: {
+    cldev: {
       host: '127.0.0.1',
       port: 8545,
       network_id: '*'

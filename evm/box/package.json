@@ -4,9 +4,9 @@
   "description": "A Chainlink example in a Truffle box",
   "scripts": {
     "compile": "./node_modules/.bin/truffle compile",
-    "console:dev": "./node_modules/.bin/truffle console --network development",
+    "console:dev": "./node_modules/.bin/truffle console --network cldev",
     "console:live": "./node_modules/.bin/truffle console --network live",
-    "migrate:dev": "./node_modules/.bin/truffle migrate --reset --network development",
+    "migrate:dev": "./node_modules/.bin/truffle migrate --reset --network cldev",
     "migrate:live": "./node_modules/.bin/truffle migrate --network live",
     "test": "./node_modules/.bin/truffle test"
   },
