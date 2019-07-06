@@ -2,9 +2,8 @@ require('@babel/register')
 require('@babel/polyfill')
 
 module.exports = {
-  network: 'test',
   networks: {
-    development: {
+    cldev: {
       host: '127.0.0.1',
       port: 18545,
       network_id: '*',
