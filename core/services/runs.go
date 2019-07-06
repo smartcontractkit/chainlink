@@ -389,7 +389,11 @@ func meetsMinimumConfirmations(
 
 func blockConfirmations(currentHeight, creationHeight *models.Big) *big.Int {
 	bigDiff := new(big.Int).Sub(currentHeight.ToInt(), creationHeight.ToInt())
-	return bigDiff.Add(bigDiff, big.NewInt(1)) // creation of runlog alone warrants 1 confirmation
+	confs := bigDiff.Add(bigDiff, big.NewInt(1)) // creation of runlog alone warrants 1 confirmation
+	if confs.Cmp(big.NewInt(0)) < 0 {            // negative, so floor at 0
+		confs.SetUint64(0)
+	}
+	return confs
 }
 
 func updateAndTrigger(run *models.JobRun, store *store.Store) error {
