@@ -122,9 +122,9 @@ describe('entity/jobRun/saveJobRunTree', () => {
     await saveJobRunTree(db, jr)
 
     const modifications = {
-      confirmations: 2,
+      confirmations: '2',
       error: 'something bad happened',
-      minimumConfirmations: 3,
+      minimumConfirmations: '3',
       status: 'errored',
       transactionHash:
         '0x2222222222222222222222222222222222222222222222222222222222222222',
