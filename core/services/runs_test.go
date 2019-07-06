@@ -581,7 +581,7 @@ func TestExecuteJobWithRunRequest(t *testing.T) {
 	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
 }
 
-func TestExecuteJobWithRunRequest_fromRunLog(t *testing.T) {
+func TestExecuteJobWithRunRequest_fromRunLog_Happy(t *testing.T) {
 	t.Parallel()
 
 	initiatingTxHash := cltest.NewHash()
@@ -663,4 +663,54 @@ func TestExecuteJobWithRunRequest_fromRunLog(t *testing.T) {
 			assert.True(t, eth.AllCalled(), eth.Remaining())
 		})
 	}
+}
+
+func TestExecuteJobWithRunRequest_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
+	t.Parallel()
+
+	initiatingTxHash := cltest.NewHash()
+	triggeringBlockHash := cltest.NewHash()
+
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	minimumConfirmations := uint32(2)
+	config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	defer cleanup()
+
+	eth := app.MockEthClient()
+	app.MockStartAndConnect()
+
+	store := app.GetStore()
+	job := cltest.NewJobWithRunLogInitiator()
+	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
+	require.NoError(t, store.CreateJob(&job))
+
+	requestID := "RequestID"
+	initr := job.Initiators[0]
+	rr := models.NewRunRequest()
+	rr.RequestID = &requestID
+	rr.TxHash = &initiatingTxHash
+	rr.BlockHash = &triggeringBlockHash
+
+	futureCreationHeight := big.NewInt(9)
+	pastCurrentHeight := big.NewInt(1)
+
+	jr, err := services.ExecuteJobWithRunRequest(
+		job,
+		initr,
+		cltest.RunResultWithData(`{"random": "input"}`),
+		futureCreationHeight,
+		store,
+		rr,
+	)
+	require.NoError(t, err)
+	cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
+
+	err = services.ResumeConfirmingTask(jr, store, pastCurrentHeight)
+	require.NoError(t, err)
+	updatedJR := cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
+	assert.True(t, updatedJR.TaskRuns[0].Confirmations.Valid)
+	assert.Equal(t, uint32(0), updatedJR.TaskRuns[0].Confirmations.Uint32)
+	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
