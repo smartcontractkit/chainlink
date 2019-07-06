@@ -3,14 +3,15 @@
   "name": "chainlink-twilio-sms",
   "version": "0.6.0",
   "license": "MIT",
-  "dependencies": {
-    "express": "^4.16.2",
-    "request": "^2.83.0",
-    "truffle": "^4.1.12",
-    "truffle-contract": "^3.0.6",
-    "twilio": "^3.11.3"
+  "scripts": {
+    "test": "truffle test"
   },
   "devDependencies": {
-    "body-parser": "^1.18.3"
+    "body-parser": "^1.18.3",
+    "express": "^4.16.2",
+    "request": "^2.83.0",
+    "truffle": "^5.0.25",
+    "truffle-contract": "^3.0.6",
+    "twilio": "^3.11.3"
   }
 }

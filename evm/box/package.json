@@ -14,8 +14,10 @@
   "dependencies": {
     "chainlink": "0.6.3",
     "chainlink-test-helpers": "^0.6.0-3",
-    "openzeppelin-solidity": "^1.12.0",
-    "truffle-hdwallet-provider": "^1.0.8",
-    "truffle": "5.0.13"
+    "openzeppelin-solidity": "^1.12.0"
+  },
+  "devDependencies": {
+    "truffle": "5.0.13",
+    "truffle-hdwallet-provider": "^1.0.8"
   }
 }
