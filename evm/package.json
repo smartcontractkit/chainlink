@@ -14,7 +14,7 @@
     "solidity-cborutils": "^1.0.4"
   },
   "devDependencies": {
-    "truffle": "^5.0.1"
+    "truffle": "^5.0.25"
   },
   "files": [
     "contracts",
