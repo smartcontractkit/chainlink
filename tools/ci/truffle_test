@@ -2,8 +2,8 @@
 
 set -e
 
-yarn solium --dir evm/
-yarn solium --dir examples/
+yarn solhint "evm/**/*.sol"
+yarn solhint "examples/**/*.sol"
 yarn lint:evm && yarn lint:examples
 
 yarn workspace chainlink truffle test

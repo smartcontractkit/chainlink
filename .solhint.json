@@ -1,0 +1,13 @@
+{
+  "extends": "solhint:recommended",
+  "plugins": [],
+  "rules": {
+    "indent": ["error", 2],
+    "quotes": ["error", "double"],
+    "avoid-throw": false,
+    "avoid-suicide": "error",
+    "avoid-sha3": "warn",
+    "avoid-low-level-calls": "error",
+    "compiler-version": ["warn", "^0.4.24"]
+  }
+}
