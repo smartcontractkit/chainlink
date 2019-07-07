@@ -236,7 +236,7 @@ contract ChainlinkClient {
   function validateChainlinkCallback(bytes32 _requestId)
     internal
     recordChainlinkFulfillment(_requestId)
-    // solium-disable-next-line no-empty-blocks
+    // solhint-disable-next-line no-empty-blocks
   {}
 
   /**

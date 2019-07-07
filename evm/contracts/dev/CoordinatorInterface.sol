@@ -1,5 +1,5 @@
 pragma solidity 0.4.24;
-pragma experimental ABIEncoderV2; // solium-disable-line no-experimental
+pragma experimental ABIEncoderV2; // solhint-disable-line no-experimental
 
 contract CoordinatorInterface {
 

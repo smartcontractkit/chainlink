@@ -5,7 +5,7 @@ import "../Chainlinked.sol";
 
 
 contract MaliciousConsumer is Chainlinked {
-  uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
+  uint256 constant private ORACLE_PAYMENT = 1 * LINK;
   uint256 private expiration;
 
   constructor(address _link, address _oracle) public payable {
@@ -38,12 +38,10 @@ contract MaliciousConsumer is Chainlinked {
   }
 
   function stealEthCall(bytes32 _requestId, bytes32) public recordChainlinkFulfillment(_requestId) {
-    // solium-disable-next-line security/no-call-value
     require(address(this).call.value(100)(), "Call failed");
   }
 
   function stealEthSend(bytes32 _requestId, bytes32) public recordChainlinkFulfillment(_requestId) {
-    // solium-disable-next-line security/no-send
     require(address(this).send(100), "Send failed");
   }
 
@@ -51,5 +49,5 @@ contract MaliciousConsumer is Chainlinked {
     address(this).transfer(100);
   }
 
-  function doesNothing(bytes32, bytes32) public pure {} // solium-disable-line no-empty-blocks
+  function doesNothing(bytes32, bytes32) public pure {} // solhint-disable-line no-empty-blocks
 }
