@@ -222,7 +222,6 @@ contract Aggregator is ChainlinkClient, Ownable {
     if (responseLength % 2 == 0) {
       int256 median1 = quickselect(answers[_answerId].responses, middleIndex);
       int256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
-      // solium-disable-next-line zeppelin/no-arithmetic-operations
       currentAnswer = median1.add(median2) / 2; // signed integers are not supported by SafeMath
     } else {
       currentAnswer = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed

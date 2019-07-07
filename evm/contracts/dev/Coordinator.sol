@@ -1,5 +1,5 @@
 pragma solidity 0.4.24;
-pragma experimental ABIEncoderV2; // solium-disable-line no-experimental
+pragma experimental ABIEncoderV2; // solhint-disable-line no-experimental
 
 import "./CoordinatorInterface.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
@@ -223,7 +223,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     }
 
     uint256 result = aggregateAndPay(_requestId, callback.amount, oracles);
-    return callback.addr.call(callback.functionId, _requestId, result); // solium-disable-line security/no-low-level-calls
+    return callback.addr.call(callback.functionId, _requestId, result); // solhint-disable-line avoid-low-level-calls
   }
 
   /**
@@ -244,7 +244,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    */
   function cancelOracleRequest(bytes32, uint256, bytes4, uint256)
     external
-  {} // solium-disable-line no-empty-blocks
+  {} // solhint-disable-line no-empty-blocks
 
   /**
    * @notice Called when LINK is sent to the contract via `transferAndCall`
@@ -264,12 +264,12 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     permittedFunctionsForLINK
   {
     assembly {
-      // solium-disable-next-line security/no-low-level-calls
+      // solhint-disable-next-line avoid-low-level-calls
       mstore(add(_data, 36), _sender) // ensure correct sender is passed
-      // solium-disable-next-line security/no-low-level-calls
+      // solhint-disable-next-line avoid-low-level-calls
       mstore(add(_data, 68), _amount)    // ensure correct amount is passed
     }
-    // solium-disable-next-line security/no-low-level-calls
+    // solhint-disable-next-line avoid-low-level-calls
     require(address(this).delegatecall(_data), "Unable to create request"); // calls oracleRequest
   }
 
@@ -368,7 +368,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   modifier permittedFunctionsForLINK() {
     bytes4[1] memory funcSelector;
     assembly {
-      // solium-disable-next-line security/no-low-level-calls
+      // solhint-disable-next-line avoid-low-level-calls
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
     require(funcSelector[0] == this.oracleRequest.selector, "Must use whitelisted functions");

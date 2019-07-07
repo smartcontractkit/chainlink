@@ -9,7 +9,7 @@ contract OracleDev is Oracle {
 
   mapping(bytes32 => LinkExInterface) public priceFeeds;
 
-  constructor(address _link) public Oracle(_link) {} // solium-disable-line no-empty-blocks
+  constructor(address _link) public Oracle(_link) {} // solhint-disable-line no-empty-blocks
 
   function currentRate(bytes32 _currency) public view returns (uint256) {
     return priceFeeds[_currency].currentRate();
