@@ -20,7 +20,6 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
   uint256 constant private SELECTOR_LENGTH = 4;
   uint256 constant private EXPECTED_REQUEST_WORDS = 2;
-  // solium-disable-next-line zeppelin/no-arithmetic-operations
   uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
 
   LinkTokenInterface internal LinkToken;
@@ -72,12 +71,12 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     permittedFunctionsForLINK(_data)
   {
     assembly {
-      // solium-disable-next-line security/no-low-level-calls
+      // solhint-disable-next-line avoid-low-level-calls
       mstore(add(_data, 36), _sender) // ensure correct sender is passed
-      // solium-disable-next-line security/no-low-level-calls
+      // solhint-disable-next-line avoid-low-level-calls
       mstore(add(_data, 68), _amount)    // ensure correct amount is passed
     }
-    // solium-disable-next-line security/no-low-level-calls
+    // solhint-disable-next-line avoid-low-level-calls
     require(address(this).delegatecall(_data), "Unable to create request"); // calls oracleRequest
   }
 
@@ -174,7 +173,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    return _callbackAddress.call(_callbackFunctionId, _requestId, _data); // solium-disable-line security/no-low-level-calls
+    return _callbackAddress.call(_callbackFunctionId, _requestId, _data); // solhint-disable-line avoid-low-level-calls
   }
 
   /**
@@ -294,7 +293,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   modifier permittedFunctionsForLINK(bytes _data) {
     bytes4 funcSelector;
     assembly {
-      // solium-disable-next-line security/no-low-level-calls
+      // solhint-disable-next-line avoid-low-level-calls
       funcSelector := mload(add(_data, 32))
     }
     require(funcSelector == this.oracleRequest.selector, "Must use whitelisted functions");

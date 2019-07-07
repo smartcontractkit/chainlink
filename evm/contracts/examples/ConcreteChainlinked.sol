@@ -78,7 +78,7 @@ contract ConcreteChainlinked is Chainlinked {
   function fulfillRequest(bytes32 _requestId, bytes32)
     public
     recordChainlinkFulfillment(_requestId)
-  {} // solium-disable-line no-empty-blocks
+  {} // solhint-disable-line no-empty-blocks
 
   function publicFulfillChainlinkRequest(bytes32 _requestId, bytes32) public {
     fulfillChainlinkRequest(_requestId);
