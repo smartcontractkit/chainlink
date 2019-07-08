@@ -113,6 +113,21 @@ func (tx Tx) EthTx(gasPriceWei *big.Int) *types.Transaction {
 	)
 }
 
+type TxAttemptStatus string
+
+const (
+	// TxAttemptStatusUnconfirmed represents a transaction attempt that has to
+	// be repeatedly checked until it can be considered confirmed, or it gets
+	// replaced with a new attempt
+	TxAttemptStatusUnconfirmed = TxAttemptStatus("unconfirmed")
+	// TxAttemptStatusConfirmed is a tx attempt that has been confirmed
+	TxAttemptStatusConfirmed = TxAttemptStatus("confirmed")
+	// TxAttemptStatusRetired is a tx attempt that is not longer being checked
+	// because a new transaction attempt was made to replace it, likely with
+	// higher gas
+	TxAttemptStatusRetired = TxAttemptStatus("retired")
+)
+
 // TxAttempt is used for keeping track of transactions that
 // have been written to the Ethereum blockchain. This makes
 // it so that if the network is busy, a transaction can be
@@ -125,11 +140,11 @@ type TxAttempt struct {
 
 	CreatedAt time.Time `gorm:"index;not null"`
 
-	Hash        common.Hash `gorm:"index;not null"`
-	GasPrice    *Big        `gorm:"type:varchar(78);not null"`
-	Confirmed   bool        `gorm:"not null"`
-	SentAt      uint64      `gorm:"not null"`
-	SignedRawTx string      `gorm:"type:text;not null"`
+	Hash        common.Hash     `gorm:"index;not null"`
+	GasPrice    *Big            `gorm:"type:varchar(78);not null"`
+	Status      TxAttemptStatus `gorm:"not null"`
+	SentAt      uint64          `gorm:"not null"`
+	SignedRawTx string          `gorm:"type:text;not null"`
 }
 
 // String implements Stringer for TxAttempt
@@ -139,7 +154,11 @@ func (txa *TxAttempt) String() string {
 		txa.TxID,
 		txa.Hash.String(),
 		txa.SentAt,
-		txa.Confirmed)
+		txa.Confirmed())
+}
+
+func (txa *TxAttempt) Confirmed() bool {
+	return txa.Status == TxAttemptStatusConfirmed
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.

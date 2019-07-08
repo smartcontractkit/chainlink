@@ -535,6 +535,7 @@ func (orm *ORM) CreateTx(
 				GasPrice:    tx.GasPrice,
 				SentAt:      tx.SentAt,
 				SignedRawTx: tx.SignedRawTx,
+				Status:      models.TxAttemptStatusUnconfirmed,
 			}
 			tx.Attempts = []*models.TxAttempt{&attempt}
 			return dbtx.Create(tx).Error
@@ -578,10 +579,10 @@ func (orm *ORM) UpdateTx(
 // but has met the minimum number of outgoing confirmations to be deemed
 // safely written on the blockchain.
 func (orm *ORM) MarkTxSafe(tx *models.Tx, txAttempt *models.TxAttempt) error {
-	txAttempt.Confirmed = true
+	txAttempt.Status = models.TxAttemptStatusConfirmed
 	tx.Hash = txAttempt.Hash
 	tx.GasPrice = txAttempt.GasPrice
-	tx.Confirmed = txAttempt.Confirmed
+	tx.Confirmed = txAttempt.Confirmed()
 	tx.SentAt = txAttempt.SentAt
 	tx.SignedRawTx = txAttempt.SignedRawTx
 	return orm.DB.Save(tx).Error
@@ -644,7 +645,7 @@ func (orm *ORM) AddTxAttempt(
 	}
 	tx.Hash = txAttempt.Hash
 	tx.GasPrice = txAttempt.GasPrice
-	tx.Confirmed = txAttempt.Confirmed
+	tx.Confirmed = txAttempt.Confirmed()
 	tx.SentAt = txAttempt.SentAt
 	tx.SignedRawTx = txAttempt.SignedRawTx
 	tx.Attempts = append(tx.Attempts, txAttempt)

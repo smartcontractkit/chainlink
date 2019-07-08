@@ -269,7 +269,7 @@ func (rt RendererTable) renderTxAttempts(attempts []models.TxAttempt) error {
 			a.Hash.Hex(),
 			fmt.Sprint(a.GasPrice),
 			fmt.Sprint(a.SentAt),
-			fmt.Sprint(a.Confirmed),
+			fmt.Sprint(a.Confirmed()),
 		})
 	}
 

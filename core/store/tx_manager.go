@@ -370,7 +370,11 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, 
 	}
 
 	var merr error
-	for attemptIndex := range tx.Attempts {
+	for attemptIndex, txAttempt := range tx.Attempts {
+		if txAttempt.Status == models.TxAttemptStatusRetired {
+			continue
+		}
+
 		receipt, state, err := txm.processAttempt(tx, attemptIndex, blockHeight)
 		if state == Safe || state == Confirmed {
 			return receipt, state, err // success, so all other attempt errors can be ignored.
@@ -603,6 +607,7 @@ func (txm *EthTxManager) handleSafe(
 // bumpGas creates a new transaction attempt with an increased gas cost
 func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight uint64) error {
 	txAttempt := tx.Attempts[attemptIndex]
+	txAttempt.Status = models.TxAttemptStatusRetired
 
 	originalGasPrice := txAttempt.GasPrice.ToInt()
 	bumpedGasPrice := new(big.Int).Add(originalGasPrice, txm.config.EthGasBumpWei())

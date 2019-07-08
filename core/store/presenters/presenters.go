@@ -526,7 +526,7 @@ func NewTxFromAttempt(txAttempt models.TxAttempt) Tx {
 	tx := txAttempt.Tx
 	tx.Hash = txAttempt.Hash
 	tx.GasPrice = txAttempt.GasPrice
-	tx.Confirmed = txAttempt.Confirmed
+	tx.Confirmed = txAttempt.Confirmed()
 	tx.SentAt = txAttempt.SentAt
 	tx.SignedRawTx = txAttempt.SignedRawTx
 	return NewTx(tx)
