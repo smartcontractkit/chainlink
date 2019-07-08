@@ -10,6 +10,7 @@
     "bignumber.js": "^8.0.1",
     "bn.js": "^4.11.8",
     "cbor": "^4.0.0",
+    "chainlink": "^0.6.5",
     "ethereumjs-abi": "^0.6.5",
     "ethereumjs-util": "^5.1.5",
     "fs": "^0.0.1-security",
