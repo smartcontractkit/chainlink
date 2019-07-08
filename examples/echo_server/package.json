@@ -9,6 +9,7 @@
   "devDependencies": {
     "body-parser": "^1.18.3",
     "cbor": "^4.0.0",
+    "chainlink": "^0.6.5",
     "ethereumjs-abi": "^0.6.5",
     "ethereumjs-util": "^5.1.5",
     "express": "^4.16.2",
