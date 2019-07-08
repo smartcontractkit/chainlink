@@ -273,41 +273,6 @@ const request = (type, requestData, normalizeData, ...apiArgs) => {
   }
 }
 
-const normalizeFetchJob = json => {
-  const attrs = Object.assign({}, json.data.attributes)
-  const runs = attrs.runs
-  delete attrs.runs
-
-  const validJsonApi = Object.assign(
-    {},
-    json,
-    {
-      data: {
-        id: json.data.id,
-        type: json.data.type,
-        attributes: attrs,
-        relationships: {
-          runs: {
-            data: (runs || []).map(r => ({
-              type: 'runs',
-              id: r.id
-            }))
-          }
-        }
-      }
-    },
-    {
-      included: (runs || []).map(r => ({
-        type: 'runs',
-        id: r.id,
-        attributes: r
-      }))
-    }
-  )
-
-  return normalize(validJsonApi, { camelizeKeys: false })
-}
-
 export const fetchAccountBalance = () =>
   request('ACCOUNT_BALANCE', api.getAccountBalance, json => normalize(json))
 
@@ -329,7 +294,7 @@ export const fetchRecentlyCreatedJobs = size =>
   )
 
 export const fetchJob = id =>
-  request('JOB', api.getJobSpec, json => normalizeFetchJob(json), id)
+  request('JOB', api.getJobSpec, json => normalize(json), id)
 
 export const fetchJobRuns = (opts: api.JobSpecRunsOpts) =>
   request(
