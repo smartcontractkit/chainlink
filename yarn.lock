@@ -15200,7 +15200,7 @@ require-from-string@^1.1.0:
   resolved "https://registry.yarnpkg.com/require-from-string/-/require-from-string-1.2.1.tgz#529c9ccef27380adfec9a2f965b649bbee636418"
   integrity sha1-UpyczvJzgK3+yaL5ZbZJu+5jZBg=
 
-require-from-string@^2.0.0, require-from-string@^2.0.1:
+require-from-string@^2.0.1:
   version "2.0.2"
   resolved "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz#89a7fdd938261267318eafe14f9c32e598c36909"
   integrity sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==
@@ -16048,18 +16048,6 @@ solc@0.4.25, solc@^0.4.11, solc@^0.4.20:
     require-from-string "^1.1.0"
     semver "^5.3.0"
     yargs "^4.7.1"
-
-solc@0.5.0:
-  version "0.5.0"
-  resolved "https://registry.npmjs.org/solc/-/solc-0.5.0.tgz#2deb2ae992acac3afb909f85c38d00f01dcb335e"
-  integrity sha512-mdLHDl9WeYrN+FIKcMc9PlPfnA9DG9ur5QpCDKcv6VC4RINAsTF4EMuXMZMKoQTvZhtLyJIVH/BZ+KU830Z8Xg==
-  dependencies:
-    fs-extra "^0.30.0"
-    keccak "^1.0.2"
-    memorystream "^0.3.1"
-    require-from-string "^2.0.0"
-    semver "^5.5.0"
-    yargs "^11.0.0"
 
 solidity-cborutils@^1.0.2:
   version "1.0.5"
@@ -17223,16 +17211,6 @@ truffle-interface-adapter@^0.1.2:
     bn.js "^4.11.8"
     web3 "1.0.0-beta.37"
 
-truffle@5.0.13:
-  version "5.0.13"
-  resolved "https://registry.npmjs.org/truffle/-/truffle-5.0.13.tgz#bd0c6c142889140ab9db57d9a8738d5f5afaed68"
-  integrity sha512-TF8X95780TqfxkWtITG8n3dyBI23ifLmOpsrQp6TugmB150nLZrZ1ncW63wgF9jwj/B0UXGE04bE72SYhbgcvg==
-  dependencies:
-    app-module-path "^2.2.0"
-    mocha "^4.1.0"
-    original-require "1.0.1"
-    solc "0.5.0"
-
 truffle@^4.1.15:
   version "4.1.15"
   resolved "https://registry.yarnpkg.com/truffle/-/truffle-4.1.15.tgz#5f866997144dbc4c5d3e12e700930dab55c2792a"
@@ -17241,16 +17219,6 @@ truffle@^4.1.15:
     mocha "^4.1.0"
     original-require "1.0.1"
     solc "0.4.25"
-
-truffle@^5.0.1:
-  version "5.0.9"
-  resolved "https://registry.npmjs.org/truffle/-/truffle-5.0.9.tgz#e0e8c943aafd3ccd02634c15c27d306509a18055"
-  integrity sha512-Y+UZxpAugmnCeRBOBGr3SpHhZ9Avpsj9qM7gTNdl1RH7nImTmWBQkUk/IUSUllK+66TAL9EEp2IH7Ji4YFhzVQ==
-  dependencies:
-    app-module-path "^2.2.0"
-    mocha "^4.1.0"
-    original-require "1.0.1"
-    solc "0.5.0"
 
 truffle@^5.0.25:
   version "5.0.26"
