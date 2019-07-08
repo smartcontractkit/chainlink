@@ -14,8 +14,8 @@ import ListItem from '@material-ui/core/ListItem'
 import classNames from 'classnames'
 import TimeAgo from '@chainlink/styleguide/components/TimeAgo'
 import localizedTimestamp from '@chainlink/styleguide/utils/localizedTimestamp'
-import { fetchJob, createJobRun } from '../../actions'
-import Link from '../Link'
+import { fetchJob, createJobRun } from '../../../actions'
+import Link from '../../../components/Link'
 
 const navItemStyles = ({ palette, spacing }: Theme) =>
   createStyles({

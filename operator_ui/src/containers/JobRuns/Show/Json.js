@@ -9,8 +9,8 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import { fetchJobRun } from 'actions'
 import jobRunSelector from 'selectors/jobRun'
 import Content from 'components/Content'
-import RegionalNav from 'components/JobRuns/RegionalNav'
 import StatusCard from 'components/JobRuns/StatusCard'
+import RegionalNav from './RegionalNav'
 
 const styles = theme => ({})
 
