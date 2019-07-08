@@ -4,6 +4,6 @@
   "version": "0.6.0",
   "license": "MIT",
   "devDependencies": {
-    "truffle": "^5.0.1"
+    "truffle": "^5.0.25"
   }
 }
