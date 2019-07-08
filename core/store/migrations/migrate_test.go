@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560791143"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881846"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560886530"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560924400"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1562623854"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
@@ -124,4 +126,45 @@ func TestMigrate_Migration1560881846(t *testing.T) {
 	require.NoError(t, db.Where("id = (SELECT MAX(id) FROM heads)").Find(&headFound).Error)
 	assert.Equal(t, "0xdad0000000000000000000000000000000000000000000000000000000000b0d", headFound.Hash.Hex())
 	assert.Equal(t, int64(8616460799), headFound.Number)
+}
+
+func TestMigrate_Migration1562623854(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	db := orm.DB
+
+	require.NoError(t, migration0.Migrate(db))
+	require.NoError(t, migration1559081901.Migrate(db))
+	require.NoError(t, migration1559767166.Migrate(db))
+	require.NoError(t, migration1560433987.Migrate(db))
+	require.NoError(t, migration1560791143.Migrate(db))
+	require.NoError(t, migration1560881846.Migrate(db))
+	require.NoError(t, migration1560886530.Migrate(db))
+	require.NoError(t, migration1560924400.Migrate(db))
+
+	tx := models.Tx{
+		Data:     []byte{},
+		Value:    models.NewBig(big.NewInt(0)),
+		GasPrice: models.NewBig(big.NewInt(0)),
+	}
+	require.NoError(t, db.Create(&tx).Error)
+	attempt1 := migration1559081901.TxAttempt{
+		TxID:      tx.ID,
+		Confirmed: false,
+		GasPrice:  models.NewBig(big.NewInt(0)),
+	}
+	require.NoError(t, db.Create(&attempt1).Error)
+	attempt2 := migration1559081901.TxAttempt{
+		TxID:      tx.ID,
+		Confirmed: true,
+		GasPrice:  models.NewBig(big.NewInt(0)),
+	}
+	require.NoError(t, db.Create(&attempt2).Error)
+
+	require.NoError(t, migration1562623854.Migrate(db))
+
+	txAttempts := []models.TxAttempt{}
+	require.NoError(t, db.Find(&txAttempts).Error)
+	require.Len(t, txAttempts, 2)
 }

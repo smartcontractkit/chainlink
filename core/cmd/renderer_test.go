@@ -156,11 +156,11 @@ func TestRendererTable_Render_TxAttempts(t *testing.T) {
 
 	attempts := []models.TxAttempt{
 		models.TxAttempt{
-			Hash:      cltest.NewHash(),
-			TxID:      1,
-			GasPrice:  models.NewBig(big.NewInt(1)),
-			Confirmed: false,
-			SentAt:    1,
+			Hash:     cltest.NewHash(),
+			TxID:     1,
+			GasPrice: models.NewBig(big.NewInt(1)),
+			Status:   models.TxAttemptStatusUnconfirmed,
+			SentAt:   1,
 		},
 	}
 
@@ -173,7 +173,7 @@ func TestRendererTable_Render_TxAttempts(t *testing.T) {
 	assert.Contains(t, output, attempts[0].Hash.Hex())
 	assert.Contains(t, output, fmt.Sprint(attempts[0].GasPrice))
 	assert.Contains(t, output, fmt.Sprint(attempts[0].SentAt))
-	assert.Contains(t, output, fmt.Sprint(attempts[0].Confirmed))
+	assert.Contains(t, output, fmt.Sprint(attempts[0].Confirmed()))
 }
 
 func TestRendererTable_ServiceAgreementShow(t *testing.T) {
