@@ -293,9 +293,7 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 
 // CreateJobRun inserts a new JobRun
 func (orm *ORM) CreateJobRun(run *models.JobRun) error {
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return updateDeletedAtFromJobSpec(run, dbtx.Create(run)).Error
-	})
+	return orm.DB.Create(run).Error
 }
 
 // CreateExternalInitiator inserts a new external initiator
@@ -320,19 +318,6 @@ func (orm *ORM) FindExternalInitiator(eia *models.ExternalInitiatorAuthenticatio
 	}
 
 	return initiator, nil
-}
-
-// updateDeletedAtFromJobSpec will update a runs deleted_at from its parent
-// job spec.
-// This is of particular importance in the edge case when a runlog starts a run
-// at the same time a job is archived. Said run will never retain a deleted_at,
-// unless this is invoked.
-func updateDeletedAtFromJobSpec(run *models.JobRun, db *gorm.DB) *gorm.DB {
-	return db.Exec(fmt.Sprintf(`
-		UPDATE job_runs SET deleted_at = (
-			SELECT job_specs.deleted_at FROM job_specs WHERE job_specs.ID = '%s')
-		WHERE job_runs.job_spec_id = '%s'
-	`, run.JobSpecID, run.JobSpecID))
 }
 
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
