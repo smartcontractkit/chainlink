@@ -1,6 +1,5 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Link } from 'react-router-dom'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
@@ -9,15 +8,16 @@ import Typography from '@material-ui/core/Typography'
 import Form from 'components/Jobs/Form'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import Content from 'components/Content'
+import BaseLink from '../../components/BaseLink'
 import { createJobSpec } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
 const SuccessNotification = ({ data }) => (
   <React.Fragment>
     Successfully created job{' '}
-    <Link id="created-job" to={`/jobs/${data.id}`}>
+    <BaseLink id="created-job" href={`/jobs/${data.id}`}>
       {data.id}
-    </Link>
+    </BaseLink>
   </React.Fragment>
 )
 
