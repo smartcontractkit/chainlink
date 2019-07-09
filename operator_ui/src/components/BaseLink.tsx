@@ -3,12 +3,13 @@ import { Link as ReactStaticLink } from 'react-router-dom'
 
 interface IProps {
   children: React.ReactNode
-  to: string
+  href: string
+  id?: string
   className?: string
 }
 
-const BaseLink = ({ children, to, className }: IProps) => (
-  <ReactStaticLink className={className} to={to}>
+const BaseLink = ({ children, href, id, className }: IProps) => (
+  <ReactStaticLink to={href} id={id} className={className}>
     {children}
   </ReactStaticLink>
 )

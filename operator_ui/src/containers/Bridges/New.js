@@ -1,6 +1,5 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Link } from 'react-router-dom'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
@@ -11,11 +10,13 @@ import ErrorMessage from 'components/Notifications/DefaultError'
 import Content from 'components/Content'
 import { createBridge } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+import BaseLink from '../../components/BaseLink'
 
 const SuccessNotification = ({ id }) => {
   return (
     <React.Fragment>
-      Successfully created bridge <Link to={`/bridges/${id}`}>{id}</Link>
+      Successfully created bridge{' '}
+      <BaseLink href={`/bridges/${id}`}>{id}</BaseLink>
     </React.Fragment>
   )
 }

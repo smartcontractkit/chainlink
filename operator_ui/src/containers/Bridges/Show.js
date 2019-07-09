@@ -82,7 +82,7 @@ export const Show = useHooks(props => {
                         <Button
                           variant="secondary"
                           component={BaseLink}
-                          to={`/bridges/${props.bridge.id}/edit`}
+                          href={`/bridges/${props.bridge.id}/edit`}
                         >
                           Edit
                         </Button>
