@@ -15,7 +15,7 @@ import PaddedCard from '../../../components/PaddedCard'
 import PrettyJson from '../../../components/PrettyJson'
 import matchRouteAndMapDispatchToProps from '../../../utils/matchRouteAndMapDispatchToProps'
 import Content from '../../../components/Content'
-import RegionalNav from '../../../components/JobRuns/RegionalNav'
+import RegionalNav from './RegionalNav'
 import StatusCard from '../../../components/JobRuns/StatusCard'
 
 const filterErrorTaskRuns = jobRun => {
