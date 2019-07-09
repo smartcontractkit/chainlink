@@ -1,22 +1,17 @@
 import { toBuffer } from 'ethereumjs-util'
 import abi from 'ethereumjs-abi'
-import {
-  checkPublicABI,
-  decodeDietCBOR,
-  deploy,
-  toHex
-} from './support/helpers'
+import { checkPublicABI, decodeDietCBOR, toHex } from './support/helpers'
+const ConcreteChainlink = artifacts.require('ConcreteChainlink.sol')
 
 contract('ConcreteChainlink', () => {
-  const sourcePath = 'examples/ConcreteChainlink.sol'
   let ccl
 
   beforeEach(async () => {
-    ccl = await deploy(sourcePath)
+    ccl = await ConcreteChainlink.new()
   })
 
   it('has a limited public interface', () => {
-    checkPublicABI(artifacts.require(sourcePath), [
+    checkPublicABI(ConcreteChainlink, [
       'add',
       'addBytes',
       'addInt',

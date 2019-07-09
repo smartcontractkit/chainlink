@@ -1,4 +1,5 @@
 import * as h from './support/helpers'
+const LinkEx = artifacts.require('LinkEx.sol')
 
 contract('LinkEx', () => {
   let contract: any
@@ -10,7 +11,22 @@ contract('LinkEx', () => {
   })
 
   beforeEach(async () => {
-    contract = await h.deploy('LinkEx.sol')
+    contract = await LinkEx.new()
+  })
+
+  it('has a limited public interface', () => {
+    h.checkPublicABI(LinkEx, [
+      'VALID_BLOCKS',
+      'addOracle',
+      'authorizedNodes',
+      'currentRate',
+      'removeOracle',
+      'update',
+      // Ownable methods:
+      'owner',
+      'renounceOwnership',
+      'transferOwnership'
+    ])
   })
 
   describe('#currentRate', () => {

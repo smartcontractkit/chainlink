@@ -3,18 +3,20 @@
   "version": "0.6.0",
   "license": "MIT",
   "private": true,
-  "dependencies": {
+  "scripts": {
+    "test": "truffle test"
+  },
+  "devDependencies": {
+    "body-parser": "^1.18.3",
     "cbor": "^4.0.0",
+    "chainlink": "^0.6.5",
     "ethereumjs-abi": "^0.6.5",
     "ethereumjs-util": "^5.1.5",
     "express": "^4.16.2",
     "link_token": "^1.0.3",
     "openzeppelin-solidity": "^1.12.0",
     "request-promise": "^4.2.2",
-    "truffle": "^5.0.1",
+    "truffle": "^5.0.25",
     "web3": "^1.0.0-beta.55"
-  },
-  "devDependencies": {
-    "body-parser": "^1.18.3"
   }
 }

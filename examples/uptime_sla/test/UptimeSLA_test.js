@@ -1,9 +1,9 @@
 const h = require('./support/helpers')
+const LinkToken = artifacts.require('LinkToken')
+const Oracle = artifacts.require('Oracle')
+const SLA = artifacts.require('UptimeSLA')
 
 contract('UptimeSLA', accounts => {
-  const Oracle = artifacts.require('Oracle')
-  const SLA = artifacts.require('UptimeSLA')
-  const LinkToken = artifacts.require('LinkToken')
   const specId = '0x4c7b7ffb66b344fbaa64995af81e355a'
   const deposit = 1000000000
   const oracleNode = accounts[1]
