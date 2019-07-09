@@ -46,7 +46,7 @@ const RecentlyCreated = ({ jobs, classes }) => {
             <Grid container spacing={0}>
               <Grid item xs={12}>
                 <Link
-                  to={`/jobs/${j.id}`}
+                  href={`/jobs/${j.id}`}
                   classes={{ linkContent: classes.block }}
                 >
                   <Typography

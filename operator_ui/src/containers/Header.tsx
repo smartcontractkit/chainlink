@@ -6,7 +6,7 @@ import {
   withStyles,
   WithStyles
 } from '@material-ui/core/styles'
-import { Link } from 'react-router-dom'
+import BaseLink from '../components/BaseLink'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import AppBar from '@material-ui/core/AppBar'
@@ -83,8 +83,8 @@ const Drawer = withStyles(drawerStyles)(
               <ListItem
                 key={to}
                 button
-                component={Link}
-                to={to}
+                component={BaseLink}
+                href={to}
                 className={classes.menuitem}
               >
                 <ListItemText primary={text} />
@@ -147,15 +147,15 @@ const Nav = withStyles(navStyles)(
         <List className={classes.horizontalNav}>
           {SHARED_NAV_ITEMS.map(([to, text]) => (
             <ListItem key={to} className={classes.horizontalNavItem}>
-              <Link
-                to={to}
+              <BaseLink
+                href={to}
                 className={classNames(
                   classes.horizontalNavLink,
                   isNavActive(to, url) && classes.activeNavLink
                 )}
               >
                 {text}
-              </Link>
+              </BaseLink>
             </ListItem>
           ))}
           {authenticated && (
@@ -218,9 +218,9 @@ const Header = useHooks(
           <Toolbar className={classes.toolbar}>
             <Grid container alignItems="center">
               <Grid item xs={11} sm={6} md={4}>
-                <Link to="/">
+                <BaseLink href="/">
                   <MainLogo width={200} />
-                </Link>
+                </BaseLink>
               </Grid>
               <Grid item xs={1} sm={6} md={8}>
                 <Grid container justify="flex-end">

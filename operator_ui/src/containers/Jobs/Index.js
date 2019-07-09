@@ -22,7 +22,11 @@ export const Index = props => {
         <Grid item xs={3}>
           <Grid container justify="flex-end">
             <Grid item>
-              <Button variant="secondary" component={BaseLink} to={'/jobs/new'}>
+              <Button
+                variant="secondary"
+                component={BaseLink}
+                href={'/jobs/new'}
+              >
                 New Job
               </Button>
             </Grid>

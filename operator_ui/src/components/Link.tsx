@@ -28,18 +28,25 @@ const styles = (_theme: Theme) =>
 
 interface IProps extends WithStyles<typeof styles> {
   children: React.ReactNode
-  to: string
+  href: string
   variant?: Variant
   color?: Color
   className?: string
 }
 
-const Link = ({ children, classes, className, to, variant, color }: IProps) => {
+const Link = ({
+  children,
+  classes,
+  className,
+  href,
+  variant,
+  color
+}: IProps) => {
   const v = variant || 'body1'
   const c = color || 'inherit'
 
   return (
-    <BaseLink to={to} className={classNames(classes.link, className)}>
+    <BaseLink href={href} className={classNames(classes.link, className)}>
       <Typography variant={v} color={c} className={classes.linkContent}>
         {children}
       </Typography>
