@@ -99,23 +99,6 @@ func TestORM_ArchiveJob(t *testing.T) {
 	require.NoError(t, utils.JustError(orm.FindJobRun(run.ID)))
 }
 
-func TestORM_CreateJobRun_ArchivesRunIfJobArchived(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	job := cltest.NewJobWithWebInitiator()
-	require.NoError(t, store.CreateJob(&job))
-
-	require.NoError(t, store.ArchiveJob(job.ID))
-
-	jr := job.NewRun(job.Initiators[0])
-	require.NoError(t, store.CreateJobRun(&jr))
-
-	require.Error(t, utils.JustError(store.FindJobRun(jr.ID)))
-	require.NoError(t, utils.JustError(store.Unscoped().FindJobRun(jr.ID)))
-}
-
 func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
