@@ -261,24 +261,6 @@ jobs:
       - checkout
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/report_coverage
-  deploy-core:
-    docker:
-      - image: smartcontract/deployer:latest
-    environment:
-      ENVIRONMENT: release
-      DOCKER_TAG: staging
-    steps:
-      - checkout
-      - run: ./tools/ci/init_gcloud
-      - setup_remote_docker
-      - run: echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin
-      - run: make docker
-      - run: make dockerpush
-      - run: |
-          docker inspect --format='{{index .RepoDigests 0}}' "smartcontract/chainlink:staging" \
-            | awk -F'@' '{print$2}' \
-            | xargs -I'%' kubectl set image deployment.apps/chainlink-deploy \
-                "chainlink=smartcontract/chainlink:staging@%"
 
 workflows:
   version: 2
@@ -310,15 +292,3 @@ workflows:
           requires:
             - go-sqlite
             - operator-ui
-      - deploy-core:
-          requires:
-            - go-sqlite
-            - go-sqlite-race
-            - go-postgres
-            - truffle
-            - geth-postgres
-            - parity-postgres
-            - operator-ui
-          filters:
-            branches:
-              only: master
