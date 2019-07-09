@@ -1,9 +1,9 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
 const personas = h.personas
+const ConcreteSignedSafeMath = artifacts.require('ConcreteSignedSafeMath.sol')
 
 contract('SignedSafeMath', () => {
-  const SOURCE_PATH = 'ConcreteSignedSafeMath.sol'
   let adder, response
   const INT256_MAX = web3.utils.toBN(
     '57896044618658097711785492504343953926634992332820282019728792003956564819967'
@@ -13,7 +13,7 @@ contract('SignedSafeMath', () => {
   )
 
   beforeEach(async () => {
-    adder = await h.deploy(SOURCE_PATH)
+    adder = await ConcreteSignedSafeMath.new()
   })
 
   describe('#add', () => {
