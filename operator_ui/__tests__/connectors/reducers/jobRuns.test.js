@@ -2,8 +2,7 @@ import reducer from 'connectors/redux/reducers'
 import {
   UPSERT_JOB_RUNS,
   UPSERT_RECENT_JOB_RUNS,
-  UPSERT_JOB_RUN,
-  UPSERT_JOB
+  UPSERT_JOB_RUN
 } from 'connectors/redux/reducers/jobRuns'
 import { RECEIVE_DELETE_SUCCESS } from '../../../src/actions'
 
@@ -79,39 +78,24 @@ describe('connectors/reducers/jobRuns', () => {
     })
   })
 
-  it('UPSERT_JOB upserts items', () => {
-    const action = {
-      type: UPSERT_JOB,
-      data: {
-        runs: {
-          b: { id: 'b' }
-        }
-      }
-    }
-    const state = reducer(undefined, action)
-
-    expect(state.jobRuns.items).toEqual({
-      b: { id: 'b' }
-    })
-  })
   it('RECEIVE_DELETE_SUCCESS deletes jobrun associations', () => {
     const upsertAction = {
-      type: UPSERT_JOB,
+      type: UPSERT_JOB_RUN,
       data: {
         runs: {
-          b: { id: 'b' }
+		b: { attributes: { jobId: 'b' } }
         }
       }
     }
     const preDeleteState = reducer(undefined, upsertAction)
     expect(preDeleteState.jobRuns.items).toEqual({
-      b: { id: 'b' }
+	    b: { attributes: { jobId: 'b' } }
     })
     const deleteAction = {
       type: RECEIVE_DELETE_SUCCESS,
-      data: 'b'
+      response: 'b'
     }
-    const postDeleteState = reducer(undefined, deleteAction)
+    const postDeleteState = reducer(preDeleteState, deleteAction)
     expect(postDeleteState.jobRuns.items).toEqual({})
   })
 })

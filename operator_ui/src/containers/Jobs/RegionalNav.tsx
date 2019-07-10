@@ -10,7 +10,6 @@ import ListItem from '@material-ui/core/ListItem'
 import Button from 'components/Button'
 import BaseLink from 'components/BaseLink'
 import Link from 'components/Link'
-import ReactStaticLinkComponent from 'components/ReactStaticLinkComponent'
 import CopyJobSpec from 'components/CopyJobSpec'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import TimeAgo from '@chainlink/styleguide/components/TimeAgo'
@@ -93,7 +92,7 @@ const styles = (theme: Theme) => ({
 const CreateRunSuccessNotification = ({ data }) => (
   <React.Fragment>
     Successfully created job run{' '}
-    <BaseLink to={`/jobs/${data.attributes.jobId}/runs/id/${data.id}`}>
+    <BaseLink href={`/jobs/${data.attributes.jobId}/runs/id/${data.id}`}>
       {data.id}
     </BaseLink>
   </React.Fragment>
@@ -234,7 +233,7 @@ const RegionalNav = ({
                 )}
                 {definition && (
                   <Button
-                    to={{
+                    href={{
                       pathname: '/jobs/new',
                       state: { definition: definition }
                     }}
@@ -262,7 +261,7 @@ const RegionalNav = ({
             <List className={classes.horizontalNav}>
               <ListItem className={classes.horizontalNavItem}>
                 <Link
-                  to={`/jobs/${jobSpecId}`}
+                  href={`/jobs/${jobSpecId}`}
                   className={classNames(
                     classes.horizontalNavLink,
                     navOverviewActive && classes.activeNavLink
@@ -273,7 +272,7 @@ const RegionalNav = ({
               </ListItem>
               <ListItem className={classes.horizontalNavItem}>
                 <Link
-                  to={`/jobs/${jobSpecId}/json`}
+                  href={`/jobs/${jobSpecId}/json`}
                   className={classNames(
                     classes.horizontalNavLink,
                     navDefinitionACtive && classes.activeNavLink
