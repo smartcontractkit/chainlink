@@ -87,19 +87,15 @@ describe('connectors/reducers/jobs', () => {
   it('RECEIVE_DELETE_SUCCESS deletes items', () => {
     const upsertAction = {
       type: UPSERT_JOB,
-      data: {
-        specs: {
-          a: { id: 'a' }
-        }
-      }
+      data: { specs: { b: { id: 'b' } } }
     }
     const preDeleteState = reducer(undefined, upsertAction)
-
-    expect(preDeleteState.jobs.items).toEqual({ a: { id: 'a' } })
+    expect(preDeleteState.jobs.items).toEqual({ b: { id: 'b' } } )
     const deleteAction = {
       type: RECEIVE_DELETE_SUCCESS,
-      data: 'a'
+      response: 'b'
     }
-    const postDeleteState = reducer(undefined, deleteAction)
+    const postDeleteState = reducer(preDeleteState, deleteAction)
+    expect(postDeleteState.jobs.items).toEqual({})
   })
 })
