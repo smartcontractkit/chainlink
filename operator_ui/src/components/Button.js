@@ -47,7 +47,7 @@ const styles = theme => {
   }
 }
 
-const PROPS_WHITELIST = ['component', 'disabled', 'onClick', 'type', 'to']
+const PROPS_WHITELIST = ['component', 'disabled', 'onClick', 'type', 'href']
 const DEFAULT = 'default'
 const PRIMARY = 'primary'
 const SECONDARY = 'secondary'

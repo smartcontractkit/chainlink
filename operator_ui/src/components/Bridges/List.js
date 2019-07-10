@@ -32,7 +32,7 @@ const renderBridges = bridges =>
   bridges.map(bridge => (
     <TableRow key={bridge.name}>
       <TableCell scope="row" component="th">
-        <Link to={`/bridges/${bridge.name}`}>{bridge.name}</Link>
+        <Link href={`/bridges/${bridge.name}`}>{bridge.name}</Link>
       </TableCell>
       <TableCell>
         <Typography variant="body1">{bridge.url}</Typography>

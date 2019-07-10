@@ -50,14 +50,14 @@ const navItemStyles = ({ palette, spacing }: Theme) =>
 
 interface INavItemProps extends WithStyles<typeof navItemStyles> {
   children: React.ReactNode
-  to: string
+  href: string
   error?: boolean
 }
 
 const NavItem = withStyles(navItemStyles)(
-  ({ children, to, classes, error }: INavItemProps) => {
+  ({ children, href, classes, error }: INavItemProps) => {
     const pathname = global.document ? global.document.location.pathname : ''
-    const active = pathname === to
+    const active = pathname === href
     const linkClasses = classNames(
       classes.link,
       error && classes.error,
@@ -67,7 +67,7 @@ const NavItem = withStyles(navItemStyles)(
 
     return (
       <ListItem className={classes.item}>
-        <Link to={to} className={linkClasses}>
+        <Link href={href} className={linkClasses}>
           {children}
         </Link>
       </ListItem>
@@ -104,7 +104,7 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }: IProps) => {
           <Typography variant="subtitle2" color="secondary" gutterBottom>
             Job Run Detail
           </Typography>
-          <Link to={`/jobs/${jobSpecId}`} variant="subtitle1" color="primary">
+          <Link href={`/jobs/${jobSpecId}`} variant="subtitle1" color="primary">
             {jobSpecId}
           </Link>
         </Grid>
@@ -125,15 +125,15 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }: IProps) => {
         </Grid>
         <Grid item xs={12}>
           <List className={classes.horizontalNav}>
-            <NavItem to={`/jobs/${jobSpecId}/runs/id/${jobRunId}`}>
+            <NavItem href={`/jobs/${jobSpecId}/runs/id/${jobRunId}`}>
               Overview
             </NavItem>
-            <NavItem to={`/jobs/${jobSpecId}/runs/id/${jobRunId}/json`}>
+            <NavItem href={`/jobs/${jobSpecId}/runs/id/${jobRunId}/json`}>
               JSON
             </NavItem>
             {jobRun && jobRun.status === 'errored' && (
               <NavItem
-                to={`/jobs/${jobSpecId}/runs/id/${jobRunId}/error_log`}
+                href={`/jobs/${jobSpecId}/runs/id/${jobRunId}/error_log`}
                 error
               >
                 Error Log

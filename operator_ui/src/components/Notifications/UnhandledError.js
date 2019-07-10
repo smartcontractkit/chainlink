@@ -1,12 +1,12 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import BaseLink from '../BaseLink'
 
 const UnhandledError = () => (
   <React.Fragment>
     Unhandled error. Please help us by opening a{' '}
-    <Link to="https://github.com/smartcontractkit/chainlink/issues/new">
+    <BaseLink href="https://github.com/smartcontractkit/chainlink/issues/new">
       bug report
-    </Link>
+    </BaseLink>
   </React.Fragment>
 )
 
