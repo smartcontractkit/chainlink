@@ -35,7 +35,7 @@ export const Index = props => {
               <Button
                 variant="secondary"
                 component={BaseLink}
-                to={'/bridges/new'}
+                href={'/bridges/new'}
               >
                 New Bridge
               </Button>

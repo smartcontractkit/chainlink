@@ -60,7 +60,7 @@ const styles = theme => {
 const SuccessNotification = ({ data }) => (
   <React.Fragment>
     Successfully created job run{' '}
-    <BaseLink to={`/jobs/${data.attributes.jobId}/runs/id/${data.id}`}>
+    <BaseLink href={`/jobs/${data.attributes.jobId}/runs/id/${data.id}`}>
       {data.id}
     </BaseLink>
   </React.Fragment>
@@ -116,7 +116,7 @@ const RegionalNav = ({
               )}
               {definition && (
                 <Button
-                  to={{
+                  href={{
                     pathname: '/jobs/new',
                     state: { definition: definition }
                   }}
@@ -144,7 +144,7 @@ const RegionalNav = ({
           <List className={classes.horizontalNav}>
             <ListItem className={classes.horizontalNavItem}>
               <Link
-                to={`/jobs/${jobSpecId}`}
+                href={`/jobs/${jobSpecId}`}
                 className={classNames(
                   classes.horizontalNavLink,
                   navOverviewActive && classes.activeNavLink
@@ -155,7 +155,7 @@ const RegionalNav = ({
             </ListItem>
             <ListItem className={classes.horizontalNavItem}>
               <Link
-                to={`/jobs/${jobSpecId}/json`}
+                href={`/jobs/${jobSpecId}/json`}
                 className={classNames(
                   classes.horizontalNavLink,
                   navDefinitionACtive && classes.activeNavLink
