@@ -2,46 +2,64 @@ version: '3.1'
 
 services:
 
-  geth:
-    image: ethereum/client-go
-    restart: on-failure
-    command: --dev --mine --networkid 17 --wsorigins "*" --ws --dev.period 2 --wsaddr 172.16.1.100 --wsport 18546 --datadir /root/gethnet/datadir --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f" --ipcdisable --password /run/secrets/node_password
-    volumes:
-      - ./tools/gethnet/:/root/gethnet
+  db:
+    image: postgres
     networks:
-      gethnet:
+      devnet:
         ipv4_address: 172.16.1.100
-    ports: []
-    secrets:
-      - node_password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: explorer_dev
+
+  devnet:
+    image: smartcontract/devnet
+    networks:
+      devnet:
+        ipv4_address: 172.16.1.101
 
   chainlink:
-    image: smartcontract/chainlink-sgx
-    command: node -d -p /run/secrets/node_password -a /run/secrets/apicredentials
+    image: smartcontract/chainlink
+    command: local node -d -p /run/secrets/node_password
     restart: always
     volumes:
       - ./tools/clroot/:/root/clroot
     environment:
+      - ETH_CHAIN_ID=34055
       - LOG_LEVEL=debug
       - ROOT=/root/clroot
-      - ETH_HOST=172.16.1.100
-      - ETH_CHAIN_ID=17
+      - ETH_URL=ws://172.16.1.101:8546
       - MIN_OUTGOING_CONFIRMATIONS=2
       - MINIMUM_CONTRACT_PAYMENT=1000000000000
       - RUST_BACKTRACE=1
       - CHAINLINK_DEV=true
+      - EXPLORER_URL=ws://172.16.1.102:8312
     networks:
-      gethnet:
-        ipv4_address: 172.16.1.101
-    depends_on:
-      - geth
+      devnet:
+        ipv4_address: 172.16.1.102
     ports:
-      - 6688:6688
+      - 8131:6688
+    depends_on:
+      - devnet
     secrets:
       - node_password
 
+  explorer:
+    image: smartcontract/explorer:latest
+    restart: always
+    networks:
+      devnet:
+        ipv4_address: 172.16.1.103
+    ports:
+      - 8132:8080
+    environment:
+      TYPEORM_DATABASE: explorer_dev
+      TYPEORM_USERNAME: postgres
+      TYPEORM_HOST: 172.16.1.100
+      TYPEORM_PORT: 5432
+
 networks:
-  gethnet:
+  devnet:
     driver: bridge
     ipam:
       driver: default
@@ -51,3 +69,7 @@ networks:
 secrets:
   node_password:
     file: ./tools/clroot/password.txt
+
+volumes:
+  db-data:
+    driver: local
