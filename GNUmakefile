@@ -1,5 +1,4 @@
 .DEFAULT_GOAL := build
-.PHONY: godep yarndep build install operator-ui docker dockerpush
 
 ENVIRONMENT ?= release
 
@@ -28,25 +27,46 @@ endif
 
 TAGGED_REPO := $(REPO):$(DOCKER_TAG)
 
-godep: ## Ensure chainlink's go dependencies are installed.
+.PHONY: install
+install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
+
+.PHONY: install-chainlink-autoinstall
+install-chainlink-autoinstall: | godep-autoinstall install-chainlink
+.PHONY: operator-ui-autoinstall
+operator-ui-autoinstall: | yarndep operator-ui
+.PHONY: godep-autoinstall
+godep-autoinstall: | install-godep godep
+
+.PHONY: install-godep
+install-godep:
 	@if [ -z "`which dep`" ]; then \
 		go get github.com/golang/dep/cmd/dep; \
 	fi || true
 	@if [ -z "`which gencodec`" ]; then \
 		go get github.com/smartcontractkit/gencodec; \
 	fi || true
-	dep ensure -vendor-only
 
+.PHONY: godep
+godep: ## Ensure chainlink's go dependencies are installed.
+	dep ensure -v -vendor-only
+
+.PHONY: yarndep
 yarndep: ## Ensure the frontend's dependencies are installed.
 	yarn install --frozen-lockfile
 
-install: godep operator-ui $(SGX_BUILD_ENCLAVE) ## Install chainlink
-	cd core && go build -i -o $(GOPATH)/bin/chainlink $(GOFLAGS)
+.PHONY: install-chainlink
+install-chainlink: chainlink ## Install the chainlink binary.
+	cp $< $(GOPATH)/bin/chainlink
 
-operator-ui: yarndep ## Install Operator UI
+chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
+	go build $(GOFLAGS) -o $@ ./core/
+
+.PHONY: operator-ui
+operator-ui: ## Build the static frontend UI.
 	cd operator_ui && CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
 	CGO_ENABLED=0 go run operator_ui/main.go "${CURDIR}/core/services"
 
+.PHONY: docker
 docker: ## Build the docker image.
 	docker build \
 		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
@@ -56,12 +76,9 @@ docker: ## Build the docker image.
 		-f $(DOCKERFILE) \
 		.
 
+.PHONY: dockerpush
 dockerpush: ## Push the docker image to dockerhub
 	docker push $(TAGGED_REPO)
-
-chainlink: $(SGX_BUILD_ENCLAVE)
-	CGO_ENABLED=0 go run operator_ui/main.go "${CURDIR}/store"
-	go build $(GOFLAGS) -o chainlink
 
 .PHONY: $(SGX_ENCLAVE)
 $(SGX_ENCLAVE):
