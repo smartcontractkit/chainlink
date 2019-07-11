@@ -9,9 +9,9 @@ node_modules/
 vendor/
 tmp/
 
-evm/node_modules/
-evm/build/
-evm/.python-version
+evm/
+examples/
+integration/
 
 internal/gethnet/datadir/geth
 internal/clroot/db.bolt
