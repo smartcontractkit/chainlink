@@ -1,7 +1,9 @@
 import server from './server'
+import { logger } from './logging'
 
 const start = async () => {
+  logger.info(`Starting Explorer Node`)
   server()
 }
 
-start().catch(console.error)
+start().catch(logger.error)
