@@ -8,8 +8,24 @@ ARG COMMIT_SHA
 ARG ENVIRONMENT
 
 WORKDIR /go/src/github.com/smartcontractkit/chainlink
+COPY GNUmakefile VERSION ./
+COPY tools/bin/ldflags ./tools/bin/
+
+# Do dep ensure in a cacheable step
+COPY Gopkg.toml Gopkg.lock ./
+RUN make godep
+
+# And yarn likewise
+COPY yarn.lock package.json ./
+COPY explorer/client/yarn.lock explorer/client/package.json ./explorer/client/
+COPY explorer/yarn.lock explorer/package.json ./explorer/
+COPY operator_ui/package.json ./operator_ui/
+COPY styleguide/package.json ./styleguide/
+RUN make yarndep
+
+# Install chainlink
 ADD . ./
-RUN make install
+RUN make install-chainlink
 
 # Final layer: ubuntu with chainlink binary
 FROM ubuntu:18.04
