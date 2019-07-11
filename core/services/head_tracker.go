@@ -1,11 +1,11 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -235,11 +235,11 @@ func (ht *HeadTracker) subscribeToHead() error {
 	ht.headers = make(chan models.BlockHeader)
 	sub, err := ht.store.TxManager.SubscribeToNewHeads(ht.headers)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "TxManager#SubscribeToNewHeads")
 	}
 
 	if err = verifyEthereumChainID(ht); err != nil {
-		return err
+		return errors.Wrap(err, "verifyEthereumChainID")
 	}
 	ht.headSubscription = sub
 	ht.connected = true
