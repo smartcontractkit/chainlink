@@ -33,7 +33,7 @@ services:
       - MINIMUM_CONTRACT_PAYMENT=1000000000000
       - RUST_BACKTRACE=1
       - CHAINLINK_DEV=true
-      - EXPLORER_URL=ws://172.16.1.102:8312
+      - EXPLORER_URL=ws://172.16.1.103:8080
     networks:
       devnet:
         ipv4_address: 172.16.1.102
@@ -52,6 +52,8 @@ services:
         ipv4_address: 172.16.1.103
     ports:
       - 8132:8080
+    depends_on:
+      - db
     environment:
       TYPEORM_DATABASE: explorer_dev
       TYPEORM_USERNAME: postgres
