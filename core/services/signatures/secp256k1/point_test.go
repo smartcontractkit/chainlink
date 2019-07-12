@@ -221,7 +221,6 @@ func TestCoordinates(t *testing.T) {
 func TestValidPublicKey(t *testing.T) {
 	require.False(t, ValidPublicKey(newPoint()), "zero is not a valid key")
 	require.True(t, ValidPublicKey(newPoint().Base()))
-	require.False(t, ValidPublicKey(newPoint().Mul(newScalar(two), newPoint().Base())))
 }
 
 func TestGenerate(t *testing.T) {

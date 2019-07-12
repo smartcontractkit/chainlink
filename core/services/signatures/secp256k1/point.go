@@ -332,10 +332,8 @@ func ValidPublicKey(p kyber.Point) bool {
 		return false
 	}
 	P := p.(*secp256k1Point)
-	x, _ := Coordinates(p)
 	maybeY := maybeSqrtInField(rightHandSide(P.X))
-	return x.Cmp(halfQ) == -1 && maybeY != nil &&
-		(P.Y.Equal(maybeY) || P.Y.Equal(maybeY.Neg(maybeY)))
+	return maybeY != nil && (P.Y.Equal(maybeY) || P.Y.Equal(maybeY.Neg(maybeY)))
 }
 
 // Generate generates a public/private key pair, which can be verified cheaply
@@ -347,4 +345,22 @@ func Generate(random cipher.Stream) *key.Pair {
 		p.Public = (&Secp256k1{}).Point().Mul(p.Private, nil)
 	}
 	return &p
+}
+
+// LongMarshal returns the concatenated coordinates serialized as uint256's
+func LongMarshal(p kyber.Point) []byte {
+	xMarshal := p.(*secp256k1Point).X.Bytes()
+	yMarshal := p.(*secp256k1Point).Y.Bytes()
+	return append(xMarshal[:], yMarshal[:]...)
+}
+
+// SetCoordinates returns the point (x,y), or panics if an invalid secp256k1Point
+func SetCoordinates(x, y *big.Int) kyber.Point {
+	rv := newPoint()
+	rv.X.SetInt(x)
+	rv.Y.SetInt(y)
+	if !ValidPublicKey(rv) {
+		panic("point requested from invalid coordinates")
+	}
+	return rv
 }
