@@ -213,3 +213,8 @@ func IsSecp256k1Scalar(s kyber.Scalar) bool {
 func IntToScalar(i *big.Int) kyber.Scalar {
 	return ((*secp256k1Scalar)(i)).modG()
 }
+
+// RepresentsScalar returns true iff i is in the right range to be a scalar
+func RepresentsScalar(i *big.Int) bool {
+	return i.Cmp(GroupOrder) == -1
+}
