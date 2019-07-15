@@ -539,6 +539,17 @@ func (txm *EthTxManager) processAttempt(
 		return receipt, state, nil
 
 	case Unconfirmed:
+		attemptLimit := txm.config.TxAttemptLimit()
+		if attemptIndex >= int(attemptLimit) {
+			logger.Warnw(
+				fmt.Sprintf("Tx #%d has met TxAttemptLimit", attemptIndex),
+				"txAttemptLimit", attemptLimit,
+				"txHash", txAttempt.Hash.String(),
+				"txID", txAttempt.TxID,
+			)
+			return receipt, state, nil
+		}
+
 		if isLatestAttempt(tx, attemptIndex) && txm.hasTxAttemptMetGasBumpThreshold(tx, attemptIndex, blockHeight) {
 			logger.Debugw(
 				fmt.Sprintf("Tx #%d has met gas bump threshold, bumping gas", attemptIndex),
