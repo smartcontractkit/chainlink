@@ -1,3 +1,6 @@
+import { RECEIVE_DELETE_SUCCESS } from '../../../actions'
+import pickBy from 'lodash/pickBy'
+
 const initialState = {
   items: {},
   currentPage: null,
@@ -37,6 +40,9 @@ export default (state = initialState, action = {}) => {
       return Object.assign({}, state, {
         items: Object.assign({}, state.items, action.data.specs)
       })
+    }
+    case RECEIVE_DELETE_SUCCESS: {
+      return Object.assign({}, state, {items: Object.assign( {}, pickBy(state.items, i => i.id !== action.response)) })
     }
     default:
       return state

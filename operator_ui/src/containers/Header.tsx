@@ -175,7 +175,7 @@ const styles = ({ palette, spacing, zIndex }: Theme) =>
   createStyles({
     appBar: {
       backgroundColor: palette.common.white,
-      zIndex: zIndex.modal + 1
+      zIndex: zIndex.modal - 1
     },
     toolbar: {
       paddingLeft: spacing.unit * 5,

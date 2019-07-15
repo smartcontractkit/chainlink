@@ -129,6 +129,8 @@ export const updateBridge = data => {
   return patch(`/v2/bridge_types/${data.name}`, normalizedData)
 }
 
+export const destroyJobSpec = (id: string) => destroy(`/v2/specs/${id}`)
+
 export const destroySession = () => destroy(`/sessions`)
 
 export const bulkDeleteJobRuns = (status, updatedBefore) =>

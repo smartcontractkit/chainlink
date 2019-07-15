@@ -4,6 +4,7 @@ import {
   UPSERT_RECENTLY_CREATED_JOBS,
   UPSERT_JOB
 } from 'connectors/redux/reducers/jobs'
+import { RECEIVE_DELETE_SUCCESS } from '../../../src/actions'
 
 describe('connectors/reducers/jobs', () => {
   it('should return the initial state', () => {
@@ -75,12 +76,26 @@ describe('connectors/reducers/jobs', () => {
       data: {
         specs: {
           a: { id: 'a' }
-        },
-        runs: {}
+        }
       }
     }
     const state = reducer(undefined, action)
 
     expect(state.jobs.items).toEqual({ a: { id: 'a' } })
+  })
+
+  it('RECEIVE_DELETE_SUCCESS deletes items', () => {
+    const upsertAction = {
+      type: UPSERT_JOB,
+      data: { specs: { b: { id: 'b' } } }
+    }
+    const preDeleteState = reducer(undefined, upsertAction)
+    expect(preDeleteState.jobs.items).toEqual({ b: { id: 'b' } } )
+    const deleteAction = {
+      type: RECEIVE_DELETE_SUCCESS,
+      response: 'b'
+    }
+    const postDeleteState = reducer(preDeleteState, deleteAction)
+    expect(postDeleteState.jobs.items).toEqual({})
   })
 })
