@@ -1,6 +1,8 @@
 package migrations
 
 import (
+	"regexp"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
@@ -20,7 +22,7 @@ func Migrate(db *gorm.DB) error {
 	options := *gormigrate.DefaultOptions
 	options.UseTransaction = true
 
-	m := gormigrate.New(db, &options, []*gormigrate.Migration{
+	migrations := []*gormigrate.Migration{
 		{
 			ID:      "0",
 			Migrate: migration0.Migrate,
@@ -53,12 +55,28 @@ func Migrate(db *gorm.DB) error {
 			ID:      "1560924400",
 			Migrate: migration1560924400.Migrate,
 		},
-	})
+	}
+
+	m := gormigrate.New(db, &options, migrations)
+
+	var count int
+	err := db.Table(options.TableName).Count(&count).Error
+	if err != nil && !noSuchTableRegex.MatchString(err.Error()) {
+		return errors.Wrap(err, "error determining migration count")
+	}
+
+	if count > len(migrations) {
+		return errors.New("database is newer than current chainlink version")
+	}
 
 	db.LogMode(true)
-	err := m.Migrate()
+	err = m.Migrate()
 	if err != nil {
 		return errors.Wrap(err, "error running migrations")
 	}
 	return nil
 }
+
+var (
+	noSuchTableRegex = regexp.MustCompile(`^(no such table|pq: relation ".*?" does not exist)`)
+)
