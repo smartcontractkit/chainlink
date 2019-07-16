@@ -128,8 +128,8 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
               ,"error" = :error
               ,"transactionHash" = :transactionHash
               ,"transactionStatus" = :transactionStatus
-              ,"confirmations" = :confirmations
-              ,"minimumConfirmations" = :minimumConfirmations
+              ,"confirmations_new1562419039813" = :confirmations
+              ,"minimumConfirmations_new1562419039813" = :minimumConfirmations
               `
           )
           .setParameter('status', tr.status)
