@@ -25,8 +25,8 @@ export const createJobRun = async (
   tr.index = 0
   tr.status = 'in_progress'
   tr.type = 'httpget'
-  tr.confirmations = 1
-  tr.minimumConfirmations = 3
+  tr.confirmations = '1'
+  tr.minimumConfirmations = '3'
   await db.manager.save(tr)
 
   return jobRun

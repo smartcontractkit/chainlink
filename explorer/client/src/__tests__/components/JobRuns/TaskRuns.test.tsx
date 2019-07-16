@@ -23,9 +23,9 @@ describe('components/JobRuns/TaskRuns', () => {
   it('displays incoming pending confirmations with 0/3 pending confirmations', () => {
     const taskRuns = [
       {
-        confirmations: 0,
+        confirmations: '0',
         id: 1,
-        minimumConfirmations: 3,
+        minimumConfirmations: '3',
         status: 'completed',
         type: 'httpget'
       } as ITaskRun
@@ -42,9 +42,9 @@ describe('components/JobRuns/TaskRuns', () => {
   it('displays incoming pending confirmations with 1/3 pending confirmations', () => {
     const taskRuns = [
       {
-        confirmations: 1,
+        confirmations: '1',
         id: 1,
-        minimumConfirmations: 3,
+        minimumConfirmations: '3',
         status: 'completed',
         type: 'httpget'
       } as ITaskRun
@@ -61,16 +61,16 @@ describe('components/JobRuns/TaskRuns', () => {
   it('does not display repeated pending confirmations', () => {
     const taskRuns = [
       {
-        confirmations: 3,
+        confirmations: '3',
         id: 1,
-        minimumConfirmations: 3,
+        minimumConfirmations: '3',
         status: 'completed',
         type: 'httpget'
       } as ITaskRun,
       {
-        confirmations: 3,
+        confirmations: '3',
         id: 2,
-        minimumConfirmations: 3,
+        minimumConfirmations: '3',
         status: 'completed',
         type: 'jsonparse'
       } as ITaskRun
@@ -86,16 +86,16 @@ describe('components/JobRuns/TaskRuns', () => {
   it('does display increasing pending confirmations', () => {
     const taskRuns = [
       {
-        confirmations: 3,
+        confirmations: '3',
         id: 1,
-        minimumConfirmations: 3,
+        minimumConfirmations: '3',
         status: 'completed',
         type: 'httpget'
       } as ITaskRun,
       {
-        confirmations: 4,
+        confirmations: '4',
         id: 2,
-        minimumConfirmations: 5,
+        minimumConfirmations: '5',
         status: 'completed',
         type: 'jsonparse'
       } as ITaskRun
