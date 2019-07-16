@@ -10,6 +10,9 @@ import classNames from 'classnames'
 import PaddedCard from '@chainlink/styleguide/components/PaddedCard'
 import { titleCase } from 'change-case'
 import StatusIcon from '../JobRuns/StatusIcon'
+import { Grid } from '@material-ui/core'
+import { IJobRun } from '../../../@types/operator_ui'
+import ElapsedTime from '../ElapsedTime'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -36,31 +39,74 @@ const styles = (theme: Theme) =>
     },
     statusText: {
       display: 'inline-block',
-      paddingLeft: theme.spacing.unit * 2,
-      textTransform: 'capitalize'
+      textTransform: 'capitalize',
+      color: theme.palette.secondary.main
+    },
+    statusRoot: {
+      paddingLeft: theme.spacing.unit * 2
+    },
+    elapsedText: {
+      color: theme.typography.display1.color
+    },
+    earnedLink: {
+      color: theme.palette.success.main
     }
   })
 
 interface IProps extends WithStyles<typeof styles> {
   title: string
   children?: React.ReactNode
+  jobRun?: IJobRun
 }
 
-const StatusCard = ({ title, classes, children }: IProps) => {
+const selectLink = (inWei: number) => inWei / 1e18
+const EarnedLink = ({
+  classes,
+  jobRun
+}: {
+  jobRun?: IJobRun
+  classes: WithStyles<typeof styles>['classes']
+}) => {
+  const linkEarned = jobRun && jobRun.result && jobRun.result.amount
   return (
-    <PaddedCard
-      className={classNames(
-        classes.statusCard,
-        classes[title] || classes.pending
-      )}
-    >
+    <Typography className={classes.earnedLink} variant="h6">
+      +{linkEarned ? selectLink(linkEarned) : 0} Link
+    </Typography>
+  )
+}
+
+const StatusCard = ({ title, classes, children, jobRun }: IProps) => {
+  const statusClass = classes[title as keyof typeof classes] || classes.pending
+  const { status, createdAt, finishedAt } = jobRun || {
+    status: '',
+    createdAt: '',
+    finishedAt: ''
+  }
+  return (
+    <PaddedCard className={classNames(classes.statusCard, statusClass)}>
       <div className={classes.head}>
-        <StatusIcon className={classes.statusIcon} width={80}>
+        <StatusIcon className={classes.statusIcon}  width={80} >
           {title}
         </StatusIcon>
-        <Typography className={classes.statusText} variant="h5" color="inherit">
-          {titleCase(title)}
-        </Typography>
+        <Grid container alignItems="center" className={classes.statusRoot}>
+          <Grid item xs={9}>
+            <Typography className={classes.statusText} variant="h5">
+              {titleCase(title)}
+            </Typography>
+            {status !== 'pending' && (
+              <ElapsedTime
+                start={createdAt}
+                end={finishedAt}
+                className={classes.elapsedText}
+              />
+            )}
+          </Grid>
+          <Grid item xs={3}>
+            {title === 'completed' && (
+              <EarnedLink classes={classes} jobRun={jobRun} />
+            )}
+          </Grid>
+        </Grid>
       </div>
       {children}
     </PaddedCard>
