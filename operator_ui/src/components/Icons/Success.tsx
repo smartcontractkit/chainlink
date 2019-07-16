@@ -1,7 +1,13 @@
 import React from 'react'
 
-const Success = props => (
-  <svg data-name="Layer 1" viewBox="0 0 48 48" {...props}>
+const Success = ({ width, height, className }: { width?: number, height?: number, className: string}) => (
+  <svg
+    data-name="Layer 1"
+    viewBox="0 0 48 48"
+    width={width}
+    height={height}
+    className={className}
+  >
     <defs>
       <mask
         id="prefix__a"
@@ -15,7 +21,7 @@ const Success = props => (
       </mask>
     </defs>
     <title>{'Artboard 1'}</title>
-    <circle cx={24} cy={24} r={22} fill="none" stroke="#fff" strokeWidth={4} />
+    <circle cx={24} cy={24} r={22} fill="none" stroke='#fff' strokeWidth={4} />
     <circle data-name="path-1" cx={24} cy={24} r={20} fill="#e8faf1" />
     <g>
       <g mask="url(#prefix__a)">
