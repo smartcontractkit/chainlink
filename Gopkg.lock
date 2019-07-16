@@ -782,12 +782,12 @@
   revision = "9b9efcf221b50905aab9bbabd3daed56dc10f339"
 
 [[projects]]
-  digest = "1:ca8630b2e059672e3830bdb6572fa83034ec12fbd989ea26f0e8b1646d3a691a"
+  digest = "1:30e9a79822702670b96d3461aca7da11b8cc6e7954eb4e859e886559ed4802a4"
   name = "github.com/tidwall/gjson"
   packages = ["."]
   pruneopts = ""
-  revision = "1e964df7d986643219d174dedab33deccc16a222"
-  version = "v1.3.1"
+  revision = "c5e72cdf74dff23857243dd662c465b810891c21"
+  version = "v1.3.2"
 
 [[projects]]
   digest = "1:72511ec1089fee111c995492d1d390a38ac7ab888aabdb1188985f2a1719c599"
