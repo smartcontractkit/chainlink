@@ -55,11 +55,8 @@ export interface ITaskRun
   task: ITaskSpec
   updatedAt: Date
   type: adapterTypes
-  status: string
   minimumConfirmations: number
 }
-
-// export interface ITaskSpec extends Omit<dbTypes.TaskSpec, 'jobSpecId'> {}
 export interface ITaskSpec {
   id: number
   createdAt?: Date

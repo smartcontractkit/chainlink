@@ -51,7 +51,6 @@ export interface JobRun {
 
 export interface JobSpec {
   id: string
-  // createdAt: Date | null
   createdAt: string
   startAt: Date | null
   endAt: Date | null
