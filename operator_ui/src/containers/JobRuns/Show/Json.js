@@ -27,7 +27,7 @@ const renderDetails = ({ fetching, jobRun }) => {
         </PaddedCard>
       </Grid>
       <Grid item xs={4}>
-        <StatusCard title={jobRun.status} />
+        <StatusCard title={jobRun.status} jobRun={jobRun} />
       </Grid>
     </Grid>
   )
