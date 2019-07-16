@@ -1,4 +1,5 @@
 import React from 'react'
+import JSBI from 'jsbi'
 import Typography from '@material-ui/core/Typography'
 import {
   createStyles,
@@ -52,10 +53,10 @@ interface IProps extends WithStyles<typeof styles> {
 
 const renderConfirmations = (
   { confirmations, minimumConfirmations }: ITaskRun,
-  prevConfs: number,
+  prevConfs: string,
   classes: any
 ) => {
-  if (minimumConfirmations && minimumConfirmations > prevConfs) {
+  if (minimumConfirmations && JSBI.GT(minimumConfirmations, prevConfs)) {
     return (
       <Typography
         variant="subtitle2"
@@ -68,12 +69,12 @@ const renderConfirmations = (
   return null
 }
 
-const calculatePrevConfs = (taskRuns: ITaskRun[] | undefined): number[] => {
+const calculatePrevConfs = (taskRuns: ITaskRun[] | undefined): string[] => {
   if (taskRuns) {
     const prevMinConfs = taskRuns.map(
       taskRun => taskRun.minimumConfirmations
-    ) as number[]
-    prevMinConfs.unshift(0)
+    ) as string[]
+    prevMinConfs.unshift('0')
     return prevMinConfs
   }
   return []
