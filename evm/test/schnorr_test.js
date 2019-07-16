@@ -1,5 +1,3 @@
-import * as h from './support/helpers'
-
 const SchnorrSECP256K1 = artifacts.require('SchnorrSECP256K1')
 
 const BN = web3.utils.BN
@@ -27,7 +25,7 @@ const toAddress = (x, y) => {
 contract('SchnorrSECP256K1', async accounts => {
   let c
   beforeEach(async () => {
-    c = await h.deploy('SchnorrSECP256K1.sol')
+    c = await SchnorrSECP256K1.new()
   })
   const secretKey = hexToBN(
     // Uniformly sampled from {0,...,groupOrder}
