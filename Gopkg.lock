@@ -887,6 +887,9 @@
   name = "go.dedis.ch/kyber"
   packages = [
     ".",
+    "group/curve25519",
+    "group/internal/marshalling",
+    "group/mod",
     "share",
     "share/dkg/rabin",
     "share/vss/rabin",
@@ -1137,6 +1140,7 @@
     "github.com/willf/pad",
     "go.dedis.ch/fixbuf",
     "go.dedis.ch/kyber",
+    "go.dedis.ch/kyber/group/curve25519",
     "go.dedis.ch/kyber/share",
     "go.dedis.ch/kyber/share/dkg/rabin",
     "go.dedis.ch/kyber/util/key",
