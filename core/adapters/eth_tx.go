@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"regexp"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -114,6 +115,9 @@ func createTxRunResult(
 	if IsClientRetriable(err) {
 		input.MarkPendingConnection()
 		return
+	} else if IsClientEmptyError(err) {
+		input.MarkPendingConfirmations()
+		return
 	} else if err != nil {
 		input.SetError(err)
 		return
@@ -212,4 +216,15 @@ func IsClientRetriable(err error) bool {
 	}
 
 	return false
+}
+
+var (
+	parityEmptyResponseRegex = regexp.MustCompile("Error cause was EmptyResponse")
+)
+
+// Parity light clients can return an EmptyResponse error when they don't have
+// access to the transaction in the mempool. If we wait long enough it should
+// eventually return a transaction receipt.
+func IsClientEmptyError(err error) bool {
+	return err != nil && parityEmptyResponseRegex.MatchString(err.Error())
 }
