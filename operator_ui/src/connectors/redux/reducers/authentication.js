@@ -31,7 +31,7 @@ export default (state = initialState, action = {}) => {
       const allowed = { allowed: action.authenticated }
       authenticationStorage.set(allowed)
       return Object.assign({}, state, allowed, {
-        errors: action.errors || [],
+        errors: [],
         networkError: false
       })
     }

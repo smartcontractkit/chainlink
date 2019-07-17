@@ -1,1 +1,5 @@
-export default (state, id) => state.bridges.items[id]
+import build from 'redux-object'
+
+export default ({ bridges }, id) => {
+  return build(bridges, 'items', id)
+}
