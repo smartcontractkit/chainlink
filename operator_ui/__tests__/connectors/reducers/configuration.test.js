@@ -1,56 +1,29 @@
 import reducer from 'connectors/redux/reducers'
-import {
-  REQUEST_CONFIGURATION,
-  RECEIVE_CONFIGURATION_SUCCESS,
-  RECEIVE_CONFIGURATION_ERROR
-} from 'actions'
 
 describe('connectors/reducers/configuration', () => {
-  it('should return the initial state', () => {
+  it('returns the initial state', () => {
     const state = reducer(undefined, {})
 
     expect(state.configuration).toEqual({
-      config: {},
-      networkError: false
+      data: {}
     })
   })
 
-  it('REQUEST_CONFIGURATION disables the network error', () => {
-    const action = { type: REQUEST_CONFIGURATION }
-    const state = reducer(undefined, action)
-
-    expect(state.configuration.networkError).toEqual(false)
-  })
-
-  it('RECEIVE_CONFIGURATION_SUCCESS assigns the config', () => {
+  it('UPSERT_CONFIGURATION stores the attribute data', () => {
     const previousState = {
-      configuration: {
-        networkError: true
-      }
+      configuration: {}
     }
-    let configMap = { singer: 'bob' }
-    const action = {
-      type: RECEIVE_CONFIGURATION_SUCCESS,
-      config: configMap
-    }
-    const state = reducer(previousState, action)
-
-    expect(state.configuration.config).toEqual(configMap)
-    expect(state.configuration.networkError).toEqual(false)
-  })
-
-  it('RECEIVE_CONFIGURATION_ERROR assigns a network error', () => {
-    const previousState = {
-      configuration: {
-        networkError: false
+    const response = {
+      configWhitelists: {
+        idA: { attributes: { attributeA: 'ValueA' } }
       }
     }
     const action = {
-      type: RECEIVE_CONFIGURATION_ERROR,
-      networkError: true
+      type: 'UPSERT_CONFIGURATION',
+      data: response
     }
     const state = reducer(previousState, action)
 
-    expect(state.configuration.networkError).toEqual(true)
+    expect(state.configuration.data).toEqual({ attributeA: 'ValueA' })
   })
 })

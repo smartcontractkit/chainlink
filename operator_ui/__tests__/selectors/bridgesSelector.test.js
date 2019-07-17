@@ -5,29 +5,31 @@ describe('selectors - bridges', () => {
     const state = {
       bridges: {
         items: {
-          a: { name: 'A' },
-          b: { name: 'B' },
-          c: { name: 'C' }
+          a: { attributes: { name: 'A' } },
+          b: { attributes: { name: 'B' } },
+          c: { attributes: { name: 'C' } }
         },
         currentPage: ['c', 'a']
       }
     }
 
-    expect(bridgesSelector(state, 'a')).toEqual([{ name: 'C' }, { name: 'A' }])
+    const selected = bridgesSelector(state)
+    expect(selected).toEqual([{ id: 'c', name: 'C' }, { id: 'a', name: 'A' }])
   })
 
   it('does not return items that cannot be found', () => {
     const state = {
       bridges: {
         items: {
-          a: { name: 'A' },
-          b: { name: 'B' },
-          c: { name: 'C' }
+          a: { attributes: { name: 'A' } },
+          b: { attributes: { name: 'B' } },
+          c: { attributes: { name: 'C' } }
         },
-        currentPage: ['C', 'A']
+        currentPage: ['C', 'A', 'b']
       }
     }
 
-    expect(bridgesSelector(state, 'a')).toEqual([])
+    const selected = bridgesSelector(state)
+    expect(selected).toEqual([{ id: 'b', name: 'B' }])
   })
 })

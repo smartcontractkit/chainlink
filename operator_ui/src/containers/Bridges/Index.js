@@ -14,15 +14,7 @@ import Button from 'components/Button'
 
 export const Index = props => {
   document.title = 'Bridges'
-  const {
-    bridges,
-    bridgeCount,
-    pageSize,
-    bridgesError,
-    fetchBridges,
-    history,
-    match
-  } = props
+  const { bridges, count, pageSize, fetchBridges, history, match } = props
   return (
     <Content>
       <Grid container spacing={8}>
@@ -47,9 +39,8 @@ export const Index = props => {
         <Grid item xs={12}>
           <BridgeList
             bridges={bridges}
-            bridgeCount={bridgeCount}
+            bridgeCount={count}
             pageSize={pageSize}
-            error={bridgesError}
             fetchBridges={fetchBridges}
             history={history}
             match={match}
@@ -61,9 +52,8 @@ export const Index = props => {
 }
 
 Index.propTypes = {
-  bridgeCount: PropTypes.number.isRequired,
+  count: PropTypes.number.isRequired,
   bridges: PropTypes.array.isRequired,
-  bridgesError: PropTypes.string,
   pageSize: PropTypes.number
 }
 
@@ -72,17 +62,10 @@ Index.defaultProps = {
 }
 
 const mapStateToProps = state => {
-  let bridgesError
-  if (state.bridges.networkError) {
-    bridgesError =
-      'There was an error fetching the bridges. Please reload the page.'
-  }
+  const bridges = bridgesSelector(state)
+  const count = state.bridges.count
 
-  return {
-    bridgeCount: state.bridges.count,
-    bridges: bridgesSelector(state),
-    bridgesError: bridgesError
-  }
+  return { bridges, count }
 }
 
 export const ConnectedIndex = connect(
