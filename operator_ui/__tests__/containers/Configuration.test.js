@@ -1,11 +1,11 @@
 /* eslint-env jest */
 import React from 'react'
-import configurationFactory from 'factories/configuration'
-import syncFetch from 'test-helpers/syncFetch'
-import createStore from 'connectors/redux'
-import { mount } from 'enzyme'
 import { MemoryRouter } from 'react-router-dom'
 import { Provider } from 'react-redux'
+import { mount } from 'enzyme'
+import createStore from 'connectors/redux'
+import configurationFactory from 'factories/configuration'
+import syncFetch from 'test-helpers/syncFetch'
 import { ConnectedConfiguration as Configuration } from 'containers/Configuration'
 
 const classes = {}
@@ -35,20 +35,5 @@ describe('containers/Configuration', () => {
     expect(wrapper.text()).toContain('Major Lazer')
     expect(wrapper.text()).toContain('SINGER')
     expect(wrapper.text()).toContain('Bob Marley')
-  })
-
-  it('displays an error message when the network requests fail', async () => {
-    expect.assertions(1)
-
-    global.fetch.catch(() => {
-      throw new TypeError('Failed to fetch')
-    })
-
-    const wrapper = mountConfiguration()
-
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain(
-      'There was an error fetching the configuration. Please reload the page.'
-    )
   })
 })

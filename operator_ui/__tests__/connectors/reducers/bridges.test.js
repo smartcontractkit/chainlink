@@ -1,12 +1,4 @@
 import reducer from 'connectors/redux/reducers'
-import {
-  REQUEST_BRIDGES,
-  RECEIVE_BRIDGES_SUCCESS,
-  RECEIVE_BRIDGES_ERROR,
-  REQUEST_BRIDGE,
-  RECEIVE_BRIDGE_SUCCESS,
-  RECEIVE_BRIDGE_ERROR
-} from 'actions'
 
 describe('connectors/reducers/bridges', () => {
   it('returns the initial state', () => {
@@ -15,25 +7,25 @@ describe('connectors/reducers/bridges', () => {
     expect(state.bridges).toEqual({
       items: {},
       currentPage: [],
-      count: 0,
-      networkError: false
+      count: 0
     })
   })
 
-  it('REQUEST_BRIDGES disables the network error', () => {
-    const action = { type: REQUEST_BRIDGES }
-    const previousState = {
-      bridges: { networkError: true }
-    }
-    const state = reducer(previousState, action)
-
-    expect(state.bridges.networkError).toEqual(false)
-  })
-
-  it('RECEIVE_BRIDGES_SUCCESS stores the bridge items and the current page', () => {
+  it('UPSERT_BRIDGES stores the bridge items, current page & count', () => {
     const action = {
-      type: RECEIVE_BRIDGES_SUCCESS,
-      items: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }]
+      type: 'UPSERT_BRIDGES',
+      data: {
+        bridges: {
+          a: { id: 'a', name: 'A' },
+          b: { id: 'b', name: 'B' }
+        },
+        meta: {
+          currentPageBridges: {
+            data: [{ id: 'a' }, { id: 'b' }],
+            meta: { count: 5 }
+          }
+        }
+      }
     }
     const state = reducer(undefined, action)
 
@@ -42,61 +34,33 @@ describe('connectors/reducers/bridges', () => {
       b: { id: 'b', name: 'B' }
     })
     expect(state.bridges.currentPage).toEqual(['a', 'b'])
-    expect(state.bridges.networkError).toEqual(false)
+    expect(state.bridges.count).toEqual(5)
   })
 
-  it('RECEIVE_BRIDGES_ERROR updates the network error', () => {
-    const previousState = {
-      bridges: { networkError: false }
-    }
+  it('UPSERT_BRIDGE stores the bridge item', () => {
     const action = {
-      type: RECEIVE_BRIDGES_ERROR,
-      networkError: true
-    }
-    const state = reducer(previousState, action)
-
-    expect(state.bridges.networkError).toEqual(true)
-  })
-
-  it('REQUEST_BRIDGE disables the network error', () => {
-    const previousState = {
-      bridges: { networkError: true }
-    }
-    const action = { type: REQUEST_BRIDGE }
-    const state = reducer(previousState, action)
-
-    expect(state.bridges.networkError).toEqual(false)
-  })
-
-  it('RECEIVE_BRIDGE_SUCCESS adds to the list of items', () => {
-    const action = {
-      type: RECEIVE_BRIDGE_SUCCESS,
-      item: {
-        id: 'a',
-        name: 'A'
+      type: 'UPSERT_BRIDGE',
+      data: {
+        bridges: {
+          a: {
+            id: 'a',
+            attributes: {
+              name: 'A'
+            }
+          }
+        }
       }
     }
     const previousState = {
-      bridges: { items: [] }
+      bridges: { items: {} }
     }
     const state = reducer(previousState, action)
 
     expect(state.bridges.items.a).toEqual({
       id: 'a',
-      name: 'A'
+      attributes: {
+        name: 'A'
+      }
     })
-  })
-
-  it('RECEIVE_BRIDGE_ERROR assigns a network error', () => {
-    const previousState = {
-      bridges: { networkError: false }
-    }
-    const action = {
-      type: RECEIVE_BRIDGE_ERROR,
-      networkError: true
-    }
-    const state = reducer(previousState, action)
-
-    expect(state.bridges.networkError).toEqual(true)
   })
 })

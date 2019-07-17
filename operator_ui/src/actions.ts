@@ -1,17 +1,30 @@
-import * as api from 'api'
-import { AuthenticationError } from './api/errors'
+import { Dispatch } from 'redux'
 import { pascalCase } from 'change-case'
 import normalize from 'json-api-normalizer'
+import * as api from './api'
+import {
+  AuthenticationError,
+  BadRequestError,
+  ServerError,
+  UnknownResponseError
+} from './api/errors'
 
-const createAction = type => ({ type: type })
+type Errors =
+  | AuthenticationError
+  | BadRequestError
+  | ServerError
+  | UnknownResponseError
 
-const createErrorAction = (error, type) => ({
+const createAction = (type: string) => ({ type: type })
+
+const createErrorAction = (error: Error, type: string) => ({
   type: type,
-  error: error.stack,
-  networkError: true
+  error: error.stack
 })
 
-const curryErrorHandler = (dispatch, type) => error => {
+const curryErrorHandler = (dispatch: Dispatch, type: string) => (
+  error: Error
+) => {
   if (error instanceof AuthenticationError) {
     dispatch(redirectToSignOut())
   } else {
@@ -28,109 +41,69 @@ const redirectToSignOut = () => ({
 
 export const MATCH_ROUTE = 'MATCH_ROUTE'
 
-export const matchRoute = match => ({
-  type: MATCH_ROUTE,
-  match: match
-})
+interface Match {
+  url: string
+  params: object
+}
+
+export const matchRoute = (match: Match) => {
+  return {
+    type: MATCH_ROUTE,
+    match: match
+  }
+}
 
 export const NOTIFY_SUCCESS = 'NOTIFY_SUCCESS'
 
-export const notifySuccess = (component, props) => ({
-  type: NOTIFY_SUCCESS,
-  component: component,
-  props: props
-})
+export const notifySuccess = (component: React.ReactNode, props: object) => {
+  return {
+    type: NOTIFY_SUCCESS,
+    component: component,
+    props: props
+  }
+}
 
 export const NOTIFY_ERROR = 'NOTIFY_ERROR'
 
-export const notifyError = (component, error) => ({
+export const notifyError = (component: React.ReactNode, error: Error) => ({
   type: NOTIFY_ERROR,
   component: component,
   error: error
 })
-
-const fetchActions = {}
-
-export const REQUEST_CONFIGURATION = 'REQUEST_CONFIGURATION'
-export const RECEIVE_CONFIGURATION_SUCCESS = 'RECEIVE_CONFIGURATION_SUCCESS'
-export const RECEIVE_CONFIGURATION_ERROR = 'RECEIVE_CONFIGURATION_ERROR'
-
-fetchActions.configuration = {
-  requestActionType: REQUEST_CONFIGURATION,
-  receiveSuccess: json => ({
-    type: RECEIVE_CONFIGURATION_SUCCESS,
-    config: json.data.attributes
-  }),
-  receiveErrorType: RECEIVE_CONFIGURATION_ERROR
-}
-
-export const REQUEST_BRIDGES = 'REQUEST_BRIDGES'
-export const RECEIVE_BRIDGES_SUCCESS = 'RECEIVE_BRIDGES_SUCCESS'
-export const RECEIVE_BRIDGES_ERROR = 'RECEIVE_BRIDGES_ERROR'
-
-fetchActions.bridges = {
-  requestActionType: REQUEST_BRIDGES,
-  receiveSuccess: json => ({
-    type: RECEIVE_BRIDGES_SUCCESS,
-    count: json.meta.count,
-    items: json.data.map(b => Object.assign({ id: b.id }, b.attributes))
-  }),
-  receiveErrorType: RECEIVE_BRIDGES_ERROR
-}
-
-export const REQUEST_BRIDGE = 'REQUEST_BRIDGE'
-export const RECEIVE_BRIDGE_SUCCESS = 'RECEIVE_BRIDGE_SUCCESS'
-export const RECEIVE_BRIDGE_ERROR = 'RECEIVE_BRIDGE_ERROR'
-
-fetchActions.bridgeSpec = {
-  requestActionType: REQUEST_BRIDGE,
-  receiveSuccess: json => ({
-    type: RECEIVE_BRIDGE_SUCCESS,
-    item: Object.assign({ id: json.data.id }, json.data.attributes)
-  }),
-  receiveErrorType: RECEIVE_BRIDGE_ERROR
-}
-
-function sendFetchActions(type, ...getArgs) {
-  return dispatch => {
-    const {
-      requestActionType,
-      receiveSuccess,
-      receiveErrorType
-    } = fetchActions[type]
-    const apiGet = api['get' + pascalCase(type)]
-
-    dispatch(createAction(requestActionType))
-    return apiGet(...getArgs)
-      .then(json => dispatch(receiveSuccess(json)))
-      .catch(curryErrorHandler(dispatch, receiveErrorType))
-  }
-}
 
 export const REQUEST_SIGNIN = 'REQUEST_SIGNIN'
 export const RECEIVE_SIGNIN_SUCCESS = 'RECEIVE_SIGNIN_SUCCESS'
 export const RECEIVE_SIGNIN_FAIL = 'RECEIVE_SIGNIN_FAIL'
 export const RECEIVE_SIGNIN_ERROR = 'RECEIVE_SIGNIN_ERROR'
 
-const receiveSignInSuccess = json => {
-  return {
-    type: RECEIVE_SIGNIN_SUCCESS,
-    authenticated: json.data.attributes.authenticated,
-    errors: json.errors
+interface SignInDocument {
+  data: {
+    attributes: {
+      authenticated: boolean
+    }
   }
 }
 
-const receiveSignInFail = () => ({ type: RECEIVE_SIGNIN_FAIL })
+const signInSuccessAction = (doc: api.Document) => {
+  const signDoc = <SignInDocument>doc
 
-function sendSignIn(data) {
-  return dispatch => {
+  return {
+    type: RECEIVE_SIGNIN_SUCCESS,
+    authenticated: signDoc.data.attributes.authenticated
+  }
+}
+
+const signInFailAction = () => ({ type: RECEIVE_SIGNIN_FAIL })
+
+function sendSignIn(data: object) {
+  return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_SIGNIN))
     return api
       .createSession(data)
-      .then(json => dispatch(receiveSignInSuccess(json)))
-      .catch(error => {
+      .then(doc => dispatch(signInSuccessAction(doc)))
+      .catch((error: Errors) => {
         if (error instanceof AuthenticationError) {
-          dispatch(receiveSignInFail())
+          dispatch(signInFailAction())
         } else {
           dispatch(createErrorAction(error, RECEIVE_SIGNIN_ERROR))
         }
@@ -148,11 +121,11 @@ export const receiveSignoutSuccess = () => ({
 })
 
 function sendSignOut() {
-  return dispatch => {
+  return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_SIGNOUT))
     return api
       .destroySession()
-      .then(json => dispatch(receiveSignoutSuccess(json)))
+      .then(() => dispatch(receiveSignoutSuccess()))
       .catch(curryErrorHandler(dispatch, RECEIVE_SIGNIN_ERROR))
   }
 }
@@ -161,110 +134,123 @@ export const REQUEST_CREATE = 'REQUEST_CREATE'
 export const RECEIVE_CREATE_SUCCESS = 'RECEIVE_CREATE_SUCCESS'
 export const RECEIVE_CREATE_ERROR = 'RECEIVE_CREATE_ERROR'
 
-const receiveCreateSuccess = response => ({
-  type: RECEIVE_CREATE_SUCCESS,
-  response: response
-})
+const receiveCreateSuccessAction = () => ({ type: RECEIVE_CREATE_SUCCESS })
 
 export const REQUEST_DELETE = 'REQUEST_DELETE'
 export const RECEIVE_DELETE_SUCCESS = 'RECEIVE_DELETE_SUCCESS'
 export const RECEIVE_DELETE_ERROR = 'RECEIVE_DELETE_ERROR'
 
-const receiveDeleteSuccess = response => ({
+const receiveDeleteSuccess = (id: string) => ({
   type: RECEIVE_DELETE_SUCCESS,
-  response: response
+  id: id
 })
 
 export const REQUEST_UPDATE = 'REQUEST_UPDATE'
 export const RECEIVE_UPDATE_SUCCESS = 'RECEIVE_UPDATE_SUCCESS'
 export const RECEIVE_UPDATE_ERROR = 'RECEIVE_UPDATE_ERROR'
 
-const receiveUpdateSuccess = response => ({
+const receiveUpdateSuccess = (response: Response) => ({
   type: RECEIVE_UPDATE_SUCCESS,
   response: response
 })
 
-export const fetchConfiguration = () => sendFetchActions('configuration')
-export const fetchBridges = (page, size) =>
-  sendFetchActions('bridges', page, size)
-export const fetchBridgeSpec = name => sendFetchActions('bridgeSpec', name)
-
-export const submitSignIn = data => sendSignIn(data)
+export const submitSignIn = (data: object) => sendSignIn(data)
 export const submitSignOut = () => sendSignOut()
 
-export const createJobSpec = (data, successCallback, errorCallback) => {
-  return dispatch => {
+export const createJobSpec = (
+  data: object,
+  successCallback: React.ReactNode,
+  errorCallback: React.ReactNode
+) => {
+  return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_CREATE))
     return api
       .createJobSpec(data)
-      .then(res => {
-        dispatch(receiveCreateSuccess(res))
-        dispatch(notifySuccess(successCallback, res))
+      .then(doc => {
+        dispatch(receiveCreateSuccessAction())
+        dispatch(notifySuccess(successCallback, doc))
       })
-      .catch(error => {
+      .catch((error: Errors) => {
         curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)
         dispatch(notifyError(errorCallback, error))
       })
   }
 }
 
-export const deleteJobSpec = (data, successCallback, errorCallback) => {
-  return dispatch => {
+export const deleteJobSpec = (
+  id: string,
+  successCallback: React.ReactNode,
+  errorCallback: React.ReactNode
+) => {
+  return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_DELETE))
-    return api.destroyJobSpec(data)
-      .then(res => {
-        dispatch(receiveDeleteSuccess(data))
-        dispatch(notifySuccess(successCallback, res))
+    return api
+      .destroyJobSpec(id)
+      .then(doc => {
+        dispatch(receiveDeleteSuccess(id))
+        dispatch(notifySuccess(successCallback, doc))
       })
-      .catch(error => {
+      .catch((error: Errors) => {
         curryErrorHandler(dispatch, RECEIVE_DELETE_ERROR)(error)
         dispatch(notifyError(errorCallback, error))
       })
   }
 }
 
-export const createJobRun = (id, successCallback, errorCallback) => {
-  return dispatch => {
+export const createJobRun = (
+  id: string,
+  successCallback: React.ReactNode,
+  errorCallback: React.ReactNode
+) => {
+  return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_CREATE))
     return api
       .createJobSpecRun(id)
-      .then(res => {
-        dispatch(receiveCreateSuccess(res))
-        dispatch(notifySuccess(successCallback, res))
+      .then((doc: any) => {
+        dispatch(receiveCreateSuccessAction())
+        dispatch(notifySuccess(successCallback, doc))
       })
-      .catch(error => {
+      .catch((error: Errors) => {
         curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)
         dispatch(notifyError(errorCallback, error))
       })
   }
 }
 
-export const createBridge = (data, successCallback, errorCallback) => {
-  return dispatch => {
+export const createBridge = (
+  data: object,
+  successCallback: React.ReactNode,
+  errorCallback: React.ReactNode
+) => {
+  return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_CREATE))
     return api
       .createBridge(data)
-      .then(res => {
-        dispatch(receiveCreateSuccess(res))
-        dispatch(notifySuccess(successCallback, res.data))
+      .then((doc: any) => {
+        dispatch(receiveCreateSuccessAction())
+        dispatch(notifySuccess(successCallback, doc.data))
       })
-      .catch(error => {
+      .catch((error: Errors) => {
         curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)
         dispatch(notifyError(errorCallback, error))
       })
   }
 }
 
-export const updateBridge = (data, successCallback, errorCallback) => {
-  return dispatch => {
+export const updateBridge = (
+  params: api.UpdateBridgeParams,
+  successCallback: React.ReactNode,
+  errorCallback: React.ReactNode
+) => {
+  return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_UPDATE))
     return api
-      .updateBridge(data)
-      .then(res => {
-        dispatch(receiveUpdateSuccess(res.data))
-        dispatch(notifySuccess(successCallback, res.data))
+      .updateBridge(params)
+      .then((doc: any) => {
+        dispatch(receiveUpdateSuccess(doc.data))
+        dispatch(notifySuccess(successCallback, doc.data))
       })
-      .catch(error => {
+      .catch((error: Errors) => {
         curryErrorHandler(dispatch, RECEIVE_UPDATE_ERROR)(error)
         dispatch(notifyError(errorCallback, error))
       })
@@ -276,19 +262,24 @@ export const updateBridge = (data, successCallback, errorCallback) => {
 // calls in a counter, normalize JSON-API responses and create notifications.
 //
 // The calls above will be converted gradually.
-const handleError = dispatch => error => {
+const handleError = (dispatch: Dispatch) => (error: Error) => {
   if (error instanceof AuthenticationError) {
     dispatch(redirectToSignOut())
   } else {
-    dispatch(notifyError(({ msg }) => msg, error))
+    dispatch(notifyError(({ msg }: any) => msg, error))
   }
 }
 
-const request = (type, requestData, normalizeData, ...apiArgs) => {
-  return dispatch => {
+const request = (
+  type: string,
+  requestData: any,
+  normalizeData: any,
+  ...apiArgs: any
+) => {
+  return (dispatch: Dispatch) => {
     dispatch({ type: `REQUEST_${type}` })
     return requestData(...apiArgs)
-      .then(json => {
+      .then((json: object) => {
         const data = normalizeData(json)
         dispatch({ type: `UPSERT_${type}`, data: data })
       })
@@ -298,48 +289,67 @@ const request = (type, requestData, normalizeData, ...apiArgs) => {
 }
 
 export const fetchAccountBalance = () =>
-  request('ACCOUNT_BALANCE', api.getAccountBalance, json => normalize(json))
+  request('ACCOUNT_BALANCE', api.getAccountBalance, (json: object) =>
+    normalize(json)
+  )
 
-export const fetchJobs = (page, size) =>
+export const fetchConfiguration = () =>
+  request('CONFIGURATION', api.getConfiguration, (json: object) =>
+    normalize(json)
+  )
+
+export const fetchBridges = (page: number, size: number) =>
   request(
-    'JOBS',
-    api.getJobs,
-    json => normalize(json, { endpoint: 'currentPageJobs' }),
+    'BRIDGES',
+    api.getBridges,
+    (json: object) => normalize(json, { endpoint: 'currentPageBridges' }),
     page,
     size
   )
 
-export const fetchRecentlyCreatedJobs = size =>
+export const fetchBridgeSpec = (name: string) =>
+  request('BRIDGE', api.getBridgeSpec, (json: object) => normalize(json), name)
+
+export const fetchJobs = (page: number, size: number) =>
   request(
-    'RECENTLY_CREATED_JOBS',
-    api.getRecentlyCreatedJobs,
-    json => normalize(json, { endpoint: 'recentlyCreatedJobs' }),
+    'JOBS',
+    api.getJobs,
+    (json: object) => normalize(json, { endpoint: 'currentPageJobs' }),
+    page,
     size
   )
 
-export const fetchJob = id =>
-  request('JOB', api.getJobSpec, json => normalize(json), id)
+export const fetchRecentlyCreatedJobs = (size: number) =>
+  request(
+    'RECENTLY_CREATED_JOBS',
+    api.getRecentlyCreatedJobs,
+    (json: object) => normalize(json, { endpoint: 'recentlyCreatedJobs' }),
+    size
+  )
+
+export const fetchJob = (id: string) =>
+  request('JOB', api.getJobSpec, (json: object) => normalize(json), id)
 
 export const fetchJobRuns = (opts: api.JobSpecRunsOpts) =>
   request(
     'JOB_RUNS',
     api.getJobSpecRuns,
-    json => normalize(json, { endpoint: 'currentPageJobRuns' }),
+    (json: object) => normalize(json, { endpoint: 'currentPageJobRuns' }),
     opts
   )
 
-export const fetchRecentJobRuns = size =>
+export const fetchRecentJobRuns = (size: number) =>
   request(
     'RECENT_JOB_RUNS',
     api.getRecentJobRuns,
-    json => normalize(json, { endpoint: 'recentJobRuns' }),
+    (json: object) => normalize(json, { endpoint: 'recentJobRuns' }),
     size
   )
 
-export const fetchJobRun = id =>
-  request('JOB_RUN', api.getJobSpecRun, json => normalize(json), id)
+export const fetchJobRun = (id: string) =>
+  request('JOB_RUN', api.getJobSpecRun, (json: object) => normalize(json), id)
 
-export const deleteCompletedJobRuns = updatedBefore =>
+export const deleteCompletedJobRuns = (updatedBefore: object) =>
   request(
     'DELETE_COMPLETED_JOB_RUNS',
     api.bulkDeleteJobRuns,
@@ -348,7 +358,7 @@ export const deleteCompletedJobRuns = updatedBefore =>
     updatedBefore
   )
 
-export const deleteErroredJobRuns = updatedBefore =>
+export const deleteErroredJobRuns = (updatedBefore: object) =>
   request(
     'DELETE_ERRORED_JOB_RUNS',
     api.bulkDeleteJobRuns,
@@ -357,14 +367,19 @@ export const deleteErroredJobRuns = updatedBefore =>
     updatedBefore
   )
 
-export const fetchTransactions = (page, size) =>
+export const fetchTransactions = (page: number, size: number) =>
   request(
     'TRANSACTIONS',
     api.getTransactions,
-    json => normalize(json, { endpoint: 'currentPageTransactions' }),
+    (json: object) => normalize(json, { endpoint: 'currentPageTransactions' }),
     page,
     size
   )
 
-export const fetchTransaction = id =>
-  request('TRANSACTION', api.getTransaction, json => normalize(json), id)
+export const fetchTransaction = (id: string) =>
+  request(
+    'TRANSACTION',
+    api.getTransaction,
+    (json: object) => normalize(json),
+    id
+  )
