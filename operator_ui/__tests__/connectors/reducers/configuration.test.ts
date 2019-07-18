@@ -1,4 +1,4 @@
-import reducer from 'connectors/redux/reducers'
+import reducer from '../../../src/connectors/redux/reducers'
 
 describe('connectors/reducers/configuration', () => {
   it('returns the initial state', () => {
