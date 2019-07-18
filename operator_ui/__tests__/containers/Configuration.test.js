@@ -1,22 +1,16 @@
 /* eslint-env jest */
 import React from 'react'
-import { MemoryRouter } from 'react-router-dom'
-import { Provider } from 'react-redux'
-import { mount } from 'enzyme'
-import createStore from 'connectors/redux'
 import configurationFactory from 'factories/configuration'
 import syncFetch from 'test-helpers/syncFetch'
+import mountWithinStoreAndRouter from 'test-helpers/mountWithinStoreAndRouter'
 import { ConnectedConfiguration as Configuration } from 'containers/Configuration'
 
 const classes = {}
-const mountConfiguration = props =>
-  mount(
-    <Provider store={createStore()}>
-      <MemoryRouter>
-        <Configuration classes={classes} {...props} />
-      </MemoryRouter>
-    </Provider>
+const mount = props => {
+  return mountWithinStoreAndRouter(
+    <Configuration classes={classes} {...props} />
   )
+}
 
 describe('containers/Configuration', () => {
   it('renders the list of configuration options', async () => {
@@ -28,7 +22,7 @@ describe('containers/Configuration', () => {
     })
     global.fetch.getOnce('/v2/config', configurationResponse)
 
-    const wrapper = mountConfiguration()
+    const wrapper = mount()
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('BAND')
