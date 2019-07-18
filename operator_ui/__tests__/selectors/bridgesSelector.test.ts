@@ -1,8 +1,9 @@
-import bridgesSelector from 'selectors/bridges'
+import { IState } from '../../src/connectors/redux/reducers/index'
+import bridgesSelector from '../../src/selectors/bridges'
 
 describe('selectors - bridges', () => {
   it('returns the current page of bridges', () => {
-    const state = {
+    const state = <IState>{
       bridges: {
         items: {
           a: { attributes: { name: 'A' } },
@@ -18,7 +19,7 @@ describe('selectors - bridges', () => {
   })
 
   it('does not return items that cannot be found', () => {
-    const state = {
+    const state = <IState>{
       bridges: {
         items: {
           a: { attributes: { name: 'A' } },
