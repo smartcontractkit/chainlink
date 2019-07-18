@@ -43,7 +43,7 @@ export default (state = initialState, action = {}) => {
     }
     case RECEIVE_DELETE_SUCCESS: {
       return Object.assign({}, state, {
-        items: Object.assign({}, pickBy(state.items, i => i.id !== action.id))
+        items: pickBy(state.items, i => i.id !== action.id)
       })
     }
     default:
