@@ -1,8 +1,9 @@
+import { IState } from '../../src/connectors/redux/reducers/index'
 import configurationSelector from '../../src/selectors/configuration'
 
 describe('selectors - configs', () => {
   it('returns a tuple per key/value pair', () => {
-    const state = {
+    const state = <IState>{
       configuration: {
         data: {
           camelCased: 'value',
