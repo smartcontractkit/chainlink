@@ -1,8 +1,9 @@
-import bridgeSelector from 'selectors/bridge'
+import { IState } from '../../src/connectors/redux/reducers/index'
+import bridgeSelector from '../../src/selectors/bridge'
 
 describe('selectors - bridge', () => {
   it('returns the bridge with the given id', () => {
-    const state = {
+    const state = <IState>{
       bridges: {
         items: {
           a: { attributes: { name: 'A' } },
