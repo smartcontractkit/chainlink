@@ -1,5 +1,5 @@
 export interface IState {
-  items: object
+  items: { [id: string]: object }
   currentPage: string[]
   count: number
 }
