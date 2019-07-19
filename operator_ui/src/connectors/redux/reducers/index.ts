@@ -1,9 +1,8 @@
 import { combineReducers } from 'redux'
 import accountBalances from './accountBalances'
 import authentication from './authentication'
-import bridges from './bridges'
-import configuration from './configuration'
-import create from './create'
+import bridges, { IState as IBridgesState } from './bridges'
+import configuration, { IState as IConfigurationState } from './configuration'
 import fetching from './fetching'
 import jobRuns from './jobRuns'
 import jobs from './jobs'
@@ -14,6 +13,8 @@ import dashboardIndex, { IState as IDashboardState } from './dashboardIndex'
 import transactionsIndex from './transactionsIndex'
 
 export interface IState {
+  bridges: IBridgesState
+  configuration: IConfigurationState
   dashboardIndex: IDashboardState
 }
 
@@ -22,7 +23,6 @@ const reducer = combineReducers({
   authentication,
   bridges,
   configuration,
-  create,
   fetching,
   jobRuns,
   jobs,

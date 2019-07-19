@@ -90,10 +90,10 @@ describe('connectors/reducers/jobs', () => {
       data: { specs: { b: { id: 'b' } } }
     }
     const preDeleteState = reducer(undefined, upsertAction)
-    expect(preDeleteState.jobs.items).toEqual({ b: { id: 'b' } } )
+    expect(preDeleteState.jobs.items).toEqual({ b: { id: 'b' } })
     const deleteAction = {
       type: RECEIVE_DELETE_SUCCESS,
-      response: 'b'
+      id: 'b'
     }
     const postDeleteState = reducer(preDeleteState, deleteAction)
     expect(postDeleteState.jobs.items).toEqual({})

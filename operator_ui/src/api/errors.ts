@@ -1,30 +1,59 @@
-export function AuthenticationError(response: Response) {
-  this.errors = [
-    {
-      status: response.status,
-      detail: response.statusText
-    }
-  ]
+interface Error {
+  status: number
+  detail: any
 }
 
-export function BadRequestError({ errors }) {
-  this.errors = errors
+export interface DocumentWithErrors {
+  errors: any
 }
 
-export function ServerError(response: Response) {
-  this.errors = [
-    {
-      status: response.status,
-      detail: response.statusText
-    }
-  ]
+export class AuthenticationError extends Error {
+  errors: Error[]
+
+  constructor(response: Response) {
+    super(`AuthenticationError(${response.statusText})`)
+    this.errors = [
+      {
+        status: response.status,
+        detail: response.statusText
+      }
+    ]
+  }
 }
 
-export function UnknownResponseError(response: Response) {
-  this.errors = [
-    {
-      status: response.status,
-      detail: response.statusText
-    }
-  ]
+export class BadRequestError extends Error {
+  errors: Error[]
+
+  constructor({ errors }: DocumentWithErrors) {
+    super('BadRequestError')
+    this.errors = errors
+  }
+}
+
+export class ServerError extends Error {
+  errors: Error[]
+
+  constructor(response: Response) {
+    super(`ServerError(${response.statusText})`)
+    this.errors = [
+      {
+        status: response.status,
+        detail: response.statusText
+      }
+    ]
+  }
+}
+
+export class UnknownResponseError extends Error {
+  errors: Error[]
+
+  constructor(response: Response) {
+    super(`UnknownResponseError(${response.statusText})`)
+    this.errors = [
+      {
+        status: response.status,
+        detail: response.statusText
+      }
+    ]
+  }
 }
