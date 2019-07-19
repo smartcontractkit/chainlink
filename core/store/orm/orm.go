@@ -274,10 +274,10 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	if dbtx.Error != nil {
 		return dbtx.Error
 	}
+	defer dbtx.Rollback()
 
 	err := callback(dbtx)
 	if err != nil {
-		dbtx.Rollback()
 		return err
 	}
 
