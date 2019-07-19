@@ -171,7 +171,7 @@ const Activity = ({ classes, runs, count, pageSize }: IProps) => {
               Activity
             </Typography>
           </Grid>
-          <Grid item xs={12} sm={4} align="right">
+          <Grid item container xs={12} sm={4} justify="flex-end">
             <Button component={BaseLink} href={'/jobs/new'}>
               New Job
             </Button>
