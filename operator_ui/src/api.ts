@@ -1,13 +1,14 @@
 import 'isomorphic-unfetch'
-import formatRequestURI from './utils/formatRequestURI'
-import serializeBridgeType from './api/serializers/bridgeType'
 import {
   AuthenticationError,
   BadRequestError,
+  DocumentWithErrors,
   ServerError,
-  UnknownResponseError,
-  DocumentWithErrors
+  UnknownResponseError
 } from './api/errors'
+import serializeBridgeType from './api/serializers/bridgeType'
+import fetchWithTimeout from './utils/fetchWithTimeout'
+import formatRequestURI from './utils/formatRequestURI'
 
 const formatURI = (path: string, query: object = {}) => {
   return formatRequestURI(path, query, {
@@ -49,19 +50,23 @@ const parseResponse = (response: Response): Promise<Document> => {
   }
 }
 
-const get = (path: string, query: object = {}) =>
-  fetch(formatURI(path, query), { credentials: 'include' }).then(parseResponse)
+const get = (path, query) =>
+  global
+    .fetchWithTimeout(formatURI(path, query), { credentials: 'include' })
+    .then(parseResponse)
 
-const post = (path: string, body: object = {}) => {
-  return fetch(formatURI(path), {
-    method: 'POST',
-    body: JSON.stringify(body),
-    credentials: 'include',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json'
-    }
-  }).then(parseResponse)
+const post = (path, body) => {
+  return global
+    .fetch(formatURI(path), {
+      method: 'POST',
+      body: JSON.stringify(body),
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(parseResponse)
 }
 
 const patch = (path: string, body: object) => {
