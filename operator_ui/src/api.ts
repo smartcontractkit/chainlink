@@ -1,13 +1,14 @@
 import 'isomorphic-unfetch'
-import formatRequestURI from './utils/formatRequestURI'
-import serializeBridgeType from './api/serializers/bridgeType'
 import {
   AuthenticationError,
   BadRequestError,
+  DocumentWithErrors,
   ServerError,
-  UnknownResponseError,
-  DocumentWithErrors
+  UnknownResponseError
 } from './api/errors'
+import serializeBridgeType from './api/serializers/bridgeType'
+import fetchWithTimeout from './utils/fetchWithTimeout'
+import formatRequestURI from './utils/formatRequestURI'
 
 const formatURI = (path: string, query: object = {}) => {
   return formatRequestURI(path, query, {
@@ -50,7 +51,9 @@ const parseResponse = (response: Response): Promise<Document> => {
 }
 
 const get = (path: string, query: object = {}) =>
-  fetch(formatURI(path, query), { credentials: 'include' }).then(parseResponse)
+  fetchWithTimeout(formatURI(path, query), { credentials: 'include' }).then(
+    parseResponse
+  )
 
 const post = (path: string, body: object = {}) => {
   return fetch(formatURI(path), {
