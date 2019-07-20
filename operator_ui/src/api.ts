@@ -50,23 +50,21 @@ const parseResponse = (response: Response): Promise<Document> => {
   }
 }
 
-const get = (path, query) =>
-  global
-    .fetchWithTimeout(formatURI(path, query), { credentials: 'include' })
-    .then(parseResponse)
+const get = (path: string, query: object = {}) =>
+  fetchWithTimeout(formatURI(path, query), { credentials: 'include' }).then(
+    parseResponse
+  )
 
-const post = (path, body) => {
-  return global
-    .fetch(formatURI(path), {
-      method: 'POST',
-      body: JSON.stringify(body),
-      credentials: 'include',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json'
-      }
-    })
-    .then(parseResponse)
+const post = (path: string, body: object = {}) => {
+  return fetch(formatURI(path), {
+    method: 'POST',
+    body: JSON.stringify(body),
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json'
+    }
+  }).then(parseResponse)
 }
 
 const patch = (path: string, body: object) => {
