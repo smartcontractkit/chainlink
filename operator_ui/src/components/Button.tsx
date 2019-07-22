@@ -5,11 +5,9 @@ import {
   withStyles,
   WithStyles
 } from '@material-ui/core/styles'
-import { PropTypes as MuiPropTypes } from '@material-ui/core'
 import MuiButton, {
   ButtonProps as MuiButtonProps
 } from '@material-ui/core/Button'
-import { TouchRippleProps } from '@material-ui/core/ButtonBase/TouchRipple'
 import classNames from 'classnames'
 
 const styles = ({ palette }: Theme) =>
