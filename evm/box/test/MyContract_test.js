@@ -12,11 +12,11 @@ contract('MyContract', accounts => {
   const stranger = accounts[2]
   const consumer = accounts[3]
 
-  // These parameters are used to validate the data was recieved
+  // These parameters are used to validate the data was received
   // on the deployed oracle contract. The Job ID only represents
   // the type of data, but will not work on a public testnet.
   // For the latest JobIDs, visit our docs here:
-  // https://docs.chain.link/v1.1/docs/addresses-and-job-ids
+  // https://docs.chain.link/docs/testnet-oracles
   const jobId = web3.utils.toHex('4c7b7ffb66b344fbaa64995af81e355a')
   const url =
     'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
