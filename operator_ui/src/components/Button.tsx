@@ -12,12 +12,12 @@ import MuiButton, {
 import { TouchRippleProps } from '@material-ui/core/ButtonBase/TouchRipple'
 import classNames from 'classnames'
 
-const styles = (theme: Theme) =>
+const styles = ({ palette }: Theme) =>
   createStyles({
     default: {
       borderColor: '#BECAD6',
       '&:hover': {
-        backgroundColor: theme.palette.common.white,
+        backgroundColor: palette.common.white,
         borderColor: '#BECAD6',
         boxShadow:
           '0 2px 4px 0 rgba(0,123,255,0.06), 0 2px 2px 0 rgba(0,0,0,0.06)'
@@ -25,31 +25,31 @@ const styles = (theme: Theme) =>
     },
     primary: {
       boxShadow: '0 0',
-      backgroundColor: theme.palette.primary.main,
-      color: theme.palette.common.white,
+      backgroundColor: palette.primary.main,
+      color: palette.common.white,
       '&:hover': {
-        backgroundColor: theme.palette.primary.main,
+        backgroundColor: palette.primary.main,
         boxShadow:
           '0 2px 4px 0 rgba(0,123,255,0.19), 0 2px 2px 0 rgba(0,0,0,0.15)'
       }
     },
     secondary: {
       '&:hover': {
-        backgroundColor: theme.palette.common.white
+        backgroundColor: palette.common.white
       }
     },
     danger: {
-      borderColor: theme.palette.error.main,
-      color: theme.palette.error.main,
+      borderColor: palette.error.main,
+      color: palette.error.main,
       '&:hover': {
-        backgroundColor: theme.palette.common.white,
-        borderColor: theme.palette.error.main,
+        backgroundColor: palette.common.white,
+        borderColor: palette.error.main,
         boxShadow:
           '0 2px 4px 0 rgba(0,123,255,0.06), 0 2px 2px 0 rgba(0,0,0,0.06)'
       }
     },
     defaultRipple: {
-      color: '#818EA3'
+      color: palette.text.secondary
     }
   })
 
