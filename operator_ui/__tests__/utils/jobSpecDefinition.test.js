@@ -18,7 +18,7 @@ const input = `{
       "confirmations": 0,
       "params": {
         "ID": "KeepMeBecauseIAmUserDefined",
-        "get": "https://dimroc-public.s3.amazonaws.com/etl-language-comparison/tweets20140416.tar.gz"
+        "get": "https://localhost:9000/file.tar.gz"
       }
     }
   ],
@@ -35,5 +35,8 @@ describe('utils/jobSpecDefinition', () => {
     expect(output.tasks[0].DeletedAt).toBeUndefined()
     expect(output.tasks[0].UpdatedAt).toBeUndefined()
     expect(output.tasks[0].params.ID).toEqual('KeepMeBecauseIAmUserDefined')
+    expect(output.tasks[0].params.get).toEqual(
+      'https://localhost:9000/file.tar.gz'
+    )
   })
 })
