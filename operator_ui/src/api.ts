@@ -56,7 +56,7 @@ const get = (path: string, query: object = {}) =>
   )
 
 const post = (path: string, body: object = {}) => {
-  return fetch(formatURI(path), {
+  return fetchWithTimeout(formatURI(path), {
     method: 'POST',
     body: JSON.stringify(body),
     credentials: 'include',
@@ -68,7 +68,7 @@ const post = (path: string, body: object = {}) => {
 }
 
 const patch = (path: string, body: object) => {
-  return fetch(formatURI(path), {
+  return fetchWithTimeout(formatURI(path), {
     method: 'PATCH',
     body: JSON.stringify(body),
     credentials: 'include',
@@ -80,7 +80,7 @@ const patch = (path: string, body: object) => {
 }
 
 const destroy = (path: string, body: object = {}) => {
-  return fetch(formatURI(path, body), {
+  return fetchWithTimeout(formatURI(path, body), {
     method: 'DELETE',
     body: JSON.stringify(body),
     credentials: 'include',
