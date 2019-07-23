@@ -635,6 +635,51 @@ func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T
 	assert.Equal(t, models.RunStatusPendingConnection, data.Status)
 }
 
+func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfirmations(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	store := app.Store
+
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTx(t, store, from, 1)
+
+	ctrl := gomock.NewController(t)
+	txmMock := mocks.NewMockTxManager(ctrl)
+	store.TxManager = txmMock
+	txmMock.EXPECT().Register(gomock.Any())
+	txmMock.EXPECT().Connected().Return(true)
+	txmMock.EXPECT().CreateTxWithGas(
+		gomock.Any(),
+		gomock.Any(),
+		gomock.Any(),
+		gomock.Any(),
+		gomock.Any(),
+	).Return(tx, nil)
+	txmMock.EXPECT().CheckAttempt(
+		gomock.Any(),
+		gomock.Any(),
+	).Return(nil, strpkg.Unknown, errors.New("Bad response on request: [ TransactionIndex ]. Error cause was EmptyResponse, (majority count: 94 / total: 94)"))
+
+	adapter := adapters.EthTx{}
+	input := models.RunResult{}
+	input = adapter.Perform(input, store)
+
+	assert.False(t, input.HasError())
+	assert.Equal(t, models.RunStatusPendingConfirmations, input.Status)
+
+	// Have a head come through with the same empty response
+	txmMock.EXPECT().Connected().Return(true)
+	txmMock.EXPECT().BumpGasUntilSafe(
+		gomock.Any(),
+	).Return(nil, strpkg.Unknown, errors.New("Bad response on request: [ TransactionIndex ]. Error cause was EmptyResponse, (majority count: 94 / total: 94)"))
+
+	input = adapter.Perform(input, store)
+	assert.False(t, input.HasError())
+	assert.Equal(t, models.RunStatusPendingConfirmations, input.Status)
+}
+
 func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	t.Parallel()
 
