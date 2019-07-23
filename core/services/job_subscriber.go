@@ -2,8 +2,8 @@ package services
 
 import (
 	"fmt"
-	"sync"
 
+	"github.com/sasha-s/go-deadlock"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -23,7 +23,7 @@ type JobSubscriber interface {
 type jobSubscriber struct {
 	store            *store.Store
 	jobSubscriptions map[string]JobSubscription
-	jobsMutex        *sync.RWMutex
+	jobsMutex        *deadlock.RWMutex
 }
 
 // NewJobSubscriber returns a new job subscriber.
@@ -31,7 +31,7 @@ func NewJobSubscriber(store *store.Store) JobSubscriber {
 	return &jobSubscriber{
 		store:            store,
 		jobSubscriptions: map[string]JobSubscription{},
-		jobsMutex:        &sync.RWMutex{},
+		jobsMutex:        &deadlock.RWMutex{},
 	}
 }
 

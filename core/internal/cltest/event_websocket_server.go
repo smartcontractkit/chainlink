@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"sync"
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/sasha-s/go-deadlock"
 
 	"github.com/gorilla/websocket"
 )
@@ -15,7 +15,7 @@ import (
 // EventWebSocketServer is a web socket server designed specifically for testing
 type EventWebSocketServer struct {
 	*httptest.Server
-	mutex       *sync.RWMutex // shared mutex for safe access to arrays/maps.
+	mutex       *deadlock.RWMutex // shared mutex for safe access to arrays/maps.
 	t           *testing.T
 	connections []*websocket.Conn
 	Connected   chan struct{}
@@ -26,7 +26,7 @@ type EventWebSocketServer struct {
 // NewEventWebSocketServer returns a new EventWebSocketServer
 func NewEventWebSocketServer(t *testing.T) (*EventWebSocketServer, func()) {
 	server := &EventWebSocketServer{
-		mutex:     &sync.RWMutex{},
+		mutex:     &deadlock.RWMutex{},
 		t:         t,
 		Connected: make(chan struct{}, 1), // have buffer of one for easier assertions after the event
 		Received:  make(chan string, 100),

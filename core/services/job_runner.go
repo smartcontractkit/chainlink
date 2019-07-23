@@ -27,7 +27,7 @@ type jobRunner struct {
 	done                 chan struct{}
 	bootMutex            deadlock.Mutex
 	store                *store.Store
-	workerMutex          sync.RWMutex
+	workerMutex          deadlock.RWMutex
 	workers              map[string]chan struct{}
 	workersWg            sync.WaitGroup
 	demultiplexStopperWg sync.WaitGroup

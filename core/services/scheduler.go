@@ -2,9 +2,9 @@ package services
 
 import (
 	"errors"
-	"sync"
 
 	"github.com/mrwonko/cron"
+	"github.com/sasha-s/go-deadlock"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -18,7 +18,7 @@ type Scheduler struct {
 	Recurring    *Recurring
 	OneTime      *OneTime
 	store        *store.Store
-	startedMutex sync.RWMutex
+	startedMutex deadlock.RWMutex
 	started      bool
 }
 

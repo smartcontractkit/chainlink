@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/sasha-s/go-deadlock"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -22,7 +23,7 @@ type HeadTracker struct {
 	headSubscription      models.EthSubscription
 	store                 *strpkg.Store
 	head                  *models.Head
-	headMutex             sync.RWMutex
+	headMutex             deadlock.RWMutex
 	connected             bool
 	sleeper               utils.Sleeper
 	done                  chan struct{}

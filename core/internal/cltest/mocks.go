@@ -12,7 +12,6 @@ import (
 	"reflect"
 	"runtime/debug"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -63,7 +62,7 @@ type EthMock struct {
 	Subscriptions  []MockSubscription
 	newHeadsCalled bool
 	logsCalled     bool
-	mutex          sync.RWMutex
+	mutex          deadlock.RWMutex
 	context        string
 	strict         bool
 	t              testing.TB
