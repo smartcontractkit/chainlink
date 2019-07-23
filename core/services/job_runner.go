@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/sasha-s/go-deadlock"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -24,7 +25,7 @@ type JobRunner interface {
 type jobRunner struct {
 	started              bool
 	done                 chan struct{}
-	bootMutex            sync.Mutex
+	bootMutex            deadlock.Mutex
 	store                *store.Store
 	workerMutex          sync.RWMutex
 	workers              map[string]chan struct{}

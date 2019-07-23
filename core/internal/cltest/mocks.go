@@ -19,6 +19,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
+	"github.com/sasha-s/go-deadlock"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -370,7 +371,7 @@ func UseSettableClock(s *store.Store) *SettableClock {
 
 // SettableClock a settable clock
 type SettableClock struct {
-	mutex sync.Mutex
+	mutex deadlock.Mutex
 	time  time.Time
 }
 

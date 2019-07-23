@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
-	"sync"
 	"time"
 
 	"github.com/jinzhu/gorm"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
+	"github.com/sasha-s/go-deadlock"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -220,9 +220,9 @@ func createSyncEventWithStatsPusher(sp *StatsPusher) func(*gorm.Scope) {
 }
 
 var (
-	gormCallbacksMutex *sync.Mutex
+	gormCallbacksMutex *deadlock.Mutex
 )
 
 func init() {
-	gormCallbacksMutex = new(sync.Mutex)
+	gormCallbacksMutex = new(deadlock.Mutex)
 }

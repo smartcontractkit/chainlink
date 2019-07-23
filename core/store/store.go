@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/sasha-s/go-deadlock"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
@@ -35,7 +35,7 @@ type Store struct {
 type lazyRPCWrapper struct {
 	client      *rpc.Client
 	url         *url.URL
-	mutex       *sync.Mutex
+	mutex       *deadlock.Mutex
 	initialized *abool.AtomicBool
 }
 
@@ -49,7 +49,7 @@ func newLazyRPCWrapper(urlString string) (CallerSubscriber, error) {
 	}
 	return &lazyRPCWrapper{
 		url:         parsed,
-		mutex:       &sync.Mutex{},
+		mutex:       &deadlock.Mutex{},
 		initialized: abool.New(),
 	}, nil
 }
@@ -229,7 +229,7 @@ type RunChannel interface {
 type QueuedRunChannel struct {
 	queue  chan RunRequest
 	closed bool
-	mutex  sync.Mutex
+	mutex  deadlock.Mutex
 }
 
 // NewQueuedRunChannel initializes a QueuedRunChannel.

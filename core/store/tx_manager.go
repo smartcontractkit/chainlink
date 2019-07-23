@@ -5,11 +5,11 @@ import (
 	"math/big"
 	"regexp"
 	"strings"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
+	"github.com/sasha-s/go-deadlock"
 	"github.com/tidwall/gjson"
 	"gopkg.in/guregu/null.v3"
 
@@ -73,7 +73,7 @@ type EthTxManager struct {
 	registeredAccounts  []accounts.Account
 	availableAccounts   []*ManagedAccount
 	availableAccountIdx int
-	accountsMutex       *sync.Mutex
+	accountsMutex       *deadlock.Mutex
 	connected           *abool.AtomicBool
 }
 
@@ -85,7 +85,7 @@ func NewEthTxManager(ethClient *EthClient, config Config, keyStore *KeyStore, or
 		config:        config,
 		keyStore:      keyStore,
 		orm:           orm,
-		accountsMutex: &sync.Mutex{},
+		accountsMutex: &deadlock.Mutex{},
 		connected:     abool.New(),
 	}
 }
@@ -704,13 +704,13 @@ func (txm *EthTxManager) activateAccount(account accounts.Account) (*ManagedAcco
 type ManagedAccount struct {
 	accounts.Account
 	nonce uint64
-	mutex *sync.Mutex
+	mutex *deadlock.Mutex
 }
 
 // NewManagedAccount creates a managed account that handles nonce increments
 // locally.
 func NewManagedAccount(a accounts.Account, nonce uint64) *ManagedAccount {
-	return &ManagedAccount{Account: a, nonce: nonce, mutex: &sync.Mutex{}}
+	return &ManagedAccount{Account: a, nonce: nonce, mutex: &deadlock.Mutex{}}
 }
 
 // Nonce returns the client side managed nonce.

@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/gofrs/flock"
+	"github.com/sasha-s/go-deadlock"
 	"go.uber.org/multierr"
 )
 
@@ -36,7 +36,7 @@ type LockingStrategy interface {
 type FileLockingStrategy struct {
 	path     string
 	fileLock *flock.Flock
-	m        *sync.Mutex
+	m        *deadlock.Mutex
 }
 
 // NewFileLockingStrategy creates a new instance of FileLockingStrategy
@@ -47,7 +47,7 @@ func NewFileLockingStrategy(dbpath string) (LockingStrategy, error) {
 	return &FileLockingStrategy{
 		path:     lockPath,
 		fileLock: flock.New(lockPath),
-		m:        &sync.Mutex{},
+		m:        &deadlock.Mutex{},
 	}, nil
 }
 
@@ -89,14 +89,14 @@ func (s *FileLockingStrategy) Unlock() error {
 type PostgresLockingStrategy struct {
 	db     *sql.DB
 	path   string
-	m      *sync.Mutex
+	m      *deadlock.Mutex
 	locked bool
 }
 
 // NewPostgresLockingStrategy returns a new instance of the PostgresLockingStrategy.
 func NewPostgresLockingStrategy(path string) (LockingStrategy, error) {
 	return &PostgresLockingStrategy{
-		m:    &sync.Mutex{},
+		m:    &deadlock.Mutex{},
 		path: path,
 	}, nil
 }

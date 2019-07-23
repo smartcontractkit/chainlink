@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/sasha-s/go-deadlock"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -37,7 +38,7 @@ func (noopWebSocketClient) Send([]byte)                              {}
 func (noopWebSocketClient) Receive(...time.Duration) ([]byte, error) { return nil, nil }
 
 type websocketClient struct {
-	boot      *sync.Mutex
+	boot      *deadlock.Mutex
 	conn      *websocket.Conn
 	cancel    context.CancelFunc
 	send      chan []byte
@@ -56,7 +57,7 @@ func NewWebSocketClient(url *url.URL, accessKey, secret string) WebSocketClient 
 		url:       url,
 		send:      make(chan []byte),
 		receive:   make(chan []byte),
-		boot:      &sync.Mutex{},
+		boot:      &deadlock.Mutex{},
 		sleeper:   utils.NewBackoffSleeper(),
 		accessKey: accessKey,
 		secret:    secret,

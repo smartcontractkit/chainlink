@@ -1,10 +1,10 @@
 package services
 
 import (
-	"sync"
 	"testing"
 
 	"github.com/onsi/gomega"
+	"github.com/sasha-s/go-deadlock"
 )
 
 type testWorker struct {
@@ -85,7 +85,7 @@ func TestSleeperTask_StopWithoutStartNonBlocking(t *testing.T) {
 }
 
 type slowWorker struct {
-	mutex  sync.Mutex
+	mutex  deadlock.Mutex
 	output chan struct{}
 }
 
