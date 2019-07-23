@@ -642,16 +642,14 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 	defer cleanup()
 	store := app.Store
 
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTx(t, store, from, 1)
+
 	ctrl := gomock.NewController(t)
 	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
 	txmMock.EXPECT().Register(gomock.Any())
 	txmMock.EXPECT().Connected().Return(true)
-	tx := &models.Tx{
-		Attempts: []*models.TxAttempt{
-			&models.TxAttempt{},
-		},
-	}
 	txmMock.EXPECT().CreateTxWithGas(
 		gomock.Any(),
 		gomock.Any(),
@@ -666,10 +664,20 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 
 	adapter := adapters.EthTx{}
 	input := models.RunResult{}
-	data := adapter.Perform(input, store)
+	input = adapter.Perform(input, store)
 
-	assert.False(t, data.HasError())
-	assert.Equal(t, models.RunStatusPendingConfirmations, data.Status)
+	assert.False(t, input.HasError())
+	assert.Equal(t, models.RunStatusPendingConfirmations, input.Status)
+
+	// Have a head come through with the same empty response
+	txmMock.EXPECT().Connected().Return(true)
+	txmMock.EXPECT().BumpGasUntilSafe(
+		gomock.Any(),
+	).Return(nil, strpkg.Unknown, errors.New("Bad response on request: [ TransactionIndex ]. Error cause was EmptyResponse, (majority count: 94 / total: 94)"))
+
+	input = adapter.Perform(input, store)
+	assert.False(t, input.HasError())
+	assert.Equal(t, models.RunStatusPendingConfirmations, input.Status)
 }
 
 func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
