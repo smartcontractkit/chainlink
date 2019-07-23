@@ -155,7 +155,10 @@ func ensureTxRunResult(input *models.RunResult, str *strpkg.Store) {
 
 	receipt, state, err := str.TxManager.BumpGasUntilSafe(hash)
 	if err != nil {
-		if state == strpkg.Unknown {
+		if IsClientEmptyError(err) {
+			input.MarkPendingConfirmations()
+			return
+		} else if state == strpkg.Unknown {
 			input.SetError(err)
 			return
 		}
