@@ -76,6 +76,7 @@ func TestEVMTranscodeBytes(t *testing.T) {
 		name   string
 		input  string
 		output string
+		errs   bool
 	}{
 		{
 			"value is string",
@@ -83,6 +84,7 @@ func TestEVMTranscodeBytes(t *testing.T) {
 			"0x" +
 				"000000000000000000000000000000000000000000000000000000000000000b" +
 				"68656c6c6f20776f726c64000000000000000000000000000000000000000000",
+			false,
 		},
 		{
 			"value is bool true",
@@ -90,6 +92,7 @@ func TestEVMTranscodeBytes(t *testing.T) {
 			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
 				"0000000000000000000000000000000000000000000000000000000000000001",
+			false,
 		},
 		{
 			"value is bool false",
@@ -97,6 +100,7 @@ func TestEVMTranscodeBytes(t *testing.T) {
 			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
 				"0000000000000000000000000000000000000000000000000000000000000000",
+			false,
 		},
 		{
 			"value is positive integer",
@@ -104,6 +108,7 @@ func TestEVMTranscodeBytes(t *testing.T) {
 			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
 				"0000000000000000000000000000000000000000000000000000000000000013",
+			false,
 		},
 		{
 			"value is negative integer",
@@ -111,23 +116,28 @@ func TestEVMTranscodeBytes(t *testing.T) {
 			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
 				"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe9",
+			false,
 		},
-		{
-			"value has decimal places",
+		// NB: The following is undesirable behavior. For more details, please see
+		// https://www.pivotaltracker.com/n/workspaces/755483
+		{"value is a number but not an integer",
 			`19.99`,
 			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
 				"0000000000000000000000000000000000000000000000000000000000000013",
+			false,
 		},
+		{"value won't fit in int256", `1e300`, "", true},
 	}
-
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			input := gjson.Parse(test.input)
 			out, err := EVMTranscodeBytes(input)
-			assert.NoError(t, err)
-			assert.Equal(t, test.output, hexutil.Encode(out))
+			assert.Equal(t, tt.errs, err != nil, "unexpected error value")
+			if !tt.errs {
+				assert.Equal(t, test.output, hexutil.Encode(out))
+			}
 		})
 	}
 }
