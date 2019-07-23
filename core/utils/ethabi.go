@@ -24,15 +24,8 @@ const (
 )
 
 // ConcatBytes appends a bunch of byte arrays into a single byte array
-func ConcatBytes(bufs ...[]byte) ([]byte, error) {
-	buffer := bytes.NewBuffer([]byte{})
-	for _, b := range bufs {
-		_, err := buffer.Write(b)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return buffer.Bytes(), nil
+func ConcatBytes(bufs ...[]byte) []byte {
+	return bytes.Join(bufs, []byte{})
 }
 
 // EVMTranscodeBytes converts a json input to an EVM bytes array
@@ -74,7 +67,7 @@ func EVMEncodeBytes(input []byte) ([]byte, error) {
 	return ConcatBytes(
 		EVMWordUint64(uint64(length)),
 		input,
-		make([]byte, roundToEVMWordBorder(length)))
+		make([]byte, roundToEVMWordBorder(length))), nil
 }
 
 // EVMTranscodeBool converts a json input to an EVM bool
