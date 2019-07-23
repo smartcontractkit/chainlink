@@ -823,7 +823,7 @@
 
 [[projects]]
   branch = "v3-dep"
-  digest = "1:ad628247110682cd1a6cb6113af07a9fda66021eae6edb6eb2143dfaf2a372eb"
+  digest = "1:de281370944e40a475673b885c7646e056d294a9eb4bde4868ec6764d02fc701"
   name = "github.com/ulule/limiter"
   packages = [
     ".",
@@ -832,7 +832,7 @@
     "drivers/store/memory",
   ]
   pruneopts = ""
-  revision = "11a6a1929497b2b0077c81d506747dfa518dfc26"
+  revision = "308abe9609f586df9b0399a284c9415e725ed0a4"
 
 [[projects]]
   branch = "master"
