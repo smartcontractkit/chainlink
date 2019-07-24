@@ -8,7 +8,7 @@ import {
 } from '@material-ui/core/styles'
 import BaseLink from '../components/BaseLink'
 import { connect } from 'react-redux'
-import { bindActionCreators } from 'redux'
+import { bindActionCreators, Dispatch } from 'redux'
 import AppBar from '@material-ui/core/AppBar'
 import Toolbar from '@material-ui/core/Toolbar'
 import Grid from '@material-ui/core/Grid'
@@ -79,16 +79,17 @@ const Drawer = withStyles(drawerStyles)(
       >
         <div tabIndex={0} role="button" onClick={toggleDrawer}>
           <List className={classes.drawerList}>
-            {SHARED_NAV_ITEMS.map(([to, text]) => (
+            {SHARED_NAV_ITEMS.map(([href, text]) => (
               <ListItem
-                key={to}
+                key={href}
                 button
-                component={BaseLink}
-                href={to}
+                component={() => (
+                  <BaseLink href={href}>
+                    <ListItemText primary={text} />
+                  </BaseLink>
+                )}
                 className={classes.menuitem}
-              >
-                <ListItemText primary={text} />
-              </ListItem>
+              />
             ))}
             {authenticated && (
               <ListItem
@@ -133,7 +134,8 @@ const navStyles = ({ palette, spacing }: Theme) =>
     }
   })
 
-const isNavActive = (current, to) => `${to && to.toLowerCase()}` === current
+const isNavActive = (current?: string, to?: string) =>
+  `${to && to.toLowerCase()}` === current
 
 interface INavProps extends WithStyles<typeof navStyles> {
   authenticated: boolean
@@ -186,7 +188,7 @@ const styles = ({ palette, spacing, zIndex }: Theme) =>
 interface IProps extends WithStyles<typeof styles> {
   fetchCount: number
   authenticated: boolean
-  drawerContainer: React.ReactNode
+  drawerContainer: Element
   submitSignOut: () => undefined
   onResize: () => undefined
   url?: string
@@ -255,13 +257,13 @@ const Header = useHooks(
   }
 )
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state: any) => ({
   authenticated: state.authentication.allowed,
   fetchCount: fetchCountSelector(state),
   url: state.notifications.currentUrl
 })
 
-const mapDispatchToProps = dispatch =>
+const mapDispatchToProps = (dispatch: Dispatch) =>
   bindActionCreators({ submitSignOut }, dispatch)
 
 export const ConnectedHeader = connect(

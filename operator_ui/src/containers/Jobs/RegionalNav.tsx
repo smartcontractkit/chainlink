@@ -1,95 +1,107 @@
 import React from 'react'
 import { Redirect } from 'react-router-dom'
 import { connect } from 'react-redux'
-import { withStyles, WithStyles, Theme } from '@material-ui/core/styles'
+import {
+  createStyles,
+  withStyles,
+  WithStyles,
+  Theme
+} from '@material-ui/core/styles'
 import Card from '@material-ui/core/Card'
 import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
-import Button from 'components/Button'
-import BaseLink from 'components/BaseLink'
-import Link from 'components/Link'
-import CopyJobSpec from 'components/CopyJobSpec'
-import ErrorMessage from 'components/Notifications/DefaultError'
-import TimeAgo from '@chainlink/styleguide/components/TimeAgo'
-import jobSpecDefinition from 'utils/jobSpecDefinition'
-import { isWebInitiator } from 'utils/jobSpecInitiators'
-import { fetchJobRuns, createJobRun } from 'actions'
-import classNames from 'classnames'
-import localizedTimestamp from '@chainlink/styleguide/utils/localizedTimestamp'
-import { deleteJobSpec } from '../../actions'
 import Dialog from '@material-ui/core/Dialog'
-import Close from 'components/Icons/Close'
+import TimeAgo from '@chainlink/styleguide/src/components/TimeAgo'
+import localizedTimestamp from '@chainlink/styleguide/src/utils/localizedTimestamp'
+import Button from '../../components/Button'
+import BaseLink from '../../components/BaseLink'
+import Link from '../../components/Link'
+import CopyJobSpec from '../../components/CopyJobSpec'
+import ErrorMessage from '../../components/Notifications/DefaultError'
+import jobSpecDefinition from '../../utils/jobSpecDefinition'
+import { isWebInitiator } from '../../utils/jobSpecInitiators'
+import { fetchJobRuns, createJobRun } from '../../actions'
+import classNames from 'classnames'
+import { deleteJobSpec } from '../../actions'
+import Close from '../../components/Icons/Close'
 import { IJobSpec } from '../../../@types/operator_ui'
 
-const styles = (theme: Theme) => ({
-  container: {
-    backgroundColor: theme.palette.common.white,
-    padding: theme.spacing.unit * 5,
-    paddingBottom: 0
-  },
-  duplicate: {
-    marginLeft: theme.spacing.unit,
-    marginRight: theme.spacing.unit
-  },
-  horizontalNav: {
-    paddingBottom: 0
-  },
-  horizontalNavItem: {
-    display: 'inline'
-  },
-  horizontalNavLink: {
-    paddingTop: theme.spacing.unit * 4,
-    paddingBottom: theme.spacing.unit * 4,
-    textDecoration: 'none',
-    display: 'inline-block',
-    borderBottom: 'solid 1px',
-    borderBottomColor: theme.palette.common.white,
-    '&:hover': {
+const styles = (theme: Theme) =>
+  createStyles({
+    container: {
+      backgroundColor: theme.palette.common.white,
+      padding: theme.spacing.unit * 5,
+      paddingBottom: 0
+    },
+    mainRow: {
+      marginBottom: theme.spacing.unit * 2
+    },
+    actions: {
+      textAlign: 'right'
+    },
+    duplicate: {
+      marginLeft: theme.spacing.unit,
+      marginRight: theme.spacing.unit
+    },
+    horizontalNav: {
+      paddingBottom: 0
+    },
+    horizontalNavItem: {
+      display: 'inline'
+    },
+    horizontalNavLink: {
+      paddingTop: theme.spacing.unit * 4,
+      paddingBottom: theme.spacing.unit * 4,
+      textDecoration: 'none',
+      display: 'inline-block',
+      borderBottom: 'solid 1px',
+      borderBottomColor: theme.palette.common.white,
+      '&:hover': {
+        borderBottomColor: theme.palette.primary.main
+      }
+    },
+    activeNavLink: {
+      color: theme.palette.primary.main,
       borderBottomColor: theme.palette.primary.main
+    },
+    jobSpecId: {
+      overflow: 'hidden',
+      textOverflow: 'ellipsis'
+    },
+    dialogPaper: {
+      minHeight: '240px',
+      maxHeight: '240px',
+      minWidth: '670px',
+      maxWidth: '670px',
+      overflow: 'hidden',
+      borderRadius: theme.spacing.unit * 3
+    },
+    warningText: {
+      fontWeight: 500,
+      marginLeft: theme.spacing.unit * 3,
+      marginTop: theme.spacing.unit * 3,
+      marginBottom: theme.spacing.unit
+    },
+    closeButton: {
+      marginRight: theme.spacing.unit * 3,
+      marginTop: theme.spacing.unit * 3
+    },
+    infoText: {
+      fontSize: theme.spacing.unit * 2,
+      fontWeight: 450,
+      marginLeft: theme.spacing.unit * 6
+    },
+    modalContent: {
+      width: 'inherit'
+    },
+    archiveButton: {
+      marginTop: theme.spacing.unit * 4
     }
-  },
-  activeNavLink: {
-    color: theme.palette.primary.main,
-    borderBottomColor: theme.palette.primary.main
-  },
-  jobSpecId: {
-    overflow: 'hidden',
-    textOverflow: 'ellipsis'
-  },
-  dialogPaper: {
-    minHeight: '240px',
-    maxHeight: '240px',
-    minWidth: '670px',
-    maxWidth: '670px',
-    overflow: 'hidden',
-    borderRadius: theme.spacing.unit * 3
-  },
-  warningText: {
-    fontWeight: 500,
-    marginLeft: theme.spacing.unit * 3,
-    marginTop: theme.spacing.unit * 3,
-    marginBottom: theme.spacing.unit
-  },
-  closeButton: {
-    marginRight: theme.spacing.unit * 3,
-    marginTop: theme.spacing.unit * 3
-  },
-  infoText: {
-    fontSize: theme.spacing.unit * 2,
-    fontWeight: 450,
-    marginLeft: theme.spacing.unit * 6
-  },
-  modalContent: {
-    width: 'inherit'
-  },
-  archiveButton: {
-    marginTop: theme.spacing.unit * 4
-  }
-})
+  })
 
-const CreateRunSuccessNotification = ({ data }) => (
+const CreateRunSuccessNotification = ({ data }: any) => (
   <React.Fragment>
     Successfully created job run{' '}
     <BaseLink href={`/jobs/${data.attributes.jobId}/runs/id/${data.id}`}>
@@ -98,7 +110,7 @@ const CreateRunSuccessNotification = ({ data }) => (
   </React.Fragment>
 )
 
-const DeleteSuccessNotification = ({ id }) => (
+const DeleteSuccessNotification = ({ id }: any) => (
   <React.Fragment>Successfully archived job {id}</React.Fragment>
 )
 
@@ -210,18 +222,22 @@ const RegionalNav = ({
             </Typography>
           </Grid>
           <Grid item xs={12}>
-            <Grid container spacing={0} alignItems="center">
+            <Grid
+              container
+              spacing={0}
+              alignItems="center"
+              className={classes.mainRow}
+            >
               <Grid item xs={7}>
                 <Typography
                   variant="h3"
                   color="secondary"
                   className={classes.jobSpecId}
-                  gutterBottom
                 >
                   {jobSpecId}
                 </Typography>
               </Grid>
-              <Grid item align="right" xs={5}>
+              <Grid item xs={5} className={classes.actions}>
                 <Button
                   className={classes.duplicate}
                   onClick={() => setModalOpen(true)}
@@ -289,7 +305,7 @@ const RegionalNav = ({
   )
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state: any) => ({
   url: state.notifications.currentUrl
 })
 

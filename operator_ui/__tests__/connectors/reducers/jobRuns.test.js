@@ -11,8 +11,8 @@ describe('connectors/reducers/jobRuns', () => {
     const state = reducer(undefined, {})
 
     expect(state.jobRuns).toEqual({
-      currentPage: null,
-      currentJobRunsCount: null,
+      currentPage: undefined,
+      currentJobRunsCount: undefined,
       items: {}
     })
   })
@@ -83,13 +83,13 @@ describe('connectors/reducers/jobRuns', () => {
       type: UPSERT_JOB_RUN,
       data: {
         runs: {
-		b: { attributes: { jobId: 'b' } }
+          b: { attributes: { jobId: 'b' } }
         }
       }
     }
     const preDeleteState = reducer(undefined, upsertAction)
     expect(preDeleteState.jobRuns.items).toEqual({
-	    b: { attributes: { jobId: 'b' } }
+      b: { attributes: { jobId: 'b' } }
     })
     const deleteAction = {
       type: RECEIVE_DELETE_SUCCESS,

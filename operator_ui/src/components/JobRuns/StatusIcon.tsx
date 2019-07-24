@@ -7,18 +7,11 @@ interface IProps {
   children: React.ReactNode
   width?: number
   height?: number
-  className?: string
 }
 
-const StatusIcon = ({ children, width, height, className }: IProps) => {
+const StatusIcon = ({ children, width, height }: IProps) => {
   if (children === 'completed') {
-    return (
-      <SuccessIcon
-        className={className}
-        width={width}
-        height={height}
-      />
-    )
+    return <SuccessIcon width={width} height={height} />
   } else if (children === 'errored') {
     return <ErrorIcon width={width} height={height} />
   }

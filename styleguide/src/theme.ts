@@ -1,3 +1,5 @@
+import createMuiTheme from '@material-ui/core/styles/createMuiTheme'
+import { Theme } from '@material-ui/core/styles'
 import { common, green, grey } from '@material-ui/core/colors'
 import { darken } from '@material-ui/core/styles/colorManipulator'
 import spacing from '@material-ui/core/styles/spacing'
@@ -67,8 +69,14 @@ export default {
   },
   typography: {
     useNextVariants: true,
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: [
+      '-apple-system',
+      'BlinkMacSystemFont',
+      'Roboto',
+      'Helvetica',
+      'Arial',
+      'sans-serif'
+    ].join(','),
     body1: {
       fontSize: '1.0rem',
       fontWeight: 400,

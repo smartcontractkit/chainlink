@@ -16,7 +16,6 @@ describe('End to end', () => {
   beforeAll(async () => {
     jest.setTimeout(30000)
     pupExpect.setDefaultOptions({ timeout: 3000 })
-
     browser = await puppeteer.launch({
       devtools: false,
       headless: true,
@@ -27,9 +26,7 @@ describe('End to end', () => {
       width: AVERAGE_CLIENT_WIDTH,
       height: AVERAGE_CLIENT_HEIGHT
     })
-
     server = await newServer(`{"last": "3843.95"}`)
-
     page.on('console', msg => console.log('PAGE LOG:', msg.text()))
   })
 

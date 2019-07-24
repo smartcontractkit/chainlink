@@ -4,7 +4,12 @@ import TableBody from '@material-ui/core/TableBody'
 import Card from '@material-ui/core/Card'
 import CardTitle from './Title'
 
-const SimpleList = ({ children, title }) => {
+interface IProps {
+  children: React.ReactNode
+  title: string
+}
+
+const SimpleList = ({ children, title }: IProps) => {
   return (
     <Card>
       <CardTitle>{title}</CardTitle>
