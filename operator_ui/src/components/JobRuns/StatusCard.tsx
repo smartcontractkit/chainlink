@@ -12,6 +12,7 @@ import { titleCase } from 'change-case'
 import StatusIcon from '../JobRuns/StatusIcon'
 import { Grid } from '@material-ui/core'
 import { IJobRun } from '../../../@types/operator_ui'
+import { useHooks, useState, useEffect } from 'use-react-hooks'
 import ElapsedTime from '../ElapsedTime'
 
 const styles = (theme: Theme) =>
@@ -68,20 +69,27 @@ const EarnedLink = ({
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const linkEarned = jobRun && jobRun.overrides && jobRun.overrides.amount
-  return (
+    return (
     <Typography className={classes.earnedLink} variant="h6">
       +{linkEarned ? selectLink(linkEarned) : 0} Link
     </Typography>
   )
 }
 
-const StatusCard = ({ title, classes, children, jobRun }: IProps) => {
+const StatusCard = useHooks(({ title, classes, children, jobRun }: IProps) => {
   const statusClass = classes[title as keyof typeof classes] || classes.pending
   const { status, createdAt, finishedAt } = jobRun || {
     status: '',
     createdAt: '',
     finishedAt: ''
   }
+  const stillPending = (status !== 'completed' && status !== 'errored')
+  const [liveTime, setLiveTime] = useState(Date.now())
+  useEffect(() => {
+    if (stillPending) setInterval(() => setLiveTime(Date.now()), 1000);
+  }, [])
+  const endDate = stillPending ? liveTime : finishedAt
+
   return (
     <PaddedCard className={classNames(classes.statusCard, statusClass)}>
       <div className={classes.head}>
@@ -93,10 +101,10 @@ const StatusCard = ({ title, classes, children, jobRun }: IProps) => {
             <Typography className={classes.statusText} variant="h5">
               {titleCase(title)}
             </Typography>
-            {(status === 'completed' || status === 'errored') && (
+            {(
               <ElapsedTime
                 start={createdAt}
-                end={finishedAt}
+                end={endDate}
                 className={classes.elapsedText}
               />
             )}
@@ -112,5 +120,6 @@ const StatusCard = ({ title, classes, children, jobRun }: IProps) => {
     </PaddedCard>
   )
 }
+)
 
 export default withStyles(styles)(StatusCard)
