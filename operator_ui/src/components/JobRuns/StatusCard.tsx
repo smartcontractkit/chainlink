@@ -67,7 +67,7 @@ const EarnedLink = ({
   jobRun?: IJobRun
   classes: WithStyles<typeof styles>['classes']
 }) => {
-  const linkEarned = jobRun && jobRun.result && jobRun.result.amount
+  const linkEarned = jobRun && jobRun.overrides && jobRun.overrides.amount
   return (
     <Typography className={classes.earnedLink} variant="h6">
       +{linkEarned ? selectLink(linkEarned) : 0} Link
@@ -93,7 +93,7 @@ const StatusCard = ({ title, classes, children, jobRun }: IProps) => {
             <Typography className={classes.statusText} variant="h5">
               {titleCase(title)}
             </Typography>
-            {status !== 'pending' && (
+            {(status === 'completed' || status === 'errored') && (
               <ElapsedTime
                 start={createdAt}
                 end={finishedAt}

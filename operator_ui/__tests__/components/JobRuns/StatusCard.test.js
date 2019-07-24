@@ -14,7 +14,7 @@ describe('components/JobRuns/StatusCard', () => {
   const completedRun = {
     id: 'runA',
     status: 'completed',
-    result: { amount: 2000000000000000000 },
+    overrides: { amount: 2000000000000000000 },
     createdAt: TWO_MINUTES_MS,
     finishedAt: MINUTE_MS
   }
