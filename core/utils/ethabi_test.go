@@ -127,7 +127,7 @@ func TestEVMTranscodeBytes(t *testing.T) {
 				"0000000000000000000000000000000000000000000000000000000000000013",
 			false,
 		},
-		{"value won't fit in int256", `1e300`, "", true},
+		{"value won't fit in int256", `1e300`, "0x", true},
 	}
 	for _, tt := range tests {
 		test := tt
@@ -135,9 +135,7 @@ func TestEVMTranscodeBytes(t *testing.T) {
 			input := gjson.Parse(test.input)
 			out, err := EVMTranscodeBytes(input)
 			assert.Equal(t, tt.errs, err != nil, "unexpected error value")
-			if !tt.errs {
-				assert.Equal(t, test.output, hexutil.Encode(out))
-			}
+			assert.Equal(t, test.output, hexutil.Encode(out))
 		})
 	}
 }
