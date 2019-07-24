@@ -100,7 +100,7 @@ const renderRuns = (runs: IJobRuns, classes) => {
       <TableRow key={r.id}>
         <TableCell className={classes.idCell} scope="row">
           <div className={classes.runDetails}>
-            <Link to={`/jobs/${r.jobId}/runs/id/${r.id}`}>
+            <Link href={`/jobs/${r.jobId}/runs/id/${r.id}`}>
               <Typography variant="h5" color="primary" component="span">
                 {r.id}
               </Typography>
@@ -161,7 +161,7 @@ const List = ({
             <TableRow>
               <TableCell>
                 <div className={classes.runDetails}>
-                  <Button to={`/jobs/${jobSpecId}/runs`} component={BaseLink}>
+                  <Button href={`/jobs/${jobSpecId}/runs`} component={BaseLink}>
                     View More
                   </Button>
                 </div>

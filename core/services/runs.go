@@ -360,7 +360,7 @@ func validateOnMainChain(jr *models.JobRun, taskRun *models.TaskRun, store *stor
 	if err != nil {
 		return err
 	}
-	if receipt.Unconfirmed() {
+	if invalidRequest(jr.RunRequest, receipt) {
 		return fmt.Errorf(
 			"TxHash %s initiating run %s not on main chain; presumably has been uncled",
 			txhash.Hex(),
@@ -368,6 +368,11 @@ func validateOnMainChain(jr *models.JobRun, taskRun *models.TaskRun, store *stor
 		)
 	}
 	return nil
+}
+
+func invalidRequest(request models.RunRequest, receipt *models.TxReceipt) bool {
+	return receipt.Unconfirmed() ||
+		(request.BlockHash != nil && *request.BlockHash != receipt.BlockHash)
 }
 
 func meetsMinimumConfirmations(
@@ -384,7 +389,11 @@ func meetsMinimumConfirmations(
 
 func blockConfirmations(currentHeight, creationHeight *models.Big) *big.Int {
 	bigDiff := new(big.Int).Sub(currentHeight.ToInt(), creationHeight.ToInt())
-	return bigDiff.Add(bigDiff, big.NewInt(1)) // creation of runlog alone warrants 1 confirmation
+	confs := bigDiff.Add(bigDiff, big.NewInt(1)) // creation of runlog alone warrants 1 confirmation
+	if confs.Cmp(big.NewInt(0)) < 0 {            // negative, so floor at 0
+		confs.SetUint64(0)
+	}
+	return confs
 }
 
 func updateAndTrigger(run *models.JobRun, store *store.Store) error {

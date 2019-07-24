@@ -119,7 +119,7 @@ const Activity = ({ classes, runs, count, pageSize }: IProps) => {
                         </Typography>
                       </Grid>
                       <Grid item xs={12}>
-                        <Link to={`/jobs/${r.jobId}`}>
+                        <Link href={`/jobs/${r.jobId}`}>
                           <Typography
                             variant="h5"
                             color="primary"
@@ -130,7 +130,7 @@ const Activity = ({ classes, runs, count, pageSize }: IProps) => {
                         </Link>
                       </Grid>
                       <Grid item xs={12}>
-                        <Link to={`/jobs/${r.jobId}/runs/id/${r.id}`}>
+                        <Link href={`/jobs/${r.jobId}/runs/id/${r.id}`}>
                           <Typography
                             variant="subtitle1"
                             color="textSecondary"
@@ -151,7 +151,7 @@ const Activity = ({ classes, runs, count, pageSize }: IProps) => {
           <TableFooter>
             <TableRow>
               <TableCell scope="row" className={classes.footer}>
-                <Button to={`/runs`} component={BaseLink}>
+                <Button href={`/runs`} component={BaseLink}>
                   View More
                 </Button>
               </TableCell>
@@ -172,7 +172,7 @@ const Activity = ({ classes, runs, count, pageSize }: IProps) => {
             </Typography>
           </Grid>
           <Grid item xs={12} sm={4} align="right">
-            <Button component={BaseLink} to={'/jobs/new'}>
+            <Button component={BaseLink} href={'/jobs/new'}>
               New Job
             </Button>
           </Grid>

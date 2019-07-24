@@ -3,7 +3,6 @@ import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { withStyles } from '@material-ui/core/styles'
 import { useHooks, useState, useRef } from 'use-react-hooks'
-import { Link } from 'react-router-dom'
 import Popper from '@material-ui/core/Popper'
 import Grow from '@material-ui/core/Grow'
 import Fab from '@material-ui/core/Fab'
@@ -14,6 +13,7 @@ import ClickAwayListener from '@material-ui/core/ClickAwayListener'
 import Avatar from '@material-ui/core/Avatar'
 import Typography from '@material-ui/core/Typography'
 import { grey } from '@material-ui/core/colors'
+import BaseLink from '../components/BaseLink'
 import face from 'images/face.svg'
 import { submitSignOut } from 'actions'
 
@@ -88,13 +88,13 @@ const AvatarMenu = useHooks(({ classes, submitSignOut }) => {
             <Paper square={false}>
               <ClickAwayListener onClickAway={handleClose}>
                 <MenuList>
-                  <Link to="/signout" className={classes.link}>
+                  <BaseLink href="/signout" className={classes.link}>
                     <MenuItem className={classes.menuItem}>
                       <Typography variant="body1" className={classes.link}>
                         Log out
                       </Typography>
                     </MenuItem>
-                  </Link>
+                  </BaseLink>
                 </MenuList>
               </ClickAwayListener>
             </Paper>

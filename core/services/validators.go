@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -34,7 +35,8 @@ func ValidateJob(j models.JobSpec, store *store.Store) error {
 	return fe.CoerceEmptyToNil()
 }
 
-// ValidateBridgeType checks that the bridge type doesn't have a duplicate or invalid name
+// ValidateBridgeType checks that the bridge type doesn't have a duplicate
+// or invalid name or invalid url
 func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
 	if len(bt.Name.String()) < 1 {
@@ -42,6 +44,9 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 	}
 	if _, err := models.NewTaskType(bt.Name.String()); err != nil {
 		fe.Merge(err)
+	}
+	if isURL := govalidator.IsURL(bt.URL.String()); !isURL {
+		fe.Add("Invalid URL format")
 	}
 	ts := models.TaskSpec{Type: bt.Name}
 	if a, _ := adapters.For(ts, store); a != nil {

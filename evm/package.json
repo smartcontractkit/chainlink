@@ -1,6 +1,6 @@
 {
   "name": "chainlink",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "license": "MIT",
   "scripts": {
     "build": "truffle build",
@@ -14,7 +14,7 @@
     "solidity-cborutils": "^1.0.4"
   },
   "devDependencies": {
-    "truffle": "^5.0.1"
+    "truffle": "^5.0.25"
   },
   "files": [
     "contracts",

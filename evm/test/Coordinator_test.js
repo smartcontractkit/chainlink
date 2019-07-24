@@ -1,17 +1,20 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
+const Coordinator = artifacts.require('Coordinator.sol')
+const GetterSetter = artifacts.require('GetterSetter.sol')
+const MaliciousConsumer = artifacts.require('MaliciousConsumer.sol')
+const MaliciousRequester = artifacts.require('MaliciousRequester.sol')
 
 contract('Coordinator', () => {
-  const sourcePath = 'Coordinator.sol'
   let coordinator, link
 
   beforeEach(async () => {
     link = await h.linkContract()
-    coordinator = await h.deploy(sourcePath, link.address)
+    coordinator = await Coordinator.new(link.address)
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(artifacts.require(sourcePath), [
+    h.checkPublicABI(Coordinator, [
       'EXPIRY_TIME',
       'cancelOracleRequest',
       'fulfillOracleRequest',
@@ -244,7 +247,7 @@ contract('Coordinator', () => {
 
     context('cooperative consumer', () => {
       beforeEach(async () => {
-        mock = await h.deploy('examples/GetterSetter.sol')
+        mock = await GetterSetter.new()
         const fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
 
         const payload = h.executeServiceAgreementBytes(
@@ -322,11 +325,7 @@ contract('Coordinator', () => {
       const paymentAmount = h.toWei(1)
 
       beforeEach(async () => {
-        mock = await h.deploy(
-          'examples/MaliciousRequester.sol',
-          link.address,
-          coordinator.address
-        )
+        mock = await MaliciousRequester.new(link.address, coordinator.address)
         await link.transfer(mock.address, paymentAmount)
       })
 
@@ -370,11 +369,7 @@ contract('Coordinator', () => {
       const paymentAmount = h.toWei(1)
 
       beforeEach(async () => {
-        mock = await h.deploy(
-          'examples/MaliciousConsumer.sol',
-          link.address,
-          coordinator.address
-        )
+        mock = await MaliciousConsumer.new(link.address, coordinator.address)
         await link.transfer(mock.address, paymentAmount)
       })
 
@@ -515,7 +510,7 @@ contract('Coordinator', () => {
         let tx = await h.initiateServiceAgreement(coordinator, agreement)
         assert.equal(tx.logs[0].args.said, agreement.id)
 
-        mock = await h.deploy('examples/GetterSetter.sol')
+        mock = await GetterSetter.new()
         const fHash = h.functionSelector('requestedUint256(bytes32,uint256)')
 
         const payload = h.executeServiceAgreementBytes(
@@ -669,7 +664,7 @@ contract('Coordinator', () => {
         let tx = await h.initiateServiceAgreement(coordinator, agreement)
         assert.equal(tx.logs[0].args.said, agreement.id)
 
-        mock = await h.deploy('examples/GetterSetter.sol')
+        mock = await GetterSetter.new()
         const fHash = h.functionSelector('requestedUint256(bytes32,uint256)')
 
         const payload = h.executeServiceAgreementBytes(
@@ -723,7 +718,7 @@ contract('Coordinator', () => {
         let tx = await h.initiateServiceAgreement(coordinator, agreement)
         assert.equal(tx.logs[0].args.said, agreement.id)
 
-        mock = await h.deploy('examples/GetterSetter.sol')
+        mock = await GetterSetter.new()
         const fHash = h.functionSelector('requestedUint256(bytes32,uint256)')
 
         const payload = h.executeServiceAgreementBytes(

@@ -31,14 +31,7 @@ describe('containers/JobRuns/Index', () => {
   it('renders the runs for the job spec', async () => {
     expect.assertions(2)
 
-    const runsResponse = jsonApiJobSpecRunFactory(
-      [
-        {
-          jobId: jobSpecId
-        }
-      ],
-      jobSpecId
-    )
+    const runsResponse = jsonApiJobSpecRunFactory([{ jobId: jobSpecId }])
     global.fetch.getOnce(
       `/v2/runs?sort=-createdAt&page=1&size=25&jobSpecId=${jobSpecId}`,
       runsResponse
@@ -56,8 +49,7 @@ describe('containers/JobRuns/Index', () => {
     expect.assertions(12)
 
     const pageOneResponse = jsonApiJobSpecRunFactory(
-      [{ id: 'ID-ON-FIRST-PAGE' }],
-      jobSpecId,
+      [{ id: 'ID-ON-FIRST-PAGE', jobId: jobSpecId }],
       3
     )
     global.fetch.getOnce(
@@ -73,8 +65,7 @@ describe('containers/JobRuns/Index', () => {
     expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
 
     const pageTwoResponse = jsonApiJobSpecRunFactory(
-      [{ id: 'ID-ON-SECOND-PAGE' }],
-      jobSpecId,
+      [{ id: 'ID-ON-SECOND-PAGE', jobId: jobSpecId }],
       3
     )
     global.fetch.getOnce(
@@ -98,8 +89,7 @@ describe('containers/JobRuns/Index', () => {
     expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
 
     const pageThreeResponse = jsonApiJobSpecRunFactory(
-      [{ id: 'ID-ON-THIRD-PAGE' }],
-      jobSpecId,
+      [{ id: 'ID-ON-THIRD-PAGE', jobId: jobSpecId }],
       3
     )
     global.fetch.getOnce(
@@ -128,7 +118,7 @@ describe('containers/JobRuns/Index', () => {
   it('displays an empty message', async () => {
     expect.assertions(1)
 
-    const runsResponse = jsonApiJobSpecRunFactory([], jobSpecId)
+    const runsResponse = jsonApiJobSpecRunFactory([])
     global.fetch.getOnce(
       `/v2/runs?sort=-createdAt&page=1&size=25&jobSpecId=${jobSpecId}`,
       runsResponse

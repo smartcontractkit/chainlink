@@ -3,17 +3,21 @@
   "version": "0.6.0",
   "license": "MIT",
   "private": true,
-  "dependencies": {
+  "scripts": {
+    "test": "truffle test"
+  },
+  "devDependencies": {
     "bignumber.js": "^8.0.1",
     "bn.js": "^4.11.8",
     "cbor": "^4.0.0",
+    "chainlink": "^0.6.5",
     "ethereumjs-abi": "^0.6.5",
     "ethereumjs-util": "^5.1.5",
     "fs": "^0.0.1-security",
     "link_token": "^1.0.3",
     "openzeppelin-solidity": "^1.12.0",
     "request-promise": "^4.2.2",
-    "truffle": "^5.0.0-next.24",
+    "truffle": "^5.0.25",
     "truffle-contract": "^3.0.6",
     "web3": "^1.0.0-beta.35"
   }

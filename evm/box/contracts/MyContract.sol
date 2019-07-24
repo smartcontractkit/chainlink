@@ -101,7 +101,7 @@ contract MyContract is ChainlinkClient, Ownable {
     uint256 _expiration
   )
     public
-	  onlyOwner
+    onlyOwner
   {
     cancelChainlinkRequest(_requestId, _payment, _callbackFunctionId, _expiration);
   }

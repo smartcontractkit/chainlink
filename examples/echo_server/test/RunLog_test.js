@@ -1,7 +1,8 @@
+const LinkToken = artifacts.require('LinkToken')
+const Oracle = artifacts.require('Oracle')
+const RunLog = artifacts.require('RunLog')
+
 contract('RunLog', () => {
-  const LinkToken = artifacts.require('LinkToken')
-  const Oracle = artifacts.require('Oracle')
-  const RunLog = artifacts.require('RunLog')
   const arbitraryJobID =
     '0x0000000000000000000000000000000000000000000000000000000000000001'
   let link, logger, oc

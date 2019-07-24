@@ -28,7 +28,7 @@ const renderBody = (jobs, error) => {
       <TableRow>
         <TableCell component="th" scope="row" colSpan={3}>
           You haven’t created any jobs yet. Create a new job{' '}
-          <Link to={`/jobs/new`}>here</Link>
+          <Link href={`/jobs/new`}>here</Link>
         </TableCell>
       </TableRow>
     )
@@ -36,7 +36,7 @@ const renderBody = (jobs, error) => {
     return jobs.map(j => (
       <TableRow key={j.id}>
         <TableCell component="th" scope="row">
-          <Link to={`/jobs/${j.id}`}>{j.id}</Link>
+          <Link href={`/jobs/${j.id}`}>{j.id}</Link>
         </TableCell>
         <TableCell>
           <Typography variant="body1">

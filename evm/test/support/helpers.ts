@@ -1,37 +1,8 @@
 import cbor from 'cbor'
 import { join, resolve as pathResolve } from 'path'
+import TruffleContract from 'truffle-contract'
+import { linkToken } from './linkToken'
 import { assertBigNum } from './matchers'
-
-const contractPathHead = pathResolve(join(__dirname, '/../..'))
-
-// Paths for finding solidity files during compilation via deployer.
-// See compile.js for more info.
-process.env.SOLIDITY_INCLUDE = [
-  'contracts/',
-  'contracts/dev',
-  'contracts/examples/',
-  'contracts/interfaces/',
-  '../node_modules/',
-  '../node_modules/link_token/contracts',
-  '../node_modules/openzeppelin-solidity/contracts/ownership/',
-  '../node_modules/@ensdomains/ens/contracts/'
-]
-  .map(p => join(contractPathHead, p))
-  .join(':')
-
-// Relative paths needed for chainlink/examples/{uptime_sla,echo_server}
-// Note that these will be relative to the truffle script
-// (usually executed as ./node_modules/.bin/truffle)
-process.env.SOLIDITY_INCLUDE += ':../../../../:../../contracts'
-
-// Key for defaultAccount, defined below.
-const PRIVATE_KEY =
-  'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3'
-
-/* tslint:disable no-var-requires */
-const Wallet = require('../../app/wallet.js')
-const Utils = require('../../app/utils.js')
-const Deployer = require('../../app/deployer.js')
 
 const abi = require('ethereumjs-abi')
 const util = require('ethereumjs-util')
@@ -87,10 +58,6 @@ before(async function queryEthClientForConstants() {
   personas.Eddy = stranger
 })
 
-export const utils = Utils(web3.currentProvider)
-export const wallet = Wallet(PRIVATE_KEY, utils)
-export const deployer = Deployer(wallet, utils)
-
 const bNToStringOrIdentity = (a: any): any => (BN.isBN(a) ? a.toString() : a)
 
 // Deal with transfer amount type truffle doesn't currently handle. (BN)
@@ -112,8 +79,22 @@ export const wrappedERC20 = (contract: any): any => ({
     )
 })
 
-export const linkContract = async (): Promise<any> => {
-  return wrappedERC20(await deploy('link_token/contracts/LinkToken.sol'))
+export const linkContract = async (account: any): Promise<any> => {
+  account = account || defaultAccount
+  const receipt = await web3.eth.sendTransaction({
+    data: linkToken.bytecode,
+    from: account,
+    gasLimit: 2000000
+  })
+  const contract = TruffleContract({ abi: linkToken.abi })
+  contract.setProvider(web3.currentProvider)
+  contract.defaults({
+    from: account,
+    gas: 3500000,
+    gasPrice: 10000000000
+  })
+
+  return wrappedERC20(await contract.at(receipt.contractAddress))
 }
 
 export const bigNum = (num: any): BigNumber => web3.utils.toBN(num)
@@ -165,9 +146,6 @@ export const Ox = (value: any): string =>
 export const isByteRepresentation = (h: any): boolean => {
   return h instanceof Buffer || h instanceof BN || h instanceof Uint8Array
 }
-
-export const deploy = async (filePath: any, ...args: any[]) =>
-  deployer.perform(filePath, ...args)
 
 export const getEvents = (contract: any): Promise<any[]> =>
   new Promise((resolve, reject) =>
@@ -572,7 +550,7 @@ export const constructStructArgs = (
   values: any[]
 ): any[] => {
   assert.equal(fieldNames.length, values.length)
-  let args = []
+  const args = []
   for (let i = 0; i < fieldNames.length; i++) {
     args[i] = values[i]
     args[fieldNames[i]] = values[i]

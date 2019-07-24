@@ -9,8 +9,8 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import { fetchJobRun } from 'actions'
 import jobRunSelector from 'selectors/jobRun'
 import Content from 'components/Content'
-import RegionalNav from 'components/JobRuns/RegionalNav'
 import StatusCard from 'components/JobRuns/StatusCard'
+import RegionalNav from './RegionalNav'
 
 const styles = theme => ({})
 
@@ -27,7 +27,7 @@ const renderDetails = ({ fetching, jobRun }) => {
         </PaddedCard>
       </Grid>
       <Grid item xs={4}>
-        <StatusCard title={jobRun.status} />
+        <StatusCard title={jobRun.status} jobRun={jobRun} />
       </Grid>
     </Grid>
   )

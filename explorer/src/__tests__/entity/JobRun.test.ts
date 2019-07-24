@@ -36,8 +36,8 @@ describe('entity/jobRun/fromString', () => {
     expect(jr.taskRuns[0].index).toEqual(0)
     expect(jr.taskRuns[0].type).toEqual('httpget')
     expect(jr.taskRuns[0].status).toEqual('')
-    expect(jr.taskRuns[0].confirmations).toEqual(0)
-    expect(jr.taskRuns[0].minimumConfirmations).toEqual(3)
+    expect(jr.taskRuns[0].confirmations).toEqual('0')
+    expect(jr.taskRuns[0].minimumConfirmations).toEqual('3')
     expect(jr.taskRuns[0].error).toEqual(null)
 
     const [chainlinkNode, _] = await createChainlinkNode(
@@ -122,9 +122,9 @@ describe('entity/jobRun/saveJobRunTree', () => {
     await saveJobRunTree(db, jr)
 
     const modifications = {
-      confirmations: 2,
+      confirmations: '2',
       error: 'something bad happened',
-      minimumConfirmations: 3,
+      minimumConfirmations: '3',
       status: 'errored',
       transactionHash:
         '0x2222222222222222222222222222222222222222222222222222222222222222',

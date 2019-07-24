@@ -274,10 +274,10 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	if dbtx.Error != nil {
 		return dbtx.Error
 	}
+	defer dbtx.Rollback()
 
 	err := callback(dbtx)
 	if err != nil {
-		dbtx.Rollback()
 		return err
 	}
 
@@ -649,23 +649,22 @@ func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
 
 // MarkRan will set Ran to true for a given initiator
 func (orm *ORM) MarkRan(i *models.Initiator, ran bool) error {
-	tx := orm.DB.Begin()
-	defer tx.Rollback()
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		var newi models.Initiator
+		if err := dbtx.Select("ran").First(&newi, "ID = ?", i.ID).Error; err != nil {
+			return err
+		}
 
-	var newi models.Initiator
-	if err := tx.Select("ran").First(&newi, "ID = ?", i.ID).Error; err != nil {
-		return err
-	}
+		if ran && newi.Ran {
+			return fmt.Errorf("Initiator %v for job spec %s has already been run", i.ID, i.JobSpecID)
+		}
 
-	if ran && newi.Ran {
-		return fmt.Errorf("Initiator %v for job spec %s has already been run", i.ID, i.JobSpecID)
-	}
+		if err := dbtx.Model(i).UpdateColumn("ran", ran).Error; err != nil {
+			return err
+		}
 
-	if err := tx.Model(i).UpdateColumn("ran", ran).Error; err != nil {
-		return err
-	}
-
-	return tx.Commit().Error
+		return nil
+	})
 }
 
 // FindUser will return the one API user, or an error.
@@ -708,18 +707,17 @@ func (orm *ORM) DeleteUser() (models.User, error) {
 		return user, err
 	}
 
-	tx := orm.DB.Begin()
-	defer tx.Rollback()
+	return user, orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		if err := dbtx.Delete(&user).Error; err != nil {
+			return err
+		}
 
-	if err := tx.Delete(&user).Error; err != nil {
-		return user, err
-	}
+		if err := dbtx.Delete(models.Session{}).Error; err != nil {
+			return err
+		}
 
-	if err := tx.Delete(models.Session{}).Error; err != nil {
-		return user, err
-	}
-
-	return user, tx.Commit().Error
+		return nil
+	})
 }
 
 // DeleteUserSession will erase the session ID for the sole API User.
@@ -734,17 +732,16 @@ func (orm *ORM) DeleteBridgeType(bt *models.BridgeType) error {
 
 // DeleteJobRun deletes the job run and corresponding task runs.
 func (orm *ORM) DeleteJobRun(ID string) error {
-	tx := orm.DB.Begin()
-	defer tx.Rollback()
-	if err := tx.Where("id = ?", ID).Delete(models.JobRun{}).Error; err != nil {
-		return err
-	}
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		if err := dbtx.Where("id = ?", ID).Delete(models.JobRun{}).Error; err != nil {
+			return err
+		}
 
-	if err := tx.Where("job_run_id = ?", ID).Delete(models.TaskRun{}).Error; err != nil {
-		return err
-	}
-
-	return tx.Commit().Error
+		if err := dbtx.Where("job_run_id = ?", ID).Delete(models.TaskRun{}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 // CreateSession will check the password in the SessionRequest against
@@ -957,61 +954,58 @@ func (orm *ORM) DeleteTransaction(ethtx *models.Tx) error {
 // deleted, but RunResults are not using foreign keys because multiple foreign
 // keys on a record creates an ambiguity with gorm.
 func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
-	tx := orm.DB.Begin()
-	defer tx.Rollback()
-	if tx.Error != nil {
-		return tx.Error
-	}
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		// NOTE: SQLite doesn't support compound delete statements, so delete run
+		// results for job_runs ...
+		err := dbtx.Exec(`
+			DELETE
+			FROM run_results
+			WHERE run_results.id IN (SELECT result_id
+															FROM job_runs
+															WHERE status IN (?) AND updated_at < ?)`,
+			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
+		if err != nil {
+			return fmt.Errorf("error deleting JobRun's RunResults: %v", err)
+		}
 
-	// NOTE: SQLite doesn't support compound delete statements, so delete run
-	// results for job_runs ...
-	err := tx.Exec(`
-		DELETE
-		FROM run_results
-		WHERE run_results.id IN (SELECT result_id
-													   FROM job_runs
-														 WHERE status IN (?) AND updated_at < ?)`,
-		bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
-	if err != nil {
-		return fmt.Errorf("error deleting JobRun's RunResults: %v", err)
-	}
+		// and run_requests
+		err = dbtx.Exec(`
+			DELETE
+			FROM run_requests
+			WHERE run_requests.id IN (SELECT run_request_id
+															FROM job_runs
+															WHERE status IN (?) AND updated_at < ?)`,
+			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
+		if err != nil {
+			return fmt.Errorf("error deleting JobRun's RunRequests: %v", err)
+		}
 
-	// and run_requests
-	err = tx.Exec(`
-		DELETE
-		FROM run_requests
-		WHERE run_requests.id IN (SELECT run_request_id
-													   FROM job_runs
-														 WHERE status IN (?) AND updated_at < ?)`,
-		bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
-	if err != nil {
-		return fmt.Errorf("error deleting JobRun's RunRequests: %v", err)
-	}
+		// and then task runs using a join in the subquery
+		err = dbtx.Exec(`
+			DELETE
+			FROM run_results
+			WHERE run_results.id IN (SELECT task_runs.result_id
+															FROM task_runs
+															INNER JOIN job_runs ON
+																task_runs.job_run_id = job_runs.id
+															WHERE job_runs.status IN (?) AND job_runs.updated_at < ?)`,
+			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
+		if err != nil {
+			return fmt.Errorf("error deleting TaskRuns's RunResults: %v", err)
+		}
 
-	// and then task runs using a join in the subquery
-	err = tx.Exec(`
-		DELETE
-		FROM run_results
-		WHERE run_results.id IN (SELECT task_runs.result_id
-													   FROM task_runs
-														 INNER JOIN job_runs ON
-															 task_runs.job_run_id = job_runs.id
-														 WHERE job_runs.status IN (?) AND job_runs.updated_at < ?)`,
-		bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
-	if err != nil {
-		return fmt.Errorf("error deleting TaskRuns's RunResults: %v", err)
-	}
+		err = dbtx.
+			Where("status IN (?)", bulkQuery.Status.ToStrings()).
+			Where("updated_at < ?", bulkQuery.UpdatedBefore).
+			Unscoped().
+			Delete(&[]models.JobRun{}).
+			Error
+		if err != nil {
+			return err
+		}
 
-	err = tx.
-		Where("status IN (?)", bulkQuery.Status.ToStrings()).
-		Where("updated_at < ?", bulkQuery.UpdatedBefore).
-		Unscoped().
-		Delete(&[]models.JobRun{}).
-		Error
-	if err != nil {
-		return err
-	}
-	return tx.Commit().Error
+		return nil
+	})
 }
 
 // Keys returns all keys stored in the orm.

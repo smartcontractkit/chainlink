@@ -7,14 +7,14 @@ import KeyValueList from '@chainlink/styleguide/components/KeyValueList'
 import CardTitle from '@chainlink/styleguide/components/Cards/Title'
 import JobRunsList from '../../components/JobRuns/List'
 import Content from '../../components/Content'
-import RegionalNav from '../../components/Jobs/RegionalNav'
+import RegionalNav from './RegionalNav'
 import { fetchJob, fetchJobRuns } from '../../actions'
 import jobSelector from '../../selectors/job'
 import jobRunsByJobIdSelector from '../../selectors/jobRunsByJobId'
 import jobsShowRunCountSelector from '../../selectors/jobsShowRunCount'
 import { formatInitiators } from '../../utils/jobSpecInitiators'
 import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatchToProps'
-import TaskRuns from './TaskRuns'
+import TaskList from '../../components/Jobs/TaskList'
 import { IJobSpec, IJobRuns } from '../../../@types/operator_ui'
 
 const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
@@ -31,7 +31,7 @@ const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
 const renderTaskRuns = (job: IJobSpec) => (
   <Card>
     <CardTitle divider>Task List</CardTitle>
-    <TaskRuns taskRuns={job.tasks} />
+    <TaskList tasks={job.tasks} />
   </Card>
 )
 
