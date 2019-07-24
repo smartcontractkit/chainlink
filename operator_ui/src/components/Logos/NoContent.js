@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import Logo from '@chainlink/styleguide/components/Logo'
+import Logo from '@chainlink/styleguide/src/components/Logo'
 import src from '../../images/no-activity-icon.svg'
 
 const NoContent = props => {

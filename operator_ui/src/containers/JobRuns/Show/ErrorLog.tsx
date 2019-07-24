@@ -9,17 +9,19 @@ import {
 } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
+import PaddedCard from '@chainlink/styleguide/src/components/PaddedCard'
 import { fetchJobRun } from '../../../actions'
 import jobRunSelector from '../../../selectors/jobRun'
-import PaddedCard from '../../../components/PaddedCard'
 import PrettyJson from '../../../components/PrettyJson'
 import matchRouteAndMapDispatchToProps from '../../../utils/matchRouteAndMapDispatchToProps'
 import Content from '../../../components/Content'
 import RegionalNav from './RegionalNav'
 import StatusCard from '../../../components/JobRuns/StatusCard'
+import { IJobRun, ITaskRun } from '../../../../@types/operator_ui'
+import { IState } from '../../../connectors/redux/reducers'
 
-const filterErrorTaskRuns = jobRun => {
-  return jobRun.taskRuns.filter(tr => {
+const filterErrorTaskRuns = (jobRun: IJobRun) => {
+  return jobRun.taskRuns.filter((tr: ITaskRun) => {
     return tr.status === 'errored'
   })
 }
@@ -31,13 +33,12 @@ const detailsStyles = ({ spacing }: Theme) => ({
 })
 
 interface IDetailsProps extends WithStyles<typeof detailsStyles> {
-  fetching: boolean
-  jobRun?: any
+  jobRun?: IJobRun
 }
 
 const Details = withStyles(detailsStyles)(
-  ({ fetching, jobRun, classes }: IDetailsProps) => {
-    if (fetching || !jobRun) {
+  ({ jobRun, classes }: IDetailsProps) => {
+    if (!jobRun) {
       return <div>Fetching job run...</div>
     }
 
@@ -48,7 +49,7 @@ const Details = withStyles(detailsStyles)(
         <Grid item xs={12}>
           <StatusCard title={jobRun.status}>
             <ul className={classes.list}>
-              {errorTaskRuns.map(tr => (
+              {errorTaskRuns.map((tr: ITaskRun) => (
                 <li key={tr.id}>
                   <Typography variant="body1">{tr.result.error}</Typography>
                 </li>
@@ -64,15 +65,14 @@ const Details = withStyles(detailsStyles)(
 const styles = (theme: Theme) => ({})
 
 interface IProps extends WithStyles<typeof styles> {
-  fetching: boolean
   jobSpecId: string
   jobRunId: string
-  jobRun?: any
-  fetchJobRun: (string) => Promise<any>
+  jobRun?: IJobRun
+  fetchJobRun: (id: string) => Promise<any>
 }
 
 const ShowErrorLog = useHooks(
-  ({ fetching, jobRunId, jobSpecId, jobRun, fetchJobRun }: IProps) => {
+  ({ jobRunId, jobSpecId, jobRun, fetchJobRun }: IProps) => {
     useEffect(() => {
       fetchJobRun(jobRunId)
     }, [jobRunId])
@@ -86,23 +86,28 @@ const ShowErrorLog = useHooks(
         />
 
         <Content>
-          <Details fetching={fetching} jobRun={jobRun} />
+          <Details jobRun={jobRun} />
         </Content>
       </div>
     )
   }
 )
 
-const mapStateToProps = (state, ownProps) => {
+interface Match {
+  params: {
+    jobSpecId: string
+    jobRunId: string
+  }
+}
+
+const mapStateToProps = (state: IState, ownProps: { match: Match }) => {
   const { jobSpecId, jobRunId } = ownProps.match.params
   const jobRun = jobRunSelector(state, jobRunId)
-  const fetching = state.jobRuns.fetching
 
   return {
     jobSpecId,
     jobRunId,
-    jobRun,
-    fetching
+    jobRun
   }
 }
 

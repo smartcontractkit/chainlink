@@ -1,6 +1,11 @@
 import React from 'react'
 
-const Close = props => (
+interface IProps {
+  onClick: () => void
+  className?: string
+}
+
+const Close = (props: IProps) => (
   <svg
     style={{ cursor: 'pointer' }}
     width="46"

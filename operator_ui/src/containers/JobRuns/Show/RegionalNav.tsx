@@ -12,8 +12,8 @@ import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import classNames from 'classnames'
-import TimeAgo from '@chainlink/styleguide/components/TimeAgo'
-import localizedTimestamp from '@chainlink/styleguide/utils/localizedTimestamp'
+import TimeAgo from '@chainlink/styleguide/src/components/TimeAgo'
+import localizedTimestamp from '@chainlink/styleguide/src/utils/localizedTimestamp'
 import { fetchJob, createJobRun } from '../../../actions'
 import Link from '../../../components/Link'
 
@@ -56,7 +56,7 @@ interface INavItemProps extends WithStyles<typeof navItemStyles> {
 
 const NavItem = withStyles(navItemStyles)(
   ({ children, href, classes, error }: INavItemProps) => {
-    const pathname = global.document ? global.document.location.pathname : ''
+    const pathname = document ? document.location.pathname : ''
     const active = pathname === href
     const linkClasses = classNames(
       classes.link,

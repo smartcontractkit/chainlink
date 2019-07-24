@@ -27,7 +27,7 @@ const styles = (_theme: Theme) =>
   })
 
 interface IProps extends WithStyles<typeof styles> {
-  children: React.ReactNode
+  children: React.ReactNode | string
   href: string
   variant?: Variant
   color?: Color

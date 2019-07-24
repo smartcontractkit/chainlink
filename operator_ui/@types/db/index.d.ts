@@ -98,7 +98,6 @@ export interface TxAttempt {
   signedRawTx: string
 }
 
-
 export interface Tx {
   id: number
   surrogateId: string | null
