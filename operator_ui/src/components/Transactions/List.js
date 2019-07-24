@@ -33,7 +33,7 @@ const renderBody = (transactions, error) => {
     return transactions.map(j => (
       <TableRow key={j.hash}>
         <TableCell component="th" scope="row">
-          <Link to={`/transactions/${j.hash}`}>{j.hash}</Link>
+          <Link href={`/transactions/${j.hash}`}>{j.hash}</Link>
         </TableCell>
         <TableCell>
           <Typography variant="body1">{j.from}</Typography>

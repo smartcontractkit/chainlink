@@ -9,7 +9,7 @@ import KeyValueList from '@chainlink/styleguide/components/KeyValueList'
 import Content from 'components/Content'
 import DeleteJobRuns from 'containers/Configuration/DeleteJobRuns'
 import { fetchConfiguration } from 'actions'
-import configsSelector from 'selectors/configs'
+import configurationSelector from 'selectors/configuration'
 import extractBuildInfo from 'utils/extractBuildInfo'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
@@ -25,12 +25,7 @@ export const Configuration = useHooks(props => {
     <Content>
       <Grid container>
         <Grid item sm={12} md={8}>
-          <KeyValueList
-            title="Configuration"
-            entries={props.configs}
-            error={props.error}
-            showHead
-          />
+          <KeyValueList title="Configuration" entries={props.data} showHead />
         </Grid>
         <Grid item sm={12} md={4}>
           <Grid container>
@@ -65,21 +60,12 @@ export const Configuration = useHooks(props => {
 })
 
 Configuration.propTypes = {
-  configs: PropTypes.array.isRequired,
-  error: PropTypes.string
+  data: PropTypes.array.isRequired
 }
 
 const mapStateToProps = state => {
-  let configError
-  if (state.configuration.networkError) {
-    configError =
-      'There was an error fetching the configuration. Please reload the page.'
-  }
-
-  return {
-    configs: configsSelector(state),
-    error: configError
-  }
+  const data = configurationSelector(state)
+  return { data }
 }
 
 export const ConnectedConfiguration = connect(

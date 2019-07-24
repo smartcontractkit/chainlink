@@ -1,9 +1,11 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
 const personas = h.personas
+const Aggregator = artifacts.require('Aggregator.sol')
+const AggregatorProxy = artifacts.require('AggregatorProxy.sol')
+const Oracle = artifacts.require('Oracle.sol')
 
 contract('AggregatorProxy', () => {
-  const SOURCE_PATH = 'AggregatorProxy.sol'
   const jobId1 =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000001'
   const deposit = h.toWei('100')
@@ -15,9 +17,8 @@ contract('AggregatorProxy', () => {
 
   beforeEach(async () => {
     link = await h.linkContract()
-    oc1 = await h.deploy('Oracle.sol', link.address)
-    aggregator = await h.deploy(
-      'Aggregator.sol',
+    oc1 = await Oracle.new(link.address)
+    aggregator = await Aggregator.new(
       link.address,
       basePayment,
       1,
@@ -26,11 +27,11 @@ contract('AggregatorProxy', () => {
     )
     await link.transfer(aggregator.address, deposit)
 
-    proxy = await h.deploy(SOURCE_PATH, aggregator.address)
+    proxy = await AggregatorProxy.new(aggregator.address)
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(artifacts.require(SOURCE_PATH), [
+    h.checkPublicABI(AggregatorProxy, [
       'aggregator',
       'currentAnswer',
       'destroy',
@@ -57,8 +58,7 @@ contract('AggregatorProxy', () => {
 
     context('after being updated to another contract', () => {
       beforeEach(async () => {
-        aggregator2 = await h.deploy(
-          'Aggregator.sol',
+        aggregator2 = await Aggregator.new(
           link.address,
           basePayment,
           1,
@@ -98,8 +98,7 @@ contract('AggregatorProxy', () => {
 
     context('after being updated to another contract', () => {
       beforeEach(async () => {
-        aggregator2 = await h.deploy(
-          'Aggregator.sol',
+        aggregator2 = await Aggregator.new(
           link.address,
           basePayment,
           1,
@@ -131,8 +130,7 @@ contract('AggregatorProxy', () => {
     beforeEach(async () => {
       await proxy.transferOwnership(personas.Carol)
 
-      aggregator2 = await h.deploy(
-        'Aggregator.sol',
+      aggregator2 = await Aggregator.new(
         link.address,
         basePayment,
         1,

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.6.0",
   "license": "MIT",
-  "dependencies": {
-    "truffle": "^5.0.1"
+  "devDependencies": {
+    "truffle": "^5.0.25"
   }
 }

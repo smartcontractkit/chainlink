@@ -21,7 +21,7 @@ export default {
       main: '#3d5170'
     },
     success: {
-      light: '#F9FFFC',
+      light: '#e8faf1',
       main: green.A700,
       dark: green['700'],
       contrastText: common.white

@@ -74,6 +74,7 @@ type ConfigSchema struct {
 	TLSHost                  string         `env:"CHAINLINK_TLS_HOST" `
 	TLSKeyPath               string         `env:"TLS_KEY_PATH" `
 	TLSPort                  uint16         `env:"CHAINLINK_TLS_PORT" default:"6689"`
+	TxAttemptLimit           uint16         `env:"CHAINLINK_TX_ATTEMPT_LIMIT" default:"10"`
 }
 
 var configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
@@ -332,6 +333,12 @@ func (c Config) TLSKeyPath() string {
 // TLSPort represents the port Chainlink should listen on for encrypted client requests.
 func (c Config) TLSPort() uint16 {
 	return c.getWithFallback("TLSPort", parsePort).(uint16)
+}
+
+// TxAttemptLimit represents the maximum number of transaction attempts that
+// the TxManager should allow to for a transaction
+func (c Config) TxAttemptLimit() uint16 {
+	return c.getWithFallback("TxAttemptLimit", parsePort).(uint16)
 }
 
 // KeysDir returns the path of the keys directory (used for keystore files).

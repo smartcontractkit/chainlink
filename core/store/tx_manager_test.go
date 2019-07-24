@@ -130,6 +130,64 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
+func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	store := app.Store
+	config := store.Config
+	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
+	manager := store.TxManager
+
+	to := cltest.NewAddress()
+	data, err := hex.DecodeString("0000abcdef")
+	assert.NoError(t, err)
+	hash := cltest.NewHash()
+	sentAt := uint64(23456)
+	nonce := uint64(256)
+
+	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
+		ethMock.Register("eth_chainId", *cltest.Int(store.Config.ChainID()))
+	})
+	assert.NoError(t, app.StartAndConnect())
+
+	require.True(t, manager.Connected())
+	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_sendRawTransaction", hash)
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
+		ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
+	})
+
+	tx, err := manager.CreateTx(to, data)
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+
+	ethMock.Context("manager.bumpGas#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold()))
+	})
+
+	receipt, state, err := manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
+	assert.NoError(t, err)
+	assert.Nil(t, receipt)
+	assert.Equal(t, strpkg.Unconfirmed, state)
+
+	ethMock.Context("manager.bumpGas#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
+		ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
+		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+2*config.EthGasBumpThreshold()))
+	})
+
+	receipt, state, err = manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
+	assert.NoError(t, err)
+	assert.Nil(t, receipt)
+	assert.Equal(t, strpkg.Unconfirmed, state)
+
+	ethMock.EventuallyAllCalled(t)
+}
+
 func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 	t.Parallel()
 
@@ -892,9 +950,8 @@ func TestManagedAccount_GetAndIncrementNonce_DoesNotIncrementWhenCallbackThrowsE
 }
 
 func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
-	t.Parallel()
-
-	logsToCheckForBalance := cltest.ObserveLogs()
+	logsToCheckForBalance, cleanup := cltest.ObserveLogs()
+	defer cleanup()
 
 	config, configCleanup := cltest.NewConfig(t)
 	defer configCleanup()

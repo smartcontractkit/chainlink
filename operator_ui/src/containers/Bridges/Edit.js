@@ -1,6 +1,5 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Link } from 'react-router-dom'
 import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
@@ -20,7 +19,7 @@ import { useHooks, useEffect } from 'use-react-hooks'
 const SuccessNotification = ({ id }) => {
   return (
     <React.Fragment>
-      Successfully updated <Link to={`/bridges/${id}`}>{id}</Link>
+      Successfully updated <BaseLink href={`/bridges/${id}`}>{id}</BaseLink>
     </React.Fragment>
   )
 }
@@ -56,7 +55,7 @@ export const Edit = useHooks(props => {
                       {bridge && (
                         <Button
                           component={BaseLink}
-                          to={`/bridges/${bridge.id}`}
+                          href={`/bridges/${bridge.id}`}
                         >
                           Cancel
                         </Button>

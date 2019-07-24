@@ -37,6 +37,14 @@
   revision = "2166578f34481200ec14ddd6b9c4115db36c7b62"
 
 [[projects]]
+  digest = "1:d8a2bb36a048d1571bcc1aee208b61f39dc16c6c53823feffd37449dde162507"
+  name = "github.com/asaskevich/govalidator"
+  packages = ["."]
+  pruneopts = ""
+  revision = "ccb8e960c48f04d6935e72476ae4a51028f9e22f"
+  version = "v9"
+
+[[projects]]
   digest = "1:512883404c2a99156e410e9880e3bb35ecccc0c07c1159eb204b5f3ef3c431b3"
   name = "github.com/bitly/go-simplejson"
   packages = ["."]
@@ -411,7 +419,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:5ba300c7f4db9b76b402b4744b1b7621c27bfd388a4b49303b79cf4b8dbea5e9"
+  digest = "1:3755c1a3de6404d58d7767562d00a84ee4a507df69a1490c9cebb931d7b11b96"
   name = "github.com/jinzhu/gorm"
   packages = [
     ".",
@@ -419,7 +427,7 @@
     "dialects/sqlite",
   ]
   pruneopts = ""
-  revision = "a6b790ffd00da9beddc60a0d2d5b9e31f03a3ffd"
+  revision = "836fb2c19d84dac7b0272958dfb9af7cf0d0ade4"
 
 [[projects]]
   branch = "master"
@@ -539,11 +547,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c743ab9e9dd2133b4a0f4083d58e43093ab081ceabe3043448c655c8918fa89d"
+  digest = "1:cd4379452cc81f79acc16c477a1d1d7c2bf5807697f6cf3aafe221c4fbfed4ce"
   name = "github.com/mattn/go-sqlite3"
   packages = ["."]
   pruneopts = ""
-  revision = "5dd71670cca4bc0ee90371eabd0f1bdba1ac6f35"
+  revision = "d6f416f91c463fbc47b2b04b04730718f0ba9a2d"
 
 [[projects]]
   branch = "master"
@@ -743,14 +751,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:964b5eed574102624d89e65d60548ea4873cbb02cff615a4f17bbb6cf337750a"
+  digest = "1:f7b541897bcde05a04a044c342ddc7425aab7e331f37b47fbb486cd16324b48e"
   name = "github.com/stretchr/testify"
   packages = [
     "assert",
     "require",
   ]
   pruneopts = ""
-  revision = "34c6fa2dc70986bccbbffcc6130f6920a924b075"
+  revision = "221dbe5ed46703ee255b1da0dec05086f5035f62"
 
 [[projects]]
   branch = "master"
@@ -782,12 +790,12 @@
   revision = "9b9efcf221b50905aab9bbabd3daed56dc10f339"
 
 [[projects]]
-  digest = "1:eade4ea6782f5eed4a6b3138a648f9a332900650804fd206e5daaf99cc5613ea"
+  digest = "1:30e9a79822702670b96d3461aca7da11b8cc6e7954eb4e859e886559ed4802a4"
   name = "github.com/tidwall/gjson"
   packages = ["."]
   pruneopts = ""
-  revision = "eee0b6226f0d1db2675a176fdfaa8419bcad4ca8"
-  version = "v1.2.1"
+  revision = "c5e72cdf74dff23857243dd662c465b810891c21"
+  version = "v1.3.2"
 
 [[projects]]
   digest = "1:72511ec1089fee111c995492d1d390a38ac7ab888aabdb1188985f2a1719c599"
@@ -814,16 +822,16 @@
   version = "v1.0.4"
 
 [[projects]]
-  digest = "1:a1ca17cff1abec6d4ecdeb03c52338c559affd7f0b2474e928c162986da2d348"
+  digest = "1:152bb9c7b128f6d8204e1676bb1a79cdaac9b3d40e495048282823ff6f5fb3d4"
   name = "github.com/ugorji/go"
   packages = ["codec"]
   pruneopts = ""
-  revision = "2adff0894ba3bc2eeb9f9aea45fefd49802e1a13"
-  version = "v1.1.4"
+  revision = "23ab95ef5dc3b70286760af84ce2327a2b64ed62"
+  version = "v1.1.7"
 
 [[projects]]
   branch = "v3-dep"
-  digest = "1:dd055ff2095e206392d56db972e8508b4641664ae49e2e9a9e018a088477721d"
+  digest = "1:de281370944e40a475673b885c7646e056d294a9eb4bde4868ec6764d02fc701"
   name = "github.com/ulule/limiter"
   packages = [
     ".",
@@ -832,7 +840,7 @@
     "drivers/store/memory",
   ]
   pruneopts = ""
-  revision = "7873d115fc4e48361b8e452e339520e306f23990"
+  revision = "308abe9609f586df9b0399a284c9415e725ed0a4"
 
 [[projects]]
   branch = "master"
@@ -876,7 +884,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3caac34064d7af9979e79f6192e8cb59e5f06582549a2cbb829a14aa028af427"
+  digest = "1:6e549ffed7a802afcfc6acb5d2688f7d683e59446906cc008a1030d32577d95a"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -888,12 +896,12 @@
     "zaptest/observer",
   ]
   pruneopts = ""
-  revision = "853ac185800f276677ad5ffa70fd7eda356c8d46"
+  revision = "9a9fa7d4b5f07a9b634983678a65b5525f81e58b"
   source = "github.com/uber-go/zap"
 
 [[projects]]
   branch = "master"
-  digest = "1:90722da867436e04650b8491e5d9f690aeb2a4e305d548666bdd541d68d6cdbd"
+  digest = "1:086760278d762dbb0e9a26e09b57f04c89178c86467d8d94fae47d64c222f328"
   name = "golang.org/x/crypto"
   packages = [
     "bcrypt",
@@ -904,7 +912,7 @@
     "ssh/terminal",
   ]
   pruneopts = ""
-  revision = "cc06ce4a13d484c0101a9e92913248488a75786d"
+  revision = "4def268fd1a49955bfb3dda92fe3db4f924f2285"
 
 [[projects]]
   branch = "master"
@@ -998,12 +1006,12 @@
   version = "v8.18.2"
 
 [[projects]]
-  digest = "1:41d125c43201d025c10f05c4888fb12191e8309003646402f02f2743858dbf88"
+  digest = "1:cac289e0764bf4e5cda33740b1a60751e4e1ebb60ff61a386ddaa0d89ec433b1"
   name = "gopkg.in/gormigrate.v1"
   packages = ["."]
   pruneopts = ""
-  revision = "1e83010fdc477522e2669af346e5f17327aade68"
-  version = "v1.5.0"
+  revision = "ff46dd7d2c0b00a58540e19ca3d3f5e370fa3607"
+  version = "v1.6.0"
 
 [[projects]]
   digest = "1:1582dd711e6e5ef92d6245a5dd0646da19d0d0acb94ea615d43896b7b6c6620b"
@@ -1034,6 +1042,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/araddon/dateparse",
+    "github.com/asaskevich/govalidator",
     "github.com/bitly/go-simplejson",
     "github.com/ethereum/go-ethereum",
     "github.com/ethereum/go-ethereum/accounts",

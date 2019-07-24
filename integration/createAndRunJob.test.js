@@ -86,9 +86,7 @@ describe('End to end', () => {
     // Transaction ID should eventually be coded on page like so:
     //    {"result":"0x6736ad06da823692cc66c5a51032c4aed83bfca9778eb1a7ad24de67f3f472fc"}
     await pupExpect(page).toClick('a', { text: 'JSON' })
-    const match = await scrape(page, /0x([0-9a-f]{64})/)
-    expect(match).toBeDefined()
-    const txHash = match[1]
+    const txHash = await scrape(page, /"transactionHash": "0x([0-9a-f]{64})"/)
     expect(txHash).toBeDefined()
 
     // Navigate to transactions page

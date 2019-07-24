@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559081901"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559767166"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	gormigrate "gopkg.in/gormigrate.v1"
 )
 
 func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
@@ -124,4 +126,26 @@ func TestMigrate_Migration1560881846(t *testing.T) {
 	require.NoError(t, db.Where("id = (SELECT MAX(id) FROM heads)").Find(&headFound).Error)
 	assert.Equal(t, "0xdad0000000000000000000000000000000000000000000000000000000000b0d", headFound.Hash.Hex())
 	assert.Equal(t, int64(8616460799), headFound.Number)
+}
+
+func TestMigrate_NewerVersionGuard(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	db := orm.DB
+
+	// Do full migrations
+	require.NoError(t, migrations.Migrate(db))
+
+	// Add a fictional future migration
+	m := gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
+		{
+			ID:      "9223372036854775807",
+			Migrate: migration0.Migrate,
+		},
+	})
+	require.NoError(t, m.Migrate())
+
+	// Run migrations again, should error
+	require.Error(t, migrations.Migrate(db))
 }

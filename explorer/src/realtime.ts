@@ -1,5 +1,6 @@
 import http from 'http'
 import { fromString, saveJobRunTree } from './entity/JobRun'
+import { logger } from './logging'
 import WebSocket from 'ws'
 import { Connection } from 'typeorm'
 import { getDb } from './database'
@@ -17,7 +18,7 @@ const handleMessage = async (
     await saveJobRunTree(db, jobRun)
     return { status: 201 }
   } catch (e) {
-    console.error(e)
+    logger.error(e)
     return { status: 422 }
   }
 }
@@ -42,19 +43,28 @@ export const bootstrapRealtime = async (server: http.Server) => {
       ) => void
     ) => {
       /* eslint-disable standard/no-callback-literal */
+      logger.debug('websocket connection attempt')
+
       const accessKey = info.req.headers['x-explore-chainlink-accesskey']
       const secret = info.req.headers['x-explore-chainlink-secret']
 
       if (typeof accessKey !== 'string' || typeof secret !== 'string') {
+        logger.info('client rejected, invalid authentication request')
         return
       }
 
       authenticate(db, accessKey, secret).then((session: Session | null) => {
         if (session === null) {
+          logger.info('client rejected, failed authentication')
           callback(false, 401)
           return
         }
 
+        logger.debug(
+          `websocket client successfully authenticated, new session for node ${
+            session.chainlinkNodeId
+          }`
+        )
         sessions.set(info.req, session)
         callback(true, 200)
       })
@@ -64,7 +74,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
 
   wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
     clnodeCount = clnodeCount + 1
-    console.log(
+    logger.info(
       `websocket connected, total chainlink nodes connected: ${clnodeCount}`
     )
 
@@ -85,7 +95,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
 
     ws.on('close', () => {
       clnodeCount = clnodeCount - 1
-      console.log(
+      logger.info(
         `websocket disconnected, total chainlink nodes connected: ${clnodeCount}`
       )
     })

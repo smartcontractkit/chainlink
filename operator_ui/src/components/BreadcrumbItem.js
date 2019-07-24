@@ -11,7 +11,7 @@ const styles = theme => ({
   }
 })
 
-const renderLink = ({ children, href }) => <Link to={href}>{children}</Link>
+const renderLink = ({ children, href }) => <Link href={href}>{children}</Link>
 
 const renderNode = ({ classes, children }) => (
   <Typography variant="body1" color="textSecondary" className={classes.node}>
