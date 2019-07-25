@@ -215,12 +215,12 @@ func TestORM_LinkEarningsFor(t *testing.T) {
 	require.NoError(t, store.CreateJob(&job))
 	earning1 := cltest.MockNewLinkEarned(job.ID, assets.NewLink(2))
 	require.NoError(t, store.AddLinkEarned(&earning1))
-	earning2 := cltest.MockNewLinkEarned(job.ID, assets.NewLink(3))
+	earning2 := cltest.MockNewLinkEarned(job.ID, assets.NewLink(2))
 	require.NoError(t, store.AddLinkEarned(&earning2))
 
 	earnings, err := store.LinkEarningsFor(job.ID)
 	assert.NoError(t, err)
-	actual := []*assets.Link{assets.NewLink(2), assets.NewLink(3)}
+	actual := []*assets.Link{assets.NewLink(2), assets.NewLink(2)}
 	assert.Equal(t, []*assets.Link{earnings[0].Earned, earnings[1].Earned}, actual)
 
 }
