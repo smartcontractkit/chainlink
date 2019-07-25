@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -168,4 +169,16 @@ func TestNewTaskType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestJobSpec_NewLinkEarned(t *testing.T) {
+	t.Parallel()
+
+	befCreation := time.Now()
+	earned := models.NewLinkEarned("J-1911", assets.NewLink(3))
+	aftCreation := time.Now()
+
+	assert.Equal(t, earned.JobSpecID, "J-1911")
+	assert.Equal(t, earned.Earned, assets.NewLink(3))
+	assert.True(t, true, earned.EarnedAt.After(aftCreation), earned.EarnedAt.Before(befCreation))
 }
