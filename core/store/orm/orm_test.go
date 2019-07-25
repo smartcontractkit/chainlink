@@ -213,9 +213,9 @@ func TestORM_LinkEarningsFor(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
-	earning1 := cltest.MockNewLinkEarned(job.ID, assets.NewLink(2))
+	earning1 := cltest.FakeLinkEarned(job.ID, assets.NewLink(2))
 	require.NoError(t, store.AddLinkEarned(&earning1))
-	earning2 := cltest.MockNewLinkEarned(job.ID, assets.NewLink(2))
+	earning2 := cltest.FakeLinkEarned(job.ID, assets.NewLink(2))
 	require.NoError(t, store.AddLinkEarned(&earning2))
 
 	earnings, err := store.LinkEarningsFor(job.ID)
@@ -233,11 +233,11 @@ func TestORM_LinkEarnedFor(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
-	earning1 := cltest.MockNewLinkEarned(job.ID, assets.NewLink(2))
+	earning1 := cltest.FakeLinkEarned(job.ID, assets.NewLink(2))
 	require.NoError(t, store.AddLinkEarned(&earning1))
-	earning2 := cltest.MockNewLinkEarned(job.ID, assets.NewLink(3))
+	earning2 := cltest.FakeLinkEarned(job.ID, assets.NewLink(3))
 	require.NoError(t, store.AddLinkEarned(&earning2))
-	earning3 := cltest.MockNewLinkEarned(job.ID, assets.NewLink(5))
+	earning3 := cltest.FakeLinkEarned(job.ID, assets.NewLink(5))
 	require.NoError(t, store.AddLinkEarned(&earning3))
 
 	totalEarned, err := store.LinkEarnedFor(job.ID)

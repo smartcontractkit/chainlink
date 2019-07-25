@@ -501,8 +501,8 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 	return dst
 }
 
-// MockNewLinkEarned mocks a link earning
-func MockNewLinkEarned(jobID string, rewardAmt *assets.Link) models.LinkEarned {
+// FakeLinkEarned mocks a link earning
+func FakeLinkEarned(jobID string, rewardAmt *assets.Link) models.LinkEarned {
 	return models.LinkEarned{
 		JobSpecID: jobID,
 		Earned:    rewardAmt,

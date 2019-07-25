@@ -269,7 +269,7 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 		run.SetFinishedAt()
 		reward := run.Overrides.Amount
 		if reward != nil {
-			earn := models.NewLinkEarned(run.JobSpecID, run.Overrides.Amount)
+			earn := models.NewLinkEarned(run.JobSpecID, run.ID, run.Overrides.Amount)
 			if err := store.AddLinkEarned(&earn); err != nil {
 				return err
 			}
