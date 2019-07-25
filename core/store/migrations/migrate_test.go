@@ -119,7 +119,6 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 	require.NoError(t, migration1560433987.Migrate(db))
 	require.NoError(t, migration1560791143.Migrate(db))
 	require.NoError(t, migration1560881846.Migrate(db))
-	require.NoError(t, migration1560881855.Migrate(db))
 	require.NoError(t, migration1560886530.Migrate(db))
 	require.NoError(t, migration1560924400.Migrate(db))
 
@@ -134,12 +133,14 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 	jr := j.NewRun(initr)
 	data := `{"result":"921.02"}`
 	jr.Result = cltest.RunResultWithData(data)
-	require.NoError(t, db.Create(&jr).Error)
-
-	rew := models.NewLinkEarned(j.ID, jr.ID, assets.NewLink(2))
+	jr.Overrides.Amount = assets.NewLink(2)
 	befCreation := time.Now()
-	require.NoError(t, db.Create(&rew).Error)
+	require.NoError(t, db.Create(&jr).Error)
 	aftCreation := time.Now()
+
+	// placement of this migration is important, as it makes sure backfilling
+	//  is done if there's already a RunResult with nonzero link reward
+	require.NoError(t, migration1560881855.Migrate(db))
 
 	rewFound := models.LinkEarned{}
 	require.NoError(t, db.Find(&rewFound).Error)
@@ -147,7 +148,6 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 	assert.Equal(t, jr.ID, rewFound.JobRunID)
 	assert.Equal(t, assets.NewLink(2), rewFound.Earned)
 	assert.True(t, true, rewFound.EarnedAt.After(aftCreation), rewFound.EarnedAt.Before(befCreation))
-	// note, it doesnt test filling link_earned table from existing jobs, runs, and run results
 }
 
 func TestMigrate_Migration1560881846(t *testing.T) {

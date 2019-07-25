@@ -22,8 +22,8 @@ func Migrate(tx *gorm.DB) error {
 	} else {
 		fillLinkEarned = `
 		INSERT INTO link_earned
-		SELECT ROW_NUMBER() OVER (ORDER BY job_spec_id) AS id, job_spec_id, job_runs.id AS job_run_id, amount, finished_at FROM job_runs
-		INNER JOIN run_results ON job_runs.overrides_id  = run_results.id
+		SELECT ROW_NUMBER() OVER (ORDER BY job_spec_id) AS id, job_spec_id, job_runs.id AS job_run_id, amount, finished_at
+		FROM job_runs INNER JOIN run_results ON job_runs.overrides_id  = run_results.id
 		WHERE amount IS NOT NULL
 		`
 	}
