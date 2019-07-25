@@ -27,7 +27,9 @@ describe('End to end', () => {
       height: AVERAGE_CLIENT_HEIGHT
     })
     server = await newServer(`{"last": "3843.95"}`)
-    page.on('console', msg => console.log('PAGE LOG:', msg.text()))
+    page.on('console', msg => {
+      console.log(`PAGE LOG url: ${page.url()} | msg: ${msg.text()}`)
+    })
   })
 
   afterAll(async () => {
