@@ -16,8 +16,12 @@ interface IProps {
 const DEFAULT_HEADERS = ['Node', 'Run ID', 'Job ID', 'Created At']
 const MOBILE_HEADERS = ['Run ID', 'Job ID', 'Created At', 'Node']
 
-const buildNodeCol = (jobRun: IJobRun): TextColumn => {
-  return { type: 'text', text: jobRun.chainlinkNode.name }
+const buildNodeCol = (jobRun: IJobRun): LinkColumn => {
+  return {
+    type: 'link',
+    text: jobRun.chainlinkNode.name,
+    to: jobRun.chainlinkNode.url || ''
+  }
 }
 
 const buildIdCol = (jobRun: IJobRun): LinkColumn => {

@@ -20,7 +20,7 @@ export const BASE_ATTRIBUTES = [
 
 export const chainlinkNode = {
   ref: 'id',
-  attributes: ['name']
+  attributes: ['name', 'url']
 }
 
 export const taskRuns = {
