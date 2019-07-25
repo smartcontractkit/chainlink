@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/tevino/abool"
@@ -68,7 +69,7 @@ type TxManager interface {
 type EthTxManager struct {
 	*EthClient
 	keyStore            *KeyStore
-	config              Config
+	config              config.Depot
 	orm                 *orm.ORM
 	registeredAccounts  []accounts.Account
 	availableAccounts   []*ManagedAccount
@@ -79,7 +80,7 @@ type EthTxManager struct {
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
 // initializing internal variables.
-func NewEthTxManager(ethClient *EthClient, config Config, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
+func NewEthTxManager(ethClient *EthClient, config config.Depot, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
 	return &EthTxManager{
 		EthClient:     ethClient,
 		config:        config,
@@ -173,7 +174,7 @@ func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
 	return ma, nil
 }
 
-func normalizeGasParams(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, uint64) {
+func normalizeGasParams(gasPriceWei *big.Int, gasLimit uint64, config config.Depot) (*big.Int, uint64) {
 	if !config.Dev() {
 		return config.EthGasPriceDefault(), DefaultGasLimit
 	}

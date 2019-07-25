@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -74,7 +75,7 @@ func init() {
 // TestConfig struct with test store and wsServer
 type TestConfig struct {
 	t testing.TB
-	strpkg.Config
+	config.Depot
 	wsServer *httptest.Server
 }
 
@@ -92,20 +93,19 @@ func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig 
 
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
-	rawConfig := strpkg.NewConfig()
+	rawConfig := config.NewMock()
 	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
 	rawConfig.Set("ETH_CHAIN_ID", 3)
 	rawConfig.Set("CHAINLINK_DEV", true)
 	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
-	rawConfig.Set("LOG_LEVEL", strpkg.LogLevel{Level: zapcore.DebugLevel})
+	rawConfig.Set("LOG_LEVEL", config.LogLevel{Level: zapcore.DebugLevel})
 	rawConfig.Set("MINIMUM_SERVICE_DURATION", "24h")
 	rawConfig.Set("MIN_INCOMING_CONFIRMATIONS", 1)
 	rawConfig.Set("MIN_OUTGOING_CONFIRMATIONS", 6)
 	rawConfig.Set("MINIMUM_CONTRACT_PAYMENT", minimumContractPayment.Text(10))
 	rawConfig.Set("ROOT", rootdir)
 	rawConfig.Set("SESSION_TIMEOUT", "2m")
-	rawConfig.SecretGenerator = mockSecretGenerator{}
-	config := TestConfig{t: t, Config: rawConfig}
+	config := TestConfig{t: t, Depot: rawConfig}
 	config.SetEthereumServer(wsserver)
 	return &config
 }
@@ -123,7 +123,7 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 type TestApplication struct {
 	t testing.TB
 	*services.ChainlinkApplication
-	Config           strpkg.Config
+	config.Depot
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
@@ -198,19 +198,19 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig) (*TestApplicat
 func NewApplicationWithConfig(t testing.TB, tc *TestConfig) (*TestApplication, func()) {
 	t.Helper()
 
-	WipePostgresDatabase(t, tc.Config)
+	WipePostgresDatabase(t, tc.Depot)
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
-	app := services.NewApplication(tc.Config, func(app services.Application) {
+	app := services.NewApplication(tc.Depot, func(app services.Application) {
 		ta.connectedChannel <- struct{}{}
 	}).(*services.ChainlinkApplication)
 	ta.ChainlinkApplication = app
 	ethMock := MockEthOnStore(t, app.Store)
 
 	server := newServer(ta)
-	tc.Config.Set("CLIENT_NODE_URL", server.URL)
-	app.Store.Config = tc.Config
+	tc.Set("CLIENT_NODE_URL", server.URL)
+	app.Store.Config = tc.Depot
 
-	ta.Config = tc.Config
+	ta.Depot = tc.Depot
 	ta.Server = server
 	ta.wsServer = tc.wsServer
 	return ta, func() {
@@ -254,7 +254,7 @@ func (ta *TestApplication) WaitForConnection() error {
 }
 
 func (ta *TestApplication) MockStartAndConnect() (*EthMock, error) {
-	chainID := Int(ta.Config.ChainID())
+	chainID := Int(ta.ChainID())
 	ethMock := ta.MockEthClient()
 	ethMock.Context("TestApplication#MockStartAndConnect()", func(ethMock *EthMock) {
 		ethMock.Register("eth_chainId", *chainID)
@@ -311,7 +311,7 @@ func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
 
 	ta.MustSeedUserSession()
 	return HTTPClientCleaner{
-		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Config),
+		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Depot),
 		t:          ta.t,
 	}
 }
@@ -322,12 +322,12 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	r := &RendererMock{}
 	client := &cmd.Client{
 		Renderer:                       r,
-		Config:                         ta.Config,
+		Config:                         ta.Depot,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		KeyStoreAuthenticator:          CallbackAuthenticator{func(*strpkg.Store, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
-		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config),
+		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Depot),
 		CookieAuthenticator:            MockCookieAuthenticator{},
 		FileSessionRequestBuilder:      &MockSessionRequestBuilder{},
 		PromptingSessionRequestBuilder: &MockSessionRequestBuilder{},
@@ -338,15 +338,15 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 
 func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
 	ta.MustSeedUserSession()
-	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Config, &cmd.MemoryCookieStore{})
+	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Depot, &cmd.MemoryCookieStore{})
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
-		Config:                         ta.Config,
+		Config:                         ta.Depot,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		KeyStoreAuthenticator:          CallbackAuthenticator{func(*strpkg.Store, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
-		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth),
+		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Depot, cookieAuth),
 		CookieAuthenticator:            cookieAuth,
 		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
@@ -357,8 +357,8 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
-	WipePostgresDatabase(config.t, config.Config)
-	s := strpkg.NewStore(config.Config)
+	WipePostgresDatabase(config.t, config.Depot)
+	s := strpkg.NewStore(config.Depot)
 	return s, func() {
 		cleanUpStore(config.t, s)
 	}
@@ -388,11 +388,11 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 	require.NoError(t, store.Close())
 }
 
-func WipePostgresDatabase(t testing.TB, c strpkg.Config) {
+func WipePostgresDatabase(t testing.TB, c config.Depot) {
 	t.Helper()
 
-	if strings.HasPrefix(strings.ToLower(c.NormalizedDatabaseURL()), string(orm.DialectPostgres)) {
-		db, err := gorm.Open(string(orm.DialectPostgres), c.NormalizedDatabaseURL())
+	if strings.HasPrefix(strings.ToLower(config.NormalizedDatabaseURL(c)), string(orm.DialectPostgres)) {
+		db, err := gorm.Open(string(orm.DialectPostgres), config.NormalizedDatabaseURL(c))
 		if err != nil {
 			t.Fatalf("unable to open postgres database for wiping: %+v", err)
 			return

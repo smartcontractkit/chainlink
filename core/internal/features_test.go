@@ -54,7 +54,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
-	config := app.Config
+	config := app.Depot
 	eth := app.MockEthClient(cltest.Strict)
 
 	newHeads := make(chan models.BlockHeader)
@@ -108,7 +108,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
-	config := app.Config
+	config := app.Depot
 
 	// Put some distance between these two values so we can explore more of the state space
 	config.Set("ETH_GAS_BUMP_THRESHOLD", 10)

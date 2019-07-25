@@ -15,7 +15,7 @@ import (
 func TestNewLockingStrategy(t *testing.T) {
 	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	c := tc.Config
+	c := tc.Depot
 
 	tests := []struct {
 		name        string
@@ -42,7 +42,7 @@ const delay = 10 * time.Millisecond
 func TestFileLockingStrategy_Lock(t *testing.T) {
 	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	c := tc.Config
+	c := tc.Depot
 
 	require.NoError(t, os.MkdirAll(c.RootDir(), 0700))
 	defer os.RemoveAll(c.RootDir())
@@ -65,7 +65,7 @@ func TestFileLockingStrategy_Lock(t *testing.T) {
 func TestPostgresLockingStrategy_Lock(t *testing.T) {
 	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	c := tc.Config
+	c := tc.Depot
 
 	if c.DatabaseURL() == "" {
 		t.Skip("No postgres DatabaseURL set.")

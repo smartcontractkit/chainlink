@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"go.uber.org/multierr"
 )
@@ -44,7 +45,7 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config store.Config, onConnectCallbacks ...func(Application)) Application {
+func NewApplication(config config.Depot, onConnectCallbacks ...func(Application)) Application {
 	store := store.NewStore(config)
 
 	jobSubscriber := NewJobSubscriber(store)

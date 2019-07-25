@@ -1,4 +1,4 @@
-package store
+package config
 
 import (
 	"math/big"
@@ -175,10 +175,10 @@ func TestConfig_NormalizedDatabaseURL(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			config := NewConfig()
-			config.Set("ROOT", "/root")
-			config.Set("DATABASE_URL", test.uri)
-			assert.Equal(t, test.expect, config.NormalizedDatabaseURL())
+			cfg := NewConfig()
+			cfg.Set("ROOT", "/root")
+			cfg.Set("DATABASE_URL", test.uri)
+			assert.Equal(t, test.expect, NormalizedDatabaseURL(cfg))
 		})
 	}
 }

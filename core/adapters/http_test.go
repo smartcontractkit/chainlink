@@ -8,12 +8,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
 func leanStore() *store.Store {
-	return &store.Store{Config: store.NewConfig()}
+	return &store.Store{Config: config.NewConfig()}
 }
 
 func TestHttpAdapters_NotAUrlError(t *testing.T) {
@@ -98,7 +99,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 }
 
 func TestHTTP_TooLarge(t *testing.T) {
-	cfg := store.NewConfig()
+	cfg := config.NewConfig()
 	cfg.Set("DEFAULT_HTTP_LIMIT", "1")
 	store := &store.Store{Config: cfg}
 

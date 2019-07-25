@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -24,7 +25,7 @@ import (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config      Config
+	Config      config.Depot
 	Clock       utils.AfterNower
 	KeyStore    *KeyStore
 	RunChannel  RunChannel
@@ -108,12 +109,12 @@ func (ed *EthDialer) Dial(urlString string) (CallerSubscriber, error) {
 // NewStore will create a new database file at the config's RootDir if
 // it is not already present, otherwise it will use the existing db.sqlite3
 // file.
-func NewStore(config Config) *Store {
+func NewStore(config config.Depot) *Store {
 	return NewStoreWithDialer(config, &EthDialer{})
 }
 
 // NewStoreWithDialer creates a new store with the given config and dialer
-func NewStoreWithDialer(config Config, dialer Dialer) *Store {
+func NewStoreWithDialer(config config.Depot, dialer Dialer) *Store {
 	err := os.MkdirAll(config.RootDir(), os.FileMode(0700))
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
@@ -199,15 +200,15 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 	return merr
 }
 
-func initializeORM(config Config) (*orm.ORM, error) {
-	orm, err := orm.NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout())
+func initializeORM(c config.Depot) (*orm.ORM, error) {
+	orm, err := orm.NewORM(config.NormalizedDatabaseURL(c), c.DatabaseTimeout())
 	if err != nil {
 		return nil, err
 	}
 	if err = migrations.Migrate(orm.DB); err != nil {
 		return nil, err
 	}
-	orm.SetLogging(config.LogSQLStatements())
+	orm.SetLogging(c.LogSQLStatements())
 	return orm, nil
 }
 

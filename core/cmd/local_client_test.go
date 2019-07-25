@@ -156,7 +156,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			noauth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) (string, error) { return "", nil }}
 			apiPrompt := &cltest.MockAPIInitializer{}
 			client := cmd.Client{
-				Config:                 app.Config,
+				Config:                 app.Depot,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				KeyStoreAuthenticator:  noauth,
 				FallbackAPIInitializer: apiPrompt,

@@ -13,17 +13,17 @@ import (
 func ExampleRun() {
 	t := &testing.T{}
 	tc, cleanup := cltest.NewConfig(t)
-	defer cltest.WipePostgresDatabase(t, tc.Config)
+	defer cltest.WipePostgresDatabase(t, tc.Depot)
 	defer cleanup()
-	tc.Config.Set("CHAINLINK_DEV", false)
+	tc.Set("CHAINLINK_DEV", false)
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
-		Config:                 tc.Config,
+		Config:                 tc.Depot,
 		AppFactory:             cmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:  cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 		Runner:                 cmd.ChainlinkRunner{},
-		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Config),
+		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Depot),
 		ChangePasswordPrompter: cltest.MockChangePasswordPrompter{},
 	}
 
@@ -71,16 +71,16 @@ func ExampleRun() {
 func ExampleVersion() {
 	t := &testing.T{}
 	tc, cleanup := cltest.NewConfig(t)
-	defer cltest.WipePostgresDatabase(t, tc.Config)
+	defer cltest.WipePostgresDatabase(t, tc.Depot)
 	defer cleanup()
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
-		Config:                 tc.Config,
+		Config:                 tc.Depot,
 		AppFactory:             cmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:  cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 		Runner:                 cmd.ChainlinkRunner{},
-		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Config),
+		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Depot),
 	}
 
 	Run(testClient, "core.test", "--version")

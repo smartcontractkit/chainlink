@@ -65,7 +65,7 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 
 	// assert creation on disk is successful
-	files, err := utils.FilesInDir(app.Config.KeysDir())
+	files, err := utils.FilesInDir(app.Depot.KeysDir())
 	require.NoError(t, err)
 	require.Len(t, files, 1)
 
@@ -80,7 +80,7 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	require.Equal(t, acc.Address.Hex(), key.Address.String())
 
 	// assert contents are the same
-	content, err := utils.FileContents(filepath.Join(app.Config.KeysDir(), files[0]))
+	content, err := utils.FileContents(filepath.Join(app.Depot.KeysDir(), files[0]))
 	require.NoError(t, err)
 	require.Equal(t, keys[0].JSON.String(), content)
 }
@@ -95,7 +95,7 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 	store := app.GetStore()
 
 	// assert creation on disk is successful
-	files, err := utils.FilesInDir(app.Config.KeysDir())
+	files, err := utils.FilesInDir(app.Depot.KeysDir())
 	require.NoError(t, err)
 	require.Len(t, files, 2)
 
@@ -124,7 +124,7 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 	require.Equal(t, accountKeys, addresses)
 
 	for _, f := range files {
-		path := filepath.Join(app.Config.KeysDir(), f)
+		path := filepath.Join(app.Depot.KeysDir(), f)
 		content, err := utils.FileContents(path)
 		require.NoError(t, err)
 
