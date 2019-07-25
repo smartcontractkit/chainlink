@@ -500,3 +500,12 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 	require.NoError(t, err)
 	return dst
 }
+
+// MockNewLinkEarned mocks a link earning
+func MockNewLinkEarned(jobID string, rewardAmt *assets.Link) models.LinkEarned {
+	return models.LinkEarned{
+		JobSpecID: jobID,
+		Earned:    rewardAmt,
+		EarnedAt:  time.Now(),
+	}
+}

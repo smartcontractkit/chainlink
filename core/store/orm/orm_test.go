@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -202,6 +203,48 @@ func TestORM_JobRunsFor(t *testing.T) {
 	assert.NoError(t, limZeroErr)
 	limZeroActual := []string{}
 	assert.Equal(t, []string{}, limZeroActual)
+}
+
+func TestORM_LinkEarningsFor(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+	earning1 := cltest.MockNewLinkEarned(job.ID, assets.NewLink(2))
+	require.NoError(t, store.AddLinkEarned(&earning1))
+	earning2 := cltest.MockNewLinkEarned(job.ID, assets.NewLink(3))
+	require.NoError(t, store.AddLinkEarned(&earning2))
+
+	earnings, err := store.LinkEarningsFor(job.ID)
+	assert.NoError(t, err)
+	actual := []*assets.Link{assets.NewLink(2), assets.NewLink(3)}
+	assert.Equal(t, []*assets.Link{earnings[0].Earned, earnings[1].Earned}, actual)
+
+}
+
+func TestORM_LinkEarnedFor(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+	earning1 := cltest.MockNewLinkEarned(job.ID, assets.NewLink(2))
+	require.NoError(t, store.AddLinkEarned(&earning1))
+	earning2 := cltest.MockNewLinkEarned(job.ID, assets.NewLink(3))
+	require.NoError(t, store.AddLinkEarned(&earning2))
+	earning3 := cltest.MockNewLinkEarned(job.ID, assets.NewLink(5))
+	require.NoError(t, store.AddLinkEarned(&earning3))
+
+	totalEarned, err := store.LinkEarnedFor(job.ID)
+	assert.NoError(t, err)
+	actualEarned := assets.NewLink(10)
+	assert.Equal(t, totalEarned, actualEarned)
+
 }
 
 func TestORM_JobRunsSortedFor(t *testing.T) {
