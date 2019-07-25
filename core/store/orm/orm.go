@@ -297,7 +297,7 @@ func (orm *ORM) CreateJobRun(run *models.JobRun) error {
 	return orm.DB.Create(run).Error
 }
 
-// AddLinkEarned updates old JobSpec earnings
+// AddLinkEarned adds link earning
 func (orm *ORM) AddLinkEarned(earning *models.LinkEarned) error {
 	return orm.DB.Create(earning).Error
 }
