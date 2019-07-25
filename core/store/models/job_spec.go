@@ -41,7 +41,7 @@ type TaskSpecRequest struct {
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID         string      `json:"id,omitempty" gorm:"primary_key;not null"`
+	ID         string      `json:"id" gorm:"primary_key;not null"`
 	CreatedAt  time.Time   `json:"createdAt" gorm:"index"`
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []TaskSpec  `json:"tasks"`
@@ -321,6 +321,7 @@ func (t *TaskType) Scan(value interface{}) error {
 type LinkEarned struct {
 	ID        uint64       `json:"id,omitempty" gorm:"primary_key;not null;auto_increment"`
 	JobSpecID string       `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
+	JobRunID  string       `json:"jobRunId"  gorm:"unique;not null;type:varchar(36) REFERENCES job_runs(id)"`
 	Earned    *assets.Link `json:"earned" gorm:"type:varchar(255)"`
 	EarnedAt  time.Time    `json:"earnedAt" gorm:"index"`
 }
@@ -332,10 +333,11 @@ func (LinkEarned) TableName() string {
 
 // NewLinkEarned initializes the LinkEarned from params
 // and sets the CreatedAt field.
-func NewLinkEarned(jid string, ear *assets.Link) LinkEarned {
+func NewLinkEarned(jid string, jrunid string, ear *assets.Link) LinkEarned {
 	now := time.Now()
 	return LinkEarned{
 		JobSpecID: jid,
+		JobRunID:  jrunid,
 		Earned:    ear,
 		EarnedAt:  now,
 	}
