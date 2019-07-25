@@ -4,6 +4,9 @@ import (
 	"math/big"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
@@ -13,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560433987"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560791143"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881846"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881855"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560886530"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -99,6 +103,40 @@ func TestMigrate_Migration1560791143(t *testing.T) {
 
 	noIDTxFound := models.Tx{}
 	require.NoError(t, db.Where("id = ?", tx.ID).Find(&noIDTxFound).Error)
+}
+
+func TestMigrate_Migration1560881855(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	db := orm.DB
+
+	require.NoError(t, migration0.Migrate(db))
+	require.NoError(t, migration1559081901.Migrate(db))
+	require.NoError(t, migration1559767166.Migrate(db))
+	require.NoError(t, migration1560433987.Migrate(db))
+	require.NoError(t, migration1560791143.Migrate(db))
+	require.NoError(t, migration1560881846.Migrate(db))
+	require.NoError(t, migration1560881855.Migrate(db))
+
+	j := models.NewJob()
+	i := models.Initiator{Type: models.InitiatorWeb}
+	j.Initiators = []models.Initiator{i}
+	j.Tasks = []models.TaskSpec{
+		cltest.NewTask(t, "noop"),
+	}
+	assert.NoError(t, db.Create(&j).Error)
+	rew := models.NewLinkEarned(j.ID, assets.NewLink(2))
+	befCreation := time.Now()
+	require.NoError(t, db.Create(&rew).Error)
+	aftCreation := time.Now()
+
+	rewFound := models.LinkEarned{}
+	require.NoError(t, db.Find(&rewFound).Error)
+	assert.Equal(t, j.ID, rewFound.JobSpecID)
+	assert.Equal(t, assets.NewLink(2), rewFound.Earned)
+	assert.True(t, true, rewFound.EarnedAt.After(aftCreation), rewFound.EarnedAt.Before(befCreation))
+	// note, it doesnt test filling link_earned table from existing jobs, runs, and run results
 }
 
 func TestMigrate_Migration1560881846(t *testing.T) {
