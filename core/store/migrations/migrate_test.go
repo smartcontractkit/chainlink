@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560924400"
+
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -118,6 +120,8 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 	require.NoError(t, migration1560791143.Migrate(db))
 	require.NoError(t, migration1560881846.Migrate(db))
 	require.NoError(t, migration1560881855.Migrate(db))
+	require.NoError(t, migration1560886530.Migrate(db))
+	require.NoError(t, migration1560924400.Migrate(db))
 
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}
@@ -126,7 +130,13 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 		cltest.NewTask(t, "noop"),
 	}
 	assert.NoError(t, db.Create(&j).Error)
-	rew := models.NewLinkEarned(j.ID, assets.NewLink(2))
+	initr := j.Initiators[0]
+	jr := j.NewRun(initr)
+	data := `{"result":"921.02"}`
+	jr.Result = cltest.RunResultWithData(data)
+	require.NoError(t, db.Create(&jr).Error)
+
+	rew := models.NewLinkEarned(j.ID, jr.ID, assets.NewLink(2))
 	befCreation := time.Now()
 	require.NoError(t, db.Create(&rew).Error)
 	aftCreation := time.Now()
@@ -134,6 +144,7 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 	rewFound := models.LinkEarned{}
 	require.NoError(t, db.Find(&rewFound).Error)
 	assert.Equal(t, j.ID, rewFound.JobSpecID)
+	assert.Equal(t, jr.ID, rewFound.JobRunID)
 	assert.Equal(t, assets.NewLink(2), rewFound.Earned)
 	assert.True(t, true, rewFound.EarnedAt.After(aftCreation), rewFound.EarnedAt.Before(befCreation))
 	// note, it doesnt test filling link_earned table from existing jobs, runs, and run results
