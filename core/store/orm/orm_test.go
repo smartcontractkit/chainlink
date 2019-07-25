@@ -213,9 +213,19 @@ func TestORM_LinkEarningsFor(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
-	earning1 := cltest.FakeLinkEarned(job.ID, assets.NewLink(2))
+
+	initr := job.Initiators[0]
+	data := `{"result":"921.02"}`
+	jr1 := job.NewRun(initr)
+	jr1.Result = cltest.RunResultWithData(data)
+	jr2 := job.NewRun(initr)
+	jr2.Result = cltest.RunResultWithData(data)
+	require.NoError(t, store.CreateJobRun(&jr1))
+	require.NoError(t, store.CreateJobRun(&jr2))
+
+	earning1 := cltest.FakeLinkEarned(job.ID, jr1.ID, assets.NewLink(2))
 	require.NoError(t, store.AddLinkEarned(&earning1))
-	earning2 := cltest.FakeLinkEarned(job.ID, assets.NewLink(2))
+	earning2 := cltest.FakeLinkEarned(job.ID, jr2.ID, assets.NewLink(2))
 	require.NoError(t, store.AddLinkEarned(&earning2))
 
 	earnings, err := store.LinkEarningsFor(job.ID)
@@ -233,11 +243,24 @@ func TestORM_LinkEarnedFor(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
-	earning1 := cltest.FakeLinkEarned(job.ID, assets.NewLink(2))
+
+	initr := job.Initiators[0]
+	data := `{"result":"921.02"}`
+	jr1 := job.NewRun(initr)
+	jr1.Result = cltest.RunResultWithData(data)
+	jr2 := job.NewRun(initr)
+	jr2.Result = cltest.RunResultWithData(data)
+	jr3 := job.NewRun(initr)
+	jr3.Result = cltest.RunResultWithData(data)
+	require.NoError(t, store.CreateJobRun(&jr1))
+	require.NoError(t, store.CreateJobRun(&jr2))
+	require.NoError(t, store.CreateJobRun(&jr3))
+
+	earning1 := cltest.FakeLinkEarned(job.ID, jr1.ID, assets.NewLink(2))
 	require.NoError(t, store.AddLinkEarned(&earning1))
-	earning2 := cltest.FakeLinkEarned(job.ID, assets.NewLink(3))
+	earning2 := cltest.FakeLinkEarned(job.ID, jr2.ID, assets.NewLink(3))
 	require.NoError(t, store.AddLinkEarned(&earning2))
-	earning3 := cltest.FakeLinkEarned(job.ID, assets.NewLink(5))
+	earning3 := cltest.FakeLinkEarned(job.ID, jr3.ID, assets.NewLink(5))
 	require.NoError(t, store.AddLinkEarned(&earning3))
 
 	totalEarned, err := store.LinkEarnedFor(job.ID)
