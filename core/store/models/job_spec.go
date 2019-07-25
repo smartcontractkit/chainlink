@@ -325,6 +325,11 @@ type LinkEarned struct {
 	EarnedAt  time.Time    `json:"earnedAt" gorm:"index"`
 }
 
+// TableName will let us choose and use singular table name
+func (LinkEarned) TableName() string {
+	return "link_earned"
+}
+
 // NewLinkEarned initializes the LinkEarned from params
 // and sets the CreatedAt field.
 func NewLinkEarned(jid string, ear *assets.Link) LinkEarned {
