@@ -55,7 +55,7 @@ pushd integration >/dev/null
 title 'End to end tests.'
 
 set -o pipefail
-yarn cross-env NODE_ENV=test yarn jest integration/ --runInBand | tee $SRCROOT/integration/e2e.tests.log
+yarn workspace @chainlink/integration run test | tee $SRCROOT/integration/e2e.tests.log
 set +o pipefail
 
 title 'All tests passed.'
