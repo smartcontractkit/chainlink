@@ -29,14 +29,7 @@ describe('containers/Jobs/Show', () => {
       id: jobSpecId,
       initiators: [{ type: 'web' }],
       createdAt: minuteAgo,
-      earnings: 10 ** 18,
-      runs: [
-        {
-          id: 'runA',
-          status: 'pending',
-          result: { data: { value: '8400.00' } }
-        }
-      ]
+      earnings: 10 ** 18
     })
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
 

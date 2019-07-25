@@ -18,7 +18,7 @@ import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatc
 import TaskList from '../../components/Jobs/TaskList'
 import { IJobSpec, IJobRuns } from '../../../@types/operator_ui'
 import { IState } from '../../connectors/redux/reducers'
-import { Typography } from '@material-ui/core'
+import { Typography, createStyles, Theme, WithStyles, withStyles } from '@material-ui/core'
 
 const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
   const info = {
@@ -50,20 +50,40 @@ const totalLinkEarned = (job: IJobSpec) => {
   return ((job.earnings / 1e18).toString() + '.').padEnd(8, '0')
 }
 
-const renderChart = (job: IJobSpec) => (
+const chartCardStyles = (theme: Theme) =>
+  createStyles({
+    wrapper: {
+      marginLeft: theme.spacing.unit * 3,
+      marginTop: theme.spacing.unit * 2,
+      marginBottom: theme.spacing.unit * 2
+    },
+    paymentText: {
+      color: theme.palette.secondary.main,
+      fontWeight: 450
+    },
+    earnedText: {
+      color: theme.palette.text.secondary,
+      fontSize: theme.spacing.unit * 2
+    }
+  })
+
+interface ChartProps extends WithStyles<typeof chartCardStyles> {
+  job: IJobSpec
+}
+
+
+const ChartArea = withStyles(chartCardStyles)(({ classes, job }: ChartProps) => (
   <Card>
-    <Grid
-      item
-      style={{ marginLeft: '25px', marginTop: '15px', marginBottom: '15px' }}
-    >
-      <Typography style={{ color: '#3d5170', fontWeight: 450 }} variant="h5">
+    <Grid item className={classes.wrapper} >
+      <Typography className={classes.paymentText} variant="h5">
         Link Payment
       </Typography>
-      <Typography style={{ color: '#818ea3', fontSize: '15px' }}>
+      <Typography className={classes.earnedText}>
         {totalLinkEarned(job)}
       </Typography>
     </Grid>
   </Card>
+)
 )
 
 const RecentJobRuns = ({
@@ -113,7 +133,7 @@ const Details = ({
         <Grid item xs={4}>
           <Grid container direction="column">
             <Grid item xs>
-              {renderChart(job)}
+              <ChartArea job={job} />
             </Grid>
             <Grid item xs>
               {renderTaskRuns(job)}
