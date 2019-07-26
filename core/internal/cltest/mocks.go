@@ -23,8 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -468,7 +468,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config config.Depot, onConnectCallbacks ...func(services.Application)) services.Application {
+func (f InstanceAppFactory) NewApplication(config orm.Depot, onConnectCallbacks ...func(services.Application)) services.Application {
 	return f.App
 }
 
@@ -476,7 +476,7 @@ type seededAppFactory struct {
 	Application services.Application
 }
 
-func (s seededAppFactory) NewApplication(config config.Depot, onConnectCallbacks ...func(services.Application)) services.Application {
+func (s seededAppFactory) NewApplication(config orm.Depot, onConnectCallbacks ...func(services.Application)) services.Application {
 	return noopStopApplication{s.Application}
 }
 
@@ -684,7 +684,7 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 	return user, store.SaveUser(&user)
 }
 
-func NewMockAuthenticatedHTTPClient(cfg config.Depot) cmd.HTTPClient {
+func NewMockAuthenticatedHTTPClient(cfg orm.Depot) cmd.HTTPClient {
 	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{})
 }
 

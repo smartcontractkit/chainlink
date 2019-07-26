@@ -12,8 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -776,7 +776,7 @@ func TestTxManager_Register(t *testing.T) {
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
 		&strpkg.EthClient{CallerSubscriber: ethMock},
-		config.NewConfig(),
+		orm.NewConfig(),
 		nil,
 		nil,
 	)
@@ -798,7 +798,7 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
 		&strpkg.EthClient{CallerSubscriber: ethMock},
-		config.NewConfig(),
+		orm.NewConfig(),
 		nil,
 		nil,
 	)
@@ -833,7 +833,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
 		&strpkg.EthClient{CallerSubscriber: ethMock},
-		config.NewConfig(),
+		orm.NewConfig(),
 		nil,
 		nil,
 	)

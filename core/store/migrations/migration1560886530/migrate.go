@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 // Migrate converts the heads table to use a surrogate ID and binary hash
@@ -32,7 +31,7 @@ FROM heads_archive;
 DROP TABLE heads_archive;`).Error
 	} else {
 		// SQLite doesn't support decoding at the SQL level
-		err = orm.Batch(1000, func(offset, limit uint) (uint, error) {
+		err = Batch(1000, func(offset, limit uint) (uint, error) {
 			var heads []migration0.Head
 			err := tx.
 				Table("heads_archive").
@@ -59,4 +58,23 @@ DROP TABLE heads_archive;`).Error
 		})
 	}
 	return errors.Wrap(err, "failed to migrate old Heads")
+}
+
+// Batch is an iterator _like_ for batches of records
+func Batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
+	offset := uint(0)
+	limit := uint(1000)
+
+	for {
+		count, err := cb(offset, limit)
+		if err != nil {
+			return err
+		}
+
+		if count < limit {
+			return nil
+		}
+
+		offset += limit
+	}
 }

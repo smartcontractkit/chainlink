@@ -25,3 +25,7 @@ func (cc *ConfigController) Show(c *gin.Context) {
 		jsonAPIResponse(c, cw, "config")
 	}
 }
+
+// Patch updates one or more configuration options
+func (cc *ConfigController) Patch(c *gin.Context) {
+}

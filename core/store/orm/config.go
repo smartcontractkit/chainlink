@@ -1,4 +1,4 @@
-package config
+package orm
 
 import (
 	"encoding/base64"
@@ -199,6 +199,7 @@ func (c Config) EthGasBumpWei() *big.Int {
 
 // EthGasPriceDefault represents the default gas price for transactions.
 func (c Config) EthGasPriceDefault() *big.Int {
+	// TODO: needs fallback behavior
 	return c.getWithFallback("EthGasPriceDefault", parseBigInt).(*big.Int)
 }
 

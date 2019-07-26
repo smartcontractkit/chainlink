@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559081901"
@@ -29,7 +28,7 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 	require.NoError(t, os.MkdirAll(cfg.RootDir(), 0700))
 	cltest.WipePostgresDatabase(t, cfg)
 
-	orm, err := orm.NewORM(config.NormalizedDatabaseURL(cfg), cfg.DatabaseTimeout())
+	orm, err := orm.NewORM(orm.NormalizedDatabaseURL(cfg), cfg.DatabaseTimeout())
 	require.NoError(t, err)
 
 	return orm, func() {

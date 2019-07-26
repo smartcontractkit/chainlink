@@ -1,4 +1,4 @@
-package config
+package orm
 
 type MockConfig struct {
 	Config

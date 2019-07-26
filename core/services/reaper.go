@@ -5,12 +5,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 type storeReaper struct {
 	store  *store.Store
-	config config.Depot
+	config orm.Depot
 }
 
 // NewStoreReaper creates a reaper that cleans stale objects from the store.

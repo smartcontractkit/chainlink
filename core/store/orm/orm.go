@@ -74,7 +74,6 @@ func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 		lockingStrategy: lockingStrategy,
 		dialectName:     dialect,
 	}
-
 	return orm, nil
 }
 
@@ -163,6 +162,17 @@ func (orm *ORM) Unscoped() *ORM {
 		DB:              orm.DB.Unscoped(),
 		lockingStrategy: orm.lockingStrategy,
 	}
+}
+
+// GetConfigValue returns the value for a named configuration entry
+func (orm *ORM) GetConfigValue(name string) (string, error) {
+	config := models.Configuration{}
+	return config.Value, orm.DB.First(&config, "name = ?").Error
+}
+
+func (orm *ORM) SetConfigValue(name, value string) error {
+	config := models.Configuration{Name: name, Value: value}
+	return orm.DB.Save(&config).Error
 }
 
 // Where fetches multiple objects with "Find".
