@@ -203,7 +203,7 @@ func (c ConfigWhitelist) String() string {
 
 	buffer.WriteString(fmt.Sprintf("ACCOUNT_ADDRESS: %v\n", c.AccountAddress))
 
-	schemaT := reflect.TypeOf(config.ConfigSchema{})
+	schemaT := reflect.TypeOf(config.Schema{})
 	cwlT := reflect.TypeOf(c.whitelist)
 	cwlV := reflect.ValueOf(c.whitelist)
 	for index := 0; index < cwlT.NumField(); index++ {

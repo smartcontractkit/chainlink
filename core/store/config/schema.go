@@ -9,8 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 )
 
-// ConfigSchema records the schema of configuration at the type level
-type ConfigSchema struct {
+// Schema records the schema of configuration at the type level
+type Schema struct {
 	AllowOrigins             string         `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
 	BridgeResponseURL        url.URL        `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                  uint64         `env:"ETH_CHAIN_ID" default:"0"`

@@ -90,7 +90,7 @@ func NewConfig() Config {
 }
 
 func newConfigWithViper(v *viper.Viper) Config {
-	schemaT := reflect.TypeOf(ConfigSchema{})
+	schemaT := reflect.TypeOf(Schema{})
 	for index := 0; index < schemaT.NumField(); index++ {
 		item := schemaT.FieldByIndex([]int{index})
 		name := item.Tag.Get("env")
@@ -119,7 +119,7 @@ func newConfigWithViper(v *viper.Viper) Config {
 
 // Set a specific configuration variable
 func (c Config) Set(name string, value interface{}) {
-	schemaT := reflect.TypeOf(ConfigSchema{})
+	schemaT := reflect.TypeOf(Schema{})
 	for index := 0; index < schemaT.NumField(); index++ {
 		item := schemaT.FieldByIndex([]int{index})
 		envName := item.Tag.Get("env")
@@ -394,7 +394,7 @@ func (c Config) SessionOptions() sessions.Options {
 }
 
 func (c Config) envVarName(field string) string {
-	schemaT := reflect.TypeOf(ConfigSchema{})
+	schemaT := reflect.TypeOf(Schema{})
 	item, ok := schemaT.FieldByName(field)
 	if !ok {
 		log.Panicf("Invariant violated, no field of name %s found on ConfigSchema", field)
@@ -403,7 +403,7 @@ func (c Config) envVarName(field string) string {
 }
 
 func (c Config) defaultValue(name string) (string, bool) {
-	schemaT := reflect.TypeOf(ConfigSchema{})
+	schemaT := reflect.TypeOf(Schema{})
 	if item, ok := schemaT.FieldByName(name); ok {
 		return item.Tag.Lookup("default")
 	}
@@ -412,7 +412,7 @@ func (c Config) defaultValue(name string) (string, bool) {
 }
 
 func (c Config) zeroValue(name string) interface{} {
-	schemaT := reflect.TypeOf(ConfigSchema{})
+	schemaT := reflect.TypeOf(Schema{})
 	if item, ok := schemaT.FieldByName(name); ok {
 		if item.Type.Kind() == reflect.Ptr {
 			return nil
