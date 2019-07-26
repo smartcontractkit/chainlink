@@ -237,6 +237,17 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 		},
+		{
+			Name:   "setgasprice",
+			Usage:  "Set the minimum gas price to use for outgoing transactions",
+			Action: client.SetMinimumGasPrice,
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "gwei",
+					Usage: "Specify amount in gwei",
+				},
+			},
+		},
 	}
 
 	if client.Config.Dev() {

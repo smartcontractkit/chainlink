@@ -60,6 +60,7 @@ func ExampleRun() {
 	//      chpass                    Change your password
 	//      transactions              List the transactions in descending order
 	//      txattempts                List the transaction attempts in descending order
+	//      setgasprice               Set the minimum gas price to use for outgoing transactions
 	//      help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
