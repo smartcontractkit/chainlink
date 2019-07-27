@@ -25,11 +25,7 @@ interface IProps {
 const renderCol = (col: Column) => {
   switch (col.type) {
     case 'link':
-      return col.to.startsWith('http') ? (
-        <a href={col.to}>{col.text}</a>
-      ) : (
-        <Link to={col.to}>{col.text}</Link>
-      )
+      return <Link to={col.to}>{col.text}</Link>
     case 'time_ago':
       return <TimeAgo tooltip>{col.text}</TimeAgo>
     case 'text':

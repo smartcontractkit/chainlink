@@ -47,7 +47,6 @@ const _ = yargs
         })
         .describe('u', 'The URL of the Chainlink Node to create')
         .alias('u', 'url')
-        .default('u', '')
         .nargs('u', 1)
     },
     handler: argv => add(argv.name as string, argv.url as string)
