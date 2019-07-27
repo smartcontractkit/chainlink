@@ -95,8 +95,6 @@ func TestJobRunner_executeRun_correctlyAddsLinkEarnings(t *testing.T) {
 	require.NoError(t, services.ExportedExecuteRun(&run, store))
 	actual, _ := store.LinkEarnedFor(j.ID)
 	assert.Equal(t, assets.NewLink(1), actual)
-	earningsFor, _ := store.LinkEarningsFor(j.ID)
-	assert.Equal(t, run.ID, earningsFor[0].JobRunID)
 }
 
 func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {

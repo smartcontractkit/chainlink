@@ -303,18 +303,13 @@ func (orm *ORM) AddLinkEarned(earning *models.LinkEarned) error {
 }
 
 // LinkEarningsFor lists the individual link earnings for a job
-func (orm *ORM) LinkEarningsFor(jobSpecID string, limit ...int) ([]models.LinkEarned, error) {
-	earnings := []models.LinkEarned{}
-	var lim int
-	if len(limit) == 0 {
-		lim = 100
-	} else if len(limit) >= 1 {
-		lim = limit[0]
-	}
+func (orm *ORM) LinkEarningsFor(jobSpecID string) ([]assets.Link, error) {
+	earnings := []assets.Link{}
 	err := orm.DB.
-		Limit(lim).
+		Table("link_earned").
 		Where("job_spec_id = ?", jobSpecID).
-		Find(&earnings).Error
+		Pluck("earned", &earnings).Error
+
 	return earnings, err
 }
 
@@ -327,7 +322,7 @@ func (orm *ORM) LinkEarnedFor(jobSpecID string) (*assets.Link, error) {
 	}
 	sum := assets.NewLink(0)
 	for _, ear := range all {
-		sum = sum.Add(sum, ear.Earned)
+		sum = sum.Add(sum, &ear)
 	}
 	return sum, nil
 }

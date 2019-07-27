@@ -231,7 +231,7 @@ func TestORM_LinkEarningsFor(t *testing.T) {
 	earnings, err := store.LinkEarningsFor(job.ID)
 	assert.NoError(t, err)
 	actual := []*assets.Link{assets.NewLink(2), assets.NewLink(2)}
-	assert.Equal(t, []*assets.Link{earnings[0].Earned, earnings[1].Earned}, actual)
+	assert.Equal(t, []*assets.Link{&earnings[0], &earnings[1]}, actual)
 
 }
 
