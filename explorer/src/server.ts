@@ -14,9 +14,7 @@ const server = (port: number = DEFAULT_PORT) => {
   }
 
   const app = express()
-  if (process.env.NODE_ENV !== 'test') {
-    addRequestLogging(app)
-  }
+  addRequestLogging(app)
 
   app.use(
     express.static('client/build', {
