@@ -27,7 +27,7 @@ export class ChainlinkNode {
   }): ChainlinkNode {
     const cl = new ChainlinkNode()
     cl.name = name
-    cl.url = url || ''
+    cl.url = url
     cl.accessKey = generateRandomString(16)
     cl.salt = generateRandomString(32)
     cl.hashedSecret = hashCredentials(cl.accessKey, secret, cl.salt)
@@ -40,7 +40,7 @@ export class ChainlinkNode {
   @Column()
   name: string
 
-  @Column()
+  @Column({ nullable: true })
   url: string
 
   @Column()
