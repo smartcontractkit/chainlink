@@ -25,19 +25,23 @@ interface IItemProps extends WithStyles<typeof fontStyles> {
   colATitle: string
   colAValue: string
   colBTitle: string
-  colBValue?: string
+  colBValue: string | undefined
 }
+
+type Par = object | string | Array<any> | undefined
+type Ret = string | undefined
+const stringify = (par: Par): Ret => typeof par === 'object' || Array.isArray(par) ? JSON.stringify(par) : par
 
 const Item = withStyles(fontStyles)(
   ({ colATitle, colAValue, colBTitle, colBValue, classes }: IItemProps) => (
     <Grid container>
       <Grid item sm={2}>
         <p className={classes.header}>{colATitle}</p>
-        <p className={classes.subHeader}>{colAValue}</p>
+        <p className={classes.subHeader}>{stringify(colAValue)}</p>
       </Grid>
       <Grid item md={10}>
         <p className={classes.header}>{colBTitle}</p>
-        <p className={classes.subHeader}>{colBValue || 'No Value Available'}</p>
+        <p className={classes.subHeader}>{stringify(colBValue) || 'No Value Available'}</p>
       </Grid>
     </Grid>
   )
@@ -49,7 +53,6 @@ interface IInitiatorProps {
 
 const Initiator = ({ params }: IInitiatorProps) => {
   const paramsArr = Object.entries(params)
-
   return (
     <>
       {JSON.stringify(paramsArr) === '[]' ? (
