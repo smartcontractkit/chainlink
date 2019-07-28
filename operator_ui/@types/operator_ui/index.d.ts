@@ -2,7 +2,7 @@ import * as dbTypes from '../db'
 import { status, adapterTypes } from '../constants'
 
 interface RunResult {
-  data: { result: string | null }
+  data: { result: string | undefined }
   error: boolean | null
   jobRunId: string
   taskRunId: string
