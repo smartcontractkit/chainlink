@@ -75,7 +75,7 @@ contract LinkEx is LinkExInterface, Ownable {
     uint256 count;
     uint256 fromBlock = block.number.sub(VALID_BLOCKS);
     for (uint i = 0; i < oracles.length; i++) {
-      if(rates[oracles[i]].blockNumber > fromBlock) {
+      if (rates[oracles[i]].blockNumber > fromBlock) {
         rateSum = rateSum.add(rates[oracles[i]].rate);
         count++;
       }

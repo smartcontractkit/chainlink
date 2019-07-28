@@ -5,9 +5,7 @@ import "../Chainlinked.sol";
 
 contract ConcreteChainlinked is Chainlinked {
 
-  constructor(address _link, address _oracle)
-    public
-  {
+  constructor(address _link, address _oracle) public {
     setLinkToken(_link);
     setOracle(_oracle);
   }
