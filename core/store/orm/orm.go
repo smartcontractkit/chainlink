@@ -924,6 +924,16 @@ func (orm *ORM) CreateHead(n *models.Head) error {
 }
 
 // LastHead returns the most recently persisted head entry.
+func (orm *ORM) FirstHead() (*models.Head, error) {
+	number := &models.Head{}
+	err := orm.DB.Order("number asc").First(number).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return number, err
+}
+
+// LastHead returns the most recently persisted head entry.
 func (orm *ORM) LastHead() (*models.Head, error) {
 	number := &models.Head{}
 	err := orm.DB.Order("number desc").First(number).Error
