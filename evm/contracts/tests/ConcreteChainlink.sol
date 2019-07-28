@@ -6,7 +6,7 @@ contract ConcreteChainlink {
   using Chainlink for Chainlink.Request;
   using CBOR for Buffer.buffer;
 
-  Chainlink.Request req;
+  Chainlink.Request private req;
 
   event RequestData(bytes payload);
 

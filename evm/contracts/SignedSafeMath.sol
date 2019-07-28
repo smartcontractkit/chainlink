@@ -13,7 +13,6 @@ library SignedSafeMath {
     pure
     returns (int256)
   {
-    // solhint-disable-next-line zeppelin/no-arithmetic-operations
     int256 c = _a + _b;
     require((_b >= 0 && c >= _a) || (_b < 0 && c < _a), "SignedSafeMath: addition overflow");
 

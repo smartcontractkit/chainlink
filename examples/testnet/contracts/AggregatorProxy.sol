@@ -91,10 +91,7 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
 
   AggregatorInterface public aggregator;
 
-  constructor(address _aggregator)
-    public
-    Ownable()
-  {
+  constructor(address _aggregator) public Ownable() {
     setAggregator(_aggregator);
   }
 

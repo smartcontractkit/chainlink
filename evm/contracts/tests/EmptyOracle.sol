@@ -3,7 +3,7 @@ pragma solidity 0.4.24;
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/OracleInterface.sol";
 
-/* solhint-disable */
+/* solhint-disable no-empty-blocks */
 
 contract EmptyOracle is ChainlinkRequestInterface, OracleInterface {
 

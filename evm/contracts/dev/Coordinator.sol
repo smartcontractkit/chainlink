@@ -1,5 +1,5 @@
 pragma solidity 0.4.24;
-pragma experimental ABIEncoderV2; // solhint-disable-line no-experimental
+pragma experimental ABIEncoderV2;
 
 import "./CoordinatorInterface.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
@@ -95,7 +95,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     callbacks[requestId].amount = _amount;
     callbacks[requestId].addr = _callbackAddress;
     callbacks[requestId].functionId = _callbackFunctionId;
-    callbacks[requestId].cancelExpiration = uint64(now.add(EXPIRY_TIME));
+    callbacks[requestId].cancelExpiration = uint64(now.add(EXPIRY_TIME)); // solhint-disable-line not-rely-on-time
 
     emit OracleRequest(
       _sAId,
@@ -104,7 +104,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       _amount,
       _callbackAddress,
       _callbackFunctionId,
-      now.add(EXPIRY_TIME),
+      now.add(EXPIRY_TIME), // solhint-disable-line not-rely-on-time
       _dataVersion,
       _data);
   }
@@ -130,6 +130,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       _signatures.rs.length == _signatures.ss.length,
       "Must pass in as many signatures as oracles"
     );
+     // solhint-disable-next-line not-rely-on-time
     require(_agreement.endAt > block.timestamp, "End of ServiceAgreement must be in the future");
 
     serviceAgreementID = getId(_agreement);
@@ -263,10 +264,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     onlyLINK
     permittedFunctionsForLINK
   {
-    assembly {
-      // solhint-disable-next-line avoid-low-level-calls
+    assembly { // solhint-disable-line no-inline-assembly
       mstore(add(_data, 36), _sender) // ensure correct sender is passed
-      // solhint-disable-next-line avoid-low-level-calls
       mstore(add(_data, 68), _amount)    // ensure correct amount is passed
     }
     // solhint-disable-next-line avoid-low-level-calls
@@ -367,8 +366,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    */
   modifier permittedFunctionsForLINK() {
     bytes4[1] memory funcSelector;
-    assembly {
-      // solhint-disable-next-line avoid-low-level-calls
+    assembly { // solhint-disable-line no-inline-assembly
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
     require(funcSelector[0] == this.oracleRequest.selector, "Must use whitelisted functions");

@@ -56,10 +56,7 @@ contract Aggregator is ChainlinkClient, Ownable {
     uint128 _minimumResponses,
     address[] _oracles,
     bytes32[] _jobIds
-  )
-    public
-    Ownable()
-  {
+  ) public Ownable() {
     setChainlinkToken(_link);
     updateRequestDetails(_paymentAmount, _minimumResponses, _oracles, _jobIds);
   }

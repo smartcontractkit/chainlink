@@ -13,11 +13,11 @@ contract MaliciousConsumer is Chainlinked {
     setOracle(_oracle);
   }
 
-  function () public payable {}
+  function () public payable {} // solhint-disable-line no-empty-blocks
 
   function requestData(bytes32 _id, bytes _callbackFunc) public {
     Chainlink.Request memory req = newRequest(_id, this, bytes4(keccak256(_callbackFunc)));
-    expiration = now.add(5 minutes);
+    expiration = now.add(5 minutes); // solhint-disable-line not-rely-on-time
     chainlinkRequest(req, ORACLE_PAYMENT);
   }
 
@@ -38,11 +38,12 @@ contract MaliciousConsumer is Chainlinked {
   }
 
   function stealEthCall(bytes32 _requestId, bytes32) public recordChainlinkFulfillment(_requestId) {
-    require(address(this).call.value(100)(), "Call failed");
+    require(address(this).call.value(100)(), "Call failed"); // solhint-disable-line avoid-call-value
   }
 
   function stealEthSend(bytes32 _requestId, bytes32) public recordChainlinkFulfillment(_requestId) {
-    require(address(this).send(100), "Send failed");
+    // solhint-disable-next-line check-send-result
+    require(address(this).send(100), "Send failed"); // solhint-disable-line multiple-sends
   }
 
   function stealEthTransfer(bytes32 _requestId, bytes32) public recordChainlinkFulfillment(_requestId) {
