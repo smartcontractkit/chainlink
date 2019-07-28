@@ -49,16 +49,12 @@ func TestJobSpec_Save(t *testing.T) {
 	befCreation := time.Now()
 	j1 := cltest.NewJobWithSchedule("* * * * 7")
 	aftCreation := time.Now()
-
 	assert.True(t, true, j1.CreatedAt.After(aftCreation), j1.CreatedAt.Before(befCreation))
-	tBef := j1.CreatedAt
+	assert.False(t, false, j1.CreatedAt.IsZero())
 
 	befInsertion := time.Now()
 	assert.NoError(t, store.CreateJob(&j1))
 	aftInsertion := time.Now()
-
-	tAft := j1.CreatedAt
-	assert.Equal(t, tBef, tAft)
 	assert.True(t, true, j1.CreatedAt.After(aftInsertion), j1.CreatedAt.Before(befInsertion))
 
 	initr := j1.Initiators[0]
