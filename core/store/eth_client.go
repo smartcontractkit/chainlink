@@ -80,15 +80,12 @@ func (eth *EthClient) GetERC20Balance(address common.Address, contractAddress co
 	result := ""
 	numLinkBigInt := new(big.Int)
 	functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
-	data, err := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(address.Bytes(), utils.EVMWordByteLen))
-	if err != nil {
-		return nil, err
-	}
+	data := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(address.Bytes(), utils.EVMWordByteLen))
 	args := callArgs{
 		To:   contractAddress,
 		Data: data,
 	}
-	err = eth.Call(&result, "eth_call", args, "latest")
+	err := eth.Call(&result, "eth_call", args, "latest")
 	if err != nil {
 		return numLinkBigInt, err
 	}
