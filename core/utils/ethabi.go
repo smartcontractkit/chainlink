@@ -24,28 +24,21 @@ const (
 )
 
 // ConcatBytes appends a bunch of byte arrays into a single byte array
-func ConcatBytes(bufs ...[]byte) ([]byte, error) {
-	buffer := bytes.NewBuffer([]byte{})
-	for _, b := range bufs {
-		_, err := buffer.Write(b)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return buffer.Bytes(), nil
+func ConcatBytes(bufs ...[]byte) []byte {
+	return bytes.Join(bufs, []byte{})
 }
 
 // EVMTranscodeBytes converts a json input to an EVM bytes array
 func EVMTranscodeBytes(value gjson.Result) ([]byte, error) {
 	switch value.Type {
 	case gjson.String:
-		return EVMEncodeBytes([]byte(value.Str))
+		return EVMEncodeBytes([]byte(value.Str)), nil
 
 	case gjson.False:
-		return EVMEncodeBytes(EVMWordUint64(0))
+		return EVMEncodeBytes(EVMWordUint64(0)), nil
 
 	case gjson.True:
-		return EVMEncodeBytes(EVMWordUint64(1))
+		return EVMEncodeBytes(EVMWordUint64(1)), nil
 
 	case gjson.Number:
 		word, err := EVMWordSignedBigInt(big.NewInt(int64(value.Num)))
@@ -53,7 +46,7 @@ func EVMTranscodeBytes(value gjson.Result) ([]byte, error) {
 			return []byte{}, nil
 		}
 
-		return EVMEncodeBytes(word)
+		return EVMEncodeBytes(word), nil
 
 	default:
 		return []byte{}, fmt.Errorf("unsupported encoding for value: %s", value.Type)
@@ -69,7 +62,7 @@ func roundToEVMWordBorder(length int) int {
 }
 
 // EVMEncodeBytes encodes arbitrary bytes as bytes expected by the EVM
-func EVMEncodeBytes(input []byte) ([]byte, error) {
+func EVMEncodeBytes(input []byte) []byte {
 	length := len(input)
 	return ConcatBytes(
 		EVMWordUint64(uint64(length)),
@@ -197,21 +190,21 @@ func EVMTranscodeJSONWithFormat(value gjson.Result, format string) ([]byte, erro
 		if err != nil {
 			return []byte{}, err
 		}
-		return EVMEncodeBytes(data)
+		return EVMEncodeBytes(data), nil
 
 	case FormatInt256:
 		data, err := EVMTranscodeInt256(value)
 		if err != nil {
 			return []byte{}, err
 		}
-		return EVMEncodeBytes(data)
+		return EVMEncodeBytes(data), nil
 
 	case FormatBool:
 		data, err := EVMTranscodeBool(value)
 		if err != nil {
 			return []byte{}, err
 		}
-		return EVMEncodeBytes(data)
+		return EVMEncodeBytes(data), nil
 
 	default:
 		return []byte{}, fmt.Errorf("unsupported format: %s", format)
