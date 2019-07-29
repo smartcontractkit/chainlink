@@ -14,6 +14,7 @@ import jobSelector from '../../selectors/job'
 import jobRunsByJobIdSelector from '../../selectors/jobRunsByJobId'
 import jobsShowRunCountSelector from '../../selectors/jobsShowRunCount'
 import { formatInitiators } from '../../utils/jobSpecInitiators'
+import { GWEI_PER_TOKEN } from '../../utils/constants'
 import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatchToProps'
 import TaskList from '../../components/Jobs/TaskList'
 import { IJobSpec, IJobRuns } from '../../../@types/operator_ui'
@@ -46,9 +47,11 @@ interface IRecentJobRunsProps {
 }
 
 const totalLinkEarned = (job: IJobSpec) => {
-  if (job && !job.earnings) return '0.000000'
-  return ((job.earnings / 1e18).toString() + '.').padEnd(8, '0')
-}
+    const zero = '0.000000'
+    const unformatted = job.earnings && (job.earnings / GWEI_PER_TOKEN).toString()
+    const formatted = unformatted && (unformatted.length >= 3  ? unformatted : (unformatted + '.').padEnd(8, '0'))
+    return formatted || zero
+  }
 
 const chartCardStyles = (theme: Theme) =>
   createStyles({

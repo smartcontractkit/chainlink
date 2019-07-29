@@ -8,6 +8,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { ConnectedShow as Show } from 'containers/Jobs/Show'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 import jsonApiJobSpecRunsFactory from 'factories/jsonApiJobSpecRuns'
+import { GWEI_PER_TOKEN } from '../../../src/utils/constants'
 
 const mountShow = props =>
   mountWithTheme(
@@ -29,7 +30,7 @@ describe('containers/Jobs/Show', () => {
       id: jobSpecId,
       initiators: [{ type: 'web' }],
       createdAt: minuteAgo,
-      earnings: 10 ** 18
+      earnings: GWEI_PER_TOKEN
     })
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
 
