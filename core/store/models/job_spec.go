@@ -41,7 +41,7 @@ type TaskSpecRequest struct {
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID         string      `json:"id" gorm:"primary_key;not null"`
+	ID         string      `json:"id,omitempty" gorm:"primary_key;not null"`
 	CreatedAt  time.Time   `json:"createdAt" gorm:"index"`
 	Initiators []Initiator `json:"initiators"`
 	Tasks      []TaskSpec  `json:"tasks"`
@@ -319,7 +319,7 @@ func (t *TaskType) Scan(value interface{}) error {
 // LinkEarned is to track Chainlink earnings of individual
 // job specs from job runs
 type LinkEarned struct {
-	ID        uint64       `json:"id,omitempty" gorm:"primary_key;not null;auto_increment"`
+	ID        uint64       `json:"id" gorm:"primary_key;not null;auto_increment"`
 	JobSpecID string       `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
 	JobRunID  string       `json:"jobRunId"  gorm:"unique;not null;type:varchar(36) REFERENCES job_runs(id)"`
 	Earned    *assets.Link `json:"earned" gorm:"type:varchar(255)"`
