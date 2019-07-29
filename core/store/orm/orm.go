@@ -315,16 +315,17 @@ func (orm *ORM) LinkEarningsFor(jobSpecID string) ([]assets.Link, error) {
 
 // LinkEarnedFor shows the total link earnings for a job
 func (orm *ORM) LinkEarnedFor(jobSpecID string) (*assets.Link, error) {
-	all, err := orm.LinkEarningsFor(jobSpecID)
+	var earned *assets.Link
+	err := orm.DB.Table("link_earned").
+		Where("job_spec_id = ?", jobSpecID).
+		Select("CAST(SUM(CAST(SUBSTR(earned, 1, 10) as BIGINT)) as varchar(255))").
+		Row().
+		Scan(&earned)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	sum := assets.NewLink(0)
-	for _, ear := range all {
-		sum = sum.Add(sum, &ear)
-	}
-	return sum, nil
+	return earned, nil
 }
 
 // CreateExternalInitiator inserts a new external initiator
