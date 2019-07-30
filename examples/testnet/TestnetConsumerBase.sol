@@ -4,7 +4,7 @@ import "../../evm/contracts/ChainlinkClient.sol";
 import "../../node_modules/openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract ATestnetConsumer is ChainlinkClient, Ownable {
-  uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
+  uint256 constant private ORACLE_PAYMENT = 1 * LINK;
 
   uint256 public currentPrice;
   int256 public changeDay;
@@ -25,7 +25,7 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
     bytes32 indexed market
   );
 
-  constructor() Ownable() public {
+  constructor() public Ownable() {
     setPublicChainlinkToken();
   }
 
@@ -105,7 +105,7 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
       return 0x0;
     }
 
-    assembly {
+    assembly { // solhint-disable-line no-inline-assembly
       result := mload(add(source, 32))
     }
   }

@@ -386,7 +386,7 @@ pragma solidity 0.4.24;
  * @dev Uses imported CBOR library for encoding to buffer
  */
 library Chainlink {
-  uint256 internal constant defaultBufferSize = 256;
+  uint256 internal constant defaultBufferSize = 256; // solhint-disable-line const-name-snakecase
 
   using CBOR for Buffer.buffer;
 
@@ -513,30 +513,30 @@ contract ENSResolver {
 
 // File: contracts/interfaces/ENSInterface.sol
 
-pragma solidity ^0.4.18;
+pragma solidity 0.4.24;
 
 interface ENSInterface {
 
-    // Logged when the owner of a node assigns a new owner to a subnode.
-    event NewOwner(bytes32 indexed node, bytes32 indexed label, address owner);
+  // Logged when the owner of a node assigns a new owner to a subnode.
+  event NewOwner(bytes32 indexed node, bytes32 indexed label, address owner);
 
-    // Logged when the owner of a node transfers ownership to a new account.
-    event Transfer(bytes32 indexed node, address owner);
+  // Logged when the owner of a node transfers ownership to a new account.
+  event Transfer(bytes32 indexed node, address owner);
 
-    // Logged when the resolver for a node changes.
-    event NewResolver(bytes32 indexed node, address resolver);
+  // Logged when the resolver for a node changes.
+  event NewResolver(bytes32 indexed node, address resolver);
 
-    // Logged when the TTL of a node changes
-    event NewTTL(bytes32 indexed node, uint64 ttl);
+  // Logged when the TTL of a node changes
+  event NewTTL(bytes32 indexed node, uint64 ttl);
 
 
-    function setSubnodeOwner(bytes32 node, bytes32 label, address owner) external;
-    function setResolver(bytes32 node, address resolver) external;
-    function setOwner(bytes32 node, address owner) external;
-    function setTTL(bytes32 node, uint64 ttl) external;
-    function owner(bytes32 node) external view returns (address);
-    function resolver(bytes32 node) external view returns (address);
-    function ttl(bytes32 node) external view returns (uint64);
+  function setSubnodeOwner(bytes32 node, bytes32 label, address owner) external;
+  function setResolver(bytes32 node, address resolver) external;
+  function setOwner(bytes32 node, address owner) external;
+  function setTTL(bytes32 node, uint64 ttl) external;
+  function owner(bytes32 node) external view returns (address);
+  function resolver(bytes32 node) external view returns (address);
+  function ttl(bytes32 node) external view returns (uint64);
 
 }
 
@@ -885,7 +885,7 @@ contract ChainlinkClient {
   function validateChainlinkCallback(bytes32 _requestId)
     internal
     recordChainlinkFulfillment(_requestId)
-    // solium-disable-next-line no-empty-blocks
+    // solhint-disable-next-line no-empty-blocks
   {}
 
   /**
@@ -984,7 +984,7 @@ pragma solidity 0.4.24;
 
 
 contract ATestnetConsumer is ChainlinkClient, Ownable {
-  uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
+  uint256 constant private ORACLE_PAYMENT = 1 * LINK;
 
   uint256 public currentPrice;
   int256 public changeDay;
@@ -1005,7 +1005,7 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
     bytes32 indexed market
   );
 
-  constructor() Ownable() public {
+  constructor() public Ownable() {
     setPublicChainlinkToken();
   }
 
@@ -1085,7 +1085,7 @@ contract ATestnetConsumer is ChainlinkClient, Ownable {
       return 0x0;
     }
 
-    assembly {
+    assembly { // solhint-disable-line no-inline-assembly
       result := mload(add(source, 32))
     }
   }

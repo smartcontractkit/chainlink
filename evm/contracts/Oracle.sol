@@ -20,7 +20,6 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
   uint256 constant private SELECTOR_LENGTH = 4;
   uint256 constant private EXPECTED_REQUEST_WORDS = 2;
-  // solium-disable-next-line zeppelin/no-arithmetic-operations
   uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
 
   LinkTokenInterface internal LinkToken;
@@ -49,8 +48,8 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
    * @dev Sets the LinkToken address for the imported LinkTokenInterface
    * @param _link The address of the LINK token
    */
-  constructor(address _link) Ownable() public {
-    LinkToken = LinkTokenInterface(_link);
+  constructor(address _link) public Ownable() {
+    LinkToken = LinkTokenInterface(_link); // external but already deployed and unalterable
   }
 
   /**
@@ -71,13 +70,11 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     validRequestLength(_data)
     permittedFunctionsForLINK(_data)
   {
-    assembly {
-      // solium-disable-next-line security/no-low-level-calls
+    assembly { // solhint-disable-line no-inline-assembly
       mstore(add(_data, 36), _sender) // ensure correct sender is passed
-      // solium-disable-next-line security/no-low-level-calls
-      mstore(add(_data, 68), _amount)    // ensure correct amount is passed
+      mstore(add(_data, 68), _amount) // ensure correct amount is passed
     }
-    // solium-disable-next-line security/no-low-level-calls
+    // solhint-disable-next-line avoid-low-level-calls
     require(address(this).delegatecall(_data), "Unable to create request"); // calls oracleRequest
   }
 
@@ -110,6 +107,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
   {
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
     require(commitments[requestId] == 0, "Must use a unique ID");
+    // solhint-disable-next-line not-rely-on-time
     uint256 expiration = now.add(EXPIRY_TIME);
 
     commitments[requestId] = keccak256(
@@ -174,7 +172,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    return _callbackAddress.call(_callbackFunctionId, _requestId, _data); // solium-disable-line security/no-low-level-calls
+    return _callbackAddress.call(_callbackFunctionId, _requestId, _data); // solhint-disable-line avoid-low-level-calls
   }
 
   /**
@@ -243,6 +241,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
         _expiration)
     );
     require(paramsHash == commitments[_requestId], "Params do not match request ID");
+    // solhint-disable-next-line not-rely-on-time
     require(_expiration <= now, "Request is not expired");
 
     delete commitments[_requestId];
@@ -293,8 +292,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
    */
   modifier permittedFunctionsForLINK(bytes _data) {
     bytes4 funcSelector;
-    assembly {
-      // solium-disable-next-line security/no-low-level-calls
+    assembly { // solhint-disable-line no-inline-assembly
       funcSelector := mload(add(_data, 32))
     }
     require(funcSelector == this.oracleRequest.selector, "Must use whitelisted functions");

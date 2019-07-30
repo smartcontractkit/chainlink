@@ -3,8 +3,8 @@ pragma solidity 0.4.24;
 import "chainlink/contracts/Chainlinked.sol";
 
 contract UptimeSLA is Chainlinked {
-  uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
-  uint256 constant uptimeThreshold = 9999;
+  uint256 constant private ORACLE_PAYMENT = 1 * LINK;
+  uint256 constant public uptimeThreshold = 9999; // solhint-disable-line const-name-snakecase
   bytes32 private jobId;
   uint256 private endAt;
   address private client;
@@ -20,7 +20,7 @@ contract UptimeSLA is Chainlinked {
   ) public payable {
     client = _client;
     serviceProvider = _serviceProvider;
-    endAt = block.timestamp.add(30 days);
+    endAt = block.timestamp.add(30 days); // solhint-disable-line not-rely-on-time
     jobId = _jobId;
 
     setLinkToken(_link);
@@ -46,7 +46,7 @@ contract UptimeSLA is Chainlinked {
     uptime = _uptime;
     if (_uptime < uptimeThreshold) {
       client.transfer(address(this).balance);
-    } else if (block.timestamp >= endAt) {
+    } else if (block.timestamp >= endAt) { // solhint-disable-line not-rely-on-time
       serviceProvider.transfer(address(this).balance);
     }
   }
