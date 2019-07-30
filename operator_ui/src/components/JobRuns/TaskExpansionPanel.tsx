@@ -3,12 +3,7 @@ import { createStyles } from '@material-ui/core'
 import { withStyles, WithStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import capitalize from 'lodash/capitalize'
-import {
-  IInitiator,
-  ITaskRuns,
-  ITaskRun,
-  IJobRun
-} from '../../../@types/operator_ui'
+import { ITaskRun, IJobRun } from '../../../@types/operator_ui'
 import StatusItem from './StatusItem'
 
 const fontStyles = () =>
