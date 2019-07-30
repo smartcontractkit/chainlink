@@ -1,9 +1,4 @@
 import reducer from 'connectors/redux/reducers'
-import {
-  UPSERT_JOB_RUNS,
-  UPSERT_RECENT_JOB_RUNS,
-  UPSERT_JOB_RUN
-} from 'connectors/redux/reducers/jobRuns'
 import { RECEIVE_DELETE_SUCCESS } from '../../../src/actions'
 
 describe('connectors/reducers/jobRuns', () => {
@@ -19,7 +14,7 @@ describe('connectors/reducers/jobRuns', () => {
 
   it('UPSERT_JOB_RUNS upserts items along with the current page and count', () => {
     const action = {
-      type: UPSERT_JOB_RUNS,
+      type: 'UPSERT_JOB_RUNS',
       data: {
         runs: {
           a: { id: 'a' },
@@ -47,7 +42,7 @@ describe('connectors/reducers/jobRuns', () => {
 
   it('UPSERT_RECENT_JOB_RUNS upserts items', () => {
     const action = {
-      type: UPSERT_RECENT_JOB_RUNS,
+      type: 'UPSERT_RECENT_JOB_RUNS',
       data: {
         runs: { a: { id: 'a' } },
         meta: {
@@ -64,7 +59,7 @@ describe('connectors/reducers/jobRuns', () => {
 
   it('UPSERT_JOB_RUN upserts items', () => {
     const action = {
-      type: UPSERT_JOB_RUN,
+      type: 'UPSERT_JOB_RUN',
       data: {
         runs: {
           a: { id: 'a' }
@@ -80,7 +75,7 @@ describe('connectors/reducers/jobRuns', () => {
 
   it('RECEIVE_DELETE_SUCCESS deletes jobrun associations', () => {
     const upsertAction = {
-      type: UPSERT_JOB_RUN,
+      type: 'UPSERT_JOB_RUN',
       data: {
         runs: {
           b: { attributes: { jobId: 'b' } }
