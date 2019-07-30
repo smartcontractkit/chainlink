@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -108,19 +107,15 @@ func (ed *EthDialer) Dial(urlString string) (CallerSubscriber, error) {
 // NewStore will create a new database file at the config's RootDir if
 // it is not already present, otherwise it will use the existing db.sqlite3
 // file.
-func NewStore(config orm.Depot) *Store {
-	return NewStoreWithDialer(config, &EthDialer{})
+func NewStore(config orm.Depot, orm *orm.ORM) *Store {
+	return NewStoreWithDialer(config, orm, &EthDialer{})
 }
 
 // NewStoreWithDialer creates a new store with the given config and dialer
-func NewStoreWithDialer(config orm.Depot, dialer Dialer) *Store {
+func NewStoreWithDialer(config orm.Depot, orm *orm.ORM, dialer Dialer) *Store {
 	err := os.MkdirAll(config.RootDir(), os.FileMode(0700))
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
-	}
-	orm, err := initializeORM(config)
-	if err != nil {
-		logger.Fatal(fmt.Sprintf("Unable to initialize ORM: %+v", err))
 	}
 	ethrpc, err := dialer.Dial(config.EthereumURL())
 	if err != nil {
@@ -197,18 +192,6 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 		}
 	}
 	return merr
-}
-
-func initializeORM(c orm.Depot) (*orm.ORM, error) {
-	orm, err := orm.NewORM(orm.NormalizedDatabaseURL(c), c.DatabaseTimeout())
-	if err != nil {
-		return nil, err
-	}
-	if err = migrations.Migrate(orm.DB); err != nil {
-		return nil, err
-	}
-	orm.SetLogging(c.LogSQLStatements())
-	return orm, nil
 }
 
 // RunRequest is the type that the RunChannel uses to package all the necessary

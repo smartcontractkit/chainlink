@@ -46,7 +46,11 @@ type ChainlinkApplication struct {
 // the logger at the same directory and returns the Application to
 // be used by the node.
 func NewApplication(config orm.Depot, onConnectCallbacks ...func(Application)) Application {
-	store := store.NewStore(config)
+	db, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), config.LogSQLStatements())
+	if err != nil {
+	}
+	config = orm.NewRuntimeConfig(config, db)
+	store := store.NewStore(config, db)
 
 	jobSubscriber := NewJobSubscriber(store)
 	pendingConnectionResumer := newPendingConnectionResumer(store)

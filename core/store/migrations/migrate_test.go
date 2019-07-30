@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
@@ -21,28 +22,34 @@ import (
 	gormigrate "gopkg.in/gormigrate.v1"
 )
 
-func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
+func bootstrapORM(t *testing.T) (*gorm.DB, func()) {
 	tc, cleanup := cltest.NewConfig(t)
 	cfg := tc.Depot
 
 	require.NoError(t, os.MkdirAll(cfg.RootDir(), 0700))
 	cltest.WipePostgresDatabase(t, cfg)
 
-	orm, err := orm.NewORM(orm.NormalizedDatabaseURL(cfg), cfg.DatabaseTimeout())
-	require.NoError(t, err)
+	url := orm.NormalizedDatabaseURL(cfg)
+	dialect, err := orm.DeduceDialect(url)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	return orm, func() {
-		assert.NoError(t, orm.Close())
+	db, err := gorm.Open(string(dialect), url)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return db, func() {
+		assert.NoError(t, db.Close())
 		cleanup()
 		os.RemoveAll(cfg.RootDir())
 	}
 }
 
 func TestMigrate_Migrations(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
+	db, cleanup := bootstrapORM(t)
 	defer cleanup()
-
-	db := orm.DB
 
 	require.NoError(t, migration0.Migrate(db))
 	require.NoError(t, migration1559081901.Migrate(db))
@@ -67,10 +74,8 @@ func TestMigrate_Migrations(t *testing.T) {
 }
 
 func TestMigrate_Migration1560791143(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
+	db, cleanup := bootstrapORM(t)
 	defer cleanup()
-
-	db := orm.DB
 
 	require.NoError(t, migration0.Migrate(db))
 
@@ -102,10 +107,8 @@ func TestMigrate_Migration1560791143(t *testing.T) {
 }
 
 func TestMigrate_Migration1560881846(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
+	db, cleanup := bootstrapORM(t)
 	defer cleanup()
-
-	db := orm.DB
 
 	require.NoError(t, migration0.Migrate(db))
 	require.NoError(t, migration1559081901.Migrate(db))
@@ -129,10 +132,8 @@ func TestMigrate_Migration1560881846(t *testing.T) {
 }
 
 func TestMigrate_NewerVersionGuard(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
+	db, cleanup := bootstrapORM(t)
 	defer cleanup()
-
-	db := orm.DB
 
 	// Do full migrations
 	require.NoError(t, migrations.Migrate(db))

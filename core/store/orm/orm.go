@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
@@ -47,7 +48,7 @@ type ORM struct {
 }
 
 // NewORM initializes a new database file at the configured uri.
-func NewORM(uri string, timeout time.Duration) (*ORM, error) {
+func NewORM(uri string, timeout time.Duration, loggingEnabled ...bool) (*ORM, error) {
 	dialect, err := DeduceDialect(uri)
 	if err != nil {
 		return nil, err
@@ -74,6 +75,12 @@ func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 		lockingStrategy: lockingStrategy,
 		dialectName:     dialect,
 	}
+	if err = migrations.Migrate(orm.DB); err != nil {
+		return nil, err
+	}
+	// FIXME: interperet flag
+	//orm.SetLogging(c.LogSQLStatements())
+
 	return orm, nil
 }
 
@@ -167,7 +174,7 @@ func (orm *ORM) Unscoped() *ORM {
 // GetConfigValue returns the value for a named configuration entry
 func (orm *ORM) GetConfigValue(name string) (string, error) {
 	config := models.Configuration{}
-	return config.Value, orm.DB.First(&config, "name = ?").Error
+	return config.Value, orm.DB.First(&config, "name = ?", name).Error
 }
 
 func (orm *ORM) SetConfigValue(name, value string) error {

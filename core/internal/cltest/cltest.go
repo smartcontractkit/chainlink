@@ -357,7 +357,13 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
 	WipePostgresDatabase(config.t, config.Depot)
-	s := strpkg.NewStore(config.Depot)
+
+	db, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), config.LogSQLStatements())
+	if err != nil {
+		config.t.Fatal(err)
+	}
+
+	s := strpkg.NewStore(config.Depot, db)
 	return s, func() {
 		cleanUpStore(config.t, s)
 	}
