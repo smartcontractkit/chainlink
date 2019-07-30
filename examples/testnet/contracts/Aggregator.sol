@@ -386,7 +386,7 @@ pragma solidity 0.4.24;
  * @dev Uses imported CBOR library for encoding to buffer
  */
 library Chainlink {
-  uint256 internal constant defaultBufferSize = 256;
+  uint256 internal constant defaultBufferSize = 256; // solhint-disable-line const-name-snakecase
 
   using CBOR for Buffer.buffer;
 
@@ -513,30 +513,30 @@ contract ENSResolver {
 
 // File: contracts/interfaces/ENSInterface.sol
 
-pragma solidity ^0.4.18;
+pragma solidity 0.4.24;
 
 interface ENSInterface {
 
-    // Logged when the owner of a node assigns a new owner to a subnode.
-    event NewOwner(bytes32 indexed node, bytes32 indexed label, address owner);
+  // Logged when the owner of a node assigns a new owner to a subnode.
+  event NewOwner(bytes32 indexed node, bytes32 indexed label, address owner);
 
-    // Logged when the owner of a node transfers ownership to a new account.
-    event Transfer(bytes32 indexed node, address owner);
+  // Logged when the owner of a node transfers ownership to a new account.
+  event Transfer(bytes32 indexed node, address owner);
 
-    // Logged when the resolver for a node changes.
-    event NewResolver(bytes32 indexed node, address resolver);
+  // Logged when the resolver for a node changes.
+  event NewResolver(bytes32 indexed node, address resolver);
 
-    // Logged when the TTL of a node changes
-    event NewTTL(bytes32 indexed node, uint64 ttl);
+  // Logged when the TTL of a node changes
+  event NewTTL(bytes32 indexed node, uint64 ttl);
 
 
-    function setSubnodeOwner(bytes32 node, bytes32 label, address owner) external;
-    function setResolver(bytes32 node, address resolver) external;
-    function setOwner(bytes32 node, address owner) external;
-    function setTTL(bytes32 node, uint64 ttl) external;
-    function owner(bytes32 node) external view returns (address);
-    function resolver(bytes32 node) external view returns (address);
-    function ttl(bytes32 node) external view returns (uint64);
+  function setSubnodeOwner(bytes32 node, bytes32 label, address owner) external;
+  function setResolver(bytes32 node, address resolver) external;
+  function setOwner(bytes32 node, address owner) external;
+  function setTTL(bytes32 node, uint64 ttl) external;
+  function owner(bytes32 node) external view returns (address);
+  function resolver(bytes32 node) external view returns (address);
+  function ttl(bytes32 node) external view returns (uint64);
 
 }
 
@@ -885,7 +885,7 @@ contract ChainlinkClient {
   function validateChainlinkCallback(bytes32 _requestId)
     internal
     recordChainlinkFulfillment(_requestId)
-    // solium-disable-next-line no-empty-blocks
+    // solhint-disable-next-line no-empty-blocks
   {}
 
   /**
@@ -917,7 +917,7 @@ pragma solidity 0.4.24;
 library SignedSafeMath {
 
   /**
-   * @dev Adds two int256s and makes sure the result doesn't overflow. Signed 
+   * @dev Adds two int256s and makes sure the result doesn't overflow. Signed
    * integers aren't supported by the SafeMath library, thus this method
    * @param _a The first number to be added
    * @param _a The second number to be added
@@ -927,7 +927,6 @@ library SignedSafeMath {
     pure
     returns (int256)
   {
-    // solium-disable-next-line zeppelin/no-arithmetic-operations
     int256 c = _a + _b;
     require((_b >= 0 && c >= _a) || (_b < 0 && c < _a), "SignedSafeMath: addition overflow");
 
@@ -1061,10 +1060,7 @@ contract Aggregator is ChainlinkClient, Ownable {
     uint128 _minimumResponses,
     address[] _oracles,
     bytes32[] _jobIds
-  )
-    public
-    Ownable()
-  {
+  ) public Ownable() {
     setChainlinkToken(_link);
     updateRequestDetails(_paymentAmount, _minimumResponses, _oracles, _jobIds);
   }
@@ -1227,7 +1223,6 @@ contract Aggregator is ChainlinkClient, Ownable {
     if (responseLength % 2 == 0) {
       int256 median1 = quickselect(answers[_answerId].responses, middleIndex);
       int256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
-      // solium-disable-next-line zeppelin/no-arithmetic-operations
       currentAnswer = median1.add(median2) / 2; // signed integers are not supported by SafeMath
     } else {
       currentAnswer = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed

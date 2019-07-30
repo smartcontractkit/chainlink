@@ -1,9 +1,9 @@
-pragma solidity ^0.4.24;
+pragma solidity 0.4.24;
 
 import "../Chainlinked.sol";
 
 contract ServiceAgreementConsumer is Chainlinked {
-  uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
+  uint256 constant private ORACLE_PAYMENT = 1 * LINK;
 
   bytes32 internal sAId;
   bytes32 public currentPrice;

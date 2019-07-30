@@ -5,9 +5,7 @@ import "../Chainlinked.sol";
 
 contract ConcreteChainlinked is Chainlinked {
 
-  constructor(address _link, address _oracle)
-    public
-  {
+  constructor(address _link, address _oracle) public {
     setLinkToken(_link);
     setOracle(_oracle);
   }
@@ -78,7 +76,7 @@ contract ConcreteChainlinked is Chainlinked {
   function fulfillRequest(bytes32 _requestId, bytes32)
     public
     recordChainlinkFulfillment(_requestId)
-  {} // solium-disable-line no-empty-blocks
+  {} // solhint-disable-line no-empty-blocks
 
   function publicFulfillChainlinkRequest(bytes32 _requestId, bytes32) public {
     fulfillChainlinkRequest(_requestId);
