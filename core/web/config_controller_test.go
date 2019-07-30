@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"bytes"
 	"math/big"
 	"testing"
 	"time"
@@ -46,4 +47,29 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, assets.NewLink(100), cwl.MinimumContractPayment)
 	assert.Equal(t, (*common.Address)(nil), cwl.OracleContractAddress)
 	assert.Equal(t, time.Millisecond*500, cwl.DatabaseTimeout)
+}
+
+func TestConfigController_Patch(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	client := app.NewHTTPClient()
+
+	bodyBuffer := bytes.NewBufferString(`{"ethGasPriceDefault": "7201"}`)
+	resp, cleanup := client.Patch("/v2/config", bodyBuffer)
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 200)
+
+	cwl := presenters.ConfigWhitelist{}
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cwl))
+	assert.Equal(t, big.NewInt(7201), cwl.EthGasPriceDefault)
+
+	resp, cleanup = client.Get("/v2/config")
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 200)
+
+	cwl = presenters.ConfigWhitelist{}
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cwl))
+	assert.Equal(t, big.NewInt(7201), cwl.EthGasPriceDefault)
 }

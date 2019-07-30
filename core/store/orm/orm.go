@@ -177,6 +177,7 @@ func (orm *ORM) GetConfigValue(name string) (string, error) {
 	return config.Value, orm.DB.First(&config, "name = ?", name).Error
 }
 
+// SetConfigValue returns the value for a named configuration entry
 func (orm *ORM) SetConfigValue(name, value string) error {
 	config := models.Configuration{Name: name, Value: value}
 	return orm.DB.Save(&config).Error

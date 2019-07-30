@@ -1,8 +1,10 @@
 package orm
 
 import (
+	"log"
 	"math/big"
 	"net/url"
+	"reflect"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -48,4 +50,37 @@ type Schema struct {
 	TLSKeyPath               string         `env:"TLS_KEY_PATH" `
 	TLSPort                  uint16         `env:"CHAINLINK_TLS_PORT" default:"6689"`
 	TxAttemptLimit           uint16         `env:"CHAINLINK_TX_ATTEMPT_LIMIT" default:"10"`
+}
+
+// EnvVarName gets the environment variable name for a configuration entry
+func EnvVarName(field string) string {
+	schemaT := reflect.TypeOf(Schema{})
+	item, ok := schemaT.FieldByName(field)
+	if !ok {
+		log.Panicf("Invariant violated, no field of name %s found on ConfigSchema", field)
+	}
+	return item.Tag.Get("env")
+}
+
+// DefaultValue gets the default value for a configuration entry
+func DefaultValue(name string) (string, bool) {
+	schemaT := reflect.TypeOf(Schema{})
+	if item, ok := schemaT.FieldByName(name); ok {
+		return item.Tag.Lookup("default")
+	}
+	log.Panicf("Invariant violated, no field of name %s found for defaultValue", name)
+	return "", false
+}
+
+// ZeroValue gets the zero value for a configuration entry
+func ZeroValue(name string) interface{} {
+	schemaT := reflect.TypeOf(Schema{})
+	if item, ok := schemaT.FieldByName(name); ok {
+		if item.Type.Kind() == reflect.Ptr {
+			return nil
+		}
+		return reflect.New(item.Type).Interface()
+	}
+	log.Panicf("Invariant violated, no field of name %s found for zeroValue", name)
+	return nil
 }
