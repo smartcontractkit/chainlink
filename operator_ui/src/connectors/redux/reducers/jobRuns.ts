@@ -6,15 +6,11 @@ export interface IState {
   currentJobRunsCount?: number
 }
 
-const initialState = {
+const initialState: IState = {
   items: {},
   currentPage: undefined,
   currentJobRunsCount: undefined
 }
-
-export const UPSERT_JOB_RUNS = 'UPSERT_JOB_RUNS'
-export const UPSERT_RECENT_JOB_RUNS = 'UPSERT_RECENT_JOB_RUNS'
-export const UPSERT_JOB_RUN = 'UPSERT_JOB_RUN'
 
 export type Action =
   | { type: 'UPSERT_JOB_RUNS'; data: any }
