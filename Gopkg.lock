@@ -69,6 +69,14 @@
   revision = "ed77733ec07dfc8a513741138419b8d9d3de9d2d"
 
 [[projects]]
+  branch = "master"
+  digest = "1:86affd7deb226bdc2843225321beb16165c4c7d7b79648456b0f20bfb839f89c"
+  name = "github.com/danielkov/gin-helmet"
+  packages = ["."]
+  pruneopts = ""
+  revision = "1387e224435edcb84dfc4bfc81fe56fc807ca98b"
+
+[[projects]]
   digest = "1:0deddd908b6b4b768cfc272c16ee61e7088a60f7fe2f06c547bd3d8e1f8b8e77"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -1044,6 +1052,7 @@
     "github.com/araddon/dateparse",
     "github.com/asaskevich/govalidator",
     "github.com/bitly/go-simplejson",
+    "github.com/danielkov/gin-helmet",
     "github.com/ethereum/go-ethereum",
     "github.com/ethereum/go-ethereum/accounts",
     "github.com/ethereum/go-ethereum/accounts/abi",
