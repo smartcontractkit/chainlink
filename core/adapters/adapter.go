@@ -40,6 +40,8 @@ var (
 	TaskTypeWasm = models.MustNewTaskType("wasm")
 	// TaskTypeRandom is the identifier for the Random adapter.
 	TaskTypeRandom = models.MustNewTaskType("random")
+	// TaskTypeCondition is the identifier for the Condition adapter.
+	TaskTypeCondition = models.MustNewTaskType("condition")
 )
 
 // BaseAdapter is the minimum interface required to create an adapter. Only core
@@ -118,6 +120,9 @@ func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeRandom:
 		ba = &Random{}
+		err = unmarshalParams(task.Params, ba)
+	case TaskTypeCondition:
+		ba = &Condition{}
 		err = unmarshalParams(task.Params, ba)
 	default:
 		bt, err := store.FindBridge(task.Type)
