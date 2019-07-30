@@ -25,7 +25,7 @@ interface IItemProps extends WithStyles<typeof fontStyles> {
   colATitle: string
   colAValue: string
   colBTitle: string
-  colBValue?: string | null
+  colBValue?: string
 }
 
 const Item = withStyles(fontStyles)(
