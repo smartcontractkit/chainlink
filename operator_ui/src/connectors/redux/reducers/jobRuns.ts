@@ -1,4 +1,3 @@
-import { RECEIVE_DELETE_SUCCESS } from '../../../actions'
 import pickBy from 'lodash/pickBy'
 
 export interface IState {
