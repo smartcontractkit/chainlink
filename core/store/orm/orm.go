@@ -527,6 +527,9 @@ func (orm *ORM) CreateTx(
 
 		return dbtx.Save(tx).Error
 	})
+	if err != nil {
+		return nil, err
+	}
 	return tx, nil
 }
 
