@@ -923,7 +923,7 @@ func (orm *ORM) CreateHead(n *models.Head) error {
 	return orm.DB.Create(n).Error
 }
 
-// LastHead returns the most recently persisted head entry.
+// FirstHead returns the oldest persisted head entry.
 func (orm *ORM) FirstHead() (*models.Head, error) {
 	number := &models.Head{}
 	err := orm.DB.Order("number asc").First(number).Error
