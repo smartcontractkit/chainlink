@@ -6,7 +6,7 @@ contract Consumer is ChainlinkClient {
   bytes32 internal specId;
   bytes32 public currentPrice;
 
-  uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
+  uint256 constant private ORACLE_PAYMENT = 1 * LINK;
 
   event RequestFulfilled(
     bytes32 indexed requestId,  // User-defined ID

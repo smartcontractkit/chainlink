@@ -37,6 +37,14 @@
   revision = "2166578f34481200ec14ddd6b9c4115db36c7b62"
 
 [[projects]]
+  digest = "1:d8a2bb36a048d1571bcc1aee208b61f39dc16c6c53823feffd37449dde162507"
+  name = "github.com/asaskevich/govalidator"
+  packages = ["."]
+  pruneopts = ""
+  revision = "ccb8e960c48f04d6935e72476ae4a51028f9e22f"
+  version = "v9"
+
+[[projects]]
   digest = "1:512883404c2a99156e410e9880e3bb35ecccc0c07c1159eb204b5f3ef3c431b3"
   name = "github.com/bitly/go-simplejson"
   packages = ["."]
@@ -823,7 +831,7 @@
 
 [[projects]]
   branch = "v3-dep"
-  digest = "1:ad628247110682cd1a6cb6113af07a9fda66021eae6edb6eb2143dfaf2a372eb"
+  digest = "1:de281370944e40a475673b885c7646e056d294a9eb4bde4868ec6764d02fc701"
   name = "github.com/ulule/limiter"
   packages = [
     ".",
@@ -832,7 +840,7 @@
     "drivers/store/memory",
   ]
   pruneopts = ""
-  revision = "11a6a1929497b2b0077c81d506747dfa518dfc26"
+  revision = "308abe9609f586df9b0399a284c9415e725ed0a4"
 
 [[projects]]
   branch = "master"
@@ -1034,6 +1042,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/araddon/dateparse",
+    "github.com/asaskevich/govalidator",
     "github.com/bitly/go-simplejson",
     "github.com/ethereum/go-ethereum",
     "github.com/ethereum/go-ethereum/accounts",

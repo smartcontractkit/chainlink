@@ -6,7 +6,7 @@ contract ConcreteChainlink {
   using Chainlink for Chainlink.Request;
   using CBOR for Buffer.buffer;
 
-  Chainlink.Request req;
+  Chainlink.Request private req;
 
   event RequestData(bytes payload);
 
@@ -60,7 +60,7 @@ contract ConcreteChainlink {
     bytes memory bytesString = new bytes(32);
     uint charCount = 0;
     for (uint j = 0; j < 32; j++) {
-      byte char = byte(bytes32(uint(x) * 2 ** (8 * j))); //solium-disable-line
+      byte char = byte(bytes32(uint(x) * 2 ** (8 * j)));
       if (char != 0) {
         bytesString[charCount] = char;
         charCount++;

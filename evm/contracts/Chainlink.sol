@@ -7,7 +7,7 @@ import "solidity-cborutils/contracts/CBOR.sol";
  * @dev Uses imported CBOR library for encoding to buffer
  */
 library Chainlink {
-  uint256 internal constant defaultBufferSize = 256;
+  uint256 internal constant defaultBufferSize = 256; // solhint-disable-line const-name-snakecase
 
   using CBOR for Buffer.buffer;
 

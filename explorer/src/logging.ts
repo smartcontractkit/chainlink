@@ -35,7 +35,10 @@ export const addRequestLogging = (app: express.Express) => {
 }
 
 const transports = {
-  console: new winston.transports.Console({ level: 'info' })
+  console: new winston.transports.Console({
+    level: 'info',
+    silent: process.env.NODE_ENV === 'test'
+  })
 }
 
 export const logger = winston.createLogger({
