@@ -4,7 +4,7 @@ import authentication from './authentication'
 import bridges, { IState as IBridgesState } from './bridges'
 import configuration, { IState as IConfigurationState } from './configuration'
 import fetching from './fetching'
-import jobRuns from './jobRuns'
+import jobRuns, { IState as IJobRunsState } from './jobRuns'
 import jobs from './jobs'
 import transactions from './transactions'
 import notifications from './notifications'
@@ -16,6 +16,7 @@ export interface IState {
   bridges: IBridgesState
   configuration: IConfigurationState
   dashboardIndex: IDashboardState
+  jobRuns: IJobRunsState
 }
 
 const reducer = combineReducers({

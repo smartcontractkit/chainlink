@@ -2,12 +2,12 @@ import * as dbTypes from '../db'
 import { status, adapterTypes } from '../constants'
 
 interface RunResult {
-    data: { result: string | null }
-    error: boolean | null
-    jobRunId: string
-    taskRunId: string
-    status: status
-    amount?: number
+  data: { result: string | null }
+  error: boolean | null
+  jobRunId: string
+  taskRunId: string
+  status: status
+  amount?: number
 }
 
 export interface IBridgeType
@@ -56,6 +56,7 @@ export interface ITaskRun
   updatedAt: Date
   type: adapterTypes
   minimumConfirmations: number
+  status: string
 }
 export interface ITaskSpec {
   id: number

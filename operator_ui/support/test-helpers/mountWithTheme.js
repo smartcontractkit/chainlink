@@ -7,7 +7,7 @@ import {
   createMuiTheme,
   createGenerateClassName
 } from '@material-ui/core/styles'
-import theme from '@chainlink/styleguide/theme'
+import theme from '@chainlink/styleguide/src/theme'
 import StoreAndMemoryRouter from './StoreAndMemoryRouter'
 
 const sheetsRegistry = new SheetsRegistry()

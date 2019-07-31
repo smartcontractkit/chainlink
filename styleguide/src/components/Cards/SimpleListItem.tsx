@@ -1,9 +1,14 @@
 import React from 'react'
-import { withStyles } from '@material-ui/core/styles'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 
-const styles = theme => ({
+const styles = (theme: Theme) => createStyles({
   cell: {
     borderColor: theme.palette.divider,
     borderTop: `1px solid`,
@@ -14,7 +19,11 @@ const styles = theme => ({
   }
 })
 
-const SimpleListItem = ({ children, classes }) => {
+interface IProps extends WithStyles<typeof styles> {
+  children: React.ReactNode
+}
+
+const SimpleListItem = ({ children, classes }: IProps) => {
   return (
     <TableRow>
       <TableCell scope="row" className={classes.cell}>

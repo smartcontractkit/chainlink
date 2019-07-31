@@ -28,6 +28,10 @@
     "@chainlink/styleguide": "0.0.0",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^3.0.1",
+    "@types/classnames": "^2.2.8",
+    "@types/lodash": "^4.14.135",
+    "@types/react-resize-detector": "^4.0.1",
+    "@types/react-router-dom": "^4.3.4",
     "@types/node": "^11.9.5",
     "@types/react": "^16.7.0",
     "@types/react-dom": "^16.7.0",
@@ -64,7 +68,7 @@
     "react-redux": "~6.0.0",
     "react-resize-detector": "^3.4.0",
     "react-router-dom": "^4.3.1",
-    "react-static": "^6.3.6",
+    "react-static": "^6.3.8",
     "react-static-plugin-jss": "^6.3.0",
     "react-static-plugin-react-router": "^6.3.4",
     "react-static-plugin-typescript": "^3.1.1",
@@ -78,6 +82,8 @@
     "serve": "^10.0.0",
     "url": "^0.11.0",
     "use-react-hooks": "^1.0.7",
-    "uuid": "^3.3.2"
-  }
+    "uuid": "^3.3.2",
+    "typescript": "^3.5.0"
+  },
+  "devDependencies": {}
 }

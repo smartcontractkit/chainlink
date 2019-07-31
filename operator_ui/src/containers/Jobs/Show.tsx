@@ -3,11 +3,12 @@ import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
 import { useHooks, useEffect } from 'use-react-hooks'
-import KeyValueList from '@chainlink/styleguide/components/KeyValueList'
-import CardTitle from '@chainlink/styleguide/components/Cards/Title'
+import KeyValueList from '@chainlink/styleguide/src/components/KeyValueList'
+import CardTitle from '@chainlink/styleguide/src/components/Cards/Title'
 import JobRunsList from '../../components/JobRuns/List'
 import Content from '../../components/Content'
 import RegionalNav from './RegionalNav'
+import { JobSpecRunsOpts } from '../../api'
 import { fetchJob, fetchJobRuns } from '../../actions'
 import jobSelector from '../../selectors/job'
 import jobRunsByJobIdSelector from '../../selectors/jobRunsByJobId'
@@ -16,6 +17,7 @@ import { formatInitiators } from '../../utils/jobSpecInitiators'
 import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatchToProps'
 import TaskList from '../../components/Jobs/TaskList'
 import { IJobSpec, IJobRuns } from '../../../@types/operator_ui'
+import { IState } from '../../connectors/redux/reducers'
 
 const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
   const info = {
@@ -35,15 +37,23 @@ const renderTaskRuns = (job: IJobSpec) => (
   </Card>
 )
 
-const renderLatestRuns = (
-  job: IJobSpec,
-  recentRuns: IJobRuns,
-  recentRunsCount: number,
+interface IRecentJobRunsProps {
+  job: IJobSpec
+  recentRuns: IJobRuns
+  recentRunsCount: number
   showJobRunsCount: number
-) => (
-  <React.Fragment>
+}
+
+const RecentJobRuns = ({
+  job,
+  recentRuns,
+  recentRunsCount,
+  showJobRunsCount
+}: IRecentJobRunsProps) => {
+  return (
     <Card>
       <CardTitle divider>Recent Job Runs</CardTitle>
+
       <JobRunsList
         jobSpecId={job.id}
         runs={recentRuns}
@@ -51,8 +61,8 @@ const renderLatestRuns = (
         showJobRunsCount={showJobRunsCount}
       />
     </Card>
-  </React.Fragment>
-)
+  )
+}
 
 interface IDetailsProps {
   recentRuns: IJobRuns
@@ -71,7 +81,12 @@ const Details = ({
     return (
       <Grid container spacing={24}>
         <Grid item xs={8}>
-          {renderLatestRuns(job, recentRuns, recentRunsCount, showJobRunsCount)}
+          <RecentJobRuns
+            job={job}
+            recentRuns={recentRuns}
+            recentRunsCount={recentRunsCount}
+            showJobRunsCount={showJobRunsCount}
+          />
         </Grid>
         <Grid item xs={4}>
           <Grid container direction="column">
@@ -92,16 +107,8 @@ interface IProps {
   recentRuns: IJobRuns
   recentRunsCount: number
   showJobRunsCount: number
-  fetchJob: (string) => Promise<any>
-  fetchJobRuns: ({
-    jobSpecId,
-    page,
-    size
-  }: {
-    jobSpecId: string
-    page: number
-    size: number
-  }) => Promise<any>
+  fetchJob: (id: string) => Promise<any>
+  fetchJobRuns: (opts: JobSpecRunsOpts) => Promise<any>
 }
 
 const DEFAULT_PAGE = 1
@@ -128,7 +135,8 @@ export const Show = useHooks(
     }, [])
     return (
       <div>
-        <RegionalNav jobSpecId={jobSpecId} job={job} />
+        {/* TODO: Regional nav should handle job = undefined */}
+        {job && <RegionalNav jobSpecId={jobSpecId} job={job} />}
         <Content>
           <Details
             job={job}
@@ -142,7 +150,16 @@ export const Show = useHooks(
   }
 )
 
-const mapStateToProps = (state, ownProps) => {
+interface Match {
+  params: {
+    jobSpecId: string
+  }
+}
+
+const mapStateToProps = (
+  state: IState,
+  ownProps: { match: Match; showJobRunsCount: number }
+) => {
   const jobSpecId = ownProps.match.params.jobSpecId
   const job = jobSelector(state, jobSpecId)
   const recentRuns = jobRunsByJobIdSelector(
