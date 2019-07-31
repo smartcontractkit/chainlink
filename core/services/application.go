@@ -48,6 +48,8 @@ type ChainlinkApplication struct {
 func NewApplication(config orm.Depot, onConnectCallbacks ...func(Application)) Application {
 	db, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), config.LogSQLStatements())
 	if err != nil {
+		// FIXME: error ?
+		logger.Fatal(err)
 	}
 	config = orm.NewRuntimeConfig(config, db)
 	store := store.NewStore(config, db)

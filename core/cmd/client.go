@@ -34,7 +34,7 @@ var (
 // Client is the shell for the node, local commands and remote commands.
 type Client struct {
 	Renderer
-	Config                         orm.Depot
+	Config                         orm.BootstrapConfig
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          KeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -142,14 +142,14 @@ type HTTPClient interface {
 }
 
 type authenticatedHTTPClient struct {
-	config     orm.Depot
+	config     orm.BootstrapConfig
 	client     *http.Client
 	cookieAuth CookieAuthenticator
 }
 
 // NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
 // which is then used for all subsequent HTTP API requests.
-func NewAuthenticatedHTTPClient(cfg orm.Depot, cookieAuth CookieAuthenticator) HTTPClient {
+func NewAuthenticatedHTTPClient(cfg orm.BootstrapConfig, cookieAuth CookieAuthenticator) HTTPClient {
 	return &authenticatedHTTPClient{
 		config:     cfg,
 		client:     &http.Client{},

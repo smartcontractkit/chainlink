@@ -92,7 +92,7 @@ func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig 
 
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
-	rawConfig := orm.NewMock()
+	rawConfig := orm.NewTestConfig()
 	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
 	rawConfig.Set("ETH_CHAIN_ID", 3)
 	rawConfig.Set("CHAINLINK_DEV", true)

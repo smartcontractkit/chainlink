@@ -21,8 +21,8 @@ import (
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	config := updateConfig(cli.Config, c.Bool("debug"))
-	logger.SetLogger(config.CreateProductionLogger())
+	//config := updateConfig(cli.Config, c.Bool("debug"))
+	logger.SetLogger(orm.CreateProductionLogger(cli.Config))
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 
 	err := InitEnclave()
@@ -30,7 +30,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error initializing SGX enclave: %+v", err))
 	}
 
-	app := cli.AppFactory.NewApplication(config, func(app services.Application) {
+	app := cli.AppFactory.NewApplication(cli.Config, func(app services.Application) {
 		store := app.GetStore()
 		logNodeBalance(store)
 		logIfNonceOutOfSync(store)
@@ -141,7 +141,7 @@ func logConfigVariables(store *strpkg.Store) error {
 
 // DeleteUser is run locally to remove the User row from the node's database.
 func (cli *Client) DeleteUser(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
+	logger.SetLogger(orm.CreateProductionLogger(cli.Config))
 	app := cli.AppFactory.NewApplication(cli.Config)
 	defer app.Stop()
 	store := app.GetStore()
@@ -154,7 +154,7 @@ func (cli *Client) DeleteUser(c *clipkg.Context) error {
 
 // ImportKey imports a key to be used with the chainlink node
 func (cli *Client) ImportKey(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
+	logger.SetLogger(orm.CreateProductionLogger(cli.Config))
 	app := cli.AppFactory.NewApplication(cli.Config)
 	defer app.Stop()
 

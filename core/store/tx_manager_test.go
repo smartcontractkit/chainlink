@@ -776,7 +776,7 @@ func TestTxManager_Register(t *testing.T) {
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
 		&strpkg.EthClient{CallerSubscriber: ethMock},
-		orm.NewConfig(),
+		orm.NewTestConfig(),
 		nil,
 		nil,
 	)
@@ -798,7 +798,7 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
 		&strpkg.EthClient{CallerSubscriber: ethMock},
-		orm.NewConfig(),
+		orm.NewTestConfig(),
 		nil,
 		nil,
 	)
@@ -833,7 +833,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
 		&strpkg.EthClient{CallerSubscriber: ethMock},
-		orm.NewConfig(),
+		orm.NewTestConfig(),
 		nil,
 		nil,
 	)

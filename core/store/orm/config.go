@@ -26,6 +26,23 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// BootstrapConfig is the minimal configuration interface needed to start up the application
+type BootstrapConfig interface {
+	AllowOrigins() string
+	ClientNodeURL() string
+	Dev() bool
+	JSONConsole() bool
+	KeysDir() string
+	LogLevel() LogLevel
+	LogToDisk() bool
+	Port() uint16
+	RootDir() string
+	TLSPort() uint16
+	DatabaseURL() string
+	DatabaseTimeout() time.Duration
+	LogSQLStatements() bool
+}
+
 // Depot is a placeholder name for the interface used to represent all the available config methods
 type Depot interface {
 	AllowOrigins() string
@@ -33,7 +50,6 @@ type Depot interface {
 	CertFile() string
 	ChainID() uint64
 	ClientNodeURL() string
-	CreateProductionLogger() *zap.Logger
 	DatabaseTimeout() time.Duration
 	DatabaseURL() string
 	DefaultHTTPLimit() int64
@@ -372,7 +388,7 @@ func (c Config) CertFile() string {
 // CreateProductionLogger returns a custom logger for the config's root
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
-func (c Config) CreateProductionLogger() *zap.Logger {
+func CreateProductionLogger(c BootstrapConfig) *zap.Logger {
 	return logger.CreateProductionLogger(
 		c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
 }

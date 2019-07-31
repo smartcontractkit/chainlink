@@ -14,7 +14,7 @@ import (
 )
 
 func leanStore() *store.Store {
-	return &store.Store{Config: orm.NewConfig()}
+	return &store.Store{Config: orm.NewTestConfig()}
 }
 
 func TestHttpAdapters_NotAUrlError(t *testing.T) {
@@ -99,7 +99,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 }
 
 func TestHTTP_TooLarge(t *testing.T) {
-	cfg := orm.NewConfig()
+	cfg := orm.NewTestConfig()
 	cfg.Set("DEFAULT_HTTP_LIMIT", "1")
 	store := &store.Store{Config: cfg}
 
