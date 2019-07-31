@@ -301,9 +301,11 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
 	}
 
+	ping := PingController{app}
 	tokAuthv2 := r.Group("/v2", tokenAuthRequired(app.GetStore()))
 	tokAuthv2.POST("/specs/:SpecID/runs", jr.Create)
 	tokAuthv2.POST("/specs", j.Create)
+	tokAuthv2.GET("/ping", ping.Show)
 }
 
 func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
