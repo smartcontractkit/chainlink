@@ -1,10 +1,11 @@
 import build from 'redux-object'
 import { IJobRun } from '../../@types/operator_ui'
+import { IState } from '../connectors/redux/reducers'
 
-export default (state: {jobRuns: IJobRun}, jobId: string, take: number) => {
+export default (state: IState, jobId: string, take: number) => {
   return build(state.jobRuns, 'items')
-    .filter(r => r.jobId === jobId)
-    .sort((a, b) => {
+    .filter((r: IJobRun) => r.jobId === jobId)
+    .sort((a: IJobRun, b: IJobRun) => {
       const dateA = new Date(a.createdAt)
       const dateB = new Date(b.createdAt)
 

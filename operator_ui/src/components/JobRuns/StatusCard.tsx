@@ -7,14 +7,14 @@ import {
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
-import PaddedCard from '@chainlink/styleguide/components/PaddedCard'
+import PaddedCard from '@chainlink/styleguide/src/components/PaddedCard'
 import { titleCase } from 'change-case'
 import StatusIcon from '../JobRuns/StatusIcon'
 import { Grid } from '@material-ui/core'
 import { IJobRun } from '../../../@types/operator_ui'
 import ElapsedTime from '../ElapsedTime'
 
-const styles = (theme: Theme) =>
+const styles = (theme: any) =>
   createStyles({
     completed: {
       backgroundColor: theme.palette.success.light
@@ -85,9 +85,7 @@ const StatusCard = ({ title, classes, children, jobRun }: IProps) => {
   return (
     <PaddedCard className={classNames(classes.statusCard, statusClass)}>
       <div className={classes.head}>
-        <StatusIcon className={classes.statusIcon}  width={80} >
-          {title}
-        </StatusIcon>
+        <StatusIcon width={80}>{title}</StatusIcon>
         <Grid container alignItems="center" className={classes.statusRoot}>
           <Grid item xs={9}>
             <Typography className={classes.statusText} variant="h5">

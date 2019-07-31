@@ -5,9 +5,9 @@ import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
-import SimpleListCard from '@chainlink/styleguide/components/Cards/SimpleList'
-import SimpleListCardItem from '@chainlink/styleguide/components/Cards/SimpleListItem'
-import TimeAgo from '@chainlink/styleguide/components/TimeAgo'
+import SimpleListCard from '@chainlink/styleguide/src/components/Cards/SimpleList'
+import SimpleListCardItem from '@chainlink/styleguide/src/components/Cards/SimpleListItem'
+import TimeAgo from '@chainlink/styleguide/src/components/TimeAgo'
 import Link from 'components/Link'
 
 const styles = () => ({

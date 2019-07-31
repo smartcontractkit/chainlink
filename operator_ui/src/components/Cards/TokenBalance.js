@@ -3,8 +3,8 @@ import PropTypes from 'prop-types'
 import numeral from 'numeral'
 import { BigNumber } from 'bignumber.js'
 import Typography from '@material-ui/core/Typography'
-import PaddedCard from '@chainlink/styleguide/components/PaddedCard'
-import Tooltip from '@chainlink/styleguide/components/Tooltip'
+import PaddedCard from '@chainlink/styleguide/src/components/PaddedCard'
+import Tooltip from '@chainlink/styleguide/src/components/Tooltip'
 
 const WEI_PER_TOKEN = new BigNumber(10 ** 18)
 
