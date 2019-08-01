@@ -4,7 +4,8 @@
   "version": "0.6.0",
   "license": "MIT",
   "scripts": {
-    "test": "truffle test"
+    "test": "truffle test",
+    "lint": "echo \"No linter configured for examples/twilio_sms\" && exit 0"
   },
   "devDependencies": {
     "body-parser": "^1.18.3",
