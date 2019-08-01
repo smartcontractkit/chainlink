@@ -77,6 +77,6 @@
     "redux-logger": "^3.0.6",
     "redux-object": "^0.5.9",
     "redux-thunk": "^2.3.0",
-    "typescript": "^3.4.1"
+    "typescript": "^3.5.0"
   }
 }
