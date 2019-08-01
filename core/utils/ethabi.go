@@ -3,10 +3,11 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
+
+	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/tidwall/gjson"
@@ -41,13 +42,13 @@ func EVMTranscodeBytes(value gjson.Result) ([]byte, error) {
 		return EVMEncodeBytes(EVMWordUint64(1)), nil
 
 	case gjson.Number:
-		word, err := EVMWordSignedBigInt(big.NewInt(int64(value.Num)))
+		v := big.NewFloat(value.Num)
+		vInt, _ := v.Int(nil)
+		word, err := EVMWordSignedBigInt(vInt)
 		if err != nil {
-			return []byte{}, nil
+			return nil, errors.Wrap(err, "while converting float to int256")
 		}
-
 		return EVMEncodeBytes(word), nil
-
 	default:
 		return []byte{}, fmt.Errorf("unsupported encoding for value: %s", value.Type)
 	}
