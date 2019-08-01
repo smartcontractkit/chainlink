@@ -16,13 +16,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	clipkg "github.com/urfave/cli"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	//config := updateConfig(cli.Config, c.Bool("debug"))
-	logger.SetLogger(orm.CreateProductionLogger(cli.Config))
+	config := updateConfig(cli.Config, c.Bool("debug"))
+	logger.SetLogger(createProductionLogger(cli.Config))
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 
 	err := InitEnclave()
@@ -104,7 +105,7 @@ func localNonceIsNotCurrent(lastNonce, nonce uint64) bool {
 	return false
 }
 
-func updateConfig(config orm.Depot, debug bool) orm.Depot {
+func updateConfig(config orm.ConfigStore, debug bool) orm.ConfigStore {
 	if debug {
 		config.Set("LOG_LEVEL", zapcore.DebugLevel.String())
 	}
@@ -141,7 +142,7 @@ func logConfigVariables(store *strpkg.Store) error {
 
 // DeleteUser is run locally to remove the User row from the node's database.
 func (cli *Client) DeleteUser(c *clipkg.Context) error {
-	logger.SetLogger(orm.CreateProductionLogger(cli.Config))
+	logger.SetLogger(createProductionLogger(cli.Config))
 	app := cli.AppFactory.NewApplication(cli.Config)
 	defer app.Stop()
 	store := app.GetStore()
@@ -154,7 +155,7 @@ func (cli *Client) DeleteUser(c *clipkg.Context) error {
 
 // ImportKey imports a key to be used with the chainlink node
 func (cli *Client) ImportKey(c *clipkg.Context) error {
-	logger.SetLogger(orm.CreateProductionLogger(cli.Config))
+	logger.SetLogger(createProductionLogger(cli.Config))
 	app := cli.AppFactory.NewApplication(cli.Config)
 	defer app.Stop()
 
@@ -201,4 +202,9 @@ func copyFile(src, dst string) error {
 	_, err = io.Copy(to, from)
 
 	return err
+}
+
+func createProductionLogger(c BootstrapConfig) *zap.Logger {
+	return logger.CreateProductionLogger(
+		c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
 }

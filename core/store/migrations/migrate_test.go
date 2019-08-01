@@ -29,7 +29,7 @@ func bootstrapORM(t *testing.T) (*gorm.DB, func()) {
 	require.NoError(t, os.MkdirAll(cfg.RootDir(), 0700))
 	cltest.WipePostgresDatabase(t, cfg)
 
-	url := orm.NormalizedDatabaseURL(cfg)
+	url := cfg.DatabaseURL()
 	dialect, err := orm.DeduceDialect(url)
 	if err != nil {
 		t.Fatal(err)

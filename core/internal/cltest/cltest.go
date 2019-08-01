@@ -74,7 +74,7 @@ func init() {
 // TestConfig struct with test store and wsServer
 type TestConfig struct {
 	t testing.TB
-	orm.Depot
+	orm.RuntimeConfig
 	wsServer *httptest.Server
 }
 
@@ -122,7 +122,7 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 type TestApplication struct {
 	t testing.TB
 	*services.ChainlinkApplication
-	orm.Depot
+	orm.RuntimeConfig
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
@@ -393,11 +393,12 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 	require.NoError(t, store.Close())
 }
 
-func WipePostgresDatabase(t testing.TB, c orm.Depot) {
+func WipePostgresDatabase(t testing.TB, c orm.RuntimeConfig) {
 	t.Helper()
 
-	if strings.HasPrefix(strings.ToLower(orm.NormalizedDatabaseURL(c)), string(orm.DialectPostgres)) {
-		db, err := gorm.Open(string(orm.DialectPostgres), orm.NormalizedDatabaseURL(c))
+	databaseURL := c.DatabaseURL()
+	if strings.HasPrefix(strings.ToLower(databaseURL, string(orm.DialectPostgres))) {
+		db, err := gorm.Open(string(orm.DialectPostgres), databaseURL)
 		if err != nil {
 			t.Fatalf("unable to open postgres database for wiping: %+v", err)
 			return

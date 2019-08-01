@@ -2,13 +2,14 @@ package orm
 
 // TestConfig is a configuration store used for testing
 type TestConfig struct {
-	Config
+	*Config
 }
 
 // NewTestConfig returns a new TestConfig
 func NewTestConfig() *TestConfig {
+	store := NewBootstrapConfigStore()
 	return &TestConfig{
-		Config: NewConfig(),
+		Config: NewConfig(store),
 	}
 }
 

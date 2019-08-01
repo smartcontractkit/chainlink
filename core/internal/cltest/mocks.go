@@ -468,7 +468,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config orm.Depot, onConnectCallbacks ...func(services.Application)) services.Application {
+func (f InstanceAppFactory) NewApplication(config orm.ConfigStore, onConnectCallbacks ...func(services.Application)) services.Application {
 	return f.App
 }
 
@@ -476,7 +476,7 @@ type seededAppFactory struct {
 	Application services.Application
 }
 
-func (s seededAppFactory) NewApplication(config orm.Depot, onConnectCallbacks ...func(services.Application)) services.Application {
+func (s seededAppFactory) NewApplication(config orm.ConfigStore, onConnectCallbacks ...func(services.Application)) services.Application {
 	return noopStopApplication{s.Application}
 }
 
@@ -684,7 +684,7 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 	return user, store.SaveUser(&user)
 }
 
-func NewMockAuthenticatedHTTPClient(cfg orm.Depot) cmd.HTTPClient {
+func NewMockAuthenticatedHTTPClient(cfg orm.ConfigStore) cmd.HTTPClient {
 	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{})
 }
 

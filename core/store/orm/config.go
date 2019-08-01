@@ -1,50 +1,24 @@
 package orm
 
 import (
+	"encoding"
 	"encoding/base64"
-	"fmt"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"net/url"
-	"os"
 	"path/filepath"
-	"reflect"
-	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/contrib/sessions"
-	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
-	homedir "github.com/mitchellh/go-homedir"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/spf13/viper"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
-// BootstrapConfig is the minimal configuration interface needed to start up the application
-type BootstrapConfig interface {
-	AllowOrigins() string
-	ClientNodeURL() string
-	Dev() bool
-	JSONConsole() bool
-	KeysDir() string
-	LogLevel() LogLevel
-	LogToDisk() bool
-	Port() uint16
-	RootDir() string
-	TLSPort() uint16
-	DatabaseURL() string
-	DatabaseTimeout() time.Duration
-	LogSQLStatements() bool
-}
-
-// Depot is a placeholder name for the interface used to represent all the available config methods
-type Depot interface {
+// Configger is the interface which represents all values that can be enquired from a config store
+type Configger interface {
 	AllowOrigins() string
 	BridgeResponseURL() *url.URL
 	CertFile() string
@@ -54,10 +28,10 @@ type Depot interface {
 	DatabaseURL() string
 	DefaultHTTPLimit() int64
 	Dev() bool
-	EthereumURL() string
 	EthGasBumpThreshold() uint64
 	EthGasBumpWei() *big.Int
 	EthGasPriceDefault() *big.Int
+	EthereumURL() string
 	ExplorerAccessKey() string
 	ExplorerSecret() string
 	ExplorerURL() *url.URL
@@ -69,11 +43,11 @@ type Depot interface {
 	LogSQLStatements() bool
 	LogToDisk() bool
 	MaximumServiceDuration() time.Duration
+	MinIncomingConfirmations() uint32
+	MinOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
 	MinimumRequestExpiration() uint64
 	MinimumServiceDuration() time.Duration
-	MinIncomingConfirmations() uint32
-	MinOutgoingConfirmations() uint64
 	OracleContractAddress() *common.Address
 	Port() uint16
 	ReaperExpiration() time.Duration
@@ -87,282 +61,228 @@ type Depot interface {
 	TLSKeyPath() string
 	TLSPort() uint16
 	TxAttemptLimit() uint16
-
-	Set(name string, value interface{})
 }
 
+// ConfigStore simply represents a store of configuration key value pairs, it
+// carries around the "state" of a configuration but is not meant to be used
+// directly
+type ConfigStore interface {
+	Get(name string, value encoding.TextUnmarshaler) error
+	Set(name string, value encoding.TextMarshaler)
+}
+
+// Config represents the implementation of Configger
 type Config struct {
-	viper           *viper.Viper
-	SecretGenerator SecretGenerator
+	store ConfigStore
 }
 
-var configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
-
-// NewConfig returns the config with the environment variables set to their
-// respective fields, or their defaults if environment variables are not set.
-func NewConfig() Config {
-	v := viper.New()
-	return newConfigWithViper(v)
-}
-
-func newConfigWithViper(v *viper.Viper) Config {
-	schemaT := reflect.TypeOf(Schema{})
-	for index := 0; index < schemaT.NumField(); index++ {
-		item := schemaT.FieldByIndex([]int{index})
-		name := item.Tag.Get("env")
-		v.SetDefault(name, item.Tag.Get("default"))
-		v.BindEnv(name, name)
-	}
-
-	config := Config{
-		viper:           v,
-		SecretGenerator: filePersistedSecretGenerator{},
-	}
-
-	if err := os.MkdirAll(config.RootDir(), os.FileMode(0700)); err != nil {
-		logger.Fatalf(`Error creating root directory "%s": %+v`, config.RootDir(), err)
-	}
-
-	v.SetConfigName("chainlink")
-	v.AddConfigPath(config.RootDir())
-	err := v.ReadInConfig()
-	if err != nil && reflect.TypeOf(err) != configFileNotFoundError {
-		logger.Warnf("Unable to load config file: %v\n", err)
-	}
-
-	return config
-}
-
-// Set a specific configuration variable
-func (c Config) Set(name string, value interface{}) {
-	schemaT := reflect.TypeOf(Schema{})
-	for index := 0; index < schemaT.NumField(); index++ {
-		item := schemaT.FieldByIndex([]int{index})
-		envName := item.Tag.Get("env")
-		if envName == name {
-			c.viper.Set(name, value)
-			return
-		}
-	}
-	logger.Panicf("No configuration parameter for %s", name)
-}
-
-// AllowOrigins returns the CORS hosts used by the frontend.
-func (c Config) AllowOrigins() string {
-	return c.viper.GetString(EnvVarName("AllowOrigins"))
+// NewConfig returns a Config instance
+func NewConfig(store ConfigStore) *Config {
+	return &Config{store: store}
 }
 
 // BridgeResponseURL represents the URL for bridges to send a response to.
 func (c Config) BridgeResponseURL() *url.URL {
-	return c.getWithFallback("BridgeResponseURL", parseURL).(*url.URL)
+	var value urlUnmarshaler
+	c.store.Get(EnvVarName("BridgeResponseURL"), &value)
+	return (*url.URL)(&value)
 }
 
 // ChainID represents the chain ID to use for transactions.
 func (c Config) ChainID() uint64 {
-	return c.viper.GetUint64(EnvVarName("ChainID"))
-}
-
-// ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
-func (c Config) ClientNodeURL() string {
-	return c.viper.GetString(EnvVarName("ClientNodeURL"))
-}
-
-// DatabaseTimeout represents how long to tolerate non response from the DB.
-func (c Config) DatabaseTimeout() time.Duration {
-	return c.viper.GetDuration(EnvVarName("DatabaseTimeout"))
-}
-
-// DatabaseURL configures the URL for chainlink to connect to. This must be
-// a properly formatted URL, with a valid scheme (postgres://, file://), or
-// an empty string, so the application defaults to .chainlink/db.sqlite.
-func (c Config) DatabaseURL() string {
-	return c.viper.GetString(EnvVarName("DatabaseURL"))
+	var value uint64Unmarshaler
+	c.store.Get(EnvVarName("ChainID"), &value)
+	return uint64(value)
 }
 
 // DefaultHTTPLimit defines the limit for HTTP requests.
 func (c Config) DefaultHTTPLimit() int64 {
-	return c.viper.GetInt64(EnvVarName("DefaultHTTPLimit"))
-}
-
-// Dev configures "development" mode for chainlink.
-func (c Config) Dev() bool {
-	return c.viper.GetBool(EnvVarName("Dev"))
+	var value uint64Unmarshaler
+	c.store.Get(EnvVarName("DefaultHTTPLimit"), &value)
+	return int64(value)
 }
 
 // MaximumServiceDuration is the maximum time that a service agreement can run
 // from after the time it is created. Default 1 year = 365 * 24h = 8760h
 func (c Config) MaximumServiceDuration() time.Duration {
-	return c.viper.GetDuration(EnvVarName("MaximumServiceDuration"))
+	var value durationUnmarshaler
+	c.store.Get(EnvVarName("MaximumServiceDuration"), &value)
+	return time.Duration(value)
 }
 
 // MinimumServiceDuration is the shortest duration from now that a service is
 // allowed to run.
 func (c Config) MinimumServiceDuration() time.Duration {
-	return c.viper.GetDuration(EnvVarName("MinimumServiceDuration"))
+	var value durationUnmarshaler
+	c.store.Get(EnvVarName("MinimumServiceDuration"), &value)
+	return time.Duration(value)
 }
 
 // EthGasBumpThreshold represents the maximum amount a transaction's ETH amount
 // should be increased in order to facilitate a transaction.
 func (c Config) EthGasBumpThreshold() uint64 {
-	return c.viper.GetUint64(EnvVarName("EthGasBumpThreshold"))
+	var value uint64Unmarshaler
+	c.store.Get(EnvVarName("EthGasBumpThreshold"), &value)
+	return uint64(value)
 }
 
 // EthGasBumpWei represents the intervals in which ETH should be increased when
 // doing gas bumping.
 func (c Config) EthGasBumpWei() *big.Int {
-	return c.getWithFallback("EthGasBumpWei", parseBigInt).(*big.Int)
+	var value models.Big
+	c.store.Get(EnvVarName("EthGasBumpWei"), &value)
+	return value.ToInt()
 }
 
 // EthGasPriceDefault represents the default gas price for transactions.
 func (c Config) EthGasPriceDefault() *big.Int {
-	return c.getWithFallback("EthGasPriceDefault", parseBigInt).(*big.Int)
+	var value models.Big
+	c.store.Get(EnvVarName("EthGasPriceDefault"), &value)
+	return value.ToInt()
 }
 
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
-func (c Config) EthereumURL() string {
-	return c.viper.GetString(EnvVarName("EthereumURL"))
-}
-
-// JSONConsole enables the JSON console.
-func (c Config) JSONConsole() bool {
-	return c.viper.GetBool(EnvVarName("JSONConsole"))
+func (c Config) EthereumURL() *url.URL {
+	var value urlUnmarshaler
+	c.store.Get(EnvVarName("EthereumURL"), &value)
+	return (*url.URL)(&value)
 }
 
 // LinkContractAddress represents the address
 func (c Config) LinkContractAddress() string {
-	return c.viper.GetString(EnvVarName("LinkContractAddress"))
+	var value stringUnmarshaler
+	c.store.Get(EnvVarName("LinkContractAddress"), &value)
+	return string(value)
 }
 
 // ExplorerURL returns the websocket URL for this node to push stats to, or nil.
 func (c Config) ExplorerURL() *url.URL {
-	rval := c.getWithFallback("ExplorerURL", parseURL)
-	switch t := rval.(type) {
-	case nil:
-		return nil
-	case *url.URL:
-		return t
-	default:
-		logger.Panicf("invariant: ExplorerURL returned as type %T", rval)
-		return nil
-	}
+	var value urlUnmarshaler
+	c.store.Get(EnvVarName("ExplorerURL"), &value)
+	return (*url.URL)(&value)
+
+	//rval := c.getWithFallback("ExplorerURL", parseURL)
+	//switch t := rval.(type) {
+	//case nil:
+	//return nil
+	//case *url.URL:
+	//return t
+	//default:
+	//logger.Panicf("invariant: ExplorerURL returned as type %T", rval)
+	//return nil
+	//}
 }
 
 // ExplorerAccessKey returns the access key for authenticating with explorer
 func (c Config) ExplorerAccessKey() string {
-	return c.viper.GetString(EnvVarName("ExplorerAccessKey"))
+	var value stringUnmarshaler
+	c.store.Get(EnvVarName("ExplorerAccessKey"), &value)
+	return string(value)
 }
 
 // ExplorerSecret returns the secret for authenticating with explorer
 func (c Config) ExplorerSecret() string {
-	return c.viper.GetString(EnvVarName("ExplorerSecret"))
+	var value stringUnmarshaler
+	c.store.Get(EnvVarName("ExplorerSecret"), &value)
+	return string(value)
 }
 
 // OracleContractAddress represents the deployed Oracle contract's address.
 func (c Config) OracleContractAddress() *common.Address {
-	if c.viper.GetString(EnvVarName("OracleContractAddress")) == "" {
-		return nil
-	}
-	return c.getWithFallback("OracleContractAddress", parseAddress).(*common.Address)
-}
+	//if c.viper.GetString(EnvVarName("OracleContractAddress")) == "" {
+	//return nil
+	//}
+	//return c.getWithFallback("OracleContractAddress", parseAddress).(*common.Address)
 
-// LogLevel represents the maximum level of log messages to output.
-func (c Config) LogLevel() LogLevel {
-	return c.getWithFallback("LogLevel", parseLogLevel).(LogLevel)
-}
-
-// LogToDisk configures disk preservation of logs.
-func (c Config) LogToDisk() bool {
-	return c.viper.GetBool(EnvVarName("LogToDisk"))
-}
-
-// LogSQLStatements tells chainlink to log all SQL statements made using the default logger
-func (c Config) LogSQLStatements() bool {
-	return c.viper.GetBool(EnvVarName("LogSQLStatements"))
+	var value addressUnmarshaler
+	c.store.Get(EnvVarName("OracleContractAddress"), &value)
+	return (*common.Address)(&value)
 }
 
 // MinIncomingConfirmations represents the minimum number of block
 // confirmations that need to be recorded since a job run started before a task
 // can proceed.
 func (c Config) MinIncomingConfirmations() uint32 {
-	return c.viper.GetUint32(EnvVarName("MinIncomingConfirmations"))
+	var value uint64Unmarshaler
+	c.store.Get(EnvVarName("MinIncomingConfirmations"), &value)
+	return uint32(value)
 }
 
 // MinOutgoingConfirmations represents the minimum number of block
 // confirmations that need to be recorded on an outgoing transaction before a
 // task is completed.
 func (c Config) MinOutgoingConfirmations() uint64 {
-	return c.viper.GetUint64(EnvVarName("MinOutgoingConfirmations"))
+	var value uint64Unmarshaler
+	c.store.Get(EnvVarName("MinOutgoingConfirmations"), &value)
+	return uint64(value)
 }
 
 // MinimumContractPayment represents the minimum amount of ETH that must be
 // supplied for a contract to be considered.
 func (c Config) MinimumContractPayment() *assets.Link {
-	return c.getWithFallback("MinimumContractPayment", parseLink).(*assets.Link)
+	var value models.Big
+	c.store.Get(EnvVarName("MinimumContractPayment"), &value)
+	return (*assets.Link)(value.ToInt())
 }
 
 // MinimumRequestExpiration is the minimum allowed request expiration for a Service Agreement.
 func (c Config) MinimumRequestExpiration() uint64 {
-	return c.viper.GetUint64(EnvVarName("MinimumRequestExpiration"))
-}
-
-// Port represents the port Chainlink should listen on for client requests.
-func (c Config) Port() uint16 {
-	return c.getWithFallback("Port", parsePort).(uint16)
+	var value uint64Unmarshaler
+	c.store.Get(EnvVarName("MinimumRequestExpiration"), &value)
+	return uint64(value)
 }
 
 // ReaperExpiration represents
 func (c Config) ReaperExpiration() time.Duration {
-	return c.viper.GetDuration(EnvVarName("ReaperExpiration"))
-}
-
-// RootDir represents the location on the file system where Chainlink should
-// keep its files.
-func (c Config) RootDir() string {
-	return c.getWithFallback("RootDir", parseHomeDir).(string)
+	var value durationUnmarshaler
+	c.store.Get(EnvVarName("ReaperExpiration"), &value)
+	return time.Duration(value)
 }
 
 // SecureCookies allows toggling of the secure cookies HTTP flag
 func (c Config) SecureCookies() bool {
-	return c.viper.GetBool(EnvVarName("SecureCookies"))
+	var value boolUnmarshaler
+	c.store.Get(EnvVarName("SecureCookies"), &value)
+	return bool(value)
 }
 
 // SessionTimeout is the maximum duration that a user session can persist without any activity.
 func (c Config) SessionTimeout() time.Duration {
-	return c.viper.GetDuration(EnvVarName("SessionTimeout"))
+	var value durationUnmarshaler
+	c.store.Get(EnvVarName("SessionTimeout"), &value)
+	return time.Duration(value)
 }
 
 // TLSCertPath represents the file system location of the TLS certificate
 // Chainlink should use for HTTPS.
 func (c Config) TLSCertPath() string {
-	return c.viper.GetString(EnvVarName("TLSCertPath"))
+	var value stringUnmarshaler
+	c.store.Get(EnvVarName("TLSCertPath"), &value)
+	return string(value)
 }
 
 // TLSHost represents the hostname to use for TLS clients. This should match
 // the TLS certificate.
 func (c Config) TLSHost() string {
-	return c.viper.GetString(EnvVarName("TLSHost"))
+	var value stringUnmarshaler
+	c.store.Get(EnvVarName("TLSHost"), &value)
+	return string(value)
 }
 
 // TLSKeyPath represents the file system location of the TLS key Chainlink
 // should use for HTTPS.
 func (c Config) TLSKeyPath() string {
-	return c.viper.GetString(EnvVarName("TLSKeyPath"))
-}
-
-// TLSPort represents the port Chainlink should listen on for encrypted client requests.
-func (c Config) TLSPort() uint16 {
-	return c.getWithFallback("TLSPort", parsePort).(uint16)
+	var value stringUnmarshaler
+	c.store.Get(EnvVarName("TLSKeyPath"), &value)
+	return string(value)
 }
 
 // TxAttemptLimit represents the maximum number of transaction attempts that
 // the TxManager should allow to for a transaction
 func (c Config) TxAttemptLimit() uint16 {
-	return c.getWithFallback("TxAttemptLimit", parsePort).(uint16)
-}
-
-// KeysDir returns the path of the keys directory (used for keystore files).
-func (c Config) KeysDir() string {
-	return filepath.Join(c.RootDir(), "tempkeys")
+	var value uint16Unmarshaler
+	c.store.Get(EnvVarName("TxAttemptLimit"), &value)
+	return uint16(value)
 }
 
 func (c Config) tlsDir() string {
@@ -385,74 +305,9 @@ func (c Config) CertFile() string {
 	return c.TLSCertPath()
 }
 
-// CreateProductionLogger returns a custom logger for the config's root
-// directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
-// false, the logger will only log to stdout.
-func CreateProductionLogger(c BootstrapConfig) *zap.Logger {
-	return logger.CreateProductionLogger(
-		c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
-}
-
 // SessionSecret returns a sequence of bytes to be used as a private key for
 // session signing or encryption.
 func (c Config) SessionSecret() ([]byte, error) {
-	return c.SecretGenerator.Generate(c)
-}
-
-// SessionOptions returns the sesssions.Options struct used to configure
-// the session store.
-func (c Config) SessionOptions() sessions.Options {
-	return sessions.Options{
-		Secure:   c.SecureCookies(),
-		HttpOnly: true,
-		MaxAge:   86400 * 30,
-	}
-}
-
-func (c Config) getWithFallback(name string, parser func(string) (interface{}, error)) interface{} {
-	str := c.viper.GetString(EnvVarName(name))
-	defaultValue, hasDefault := DefaultValue(name)
-	if str != "" {
-		v, err := parser(str)
-		if err == nil {
-			return v
-		}
-		logger.Errorw(
-			fmt.Sprintf("Invalid value provided for %s, falling back to default.", name),
-			"value", str,
-			"default", defaultValue,
-			"error", err)
-	}
-
-	if !hasDefault {
-		return ZeroValue(name)
-	}
-
-	v, err := parser(defaultValue)
-	if err != nil {
-		log.Fatalf(fmt.Sprintf(`Invalid default for %s: "%s"`, name, defaultValue))
-	}
-	return v
-}
-
-// NormalizedDatabaseURL returns the DatabaseURL with the empty default
-// coerced to a sqlite3 URL.
-func NormalizedDatabaseURL(c Depot) string {
-	if c.DatabaseURL() == "" {
-		return filepath.ToSlash(filepath.Join(c.RootDir(), "db.sqlite3"))
-	}
-	return c.DatabaseURL()
-}
-
-// SecretGenerator is the interface for objects that generate a secret
-// used to sign or encrypt.
-type SecretGenerator interface {
-	Generate(Config) ([]byte, error)
-}
-
-type filePersistedSecretGenerator struct{}
-
-func (f filePersistedSecretGenerator) Generate(c Config) ([]byte, error) {
 	sessionPath := filepath.Join(c.RootDir(), "secret")
 	if utils.FileExists(sessionPath) {
 		data, err := ioutil.ReadFile(sessionPath)
@@ -466,69 +321,108 @@ func (f filePersistedSecretGenerator) Generate(c Config) ([]byte, error) {
 	return key, ioutil.WriteFile(sessionPath, []byte(str), 0644)
 }
 
-func parseAddress(str string) (interface{}, error) {
-	if str == "" {
-		return nil, nil
-	} else if common.IsHexAddress(str) {
-		val := common.HexToAddress(str)
-		return &val, nil
-	} else if i, ok := new(big.Int).SetString(str, 10); ok {
-		val := common.BigToAddress(i)
-		return &val, nil
+// SessionOptions returns the sesssions.Options struct used to configure
+// the session store.
+func (c Config) SessionOptions() sessions.Options {
+	return sessions.Options{
+		Secure:   c.SecureCookies(),
+		HttpOnly: true,
+		MaxAge:   86400 * 30,
 	}
-	return nil, fmt.Errorf("Unable to parse '%s' into EIP55-compliant address", str)
 }
 
-func parseLink(str string) (interface{}, error) {
-	i, ok := new(assets.Link).SetString(str, 10)
-	if !ok {
-		return i, fmt.Errorf("Unable to parse '%v' into *assets.Link(base 10)", str)
+// AllowOrigins returns the CORS hosts used by the frontend.
+func (c Config) AllowOrigins() string {
+	var value stringUnmarshaler
+	c.store.Get(EnvVarName("AllowOrigins"), &value)
+	return string(value)
+}
+
+// ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
+func (c Config) ClientNodeURL() string {
+	var value stringUnmarshaler
+	c.store.Get(EnvVarName("ClientNodeURL"), &value)
+	return string(value)
+}
+
+// DatabaseTimeout represents how long to tolerate non response from the DB.
+func (c Config) DatabaseTimeout() time.Duration {
+	var value durationUnmarshaler
+	c.store.Get(EnvVarName("DatabaseTimeout"), &value)
+	return time.Duration(value)
+}
+
+// DatabaseURL configures the URL for chainlink to connect to. This must be
+// a properly formatted URL, with a valid scheme (postgres://, file://), or
+// an empty string, so the application defaults to .chainlink/db.sqlite.
+func (c Config) DatabaseURL() string {
+	var value stringUnmarshaler
+	c.store.Get(EnvVarName("DatabaseURL"), &value)
+	url := string(value)
+	if url == "" {
+		return filepath.ToSlash(filepath.Join(c.RootDir(), "db.sqlite3"))
 	}
-	return i, nil
+	return url
 }
 
-func parseLogLevel(str string) (interface{}, error) {
-	var lvl LogLevel
-	err := lvl.Set(str)
-	return lvl, err
+// Dev configures "development" mode for chainlink.
+func (c Config) Dev() bool {
+	var value boolUnmarshaler
+	c.store.Get(EnvVarName("Dev"), &value)
+	return bool(value)
 }
 
-func parsePort(str string) (interface{}, error) {
-	d, err := strconv.ParseUint(str, 10, 16)
-	return uint16(d), err
+// JSONConsole enables the JSON console.
+func (c Config) JSONConsole() bool {
+	var value boolUnmarshaler
+	c.store.Get(EnvVarName("JSONConsole"), &value)
+	return bool(value)
 }
 
-func parseURL(s string) (interface{}, error) {
-	return url.Parse(s)
+// KeysDir returns the path of the keys directory (used for keystore files).
+func (c Config) KeysDir() string {
+	return filepath.Join(c.RootDir(), "tempkeys")
 }
 
-func parseBigInt(str string) (interface{}, error) {
-	i, ok := new(big.Int).SetString(str, 10)
-	if !ok {
-		return i, fmt.Errorf("Unable to parse %v into *big.Int(base 10)", str)
-	}
-	return i, nil
+// LogLevel represents the maximum level of log messages to output.
+func (c Config) LogLevel() LogLevel {
+	var value logLevelUnmarshaler
+	c.store.Get(EnvVarName("LogLevel"), &value)
+	return LogLevel(value)
 }
 
-func parseHomeDir(str string) (interface{}, error) {
-	exp, err := homedir.Expand(str)
-	if err != nil {
-		return nil, err
-	}
-	return filepath.ToSlash(exp), nil
+// LogSQLStatements tells chainlink to log all SQL statements made using the default logger
+func (c Config) LogSQLStatements() bool {
+	var value boolUnmarshaler
+	c.store.Get(EnvVarName("LogSQLStatements"), &value)
+	return bool(value)
 }
 
-// LogLevel determines the verbosity of the events to be logged.
-type LogLevel struct {
-	zapcore.Level
+// LogToDisk configures disk preservation of logs.
+func (c Config) LogToDisk() bool {
+	var value boolUnmarshaler
+	c.store.Get(EnvVarName("LogToDisk"), &value)
+	return bool(value)
 }
 
-// ForGin keeps Gin's mode at the appropriate level with the LogLevel.
-func (ll LogLevel) ForGin() string {
-	switch {
-	case ll.Level < zapcore.InfoLevel:
-		return gin.DebugMode
-	default:
-		return gin.ReleaseMode
-	}
+// Port represents the port Chainlink should listen on for client requests.
+func (c Config) Port() uint16 {
+	var value uint16Unmarshaler
+	c.store.Get(EnvVarName("Port"), &value)
+	return uint16(value)
+}
+
+// RootDir represents the location on the file system where Chainlink should
+// keep its files.
+func (c Config) RootDir() string {
+	var value stringUnmarshaler
+	c.store.Get(EnvVarName("RootDir"), &value)
+	return string(value)
+}
+
+// TLSPort represents the port Chainlink should listen on for encrypted client requests.
+func (c Config) TLSPort() uint16 {
+	var value uint16Unmarshaler
+	c.store.Get(EnvVarName("TLSPort"), &value)
+	return uint16(value)
 }

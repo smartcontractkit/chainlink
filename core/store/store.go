@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -23,7 +22,7 @@ import (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config      orm.Depot
+	Config      orm.Config
 	Clock       utils.AfterNower
 	KeyStore    *KeyStore
 	RunChannel  RunChannel
@@ -107,21 +106,19 @@ func (ed *EthDialer) Dial(urlString string) (CallerSubscriber, error) {
 // NewStore will create a new database file at the config's RootDir if
 // it is not already present, otherwise it will use the existing db.sqlite3
 // file.
-func NewStore(config orm.Depot, orm *orm.ORM) *Store {
+func NewStore(config orm.RuntimeConfigStore, orm *orm.ORM) *Store {
 	return NewStoreWithDialer(config, orm, &EthDialer{})
 }
 
 // NewStoreWithDialer creates a new store with the given config and dialer
-func NewStoreWithDialer(config orm.Depot, orm *orm.ORM, dialer Dialer) *Store {
-	err := os.MkdirAll(config.RootDir(), os.FileMode(0700))
-	if err != nil {
-		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
-	}
+func NewStoreWithDialer(configStore orm.RuntimeConfigStore, ormp *orm.ORM, dialer Dialer) *Store {
+	config := orm.NewConfig(configStore)
+
 	ethrpc, err := dialer.Dial(config.EthereumURL())
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to dial ETH RPC port: %+v", err))
 	}
-	if err := orm.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); err != nil {
+	if err := ormp.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", err))
 	}
 	keyStore := NewKeyStore(config.KeysDir())
@@ -130,9 +127,9 @@ func NewStoreWithDialer(config orm.Depot, orm *orm.ORM, dialer Dialer) *Store {
 		Clock:       utils.Clock{},
 		Config:      config,
 		KeyStore:    keyStore,
-		ORM:         orm,
+		ORM:         ormp,
 		RunChannel:  NewQueuedRunChannel(),
-		TxManager:   NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
+		TxManager:   NewEthTxManager(&EthClient{ethrpc}, configStore, keyStore, ormp),
 		StatsPusher: synchronization.NewStatsPusher(orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret()),
 	}
 	return store

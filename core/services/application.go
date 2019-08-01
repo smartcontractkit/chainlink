@@ -45,13 +45,14 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config orm.Depot, onConnectCallbacks ...func(Application)) Application {
+func NewApplication(config orm.BootstrapConfig, onConnectCallbacks ...func(Application)) Application {
+	config = orm.NewRuntimeConfig(config, db)
+
 	db, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), config.LogSQLStatements())
 	if err != nil {
 		// FIXME: error ?
 		logger.Fatal(err)
 	}
-	config = orm.NewRuntimeConfig(config, db)
 	store := store.NewStore(config, db)
 
 	jobSubscriber := NewJobSubscriber(store)
