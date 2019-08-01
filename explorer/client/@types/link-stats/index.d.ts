@@ -1,5 +1,6 @@
 interface IChainlinkNode {
   name: string
+  url?: string
 }
 
 interface IJobRun {
@@ -33,4 +34,5 @@ interface ITaskRun {
 interface IChainlinkNode {
   id: number
   name: string
+  url?: string
 }
