@@ -328,7 +328,7 @@ export const fetchRecentlyCreatedJobs = (size: number) =>
   )
 
 export const fetchJob = (id: string) =>
-  request('JOB', api.getJobSpec, (json: object) => normalize(json), id)
+  request('JOB', api.getJobSpec, (json: object) => normalize(json, { camelizeKeys: false }), id)
 
 export const fetchJobRuns = (opts: api.JobSpecRunsOpts) =>
   request(
@@ -347,7 +347,7 @@ export const fetchRecentJobRuns = (size: number) =>
   )
 
 export const fetchJobRun = (id: string) =>
-  request('JOB_RUN', api.getJobSpecRun, (json: object) => normalize(json), id)
+  request('JOB_RUN', api.getJobSpecRun, (json: object) => normalize(json, { camelizeKeys: false }), id)
 
 export const deleteCompletedJobRuns = (updatedBefore: object) =>
   request(
