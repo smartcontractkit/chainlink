@@ -39,6 +39,6 @@
     "@storybook/addon-links": "^4.0.0",
     "@storybook/addons": "^4.0.0",
     "@storybook/react": "^4.0.0",
-    "storybook-addon-material-ui": "^0.9.0-alpha.16",
+    "storybook-addon-material-ui": "^0.9.0-alpha.16"
   }
 }
