@@ -69,7 +69,8 @@ func (j *JobSpec) SetID(value string) error {
 // the CreatedAt field to the time of invokation.
 func NewJob() JobSpec {
 	return JobSpec{
-		ID: utils.NewBytes32ID(),
+		ID:        utils.NewBytes32ID(),
+		CreatedAt: time.Now(),
 	}
 }
 
