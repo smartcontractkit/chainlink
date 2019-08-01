@@ -10060,6 +10060,11 @@ isurl@^1.0.0-alpha5:
     has-to-string-tag-x "^1.2.0"
     is-object "^1.0.1"
 
+javascript-stringify@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/javascript-stringify/-/javascript-stringify-2.0.0.tgz#ef750216ae66504ffd670b68c8b8aa07bdf7b588"
+  integrity sha512-zzK8+ByrzvOL6N92hRewwUKL0wN0TOaIuUjX0Jj8lraxWvr5wHYs2YTjaj2lstF+8qMv5cmPPef47va8NT8lDw==
+
 javascript-time-ago@^1.0.34:
   version "1.0.35"
   resolved "https://registry.npmjs.org/javascript-time-ago/-/javascript-time-ago-1.0.35.tgz#737f12e8cfec3de660b91a64414b1ec23b8ecf04"

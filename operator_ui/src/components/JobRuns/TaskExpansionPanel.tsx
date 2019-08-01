@@ -5,6 +5,7 @@ import Grid from '@material-ui/core/Grid'
 import capitalize from 'lodash/capitalize'
 import { ITaskRun, IJobRun } from '../../../@types/operator_ui'
 import StatusItem from './StatusItem'
+import { stringify } from "javascript-stringify";
 
 const fontStyles = () =>
   createStyles({
@@ -33,11 +34,11 @@ const Item = withStyles(fontStyles)(
     <Grid container>
       <Grid item sm={2}>
         <p className={classes.header}>{colATitle}</p>
-        <p className={classes.subHeader}>{colAValue}</p>
+        <p className={classes.subHeader}>{stringify(colAValue)}</p>
       </Grid>
       <Grid item md={10}>
         <p className={classes.header}>{colBTitle}</p>
-        <p className={classes.subHeader}>{colBValue || 'No Value Available'}</p>
+        <p className={classes.subHeader}>{stringify(colBValue) || 'No Value Available'}</p>
       </Grid>
     </Grid>
   )
@@ -49,7 +50,6 @@ interface IInitiatorProps {
 
 const Initiator = ({ params }: IInitiatorProps) => {
   const paramsArr = Object.entries(params)
-
   return (
     <>
       {JSON.stringify(paramsArr) === '[]' ? (
