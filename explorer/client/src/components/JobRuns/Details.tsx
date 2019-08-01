@@ -125,6 +125,8 @@ interface IProps extends WithStyles<typeof styles> {
 const buildSearchQuery = (id: string) => `/job-runs?search=${id}`
 
 const Details = ({ classes, jobRun, etherscanHost }: IProps) => {
+  const nodeHasUrl = jobRun.chainlinkNode.url !== ''
+  const nodeName = jobRun.chainlinkNode.name
   return (
     <div>
       <Row>
@@ -136,7 +138,18 @@ const Details = ({ classes, jobRun, etherscanHost }: IProps) => {
 
       <Row>
         <Key>Node</Key>
-        <Value>{jobRun.chainlinkNode.name}</Value>
+        <Value>
+          {nodeHasUrl ? (
+            <a
+              href={jobRun.chainlinkNode.url}
+              target="_blank"
+              rel="noopener noreferrer">
+              {nodeName}
+            </a>
+          ) : (
+            nodeName
+          )}
+        </Value>
       </Row>
 
       <Row>

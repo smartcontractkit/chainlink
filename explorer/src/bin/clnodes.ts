@@ -6,9 +6,9 @@ import {
 } from '../entity/ChainlinkNode'
 import { closeDbConnection, getDb } from '../database'
 
-const add = async (name: string) => {
+const add = async (name: string, url?: string) => {
   return bootstrap(async (db: Connection) => {
-    const [chainlinkNode, secret] = await createChainlinkNode(db, name)
+    const [chainlinkNode, secret] = await createChainlinkNode(db, name, url)
     console.log('created new chainlink node with id %s', chainlinkNode.id)
     console.log('AccessKey', chainlinkNode.accessKey)
     console.log('Secret', secret)
@@ -36,16 +36,20 @@ const bootstrap = async (cb: any) => {
 const _ = yargs
   .usage('Usage: $0 <command> [options]')
   .command({
-    command: 'add <name>',
+    command: 'add <name> [url]',
     aliases: 'create',
     describe: 'Add a chainlink node',
     builder: (yargs): any => {
-      yargs.positional('name', {
-        describe: 'The name of the Chainlink Node to create',
-        type: 'string'
-      })
+      yargs
+        .positional('name', {
+          describe: 'The name of the Chainlink Node to create',
+          type: 'string'
+        })
+        .describe('u', 'The URL of the Chainlink Node to create')
+        .alias('u', 'url')
+        .nargs('u', 1)
     },
-    handler: argv => add(argv.name as string)
+    handler: argv => add(argv.name as string, argv.url as string)
   })
   .command({
     command: 'delete <name>',
