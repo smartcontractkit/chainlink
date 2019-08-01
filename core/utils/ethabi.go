@@ -43,7 +43,7 @@ func EVMTranscodeBytes(value gjson.Result) ([]byte, error) {
 
 	case gjson.Number:
 		v := big.NewFloat(value.Num)
-		vInt, _ := v.Int(big.NewInt(0))
+		vInt, _ := v.Int(nil)
 		word, err := EVMWordSignedBigInt(vInt)
 		if err != nil {
 			return nil, errors.Wrap(err, "while converting float to int256")
