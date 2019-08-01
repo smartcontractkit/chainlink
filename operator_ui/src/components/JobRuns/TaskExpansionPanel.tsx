@@ -106,7 +106,7 @@ const Result = ({ run }: IResultProps) => {
       colATitle="Result"
       colAValue="Task Run Data"
       colBTitle="Values"
-      colBValue={result}
+      colBValue={result === null ? undefined : result}
     />
   )
 }
