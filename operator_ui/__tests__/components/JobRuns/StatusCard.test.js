@@ -14,7 +14,7 @@ describe('components/JobRuns/StatusCard', () => {
   const completedRun = {
     id: 'runA',
     status: 'completed',
-    result: { amount: 2000000000000000000 },
+    overrides: { amount: 2000000000000000000 },
     createdAt: TWO_MINUTES_MS,
     finishedAt: MINUTE_MS
   }
@@ -39,22 +39,14 @@ describe('components/JobRuns/StatusCard', () => {
     expect(withChildren.text()).toContain('I am a child')
   })
 
-  it('can display the elapsed time for completed and errored jobs', () => {
-    let erroredStatus = mountWithTheme(
-      <StatusCard title="errored" jobRun={erroredRun} />
-    )
-    let completedStatus = mountWithTheme(
-      <StatusCard title="completed" jobRun={completedRun} />
-    )
+  it('can display the elapsed time for jobruns', () => {
+    let erroredStatus = mountWithTheme(<StatusCard title="errored" jobRun={erroredRun} />)
+    let completedStatus = mountWithTheme(<StatusCard title="completed" jobRun={completedRun} />)
+    let pendingStatus = mountWithTheme(<StatusCard title="pending" jobRun={pendingRun} />)
+
     expect(erroredStatus.text()).toContain('1m')
     expect(completedStatus.text()).toContain('1m')
-  })
-
-  it('will not display the elapsed time for pending jobs', () => {
-    let pendingStatus = mountWithTheme(
-      <StatusCard title="pending_confirmations" jobRun={pendingRun} />
-    )
-    expect(pendingStatus.text()).not.toContain('1m')
+    expect(pendingStatus.html()).toContain('id="elapsedTime"')
   })
 
   it('can display link earned for completed jobs', () => {
