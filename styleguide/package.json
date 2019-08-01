@@ -23,16 +23,16 @@
     "@material-ui/icons": "^3.0.1",
     "@types/react": "^16.7.0",
     "@types/react-dom": "^16.7.0",
+    "bignumber.js": "^8.0.1",
+    "change-case": "^3.0.2",
+    "lodash": "^4.17.0",
+    "moment": "^2.24.0",
+    "numeral": "^2.0.6",
+    "prop-types": "^15.6.2",
     "react": "^16.7.0",
     "react-dom": "^16.7.0",
     "react-time-ago": "^3.0.3",
-    "prop-types": "^15.6.2",
-    "lodash": "^4.17.0",
-    "bignumber.js": "^8.0.1",
-    "numeral": "^2.0.6",
-    "change-case": "^3.0.2",
-    "moment": "^2.24.0",
-    "typescript": "^3.4.2"
+    "typescript": "^3.5.0"
   },
   "devDependencies": {
     "@storybook/addon-actions": "^4.0.0",
