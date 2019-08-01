@@ -142,3 +142,24 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusRequestEntityTooLarge, resp.StatusCode)
 }
+
+func TestRouter_GinHelmetHeaders(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	router := web.Router(app)
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+	res, err := http.Get(ts.URL)
+	require.NoError(t, err)
+	for _, tt := range []struct{HelmetName string; HeaderKey string; HeaderValue string}{
+		{"NoSniff", "X-Content-Type-Options", "nosniff"},
+		{"DNSPrefetchControl", "X-DNS-Prefetch-Control", "off"},
+		{"FrameGuard", "X-Frame-Options", "DENY"},
+		{"SetHSTS", "Strict-Transport-Security", "max-age=5184000; includeSubDomains"},
+		{"IENoOpen", "X-Download-Options", "noopen"},
+		{"XSSFilter", "X-Xss-Protection", "1; mode=block"},
+	} {
+		assert.Equal(t, res.Header.Get(tt.HeaderKey), tt.HeaderValue,
+			"wrong header for helmet's %s handler", tt.HelmetName)
+	}
+}
