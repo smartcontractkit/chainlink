@@ -34,6 +34,7 @@
   },
   "dependencies": {
     "@types/express-winston": "^3.0.1",
+    "@types/helmet": "0.0.43",
     "@types/jsonapi-serializer": "^3.6.1",
     "@types/mime-types": "^2.1.0",
     "@types/uuid": "^3.4.4",
