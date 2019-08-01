@@ -5,6 +5,7 @@ import Grid from '@material-ui/core/Grid'
 import capitalize from 'lodash/capitalize'
 import { ITaskRun, IJobRun } from '../../../@types/operator_ui'
 import StatusItem from './StatusItem'
+import { stringify } from "javascript-stringify";
 
 const fontStyles = () =>
   createStyles({
@@ -25,12 +26,8 @@ interface IItemProps extends WithStyles<typeof fontStyles> {
   colATitle: string
   colAValue: string
   colBTitle: string
-  colBValue: string | undefined
+  colBValue?: string
 }
-
-type Par = object | string | Array<any> | undefined
-type Ret = string | undefined
-const stringify = (par: Par): Ret => typeof par === 'object' || Array.isArray(par) ? JSON.stringify(par) : par
 
 const Item = withStyles(fontStyles)(
   ({ colATitle, colAValue, colBTitle, colBValue, classes }: IItemProps) => (
