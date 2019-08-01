@@ -1,8 +1,9 @@
-import * as controllers from './controllers'
-import { addRequestLogging, logger } from './logging'
 import express from 'express'
+import helmet from 'helmet'
 import http from 'http'
 import mime from 'mime-types'
+import * as controllers from './controllers'
+import { addRequestLogging, logger } from './logging'
 import { bootstrapRealtime } from './realtime'
 import seed from './seed'
 
@@ -16,10 +17,11 @@ const server = (port: number = DEFAULT_PORT) => {
   const app = express()
   addRequestLogging(app)
 
+  app.use(helmet())
   app.use(
     express.static('client/build', {
       maxAge: '1y',
-      setHeaders: function(res, path) {
+      setHeaders(res, path) {
         if (mime.lookup(path) === 'text/html') {
           res.setHeader('Cache-Control', 'public, max-age=0')
         }

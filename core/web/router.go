@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	helmet "github.com/danielkov/gin-helmet"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/expvar"
 	limits "github.com/gin-contrib/size"
@@ -80,6 +81,7 @@ func Router(app services.Application) *gin.Engine {
 		cors,
 		secureMiddleware(config),
 	)
+	engine.Use(helmet.Default())
 
 	api := engine.Group(
 		"/",
