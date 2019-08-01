@@ -30,12 +30,12 @@
     "@material-ui/icons": "^3.0.1",
     "@types/classnames": "^2.2.8",
     "@types/lodash": "^4.14.135",
-    "@types/react-resize-detector": "^4.0.1",
-    "@types/react-router-dom": "^4.3.4",
     "@types/node": "^11.9.5",
     "@types/react": "^16.7.0",
     "@types/react-dom": "^16.7.0",
     "@types/react-redux": "~6.0.0",
+    "@types/react-resize-detector": "^4.0.1",
+    "@types/react-router-dom": "^4.3.4",
     "axios": "^0.18.0",
     "babel-jest": "^24.1.0",
     "bignumber.js": "^8.0.1",
@@ -50,6 +50,7 @@
     "formik": "^1.0.3",
     "humps": "^2.0.1",
     "isomorphic-unfetch": "^3.0.0",
+    "javascript-stringify": "^2.0.0",
     "json-api-normalizer": "^0.4.13",
     "json-pretty-html": "^1.1.2",
     "local-storage-fallback": "^4.1.1",
@@ -80,10 +81,10 @@
     "redux-object": "^0.5.6",
     "redux-thunk": "^2.3.0",
     "serve": "^10.0.0",
+    "typescript": "^3.5.0",
     "url": "^0.11.0",
     "use-react-hooks": "^1.0.7",
-    "uuid": "^3.3.2",
-    "typescript": "^3.5.0"
+    "uuid": "^3.3.2"
   },
   "devDependencies": {}
 }
