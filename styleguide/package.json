@@ -5,7 +5,8 @@
   "scripts": {
     "start": "start-storybook -p 9001",
     "build-storybook": "build-storybook",
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@babel/core": "^7.2.2",
