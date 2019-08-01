@@ -4,6 +4,7 @@
   "workspaces": [
     "evm",
     "evm/box",
+    "evm/v0.5",
     "operator_ui",
     "integration",
     "styleguide",
