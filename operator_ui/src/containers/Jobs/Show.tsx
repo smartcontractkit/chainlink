@@ -16,10 +16,10 @@ import jobsShowRunCountSelector from '../../selectors/jobsShowRunCount'
 import { formatInitiators } from '../../utils/jobSpecInitiators'
 import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatchToProps'
 import TaskList from '../../components/Jobs/TaskList'
-import { IJobSpec, IJobRuns } from '../../../@types/operator_ui'
+import { JobSpec, JobRuns } from '../../../@types/operator_ui'
 import { IState } from '../../connectors/redux/reducers'
 
-const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
+const renderJobSpec = (job: JobSpec, recentRunsCount: number) => {
   const info = {
     runCount: recentRunsCount,
     initiator: formatInitiators(job.initiators)
@@ -30,7 +30,7 @@ const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
   )
 }
 
-const renderTaskRuns = (job: IJobSpec) => (
+const renderTaskRuns = (job: JobSpec) => (
   <Card>
     <CardTitle divider>Task List</CardTitle>
     <TaskList tasks={job.tasks} />
@@ -38,8 +38,8 @@ const renderTaskRuns = (job: IJobSpec) => (
 )
 
 interface IRecentJobRunsProps {
-  job: IJobSpec
-  recentRuns: IJobRuns
+  job: JobSpec
+  recentRuns: JobRuns
   recentRunsCount: number
   showJobRunsCount: number
 }
@@ -65,9 +65,9 @@ const RecentJobRuns = ({
 }
 
 interface IDetailsProps {
-  recentRuns: IJobRuns
+  recentRuns: JobRuns
   recentRunsCount: number
-  job?: IJobSpec
+  job?: JobSpec
   showJobRunsCount: number
 }
 
@@ -103,8 +103,8 @@ const Details = ({
 
 interface IProps {
   jobSpecId: string
-  job?: IJobSpec
-  recentRuns: IJobRuns
+  job?: JobSpec
+  recentRuns: JobRuns
   recentRunsCount: number
   showJobRunsCount: number
   fetchJob: (id: string) => Promise<any>

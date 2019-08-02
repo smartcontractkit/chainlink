@@ -26,7 +26,7 @@ import { fetchJobRuns, createJobRun } from '../../actions'
 import classNames from 'classnames'
 import { deleteJobSpec } from '../../actions'
 import Close from '../../components/Icons/Close'
-import { IJobSpec } from '../../../@types/operator_ui'
+import { JobSpec } from '../../../@types/operator_ui'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -122,7 +122,7 @@ interface IProps extends WithStyles<typeof styles> {
   createJobRun: Function
   deleteJobSpec: Function
   jobSpecId: string
-  job: IJobSpec
+  job: JobSpec
   url: String
 }
 

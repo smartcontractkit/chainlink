@@ -8,7 +8,7 @@ import TableCell from '@material-ui/core/TableCell'
 import Card from '@material-ui/core/Card'
 import classNames from 'classnames'
 import TimeAgo from '@chainlink/styleguide/src/components/TimeAgo'
-import { IJobRun, IJobRuns } from '../../../@types/operator_ui'
+import { JobRun, JobRuns } from '../../../@types/operator_ui'
 import titleize from '../../utils/titleize'
 import BaseLink from '../BaseLink'
 import Link from '../Link'
@@ -75,7 +75,7 @@ const classFromStatus = (classes: any, status: string) => {
   return classes[status.toLowerCase()]
 }
 
-const renderRuns = (runs: IJobRuns, classes: any) => {
+const renderRuns = (runs: JobRuns, classes: any) => {
   if (runs && runs.length === 0) {
     return (
       <TableRow>
@@ -91,7 +91,7 @@ const renderRuns = (runs: IJobRuns, classes: any) => {
       </TableRow>
     )
   } else if (runs) {
-    return runs.map((r: IJobRun) => (
+    return runs.map((r: JobRun) => (
       <TableRow key={r.id}>
         <TableCell className={classes.idCell} scope="row">
           <div className={classes.runDetails}>
@@ -135,7 +135,7 @@ const renderRuns = (runs: IJobRuns, classes: any) => {
 
 interface IProps extends WithStyles<typeof styles> {
   jobSpecId: string
-  runs: IJobRuns
+  runs: JobRuns
   count: number
   showJobRunsCount: number
 }

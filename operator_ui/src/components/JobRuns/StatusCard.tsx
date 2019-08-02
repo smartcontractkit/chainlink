@@ -11,7 +11,7 @@ import PaddedCard from '@chainlink/styleguide/src/components/PaddedCard'
 import { titleCase } from 'change-case'
 import StatusIcon from '../JobRuns/StatusIcon'
 import { Grid } from '@material-ui/core'
-import { IJobRun } from '../../../@types/operator_ui'
+import { JobRun } from '../../../@types/operator_ui'
 import ElapsedTime from '../ElapsedTime'
 
 const styles = (theme: any) =>
@@ -56,7 +56,7 @@ const styles = (theme: any) =>
 interface IProps extends WithStyles<typeof styles> {
   title: string
   children?: React.ReactNode
-  jobRun?: IJobRun
+  jobRun?: JobRun
 }
 
 const selectLink = (inWei: number) => inWei / 1e18
@@ -64,7 +64,7 @@ const EarnedLink = ({
   classes,
   jobRun
 }: {
-  jobRun?: IJobRun
+  jobRun?: JobRun
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const linkEarned = jobRun && jobRun.result && jobRun.result.amount

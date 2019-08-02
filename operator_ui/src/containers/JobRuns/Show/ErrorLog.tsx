@@ -16,11 +16,11 @@ import matchRouteAndMapDispatchToProps from '../../../utils/matchRouteAndMapDisp
 import Content from '../../../components/Content'
 import RegionalNav from './RegionalNav'
 import StatusCard from '../../../components/JobRuns/StatusCard'
-import { IJobRun, ITaskRun } from '../../../../@types/operator_ui'
+import { JobRun, TaskRun } from '../../../../@types/operator_ui'
 import { IState } from '../../../connectors/redux/reducers'
 
-const filterErrorTaskRuns = (jobRun: IJobRun) => {
-  return jobRun.taskRuns.filter((tr: ITaskRun) => {
+const filterErrorTaskRuns = (jobRun: JobRun) => {
+  return jobRun.taskRuns.filter((tr: TaskRun) => {
     return tr.status === 'errored'
   })
 }
@@ -32,7 +32,7 @@ const detailsStyles = ({ spacing }: Theme) => ({
 })
 
 interface IDetailsProps extends WithStyles<typeof detailsStyles> {
-  jobRun?: IJobRun
+  jobRun?: JobRun
 }
 
 const Details = withStyles(detailsStyles)(
@@ -48,7 +48,7 @@ const Details = withStyles(detailsStyles)(
         <Grid item xs={12}>
           <StatusCard title={jobRun.status}>
             <ul className={classes.list}>
-              {errorTaskRuns.map((tr: ITaskRun) => (
+              {errorTaskRuns.map((tr: TaskRun) => (
                 <li key={tr.id}>
                   <Typography variant="body1">{tr.result.error}</Typography>
                 </li>
@@ -66,7 +66,7 @@ const styles = (theme: Theme) => ({})
 interface IProps extends WithStyles<typeof styles> {
   jobSpecId: string
   jobRunId: string
-  jobRun?: IJobRun
+  jobRun?: JobRun
   fetchJobRun: (id: string) => Promise<any>
 }
 

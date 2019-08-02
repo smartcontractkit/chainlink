@@ -13,6 +13,7 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
 import StatusIcon from '../JobRuns/StatusIcon'
 import classNames from 'classnames'
 import { Grid } from '@material-ui/core'
+import { status } from '../../../@types/constants'
 
 const withChildrenStyles = (theme: Theme) =>
   createStyles({
@@ -103,7 +104,7 @@ const styles = (theme: Theme) =>
   })
 
 interface IProps extends WithStyles<typeof styles> {
-  status: string
+  status: status
   borderTop: boolean
   children: React.ReactNode
   summary: string

@@ -13,12 +13,12 @@ import { fetchBridgeSpec } from '../../actions'
 import bridgeSelector from '../../selectors/bridge'
 import Content from '../../components/Content'
 import Button from '../../components/Button'
-import { IBridgeType } from '../../../@types/operator_ui'
+import { BridgeType } from '../../../@types/operator_ui'
 
 const Loading = () => <div>Loading...</div>
 
 interface ILoadedProps {
-  bridge: IBridgeType
+  bridge: BridgeType
 }
 
 const fields: [string, string][] = [
@@ -53,7 +53,7 @@ interface IProps {
     }
   }
   fetchBridgeSpec: (name: string) => Promise<any>
-  bridge?: IBridgeType
+  bridge?: BridgeType
 }
 
 export const Show = useHooks(({ bridge, fetchBridgeSpec, match }: IProps) => {

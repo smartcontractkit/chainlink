@@ -20,7 +20,7 @@ import BaseLink from '../BaseLink'
 import Link from '../Link'
 import StatusIcon from '../JobRuns/StatusIcon'
 import NoContentLogo from '../Logos/NoContent'
-import { IJobRun, IJobRuns } from '../../../@types/operator_ui'
+import { JobRun, JobRuns } from '../../../@types/operator_ui'
 
 const noActivityStyles = ({ palette, spacing }: Theme) =>
   createStyles({
@@ -100,7 +100,7 @@ const styles = ({ palette, spacing }: Theme) =>
 
 interface IProps extends WithStyles<typeof styles> {
   pageSize: number
-  runs?: IJobRuns
+  runs?: JobRuns
   count?: number
 }
 
@@ -115,7 +115,7 @@ const Activity = ({ classes, runs, count, pageSize }: IProps) => {
     activity = (
       <Table>
         <TableBody>
-          {runs.map((r: IJobRun) => (
+          {runs.map((r: JobRun) => (
             <TableRow key={r.id}>
               <TableCell scope="row" className={classes.cell}>
                 <div className={classes.content}>

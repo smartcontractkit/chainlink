@@ -2,47 +2,47 @@ import * as dbTypes from '../db'
 import { status, adapterTypes, initiatorTypes } from '../constants'
 
 interface RunResult {
-  data: { result: string | null }
-  error: boolean | null
+  data: { result?: string }
+  error?: boolean
   jobRunId: string
   taskRunId: string
   status: status
-  amount: number | null
+  amount?: number
 }
 
-export interface IBridgeType {
+export interface BridgeType {
   id: string
   name: string
   url: string
   confirmations: number
   outgoingToken: string
-  minimumContractPayment: string | null
+  minimumContractPayment?: string
 }
 
-export interface IExternalInitiator {
+export interface ExternalInitiator {
   id: number
   createdAt: string
-  updatedAt: string | null
-  deletedAt: string | null
+  updatedAt?: string
+  deletedAt?: string
 }
 
-export interface IInitiator {
+export interface Initiator {
   params: object
   id: number
   jobSpecId: string
   type: initiatorTypes
   createdAt: string
-  schedule: string | null
-  time: string | null
-  ran: boolean | null
+  schedule?: string
+  time?: string
+  ran?: boolean
   address: string
-  requesters: string | null
-  deletedAt: string | null
+  requesters?: string
+  deletedAt?: string
 }
 
-export interface IJobRun {
+export interface JobRun {
   id: string
-  initiator: IInitiator
+  initiator: Initiator
   jobId: string
   overrides: RunResult
   result: RunResult
@@ -50,48 +50,48 @@ export interface IJobRun {
   createdAt: string
   finishedAt: string
   updatedAt: string
-  status: string
+  status: status
   creationHeight: string
-  observedHeight: string | null
-  deletedAt: string | null
+  observedHeight?: string
+  deletedAt?: string
 }
 
-export interface IJobSpec {
+export interface JobSpec {
   initiators: IInitiators
-  tasks: ITaskSpecs
+  tasks: TaskSpecs
   runs: ITaskRuns
   id: string
   createdAt: string
-  startAt: string | null
-  endAt: string | null
-  deletedAt: string | null
+  startAt?: string
+  endAt?: string
+  deletedAt?: string
 }
 
-export interface ITaskRun {
+export interface TaskRun {
   id: string
   result: RunResult
   status: status
-  task: ITaskSpec
+  task: TaskSpec
   type: adapterTypes
   createdAt: string
-  updatedAt: string | null
+  updatedAt?: string
   confirmations: number
-  minimumConfirmations: number | null
+  minimumConfirmations?: number
 }
-export interface ITaskSpec {
+export interface TaskSpec {
   id: number
   createdAt: string
-  updatedAt: string | null
-  deletedAt: string | null
+  updatedAt?: string
+  deletedAt?: string
   type: adapterTypes
-  confirmations: number | null
-  params: object | null
+  confirmations?: number
+  params?: object
   jobSpecId: string
 }
 
-export interface ITxAttempt extends dbTypes.TxAttempt {
+export interface TxAttempt extends dbTypes.TxAttempt {
   id: number
-  txId: number | null
+  txId?: number
   createdAt: string
   hash: string
   gasPrice: string
@@ -100,7 +100,7 @@ export interface ITxAttempt extends dbTypes.TxAttempt {
   signedRawTx: string
 }
 
-export interface ITransaction {
+export interface Transaction {
   rawHex: string
   id: number
   from: string
@@ -115,12 +115,12 @@ export interface ITransaction {
   sentAt: number
 }
 
-export type IBridgeTypes = Array<IBridgeType>
-export type IExternalInitiators = Array<IExternalInitiator>
-export type IInitiators = Array<IInitiator>
-export type IJobRuns = Array<IJobRun>
-export type IJobSpecs = Array<IJobSpec>
-export type ITaskRuns = Array<ITaskRun>
-export type ITaskSpecs = Array<ITaskSpec>
-export type ITxAttempts = Array<ITxAttempt>
-export type ITransactions = Array<ITransaction>
+export type BridgeTypes = Array<BridgeType>
+export type ExternalInitiators = Array<ExternalInitiator>
+export type Initiators = Array<Initiator>
+export type JobRuns = Array<JobRun>
+export type JobSpecs = Array<JobSpec>
+export type TaskRuns = Array<TaskRun>
+export type TaskSpecs = Array<TaskSpec>
+export type TxAttempts = Array<TxAttempt>
+export type Transactions = Array<Transaction>

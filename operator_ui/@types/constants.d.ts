@@ -1,12 +1,11 @@
 export type status =
-  | 'In Progress'
-  | 'Pending Confirmations'
-  | 'Pending Connection'
-  | 'Pending Bridge'
-  | 'Pending Sleep'
-  | 'Errored'
-  | 'Completed'
-  | null
+  | 'in_progress'
+  | 'pending_confirmations'
+  | 'pending_connection'
+  | 'pending_bridge'
+  | 'pending_sleep'
+  | 'errored'
+  | 'completed'
 
 export type adapterTypes =
   | 'copy'

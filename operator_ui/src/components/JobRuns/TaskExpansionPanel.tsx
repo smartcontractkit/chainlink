@@ -3,7 +3,7 @@ import { createStyles } from '@material-ui/core'
 import { withStyles, WithStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import capitalize from 'lodash/capitalize'
-import { ITaskRun, IJobRun } from '../../../@types/operator_ui'
+import { TaskRun, JobRun } from '../../../@types/operator_ui'
 import StatusItem from './StatusItem'
 
 const fontStyles = () =>
@@ -95,7 +95,7 @@ const Params = ({ params }: IParamsProps) => {
 }
 
 interface IResultProps {
-  run: ITaskRun
+  run: TaskRun
 }
 
 const Result = ({ run }: IResultProps) => {
@@ -112,7 +112,7 @@ const Result = ({ run }: IResultProps) => {
 }
 
 interface IProps {
-  jobRun: IJobRun
+  jobRun: JobRun
 }
 
 const TaskExpansionPanel = ({ jobRun }: IProps) => {
@@ -131,7 +131,7 @@ const TaskExpansionPanel = ({ jobRun }: IProps) => {
           <Initiator params={initiator.params} />
         </StatusItem>
       </Grid>
-      {jobRun.taskRuns.map((taskRun: ITaskRun) => {
+      {jobRun.taskRuns.map((taskRun: TaskRun) => {
         return (
           <Grid item xs={12} key={taskRun.id}>
             <StatusItem
