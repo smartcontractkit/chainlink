@@ -3,7 +3,6 @@ orbs:
   aws-ecr: circleci/aws-ecr@4.0.1
 jobs:
   go-sqlite:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.21
     steps:
@@ -11,20 +10,19 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
+      - run: go mod tidy
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/go_test | tee /tmp/go_test.txt
       - store_artifacts:
           path: /tmp/go_test.txt
   go-sqlite-race:
     resource_class: large
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.21
     steps:
@@ -32,18 +30,17 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
+      - run: go mod tidy
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: ./tools/ci/gorace_test | tee /tmp/gorace_test.txt
       - store_artifacts:
           path: /tmp/gorace_test.txt
   go-postgres:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.21
       - image: circleci/postgres:11-alpine
@@ -57,16 +54,15 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
+      - run: go mod tidy
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: ./tools/ci/go_single_threaded_test
   rust:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.21
     steps:
@@ -74,16 +70,15 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
+      - run: go mod tidy
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: ./tools/ci/rust_test
   sgx:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.21
     environment:
@@ -97,18 +92,17 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
+      - run: go mod tidy
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: make enclave
       - run: ./tools/ci/sgx_test
   geth-postgres:
     resource_class: xlarge
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.21
         environment:
@@ -132,17 +126,16 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
+      - run: go mod tidy
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: ./tools/ci/ethereum_test
   parity-postgres:
     resource_class: large
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.21
         environment:
@@ -168,16 +161,15 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
+      - run: go mod tidy
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: ./tools/ci/ethereum_test parity
   truffle:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.21
     steps:
@@ -194,7 +186,6 @@ jobs:
             - /usr/local/share/.cache/yarn
       - run: ./tools/ci/truffle_test
   operator-ui:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
       - image: smartcontract/builder:1.0.21
     steps:
