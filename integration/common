@@ -34,34 +34,15 @@ waitForResponse () {
   title "Service on $1 is ready."
 }
 
-get_ethnet_version() {
-  go get github.com/pelletier/go-toml/cmd/tomljson
-  tomljson Gopkg.lock | jq -r '.projects | .[] | select(.name | contains("go-ethereum")) | .version'
-}
-
 install_gethnet() {
   if [ -x "$(which geth)" ]; then
     return
   fi
 
-  title "Retrieving geth version..."
-  ethversion=$(get_ethnet_version)
-
-  ethpkg=github.com/ethereum/go-ethereum
-  ethpath=$GOPATH/src/$ethpkg
-
-  title "Installing geth $ethversion..."
-  if [ -d "$ethpath" ]; then
-    pushd "$ethpath" >/dev/null
-    git checkout master &>/dev/null
-    go get -d -u $ethpkg
-  else
-    go get -d $ethpkg
-    pushd "$ethpath" >/dev/null
-  fi
-  git checkout $ethversion 2>/dev/null
+  title "Installing geth..."
+  go get github.com/ethereum/go-ethereum/cmd/geth
+  git checkout .
   popd >/dev/null
-  go install $ethpkg/cmd/geth
 }
 
 launch_gethnet() {

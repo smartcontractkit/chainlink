@@ -4,7 +4,7 @@ set -e
 
 GIT_ROOT=`git rev-parse --show-toplevel`
 
-export SRCROOT=${CIRCLE_WORKING_DIRECTORY:-${TRAVIS_BUILD_DIR:-$GIT_ROOT}}
+export SRCROOT=`pwd`
 export PATH=$SRCROOT/tools/bin:./node_modules/.bin:$PATH
 
 export ROOT="$SRCROOT/tools/clroot"
@@ -61,5 +61,4 @@ set +o pipefail
 title 'All tests passed.'
 
 # Return to caller's PWD
-popd >/dev/null
 popd >/dev/null
