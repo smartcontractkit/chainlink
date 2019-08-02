@@ -7,10 +7,7 @@
     "test": "truffle test"
   },
   "dependencies": {
-    "@ensdomains/ens": "^0.1.1",
-    "link_token": "^1.0.3",
-    "openzeppelin-solidity": "^2.3.0",
-    "solidity-cborutils": "^1.0.4"
+    "openzeppelin-solidity": "^2.3.0"
   },
   "devDependencies": {
     "truffle": "^5.0.25"
