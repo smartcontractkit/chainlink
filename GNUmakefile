@@ -39,16 +39,13 @@ godep-autoinstall: | install-godep godep
 
 .PHONY: install-godep
 install-godep:
-	@if [ -z "`which dep`" ]; then \
-		go get github.com/golang/dep/cmd/dep; \
-	fi || true
 	@if [ -z "`which gencodec`" ]; then \
 		go get github.com/smartcontractkit/gencodec; \
 	fi || true
 
 .PHONY: godep
 godep: ## Ensure chainlink's go dependencies are installed.
-	dep ensure -v -vendor-only
+	go mod tidy
 
 .PHONY: yarndep
 yarndep: ## Ensure the frontend's dependencies are installed.
