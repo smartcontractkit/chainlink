@@ -54,7 +54,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
-	config := app.Depot
+	config := app.Configger
 	eth := app.MockEthClient(cltest.Strict)
 
 	newHeads := make(chan models.BlockHeader)
@@ -108,7 +108,9 @@ func TestIntegration_FeeBump(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
-	config := app.Depot
+
+	config := cltest.NewConfig(t)
+	app.Configger = config
 
 	// Put some distance between these two values so we can explore more of the state space
 	config.Set("ETH_GAS_BUMP_THRESHOLD", 10)
@@ -317,9 +319,11 @@ func TestIntegration_RunLog(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			config, cfgCleanup := cltest.NewConfig(t)
-			defer cfgCleanup()
+			config := cltest.NewConfig(t)
+			defer config.Shutdown()
+
 			config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
+
 			app, cleanup := cltest.NewApplicationWithConfig(t, config)
 			defer cleanup()
 
@@ -489,10 +493,13 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
+	config.Set("BRIDGE_RESPONSE_URL", "https://test.chain.link/always")
+
+	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
-	bridgeURL := cltest.WebURL(t, "https://test.chain.link/always")
-	app.Store.Config.Set("BRIDGE_RESPONSE_URL", bridgeURL)
+
 	app.Start()
 
 	eaPrice := "1234"
@@ -658,8 +665,8 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
-	config, configCleanup := cltest.NewConfig(t)
-	defer configCleanup()
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
 
@@ -743,8 +750,11 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	wsserver, wsserverCleanup := cltest.NewEventWebSocketServer(t)
 	defer wsserverCleanup()
 
-	config, _ := cltest.NewConfig(t)
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
+
 	config.Set("EXPLORER_URL", wsserver.URL.String())
+
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 	app.InstantClock()

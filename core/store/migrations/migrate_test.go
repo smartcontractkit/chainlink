@@ -23,13 +23,12 @@ import (
 )
 
 func bootstrapORM(t *testing.T) (*gorm.DB, func()) {
-	tc, cleanup := cltest.NewConfig(t)
-	cfg := tc.Depot
+	config := cltest.NewConfig(t)
 
-	require.NoError(t, os.MkdirAll(cfg.RootDir(), 0700))
-	cltest.WipePostgresDatabase(t, cfg)
+	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
+	cltest.WipePostgresDatabase(t, config)
 
-	url := cfg.DatabaseURL()
+	url := config.DatabaseURL()
 	dialect, err := orm.DeduceDialect(url)
 	if err != nil {
 		t.Fatal(err)
@@ -42,8 +41,8 @@ func bootstrapORM(t *testing.T) (*gorm.DB, func()) {
 
 	return db, func() {
 		assert.NoError(t, db.Close())
-		cleanup()
-		os.RemoveAll(cfg.RootDir())
+		config.Shutdown()
+		os.RemoveAll(config.RootDir())
 	}
 }
 

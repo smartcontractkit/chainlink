@@ -172,7 +172,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			ClientNodeURL:            config.ClientNodeURL(),
 			Dev:                      config.Dev(),
 			DatabaseTimeout:          config.DatabaseTimeout(),
-			EthereumURL:              config.EthereumURL(),
+			EthereumURL:              config.EthereumURL().String(),
 			EthGasBumpThreshold:      config.EthGasBumpThreshold(),
 			EthGasBumpWei:            config.EthGasBumpWei(),
 			EthGasPriceDefault:       config.EthGasPriceDefault(),

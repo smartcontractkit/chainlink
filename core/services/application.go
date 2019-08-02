@@ -1,12 +1,12 @@
 package services
 
 import (
-	"errors"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/gobuffalo/packr"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -45,15 +45,17 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config orm.BootstrapConfig, onConnectCallbacks ...func(Application)) Application {
-	config = orm.NewRuntimeConfig(config, db)
-
+func NewApplication(configStore orm.ConfigStore, onConnectCallbacks ...func(Application)) (Application, error) {
+	config := orm.NewConfig(configStore)
 	db, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), config.LogSQLStatements())
 	if err != nil {
-		// FIXME: error ?
-		logger.Fatal(err)
+		return nil, errors.Wrap(err, "error starting ORM")
 	}
-	store := store.NewStore(config, db)
+
+	runtimeConfigStore := orm.NewRuntimeConfigStore(configStore, db)
+	config = orm.NewConfig(runtimeConfigStore)
+
+	store := store.NewStore(runtimeConfigStore, db)
 
 	jobSubscriber := NewJobSubscriber(store)
 	pendingConnectionResumer := newPendingConnectionResumer(store)
@@ -81,7 +83,7 @@ func NewApplication(config orm.BootstrapConfig, onConnectCallbacks ...func(Appli
 	}
 	app.HeadTracker = NewHeadTracker(store, headTrackables)
 
-	return app
+	return app, nil
 }
 
 // Start runs the JobSubscriber and Scheduler. If successful,

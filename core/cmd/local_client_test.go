@@ -17,8 +17,8 @@ import (
 )
 
 func TestClient_RunNodeShowsEnv(t *testing.T) {
-	config, configCleanup := cltest.NewConfig(t)
-	defer configCleanup()
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
 	config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
 	config.Set("CHAINLINK_PORT", 6688)
 
@@ -156,7 +156,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			noauth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) (string, error) { return "", nil }}
 			apiPrompt := &cltest.MockAPIInitializer{}
 			client := cmd.Client{
-				Config:                 app.Depot,
+				Config:                 app.Configger,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				KeyStoreAuthenticator:  noauth,
 				FallbackAPIInitializer: apiPrompt,
@@ -215,15 +215,14 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config, configCleanup := cltest.NewConfig(t)
-			defer configCleanup()
-			config.Set("CHAINLINK_DEV", true)
+			config := cltest.NewConfig(t)
+			defer config.Shutdown()
 			config.Set("LOG_TO_DISK", tt.logToDiskValue)
 			require.NoError(t, os.MkdirAll(config.KeysDir(), os.FileMode(0700)))
 			defer os.RemoveAll(config.RootDir())
 
 			previousLogger := logger.GetLogger().Desugar()
-			logger.SetLogger(logger.CreateProductionLogger(config))
+			logger.SetLogger(cmd.CreateProductionLogger(config))
 			defer logger.SetLogger(previousLogger)
 			filepath := filepath.Join(config.RootDir(), "log.jsonl")
 			_, err := os.Stat(filepath)

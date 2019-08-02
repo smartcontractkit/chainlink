@@ -9,18 +9,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 )
 
-func leanStore() *store.Store {
-	return &store.Store{Config: orm.NewTestConfig()}
+func leanStore(t testing.TB) *store.Store {
+	return &store.Store{Config: cltest.NewConfig(t)}
 }
 
 func TestHttpAdapters_NotAUrlError(t *testing.T) {
 	t.Parallel()
 
-	store := leanStore()
+	store := leanStore(t)
 	tests := []struct {
 		name    string
 		adapter adapters.BaseAdapter
@@ -41,7 +40,7 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 func TestHTTPGet_Perform(t *testing.T) {
 	t.Parallel()
 
-	store := leanStore()
+	store := leanStore(t)
 	cases := []struct {
 		name        string
 		status      int
@@ -99,7 +98,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 }
 
 func TestHTTP_TooLarge(t *testing.T) {
-	cfg := orm.NewTestConfig()
+	cfg := cltest.NewConfig(t)
 	cfg.Set("DEFAULT_HTTP_LIMIT", "1")
 	store := &store.Store{Config: cfg}
 
@@ -176,7 +175,7 @@ func TestHttpPost_Perform(t *testing.T) {
 			}
 			assert.Equal(t, test.queryParams, hpa.QueryParams)
 
-			result := hpa.Perform(input, leanStore())
+			result := hpa.Perform(input, leanStore(t))
 
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())

@@ -13,7 +13,6 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,7 +66,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	app.AddUnlockedKey() // second account
-	config := app.Depot
+	config := app.Configger
 	store := app.Store
 	manager := store.TxManager
 	accounts := store.KeyStore.Accounts()
@@ -136,8 +135,11 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
-	config := store.Config
+
+	config := cltest.NewConfig(t)
+	app.Configger = config
 	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
+
 	manager := store.TxManager
 
 	to := cltest.NewAddress()
@@ -192,8 +194,8 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 	t.Parallel()
 
-	config, configCleanup := cltest.NewConfig(t)
-	defer configCleanup()
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
@@ -603,8 +605,8 @@ func TestTxManager_BumpGasUntilSafe_confirmed_exceedsGasBumpThreshold(t *testing
 func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
 
 	sentAt1 := uint64(23456)
 	sentAt2 := sentAt1 + config.EthGasBumpThreshold()
@@ -776,7 +778,7 @@ func TestTxManager_Register(t *testing.T) {
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
 		&strpkg.EthClient{CallerSubscriber: ethMock},
-		orm.NewTestConfig(),
+		cltest.NewConfig(t),
 		nil,
 		nil,
 	)
@@ -798,7 +800,7 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
 		&strpkg.EthClient{CallerSubscriber: ethMock},
-		orm.NewTestConfig(),
+		cltest.NewConfig(t),
 		nil,
 		nil,
 	)
@@ -833,7 +835,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
 		&strpkg.EthClient{CallerSubscriber: ethMock},
-		orm.NewTestConfig(),
+		cltest.NewConfig(t),
 		nil,
 		nil,
 	)
@@ -851,8 +853,9 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 
 func TestTxManager_WithdrawLink_HappyPath(t *testing.T) {
 	t.Parallel()
-	config, configCleanup := cltest.NewConfig(t)
-	defer configCleanup()
+
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
@@ -954,8 +957,8 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	logsToCheckForBalance, cleanup := cltest.ObserveLogs()
 	defer cleanup()
 
-	config, configCleanup := cltest.NewConfig(t)
-	defer configCleanup()
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
 	oracleAddress := "0xDEADB3333333F"
 	oca := common.HexToAddress(oracleAddress)
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
@@ -1019,6 +1022,9 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 	store := app.Store
 	manager := store.TxManager
 
+	config := cltest.NewConfig(t)
+	app.Configger = config
+
 	to := cltest.NewAddress()
 	data, err := hex.DecodeString("0000abcdef")
 	assert.NoError(t, err)
@@ -1051,7 +1057,8 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			strpkg.ExportedSetTxManagerDev(manager, test.dev)
+			config.Set("CHAINLINK_DEV", test.dev)
+
 			ethMock.Context("manager.CreateTx", func(ethMock *cltest.EthMock) {
 				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 				ethMock.Register("eth_blockNumber", utils.Uint64ToHex(1))

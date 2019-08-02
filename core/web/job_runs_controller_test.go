@@ -238,7 +238,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 			// resume run
 			body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
 			headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
-			url := app.Depot.ClientNodeURL() + "/v2/runs/" + jr.ID
+			url := app.Configger.ClientNodeURL() + "/v2/runs/" + jr.ID
 			resp, cleanup := cltest.UnauthenticatedPatch(t, url, bytes.NewBufferString(body), headers)
 			defer cleanup()
 

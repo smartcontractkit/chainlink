@@ -110,7 +110,7 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 
 // secureOptions configure security options for the secure middleware, mostly
 // for TLS redirection
-func secureOptions(config config.RuntimeConfig) secure.Options {
+func secureOptions(config orm.Configger) secure.Options {
 	return secure.Options{
 		FrameDeny:     true,
 		IsDevelopment: config.Dev(),
@@ -121,7 +121,7 @@ func secureOptions(config config.RuntimeConfig) secure.Options {
 
 // secureMiddleware adds a TLS handler and redirector, to button up security
 // for this node
-func secureMiddleware(config orm.RuntimeConfig) gin.HandlerFunc {
+func secureMiddleware(config orm.Configger) gin.HandlerFunc {
 	secureMiddleware := secure.New(secureOptions(config))
 	secureFunc := func() gin.HandlerFunc {
 		return func(c *gin.Context) {
@@ -392,7 +392,7 @@ func loggerFunc() gin.HandlerFunc {
 }
 
 // Add CORS headers so UI can make api requests
-func uiCorsHandler(config orm.RuntimeConfig) gin.HandlerFunc {
+func uiCorsHandler(config orm.Configger) gin.HandlerFunc {
 	c := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},

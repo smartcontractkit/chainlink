@@ -68,7 +68,7 @@ type TxManager interface {
 type EthTxManager struct {
 	*EthClient
 	keyStore            *KeyStore
-	config              orm.Config
+	config              orm.Configger
 	orm                 *orm.ORM
 	registeredAccounts  []accounts.Account
 	availableAccounts   []*ManagedAccount
@@ -79,12 +79,12 @@ type EthTxManager struct {
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
 // initializing internal variables.
-func NewEthTxManager(ethClient *EthClient, config orm.RuntimeConfigStore, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
+func NewEthTxManager(ethClient *EthClient, config orm.ConfigStore, keyStore *KeyStore, ormp *orm.ORM) *EthTxManager {
 	return &EthTxManager{
 		EthClient:     ethClient,
 		config:        orm.NewConfig(config),
 		keyStore:      keyStore,
-		orm:           orm,
+		orm:           ormp,
 		accountsMutex: &sync.Mutex{},
 		connected:     abool.New(),
 	}
@@ -173,7 +173,7 @@ func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
 	return ma, nil
 }
 
-func normalizeGasParams(gasPriceWei *big.Int, gasLimit uint64, config orm.RuntimeConfig) (*big.Int, uint64) {
+func normalizeGasParams(gasPriceWei *big.Int, gasLimit uint64, config orm.Configger) (*big.Int, uint64) {
 	if !config.Dev() {
 		return config.EthGasPriceDefault(), DefaultGasLimit
 	}

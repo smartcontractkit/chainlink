@@ -3,6 +3,7 @@ package orm
 import (
 	"encoding"
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"net/url"
@@ -31,7 +32,7 @@ type Configger interface {
 	EthGasBumpThreshold() uint64
 	EthGasBumpWei() *big.Int
 	EthGasPriceDefault() *big.Int
-	EthereumURL() string
+	EthereumURL() *url.URL
 	ExplorerAccessKey() string
 	ExplorerSecret() string
 	ExplorerURL() *url.URL
@@ -68,7 +69,10 @@ type Configger interface {
 // directly
 type ConfigStore interface {
 	Get(name string, value encoding.TextUnmarshaler) error
-	Set(name string, value encoding.TextMarshaler)
+
+	SetMarshaler(name string, value encoding.TextMarshaler) error
+	SetString(name, value string) error
+	SetStringer(name string, value fmt.Stringer) error
 }
 
 // Config represents the implementation of Configger
@@ -84,21 +88,21 @@ func NewConfig(store ConfigStore) *Config {
 // BridgeResponseURL represents the URL for bridges to send a response to.
 func (c Config) BridgeResponseURL() *url.URL {
 	var value urlUnmarshaler
-	c.store.Get(EnvVarName("BridgeResponseURL"), &value)
+	c.store.Get("BridgeResponseURL", &value)
 	return (*url.URL)(&value)
 }
 
 // ChainID represents the chain ID to use for transactions.
 func (c Config) ChainID() uint64 {
 	var value uint64Unmarshaler
-	c.store.Get(EnvVarName("ChainID"), &value)
+	c.store.Get("ChainID", &value)
 	return uint64(value)
 }
 
 // DefaultHTTPLimit defines the limit for HTTP requests.
 func (c Config) DefaultHTTPLimit() int64 {
 	var value uint64Unmarshaler
-	c.store.Get(EnvVarName("DefaultHTTPLimit"), &value)
+	c.store.Get("DefaultHTTPLimit", &value)
 	return int64(value)
 }
 
@@ -106,7 +110,7 @@ func (c Config) DefaultHTTPLimit() int64 {
 // from after the time it is created. Default 1 year = 365 * 24h = 8760h
 func (c Config) MaximumServiceDuration() time.Duration {
 	var value durationUnmarshaler
-	c.store.Get(EnvVarName("MaximumServiceDuration"), &value)
+	c.store.Get("MaximumServiceDuration", &value)
 	return time.Duration(value)
 }
 
@@ -114,7 +118,7 @@ func (c Config) MaximumServiceDuration() time.Duration {
 // allowed to run.
 func (c Config) MinimumServiceDuration() time.Duration {
 	var value durationUnmarshaler
-	c.store.Get(EnvVarName("MinimumServiceDuration"), &value)
+	c.store.Get("MinimumServiceDuration", &value)
 	return time.Duration(value)
 }
 
@@ -122,7 +126,7 @@ func (c Config) MinimumServiceDuration() time.Duration {
 // should be increased in order to facilitate a transaction.
 func (c Config) EthGasBumpThreshold() uint64 {
 	var value uint64Unmarshaler
-	c.store.Get(EnvVarName("EthGasBumpThreshold"), &value)
+	c.store.Get("EthGasBumpThreshold", &value)
 	return uint64(value)
 }
 
@@ -130,35 +134,35 @@ func (c Config) EthGasBumpThreshold() uint64 {
 // doing gas bumping.
 func (c Config) EthGasBumpWei() *big.Int {
 	var value models.Big
-	c.store.Get(EnvVarName("EthGasBumpWei"), &value)
+	c.store.Get("EthGasBumpWei", &value)
 	return value.ToInt()
 }
 
 // EthGasPriceDefault represents the default gas price for transactions.
 func (c Config) EthGasPriceDefault() *big.Int {
 	var value models.Big
-	c.store.Get(EnvVarName("EthGasPriceDefault"), &value)
+	c.store.Get("EthGasPriceDefault", &value)
 	return value.ToInt()
 }
 
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
 func (c Config) EthereumURL() *url.URL {
 	var value urlUnmarshaler
-	c.store.Get(EnvVarName("EthereumURL"), &value)
+	c.store.Get("EthereumURL", &value)
 	return (*url.URL)(&value)
 }
 
 // LinkContractAddress represents the address
 func (c Config) LinkContractAddress() string {
 	var value stringUnmarshaler
-	c.store.Get(EnvVarName("LinkContractAddress"), &value)
+	c.store.Get("LinkContractAddress", &value)
 	return string(value)
 }
 
 // ExplorerURL returns the websocket URL for this node to push stats to, or nil.
 func (c Config) ExplorerURL() *url.URL {
 	var value urlUnmarshaler
-	c.store.Get(EnvVarName("ExplorerURL"), &value)
+	c.store.Get("ExplorerURL", &value)
 	return (*url.URL)(&value)
 
 	//rval := c.getWithFallback("ExplorerURL", parseURL)
@@ -176,26 +180,26 @@ func (c Config) ExplorerURL() *url.URL {
 // ExplorerAccessKey returns the access key for authenticating with explorer
 func (c Config) ExplorerAccessKey() string {
 	var value stringUnmarshaler
-	c.store.Get(EnvVarName("ExplorerAccessKey"), &value)
+	c.store.Get("ExplorerAccessKey", &value)
 	return string(value)
 }
 
 // ExplorerSecret returns the secret for authenticating with explorer
 func (c Config) ExplorerSecret() string {
 	var value stringUnmarshaler
-	c.store.Get(EnvVarName("ExplorerSecret"), &value)
+	c.store.Get("ExplorerSecret", &value)
 	return string(value)
 }
 
 // OracleContractAddress represents the deployed Oracle contract's address.
 func (c Config) OracleContractAddress() *common.Address {
-	//if c.viper.GetString(EnvVarName("OracleContractAddress")) == "" {
+	//if c.viper.GetString("OracleContractAddress")) == "" {
 	//return nil
 	//}
 	//return c.getWithFallback("OracleContractAddress", parseAddress).(*common.Address)
 
 	var value addressUnmarshaler
-	c.store.Get(EnvVarName("OracleContractAddress"), &value)
+	c.store.Get("OracleContractAddress", &value)
 	return (*common.Address)(&value)
 }
 
@@ -204,7 +208,7 @@ func (c Config) OracleContractAddress() *common.Address {
 // can proceed.
 func (c Config) MinIncomingConfirmations() uint32 {
 	var value uint64Unmarshaler
-	c.store.Get(EnvVarName("MinIncomingConfirmations"), &value)
+	c.store.Get("MinIncomingConfirmations", &value)
 	return uint32(value)
 }
 
@@ -213,7 +217,7 @@ func (c Config) MinIncomingConfirmations() uint32 {
 // task is completed.
 func (c Config) MinOutgoingConfirmations() uint64 {
 	var value uint64Unmarshaler
-	c.store.Get(EnvVarName("MinOutgoingConfirmations"), &value)
+	c.store.Get("MinOutgoingConfirmations", &value)
 	return uint64(value)
 }
 
@@ -221,35 +225,35 @@ func (c Config) MinOutgoingConfirmations() uint64 {
 // supplied for a contract to be considered.
 func (c Config) MinimumContractPayment() *assets.Link {
 	var value models.Big
-	c.store.Get(EnvVarName("MinimumContractPayment"), &value)
+	c.store.Get("MinimumContractPayment", &value)
 	return (*assets.Link)(value.ToInt())
 }
 
 // MinimumRequestExpiration is the minimum allowed request expiration for a Service Agreement.
 func (c Config) MinimumRequestExpiration() uint64 {
 	var value uint64Unmarshaler
-	c.store.Get(EnvVarName("MinimumRequestExpiration"), &value)
+	c.store.Get("MinimumRequestExpiration", &value)
 	return uint64(value)
 }
 
 // ReaperExpiration represents
 func (c Config) ReaperExpiration() time.Duration {
 	var value durationUnmarshaler
-	c.store.Get(EnvVarName("ReaperExpiration"), &value)
+	c.store.Get("ReaperExpiration", &value)
 	return time.Duration(value)
 }
 
 // SecureCookies allows toggling of the secure cookies HTTP flag
 func (c Config) SecureCookies() bool {
 	var value boolUnmarshaler
-	c.store.Get(EnvVarName("SecureCookies"), &value)
+	c.store.Get("SecureCookies", &value)
 	return bool(value)
 }
 
 // SessionTimeout is the maximum duration that a user session can persist without any activity.
 func (c Config) SessionTimeout() time.Duration {
 	var value durationUnmarshaler
-	c.store.Get(EnvVarName("SessionTimeout"), &value)
+	c.store.Get("SessionTimeout", &value)
 	return time.Duration(value)
 }
 
@@ -257,7 +261,7 @@ func (c Config) SessionTimeout() time.Duration {
 // Chainlink should use for HTTPS.
 func (c Config) TLSCertPath() string {
 	var value stringUnmarshaler
-	c.store.Get(EnvVarName("TLSCertPath"), &value)
+	c.store.Get("TLSCertPath", &value)
 	return string(value)
 }
 
@@ -265,7 +269,7 @@ func (c Config) TLSCertPath() string {
 // the TLS certificate.
 func (c Config) TLSHost() string {
 	var value stringUnmarshaler
-	c.store.Get(EnvVarName("TLSHost"), &value)
+	c.store.Get("TLSHost", &value)
 	return string(value)
 }
 
@@ -273,7 +277,7 @@ func (c Config) TLSHost() string {
 // should use for HTTPS.
 func (c Config) TLSKeyPath() string {
 	var value stringUnmarshaler
-	c.store.Get(EnvVarName("TLSKeyPath"), &value)
+	c.store.Get("TLSKeyPath", &value)
 	return string(value)
 }
 
@@ -281,7 +285,7 @@ func (c Config) TLSKeyPath() string {
 // the TxManager should allow to for a transaction
 func (c Config) TxAttemptLimit() uint16 {
 	var value uint16Unmarshaler
-	c.store.Get(EnvVarName("TxAttemptLimit"), &value)
+	c.store.Get("TxAttemptLimit", &value)
 	return uint16(value)
 }
 
@@ -334,21 +338,21 @@ func (c Config) SessionOptions() sessions.Options {
 // AllowOrigins returns the CORS hosts used by the frontend.
 func (c Config) AllowOrigins() string {
 	var value stringUnmarshaler
-	c.store.Get(EnvVarName("AllowOrigins"), &value)
+	c.store.Get("AllowOrigins", &value)
 	return string(value)
 }
 
 // ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
 func (c Config) ClientNodeURL() string {
 	var value stringUnmarshaler
-	c.store.Get(EnvVarName("ClientNodeURL"), &value)
+	c.store.Get("ClientNodeURL", &value)
 	return string(value)
 }
 
 // DatabaseTimeout represents how long to tolerate non response from the DB.
 func (c Config) DatabaseTimeout() time.Duration {
 	var value durationUnmarshaler
-	c.store.Get(EnvVarName("DatabaseTimeout"), &value)
+	c.store.Get("DatabaseTimeout", &value)
 	return time.Duration(value)
 }
 
@@ -357,7 +361,7 @@ func (c Config) DatabaseTimeout() time.Duration {
 // an empty string, so the application defaults to .chainlink/db.sqlite.
 func (c Config) DatabaseURL() string {
 	var value stringUnmarshaler
-	c.store.Get(EnvVarName("DatabaseURL"), &value)
+	c.store.Get("DatabaseURL", &value)
 	url := string(value)
 	if url == "" {
 		return filepath.ToSlash(filepath.Join(c.RootDir(), "db.sqlite3"))
@@ -368,14 +372,14 @@ func (c Config) DatabaseURL() string {
 // Dev configures "development" mode for chainlink.
 func (c Config) Dev() bool {
 	var value boolUnmarshaler
-	c.store.Get(EnvVarName("Dev"), &value)
+	c.store.Get("Dev", &value)
 	return bool(value)
 }
 
 // JSONConsole enables the JSON console.
 func (c Config) JSONConsole() bool {
 	var value boolUnmarshaler
-	c.store.Get(EnvVarName("JSONConsole"), &value)
+	c.store.Get("JSONConsole", &value)
 	return bool(value)
 }
 
@@ -387,28 +391,28 @@ func (c Config) KeysDir() string {
 // LogLevel represents the maximum level of log messages to output.
 func (c Config) LogLevel() LogLevel {
 	var value logLevelUnmarshaler
-	c.store.Get(EnvVarName("LogLevel"), &value)
+	c.store.Get("LogLevel", &value)
 	return LogLevel(value)
 }
 
 // LogSQLStatements tells chainlink to log all SQL statements made using the default logger
 func (c Config) LogSQLStatements() bool {
 	var value boolUnmarshaler
-	c.store.Get(EnvVarName("LogSQLStatements"), &value)
+	c.store.Get("LogSQLStatements", &value)
 	return bool(value)
 }
 
 // LogToDisk configures disk preservation of logs.
 func (c Config) LogToDisk() bool {
 	var value boolUnmarshaler
-	c.store.Get(EnvVarName("LogToDisk"), &value)
+	c.store.Get("LogToDisk", &value)
 	return bool(value)
 }
 
 // Port represents the port Chainlink should listen on for client requests.
 func (c Config) Port() uint16 {
 	var value uint16Unmarshaler
-	c.store.Get(EnvVarName("Port"), &value)
+	c.store.Get("Port", &value)
 	return uint16(value)
 }
 
@@ -416,13 +420,13 @@ func (c Config) Port() uint16 {
 // keep its files.
 func (c Config) RootDir() string {
 	var value stringUnmarshaler
-	c.store.Get(EnvVarName("RootDir"), &value)
+	c.store.Get("RootDir", &value)
 	return string(value)
 }
 
 // TLSPort represents the port Chainlink should listen on for encrypted client requests.
 func (c Config) TLSPort() uint16 {
 	var value uint16Unmarshaler
-	c.store.Get(EnvVarName("TLSPort"), &value)
+	c.store.Get("TLSPort", &value)
 	return uint16(value)
 }

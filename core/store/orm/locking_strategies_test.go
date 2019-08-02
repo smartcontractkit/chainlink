@@ -13,9 +13,8 @@ import (
 )
 
 func TestNewLockingStrategy(t *testing.T) {
-	tc, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	c := tc.Depot
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
 
 	tests := []struct {
 		name        string
@@ -23,7 +22,7 @@ func TestNewLockingStrategy(t *testing.T) {
 		path        string
 		expect      reflect.Type
 	}{
-		{"sqlite", orm.DialectSqlite, c.RootDir(), reflect.ValueOf(&orm.FileLockingStrategy{}).Type()},
+		{"sqlite", orm.DialectSqlite, config.RootDir(), reflect.ValueOf(&orm.FileLockingStrategy{}).Type()},
 		{"postgres", orm.DialectPostgres, "postgres://something:5432", reflect.ValueOf(&orm.PostgresLockingStrategy{}).Type()},
 	}
 
@@ -40,14 +39,13 @@ func TestNewLockingStrategy(t *testing.T) {
 const delay = 10 * time.Millisecond
 
 func TestFileLockingStrategy_Lock(t *testing.T) {
-	tc, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	c := tc.Depot
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
 
-	require.NoError(t, os.MkdirAll(c.RootDir(), 0700))
-	defer os.RemoveAll(c.RootDir())
+	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
+	defer os.RemoveAll(config.RootDir())
 
-	dbpath := filepath.ToSlash(filepath.Join(c.RootDir(), "db.sqlite3"))
+	dbpath := filepath.ToSlash(filepath.Join(config.RootDir(), "db.sqlite3"))
 	ls, err := orm.NewFileLockingStrategy(dbpath)
 	require.NoError(t, err)
 	require.NoError(t, ls.Lock(delay), "should get exclusive lock")
@@ -63,20 +61,19 @@ func TestFileLockingStrategy_Lock(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_Lock(t *testing.T) {
-	tc, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	c := tc.Depot
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
 
-	if c.DatabaseURL() == "" {
+	if config.DatabaseURL() == "" {
 		t.Skip("No postgres DatabaseURL set.")
 	}
 
-	ls, err := orm.NewPostgresLockingStrategy(c.DatabaseURL())
+	ls, err := orm.NewPostgresLockingStrategy(config.DatabaseURL())
 	require.NoError(t, err)
 	require.NoError(t, ls.Lock(delay), "should get exclusive lock")
 	require.NoError(t, ls.Lock(delay), "relocking on same instance is noop")
 
-	ls2, err := orm.NewPostgresLockingStrategy(c.DatabaseURL())
+	ls2, err := orm.NewPostgresLockingStrategy(config.DatabaseURL())
 	require.NoError(t, err)
 	require.Error(t, ls2.Lock(delay), "should not get 2nd exclusive lock")
 	require.NoError(t, ls2.Unlock())

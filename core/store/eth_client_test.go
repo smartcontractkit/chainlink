@@ -18,7 +18,10 @@ func TestEthClient_GetTxReceipt(t *testing.T) {
 	response := cltest.MustReadFile(t, "../internal/fixtures/eth/getTransactionReceipt.json")
 	mockServer, wsCleanup := cltest.NewWSServer(string(response))
 	defer wsCleanup()
-	config := cltest.NewConfigWithWSServer(t, mockServer)
+
+	//config := cltest.NewConfigWithWSServer(t, mockServer)
+	config := cltest.NewConfig(t)
+
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 

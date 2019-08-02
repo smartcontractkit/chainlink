@@ -17,6 +17,14 @@ func (s *stringUnmarshaler) UnmarshalText(text []byte) error {
 	return nil
 }
 
+// StringMarshaler is a single use wrapper for a string which conforms to the encoding.TextMarshaler interface
+type StringMarshaler string
+
+// MarshalText satisfies encoding.TextMarshaler and returns the string casted to []byte
+func (s StringMarshaler) MarshalText() ([]byte, error) {
+	return []byte(s), nil
+}
+
 type durationUnmarshaler time.Duration
 
 func (d *durationUnmarshaler) UnmarshalText(text []byte) error {
@@ -31,6 +39,14 @@ func (b *boolUnmarshaler) UnmarshalText(text []byte) error {
 	bl, err := strconv.ParseBool(string(text))
 	*b = boolUnmarshaler(bl)
 	return err
+}
+
+// BoolMarshaler is a single use wrapper for a bool which conforms to the encoding.TextMarshaler interface
+type BoolMarshaler bool
+
+// MarshalText satisfies encoding.TextMarshaler and returns the bool printed as []text
+func (b BoolMarshaler) MarshalText() ([]byte, error) {
+	return []byte(fmt.Sprintf("%T", bool(b))), nil
 }
 
 type logLevelUnmarshaler LogLevel

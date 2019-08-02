@@ -1,13 +1,13 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -22,8 +22,10 @@ import (
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	config := updateConfig(cli.Config, c.Bool("debug"))
-	logger.SetLogger(createProductionLogger(cli.Config))
+	updateConfig(cli.ConfigStore, c.Bool("debug"))
+	config := orm.NewConfig(cli.ConfigStore)
+
+	logger.SetLogger(CreateProductionLogger(config))
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 
 	err := InitEnclave()
@@ -31,11 +33,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error initializing SGX enclave: %+v", err))
 	}
 
-	app := cli.AppFactory.NewApplication(cli.Config, func(app services.Application) {
+	app, err := cli.AppFactory.NewApplication(cli.ConfigStore, func(app services.Application) {
 		store := app.GetStore()
 		logNodeBalance(store)
 		logIfNonceOutOfSync(store)
 	})
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error creating app: %+v", err))
+	}
 	store := app.GetStore()
 	pwd, err := passwordFromFile(c.String("password"))
 	if err != nil {
@@ -105,11 +110,10 @@ func localNonceIsNotCurrent(lastNonce, nonce uint64) bool {
 	return false
 }
 
-func updateConfig(config orm.ConfigStore, debug bool) orm.ConfigStore {
+func updateConfig(config *orm.BootstrapConfigStore, debug bool) {
 	if debug {
-		config.Set("LOG_LEVEL", zapcore.DebugLevel.String())
+		config.SetMarshaler("LOG_LEVEL", zapcore.DebugLevel)
 	}
-	return config
 }
 
 func logNodeBalance(store *strpkg.Store) {
@@ -142,9 +146,14 @@ func logConfigVariables(store *strpkg.Store) error {
 
 // DeleteUser is run locally to remove the User row from the node's database.
 func (cli *Client) DeleteUser(c *clipkg.Context) error {
-	logger.SetLogger(createProductionLogger(cli.Config))
-	app := cli.AppFactory.NewApplication(cli.Config)
+	logger.SetLogger(CreateProductionLogger(cli.Config))
+
+	app, err := cli.AppFactory.NewApplication(cli.ConfigStore)
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error creating app: %+v", err))
+	}
 	defer app.Stop()
+
 	store := app.GetStore()
 	user, err := store.DeleteUser()
 	if err == nil {
@@ -155,8 +164,12 @@ func (cli *Client) DeleteUser(c *clipkg.Context) error {
 
 // ImportKey imports a key to be used with the chainlink node
 func (cli *Client) ImportKey(c *clipkg.Context) error {
-	logger.SetLogger(createProductionLogger(cli.Config))
-	app := cli.AppFactory.NewApplication(cli.Config)
+	logger.SetLogger(CreateProductionLogger(cli.Config))
+
+	app, err := cli.AppFactory.NewApplication(cli.ConfigStore)
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error creating app: %+v", err))
+	}
 	defer app.Stop()
 
 	if !c.Args().Present() {
@@ -204,7 +217,7 @@ func copyFile(src, dst string) error {
 	return err
 }
 
-func createProductionLogger(c BootstrapConfig) *zap.Logger {
+func CreateProductionLogger(c orm.Configger) *zap.Logger {
 	return logger.CreateProductionLogger(
 		c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
 }

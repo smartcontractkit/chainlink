@@ -20,8 +20,8 @@ import (
 )
 
 func TestChainlinkApplication_SignalShutdown(t *testing.T) {
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
 	app, appCleanUp := cltest.NewApplicationWithConfig(t, config)
 	defer appCleanUp()
 

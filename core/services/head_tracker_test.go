@@ -97,8 +97,8 @@ func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
-	config, configCleanup := cltest.NewConfig(t)
-	defer configCleanup()
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()

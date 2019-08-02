@@ -510,9 +510,12 @@ func TestClient_WithdrawFromSpecifiedContractAddress(t *testing.T) {
 }
 
 func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func(), func(*testing.T)) {
-	config, _ := cltest.NewConfig(t)
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
+
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
+
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 
 	hash := cltest.NewHash()

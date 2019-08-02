@@ -69,16 +69,19 @@ func TestValidateJob(t *testing.T) {
 }
 
 func TestValidateJob_DevRejectsSleepAdapter(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
+
+	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 
 	sleepingJob := cltest.NewJobWithWebInitiator()
 	sleepingJob.Tasks[0].Type = adapters.TaskTypeSleep
 
-	store.Config.Set("CHAINLINK_DEV", true)
+	config.Set("CHAINLINK_DEV", true)
 	assert.NoError(t, services.ValidateJob(sleepingJob, store))
 
-	store.Config.Set("CHAINLINK_DEV", false)
+	config.Set("CHAINLINK_DEV", false)
 	assert.Error(t, services.ValidateJob(sleepingJob, store))
 }
 

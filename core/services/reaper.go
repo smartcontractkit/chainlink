@@ -10,7 +10,7 @@ import (
 
 type storeReaper struct {
 	store  *store.Store
-	config orm.RuntimeConfig
+	config orm.Configger
 }
 
 // NewStoreReaper creates a reaper that cleans stale objects from the store.

@@ -1,13 +1,13 @@
 package orm
 
 import (
-	"log"
 	"math/big"
 	"net/url"
 	"reflect"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 )
 
@@ -57,7 +57,7 @@ func EnvVarName(field string) string {
 	schemaT := reflect.TypeOf(Schema{})
 	item, ok := schemaT.FieldByName(field)
 	if !ok {
-		log.Panicf("Invariant violated, no field of name %s found on ConfigSchema", field)
+		logger.Panicf("Invariant violated, no field of name %s found on ConfigSchema", field)
 	}
 	return item.Tag.Get("env")
 }
@@ -68,7 +68,7 @@ func DefaultValue(name string) (string, bool) {
 	if item, ok := schemaT.FieldByName(name); ok {
 		return item.Tag.Lookup("default")
 	}
-	log.Panicf("Invariant violated, no field of name %s found for defaultValue", name)
+	logger.Panicf("Invariant violated, no field of name %s found for defaultValue", name)
 	return "", false
 }
 
@@ -81,6 +81,6 @@ func ZeroValue(name string) interface{} {
 		}
 		return reflect.New(item.Type).Interface()
 	}
-	log.Panicf("Invariant violated, no field of name %s found for zeroValue", name)
+	logger.Panicf("Invariant violated, no field of name %s found for zeroValue", name)
 	return nil
 }

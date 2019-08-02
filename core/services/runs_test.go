@@ -52,7 +52,10 @@ func TestNewRun(t *testing.T) {
 }
 
 func TestNewRun_requiredPayment(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
+
+	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
@@ -77,7 +80,7 @@ func TestNewRun_requiredPayment(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			store.Config.Set("MINIMUM_CONTRACT_PAYMENT", test.minimumPayment)
+			config.Set("MINIMUM_CONTRACT_PAYMENT", test.minimumPayment)
 
 			jobSpec := models.NewJob()
 			jobSpec.Tasks = []models.TaskSpec{{
@@ -97,7 +100,10 @@ func TestNewRun_requiredPayment(t *testing.T) {
 }
 
 func TestNewRun_minimumConfirmations(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
+
+	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
@@ -119,7 +125,7 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			store.Config.Set("MIN_INCOMING_CONFIRMATIONS", test.configConfirmations)
+			config.Set("MIN_INCOMING_CONFIRMATIONS", test.configConfirmations)
 
 			jobSpec := cltest.NewJobWithLogInitiator()
 			jobSpec.Tasks[0].Confirmations = clnull.Uint32From(test.taskConfirmations)
@@ -610,10 +616,11 @@ func TestExecuteJobWithRunRequest_fromRunLog_Happy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			config, cfgCleanup := cltest.NewConfig(t)
-			defer cfgCleanup()
+			config := cltest.NewConfig(t)
+			defer config.Shutdown()
 			minimumConfirmations := uint32(2)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
+
 			app, cleanup := cltest.NewApplicationWithConfig(t, config)
 			defer cleanup()
 
@@ -671,10 +678,11 @@ func TestExecuteJobWithRunRequest_fromRunLog_ConnectToLaggingEthNode(t *testing.
 	initiatingTxHash := cltest.NewHash()
 	triggeringBlockHash := cltest.NewHash()
 
-	config, cfgCleanup := cltest.NewConfig(t)
-	defer cfgCleanup()
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
 	minimumConfirmations := uint32(2)
 	config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
+
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 

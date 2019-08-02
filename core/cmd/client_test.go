@@ -28,7 +28,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 
 			sr := models.SessionRequest{Email: test.email, Password: test.pwd}
 			store := &cmd.MemoryCookieStore{}
-			tca := cmd.NewSessionCookieAuthenticator(app.Depot, store)
+			tca := cmd.NewSessionCookieAuthenticator(app.Configger, store)
 			cookie, err := tca.Authenticate(sr)
 
 			assert.Error(t, err)
@@ -60,7 +60,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			sr := models.SessionRequest{Email: test.email, Password: test.pwd}
 			store := &cmd.MemoryCookieStore{}
-			tca := cmd.NewSessionCookieAuthenticator(app.Depot, store)
+			tca := cmd.NewSessionCookieAuthenticator(app.Configger, store)
 			cookie, err := tca.Authenticate(sr)
 
 			if test.wantError {
@@ -85,9 +85,8 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 func TestDiskCookieStore_Retrieve(t *testing.T) {
 	t.Parallel()
 
-	tc, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	config := tc.Depot
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
 
 	tests := []struct {
 		name      string

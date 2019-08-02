@@ -33,7 +33,7 @@ func (cc *ConfigController) Patch(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if err := cc.App.GetStore().SetConfigValue(orm.EnvVarName("EthGasPriceDefault"), request.EthGasPriceDefault.String()); err != nil {
+	} else if err := cc.App.GetStore().SetConfigValue(orm.EnvVarName("EthGasPriceDefault"), request.EthGasPriceDefault); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to set gas price default: %+v", err))
 	} else if cw, err := presenters.NewConfigWhitelist(cc.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to build config response: %+v", err))

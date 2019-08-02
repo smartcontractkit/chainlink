@@ -13,9 +13,12 @@ import (
 )
 
 func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
+	config.SetStringer("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
+
+	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
-	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 
 	data := ""
 	token := ""
@@ -43,9 +46,12 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 }
 
 func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
+	config.SetStringer("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
+
+	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
-	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 
 	mock, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`,
 		func(h http.Header, b string) {},
@@ -79,9 +85,12 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 		{"from completed", models.RunStatusCompleted, models.RunStatusCompleted},
 	}
 
-	store, cleanup := cltest.NewStore(t)
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
+	config.SetString("BRIDGE_RESPONSE_URL", "")
+
+	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
-	store.Config.Set("BRIDGE_RESPONSE_URL", "")
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -124,9 +133,13 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 		{"unsetting result", 200, "", false, false, `{"data":{"result":null}}`},
 	}
 
-	store, cleanup := cltest.NewStore(t)
+	config := cltest.NewConfig(t)
+	defer config.Shutdown()
+	config.SetString("BRIDGE_RESPONSE_URL", "")
+
+	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
-	store.Config.Set("BRIDGE_RESPONSE_URL", "")
+
 	runID := utils.NewBytes32ID()
 	wantedBody := fmt.Sprintf(`{"id":"%v","data":{"result":"lot 49"}}`, runID)
 
@@ -176,9 +189,12 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore(t)
+			config := cltest.NewConfig(t)
+			defer config.Shutdown()
+			config.SetString("BRIDGE_RESPONSE_URL", "")
+
+			store, cleanup := cltest.NewStoreWithConfig(config)
 			defer cleanup()
-			store.Config.Set("BRIDGE_RESPONSE_URL", test.configuredURL)
 
 			mock, ensureCalled := cltest.NewHTTPMockServer(t, 200, "POST", ``,
 				func(_ http.Header, body string) {

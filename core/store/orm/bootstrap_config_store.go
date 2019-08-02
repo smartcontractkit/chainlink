@@ -2,6 +2,7 @@ package orm
 
 import (
 	"encoding"
+	"fmt"
 	"os"
 	"reflect"
 
@@ -51,22 +52,34 @@ func (c *BootstrapConfigStore) LoadConfigFile(rootDir string) error {
 	return nil
 }
 
-// Set a specific configuration variable, takes precedence over all other values
-func (c BootstrapConfigStore) Set(name string, value encoding.TextMarshaler) {
+// SetMarshaler a specific configuration variable, takes precedence over all other values
+func (c BootstrapConfigStore) SetMarshaler(name string, value encoding.TextMarshaler) error {
 	schemaT := reflect.TypeOf(Schema{})
 	for index := 0; index < schemaT.NumField(); index++ {
 		item := schemaT.FieldByIndex([]int{index})
 		envName := item.Tag.Get("env")
 		if envName == name {
 			c.viper.Set(name, value)
-			return
+			return nil
 		}
 	}
 	logger.Panicf("No configuration parameter for %s", name)
+	return nil // unreachable
+}
+
+// SetString saves the string in the config store
+func (c BootstrapConfigStore) SetString(name, value string) error {
+	return c.SetMarshaler(name, StringMarshaler(value))
+}
+
+// SetStringer saves the string erin the config store
+func (c BootstrapConfigStore) SetStringer(name string, value fmt.Stringer) error {
+	return c.SetString(name, value.String())
 }
 
 // Get a value by name
 func (c BootstrapConfigStore) Get(name string, value encoding.TextUnmarshaler) error {
-	source := c.viper.GetString(EnvVarName(name))
+	source := c.viper.GetString(name)
+	fmt.Println("name", name, "source", source)
 	return value.UnmarshalText([]byte(source))
 }

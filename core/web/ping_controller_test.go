@@ -40,7 +40,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	err = app.GetStore().CreateExternalInitiator(ei)
 	require.NoError(t, err)
 
-	url := app.Config.ClientNodeURL() + "/v2/ping"
+	url := app.Configger.ClientNodeURL() + "/v2/ping"
 	request, err := http.NewRequest("GET", url, nil)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", web.MediaType)
@@ -63,7 +63,7 @@ func TestPingController_Show_NoCredentials(t *testing.T) {
 	defer cleanup()
 
 	client := http.Client{}
-	url := app.Config.ClientNodeURL() + "/v2/ping"
+	url := app.Configger.ClientNodeURL() + "/v2/ping"
 	resp, err := client.Get(url)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)

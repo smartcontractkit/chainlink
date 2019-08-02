@@ -12,9 +12,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -72,57 +70,48 @@ func init() {
 }
 
 // TestConfig struct with test store and wsServer
-type TestConfig struct {
-	t testing.TB
-	orm.RuntimeConfig
-	wsServer *httptest.Server
-}
+//type TestConfig struct {
+//t testing.TB
+//*orm.TestConfig
+//wsServer *httptest.Server
+//}
 
 // NewConfig returns a new TestConfig
-func NewConfig(t testing.TB) (*TestConfig, func()) {
-	t.Helper()
+//func NewConfig(t testing.TB) (*TestConfig, func()) {
+//t.Helper()
 
-	wsserver, cleanup := newWSServer()
-	return NewConfigWithWSServer(t, wsserver), cleanup
-}
+//wsserver, cleanup := newWSServer()
+//return NewConfigWithWSServer(t, wsserver), cleanup
+//}
 
 // NewConfigWithWSServer return new config with specified wsserver
-func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig {
-	t.Helper()
+//func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig {
+//t.Helper()
 
-	count := atomic.AddUint64(&storeCounter, 1)
-	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
-	rawConfig := orm.NewTestConfig()
-	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
-	rawConfig.Set("ETH_CHAIN_ID", 3)
-	rawConfig.Set("CHAINLINK_DEV", true)
-	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
-	rawConfig.Set("LOG_LEVEL", orm.LogLevel{Level: zapcore.DebugLevel})
-	rawConfig.Set("MINIMUM_SERVICE_DURATION", "24h")
-	rawConfig.Set("MIN_INCOMING_CONFIRMATIONS", 1)
-	rawConfig.Set("MIN_OUTGOING_CONFIRMATIONS", 6)
-	rawConfig.Set("MINIMUM_CONTRACT_PAYMENT", minimumContractPayment.Text(10))
-	rawConfig.Set("ROOT", rootdir)
-	rawConfig.Set("SESSION_TIMEOUT", "2m")
-	config := TestConfig{t: t, Depot: rawConfig}
-	config.SetEthereumServer(wsserver)
-	return &config
-}
+//count := atomic.AddUint64(&storeCounter, 1)
+//rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
+
+//rawConfig := cltest.NewConfig(t)
+//config := TestConfig{t: t, TestConfig: rawConfig}
+//config.SetEthereumServer(wsserver)
+
+//return &config
+//}
 
 // SetEthereumServer sets the ethereum server for testconfig with given wsserver
-func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
-	u, err := url.Parse(wss.URL)
-	require.NoError(tc.t, err)
-	u.Scheme = "ws"
-	tc.Set("ETH_URL", u.String())
-	tc.wsServer = wss
-}
+//func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
+//u, err := url.Parse(wss.URL)
+//require.NoError(tc.t, err)
+//u.Scheme = "ws"
+////tc.Set("ETH_URL", u)
+//tc.wsServer = wss
+//}
 
 // TestApplication holds the test application and test servers
 type TestApplication struct {
 	t testing.TB
 	*services.ChainlinkApplication
-	orm.RuntimeConfig
+	orm.Configger
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
@@ -163,11 +152,11 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 func NewApplication(t testing.TB) (*TestApplication, func()) {
 	t.Helper()
 
-	c, cfgCleanup := NewConfig(t)
-	app, cleanup := NewApplicationWithConfig(t, c)
+	config := NewConfig(t)
+	app, cleanup := NewApplicationWithConfig(t, config)
 	return app, func() {
 		cleanup()
-		cfgCleanup()
+		config.Shutdown()
 	}
 }
 
@@ -175,17 +164,17 @@ func NewApplication(t testing.TB) (*TestApplication, func()) {
 func NewApplicationWithKey(t testing.TB) (*TestApplication, func()) {
 	t.Helper()
 
-	config, cfgCleanup := NewConfig(t)
+	config := NewConfig(t)
 	app, cleanup := NewApplicationWithConfigAndKey(t, config)
 	return app, func() {
 		cleanup()
-		cfgCleanup()
+		config.Shutdown()
 	}
 }
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testconfig
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig) (*TestApplication, func()) {
+func NewApplicationWithConfigAndKey(t testing.TB, tc *Config) (*TestApplication, func()) {
 	t.Helper()
 
 	app, cleanup := NewApplicationWithConfig(t, tc)
@@ -194,24 +183,32 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig) (*TestApplicat
 }
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config
-func NewApplicationWithConfig(t testing.TB, tc *TestConfig) (*TestApplication, func()) {
+func NewApplicationWithConfig(t testing.TB, config *Config) (*TestApplication, func()) {
 	t.Helper()
 
-	WipePostgresDatabase(t, tc.Depot)
+	WipePostgresDatabase(t, config)
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
-	app := services.NewApplication(tc.Depot, func(app services.Application) {
+
+	onConnect := func(app services.Application) {
 		ta.connectedChannel <- struct{}{}
-	}).(*services.ChainlinkApplication)
-	ta.ChainlinkApplication = app
-	ethMock := MockEthOnStore(t, app.Store)
+	}
+	app, err := services.NewApplication(config, onConnect)
+	if err != nil {
+		t.Fatalf("Failed to create new application %+v", err)
+	}
+	chainlinkApp := app.(*services.ChainlinkApplication)
+
+	ta.ChainlinkApplication = chainlinkApp
+	ethMock := MockEthOnStore(t, chainlinkApp.Store)
 
 	server := newServer(ta)
-	tc.Set("CLIENT_NODE_URL", server.URL)
-	app.Store.Config = tc.Depot
+	// FIXME:
+	//tc.Set("CLIENT_NODE_URL", server.URL)
+	chainlinkApp.Store.Config = config
 
-	ta.Depot = tc.Depot
+	ta.Configger = config
 	ta.Server = server
-	ta.wsServer = tc.wsServer
+	//ta.wsServer = tc.wsServer
 	return ta, func() {
 		if !ethMock.AllCalled() {
 			panic("mock expectations set and not used on default TestApplication ethMock!!!")
@@ -310,7 +307,7 @@ func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
 
 	ta.MustSeedUserSession()
 	return HTTPClientCleaner{
-		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Depot),
+		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Configger),
 		t:          ta.t,
 	}
 }
@@ -321,12 +318,12 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	r := &RendererMock{}
 	client := &cmd.Client{
 		Renderer:                       r,
-		Config:                         ta.Depot,
+		Config:                         ta.Configger,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		KeyStoreAuthenticator:          CallbackAuthenticator{func(*strpkg.Store, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
-		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Depot),
+		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Configger),
 		CookieAuthenticator:            MockCookieAuthenticator{},
 		FileSessionRequestBuilder:      &MockSessionRequestBuilder{},
 		PromptingSessionRequestBuilder: &MockSessionRequestBuilder{},
@@ -337,15 +334,15 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 
 func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
 	ta.MustSeedUserSession()
-	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Depot, &cmd.MemoryCookieStore{})
+	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Configger, &cmd.MemoryCookieStore{})
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
-		Config:                         ta.Depot,
+		Config:                         ta.Configger,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		KeyStoreAuthenticator:          CallbackAuthenticator{func(*strpkg.Store, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
-		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Depot, cookieAuth),
+		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Configger, cookieAuth),
 		CookieAuthenticator:            cookieAuth,
 		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
@@ -355,15 +352,15 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 }
 
 // NewStoreWithConfig creates a new store with given config
-func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
-	WipePostgresDatabase(config.t, config.Depot)
+func NewStoreWithConfig(config *Config) (*strpkg.Store, func()) {
+	WipePostgresDatabase(config.t, config)
 
 	db, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), config.LogSQLStatements())
 	if err != nil {
 		config.t.Fatal(err)
 	}
 
-	s := strpkg.NewStore(config.Depot, db)
+	s := strpkg.NewStore(config, db)
 	return s, func() {
 		cleanUpStore(config.t, s)
 	}
@@ -373,11 +370,11 @@ func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
 func NewStore(t testing.TB) (*strpkg.Store, func()) {
 	t.Helper()
 
-	c, cleanup := NewConfig(t)
-	store, storeCleanup := NewStoreWithConfig(c)
+	config := NewConfig(t)
+	store, storeCleanup := NewStoreWithConfig(config)
 	return store, func() {
 		storeCleanup()
-		cleanup()
+		config.Shutdown()
 	}
 }
 
@@ -393,11 +390,11 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 	require.NoError(t, store.Close())
 }
 
-func WipePostgresDatabase(t testing.TB, c orm.RuntimeConfig) {
+func WipePostgresDatabase(t testing.TB, c orm.Configger) {
 	t.Helper()
 
 	databaseURL := c.DatabaseURL()
-	if strings.HasPrefix(strings.ToLower(databaseURL, string(orm.DialectPostgres))) {
+	if strings.HasPrefix(strings.ToLower(databaseURL), string(orm.DialectPostgres)) {
 		db, err := gorm.Open(string(orm.DialectPostgres), databaseURL)
 		if err != nil {
 			t.Fatalf("unable to open postgres database for wiping: %+v", err)

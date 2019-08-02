@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -34,7 +34,8 @@ var (
 // Client is the shell for the node, local commands and remote commands.
 type Client struct {
 	Renderer
-	ConfigStore                    orm.Config
+	ConfigStore                    *orm.BootstrapConfigStore
+	Config                         orm.Configger
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          KeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -56,15 +57,15 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(orm.ConfigStore, ...func(services.Application)) services.Application
+	NewApplication(orm.ConfigStore, ...func(services.Application)) (services.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(config orm.ConfigStore, onConnectCallbacks ...func(services.Application)) services.Application {
-	return services.NewApplication(config, onConnectCallbacks...)
+func (n ChainlinkAppFactory) NewApplication(configStore orm.ConfigStore, onConnectCallbacks ...func(services.Application)) (services.Application, error) {
+	return services.NewApplication(configStore, onConnectCallbacks...)
 }
 
 // Runner implements the Run method.
@@ -142,14 +143,14 @@ type HTTPClient interface {
 }
 
 type authenticatedHTTPClient struct {
-	config     orm.Config
+	config     orm.Configger
 	client     *http.Client
 	cookieAuth CookieAuthenticator
 }
 
 // NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
 // which is then used for all subsequent HTTP API requests.
-func NewAuthenticatedHTTPClient(cfg orm.Config, cookieAuth CookieAuthenticator) HTTPClient {
+func NewAuthenticatedHTTPClient(cfg orm.Configger, cookieAuth CookieAuthenticator) HTTPClient {
 	return &authenticatedHTTPClient{
 		config:     cfg,
 		client:     &http.Client{},
@@ -213,13 +214,13 @@ type CookieAuthenticator interface {
 // SessionCookieAuthenticator is a concrete implementation of CookieAuthenticator
 // that retrieves a session id for the user with credentials from the session request.
 type SessionCookieAuthenticator struct {
-	config orm.Config
+	config orm.Configger
 	store  CookieStore
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
-func NewSessionCookieAuthenticator(config orm.Config, store CookieStore) CookieAuthenticator {
+func NewSessionCookieAuthenticator(config orm.Configger, store CookieStore) CookieAuthenticator {
 	return &SessionCookieAuthenticator{config: config, store: store}
 }
 
@@ -285,7 +286,7 @@ func (m *MemoryCookieStore) Retrieve() (*http.Cookie, error) {
 
 // DiskCookieStore saves a single cookie in the local cli working directory.
 type DiskCookieStore struct {
-	Config orm.Config
+	Config orm.Configger
 }
 
 // Save stores a cookie.

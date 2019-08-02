@@ -85,7 +85,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	require.NoError(t, app.Store.SaveSession(&staleSession))
 
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, "email@test.net", "password123")
-	resp, err := http.Post(app.Depot.ClientNodeURL()+"/sessions", "application/json", bytes.NewBufferString(body))
+	resp, err := http.Post(app.Configger.ClientNodeURL()+"/sessions", "application/json", bytes.NewBufferString(body))
 	assert.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -161,7 +161,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
 	require.NoError(t, app.Store.SaveSession(&staleSession))
 
-	request, err := http.NewRequest("DELETE", app.Depot.ClientNodeURL()+"/sessions", nil)
+	request, err := http.NewRequest("DELETE", app.Configger.ClientNodeURL()+"/sessions", nil)
 	assert.NoError(t, err)
 	request.AddCookie(cookie)
 

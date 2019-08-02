@@ -452,8 +452,8 @@ func NewBig(i *big.Int) *Big {
 }
 
 // MarshalText marshals this instance to base 10 number as string.
-func (b *Big) MarshalText() ([]byte, error) {
-	return []byte((*big.Int)(b).Text(10)), nil
+func (b Big) MarshalText() ([]byte, error) {
+	return []byte((*big.Int)(&b).Text(10)), nil
 }
 
 // MarshalJSON marshals this instance to base 10 number as string.

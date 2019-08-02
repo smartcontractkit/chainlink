@@ -22,7 +22,8 @@ import (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config      orm.Config
+	ConfigStore orm.ConfigStore
+	Config      orm.Configger
 	Clock       utils.AfterNower
 	KeyStore    *KeyStore
 	RunChannel  RunChannel
@@ -37,16 +38,12 @@ type lazyRPCWrapper struct {
 	initialized *abool.AtomicBool
 }
 
-func newLazyRPCWrapper(urlString string) (CallerSubscriber, error) {
-	parsed, err := url.ParseRequestURI(urlString)
-	if err != nil {
-		return nil, err
-	}
-	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
-		return nil, fmt.Errorf("Ethereum url scheme must be websocket: %s", parsed.String())
+func newLazyRPCWrapper(url *url.URL) (CallerSubscriber, error) {
+	if url.Scheme != "ws" && url.Scheme != "wss" {
+		return nil, fmt.Errorf("Ethereum url scheme must be websocket: %s", url.String())
 	}
 	return &lazyRPCWrapper{
-		url:         parsed,
+		url:         url,
 		mutex:       &sync.Mutex{},
 		initialized: abool.New(),
 	}, nil
@@ -92,33 +89,32 @@ func (wrapper *lazyRPCWrapper) EthSubscribe(ctx context.Context, channel interfa
 
 // Dialer implements Dial which is a function that creates a client for that url
 type Dialer interface {
-	Dial(string) (CallerSubscriber, error)
+	Dial(*url.URL) (CallerSubscriber, error)
 }
 
 // EthDialer is Dialer which accesses rpc urls
 type EthDialer struct{}
 
 // Dial will dial the given url and return a CallerSubscriber
-func (ed *EthDialer) Dial(urlString string) (CallerSubscriber, error) {
-	return newLazyRPCWrapper(urlString)
+func (ed *EthDialer) Dial(url *url.URL) (CallerSubscriber, error) {
+	return newLazyRPCWrapper(url)
 }
 
 // NewStore will create a new database file at the config's RootDir if
 // it is not already present, otherwise it will use the existing db.sqlite3
 // file.
-func NewStore(config orm.RuntimeConfigStore, orm *orm.ORM) *Store {
+func NewStore(config orm.ConfigStore, orm *orm.ORM) *Store {
 	return NewStoreWithDialer(config, orm, &EthDialer{})
 }
 
 // NewStoreWithDialer creates a new store with the given config and dialer
-func NewStoreWithDialer(configStore orm.RuntimeConfigStore, ormp *orm.ORM, dialer Dialer) *Store {
+func NewStoreWithDialer(configStore orm.ConfigStore, db *orm.ORM, dialer Dialer) *Store {
 	config := orm.NewConfig(configStore)
-
 	ethrpc, err := dialer.Dial(config.EthereumURL())
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to dial ETH RPC port: %+v", err))
 	}
-	if err := ormp.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); err != nil {
+	if err := db.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", err))
 	}
 	keyStore := NewKeyStore(config.KeysDir())
@@ -127,10 +123,10 @@ func NewStoreWithDialer(configStore orm.RuntimeConfigStore, ormp *orm.ORM, diale
 		Clock:       utils.Clock{},
 		Config:      config,
 		KeyStore:    keyStore,
-		ORM:         ormp,
+		ORM:         db,
 		RunChannel:  NewQueuedRunChannel(),
-		TxManager:   NewEthTxManager(&EthClient{ethrpc}, configStore, keyStore, ormp),
-		StatsPusher: synchronization.NewStatsPusher(orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret()),
+		TxManager:   NewEthTxManager(&EthClient{ethrpc}, configStore, keyStore, db),
+		StatsPusher: synchronization.NewStatsPusher(db, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret()),
 	}
 	return store
 }
