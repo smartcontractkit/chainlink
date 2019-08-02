@@ -1,5 +1,5 @@
 import * as dbTypes from '../db'
-import { status, adapterTypes } from '../constants'
+import { status, adapterTypes, initiatorTypes } from '../constants'
 
 interface RunResult {
   data: { result: string | null }
@@ -7,30 +7,40 @@ interface RunResult {
   jobRunId: string
   taskRunId: string
   status: status
-  amount?: number
+  amount: number | null
 }
 
-export interface IBridgeType
-  extends Omit<dbTypes.BridgeType, 'incomingTokenHash' | 'salt'> {
+export interface IBridgeType {
   id: string
+  name: string
+  url: string
+  confirmations: number
+  outgoingToken: string
+  minimumContractPayment: string | null
 }
 
-//REVIEW what to do with this?
-export interface IExternalInitiator
-  extends Omit<
-    dbTypes.ExternalInitiator,
-    'salt' | 'hashedSecret' | 'accessKey'
-  > {}
+export interface IExternalInitiator {
+  id: number
+  createdAt: string
+  updatedAt: string | null
+  deletedAt: string | null
+}
 
-export interface IInitiator extends dbTypes.Initiator {
+export interface IInitiator {
   params: object
+  id: number
+  jobSpecId: string
+  type: initiatorTypes
+  createdAt: string
+  schedule: string | null
+  time: string | null
+  ran: boolean | null
+  address: string
+  requesters: string | null
+  deletedAt: string | null
 }
 
-export interface IJobRun
-  extends Omit<
-    dbTypes.JobRun,
-    'initiatorId' | 'overridesId' | 'jobSpecId' | 'resultId'
-  > {
+export interface IJobRun {
   id: string
   initiator: IInitiator
   jobId: string
@@ -39,41 +49,70 @@ export interface IJobRun
   taskRuns: ITaskRuns
   createdAt: string
   finishedAt: string
+  updatedAt: string
   status: string
+  creationHeight: string
+  observedHeight: string | null
+  deletedAt: string | null
 }
 
-export interface IJobSpec extends dbTypes.JobSpec {
+export interface IJobSpec {
   initiators: IInitiators
   tasks: ITaskSpecs
   runs: ITaskRuns
+  id: string
+  createdAt: string
+  startAt: string | null
+  endAt: string | null
+  deletedAt: string | null
 }
 
-export interface ITaskRun
-  extends Omit<dbTypes.TaskRun, 'taskSpecId' | 'jobRunId' | 'resultId'> {
+export interface ITaskRun {
   id: string
   result: RunResult
+  status: status
   task: ITaskSpec
-  updatedAt: Date
   type: adapterTypes
-  minimumConfirmations: number
-  status: string
+  createdAt: string
+  updatedAt: string | null
+  confirmations: number
+  minimumConfirmations: number | null
 }
 export interface ITaskSpec {
   id: number
-  createdAt?: Date
-  updatedAt?: Date
-  deletedAt?: Date
+  createdAt: string
+  updatedAt: string | null
+  deletedAt: string | null
   type: adapterTypes
-  confirmations?: number
-  params?: object
+  confirmations: number | null
+  params: object | null
+  jobSpecId: string
 }
 
-//REVIEW Not needed?
-export interface ITxAttempt extends dbTypes.TxAttempt {}
+export interface ITxAttempt extends dbTypes.TxAttempt {
+  id: number
+  txId: number | null
+  createdAt: string
+  hash: string
+  gasPrice: string
+  confirmed: boolean
+  sentAt: number
+  signedRawTx: string
+}
 
-export interface ITransaction
-  extends Omit<dbTypes.Tx, 'surrogateId' | 'signedRawTx'> {
+export interface ITransaction {
   rawHex: string
+  id: number
+  from: string
+  to: string
+  data: string
+  nonce: number
+  value: string
+  gasLimit: number
+  hash: string
+  gasPrice: string
+  confirmed: boolean
+  sentAt: number
 }
 
 export type IBridgeTypes = Array<IBridgeType>
