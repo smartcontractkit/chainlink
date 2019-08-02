@@ -1,6 +1,9 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
+    "paths": {
+      "*": ["*", "src/*", "support/*"]
+    },
     "declaration": true,
     "target": "es2015",
     "module": "esnext",
@@ -16,12 +19,8 @@
     "strict": true,
     "esModuleInterop": true
   },
-  "include": [
-    "src/**/*"
-  ],
-  "references": [
-    { "path": "../styleguide" }
-  ],
+  "include": ["src"],
+  "references": [{ "path": "../styleguide" }],
   "files": [
     "@types/json-api-normalizer.d.ts",
     "@types/redux-object.d.ts",
