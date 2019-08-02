@@ -404,7 +404,7 @@ func (parseRunLog0original) parseRequestID(log Log) string {
 // parseRunLog20190123withFulfillmentParams parses the OracleRequest log format
 // which includes the callback, the payment amount, and expiration time
 // The fulfillment also includes the callback, payment amount, and expiration,
-// in addtion to the request ID and data.
+// in addition to the request ID and data.
 type parseRunLog20190123withFulfillmentParams struct{}
 
 func (parseRunLog20190123withFulfillmentParams) parseJSON(log Log) (JSON, error) {
