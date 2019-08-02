@@ -6,6 +6,7 @@ require (
 	github.com/allegro/bigcache v1.1.0 // indirect
 	github.com/araddon/dateparse v0.0.0-20190622164848-0fb0a474d195
 	github.com/aristanetworks/goarista v0.0.0-20190204200901-2166578f3448 // indirect
+	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/boj/redistore v0.0.0-20160128113310-fc113767cd6b // indirect
@@ -22,7 +23,7 @@ require (
 	github.com/gin-contrib/size v0.0.0-20190528085907-355431950c57
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.4.0
-	github.com/gobuffalo/envy v1.6.12 // indirect
+	github.com/gobuffalo/packd v0.0.0-20181212173646-eca3b8fd6687 // indirect
 	github.com/gobuffalo/packr v1.21.0
 	github.com/gofrs/flock v0.7.1
 	github.com/golang/mock v1.2.0
@@ -32,9 +33,8 @@ require (
 	github.com/gorilla/websocket v1.4.0
 	github.com/jinzhu/gorm v1.9.10
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
-	github.com/kr/pty v1.1.3 // indirect
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
-	github.com/markbates/deplist v1.0.5 // indirect
+	github.com/markbates/oncer v0.0.0-20181203154359-bf2de49a0be2 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
@@ -63,8 +63,10 @@ require (
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2
-	gopkg.in/gormigrate.v1 v1.6.0
+	gopkg.in/gormigrate.v1 v1.5.0
 	gopkg.in/guregu/null.v2 v2.1.2 // indirect
 	gopkg.in/guregu/null.v3 v3.4.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )
+
+replace github.com/jinzhu/gorm => github.com/smartcontractkit/gorm v1.9.11
