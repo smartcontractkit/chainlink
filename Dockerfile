@@ -12,8 +12,8 @@ COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
 
 # Do dep ensure in a cacheable step
-COPY Gopkg.toml Gopkg.lock ./
-RUN make godep
+ADD go.* ./
+RUN go mod tidy
 
 # And yarn likewise
 COPY yarn.lock package.json ./
