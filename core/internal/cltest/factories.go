@@ -500,3 +500,13 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 	require.NoError(t, err)
 	return dst
 }
+
+// FakeLinkEarned mocks a link earning
+func FakeLinkEarned(jobID string, jobRunID string, rewardAmt *assets.Link) models.LinkEarned {
+	return models.LinkEarned{
+		JobSpecID: jobID,
+		JobRunID:  jobRunID,
+		Earned:    rewardAmt,
+		EarnedAt:  time.Now(),
+	}
+}

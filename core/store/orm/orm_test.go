@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -202,6 +203,71 @@ func TestORM_JobRunsFor(t *testing.T) {
 	assert.NoError(t, limZeroErr)
 	limZeroActual := []string{}
 	assert.Equal(t, []string{}, limZeroActual)
+}
+
+func TestORM_LinkEarningsFor(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+
+	initr := job.Initiators[0]
+	data := `{"result":"921.02"}`
+	jr1 := job.NewRun(initr)
+	jr1.Result = cltest.RunResultWithData(data)
+	jr2 := job.NewRun(initr)
+	jr2.Result = cltest.RunResultWithData(data)
+	require.NoError(t, store.CreateJobRun(&jr1))
+	require.NoError(t, store.CreateJobRun(&jr2))
+
+	earning1 := cltest.FakeLinkEarned(job.ID, jr1.ID, assets.NewLink(2))
+	require.NoError(t, store.AddLinkEarned(&earning1))
+	earning2 := cltest.FakeLinkEarned(job.ID, jr2.ID, assets.NewLink(2))
+	require.NoError(t, store.AddLinkEarned(&earning2))
+
+	earnings, err := store.LinkEarningsFor(job.ID)
+	assert.NoError(t, err)
+	actual := []*assets.Link{assets.NewLink(2), assets.NewLink(2)}
+	assert.Equal(t, []*assets.Link{&earnings[0], &earnings[1]}, actual)
+
+}
+
+func TestORM_LinkEarnedFor(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+
+	initr := job.Initiators[0]
+	data := `{"result":"921.02"}`
+	jr1 := job.NewRun(initr)
+	jr1.Result = cltest.RunResultWithData(data)
+	jr2 := job.NewRun(initr)
+	jr2.Result = cltest.RunResultWithData(data)
+	jr3 := job.NewRun(initr)
+	jr3.Result = cltest.RunResultWithData(data)
+	require.NoError(t, store.CreateJobRun(&jr1))
+	require.NoError(t, store.CreateJobRun(&jr2))
+	require.NoError(t, store.CreateJobRun(&jr3))
+
+	earning1 := cltest.FakeLinkEarned(job.ID, jr1.ID, assets.NewLink(2))
+	require.NoError(t, store.AddLinkEarned(&earning1))
+	earning2 := cltest.FakeLinkEarned(job.ID, jr2.ID, assets.NewLink(3))
+	require.NoError(t, store.AddLinkEarned(&earning2))
+	earning3 := cltest.FakeLinkEarned(job.ID, jr3.ID, assets.NewLink(5))
+	require.NoError(t, store.AddLinkEarned(&earning3))
+
+	totalEarned, err := store.LinkEarnedFor(job.ID)
+	assert.NoError(t, err)
+	actualEarned := assets.NewLink(10)
+	assert.Equal(t, totalEarned, actualEarned)
+
 }
 
 func TestORM_JobRunsSortedFor(t *testing.T) {

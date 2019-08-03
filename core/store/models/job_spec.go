@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -313,4 +314,31 @@ func (t *TaskType) Scan(value interface{}) error {
 
 	*t = TaskType(temp)
 	return nil
+}
+
+// LinkEarned is to track Chainlink earnings of individual
+// job specs from job runs
+type LinkEarned struct {
+	ID        uint64       `json:"id" gorm:"primary_key;not null;auto_increment"`
+	JobSpecID string       `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
+	JobRunID  string       `json:"jobRunId"  gorm:"unique;not null;type:varchar(36) REFERENCES job_runs(id)"`
+	Earned    *assets.Link `json:"earned" gorm:"type:varchar(255)"`
+	EarnedAt  time.Time    `json:"earnedAt" gorm:"index"`
+}
+
+// TableName will let us choose and use singular table name
+func (LinkEarned) TableName() string {
+	return "link_earned"
+}
+
+// NewLinkEarned initializes the LinkEarned from params
+// and sets the CreatedAt field.
+func NewLinkEarned(jid string, jrunid string, ear *assets.Link) LinkEarned {
+	now := time.Now()
+	return LinkEarned{
+		JobSpecID: jid,
+		JobRunID:  jrunid,
+		Earned:    ear,
+		EarnedAt:  now,
+	}
 }

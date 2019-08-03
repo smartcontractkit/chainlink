@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/assets"
+
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -74,6 +76,25 @@ func TestJobRunner_executeRun_correctlyPopulatesFinishedAt(t *testing.T) {
 	require.NoError(t, services.ExportedExecuteRun(&run, store))
 	assert.False(t, run.FinishedAt.Valid)
 	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+}
+
+func TestJobRunner_executeRun_correctlyAddsLinkEarnings(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	j := models.NewJob()
+	i := models.Initiator{Type: models.InitiatorWeb}
+	j.Initiators = []models.Initiator{i}
+	j.Tasks = []models.TaskSpec{
+		cltest.NewTask(t, "noop"),
+	}
+	assert.NoError(t, store.CreateJob(&j))
+	run := j.NewRun(i)
+	require.NoError(t, store.CreateJobRun(&run))
+	run.Overrides.Amount = assets.NewLink(1)
+	require.NoError(t, services.ExportedExecuteRun(&run, store))
+	actual, _ := store.LinkEarnedFor(j.ID)
+	assert.Equal(t, assets.NewLink(1), actual)
 }
 
 func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {

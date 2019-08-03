@@ -50,11 +50,12 @@ export interface JobRun {
 }
 
 export interface JobSpec {
-  id: string
-  createdAt: string
-  startAt: Date | null
-  endAt: Date | null
-  deletedAt: Date | null
+    id: string
+    createdAt: string
+    startAt: Date | null
+    endAt: Date | null
+    deletedAt: Date | null
+    earnings: number
 }
 
 export interface RunRequests {
