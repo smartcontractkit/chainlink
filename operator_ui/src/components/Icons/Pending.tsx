@@ -1,6 +1,6 @@
-import React from 'react'
+import React, { FC, SVGProps } from 'react'
 
-const Pending = props => (
+const Pending: FC<SVGProps<SVGSVGElement>> = props => (
   <svg id="prefix__Layer_1" data-name="Layer 1" viewBox="0 0 48 48" {...props}>
     <defs>
       <style>{'.prefix__cls-3{fill:#ffb400}'}</style>
