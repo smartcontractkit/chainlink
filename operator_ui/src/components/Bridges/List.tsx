@@ -1,16 +1,16 @@
-import React from 'react'
-import Link from 'components/Link'
-import PropTypes from 'prop-types'
 import Card from '@material-ui/core/Card'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
-import TableRow from '@material-ui/core/TableRow'
 import TablePagination from '@material-ui/core/TablePagination'
+import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
+import Link from 'components/Link'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
-import { useHooks, useState, useEffect } from 'use-react-hooks'
+import React from 'react'
+import { RouteComponentProps } from 'react-router'
+import { useEffect, useHooks, useState } from 'use-react-hooks'
 
 const renderFetching = () => (
   <TableRow>
@@ -20,7 +20,7 @@ const renderFetching = () => (
   </TableRow>
 )
 
-const renderError = error => (
+const renderError = (error: string) => (
   <TableRow>
     <TableCell component="th" scope="row" colSpan={4}>
       {error}
@@ -28,7 +28,7 @@ const renderError = error => (
   </TableRow>
 )
 
-const renderBridges = bridges =>
+const renderBridges = (bridges: any[]) =>
   bridges.map(bridge => (
     <TableRow key={bridge.name}>
       <TableCell scope="row" component="th">
@@ -46,7 +46,7 @@ const renderBridges = bridges =>
     </TableRow>
   ))
 
-const renderBody = (bridges, fetching, error) => {
+const renderBody = (bridges: any[], fetching: boolean, error: string) => {
   if (fetching) {
     return renderFetching()
   } else if (error) {
@@ -56,7 +56,25 @@ const renderBody = (bridges, fetching, error) => {
   }
 }
 
-export const BridgeList = useHooks(props => {
+// CHECKME
+interface OwnProps {
+  bridges: any[]
+  bridgeCount: number
+  pageSize: number
+  fetching: boolean
+  error: string
+  fetchBridges: (...args: any[]) => any
+}
+
+// CHECKME
+type RouteProps = RouteComponentProps<{
+  bridgePage: string
+}>
+
+type Props = OwnProps & RouteProps
+
+// FIXME - remove unused export?
+export const BridgeList = useHooks<Props>(props => {
   const [page, setPage] = useState(FIRST_PAGE)
   useEffect(() => {
     const queryPage =
@@ -83,7 +101,7 @@ export const BridgeList = useHooks(props => {
       replaceWith={`/bridges/page`}
     />
   )
-  const handleChangePage = (e, page) => {
+  const handleChangePage = (_: never, page: React.SetStateAction<number>) => {
     fetchBridges(page, pageSize)
     setPage(page)
   }
@@ -134,14 +152,5 @@ export const BridgeList = useHooks(props => {
     </Card>
   )
 })
-
-BridgeList.propTypes = {
-  bridges: PropTypes.array.isRequired,
-  bridgeCount: PropTypes.number.isRequired,
-  pageSize: PropTypes.number.isRequired,
-  fetching: PropTypes.bool,
-  error: PropTypes.string,
-  fetchBridges: PropTypes.func.isRequired
-}
 
 export default BridgeList
