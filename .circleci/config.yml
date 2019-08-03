@@ -31,7 +31,6 @@ jobs:
       - restore_cache:
           name: Restore Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
-      - run: go mod tidy
       - save_cache:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
@@ -71,7 +70,6 @@ jobs:
       - restore_cache:
           name: Restore Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
-      - run: go mod tidy
       - save_cache:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
@@ -93,7 +91,6 @@ jobs:
       - restore_cache:
           name: Restore Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
-      - run: go mod tidy
       - save_cache:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
@@ -127,7 +124,6 @@ jobs:
       - restore_cache:
           name: Restore Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
-      - run: go mod tidy
       - save_cache:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
@@ -162,7 +158,6 @@ jobs:
       - restore_cache:
           name: Restore Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
-      - run: go mod tidy
       - save_cache:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
