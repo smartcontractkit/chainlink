@@ -80,13 +80,13 @@
     "uuid": "^3.3.2"
   },
   "devDependencies": {
+    "@types/classnames": "^2.2.8",
     "@types/enzyme": "^3.10.3",
     "@types/fetch-mock": "^7.3.1",
     "@types/jest": "^24.0.16",
-    "@types/classnames": "^2.2.8",
     "@types/lodash": "^4.14.135",
     "@types/node": "^11.9.5",
-    "@types/react": "^16.7.0",
+    "@types/react": "^16.8.24",
     "@types/react-dom": "^16.7.0",
     "@types/react-redux": "~6.0.0",
     "@types/react-resize-detector": "^4.0.1",
