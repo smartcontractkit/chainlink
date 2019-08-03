@@ -40,8 +40,11 @@ install_gethnet() {
   fi
 
   title "Installing geth..."
-  go get github.com/ethereum/go-ethereum/cmd/geth
-  git checkout .
+  git clone https://github.com/ethereum/go-ethereum.git
+  pushd go-ethereum >/dev/null
+  git checkout v1.9.1
+  make geth
+  cp build/bin/geth /usr/local/bin/
   popd >/dev/null
 }
 

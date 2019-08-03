@@ -13,8 +13,10 @@ require (
 	github.com/btcsuite/btcd v0.0.0-20190115013929-ed77733ec07d // indirect
 	github.com/cespare/cp v1.1.1 // indirect
 	github.com/codegangsta/negroni v1.0.0 // indirect
+	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/deckarep/golang-set v1.7.1 // indirect
-	github.com/ethereum/go-ethereum v1.8.27
+	github.com/elastic/gosigar v0.10.4 // indirect
+	github.com/ethereum/go-ethereum v1.9.1
 	github.com/fatih/color v1.7.0
 	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
@@ -48,6 +50,8 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/afero v1.2.1 // indirect
 	github.com/spf13/viper v1.4.0
+	github.com/steakknife/bloomfilter v0.0.0-20180922174646-6819c0d2a570 // indirect
+	github.com/steakknife/hamming v0.0.0-20180906055917-c99c65617cd3 // indirect
 	github.com/stretchr/testify v1.3.1-0.20190712000136-221dbe5ed467
 	github.com/syndtr/goleveldb v0.0.0-20190203031304-2f17a3356c66 // indirect
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
@@ -56,7 +60,7 @@ require (
 	github.com/ugorji/go/codec v1.1.7
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
-	github.com/urfave/cli v1.20.0
+	github.com/urfave/cli v1.21.0
 	github.com/willf/pad v0.0.0-20190207183901-eccfe5d84172
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0
