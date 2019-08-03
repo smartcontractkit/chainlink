@@ -1,6 +1,6 @@
-import React from 'react'
+import TokenBalanceCard from 'components/Cards/TokenBalance'
 import { mount } from 'enzyme'
-import TokenBalanceCard from 'components/Cards/TokenBalance.js'
+import React from 'react'
 
 describe('components/Cards/TokenBalance', () => {
   it('renders the title and a loading indicator when it is fetching', () => {
