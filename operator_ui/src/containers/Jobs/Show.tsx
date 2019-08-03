@@ -14,10 +14,12 @@ import jobSelector from '../../selectors/job'
 import jobRunsByJobIdSelector from '../../selectors/jobRunsByJobId'
 import jobsShowRunCountSelector from '../../selectors/jobsShowRunCount'
 import { formatInitiators } from '../../utils/jobSpecInitiators'
+import { GWEI_PER_TOKEN } from '../../utils/constants'
 import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatchToProps'
 import TaskList from '../../components/Jobs/TaskList'
 import { IJobSpec, IJobRuns } from '../../../@types/operator_ui'
 import { IState } from '../../connectors/redux/reducers'
+import { Typography, createStyles, Theme, WithStyles, withStyles } from '@material-ui/core'
 
 const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
   const info = {
@@ -43,6 +45,49 @@ interface IRecentJobRunsProps {
   recentRunsCount: number
   showJobRunsCount: number
 }
+
+const totalLinkEarned = (job: IJobSpec) => {
+    const zero = '0.000000'
+    const unformatted = job.earnings && (job.earnings / GWEI_PER_TOKEN).toString()
+    const formatted = unformatted && (unformatted.length >= 3  ? unformatted : (unformatted + '.').padEnd(8, '0'))
+    return formatted || zero
+  }
+
+const chartCardStyles = (theme: Theme) =>
+  createStyles({
+    wrapper: {
+      marginLeft: theme.spacing.unit * 3,
+      marginTop: theme.spacing.unit * 2,
+      marginBottom: theme.spacing.unit * 2
+    },
+    paymentText: {
+      color: theme.palette.secondary.main,
+      fontWeight: 450
+    },
+    earnedText: {
+      color: theme.palette.text.secondary,
+      fontSize: theme.spacing.unit * 2
+    }
+  })
+
+interface ChartProps extends WithStyles<typeof chartCardStyles> {
+  job: IJobSpec
+}
+
+
+const ChartArea = withStyles(chartCardStyles)(({ classes, job }: ChartProps) => (
+  <Card>
+    <Grid item className={classes.wrapper} >
+      <Typography className={classes.paymentText} variant="h5">
+        Link Payment
+      </Typography>
+      <Typography className={classes.earnedText}>
+        {totalLinkEarned(job)}
+      </Typography>
+    </Grid>
+  </Card>
+)
+)
 
 const RecentJobRuns = ({
   job,
@@ -90,8 +135,15 @@ const Details = ({
         </Grid>
         <Grid item xs={4}>
           <Grid container direction="column">
-            <Grid item>{renderTaskRuns(job)}</Grid>
-            <Grid item>{renderJobSpec(job, recentRunsCount)}</Grid>
+            <Grid item xs>
+              <ChartArea job={job} />
+            </Grid>
+            <Grid item xs>
+              {renderTaskRuns(job)}
+            </Grid>
+            <Grid item xs>
+              {renderJobSpec(job, recentRunsCount)}
+            </Grid>
           </Grid>
         </Grid>
       </Grid>

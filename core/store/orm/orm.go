@@ -16,6 +16,7 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"   // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -294,6 +295,37 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 // CreateJobRun inserts a new JobRun
 func (orm *ORM) CreateJobRun(run *models.JobRun) error {
 	return orm.DB.Create(run).Error
+}
+
+// AddLinkEarned adds link earning
+func (orm *ORM) AddLinkEarned(earning *models.LinkEarned) error {
+	return orm.DB.Create(earning).Error
+}
+
+// LinkEarningsFor lists the individual link earnings for a job
+func (orm *ORM) LinkEarningsFor(jobSpecID string) ([]assets.Link, error) {
+	earnings := []assets.Link{}
+	err := orm.DB.
+		Table("link_earned").
+		Where("job_spec_id = ?", jobSpecID).
+		Pluck("earned", &earnings).Error
+
+	return earnings, err
+}
+
+// LinkEarnedFor shows the total link earnings for a job
+func (orm *ORM) LinkEarnedFor(jobSpecID string) (*assets.Link, error) {
+	var earned *assets.Link
+	err := orm.DB.Table("link_earned").
+		Where("job_spec_id = ?", jobSpecID).
+		Select("CAST(SUM(CAST(SUBSTR(earned, 1, 10) as BIGINT)) as varchar(255))").
+		Row().
+		Scan(&earned)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	return earned, nil
 }
 
 // CreateExternalInitiator inserts a new external initiator
