@@ -5,8 +5,7 @@ set -e
 yarn lint:styleguide && yarn lint:operator_ui
 
 cd operator_ui
-../node_modules/.bin/cross-env NODE_ENV=test \
-  ../node_modules/.bin/jest --runInBand --coverage --reporters jest-silent-reporter
+yarn test:ci
 
 if [ -n "$CC_TEST_REPORTER_ID"  ]; then
   cc-test-reporter format-coverage --output "coverage/codeclimate.operator_ui.json"
