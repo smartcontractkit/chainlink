@@ -1,13 +1,13 @@
 import React from 'react'
 import { Image } from './Image'
 
-interface IProps {
+interface Props {
   src: string
   width?: number
   height?: number
   alt?: string
 }
 
-export const Logo = (props: IProps) => {
+export const Logo = (props: Props) => {
   return <Image {...props} />
 }

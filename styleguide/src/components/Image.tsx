@@ -12,7 +12,7 @@ const styles = createStyles({
   }
 })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   src: string
   width?: number
   height?: number
@@ -27,7 +27,7 @@ const UnstyledImage = ({
   alt,
   classes,
   spin = false
-}: IProps) => {
+}: Props) => {
   return (
     <img
       src={src}

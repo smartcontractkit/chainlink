@@ -17,12 +17,12 @@ const styles = ({ palette, shadows, typography }: Theme) =>
     }
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   children: React.ReactElement<any>
   title: string
 }
 
-const UnstyledTooltip = ({ title, children, classes }: IProps) => {
+const UnstyledTooltip = ({ title, children, classes }: Props) => {
   return (
     <MuiTooltip title={title} classes={{ tooltip: classes.lightTooltip }}>
       {children}

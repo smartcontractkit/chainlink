@@ -34,11 +34,11 @@ const renderBody = (
   }
 }
 
-interface ISpanRowProps {
+interface SpanRowProps {
   children: React.ReactNode
 }
 
-const SpanRow = ({ children }: ISpanRowProps) => (
+const SpanRow = ({ children }: SpanRowProps) => (
   <TableRow>
     <TableCell component="th" scope="row" colSpan={3}>
       {children}
@@ -48,17 +48,17 @@ const SpanRow = ({ children }: ISpanRowProps) => (
 
 const FetchingRow = () => <SpanRow>...</SpanRow>
 
-interface IErrorRowProps {
+interface ErrorRowProps {
   children: React.ReactNode
 }
 
-const ErrorRow = ({ children }: IErrorRowProps) => <SpanRow>{children}</SpanRow>
+const ErrorRow = ({ children }: ErrorRowProps) => <SpanRow>{children}</SpanRow>
 
-interface IColProps {
+interface ColProps {
   children: React.ReactNode
 }
 
-const Col = ({ children }: IColProps) => (
+const Col = ({ children }: ColProps) => (
   <TableCell>
     <Typography variant="body1">
       <span>{children}</span>
@@ -66,11 +66,11 @@ const Col = ({ children }: IColProps) => (
   </TableCell>
 )
 
-interface IHeadColProps {
+interface HeadColProps {
   children: React.ReactNode
 }
 
-const HeadCol = ({ children }: IHeadColProps) => (
+const HeadCol = ({ children }: HeadColProps) => (
   <TableCell>
     <Typography variant="body1" color="textSecondary">
       {children}
@@ -78,7 +78,7 @@ const HeadCol = ({ children }: IHeadColProps) => (
   </TableCell>
 )
 
-interface IProps {
+interface KeyValueListProps {
   entries: Array<Array<string>>
   titleize: boolean
   showHead: boolean
@@ -92,7 +92,7 @@ export const KeyValueList = ({
   showHead = false,
   title,
   titleize = false
-}: IProps) => (
+}: KeyValueListProps) => (
   <Card>
     {title && <CardTitle divider>{title}</CardTitle>}
 
