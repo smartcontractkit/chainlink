@@ -34,4 +34,4 @@ const UnstyledSimpleListItem = ({ children, classes }: Props) => {
   )
 }
 
-export const SimpleListItem = withStyles(styles)(UnstyledSimpleListItem)
+export const SimpleListCardItem = withStyles(styles)(UnstyledSimpleListItem)
