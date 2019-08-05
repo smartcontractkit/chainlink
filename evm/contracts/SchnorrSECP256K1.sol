@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity 0.4.24;
 
 contract SchnorrSECP256K1 {
   // See https://en.bitcoin.it/wiki/Secp256k1 for this constant.
@@ -110,14 +110,14 @@ contract SchnorrSECP256K1 {
     // set to 0x0.
     //
     // solium-disable-next-line indentation
-    require (_nonceTimesGeneratorAddress != address(0) && _signingPubKeyX > 0 &&
+    require(_nonceTimesGeneratorAddress != address(0) && _signingPubKeyX > 0 &&
       _signature > 0 && _msgHash > 0, "no zero inputs allowed");
 
     // solium-disable-next-line indentation
     uint256 msgChallenge = // "e"
       // solium-disable-next-line indentation
       uint256(keccak256(abi.encodePacked(_signingPubKeyX, _pubKeyYParity,
-                                         _msgHash, _nonceTimesGeneratorAddress))
+        _msgHash, _nonceTimesGeneratorAddress))
     );
 
     // Verify msgChallenge * _signingPubKey + _signature * generator ==
