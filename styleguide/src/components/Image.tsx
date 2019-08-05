@@ -1,20 +1,15 @@
+import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 import React from 'react'
-import {
-  createStyles,
-  Theme,
-  withStyles,
-  WithStyles
-} from '@material-ui/core/styles'
 
-const styles = (theme: Theme) => createStyles({
-    animate: {
-      animation: 'spin 4s linear infinite'
-    },
-    '@keyframes spin': {
-      '100%': {
-        transform: 'rotate(360deg)'
-      }
+const styles = createStyles({
+  animate: {
+    animation: 'spin 4s linear infinite'
+  },
+  '@keyframes spin': {
+    '100%': {
+      transform: 'rotate(360deg)'
     }
+  }
 })
 
 interface IProps extends WithStyles<typeof styles> {
@@ -25,7 +20,14 @@ interface IProps extends WithStyles<typeof styles> {
   alt?: string
 }
 
-const Image = ({ src, width, height, alt, classes , spin = false}: IProps) => {
+const UnstyledImage = ({
+  src,
+  width,
+  height,
+  alt,
+  classes,
+  spin = false
+}: IProps) => {
   return (
     <img
       src={src}
@@ -37,4 +39,4 @@ const Image = ({ src, width, height, alt, classes , spin = false}: IProps) => {
   )
 }
 
-export default withStyles(styles)(Image)
+export const Image = withStyles(styles)(UnstyledImage)

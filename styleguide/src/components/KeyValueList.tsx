@@ -1,5 +1,3 @@
-import React from 'react'
-import PropTypes from 'prop-types'
 import Card from '@material-ui/core/Card'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
@@ -7,10 +5,12 @@ import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
-import CardTitle from './Cards/Title'
 import { titleCase } from 'change-case'
+import React from 'react'
+import { CardTitle } from './Cards/Title'
 
-const renderKey = (k: string, titleize: boolean) => (titleize ? titleCase(k) : k)
+const renderKey = (k: string, titleize: boolean) =>
+  titleize ? titleCase(k) : k
 
 const renderEntries = (entries: Array<Array<string>>, titleize: boolean) =>
   entries.map(([k, v]) => (
@@ -20,7 +20,11 @@ const renderEntries = (entries: Array<Array<string>>, titleize: boolean) =>
     </TableRow>
   ))
 
-const renderBody = (entries: Array<Array<string>>, error: string, titleize: boolean) => {
+const renderBody = (
+  entries: Array<Array<string>>,
+  error: string,
+  titleize: boolean
+) => {
   if (error) {
     return <ErrorRow>{error}</ErrorRow>
   } else if (entries.length === 0) {
@@ -82,7 +86,13 @@ interface IProps {
   error?: string
 }
 
-const KeyValueList = ({ entries, error = '', showHead = false, title, titleize = false } : IProps) => (
+export const KeyValueList = ({
+  entries,
+  error = '',
+  showHead = false,
+  title,
+  titleize = false
+}: IProps) => (
   <Card>
     {title && <CardTitle divider>{title}</CardTitle>}
 
@@ -99,5 +109,3 @@ const KeyValueList = ({ entries, error = '', showHead = false, title, titleize =
     </Table>
   </Card>
 )
-
-export default KeyValueList
