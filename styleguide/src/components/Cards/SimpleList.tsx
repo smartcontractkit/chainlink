@@ -4,12 +4,12 @@ import TableBody from '@material-ui/core/TableBody'
 import React from 'react'
 import { CardTitle } from './Title'
 
-interface IProps {
+interface Props {
   children: React.ReactNode
   title: string
 }
 
-export const SimpleList = ({ children, title }: IProps) => {
+export const SimpleList = ({ children, title }: Props) => {
   return (
     <Card>
       <CardTitle>{title}</CardTitle>

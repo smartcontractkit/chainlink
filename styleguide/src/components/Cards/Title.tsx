@@ -3,12 +3,12 @@ import Divider from '@material-ui/core/Divider'
 import Typography from '@material-ui/core/Typography'
 import React from 'react'
 
-interface IProps {
+interface Props {
   children: string
   divider?: boolean
 }
 
-export const CardTitle = ({ children, divider = false }: IProps) => {
+export const CardTitle = ({ children, divider = false }: Props) => {
   return (
     <React.Fragment>
       <CardContent>

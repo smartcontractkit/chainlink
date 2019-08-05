@@ -20,11 +20,11 @@ const styles = (theme: Theme) =>
     }
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   children: React.ReactNode
 }
 
-const UnstyledSimpleListItem = ({ children, classes }: IProps) => {
+const UnstyledSimpleListItem = ({ children, classes }: Props) => {
   return (
     <TableRow>
       <TableCell scope="row" className={classes.cell}>
