@@ -33,6 +33,22 @@ func TestHeadTracker_New(t *testing.T) {
 	assert.Equal(t, last.Number, ht.Head().Number)
 }
 
+func TestHeadTracker_New_Limit_At_100(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	cltest.MockEthOnStore(t, store)
+	for idx := 0; idx <= 200; idx++ {
+		assert.Nil(t, store.CreateHead(cltest.Head(idx)))
+	}
+	firstHead, err := store.FirstHead()
+	assert.Nil(t, err)
+	assert.Equal(t, big.NewInt(101), firstHead.ToInt())
+	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
+	assert.Nil(t, ht.Start())
+	assert.Equal(t, big.NewInt(200), ht.Head().ToInt())
+}
+
 func TestHeadTracker_Get(t *testing.T) {
 	t.Parallel()
 
