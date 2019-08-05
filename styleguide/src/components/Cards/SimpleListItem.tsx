@@ -1,4 +1,3 @@
-import React from 'react'
 import {
   createStyles,
   Theme,
@@ -7,23 +6,25 @@ import {
 } from '@material-ui/core/styles'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
+import React from 'react'
 
-const styles = (theme: Theme) => createStyles({
-  cell: {
-    borderColor: theme.palette.divider,
-    borderTop: `1px solid`,
-    borderBottom: 'none',
-    paddingTop: theme.spacing.unit * 2,
-    paddingBottom: theme.spacing.unit * 2,
-    paddingLeft: theme.spacing.unit * 2
-  }
-})
+const styles = (theme: Theme) =>
+  createStyles({
+    cell: {
+      borderColor: theme.palette.divider,
+      borderTop: `1px solid`,
+      borderBottom: 'none',
+      paddingTop: theme.spacing.unit * 2,
+      paddingBottom: theme.spacing.unit * 2,
+      paddingLeft: theme.spacing.unit * 2
+    }
+  })
 
 interface IProps extends WithStyles<typeof styles> {
   children: React.ReactNode
 }
 
-const SimpleListItem = ({ children, classes }: IProps) => {
+const UnstyledSimpleListItem = ({ children, classes }: IProps) => {
   return (
     <TableRow>
       <TableCell scope="row" className={classes.cell}>
@@ -33,4 +34,4 @@ const SimpleListItem = ({ children, classes }: IProps) => {
   )
 }
 
-export default withStyles(styles)(SimpleListItem)
+export const SimpleListItem = withStyles(styles)(UnstyledSimpleListItem)

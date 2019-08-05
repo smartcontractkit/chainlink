@@ -1,14 +1,14 @@
 import React from 'react'
 import TimeAgoNoTooltip from 'react-time-ago/no-tooltip'
-import Tooltip from './Tooltip'
-import localizedTimestamp from '../utils/localizedTimestamp'
+import { localizedTimestamp } from '../utils/localizedTimestamp'
+import { Tooltip } from './Tooltip'
 
 interface IProps {
   children: string
   tooltip: boolean
 }
 
-const TimeAgo = ({ children, tooltip = false }: IProps) => {
+export const TimeAgo = ({ children, tooltip = false }: IProps) => {
   const date = Date.parse(children)
   const ago = <TimeAgoNoTooltip tooltip={false}>{date}</TimeAgoNoTooltip>
 
@@ -22,6 +22,3 @@ const TimeAgo = ({ children, tooltip = false }: IProps) => {
 
   return ago
 }
-
-
-export default TimeAgo

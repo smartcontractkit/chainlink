@@ -1,5 +1,5 @@
 import React from 'react'
-import Image from './Image'
+import { Image } from './Image'
 
 interface IProps {
   src: string
@@ -8,9 +8,6 @@ interface IProps {
   alt?: string
 }
 
-const Logo = (props: IProps) => {
+export const Logo = (props: IProps) => {
   return <Image {...props} />
 }
-
-
-export default Logo
