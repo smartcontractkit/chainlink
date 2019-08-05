@@ -84,7 +84,7 @@ contract('SchnorrSECP256K1', async accounts => {
       msgHash,
       kTimesGAddress
     )
-    assert.isBelow(gasUsed, 37000, 'burns too much gas')
+    assert.isBelow(gasUsed, 37500, 'burns too much gas')
   })
   it('Accepts the signatures generated on the go side', async () => {
     const tests = require('./tests')
