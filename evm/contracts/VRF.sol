@@ -63,49 +63,49 @@ pragma solidity 0.4.24;
 contract VRF {
 
   // See https://en.bitcoin.it/wiki/Secp256k1 for these constants.
-  uint256 constant GROUP_ORDER = // Number of points in Secp256k1
+  uint256 constant public GROUP_ORDER = // Number of points in Secp256k1
     // solium-disable-next-line indentation
     0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
   // Prime characteristic of the galois field over which Secp256k1 is defined
   // solium-disable-next-line zeppelin/no-arithmetic-operations
-  uint256 constant FIELD_SIZE =
+  uint256 constant public FIELD_SIZE =
     // solium-disable-next-line indentation
     0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
 
   // solium-disable zeppelin/no-arithmetic-operations
-  uint256 constant MINUS_ONE = FIELD_SIZE - 1;
-  uint256 constant MULTIPLICATIVE_GROUP_ORDER = FIELD_SIZE - 1;
+  uint256 constant public MINUS_ONE = FIELD_SIZE - 1;
+  uint256 constant public MULTIPLICATIVE_GROUP_ORDER = FIELD_SIZE - 1;
   // pow(x, SQRT_POWER, FIELD_SIZE) == √x, since FIELD_SIZE % 4 = 3
   // https://en.wikipedia.org/wiki/Modular_square_root#Prime_or_prime_power_modulus
-  uint256 constant SQRT_POWER = (FIELD_SIZE + 1) >> 2;
+  uint256 constant public SQRT_POWER = (FIELD_SIZE + 1) >> 2;
 
-  uint256 constant WORD_LENGTH_BYTES = 0x20;
+  uint256 constant public WORD_LENGTH_BYTES = 0x20;
 
   // (_base**_exponent) % _modulus
   // Cribbed from https://medium.com/@rbkhmrcr/precompiles-solidity-e5d29bd428c4
   function bigModExp(uint256 _base, uint256 _exponent, uint256 _modulus)
     public view returns (uint256 exponentiation) {
-    uint256 callResult;
-    uint256[6] memory bigModExpContractInputs;
-    bigModExpContractInputs[0] = WORD_LENGTH_BYTES;  // Length of _base
-    bigModExpContractInputs[1] = WORD_LENGTH_BYTES;  // Length of _exponent
-    bigModExpContractInputs[2] = WORD_LENGTH_BYTES;  // Length of _modulus
-    bigModExpContractInputs[3] = _base;
-    bigModExpContractInputs[4] = _exponent;
-    bigModExpContractInputs[5] = _modulus;
-    uint256[1] memory output;
-    assembly {
+      uint256 callResult;
+      uint256[6] memory bigModExpContractInputs;
+      bigModExpContractInputs[0] = WORD_LENGTH_BYTES;  // Length of _base
+      bigModExpContractInputs[1] = WORD_LENGTH_BYTES;  // Length of _exponent
+      bigModExpContractInputs[2] = WORD_LENGTH_BYTES;  // Length of _modulus
+      bigModExpContractInputs[3] = _base;
+      bigModExpContractInputs[4] = _exponent;
+      bigModExpContractInputs[5] = _modulus;
+      uint256[1] memory output;
+      assembly { // solhint-disable-line no-inline-assembly
       callResult :=
-        staticcall(13056,                    // Gas cost. See EIP-198's 1st e.g.
-                   0x05,                     // Bigmodexp contract address
-                   bigModExpContractInputs,
-                   0xc0,                     // Length of input segment
-                   output,
-                   0x20)                     // Length of output segment
+        staticcall(13056,           // Gas cost. See EIP-198's 1st e.g.
+          0x05,                     // Bigmodexp contract address
+          bigModExpContractInputs,
+          0xc0,                     // Length of input segment
+          output,
+          0x20)                     // Length of output segment
       }
-    if (callResult == 0) {revert("bigModExp failure!");}
-    return output[0];
-  }
+      if (callResult == 0) {revert("bigModExp failure!");}
+      return output[0];
+    }
 
   // Computes a s.t. a^2 = _x in the field. Assumes _x is a square.
   function squareRoot(uint256 _x) public view returns (uint256) {
@@ -129,20 +129,20 @@ contract VRF {
   // One-way hash function onto the curve.
   function hashToCurve(uint256[2] memory _k, uint256 _input)
     public view returns (uint256[2] memory rv) {
-    bytes32 hash = keccak256(abi.encodePacked(_k, _input));
-    rv[0] = zqHash(FIELD_SIZE, uint256(hash));
-    while (true) {
-      rv[0] = zqHash(FIELD_SIZE, uint256(keccak256(abi.encodePacked(rv[0]))));
-      rv[1] = squareRoot(ySquared(rv[0]));
-      if (mulmod(rv[1], rv[1], FIELD_SIZE) == ySquared(rv[0])) {
-        break;
+      bytes32 hash = keccak256(abi.encodePacked(_k, _input));
+      rv[0] = zqHash(FIELD_SIZE, uint256(hash));
+      while (true) {
+        rv[0] = zqHash(FIELD_SIZE, uint256(keccak256(abi.encodePacked(rv[0]))));
+        rv[1] = squareRoot(ySquared(rv[0]));
+        if (mulmod(rv[1], rv[1], FIELD_SIZE) == ySquared(rv[0])) {
+          break;
+        }
+      }
+      // Two possible y ordinates for x ordinate rv[0]; pick one "randomly"
+      if (uint256(keccak256(abi.encodePacked(rv[0], _input))) % 2 == 0) {
+        rv[1] = -rv[1];
       }
     }
-    // Two possible y ordinates for x ordinate rv[0]; pick one "randomly"
-    if (uint256(keccak256(abi.encodePacked(rv[0], _input))) % 2 == 0) {
-      rv[1] = -rv[1];
-    }
-  }
 
   // Bits used in Ethereum address
   uint256 constant public BOTTOM_160_BITS = 2**161 - 1;
@@ -158,46 +158,46 @@ contract VRF {
   // Based on Vitalik Buterin's idea in above ethresear.ch post.
   function ecmulVerify(uint256[2] memory x, uint256 scalar, uint256[2] memory q)
     public pure returns(bool) {
-    // This ecrecover returns the address associated with c*R. See
-    // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
-    // The point corresponding to the address returned by ecrecover(0,v,r,s=c*r)
-    // is (r⁻¹ mod Q) * (c*r * R - 0 * g) = c * R, where R is the point
-    // specified by (v, r). See https://crypto.stackexchange.com/a/18106
-    bytes32 cTimesX0 = bytes32(mulmod(scalar, x[0], GROUP_ORDER));
-    uint8 parity = x[1] % 2 != 0 ? 28 : 27;
-    return ecrecover(bytes32(0), parity, bytes32(x[0]), cTimesX0) ==
-      address(uint256(keccak256(abi.encodePacked(q))) & BOTTOM_160_BITS);
-  }
+      // This ecrecover returns the address associated with c*R. See
+      // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
+      // The point corresponding to the address returned by ecrecover(0,v,r,s=c*r)
+      // is (r⁻¹ mod Q) * (c*r * R - 0 * g) = c * R, where R is the point
+      // specified by (v, r). See https://crypto.stackexchange.com/a/18106
+      bytes32 cTimesX0 = bytes32(mulmod(scalar, x[0], GROUP_ORDER));
+      uint8 parity = x[1] % 2 != 0 ? 28 : 27;
+      return ecrecover(bytes32(0), parity, bytes32(x[0]), cTimesX0) ==
+        address(uint256(keccak256(abi.encodePacked(q))) & BOTTOM_160_BITS);
+    }
 
   // Returns x1/z1+x2/z2=(x1z2+x2z1)/(z1z2) in projective coordinates on P¹(𝔽ₙ)
   function projectiveAdd(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
     public pure returns(uint256 x3, uint256 z3) {
-    uint256 crossMultNumerator1 = mulmod(z2, x1, FIELD_SIZE);
-    uint256 crossMultNumerator2 = mulmod(z1, x2, FIELD_SIZE);
-    uint256 denom = mulmod(z1, z2, FIELD_SIZE);
-    uint256 numerator = addmod(crossMultNumerator1, crossMultNumerator2, FIELD_SIZE);
-    return (numerator, denom);
-  }
+      uint256 crossMultNumerator1 = mulmod(z2, x1, FIELD_SIZE);
+      uint256 crossMultNumerator2 = mulmod(z1, x2, FIELD_SIZE);
+      uint256 denom = mulmod(z1, z2, FIELD_SIZE);
+      uint256 numerator = addmod(crossMultNumerator1, crossMultNumerator2, FIELD_SIZE);
+      return (numerator, denom);
+    }
 
   // Returns x1/z1-x2/z2=(x1z2+x2z1)/(z1z2) in projective coordinates on P¹(𝔽ₙ)
   function projectiveSub(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
     public pure returns(uint256 x3, uint256 z3) {
-    uint256 num1 = mulmod(z2, x1, FIELD_SIZE);
-    uint256 num2 = mulmod(FIELD_SIZE - x2, z1, FIELD_SIZE);
-    (x3, z3) = (addmod(num1, num2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
-  }
+      uint256 num1 = mulmod(z2, x1, FIELD_SIZE);
+      uint256 num2 = mulmod(FIELD_SIZE - x2, z1, FIELD_SIZE);
+      (x3, z3) = (addmod(num1, num2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
+    }
 
   // Returns x1/z1*x2/z2=(x1x2)/(z1z2), in projective coordinates on P¹(𝔽ₙ)
   function projectiveMul(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
     public pure returns(uint256 x3, uint256 z3) {
-    (x3, z3) = (mulmod(x1, x2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
-  }
+      (x3, z3) = (mulmod(x1, x2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
+    }
 
   // Returns x1/z1/(x2/z2)=(x1z2)/(x2z1), in projective coordinates on P¹(𝔽ₙ)
   function projectiveDiv(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
     public pure returns(uint256 x3, uint256 z3) {
-    (x3, z3) = (mulmod(x1, z2, FIELD_SIZE), mulmod(z1, x2, FIELD_SIZE));
-  }
+      (x3, z3) = (mulmod(x1, z2, FIELD_SIZE), mulmod(z1, x2, FIELD_SIZE));
+    }
 
   /** **************************************************************************
       @notice Computes elliptic-curve sum, in projective co-ordinates
@@ -225,43 +225,43 @@ contract VRF {
   */
   function projectiveECAdd(uint256 x1, uint256 y1, uint256 x2, uint256 y2)
     public pure returns(uint256 x3, uint256 y3, uint256 z3) {
-    // See "Group law for E/K : y^2 = x^3 + ax + b", in section 3.1.2, p. 80,
-    // "Guide to Elliptic Curve Cryptography" by Hankerson, Menezes and Vanstone
-    // We take the equations there for (x3,y3), and homogenize them to
-    // projective coordinates. That way, no inverses are required, here, and we
-    // only need the one inverse in affineECAdd.
-
-    // We only need the "point addition" equations from Hankerson et al. Can
-    // skip the "point doubling" equations because p1 == p2 is cryptographically
-    // impossible, and require'd not to be the case in linearCombination.
-
-    // Add extra "projective coordinate" to the two points
-    (uint256 z1, uint256 z2) = (1, 1);
-
-    // (lx, lz) = (y2-y1)/(x2-x1), i.e., gradient of secant line.
-    uint256 lx = addmod(y2, FIELD_SIZE - y1, FIELD_SIZE);
-    uint256 lz = addmod(x2, FIELD_SIZE - x1, FIELD_SIZE);
-
-    uint256 dx; // Accumulates denominator from x3 calculation
-    // x3=((y2-y1)/(x2-x1))^2-x1-x2
-    (x3, dx) = projectiveMul(lx, lz, lx, lz); // ((y2-y1)/(x2-x1))^2
-    (x3, dx) = projectiveSub(x3, dx, x1, z1); // ((y2-y1)/(x2-x1))^2-x1
-    (x3, dx) = projectiveSub(x3, dx, x2, z2); // ((y2-y1)/(x2-x1))^2-x1-x2
-
-    uint256 dy; // Accumulates denominator from y3 calculation
-    // y3=((y2-y1)/(x2-x1))(x1-x3)-y1
-    (y3, dy) = projectiveSub(x1, z1, x3, dx); // x1-x3
-    (y3, dy) = projectiveMul(y3, dy, lx, lz); // ((y2-y1)/(x2-x1))(x1-x3)
-    (y3, dy) = projectiveSub(y3, dy, y1, z1); // ((y2-y1)/(x2-x1))(x1-x3)-y1
-
-    if (dx != dy) { // Cross-multiply to put everything over a common denominator
-      x3 = mulmod(x3, dy, FIELD_SIZE);
-      y3 = mulmod(y3, dx, FIELD_SIZE);
-      z3 = mulmod(dx, dy, FIELD_SIZE);
-    } else {
-      z3 = dx;
+      // See "Group law for E/K : y^2 = x^3 + ax + b", in section 3.1.2, p. 80,
+      // "Guide to Elliptic Curve Cryptography" by Hankerson, Menezes and Vanstone
+      // We take the equations there for (x3,y3), and homogenize them to
+      // projective coordinates. That way, no inverses are required, here, and we
+      // only need the one inverse in affineECAdd.
+      
+      // We only need the "point addition" equations from Hankerson et al. Can
+      // skip the "point doubling" equations because p1 == p2 is cryptographically
+      // impossible, and require'd not to be the case in linearCombination.
+      
+      // Add extra "projective coordinate" to the two points
+      (uint256 z1, uint256 z2) = (1, 1);
+      
+      // (lx, lz) = (y2-y1)/(x2-x1), i.e., gradient of secant line.
+      uint256 lx = addmod(y2, FIELD_SIZE - y1, FIELD_SIZE);
+      uint256 lz = addmod(x2, FIELD_SIZE - x1, FIELD_SIZE);
+      
+      uint256 dx; // Accumulates denominator from x3 calculation
+      // x3=((y2-y1)/(x2-x1))^2-x1-x2
+      (x3, dx) = projectiveMul(lx, lz, lx, lz); // ((y2-y1)/(x2-x1))^2
+      (x3, dx) = projectiveSub(x3, dx, x1, z1); // ((y2-y1)/(x2-x1))^2-x1
+      (x3, dx) = projectiveSub(x3, dx, x2, z2); // ((y2-y1)/(x2-x1))^2-x1-x2
+      
+      uint256 dy; // Accumulates denominator from y3 calculation
+      // y3=((y2-y1)/(x2-x1))(x1-x3)-y1
+      (y3, dy) = projectiveSub(x1, z1, x3, dx); // x1-x3
+      (y3, dy) = projectiveMul(y3, dy, lx, lz); // ((y2-y1)/(x2-x1))(x1-x3)
+      (y3, dy) = projectiveSub(y3, dy, y1, z1); // ((y2-y1)/(x2-x1))(x1-x3)-y1
+      
+      if (dx != dy) { // Cross-multiply to put everything over a common denominator
+        x3 = mulmod(x3, dy, FIELD_SIZE);
+        y3 = mulmod(y3, dx, FIELD_SIZE);
+        z3 = mulmod(dx, dy, FIELD_SIZE);
+      } else {
+        z3 = dx;
+      }
     }
-  }
 
   // Returns p1+p2, as affine points on secp256k1. _invZ must be the inverse of
   // the z returned by projectiveECAdd(_p1, _p2). It is computed off-chain to
@@ -283,20 +283,20 @@ contract VRF {
   function verifyLinearCombinationWithGenerator(
     uint256 _c, uint256[2] memory _p, uint256 _s, address _lcWitness)
     public pure returns (bool) {
-    // ecrecover returns 0x0 in certain failure modes. Ensure witness differs.
-    require(_lcWitness != address(0), "bad witness");
-    // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
-    // The point corresponding to the address returned by
-    // ecrecover(-_s*_p[0],v,_p[0],_c*_p[0]) is
-    // (_p[0]⁻¹ mod GROUP_ORDER)*(_c*_p[0]-(-_s)*_p[0]*g)=_c*_p+_s*g, where v
-    // is the parity of _p[1]. See https://crypto.stackexchange.com/a/18106
-    bytes32 pseudoHash = bytes32(GROUP_ORDER - mulmod(_p[0], _s, GROUP_ORDER));
-    // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
-    uint8 v = (_p[1] % 2 == 0) ? 27 : 28;
-    bytes32 pseudoSignature = bytes32(mulmod(_c, _p[0], GROUP_ORDER));
-    address computed = ecrecover(pseudoHash, v, bytes32(_p[0]), pseudoSignature);
-    return computed == _lcWitness;
-  }
+      // ecrecover returns 0x0 in certain failure modes. Ensure witness differs.
+      require(_lcWitness != address(0), "bad witness");
+      // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
+      // The point corresponding to the address returned by
+      // ecrecover(-_s*_p[0],v,_p[0],_c*_p[0]) is
+      // (_p[0]⁻¹ mod GROUP_ORDER)*(_c*_p[0]-(-_s)*_p[0]*g)=_c*_p+_s*g, where v
+      // is the parity of _p[1]. See https://crypto.stackexchange.com/a/18106
+      bytes32 pseudoHash = bytes32(GROUP_ORDER - mulmod(_p[0], _s, GROUP_ORDER));
+      // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
+      uint8 v = (_p[1] % 2 == 0) ? 27 : 28;
+      bytes32 pseudoSignature = bytes32(mulmod(_c, _p[0], GROUP_ORDER));
+      address computed = ecrecover(pseudoHash, v, bytes32(_p[0]), pseudoSignature);
+      return computed == _lcWitness;
+    }
 
   // _c*_p1 + _s*_p2
   function linearCombination(
@@ -304,20 +304,20 @@ contract VRF {
     uint256 _s, uint256[2] memory _p2, uint256[2] memory _sp2Witness,
     uint256 _zInv)
     public pure returns (uint256[2] memory) {
-    require(_cp1Witness[0] != _sp2Witness[0], "points must differ in sum");
-    require(ecmulVerify(_p1, _c, _cp1Witness), "First multiplication check failed");
-    require(ecmulVerify(_p2, _s, _sp2Witness), "Second multiplication check failed");
-    return affineECAdd(_cp1Witness, _sp2Witness, _zInv);
-  }
+      require(_cp1Witness[0] != _sp2Witness[0], "points must differ in sum");
+      require(ecmulVerify(_p1, _c, _cp1Witness), "First multiplication check failed");
+      require(ecmulVerify(_p2, _s, _sp2Witness), "Second multiplication check failed");
+      return affineECAdd(_cp1Witness, _sp2Witness, _zInv);
+    }
 
   // Pseudo-random number from inputs. Corresponds to vrf.go/scalarFromCurve.
   function scalarFromCurve(
     uint256[2] memory _hash, uint256[2] memory _pk, uint256[2] memory _gamma,
     address _uWitness, uint256[2] memory _v)
     public pure returns (uint256 s) {
-    bytes32 iHash = keccak256(abi.encodePacked(_hash, _pk, _gamma, _v, _uWitness));
-    return zqHash(GROUP_ORDER, uint256(iHash));
-  }
+      bytes32 iHash = keccak256(abi.encodePacked(_hash, _pk, _gamma, _v, _uWitness));
+      return zqHash(GROUP_ORDER, uint256(iHash));
+    }
 
   // True if (gamma, c, s) is a correctly constructed randomness proof from _pk
   // and _seed. _zInv must be the inverse of the third ordinate from
@@ -329,14 +329,14 @@ contract VRF {
     public view returns (bool) {
     // NB: Curve operations already check that (_pkX, _pkY), (_gammaX, _gammaY)
     // are valid curve points. No need to do that explicitly.
-    require(
-      verifyLinearCombinationWithGenerator(_c, _pk, _s, _uWitness),
-      "Could not verify that address(_c*_pk+_s*generator)=_uWitness");
-    uint256[2] memory hash = hashToCurve(_pk, _seed);
-    uint256[2] memory v = linearCombination(
-      _c, _gamma, _cGammaWitness, _s, hash, _sHashWitness, _zInv);
-    return (_c == scalarFromCurve(hash, _pk, _gamma, _uWitness, v));
-  }
+      require(
+        verifyLinearCombinationWithGenerator(_c, _pk, _s, _uWitness),
+        "Could not verify that address(_c*_pk+_s*generator)=_uWitness");
+      uint256[2] memory hash = hashToCurve(_pk, _seed);
+      uint256[2] memory v = linearCombination(
+        _c, _gamma, _cGammaWitness, _s, hash, _sHashWitness, _zInv);
+      return (_c == scalarFromCurve(hash, _pk, _gamma, _uWitness, v));
+    }
 
   /** **************************************************************************
       @notice isValidVRFOutput returns true iff the proof can be verified as
@@ -370,9 +370,9 @@ contract VRF {
     uint256 _seed, address _uWitness, uint256[2] memory _cGammaWitness,
     uint256[2] memory _sHashWitness, uint256 _zInv, uint256 _output)
     public view returns (bool) {
-    return verifyVRFProof(
-      _pk, _gamma, _c, _s, _seed, _uWitness, _cGammaWitness, _sHashWitness,
-      _zInv) &&
-      (uint256(keccak256(abi.encodePacked(_gamma))) == _output);
-  }
+      return verifyVRFProof(
+        _pk, _gamma, _c, _s, _seed, _uWitness, _cGammaWitness, _sHashWitness,
+        _zInv) &&
+        (uint256(keccak256(abi.encodePacked(_gamma))) == _output);
+    }
 }
