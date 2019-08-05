@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
@@ -258,6 +259,25 @@ type Head struct {
 	ID     uint64      `gorm:"primary_key;auto_increment"`
 	Hash   common.Hash `gorm:"not null"`
 	Number int64       `gorm:"index;not null"`
+}
+
+// AfterCreate is a gorm hook that trims heads after its creation
+func (h Head) AfterCreate(scope *gorm.Scope) (err error) {
+	scope.DB().Exec(`
+	DELETE FROM heads
+	WHERE id <= (
+	  SELECT id
+	  FROM (
+		SELECT id
+		FROM heads
+		ORDER BY id DESC
+		LIMIT 1 OFFSET 100
+	  ) foo
+	)`)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // NewHead returns a Head instance with a BlockNumber and BlockHash.
