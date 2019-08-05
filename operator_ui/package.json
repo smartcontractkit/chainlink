@@ -12,6 +12,7 @@
     "lint": "tsc --noEmit",
     "test": "yarn build:tsc && cross-env NODE_ENV=test jest",
     "test:nocache": "yarn build:tsc:clean && yarn test --no-cache",
+    "test:ci": "yarn test:nocache --runInBand --coverage --reporters jest-silent-reporter",
     "watch": "yarn test --watchAll --notify"
   },
   "dependencies": {
