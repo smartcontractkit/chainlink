@@ -1,0 +1,37 @@
+{
+  "folders": [
+    {
+      "path": "."
+    },
+    { "path": "core" },
+    { "path": "examples" },
+    {
+      "path": "evm"
+    },
+    {
+      "path": "explorer"
+    },
+    {
+      "path": "integration"
+    },
+    {
+      "path": "styleguide"
+    },
+    {
+      "path": "operator_ui"
+    }
+  ],
+
+  "settings": {
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true
+    },
+    "editor.formatOnSave": true,
+
+    "typescript.preferences.importModuleSpecifier": "auto",
+    "javascript.preferences.importModuleSpecifier": "auto"
+  },
+  "extensions": {
+    "recommendations": ["esbenp.prettier-vscode"]
+  }
+}
