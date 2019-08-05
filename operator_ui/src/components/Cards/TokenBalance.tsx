@@ -1,5 +1,4 @@
-import PaddedCard from '@chainlink/styleguide/src/components/PaddedCard'
-import Tooltip from '@chainlink/styleguide/src/components/Tooltip'
+import { PaddedCard, Tooltip } from '@chainlink/styleguide'
 import Typography from '@material-ui/core/Typography'
 import { BigNumber } from 'bignumber.js'
 import numeral from 'numeral'

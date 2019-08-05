@@ -1,12 +1,12 @@
+import { theme } from '@chainlink/styleguide'
+import { createMuiTheme, MuiThemeProvider } from '@material-ui/core/styles'
+import JavascriptTimeAgo from 'javascript-time-ago'
+import en from 'javascript-time-ago/locale/en'
+import moment from 'moment'
+import promiseFinally from 'promise.prototype.finally'
 import React from 'react'
 import ReactDOM from 'react-dom'
-import promiseFinally from 'promise.prototype.finally'
-import JavascriptTimeAgo from 'javascript-time-ago'
-import moment from 'moment'
-import en from 'javascript-time-ago/locale/en'
 import { AppContainer } from 'react-hot-loader'
-import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'
-import theme from '@chainlink/styleguide/src/theme'
 import App from './App'
 
 promiseFinally.shim(Promise)

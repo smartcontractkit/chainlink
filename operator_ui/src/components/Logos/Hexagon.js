@@ -1,6 +1,6 @@
-import React from 'react'
+import { Logo } from '@chainlink/styleguide'
 import PropTypes from 'prop-types'
-import Logo from '@chainlink/styleguide/src/components/Logo'
+import React from 'react'
 import src from '../../images/icon-logo-blue.svg'
 
 const Hexagon = props => {

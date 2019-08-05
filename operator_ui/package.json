@@ -9,10 +9,10 @@
     "build:tsc": "tsc -b",
     "build:tsc:clean": "tsc -b --clean",
     "serve": "serve dist -p 3000",
-    "test": "cross-env NODE_ENV=test jest",
-    "test:nocache": "cross-env NODE_ENV=test jest --no-cache",
     "lint": "tsc --noEmit",
-    "watch": "cross-env NODE_ENV=test jest --watchAll --notify"
+    "test": "yarn build:tsc && cross-env NODE_ENV=test jest",
+    "test:nocache": "yarn build:tsc:clean && yarn test --no-cache",
+    "watch": "yarn test --watchAll --notify"
   },
   "dependencies": {
     "@babel/cli": "^7.2.3",
