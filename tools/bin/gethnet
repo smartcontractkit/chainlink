@@ -16,7 +16,8 @@ GETH_ARGS="--dev --mine
   --password ../clroot/password.txt
   --networkid $ETH_CHAIN_ID
   --unlock "$ACCOUNT"
-  --ipcdisable"
+  --ipcdisable
+  --allow-insecure-unlock"
 
 pushd "$(dirname "$0")" >/dev/null
 
