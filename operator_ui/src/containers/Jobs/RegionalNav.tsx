@@ -1,32 +1,30 @@
-import React from 'react'
-import { Redirect } from 'react-router-dom'
-import { connect } from 'react-redux'
-import {
-  createStyles,
-  withStyles,
-  WithStyles,
-  Theme
-} from '@material-ui/core/styles'
+import { localizedTimestamp, TimeAgo } from '@chainlink/styleguide'
 import Card from '@material-ui/core/Card'
-import Typography from '@material-ui/core/Typography'
+import Dialog from '@material-ui/core/Dialog'
 import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
-import Dialog from '@material-ui/core/Dialog'
-import TimeAgo from '@chainlink/styleguide/src/components/TimeAgo'
-import localizedTimestamp from '@chainlink/styleguide/src/utils/localizedTimestamp'
-import Button from '../../components/Button'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
+import Typography from '@material-ui/core/Typography'
+import classNames from 'classnames'
+import React from 'react'
+import { connect } from 'react-redux'
+import { Redirect } from 'react-router-dom'
+import { IJobSpec } from '../../../@types/operator_ui'
+import { createJobRun, deleteJobSpec, fetchJobRuns } from '../../actions'
 import BaseLink from '../../components/BaseLink'
-import Link from '../../components/Link'
+import Button from '../../components/Button'
 import CopyJobSpec from '../../components/CopyJobSpec'
+import Close from '../../components/Icons/Close'
+import Link from '../../components/Link'
 import ErrorMessage from '../../components/Notifications/DefaultError'
 import jobSpecDefinition from '../../utils/jobSpecDefinition'
 import { isWebInitiator } from '../../utils/jobSpecInitiators'
-import { fetchJobRuns, createJobRun } from '../../actions'
-import classNames from 'classnames'
-import { deleteJobSpec } from '../../actions'
-import Close from '../../components/Icons/Close'
-import { IJobSpec } from '../../../@types/operator_ui'
 
 const styles = (theme: Theme) =>
   createStyles({
