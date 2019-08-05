@@ -852,11 +852,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:30a85c92f9ef077c062d78e4514c17db6a90e5a7a41cab6232a8fd40fe19268c"
+  digest = "1:0b7f67239c6658435ebe42fd69543e670ee3f40aa578e21c958b1e70f8e60b5c"
   name = "github.com/unrolled/secure"
   packages = ["."]
   pruneopts = ""
-  revision = "716474489ad3d350e961ec6de19a6ab24e40f006"
+  revision = "f216236dcfc980ca06e5e4281a74f8869fb590fd"
 
 [[projects]]
   digest = "1:e85837cb04b78f61688c6eba93ea9d14f60d611e2aaf8319999b1a60d2dafbfa"
