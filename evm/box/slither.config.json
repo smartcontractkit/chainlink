@@ -1,0 +1,4 @@
+{
+    "filter_paths": "@ensdomains,solidity-cborutils,openzeppelin-solidity",
+    "truffle_ignore_compile": true
+}

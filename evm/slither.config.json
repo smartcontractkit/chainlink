@@ -1,4 +1,4 @@
 {
-    "solc_args": "--allow-paths `pwd`/node_modules/@ensdomains @ensdomains=`pwd`/node_modules/@ensdomains",
+    "filter_paths": "tests,@ensdomains,solidity-cborutils,openzeppelin-solidity",
     "truffle_ignore_compile": true
 }
