@@ -5,7 +5,8 @@
   "license": "MIT",
   "scripts": {
     "test": "cross-env NODE_ENV=test jest",
-    "test:nocache": "cross-env NODE_ENV=test jest --no-cache"
+    "test:nocache": "cross-env NODE_ENV=test jest --no-cache",
+    "lint": "echo \"No linter configured for integration\" && exit 0"
   },
   "dependencies": {
     "chainlink": "0.6.1"

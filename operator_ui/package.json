@@ -9,6 +9,7 @@
     "serve": "serve dist -p 3000",
     "test": "cross-env NODE_ENV=test jest",
     "test:nocache": "cross-env NODE_ENV=test jest --no-cache",
+    "lint": "tsc --noEmit",
     "watch": "cross-env NODE_ENV=test jest --watchAll --notify"
   },
   "dependencies": {
@@ -28,14 +29,6 @@
     "@chainlink/styleguide": "0.0.0",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^3.0.1",
-    "@types/classnames": "^2.2.8",
-    "@types/lodash": "^4.14.135",
-    "@types/node": "^11.9.5",
-    "@types/react": "^16.7.0",
-    "@types/react-dom": "^16.7.0",
-    "@types/react-redux": "~6.0.0",
-    "@types/react-resize-detector": "^4.0.1",
-    "@types/react-router-dom": "^4.3.4",
     "axios": "^0.18.0",
     "babel-jest": "^24.1.0",
     "bignumber.js": "^8.0.1",
@@ -86,5 +79,17 @@
     "use-react-hooks": "^1.0.7",
     "uuid": "^3.3.2"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/enzyme": "^3.10.3",
+    "@types/fetch-mock": "^7.3.1",
+    "@types/jest": "^24.0.16",
+    "@types/classnames": "^2.2.8",
+    "@types/lodash": "^4.14.135",
+    "@types/node": "^11.9.5",
+    "@types/react": "^16.7.0",
+    "@types/react-dom": "^16.7.0",
+    "@types/react-redux": "~6.0.0",
+    "@types/react-resize-detector": "^4.0.1",
+    "@types/react-router-dom": "^4.3.4"
+  }
 }

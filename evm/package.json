@@ -5,6 +5,7 @@
   "scripts": {
     "build": "truffle build",
     "test": "truffle test",
+    "lint": "echo \"No linter configured for evm project\" &&  exit 0",
     "flatten": "../tools/bin/flatten-testnet"
   },
   "dependencies": {

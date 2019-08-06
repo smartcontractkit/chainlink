@@ -1,11 +1,11 @@
-import React from 'react'
-import { createStyles } from '@material-ui/core'
-import { withStyles, WithStyles } from '@material-ui/core/styles'
-import Grid from '@material-ui/core/Grid'
-import capitalize from 'lodash/capitalize'
-import { ITaskRun, IJobRun } from '../../../@types/operator_ui'
-import StatusItem from './StatusItem'
+import { createStyles } from '@material-ui/core';
+import Grid from '@material-ui/core/Grid';
+import { withStyles, WithStyles } from '@material-ui/core/styles';
 import { stringify } from "javascript-stringify";
+import capitalize from 'lodash/capitalize';
+import React from 'react';
+import { IJobRun, ITaskRun } from '../../../@types/operator_ui';
+import StatusItem from './StatusItem';
 
 const fontStyles = () =>
   createStyles({
@@ -26,7 +26,7 @@ interface IItemProps extends WithStyles<typeof fontStyles> {
   colATitle: string
   colAValue: string
   colBTitle: string
-  colBValue?: string
+  colBValue?: string 
 }
 
 const Item = withStyles(fontStyles)(
