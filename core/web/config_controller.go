@@ -28,7 +28,7 @@ func (cc *ConfigController) Show(c *gin.Context) {
 }
 
 type PatchRequest struct {
-	EthGasPriceDefault big.Int
+	ethGasPriceDefault big.Int
 }
 
 // Patch updates one or more configuration options
@@ -37,7 +37,7 @@ func (cc *ConfigController) Patch(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if err := cc.App.GetStore().SetConfigValue("EthGasPriceDefault", &request.EthGasPriceDefault); err != nil {
+	} else if err := cc.App.GetStore().SetConfigValue("EthGasPriceDefault", &request.ethGasPriceDefault); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to set gas price default: %+v", err))
 	} else if cw, err := presenters.NewConfigWhitelist(cc.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to build config response: %+v", err))
