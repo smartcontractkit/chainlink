@@ -5,6 +5,7 @@ set -e
 yarn solhint "evm/**/*.sol"
 yarn solhint "examples/**/*.sol"
 yarn lint:evm && yarn lint:examples
+yarn workspace chainlink run slither
 
 yarn workspace chainlink test
 yarn workspace @chainlink/example-uptime-sla test
