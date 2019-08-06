@@ -565,3 +565,9 @@ func (r *AddressCollection) Scan(value interface{}) error {
 	*r = collection
 	return nil
 }
+
+// Configuration stores key value pairs for overriding global configuration
+type Configuration struct {
+	Name  string `gorm:"not null;unique;index"`
+	Value string `gorm:"not null"`
+}

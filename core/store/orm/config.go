@@ -18,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -34,6 +35,7 @@ import (
 type Config struct {
 	viper           *viper.Viper
 	SecretGenerator SecretGenerator
+	runtimeStore    *ORM
 }
 
 // ConfigSchema records the schema of configuration at the type level
@@ -112,6 +114,11 @@ func newConfigWithViper(v *viper.Viper) Config {
 	}
 
 	return config
+}
+
+// SetRuntinmeStore species a DB like store to save certain configuration variables that can be changed at rumtime
+func (c *Config) SetRuntinmeStore(orm *ORM) {
+	c.runtimeStore = orm
 }
 
 // Set a specific configuration variable
@@ -196,7 +203,23 @@ func (c Config) EthGasBumpWei() *big.Int {
 
 // EthGasPriceDefault represents the default gas price for transactions.
 func (c Config) EthGasPriceDefault() *big.Int {
+	if c.runtimeStore != nil {
+		var value big.Int
+		if err := c.runtimeStore.GetConfigValue(c.envVarName("EthGasPriceDefault"), &value); err != nil {
+			logger.Warnw("Error while trying to fetch EthGasPriceDefault.", "error", err)
+		} else {
+			return &value
+		}
+	}
 	return c.getWithFallback("EthGasPriceDefault", parseBigInt).(*big.Int)
+}
+
+// SetEthGasPriceDefault saves a runtime value for the default gas price for transactions
+func (c Config) SetEthGasPriceDefault(value *big.Int) error {
+	if c.runtimeStore == nil {
+		return errors.New("No runtime store installed")
+	}
+	return c.runtimeStore.SetConfigValue(c.envVarName("EthGasPriceDefault"), value)
 }
 
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.

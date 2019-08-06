@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1564007745"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -181,4 +182,36 @@ func TestConfig_NormalizedDatabaseURL(t *testing.T) {
 			assert.Equal(t, test.expect, config.NormalizedDatabaseURL())
 		})
 	}
+}
+
+func TestConfig_EthGasPriceDefault(t *testing.T) {
+	t.Parallel()
+
+	config := NewConfig()
+
+	// Get default value
+	def := config.EthGasPriceDefault()
+
+	// No orm installed
+	err := config.SetEthGasPriceDefault(big.NewInt(0))
+	require.Error(t, err)
+
+	// ORM installed
+	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
+	orm, err := NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout())
+	require.NoError(t, err)
+	require.NotNil(t, orm)
+	require.NoError(t, migration1564007745.Migrate(orm.DB))
+
+	config.SetRuntinmeStore(orm)
+
+	// Value still stays as the default
+	require.Equal(t, def, config.EthGasPriceDefault())
+
+	// Override
+	err = config.SetEthGasPriceDefault(new(big.Int).Add(def, big.NewInt(1)))
+	require.NoError(t, err)
+
+	// Value changes
+	require.NotEqual(t, def, config.EthGasPriceDefault())
 }
