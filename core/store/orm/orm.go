@@ -421,7 +421,8 @@ func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 }
 
 // GetConfigValue returns the value for a named configuration entry
-func (orm *ORM) GetConfigValue(name string, value encoding.TextUnmarshaler) error {
+func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) error {
+	name := EnvVarName(field)
 	config := models.Configuration{}
 	err := orm.DB.First(&config, "name = ?", name).Error
 	if err != nil {
@@ -431,7 +432,8 @@ func (orm *ORM) GetConfigValue(name string, value encoding.TextUnmarshaler) erro
 }
 
 // SetConfigValue returns the value for a named configuration entry
-func (orm *ORM) SetConfigValue(name string, value encoding.TextMarshaler) error {
+func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error {
+	name := EnvVarName(field)
 	textValue, err := value.MarshalText()
 	if err != nil {
 		return err

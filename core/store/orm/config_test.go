@@ -198,6 +198,7 @@ func TestConfig_EthGasPriceDefault(t *testing.T) {
 
 	// ORM installed
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
+	defer os.RemoveAll(config.RootDir())
 	orm, err := NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout())
 	require.NoError(t, err)
 	require.NotNil(t, orm)
@@ -209,9 +210,10 @@ func TestConfig_EthGasPriceDefault(t *testing.T) {
 	require.Equal(t, def, config.EthGasPriceDefault())
 
 	// Override
-	err = config.SetEthGasPriceDefault(new(big.Int).Add(def, big.NewInt(1)))
+	newValue := new(big.Int).Add(def, big.NewInt(1))
+	err = config.SetEthGasPriceDefault(newValue)
 	require.NoError(t, err)
 
 	// Value changes
-	require.NotEqual(t, def, config.EthGasPriceDefault())
+	require.Equal(t, newValue, config.EthGasPriceDefault())
 }
