@@ -1,19 +1,14 @@
-import React from 'react'
-import {
-  createStyles,
-  Theme,
-  withStyles,
-  WithStyles
-} from '@material-ui/core/styles'
-import Typography from '@material-ui/core/Typography'
-import classNames from 'classnames'
 import PaddedCard from '@chainlink/styleguide/src/components/PaddedCard'
-import { titleCase } from 'change-case'
-import StatusIcon from '../JobRuns/StatusIcon'
 import { Grid } from '@material-ui/core'
+import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
+import Typography from '@material-ui/core/Typography'
+import { titleCase } from 'change-case'
+import classNames from 'classnames'
+import React from 'react'
+import { useEffect, useHooks, useState } from 'use-react-hooks'
 import { IJobRun } from '../../../@types/operator_ui'
-import { useHooks, useState, useEffect } from 'use-react-hooks'
 import ElapsedTime from '../ElapsedTime'
+import StatusIcon from '../JobRuns/StatusIcon'
 
 const styles = (theme: any) =>
   createStyles({
@@ -69,7 +64,7 @@ const EarnedLink = ({
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const linkEarned = jobRun && jobRun.overrides && jobRun.overrides.amount
-    return (
+  return (
     <Typography className={classes.earnedLink} variant="h6">
       +{linkEarned ? selectLink(linkEarned) : 0} Link
     </Typography>
@@ -83,12 +78,12 @@ const StatusCard = useHooks(({ title, classes, children, jobRun }: IProps) => {
     createdAt: '',
     finishedAt: ''
   }
-  const stillPending = (status !== 'completed' && status !== 'errored')
+  const stillPending = status !== 'completed' && status !== 'errored'
   const [liveTime, setLiveTime] = useState(Date.now())
   useEffect(() => {
-    if (stillPending) setInterval(() => setLiveTime(Date.now()), 1000);
+    if (stillPending) setInterval(() => setLiveTime(Date.now()), 1000)
   }, [])
-  const endDate = stillPending ? liveTime : finishedAt
+  const endDate = stillPending ? liveTime.toString() : finishedAt
 
   return (
     <PaddedCard className={classNames(classes.statusCard, statusClass)}>
@@ -99,13 +94,13 @@ const StatusCard = useHooks(({ title, classes, children, jobRun }: IProps) => {
             <Typography className={classes.statusText} variant="h5">
               {titleCase(title)}
             </Typography>
-            {(
+            {
               <ElapsedTime
                 start={createdAt}
                 end={endDate}
                 className={classes.elapsedText}
               />
-            )}
+            }
           </Grid>
           <Grid item xs={3}>
             {title === 'completed' && (
@@ -117,7 +112,6 @@ const StatusCard = useHooks(({ title, classes, children, jobRun }: IProps) => {
       {children}
     </PaddedCard>
   )
-}
-)
+})
 
 export default withStyles(styles)(StatusCard)
