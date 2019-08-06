@@ -202,6 +202,7 @@ func TestConfig_EthGasPriceDefault(t *testing.T) {
 	orm, err := NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout())
 	require.NoError(t, err)
 	require.NotNil(t, orm)
+	orm.SetLogging(true)
 	require.NoError(t, migration1564007745.Migrate(orm.DB))
 
 	config.SetRuntinmeStore(orm)
@@ -216,4 +217,12 @@ func TestConfig_EthGasPriceDefault(t *testing.T) {
 
 	// Value changes
 	require.Equal(t, newValue, config.EthGasPriceDefault())
+
+	// Set again
+	newerValue := new(big.Int).Add(def, big.NewInt(2))
+	err = config.SetEthGasPriceDefault(newerValue)
+	require.NoError(t, err)
+
+	// Value changes
+	require.Equal(t, newerValue, config.EthGasPriceDefault())
 }
