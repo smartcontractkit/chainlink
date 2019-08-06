@@ -8,6 +8,7 @@
     "console:live": "npx truffle console --network live",
     "migrate:dev": "npx truffle migrate --reset --network cldev",
     "migrate:live": "npx truffle migrate --network live",
+    "lint": "echo \"No linter configured for evm-box project\" &&  exit 0",
     "test": "npx truffle test"
   },
   "license": "MIT",
