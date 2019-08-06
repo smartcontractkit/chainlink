@@ -8,19 +8,18 @@
     "test:nocache": "cross-env NODE_ENV=test jest --no-cache"
   },
   "dependencies": {
-    "chainlink": "0.6.1"
+    "chainlink": "0.6.1",
+    "express": "^4.17.1",
+    "request": "^2.88.0"
   },
   "devDependencies": {
-    "babel-jest": "^24.1.0",
     "body-parser": "^1.18.3",
     "cross-env": "^5.2.0",
     "ethjs": "^0.4.0",
     "expect-puppeteer": "^4.1.0",
-    "jest": "^24.1.0",
-    "jest-silent-reporter": "^0.1.0",
-    "jest-environment-enzyme": "^7.0.1",
+    "jest": "^24.8.0",
     "link_token": "^1.0.3",
-    "request-promise": "^4.2.4",
-    "puppeteer": "^1.10.0"
+    "puppeteer": "^1.10.0",
+    "request-promise": "^4.2.4"
   }
 }

@@ -86,5 +86,7 @@
     "use-react-hooks": "^1.0.7",
     "uuid": "^3.3.2"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "jest-silent-reporter": "^0.1.2"
+  }
 }

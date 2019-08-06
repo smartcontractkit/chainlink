@@ -12,7 +12,6 @@
     ".prettierrc",
     ".soliumignore",
     ".soliumrc.json",
-    "babel.config.js",
     "chainlink-launcher-sgx.sh",
     "chainlink-launcher.sh",
     "core",
