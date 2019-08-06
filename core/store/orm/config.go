@@ -1,4 +1,4 @@
-package store
+package orm
 
 import (
 	"encoding/base64"

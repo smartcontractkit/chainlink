@@ -1,4 +1,4 @@
-package store
+package orm
 
 import (
 	"math/big"
@@ -60,10 +60,10 @@ func TestConfig_sessionOptions(t *testing.T) {
 
 func TestConfig_readFromFile(t *testing.T) {
 	v := viper.New()
-	v.Set("ROOT", "../../tools/clroot/")
+	v.Set("ROOT", "../../../tools/clroot/")
 
 	config := newConfigWithViper(v)
-	assert.Equal(t, config.RootDir(), "../../tools/clroot/")
+	assert.Equal(t, config.RootDir(), "../../../tools/clroot/")
 	assert.Equal(t, config.MinOutgoingConfirmations(), uint64(2))
 	assert.Equal(t, config.MinimumContractPayment(), assets.NewLink(1000000000000))
 	assert.Equal(t, config.Dev(), true)

@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
@@ -134,7 +135,7 @@ type whitelist struct {
 	JSONConsole              bool            `json:"jsonConsole"`
 	LinkContractAddress      string          `json:"linkContractAddress"`
 	ExplorerURL              string          `json:"explorerUrl"`
-	LogLevel                 store.LogLevel  `json:"logLevel"`
+	LogLevel                 orm.LogLevel    `json:"logLevel"`
 	LogToDisk                bool            `json:"logToDisk"`
 	MinimumContractPayment   *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration uint64          `json:"minimumRequestExpiration"`
@@ -202,7 +203,7 @@ func (c ConfigWhitelist) String() string {
 
 	buffer.WriteString(fmt.Sprintf("ACCOUNT_ADDRESS: %v\n", c.AccountAddress))
 
-	schemaT := reflect.TypeOf(store.ConfigSchema{})
+	schemaT := reflect.TypeOf(orm.ConfigSchema{})
 	cwlT := reflect.TypeOf(c.whitelist)
 	cwlV := reflect.ValueOf(c.whitelist)
 	for index := 0; index < cwlT.NumField(); index++ {

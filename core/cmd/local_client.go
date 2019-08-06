@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	clipkg "github.com/urfave/cli"
@@ -103,7 +104,7 @@ func localNonceIsNotCurrent(lastNonce, nonce uint64) bool {
 	return false
 }
 
-func updateConfig(config strpkg.Config, debug bool) strpkg.Config {
+func updateConfig(config orm.Config, debug bool) orm.Config {
 	if debug {
 		config.Set("LOG_LEVEL", zapcore.DebugLevel.String())
 	}
