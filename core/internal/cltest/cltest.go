@@ -74,7 +74,7 @@ func init() {
 // TestConfig struct with test store and wsServer
 type TestConfig struct {
 	t testing.TB
-	orm.Config
+	*orm.Config
 	wsServer *httptest.Server
 }
 
@@ -123,7 +123,7 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 type TestApplication struct {
 	t testing.TB
 	*services.ChainlinkApplication
-	Config           orm.Config
+	Config           *orm.Config
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
@@ -388,7 +388,7 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 	require.NoError(t, store.Close())
 }
 
-func WipePostgresDatabase(t testing.TB, c orm.Config) {
+func WipePostgresDatabase(t testing.TB, c *orm.Config) {
 	t.Helper()
 
 	if strings.HasPrefix(strings.ToLower(c.NormalizedDatabaseURL()), string(orm.DialectPostgres)) {
