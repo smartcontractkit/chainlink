@@ -1,9 +1,9 @@
-import React from 'react'
-import { storiesOf } from '@storybook/react'
-import { muiTheme } from 'storybook-addon-material-ui'
 import { createMuiTheme } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
-import theme from '../theme'
+import { storiesOf } from '@storybook/react'
+import React from 'react'
+import { muiTheme } from 'storybook-addon-material-ui'
+import { theme } from '../'
 
 const customTheme = createMuiTheme(theme)
 
