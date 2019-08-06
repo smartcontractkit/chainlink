@@ -292,6 +292,7 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
+		authv2.PATCH("/config", cc.Patch)
 
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
