@@ -564,3 +564,25 @@ func (cli *Client) CreateExtraKey(c *clipkg.Context) error {
 
 	return cli.printResponseBody(resp)
 }
+
+// SetMinimumGasPrice specifies the minimum gas price to use for outgoing transactions
+func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) error {
+	if c.NArg() != 1 {
+		return cli.errorOut(errors.New("expecting an amount"))
+	}
+
+	request := struct{ ethGasPriceDefault string }{ethGasPriceDefault: c.Args().Get(1)}
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	resp, err := cli.HTTP.Patch("/v2/config", buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+
+	return cli.printResponseBody(resp)
+}
