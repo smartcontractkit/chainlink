@@ -34,7 +34,7 @@ var (
 // Client is the shell for the node, local commands and remote commands.
 type Client struct {
 	Renderer
-	Config                         orm.Config
+	Config                         *orm.Config
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          KeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -56,14 +56,14 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(orm.Config, ...func(services.Application)) services.Application
+	NewApplication(*orm.Config, ...func(services.Application)) services.Application
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(config orm.Config, onConnectCallbacks ...func(services.Application)) services.Application {
+func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(services.Application)) services.Application {
 	return services.NewApplication(config, onConnectCallbacks...)
 }
 
@@ -142,14 +142,14 @@ type HTTPClient interface {
 }
 
 type authenticatedHTTPClient struct {
-	config     orm.Config
+	config     *orm.Config
 	client     *http.Client
 	cookieAuth CookieAuthenticator
 }
 
 // NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
 // which is then used for all subsequent HTTP API requests.
-func NewAuthenticatedHTTPClient(cfg orm.Config, cookieAuth CookieAuthenticator) HTTPClient {
+func NewAuthenticatedHTTPClient(cfg *orm.Config, cookieAuth CookieAuthenticator) HTTPClient {
 	return &authenticatedHTTPClient{
 		config:     cfg,
 		client:     &http.Client{},
@@ -213,13 +213,13 @@ type CookieAuthenticator interface {
 // SessionCookieAuthenticator is a concrete implementation of CookieAuthenticator
 // that retrieves a session id for the user with credentials from the session request.
 type SessionCookieAuthenticator struct {
-	config orm.Config
+	config *orm.Config
 	store  CookieStore
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
-func NewSessionCookieAuthenticator(config orm.Config, store CookieStore) CookieAuthenticator {
+func NewSessionCookieAuthenticator(config *orm.Config, store CookieStore) CookieAuthenticator {
 	return &SessionCookieAuthenticator{config: config, store: store}
 }
 
@@ -285,7 +285,7 @@ func (m *MemoryCookieStore) Retrieve() (*http.Cookie, error) {
 
 // DiskCookieStore saves a single cookie in the local cli working directory.
 type DiskCookieStore struct {
-	Config orm.Config
+	Config *orm.Config
 }
 
 // Save stores a cookie.

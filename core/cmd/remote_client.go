@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"net/url"
 	"os"
@@ -571,18 +572,37 @@ func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("expecting an amount"))
 	}
 
-	request := struct{ ethGasPriceDefault string }{ethGasPriceDefault: c.Args().Get(1)}
+	value := c.Args().Get(0)
+	amount, ok := new(big.Float).SetString(value)
+	if !ok {
+		return cli.errorOut(fmt.Errorf("invalid ethereum amount %s", value))
+	}
+
+	if c.IsSet("gwei") {
+		amount.Mul(amount, big.NewFloat(1000000000))
+	}
+
+	adjustedAmount, _ := amount.Int(nil)
+	request := struct {
+		EthGasPriceDefault string `json:"ethGasPriceDefault"`
+	}{EthGasPriceDefault: adjustedAmount.String()}
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	resp, err := cli.HTTP.Patch("/v2/config", buf)
+	response, err := cli.HTTP.Patch("/v2/config", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer response.Body.Close()
 
-	return cli.printResponseBody(resp)
+	patchResponse := web.ConfigPatchResponse{}
+	if err := cli.deserializeAPIResponse(response, &patchResponse, &jsonapi.Links{}); err != nil {
+		return err
+	}
+
+	fmt.Printf("EthGasPriceDefault updated %s -> %s.\n", patchResponse.OldEthGasPriceDefault, patchResponse.NewEthGasPriceDefault)
+	return nil
 }

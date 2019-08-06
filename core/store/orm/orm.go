@@ -424,8 +424,7 @@ func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) error {
 	name := EnvVarName(field)
 	config := models.Configuration{}
-	err := orm.DB.First(&config, "name = ?", name).Error
-	if err != nil {
+	if err := orm.DB.First(&config, "name = ?", name).Error; err != nil {
 		return err
 	}
 	return value.UnmarshalText([]byte(config.Value))
@@ -439,7 +438,7 @@ func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error
 		return err
 	}
 	return orm.DB.Where(models.Configuration{Name: name}).
-		Assign(models.Configuration{Value: string(textValue)}).
+		Assign(models.Configuration{Name: name, Value: string(textValue)}).
 		FirstOrCreate(&models.Configuration{}).Error
 }
 
