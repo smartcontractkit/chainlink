@@ -438,8 +438,9 @@ func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error
 	if err != nil {
 		return err
 	}
-	config := models.Configuration{Name: name, Value: string(textValue)}
-	return orm.DB.Save(&config).Error
+	return orm.DB.Where(models.Configuration{Name: name}).
+		Assign(models.Configuration{Value: string(textValue)}).
+		FirstOrCreate(&models.Configuration{}).Error
 }
 
 // CreateJob saves a job to the database and adds IDs to associated tables.
