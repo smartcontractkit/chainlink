@@ -21,8 +21,8 @@ import (
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	config := updateConfig(cli.Config, c.Bool("debug"))
-	logger.SetLogger(config.CreateProductionLogger())
+	updateConfig(cli.Config, c.Bool("debug"))
+	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 
 	err := InitEnclave()
@@ -30,7 +30,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error initializing SGX enclave: %+v", err))
 	}
 
-	app := cli.AppFactory.NewApplication(config, func(app services.Application) {
+	app := cli.AppFactory.NewApplication(cli.Config, func(app services.Application) {
 		store := app.GetStore()
 		logNodeBalance(store)
 		logIfNonceOutOfSync(store)
@@ -104,11 +104,10 @@ func localNonceIsNotCurrent(lastNonce, nonce uint64) bool {
 	return false
 }
 
-func updateConfig(config orm.Config, debug bool) orm.Config {
+func updateConfig(config *orm.Config, debug bool) {
 	if debug {
 		config.Set("LOG_LEVEL", zapcore.DebugLevel.String())
 	}
-	return config
 }
 
 func logNodeBalance(store *strpkg.Store) {

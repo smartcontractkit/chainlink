@@ -205,7 +205,7 @@ func TestConfig_EthGasPriceDefault(t *testing.T) {
 	orm.SetLogging(true)
 	require.NoError(t, migration1564007745.Migrate(orm.DB))
 
-	config.SetRuntinmeStore(orm)
+	config.SetRuntimeStore(orm)
 
 	// Value still stays as the default
 	require.Equal(t, def, config.EthGasPriceDefault())

@@ -83,12 +83,12 @@ var configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
 
 // NewConfig returns the config with the environment variables set to their
 // respective fields, or their defaults if environment variables are not set.
-func NewConfig() Config {
+func NewConfig() *Config {
 	v := viper.New()
 	return newConfigWithViper(v)
 }
 
-func newConfigWithViper(v *viper.Viper) Config {
+func newConfigWithViper(v *viper.Viper) *Config {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	for index := 0; index < schemaT.NumField(); index++ {
 		item := schemaT.FieldByIndex([]int{index})
@@ -97,7 +97,7 @@ func newConfigWithViper(v *viper.Viper) Config {
 		v.BindEnv(name, name)
 	}
 
-	config := Config{
+	config := &Config{
 		viper:           v,
 		SecretGenerator: filePersistedSecretGenerator{},
 	}
@@ -116,8 +116,8 @@ func newConfigWithViper(v *viper.Viper) Config {
 	return config
 }
 
-// SetRuntinmeStore species a DB like store to save certain configuration variables that can be changed at rumtime
-func (c *Config) SetRuntinmeStore(orm *ORM) {
+// SetRuntimeStore species a DB like store to save certain configuration variables that can be changed at rumtime
+func (c *Config) SetRuntimeStore(orm *ORM) {
 	c.runtimeStore = orm
 }
 

@@ -26,17 +26,17 @@ func Run(client *cmd.Client, args ...string) {
 // NewProductionClient configures an instance of the CLI to be used
 // in production.
 func NewProductionClient() *cmd.Client {
-	cfg := orm.NewConfig()
+	config := orm.NewConfig()
 	prompter := cmd.NewTerminalPrompter()
-	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg, cmd.DiskCookieStore{Config: cfg})
+	cookieAuth := cmd.NewSessionCookieAuthenticator(config, cmd.DiskCookieStore{Config: config})
 	return &cmd.Client{
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
-		Config:                         cfg,
+		Config:                         config,
 		AppFactory:                     cmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},
 		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter),
 		Runner:                         cmd.ChainlinkRunner{},
-		HTTP:                           cmd.NewAuthenticatedHTTPClient(cfg, cookieAuth),
+		HTTP:                           cmd.NewAuthenticatedHTTPClient(config, cookieAuth),
 		CookieAuthenticator:            cookieAuth,
 		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
