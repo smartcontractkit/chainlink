@@ -179,7 +179,7 @@ func TestConfig_NormalizedDatabaseURL(t *testing.T) {
 			config := NewConfig()
 			config.Set("ROOT", "/root")
 			config.Set("DATABASE_URL", test.uri)
-			assert.Equal(t, test.expect, config.NormalizedDatabaseURL())
+			assert.Equal(t, test.expect, NormalizedDatabaseURL(config))
 		})
 	}
 }
@@ -199,7 +199,7 @@ func TestConfig_EthGasPriceDefault(t *testing.T) {
 	// ORM installed
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
 	defer os.RemoveAll(config.RootDir())
-	orm, err := NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout())
+	orm, err := NewORM(NormalizedDatabaseURL(config), config.DatabaseTimeout())
 	require.NoError(t, err)
 	require.NotNil(t, orm)
 	orm.SetLogging(true)

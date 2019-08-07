@@ -388,11 +388,11 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 	require.NoError(t, store.Close())
 }
 
-func WipePostgresDatabase(t testing.TB, c *orm.Config) {
+func WipePostgresDatabase(t testing.TB, config orm.ConfigReader) {
 	t.Helper()
 
-	if strings.HasPrefix(strings.ToLower(c.NormalizedDatabaseURL()), string(orm.DialectPostgres)) {
-		db, err := gorm.Open(string(orm.DialectPostgres), c.NormalizedDatabaseURL())
+	if strings.HasPrefix(strings.ToLower(orm.NormalizedDatabaseURL(config)), string(orm.DialectPostgres)) {
+		db, err := gorm.Open(string(orm.DialectPostgres), orm.NormalizedDatabaseURL(config))
 		if err != nil {
 			t.Fatalf("unable to open postgres database for wiping: %+v", err)
 			return

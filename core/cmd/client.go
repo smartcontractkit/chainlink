@@ -142,16 +142,16 @@ type HTTPClient interface {
 }
 
 type authenticatedHTTPClient struct {
-	config     *orm.Config
+	config     orm.ConfigReader
 	client     *http.Client
 	cookieAuth CookieAuthenticator
 }
 
 // NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
 // which is then used for all subsequent HTTP API requests.
-func NewAuthenticatedHTTPClient(cfg *orm.Config, cookieAuth CookieAuthenticator) HTTPClient {
+func NewAuthenticatedHTTPClient(config orm.ConfigReader, cookieAuth CookieAuthenticator) HTTPClient {
 	return &authenticatedHTTPClient{
-		config:     cfg,
+		config:     config,
 		client:     &http.Client{},
 		cookieAuth: cookieAuth,
 	}
