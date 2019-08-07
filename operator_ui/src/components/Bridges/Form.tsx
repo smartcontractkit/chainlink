@@ -1,42 +1,65 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import { Prompt } from 'react-router-dom'
-import * as formik from 'formik'
-import { withStyles } from '@material-ui/core/styles'
-import { TextField, Grid } from '@material-ui/core'
+import { Grid, TextField } from '@material-ui/core'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles
+} from '@material-ui/core/styles'
 import Button from 'components/Button'
-import { set, get } from 'utils/storage'
+import formik, { FormikProps } from 'formik'
 import normalizeUrl from 'normalize-url'
+import React from 'react'
+import { Prompt } from 'react-router-dom'
+import { get, set } from 'utils/storage'
 
-const styles = theme => ({
-  textfield: {
-    paddingTop: theme.spacing.unit * 1.25
-  },
-  card: {
-    paddingBottom: theme.spacing.unit * 2
-  },
-  button: {
-    marginTop: theme.spacing.unit * 3
-  },
-  flash: {
-    textAlign: 'center',
-    paddingTop: theme.spacing.unit,
-    paddingBottom: theme.spacing.unit
-  }
-})
+const styles = (theme: Theme) =>
+  createStyles({
+    textfield: {
+      paddingTop: theme.spacing.unit * 1.25
+    },
+    card: {
+      paddingBottom: theme.spacing.unit * 2
+    },
+    button: {
+      marginTop: theme.spacing.unit * 3
+    },
+    flash: {
+      textAlign: 'center',
+      paddingTop: theme.spacing.unit,
+      paddingBottom: theme.spacing.unit
+    }
+  })
 
-const isDirty = ({ values, submitCount }) => {
+const isDirty = ({ values, submitCount }: Props) => {
   return (
     (values.name !== '' ||
       values.url !== '' ||
-      (values.minimumContractPayment.toString() !== '0' &&
-        values.confirmations !== '0')) &&
+      (values.minimumContractPayment !== '0' && values.confirmations !== 0)) &&
     submitCount === 0
   )
 }
 
-const Form = props => (
-  <React.Fragment>
+// CHECKME
+interface OwnProps extends Partial<FormValues>, WithStyles<typeof styles> {
+  actionText: string
+  nameDisabled?: boolean
+  onSubmit: any
+  onSuccess: any
+  onError: any
+}
+
+// CHECKME
+interface FormValues {
+  name: string
+  minimumContractPayment: string
+  confirmations: number
+  url: string
+}
+
+type Props = FormikProps<FormValues> & OwnProps
+
+const Form: React.SFC<Props> = props => (
+  <>
     <Prompt
       when={isDirty(props)}
       message="You have not submitted the form, are you sure you want to leave?"
@@ -108,26 +131,14 @@ const Form = props => (
         </Grid>
       </Grid>
     </formik.Form>
-  </React.Fragment>
+  </>
 )
 
-Form.defaultPropTypes = {
+Form.defaultProps = {
   nameDisabled: false
 }
 
-Form.propTypes = {
-  actionText: PropTypes.string.isRequired,
-  onSubmit: PropTypes.func.isRequired,
-  name: PropTypes.string,
-  nameDisabled: PropTypes.bool,
-  url: PropTypes.string,
-  minimumContractPayment: PropTypes.string,
-  confirmations: PropTypes.number,
-  onSuccess: PropTypes.func.isRequired,
-  onError: PropTypes.func.isRequired
-}
-
-const formikOpts = {
+const FormikForm = formik.withFormik<OwnProps, FormValues>({
   mapPropsToValues({ name, url, minimumContractPayment, confirmations }) {
     const shouldPersist = Object.keys(get('persistBridge')).length !== 0
     let persistedJSON = shouldPersist && get('persistBridge')
@@ -144,7 +155,7 @@ const formikOpts = {
   handleSubmit(values, { props, setSubmitting }) {
     try {
       values.url = normalizeUrl(values.url)
-    } catch(exception) {
+    } catch {
       values.url = ''
     }
     props.onSubmit(values, props.onSuccess, props.onError)
@@ -153,8 +164,6 @@ const formikOpts = {
       setSubmitting(false)
     }, 1000)
   }
-}
-
-const FormikForm = formik.withFormik(formikOpts)(Form)
+})(Form)
 
 export default withStyles(styles)(FormikForm)
