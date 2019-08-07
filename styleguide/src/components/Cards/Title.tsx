@@ -1,14 +1,14 @@
-import React from 'react'
 import CardContent from '@material-ui/core/CardContent'
 import Divider from '@material-ui/core/Divider'
 import Typography from '@material-ui/core/Typography'
+import React from 'react'
 
-interface IProps {
+interface Props {
   children: string
   divider?: boolean
 }
 
-const Title = ({ children, divider = false }: IProps) => {
+export const CardTitle = ({ children, divider = false }: Props) => {
   return (
     <React.Fragment>
       <CardContent>
@@ -21,5 +21,3 @@ const Title = ({ children, divider = false }: IProps) => {
     </React.Fragment>
   )
 }
-
-export default Title

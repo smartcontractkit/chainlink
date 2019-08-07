@@ -1,25 +1,30 @@
+import { CardTitle, KeyValueList } from '@chainlink/styleguide'
+import {
+  createStyles,
+  Theme,
+  Typography,
+  WithStyles,
+  withStyles
+} from '@material-ui/core'
+import Card from '@material-ui/core/Card'
+import Grid from '@material-ui/core/Grid'
 import React from 'react'
 import { connect } from 'react-redux'
-import Grid from '@material-ui/core/Grid'
-import Card from '@material-ui/core/Card'
-import { useHooks, useEffect } from 'use-react-hooks'
-import KeyValueList from '@chainlink/styleguide/src/components/KeyValueList'
-import CardTitle from '@chainlink/styleguide/src/components/Cards/Title'
-import JobRunsList from '../../components/JobRuns/List'
-import Content from '../../components/Content'
-import RegionalNav from './RegionalNav'
-import { JobSpecRunsOpts } from '../../api'
+import { useEffect, useHooks } from 'use-react-hooks'
+import { IJobRuns, IJobSpec } from '../../../@types/operator_ui'
 import { fetchJob, fetchJobRuns } from '../../actions'
+import { JobSpecRunsOpts } from '../../api'
+import Content from '../../components/Content'
+import JobRunsList from '../../components/JobRuns/List'
+import TaskList from '../../components/Jobs/TaskList'
+import { IState } from '../../connectors/redux/reducers'
 import jobSelector from '../../selectors/job'
 import jobRunsByJobIdSelector from '../../selectors/jobRunsByJobId'
 import jobsShowRunCountSelector from '../../selectors/jobsShowRunCount'
-import { formatInitiators } from '../../utils/jobSpecInitiators'
 import { GWEI_PER_TOKEN } from '../../utils/constants'
+import { formatInitiators } from '../../utils/jobSpecInitiators'
 import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatchToProps'
-import TaskList from '../../components/Jobs/TaskList'
-import { IJobSpec, IJobRuns } from '../../../@types/operator_ui'
-import { IState } from '../../connectors/redux/reducers'
-import { Typography, createStyles, Theme, WithStyles, withStyles } from '@material-ui/core'
+import RegionalNav from './RegionalNav'
 
 const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
   const info = {
@@ -47,11 +52,13 @@ interface IRecentJobRunsProps {
 }
 
 const totalLinkEarned = (job: IJobSpec) => {
-    const zero = '0.000000'
-    const unformatted = job.earnings && (job.earnings / GWEI_PER_TOKEN).toString()
-    const formatted = unformatted && (unformatted.length >= 3  ? unformatted : (unformatted + '.').padEnd(8, '0'))
-    return formatted || zero
-  }
+  const zero = '0.000000'
+  const unformatted = job.earnings && (job.earnings / GWEI_PER_TOKEN).toString()
+  const formatted =
+    unformatted &&
+    (unformatted.length >= 3 ? unformatted : (unformatted + '.').padEnd(8, '0'))
+  return formatted || zero
+}
 
 const chartCardStyles = (theme: Theme) =>
   createStyles({
@@ -74,19 +81,19 @@ interface ChartProps extends WithStyles<typeof chartCardStyles> {
   job: IJobSpec
 }
 
-
-const ChartArea = withStyles(chartCardStyles)(({ classes, job }: ChartProps) => (
-  <Card>
-    <Grid item className={classes.wrapper} >
-      <Typography className={classes.paymentText} variant="h5">
-        Link Payment
-      </Typography>
-      <Typography className={classes.earnedText}>
-        {totalLinkEarned(job)}
-      </Typography>
-    </Grid>
-  </Card>
-)
+const ChartArea = withStyles(chartCardStyles)(
+  ({ classes, job }: ChartProps) => (
+    <Card>
+      <Grid item className={classes.wrapper}>
+        <Typography className={classes.paymentText} variant="h5">
+          Link Payment
+        </Typography>
+        <Typography className={classes.earnedText}>
+          {totalLinkEarned(job)}
+        </Typography>
+      </Grid>
+    </Card>
+  )
 )
 
 const RecentJobRuns = ({

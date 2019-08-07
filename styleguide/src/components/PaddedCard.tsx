@@ -1,16 +1,14 @@
-import React from 'react'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
+import React from 'react'
 
-interface IProps {
+interface Props {
   children: React.ReactNode
   className?: string
 }
 
-const PaddedCard = ({ children, className }: IProps) => (
+export const PaddedCard = ({ children, className }: Props) => (
   <Card>
     <CardContent className={className}>{children}</CardContent>
   </Card>
 )
-
-export default PaddedCard

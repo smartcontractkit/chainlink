@@ -1,26 +1,26 @@
-import React from 'react'
+import { TimeAgo } from '@chainlink/styleguide'
+import Card from '@material-ui/core/Card'
+import CardContent from '@material-ui/core/CardContent'
+import Grid from '@material-ui/core/Grid'
 import {
   createStyles,
   Theme,
   withStyles,
   WithStyles
 } from '@material-ui/core/styles'
-import Typography from '@material-ui/core/Typography'
-import Grid from '@material-ui/core/Grid'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
-import TableRow from '@material-ui/core/TableRow'
 import TableFooter from '@material-ui/core/TableFooter'
-import CardContent from '@material-ui/core/CardContent'
-import Card from '@material-ui/core/Card'
-import TimeAgo from '@chainlink/styleguide/src/components/TimeAgo'
-import Button from '../Button'
-import BaseLink from '../BaseLink'
-import Link from '../Link'
-import StatusIcon from '../JobRuns/StatusIcon'
-import NoContentLogo from '../Logos/NoContent'
+import TableRow from '@material-ui/core/TableRow'
+import Typography from '@material-ui/core/Typography'
+import React from 'react'
 import { IJobRun, IJobRuns } from '../../../@types/operator_ui'
+import BaseLink from '../BaseLink'
+import Button from '../Button'
+import StatusIcon from '../JobRuns/StatusIcon'
+import Link from '../Link'
+import NoContentLogo from '../Logos/NoContent'
 
 const noActivityStyles = ({ palette, spacing }: Theme) =>
   createStyles({
