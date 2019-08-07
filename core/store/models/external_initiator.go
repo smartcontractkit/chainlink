@@ -1,10 +1,11 @@
 package models
 
 import (
+	"crypto/rand"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -23,7 +24,10 @@ type ExternalInitiator struct {
 // NewExternalInitiator generates an ExternalInitiator from an
 // ExternalInitiatorAuthentication, hashing the password for storage
 func NewExternalInitiator(eia *ExternalInitiatorAuthentication) (*ExternalInitiator, error) {
-	salt := NewSecret()
+	salt, err := NewSecret()
+	if err != nil {
+		return nil, err
+	}
 	hashedSecret, err := HashedSecret(eia, salt)
 	if err != nil {
 		return nil, errors.Wrap(err, "error hashing secret for external initiator")
@@ -50,11 +54,15 @@ func AuthenticateExternalInitiator(eia *ExternalInitiatorAuthentication, ea *Ext
 // ExternalInitiatorAuthentication with a freshly generated access key and
 // secret, this is intended to be supplied to the user and saved, as it cannot
 // be regenerated in the future.
-func NewExternalInitiatorAuthentication() *ExternalInitiatorAuthentication {
+func NewExternalInitiatorAuthentication() (*ExternalInitiatorAuthentication, error) {
+	secret, err := NewSecret()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not generate secret for External Initiator Authentication")
+	}
 	return &ExternalInitiatorAuthentication{
 		AccessKey: utils.NewBytes32ID(),
-		Secret:    NewSecret(),
-	}
+		Secret:    secret,
+	}, nil
 }
 
 func hashInput(eia *ExternalInitiatorAuthentication, salt string) []byte {
@@ -96,11 +104,11 @@ func (eia *ExternalInitiatorAuthentication) SetID(id string) error {
 }
 
 // NewSecret returns a new secret for use for authenticating external initiators
-func NewSecret() string {
-	var characters = []rune("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	b := make([]rune, 64)
-	for i := range b {
-		b[i] = characters[rand.Intn(len(characters))]
+func NewSecret() (string, error) {
+	b := make([]byte, 48)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", errors.Wrap(err, "generating random Secret failed")
 	}
-	return string(b)
+	return base64.StdEncoding.EncodeToString(b), nil
 }
