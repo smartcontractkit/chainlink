@@ -684,7 +684,7 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 	return user, store.SaveUser(&user)
 }
 
-func NewMockAuthenticatedHTTPClient(cfg *orm.Config) cmd.HTTPClient {
+func NewMockAuthenticatedHTTPClient(cfg orm.ConfigReader) cmd.HTTPClient {
 	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{})
 }
 

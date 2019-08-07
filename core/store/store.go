@@ -200,7 +200,7 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 }
 
 func initializeORM(config *orm.Config) (*orm.ORM, error) {
-	orm, err := orm.NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout())
+	orm, err := orm.NewORM(orm.NormalizedDatabaseURL(config), config.DatabaseTimeout())
 	if err != nil {
 		return nil, err
 	}
