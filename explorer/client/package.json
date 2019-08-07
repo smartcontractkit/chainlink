@@ -6,12 +6,19 @@
   "author": "Chainlink Dev Team",
   "license": "MIT",
   "keywords": [],
-  "browserslist": [
-    ">0.2%",
-    "not dead",
-    "not ie <= 11",
-    "not op_mini all"
-  ],
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not ie <= 11",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
   "scripts": {
     "start": "cross-env PORT=3001 craco start",
     "build:clean": "rm -rf build",
@@ -24,9 +31,9 @@
   },
   "main": "app.js",
   "proxy": "http://localhost:8080",
-  "dependencies": {},
-  "devDependencies": {
-    "@babel/preset-typescript": "^7.3.3",
+  "dependencies": {
+    "@babel/core": "7.4.3",
+    "@babel/preset-typescript": "~7.3.3",
     "@craco/craco": "^5.2.0",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^3.0.2",
@@ -51,31 +58,46 @@
     "dynamic-cdn-webpack-plugin": "^4.0.0",
     "enzyme": "^3.9.0",
     "enzyme-adapter-react-16": "^1.11.2",
-    "eslint-config-prettier": "^4.1.0",
-    "eslint-config-prettier-standard": "^2.0.0",
-    "eslint-config-standard": "^12.0.0",
-    "eslint-plugin-import": "^2.16.0",
-    "eslint-plugin-node": "^8.0.1",
-    "eslint-plugin-prettier": "^3.0.1",
-    "eslint-plugin-promise": "^4.0.1",
-    "eslint-plugin-react": "^7.12.4",
-    "eslint-plugin-standard": "^4.0.0",
     "jsbi": "^3.0.0",
     "json-api-normalizer": "^0.4.14",
+    "html-webpack-plugin": "4.0.0-beta.5",
     "module-to-cdn": "^3.1.2",
-    "prettier": "^1.16.4",
+    "moment": "^2.24.0",
     "react": "^16.8.4",
     "react-dom": "^16.8.4",
     "react-hot-loader": "^4.8.0",
     "react-redux": "^6.0.1",
     "react-resize-detector": "^4.0.5",
-    "react-scripts": "2.1.8",
     "react-snapshot": "^1.3.0",
     "react-time-ago": "^5.0.2",
+    "redux": "^4.0.0",
     "redux-devtools-extension": "^2.13.8",
     "redux-logger": "^3.0.6",
     "redux-object": "^0.5.9",
     "redux-thunk": "^2.3.0",
-    "typescript": "^3.5.0"
-  }
+    "typescript": "^3.5.0",
+    "webpack": "4.35.0"
+  },
+  "devDependencies": {
+    "cross-env": "^5.2.0",
+    "eslint": "^5.16.0",
+    "eslint-config-prettier": "^6.0.0",
+    "eslint-config-prettier-standard": "^3.0.0",
+    "eslint-config-standard": "^12.0.0",
+    "eslint-plugin-import": "^2.16.0",
+    "eslint-plugin-node": "^8.0.1",
+    "eslint-plugin-prettier": "^3.1.0",
+    "eslint-plugin-promise": "^4.0.1",
+    "eslint-plugin-react": "^7.12.4",
+    "eslint-plugin-standard": "^4.0.0",
+    "react-scripts": "3.0.1",
+    "prettier": "^1.16.4",
+    "prettier-config-standard": ">= 1.0.0"
+  },
+  "resolutions": {
+    "caniuse-lite": "1.0.30000957"
+  },
+  "comments": {
+    "resolutions": "Had to lock caniuse-lite version at last working version with browserlists"
+   }
 }

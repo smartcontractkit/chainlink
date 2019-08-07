@@ -10,7 +10,8 @@ import {
 } from '@material-ui/core/styles'
 import List from '../../components/JobRuns/List'
 import { getJobRuns } from '../../actions/jobRuns'
-import { IState } from '../../reducers'
+import { IState as State } from '../../reducers'
+import { Query } from '../../reducers/search'
 import { ChangePageEvent } from '../../components/Table'
 
 const EMPTY_MSG =
@@ -32,44 +33,58 @@ const styles = ({ spacing, breakpoints }: Theme) =>
     }
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface OwnProps {
   path: string
+}
+
+interface StateProps {
   rowsPerPage: number
   query?: string
   jobRuns?: IJobRun[]
   count?: number
-  getJobRuns: Function
 }
 
-const Index = withStyles(styles)((props: IProps) => {
-  const [currentPage, setCurrentPage] = useState(0)
-  const onChangePage = (_event: ChangePageEvent, page: number) => {
-    setCurrentPage(page)
-    props.getJobRuns(props.query, page + 1, props.rowsPerPage)
+interface DispatchProps {
+  getJobRuns: (query: Query, page: number, size: number) => void
+}
+
+interface IProps
+  extends WithStyles<typeof styles>,
+    OwnProps,
+    StateProps,
+    DispatchProps {}
+
+const Index = withStyles(styles)(
+  ({ getJobRuns, query, rowsPerPage, classes, jobRuns, count }: IProps) => {
+    const [currentPage, setCurrentPage] = useState(0)
+    const onChangePage = (_event: ChangePageEvent, page: number) => {
+      setCurrentPage(page)
+      getJobRuns(query, page + 1, rowsPerPage)
+    }
+
+    useEffect(() => {
+      getJobRuns(query, currentPage + 1, rowsPerPage)
+    }, [getJobRuns, query, currentPage, rowsPerPage])
+
+    return (
+      <div className={classes.container}>
+        <List
+          currentPage={currentPage}
+          jobRuns={jobRuns}
+          count={count}
+          onChangePage={onChangePage}
+          emptyMsg={EMPTY_MSG}
+        />
+      </div>
+    )
   }
-
-  useEffect(() => {
-    props.getJobRuns(props.query, currentPage + 1, props.rowsPerPage)
-  }, [props.query])
-
-  return (
-    <div className={props.classes.container}>
-      <List
-        currentPage={currentPage}
-        jobRuns={props.jobRuns}
-        count={props.count}
-        onChangePage={onChangePage}
-        emptyMsg={EMPTY_MSG}
-      />
-    </div>
-  )
-})
+)
 
 const jobRunsSelector = ({
   jobRunsIndex,
   jobRuns,
   chainlinkNodes
-}: IState): IJobRun[] | undefined => {
+}: State): IJobRun[] | undefined => {
   if (jobRunsIndex.items) {
     return jobRunsIndex.items.map((id: string) => {
       const document = {
@@ -81,21 +96,23 @@ const jobRunsSelector = ({
   }
 }
 
-const jobRunsCountSelector = (state: IState) => {
+const jobRunsCountSelector = (state: State) => {
   return state.jobRunsIndex.count
 }
 
-const mapStateToProps = (state: IState) => ({
-  rowsPerPage: 10,
-  query: state.search.query,
-  jobRuns: jobRunsSelector(state),
-  count: jobRunsCountSelector(state)
-})
+const mapStateToProps = (state: State): StateProps => {
+  return {
+    rowsPerPage: 10,
+    query: state.search.query,
+    jobRuns: jobRunsSelector(state),
+    count: jobRunsCountSelector(state)
+  }
+}
 
-const mapDispatchToProps = (dispatch: Dispatch<any>) =>
+const mapDispatchToProps = (dispatch: Dispatch): DispatchProps =>
   bindActionCreators({ getJobRuns }, dispatch)
 
-const ConnectedIndex = connect(
+const ConnectedIndex = connect<StateProps, DispatchProps, OwnProps, State>(
   mapStateToProps,
   mapDispatchToProps
 )(Index)
