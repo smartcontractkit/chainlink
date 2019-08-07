@@ -93,7 +93,18 @@
   version = "v1.7.1"
 
 [[projects]]
-  digest = "1:800932ff1e66409a9cd0bfaa1a1b957ca3decf536b366678a65fb65517a474ea"
+  digest = "1:3e414976c020699ace36bfa4d52fe8381b6dfe2345a04733f7b0d90a8503bcd8"
+  name = "github.com/elastic/gosigar"
+  packages = [
+    ".",
+    "sys/windows",
+  ]
+  pruneopts = ""
+  revision = "f75810decf6f4d88b130bfc4d2ba7ccdcea0c01d"
+  version = "v0.10.4"
+
+[[projects]]
+  digest = "1:b56e002a9d80ef483b452c2b88056a8a880106dee6ee7617f8b2000e8d3c3b39"
   name = "github.com/ethereum/go-ethereum"
   packages = [
     ".",
@@ -119,8 +130,8 @@
     "trie",
   ]
   pruneopts = ""
-  revision = "4bcc0a37ab70cb79b16893556cffdaad6974e7d8"
-  version = "v1.8.27"
+  revision = "b7b2f60f866d92e75db5bfe5be51b48eadeb3150"
+  version = "v1.9.1"
 
 [[projects]]
   digest = "1:e988ed0ca0d81f4d28772760c02ee95084961311291bdfefc1b04617c178b722"
@@ -349,14 +360,6 @@
   pruneopts = ""
   revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
   version = "v1.2.0"
-
-[[projects]]
-  branch = "master"
-  digest = "1:2a5888946cdbc8aa360fd43301f9fc7869d663f60d5eedae7d4e6e5e4f06f2bf"
-  name = "github.com/golang/snappy"
-  packages = ["."]
-  pruneopts = ""
-  revision = "2e65f85255dbc3072edf28d6b5b8efc472979f5a"
 
 [[projects]]
   digest = "1:a25a2c5ae694b01713fb6cd03c3b1ac1ccc1902b9f0a922680a88ec254f968e1"
@@ -758,6 +761,22 @@
   version = "v1.4.0"
 
 [[projects]]
+  digest = "1:65f8b31c71a0d1d3fcf69f79916c060292eeb869d6ff2c5a60977856e7834e8e"
+  name = "github.com/steakknife/bloomfilter"
+  packages = ["."]
+  pruneopts = ""
+  revision = "99ee86d9200fcc2ffde62f508329bd6627c0a307"
+  version = "1.0.4"
+
+[[projects]]
+  digest = "1:2094bd320ce553607ee49742b8350ca5b0feb3fae4798e7a4bb48c1512a24bc7"
+  name = "github.com/steakknife/hamming"
+  packages = ["."]
+  pruneopts = ""
+  revision = "003c143a81c25ea5e263d692919c611c7122ae6b"
+  version = "0.2.5"
+
+[[projects]]
   branch = "master"
   digest = "1:f7b541897bcde05a04a044c342ddc7425aab7e331f37b47fbb486cd16324b48e"
   name = "github.com/stretchr/testify"
@@ -767,27 +786,6 @@
   ]
   pruneopts = ""
   revision = "221dbe5ed46703ee255b1da0dec05086f5035f62"
-
-[[projects]]
-  branch = "master"
-  digest = "1:5688f484c89ee5d989f9a124c2154acf7962a8e137c851f16d15958dca4fff2c"
-  name = "github.com/syndtr/goleveldb"
-  packages = [
-    "leveldb",
-    "leveldb/cache",
-    "leveldb/comparer",
-    "leveldb/errors",
-    "leveldb/filter",
-    "leveldb/iterator",
-    "leveldb/journal",
-    "leveldb/memdb",
-    "leveldb/opt",
-    "leveldb/storage",
-    "leveldb/table",
-    "leveldb/util",
-  ]
-  pruneopts = ""
-  revision = "2f17a3356c6616cbfc4ae4c38147dc062a68fb0e"
 
 [[projects]]
   branch = "master"
@@ -930,7 +928,6 @@
     "html",
     "html/atom",
     "html/charset",
-    "websocket",
   ]
   pruneopts = ""
   revision = "d26f9f9a57f3fab6a695bec0d84433c2c50f8bbf"
