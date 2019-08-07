@@ -7,6 +7,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gopkg.in/guregu/null.v3"
 )
 
 func Migrate(tx *gorm.DB) error {
@@ -22,7 +23,7 @@ func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&Head{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate Head")
 	}
-	if err := tx.AutoMigrate(&models.JobSpec{}).Error; err != nil {
+	if err := tx.AutoMigrate(JobSpec{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate JobSpec")
 	}
 	if err := tx.AutoMigrate(&models.Initiator{}).Error; err != nil {
@@ -119,4 +120,15 @@ type RunRequest struct {
 	TxHash    *common.Hash
 	Requester *common.Address
 	CreatedAt time.Time
+}
+
+// JobSpec is a capture of the model representing Head before migration1565139192
+type JobSpec struct {
+	ID         string             `json:"id,omitempty" gorm:"primary_key;not null"`
+	CreatedAt  time.Time          `json:"createdAt" gorm:"index"`
+	Initiators []models.Initiator `json:"initiators"`
+	Tasks      []models.TaskSpec  `json:"tasks"`
+	StartAt    null.Time          `json:"startAt" gorm:"index"`
+	EndAt      null.Time          `json:"endAt" gorm:"index"`
+	DeletedAt  null.Time          `json:"-" gorm:"index"`
 }

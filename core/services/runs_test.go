@@ -50,6 +50,7 @@ func TestNewRun(t *testing.T) {
 	assert.Equal(t, input, run.Overrides.Data)
 	assert.False(t, run.TaskRuns[0].Confirmations.Valid)
 }
+
 func TestNewRun_MeetsMinimumPayment(t *testing.T) {
 	tests := []struct {
 		name            string

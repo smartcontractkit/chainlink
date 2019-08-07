@@ -11,17 +11,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559081901"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559767166"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559767168"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560433987"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560791143"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881846"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881855"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560886530"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565139192"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
@@ -123,6 +122,7 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 	require.NoError(t, migration1560881846.Migrate(db))
 	require.NoError(t, migration1560886530.Migrate(db))
 	require.NoError(t, migration1560924400.Migrate(db))
+	require.NoError(t, migration1565139192.Migrate(db))
 
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}
@@ -179,13 +179,13 @@ func TestMigrate_Migration1560881846(t *testing.T) {
 	assert.Equal(t, int64(8616460799), headFound.Number)
 }
 
-func TestMigrate_Migration1559767168(t *testing.T) {
+func TestMigrate_Migration1565139192(t *testing.T) {
 	orm, cleanup := bootstrapORM(t)
 	defer cleanup()
 	db := orm.DB
 
 	require.NoError(t, migration0.Migrate(db))
-	require.NoError(t, migration1559767168.Migrate(db))
+	require.NoError(t, migration1565139192.Migrate(db))
 	specNoPayment := models.NewJobFromRequest(models.JobSpecRequest{})
 	specWithPayment := models.NewJobFromRequest(models.JobSpecRequest{
 		MinPayment: assets.NewLink(5),
