@@ -694,3 +694,20 @@ func TestClient_CreateExtraKey(t *testing.T) {
 
 	assert.NoError(t, client.CreateExtraKey(c))
 }
+
+func TestClient_SetMinimumGasPrice(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup, _ := setupWithdrawalsApplication(t)
+	defer cleanup()
+
+	assert.NoError(t, app.StartAndConnect())
+
+	client, _ := app.NewClientAndRenderer()
+	set := flag.NewFlagSet("setgasprice", 0)
+	set.Parse([]string{"8616460799"})
+
+	c := cli.NewContext(nil, set, nil)
+
+	assert.NoError(t, client.SetMinimumGasPrice(c))
+}
