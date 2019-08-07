@@ -19,6 +19,7 @@
   },
   "files": [
     "contracts",
+    "v0.5/contracts",
     "zos.json",
     "zos.rinkeby.json",
     "zos.ropsten.json"
