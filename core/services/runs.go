@@ -66,7 +66,7 @@ func MeetsMinimumPayment(
 	if actualRunPayment == nil || expectedMinJobPayment == nil || expectedMinJobPayment.IsZero() {
 		return true
 	}
-	return expectedMinJobPayment != nil && expectedMinJobPayment.Cmp(actualRunPayment) < 1
+	return expectedMinJobPayment.Cmp(actualRunPayment) < 1
 }
 
 // NewRun returns a run from an input job, in an initial state ready for
@@ -99,7 +99,7 @@ func NewRun(
 	run.ObservedHeight = models.NewBig(currentHeight)
 
 	if !MeetsMinimumPayment(job.MinPayment, input.Amount) {
-		logger.Debugw("Rejecting run with insufficient payment", []interface{}{
+		logger.Infow("Rejecting run with insufficient payment", []interface{}{
 			"run", run.ID,
 			"job", run.JobSpecID,
 			"input_amount", input.Amount,
