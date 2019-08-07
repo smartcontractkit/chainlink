@@ -2,10 +2,12 @@
   "name": "@chainlink/styleguide",
   "private": true,
   "version": "0.0.0",
+  "main": "./dist",
+  "types": "./dist",
   "scripts": {
     "start": "start-storybook -p 9001",
     "build-storybook": "build-storybook",
-    "build": "tsc -b",
+    "build": "rm -rf dist && tsc",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

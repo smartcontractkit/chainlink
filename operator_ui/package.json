@@ -5,12 +5,15 @@
   "license": "MIT",
   "scripts": {
     "start": "react-static start",
-    "build": "cross-env NODE_OPTIONS=--max_old_space_size=2048 react-static build",
+    "build": "yarn build:tsc && cross-env NODE_OPTIONS=--max_old_space_size=2048 react-static build",
+    "build:tsc": "tsc -b",
+    "build:tsc:clean": "tsc -b --clean",
     "serve": "serve dist -p 3000",
-    "test": "cross-env NODE_ENV=test jest",
-    "test:nocache": "cross-env NODE_ENV=test jest --no-cache",
     "lint": "tsc --noEmit",
-    "watch": "cross-env NODE_ENV=test jest --watchAll --notify"
+    "test": "yarn build:tsc && cross-env NODE_ENV=test jest",
+    "test:nocache": "yarn build:tsc:clean && yarn test --no-cache",
+    "test:ci": "yarn test:nocache --runInBand --coverage --reporters jest-silent-reporter",
+    "watch": "yarn test --watchAll --notify"
   },
   "dependencies": {
     "@babel/cli": "^7.2.3",

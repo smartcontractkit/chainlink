@@ -1,23 +1,17 @@
+import Grid from '@material-ui/core/Grid'
+import { Theme, withStyles, WithStyles } from '@material-ui/core/styles'
+import Typography from '@material-ui/core/Typography'
 import React from 'react'
 import { connect } from 'react-redux'
-import { useHooks, useEffect } from 'use-react-hooks'
-import {
-  createStyles,
-  Theme,
-  withStyles,
-  WithStyles
-} from '@material-ui/core/styles'
-import Grid from '@material-ui/core/Grid'
-import Typography from '@material-ui/core/Typography'
-import PaddedCard from '@chainlink/styleguide/src/components/PaddedCard'
+import { useEffect, useHooks } from 'use-react-hooks'
+import { IJobRun, ITaskRun } from '../../../../@types/operator_ui'
 import { fetchJobRun } from '../../../actions'
+import Content from '../../../components/Content'
+import StatusCard from '../../../components/JobRuns/StatusCard'
+import { IState } from '../../../connectors/redux/reducers'
 import jobRunSelector from '../../../selectors/jobRun'
 import matchRouteAndMapDispatchToProps from '../../../utils/matchRouteAndMapDispatchToProps'
-import Content from '../../../components/Content'
 import RegionalNav from './RegionalNav'
-import StatusCard from '../../../components/JobRuns/StatusCard'
-import { IJobRun, ITaskRun } from '../../../../@types/operator_ui'
-import { IState } from '../../../connectors/redux/reducers'
 
 const filterErrorTaskRuns = (jobRun: IJobRun) => {
   return jobRun.taskRuns.filter((tr: ITaskRun) => {

@@ -1,14 +1,16 @@
-import React from 'react'
-import { storiesOf } from '@storybook/react'
-import { muiTheme } from 'storybook-addon-material-ui'
-import { createMuiTheme } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
+import { createMuiTheme } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
-import CardTitle from '../components/Cards/Title'
-import SimpleList from '../components/Cards/SimpleList'
-import SimpleListItem from '../components/Cards/SimpleListItem'
-import KeyValueList from '../components/KeyValueList'
-import theme from '../theme'
+import { storiesOf } from '@storybook/react'
+import React from 'react'
+import { muiTheme } from 'storybook-addon-material-ui'
+import {
+  CardTitle,
+  KeyValueList,
+  SimpleListCard,
+  SimpleListCardItem,
+  theme
+} from '../'
 
 const customTheme = createMuiTheme(theme)
 
@@ -20,16 +22,16 @@ storiesOf('Cards', module)
       <CardTitle divider>With Divider</CardTitle>
     </React.Fragment>
   ))
-  .add('SimpleList', () => (
+  .add('SimpleListCard', () => (
     <Grid container>
       <Grid xs={4}>
-        <SimpleList title="Recently Created">
+        <SimpleListCard title="Recently Created">
           {['jobs', 'distribution', 'jump'].map(text => (
-            <SimpleListItem>
+            <SimpleListCardItem>
               <Typography>{text}</Typography>
-            </SimpleListItem>
+            </SimpleListCardItem>
           ))}
-        </SimpleList>
+        </SimpleListCard>
       </Grid>
     </Grid>
   ))

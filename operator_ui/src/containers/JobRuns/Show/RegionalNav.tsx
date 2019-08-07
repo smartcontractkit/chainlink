@@ -1,20 +1,19 @@
-import React from 'react'
-import { connect } from 'react-redux'
+import { localizedTimestamp, TimeAgo } from '@chainlink/styleguide'
+import Card from '@material-ui/core/Card'
+import Grid from '@material-ui/core/Grid'
+import List from '@material-ui/core/List'
+import ListItem from '@material-ui/core/ListItem'
 import {
   createStyles,
   Theme,
   withStyles,
   WithStyles
 } from '@material-ui/core/styles'
-import Card from '@material-ui/core/Card'
 import Typography from '@material-ui/core/Typography'
-import Grid from '@material-ui/core/Grid'
-import List from '@material-ui/core/List'
-import ListItem from '@material-ui/core/ListItem'
 import classNames from 'classnames'
-import TimeAgo from '@chainlink/styleguide/src/components/TimeAgo'
-import localizedTimestamp from '@chainlink/styleguide/src/utils/localizedTimestamp'
-import { fetchJob, createJobRun } from '../../../actions'
+import React from 'react'
+import { connect } from 'react-redux'
+import { createJobRun, fetchJob } from '../../../actions'
 import Link from '../../../components/Link'
 
 const navItemStyles = ({ palette, spacing }: Theme) =>
