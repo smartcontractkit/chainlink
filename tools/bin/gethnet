@@ -14,7 +14,7 @@ RPCAPI="eth,net,web3,admin,personal,debug"
 GETH_ARGS="--dev --mine
   --datadir ../gethnet/datadir
   --password ../clroot/password.txt
-  --networkid $ETH_CHAIN_ID
+  --networkid "$ETH_CHAIN_ID"
   --unlock "$ACCOUNT"
   --ipcdisable
   --allow-insecure-unlock"
