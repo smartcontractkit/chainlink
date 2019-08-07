@@ -12,9 +12,10 @@ func Migrate(tx *gorm.DB) error {
 		if err := tx.Exec(`
 ALTER TABLE job_runs ADD COLUMN "creation_height_numeric" numeric(78, 0);
 ALTER TABLE job_runs ADD COLUMN "observed_height_numeric" numeric(78, 0);
-INSERT INTO job_runs ("creation_height_numeric", "observed_height_numeric")
-SELECT CAST("creation_height" as numeric), CAST("observed_height" as numeric)
-FROM job_runs;
+UPDATE job_runs
+SET
+	"creation_height_numeric" = CAST("creation_height" as numeric),
+	"observed_height_numeric" = CAST("observed_height" as numeric);
 ALTER TABLE job_runs DROP COLUMN "creation_height";
 ALTER TABLE job_runs DROP COLUMN "observed_height";
 ALTER TABLE job_runs RENAME COLUMN "creation_height_numeric" TO "creation_height";
