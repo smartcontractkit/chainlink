@@ -34,20 +34,6 @@ waitForResponse () {
   title "Service on $1 is ready."
 }
 
-install_gethnet() {
-  if [ -x "$(which geth)" ]; then
-    return
-  fi
-
-  title "Installing geth..."
-  git clone https://github.com/ethereum/go-ethereum.git
-  pushd go-ethereum >/dev/null
-  git checkout v1.9.1
-  make geth
-  cp build/bin/geth /usr/local/bin/
-  popd >/dev/null
-}
-
 launch_gethnet() {
   printf -- "\033[34m%-50s\033[0m" "Checking for running ethereum node"
   if curl -s $ETH_HTTP_URL >/dev/null; then
@@ -55,8 +41,6 @@ launch_gethnet() {
     return
   fi
   printf -- "[\033[31mstopped\033[0m]\n"
-
-  install_gethnet
 
   title "Starting geth..."
   $SRCROOT/tools/bin/gethnet &>$SRCROOT/integration/gethnet.log &
