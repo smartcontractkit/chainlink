@@ -18,8 +18,6 @@ export CHAINLINK_URL=http://127.0.0.1:$CHAINLINK_PORT/
 export MIN_OUTGOING_CONFIRMATIONS=1
 export MIN_INCOMING_CONFIRMATIONS=1
 
-export ETH_CHAIN_ID=${ETH_CHAIN_ID=34055}
-
 pushd $SRCROOT >/dev/null
 
 source ./integration/common
