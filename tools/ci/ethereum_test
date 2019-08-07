@@ -62,4 +62,3 @@ title 'All tests passed.'
 
 # Return to caller's PWD
 popd >/dev/null
-popd >/dev/null
