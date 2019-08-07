@@ -50,7 +50,8 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	eia := models.NewExternalInitiatorAuthentication()
+	eia, err := models.NewExternalInitiatorAuthentication()
+	require.NoError(t, err)
 	ea, err := models.NewExternalInitiator(eia)
 	require.NoError(t, err)
 	err = app.GetStore().CreateExternalInitiator(ea)
@@ -77,7 +78,8 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	eia := models.NewExternalInitiatorAuthentication()
+	eia, err := models.NewExternalInitiatorAuthentication()
+	require.NoError(t, err)
 	ea, err := models.NewExternalInitiator(eia)
 	require.NoError(t, err)
 	err = app.GetStore().CreateExternalInitiator(ea)
@@ -151,7 +153,11 @@ func TestRouter_GinHelmetHeaders(t *testing.T) {
 	defer ts.Close()
 	res, err := http.Get(ts.URL)
 	require.NoError(t, err)
-	for _, tt := range []struct{HelmetName string; HeaderKey string; HeaderValue string}{
+	for _, tt := range []struct {
+		HelmetName  string
+		HeaderKey   string
+		HeaderValue string
+	}{
 		{"NoSniff", "X-Content-Type-Options", "nosniff"},
 		{"DNSPrefetchControl", "X-DNS-Prefetch-Control", "off"},
 		{"FrameGuard", "X-Frame-Options", "DENY"},

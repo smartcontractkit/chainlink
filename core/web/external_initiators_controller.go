@@ -21,8 +21,9 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 		return
 	}
 
-	eia := models.NewExternalInitiatorAuthentication()
-	if ea, err := models.NewExternalInitiator(eia); err != nil {
+	if eia, err := models.NewExternalInitiatorAuthentication(); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+	} else if ea, err := models.NewExternalInitiator(eia); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if err := eic.App.GetStore().CreateExternalInitiator(ea); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
