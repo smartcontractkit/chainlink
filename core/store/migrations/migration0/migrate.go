@@ -29,7 +29,7 @@ func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&models.Initiator{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate Initiator")
 	}
-	if err := tx.AutoMigrate(&models.JobRun{}).Error; err != nil {
+	if err := tx.AutoMigrate(&JobRun{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate JobRun")
 	}
 	if err := tx.AutoMigrate(&models.Key{}).Error; err != nil {
@@ -131,4 +131,21 @@ type JobSpec struct {
 	StartAt    null.Time          `json:"startAt" gorm:"index"`
 	EndAt      null.Time          `json:"endAt" gorm:"index"`
 	DeletedAt  null.Time          `json:"-" gorm:"index"`
+}
+
+// JobRun is a capture of the model representing Head before migration1565210496
+type JobRun struct {
+	ID             string    `json:"id" gorm:"primary_key;not null"`
+	JobSpecID      string    `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
+	ResultID       uint      `json:"-"`
+	RunRequestID   uint      `json:"-"`
+	Status         string    `json:"status" gorm:"index"`
+	CreatedAt      time.Time `json:"createdAt" gorm:"index"`
+	FinishedAt     null.Time `json:"finishedAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+	InitiatorID    uint      `json:"-"`
+	CreationHeight string    `json:"creationHeight" gorm:"type:varchar(255)"`
+	ObservedHeight string    `json:"observedHeight" gorm:"type:varchar(255)"`
+	OverridesID    uint      `json:"-"`
+	DeletedAt      null.Time `json:"-" gorm:"index"`
 }
