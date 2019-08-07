@@ -6,6 +6,7 @@ yarn solhint "evm/**/*.sol"
 yarn solhint "examples/**/*.sol"
 yarn lint:evm && yarn lint:examples
 yarn workspace chainlink slither
+yarn workspace chainlink-box slither
 
 yarn workspace chainlink test
 yarn workspace @chainlink/example-uptime-sla test
