@@ -1,0 +1,18 @@
+{
+  "name": "chainlinkv0.5",
+  "version": "0.0.1",
+  "license": "MIT",
+  "scripts": {
+    "build": "truffle build",
+    "test": "truffle test"
+  },
+  "dependencies": {
+    "openzeppelin-solidity": "^2.3.0"
+  },
+  "devDependencies": {
+    "truffle": "^5.0.25"
+  },
+  "files": [
+    "contracts"
+  ]
+}

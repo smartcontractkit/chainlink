@@ -12,3 +12,4 @@ yarn workspace chainlink-echo-server test
 yarn workspace chainlink flatten
 yarn workspace chainlink-testnet truffle build
 yarn workspace chainlink-box test
+yarn workspace chainlinkv0.5 test
