@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"net/url"
 	"strings"
 	"time"
@@ -16,9 +15,7 @@ import (
 	null "gopkg.in/guregu/null.v3"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/mrwonko/cron"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/ugorji/go/codec"
@@ -438,93 +435,6 @@ type SendEtherRequest struct {
 // CreateKeyRequest represents a request to add an ethereum key.
 type CreateKeyRequest struct {
 	CurrentPassword string `json:"current_password"`
-}
-
-// Big stores large integers and can deserialize a variety of inputs.
-type Big big.Int
-
-// NewBig constructs a Big from *big.Int.
-func NewBig(i *big.Int) *Big {
-	if i != nil {
-		b := Big(*i)
-		return &b
-	}
-	return nil
-}
-
-// MarshalText marshals this instance to base 10 number as string.
-func (b *Big) MarshalText() ([]byte, error) {
-	return []byte((*big.Int)(b).Text(10)), nil
-}
-
-// MarshalJSON marshals this instance to base 10 number as string.
-func (b *Big) MarshalJSON() ([]byte, error) {
-	return b.MarshalText()
-}
-
-// UnmarshalText implements encoding.TextUnmarshaler.
-func (b *Big) UnmarshalText(input []byte) error {
-	input = utils.RemoveQuotes(input)
-	str := string(input)
-	if utils.HasHexPrefix(str) {
-		decoded, err := hexutil.DecodeBig(str)
-		if err != nil {
-			return err
-		}
-		*b = Big(*decoded)
-		return nil
-	}
-
-	_, ok := b.setString(str, 10)
-	if !ok {
-		return fmt.Errorf("Unable to convert %s to Big", str)
-	}
-	return nil
-}
-
-func (b *Big) setString(s string, base int) (*Big, bool) {
-	w, ok := (*big.Int)(b).SetString(s, base)
-	return (*Big)(w), ok
-}
-
-// UnmarshalJSON implements encoding.JSONUnmarshaler.
-func (b *Big) UnmarshalJSON(input []byte) error {
-	return b.UnmarshalText(input)
-}
-
-// Value returns this instance serialized for database storage.
-func (b Big) Value() (driver.Value, error) {
-	return b.String(), nil
-}
-
-// Scan reads the database value and returns an instance.
-func (b *Big) Scan(value interface{}) error {
-	temp, ok := value.(string)
-	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to Big", value, value)
-	}
-
-	decoded, ok := b.setString(temp, 10)
-	if !ok {
-		return fmt.Errorf("Unable to set string %v of %T to base 10 big.Int for Big", value, value)
-	}
-	*b = *decoded
-	return nil
-}
-
-// ToInt converts b to a big.Int.
-func (b *Big) ToInt() *big.Int {
-	return (*big.Int)(b)
-}
-
-// String returns the base 10 encoding of b.
-func (b *Big) String() string {
-	return b.ToInt().Text(10)
-}
-
-// Hex returns the hex encoding of b.
-func (b *Big) Hex() string {
-	return hexutil.EncodeBig(b.ToInt())
 }
 
 // AddressCollection is an array of common.Address
