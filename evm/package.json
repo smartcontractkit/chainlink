@@ -5,7 +5,8 @@
   "scripts": {
     "build": "truffle build",
     "test": "truffle test",
-    "lint": "echo \"No linter configured for evm project\" &&  exit 0"
+    "lint": "echo \"No linter configured for evm project\" &&  exit 0",
+    "slither": "truffle build && slither ."
   },
   "devDependencies": {
     "truffle": "^5.0.25"
