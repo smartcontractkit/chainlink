@@ -18,7 +18,7 @@ import Details from '../../components/JobRuns/Details'
 import RegionalNav from '../../components/JobRuns/RegionalNav'
 import RunStatus from '../../components/JobRuns/RunStatus'
 import { getJobRun } from '../../actions/jobRuns'
-import { IState } from '../../reducers'
+import { IState as State } from '../../reducers'
 
 const Loading = () => (
   <Table>
@@ -52,19 +52,31 @@ const styles = ({ spacing, breakpoints }: Theme) =>
     }
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface OwnProps {
+  path: string
   jobRunId?: string
+}
+
+interface StateProps {
   jobRun?: IJobRun
   etherscanHost?: string
-  getJobRun: Function
-  path: string
 }
+
+interface DispatchProps {
+  getJobRun: any
+}
+
+interface IProps
+  extends WithStyles<typeof styles>,
+    OwnProps,
+    StateProps,
+    DispatchProps {}
 
 const Show = withStyles(styles)(
   ({ jobRunId, jobRun, getJobRun, classes, etherscanHost }: IProps) => {
     useEffect(() => {
       getJobRun(jobRunId)
-    }, [])
+    }, [getJobRun, jobRunId])
 
     return (
       <>
@@ -98,7 +110,7 @@ const Show = withStyles(styles)(
 )
 
 const jobRunSelector = (
-  { jobRuns, taskRuns, chainlinkNodes }: IState,
+  { jobRuns, taskRuns, chainlinkNodes }: State,
   jobRunId?: string
 ): IJobRun | undefined => {
   if (jobRuns.items) {
@@ -111,25 +123,21 @@ const jobRunSelector = (
   }
 }
 
-const etherscanHostSelector = ({ config }: IState) => {
+const etherscanHostSelector = ({ config }: State) => {
   return config.etherscanHost
 }
 
-interface IOwnProps {
-  jobRunId?: string
-}
-
-const mapStateToProps = (state: IState, { jobRunId }: IOwnProps) => {
+const mapStateToProps = (state: State, { jobRunId }: OwnProps) => {
   const jobRun = jobRunSelector(state, jobRunId)
   const etherscanHost = etherscanHostSelector(state)
 
   return { jobRun, etherscanHost }
 }
 
-const mapDispatchToProps = (dispatch: Dispatch<any>) =>
+const mapDispatchToProps = (dispatch: Dispatch) =>
   bindActionCreators({ getJobRun }, dispatch)
 
-const ConnectedShow = connect(
+const ConnectedShow = connect<StateProps, DispatchProps, OwnProps, State>(
   mapStateToProps,
   mapDispatchToProps
 )(Show)
