@@ -1,6 +1,5 @@
-import { Dispatch } from 'redux'
-import { pascalCase } from 'change-case'
 import normalize from 'json-api-normalizer'
+import { Dispatch } from 'redux'
 import * as api from './api'
 import {
   AuthenticationError,
@@ -32,10 +31,13 @@ const curryErrorHandler = (dispatch: Dispatch, type: string) => (
   }
 }
 
-export const REDIRECT = 'REDIRECT'
+export enum RouterActionType {
+  REDIRECT = 'REDIRECT',
+  MATCH_ROUTE = 'MATCH_ROUTE'
+}
 
 const redirectToSignOut = () => ({
-  type: REDIRECT,
+  type: RouterActionType.REDIRECT,
   to: '/signout'
 })
 
@@ -48,7 +50,7 @@ interface Match {
 
 export const matchRoute = (match: Match) => {
   return {
-    type: MATCH_ROUTE,
+    type: RouterActionType.MATCH_ROUTE,
     match: match
   }
 }
@@ -328,7 +330,12 @@ export const fetchRecentlyCreatedJobs = (size: number) =>
   )
 
 export const fetchJob = (id: string) =>
-  request('JOB', api.getJobSpec, (json: object) => normalize(json, { camelizeKeys: false }), id)
+  request(
+    'JOB',
+    api.getJobSpec,
+    (json: object) => normalize(json, { camelizeKeys: false }),
+    id
+  )
 
 export const fetchJobRuns = (opts: api.JobSpecRunsOpts) =>
   request(
@@ -347,7 +354,12 @@ export const fetchRecentJobRuns = (size: number) =>
   )
 
 export const fetchJobRun = (id: string) =>
-  request('JOB_RUN', api.getJobSpecRun, (json: object) => normalize(json, { camelizeKeys: false }), id)
+  request(
+    'JOB_RUN',
+    api.getJobSpecRun,
+    (json: object) => normalize(json, { camelizeKeys: false }),
+    id
+  )
 
 export const deleteCompletedJobRuns = (updatedBefore: object) =>
   request(
