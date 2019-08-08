@@ -13,7 +13,7 @@ COPY tools/bin/ldflags ./tools/bin/
 
 # Do dep ensure in a cacheable step
 ADD go.* ./
-RUN go mod tidy
+RUN go mod download
 
 # And yarn likewise
 COPY yarn.lock package.json ./

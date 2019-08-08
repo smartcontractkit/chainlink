@@ -7,7 +7,7 @@ WORKDIR /go/src/github.com/smartcontractkit/chainlink
 # Do dependency installs first, since these will change less than the full
 # source tree and can get cached
 ADD go.* ./
-RUN go mod tidy
+RUN go mod download
 ADD package.json yarn.lock ./
 RUN yarn install
 
