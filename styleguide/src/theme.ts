@@ -1,8 +1,9 @@
 import { common, green, grey } from '@material-ui/core/colors'
 import { darken } from '@material-ui/core/styles/colorManipulator'
+import { ThemeOptions } from '@material-ui/core/styles/createMuiTheme'
 import spacing from '@material-ui/core/styles/spacing'
 
-export const theme = {
+export const theme: ThemeOptions = {
   props: {
     MuiGrid: {
       spacing: spacing.unit * 3
