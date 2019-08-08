@@ -3,6 +3,44 @@ import { darken } from '@material-ui/core/styles/colorManipulator'
 import { ThemeOptions } from '@material-ui/core/styles/createMuiTheme'
 import spacing from '@material-ui/core/styles/spacing'
 
+declare module '@material-ui/core/styles/createPalette' {
+  interface ListStatus {
+    background: string
+    color: string
+  }
+
+  interface PaletteOptions {
+    success: PaletteColorOptions
+    warning: PaletteColorOptions
+    listPendingStatus: ListStatus
+    listCompletedStatus: ListStatus
+  }
+
+  interface TypeBackground {
+    appBar: string
+  }
+}
+
+declare module '@material-ui/core/styles/createTypography' {
+  type AdditionalThemeStyle = 'body1Next' | 'body2Next'
+  interface TypographyStyleOptions {
+    fontWeightLight?: number
+    fontWeightMedium?: number
+    fontWeightRegular?: number
+    marginLeft?: string
+  }
+  interface TypographyOptions
+    extends Partial<
+      Record<AdditionalThemeStyle, TypographyStyleOptions> & FontStyleOptions
+    > {}
+}
+
+declare module '@material-ui/core/Grid' {
+  interface GridProps {
+    spacing?: number // FIXME -- According to the typings, this should instead be a constant number
+  }
+}
+
 export const theme: ThemeOptions = {
   props: {
     MuiGrid: {
