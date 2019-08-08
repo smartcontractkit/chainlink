@@ -6,7 +6,7 @@ import {
   WithStyles
 } from '@material-ui/core/styles'
 import Button from 'components/Button'
-import formik, { FormikProps } from 'formik'
+import { withFormik, FormikProps, Form as FormikForm } from 'formik'
 import normalizeUrl from 'normalize-url'
 import React from 'react'
 import { Prompt } from 'react-router-dom'
@@ -64,7 +64,7 @@ const Form: React.SFC<Props> = props => (
       when={isDirty(props)}
       message="You have not submitted the form, are you sure you want to leave?"
     />
-    <formik.Form noValidate>
+    <FormikForm noValidate>
       <Grid container spacing={8}>
         <Grid item xs={12} md={7}>
           <TextField
@@ -130,7 +130,7 @@ const Form: React.SFC<Props> = props => (
           </Button>
         </Grid>
       </Grid>
-    </formik.Form>
+    </FormikForm>
   </>
 )
 
@@ -138,7 +138,7 @@ Form.defaultProps = {
   nameDisabled: false
 }
 
-const FormikForm = formik.withFormik<OwnProps, FormValues>({
+const WithFormikForm = withFormik<OwnProps, FormValues>({
   mapPropsToValues({ name, url, minimumContractPayment, confirmations }) {
     const shouldPersist = Object.keys(get('persistBridge')).length !== 0
     let persistedJSON = shouldPersist && get('persistBridge')
@@ -166,4 +166,4 @@ const FormikForm = formik.withFormik<OwnProps, FormValues>({
   }
 })(Form)
 
-export default withStyles(styles)(FormikForm)
+export default withStyles(styles)(WithFormikForm)
