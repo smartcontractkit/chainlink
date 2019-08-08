@@ -8,7 +8,7 @@ interface Props {
   tooltip: boolean
 }
 
-export const TimeAgo = ({ children, tooltip = false }: Props) => {
+export const TimeAgo: React.FC<Props> = ({ children, tooltip = false }) => {
   const date = Date.parse(children)
   const ago = <TimeAgoNoTooltip tooltip={false}>{date}</TimeAgoNoTooltip>
 

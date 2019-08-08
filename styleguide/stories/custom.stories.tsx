@@ -7,6 +7,12 @@ import React from 'react'
 import { muiTheme } from 'storybook-addon-material-ui'
 import { Logo, theme, TimeAgo } from '../src'
 
+declare global {
+  interface Window {
+    JavascriptTimeAgo: any
+  }
+}
+
 const customTheme = createMuiTheme(theme)
 
 window.JavascriptTimeAgo = JavascriptTimeAgo
@@ -14,9 +20,9 @@ JavascriptTimeAgo.locale(en)
 
 storiesOf('Custom', module)
   .addDecorator(muiTheme([customTheme]))
-  .add('Logo', () => <Logo width={40} height={50} />)
+  .add('Logo', () => <Logo src="" width={40} height={50} />)
   .add('TimeAgo', () => (
     <Typography>
-      <TimeAgo>2018-11-27T02:26:42.014852Z</TimeAgo>
+      <TimeAgo tooltip={false}>2018-11-27T02:26:42.014852Z</TimeAgo>
     </Typography>
   ))
