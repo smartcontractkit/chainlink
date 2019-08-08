@@ -9,13 +9,13 @@ node_modules/
 vendor/
 tmp/
 
-evm/
+evm/node_modules
 examples/
-integration/
+integration/node_modules
 
-internal/gethnet/datadir/geth
-internal/clroot/db.bolt
-internal/clroot/*.jsonl
+tools/gethnet/datadir/geth
+tools/clroot/db.bolt
+tools/clroot/*.jsonl
 
 sgx/target/
 
