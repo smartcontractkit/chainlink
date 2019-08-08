@@ -5,8 +5,12 @@ set -e
 yarn solhint "evm/**/*.sol"
 yarn solhint "examples/**/*.sol"
 yarn lint:evm && yarn lint:examples
-yarn workspace chainlink slither
-yarn workspace chainlink-box slither
+# compile contracts
+yarn workspace chainlink run truffle build
+yarn workspace chainlink-box run truffle compile
+# run slither static analyzer
+slither evm/ --config-file tools/ci/slither.config.json
+slither evm/box --config-file tools/ci/slither.config.json
 
 yarn workspace chainlink test
 yarn workspace @chainlink/example-uptime-sla test
