@@ -9,7 +9,7 @@
     "migrate:dev": "npx truffle migrate --reset --network cldev",
     "migrate:live": "npx truffle migrate --network live",
     "lint": "echo \"No linter configured for evm-box project\" &&  exit 0",
-    "slither": "truffle build && slither .",
+    "slither": "npx truffle compile && slither .",
     "test": "npx truffle test"
   },
   "license": "MIT",
