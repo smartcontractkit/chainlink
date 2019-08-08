@@ -2,6 +2,5 @@
     "filter_paths": "@ensdomains,solidity-cborutils,openzeppelin-solidity",
     "truffle_ignore_compile": true,
     "truffle_version": "truffle",
-    "detectors_to_exclude": "assembly,incorrect-equality,low-level-calls,naming-convention,pragma,solc-version,timestamp,uninitialized-local,unused-state"
-
+    "detectors_to_exclude": "assembly,low-level-calls,naming-convention,pragma,solc-version,unused-state"
 }
