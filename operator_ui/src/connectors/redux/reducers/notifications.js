@@ -55,13 +55,13 @@ export default (state = initialState, action = {}) => {
 
       if (error.errors) {
         errorNotifications = error.errors.map(e => ({
-          component: component,
+          component,
           props: { msg: e.detail }
         }))
       } else if (error.message) {
         errorNotifications = [
           {
-            component: component,
+            component,
             props: { msg: error.message }
           }
         ]
