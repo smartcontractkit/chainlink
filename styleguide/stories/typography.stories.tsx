@@ -3,7 +3,7 @@ import Typography from '@material-ui/core/Typography'
 import { storiesOf } from '@storybook/react'
 import React from 'react'
 import { muiTheme } from 'storybook-addon-material-ui'
-import { theme } from '../'
+import { theme } from '../src'
 
 const customTheme = createMuiTheme(theme)
 
