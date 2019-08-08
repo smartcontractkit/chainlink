@@ -8,7 +8,8 @@
     "operator_ui",
     "integration",
     "styleguide",
-    "examples/*"
+    "examples/*",
+    "explorer/client"
   ],
   "scripts": {
     "lint:all": "yarn workspaces run lint",
@@ -63,5 +64,11 @@
     "truffle-contract": "^4.0.11",
     "truffle-flattener": "^1.3.0",
     "typescript": "^3.5.0"
-  }
+  },
+  "resolutions": {
+    "caniuse-lite": "1.0.30000957"
+  },
+  "comments": {
+    "resolutions": "Had to lock caniuse-lite version at last working version with browserlists"
+   }
 }
