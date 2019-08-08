@@ -5,6 +5,7 @@ ENVIRONMENT ?= release
 REPO := smartcontract/chainlink
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
+GOBIN ?= $(GOPATH)/bin
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 DOCKERFILE := Dockerfile
@@ -56,7 +57,7 @@ yarndep: ## Ensure the frontend's dependencies are installed.
 
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
-	cp $< $(GOPATH)/bin/chainlink
+	cp $< $(GOBIN)/chainlink
 
 chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
 	go build $(GOFLAGS) -o $@ ./core/
