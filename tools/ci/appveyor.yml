@@ -27,7 +27,7 @@ install:
   - gcc --version
   - go version
   - go env
-  - go mod tidy
+  - go mod download
 
 test_script:
   - go test -parallel 2 -p 1 ./...

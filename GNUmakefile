@@ -40,7 +40,7 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 	@if [ -z "`which gencodec`" ]; then \
 		go get github.com/smartcontractkit/gencodec; \
 	fi || true
-	go mod tidy
+	go mod download
 
 .PHONY: yarndep
 yarndep: ## Ensure the frontend's dependencies are installed.
