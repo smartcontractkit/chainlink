@@ -37,7 +37,7 @@ describe('containers/JobRuns/Index', () => {
       runsResponse
     )
 
-    const props = { match: { params: { jobSpecId: jobSpecId } } }
+    const props = { match: { params: { jobSpecId } } }
     const wrapper = mountIndex(props)
 
     await syncFetch(wrapper)
@@ -57,7 +57,7 @@ describe('containers/JobRuns/Index', () => {
       pageOneResponse
     )
 
-    const props = { match: { params: { jobSpecId: jobSpecId } }, pageSize: 1 }
+    const props = { match: { params: { jobSpecId } }, pageSize: 1 }
     const wrapper = mountIndex(props)
 
     await syncFetch(wrapper)
@@ -124,7 +124,7 @@ describe('containers/JobRuns/Index', () => {
       runsResponse
     )
 
-    const props = { match: { params: { jobSpecId: jobSpecId } } }
+    const props = { match: { params: { jobSpecId } } }
     const wrapper = mountIndex(props)
 
     await syncFetch(wrapper)

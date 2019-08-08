@@ -14,20 +14,20 @@ export default (runs, count) => {
       const status = config.status || 'completed'
 
       return {
-        id: id,
+        id,
         type: 'runs',
         attributes: {
-          id: id,
-          jobId: jobId,
+          id,
+          jobId,
           result: {
             jobRunId: id,
             data: {
               value: { result: 'value' }
             },
-            status: status,
+            status,
             error: null
           },
-          status: status,
+          status,
           createdAt: '2018-06-18T15:49:33.015913563-04:00',
           finishedAt: '2018-06-18T15:49:33.023078819-04:00'
         }

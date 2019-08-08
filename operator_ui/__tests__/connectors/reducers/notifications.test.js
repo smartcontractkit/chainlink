@@ -72,12 +72,12 @@ describe('connectors/reducers/notifications', () => {
 
     const component = () => {}
     const props = {}
-    const action = { type: NOTIFY_SUCCESS, component: component, props: props }
+    const action = { type: NOTIFY_SUCCESS, component, props }
     const state = reducer(previousState, action)
 
     expect(state.notifications).toEqual({
       errors: [],
-      successes: [{ component: component, props: props }],
+      successes: [{ component, props }],
       currentUrl: null
     })
   })
@@ -95,12 +95,12 @@ describe('connectors/reducers/notifications', () => {
       const error = {
         errors: [{ detail: 'Error 1' }, { detail: 'Error 2' }]
       }
-      const action = { type: NOTIFY_ERROR, component: component, error: error }
+      const action = { type: NOTIFY_ERROR, component, error }
       const state = reducer(previousState, action)
 
       expect(state.notifications.errors).toEqual([
-        { component: component, props: { msg: 'Error 1' } },
-        { component: component, props: { msg: 'Error 2' } }
+        { component, props: { msg: 'Error 1' } },
+        { component, props: { msg: 'Error 2' } }
       ])
     })
 
@@ -114,11 +114,11 @@ describe('connectors/reducers/notifications', () => {
 
       const component = () => {}
       const error = { message: 'Single Error' }
-      const action = { type: NOTIFY_ERROR, component: component, error: error }
+      const action = { type: NOTIFY_ERROR, component, error }
       const state = reducer(previousState, action)
 
       expect(state.notifications.errors).toEqual([
-        { component: component, props: { msg: 'Single Error' } }
+        { component, props: { msg: 'Single Error' } }
       ])
     })
 
@@ -132,7 +132,7 @@ describe('connectors/reducers/notifications', () => {
 
       const component = () => {}
       const error = {}
-      const action = { type: NOTIFY_ERROR, component: component, error: error }
+      const action = { type: NOTIFY_ERROR, component, error }
       const state = reducer(previousState, action)
 
       expect(state.notifications.errors).toEqual([{}])
@@ -148,7 +148,7 @@ describe('connectors/reducers/notifications', () => {
 
       const component = () => {}
       const error = {}
-      const action = { type: NOTIFY_ERROR, component: component, error: error }
+      const action = { type: NOTIFY_ERROR, component, error }
       const state = reducer(previousState, action)
 
       expect(state.notifications.successes).toEqual([])

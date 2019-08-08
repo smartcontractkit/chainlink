@@ -51,7 +51,7 @@ describe('containers/JobRuns/Show/Overview', () => {
     global.fetch.getOnce(`/v2/runs/${jobRunId}`, jobRunResponse)
 
     const props = {
-      match: { params: { jobSpecId: jobSpecId, jobRunId: jobRunId } }
+      match: { params: { jobSpecId, jobRunId } }
     }
     const wrapper = mountShow(props)
 

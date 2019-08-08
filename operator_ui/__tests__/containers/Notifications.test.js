@@ -31,8 +31,8 @@ describe('containers/Notifications', () => {
     ]
     const state = {
       notifications: {
-        successes: successes,
-        errors: errors,
+        successes,
+        errors,
         currentUrl: null
       }
     }

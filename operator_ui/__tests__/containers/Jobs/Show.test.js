@@ -46,7 +46,7 @@ describe('containers/Jobs/Show', () => {
       jobRunResponse
     )
 
-    const props = { match: { params: { jobSpecId: jobSpecId } } }
+    const props = { match: { params: { jobSpecId } } }
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)
@@ -78,7 +78,7 @@ describe('containers/Jobs/Show', () => {
       jobRunsResponse
     )
 
-    const props = { match: { params: { jobSpecId: jobSpecId } } }
+    const props = { match: { params: { jobSpecId } } }
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)
