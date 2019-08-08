@@ -27,7 +27,10 @@ export default (state: IState = initialState, action: Action) => {
       const id = Object.keys(action.data.configWhitelists)[0]
       const attributes = action.data.configWhitelists[id].attributes
 
-      return Object.assign({}, state, { data: attributes })
+      return {
+        ...state,
+        data: attributes
+      }
     default:
       return state
   }

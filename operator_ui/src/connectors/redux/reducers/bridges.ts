@@ -33,16 +33,27 @@ export default (state: IState = initialState, action: Action) => {
     case 'UPSERT_BRIDGES': {
       const { bridges, meta } = action.data
 
-      return Object.assign({}, state, {
-        items: Object.assign({}, state.items, bridges),
+      return {
+        ...state,
+
+        items: {
+          ...state.items,
+          ...bridges
+        },
+
         currentPage: meta.currentPageBridges.data.map(b => b.id),
         count: meta.currentPageBridges.meta.count
-      })
+      }
     }
     case 'UPSERT_BRIDGE':
-      return Object.assign({}, state, {
-        items: Object.assign({}, state.items, action.data.bridges)
-      })
+      return {
+        ...state,
+
+        items: {
+          ...state.items,
+          ...action.data.bridges
+        }
+      }
     default:
       return state
   }

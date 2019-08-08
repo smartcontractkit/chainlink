@@ -18,20 +18,22 @@ export default (state = initialState, action = {}) => {
   switch (action.type) {
     case MATCH_ROUTE: {
       if (action.match && state.currentUrl !== action.match.url) {
-        return Object.assign({}, state, {
+        return {
+          ...state,
           errors: [],
           successes: [],
           currentUrl: action.match.url
-        })
+        }
       }
 
       return state
     }
     case RECEIVE_SIGNIN_FAIL: {
-      return Object.assign({}, state, {
+      return {
+        ...state,
         successes: [],
         errors: [{ props: { msg: SIGN_IN_FAIL_MSG } }]
-      })
+      }
     }
     case NOTIFY_SUCCESS: {
       const success = {
@@ -41,10 +43,11 @@ export default (state = initialState, action = {}) => {
       if (success.props.data && success.props.data.type === 'specs')
         set('persistSpec', {})
       else if (typeof success.props.url === 'string') set('persistBridge', {})
-      return Object.assign({}, state, {
+      return {
+        ...state,
         successes: [success],
         errors: []
-      })
+      }
     }
     case NOTIFY_ERROR: {
       const { component, error } = action
@@ -67,10 +70,11 @@ export default (state = initialState, action = {}) => {
       }
       if (error instanceof BadRequestError) set('persistBridge', {})
 
-      return Object.assign({}, state, {
+      return {
+        ...state,
         successes: [],
         errors: errorNotifications
-      })
+      }
     }
     default:
       return state

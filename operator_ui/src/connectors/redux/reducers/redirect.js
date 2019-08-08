@@ -7,9 +7,15 @@ const initialState = {
 export default (state = initialState, action = {}) => {
   switch (action.type) {
     case REDIRECT:
-      return Object.assign({}, state, { to: action.to })
+      return {
+        ...state,
+        to: action.to
+      }
     case MATCH_ROUTE:
-      return Object.assign({}, state, { to: null })
+      return {
+        ...state,
+        to: null
+      }
     default:
       return state
   }

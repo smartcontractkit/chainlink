@@ -1,5 +1,7 @@
 export default data => {
-  const normalizedData = Object.assign({}, data)
+  const normalizedData = {
+    ...data
+  }
   if (typeof normalizedData.minimumContractPayment === 'number') {
     normalizedData.minimumContractPayment = normalizedData.minimumContractPayment.toString()
   }

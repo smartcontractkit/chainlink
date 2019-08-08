@@ -15,39 +15,49 @@ const defaultState = {
   networkError: false
 }
 
-const initialState = Object.assign(
-  {},
-  defaultState,
-  authenticationStorage.get()
-)
+const initialState = {
+  ...defaultState,
+  ...authenticationStorage.get()
+}
 
 export default (state = initialState, action = {}) => {
   switch (action.type) {
     case REQUEST_SIGNOUT:
     case REQUEST_SIGNIN:
-      return Object.assign({}, state, { networkError: false })
+      return {
+        ...state,
+        networkError: false
+      }
     case RECEIVE_SIGNOUT_SUCCESS:
     case RECEIVE_SIGNIN_SUCCESS: {
       const allowed = { allowed: action.authenticated }
       authenticationStorage.set(allowed)
-      return Object.assign({}, state, allowed, {
+      return {
+        ...state,
+        ...allowed,
         errors: [],
         networkError: false
-      })
+      }
     }
     case RECEIVE_SIGNIN_FAIL: {
       const allowed = { allowed: false }
       authenticationStorage.set(allowed)
-      return Object.assign({}, state, allowed, { errors: [] })
+      return {
+        ...state,
+        ...allowed,
+        errors: []
+      }
     }
     case RECEIVE_SIGNIN_ERROR:
     case RECEIVE_SIGNOUT_ERROR: {
       const allowed = { allowed: false }
       authenticationStorage.set(allowed)
-      return Object.assign({}, state, allowed, {
+      return {
+        ...state,
+        ...allowed,
         errors: action.errors || [],
         networkError: action.networkError
-      })
+      }
     }
     default:
       return state
