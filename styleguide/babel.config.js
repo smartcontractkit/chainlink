@@ -4,9 +4,14 @@ module.exports = {
     '@babel/preset-typescript',
     '@babel/preset-react'
   ],
-  plugins: [
-    '@babel/plugin-proposal-export-namespace-from',
-    '@babel/plugin-proposal-throw-expressions',
-    '@babel/plugin-proposal-class-properties'
+  overrides: [
+    {
+      presets: [
+        [
+          '@babel/preset-env',
+          { useBuiltIns: 'usage', corejs: { version: 3, proposals: true } }
+        ]
+      ]
+    }
   ]
 }
