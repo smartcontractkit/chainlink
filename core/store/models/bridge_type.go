@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -93,9 +94,18 @@ func (bt *BridgeType) SetID(value string) error {
 // password) and a bridge type (with hashed password, for persisting)
 func NewBridgeType(btr *BridgeTypeRequest) (*BridgeTypeAuthentication,
 	*BridgeType, error) {
-	incomingToken := utils.NewBytes32ID()
-	outgoingToken := utils.NewBytes32ID()
-	salt := utils.NewBytes32ID()
+	incomingToken, err := utils.NewBytes32Secret()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not generate incomingToken")
+	}
+	outgoingToken, err := utils.NewBytes32Secret()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not generate outgoingToken")
+	}
+	salt, err := utils.NewBytes32Secret()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not generate salt")
+	}
 
 	hash, err := incomingTokenHash(incomingToken, salt)
 	if err != nil {

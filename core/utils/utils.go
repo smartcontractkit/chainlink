@@ -4,6 +4,8 @@ package utils
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -103,6 +105,17 @@ const NewBytes32Length = 32
 // Ethereum bytes32.
 func NewBytes32ID() string {
 	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
+}
+
+// NewBytes32Secret returns a randomly generated string which conforms to
+// Ethereum bytes32.
+func NewBytes32Secret() (string, error) {
+	b := make([]byte, 24)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", errors.Wrap(err, "new secret bytes32")
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // RemoveHexPrefix removes the prefix (0x) of a given hex string.
