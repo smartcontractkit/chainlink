@@ -7,8 +7,7 @@ import (
 )
 
 func TestNewExternalInitiator(t *testing.T) {
-	eia, err := NewExternalInitiatorAuthentication()
-	assert.NoError(t, err)
+	eia := NewExternalInitiatorAuthentication()
 	assert.Len(t, eia.AccessKey, 32)
 	assert.Len(t, eia.Secret, 64)
 
