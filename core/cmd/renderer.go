@@ -161,12 +161,13 @@ func (rt RendererTable) renderJobRun(run presenters.JobRun) error {
 }
 
 func (rt RendererTable) renderJobSingles(j presenters.JobSpec) error {
-	table := rt.newTable([]string{"ID", "Created At", "Start At", "End At"})
+	table := rt.newTable([]string{"ID", "Created At", "Start At", "End At", "Min Payment"})
 	table.Append([]string{
 		j.ID,
 		j.FriendlyCreatedAt(),
 		j.FriendlyStartAt(),
 		j.FriendlyEndAt(),
+		j.FriendlyMinPayment(),
 	})
 	render("Job", table)
 	return nil
