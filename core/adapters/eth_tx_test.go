@@ -717,7 +717,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 		FunctionSelector: fHash,
 	}
 	input := cltest.RunResultWithResult(inputValue)
-	input.CachedJobRunID = uuid.Must(uuid.NewV4()).String()
+	input.CachedJobRunID = uuid.NewV4().String()
 	data := adapter.Perform(input, store)
 	assert.Error(t, data.GetError())
 
@@ -797,7 +797,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 		FunctionSelector: fHash,
 	}
 	input := cltest.RunResultWithResult(inputValue)
-	input.CachedJobRunID = uuid.Must(uuid.NewV4()).String()
+	input.CachedJobRunID = uuid.NewV4().String()
 	data := adapter.Perform(input, store)
 	assert.Error(t, data.GetError())
 

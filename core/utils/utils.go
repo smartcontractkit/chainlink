@@ -102,7 +102,7 @@ const NewBytes32Length = 32
 // NewBytes32ID returns a randomly generated UUID that conforms to
 // Ethereum bytes32.
 func NewBytes32ID() string {
-	return strings.Replace(uuid.Must(uuid.NewV4()).String(), "-", "", -1)
+	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
 }
 
 // RemoveHexPrefix removes the prefix (0x) of a given hex string.
