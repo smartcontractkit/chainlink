@@ -50,8 +50,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	eia, err := models.NewExternalInitiatorAuthentication()
-	require.NoError(t, err)
+	eia := models.NewExternalInitiatorAuthentication()
 	ea, err := models.NewExternalInitiator(eia)
 	require.NoError(t, err)
 	err = app.GetStore().CreateExternalInitiator(ea)
@@ -78,8 +77,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	eia, err := models.NewExternalInitiatorAuthentication()
-	require.NoError(t, err)
+	eia := models.NewExternalInitiatorAuthentication()
 	ea, err := models.NewExternalInitiator(eia)
 	require.NoError(t, err)
 	err = app.GetStore().CreateExternalInitiator(ea)
