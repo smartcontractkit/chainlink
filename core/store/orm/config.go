@@ -75,7 +75,8 @@ func newConfigWithViper(v *viper.Viper) *Config {
 	return config
 }
 
-// SetRuntimeStore species a DB like store to save certain configuration variables that can be changed at rumtime
+// SetRuntimeStore tells the configuration system to use a store for retrieving
+// configuration variables that can be configured at runtime.
 func (c *Config) SetRuntimeStore(orm *ORM) {
 	c.runtimeStore = orm
 }
