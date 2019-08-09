@@ -109,13 +109,13 @@ func NewBytes32ID() string {
 
 // NewBytes32Secret returns a randomly generated string which conforms to
 // Ethereum bytes32.
-func NewBytes32Secret() (string, error) {
+//
+// Panics on failed attempts to read from system's PRNG.
+func NewBytes32Secret() string {
 	b := make([]byte, 24)
 	_, err := rand.Read(b)
-	if err != nil {
-		return "", errors.Wrap(err, "new secret bytes32")
-	}
-	return base64.StdEncoding.EncodeToString(b), nil
+	panic(errors.Wrap(err, "could not generate Byte32Secret"))
+	return base64.StdEncoding.EncodeToString(b)
 }
 
 // RemoveHexPrefix removes the prefix (0x) of a given hex string.

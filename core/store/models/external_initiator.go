@@ -24,10 +24,7 @@ type ExternalInitiator struct {
 // NewExternalInitiator generates an ExternalInitiator from an
 // ExternalInitiatorAuthentication, hashing the password for storage
 func NewExternalInitiator(eia *ExternalInitiatorAuthentication) (*ExternalInitiator, error) {
-	salt, err := NewSecret()
-	if err != nil {
-		return nil, err
-	}
+	salt := NewSecret()
 	hashedSecret, err := HashedSecret(eia, salt)
 	if err != nil {
 		return nil, errors.Wrap(err, "error hashing secret for external initiator")
@@ -54,15 +51,12 @@ func AuthenticateExternalInitiator(eia *ExternalInitiatorAuthentication, ea *Ext
 // ExternalInitiatorAuthentication with a freshly generated access key and
 // secret, this is intended to be supplied to the user and saved, as it cannot
 // be regenerated in the future.
-func NewExternalInitiatorAuthentication() (*ExternalInitiatorAuthentication, error) {
-	secret, err := NewSecret()
-	if err != nil {
-		return nil, errors.Wrap(err, "could not generate secret for External Initiator Authentication")
-	}
+func NewExternalInitiatorAuthentication() *ExternalInitiatorAuthentication {
+	secret := NewSecret()
 	return &ExternalInitiatorAuthentication{
 		AccessKey: utils.NewBytes32ID(),
 		Secret:    secret,
-	}, nil
+	}
 }
 
 func hashInput(eia *ExternalInitiatorAuthentication, salt string) []byte {
@@ -104,11 +98,11 @@ func (eia *ExternalInitiatorAuthentication) SetID(id string) error {
 }
 
 // NewSecret returns a new secret for use for authenticating external initiators
-func NewSecret() (string, error) {
+//
+// Panics on failed attempts to read from system's PRNG.
+func NewSecret() string {
 	b := make([]byte, 48)
 	_, err := rand.Read(b)
-	if err != nil {
-		return "", errors.Wrap(err, "generating random Secret failed")
-	}
-	return base64.StdEncoding.EncodeToString(b), nil
+	panic(errors.Wrap(err, "generating random Secret failed"))
+	return base64.StdEncoding.EncodeToString(b)
 }
