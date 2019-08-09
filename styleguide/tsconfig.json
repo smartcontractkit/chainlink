@@ -11,11 +11,11 @@
     "target": "es2017",
     "module": "es2015",
     "lib": ["es2018", "dom"],
-    "rootDir": "./src",
     "outDir": "./dist",
     "jsx": "preserve",
     "sourceMap": true,
-    "removeComments": false,
-    "typeRoots": ["./@types"]
-  }
+    "removeComments": false
+  },
+
+  "include": ["src", "stories", "@types"]
 }

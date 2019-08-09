@@ -10,7 +10,7 @@ import {
   SimpleListCard,
   SimpleListCardItem,
   theme
-} from '../'
+} from '../src'
 
 const customTheme = createMuiTheme(theme)
 
@@ -40,14 +40,23 @@ storiesOf('Cards', module)
       <Grid item xs={12}>
         <Grid container>
           <Grid item xs={4}>
-            <KeyValueList title="Loading" entries={[]} />
+            <KeyValueList
+              title="Loading"
+              entries={[]}
+              showHead={false}
+              titleize={false}
+            />
           </Grid>
         </Grid>
       </Grid>
       <Grid item xs={12}>
         <Grid container>
           <Grid item xs={4}>
-            <KeyValueList entries={[['WITHOUT_TITLE', 'true']]} />
+            <KeyValueList
+              entries={[['WITHOUT_TITLE', 'true']]}
+              showHead={false}
+              titleize={false}
+            />
           </Grid>
         </Grid>
       </Grid>
@@ -57,6 +66,8 @@ storiesOf('Cards', module)
             <KeyValueList
               title="With Title"
               entries={[['WITHOUT_TITLE', 'false']]}
+              showHead={false}
+              titleize={false}
             />
           </Grid>
         </Grid>
