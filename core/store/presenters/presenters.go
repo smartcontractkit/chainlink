@@ -289,6 +289,15 @@ func (job JobSpec) FriendlyEndAt() string {
 	return ""
 }
 
+// FriendlyMinPayment returns a formatted string of the Job's
+// Minimum Link Payment threshold
+func (job JobSpec) FriendlyMinPayment() string {
+	if job.MinPayment == nil {
+		return assets.NewLink(0).Text(10)
+	}
+	return job.MinPayment.Text(10)
+}
+
 // FriendlyInitiators returns the list of Initiator types as
 // a comma separated string.
 func (job JobSpec) FriendlyInitiators() string {
