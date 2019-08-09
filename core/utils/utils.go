@@ -114,7 +114,24 @@ func NewBytes32ID() string {
 func NewBytes32Secret() string {
 	b := make([]byte, 24)
 	_, err := rand.Read(b)
-	panic(errors.Wrap(err, "could not generate Byte32Secret"))
+	if err != nil {
+		panic(errors.Wrap(err, "could not generate Byte32Secret"))
+	}
+	return base64.StdEncoding.EncodeToString(b)
+}
+
+// NewSecret returns a new secret of the given string length.
+//
+// Panics on failed attempts to read from system's PRNG.
+func NewSecret(strLen int) string {
+	if strLen%4 != 0 {
+		panic("length must be a multiple of 4")
+	}
+	b := make([]byte, strLen*3/4)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(errors.Wrap(err, "generating random Secret failed"))
+	}
 	return base64.StdEncoding.EncodeToString(b)
 }
 
