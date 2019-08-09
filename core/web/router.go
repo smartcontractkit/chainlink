@@ -344,9 +344,8 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
 			if err == os.ErrNotExist {
 				c.AbortWithStatus(http.StatusNotFound)
 			} else {
-				err := fmt.Errorf("failed to open static file '%s': %+v", path, err)
-				logger.Error(err.Error())
-				jsonAPIError(c, http.StatusInternalServerError, err)
+				logger.Errorf("failed to open static file '%s': %+v", path, err)
+				c.AbortWithStatus(http.StatusInternalServerError)
 			}
 			return
 		}
