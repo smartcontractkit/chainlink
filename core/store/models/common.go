@@ -142,7 +142,7 @@ func (j JSON) Value() (driver.Value, error) {
 func (j *JSON) Scan(value interface{}) error {
 	temp, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to Time", value, value)
+		return fmt.Errorf("Unable to convert %v of %T to JSON", value, value)
 	}
 
 	*j = JSON{Result: gjson.Parse(temp)}

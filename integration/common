@@ -34,36 +34,6 @@ waitForResponse () {
   title "Service on $1 is ready."
 }
 
-get_ethnet_version() {
-  go get github.com/pelletier/go-toml/cmd/tomljson
-  tomljson Gopkg.lock | jq -r '.projects | .[] | select(.name | contains("go-ethereum")) | .version'
-}
-
-install_gethnet() {
-  if [ -x "$(which geth)" ]; then
-    return
-  fi
-
-  title "Retrieving geth version..."
-  ethversion=$(get_ethnet_version)
-
-  ethpkg=github.com/ethereum/go-ethereum
-  ethpath=$GOPATH/src/$ethpkg
-
-  title "Installing geth $ethversion..."
-  if [ -d "$ethpath" ]; then
-    pushd "$ethpath" >/dev/null
-    git checkout master &>/dev/null
-    go get -d -u $ethpkg
-  else
-    go get -d $ethpkg
-    pushd "$ethpath" >/dev/null
-  fi
-  git checkout $ethversion 2>/dev/null
-  popd >/dev/null
-  go install $ethpkg/cmd/geth
-}
-
 launch_gethnet() {
   printf -- "\033[34m%-50s\033[0m" "Checking for running ethereum node"
   if curl -s $ETH_HTTP_URL >/dev/null; then
@@ -71,8 +41,6 @@ launch_gethnet() {
     return
   fi
   printf -- "[\033[31mstopped\033[0m]\n"
-
-  install_gethnet
 
   title "Starting geth..."
   $SRCROOT/tools/bin/gethnet &>$SRCROOT/integration/gethnet.log &

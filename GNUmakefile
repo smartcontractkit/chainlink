@@ -32,24 +32,16 @@ TAGGED_REPO := $(REPO):$(DOCKER_TAG)
 install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
 
 .PHONY: install-chainlink-autoinstall
-install-chainlink-autoinstall: | godep-autoinstall install-chainlink
+install-chainlink-autoinstall: | gomod install-chainlink
 .PHONY: operator-ui-autoinstall
 operator-ui-autoinstall: | yarndep operator-ui
-.PHONY: godep-autoinstall
-godep-autoinstall: | install-godep godep
 
-.PHONY: install-godep
-install-godep:
-	@if [ -z "`which dep`" ]; then \
-		go get github.com/golang/dep/cmd/dep; \
-	fi || true
+.PHONY: gomod
+gomod: ## Ensure chainlink's go dependencies are installed.
 	@if [ -z "`which gencodec`" ]; then \
 		go get github.com/smartcontractkit/gencodec; \
 	fi || true
-
-.PHONY: godep
-godep: ## Ensure chainlink's go dependencies are installed.
-	dep ensure -v -vendor-only
+	go mod download
 
 .PHONY: yarndep
 yarndep: ## Ensure the frontend's dependencies are installed.
