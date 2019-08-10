@@ -1,9 +1,9 @@
-import { IState } from 'connectors/redux/reducers/index'
+import { AppState } from 'connectors/redux/reducers'
 import bridgesSelector from 'selectors/bridges'
 
 describe('selectors - bridges', () => {
   it('returns the current page of bridges', () => {
-    const state: Pick<IState, 'bridges'> = {
+    const state: Pick<AppState, 'bridges'> = {
       bridges: {
         items: {
           a: { attributes: { name: 'A' } },
@@ -20,7 +20,7 @@ describe('selectors - bridges', () => {
   })
 
   it('does not return items that cannot be found', () => {
-    const state: Pick<IState, 'bridges'> = {
+    const state: Pick<AppState, 'bridges'> = {
       bridges: {
         items: {
           a: { attributes: { name: 'A' } },

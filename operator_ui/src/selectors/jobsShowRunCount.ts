@@ -1,3 +1,3 @@
-import { IState } from '../connectors/redux/reducers/index'
+import { AppState } from 'connectors/redux/reducers'
 
-export default ({ jobRuns }: IState) => jobRuns.currentJobRunsCount
+export default ({ jobRuns }: AppState) => jobRuns.currentJobRunsCount
