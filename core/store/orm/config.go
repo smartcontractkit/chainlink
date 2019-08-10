@@ -165,9 +165,9 @@ func (c Config) EthGasBumpWei() *big.Int {
 func (c Config) EthGasPriceDefault() *big.Int {
 	if c.runtimeStore != nil {
 		var value big.Int
-		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil {
+		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && errors.Cause(err) != ErrorNotFound {
 			logger.Warnw("Error while trying to fetch EthGasPriceDefault.", "error", err)
-		} else {
+		} else if err == nil {
 			return &value
 		}
 	}
