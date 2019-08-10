@@ -1,8 +1,8 @@
+import { AppState } from 'connectors/redux/reducers'
+import { IJobRun } from 'operator_ui'
 import build from 'redux-object'
-import { IJobRun } from '../../@types/operator_ui'
-import { IState } from '../connectors/redux/reducers'
 
-export default (state: IState, jobId: string, take: number) => {
+export default (state: AppState, jobId: string, take: number) => {
   return build(state.jobRuns, 'items')
     .filter((r: IJobRun) => r.jobId === jobId)
     .sort((a: IJobRun, b: IJobRun) => {

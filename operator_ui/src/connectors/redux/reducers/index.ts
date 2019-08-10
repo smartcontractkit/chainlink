@@ -12,7 +12,7 @@ import redirect from './redirect'
 import transactions from './transactions'
 import transactionsIndex from './transactionsIndex'
 
-export interface IState {
+export interface AppState {
   bridges: IBridgesState
   configuration: IConfigurationState
   dashboardIndex: IDashboardState

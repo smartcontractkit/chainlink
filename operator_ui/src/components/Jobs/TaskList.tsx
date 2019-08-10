@@ -1,4 +1,3 @@
-import React from 'react'
 import {
   createStyles,
   Theme,
@@ -6,9 +5,10 @@ import {
   WithStyles
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
+import { ITaskSpecs } from 'operator_ui'
+import React from 'react'
 import ListIcon from '../../components/Icons/ListIcon'
 import titleize from '../../utils/titleize'
-import { ITaskSpecs } from '../../../@types/operator_ui'
 
 const styles = ({ spacing, palette }: Theme) =>
   createStyles({

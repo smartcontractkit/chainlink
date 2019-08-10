@@ -2,13 +2,12 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "*": ["*", "src/*", "support/*"]
+      "*": ["*", "src/*", "support/*", "@types/*"]
     },
     "declaration": true,
     "target": "es2015",
     "module": "esnext",
     "lib": ["dom"],
-    "rootDir": "./src",
     "outDir": "./dist",
     "moduleResolution": "node",
     "skipLibCheck": true,
@@ -22,5 +21,6 @@
     "esModuleInterop": true
   },
   "include": ["src", "@types", "__tests__"],
+
   "references": [{ "path": "../styleguide" }]
 }
