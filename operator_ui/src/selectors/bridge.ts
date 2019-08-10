@@ -1,6 +1,6 @@
+import { AppState } from 'connectors/redux/reducers'
 import build from 'redux-object'
-import { IState } from '../connectors/redux/reducers/index'
 
-export default ({ bridges }: Pick<IState, 'bridges'>, id: string) => {
+export default ({ bridges }: Pick<AppState, 'bridges'>, id: string) => {
   return build(bridges, 'items', id)
 }
