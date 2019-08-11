@@ -1,6 +1,11 @@
 #!/usr/bin/env node
+const abi = require('ethereumjs-abi');
+const Web3 = require('web3')
+const Eth = require('ethjs')
 
-const {abi, wallet, web3} = require('../app/env.js')
+const providerURL = process.env['ETH_HTTP_URL'] || 'http://localhost:18545'
+const web3 = new Web3(providerURL)
+const eth = new Eth(new Eth.HttpProvider(providerURL))
 
 if (process.argv.length < 3) {
   console.error('Usage: ./check_link_balance <token address> <holder address>')
@@ -13,7 +18,7 @@ const holder = process.argv[3]
 const funcSelector = '0x70a08231'// "balanceOf(address)"
 const encoded = abi.rawEncode(['address'], [holder])
 
-wallet.call({
+eth.call({
   to: link,
   data: (funcSelector + encoded.toString('hex'))
 }).then(hex => {
@@ -24,3 +29,16 @@ wallet.call({
     console.log(`No price listed`)
   }
 })
+
+
+// wallet.call({
+//   to: link,
+//   data: (funcSelector + encoded.toString('hex'))
+// }).then(hex => {
+//   const res = web3.utils.toBN(hex)
+//   if (res.length) {
+//     console.log(`LINK balance: ${res.toString()}`)
+//   } else {
+//     console.log(`No price listed`)
+//   }
+// })
