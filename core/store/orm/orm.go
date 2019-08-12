@@ -2,6 +2,7 @@ package orm
 
 import (
 	"crypto/subtle"
+	"encoding"
 	"fmt"
 	"net/url"
 	"os"
@@ -417,6 +418,28 @@ func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 		Offset(offset).
 		Find(&sessions).Error
 	return sessions, err
+}
+
+// GetConfigValue returns the value for a named configuration entry
+func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) error {
+	name := EnvVarName(field)
+	config := models.Configuration{}
+	if err := orm.DB.First(&config, "name = ?", name).Error; err != nil {
+		return err
+	}
+	return value.UnmarshalText([]byte(config.Value))
+}
+
+// SetConfigValue returns the value for a named configuration entry
+func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error {
+	name := EnvVarName(field)
+	textValue, err := value.MarshalText()
+	if err != nil {
+		return err
+	}
+	return orm.DB.Where(models.Configuration{Name: name}).
+		Assign(models.Configuration{Name: name, Value: string(textValue)}).
+		FirstOrCreate(&models.Configuration{}).Error
 }
 
 // CreateJob saves a job to the database and adds IDs to associated tables.

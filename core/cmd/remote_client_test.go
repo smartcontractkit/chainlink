@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"flag"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -693,4 +694,32 @@ func TestClient_CreateExtraKey(t *testing.T) {
 	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: "password"}
 
 	assert.NoError(t, client.CreateExtraKey(c))
+}
+
+func TestClient_SetMinimumGasPrice(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup, _ := setupWithdrawalsApplication(t)
+	defer cleanup()
+
+	assert.NoError(t, app.StartAndConnect())
+
+	client, _ := app.NewClientAndRenderer()
+	set := flag.NewFlagSet("setgasprice", 0)
+	set.Parse([]string{"8616460799"})
+
+	c := cli.NewContext(nil, set, nil)
+
+	assert.NoError(t, client.SetMinimumGasPrice(c))
+	assert.Equal(t, big.NewInt(8616460799), app.Store.Config.EthGasPriceDefault())
+
+	client, _ = app.NewClientAndRenderer()
+	set = flag.NewFlagSet("setgasprice", 0)
+	set.String("amount", "861.6460799", "")
+	set.Bool("gwei", true, "")
+	set.Parse([]string{"-gwei", "861.6460799"})
+
+	c = cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.SetMinimumGasPrice(c))
+	assert.Equal(t, big.NewInt(861646079900), app.Store.Config.EthGasPriceDefault())
 }

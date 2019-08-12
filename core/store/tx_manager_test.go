@@ -13,6 +13,7 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -775,7 +776,7 @@ func TestTxManager_Register(t *testing.T) {
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
 		&strpkg.EthClient{CallerSubscriber: ethMock},
-		store.NewConfig(),
+		orm.NewConfig(),
 		nil,
 		nil,
 	)
@@ -797,7 +798,7 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
 		&strpkg.EthClient{CallerSubscriber: ethMock},
-		store.NewConfig(),
+		orm.NewConfig(),
 		nil,
 		nil,
 	)
@@ -832,7 +833,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
 		&strpkg.EthClient{CallerSubscriber: ethMock},
-		store.NewConfig(),
+		orm.NewConfig(),
 		nil,
 		nil,
 	)
@@ -1016,6 +1017,7 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
+	config := store.Config
 	manager := store.TxManager
 
 	to := cltest.NewAddress()
@@ -1025,14 +1027,14 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 	ethMock := app.MockEthClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
-		ethMock.Register("eth_chainId", *cltest.Int(store.Config.ChainID()))
+		ethMock.Register("eth_chainId", *cltest.Int(config.ChainID()))
 	})
 	assert.NoError(t, app.StartAndConnect())
 
 	customGasPrice := models.NewBig(big.NewInt(1337))
 	customGasLimit := uint64(10009)
 
-	defaultGasPrice := models.NewBig(store.Config.EthGasPriceDefault())
+	defaultGasPrice := models.NewBig(config.EthGasPriceDefault())
 
 	tests := []struct {
 		name             string
@@ -1050,7 +1052,8 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			strpkg.ExportedSetTxManagerDev(manager, test.dev)
+			config.Set("CHAINLINK_DEV", test.dev)
+
 			ethMock.Context("manager.CreateTx", func(ethMock *cltest.EthMock) {
 				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 				ethMock.Register("eth_blockNumber", utils.Uint64ToHex(1))

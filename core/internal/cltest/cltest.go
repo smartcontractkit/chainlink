@@ -74,7 +74,7 @@ func init() {
 // TestConfig struct with test store and wsServer
 type TestConfig struct {
 	t testing.TB
-	strpkg.Config
+	*orm.Config
 	wsServer *httptest.Server
 }
 
@@ -92,12 +92,12 @@ func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig 
 
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
-	rawConfig := strpkg.NewConfig()
+	rawConfig := orm.NewConfig()
 	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
 	rawConfig.Set("ETH_CHAIN_ID", 3)
 	rawConfig.Set("CHAINLINK_DEV", true)
 	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
-	rawConfig.Set("LOG_LEVEL", strpkg.LogLevel{Level: zapcore.DebugLevel})
+	rawConfig.Set("LOG_LEVEL", orm.LogLevel{Level: zapcore.DebugLevel})
 	rawConfig.Set("MINIMUM_SERVICE_DURATION", "24h")
 	rawConfig.Set("MIN_INCOMING_CONFIRMATIONS", 1)
 	rawConfig.Set("MIN_OUTGOING_CONFIRMATIONS", 6)
@@ -123,7 +123,7 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 type TestApplication struct {
 	t testing.TB
 	*services.ChainlinkApplication
-	Config           strpkg.Config
+	Config           *orm.Config
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
@@ -388,11 +388,11 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 	require.NoError(t, store.Close())
 }
 
-func WipePostgresDatabase(t testing.TB, c strpkg.Config) {
+func WipePostgresDatabase(t testing.TB, config orm.ConfigReader) {
 	t.Helper()
 
-	if strings.HasPrefix(strings.ToLower(c.NormalizedDatabaseURL()), string(orm.DialectPostgres)) {
-		db, err := gorm.Open(string(orm.DialectPostgres), c.NormalizedDatabaseURL())
+	if strings.HasPrefix(strings.ToLower(orm.NormalizedDatabaseURL(config)), string(orm.DialectPostgres)) {
+		db, err := gorm.Open(string(orm.DialectPostgres), orm.NormalizedDatabaseURL(config))
 		if err != nil {
 			t.Fatalf("unable to open postgres database for wiping: %+v", err)
 			return

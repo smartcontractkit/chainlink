@@ -1,4 +1,4 @@
-package store
+package orm
 
 import (
 	"math/big"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1564007745"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,10 +61,10 @@ func TestConfig_sessionOptions(t *testing.T) {
 
 func TestConfig_readFromFile(t *testing.T) {
 	v := viper.New()
-	v.Set("ROOT", "../../tools/clroot/")
+	v.Set("ROOT", "../../../tools/clroot/")
 
 	config := newConfigWithViper(v)
-	assert.Equal(t, config.RootDir(), "../../tools/clroot/")
+	assert.Equal(t, config.RootDir(), "../../../tools/clroot/")
 	assert.Equal(t, config.MinOutgoingConfirmations(), uint64(2))
 	assert.Equal(t, config.MinimumContractPayment(), assets.NewLink(1000000000000))
 	assert.Equal(t, config.Dev(), true)
@@ -178,7 +179,50 @@ func TestConfig_NormalizedDatabaseURL(t *testing.T) {
 			config := NewConfig()
 			config.Set("ROOT", "/root")
 			config.Set("DATABASE_URL", test.uri)
-			assert.Equal(t, test.expect, config.NormalizedDatabaseURL())
+			assert.Equal(t, test.expect, NormalizedDatabaseURL(config))
 		})
 	}
+}
+
+func TestConfig_EthGasPriceDefault(t *testing.T) {
+	t.Parallel()
+
+	config := NewConfig()
+
+	// Get default value
+	def := config.EthGasPriceDefault()
+
+	// No orm installed
+	err := config.SetEthGasPriceDefault(big.NewInt(0))
+	require.Error(t, err)
+
+	// ORM installed
+	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
+	defer os.RemoveAll(config.RootDir())
+	orm, err := NewORM(NormalizedDatabaseURL(config), config.DatabaseTimeout())
+	require.NoError(t, err)
+	require.NotNil(t, orm)
+	orm.SetLogging(true)
+	require.NoError(t, migration1564007745.Migrate(orm.DB))
+
+	config.SetRuntimeStore(orm)
+
+	// Value still stays as the default
+	require.Equal(t, def, config.EthGasPriceDefault())
+
+	// Override
+	newValue := new(big.Int).Add(def, big.NewInt(1))
+	err = config.SetEthGasPriceDefault(newValue)
+	require.NoError(t, err)
+
+	// Value changes
+	require.Equal(t, newValue, config.EthGasPriceDefault())
+
+	// Set again
+	newerValue := new(big.Int).Add(def, big.NewInt(2))
+	err = config.SetEthGasPriceDefault(newerValue)
+	require.NoError(t, err)
+
+	// Value changes
+	require.Equal(t, newerValue, config.EthGasPriceDefault())
 }

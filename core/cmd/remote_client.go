@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"net/url"
 	"os"
@@ -563,4 +564,44 @@ func (cli *Client) CreateExtraKey(c *clipkg.Context) error {
 	defer resp.Body.Close()
 
 	return cli.printResponseBody(resp)
+}
+
+// SetMinimumGasPrice specifies the minimum gas price to use for outgoing transactions
+func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) error {
+	if c.NArg() != 1 {
+		return cli.errorOut(errors.New("expecting an amount"))
+	}
+
+	value := c.Args().Get(0)
+	amount, ok := new(big.Float).SetString(value)
+	if !ok {
+		return cli.errorOut(fmt.Errorf("invalid ethereum amount %s", value))
+	}
+
+	if c.IsSet("gwei") {
+		amount.Mul(amount, big.NewFloat(1000000000))
+	}
+
+	adjustedAmount, _ := amount.Int(nil)
+	request := struct {
+		EthGasPriceDefault string `json:"ethGasPriceDefault"`
+	}{EthGasPriceDefault: adjustedAmount.String()}
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	response, err := cli.HTTP.Patch("/v2/config", buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer response.Body.Close()
+
+	patchResponse := web.ConfigPatchResponse{}
+	if err := cli.deserializeAPIResponse(response, &patchResponse, &jsonapi.Links{}); err != nil {
+		return err
+	}
+
+	return cli.errorOut(cli.Render(&patchResponse))
 }
