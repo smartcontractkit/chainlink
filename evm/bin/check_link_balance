@@ -1,44 +1,34 @@
 #!/usr/bin/env node
-const abi = require('ethereumjs-abi');
-const Web3 = require('web3')
-const Eth = require('ethjs')
 
-const providerURL = process.env['ETH_HTTP_URL'] || 'http://localhost:18545'
-const web3 = new Web3(providerURL)
-const eth = new Eth(new Eth.HttpProvider(providerURL))
+(async function(){
 
-if (process.argv.length < 3) {
-  console.error('Usage: ./check_link_balance <token address> <holder address>')
-  process.exit(1)
-}
+  // imports
+  const ethers = require('ethers')
+  const { utils } = ethers
 
-const link = process.argv[2]
-const holder = process.argv[3]
-
-const funcSelector = '0x70a08231'// "balanceOf(address)"
-const encoded = abi.rawEncode(['address'], [holder])
-
-eth.call({
-  to: link,
-  data: (funcSelector + encoded.toString('hex'))
-}).then(hex => {
-  const res = web3.utils.toBN(hex)
-  if (res.length) {
-    console.log(`LINK balance: ${res.toString()}`)
-  } else {
-    console.log(`No price listed`)
+  // ensure correct CLI ussage
+  if (process.argv.length < 3) {
+    console.error('Usage: ./check_link_balance <token address> <holder address>')
+    process.exit(1)
   }
-})
 
+  const link = process.argv[2]
+  const holder = process.argv[3]
 
-// wallet.call({
-//   to: link,
-//   data: (funcSelector + encoded.toString('hex'))
-// }).then(hex => {
-//   const res = web3.utils.toBN(hex)
-//   if (res.length) {
-//     console.log(`LINK balance: ${res.toString()}`)
-//   } else {
-//     console.log(`No price listed`)
-//   }
-// })
+  // Setup JSON RPC provider
+  const providerURL = process.env['ETH_HTTP_URL'] || 'http://localhost:18545'
+  const provider = new ethers.providers.JsonRpcProvider(providerURL)
+
+  // encode function call
+  const funcSelector = '0x70a08231'// "balanceOf(address)"
+  const encodedParams = utils.defaultAbiCoder.encode(['address'], [holder])
+  const data = utils.hexlify(utils.concat([funcSelector, encodedParams]))
+
+  // make function call
+  const hexBalance = await provider.call({
+    data,
+    to: link
+  })
+  const balance = utils.bigNumberify(hexBalance)
+  console.log(`LINK balance: ${balance.toString()}`)
+})()

@@ -1,23 +1,47 @@
 #!/usr/bin/env node
 
-const {utils, wallet} = require('../app/env.js')
+(async function(){
 
-if (process.argv.length > 3) {
-  console.error('Usage: ./fund_dev_wallet (optional address)')
-  process.exit(1)
-}
+  // imports
+  const ethers = require('ethers')
 
-let recipient = process.argv[2]
-const devnetMiner = '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
+  // ensure correct CLI ussage
+  if (process.argv.length > 3) {
+    console.error('Usage: ./fund_dev_wallet (optional address)')
+    process.exit(1)
+  }
 
-if (!recipient) {
-  recipient = wallet.address
-}
+  // Setup JSON RPC provider
+  const providerURL = process.env['ETH_HTTP_URL'] || 'http://localhost:18545'
+  const provider = new ethers.providers.JsonRpcProvider(providerURL)
 
-utils.send({
-  to: recipient,
-  from: devnetMiner,
-  value: `0x${(10 ** 21).toString(16)}`
-}).then(txHash => {
-  return utils.getTxReceipt(txHash)
-}).then(console.log).catch(console.error)
+  // create default recipient
+  const privateKey =
+    process.env['PRIVATE_KEY'] ||
+    '4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb'
+  const wallet = new ethers.Wallet(privateKey)
+  const defaultRecipient = wallet.address
+  const recipient = process.argv[2] || defaultRecipient
+
+  // setup devnet miner wallet
+  const devnetMiner = '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
+  const devnetMinerWallet = provider.getSigner(devnetMiner)
+
+  // send transaction
+  const tx = {
+    to: recipient,
+    value: "0x3635C9ADC5DEA00000" // 10 ** 21
+  }
+
+  try {
+    // send tx
+    const txHash = (await devnetMinerWallet.sendTransaction(tx)).hash
+    // wait for tx to be mined
+    await provider.waitForTransaction(txHash)
+    // get tx receipt
+    const receipt = await provider.getTransactionReceipt(txHash)
+    console.log(receipt)
+  } catch(error) {
+    console.log(error)
+  }
+})()
