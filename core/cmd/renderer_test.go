@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -191,6 +192,25 @@ func TestRendererTable_ServiceAgreementShow(t *testing.T) {
 	assert.Regexp(t, regexp.MustCompile("0x[0-9a-zA-Z]{64}"), output)
 	assert.Regexp(t, regexp.MustCompile("1.000000000000000000 LINK"), output)
 	assert.Regexp(t, regexp.MustCompile("300 seconds"), output)
+}
+
+func TestRendererTable_PatchResponse(t *testing.T) {
+	t.Parallel()
+
+	buffer := bytes.NewBufferString("")
+	r := cmd.RendererTable{Writer: buffer}
+
+	patchResponse := web.ConfigPatchResponse{
+		EthGasPriceDefault: web.Change{
+			From: "98721",
+			To:   "53276",
+		},
+	}
+
+	assert.NoError(t, r.Render(&patchResponse))
+	output := buffer.String()
+	assert.Regexp(t, regexp.MustCompile("98721"), output)
+	assert.Regexp(t, regexp.MustCompile("53276"), output)
 }
 
 func TestRendererTable_RenderUnknown(t *testing.T) {
