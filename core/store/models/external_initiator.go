@@ -50,10 +50,9 @@ func AuthenticateExternalInitiator(eia *ExternalInitiatorAuthentication, ea *Ext
 // secret, this is intended to be supplied to the user and saved, as it cannot
 // be regenerated in the future.
 func NewExternalInitiatorAuthentication() *ExternalInitiatorAuthentication {
-	secret := utils.NewSecret(64)
 	return &ExternalInitiatorAuthentication{
 		AccessKey: utils.NewBytes32ID(),
-		Secret:    secret,
+		Secret:    utils.NewSecret(64),
 	}
 }
 
