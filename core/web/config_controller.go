@@ -34,8 +34,14 @@ type configPatchRequest struct {
 // ConfigPatchResponse represents the change to the configuration made due to a
 // PATCH to the config endpoint
 type ConfigPatchResponse struct {
-	OldEthGasPriceDefault *models.Big `json:"oldEthGasPriceDefault"`
-	NewEthGasPriceDefault *models.Big `json:"newEthGasPriceDefault"`
+	EthGasPriceDefault Change `json:"ethGasPriceDefault"`
+}
+
+// Change represents the old value and the new value after a PATH request has
+// been made
+type Change struct {
+	From string `json:"old"`
+	To   string `json:"new"`
 }
 
 // GetID returns the jsonapi ID.
@@ -53,7 +59,9 @@ func (*ConfigPatchResponse) SetID(string) error {
 func (cc *ConfigController) Patch(c *gin.Context) {
 	request := &configPatchRequest{}
 	response := &ConfigPatchResponse{
-		OldEthGasPriceDefault: models.NewBig(cc.App.GetStore().Config.EthGasPriceDefault()),
+		EthGasPriceDefault: Change{
+			From: cc.App.GetStore().Config.EthGasPriceDefault().String(),
+		},
 	}
 
 	if err := c.ShouldBindJSON(request); err != nil {
@@ -61,7 +69,7 @@ func (cc *ConfigController) Patch(c *gin.Context) {
 	} else if err := cc.App.GetStore().SetConfigValue("EthGasPriceDefault", request.EthGasPriceDefault); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to set gas price default: %+v", err))
 	} else {
-		response.NewEthGasPriceDefault = request.EthGasPriceDefault
+		response.EthGasPriceDefault.To = request.EthGasPriceDefault.String()
 		jsonAPIResponse(c, response, "config")
 	}
 }

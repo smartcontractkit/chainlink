@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
 )
 
 // Renderer implements the Render method.
@@ -64,6 +65,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderTxAttempts(*typed)
 	case *models.ExternalInitiatorAuthentication:
 		return rt.renderExternalInitiatorAuthentication(*typed)
+	case *web.ConfigPatchResponse:
+		return rt.renderConfigPatchResponse(typed)
 	default:
 		return fmt.Errorf("Unable to render object of type %T: %v", typed, typed)
 	}
@@ -275,5 +278,16 @@ func (rt RendererTable) renderTxAttempts(attempts []models.TxAttempt) error {
 	}
 
 	render("Tx Attempts", table)
+	return nil
+}
+
+func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchResponse) error {
+	table := rt.newTable([]string{"Config", "Old Value", "New Value"})
+	table.Append([]string{
+		"EthGasPriceDefault",
+		config.EthGasPriceDefault.From,
+		config.EthGasPriceDefault.To,
+	})
+	render("Configuration Changes", table)
 	return nil
 }

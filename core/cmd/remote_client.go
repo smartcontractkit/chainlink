@@ -603,6 +603,5 @@ func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) error {
 		return err
 	}
 
-	fmt.Printf("EthGasPriceDefault updated %s -> %s.\n", patchResponse.OldEthGasPriceDefault, patchResponse.NewEthGasPriceDefault)
-	return nil
+	return cli.errorOut(cli.Render(&patchResponse))
 }
