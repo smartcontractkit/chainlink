@@ -89,7 +89,7 @@ func (hpa *HTTPPost) GetURL() string {
 // GetRequest takes the request body and returns the HTTP request including
 // query parameters and headers.
 //
-// HTTPPost's Body parameter overrides the given body argument if present.
+// HTTPPost's Body parameter overrides the given argument if present.
 func (hpa *HTTPPost) GetRequest(body string) (*http.Request, error) {
 	if hpa.Body != nil {
 		body = hpa.Body.String()
