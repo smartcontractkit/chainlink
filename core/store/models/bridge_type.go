@@ -95,7 +95,7 @@ func NewBridgeType(btr *BridgeTypeRequest) (*BridgeTypeAuthentication,
 	*BridgeType, error) {
 	incomingToken := utils.NewBytes32Secret()
 	outgoingToken := utils.NewBytes32Secret()
-	salt := utils.NewBytes32Secret()
+	salt := utils.NewSecret(64)
 
 	hash, err := incomingTokenHash(incomingToken, salt)
 	if err != nil {
