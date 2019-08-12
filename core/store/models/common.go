@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/araddon/dateparse"
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	null "gopkg.in/guregu/null.v3"
 
@@ -564,4 +565,11 @@ func (r *AddressCollection) Scan(value interface{}) error {
 	}
 	*r = collection
 	return nil
+}
+
+// Configuration stores key value pairs for overriding global configuration
+type Configuration struct {
+	gorm.Model
+	Name  string `gorm:"not null;unique;index"`
+	Value string `gorm:"not null"`
 }

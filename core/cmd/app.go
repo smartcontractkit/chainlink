@@ -216,6 +216,17 @@ func NewApp(client *Client) *cli.App {
 			Action: client.ChangePassword,
 		},
 		{
+			Name:   "setgasprice",
+			Usage:  "Set the minimum gas price to use for outgoing transactions",
+			Action: client.SetMinimumGasPrice,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "gwei",
+					Usage: "Specify amount in gwei",
+				},
+			},
+		},
+		{
 			Name:   "transactions",
 			Usage:  "List the transactions in descending order",
 			Action: client.GetTransactions,
