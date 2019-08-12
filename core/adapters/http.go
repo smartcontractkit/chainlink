@@ -63,7 +63,7 @@ type HTTPPost struct {
 	POST         models.WebURL   `json:"post"`
 	Headers      http.Header     `json:"headers"`
 	QueryParams  QueryParameters `json:"queryParams"`
-	Body         *JSONObj        `json:"body,omitempty"`
+	Body         *string         `json:"body,omitempty"`
 	ExtendedPath ExtendedPath    `json:"extPath"`
 }
 
@@ -92,7 +92,7 @@ func (hpa *HTTPPost) GetURL() string {
 // HTTPPost's Body parameter overrides the given argument if present.
 func (hpa *HTTPPost) GetRequest(body string) (*http.Request, error) {
 	if hpa.Body != nil {
-		body = hpa.Body.String()
+		body = *hpa.Body
 	}
 	reqBody := bytes.NewBufferString(body)
 
@@ -222,29 +222,6 @@ func (mbr *maxBytesReader) tooLarge() (int, error) {
 
 func (mbr *maxBytesReader) Close() error {
 	return mbr.rc.Close()
-}
-
-// JSONObj contains a JSON object.
-type JSONObj string
-
-// MarshalJSON implements the json.Marshaler interface.
-func (j JSONObj) String() string {
-	return string(j)
-}
-
-// MarshalJSON implements the json.Marshaler interface.
-func (j JSONObj) MarshalJSON() ([]byte, error) {
-	return []byte(j), nil
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (j *JSONObj) UnmarshalJSON(buf []byte) error {
-	var obj interface{}
-	if err := json.Unmarshal(buf, &obj); err != nil {
-		return err
-	}
-	*j = JSONObj(string(buf))
-	return nil
 }
 
 // QueryParameters are the keys and values to append to the URL

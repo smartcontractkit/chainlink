@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func leanStore() *store.Store {
@@ -127,11 +126,8 @@ func TestHTTP_TooLarge(t *testing.T) {
 	}
 }
 
-func newJSONObj(t *testing.T, obj interface{}) *adapters.JSONObj {
-	buf, err := json.Marshal(obj)
-	require.NoError(t, err)
-	var ret adapters.JSONObj = adapters.JSONObj(buf)
-	return &ret
+func stringRef(str string) *string {
+	return &str
 }
 
 func TestHttpPost_Perform(t *testing.T) {
@@ -146,7 +142,7 @@ func TestHttpPost_Perform(t *testing.T) {
 		response    string
 		headers     http.Header
 		queryParams adapters.QueryParameters
-		body        *adapters.JSONObj
+		body        *string
 	}{
 		{
 			"success", 200, "results!",
@@ -234,10 +230,18 @@ func TestHttpPost_Perform(t *testing.T) {
 			`results!`,
 			nil,
 			nil,
-			newJSONObj(t, map[string]interface{}{
-				"Key1": "value",
-				"Key2": "value",
-			}),
+			stringRef(`{"Key1":"value","Key2":"value"}`),
+		},
+		{
+			"success with body",
+			200,
+			"results!",
+			"",
+			false,
+			`results!`,
+			nil,
+			nil,
+			stringRef(""),
 		},
 	}
 
