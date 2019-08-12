@@ -1,7 +1,5 @@
 #!/usr/bin/env node
-
-(async function(){
-
+(async () => {
   // imports
   const ethers = require('ethers')
 
