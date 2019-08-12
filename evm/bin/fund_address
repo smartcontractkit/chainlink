@@ -2,6 +2,7 @@
 (async () => {
   // imports
   const ethers = require('ethers')
+  const { utils } = ethers
 
   // ensure correct CLI ussage
   if (process.argv.length > 3) {
@@ -17,7 +18,7 @@
   const privateKey =
     process.env['PRIVATE_KEY'] ||
     '4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb'
-  const wallet = new ethers.Wallet(privateKey)
+  const wallet = new ethers.Wallet(privateKey) // TODO don't need to create a wallet, just go straight from pri k --> pub k
   const defaultRecipient = wallet.address
   const recipient = process.argv[2] || defaultRecipient
 
@@ -28,7 +29,7 @@
   // send transaction
   const tx = {
     to: recipient,
-    value: "0x3635C9ADC5DEA00000" // 10 ** 21
+    value: utils.bigNumberify(10).pow(21) // 10 ** 21
   }
 
   try {
@@ -39,7 +40,7 @@
     // get tx receipt
     const receipt = await provider.getTransactionReceipt(txHash)
     console.log(receipt)
-  } catch(error) {
+  } catch (error) {
     console.log(error)
   }
 })()

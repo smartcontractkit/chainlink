@@ -9,7 +9,6 @@
     console.error('Usage: ./check_link_balance <token address> <holder address>')
     process.exit(1)
   }
-
   const link = process.argv[2]
   const holder = process.argv[3]
 

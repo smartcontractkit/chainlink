@@ -1,26 +1,49 @@
 #!/usr/bin/env node
+(async () => {
+  // imports
+  const ethers = require('ethers')
+  const { utils } = ethers
 
-const {abi, utils, wallet} = require('../app/env.js')
-
-if (process.argv.length < 2) {
-  console.error('Usage: ./request_eth_price <contract address>')
-  process.exit(1)
-}
-
-const consumer = process.argv[2]
-
-const funcSelector = '0x6c0cae68' // "requestEthereumPrice(string)",
-const encoded = abi.rawEncode(['string'], ["USD"])
-
-wallet.send({
-  to: consumer,
-  data: (funcSelector + encoded.toString('hex'))
-}).then(utils.getTxReceipt).then(receipt => {
-  console.log(receipt)
-  if (receipt.logs.length) {
-    console.log(receipt.logs[3].topics)
-    console.log(`price successfully requested`)
-  } else {
-    console.log('FAILED!!!')
+  // ensure correct CLI ussage
+  if (process.argv.length < 2) {
+    console.error('Usage: ./request_eth_price <contract address>')
+    process.exit(1)
   }
-})
+  const consumer = process.argv[2]
+
+  // Setup JSON RPC provider
+  const providerURL = process.env['ETH_HTTP_URL'] || 'http://localhost:18545'
+  const privateKey =
+    process.env['PRIVATE_KEY'] ||
+    '4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb'
+  const provider = new ethers.providers.JsonRpcProvider(providerURL)
+  const wallet = new ethers.Wallet(privateKey, provider)
+
+  // encode function call
+  const funcSelector = '0x6c0cae68' // "requestEthereumPrice(string)",
+  const encodedParams = utils.defaultAbiCoder.encode(['string'], ['USD'])
+  const data = utils.hexlify(utils.concat([funcSelector, encodedParams]))
+
+  // send transaction
+  const tx = {
+    data,
+    to: consumer
+  }
+  try {
+    // send tx
+    const txHash = (await wallet.sendTransaction(tx)).hash
+    // wait for tx to be mined
+    await provider.waitForTransaction(txHash)
+    // get tx receipt
+    const receipt = await provider.getTransactionReceipt(txHash)
+    console.log(receipt)
+    if (receipt.logs.length) {
+      console.log(receipt.logs[3].topics)
+      console.log(`price successfully requested`)
+    } else {
+      console.log('FAILED!!!')
+    }
+  } catch (error) {
+    console.log(error)
+  }
+})()
