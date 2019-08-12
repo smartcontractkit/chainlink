@@ -11,7 +11,7 @@ set -e
 
 GIT_ROOT=`git rev-parse --show-toplevel`
 PROJECT_ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
-LDFLAGS=`$PROJECT_ROOT/tools/bin/ldflags`
+LDFLAGS="`$PROJECT_ROOT/tools/bin/ldflags`"
 
 pushd $PROJECT_ROOT >/dev/null
 source tools/bin/clenv
