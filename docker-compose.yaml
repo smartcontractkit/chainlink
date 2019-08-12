@@ -35,8 +35,10 @@ services:
       - RUST_BACKTRACE=1
       - CHAINLINK_DEV=true
       - EXPLORER_URL=ws://172.16.1.103:8080
+      # Development only credentials, requires record in node table in tools/docker/docker-entrypoint-initdb.d/explorer_schema.sql
       - EXPLORER_ACCESS_KEY=u4HULe0pj5xPyuvv
       - EXPLORER_SECRET=YDxkVRTmcliehGZPw7f0L2Td3sz3LqutAQyy7sLCEIP6xcWzbO8zgfBWi4DXC6U6
+      #
     networks:
       devnet:
         ipv4_address: 172.16.1.102

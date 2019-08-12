@@ -22,7 +22,9 @@ CREATE TABLE public.chainlink_node (
     salt character varying(64) NOT NULL,
     url character varying
 );
+-- Development only credentials
 INSERT INTO public.chainlink_node VALUES (1, '2019-07-09 15:48:50.250417', 'NodeyMcNodeFace', 'u4HULe0pj5xPyuvv', '302df2b42ab313cb9b00fe0cca9932dacaaf09e662f2dca1be9c2ad2d927d5df', 'wZ02sJ8iZ6WffxXduxwzkCfOc3PS8BZJ', NULL);
+--
 CREATE SEQUENCE public.chainlink_node_id_seq
     START WITH 1
     INCREMENT BY 1
