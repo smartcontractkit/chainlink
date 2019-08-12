@@ -1,10 +1,11 @@
 package models
 
 import (
+	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
+	"math/big"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -95,12 +96,22 @@ func (eia *ExternalInitiatorAuthentication) SetID(id string) error {
 	return nil
 }
 
+var characters = []rune("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var numChars *big.Int
+
+func init() {
+	numChars = big.NewInt(int64(len(characters)))
+}
+
 // NewSecret returns a new secret for use for authenticating external initiators
 func NewSecret() string {
-	var characters = []rune("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	b := make([]rune, 64)
 	for i := range b {
-		b[i] = characters[rand.Intn(len(characters))]
+		cidx, err := rand.Int(rand.Reader, numChars)
+		if err != nil {
+			panic(errors.Wrapf(err, "while generating secret for external initiator"))
+		}
+		b[i] = characters[cidx.Int64()]
 	}
 	return string(b)
 }
