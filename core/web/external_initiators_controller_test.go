@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -17,7 +18,9 @@ func TestExternalInitiatorsController_Create(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	resp, cleanup := client.Post("/v2/external_initiators", nil)
+	resp, cleanup := client.Post("/v2/external_initiators",
+		bytes.NewBufferString(`{"name":"bitcoin","url":"http://without.a.name"}`),
+	)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 201)
 }
