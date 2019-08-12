@@ -1,26 +1,48 @@
 #!/usr/bin/env node
+(async () => {
+  // imports
+  const ethers = require('ethers')
+  const { utils } = ethers
 
-const {wallet, web3} = require('../app/env.js')
+  // ensure correct CLI ussage
+  if (process.argv.length < 2) {
+    console.error('Usage: ./view_eth_price <contract address>')
+    process.exit(1)
+  }
+  const consumer = process.argv[2]
 
-if (process.argv.length < 2) {
-  console.error('Usage: ./view_eth_price <contract address>')
-  process.exit(1)
-}
+    // Setup JSON RPC provider
+  const providerURL = process.env['ETH_HTTP_URL'] || 'http://localhost:18545'
+  const provider = new ethers.providers.JsonRpcProvider(providerURL)
 
-const consumer = process.argv[2]
+  const funcSelector = '0x9d1b464a' // "currentPrice()"
 
-const funcSelector = '0x9d1b464a' // "currentPrice()"
-
-wallet.call({
-  to: consumer,
-  data: funcSelector,
-  gasPrice: 100000,
-  gas: 100000
-}).then(hex => {
-  const res = web3.utils.hexToUtf8(hex)
-  if (res.length) {
-    console.log(`current ETH price: ${res}`)
+  // make function call
+  const hexPrice = await provider.call({
+    data: funcSelector,
+    to: consumer,
+    gasPrice: 100000,
+    gas: 100000
+  })
+  const price = utils.toUtf8String(hexPrice)
+  if (price) {
+    console.log(`current ETH price: ${price}`)
   } else {
     console.log(`No price listed`)
   }
-}).catch(console.log)
+
+  // wallet.call({
+  //   to: consumer,
+  //   data: funcSelector,
+  //   gasPrice: 100000,
+  //   gas: 100000
+  // }).then(hex => {
+  //   const res = web3.utils.hexToUtf8(hex)
+  //   if (res.length) {
+  //     console.log(`current ETH price: ${res}`)
+  //   } else {
+  //     console.log(`No price listed`)
+  //   }
+  // }).catch(console.log)
+
+})()

@@ -9,7 +9,6 @@
     console.error('Usage: ./transfer_owner <owned address> <recipient address>')
     process.exit(1)
   }
-
   const owned = process.argv[2]
   const recipient = process.argv[3]
 
@@ -41,7 +40,7 @@
     const receipt = await provider.getTransactionReceipt(txHash)
     console.log(receipt)
     console.log(`ownership of ${owned} transferred to ${recipient}`)
-  } catch(error) {
+  } catch (error) {
     console.log(error)
   }
 })()
