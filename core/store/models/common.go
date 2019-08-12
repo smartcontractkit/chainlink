@@ -251,6 +251,15 @@ func (j JSON) CBOR() ([]byte, error) {
 // WebURL contains the URL of the endpoint.
 type WebURL url.URL
 
+// NewWebURL creates a new WebURL.
+func NewWebURL(arg string) (WebURL, error) {
+	u, err := url.ParseRequestURI(arg)
+	if err != nil {
+		return WebURL{}, err
+	}
+	return WebURL(*u), nil
+}
+
 // UnmarshalJSON parses the raw URL stored in JSON-encoded
 // data to a URL structure and sets it to the URL field.
 func (w *WebURL) UnmarshalJSON(j []byte) error {
