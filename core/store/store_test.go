@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,8 +37,8 @@ func TestStore_Close(t *testing.T) {
 	s, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	s.RunChannel.Send("whatever")
-	s.RunChannel.Send("whatever")
+	s.RunChannel.Send(models.NewID())
+	s.RunChannel.Send(models.NewID())
 
 	_, open := <-s.RunChannel.Receive()
 	assert.True(t, open)
@@ -164,7 +165,7 @@ func TestQueuedRunChannel_Send(t *testing.T) {
 
 	rq := store.NewQueuedRunChannel()
 
-	assert.NoError(t, rq.Send("first"))
+	assert.NoError(t, rq.Send(models.NewID()))
 	rr1 := <-rq.Receive()
 	assert.NotNil(t, rr1)
 }
@@ -175,5 +176,5 @@ func TestQueuedRunChannel_Send_afterClose(t *testing.T) {
 	rq := store.NewQueuedRunChannel()
 	rq.Close()
 
-	assert.Error(t, rq.Send("first"))
+	assert.Error(t, rq.Send(models.NewID()))
 }

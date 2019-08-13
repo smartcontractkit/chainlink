@@ -12,7 +12,6 @@ import (
 	"github.com/jinzhu/gorm"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -42,7 +41,7 @@ type TaskSpecRequest struct {
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID         string       `json:"id,omitempty" gorm:"primary_key;not null"`
+	ID         *ID          `json:"id,omitempty" gorm:"primary_key;not null"`
 	CreatedAt  time.Time    `json:"createdAt" gorm:"index"`
 	Initiators []Initiator  `json:"initiators"`
 	MinPayment *assets.Link `json:"minPayment" gorm:"type:varchar(255)"`
@@ -54,7 +53,7 @@ type JobSpec struct {
 
 // GetID returns the ID of this structure for jsonapi serialization.
 func (j JobSpec) GetID() string {
-	return j.ID
+	return j.ID.String()
 }
 
 // GetName returns the pluralized "type" of this structure for jsonapi serialization.
@@ -64,15 +63,14 @@ func (j JobSpec) GetName() string {
 
 // SetID is used to set the ID of this structure when deserializing from jsonapi documents.
 func (j *JobSpec) SetID(value string) error {
-	j.ID = value
-	return nil
+	return j.ID.UnmarshalText([]byte(value))
 }
 
 // NewJob initializes a new job by generating a unique ID and setting
 // the CreatedAt field to the time of invokation.
 func NewJob() JobSpec {
 	return JobSpec{
-		ID:         utils.NewBytes32ID(),
+		ID:         NewID(),
 		CreatedAt:  time.Now(),
 		MinPayment: assets.NewLink(0),
 	}
@@ -112,10 +110,10 @@ func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 // NewRun initializes the job by creating the IDs for the job
 // and all associated tasks, and setting the CreatedAt field.
 func (j JobSpec) NewRun(i Initiator) JobRun {
-	jrid := utils.NewBytes32ID()
+	jrid := NewID()
 	taskRuns := make([]TaskRun, len(j.Tasks))
 	for i, task := range j.Tasks {
-		trid := utils.NewBytes32ID()
+		trid := NewID()
 		taskRuns[i] = TaskRun{
 			ID:       trid,
 			JobRunID: jrid,
@@ -213,8 +211,8 @@ const (
 // Initiators will have their own unique ID, but will be associated
 // to a parent JobID.
 type Initiator struct {
-	ID        uint   `json:"id" gorm:"primary_key;auto_increment"`
-	JobSpecID string `json:"jobSpecId" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+	ID        uint `json:"id" gorm:"primary_key;auto_increment"`
+	JobSpecID *ID  `json:"jobSpecId" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
 	// Type is one of the Initiator* string constants defined just above.
 	Type            string    `json:"type" gorm:"index;not null"`
 	CreatedAt       time.Time `gorm:"index"`
@@ -257,7 +255,7 @@ func (i Initiator) IsLogInitiated() bool {
 // additional information that adapter would need to operate.
 type TaskSpec struct {
 	gorm.Model
-	JobSpecID     string        `json:"-" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+	JobSpecID     *ID           `json:"-" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
 	Type          TaskType      `json:"type" gorm:"index;not null"`
 	Confirmations clnull.Uint32 `json:"confirmations"`
 	Params        JSON          `json:"params" gorm:"type:text"`
@@ -326,8 +324,8 @@ func (t *TaskType) Scan(value interface{}) error {
 // job specs from job runs
 type LinkEarned struct {
 	ID        uint64       `json:"id" gorm:"primary_key;not null;auto_increment"`
-	JobSpecID string       `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
-	JobRunID  string       `json:"jobRunId"  gorm:"unique;not null;type:varchar(36) REFERENCES job_runs(id)"`
+	JobSpecID *ID          `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
+	JobRunID  *ID          `json:"jobRunId"  gorm:"unique;not null;type:varchar(36) REFERENCES job_runs(id)"`
 	Earned    *assets.Link `json:"earned" gorm:"type:varchar(255)"`
 	EarnedAt  time.Time    `json:"earnedAt" gorm:"index"`
 }
@@ -339,7 +337,7 @@ func (LinkEarned) TableName() string {
 
 // NewLinkEarned initializes the LinkEarned from params
 // and sets the CreatedAt field.
-func NewLinkEarned(jid string, jrunid string, ear *assets.Link) LinkEarned {
+func NewLinkEarned(jid *ID, jrunid *ID, ear *assets.Link) LinkEarned {
 	now := time.Now()
 	return LinkEarned{
 		JobSpecID: jid,

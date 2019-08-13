@@ -89,7 +89,6 @@ func Migrate(db *gorm.DB) error {
 		return errors.New("database is newer than current chainlink version")
 	}
 
-	db.LogMode(true)
 	err = m.Migrate()
 	if err != nil {
 		return errors.Wrap(err, "error running migrations")

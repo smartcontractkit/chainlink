@@ -68,7 +68,7 @@ func TestClient_ShowJobRun_Exists(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{jr.ID})
+	set.Parse([]string{jr.ID.String()})
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ShowJobRun(c))
 	assert.Equal(t, 1, len(r.Renders))
@@ -124,7 +124,7 @@ func TestClient_ShowJobSpec_Exists(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{job.ID})
+	set.Parse([]string{job.ID.String()})
 	c := cli.NewContext(nil, set, nil)
 	require.Nil(t, client.ShowJobSpec(c))
 	require.Equal(t, 1, len(r.Renders))
@@ -234,7 +234,7 @@ func TestClient_ArchiveJobSpec(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("archive", 0)
-	set.Parse([]string{job.ID})
+	set.Parse([]string{job.ID.String()})
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.ArchiveJobSpec(c))
@@ -285,7 +285,7 @@ func TestClient_CreateJobRun(t *testing.T) {
 			assert.Nil(t, app.Store.CreateJob(&test.jobSpec))
 
 			args := make([]string, 1)
-			args[0] = test.jobSpec.ID
+			args[0] = test.jobSpec.ID.String()
 			if test.name == "NotFound" {
 				args[0] = "badID"
 			}

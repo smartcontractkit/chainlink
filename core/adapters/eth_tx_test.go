@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -714,7 +713,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 		FunctionSelector: fHash,
 	}
 	input := cltest.RunResultWithResult(inputValue)
-	input.CachedJobRunID = uuid.NewV4().String()
+	input.CachedJobRunID = models.NewID()
 	data := adapter.Perform(input, store)
 	assert.Error(t, data.GetError())
 
@@ -794,7 +793,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 		FunctionSelector: fHash,
 	}
 	input := cltest.RunResultWithResult(inputValue)
-	input.CachedJobRunID = uuid.NewV4().String()
+	input.CachedJobRunID = models.NewID()
 	data := adapter.Perform(input, store)
 	assert.Error(t, data.GetError())
 

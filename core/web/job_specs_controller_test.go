@@ -312,7 +312,7 @@ func BenchmarkJobSpecsController_Show(b *testing.B) {
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, _ := client.Get("/v2/specs/" + j.ID)
+		resp, _ := client.Get("/v2/specs/" + j.ID.String())
 		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
 	}
 }
@@ -326,7 +326,7 @@ func TestJobSpecsController_Show(t *testing.T) {
 
 	j := setupJobSpecsControllerShow(t, app)
 
-	resp, cleanup := client.Get("/v2/specs/" + j.ID)
+	resp, cleanup := client.Get("/v2/specs/" + j.ID.String())
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 200)
 
@@ -343,10 +343,10 @@ func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication)
 	initr := j.Initiators[0]
 
 	jr1 := j.NewRun(initr)
-	jr1.ID = "2"
+	jr1.ID = models.NewID()
 	assert.Nil(t, app.Store.CreateJobRun(&jr1))
 	jr2 := j.NewRun(initr)
-	jr2.ID = "1"
+	jr2.ID = models.NewID()
 	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
 	assert.Nil(t, app.Store.CreateJobRun(&jr2))
 
@@ -359,9 +359,20 @@ func TestJobSpecsController_Show_NotFound(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	resp, cleanup := client.Get("/v2/specs/" + "garbage")
+	resp, cleanup := client.Get("/v2/specs/190AE4CE-40B6-4D60-A3DA-061C5ACD32D0")
 	defer cleanup()
 	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
+}
+
+func TestJobSpecsController_Show_InvalidUuid(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+	client := app.NewHTTPClient()
+
+	resp, cleanup := client.Get("/v2/specs/garbage")
+	defer cleanup()
+	assert.Equal(t, 422, resp.StatusCode, "Response should be unprocessable entity")
 }
 
 func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
@@ -382,7 +393,7 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 	job := cltest.NewJobWithLogInitiator()
 	require.NoError(t, app.Store.CreateJob(&job))
 
-	resp, cleanup := client.Delete("/v2/specs/" + job.ID)
+	resp, cleanup := client.Delete("/v2/specs/" + job.ID.String())
 	defer cleanup()
 	assert.Equal(t, 204, resp.StatusCode)
 	assert.Error(t, utils.JustError(app.Store.FindJob(job.ID)))
