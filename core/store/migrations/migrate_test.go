@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560924400"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565210496"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 
@@ -199,6 +201,36 @@ func TestMigrate_Migration1565139192(t *testing.T) {
 	require.Equal(t, assets.NewLink(0), specNoPayment.MinPayment)
 	require.NoError(t, db.Where("id = ?", specWithPayment.ID).Find(&specTwoFound).Error)
 	require.Equal(t, assets.NewLink(5), specWithPayment.MinPayment)
+}
+
+func TestMigrate_Migration1565210496(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	db := orm.DB
+	db.LogMode(true)
+
+	require.NoError(t, migration0.Migrate(db))
+
+	jobSpec := migration0.JobSpec{
+		ID:        utils.NewBytes32ID(),
+		CreatedAt: time.Now(),
+	}
+	require.NoError(t, db.Create(&jobSpec).Error)
+	jobRun := migration0.JobRun{
+		ID:             utils.NewBytes32ID(),
+		JobSpecID:      jobSpec.ID,
+		ObservedHeight: "115792089237316195423570985008687907853269984665640564039457584007913129639936",
+		CreationHeight: "0",
+	}
+	require.NoError(t, db.Create(&jobRun).Error)
+
+	require.NoError(t, migration1565210496.Migrate(db))
+
+	jobRunFound := models.JobRun{}
+	require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
+	assert.Equal(t, "115792089237316195423570985008687907853269984665640564039457584007913129639936", jobRunFound.ObservedHeight.String())
+	assert.Equal(t, "0", jobRunFound.CreationHeight.String())
 }
 
 func TestMigrate_NewerVersionGuard(t *testing.T) {
