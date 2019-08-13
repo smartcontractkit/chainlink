@@ -2,7 +2,6 @@ package models_test
 
 import (
 	"encoding/json"
-	"math/big"
 	"net/url"
 	"reflect"
 	"testing"
@@ -343,54 +342,6 @@ func TestAnyTime_MarshalJSON(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			b, err := json.Marshal(&test.input)
-			assert.NoError(t, err)
-			assert.Equal(t, test.want, string(b))
-		})
-	}
-}
-
-func TestBig_UnmarshalText(t *testing.T) {
-	t.Parallel()
-
-	i := &models.Big{}
-	tests := []struct {
-		name      string
-		input     string
-		wantError bool
-		want      *big.Int
-	}{
-		{"number", `1234`, false, big.NewInt(1234)},
-		{"string", `"1234"`, false, big.NewInt(1234)},
-		{"hex number", `0x1234`, false, big.NewInt(4660)},
-		{"hex string", `"0x1234"`, false, big.NewInt(4660)},
-		{"single quoted", `'1234'`, false, big.NewInt(1234)},
-		{"quoted word", `"word"`, true, big.NewInt(0)},
-		{"word", `word`, true, big.NewInt(0)},
-		{"empty", ``, true, big.NewInt(0)},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			err := i.UnmarshalText([]byte(test.input))
-			cltest.AssertError(t, test.wantError, err)
-			assert.Equal(t, test.want, i.ToInt())
-		})
-	}
-}
-
-func TestBig_MarshalJSON(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		input *big.Int
-		want  string
-	}{
-		{"number", big.NewInt(1234), `1234`},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			i := (*models.Big)(test.input)
-			b, err := json.Marshal(&i)
 			assert.NoError(t, err)
 			assert.Equal(t, test.want, string(b))
 		})
