@@ -1,0 +1,11 @@
+{
+	"manifestVersion": "0.1.0",
+	"message": "Run tests: npm test\nCompile contracts: npm run compile\nMigrate to development network: npm run migrate:dev\nMigrate to live network: npm run migrate:live",
+	"files": [
+		"evm/box",
+		"unbox.sh"
+	],
+	"hooks": {
+		"post-unpack": "bash unbox.sh && rm unbox.sh && npm install"
+	}
+}
