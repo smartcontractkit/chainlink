@@ -25,6 +25,7 @@
     "go.mod",
     "go.sum",
     "integration",
+    "kit.json",
     "LICENSE",
     "GNUmakefile",
     "operator_ui",
