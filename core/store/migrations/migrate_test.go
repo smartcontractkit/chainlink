@@ -212,7 +212,7 @@ func TestMigrate_Migration1565210496(t *testing.T) {
 
 	require.NoError(t, migration0.Migrate(db))
 
-	jobSpec := models.JobSpec{
+	jobSpec := migration0.JobSpec{
 		ID:        utils.NewBytes32ID(),
 		CreatedAt: time.Now(),
 	}
