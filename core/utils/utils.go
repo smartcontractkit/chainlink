@@ -112,17 +112,15 @@ func NewBytes32ID() string {
 //
 // Panics on failed attempts to read from system's PRNG.
 func NewBytes32Secret() string {
-	return NewSecret(32)
+	return NewSecret(24)
 }
 
-// NewSecret returns a new secret of the given string length.
+// NewSecret returns a new securely random sequence of n bytes of entropy.  The
+// result is a base64 encoded string.
 //
 // Panics on failed attempts to read from system's PRNG.
-func NewSecret(strLen int) string {
-	if strLen%4 != 0 {
-		panic("length must be a multiple of 4")
-	}
-	b := make([]byte, strLen*3/4)
+func NewSecret(n int) string {
+	b := make([]byte, n)
 	_, err := rand.Read(b)
 	if err != nil {
 		panic(errors.Wrap(err, "generating secret failed"))
