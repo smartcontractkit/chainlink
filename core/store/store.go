@@ -214,12 +214,12 @@ func initializeORM(config *orm.Config) (*orm.ORM, error) {
 // RunRequest is the type that the RunChannel uses to package all the necessary
 // pieces to execute a Job Run.
 type RunRequest struct {
-	ID string
+	ID *models.ID
 }
 
 // RunChannel manages and dispatches incoming runs.
 type RunChannel interface {
-	Send(jobRunID string) error
+	Send(jobRunID *models.ID) error
 	Receive() <-chan RunRequest
 	Close()
 }
@@ -240,7 +240,7 @@ func NewQueuedRunChannel() RunChannel {
 }
 
 // Send adds another entry to the queue of runs.
-func (rq *QueuedRunChannel) Send(jobRunID string) error {
+func (rq *QueuedRunChannel) Send(jobRunID *models.ID) error {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 
@@ -248,7 +248,7 @@ func (rq *QueuedRunChannel) Send(jobRunID string) error {
 		return errors.New("QueuedRunChannel.Add: cannot add to a closed QueuedRunChannel")
 	}
 
-	if jobRunID == "" {
+	if jobRunID == nil {
 		return errors.New("QueuedRunChannel.Add: cannot add an empty jobRunID")
 	}
 

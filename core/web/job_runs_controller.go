@@ -35,8 +35,10 @@ func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 	var err error
 	if id == "" {
 		runs, count, err = store.JobRunsSorted(order, offset, size)
+	} else if runID, err := models.NewIDFromString(id); err == nil {
+		runs, count, err = store.JobRunsSortedFor(runID, order, offset, size)
 	} else {
-		runs, count, err = store.JobRunsSortedFor(id, order, offset, size)
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 	}
 
 	paginatedResponse(c, "JobRuns", size, page, runs, count, err)
@@ -46,9 +48,9 @@ func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 // Example:
 //  "<application>/specs/:SpecID/runs"
 func (jrc *JobRunsController) Create(c *gin.Context) {
-	id := c.Param("SpecID")
-
-	if j, err := jrc.App.GetStore().FindJob(id); errors.Cause(err) == orm.ErrorNotFound {
+	if id, err := models.NewIDFromString(c.Param("SpecID")); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+	} else if j, err := jrc.App.GetStore().FindJob(id); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -75,8 +77,9 @@ func getRunData(c *gin.Context) (models.JSON, error) {
 // Example:
 //  "<application>/runs/:RunID"
 func (jrc *JobRunsController) Show(c *gin.Context) {
-	id := c.Param("RunID")
-	if jr, err := jrc.App.GetStore().FindJobRun(id); errors.Cause(err) == orm.ErrorNotFound {
+	if id, err := models.NewIDFromString(c.Param("RunID")); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+	} else if jr, err := jrc.App.GetStore().FindJobRun(id); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job run not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -90,13 +93,14 @@ func (jrc *JobRunsController) Show(c *gin.Context) {
 // Example:
 //  "<application>/runs/:RunID"
 func (jrc *JobRunsController) Update(c *gin.Context) {
-	id := c.Param("RunID")
-	authToken := utils.StripBearer(c.Request.Header.Get("Authorization"))
-
 	var brr models.BridgeRunResult
 
+	authToken := utils.StripBearer(c.Request.Header.Get("Authorization"))
 	unscoped := jrc.App.GetStore().Unscoped()
-	if jr, err := unscoped.FindJobRun(id); errors.Cause(err) == orm.ErrorNotFound {
+
+	if id, err := models.NewIDFromString(c.Param("RunID")); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+	} else if jr, err := unscoped.FindJobRun(id); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)

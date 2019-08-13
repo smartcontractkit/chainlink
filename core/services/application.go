@@ -22,7 +22,7 @@ type Application interface {
 	GetStore() *store.Store
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
-	ArchiveJob(ID string) error
+	ArchiveJob(*models.ID) error
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
 }
@@ -146,7 +146,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.
-func (app *ChainlinkApplication) ArchiveJob(ID string) error {
+func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
 	_ = app.JobSubscriber.RemoveJob(ID)
 	return app.Store.ArchiveJob(ID)
 }

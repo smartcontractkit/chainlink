@@ -141,7 +141,7 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 				Data:    test.data,
 				Topics: []common.Hash{
 					test.topic0,
-					cltest.StringToHash(job.ID),
+					models.IDToTopic(job.ID),
 					newAddr().Hash(),
 					common.BigToHash(big.NewInt(0)),
 				},

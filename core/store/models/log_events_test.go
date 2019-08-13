@@ -99,7 +99,9 @@ func TestRequestLogEvent_Validate(t *testing.T) {
 	t.Parallel()
 
 	job := cltest.NewJob()
-	job.ID = "4a1eb0e8df314cb894024a38991cff0f"
+	id, err := models.NewIDFromString("4a1eb0e8df314cb894024a38991cff0f")
+	require.NoError(t, err)
+	job.ID = id
 
 	noRequesters := []common.Address{}
 	permittedAddr := cltest.NewAddress()
@@ -112,13 +114,13 @@ func TestRequestLogEvent_Validate(t *testing.T) {
 		jobIDTopic          common.Hash
 		initiatorRequesters []common.Address
 		requesterAddress    common.Address
-		want                bool
+		valid               bool
 	}{
-		{"wrong jobid", models.RunLogTopic0original, cltest.StringToHash("wrongjob"), noRequesters, unpermittedAddr, false},
-		{"proper hex jobid", models.RunLogTopic0original, cltest.StringToHash(job.ID), noRequesters, unpermittedAddr, true},
-		{"incorrect encoded jobid", models.RunLogTopic0original, common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"), noRequesters, unpermittedAddr, true},
-		{"correct requester", models.RunLogTopic0original, cltest.StringToHash(job.ID), requesterList, permittedAddr, true},
-		{"incorrect requester", models.RunLogTopic0original, cltest.StringToHash(job.ID), requesterList, unpermittedAddr, true},
+		{"correct requester", models.RunLogTopic0original, common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"), requesterList, permittedAddr, true},
+		{"proper hex jobid", models.RunLogTopic0original, common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"), noRequesters, unpermittedAddr, true},
+		{"incorrect requester", models.RunLogTopic0original, common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"), requesterList, unpermittedAddr, true},
+		{"incorrect encoded jobid", models.RunLogTopic0original, common.HexToHash("0x000000000000000000000000000000004a1eb0e8df314cb894024a38991cff0f"), noRequesters, unpermittedAddr, false},
+		{"wrong jobid", models.RunLogTopic0original, common.HexToHash("0x00000000000000000000000000000000ffffffffffffffffffffffffffffffff"), noRequesters, unpermittedAddr, false},
 	}
 
 	for _, test := range tests {
@@ -147,7 +149,7 @@ func TestRequestLogEvent_Validate(t *testing.T) {
 				},
 			}.LogRequest()
 
-			assert.Equal(t, test.want, logRequest.Validate())
+			assert.Equal(t, test.valid, logRequest.Validate())
 		})
 	}
 }
@@ -159,7 +161,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		name       string
 		job        models.JobSpec
 		requester  common.Address
-		logFactory (func(*testing.T, string, common.Address, common.Address, int, string) models.Log)
+		logFactory (func(*testing.T, *models.ID, common.Address, common.Address, int, string) models.Log)
 		wantStatus models.RunStatus
 	}{
 		{
@@ -231,9 +233,11 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 	t.Parallel()
 
+	id, err := models.NewIDFromString("4a1eb0e8df314cb894024a38991cff0f")
+	require.NoError(t, err)
 	i := models.Initiator{
 		Type:      models.InitiatorRunLog,
-		JobSpecID: "4a1eb0e8df314cb894024a38991cff0f",
+		JobSpecID: id,
 	}
 	fromBlock := big.NewInt(42)
 	filter, err := models.FilterQueryFactory(i, fromBlock)
@@ -247,8 +251,8 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 				models.RunLogTopic20190123withFullfillmentParams,
 				models.RunLogTopic0original,
 			}, {
-				common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
 				common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
+				common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
 			},
 		},
 	}
@@ -385,4 +389,22 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 			assert.Equal(t, &test.wantRequester, rr.Requester)
 		})
 	}
+}
+
+func TestIDToTopic(t *testing.T) {
+	id, err := models.NewIDFromString("ffffffffffffffffffffffffffffffff")
+	require.NoError(t, err)
+	assert.Equal(t, common.Hash{
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}, models.IDToTopic(id))
+}
+
+func TestIDToIDToHexTopic(t *testing.T) {
+	id, err := models.NewIDFromString("ffffffffffffffffffffffffffffffff")
+	require.NoError(t, err)
+	assert.Equal(t, common.Hash{
+		0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
+		0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
+	}, models.IDToHexTopic(id))
 }

@@ -17,7 +17,7 @@ type JobRunner interface {
 	Start() error
 	Stop()
 	resumeRunsSinceLastShutdown() error
-	channelForRun(string) chan<- struct{}
+	channelForRun(*models.ID) chan<- struct{}
 	workerCount() int
 }
 
@@ -27,7 +27,7 @@ type jobRunner struct {
 	bootMutex            sync.Mutex
 	store                *store.Store
 	workerMutex          sync.RWMutex
-	workers              map[string]chan struct{}
+	workers              map[*models.ID]chan struct{}
 	workersWg            sync.WaitGroup
 	demultiplexStopperWg sync.WaitGroup
 }
@@ -37,7 +37,7 @@ func NewJobRunner(str *store.Store) JobRunner {
 	return &jobRunner{
 		// Unscoped allows the processing of runs that are soft deleted asynchronously
 		store:   str.Unscoped(),
-		workers: make(map[string]chan struct{}),
+		workers: make(map[*models.ID]chan struct{}),
 	}
 }
 
@@ -127,7 +127,7 @@ func (rm *jobRunner) demultiplexRuns(starterWg *sync.WaitGroup) {
 	}
 }
 
-func (rm *jobRunner) channelForRun(runID string) chan<- struct{} {
+func (rm *jobRunner) channelForRun(runID *models.ID) chan<- struct{} {
 	rm.workerMutex.Lock()
 	defer rm.workerMutex.Unlock()
 
@@ -151,7 +151,7 @@ func (rm *jobRunner) channelForRun(runID string) chan<- struct{} {
 	return workerChannel
 }
 
-func (rm *jobRunner) workerLoop(runID string, workerChannel chan struct{}) {
+func (rm *jobRunner) workerLoop(runID *models.ID, workerChannel chan struct{}) {
 	for {
 		select {
 		case <-workerChannel:
@@ -223,6 +223,7 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 		return currentTaskRun.Result
 	}
 
+	currentTaskRun.Result.CachedJobRunID = run.ID
 	currentTaskRun.Result.Data = data
 	result := adapter.Perform(currentTaskRun.Result, store)
 

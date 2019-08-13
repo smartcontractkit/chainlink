@@ -399,7 +399,7 @@ func TestIntegration_EndAt(t *testing.T) {
 
 	clock.SetTime(endAt.Add(time.Nanosecond))
 
-	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", &bytes.Buffer{})
+	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", &bytes.Buffer{})
 	defer cleanup()
 	assert.Equal(t, 500, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Consistently(func() []models.JobRun {
@@ -424,7 +424,7 @@ func TestIntegration_StartAt(t *testing.T) {
 	startAt := cltest.ParseISO8601(t, "3000-01-01T00:00:00.000Z")
 	assert.Equal(t, startAt, j.StartAt.Time)
 
-	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", &bytes.Buffer{})
+	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", &bytes.Buffer{})
 	defer cleanup()
 	assert.Equal(t, 500, resp.StatusCode)
 	cltest.WaitForRuns(t, j, app.Store, 0)
@@ -568,7 +568,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 			jr := jrs[0]
 			id := body.Get("id")
 			assert.True(t, id.Exists())
-			assert.Equal(t, jr.ID, id.String())
+			assert.Equal(t, jr.ID.String(), id.String())
 
 			data := body.Get("data")
 			assert.True(t, data.Exists())

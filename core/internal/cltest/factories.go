@@ -249,7 +249,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 // NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
-	jobID string,
+	jobID *models.ID,
 	emitter common.Address,
 	requester common.Address,
 	blk int,
@@ -263,7 +263,7 @@ func NewRunLog(
 		BlockHash:   NewHash(),
 		Topics: []common.Hash{
 			models.RunLogTopic20190207withoutIndexes,
-			StringToHash(jobID),
+			models.IDToTopic(jobID),
 		},
 	}
 }
@@ -273,7 +273,7 @@ func NewRunLog(
 // agreement.
 func NewServiceAgreementExecutionLog(
 	t *testing.T,
-	jobID string,
+	jobID *models.ID,
 	logEmitter common.Address,
 	executionRequester common.Address,
 	blockHeight int,
@@ -285,7 +285,7 @@ func NewServiceAgreementExecutionLog(
 		Data:        StringToVersionedLogData0(t, "internalID", serviceAgreementJSON),
 		Topics: []common.Hash{
 			models.ServiceAgreementExecutionLogTopic,
-			StringToHash(jobID),
+			models.IDToTopic(jobID),
 			executionRequester.Hash(),
 			assets.NewLink(1000000000).ToHash(),
 		},
@@ -502,7 +502,7 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 }
 
 // FakeLinkEarned mocks a link earning
-func FakeLinkEarned(jobID string, jobRunID string, rewardAmt *assets.Link) models.LinkEarned {
+func FakeLinkEarned(jobID *models.ID, jobRunID *models.ID, rewardAmt *assets.Link) models.LinkEarned {
 	return models.LinkEarned{
 		JobSpecID: jobID,
 		JobRunID:  jobRunID,

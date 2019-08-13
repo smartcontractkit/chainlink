@@ -23,10 +23,10 @@ func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&Head{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate Head")
 	}
-	if err := tx.AutoMigrate(JobSpec{}).Error; err != nil {
+	if err := tx.AutoMigrate(&JobSpec{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate JobSpec")
 	}
-	if err := tx.AutoMigrate(&models.Initiator{}).Error; err != nil {
+	if err := tx.AutoMigrate(&Initiator{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate Initiator")
 	}
 	if err := tx.AutoMigrate(&JobRun{}).Error; err != nil {
@@ -124,13 +124,11 @@ type RunRequest struct {
 
 // JobSpec is a capture of the model representing Head before migration1565139192
 type JobSpec struct {
-	ID         string             `json:"id,omitempty" gorm:"primary_key;not null"`
-	CreatedAt  time.Time          `json:"createdAt" gorm:"index"`
-	Initiators []models.Initiator `json:"initiators"`
-	Tasks      []models.TaskSpec  `json:"tasks"`
-	StartAt    null.Time          `json:"startAt" gorm:"index"`
-	EndAt      null.Time          `json:"endAt" gorm:"index"`
-	DeletedAt  null.Time          `json:"-" gorm:"index"`
+	ID        string    `json:"id,omitempty" gorm:"primary_key;not null"`
+	CreatedAt time.Time `json:"createdAt" gorm:"index"`
+	StartAt   null.Time `json:"startAt" gorm:"index"`
+	EndAt     null.Time `json:"endAt" gorm:"index"`
+	DeletedAt null.Time `json:"-" gorm:"index"`
 }
 
 // JobRun is a capture of the model representing Head before migration1565210496
@@ -148,4 +146,14 @@ type JobRun struct {
 	ObservedHeight string    `json:"observedHeight" gorm:"type:varchar(255)"`
 	OverridesID    uint      `json:"-"`
 	DeletedAt      null.Time `json:"-" gorm:"index"`
+}
+
+// Initiator is a capture of the model representing Head before migration1565210496
+type Initiator struct {
+	ID                     uint      `json:"id" gorm:"primary_key;auto_increment"`
+	JobSpecID              string    `json:"jobSpecId" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+	Type                   string    `json:"type" gorm:"index;not null"`
+	CreatedAt              time.Time `gorm:"index"`
+	models.InitiatorParams `json:"params,omitempty"`
+	DeletedAt              null.Time `json:"-" gorm:"index"`
 }

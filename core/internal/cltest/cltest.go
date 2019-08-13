@@ -598,7 +598,7 @@ func ReadLogs(app *TestApplication) (string, error) {
 }
 
 // FindJob returns JobSpec for given JobID
-func FindJob(t testing.TB, s *strpkg.Store, id string) models.JobSpec {
+func FindJob(t testing.TB, s *strpkg.Store, id *models.ID) models.JobSpec {
 	t.Helper()
 
 	j, err := s.FindJob(id)
@@ -608,7 +608,7 @@ func FindJob(t testing.TB, s *strpkg.Store, id string) models.JobSpec {
 }
 
 // FindJobRun returns JobRun for given JobRunID
-func FindJobRun(t testing.TB, s *strpkg.Store, id string) models.JobRun {
+func FindJobRun(t testing.TB, s *strpkg.Store, id *models.ID) models.JobRun {
 	t.Helper()
 
 	j, err := s.FindJobRun(id)
@@ -659,7 +659,7 @@ func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, bo
 		bodyBuffer = bytes.NewBufferString(body[0])
 	}
 	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bodyBuffer)
+	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", bodyBuffer)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	var jr models.JobRun
@@ -697,7 +697,7 @@ func UpdateJobRunViaWeb(
 
 	client := app.NewHTTPClient()
 	headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
-	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
 	defer cleanup()
 
 	AssertServerResponse(t, resp, 200)
