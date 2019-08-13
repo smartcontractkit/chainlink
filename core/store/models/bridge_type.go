@@ -93,8 +93,8 @@ func (bt *BridgeType) SetID(value string) error {
 // password) and a bridge type (with hashed password, for persisting)
 func NewBridgeType(btr *BridgeTypeRequest) (*BridgeTypeAuthentication,
 	*BridgeType, error) {
-	incomingToken := utils.NewBytes32Secret()
-	outgoingToken := utils.NewBytes32Secret()
+	incomingToken := utils.NewSecret(32)
+	outgoingToken := utils.NewSecret(32)
 	salt := utils.NewSecret(64)
 
 	hash, err := incomingTokenHash(incomingToken, salt)

@@ -107,14 +107,6 @@ func NewBytes32ID() string {
 	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
 }
 
-// NewBytes32Secret returns a randomly generated string which conforms to
-// Ethereum bytes32.
-//
-// Panics on failed attempts to read from system's PRNG.
-func NewBytes32Secret() string {
-	return NewSecret(24)
-}
-
 // NewSecret returns a new securely random sequence of n bytes of entropy.  The
 // result is a base64 encoded string.
 //
