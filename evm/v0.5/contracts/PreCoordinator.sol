@@ -1,8 +1,9 @@
 pragma solidity 0.5.0;
 
 import "./ChainlinkClient.sol";
-import "./vendor/Ownable.sol";
-import "./vendor/SignedSafeMath.sol";
+import { Ownable as Ownable_Chainlink } from "./vendor/Ownable.sol";
+import { SafeMath as SafeMath_Chainlink } from "./vendor/SafeMath.sol";
+import { SignedSafeMath as SignedSafeMath_Chainlink } from "./vendor/SignedSafeMath.sol";
 
 /**
  * @title PreCoordinator is a contract that builds on-chain service agreements
@@ -10,9 +11,9 @@ import "./vendor/SignedSafeMath.sol";
  * @dev This contract accepts requests as service agreement IDs and loops over
  * the corresponding list of oracles to create distinct requests to each one.
  */
-contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface {
-  using SafeMath for uint256;
-  using SignedSafeMath for int256;
+contract PreCoordinator is ChainlinkClient, Ownable_Chainlink, ChainlinkRequestInterface {
+  using SafeMath_Chainlink for uint256;
+  using SignedSafeMath_Chainlink for int256;
 
   uint256 constant private SELECTOR_LENGTH = 4;
   uint256 constant private EXPECTED_REQUEST_WORDS = 2;
