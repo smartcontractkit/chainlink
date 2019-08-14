@@ -37,7 +37,11 @@ declare module '@material-ui/core/styles/createTypography' {
 
 declare module '@material-ui/core/Grid' {
   interface GridProps {
-    spacing?: number // FIXME -- According to the typings, this should instead be a constant number
+    /**
+     * This should actually be either 0 | 8 | 16 | 24 | 32, but typescript cant infer that
+     * spacing.unit * 3 is within those bounds, so we have to type widen to just number.
+     */
+    spacing?: number
   }
 }
 

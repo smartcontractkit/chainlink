@@ -1,23 +1,23 @@
-import React, { useEffect } from 'react'
-import build from 'redux-object'
-import { connect } from 'react-redux'
-import { bindActionCreators, Dispatch } from 'redux'
+import Card from '@material-ui/core/Card'
+import Grid from '@material-ui/core/Grid'
 import {
   createStyles,
   Theme,
   withStyles,
   WithStyles
 } from '@material-ui/core/styles'
-import Grid from '@material-ui/core/Grid'
-import Card from '@material-ui/core/Card'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
+import React, { useEffect } from 'react'
+import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
+import { bindActionCreators } from 'redux'
+import build from 'redux-object'
+import { getJobRun } from '../../actions/jobRuns'
 import Details from '../../components/JobRuns/Details'
 import RegionalNav from '../../components/JobRuns/RegionalNav'
 import RunStatus from '../../components/JobRuns/RunStatus'
-import { getJobRun } from '../../actions/jobRuns'
 import { IState as State } from '../../reducers'
 
 const Loading = () => (
@@ -123,21 +123,22 @@ const jobRunSelector = (
   }
 }
 
-const etherscanHostSelector = ({ config }: State) => {
-  return config.etherscanHost
-}
-
-const mapStateToProps = (state: State, { jobRunId }: OwnProps) => {
+const mapStateToProps: MapStateToProps<StateProps, OwnProps, State> = (
+  state,
+  { jobRunId }
+) => {
   const jobRun = jobRunSelector(state, jobRunId)
-  const etherscanHost = etherscanHostSelector(state)
+  const etherscanHost = state.config.etherscanHost
 
   return { jobRun, etherscanHost }
 }
 
-const mapDispatchToProps = (dispatch: Dispatch) =>
-  bindActionCreators({ getJobRun }, dispatch)
+const mapDispatchToProps: MapDispatchToProps<
+  DispatchProps,
+  OwnProps
+> = dispatch => bindActionCreators({ getJobRun }, dispatch)
 
-const ConnectedShow = connect<StateProps, DispatchProps, OwnProps, State>(
+const ConnectedShow = connect(
   mapStateToProps,
   mapDispatchToProps
 )(Show)

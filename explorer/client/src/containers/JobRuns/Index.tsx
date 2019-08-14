@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react'
-import { connect } from 'react-redux'
-import { bindActionCreators, Dispatch } from 'redux'
-import build from 'redux-object'
 import {
   createStyles,
   Theme,
   withStyles,
   WithStyles
 } from '@material-ui/core/styles'
-import List from '../../components/JobRuns/List'
+import React, { useEffect, useState } from 'react'
+import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
+import { bindActionCreators } from 'redux'
+import build from 'redux-object'
 import { getJobRuns } from '../../actions/jobRuns'
+import List from '../../components/JobRuns/List'
+import { ChangePageEvent } from '../../components/Table'
 import { IState as State } from '../../reducers'
 import { Query } from '../../reducers/search'
-import { ChangePageEvent } from '../../components/Table'
 
 const EMPTY_MSG =
   "We couldn't find any results for your search query. Try again with the job id, run id, requester, requester id or transaction hash"
@@ -34,28 +34,28 @@ const styles = ({ spacing, breakpoints }: Theme) =>
   })
 
 interface OwnProps {
+  rowsPerPage?: number
   path: string
 }
 
 interface StateProps {
-  rowsPerPage: number
-  query?: string
+  query: State['search']['query']
   jobRuns?: IJobRun[]
-  count?: number
+  count: State['jobRunsIndex']['count']
 }
 
 interface DispatchProps {
   getJobRuns: (query: Query, page: number, size: number) => void
 }
 
-interface IProps
+interface Props
   extends WithStyles<typeof styles>,
     OwnProps,
     StateProps,
     DispatchProps {}
 
 const Index = withStyles(styles)(
-  ({ getJobRuns, query, rowsPerPage, classes, jobRuns, count }: IProps) => {
+  ({ getJobRuns, query, rowsPerPage = 10, classes, jobRuns, count }: Props) => {
     const [currentPage, setCurrentPage] = useState(0)
     const onChangePage = (_event: ChangePageEvent, page: number) => {
       setCurrentPage(page)
@@ -96,23 +96,20 @@ const jobRunsSelector = ({
   }
 }
 
-const jobRunsCountSelector = (state: State) => {
-  return state.jobRunsIndex.count
-}
+const mapDispatchToProps: MapDispatchToProps<
+  DispatchProps,
+  OwnProps
+> = dispatch => bindActionCreators({ getJobRuns }, dispatch)
 
-const mapStateToProps = (state: State): StateProps => {
+const mapStateToProps: MapStateToProps<StateProps, OwnProps, State> = state => {
   return {
-    rowsPerPage: 10,
     query: state.search.query,
     jobRuns: jobRunsSelector(state),
-    count: jobRunsCountSelector(state)
+    count: state.jobRunsIndex.count
   }
 }
 
-const mapDispatchToProps = (dispatch: Dispatch): DispatchProps =>
-  bindActionCreators({ getJobRuns }, dispatch)
-
-const ConnectedIndex = connect<StateProps, DispatchProps, OwnProps, State>(
+const ConnectedIndex = connect(
   mapStateToProps,
   mapDispatchToProps
 )(Index)
