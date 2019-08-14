@@ -50,6 +50,7 @@ type ConfigReader interface {
 	TLSHost() string
 	TLSKeyPath() string
 	TLSPort() uint16
+	TLSRedirect() bool
 	TxAttemptLimit() uint16
 	KeysDir() string
 	tlsDir() string
