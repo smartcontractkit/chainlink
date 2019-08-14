@@ -69,7 +69,6 @@
     "react-static-plugin-jss": "^6.3.0",
     "react-static-plugin-react-router": "^6.3.4",
     "react-static-plugin-typescript": "^3.1.1",
-    "react-time-ago": "^3.0.3",
     "react-universal-component": "^3.0.0",
     "redux": "^4.0.0",
     "redux-logger": "^3.0.6",
