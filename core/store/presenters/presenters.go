@@ -148,6 +148,7 @@ type whitelist struct {
 	SessionTimeout           time.Duration   `json:"sessionTimeout"`
 	TLSHost                  string          `json:"chainlinkTLSHost"`
 	TLSPort                  uint16          `json:"chainlinkTLSPort"`
+	TLSRedirect              bool            `json:"chainlinkTLSRedirect"`
 	TxAttemptLimit           uint16          `json:"txAttemptLimit"`
 }
 
@@ -192,6 +193,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			SessionTimeout:           config.SessionTimeout(),
 			TLSHost:                  config.TLSHost(),
 			TLSPort:                  config.TLSPort(),
+			TLSRedirect:              config.TLSRedirect(),
 			TxAttemptLimit:           config.TxAttemptLimit(),
 		},
 	}, nil
