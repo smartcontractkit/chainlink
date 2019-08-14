@@ -60,7 +60,6 @@
     "eslint-plugin-promise": "^4.0.1",
     "eslint-plugin-react": "^7.12.4",
     "eslint-plugin-standard": "^4.0.0",
-    "javascript-time-ago": "^2.0.1",
     "jsbi": "^3.0.0",
     "json-api-normalizer": "^0.4.14",
     "module-to-cdn": "^3.1.2",
