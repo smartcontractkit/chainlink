@@ -4,7 +4,6 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -23,7 +22,7 @@ type ExternalInitiator struct {
 // NewExternalInitiator generates an ExternalInitiator from an
 // ExternalInitiatorAuthentication, hashing the password for storage
 func NewExternalInitiator(eia *ExternalInitiatorAuthentication) (*ExternalInitiator, error) {
-	salt := NewSecret()
+	salt := utils.NewSecret(48)
 	hashedSecret, err := HashedSecret(eia, salt)
 	if err != nil {
 		return nil, errors.Wrap(err, "error hashing secret for external initiator")
@@ -53,7 +52,7 @@ func AuthenticateExternalInitiator(eia *ExternalInitiatorAuthentication, ea *Ext
 func NewExternalInitiatorAuthentication() *ExternalInitiatorAuthentication {
 	return &ExternalInitiatorAuthentication{
 		AccessKey: utils.NewBytes32ID(),
-		Secret:    NewSecret(),
+		Secret:    utils.NewSecret(48),
 	}
 }
 
@@ -93,14 +92,4 @@ func (eia *ExternalInitiatorAuthentication) GetName() string {
 func (eia *ExternalInitiatorAuthentication) SetID(id string) error {
 	eia.AccessKey = id
 	return nil
-}
-
-// NewSecret returns a new secret for use for authenticating external initiators
-func NewSecret() string {
-	var characters = []rune("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	b := make([]rune, 64)
-	for i := range b {
-		b[i] = characters[rand.Intn(len(characters))]
-	}
-	return string(b)
 }
