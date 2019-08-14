@@ -38,17 +38,18 @@ type Multiply struct {
 //
 // For example, if input value is "99.994" and the adapter's "times" is
 // set to "100", the result's value will be "9999.4".
-func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	val := input.Result()
-	i, ok := (&big.Float{}).SetString(val.String())
+func (ma *Multiply) Perform(input models.JSON, result models.RunResult, _ *store.Store) models.RunResult {
+	prevResult := input.Get("result")
+
+	i, ok := (&big.Float{}).SetString(prevResult.String())
 	if !ok {
-		input.SetError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
-		return input
+		result.SetError(fmt.Errorf("cannot parse into big.Float: %v", prevResult.String()))
+		return result
 	}
 
 	if ma.Times != nil {
 		i.Mul(i, big.NewFloat(float64(*ma.Times)))
 	}
-	input.CompleteWithResult(i.String())
-	return input
+	result.CompleteWithResult(i.String())
+	return result
 }

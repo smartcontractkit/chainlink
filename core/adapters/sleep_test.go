@@ -18,6 +18,6 @@ func TestSleep_Perform(t *testing.T) {
 	err := json.Unmarshal([]byte(`{"until": 1332151919}`), &adapter)
 	assert.NoError(t, err)
 
-	result := adapter.Perform(models.RunResult{}, store)
+	result := adapter.Perform(models.JSON{}, models.RunResult{}, store)
 	assert.Equal(t, string(models.RunStatusPendingSleep), string(result.Status))
 }

@@ -18,7 +18,7 @@ func TestCreatingAdapterWithConfig(t *testing.T) {
 
 	task := models.TaskSpec{Type: adapters.TaskTypeNoOp}
 	adapter, err := adapters.For(task, store)
-	adapter.Perform(models.RunResult{}, nil)
+	adapter.Perform(models.JSON{}, models.RunResult{}, nil)
 	assert.NoError(t, err)
 }
 

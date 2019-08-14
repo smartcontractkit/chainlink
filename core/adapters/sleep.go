@@ -14,9 +14,9 @@ type Sleep struct {
 }
 
 // Perform returns the input RunResult after waiting for the specified Until parameter.
-func (adapter *Sleep) Perform(input models.RunResult, str *store.Store) models.RunResult {
-	input.Status = models.RunStatusPendingSleep
-	return input
+func (adapter *Sleep) Perform(_ models.JSON, result models.RunResult, str *store.Store) models.RunResult {
+	result.Status = models.RunStatusPendingSleep
+	return result
 }
 
 // Duration returns the amount of sleeping this task should be paused for.

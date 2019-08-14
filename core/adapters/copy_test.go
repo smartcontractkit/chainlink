@@ -45,9 +45,11 @@ func TestCopy_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := cltest.RunResultWithData(test.result)
+			input := cltest.JSONFromString(t, test.result)
+			result := models.RunResult{}
+
 			adapter := adapters.Copy{CopyPath: test.copyPath}
-			result := adapter.Perform(input, nil)
+			result = adapter.Perform(input, result, nil)
 			assert.Equal(t, test.wantData, result.Data.String())
 			assert.Equal(t, test.wantStatus, result.Status)
 

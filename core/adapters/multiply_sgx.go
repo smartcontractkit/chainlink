@@ -46,16 +46,16 @@ type Multiply struct {
 //
 // For example, if input value is "99.994" and the adapter's "times" is
 // set to "100", the result's value will be "9999.4".
-func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (ma *Multiply) Perform(input models.JSON, result models.RunResult, _ *store.Store) models.RunResult {
 	adapterJSON, err := json.Marshal(ma)
 	if err != nil {
-		input.SetError(err)
-		return input
+		result.SetError(err)
+		return result
 	}
 	inputJSON, err := json.Marshal(input)
 	if err != nil {
-		input.SetError(err)
-		return input
+		result.SetError(err)
+		return result
 	}
 
 	cAdapter := C.CString(string(adapterJSON))
@@ -70,12 +70,13 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	outputLenPtr := (*C.int)(unsafe.Pointer(&outputLen))
 
 	if _, err = C.multiply(cAdapter, cInput, output, bufferCapacity, outputLenPtr); err != nil {
-		input.SetError(fmt.Errorf("SGX multiply: %v", err))
-		return input
+		result.SetError(fmt.Errorf("SGX multiply: %v", err))
+		return result
 	}
 
 	sgxResult := C.GoStringN(output, outputLen)
-	var result models.RunResult
+	// var result models.RunResult
+	result = models.RunResult{}
 	if err := json.Unmarshal([]byte(sgxResult), &result); err != nil {
 		input.SetError(fmt.Errorf("unmarshaling SGX result: %v", err))
 		return input

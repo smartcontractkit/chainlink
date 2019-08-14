@@ -184,17 +184,9 @@ func (rm *jobRunner) workerCount() int {
 	return len(rm.workers)
 }
 
-func prepareTaskInput(run *models.JobRun, input models.JSON) (models.JSON, error) {
-	previousTaskRun := run.PreviousTaskRun()
-
-	var err error
-	if previousTaskRun != nil {
-		if input, err = previousTaskRun.Result.Data.Merge(input); err != nil {
-			return models.JSON{}, err
-		}
-	}
-
-	if input, err = run.Overrides.Data.Merge(input); err != nil {
+func prepareTaskInput(run *models.JobRun) (models.JSON, error) {
+	input, err := run.Overrides.Data.Merge(run.Result.Data)
+	if err != nil {
 		return models.JSON{}, err
 	}
 	return input, nil
@@ -217,14 +209,13 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 
 	logger.Infow(fmt.Sprintf("Processing task %s", taskCopy.Type), []interface{}{"task", currentTaskRun.ID}...)
 
-	data, err := prepareTaskInput(run, currentTaskRun.Result.Data)
+	input, err := prepareTaskInput(run)
 	if err != nil {
 		currentTaskRun.Result.SetError(err)
 		return currentTaskRun.Result
 	}
 
-	currentTaskRun.Result.Data = data
-	result := adapter.Perform(currentTaskRun.Result, store)
+	result := adapter.Perform(input, currentTaskRun.Result, store)
 
 	logger.Infow(fmt.Sprintf("Finished processing task %s", taskCopy.Type), []interface{}{
 		"task", currentTaskRun.ID,

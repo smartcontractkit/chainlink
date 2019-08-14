@@ -31,7 +31,7 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := test.adapter.Perform(models.RunResult{}, store)
+			result := test.adapter.Perform(models.JSON{}, models.RunResult{}, store)
 			assert.Equal(t, models.JSON{}, result.Data)
 			assert.True(t, result.HasError())
 		})
@@ -70,7 +70,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			input := cltest.RunResultWithResult("inputValue")
+			input := cltest.JSONWithResult(t, "inputValue")
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "GET", test.response,
 				func(header http.Header, body string) {
 					assert.Equal(t, ``, body)
@@ -87,7 +87,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 			}
 			assert.Equal(t, test.queryParams, hga.QueryParams)
 
-			result := hga.Perform(input, store)
+			result := hga.Perform(input, models.RunResult{}, store)
 
 			val, err := result.ResultString()
 			assert.NoError(t, err)
@@ -112,17 +112,17 @@ func TestHTTP_TooLarge(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.verb, func(t *testing.T) {
-			input := cltest.RunResultWithResult("inputValue")
+			input := cltest.JSONWithResult(t, "inputValue")
 			largePayload := "12"
 			mock, cleanup := cltest.NewHTTPMockServer(t, 200, test.verb, largePayload)
 			defer cleanup()
 
 			hga := test.factory(cltest.WebURL(t, mock.URL))
-			result := hga.Perform(input, store)
+			result := hga.Perform(input, models.RunResult{}, store)
 
 			assert.Equal(t, true, result.HasError())
 			assert.Equal(t, "HTTP request too large, must be less than 1 bytes", result.Error())
-			assert.Equal(t, "inputValue", result.Result().String())
+			assert.Equal(t, "", result.Result().String())
 		})
 	}
 }
@@ -158,7 +158,7 @@ func TestHttpPost_Perform(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			input := cltest.RunResultWithResult("inputVal")
+			input := cltest.JSONWithResult(t, "inputVal")
 			wantedBody := `{"result":"inputVal"}`
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
 				func(header http.Header, body string) {
@@ -176,7 +176,7 @@ func TestHttpPost_Perform(t *testing.T) {
 			}
 			assert.Equal(t, test.queryParams, hpa.QueryParams)
 
-			result := hpa.Perform(input, leanStore())
+			result := hpa.Perform(input, models.RunResult{}, leanStore())
 
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())

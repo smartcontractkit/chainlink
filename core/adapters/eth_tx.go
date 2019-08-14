@@ -37,24 +37,24 @@ type EthTx struct {
 // Perform creates the run result for the transaction if the existing run result
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
-func (etx *EthTx) Perform(input models.RunResult, store *strpkg.Store) models.RunResult {
+func (etx *EthTx) Perform(input models.JSON, result models.RunResult, store *strpkg.Store) models.RunResult {
 	if !store.TxManager.Connected() {
-		input.MarkPendingConnection()
-		return input
+		result.MarkPendingConnection()
+		return result
 	}
 
-	if !input.Status.PendingConfirmations() {
-		createTxRunResult(etx, &input, store)
-		return input
+	if !result.Status.PendingConfirmations() {
+		createTxRunResult(etx, input, &result, store)
+		return result
 	}
-	ensureTxRunResult(&input, store)
-	return input
+	ensureTxRunResult(&result, store)
+	return result
 }
 
 // getTxData returns the data to save against the callback encoded according to
 // the dataFormat parameter in the job spec
-func getTxData(e *EthTx, input *models.RunResult) ([]byte, error) {
-	result := input.Result()
+func getTxData(e *EthTx, input models.JSON) ([]byte, error) {
+	result := input.Get("result")
 	if e.DataFormat == "" {
 		return common.HexToHash(result.Str).Bytes(), nil
 	}
@@ -72,33 +72,34 @@ func getTxData(e *EthTx, input *models.RunResult) ([]byte, error) {
 
 func createTxRunResult(
 	e *EthTx,
-	input *models.RunResult,
+	input models.JSON,
+	result *models.RunResult,
 	store *strpkg.Store,
 ) {
 	value, err := getTxData(e, input)
 	if err != nil {
-		input.SetError(err)
+		result.SetError(err)
 		return
 	}
 
 	data := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, value)
 
 	tx, err := store.TxManager.CreateTxWithGas(
-		null.StringFrom(input.CachedJobRunID),
+		null.StringFrom(result.CachedJobRunID),
 		e.Address,
 		data,
 		e.GasPrice.ToInt(),
 		e.GasLimit,
 	)
 	if IsClientRetriable(err) {
-		input.MarkPendingConnection()
+		result.MarkPendingConnection()
 		return
 	} else if err != nil {
-		input.SetError(err)
+		result.SetError(err)
 		return
 	}
 
-	input.ApplyResult(tx.Hash.String())
+	result.ApplyResult(tx.Hash.String())
 
 	txAttempt := tx.Attempts[0]
 	logger.Debugw(
@@ -109,13 +110,13 @@ func createTxRunResult(
 
 	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
 	if IsClientRetriable(err) {
-		input.MarkPendingConnection()
+		result.MarkPendingConnection()
 		return
 	} else if IsClientEmptyError(err) {
-		input.MarkPendingConfirmations()
+		result.MarkPendingConfirmations()
 		return
 	} else if err != nil {
-		input.SetError(err)
+		result.SetError(err)
 		return
 	}
 
@@ -129,33 +130,33 @@ func createTxRunResult(
 	)
 
 	if state != strpkg.Safe {
-		input.MarkPendingConfirmations()
+		result.MarkPendingConfirmations()
 		return
 	}
 
-	addReceiptToResult(receipt, input)
+	addReceiptToResult(receipt, result)
 }
 
-func ensureTxRunResult(input *models.RunResult, str *strpkg.Store) {
-	val, err := input.ResultString()
+func ensureTxRunResult(result *models.RunResult, str *strpkg.Store) {
+	val, err := result.ResultString()
 	if err != nil {
-		input.SetError(err)
+		result.SetError(err)
 		return
 	}
 
 	hash := common.HexToHash(val)
 	if err != nil {
-		input.SetError(err)
+		result.SetError(err)
 		return
 	}
 
 	receipt, state, err := str.TxManager.BumpGasUntilSafe(hash)
 	if err != nil {
 		if IsClientEmptyError(err) {
-			input.MarkPendingConfirmations()
+			result.MarkPendingConfirmations()
 			return
 		} else if state == strpkg.Unknown {
-			input.SetError(err)
+			result.SetError(err)
 			return
 		}
 
@@ -164,41 +165,41 @@ func ensureTxRunResult(input *models.RunResult, str *strpkg.Store) {
 		logger.Warn("EthTx Adapter Perform Resuming: ", err)
 	}
 
-	recordLatestTxHash(receipt, input)
+	recordLatestTxHash(receipt, result)
 	if state != strpkg.Safe {
-		input.MarkPendingConfirmations()
+		result.MarkPendingConfirmations()
 		return
 	}
 
-	addReceiptToResult(receipt, input)
+	addReceiptToResult(receipt, result)
 }
 
 var zero = common.Hash{}
 
 // recordLatestTxHash adds the current tx hash to the run result
-func recordLatestTxHash(receipt *models.TxReceipt, in *models.RunResult) {
+func recordLatestTxHash(receipt *models.TxReceipt, result *models.RunResult) {
 	if receipt == nil || receipt.Unconfirmed() {
 		return
 	}
 	hex := receipt.Hash.String()
-	in.ApplyResult(hex)
-	in.Add("latestOutgoingTxHash", hex)
+	result.ApplyResult(hex)
+	result.Add("latestOutgoingTxHash", hex)
 }
 
-func addReceiptToResult(receipt *models.TxReceipt, in *models.RunResult) {
+func addReceiptToResult(receipt *models.TxReceipt, result *models.RunResult) {
 	receipts := []models.TxReceipt{}
 
-	if !in.Get("ethereumReceipts").IsArray() {
-		in.Add("ethereumReceipts", receipts)
+	if !result.Get("ethereumReceipts").IsArray() {
+		result.Add("ethereumReceipts", receipts)
 	}
 
-	if err := json.Unmarshal([]byte(in.Get("ethereumReceipts").String()), &receipts); err != nil {
+	if err := json.Unmarshal([]byte(result.Get("ethereumReceipts").String()), &receipts); err != nil {
 		logger.Error(fmt.Errorf("EthTx Adapter unmarshaling ethereum Receipts: %v", err))
 	}
 
 	receipts = append(receipts, *receipt)
-	in.Add("ethereumReceipts", receipts)
-	in.CompleteWithResult(receipt.Hash.String())
+	result.Add("ethereumReceipts", receipts)
+	result.CompleteWithResult(receipt.Hash.String())
 }
 
 // IsClientRetriable does its best effort to see if an error indicates one that

@@ -32,11 +32,9 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
 	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
 
-	input := models.RunResult{
-		Data:   cltest.JSONFromString(t, `{"result":"100"}`),
-		Status: models.RunStatusUnstarted,
-	}
-	ba.Perform(input, store)
+	input := cltest.JSONFromString(t, `{"result":"100"}`)
+	result := models.RunResult{Status: models.RunStatusUnstarted}
+	ba.Perform(input, result, store)
 
 	assert.Equal(t, `{"bodyParam":true,"result":"100"}`, data)
 	assert.Equal(t, "Bearer "+bt.OutgoingToken, token)
@@ -56,11 +54,10 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
 	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
 
-	input := models.RunResult{
-		Data:   cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`),
-		Status: models.RunStatusUnstarted,
-	}
-	result := ba.Perform(input, store)
+	input := cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`)
+	result := models.RunResult{Status: models.RunStatusUnstarted}
+
+	result = ba.Perform(input, result, store)
 	assert.NoError(t, result.GetError())
 	assert.Equal(t, "251990120", result.Data.Get("result").String())
 }
@@ -89,12 +86,10 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			ba := &adapters.Bridge{BridgeType: bt}
 
-			input := models.RunResult{
-				Data:   cltest.JSONFromString(t, `{"result":"100"}`),
-				Status: test.status,
-			}
+			input := cltest.JSONFromString(t, `{"result":"100"}`)
+			result := models.RunResult{Status: test.status}
 
-			result := ba.Perform(input, store)
+			result = ba.Perform(input, result, store)
 
 			assert.Equal(t, `{"result":"100"}`, result.Data.String())
 			assert.Equal(t, test.wantStatus, result.Status)
@@ -140,10 +135,11 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			eb := &adapters.Bridge{BridgeType: bt}
-			input := cltest.RunResultWithResult("lot 49")
-			input.CachedJobRunID = runID
 
-			result := eb.Perform(input, store)
+			input := cltest.JSONWithResult(t, "lot 49")
+			result := models.RunResult{CachedJobRunID: runID}
+
+			result = eb.Perform(input, result, store)
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, test.wantErrored, result.HasError())
@@ -153,8 +149,8 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 }
 
 func TestBridge_Perform_responseURL(t *testing.T) {
-	input := cltest.RunResultWithResult("lot 49")
-	input.CachedJobRunID = "1234"
+	input := cltest.JSONWithResult(t, "lot 49")
+	result := models.RunResult{CachedJobRunID: "1234"}
 
 	t.Parallel()
 	cases := []struct {
@@ -188,7 +184,7 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			eb := &adapters.Bridge{BridgeType: bt}
-			eb.Perform(input, store)
+			eb.Perform(input, result, store)
 		})
 	}
 }

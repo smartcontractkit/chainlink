@@ -12,14 +12,14 @@ import (
 type Random struct{}
 
 // Perform returns a random uint256 number in 0 | 2**256-1 range
-func (ra *Random) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (ra *Random) Perform(_ models.JSON, result models.RunResult, _ *store.Store) models.RunResult {
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
 	if err != nil {
-		input.SetError(err)
-		return input
+		result.SetError(err)
+		return result
 	}
 	ran := new(big.Int).SetBytes(b)
-	input.CompleteWithResult(ran.String())
-	return input
+	result.CompleteWithResult(ran.String())
+	return result
 }

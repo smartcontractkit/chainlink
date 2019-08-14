@@ -122,9 +122,16 @@ func (jr *JobRun) SetError(err error) {
 }
 
 // ApplyResult updates the JobRun's Result and Status
-func (jr *JobRun) ApplyResult(result RunResult) {
+func (jr *JobRun) ApplyResult(result RunResult) error {
+	// jr.Result = result
+	data, err := jr.Result.Data.Merge(result.Data)
+	if err != nil {
+		return err
+	}
 	jr.Result = result
+	jr.Result.Data = data // overwrite .Data with the merged results from all TaskRuns
 	jr.Status = result.Status
+	return nil
 }
 
 // SetFinishedAt sets the JobRun's finished at time to now.

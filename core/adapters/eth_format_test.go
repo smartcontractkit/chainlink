@@ -34,11 +34,10 @@ func TestEthBytes32_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			past := models.RunResult{
-				Data: cltest.JSONFromString(t, test.json),
-			}
+			input := cltest.JSONFromString(t, test.json)
+			result := models.RunResult{}
 			adapter := adapters.EthBytes32{}
-			result := adapter.Perform(past, nil)
+			result = adapter.Perform(input, result, nil)
 
 			val, err := result.ResultString()
 			assert.NoError(t, err)
@@ -78,10 +77,9 @@ func TestEthInt256_Perform(t *testing.T) {
 	adapter := adapters.EthInt256{}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			input := models.RunResult{
-				Data: cltest.JSONFromString(t, test.json),
-			}
-			result := adapter.Perform(input, nil)
+			input := cltest.JSONFromString(t, test.json)
+			result := models.RunResult{}
+			result = adapter.Perform(input, result, nil)
 
 			if test.errored {
 				assert.Error(t, result.GetError())
@@ -124,10 +122,9 @@ func TestEthUint256_Perform(t *testing.T) {
 	adapter := adapters.EthUint256{}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			input := models.RunResult{
-				Data: cltest.JSONFromString(t, test.json),
-			}
-			result := adapter.Perform(input, nil)
+			input := cltest.JSONFromString(t, test.json)
+			result := models.RunResult{}
+			result = adapter.Perform(input, result, nil)
 
 			if test.errored {
 				assert.Error(t, result.GetError())

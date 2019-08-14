@@ -17,14 +17,14 @@ type EthBool struct{}
 // For example, after converting the result false to hex encoded Ethereum
 // ABI, it would be:
 // "0x0000000000000000000000000000000000000000000000000000000000000000"
-func (*EthBool) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	r := input.Result()
-	if boolean(r.Type) {
-		input.CompleteWithResult(evmTrue)
-		return input
+func (*EthBool) Perform(input models.JSON, result models.RunResult, _ *store.Store) models.RunResult {
+	prevResult := input.Get("result")
+	if boolean(prevResult.Type) {
+		result.CompleteWithResult(evmTrue)
+		return result
 	}
-	input.CompleteWithResult(evmFalse)
-	return input
+	result.CompleteWithResult(evmFalse)
+	return result
 }
 
 func boolean(t gjson.Type) bool {

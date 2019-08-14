@@ -29,11 +29,10 @@ func TestEthBool_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			past := models.RunResult{
-				Data: cltest.JSONFromString(t, test.json),
-			}
+			input := cltest.JSONFromString(t, test.json)
+			result := models.RunResult{}
 			adapter := adapters.EthBool{}
-			result := adapter.Perform(past, nil)
+			result = adapter.Perform(input, result, nil)
 
 			val, err := result.ResultString()
 			assert.Equal(t, test.expected, val)

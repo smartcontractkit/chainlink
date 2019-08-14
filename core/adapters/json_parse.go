@@ -3,10 +3,13 @@ package adapters
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
 	simplejson "github.com/bitly/go-simplejson"
+	"github.com/tidwall/gjson"
+
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -30,26 +33,26 @@ type JSONParse struct {
 //   }
 //
 // Then ["0","last"] would be the path, and "111" would be the returned value
-func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	val, err := input.ResultString()
-	if err != nil {
-		input.SetError(err)
-		return input
+func (jpa *JSONParse) Perform(input models.JSON, result models.RunResult, _ *store.Store) models.RunResult {
+	prevResult := input.Get("result")
+	if prevResult.Type != gjson.String {
+		result.SetError(fmt.Errorf("non string result"))
+		return result
 	}
 
-	js, err := simplejson.NewJson([]byte(val))
+	js, err := simplejson.NewJson([]byte(prevResult.String()))
 	if err != nil {
-		input.SetError(err)
-		return input
+		result.SetError(err)
+		return result
 	}
 
 	last, err := dig(js, jpa.Path)
 	if err != nil {
-		return moldErrorOutput(js, jpa.Path, input)
+		return moldErrorOutput(js, jpa.Path, result)
 	}
 
-	input.CompleteWithResult(last.Interface())
-	return input
+	result.CompleteWithResult(last.Interface())
+	return result
 }
 
 func dig(js *simplejson.Json, path []string) (*simplejson.Json, error) {
@@ -69,13 +72,13 @@ func dig(js *simplejson.Json, path []string) (*simplejson.Json, error) {
 
 // only error if any keys prior to the last one in the path are nonexistent.
 // i.e. Path = ["errorIfNonExistent", "nullIfNonExistent"]
-func moldErrorOutput(js *simplejson.Json, path []string, input models.RunResult) models.RunResult {
+func moldErrorOutput(js *simplejson.Json, path []string, result models.RunResult) models.RunResult {
 	if _, err := getEarlyPath(js, path); err != nil {
-		input.SetError(err)
-		return input
+		result.SetError(err)
+		return result
 	}
-	input.CompleteWithResult(nil)
-	return input
+	result.CompleteWithResult(nil)
+	return result
 }
 
 func getEarlyPath(js *simplejson.Json, path []string) (*simplejson.Json, error) {

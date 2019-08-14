@@ -231,6 +231,13 @@ func JSONFromBytes(t testing.TB, body []byte) models.JSON {
 	return j
 }
 
+func JSONWithResult(t testing.TB, result string) models.JSON {
+	var data models.JSON
+	data, err := data.Add("result", result)
+	require.NoError(t, err)
+	return data
+}
+
 // MustJSONSet uses sjson.Set to set a path in a JSON string and returns the string
 // See https://github.com/tidwall/sjson
 func MustJSONSet(t *testing.T, json, path string, value interface{}) string {
