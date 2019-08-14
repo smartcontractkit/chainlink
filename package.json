@@ -9,7 +9,8 @@
     "integration",
     "styleguide",
     "examples/*",
-    "explorer/client"
+    "explorer/client",
+    "explorer"
   ],
   "scripts": {
     "lint:all": "yarn workspaces run lint",

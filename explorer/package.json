@@ -1,5 +1,5 @@
 {
-  "name": "explorer",
+  "name": "@chainlink/explorer",
   "private": true,
   "version": "0.0.0",
   "description": "LINK Explorer",
