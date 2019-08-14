@@ -11,7 +11,6 @@ import App from './App'
 
 promiseFinally.shim(Promise)
 
-window.JavascriptTimeAgo = JavascriptTimeAgo
 JavascriptTimeAgo.locale(en)
 moment.defaultFormat = 'YYYY-MM-DD h:mm:ss A'
 
