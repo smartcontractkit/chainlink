@@ -22,7 +22,7 @@
     "prop-types": "^15.6.2",
     "react": "^16.7.0",
     "react-dom": "^16.7.0",
-    "react-time-ago": "^3.0.3",
+    "react-time-ago": "^5.0.2",
     "storybook-addon-material-ui": "^0.9.0-alpha.16",
     "typescript": "^3.5.0"
   },

@@ -10838,10 +10838,12 @@ javascript-stringify@^2.0.0:
   resolved "https://registry.yarnpkg.com/javascript-stringify/-/javascript-stringify-2.0.0.tgz#ef750216ae66504ffd670b68c8b8aa07bdf7b588"
   integrity sha512-zzK8+ByrzvOL6N92hRewwUKL0wN0TOaIuUjX0Jj8lraxWvr5wHYs2YTjaj2lstF+8qMv5cmPPef47va8NT8lDw==
 
-javascript-time-ago@^1.0.34:
-  version "1.0.35"
-  resolved "https://registry.npmjs.org/javascript-time-ago/-/javascript-time-ago-1.0.35.tgz#737f12e8cfec3de660b91a64414b1ec23b8ecf04"
-  integrity sha512-iXkW8Q39iHJMLKqhEQw+So3PC6lZpd+ldedtqWL/lXW+pjn50eJm5R8boPgMmT0FGwSAtnhuPc/l8aGSRxiBDQ==
+javascript-time-ago@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.npmjs.org/javascript-time-ago/-/javascript-time-ago-2.0.1.tgz#11c85cac73f68eebf0256c9b1610e2ce2f429972"
+  integrity sha512-ec5m6x3eh2MloVvSd6Yy9ShqeQmWHl4GaKSZNF4UlRhqGMdxPtsAAjkhUmO/PHk7c13R8yfkSygNZkdi4QpBww==
+  dependencies:
+    relative-time-format "^0.1.3"
 
 jest-changed-files@^24.5.0:
   version "24.5.0"
@@ -14828,7 +14830,7 @@ promzard@^0.3.0:
   dependencies:
     read "1"
 
-prop-types@15.7.2, prop-types@^15.5.10, prop-types@^15.5.4, prop-types@^15.5.6, prop-types@^15.5.8, prop-types@^15.6.0, prop-types@^15.6.1, prop-types@^15.6.2, prop-types@^15.7.2:
+prop-types@15.7.2, prop-types@^15.5.10, prop-types@^15.5.4, prop-types@^15.5.8, prop-types@^15.6.0, prop-types@^15.6.1, prop-types@^15.6.2, prop-types@^15.7.2:
   version "15.7.2"
   resolved "https://registry.npmjs.org/prop-types/-/prop-types-15.7.2.tgz#52c41e75b8c87e72b9d9360e0206b99dcbffa6c5"
   integrity sha512-8QQikdH7//R2vurIJSutZ1smHYTcLpRWEOlHnzcWHmBYrOGUysKwSsrC89BCiFj3CbrfJ/nXFdJepOVrY1GCHQ==
@@ -15508,15 +15510,15 @@ react-resize-detector@^4.0.5:
     raf-schd "^4.0.0"
     resize-observer-polyfill "^1.5.1"
 
-react-responsive-ui@^0.14.71:
-  version "0.14.129"
-  resolved "https://registry.npmjs.org/react-responsive-ui/-/react-responsive-ui-0.14.129.tgz#5f4ff97c120514dd04e2e16bae3fe0dd10b604d1"
-  integrity sha512-w0SYYXxuzkHmMMNO7rwNTgJ1A83T1wOVlKHi+8mjgMZkdPf6fU5oBkXCAJIyl/odgduG0QVYIMY399Vhq8rFLg==
+react-responsive-ui@^0.14.131:
+  version "0.14.150"
+  resolved "https://registry.npmjs.org/react-responsive-ui/-/react-responsive-ui-0.14.150.tgz#ec7b6da8c4fe846116d29e4fb618394cba69957f"
+  integrity sha512-Q4LQi4T2gAP9v7EvUPaPriCq5+98nZI2afL7r4tSr9ivZ77xkwBxDrE6iYJEVvNWiPMsslagZMRkcpUPTM/u+g==
   dependencies:
     classnames "^2.2.5"
     create-react-context "^0.2.2"
     lodash "^4.17.4"
-    prop-types "^15.5.6"
+    prop-types "^15.7.2"
     react-create-ref "^1.0.1"
     react-day-picker "^7.2.4"
     react-lifecycles-compat "^3.0.2"
@@ -15687,14 +15689,14 @@ react-textarea-autosize@^7.1.0:
     "@babel/runtime" "^7.1.2"
     prop-types "^15.6.0"
 
-react-time-ago@^3.0.3:
-  version "3.0.4"
-  resolved "https://registry.npmjs.org/react-time-ago/-/react-time-ago-3.0.4.tgz#42abc2d83b1a8ef43616b8f9ab166d9a3994feb9"
-  integrity sha512-TeW4cKyT2ZOmUXF08XOuWPGXfT9d2UU8sh/ICIUrGG2uYRA5CMQ+2BUaky8ErwOJ9NYrT8BMUQiVLuUK8qelSg==
+react-time-ago@^5.0.2:
+  version "5.0.4"
+  resolved "https://registry.npmjs.org/react-time-ago/-/react-time-ago-5.0.4.tgz#318362ed676224ab5a29112d05a99d96abf857fa"
+  integrity sha512-F9qBrCLfs5ux/FSP6KPxEWtQWyXh/8d42funJdRSeMTF/FobcfGfkuoiPvnP/X4Kqt4vD6B7m2Fzz9m9cZiMWA==
   dependencies:
-    javascript-time-ago "^1.0.34"
+    javascript-time-ago "^2.0.1"
     prop-types "^15.6.0"
-    react-responsive-ui "^0.14.71"
+    react-responsive-ui "^0.14.131"
 
 react-transition-group@^2.2.1:
   version "2.7.1"
@@ -16145,6 +16147,11 @@ relateurl@0.2.x:
   version "0.2.7"
   resolved "https://registry.npmjs.org/relateurl/-/relateurl-0.2.7.tgz#54dbf377e51440aca90a4cd274600d3ff2d888a9"
   integrity sha1-VNvzd+UUQKypCkzSdGANP/LYiKk=
+
+relative-time-format@^0.1.3:
+  version "0.1.3"
+  resolved "https://registry.npmjs.org/relative-time-format/-/relative-time-format-0.1.3.tgz#d50f49d13f97c7f801afba600b1a4a0890755df2"
+  integrity sha512-0O6i4fKjsx8qhz57zorG+LrIDnF9pSvP5s7H9R1Nb5nSqih5dvRyKzNKs6MxhL3bv4iwsz4DuDwAyw+c47QFIA==
 
 remove-trailing-separator@^1.0.1:
   version "1.1.0"
