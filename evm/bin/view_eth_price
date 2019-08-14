@@ -11,7 +11,7 @@
   }
   const consumer = process.argv[2]
 
-    // Setup JSON RPC provider
+  // Setup JSON RPC provider
   const providerURL = process.env['ETH_HTTP_URL'] || 'http://localhost:18545'
   const provider = new ethers.providers.JsonRpcProvider(providerURL)
 
@@ -30,19 +30,4 @@
   } else {
     console.log(`No price listed`)
   }
-
-  // wallet.call({
-  //   to: consumer,
-  //   data: funcSelector,
-  //   gasPrice: 100000,
-  //   gas: 100000
-  // }).then(hex => {
-  //   const res = web3.utils.hexToUtf8(hex)
-  //   if (res.length) {
-  //     console.log(`current ETH price: ${res}`)
-  //   } else {
-  //     console.log(`No price listed`)
-  //   }
-  // }).catch(console.log)
-
 })()
