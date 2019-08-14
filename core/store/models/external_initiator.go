@@ -22,7 +22,7 @@ type ExternalInitiator struct {
 // NewExternalInitiator generates an ExternalInitiator from an
 // ExternalInitiatorAuthentication, hashing the password for storage
 func NewExternalInitiator(eia *ExternalInitiatorAuthentication) (*ExternalInitiator, error) {
-	salt := utils.NewSecret(64)
+	salt := utils.NewSecret(48)
 	hashedSecret, err := HashedSecret(eia, salt)
 	if err != nil {
 		return nil, errors.Wrap(err, "error hashing secret for external initiator")
@@ -52,7 +52,7 @@ func AuthenticateExternalInitiator(eia *ExternalInitiatorAuthentication, ea *Ext
 func NewExternalInitiatorAuthentication() *ExternalInitiatorAuthentication {
 	return &ExternalInitiatorAuthentication{
 		AccessKey: utils.NewBytes32ID(),
-		Secret:    utils.NewSecret(64),
+		Secret:    utils.NewSecret(48),
 	}
 }
 
