@@ -20,8 +20,10 @@
     "jest": "^24.7.0",
     "jest-silent-reporter": "^0.1.0",
     "jest-environment-enzyme": "^7.0.1",
+    "jest-silent-reporter": "^0.1.0",
     "link_token": "^1.0.3",
+    "puppeteer": "^1.10.0",
     "request-promise": "^4.2.4",
-    "puppeteer": "^1.10.0"
+    "truffle": "^5.0.25"
   }
 }
