@@ -1,6 +1,7 @@
 pragma solidity 0.5.0;
 
 import "./ChainlinkClient.sol";
+import "./LinkTokenReceiver.sol";
 import { Quickselect as Q } from "./Quickselect.sol";
 import { Ownable as Ownable_Chainlink } from "./vendor/Ownable.sol";
 import { SafeMath as SafeMath_Chainlink } from "./vendor/SafeMath.sol";
@@ -12,13 +13,10 @@ import { SignedSafeMath as SignedSafeMath_Chainlink } from "./vendor/SignedSafeM
  * @dev This contract accepts requests as service agreement IDs and loops over
  * the corresponding list of oracles to create distinct requests to each one.
  */
-contract PreCoordinator is ChainlinkClient, Ownable_Chainlink, ChainlinkRequestInterface {
+contract PreCoordinator is ChainlinkClient, Ownable_Chainlink, ChainlinkRequestInterface, LinkTokenReceiver {
   using SafeMath_Chainlink for uint256;
   using SignedSafeMath_Chainlink for int256;
 
-  uint256 constant private SELECTOR_LENGTH = 4;
-  uint256 constant private EXPECTED_REQUEST_WORDS = 2;
-  uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
   uint256 constant private MAX_ORACLE_COUNT = 45;
 
   uint256 private globalNonce;
@@ -140,35 +138,6 @@ contract PreCoordinator is ChainlinkClient, Ownable_Chainlink, ChainlinkRequestI
    */
   function getChainlinkToken() external view returns (address) {
     return chainlinkTokenAddress();
-  }
-
-  /**
-   * @notice Called when LINK is sent to the contract via `transferAndCall`
-   * @dev The data payload's first 2 words will be overwritten by the `_sender` and `_amount`
-   * values to ensure correctness. Calls oracleRequest.
-   * @param _sender Address of the sender
-   * @param _amount Amount of LINK sent (specified in wei)
-   * @param _data Payload of the transaction
-   */
-  function onTokenTransfer(
-    address _sender,
-    uint256 _amount,
-    bytes memory _data
-  )
-    public
-    onlyLINK
-    validRequestLength(_data)
-    permittedFunctionsForLINK(_data)
-  {
-    assembly {
-      // solhint-disable-next-line avoid-low-level-calls
-      mstore(add(_data, 36), _sender) // ensure correct sender is passed
-      // solhint-disable-next-line avoid-low-level-calls
-      mstore(add(_data, 68), _amount)    // ensure correct amount is passed
-    }
-    // solhint-disable-next-line avoid-low-level-calls
-    (bool success, ) = address(this).delegatecall(_data); // calls oracleRequest
-    require(success, "Unable to create request");
   }
 
   /**
@@ -316,42 +285,11 @@ contract PreCoordinator is ChainlinkClient, Ownable_Chainlink, ChainlinkRequestI
   }
 
   /**
-   * @dev Reverts if not sent from the LINK token
-   */
-  modifier onlyLINK() {
-    require(msg.sender == chainlinkTokenAddress(), "Must use LINK token");
-    _;
-  }
-
-  /**
-   * @dev Reverts if the given data does not begin with the `oracleRequest` function selector
-   * @param _data The data payload of the request
-   */
-  modifier permittedFunctionsForLINK(bytes memory _data) {
-    bytes4 funcSelector;
-    assembly {
-      // solhint-disable-next-line avoid-low-level-calls
-      funcSelector := mload(add(_data, 32))
-    }
-    require(funcSelector == this.oracleRequest.selector, "Must use whitelisted functions");
-    _;
-  }
-
-  /**
    * @dev Reverts if the callback address is the LINK token
    * @param _to The callback address
    */
   modifier checkCallbackAddress(address _to) {
     require(_to != chainlinkTokenAddress(), "Cannot callback to LINK");
-    _;
-  }
-
-  /**
-   * @dev Reverts if the given payload is less than needed to create a request
-   * @param _data The request payload
-   */
-  modifier validRequestLength(bytes memory _data) {
-    require(_data.length >= MINIMUM_REQUEST_LENGTH, "Invalid request length");
     _;
   }
 }
