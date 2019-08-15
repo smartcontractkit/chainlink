@@ -49,6 +49,7 @@ type ConfigSchema struct {
 	TLSHost                  string         `env:"CHAINLINK_TLS_HOST" `
 	TLSKeyPath               string         `env:"TLS_KEY_PATH" `
 	TLSPort                  uint16         `env:"CHAINLINK_TLS_PORT" default:"6689"`
+	TLSRedirect              bool           `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
 	TxAttemptLimit           uint16         `env:"CHAINLINK_TX_ATTEMPT_LIMIT" default:"10"`
 }
 
