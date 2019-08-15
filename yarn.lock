@@ -5134,10 +5134,10 @@ center-align@^0.1.1:
     align-text "^0.1.3"
     lazy-cache "^1.0.3"
 
-chainlink-test-helpers@^0.6.0-5:
-  version "0.6.0-5"
-  resolved "https://registry.npmjs.org/chainlink-test-helpers/-/chainlink-test-helpers-0.6.0-5.tgz#2f150c155e0f0ff76831eb029a86c093adb401ce"
-  integrity sha512-lZnkxajg0iy17k58sq4RijrrlyaCT6i+EavZaHJsQwCHWEsLYbGjj8fi0/VSd6Kw9EUnse+/f4Uv7+rvc6K9dw==
+chainlink-test-helpers@0.6.0-6:
+  version "0.6.0-6"
+  resolved "https://registry.npmjs.org/chainlink-test-helpers/-/chainlink-test-helpers-0.6.0-6.tgz#883ddc3a9fca3a5f839144e2006fa47a1073a6e6"
+  integrity sha512-X36iaG93fqHb9yULpnbiyZYzQWIe8uwgNBx7QAl+8iz88jjKBRByBFAIikLCcRJlTCWhIS3rz4v2PXjj4xF80w==
   dependencies:
     bn.js "^4.11.8"
     ethereumjs-abi "^0.6.6"
