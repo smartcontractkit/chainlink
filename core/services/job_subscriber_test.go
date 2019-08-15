@@ -22,6 +22,8 @@ func TestJobSubscriber_Connect_WithJobs(t *testing.T) {
 	store, el, cleanup := cltest.NewJobSubscriber(t)
 	defer cleanup()
 	eth := cltest.MockEthOnStore(t, store)
+	eth.Register("eth_getLogs", []models.Log{})
+	eth.Register("eth_getLogs", []models.Log{})
 
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
