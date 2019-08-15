@@ -32,7 +32,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"go.dedis.ch/kyber"
+	"go.dedis.ch/kyber/v3"
 )
 
 func bigFromHex(s string) *big.Int {
