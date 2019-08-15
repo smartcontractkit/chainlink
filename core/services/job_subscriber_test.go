@@ -162,49 +162,76 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 	}
 }
 
-func TestJobSubscriber_RemoveJob(t *testing.T) {
+func TestJobSubscriber_RemoveJob_RunLog(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		initType string
-	}{
-		{"ethlog"},
-		{"runlog"},
-	}
+	store, el, cleanup := cltest.NewJobSubscriber(t)
+	defer cleanup()
 
-	for _, test := range tests {
-		t.Run(test.initType, func(t *testing.T) {
-			store, el, cleanup := cltest.NewJobSubscriber(t)
-			defer cleanup()
+	eth := cltest.MockEthOnStore(t, store)
+	eth.Register("eth_getLogs", []models.Log{})
+	eth.Register("eth_chainId", store.Config.ChainID())
+	logChan := make(chan models.Log, 1)
+	eth.RegisterSubscription("logs", logChan)
 
-			eth := cltest.MockEthOnStore(t, store)
-			logChan := make(chan models.Log, 1)
-			eth.RegisterSubscription("logs", logChan)
+	addr := newAddr()
+	job := cltest.NewJob()
+	initr := models.Initiator{Type: "runlog"}
+	initr.Address = addr
+	job.Initiators = []models.Initiator{initr}
+	require.NoError(t, store.CreateJob(&job))
+	el.AddJob(job, cltest.Head(1))
+	require.Len(t, el.Jobs(), 1)
 
-			addr := newAddr()
-			job := cltest.NewJob()
-			initr := models.Initiator{Type: test.initType}
-			initr.Address = addr
-			job.Initiators = []models.Initiator{initr}
-			require.NoError(t, store.CreateJob(&job))
-			el.AddJob(job, cltest.Head(1))
-			require.Len(t, el.Jobs(), 1)
+	require.NoError(t, el.RemoveJob(job.ID))
+	require.Len(t, el.Jobs(), 0)
 
-			require.NoError(t, el.RemoveJob(job.ID))
-			require.Len(t, el.Jobs(), 0)
+	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{el})
+	require.NoError(t, ht.Start())
 
-			ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{el})
-			require.NoError(t, ht.Start())
+	// asserts that JobSubscriber unsubscribed the job specific channel
+	require.True(t, sendingOnClosedChannel(func() {
+		logChan <- models.Log{}
+	}))
 
-			// asserts that JobSubscriber unsubscribed the job specific channel
-			require.True(t, sendingOnClosedChannel(func() {
-				logChan <- models.Log{}
-			}))
+	cltest.WaitForRuns(t, job, store, 0)
+	eth.EventuallyAllCalled(t)
+}
 
-			cltest.WaitForRuns(t, job, store, 0)
-			eth.EventuallyAllCalled(t)
-		})
-	}
+func TestJobSubscriber_RemoveJob_EthLog(t *testing.T) {
+	t.Parallel()
+
+	store, el, cleanup := cltest.NewJobSubscriber(t)
+	defer cleanup()
+
+	eth := cltest.MockEthOnStore(t, store)
+	eth.Register("eth_getLogs", []models.Log{})
+	eth.Register("eth_chainId", store.Config.ChainID())
+	logChan := make(chan models.Log, 1)
+	eth.RegisterSubscription("logs", logChan)
+
+	addr := newAddr()
+	job := cltest.NewJob()
+	initr := models.Initiator{Type: "ethlog"}
+	initr.Address = addr
+	job.Initiators = []models.Initiator{initr}
+	require.NoError(t, store.CreateJob(&job))
+	el.AddJob(job, cltest.Head(1))
+	require.Len(t, el.Jobs(), 1)
+
+	require.NoError(t, el.RemoveJob(job.ID))
+	require.Len(t, el.Jobs(), 0)
+
+	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{el})
+	require.NoError(t, ht.Start())
+
+	// asserts that JobSubscriber unsubscribed the job specific channel
+	require.True(t, sendingOnClosedChannel(func() {
+		logChan <- models.Log{}
+	}))
+
+	cltest.WaitForRuns(t, job, store, 0)
+	eth.EventuallyAllCalled(t)
 }
 
 func sendingOnClosedChannel(callback func()) (rval bool) {
