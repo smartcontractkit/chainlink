@@ -1,6 +1,7 @@
 pragma solidity 0.5.0;
 
 import "./ChainlinkClient.sol";
+import { Quickselect as Q } from "./Quickselect.sol";
 import { Ownable as Ownable_Chainlink } from "./vendor/Ownable.sol";
 import { SafeMath as SafeMath_Chainlink } from "./vendor/SafeMath.sol";
 import { SignedSafeMath as SignedSafeMath_Chainlink } from "./vendor/SignedSafeMath.sol";
@@ -17,7 +18,6 @@ contract PreCoordinator is ChainlinkClient, Ownable_Chainlink, ChainlinkRequestI
 
   uint256 constant private SELECTOR_LENGTH = 4;
   uint256 constant private EXPECTED_REQUEST_WORDS = 2;
-  // solium-disable-next-line zeppelin/no-arithmetic-operations
   uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
   uint256 constant private MAX_ORACLE_COUNT = 45;
 
@@ -244,11 +244,11 @@ contract PreCoordinator is ChainlinkClient, Ownable_Chainlink, ChainlinkRequestI
     recordChainlinkFulfillment(_requestId)
     returns (bool)
   {
-    ServiceAgreement memory sa = serviceAgreements[serviceAgreementRequests[_requestId]];
+    uint256 minResponses = serviceAgreements[serviceAgreementRequests[_requestId]].minResponses;
     bytes32 cbRequestId = requests[_requestId];
     delete requests[_requestId];
     delete serviceAgreementRequests[_requestId];
-    if (requesters[cbRequestId].responses.push(_data) == sa.minResponses) {
+    if (requesters[cbRequestId].responses.push(_data) == minResponses) {
       Requester memory req = requesters[cbRequestId];
       delete requesters[cbRequestId];
       int256 result = getMedian(req.responses);
@@ -271,72 +271,12 @@ contract PreCoordinator is ChainlinkClient, Ownable_Chainlink, ChainlinkRequestI
     uint256 responseLength = _responses.length;
     uint256 middleIndex = responseLength.div(2);
     if (responseLength % 2 == 0) {
-      int256 median1 = quickselect(_responses, middleIndex);
-      int256 median2 = quickselect(_responses, middleIndex.add(1)); // quickselect is 1 indexed
+      int256 median1 = Q.quickselect(_responses, middleIndex);
+      int256 median2 = Q.quickselect(_responses, middleIndex.add(1)); // quickselect is 1 indexed
       result = median1.add(median2) / 2; // signed integers are not supported by SafeMath
     } else {
-      result = quickselect(_responses, middleIndex.add(1)); // quickselect is 1 indexed
+      result = Q.quickselect(_responses, middleIndex.add(1)); // quickselect is 1 indexed
     }
-  }
-
-  /**
-   * @dev Returns the kth value of the ordered array
-   * See: http://www.cs.yale.edu/homes/aspnes/pinewiki/QuickSelect.html
-   * @param _a The list of elements to pull from
-   * @param _k The index, 1 based, of the elements you want to pull from when ordered
-   */
-  function quickselect(int256[] memory _a, uint256 _k)
-    private
-    pure
-    returns (int256)
-  {
-    int256[] memory a = _a;
-    uint256 k = _k;
-    uint256 aLen = a.length;
-    int256[] memory a1 = new int256[](aLen);
-    int256[] memory a2 = new int256[](aLen);
-    uint256 a1Len;
-    uint256 a2Len;
-    int256 pivot;
-    uint256 i;
-
-    while (true) {
-      pivot = a[aLen.div(2)];
-      a1Len = 0;
-      a2Len = 0;
-      for (i = 0; i < aLen; i++) {
-        if (a[i] < pivot) {
-          a1[a1Len] = a[i];
-          a1Len++;
-        } else if (a[i] > pivot) {
-          a2[a2Len] = a[i];
-          a2Len++;
-        }
-      }
-      if (k <= a1Len) {
-        aLen = a1Len;
-        (a, a1) = swap(a, a1);
-      } else if (k > (aLen.sub(a2Len))) {
-        k = k.sub(aLen.sub(a2Len));
-        aLen = a2Len;
-        (a, a2) = swap(a, a2);
-      } else {
-        return pivot;
-      }
-    }
-  }
-
-  /**
-   * @dev Swaps the pointers to two uint256 arrays in memory
-   * @param _a The pointer to the first in memory array
-   * @param _b The pointer to the second in memory array
-   */
-  function swap(int256[] memory _a, int256[] memory _b)
-    private
-    pure
-    returns(int256[] memory, int256[] memory)
-  {
-    return (_b, _a);
   }
 
   /**
