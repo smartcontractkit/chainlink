@@ -324,6 +324,11 @@ func (c Config) TxAttemptLimit() uint16 {
 	return c.getWithFallback("TxAttemptLimit", parsePort).(uint16)
 }
 
+// TLSRedirect forces TLS redirect for unencrypted connections
+func (c Config) TLSRedirect() bool {
+	return c.viper.GetBool(EnvVarName("TLSRedirect"))
+}
+
 // KeysDir returns the path of the keys directory (used for keystore files).
 func (c Config) KeysDir() string {
 	return filepath.Join(c.RootDir(), "tempkeys")
