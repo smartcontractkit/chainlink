@@ -2,7 +2,7 @@ type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = {
   [K in Keys]: Required<Pick<T, K>>
 }[Keys]
 
-type Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never }
+type Without<T, U> = { [P in Exclude<keyof T, keyof U>]: never }
 
 type XOR<T, U> = (T | U) extends object
   ? (Without<T, U> & U) | (Without<U, T> & T)
@@ -13,17 +13,18 @@ declare module 'json-api-normalizer' {
     TData extends ResourceObject[] | ResourceObject =
       | ResourceObject[]
       | ResourceObject,
-    TError extends any[] = [],
-    TIncluded extends ResourceObject[] = [],
-    TMeta extends Record<string, any> = Record<string, any>
+    TError extends ErrorsObject[] = ErrorsObject[],
+    TIncluded extends (ResourceObject[]) | never = never,
+    TMeta extends Record<string, any> | never = never,
+    TLinks extends LinksObject | never = never
   > = XOR<
     {
       data: TData
       included?: TIncluded
-      links?: LinkObject
+      links: TLinks
     },
     { errors: TError }
-  > & { meta?: TMeta }
+  > & { meta: TMeta }
 
   /**
    * Where specified, a links member can be used to represent links. The value of each links
@@ -36,8 +37,7 @@ declare module 'json-api-normalizer' {
    *    - href: a string containing the link’s URL.
    *    - meta: a meta object containing non-standard meta-information about the link.
    */
-  type LinkObject = Record<string, string | LinkObject>
-
+  type LinksObject = Partial<Record<string, string | LinkObject>>
   export interface LinkObject<
     TLinkMeta extends Record<string, any> = Record<string, any>
   > {
@@ -46,10 +46,11 @@ declare module 'json-api-normalizer' {
   }
 
   export interface ErrorsObject<
-    TMeta extends Record<string, any> = Record<string, any>
+    TMeta extends Record<string, any> = Record<string, any>,
+    TLinks extends LinksObject = LinksObject
   > {
     id?: string
-    links?: LinksObject
+    links?: TLinks
     status?: string
     code?: string
     title?: string
@@ -124,10 +125,16 @@ declare module 'json-api-normalizer' {
    * Any pagination links in a relationship object MUST paginate the relationship data,
    * not the related resources.
    */
-  export type Relationship = RequireAtLeastOne<_Relationship>
-  export interface _Relationship<TMeta extends Record<string, any>> {
-    data?: JsonApiReference | JsonApiReference[]
-    links?: LinkObject
+  export type Relationship<
+    TMeta extends Record<string, any> = Record<string, any>,
+    TLinks extends LinksObject = LinksObject
+  > = RequireAtLeastOne<_Relationship<TMeta, TLinks>>
+  export interface _Relationship<
+    TMeta extends Record<string, any>,
+    TLinks extends LinksObject
+  > {
+    data?: JsonApiResponse | JsonApiResponse[]
+    links?: TLinks
     meta?: TMeta
   }
 
@@ -170,13 +177,14 @@ declare module 'json-api-normalizer' {
   export interface ResourceObject<
     TAttributes extends AttributesObject = AttributesObject,
     TRelationshipMeta extends Record<string, any> = Record<string, any>,
-    TMeta extends Record<string, any> = Record<string, any>
+    TMeta extends Record<string, any> = Record<string, any>,
+    TLinks extends LinksObject = LinksObject
   > {
     id: string
     type: string
     attributes?: TAttributes
     relationships?: Record<string, Relationship<TRelationshipMeta>>
-    links?: LinkObject
+    links?: TLinks
     meta?: TMeta
   }
 
@@ -194,11 +202,16 @@ declare module 'json-api-normalizer' {
   export default function normalize<
     TNormalized,
     TData extends ResourceObject[] | ResourceObject =
-      | ResourceObject
-      | ResourceObject[],
-    TIncluded extends ResourceObject[] = ResourceObject[],
-    TMeta extends Record<string, any> = Record<string, any>
-  >(json: JsonApiResponse<TData, TIncluded, TMeta>, opts?: Opts): TNormalized
+      | ResourceObject[]
+      | ResourceObject,
+    TError extends ErrorsObject[] = ErrorsObject[],
+    TIncluded extends (ResourceObject[]) | never = never,
+    TMeta extends Record<string, any> | never = never,
+    TLinks extends LinksObject | never = never
+  >(
+    json: JsonApiResponse<TData, TError, TIncluded, TMeta, TLinks>,
+    opts?: Opts
+  ): TNormalized
 
   interface Opts {
     camelizeKeys?: boolean
