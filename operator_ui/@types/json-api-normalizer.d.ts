@@ -175,17 +175,19 @@ declare module 'json-api-normalizer' {
    * - meta: a meta object containing non-standard meta-information about a resource that can not be represented as an attribute or relationship.
    */
   export interface ResourceObject<
-    TAttributes extends AttributesObject = AttributesObject,
-    TRelationshipMeta extends Record<string, any> = Record<string, any>,
-    TMeta extends Record<string, any> = Record<string, any>,
-    TLinks extends LinksObject = LinksObject
+    TAttributes extends AttributesObject | never = never,
+    TRelationships extends
+      | Record<string, Relationship<Record<string, any>>>
+      | never = never,
+    TMeta extends Record<string, any> | never = never,
+    TLinks extends LinksObject | never = never
   > {
     id: string
     type: string
-    attributes?: TAttributes
-    relationships?: Record<string, Relationship<TRelationshipMeta>>
-    links?: TLinks
-    meta?: TMeta
+    attributes: TAttributes
+    relationships: TRelationships
+    links: TLinks
+    meta: TMeta
   }
 
   // we cant infer TNormalized from the arguments
