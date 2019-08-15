@@ -1148,6 +1148,15 @@ func NewSession(optionalSessionID ...string) models.Session {
 	return session
 }
 
+func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalInitiator {
+	t.Helper()
+
+	var all []models.ExternalInitiator
+	err := store.ORM.DB.Find(&all).Error
+	require.NoError(t, err)
+	return all
+}
+
 func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {
 	t.Helper()
 
