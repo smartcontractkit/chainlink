@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"go.dedis.ch/kyber/util/random"
+	"go.dedis.ch/kyber/v3/util/random"
 )
 
 // q is the field characteristic (cardinality) of the secp256k1 base field. All

@@ -16,8 +16,8 @@ import (
 
 	secp256k1BTCD "github.com/btcsuite/btcd/btcec"
 
-	"go.dedis.ch/kyber"
-	"go.dedis.ch/kyber/util/random"
+	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/kyber/v3/util/random"
 )
 
 var GroupOrder = secp256k1BTCD.S256().N

@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"testing"
 
-	"go.dedis.ch/kyber/group/curve25519"
+	"go.dedis.ch/kyber/v3/group/curve25519"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

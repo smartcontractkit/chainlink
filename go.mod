@@ -10,7 +10,7 @@ require (
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/boj/redistore v0.0.0-20160128113310-fc113767cd6b // indirect
-	github.com/btcsuite/btcd v0.0.0-20190115013929-ed77733ec07d // indirect
+	github.com/btcsuite/btcd v0.0.0-20190115013929-ed77733ec07d
 	github.com/cespare/cp v1.1.1 // indirect
 	github.com/codegangsta/negroni v1.0.0 // indirect
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
@@ -61,6 +61,8 @@ require (
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
 	github.com/urfave/cli v1.21.0
 	github.com/willf/pad v0.0.0-20190207183901-eccfe5d84172
+	go.dedis.ch/fixbuf v1.0.3
+	go.dedis.ch/kyber/v3 v3.0.4
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
