@@ -177,8 +177,9 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	assert.Equal(t, int32(0), checker.OnNewHeadCount())
 
 	// trigger reconnect loop
-	firstConnection.Errors <- errors.New("Test error to force reconnect")
-	g.Consistently(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
+	subscription.Errors <- errors.New("Test error to force reconnect")
+	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
+	g.Consistently(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
 	assert.Equal(t, int32(1), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewHeadCount())
 
