@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/cryptotest"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/ethschnorr"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 
@@ -32,7 +32,7 @@ var dss []*DSS
 
 var msg *big.Int
 
-var randomStream = cltest.NewStream(&testing.T{}, 0)
+var randomStream = cryptotest.NewStream(&testing.T{}, 0)
 
 func init() {
 	partPubs = make([]kyber.Point, nbParticipants)
