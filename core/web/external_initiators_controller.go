@@ -15,6 +15,8 @@ type ExternalInitiatorsController struct {
 }
 
 // Create builds and saves a new service agreement record.
+//
+// TODO: Validate name does not already exist
 func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 	eir := &models.ExternalInitiatorRequest{}
 	if !eic.App.GetStore().Config.Dev() {
