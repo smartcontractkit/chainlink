@@ -18,7 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 
-	"go.dedis.ch/kyber"
+	"go.dedis.ch/kyber/v3"
 )
 
 var secp256k1Suite = secp256k1.NewBlakeKeccackSecp256k1()

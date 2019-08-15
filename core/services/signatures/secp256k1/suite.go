@@ -13,9 +13,9 @@ import (
 	"golang.org/x/crypto/sha3"
 
 	"go.dedis.ch/fixbuf"
-	"go.dedis.ch/kyber"
-	"go.dedis.ch/kyber/util/random"
-	"go.dedis.ch/kyber/xof/blake2xb"
+	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/kyber/v3/util/random"
+	"go.dedis.ch/kyber/v3/xof/blake2xb"
 )
 
 // SuiteSecp256k1 implements some basic functionalities such as Group, HashFactory,

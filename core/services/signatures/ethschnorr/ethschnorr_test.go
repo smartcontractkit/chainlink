@@ -12,8 +12,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"go.dedis.ch/kyber"
-	"go.dedis.ch/kyber/group/curve25519"
+	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/kyber/v3/group/curve25519"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
