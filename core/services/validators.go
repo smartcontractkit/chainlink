@@ -55,6 +55,25 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 	return fe.CoerceEmptyToNil()
 }
 
+// ValidateExternalInitiator ...
+func ValidateExternalInitiator(
+	eia *models.ExternalInitiatorAuthentication,
+	exi *models.ExternalInitiatorRequest,
+	store *store.Store,
+) error {
+	fe := models.NewJSONAPIErrors()
+	if len(exi.Name) < 1 {
+		fe.Add("No name specified")
+	}
+	if isURL := govalidator.IsURL(exi.URL.String()); !isURL {
+		fe.Add("Invalid URL format")
+	}
+	if _, err := store.FindExternalInitiatorByName(eia, exi.Name); err != nil {
+		// what to do here?
+	}
+	return fe.CoerceEmptyToNil()
+}
+
 // ValidateInitiator checks the Initiator for any application logic errors.
 func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 	switch strings.ToLower(i.Type) {

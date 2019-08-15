@@ -344,6 +344,17 @@ func (orm *ORM) FindExternalInitiator(eia *models.ExternalInitiatorAuthenticatio
 	return initiator, nil
 }
 
+// FindExternalInitiator finds an external initiator given an authentication request
+func (orm *ORM) FindExternalInitiatorByName(eia *models.ExternalInitiatorAuthentication, name string) (*models.ExternalInitiator, error) {
+	initiator := &models.ExternalInitiator{}
+	err := orm.DB.Where("access_key = ? && name = ?", eia.AccessKey, name).Find(initiator).Error
+	if err != nil {
+		return nil, errors.Wrap(err, "error finding external initiator")
+	}
+
+	return initiator, nil
+}
+
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
 func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error) {
 	var sa models.ServiceAgreement
