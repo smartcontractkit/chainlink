@@ -44,6 +44,7 @@ func TestJobSubscriber_reconnectLoop_Resubscribing(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	eth := cltest.MockEthOnStore(t, store)
+	eth.Register("eth_chainId", *cltest.Int(store.Config.ChainID()))
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
 	assert.Nil(t, store.CreateJob(&j1))
