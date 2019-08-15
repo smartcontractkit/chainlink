@@ -10,11 +10,13 @@ type XOR<T, U> = (T | U) extends object
 
 declare module 'json-api-normalizer' {
   export type JsonApiResponse<
-    TData extends ResourceObject[] | ResourceObject =
-      | ResourceObject[]
-      | ResourceObject,
+    TData extends
+      | ResourceObject<any, any, any, any>[]
+      | ResourceObject<any, any, any, any> =
+      | ResourceObject<any, any, any, any>[]
+      | ResourceObject<any, any, any, any>,
     TError extends ErrorsObject[] = ErrorsObject[],
-    TIncluded extends (ResourceObject[]) | never = never,
+    TIncluded extends (ResourceObject<any, any, any, any>[]) | never = never,
     TMeta extends Record<string, any> | never = never,
     TLinks extends LinksObject | never = never
   > = XOR<
@@ -203,11 +205,13 @@ declare module 'json-api-normalizer' {
    */
   export default function normalize<
     TNormalized,
-    TData extends ResourceObject[] | ResourceObject =
-      | ResourceObject[]
-      | ResourceObject,
+    TData extends
+      | ResourceObject<any, any, any, any>[]
+      | ResourceObject<any, any, any, any> =
+      | ResourceObject<any, any, any, any>[]
+      | ResourceObject<any, any, any, any>,
     TError extends ErrorsObject[] = ErrorsObject[],
-    TIncluded extends (ResourceObject[]) | never = never,
+    TIncluded extends (ResourceObject<any, any, any, any>[]) | never = never,
     TMeta extends Record<string, any> | never = never,
     TLinks extends LinksObject | never = never
   >(
