@@ -188,6 +188,49 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	}
 }
 
+func testClient_CreateExternalInitiator(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	client, _ := app.NewClientAndRenderer()
+
+	tests := []struct {
+		name    string
+		args    []string
+		errored bool
+	}{
+		{"no arguments", []string{}, true},
+		{"not enough arguments", []string{"bitcoin"}, true},
+		{"too many arguments", []string{"bitcoin", "https://valid.url", "extra arg"}, true},
+		{"invalid url", []string{"bitcoin", "not a url"}, true},
+		{"valid external initiator creation", []string{"bitcoin", "http://testing.com/external_initiators"}, false},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+
+			set := flag.NewFlagSet("create", 0)
+			assert.NoError(t, set.Parse(test.args))
+			c := cli.NewContext(nil, set, nil)
+
+			err := client.CreateExternalInitiator(c)
+			// TODO: Error
+			//parseResponse error: 500 Internal Server Error; table
+			//external_initiators has no column named created_at
+
+			cltest.AssertError(t, test.errored, err)
+			exis := cltest.AllExternalInitiators(t, app.Store)
+			if !test.errored {
+				assert.True(t, len(exis) > 0)
+			} else {
+				assert.Equal(t, 0, len(exis))
+			}
+		})
+	}
+}
+
 func TestClient_CreateJobSpec(t *testing.T) {
 	t.Parallel()
 
