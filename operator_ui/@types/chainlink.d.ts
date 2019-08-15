@@ -21,6 +21,18 @@ declare module 'gopkg.in/guregu/null.v3' {
   export type Time = string | null
 }
 
+declare module 'github.com/jinzhu/gorm' {
+  import * as time from 'time'
+
+  // FIXME -- needs camelCase
+  export interface Model {
+    ID: number
+    CreatedAt: time.Time
+    UpdatedAt: time.Time
+    DeletedAt: Pointer<time.Time>
+  }
+}
+
 declare module 'core/store/assets' {
   import * as big from 'math/big'
   //#region currencies.go
@@ -55,6 +67,7 @@ declare module 'github.com/ethereum/go-ethereum/common' {
 declare module 'core/store/models' {
   import * as assets from 'core/store/assets'
   import * as common from 'github.com/ethereum/go-ethereum/common'
+  import * as gorm from 'github.com/jinzhu/gorm'
   import * as clnull from 'github.com/smartcontractkit/chainlink/core/null'
   import * as nullable from 'gopkg.in/guregu/null.v3'
   import * as big from 'math/big'
@@ -168,7 +181,8 @@ declare module 'core/store/models' {
    * Type will be an adapter, and the Params will contain any
    * additional information that adapter would need to operate.
    */
-  export interface TaskSpec<T extends JSONValue = JSONValue> {
+  export interface TaskSpec<T extends JSONValue = JSONValue>
+    extends gorm.Model {
     type: TaskType
     confirmations: clnull.Uint32
     params: T
@@ -450,7 +464,7 @@ declare module 'core/store/models' {
   /**
    * ExternalInitiator represents a user that can initiate runs remotely
    */
-  export interface ExternalInitiator {
+  export interface ExternalInitiator extends gorm.Model {
     AccessKey: string
     Salt: string
     HashedSecret: string
