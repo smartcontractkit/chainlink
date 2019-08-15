@@ -15,13 +15,13 @@ import (
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/curve25519"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/cryptotest"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 )
 
 var numSignatures = 5
 
-var randomStream = cltest.NewStream(&testing.T{}, 0)
+var randomStream = cryptotest.NewStream(&testing.T{}, 0)
 
 var printTests = false
 

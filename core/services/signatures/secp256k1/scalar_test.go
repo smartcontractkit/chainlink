@@ -12,7 +12,7 @@ import (
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/curve25519"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/cryptotest"
 )
 
 var numScalarSamples = 10
@@ -32,7 +32,7 @@ func observedScalar(t *testing.T, s kyber.Scalar) {
 	observedScalars[scalar] = true
 }
 
-var randomStreamScalar = cltest.NewStream(&testing.T{}, 0)
+var randomStreamScalar = cryptotest.NewStream(&testing.T{}, 0)
 
 func TestScalar_SetAndEqual(t *testing.T) {
 	tests := []int64{5, 67108864, 67108865, 4294967295}

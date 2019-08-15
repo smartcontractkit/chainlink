@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/cryptotest"
 )
 
 var numPointSamples = 10
 
-var randomStreamPoint = cltest.NewStream(&testing.T{}, 0)
+var randomStreamPoint = cryptotest.NewStream(&testing.T{}, 0)
 
 func TestPoint_String(t *testing.T) {
 	require.Equal(t, newPoint().String(),
