@@ -10,7 +10,7 @@ interface IProps {
 const Logo = ({ className, width, height }: IProps) => {
   return (
     <a href="/" className={className}>
-      <img src={logo} width={width} height={height} />
+      <img src={logo} width={width} height={height} alt="Chainlink Explorer" />
     </a>
   )
 }
