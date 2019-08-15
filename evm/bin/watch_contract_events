@@ -1,38 +1,57 @@
 #!/usr/bin/env node
 
-const {deployer} = require('../app/env.js')
-
-if (process.argv.length < 4) {
-  console.error('Usage: ./watch_contract_events <solidity contract> <contract address>')
-  process.exit(1)
-}
-
-const contractPath = process.argv[2]
-const contractAddress = process.argv[3]
-
-const abort = (message) => {
-  return (error) => {
-    console.error(message)
-    console.error(error)
+(async () => {
+  // imports
+  const fs = require('fs')
+  const path = require('path')
+  const { exec } = require('child_process')
+  const sh = require("shelljs")
+  const ethers = require('ethers')
+  // const {deployer} = require('../app/env.js')
+  
+  // ensure correct CLI ussage
+  if (process.argv.length < 4) {
+    console.error('Usage: ./watch_contract_events <solidity contract> <contract address>')
     process.exit(1)
   }
-}
 
-const main = async () => {
-  const contract = await deployer.load(contractPath, contractAddress)
-    .catch(abort(`Error loading contract at address ${contractAddress}`))
+  const relativeFilePath = process.argv[2]
+  const contractAddress = process.argv[3]
+  const filePath = path.resolve(sh.pwd().stdout, relativeFilePath)
+  const evmDir = path.resolve(__dirname, "../")
+  const contractName = path.basename(filePath, ".sol")
+  const buildFile = path.join(evmDir, "build/contracts", `${contractName}.json`)
 
-  const events = contract.allEvents({fromBlock: 0, toBlock: 'latest'})
+  // ensure file exists
+  if (!fs.existsSync(filePath)) {
+    console.error(`cannot find contract ${filePath}`)
+    process.exit(1)
+  }
 
-  console.log(`Watching events at ${contractAddress}`)
-  events.watch((error, result) => {
-    console.log('Got event...')
-    if (error) {
-      console.error(error)
-    } else {
-      console.log(result)
-    }
+  // run truffle compile in /evm directory
+  console.log("compiling contracts...\n")
+  const child = exec(`cd ${evmDir} && yarn run truffle compile`)
+  child.stderr.on('data', console.log)
+  await new Promise(res => {
+    child.on('exit', status => {
+      status === 0 ? res() : exit(status)
+    })
   })
-}
 
-main()
+  // Setup JSON RPC provider
+  const providerURL = process.env['ETH_HTTP_URL'] || 'http://localhost:18545'
+  const provider = new ethers.providers.JsonRpcProvider(providerURL)
+
+  // setup deployer wallet
+  const privateKey =
+    process.env['PRIVATE_KEY'] ||
+    '4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb'
+  const wallet = new ethers.Wallet(privateKey, provider)
+
+  // watch events
+  console.log(`Watching events at ${contractAddress}`)
+  const { abi, bytecode } = require(buildFile)
+  const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet)
+  const contract = contractFactory.attach(contractAddress)
+  contract.on("*", console.log)
+})()
