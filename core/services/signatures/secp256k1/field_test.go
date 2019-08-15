@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/cryptotest"
 )
 
 var numFieldSamples = 10
@@ -27,7 +27,7 @@ func observedFieldElt(t *testing.T, s *fieldElt) {
 	observedFieldElts[data] = true
 }
 
-var randomStream = cltest.NewStream(&testing.T{}, 0)
+var randomStream = cryptotest.NewStream(&testing.T{}, 0)
 
 func TestField_SetIntAndEqual(t *testing.T) {
 	tests := []int64{5, 67108864, 67108865, 4294967295}
