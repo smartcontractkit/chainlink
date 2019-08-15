@@ -1,4 +1,4 @@
-import { Response, TODO } from 'api/'
+import { PaginatedResponse, Response, TODO } from 'api/'
 import * as models from 'core/store/models'
 
 /**
@@ -9,7 +9,7 @@ import * as models from 'core/store/models'
 export const getJobSpecs = (
   page: number,
   size: number
-): Response<models.JobSpec[]> => {
+): PaginatedResponse<models.JobSpec[]> => {
   return TODO(page, size)
 }
 
@@ -17,7 +17,9 @@ export const getJobSpecs = (
  * Get the most recent n job specs
  * @param n The number of job specs to fetch
  */
-export const getRecentJobSpecs = (n: number): Response<models.JobSpec[]> => {
+export const getRecentJobSpecs = (
+  n: number
+): PaginatedResponse<models.JobSpec[]> => {
   return TODO()
 }
 
@@ -25,6 +27,6 @@ export const getRecentJobSpecs = (n: number): Response<models.JobSpec[]> => {
  * Get the details of a single JobSpec by id
  * @param id The id of the JobSpec to obtain
  */
-export const getJobSpec = (id: string): Response<models.JobSpec[]> => {
+export const getJobSpec = (id: string): Response<models.JobSpec> => {
   return TODO(id)
 }
