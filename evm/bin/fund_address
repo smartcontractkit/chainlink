@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 (async () => {
   // imports
-  const ethers = require('ethers')
-  const { utils } = ethers
+  const { utils } = require('ethers')
+  const { wallet, provider, devnetMiner } = require('../chainlink.config')
 
   // ensure correct CLI ussage
   if (process.argv.length > 3) {
@@ -10,20 +10,8 @@
     process.exit(1)
   }
 
-  // Setup JSON RPC provider
-  const providerURL = process.env['ETH_HTTP_URL'] || 'http://localhost:18545'
-  const provider = new ethers.providers.JsonRpcProvider(providerURL)
-
-  // create default recipient
-  const privateKey =
-    process.env['PRIVATE_KEY'] ||
-    '4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb'
-  const wallet = new ethers.Wallet(privateKey) // TODO don't need to create a wallet, just go straight from pri k --> pub k
-  const defaultRecipient = wallet.address
-  const recipient = process.argv[2] || defaultRecipient
-
-  // setup devnet miner wallet
-  const devnetMiner = '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
+  // setup from wallet and to address
+  const recipient = process.argv[2] || wallet.address // default
   const devnetMinerWallet = provider.getSigner(devnetMiner)
 
   // send transaction
