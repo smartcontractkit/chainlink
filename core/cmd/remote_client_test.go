@@ -188,7 +188,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	}
 }
 
-func testClient_CreateExternalInitiator(t *testing.T) {
+func TestClient_CreateExternalInitiator(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
@@ -216,9 +216,6 @@ func testClient_CreateExternalInitiator(t *testing.T) {
 			c := cli.NewContext(nil, set, nil)
 
 			err := client.CreateExternalInitiator(c)
-			// TODO: Error
-			//parseResponse error: 500 Internal Server Error; table
-			//external_initiators has no column named created_at
 
 			cltest.AssertError(t, test.errored, err)
 			exis := cltest.AllExternalInitiators(t, app.Store)
