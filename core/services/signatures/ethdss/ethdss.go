@@ -22,8 +22,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/signatures/ethschnorr"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"go.dedis.ch/kyber"
-	"go.dedis.ch/kyber/share"
+	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/kyber/v3/share"
 )
 
 // Suite represents the functionalities needed by the dss package

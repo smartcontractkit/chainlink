@@ -17,8 +17,8 @@ import (
 
 	"golang.org/x/crypto/sha3"
 
-	"go.dedis.ch/kyber"
-	"go.dedis.ch/kyber/util/key"
+	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/kyber/v3/util/key"
 )
 
 // btcec's public interface uses this affine representation for points on the
