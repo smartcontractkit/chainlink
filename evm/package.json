@@ -15,6 +15,7 @@
     "solidity-cborutils": "^1.0.4"
   },
   "devDependencies": {
+    "shelljs": "^0.8.3",
     "truffle": "^5.0.25"
   },
   "files": [
