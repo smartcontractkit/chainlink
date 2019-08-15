@@ -28,7 +28,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	eth := app.MockEthClient(cltest.Strict)
-	eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/scheduler_job.json")
@@ -386,11 +386,7 @@ func TestIntegration_EndAt(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	eth := app.MockEthClient(cltest.Strict)
-<<<<<<< HEAD
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-=======
-	eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
->>>>>>> Mock eth_chainId in integration tests
 	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
 	client := app.NewHTTPClient()
@@ -419,11 +415,7 @@ func TestIntegration_StartAt(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	eth := app.MockEthClient(cltest.Strict)
-<<<<<<< HEAD
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-=======
-	eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
->>>>>>> Mock eth_chainId in integration tests
 	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
 	client := app.NewHTTPClient()
@@ -508,11 +500,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	eth := app.MockEthClient(cltest.Strict)
-<<<<<<< HEAD
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-=======
-	eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
->>>>>>> Mock eth_chainId in integration tests
 	bridgeURL := cltest.WebURL(t, "https://test.chain.link/always")
 	app.Store.Config.Set("BRIDGE_RESPONSE_URL", bridgeURL)
 	app.Start()
@@ -567,11 +555,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	eth := app.MockEthClient(cltest.Strict)
-<<<<<<< HEAD
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-=======
-	eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
->>>>>>> Mock eth_chainId in integration tests
 	app.Start()
 
 	bta := &models.BridgeTypeAuthentication{}
@@ -626,11 +610,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	eth.RegisterNewHead(1)
 	logs := make(chan models.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
-<<<<<<< HEAD
 		eth.Register("eth_chainId", app.Config.ChainID())
-=======
-		eth.Register("eth_chainId", *cltest.Int(app.Config.ChainID()))
->>>>>>> Mock eth_chainId in integration tests
 		eth.RegisterSubscription("logs", logs)
 	})
 
@@ -660,11 +640,7 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	eth := app.MockEthClient(cltest.Strict)
-<<<<<<< HEAD
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-=======
-	eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
->>>>>>> Mock eth_chainId in integration tests
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/int256_job.json")
@@ -680,11 +656,7 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	eth := app.MockEthClient(cltest.Strict)
-<<<<<<< HEAD
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-=======
-	eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
->>>>>>> Mock eth_chainId in integration tests
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/uint256_job.json")
@@ -791,11 +763,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 	eth := app.MockEthClient(cltest.Strict)
-<<<<<<< HEAD
 	eth.Register("eth_chainId", config.ChainID())
-=======
-	eth.Register("eth_chainId", *cltest.Int(config.ChainID()))
->>>>>>> Mock eth_chainId in integration tests
 
 	app.InstantClock()
 
@@ -826,11 +794,7 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	eth := app.MockEthClient(cltest.Strict)
-<<<<<<< HEAD
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-=======
-	eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
->>>>>>> Mock eth_chainId in integration tests
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/sleep_job.json")

@@ -570,8 +570,6 @@ func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
 
 	app.Start()
 
-	app.Start()
-
 	job := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
 	require.NoError(t, store.CreateJob(&job))
@@ -602,8 +600,6 @@ func TestExecuteJobWithRunRequest(t *testing.T) {
 	store := app.Store
 	eth := cltest.MockEthOnStore(t, store)
 	eth.Register("eth_chainId", store.Config.ChainID())
-
-	app.Start()
 
 	app.Start()
 
