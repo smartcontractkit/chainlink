@@ -127,6 +127,10 @@ func TestHTTP_TooLarge(t *testing.T) {
 	}
 }
 
+func stringRef(str string) *string {
+	return &str
+}
+
 func TestHttpPost_Perform(t *testing.T) {
 	t.Parallel()
 
@@ -134,35 +138,120 @@ func TestHttpPost_Perform(t *testing.T) {
 		name        string
 		status      int
 		want        string
+		wantBody    string
 		wantErrored bool
 		response    string
 		headers     http.Header
 		queryParams adapters.QueryParameters
+		body        *string
 	}{
-		{"success", 200, "results!", false, `results!`, nil, nil},
-		{"success but error in body", 200, `{"error": "results!"}`, false, `{"error": "results!"}`, nil, nil},
-		{"success with HTML", 200, `<html>results!</html>`, false, `<html>results!</html>`, nil, nil},
-		{"success with headers", 200, "results!", false, `results!`,
+		{
+			"success", 200, "results!",
+			`{"result":"inputVal"}`,
+			false,
+			`results!`,
+			nil,
+			nil,
+			nil,
+		},
+		{
+			"success but error in body",
+			200,
+			`{"error": "results!"}`,
+			`{"result":"inputVal"}`,
+			false,
+			`{"error": "results!"}`,
+			nil,
+			nil,
+			nil,
+		},
+		{
+			"success with HTML",
+			200,
+			`<html>results!</html>`,
+			`{"result":"inputVal"}`,
+			false,
+			`<html>results!</html>`,
+			nil,
+			nil,
+			nil,
+		},
+		{
+			"success with headers",
+			200, "results!", `{"result":"inputVal"}`, false, `results!`,
 			http.Header{
 				"Key1": []string{"value"},
 				"Key2": []string{"value", "value"},
-			}, nil},
-		{"not found", 400, "inputVal", true, `<html>so bad</html>`, nil, nil},
-		{"server error", 500, "inputVal", true, `big error`, nil, nil},
-		{"success with params", 200, "results!", false, `results!`, nil,
+			},
+			nil,
+			nil,
+		},
+		{
+			"not found",
+			400,
+			"inputVal",
+			`{"result":"inputVal"}`,
+			true,
+			`<html>so bad</html>`,
+			nil,
+			nil,
+			nil,
+		},
+		{
+			"server error",
+			500,
+			"inputVal",
+			`{"result":"inputVal"}`,
+			true,
+			`big error`,
+			nil,
+			nil,
+			nil,
+		},
+		{
+			"success with params",
+			200,
+			"results!",
+			`{"result":"inputVal"}`,
+			false,
+			`results!`,
+			nil,
 			adapters.QueryParameters{
 				"Key1": []string{"value"},
 				"Key2": []string{"value", "value"},
-			}},
+			},
+			nil,
+		},
+		{
+			"success with body",
+			200,
+			"results!",
+			`{"Key1":"value","Key2":"value"}`,
+			false,
+			`results!`,
+			nil,
+			nil,
+			stringRef(`{"Key1":"value","Key2":"value"}`),
+		},
+		{
+			"success with body",
+			200,
+			"results!",
+			"",
+			false,
+			`results!`,
+			nil,
+			nil,
+			stringRef(""),
+		},
 	}
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			input := cltest.RunResultWithResult("inputVal")
-			wantedBody := `{"result":"inputVal"}`
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
 				func(header http.Header, body string) {
-					assert.Equal(t, wantedBody, body)
+					assert.Equal(t, test.wantBody, body)
 					for key, values := range test.headers {
 						assert.Equal(t, values, header[key])
 					}
@@ -173,6 +262,7 @@ func TestHttpPost_Perform(t *testing.T) {
 				URL:         cltest.WebURL(t, mock.URL),
 				Headers:     test.headers,
 				QueryParams: test.queryParams,
+				Body:        test.body,
 			}
 			assert.Equal(t, test.queryParams, hpa.QueryParams)
 
