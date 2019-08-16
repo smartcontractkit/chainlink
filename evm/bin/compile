@@ -1,0 +1,56 @@
+#!/usr/bin/env node
+(async () => {
+  // imports
+  const fs = require('fs')
+  const path = require('path')
+  const { exec } = require('child_process')
+  const sh = require("shelljs")
+
+  // ensure correct CLI ussage
+  if (process.argv.length < 2) {
+    console.error('Usage: ./compile <solidity contract>')
+    process.exit(1)
+  }
+
+  const relativeFilePath = process.argv[2]
+  const filePath = path.resolve(sh.pwd().stdout, relativeFilePath)
+
+  // ensure contract exists
+  if (!fs.existsSync(filePath)) {
+    console.error(`cannot find contract: ${filePath}`)
+    process.exit(1)
+  }
+
+  // find truffle directory
+  const truffleDir = findTruffleDir(filePath)
+  if (!truffleDir) {
+    console.error(`could not find truffle config file for contract: ${filePath}`)
+    process.exit(1)
+  }
+
+  // run truffle compile in truffle directory
+  console.log("compiling contracts...\n")
+  const childProcess = exec(`cd ${truffleDir} && yarn run truffle compile`)
+  childProcess.stderr.on('data', console.error)
+  await new Promise(res => {
+    childProcess.on('exit', status => {
+      status === 0 ? res() : process.exit(status)
+    })
+  })
+
+  // helper functions to find truffle project responsible for compiling contract
+  function hasTruffleConfig(dir) {
+    return [ "truffle.js", "truffle-config.js" ].some(file => (
+      fs.existsSync(path.join(dir, file))
+    ))
+  }
+
+  function findTruffleDir(filePath) {
+    let dir = filePath
+    while(!hasTruffleConfig(dir)) {
+      if (path.basename === 'chainlink') return null // couldn't find truffle directory
+      dir = path.dirname(dir) // change to parent directory
+    }
+    return dir
+  }
+})()

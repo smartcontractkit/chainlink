@@ -1,75 +1,46 @@
 #!/usr/bin/env node
 (async () => {
   // imports
-  const fs = require('fs')
   const path = require('path')
   const { exec } = require('child_process')
-  const sh = require("shelljs")
-  const ethers = require("ethers")
+  const sh = require('shelljs')
+  const ethers = require('ethers')
   const { wallet } = require('../chainlink.config')
 
   // ensure correct CLI ussage
   if (process.argv.length < 3) {
-    exit('Usage: ./deployer <solidity contract> <constructor args...>')
+    console.error('Usage: ./deployer <solidity contract> <constructor args...>')
+    process.exit(1)
   }
 
+  // files & directories
   const relativeFilePath = process.argv[2]
   const args = process.argv.slice(3)
+  const compile = path.join(__dirname, 'compile')
   const filePath = path.resolve(sh.pwd().stdout, relativeFilePath)
-  const contractName = path.basename(filePath, ".sol")
+  const contractName = path.basename(filePath, '.sol')
+  const buildDir = filePath.match(/^.*(?=contracts)/)[0]
+  const buildFile = path.join(buildDir, 'build/contracts', `${contractName}.json`)
 
-  // ensure contract exists
-  if (!fs.existsSync(filePath)) {
-    exit(`cannot find contract: ${filePath}`)
-  }
-
-  // find truffle directory
-  const truffleDir = findTruffleDir(filePath)
-  if (!truffleDir) {
-    exit(`could not find truffle config file for contract: ${filePath}`)
-  }
-
-  // run truffle compile in truffle directory
-  console.log("compiling contracts...\n")
-  const child = exec(`cd ${truffleDir} && yarn run truffle compile`)
-  child.stderr.on('data', console.error)
+  // compile contract
+  const childProcess = exec(`${compile} ${relativeFilePath}`)
+  childProcess.stdout.on('data', console.log)
+  childProcess.stderr.on('data', console.error)
   await new Promise(res => {
-    child.on('exit', status => {
-      status === 0 ? res() : exit(status)
+    childProcess.on('exit', status => {
+      status === 0 ? res() : process.exit(status)
     })
   })
 
   // deploy
   console.log(`deploying ${contractName} contract...\n`)
-  const buildFile = path.join(truffleDir, "build/contracts", `${contractName}.json`)
   const { abi, bytecode } = require(buildFile)
   const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet)
   try {
     const contract = await contractFactory.deploy(...args)
     console.log(`${contractName} contract successfully deployed at: ${contract.address}`)
   } catch (error) {
-    exit(error.stack)
-  }
-
-  // helper functions to find truffle project responsible for compiling contract
-  function hasTruffleConfig(dir) {
-    return [ "truffle.js", "truffle-config.js" ].some(file => (
-      fs.existsSync(path.join(dir, file))
-    ))
-  }
-
-  function findTruffleDir(filePath) {
-    let dir = filePath
-    while(!hasTruffleConfig(dir)) {
-      if (path.basename === 'chainlink') return null // couldn't find truffle directory
-      dir = path.dirname(dir) // change to parent directory
-    }
-    return dir
-  }
-
-  // log error message and exit
-  function exit(errorMessage) {
-    console.error(errorMessage)
+    console.error(error.stack)
     process.exit(1)
   }
 })()
