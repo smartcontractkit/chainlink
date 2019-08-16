@@ -1,24 +1,22 @@
 pragma solidity 0.5.0;
 
+import "../ChainlinkClient.sol";
 
-import "../Chainlinked.sol";
-
-
-contract MaliciousConsumer is Chainlinked {
+contract MaliciousConsumer is ChainlinkClient {
   uint256 constant private ORACLE_PAYMENT = 1 * LINK;
   uint256 private expiration;
 
   constructor(address _link, address _oracle) public payable {
-    setLinkToken(_link);
-    setOracle(_oracle);
+    setChainlinkToken(_link);
+    setChainlinkOracle(_oracle);
   }
 
   function () external payable {} // solhint-disable-line no-empty-blocks
 
   function requestData(bytes32 _id, bytes memory _callbackFunc) public {
-    Chainlink.Request memory req = newRequest(_id, address(this), bytes4(keccak256(_callbackFunc)));
+    Chainlink.Request memory req = buildChainlinkRequest(_id, address(this), bytes4(keccak256(_callbackFunc)));
     expiration = now.add(5 minutes); // solhint-disable-line not-rely-on-time
-    chainlinkRequest(req, ORACLE_PAYMENT);
+    sendChainlinkRequest(req, ORACLE_PAYMENT);
   }
 
   function assertFail(bytes32, bytes32) public pure {
