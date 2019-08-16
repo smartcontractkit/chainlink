@@ -136,7 +136,7 @@ contract PreCoordinator is ChainlinkClient, Ownable_Chainlink, ChainlinkRequestI
    * @dev This is the public implementation for chainlinkTokenAddress, which is
    * an internal method of the ChainlinkClient contract
    */
-  function getChainlinkToken() external view returns (address) {
+  function getChainlinkToken() public view returns (address) {
     return chainlinkTokenAddress();
   }
 
