@@ -32,6 +32,12 @@
     })
   })
 
+  // ensure build exists
+  if (!fs.existsSync(buildFile)) {
+    console.error(`cannot find build: ${buildFile}`)
+    process.exit(1)
+  }
+
   // watch events
   console.log(`Watching events at ${contractAddress}`)
   const { abi, bytecode } = require(buildFile)
