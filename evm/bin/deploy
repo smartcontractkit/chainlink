@@ -1,63 +1,75 @@
 #!/usr/bin/env node
-
 (async () => {
   // imports
   const fs = require('fs')
   const path = require('path')
   const { exec } = require('child_process')
   const sh = require("shelljs")
-  const ethers = require('ethers')
+  const ethers = require("ethers")
+  const { wallet } = require('../chainlink.config')
 
   // ensure correct CLI ussage
   if (process.argv.length < 3) {
-    console.error('Usage: ./deployer <solidity contract> <constructor args...>')
-    process.exit(1)
+    exit('Usage: ./deployer <solidity contract> <constructor args...>')
   }
 
   const relativeFilePath = process.argv[2]
   const args = process.argv.slice(3)
   const filePath = path.resolve(sh.pwd().stdout, relativeFilePath)
-  const evmDir = path.resolve(__dirname, "../")
   const contractName = path.basename(filePath, ".sol")
-  const buildFile = path.join(evmDir, "build/contracts", `${contractName}.json`)
 
-  // ensure file exists
+  // ensure contract exists
   if (!fs.existsSync(filePath)) {
-    console.error(`cannot find contract ${filePath}`)
-    process.exit(1)
+    exit(`cannot find contract: ${filePath}`)
   }
 
-  // ensure yarn exists
+  // find truffle directory
+  const truffleDir = findTruffleDir(filePath)
+  if (!truffleDir) {
+    exit(`could not find truffle config file for contract: ${filePath}`)
+  }
 
-  // run truffle compile in /evm directory
+  // run truffle compile in truffle directory
   console.log("compiling contracts...\n")
-  const child = exec(`cd ${evmDir} && yarn run truffle compile`)
-  child.stderr.on('data', console.log)
+  const child = exec(`cd ${truffleDir} && yarn run truffle compile`)
+  child.stderr.on('data', console.error)
   await new Promise(res => {
     child.on('exit', status => {
       status === 0 ? res() : exit(status)
     })
   })
 
-  // Setup JSON RPC provider
-  const providerURL = process.env['ETH_HTTP_URL'] || 'http://localhost:18545'
-  const provider = new ethers.providers.JsonRpcProvider(providerURL)
-
-  // setup deployer wallet
-  const privateKey =
-    process.env['PRIVATE_KEY'] ||
-    '4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb'
-  const wallet = new ethers.Wallet(privateKey, provider)
-
   // deploy
   console.log(`deploying ${contractName} contract...\n`)
+  const buildFile = path.join(truffleDir, "build/contracts", `${contractName}.json`)
   const { abi, bytecode } = require(buildFile)
   const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet)
   try {
     const contract = await contractFactory.deploy(...args)
     console.log(`${contractName} contract successfully deployed at: ${contract.address}`)
   } catch (error) {
-    console.error(error.stack)
+    exit(error.stack)
+  }
+
+  // helper functions to find truffle project responsible for compiling contract
+  function hasTruffleConfig(dir) {
+    return [ "truffle.js", "truffle-config.js" ].some(file => (
+      fs.existsSync(path.join(dir, file))
+    ))
+  }
+
+  function findTruffleDir(filePath) {
+    let dir = filePath
+    while(!hasTruffleConfig(dir)) {
+      if (path.basename === 'chainlink') return null // couldn't find truffle directory
+      dir = path.dirname(dir) // change to parent directory
+    }
+    return dir
+  }
+
+  // log error message and exit
+  function exit(errorMessage) {
+    console.error(errorMessage)
     process.exit(1)
   }
 })()
