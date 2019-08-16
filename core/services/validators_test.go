@@ -142,6 +142,38 @@ func TestValidateAdapter(t *testing.T) {
 	}
 }
 
+func TestValidateExternalInitiator(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	// TODO: Need to validate when name already exists in store
+	tests := []struct {
+		name      string
+		input     string
+		wantError bool
+	}{
+		{"bitcoin", `{"name":"bitcoin","url":"https://test.url"}`, false},
+		{"missing name", `{"url":"https://test.url"}`, true},
+		{"missing url", `{"name":"bitcoin"}`, true},
+		{"bad url", `{"name":"bitcoin","url":"//test.url"}`, true},
+		{"invalid name characters", `{"name":"<invalid>","url":"https://test.url"}`, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var exa models.ExternalInitiatorAuthentication
+			var exr models.ExternalInitiatorRequest
+
+			assert.NoError(t, json.Unmarshal([]byte(test.input), &exr))
+			result := services.ValidateExternalInitiator(&exr, &exa, store)
+
+			cltest.AssertError(t, test.wantError, result)
+		})
+	}
+}
+
 func TestValidateInitiator(t *testing.T) {
 	t.Parallel()
 	startAt := time.Now()

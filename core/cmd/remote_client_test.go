@@ -228,7 +228,6 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 		name string
 		args []string
 	}{
-		//{"empty name", []string{"", "https://valid.url"}},
 		{"no arguments", []string{}},
 		{"not enough arguments", []string{"bitcoin"}},
 		{"too many arguments", []string{"bitcoin", "https://valid.url", "extra arg"}},
