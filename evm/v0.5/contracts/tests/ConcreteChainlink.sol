@@ -4,7 +4,7 @@ import "../Chainlink.sol";
 
 contract ConcreteChainlink {
   using Chainlink for Chainlink.Request;
-  using CBOR for Buffer.buffer;
+  using CBOR_Chainlink for Buffer_Chainlink.buffer;
 
   Chainlink.Request private req;
 

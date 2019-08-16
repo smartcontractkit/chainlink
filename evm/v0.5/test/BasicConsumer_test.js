@@ -5,8 +5,9 @@ const BasicConsumer = artifacts.require('BasicConsumer.sol')
 const Oracle = artifacts.require('Oracle.sol')
 
 contract('BasicConsumer', () => {
-  let specId = h.newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
-  let currency = 'USD'
+  const specId = h.newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
+  const currency = 'USD'
+  const payment = web3.utils.toWei('1')
   let link, oc, cc
 
   beforeEach(async () => {
@@ -24,7 +25,7 @@ contract('BasicConsumer', () => {
     context('without LINK', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await cc.requestEthereumPrice(currency)
+          await cc.requestEthereumPrice(currency, payment)
         })
       })
     })
@@ -35,7 +36,7 @@ contract('BasicConsumer', () => {
       })
 
       it('triggers a log event in the Oracle contract', async () => {
-        const tx = await cc.requestEthereumPrice(currency)
+        const tx = await cc.requestEthereumPrice(currency, payment)
         const log = tx.receipt.rawLogs[3]
         assert.equal(log.address.toLowerCase(), oc.address.toLowerCase())
 
@@ -54,7 +55,7 @@ contract('BasicConsumer', () => {
       })
 
       it('has a reasonable gas cost', async () => {
-        let tx = await cc.requestEthereumPrice(currency)
+        let tx = await cc.requestEthereumPrice(currency, payment)
         assert.isBelow(tx.receipt.gasUsed, 120000)
       })
     })
@@ -66,7 +67,7 @@ contract('BasicConsumer', () => {
 
     beforeEach(async () => {
       await link.transfer(cc.address, h.toWei('1', 'ether'))
-      const tx = await cc.requestEthereumPrice(currency)
+      const tx = await cc.requestEthereumPrice(currency, payment)
       request = h.decodeRunRequest(tx.receipt.rawLogs[3])
     })
 
@@ -136,7 +137,7 @@ contract('BasicConsumer', () => {
 
     beforeEach(async () => {
       await link.transfer(cc.address, depositAmount)
-      const tx = await cc.requestEthereumPrice(currency)
+      const tx = await cc.requestEthereumPrice(currency, payment)
       request = h.decodeRunRequest(tx.receipt.rawLogs[3])
     })
 
@@ -144,6 +145,7 @@ contract('BasicConsumer', () => {
       it('cant cancel the request', async () => {
         await h.assertActionThrows(async () => {
           await cc.cancelRequest(
+            oc.address,
             request.id,
             request.payment,
             request.callbackFunc,
@@ -159,6 +161,7 @@ contract('BasicConsumer', () => {
         await h.increaseTime5Minutes()
 
         await cc.cancelRequest(
+          oc.address,
           request.id,
           request.payment,
           request.callbackFunc,
