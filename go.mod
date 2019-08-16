@@ -31,7 +31,7 @@ require (
 	github.com/golang/mock v1.2.0
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/gorilla/securecookie v1.1.1
-	github.com/gorilla/sessions v1.1.3
+	github.com/gorilla/sessions v1.2.0
 	github.com/gorilla/websocket v1.4.0
 	github.com/jinzhu/gorm v1.9.10
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
