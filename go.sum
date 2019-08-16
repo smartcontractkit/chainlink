@@ -426,6 +426,8 @@ gopkg.in/go-playground/validator.v8 v8.18.2 h1:lFB4DoMU6B626w8ny76MV7VX6W2VHct2G
 gopkg.in/go-playground/validator.v8 v8.18.2/go.mod h1:RX2a/7Ha8BgOhfk7j780h4/u/RRjR0eouCJSH80/M2Y=
 gopkg.in/gormigrate.v1 v1.5.0 h1:M667uzFRcnBf5cNAcSyYyNdJTJ1KQnUTmc+mjCLfPfw=
 gopkg.in/gormigrate.v1 v1.5.0/go.mod h1:Lf00lQrHqfSYWiTtPcyQabsDdM6ejZaMgV0OU6JMSlw=
+gopkg.in/gormigrate.v1 v1.6.0 h1:XpYM6RHQPmzwY7Uyu+t+xxMXc86JYFJn4nEc9HzQjsI=
+gopkg.in/gormigrate.v1 v1.6.0/go.mod h1:Lf00lQrHqfSYWiTtPcyQabsDdM6ejZaMgV0OU6JMSlw=
 gopkg.in/guregu/null.v2 v2.1.2 h1:YOuepWdYqGnrenzPyMi+ybCjeDzjdazynbwsXXOk4i8=
 gopkg.in/guregu/null.v2 v2.1.2/go.mod h1:XORrx8tyS5ZDcyUboCIxQtta/Aujk/6pfWrn9Xe33mU=
 gopkg.in/guregu/null.v3 v3.4.0 h1:AOpMtZ85uElRhQjEDsFx21BkXqFPwA7uoJukd4KErIs=

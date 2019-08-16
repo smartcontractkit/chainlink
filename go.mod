@@ -67,7 +67,7 @@ require (
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2
-	gopkg.in/gormigrate.v1 v1.5.0
+	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v2 v2.1.2 // indirect
 	gopkg.in/guregu/null.v3 v3.4.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
