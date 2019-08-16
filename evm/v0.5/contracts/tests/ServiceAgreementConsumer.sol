@@ -1,4 +1,4 @@
-pragma solidity 0.4.24;
+pragma solidity 0.5.0;
 
 import "../Chainlinked.sol";
 
@@ -14,8 +14,8 @@ contract ServiceAgreementConsumer is Chainlinked {
     sAId = _sAId;
   }
 
-  function requestEthereumPrice(string _currency) public {
-    Chainlink.Request memory req = newRequest(sAId, this, this.fulfill.selector);
+  function requestEthereumPrice(string memory _currency) public {
+    Chainlink.Request memory req = newRequest(sAId, address(this), this.fulfill.selector);
     req.add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     req.add("path", _currency);
     chainlinkRequest(req, ORACLE_PAYMENT);
