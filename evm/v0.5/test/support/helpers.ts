@@ -256,13 +256,13 @@ export const decodeRunRequest = (log: any): any => {
 
   return {
     callbackAddr: Ox(callbackAddress),
-    callbackFunc: toHex(callbackFunc),
+    callbackFunc: callbackFunc,
     data: autoAddMapDelimiters(data),
     dataVersion: version,
-    expiration: toHex(expiration),
-    id: toHex(requestId),
+    expiration: expiration,
+    id: requestId,
     jobId: log.topics[1],
-    payment: toHex(payment),
+    payment: payment,
     requester: Ox(requester),
     topic: log.topics[0]
   }
@@ -722,4 +722,25 @@ export const cancelOracleRequest = async (
     request.expiration,
     options
   )
+}
+
+export const encodeUint256 = (int: number) => {
+  let zeros = '0000000000000000000000000000000000000000000000000000000000000000'
+  let payload = int.toString(16)
+  return (zeros + payload).slice(payload.length)
+}
+
+export const encodeInt256 = (int: number) => {
+  if (int >= 0) {
+    return encodeUint256(int)
+  } else {
+    let effs =
+      'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+    let maxUint256 = new BN('0x' + effs)
+    let payload = maxUint256
+      .plus(1)
+      .minus(Math.abs(int))
+      .toString(16)
+    return (effs + payload).slice(payload.length)
+  }
 }
