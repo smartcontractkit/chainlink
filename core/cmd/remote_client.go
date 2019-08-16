@@ -76,8 +76,8 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
 
 	var request models.ExternalInitiatorRequest
 	request.Name = c.Args().Get(0)
-	if url, err := models.NewWebURL(c.Args().Get(1)); err == nil {
-		request.URL = url
+	if url, err := url.ParseRequestURI(c.Args().Get(1)); err == nil {
+		request.URL = models.WebURL(*url)
 	} else {
 		return cli.errorOut(err)
 	}

@@ -1,6 +1,8 @@
 package migration1565877314
 
 import (
+	"net/url"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
@@ -18,12 +20,12 @@ type ExternalInitiator struct {
 
 // newExternalInitiator creates a new row, setting the Name to the AccessKey
 func newExternalInitiator(arg migration0.ExternalInitiator) ExternalInitiator {
-	url, _ := models.NewWebURL("https://unset.url")
+	url, _ := url.ParseRequestURI("https://unset.url")
 	return ExternalInitiator{
 		Model: arg.Model,
 
 		Name:         arg.AccessKey,
-		URL:          url,
+		URL:          models.WebURL(*url),
 		AccessKey:    arg.AccessKey,
 		Salt:         arg.Salt,
 		HashedSecret: arg.HashedSecret,
