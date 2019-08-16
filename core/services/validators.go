@@ -1,15 +1,16 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/asaskevich/govalidator"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 // ValidateJob checks the job and its associated Initiators and Tasks for any
@@ -57,19 +58,22 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 
 // ValidateExternalInitiator ...
 func ValidateExternalInitiator(
-	eia *models.ExternalInitiatorAuthentication,
 	exi *models.ExternalInitiatorRequest,
+	eia *models.ExternalInitiatorAuthentication,
 	store *store.Store,
 ) error {
 	fe := models.NewJSONAPIErrors()
-	if len(exi.Name) < 1 {
+	if len([]rune(exi.Name)) == 0 {
 		fe.Add("No name specified")
+	} else if isAlphaNum := govalidator.IsAlphanumeric(exi.Name); !isAlphaNum {
+		fe.Add("Name must be alphanumeric")
+	} else if _, err := store.FindExternalInitiatorByName(eia, exi.Name); err == nil {
+		fe.Add(fmt.Sprintf("Name %v already exists", exi.Name))
+	} else if err != orm.ErrorNotFound {
+		fe.Merge(err) // Is this correct?
 	}
 	if isURL := govalidator.IsURL(exi.URL.String()); !isURL {
 		fe.Add("Invalid URL format")
-	}
-	if _, err := store.FindExternalInitiatorByName(eia, exi.Name); err != nil {
-		// what to do here?
 	}
 	return fe.CoerceEmptyToNil()
 }

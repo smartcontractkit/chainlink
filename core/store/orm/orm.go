@@ -335,6 +335,7 @@ func (orm *ORM) DeleteExternalInitiator(accessKey string) error {
 
 // FindExternalInitiator finds an external initiator given an authentication request
 func (orm *ORM) FindExternalInitiator(eia *models.ExternalInitiatorAuthentication) (*models.ExternalInitiator, error) {
+	// Why does this not mirror FindBridge?
 	initiator := &models.ExternalInitiator{}
 	err := orm.DB.Where("access_key = ?", eia.AccessKey).Find(initiator).Error
 	if err != nil {
@@ -344,15 +345,10 @@ func (orm *ORM) FindExternalInitiator(eia *models.ExternalInitiatorAuthenticatio
 	return initiator, nil
 }
 
-// FindExternalInitiator finds an external initiator given an authentication request
-func (orm *ORM) FindExternalInitiatorByName(eia *models.ExternalInitiatorAuthentication, name string) (*models.ExternalInitiator, error) {
-	initiator := &models.ExternalInitiator{}
-	err := orm.DB.Where("access_key = ? && name = ?", eia.AccessKey, name).Find(initiator).Error
-	if err != nil {
-		return nil, errors.Wrap(err, "error finding external initiator")
-	}
-
-	return initiator, nil
+// FindExternalInitiatorByName finds an external initiator given an authentication request
+func (orm *ORM) FindExternalInitiatorByName(eia *models.ExternalInitiatorAuthentication, name string) (models.ExternalInitiator, error) {
+	var exi models.ExternalInitiator
+	return exi, orm.DB.First(&exi, "access_key = ? AND name = ?", eia.AccessKey, name).Error
 }
 
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
