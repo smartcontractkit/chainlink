@@ -28,7 +28,7 @@ require (
 	github.com/gobuffalo/packd v0.0.0-20181212173646-eca3b8fd6687 // indirect
 	github.com/gobuffalo/packr v1.21.0
 	github.com/gofrs/flock v0.7.1
-	github.com/golang/mock v1.2.0
+	github.com/golang/mock v1.3.1
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.1.3
