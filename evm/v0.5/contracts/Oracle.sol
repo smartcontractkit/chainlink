@@ -1,5 +1,6 @@
 pragma solidity ^0.5.0;
 
+import "./LinkTokenReceiver.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/OracleInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
@@ -10,7 +11,7 @@ import { SafeMath as SafeMath_Chainlink } from "./vendor/SafeMath.sol";
  * @title The Chainlink Oracle contract
  * @notice Node operators can deploy this contract to fulfill requests sent to them
  */
-contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable_Chainlink {
+contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable_Chainlink, LinkTokenReceiver {
   using SafeMath_Chainlink for uint256;
 
   uint256 constant public EXPIRY_TIME = 5 minutes;
@@ -18,9 +19,6 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable_Chainlink
   // We initialize fields to 1 instead of 0 so that the first invocation
   // does not cost more gas.
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
-  uint256 constant private SELECTOR_LENGTH = 4;
-  uint256 constant private EXPECTED_REQUEST_WORDS = 2;
-  uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
 
   LinkTokenInterface internal LinkToken;
   mapping(bytes32 => bytes32) private commitments;
@@ -50,33 +48,6 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable_Chainlink
    */
   constructor(address _link) public Ownable_Chainlink() {
     LinkToken = LinkTokenInterface(_link); // external but already deployed and unalterable
-  }
-
-  /**
-   * @notice Called when LINK is sent to the contract via `transferAndCall`
-   * @dev The data payload's first 2 words will be overwritten by the `_sender` and `_amount`
-   * values to ensure correctness. Calls oracleRequest.
-   * @param _sender Address of the sender
-   * @param _amount Amount of LINK sent (specified in wei)
-   * @param _data Payload of the transaction
-   */
-  function onTokenTransfer(
-    address _sender,
-    uint256 _amount,
-    bytes memory _data
-  )
-    public
-    onlyLINK
-    validRequestLength(_data)
-    permittedFunctionsForLINK(_data)
-  {
-    assembly { // solhint-disable-line no-inline-assembly
-      mstore(add(_data, 36), _sender) // ensure correct sender is passed
-      mstore(add(_data, 68), _amount) // ensure correct amount is passed
-    }
-    // solhint-disable-next-line avoid-low-level-calls
-    (bool success, ) = address(this).delegatecall(_data); // calls oracleRequest
-    require(success, "Unable to create request");
   }
 
   /**
@@ -252,6 +223,15 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable_Chainlink
     assert(LinkToken.transfer(msg.sender, _payment));
   }
 
+  /**
+   * @notice Returns the address of the LINK token
+   * @dev This is the public implementation for chainlinkTokenAddress, which is
+   * an internal method of the ChainlinkClient contract
+   */
+  function getChainlinkToken() public view returns (address) {
+    return address(LinkToken);
+  }
+
   // MODIFIERS
 
   /**
@@ -281,41 +261,11 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable_Chainlink
   }
 
   /**
-   * @dev Reverts if not sent from the LINK token
-   */
-  modifier onlyLINK() {
-    require(msg.sender == address(LinkToken), "Must use LINK token");
-    _;
-  }
-
-  /**
-   * @dev Reverts if the given data does not begin with the `oracleRequest` function selector
-   * @param _data The data payload of the request
-   */
-  modifier permittedFunctionsForLINK(bytes memory _data) {
-    bytes4 funcSelector;
-    assembly { // solhint-disable-line no-inline-assembly
-      funcSelector := mload(add(_data, 32))
-    }
-    require(funcSelector == this.oracleRequest.selector, "Must use whitelisted functions");
-    _;
-  }
-
-  /**
    * @dev Reverts if the callback address is the LINK token
    * @param _to The callback address
    */
   modifier checkCallbackAddress(address _to) {
     require(_to != address(LinkToken), "Cannot callback to LINK");
-    _;
-  }
-
-  /**
-   * @dev Reverts if the given payload is less than needed to create a request
-   * @param _data The request payload
-   */
-  modifier validRequestLength(bytes memory _data) {
-    require(_data.length >= MINIMUM_REQUEST_LENGTH, "Invalid request length");
     _;
   }
 

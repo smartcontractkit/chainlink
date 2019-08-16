@@ -1,10 +1,8 @@
 pragma solidity ^0.5.0;
 
-import "./ChainlinkClient.sol";
-import "./interfaces/ChainlinkRequestInterface.sol";
+contract LinkTokenReceiver {
 
-contract LinkTokenReceiver is ChainlinkClient, ChainlinkRequestInterface {
-
+  bytes4 constant private ORACLE_REQUEST_SELECTOR = 0x40429946;
   uint256 constant private SELECTOR_LENGTH = 4;
   uint256 constant private EXPECTED_REQUEST_WORDS = 2;
   uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
@@ -37,11 +35,13 @@ contract LinkTokenReceiver is ChainlinkClient, ChainlinkRequestInterface {
     require(success, "Unable to create request");
   }
 
+  function getChainlinkToken() public view returns (address);
+
   /**
    * @dev Reverts if not sent from the LINK token
    */
   modifier onlyLINK() {
-    require(msg.sender == chainlinkTokenAddress(), "Must use LINK token");
+    require(msg.sender == getChainlinkToken(), "Must use LINK token");
     _;
   }
 
@@ -55,7 +55,7 @@ contract LinkTokenReceiver is ChainlinkClient, ChainlinkRequestInterface {
       // solhint-disable-next-line avoid-low-level-calls
       funcSelector := mload(add(_data, 32))
     }
-    require(funcSelector == this.oracleRequest.selector, "Must use whitelisted functions");
+    require(funcSelector == ORACLE_REQUEST_SELECTOR, "Must use whitelisted functions");
     _;
   }
 
