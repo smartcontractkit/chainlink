@@ -166,15 +166,15 @@ contract PreCoordinator is ChainlinkClient, Ownable_Chainlink, ChainlinkRequestI
     onlyLINK
     checkCallbackAddress(_callbackAddress)
   {
-    ServiceAgreement memory sa = serviceAgreements[_saId];
+    uint256 totalPayment = serviceAgreements[_saId].totalPayment;
     // this revert message does not bubble up
-    require(_payment >= sa.totalPayment, "Insufficient payment");
+    require(_payment >= totalPayment, "Insufficient payment");
     bytes32 callbackRequestId = keccak256(abi.encodePacked(_sender, _nonce));
     requesters[callbackRequestId].callbackFunctionId = _callbackFunctionId;
     requesters[callbackRequestId].callbackAddress = _sender;
     createRequests(_saId, callbackRequestId, _data);
-    if (_payment > sa.totalPayment) {
-      uint256 overage = _payment.sub(sa.totalPayment);
+    if (_payment > totalPayment) {
+      uint256 overage = _payment.sub(totalPayment);
       LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
       assert(link.transfer(_sender, overage));
     }
