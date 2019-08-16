@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
@@ -41,7 +42,7 @@ func paginatedResponse(
 	count int,
 	err error,
 ) {
-	if err == orm.ErrorNotFound {
+	if errors.Cause(err) == orm.ErrorNotFound {
 		err = nil
 	}
 
