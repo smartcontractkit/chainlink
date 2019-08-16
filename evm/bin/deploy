@@ -27,6 +27,8 @@
     process.exit(1)
   }
 
+  // ensure yarn exists
+
   // run truffle compile in /evm directory
   console.log("compiling contracts...\n")
   const child = exec(`cd ${evmDir} && yarn run truffle compile`)
