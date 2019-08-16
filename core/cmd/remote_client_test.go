@@ -180,6 +180,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 			cltest.AssertError(t, test.errored, err)
 			jobs := cltest.AllJobs(t, app.Store)
 			if test.jobsCreated {
+				// wtf?
 				assert.True(t, len(jobs) > 0)
 			} else {
 				assert.Equal(t, 0, len(jobs))
@@ -191,39 +192,65 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 func TestClient_CreateExternalInitiator(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-	client, _ := app.NewClientAndRenderer()
-
 	tests := []struct {
-		name    string
-		args    []string
-		errored bool
+		name string
+		args []string
 	}{
-		{"no arguments", []string{}, true},
-		{"not enough arguments", []string{"bitcoin"}, true},
-		{"too many arguments", []string{"bitcoin", "https://valid.url", "extra arg"}, true},
-		{"invalid url", []string{"bitcoin", "not a url"}, true},
-		{"valid external initiator creation", []string{"bitcoin", "http://testing.com/external_initiators"}, false},
+		{"create external initiator", []string{"bitcoin", "http://testing.com/external_initiators"}},
+		{"create external initiator w/ query params", []string{"bitcoin", "http://testing.com/external_initiators?query=param"}},
 	}
 
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			app, cleanup := cltest.NewApplicationWithKey(t)
+			defer cleanup()
+
+			client, _ := app.NewClientAndRenderer()
 
 			set := flag.NewFlagSet("create", 0)
 			assert.NoError(t, set.Parse(test.args))
 			c := cli.NewContext(nil, set, nil)
 
 			err := client.CreateExternalInitiator(c)
+			assert.NoError(t, err)
 
-			cltest.AssertError(t, test.errored, err)
 			exis := cltest.AllExternalInitiators(t, app.Store)
-			if !test.errored {
-				assert.True(t, len(exis) > 0)
-			} else {
-				assert.Equal(t, 0, len(exis))
-			}
+			assert.Len(t, exis, 1)
+		})
+	}
+}
+
+func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"no arguments", []string{}},
+		{"not enough arguments", []string{"bitcoin"}},
+		{"too many arguments", []string{"bitcoin", "https://valid.url", "extra arg"}},
+		{"invalid url", []string{"bitcoin", "not a url"}},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			app, cleanup := cltest.NewApplicationWithKey(t)
+			defer cleanup()
+
+			client, _ := app.NewClientAndRenderer()
+
+			set := flag.NewFlagSet("create", 0)
+			assert.NoError(t, set.Parse(test.args))
+			c := cli.NewContext(nil, set, nil)
+
+			err := client.CreateExternalInitiator(c)
+			assert.Error(t, err)
+
+			exis := cltest.AllExternalInitiators(t, app.Store)
+			assert.Len(t, exis, 0)
 		})
 	}
 }
