@@ -32,6 +32,12 @@
     })
   })
 
+  // ensure build exists
+  if (!fs.existsSync(buildFile)) {
+    console.error(`cannot find build: ${buildFile}`)
+    process.exit(1)
+  }
+
   // deploy
   console.log(`deploying ${contractName} contract...\n`)
   const { abi, bytecode } = require(buildFile)
