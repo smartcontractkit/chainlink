@@ -1,6 +1,6 @@
 pragma solidity 0.5.0;
 
-import "../CBOR.sol";
+import "../vendor/CBOR.sol";
 
 library MaliciousChainlink {
   using CBOR for Buffer.buffer;

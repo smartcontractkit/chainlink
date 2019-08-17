@@ -2,6 +2,7 @@ pragma solidity 0.5.0;
 
 import "./MaliciousChainlink.sol";
 import "../ChainlinkClient.sol";
+import "../vendor/SafeMath.sol";
 
 contract MaliciousChainlinkClient is ChainlinkClient {
   using MaliciousChainlink for MaliciousChainlink.Request;
