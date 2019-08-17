@@ -298,7 +298,7 @@ contract('Coordinator', () => {
           )
 
           const mockRequestId = await mock.requestId.call()
-          assert.equal(request.id, mockRequestId)
+          assert.equal(h.toHex(request.id), mockRequestId)
 
           const currentValue = await mock.getBytes32.call()
           assert.equal('Hello World!', h.toUtf8(currentValue))

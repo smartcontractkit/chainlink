@@ -32,6 +32,7 @@ contract('OracleDev', () => {
       'currentRate',
       'fulfillOracleRequest',
       'getAuthorizationStatus',
+      'getChainlinkToken',
       'onTokenTransfer',
       'oracleRequest',
       'priceFeeds',
@@ -42,7 +43,6 @@ contract('OracleDev', () => {
       // Ownable methods:
       'isOwner',
       'owner',
-      'renounceOwnership',
       'transferOwnership'
     ])
   })
