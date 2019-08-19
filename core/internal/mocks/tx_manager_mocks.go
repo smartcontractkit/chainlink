@@ -188,10 +188,10 @@ func (mr *MockTxManagerMockRecorder) GetBlockByNumber(arg0 interface{}) *gomock.
 }
 
 // GetChainID mocks base method
-func (m *MockTxManager) GetChainID() (uint64, error) {
+func (m *MockTxManager) GetChainID() (*big.Int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetChainID")
-	ret0, _ := ret[0].(uint64)
+	ret0, _ := ret[0].(*big.Int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

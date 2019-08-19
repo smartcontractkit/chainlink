@@ -41,7 +41,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 
 	eth := app.MockEthClient()
 	eth.Register("eth_getTransactionCount", `0x1`)
-	eth.Register("eth_chainId", *cltest.Int(config.ChainID()))
+	eth.Register("eth_chainId", config.ChainID())
 
 	// Start RunNode in a goroutine, it will block until we resume the runner
 	go func() {

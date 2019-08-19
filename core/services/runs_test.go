@@ -555,8 +555,12 @@ func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	app.Start()
+
 	store := app.Store
+	eth := cltest.MockEthOnStore(t, store)
+	eth.Register("eth_chainId", store.Config.ChainID())
+
+	app.Start()
 
 	job := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
@@ -584,8 +588,12 @@ func TestExecuteJobWithRunRequest(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	app.Start()
+
 	store := app.Store
+	eth := cltest.MockEthOnStore(t, store)
+	eth.Register("eth_chainId", store.Config.ChainID())
+
+	app.Start()
 
 	job := cltest.NewJobWithRunLogInitiator()
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
