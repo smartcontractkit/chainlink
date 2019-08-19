@@ -47,6 +47,12 @@ SET
 		}
 
 		if err := tx.Exec(`
+ALTER TABLE link_earned DROP COLUMN "job_spec_id";
+	`).Error; err != nil {
+			return errors.Wrap(err, "failed to drop job_spec_id from link_earned")
+		}
+
+		if err := tx.Exec(`
 ALTER TABLE job_specs DROP COLUMN "id";
 ALTER TABLE job_specs RENAME COLUMN "id_uuid" TO "id";
 ALTER TABLE job_specs ADD CONSTRAINT "job_spec_pkey" PRIMARY KEY ("id");
