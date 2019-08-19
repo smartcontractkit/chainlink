@@ -1,34 +1,23 @@
 #!/usr/bin/env node
-(async () => {
-  // imports
-  const { utils } = require('ethers')
-  const { wallet, provider, devnetMiner } = require('../chainlink.config')
 
-  // ensure correct CLI ussage
-  if (process.argv.length > 3) {
-    console.error('Usage: ./fund_dev_wallet (optional address)')
-    process.exit(1)
-  }
+const {utils, wallet} = require('../app/env.js')
 
-  // setup from wallet and to address
-  const recipient = process.argv[2] || wallet.address // default
-  const devnetMinerWallet = provider.getSigner(devnetMiner)
+if (process.argv.length > 3) {
+  console.error('Usage: ./fund_dev_wallet (optional address)')
+  process.exit(1)
+}
 
-  // send transaction
-  const tx = {
-    to: recipient,
-    value: utils.bigNumberify(10).pow(21) // 10 ** 21
-  }
+let recipient = process.argv[2]
+const devnetMiner = '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
 
-  try {
-    // send tx
-    const txHash = (await devnetMinerWallet.sendTransaction(tx)).hash
-    // wait for tx to be mined
-    await provider.waitForTransaction(txHash)
-    // get tx receipt
-    const receipt = await provider.getTransactionReceipt(txHash)
-    console.log(receipt)
-  } catch (error) {
-    console.log(error)
-  }
-})()
+if (!recipient) {
+  recipient = wallet.address
+}
+
+utils.send({
+  to: recipient,
+  from: devnetMiner,
+  value: `0x${(10 ** 21).toString(16)}`
+}).then(txHash => {
+  return utils.getTxReceipt(txHash)
+}).then(console.log).catch(console.error)

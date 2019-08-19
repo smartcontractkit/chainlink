@@ -1,29 +1,26 @@
 #!/usr/bin/env node
-(async () => {
-  // imports
-  const { utils } = require('ethers')
-  const { provider } = require('../chainlink.config')
 
-  // ensure correct CLI ussage
-  if (process.argv.length < 2) {
-    console.error('Usage: ./view_eth_price <contract address>')
-    process.exit(1)
-  }
-  const consumer = process.argv[2]
+const {wallet, web3} = require('../app/env.js')
 
-  const funcSelector = '0x9d1b464a' // "currentPrice()"
+if (process.argv.length < 2) {
+  console.error('Usage: ./view_eth_price <contract address>')
+  process.exit(1)
+}
 
-  // make function call
-  const hexPrice = await provider.call({
-    data: funcSelector,
-    to: consumer,
-    gasPrice: 100000,
-    gas: 100000
-  })
-  const price = utils.toUtf8String(hexPrice)
-  if (price) {
-    console.log(`current ETH price: ${price}`)
+const consumer = process.argv[2]
+
+const funcSelector = '0x9d1b464a' // "currentPrice()"
+
+wallet.call({
+  to: consumer,
+  data: funcSelector,
+  gasPrice: 100000,
+  gas: 100000
+}).then(hex => {
+  const res = web3.utils.hexToUtf8(hex)
+  if (res.length) {
+    console.log(`current ETH price: ${res}`)
   } else {
     console.log(`No price listed`)
   }
-})()
+}).catch(console.log)

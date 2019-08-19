@@ -1,39 +1,26 @@
 #!/usr/bin/env node
-(async () => {
-  // imports
-  const { utils } = require('ethers')
-  const { wallet, provider } = require('../chainlink.config')
 
-  // ensure correct CLI ussage
-  if (process.argv.length < 3) {
-    console.error('Usage: ./transfer_token <token address> <recipient address>')
-    process.exit(1)
+const {abi, utils, wallet} = require('../app/env.js')
+
+if (process.argv.length < 3) {
+  console.error('Usage: ./transfer_token <token address> <recipient address>')
+  process.exit(1)
+}
+
+const tokenAddress = process.argv[2]
+const recipient = process.argv[3]
+
+const funcSelector = '0xa9059cbb' // "transfer(address,uint256)"
+const encoded = abi.rawEncode(['address', 'uint256'], [recipient, `0x${(10 ** 21).toString(16)}`])
+
+wallet.send({
+  to: tokenAddress,
+  data: (funcSelector + encoded.toString('hex'))
+}).then(utils.getTxReceipt).then(receipt => {
+  console.log(receipt)
+  if (receipt.logs.length) {
+    console.log(`1000 LINK successfully sent to ${recipient}`)
+  } else {
+    console.log('FAILED!!!')
   }
-  const tokenAddress = process.argv[2]
-  const recipient = process.argv[3]
-
-  // encode function call
-  const funcSelector = '0xa9059cbb' // "transfer(address,uint256)"
-  const numTokens = utils.bigNumberify(10).pow(21)
-  const encodedParams = utils.defaultAbiCoder.encode(['address', 'uint256'], [recipient, numTokens])
-  const data = utils.hexlify(utils.concat([funcSelector, encodedParams]))
-
-  // send transaction
-  const tx = {
-    data,
-    to: tokenAddress
-  }
-
-  try {
-    // send tx
-    const txHash = (await wallet.sendTransaction(tx)).hash
-    // wait for tx to be mined
-    await provider.waitForTransaction(txHash)
-    // get tx receipt
-    const receipt = await provider.getTransactionReceipt(txHash)
-    console.log(receipt)
-    console.log(`${numTokens} transfered from ${tokenAddress} to ${recipient}`)
-  } catch (error) {
-    console.log(error)
-  }
-})()
+})

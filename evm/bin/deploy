@@ -1,52 +1,20 @@
 #!/usr/bin/env node
-(async () => {
-  // imports
-  const path = require('path')
-  const { exec } = require('child_process')
-  const sh = require('shelljs')
-  const ethers = require('ethers')
-  const { wallet } = require('../chainlink.config')
 
-  // ensure correct CLI ussage
-  if (process.argv.length < 3) {
-    console.error('Usage: ./deployer <solidity contract> <constructor args...>')
-    process.exit(1)
+const {deployer} = require('../app/env.js')
+
+if (process.argv.length < 3) {
+  console.error('Usage: ./deployer <solidity contract> <constructor args...>')
+  process.exit(1)
+}
+
+const filePath = process.argv[2]
+const args = process.argv.slice(3)
+
+deployer.perform(filePath, ...args).then(contract => {
+  console.log(`${filePath} successfully deployed: ${contract.address}`)
+}).catch(error => {
+  console.error(`failed to deploy contract "${filePath}", error: ${error.message}`)
+  if (error.message.includes('insufficient funds')) {
+    console.log('use `fund_address` to credit your deployer address with funds before deploying a contract')
   }
-
-  // files & directories
-  const relativeFilePath = process.argv[2]
-  const args = process.argv.slice(3)
-  const compile = path.join(__dirname, 'compile')
-  const filePath = path.resolve(sh.pwd().stdout, relativeFilePath)
-  const contractName = path.basename(filePath, '.sol')
-  const buildDir = filePath.match(/^.*(?=contracts)/)[0]
-  const buildFile = path.join(buildDir, 'build/contracts', `${contractName}.json`)
-
-  // compile contract
-  const childProcess = exec(`${compile} ${relativeFilePath}`)
-  childProcess.stdout.on('data', console.log)
-  childProcess.stderr.on('data', console.error)
-  await new Promise(res => {
-    childProcess.on('exit', status => {
-      status === 0 ? res() : process.exit(status)
-    })
-  })
-
-  // ensure build exists
-  if (!fs.existsSync(buildFile)) {
-    console.error(`cannot find build: ${buildFile}`)
-    process.exit(1)
-  }
-
-  // deploy
-  console.log(`deploying ${contractName} contract...\n`)
-  const { abi, bytecode } = require(buildFile)
-  const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet)
-  try {
-    const contract = await contractFactory.deploy(...args)
-    console.log(`${contractName} contract successfully deployed at: ${contract.address}`)
-  } catch (error) {
-    console.error(error.stack)
-    process.exit(1)
-  }
-})()
+})
