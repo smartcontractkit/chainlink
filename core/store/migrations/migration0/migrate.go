@@ -109,13 +109,13 @@ type TaskRun struct {
 	CreatedAt            time.Time `gorm:"index"`
 }
 
-// Head is a capture of the model representing Head before migration1560881846
+// Head is a capture of the model before migration1560881846
 type Head struct {
 	HashRaw string `gorm:"primary_key;type:varchar;column:hash"`
 	Number  int64  `gorm:"index;type:bigint;not null"`
 }
 
-// RunRequest stores the fields used to initiate the parent job run.
+// RunRequest  is a capture of the model before migration1565139192
 type RunRequest struct {
 	ID        uint `gorm:"primary_key"`
 	RequestID *string
@@ -124,7 +124,7 @@ type RunRequest struct {
 	CreatedAt time.Time
 }
 
-// JobSpec is a capture of the model representing Head before migration1565139192
+// JobSpec is a capture of the model before migration1565139192
 type JobSpec struct {
 	ID        string    `gorm:"primary_key;not null"`
 	CreatedAt time.Time `gorm:"index"`
@@ -133,7 +133,7 @@ type JobSpec struct {
 	DeletedAt null.Time `gorm:"index"`
 }
 
-// JobRun is a capture of the model representing Head before migration1565210496
+// JobRun is a capture of the model before migration1565210496
 type JobRun struct {
 	ID             string `gorm:"primary_key;not null"`
 	JobSpecID      string `gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
@@ -150,7 +150,7 @@ type JobRun struct {
 	DeletedAt      null.Time `gorm:"index"`
 }
 
-// Initiator is a capture of the model representing Head before migration1565210496
+// Initiator is a capture of the model before migration1565210496
 type Initiator struct {
 	ID        uint      `gorm:"primary_key;auto_increment"`
 	JobSpecID string    `gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
@@ -159,7 +159,7 @@ type Initiator struct {
 	DeletedAt null.Time `gorm:"index"`
 }
 
-// ServiceAgreement is a capture of the model representing Head before migration1565291711
+// ServiceAgreement is a capture of the model before migration1565291711
 type ServiceAgreement struct {
 	ID          string    `gorm:"primary_key"`
 	CreatedAt   time.Time `gorm:"index"`
@@ -167,7 +167,7 @@ type ServiceAgreement struct {
 	JobSpecID   string `gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
 }
 
-// TaskSpec is a capture of the model representing Head before migration1565291711
+// TaskSpec is a capture of the model before migration1565291711
 type TaskSpec struct {
 	gorm.Model
 	JobSpecID     string `gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
