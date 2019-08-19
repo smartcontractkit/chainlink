@@ -255,7 +255,7 @@ func (i Initiator) IsLogInitiated() bool {
 // additional information that adapter would need to operate.
 type TaskSpec struct {
 	gorm.Model
-	JobSpecID     *ID           `json:"-" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+	JobSpecID     *ID           `json:"-"`
 	Type          TaskType      `json:"type" gorm:"index;not null"`
 	Confirmations clnull.Uint32 `json:"confirmations"`
 	Params        JSON          `json:"params" gorm:"type:text"`
