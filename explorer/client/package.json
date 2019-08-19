@@ -22,12 +22,12 @@
   "scripts": {
     "start": "cross-env PORT=3001 craco start",
     "build:clean": "rm -rf build",
+    "prebuild": "yarn install",
     "build": "craco build",
     "lint": "eslint . --color",
     "test": "react-scripts test",
     "test-ci": "CI=true react-scripts test",
-    "test-ci:silent": "yarn test-ci --silent",
-    "autoinstall": "md5sum -c .yarn.lock.md5 || yarn install && md5sum yarn.lock > .yarn.lock.md5"
+    "test-ci:silent": "yarn test-ci --silent"
   },
   "main": "app.js",
   "proxy": "http://localhost:8080",
