@@ -107,6 +107,15 @@ SET
 		}
 
 		if err := tx.Exec(`
+ALTER TABLE link_earned ADD COLUMN "job_run_id_uuid" uuid;
+UPDATE link_earned
+SET
+	"job_run_id_uuid" = CAST("job_run_id" as uuid);
+	`).Error; err != nil {
+			return errors.Wrap(err, "failed to add job_run_id_uuid on link_earned")
+		}
+
+		if err := tx.Exec(`
 ALTER TABLE job_runs DROP COLUMN "id";
 ALTER TABLE job_runs RENAME COLUMN "id_uuid" TO "id";
 ALTER TABLE job_runs ADD CONSTRAINT "job_run_pkey" PRIMARY KEY ("id");
@@ -121,6 +130,15 @@ ALTER TABLE task_runs RENAME COLUMN "job_run_id_uuid" TO "job_run_id";
 ALTER TABLE task_runs ADD CONSTRAINT "task_runs_job_run_id_fkey" FOREIGN KEY ("job_run_id") REFERENCES job_runs ("id");
 	`).Error; err != nil {
 			return errors.Wrap(err, "failed to update job_run_id id on task_runs")
+		}
+
+		if err := tx.Exec(`
+ALTER TABLE link_earned DROP COLUMN "job_run_id";
+ALTER TABLE link_earned RENAME COLUMN "job_run_id_uuid" TO "job_run_id";
+
+ALTER TABLE link_earned ADD CONSTRAINT "link_earned_job_run_id_fkey" FOREIGN KEY ("job_run_id") REFERENCES job_runs ("id");
+	`).Error; err != nil {
+			return errors.Wrap(err, "failed to update job_run_id id on link_earned")
 		}
 
 		if err := tx.Exec(`
