@@ -26,7 +26,7 @@ require (
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.4.0
 	github.com/gobuffalo/packd v0.0.0-20181212173646-eca3b8fd6687 // indirect
-	github.com/gobuffalo/packr v1.21.0
+	github.com/gobuffalo/packr v1.30.1
 	github.com/gofrs/flock v0.7.1
 	github.com/golang/mock v1.3.1
 	github.com/google/uuid v1.1.0 // indirect
