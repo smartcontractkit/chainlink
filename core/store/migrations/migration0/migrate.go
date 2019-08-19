@@ -1,6 +1,7 @@
 package migration0
 
 import (
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -41,7 +42,7 @@ func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&models.RunResult{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate RunResult")
 	}
-	if err := tx.AutoMigrate(&models.ServiceAgreement{}).Error; err != nil {
+	if err := tx.AutoMigrate(&ServiceAgreement{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate ServiceAgreement")
 	}
 	if err := tx.AutoMigrate(&models.Session{}).Error; err != nil {
@@ -53,7 +54,7 @@ func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&TaskRun{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate TaskRun")
 	}
-	if err := tx.AutoMigrate(&models.TaskSpec{}).Error; err != nil {
+	if err := tx.AutoMigrate(&TaskSpec{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate TaskSpec")
 	}
 	if err := tx.AutoMigrate(&TxAttempt{}).Error; err != nil {
@@ -156,4 +157,21 @@ type Initiator struct {
 	CreatedAt              time.Time `gorm:"index"`
 	models.InitiatorParams `json:"params,omitempty"`
 	DeletedAt              null.Time `json:"-" gorm:"index"`
+}
+
+// ServiceAgreement is a capture of the model representing Head before migration1565291711
+type ServiceAgreement struct {
+	ID          string    `json:"id" gorm:"primary_key"`
+	CreatedAt   time.Time `json:"createdAt" gorm:"index"`
+	RequestBody string    `json:"requestBody"`
+	JobSpecID   string    `json:"jobSpecId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
+}
+
+// TaskSpec is a capture of the model representing Head before migration1565291711
+type TaskSpec struct {
+	gorm.Model
+	JobSpecID     string  `json:"-" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+	Type          string  `json:"type" gorm:"index;not null"`
+	Confirmations big.Int `json:"confirmations"`
+	Params        string  `json:"params" gorm:"type:text"`
 }
