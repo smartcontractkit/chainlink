@@ -49,6 +49,7 @@ const TransactionsShow = universal(
   uniOpts
 )
 const Configuration = universal(import('./containers/Configuration'), uniOpts)
+const NotFound = universal(import('./containers/NotFound'), uniOpts)
 
 const styles = theme => {
   return {
@@ -205,6 +206,7 @@ class Private extends React.Component {
                   component={TransactionsShow}
                 />
                 <PrivateRoute exact path="/config" component={Configuration} />
+                <PrivateRoute component={NotFound} />
               </Switch>
             </div>
           </main>

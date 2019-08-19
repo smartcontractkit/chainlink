@@ -335,20 +335,28 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
 			}
 		}
 
-		if matchedBoxPath != "" {
-			file, err := box.Open(matchedBoxPath)
-			if err != nil {
-				if err == os.ErrNotExist {
-					c.AbortWithStatus(http.StatusNotFound)
-				} else {
-					err := fmt.Errorf("failed to open static file '%s': %+v", path, err)
-					logger.Error(err.Error())
-					jsonAPIError(c, http.StatusInternalServerError, err)
-				}
-				return
-			}
-			defer file.Close()
+		var is404 bool
+		if matchedBoxPath == "" {
+			matchedBoxPath = "404.html"
+			is404 = true
+		}
 
+		file, err := box.Open(matchedBoxPath)
+		if err != nil {
+			if err == os.ErrNotExist {
+				c.AbortWithStatus(http.StatusNotFound)
+			} else {
+				logger.Errorf("failed to open static file '%s': %+v", path, err)
+				c.AbortWithStatus(http.StatusInternalServerError)
+			}
+			return
+		}
+		defer file.Close()
+
+		if is404 {
+			c.Writer.WriteHeader(http.StatusNotFound)
+			io.Copy(c.Writer, file)
+		} else {
 			http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 		}
 	})
