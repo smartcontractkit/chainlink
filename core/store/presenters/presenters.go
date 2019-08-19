@@ -124,7 +124,7 @@ type ConfigWhitelist struct {
 type whitelist struct {
 	AllowOrigins             string          `json:"allowOrigins"`
 	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
-	ChainID                  uint64          `json:"ethChainId"`
+	ChainID                  *big.Int        `json:"ethChainId"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
 	Dev                      bool            `json:"chainlinkDev"`
 	DatabaseTimeout          time.Duration   `json:"databaseTimeout"`

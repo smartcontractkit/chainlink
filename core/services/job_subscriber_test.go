@@ -75,7 +75,6 @@ func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
 	defer cleanup()
 
 	eth := cltest.MockEthOnStore(t, store)
-	chainId := cltest.Int(store.Config.ChainID())
 	j1 := cltest.NewJobWithLogInitiator()
 	j2 := cltest.NewJobWithLogInitiator()
 	assert.Nil(t, store.CreateJob(&j1))
@@ -83,7 +82,7 @@ func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
 
 	eth.RegisterSubscription("logs")
 	eth.RegisterSubscription("logs")
-	eth.Register("eth_chainId", *chainId)
+	eth.Register("eth_chainId", store.Config.ChainID())
 
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{el})
 	assert.Nil(t, ht.Start())
@@ -122,6 +121,8 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 			defer cleanup()
 
 			eth := cltest.MockEthOnStore(t, store)
+			eth.Register("eth_getLogs", []models.Log{})
+			eth.Register("eth_chainId", store.Config.ChainID())
 			logChan := make(chan models.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 

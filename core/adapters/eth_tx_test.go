@@ -203,13 +203,12 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 	defer cleanup()
 	store := app.Store
 	config := store.Config
-	chainID := cltest.Int(config.ChainID())
 	ethMock := app.MockEthClient()
 
 	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	sentAt := uint64(23456)
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold()-1))
-	ethMock.Register("eth_chainId", *chainID)
+	ethMock.Register("eth_chainId", config.ChainID())
 
 	require.NoError(t, app.StartAndConnect())
 
@@ -282,7 +281,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	ethMock.Register("eth_call", "0x1")
 	ethMock.Register("eth_getBalance", "0x100")
 
-	ethMock.Register("eth_chainId", *cltest.Int(store.Config.ChainID()))
+	ethMock.Register("eth_chainId", store.Config.ChainID())
 	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	confirmedHash := cltest.NewHash()
 	receipt := models.TxReceipt{Hash: confirmedHash, BlockNumber: cltest.Int(sentAt)}
@@ -341,12 +340,11 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	sentAt := uint64(23456)
 
 	ethMock := app.MockEthClient()
-	chainID := cltest.Int(config.ChainID())
 	receipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
 	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmedAt))
-	ethMock.Register("eth_chainId", *chainID)
+	ethMock.Register("eth_chainId", config.ChainID())
 
 	require.NoError(t, app.StartAndConnect())
 
@@ -403,7 +401,7 @@ func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
 
 	store := app.Store
 	ethMock := app.MockEthClient()
-	ethMock.Register("eth_chainId", *cltest.Int(store.Config.ChainID()))
+	ethMock.Register("eth_chainId", store.Config.ChainID())
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
 	require.NoError(t, app.StartAndConnect())
 
@@ -427,9 +425,8 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *
 
 	store := app.Store
 	ethMock := app.MockEthClient(cltest.Strict)
-	chainID := cltest.Int(store.Config.ChainID())
 	ethMock.Register("eth_getTransactionCount", `0x17`)
-	ethMock.Register("eth_chainId", *chainID)
+	ethMock.Register("eth_chainId", store.Config.ChainID())
 	assert.Nil(t, app.Start())
 
 	require.NoError(t, app.WaitForConnection())
@@ -458,7 +455,7 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 	store := app.Store
 	ethMock := app.MockEthClient(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", `0x12`)
-	ethMock.Register("eth_chainId", *cltest.Int(store.Config.ChainID()))
+	ethMock.Register("eth_chainId", store.Config.ChainID())
 	assert.Nil(t, app.Start())
 
 	from := cltest.GetAccountAddress(t, store)
@@ -688,7 +685,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	store := app.Store
 	ethMock := app.MockEthClient(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", `0x1`)
-	ethMock.Register("eth_chainId", *cltest.Int(store.Config.ChainID()))
+	ethMock.Register("eth_chainId", store.Config.ChainID())
 
 	address := cltest.NewAddress()
 	fHash := models.HexToFunctionSelector("b3f98adc")
@@ -763,7 +760,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 	ethMock := app.MockEthClient(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", `0x1`)
 	ethMock.Register("eth_getTransactionCount", `0x2`)
-	ethMock.Register("eth_chainId", *cltest.Int(store.Config.ChainID()))
+	ethMock.Register("eth_chainId", store.Config.ChainID())
 	app.AddUnlockedKey()
 
 	addresses := cltest.GetAccountAddresses(store)
