@@ -1,47 +1,38 @@
 #!/usr/bin/env node
-(async () => {
-  // imports
-  const path = require('path')
-  const { exec } = require('child_process')
-  const sh = require('shelljs')
-  const ethers = require('ethers')
-  const { wallet } = require('../chainlink.config')
 
-  // ensure correct CLI ussage
-  if (process.argv.length < 4) {
-    console.error('Usage: ./watch_contract_events <solidity contract> <contract address>')
+const {deployer} = require('../app/env.js')
+
+if (process.argv.length < 4) {
+  console.error('Usage: ./watch_contract_events <solidity contract> <contract address>')
+  process.exit(1)
+}
+
+const contractPath = process.argv[2]
+const contractAddress = process.argv[3]
+
+const abort = (message) => {
+  return (error) => {
+    console.error(message)
+    console.error(error)
     process.exit(1)
   }
+}
 
-  // files & directories
-  const relativeFilePath = process.argv[2]
-  const contractAddress = process.argv[3]
-  const compile = path.join(__dirname, 'compile')
-  const filePath = path.resolve(sh.pwd().stdout, relativeFilePath)
-  const contractName = path.basename(filePath, '.sol')
-  const buildDir = filePath.match(/^.*(?=contracts)/)[0]
-  const buildFile = path.join(buildDir, 'build/contracts', `${contractName}.json`)
+const main = async () => {
+  const contract = await deployer.load(contractPath, contractAddress)
+    .catch(abort(`Error loading contract at address ${contractAddress}`))
 
-  // compile contract
-  const childProcess = exec(`${compile} ${relativeFilePath}`)
-  childProcess.stdout.on('data', console.log)
-  childProcess.stderr.on('data', console.error)
-  await new Promise(res => {
-    childProcess.on('exit', status => {
-      status === 0 ? res() : process.exit(status)
-    })
-  })
+  const events = contract.allEvents({fromBlock: 0, toBlock: 'latest'})
 
-  // ensure build exists
-  if (!fs.existsSync(buildFile)) {
-    console.error(`cannot find build: ${buildFile}`)
-    process.exit(1)
-  }
-
-  // watch events
   console.log(`Watching events at ${contractAddress}`)
-  const { abi, bytecode } = require(buildFile)
-  const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet)
-  const contract = contractFactory.attach(contractAddress)
-  contract.on('*', console.log)
-})()
+  events.watch((error, result) => {
+    console.log('Got event...')
+    if (error) {
+      console.error(error)
+    } else {
+      console.log(result)
+    }
+  })
+}
+
+main()

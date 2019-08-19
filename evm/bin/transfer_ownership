@@ -1,38 +1,26 @@
 #!/usr/bin/env node
-(async () => {
-  // imports
-  const { utils } = require('ethers')
-  const { wallet, provider } = require('../chainlink.config')
 
-  // ensure correct CLI ussage
-  if (process.argv.length < 3) {
-    console.error('Usage: ./transfer_owner <owned address> <recipient address>')
-    process.exit(1)
-  }
-  const owned = process.argv[2]
-  const recipient = process.argv[3]
+const {abi, utils, wallet} = require('../app/env.js')
 
-  // encode function call
-  const funcSelector = '0xf2fde38b' // "transferOwnership(address)"
-  const encodedParams = utils.defaultAbiCoder.encode(['address'], [recipient])
-  const data = utils.hexlify(utils.concat([funcSelector, encodedParams]))
+if (process.argv.length < 3) {
+  console.error('Usage: ./transfer_owner <owned address> <recipient address>')
+  process.exit(1)
+}
 
-  // send transaction
-  const tx = {
-    data,
-    to: owned
-  }
+const owned = process.argv[2]
+const recipient = process.argv[3]
 
-  try {
-    // send tx
-    const txHash = (await wallet.sendTransaction(tx)).hash
-    // wait for tx to be mined
-    await provider.waitForTransaction(txHash)
-    // get tx receipt
-    const receipt = await provider.getTransactionReceipt(txHash)
-    console.log(receipt)
+const funcSelector = '0xf2fde38b' // "transferOwnership(address)"
+const encoded = abi.rawEncode(['address'], [recipient])
+
+wallet.send({
+  to: owned,
+  data: (funcSelector + encoded.toString('hex'))
+}).then(utils.getTxReceipt).then(receipt => {
+  console.log(receipt)
+  if (receipt.logs.length) {
     console.log(`ownership of ${owned} transferred to ${recipient}`)
-  } catch (error) {
-    console.log(error)
+  } else {
+    console.log('FAILED!!!')
   }
-})()
+})
