@@ -152,11 +152,16 @@ type JobRun struct {
 
 // Initiator is a capture of the model before migration1565210496
 type Initiator struct {
-	ID        uint      `gorm:"primary_key;auto_increment"`
-	JobSpecID string    `gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
-	Type      string    `gorm:"index;not null"`
-	CreatedAt time.Time `gorm:"index"`
-	DeletedAt null.Time `gorm:"index"`
+	ID         uint      `gorm:"primary_key;auto_increment"`
+	JobSpecID  string    `gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+	Type       string    `gorm:"index;not null"`
+	CreatedAt  time.Time `gorm:"index"`
+	DeletedAt  null.Time `gorm:"index"`
+	Schedule   string
+	Time       time.Time
+	Ran        bool
+	Address    common.Address `gorm:"index"`
+	Requesters string         `gorm:"type:text"`
 }
 
 // ServiceAgreement is a capture of the model before migration1565291711
