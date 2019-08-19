@@ -335,8 +335,10 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
 			}
 		}
 
+		var is404 bool
 		if matchedBoxPath == "" {
 			matchedBoxPath = "404.html"
+			is404 = true
 		}
 
 		file, err := box.Open(matchedBoxPath)
@@ -351,7 +353,12 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
 		}
 		defer file.Close()
 
-		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
+		if is404 {
+			c.Writer.WriteHeader(http.StatusNotFound)
+			io.Copy(c.Writer, file)
+		} else {
+			http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
+		}
 	})
 }
 
