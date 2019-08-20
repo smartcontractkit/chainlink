@@ -15,7 +15,7 @@ import (
 type ConfigReader interface {
 	AllowOrigins() string
 	BridgeResponseURL() *url.URL
-	ChainID() uint64
+	ChainID() *big.Int
 	ClientNodeURL() string
 	DatabaseTimeout() time.Duration
 	DatabaseURL() string

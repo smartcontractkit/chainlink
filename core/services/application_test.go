@@ -24,6 +24,8 @@ func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 	defer cleanup()
 	app, appCleanUp := cltest.NewApplicationWithConfig(t, config)
 	defer appCleanUp()
+	eth := app.MockEthClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 
 	completed := abool.New()
 	app.Exiter = func(code int) {

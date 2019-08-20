@@ -15,7 +15,7 @@ import (
 type ConfigSchema struct {
 	AllowOrigins             string         `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
 	BridgeResponseURL        url.URL        `env:"BRIDGE_RESPONSE_URL"`
-	ChainID                  uint64         `env:"ETH_CHAIN_ID" default:"0"`
+	ChainID                  big.Int        `env:"ETH_CHAIN_ID" default:"0"`
 	ClientNodeURL            string         `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
 	DatabaseTimeout          time.Duration  `env:"DATABASE_TIMEOUT" default:"500ms"`
 	DatabaseURL              string         `env:"DATABASE_URL"`

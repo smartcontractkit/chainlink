@@ -523,7 +523,7 @@ func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func(),
 
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", nonce)
-		ethMock.Register("eth_chainId", *cltest.Int(config.ChainID()))
+		ethMock.Register("eth_chainId", config.ChainID())
 	})
 
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {

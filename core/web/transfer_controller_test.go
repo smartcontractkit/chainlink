@@ -26,7 +26,7 @@ func TestTransfersController_CreateSuccess(t *testing.T) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(0))
-		ethMock.Register("eth_chainId", *cltest.Int(config.ChainID()))
+		ethMock.Register("eth_chainId", config.ChainID())
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 	})
 
@@ -65,7 +65,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(0))
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-		ethMock.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
+		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 
 	client := app.NewHTTPClient()
@@ -103,7 +103,7 @@ func TestTransfersController_TransferError(t *testing.T) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(0))
-		ethMock.Register("eth_chainId", *cltest.Int(config.ChainID()))
+		ethMock.Register("eth_chainId", config.ChainID())
 		ethMock.RegisterError("eth_sendRawTransaction", "No dice")
 	})
 
@@ -139,7 +139,7 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
 		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(0))
-		ethMock.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
+		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 
 	client := app.NewHTTPClient()

@@ -106,8 +106,8 @@ func (c Config) BridgeResponseURL() *url.URL {
 }
 
 // ChainID represents the chain ID to use for transactions.
-func (c Config) ChainID() uint64 {
-	return c.viper.GetUint64(EnvVarName("ChainID"))
+func (c Config) ChainID() *big.Int {
+	return c.getWithFallback("ChainID", parseBigInt).(*big.Int)
 }
 
 // ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
