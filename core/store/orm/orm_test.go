@@ -226,11 +226,11 @@ func TestORM_LinkEarnedFor(t *testing.T) {
 	require.NoError(t, store.CreateJobRun(&jr2))
 	require.NoError(t, store.CreateJobRun(&jr3))
 
-	earning1 := cltest.FakeLinkEarned(job.ID, jr1.ID, assets.NewLink(2))
+	earning1 := cltest.FakeLinkEarned(&jr1, assets.NewLink(2))
 	require.NoError(t, store.AddLinkEarned(&earning1))
-	earning2 := cltest.FakeLinkEarned(job.ID, jr2.ID, assets.NewLink(3))
+	earning2 := cltest.FakeLinkEarned(&jr2, assets.NewLink(3))
 	require.NoError(t, store.AddLinkEarned(&earning2))
-	earning3 := cltest.FakeLinkEarned(job.ID, jr3.ID, assets.NewLink(5))
+	earning3 := cltest.FakeLinkEarned(&jr3, assets.NewLink(5))
 	require.NoError(t, store.AddLinkEarned(&earning3))
 
 	totalEarned, err := store.LinkEarnedFor(&job)
