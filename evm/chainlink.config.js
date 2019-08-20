@@ -9,7 +9,7 @@ const provider = new ethers.providers.JsonRpcProvider(providerURL)
 const wallet = new ethers.Wallet(privateKey, provider)
 
 module.exports = {
-  devnetMiner: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f',
+  devnetMiner: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f', // TODO - this doesn't need to be here
   privateKey,
   providerURL,
   provider,
