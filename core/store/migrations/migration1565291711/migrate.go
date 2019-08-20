@@ -149,6 +149,20 @@ ALTER TABLE task_runs RENAME COLUMN "id_uuid" TO "id";
 	`).Error; err != nil {
 			return errors.Wrap(err, "failed to update id on task_runs")
 		}
+	} else {
+		if err := tx.Exec(`
+CREATE TABLE IF NOT EXISTS "link_earned_new" (
+	"id" integer primary key autoincrement NOT NULL,
+	"job_run_id" varchar(36) REFERENCES job_runs(id) NOT NULL UNIQUE,
+	"earned" varchar(255),
+	"earned_at" datetime
+);
+INSERT INTO "link_earned_new" SELECT "id", "job_run_id", "earned", "earned_at" FROM "link_earned";
+DROP TABLE "link_earned";
+ALTER TABLE "link_earned_new" RENAME TO "link_earned";
+	`).Error; err != nil {
+			return errors.Wrap(err, "failed to drop job_spec_id from link_earned")
+		}
 	}
 
 	return nil
