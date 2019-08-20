@@ -1,11 +1,11 @@
 package web
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -44,7 +44,7 @@ func (btc *BridgeTypesController) Show(c *gin.Context) {
 	name := c.Param("BridgeName")
 	if taskType, err := models.NewTaskType(name); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if bt, err := btc.App.GetStore().FindBridge(taskType); err == orm.ErrorNotFound {
+	} else if bt, err := btc.App.GetStore().FindBridge(taskType); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("bridge not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -60,7 +60,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 
 	if taskType, err := models.NewTaskType(name); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if bt, err := btc.App.GetStore().FindBridge(taskType); err == orm.ErrorNotFound {
+	} else if bt, err := btc.App.GetStore().FindBridge(taskType); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("bridge not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -79,7 +79,7 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 
 	if taskType, err := models.NewTaskType(name); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if bt, err := btc.App.GetStore().FindBridge(taskType); err == orm.ErrorNotFound {
+	} else if bt, err := btc.App.GetStore().FindBridge(taskType); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("bridge not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("Error searching for bridge for BTC Destroy: %+v", err))
