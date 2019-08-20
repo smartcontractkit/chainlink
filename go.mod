@@ -35,7 +35,6 @@ require (
 	github.com/jinzhu/gorm v1.9.10
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
-	github.com/markbates/oncer v0.0.0-20181203154359-bf2de49a0be2 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
