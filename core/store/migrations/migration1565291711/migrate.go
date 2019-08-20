@@ -146,6 +146,7 @@ ALTER TABLE task_runs ADD COLUMN "id_uuid" uuid;
 UPDATE task_runs SET "id_uuid" = CAST("id" as uuid);
 ALTER TABLE task_runs DROP COLUMN "id";
 ALTER TABLE task_runs RENAME COLUMN "id_uuid" TO "id";
+ALTER TABLE task_runs ADD CONSTRAINT "task_run_pkey" PRIMARY KEY ("id");
 	`).Error; err != nil {
 			return errors.Wrap(err, "failed to update id on task_runs")
 		}
