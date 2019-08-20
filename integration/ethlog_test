@@ -4,6 +4,11 @@ source ./common
 
 title 'Ethlog test.'
 
+if ! [ -x "$(command -v jq)" ]; then
+  echo 'Error: jq is not installed.' >&2
+  exit 1
+fi
+
 expected_echo_count=$(expr $(curl -sS $ECHO_SERVER_URL) + 1)
 expected_job_count=$(expr $(chainlink -j j | jq length) + 1)
 
