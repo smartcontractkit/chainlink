@@ -93,7 +93,7 @@ func initializeDatabase(dialect, path string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("unable to open %s for gorm DB: %+v", path, err)
 	}
 
-	db.SetLogger(ormLogWrapper{logger.GetLogger()})
+	db.SetLogger(newOrmLogWrapper(logger.GetLogger()))
 
 	if err := dbutil.SetTimezone(db); err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func (orm *ORM) PendingBridgeType(jr models.JobRun) (models.BridgeType, error) {
 }
 
 // FindJob looks up a Job by its ID.
-func (orm *ORM) FindJob(id string) (models.JobSpec, error) {
+func (orm *ORM) FindJob(id *models.ID) (models.JobSpec, error) {
 	var job models.JobSpec
 	return job, orm.preloadJobs().First(&job, "id = ?", id).Error
 }
@@ -234,7 +234,7 @@ func (orm *ORM) preloadJobRuns() *gorm.DB {
 }
 
 // FindJobRun looks up a JobRun by its ID.
-func (orm *ORM) FindJobRun(id string) (models.JobRun, error) {
+func (orm *ORM) FindJobRun(id *models.ID) (models.JobRun, error) {
 	var jr models.JobRun
 	err := orm.preloadJobRuns().First(&jr, "id = ?", id).Error
 	return jr, err
@@ -303,22 +303,13 @@ func (orm *ORM) AddLinkEarned(earning *models.LinkEarned) error {
 	return orm.DB.Create(earning).Error
 }
 
-// LinkEarningsFor lists the individual link earnings for a job
-func (orm *ORM) LinkEarningsFor(jobSpecID string) ([]assets.Link, error) {
-	earnings := []assets.Link{}
-	err := orm.DB.
-		Table("link_earned").
-		Where("job_spec_id = ?", jobSpecID).
-		Pluck("earned", &earnings).Error
-
-	return earnings, err
-}
-
 // LinkEarnedFor shows the total link earnings for a job
-func (orm *ORM) LinkEarnedFor(jobSpecID string) (*assets.Link, error) {
+func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 	var earned *assets.Link
 	err := orm.DB.Table("link_earned").
-		Where("job_spec_id = ?", jobSpecID).
+		Joins("JOIN job_runs ON link_earned.job_run_id = job_runs.id").
+		Joins("JOIN job_specs ON job_runs.job_spec_id = job_specs.id").
+		Where("job_specs.id = ?", spec.ID).
 		Select("CAST(SUM(CAST(SUBSTR(earned, 1, 10) as BIGINT)) as varchar(255))").
 		Row().
 		Scan(&earned)
@@ -383,7 +374,7 @@ func (orm *ORM) Jobs(cb func(models.JobSpec) bool) error {
 
 // JobRunsFor fetches all JobRuns with a given Job ID,
 // sorted by their created at time.
-func (orm *ORM) JobRunsFor(jobSpecID string, limit ...int) ([]models.JobRun, error) {
+func (orm *ORM) JobRunsFor(jobSpecID *models.ID, limit ...int) ([]models.JobRun, error) {
 	runs := []models.JobRun{}
 	var lim int
 	if len(limit) == 0 {
@@ -400,7 +391,7 @@ func (orm *ORM) JobRunsFor(jobSpecID string, limit ...int) ([]models.JobRun, err
 }
 
 // JobRunsCountFor returns the current number of runs for the job
-func (orm *ORM) JobRunsCountFor(jobSpecID string) (int, error) {
+func (orm *ORM) JobRunsCountFor(jobSpecID *models.ID) (int, error) {
 	var count int
 	err := orm.DB.
 		Model(&models.JobRun{}).
@@ -458,8 +449,8 @@ func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 }
 
 // Archived returns whether or not a job has been archived.
-func (orm *ORM) Archived(ID string) bool {
-	j, err := orm.Unscoped().FindJob(ID)
+func (orm *ORM) Archived(id *models.ID) bool {
+	j, err := orm.Unscoped().FindJob(id)
 	if err != nil {
 		return false
 	}
@@ -467,7 +458,7 @@ func (orm *ORM) Archived(ID string) bool {
 }
 
 // ArchiveJob soft deletes the job and its associated job runs.
-func (orm *ORM) ArchiveJob(ID string) error {
+func (orm *ORM) ArchiveJob(ID *models.ID) error {
 	j, err := orm.FindJob(ID)
 	if err != nil {
 		return err
@@ -919,7 +910,7 @@ func (orm *ORM) JobRunsSorted(sort SortType, offset int, limit int) ([]models.Jo
 
 // JobRunsSortedFor returns job runs for a specific job spec ordered and
 // filtered by the passed params.
-func (orm *ORM) JobRunsSortedFor(id string, order SortType, offset int, limit int) ([]models.JobRun, int, error) {
+func (orm *ORM) JobRunsSortedFor(id *models.ID, order SortType, offset int, limit int) ([]models.JobRun, int, error) {
 	count, err := orm.JobRunsCountFor(id)
 	if err != nil {
 		return nil, 0, err
@@ -1033,7 +1024,7 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 															WHERE status IN (?) AND updated_at < ?)`,
 			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
 		if err != nil {
-			return fmt.Errorf("error deleting JobRun's RunResults: %v", err)
+			return errors.Wrap(err, "error deleting JobRun's RunResults")
 		}
 
 		// and run_requests
@@ -1045,7 +1036,7 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 															WHERE status IN (?) AND updated_at < ?)`,
 			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
 		if err != nil {
-			return fmt.Errorf("error deleting JobRun's RunRequests: %v", err)
+			return errors.Wrap(err, "error deleting JobRun's RunRequests")
 		}
 
 		// and then task runs using a join in the subquery
@@ -1059,7 +1050,7 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 															WHERE job_runs.status IN (?) AND job_runs.updated_at < ?)`,
 			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
 		if err != nil {
-			return fmt.Errorf("error deleting TaskRuns's RunResults: %v", err)
+			return errors.Wrap(err, "error deleting TaskRuns's RunResults")
 		}
 
 		err = dbtx.
@@ -1069,7 +1060,7 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 			Delete(&[]models.JobRun{}).
 			Error
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error deleting JobRuns")
 		}
 
 		return nil

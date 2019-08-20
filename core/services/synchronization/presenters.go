@@ -35,9 +35,9 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 		Initiator  syncInitiatorPresenter `json:"initiator"`
 		Tasks      []syncTaskRunPresenter `json:"tasks"`
 	}{
-		ID:         p.ID,
-		RunID:      p.ID,
-		JobID:      p.JobSpecID,
+		ID:         p.ID.String(),
+		RunID:      p.ID.String(),
+		JobID:      p.JobSpecID.String(),
 		Status:     string(p.Status),
 		Error:      p.Result.ErrorMessage,
 		CreatedAt:  utils.ISO8601UTC(p.CreatedAt),

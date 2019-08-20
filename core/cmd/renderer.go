@@ -95,7 +95,7 @@ func render(name string, table *tablewriter.Table) {
 func jobRowToStrings(job models.JobSpec) []string {
 	p := presenters.JobSpec{JobSpec: job}
 	return []string{
-		p.ID,
+		p.ID.String(),
 		p.FriendlyCreatedAt(),
 		p.FriendlyInitiators(),
 		p.FriendlyTasks(),
@@ -166,7 +166,7 @@ func (rt RendererTable) renderJobRun(run presenters.JobRun) error {
 func (rt RendererTable) renderJobSingles(j presenters.JobSpec) error {
 	table := rt.newTable([]string{"ID", "Created At", "Start At", "End At", "Min Payment"})
 	table.Append([]string{
-		j.ID,
+		j.ID.String(),
 		j.FriendlyCreatedAt(),
 		j.FriendlyStartAt(),
 		j.FriendlyEndAt(),
@@ -209,7 +209,7 @@ func (rt RendererTable) renderJobRuns(runs []presenters.JobRun) error {
 	table := rt.newTable([]string{"ID", "Status", "Created", "Completed", "Result", "Error"})
 	for _, jr := range runs {
 		table.Append([]string{
-			jr.ID,
+			jr.ID.String(),
 			string(jr.Status),
 			utils.ISO8601UTC(jr.CreatedAt),
 			utils.NullISO8601UTC(jr.FinishedAt),

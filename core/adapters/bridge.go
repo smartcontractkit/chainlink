@@ -124,7 +124,7 @@ type bridgeOutgoing struct {
 
 func (bp bridgeOutgoing) MarshalJSON() ([]byte, error) {
 	anon := struct {
-		JobRunID    string      `json:"id"`
+		JobRunID    *models.ID  `json:"id"`
 		Data        models.JSON `json:"data"`
 		ResponseURL string      `json:"responseURL,omitempty"`
 	}{

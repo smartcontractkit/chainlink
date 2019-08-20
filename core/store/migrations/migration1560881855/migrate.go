@@ -1,16 +1,19 @@
 package migration1560881855
 
 import (
+	"time"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func Migrate(tx *gorm.DB) error {
-	if err := tx.AutoMigrate(&models.LinkEarned{}).Error; err != nil {
+	if err := tx.Table("link_earned").AutoMigrate(&LinkEarned{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate link_earned")
 	}
+
 	var fillLinkEarned string
 	if dbutil.IsPostgres(tx) {
 		fillLinkEarned = `
@@ -31,4 +34,13 @@ func Migrate(tx *gorm.DB) error {
 		return errors.Wrap(err, "failed to fill existing run rewards to link_earned table")
 	}
 	return nil
+}
+
+// LinkEarned is a capture of the model before migration1565291711
+type LinkEarned struct {
+	ID        uint64       `gorm:"primary_key;not null;auto_increment"`
+	JobSpecID string       `gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
+	JobRunID  string       `gorm:"unique;not null;type:varchar(36) REFERENCES job_runs(id)"`
+	Earned    *assets.Link `gorm:"type:varchar(255)"`
+	EarnedAt  time.Time    `gorm:"index"`
 }

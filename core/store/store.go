@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
@@ -202,10 +202,10 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 func initializeORM(config *orm.Config) (*orm.ORM, error) {
 	orm, err := orm.NewORM(orm.NormalizedDatabaseURL(config), config.DatabaseTimeout())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
 	if err = migrations.Migrate(orm.DB); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "initializeORM#Migrate")
 	}
 	orm.SetLogging(config.LogSQLStatements())
 	return orm, nil
@@ -214,12 +214,12 @@ func initializeORM(config *orm.Config) (*orm.ORM, error) {
 // RunRequest is the type that the RunChannel uses to package all the necessary
 // pieces to execute a Job Run.
 type RunRequest struct {
-	ID string
+	ID *models.ID
 }
 
 // RunChannel manages and dispatches incoming runs.
 type RunChannel interface {
-	Send(jobRunID string) error
+	Send(jobRunID *models.ID) error
 	Receive() <-chan RunRequest
 	Close()
 }
@@ -240,7 +240,7 @@ func NewQueuedRunChannel() RunChannel {
 }
 
 // Send adds another entry to the queue of runs.
-func (rq *QueuedRunChannel) Send(jobRunID string) error {
+func (rq *QueuedRunChannel) Send(jobRunID *models.ID) error {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 
@@ -248,7 +248,7 @@ func (rq *QueuedRunChannel) Send(jobRunID string) error {
 		return errors.New("QueuedRunChannel.Add: cannot add to a closed QueuedRunChannel")
 	}
 
-	if jobRunID == "" {
+	if jobRunID == nil {
 		return errors.New("QueuedRunChannel.Add: cannot add an empty jobRunID")
 	}
 

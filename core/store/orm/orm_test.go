@@ -31,7 +31,7 @@ func TestORM_WhereNotFound(t *testing.T) {
 	j1 := models.NewJob()
 	jobs := []models.JobSpec{j1}
 
-	err := store.Where("ID", "bogus", &jobs)
+	err := store.Where("ID", models.NewID().String(), &jobs)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
 }
@@ -191,48 +191,18 @@ func TestORM_JobRunsFor(t *testing.T) {
 
 	runs, err := store.JobRunsFor(job.ID)
 	assert.NoError(t, err)
-	actual := []string{runs[0].ID, runs[1].ID, runs[2].ID}
-	assert.Equal(t, []string{jr2.ID, jr1.ID, jr3.ID}, actual)
+	actual := []*models.ID{runs[0].ID, runs[1].ID, runs[2].ID}
+	assert.Equal(t, []*models.ID{jr2.ID, jr1.ID, jr3.ID}, actual)
 
 	limRuns, limErr := store.JobRunsFor(job.ID, 2)
 	assert.NoError(t, limErr)
-	limActual := []string{limRuns[0].ID, limRuns[1].ID}
-	assert.Equal(t, []string{jr2.ID, jr1.ID}, limActual)
+	limActual := []*models.ID{limRuns[0].ID, limRuns[1].ID}
+	assert.Equal(t, []*models.ID{jr2.ID, jr1.ID}, limActual)
 
 	_, limZeroErr := store.JobRunsFor(job.ID, 0)
 	assert.NoError(t, limZeroErr)
-	limZeroActual := []string{}
-	assert.Equal(t, []string{}, limZeroActual)
-}
-
-func TestORM_LinkEarningsFor(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	job := cltest.NewJobWithWebInitiator()
-	require.NoError(t, store.CreateJob(&job))
-
-	initr := job.Initiators[0]
-	data := `{"result":"921.02"}`
-	jr1 := job.NewRun(initr)
-	jr1.Result = cltest.RunResultWithData(data)
-	jr2 := job.NewRun(initr)
-	jr2.Result = cltest.RunResultWithData(data)
-	require.NoError(t, store.CreateJobRun(&jr1))
-	require.NoError(t, store.CreateJobRun(&jr2))
-
-	earning1 := cltest.FakeLinkEarned(job.ID, jr1.ID, assets.NewLink(2))
-	require.NoError(t, store.AddLinkEarned(&earning1))
-	earning2 := cltest.FakeLinkEarned(job.ID, jr2.ID, assets.NewLink(2))
-	require.NoError(t, store.AddLinkEarned(&earning2))
-
-	earnings, err := store.LinkEarningsFor(job.ID)
-	assert.NoError(t, err)
-	actual := []*assets.Link{assets.NewLink(2), assets.NewLink(2)}
-	assert.Equal(t, []*assets.Link{&earnings[0], &earnings[1]}, actual)
-
+	limZeroActual := []*models.ID{}
+	assert.Equal(t, []*models.ID{}, limZeroActual)
 }
 
 func TestORM_LinkEarnedFor(t *testing.T) {
@@ -256,14 +226,14 @@ func TestORM_LinkEarnedFor(t *testing.T) {
 	require.NoError(t, store.CreateJobRun(&jr2))
 	require.NoError(t, store.CreateJobRun(&jr3))
 
-	earning1 := cltest.FakeLinkEarned(job.ID, jr1.ID, assets.NewLink(2))
+	earning1 := cltest.FakeLinkEarned(&jr1, assets.NewLink(2))
 	require.NoError(t, store.AddLinkEarned(&earning1))
-	earning2 := cltest.FakeLinkEarned(job.ID, jr2.ID, assets.NewLink(3))
+	earning2 := cltest.FakeLinkEarned(&jr2, assets.NewLink(3))
 	require.NoError(t, store.AddLinkEarned(&earning2))
-	earning3 := cltest.FakeLinkEarned(job.ID, jr3.ID, assets.NewLink(5))
+	earning3 := cltest.FakeLinkEarned(&jr3, assets.NewLink(5))
 	require.NoError(t, store.AddLinkEarned(&earning3))
 
-	totalEarned, err := store.LinkEarnedFor(job.ID)
+	totalEarned, err := store.LinkEarnedFor(&job)
 	assert.NoError(t, err)
 	actualEarned := assets.NewLink(10)
 	assert.Equal(t, totalEarned, actualEarned)
@@ -297,8 +267,8 @@ func TestORM_JobRunsSortedFor(t *testing.T) {
 	runs, count, err := store.JobRunsSortedFor(includedJob.ID, orm.Descending, 0, 100)
 	assert.NoError(t, err)
 	require.Equal(t, 2, count)
-	actual := []string{runs[0].ID, runs[1].ID} // doesn't include excludedJobRun
-	assert.Equal(t, []string{jr2.ID, jr1.ID}, actual)
+	actual := []*models.ID{runs[0].ID, runs[1].ID} // doesn't include excludedJobRun
+	assert.Equal(t, []*models.ID{jr2.ID, jr1.ID}, actual)
 }
 
 func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
@@ -317,7 +287,7 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 		models.RunStatusPendingConfirmations,
 		models.RunStatusCompleted}
 
-	var seedIds []string
+	var seedIds []*models.ID
 	for _, status := range statuses {
 		run := j.NewRun(i)
 		run.Status = status
@@ -328,17 +298,17 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 	tests := []struct {
 		name     string
 		statuses []models.RunStatus
-		expected []string
+		expected []*models.ID
 	}{
 		{
 			"single status",
 			[]models.RunStatus{models.RunStatusPendingBridge},
-			[]string{seedIds[0]},
+			[]*models.ID{seedIds[0]},
 		},
 		{
 			"multiple status'",
 			[]models.RunStatus{models.RunStatusPendingBridge, models.RunStatusPendingConfirmations},
-			[]string{seedIds[0], seedIds[1]},
+			[]*models.ID{seedIds[0], seedIds[1]},
 		},
 	}
 
@@ -347,7 +317,7 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			pending := cltest.MustAllJobsWithStatus(t, store, test.statuses...)
 
-			pendingIDs := []string{}
+			pendingIDs := []*models.ID{}
 			for _, jr := range pending {
 				pendingIDs = append(pendingIDs, jr.ID)
 			}
@@ -373,7 +343,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 		models.RunStatusPendingConnection,
 		models.RunStatusCompleted}
 
-	var seedIds []string
+	var seedIds []*models.ID
 	for _, status := range statuses {
 		run := j.NewRun(i)
 		run.Status = status
@@ -386,17 +356,17 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 	tests := []struct {
 		name     string
 		statuses []models.RunStatus
-		expected []string
+		expected []*models.ID
 	}{
 		{
 			"single status",
 			[]models.RunStatus{models.RunStatusPendingBridge},
-			[]string{seedIds[0]},
+			[]*models.ID{seedIds[0]},
 		},
 		{
 			"multiple status'",
 			[]models.RunStatus{models.RunStatusPendingBridge, models.RunStatusPendingConfirmations, models.RunStatusPendingConnection},
-			[]string{seedIds[0], seedIds[1], seedIds[2]},
+			[]*models.ID{seedIds[0], seedIds[1], seedIds[2]},
 		},
 	}
 
@@ -405,7 +375,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			pending := cltest.MustAllJobsWithStatus(t, store, test.statuses...)
 
-			pendingIDs := []string{}
+			pendingIDs := []*models.ID{}
 			for _, jr := range pending {
 				pendingIDs = append(pendingIDs, jr.ID)
 			}

@@ -235,21 +235,27 @@ func TestResumePendingTask(t *testing.T) {
 	assert.Error(t, err)
 
 	// input with error errors run
+	jobID := models.NewID()
+	runID := models.NewID()
 	run = &models.JobRun{
-		Status:   models.RunStatusPendingBridge,
-		TaskRuns: []models.TaskRun{models.TaskRun{}},
+		ID:        runID,
+		JobSpecID: jobID,
+		Status:    models.RunStatusPendingBridge,
+		TaskRuns:  []models.TaskRun{models.TaskRun{ID: models.NewID(), JobRunID: runID}},
 	}
-	err = services.ResumePendingTask(run, store, models.RunResult{Status: models.RunStatusErrored})
+	err = services.ResumePendingTask(run, store, models.RunResult{CachedJobRunID: runID, Status: models.RunStatusErrored})
 	assert.Error(t, err)
 	assert.True(t, run.FinishedAt.Valid)
 
 	// completed input with remaining tasks should put task into pending
 	run = &models.JobRun{
-		Status:   models.RunStatusPendingBridge,
-		TaskRuns: []models.TaskRun{models.TaskRun{}, models.TaskRun{}},
+		ID:        runID,
+		JobSpecID: jobID,
+		Status:    models.RunStatusPendingBridge,
+		TaskRuns:  []models.TaskRun{models.TaskRun{ID: models.NewID(), JobRunID: runID}, models.TaskRun{ID: models.NewID(), JobRunID: runID}},
 	}
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
-	err = services.ResumePendingTask(run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
+	err = services.ResumePendingTask(run, store, models.RunResult{CachedJobRunID: runID, Data: input, Status: models.RunStatusCompleted})
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 2)
@@ -258,10 +264,12 @@ func TestResumePendingTask(t *testing.T) {
 
 	// completed input with no remaining tasks should get marked as complete
 	run = &models.JobRun{
-		Status:   models.RunStatusPendingBridge,
-		TaskRuns: []models.TaskRun{models.TaskRun{}},
+		ID:        runID,
+		JobSpecID: jobID,
+		Status:    models.RunStatusPendingBridge,
+		TaskRuns:  []models.TaskRun{models.TaskRun{ID: models.NewID(), JobRunID: runID}},
 	}
-	err = services.ResumePendingTask(run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
+	err = services.ResumePendingTask(run, store, models.RunResult{CachedJobRunID: runID, Data: input, Status: models.RunStatusCompleted})
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.Status))
 	assert.True(t, run.FinishedAt.Valid)
@@ -284,18 +292,18 @@ func TestResumeConfirmingTask(t *testing.T) {
 	err = services.ResumeConfirmingTask(run, store, nil)
 	assert.Error(t, err)
 
-	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	jobSpec := models.JobSpec{ID: models.NewID()}
 	require.NoError(t, store.ORM.CreateJob(&jobSpec))
 
 	// leave in pending if not enough confirmations have been met yet
 	creationHeight := models.NewBig(big.NewInt(0))
 	run = &models.JobRun{
-		ID:             utils.NewBytes32ID(),
+		ID:             models.NewID(),
 		JobSpecID:      jobSpec.ID,
 		CreationHeight: creationHeight,
 		Status:         models.RunStatusPendingConfirmations,
 		TaskRuns: []models.TaskRun{models.TaskRun{
-			ID:                   utils.NewBytes32ID(),
+			ID:                   models.NewID(),
 			MinimumConfirmations: clnull.Uint32From(2),
 			TaskSpec: models.TaskSpec{
 				JobSpecID: jobSpec.ID,
@@ -311,12 +319,12 @@ func TestResumeConfirmingTask(t *testing.T) {
 
 	// input, should go from pending -> in progress and save the input
 	run = &models.JobRun{
-		ID:             utils.NewBytes32ID(),
+		ID:             models.NewID(),
 		JobSpecID:      jobSpec.ID,
 		CreationHeight: creationHeight,
 		Status:         models.RunStatusPendingConfirmations,
 		TaskRuns: []models.TaskRun{models.TaskRun{
-			ID:                   utils.NewBytes32ID(),
+			ID:                   models.NewID(),
 			MinimumConfirmations: clnull.Uint32From(1),
 			TaskSpec: models.TaskSpec{
 				JobSpecID: jobSpec.ID,
@@ -345,17 +353,17 @@ func TestResumeConnectingTask(t *testing.T) {
 	err = services.ResumeConnectingTask(run, store)
 	assert.Error(t, err)
 
-	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	jobSpec := models.JobSpec{ID: models.NewID()}
 	require.NoError(t, store.ORM.CreateJob(&jobSpec))
 
 	taskSpec := models.TaskSpec{Type: adapters.TaskTypeNoOp, JobSpecID: jobSpec.ID}
 	// input, should go from pending -> in progress and save the input
 	run = &models.JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        models.NewID(),
 		JobSpecID: jobSpec.ID,
 		Status:    models.RunStatusPendingConnection,
 		TaskRuns: []models.TaskRun{models.TaskRun{
-			ID:       utils.NewBytes32ID(),
+			ID:       models.NewID(),
 			TaskSpec: taskSpec,
 		}},
 	}
@@ -386,16 +394,16 @@ func TestQueueSleepingTask(t *testing.T) {
 	err = services.QueueSleepingTask(run, store)
 	assert.Error(t, err)
 
-	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	jobSpec := models.JobSpec{ID: models.NewID()}
 	require.NoError(t, store.ORM.CreateJob(&jobSpec))
 
 	// reject a run that is sleeping but its task is not
 	run = &models.JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        models.NewID(),
 		JobSpecID: jobSpec.ID,
 		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{models.TaskRun{
-			ID:       utils.NewBytes32ID(),
+			ID:       models.NewID(),
 			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep, JobSpecID: jobSpec.ID},
 		}},
 	}
@@ -406,12 +414,12 @@ func TestQueueSleepingTask(t *testing.T) {
 	// error decoding params into adapter
 	inputFromTheFuture := cltest.ParseJSON(t, bytes.NewBuffer([]byte(`{"until": -1}`)))
 	run = &models.JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        models.NewID(),
 		JobSpecID: jobSpec.ID,
 		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
-				ID:     utils.NewBytes32ID(),
+				ID:     models.NewID(),
 				Status: models.RunStatusPendingSleep,
 				TaskSpec: models.TaskSpec{
 					JobSpecID: jobSpec.ID,
@@ -429,11 +437,11 @@ func TestQueueSleepingTask(t *testing.T) {
 
 	// mark run as pending, task as completed if duration has already elapsed
 	run = &models.JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        models.NewID(),
 		JobSpecID: jobSpec.ID,
 		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{models.TaskRun{
-			ID:       utils.NewBytes32ID(),
+			ID:       models.NewID(),
 			Status:   models.RunStatusPendingSleep,
 			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep, JobSpecID: jobSpec.ID},
 		}},
@@ -455,7 +463,7 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Happy(t *t
 	defer cleanup()
 	store.Clock = cltest.NeverClock{}
 
-	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	jobSpec := models.JobSpec{ID: models.NewID()}
 	require.NoError(t, store.ORM.CreateJob(&jobSpec))
 
 	// queue up next run if duration has not elapsed yet
@@ -465,12 +473,12 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Happy(t *t
 
 	inputFromTheFuture := sleepAdapterParams(t, 60)
 	run := &models.JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        models.NewID(),
 		JobSpecID: jobSpec.ID,
 		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
-				ID:     utils.NewBytes32ID(),
+				ID:     models.NewID(),
 				Status: models.RunStatusPendingSleep,
 				TaskSpec: models.TaskSpec{
 					JobSpecID: jobSpec.ID,
@@ -503,7 +511,7 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Archived(t
 	defer cleanup()
 	store.Clock = cltest.NeverClock{}
 
-	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	jobSpec := models.JobSpec{ID: models.NewID()}
 	require.NoError(t, store.ORM.CreateJob(&jobSpec))
 
 	// queue up next run if duration has not elapsed yet
@@ -513,12 +521,12 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Archived(t
 
 	inputFromTheFuture := sleepAdapterParams(t, 60)
 	run := &models.JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        models.NewID(),
 		JobSpecID: jobSpec.ID,
 		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
-				ID:     utils.NewBytes32ID(),
+				ID:     models.NewID(),
 				Status: models.RunStatusPendingSleep,
 				TaskSpec: models.TaskSpec{
 					JobSpecID: jobSpec.ID,

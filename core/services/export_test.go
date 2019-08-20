@@ -12,7 +12,7 @@ func ExportedExecuteRun(
 	return executeRun(run, store)
 }
 
-func ExportedChannelForRun(jr JobRunner, runID string) chan<- struct{} {
+func ExportedChannelForRun(jr JobRunner, runID *models.ID) chan<- struct{} {
 	return jr.channelForRun(runID)
 }
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560924400"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565210496"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565291711"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/store/assets"
@@ -146,12 +147,12 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 	//  is done if there's already a RunResult with nonzero link reward
 	require.NoError(t, migration1560881855.Migrate(db))
 
-	rewFound := models.LinkEarned{}
-	require.NoError(t, db.Find(&rewFound).Error)
-	assert.Equal(t, j.ID, rewFound.JobSpecID)
-	assert.Equal(t, jr.ID, rewFound.JobRunID)
-	assert.Equal(t, assets.NewLink(2), rewFound.Earned)
-	assert.True(t, true, rewFound.EarnedAt.After(aftCreation), rewFound.EarnedAt.Before(befCreation))
+	rowFound := migration1560881855.LinkEarned{}
+	require.NoError(t, db.Table("link_earned").Find(&rowFound).Error)
+	assert.Equal(t, j.ID.String(), rowFound.JobSpecID)
+	assert.Equal(t, jr.ID.String(), rowFound.JobRunID)
+	assert.Equal(t, assets.NewLink(2), rowFound.Earned)
+	assert.True(t, true, rowFound.EarnedAt.After(aftCreation), rowFound.EarnedAt.Before(befCreation))
 }
 
 func TestMigrate_Migration1560881846(t *testing.T) {
@@ -231,6 +232,36 @@ func TestMigrate_Migration1565210496(t *testing.T) {
 	require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
 	assert.Equal(t, "115792089237316195423570985008687907853269984665640564039457584007913129639936", jobRunFound.ObservedHeight.String())
 	assert.Equal(t, "0", jobRunFound.CreationHeight.String())
+}
+
+func TestMigrate_Migration1565291711(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	db := orm.DB
+	db.LogMode(true)
+
+	require.NoError(t, migration0.Migrate(db))
+	require.NoError(t, migration1560881855.Migrate(db))
+
+	jobSpec := migration0.JobSpec{
+		ID:        utils.NewBytes32ID(),
+		CreatedAt: time.Now(),
+	}
+	require.NoError(t, db.Create(&jobSpec).Error)
+	jobRun := migration0.JobRun{
+		ID:             utils.NewBytes32ID(),
+		JobSpecID:      jobSpec.ID,
+		CreationHeight: "0",
+		ObservedHeight: "0",
+	}
+	require.NoError(t, db.Create(&jobRun).Error)
+
+	require.NoError(t, migration1565291711.Migrate(db))
+
+	jobRunFound := models.JobRun{}
+	require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
+	assert.Equal(t, jobRun.ID, jobRunFound.ID.String())
 }
 
 func TestMigrate_NewerVersionGuard(t *testing.T) {
