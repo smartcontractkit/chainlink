@@ -757,7 +757,7 @@ func NewMockRunChannel() *MockRunChannel {
 	}
 }
 
-func (m *MockRunChannel) Send(jobRunID string) error {
+func (m *MockRunChannel) Send(jobRunID *models.ID) error {
 	m.Runs = append(m.Runs, models.RunResult{})
 	return nil
 }

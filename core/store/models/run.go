@@ -16,8 +16,8 @@ import (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	ID             string     `json:"id" gorm:"primary_key;not null"`
-	JobSpecID      string     `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
+	ID             *ID        `json:"id" gorm:"primary_key;not null"`
+	JobSpecID      *ID        `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
 	Result         RunResult  `json:"result"`
 	ResultID       uint       `json:"-"`
 	RunRequest     RunRequest `json:"-"`
@@ -38,7 +38,7 @@ type JobRun struct {
 
 // GetID returns the ID of this structure for jsonapi serialization.
 func (jr JobRun) GetID() string {
-	return jr.ID
+	return jr.ID.String()
 }
 
 // GetName returns the pluralized "type" of this structure for jsonapi serialization.
@@ -48,8 +48,7 @@ func (jr JobRun) GetName() string {
 
 // SetID is used to set the ID of this structure when deserializing from jsonapi documents.
 func (jr *JobRun) SetID(value string) error {
-	jr.ID = value
-	return nil
+	return jr.ID.UnmarshalText([]byte(value))
 }
 
 // ForLogger formats the JobRun for a common formatting in the log.
@@ -162,8 +161,8 @@ func NewRunRequest() RunRequest {
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
-	ID                   string        `json:"id" gorm:"primary_key;not null"`
-	JobRunID             string        `json:"-" gorm:"index;not null;type:varchar(36) REFERENCES job_runs(id) ON DELETE CASCADE"`
+	ID                   *ID           `json:"id" gorm:"primary_key;not null"`
+	JobRunID             *ID           `json:"-" gorm:"index;not null;type:varchar(36) REFERENCES job_runs(id) ON DELETE CASCADE"`
 	Result               RunResult     `json:"result"`
 	ResultID             uint          `json:"-"`
 	Status               RunStatus     `json:"status"`
@@ -218,8 +217,8 @@ func (tr *TaskRun) MarkPendingConfirmations() {
 // Data and ErrorMessage, and contains a field to track the status.
 type RunResult struct {
 	ID              uint         `json:"-" gorm:"primary_key;auto_increment"`
-	CachedJobRunID  string       `json:"jobRunId"`
-	CachedTaskRunID string       `json:"taskRunId"`
+	CachedJobRunID  *ID          `json:"jobRunId" gorm:"-"`
+	CachedTaskRunID *ID          `json:"taskRunId" gorm:"-"`
 	Data            JSON         `json:"data" gorm:"type:text"`
 	Status          RunStatus    `json:"status"`
 	ErrorMessage    null.String  `json:"error"`

@@ -39,7 +39,7 @@ func TestJobRunner_resumeRunsSinceLastShutdown(t *testing.T) {
 	assert.NoError(t, store.CreateJobRun(&inProgressRun))
 
 	assert.NoError(t, services.ExportedResumeRunsSinceLastShutdown(rm))
-	messages := []string{}
+	messages := []*models.ID{}
 
 	rr, open := <-store.RunChannel.Receive()
 	assert.True(t, open)
@@ -49,7 +49,7 @@ func TestJobRunner_resumeRunsSinceLastShutdown(t *testing.T) {
 	assert.True(t, open)
 	messages = append(messages, rr.ID)
 
-	expectedMessages := []string{sleepingRun.ID, inProgressRun.ID}
+	expectedMessages := []*models.ID{sleepingRun.ID, inProgressRun.ID}
 	assert.ElementsMatch(t, expectedMessages, messages)
 }
 
@@ -93,7 +93,7 @@ func TestJobRunner_executeRun_correctlyAddsLinkEarnings(t *testing.T) {
 	require.NoError(t, store.CreateJobRun(&run))
 	run.Overrides.Amount = assets.NewLink(1)
 	require.NoError(t, services.ExportedExecuteRun(&run, store))
-	actual, _ := store.LinkEarnedFor(j.ID)
+	actual, _ := store.LinkEarnedFor(&j)
 	assert.Equal(t, assets.NewLink(1), actual)
 }
 

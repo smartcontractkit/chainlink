@@ -1,12 +1,12 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"time"
 
 	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -85,7 +85,7 @@ func NewInitiatorSubscription(
 ) (InitiatorSubscription, error) {
 	filter, err := models.FilterQueryFactory(initr, from.NextInt()) // Exclude current block from subscription
 	if err != nil {
-		return InitiatorSubscription{}, err
+		return InitiatorSubscription{}, errors.Wrap(err, "NewInitiatorSubscription#FilterQueryFactory")
 	}
 
 	sub := InitiatorSubscription{
@@ -97,7 +97,7 @@ func NewInitiatorSubscription(
 
 	managedSub, err := NewManagedSubscription(store, filter, sub.dispatchLog)
 	if err != nil {
-		return sub, err
+		return sub, errors.Wrap(err, "NewInitiatorSubscription#NewManagedSubscription")
 	}
 
 	sub.ManagedSubscription = managedSub

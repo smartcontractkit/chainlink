@@ -57,8 +57,9 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 // Example:
 //  "<application>/specs/:SpecID"
 func (jsc *JobSpecsController) Show(c *gin.Context) {
-	id := c.Param("SpecID")
-	if j, err := jsc.App.GetStore().FindJob(id); errors.Cause(err) == orm.ErrorNotFound {
+	if id, err := models.NewIDFromString(c.Param("SpecID")); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+	} else if j, err := jsc.App.GetStore().FindJob(id); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -71,8 +72,9 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 // Example:
 //  "<application>/specs/:SpecID"
 func (jsc *JobSpecsController) Destroy(c *gin.Context) {
-	id := c.Param("SpecID")
-	if err := jsc.App.ArchiveJob(id); errors.Cause(err) == orm.ErrorNotFound {
+	if id, err := models.NewIDFromString(c.Param("SpecID")); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+	} else if err := jsc.App.ArchiveJob(id); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -81,8 +83,8 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	}
 }
 
-func jobPresenter(jsc *JobSpecsController, j models.JobSpec) presenters.JobSpec {
+func jobPresenter(jsc *JobSpecsController, job models.JobSpec) presenters.JobSpec {
 	st := jsc.App.GetStore()
-	jobLinkEarned, _ := st.LinkEarnedFor(j.ID)
-	return presenters.JobSpec{JobSpec: j, Earnings: jobLinkEarned}
+	jobLinkEarned, _ := st.LinkEarnedFor(&job)
+	return presenters.JobSpec{JobSpec: job, Earnings: jobLinkEarned}
 }

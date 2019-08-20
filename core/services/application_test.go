@@ -84,7 +84,7 @@ func TestPendingConnectionResumer(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	resumedRuns := []string{}
+	resumedRuns := []*models.ID{}
 	resumer := func(run *models.JobRun, store *strpkg.Store) error {
 		resumedRuns = append(resumedRuns, run.ID)
 		return nil
@@ -103,5 +103,5 @@ func TestPendingConnectionResumer(t *testing.T) {
 	_ = cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusCompleted)
 
 	assert.NoError(t, pcr.Connect(cltest.Head(1)))
-	assert.Equal(t, []string{expectedRun.ID}, resumedRuns)
+	assert.Equal(t, []*models.ID{expectedRun.ID}, resumedRuns)
 }
