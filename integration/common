@@ -127,14 +127,17 @@ add_clnode_to_explorer() {
   title "Added CL Node $clnode_name to Explorer."
 }
 
-deploy_oracle_and_linktoken_contracts() {
+deploy_contracts() {
   title "Migrating core contracts..."
   pushd integration >/dev/null
 
   yarn --no-progress install &>$SRCROOT/integration/yarn.log
-  ./deploy_contracts $cl_node_address | tee $SRCROOT/integration/deploy.log
-  export ORACLE_CONTRACT_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep Oracle | awk '{print$4}'`
-  export LINK_TOKEN_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep LinkToken | awk '{print$4}'`
+
+  yarn workspace @chainlink/integration run truffle migrate --compile-all --reset --network test | tee $SRCROOT/integration/deploy.log
+  export ORACLE_CONTRACT_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed Oracle at:' | awk '{print$4}'`
+  export LINK_TOKEN_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed LinkToken at:' | awk '{print$4}'`
+  export ETH_LOG_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed EthLog at:' | awk '{print$4}'`
+  export RUN_LOG_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed RunLog at:' | awk '{print$4}'`
 
   popd >/dev/null
   title "Migration complete."
