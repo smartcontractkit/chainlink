@@ -1,11 +1,11 @@
 package web
 
 import (
-	"errors"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -48,7 +48,7 @@ func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 func (jrc *JobRunsController) Create(c *gin.Context) {
 	id := c.Param("SpecID")
 
-	if j, err := jrc.App.GetStore().FindJob(id); err == orm.ErrorNotFound {
+	if j, err := jrc.App.GetStore().FindJob(id); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -76,7 +76,7 @@ func getRunData(c *gin.Context) (models.JSON, error) {
 //  "<application>/runs/:RunID"
 func (jrc *JobRunsController) Show(c *gin.Context) {
 	id := c.Param("RunID")
-	if jr, err := jrc.App.GetStore().FindJobRun(id); err == orm.ErrorNotFound {
+	if jr, err := jrc.App.GetStore().FindJobRun(id); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job run not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -96,7 +96,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	var brr models.BridgeRunResult
 
 	unscoped := jrc.App.GetStore().Unscoped()
-	if jr, err := unscoped.FindJobRun(id); err == orm.ErrorNotFound {
+	if jr, err := unscoped.FindJobRun(id); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)

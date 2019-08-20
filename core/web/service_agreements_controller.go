@@ -1,11 +1,11 @@
 package web
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -31,7 +31,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 	}
 
 	sa, err := sac.App.GetStore().FindServiceAgreement(us.ID.String())
-	if err == orm.ErrorNotFound {
+	if errors.Cause(err) == orm.ErrorNotFound {
 		sa, err = models.BuildServiceAgreement(us, sac.App.GetStore().KeyStore)
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -52,7 +52,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 //  "<application>/service_agreements/:SAID"
 func (sac *ServiceAgreementsController) Show(c *gin.Context) {
 	id := common.HexToHash(c.Param("SAID"))
-	if sa, err := sac.App.GetStore().FindServiceAgreement(id.String()); err == orm.ErrorNotFound {
+	if sa, err := sac.App.GetStore().FindServiceAgreement(id.String()); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("ServiceAgreement not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)

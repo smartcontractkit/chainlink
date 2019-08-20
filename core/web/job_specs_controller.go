@@ -1,10 +1,10 @@
 package web
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -58,7 +58,7 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 //  "<application>/specs/:SpecID"
 func (jsc *JobSpecsController) Show(c *gin.Context) {
 	id := c.Param("SpecID")
-	if j, err := jsc.App.GetStore().FindJob(id); err == orm.ErrorNotFound {
+	if j, err := jsc.App.GetStore().FindJob(id); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -72,7 +72,7 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 //  "<application>/specs/:SpecID"
 func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	id := c.Param("SpecID")
-	if err := jsc.App.ArchiveJob(id); err == orm.ErrorNotFound {
+	if err := jsc.App.ArchiveJob(id); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
