@@ -1,12 +1,12 @@
 package migration0
 
 import (
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gopkg.in/guregu/null.v3"
 )
@@ -177,6 +177,6 @@ type TaskSpec struct {
 	gorm.Model
 	JobSpecID     string `gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
 	Type          string `gorm:"index;not null"`
-	Confirmations big.Int
+	Confirmations clnull.Uint32
 	Params        string `gorm:"type:text"`
 }
