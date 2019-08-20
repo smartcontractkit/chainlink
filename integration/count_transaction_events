@@ -6,9 +6,11 @@ const { provider } = require('../evm/chainlink.config')
 process.env.SOLIDITY_INCLUDE = '../evm/contracts'
 
 const main = async (contractName, txID, fromAddress) => {
-  const transaction = await provider
-    .getTransactionReceipt(txID)
-    .catch(abort(`Error getting transaction receipt for ${txID}`))
+  const transaction = await provider.getTransactionReceipt(txID)
+
+  if (!transaction) {
+    abort(`Error getting transaction receipt for ${txID}`)
+  }
 
   let count = 0
   for (let log of transaction.logs) {
