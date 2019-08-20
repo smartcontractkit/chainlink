@@ -14,7 +14,6 @@ ALTER TABLE job_specs ADD COLUMN "id_uuid" uuid;
 UPDATE job_specs
 SET
 	"id_uuid" = CAST("id" as uuid);
-ALTER TABLE job_specs DROP CONSTRAINT "job_specs_pkey" CASCADE;
 	`).Error; err != nil {
 			return errors.Wrap(err, "failed to add id_uuid on job_runs")
 		}
@@ -53,6 +52,7 @@ ALTER TABLE link_earned DROP COLUMN "job_spec_id";
 		}
 
 		if err := tx.Exec(`
+ALTER TABLE job_specs DROP CONSTRAINT "job_specs_pkey" CASCADE;
 ALTER TABLE job_specs DROP COLUMN "id";
 ALTER TABLE job_specs RENAME COLUMN "id_uuid" TO "id";
 ALTER TABLE job_specs ADD CONSTRAINT "job_spec_pkey" PRIMARY KEY ("id");
