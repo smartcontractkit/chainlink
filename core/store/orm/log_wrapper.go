@@ -20,7 +20,9 @@ func newOrmLogWrapper(logger *logger.Logger) *ormLogWrapper {
 
 func (l ormLogWrapper) Print(args ...interface{}) {
 	switch args[0] {
-	case "error", "log":
+	case "error":
+		logger.Error(args[2])
+	case "log":
 		logger.Warn(args[2])
 	case "sql":
 		logger.Debugw(args[3].(string), "time", args[2], "rows_affected", args[5])
