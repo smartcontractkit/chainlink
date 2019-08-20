@@ -2,6 +2,7 @@ package cltest
 
 import (
 	"context"
+	"encoding"
 	"errors"
 	"fmt"
 	"io"
@@ -186,16 +187,21 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 	for i, resp := range mock.Responses {
 		if resp.methodName == method {
 			mock.Responses = append(mock.Responses[:i], mock.Responses[i+1:]...)
+
 			if resp.hasError {
 				return fmt.Errorf(resp.errMsg)
 			}
-			ref := reflect.ValueOf(result)
-			reflect.Indirect(ref).Set(reflect.ValueOf(resp.response))
+
+			if err := assignResult(result, resp.response); err != nil {
+				return err
+			}
+
 			if resp.callback != nil {
 				if err := resp.callback(result, args); err != nil {
 					return fmt.Errorf("ethMock Error: %v\ncontext: %v", err, resp.context)
 				}
 			}
+
 			return nil
 		}
 	}
@@ -207,6 +213,27 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 		mock.t.Logf("%s\n%s", err, debug.Stack())
 	}
 	return err
+}
+
+// assignResult attempts to mimick more closely how go-ethereum actually does
+// Call, falling back to reflection if the values dont support the required
+// encoding interfaces
+func assignResult(result, response interface{}) error {
+	unmarshaler, uok := result.(encoding.TextUnmarshaler)
+	marshaler, mok := response.(encoding.TextMarshaler)
+
+	if uok && mok {
+		bytes, err := marshaler.MarshalText()
+		if err != nil {
+			return err
+		}
+
+		return unmarshaler.UnmarshalText(bytes)
+	}
+
+	ref := reflect.ValueOf(result)
+	reflect.Indirect(ref).Set(reflect.ValueOf(response))
+	return nil
 }
 
 // RegisterSubscription register a mock subscription to the given name and channels

@@ -67,12 +67,8 @@ func (ks *KeyStore) NewAccount(passphrase string) (accounts.Account, error) {
 }
 
 // SignTx uses the unlocked account to sign the given transaction.
-func (ks *KeyStore) SignTx(account accounts.Account, tx *types.Transaction, chainID uint64) (*types.Transaction, error) {
-	return ks.KeyStore.SignTx(
-		account,
-		tx,
-		big.NewInt(int64(chainID)),
-	)
+func (ks *KeyStore) SignTx(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+	return ks.KeyStore.SignTx(account, tx, chainID)
 }
 
 // Sign creates an HMAC from some input data using the account's private key

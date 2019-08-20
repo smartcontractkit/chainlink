@@ -27,6 +27,8 @@ func TestIntegration_Scheduler(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	eth := app.MockEthClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/scheduler_job.json")
@@ -71,7 +73,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
-		eth.Register("eth_chainId", *cltest.Int(config.ChainID()))
+		eth.Register("eth_chainId", config.ChainID())
 	})
 	assert.NoError(t, app.Start())
 	eth.EventuallyAllCalled(t)
@@ -142,7 +144,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth := app.MockEthClient(cltest.Strict)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
-		eth.Register("eth_chainId", *cltest.Int(config.ChainID()))
+		eth.Register("eth_chainId", config.ChainID())
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
 	})
 	assert.NoError(t, app.Start())
@@ -245,13 +247,14 @@ func TestIntegration_FeeBump(t *testing.T) {
 	val, err = jr.Result.ResultString()
 	assert.Equal(t, attempt1Hash.String(), val)
 	assert.NoError(t, err)
-	assert.Equal(t, jr.Result.CachedJobRunID, jr.ID)
 }
 
 func TestIntegration_RunAt(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	eth := app.MockEthClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.InstantClock()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/run_at_job.json")
@@ -273,6 +276,7 @@ func TestIntegration_EthLog(t *testing.T) {
 	eth := app.MockEthClient()
 	logs := make(chan models.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.Register("eth_chainId", app.Store.Config.ChainID())
 		eth.RegisterSubscription("logs", logs)
 	})
 	app.Start()
@@ -329,7 +333,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			eth.Context("app.Start()", func(eth *cltest.EthMock) {
 				eth.RegisterSubscription("logs", logs)
 			})
-			eth.Register("eth_chainId", *cltest.Int(config.ChainID()))
+			eth.Register("eth_chainId", config.ChainID())
 			app.Start()
 
 			j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
@@ -381,6 +385,8 @@ func TestIntegration_EndAt(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	eth := app.MockEthClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
 	client := app.NewHTTPClient()
@@ -408,6 +414,8 @@ func TestIntegration_StartAt(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	eth := app.MockEthClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
 	client := app.NewHTTPClient()
@@ -433,7 +441,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthClient()
-	eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	logs := make(chan models.Log, 1)
 	newHeads := make(chan models.BlockHeader, 10)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
@@ -491,6 +499,8 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	eth := app.MockEthClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	bridgeURL := cltest.WebURL(t, "https://test.chain.link/always")
 	app.Store.Config.Set("BRIDGE_RESPONSE_URL", bridgeURL)
 	app.Start()
@@ -544,6 +554,8 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	eth := app.MockEthClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
 	bta := &models.BridgeTypeAuthentication{}
@@ -598,6 +610,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	eth.RegisterNewHead(1)
 	logs := make(chan models.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.Register("eth_chainId", app.Config.ChainID())
 		eth.RegisterSubscription("logs", logs)
 	})
 
@@ -620,13 +633,14 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	logs <- log
 
 	jobRuns := cltest.WaitForRuns(t, j, app.Store, 1)
-	jr := cltest.WaitForJobRunToComplete(t, app.Store, jobRuns[0])
-	assert.Equal(t, jr.Result.CachedJobRunID, jr.ID)
+	cltest.WaitForJobRunToComplete(t, app.Store, jobRuns[0])
 }
 
 func TestIntegration_MultiplierInt256(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	eth := app.MockEthClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/int256_job.json")
@@ -641,6 +655,8 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 func TestIntegration_MultiplierUint256(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	eth := app.MockEthClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/uint256_job.json")
@@ -664,10 +680,9 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
 
 	eth := app.MockEthClient()
-	chainId := cltest.Int(config.ChainID())
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
-		eth.Register("eth_chainId", *chainId)
+		eth.Register("eth_chainId", config.ChainID())
 	})
 	require.NoError(t, app.StartAndConnect())
 
@@ -708,7 +723,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 		eth.Register("eth_getTransactionCount", `0x100`)
-		eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
+		eth.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 	assert.NoError(t, app.StartAndConnect())
 	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "fixtures/web/noop_agreement.json")
@@ -747,6 +762,9 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	config.Set("EXPLORER_URL", wsserver.URL.String())
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
+	eth := app.MockEthClient(cltest.Strict)
+	eth.Register("eth_chainId", config.ChainID())
+
 	app.InstantClock()
 
 	app.Store.StatsPusher.Period = 300 * time.Millisecond
@@ -775,6 +793,8 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	sleepSeconds := 4
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	eth := app.MockEthClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/sleep_job.json")
