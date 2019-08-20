@@ -64,7 +64,7 @@ ALTER TABLE job_specs ADD CONSTRAINT "job_spec_pkey" PRIMARY KEY ("id");
 ALTER TABLE job_runs DROP COLUMN "job_spec_id";
 ALTER TABLE job_runs RENAME COLUMN "job_spec_id_uuid" TO "job_spec_id";
 
-ALTER TABLE job_runs ADD CONSTRAINT "job_runs_job_spec_id_fkey" FOREIGN KEY ("job_spec_id") REFERENCES job_specs ("id");
+ALTER TABLE job_runs ADD CONSTRAINT "job_runs_job_spec_id_fkey" FOREIGN KEY ("job_spec_id") REFERENCES job_specs ("id") ON DELETE CASCADE;
 	`).Error; err != nil {
 			return errors.Wrap(err, "failed to update job_spec_id id on job_runs")
 		}
@@ -73,7 +73,7 @@ ALTER TABLE job_runs ADD CONSTRAINT "job_runs_job_spec_id_fkey" FOREIGN KEY ("jo
 ALTER TABLE task_specs DROP COLUMN "job_spec_id";
 ALTER TABLE task_specs RENAME COLUMN "job_spec_id_uuid" TO "job_spec_id";
 
-ALTER TABLE task_specs ADD CONSTRAINT "task_specs_job_spec_id_fkey" FOREIGN KEY ("job_spec_id") REFERENCES job_specs ("id");
+ALTER TABLE task_specs ADD CONSTRAINT "task_specs_job_spec_id_fkey" FOREIGN KEY ("job_spec_id") REFERENCES job_specs ("id") ON DELETE CASCADE;
 	`).Error; err != nil {
 			return errors.Wrap(err, "failed to update job_spec_id id on task_specs")
 		}
@@ -82,7 +82,7 @@ ALTER TABLE task_specs ADD CONSTRAINT "task_specs_job_spec_id_fkey" FOREIGN KEY 
 ALTER TABLE service_agreements DROP COLUMN "job_spec_id";
 ALTER TABLE service_agreements RENAME COLUMN "job_spec_id_uuid" TO "job_spec_id";
 
-ALTER TABLE service_agreements ADD CONSTRAINT "service_agreements_job_spec_id_fkey" FOREIGN KEY ("job_spec_id") REFERENCES job_specs ("id");
+ALTER TABLE service_agreements ADD CONSTRAINT "service_agreements_job_spec_id_fkey" FOREIGN KEY ("job_spec_id") REFERENCES job_specs ("id") ON DELETE CASCADE;
 	`).Error; err != nil {
 			return errors.Wrap(err, "failed to update job_spec_id id on service_agreements")
 		}
@@ -127,7 +127,7 @@ ALTER TABLE job_runs ADD CONSTRAINT "job_run_pkey" PRIMARY KEY ("id");
 ALTER TABLE task_runs DROP COLUMN "job_run_id";
 ALTER TABLE task_runs RENAME COLUMN "job_run_id_uuid" TO "job_run_id";
 
-ALTER TABLE task_runs ADD CONSTRAINT "task_runs_job_run_id_fkey" FOREIGN KEY ("job_run_id") REFERENCES job_runs ("id");
+ALTER TABLE task_runs ADD CONSTRAINT "task_runs_job_run_id_fkey" FOREIGN KEY ("job_run_id") REFERENCES job_runs ("id") ON DELETE CASCADE;
 	`).Error; err != nil {
 			return errors.Wrap(err, "failed to update job_run_id id on task_runs")
 		}
@@ -136,7 +136,7 @@ ALTER TABLE task_runs ADD CONSTRAINT "task_runs_job_run_id_fkey" FOREIGN KEY ("j
 ALTER TABLE link_earned DROP COLUMN "job_run_id";
 ALTER TABLE link_earned RENAME COLUMN "job_run_id_uuid" TO "job_run_id";
 
-ALTER TABLE link_earned ADD CONSTRAINT "link_earned_job_run_id_fkey" FOREIGN KEY ("job_run_id") REFERENCES job_runs ("id");
+ALTER TABLE link_earned ADD CONSTRAINT "link_earned_job_run_id_fkey" FOREIGN KEY ("job_run_id") REFERENCES job_runs ("id") ON DELETE CASCADE;
 	`).Error; err != nil {
 			return errors.Wrap(err, "failed to update job_run_id id on link_earned")
 		}

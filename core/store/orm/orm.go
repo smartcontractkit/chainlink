@@ -303,22 +303,13 @@ func (orm *ORM) AddLinkEarned(earning *models.LinkEarned) error {
 	return orm.DB.Create(earning).Error
 }
 
-// LinkEarningsFor lists the individual link earnings for a job
-func (orm *ORM) LinkEarningsFor(jobSpecID *models.ID) ([]assets.Link, error) {
-	earnings := []assets.Link{}
-	err := orm.DB.
-		Table("link_earned").
-		Where("job_spec_id = ?", jobSpecID).
-		Pluck("earned", &earnings).Error
-
-	return earnings, err
-}
-
 // LinkEarnedFor shows the total link earnings for a job
-func (orm *ORM) LinkEarnedFor(jobSpecID *models.ID) (*assets.Link, error) {
+func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 	var earned *assets.Link
 	err := orm.DB.Table("link_earned").
-		Where("job_spec_id = ?", jobSpecID).
+		Joins("JOIN job_runs ON link_earned.job_run_id = job_runs.id").
+		Joins("JOIN job_specs ON job_runs.job_spec_id = job_specs.id").
+		Where("job_specs.id = ?", spec.ID).
 		Select("CAST(SUM(CAST(SUBSTR(earned, 1, 10) as BIGINT)) as varchar(255))").
 		Row().
 		Scan(&earned)
@@ -1033,7 +1024,7 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 															WHERE status IN (?) AND updated_at < ?)`,
 			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
 		if err != nil {
-			return fmt.Errorf("error deleting JobRun's RunResults: %v", err)
+			return errors.Wrap(err, "error deleting JobRun's RunResults")
 		}
 
 		// and run_requests
@@ -1045,7 +1036,7 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 															WHERE status IN (?) AND updated_at < ?)`,
 			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
 		if err != nil {
-			return fmt.Errorf("error deleting JobRun's RunRequests: %v", err)
+			return errors.Wrap(err, "error deleting JobRun's RunRequests")
 		}
 
 		// and then task runs using a join in the subquery
@@ -1059,7 +1050,7 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 															WHERE job_runs.status IN (?) AND job_runs.updated_at < ?)`,
 			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
 		if err != nil {
-			return fmt.Errorf("error deleting TaskRuns's RunResults: %v", err)
+			return errors.Wrap(err, "error deleting TaskRuns's RunResults")
 		}
 
 		err = dbtx.
@@ -1069,7 +1060,7 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 			Delete(&[]models.JobRun{}).
 			Error
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error deleting JobRuns")
 		}
 
 		return nil

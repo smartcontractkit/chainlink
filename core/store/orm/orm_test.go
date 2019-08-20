@@ -31,7 +31,7 @@ func TestORM_WhereNotFound(t *testing.T) {
 	j1 := models.NewJob()
 	jobs := []models.JobSpec{j1}
 
-	err := store.Where("ID", "bogus", &jobs)
+	err := store.Where("ID", models.NewID().String(), &jobs)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
 }
@@ -205,36 +205,6 @@ func TestORM_JobRunsFor(t *testing.T) {
 	assert.Equal(t, []*models.ID{}, limZeroActual)
 }
 
-func TestORM_LinkEarningsFor(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	job := cltest.NewJobWithWebInitiator()
-	require.NoError(t, store.CreateJob(&job))
-
-	initr := job.Initiators[0]
-	data := `{"result":"921.02"}`
-	jr1 := job.NewRun(initr)
-	jr1.Result = cltest.RunResultWithData(data)
-	jr2 := job.NewRun(initr)
-	jr2.Result = cltest.RunResultWithData(data)
-	require.NoError(t, store.CreateJobRun(&jr1))
-	require.NoError(t, store.CreateJobRun(&jr2))
-
-	earning1 := cltest.FakeLinkEarned(job.ID, jr1.ID, assets.NewLink(2))
-	require.NoError(t, store.AddLinkEarned(&earning1))
-	earning2 := cltest.FakeLinkEarned(job.ID, jr2.ID, assets.NewLink(2))
-	require.NoError(t, store.AddLinkEarned(&earning2))
-
-	earnings, err := store.LinkEarningsFor(job.ID)
-	assert.NoError(t, err)
-	actual := []*assets.Link{assets.NewLink(2), assets.NewLink(2)}
-	assert.Equal(t, []*assets.Link{&earnings[0], &earnings[1]}, actual)
-
-}
-
 func TestORM_LinkEarnedFor(t *testing.T) {
 	t.Parallel()
 
@@ -263,7 +233,7 @@ func TestORM_LinkEarnedFor(t *testing.T) {
 	earning3 := cltest.FakeLinkEarned(job.ID, jr3.ID, assets.NewLink(5))
 	require.NoError(t, store.AddLinkEarned(&earning3))
 
-	totalEarned, err := store.LinkEarnedFor(job.ID)
+	totalEarned, err := store.LinkEarnedFor(&job)
 	assert.NoError(t, err)
 	actualEarned := assets.NewLink(10)
 	assert.Equal(t, totalEarned, actualEarned)

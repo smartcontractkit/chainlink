@@ -166,10 +166,12 @@ type Initiator struct {
 
 // ServiceAgreement is a capture of the model before migration1565291711
 type ServiceAgreement struct {
-	ID          string    `gorm:"primary_key"`
-	CreatedAt   time.Time `gorm:"index"`
-	RequestBody string
-	JobSpecID   string `gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
+	ID            string    `gorm:"primary_key"`
+	CreatedAt     time.Time `gorm:"index"`
+	EncumbranceID uint
+	RequestBody   string
+	Signature     string `gorm:"type:varchar(255)"`
+	JobSpecID     string `gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
 }
 
 // TaskSpec is a capture of the model before migration1565291711
