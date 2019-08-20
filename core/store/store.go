@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
@@ -202,10 +202,10 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 func initializeORM(config *orm.Config) (*orm.ORM, error) {
 	orm, err := orm.NewORM(orm.NormalizedDatabaseURL(config), config.DatabaseTimeout())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
 	if err = migrations.Migrate(orm.DB); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "initializeORM#Migrate")
 	}
 	orm.SetLogging(config.LogSQLStatements())
 	return orm, nil
