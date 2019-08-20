@@ -83,8 +83,8 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	}
 }
 
-func jobPresenter(jsc *JobSpecsController, j models.JobSpec) presenters.JobSpec {
+func jobPresenter(jsc *JobSpecsController, job models.JobSpec) presenters.JobSpec {
 	st := jsc.App.GetStore()
-	jobLinkEarned, _ := st.LinkEarnedFor(j.ID)
-	return presenters.JobSpec{JobSpec: j, Earnings: jobLinkEarned}
+	jobLinkEarned, _ := st.LinkEarnedFor(&job)
+	return presenters.JobSpec{JobSpec: job, Earnings: jobLinkEarned}
 }

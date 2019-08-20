@@ -147,12 +147,12 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 	//  is done if there's already a RunResult with nonzero link reward
 	require.NoError(t, migration1560881855.Migrate(db))
 
-	rewFound := migration1560881855.LinkEarned{}
-	require.NoError(t, db.Find(&rewFound).Error)
-	assert.Equal(t, j.ID, rewFound.JobSpecID)
-	assert.Equal(t, jr.ID, rewFound.JobRunID)
-	assert.Equal(t, assets.NewLink(2), rewFound.Earned)
-	assert.True(t, true, rewFound.EarnedAt.After(aftCreation), rewFound.EarnedAt.Before(befCreation))
+	rowFound := migration1560881855.LinkEarned{}
+	require.NoError(t, db.Table("link_earned").Find(&rowFound).Error)
+	assert.Equal(t, j.ID.String(), rowFound.JobSpecID)
+	assert.Equal(t, jr.ID.String(), rowFound.JobRunID)
+	assert.Equal(t, assets.NewLink(2), rowFound.Earned)
+	assert.True(t, true, rowFound.EarnedAt.After(aftCreation), rowFound.EarnedAt.Before(befCreation))
 }
 
 func TestMigrate_Migration1560881846(t *testing.T) {

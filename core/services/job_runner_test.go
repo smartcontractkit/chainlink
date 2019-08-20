@@ -93,7 +93,7 @@ func TestJobRunner_executeRun_correctlyAddsLinkEarnings(t *testing.T) {
 	require.NoError(t, store.CreateJobRun(&run))
 	run.Overrides.Amount = assets.NewLink(1)
 	require.NoError(t, services.ExportedExecuteRun(&run, store))
-	actual, _ := store.LinkEarnedFor(j.ID)
+	actual, _ := store.LinkEarnedFor(&j)
 	assert.Equal(t, assets.NewLink(1), actual)
 }
 
