@@ -241,7 +241,7 @@ jobs:
       - checkout
       - run:
           name: Docker build
-          command: cd explorer && docker build .
+          command: docker build -f explorer/Dockerfile .
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.22
