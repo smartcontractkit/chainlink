@@ -56,7 +56,7 @@ chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
 
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.
-	cd operator_ui && CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
+	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui run build
 	CGO_ENABLED=0 go run operator_ui/main.go "${CURDIR}/core/services"
 
 .PHONY: docker
