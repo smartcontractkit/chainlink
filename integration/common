@@ -108,11 +108,9 @@ launch_explorer() {
   printf -- "[\033[31mstopped\033[0m]\n"
   title "Starting explorer..."
 
-  pushd explorer >/dev/null
-  yarn build &>$SRCROOT/integration/explorer-yarn.log
-  yarn prod &>$SRCROOT/integration/explorer.log &
-  waitForResponse $explorer_url
-  popd >/dev/null
+  yarn install
+  yarn workspace @chainlink/explorer run build &>$SRCROOT/integration/explorer-yarn.log
+  yarn workspace @chainlink/explorer run prod &>$SRCROOT/integration/explorer.log & waitForResponse $explorer_url
   title "Explorer is running."
 }
 

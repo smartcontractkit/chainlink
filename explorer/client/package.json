@@ -1,5 +1,5 @@
 {
-  "name": "explorer-client",
+  "name": "@chainlink/explorer-client",
   "private": true,
   "version": "0.0.0",
   "description": "LINK Explorer Client",
@@ -22,12 +22,12 @@
   "scripts": {
     "start": "cross-env PORT=3001 craco start",
     "build:clean": "rm -rf build",
+    "prebuild": "yarn install",
     "build": "craco build",
     "lint": "eslint . --color",
     "test": "react-scripts test",
     "test-ci": "CI=true react-scripts test",
-    "test-ci:silent": "yarn test-ci --silent",
-    "autoinstall": "md5sum -c .yarn.lock.md5 || yarn install && md5sum yarn.lock > .yarn.lock.md5"
+    "test-ci:silent": "yarn test-ci --silent"
   },
   "main": "app.js",
   "proxy": "http://localhost:8080",
@@ -40,7 +40,7 @@
     "@types/classnames": "^2.2.7",
     "@types/enzyme": "^3.9.1",
     "@types/enzyme-adapter-react-16": "^1.0.5",
-    "@types/jest": "^24.0.11",
+    "@types/jest": "^24.0.0",
     "@types/material-ui": "^0.21.6",
     "@types/reach__router": "^1.2.3",
     "@types/react": "^16.8.8",
@@ -93,9 +93,6 @@
     "prettier": "^1.16.4",
     "prettier-config-standard": ">= 1.0.0",
     "typescript": "^3.5.0"
-  },
-  "resolutions": {
-    "caniuse-lite": "1.0.30000957"
   },
   "comments": {
     "resolutions": "Had to lock caniuse-lite version at last working version with browserlists"
