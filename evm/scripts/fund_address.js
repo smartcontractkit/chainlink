@@ -2,7 +2,10 @@
 
 const { utils } = require('ethers')
 const commandLineArgs = require('command-line-args')
-const { wallet, provider, devnetMiner } = require('../chainlink.config')
+const { wallet, provider, DEVNET_ADDRESS } = require('../common')
+
+const USAGE =
+  'truffle exec scripts/fund_dev_wallet.js [options] <optional address>'
 
 // compand line options
 const optionDefinitions = [
@@ -22,7 +25,7 @@ const main = async () => {
     value: utils.bigNumberify(10).pow(21) // 10 ** 21
   }
   // send tx
-  const devnetMinerWallet = provider.getSigner(devnetMiner)
+  const devnetMinerWallet = provider.getSigner(DEVNET_ADDRESS)
   const txHash = (await devnetMinerWallet.sendTransaction(tx)).hash
   // wait for tx to be mined
   await provider.waitForTransaction(txHash)
@@ -36,8 +39,7 @@ module.exports = async callback => {
     await main()
     callback()
   } catch (error) {
-    console.error('Usage: truffle exec scripts/fund_dev_wallet.js [options] ' +
-    '<optional address>')
+    console.error(`Usage: ${USAGE}`)
     callback(error)
   }
 }
