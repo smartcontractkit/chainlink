@@ -8,7 +8,6 @@
   },
   "devDependencies": {
     "chai": "^4.2.0",
-    "openzeppelin-solidity": "^2.3.0",
     "openzeppelin-test-helpers": "^0.4.1",
     "truffle": "^5.0.25"
   },
