@@ -12,7 +12,7 @@ const optionDefinitions = [
 ]
 
 const USAGE =
-  'Usage: truffle exec scripts/check_link_balance.js [options] <token address> <holder address>'
+  'truffle exec scripts/check_link_balance.js [options] <token address> <holder address>'
 
 const main = async () => {
   // parse command line args
@@ -37,7 +37,7 @@ module.exports = async callback => {
     await main()
     callback()
   } catch (error) {
-    console.error(USAGE)
+    console.error(`Usage: ${USAGE}`)
     callback(error)
   }
 }
