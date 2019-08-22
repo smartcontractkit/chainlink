@@ -1,6 +1,6 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
-const Coordinator = artifacts.require('Coordinator.sol')
+const Coordinator = artifacts.require('dev/Coordinator.sol')
 const GetterSetter = artifacts.require('GetterSetter.sol')
 const MaliciousConsumer = artifacts.require('MaliciousConsumer.sol')
 const MaliciousRequester = artifacts.require('MaliciousRequester.sol')
@@ -298,7 +298,7 @@ contract('Coordinator', () => {
           )
 
           const mockRequestId = await mock.requestId.call()
-          assert.equal(request.id, mockRequestId)
+          assert.equal(h.toHex(request.id), mockRequestId)
 
           const currentValue = await mock.getBytes32.call()
           assert.equal('Hello World!', h.toUtf8(currentValue))

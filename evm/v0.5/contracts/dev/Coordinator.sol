@@ -1,10 +1,10 @@
-pragma solidity 0.4.24;
+pragma solidity 0.5.0;
 pragma experimental ABIEncoderV2;
 
 import "./CoordinatorInterface.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "../vendor/SafeMath.sol";
 
 /**
  * @title The Chainlink Coordinator handles oracle service aggreements between one or more oracles
@@ -81,7 +81,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     bytes4 _callbackFunctionId,
     uint256 _nonce,
     uint256 _dataVersion,
-    bytes _data
+    bytes calldata _data
   )
     external
     onlyLINK
@@ -153,7 +153,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    */
   function registerOracleSignatures(
     bytes32 _serviceAgreementID,
-    address[] _oracles,
+    address[] memory _oracles,
     OracleSignatures memory _signatures
   )
     private
@@ -224,7 +224,9 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     }
 
     uint256 result = aggregateAndPay(_requestId, callback.amount, oracles);
-    return callback.addr.call(callback.functionId, _requestId, result); // solhint-disable-line avoid-low-level-calls
+    // solhint-disable-next-line avoid-low-level-calls
+    (bool success,) = callback.addr.call(abi.encodePacked(callback.functionId, _requestId, result));
+    return success;
   }
 
   /**
@@ -258,7 +260,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   function onTokenTransfer(
     address _sender,
     uint256 _amount,
-    bytes _data
+    bytes memory _data
   )
     public
     onlyLINK
@@ -269,7 +271,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       mstore(add(_data, 68), _amount)    // ensure correct amount is passed
     }
     // solhint-disable-next-line avoid-low-level-calls
-    require(address(this).delegatecall(_data), "Unable to create request"); // calls oracleRequest
+    (bool success,) = address(this).delegatecall(_data);
+    require(success, "Unable to create request"); // calls oracleRequest
   }
 
   /**
