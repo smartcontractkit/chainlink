@@ -244,6 +244,11 @@ func (c Config) LogSQLStatements() bool {
 	return c.viper.GetBool(EnvVarName("LogSQLStatements"))
 }
 
+// LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger
+func (c Config) LogSQLMigrations() bool {
+	return c.viper.GetBool(EnvVarName("LogSQLMigrations"))
+}
+
 // MinIncomingConfirmations represents the minimum number of block
 // confirmations that need to be recorded since a job run started before a task
 // can proceed.

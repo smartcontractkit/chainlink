@@ -40,6 +40,7 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 
 	orm, err := orm.NewORM(orm.NormalizedDatabaseURL(config), config.DatabaseTimeout())
 	require.NoError(t, err)
+	orm.DB.LogMode(true)
 
 	return orm, func() {
 		assert.NoError(t, orm.Close())
@@ -185,6 +186,7 @@ func TestMigrate_Migration1560881846(t *testing.T) {
 func TestMigrate_Migration1565139192(t *testing.T) {
 	orm, cleanup := bootstrapORM(t)
 	defer cleanup()
+
 	db := orm.DB
 
 	require.NoError(t, migration0.Migrate(db))
@@ -209,7 +211,6 @@ func TestMigrate_Migration1565210496(t *testing.T) {
 	defer cleanup()
 
 	db := orm.DB
-	db.LogMode(true)
 
 	require.NoError(t, migration0.Migrate(db))
 
@@ -239,7 +240,6 @@ func TestMigrate_Migration1565291711(t *testing.T) {
 	defer cleanup()
 
 	db := orm.DB
-	db.LogMode(true)
 
 	require.NoError(t, migration0.Migrate(db))
 	require.NoError(t, migration1560881855.Migrate(db))
