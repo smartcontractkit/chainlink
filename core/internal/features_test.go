@@ -816,7 +816,7 @@ func TestIntegration_ExternalInitiatorCreate(t *testing.T) {
 	initiatorName := "bitcoin"
 	initiatorURL := cltest.WebURL(t, "https://test.chain.link/initiator")
 	eth := app.MockEthClient(cltest.Strict)
-	eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
 	eiJSON := fmt.Sprintf(`{"name":"%v","url":"%v"}`, initiatorName, initiatorURL)
@@ -832,4 +832,6 @@ func TestIntegration_ExternalInitiatorCreate(t *testing.T) {
 	require.Equal(t, initiatorName, ei.Name)
 	require.NotEmpty(t, ei.AccessKey)
 	require.NotEmpty(t, ei.HashedSecret)
+	require.NotEmpty(t, ei.OutgoingToken)
+	require.NotEmpty(t, ei.OutgoingSecret)
 }

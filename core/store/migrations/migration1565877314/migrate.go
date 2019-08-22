@@ -7,15 +7,18 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type ExternalInitiator struct {
 	*gorm.Model
-	Name         string        `gorm:"not null,unique"`
-	URL          models.WebURL `gorm:"not null"`
-	AccessKey    string
-	Salt         string
-	HashedSecret string
+	Name           string        `gorm:"not null,unique"`
+	URL            models.WebURL `gorm:"not null"`
+	AccessKey      string        `gorm:"not null"`
+	Salt           string        `gorm:"not null"`
+	HashedSecret   string        `gorm:"not null"`
+	OutgoingSecret string        `gorm:"not null"`
+	OutgoingToken  string        `gorm:"not null"`
 }
 
 // newExternalInitiator creates a new row, setting the Name to the AccessKey
@@ -24,11 +27,13 @@ func newExternalInitiator(arg migration0.ExternalInitiator) ExternalInitiator {
 	return ExternalInitiator{
 		Model: arg.Model,
 
-		Name:         arg.AccessKey,
-		URL:          models.WebURL(*url),
-		AccessKey:    arg.AccessKey,
-		Salt:         arg.Salt,
-		HashedSecret: arg.HashedSecret,
+		Name:           arg.AccessKey,
+		URL:            models.WebURL(*url),
+		AccessKey:      arg.AccessKey,
+		Salt:           arg.Salt,
+		HashedSecret:   arg.HashedSecret,
+		OutgoingSecret: utils.NewSecret(48),
+		OutgoingToken:  utils.NewSecret(48),
 	}
 }
 

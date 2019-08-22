@@ -31,6 +31,8 @@ import (
 )
 
 const (
+	// DefaultSecretSize is the entroy in bytes to generate a base64 string of 64 characters.
+	DefaultSecretSize = 48
 	// HumanTimeFormat is the predefined layout for use in Time.Format and time.Parse
 	HumanTimeFormat = "2006-01-02 15:04:05 MST"
 	// EVMWordByteLen the length of an EVM Word Byte
