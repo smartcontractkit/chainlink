@@ -20,11 +20,13 @@ type ExternalInitiatorRequest struct {
 // ExternalInitiator represents a user that can initiate runs remotely
 type ExternalInitiator struct {
 	*gorm.Model
-	Name         string
-	URL          WebURL
-	AccessKey    string
-	Salt         string
-	HashedSecret string
+	Name           string
+	URL            WebURL
+	AccessKey      string
+	Salt           string
+	HashedSecret   string
+	OutgoingToken  string
+	OutgoingSecret string
 }
 
 // NewExternalInitiator generates an ExternalInitiator from an
@@ -33,18 +35,20 @@ func NewExternalInitiator(
 	eia *ExternalInitiatorAuthentication,
 	eir *ExternalInitiatorRequest,
 ) (*ExternalInitiator, error) {
-	salt := utils.NewSecret(48)
+	salt := utils.NewSecret(utils.DefaultSecretSize)
 	hashedSecret, err := HashedSecret(eia, salt)
 	if err != nil {
 		return nil, errors.Wrap(err, "error hashing secret for external initiator")
 	}
 
 	return &ExternalInitiator{
-		Name:         eir.Name,
-		URL:          eir.URL,
-		AccessKey:    eia.AccessKey,
-		HashedSecret: hashedSecret,
-		Salt:         salt,
+		Name:           eir.Name,
+		URL:            eir.URL,
+		AccessKey:      eia.AccessKey,
+		HashedSecret:   hashedSecret,
+		Salt:           salt,
+		OutgoingToken:  utils.NewSecret(utils.DefaultSecretSize),
+		OutgoingSecret: utils.NewSecret(utils.DefaultSecretSize),
 	}, nil
 }
 
@@ -65,7 +69,7 @@ func AuthenticateExternalInitiator(eia *ExternalInitiatorAuthentication, ea *Ext
 func NewExternalInitiatorAuthentication() *ExternalInitiatorAuthentication {
 	return &ExternalInitiatorAuthentication{
 		AccessKey: utils.NewBytes32ID(),
-		Secret:    utils.NewSecret(48),
+		Secret:    utils.NewSecret(utils.DefaultSecretSize),
 	}
 }
 
