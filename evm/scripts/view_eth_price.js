@@ -2,7 +2,7 @@
 
 const { utils } = require('ethers')
 const commandLineArgs = require('command-line-args')
-const { provider } = require('../chainlink.config')
+const { provider } = require('../common')
 
 // compand line options
 const optionDefinitions = [

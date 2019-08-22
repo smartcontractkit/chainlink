@@ -2,7 +2,7 @@
 
 const ethers = require('ethers')
 const commandLineArgs = require('command-line-args')
-const { wallet } = require('../chainlink.config')
+const { wallet } = require('../common')
 
 // compand line options
 const optionDefinitions = [

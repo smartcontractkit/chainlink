@@ -1,8 +1,7 @@
 // truffle script
 
-const { utils } = require('ethers')
 const commandLineArgs = require('command-line-args')
-const { provider } = require('../chainlink.config')
+const LinkToken = artifacts.require('LinkTokenInterface')
 
 // compand line options
 const optionDefinitions = [
@@ -18,17 +17,10 @@ const main = async () => {
   // parse command line args
   const options = commandLineArgs(optionDefinitions)
   const [link, holder] = options.args.slice(2)
-  // encode function call
-  const funcSelector = '0x70a08231'// "balanceOf(address)"
-  const encodedParams = utils.defaultAbiCoder.encode(['address'], [holder])
-  const data = utils.hexlify(utils.concat([funcSelector, encodedParams]))
-  // make function call
-  const hexBalance = await provider.call({
-    data,
-    to: link
-  })
-  // print balance
-  const balance = utils.bigNumberify(hexBalance)
+  // find link token
+  const linkToken = await LinkToken.at(link)
+  // get address's balance
+  const balance = await linkToken.balanceOf.call(holder)
   console.log(`LINK balance: ${balance.toString()}`)
 }
 
