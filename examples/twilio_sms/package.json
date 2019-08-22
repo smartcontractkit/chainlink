@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "chainlink-twilio-sms",
+  "name": "@chainlink/example-twilio-sms",
   "version": "0.6.0",
   "license": "MIT",
   "scripts": {

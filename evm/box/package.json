@@ -1,5 +1,5 @@
 {
-  "name": "chainlink-box",
+  "name": "@chainlink/box",
   "version": "0.6.0",
   "description": "A Chainlink example in a Truffle box",
   "scripts": {
