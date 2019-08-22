@@ -148,17 +148,22 @@ func TestValidateExternalInitiator(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	//  Add duplicate
+	exi := models.ExternalInitiator{Name: "duplicate", URL: cltest.WebURL(t, "https://a.web.url")}
+	assert.NoError(t, store.CreateExternalInitiator(&exi))
+
 	// TODO: Need to validate when name already exists in store
 	tests := []struct {
 		name      string
 		input     string
 		wantError bool
 	}{
-		{"bitcoin", `{"name":"bitcoin","url":"https://test.url"}`, false},
+		{"bad url", `{"name":"bitcoin","url":"//test.url"}`, true},
+		{"basic", `{"name":"bitcoin","url":"https://test.url"}`, false},
+		{"duplicate name", `{"name":"duplicate","url":"https://test.url"}`, true},
+		{"invalid name characters", `{"name":"<invalid>","url":"https://test.url"}`, true},
 		{"missing name", `{"url":"https://test.url"}`, true},
 		{"missing url", `{"name":"bitcoin"}`, true},
-		{"bad url", `{"name":"bitcoin","url":"//test.url"}`, true},
-		{"invalid name characters", `{"name":"<invalid>","url":"https://test.url"}`, true},
 	}
 
 	for _, test := range tests {

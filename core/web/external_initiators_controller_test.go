@@ -25,6 +25,21 @@ func TestExternalInitiatorsController_Create(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, 201)
 }
 
+func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+
+	client := app.NewHTTPClient()
+
+	resp, cleanup := client.Post("/v2/external_initiators",
+		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
+	)
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 400)
+}
+
 func TestExternalInitiatorsController_Delete(t *testing.T) {
 	t.Parallel()
 
