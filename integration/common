@@ -94,8 +94,8 @@ launch_chainlink() {
   title "Chainlink is running."
 
   waitFor "grep 'Unlocked account' '$SRCROOT/integration/chainlink.log'" 10
-  cl_node_address=`cat $SRCROOT/integration/chainlink.log | grep 'Unlocked account' | awk '{print$5}'`
-  $SRCROOT/evm/bin/fund_address "$cl_node_address" > $SRCROOT/integration/fund_address.log
+  export CHAINLINK_NODE_ADDRESS=`cat $SRCROOT/integration/chainlink.log | grep 'Unlocked account' | awk '{print$5}'`
+  $SRCROOT/evm/bin/fund_address "$CHAINLINK_NODE_ADDRESS" > $SRCROOT/integration/fund_address.log
 }
 
 launch_explorer() {
@@ -134,11 +134,13 @@ deploy_contracts() {
   yarn --no-progress install &>$SRCROOT/integration/yarn.log
 
   yarn workspace @chainlink/integration run truffle migrate --compile-all --reset --network test | tee $SRCROOT/integration/deploy.log
-  export ORACLE_CONTRACT_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed Oracle at:' | awk '{print$4}'`
   export LINK_TOKEN_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed LinkToken at:' | awk '{print$4}'`
+  export ORACLE_CONTRACT_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed Oracle at:' | awk '{print$4}'`
+  # ./deploy_contracts $CHAINLINK_NODE_ADDRESS | tee $SRCROOT/integration/deploy.log
+  # echo "cl_node_address is $CHAINLINK_NODE_ADDRESS"
   export ETH_LOG_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed EthLog at:' | awk '{print$4}'`
   export RUN_LOG_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed RunLog at:' | awk '{print$4}'`
-
+  echo "RunLog address: $RUN_LOG_ADDRESS"
   popd >/dev/null
   title "Migration complete."
 }

@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 
-// const {deployer, abort} = require('./common.js')
+const {deployer, abort} = require('./common.js')
 
-// const main = async (chainlinkAddress) => {
-//   const LinkToken = await deployer.perform('../node_modules/link_token/contracts/LinkToken.sol')
-//     .catch(abort('Error deploying LinkToken.sol'))
-//   console.log(`Deployed LinkToken at: ${LinkToken.address}`)
+const main = async (chainlinkAddress) => {
+  // const LinkToken = await deployer.perform('../node_modules/link_token/contracts/LinkToken.sol')
+  //   .catch(abort('Error deploying LinkToken.sol'))
+  // console.log(`Deployed LinkToken at: ${LinkToken.address}`)
 
-//   const Oracle = await deployer.perform('../evm/contracts/Oracle.sol', LinkToken.address)
-//     .catch(abort('Error deploying Oracle.sol'))
-//   console.log(`Deployed Oracle at: ${Oracle.address}`)
+  const Oracle = await deployer.perform('../evm/contracts/Oracle.sol', process.env.LINK_TOKEN_ADDRESS)
+  // const Oracle = await deployer.perform('../evm/contracts/Oracle.sol', LinkToken.address)
+    .catch(abort('Error deploying Oracle.sol'))
+  console.log(`Deployed Oracle at: ${Oracle.address}`)
 
-//   Oracle.setFulfillmentPermission(chainlinkAddress, true)
-// }
+  Oracle.setFulfillmentPermission(chainlinkAddress, true)
+}
 
-// main(...process.argv.slice(2))
+main(...process.argv.slice(2))

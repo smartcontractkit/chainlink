@@ -1,16 +1,14 @@
 #!/usr/bin/env node
 
-const { abort } = require('./common.js')
-const { provider } = require('../evm/chainlink.config')
+const { abort, port } = require('./common.js')
+const { web3 } = require('chainlink/app/env.js')
 
 process.env.SOLIDITY_INCLUDE = '../evm/contracts'
 
 const main = async (contractName, txID, fromAddress) => {
-  const transaction = await provider.getTransactionReceipt(txID)
-
-  if (!transaction) {
-    abort(`Error getting transaction receipt for ${txID}`)
-  }
+  const transaction = await web3.eth
+    .getTransactionReceipt(txID)
+    .catch(abort('Error getting transaction receipt'))
 
   let count = 0
   for (let log of transaction.logs) {
