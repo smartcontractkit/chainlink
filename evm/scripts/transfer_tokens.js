@@ -2,14 +2,12 @@
 
 const { utils } = require('ethers')
 const commandLineArgs = require('command-line-args')
-const { wallet, provider } = require('../common')
-
-// compand line options
-const optionDefinitions = [
-  { name: 'args', type: String, multiple: true, defaultOption: true },
-  { name: 'compile', type: Boolean },
-  { name: 'network', type: String }
-]
+const {
+  optionDefinitions,
+  provider,
+  scriptRunner,
+  wallet
+} = require('./common')
 
 const USAGE =
   'truffle exec scripts/transfer_token.js [options] <token address> <recipient address>'
@@ -38,12 +36,4 @@ const main = async () => {
   console.log(`${numTokens} transfered from ${tokenAddress} to ${recipient}`)
 }
 
-module.exports = async callback => {
-  try {
-    await main()
-    callback()
-  } catch (error) {
-    console.error(`Usage: ${USAGE}`)
-    callback(error)
-  }
-}
+module.exports = scriptRunner(main, USAGE)

@@ -2,17 +2,16 @@
 
 const { utils } = require('ethers')
 const commandLineArgs = require('command-line-args')
-const { wallet, provider, DEVNET_ADDRESS } = require('../common')
+const {
+  DEVNET_ADDRESS,
+  optionDefinitions,
+  provider,
+  scriptRunner,
+  wallet
+} = require('./common')
 
 const USAGE =
   'truffle exec scripts/fund_dev_wallet.js [options] <optional address>'
-
-// compand line options
-const optionDefinitions = [
-  { name: 'args', type: String, multiple: true, defaultOption: true },
-  { name: 'compile', type: Boolean },
-  { name: 'network', type: String }
-]
 
 const main = async () => {
   // parse command line args
@@ -34,12 +33,4 @@ const main = async () => {
   console.log(receipt)
 }
 
-module.exports = async callback => {
-  try {
-    await main()
-    callback()
-  } catch (error) {
-    console.error(`Usage: ${USAGE}`)
-    callback(error)
-  }
-}
+module.exports = scriptRunner(main, USAGE)
