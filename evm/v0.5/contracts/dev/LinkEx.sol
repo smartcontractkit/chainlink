@@ -1,8 +1,8 @@
-pragma solidity 0.4.24;
+pragma solidity 0.5.0;
 
 import "./LinkExInterface.sol";
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "../vendor/SafeMath.sol";
+import "../vendor/Ownable.sol";
 
 /**
  * @title The LINK exchange contract

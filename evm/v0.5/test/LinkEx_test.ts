@@ -23,8 +23,8 @@ contract('LinkEx', () => {
       'removeOracle',
       'update',
       // Ownable methods:
+      'isOwner',
       'owner',
-      'renounceOwnership',
       'transferOwnership'
     ])
   })
