@@ -1,8 +1,8 @@
-#!/usr/bin/env node
-(async () => {
-  // imports
-  const { utils } = require('ethers')
-  const { wallet, provider } = require('../chainlink.config')
+// truffle script
+
+const { utils } = require('ethers')
+const commandLineArgs = require('command-line-args')
+const { wallet, provider } = require('../chainlink.config')
 
   // ensure correct CLI ussage
   if (process.argv.length < 2) {
