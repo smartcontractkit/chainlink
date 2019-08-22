@@ -82,7 +82,6 @@ func Migrate(db *gorm.DB) error {
 		},
 	}
 
-	db.LogMode(true)
 	m := gormigrate.New(db, &options, migrations)
 
 	var count int
