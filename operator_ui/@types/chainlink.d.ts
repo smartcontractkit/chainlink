@@ -33,6 +33,130 @@ declare module 'github.com/jinzhu/gorm' {
   }
 }
 
+declare module 'core/web/sessions_controller' {
+  export interface Session {
+    authenticated: boolean
+  }
+}
+
+declare module 'github.com/ethereum/go-ethereum/common/hexutil' {
+  /**
+   * Bytes marshals/unmarshals as a JSON string with 0x prefix.
+   * The empty slice marshals as "0x".
+   */
+  export type Bytes = string
+}
+
+declare module 'go.uber.org/zap/zapcore' {
+  /**
+   * A Level is a logging priority. Higher levels are more important.
+   */
+  export type Level = number
+}
+
+declare module 'core/store/orm' {
+  import * as zapcore from 'go.uber.org/zap/zapcore'
+
+  /**
+   * LogLevel determines the verbosity of the events to be logged.
+   */
+  export interface LogLevel {
+    Level: zapcore.Level
+  }
+}
+
+declare module 'core/store/presenters' {
+  import * as assets from 'core/store/assets'
+  import * as models from 'core/store/models'
+  import * as orm from 'core/store/orm'
+  import * as common from 'github.com/ethereum/go-ethereum/common'
+  import * as hexutil from 'github.com/ethereum/go-ethereum/common/hexutil'
+  import * as big from 'math/big'
+  import * as time from 'time'
+
+  /**
+   * AccountBalance holds the hex representation of the address plus it's ETH & LINK balances
+   */
+  export interface AccountBalance {
+    address: string
+    ethBalance: Pointer<assets.Eth>
+    linkBalance: Pointer<assets.Link>
+  }
+
+  export interface ConfigWhitelist extends Whitelist {
+    accountAddress: string
+  }
+
+  /**
+   * ConfigWhitelist are the non-secret values of the node
+   */
+  interface Whitelist {
+    allowOrigins: string
+    bridgeResponseURL?: string
+    ethChainId: number
+    clientNodeUrl: string
+    chainlinkDev: boolean
+    databaseTimeout: time.Duration
+    ethUrl: string
+    /**
+     * FIXME -- precision loss
+     */
+    ethGasBumpThreshold: number
+    ethGasBumpWei: Pointer<big.Int>
+    ethGasPriceDefault: Pointer<big.Int>
+    jsonConsole: boolean
+    linkContractAddress: string
+    explorerUrl: string
+    logLevel: orm.LogLevel
+    logToDisk: boolean
+    minimumContractPayment: Pointer<assets.Link>
+    /**
+     * FIXME -- precision loss
+     */
+    minimumRequestExpiration: number
+    minIncomingConfirmations: number
+    minOutgoingConfirmations: number
+    oracleContractAddress: Pointer<common.Address>
+    chainlinkPort: number
+    reaperExpiration: time.Duration
+    root: string
+    sessionTimeout: time.Duration
+    chainlinkTLSHost: string
+    chainlinkTLSPort: number
+    txAttemptLimit: number
+  }
+
+  /**
+   * JobSpec holds the JobSpec definition together with
+   * the total link earned from that job
+   */
+  export interface JobSpec extends models.JobSpec {
+    earnings: Pointer<assets.Link>
+  }
+
+  /**
+   * JobRun presents an API friendly version of the data.
+   */
+  export interface JobRun extends models.JobRun {}
+
+  /**
+   * Tx is a jsonapi wrapper for an Ethereum Transaction.
+   */
+  export interface Tx {
+    confirmed?: boolean
+    data?: hexutil.Bytes
+    from?: Pointer<common.Address>
+    gasLimit?: string
+    gasPrice?: string
+    hash?: common.Hash
+    rawHex?: string
+    nonce?: string
+    sentAt?: string
+    to?: Pointer<common.Address>
+    value?: string
+  }
+}
+
 declare module 'core/store/assets' {
   import * as big from 'math/big'
   //#region currencies.go
@@ -50,6 +174,10 @@ declare module 'core/store/assets' {
 
 declare module 'time' {
   export type Time = string
+  /**
+   *  FIXME -- We should define a custom marshaler for this
+   */
+  export type Duration = number
 }
 
 declare module 'github.com/ethereum/go-ethereum/common' {
@@ -470,4 +598,34 @@ declare module 'core/store/models' {
     HashedSecret: string
   }
   //#endregion external_initiator.go
+  //#region user.go
+  /**
+   * SessionRequest encapsulates the fields needed to generate a new SessionID,
+   * including the hashed password.
+   */
+  export interface SessionRequest {
+    email: string
+    password: string
+  }
+  //#endregion user.go
+  //#region bulk.go
+  /**
+   * BulkDeleteRunRequest describes the query for deletion of runs
+   */
+  export interface BulkDeleteRunRequest {
+    /**
+     * FIXME -- loss of precision and camelcase,
+     * maybe this shouldnt exist at all actually
+     */
+    ID: number
+    status: RunStatusCollection
+    updatedBefore: time.Time
+  }
+
+  /**
+   * RunStatusCollection is an array of RunStatus.
+   */
+  export type RunStatusCollection = RunStatus[]
+
+  //#endregion  bulk.go
 }

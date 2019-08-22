@@ -12,7 +12,8 @@ declare module 'json-api-normalizer' {
   export type JsonApiResponse<
     TData extends
       | ResourceObject<any, any, any, any>[]
-      | ResourceObject<any, any, any, any> =
+      | ResourceObject<any, any, any, any>
+      | null =
       | ResourceObject<any, any, any, any>[]
       | ResourceObject<any, any, any, any>,
     TError extends ErrorsObject[] = ErrorsObject[],

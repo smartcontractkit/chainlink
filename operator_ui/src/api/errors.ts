@@ -1,3 +1,5 @@
+import { JsonApiResponse } from 'json-api-normalizer'
+
 interface Error {
   status: number
   detail: any
@@ -22,9 +24,9 @@ export class AuthenticationError extends Error {
 }
 
 export class BadRequestError extends Error {
-  errors: Error[]
+  errors: JsonApiResponse['errors']
 
-  constructor({ errors }: DocumentWithErrors) {
+  constructor({ errors }: Pick<JsonApiResponse, 'errors'>) {
     super('BadRequestError')
     this.errors = errors
   }
