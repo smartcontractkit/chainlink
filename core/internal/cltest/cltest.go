@@ -98,6 +98,8 @@ func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig 
 	rawConfig.Set("CHAINLINK_DEV", true)
 	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
 	rawConfig.Set("LOG_LEVEL", orm.LogLevel{Level: zapcore.DebugLevel})
+	rawConfig.Set("LOG_SQL", false)
+	rawConfig.Set("LOG_SQL_MIGRATIONS", false)
 	rawConfig.Set("MINIMUM_SERVICE_DURATION", "24h")
 	rawConfig.Set("MIN_INCOMING_CONFIRMATIONS", 1)
 	rawConfig.Set("MIN_OUTGOING_CONFIRMATIONS", 6)
