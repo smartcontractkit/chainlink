@@ -12,8 +12,6 @@ fi
 expected_echo_count=$(expr $(curl -sS "$ECHO_SERVER_URL") + 1)
 expected_job_count=$(expr $(chainlink -j j | jq length) + 1)
 
-# ./send_runlog_transaction | tee send_runlog_transaction.log
-# runlog_address=`cat send_runlog_transaction.log | grep RunLog | awk '{print$4}'`
 yarn workspace @chainlink/integration run truffle exec send_runlog_transaction.js --network test | tee $SRCROOT/integration/send_runlog_transaction.log
 
 # Check echo count
@@ -37,11 +35,7 @@ tx_receiver=$(chainlink -j lr --jobid $jid | jq '.[].result.data.address' | sed 
 echo "Test sent TX to: $tx_receiver"
 
 # Check for the Fullfillment event
-# echo "txid: $txid"
-# echo "RUN_LOG_ADDRESS: $RUN_LOG_ADDRESS"
-# assert "Transaction Events" "./count_transaction_events RunLog.sol $txid $runlog_address" 2
-# assert "Transaction Events" "./count_transaction_events RunLog.sol $txid $RUN_LOG_ADDRESS" 2
 yarn workspace @chainlink/integration run truffle exec count_transaction_events.js --network test $txid $RUN_LOG_ADDRESS | tee $SRCROOT/integration/send_runlog_transaction.log
-tx_event_count=`cat $SRCROOT/integration/send_runlog_transaction.log | grep "events from $RUN_LOG_ADDRESS in $txID:" | awk '{print$6}'`
+tx_event_count=`cat $SRCROOT/integration/send_runlog_transaction.log | grep "Events from $RUN_LOG_ADDRESS in $txid:" | awk '{print$6}'`
 assert "Transaction Events" "echo $tx_event_count" 2
 
