@@ -806,3 +806,30 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	cltest.JobRunStays(t, app.Store, jr, models.RunStatusPendingSleep, time.Second)
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
+
+func TestIntegration_ExternalInitiatorCreate(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+
+	initiatorName := "bitcoin"
+	initiatorURL := cltest.WebURL(t, "https://test.chain.link/initiator")
+	eth := app.MockEthClient(cltest.Strict)
+	eth.Register("eth_chainId", *cltest.Int(app.Store.Config.ChainID()))
+	app.Start()
+
+	eiJSON := fmt.Sprintf(`{"name":"%v","url":"%v"}`, initiatorName, initiatorURL)
+	eia := cltest.CreateExternalInitiatorViaWeb(t, app, eiJSON)
+
+	var count int
+	err := app.Store.DB.Model(&models.ExternalInitiator{}).Count(&count).Error
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+	ei := cltest.FindExternalInitiator(t, app.Store, eia)
+
+	require.Equal(t, initiatorURL, ei.URL)
+	require.Equal(t, initiatorName, ei.Name)
+	require.NotEmpty(t, ei.AccessKey)
+	require.NotEmpty(t, ei.HashedSecret)
+}

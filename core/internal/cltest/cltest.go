@@ -619,6 +619,15 @@ func FindJobRun(t testing.TB, s *strpkg.Store, id *models.ID) models.JobRun {
 	return j
 }
 
+func FindExternalInitiator(t testing.TB, s *strpkg.Store, eia *models.ExternalInitiatorAuthentication) *models.ExternalInitiator {
+	t.Helper()
+
+	ei, err := s.FindExternalInitiator(eia)
+	require.NoError(t, err)
+
+	return ei
+}
+
 func FindServiceAgreement(t testing.TB, s *strpkg.Store, id string) models.ServiceAgreement {
 	t.Helper()
 
@@ -730,6 +739,28 @@ func CreateBridgeTypeViaWeb(
 	require.NoError(t, err)
 
 	return bt
+}
+
+// CreateExternalInitiatorViaWeb creates a bridgetype via web using /v2/bridge_types
+func CreateExternalInitiatorViaWeb(
+	t testing.TB,
+	app *TestApplication,
+	payload string,
+) *models.ExternalInitiatorAuthentication {
+	t.Helper()
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post(
+		"/v2/external_initiators",
+		bytes.NewBufferString(payload),
+	)
+	defer cleanup()
+	AssertServerResponse(t, resp, 201)
+	eia := &models.ExternalInitiatorAuthentication{}
+	err := ParseJSONAPIResponse(t, resp, eia)
+	require.NoError(t, err)
+
+	return eia
 }
 
 // WaitForJobRunToComplete waits for a JobRun to reach Completed Status
