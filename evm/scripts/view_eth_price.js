@@ -2,14 +2,7 @@
 
 const { utils } = require('ethers')
 const commandLineArgs = require('command-line-args')
-const { provider } = require('../common')
-
-// compand line options
-const optionDefinitions = [
-  { name: 'args', type: String, multiple: true, defaultOption: true },
-  { name: 'compile', type: Boolean },
-  { name: 'network', type: String }
-]
+const { optionDefinitions, provider, scriptRunner } = require('./common')
 
 const USAGE =
   'truffle exec scripts/view_eth_price.js [options] <contract address>'
@@ -31,12 +24,4 @@ const main = async () => {
   console.log(msg)
 }
 
-module.exports = async callback => {
-  try {
-    await main()
-    callback()
-  } catch (error) {
-    console.error(`Usage: ${USAGE}`)
-    callback(error)
-  }
-}
+module.exports = scriptRunner(main, USAGE)

@@ -2,14 +2,7 @@
 
 const ethers = require('ethers')
 const commandLineArgs = require('command-line-args')
-const { wallet } = require('../common')
-
-// compand line options
-const optionDefinitions = [
-  { name: 'args', type: String, multiple: true, defaultOption: true },
-  { name: 'compile', type: Boolean },
-  { name: 'network', type: String }
-]
+const { optionDefinitions, scriptRunner, wallet } = require('./common')
 
 const USAGE =
   'truffle exec scripts/deploy.js [options] <contract name> <constructor args...>'
@@ -26,12 +19,4 @@ const main = async () => {
   console.log(`${contractName} contract successfully deployed at: ${contract.address}`)
 }
 
-module.exports = async callback => {
-  try {
-    await main()
-    callback()
-  } catch (error) {
-    console.error(`Usage: ${USAGE}`)
-    callback(error)
-  }
-}
+module.exports = scriptRunner(main, USAGE)
