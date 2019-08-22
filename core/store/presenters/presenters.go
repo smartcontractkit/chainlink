@@ -126,16 +126,18 @@ type whitelist struct {
 	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                  *big.Int        `json:"ethChainId"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
-	Dev                      bool            `json:"chainlinkDev"`
 	DatabaseTimeout          time.Duration   `json:"databaseTimeout"`
+	Dev                      bool            `json:"chainlinkDev"`
 	EthereumURL              string          `json:"ethUrl"`
 	EthGasBumpThreshold      uint64          `json:"ethGasBumpThreshold"`
 	EthGasBumpWei            *big.Int        `json:"ethGasBumpWei"`
 	EthGasPriceDefault       *big.Int        `json:"ethGasPriceDefault"`
+	ExplorerURL              string          `json:"explorerUrl"`
 	JSONConsole              bool            `json:"jsonConsole"`
 	LinkContractAddress      string          `json:"linkContractAddress"`
-	ExplorerURL              string          `json:"explorerUrl"`
 	LogLevel                 orm.LogLevel    `json:"logLevel"`
+	LogSQLMigrations         bool            `json:"logSqlMigrations"`
+	LogSQLStatements         bool            `json:"logSqlStatements"`
 	LogToDisk                bool            `json:"logToDisk"`
 	MinimumContractPayment   *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration uint64          `json:"minimumRequestExpiration"`
@@ -182,6 +184,8 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			ExplorerURL:              explorerURL,
 			LogLevel:                 config.LogLevel(),
 			LogToDisk:                config.LogToDisk(),
+			LogSQLStatements:         config.LogSQLStatements(),
+			LogSQLMigrations:         config.LogSQLMigrations(),
 			MinimumContractPayment:   config.MinimumContractPayment(),
 			MinimumRequestExpiration: config.MinimumRequestExpiration(),
 			MinIncomingConfirmations: config.MinIncomingConfirmations(),
