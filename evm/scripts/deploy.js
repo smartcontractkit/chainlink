@@ -11,21 +11,27 @@ const optionDefinitions = [
   { name: 'network', type: String }
 ]
 
-module.exports = async function(callback) {
+const USAGE =
+  'truffle exec scripts/deploy.js [options] <contract name> <constructor args...>'
+
+const main = async () => {
   // parse command line args
   const options = commandLineArgs(optionDefinitions)
   const [contractName, ...constructorArgs] = options.args.slice(2)
+  // import abi & bytecode from build
+  const { abi, bytecode } = artifacts.require(contractName)
+  // deploy
+  const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet)
+  const contract = await contractFactory.deploy(...constructorArgs)
+  console.log(`${contractName} contract successfully deployed at: ${contract.address}`)
+}
+
+module.exports = async callback => {
   try {
-    // import abi & bytecode from build
-    const { abi, bytecode } = artifacts.require(contractName)
-    // deploy
-    const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet)
-    const contract = await contractFactory.deploy(...constructorArgs)
-    console.log(`${contractName} contract successfully deployed at: ${contract.address}`)
+    await main()
     callback()
   } catch (error) {
-    console.error('Usage: truffle exec scripts/deploy.js [options] ' +
-    '<contract name> <constructor args...>')
+    console.error(`Usage: ${USAGE}`)
     callback(error)
   }
 }

@@ -11,7 +11,10 @@ const optionDefinitions = [
   { name: 'network', type: String }
 ]
 
-module.exports = async function(callback) {
+const USAGE =
+  'truffle exec scripts/transfer_token.js [options] <token address> <recipient address>'
+
+const main = async () => {
   // parse command line args
   const options = commandLineArgs(optionDefinitions)
   let [tokenAddress, recipient] = options.args.slice(2)
@@ -25,19 +28,22 @@ module.exports = async function(callback) {
     data,
     to: tokenAddress
   }
+  // send tx
+  const txHash = (await wallet.sendTransaction(tx)).hash
+  // wait for tx to be mined
+  await provider.waitForTransaction(txHash)
+  // get tx receipt
+  const receipt = await provider.getTransactionReceipt(txHash)
+  console.log(receipt)
+  console.log(`${numTokens} transfered from ${tokenAddress} to ${recipient}`)
+}
+
+module.exports = async callback => {
   try {
-    // send tx
-    const txHash = (await wallet.sendTransaction(tx)).hash
-    // wait for tx to be mined
-    await provider.waitForTransaction(txHash)
-    // get tx receipt
-    const receipt = await provider.getTransactionReceipt(txHash)
-    console.log(receipt)
-    console.log(`${numTokens} transfered from ${tokenAddress} to ${recipient}`)
+    await main()
     callback()
   } catch (error) {
-    console.error('Usage: truffle exec scripts/transfer_token.js [options] ' +
-    '<token address> <recipient address>')
+    console.error(`Usage: ${USAGE}`)
     callback(error)
   }
 }

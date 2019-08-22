@@ -11,21 +11,28 @@ const optionDefinitions = [
   { name: 'network', type: String }
 ]
 
-module.exports = async function(callback) {
+const USAGE =
+  'truffle exec scripts/watch_contract_events.js [options] <contract name> <contract address>'
+
+const main = async () => {
   // parse command line args
   const options = commandLineArgs(optionDefinitions)
   const [contractName, contractAddress] = options.args.slice(2)
+  // import abi & bytecode from build
+  const { abi, bytecode } = artifacts.require(contractName)
+  // watch events
+  console.log(`Watching events at ${contractAddress}`)
+  const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet)
+  const contract = contractFactory.attach(contractAddress)
+  contract.on('*', console.log)
+}
+
+module.exports = async callback => {
   try {
-    // import abi & bytecode from build
-    const { abi, bytecode } = artifacts.require(contractName)
-    // watch events
-    console.log(`Watching events at ${contractAddress}`)
-    const contractFactory = new ethers.ContractFactory(abi, bytecode, wallet)
-    const contract = contractFactory.attach(contractAddress)
-    contract.on('*', console.log)
+    await main()
+    callback()
   } catch (error) {
-    console.error('Usage: truffle exec scripts/watch_contract_events.js [options] ' +
-    '<contract name> <contract address>')
+    console.error(`Usage: ${USAGE}`)
     callback(error)
   }
 }
