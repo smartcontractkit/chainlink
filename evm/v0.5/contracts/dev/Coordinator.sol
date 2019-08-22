@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 import "./CoordinatorInterface.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "../vendor/SafeMath.sol";
 
 /**
  * @title The Chainlink Coordinator handles oracle service aggreements between one or more oracles

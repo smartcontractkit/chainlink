@@ -25,7 +25,6 @@ contract('LinkEx', () => {
       // Ownable methods:
       'isOwner',
       'owner',
-      'renounceOwnership',
       'transferOwnership'
     ])
   })
