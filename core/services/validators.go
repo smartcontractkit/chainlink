@@ -56,7 +56,8 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 	return fe.CoerceEmptyToNil()
 }
 
-// ValidateExternalInitiator ...
+// ValidateExternalInitiator checks whether External Initiator parameters are
+// safe for processing.
 func ValidateExternalInitiator(
 	exi *models.ExternalInitiatorRequest,
 	eia *models.ExternalInitiatorAuthentication,
@@ -70,7 +71,7 @@ func ValidateExternalInitiator(
 	} else if _, err := store.FindExternalInitiatorByName(eia, exi.Name); err == nil {
 		fe.Add(fmt.Sprintf("Name %v already exists", exi.Name))
 	} else if err != orm.ErrorNotFound {
-		fe.Merge(err) // Is this correct?
+		return errors.Wrap(err, "validating external initiator")
 	}
 	if isURL := govalidator.IsURL(exi.URL.String()); !isURL {
 		fe.Add("Invalid URL format")
