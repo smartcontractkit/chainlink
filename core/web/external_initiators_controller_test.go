@@ -6,11 +6,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestExternalInitiatorsController_Create(t *testing.T) {
+func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
@@ -23,6 +24,16 @@ func TestExternalInitiatorsController_Create(t *testing.T) {
 	)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 201)
+	ei := &presenters.ExternalInitiator{}
+	err := cltest.ParseJSONAPIResponse(t, resp, ei)
+	require.NoError(t, err)
+
+	assert.Equal(t, "bitcoin", ei.Name)
+	assert.Equal(t, "http://without.a.name", ei.URL.String())
+	assert.NotEmpty(t, ei.AccessKey)
+	assert.NotEmpty(t, ei.Secret)
+	assert.NotEmpty(t, ei.OutgoingToken)
+	assert.NotEmpty(t, ei.OutgoingSecret)
 }
 
 func TestExternalInitiatorsController_Create_invalid(t *testing.T) {

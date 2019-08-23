@@ -746,7 +746,7 @@ func CreateExternalInitiatorViaWeb(
 	t testing.TB,
 	app *TestApplication,
 	payload string,
-) *models.ExternalInitiatorAuthentication {
+) *presenters.ExternalInitiator {
 	t.Helper()
 
 	client := app.NewHTTPClient()
@@ -756,11 +756,11 @@ func CreateExternalInitiatorViaWeb(
 	)
 	defer cleanup()
 	AssertServerResponse(t, resp, 201)
-	eia := &models.ExternalInitiatorAuthentication{}
-	err := ParseJSONAPIResponse(t, resp, eia)
+	ei := &presenters.ExternalInitiator{}
+	err := ParseJSONAPIResponse(t, resp, ei)
 	require.NoError(t, err)
 
-	return eia
+	return ei
 }
 
 // WaitForJobRunToComplete waits for a JobRun to reach Completed Status

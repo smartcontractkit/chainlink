@@ -820,18 +820,20 @@ func TestIntegration_ExternalInitiatorCreate(t *testing.T) {
 	app.Start()
 
 	eiJSON := fmt.Sprintf(`{"name":"%v","url":"%v"}`, initiatorName, initiatorURL)
-	eia := cltest.CreateExternalInitiatorViaWeb(t, app, eiJSON)
+	eip := cltest.CreateExternalInitiatorViaWeb(t, app, eiJSON)
 
 	var count int
 	err := app.Store.DB.Model(&models.ExternalInitiator{}).Count(&count).Error
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
+	eia := &models.ExternalInitiatorAuthentication{
+		AccessKey: eip.AccessKey,
+		Secret:    eip.Secret,
+	}
 	ei := cltest.FindExternalInitiator(t, app.Store, eia)
 
 	require.Equal(t, initiatorURL, ei.URL)
 	require.Equal(t, initiatorName, ei.Name)
-	require.NotEmpty(t, ei.AccessKey)
-	require.NotEmpty(t, ei.HashedSecret)
-	require.NotEmpty(t, ei.OutgoingToken)
-	require.NotEmpty(t, ei.OutgoingSecret)
+	require.Equal(t, eip.AccessKey, ei.AccessKey)
+	require.Equal(t, eip.OutgoingSecret, ei.OutgoingSecret)
 }

@@ -568,3 +568,45 @@ func (t *Tx) SetID(hex string) error {
 	t.Hash = common.HexToHash(hex)
 	return nil
 }
+
+// ExternalInitiator includes initiator and authentication details.
+type ExternalInitiator struct {
+	Name           string        `json:"name,omitempty"`
+	URL            models.WebURL `json:"url,omitempty"`
+	AccessKey      string        `json:"incomingAccessKey,omitempty"`
+	Secret         string        `json:"incomingSecret,omitempty"`
+	OutgoingToken  string        `json:"outgoingToken,omitempty"`
+	OutgoingSecret string        `json:"outgoingSecret,omitempty"`
+}
+
+// NewExternalInitiator creates an instance of ExternalInitiator.
+func NewExternalInitiator(
+	ei models.ExternalInitiator,
+	eia models.ExternalInitiatorAuthentication,
+) *ExternalInitiator {
+	return &ExternalInitiator{
+		Name:           ei.Name,
+		URL:            ei.URL,
+		AccessKey:      ei.AccessKey,
+		Secret:         eia.Secret,
+		OutgoingToken:  ei.OutgoingToken,
+		OutgoingSecret: ei.OutgoingSecret,
+	}
+}
+
+// GetID returns the jsonapi ID.
+func (ei *ExternalInitiator) GetID() string {
+	return ei.Name
+}
+
+// GetName returns the collection name for jsonapi.
+func (*ExternalInitiator) GetName() string {
+	return "external initiators"
+}
+
+// SetID is used to conform to the UnmarshallIdentifier interface for
+// deserializing from jsonapi documents.
+func (ei *ExternalInitiator) SetID(name string) error {
+	ei.Name = name
+	return nil
+}
