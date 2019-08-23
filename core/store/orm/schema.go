@@ -39,7 +39,8 @@ type ConfigSchema struct {
 	MinIncomingConfirmations uint32         `env:"MIN_INCOMING_CONFIRMATIONS" default:"3"`
 	MinOutgoingConfirmations uint64         `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
 	MinimumContractPayment   assets.Link    `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
-	MinimumRequestExpiration uint64         `env:"MINIMUM_REQUEST_EXPIRATION" default:"300" `
+	MinimumRequestExpiration uint64         `env:"MINIMUM_REQUEST_EXPIRATION" default:"300"`
+	MaxRPCCallsPerSecond     uint64         `env:"MAX_RPC_CALLS_PER_SECOND" default:"500"`
 	OracleContractAddress    common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
 	Port                     uint16         `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration         time.Duration  `env:"REAPER_EXPIRATION" default:"240h"`
