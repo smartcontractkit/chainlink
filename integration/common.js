@@ -7,4 +7,14 @@ const abort = message => error => {
   process.exit(1)
 }
 
-module.exports = { DEVNET_ADDRESS, port, abort }
+// wrapper for main truffle script functions
+const scriptRunner = main => async callback => {
+  try {
+    await main()
+    callback()
+  } catch (error) {
+    callback(error)
+  }
+}
+
+module.exports = { abort, DEVNET_ADDRESS, port, scriptRunner }
