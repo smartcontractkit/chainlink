@@ -42,7 +42,7 @@ type lazyRPCWrapper struct {
 	limiter     *rate.Limiter
 }
 
-func newLazyRPCWrapper(urlString string) (CallerSubscriber, error) {
+func newLazyRPCWrapper(urlString string, limiter *rate.Limiter) (CallerSubscriber, error) {
 	parsed, err := url.ParseRequestURI(urlString)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func newLazyRPCWrapper(urlString string) (CallerSubscriber, error) {
 		url:         parsed,
 		mutex:       &sync.Mutex{},
 		initialized: abool.New(),
-		limiter:     rate.NewLimiter(rate.Limit(1000), 1),
+		limiter:     limiter,
 	}, nil
 }
 
@@ -107,18 +107,27 @@ type Dialer interface {
 }
 
 // EthDialer is Dialer which accesses rpc urls
-type EthDialer struct{}
+type EthDialer struct {
+	limiter *rate.Limiter
+}
+
+// NewEthDialer returns an eth dialer with the specified rate limit
+func NewEthDialer(rateLimit uint64) *EthDialer {
+	return &EthDialer{
+		limiter: rate.NewLimiter(rate.Limit(rateLimit), 1),
+	}
+}
 
 // Dial will dial the given url and return a CallerSubscriber
 func (ed *EthDialer) Dial(urlString string) (CallerSubscriber, error) {
-	return newLazyRPCWrapper(urlString)
+	return newLazyRPCWrapper(urlString, ed.limiter)
 }
 
 // NewStore will create a new database file at the config's RootDir if
 // it is not already present, otherwise it will use the existing db.sqlite3
 // file.
 func NewStore(config *orm.Config) *Store {
-	return NewStoreWithDialer(config, &EthDialer{})
+	return NewStoreWithDialer(config, NewEthDialer(config.MaxRPCCallsPerSecond()))
 }
 
 // NewStoreWithDialer creates a new store with the given config and dialer
