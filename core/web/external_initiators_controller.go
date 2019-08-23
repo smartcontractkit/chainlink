@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 )
 
 // ExternalInitiatorsController manages external initiators
@@ -25,14 +26,15 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 	eia := models.NewExternalInitiatorAuthentication()
 	if err := c.ShouldBindJSON(eir); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if ea, err := models.NewExternalInitiator(eia, eir); err != nil {
+	} else if ei, err := models.NewExternalInitiator(eia, eir); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if err := services.ValidateExternalInitiator(eir, eia, eic.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
-	} else if err := eic.App.GetStore().CreateExternalInitiator(ea); err != nil {
+	} else if err := eic.App.GetStore().CreateExternalInitiator(ei); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
-		jsonAPIResponseWithStatus(c, eia, "external initiator authenticaion", http.StatusCreated)
+		resp := presenters.NewExternalInitiator(*ei, *eia)
+		jsonAPIResponseWithStatus(c, resp, "external initiator authenticaion", http.StatusCreated)
 	}
 }
 
