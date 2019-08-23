@@ -12,9 +12,7 @@ fi
 expected_echo_count=$(expr $(curl -sS $ECHO_SERVER_URL) + 1)
 expected_job_count=$(expr $(chainlink -j j | jq length) + 1)
 
-# ./send_ethlog_transaction | tee send_ethlog_transaction.log
 yarn workspace @chainlink/integration run truffle exec send_ethlog_transaction.js --network test | tee send_ethlog_transaction.log
-# ethlog_address=`cat send_ethlog_transaction.log | grep EthLog | awk '{print$4}'`
 
 jid=`cat send_ethlog_transaction.log | grep Job | awk '{print$4}'`
 
