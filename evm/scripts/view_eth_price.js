@@ -2,14 +2,14 @@
 
 const { utils } = require('ethers')
 const commandLineArgs = require('command-line-args')
-const { optionDefinitions, provider, scriptRunner } = require('./common')
+const { optionsDefinitions, provider, scriptRunner } = require('./common')
 
 const USAGE =
   'truffle exec scripts/view_eth_price.js [options] <contract address>'
 
 const main = async () => {
   // parse command line args
-  const options = commandLineArgs(optionDefinitions)
+  const options = commandLineArgs(optionsDefinitions)
   const [consumer] = options.args.slice(2)
   // encode function call
   const funcSelector = '0x9d1b464a' // "currentPrice()"
