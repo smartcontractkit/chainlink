@@ -1,14 +1,7 @@
 // truffle script
 
 const commandLineArgs = require('command-line-args')
-const { abort, scriptRunner } = require('./common.js')
-
-// compand line options
-const optionDefinitions = [
-  { name: 'args', type: String, multiple: true, defaultOption: true },
-  { name: 'compile', type: Boolean },
-  { name: 'network', type: String }
-]
+const { abort, scriptRunner, optionDefinitions } = require('./common.js')
 
 const main = async () => {
   // parse command line args
