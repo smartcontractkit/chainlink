@@ -20,22 +20,31 @@ const optionsDefinitions = [
 ]
 
 // wrapper for main truffle script functions
-const scriptRunner = (main, usage) => async callback => {
+const scriptRunner = (main, usage = null) => async callback => {
   try {
     await main()
     callback()
   } catch (error) {
-    console.log(`Usage: ${usage}`)
+    usage && console.log(`Usage: ${usage}`)
     callback(error)
   }
 }
 
+// helper for exiting scripts
+const abort = message => error => {
+  console.error(message)
+  console.error(error)
+  process.exit(1)
+}
+
 module.exports = {
+  abort,
   DEVNET_ADDRESS,
   optionsDefinitions,
   privateKey,
   providerURL,
   provider,
+  port,
   scriptRunner,
   wallet
 }
