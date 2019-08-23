@@ -1,4 +1,4 @@
-const { DEVNET_ADDRESS: from } = require('../common.js')
+const { DEVNET_ADDRESS: from } = require('../evm/common.js')
 const EthLog = artifacts.require('EthLog')
 const RunLog = artifacts.require('RunLog')
 const LinkToken = artifacts.require('LinkToken')

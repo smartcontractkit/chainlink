@@ -7,7 +7,7 @@ const {
   provider,
   scriptRunner,
   wallet
-} = require('./common')
+} = require('../common')
 
 const USAGE =
   'truffle exec scripts/transfer_token.js [options] <token address> <recipient address>'

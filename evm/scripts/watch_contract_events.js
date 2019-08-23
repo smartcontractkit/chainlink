@@ -2,7 +2,7 @@
 
 const ethers = require('ethers')
 const commandLineArgs = require('command-line-args')
-const { optionsDefinitions, wallet } = require('./common')
+const { optionsDefinitions, wallet } = require('../common')
 
 const USAGE =
   'truffle exec scripts/watch_contract_events.js [options] <contract name> <contract address>'
