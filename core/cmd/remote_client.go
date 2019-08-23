@@ -94,8 +94,8 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 
-	var eia models.ExternalInitiatorAuthentication
-	return cli.renderAPIResponse(resp, &eia)
+	var ei presenters.ExternalInitiator
+	return cli.renderAPIResponse(resp, &ei)
 }
 
 // DeleteExternalInitiator removes an external initiator
