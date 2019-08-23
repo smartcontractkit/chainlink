@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
@@ -18,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
+	"golang.org/x/time/rate"
 )
 
 // Store contains fields for the database, Config, KeyStore, and TxManager
@@ -37,6 +39,7 @@ type lazyRPCWrapper struct {
 	url         *url.URL
 	mutex       *sync.Mutex
 	initialized *abool.AtomicBool
+	limiter     *rate.Limiter
 }
 
 func newLazyRPCWrapper(urlString string) (CallerSubscriber, error) {
@@ -51,6 +54,7 @@ func newLazyRPCWrapper(urlString string) (CallerSubscriber, error) {
 		url:         parsed,
 		mutex:       &sync.Mutex{},
 		initialized: abool.New(),
+		limiter:     rate.NewLimiter(rate.Limit(1000), 1),
 	}, nil
 }
 
@@ -81,6 +85,11 @@ func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...i
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	wrapper.limiter.Wait(ctx)
+
 	return wrapper.client.Call(result, method, args...)
 }
 
