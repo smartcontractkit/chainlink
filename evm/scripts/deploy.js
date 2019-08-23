@@ -2,7 +2,7 @@
 
 const ethers = require('ethers')
 const commandLineArgs = require('command-line-args')
-const { optionsDefinitions, scriptRunner, wallet } = require('./common')
+const { optionsDefinitions, scriptRunner, wallet } = require('../common')
 
 const USAGE =
   'truffle exec scripts/deploy.js [options] <contract name> <constructor args...>'

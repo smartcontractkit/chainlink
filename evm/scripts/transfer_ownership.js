@@ -7,7 +7,7 @@ const {
   provider,
   scriptRunner,
   wallet
-} = require('./common')
+} = require('../common')
 
 const USAGE =
   'truffle exec scripts/transfer_owner.js [options] <owned address> <recipient address>'

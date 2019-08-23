@@ -2,7 +2,7 @@
 
 const { utils } = require('ethers')
 const commandLineArgs = require('command-line-args')
-const { optionsDefinitions, provider, scriptRunner } = require('./common')
+const { optionsDefinitions, provider, scriptRunner } = require('../common')
 
 const USAGE =
   'truffle exec scripts/view_eth_price.js [options] <contract address>'

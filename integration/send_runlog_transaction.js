@@ -2,7 +2,7 @@
 
 const request = require('request-promise').defaults({ jar: true })
 const url = require('url')
-const { abort, DEVNET_ADDRESS, scriptRunner } = require('../evm/scripts/common.js')
+const { abort, DEVNET_ADDRESS, scriptRunner } = require('../evm/common.js')
 const RunLog = artifacts.require('RunLog')
 const LinkToken = artifacts.require('LinkToken')
 const { CHAINLINK_URL, ECHO_SERVER_URL } = process.env

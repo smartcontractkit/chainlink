@@ -2,7 +2,7 @@
 
 const commandLineArgs = require('command-line-args')
 const LinkToken = artifacts.require('LinkTokenInterface')
-const { optionsDefinitions, scriptRunner } = require('./common')
+const { optionsDefinitions, scriptRunner } = require('../common')
 
 const USAGE =
   'truffle exec scripts/check_link_balance.js [options] <token address> <holder address>'
