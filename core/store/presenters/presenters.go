@@ -139,6 +139,7 @@ type whitelist struct {
 	LogSQLMigrations         bool            `json:"logSqlMigrations"`
 	LogSQLStatements         bool            `json:"logSqlStatements"`
 	LogToDisk                bool            `json:"logToDisk"`
+	MaxRPCCallsPerSecond     uint64          `json:"maxRPCCallsPerSecond"`
 	MinimumContractPayment   *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration uint64          `json:"minimumRequestExpiration"`
 	MinIncomingConfirmations uint32          `json:"minIncomingConfirmations"`
@@ -186,6 +187,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			LogToDisk:                config.LogToDisk(),
 			LogSQLStatements:         config.LogSQLStatements(),
 			LogSQLMigrations:         config.LogSQLMigrations(),
+			MaxRPCCallsPerSecond:     config.MaxRPCCallsPerSecond(),
 			MinimumContractPayment:   config.MinimumContractPayment(),
 			MinimumRequestExpiration: config.MinimumRequestExpiration(),
 			MinIncomingConfirmations: config.MinIncomingConfirmations(),
