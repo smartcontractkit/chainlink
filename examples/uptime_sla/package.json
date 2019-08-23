@@ -1,5 +1,5 @@
 {
-  "name": "chainlink-uptime-sla",
+  "name": "@chainlink/example-uptime-sla",
   "version": "0.6.0",
   "license": "MIT",
   "private": true,

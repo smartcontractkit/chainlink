@@ -1,5 +1,5 @@
 {
-  "name": "chainlink-echo-server",
+  "name": "@chainlink/example-echo-server",
   "version": "0.6.0",
   "license": "MIT",
   "private": true,
