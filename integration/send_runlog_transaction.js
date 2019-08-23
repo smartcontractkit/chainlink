@@ -2,12 +2,15 @@
 
 const request = require('request-promise').defaults({ jar: true })
 const url = require('url')
-const { abort, DEVNET_ADDRESS } = require('./common.js')
+const { abort, DEVNET_ADDRESS, scriptRunner } = require('./common.js')
 const RunLog = artifacts.require('RunLog')
 const LinkToken = artifacts.require('LinkToken')
 const { CHAINLINK_URL, ECHO_SERVER_URL } = process.env
 
-process.env.SOLIDITY_INCLUDE = '../evm/contracts'
+const sessionsUrl = url.resolve(CHAINLINK_URL, '/sessions')
+const specsUrl = url.resolve(CHAINLINK_URL, '/v2/specs')
+const credentials = { email: 'notreal@fakeemail.ch', password: 'twochains' }
+const amount = web3.utils.toBN(web3.utils.toWei('1000'))
 
 function futureOffset(seconds) {
   return parseInt(new Date().getTime() / 1000) + seconds
@@ -17,11 +20,6 @@ const main = async () => {
   const runLog = await RunLog.deployed()
   const linkToken = await LinkToken.deployed()
 
-  const sessionsUrl = url.resolve(CHAINLINK_URL, '/sessions')
-  const specsUrl = url.resolve(CHAINLINK_URL, '/v2/specs')
-  const credentials = { email: 'notreal@fakeemail.ch', password: 'twochains' }
-
-  const amount = web3.utils.toBN(Number(web3.utils.toWei('1000')).toString(16))
   await linkToken
     .transfer(runLog.address, amount, {
       gas: 100000,
@@ -58,12 +56,4 @@ const main = async () => {
   console.log(`Made RunLog request`)
 }
 
-// truffle exec won't capture errors automatically
-module.exports = async callback => {
-  try {
-    await main()
-    callback()
-  } catch (error) {
-    callback(error)
-  }
-}
+module.exports = scriptRunner(main)

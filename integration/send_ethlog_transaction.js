@@ -6,11 +6,12 @@ const { abort, DEVNET_ADDRESS } = require('./common.js')
 const EthLog = artifacts.require('EthLog')
 const { CHAINLINK_URL, ECHO_SERVER_URL } = process.env
 
+const sessionsUrl = url.resolve(CHAINLINK_URL, '/sessions')
+const credentials = { email: 'notreal@fakeemail.ch', password: 'twochains' }
+
 const main = async () => {
   const ethLog = await EthLog.deployed()
 
-  const sessionsUrl = url.resolve(CHAINLINK_URL, '/sessions')
-  const credentials = { email: 'notreal@fakeemail.ch', password: 'twochains' }
   await request.post(sessionsUrl, { json: credentials })
 
   const job = {
@@ -31,12 +32,4 @@ const main = async () => {
   console.log(`Made EthLog entry`)
 }
 
-// truffle exec won't capture errors automatically
-module.exports = async callback => {
-  try {
-    await main()
-    callback()
-  } catch (error) {
-    callback(error)
-  }
-}
+module.exports = scriptRunner(main)

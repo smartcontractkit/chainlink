@@ -1,7 +1,7 @@
 // truffle script
 
 const commandLineArgs = require('command-line-args')
-const { abort } = require('./common.js')
+const { abort, scriptRunner } = require('./common.js')
 
 // compand line options
 const optionDefinitions = [
@@ -28,12 +28,4 @@ const main = async () => {
   console.log(`Events from ${fromAddress} in ${txID}: ${count}`)
 }
 
-// truffle exec won't capture errors automatically
-module.exports = async callback => {
-  try {
-    await main()
-    callback()
-  } catch (error) {
-    callback(error)
-  }
-}
+module.exports = scriptRunner(main)
