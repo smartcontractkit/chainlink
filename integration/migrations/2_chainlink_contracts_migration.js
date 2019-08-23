@@ -1,4 +1,4 @@
-const { DEVNET_ADDRESS: from } = require('../evm/common.js')
+const { DEVNET_ADDRESS: from } = require('../../evm/common.js')
 const { CHAINLINK_NODE_ADDRESS } = process.env
 const LinkToken = artifacts.require('LinkToken')
 const Oracle = artifacts.require('Oracle')
