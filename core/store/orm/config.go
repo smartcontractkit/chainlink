@@ -137,6 +137,11 @@ func (c Config) Dev() bool {
 	return c.viper.GetBool(EnvVarName("Dev"))
 }
 
+// MaxRPCCallsPerSecond returns the rate at which RPC calls can be fired
+func (c Config) MaxRPCCallsPerSecond() uint64 {
+	return c.viper.GetUint64(EnvVarName("MaxRPCCallsPerSecond"))
+}
+
 // MaximumServiceDuration is the maximum time that a service agreement can run
 // from after the time it is created. Default 1 year = 365 * 24h = 8760h
 func (c Config) MaximumServiceDuration() time.Duration {
