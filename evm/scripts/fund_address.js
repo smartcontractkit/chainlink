@@ -11,7 +11,7 @@ const {
 } = require('./common')
 
 const USAGE =
-  'truffle exec scripts/fund_dev_wallet.js [options] <optional address>'
+  'truffle exec scripts/fund_address.js [options] <optional address>'
 
 const main = async () => {
   // parse command line args
