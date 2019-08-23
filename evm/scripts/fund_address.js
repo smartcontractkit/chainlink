@@ -4,7 +4,7 @@ const { utils } = require('ethers')
 const commandLineArgs = require('command-line-args')
 const {
   DEVNET_ADDRESS,
-  optionDefinitions,
+  optionsDefinitions,
   provider,
   scriptRunner,
   wallet
@@ -15,7 +15,7 @@ const USAGE =
 
 const main = async () => {
   // parse command line args
-  const options = commandLineArgs(optionDefinitions)
+  const options = commandLineArgs(optionsDefinitions)
   let [recipient] = options.args.slice(2)
   // transaction
   recipient = recipient || wallet.address // default

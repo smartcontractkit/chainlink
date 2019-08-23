@@ -13,7 +13,7 @@ const wallet = new ethers.Wallet(privateKey, provider)
 const DEVNET_ADDRESS = '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
 
 // script arguments for command-line-args
-const optionDefinitions = [
+const optionsDefinitions = [
   { name: 'args', type: String, multiple: true, defaultOption: true },
   { name: 'compile', type: Boolean },
   { name: 'network', type: String }
@@ -32,7 +32,7 @@ const scriptRunner = (main, usage) => async callback => {
 
 module.exports = {
   DEVNET_ADDRESS,
-  optionDefinitions,
+  optionsDefinitions,
   privateKey,
   providerURL,
   provider,

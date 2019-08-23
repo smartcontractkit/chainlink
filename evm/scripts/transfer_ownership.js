@@ -3,7 +3,7 @@
 const { utils } = require('ethers')
 const commandLineArgs = require('command-line-args')
 const {
-  optionDefinitions,
+  optionsDefinitions,
   provider,
   scriptRunner,
   wallet
@@ -14,7 +14,7 @@ const USAGE =
 
 const main = async () => {
   // parse command line args
-  const options = commandLineArgs(optionDefinitions)
+  const options = commandLineArgs(optionsDefinitions)
   let [owned, recipient] = options.args.slice(2)
   // encode function call
   const funcSelector = '0xf2fde38b' // "transferOwnership(address)"

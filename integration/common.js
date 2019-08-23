@@ -2,7 +2,7 @@ const DEVNET_ADDRESS = '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
 const port = process.env.ETH_HTTP_PORT || '18545'
 
 // compand line options
-const optionDefinitions = [
+const optionsDefinitions = [
   { name: 'args', type: String, multiple: true, defaultOption: true },
   { name: 'compile', type: Boolean },
   { name: 'network', type: String }
@@ -27,7 +27,7 @@ const scriptRunner = main => async callback => {
 module.exports = {
   abort,
   DEVNET_ADDRESS,
-  optionDefinitions,
+  optionsDefinitions,
   port,
   scriptRunner
 }
