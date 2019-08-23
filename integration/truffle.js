@@ -7,7 +7,7 @@ module.exports = {
   networks: {
     test: {
       host: '127.0.0.1',
-      port: 18545,
+      port: process.env.ETH_HTTP_PORT || 18545,
       network_id: '*',
       gas: 4700000,
       gasPrice: 5e9
