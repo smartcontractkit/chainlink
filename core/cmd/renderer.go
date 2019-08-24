@@ -281,21 +281,20 @@ func (rt RendererTable) renderTxAttempts(attempts []models.TxAttempt) error {
 		})
 	}
 
-	render("Tx Attempts", table)
+	render("Ethereum Transaction Attempts", table)
 	return nil
 }
 
 func (rt RendererTable) renderTx(tx presenters.Tx) error {
-	table := rt.newTable([]string{"Hash", "Nonce", "From", "To", "Confirmed"})
+	table := rt.newTable([]string{"From", "Nonce", "To", "Confirmed"})
 	table.Append([]string{
-		tx.Hash.Hex(),
-		tx.Nonce,
 		tx.From.Hex(),
+		tx.Nonce,
 		tx.To.Hex(),
 		fmt.Sprint(tx.Confirmed),
 	})
 
-	render("Transaction", table)
+	render(fmt.Sprintf("Ethereum Transaction %v", tx.Hash.Hex()), table)
 	return nil
 }
 
@@ -312,7 +311,7 @@ func (rt RendererTable) renderTxs(txs []presenters.Tx) error {
 		})
 	}
 
-	render("Transactions", table)
+	render("Ethereum Transactions", table)
 	return nil
 }
 
