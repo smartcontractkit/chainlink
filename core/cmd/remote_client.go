@@ -429,6 +429,21 @@ func (cli *Client) GetTransactions(c *clipkg.Context) error {
 	return cli.getPage("/v2/transactions", c.Int("page"), &[]presenters.Tx{})
 }
 
+// ShowBridge returns the info for the given Bridge name.
+func (cli *Client) ShowTransaction(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the hash of the transaction"))
+	}
+	hash := c.Args().First()
+	resp, err := cli.HTTP.Get("/v2/transactions/" + hash)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+	var tx presenters.Tx
+	return cli.renderAPIResponse(resp, &tx)
+}
+
 // GetTxAttempts returns the list of transactions in descending order,
 // taking an optional page parameter
 func (cli *Client) GetTxAttempts(c *clipkg.Context) error {

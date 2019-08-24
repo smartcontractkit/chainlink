@@ -65,6 +65,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderTxAttempts(*typed)
 	case *[]presenters.Tx:
 		return rt.renderTxs(*typed)
+	case *presenters.Tx:
+		return rt.renderTx(*typed)
 	case *models.ExternalInitiatorAuthentication:
 		return rt.renderExternalInitiatorAuthentication(*typed)
 	case *web.ConfigPatchResponse:
@@ -280,6 +282,20 @@ func (rt RendererTable) renderTxAttempts(attempts []models.TxAttempt) error {
 	}
 
 	render("Tx Attempts", table)
+	return nil
+}
+
+func (rt RendererTable) renderTx(tx presenters.Tx) error {
+	table := rt.newTable([]string{"Hash", "Nonce", "From", "To", "Confirmed"})
+	table.Append([]string{
+		tx.Hash.Hex(),
+		tx.Nonce,
+		tx.From.Hex(),
+		tx.To.Hex(),
+		fmt.Sprint(tx.Confirmed),
+	})
+
+	render("Transaction", table)
 	return nil
 }
 

@@ -642,6 +642,27 @@ func TestClient_GetTransactions(t *testing.T) {
 	assert.Equal(t, 0, len(renderedTxs))
 }
 
+func TestClient_ShowTransaction(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+
+	store := app.GetStore()
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTx(t, store, from, 1)
+
+	client, r := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("test get tx", 0)
+	set.Parse([]string{tx.Hash.Hex()})
+	c := cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.ShowTransaction(c))
+
+	renderedTx := *r.Renders[0].(*presenters.Tx)
+	assert.Equal(t, &tx.From, renderedTx.From)
+}
+
 func TestClient_GetTxAttempts(t *testing.T) {
 	t.Parallel()
 
