@@ -6,7 +6,7 @@ import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/PointerInterface.sol";
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "./vendor/SafeMath.sol";
 
 /**
  * @title The ChainlinkClient contract
