@@ -1,5 +1,5 @@
 # Build Chainlink
-FROM smartcontract/builder:1.0.20 as builder
+FROM smartcontract/builder:1.0.22 as builder
 
 # Have to reintroduce ENV vars from builder image
 ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -7,7 +7,7 @@ ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr
 ARG COMMIT_SHA
 ARG ENVIRONMENT
 
-WORKDIR /go/src/github.com/smartcontractkit/chainlink
+WORKDIR /chainlink
 COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
 
@@ -17,8 +17,8 @@ RUN go mod download
 
 # And yarn likewise
 COPY yarn.lock package.json ./
-COPY explorer/client/yarn.lock explorer/client/package.json ./explorer/client/
-COPY explorer/yarn.lock explorer/package.json ./explorer/
+COPY explorer/client/package.json ./explorer/client/
+COPY explorer/package.json ./explorer/
 COPY operator_ui/package.json ./operator_ui/
 COPY styleguide/package.json ./styleguide/
 RUN make yarndep
