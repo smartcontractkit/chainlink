@@ -7,7 +7,7 @@ contract MaliciousChainlinked is Chainlinked {
   using MaliciousChainlink for MaliciousChainlink.Request;
   using MaliciousChainlink for MaliciousChainlink.WithdrawRequest;
   using Chainlink for Chainlink.Request;
-  using SafeMath for uint256;
+  using SafeMath_Chainlink for uint256;
 
   uint256 private maliciousRequests = 1;
   mapping(bytes32 => address) private maliciousPendingRequests;
