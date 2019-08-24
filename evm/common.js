@@ -3,6 +3,9 @@ const ethers = require('ethers')
 // Setup provider & wallet
 const port = process.env.ETH_HTTP_PORT || `18545`
 const providerURL = process.env.ETH_HTTP_URL || `http://localhost:${port}`
+//*****************************************************
+// This private key is for DEVELOPMENT AND TESTING ONLY
+//*****************************************************
 const privateKey =
   process.env.PRIVATE_KEY ||
   '4d6cf3ce1ac71e79aa33cf481dedf2e73acb548b1294a70447c960784302d2fb'
