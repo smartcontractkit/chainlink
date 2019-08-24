@@ -1,6 +1,6 @@
 pragma solidity 0.4.24;
 
-import "./vendor/Ownable.sol";
+import { Ownable as Ownable_Chainlink }"./vendor/Ownable.sol";
 import "./vendor/SafeMath.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/OracleInterface.sol";
@@ -10,7 +10,7 @@ import "./interfaces/LinkTokenInterface.sol";
  * @title The Chainlink Oracle contract
  * @notice Node operators can deploy this contract to fulfill requests sent to them
  */
-contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
+contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable_Chainlink {
   using SafeMath for uint256;
 
   uint256 constant public EXPIRY_TIME = 5 minutes;
@@ -48,7 +48,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
    * @dev Sets the LinkToken address for the imported LinkTokenInterface
    * @param _link The address of the LINK token
    */
-  constructor(address _link) public Ownable() {
+  constructor(address _link) public Ownable_Chainlink() {
     LinkToken = LinkTokenInterface(_link); // external but already deployed and unalterable
   }
 
