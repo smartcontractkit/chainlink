@@ -197,7 +197,7 @@ func TestRendererTable_Render_Tx(t *testing.T) {
 	assert.NoError(t, r.Render(&tx))
 	output := buffer.String()
 
-	assert.Contains(t, output, tx.Hash.Hex())
+	assert.NotContains(t, output, tx.Hash.Hex())
 	assert.Contains(t, output, tx.Nonce)
 	assert.Contains(t, output, from.Hex())
 	assert.Contains(t, output, to.Hex())
