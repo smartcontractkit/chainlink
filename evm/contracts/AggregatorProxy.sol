@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
 import "./interfaces/AggregatorInterface.sol";
-import "./vendor/Ownable.sol";
+import { Ownable as Ownable_Chainlink }"./vendor/Ownable.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
@@ -9,11 +9,11 @@ import "./vendor/Ownable.sol";
  * CurrentAnwerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  */
-contract AggregatorProxy is AggregatorInterface, Ownable {
+contract AggregatorProxy is AggregatorInterface, Ownable_Chainlink {
 
   AggregatorInterface public aggregator;
 
-  constructor(address _aggregator) public Ownable() {
+  constructor(address _aggregator) public Ownable_Chainlink() {
     setAggregator(_aggregator);
   }
 
