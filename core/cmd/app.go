@@ -238,9 +238,16 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 		{
-			Name:   "txattempts",
-			Usage:  "List the transaction attempts in descending order",
-			Action: client.GetTxAttempts,
+			Name:    "transaction",
+			Aliases: []string{"tx"},
+			Usage:   "get information on a specific transaction",
+			Action:  client.ShowTransaction,
+		},
+		{
+			Name:    "txattempts",
+			Aliases: []string{"txas"},
+			Usage:   "List the transaction attempts in descending order",
+			Action:  client.GetTxAttempts,
 			Flags: []cli.Flag{
 				cli.IntFlag{
 					Name:  "page",
