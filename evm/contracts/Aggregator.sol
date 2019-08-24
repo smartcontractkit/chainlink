@@ -1,8 +1,8 @@
 pragma solidity 0.4.24;
 
 import "./ChainlinkClient.sol";
-import { SignedSafeMath as SignedSafeMath_Chainlink } "./vendor/SignedSafeMath.sol";
-import { Ownable as Ownable_Chainlink }"./vendor/Ownable.sol";
+import { SignedSafeMath as SignedSafeMath_Chainlink } from "./vendor/SignedSafeMath.sol";
+import { Ownable as Ownable_Chainlink } from "./vendor/Ownable.sol";
 
 /**
  * @title An example Chainlink contract with aggregation

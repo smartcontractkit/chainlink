@@ -1,6 +1,6 @@
 pragma solidity 0.4.24;
 
-import { SignedSafeMath as SignedSafeMath_Chainlink } "../vendor/SignedSafeMath.sol";
+import { SignedSafeMath as SignedSafeMath_Chainlink } from "../vendor/SignedSafeMath.sol";
 
 contract ConcreteSignedSafeMath {
   using SignedSafeMath_Chainlink for int256;

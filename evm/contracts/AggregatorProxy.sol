@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
 import "./interfaces/AggregatorInterface.sol";
-import { Ownable as Ownable_Chainlink }"./vendor/Ownable.sol";
+import { Ownable as Ownable_Chainlink } from "./vendor/Ownable.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
