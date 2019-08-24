@@ -227,9 +227,10 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 		{
-			Name:   "transactions",
-			Usage:  "List the transactions in descending order",
-			Action: client.GetTransactions,
+			Name:    "transactions",
+			Aliases: []string{"txs"},
+			Usage:   "List the transactions in descending order",
+			Action:  client.GetTransactions,
 			Flags: []cli.Flag{
 				cli.IntFlag{
 					Name:  "page",
