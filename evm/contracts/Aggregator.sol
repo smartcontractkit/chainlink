@@ -1,8 +1,8 @@
 pragma solidity 0.4.24;
 
 import "./ChainlinkClient.sol";
-import "./SignedSafeMath.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "./vendor/SignedSafeMath.sol";
+import "./vendor/Ownable.sol";
 
 /**
  * @title An example Chainlink contract with aggregation
