@@ -64,21 +64,31 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 		{
-			Name:   "login",
-			Usage:  "Login to remote client by creating a session cookie",
-			Action: client.RemoteLogin,
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "file, f",
-					Usage: "text file holding the API email and password needed to create a session cookie",
+			Name:  "account",
+			Usage: "Display the account related info for remote admin access",
+			Subcommands: []cli.Command{
+				{
+					Name:   "show",
+					Usage:  "Display the account address with its ETH & LINK balances",
+					Action: client.DisplayAccountBalance,
+				},
+				{
+					Name:   "login",
+					Usage:  "Login to remote client by creating a session cookie",
+					Action: client.RemoteLogin,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "file, f",
+							Usage: "text file holding the API email and password needed to create a session cookie",
+						},
+					},
+				},
+				{
+					Name:   "chpass",
+					Usage:  "Change your password",
+					Action: client.ChangePassword,
 				},
 			},
-		},
-		{
-			Name:    "account",
-			Aliases: []string{"a"},
-			Usage:   "Display the account address with its ETH & LINK balances",
-			Action:  client.DisplayAccountBalance,
 		},
 		{
 			Name:    "jobs",
@@ -208,11 +218,6 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 			Action: client.SendEther,
-		},
-		{
-			Name:   "chpass",
-			Usage:  "Change your password",
-			Action: client.ChangePassword,
 		},
 		{
 			Name:   "setgasprice",
