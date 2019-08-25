@@ -189,11 +189,11 @@ func NewApp(client *Client) *cli.App {
 		{
 			Name:    "withdraw",
 			Aliases: []string{"w"},
-			Usage:   "Withdraw, to an authorized Ethereum <address>, <amount> units of LINK. Withdraws from the configured oracle contract by default, or from contract optionally specified by a third command-line argument --from-oracle-contract-address=<contract address>. Address inputs must be in EIP55-compliant capitalization.",
+			Usage:   "Withdraw to <address>, <amount> units of LINK from the configured oracle",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "from-oracle-contract-address",
-					Usage: "address of Oracle contract to withdraw from (will use node default if unspecified)",
+					Usage: "override the configured oracle address to withdraw from",
 				},
 			},
 			Action: client.Withdraw,
