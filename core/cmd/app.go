@@ -156,30 +156,36 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 		{
-			Name:   "addbridge",
-			Usage:  "Create a new bridge to the node",
-			Action: client.CreateBridge,
-		},
-		{
-			Name:   "bridges",
-			Usage:  "List all bridges added to the node",
-			Action: client.IndexBridges,
-			Flags: []cli.Flag{
-				cli.IntFlag{
-					Name:  "page",
-					Usage: "page of results to display",
+			Name:  "adapters",
+			Usage: "Exgernal adapter and bridge related commands",
+			Subcommands: []cli.Command{
+				{
+					Name:   "create",
+					Usage:  "Create a new bridge to an external adapter",
+					Action: client.CreateBridge,
+				},
+				{
+					Name:   "list",
+					Usage:  "List all bridges to external adapters",
+					Action: client.IndexBridges,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:  "page",
+							Usage: "page of results to display",
+						},
+					},
+				},
+				{
+					Name:   "show",
+					Usage:  "Show an external adapter's bridge information",
+					Action: client.ShowBridge,
+				},
+				{
+					Name:   "destroy",
+					Usage:  "Destroys the bridge for an external adapter",
+					Action: client.RemoveBridge,
 				},
 			},
-		},
-		{
-			Name:   "bridge",
-			Usage:  "Show a specific bridge",
-			Action: client.ShowBridge,
-		},
-		{
-			Name:   "removebridge",
-			Usage:  "Removes a specific bridge",
-			Action: client.RemoveBridge,
 		},
 		{
 			Name:    "initiators",
