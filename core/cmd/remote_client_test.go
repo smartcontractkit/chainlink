@@ -35,7 +35,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 	assert.Equal(t, from.Hex(), balances[0].Address)
 }
 
-func TestClient_GetJobSpecs(t *testing.T) {
+func TestClient_IndexJobSpecs(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
@@ -48,7 +48,7 @@ func TestClient_GetJobSpecs(t *testing.T) {
 
 	client, r := app.NewClientAndRenderer()
 
-	require.Nil(t, client.GetJobSpecs(cltest.EmptyCLIContext()))
+	require.Nil(t, client.IndexJobSpecs(cltest.EmptyCLIContext()))
 	jobs := *r.Renders[0].(*[]models.JobSpec)
 	assert.Equal(t, 2, len(jobs))
 	assert.Equal(t, j1.ID, jobs[0].ID)
@@ -90,7 +90,7 @@ func TestClient_ShowJobRun_NotFound(t *testing.T) {
 	assert.Empty(t, r.Renders)
 }
 
-func TestClient_GetJobRuns(t *testing.T) {
+func TestClient_IndexJobRuns(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
@@ -105,7 +105,7 @@ func TestClient_GetJobRuns(t *testing.T) {
 
 	client, r := app.NewClientAndRenderer()
 
-	require.Nil(t, client.GetJobRuns(cltest.EmptyCLIContext()))
+	require.Nil(t, client.IndexJobRuns(cltest.EmptyCLIContext()))
 	runs := *r.Renders[0].(*[]presenters.JobRun)
 	require.Equal(t, 3, len(runs))
 	assert.Equal(t, jr0.Result, runs[0].Result)
@@ -306,7 +306,7 @@ func TestClient_CreateJobRun(t *testing.T) {
 	}
 }
 
-func TestClient_AddBridge(t *testing.T) {
+func TestClient_CreateBridge(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
@@ -334,15 +334,15 @@ func TestClient_AddBridge(t *testing.T) {
 			set.Parse([]string{test.param})
 			c := cli.NewContext(nil, set, nil)
 			if test.errored {
-				assert.Error(t, client.AddBridge(c))
+				assert.Error(t, client.CreateBridge(c))
 			} else {
-				assert.Nil(t, client.AddBridge(c))
+				assert.Nil(t, client.CreateBridge(c))
 			}
 		})
 	}
 }
 
-func TestClient_GetBridges(t *testing.T) {
+func TestClient_IndexBridges(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
@@ -365,7 +365,7 @@ func TestClient_GetBridges(t *testing.T) {
 
 	client, r := app.NewClientAndRenderer()
 
-	require.Nil(t, client.GetBridges(cltest.EmptyCLIContext()))
+	require.Nil(t, client.IndexBridges(cltest.EmptyCLIContext()))
 	bridges := *r.Renders[0].(*[]models.BridgeType)
 	require.Equal(t, 2, len(bridges))
 	assert.Equal(t, bt1.Name, bridges[0].Name)
@@ -603,12 +603,12 @@ func TestClient_ChangePassword(t *testing.T) {
 	assert.NoError(t, err)
 
 	// otherClient should now be logged out
-	err = otherClient.GetBridges(c)
+	err = otherClient.IndexBridges(c)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "401 Unauthorized")
 }
 
-func TestClient_GetTransactions(t *testing.T) {
+func TestClient_IndexTransactions(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
@@ -625,7 +625,7 @@ func TestClient_GetTransactions(t *testing.T) {
 	set.Int("page", 1, "doc")
 	c := cli.NewContext(nil, set, nil)
 	require.Equal(t, 1, c.Int("page"))
-	assert.NoError(t, client.GetTransactions(c))
+	assert.NoError(t, client.IndexTransactions(c))
 
 	renderedTxs := *r.Renders[0].(*[]presenters.Tx)
 	assert.Equal(t, 1, len(renderedTxs))
@@ -636,7 +636,7 @@ func TestClient_GetTransactions(t *testing.T) {
 	set.Int("page", 2, "doc")
 	c = cli.NewContext(nil, set, nil)
 	require.Equal(t, 2, c.Int("page"))
-	assert.NoError(t, client.GetTransactions(c))
+	assert.NoError(t, client.IndexTransactions(c))
 
 	renderedTxs = *r.Renders[1].(*[]presenters.Tx)
 	assert.Equal(t, 0, len(renderedTxs))
@@ -663,7 +663,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	assert.Equal(t, &tx.From, renderedTx.From)
 }
 
-func TestClient_GetTxAttempts(t *testing.T) {
+func TestClient_IndexTxAttempts(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
@@ -680,7 +680,7 @@ func TestClient_GetTxAttempts(t *testing.T) {
 	set.Int("page", 1, "doc")
 	c := cli.NewContext(nil, set, nil)
 	require.Equal(t, 1, c.Int("page"))
-	assert.NoError(t, client.GetTxAttempts(c))
+	assert.NoError(t, client.IndexTxAttempts(c))
 
 	renderedAttempts := *r.Renders[0].(*[]models.TxAttempt)
 	require.Len(t, tx.Attempts, 1)
@@ -691,7 +691,7 @@ func TestClient_GetTxAttempts(t *testing.T) {
 	set.Int("page", 2, "doc")
 	c = cli.NewContext(nil, set, nil)
 	require.Equal(t, 2, c.Int("page"))
-	assert.NoError(t, client.GetTxAttempts(c))
+	assert.NoError(t, client.IndexTxAttempts(c))
 
 	renderedAttempts = *r.Renders[1].(*[]models.TxAttempt)
 	assert.Equal(t, 0, len(renderedAttempts))
