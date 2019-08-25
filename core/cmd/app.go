@@ -91,33 +91,36 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 		{
-			Name:    "jobs",
-			Aliases: []string{"js", "specs", "jobspecs"},
-			Usage:   "List all jobs",
-			Action:  client.IndexJobSpecs,
-			Flags: []cli.Flag{
-				cli.IntFlag{
-					Name:  "page",
-					Usage: "page of results to display",
+			Name:  "jobs",
+			Usage: "Job related commands",
+			Subcommands: []cli.Command{
+				{
+					Name:   "list",
+					Usage:  "List all jobs",
+					Action: client.IndexJobSpecs,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:  "page",
+							Usage: "page of results to display",
+						},
+					},
+				},
+				{
+					Name:   "show",
+					Usage:  "Show a specific job's details",
+					Action: client.ShowJobSpec,
 				},
 			},
-		},
-		{
-			Name:    "job",
-			Aliases: []string{"j"},
-			Usage:   "Show a specific job's details",
-			Action:  client.ShowJobSpec,
-		},
-		{
-			Name:    "create",
-			Aliases: []string{"c"},
-			Usage:   "Create job spec from JSON",
-			Action:  client.CreateJobSpec,
-		},
-		{
-			Name:   "archivejob",
-			Usage:  "Archive job and all associated runs",
-			Action: client.ArchiveJobSpec,
+			{
+				Name:   "create",
+				Usage:  "Create job spec from JSON",
+				Action: client.CreateJobSpec,
+			},
+			{
+				Name:   "archive",
+				Usage:  "Archive job and all associated runs",
+				Action: client.ArchiveJobSpec,
+			},
 		},
 		{
 			Name:    "run",
