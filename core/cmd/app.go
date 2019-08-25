@@ -84,7 +84,7 @@ func NewApp(client *Client) *cli.App {
 			Name:    "jobspecs",
 			Aliases: []string{"jobs", "j", "specs"},
 			Usage:   "Get all jobs",
-			Action:  client.GetJobSpecs,
+			Action:  client.IndexJobSpecs,
 			Flags: []cli.Flag{
 				cli.IntFlag{
 					Name:  "page",
@@ -125,7 +125,7 @@ func NewApp(client *Client) *cli.App {
 			Name:    "listruns",
 			Aliases: []string{"lr"},
 			Usage:   "List all job runs",
-			Action:  client.GetJobRuns,
+			Action:  client.IndexJobRuns,
 			Flags: []cli.Flag{
 				cli.IntFlag{
 					Name:  "page",
@@ -140,12 +140,12 @@ func NewApp(client *Client) *cli.App {
 		{
 			Name:   "bridge",
 			Usage:  "Add a new bridge to the node",
-			Action: client.AddBridge,
+			Action: client.CreateBridge,
 		},
 		{
 			Name:   "getbridges",
 			Usage:  "List all bridges added to the node",
-			Action: client.GetBridges,
+			Action: client.IndexBridges,
 			Flags: []cli.Flag{
 				cli.IntFlag{
 					Name:  "page",
@@ -196,7 +196,6 @@ func NewApp(client *Client) *cli.App {
 					Usage: "address of Oracle contract to withdraw from (will use node default if unspecified)",
 				},
 			},
-
 			Action: client.Withdraw,
 		},
 		{
@@ -230,7 +229,7 @@ func NewApp(client *Client) *cli.App {
 			Name:    "transactions",
 			Aliases: []string{"txs"},
 			Usage:   "List the transactions in descending order",
-			Action:  client.GetTransactions,
+			Action:  client.IndexTransactions,
 			Flags: []cli.Flag{
 				cli.IntFlag{
 					Name:  "page",
@@ -248,7 +247,7 @@ func NewApp(client *Client) *cli.App {
 			Name:    "txattempts",
 			Aliases: []string{"txas"},
 			Usage:   "List the transaction attempts in descending order",
-			Action:  client.GetTxAttempts,
+			Action:  client.IndexTxAttempts,
 			Flags: []cli.Flag{
 				cli.IntFlag{
 					Name:  "page",
