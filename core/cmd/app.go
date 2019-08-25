@@ -129,24 +129,29 @@ func NewApp(client *Client) *cli.App {
 			Action:  client.CreateJobRun,
 		},
 		{
-			Name:    "showrun",
-			Aliases: []string{"sr"},
-			Usage:   "Show a run for a specific ID",
-			Action:  client.ShowJobRun,
-		},
-		{
-			Name:    "runs",
-			Aliases: []string{"lr"},
-			Usage:   "List all runs",
-			Action:  client.IndexJobRuns,
-			Flags: []cli.Flag{
-				cli.IntFlag{
-					Name:  "page",
-					Usage: "page of results to display",
+			Name:  "runs",
+			Usage: "Run related commands",
+			Subcommands: []cli.Command{
+				{
+					Name:    "show",
+					Aliases: []string{"sr"},
+					Usage:   "Show a run for a specific ID",
+					Action:  client.ShowJobRun,
 				},
-				cli.StringFlag{
-					Name:  "jobid",
-					Usage: "filter all runs to match the given jobid",
+				{
+					Name:   "list",
+					Usage:  "List all runs",
+					Action: client.IndexJobRuns,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:  "page",
+							Usage: "page of results to display",
+						},
+						cli.StringFlag{
+							Name:  "jobid",
+							Usage: "filter all runs to match the given jobid",
+						},
+					},
 				},
 			},
 		},
