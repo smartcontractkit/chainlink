@@ -81,9 +81,9 @@ func NewApp(client *Client) *cli.App {
 			Action:  client.DisplayAccountBalance,
 		},
 		{
-			Name:    "jobspecs",
-			Aliases: []string{"jobs", "j", "specs"},
-			Usage:   "Get all jobs",
+			Name:    "jobs",
+			Aliases: []string{"js", "specs", "jobspecs"},
+			Usage:   "List all jobs",
 			Action:  client.IndexJobSpecs,
 			Flags: []cli.Flag{
 				cli.IntFlag{
@@ -93,9 +93,9 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 		{
-			Name:    "show",
-			Aliases: []string{"s"},
-			Usage:   "Show a specific job",
+			Name:    "job",
+			Aliases: []string{"j"},
+			Usage:   "Show a specific job's details",
 			Action:  client.ShowJobSpec,
 		},
 		{
@@ -112,19 +112,19 @@ func NewApp(client *Client) *cli.App {
 		{
 			Name:    "run",
 			Aliases: []string{"r"},
-			Usage:   "Begin job run for specid",
+			Usage:   "Create a new run for a job",
 			Action:  client.CreateJobRun,
 		},
 		{
 			Name:    "showrun",
 			Aliases: []string{"sr"},
-			Usage:   "Show a job run for a RunID",
+			Usage:   "Show a run for a specific ID",
 			Action:  client.ShowJobRun,
 		},
 		{
-			Name:    "listruns",
+			Name:    "runs",
 			Aliases: []string{"lr"},
-			Usage:   "List all job runs",
+			Usage:   "List all runs",
 			Action:  client.IndexJobRuns,
 			Flags: []cli.Flag{
 				cli.IntFlag{
@@ -138,12 +138,12 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 		{
-			Name:   "bridge",
-			Usage:  "Add a new bridge to the node",
+			Name:   "addbridge",
+			Usage:  "Create a new bridge to the node",
 			Action: client.CreateBridge,
 		},
 		{
-			Name:   "getbridges",
+			Name:   "bridges",
 			Usage:  "List all bridges added to the node",
 			Action: client.IndexBridges,
 			Flags: []cli.Flag{
@@ -154,7 +154,7 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 		{
-			Name:   "showbridge",
+			Name:   "bridge",
 			Usage:  "Show a specific bridge",
 			Action: client.ShowBridge,
 		},
@@ -164,7 +164,7 @@ func NewApp(client *Client) *cli.App {
 			Action: client.RemoveBridge,
 		},
 		{
-			Name:    "externalinitiators",
+			Name:    "initiators",
 			Aliases: []string{"exi"},
 			Usage:   "Tasks for managing external initiators",
 			Subcommands: []cli.Command{
