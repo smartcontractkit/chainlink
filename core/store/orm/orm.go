@@ -335,7 +335,6 @@ func (orm *ORM) DeleteExternalInitiator(accessKey string) error {
 
 // FindExternalInitiator finds an external initiator given an authentication request
 func (orm *ORM) FindExternalInitiator(eia *models.ExternalInitiatorAuthentication) (*models.ExternalInitiator, error) {
-	// Why does this not mirror FindBridge?
 	initiator := &models.ExternalInitiator{}
 	err := orm.DB.Where("access_key = ?", eia.AccessKey).Find(initiator).Error
 	if err != nil {

@@ -152,7 +152,6 @@ func TestValidateExternalInitiator(t *testing.T) {
 	exi := models.ExternalInitiator{Name: "duplicate", URL: cltest.WebURL(t, "https://a.web.url")}
 	assert.NoError(t, store.CreateExternalInitiator(&exi))
 
-	// TODO: Need to validate when name already exists in store
 	tests := []struct {
 		name      string
 		input     string
