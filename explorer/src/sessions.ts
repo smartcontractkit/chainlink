@@ -1,11 +1,12 @@
 import { Connection } from 'typeorm'
 import { ChainlinkNode, hashCredentials } from './entity/ChainlinkNode'
+import { Session } from './entity/Session'
 import { timingSafeEqual } from 'crypto'
 
-// Session contains a chainlink node's ID and access key
-export interface Session {
+// SessionResponse contains a chainlink node's ID and access key
+export interface ISession {
   chainlinkNodeId: number
-  accessKey: string
+  sessionId: string
 }
 
 // authenticate looks up a chainlink node by accessKey and attempts to verify the
@@ -14,25 +15,48 @@ export const authenticate = async (
   db: Connection,
   accessKey: string,
   secret: string
-): Promise<Session | null> => {
-  const chainlinkNode = await db.getRepository(ChainlinkNode).findOne({
-    accessKey: accessKey
-  })
-
-  if (chainlinkNode != null) {
-    const hash = hashCredentials(accessKey, secret, chainlinkNode.salt)
-    if (
-      timingSafeEqual(
-        Buffer.from(hash),
-        Buffer.from(chainlinkNode.hashedSecret)
-      )
-    ) {
-      return {
-        chainlinkNodeId: chainlinkNode.id,
-        accessKey: accessKey
+): Promise<ISession | null> => {
+  return db.manager.transaction(async manager => {
+    const chainlinkNode = await findNode(db, accessKey)
+    if (chainlinkNode != null) {
+      if (authenticateSession(accessKey, secret, chainlinkNode)) {
+        const session = await createSession(db, chainlinkNode)
+        return {
+          chainlinkNodeId: chainlinkNode.id,
+          sessionId: session.id
+        }
       }
     }
-  }
 
-  return null
+    return null
+  })
+}
+
+function findNode(db: Connection, accessKey: string): Promise<ChainlinkNode> {
+  return db.getRepository(ChainlinkNode).findOne({ accessKey })
+}
+
+function authenticateSession(
+  accessKey: string,
+  secret: string,
+  node: ChainlinkNode
+): boolean {
+  const hash = hashCredentials(accessKey, secret, node.salt)
+  return timingSafeEqual(Buffer.from(hash), Buffer.from(node.hashedSecret))
+}
+
+async function createSession(
+  db: Connection,
+  node: ChainlinkNode
+): Promise<Session> {
+  const now = new Date()
+  await db.manager
+    .createQueryBuilder()
+    .update(Session)
+    .set({ finishedAt: now })
+    .where({ chainlinkNodeId: node.id, finishedAt: null })
+    .execute()
+  const session = new Session()
+  session.chainlinkNodeId = node.id
+  return db.manager.save(session)
 }
