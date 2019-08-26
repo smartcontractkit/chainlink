@@ -6,7 +6,8 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
-  UpdateDateColumn
+  UpdateDateColumn,
+  UpdateResult
 } from 'typeorm'
 import { ChainlinkNode } from './ChainlinkNode'
 import { TaskRun } from './TaskRun'
@@ -45,9 +46,7 @@ export async function createSession(
   return db.manager.save(session)
 }
 
-export async function retireSessions(
-  db: Connection,
-) {
+export async function retireSessions(db: Connection): Promise<UpdateResult> {
   return db.manager
     .createQueryBuilder()
     .update(Session)
