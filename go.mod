@@ -31,7 +31,7 @@ require (
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.0
-	github.com/gorilla/websocket v1.4.0
+	github.com/gorilla/websocket v1.4.1
 	github.com/jinzhu/gorm v1.9.10
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
