@@ -1,11 +1,11 @@
 pragma solidity 0.4.24;
 
 import "./Chainlink.sol";
-import "./ENSResolver.sol";
 import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/PointerInterface.sol";
+import { ENSResolver as ENSResolver_Chainlink } "./vendor/ENSResolver.sol";
 import { SafeMath as SafeMath_Chainlink } from "./vendor/SafeMath.sol";
 
 /**
@@ -187,7 +187,7 @@ contract ChainlinkClient {
     ens = ENSInterface(_ens);
     ensNode = _node;
     bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ENS_TOKEN_SUBNAME));
-    ENSResolver resolver = ENSResolver(ens.resolver(linkSubnode));
+    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(ens.resolver(linkSubnode));
     setChainlinkToken(resolver.addr(linkSubnode));
     updateChainlinkOracleWithENS();
   }
@@ -200,7 +200,7 @@ contract ChainlinkClient {
     internal
   {
     bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ENS_ORACLE_SUBNAME));
-    ENSResolver resolver = ENSResolver(ens.resolver(oracleSubnode));
+    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(ens.resolver(oracleSubnode));
     setChainlinkOracle(resolver.addr(oracleSubnode));
   }
 
