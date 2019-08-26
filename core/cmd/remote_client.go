@@ -67,7 +67,6 @@ func (cli *Client) CreateServiceAgreement(c *clipkg.Context) error {
 
 // CreateExternalInitiator adds an external initiator
 //
-// TODO: Investigate reducing the number of return statements
 // TODO: Increase code coverage
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
 	if c.NArg() != 2 {

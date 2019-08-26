@@ -180,7 +180,6 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 			cltest.AssertError(t, test.errored, err)
 			jobs := cltest.AllJobs(t, app.Store)
 			if test.jobsCreated {
-				// wtf?
 				assert.True(t, len(jobs) > 0)
 			} else {
 				assert.Equal(t, 0, len(jobs))
