@@ -20,7 +20,7 @@
     "strict": true,
     "esModuleInterop": true
   },
-  "include": ["src", "@types", "__tests__"],
+  "include": ["src", "./@types"],
 
   "references": [{ "path": "../styleguide" }]
 }
