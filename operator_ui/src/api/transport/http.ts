@@ -1,5 +1,5 @@
 import 'isomorphic-unfetch'
-import formatRequestURI from 'src/utils/formatRequestURI'
+import formatRequestURI from 'utils/formatRequestURI'
 
 export enum Method {
   GET = 'GET',
