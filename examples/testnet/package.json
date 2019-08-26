@@ -1,0 +1,12 @@
+{
+  "name": "@chainlink/example-testnet",
+  "private": true,
+  "version": "0.6.0",
+  "license": "MIT",
+  "scripts": {
+    "lint": "echo \"No linter configured for examples/testnet\" && exit 0"
+  },
+  "devDependencies": {
+    "truffle": "^5.0.25"
+  }
+}
