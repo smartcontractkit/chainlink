@@ -2,10 +2,10 @@ pragma solidity 0.5.0;
 
 import "./ChainlinkClient.sol";
 import "./LinkTokenReceiver.sol";
-import { Quickselect as Q } from "./Quickselect.sol";
-import { Ownable as Ownable_Chainlink } from "./vendor/Ownable.sol";
-import { SafeMath as SafeMath_Chainlink } from "./vendor/SafeMath.sol";
-import { SignedSafeMath as SignedSafeMath_Chainlink } from "./vendor/SignedSafeMath.sol";
+import "./Quickselect.sol";
+import "./vendor/Ownable.sol";
+import "./vendor/SafeMath.sol";
+import "./vendor/SignedSafeMath.sol";
 
 /**
  * @title PreCoordinator is a contract that builds on-chain service agreements
@@ -13,9 +13,9 @@ import { SignedSafeMath as SignedSafeMath_Chainlink } from "./vendor/SignedSafeM
  * @dev This contract accepts requests as service agreement IDs and loops over
  * the corresponding list of oracles to create distinct requests to each one.
  */
-contract PreCoordinator is ChainlinkClient, Ownable_Chainlink, ChainlinkRequestInterface, LinkTokenReceiver {
-  using SafeMath_Chainlink for uint256;
-  using SignedSafeMath_Chainlink for int256;
+contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, LinkTokenReceiver {
+  using SafeMath for uint256;
+  using SignedSafeMath for int256;
 
   uint256 constant private MAX_ORACLE_COUNT = 45;
 
@@ -240,11 +240,11 @@ contract PreCoordinator is ChainlinkClient, Ownable_Chainlink, ChainlinkRequestI
     uint256 responseLength = _responses.length;
     uint256 middleIndex = responseLength.div(2);
     if (responseLength % 2 == 0) {
-      int256 median1 = Q.quickselect(_responses, middleIndex);
-      int256 median2 = Q.quickselect(_responses, middleIndex.add(1)); // quickselect is 1 indexed
+      int256 median1 = Quickselect.quickselect(_responses, middleIndex);
+      int256 median2 = Quickselect.quickselect(_responses, middleIndex.add(1)); // quickselect is 1 indexed
       result = median1.add(median2) / 2; // signed integers are not supported by SafeMath
     } else {
-      result = Q.quickselect(_responses, middleIndex.add(1)); // quickselect is 1 indexed
+      result = Quickselect.quickselect(_responses, middleIndex.add(1)); // quickselect is 1 indexed
     }
   }
 
