@@ -9,7 +9,6 @@ import {
 import Card from '@material-ui/core/Card'
 import Grid from '@material-ui/core/Grid'
 import { fetchJob, fetchJobRuns } from 'actions'
-import { JobSpecRunsOpts } from 'api'
 import Content from 'components/Content'
 import JobRunsList from 'components/JobRuns/List'
 import TaskList from 'components/Jobs/TaskList'
@@ -169,7 +168,7 @@ interface IProps {
   recentRunsCount: number
   showJobRunsCount: number
   fetchJob: (id: string) => Promise<any>
-  fetchJobRuns: (opts: JobSpecRunsOpts) => Promise<any>
+  fetchJobRuns: (opts: any) => Promise<any>
 }
 
 const DEFAULT_PAGE = 1

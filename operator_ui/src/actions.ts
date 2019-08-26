@@ -1,4 +1,4 @@
-import { RunStatus } from 'core/store/models'
+import * as models from 'core/store/models'
 import * as presenters from 'core/store/presenters'
 import normalize from 'json-api-normalizer'
 import { Action, Dispatch } from 'redux'
@@ -337,9 +337,11 @@ export const fetchAccountBalance = request(
     }>(json)
 )
 
-export function fetchConfiguration() {
-  return request('CONFIGURATION', api.v2.config.getConfiguration, normalize)
-}
+export const fetchConfiguration = request(
+  'CONFIGURATION',
+  api.v2.config.getConfiguration,
+  normalize
+)
 
 export const fetchBridges = request(
   'BRIDGES',
@@ -388,14 +390,14 @@ export const deleteCompletedJobRuns = (updatedBefore: string) =>
     'DELETE_COMPLETED_JOB_RUNS',
     api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
     normalize
-  )({ status: [RunStatus.COMPLETED], updatedBefore })
+  )({ status: [models.RunStatus.COMPLETED], updatedBefore })
 
 export const deleteErroredJobRuns = (updatedBefore: string) =>
   request(
     'DELETE_ERRORED_JOB_RUNS',
     api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
     normalize
-  )({ status: [RunStatus.ERRORED], updatedBefore })
+  )({ status: [models.RunStatus.ERRORED], updatedBefore })
 
 export const fetchTransactions = request(
   'TRANSACTIONS',
