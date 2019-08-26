@@ -5,7 +5,7 @@ import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/PointerInterface.sol";
-import { ENSResolver as ENSResolver_Chainlink } "./vendor/ENSResolver.sol";
+import { ENSResolver as ENSResolver_Chainlink } from "./vendor/ENSResolver.sol";
 import { SafeMath as SafeMath_Chainlink } from "./vendor/SafeMath.sol";
 
 /**
