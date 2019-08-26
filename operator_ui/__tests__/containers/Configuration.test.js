@@ -1,9 +1,9 @@
 /* eslint-env jest */
-import React from 'react'
-import configurationFactory from 'factories/configuration'
-import syncFetch from 'test-helpers/syncFetch'
-import mountWithinStoreAndRouter from 'test-helpers/mountWithinStoreAndRouter'
 import { ConnectedConfiguration as Configuration } from 'containers/Configuration'
+import configurationFactory from 'factories/configuration'
+import React from 'react'
+import mountWithinStoreAndRouter from 'test-helpers/mountWithinStoreAndRouter'
+import syncFetch from 'test-helpers/syncFetch'
 
 const classes = {}
 const mount = props => {
