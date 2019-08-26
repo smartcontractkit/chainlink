@@ -746,7 +746,7 @@ func CreateExternalInitiatorViaWeb(
 	t testing.TB,
 	app *TestApplication,
 	payload string,
-) *presenters.ExternalInitiator {
+) *presenters.ExternalInitiatorAuthentication {
 	t.Helper()
 
 	client := app.NewHTTPClient()
@@ -756,7 +756,7 @@ func CreateExternalInitiatorViaWeb(
 	)
 	defer cleanup()
 	AssertServerResponse(t, resp, 201)
-	ei := &presenters.ExternalInitiator{}
+	ei := &presenters.ExternalInitiatorAuthentication{}
 	err := ParseJSONAPIResponse(t, resp, ei)
 	require.NoError(t, err)
 

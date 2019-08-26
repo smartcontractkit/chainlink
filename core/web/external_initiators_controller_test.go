@@ -24,7 +24,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 201)
-	ei := &presenters.ExternalInitiator{}
+	ei := &presenters.ExternalInitiatorAuthentication{}
 	err := cltest.ParseJSONAPIResponse(t, resp, ei)
 	require.NoError(t, err)
 

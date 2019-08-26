@@ -93,7 +93,7 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
 	}
 	defer resp.Body.Close()
 
-	var ei presenters.ExternalInitiator
+	var ei presenters.ExternalInitiatorAuthentication
 	return cli.renderAPIResponse(resp, &ei)
 }
 
