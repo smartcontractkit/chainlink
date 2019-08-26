@@ -13,6 +13,6 @@ const destroy = jsonapi.deleteResource<models.BulkDeleteRunRequest, null>(
 
 export function bulkDeleteJobRuns(
   bulkDeleteRunRequest: models.BulkDeleteRunRequest
-): jsonapi.ApiResponse<null> {
+): Promise<jsonapi.ApiResponse<null>> {
   return destroy(bulkDeleteRunRequest)
 }

@@ -26,12 +26,12 @@ const show = jsonapi.fetchResource<undefined, presenters.Tx, ShowPathParams>(
 export function getTransactions(
   page: number,
   size: number
-): jsonapi.PaginatedApiResponse<presenters.Tx[]> {
+): Promise<jsonapi.PaginatedApiResponse<presenters.Tx[]>> {
   return index({ page, size })
 }
 
 export function getTransaction(
   txHash: string
-): jsonapi.ApiResponse<presenters.Tx> {
+): Promise<jsonapi.ApiResponse<presenters.Tx>> {
   return show(undefined, { txHash })
 }

@@ -6,7 +6,7 @@ import * as presenters from 'core/store/presenters'
  *
  * @example "<application>/runs?jobSpecId=:jobSpecId&size=1&page=2"
  */
-interface IndexParams extends jsonapi.PaginatedRequestParams {
+export interface IndexParams extends jsonapi.PaginatedRequestParams {
   jobSpecId?: string
   sort?: '-createdAt'
 }
@@ -50,7 +50,7 @@ const show = jsonapi.fetchResource<{}, models.JobRun, ShowPathParams>(
  */
 export function getJobSpecRuns(
   params: IndexParams
-): jsonapi.PaginatedApiResponse<models.JobRun[]> {
+): Promise<jsonapi.PaginatedApiResponse<models.JobRun[]>> {
   return index({
     sort: '-createdAt',
     ...params
@@ -63,7 +63,7 @@ export function getJobSpecRuns(
  */
 export function getRecentJobRuns(
   n: number
-): jsonapi.PaginatedApiResponse<models.JobRun[]> {
+): Promise<jsonapi.PaginatedApiResponse<models.JobRun[]>> {
   return index({ size: n, sort: '-createdAt' })
 }
 
@@ -72,7 +72,9 @@ export function getRecentJobRuns(
  *
  * @param id The id of the job run
  */
-export function getJobSpecRun(id: string): jsonapi.ApiResponse<models.JobRun> {
+export function getJobSpecRun(
+  id: string
+): Promise<jsonapi.ApiResponse<models.JobRun>> {
   return show({}, { runId: id })
 }
 
@@ -83,6 +85,6 @@ export function getJobSpecRun(id: string): jsonapi.ApiResponse<models.JobRun> {
  */
 export function createJobSpecRun(
   id: string
-): jsonapi.ApiResponse<presenters.JobRun> {
+): Promise<jsonapi.ApiResponse<presenters.JobRun>> {
   return create(undefined, { specId: id })
 }

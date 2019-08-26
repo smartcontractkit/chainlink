@@ -16,8 +16,8 @@ const accountBalances = jsonapi.fetchResource<
 /**
  * Get account balances in ETH and LINK
  */
-export function getAccountBalances(): jsonapi.ApiResponse<
-  presenters.AccountBalance[]
+export function getAccountBalances(): Promise<
+  jsonapi.ApiResponse<presenters.AccountBalance[]>
 > {
   return accountBalances()
 }

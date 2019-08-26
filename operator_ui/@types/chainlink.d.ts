@@ -617,7 +617,7 @@ declare module 'core/store/models' {
      * FIXME -- loss of precision and camelcase,
      * maybe this shouldnt exist at all actually
      */
-    ID: number
+    ID?: number
     status: RunStatusCollection
     updatedBefore: time.Time
   }

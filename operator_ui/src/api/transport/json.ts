@@ -20,30 +20,26 @@ export interface PaginatedRequestParams {
 }
 
 export interface ApiResponse<T extends AttributesObject | null>
-  extends Promise<
-    JsonApiResponse<
-      T extends Array<infer U>
-        ? ResourceObject<U>[]
-        : T extends AttributesObject
-        ? ResourceObject<T>
-        : null
-    >
+  extends JsonApiResponse<
+    T extends Array<infer U>
+      ? ResourceObject<U>[]
+      : T extends AttributesObject
+      ? ResourceObject<T>
+      : null
   > {}
 
 export interface PaginatedApiResponse<T extends AttributesObject>
-  extends Promise<
-    JsonApiResponse<
-      T extends Array<infer U> ? ResourceObject<U>[] : ResourceObject<T>,
-      ErrorsObject[],
-      never,
-      {
-        count: number
-      },
-      Partial<{
-        prev: string
-        next: string
-      }>
-    >
+  extends JsonApiResponse<
+    T extends Array<infer U> ? ResourceObject<U>[] : ResourceObject<T>,
+    ErrorsObject[],
+    never,
+    {
+      count: number
+    },
+    {
+      prev?: string
+      next?: string
+    }
   > {}
 
 export const fetchResource = methodFactory(http.Method.GET)
@@ -55,16 +51,12 @@ function methodFactory(method: http.Method) {
   return function<Params, T, NamedPathParams extends object = object>(
     url: string
   ) {
-    type ResponseType = Params extends PaginatedRequestParams
-      ? PaginatedApiResponse<T>
-      : ApiResponse<T>
-
     const toPath = pathToRegexp.compile<NamedPathParams>(url)
 
-    return (
-      params?: Partial<Params>,
-      namedPathParams?: NamedPathParams
-    ): ResponseType => {
+    const createdMethod: Method<Params, T, NamedPathParams> = (
+      params,
+      namedPathParams
+    ) => {
       const path = namedPathParams ? toPath(namedPathParams) : url
       const uri = http.formatURI(
         path,
@@ -72,13 +64,25 @@ function methodFactory(method: http.Method) {
       )
       const options = http.getOptions(method)
       const fetch = fetchWithTimeout(uri, options(params))
-      const response = fetch.then(v => parseResponse<ResponseType>(v))
+      const response = fetch.then(v =>
+        parseResponse<ResponseType<Params, T>>(v)
+      )
 
-      // this is to prevent typescript from double boxing the promise type
-      return (response as any) as ResponseType
+      return response
     }
+
+    return createdMethod
   }
 }
+
+type Method<Params, T, NamedPathParams extends object = object> = (
+  params?: Partial<Params>,
+  namedPathParams?: NamedPathParams
+) => Promise<ResponseType<Params, T>>
+
+type ResponseType<Params, T> = Params extends PaginatedRequestParams
+  ? PaginatedApiResponse<T>
+  : ApiResponse<T>
 
 function parseResponse<T>(response: Response): Promise<T> {
   if (response.status === 204) {

@@ -22,12 +22,12 @@ const destroy = jsonapi.deleteResource<undefined, sessions_controller.Session>(
 
 export function createSession(
   sessionRequest: models.SessionRequest
-): jsonapi.ApiResponse<sessions_controller.Session> {
+): Promise<jsonapi.ApiResponse<sessions_controller.Session>> {
   return create(sessionRequest)
 }
 
-export function destroySession(): jsonapi.ApiResponse<
-  sessions_controller.Session
+export function destroySession(): Promise<
+  jsonapi.ApiResponse<sessions_controller.Session>
 > {
   return destroy()
 }

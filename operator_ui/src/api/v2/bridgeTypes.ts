@@ -38,7 +38,7 @@ const update = jsonapi.updateResource<
 export function getBridges(
   page: number,
   size: number
-): jsonapi.PaginatedApiResponse<models.BridgeType[]> {
+): Promise<jsonapi.PaginatedApiResponse<models.BridgeType[]>> {
   return index({ page, size })
 }
 
@@ -49,7 +49,7 @@ export function getBridges(
  */
 export function getBridgeSpec(
   name: string
-): jsonapi.ApiResponse<models.BridgeType> {
+): Promise<jsonapi.ApiResponse<models.BridgeType>> {
   return show({}, { bridgeName: name })
 }
 
@@ -60,12 +60,12 @@ export function getBridgeSpec(
  */
 export function createBridge(
   bridgeTypeRequest: models.BridgeTypeRequest
-): jsonapi.ApiResponse<models.BridgeTypeAuthentication> {
+): Promise<jsonapi.ApiResponse<models.BridgeTypeAuthentication>> {
   return create(bridgeTypeRequest)
 }
 
 export function updateBridge(
   bridgeTypeRequest: models.BridgeTypeRequest
-): jsonapi.ApiResponse<models.BridgeType> {
+): Promise<jsonapi.ApiResponse<models.BridgeType>> {
   return update(bridgeTypeRequest, { bridgeName: bridgeTypeRequest.name })
 }

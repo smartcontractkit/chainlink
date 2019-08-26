@@ -59,7 +59,7 @@ const destroy = jsonapi.deleteResource<undefined, null, DestroyPathParams>(
 export function getJobSpecs(
   page: number,
   size: number
-): jsonapi.PaginatedApiResponse<models.JobSpec[]> {
+): Promise<jsonapi.PaginatedApiResponse<models.JobSpec[]>> {
   return index({ page, size })
 }
 
@@ -69,7 +69,7 @@ export function getJobSpecs(
  */
 export function getRecentJobSpecs(
   n: number
-): jsonapi.PaginatedApiResponse<models.JobSpec[]> {
+): Promise<jsonapi.PaginatedApiResponse<models.JobSpec[]>> {
   return index({ size: n })
 }
 
@@ -77,16 +77,18 @@ export function getRecentJobSpecs(
  * Get the details of a single JobSpec by id
  * @param id The id of the JobSpec to obtain
  */
-export function getJobSpec(id: string): jsonapi.ApiResponse<models.JobSpec> {
+export function getJobSpec(
+  id: string
+): Promise<jsonapi.ApiResponse<models.JobSpec>> {
   return show({}, { specId: id })
 }
 
 export function createJobSpec(
   jobSpecRequest: models.JobSpecRequest
-): jsonapi.ApiResponse<presenters.JobSpec> {
+): Promise<jsonapi.ApiResponse<presenters.JobSpec>> {
   return create(jobSpecRequest)
 }
 
-export function destroyJobSpec(id: string): jsonapi.ApiResponse<null> {
+export function destroyJobSpec(id: string): Promise<jsonapi.ApiResponse<null>> {
   return destroy(undefined, { specId: id })
 }
