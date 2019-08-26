@@ -270,7 +270,6 @@ func TestMigrate_Migration1565877314(t *testing.T) {
 	defer cleanup()
 
 	db := orm.DB
-	db.LogMode(true)
 
 	require.NoError(t, migration0.Migrate(db))
 
