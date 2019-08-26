@@ -5,7 +5,7 @@ import {
   ResourceObject
 } from 'json-api-normalizer'
 import pathToRegexp from 'path-to-regexp'
-import fetchWithTimeout from 'src/utils/fetchWithTimeout'
+import fetchWithTimeout from 'utils/fetchWithTimeout'
 import {
   AuthenticationError,
   BadRequestError,
@@ -63,6 +63,7 @@ function methodFactory(method: http.Method) {
         method === http.Method.GET ? params : undefined // add query string options if its a GET method
       )
       const options = http.getOptions(method)
+      console.log(uri)
       const fetch = fetchWithTimeout(uri, options(params))
       const response = fetch.then(v =>
         parseResponse<ResponseType<Params, T>>(v)
