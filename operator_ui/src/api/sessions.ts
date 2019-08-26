@@ -20,7 +20,14 @@ const destroy = jsonapi.deleteResource<undefined, sessions_controller.Session>(
   DESTROY_ENDPOINT
 )
 
-export const createSession = (sessionRequest: models.SessionRequest) =>
-  create(sessionRequest)
+export function createSession(
+  sessionRequest: models.SessionRequest
+): jsonapi.ApiResponse<sessions_controller.Session> {
+  return create(sessionRequest)
+}
 
-export const destroySession = () => destroy()
+export function destroySession(): jsonapi.ApiResponse<
+  sessions_controller.Session
+> {
+  return destroy()
+}

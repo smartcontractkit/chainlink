@@ -1,3 +1,4 @@
+import 'isomorphic-unfetch'
 import formatRequestURI from 'src/utils/formatRequestURI'
 
 export enum Method {
@@ -24,7 +25,7 @@ export function getOptions(method: Method): (val?: any) => FetchOptions {
   return CUDOptionFactory(method)
 }
 
-export const formatURI = (path: string, query: object = {}) => {
+export function formatURI(path: string, query: object = {}) {
   return formatRequestURI(path, query, {
     hostname: location.hostname,
     port: process.env.CHAINLINK_PORT

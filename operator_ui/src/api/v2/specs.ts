@@ -56,21 +56,37 @@ const destroy = jsonapi.deleteResource<undefined, null, DestroyPathParams>(
  * @param page The page number to fetch
  * @param size The maximum number of job specs in the page
  */
-export const getJobSpecs = (page: number, size: number) => index({ page, size })
+export function getJobSpecs(
+  page: number,
+  size: number
+): jsonapi.PaginatedApiResponse<models.JobSpec[]> {
+  return index({ page, size })
+}
 
 /**
  * Get the most recent n job specs
  * @param n The number of job specs to fetch
  */
-export const getRecentJobSpecs = (n: number) => index({ size: n })
+export function getRecentJobSpecs(
+  n: number
+): jsonapi.PaginatedApiResponse<models.JobSpec[]> {
+  return index({ size: n })
+}
 
 /**
  * Get the details of a single JobSpec by id
  * @param id The id of the JobSpec to obtain
  */
-export const getJobSpec = (id: string) => show({}, { specId: id })
+export function getJobSpec(id: string): jsonapi.ApiResponse<models.JobSpec> {
+  return show({}, { specId: id })
+}
 
-export const createJobSpec = (jobSpecRequest: models.JobSpecRequest) =>
-  create(jobSpecRequest)
+export function createJobSpec(
+  jobSpecRequest: models.JobSpecRequest
+): jsonapi.ApiResponse<presenters.JobSpec> {
+  return create(jobSpecRequest)
+}
 
-export const destroyJobSpec = (id: string) => destroy(undefined, { specId: id })
+export function destroyJobSpec(id: string): jsonapi.ApiResponse<null> {
+  return destroy(undefined, { specId: id })
+}

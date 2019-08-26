@@ -35,22 +35,37 @@ const update = jsonapi.updateResource<
   UpdatePathParams
 >(UPDATE_ENDPOINT)
 
-export const getBridges = (page: number, size: number) => index({ page, size })
+export function getBridges(
+  page: number,
+  size: number
+): jsonapi.PaginatedApiResponse<models.BridgeType[]> {
+  return index({ page, size })
+}
 
 /**
  * Get a bridge spec
  *
  * @param name The name of the bridge spec to fetch
  */
-export const getBridgeSpec = (name: string) => show({}, { bridgeName: name })
+export function getBridgeSpec(
+  name: string
+): jsonapi.ApiResponse<models.BridgeType> {
+  return show({}, { bridgeName: name })
+}
 
 /**
  * Create a bridge type from a bridge type request
  *
  * @param bridgeTypeRequest The request object to create a bridge type from
  */
-export const createBridge = (bridgeTypeRequest: models.BridgeTypeRequest) =>
-  create(bridgeTypeRequest)
+export function createBridge(
+  bridgeTypeRequest: models.BridgeTypeRequest
+): jsonapi.ApiResponse<models.BridgeTypeAuthentication> {
+  return create(bridgeTypeRequest)
+}
 
-export const updateBridge = (bridgeTypeRequest: models.BridgeTypeRequest) =>
-  update(bridgeTypeRequest, { bridgeName: bridgeTypeRequest.name })
+export function updateBridge(
+  bridgeTypeRequest: models.BridgeTypeRequest
+): jsonapi.ApiResponse<models.BridgeType> {
+  return update(bridgeTypeRequest, { bridgeName: bridgeTypeRequest.name })
+}

@@ -48,26 +48,31 @@ const show = jsonapi.fetchResource<{}, models.JobRun, ShowPathParams>(
  *
  * @param params Job spec params
  */
-export const getJobSpecRuns = (params: IndexParams) =>
-  index({
+export function getJobSpecRuns(
+  params: IndexParams
+): jsonapi.PaginatedApiResponse<models.JobRun[]> {
+  return index({
     sort: '-createdAt',
     ...params
   })
-
+}
 /**
  * Get n most recent job runs
  *
  * @param n The number of recent job runs to fetch
  */
-export const getRecentJobRuns = (n: number) =>
-  index({ size: n, sort: '-createdAt' })
+export function getRecentJobRuns(
+  n: number
+): jsonapi.PaginatedApiResponse<models.JobRun[]> {
+  return index({ size: n, sort: '-createdAt' })
+}
 
 /**
  * Get details of a specific job spec run
  *
  * @param id The id of the job run
  */
-export function getJobSpecRun(id: string) {
+export function getJobSpecRun(id: string): jsonapi.ApiResponse<models.JobRun> {
   return show({}, { runId: id })
 }
 
@@ -76,5 +81,8 @@ export function getJobSpecRun(id: string) {
  *
  * @param id The specification id of the job spec to run
  */
-export const createJobSpecRun = (id: string) =>
-  create(undefined, { specId: id })
+export function createJobSpecRun(
+  id: string
+): jsonapi.ApiResponse<presenters.JobRun> {
+  return create(undefined, { specId: id })
+}

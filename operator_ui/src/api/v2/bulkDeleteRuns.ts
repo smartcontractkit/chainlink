@@ -11,6 +11,8 @@ const destroy = jsonapi.deleteResource<models.BulkDeleteRunRequest, null>(
   DELETE_ENDPOINT
 )
 
-export const bulkDeleteJobRuns = (
+export function bulkDeleteJobRuns(
   bulkDeleteRunRequest: models.BulkDeleteRunRequest
-) => destroy(bulkDeleteRunRequest)
+): jsonapi.ApiResponse<null> {
+  return destroy(bulkDeleteRunRequest)
+}

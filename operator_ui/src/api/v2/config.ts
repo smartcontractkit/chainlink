@@ -13,4 +13,8 @@ const show = jsonapi.fetchResource<{}, presenters.ConfigWhitelist, {}>(
 /**
  * Get configuration variables
  */
-export const getConfiguration = () => show()
+export function getConfiguration(): jsonapi.ApiResponse<
+  presenters.ConfigWhitelist
+> {
+  return show()
+}

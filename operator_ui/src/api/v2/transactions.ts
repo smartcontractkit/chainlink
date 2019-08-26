@@ -23,7 +23,15 @@ const show = jsonapi.fetchResource<undefined, presenters.Tx, ShowPathParams>(
   SHOW_ENDPOINT
 )
 
-export const getTransactions = (page: number, size: number) =>
-  index({ page, size })
+export function getTransactions(
+  page: number,
+  size: number
+): jsonapi.PaginatedApiResponse<presenters.Tx[]> {
+  return index({ page, size })
+}
 
-export const getTransaction = (txHash: string) => show(undefined, { txHash })
+export function getTransaction(
+  txHash: string
+): jsonapi.ApiResponse<presenters.Tx> {
+  return show(undefined, { txHash })
+}
