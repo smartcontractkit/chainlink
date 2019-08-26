@@ -1,8 +1,8 @@
 pragma solidity 0.4.24;
 
 import "./ChainlinkClient.sol";
-import { SignedSafeMath as SignedSafeMath_Chainlink } from "./vendor/SignedSafeMath.sol";
-import { Ownable as Ownable_Chainlink } from "./vendor/Ownable.sol";
+import "./vendor/SignedSafeMath.sol";
+import "./vendor/Ownable.sol";
 
 /**
  * @title An example Chainlink contract with aggregation
@@ -10,8 +10,8 @@ import { Ownable as Ownable_Chainlink } from "./vendor/Ownable.sol";
  * requests to multiple Chainlink nodes and running aggregation
  * as the contract receives answers.
  */
-contract Aggregator is ChainlinkClient, Ownable_Chainlink {
-  using SignedSafeMath_Chainlink for int256;
+contract Aggregator is ChainlinkClient, Ownable {
+  using SignedSafeMath for int256;
 
   struct Answer {
     uint128 minimumResponses;
@@ -56,7 +56,7 @@ contract Aggregator is ChainlinkClient, Ownable_Chainlink {
     uint128 _minimumResponses,
     address[] _oracles,
     bytes32[] _jobIds
-  ) public Ownable_Chainlink() {
+  ) public Ownable() {
     setChainlinkToken(_link);
     updateRequestDetails(_paymentAmount, _minimumResponses, _oracles, _jobIds);
   }
