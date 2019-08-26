@@ -9,7 +9,5 @@ yarn lint:evm && yarn lint:examples
 yarn workspace chainlink test
 yarn workspace @chainlink/example-uptime-sla test
 yarn workspace @chainlink/example-echo-server test
-yarn workspace chainlink flatten
-yarn workspace @chainlink/example-testnet truffle build
 yarn workspace @chainlink/box test
 yarn workspace chainlinkv0.5 test
