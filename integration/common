@@ -96,7 +96,7 @@ launch_chainlink() {
   waitFor "grep 'Unlocked account' '$SRCROOT/integration/chainlink.log'" 10
   export CHAINLINK_NODE_ADDRESS=`cat $SRCROOT/integration/chainlink.log | grep 'Unlocked account' | awk '{print$5}'`
 
-  yarn workspace @chainlink/integration run truffle exec $SRCROOT/evm/scripts/fund_address.js --network test "$CHAINLINK_NODE_ADDRESS" > $SRCROOT/integration/fund_address.log
+  yarn workspace @chainlink/integration run truffle exec scripts/fund_address.js --network test "$CHAINLINK_NODE_ADDRESS" > $SRCROOT/integration/fund_address.log
 }
 
 launch_explorer() {

@@ -14,6 +14,7 @@
   "devDependencies": {
     "babel-jest": "^24.1.0",
     "body-parser": "^1.18.3",
+    "command-line-args": "^5.1.1",
     "cross-env": "^5.2.0",
     "ethjs": "^0.4.0",
     "expect-puppeteer": "^4.1.0",
