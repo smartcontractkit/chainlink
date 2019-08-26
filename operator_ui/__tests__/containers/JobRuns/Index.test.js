@@ -1,15 +1,15 @@
-import React from 'react'
-import clickNextPage from 'test-helpers/clickNextPage'
-import clickPreviousPage from 'test-helpers/clickPreviousPage'
-import clickFirstPage from 'test-helpers/clickFirstPage'
-import clickLastPage from 'test-helpers/clickLastPage'
 import createStore from 'connectors/redux'
-import syncFetch from 'test-helpers/syncFetch'
+import { ConnectedIndex as Index } from 'containers/JobRuns/Index'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRuns'
-import mountWithTheme from 'test-helpers/mountWithTheme'
+import React from 'react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
-import { ConnectedIndex as Index } from 'containers/JobRuns/Index'
+import clickFirstPage from 'test-helpers/clickFirstPage'
+import clickLastPage from 'test-helpers/clickLastPage'
+import clickNextPage from 'test-helpers/clickNextPage'
+import clickPreviousPage from 'test-helpers/clickPreviousPage'
+import mountWithTheme from 'test-helpers/mountWithTheme'
+import syncFetch from 'test-helpers/syncFetch'
 
 const classes = {}
 const mountIndex = props =>
@@ -32,10 +32,7 @@ describe('containers/JobRuns/Index', () => {
     expect.assertions(2)
 
     const runsResponse = jsonApiJobSpecRunFactory([{ jobId: jobSpecId }])
-    global.fetch.getOnce(
-      `/v2/runs?sort=-createdAt&page=1&size=25&jobSpecId=${jobSpecId}`,
-      runsResponse
-    )
+    global.fetch.getOnce(`begin:/v2/runs`, runsResponse)
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountIndex(props)
@@ -52,10 +49,7 @@ describe('containers/JobRuns/Index', () => {
       [{ id: 'ID-ON-FIRST-PAGE', jobId: jobSpecId }],
       3
     )
-    global.fetch.getOnce(
-      `/v2/runs?sort=-createdAt&page=1&size=1&jobSpecId=${jobSpecId}`,
-      pageOneResponse
-    )
+    global.fetch.getOnce(`begin:/v2/runs`, pageOneResponse)
 
     const props = { match: { params: { jobSpecId: jobSpecId } }, pageSize: 1 }
     const wrapper = mountIndex(props)
@@ -68,20 +62,14 @@ describe('containers/JobRuns/Index', () => {
       [{ id: 'ID-ON-SECOND-PAGE', jobId: jobSpecId }],
       3
     )
-    global.fetch.getOnce(
-      `/v2/runs?sort=-createdAt&page=2&size=1&jobSpecId=${jobSpecId}`,
-      pageTwoResponse
-    )
+    global.fetch.getOnce(`begin:/v2/runs`, pageTwoResponse)
     clickNextPage(wrapper)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).toContain('ID-ON-SECOND-PAGE')
 
-    global.fetch.getOnce(
-      `/v2/runs?sort=-createdAt&page=1&size=1&jobSpecId=${jobSpecId}`,
-      pageOneResponse
-    )
+    global.fetch.getOnce(`begin:/v2/runs`, pageOneResponse)
     clickPreviousPage(wrapper)
 
     await syncFetch(wrapper)
@@ -92,10 +80,7 @@ describe('containers/JobRuns/Index', () => {
       [{ id: 'ID-ON-THIRD-PAGE', jobId: jobSpecId }],
       3
     )
-    global.fetch.getOnce(
-      `/v2/runs?sort=-createdAt&page=3&size=1&jobSpecId=${jobSpecId}`,
-      pageThreeResponse
-    )
+    global.fetch.getOnce(`begin:/v2/runs`, pageThreeResponse)
     clickLastPage(wrapper)
 
     await syncFetch(wrapper)
@@ -103,10 +88,7 @@ describe('containers/JobRuns/Index', () => {
     expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
 
-    global.fetch.getOnce(
-      `/v2/runs?sort=-createdAt&page=1&size=1&jobSpecId=${jobSpecId}`,
-      pageOneResponse
-    )
+    global.fetch.getOnce(`begin:/v2/runs`, pageOneResponse)
     clickFirstPage(wrapper)
 
     await syncFetch(wrapper)
@@ -119,10 +101,7 @@ describe('containers/JobRuns/Index', () => {
     expect.assertions(1)
 
     const runsResponse = jsonApiJobSpecRunFactory([])
-    global.fetch.getOnce(
-      `/v2/runs?sort=-createdAt&page=1&size=25&jobSpecId=${jobSpecId}`,
-      runsResponse
-    )
+    global.fetch.getOnce(`begin:/v2/runs`, runsResponse)
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountIndex(props)
