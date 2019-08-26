@@ -28,3 +28,30 @@ export class Session {
   @UpdateDateColumn()
   private updatedAt: Date
 }
+
+export async function createSession(
+  db: Connection,
+  node: ChainlinkNode
+): Promise<Session> {
+  const now = new Date()
+  await db.manager
+    .createQueryBuilder()
+    .update(Session)
+    .set({ finishedAt: now })
+    .where({ chainlinkNodeId: node.id, finishedAt: null })
+    .execute()
+  const session = new Session()
+  session.chainlinkNodeId = node.id
+  return db.manager.save(session)
+}
+
+export async function retireSessions(
+  db: Connection,
+) {
+  return db.manager
+    .createQueryBuilder()
+    .update(Session)
+    .set({ finishedAt: new Date() })
+    .where({ finishedAt: null })
+    .execute()
+}

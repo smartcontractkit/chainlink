@@ -1,6 +1,6 @@
 import { Connection } from 'typeorm'
 import { ChainlinkNode, hashCredentials } from './entity/ChainlinkNode'
-import { Session } from './entity/Session'
+import { createSession, Session } from './entity/Session'
 import { timingSafeEqual } from 'crypto'
 
 // SessionResponse contains a chainlink node's ID and access key
@@ -43,20 +43,4 @@ function authenticateSession(
 ): boolean {
   const hash = hashCredentials(accessKey, secret, node.salt)
   return timingSafeEqual(Buffer.from(hash), Buffer.from(node.hashedSecret))
-}
-
-async function createSession(
-  db: Connection,
-  node: ChainlinkNode
-): Promise<Session> {
-  const now = new Date()
-  await db.manager
-    .createQueryBuilder()
-    .update(Session)
-    .set({ finishedAt: now })
-    .where({ chainlinkNodeId: node.id, finishedAt: null })
-    .execute()
-  const session = new Session()
-  session.chainlinkNodeId = node.id
-  return db.manager.save(session)
 }
