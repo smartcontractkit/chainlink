@@ -110,28 +110,29 @@ func NewApp(client *Client) *cli.App {
 					Usage:  "Show a specific job's details",
 					Action: client.ShowJobSpec,
 				},
+				{
+					Name:   "create",
+					Usage:  "Create job spec from JSON",
+					Action: client.CreateJobSpec,
+				},
+				{
+					Name:   "archive",
+					Usage:  "Archive job and all associated runs",
+					Action: client.ArchiveJobSpec,
+				},
 			},
-			{
-				Name:   "create",
-				Usage:  "Create job spec from JSON",
-				Action: client.CreateJobSpec,
-			},
-			{
-				Name:   "archive",
-				Usage:  "Archive job and all associated runs",
-				Action: client.ArchiveJobSpec,
-			},
-		},
-		{
-			Name:    "run",
-			Aliases: []string{"r"},
-			Usage:   "Create a new run for a job",
-			Action:  client.CreateJobRun,
 		},
 		{
 			Name:  "runs",
 			Usage: "Run related commands",
 			Subcommands: []cli.Command{
+				{
+					Name:        "create",
+					Aliases:     []string{"r"},
+					Usage:       "Create a new Run for a Job given an Job ID and optional JSON body",
+					Description: "Takes a Job ID and a JSON string or path to a JSON file",
+					Action:      client.CreateJobRun,
+				},
 				{
 					Name:    "show",
 					Aliases: []string{"sr"},
@@ -157,7 +158,7 @@ func NewApp(client *Client) *cli.App {
 		},
 		{
 			Name:  "adapters",
-			Usage: "Exgernal adapter and bridge related commands",
+			Usage: "External adapter and bridge related commands",
 			Subcommands: []cli.Command{
 				{
 					Name:   "create",
@@ -190,7 +191,7 @@ func NewApp(client *Client) *cli.App {
 		{
 			Name:    "initiators",
 			Aliases: []string{"exi"},
-			Usage:   "Tasks for managing external initiators",
+			Usage:   "Commands for managing external initiators",
 			Subcommands: []cli.Command{
 				{
 					Name:   "create",
@@ -205,10 +206,16 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 		{
-			Name:    "agree",
-			Aliases: []string{"createsa"},
-			Usage:   "Creates a service agreement",
-			Action:  client.CreateServiceAgreement,
+			Name:    "agreements",
+			Aliases: []string{"agree"},
+			Usage:   "Commands for handling service agreements",
+			Subcommands: []cli.Command{
+				{
+					Name:   "create",
+					Usage:  "Creates a service agreement",
+					Action: client.CreateServiceAgreement,
+				},
+			},
 		},
 		{
 			Name:    "withdraw",
