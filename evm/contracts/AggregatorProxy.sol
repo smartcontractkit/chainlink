@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
 import "./interfaces/AggregatorInterface.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "./vendor/Ownable.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from

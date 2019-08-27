@@ -2,6 +2,7 @@ pragma solidity 0.4.24;
 
 import "./MaliciousChainlink.sol";
 import "../Chainlinked.sol";
+import "../vendor/SafeMath.sol";
 
 contract MaliciousChainlinked is Chainlinked {
   using MaliciousChainlink for MaliciousChainlink.Request;
