@@ -5,6 +5,7 @@
     "evm",
     "evm/box",
     "evm/v0.5",
+    "tools",
     "operator_ui",
     "integration",
     "styleguide",
