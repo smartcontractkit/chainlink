@@ -105,9 +105,9 @@ func (cli *Client) ShowJobRun(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &job)
 }
 
-// GetJobRuns returns the list of all job runs for a specific job
+// IndexJobRuns returns the list of all job runs for a specific job
 // if no jobid is passed, defaults to returning all jobruns
-func (cli *Client) GetJobRuns(c *clipkg.Context) error {
+func (cli *Client) IndexJobRuns(c *clipkg.Context) error {
 	jobID := c.String("jobid")
 	if jobID != "" {
 		return cli.getPage("/v2/runs?jobSpecId="+jobID, c.Int("page"), &[]presenters.JobRun{})
@@ -129,8 +129,8 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &job)
 }
 
-// GetJobSpecs returns all job specs.
-func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
+// IndexJobSpecs returns all job specs.
+func (cli *Client) IndexJobSpecs(c *clipkg.Context) error {
 	return cli.getPage("/v2/specs", c.Int("page"), &[]models.JobSpec{})
 }
 
@@ -195,8 +195,8 @@ func (cli *Client) CreateJobRun(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &run)
 }
 
-// AddBridge adds a new bridge to the chainlink node
-func (cli *Client) AddBridge(c *clipkg.Context) error {
+// CreateBridge adds a new bridge to the chainlink node
+func (cli *Client) CreateBridge(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in the bridge's parameters [JSON blob | JSON filepath]"))
 	}
@@ -216,8 +216,8 @@ func (cli *Client) AddBridge(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &bridge)
 }
 
-// GetBridges returns all bridges.
-func (cli *Client) GetBridges(c *clipkg.Context) error {
+// IndexBridges returns all bridges.
+func (cli *Client) IndexBridges(c *clipkg.Context) error {
 	return cli.getPage("/v2/bridge_types", c.Int("page"), &[]models.BridgeType{})
 }
 
@@ -423,15 +423,30 @@ func (cli *Client) ChangePassword(c *clipkg.Context) error {
 	return nil
 }
 
-// GetTransactions returns the list of transactions in descending order,
+// IndexTransactions returns the list of transactions in descending order,
 // taking an optional page parameter
-func (cli *Client) GetTransactions(c *clipkg.Context) error {
+func (cli *Client) IndexTransactions(c *clipkg.Context) error {
 	return cli.getPage("/v2/transactions", c.Int("page"), &[]presenters.Tx{})
 }
 
-// GetTxAttempts returns the list of transactions in descending order,
+// ShowTransaction returns the info for the given transaction hash
+func (cli *Client) ShowTransaction(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the hash of the transaction"))
+	}
+	hash := c.Args().First()
+	resp, err := cli.HTTP.Get("/v2/transactions/" + hash)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+	var tx presenters.Tx
+	return cli.renderAPIResponse(resp, &tx)
+}
+
+// IndexTxAttempts returns the list of transactions in descending order,
 // taking an optional page parameter
-func (cli *Client) GetTxAttempts(c *clipkg.Context) error {
+func (cli *Client) IndexTxAttempts(c *clipkg.Context) error {
 	return cli.getPage("/v2/tx_attempts", c.Int("page"), &[]models.TxAttempt{})
 }
 

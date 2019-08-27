@@ -63,6 +63,10 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderServiceAgreement(*typed)
 	case *[]models.TxAttempt:
 		return rt.renderTxAttempts(*typed)
+	case *[]presenters.Tx:
+		return rt.renderTxs(*typed)
+	case *presenters.Tx:
+		return rt.renderTx(*typed)
 	case *models.ExternalInitiatorAuthentication:
 		return rt.renderExternalInitiatorAuthentication(*typed)
 	case *web.ConfigPatchResponse:
@@ -277,7 +281,37 @@ func (rt RendererTable) renderTxAttempts(attempts []models.TxAttempt) error {
 		})
 	}
 
-	render("Tx Attempts", table)
+	render("Ethereum Transaction Attempts", table)
+	return nil
+}
+
+func (rt RendererTable) renderTx(tx presenters.Tx) error {
+	table := rt.newTable([]string{"From", "Nonce", "To", "Confirmed"})
+	table.Append([]string{
+		tx.From.Hex(),
+		tx.Nonce,
+		tx.To.Hex(),
+		fmt.Sprint(tx.Confirmed),
+	})
+
+	render(fmt.Sprintf("Ethereum Transaction %v", tx.Hash.Hex()), table)
+	return nil
+}
+
+func (rt RendererTable) renderTxs(txs []presenters.Tx) error {
+	table := rt.newTable([]string{"Hash", "Nonce", "From", "GasPrice", "SentAt", "Confirmed"})
+	for _, tx := range txs {
+		table.Append([]string{
+			tx.Hash.Hex(),
+			tx.Nonce,
+			tx.From.Hex(),
+			tx.GasPrice,
+			tx.SentAt,
+			fmt.Sprint(tx.Confirmed),
+		})
+	}
+
+	render("Ethereum Transactions", table)
 	return nil
 }
 

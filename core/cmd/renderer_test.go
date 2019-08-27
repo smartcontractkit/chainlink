@@ -167,14 +167,69 @@ func TestRendererTable_Render_TxAttempts(t *testing.T) {
 
 	buffer := bytes.NewBufferString("")
 	r := cmd.RendererTable{Writer: buffer}
-
 	assert.NoError(t, r.Render(&attempts))
 	output := buffer.String()
+
 	assert.Contains(t, output, fmt.Sprint(attempts[0].TxID))
 	assert.Contains(t, output, attempts[0].Hash.Hex())
 	assert.Contains(t, output, fmt.Sprint(attempts[0].GasPrice))
 	assert.Contains(t, output, fmt.Sprint(attempts[0].SentAt))
 	assert.Contains(t, output, fmt.Sprint(attempts[0].Confirmed))
+}
+
+func TestRendererTable_Render_Tx(t *testing.T) {
+	t.Parallel()
+
+	from := cltest.NewAddress()
+	to := cltest.NewAddress()
+	tx := presenters.Tx{
+		Hash:      cltest.NewHash(),
+		Nonce:     "1",
+		From:      &from,
+		To:        &to,
+		GasPrice:  "2",
+		Confirmed: false,
+		SentAt:    "3",
+	}
+
+	buffer := bytes.NewBufferString("")
+	r := cmd.RendererTable{Writer: buffer}
+	assert.NoError(t, r.Render(&tx))
+	output := buffer.String()
+
+	assert.NotContains(t, output, tx.Hash.Hex())
+	assert.Contains(t, output, tx.Nonce)
+	assert.Contains(t, output, from.Hex())
+	assert.Contains(t, output, to.Hex())
+	assert.Contains(t, output, fmt.Sprint(tx.Confirmed))
+}
+
+func TestRendererTable_Render_Txs(t *testing.T) {
+	t.Parallel()
+
+	a := cltest.NewAddress()
+	txs := []presenters.Tx{
+		{
+			Hash:      cltest.NewHash(),
+			Nonce:     "1",
+			From:      &a,
+			GasPrice:  "2",
+			Confirmed: false,
+			SentAt:    "3",
+		},
+	}
+
+	buffer := bytes.NewBufferString("")
+	r := cmd.RendererTable{Writer: buffer}
+	assert.NoError(t, r.Render(&txs))
+	output := buffer.String()
+
+	assert.Contains(t, output, txs[0].Nonce)
+	assert.Contains(t, output, txs[0].Hash.Hex())
+	assert.Contains(t, output, txs[0].GasPrice)
+	assert.Contains(t, output, txs[0].SentAt)
+	assert.Contains(t, output, a.Hex())
+	assert.Contains(t, output, fmt.Sprint(txs[0].Confirmed))
 }
 
 func TestRendererTable_ServiceAgreementShow(t *testing.T) {
