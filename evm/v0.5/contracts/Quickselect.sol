@@ -1,11 +1,11 @@
 pragma solidity ^0.5.0;
 
-import { SafeMath as SafeMath_Chainlink } from "./vendor/SafeMath.sol";
-import { SignedSafeMath as SignedSafeMath_Chainlink } from "./vendor/SignedSafeMath.sol";
+import "./vendor/SafeMath.sol";
+import "./vendor/SignedSafeMath.sol";
 
 library Quickselect {
-  using SafeMath_Chainlink for uint256;
-  using SignedSafeMath_Chainlink for int256;
+  using SafeMath for uint256;
+  using SignedSafeMath for int256;
     /**
    * @dev Returns the kth value of the ordered array
    * See: http://www.cs.yale.edu/homes/aspnes/pinewiki/QuickSelect.html
