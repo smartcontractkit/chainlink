@@ -4,9 +4,11 @@
   "version": "0.6.0",
   "license": "MIT",
   "scripts": {
-    "lint": "echo \"No linter configured for examples/testnet\" && exit 0"
+    "lint": "echo \"No linter configured for examples/testnet\" && exit 0",
+    "depcheck": "echo \"@chainlink/example-testnet\" && depcheck --ignore-dirs=contracts || true"
   },
   "devDependencies": {
-    "truffle": "^5.0.25"
+    "truffle": "^5.0.25",
+    "depcheck": "^0.8.3"
   }
 }

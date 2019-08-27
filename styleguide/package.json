@@ -8,7 +8,8 @@
     "start": "start-storybook -p 9001",
     "build-storybook": "build-storybook",
     "build": "rm -rf dist && tsc",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true"
   },
   "dependencies": {
     "@material-ui/core": "^3.9.2",
@@ -43,6 +44,7 @@
     "@types/storybook__react": "^4.0.2",
     "babel-loader": "^8.0.6",
     "react-docgen-typescript-loader": "^3.1.0",
-    "webpack": "^4.39.1"
+    "webpack": "^4.39.1",
+    "depcheck": "^0.8.3"
   }
 }

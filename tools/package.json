@@ -2,7 +2,13 @@
   "name": "@chainlink/tools",
   "version": "0.6.5",
   "license": "MIT",
+  "scripts": {
+    "depcheck": "echo '@chainlink/tools' && depcheck || true"
+  },
   "dependencies": {
     "axios": "^0.18.0"
+  },
+  "devDependencies": {
+    "depcheck": "^0.8.3"
   }
 }

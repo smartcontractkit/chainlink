@@ -13,7 +13,8 @@
     "test": "yarn build:tsc && cross-env NODE_ENV=test jest",
     "test:nocache": "yarn build:tsc:clean && yarn test --no-cache",
     "test:ci": "yarn test:nocache --runInBand --coverage --reporters jest-silent-reporter",
-    "watch": "yarn test --watchAll --notify"
+    "watch": "yarn test --watchAll --notify",
+    "depcheck": "echo '@chainlink/operator-ui' && depcheck --ignore-dirs=dist || true"
   },
   "dependencies": {
     "@babel/cli": "^7.2.3",
@@ -98,6 +99,7 @@
     "@types/react-redux": "~6.0.0",
     "@types/react-resize-detector": "^4.0.1",
     "@types/react-router-dom": "^4.3.4",
-    "@types/redux-mock-store": "^1.0.1"
+    "@types/redux-mock-store": "^1.0.1",
+    "depcheck": "^0.8.3"
   }
 }
