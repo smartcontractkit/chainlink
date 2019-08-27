@@ -60,7 +60,6 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 // safe for processing.
 func ValidateExternalInitiator(
 	exi *models.ExternalInitiatorRequest,
-	eia *models.ExternalInitiatorAuthentication,
 	store *store.Store,
 ) error {
 	fe := models.NewJSONAPIErrors()
@@ -68,7 +67,7 @@ func ValidateExternalInitiator(
 		fe.Add("No name specified")
 	} else if isAlphaNum := govalidator.IsAlphanumeric(exi.Name); !isAlphaNum {
 		fe.Add("Name must be alphanumeric")
-	} else if _, err := store.FindExternalInitiatorByName(eia, exi.Name); err == nil {
+	} else if _, err := store.FindExternalInitiatorByName(exi.Name); err == nil {
 		fe.Add(fmt.Sprintf("Name %v already exists", exi.Name))
 	} else if err != orm.ErrorNotFound {
 		return errors.Wrap(err, "validating external initiator")

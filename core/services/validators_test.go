@@ -167,11 +167,10 @@ func TestValidateExternalInitiator(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var exa models.ExternalInitiatorAuthentication
 			var exr models.ExternalInitiatorRequest
 
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &exr))
-			result := services.ValidateExternalInitiator(&exr, &exa, store)
+			result := services.ValidateExternalInitiator(&exr, store)
 
 			cltest.AssertError(t, test.wantError, result)
 		})

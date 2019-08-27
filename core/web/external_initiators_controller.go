@@ -28,7 +28,7 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 	} else if ei, err := models.NewExternalInitiator(eia, eir); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if err := services.ValidateExternalInitiator(eir, eia, eic.App.GetStore()); err != nil {
+	} else if err := services.ValidateExternalInitiator(eir, eic.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if err := eic.App.GetStore().CreateExternalInitiator(ei); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
