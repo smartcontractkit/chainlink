@@ -228,6 +228,7 @@ type InitiatorParams struct {
 	Ran        bool              `json:"ran,omitempty"`
 	Address    common.Address    `json:"address,omitempty" gorm:"index"`
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
+	Name       string            `json:"name,omitempty"`
 }
 
 // UnmarshalJSON parses the raw initiator data and updates the

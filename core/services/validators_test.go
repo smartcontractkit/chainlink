@@ -191,6 +191,7 @@ func TestValidateInitiator(t *testing.T) {
 	}{
 		{"web", `{"type":"web"}`, false},
 		{"ethlog", `{"type":"ethlog"}`, false},
+		{"external", `{"type":"external","params":{"name":"bitcoin"}`, false},
 		{"runlog", `{"type":"runlog"}`, false},
 		{"runat", fmt.Sprintf(`{"type":"runat","params": {"time":"%v"}}`, utils.ISO8601UTC(startAt)), false},
 		{"runat w/o time", `{"type":"runat"}`, true},
@@ -198,6 +199,7 @@ func TestValidateInitiator(t *testing.T) {
 		{"runat w time after end at", fmt.Sprintf(`{"type":"runat","params": {"time":"%v"}}`, endAt.Add(time.Second).Unix()), true},
 		{"cron", `{"type":"cron","params": {"schedule":"* * * * * *"}}`, false},
 		{"cron w/o schedule", `{"type":"cron"}`, true},
+		{"external w/o name", `{"type":"external"}`, true},
 		{"non-existent initiator", `{"type":"doesntExist"}`, true},
 	}
 

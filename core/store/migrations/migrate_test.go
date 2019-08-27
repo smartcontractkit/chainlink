@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565210496"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565291711"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565877314"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1566915476"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/store/assets"
@@ -128,6 +129,7 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 	require.NoError(t, migration1560886530.Migrate(db))
 	require.NoError(t, migration1560924400.Migrate(db))
 	require.NoError(t, migration1565139192.Migrate(db))
+	require.NoError(t, migration1566915476.Migrate(db))
 
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}

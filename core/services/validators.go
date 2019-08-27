@@ -85,6 +85,8 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 		return validateRunAtInitiator(i, j)
 	case models.InitiatorCron:
 		return validateCronInitiator(i)
+	case models.InitiatorExternal:
+		return validateExternalInitiator(i)
 	case models.InitiatorServiceAgreementExecutionLog:
 		return validateServiceAgreementInitiator(i, j)
 	case models.InitiatorWeb:
@@ -113,6 +115,13 @@ func validateRunAtInitiator(i models.Initiator, j models.JobSpec) error {
 func validateCronInitiator(i models.Initiator) error {
 	if i.Schedule == "" {
 		return models.NewJSONAPIErrorsWith("Schedule must have a cron")
+	}
+	return nil
+}
+
+func validateExternalInitiator(i models.Initiator) error {
+	if len([]rune(i.Name)) == 0 {
+		return models.NewJSONAPIErrorsWith("External must have a name")
 	}
 	return nil
 }
