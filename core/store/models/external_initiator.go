@@ -20,13 +20,13 @@ type ExternalInitiatorRequest struct {
 // ExternalInitiator represents a user that can initiate runs remotely
 type ExternalInitiator struct {
 	*gorm.Model
-	Name           string
-	URL            WebURL
-	AccessKey      string
-	Salt           string
-	HashedSecret   string
-	OutgoingToken  string
-	OutgoingSecret string
+	Name           string `gorm:"not null,unique"`
+	URL            WebURL `gorm:"not null"`
+	AccessKey      string `gorm:"not null"`
+	Salt           string `gorm:"not null"`
+	HashedSecret   string `gorm:"not null"`
+	OutgoingSecret string `gorm:"not null"`
+	OutgoingToken  string `gorm:"not null"`
 }
 
 // NewExternalInitiator generates an ExternalInitiator from an
