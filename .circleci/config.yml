@@ -242,6 +242,22 @@ jobs:
       - run:
           name: Docker build
           command: docker build -f explorer/Dockerfile .
+  build-and-publish-chainlink:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: |
+            DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}` make docker
+      - run:
+          name: Docker push
+          command: |
+            DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}` make dockerpush
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.22
@@ -267,6 +283,24 @@ workflows:
           filters:
             branches:
               ignore: master
+      - build-and-publish-chainlink:
+          requires:
+            - go-sqlite
+            - go-sqlite-race
+            - go-postgres
+            - truffle
+            - geth-postgres
+            - parity-postgres
+            - operator-ui
+            - rust
+            - explorer
+          filters:
+            branches:
+              only:
+                - master
+                - develop
+                - /^hotfix\/.*/
+                - /^release\/.*/
       - aws-ecr/build_and_push_image:
           requires:
             - explorer
