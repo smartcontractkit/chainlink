@@ -34,9 +34,9 @@ const server = (port: number = DEFAULT_PORT) => {
     res.sendFile(`${__dirname}/public/index.html`)
   })
 
-  const server = new http.Server(app)
-  bootstrapRealtime(server)
-  return server.listen(port, () => {
+  const httpServer = new http.Server(app)
+  bootstrapRealtime(httpServer)
+  return httpServer.listen(port, () => {
     logger.info(`server started, listening on port ${port}`)
   })
 }

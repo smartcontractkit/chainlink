@@ -95,7 +95,7 @@ export const fromString = (str: string): JobRun => {
 
 export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
   await db.manager.transaction(async manager => {
-    const builder = manager.createQueryBuilder()
+    let builder = manager.createQueryBuilder()
 
     await builder
       .insert()
@@ -116,7 +116,7 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
     await Promise.all(
       jobRun.taskRuns.map(tr => {
         // new builder since execute stmnt above seems to mutate.
-        const builder = manager.createQueryBuilder()
+        builder = manager.createQueryBuilder()
         tr.jobRun = jobRun
         return builder
           .insert()
