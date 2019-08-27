@@ -7,10 +7,7 @@ const cleanup = () => {
   logger.info('Cleaning up sessions...')
   getDb().then(retireSessions)
 }
-
 cleanup()
-process.stdin.resume()
-process.on('exit', cleanup)
 
 const start = async () => {
   logger.info('Starting Explorer Node')
