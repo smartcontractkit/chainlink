@@ -4,7 +4,8 @@ import { logger } from './logging'
 import WebSocket from 'ws'
 import { Connection } from 'typeorm'
 import { getDb } from './database'
-import { ISession, authenticate } from './sessions'
+import { authenticate } from './sessions'
+import { closeSession, Session } from './entity/Session'
 
 const handleMessage = async (
   message: string,
@@ -26,7 +27,7 @@ const handleMessage = async (
 export const bootstrapRealtime = async (server: http.Server) => {
   const db = await getDb()
   let clnodeCount = 0
-  const sessions = new Map<http.IncomingMessage, ISession>()
+  const sessions = new Map<http.IncomingMessage, Session>()
 
   // NOTE: This relies on the subtle detail that info.req is the same request
   // as passed in to wss.on to key a session
@@ -53,7 +54,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
         return
       }
 
-      authenticate(db, accessKey, secret).then((session: ISession | null) => {
+      authenticate(db, accessKey, secret).then((session: Session | null) => {
         if (session === null) {
           logger.info('client rejected, failed authentication')
           callback(false, 401)
@@ -94,6 +95,12 @@ export const bootstrapRealtime = async (server: http.Server) => {
     })
 
     ws.on('close', () => {
+      const session = sessions.get(request)
+      if (session != null) {
+        closeSession(db, session)
+        sessions.delete(request)
+      }
+
       clnodeCount = clnodeCount - 1
       logger.info(
         `websocket disconnected, total chainlink nodes connected: ${clnodeCount}`

@@ -54,3 +54,15 @@ export async function retireSessions(db: Connection): Promise<UpdateResult> {
     .where({ finishedAt: null })
     .execute()
 }
+
+export async function closeSession(
+  db: Connection,
+  session: Session
+): Promise<UpdateResult> {
+  return db.manager
+    .createQueryBuilder()
+    .update(Session)
+    .set({ finishedAt: new Date() })
+    .where({ sessionId: session.id })
+    .execute()
+}
