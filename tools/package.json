@@ -1,0 +1,8 @@
+{
+  "name": "@chainlink/tools",
+  "version": "0.6.5",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.18.0"
+  }
+}
