@@ -59,8 +59,9 @@ func ExampleRun() {
 	//    sendether                 Send <amount> ETH from the node's ETH account to an <address>.
 	//    chpass                    Change your password
 	//    setgasprice               Set the minimum gas price to use for outgoing transactions
-	//    transactions              List the transactions in descending order
-	//    txattempts                List the transaction attempts in descending order
+	//    transactions, txs         List the transactions in descending order
+	//    transaction, tx           get information on a specific transaction
+	//    txattempts, txas          List the transaction attempts in descending order
 	//    help, h                   Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
