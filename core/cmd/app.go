@@ -88,6 +88,17 @@ func NewApp(client *Client) *cli.App {
 					Usage:  "Change your password",
 					Action: client.ChangePassword,
 				},
+				{
+					Name:  "withdraw",
+					Usage: "Withdraw to <address>, <amount> units of LINK from the configured oracle",
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "from",
+							Usage: "override the configured oracle address to withdraw from",
+						},
+					},
+					Action: client.Withdraw,
+				},
 			},
 		},
 		{
@@ -236,55 +247,55 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 		{
-			Name:    "withdraw",
-			Aliases: []string{"w"},
-			Usage:   "Withdraw to <address>, <amount> units of LINK from the configured oracle",
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "from-oracle-contract-address",
-					Usage: "override the configured oracle address to withdraw from",
-				},
-			},
-			Action: client.Withdraw,
-		},
-		{
-			Name:  "sendether",
-			Usage: "Send <amount> ETH from the node's ETH account to an <address>.",
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "from, f",
-					Usage: "optional flag to specify which address should send the transaction",
-				},
-			},
-			Action: client.SendEther,
-		},
-		{
 			Name:    "transactions",
-			Aliases: []string{"txs"},
-			Usage:   "List the transactions in descending order",
-			Action:  client.IndexTransactions,
-			Flags: []cli.Flag{
-				cli.IntFlag{
-					Name:  "page",
-					Usage: "page of results to display",
+			Aliases: []string{"tx"},
+			Usage:   "Commands for handling Ethereum transactions",
+			Subcommands: []cli.Command{
+				{
+					Name:  "create",
+					Usage: "Send <amount> ETH from the node's ETH account to an <address>.",
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "from, f",
+							Usage: "optional flag to specify which address should send the transaction",
+						},
+					},
+					Action: client.SendEther,
+				},
+				{
+					Name:   "list",
+					Usage:  "List the transactions in descending order",
+					Action: client.IndexTransactions,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:  "page",
+							Usage: "page of results to display",
+						},
+					},
+				},
+				{
+					Name:   "show",
+					Usage:  "get information on a specific transaction",
+					Action: client.ShowTransaction,
 				},
 			},
 		},
 		{
-			Name:    "transaction",
-			Aliases: []string{"tx"},
-			Usage:   "get information on a specific transaction",
-			Action:  client.ShowTransaction,
-		},
-		{
-			Name:    "txattempts",
-			Aliases: []string{"txas"},
-			Usage:   "List the transaction attempts in descending order",
-			Action:  client.IndexTxAttempts,
-			Flags: []cli.Flag{
-				cli.IntFlag{
-					Name:  "page",
-					Usage: "page of results to display",
+			Name:    "attempts",
+			Aliases: []string{"txa"},
+			Usage:   "Commands for managing Ethereum Transaction Attempts",
+			Subcommands: []cli.Command{
+				{
+					Name:    "list",
+					Aliases: []string{"txas"},
+					Usage:   "List the transaction attempts in descending order",
+					Action:  client.IndexTxAttempts,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:  "page",
+							Usage: "page of results to display",
+						},
+					},
 				},
 			},
 		},
