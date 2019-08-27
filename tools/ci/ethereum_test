@@ -39,7 +39,7 @@ fi
 launch_explorer
 add_clnode_to_explorer
 launch_chainlink
-deploy_oracle_and_linktoken_contracts
+deploy_contracts
 launch_echo_server
 chainlink login --file ./tools/clroot/apicredentials
 
