@@ -1,5 +1,5 @@
 {
-    "filter_paths": "test,@ensdomains,solidity-cborutils,openzeppelin-solidity",
+    "filter_paths": "test,vendor",
     "truffle_ignore_compile": true,
     "truffle_version": "truffle",
     "detectors_to_exclude": "assembly,constable-states,erc20-interface,external-function,incorrect-equality,low-level-calls,naming-convention,pragma,reentrancy-benign,reentrancy-no-eth,shadowing-abstract,shadowing-local,solc-version,timestamp,uninitialized-local,unused-return,unused-state"
