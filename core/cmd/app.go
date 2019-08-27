@@ -206,6 +206,24 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 		{
+			Name:    "config",
+			Aliases: []string{"exi"},
+			Usage:   "Commands for the node's configuration",
+			Subcommands: []cli.Command{
+				{
+					Name:   "setgasprice",
+					Usage:  "Set the minimum gas price to use for outgoing transactions",
+					Action: client.SetMinimumGasPrice,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "gwei",
+							Usage: "Specify amount in gwei",
+						},
+					},
+				},
+			},
+		},
+		{
 			Name:    "agreements",
 			Aliases: []string{"agree"},
 			Usage:   "Commands for handling service agreements",
@@ -239,17 +257,6 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 			Action: client.SendEther,
-		},
-		{
-			Name:   "setgasprice",
-			Usage:  "Set the minimum gas price to use for outgoing transactions",
-			Action: client.SetMinimumGasPrice,
-			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:  "gwei",
-					Usage: "Specify amount in gwei",
-				},
-			},
 		},
 		{
 			Name:    "transactions",
