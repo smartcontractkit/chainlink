@@ -978,6 +978,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:9522af4be529c108010f95b05f1022cb872f2b9ff8b101080f554245673466e1"
+  name = "golang.org/x/time"
+  packages = ["rate"]
+  pruneopts = ""
+  revision = "9d24e82272b4f38b78bc8cff74fa936d31ccd8ef"
+
+[[projects]]
+  branch = "master"
   digest = "1:3d78e38b096e8382da641fb87822354c944f8cb960da60f3e342106943903921"
   name = "golang.org/x/tools"
   packages = [
@@ -1099,6 +1107,7 @@
     "golang.org/x/crypto/ssh/terminal",
     "golang.org/x/sync/errgroup",
     "golang.org/x/text/unicode/norm",
+    "golang.org/x/time/rate",
     "gopkg.in/gormigrate.v1",
     "gopkg.in/guregu/null.v3",
   ]
