@@ -17,6 +17,7 @@
     "change-case": "^3.0.2",
     "core-js": "^3.1.4",
     "lodash": "^4.17.0",
+    "javascript-time-ago": "^2.0.1",
     "moment": "^2.24.0",
     "numeral": "^2.0.6",
     "prop-types": "^15.6.2",
