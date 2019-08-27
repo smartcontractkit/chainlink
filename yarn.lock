@@ -3266,6 +3266,13 @@
   resolved "https://registry.yarnpkg.com/@types/numeral/-/numeral-0.0.25.tgz#b6f55062827a4787fe4ab151cf3412a468e65271"
   integrity sha512-ShHzHkYD+Ldw3eyttptCpUhF1/mkInWwasQkCNXZHOsJMJ/UMa8wXrxSrTJaVk0r4pLK/VnESVM0wFsfQzNEKQ==
 
+"@types/path-to-regexp@^1.7.0":
+  version "1.7.0"
+  resolved "https://registry.yarnpkg.com/@types/path-to-regexp/-/path-to-regexp-1.7.0.tgz#f1af9d9c9db5f8ad80aa75ed424db665c48d6cd4"
+  integrity sha1-8a+dnJ21+K2AqnXtQk22ZcSNbNQ=
+  dependencies:
+    path-to-regexp "*"
+
 "@types/prop-types@*":
   version "15.7.0"
   resolved "https://registry.npmjs.org/@types/prop-types/-/prop-types-15.7.0.tgz#4c48fed958d6dcf9487195a0ef6456d5f6e0163a"
@@ -5926,10 +5933,15 @@ caniuse-api@^3.0.0:
     lodash.memoize "^4.1.2"
     lodash.uniq "^4.5.0"
 
-caniuse-lite@1.0.30000957, caniuse-lite@^1.0.0, caniuse-lite@^1.0.30000884, caniuse-lite@^1.0.30000939, caniuse-lite@^1.0.30000947, caniuse-lite@^1.0.30000951, caniuse-lite@^1.0.30000955, caniuse-lite@^1.0.30000980, caniuse-lite@^1.0.30000984:
+caniuse-lite@^1.0.0, caniuse-lite@^1.0.30000884, caniuse-lite@^1.0.30000939, caniuse-lite@^1.0.30000947, caniuse-lite@^1.0.30000951, caniuse-lite@^1.0.30000955:
   version "1.0.30000957"
   resolved "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30000957.tgz#fb1026bf184d7d62c685205358c3b24b9e29f7b3"
   integrity sha512-8wxNrjAzyiHcLXN/iunskqQnJquQQ6VX8JHfW5kLgAPRSiSuKZiNfmIkP5j7jgyXqAQBSoXyJxfnbCFS0ThSiQ==
+
+caniuse-lite@^1.0.30000980, caniuse-lite@^1.0.30000984:
+  version "1.0.30000989"
+  resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30000989.tgz#b9193e293ccf7e4426c5245134b8f2a56c0ac4b9"
+  integrity sha512-vrMcvSuMz16YY6GSVZ0dWDTJP8jqk3iFQ/Aq5iqblPwxSVVZI+zxDyTX0VPqtQsDnfdrBDcsmhgTEOh5R8Lbpw==
 
 capture-exit@^2.0.0:
   version "2.0.0"
@@ -16568,6 +16580,11 @@ path-root@^0.1.1:
   dependencies:
     path-root-regex "^0.1.0"
 
+path-to-regexp@*, path-to-regexp@^3.0.0:
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/path-to-regexp/-/path-to-regexp-3.0.0.tgz#c981a218f3df543fa28696be2f88e0c58d2e012a"
+  integrity sha512-ZOtfhPttCrqp2M1PBBH4X13XlvnfhIwD7yCLx+GoGoXRPQyxGOTdQMpIzPSPKXAJT/JQrdfFrgdJOyAzvgpQ9A==
+
 path-to-regexp@0.1.7:
   version "0.1.7"
   resolved "https://registry.yarnpkg.com/path-to-regexp/-/path-to-regexp-0.1.7.tgz#df604178005f522f15eb4490e7247a1bfaa67f8c"
@@ -16589,11 +16606,6 @@ path-to-regexp@^2.2.1:
   version "2.4.0"
   resolved "https://registry.npmjs.org/path-to-regexp/-/path-to-regexp-2.4.0.tgz#35ce7f333d5616f1c1e1bfe266c3aba2e5b2e704"
   integrity sha512-G6zHoVqC6GGTQkZwF4lkuEyMbVOjoBKAEybQUypI1WTkqinCOrq2x6U2+phkJ1XsEMTy4LjtwPI7HW+NVrRR2w==
-
-path-to-regexp@^3.0.0:
-  version "3.0.0"
-  resolved "https://registry.yarnpkg.com/path-to-regexp/-/path-to-regexp-3.0.0.tgz#c981a218f3df543fa28696be2f88e0c58d2e012a"
-  integrity sha512-ZOtfhPttCrqp2M1PBBH4X13XlvnfhIwD7yCLx+GoGoXRPQyxGOTdQMpIzPSPKXAJT/JQrdfFrgdJOyAzvgpQ9A==
 
 path-type@^1.0.0:
   version "1.1.0"
