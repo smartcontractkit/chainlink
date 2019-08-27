@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "test": "truffle test",
-    "lint": "echo \"No linter configured for uptime_sla\" && exit 0"
+    "lint": "echo \"No linter configured for uptime_sla\" && exit 0",
+    "depcheck": "echo \"@chainlink/example-uptime-sla\" && depcheck --ignore-dirs=contracts || true"
   },
   "devDependencies": {
     "bignumber.js": "^8.0.1",
@@ -20,6 +21,7 @@
     "request-promise": "^4.2.2",
     "truffle": "^5.0.25",
     "truffle-contract": "^3.0.6",
-    "web3": "^1.0.0-beta.35"
+    "web3": "^1.0.0-beta.35",
+    "depcheck": "^0.8.3"
   }
 }

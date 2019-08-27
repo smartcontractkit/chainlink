@@ -9,7 +9,8 @@
     "migrate:dev": "npx truffle migrate --reset --network cldev",
     "migrate:live": "npx truffle migrate --network live",
     "lint": "echo \"No linter configured for evm-box project\" &&  exit 0",
-    "test": "npx truffle test"
+    "test": "npx truffle test",
+    "depcheck": "echo '@chainlink/box' && depcheck --ignore-dirs=build/contracts || true"
   },
   "license": "MIT",
   "dependencies": {
@@ -18,6 +19,7 @@
     "openzeppelin-solidity": "^1.12.0"
   },
   "devDependencies": {
+    "depcheck": "^0.8.3",
     "truffle": "^5.0.25",
     "truffle-hdwallet-provider": "^1.0.8"
   }

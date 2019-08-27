@@ -70,5 +70,5 @@
   },
   "comments": {
     "resolutions": "Had to lock caniuse-lite version at last working version with browserlists"
-   }
+  }
 }
