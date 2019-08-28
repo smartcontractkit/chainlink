@@ -41,7 +41,7 @@ add_clnode_to_explorer
 launch_chainlink
 deploy_contracts
 launch_echo_server
-chainlink login --file ./tools/clroot/apicredentials
+chainlink admin login --file ./tools/clroot/apicredentials
 
 heading 'Running tests...'
 

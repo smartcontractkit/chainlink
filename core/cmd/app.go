@@ -152,29 +152,10 @@ func NewApp(client *Client) *cli.App {
 
 		{
 			Name:        "node",
+			Aliases:     []string{"local"},
 			Usage:       "Commands for admin actions that must be run locally",
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
 			Subcommands: []cli.Command{
-				{
-					Name:    "start",
-					Aliases: []string{"n"},
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "api, a",
-							Usage: "text file holding the API email and password, each on a line",
-						},
-						cli.StringFlag{
-							Name:  "password, p",
-							Usage: "text file holding the password for the node's account",
-						},
-						cli.BoolFlag{
-							Name:  "debug, d",
-							Usage: "set logger level to debug",
-						},
-					},
-					Usage:  "Run the chainlink node",
-					Action: client.RunNode,
-				},
 				{
 					Name:        "deleteuser",
 					Usage:       "Erase the *local node's* user and corresponding session to force recreation on next node launch.",
@@ -186,6 +167,26 @@ func NewApp(client *Client) *cli.App {
 					Aliases: []string{"i"},
 					Usage:   "Import a key file to use with the node",
 					Action:  client.ImportKey,
+				},
+				{
+					Name:    "start",
+					Aliases: []string{"node", "n"},
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "api, a",
+							Usage: "text file holding the API email and password, each on a line",
+						},
+						cli.BoolFlag{
+							Name:  "debug, d",
+							Usage: "set logger level to debug",
+						},
+						cli.StringFlag{
+							Name:  "password, p",
+							Usage: "text file holding the password for the node's account",
+						},
+					},
+					Usage:  "Run the chainlink node",
+					Action: client.RunNode,
 				},
 			},
 		},
@@ -275,14 +276,14 @@ func NewApp(client *Client) *cli.App {
 		},
 
 			cli.Command{
-				Name:  "attempts",
-				Usage: "Commands for managing Ethereum Transaction Attempts",
+				Name:    "attempts",
+				Aliases: []string{"txas"},
+				Usage:   "Commands for managing Ethereum Transaction Attempts",
 				Subcommands: []cli.Command{
 					{
-						Name:    "list",
-						Aliases: []string{"txas"},
-						Usage:   "List the Transaction Attempts in descending order",
-						Action:  client.IndexTxAttempts,
+						Name:   "list",
+						Usage:  "List the Transaction Attempts in descending order",
+						Action: client.IndexTxAttempts,
 						Flags: []cli.Flag{
 							cli.IntFlag{
 								Name:  "page",

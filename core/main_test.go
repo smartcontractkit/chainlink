@@ -39,14 +39,14 @@ func ExampleRun() {
 	//    unset@unset
 	//
 	// COMMANDS:
-	//    admin    Commands for remotely taking admin related actions
-	//    bridges  Commands for Bridges communicating with External Adapters
-	//    config   Commands for the node's configuration
-	//    jobs     Commands for managing Jobs
-	//    node     Commands for admin actions that must be run locally
-	//    runs     Commands for managing Runs
-	//    txs      Commands for handling Ethereum transactions
-	//    help, h  Shows a list of commands or help for one command
+	//    admin        Commands for remotely taking admin related actions
+	//    bridges      Commands for Bridges communicating with External Adapters
+	//    config       Commands for the node's configuration
+	//    jobs         Commands for managing Jobs
+	//    node, local  Commands for admin actions that must be run locally
+	//    runs         Commands for managing Runs
+	//    txs          Commands for handling Ethereum transactions
+	//    help, h      Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
 	//    --json, -j     json output as opposed to table
