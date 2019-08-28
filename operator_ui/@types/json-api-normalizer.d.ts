@@ -185,7 +185,7 @@ declare module 'json-api-normalizer' {
   // we cant infer TNormalized from the arguments
   // because of the transformations it does on the supplied data
   // unfortunately, this means that the user will have to supply
-  // their own typing for TNormalized\
+  // their own typing for TNormalized
 
   /**
    * Normalize JSON:API spec compliant JSON
