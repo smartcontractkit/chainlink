@@ -391,6 +391,7 @@ func TestIntegration_EndAt(t *testing.T) {
 	app.Start()
 	client := app.NewHTTPClient()
 
+	// TODO(felder-cl): What is the difference start_at and end_at jobs?
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/end_at_job.json")
 	endAt := cltest.ParseISO8601(t, "3000-01-01T00:00:00.000Z")
 	assert.Equal(t, endAt, j.EndAt.Time)
@@ -491,6 +492,8 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 
 	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
+
+// TODO(felder-cl): What is the difference between an external initiator + external adapter?
 
 // This test ensures that the response body of an external adapter are supplied
 // as params to the successive task
@@ -838,4 +841,52 @@ func TestIntegration_ExternalInitiatorCreate(t *testing.T) {
 	require.Equal(t, initiatorName, ei.Name)
 	require.Equal(t, eip.AccessKey, ei.AccessKey)
 	require.Equal(t, eip.OutgoingSecret, ei.OutgoingSecret)
+}
+
+func TestIntegration_ExternalInitiatorStartAt(t *testing.T) {
+	// TODO(felder-cl): Implement auth using External Authenticator credentials.
+	// TODO(felder-cl): Verify if a second External Initiator is created, it cannot trigger runs for previous jobs (refer to task).
+	// TODO(felder-cl): Unauthenticated requests should still not be able to trigger runs for the job.
+	// TODO(felder-cl): If a job spec is created for an external initiator name that does not exist, it should error out.
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+
+	initiatorName := "bitcoin"
+	initiatorURL := cltest.WebURL(t, "https://test.chain.link/initiator")
+	eth := app.MockEthClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
+	app.Start()
+
+	// create external initiator
+	eiJSON := fmt.Sprintf(`{"name":"%v","url":"%v"}`, initiatorName, initiatorURL)
+	// what does eip stand for?
+	eip := cltest.CreateExternalInitiatorViaWeb(t, app, eiJSON)
+
+	// TODO(felder-cl): move into own function
+	var count int
+	err := app.Store.DB.Model(&models.ExternalInitiator{}).Count(&count).Error
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+	eia := models.ExternalInitiatorAuthentication{
+		AccessKey: eip.AccessKey,
+		Secret:    eip.Secret,
+	}
+
+	// create job spec
+	j := cltest.FixtureCreateJobViaWeb(t, app, "./fixtures/external_initiators/start_at_job.json")
+
+	// As external initiator start job run
+	// create job via external initiator
+	// TODO(felder-cl): ensure name can be case insensitive
+
+	// Next: start figuring out this payload
+	jobRun := cltest.CreateJobRunViaExternalInitiator(
+		t, app, j, eia,
+		``,
+	)
+
+	// Check the new run has been created
+	_ = jobRun
 }

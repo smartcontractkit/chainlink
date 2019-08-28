@@ -204,6 +204,8 @@ const (
 	// InitiatorServiceAgreementExecutionLog for tasks in a job to watch a
 	// Solidity Coordinator contract and expect a payload from a log event.
 	InitiatorServiceAgreementExecutionLog = "execagreement"
+	// InitiatorExternal for tasks in a job to be trigger by an external party.
+	InitiatorExternal = "external"
 )
 
 // Initiator could be thought of as a trigger, defines how a Job can be

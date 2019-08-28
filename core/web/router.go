@@ -267,6 +267,8 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 		authv2.GET("/specs/:SpecID", j.Show)
 		authv2.DELETE("/specs/:SpecID", j.Destroy)
 
+		authv2.POST("/specs/:SpecID", nil)
+
 		authv2.GET("/runs", paginatedRequest(jr.Index))
 		authv2.GET("/runs/:RunID", jr.Show)
 

@@ -672,6 +672,32 @@ func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, bo
 	return jr
 }
 
+// CreateJobRunViaExternalInitiator creates JobRun via web using /v2/specs/ID/runs
+func CreateJobRunViaExternalInitiator(
+	t testing.TB,
+	app *TestApplication,
+	j models.JobSpec,
+	eia models.ExternalInitiatorAuthentication,
+	body ...string,
+) models.JobRun {
+	t.Helper()
+
+	bodyBuffer := &bytes.Buffer{}
+	if len(body) > 0 {
+		bodyBuffer = bytes.NewBufferString(body[0])
+	}
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", bodyBuffer)
+	defer cleanup()
+	AssertServerResponse(t, resp, 200)
+	var jr models.JobRun
+	err := ParseJSONAPIResponse(t, resp, &jr)
+	require.NoError(t, err)
+
+	assert.Equal(t, j.ID, jr.JobSpecID)
+	return jr
+}
+
 // CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
 func CreateHelloWorldJobViaWeb(t testing.TB, app *TestApplication, url string) models.JobSpec {
 	t.Helper()
@@ -732,7 +758,7 @@ func CreateBridgeTypeViaWeb(
 	return bt
 }
 
-// CreateExternalInitiatorViaWeb creates a bridgetype via web using /v2/bridge_types
+// CreateExternalInitiatorViaWeb creates an external initiator via web using /v2/external_initiators
 func CreateExternalInitiatorViaWeb(
 	t testing.TB,
 	app *TestApplication,

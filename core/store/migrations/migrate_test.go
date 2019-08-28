@@ -131,6 +131,9 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 	require.NoError(t, migration1565139192.Migrate(db))
 	require.NoError(t, migration1566915476.Migrate(db))
 
+	// TODO(felder-cl): enquire whether this is needed.  Only new migrations or tests against the expected current state should need changes.
+	require.NoError(t, migration1566915476.Migrate(db))
+
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}
 	j.Initiators = []models.Initiator{i}
