@@ -19,7 +19,7 @@ const mountShow = props =>
     </Provider>
   )
 
-describe.only('containers/Jobs/Show', () => {
+describe('containers/Jobs/Show', () => {
   const jobSpecId = 'c60b9927eeae43168ddbe92584937b1b'
   const jobRunId = 'ad24b72c12f441b99b9877bcf6cb506e'
   it('renders the details of the job spec, its latest runs, its task list entries and its total earnings', async () => {
