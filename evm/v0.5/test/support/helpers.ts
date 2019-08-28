@@ -1,14 +1,11 @@
 import cbor from 'cbor'
-import { join, resolve as pathResolve } from 'path'
 import TruffleContract from 'truffle-contract'
 import { linkToken } from './linkToken'
 import { assertBigNum } from './matchers'
 
 const abi = require('ethereumjs-abi')
-const util = require('ethereumjs-util')
-const BN = require('bn.js')
-const ethjsUtils = require('ethereumjs-util')
-/* tslint:enable no-var-requires */
+import * as util from 'ethereumjs-util'
+import { BN } from 'bn.js'
 
 const HEX_BASE = 16
 
@@ -17,7 +14,7 @@ web3.providers.HttpProvider.prototype.sendAsync =
   web3.providers.HttpProvider.prototype.send
 export const eth = web3.eth
 
-const INVALIDVALUE = {
+const INVALIDVALUE: Record<string, any> = {
   // If you got this value, you probably tried to use one of the variables below
   // before they were initialized. Do any test initialization which requires
   // them in a callback passed to Mocha's `before` or `beforeEach`.
@@ -35,7 +32,7 @@ export let [
   consumer,
   oracleNode
 ] = Array(1000).fill(INVALIDVALUE)
-export let personas = {}
+export let personas: Record<string, any> = {}
 
 before(async function queryEthClientForConstants() {
   accounts = await eth.getAccounts()
@@ -50,15 +47,17 @@ before(async function queryEthClientForConstants() {
   oracleNode = oracleNode1
 
   // allow personas instead of roles
-  personas.Default = defaultAccount
-  personas.Neil = oracleNode1
-  personas.Ned = oracleNode2
-  personas.Nelly = oracleNode3
-  personas.Carol = consumer
-  personas.Eddy = stranger
+  personas['Default'] = defaultAccount
+  personas['Neil'] = oracleNode1
+  personas['Ned'] = oracleNode2
+  personas['Nelly'] = oracleNode3
+  personas['Carol'] = consumer
+  personas['Eddy'] = stranger
 })
 
 const bNToStringOrIdentity = (a: any): any => (BN.isBN(a) ? a.toString() : a)
+export const BNtoUint8Array = (n: BN): Uint8Array =>
+  Uint8Array.from(n.toArray('be', 256))
 
 // Deal with transfer amount type truffle doesn't currently handle. (BN)
 export const wrappedERC20 = (contract: any): any => ({
@@ -97,7 +96,7 @@ export const linkContract = async (account: any): Promise<any> => {
   return wrappedERC20(await contract.at(receipt.contractAddress))
 }
 
-export const bigNum = (num: any): BigNumber => web3.utils.toBN(num)
+export const bigNum = web3.utils.toBN
 assertBigNum(
   bigNum('1'),
   bigNum(1),
@@ -116,6 +115,9 @@ assertBigNum(
 export const toUtf8 = web3.utils.toUtf8
 
 export const keccak = web3.utils.sha3
+
+const hexRegExp = /^(0[xX])?[0-9a-fA-F]+$/
+const isHex = hexRegExp.test.bind(hexRegExp)
 
 export const hexToInt = (str: string): any => bigNum(str).toNumber()
 
@@ -326,28 +328,29 @@ export const newUint8ArrayFromStr = (str: string): Uint8Array => {
   return Uint8Array.from(codePoints)
 }
 
-// newUint8Array returns a uint8array of count bytes from either a hex or
-// decimal string, hex strings must begin with 0x
-export const newUint8Array = (str: string, count: number): any => {
-  let result = new Uint8Array(count)
+// newUint8ArrayFromHex returns count bytes from hex string. They are padded at
+// the end to have `count` bytes
+export const newUint8ArrayFromHex = (str: string, count: number): Uint8Array => {
+  assert(isHex(str), `${str} is not a hexadecimal value`)
+  const hexCount = 2 * count + 2
+  const hexStr = Ox(str)
+  assert(hexStr.length <= hexCount, `${str} won't fit in ${count} bytes`)
+  return Uint8Array.from(web3.utils.hexToBytes(hexStr.padEnd(hexCount, '0')))
+}
 
-  if (str.startsWith('0x') || str.startsWith('0X')) {
-    const hexStr = str.slice(2).padStart(count * 2, '0')
-    for (let i = result.length; i >= 0; i--) {
-      const offset = i * 2
-      result[i] = parseInt(hexStr[offset] + hexStr[offset + 1], HEX_BASE)
-    }
-  } else {
-    const num = bigNum(str)
-    result = newHash('0x' + num.toString(HEX_BASE))
-  }
-
-  return result
+// newUint8ArrayFromDecimal returns count bytes from a decimal number. They are
+// padded at the start to have `count` bytes
+export const newUint8ArrayFromDecimal = (str: string, count: number): any => {
+  assert(/^[0-9]+$/.test(str), `${str} is not a decimal value.`)
+  const hexCount = 2 * count
+  const hexStr = (new BN(str, 10)).toString(16).padStart(hexCount, '0')
+  assert(hexStr.length <= hexCount, `${str} won't fit in ${count} bytes`)
+  return Uint8Array.from(web3.utils.hexToBytes(Ox(hexStr)))
 }
 
 // newSignature returns a signature object with v, r, and s broken up
 export const newSignature = (str: string): any => {
-  const oracleSignature = newUint8Array(str, 65)
+  const oracleSignature = newUint8ArrayFromHex(str, 65)
   let v = oracleSignature[64]
   if (v < 27) {
     v += 27
@@ -360,43 +363,28 @@ export const newSignature = (str: string): any => {
   }
 }
 
-// newHash returns a 65 byte Uint8Array for representing a hash
-export const newHash = (str: string): Uint8Array => {
-  return newUint8Array(str, 32)
-}
+/**
+ * @param str hexadecimal/decimal representation of integer. 0x must prefix hex.
+ * @returns 32-byte representation of number. If hexadecimal, zero-padded on
+ *          the right. If decimal, zero-padded on the left.
+ * @todo (alx): Split this into more specific and explicit functions.
+ */
+export const newHash = (str: string): Uint8Array => 
+  (/^0[xX]/.test(str) ? newUint8ArrayFromHex : newUint8ArrayFromDecimal)(
+  str,
+  32
+)
 
 // newAddress returns a 20 byte Uint8Array for representing an address
 export const newAddress = (str: string): Uint8Array => {
-  return newUint8Array(str, 20)
+  return newUint8ArrayFromHex(str, 20)
 }
 
-// lengthTypedArrays sums the length of all specified TypedArrays
-export const lengthTypedArrays = <T>(
-  ...arrays: Array<ArrayLike<T>>
-): number => {
-  return arrays.reduce((a, v) => a + v.length, 0)
-}
 
-export const toBuffer = (uint8a: Uint8Array): Buffer => {
-  return Buffer.from(uint8a)
-}
+export const toBuffer = (uint8a: Uint8Array): Buffer => Buffer.from(uint8a)
 
-// concatTypedArrays recursively concatenates TypedArrays into one big
-// TypedArray
-// TODO: Does not work recursively
-export const concatTypedArrays = <T>(
-  ...arrays: Array<ArrayLike<T>>
-): ArrayLike<T> => {
-  const size = lengthTypedArrays(...arrays)
-  const arrayCtor: any = arrays[0].constructor
-  const result = new arrayCtor(size)
-  let offset = 0
-  arrays.forEach(a => {
-    result.set(a, offset)
-    offset += a.length
-  })
-  return result
-}
+export const concatUint8Arrays = (...arrays: Uint8Array[]): Uint8Array =>
+  Uint8Array.from(Buffer.concat(arrays.map(Buffer.from)))
 
 export const increaseTime5Minutes = async () => {
   await web3.currentProvider.send(
@@ -406,11 +394,9 @@ export const increaseTime5Minutes = async () => {
       method: 'evm_increaseTime',
       params: [300]
     },
-    (error: any, result: any) => {
+    (error: any) => {
       if (error) {
-        // tslint:disable-next-line:no-console
-        console.log(`Error during helpers.increaseTime5Minutes! ${error}`)
-        throw error
+        throw Error(`Error during helpers.increaseTime5Minutes! ${error}`)
       }
     }
   )
@@ -424,11 +410,9 @@ export const sendToEvm = async (evmMethod: string, ...params: any) => {
       method: evmMethod,
       params: [...params]
     },
-    (error: any, result: any) => {
+    (error: any) => {
       if (error) {
-        // tslint:disable-next-line:no-console
-        console.log(`Error during ${evmMethod}! ${error}`)
-        throw error
+        throw Error(`Error during ${evmMethod}! ${error}`)
       }
     }
   )
@@ -457,19 +441,14 @@ export const calculateSAID = ({
   oracles,
   requestDigest
 }: any): Uint8Array => {
-  const serviceAgreementIDInput = concatTypedArrays(
+  const serviceAgreementIDInput = concatUint8Arrays(
     newHash(payment.toString()),
     newHash(expiration.toString()),
     newHash(endAt.toString()),
-    concatTypedArrays(
-      ...oracles
-        .map(newAddress)
-        .map(toHex)
-        .map(newHash)
-    ),
+    ...oracles.map(pad0xHexTo256Bit).map(newHash),
     requestDigest
   )
-  const serviceAgreementIDInputDigest = ethjsUtils.keccak(
+  const serviceAgreementIDInputDigest = util.keccak(
     toHex(serviceAgreementIDInput)
   )
   return newHash(toHex(serviceAgreementIDInputDigest))
@@ -483,30 +462,30 @@ export const recoverPersonalSignature = (
     '\x19Ethereum Signed Message:\n'
   )
   const personalSignMessage = Uint8Array.from(
-    concatTypedArrays(
+    concatUint8Arrays(
       personalSignPrefix,
       newUint8ArrayFromStr(message.length.toString()),
       message
     )
   )
-  const digest = ethjsUtils.keccak(toBuffer(personalSignMessage))
-  const requestDigestPubKey = ethjsUtils.ecrecover(
+  const digest = util.keccak(toBuffer(personalSignMessage))
+  const requestDigestPubKey = util.ecrecover(
     digest,
     signature.v,
     toBuffer(signature.r),
     toBuffer(signature.s)
   )
-  return ethjsUtils.pubToAddress(requestDigestPubKey)
+  return util.pubToAddress(requestDigestPubKey)
 }
 
 export const personalSign = async (
   account: any,
   message: any
 ): Promise<any> => {
-  if (!isByteRepresentation(message)) {
-    throw new Error(`Message ${message} is not a recognized representation of a byte array.
-    (Can be Buffer, BigNumber, Uint8Array, 0x-prepended hexadecimal string.)`)
-  }
+  const eMsg = `Message ${message} is not a recognized representation of a ` +
+    `byte array. (Can be Buffer, BigNumber, Uint8Array, 0x-prepended ` +
+    `hexadecimal string.)`
+  assert(isByteRepresentation(message), eMsg)
   return newSignature(await web3.eth.sign(toHex(message), account))
 }
 
@@ -541,7 +520,7 @@ export const padHexTo256Bit = (s: string): string => s.padStart(64, '0')
 export const strip0x = (s: string): string =>
   s.startsWith('0x') ? s.slice(2) : s
 export const pad0xHexTo256Bit = (s: string): string =>
-  padHexTo256Bit(strip0x(s))
+  Ox(padHexTo256Bit(strip0x(s)))
 export const padNumTo256Bit = (n: number): string =>
   padHexTo256Bit(n.toString(16))
 
@@ -553,7 +532,7 @@ export const constructStructArgs = (
   const args = []
   for (let i = 0; i < fieldNames.length; i++) {
     args[i] = values[i]
-    args[fieldNames[i]] = values[i]
+    args[fieldNames[i] as any] = values[i]
   }
   return args
 }
@@ -611,10 +590,10 @@ export const checkServiceAgreementPresent = async (
   { payment, expiration, endAt, requestDigest, id }: any
 ): Promise<any> => {
   const sa = await coordinator.serviceAgreements.call(id)
-  assertBigNum(sa[0], bigNum(payment))
-  assertBigNum(sa[1], bigNum(expiration))
-  assertBigNum(sa[2], bigNum(endAt))
-  assert.equal(sa[3], toHex(requestDigest))
+  assertBigNum(sa[0], bigNum(payment), 'first response should be payment')
+  assertBigNum(sa[1], bigNum(expiration), 'second response should be expiration')
+  assertBigNum(sa[2], bigNum(endAt), 'third response should be endAt date')
+  assert.equal(sa[3], toHex(requestDigest), 'fourth response should be requestDigest')
 
   /// / TODO:
 
@@ -646,9 +625,9 @@ export const checkServiceAgreementAbsent = async (
   const sa = await coordinator.serviceAgreements.call(
     toHex(serviceAgreementID).slice(0, 66)
   )
-  assertBigNum(sa[0], bigNum(0))
-  assertBigNum(sa[1], bigNum(0))
-  assertBigNum(sa[2], bigNum(0))
+  assertBigNum(sa[0], bigNum(0), 'service agreement is not absent')
+  assertBigNum(sa[1], bigNum(0), 'service agreement is not absent')
+  assertBigNum(sa[2], bigNum(0), 'service agreement is not absent')
   assert.equal(
     sa[3],
     '0x0000000000000000000000000000000000000000000000000000000000000000'
@@ -724,23 +703,10 @@ export const cancelOracleRequest = async (
   )
 }
 
-export const encodeUint256 = (int: number) => {
-  let zeros = '0000000000000000000000000000000000000000000000000000000000000000'
-  let payload = int.toString(16)
-  return (zeros + payload).slice(payload.length)
-}
+type numeric = number | BN
 
-export const encodeInt256 = (int: number) => {
-  if (int >= 0) {
-    return encodeUint256(int)
-  } else {
-    let effs =
-      'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
-    let maxUint256 = new BN('0x' + effs)
-    let payload = maxUint256
-      .plus(1)
-      .minus(Math.abs(int))
-      .toString(16)
-    return (effs + payload).slice(payload.length)
-  }
-}
+export const hexPadUint256 = (n: BN): string => n.toJSON().padStart(64, '0')
+export const encodeUint256 = (int: numeric): string => hexPadUint256(new BN(int))
+export const encodeInt256 = (int: numeric): string => hexPadUint256(
+  (new BN(int)).toTwos(256)
+)
