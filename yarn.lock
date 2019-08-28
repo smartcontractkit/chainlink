@@ -3004,6 +3004,13 @@
   dependencies:
     "@babel/types" "^7.3.0"
 
+"@types/bn.js@*":
+  version "4.11.5"
+  resolved "https://registry.npmjs.org/@types/bn.js/-/bn.js-4.11.5.tgz#40e36197433f78f807524ec623afcf0169ac81dc"
+  integrity sha512-AEAZcIZga0JgVMHNtl1CprA/hXX7/wPt79AgR4XqaDt7jyj3QWYw6LPoOiznPtugDmlubUnAahMs2PFxGcQrng==
+  dependencies:
+    "@types/node" "*"
+
 "@types/bn.js@^4.11.4":
   version "4.11.4"
   resolved "https://registry.npmjs.org/@types/bn.js/-/bn.js-4.11.4.tgz#a7bed5bdef9f16b25c92ba27745ab261374787d7"
@@ -3438,6 +3445,11 @@
   dependencies:
     "@types/superagent" "*"
 
+"@types/underscore@*":
+  version "1.9.2"
+  resolved "https://registry.npmjs.org/@types/underscore/-/underscore-1.9.2.tgz#2c4f7743287218f5c2d9a83db3806672aa48530d"
+  integrity sha512-KgOKTAD+9X+qvZnB5S1+onqKc4E+PZ+T6CM/NA5ohRPLHJXb+yCJMVf8pWOnvuBuKFNUAJW8N97IA6lba6mZGg==
+
 "@types/unist@*", "@types/unist@^2.0.0", "@types/unist@^2.0.2":
   version "2.0.3"
   resolved "https://registry.npmjs.org/@types/unist/-/unist-2.0.3.tgz#9c088679876f374eb5983f150d4787aa6fb32d7e"
@@ -3466,6 +3478,14 @@
     "@types/node" "*"
     "@types/unist" "*"
     "@types/vfile-message" "*"
+
+"@types/web3@^1.0.0":
+  version "1.0.19"
+  resolved "https://registry.npmjs.org/@types/web3/-/web3-1.0.19.tgz#46b85d91d398ded9ab7c85a5dd57cb33ac558924"
+  integrity sha512-fhZ9DyvDYDwHZUp5/STa9XW2re0E8GxoioYJ4pEUZ13YHpApSagixj7IAdoYH5uAK+UalGq6Ml8LYzmgRA/q+A==
+  dependencies:
+    "@types/bn.js" "*"
+    "@types/underscore" "*"
 
 "@types/webpack-env@*":
   version "1.14.0"
@@ -23625,7 +23645,7 @@ web3@1.0.0-beta.37:
     web3-shh "1.0.0-beta.37"
     web3-utils "1.0.0-beta.37"
 
-web3@1.2.1:
+web3@1.2.1, web3@^1.2.0:
   version "1.2.1"
   resolved "https://registry.npmjs.org/web3/-/web3-1.2.1.tgz#5d8158bcca47838ab8c2b784a2dee4c3ceb4179b"
   integrity sha512-nNMzeCK0agb5i/oTWNdQ1aGtwYfXzHottFP2Dz0oGIzavPMGSKyVlr8ibVb1yK5sJBjrWVnTdGaOC2zKDFuFRw==
