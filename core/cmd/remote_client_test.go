@@ -463,7 +463,7 @@ func TestClient_WithdrawSuccess(t *testing.T) {
 	assert.NoError(t, app.StartAndConnect())
 
 	client, _ := app.NewClientAndRenderer()
-	set := flag.NewFlagSet("withdraw", 0)
+	set := flag.NewFlagSet("admin withdraw", 0)
 	set.Parse([]string{"0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C", "1"})
 
 	c := cli.NewContext(nil, set, nil)
@@ -480,7 +480,7 @@ func TestClient_WithdrawNoArgs(t *testing.T) {
 	assert.NoError(t, utils.JustError(app.MockStartAndConnect()))
 
 	client, _ := app.NewClientAndRenderer()
-	set := flag.NewFlagSet("withdraw", 0)
+	set := flag.NewFlagSet("admin withdraw", 0)
 	set.Parse([]string{})
 
 	c := cli.NewContext(nil, set, nil)
@@ -503,9 +503,9 @@ func TestClient_WithdrawFromSpecifiedContractAddress(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 	cliParserRouter := cmd.NewApp(client)
 	assert.Nil(t, cliParserRouter.Run([]string{
-		"chainlink", "withdraw",
+		"chainlink", "admin", "withdraw",
 		"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF", "1234",
-		"--from-oracle-contract-address=" +
+		"--from=" +
 			"0x3141592653589793238462643383279502884197"}))
 	ethMockCheck(t)
 }

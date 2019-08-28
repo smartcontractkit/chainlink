@@ -10,7 +10,7 @@ if ! [ -x "$(command -v jq)" ]; then
 fi
 
 expected_echo_count=$(expr $(curl -sS "$ECHO_SERVER_URL") + 1)
-expected_job_count=$(expr $(chainlink -j j | jq length) + 1)
+expected_job_count=$(expr $(chainlink -j jobs list | jq length) + 1)
 
 yarn workspace @chainlink/integration run truffle exec scripts/send_runlog_transaction.js --network test | tee $SRCROOT/integration/send_runlog_transaction.log
 
@@ -18,20 +18,20 @@ yarn workspace @chainlink/integration run truffle exec scripts/send_runlog_trans
 assert "Echo count" "curl -sS $ECHO_SERVER_URL" $expected_echo_count
 
 ## Check job counts using jq to parse json: https://stedolan.github.io/jq/
-assert "Jobs count" "chainlink -j j | jq length" $expected_job_count
+assert "Jobs count" "chainlink -j jobs list | jq length" $expected_job_count
 
 # Check job runs
-jid=`chainlink -j j | jq 'last | .id' | tr -d '"'`
+jid=`chainlink -j jobs list | jq 'last | .id' | tr -d '"'`
 echo "Test created Job: $jid"
-assert "RunLog Runs count" "chainlink -j lr --jobid $jid | jq 'length'" 1
+assert "RunLog Runs count" "chainlink -j runs list --jobid $jid | jq 'length'" 1
 
 # Check that the run completed
-assert "Run completed" 'chainlink -j lr --jobid $jid | jq ".[].status" | sed s/\"//g' completed
+assert "Run completed" 'chainlink -j runs list --jobid $jid | jq ".[].status" | sed s/\"//g' completed
 
-txid=$(chainlink -j lr --jobid $jid | jq '.[].result.data.result' | sed 's/"//g')
+txid=$(chainlink -j runs list --jobid $jid | jq '.[].result.data.result' | sed 's/"//g')
 echo "Test created TX: $txid"
 
-tx_receiver=$(chainlink -j lr --jobid $jid | jq '.[].result.data.address' | sed 's/"//g')
+tx_receiver=$(chainlink -j runs list --jobid $jid | jq '.[].result.data.address' | sed 's/"//g')
 echo "Test sent TX to: $tx_receiver"
 
 # Check for the Fullfillment event
