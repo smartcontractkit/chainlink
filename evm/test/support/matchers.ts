@@ -1,3 +1,5 @@
+import web3 from 'web3'
+
 const bigNum = (num: number): any => web3.utils.toBN(num)
 
 // Throws if a and b are not equal, as BN's
