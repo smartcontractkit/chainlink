@@ -14,11 +14,22 @@ import {
 } from '../errors'
 import * as http from './http'
 
+/**
+ * The parameters required for making a paginated request to the chainlink endpoints
+ */
 export interface PaginatedRequestParams {
   size: number
   page: number
 }
 
+/**
+ * A  json-api response for a data object.
+ *
+ *
+ * @template T T is the type of the `attributes` object contained in the `data` key of `ResourceObject`, or null.
+ * If T is an array of attribute objects, then the api response should be an array of resource objects.
+ * If T is a single attribute object, then the api response is a single resource object, otherwise null.
+ */
 export interface ApiResponse<T extends AttributesObject | null>
   extends JsonApiResponse<
     T extends Array<infer U>
@@ -28,6 +39,16 @@ export interface ApiResponse<T extends AttributesObject | null>
       : null
   > {}
 
+/**
+ * A paginated json-api response for a data object.
+ *
+ * The only difference between `PaginatedApiResponse` and `ApiResponse` is that `PaginatedApiResponse` includes a `TMeta` field
+ * which supports the number of objects being returned, and a `TLinks` field supporting the previous and next page links.
+ *
+ * @template T T is the type of the `attributes` object contained in the `data` key of `ResourceObject`, or null.
+ * If T is an array of attribute objects, then the api response should be an array of resource objects.
+ * If T is a single attribute object, then the api response is a single resource object, otherwise null.
+ */
 export interface PaginatedApiResponse<T extends AttributesObject>
   extends JsonApiResponse<
     T extends Array<infer U> ? ResourceObject<U>[] : ResourceObject<T>,
@@ -50,13 +71,11 @@ export const deleteResource = methodFactory(http.Method.DELETE)
 function methodFactory(method: http.Method) {
   return function<Params, T, NamedPathParams extends object = object>(
     url: string
-  ) {
+  ): Method<Params, T, NamedPathParams> {
     const toPath = pathToRegexp.compile<NamedPathParams>(url)
 
-    const createdMethod: Method<Params, T, NamedPathParams> = (
-      params,
-      namedPathParams
-    ) => {
+    return (params, namedPathParams) => {
+      // if required, compile our path with its named path parameters
       const path = namedPathParams ? toPath(namedPathParams) : url
       const uri = http.formatURI(
         path,
@@ -64,23 +83,45 @@ function methodFactory(method: http.Method) {
       )
       const options = http.getOptions(method)
       const fetch = fetchWithTimeout(uri, options(params))
-      const response = fetch.then(v =>
-        parseResponse<ResponseType<Params, T>>(v)
-      )
 
-      return response
+      return fetch.then(v => parseResponse(v))
     }
-
-    return createdMethod
   }
 }
 
-type Method<Params, T, NamedPathParams extends object = object> = (
-  params?: Partial<Params>,
-  namedPathParams?: NamedPathParams
-) => Promise<ResponseType<Params, T>>
+/**
+ * A json-api method which describes a function which accepts the required parameters to make a request,
+ * and the return value of the request.
+ *
+ * @param params The parameters to the json-api endpoint
+ * @param namedPathParams The named path parameters to the json-api endpoint
+ * @template TParams The parameters to the json-api end point, it comes in the form of
+ * an object which will either be serialized to the body of the request if it is a `POST`, `PATCH`, `DELETE` HTTP request,
+ * or will be serialized to the query string of the url of the request if it is a `GET` HTTP request.
+ * @template T The model of the data to be returned by the endpoint.
+ * @template TNamedPathParams An object which the key will match the name of the path parameter of which the value will replace.
+ * For example, for the path of `/v2/transaction/:txHash`, the value of `TNamedPathParams` should be:
+ * ```ts
+ * interface PathParams {
+ *  txHash: string
+ * }
+ * ```
+ */
+type Method<TParams, T, TNamedPathParams extends object = object> = (
+  params?: Partial<TParams>,
+  namedPathParams?: TNamedPathParams
+) => Promise<ResponseType<TParams, T>>
 
-type ResponseType<Params, T> = Params extends PaginatedRequestParams
+/**
+ * Our json-api response type is either paginated or non-paginated depending on
+ * if the supplied api parameters extend `PaginatedRequestParams`
+ *
+ * @template TParams The parameters to the json-api end point, it comes in the form of
+ * an object which will either be serialized to the body of the request if it is a `POST`, `PATCH`, `DELETE` HTTP request,
+ * or will be serialized to the query string of the url of the request if it is a `GET` HTTP request.
+ * @template T The model of the data to be returned by the endpoint.
+ */
+type ResponseType<TParams, T> = TParams extends PaginatedRequestParams
   ? PaginatedApiResponse<T>
   : ApiResponse<T>
 
