@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@types/web3": "^1.0.0",
+    "@types/chai": "^4.2.0",
     "truffle": "^5.0.25"
   },
   "files": [
