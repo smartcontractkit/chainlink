@@ -66,8 +66,6 @@ func (cli *Client) CreateServiceAgreement(c *clipkg.Context) error {
 }
 
 // CreateExternalInitiator adds an external initiator
-//
-// TODO: Increase code coverage
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
 	if c.NArg() != 2 {
 		return cli.errorOut(errors.New("create expects two arguments: a name and a url"))
