@@ -619,15 +619,6 @@ func FindJobRun(t testing.TB, s *strpkg.Store, id *models.ID) models.JobRun {
 	return j
 }
 
-func FindExternalInitiator(t testing.TB, s *strpkg.Store, eia *models.ExternalInitiatorAuthentication) *models.ExternalInitiator {
-	t.Helper()
-
-	ei, err := s.FindExternalInitiator(eia)
-	require.NoError(t, err)
-
-	return ei
-}
-
 func FindServiceAgreement(t testing.TB, s *strpkg.Store, id string) models.ServiceAgreement {
 	t.Helper()
 

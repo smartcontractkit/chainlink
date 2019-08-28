@@ -830,7 +830,9 @@ func TestIntegration_ExternalInitiatorCreate(t *testing.T) {
 		AccessKey: eip.AccessKey,
 		Secret:    eip.Secret,
 	}
-	ei := cltest.FindExternalInitiator(t, app.Store, eia)
+
+	ei, err := app.Store.FindExternalInitiator(eia)
+	require.NoError(t, err)
 
 	require.Equal(t, initiatorURL, ei.URL)
 	require.Equal(t, initiatorName, ei.Name)
