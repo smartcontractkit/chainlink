@@ -4,17 +4,19 @@
   "version": "0.6.0",
   "license": "MIT",
   "scripts": {
-    "test": "truffle test",
+    "depcheck": "echo \"@chainlink/example-twilio-sms\" && depcheck --ignore-dirs=contracts || true",
     "lint": "echo \"No linter configured for examples/twilio_sms\" && exit 0",
-    "depcheck": "echo \"@chainlink/example-twilio-sms\" && depcheck --ignore-dirs=contracts || true"
+    "solhint": "solhint ./contracts/**/*.sol",
+    "test": "truffle test"
   },
   "devDependencies": {
     "body-parser": "^1.18.3",
+    "depcheck": "^0.8.3",
     "express": "^4.16.2",
+    "solhint": "^2.1.0",
     "request": "^2.83.0",
     "truffle": "^5.0.25",
     "truffle-contract": "^3.0.6",
-    "twilio": "^3.11.3",
-    "depcheck": "^0.8.3"
+    "twilio": "^3.11.3"
   }
 }

@@ -4,9 +4,10 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "test": "truffle test",
+    "depcheck": "echo \"@chainlink/example-echo-server\" && depcheck --ignore-dirs=contracts || true",
     "lint": "echo \"No linter configured for examples/echo_server\" && exit 0",
-    "depcheck": "echo \"@chainlink/example-echo-server\" && depcheck --ignore-dirs=contracts || true"
+    "solhint": "solhint ./contracts/**/*.sol",
+    "test": "truffle test"
   },
   "dependencies": {
     "@babel/polyfill": "^7.2.5",
@@ -22,6 +23,7 @@
     "@babel/register": "^7.0.0"
   },
   "devDependencies": {
-    "depcheck": "^0.8.3"
+    "depcheck": "^0.8.3",
+    "solhint": "^2.1.0"
   }
 }

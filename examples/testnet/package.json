@@ -4,11 +4,13 @@
   "version": "0.6.0",
   "license": "MIT",
   "scripts": {
+    "depcheck": "echo \"@chainlink/example-testnet\" && depcheck --ignore-dirs=contracts || true",
     "lint": "echo \"No linter configured for examples/testnet\" && exit 0",
-    "depcheck": "echo \"@chainlink/example-testnet\" && depcheck --ignore-dirs=contracts || true"
+    "solhint": "solhint ./contracts/**/*.sol"
   },
   "devDependencies": {
-    "truffle": "^5.0.25",
-    "depcheck": "^0.8.3"
+    "depcheck": "^0.8.3",
+    "solhint": "^2.1.0",
+    "truffle": "^5.0.25"
   }
 }

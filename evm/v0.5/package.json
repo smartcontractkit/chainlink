@@ -6,6 +6,7 @@
     "build": "truffle build",
     "depcheck": "echo \"chainlinkv0.5\" && depcheck --ignore-dirs=build/contracts || true",
     "slither": "truffle compile --quiet && slither .",
+    "solhint": "solhint ./contracts/**/*.sol",
     "test": "truffle test"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "chai": "^4.2.0",
     "depcheck": "^0.8.3",
     "openzeppelin-test-helpers": "^0.4.1",
+    "solhint": "^2.1.0",
     "truffle": "^5.0.25"
   },
   "files": [
