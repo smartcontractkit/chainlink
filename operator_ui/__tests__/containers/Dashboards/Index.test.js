@@ -1,9 +1,9 @@
 /* eslint-env jest */
-import React from 'react'
-import accountBalanceFactory from 'factories/accountBalance'
-import syncFetch from 'test-helpers/syncFetch'
-import mountWithTheme from 'test-helpers/mountWithTheme'
 import Index from 'containers/Dashboards/Index'
+import accountBalanceFactory from 'factories/accountBalance'
+import React from 'react'
+import mountWithTheme from 'test-helpers/mountWithTheme'
+import syncFetch from 'test-helpers/syncFetch'
 
 const classes = {}
 const mountIndex = (opts = {}) => mountWithTheme(<Index classes={classes} />)
@@ -35,7 +35,7 @@ describe('containers/Dashboards/Index', () => {
       ],
       meta: { count: 2 }
     }
-    global.fetch.getOnce('/v2/runs?sort=-createdAt&size=2', recentJobRuns)
+    global.fetch.getOnce('begin:/v2/runs', recentJobRuns)
 
     const recentlyCreatedJobsResponse = {
       data: [
@@ -57,10 +57,7 @@ describe('containers/Dashboards/Index', () => {
         }
       ]
     }
-    global.fetch.getOnce(
-      '/v2/specs?size=2&sort=-createdAt',
-      recentlyCreatedJobsResponse
-    )
+    global.fetch.getOnce('begin:/v2/specs', recentlyCreatedJobsResponse)
 
     const accountBalanceResponse = accountBalanceFactory(
       '10123456000000000000000',

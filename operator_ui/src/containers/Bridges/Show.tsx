@@ -1,19 +1,19 @@
-import React from 'react'
-import { connect } from 'react-redux'
-import { useHooks, useEffect } from 'use-react-hooks'
-import Typography from '@material-ui/core/Typography'
-import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
 import Divider from '@material-ui/core/Divider'
-import { IState } from '../../connectors/redux/reducers'
-import BaseLink from '../../components/BaseLink'
-import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatchToProps'
-import { fetchBridgeSpec } from '../../actions'
-import bridgeSelector from '../../selectors/bridge'
-import Content from '../../components/Content'
-import Button from '../../components/Button'
-import { IBridgeType } from '../../../@types/operator_ui'
+import Grid from '@material-ui/core/Grid'
+import Typography from '@material-ui/core/Typography'
+import { fetchBridgeSpec } from 'actions'
+import BaseLink from 'components/BaseLink'
+import Button from 'components/Button'
+import Content from 'components/Content'
+import { AppState } from 'connectors/redux/reducers'
+import { IBridgeType } from 'operator_ui'
+import React from 'react'
+import { connect } from 'react-redux'
+import bridgeSelector from 'selectors/bridge'
+import { useEffect, useHooks } from 'use-react-hooks'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
 const Loading = () => <div>Loading...</div>
 
@@ -102,7 +102,7 @@ export const Show = useHooks(({ bridge, fetchBridgeSpec, match }: IProps) => {
   )
 })
 
-const mapStateToProps = (state: IState, ownProps: IProps) => ({
+const mapStateToProps = (state: AppState, ownProps: IProps) => ({
   bridge: bridgeSelector(state, ownProps.match.params.bridgeId)
 })
 

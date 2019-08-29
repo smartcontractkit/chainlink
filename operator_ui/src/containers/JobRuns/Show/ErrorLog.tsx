@@ -1,16 +1,16 @@
 import Grid from '@material-ui/core/Grid'
 import { Theme, withStyles, WithStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
+import { fetchJobRun } from 'actions'
+import Content from 'components/Content'
+import StatusCard from 'components/JobRuns/StatusCard'
+import { AppState } from 'connectors/redux/reducers'
+import { IJobRun, ITaskRun } from 'operator_ui'
 import React from 'react'
 import { connect } from 'react-redux'
+import jobRunSelector from 'selectors/jobRun'
 import { useEffect, useHooks } from 'use-react-hooks'
-import { IJobRun, ITaskRun } from '../../../../@types/operator_ui'
-import { fetchJobRun } from '../../../actions'
-import Content from '../../../components/Content'
-import StatusCard from '../../../components/JobRuns/StatusCard'
-import { IState } from '../../../connectors/redux/reducers'
-import jobRunSelector from '../../../selectors/jobRun'
-import matchRouteAndMapDispatchToProps from '../../../utils/matchRouteAndMapDispatchToProps'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import RegionalNav from './RegionalNav'
 
 const filterErrorTaskRuns = (jobRun: IJobRun) => {
@@ -93,7 +93,7 @@ interface Match {
   }
 }
 
-const mapStateToProps = (state: IState, ownProps: { match: Match }) => {
+const mapStateToProps = (state: AppState, ownProps: { match: Match }) => {
   const { jobSpecId, jobRunId } = ownProps.match.params
   const jobRun = jobRunSelector(state, jobRunId)
 

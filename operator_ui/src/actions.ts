@@ -1,19 +1,22 @@
-import { Dispatch } from 'redux'
-import { pascalCase } from 'change-case'
+import * as models from 'core/store/models'
+import * as presenters from 'core/store/presenters'
 import normalize from 'json-api-normalizer'
+import { Action, Dispatch } from 'redux'
+import { ThunkAction } from 'redux-thunk'
 import * as api from './api'
-import {
-  AuthenticationError,
-  BadRequestError,
-  ServerError,
-  UnknownResponseError
-} from './api/errors'
+import { AppState } from './connectors/redux/reducers'
+
+export type GetNormalizedData<T extends AnyFunc> = ReturnType<
+  T
+> extends ThunkAction<any, any, any, UpsertAction<infer A>>
+  ? A
+  : never
 
 type Errors =
-  | AuthenticationError
-  | BadRequestError
-  | ServerError
-  | UnknownResponseError
+  | api.errors.AuthenticationError
+  | api.errors.BadRequestError
+  | api.errors.ServerError
+  | api.errors.UnknownResponseError
 
 const createAction = (type: string) => ({ type: type })
 
@@ -25,17 +28,20 @@ const createErrorAction = (error: Error, type: string) => ({
 const curryErrorHandler = (dispatch: Dispatch, type: string) => (
   error: Error
 ) => {
-  if (error instanceof AuthenticationError) {
+  if (error instanceof api.errors.AuthenticationError) {
     dispatch(redirectToSignOut())
   } else {
     dispatch(createErrorAction(error, type))
   }
 }
 
-export const REDIRECT = 'REDIRECT'
+export enum RouterActionType {
+  REDIRECT = 'REDIRECT',
+  MATCH_ROUTE = 'MATCH_ROUTE'
+}
 
 const redirectToSignOut = () => ({
-  type: REDIRECT,
+  type: RouterActionType.REDIRECT,
   to: '/signout'
 })
 
@@ -48,7 +54,7 @@ interface Match {
 
 export const matchRoute = (match: Match) => {
   return {
-    type: MATCH_ROUTE,
+    type: RouterActionType.MATCH_ROUTE,
     match: match
   }
 }
@@ -76,16 +82,27 @@ export const RECEIVE_SIGNIN_SUCCESS = 'RECEIVE_SIGNIN_SUCCESS'
 export const RECEIVE_SIGNIN_FAIL = 'RECEIVE_SIGNIN_FAIL'
 export const RECEIVE_SIGNIN_ERROR = 'RECEIVE_SIGNIN_ERROR'
 
-interface SignInDocument {
-  data: {
-    attributes: {
-      authenticated: boolean
-    }
-  }
-}
+/**
+ * The type of any function
+ */
+type AnyFunc = (...args: any[]) => any
 
-const signInSuccessAction = (doc: api.Document) => {
-  const signDoc = <SignInDocument>doc
+/**
+ * Get the return type of a function, and unbox any promises
+ */
+type UnboxApi<T extends AnyFunc> = T extends (...args: any[]) => infer U
+  ? U extends Promise<infer V>
+    ? V
+    : U
+  : never
+
+/**
+ * Extract the first parameter from a function signature
+ */
+type Parameter<T extends AnyFunc> = Parameters<T>[0]
+
+const signInSuccessAction = (doc: UnboxApi<typeof api.createSession>) => {
+  const signDoc = doc
 
   return {
     type: RECEIVE_SIGNIN_SUCCESS,
@@ -95,14 +112,15 @@ const signInSuccessAction = (doc: api.Document) => {
 
 const signInFailAction = () => ({ type: RECEIVE_SIGNIN_FAIL })
 
-function sendSignIn(data: object) {
+function sendSignIn(data: Parameter<typeof api.createSession>) {
   return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_SIGNIN))
+
     return api
       .createSession(data)
       .then(doc => dispatch(signInSuccessAction(doc)))
       .catch((error: Errors) => {
-        if (error instanceof AuthenticationError) {
+        if (error instanceof api.errors.AuthenticationError) {
           dispatch(signInFailAction())
         } else {
           dispatch(createErrorAction(error, RECEIVE_SIGNIN_ERROR))
@@ -154,17 +172,18 @@ const receiveUpdateSuccess = (response: Response) => ({
   response: response
 })
 
-export const submitSignIn = (data: object) => sendSignIn(data)
+export const submitSignIn = (data: Parameter<typeof api.createSession>) =>
+  sendSignIn(data)
 export const submitSignOut = () => sendSignOut()
 
 export const createJobSpec = (
-  data: object,
+  data: Parameter<typeof api.v2.specs.createJobSpec>,
   successCallback: React.ReactNode,
   errorCallback: React.ReactNode
 ) => {
   return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_CREATE))
-    return api
+    return api.v2.specs
       .createJobSpec(data)
       .then(doc => {
         dispatch(receiveCreateSuccessAction())
@@ -184,7 +203,7 @@ export const deleteJobSpec = (
 ) => {
   return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_DELETE))
-    return api
+    return api.v2.specs
       .destroyJobSpec(id)
       .then(doc => {
         dispatch(receiveDeleteSuccess(id))
@@ -201,12 +220,12 @@ export const createJobRun = (
   id: string,
   successCallback: React.ReactNode,
   errorCallback: React.ReactNode
-) => {
+): ThunkAction<Promise<void>, AppState, void, Action<string>> => {
   return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_CREATE))
-    return api
+    return api.v2.runs
       .createJobSpecRun(id)
-      .then((doc: any) => {
+      .then(doc => {
         dispatch(receiveCreateSuccessAction())
         dispatch(notifySuccess(successCallback, doc))
       })
@@ -218,14 +237,15 @@ export const createJobRun = (
 }
 
 export const createBridge = (
-  data: object,
+  data: Parameter<typeof api.v2.bridgeTypes.createBridge>,
   successCallback: React.ReactNode,
   errorCallback: React.ReactNode
 ) => {
   return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_CREATE))
-    return api
+    return api.v2.bridgeTypes
       .createBridge(data)
+
       .then((doc: any) => {
         dispatch(receiveCreateSuccessAction())
         dispatch(notifySuccess(successCallback, doc.data))
@@ -238,13 +258,13 @@ export const createBridge = (
 }
 
 export const updateBridge = (
-  params: api.UpdateBridgeParams,
+  params: Parameter<typeof api.v2.bridgeTypes.updateBridge>,
   successCallback: React.ReactNode,
   errorCallback: React.ReactNode
 ) => {
   return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_UPDATE))
-    return api
+    return api.v2.bridgeTypes
       .updateBridge(params)
       .then((doc: any) => {
         dispatch(receiveUpdateSuccess(doc.data))
@@ -263,123 +283,159 @@ export const updateBridge = (
 //
 // The calls above will be converted gradually.
 const handleError = (dispatch: Dispatch) => (error: Error) => {
-  if (error instanceof AuthenticationError) {
+  if (error instanceof api.errors.AuthenticationError) {
     dispatch(redirectToSignOut())
   } else {
     dispatch(notifyError(({ msg }: any) => msg, error))
   }
 }
 
-const request = (
-  type: string,
-  requestData: any,
-  normalizeData: any,
-  ...apiArgs: any
-) => {
-  return (dispatch: Dispatch) => {
-    dispatch({ type: `REQUEST_${type}` })
-    return requestData(...apiArgs)
-      .then((json: object) => {
-        const data = normalizeData(json)
-        dispatch({ type: `UPSERT_${type}`, data: data })
-      })
-      .catch(handleError(dispatch))
-      .finally(() => dispatch({ type: `RESPONSE_${type}` }))
+/**
+ * Extract the inner type of a promise if any
+ */
+type UnboxPromise<T> = T extends Promise<infer U> ? U : T
+
+/**
+ * An action to be dispatched to the store which contains the normalized
+ * data from an external resource. Meant to be upserted into the required reducer.
+ *
+ * @template TNormalizedData The type of the normalized data to be upserted
+ */
+interface UpsertAction<TNormalizedData> extends Action<string> {
+  data: TNormalizedData
+}
+
+/**
+ * The request function is a factory function for async action creators.
+ * Initially, a function is returned that accepts the arguments needed to make a request to an external resource.
+ * Once this function is invoked, a thunk action is dispatched which invokes the request to the external resource.
+ * One of two actions will occur on resource resolution:
+ *
+ * 1. When the resource is resolved successfully, we normalize the returned dataset and upsert it in the store.
+ * 2. When the resource is resolved unsuccessfully, we handle the action via the `handleError` function
+ *
+ * @template TNormalizedData The shape of the output returned by the `normalizeData` function
+ * @template TApiArgs The argument array to be fed to the `requestData` function, will be inferred from `requestData` parameter
+ * @template TApiResp The response of the `requestData` function, will be inferred from `requestData` parameter
+ *
+ * @param type The action type field to be dispatched
+ * @param requestData A function that outputs the data to be normalized and dispatched
+ * @param normalizeData A function that normalizes the data returned by the requester function to be dispatched into an upsert action
+ */
+function request<
+  TNormalizedData,
+  TApiArgs extends Array<any>,
+  TApiResp extends Promise<any>
+>(
+  type: string, // CHECKME -- stricten this type when we can
+  requestData: (...args: TApiArgs) => TApiResp,
+  normalizeData: (dataToNormalize: UnboxPromise<TApiResp>) => TNormalizedData
+): (
+  ...args: TApiArgs
+) => ThunkAction<
+  Promise<void>,
+  AppState,
+  void,
+  UpsertAction<TNormalizedData> | Action<string>
+> {
+  return (...args: TApiArgs) => {
+    return dispatch => {
+      dispatch({ type: `REQUEST_${type}` })
+
+      return requestData(...args)
+        .then(json => {
+          const data = normalizeData(json)
+          dispatch({ type: `UPSERT_${type}`, data })
+        })
+        .catch(handleError(dispatch))
+        .finally(() => dispatch({ type: `RESPONSE_${type}` }))
+    }
   }
 }
 
-export const fetchAccountBalance = () =>
-  request('ACCOUNT_BALANCE', api.getAccountBalance, (json: object) =>
-    normalize(json)
-  )
+export type NormalizedAccountBalance = GetNormalizedData<
+  typeof fetchAccountBalance
+>
 
-export const fetchConfiguration = () =>
-  request('CONFIGURATION', api.getConfiguration, (json: object) =>
-    normalize(json)
-  )
+export const fetchAccountBalance = request(
+  'ACCOUNT_BALANCE',
+  api.v2.user.balances.getAccountBalances,
+  json =>
+    normalize<{
+      accountBalances: presenters.AccountBalance[]
+    }>(json)
+)
 
-export const fetchBridges = (page: number, size: number) =>
-  request(
-    'BRIDGES',
-    api.getBridges,
-    (json: object) => normalize(json, { endpoint: 'currentPageBridges' }),
-    page,
-    size
-  )
+export const fetchConfiguration = request(
+  'CONFIGURATION',
+  api.v2.config.getConfiguration,
+  normalize
+)
 
-export const fetchBridgeSpec = (name: string) =>
-  request('BRIDGE', api.getBridgeSpec, (json: object) => normalize(json), name)
+export const fetchBridges = request(
+  'BRIDGES',
+  api.v2.bridgeTypes.getBridges,
+  json => normalize(json, { endpoint: 'currentPageBridges' })
+)
 
-export const fetchJobs = (page: number, size: number) =>
-  request(
-    'JOBS',
-    api.getJobs,
-    (json: object) => normalize(json, { endpoint: 'currentPageJobs' }),
-    page,
-    size
-  )
+export const fetchBridgeSpec = request(
+  'BRIDGE',
+  api.v2.bridgeTypes.getBridgeSpec,
+  json => normalize(json)
+)
 
-export const fetchRecentlyCreatedJobs = (size: number) =>
-  request(
-    'RECENTLY_CREATED_JOBS',
-    api.getRecentlyCreatedJobs,
-    (json: object) => normalize(json, { endpoint: 'recentlyCreatedJobs' }),
-    size
-  )
+export const fetchJobs = request('JOBS', api.v2.specs.getJobSpecs, json =>
+  normalize(json, { endpoint: 'currentPageJobs' })
+)
 
-export const fetchJob = (id: string) =>
-  request('JOB', api.getJobSpec, (json: object) => normalize(json, { camelizeKeys: false }), id)
+export const fetchRecentlyCreatedJobs = request(
+  'RECENTLY_CREATED_JOBS',
+  api.v2.specs.getRecentJobSpecs,
+  json => normalize(json, { endpoint: 'recentlyCreatedJobs' })
+)
 
-export const fetchJobRuns = (opts: api.JobSpecRunsOpts) =>
-  request(
-    'JOB_RUNS',
-    api.getJobSpecRuns,
-    (json: object) => normalize(json, { endpoint: 'currentPageJobRuns' }),
-    opts
-  )
+export const fetchJob = request('JOB', api.v2.specs.getJobSpec, json =>
+  normalize(json, { camelizeKeys: false })
+)
 
-export const fetchRecentJobRuns = (size: number) =>
-  request(
-    'RECENT_JOB_RUNS',
-    api.getRecentJobRuns,
-    (json: object) => normalize(json, { endpoint: 'recentJobRuns' }),
-    size
-  )
+export const fetchJobRuns = request(
+  'JOB_RUNS',
+  api.v2.runs.getJobSpecRuns,
+  json => normalize(json, { endpoint: 'currentPageJobRuns' })
+)
 
-export const fetchJobRun = (id: string) =>
-  request('JOB_RUN', api.getJobSpecRun, (json: object) => normalize(json, { camelizeKeys: false }), id)
+export const fetchRecentJobRuns = request(
+  'RECENT_JOB_RUNS',
+  api.v2.runs.getRecentJobRuns,
+  json => normalize(json, { endpoint: 'recentJobRuns' })
+)
 
-export const deleteCompletedJobRuns = (updatedBefore: object) =>
+export const fetchJobRun = request('JOB_RUN', api.v2.runs.getJobSpecRun, json =>
+  normalize(json, { camelizeKeys: false })
+)
+
+export const deleteCompletedJobRuns = (updatedBefore: string) =>
   request(
     'DELETE_COMPLETED_JOB_RUNS',
-    api.bulkDeleteJobRuns,
-    normalize,
-    ['completed'],
-    updatedBefore
-  )
+    api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
+    normalize
+  )({ status: [models.RunStatus.COMPLETED], updatedBefore })
 
-export const deleteErroredJobRuns = (updatedBefore: object) =>
+export const deleteErroredJobRuns = (updatedBefore: string) =>
   request(
     'DELETE_ERRORED_JOB_RUNS',
-    api.bulkDeleteJobRuns,
-    normalize,
-    ['errored'],
-    updatedBefore
-  )
+    api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
+    normalize
+  )({ status: [models.RunStatus.ERRORED], updatedBefore })
 
-export const fetchTransactions = (page: number, size: number) =>
-  request(
-    'TRANSACTIONS',
-    api.getTransactions,
-    (json: object) => normalize(json, { endpoint: 'currentPageTransactions' }),
-    page,
-    size
-  )
+export const fetchTransactions = request(
+  'TRANSACTIONS',
+  api.v2.transactions.getTransactions,
+  json => normalize(json, { endpoint: 'currentPageTransactions' })
+)
 
-export const fetchTransaction = (id: string) =>
-  request(
-    'TRANSACTION',
-    api.getTransaction,
-    (json: object) => normalize(json),
-    id
-  )
+export const fetchTransaction = request(
+  'TRANSACTION',
+  api.v2.transactions.getTransaction,
+  json => normalize(json)
+)

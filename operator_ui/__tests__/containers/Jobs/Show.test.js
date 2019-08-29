@@ -1,13 +1,13 @@
-import React from 'react'
 import createStore from 'connectors/redux'
-import syncFetch from 'test-helpers/syncFetch'
+import { ConnectedShow as Show } from 'containers/Jobs/Show'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
-import mountWithTheme from 'test-helpers/mountWithTheme'
+import jsonApiJobSpecRunsFactory from 'factories/jsonApiJobSpecRuns'
+import React from 'react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
-import { ConnectedShow as Show } from 'containers/Jobs/Show'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
-import jsonApiJobSpecRunsFactory from 'factories/jsonApiJobSpecRuns'
+import mountWithTheme from 'test-helpers/mountWithTheme'
+import syncFetch from 'test-helpers/syncFetch'
 import { GWEI_PER_TOKEN, WEI_PER_TOKEN } from '../../../src/utils/constants'
 
 const mountShow = props =>
@@ -42,10 +42,7 @@ describe('containers/Jobs/Show', () => {
         status: 'pending'
       }
     ])
-    global.fetch.getOnce(
-      `/v2/runs?sort=-createdAt&page=1&size=5&jobSpecId=${jobSpecId}`,
-      jobRunResponse
-    )
+    global.fetch.getOnce(`begin:/v2/runs`, jobRunResponse)
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)
@@ -74,11 +71,8 @@ describe('containers/Jobs/Show', () => {
     })
     const jobRunsResponse = jsonApiJobSpecRunsFactory(runs)
 
-    global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
-    global.fetch.getOnce(
-      `/v2/runs?sort=-createdAt&page=1&size=5&jobSpecId=${jobSpecId}`,
-      jobRunsResponse
-    )
+    global.fetch.getOnce(`begin:/v2/specs/${jobSpecId}`, jobSpecResponse)
+    global.fetch.getOnce(`begin:/v2/runs`, jobRunsResponse)
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)

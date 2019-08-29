@@ -1,7 +1,7 @@
 import { constantCase } from 'change-case'
-import { IState } from '../connectors/redux/reducers/index'
+import { AppState } from 'connectors/redux/reducers'
 
-export default ({ configuration }: IState) => {
+export default ({ configuration }: Pick<AppState, 'configuration'>) => {
   const { data } = configuration
 
   return Object.keys(data)
