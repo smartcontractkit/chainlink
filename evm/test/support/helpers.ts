@@ -537,11 +537,10 @@ export const executeServiceAgreementBytes = (
 
 // Convenience functions for constructing hexadecimal representations of
 // binary serializations.
-export const padHexTo256Bit = (s: string): string => s.padStart(64, '0')
 export const strip0x = (s: string): string =>
   s.startsWith('0x') ? s.slice(2) : s
-export const pad0xHexTo256Bit = (s: string): string =>
-  padHexTo256Bit(strip0x(s))
+export const padHexTo256Bit = (s: string): string =>
+  strip0x(s).padStart(64, '0')
 export const padNumTo256Bit = (n: number): string =>
   padHexTo256Bit(n.toString(16))
 
