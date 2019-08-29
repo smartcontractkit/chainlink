@@ -67,14 +67,32 @@ func (cli *Client) CreateServiceAgreement(c *clipkg.Context) error {
 
 // CreateExternalInitiator adds an external initiator
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
-	resp, err := cli.HTTP.Post("/v2/external_initiators", nil)
+	if c.NArg() != 2 {
+		return cli.errorOut(errors.New("create expects two arguments: a name and a url"))
+	}
+
+	var request models.ExternalInitiatorRequest
+	request.Name = c.Args().Get(0)
+	if url, err := url.ParseRequestURI(c.Args().Get(1)); err == nil {
+		request.URL = models.WebURL(*url)
+	} else {
+		return cli.errorOut(err)
+	}
+
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	resp, err := cli.HTTP.Post("/v2/external_initiators", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 	defer resp.Body.Close()
 
-	var eia models.ExternalInitiatorAuthentication
-	return cli.renderAPIResponse(resp, &eia)
+	var ei presenters.ExternalInitiatorAuthentication
+	return cli.renderAPIResponse(resp, &ei)
 }
 
 // DeleteExternalInitiator removes an external initiator

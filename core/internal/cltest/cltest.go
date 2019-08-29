@@ -732,6 +732,28 @@ func CreateBridgeTypeViaWeb(
 	return bt
 }
 
+// CreateExternalInitiatorViaWeb creates a bridgetype via web using /v2/bridge_types
+func CreateExternalInitiatorViaWeb(
+	t testing.TB,
+	app *TestApplication,
+	payload string,
+) *presenters.ExternalInitiatorAuthentication {
+	t.Helper()
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post(
+		"/v2/external_initiators",
+		bytes.NewBufferString(payload),
+	)
+	defer cleanup()
+	AssertServerResponse(t, resp, 201)
+	ei := &presenters.ExternalInitiatorAuthentication{}
+	err := ParseJSONAPIResponse(t, resp, ei)
+	require.NoError(t, err)
+
+	return ei
+}
+
 // WaitForJobRunToComplete waits for a JobRun to reach Completed Status
 func WaitForJobRunToComplete(
 	t testing.TB,
@@ -1147,6 +1169,15 @@ func NewSession(optionalSessionID ...string) models.Session {
 		session.ID = optionalSessionID[0]
 	}
 	return session
+}
+
+func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalInitiator {
+	t.Helper()
+
+	var all []models.ExternalInitiator
+	err := store.ORM.DB.Find(&all).Error
+	require.NoError(t, err)
+	return all
 }
 
 func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {
