@@ -298,24 +298,22 @@ func (orm *ORM) CreateJobRun(run *models.JobRun) error {
 	return orm.DB.Create(run).Error
 }
 
-// AddLinkEarned adds link earning
-func (orm *ORM) AddLinkEarned(earning *models.LinkEarned) error {
-	return orm.DB.Create(earning).Error
-}
-
 // LinkEarnedFor shows the total link earnings for a job
 func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 	var earned *assets.Link
-	err := orm.DB.Table("link_earned").
-		Joins("JOIN job_runs ON link_earned.job_run_id = job_runs.id").
+	query := orm.DB.Table("job_runs").
 		Joins("JOIN job_specs ON job_runs.job_spec_id = job_specs.id").
-		Where("job_specs.id = ?", spec.ID).
-		Select("CAST(SUM(CAST(SUBSTR(earned, 1, 10) as BIGINT)) as varchar(255))").
-		Row().
-		Scan(&earned)
+		Where("job_specs.id = ? AND job_runs.finished_at IS NOT NULL", spec.ID)
+
+	if dbutil.IsPostgres(orm.DB) {
+		query = query.Select("SUM(payment)")
+	} else {
+		query = query.Select("CAST(SUM(CAST(SUBSTR(payment, 1, 10) as BIGINT)) as varchar(255))")
+	}
+
+	err := query.Row().Scan(&earned)
 	if err != nil {
-		fmt.Println(err)
-		return nil, err
+		return nil, errors.Wrap(err, "error obtaining link earned from job_runs")
 	}
 	return earned, nil
 }

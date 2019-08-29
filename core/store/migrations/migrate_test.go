@@ -1,20 +1,15 @@
 package migrations_test
 
 import (
+	"fmt"
 	"math/big"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560924400"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565210496"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565291711"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565877314"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-
+	"github.com/gofrs/uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559081901"
@@ -24,9 +19,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881846"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881855"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560886530"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560924400"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565139192"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565210496"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565291711"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565877314"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gormigrate "gopkg.in/gormigrate.v1"
@@ -129,20 +129,15 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 	require.NoError(t, migration1560924400.Migrate(db))
 	require.NoError(t, migration1565139192.Migrate(db))
 
-	j := models.NewJob()
-	i := models.Initiator{Type: models.InitiatorWeb}
-	j.Initiators = []models.Initiator{i}
-	j.Tasks = []models.TaskSpec{
-		cltest.NewTask(t, "noop"),
-	}
-	assert.NoError(t, db.Create(&j).Error)
-	initr := j.Initiators[0]
-	jr := j.NewRun(initr)
-	data := `{"result":"921.02"}`
-	jr.Result = cltest.RunResultWithData(data)
-	jr.Overrides.Amount = assets.NewLink(2)
 	befCreation := time.Now()
-	require.NoError(t, db.Create(&jr).Error)
+	jobSpecID := uuid.Must(uuid.NewV4())
+	jobID := uuid.Must(uuid.NewV4())
+	query := fmt.Sprintf(`
+INSERT INTO run_results (amount) VALUES (2);
+INSERT INTO job_specs (id) VALUES ('%s');
+INSERT INTO job_runs (id, job_spec_id, overrides_id) VALUES ('%s', '%s', (SELECT id from run_results order by id DESC limit 1));
+`, jobSpecID, jobID, jobSpecID)
+	require.NoError(t, db.Exec(query).Error)
 	aftCreation := time.Now()
 
 	// placement of this migration is important, as it makes sure backfilling
@@ -151,8 +146,8 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 
 	rowFound := migration1560881855.LinkEarned{}
 	require.NoError(t, db.Table("link_earned").Find(&rowFound).Error)
-	assert.Equal(t, j.ID.String(), rowFound.JobSpecID)
-	assert.Equal(t, jr.ID.String(), rowFound.JobRunID)
+	assert.Equal(t, jobSpecID.String(), rowFound.JobSpecID)
+	assert.Equal(t, jobID.String(), rowFound.JobRunID)
 	assert.Equal(t, assets.NewLink(2), rowFound.Earned)
 	assert.True(t, true, rowFound.EarnedAt.After(aftCreation), rowFound.EarnedAt.Before(befCreation))
 }

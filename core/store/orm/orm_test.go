@@ -215,29 +215,25 @@ func TestORM_LinkEarnedFor(t *testing.T) {
 	require.NoError(t, store.CreateJob(&job))
 
 	initr := job.Initiators[0]
-	data := `{"result":"921.02"}`
 	jr1 := job.NewRun(initr)
-	jr1.Result = cltest.RunResultWithData(data)
-	jr2 := job.NewRun(initr)
-	jr2.Result = cltest.RunResultWithData(data)
-	jr3 := job.NewRun(initr)
-	jr3.Result = cltest.RunResultWithData(data)
+	jr1.Payment = assets.NewLink(2)
+	jr1.FinishedAt = null.TimeFrom(time.Now())
 	require.NoError(t, store.CreateJobRun(&jr1))
+	jr2 := job.NewRun(initr)
+	jr2.Payment = assets.NewLink(3)
+	jr2.FinishedAt = null.TimeFrom(time.Now())
 	require.NoError(t, store.CreateJobRun(&jr2))
+	jr3 := job.NewRun(initr)
+	jr3.Payment = assets.NewLink(5)
+	jr3.FinishedAt = null.TimeFrom(time.Now())
 	require.NoError(t, store.CreateJobRun(&jr3))
-
-	earning1 := cltest.FakeLinkEarned(&jr1, assets.NewLink(2))
-	require.NoError(t, store.AddLinkEarned(&earning1))
-	earning2 := cltest.FakeLinkEarned(&jr2, assets.NewLink(3))
-	require.NoError(t, store.AddLinkEarned(&earning2))
-	earning3 := cltest.FakeLinkEarned(&jr3, assets.NewLink(5))
-	require.NoError(t, store.AddLinkEarned(&earning3))
+	jr4 := job.NewRun(initr)
+	jr4.Payment = assets.NewLink(5)
+	require.NoError(t, store.CreateJobRun(&jr4))
 
 	totalEarned, err := store.LinkEarnedFor(&job)
-	assert.NoError(t, err)
-	actualEarned := assets.NewLink(10)
-	assert.Equal(t, totalEarned, actualEarned)
-
+	require.NoError(t, err)
+	assert.Equal(t, assets.NewLink(10), totalEarned)
 }
 
 func TestORM_JobRunsSortedFor(t *testing.T) {

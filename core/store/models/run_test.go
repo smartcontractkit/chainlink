@@ -136,7 +136,7 @@ func TestForLogger(t *testing.T) {
 	linkReward := assets.NewLink(5)
 
 	jr.Result = cltest.RunResultWithData(`{"result":"11850.00"}`)
-	jr.Overrides.Amount = linkReward
+	jr.Payment = linkReward
 	logsBeforeCompletion := jr.ForLogger()
 	require.Len(t, logsBeforeCompletion, 6)
 	assert.Equal(t, logsBeforeCompletion[0], "job")

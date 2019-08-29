@@ -28,7 +28,8 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 		ID:        runID,
 		JobSpecID: specID,
 		Status:    models.RunStatusInProgress,
-		Result:    models.RunResult{Amount: assets.NewLink(2)},
+		Result:    models.RunResult{},
+		Payment:   assets.NewLink(2),
 		Initiator: models.Initiator{
 			Type: models.InitiatorRunLog,
 		},
@@ -65,7 +66,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	assert.Equal(t, data["status"], "in_progress")
 	assert.Contains(t, data, "error")
 	assert.Contains(t, data, "createdAt")
-	assert.Equal(t, data["amount"], "2")
+	assert.Equal(t, data["payment"], "2")
 	assert.Equal(t, data["finishedAt"], nil)
 	assert.Contains(t, data, "tasks")
 
@@ -180,7 +181,8 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 				ID:        models.NewID(),
 				JobSpecID: models.NewID(),
 				Status:    models.RunStatusCompleted,
-				Result:    models.RunResult{Amount: assets.NewLink(2)},
+				Result:    models.RunResult{},
+				Payment:   assets.NewLink(2),
 				Initiator: models.Initiator{
 					Type: models.InitiatorRunLog,
 				},
