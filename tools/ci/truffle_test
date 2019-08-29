@@ -2,15 +2,20 @@
 
 set -e
 
-yarn solhint "evm/**/*.sol"
-yarn solhint "examples/**/*.sol"
+yarn workspace chainlink run solhint
+yarn workspace chainlinkv0.5 run solhint
+yarn workspace @chainlink/box run solhint
+yarn workspace @chainlink/example-echo-server run solhint
+yarn workspace @chainlink/example-testnet run solhint
+yarn workspace @chainlink/example-twilio-sms run solhint
+yarn workspace @chainlink/example-uptime-sla run solhint
 yarn lint:evm && yarn lint:examples
 
 yarn workspace chainlink run slither
 yarn workspace chainlinkv0.5 run slither
 
 yarn workspace chainlink test
+yarn workspace chainlinkv0.5 test
 yarn workspace @chainlink/example-uptime-sla test
 yarn workspace @chainlink/example-echo-server test
 yarn workspace @chainlink/box test
-yarn workspace chainlinkv0.5 test

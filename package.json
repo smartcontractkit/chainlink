@@ -59,7 +59,6 @@
     "openzeppelin-solidity": "^1.12.0",
     "prettier": "^1.16.4",
     "solc": "0.4.24",
-    "solhint": "^2.1.0",
     "solidity-cborutils": "^1.0.4",
     "truffle": "^5.0.25",
     "truffle-contract": "^4.0.11",

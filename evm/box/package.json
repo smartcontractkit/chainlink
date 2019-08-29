@@ -6,11 +6,12 @@
     "compile": "npx truffle compile",
     "console:dev": "npx truffle console --network cldev",
     "console:live": "npx truffle console --network live",
+    "depcheck": "echo '@chainlink/box' && depcheck --ignore-dirs=build/contracts || true",
+    "lint": "echo \"No linter configured for evm-box project\" &&  exit 0",
     "migrate:dev": "npx truffle migrate --reset --network cldev",
     "migrate:live": "npx truffle migrate --network live",
-    "lint": "echo \"No linter configured for evm-box project\" &&  exit 0",
-    "test": "npx truffle test",
-    "depcheck": "echo '@chainlink/box' && depcheck --ignore-dirs=build/contracts || true"
+    "solhint": "solhint ./contracts/**/*.sol",
+    "test": "npx truffle test"
   },
   "license": "MIT",
   "dependencies": {
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "depcheck": "^0.8.3",
+    "solhint": "^2.1.0",
     "truffle": "^5.0.25",
     "truffle-hdwallet-provider": "^1.0.8"
   }
