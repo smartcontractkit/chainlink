@@ -1,5 +1,5 @@
-import * as dbTypes from '../db'
-import { status, adapterTypes } from '../constants'
+import { adapterTypes, status } from './constants'
+import * as dbTypes from './db'
 
 interface RunResult {
   data: { result?: string }

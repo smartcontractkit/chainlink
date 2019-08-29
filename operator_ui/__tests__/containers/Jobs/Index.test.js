@@ -1,14 +1,14 @@
 /* eslint-env jest */
-import React from 'react'
+import createStore from 'connectors/redux'
+import { ConnectedIndex as Index } from 'containers/Jobs/Index'
+import { mount } from 'enzyme'
 import jsonApiJobSpecsFactory from 'factories/jsonApiJobSpecs'
-import syncFetch from 'test-helpers/syncFetch'
+import React from 'react'
+import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
 import clickNextPage from 'test-helpers/clickNextPage'
 import clickPreviousPage from 'test-helpers/clickPreviousPage'
-import createStore from 'connectors/redux'
-import { mount } from 'enzyme'
-import { MemoryRouter } from 'react-router-dom'
-import { Provider } from 'react-redux'
-import { ConnectedIndex as Index } from 'containers/Jobs/Index'
+import syncFetch from 'test-helpers/syncFetch'
 
 const classes = {}
 const mountIndex = (opts = {}) =>
@@ -31,10 +31,7 @@ describe('containers/Jobs/Index', () => {
         createdAt: new Date().toISOString()
       }
     ])
-    global.fetch.getOnce(
-      '/v2/specs?sort=-createdAt&page=1&size=10',
-      jobSpecsResponse
-    )
+    global.fetch.getOnce(`begin:/v2/specs`, jobSpecsResponse)
 
     const wrapper = mountIndex()
 
@@ -51,10 +48,7 @@ describe('containers/Jobs/Index', () => {
       [{ id: 'ID-ON-FIRST-PAGE' }],
       2
     )
-    global.fetch.getOnce(
-      '/v2/specs?sort=-createdAt&page=1&size=1',
-      pageOneResponse
-    )
+    global.fetch.getOnce(`begin:/v2/specs`, pageOneResponse)
 
     const wrapper = mountIndex({ pageSize: 1 })
 
@@ -66,20 +60,14 @@ describe('containers/Jobs/Index', () => {
       [{ id: 'ID-ON-SECOND-PAGE' }],
       2
     )
-    global.fetch.getOnce(
-      '/v2/specs?sort=-createdAt&page=2&size=1',
-      pageTwoResponse
-    )
+    global.fetch.getOnce(`begin:/v2/specs`, pageTwoResponse)
     clickNextPage(wrapper)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).toContain('ID-ON-SECOND-PAGE')
 
-    global.fetch.getOnce(
-      '/v2/specs?sort=-createdAt&page=1&size=1',
-      pageOneResponse
-    )
+    global.fetch.getOnce(`begin:/v2/specs`, pageOneResponse)
     clickPreviousPage(wrapper)
 
     await syncFetch(wrapper)

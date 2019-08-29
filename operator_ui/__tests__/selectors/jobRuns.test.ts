@@ -12,6 +12,7 @@ describe('selectors - jobRuns', () => {
         }
       }
     }
+
     const runs = jobRunsSelector(state)
 
     expect(runs).toEqual([{ id: 'runA' }, { id: 'runB' }])

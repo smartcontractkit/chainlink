@@ -8,24 +8,23 @@ import {
 } from '@material-ui/core'
 import Card from '@material-ui/core/Card'
 import Grid from '@material-ui/core/Grid'
+import { fetchJob, fetchJobRuns } from 'actions'
+import Content from 'components/Content'
+import JobRunsList from 'components/JobRuns/List'
+import TaskList from 'components/Jobs/TaskList'
+import { AppState } from 'connectors/redux/reducers'
+import { IJobRuns, IJobSpec } from 'operator_ui'
 import React from 'react'
 import { connect } from 'react-redux'
+import jobSelector from 'selectors/job'
+import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
+import jobsShowRunCountSelector from 'selectors/jobsShowRunCount'
 import { useEffect, useHooks } from 'use-react-hooks'
-import { IJobRuns, IJobSpec } from '../../../@types/operator_ui'
-import { fetchJob, fetchJobRuns } from '../../actions'
-import { JobSpecRunsOpts } from '../../api'
-import Content from '../../components/Content'
-import JobRunsList from '../../components/JobRuns/List'
-import TaskList from '../../components/Jobs/TaskList'
-import { IState } from '../../connectors/redux/reducers'
-import jobSelector from '../../selectors/job'
-import jobRunsByJobIdSelector from '../../selectors/jobRunsByJobId'
-import jobsShowRunCountSelector from '../../selectors/jobsShowRunCount'
-import { GWEI_PER_TOKEN } from '../../utils/constants'
-import { formatInitiators } from '../../utils/jobSpecInitiators'
-import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatchToProps'
+import { GWEI_PER_TOKEN } from 'utils/constants'
+import formatMinPayment from 'utils/formatWeiAsset'
+import { formatInitiators } from 'utils/jobSpecInitiators'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import RegionalNav from './RegionalNav'
-import formatMinPayment from '../../utils/formatWeiAsset'
 
 const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
   const info = {
@@ -169,7 +168,7 @@ interface IProps {
   recentRunsCount: number
   showJobRunsCount: number
   fetchJob: (id: string) => Promise<any>
-  fetchJobRuns: (opts: JobSpecRunsOpts) => Promise<any>
+  fetchJobRuns: (opts: any) => Promise<any>
 }
 
 const DEFAULT_PAGE = 1
@@ -218,7 +217,7 @@ interface Match {
 }
 
 const mapStateToProps = (
-  state: IState,
+  state: AppState,
   ownProps: { match: Match; showJobRunsCount: number }
 ) => {
   const jobSpecId = ownProps.match.params.jobSpecId
