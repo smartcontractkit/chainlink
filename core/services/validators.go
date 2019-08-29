@@ -65,8 +65,8 @@ func ValidateExternalInitiator(
 	fe := models.NewJSONAPIErrors()
 	if len([]rune(exi.Name)) == 0 {
 		fe.Add("No name specified")
-	} else if isAlphaNum := govalidator.IsAlphanumeric(exi.Name); !isAlphaNum {
-		fe.Add("Name must be alphanumeric")
+	} else if onlyValidRunes := govalidator.StringMatches(exi.Name, "^[a-zA-Z0-9-_]*$"); !onlyValidRunes {
+		fe.Add("Name must be alphanumeric and may contain '_' or '-'")
 	} else if _, err := store.FindExternalInitiatorByName(exi.Name); err == nil {
 		fe.Add(fmt.Sprintf("Name %v already exists", exi.Name))
 	} else if err != orm.ErrorNotFound {

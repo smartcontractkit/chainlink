@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -42,7 +43,7 @@ func NewExternalInitiator(
 	}
 
 	return &ExternalInitiator{
-		Name:           eir.Name,
+		Name:           strings.ToLower(eir.Name),
 		URL:            eir.URL,
 		AccessKey:      eia.AccessKey,
 		HashedSecret:   hashedSecret,
