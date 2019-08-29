@@ -94,7 +94,6 @@ $ ./chainlink
 ### Test
 
 ```bash
-$ cd $GOPATH/src/github.com/smartcontractkit/chainlink
 $ go test ./...
 ```
 
@@ -103,7 +102,7 @@ $ go test ./...
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
 2. Install the dependencies:
 ```bash
-$ cd $GOPATH/src/github.com/smartcontractkit/chainlink/evm
+$ cd evm
 $ yarn install
 ```
 3. Run tests:
