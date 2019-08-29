@@ -7,6 +7,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gopkg.in/guregu/null.v3"
 )
@@ -40,7 +41,7 @@ func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&RunRequest{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate RunRequest")
 	}
-	if err := tx.AutoMigrate(&models.RunResult{}).Error; err != nil {
+	if err := tx.AutoMigrate(&RunResult{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate RunResult")
 	}
 	if err := tx.AutoMigrate(&ServiceAgreement{}).Error; err != nil {
@@ -189,4 +190,13 @@ type TaskSpec struct {
 	Type          string `gorm:"index;not null"`
 	Confirmations clnull.Uint32
 	Params        string `gorm:"type:text"`
+}
+
+// RunResult is a capture of the model before migration1567029116
+type RunResult struct {
+	ID           uint   `gorm:"primary_key;auto_increment"`
+	Data         string `gorm:"type:text"`
+	Status       string
+	ErrorMessage string
+	Amount       *assets.Link `gorm:"type:varchar(255)"`
 }

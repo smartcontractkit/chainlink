@@ -43,7 +43,7 @@ func TestNewRun(t *testing.T) {
 	}}
 
 	inputResult := models.RunResult{Data: input}
-	run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, creationHeight, store)
+	run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, creationHeight, store, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 1)
@@ -114,9 +114,9 @@ func TestNewRun_requiredPayment(t *testing.T) {
 			}}
 			jobSpec.MinPayment = test.minimumJobSpecPayment
 
-			inputResult := models.RunResult{Data: input, Amount: test.payment}
+			inputResult := models.RunResult{Data: input}
 
-			run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, nil, store)
+			run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, nil, store, test.payment)
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.expectedStatus), string(run.Status))
 		})
@@ -156,7 +156,8 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 				jobSpec.Initiators[0],
 				inputResult,
 				creationHeight,
-				store)
+				store,
+				nil)
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.expectedStatus), string(run.Status))
 			require.Len(t, run.TaskRuns, 1)
@@ -196,7 +197,7 @@ func TestNewRun_startAtAndEndAt(t *testing.T) {
 			job.EndAt = test.endAt
 			assert.Nil(t, store.CreateJob(&job))
 
-			_, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store)
+			_, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store, nil)
 			if test.errored {
 				assert.Error(t, err)
 			} else {
@@ -214,7 +215,7 @@ func TestNewRun_noTasksErrorsInsteadOfPanic(t *testing.T) {
 	job.Tasks = []models.TaskSpec{}
 	require.NoError(t, store.CreateJob(&job))
 
-	jr, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store)
+	jr, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store, nil)
 	assert.NoError(t, err)
 	assert.True(t, jr.Status.Errored())
 	assert.True(t, jr.Result.HasError())

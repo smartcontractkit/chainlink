@@ -292,10 +292,10 @@ func TestRunLogEvent_ContractPayment(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			rle := models.RunLogEvent{models.InitiatorLogEvent{Log: test.log}}
 
-			received, err := rle.ContractPayment()
+			request, err := rle.RunRequest()
 
 			cltest.AssertError(t, test.wantErrored, err)
-			assert.Equal(t, test.want, received)
+			assert.Equal(t, test.want, request.Payment)
 		})
 	}
 }
