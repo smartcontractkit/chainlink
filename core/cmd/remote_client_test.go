@@ -188,6 +188,75 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	}
 }
 
+func TestClient_CreateExternalInitiator(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"create external initiator", []string{"exi", "http://testing.com/external_initiators"}},
+		{"create external initiator w/ query params", []string{"exiqueryparams", "http://testing.com/external_initiators?query=param"}},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			app, cleanup := cltest.NewApplicationWithKey(t)
+			defer cleanup()
+
+			client, _ := app.NewClientAndRenderer()
+
+			set := flag.NewFlagSet("create", 0)
+			assert.NoError(t, set.Parse(test.args))
+			c := cli.NewContext(nil, set, nil)
+
+			err := client.CreateExternalInitiator(c)
+			assert.NoError(t, err)
+
+			var exi models.ExternalInitiator
+			err = app.Store.ORM.Where("name", test.args[0], &exi)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.args[1], exi.URL.String())
+		})
+	}
+}
+
+func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"no arguments", []string{}},
+		{"not enough arguments", []string{"bitcoin"}},
+		{"too many arguments", []string{"bitcoin", "https://valid.url", "extra arg"}},
+		{"invalid url", []string{"bitcoin", "not a url"}},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			app, cleanup := cltest.NewApplicationWithKey(t)
+			defer cleanup()
+
+			client, _ := app.NewClientAndRenderer()
+
+			set := flag.NewFlagSet("create", 0)
+			assert.NoError(t, set.Parse(test.args))
+			c := cli.NewContext(nil, set, nil)
+
+			err := client.CreateExternalInitiator(c)
+			assert.Error(t, err)
+
+			exis := cltest.AllExternalInitiators(t, app.Store)
+			assert.Len(t, exis, 0)
+		})
+	}
+}
+
 func TestClient_CreateJobSpec(t *testing.T) {
 	t.Parallel()
 

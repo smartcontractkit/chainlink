@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560924400"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565210496"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565291711"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565877314"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/store/assets"
@@ -262,6 +263,31 @@ func TestMigrate_Migration1565291711(t *testing.T) {
 	jobRunFound := models.JobRun{}
 	require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
 	assert.Equal(t, jobRun.ID, jobRunFound.ID.String())
+}
+
+func TestMigrate_Migration1565877314(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	db := orm.DB
+
+	require.NoError(t, migration0.Migrate(db))
+
+	exi := migration0.ExternalInitiator{
+		AccessKey:    "access_key",
+		Salt:         "salt",
+		HashedSecret: "hashed_secret",
+	}
+	require.NoError(t, db.Create(&exi).Error)
+
+	require.NoError(t, migration1565210496.Migrate(db))
+
+	require.NoError(t, migration1565877314.Migrate(db))
+
+	exiFound := migration1565877314.ExternalInitiator{}
+	require.NoError(t, db.Where("id = ?", exi.ID).Find(&exiFound).Error)
+	assert.Equal(t, "access_key", exiFound.Name)
+	assert.Equal(t, "https://unset.url", exiFound.URL.String())
 }
 
 func TestMigrate_NewerVersionGuard(t *testing.T) {
