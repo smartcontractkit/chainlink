@@ -195,8 +195,8 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 		name string
 		args []string
 	}{
-		{"create external initiator", []string{"bitcoin", "http://testing.com/external_initiators"}},
-		{"create external initiator w/ query params", []string{"bitcoin", "http://testing.com/external_initiators?query=param"}},
+		{"create external initiator", []string{"exi", "http://testing.com/external_initiators"}},
+		{"create external initiator w/ query params", []string{"exiqueryparams", "http://testing.com/external_initiators?query=param"}},
 	}
 
 	for _, tt := range tests {
