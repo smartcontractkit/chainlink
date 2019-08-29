@@ -214,8 +214,11 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			err := client.CreateExternalInitiator(c)
 			assert.NoError(t, err)
 
-			exis := cltest.AllExternalInitiators(t, app.Store)
-			assert.Len(t, exis, 1)
+			var exi models.ExternalInitiator
+			err = app.Store.ORM.Where("name", test.args[0], &exi)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.args[1], exi.URL.String())
 		})
 	}
 }
