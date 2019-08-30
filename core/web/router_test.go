@@ -60,7 +60,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	err = app.GetStore().CreateExternalInitiator(ea)
 	require.NoError(t, err)
 
-	request, err := http.NewRequest("POST", ts.URL+"/v2/specs/", bytes.NewBufferString("{}"))
+	request, err := http.NewRequest("GET", ts.URL+"/v2/ping/", bytes.NewBufferString("{}"))
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", web.MediaType)
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)
@@ -70,7 +70,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	resp, err := client.Do(request)
 	require.NoError(t, err)
 
-	assert.Equal(t, 400, resp.StatusCode)
+	assert.Equal(t, 200, resp.StatusCode)
 }
 
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
@@ -91,7 +91,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	err = app.GetStore().CreateExternalInitiator(ea)
 	require.NoError(t, err)
 
-	request, err := http.NewRequest("POST", ts.URL+"/v2/specs/", bytes.NewBufferString("{}"))
+	request, err := http.NewRequest("GET", ts.URL+"/v2/ping/", bytes.NewBufferString("{}"))
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", web.MediaType)
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)
