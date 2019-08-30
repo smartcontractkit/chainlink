@@ -10,7 +10,7 @@ if ! [ -x "$(command -v jq)" ]; then
 fi
 
 expected_echo_count=$(expr $(curl -sS $ECHO_SERVER_URL) + 1)
-expected_job_count=$(expr $(chainlink -j j | jq length) + 1)
+expected_job_count=$(expr $(chainlink -j jobs list | jq length) + 1)
 
 yarn workspace @chainlink/integration run truffle exec scripts/send_ethlog_transaction.js --network test | tee send_ethlog_transaction.log
 
@@ -20,10 +20,10 @@ jid=`cat send_ethlog_transaction.log | grep Job | awk '{print$4}'`
 assert "Echo count" "curl -sS $ECHO_SERVER_URL" $expected_echo_count
 
 # Check job counts
-assert "Jobs count" "chainlink -j j | jq length" $expected_job_count
+assert "Jobs count" "chainlink -j jobs list | jq length" $expected_job_count
 
 # Check job runs
-assert "EthLog Runs count" "chainlink -j lr --jobid $jid | jq length" 1
+assert "EthLog Runs count" "chainlink -j runs list --jobid $jid | jq length" 1
 
 # Check that the run completed
-assert "Run completed" 'chainlink -j lr --jobid $jid | jq ".[].result.status" | sed s/\"//g' completed
+assert "Run completed" 'chainlink -j runs list --jobid $jid | jq ".[].result.status" | sed s/\"//g' completed
