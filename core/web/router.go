@@ -263,6 +263,7 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 		authv2.POST("/external_initiators", eia.Create)
 		authv2.DELETE("/external_initiators/:AccessKey", eia.Destroy)
 
+		authv2.POST("/specs", j.Create)
 		authv2.GET("/specs", paginatedRequest(j.Index))
 		authv2.GET("/specs/:SpecID", j.Show)
 		authv2.DELETE("/specs/:SpecID", j.Destroy)
@@ -308,7 +309,6 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 	ping := PingController{app}
 	tokAuthv2 := r.Group("/v2", tokenAuthRequired(app.GetStore()))
 	tokAuthv2.POST("/specs/:SpecID/runs", jr.Create)
-	tokAuthv2.POST("/specs", j.Create)
 	tokAuthv2.GET("/ping", ping.Show)
 }
 
