@@ -12,6 +12,23 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+//go:generate mockgen -package=mocks -destination=../internal/mocks/eth_wrapper_mocks.go github.com/smartcontractkit/chainlink/core/store EthWrapper
+
+// EthWrapper is the interface supplied by EthClient
+type EthWrapper interface {
+	GetNonce(address common.Address) (uint64, error)
+	GetWeiBalance(address common.Address) (*big.Int, error)
+	GetEthBalance(address common.Address) (*assets.Eth, error)
+	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
+	SendRawTx(hex string) (common.Hash, error)
+	GetTxReceipt(hash common.Hash) (*models.TxReceipt, error)
+	GetBlockByNumber(hex string) (models.BlockHeader, error)
+	GetLogs(q ethereum.FilterQuery) ([]models.Log, error)
+	GetChainID() (*big.Int, error)
+	SubscribeToLogs(channel chan<- models.Log, q ethereum.FilterQuery) (models.EthSubscription, error)
+	SubscribeToNewHeads(channel chan<- models.BlockHeader) (models.EthSubscription, error)
+}
+
 // EthClient holds the CallerSubscriber interface for the Ethereum blockchain.
 type EthClient struct {
 	CallerSubscriber
@@ -105,15 +122,6 @@ func (eth *EthClient) GetTxReceipt(hash common.Hash) (*models.TxReceipt, error) 
 	receipt := models.TxReceipt{}
 	err := eth.Call(&receipt, "eth_getTransactionReceipt", hash.String())
 	return &receipt, err
-}
-
-// GetBlockNumber returns the block number of the chain head.
-func (eth *EthClient) GetBlockNumber() (uint64, error) {
-	result := ""
-	if err := eth.Call(&result, "eth_blockNumber"); err != nil {
-		return 0, err
-	}
-	return utils.HexToUint64(result)
 }
 
 // GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".
