@@ -190,7 +190,6 @@ func TestTx_PresenterMatchesHex(t *testing.T) {
 
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(1))
 	})
 
 	createdTx, err := manager.CreateTx(to, data)

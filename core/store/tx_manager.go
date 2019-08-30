@@ -66,7 +66,7 @@ type TxManager interface {
 // EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
 type EthTxManager struct {
-	*EthClient
+	EthWrapper
 	keyStore            *KeyStore
 	config              orm.ConfigReader
 	orm                 *orm.ORM
@@ -75,14 +75,14 @@ type EthTxManager struct {
 	availableAccountIdx int
 	accountsMutex       *sync.Mutex
 	connected           *abool.AtomicBool
-	currentHead         *models.Head
+	currentHead         models.Head
 }
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
 // initializing internal variables.
-func NewEthTxManager(ethClient *EthClient, config orm.ConfigReader, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
+func NewEthTxManager(ethWrapper EthWrapper, config orm.ConfigReader, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
 	return &EthTxManager{
-		EthClient:     ethClient,
+		EthWrapper:    ethWrapper,
 		config:        config,
 		keyStore:      keyStore,
 		orm:           orm,
@@ -123,6 +123,9 @@ func (txm *EthTxManager) Connect(bn *models.Head) error {
 		}
 	}
 
+	if bn != nil {
+		txm.currentHead = *bn
+	}
 	txm.connected.Set()
 	return merr
 }
@@ -134,7 +137,7 @@ func (txm *EthTxManager) Disconnect() {
 
 // OnNewHead does nothing; exists to comply with interface.
 func (txm *EthTxManager) OnNewHead(head *models.Head) {
-	txm.currentHead = head
+	txm.currentHead = *head
 }
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
@@ -402,7 +405,7 @@ func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (asset
 // error on failure.
 func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*big.Int, *assets.Link, error) {
 	linkBalance, linkErr := txm.GetLINKBalance(address)
-	ethBalance, ethErr := txm.EthClient.GetWeiBalance(address)
+	ethBalance, ethErr := txm.GetWeiBalance(address)
 	merr := multierr.Append(linkErr, ethErr)
 	return ethBalance, linkBalance, merr
 }

@@ -772,7 +772,6 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 	one := uint64(1)
 
 	ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(one))
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(one))
 	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 	ethMock.Register("eth_chainId", store.Config.ChainID())
 

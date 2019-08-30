@@ -51,7 +51,7 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 	}
 	eth := &store.EthClient{CallerSubscriber: mock}
 	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
-		txm.EthClient = eth
+		txm.EthWrapper = eth
 	} else {
 		log.Panic("MockEthOnStore only works on EthTxManager")
 	}

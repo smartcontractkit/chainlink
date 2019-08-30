@@ -53,7 +53,6 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
 			return nil
 		})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 
@@ -110,7 +109,6 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
 			return nil
 		})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 
@@ -146,11 +144,12 @@ func TestEthTxAdapter_Perform_SafeWithBytesAndNoDataPrefix(t *testing.T) {
 	// contains diacritic acute to check bytes counted for length not chars
 	inputValue := "cönfirmed"
 
+	currentHeight := uint64(23456)
+	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(currentHeight)))
 	ethMock, err := app.MockStartAndConnect()
 	require.NoError(t, err)
 
 	hash := cltest.NewHash()
-	currentHeight := uint64(23456)
 	ethMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
 			rlp := data[0].([]interface{})[0].(string)
@@ -165,7 +164,6 @@ func TestEthTxAdapter_Perform_SafeWithBytesAndNoDataPrefix(t *testing.T) {
 			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
 			return nil
 		})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(currentHeight))
 	safe := currentHeight - store.Config.MinOutgoingConfirmations()
 	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(safe)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
@@ -206,7 +204,6 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 
 	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	sentAt := uint64(23456)
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold()-1))
 	ethMock.Register("eth_chainId", config.ChainID())
 
 	require.NoError(t, app.StartAndConnect())
@@ -237,13 +234,13 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	store := app.Store
 	config := store.Config
 
+	sentAt := uint64(23456)
+	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(sentAt+config.EthGasBumpThreshold())))
 	ethMock, err := app.MockStartAndConnect()
 	require.NoError(t, err)
 
-	sentAt := uint64(23456)
 	ethMock.Context("ethtx perform", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
-		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt+config.EthGasBumpThreshold()))
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 	})
 
@@ -286,7 +283,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	receipt := models.TxReceipt{Hash: confirmedHash, BlockNumber: cltest.Int(sentAt)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmedAt))
+	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(confirmedAt)))
 
 	require.NoError(t, app.StartAndConnect())
 
@@ -342,7 +339,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	receipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmedAt))
+	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(confirmedAt)))
 	ethMock.Register("eth_chainId", config.ChainID())
 
 	require.NoError(t, app.StartAndConnect())
@@ -385,7 +382,7 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
 	input := cltest.RunResultWithResult("0x9786856756")
-	ethMock.RegisterError("eth_blockNumber", "Cannot connect to nodes")
+	ethMock.RegisterError("eth_sendRawTransaction", "Cannot connect to nodes")
 	output := adapter.Perform(input, store)
 
 	assert.True(t, output.HasError())
@@ -409,7 +406,7 @@ func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
 		FunctionSelector: models.HexToFunctionSelector("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF1"),
 	}
 	input := cltest.RunResultWithResult("0x9786856756")
-	ethMock.RegisterError("eth_blockNumber", "Cannot connect to nodes")
+	ethMock.RegisterError("eth_sendRawTransaction", "Cannot connect to nodes")
 	output := adapter.Perform(input, store)
 
 	assert.True(t, output.HasError())
@@ -436,7 +433,6 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *
 	}
 	input := cltest.RunResultWithResult(cltest.NewHash().String())
 	input.Status = models.RunStatusPendingConfirmations
-	ethMock.RegisterError("eth_blockNumber", "Invalid node id")
 	output := adapter.Perform(input, store)
 
 	ethMock.AssertAllCalled()
@@ -462,7 +458,6 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 	input := cltest.RunResultWithResult(tx.Attempts[0].Hash.String())
 	input.Status = models.RunStatusPendingConfirmations
 
-	ethMock.Register("eth_blockNumber", "0x100")
 	ethMock.RegisterError("eth_getTransactionReceipt", "Connection reset by peer")
 
 	require.NoError(t, app.WaitForConnection())
@@ -705,7 +700,6 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 			firstTxData = data
 			return errors.New("no bueno")
 		})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 
 	adapter := adapters.EthTx{
 		Address:          address,
@@ -718,10 +712,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	assert.Error(t, data.GetError())
 
 	// Run the adapter again
-
 	confirmed := sentAt + 1
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
-
 	var secondTxData []interface{}
 	ethMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
@@ -777,7 +768,6 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 
 	hash := cltest.NewHash()
 	sentAt := uint64(9183)
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	var firstTxData []interface{}
 	ethMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
@@ -798,10 +788,6 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 	assert.Error(t, data.GetError())
 
 	// Run the adapter again
-
-	confirmed := sentAt + 1
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(confirmed))
-
 	var secondTxData []interface{}
 	ethMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {

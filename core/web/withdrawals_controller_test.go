@@ -35,7 +35,6 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	ethMock := app.MockEthClient()
-	sentAt := "0x5BA0"
 	nonce := "0x100"
 
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
@@ -47,7 +46,6 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 			"eth_call", "0xDE0B6B3A7640000",
 			verifyLinkBalanceCheck(oca, t))
 		ethMock.Register("eth_sendRawTransaction", hash)
-		ethMock.Register("eth_blockNumber", sentAt)
 		ethMock.Register("eth_chainId", config.ChainID())
 	})
 

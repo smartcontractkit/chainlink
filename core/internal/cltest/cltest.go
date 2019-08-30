@@ -86,10 +86,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	return NewConfigWithWSServer(t, wsserver), cleanup
 }
 
-// NewConfigWithWSServer return new config with specified wsserver
-func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig {
-	t.Helper()
-
+// NewTestConfig returns a test configuration
+func NewTestConfig(t testing.TB) *TestConfig {
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	rawConfig := orm.NewConfig()
@@ -108,8 +106,16 @@ func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig 
 	rawConfig.Set("SESSION_TIMEOUT", "2m")
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
-	config.SetEthereumServer(wsserver)
 	return &config
+}
+
+// NewConfigWithWSServer return new config with specified wsserver
+func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig {
+	t.Helper()
+
+	config := NewTestConfig(t)
+	config.SetEthereumServer(wsserver)
+	return config
 }
 
 // SetEthereumServer sets the ethereum server for testconfig with given wsserver
