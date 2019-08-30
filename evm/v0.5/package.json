@@ -4,7 +4,8 @@
   "license": "MIT",
   "scripts": {
     "build": "truffle build",
-    "test": "truffle test"
+    "test": "truffle test",
+    "slither": "truffle compile --quiet && slither ."
   },
   "devDependencies": {
     "chai": "^4.2.0",
