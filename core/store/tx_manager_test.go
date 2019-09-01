@@ -639,6 +639,12 @@ func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
 	assert.Equal(t, strpkg.Confirmed, state)
 	assert.Error(t, err)
 
+	tx, err := store.FindTx(tx1.ID)
+	require.NoError(t, err)
+	assert.True(t, tx.Confirmed)
+	assert.Equal(t, tx.Hash.Hex(), "0x0000000000000000000000000000000000000000000000000000000000000000")
+	assert.Len(t, tx.Attempts, 1)
+
 	ethMock.EventuallyAllCalled(t)
 }
 

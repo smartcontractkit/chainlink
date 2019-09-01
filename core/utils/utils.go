@@ -44,6 +44,7 @@ const (
 // ZeroAddress is an empty address, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000
 var ZeroAddress = common.Address{}
+var EmptyHash = common.Hash{}
 
 // WithoutZeroAddresses returns a list of addresses excluding the zero address.
 func WithoutZeroAddresses(addresses []common.Address) []common.Address {
