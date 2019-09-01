@@ -41,9 +41,12 @@ const (
 	EVMWordHexLen = EVMWordByteLen * 2
 )
 
-// ZeroAddress is an empty address, otherwise in Ethereum as
+// ZeroAddress is an address of all zeroes, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000
 var ZeroAddress = common.Address{}
+
+// ZeroHash is a hash of all zeroes, otherwise in Ethereum as
+// 0x0000000000000000000000000000000000000000000000000000000000000000
 var EmptyHash = common.Hash{}
 
 // WithoutZeroAddresses returns a list of addresses excluding the zero address.
