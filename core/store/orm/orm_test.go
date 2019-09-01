@@ -672,6 +672,32 @@ func TestORM_AddTxAttempt(t *testing.T) {
 	assert.Equal(t, tx.Hash, txAttempt.Hash)
 }
 
+func TestORM_FindLaterConfirmedTx(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	store := app.Store
+	orm := store.ORM
+
+	from := cltest.GetAccountAddress(t, store)
+	sentAt := uint64(23456)
+	tx1 := cltest.CreateTxWithNonce(t, store, from, sentAt, 1)
+	tx2 := cltest.CreateTxWithNonce(t, store, from, sentAt, 2)
+	tx3 := cltest.CreateTxWithNonce(t, store, from, sentAt, 3)
+
+	tx2a := tx2.Attempts[0]
+	tx2a.Confirmed = true
+	assert.NoError(t, store.MarkTxSafe(tx2, tx2a))
+	tx3a := tx3.Attempts[0]
+	tx3a.Confirmed = true
+	assert.NoError(t, store.MarkTxSafe(tx3, tx3a))
+
+	found, err := orm.FindLaterConfirmedTx(tx1)
+	assert.NoError(t, err)
+	assert.Equal(t, tx2.ID, found.ID)
+}
+
 func TestORM_FindBridge(t *testing.T) {
 	t.Parallel()
 
