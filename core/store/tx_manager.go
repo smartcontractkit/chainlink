@@ -358,11 +358,21 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 // BumpGasUntilSafe process a collection of related TxAttempts, trying to get
 // at least one TxAttempt into a safe state, bumping gas if needed
 func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, AttemptState, error) {
-	blockHeight := uint64(txm.currentHead.Number)
 	tx, _, err := txm.orm.FindTxByAttempt(hash)
 	if err != nil {
 		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe FindTxByAttempt")
 	}
+
+	receipt, state, err := txm.checkChainForConfirmation(tx)
+	if err != nil || state != Unconfirmed {
+		return receipt, state, err
+	}
+
+	return txm.checkDBForConfirmation(tx)
+}
+
+func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
+	blockHeight := uint64(txm.currentHead.Number)
 
 	var merr error
 	// Process attempts in reverse, since the attempt with the highest gas is
@@ -376,6 +386,17 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, 
 	}
 
 	return nil, Unconfirmed, merr
+}
+
+func (txm *EthTxManager) checkDBForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
+	tx, err := txm.orm.FindLaterConfirmedTx(tx)
+	if err != nil {
+		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe checkDBForConfrimation")
+	} else if tx == nil {
+		return nil, Unconfirmed, nil
+	}
+	err = fmt.Errorf("BumpGasUntilSafe a version of the Ethereum Transaction from %v with nonce %v", tx.From, tx.Nonce)
+	return nil, Confirmed, err
 }
 
 // ContractLINKBalance returns the balance for the contract associated with this
