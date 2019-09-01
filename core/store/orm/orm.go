@@ -978,6 +978,11 @@ func (orm *ORM) SaveSession(session *models.Session) error {
 	return orm.DB.Save(session).Error
 }
 
+// SaveTx saves the Ethereum Transaction.
+func (orm *ORM) SaveTx(tx *models.Tx) error {
+	return orm.DB.Save(tx).Error
+}
+
 // CreateBridgeType saves the bridge type.
 func (orm *ORM) CreateBridgeType(bt *models.BridgeType) error {
 	return orm.DB.Create(bt).Error
