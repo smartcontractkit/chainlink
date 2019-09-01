@@ -612,6 +612,36 @@ func TestTxManager_BumpGasUntilSafe_confirmed_exceedsGasBumpThreshold(t *testing
 	ethMock.EventuallyAllCalled(t)
 }
 
+func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+
+	ethMock, err := app.MockStartAndConnect()
+	require.NoError(t, err)
+
+	store := app.Store
+	txm := store.TxManager
+	from := cltest.GetAccountAddress(t, store)
+	sentAt := uint64(12345)
+
+	tx1 := cltest.CreateTxWithNonce(t, store, from, sentAt, 1)
+	tx2 := cltest.CreateTxWithNonce(t, store, from, sentAt, 2)
+	tx2a := tx2.Attempts[0]
+	tx2a.Confirmed = true
+	assert.NoError(t, store.MarkTxSafe(tx2, tx2a))
+
+	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
+
+	receipt, state, err := txm.BumpGasUntilSafe(tx1.Attempts[0].Hash)
+	assert.Nil(t, receipt)
+	assert.Equal(t, strpkg.Confirmed, state)
+	assert.Error(t, err)
+
+	ethMock.EventuallyAllCalled(t)
+}
+
 func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	t.Parallel()
 
