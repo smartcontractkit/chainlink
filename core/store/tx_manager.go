@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
 )
@@ -389,12 +390,19 @@ func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*models.TxRec
 }
 
 func (txm *EthTxManager) checkDBForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
-	tx, err := txm.orm.FindLaterConfirmedTx(tx)
+	later, err := txm.orm.FindLaterConfirmedTx(tx)
 	if err != nil {
 		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe checkDBForConfrimation")
-	} else if tx == nil {
+	} else if later == nil {
 		return nil, Unconfirmed, nil
 	}
+
+	tx.Confirmed = true
+	tx.Hash = utils.EmptyHash
+	if err = txm.orm.SaveTx(tx); err != nil {
+		return nil, Confirmed, fmt.Errorf("BumpGasUntilSafe error saving Tx confirmation to the database")
+	}
+
 	err = fmt.Errorf("BumpGasUntilSafe a version of the Ethereum Transaction from %v with nonce %v", tx.From, tx.Nonce)
 	return nil, Confirmed, err
 }
