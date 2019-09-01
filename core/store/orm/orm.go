@@ -133,13 +133,22 @@ func DeduceDialect(path string) (DialectName, error) {
 }
 
 func ignoreRecordNotFound(db *gorm.DB) error {
+	_, err := removeRecordNotFound(db)
+	return err
+}
+
+func removeRecordNotFound(db *gorm.DB) (bool, error) {
 	var merr error
-	for _, e := range db.GetErrors() {
-		if e != gorm.ErrRecordNotFound {
-			merr = multierr.Append(merr, e)
+	removed := false
+	for _, err := range db.GetErrors() {
+		if err == gorm.ErrRecordNotFound {
+			removed = true
+		} else {
+			merr = multierr.Append(merr, err)
 		}
 	}
-	return merr
+
+	return removed, merr
 }
 
 func (orm *ORM) DialectName() DialectName {
@@ -619,7 +628,12 @@ func (orm *ORM) FindLaterConfirmedTx(tx *models.Tx) (*models.Tx, error) {
 		Where("\"confirmed\" = true AND \"from\" = ? AND \"nonce\" > ?", tx.From, tx.Nonce).
 		First(&later)
 
-	return &later, ignoreRecordNotFound(rval)
+	removed, err := removeRecordNotFound(rval)
+	if removed {
+		return nil, err
+	}
+
+	return &later, err
 }
 
 // MarkTxSafe updates the database for the given transaction and attempt to
