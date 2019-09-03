@@ -11,7 +11,7 @@ import (
 func TestCondition_Perform(t *testing.T) {
 	tests := []struct {
 		name       string
-		input      string
+		input      interface{}
 		adapter    adapters.Condition
 		wantResult bool
 	}{
@@ -25,7 +25,7 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"equals integer",
+			"equals integer as string",
 			"1",
 			adapters.Condition{
 				Operator: "eq",
@@ -34,7 +34,25 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"equals float",
+			"equals integer as integer",
+			1,
+			adapters.Condition{
+				Operator: "eq",
+				Value:    "1",
+			},
+			true,
+		},
+		{
+			"equals integer as float",
+			1.00,
+			adapters.Condition{
+				Operator: "eq",
+				Value:    "1",
+			},
+			true,
+		},
+		{
+			"equals float as string",
 			"1.11",
 			adapters.Condition{
 				Operator: "eq",
@@ -43,7 +61,16 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"equals bool true",
+			"equals float as float",
+			1.11,
+			adapters.Condition{
+				Operator: "eq",
+				Value:    "1.11",
+			},
+			true,
+		},
+		{
+			"equals string true",
 			"true",
 			adapters.Condition{
 				Operator: "eq",
@@ -52,7 +79,16 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"equals bool false",
+			"equals bool true",
+			true,
+			adapters.Condition{
+				Operator: "eq",
+				Value:    "true",
+			},
+			true,
+		},
+		{
+			"equals string false",
 			"false",
 			adapters.Condition{
 				Operator: "eq",
@@ -61,7 +97,16 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"greater than integer",
+			"equals bool false",
+			false,
+			adapters.Condition{
+				Operator: "eq",
+				Value:    "false",
+			},
+			true,
+		},
+		{
+			"greater than integer as string",
 			"2",
 			adapters.Condition{
 				Operator: "gt",
@@ -70,7 +115,25 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"greater than or equals to integer 1",
+			"greater than integer as integer",
+			2,
+			adapters.Condition{
+				Operator: "gt",
+				Value:    "1",
+			},
+			true,
+		},
+		{
+			"greater than integer as float",
+			2.12,
+			adapters.Condition{
+				Operator: "gt",
+				Value:    "1",
+			},
+			true,
+		},
+		{
+			"greater than or equals to integer as string 1",
 			"2",
 			adapters.Condition{
 				Operator: "gte",
@@ -79,7 +142,25 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"greater than or equals to integer 2",
+			"greater than or equals to integer as integer 1",
+			2,
+			adapters.Condition{
+				Operator: "gte",
+				Value:    "2",
+			},
+			true,
+		},
+		{
+			"greater than or equals to integer as float",
+			2.0,
+			adapters.Condition{
+				Operator: "gte",
+				Value:    "2",
+			},
+			true,
+		},
+		{
+			"greater than or equals to integer as string 2",
 			"2",
 			adapters.Condition{
 				Operator: "gte",
@@ -88,7 +169,25 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"greater than float",
+			"greater than or equals to integer as integer 2",
+			2,
+			adapters.Condition{
+				Operator: "gte",
+				Value:    "1",
+			},
+			true,
+		},
+		{
+			"greater than or equals to integer as float",
+			2.0,
+			adapters.Condition{
+				Operator: "gte",
+				Value:    "1",
+			},
+			true,
+		},
+		{
+			"greater than float as string",
 			"2.12",
 			adapters.Condition{
 				Operator: "gt",
@@ -97,7 +196,25 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"greater than or equals to float 1",
+			"greater than float as float",
+			2.12,
+			adapters.Condition{
+				Operator: "gt",
+				Value:    "1.11",
+			},
+			true,
+		},
+		{
+			"greater than float as integer",
+			2,
+			adapters.Condition{
+				Operator: "gt",
+				Value:    "1.11",
+			},
+			true,
+		},
+		{
+			"greater than or equals to float as string 1",
 			"2.12",
 			adapters.Condition{
 				Operator: "gte",
@@ -106,7 +223,16 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"greater than or equals to float 2",
+			"greater than or equals to float as float 1",
+			2.12,
+			adapters.Condition{
+				Operator: "gte",
+				Value:    "1.11",
+			},
+			true,
+		},
+		{
+			"greater than or equals to float as string 2",
 			"2.12",
 			adapters.Condition{
 				Operator: "gte",
@@ -115,7 +241,25 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"less than integer",
+			"greater than or equals to float as float 2",
+			2.12,
+			adapters.Condition{
+				Operator: "gte",
+				Value:    "2.12",
+			},
+			true,
+		},
+		{
+			"greater than or equals to float as integer",
+			2,
+			adapters.Condition{
+				Operator: "gte",
+				Value:    "2.12",
+			},
+			true,
+		},
+		{
+			"less than integer as string",
 			"1",
 			adapters.Condition{
 				Operator: "lt",
@@ -124,7 +268,25 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"less than or equals to integer 1",
+			"less than integer as integer",
+			1,
+			adapters.Condition{
+				Operator: "lt",
+				Value:    "2",
+			},
+			true,
+		},
+		{
+			"less than integer as float",
+			1.0,
+			adapters.Condition{
+				Operator: "lt",
+				Value:    "2",
+			},
+			true,
+		},
+		{
+			"less than or equals to integer as string 1",
 			"1",
 			adapters.Condition{
 				Operator: "lte",
@@ -133,7 +295,16 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"less than or equals to integer 1",
+			"less than or equals to integer as integer 1",
+			1,
+			adapters.Condition{
+				Operator: "lte",
+				Value:    "1",
+			},
+			true,
+		},
+		{
+			"less than or equals to integer as string 2",
 			"1",
 			adapters.Condition{
 				Operator: "lte",
@@ -142,7 +313,25 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"less than float",
+			"less than or equals to integer as integer 2",
+			1,
+			adapters.Condition{
+				Operator: "lte",
+				Value:    "2",
+			},
+			true,
+		},
+		{
+			"less than or equals to integer as float",
+			1.0,
+			adapters.Condition{
+				Operator: "lte",
+				Value:    "2",
+			},
+			true,
+		},
+		{
+			"less than float as string",
 			"1.11",
 			adapters.Condition{
 				Operator: "lt",
@@ -151,7 +340,25 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"less than or equals to float 1",
+			"less than float as float",
+			1.11,
+			adapters.Condition{
+				Operator: "lt",
+				Value:    "2.12",
+			},
+			true,
+		},
+		{
+			"less than float as integer",
+			1,
+			adapters.Condition{
+				Operator: "lt",
+				Value:    "2.12",
+			},
+			true,
+		},
+		{
+			"less than or equals to float as string 1",
 			"1.11",
 			adapters.Condition{
 				Operator: "lte",
@@ -160,7 +367,16 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"less than or equals to float 2",
+			"less than or equals to float as float 1",
+			1.11,
+			adapters.Condition{
+				Operator: "lte",
+				Value:    "2.12",
+			},
+			true,
+		},
+		{
+			"less than or equals to float as string 2",
 			"1.11",
 			adapters.Condition{
 				Operator: "lte",
@@ -169,7 +385,25 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
-			"equals string",
+			"less than or equals to float as float 2",
+			1.11,
+			adapters.Condition{
+				Operator: "lte",
+				Value:    "1.11",
+			},
+			true,
+		},
+		{
+			"less than or equals to float as integer",
+			1,
+			adapters.Condition{
+				Operator: "lte",
+				Value:    "1.11",
+			},
+			true,
+		},
+		{
+			"not equals string",
 			"inputVal",
 			adapters.Condition{
 				Operator: "eq",
@@ -178,7 +412,7 @@ func TestCondition_Perform(t *testing.T) {
 			false,
 		},
 		{
-			"equals number",
+			"not equals integer as string",
 			"1",
 			adapters.Condition{
 				Operator: "eq",
@@ -187,7 +421,34 @@ func TestCondition_Perform(t *testing.T) {
 			false,
 		},
 		{
-			"equals bool",
+			"not equals integer as integer",
+			1,
+			adapters.Condition{
+				Operator: "eq",
+				Value:    "2",
+			},
+			false,
+		},
+		{
+			"not equals integer as float",
+			1.11,
+			adapters.Condition{
+				Operator: "eq",
+				Value:    "2",
+			},
+			false,
+		},
+		{
+			"not equals float as float",
+			1.11,
+			adapters.Condition{
+				Operator: "eq",
+				Value:    "2.12",
+			},
+			false,
+		},
+		{
+			"not equals bool as string",
 			"false",
 			adapters.Condition{
 				Operator: "eq",
@@ -196,7 +457,16 @@ func TestCondition_Perform(t *testing.T) {
 			false,
 		},
 		{
-			"greater than number",
+			"not equals bool as bool",
+			false,
+			adapters.Condition{
+				Operator: "eq",
+				Value:    "true",
+			},
+			false,
+		},
+		{
+			"not greater than integer as string",
 			"1",
 			adapters.Condition{
 				Operator: "gt",
@@ -205,7 +475,43 @@ func TestCondition_Perform(t *testing.T) {
 			false,
 		},
 		{
-			"greater than or equals to number",
+			"not greater than integer as integer",
+			1,
+			adapters.Condition{
+				Operator: "gt",
+				Value:    "2",
+			},
+			false,
+		},
+		{
+			"not greater than integer as float",
+			1.11,
+			adapters.Condition{
+				Operator: "gt",
+				Value:    "2",
+			},
+			false,
+		},
+		{
+			"not greater than float as float",
+			1.11,
+			adapters.Condition{
+				Operator: "gt",
+				Value:    "2.12",
+			},
+			false,
+		},
+		{
+			"not greater than float as integer",
+			1,
+			adapters.Condition{
+				Operator: "gt",
+				Value:    "2.12",
+			},
+			false,
+		},
+		{
+			"not greater than or equals to integer as string",
 			"1",
 			adapters.Condition{
 				Operator: "gte",
@@ -214,7 +520,43 @@ func TestCondition_Perform(t *testing.T) {
 			false,
 		},
 		{
-			"less than number",
+			"not greater than or equals to integer as integer",
+			1,
+			adapters.Condition{
+				Operator: "gte",
+				Value:    "2",
+			},
+			false,
+		},
+		{
+			"not greater than or equals to integer as float",
+			1.11,
+			adapters.Condition{
+				Operator: "gte",
+				Value:    "2",
+			},
+			false,
+		},
+		{
+			"not greater than or equals to float as float",
+			1.11,
+			adapters.Condition{
+				Operator: "gte",
+				Value:    "2.12",
+			},
+			false,
+		},
+		{
+			"not greater than or equals to float as integer",
+			1,
+			adapters.Condition{
+				Operator: "gte",
+				Value:    "2.12",
+			},
+			false,
+		},
+		{
+			"not less than integer as string",
 			"2",
 			adapters.Condition{
 				Operator: "lt",
@@ -223,11 +565,83 @@ func TestCondition_Perform(t *testing.T) {
 			false,
 		},
 		{
-			"less than or equals to number",
+			"not less than integer as integer",
+			2,
+			adapters.Condition{
+				Operator: "lt",
+				Value:    "1",
+			},
+			false,
+		},
+		{
+			"not less than integer as float",
+			2.12,
+			adapters.Condition{
+				Operator: "lt",
+				Value:    "1",
+			},
+			false,
+		},
+		{
+			"not less than float as float",
+			2.12,
+			adapters.Condition{
+				Operator: "lt",
+				Value:    "1.11",
+			},
+			false,
+		},
+		{
+			"not less than float as integer",
+			2,
+			adapters.Condition{
+				Operator: "lt",
+				Value:    "1.11",
+			},
+			false,
+		},
+		{
+			"not less than or equals to integer as string",
 			"2",
 			adapters.Condition{
 				Operator: "lte",
 				Value:    "1",
+			},
+			false,
+		},
+		{
+			"not less than or equals to integer as integer",
+			2,
+			adapters.Condition{
+				Operator: "lte",
+				Value:    "1",
+			},
+			false,
+		},
+		{
+			"not less than or equals to integer as float",
+			2.12,
+			adapters.Condition{
+				Operator: "lte",
+				Value:    "1",
+			},
+			false,
+		},
+		{
+			"not less than or equals to float as float",
+			2.12,
+			adapters.Condition{
+				Operator: "lte",
+				Value:    "1.11",
+			},
+			false,
+		},
+		{
+			"not less than or equals to float as integer",
+			2,
+			adapters.Condition{
+				Operator: "lte",
+				Value:    "1.11",
 			},
 			false,
 		},
