@@ -4,20 +4,26 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "test": "truffle test",
-    "lint": "echo \"No linter configured for examples/echo_server\" && exit 0"
+    "depcheck": "echo \"@chainlink/example-echo-server\" && depcheck --ignore-dirs=contracts || true",
+    "lint": "yarn solhint",
+    "solhint": "solhint ./contracts/**/*.sol",
+    "test": "truffle test"
   },
-  "devDependencies": {
+  "dependencies": {
+    "@babel/polyfill": "^7.2.5",
     "body-parser": "^1.18.3",
     "cbor": "^4.0.0",
     "chainlink": "^0.6.5",
-    "ethereumjs-abi": "^0.6.5",
-    "ethereumjs-util": "^5.1.5",
     "express": "^4.16.2",
     "link_token": "^1.0.3",
     "openzeppelin-solidity": "^1.12.0",
     "request-promise": "^4.2.2",
     "truffle": "^5.0.25",
-    "web3": "^1.0.0-beta.55"
+    "web3": "^1.0.0-beta.55",
+    "@babel/register": "^7.0.0"
+  },
+  "devDependencies": {
+    "depcheck": "^0.8.3",
+    "solhint": "^2.1.0"
   }
 }

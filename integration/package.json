@@ -6,7 +6,8 @@
   "scripts": {
     "test": "cross-env NODE_ENV=test jest",
     "test:nocache": "cross-env NODE_ENV=test jest --no-cache",
-    "lint": "echo \"No linter configured for integration\" && exit 0"
+    "lint": "echo \"No linter configured for integration\" && exit 0",
+    "depcheck": "echo '@chainlink/integration' && depcheck || true"
   },
   "dependencies": {
     "chainlink": "0.6.1"
@@ -24,6 +25,7 @@
     "link_token": "^1.0.3",
     "puppeteer": "^1.10.0",
     "request-promise": "^4.2.4",
-    "truffle": "^5.0.25"
+    "truffle": "^5.0.25",
+    "depcheck": "^0.8.3"
   }
 }

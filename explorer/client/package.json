@@ -27,7 +27,8 @@
     "lint": "eslint . --color",
     "test": "react-scripts test",
     "test-ci": "CI=true react-scripts test",
-    "test-ci:silent": "yarn test-ci --silent"
+    "test-ci:silent": "yarn test-ci --silent",
+    "depcheck": "echo \"@chainlink/explorer-client\" && depcheck --ignore-dirs=public || true"
   },
   "main": "app.js",
   "proxy": "http://localhost:8080",
@@ -92,9 +93,10 @@
     "redux-logger": "^3.0.6",
     "prettier": "^1.16.4",
     "prettier-config-standard": ">= 1.0.0",
-    "typescript": "^3.5.0"
+    "typescript": "^3.5.0",
+    "depcheck": "^0.8.3"
   },
   "comments": {
     "resolutions": "Had to lock caniuse-lite version at last working version with browserlists"
-   }
+  }
 }
