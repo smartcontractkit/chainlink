@@ -63,7 +63,7 @@ const EarnedLink = ({
   jobRun?: IJobRun
   classes: WithStyles<typeof styles>['classes']
 }) => {
-  const linkEarned = jobRun && jobRun.overrides && jobRun.overrides.amount
+  const linkEarned = jobRun && jobRun.payment
   return (
     <Typography className={classes.earnedLink} variant="h6">
       +{linkEarned ? selectLink(linkEarned) : 0} Link
