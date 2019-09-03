@@ -6,8 +6,8 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm'
-import { TaskRun } from './TaskRun'
 import { ChainlinkNode } from './ChainlinkNode'
+import { TaskRun } from './TaskRun'
 
 @Entity()
 export class JobRun {
@@ -83,8 +83,13 @@ export const fromString = (str: string): JobRun => {
     tr.confirmations = trstr.confirmations
 
     if (trstr.result) {
-      tr.transactionHash = trstr.result.transactionHash
-      tr.transactionStatus = trstr.result.transactionStatus
+      const { result } = trstr
+      tr.transactionHash = result.transactionHash
+      tr.transactionStatus = result.transactionStatus
+      tr.timestamp = result.timestamp && new Date(result.timestamp)
+      tr.blockHeight =
+        result.blockHeight && BigInt(result.blockHeight).toString(10)
+      tr.blockHash = result.blockHash
     }
 
     return tr
@@ -118,6 +123,7 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
         // new builder since execute stmnt above seems to mutate.
         builder = manager.createQueryBuilder()
         tr.jobRun = jobRun
+
         return builder
           .insert()
           .into(TaskRun)
@@ -128,6 +134,9 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
               ,"error" = :error
               ,"transactionHash" = :transactionHash
               ,"transactionStatus" = :transactionStatus
+              ,"timestamp" = :timestamp
+              ,"blockHeight" = :blockHeight
+              ,"blockHash" = :blockHash
               ,"confirmations_new1562419039813" = :confirmations
               ,"minimumConfirmations_new1562419039813" = :minimumConfirmations
               `,
@@ -138,6 +147,9 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
           .setParameter('transactionStatus', tr.transactionStatus)
           .setParameter('confirmations', tr.confirmations)
           .setParameter('minimumConfirmations', tr.minimumConfirmations)
+          .setParameter('timestamp', tr.timestamp)
+          .setParameter('blockHeight', tr.blockHeight)
+          .setParameter('blockHash', tr.blockHash)
           .execute()
       }),
     )
