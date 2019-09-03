@@ -9,6 +9,7 @@
     "build:tsc": "tsc -b",
     "build:tsc:clean": "tsc -b --clean",
     "serve": "serve dist -p 3000",
+    "prelint": "yarn build:tsc",
     "lint": "tsc --noEmit",
     "test": "yarn build:tsc && cross-env NODE_ENV=test jest",
     "test:nocache": "yarn build:tsc:clean && yarn test --no-cache",

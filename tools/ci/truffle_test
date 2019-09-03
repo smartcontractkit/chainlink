@@ -2,18 +2,16 @@
 
 set -e
 
-yarn workspace chainlink run solhint
-yarn workspace chainlinkv0.5 run solhint
-yarn workspace @chainlink/box run solhint
-yarn workspace @chainlink/example-echo-server run solhint
-yarn workspace @chainlink/example-testnet run solhint
-yarn workspace @chainlink/example-twilio-sms run solhint
-yarn workspace @chainlink/example-uptime-sla run solhint
+yarn workspaces run lint
+# Need this because root package.json eslint scripts have not been converted yet.
+# Once they are removed the following line can be deleted
 yarn lint:evm && yarn lint:examples
 
+# We should merge these into the lint commands too
 yarn workspace chainlink run slither
 yarn workspace chainlinkv0.5 run slither
 
+# These should be merged into a global test command
 yarn workspace chainlink test
 yarn workspace chainlinkv0.5 test
 yarn workspace @chainlink/example-uptime-sla test

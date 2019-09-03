@@ -5,6 +5,7 @@
   "scripts": {
     "build": "truffle build",
     "depcheck": "echo \"chainlinkv0.5\" && depcheck --ignore-dirs=build/contracts || true",
+    "lint": "yarn solhint",
     "slither": "truffle compile --quiet && slither .",
     "solhint": "solhint ./contracts/**/*.sol",
     "test": "truffle test"

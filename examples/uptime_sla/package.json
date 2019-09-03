@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "depcheck": "echo \"@chainlink/example-uptime-sla\" && depcheck --ignore-dirs=contracts || true",
-    "lint": "echo \"No linter configured for uptime_sla\" && exit 0",
+    "lint": "yarn solhint",
     "solhint": "solhint ./contracts/**/*.sol",
     "test": "truffle test"
   },
