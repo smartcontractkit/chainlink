@@ -7,7 +7,6 @@ interface RunResult {
   jobRunId: string
   taskRunId: string
   status: status
-  amount?: number
 }
 
 export interface IBridgeType
@@ -40,6 +39,7 @@ export interface IJobRun
   createdAt: string
   finishedAt: string
   status: string
+  payment: number
 }
 
 export interface IJobSpec extends dbTypes.JobSpec {
