@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "depcheck": "echo \"@chainlink/example-echo-server\" && depcheck --ignore-dirs=contracts || true",
-    "lint": "echo \"No linter configured for examples/echo_server\" && exit 0",
+    "lint": "yarn solhint",
     "solhint": "solhint ./contracts/**/*.sol",
     "test": "truffle test"
   },

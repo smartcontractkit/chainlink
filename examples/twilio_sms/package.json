@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "depcheck": "echo \"@chainlink/example-twilio-sms\" && depcheck --ignore-dirs=contracts || true",
-    "lint": "echo \"No linter configured for examples/twilio_sms\" && exit 0",
+    "lint": "yarn solhint",
     "solhint": "solhint ./contracts/**/*.sol",
     "test": "truffle test"
   },

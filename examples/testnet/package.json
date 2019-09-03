@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "depcheck": "echo \"@chainlink/example-testnet\" && depcheck --ignore-dirs=contracts || true",
-    "lint": "echo \"No linter configured for examples/testnet\" && exit 0",
+    "lint": "yarn solhint",
     "solhint": "solhint ./contracts/**/*.sol"
   },
   "devDependencies": {

@@ -5,9 +5,9 @@
   "scripts": {
     "build": "truffle build",
     "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box || true",
-    "lint": "echo \"No linter configured for evm project\" &&  exit 0",
-    "solhint": "solhint ./contracts/**/*.sol",
+    "lint": "yarn solhint",
     "slither": "truffle compile --quiet && slither .",
+    "solhint": "solhint ./contracts/**/*.sol",
     "test": "truffle test"
   },
   "dependencies": {

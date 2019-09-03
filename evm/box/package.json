@@ -7,7 +7,7 @@
     "console:dev": "npx truffle console --network cldev",
     "console:live": "npx truffle console --network live",
     "depcheck": "echo '@chainlink/box' && depcheck --ignore-dirs=build/contracts || true",
-    "lint": "echo \"No linter configured for evm-box project\" &&  exit 0",
+    "lint": "yarn solhint",
     "migrate:dev": "npx truffle migrate --reset --network cldev",
     "migrate:live": "npx truffle migrate --network live",
     "solhint": "solhint ./contracts/**/*.sol",
