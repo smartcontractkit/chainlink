@@ -152,6 +152,39 @@ func TestRendererTable_RenderBridgeList(t *testing.T) {
 	}
 }
 
+func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
+	t.Parallel()
+
+	eia := presenters.ExternalInitiatorAuthentication{
+		Name:           "bitcoin",
+		URL:            cltest.WebURL(t, "http://localhost:8888"),
+		AccessKey:      "accesskey",
+		Secret:         "secret",
+		OutgoingToken:  "outgoingToken",
+		OutgoingSecret: "outgoingSecret",
+	}
+	tests := []struct {
+		name, content string
+	}{
+		{"Name", eia.Name},
+		{"URL", eia.URL.String()},
+		{"AccessKey", eia.AccessKey},
+		{"Secret", eia.Secret},
+		{"OutgoingToken", eia.OutgoingToken},
+		{"OutgoingSecret", eia.OutgoingSecret},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tw := &testWriter{test.content, t, false}
+			r := cmd.RendererTable{Writer: tw}
+
+			assert.Nil(t, r.Render(&eia))
+			assert.True(t, tw.found)
+		})
+	}
+}
+
 func TestRendererTable_Render_TxAttempts(t *testing.T) {
 	t.Parallel()
 
