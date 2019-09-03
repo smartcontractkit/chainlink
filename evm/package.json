@@ -4,7 +4,7 @@
   "license": "MIT",
   "scripts": {
     "build": "truffle build",
-    "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts || true",
+    "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box || true",
     "lint": "echo \"No linter configured for evm project\" &&  exit 0",
     "solhint": "solhint ./contracts/**/*.sol",
     "slither": "truffle compile --quiet && slither .",
