@@ -4,20 +4,24 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "test": "truffle test",
-    "lint": "echo \"No linter configured for uptime_sla\" && exit 0"
+    "depcheck": "echo \"@chainlink/example-uptime-sla\" && depcheck --ignore-dirs=contracts || true",
+    "lint": "yarn solhint",
+    "solhint": "solhint ./contracts/**/*.sol",
+    "test": "truffle test"
   },
   "devDependencies": {
     "bignumber.js": "^8.0.1",
     "bn.js": "^4.11.8",
     "cbor": "^4.0.0",
     "chainlink": "^0.6.5",
+    "depcheck": "^0.8.3",
     "ethereumjs-abi": "^0.6.5",
     "ethereumjs-util": "^5.1.5",
     "fs": "^0.0.1-security",
     "link_token": "^1.0.3",
     "openzeppelin-solidity": "^1.12.0",
     "request-promise": "^4.2.2",
+    "solhint": "^2.1.0",
     "truffle": "^5.0.25",
     "truffle-contract": "^3.0.6",
     "web3": "^1.0.0-beta.35"

@@ -33,7 +33,8 @@
     "test:migration:run": "cross-env TYPEORM_NAME=test ts-node ./src/bin/migrator.ts migrate",
     "autosetup": "yarn install && yarn automigrate",
     "automigrate": "md5sum -c .migrations.${TYPEORM_NAME:-dev}.md5 2>/dev/null || yarn migration:run && md5sum src/bin/migrator.ts src/migration/* > .migrations.${TYPEORM_NAME:-dev}.md5",
-    "addclnode": "ts-node src/bin/clnodes.ts add"
+    "addclnode": "ts-node src/bin/clnodes.ts add",
+    "depcheck": "echo \"@chainlink/explorer\" && depcheck --ignore-dirs=client || exit 0"
   },
   "main": "src/index.ts",
   "engines": {
@@ -93,6 +94,7 @@
     "puppeteer": "^1.14.0",
     "supertest": "^4.0.2",
     "ts-jest": "^24.0.0",
-    "ts-node-dev": "^1.0.0-pre.40"
+    "ts-node-dev": "^1.0.0-pre.40",
+    "depcheck": "^0.8.3"
   }
 }
