@@ -33,7 +33,14 @@ describe('entity/taskRun', () => {
       [jr.id],
     )
 
-    const retrieved = await db.manager.findOne(JobRun, jr.id)
+    const retrieved = await db
+      .getRepository(JobRun)
+      .createQueryBuilder('jobRun')
+      .leftJoinAndSelect('jobRun.taskRuns', 'taskRun')
+      .where('jobRun.id = :id', { id: jr.id })
+      .orderBy('taskRun.index', 'ASC')
+      .getOne()
+
     const task = retrieved.taskRuns[1]
 
     expect(task.confirmationsOld).toEqual(1)
