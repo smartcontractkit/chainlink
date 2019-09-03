@@ -17,7 +17,6 @@
     "chainlink": "^0.6.5",
     "express": "^4.16.2",
     "link_token": "^1.0.3",
-    "openzeppelin-solidity": "^1.12.0",
     "request-promise": "^4.2.2",
     "truffle": "^5.0.25",
     "web3": "^1.0.0-beta.55"
