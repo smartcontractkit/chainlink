@@ -20439,14 +20439,6 @@ solidity-cborutils@^1.0.2:
     "@ensdomains/buffer" "0.0.10"
     cbor ">=4.0.0"
 
-solidity-cborutils@^1.0.4:
-  version "1.0.4"
-  resolved "https://registry.npmjs.org/solidity-cborutils/-/solidity-cborutils-1.0.4.tgz#2992debcb676480fd6b131a89d5ffb856e120b33"
-  integrity sha512-MjcHYMbo979ccu7XlXX0c2hzDs8PYBT3uitNO6BKf3eZANne2tZ7kuPnNwqn6FeFazpbrfxjnqXEKZnb8UsI4Q==
-  dependencies:
-    "@ensdomains/buffer" "0.0.10"
-    cbor ">=4.0.0"
-
 sort-keys@^1.0.0:
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/sort-keys/-/sort-keys-1.1.2.tgz#441b6d4d346798f1b4e49e8920adfba0e543f9ad"
