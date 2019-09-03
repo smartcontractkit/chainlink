@@ -19,7 +19,6 @@
     "ethereumjs-util": "^5.1.5",
     "fs": "^0.0.1-security",
     "link_token": "^1.0.3",
-    "openzeppelin-solidity": "^1.12.0",
     "request-promise": "^4.2.2",
     "solc": "0.4.24",
     "solhint": "^2.1.0",
