@@ -17,7 +17,6 @@ import (
 // EthWrapper is the interface supplied by EthClient
 type EthWrapper interface {
 	GetNonce(address common.Address) (uint64, error)
-	GetWeiBalance(address common.Address) (*big.Int, error)
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	SendRawTx(hex string) (common.Hash, error)
@@ -51,8 +50,8 @@ func (eth *EthClient) GetNonce(address common.Address) (uint64, error) {
 	return utils.HexToUint64(result)
 }
 
-// GetWeiBalance returns the balance of the given address in Wei.
-func (eth *EthClient) GetWeiBalance(address common.Address) (*big.Int, error) {
+// getWeiBalance returns the balance of the given address in Wei.
+func (eth *EthClient) getWeiBalance(address common.Address) (*big.Int, error) {
 	result := ""
 	numWeiBigInt := new(big.Int)
 	err := eth.Call(&result, "eth_getBalance", address.Hex(), "latest")

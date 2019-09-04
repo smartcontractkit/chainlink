@@ -403,9 +403,9 @@ func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (asset
 // GetETHAndLINKBalances attempts to retrieve the ethereum node's perception of
 // the latest ETH and LINK balances for the active account on the txm, or an
 // error on failure.
-func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*big.Int, *assets.Link, error) {
+func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*assets.Eth, *assets.Link, error) {
 	linkBalance, linkErr := txm.GetLINKBalance(address)
-	ethBalance, ethErr := txm.GetWeiBalance(address)
+	ethBalance, ethErr := txm.GetEthBalance(address)
 	merr := multierr.Append(linkErr, ethErr)
 	return ethBalance, linkBalance, merr
 }

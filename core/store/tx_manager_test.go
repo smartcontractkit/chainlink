@@ -1010,7 +1010,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	manager.OnNewHead(cltest.Head(confirmedAt))
 	eth.EXPECT().GetTxReceipt(tx.Attempts[0].Hash).Return(&confirmedReceipt, nil)
 	eth.EXPECT().GetERC20Balance(from, gomock.Any())
-	eth.EXPECT().GetWeiBalance(from)
+	eth.EXPECT().GetEthBalance(from)
 
 	receipt, state, err := manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	require.NoError(t, err)
