@@ -245,7 +245,8 @@ contract ChainlinkClient {
    * @param _requestId The request ID for fulfillment
    */
   modifier recordChainlinkFulfillment(bytes32 _requestId) {
-    require(msg.sender == pendingRequests[_requestId], "Source must be the oracle of the request");
+    require(msg.sender == pendingRequests[_requestId],
+            "Source must be the oracle of the request");
     delete pendingRequests[_requestId];
     emit ChainlinkFulfilled(_requestId);
     _;

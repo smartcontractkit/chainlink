@@ -1,6 +1,7 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
 const Coordinator = artifacts.require('Coordinator.sol')
+const MeanAggregator = artifacts.require('MeanAggregator.sol')
 const ServiceAgreementConsumer = artifacts.require(
   'ServiceAgreementConsumer.sol'
 )
@@ -10,7 +11,16 @@ contract('ServiceAgreementConsumer', () => {
   let link, coord, cc, agreement
 
   beforeEach(async () => {
-    agreement = await h.newServiceAgreement({ oracles: [h.oracleNode] })
+    const meanAggregator = await MeanAggregator.new()
+    agreement = await h.newServiceAgreement({
+      oracles: [h.oracleNode],
+      aggregator: meanAggregator.address,
+      aggInitiateJobSelector: h.functionSelectorFromAbi(
+        meanAggregator,
+        'initiateJob'
+      ),
+      aggFulfillSelector: h.functionSelectorFromAbi(meanAggregator, 'fulfill')
+    })
     link = await h.linkContract()
     coord = await Coordinator.new(link.address)
     await h.initiateServiceAgreement(coord, agreement)
@@ -78,7 +88,6 @@ contract('ServiceAgreementConsumer', () => {
       await coord.fulfillOracleRequest(request.id, response, {
         from: h.oracleNode
       })
-
       const currentPrice = await cc.currentPrice.call()
       assert.equal(h.toUtf8(currentPrice), h.toUtf8(response))
     })
