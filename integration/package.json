@@ -7,7 +7,8 @@
     "test": "cross-env NODE_ENV=test jest",
     "test:nocache": "cross-env NODE_ENV=test jest --no-cache",
     "lint": "echo \"No linter configured for integration\" && exit 0",
-    "depcheck": "echo '@chainlink/integration' && depcheck || true"
+    "depcheck": "echo '@chainlink/integration' && depcheck || true",
+    "truffle:migrate": "truffle migrate --compile-all --reset --network test"
   },
   "dependencies": {
     "chainlink": "0.6.1"
