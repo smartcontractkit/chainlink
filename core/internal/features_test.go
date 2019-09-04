@@ -352,6 +352,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			assert.NoError(t, err)
 			jr := runs[0]
 			cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+			require.Len(t, jr.TaskRuns, 1)
 			assert.False(t, jr.TaskRuns[0].Confirmations.Valid)
 
 			blockIncrease := app.Store.Config.MinIncomingConfirmations()

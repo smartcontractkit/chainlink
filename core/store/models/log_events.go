@@ -124,7 +124,6 @@ type LogRequest interface {
 	JSON() (JSON, error)
 	ToDebug()
 	ForLogger(kvs ...interface{}) []interface{}
-	ContractPayment() (*assets.Link, error)
 	ValidateRequester() error
 	BlockNumber() *big.Int
 	RunRequest() (RunRequest, error)
@@ -230,11 +229,6 @@ func (le InitiatorLogEvent) JSON() (JSON, error) {
 	return out, json.Unmarshal(b, &out)
 }
 
-// ContractPayment returns the amount attached to a contract to pay the Oracle upon fulfillment.
-func (le InitiatorLogEvent) ContractPayment() (*assets.Link, error) {
-	return nil, nil
-}
-
 // EthLogEvent provides functionality specific to a log event emitted
 // for an eth log initiator.
 type EthLogEvent struct {
@@ -261,18 +255,18 @@ func (le RunLogEvent) Validate() bool {
 }
 
 // ContractPayment returns the amount attached to a contract to pay the Oracle upon fulfillment.
-func (le RunLogEvent) ContractPayment() (*assets.Link, error) {
-	version, err := le.Log.getTopic(0)
+func contractPayment(log Log) (*assets.Link, error) {
+	version, err := log.getTopic(0)
 	if err != nil {
 		return nil, fmt.Errorf("Missing RunLogEvent Topic#0: %v", err)
 	}
 
 	var encodedAmount common.Hash
 	if oldRequestVersion(version) {
-		encodedAmount = le.Log.Topics[RequestLogTopicPayment]
+		encodedAmount = log.Topics[RequestLogTopicPayment]
 	} else {
 		paymentStart := requesterSize + idSize
-		encodedAmount = common.BytesToHash(le.Log.Data[paymentStart : paymentStart+paymentSize])
+		encodedAmount = common.BytesToHash(log.Data[paymentStart : paymentStart+paymentSize])
 	}
 
 	payment, ok := new(assets.Link).SetString(encodedAmount.Hex(), 0)
@@ -323,6 +317,11 @@ func (le RunLogEvent) RunRequest() (RunRequest, error) {
 		return RunRequest{}, err
 	}
 
+	payment, err := contractPayment(le.Log)
+	if err != nil {
+		return RunRequest{}, err
+	}
+
 	txHash := common.BytesToHash(le.Log.TxHash.Bytes())
 	blockHash := common.BytesToHash(le.Log.BlockHash.Bytes())
 	str := parser.parseRequestID(le.Log)
@@ -332,6 +331,7 @@ func (le RunLogEvent) RunRequest() (RunRequest, error) {
 		TxHash:    &txHash,
 		BlockHash: &blockHash,
 		Requester: &requester,
+		Payment:   payment,
 	}, nil
 }
 

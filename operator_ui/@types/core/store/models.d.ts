@@ -148,6 +148,7 @@ declare module 'core/store/models' {
     createdHeight: Pointer<Big>
     observedHeight: Pointer<Big>
     overrides: RunResult
+    payment: Pointer<assets.Link>
   }
 
   /**
@@ -173,7 +174,6 @@ declare module 'core/store/models' {
     data: JSONValue
     status: RunStatus
     error: nullable.String
-    amount?: assets.Link
   }
 
   /**

@@ -90,10 +90,12 @@ func TestJobRunner_executeRun_correctlyAddsLinkEarnings(t *testing.T) {
 	}
 	assert.NoError(t, store.CreateJob(&j))
 	run := j.NewRun(i)
+	run.Payment = assets.NewLink(1)
 	require.NoError(t, store.CreateJobRun(&run))
-	run.Overrides.Amount = assets.NewLink(1)
 	require.NoError(t, services.ExportedExecuteRun(&run, store))
-	actual, _ := store.LinkEarnedFor(&j)
+
+	actual, err := store.LinkEarnedFor(&j)
+	require.NoError(t, err)
 	assert.Equal(t, assets.NewLink(1), actual)
 }
 

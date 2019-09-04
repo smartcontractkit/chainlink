@@ -150,16 +150,7 @@ func ReceiveLogRequest(store *strpkg.Store, le models.LogRequest) {
 }
 
 func runJob(store *strpkg.Store, le models.LogRequest, data models.JSON) {
-	payment, err := le.ContractPayment()
-	if err != nil {
-		logger.Errorw(err.Error(), le.ForLogger()...)
-		return
-	}
-
-	input := models.RunResult{
-		Data:   data,
-		Amount: payment,
-	}
+	input := models.RunResult{Data: data}
 	if err := le.ValidateRequester(); err != nil {
 		input.SetError(err)
 		logger.Errorw(err.Error(), le.ForLogger()...)
