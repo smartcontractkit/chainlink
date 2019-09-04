@@ -30,7 +30,7 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	eth := mocks.NewMockEthWrapper(ctrl)
+	eth := mocks.NewMockEthClient(ctrl)
 
 	config := cltest.NewTestConfig(t)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())
@@ -75,7 +75,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	eth := mocks.NewMockEthWrapper(ctrl)
+	eth := mocks.NewMockEthClient(ctrl)
 
 	config := cltest.NewTestConfig(t)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())
@@ -145,7 +145,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	eth := mocks.NewMockEthWrapper(ctrl)
+	eth := mocks.NewMockEthClient(ctrl)
 
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
@@ -965,7 +965,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	eth := mocks.NewMockEthWrapper(ctrl)
+	eth := mocks.NewMockEthClient(ctrl)
 
 	config := cltest.NewTestConfig(t)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())

@@ -12,10 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockgen -package=mocks -destination=../internal/mocks/eth_wrapper_mocks.go github.com/smartcontractkit/chainlink/core/store EthWrapper
+//go:generate mockgen -package=mocks -destination=../internal/mocks/eth_client_mocks.go github.com/smartcontractkit/chainlink/core/store EthClient
 
-// EthWrapper is the interface supplied by EthCallerSubscriber
-type EthWrapper interface {
+// EthClient is the interface supplied by EthCallerSubscriber
+type EthClient interface {
 	GetNonce(address common.Address) (uint64, error)
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
