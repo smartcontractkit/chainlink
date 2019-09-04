@@ -150,8 +150,20 @@ func sessionAuth(store *store.Store, c *gin.Context) error {
 		return ErrorAuthFailed
 	}
 
-	_, err := store.AuthorizedUserWithSession(sessionID)
-	return err
+	user, err := store.AuthorizedUserWithSession(sessionID)
+	if err != nil {
+		return err
+	}
+	c.Set("user", &user)
+	return nil
+}
+
+func authenticatedUser(c *gin.Context) (*models.User, bool) {
+	obj, ok := c.Get("user")
+	if !ok {
+		return nil, false
+	}
+	return obj.(*models.User), ok
 }
 
 func tokenAuth(store *store.Store, c *gin.Context) error {
@@ -173,8 +185,17 @@ func tokenAuth(store *store.Store, c *gin.Context) error {
 	if !ok {
 		return ErrorAuthFailed
 	}
+	c.Set("external_initiator", ei)
 
 	return nil
+}
+
+func authenticatedEI(c *gin.Context) (*models.ExternalInitiator, bool) {
+	obj, ok := c.Get("external_initiator")
+	if !ok {
+		return nil, false
+	}
+	return obj.(*models.ExternalInitiator), ok
 }
 
 func sessionAuthRequired(store *store.Store) gin.HandlerFunc {
