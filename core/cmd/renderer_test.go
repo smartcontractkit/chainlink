@@ -179,7 +179,7 @@ func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.Nil(t, r.Render(&eia))
+			assert.NoError(t, r.Render(&eia))
 			assert.True(t, tw.found)
 		})
 	}
