@@ -48,7 +48,7 @@ func ExecuteJobWithRunRequest(
 		"creation_height", creationHeight,
 	)
 
-	run, err := NewRun(job, initiator, input, creationHeight, store)
+	run, err := NewRun(job, initiator, input, creationHeight, store, runRequest.Payment)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewRun failed")
 	}
@@ -62,7 +62,7 @@ func ExecuteJobWithRunRequest(
 func MeetsMinimumPayment(
 	expectedMinJobPayment *assets.Link,
 	actualRunPayment *assets.Link) bool {
-	// input.Amount is always present for runs triggered by ethlogs
+	// input.Payment is always present for runs triggered by ethlogs
 	if actualRunPayment == nil || expectedMinJobPayment == nil || expectedMinJobPayment.IsZero() {
 		return true
 	}
@@ -76,7 +76,8 @@ func NewRun(
 	initiator models.Initiator,
 	input models.RunResult,
 	currentHeight *big.Int,
-	store *store.Store) (*models.JobRun, error) {
+	store *store.Store,
+	payment *assets.Link) (*models.JobRun, error) {
 
 	now := store.Clock.Now()
 	if !job.Started(now) {
@@ -98,18 +99,18 @@ func NewRun(
 	run.CreationHeight = models.NewBig(currentHeight)
 	run.ObservedHeight = models.NewBig(currentHeight)
 
-	if !MeetsMinimumPayment(job.MinPayment, input.Amount) {
+	if !MeetsMinimumPayment(job.MinPayment, payment) {
 		logger.Infow("Rejecting run with insufficient payment", []interface{}{
 			"run", run.ID,
 			"job", run.JobSpecID,
-			"input_amount", input.Amount,
-			"required_amount", job.MinPayment,
+			"input_payment", payment,
+			"required_payment", job.MinPayment,
 		}...)
 
 		err := fmt.Errorf(
 			"Rejecting job %s with payment %s below job-specific-minimum threshold (%s)",
 			job.ID,
-			input.Amount,
+			payment,
 			job.MinPayment.Text(10))
 		run.SetError(err)
 	}
@@ -138,20 +139,20 @@ func NewRun(
 		}
 	}
 
-	// input.Amount is always present for runs triggered by ethlogs
-	if input.Amount != nil {
-		if cost.Cmp(input.Amount) > 0 {
+	// payment is always present for runs triggered by ethlogs
+	if payment != nil {
+		if cost.Cmp(payment) > 0 {
 			logger.Debugw("Rejecting run with insufficient payment", []interface{}{
 				"run", run.ID,
 				"job", run.JobSpecID,
-				"input_amount", input.Amount,
-				"required_amount", cost,
+				"input_payment", payment,
+				"required_payment", cost,
 			}...)
 
 			err := fmt.Errorf(
 				"Rejecting job %s with payment %s below minimum threshold (%s)",
 				job.ID,
-				input.Amount,
+				payment,
 				store.Config.MinimumContractPayment().Text(10))
 			run.SetError(err)
 		}
