@@ -11,19 +11,19 @@
   },
   "dependencies": {
     "@babel/polyfill": "^7.2.5",
+    "@babel/register": "^7.0.0",
     "body-parser": "^1.18.3",
     "cbor": "^4.0.0",
     "chainlink": "^0.6.5",
     "express": "^4.16.2",
     "link_token": "^1.0.3",
-    "openzeppelin-solidity": "^1.12.0",
     "request-promise": "^4.2.2",
     "truffle": "^5.0.25",
-    "web3": "^1.0.0-beta.55",
-    "@babel/register": "^7.0.0"
+    "web3": "^1.0.0-beta.55"
   },
   "devDependencies": {
     "depcheck": "^0.8.3",
+    "solc": "0.4.24",
     "solhint": "^2.1.0"
   }
 }

@@ -17,10 +17,12 @@
   "dependencies": {
     "chainlink": "0.6.5",
     "chainlink-test-helpers": "0.6.0-6",
+    "link_token": "^1.0.3",
     "openzeppelin-solidity": "^1.12.0"
   },
   "devDependencies": {
     "depcheck": "^0.8.3",
+    "solc": "0.4.24",
     "solhint": "^2.1.0",
     "truffle": "^5.0.25",
     "truffle-hdwallet-provider": "^1.0.8"
