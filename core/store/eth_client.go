@@ -50,25 +50,16 @@ func (eth *EthClient) GetNonce(address common.Address) (uint64, error) {
 	return utils.HexToUint64(result)
 }
 
-// getWeiBalance returns the balance of the given address in Wei.
-func (eth *EthClient) getWeiBalance(address common.Address) (*big.Int, error) {
-	result := ""
-	numWeiBigInt := new(big.Int)
-	err := eth.Call(&result, "eth_getBalance", address.Hex(), "latest")
-	if err != nil {
-		return numWeiBigInt, err
-	}
-	numWeiBigInt.SetString(result, 0)
-	return numWeiBigInt, nil
-}
-
 // GetEthBalance returns the balance of the given addresses in Ether.
 func (eth *EthClient) GetEthBalance(address common.Address) (*assets.Eth, error) {
-	balance, err := eth.getWeiBalance(address)
+	result := ""
+	amount := new(assets.Eth)
+	err := eth.Call(&result, "eth_getBalance", address.Hex(), "latest")
 	if err != nil {
-		return assets.NewEth(0), err
+		return amount, err
 	}
-	return (*assets.Eth)(balance), nil
+	amount.SetString(result, 0)
+	return amount, nil
 }
 
 // CallArgs represents the data used to call the balance method of an ERC
