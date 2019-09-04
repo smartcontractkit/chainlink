@@ -5,14 +5,13 @@
 package mocks
 
 import (
-	big "math/big"
-	reflect "reflect"
-
 	go_ethereum "github.com/ethereum/go-ethereum"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "github.com/golang/mock/gomock"
 	assets "github.com/smartcontractkit/chainlink/core/store/assets"
 	models "github.com/smartcontractkit/chainlink/core/store/models"
+	big "math/big"
+	reflect "reflect"
 )
 
 // MockEthWrapper is a mock of EthWrapper interface
@@ -141,21 +140,6 @@ func (m *MockEthWrapper) GetTxReceipt(arg0 common.Hash) (*models.TxReceipt, erro
 func (mr *MockEthWrapperMockRecorder) GetTxReceipt(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTxReceipt", reflect.TypeOf((*MockEthWrapper)(nil).GetTxReceipt), arg0)
-}
-
-// GetWeiBalance mocks base method
-func (m *MockEthWrapper) GetWeiBalance(arg0 common.Address) (*big.Int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetWeiBalance", arg0)
-	ret0, _ := ret[0].(*big.Int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetWeiBalance indicates an expected call of GetWeiBalance
-func (mr *MockEthWrapperMockRecorder) GetWeiBalance(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWeiBalance", reflect.TypeOf((*MockEthWrapper)(nil).GetWeiBalance), arg0)
 }
 
 // SendRawTx mocks base method
