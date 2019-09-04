@@ -51,17 +51,17 @@ func TestHTTPGet_Perform(t *testing.T) {
 		headers     http.Header
 		queryParams adapters.QueryParameters
 	}{
-		{"success", 200, "results!", false, `results!`, nil, nil},
-		{"success but error in body", 200, `{"error": "results!"}`, false, `{"error": "results!"}`, nil, nil},
-		{"success with HTML", 200, `<html>results!</html>`, false, `<html>results!</html>`, nil, nil},
-		{"success with headers", 200, "results!", false, `results!`,
+		{"success", http.StatusOK, "results!", false, `results!`, nil, nil},
+		{"success but error in body", http.StatusOK, `{"error": "results!"}`, false, `{"error": "results!"}`, nil, nil},
+		{"success with HTML", http.StatusOK, `<html>results!</html>`, false, `<html>results!</html>`, nil, nil},
+		{"success with headers", http.StatusOK, "results!", false, `results!`,
 			http.Header{
 				"Key1": []string{"value"},
 				"Key2": []string{"value", "value"},
 			}, nil},
-		{"not found", 400, "inputValue", true, `<html>so bad</html>`, nil, nil},
-		{"server error", 400, "inputValue", true, `Invalid request`, nil, nil},
-		{"success with params", 200, "results!", false, `results!`, nil,
+		{"not found", http.StatusBadRequest, "inputValue", true, `<html>so bad</html>`, nil, nil},
+		{"server error", http.StatusBadRequest, "inputValue", true, `Invalid request`, nil, nil},
+		{"success with params", http.StatusOK, "results!", false, `results!`, nil,
 			adapters.QueryParameters{
 				"Key1": []string{"value0"},
 				"Key2": []string{"value1", "value2"},
@@ -114,7 +114,7 @@ func TestHTTP_TooLarge(t *testing.T) {
 		t.Run(test.verb, func(t *testing.T) {
 			input := cltest.RunResultWithResult("inputValue")
 			largePayload := "12"
-			mock, cleanup := cltest.NewHTTPMockServer(t, 200, test.verb, largePayload)
+			mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, test.verb, largePayload)
 			defer cleanup()
 
 			hga := test.factory(cltest.WebURL(t, mock.URL))
@@ -146,7 +146,7 @@ func TestHttpPost_Perform(t *testing.T) {
 		body        *string
 	}{
 		{
-			"success", 200, "results!",
+			"success", http.StatusOK, "results!",
 			`{"result":"inputVal"}`,
 			false,
 			`results!`,
@@ -156,7 +156,7 @@ func TestHttpPost_Perform(t *testing.T) {
 		},
 		{
 			"success but error in body",
-			200,
+			http.StatusOK,
 			`{"error": "results!"}`,
 			`{"result":"inputVal"}`,
 			false,
@@ -167,7 +167,7 @@ func TestHttpPost_Perform(t *testing.T) {
 		},
 		{
 			"success with HTML",
-			200,
+			http.StatusOK,
 			`<html>results!</html>`,
 			`{"result":"inputVal"}`,
 			false,
@@ -178,7 +178,7 @@ func TestHttpPost_Perform(t *testing.T) {
 		},
 		{
 			"success with headers",
-			200, "results!", `{"result":"inputVal"}`, false, `results!`,
+			http.StatusOK, "results!", `{"result":"inputVal"}`, false, `results!`,
 			http.Header{
 				"Key1": []string{"value"},
 				"Key2": []string{"value", "value"},
@@ -188,7 +188,7 @@ func TestHttpPost_Perform(t *testing.T) {
 		},
 		{
 			"not found",
-			400,
+			http.StatusBadRequest,
 			"inputVal",
 			`{"result":"inputVal"}`,
 			true,
@@ -199,7 +199,7 @@ func TestHttpPost_Perform(t *testing.T) {
 		},
 		{
 			"server error",
-			500,
+			http.StatusInternalServerError,
 			"inputVal",
 			`{"result":"inputVal"}`,
 			true,
@@ -210,7 +210,7 @@ func TestHttpPost_Perform(t *testing.T) {
 		},
 		{
 			"success with params",
-			200,
+			http.StatusOK,
 			"results!",
 			`{"result":"inputVal"}`,
 			false,
@@ -224,7 +224,7 @@ func TestHttpPost_Perform(t *testing.T) {
 		},
 		{
 			"success with body",
-			200,
+			http.StatusOK,
 			"results!",
 			`{"Key1":"value","Key2":"value"}`,
 			false,
@@ -235,7 +235,7 @@ func TestHttpPost_Perform(t *testing.T) {
 		},
 		{
 			"success with body",
-			200,
+			http.StatusOK,
 			"results!",
 			"",
 			false,
