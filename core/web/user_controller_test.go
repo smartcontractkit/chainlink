@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"net/http"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -21,7 +22,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 	resp, cleanup := client.Patch("/v2/user/password", bytes.NewBufferString(""))
 	defer cleanup()
 	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
-	require.Equal(t, 422, resp.StatusCode)
+	require.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
 	assert.Len(t, errors.Errors, 1)
 
 	// Old password is wrong
@@ -30,7 +31,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 		bytes.NewBufferString(`{"oldPassword": "wrong password"}`))
 	defer cleanup()
 	errors = cltest.ParseJSONAPIErrors(t, resp.Body)
-	require.Equal(t, 409, resp.StatusCode)
+	require.Equal(t, http.StatusConflict, resp.StatusCode)
 	assert.Len(t, errors.Errors, 1)
 	assert.Equal(t, "Old password does not match", errors.Errors[0].Detail)
 
@@ -41,7 +42,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 	defer cleanup()
 	errors = cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Len(t, errors.Errors, 0)
-	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
 func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
@@ -58,7 +59,7 @@ func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
 	err := cltest.ParseJSONAPIResponse(t, resp, &balances)
 	assert.NoError(t, err)
 
-	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, balances, 0)
 }
 
@@ -82,7 +83,7 @@ func TestUserController_AccountBalances_Success(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/user/balances")
 	defer cleanup()
-	require.Equal(t, 200, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	expectedAccounts := appWithAccount.Store.KeyStore.Accounts()
 	actualBalances := []presenters.AccountBalance{}

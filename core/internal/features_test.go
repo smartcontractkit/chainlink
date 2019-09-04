@@ -46,7 +46,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		"Key2": []string{"value", "value"},
 	}
 	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
-	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse,
+	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", tickerResponse,
 		func(header http.Header, _ string) {
 			for key, values := range tickerHeaders {
 				assert.Equal(t, values, header[key])
@@ -105,7 +105,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 func TestIntegration_FeeBump(t *testing.T) {
 	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
-	mockServer, assertCalled := cltest.NewHTTPMockServer(t, 200, "GET", tickerResponse)
+	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", tickerResponse)
 	defer assertCalled()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
@@ -402,7 +402,7 @@ func TestIntegration_EndAt(t *testing.T) {
 
 	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", &bytes.Buffer{})
 	defer cleanup()
-	assert.Equal(t, 500, resp.StatusCode)
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Consistently(func() []models.JobRun {
 		jobRuns, err := app.Store.JobRunsFor(j.ID)
 		assert.NoError(t, err)
@@ -427,7 +427,7 @@ func TestIntegration_StartAt(t *testing.T) {
 
 	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", &bytes.Buffer{})
 	defer cleanup()
-	assert.Equal(t, 500, resp.StatusCode)
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	cltest.WaitForRuns(t, j, app.Store, 0)
 
 	clock.SetTime(startAt)
@@ -454,7 +454,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	eaValue := "87698118359"
 	eaExtra := "other values to be used by external adapters"
 	eaResponse := fmt.Sprintf(`{"data":{"result": "%v", "extra": "%v"}}`, eaValue, eaExtra)
-	mockServer, ensureRequest := cltest.NewHTTPMockServer(t, 200, "POST", eaResponse)
+	mockServer, ensureRequest := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", eaResponse)
 	defer ensureRequest()
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v","confirmations":10}`, mockServer.URL)
@@ -526,7 +526,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 		url := body.Get("responseURL")
 		assert.Contains(t, url.String(), "https://test.chain.link/always/v2/runs")
 
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 		io.WriteString(w, eaResponse)
 	}))
 	defer ts.Close()
@@ -561,7 +561,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 
 	bta := &models.BridgeTypeAuthentication{}
 	var j models.JobSpec
-	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending":true}`,
 		func(h http.Header, b string) {
 			body := cltest.JSONFromString(t, b)
 
@@ -616,7 +616,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	})
 
 	log := cltest.LogFromFixture(t, "testdata/requestLog0original.json")
-	mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending":true}`,
+	mockServer, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending":true}`,
 		func(_ http.Header, body string) {
 			marshaledLog, err := json.Marshal(&log)
 			assert.NoError(t, err)
