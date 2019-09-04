@@ -40,9 +40,6 @@
     "depcheck": "echo \"@chainlink/explorer\" && depcheck --ignore-dirs=client || exit 0"
   },
   "main": "src/index.ts",
-  "engines": {
-    "node": "^10.15"
-  },
   "dependencies": {
     "argon2": "^0.24.1",
     "express": "^4.16.4",

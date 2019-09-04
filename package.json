@@ -17,7 +17,8 @@
   ],
   "scripts": {
     "lint:all": "yarn workspaces run lint",
-    "format:all": "yarn workspaces run format"
+    "format:all": "yarn workspaces run format",
+    "postinstall": "yarn workspace chainlink build"
   },
   "devDependencies": {},
   "resolutions": {
