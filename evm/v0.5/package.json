@@ -22,12 +22,22 @@
     "@babel/register": "^7.0.0",
     "babel-eslint": "^10.0.1",
     "depcheck": "^0.8.3",
+    "chai": "^4.2.0",
+    "ethereumjs-abi": "^0.6.5",
     "openzeppelin-test-helpers": "^0.4.1",
     "solc": "0.5.0",
     "solhint": "^2.1.0",
-    "truffle": "^5.0.25"
+    "truffle": "^5.0.25",
+    "types-bn": "^0.0.1"
   },
   "files": [
     "contracts"
-  ]
+  ],
+  "dependencies": {
+    "@machinomy/types-truffle-contract": "^0.2.0",
+    "@types/cbor": "^2.0.0",
+    "@types/ethereumjs-abi": "^0.6.3",
+    "ethereumjs-abi": "^0.6.8",
+    "truffle-typings": "^1.0.8"
+  }
 }
