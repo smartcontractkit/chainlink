@@ -135,7 +135,7 @@ deploy_contracts() {
   yarn --no-progress install &>$SRCROOT/integration/yarn.log
 
   # run migrations
-  yarn workspace @chainlink/integration run truffle migrate --compile-all --reset --network test | tee $SRCROOT/integration/deploy.log
+  yarn workspace @chainlink/integration truffle:migrate | tee $SRCROOT/integration/deploy.log
   export LINK_TOKEN_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed LinkToken at:' | awk '{print$4}'`
   export ORACLE_CONTRACT_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed Oracle at:' | awk '{print$4}'`
   export ETH_LOG_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed EthLog at:' | awk '{print$4}'`
