@@ -8,7 +8,9 @@
     "test:nocache": "cross-env NODE_ENV=test jest --no-cache",
     "lint": "echo \"No linter configured for integration\" && exit 0",
     "depcheck": "echo '@chainlink/integration' && depcheck || true",
-    "truffle:migrate": "truffle migrate --compile-all --reset --network test"
+    "truffle:migrate": "truffle migrate --compile-all --reset --network test",
+    "truffle:exec:send-runlog-transaction": "truffle exec scripts/send_runlog_transaction.js --network test",
+    "truffle:exec:count-transaction-events": "truffle exec scripts/count_transaction_events.js --network test"
   },
   "dependencies": {
     "chainlink": "0.6.1"
