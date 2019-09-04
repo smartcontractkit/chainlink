@@ -1,8 +1,10 @@
 package web
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -54,14 +56,39 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if !j.WebAuthorized() {
-		jsonAPIError(c, http.StatusForbidden, errors.New("Job not available on web API, recreate with web initiator"))
+	} else if initiator, err := getInitiator(c, j); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if data, err := getRunData(c); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if jr, err := services.ExecuteJob(j, j.InitiatorsFor(models.InitiatorWeb)[0], models.RunResult{Data: data}, nil, jrc.App.GetStore()); err != nil {
+	} else if jr, err := services.ExecuteJob(j, *initiator, models.RunResult{Data: data}, nil, jrc.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.JobRun{JobRun: *jr}, "job run")
+	}
+}
+
+// getInitiator returns the Job Spec's initiator for the given web context.
+func getInitiator(c *gin.Context, js models.JobSpec) (*models.Initiator, error) {
+	if _, ok := authenticatedUser(c); ok {
+		webInitiators := js.InitiatorsFor(models.InitiatorWeb)
+		if len(webInitiators) == 0 {
+			return nil, errors.New("Job not available on web API, recreate with initiator type 'InitiatorWeb'")
+		}
+		return &webInitiators[0], nil
+	} else if ei, ok := authenticatedEI(c); ok {
+		var initiator *models.Initiator
+		for _, i := range js.InitiatorsFor(models.InitiatorExternal) {
+			if strings.ToLower(i.Name) == ei.Name {
+				initiator = &i
+				break
+			}
+		}
+		if initiator == nil {
+			return nil, fmt.Errorf("Job not available via External Initiator '%s'", ei.Name)
+		}
+		return initiator, nil
+	} else {
+		return nil, errors.New("not found")
 	}
 }
 
