@@ -65,31 +65,19 @@ func (eth *EthClient) GetWeiBalance(address common.Address) (*big.Int, error) {
 
 // GetEthBalance returns the balance of the given addresses in Ether.
 func (eth *EthClient) GetEthBalance(address common.Address) (*assets.Eth, error) {
-	balance, err := eth.GetWeiBalance(address)
+	balance, err := eth.getWeiBalance(address)
 	if err != nil {
 		return assets.NewEth(0), err
 	}
 	return (*assets.Eth)(balance), nil
 }
 
-// callArgs represents the data used to call the balance method of an ERC
+// CallArgs represents the data used to call the balance method of an ERC
 // contract. "To" is the address of the ERC contract. "Data" is the message sent
 // to the contract.
-type callArgs struct {
+type CallArgs struct {
 	To   common.Address `json:"to"`
 	Data hexutil.Bytes  `json:"data"`
-}
-
-// ExtractERC20BalanceTargetAddress returns the address whose balance is being
-// queried by the message in the given call to an ERC20 contract, which is
-// interpreted as a callArgs.
-func ExtractERC20BalanceTargetAddress(args interface{}) (common.Address, bool) {
-	call, ok := (args).(callArgs)
-	if !ok {
-		return common.Address{}, false
-	}
-	message := call.Data
-	return common.BytesToAddress(([]byte)(message)[len(message)-20:]), true
 }
 
 // GetERC20Balance returns the balance of the given address for the token contract address.
@@ -98,7 +86,7 @@ func (eth *EthClient) GetERC20Balance(address common.Address, contractAddress co
 	numLinkBigInt := new(big.Int)
 	functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
 	data := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(address.Bytes(), utils.EVMWordByteLen))
-	args := callArgs{
+	args := CallArgs{
 		To:   contractAddress,
 		Data: data,
 	}

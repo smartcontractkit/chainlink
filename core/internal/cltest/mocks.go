@@ -768,6 +768,18 @@ func (m *MockRunChannel) Receive() <-chan store.RunRequest {
 
 func (m *MockRunChannel) Close() {}
 
+// extractERC20BalanceTargetAddress returns the address whose balance is being
+// queried by the message in the given call to an ERC20 contract, which is
+// interpreted as a callArgs.
+func extractERC20BalanceTargetAddress(args interface{}) (common.Address, bool) {
+	call, ok := (args).(store.CallArgs)
+	if !ok {
+		return common.Address{}, false
+	}
+	message := call.Data
+	return common.BytesToAddress(([]byte)(message)[len(message)-20:]), true
+}
+
 // ExtractTargetAddressFromERC20EthEthCallMock extracts the contract address and the
 // method data, for checking in a test.
 func ExtractTargetAddressFromERC20EthEthCallMock(
@@ -776,7 +788,7 @@ func ExtractTargetAddressFromERC20EthEthCallMock(
 	require.True(t, ethMockCallArgsOk)
 	actualCallArgs, actualCallArgsOk := (ethMockCallArgs[0]).([]interface{})
 	require.True(t, actualCallArgsOk)
-	address, ok := store.ExtractERC20BalanceTargetAddress(actualCallArgs[0])
+	address, ok := extractERC20BalanceTargetAddress(actualCallArgs[0])
 	require.True(t, ok)
 	return address
 }
