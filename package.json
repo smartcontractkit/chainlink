@@ -21,7 +21,8 @@
     "lint:operator-ui": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./operator_ui",
     "lint:evm": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./evm",
     "lint:examples": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./examples",
-    "format:all": "yarn workspaces run format"
+    "format:all": "yarn workspaces run format",
+    "postinstall": "yarn workspace chainlink build"
   },
   "devDependencies": {
     "@types/mocha": "^5.2.0",

@@ -13,11 +13,20 @@ environment:
   MSYS2_BITS: 64
   MSYSTEM: MINGW64
   PATH: C:\msys64\mingw64\bin\;C:\Program Files (x86)\NSIS\;%PATH%
+  nodejs_version: "10"
+  PYTHON: "3.7"
+
+stack: python %PYTHON%
 
 init:
   - git config --global core.autocrlf input
 
 install:
+  # Install the configured nodejs version
+  - ps: Install-Product node $env:nodejs_version
+  # Generate solidity contract artifacts
+  - yarn install
+
   # Install the specific Go version.
   - rmdir c:\go /s /q
   - appveyor DownloadFile https://storage.googleapis.com/golang/go%GOVERSION%.windows-amd64.msi

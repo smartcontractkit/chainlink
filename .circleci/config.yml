@@ -52,6 +52,15 @@ jobs:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - restore_cache:
           name: Restore Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
       - run: go mod download

@@ -38,9 +38,6 @@
     "depcheck": "echo \"@chainlink/explorer\" && depcheck --ignore-dirs=client || exit 0"
   },
   "main": "src/index.ts",
-  "engines": {
-    "node": "^10.15"
-  },
   "dependencies": {
     "@types/express-winston": "^3.0.1",
     "@types/helmet": "0.0.43",

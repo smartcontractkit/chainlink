@@ -2,4 +2,3 @@ node_modules/
 .python-version
 build/contracts/*
 !contracts/vendor
-!build/contracts/Oracle.sol
