@@ -12,9 +12,9 @@ contract EmptyAggregator {
   function initiateJob(
     bytes32 _saId, CoordinatorInterface.ServiceAgreement memory _sa)
     public returns (bool success, bytes memory response) {
-    emit InitiatedJob(_saId, _sa);
-    success = true;
-  }
+      emit InitiatedJob(_saId, _sa);
+      success = true;
+    }
 
   event Fulfilled(
     bytes32 requestId,
@@ -24,11 +24,11 @@ contract EmptyAggregator {
     bytes fulfillment);
 
   function fulfill(bytes32 _requestId, bytes32 _saId, address _oracle,
-                   bytes32 _fulfillment)
+    bytes32 _fulfillment)
     public returns (bool success, bool complete, bytes memory response) {
-    success = true;
-    complete = true;
-    response = abi.encode(_fulfillment);
-    emit Fulfilled(_requestId, _oracle, success, complete, response);
-  }
+      success = true;
+      complete = true;
+      response = abi.encode(_fulfillment);
+      emit Fulfilled(_requestId, _oracle, success, complete, response);
+    }
 }
