@@ -148,6 +148,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
 
     serviceAgreements[serviceAgreementID] = _agreement;
     emit NewServiceAgreement(serviceAgreementID, _agreement.requestDigest);
+    // solhint-disable-next-line avoid-low-level-calls
     (bool ok, bytes memory response) = _agreement.aggregator.call(
       abi.encodeWithSelector(
         _agreement.aggInitiateJobSelector,
@@ -232,6 +233,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   ) external isValidRequest(_requestId) returns (bool) {
     Callback memory callback = callbacks[_requestId];
     ServiceAgreement memory sA = serviceAgreements[callback.sAId];
+    // solhint-disable-next-line avoid-low-level-calls
     (bool ok, bytes memory aggResponse) = sA.aggregator.call(
       abi.encodeWithSelector(
         sA.aggFulfillSelector, _requestId, callback.sAId, msg.sender, _data));
@@ -243,11 +245,9 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     if (aggComplete) {
       for (uint256 oIdx = 0; oIdx < sA.oracles.length; oIdx++) { // pay oracles
         withdrawableTokens[sA.oracles[oIdx]] += sA.payment / sA.oracles.length;
-      }
+      } // solhint-disable-next-line avoid-low-level-calls
       (bool success,) = callback.addr.call(abi.encodeWithSelector( // report final result
-                                             callback.functionId,
-                                             _requestId,
-                                             abi.decode(response, (bytes32))));
+        callback.functionId, _requestId, abi.decode(response, (bytes32))));
       return success;
     }
     return true;
