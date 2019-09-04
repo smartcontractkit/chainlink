@@ -19,7 +19,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 	})
@@ -59,7 +59,7 @@ func TestTransactionsController_Index_Error(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Register("eth_getTransactionCount", "0x100")
 	require.NoError(t, app.Start())
 
@@ -75,7 +75,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 	})
@@ -128,7 +128,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 	})

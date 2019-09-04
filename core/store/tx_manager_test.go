@@ -222,7 +222,7 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 	assert.NoError(t, err)
 	sentAt := uint64(23456)
 	nonce := uint64(256)
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 		ethMock.Register("eth_chainId", store.Config.ChainID())
@@ -291,7 +291,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 			to := cltest.NewAddress()
 			data, err := hex.DecodeString("0000abcdef")
 			assert.NoError(t, err)
-			ethMock := app.MockEthClient()
+			ethMock := app.MockEthCallerSubscriber()
 
 			nonce1 := uint64(256)
 			ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
@@ -338,7 +338,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	to := cltest.NewAddress()
 	data, err := hex.DecodeString("0000abcdef")
 	assert.NoError(t, err)
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 
 	nonce1 := uint64(256)
 	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
@@ -397,7 +397,7 @@ func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(23456)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
-	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold-1)))
@@ -433,7 +433,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(23456)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
-	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold)))
@@ -470,7 +470,7 @@ func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(23456)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
-	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold+1)))
@@ -506,7 +506,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed_lessThanGasThreshold(t *testing.T)
 	minConfs := config.MinOutgoingConfirmations() - 1
 	sentAt := uint64(23456)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
-	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold+minConfs-1)))
@@ -545,7 +545,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed_atGasBumpThreshold(t *testing.T) {
 	sentAt := uint64(23456)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
 	minConfs := config.MinOutgoingConfirmations() - 1
-	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold+minConfs+1)))
@@ -678,7 +678,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt2)
 			assert.NoError(t, err)
 
-			ethMock := app.MockEthClient(cltest.Strict)
+			ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 			ethMock.ShouldCall(test.mockSetup).During(func() {
 				require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(test.blockHeight)))
 				ethMock.Register("eth_chainId", store.Config.ChainID())
@@ -702,7 +702,7 @@ func TestTxManager_CheckAttempt(t *testing.T) {
 	store := app.Store
 	config := store.Config
 
-	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
 	require.NoError(t, app.StartAndConnect())
@@ -757,7 +757,7 @@ func TestTxManager_CheckAttempt_error(t *testing.T) {
 	defer cleanup()
 
 	store := app.Store
-	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", store.Config.ChainID())
 	require.NoError(t, app.StartAndConnect())
@@ -783,7 +783,7 @@ func TestTxManager_Register(t *testing.T) {
 
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
-		&strpkg.EthClient{CallerSubscriber: ethMock},
+		&strpkg.EthCallerSubscriber{CallerSubscriber: ethMock},
 		orm.NewConfig(),
 		nil,
 		nil,
@@ -805,7 +805,7 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
-		&strpkg.EthClient{CallerSubscriber: ethMock},
+		&strpkg.EthCallerSubscriber{CallerSubscriber: ethMock},
 		orm.NewConfig(),
 		nil,
 		nil,
@@ -840,7 +840,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 
 	ethMock := &cltest.EthMock{}
 	txm := store.NewEthTxManager(
-		&strpkg.EthClient{CallerSubscriber: ethMock},
+		&strpkg.EthCallerSubscriber{CallerSubscriber: ethMock},
 		orm.NewConfig(),
 		nil,
 		nil,
@@ -873,7 +873,7 @@ func TestTxManager_WithdrawLink_HappyPath(t *testing.T) {
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
 	nonce := uint64(256)
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 		ethMock.Register("eth_chainId", config.ChainID())
@@ -907,7 +907,7 @@ func TestTxManager_WithdrawLink_Unconfigured_Oracle(t *testing.T) {
 	defer cleanup()
 
 	nonce := uint64(256)
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
@@ -1031,7 +1031,7 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 	data, err := hex.DecodeString("0000abcdef")
 	assert.NoError(t, err)
 	nonce := uint64(256)
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 		ethMock.Register("eth_chainId", config.ChainID())

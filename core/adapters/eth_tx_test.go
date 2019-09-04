@@ -200,7 +200,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 	defer cleanup()
 	store := app.Store
 	config := store.Config
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 
 	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	sentAt := uint64(23456)
@@ -272,7 +272,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	config := store.Config
 	sentAt := uint64(23456)
 
-	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", `0x100`)
 	ethMock.Register("eth_call", "0x1")
 	ethMock.Register("eth_getBalance", "0x100")
@@ -335,7 +335,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	config := store.Config
 	sentAt := uint64(23456)
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	receipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
@@ -396,7 +396,7 @@ func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
 	defer cleanup()
 
 	store := app.Store
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Register("eth_chainId", store.Config.ChainID())
 	ethMock.Register("eth_getTransactionCount", `0x0100`)
 	require.NoError(t, app.StartAndConnect())
@@ -420,7 +420,7 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *
 	defer cleanup()
 
 	store := app.Store
-	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", `0x17`)
 	ethMock.Register("eth_chainId", store.Config.ChainID())
 	assert.Nil(t, app.Start())
@@ -448,7 +448,7 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 	defer cleanup()
 
 	store := app.Store
-	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", `0x12`)
 	ethMock.Register("eth_chainId", store.Config.ChainID())
 	assert.Nil(t, app.Start())
@@ -677,7 +677,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
-	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", `0x1`)
 	ethMock.Register("eth_chainId", store.Config.ChainID())
 
@@ -747,7 +747,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 	defer cleanup()
 	store := app.Store
 
-	ethMock := app.MockEthClient(cltest.Strict)
+	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", `0x1`)
 	ethMock.Register("eth_getTransactionCount", `0x2`)
 	ethMock.Register("eth_chainId", store.Config.ChainID())

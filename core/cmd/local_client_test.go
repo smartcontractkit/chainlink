@@ -39,7 +39,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	set.Bool("debug", true, "")
 	c := cli.NewContext(nil, set, nil)
 
-	eth := app.MockEthClient()
+	eth := app.MockEthCallerSubscriber()
 	eth.Register("eth_getTransactionCount", `0x1`)
 	eth.Register("eth_chainId", config.ChainID())
 
@@ -119,7 +119,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			set.String("password", test.pwdfile, "")
 			c := cli.NewContext(nil, set, nil)
 
-			eth := app.MockEthClient()
+			eth := app.MockEthCallerSubscriber()
 			eth.Register("eth_getTransactionCount", `0x1`)
 			if test.wantUnlocked {
 				assert.NoError(t, client.RunNode(c))
@@ -167,7 +167,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			set.String("api", test.apiFile, "")
 			c := cli.NewContext(nil, set, nil)
 
-			eth := app.MockEthClient()
+			eth := app.MockEthCallerSubscriber()
 			eth.Register("eth_getTransactionCount", `0x1`)
 
 			if test.wantError {
