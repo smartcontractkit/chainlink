@@ -661,7 +661,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_Happy(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithConfig(t, config)
 			defer cleanup()
 
-			eth := app.MockEthClient()
+			eth := app.MockEthCallerSubscriber()
 			app.Start()
 
 			store := app.GetStore()
@@ -722,7 +722,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_ConnectToLaggingEthNode(t *testing.
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 
-	eth := app.MockEthClient()
+	eth := app.MockEthCallerSubscriber()
 	app.MockStartAndConnect()
 
 	store := app.GetStore()

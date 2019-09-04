@@ -33,8 +33,8 @@ import (
 // Strict flag makes the mock eth client panic if an unexpected call is made
 const Strict = "strict"
 
-// MockEthClient create new EthMock Client
-func (ta *TestApplication) MockEthClient(flags ...string) *EthMock {
+// MockEthCallerSubscriber create new EthMock Client
+func (ta *TestApplication) MockEthCallerSubscriber(flags ...string) *EthMock {
 	if ta.ChainlinkApplication.HeadTracker.Connected() {
 		logger.Panic("Cannot mock eth client after being connected")
 	}
@@ -49,7 +49,7 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 			mock.strict = true
 		}
 	}
-	eth := &store.EthClient{CallerSubscriber: mock}
+	eth := &store.EthCallerSubscriber{CallerSubscriber: mock}
 	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
 		txm.EthWrapper = eth
 	} else {

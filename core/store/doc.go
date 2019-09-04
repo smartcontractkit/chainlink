@@ -6,7 +6,7 @@
 // Config contains the local configuration options that the application
 // will adhere to.
 //
-// EthClient
+// EthCallerSubscriber
 //
 // This makes use of Go-Ethereum's functions to interact with the blockchain.
 // The underlying functions can be viewed here:

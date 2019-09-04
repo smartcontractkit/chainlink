@@ -22,7 +22,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Register("eth_getBalance", "0x0100")
 	ethMock.Register("eth_call", "0x0100")
 
@@ -587,7 +587,7 @@ func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func(),
 
 	hash := cltest.NewHash()
 	nonce := "0x100"
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", nonce)

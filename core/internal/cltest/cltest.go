@@ -262,7 +262,7 @@ func (ta *TestApplication) WaitForConnection() error {
 }
 
 func (ta *TestApplication) MockStartAndConnect() (*EthMock, error) {
-	ethMock := ta.MockEthClient()
+	ethMock := ta.MockEthCallerSubscriber()
 	ethMock.Context("TestApplication#MockStartAndConnect()", func(ethMock *EthMock) {
 		ethMock.Register("eth_chainId", ta.Config.ChainID())
 		ethMock.Register("eth_getTransactionCount", `0x0`)

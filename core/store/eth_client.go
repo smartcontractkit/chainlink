@@ -14,7 +14,7 @@ import (
 
 //go:generate mockgen -package=mocks -destination=../internal/mocks/eth_wrapper_mocks.go github.com/smartcontractkit/chainlink/core/store EthWrapper
 
-// EthWrapper is the interface supplied by EthClient
+// EthWrapper is the interface supplied by EthCallerSubscriber
 type EthWrapper interface {
 	GetNonce(address common.Address) (uint64, error)
 	GetEthBalance(address common.Address) (*assets.Eth, error)
@@ -28,8 +28,8 @@ type EthWrapper interface {
 	SubscribeToNewHeads(channel chan<- models.BlockHeader) (models.EthSubscription, error)
 }
 
-// EthClient holds the CallerSubscriber interface for the Ethereum blockchain.
-type EthClient struct {
+// EthCallerSubscriber holds the CallerSubscriber interface for the Ethereum blockchain.
+type EthCallerSubscriber struct {
 	CallerSubscriber
 }
 
@@ -41,7 +41,7 @@ type CallerSubscriber interface {
 }
 
 // GetNonce returns the nonce (transaction count) for a given address.
-func (eth *EthClient) GetNonce(address common.Address) (uint64, error) {
+func (eth *EthCallerSubscriber) GetNonce(address common.Address) (uint64, error) {
 	result := ""
 	err := eth.Call(&result, "eth_getTransactionCount", address.Hex(), "latest")
 	if err != nil {
@@ -51,7 +51,7 @@ func (eth *EthClient) GetNonce(address common.Address) (uint64, error) {
 }
 
 // GetEthBalance returns the balance of the given addresses in Ether.
-func (eth *EthClient) GetEthBalance(address common.Address) (*assets.Eth, error) {
+func (eth *EthCallerSubscriber) GetEthBalance(address common.Address) (*assets.Eth, error) {
 	result := ""
 	amount := new(assets.Eth)
 	err := eth.Call(&result, "eth_getBalance", address.Hex(), "latest")
@@ -71,7 +71,7 @@ type CallArgs struct {
 }
 
 // GetERC20Balance returns the balance of the given address for the token contract address.
-func (eth *EthClient) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
+func (eth *EthCallerSubscriber) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
 	result := ""
 	numLinkBigInt := new(big.Int)
 	functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
@@ -89,35 +89,35 @@ func (eth *EthClient) GetERC20Balance(address common.Address, contractAddress co
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
-func (eth *EthClient) SendRawTx(hex string) (common.Hash, error) {
+func (eth *EthCallerSubscriber) SendRawTx(hex string) (common.Hash, error) {
 	result := common.Hash{}
 	err := eth.Call(&result, "eth_sendRawTransaction", hex)
 	return result, err
 }
 
 // GetTxReceipt returns the transaction receipt for the given transaction hash.
-func (eth *EthClient) GetTxReceipt(hash common.Hash) (*models.TxReceipt, error) {
+func (eth *EthCallerSubscriber) GetTxReceipt(hash common.Hash) (*models.TxReceipt, error) {
 	receipt := models.TxReceipt{}
 	err := eth.Call(&receipt, "eth_getTransactionReceipt", hash.String())
 	return &receipt, err
 }
 
 // GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".
-func (eth *EthClient) GetBlockByNumber(hex string) (models.BlockHeader, error) {
+func (eth *EthCallerSubscriber) GetBlockByNumber(hex string) (models.BlockHeader, error) {
 	var header models.BlockHeader
 	err := eth.Call(&header, "eth_getBlockByNumber", hex, false)
 	return header, err
 }
 
 // GetLogs returns all logs that respect the passed filter query.
-func (eth *EthClient) GetLogs(q ethereum.FilterQuery) ([]models.Log, error) {
+func (eth *EthCallerSubscriber) GetLogs(q ethereum.FilterQuery) ([]models.Log, error) {
 	var results []models.Log
 	err := eth.Call(&results, "eth_getLogs", utils.ToFilterArg(q))
 	return results, err
 }
 
 // GetChainID returns the ethereum ChainID.
-func (eth *EthClient) GetChainID() (*big.Int, error) {
+func (eth *EthCallerSubscriber) GetChainID() (*big.Int, error) {
 	value := new(models.Big)
 	err := eth.Call(value, "eth_chainId")
 	return value.ToInt(), err
@@ -125,7 +125,7 @@ func (eth *EthClient) GetChainID() (*big.Int, error) {
 
 // SubscribeToLogs registers a subscription for push notifications of logs
 // from a given address.
-func (eth *EthClient) SubscribeToLogs(
+func (eth *EthCallerSubscriber) SubscribeToLogs(
 	channel chan<- models.Log,
 	q ethereum.FilterQuery,
 ) (models.EthSubscription, error) {
@@ -136,7 +136,7 @@ func (eth *EthClient) SubscribeToLogs(
 }
 
 // SubscribeToNewHeads registers a subscription for push notifications of new blocks.
-func (eth *EthClient) SubscribeToNewHeads(
+func (eth *EthCallerSubscriber) SubscribeToNewHeads(
 	channel chan<- models.BlockHeader,
 ) (models.EthSubscription, error) {
 	ctx := context.Background()

@@ -34,7 +34,7 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	hash := cltest.NewHash()
 	client := app.NewHTTPClient()
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	nonce := "0x100"
 
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
@@ -86,7 +86,7 @@ func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
 		Amount:             assets.NewLink(1000000000000000000),
 	}
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")

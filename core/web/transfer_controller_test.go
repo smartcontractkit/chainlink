@@ -21,7 +21,7 @@ func TestTransfersController_CreateSuccess(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
@@ -58,7 +58,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
@@ -96,7 +96,7 @@ func TestTransfersController_TransferError(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
@@ -131,7 +131,7 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
