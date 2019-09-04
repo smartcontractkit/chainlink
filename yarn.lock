@@ -5662,11 +5662,6 @@ buffer@^5.1.0:
     base64-js "^1.0.2"
     ieee754 "^1.1.4"
 
-builtin-modules@^1.1.1:
-  version "1.1.1"
-  resolved "https://registry.npmjs.org/builtin-modules/-/builtin-modules-1.1.1.tgz#270f076c5a72c02f5b65a47df94c5fe3a278892f"
-  integrity sha1-Jw8HbFpywC9bZaR9+Uxf46J4iS8=
-
 builtin-modules@^3.0.0:
   version "3.1.0"
   resolved "https://registry.npmjs.org/builtin-modules/-/builtin-modules-3.1.0.tgz#aad97c15131eb76b65b50ef208e7584cd76a7484"
@@ -5908,10 +5903,15 @@ caniuse-api@^3.0.0:
     lodash.memoize "^4.1.2"
     lodash.uniq "^4.5.0"
 
-caniuse-lite@1.0.30000957, caniuse-lite@^1.0.0, caniuse-lite@^1.0.30000884, caniuse-lite@^1.0.30000939, caniuse-lite@^1.0.30000947, caniuse-lite@^1.0.30000951, caniuse-lite@^1.0.30000955, caniuse-lite@^1.0.30000980, caniuse-lite@^1.0.30000984:
+caniuse-lite@^1.0.0, caniuse-lite@^1.0.30000884, caniuse-lite@^1.0.30000939, caniuse-lite@^1.0.30000947, caniuse-lite@^1.0.30000951, caniuse-lite@^1.0.30000955:
   version "1.0.30000957"
-  resolved "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30000957.tgz#fb1026bf184d7d62c685205358c3b24b9e29f7b3"
+  resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30000957.tgz#fb1026bf184d7d62c685205358c3b24b9e29f7b3"
   integrity sha512-8wxNrjAzyiHcLXN/iunskqQnJquQQ6VX8JHfW5kLgAPRSiSuKZiNfmIkP5j7jgyXqAQBSoXyJxfnbCFS0ThSiQ==
+
+caniuse-lite@^1.0.30000980, caniuse-lite@^1.0.30000984:
+  version "1.0.30000989"
+  resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30000989.tgz#b9193e293ccf7e4426c5245134b8f2a56c0ac4b9"
+  integrity sha512-vrMcvSuMz16YY6GSVZ0dWDTJP8jqk3iFQ/Aq5iqblPwxSVVZI+zxDyTX0VPqtQsDnfdrBDcsmhgTEOh5R8Lbpw==
 
 capture-exit@^2.0.0:
   version "2.0.0"
@@ -6595,7 +6595,7 @@ commander@2.6.0:
   resolved "https://registry.npmjs.org/commander/-/commander-2.6.0.tgz#9df7e52fb2a0cb0fb89058ee80c3104225f37e1d"
   integrity sha1-nfflL7Kgyw+4kFjugMMQQiXzfh0=
 
-commander@^2.11.0, commander@^2.12.1, commander@^2.18.0, commander@^2.19.0, commander@^2.8.1, commander@~2.19.0:
+commander@^2.11.0, commander@^2.18.0, commander@^2.19.0, commander@^2.8.1, commander@~2.19.0:
   version "2.19.0"
   resolved "https://registry.npmjs.org/commander/-/commander-2.19.0.tgz#f6198aa84e5b83c46054b94ddedbfed5ee9ff12a"
   integrity sha512-6tvAOO+D6OENvRAh524Dh9jcfKTYDQAqvqezbCW82xj5X0pSrcpxtvRKHLG0yBY6SD7PSDrJaj+0AiOcKVd1Xg==
@@ -7883,7 +7883,7 @@ diff@3.3.1:
   resolved "https://registry.npmjs.org/diff/-/diff-3.3.1.tgz#aa8567a6eed03c531fc89d3f711cd0e5259dec75"
   integrity sha512-MKPHZDMB0o6yHyDryUOScqZibp914ksXwAMYMTHj6KO8UeKsRYNJD3oNCKjTqZon+V488P7N/HzXF8t7ZR95ww==
 
-diff@3.5.0, diff@^3.2.0, diff@^3.5.0:
+diff@3.5.0, diff@^3.5.0:
   version "3.5.0"
   resolved "https://registry.npmjs.org/diff/-/diff-3.5.0.tgz#800c0dd1e0a8bfbc95835c202ad220fe317e5a12"
   integrity sha512-A46qtFgd+g7pDZinpnwiRJtxbC1hpgf0uzP3iG89scHk0AUC7A1TGxf5OiiOUv/JMZR8GOt8hL900hV0bOy5xA==
@@ -10196,7 +10196,7 @@ fork-ts-checker-webpack-plugin@1.1.1:
     tapable "^1.0.0"
     worker-rpc "^0.1.0"
 
-fork-ts-checker-webpack-plugin@1.5.0:
+fork-ts-checker-webpack-plugin@1.5.0, fork-ts-checker-webpack-plugin@^1.5.0:
   version "1.5.0"
   resolved "https://registry.npmjs.org/fork-ts-checker-webpack-plugin/-/fork-ts-checker-webpack-plugin-1.5.0.tgz#ce1d77190b44d81a761b10b6284a373795e41f0c"
   integrity sha512-zEhg7Hz+KhZlBhILYpXy+Beu96gwvkROWJiTXOCyOOMMrdBIRPvsBpBqgTI4jfJGrJXcqGwJR8zsBGDmzY0jsA==
@@ -10209,19 +10209,6 @@ fork-ts-checker-webpack-plugin@1.5.0:
     semver "^5.6.0"
     tapable "^1.0.0"
     worker-rpc "^0.1.0"
-
-fork-ts-checker-webpack-plugin@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.npmjs.org/fork-ts-checker-webpack-plugin/-/fork-ts-checker-webpack-plugin-1.0.0.tgz#0f9ff0219f9b6f1a1b10fa25d7cc5015e60c997a"
-  integrity sha512-Kc7LI0OlnWB0FRbDQO+nnDCfZr+LhFSJIP8kZppDXvuXI/opeMg3IrlMedBX/EGgOUK0ma5Hafgkdp3DuxgYdg==
-  dependencies:
-    babel-code-frame "^6.22.0"
-    chalk "^2.4.1"
-    chokidar "^2.0.4"
-    micromatch "^3.1.10"
-    minimatch "^3.0.4"
-    semver "^5.6.0"
-    tapable "^1.0.0"
 
 form-data@^2.3.1:
   version "2.5.0"
@@ -13182,7 +13169,7 @@ js-tokens@^3.0.0, js-tokens@^3.0.2:
   resolved "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz#19203fb59991df98e3a287050d4647cdeaf32499"
   integrity sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==
 
-js-yaml@^3.12.0, js-yaml@^3.13.0, js-yaml@^3.7.0, js-yaml@^3.9.0, js-yaml@^3.9.1:
+js-yaml@^3.12.0, js-yaml@^3.13.0, js-yaml@^3.9.0, js-yaml@^3.9.1:
   version "3.13.0"
   resolved "https://registry.npmjs.org/js-yaml/-/js-yaml-3.13.0.tgz#38ee7178ac0eea2c97ff6d96fff4b18c7d8cf98e"
   integrity sha512-pZZoSxcCYco+DIKBTimr67J6Hy+EYGZDY/HCWC+iAEA9h1ByhMXAIVUXMcMFpOCxQ/xjXmPI2MkDL5HRm5eFrQ==
@@ -18571,16 +18558,14 @@ react-static-plugin-react-router@^6.3.4:
   resolved "https://registry.npmjs.org/react-static-plugin-react-router/-/react-static-plugin-react-router-6.3.4.tgz#18bbb8e751618c31fff29ad59b8d664797cad36e"
   integrity sha512-aV+dtgLlaaUWSmjmbOyIDN6FOU+EZK15qZXNOJdDRxkJxwaFAf0fNek3BtK8Za5c/Wcf+wv8CFpUYXDNCH5R+Q==
 
-react-static-plugin-typescript@^3.1.1:
-  version "3.2.0"
-  resolved "https://registry.npmjs.org/react-static-plugin-typescript/-/react-static-plugin-typescript-3.2.0.tgz#d7ba0d1e19187c7be4259f63e331a8ced883c0e8"
-  integrity sha512-Q+nFYqw3Ho/wNODZYIu5ZZwoLL0SczmlrFV8Iz8siRHJK1iwHeaUvhYLY9x24xYjVOtwBvCuz+LZybWq8f88qg==
+react-static-plugin-typescript@^7.0.0:
+  version "7.2.0"
+  resolved "https://registry.yarnpkg.com/react-static-plugin-typescript/-/react-static-plugin-typescript-7.2.0.tgz#2b8a91b0bc117df61845e928d286b18c77bef399"
+  integrity sha512-oTaMCfrtqKdC19SBTa57Lfq47lLaWl/iWlb0dNOLjT3hJ3xL40tTdafQ9qnDuNl7usQo43M7jNL4R7VkRvUbLQ==
   dependencies:
     "@babel/preset-typescript" "^7.3.3"
     convert-tsconfig-paths-to-webpack-aliases "^0.9.2"
-    fork-ts-checker-webpack-plugin "^1.0.0"
-    tslint "^5.14.0"
-    typescript "^3.3.4000"
+    fork-ts-checker-webpack-plugin "^1.5.0"
 
 react-static@^6.3.8:
   version "6.3.9"
@@ -19352,7 +19337,7 @@ require-from-string@^1.1.0:
   resolved "https://registry.yarnpkg.com/require-from-string/-/require-from-string-1.2.1.tgz#529c9ccef27380adfec9a2f965b649bbee636418"
   integrity sha1-UpyczvJzgK3+yaL5ZbZJu+5jZBg=
 
-require-from-string@^2.0.1:
+require-from-string@^2.0.0, require-from-string@^2.0.1:
   version "2.0.2"
   resolved "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz#89a7fdd938261267318eafe14f9c32e598c36909"
   integrity sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==
@@ -20400,6 +20385,18 @@ solc@0.4.25, solc@^0.4.11, solc@^0.4.20:
     semver "^5.3.0"
     yargs "^4.7.1"
 
+solc@0.5.0:
+  version "0.5.0"
+  resolved "https://registry.yarnpkg.com/solc/-/solc-0.5.0.tgz#2deb2ae992acac3afb909f85c38d00f01dcb335e"
+  integrity sha512-mdLHDl9WeYrN+FIKcMc9PlPfnA9DG9ur5QpCDKcv6VC4RINAsTF4EMuXMZMKoQTvZhtLyJIVH/BZ+KU830Z8Xg==
+  dependencies:
+    fs-extra "^0.30.0"
+    keccak "^1.0.2"
+    memorystream "^0.3.1"
+    require-from-string "^2.0.0"
+    semver "^5.5.0"
+    yargs "^11.0.0"
+
 solhint@^2.1.0:
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/solhint/-/solhint-2.1.0.tgz#a0f8064db5726bb54c8ed21e94b01f0bb3959b3c"
@@ -20423,14 +20420,6 @@ solidity-cborutils@^1.0.2:
   version "1.0.5"
   resolved "https://registry.npmjs.org/solidity-cborutils/-/solidity-cborutils-1.0.5.tgz#25a2875d942c18d4b61e889c0b56604de1f41063"
   integrity sha512-SHwp1Un9s6Ki8rXMod18w/6VAqzuBor61SqPS6uy7s1fPDx1rUwnhcx3zWK8CfA0Pm7UY31Apy9NOBu/Vo4ZMg==
-  dependencies:
-    "@ensdomains/buffer" "0.0.10"
-    cbor ">=4.0.0"
-
-solidity-cborutils@^1.0.4:
-  version "1.0.4"
-  resolved "https://registry.npmjs.org/solidity-cborutils/-/solidity-cborutils-1.0.4.tgz#2992debcb676480fd6b131a89d5ffb856e120b33"
-  integrity sha512-MjcHYMbo979ccu7XlXX0c2hzDs8PYBT3uitNO6BKf3eZANne2tZ7kuPnNwqn6FeFazpbrfxjnqXEKZnb8UsI4Q==
   dependencies:
     "@ensdomains/buffer" "0.0.10"
     cbor ">=4.0.0"
@@ -21684,11 +21673,6 @@ truffle-blockchain-utils@^0.0.5:
   resolved "https://registry.yarnpkg.com/truffle-blockchain-utils/-/truffle-blockchain-utils-0.0.5.tgz#a4e5c064dadd69f782a137f3d276d21095da7a47"
   integrity sha1-pOXAZNrdafeCoTfz0nbSEJXaekc=
 
-truffle-blockchain-utils@^0.0.8:
-  version "0.0.8"
-  resolved "https://registry.yarnpkg.com/truffle-blockchain-utils/-/truffle-blockchain-utils-0.0.8.tgz#09995c36016a54092b337f237c3dc1a3dca12341"
-  integrity sha512-4dbgqd4GrloKNLiaXACiymE3R2PsNFOlbgOh/CGkQVLArtcbgBAl7Fg2l5yVfDV8dtOFWHddj/2UkY25KY1+Dw==
-
 truffle-contract-schema@^2.0.2:
   version "2.0.2"
   resolved "https://registry.yarnpkg.com/truffle-contract-schema/-/truffle-contract-schema-2.0.2.tgz#9db59e3a5ea85b63dca453a2dba9897c2c3523fd"
@@ -21716,15 +21700,6 @@ truffle-contract-schema@^3.0.13:
     crypto-js "^3.1.9-1"
     debug "^4.1.0"
 
-truffle-contract-schema@^3.0.6:
-  version "3.0.6"
-  resolved "https://registry.yarnpkg.com/truffle-contract-schema/-/truffle-contract-schema-3.0.6.tgz#d28c43ccbc15524a2be81326ccb8c036332f7371"
-  integrity sha512-oAMPr/ecr06ViJMSatfp1VpbDNul0Q1dSrFkWSF4/6WWK4orhNL90A8uhtEt61doLz5n0Yjf59KWE0p7qToPXw==
-  dependencies:
-    ajv "^5.1.1"
-    crypto-js "^3.1.9-1"
-    debug "^4.1.0"
-
 truffle-contract@^3.0.6:
   version "3.0.7"
   resolved "https://registry.yarnpkg.com/truffle-contract/-/truffle-contract-3.0.7.tgz#487b2e1e9c5f01d223148766f6f320ba16bb4f63"
@@ -21735,22 +21710,6 @@ truffle-contract@^3.0.6:
     truffle-contract-schema "^2.0.2"
     truffle-error "^0.0.3"
     web3 "0.20.6"
-
-truffle-contract@^4.0.11:
-  version "4.0.11"
-  resolved "https://registry.yarnpkg.com/truffle-contract/-/truffle-contract-4.0.11.tgz#587d0e032c33ad320b7e12f1093eb789c62a8275"
-  integrity sha512-lzKFdLngTSt7MQMOvsUhOEPUjagSbGVkhQm7rSant4Y/VSWIppL3GXqpTOzdcOJMHgL9iYlMEm42+pHXq6DZxg==
-  dependencies:
-    bignumber.js "^7.2.1"
-    ethers "^4.0.0-beta.1"
-    truffle-blockchain-utils "^0.0.8"
-    truffle-contract-schema "^3.0.6"
-    truffle-error "^0.0.4"
-    truffle-interface-adapter "^0.1.2"
-    web3 "1.0.0-beta.37"
-    web3-core-promievent "1.0.0-beta.37"
-    web3-eth-abi "1.0.0-beta.37"
-    web3-utils "1.0.0-beta.37"
 
 truffle-contract@^4.0.26:
   version "4.0.28"
@@ -21789,11 +21748,6 @@ truffle-error@^0.0.3:
   resolved "https://registry.yarnpkg.com/truffle-error/-/truffle-error-0.0.3.tgz#4bf55242e14deee1c7194932709182deff2c97ca"
   integrity sha1-S/VSQuFN7uHHGUkycJGC3v8sl8o=
 
-truffle-error@^0.0.4:
-  version "0.0.4"
-  resolved "https://registry.yarnpkg.com/truffle-error/-/truffle-error-0.0.4.tgz#c3ff027570c26ae1f20db78637902497857f898f"
-  integrity sha512-hER0TNR4alBIhUp7SNrZRRiZtM/MBx+xBdM9qXP0tC3YASFmhNAxPuOyB8JDHFRNbDx12K7nvaqmyYGsI5c8BQ==
-
 truffle-error@^0.0.5:
   version "0.0.5"
   resolved "https://registry.npmjs.org/truffle-error/-/truffle-error-0.0.5.tgz#6b5740c9f3aac74f47b85d654fff7fe2c1fc5e0e"
@@ -21808,14 +21762,6 @@ truffle-hdwallet-provider@^1.0.8:
     bindings "^1.3.1"
     web3 "1.0.0-beta.37"
     websocket "^1.0.28"
-
-truffle-interface-adapter@^0.1.2:
-  version "0.1.2"
-  resolved "https://registry.yarnpkg.com/truffle-interface-adapter/-/truffle-interface-adapter-0.1.2.tgz#b544e726a3a0833911ce6dadb1197cef53ad801b"
-  integrity sha512-1+pZprFU94mN8ydy4wVI2reW4iELDmsUADpa2ti++HwsX/T02yHK5+GxK3wQ9lXglRiI/B694fKFbHcv3t+Vxg==
-  dependencies:
-    bn.js "^4.11.8"
-    web3 "1.0.0-beta.37"
 
 truffle-interface-adapter@^0.2.3:
   version "0.2.3"
@@ -21919,36 +21865,10 @@ tsconfig@^7.0.0:
     strip-bom "^3.0.0"
     strip-json-comments "^2.0.0"
 
-tslib@^1, tslib@^1.8.0, tslib@^1.8.1, tslib@^1.9.0, tslib@^1.9.3:
+tslib@^1, tslib@^1.8.1, tslib@^1.9.0, tslib@^1.9.3:
   version "1.9.3"
   resolved "https://registry.npmjs.org/tslib/-/tslib-1.9.3.tgz#d7e4dd79245d85428c4d7e4822a79917954ca286"
   integrity sha512-4krF8scpejhaOgqzBEcGM7yDIEfi0/8+8zDRZhNZZ2kjmHJ4hv3zCbQWxoJGz1iw5U0Jl0nma13xzHXcncMavQ==
-
-tslint@^5.14.0:
-  version "5.14.0"
-  resolved "https://registry.npmjs.org/tslint/-/tslint-5.14.0.tgz#be62637135ac244fc9b37ed6ea5252c9eba1616e"
-  integrity sha512-IUla/ieHVnB8Le7LdQFRGlVJid2T/gaJe5VkjzRVSRR6pA2ODYrnfR1hmxi+5+au9l50jBwpbBL34txgv4NnTQ==
-  dependencies:
-    babel-code-frame "^6.22.0"
-    builtin-modules "^1.1.1"
-    chalk "^2.3.0"
-    commander "^2.12.1"
-    diff "^3.2.0"
-    glob "^7.1.1"
-    js-yaml "^3.7.0"
-    minimatch "^3.0.4"
-    mkdirp "^0.5.1"
-    resolve "^1.3.2"
-    semver "^5.3.0"
-    tslib "^1.8.0"
-    tsutils "^2.29.0"
-
-tsutils@^2.29.0:
-  version "2.29.0"
-  resolved "https://registry.npmjs.org/tsutils/-/tsutils-2.29.0.tgz#32b488501467acbedd4b85498673a0812aca0b99"
-  integrity sha512-g5JVHCIJwzfISaXpXE1qvNalca5Jwob6FjI4AoPlqMusJ6ftFE7IkkFoMhVLRgK+4Kx3gkzb8UZK5t5yTTvEmA==
-  dependencies:
-    tslib "^1.8.1"
 
 tsutils@^3.7.0:
   version "3.17.1"
@@ -22058,11 +21978,6 @@ typeorm@^0.2.15:
     xml2js "^0.4.17"
     yargonaut "^1.1.2"
     yargs "^13.2.1"
-
-typescript@^3.3.4000:
-  version "3.3.4000"
-  resolved "https://registry.npmjs.org/typescript/-/typescript-3.3.4000.tgz#76b0f89cfdbf97827e1112d64f283f1151d6adf0"
-  integrity sha512-jjOcCZvpkl2+z7JFn0yBOoLQyLoIkNZAs/fYJkUG6VKy6zLPHJGfQJYFHzibB6GJaF/8QrcECtlQ5cpvRHSMEA==
 
 typescript@^3.5.0:
   version "3.5.3"

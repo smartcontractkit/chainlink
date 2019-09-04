@@ -7,7 +7,10 @@
     "test": "cross-env NODE_ENV=test jest",
     "test:nocache": "cross-env NODE_ENV=test jest --no-cache",
     "lint": "echo \"No linter configured for integration\" && exit 0",
-    "depcheck": "echo '@chainlink/integration' && depcheck || true"
+    "depcheck": "echo '@chainlink/integration' && depcheck || true",
+    "truffle:migrate": "truffle migrate --compile-all --reset --network test",
+    "truffle:exec:send-runlog-transaction": "truffle exec scripts/send_runlog_transaction.js --network test",
+    "truffle:exec:count-transaction-events": "truffle exec scripts/count_transaction_events.js --network test"
   },
   "dependencies": {
     "chainlink": "0.6.1"
@@ -17,6 +20,7 @@
     "body-parser": "^1.18.3",
     "command-line-args": "^5.1.1",
     "cross-env": "^5.2.0",
+    "depcheck": "^0.8.3",
     "ethers": "^4.0.36",
     "expect-puppeteer": "^4.1.0",
     "jest": "^24.7.0",
@@ -25,7 +29,7 @@
     "link_token": "^1.0.3",
     "puppeteer": "^1.10.0",
     "request-promise": "^4.2.4",
-    "truffle": "^5.0.25",
-    "depcheck": "^0.8.3"
+    "solc": "0.4.24",
+    "truffle": "^5.0.25"
   }
 }
