@@ -158,6 +158,8 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	defer cleanup()
 
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
 
@@ -185,7 +187,6 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 
 	// stop
 	assert.NoError(t, ht.Stop())
-	ctrl.Finish()
 }
 
 func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {

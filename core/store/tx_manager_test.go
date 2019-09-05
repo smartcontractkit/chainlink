@@ -30,6 +30,7 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
 	eth := mocks.NewMockEthClient(ctrl)
 
 	config := cltest.NewTestConfig(t)
@@ -75,6 +76,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
 	eth := mocks.NewMockEthClient(ctrl)
 
 	config := cltest.NewTestConfig(t)
@@ -145,6 +147,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
 	eth := mocks.NewMockEthClient(ctrl)
 
 	config := cltest.NewTestConfig(t)
@@ -965,6 +968,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
 	eth := mocks.NewMockEthClient(ctrl)
 
 	config := cltest.NewTestConfig(t)
