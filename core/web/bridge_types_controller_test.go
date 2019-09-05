@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -24,7 +25,7 @@ func BenchmarkBridgeTypesController_Index(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		resp, cleanup := client.Get("/v2/specs")
 		defer cleanup()
-		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
+		assert.Equal(b, http.StatusOK, resp.StatusCode, "Response should be successful")
 	}
 }
 
@@ -40,11 +41,11 @@ func TestBridgeTypesController_Index(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/specs?size=x")
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 422)
+	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 
 	resp, cleanup = client.Get("/v2/bridge_types?size=1")
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var links jsonapi.Links
 	bridges := []models.BridgeType{}
@@ -61,7 +62,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 
 	resp, cleanup = client.Get(links["next"].Href)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	bridges = []models.BridgeType{}
 	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &bridges, &links)
@@ -107,7 +108,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 		bytes.NewBuffer(cltest.MustReadFile(t, "testdata/create_random_number_bridge_type.json")),
 	)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	respJSON := cltest.ParseJSON(t, resp.Body)
 	btName := respJSON.Get("data.attributes.name").String()
 
@@ -139,7 +140,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	ud := bytes.NewBuffer([]byte(`{"url":"http://yourbridge"}`))
 	resp, cleanup := client.Patch("/v2/bridge_types/bridgea", ud)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	ubt, err := app.Store.FindBridge(bt.Name)
 	assert.NoError(t, err)
@@ -162,7 +163,7 @@ func TestBridgeController_Show(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/bridge_types/" + bt.Name.String())
 	defer cleanup()
-	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "Response should be successful")
 
 	var respBridge models.BridgeTypeAuthentication
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respBridge))
@@ -172,7 +173,7 @@ func TestBridgeController_Show(t *testing.T) {
 
 	resp, cleanup = client.Get("/v2/bridge_types/nosuchbridge")
 	defer cleanup()
-	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be 404")
 }
 
 func TestBridgeController_Destroy(t *testing.T) {
@@ -183,7 +184,7 @@ func TestBridgeController_Destroy(t *testing.T) {
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Delete("/v2/bridge_types/testingbridges1")
 	defer cleanup()
-	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be 404")
 
 	bridgeJSON := cltest.MustReadFile(t, "testdata/create_random_number_bridge_type.json")
 	var bt models.BridgeType
@@ -193,11 +194,11 @@ func TestBridgeController_Destroy(t *testing.T) {
 
 	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
 	defer cleanup()
-	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "Response should be successful")
 
 	resp, cleanup = client.Get("/v2/bridge_types/" + bt.Name.String())
 	defer cleanup()
-	assert.Equal(t, 404, resp.StatusCode, "Response should be 404")
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be 404")
 
 	require.NoError(t, app.GetStore().CreateBridgeType(&bt))
 
@@ -207,7 +208,7 @@ func TestBridgeController_Destroy(t *testing.T) {
 
 	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
 	defer cleanup()
-	assert.Equal(t, 409, resp.StatusCode, "Response should be 409")
+	assert.Equal(t, http.StatusConflict, resp.StatusCode, "Response should be 409")
 }
 
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
@@ -222,7 +223,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 		bytes.NewBuffer(cltest.MustReadFile(t, "testdata/existing_core_adapter.json")),
 	)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 400)
+	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
 
 func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
@@ -237,7 +238,7 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 		bytes.NewBufferString("}"),
 	)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 422)
+	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 }
 
 func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
@@ -252,5 +253,5 @@ func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
 	)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 400)
+	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }

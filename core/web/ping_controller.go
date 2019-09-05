@@ -1,6 +1,8 @@
 package web
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/core/services"
 )
@@ -12,5 +14,5 @@ type PingController struct {
 
 // Show returns pong.
 func (eic *PingController) Show(c *gin.Context) {
-	c.JSON(200, gin.H{"message": "pong"})
+	c.JSON(http.StatusOK, gin.H{"message": "pong"})
 }

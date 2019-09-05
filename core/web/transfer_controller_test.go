@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -46,7 +47,7 @@ func TestTransfersController_CreateSuccess(t *testing.T) {
 	defer cleanup()
 
 	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
-	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, errors.Errors, 0)
 
 	ethMock.AllCalled()
@@ -85,7 +86,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	defer cleanup()
 
 	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
-	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, errors.Errors, 0)
 
 	ethMock.AllCalled()
@@ -122,7 +123,7 @@ func TestTransfersController_TransferError(t *testing.T) {
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
 	defer cleanup()
 
-	cltest.AssertServerResponse(t, resp, 400)
+	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 
 	ethMock.AllCalled()
 }
@@ -149,7 +150,7 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer([]byte(`{"address":""}`)))
 	defer cleanup()
 
-	cltest.AssertServerResponse(t, resp, 400)
+	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 
 	ethMock.AllCalled()
 }
