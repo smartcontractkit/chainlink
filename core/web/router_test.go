@@ -24,7 +24,7 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 	resp, err := http.Post(ts.URL+"/v2/specs/", web.MediaType, bytes.NewBufferString("{}"))
 	require.NoError(t, err)
 
-	assert.Equal(t, 401, resp.StatusCode)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
 func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
@@ -39,7 +39,7 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 	resp, cleanup := client.Post("/v2/specs/", nil)
 	defer cleanup()
 
-	assert.Equal(t, 400, resp.StatusCode)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
@@ -70,7 +70,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	resp, err := client.Do(request)
 	require.NoError(t, err)
 
-	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
@@ -101,7 +101,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	resp, err := client.Do(request)
 	require.NoError(t, err)
 
-	assert.Equal(t, 401, resp.StatusCode)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
 func TestSessions_RateLimited(t *testing.T) {
@@ -121,7 +121,7 @@ func TestSessions_RateLimited(t *testing.T) {
 
 		resp, err := client.Do(request)
 		require.NoError(t, err)
-		assert.Equal(t, 401, resp.StatusCode)
+		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	}
 
 	request, err := http.NewRequest("POST", ts.URL+"/sessions", bytes.NewBufferString(input))
