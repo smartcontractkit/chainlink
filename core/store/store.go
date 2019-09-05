@@ -155,7 +155,7 @@ func NewStoreWithDialer(config *orm.Config, dialer Dialer) *Store {
 		KeyStore:    keyStore,
 		ORM:         orm,
 		RunChannel:  NewQueuedRunChannel(),
-		TxManager:   NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
+		TxManager:   NewEthTxManager(&EthCallerSubscriber{ethrpc}, config, keyStore, orm),
 		StatsPusher: synchronization.NewStatsPusher(orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret()),
 	}
 	return store

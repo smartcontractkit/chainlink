@@ -179,7 +179,7 @@ func TestTx_PresenterMatchesHex(t *testing.T) {
 	data, err := hex.DecodeString("0000abcdef")
 	require.NoError(t, err)
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x00")
 		ethMock.Register("eth_getTransactionCount", "0x10")
@@ -190,7 +190,6 @@ func TestTx_PresenterMatchesHex(t *testing.T) {
 
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-		ethMock.Register("eth_blockNumber", utils.Uint64ToHex(1))
 	})
 
 	createdTx, err := manager.CreateTx(to, data)

@@ -71,7 +71,7 @@ func TestUserController_AccountBalances_Success(t *testing.T) {
 	appWithAccount.AddUnlockedKey()
 	client := appWithAccount.NewHTTPClient()
 
-	ethMock := appWithAccount.MockEthClient()
+	ethMock := appWithAccount.MockEthCallerSubscriber()
 	ethMock.Context("first wallet", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getBalance", "0x0100")
 		ethMock.Register("eth_call", "0x0100")

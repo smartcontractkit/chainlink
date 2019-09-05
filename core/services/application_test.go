@@ -24,7 +24,7 @@ func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 	defer cleanup()
 	app, appCleanUp := cltest.NewApplicationWithConfig(t, config)
 	defer appCleanUp()
-	eth := app.MockEthClient(cltest.Strict)
+	eth := app.MockEthCallerSubscriber(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 
 	completed := abool.New()
@@ -44,6 +44,8 @@ func TestChainlinkApplication_AddJob(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	jobSubscriberMock := mock_services.NewMockJobSubscriber(ctrl)
 	app.ChainlinkApplication.JobSubscriber = jobSubscriberMock
 	jobSubscriberMock.EXPECT().AddJob(gomock.Any(), nil) // nil to represent "latest" block

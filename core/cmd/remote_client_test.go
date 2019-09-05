@@ -22,7 +22,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Register("eth_getBalance", "0x0100")
 	ethMock.Register("eth_call", "0x0100")
 
@@ -586,9 +586,8 @@ func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func(),
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 
 	hash := cltest.NewHash()
-	sentAt := "0x5BA0"
 	nonce := "0x100"
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", nonce)
@@ -598,7 +597,6 @@ func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func(),
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_call", "0xDE0B6B3A7640000")
 		ethMock.Register("eth_sendRawTransaction", hash)
-		ethMock.Register("eth_blockNumber", sentAt)
 	})
 
 	return app, cleanup, ethMock.EventuallyAllCalled
