@@ -21,7 +21,7 @@ func TestRendererJSON_RenderJobs(t *testing.T) {
 	r := cmd.RendererJSON{Writer: ioutil.Discard}
 	job := cltest.NewJob()
 	jobs := []models.JobSpec{job}
-	assert.Nil(t, r.Render(&jobs))
+	assert.NoError(t, r.Render(&jobs))
 }
 
 func TestRendererTable_RenderJobs(t *testing.T) {
@@ -37,7 +37,7 @@ func TestRendererTable_RenderShowJob(t *testing.T) {
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	job := cltest.NewJobWithWebInitiator()
 	p := presenters.JobSpec{JobSpec: job}
-	assert.Nil(t, r.Render(&p))
+	assert.NoError(t, r.Render(&p))
 }
 
 func TestRenderer_RenderJobRun(t *testing.T) {
@@ -55,7 +55,7 @@ func TestRenderer_RenderJobRun(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			job := cltest.NewJobWithWebInitiator()
 			run := job.NewRun(job.Initiators[0])
-			assert.Nil(t, test.renderer.Render(&presenters.JobRun{run}))
+			assert.NoError(t, test.renderer.Render(&presenters.JobRun{run}))
 		})
 	}
 }
@@ -98,7 +98,7 @@ func TestRendererTable_RenderBridgeShow(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.Nil(t, r.Render(bridge))
+			assert.NoError(t, r.Render(bridge))
 			assert.True(t, tw.found)
 		})
 	}
@@ -122,7 +122,7 @@ func TestRendererTable_RenderBridgeAdd(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.Nil(t, r.Render(bridge))
+			assert.NoError(t, r.Render(bridge))
 			assert.True(t, tw.found)
 		})
 	}
@@ -146,7 +146,7 @@ func TestRendererTable_RenderBridgeList(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.Nil(t, r.Render(&[]models.BridgeType{*bridge}))
+			assert.NoError(t, r.Render(&[]models.BridgeType{*bridge}))
 			assert.Equal(t, test.wantFound, tw.found)
 		})
 	}
