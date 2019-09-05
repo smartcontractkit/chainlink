@@ -29,7 +29,7 @@ contract ChainlinkClient {
   bytes32 private ensNode;
   LinkTokenInterface private link;
   ChainlinkRequestInterface private oracle;
-  uint256 private requestCount = 1;
+  uint256 private requests = 1;
   mapping(bytes32 => address) private pendingRequests;
 
   event ChainlinkRequested(bytes32 indexed id);
@@ -80,12 +80,12 @@ contract ChainlinkClient {
     internal
     returns (bytes32 requestId)
   {
-    requestId = keccak256(abi.encodePacked(this, requestCount));
-    _req.nonce = requestCount;
+    requestId = keccak256(abi.encodePacked(this, requests));
+    _req.nonce = requests;
     pendingRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
     require(link.transferAndCall(_oracle, _payment, encodeRequest(_req)), "unable to transferAndCall to oracle");
-    requestCount += 1;
+    requests += 1;
 
     return requestId;
   }

@@ -65,7 +65,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable {
     uint256 _amount,
     bytes _data
   )
-    external
+    public
     onlyLINK
     validRequestLength(_data)
     permittedFunctionsForLINK(_data)
