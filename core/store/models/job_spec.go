@@ -204,6 +204,8 @@ const (
 	// InitiatorServiceAgreementExecutionLog for tasks in a job to watch a
 	// Solidity Coordinator contract and expect a payload from a log event.
 	InitiatorServiceAgreementExecutionLog = "execagreement"
+	// InitiatorExternal for tasks in a job to be trigger by an external party.
+	InitiatorExternal = "external"
 )
 
 // Initiator could be thought of as a trigger, defines how a Job can be
@@ -228,6 +230,7 @@ type InitiatorParams struct {
 	Ran        bool              `json:"ran,omitempty"`
 	Address    common.Address    `json:"address,omitempty" gorm:"index"`
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
+	Name       string            `json:"name,omitempty"`
 }
 
 // UnmarshalJSON parses the raw initiator data and updates the
