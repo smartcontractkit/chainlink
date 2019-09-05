@@ -88,6 +88,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 
 // NewTestConfig returns a test configuration
 func NewTestConfig(t testing.TB) *TestConfig {
+	t.Helper()
+
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	rawConfig := orm.NewConfig()
