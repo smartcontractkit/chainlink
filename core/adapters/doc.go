@@ -8,12 +8,12 @@
 // For example:
 //  {"id": "b8004e2989e24e1d8e4449afad2eb480", "data": {}}
 //
-// Condition
+// Compare
 //
-// The Condition adapter is used to compare the previous task's result
-// against a specified value. Just like an `if` statement, the conditional
+// The Compare adapter is used to compare the previous task's result
+// against a specified value. Just like an `if` statement, the compare
 // adapter will save `true` or `false` in the task run's result.
-//  { "type": "Condition", "params": {"operator": "eq", "value": "Hello" }}
+//  { "type": "Compare", "params": {"operator": "eq", "value": "Hello" }}
 //
 // HTTPGet
 //

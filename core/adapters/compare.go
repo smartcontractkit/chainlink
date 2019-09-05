@@ -9,9 +9,9 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// Condition adapter type takes an Operator and a Value field to
+// Compare adapter type takes an Operator and a Value field to
 // compare to the previous task's Result.
-type Condition struct {
+type Compare struct {
 	Operator string `json:"operator"`
 	Value    string `json:"value"`
 }
@@ -25,7 +25,7 @@ var (
 
 // Perform uses the Operator to check the run's result against the
 // specified Value.
-func (c *Condition) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (c *Compare) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	prevResult := input.Result()
 
 	if c.Value == "" {
