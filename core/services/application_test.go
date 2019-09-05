@@ -44,6 +44,8 @@ func TestChainlinkApplication_AddJob(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	jobSubscriberMock := mock_services.NewMockJobSubscriber(ctrl)
 	app.ChainlinkApplication.JobSubscriber = jobSubscriberMock
 	jobSubscriberMock.EXPECT().AddJob(gomock.Any(), nil) // nil to represent "latest" block

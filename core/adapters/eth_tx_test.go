@@ -64,7 +64,7 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	input := cltest.RunResultWithResult(inputValue)
 	data := adapter.Perform(input, store)
 
-	assert.False(t, data.HasError())
+	assert.NoError(t, data.GetError())
 
 	from := cltest.GetAccountAddress(t, store)
 	txs, err := store.TxFrom(from)
@@ -121,7 +121,7 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	input := cltest.RunResultWithResult(inputValue)
 	data := adapter.Perform(input, store)
 
-	assert.False(t, data.HasError())
+	assert.NoError(t, data.GetError())
 
 	from := cltest.GetAccountAddress(t, store)
 	txs, err := store.TxFrom(from)
@@ -176,7 +176,7 @@ func TestEthTxAdapter_Perform_SafeWithBytesAndNoDataPrefix(t *testing.T) {
 	input := cltest.RunResultWithResult(inputValue)
 	data := adapter.Perform(input, store)
 
-	assert.False(t, data.HasError())
+	assert.NoError(t, data.GetError())
 	assert.Equal(t, string(models.RunStatusCompleted), string(data.Status))
 
 	from := cltest.GetAccountAddress(t, store)
@@ -478,12 +478,13 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
 
 	txAttempt := &models.TxAttempt{}
 	tx := &models.Tx{Attempts: []*models.TxAttempt{txAttempt}}
-	txmMock.EXPECT().Register(gomock.Any())
 	txmMock.EXPECT().Connected().Return(true).AnyTimes()
 	txmMock.EXPECT().CreateTxWithGas(gomock.Any(), gomock.Any(), hexutil.MustDecode(
 		"0x00000000"+
@@ -523,18 +524,21 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 	gasLimit := uint64(911)
 
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
-	txmMock.EXPECT().Register(gomock.Any())
-	txmMock.EXPECT().Connected()
+	txmMock.EXPECT().Connected().Return(true)
 	txmMock.EXPECT().CreateTxWithGas(
 		gomock.Any(),
 		gomock.Any(),
 		gomock.Any(),
 		gasPrice,
 		gasLimit,
-	).Return(&models.Tx{}, nil)
-	txmMock.EXPECT().BumpGasUntilSafe(gomock.Any())
+	).Return(&models.Tx{
+		Attempts: []*models.TxAttempt{&models.TxAttempt{}},
+	}, nil)
+	txmMock.EXPECT().CheckAttempt(gomock.Any(), gomock.Any()).Return(&models.TxReceipt{}, strpkg.Unconfirmed, nil)
 
 	adapter := adapters.EthTx{
 		Address:          cltest.NewAddress(),
@@ -563,7 +567,7 @@ func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 	input := models.RunResult{}
 	data := adapter.Perform(input, store)
 
-	assert.False(t, data.HasError())
+	assert.NoError(t, data.GetError())
 	assert.Equal(t, models.RunStatusPendingConnection, data.Status)
 }
 
@@ -575,9 +579,10 @@ func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testin
 	store := app.Store
 
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
-	txmMock.EXPECT().Register(gomock.Any())
 	txmMock.EXPECT().Connected().Return(true)
 	txmMock.EXPECT().CreateTxWithGas(
 		gomock.Any(),
@@ -591,7 +596,7 @@ func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testin
 	input := models.RunResult{}
 	data := adapter.Perform(input, store)
 
-	assert.False(t, data.HasError())
+	assert.NoError(t, data.GetError())
 	assert.Equal(t, models.RunStatusPendingConnection, data.Status)
 }
 
@@ -603,9 +608,10 @@ func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T
 	store := app.Store
 
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
-	txmMock.EXPECT().Register(gomock.Any())
 	txmMock.EXPECT().Connected().Return(true)
 	txmMock.EXPECT().CreateTxWithGas(
 		gomock.Any(),
@@ -622,7 +628,7 @@ func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T
 	input := models.RunResult{}
 	data := adapter.Perform(input, store)
 
-	assert.False(t, data.HasError())
+	assert.NoError(t, data.GetError())
 	assert.Equal(t, models.RunStatusPendingConnection, data.Status)
 }
 
@@ -637,9 +643,10 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 	tx := cltest.CreateTx(t, store, from, 1)
 
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
-	txmMock.EXPECT().Register(gomock.Any())
 	txmMock.EXPECT().Connected().Return(true)
 	txmMock.EXPECT().CreateTxWithGas(
 		gomock.Any(),
