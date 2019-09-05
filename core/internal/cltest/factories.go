@@ -249,7 +249,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 // NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
-	jobID string,
+	jobID *models.ID,
 	emitter common.Address,
 	requester common.Address,
 	blk int,
@@ -263,7 +263,7 @@ func NewRunLog(
 		BlockHash:   NewHash(),
 		Topics: []common.Hash{
 			models.RunLogTopic20190207withoutIndexes,
-			StringToHash(jobID),
+			models.IDToTopic(jobID),
 		},
 	}
 }
@@ -273,7 +273,7 @@ func NewRunLog(
 // agreement.
 func NewServiceAgreementExecutionLog(
 	t *testing.T,
-	jobID string,
+	jobID *models.ID,
 	logEmitter common.Address,
 	executionRequester common.Address,
 	blockHeight int,
@@ -285,7 +285,7 @@ func NewServiceAgreementExecutionLog(
 		Data:        StringToVersionedLogData0(t, "internalID", serviceAgreementJSON),
 		Topics: []common.Hash{
 			models.ServiceAgreementExecutionLogTopic,
-			StringToHash(jobID),
+			models.IDToTopic(jobID),
 			executionRequester.Hash(),
 			assets.NewLink(1000000000).ToHash(),
 		},
@@ -432,16 +432,6 @@ func RunResultWithData(val string) models.RunResult {
 	return models.RunResult{Data: data}
 }
 
-// RunResultWithDataAndLinkPayout creates a run result with a given data JSON object
-// and link amount as a payout
-func RunResultWithDataAndLinkPayout(val string, amt *assets.Link) models.RunResult {
-	data, err := models.ParseJSON([]byte(val))
-	if err != nil {
-		return RunResultWithError(err)
-	}
-	return models.RunResult{Data: data, Amount: amt}
-}
-
 // RunResultWithError creates a runresult with given error
 func RunResultWithError(err error) models.RunResult {
 	return models.RunResult{
@@ -509,4 +499,13 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 	err = json.Unmarshal(bytes, &dst)
 	require.NoError(t, err)
 	return dst
+}
+
+// FakeLinkEarned mocks a link earning
+func FakeLinkEarned(run *models.JobRun, rewardAmt *assets.Link) models.LinkEarned {
+	return models.LinkEarned{
+		JobRunID: run.ID,
+		Earned:   rewardAmt,
+		EarnedAt: time.Now(),
+	}
 }

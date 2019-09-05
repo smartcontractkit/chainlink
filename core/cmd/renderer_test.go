@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,7 +21,7 @@ func TestRendererJSON_RenderJobs(t *testing.T) {
 	r := cmd.RendererJSON{Writer: ioutil.Discard}
 	job := cltest.NewJob()
 	jobs := []models.JobSpec{job}
-	assert.Nil(t, r.Render(&jobs))
+	assert.NoError(t, r.Render(&jobs))
 }
 
 func TestRendererTable_RenderJobs(t *testing.T) {
@@ -36,7 +37,7 @@ func TestRendererTable_RenderShowJob(t *testing.T) {
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	job := cltest.NewJobWithWebInitiator()
 	p := presenters.JobSpec{JobSpec: job}
-	assert.Nil(t, r.Render(&p))
+	assert.NoError(t, r.Render(&p))
 }
 
 func TestRenderer_RenderJobRun(t *testing.T) {
@@ -54,7 +55,7 @@ func TestRenderer_RenderJobRun(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			job := cltest.NewJobWithWebInitiator()
 			run := job.NewRun(job.Initiators[0])
-			assert.Nil(t, test.renderer.Render(&presenters.JobRun{run}))
+			assert.NoError(t, test.renderer.Render(&presenters.JobRun{run}))
 		})
 	}
 }
@@ -97,7 +98,7 @@ func TestRendererTable_RenderBridgeShow(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.Nil(t, r.Render(bridge))
+			assert.NoError(t, r.Render(bridge))
 			assert.True(t, tw.found)
 		})
 	}
@@ -121,7 +122,7 @@ func TestRendererTable_RenderBridgeAdd(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.Nil(t, r.Render(bridge))
+			assert.NoError(t, r.Render(bridge))
 			assert.True(t, tw.found)
 		})
 	}
@@ -145,8 +146,41 @@ func TestRendererTable_RenderBridgeList(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.Nil(t, r.Render(&[]models.BridgeType{*bridge}))
+			assert.NoError(t, r.Render(&[]models.BridgeType{*bridge}))
 			assert.Equal(t, test.wantFound, tw.found)
+		})
+	}
+}
+
+func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
+	t.Parallel()
+
+	eia := presenters.ExternalInitiatorAuthentication{
+		Name:           "bitcoin",
+		URL:            cltest.WebURL(t, "http://localhost:8888"),
+		AccessKey:      "accesskey",
+		Secret:         "secret",
+		OutgoingToken:  "outgoingToken",
+		OutgoingSecret: "outgoingSecret",
+	}
+	tests := []struct {
+		name, content string
+	}{
+		{"Name", eia.Name},
+		{"URL", eia.URL.String()},
+		{"AccessKey", eia.AccessKey},
+		{"Secret", eia.Secret},
+		{"OutgoingToken", eia.OutgoingToken},
+		{"OutgoingSecret", eia.OutgoingSecret},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tw := &testWriter{test.content, t, false}
+			r := cmd.RendererTable{Writer: tw}
+
+			assert.NoError(t, r.Render(&eia))
+			assert.True(t, tw.found)
 		})
 	}
 }
@@ -166,14 +200,69 @@ func TestRendererTable_Render_TxAttempts(t *testing.T) {
 
 	buffer := bytes.NewBufferString("")
 	r := cmd.RendererTable{Writer: buffer}
-
 	assert.NoError(t, r.Render(&attempts))
 	output := buffer.String()
+
 	assert.Contains(t, output, fmt.Sprint(attempts[0].TxID))
 	assert.Contains(t, output, attempts[0].Hash.Hex())
 	assert.Contains(t, output, fmt.Sprint(attempts[0].GasPrice))
 	assert.Contains(t, output, fmt.Sprint(attempts[0].SentAt))
 	assert.Contains(t, output, fmt.Sprint(attempts[0].Confirmed))
+}
+
+func TestRendererTable_Render_Tx(t *testing.T) {
+	t.Parallel()
+
+	from := cltest.NewAddress()
+	to := cltest.NewAddress()
+	tx := presenters.Tx{
+		Hash:      cltest.NewHash(),
+		Nonce:     "1",
+		From:      &from,
+		To:        &to,
+		GasPrice:  "2",
+		Confirmed: false,
+		SentAt:    "3",
+	}
+
+	buffer := bytes.NewBufferString("")
+	r := cmd.RendererTable{Writer: buffer}
+	assert.NoError(t, r.Render(&tx))
+	output := buffer.String()
+
+	assert.NotContains(t, output, tx.Hash.Hex())
+	assert.Contains(t, output, tx.Nonce)
+	assert.Contains(t, output, from.Hex())
+	assert.Contains(t, output, to.Hex())
+	assert.Contains(t, output, fmt.Sprint(tx.Confirmed))
+}
+
+func TestRendererTable_Render_Txs(t *testing.T) {
+	t.Parallel()
+
+	a := cltest.NewAddress()
+	txs := []presenters.Tx{
+		{
+			Hash:      cltest.NewHash(),
+			Nonce:     "1",
+			From:      &a,
+			GasPrice:  "2",
+			Confirmed: false,
+			SentAt:    "3",
+		},
+	}
+
+	buffer := bytes.NewBufferString("")
+	r := cmd.RendererTable{Writer: buffer}
+	assert.NoError(t, r.Render(&txs))
+	output := buffer.String()
+
+	assert.Contains(t, output, txs[0].Nonce)
+	assert.Contains(t, output, txs[0].Hash.Hex())
+	assert.Contains(t, output, txs[0].GasPrice)
+	assert.Contains(t, output, txs[0].SentAt)
+	assert.Contains(t, output, a.Hex())
+	assert.Contains(t, output, fmt.Sprint(txs[0].Confirmed))
 }
 
 func TestRendererTable_ServiceAgreementShow(t *testing.T) {
@@ -191,6 +280,25 @@ func TestRendererTable_ServiceAgreementShow(t *testing.T) {
 	assert.Regexp(t, regexp.MustCompile("0x[0-9a-zA-Z]{64}"), output)
 	assert.Regexp(t, regexp.MustCompile("1.000000000000000000 LINK"), output)
 	assert.Regexp(t, regexp.MustCompile("300 seconds"), output)
+}
+
+func TestRendererTable_PatchResponse(t *testing.T) {
+	t.Parallel()
+
+	buffer := bytes.NewBufferString("")
+	r := cmd.RendererTable{Writer: buffer}
+
+	patchResponse := web.ConfigPatchResponse{
+		EthGasPriceDefault: web.Change{
+			From: "98721",
+			To:   "53276",
+		},
+	}
+
+	assert.NoError(t, r.Render(&patchResponse))
+	output := buffer.String()
+	assert.Regexp(t, regexp.MustCompile("98721"), output)
+	assert.Regexp(t, regexp.MustCompile("53276"), output)
 }
 
 func TestRendererTable_RenderUnknown(t *testing.T) {

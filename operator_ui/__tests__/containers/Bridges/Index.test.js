@@ -1,14 +1,14 @@
 /* eslint-env jest */
-import React from 'react'
+import createStore from 'connectors/redux'
+import { ConnectedIndex as Index } from 'containers/Bridges/Index'
+import { mount } from 'enzyme'
 import bridgesFactory from 'factories/bridges'
-import syncFetch from 'test-helpers/syncFetch'
+import React from 'react'
+import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
 import clickNextPage from 'test-helpers/clickNextPage'
 import clickPreviousPage from 'test-helpers/clickPreviousPage'
-import createStore from 'connectors/redux'
-import { mount } from 'enzyme'
-import { MemoryRouter } from 'react-router-dom'
-import { Provider } from 'react-redux'
-import { ConnectedIndex as Index } from 'containers/Bridges/Index'
+import syncFetch from 'test-helpers/syncFetch'
 
 const classes = {}
 const mountIndex = (opts = {}) =>
@@ -30,7 +30,7 @@ describe('containers/Bridges/Index', () => {
         url: 'butbobistho.com'
       }
     ])
-    global.fetch.getOnce('/v2/bridge_types?page=1&size=10', bridgesResponse)
+    global.fetch.getOnce('begin:/v2/bridge_types', bridgesResponse)
 
     const wrapper = mountIndex()
 
@@ -46,7 +46,7 @@ describe('containers/Bridges/Index', () => {
       [{ name: 'ID-ON-FIRST-PAGE', url: 'bridge.com' }],
       2
     )
-    global.fetch.getOnce('/v2/bridge_types?page=1&size=1', pageOneResponse)
+    global.fetch.getOnce('begin:/v2/bridge_types', pageOneResponse)
 
     const wrapper = mountIndex({ pageSize: 1 })
 
@@ -58,14 +58,14 @@ describe('containers/Bridges/Index', () => {
       [{ name: 'ID-ON-SECOND-PAGE', url: 'bridge.com' }],
       2
     )
-    global.fetch.getOnce('/v2/bridge_types?page=2&size=1', pageTwoResponse)
+    global.fetch.getOnce('begin:/v2/bridge_types', pageTwoResponse)
     clickNextPage(wrapper)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).toContain('ID-ON-SECOND-PAGE')
 
-    global.fetch.getOnce('/v2/bridge_types?page=1&size=1', pageOneResponse)
+    global.fetch.getOnce('begin:/v2/bridge_types', pageOneResponse)
     clickPreviousPage(wrapper)
 
     await syncFetch(wrapper)

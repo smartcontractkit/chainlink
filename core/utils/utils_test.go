@@ -23,6 +23,21 @@ func TestUtils_NewBytes32ID(t *testing.T) {
 	assert.NotContains(t, id, "-")
 }
 
+func TestUtils_NewSecret(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		numOfBytes int
+		wantStrLen int
+	}{
+		{12, 16}, {24, 32}, {48, 64}, {96, 128},
+	}
+	for _, tt := range tests {
+		test := tt
+		secret := utils.NewSecret(test.numOfBytes)
+		assert.Equal(t, test.wantStrLen, len(secret))
+	}
+}
+
 func TestUtils_IsEmptyAddress(t *testing.T) {
 	tests := []struct {
 		name string

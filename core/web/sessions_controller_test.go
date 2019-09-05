@@ -48,7 +48,7 @@ func TestSessionsController_Create(t *testing.T) {
 			defer resp.Body.Close()
 
 			if test.wantSession {
-				require.Equal(t, 200, resp.StatusCode)
+				require.Equal(t, http.StatusOK, resp.StatusCode)
 				cookies := resp.Cookies()
 				require.Equal(t, 1, len(cookies))
 				decrypted, err := cltest.DecodeSessionCookie(cookies[0].Value)
@@ -89,7 +89,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	assert.NoError(t, err)
 	defer resp.Body.Close()
 
-	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
 		sessions, err := app.Store.Sessions(0, 10)
 		assert.NoError(t, err)
@@ -133,7 +133,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 			_, err = app.Store.AuthorizedUserWithSession(test.sessionID)
 			assert.Error(t, err)
 			if test.success {
-				assert.Equal(t, 200, resp.StatusCode)
+				assert.Equal(t, http.StatusOK, resp.StatusCode)
 			} else {
 				assert.True(t, resp.StatusCode >= 400, "Should get an erroneous status code for deleting a nonexistent session id")
 			}
@@ -168,7 +168,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	resp, err := client.Do(request)
 	assert.NoError(t, err)
 
-	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
 		sessions, err := app.Store.Sessions(0, 10)
 		assert.NoError(t, err)

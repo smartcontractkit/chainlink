@@ -1,6 +1,6 @@
 build: false
 
-clone_folder: c:\gopath\src\github.com\smartcontractkit\chainlink
+clone_folder: c:\chainlink
 
 deploy: false
 
@@ -27,9 +27,7 @@ install:
   - gcc --version
   - go version
   - go env
-  - go get -u -v github.com/golang/dep/cmd/dep
-  # Install Go dependencies.
-  - dep ensure
+  - go mod download
 
 test_script:
   - go test -parallel 2 -p 1 ./...

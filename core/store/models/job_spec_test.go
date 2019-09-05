@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,6 +26,7 @@ func TestNewJobFromRequest(t *testing.T) {
 		Tasks:      cltest.BuildTaskRequests(t, j1.Tasks),
 		StartAt:    j1.StartAt,
 		EndAt:      j1.EndAt,
+		MinPayment: assets.NewLink(5),
 	}
 
 	j2 := models.NewJobFromRequest(jsr)
@@ -34,11 +36,13 @@ func TestNewJobFromRequest(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, fetched1.Initiators, 1)
 	assert.Len(t, fetched1.Tasks, 1)
+	assert.Equal(t, fetched1.MinPayment, assets.NewLink(0))
 
 	fetched2, err := store.FindJob(j2.ID)
 	assert.NoError(t, err)
 	assert.Len(t, fetched2.Initiators, 1)
 	assert.Len(t, fetched2.Tasks, 1)
+	assert.Equal(t, fetched2.MinPayment, assets.NewLink(5))
 }
 
 func TestJobSpec_Save(t *testing.T) {
@@ -46,8 +50,17 @@ func TestJobSpec_Save(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	befCreation := time.Now()
 	j1 := cltest.NewJobWithSchedule("* * * * 7")
+	aftCreation := time.Now()
+	assert.True(t, true, j1.CreatedAt.After(aftCreation), j1.CreatedAt.Before(befCreation))
+	assert.False(t, false, j1.CreatedAt.IsZero())
+
+	befInsertion := time.Now()
 	assert.NoError(t, store.CreateJob(&j1))
+	aftInsertion := time.Now()
+	assert.True(t, true, j1.CreatedAt.After(aftInsertion), j1.CreatedAt.Before(befInsertion))
+
 	initr := j1.Initiators[0]
 
 	j2, err := store.FindJob(j1.ID)
@@ -159,4 +172,17 @@ func TestNewTaskType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestJobSpec_NewLinkEarned(t *testing.T) {
+	t.Parallel()
+
+	runID := models.NewID()
+	befCreation := time.Now()
+	earned := models.NewLinkEarned(runID, assets.NewLink(3))
+	aftCreation := time.Now()
+
+	assert.Equal(t, earned.JobRunID, runID)
+	assert.Equal(t, earned.Earned, assets.NewLink(3))
+	assert.True(t, true, earned.EarnedAt.After(aftCreation), earned.EarnedAt.Before(befCreation))
 }

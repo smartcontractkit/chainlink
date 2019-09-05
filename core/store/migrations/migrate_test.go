@@ -1,11 +1,15 @@
 package migrations_test
 
 import (
+	"fmt"
 	"math/big"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559081901"
@@ -13,9 +17,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560433987"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560791143"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881846"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881855"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560886530"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560924400"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565139192"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565210496"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565291711"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565877314"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gormigrate "gopkg.in/gormigrate.v1"
@@ -28,8 +39,9 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
 	cltest.WipePostgresDatabase(t, tc.Config)
 
-	orm, err := orm.NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout())
+	orm, err := orm.NewORM(orm.NormalizedDatabaseURL(config), config.DatabaseTimeout())
 	require.NoError(t, err)
+	orm.DB.LogMode(true)
 
 	return orm, func() {
 		assert.NoError(t, orm.Close())
@@ -101,6 +113,45 @@ func TestMigrate_Migration1560791143(t *testing.T) {
 	require.NoError(t, db.Where("id = ?", tx.ID).Find(&noIDTxFound).Error)
 }
 
+func TestMigrate_Migration1560881855(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	db := orm.DB
+
+	require.NoError(t, migration0.Migrate(db))
+	require.NoError(t, migration1559081901.Migrate(db))
+	require.NoError(t, migration1559767166.Migrate(db))
+	require.NoError(t, migration1560433987.Migrate(db))
+	require.NoError(t, migration1560791143.Migrate(db))
+	require.NoError(t, migration1560881846.Migrate(db))
+	require.NoError(t, migration1560886530.Migrate(db))
+	require.NoError(t, migration1560924400.Migrate(db))
+	require.NoError(t, migration1565139192.Migrate(db))
+
+	befCreation := time.Now()
+	jobSpecID := uuid.Must(uuid.NewV4())
+	jobID := uuid.Must(uuid.NewV4())
+	query := fmt.Sprintf(`
+INSERT INTO run_results (amount) VALUES (2);
+INSERT INTO job_specs (id) VALUES ('%s');
+INSERT INTO job_runs (id, job_spec_id, overrides_id) VALUES ('%s', '%s', (SELECT id from run_results order by id DESC limit 1));
+`, jobSpecID, jobID, jobSpecID)
+	require.NoError(t, db.Exec(query).Error)
+	aftCreation := time.Now()
+
+	// placement of this migration is important, as it makes sure backfilling
+	//  is done if there's already a RunResult with nonzero link reward
+	require.NoError(t, migration1560881855.Migrate(db))
+
+	rowFound := migration1560881855.LinkEarned{}
+	require.NoError(t, db.Table("link_earned").Find(&rowFound).Error)
+	assert.Equal(t, jobSpecID.String(), rowFound.JobSpecID)
+	assert.Equal(t, jobID.String(), rowFound.JobRunID)
+	assert.Equal(t, assets.NewLink(2), rowFound.Earned)
+	assert.True(t, true, rowFound.EarnedAt.After(aftCreation), rowFound.EarnedAt.Before(befCreation))
+}
+
 func TestMigrate_Migration1560881846(t *testing.T) {
 	orm, cleanup := bootstrapORM(t)
 	defer cleanup()
@@ -126,6 +177,112 @@ func TestMigrate_Migration1560881846(t *testing.T) {
 	require.NoError(t, db.Where("id = (SELECT MAX(id) FROM heads)").Find(&headFound).Error)
 	assert.Equal(t, "0xdad0000000000000000000000000000000000000000000000000000000000b0d", headFound.Hash.Hex())
 	assert.Equal(t, int64(8616460799), headFound.Number)
+}
+
+func TestMigrate_Migration1565139192(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	db := orm.DB
+
+	require.NoError(t, migration0.Migrate(db))
+	require.NoError(t, migration1565139192.Migrate(db))
+	specNoPayment := models.NewJobFromRequest(models.JobSpecRequest{})
+	specWithPayment := models.NewJobFromRequest(models.JobSpecRequest{
+		MinPayment: assets.NewLink(5),
+	})
+	specOneFound := models.JobSpec{}
+	specTwoFound := models.JobSpec{}
+
+	require.NoError(t, db.Create(&specWithPayment).Error)
+	require.NoError(t, db.Create(&specNoPayment).Error)
+	require.NoError(t, db.Where("id = ?", specNoPayment.ID).Find(&specOneFound).Error)
+	require.Equal(t, assets.NewLink(0), specNoPayment.MinPayment)
+	require.NoError(t, db.Where("id = ?", specWithPayment.ID).Find(&specTwoFound).Error)
+	require.Equal(t, assets.NewLink(5), specWithPayment.MinPayment)
+}
+
+func TestMigrate_Migration1565210496(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	db := orm.DB
+
+	require.NoError(t, migration0.Migrate(db))
+
+	jobSpec := migration0.JobSpec{
+		ID:        utils.NewBytes32ID(),
+		CreatedAt: time.Now(),
+	}
+	require.NoError(t, db.Create(&jobSpec).Error)
+	jobRun := migration0.JobRun{
+		ID:             utils.NewBytes32ID(),
+		JobSpecID:      jobSpec.ID,
+		ObservedHeight: "115792089237316195423570985008687907853269984665640564039457584007913129639936",
+		CreationHeight: "0",
+	}
+	require.NoError(t, db.Create(&jobRun).Error)
+
+	require.NoError(t, migration1565210496.Migrate(db))
+
+	jobRunFound := models.JobRun{}
+	require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
+	assert.Equal(t, "115792089237316195423570985008687907853269984665640564039457584007913129639936", jobRunFound.ObservedHeight.String())
+	assert.Equal(t, "0", jobRunFound.CreationHeight.String())
+}
+
+func TestMigrate_Migration1565291711(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	db := orm.DB
+
+	require.NoError(t, migration0.Migrate(db))
+	require.NoError(t, migration1560881855.Migrate(db))
+
+	jobSpec := migration0.JobSpec{
+		ID:        utils.NewBytes32ID(),
+		CreatedAt: time.Now(),
+	}
+	require.NoError(t, db.Create(&jobSpec).Error)
+	jobRun := migration0.JobRun{
+		ID:             utils.NewBytes32ID(),
+		JobSpecID:      jobSpec.ID,
+		CreationHeight: "0",
+		ObservedHeight: "0",
+	}
+	require.NoError(t, db.Create(&jobRun).Error)
+
+	require.NoError(t, migration1565291711.Migrate(db))
+
+	jobRunFound := models.JobRun{}
+	require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
+	assert.Equal(t, jobRun.ID, jobRunFound.ID.String())
+}
+
+func TestMigrate_Migration1565877314(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	db := orm.DB
+
+	require.NoError(t, migration0.Migrate(db))
+
+	exi := migration0.ExternalInitiator{
+		AccessKey:    "access_key",
+		Salt:         "salt",
+		HashedSecret: "hashed_secret",
+	}
+	require.NoError(t, db.Create(&exi).Error)
+
+	require.NoError(t, migration1565210496.Migrate(db))
+
+	require.NoError(t, migration1565877314.Migrate(db))
+
+	exiFound := migration1565877314.ExternalInitiator{}
+	require.NoError(t, db.Where("id = ?", exi.ID).Find(&exiFound).Error)
+	assert.Equal(t, "access_key", exiFound.Name)
+	assert.Equal(t, "https://unset.url", exiFound.URL.String())
 }
 
 func TestMigrate_NewerVersionGuard(t *testing.T) {

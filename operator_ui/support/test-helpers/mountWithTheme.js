@@ -1,13 +1,13 @@
-import React from 'react'
-import { mount } from 'enzyme'
-import JssProvider from 'react-jss/lib/JssProvider'
-import { SheetsRegistry } from 'react-jss/lib/jss'
+import { theme } from '@chainlink/styleguide'
 import {
-  MuiThemeProvider,
+  createGenerateClassName,
   createMuiTheme,
-  createGenerateClassName
+  MuiThemeProvider
 } from '@material-ui/core/styles'
-import theme from '@chainlink/styleguide/theme'
+import { mount } from 'enzyme'
+import React from 'react'
+import { SheetsRegistry } from 'react-jss/lib/jss'
+import JssProvider from 'react-jss/lib/JssProvider'
 import StoreAndMemoryRouter from './StoreAndMemoryRouter'
 
 const sheetsRegistry = new SheetsRegistry()

@@ -1,4 +1,4 @@
-import { REDIRECT, MATCH_ROUTE } from 'actions'
+import { RouterActionType } from 'actions'
 
 const initialState = {
   to: null
@@ -6,9 +6,9 @@ const initialState = {
 
 export default (state = initialState, action = {}) => {
   switch (action.type) {
-    case REDIRECT:
+    case RouterActionType.REDIRECT:
       return Object.assign({}, state, { to: action.to })
-    case MATCH_ROUTE:
+    case RouterActionType.MATCH_ROUTE:
       return Object.assign({}, state, { to: null })
     default:
       return state

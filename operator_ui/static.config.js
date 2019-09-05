@@ -14,7 +14,7 @@ export default {
     title: 'Chainlink'
   }),
   getRoutes: async () => {
-    return [{ path: '404', component: 'src/containers/404' }]
+    return [{ path: '404', component: 'src/containers/NotFound.js' }]
   },
   beforeRenderToElement: (render, Comp) => render(Comp),
   plugins: [

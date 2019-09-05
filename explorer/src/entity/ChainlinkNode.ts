@@ -16,9 +16,18 @@ export interface IChainlinkNodePresenter {
 
 @Entity()
 export class ChainlinkNode {
-  public static build(name: string, secret: string): ChainlinkNode {
+  public static build({
+    name,
+    url,
+    secret
+  }: {
+    name: string
+    url?: string
+    secret: string
+  }): ChainlinkNode {
     const cl = new ChainlinkNode()
     cl.name = name
+    cl.url = url
     cl.accessKey = generateRandomString(16)
     cl.salt = generateRandomString(32)
     cl.hashedSecret = hashCredentials(cl.accessKey, secret, cl.salt)
@@ -30,6 +39,9 @@ export class ChainlinkNode {
 
   @Column()
   name: string
+
+  @Column({ nullable: true })
+  url: string
 
   @Column()
   accessKey: string
@@ -62,10 +74,11 @@ const generateRandomString = (size: number): string => {
 
 export const createChainlinkNode = async (
   db: Connection,
-  name: string
+  name: string,
+  url?: string
 ): Promise<[ChainlinkNode, string]> => {
   const secret = generateRandomString(64)
-  const chainlinkNode = ChainlinkNode.build(name, secret)
+  const chainlinkNode = ChainlinkNode.build({ name, url, secret })
   return [await db.manager.save(chainlinkNode), secret]
 }
 

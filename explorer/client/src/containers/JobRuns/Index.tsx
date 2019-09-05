@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from 'react'
-import { connect } from 'react-redux'
-import { bindActionCreators, Dispatch } from 'redux'
-import build from 'redux-object'
 import {
   createStyles,
   Theme,
   withStyles,
   WithStyles
 } from '@material-ui/core/styles'
-import List from '../../components/JobRuns/List'
+import React, { useEffect, useState } from 'react'
+import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
+import { bindActionCreators } from 'redux'
+import build from 'redux-object'
 import { getJobRuns } from '../../actions/jobRuns'
-import { IState } from '../../reducers'
+import List from '../../components/JobRuns/List'
 import { ChangePageEvent } from '../../components/Table'
+import { IState as State } from '../../reducers'
+import { Query } from '../../reducers/search'
 
 const EMPTY_MSG =
   "We couldn't find any results for your search query. Try again with the job id, run id, requester, requester id or transaction hash"
@@ -32,44 +33,58 @@ const styles = ({ spacing, breakpoints }: Theme) =>
     }
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface OwnProps {
+  rowsPerPage?: number
   path: string
-  rowsPerPage: number
-  query?: string
-  jobRuns?: IJobRun[]
-  count?: number
-  getJobRuns: Function
 }
 
-const Index = withStyles(styles)((props: IProps) => {
-  const [currentPage, setCurrentPage] = useState(0)
-  const onChangePage = (_event: ChangePageEvent, page: number) => {
-    setCurrentPage(page)
-    props.getJobRuns(props.query, page + 1, props.rowsPerPage)
+interface StateProps {
+  query: State['search']['query']
+  jobRuns?: IJobRun[]
+  count: State['jobRunsIndex']['count']
+}
+
+interface DispatchProps {
+  getJobRuns: (query: Query, page: number, size: number) => void
+}
+
+interface Props
+  extends WithStyles<typeof styles>,
+    OwnProps,
+    StateProps,
+    DispatchProps {}
+
+const Index = withStyles(styles)(
+  ({ getJobRuns, query, rowsPerPage = 10, classes, jobRuns, count }: Props) => {
+    const [currentPage, setCurrentPage] = useState(0)
+    const onChangePage = (_event: ChangePageEvent, page: number) => {
+      setCurrentPage(page)
+      getJobRuns(query, page + 1, rowsPerPage)
+    }
+
+    useEffect(() => {
+      getJobRuns(query, currentPage + 1, rowsPerPage)
+    }, [getJobRuns, query, currentPage, rowsPerPage])
+
+    return (
+      <div className={classes.container}>
+        <List
+          currentPage={currentPage}
+          jobRuns={jobRuns}
+          count={count}
+          onChangePage={onChangePage}
+          emptyMsg={EMPTY_MSG}
+        />
+      </div>
+    )
   }
-
-  useEffect(() => {
-    props.getJobRuns(props.query, currentPage + 1, props.rowsPerPage)
-  }, [props.query])
-
-  return (
-    <div className={props.classes.container}>
-      <List
-        currentPage={currentPage}
-        jobRuns={props.jobRuns}
-        count={props.count}
-        onChangePage={onChangePage}
-        emptyMsg={EMPTY_MSG}
-      />
-    </div>
-  )
-})
+)
 
 const jobRunsSelector = ({
   jobRunsIndex,
   jobRuns,
   chainlinkNodes
-}: IState): IJobRun[] | undefined => {
+}: State): IJobRun[] | undefined => {
   if (jobRunsIndex.items) {
     return jobRunsIndex.items.map((id: string) => {
       const document = {
@@ -81,19 +96,18 @@ const jobRunsSelector = ({
   }
 }
 
-const jobRunsCountSelector = (state: IState) => {
-  return state.jobRunsIndex.count
+const mapDispatchToProps: MapDispatchToProps<
+  DispatchProps,
+  OwnProps
+> = dispatch => bindActionCreators({ getJobRuns }, dispatch)
+
+const mapStateToProps: MapStateToProps<StateProps, OwnProps, State> = state => {
+  return {
+    query: state.search.query,
+    jobRuns: jobRunsSelector(state),
+    count: state.jobRunsIndex.count
+  }
 }
-
-const mapStateToProps = (state: IState) => ({
-  rowsPerPage: 10,
-  query: state.search.query,
-  jobRuns: jobRunsSelector(state),
-  count: jobRunsCountSelector(state)
-})
-
-const mapDispatchToProps = (dispatch: Dispatch<any>) =>
-  bindActionCreators({ getJobRuns }, dispatch)
 
 const ConnectedIndex = connect(
   mapStateToProps,

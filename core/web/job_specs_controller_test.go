@@ -27,7 +27,7 @@ func BenchmarkJobSpecsController_Index(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		resp, cleanup := client.Get("/v2/specs")
 		defer cleanup()
-		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
+		assert.Equal(b, http.StatusOK, resp.StatusCode, "Response should be successful")
 	}
 }
 
@@ -43,11 +43,11 @@ func TestJobSpecsController_Index_noSort(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/specs?size=x")
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 422)
+	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 
 	resp, cleanup = client.Get("/v2/specs?size=1")
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	body := cltest.ParseResponseBody(t, resp)
 
 	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
@@ -66,7 +66,7 @@ func TestJobSpecsController_Index_noSort(t *testing.T) {
 
 	resp, cleanup = client.Get(links["next"].Href)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	jobs = []models.JobSpec{}
 	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &jobs, &links)
@@ -102,7 +102,7 @@ func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/specs?sort=createdAt&size=2")
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	body := cltest.ParseResponseBody(t, resp)
 
 	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
@@ -122,7 +122,7 @@ func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 
 	resp, cleanup = client.Get("/v2/specs?sort=-createdAt&size=2")
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	body = cltest.ParseResponseBody(t, resp)
 
 	metaCount, err = cltest.ParseJSONAPIResponseMetaCount(body)
@@ -162,7 +162,7 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(cltest.MustReadFile(t, "testdata/hello_world_job.json")))
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	// Check Response
 	var j models.JobSpec
@@ -234,7 +234,7 @@ func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
-	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"idonotexist is not a supported adapter type"}]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
@@ -250,7 +250,7 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
-	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"RunAt must have a time"}]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
@@ -266,7 +266,7 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
-	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"Cron: Failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"}]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
@@ -282,7 +282,7 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
-	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"Must have at least one Initiator and one Task"}]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
@@ -298,7 +298,7 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
-	assert.Equal(t, 400, resp.StatusCode, "Response should be caller error")
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"Must have at least one Initiator and one Task"}]}`
 	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
@@ -312,8 +312,8 @@ func BenchmarkJobSpecsController_Show(b *testing.B) {
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, _ := client.Get("/v2/specs/" + j.ID)
-		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
+		resp, _ := client.Get("/v2/specs/" + j.ID.String())
+		assert.Equal(b, http.StatusOK, resp.StatusCode, "Response should be successful")
 	}
 }
 
@@ -326,9 +326,9 @@ func TestJobSpecsController_Show(t *testing.T) {
 
 	j := setupJobSpecsControllerShow(t, app)
 
-	resp, cleanup := client.Get("/v2/specs/" + j.ID)
+	resp, cleanup := client.Get("/v2/specs/" + j.ID.String())
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var respJob presenters.JobSpec
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJob))
@@ -343,10 +343,10 @@ func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication)
 	initr := j.Initiators[0]
 
 	jr1 := j.NewRun(initr)
-	jr1.ID = "2"
+	jr1.ID = models.NewID()
 	assert.Nil(t, app.Store.CreateJobRun(&jr1))
 	jr2 := j.NewRun(initr)
-	jr2.ID = "1"
+	jr2.ID = models.NewID()
 	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
 	assert.Nil(t, app.Store.CreateJobRun(&jr2))
 
@@ -359,9 +359,20 @@ func TestJobSpecsController_Show_NotFound(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	resp, cleanup := client.Get("/v2/specs/" + "garbage")
+	resp, cleanup := client.Get("/v2/specs/190AE4CE-40B6-4D60-A3DA-061C5ACD32D0")
 	defer cleanup()
-	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be not found")
+}
+
+func TestJobSpecsController_Show_InvalidUuid(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+	client := app.NewHTTPClient()
+
+	resp, cleanup := client.Get("/v2/specs/garbage")
+	defer cleanup()
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode, "Response should be unprocessable entity")
 }
 
 func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
@@ -371,7 +382,7 @@ func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 
 	resp, err := http.Get(app.Server.URL + "/v2/specs/" + "garbage")
 	assert.NoError(t, err)
-	assert.Equal(t, 401, resp.StatusCode, "Response should be forbidden")
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Response should be forbidden")
 }
 
 func TestJobSpecsController_Destroy(t *testing.T) {
@@ -382,9 +393,9 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 	job := cltest.NewJobWithLogInitiator()
 	require.NoError(t, app.Store.CreateJob(&job))
 
-	resp, cleanup := client.Delete("/v2/specs/" + job.ID)
+	resp, cleanup := client.Delete("/v2/specs/" + job.ID.String())
 	defer cleanup()
-	assert.Equal(t, 204, resp.StatusCode)
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	assert.Error(t, utils.JustError(app.Store.FindJob(job.ID)))
 	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 }

@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/assets"
+
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -37,7 +39,7 @@ func TestJobRunner_resumeRunsSinceLastShutdown(t *testing.T) {
 	assert.NoError(t, store.CreateJobRun(&inProgressRun))
 
 	assert.NoError(t, services.ExportedResumeRunsSinceLastShutdown(rm))
-	messages := []string{}
+	messages := []*models.ID{}
 
 	rr, open := <-store.RunChannel.Receive()
 	assert.True(t, open)
@@ -47,7 +49,7 @@ func TestJobRunner_resumeRunsSinceLastShutdown(t *testing.T) {
 	assert.True(t, open)
 	messages = append(messages, rr.ID)
 
-	expectedMessages := []string{sleepingRun.ID, inProgressRun.ID}
+	expectedMessages := []*models.ID{sleepingRun.ID, inProgressRun.ID}
 	assert.ElementsMatch(t, expectedMessages, messages)
 }
 
@@ -74,6 +76,27 @@ func TestJobRunner_executeRun_correctlyPopulatesFinishedAt(t *testing.T) {
 	require.NoError(t, services.ExportedExecuteRun(&run, store))
 	assert.False(t, run.FinishedAt.Valid)
 	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+}
+
+func TestJobRunner_executeRun_correctlyAddsLinkEarnings(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	j := models.NewJob()
+	i := models.Initiator{Type: models.InitiatorWeb}
+	j.Initiators = []models.Initiator{i}
+	j.Tasks = []models.TaskSpec{
+		cltest.NewTask(t, "noop"),
+	}
+	assert.NoError(t, store.CreateJob(&j))
+	run := j.NewRun(i)
+	run.Payment = assets.NewLink(1)
+	require.NoError(t, store.CreateJobRun(&run))
+	require.NoError(t, services.ExportedExecuteRun(&run, store))
+
+	actual, err := store.LinkEarnedFor(&j)
+	require.NoError(t, err)
+	assert.Equal(t, assets.NewLink(1), actual)
 }
 
 func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {
