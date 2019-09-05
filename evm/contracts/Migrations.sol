@@ -12,11 +12,11 @@ contract Migrations {
     owner = msg.sender;
   }
 
-  function setCompleted(uint completed) public restricted {
+  function setCompleted(uint completed) external restricted {
     last_completed_migration = completed;
   }
 
-  function upgrade(address new_address) public restricted {
+  function upgrade(address new_address) external restricted {
     Migrations upgraded = Migrations(new_address);
     upgraded.setCompleted(last_completed_migration);
   }
