@@ -56,8 +56,8 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if initiator, err := getInitiator(c, j); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
+	} else if initiator, err := getAuthenticatedInitiator(c, j); err != nil {
+		jsonAPIError(c, http.StatusForbidden, err)
 	} else if data, err := getRunData(c); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if jr, err := services.ExecuteJob(j, *initiator, models.RunResult{Data: data}, nil, jrc.App.GetStore()); err != nil {
@@ -68,7 +68,7 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 }
 
 // getInitiator returns the Job Spec's initiator for the given web context.
-func getInitiator(c *gin.Context, js models.JobSpec) (*models.Initiator, error) {
+func getAuthenticatedInitiator(c *gin.Context, js models.JobSpec) (*models.Initiator, error) {
 	if _, ok := authenticatedUser(c); ok {
 		webInitiators := js.InitiatorsFor(models.InitiatorWeb)
 		if len(webInitiators) == 0 {
@@ -76,6 +76,7 @@ func getInitiator(c *gin.Context, js models.JobSpec) (*models.Initiator, error) 
 		}
 		return &webInitiators[0], nil
 	} else if ei, ok := authenticatedEI(c); ok {
+		// TODO(felder-cl): Add test case for external initiator created Job
 		var initiator *models.Initiator
 		for _, i := range js.InitiatorsFor(models.InitiatorExternal) {
 			if strings.ToLower(i.Name) == ei.Name {
@@ -88,7 +89,7 @@ func getInitiator(c *gin.Context, js models.JobSpec) (*models.Initiator, error) 
 		}
 		return initiator, nil
 	} else {
-		return nil, errors.New("not found")
+		return nil, errors.New("authentication required")
 	}
 }
 
