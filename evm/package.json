@@ -6,7 +6,7 @@
     "build": "truffle build",
     "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box || true",
     "lint": "yarn solhint",
-    "slither": "truffle compile --quiet && slither .",
+    "slither": "truffle compile --all --quiet && slither .",
     "solhint": "solhint ./contracts/**/*.sol",
     "test": "truffle test",
     "truffle:migrate:cldev": "truffle migrate --network cldev"
