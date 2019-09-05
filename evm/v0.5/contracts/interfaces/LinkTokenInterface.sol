@@ -1,6 +1,7 @@
 pragma solidity ^0.5.0;
 
 interface LinkTokenInterface {
+  function allowance(address owner, address spender) external returns (uint256 remaining);
   function allowance(address owner, address spender) external returns (bool success);
   function approve(address spender, uint256 value) external returns (bool success);
   function balanceOf(address owner) external returns (uint256 balance);
