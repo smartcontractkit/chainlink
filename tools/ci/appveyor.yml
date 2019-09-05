@@ -13,6 +13,9 @@ environment:
   MSYS2_BITS: 64
   MSYSTEM: MINGW64
   PATH: C:\msys64\mingw64\bin\;C:\Program Files (x86)\NSIS\;%PATH%
+  PYTHON: "3.7"
+
+stack: python %PYTHON%
 
 init:
   - git config --global core.autocrlf input
