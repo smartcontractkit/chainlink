@@ -25,6 +25,8 @@ func TestStore_Start(t *testing.T) {
 
 	store := app.Store
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
 	txmMock.EXPECT().Register(gomock.Any())
