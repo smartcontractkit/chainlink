@@ -3,7 +3,7 @@ pragma solidity 0.4.24;
 import "chainlink/contracts/Chainlinked.sol";
 
 contract RunLog is Chainlinked {
-  uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
+  uint256 constant private ORACLE_PAYMENT = 1 * LINK;
 
   bytes32 private jobId;
 
@@ -22,6 +22,6 @@ contract RunLog is Chainlinked {
   function fulfill(bytes32 _externalId, bytes32 _data)
     public
     recordChainlinkFulfillment(_externalId)
-  {} // solium-disable-line no-empty-blocks
+  {} // solhint-disable-line no-empty-blocks
 
 }

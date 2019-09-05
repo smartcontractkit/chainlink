@@ -10,7 +10,7 @@ let LinkToken = artifacts.require('LinkToken')
 
 const payment = process.env.TRUFFLE_CL_BOX_PAYMENT || '1000000000000000000'
 
-module.exports = async (callback) => {
+module.exports = async callback => {
   let mc = await MyContract.deployed()
   let tokenAddress = await mc.getChainlinkToken()
   let token = await LinkToken.at(tokenAddress)

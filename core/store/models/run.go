@@ -16,29 +16,30 @@ import (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	ID             string     `json:"id" gorm:"primary_key;not null"`
-	JobSpecID      string     `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
-	Result         RunResult  `json:"result"`
-	ResultID       uint       `json:"-"`
-	RunRequest     RunRequest `json:"-"`
-	RunRequestID   uint       `json:"-"`
-	Status         RunStatus  `json:"status" gorm:"index"`
-	TaskRuns       []TaskRun  `json:"taskRuns"`
-	CreatedAt      time.Time  `json:"createdAt" gorm:"index"`
-	FinishedAt     null.Time  `json:"finishedAt"`
-	UpdatedAt      time.Time  `json:"updatedAt"`
-	Initiator      Initiator  `json:"initiator" gorm:"association_autoupdate:false;association_autocreate:false"`
-	InitiatorID    uint       `json:"-"`
-	CreationHeight *Big       `json:"creationHeight" gorm:"type:varchar(255)"`
-	ObservedHeight *Big       `json:"observedHeight" gorm:"type:varchar(255)"`
-	Overrides      RunResult  `json:"overrides"`
-	OverridesID    uint       `json:"-"`
-	DeletedAt      null.Time  `json:"-" gorm:"index"`
+	ID             *ID          `json:"id" gorm:"primary_key;not null"`
+	JobSpecID      *ID          `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
+	Result         RunResult    `json:"result"`
+	ResultID       uint         `json:"-"`
+	RunRequest     RunRequest   `json:"-"`
+	RunRequestID   uint         `json:"-"`
+	Status         RunStatus    `json:"status" gorm:"index"`
+	TaskRuns       []TaskRun    `json:"taskRuns"`
+	CreatedAt      time.Time    `json:"createdAt" gorm:"index"`
+	FinishedAt     null.Time    `json:"finishedAt"`
+	UpdatedAt      time.Time    `json:"updatedAt"`
+	Initiator      Initiator    `json:"initiator" gorm:"association_autoupdate:false;association_autocreate:false"`
+	InitiatorID    uint         `json:"-"`
+	CreationHeight *Big         `json:"creationHeight"`
+	ObservedHeight *Big         `json:"observedHeight"`
+	Overrides      RunResult    `json:"overrides"`
+	OverridesID    uint         `json:"-"`
+	DeletedAt      null.Time    `json:"-" gorm:"index"`
+	Payment        *assets.Link `json:"payment,omitempty"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
 func (jr JobRun) GetID() string {
-	return jr.ID
+	return jr.ID.String()
 }
 
 // GetName returns the pluralized "type" of this structure for jsonapi serialization.
@@ -48,8 +49,7 @@ func (jr JobRun) GetName() string {
 
 // SetID is used to set the ID of this structure when deserializing from jsonapi documents.
 func (jr *JobRun) SetID(value string) error {
-	jr.ID = value
-	return nil
+	return jr.ID.UnmarshalText([]byte(value))
 }
 
 // ForLogger formats the JobRun for a common formatting in the log.
@@ -73,7 +73,7 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	}
 
 	if jr.Status == "completed" {
-		output = append(output, "link_earned", jr.Result.Amount)
+		output = append(output, "link_earned", jr.Payment)
 	}
 
 	return append(kvs, output...)
@@ -152,6 +152,7 @@ type RunRequest struct {
 	BlockHash *common.Hash
 	Requester *common.Address
 	CreatedAt time.Time
+	Payment   *assets.Link
 }
 
 // NewRunRequest returns a new RunRequest instance.
@@ -162,8 +163,8 @@ func NewRunRequest() RunRequest {
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
-	ID                   string        `json:"id" gorm:"primary_key;not null"`
-	JobRunID             string        `json:"-" gorm:"index;not null;type:varchar(36) REFERENCES job_runs(id) ON DELETE CASCADE"`
+	ID                   *ID           `json:"id" gorm:"primary_key;not null"`
+	JobRunID             *ID           `json:"-" gorm:"index;not null;type:varchar(36) REFERENCES job_runs(id) ON DELETE CASCADE"`
 	Result               RunResult     `json:"result"`
 	ResultID             uint          `json:"-"`
 	Status               RunStatus     `json:"status"`
@@ -217,13 +218,12 @@ func (tr *TaskRun) MarkPendingConfirmations() {
 // RunResult keeps track of the outcome of a TaskRun or JobRun. It stores the
 // Data and ErrorMessage, and contains a field to track the status.
 type RunResult struct {
-	ID              uint         `json:"-" gorm:"primary_key;auto_increment"`
-	CachedJobRunID  string       `json:"jobRunId"`
-	CachedTaskRunID string       `json:"taskRunId"`
-	Data            JSON         `json:"data" gorm:"type:text"`
-	Status          RunStatus    `json:"status"`
-	ErrorMessage    null.String  `json:"error"`
-	Amount          *assets.Link `json:"amount,omitempty" gorm:"type:varchar(255)"`
+	ID              uint        `json:"-" gorm:"primary_key;auto_increment"`
+	CachedJobRunID  *ID         `json:"jobRunId" gorm:"-"`
+	CachedTaskRunID *ID         `json:"taskRunId" gorm:"-"`
+	Data            JSON        `json:"data" gorm:"type:text"`
+	Status          RunStatus   `json:"status"`
+	ErrorMessage    null.String `json:"error"`
 }
 
 // CompleteWithResult saves a value to a RunResult and marks it as completed
@@ -314,7 +314,6 @@ func (rr *RunResult) Merge(in RunResult) error {
 		return err
 	}
 	rr.ErrorMessage = in.ErrorMessage
-	rr.Amount = in.Amount
 	rr.Status = in.Status
 	return nil
 }

@@ -28,7 +28,7 @@ const renderDetails = ({ classes, fetching, jobRun }) => {
     <Grid container spacing={40}>
       <Grid item xs={8}>
         <Card>
-          <TaskExpansionPanel>{jobRun}</TaskExpansionPanel>
+          <TaskExpansionPanel jobRun={jobRun} />
         </Card>
       </Grid>
       <Grid item xs={4}>

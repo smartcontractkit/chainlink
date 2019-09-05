@@ -1,12 +1,12 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"time"
 
 	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -85,7 +85,7 @@ func NewInitiatorSubscription(
 ) (InitiatorSubscription, error) {
 	filter, err := models.FilterQueryFactory(initr, from.NextInt()) // Exclude current block from subscription
 	if err != nil {
-		return InitiatorSubscription{}, err
+		return InitiatorSubscription{}, errors.Wrap(err, "NewInitiatorSubscription#FilterQueryFactory")
 	}
 
 	sub := InitiatorSubscription{
@@ -97,7 +97,7 @@ func NewInitiatorSubscription(
 
 	managedSub, err := NewManagedSubscription(store, filter, sub.dispatchLog)
 	if err != nil {
-		return sub, err
+		return sub, errors.Wrap(err, "NewInitiatorSubscription#NewManagedSubscription")
 	}
 
 	sub.ManagedSubscription = managedSub
@@ -150,16 +150,7 @@ func ReceiveLogRequest(store *strpkg.Store, le models.LogRequest) {
 }
 
 func runJob(store *strpkg.Store, le models.LogRequest, data models.JSON) {
-	payment, err := le.ContractPayment()
-	if err != nil {
-		logger.Errorw(err.Error(), le.ForLogger()...)
-		return
-	}
-
-	input := models.RunResult{
-		Data:   data,
-		Amount: payment,
-	}
+	input := models.RunResult{Data: data}
 	if err := le.ValidateRequester(); err != nil {
 		input.SetError(err)
 		logger.Errorw(err.Error(), le.ForLogger()...)

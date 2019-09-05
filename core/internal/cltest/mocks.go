@@ -2,6 +2,7 @@ package cltest
 
 import (
 	"context"
+	"encoding"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,8 +33,8 @@ import (
 // Strict flag makes the mock eth client panic if an unexpected call is made
 const Strict = "strict"
 
-// MockEthClient create new EthMock Client
-func (ta *TestApplication) MockEthClient(flags ...string) *EthMock {
+// MockEthCallerSubscriber create new EthMock Client
+func (ta *TestApplication) MockEthCallerSubscriber(flags ...string) *EthMock {
 	if ta.ChainlinkApplication.HeadTracker.Connected() {
 		logger.Panic("Cannot mock eth client after being connected")
 	}
@@ -47,7 +49,7 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 			mock.strict = true
 		}
 	}
-	eth := &store.EthClient{CallerSubscriber: mock}
+	eth := &store.EthCallerSubscriber{CallerSubscriber: mock}
 	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
 		txm.EthClient = eth
 	} else {
@@ -185,16 +187,21 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 	for i, resp := range mock.Responses {
 		if resp.methodName == method {
 			mock.Responses = append(mock.Responses[:i], mock.Responses[i+1:]...)
+
 			if resp.hasError {
 				return fmt.Errorf(resp.errMsg)
 			}
-			ref := reflect.ValueOf(result)
-			reflect.Indirect(ref).Set(reflect.ValueOf(resp.response))
+
+			if err := assignResult(result, resp.response); err != nil {
+				return err
+			}
+
 			if resp.callback != nil {
 				if err := resp.callback(result, args); err != nil {
 					return fmt.Errorf("ethMock Error: %v\ncontext: %v", err, resp.context)
 				}
 			}
+
 			return nil
 		}
 	}
@@ -206,6 +213,27 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 		mock.t.Logf("%s\n%s", err, debug.Stack())
 	}
 	return err
+}
+
+// assignResult attempts to mimick more closely how go-ethereum actually does
+// Call, falling back to reflection if the values dont support the required
+// encoding interfaces
+func assignResult(result, response interface{}) error {
+	unmarshaler, uok := result.(encoding.TextUnmarshaler)
+	marshaler, mok := response.(encoding.TextMarshaler)
+
+	if uok && mok {
+		bytes, err := marshaler.MarshalText()
+		if err != nil {
+			return err
+		}
+
+		return unmarshaler.UnmarshalText(bytes)
+	}
+
+	ref := reflect.ValueOf(result)
+	reflect.Indirect(ref).Set(reflect.ValueOf(response))
+	return nil
 }
 
 // RegisterSubscription register a mock subscription to the given name and channels
@@ -467,7 +495,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config store.Config, onConnectCallbacks ...func(services.Application)) services.Application {
+func (f InstanceAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(services.Application)) services.Application {
 	return f.App
 }
 
@@ -475,7 +503,7 @@ type seededAppFactory struct {
 	Application services.Application
 }
 
-func (s seededAppFactory) NewApplication(config store.Config, onConnectCallbacks ...func(services.Application)) services.Application {
+func (s seededAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(services.Application)) services.Application {
 	return noopStopApplication{s.Application}
 }
 
@@ -683,7 +711,7 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 	return user, store.SaveUser(&user)
 }
 
-func NewMockAuthenticatedHTTPClient(cfg store.Config) cmd.HTTPClient {
+func NewMockAuthenticatedHTTPClient(cfg orm.ConfigReader) cmd.HTTPClient {
 	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{})
 }
 
@@ -714,7 +742,7 @@ func (m *MockSessionRequestBuilder) Build(string) (models.SessionRequest, error)
 
 type mockSecretGenerator struct{}
 
-func (m mockSecretGenerator) Generate(store.Config) ([]byte, error) {
+func (m mockSecretGenerator) Generate(orm.Config) ([]byte, error) {
 	return []byte(SessionSecret), nil
 }
 
@@ -729,7 +757,7 @@ func NewMockRunChannel() *MockRunChannel {
 	}
 }
 
-func (m *MockRunChannel) Send(jobRunID string) error {
+func (m *MockRunChannel) Send(jobRunID *models.ID) error {
 	m.Runs = append(m.Runs, models.RunResult{})
 	return nil
 }
@@ -740,6 +768,18 @@ func (m *MockRunChannel) Receive() <-chan store.RunRequest {
 
 func (m *MockRunChannel) Close() {}
 
+// extractERC20BalanceTargetAddress returns the address whose balance is being
+// queried by the message in the given call to an ERC20 contract, which is
+// interpreted as a callArgs.
+func extractERC20BalanceTargetAddress(args interface{}) (common.Address, bool) {
+	call, ok := (args).(store.CallArgs)
+	if !ok {
+		return common.Address{}, false
+	}
+	message := call.Data
+	return common.BytesToAddress(([]byte)(message)[len(message)-20:]), true
+}
+
 // ExtractTargetAddressFromERC20EthEthCallMock extracts the contract address and the
 // method data, for checking in a test.
 func ExtractTargetAddressFromERC20EthEthCallMock(
@@ -748,7 +788,7 @@ func ExtractTargetAddressFromERC20EthEthCallMock(
 	require.True(t, ethMockCallArgsOk)
 	actualCallArgs, actualCallArgsOk := (ethMockCallArgs[0]).([]interface{})
 	require.True(t, actualCallArgsOk)
-	address, ok := store.ExtractERC20BalanceTargetAddress(actualCallArgs[0])
+	address, ok := extractERC20BalanceTargetAddress(actualCallArgs[0])
 	require.True(t, ok)
 	return address
 }

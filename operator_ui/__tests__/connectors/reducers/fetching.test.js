@@ -1,5 +1,5 @@
+import { RouterActionType } from 'actions'
 import reducer from 'connectors/redux/reducers'
-import { REDIRECT } from 'actions'
 
 describe('connectors/reducers/fetching', () => {
   it('should return the initial state', () => {
@@ -50,7 +50,7 @@ describe('connectors/reducers/fetching', () => {
   })
 
   it('resets the counter on redirect', () => {
-    const action = { type: REDIRECT }
+    const action = { type: RouterActionType.REDIRECT }
     const previousState = {
       fetching: { count: 1 }
     }

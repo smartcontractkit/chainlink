@@ -16,6 +16,9 @@ operator_ui/artifacts
 tools/clroot/db.sqlite3-shm
 tools/clroot/db.sqlite3-wal
 
+# Typescript incremental compilation artifacts
+*.tsbuildinfo
+
 # Log files
 *.log
 

@@ -6,12 +6,10 @@ import "./MaliciousChainlinked.sol";
 
 contract MaliciousRequester is MaliciousChainlinked {
 
-  uint256 constant private ORACLE_PAYMENT = 1 * LINK; // solium-disable-line zeppelin/no-arithmetic-operations
+  uint256 constant private ORACLE_PAYMENT = 1 * LINK;
   uint256 private expiration;
 
-  constructor(address _link, address _oracle)
-    public
-  {
+  constructor(address _link, address _oracle) public {
     setLinkToken(_link);
     setOracle(_oracle);
   }
@@ -26,7 +24,7 @@ contract MaliciousRequester is MaliciousChainlinked {
 
   function request(bytes32 _id, address _target, bytes _callbackFunc) public returns (bytes32 requestId) {
     Chainlink.Request memory req = newRequest(_id, _target, bytes4(keccak256(_callbackFunc)));
-    expiration = now.add(5 minutes);
+    expiration = now.add(5 minutes); // solhint-disable-line not-rely-on-time
     requestId = chainlinkRequest(req, ORACLE_PAYMENT);
   }
 
@@ -50,5 +48,5 @@ contract MaliciousRequester is MaliciousChainlinked {
     );
   }
 
-  function doesNothing(bytes32, bytes32) public pure {} // solium-disable-line no-empty-blocks
+  function doesNothing(bytes32, bytes32) public pure {} // solhint-disable-line no-empty-blocks
 }

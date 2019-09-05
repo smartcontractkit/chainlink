@@ -34,7 +34,7 @@ func NewEIP55Address(s string) (EIP55Address, error) {
 func (a EIP55Address) Bytes() []byte { return a.Address().Bytes() }
 
 // Big returns a big.Int representation
-func (a EIP55Address) Big() *big.Int { return a.Address().Big() }
+func (a EIP55Address) Big() *big.Int { return a.Address().Hash().Big() }
 
 // Hash returns the Hash
 func (a EIP55Address) Hash() common.Hash { return a.Address().Hash() }

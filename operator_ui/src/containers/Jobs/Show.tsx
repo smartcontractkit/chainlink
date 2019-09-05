@@ -1,26 +1,36 @@
+import { CardTitle, KeyValueList } from '@chainlink/styleguide'
+import {
+  createStyles,
+  Theme,
+  Typography,
+  WithStyles,
+  withStyles
+} from '@material-ui/core'
+import Card from '@material-ui/core/Card'
+import Grid from '@material-ui/core/Grid'
+import { fetchJob, fetchJobRuns } from 'actions'
+import Content from 'components/Content'
+import JobRunsList from 'components/JobRuns/List'
+import TaskList from 'components/Jobs/TaskList'
+import { AppState } from 'connectors/redux/reducers'
+import { IJobRuns, IJobSpec } from 'operator_ui'
 import React from 'react'
 import { connect } from 'react-redux'
-import Grid from '@material-ui/core/Grid'
-import Card from '@material-ui/core/Card'
-import { useHooks, useEffect } from 'use-react-hooks'
-import KeyValueList from '@chainlink/styleguide/components/KeyValueList'
-import CardTitle from '@chainlink/styleguide/components/Cards/Title'
-import JobRunsList from '../../components/JobRuns/List'
-import Content from '../../components/Content'
+import jobSelector from 'selectors/job'
+import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
+import jobsShowRunCountSelector from 'selectors/jobsShowRunCount'
+import { useEffect, useHooks } from 'use-react-hooks'
+import { GWEI_PER_TOKEN } from 'utils/constants'
+import formatMinPayment from 'utils/formatWeiAsset'
+import { formatInitiators } from 'utils/jobSpecInitiators'
+import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import RegionalNav from './RegionalNav'
-import { fetchJob, fetchJobRuns } from '../../actions'
-import jobSelector from '../../selectors/job'
-import jobRunsByJobIdSelector from '../../selectors/jobRunsByJobId'
-import jobsShowRunCountSelector from '../../selectors/jobsShowRunCount'
-import { formatInitiators } from '../../utils/jobSpecInitiators'
-import matchRouteAndMapDispatchToProps from '../../utils/matchRouteAndMapDispatchToProps'
-import TaskList from '../../components/Jobs/TaskList'
-import { IJobSpec, IJobRuns } from '../../../@types/operator_ui'
 
 const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
   const info = {
     runCount: recentRunsCount,
-    initiator: formatInitiators(job.initiators)
+    initiator: formatInitiators(job.initiators),
+    minimumPayment: `${formatMinPayment(job.minPayment) || 0} Link`
   }
 
   return (
@@ -35,15 +45,68 @@ const renderTaskRuns = (job: IJobSpec) => (
   </Card>
 )
 
-const renderLatestRuns = (
-  job: IJobSpec,
-  recentRuns: IJobRuns,
-  recentRunsCount: number,
+interface IRecentJobRunsProps {
+  job: IJobSpec
+  recentRuns: IJobRuns
+  recentRunsCount: number
   showJobRunsCount: number
-) => (
-  <React.Fragment>
+}
+
+const totalLinkEarned = (job: IJobSpec) => {
+  const zero = '0.000000'
+  const unformatted = job.earnings && (job.earnings / GWEI_PER_TOKEN).toString()
+  const formatted =
+    unformatted &&
+    (unformatted.length >= 3 ? unformatted : (unformatted + '.').padEnd(8, '0'))
+  return formatted || zero
+}
+
+const chartCardStyles = (theme: Theme) =>
+  createStyles({
+    wrapper: {
+      marginLeft: theme.spacing.unit * 3,
+      marginTop: theme.spacing.unit * 2,
+      marginBottom: theme.spacing.unit * 2
+    },
+    paymentText: {
+      color: theme.palette.secondary.main,
+      fontWeight: 450
+    },
+    earnedText: {
+      color: theme.palette.text.secondary,
+      fontSize: theme.spacing.unit * 2
+    }
+  })
+
+interface ChartProps extends WithStyles<typeof chartCardStyles> {
+  job: IJobSpec
+}
+
+const ChartArea = withStyles(chartCardStyles)(
+  ({ classes, job }: ChartProps) => (
+    <Card>
+      <Grid item className={classes.wrapper}>
+        <Typography className={classes.paymentText} variant="h5">
+          Link Payment
+        </Typography>
+        <Typography className={classes.earnedText}>
+          {totalLinkEarned(job)}
+        </Typography>
+      </Grid>
+    </Card>
+  )
+)
+
+const RecentJobRuns = ({
+  job,
+  recentRuns,
+  recentRunsCount,
+  showJobRunsCount
+}: IRecentJobRunsProps) => {
+  return (
     <Card>
       <CardTitle divider>Recent Job Runs</CardTitle>
+
       <JobRunsList
         jobSpecId={job.id}
         runs={recentRuns}
@@ -51,8 +114,8 @@ const renderLatestRuns = (
         showJobRunsCount={showJobRunsCount}
       />
     </Card>
-  </React.Fragment>
-)
+  )
+}
 
 interface IDetailsProps {
   recentRuns: IJobRuns
@@ -71,12 +134,24 @@ const Details = ({
     return (
       <Grid container spacing={24}>
         <Grid item xs={8}>
-          {renderLatestRuns(job, recentRuns, recentRunsCount, showJobRunsCount)}
+          <RecentJobRuns
+            job={job}
+            recentRuns={recentRuns}
+            recentRunsCount={recentRunsCount}
+            showJobRunsCount={showJobRunsCount}
+          />
         </Grid>
         <Grid item xs={4}>
           <Grid container direction="column">
-            <Grid item>{renderTaskRuns(job)}</Grid>
-            <Grid item>{renderJobSpec(job, recentRunsCount)}</Grid>
+            <Grid item xs>
+              <ChartArea job={job} />
+            </Grid>
+            <Grid item xs>
+              {renderTaskRuns(job)}
+            </Grid>
+            <Grid item xs>
+              {renderJobSpec(job, recentRunsCount)}
+            </Grid>
           </Grid>
         </Grid>
       </Grid>
@@ -92,16 +167,8 @@ interface IProps {
   recentRuns: IJobRuns
   recentRunsCount: number
   showJobRunsCount: number
-  fetchJob: (string) => Promise<any>
-  fetchJobRuns: ({
-    jobSpecId,
-    page,
-    size
-  }: {
-    jobSpecId: string
-    page: number
-    size: number
-  }) => Promise<any>
+  fetchJob: (id: string) => Promise<any>
+  fetchJobRuns: (opts: any) => Promise<any>
 }
 
 const DEFAULT_PAGE = 1
@@ -128,7 +195,8 @@ export const Show = useHooks(
     }, [])
     return (
       <div>
-        <RegionalNav jobSpecId={jobSpecId} job={job} />
+        {/* TODO: Regional nav should handle job = undefined */}
+        {job && <RegionalNav jobSpecId={jobSpecId} job={job} />}
         <Content>
           <Details
             job={job}
@@ -142,7 +210,16 @@ export const Show = useHooks(
   }
 )
 
-const mapStateToProps = (state, ownProps) => {
+interface Match {
+  params: {
+    jobSpecId: string
+  }
+}
+
+const mapStateToProps = (
+  state: AppState,
+  ownProps: { match: Match; showJobRunsCount: number }
+) => {
   const jobSpecId = ownProps.match.params.jobSpecId
   const job = jobSelector(state, jobSpecId)
   const recentRuns = jobRunsByJobIdSelector(

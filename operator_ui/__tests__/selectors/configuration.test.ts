@@ -1,9 +1,9 @@
-import { IState } from '../../src/connectors/redux/reducers/index'
-import configurationSelector from '../../src/selectors/configuration'
+import { AppState } from 'connectors/redux/reducers'
+import configurationSelector from 'selectors/configuration'
 
 describe('selectors - configs', () => {
   it('returns a tuple per key/value pair', () => {
-    const state = <IState>{
+    const state: Pick<AppState, 'configuration'> = {
       configuration: {
         data: {
           camelCased: 'value',
@@ -12,7 +12,7 @@ describe('selectors - configs', () => {
       }
     }
 
-    let expectation = [['CAMEL_CASED', 'value'], ['KEY', 'value']]
+    const expectation = [['CAMEL_CASED', 'value'], ['KEY', 'value']]
     expect(configurationSelector(state)).toEqual(expectation)
   })
 })

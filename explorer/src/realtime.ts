@@ -4,7 +4,8 @@ import { logger } from './logging'
 import WebSocket from 'ws'
 import { Connection } from 'typeorm'
 import { getDb } from './database'
-import { Session, authenticate } from './sessions'
+import { authenticate } from './sessions'
+import { closeSession, Session } from './entity/Session'
 
 const handleMessage = async (
   message: string,
@@ -85,7 +86,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
         return
       }
 
-      let result = await handleMessage(
+      const result = await handleMessage(
         message as string,
         session.chainlinkNodeId,
         db
@@ -94,6 +95,12 @@ export const bootstrapRealtime = async (server: http.Server) => {
     })
 
     ws.on('close', () => {
+      const session = sessions.get(request)
+      if (session != null) {
+        closeSession(db, session)
+        sessions.delete(request)
+      }
+
       clnodeCount = clnodeCount - 1
       logger.info(
         `websocket disconnected, total chainlink nodes connected: ${clnodeCount}`

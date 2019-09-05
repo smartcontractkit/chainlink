@@ -2,13 +2,18 @@
 
 set -e
 
-yarn solium --dir evm/
-yarn solium --dir examples/
+yarn workspaces run lint
+# Need this because root package.json eslint scripts have not been converted yet.
+# Once they are removed the following line can be deleted
 yarn lint:evm && yarn lint:examples
 
+# We should merge these into the lint commands too
+yarn workspace chainlink run slither
+yarn workspace chainlinkv0.5 run slither
+
+# These should be merged into a global test command
 yarn workspace chainlink test
-yarn workspace chainlink-uptime-sla test
-yarn workspace chainlink-echo-server test
-yarn workspace chainlink flatten
-yarn workspace chainlink-testnet truffle build
-yarn workspace chainlink-box test
+yarn workspace chainlinkv0.5 test
+yarn workspace @chainlink/example-uptime-sla test
+yarn workspace @chainlink/example-echo-server test
+yarn workspace @chainlink/box test

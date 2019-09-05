@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"go.uber.org/multierr"
 )
 
@@ -21,7 +22,7 @@ type Application interface {
 	GetStore() *store.Store
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
-	ArchiveJob(ID string) error
+	ArchiveJob(*models.ID) error
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
 }
@@ -44,8 +45,9 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config store.Config, onConnectCallbacks ...func(Application)) Application {
+func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application)) Application {
 	store := store.NewStore(config)
+	config.SetRuntimeStore(store.ORM)
 
 	jobSubscriber := NewJobSubscriber(store)
 	pendingConnectionResumer := newPendingConnectionResumer(store)
@@ -144,7 +146,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.
-func (app *ChainlinkApplication) ArchiveJob(ID string) error {
+func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
 	_ = app.JobSubscriber.RemoveJob(ID)
 	return app.Store.ArchiveJob(ID)
 }

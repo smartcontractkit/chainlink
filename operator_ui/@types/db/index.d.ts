@@ -50,11 +50,13 @@ export interface JobRun {
 }
 
 export interface JobSpec {
-  id: string
-  createdAt: string
-  startAt: Date | null
-  endAt: Date | null
-  deletedAt: Date | null
+    id: string
+    minPayment: number
+    createdAt: string
+    startAt: Date | null
+    endAt: Date | null
+    deletedAt: Date | null
+    earnings: number
 }
 
 export interface RunRequests {
@@ -97,7 +99,6 @@ export interface TxAttempt {
   sentAt: number
   signedRawTx: string
 }
-
 
 export interface Tx {
   id: number

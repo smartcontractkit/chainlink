@@ -1,14 +1,14 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import { withStyles } from '@material-ui/core/styles'
+import { Grid } from '@material-ui/core'
 import ExpansionPanel from '@material-ui/core/ExpansionPanel'
-import ExpansionPanelSummary from '@material-ui/core/ExpansionPanelSummary'
 import ExpansionPanelDetails from '@material-ui/core/ExpansionPanelDetails'
+import ExpansionPanelSummary from '@material-ui/core/ExpansionPanelSummary'
+import { withStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
-import StatusIcon from 'components/JobRuns/StatusIcon'
 import classNames from 'classnames'
-import { Grid } from '@material-ui/core'
+import StatusIcon from 'components/JobRuns/StatusIcon'
+import PropTypes from 'prop-types'
+import React from 'react'
 
 const styles = theme => {
   return {

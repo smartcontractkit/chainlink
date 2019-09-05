@@ -1,12 +1,7 @@
 import { Connection } from 'typeorm'
 import { ChainlinkNode, hashCredentials } from './entity/ChainlinkNode'
+import { createSession, Session } from './entity/Session'
 import { timingSafeEqual } from 'crypto'
-
-// Session contains a chainlink node's ID and access key
-export interface Session {
-  chainlinkNodeId: number
-  accessKey: string
-}
 
 // authenticate looks up a chainlink node by accessKey and attempts to verify the
 // provided secret, if verification succeeds a Session is returned
@@ -15,24 +10,27 @@ export const authenticate = async (
   accessKey: string,
   secret: string
 ): Promise<Session | null> => {
-  const chainlinkNode = await db.getRepository(ChainlinkNode).findOne({
-    accessKey: accessKey
-  })
-
-  if (chainlinkNode != null) {
-    const hash = hashCredentials(accessKey, secret, chainlinkNode.salt)
-    if (
-      timingSafeEqual(
-        Buffer.from(hash),
-        Buffer.from(chainlinkNode.hashedSecret)
-      )
-    ) {
-      return {
-        chainlinkNodeId: chainlinkNode.id,
-        accessKey: accessKey
+  return db.manager.transaction(async manager => {
+    const chainlinkNode = await findNode(db, accessKey)
+    if (chainlinkNode != null) {
+      if (authenticateSession(accessKey, secret, chainlinkNode)) {
+        return createSession(db, chainlinkNode)
       }
     }
-  }
 
-  return null
+    return null
+  })
+}
+
+function findNode(db: Connection, accessKey: string): Promise<ChainlinkNode> {
+  return db.getRepository(ChainlinkNode).findOne({ accessKey })
+}
+
+function authenticateSession(
+  accessKey: string,
+  secret: string,
+  node: ChainlinkNode
+): boolean {
+  const hash = hashCredentials(accessKey, secret, node.salt)
+  return timingSafeEqual(Buffer.from(hash), Buffer.from(node.hashedSecret))
 }

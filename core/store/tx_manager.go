@@ -58,7 +58,7 @@ type TxManager interface {
 	SubscribeToLogs(channel chan<- models.Log, q ethereum.FilterQuery) (models.EthSubscription, error)
 	GetLogs(q ethereum.FilterQuery) ([]models.Log, error)
 	GetTxReceipt(common.Hash) (*models.TxReceipt, error)
-	GetChainID() (uint64, error)
+	GetChainID() (*big.Int, error)
 }
 
 //go:generate mockgen -package=mocks -destination=../internal/mocks/tx_manager_mocks.go github.com/smartcontractkit/chainlink/core/store TxManager
@@ -66,22 +66,23 @@ type TxManager interface {
 // EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
 type EthTxManager struct {
-	*EthClient
+	EthClient
 	keyStore            *KeyStore
-	config              Config
+	config              orm.ConfigReader
 	orm                 *orm.ORM
 	registeredAccounts  []accounts.Account
 	availableAccounts   []*ManagedAccount
 	availableAccountIdx int
 	accountsMutex       *sync.Mutex
 	connected           *abool.AtomicBool
+	currentHead         models.Head
 }
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
 // initializing internal variables.
-func NewEthTxManager(ethClient *EthClient, config Config, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
+func NewEthTxManager(client EthClient, config orm.ConfigReader, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
 	return &EthTxManager{
-		EthClient:     ethClient,
+		EthClient:     client,
 		config:        config,
 		keyStore:      keyStore,
 		orm:           orm,
@@ -122,6 +123,9 @@ func (txm *EthTxManager) Connect(bn *models.Head) error {
 		}
 	}
 
+	if bn != nil {
+		txm.currentHead = *bn
+	}
 	txm.connected.Set()
 	return merr
 }
@@ -132,7 +136,9 @@ func (txm *EthTxManager) Disconnect() {
 }
 
 // OnNewHead does nothing; exists to comply with interface.
-func (txm *EthTxManager) OnNewHead(*models.Head) {}
+func (txm *EthTxManager) OnNewHead(head *models.Head) {
+	txm.currentHead = *head
+}
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
@@ -173,7 +179,7 @@ func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
 	return ma, nil
 }
 
-func normalizeGasParams(gasPriceWei *big.Int, gasLimit uint64, config Config) (*big.Int, uint64) {
+func normalizeGasParams(gasPriceWei *big.Int, gasLimit uint64, config orm.ConfigReader) (*big.Int, uint64) {
 	if !config.Dev() {
 		return config.EthGasPriceDefault(), DefaultGasLimit
 	}
@@ -229,13 +235,8 @@ func (txm *EthTxManager) sendInitialTx(
 	gasLimit uint64,
 	value *assets.Eth) (*models.Tx, error) {
 
-	blockHeight, err := txm.getBlockNumber()
-	if err != nil {
-		return nil, errors.Wrap(err, "TxManager#sendInitialTx getBlockNumber")
-	}
-
 	var tx *models.Tx
-	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
+	err := ma.GetAndIncrementNonce(func(nonce uint64) error {
 		ethTx, err := txm.newEthTx(
 			ma.Account,
 			nonce,
@@ -248,6 +249,7 @@ func (txm *EthTxManager) sendInitialTx(
 			return errors.Wrap(err, "TxManager#sendInitialTx newEthTx")
 		}
 
+		blockHeight := uint64(txm.currentHead.Number)
 		tx, err = txm.orm.CreateTx(surrogateID, ethTx, &ma.Address, blockHeight)
 		if err != nil {
 			return errors.Wrap(err, "TxManager#sendInitialTx CreateTx")
@@ -282,11 +284,6 @@ func (txm *EthTxManager) retryInitialTx(
 		return errors.Wrap(err, "TxManager#retryInitialTx ReloadNonce")
 	}
 
-	blockHeight, err := txm.getBlockNumber()
-	if err != nil {
-		return errors.Wrap(err, "TxManager#retryInitialTx getBlockNumber")
-	}
-
 	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
 		ethTx, err := txm.newEthTx(
 			ma.Account,
@@ -300,6 +297,7 @@ func (txm *EthTxManager) retryInitialTx(
 			return errors.Wrap(err, "TxManager#retryInitialTx newEthTx")
 		}
 
+		blockHeight := uint64(txm.currentHead.Number)
 		err = txm.orm.UpdateTx(tx, ethTx, &ma.Address, blockHeight)
 		if err != nil {
 			return errors.Wrap(err, "TxManager#retryInitialTx UpdateTx")
@@ -360,17 +358,16 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 // BumpGasUntilSafe process a collection of related TxAttempts, trying to get
 // at least one TxAttempt into a safe state, bumping gas if needed
 func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, AttemptState, error) {
-	blockHeight, err := txm.getBlockNumber()
-	if err != nil {
-		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe getBlockNumber")
-	}
+	blockHeight := uint64(txm.currentHead.Number)
 	tx, _, err := txm.orm.FindTxByAttempt(hash)
 	if err != nil {
 		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe FindTxByAttempt")
 	}
 
 	var merr error
-	for attemptIndex := range tx.Attempts {
+	// Process attempts in reverse, since the attempt with the highest gas is
+	// likely to be confirmed first
+	for attemptIndex := len(tx.Attempts) - 1; attemptIndex >= 0; attemptIndex-- {
 		receipt, state, err := txm.processAttempt(tx, attemptIndex, blockHeight)
 		if state == Safe || state == Confirmed {
 			return receipt, state, err // success, so all other attempt errors can be ignored.
@@ -406,9 +403,9 @@ func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (asset
 // GetETHAndLINKBalances attempts to retrieve the ethereum node's perception of
 // the latest ETH and LINK balances for the active account on the txm, or an
 // error on failure.
-func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*big.Int, *assets.Link, error) {
+func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*assets.Eth, *assets.Link, error) {
 	linkBalance, linkErr := txm.GetLINKBalance(address)
-	ethBalance, ethErr := txm.EthClient.GetWeiBalance(address)
+	ethBalance, ethErr := txm.GetEthBalance(address)
 	merr := multierr.Append(linkErr, ethErr)
 	return ethBalance, linkBalance, merr
 }
@@ -742,14 +739,6 @@ func (a *ManagedAccount) GetAndIncrementNonce(callback func(uint64) error) error
 	}
 
 	return err
-}
-
-func (txm *EthTxManager) getBlockNumber() (uint64, error) {
-	if !txm.Connected() {
-		return 0, errors.Wrap(ErrPendingConnection, "EthTxManager#getBlockNumber")
-	}
-
-	return txm.GetBlockNumber()
 }
 
 // Contract holds the solidity contract's parsed ABI

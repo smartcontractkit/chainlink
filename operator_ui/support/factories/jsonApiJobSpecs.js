@@ -11,6 +11,8 @@ export default (jobs, count) => {
       const config = c || {}
       const id = config.id || uuid().replace(/-/g, '')
       const initiators = config.initiators || [{ type: 'web' }]
+      const earnings = config.earnings
+      const minPay = config.minPayment
       const tasks = config.tasks || [
         {
           confirmations: 0,
@@ -28,7 +30,9 @@ export default (jobs, count) => {
           initiators: initiators,
           id: id,
           tasks: tasks,
+          minPayment: minPay,
           createdAt: createdAt,
+          earnings: earnings,
           runs: runs.map(r =>
             Object.assign(
               {},

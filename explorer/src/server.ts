@@ -1,8 +1,9 @@
-import * as controllers from './controllers'
-import { addRequestLogging, logger } from './logging'
 import express from 'express'
+import helmet from 'helmet'
 import http from 'http'
 import mime from 'mime-types'
+import * as controllers from './controllers'
+import { addRequestLogging, logger } from './logging'
 import { bootstrapRealtime } from './realtime'
 import seed from './seed'
 
@@ -14,14 +15,13 @@ const server = (port: number = DEFAULT_PORT) => {
   }
 
   const app = express()
-  if (process.env.NODE_ENV !== 'test') {
-    addRequestLogging(app)
-  }
+  addRequestLogging(app)
 
+  app.use(helmet())
   app.use(
     express.static('client/build', {
       maxAge: '1y',
-      setHeaders: function(res, path) {
+      setHeaders(res, path) {
         if (mime.lookup(path) === 'text/html') {
           res.setHeader('Cache-Control', 'public, max-age=0')
         }
@@ -34,9 +34,9 @@ const server = (port: number = DEFAULT_PORT) => {
     res.sendFile(`${__dirname}/public/index.html`)
   })
 
-  const server = new http.Server(app)
-  bootstrapRealtime(server)
-  return server.listen(port, () => {
+  const httpServer = new http.Server(app)
+  bootstrapRealtime(httpServer)
+  return httpServer.listen(port, () => {
     logger.info(`server started, listening on port ${port}`)
   })
 }

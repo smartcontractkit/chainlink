@@ -112,15 +112,15 @@ func TestEVMTranscodeBytes(t *testing.T) {
 				"0000000000000000000000000000000000000000000000000000000000000020" +
 				"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe9",
 		},
-		{
-			"value has decimal places",
+		// NB: The following is undesirable behavior. For more details, please see
+		// https://www.pivotaltracker.com/n/workspaces/755483
+		{"value is a number but not an integer",
 			`19.99`,
 			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000020" +
 				"0000000000000000000000000000000000000000000000000000000000000013",
 		},
 	}
-
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
@@ -130,6 +130,13 @@ func TestEVMTranscodeBytes(t *testing.T) {
 			assert.Equal(t, test.output, hexutil.Encode(out))
 		})
 	}
+}
+
+func TestEVMTranscodeBytes_ErrorsOnOverflow(t *testing.T) {
+	input := gjson.Parse("1e+300")
+	_, err := EVMTranscodeBytes(input)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Overflow saving signed big.Int to EVM word")
 }
 
 func TestEVMTranscodeBytes_UnsupportedEncoding(t *testing.T) {

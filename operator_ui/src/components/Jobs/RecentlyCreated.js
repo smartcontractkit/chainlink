@@ -1,14 +1,16 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import { withStyles } from '@material-ui/core/styles'
-import Typography from '@material-ui/core/Typography'
+import {
+  SimpleListCard,
+  SimpleListCardItem,
+  TimeAgo
+} from '@chainlink/styleguide'
 import Grid from '@material-ui/core/Grid'
+import { withStyles } from '@material-ui/core/styles'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
-import SimpleListCard from '@chainlink/styleguide/components/Cards/SimpleList'
-import SimpleListCardItem from '@chainlink/styleguide/components/Cards/SimpleListItem'
-import TimeAgo from '@chainlink/styleguide/components/TimeAgo'
+import Typography from '@material-ui/core/Typography'
 import Link from 'components/Link'
+import PropTypes from 'prop-types'
+import React from 'react'
 
 const styles = () => ({
   block: { display: 'block' },

@@ -25,9 +25,9 @@ func BenchmarkJobRunsController_Index(b *testing.B) {
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, cleanup := client.Get("/v2/runs?jobSpecId=" + run1.JobSpecID)
+		resp, cleanup := client.Get("/v2/runs?jobSpecId=" + run1.JobSpecID.String())
 		defer cleanup()
-		assert.Equal(b, 200, resp.StatusCode, "Response should be successful")
+		assert.Equal(b, http.StatusOK, resp.StatusCode, "Response should be successful")
 	}
 }
 
@@ -41,13 +41,13 @@ func TestJobRunsController_Index(t *testing.T) {
 
 	runA, runB, runC := setupJobRunsControllerIndex(t, app)
 
-	resp, cleanup := client.Get("/v2/runs?size=x&jobSpecId=" + runA.JobSpecID)
+	resp, cleanup := client.Get("/v2/runs?size=x&jobSpecId=" + runA.JobSpecID.String())
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 422)
+	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 
-	resp, cleanup = client.Get("/v2/runs?size=1&jobSpecId=" + runA.JobSpecID)
+	resp, cleanup = client.Get("/v2/runs?size=1&jobSpecId=" + runA.JobSpecID.String())
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var links jsonapi.Links
 	var runs []models.JobRun
@@ -57,12 +57,12 @@ func TestJobRunsController_Index(t *testing.T) {
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
-	assert.Len(t, runs, 1)
+	require.Len(t, runs, 1)
 	assert.Equal(t, runA.ID, runs[0].ID, "expected runs order by createdAt ascending")
 
 	resp, cleanup = client.Get(links["next"].Href)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var nextPageLinks jsonapi.Links
 	var nextPageRuns = []models.JobRun{}
@@ -77,7 +77,7 @@ func TestJobRunsController_Index(t *testing.T) {
 
 	resp, cleanup = client.Get("/v2/runs?sort=-createdAt")
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var allJobRunLinks jsonapi.Links
 	var allJobRuns []models.JobRun
@@ -103,17 +103,17 @@ func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication)
 	now := time.Now()
 
 	runA := j1.NewRun(j1.Initiators[0])
-	runA.ID = "runA"
+	runA.ID = models.NewID()
 	runA.CreatedAt = now.Add(-2 * time.Second)
 	assert.Nil(t, app.Store.CreateJobRun(&runA))
 
 	runB := j1.NewRun(j1.Initiators[0])
-	runB.ID = "runB"
+	runB.ID = models.NewID()
 	runB.CreatedAt = now.Add(-time.Second)
 	assert.Nil(t, app.Store.CreateJobRun(&runB))
 
 	runC := j2.NewRun(j2.Initiators[0])
-	runC.ID = "runC"
+	runC.ID = models.NewID()
 	runC.CreatedAt = now
 	assert.Nil(t, app.Store.CreateJobRun(&runC))
 
@@ -147,9 +147,9 @@ func TestJobRunsController_Create_Archived(t *testing.T) {
 	require.NoError(t, app.Store.ArchiveJob(j.ID))
 
 	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bytes.NewBufferString(`{"result":"100"}`))
+	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", bytes.NewBufferString(`{"result":"100"}`))
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 404)
+	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 }
 
 func TestJobRunsController_Create_EmptyBody(t *testing.T) {
@@ -175,9 +175,9 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.CreateJob(&j))
 
-	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bytes.NewBufferString(`{`))
+	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", bytes.NewBufferString(`{`))
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 500)
+	cltest.AssertServerResponse(t, resp, http.StatusInternalServerError)
 }
 
 func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
@@ -190,9 +190,9 @@ func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	j := cltest.NewJob()
 	assert.Nil(t, app.Store.CreateJob(&j))
 
-	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bytes.NewBuffer([]byte{}))
+	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", bytes.NewBuffer([]byte{}))
 	defer cleanup()
-	assert.Equal(t, 403, resp.StatusCode, "Response should be forbidden")
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode, "Response should be forbidden")
 }
 
 func TestJobRunsController_Create_NotFound(t *testing.T) {
@@ -202,9 +202,21 @@ func TestJobRunsController_Create_NotFound(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
+	resp, cleanup := client.Post("/v2/specs/4C95A8FA-EEAC-4BD5-97D9-27806D200D3C/runs", bytes.NewBuffer([]byte{}))
+	defer cleanup()
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be not found")
+}
+
+func TestJobRunsController_Create_InvalidID(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t)
+	app.Start()
+	defer cleanup()
+	client := app.NewHTTPClient()
+
 	resp, cleanup := client.Post("/v2/specs/garbageID/runs", bytes.NewBuffer([]byte{}))
 	defer cleanup()
-	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode, "Response should be unprocessable entity")
 }
 
 func TestJobRunsController_Update_Success(t *testing.T) {
@@ -238,11 +250,11 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 			// resume run
 			body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
 			headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
-			url := app.Config.ClientNodeURL() + "/v2/runs/" + jr.ID
+			url := app.Config.ClientNodeURL() + "/v2/runs/" + jr.ID.String()
 			resp, cleanup := cltest.UnauthenticatedPatch(t, url, bytes.NewBufferString(body), headers)
 			defer cleanup()
 
-			require.Equal(t, 200, resp.StatusCode, "Response should be successful")
+			require.Equal(t, http.StatusOK, resp.StatusCode, "Response should be successful")
 			var respJobRun presenters.JobRun
 			assert.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJobRun))
 			require.Equal(t, jr.ID, respJobRun.ID)
@@ -272,7 +284,7 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + "wrongaccesstoken"}
-	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
 	defer cleanup()
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Response should be unauthorized")
 	jr, err := app.Store.FindJobRun(jr.ID)
@@ -297,9 +309,9 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
-	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
 	defer cleanup()
-	assert.Equal(t, 405, resp.StatusCode, "Response should be unsuccessful")
+	assert.Equal(t, http.StatusMethodNotAllowed, resp.StatusCode, "Response should be unsuccessful")
 }
 
 func TestJobRunsController_Update_WithError(t *testing.T) {
@@ -319,9 +331,9 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 
 	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"result": "0"}}`, jr.ID)
 	headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
-	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
 	defer cleanup()
-	assert.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "Response should be successful")
 	var respJobRun presenters.JobRun
 	assert.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJobRun))
 	assert.Equal(t, jr.ID, respJobRun.ID)
@@ -348,9 +360,9 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
 	body := fmt.Sprint(`{`, jr.ID)
-	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body))
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body))
 	defer cleanup()
-	assert.Equal(t, 500, resp.StatusCode, "Response should be successful")
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode, "Response should be successful")
 	jr, err := app.Store.FindJobRun(jr.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, models.RunStatusPendingBridge, jr.Status)
@@ -372,9 +384,9 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
-	resp, cleanup := client.Patch("/v2/runs/"+jr.ID+"1", bytes.NewBufferString(body))
+	resp, cleanup := client.Patch("/v2/runs/4C95A8FA-EEAC-4BD5-97D9-27806D200D3C", bytes.NewBufferString(body))
 	defer cleanup()
-	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be not found")
 	jr, err := app.Store.FindJobRun(jr.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, models.RunStatusPendingBridge, jr.Status)
@@ -394,9 +406,9 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	jr := j.NewRun(j.Initiators[0])
 	assert.NoError(t, app.Store.CreateJobRun(&jr))
 
-	resp, cleanup := client.Get("/v2/runs/" + jr.ID)
+	resp, cleanup := client.Get("/v2/runs/" + jr.ID.String())
 	defer cleanup()
-	require.Equal(t, 200, resp.StatusCode, "Response should be successful")
+	require.Equal(t, http.StatusOK, resp.StatusCode, "Response should be successful")
 
 	var respJobRun presenters.JobRun
 	assert.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJobRun))
@@ -411,9 +423,21 @@ func TestJobRunsController_Show_NotFound(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
+	resp, cleanup := client.Get("/v2/runs/4C95A8FA-EEAC-4BD5-97D9-27806D200D3C")
+	defer cleanup()
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be not found")
+}
+
+func TestJobRunsController_Show_InvalidID(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t)
+	app.Start()
+	defer cleanup()
+	client := app.NewHTTPClient()
+
 	resp, cleanup := client.Get("/v2/runs/garbage")
 	defer cleanup()
-	assert.Equal(t, 404, resp.StatusCode, "Response should be not found")
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode, "Response should be unprocessable entity")
 }
 
 func TestJobRunsController_Show_Unauthenticated(t *testing.T) {
@@ -424,5 +448,5 @@ func TestJobRunsController_Show_Unauthenticated(t *testing.T) {
 
 	resp, err := http.Get(app.Server.URL + "/v2/runs/notauthorized")
 	assert.NoError(t, err)
-	assert.Equal(t, 401, resp.StatusCode, "Response should be forbidden")
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Response should be forbidden")
 }

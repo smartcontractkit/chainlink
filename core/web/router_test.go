@@ -24,7 +24,7 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 	resp, err := http.Post(ts.URL+"/v2/specs/", web.MediaType, bytes.NewBufferString("{}"))
 	require.NoError(t, err)
 
-	assert.Equal(t, 401, resp.StatusCode)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
 func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
@@ -39,7 +39,7 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 	resp, cleanup := client.Post("/v2/specs/", nil)
 	defer cleanup()
 
-	assert.Equal(t, 400, resp.StatusCode)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
@@ -51,12 +51,16 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	defer ts.Close()
 
 	eia := models.NewExternalInitiatorAuthentication()
-	ea, err := models.NewExternalInitiator(eia)
+	eir := &models.ExternalInitiatorRequest{
+		Name: "bitcoin",
+		URL:  cltest.WebURL(t, "http://localhost:8888"),
+	}
+	ea, err := models.NewExternalInitiator(eia, eir)
 	require.NoError(t, err)
 	err = app.GetStore().CreateExternalInitiator(ea)
 	require.NoError(t, err)
 
-	request, err := http.NewRequest("POST", ts.URL+"/v2/specs/", bytes.NewBufferString("{}"))
+	request, err := http.NewRequest("GET", ts.URL+"/v2/ping/", bytes.NewBufferString("{}"))
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", web.MediaType)
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)
@@ -66,7 +70,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	resp, err := client.Do(request)
 	require.NoError(t, err)
 
-	assert.Equal(t, 400, resp.StatusCode)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
@@ -78,12 +82,16 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	defer ts.Close()
 
 	eia := models.NewExternalInitiatorAuthentication()
-	ea, err := models.NewExternalInitiator(eia)
+	eir := &models.ExternalInitiatorRequest{
+		Name: "bitcoin",
+		URL:  cltest.WebURL(t, "http://localhost:8888"),
+	}
+	ea, err := models.NewExternalInitiator(eia, eir)
 	require.NoError(t, err)
 	err = app.GetStore().CreateExternalInitiator(ea)
 	require.NoError(t, err)
 
-	request, err := http.NewRequest("POST", ts.URL+"/v2/specs/", bytes.NewBufferString("{}"))
+	request, err := http.NewRequest("GET", ts.URL+"/v2/ping/", bytes.NewBufferString("{}"))
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", web.MediaType)
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)
@@ -93,7 +101,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	resp, err := client.Do(request)
 	require.NoError(t, err)
 
-	assert.Equal(t, 401, resp.StatusCode)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
 func TestSessions_RateLimited(t *testing.T) {
@@ -113,7 +121,7 @@ func TestSessions_RateLimited(t *testing.T) {
 
 		resp, err := client.Do(request)
 		require.NoError(t, err)
-		assert.Equal(t, 401, resp.StatusCode)
+		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	}
 
 	request, err := http.NewRequest("POST", ts.URL+"/sessions", bytes.NewBufferString(input))
@@ -141,4 +149,29 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 	resp, err := client.Do(request)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusRequestEntityTooLarge, resp.StatusCode)
+}
+
+func TestRouter_GinHelmetHeaders(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	router := web.Router(app)
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+	res, err := http.Get(ts.URL)
+	require.NoError(t, err)
+	for _, tt := range []struct {
+		HelmetName  string
+		HeaderKey   string
+		HeaderValue string
+	}{
+		{"NoSniff", "X-Content-Type-Options", "nosniff"},
+		{"DNSPrefetchControl", "X-DNS-Prefetch-Control", "off"},
+		{"FrameGuard", "X-Frame-Options", "DENY"},
+		{"SetHSTS", "Strict-Transport-Security", "max-age=5184000; includeSubDomains"},
+		{"IENoOpen", "X-Download-Options", "noopen"},
+		{"XSSFilter", "X-Xss-Protection", "1; mode=block"},
+	} {
+		assert.Equal(t, res.Header.Get(tt.HeaderKey), tt.HeaderValue,
+			"wrong header for helmet's %s handler", tt.HelmetName)
+	}
 }

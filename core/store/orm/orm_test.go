@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -30,7 +31,7 @@ func TestORM_WhereNotFound(t *testing.T) {
 	j1 := models.NewJob()
 	jobs := []models.JobSpec{j1}
 
-	err := store.Where("ID", "bogus", &jobs)
+	err := store.Where("ID", models.NewID().String(), &jobs)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
 }
@@ -190,18 +191,49 @@ func TestORM_JobRunsFor(t *testing.T) {
 
 	runs, err := store.JobRunsFor(job.ID)
 	assert.NoError(t, err)
-	actual := []string{runs[0].ID, runs[1].ID, runs[2].ID}
-	assert.Equal(t, []string{jr2.ID, jr1.ID, jr3.ID}, actual)
+	actual := []*models.ID{runs[0].ID, runs[1].ID, runs[2].ID}
+	assert.Equal(t, []*models.ID{jr2.ID, jr1.ID, jr3.ID}, actual)
 
 	limRuns, limErr := store.JobRunsFor(job.ID, 2)
 	assert.NoError(t, limErr)
-	limActual := []string{limRuns[0].ID, limRuns[1].ID}
-	assert.Equal(t, []string{jr2.ID, jr1.ID}, limActual)
+	limActual := []*models.ID{limRuns[0].ID, limRuns[1].ID}
+	assert.Equal(t, []*models.ID{jr2.ID, jr1.ID}, limActual)
 
 	_, limZeroErr := store.JobRunsFor(job.ID, 0)
 	assert.NoError(t, limZeroErr)
-	limZeroActual := []string{}
-	assert.Equal(t, []string{}, limZeroActual)
+	limZeroActual := []*models.ID{}
+	assert.Equal(t, []*models.ID{}, limZeroActual)
+}
+
+func TestORM_LinkEarnedFor(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+
+	initr := job.Initiators[0]
+	jr1 := job.NewRun(initr)
+	jr1.Payment = assets.NewLink(2)
+	jr1.FinishedAt = null.TimeFrom(time.Now())
+	require.NoError(t, store.CreateJobRun(&jr1))
+	jr2 := job.NewRun(initr)
+	jr2.Payment = assets.NewLink(3)
+	jr2.FinishedAt = null.TimeFrom(time.Now())
+	require.NoError(t, store.CreateJobRun(&jr2))
+	jr3 := job.NewRun(initr)
+	jr3.Payment = assets.NewLink(5)
+	jr3.FinishedAt = null.TimeFrom(time.Now())
+	require.NoError(t, store.CreateJobRun(&jr3))
+	jr4 := job.NewRun(initr)
+	jr4.Payment = assets.NewLink(5)
+	require.NoError(t, store.CreateJobRun(&jr4))
+
+	totalEarned, err := store.LinkEarnedFor(&job)
+	require.NoError(t, err)
+	assert.Equal(t, assets.NewLink(10), totalEarned)
 }
 
 func TestORM_JobRunsSortedFor(t *testing.T) {
@@ -231,8 +263,8 @@ func TestORM_JobRunsSortedFor(t *testing.T) {
 	runs, count, err := store.JobRunsSortedFor(includedJob.ID, orm.Descending, 0, 100)
 	assert.NoError(t, err)
 	require.Equal(t, 2, count)
-	actual := []string{runs[0].ID, runs[1].ID} // doesn't include excludedJobRun
-	assert.Equal(t, []string{jr2.ID, jr1.ID}, actual)
+	actual := []*models.ID{runs[0].ID, runs[1].ID} // doesn't include excludedJobRun
+	assert.Equal(t, []*models.ID{jr2.ID, jr1.ID}, actual)
 }
 
 func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
@@ -251,7 +283,7 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 		models.RunStatusPendingConfirmations,
 		models.RunStatusCompleted}
 
-	var seedIds []string
+	var seedIds []*models.ID
 	for _, status := range statuses {
 		run := j.NewRun(i)
 		run.Status = status
@@ -262,17 +294,17 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 	tests := []struct {
 		name     string
 		statuses []models.RunStatus
-		expected []string
+		expected []*models.ID
 	}{
 		{
 			"single status",
 			[]models.RunStatus{models.RunStatusPendingBridge},
-			[]string{seedIds[0]},
+			[]*models.ID{seedIds[0]},
 		},
 		{
 			"multiple status'",
 			[]models.RunStatus{models.RunStatusPendingBridge, models.RunStatusPendingConfirmations},
-			[]string{seedIds[0], seedIds[1]},
+			[]*models.ID{seedIds[0], seedIds[1]},
 		},
 	}
 
@@ -281,7 +313,7 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			pending := cltest.MustAllJobsWithStatus(t, store, test.statuses...)
 
-			pendingIDs := []string{}
+			pendingIDs := []*models.ID{}
 			for _, jr := range pending {
 				pendingIDs = append(pendingIDs, jr.ID)
 			}
@@ -307,7 +339,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 		models.RunStatusPendingConnection,
 		models.RunStatusCompleted}
 
-	var seedIds []string
+	var seedIds []*models.ID
 	for _, status := range statuses {
 		run := j.NewRun(i)
 		run.Status = status
@@ -320,17 +352,17 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 	tests := []struct {
 		name     string
 		statuses []models.RunStatus
-		expected []string
+		expected []*models.ID
 	}{
 		{
 			"single status",
 			[]models.RunStatus{models.RunStatusPendingBridge},
-			[]string{seedIds[0]},
+			[]*models.ID{seedIds[0]},
 		},
 		{
 			"multiple status'",
 			[]models.RunStatus{models.RunStatusPendingBridge, models.RunStatusPendingConfirmations, models.RunStatusPendingConnection},
-			[]string{seedIds[0], seedIds[1], seedIds[2]},
+			[]*models.ID{seedIds[0], seedIds[1], seedIds[2]},
 		},
 	}
 
@@ -339,7 +371,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			pending := cltest.MustAllJobsWithStatus(t, store, test.statuses...)
 
-			pendingIDs := []string{}
+			pendingIDs := []*models.ID{}
 			for _, jr := range pending {
 				pendingIDs = append(pendingIDs, jr.ID)
 			}
@@ -736,13 +768,12 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 	manager := store.TxManager
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	one := uint64(1)
 
 	ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(one))
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(one))
 	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-	ethMock.Register("eth_chainId", *cltest.Int(store.Config.ChainID()))
+	ethMock.Register("eth_chainId", store.Config.ChainID())
 
 	assert.NoError(t, app.StartAndConnect())
 

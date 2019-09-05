@@ -1,15 +1,15 @@
-import React from 'react'
-import { withStyles } from '@material-ui/core/styles'
-import { useHooks, useState } from 'use-react-hooks'
-import { connect } from 'react-redux'
-import { bindActionCreators } from 'redux'
-import PaddedCard from '@chainlink/styleguide/components/PaddedCard'
+import { PaddedCard } from '@chainlink/styleguide'
 import Divider from '@material-ui/core/Divider'
-import Typography from '@material-ui/core/Typography'
-import Button from 'components/Button'
 import Grid from '@material-ui/core/Grid'
 import Slide from '@material-ui/core/Slide'
+import { withStyles } from '@material-ui/core/styles'
+import Typography from '@material-ui/core/Typography'
 import { deleteCompletedJobRuns, deleteErroredJobRuns } from 'actions'
+import Button from 'components/Button'
+import React from 'react'
+import { connect } from 'react-redux'
+import { bindActionCreators } from 'redux'
+import { useHooks, useState } from 'use-react-hooks'
 
 const styles = theme => {
   return {

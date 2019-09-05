@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
@@ -123,19 +124,22 @@ type ConfigWhitelist struct {
 type whitelist struct {
 	AllowOrigins             string          `json:"allowOrigins"`
 	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
-	ChainID                  uint64          `json:"ethChainId"`
+	ChainID                  *big.Int        `json:"ethChainId"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
-	Dev                      bool            `json:"chainlinkDev"`
 	DatabaseTimeout          time.Duration   `json:"databaseTimeout"`
+	Dev                      bool            `json:"chainlinkDev"`
 	EthereumURL              string          `json:"ethUrl"`
 	EthGasBumpThreshold      uint64          `json:"ethGasBumpThreshold"`
 	EthGasBumpWei            *big.Int        `json:"ethGasBumpWei"`
 	EthGasPriceDefault       *big.Int        `json:"ethGasPriceDefault"`
+	ExplorerURL              string          `json:"explorerUrl"`
 	JSONConsole              bool            `json:"jsonConsole"`
 	LinkContractAddress      string          `json:"linkContractAddress"`
-	ExplorerURL              string          `json:"explorerUrl"`
-	LogLevel                 store.LogLevel  `json:"logLevel"`
+	LogLevel                 orm.LogLevel    `json:"logLevel"`
+	LogSQLMigrations         bool            `json:"logSqlMigrations"`
+	LogSQLStatements         bool            `json:"logSqlStatements"`
 	LogToDisk                bool            `json:"logToDisk"`
+	MaxRPCCallsPerSecond     uint64          `json:"maxRPCCallsPerSecond"`
 	MinimumContractPayment   *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration uint64          `json:"minimumRequestExpiration"`
 	MinIncomingConfirmations uint32          `json:"minIncomingConfirmations"`
@@ -147,6 +151,7 @@ type whitelist struct {
 	SessionTimeout           time.Duration   `json:"sessionTimeout"`
 	TLSHost                  string          `json:"chainlinkTLSHost"`
 	TLSPort                  uint16          `json:"chainlinkTLSPort"`
+	TLSRedirect              bool            `json:"chainlinkTLSRedirect"`
 	TxAttemptLimit           uint16          `json:"txAttemptLimit"`
 }
 
@@ -180,6 +185,9 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			ExplorerURL:              explorerURL,
 			LogLevel:                 config.LogLevel(),
 			LogToDisk:                config.LogToDisk(),
+			LogSQLStatements:         config.LogSQLStatements(),
+			LogSQLMigrations:         config.LogSQLMigrations(),
+			MaxRPCCallsPerSecond:     config.MaxRPCCallsPerSecond(),
 			MinimumContractPayment:   config.MinimumContractPayment(),
 			MinimumRequestExpiration: config.MinimumRequestExpiration(),
 			MinIncomingConfirmations: config.MinIncomingConfirmations(),
@@ -191,6 +199,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			SessionTimeout:           config.SessionTimeout(),
 			TLSHost:                  config.TLSHost(),
 			TLSPort:                  config.TLSPort(),
+			TLSRedirect:              config.TLSRedirect(),
 			TxAttemptLimit:           config.TxAttemptLimit(),
 		},
 	}, nil
@@ -202,7 +211,7 @@ func (c ConfigWhitelist) String() string {
 
 	buffer.WriteString(fmt.Sprintf("ACCOUNT_ADDRESS: %v\n", c.AccountAddress))
 
-	schemaT := reflect.TypeOf(store.ConfigSchema{})
+	schemaT := reflect.TypeOf(orm.ConfigSchema{})
 	cwlT := reflect.TypeOf(c.whitelist)
 	cwlV := reflect.ValueOf(c.whitelist)
 	for index := 0; index < cwlT.NumField(); index++ {
@@ -242,9 +251,11 @@ func (c *ConfigWhitelist) SetID(value string) error {
 	return nil
 }
 
-// JobSpec holds the JobSpec definition
+// JobSpec holds the JobSpec definition together with
+// the total link earned from that job
 type JobSpec struct {
 	models.JobSpec
+	Earnings *assets.Link `json:"earnings"`
 }
 
 // MarshalJSON returns the JSON data of the Job and its Initiators.
@@ -285,6 +296,15 @@ func (job JobSpec) FriendlyEndAt() string {
 		return utils.ISO8601UTC(job.EndAt.Time)
 	}
 	return ""
+}
+
+// FriendlyMinPayment returns a formatted string of the Job's
+// Minimum Link Payment threshold
+func (job JobSpec) FriendlyMinPayment() string {
+	if job.MinPayment == nil {
+		return assets.NewLink(0).Text(10)
+	}
+	return job.MinPayment.Text(10)
 }
 
 // FriendlyInitiators returns the list of Initiator types as
@@ -548,5 +568,47 @@ func (Tx) GetName() string {
 // deserializing from jsonapi documents.
 func (t *Tx) SetID(hex string) error {
 	t.Hash = common.HexToHash(hex)
+	return nil
+}
+
+// ExternalInitiatorAuthentication includes initiator and authentication details.
+type ExternalInitiatorAuthentication struct {
+	Name           string        `json:"name,omitempty"`
+	URL            models.WebURL `json:"url,omitempty"`
+	AccessKey      string        `json:"incomingAccessKey,omitempty"`
+	Secret         string        `json:"incomingSecret,omitempty"`
+	OutgoingToken  string        `json:"outgoingToken,omitempty"`
+	OutgoingSecret string        `json:"outgoingSecret,omitempty"`
+}
+
+// NewExternalInitiatorAuthentication creates an instance of ExternalInitiatorAuthentication.
+func NewExternalInitiatorAuthentication(
+	ei models.ExternalInitiator,
+	eia models.ExternalInitiatorAuthentication,
+) *ExternalInitiatorAuthentication {
+	return &ExternalInitiatorAuthentication{
+		Name:           ei.Name,
+		URL:            ei.URL,
+		AccessKey:      ei.AccessKey,
+		Secret:         eia.Secret,
+		OutgoingToken:  ei.OutgoingToken,
+		OutgoingSecret: ei.OutgoingSecret,
+	}
+}
+
+// GetID returns the jsonapi ID.
+func (ei *ExternalInitiatorAuthentication) GetID() string {
+	return ei.Name
+}
+
+// GetName returns the collection name for jsonapi.
+func (*ExternalInitiatorAuthentication) GetName() string {
+	return "external initiators"
+}
+
+// SetID is used to conform to the UnmarshallIdentifier interface for
+// deserializing from jsonapi documents.
+func (ei *ExternalInitiatorAuthentication) SetID(name string) error {
+	ei.Name = name
 	return nil
 }

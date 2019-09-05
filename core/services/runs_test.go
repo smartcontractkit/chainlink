@@ -43,12 +43,35 @@ func TestNewRun(t *testing.T) {
 	}}
 
 	inputResult := models.RunResult{Data: input}
-	run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, creationHeight, store)
+	run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, creationHeight, store, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 1)
 	assert.Equal(t, input, run.Overrides.Data)
 	assert.False(t, run.TaskRuns[0].Confirmations.Valid)
+}
+
+func TestNewRun_MeetsMinimumPayment(t *testing.T) {
+	tests := []struct {
+		name            string
+		MinJobPayment   *assets.Link
+		RunPayment      *assets.Link
+		meetsMinPayment bool
+	}{
+		{"insufficient payment", assets.NewLink(100), assets.NewLink(10), false},
+		{"sufficient payment (strictly greater)", assets.NewLink(1), assets.NewLink(10), true},
+		{"sufficient payment (equal)", assets.NewLink(10), assets.NewLink(10), true},
+		{"runs that do not accept payments must return true", assets.NewLink(10), nil, true},
+		{"return true when minpayment is not specified in jobspec", nil, assets.NewLink(0), true},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			actual := services.MeetsMinimumPayment(test.MinJobPayment, test.RunPayment)
+			assert.Equal(t, test.meetsMinPayment, actual)
+		})
+	}
 }
 
 func TestNewRun_requiredPayment(t *testing.T) {
@@ -62,22 +85,25 @@ func TestNewRun_requiredPayment(t *testing.T) {
 	require.NoError(t, store.CreateBridgeType(bt))
 
 	tests := []struct {
-		name           string
-		payment        *assets.Link
-		minimumPayment *assets.Link
-		expectedStatus models.RunStatus
+		name                  string
+		payment               *assets.Link
+		minimumConfigPayment  *assets.Link
+		minimumJobSpecPayment *assets.Link
+		expectedStatus        models.RunStatus
 	}{
-		{"creates runnable job", nil, assets.NewLink(0), models.RunStatusInProgress},
-		{"insufficient payment as specified by config", assets.NewLink(9), assets.NewLink(10), models.RunStatusErrored},
-		{"sufficient payment as specified by config", assets.NewLink(10), assets.NewLink(10), models.RunStatusInProgress},
-		{"insufficient payment as specified by adapter", assets.NewLink(9), assets.NewLink(0), models.RunStatusErrored},
-		{"sufficient payment as specified by adapter", assets.NewLink(10), assets.NewLink(0), models.RunStatusInProgress},
+		{"creates runnable job", nil, assets.NewLink(0), assets.NewLink(0), models.RunStatusInProgress},
+		{"insufficient payment as specified by config", assets.NewLink(9), assets.NewLink(10), assets.NewLink(0), models.RunStatusErrored},
+		{"sufficient payment as specified by config", assets.NewLink(10), assets.NewLink(10), assets.NewLink(0), models.RunStatusInProgress},
+		{"insufficient payment as specified by adapter", assets.NewLink(9), assets.NewLink(0), assets.NewLink(0), models.RunStatusErrored},
+		{"sufficient payment as specified by adapter", assets.NewLink(10), assets.NewLink(0), assets.NewLink(0), models.RunStatusInProgress},
+		{"insufficient payment as specified by jobSpec MinPayment", assets.NewLink(9), assets.NewLink(0), assets.NewLink(10), models.RunStatusErrored},
+		{"sufficient payment as specified by jobSpec MinPayment", assets.NewLink(10), assets.NewLink(0), assets.NewLink(10), models.RunStatusInProgress},
 	}
 
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			store.Config.Set("MINIMUM_CONTRACT_PAYMENT", test.minimumPayment)
+			store.Config.Set("MINIMUM_CONTRACT_PAYMENT", test.minimumConfigPayment)
 
 			jobSpec := models.NewJob()
 			jobSpec.Tasks = []models.TaskSpec{{
@@ -86,10 +112,11 @@ func TestNewRun_requiredPayment(t *testing.T) {
 			jobSpec.Initiators = []models.Initiator{{
 				Type: models.InitiatorEthLog,
 			}}
+			jobSpec.MinPayment = test.minimumJobSpecPayment
 
-			inputResult := models.RunResult{Data: input, Amount: test.payment}
+			inputResult := models.RunResult{Data: input}
 
-			run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, nil, store)
+			run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, nil, store, test.payment)
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.expectedStatus), string(run.Status))
 		})
@@ -129,7 +156,8 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 				jobSpec.Initiators[0],
 				inputResult,
 				creationHeight,
-				store)
+				store,
+				nil)
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.expectedStatus), string(run.Status))
 			require.Len(t, run.TaskRuns, 1)
@@ -169,7 +197,7 @@ func TestNewRun_startAtAndEndAt(t *testing.T) {
 			job.EndAt = test.endAt
 			assert.Nil(t, store.CreateJob(&job))
 
-			_, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store)
+			_, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store, nil)
 			if test.errored {
 				assert.Error(t, err)
 			} else {
@@ -187,7 +215,7 @@ func TestNewRun_noTasksErrorsInsteadOfPanic(t *testing.T) {
 	job.Tasks = []models.TaskSpec{}
 	require.NoError(t, store.CreateJob(&job))
 
-	jr, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store)
+	jr, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store, nil)
 	assert.NoError(t, err)
 	assert.True(t, jr.Status.Errored())
 	assert.True(t, jr.Result.HasError())
@@ -208,21 +236,27 @@ func TestResumePendingTask(t *testing.T) {
 	assert.Error(t, err)
 
 	// input with error errors run
+	jobID := models.NewID()
+	runID := models.NewID()
 	run = &models.JobRun{
-		Status:   models.RunStatusPendingBridge,
-		TaskRuns: []models.TaskRun{models.TaskRun{}},
+		ID:        runID,
+		JobSpecID: jobID,
+		Status:    models.RunStatusPendingBridge,
+		TaskRuns:  []models.TaskRun{models.TaskRun{ID: models.NewID(), JobRunID: runID}},
 	}
-	err = services.ResumePendingTask(run, store, models.RunResult{Status: models.RunStatusErrored})
+	err = services.ResumePendingTask(run, store, models.RunResult{CachedJobRunID: runID, Status: models.RunStatusErrored})
 	assert.Error(t, err)
 	assert.True(t, run.FinishedAt.Valid)
 
 	// completed input with remaining tasks should put task into pending
 	run = &models.JobRun{
-		Status:   models.RunStatusPendingBridge,
-		TaskRuns: []models.TaskRun{models.TaskRun{}, models.TaskRun{}},
+		ID:        runID,
+		JobSpecID: jobID,
+		Status:    models.RunStatusPendingBridge,
+		TaskRuns:  []models.TaskRun{models.TaskRun{ID: models.NewID(), JobRunID: runID}, models.TaskRun{ID: models.NewID(), JobRunID: runID}},
 	}
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
-	err = services.ResumePendingTask(run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
+	err = services.ResumePendingTask(run, store, models.RunResult{CachedJobRunID: runID, Data: input, Status: models.RunStatusCompleted})
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 2)
@@ -231,10 +265,12 @@ func TestResumePendingTask(t *testing.T) {
 
 	// completed input with no remaining tasks should get marked as complete
 	run = &models.JobRun{
-		Status:   models.RunStatusPendingBridge,
-		TaskRuns: []models.TaskRun{models.TaskRun{}},
+		ID:        runID,
+		JobSpecID: jobID,
+		Status:    models.RunStatusPendingBridge,
+		TaskRuns:  []models.TaskRun{models.TaskRun{ID: models.NewID(), JobRunID: runID}},
 	}
-	err = services.ResumePendingTask(run, store, models.RunResult{Data: input, Status: models.RunStatusCompleted})
+	err = services.ResumePendingTask(run, store, models.RunResult{CachedJobRunID: runID, Data: input, Status: models.RunStatusCompleted})
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.Status))
 	assert.True(t, run.FinishedAt.Valid)
@@ -257,18 +293,18 @@ func TestResumeConfirmingTask(t *testing.T) {
 	err = services.ResumeConfirmingTask(run, store, nil)
 	assert.Error(t, err)
 
-	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	jobSpec := models.JobSpec{ID: models.NewID()}
 	require.NoError(t, store.ORM.CreateJob(&jobSpec))
 
 	// leave in pending if not enough confirmations have been met yet
 	creationHeight := models.NewBig(big.NewInt(0))
 	run = &models.JobRun{
-		ID:             utils.NewBytes32ID(),
+		ID:             models.NewID(),
 		JobSpecID:      jobSpec.ID,
 		CreationHeight: creationHeight,
 		Status:         models.RunStatusPendingConfirmations,
 		TaskRuns: []models.TaskRun{models.TaskRun{
-			ID:                   utils.NewBytes32ID(),
+			ID:                   models.NewID(),
 			MinimumConfirmations: clnull.Uint32From(2),
 			TaskSpec: models.TaskSpec{
 				JobSpecID: jobSpec.ID,
@@ -284,12 +320,12 @@ func TestResumeConfirmingTask(t *testing.T) {
 
 	// input, should go from pending -> in progress and save the input
 	run = &models.JobRun{
-		ID:             utils.NewBytes32ID(),
+		ID:             models.NewID(),
 		JobSpecID:      jobSpec.ID,
 		CreationHeight: creationHeight,
 		Status:         models.RunStatusPendingConfirmations,
 		TaskRuns: []models.TaskRun{models.TaskRun{
-			ID:                   utils.NewBytes32ID(),
+			ID:                   models.NewID(),
 			MinimumConfirmations: clnull.Uint32From(1),
 			TaskSpec: models.TaskSpec{
 				JobSpecID: jobSpec.ID,
@@ -318,17 +354,17 @@ func TestResumeConnectingTask(t *testing.T) {
 	err = services.ResumeConnectingTask(run, store)
 	assert.Error(t, err)
 
-	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	jobSpec := models.JobSpec{ID: models.NewID()}
 	require.NoError(t, store.ORM.CreateJob(&jobSpec))
 
 	taskSpec := models.TaskSpec{Type: adapters.TaskTypeNoOp, JobSpecID: jobSpec.ID}
 	// input, should go from pending -> in progress and save the input
 	run = &models.JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        models.NewID(),
 		JobSpecID: jobSpec.ID,
 		Status:    models.RunStatusPendingConnection,
 		TaskRuns: []models.TaskRun{models.TaskRun{
-			ID:       utils.NewBytes32ID(),
+			ID:       models.NewID(),
 			TaskSpec: taskSpec,
 		}},
 	}
@@ -359,16 +395,16 @@ func TestQueueSleepingTask(t *testing.T) {
 	err = services.QueueSleepingTask(run, store)
 	assert.Error(t, err)
 
-	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	jobSpec := models.JobSpec{ID: models.NewID()}
 	require.NoError(t, store.ORM.CreateJob(&jobSpec))
 
 	// reject a run that is sleeping but its task is not
 	run = &models.JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        models.NewID(),
 		JobSpecID: jobSpec.ID,
 		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{models.TaskRun{
-			ID:       utils.NewBytes32ID(),
+			ID:       models.NewID(),
 			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep, JobSpecID: jobSpec.ID},
 		}},
 	}
@@ -379,12 +415,12 @@ func TestQueueSleepingTask(t *testing.T) {
 	// error decoding params into adapter
 	inputFromTheFuture := cltest.ParseJSON(t, bytes.NewBuffer([]byte(`{"until": -1}`)))
 	run = &models.JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        models.NewID(),
 		JobSpecID: jobSpec.ID,
 		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
-				ID:     utils.NewBytes32ID(),
+				ID:     models.NewID(),
 				Status: models.RunStatusPendingSleep,
 				TaskSpec: models.TaskSpec{
 					JobSpecID: jobSpec.ID,
@@ -402,11 +438,11 @@ func TestQueueSleepingTask(t *testing.T) {
 
 	// mark run as pending, task as completed if duration has already elapsed
 	run = &models.JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        models.NewID(),
 		JobSpecID: jobSpec.ID,
 		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{models.TaskRun{
-			ID:       utils.NewBytes32ID(),
+			ID:       models.NewID(),
 			Status:   models.RunStatusPendingSleep,
 			TaskSpec: models.TaskSpec{Type: adapters.TaskTypeSleep, JobSpecID: jobSpec.ID},
 		}},
@@ -428,7 +464,7 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Happy(t *t
 	defer cleanup()
 	store.Clock = cltest.NeverClock{}
 
-	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	jobSpec := models.JobSpec{ID: models.NewID()}
 	require.NoError(t, store.ORM.CreateJob(&jobSpec))
 
 	// queue up next run if duration has not elapsed yet
@@ -438,12 +474,12 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Happy(t *t
 
 	inputFromTheFuture := sleepAdapterParams(t, 60)
 	run := &models.JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        models.NewID(),
 		JobSpecID: jobSpec.ID,
 		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
-				ID:     utils.NewBytes32ID(),
+				ID:     models.NewID(),
 				Status: models.RunStatusPendingSleep,
 				TaskSpec: models.TaskSpec{
 					JobSpecID: jobSpec.ID,
@@ -476,7 +512,7 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Archived(t
 	defer cleanup()
 	store.Clock = cltest.NeverClock{}
 
-	jobSpec := models.JobSpec{ID: utils.NewBytes32ID()}
+	jobSpec := models.JobSpec{ID: models.NewID()}
 	require.NoError(t, store.ORM.CreateJob(&jobSpec))
 
 	// queue up next run if duration has not elapsed yet
@@ -486,12 +522,12 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Archived(t
 
 	inputFromTheFuture := sleepAdapterParams(t, 60)
 	run := &models.JobRun{
-		ID:        utils.NewBytes32ID(),
+		ID:        models.NewID(),
 		JobSpecID: jobSpec.ID,
 		Status:    models.RunStatusPendingSleep,
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
-				ID:     utils.NewBytes32ID(),
+				ID:     models.NewID(),
 				Status: models.RunStatusPendingSleep,
 				TaskSpec: models.TaskSpec{
 					JobSpecID: jobSpec.ID,
@@ -528,8 +564,12 @@ func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	app.Start()
+
 	store := app.Store
+	eth := cltest.MockEthOnStore(t, store)
+	eth.Register("eth_chainId", store.Config.ChainID())
+
+	app.Start()
 
 	job := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
@@ -557,8 +597,12 @@ func TestExecuteJobWithRunRequest(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	app.Start()
+
 	store := app.Store
+	eth := cltest.MockEthOnStore(t, store)
+	eth.Register("eth_chainId", store.Config.ChainID())
+
+	app.Start()
 
 	job := cltest.NewJobWithRunLogInitiator()
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
@@ -617,7 +661,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_Happy(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithConfig(t, config)
 			defer cleanup()
 
-			eth := app.MockEthClient()
+			eth := app.MockEthCallerSubscriber()
 			app.Start()
 
 			store := app.GetStore()
@@ -678,7 +722,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_ConnectToLaggingEthNode(t *testing.
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 
-	eth := app.MockEthClient()
+	eth := app.MockEthCallerSubscriber()
 	app.MockStartAndConnect()
 
 	store := app.GetStore()

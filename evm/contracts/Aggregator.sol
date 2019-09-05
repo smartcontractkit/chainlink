@@ -1,8 +1,8 @@
 pragma solidity 0.4.24;
 
 import "./ChainlinkClient.sol";
-import "./SignedSafeMath.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "./vendor/SignedSafeMath.sol";
+import "./vendor/Ownable.sol";
 
 /**
  * @title An example Chainlink contract with aggregation
@@ -56,10 +56,7 @@ contract Aggregator is ChainlinkClient, Ownable {
     uint128 _minimumResponses,
     address[] _oracles,
     bytes32[] _jobIds
-  )
-    public
-    Ownable()
-  {
+  ) public Ownable() {
     setChainlinkToken(_link);
     updateRequestDetails(_paymentAmount, _minimumResponses, _oracles, _jobIds);
   }
@@ -222,7 +219,6 @@ contract Aggregator is ChainlinkClient, Ownable {
     if (responseLength % 2 == 0) {
       int256 median1 = quickselect(answers[_answerId].responses, middleIndex);
       int256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
-      // solium-disable-next-line zeppelin/no-arithmetic-operations
       currentAnswer = median1.add(median2) / 2; // signed integers are not supported by SafeMath
     } else {
       currentAnswer = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed

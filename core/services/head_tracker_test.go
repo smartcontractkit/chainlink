@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -22,7 +24,9 @@ func TestHeadTracker_New(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	cltest.MockEthOnStore(t, store)
+	eth := cltest.MockEthOnStore(t, store)
+	eth.Register("eth_chainId", store.Config.ChainID())
+
 	assert.Nil(t, store.CreateHead(cltest.Head(1)))
 	last := cltest.Head(16)
 	assert.Nil(t, store.CreateHead(last))
@@ -31,6 +35,26 @@ func TestHeadTracker_New(t *testing.T) {
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
 	assert.Nil(t, ht.Start())
 	assert.Equal(t, last.Number, ht.Head().Number)
+}
+
+func TestHeadTracker_New_Limit_At_100(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	eth := cltest.MockEthOnStore(t, store)
+	eth.Register("eth_chainId", store.Config.ChainID())
+
+	for idx := 0; idx <= 200; idx++ {
+		assert.Nil(t, store.CreateHead(cltest.Head(idx)))
+	}
+	firstHead, err := store.FirstHead()
+	assert.Nil(t, err)
+	assert.Equal(t, big.NewInt(101), firstHead.ToInt())
+	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
+	assert.Nil(t, ht.Start())
+	assert.Equal(t, big.NewInt(200), ht.Head().ToInt())
 }
 
 func TestHeadTracker_Get(t *testing.T) {
@@ -57,7 +81,8 @@ func TestHeadTracker_Get(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			cltest.MockEthOnStore(t, store)
+			eth := cltest.MockEthOnStore(t, store)
+			eth.Register("eth_chainId", store.Config.ChainID())
 			if test.initial != nil {
 				assert.Nil(t, store.CreateHead(test.initial))
 			}
@@ -87,6 +112,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
 	defer ht.Stop()
 
+	eth.Register("eth_chainId", store.Config.ChainID())
 	eth.RegisterSubscription("newHeads")
 
 	assert.Nil(t, ht.Start())
@@ -97,20 +123,16 @@ func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
-	config, configCleanup := cltest.NewConfig(t)
-	defer configCleanup()
-
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	eth := cltest.MockEthOnStore(t, store)
-	chainId := cltest.Int(config.ChainID())
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
 	headers := make(chan models.BlockHeader)
 	eth.RegisterSubscription("newHeads", headers)
-	eth.Register("eth_chainId", *chainId)
+	eth.Register("eth_chainId", store.Config.ChainID())
 
 	assert.Nil(t, ht.Start())
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
@@ -134,63 +156,32 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	chainID := cltest.Int(store.Config.ChainID())
-	eth := cltest.MockEthOnStore(t, store)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	txmMock := mocks.NewMockTxManager(ctrl)
+	store.TxManager = txmMock
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
-	firstSub := eth.RegisterSubscription("newHeads")
-	headers := make(chan models.BlockHeader)
-	eth.RegisterSubscription("newHeads", headers)
-	eth.Register("eth_chainId", *chainID)
+	subscription := cltest.EmptyMockSubscription()
+	txmMock.EXPECT().GetChainID().Return(store.Config.ChainID(), nil).AnyTimes()
+	txmMock.EXPECT().SubscribeToNewHeads(gomock.Any()).Return(subscription, nil)
+	txmMock.EXPECT().SubscribeToNewHeads(gomock.Any()).Return(nil, errors.New("cannot reconnect"))
+	txmMock.EXPECT().SubscribeToNewHeads(gomock.Any()).Return(subscription, nil)
 
 	// connect
-	assert.Nil(t, ht.Start())
-	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
-	assert.Equal(t, int32(0), checker.DisconnectedCount())
-	assert.Equal(t, int32(0), checker.OnNewHeadCount())
-
-	// disconnect, to trigger an automatic reconnect
-	eth.Register("eth_chainId", *chainID)
-	firstSub.Errors <- errors.New("Test error to force reconnect")
-	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
-	assert.Equal(t, int32(1), checker.DisconnectedCount())
-	assert.Equal(t, int32(0), checker.OnNewHeadCount())
-
-	// new head
-	headers <- models.BlockHeader{Number: cltest.BigHexInt(1)}
-	g.Eventually(func() int32 { return checker.OnNewHeadCount() }).Should(gomega.Equal(int32(1)))
-	assert.Equal(t, int32(2), checker.ConnectedCount())
-	assert.Equal(t, int32(1), checker.DisconnectedCount())
-}
-
-func TestHeadTracker_ReconnectAndStopDoesntDeadlock(t *testing.T) {
-	t.Parallel()
-	g := gomega.NewGomegaWithT(t)
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	chainID := cltest.Int(store.Config.ChainID())
-	eth := cltest.MockEthOnStore(t, store)
-	eth.NoMagic()
-
-	checker := &cltest.MockHeadTrackable{}
-	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
-
-	firstConnection := eth.RegisterSubscription("newHeads")
-
-	// connect
-	eth.Register("eth_chainId", *chainID)
 	assert.Nil(t, ht.Start())
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
 	assert.Equal(t, int32(0), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewHeadCount())
 
 	// trigger reconnect loop
-	eth.Register("eth_chainId", *chainID)
-	firstConnection.Errors <- errors.New("Test error to force reconnect")
-	g.Consistently(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
+	subscription.Errors <- errors.New("Test error to force reconnect")
+	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
+	g.Consistently(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
 	assert.Equal(t, int32(1), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewHeadCount())
 
@@ -204,11 +195,10 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	chainID := cltest.Int(store.Config.ChainID())
 	eth := cltest.MockEthOnStore(t, store)
 	headers := make(chan models.BlockHeader)
 	eth.RegisterSubscription("newHeads", headers)
-	eth.Register("eth_chainId", *chainID)
+	eth.Register("eth_chainId", store.Config.ChainID())
 
 	lastSavedBN := big.NewInt(1)
 	currentBN := big.NewInt(2)

@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmitOnError": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node",
+    "target": "es2017",
+    "module": "es2015",
+    "lib": ["es2018", "dom"],
+    "outDir": "./dist",
+    "jsx": "preserve",
+    "sourceMap": true,
+    "removeComments": false
+  },
+
+  "include": ["src", "stories", "@types"]
+}
