@@ -106,6 +106,96 @@ func TestCondition_Perform(t *testing.T) {
 			true,
 		},
 		{
+			"notequals string",
+			"somethingElse",
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "inputVal",
+			},
+			true,
+		},
+		{
+			"notequals integer as string",
+			"2",
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "1",
+			},
+			true,
+		},
+		{
+			"notequals integer as integer",
+			2,
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "1",
+			},
+			true,
+		},
+		{
+			"notequals integer as float",
+			2.00,
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "1",
+			},
+			true,
+		},
+		{
+			"notequals float as string",
+			"2.12",
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "1.11",
+			},
+			true,
+		},
+		{
+			"notequals float as float",
+			2.12,
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "1.11",
+			},
+			true,
+		},
+		{
+			"notequals string true",
+			"true",
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "false",
+			},
+			true,
+		},
+		{
+			"notequals bool true",
+			true,
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "false",
+			},
+			true,
+		},
+		{
+			"notequals string false",
+			"false",
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "true",
+			},
+			true,
+		},
+		{
+			"notequals bool false",
+			false,
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "true",
+			},
+			true,
+		},
+		{
 			"greater than integer as string",
 			"2",
 			adapters.Condition{
@@ -462,6 +552,69 @@ func TestCondition_Perform(t *testing.T) {
 			adapters.Condition{
 				Operator: "eq",
 				Value:    "true",
+			},
+			false,
+		},
+		{
+			"not notequals string",
+			"inputVal",
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "inputVal",
+			},
+			false,
+		},
+		{
+			"not notequals integer as string",
+			"2",
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "2",
+			},
+			false,
+		},
+		{
+			"not notequals integer as integer",
+			2,
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "2",
+			},
+			false,
+		},
+		{
+			"not notequals integer as float",
+			1.00,
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "1",
+			},
+			false,
+		},
+		{
+			"not notequals float as float",
+			1.11,
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "1.11",
+			},
+			false,
+		},
+		{
+			"not notequals bool as string",
+			"false",
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "false",
+			},
+			false,
+		},
+		{
+			"not notequals bool as bool",
+			false,
+			adapters.Condition{
+				Operator: "neq",
+				Value:    "false",
 			},
 			false,
 		},

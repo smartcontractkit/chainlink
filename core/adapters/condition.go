@@ -40,6 +40,12 @@ func (c *Condition) Perform(input models.RunResult, _ *store.Store) models.RunRe
 		} else {
 			input.CompleteWithResult(false)
 		}
+	case "neq":
+		if c.Value != prevResult.String() {
+			input.CompleteWithResult(true)
+		} else {
+			input.CompleteWithResult(false)
+		}
 	case "gt":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
