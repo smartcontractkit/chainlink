@@ -8,17 +8,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCondition_Perform(t *testing.T) {
+func TestCompare_Perform(t *testing.T) {
 	tests := []struct {
 		name       string
 		input      interface{}
-		adapter    adapters.Condition
+		adapter    adapters.Compare
 		wantResult bool
 	}{
 		{
 			"equals string",
 			"inputVal",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "inputVal",
 			},
@@ -27,7 +27,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"equals integer as string",
 			"1",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "1",
 			},
@@ -36,7 +36,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"equals integer as integer",
 			1,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "1",
 			},
@@ -45,7 +45,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"equals integer as float",
 			1.00,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "1",
 			},
@@ -54,7 +54,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"equals float as string",
 			"1.11",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "1.11",
 			},
@@ -63,7 +63,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"equals float as float",
 			1.11,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "1.11",
 			},
@@ -72,7 +72,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"equals string true",
 			"true",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "true",
 			},
@@ -81,7 +81,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"equals bool true",
 			true,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "true",
 			},
@@ -90,7 +90,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"equals string false",
 			"false",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "false",
 			},
@@ -99,7 +99,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"equals bool false",
 			false,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "false",
 			},
@@ -108,7 +108,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"notequals string",
 			"somethingElse",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "inputVal",
 			},
@@ -117,7 +117,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"notequals integer as string",
 			"2",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "1",
 			},
@@ -126,7 +126,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"notequals integer as integer",
 			2,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "1",
 			},
@@ -135,7 +135,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"notequals integer as float",
 			2.00,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "1",
 			},
@@ -144,7 +144,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"notequals float as string",
 			"2.12",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "1.11",
 			},
@@ -153,7 +153,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"notequals float as float",
 			2.12,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "1.11",
 			},
@@ -162,7 +162,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"notequals string true",
 			"true",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "false",
 			},
@@ -171,7 +171,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"notequals bool true",
 			true,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "false",
 			},
@@ -180,7 +180,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"notequals string false",
 			"false",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "true",
 			},
@@ -189,7 +189,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"notequals bool false",
 			false,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "true",
 			},
@@ -198,7 +198,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than integer as string",
 			"2",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gt",
 				Value:    "1",
 			},
@@ -207,7 +207,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than integer as integer",
 			2,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gt",
 				Value:    "1",
 			},
@@ -216,7 +216,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than integer as float",
 			2.12,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gt",
 				Value:    "1",
 			},
@@ -225,7 +225,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than or equals to integer as string 1",
 			"2",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "2",
 			},
@@ -234,7 +234,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than or equals to integer as integer 1",
 			2,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "2",
 			},
@@ -243,7 +243,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than or equals to integer as float",
 			2.0,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "2",
 			},
@@ -252,7 +252,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than or equals to integer as string 2",
 			"2",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "1",
 			},
@@ -261,7 +261,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than or equals to integer as integer 2",
 			2,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "1",
 			},
@@ -270,7 +270,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than or equals to integer as float",
 			2.0,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "1",
 			},
@@ -279,7 +279,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than float as string",
 			"2.12",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gt",
 				Value:    "1.11",
 			},
@@ -288,7 +288,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than float as float",
 			2.12,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gt",
 				Value:    "1.11",
 			},
@@ -297,7 +297,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than float as integer",
 			2,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gt",
 				Value:    "1.11",
 			},
@@ -306,7 +306,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than or equals to float as string 1",
 			"2.12",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "1.11",
 			},
@@ -315,7 +315,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than or equals to float as float 1",
 			2.12,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "1.11",
 			},
@@ -324,7 +324,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than or equals to float as string 2",
 			"2.12",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "2.12",
 			},
@@ -333,7 +333,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than or equals to float as float 2",
 			2.12,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "2.12",
 			},
@@ -342,7 +342,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"greater than or equals to float as integer",
 			2,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "2.12",
 			},
@@ -351,7 +351,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than integer as string",
 			"1",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lt",
 				Value:    "2",
 			},
@@ -360,7 +360,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than integer as integer",
 			1,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lt",
 				Value:    "2",
 			},
@@ -369,7 +369,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than integer as float",
 			1.0,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lt",
 				Value:    "2",
 			},
@@ -378,7 +378,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than or equals to integer as string 1",
 			"1",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "1",
 			},
@@ -387,7 +387,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than or equals to integer as integer 1",
 			1,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "1",
 			},
@@ -396,7 +396,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than or equals to integer as string 2",
 			"1",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "2",
 			},
@@ -405,7 +405,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than or equals to integer as integer 2",
 			1,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "2",
 			},
@@ -414,7 +414,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than or equals to integer as float",
 			1.0,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "2",
 			},
@@ -423,7 +423,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than float as string",
 			"1.11",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lt",
 				Value:    "2.12",
 			},
@@ -432,7 +432,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than float as float",
 			1.11,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lt",
 				Value:    "2.12",
 			},
@@ -441,7 +441,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than float as integer",
 			1,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lt",
 				Value:    "2.12",
 			},
@@ -450,7 +450,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than or equals to float as string 1",
 			"1.11",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "2.12",
 			},
@@ -459,7 +459,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than or equals to float as float 1",
 			1.11,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "2.12",
 			},
@@ -468,7 +468,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than or equals to float as string 2",
 			"1.11",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "1.11",
 			},
@@ -477,7 +477,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than or equals to float as float 2",
 			1.11,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "1.11",
 			},
@@ -486,7 +486,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"less than or equals to float as integer",
 			1,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "1.11",
 			},
@@ -495,7 +495,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not equals string",
 			"inputVal",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "inputVal2",
 			},
@@ -504,7 +504,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not equals integer as string",
 			"1",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "2",
 			},
@@ -513,7 +513,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not equals integer as integer",
 			1,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "2",
 			},
@@ -522,7 +522,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not equals integer as float",
 			1.11,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "2",
 			},
@@ -531,7 +531,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not equals float as float",
 			1.11,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "2.12",
 			},
@@ -540,7 +540,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not equals bool as string",
 			"false",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "true",
 			},
@@ -549,7 +549,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not equals bool as bool",
 			false,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "true",
 			},
@@ -558,7 +558,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not notequals string",
 			"inputVal",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "inputVal",
 			},
@@ -567,7 +567,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not notequals integer as string",
 			"2",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "2",
 			},
@@ -576,7 +576,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not notequals integer as integer",
 			2,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "2",
 			},
@@ -585,7 +585,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not notequals integer as float",
 			1.00,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "1",
 			},
@@ -594,7 +594,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not notequals float as float",
 			1.11,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "1.11",
 			},
@@ -603,7 +603,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not notequals bool as string",
 			"false",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "false",
 			},
@@ -612,7 +612,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not notequals bool as bool",
 			false,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "neq",
 				Value:    "false",
 			},
@@ -621,7 +621,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not greater than integer as string",
 			"1",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gt",
 				Value:    "2",
 			},
@@ -630,7 +630,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not greater than integer as integer",
 			1,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gt",
 				Value:    "2",
 			},
@@ -639,7 +639,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not greater than integer as float",
 			1.11,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gt",
 				Value:    "2",
 			},
@@ -648,7 +648,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not greater than float as float",
 			1.11,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gt",
 				Value:    "2.12",
 			},
@@ -657,7 +657,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not greater than float as integer",
 			1,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gt",
 				Value:    "2.12",
 			},
@@ -666,7 +666,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not greater than or equals to integer as string",
 			"1",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "2",
 			},
@@ -675,7 +675,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not greater than or equals to integer as integer",
 			1,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "2",
 			},
@@ -684,7 +684,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not greater than or equals to integer as float",
 			1.11,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "2",
 			},
@@ -693,7 +693,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not greater than or equals to float as float",
 			1.11,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "2.12",
 			},
@@ -702,7 +702,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not greater than or equals to float as integer",
 			1,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gte",
 				Value:    "2.12",
 			},
@@ -711,7 +711,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not less than integer as string",
 			"2",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lt",
 				Value:    "1",
 			},
@@ -720,7 +720,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not less than integer as integer",
 			2,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lt",
 				Value:    "1",
 			},
@@ -729,7 +729,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not less than integer as float",
 			2.12,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lt",
 				Value:    "1",
 			},
@@ -738,7 +738,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not less than float as float",
 			2.12,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lt",
 				Value:    "1.11",
 			},
@@ -747,7 +747,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not less than float as integer",
 			2,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lt",
 				Value:    "1.11",
 			},
@@ -756,7 +756,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not less than or equals to integer as string",
 			"2",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "1",
 			},
@@ -765,7 +765,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not less than or equals to integer as integer",
 			2,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "1",
 			},
@@ -774,7 +774,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not less than or equals to integer as float",
 			2.12,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "1",
 			},
@@ -783,7 +783,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not less than or equals to float as float",
 			2.12,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "1.11",
 			},
@@ -792,7 +792,7 @@ func TestCondition_Perform(t *testing.T) {
 		{
 			"not less than or equals to float as integer",
 			2,
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lte",
 				Value:    "1.11",
 			},
@@ -813,17 +813,17 @@ func TestCondition_Perform(t *testing.T) {
 	}
 }
 
-func TestConditionError_Perform(t *testing.T) {
+func TestCompareError_Perform(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		adapter  adapters.Condition
+		adapter  adapters.Compare
 		expected error
 	}{
 		{
 			"greater than not number in result",
 			"a",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gt",
 				Value:    "2",
 			},
@@ -832,7 +832,7 @@ func TestConditionError_Perform(t *testing.T) {
 		{
 			"greater than not number in desired",
 			"2",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "gt",
 				Value:    "a",
 			},
@@ -841,7 +841,7 @@ func TestConditionError_Perform(t *testing.T) {
 		{
 			"less than not number in result",
 			"a",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lt",
 				Value:    "2",
 			},
@@ -850,7 +850,7 @@ func TestConditionError_Perform(t *testing.T) {
 		{
 			"less than not number in desired",
 			"2",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "lt",
 				Value:    "a",
 			},
@@ -859,7 +859,7 @@ func TestConditionError_Perform(t *testing.T) {
 		{
 			"missing operator",
 			"2",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "",
 				Value:    "3",
 			},
@@ -868,7 +868,7 @@ func TestConditionError_Perform(t *testing.T) {
 		{
 			"missing desired",
 			"2",
-			adapters.Condition{
+			adapters.Compare{
 				Operator: "eq",
 				Value:    "",
 			},
