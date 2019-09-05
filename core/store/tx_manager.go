@@ -370,7 +370,9 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, 
 	}
 
 	var merr error
-	for attemptIndex := range tx.Attempts {
+	// Process attempts in reverse, since the attempt with the highest gas is
+	// likely to be confirmed first
+	for attemptIndex := len(tx.Attempts) - 1; attemptIndex >= 0; attemptIndex-- {
 		receipt, state, err := txm.processAttempt(tx, attemptIndex, blockHeight)
 		if state == Safe || state == Confirmed {
 			return receipt, state, err // success, so all other attempt errors can be ignored.

@@ -646,7 +646,6 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			ethMock.Register("eth_call", "0x0100")
 			ethMock.Register("eth_getBalance", "0x0100")
 			ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(0))
-			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
 			ethMock.Register("eth_getTransactionReceipt", confedReceipt)
 		}, true, false},
 		{"later conf, early error", (safeAt + 1), func(ethMock *cltest.EthMock) {
