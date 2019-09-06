@@ -1,0 +1,5 @@
+.node-xmlhttprequest-sync-78767
+**/*.sol
+.prettierignore
+.gitignore
+deploy
