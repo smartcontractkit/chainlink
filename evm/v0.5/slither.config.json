@@ -1,6 +1,6 @@
 {
     "detectors_to_exclude": "naming-convention,pragma,solc-version",
-    "filter_paths": "tests,vendor",
+    "filter_paths": "dev,tests,vendor",
     "truffle_ignore_compile": true,
     "truffle_version": "truffle"
 }
