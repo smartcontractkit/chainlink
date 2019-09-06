@@ -2,16 +2,10 @@ import { BN } from 'bn.js'
 import cbor from 'cbor'
 import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
-import { FunctionFragment, ParamType } from
-  'ethers/utils/abi-coder'
+import { FunctionFragment, ParamType } from 'ethers/utils/abi-coder'
 import TruffleContract from 'truffle-contract'
 import { linkToken } from './linkToken'
 import { assertBigNum } from './matchers'
-
-/* tslint:enable no-var-requires */
-
-declare const assert: any // These names are assigned by truffle. Declare them,
-declare const web3: any // to silence complaints about them being undefined. XXX:
 
 const HEX_BASE = 16
 
