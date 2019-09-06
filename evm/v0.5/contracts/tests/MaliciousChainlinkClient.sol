@@ -30,8 +30,8 @@ contract MaliciousChainlinkClient is ChainlinkClient {
     _req.nonce = maliciousRequests;
     maliciousPendingRequests[requestId] = chainlinkOracleAddress();
     emit ChainlinkRequested(requestId);
-    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-    require(link.transferAndCall(chainlinkOracleAddress(), _amount, encodeTargetRequest(_req)), "Unable to transferAndCall to oracle");
+    LinkTokenInterface _link = LinkTokenInterface(chainlinkTokenAddress());
+    require(_link.transferAndCall(chainlinkOracleAddress(), _amount, encodeTargetRequest(_req)), "Unable to transferAndCall to oracle");
     maliciousRequests += 1;
 
     return requestId;
@@ -45,8 +45,8 @@ contract MaliciousChainlinkClient is ChainlinkClient {
     _req.nonce = maliciousRequests;
     maliciousPendingRequests[requestId] = chainlinkOracleAddress();
     emit ChainlinkRequested(requestId);
-    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-    require(link.transferAndCall(chainlinkOracleAddress(), _amount, encodePriceRequest(_req)), "Unable to transferAndCall to oracle");
+    LinkTokenInterface _link = LinkTokenInterface(chainlinkTokenAddress());
+    require(_link.transferAndCall(chainlinkOracleAddress(), _amount, encodePriceRequest(_req)), "Unable to transferAndCall to oracle");
     maliciousRequests += 1;
 
     return requestId;
@@ -60,8 +60,8 @@ contract MaliciousChainlinkClient is ChainlinkClient {
     _req.nonce = maliciousRequests;
     maliciousPendingRequests[requestId] = chainlinkOracleAddress();
     emit ChainlinkRequested(requestId);
-    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-    require(link.transferAndCall(chainlinkOracleAddress(), _wei, encodeWithdrawRequest(_req)), "Unable to transferAndCall to oracle");
+    LinkTokenInterface _link = LinkTokenInterface(chainlinkTokenAddress());
+    require(_link.transferAndCall(chainlinkOracleAddress(), _wei, encodeWithdrawRequest(_req)), "Unable to transferAndCall to oracle");
     maliciousRequests += 1;
     return requestId;
   }
