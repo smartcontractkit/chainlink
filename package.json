@@ -7,6 +7,7 @@
     "evm/v0.5",
     "tools",
     "tools/prettier-config",
+    "tools/eslint-config",
     "operator_ui",
     "integration",
     "styleguide",
