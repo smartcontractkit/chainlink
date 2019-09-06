@@ -1,4 +1,7 @@
 // Package ethschnorr implements a version of the Schnorr signature which is
+////////////////////////////////////////////////////////////////////////////////
+//       XXX: Do not use in production until this code has been audited.
+////////////////////////////////////////////////////////////////////////////////
 // cheap to verify on-chain.
 //
 // See https://en.wikipedia.org/wiki/Schnorr_signature For vanilla Schnorr.
