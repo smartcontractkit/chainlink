@@ -1,5 +1,9 @@
 pragma solidity ^0.4.24;
 
+////////////////////////////////////////////////////////////////////////////////
+//       XXX: Do not use in production until this code has been audited.
+////////////////////////////////////////////////////////////////////////////////
+
 contract SchnorrSECP256K1 {
   // See https://en.bitcoin.it/wiki/Secp256k1 for this constant.
   uint256 constant public Q = // Group order of secp256k1

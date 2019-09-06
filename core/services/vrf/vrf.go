@@ -1,6 +1,7 @@
-package vrf
-
-// vrf provides a cryptographically secure pseudo-random number generator.
+// Package vrf provides a cryptographically secure pseudo-random number generator.
+////////////////////////////////////////////////////////////////////////////////
+//       XXX: Do not use in production until this code has been audited.
+////////////////////////////////////////////////////////////////////////////////
 // Numbers are deterministically generated from a seed and a secret key, and are
 // statistically indistinguishable from uniform sampling from {0, ..., 2**256},
 // to observers who don't know the key. But each number comes with a proof that
@@ -21,6 +22,7 @@ package vrf
 // To verify a Proof object p, run p.Verify(), or pass its fields to the
 // corresponding arguments of isValidVRFOutput on the VRF solidity contract, to
 // verify it on-chain.
+package vrf
 
 import (
 	"crypto/rand"

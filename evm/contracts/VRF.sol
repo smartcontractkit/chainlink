@@ -1,5 +1,9 @@
 pragma solidity 0.4.24;
 
+////////////////////////////////////////////////////////////////////////////////
+//       XXX: Do not use in production until this code has been audited.
+////////////////////////////////////////////////////////////////////////////////
+
 /** ****************************************************************************
     @notice on-chain verification of verifiable-random-function (VRF) proofs as
             described in https://eprint.iacr.org/2017/099.pdf (security proofs)
