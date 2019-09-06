@@ -1,0 +1,4 @@
+.prettierignore
+.gitignore
+**/*.sol
+HitMeOnMyBeeper.jpg
