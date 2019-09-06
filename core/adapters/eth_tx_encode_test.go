@@ -81,7 +81,6 @@ func TestEthTxEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 			assert.Equal(t, expectedAsHex, hexutil.Encode(tx.Data()))
 			return nil
 		})
-	ethMock.Register("eth_blockNumber", utils.Uint64ToHex(sentAt))
 	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	input := cltest.RunResultWithData(rawInput)
