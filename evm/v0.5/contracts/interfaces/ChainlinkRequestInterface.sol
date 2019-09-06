@@ -3,12 +3,12 @@ pragma solidity ^0.5.0;
 interface ChainlinkRequestInterface {
   function oracleRequest(
     address sender,
-    uint256 amount,
-    bytes32 sAId,
+    uint256 requestPrice,
+    bytes32 serviceAgreementID,
     address callbackAddress,
     bytes4 callbackFunctionId,
     uint256 nonce,
-    uint256 dataVersion,
+    uint256 dataVersion, // Currently unused, always "1"
     bytes calldata data
   ) external;
 

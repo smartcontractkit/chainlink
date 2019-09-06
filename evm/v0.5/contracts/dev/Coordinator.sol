@@ -86,10 +86,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     external
     onlyLINK
     sufficientLINK(_amount, _sAId)
-    // checkServiceAgreementPresence(_sAId) /* XXX: This would be nice to have, but it exhausts the stack */
-    checkCallbackAddress(_callbackAddress)
-  {
-    /* XXX: Changed the requestId. Will this require a database migration? */
+    // checkServiceAgreementPresence(_sAId) // TODO(alx): This would be nice to have, but it exhausts the stack
+    checkCallbackAddress(_callbackAddress) {
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _sAId, _nonce));
     require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
     callbacks[requestId].sAId = _sAId;
@@ -165,6 +163,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     }
     require(success, string(message));
   }
+  
   /**
    * @dev Validates that each signer address matches for the given oracles
    * @param _serviceAgreementID Service agreement ID
