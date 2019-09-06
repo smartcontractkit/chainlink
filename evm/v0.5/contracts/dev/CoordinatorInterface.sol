@@ -8,7 +8,7 @@ contract CoordinatorInterface {
     uint256 expiration;
     uint256 endAt;
     address[] oracles;
-    // This effectively functions as an ID tag for the service agreement. It is
+    // This effectively functions as an ID tag for the off-chain job of the service agreement. It is
     // calculated as the keccak256 hash of the normalized JSON request to create
     // the ServiceAgreement, but that identity is unused, and its value is
     // essentially arbitrary.
