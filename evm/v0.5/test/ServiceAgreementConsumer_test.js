@@ -3,7 +3,7 @@ import { assertBigNum } from './support/matchers'
 const Coordinator = artifacts.require('Coordinator.sol')
 const MeanAggregator = artifacts.require('MeanAggregator.sol')
 const ServiceAgreementConsumer = artifacts.require(
-  'ServiceAgreementConsumer.sol'
+  'ServiceAgreementConsumer.sol',
 )
 
 contract('ServiceAgreementConsumer', () => {
@@ -17,9 +17,9 @@ contract('ServiceAgreementConsumer', () => {
       aggregator: meanAggregator.address,
       aggInitiateJobSelector: h.functionSelectorFromAbi(
         meanAggregator,
-        'initiateJob'
+        'initiateJob',
       ),
-      aggFulfillSelector: h.functionSelectorFromAbi(meanAggregator, 'fulfill')
+      aggFulfillSelector: h.functionSelectorFromAbi(meanAggregator, 'fulfill'),
     })
     link = await h.linkContract()
     coord = await Coordinator.new(link.address)
@@ -27,7 +27,7 @@ contract('ServiceAgreementConsumer', () => {
     cc = await ServiceAgreementConsumer.new(
       link.address,
       coord.address,
-      agreement.id
+      agreement.id,
     )
   })
 
@@ -86,7 +86,7 @@ contract('ServiceAgreementConsumer', () => {
 
     it('records the data given to it by the oracle', async () => {
       await coord.fulfillOracleRequest(request.id, response, {
-        from: h.oracleNode
+        from: h.oracleNode,
       })
       const currentPrice = await cc.currentPrice.call()
       assert.equal(h.toUtf8(currentPrice), h.toUtf8(response))
@@ -102,7 +102,7 @@ contract('ServiceAgreementConsumer', () => {
           cc.address,
           funcSig,
           1,
-          ''
+          '',
         )
         const tx = await h.requestDataFrom(coord, link, agreement.payment, args)
         request2 = h.decodeRunRequest(tx.receipt.rawLogs[2])
@@ -110,7 +110,7 @@ contract('ServiceAgreementConsumer', () => {
 
       it('does not accept the data provided', async () => {
         await coord.fulfillOracleRequest(request2.id, response, {
-          from: h.oracleNode
+          from: h.oracleNode,
         })
 
         let received = await cc.currentPrice.call()

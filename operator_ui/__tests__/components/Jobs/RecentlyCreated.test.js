@@ -8,7 +8,7 @@ const renderComponent = jobs =>
   render(
     <MemoryRouter>
       <RecentlyCreated jobs={jobs} />
-    </MemoryRouter>
+    </MemoryRouter>,
   )
 
 describe('components/Jobs/RecentlyCreated', () => {
@@ -16,12 +16,12 @@ describe('components/Jobs/RecentlyCreated', () => {
     const minuteAgo = isoDate(Date.now() - MINUTE_MS)
     const jobB = {
       id: 'job_b',
-      createdAt: minuteAgo
+      createdAt: minuteAgo,
     }
     const twoMinutesAgo = isoDate(Date.now() - TWO_MINUTES_MS)
     const jobA = {
       id: 'job_a',
-      createdAt: twoMinutesAgo
+      createdAt: twoMinutesAgo,
     }
 
     let wrapper = renderComponent([jobB, jobA])

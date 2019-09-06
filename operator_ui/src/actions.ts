@@ -22,11 +22,11 @@ const createAction = (type: string) => ({ type: type })
 
 const createErrorAction = (error: Error, type: string) => ({
   type: type,
-  error: error.stack
+  error: error.stack,
 })
 
 const curryErrorHandler = (dispatch: Dispatch, type: string) => (
-  error: Error
+  error: Error,
 ) => {
   if (error instanceof api.errors.AuthenticationError) {
     dispatch(redirectToSignOut())
@@ -37,12 +37,12 @@ const curryErrorHandler = (dispatch: Dispatch, type: string) => (
 
 export enum RouterActionType {
   REDIRECT = 'REDIRECT',
-  MATCH_ROUTE = 'MATCH_ROUTE'
+  MATCH_ROUTE = 'MATCH_ROUTE',
 }
 
 const redirectToSignOut = () => ({
   type: RouterActionType.REDIRECT,
-  to: '/signout'
+  to: '/signout',
 })
 
 export const MATCH_ROUTE = 'MATCH_ROUTE'
@@ -55,7 +55,7 @@ interface Match {
 export const matchRoute = (match: Match) => {
   return {
     type: RouterActionType.MATCH_ROUTE,
-    match: match
+    match: match,
   }
 }
 
@@ -65,7 +65,7 @@ export const notifySuccess = (component: React.ReactNode, props: object) => {
   return {
     type: NOTIFY_SUCCESS,
     component: component,
-    props: props
+    props: props,
   }
 }
 
@@ -74,7 +74,7 @@ export const NOTIFY_ERROR = 'NOTIFY_ERROR'
 export const notifyError = (component: React.ReactNode, error: Error) => ({
   type: NOTIFY_ERROR,
   component: component,
-  error: error
+  error: error,
 })
 
 export const REQUEST_SIGNIN = 'REQUEST_SIGNIN'
@@ -106,7 +106,7 @@ const signInSuccessAction = (doc: UnboxApi<typeof api.createSession>) => {
 
   return {
     type: RECEIVE_SIGNIN_SUCCESS,
-    authenticated: signDoc.data.attributes.authenticated
+    authenticated: signDoc.data.attributes.authenticated,
   }
 }
 
@@ -135,7 +135,7 @@ export const RECEIVE_SIGNOUT_ERROR = 'RECEIVE_SIGNOUT_ERROR'
 
 export const receiveSignoutSuccess = () => ({
   type: RECEIVE_SIGNOUT_SUCCESS,
-  authenticated: false
+  authenticated: false,
 })
 
 function sendSignOut() {
@@ -160,7 +160,7 @@ export const RECEIVE_DELETE_ERROR = 'RECEIVE_DELETE_ERROR'
 
 const receiveDeleteSuccess = (id: string) => ({
   type: RECEIVE_DELETE_SUCCESS,
-  id: id
+  id: id,
 })
 
 export const REQUEST_UPDATE = 'REQUEST_UPDATE'
@@ -169,7 +169,7 @@ export const RECEIVE_UPDATE_ERROR = 'RECEIVE_UPDATE_ERROR'
 
 const receiveUpdateSuccess = (response: Response) => ({
   type: RECEIVE_UPDATE_SUCCESS,
-  response: response
+  response: response,
 })
 
 export const submitSignIn = (data: Parameter<typeof api.createSession>) =>
@@ -179,7 +179,7 @@ export const submitSignOut = () => sendSignOut()
 export const createJobSpec = (
   data: Parameter<typeof api.v2.specs.createJobSpec>,
   successCallback: React.ReactNode,
-  errorCallback: React.ReactNode
+  errorCallback: React.ReactNode,
 ) => {
   return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_CREATE))
@@ -199,7 +199,7 @@ export const createJobSpec = (
 export const deleteJobSpec = (
   id: string,
   successCallback: React.ReactNode,
-  errorCallback: React.ReactNode
+  errorCallback: React.ReactNode,
 ) => {
   return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_DELETE))
@@ -219,7 +219,7 @@ export const deleteJobSpec = (
 export const createJobRun = (
   id: string,
   successCallback: React.ReactNode,
-  errorCallback: React.ReactNode
+  errorCallback: React.ReactNode,
 ): ThunkAction<Promise<void>, AppState, void, Action<string>> => {
   return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_CREATE))
@@ -239,7 +239,7 @@ export const createJobRun = (
 export const createBridge = (
   data: Parameter<typeof api.v2.bridgeTypes.createBridge>,
   successCallback: React.ReactNode,
-  errorCallback: React.ReactNode
+  errorCallback: React.ReactNode,
 ) => {
   return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_CREATE))
@@ -260,7 +260,7 @@ export const createBridge = (
 export const updateBridge = (
   params: Parameter<typeof api.v2.bridgeTypes.updateBridge>,
   successCallback: React.ReactNode,
-  errorCallback: React.ReactNode
+  errorCallback: React.ReactNode,
 ) => {
   return (dispatch: Dispatch) => {
     dispatch(createAction(REQUEST_UPDATE))
@@ -329,7 +329,7 @@ function request<
 >(
   type: string, // CHECKME -- stricten this type when we can
   requestData: (...args: TApiArgs) => TApiResp,
-  normalizeData: (dataToNormalize: UnboxPromise<TApiResp>) => TNormalizedData
+  normalizeData: (dataToNormalize: UnboxPromise<TApiResp>) => TNormalizedData,
 ): (
   ...args: TApiArgs
 ) => ThunkAction<
@@ -363,79 +363,79 @@ export const fetchAccountBalance = request(
   json =>
     normalize<{
       accountBalances: presenters.AccountBalance[]
-    }>(json)
+    }>(json),
 )
 
 export const fetchConfiguration = request(
   'CONFIGURATION',
   api.v2.config.getConfiguration,
-  normalize
+  normalize,
 )
 
 export const fetchBridges = request(
   'BRIDGES',
   api.v2.bridgeTypes.getBridges,
-  json => normalize(json, { endpoint: 'currentPageBridges' })
+  json => normalize(json, { endpoint: 'currentPageBridges' }),
 )
 
 export const fetchBridgeSpec = request(
   'BRIDGE',
   api.v2.bridgeTypes.getBridgeSpec,
-  json => normalize(json)
+  json => normalize(json),
 )
 
 export const fetchJobs = request('JOBS', api.v2.specs.getJobSpecs, json =>
-  normalize(json, { endpoint: 'currentPageJobs' })
+  normalize(json, { endpoint: 'currentPageJobs' }),
 )
 
 export const fetchRecentlyCreatedJobs = request(
   'RECENTLY_CREATED_JOBS',
   api.v2.specs.getRecentJobSpecs,
-  json => normalize(json, { endpoint: 'recentlyCreatedJobs' })
+  json => normalize(json, { endpoint: 'recentlyCreatedJobs' }),
 )
 
 export const fetchJob = request('JOB', api.v2.specs.getJobSpec, json =>
-  normalize(json, { camelizeKeys: false })
+  normalize(json, { camelizeKeys: false }),
 )
 
 export const fetchJobRuns = request(
   'JOB_RUNS',
   api.v2.runs.getJobSpecRuns,
-  json => normalize(json, { endpoint: 'currentPageJobRuns' })
+  json => normalize(json, { endpoint: 'currentPageJobRuns' }),
 )
 
 export const fetchRecentJobRuns = request(
   'RECENT_JOB_RUNS',
   api.v2.runs.getRecentJobRuns,
-  json => normalize(json, { endpoint: 'recentJobRuns' })
+  json => normalize(json, { endpoint: 'recentJobRuns' }),
 )
 
 export const fetchJobRun = request('JOB_RUN', api.v2.runs.getJobSpecRun, json =>
-  normalize(json, { camelizeKeys: false })
+  normalize(json, { camelizeKeys: false }),
 )
 
 export const deleteCompletedJobRuns = (updatedBefore: string) =>
   request(
     'DELETE_COMPLETED_JOB_RUNS',
     api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
-    normalize
+    normalize,
   )({ status: [models.RunStatus.COMPLETED], updatedBefore })
 
 export const deleteErroredJobRuns = (updatedBefore: string) =>
   request(
     'DELETE_ERRORED_JOB_RUNS',
     api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
-    normalize
+    normalize,
   )({ status: [models.RunStatus.ERRORED], updatedBefore })
 
 export const fetchTransactions = request(
   'TRANSACTIONS',
   api.v2.transactions.getTransactions,
-  json => normalize(json, { endpoint: 'currentPageTransactions' })
+  json => normalize(json, { endpoint: 'currentPageTransactions' }),
 )
 
 export const fetchTransaction = request(
   'TRANSACTION',
   api.v2.transactions.getTransaction,
-  json => normalize(json)
+  json => normalize(json),
 )

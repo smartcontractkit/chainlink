@@ -16,7 +16,7 @@ describe('End to end', () => {
     browser = await launch({
       args: ['--no-sandbox'],
       devtools: false,
-      headless: true
+      headless: true,
     })
 
     page = await browser.newPage()

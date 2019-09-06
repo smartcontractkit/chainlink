@@ -31,7 +31,7 @@ const reducer = combineReducers({
   notifications,
   redirect,
   dashboardIndex,
-  transactionsIndex
+  transactionsIndex,
 })
 
 export default reducer

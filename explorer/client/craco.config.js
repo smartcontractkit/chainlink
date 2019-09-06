@@ -13,14 +13,14 @@ module.exports = {
         filename: '[path].gz[query]',
         algorithm: 'gzip',
         threshold: 0,
-        minRatio: 0.8
+        minRatio: 0.8,
       }),
       new BrotliPlugin({
         test: /\.(js|css|html|svg)$/,
         asset: '[path].br[query]',
         threshold: 0,
-        minRatio: 0.8
-      })
-    ]
-  }
+        minRatio: 0.8,
+      }),
+    ],
+  },
 }

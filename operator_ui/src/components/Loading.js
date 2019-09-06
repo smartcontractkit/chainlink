@@ -5,11 +5,11 @@ import { withStyles } from '@material-ui/core/styles'
 
 const styles = theme => ({
   wrapper: {
-    marginTop: theme.spacing.unit * 5
+    marginTop: theme.spacing.unit * 5,
   },
   text: {
-    textAlign: 'center'
-  }
+    textAlign: 'center',
+  },
 })
 
 const Loading = ({ classes }) => (

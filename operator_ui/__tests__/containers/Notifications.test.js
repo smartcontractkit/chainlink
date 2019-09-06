@@ -15,7 +15,7 @@ const mountNotifications = store =>
       <MemoryRouter>
         <Notifications classes={classes} />
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   )
 
 describe('containers/Notifications', () => {
@@ -23,18 +23,18 @@ describe('containers/Notifications', () => {
     const successes = [
       {
         component: ({ msg }) => <span>Success {msg}</span>,
-        props: { msg: '1' }
-      }
+        props: { msg: '1' },
+      },
     ]
     const errors = [
-      { component: ({ msg }) => <span>Error {msg}</span>, props: { msg: '2' } }
+      { component: ({ msg }) => <span>Error {msg}</span>, props: { msg: '2' } },
     ]
     const state = {
       notifications: {
         successes: successes,
         errors: errors,
-        currentUrl: null
-      }
+        currentUrl: null,
+      },
     }
     const store = mockStore(state)
     let wrapper = mountNotifications(store)
@@ -48,14 +48,14 @@ describe('containers/Notifications', () => {
       notifications: {
         successes: [],
         errors: [{}],
-        currentUrl: null
-      }
+        currentUrl: null,
+      },
     }
     const store = mockStore(state)
     let wrapper = mountNotifications(store)
 
     expect(wrapper.text()).toContain(
-      'Unhandled error. Please help us by opening a bug report'
+      'Unhandled error. Please help us by opening a bug report',
     )
   })
 })

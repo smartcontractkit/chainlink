@@ -1,20 +1,22 @@
 #!/usr/bin/env node
 
 if (process.argv.length <= 2) {
-  console.log("Usage: " + __filename + " <contract_address>");
-  process.exit(-1);
+  console.log('Usage: ' + __filename + ' <contract_address>')
+  process.exit(-1)
 }
 
-const web3            = require('web3'),
-      contract        = require("truffle-contract"),
-      path            = require('path')
-      GetMoneyJSON    = require(path.join(__dirname, 'build/contracts/GetMoney.json'));
+const web3 = require('web3'),
+  contract = require('truffle-contract'),
+  path = require('path')
+GetMoneyJSON = require(path.join(__dirname, 'build/contracts/GetMoney.json'))
 
-var provider = new web3.providers.HttpProvider("http://localhost:18545");
-var GetMoney = contract(GetMoneyJSON);
-GetMoney.setProvider(provider);
-var devnetAddress = "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f";
+var provider = new web3.providers.HttpProvider('http://localhost:18545')
+var GetMoney = contract(GetMoneyJSON)
+GetMoney.setProvider(provider)
+var devnetAddress = '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
 
-GetMoney.deployed().then(function(instance) {
-  return instance.receive({value: 305, from: devnetAddress});
-}).then(console.log, console.log);
+GetMoney.deployed()
+  .then(function(instance) {
+    return instance.receive({ value: 305, from: devnetAddress })
+  })
+  .then(console.log, console.log)

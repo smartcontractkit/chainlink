@@ -2,7 +2,7 @@ import { theme } from '@chainlink/styleguide'
 import {
   createGenerateClassName,
   createMuiTheme,
-  MuiThemeProvider
+  MuiThemeProvider,
 } from '@material-ui/core/styles'
 import { mount } from 'enzyme'
 import React from 'react'
@@ -25,5 +25,5 @@ export default (children, opts = {}) =>
           {children}
         </StoreAndMemoryRouter>
       </MuiThemeProvider>
-    </JssProvider>
+    </JssProvider>,
   )

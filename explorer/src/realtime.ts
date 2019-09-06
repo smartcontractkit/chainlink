@@ -10,7 +10,7 @@ import { closeSession, Session } from './entity/Session'
 const handleMessage = async (
   message: string,
   chainlinkNodeId: number,
-  db: Connection
+  db: Connection,
 ) => {
   try {
     const jobRun = fromString(message)
@@ -40,8 +40,8 @@ export const bootstrapRealtime = async (server: http.Server) => {
         res: boolean,
         code?: number,
         message?: string,
-        headers?: http.OutgoingHttpHeaders
-      ) => void
+        headers?: http.OutgoingHttpHeaders,
+      ) => void,
     ) => {
       /* eslint-disable standard/no-callback-literal */
       logger.debug('websocket connection attempt')
@@ -62,21 +62,19 @@ export const bootstrapRealtime = async (server: http.Server) => {
         }
 
         logger.debug(
-          `websocket client successfully authenticated, new session for node ${
-            session.chainlinkNodeId
-          }`
+          `websocket client successfully authenticated, new session for node ${session.chainlinkNodeId}`,
         )
         sessions.set(info.req, session)
         callback(true, 200)
       })
       /* eslint-enable standard/no-callback-literal */
-    }
+    },
   })
 
   wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
     clnodeCount = clnodeCount + 1
     logger.info(
-      `websocket connected, total chainlink nodes connected: ${clnodeCount}`
+      `websocket connected, total chainlink nodes connected: ${clnodeCount}`,
     )
 
     ws.on('message', async (message: WebSocket.Data) => {
@@ -89,7 +87,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
       const result = await handleMessage(
         message as string,
         session.chainlinkNodeId,
-        db
+        db,
       )
       ws.send(JSON.stringify(result))
     })
@@ -103,7 +101,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
 
       clnodeCount = clnodeCount - 1
       logger.info(
-        `websocket disconnected, total chainlink nodes connected: ${clnodeCount}`
+        `websocket disconnected, total chainlink nodes connected: ${clnodeCount}`,
       )
     })
   })

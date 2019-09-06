@@ -1,10 +1,10 @@
 # Make Money, Hit Me On My Beeper
 
-[![Hit Me On My Beeper](HitMeOnMyBeeper.jpg?raw=true "Hit Me On My Beeper")](https://www.youtube.com/watch?v=-4Wu-zSndlw&t=13s)
+[![Hit Me On My Beeper](HitMeOnMyBeeper.jpg?raw=true 'Hit Me On My Beeper')](https://www.youtube.com/watch?v=-4Wu-zSndlw&t=13s)
 
 In this example, we will send a text message when a contract address receives ether.
 This will link Ethereum events (on-chain) with the [Twilio](https://www.twilio.com) SMS service
-(off-chain) using Chainlink (CL) 
+(off-chain) using Chainlink (CL)
 
 ## Configure and run [Chainlink development environment](../README.md#run-chainlink-development-environment)
 
@@ -31,4 +31,4 @@ This Node JS server relays messages from Chainlink jobs to Twilio.
 
 ## Celebrate
 
-[![Hit Me On My Beeper](HitMeOnMyBeeper.jpg?raw=true "Hit Me On My Beeper")](https://www.youtube.com/watch?v=-4Wu-zSndlw&t=13s)
+[![Hit Me On My Beeper](HitMeOnMyBeeper.jpg?raw=true 'Hit Me On My Beeper')](https://www.youtube.com/watch?v=-4Wu-zSndlw&t=13s)

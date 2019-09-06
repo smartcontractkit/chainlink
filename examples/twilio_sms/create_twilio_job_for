@@ -1,22 +1,27 @@
 #!/usr/bin/env node
 
 if (process.argv.length <= 2) {
-  console.log("Usage: " + __filename + " <contract_address>");
-  process.exit(-1);
+  console.log('Usage: ' + __filename + ' <contract_address>')
+  process.exit(-1)
 }
 
 const job = {
-  "_comment": "An ethlog with a specific address only listens to that address.",
-  "initiators": [{ "type": "ethlog", "address": process.argv[2]}],
-  "tasks": [{ "type": "HttpPost", "params": { "post": "http://localhost:6691" }}]
-};
+  _comment: 'An ethlog with a specific address only listens to that address.',
+  initiators: [{ type: 'ethlog', address: process.argv[2] }],
+  tasks: [{ type: 'HttpPost', params: { post: 'http://localhost:6691' } }],
+}
 
-const request = require("request").defaults({jar: true});
-let sessionsUrl = "http://localhost:6688/sessions";
-let credentials = {email: "notreal@fakeemail.ch", password: "twochains"};
-request.post(sessionsUrl, {json: credentials});
-request.post({
-  url: 'http://localhost:6688/v2/specs',
-  body: job,
-  json: true
-}, function(err, response, body) { console.log(body) });
+const request = require('request').defaults({ jar: true })
+let sessionsUrl = 'http://localhost:6688/sessions'
+let credentials = { email: 'notreal@fakeemail.ch', password: 'twochains' }
+request.post(sessionsUrl, { json: credentials })
+request.post(
+  {
+    url: 'http://localhost:6688/v2/specs',
+    body: job,
+    json: true,
+  },
+  function(err, response, body) {
+    console.log(body)
+  },
+)

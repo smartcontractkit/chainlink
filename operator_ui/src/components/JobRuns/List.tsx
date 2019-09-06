@@ -17,25 +17,25 @@ import Link from '../Link'
 const styles = (theme: any) =>
   createStyles({
     jobRunsCard: {
-      overflow: 'auto'
+      overflow: 'auto',
     },
     idCell: {
-      width: '40%'
+      width: '40%',
     },
     stampCell: {
-      width: '30%'
+      width: '30%',
     },
     statusCell: {
       textAlign: 'end',
-      width: '30%'
+      width: '30%',
     },
     runDetails: {
       paddingTop: theme.spacing.unit * 2,
       paddingBottom: theme.spacing.unit * 2,
-      paddingLeft: theme.spacing.unit * 2
+      paddingLeft: theme.spacing.unit * 2,
     },
     stamp: {
-      paddingLeft: theme.spacing.unit
+      paddingLeft: theme.spacing.unit,
     },
     status: {
       paddingLeft: theme.spacing.unit * 1.5,
@@ -45,23 +45,23 @@ const styles = (theme: any) =>
       borderRadius: theme.spacing.unit * 2,
       marginRight: theme.spacing.unit,
       width: 'fit-content',
-      display: 'inline-block'
+      display: 'inline-block',
     },
     errored: {
       backgroundColor: theme.palette.error.light,
-      color: theme.palette.error.main
+      color: theme.palette.error.main,
     },
     pending: {
       backgroundColor: theme.palette.listPendingStatus.background,
-      color: theme.palette.listPendingStatus.color
+      color: theme.palette.listPendingStatus.color,
     },
     completed: {
       backgroundColor: theme.palette.listCompletedStatus.background,
-      color: theme.palette.listCompletedStatus.color
+      color: theme.palette.listCompletedStatus.color,
     },
     noRuns: {
-      padding: theme.spacing.unit * 2
-    }
+      padding: theme.spacing.unit * 2,
+    },
   })
 
 const classFromStatus = (classes: any, status: string) => {
@@ -116,7 +116,7 @@ const renderRuns = (runs: IJobRuns, classes: any) => {
             variant="body1"
             className={classNames(
               classes.status,
-              classFromStatus(classes, r.status)
+              classFromStatus(classes, r.status),
             )}
           >
             {titleize(r.status)}
@@ -145,7 +145,7 @@ const List = ({
   runs,
   count,
   showJobRunsCount,
-  classes
+  classes,
 }: IProps) => {
   return (
     <Card className={classes.jobRunsCard}>

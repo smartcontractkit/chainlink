@@ -16,7 +16,7 @@ describe('entity/taskRun', () => {
   it('copies old confirmations to new column on INSERT', async () => {
     const [chainlinkNode, _] = await createChainlinkNode(
       db,
-      'testOverwriteJobRunsErrorOnConflict'
+      'testOverwriteJobRunsErrorOnConflict',
     )
 
     const jr = fromString(JSON.stringify(fixture))
@@ -30,7 +30,7 @@ describe('entity/taskRun', () => {
       INSERT INTO task_run("jobRunId", index, type, status, confirmations, "minimumConfirmations")
       VALUES ($1, 1, 'randomtask', 'in_progress', 1, 2);
     `,
-      [jr.id]
+      [jr.id],
     )
 
     const retrieved = await db.manager.findOne(JobRun, jr.id)
@@ -45,7 +45,7 @@ describe('entity/taskRun', () => {
   it('copies old confirmations to new column on UPDATE', async () => {
     const [chainlinkNode, _] = await createChainlinkNode(
       db,
-      'testOverwriteJobRunsErrorOnConflict'
+      'testOverwriteJobRunsErrorOnConflict',
     )
 
     const jr = fromString(JSON.stringify(fixture))
@@ -60,7 +60,7 @@ describe('entity/taskRun', () => {
       UPDATE task_run SET confirmations = 9, "minimumConfirmations" = 10
       WHERE id = $1;
     `,
-      [tr.id]
+      [tr.id],
     )
 
     const retrieved = await db.manager.findOne(JobRun, jr.id)

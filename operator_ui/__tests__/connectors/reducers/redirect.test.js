@@ -6,29 +6,29 @@ describe('connectors/reducers/redirect', () => {
     const state = reducer(undefined, {})
 
     expect(state.redirect).toEqual({
-      to: null
+      to: null,
     })
   })
 
   it('REDIRECT sets "to" as the given url', () => {
     const state = reducer(undefined, {
       type: RouterActionType.REDIRECT,
-      to: '/foo'
+      to: '/foo',
     })
 
     expect(state.redirect).toEqual({
-      to: '/foo'
+      to: '/foo',
     })
   })
 
   it('MATCH_ROUTE sets "to" as null', () => {
     const previousState = {
-      redirect: { to: '/foo' }
+      redirect: { to: '/foo' },
     }
     const state = reducer(previousState, { type: RouterActionType.MATCH_ROUTE })
 
     expect(state.redirect).toEqual({
-      to: null
+      to: null,
     })
   })
 })

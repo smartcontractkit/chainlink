@@ -7,7 +7,7 @@ import {
   RECEIVE_SIGNIN_ERROR,
   REQUEST_SIGNOUT,
   RECEIVE_SIGNOUT_SUCCESS,
-  RECEIVE_SIGNOUT_ERROR
+  RECEIVE_SIGNOUT_ERROR,
 } from 'actions'
 
 describe('connectors/reducers/authentication', () => {
@@ -21,7 +21,7 @@ describe('connectors/reducers/authentication', () => {
     expect(state.authentication).toEqual({
       allowed: false,
       errors: [],
-      networkError: false
+      networkError: false,
     })
   })
 
@@ -55,8 +55,8 @@ describe('connectors/reducers/authentication', () => {
       const previousState = {
         authentication: {
           allowed: true,
-          errors: ['error 1']
-        }
+          errors: ['error 1'],
+        },
       }
       const action = { type: RECEIVE_SIGNIN_FAIL }
       const state = reducer(previousState, action)
@@ -78,8 +78,8 @@ describe('connectors/reducers/authentication', () => {
       const previousState = {
         authentication: {
           allowed: true,
-          networkError: false
-        }
+          networkError: false,
+        },
       }
       const action = { type: RECEIVE_SIGNIN_ERROR, networkError: true }
       const state = reducer(previousState, action)
@@ -108,8 +108,8 @@ describe('connectors/reducers/authentication', () => {
       const previousState = {
         authentication: {
           allowed: true,
-          networkError: true
-        }
+          networkError: true,
+        },
       }
       const action = { type: RECEIVE_SIGNOUT_SUCCESS, authenticated: false }
       const state = reducer(previousState, action)
@@ -131,8 +131,8 @@ describe('connectors/reducers/authentication', () => {
       const previousState = {
         authentication: {
           allowed: true,
-          networkError: false
-        }
+          networkError: false,
+        },
       }
       const action = { type: RECEIVE_SIGNOUT_ERROR, networkError: true }
       const state = reducer(previousState, action)

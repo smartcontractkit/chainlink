@@ -32,30 +32,30 @@ contract('UpdatableConsumer', () => {
     // register domain
     await ens.setSubnodeOwner(tldSubnode, h.keccak(domain), h.oracleNode)
     await ens.setResolver(domainNode, ensResolver.address, {
-      from: h.oracleNode
+      from: h.oracleNode,
     })
     // register token subdomain to point to token contract
     await ens.setSubnodeOwner(
       domainNode,
       h.keccak(tokenSubdomain),
       h.oracleNode,
-      { from: h.oracleNode }
+      { from: h.oracleNode },
     )
     await ens.setResolver(tokenSubnode, ensResolver.address, {
-      from: h.oracleNode
+      from: h.oracleNode,
     })
     await ensResolver.setAddr(tokenSubnode, link.address, {
-      from: h.oracleNode
+      from: h.oracleNode,
     })
     // register oracle subdomain to point to oracle contract
     await ens.setSubnodeOwner(
       domainNode,
       h.keccak(oracleSubdomain),
       h.oracleNode,
-      { from: h.oracleNode }
+      { from: h.oracleNode },
     )
     await ens.setResolver(oracleSubnode, ensResolver.address, {
-      from: h.oracleNode
+      from: h.oracleNode,
     })
     await ensResolver.setAddr(oracleSubnode, oc.address, { from: h.oracleNode })
 
@@ -77,7 +77,7 @@ contract('UpdatableConsumer', () => {
     describe('when the ENS resolver has been updated', () => {
       beforeEach(async () => {
         await ensResolver.setAddr(oracleSubnode, newOracleAddress, {
-          from: h.oracleNode
+          from: h.oracleNode,
         })
       })
 
@@ -85,7 +85,7 @@ contract('UpdatableConsumer', () => {
         await uc.updateOracle()
         assert.equal(
           newOracleAddress.toLowerCase(),
-          (await uc.getOracle.call()).toLowerCase()
+          (await uc.getOracle.call()).toLowerCase(),
         )
       })
     })
@@ -113,7 +113,7 @@ contract('UpdatableConsumer', () => {
 
     it('records the data given to it by the oracle', async () => {
       await h.fulfillOracleRequest(oc, request, response, {
-        from: h.oracleNode
+        from: h.oracleNode,
       })
 
       const currentPrice = await uc.currentPrice.call()
@@ -125,18 +125,18 @@ contract('UpdatableConsumer', () => {
       () => {
         beforeEach(async () => {
           await ensResolver.setAddr(oracleSubnode, newOracleAddress, {
-            from: h.oracleNode
+            from: h.oracleNode,
           })
           await uc.updateOracle()
           assert.equal(
             newOracleAddress.toLowerCase(),
-            (await uc.getOracle.call()).toLowerCase()
+            (await uc.getOracle.call()).toLowerCase(),
           )
         })
 
         it('records the data given to it by the old oracle contract', async () => {
           await h.fulfillOracleRequest(oc, request, response, {
-            from: h.oracleNode
+            from: h.oracleNode,
           })
 
           const currentPrice = await uc.currentPrice.call()
@@ -146,7 +146,7 @@ contract('UpdatableConsumer', () => {
         it('does not accept responses from the new oracle for the old requests', async () => {
           await h.assertActionThrows(async () => {
             await uc.fulfill(request.id, h.toHex(response), {
-              from: h.oracleNode
+              from: h.oracleNode,
             })
           })
 
@@ -159,23 +159,23 @@ contract('UpdatableConsumer', () => {
           assertBigNum(
             0,
             await link.balanceOf.call(uc.address),
-            'Initial balance should be 0'
+            'Initial balance should be 0',
           )
 
           await uc.cancelRequest(
             request.id,
             request.payment,
             request.callbackFunc,
-            request.expiration
+            request.expiration,
           )
 
           assertBigNum(
             paymentAmount,
             await link.balanceOf.call(uc.address),
-            'Oracle should have been repaid on cancellation.'
+            'Oracle should have been repaid on cancellation.',
           )
         })
-      }
+      },
     )
   })
 })

@@ -10,13 +10,13 @@ const web3 = new Web3(provider)
 const networkId = Object.keys(RunLogJSON.networks)[0]
 const wc3 = new web3.eth.Contract(
   RunLogJSON.abi,
-  RunLogJSON.networks[networkId].address
+  RunLogJSON.networks[networkId].address,
 )
 
 wc3.methods.request().send(
   {
     from: devnetAddress,
-    gas: 200000
+    gas: 200000,
   },
   (error, transactionHash) => {
     if (error) {
@@ -24,5 +24,5 @@ wc3.methods.request().send(
     } else {
       console.log('sent tx: ', transactionHash)
     }
-  }
+  },
 )

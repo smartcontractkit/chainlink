@@ -7,8 +7,8 @@ const styles = () => ({
     top: '30%',
     left: '50%',
     transform: 'translate(-50%, -30%)',
-    position: 'absolute'
-  }
+    position: 'absolute',
+  },
 })
 
 const Logo = ({ classes }) => (

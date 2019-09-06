@@ -4,7 +4,7 @@ import {
   Entity,
   ManyToOne,
   OneToMany,
-  PrimaryGeneratedColumn
+  PrimaryGeneratedColumn,
 } from 'typeorm'
 import { TaskRun } from './TaskRun'
 import { ChainlinkNode } from './ChainlinkNode'
@@ -49,12 +49,12 @@ export class JobRun {
 
   @OneToMany(() => TaskRun, taskRun => taskRun.jobRun, {
     eager: true,
-    onDelete: 'CASCADE'
+    onDelete: 'CASCADE',
   })
   taskRuns: Array<TaskRun>
 
   @ManyToOne(() => ChainlinkNode, ChainlinkNode => ChainlinkNode.jobRuns, {
-    eager: true
+    eager: true,
   })
   chainlinkNode: ChainlinkNode
 }
@@ -106,7 +106,7 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
         "status" = :status
         ,"error" = :error
         ,"finishedAt" = :finishedAt
-      `
+      `,
       )
       .setParameter('status', jobRun.status)
       .setParameter('error', jobRun.error)
@@ -130,7 +130,7 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
               ,"transactionStatus" = :transactionStatus
               ,"confirmations_new1562419039813" = :confirmations
               ,"minimumConfirmations_new1562419039813" = :minimumConfirmations
-              `
+              `,
           )
           .setParameter('status', tr.status)
           .setParameter('error', tr.error)
@@ -139,7 +139,7 @@ export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
           .setParameter('confirmations', tr.confirmations)
           .setParameter('minimumConfirmations', tr.minimumConfirmations)
           .execute()
-      })
+      }),
     )
   })
 }

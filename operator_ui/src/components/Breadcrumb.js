@@ -5,8 +5,8 @@ import classNames from 'classnames'
 const styles = theme => {
   return {
     breadcrumb: {
-      marginBottom: theme.spacing.unit * 3
-    }
+      marginBottom: theme.spacing.unit * 3,
+    },
   }
 }
 

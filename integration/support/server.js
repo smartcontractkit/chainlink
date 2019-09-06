@@ -21,7 +21,7 @@ ${response}`)
       port: endpoint.address().port,
       close: () => {
         return Promise.all([endpoint.close(), server.close()])
-      }
+      },
     }
-  }
+  },
 }

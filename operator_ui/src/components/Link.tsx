@@ -4,7 +4,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import { grey } from '@material-ui/core/colors'
@@ -19,11 +19,11 @@ const styles = (_theme: Theme) =>
   createStyles({
     link: {
       color: grey[900],
-      textDecoration: 'none'
+      textDecoration: 'none',
     },
     linkContent: {
-      display: 'inline-block'
-    }
+      display: 'inline-block',
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {
@@ -40,7 +40,7 @@ const Link = ({
   className,
   href,
   variant,
-  color
+  color,
 }: IProps) => {
   const v = variant || 'body1'
   const c = color || 'inherit'

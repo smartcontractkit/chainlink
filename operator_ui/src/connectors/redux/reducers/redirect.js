@@ -1,7 +1,7 @@
 import { RouterActionType } from 'actions'
 
 const initialState = {
-  to: null
+  to: null,
 }
 
 export default (state = initialState, action = {}) => {

@@ -43,7 +43,7 @@ contract('OracleDev', () => {
       // Ownable methods:
       'isOwner',
       'owner',
-      'transferOwnership'
+      'transferOwnership',
     ])
   })
 
@@ -77,7 +77,7 @@ contract('OracleDev', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
           await ocd.setPriceFeed(ethFeed.address, ethSymbol, {
-            from: h.stranger
+            from: h.stranger,
           })
         })
       })
@@ -86,7 +86,7 @@ contract('OracleDev', () => {
     context('owner setting an ETH price feed', () => {
       beforeEach(async () => {
         await ocd.setPriceFeed(ethFeed.address, ethSymbol, {
-          from: h.defaultAccount
+          from: h.defaultAccount,
         })
       })
 

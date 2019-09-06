@@ -60,13 +60,13 @@ const mapStateToProps = (state, ownProps) => {
     jobSpecId,
     jobRunId,
     jobRun,
-    fetching
+    fetching,
   }
 }
 
 export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJobRun })
+  matchRouteAndMapDispatchToProps({ fetchJobRun }),
 )(Show)
 
 export default withStyles(styles)(ConnectedShow)

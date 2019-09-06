@@ -28,7 +28,7 @@ class SaRequester extends command.Command {
     createServiceAgreements(agreement, addresses, oracleURLs)
       .then(signatures => console.table(['address', 'signature'], signatures))
       .catch(e =>
-        console.log('Unable to create SA, got error:\n\n\t%s\n', e.message)
+        console.log('Unable to create SA, got error:\n\n\t%s\n', e.message),
       )
   }
 }
@@ -48,7 +48,7 @@ const parseResponse = response => {
       return response.data.data
     } else {
       throw new Error(
-        `Unexpected response content type: "${contentType}" expected: "${CONTENT_TYPE_JSON}"`
+        `Unexpected response content type: "${contentType}" expected: "${CONTENT_TYPE_JSON}"`,
       )
     }
   }
@@ -65,7 +65,7 @@ async function getOracleAddresses(oracleURLs) {
         .then(parseResponse)
         .then(data => data.id)
         .catch(parseError)
-    })
+    }),
   )
 }
 
@@ -74,7 +74,7 @@ async function createServiceAgreements(baseAgreement, addresses, oracleURLs) {
     oracleURLs.map((u, i) => {
       const url = urlWithPath(u, SERVICE_AGREEMENTS_PATH)
       const serviceAgreementRequest = Object.assign({}, baseAgreement, {
-        oracles: addresses
+        oracles: addresses,
       })
 
       return axios
@@ -82,7 +82,7 @@ async function createServiceAgreements(baseAgreement, addresses, oracleURLs) {
         .then(parseResponse)
         .then(data => [addresses[i], data.attributes.signature])
         .catch(parseError)
-    })
+    }),
   )
 }
 
@@ -93,8 +93,8 @@ SaRequester.flags = {
   help: command.flags.help({ char: 'h' }),
   agreement: command.flags.string({
     char: 'a',
-    description: 'Location of agreement'
-  })
+    description: 'Location of agreement',
+  }),
 }
 SaRequester.args = [{ name: 'file' }]
 

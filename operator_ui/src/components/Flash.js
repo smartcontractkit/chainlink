@@ -12,20 +12,20 @@ const styles = theme => {
   return {
     base: {
       paddingLeft: theme.spacing.unit * 5,
-      paddingRight: theme.spacing.unit * 5
+      paddingRight: theme.spacing.unit * 5,
     },
     success: {
       backgroundColor: success.main,
-      color: success.contrastText
+      color: success.contrastText,
     },
     error: {
       backgroundColor: theme.palette.error.dark,
-      color: theme.palette.error.contrastText
+      color: theme.palette.error.contrastText,
     },
     warning: {
       backgroundColor: warning.contrastText,
-      color: warning.main
-    }
+      color: warning.main,
+    },
   }
 }
 
@@ -54,13 +54,13 @@ const Flash = props => (
 Flash.defaultProps = {
   success: false,
   error: false,
-  warning: false
+  warning: false,
 }
 
 Flash.propTypes = {
   success: PropTypes.bool,
   error: PropTypes.bool,
-  warning: PropTypes.bool
+  warning: PropTypes.bool,
 }
 
 export default withStyles(styles)(Flash)

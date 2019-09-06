@@ -7,9 +7,9 @@ describe('selectors - jobs', () => {
         currentPage: ['jobA', 'jobB'],
         items: {
           jobA: { id: 'jobA' },
-          jobB: { id: 'jobB' }
-        }
-      }
+          jobB: { id: 'jobB' },
+        },
+      },
     }
     const jobs = jobsSelector(state)
 
@@ -21,9 +21,9 @@ describe('selectors - jobs', () => {
       jobs: {
         currentPage: ['jobA', 'jobB'],
         items: {
-          jobA: { id: 'jobA' }
-        }
-      }
+          jobA: { id: 'jobA' },
+        },
+      },
     }
     const jobs = jobsSelector(state)
 

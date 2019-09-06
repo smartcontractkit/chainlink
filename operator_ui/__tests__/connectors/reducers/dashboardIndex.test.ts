@@ -7,7 +7,7 @@ describe('connectors/reducers/dashboardIndex', () => {
 
     expect(state.dashboardIndex).toEqual({
       recentJobRuns: undefined,
-      jobRunsCount: undefined
+      jobRunsCount: undefined,
     })
   })
 
@@ -18,10 +18,10 @@ describe('connectors/reducers/dashboardIndex', () => {
         meta: {
           recentJobRuns: {
             data: [{ id: 'b' }, { id: 'a' }],
-            meta: { count: 100 }
-          }
-        }
-      }
+            meta: { count: 100 },
+          },
+        },
+      },
     }
     const state = reducer(undefined, action)
 

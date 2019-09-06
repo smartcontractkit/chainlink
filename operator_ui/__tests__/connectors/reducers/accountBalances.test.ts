@@ -10,7 +10,7 @@ describe('connectors/reducers/accountBalances', () => {
 
   it('UPSERT_ACCOUNT_BALANCE assigns the eth & link balance', () => {
     const previousState = {
-      accountBalances: {}
+      accountBalances: {},
     }
     const action = {
       type: UPSERT_ACCOUNT_BALANCE,
@@ -19,11 +19,11 @@ describe('connectors/reducers/accountBalances', () => {
           '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f': {
             id: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f',
             attributes: {
-              address: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
-            }
-          }
-        }
-      }
+              address: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f',
+            },
+          },
+        },
+      },
     }
     const state = reducer(previousState, action)
 
@@ -32,8 +32,8 @@ describe('connectors/reducers/accountBalances', () => {
     expect(balance).toEqual({
       id: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f',
       attributes: {
-        address: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
-      }
+        address: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f',
+      },
     })
   })
 })

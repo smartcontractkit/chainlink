@@ -33,7 +33,7 @@ contract('MyContract', accounts => {
     oc = await Oracle.new(link.address, { from: defaultAccount })
     cc = await MyContract.new(link.address, { from: consumer })
     await oc.setFulfillmentPermission(oracleNode, true, {
-      from: defaultAccount
+      from: defaultAccount,
     })
   })
 
@@ -48,7 +48,7 @@ contract('MyContract', accounts => {
             url,
             path,
             times,
-            { from: consumer }
+            { from: consumer },
           )
         })
       })
@@ -70,15 +70,15 @@ contract('MyContract', accounts => {
             url,
             path,
             times,
-            { from: consumer }
+            { from: consumer },
           )
           request = h.decodeRunRequest(tx.receipt.rawLogs[3])
           assert.equal(oc.address, tx.receipt.rawLogs[3].address)
           assert.equal(
             request.topic,
             web3.utils.keccak256(
-              'OracleRequest(bytes32,address,bytes32,uint256,address,bytes4,uint256,uint256,bytes)'
-            )
+              'OracleRequest(bytes32,address,bytes32,uint256,address,bytes4,uint256,uint256,bytes)',
+            ),
           )
         })
       })
@@ -99,7 +99,7 @@ contract('MyContract', accounts => {
         url,
         path,
         times,
-        { from: consumer }
+        { from: consumer },
       )
       request = h.decodeRunRequest(tx.receipt.rawLogs[3])
       await h.fulfillOracleRequest(oc, request, response, { from: oracleNode })
@@ -109,7 +109,7 @@ contract('MyContract', accounts => {
       const currentPrice = await cc.data.call()
       assert.equal(
         web3.utils.toHex(currentPrice),
-        web3.utils.padRight(expected, 64)
+        web3.utils.padRight(expected, 64),
       )
     })
 
@@ -123,7 +123,7 @@ contract('MyContract', accounts => {
       it('does not accept the data provided', async () => {
         await h.assertActionThrows(async () => {
           await h.fulfillOracleRequest(oc, request, response, {
-            from: oracleNode
+            from: oracleNode,
           })
         })
       })
@@ -150,7 +150,7 @@ contract('MyContract', accounts => {
         url,
         path,
         times,
-        { from: consumer }
+        { from: consumer },
       )
       request = h.decodeRunRequest(tx.receipt.rawLogs[3])
     })
@@ -163,7 +163,7 @@ contract('MyContract', accounts => {
             request.payment,
             request.callbackFunc,
             request.expiration,
-            { from: consumer }
+            { from: consumer },
           )
         })
       })
@@ -182,7 +182,7 @@ contract('MyContract', accounts => {
               request.payment,
               request.callbackFunc,
               request.expiration,
-              { from: stranger }
+              { from: stranger },
             )
           })
         })
@@ -195,7 +195,7 @@ contract('MyContract', accounts => {
             request.payment,
             request.callbackFunc,
             request.expiration,
-            { from: consumer }
+            { from: consumer },
           )
         })
       })

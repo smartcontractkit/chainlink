@@ -26,7 +26,7 @@ if (typeof document !== 'undefined') {
           <Comp />
         </MuiThemeProvider>
       </AppContainer>,
-      document.getElementById('root')
+      document.getElementById('root'),
     )
   }
 

@@ -15,8 +15,8 @@ const styles = theme => {
   return {
     deleteRunsDivider: {
       marginTop: theme.spacing.unit * 3,
-      marginBottom: theme.spacing.unit * 2
-    }
+      marginBottom: theme.spacing.unit * 2,
+    },
   }
 }
 
@@ -112,7 +112,7 @@ const DeleteJobRuns = useHooks(
         </Grid>
       </PaddedCard>
     )
-  }
+  },
 )
 
 const mapStateToProps = state => ({})
@@ -121,14 +121,14 @@ const mapDispatchToProps = dispatch =>
   bindActionCreators(
     {
       deleteCompletedJobRuns,
-      deleteErroredJobRuns
+      deleteErroredJobRuns,
     },
-    dispatch
+    dispatch,
   )
 
 export const ConnectedDeleteJobRuns = connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(DeleteJobRuns)
 
 export default withStyles(styles)(ConnectedDeleteJobRuns)

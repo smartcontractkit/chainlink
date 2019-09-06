@@ -9,7 +9,7 @@ import {
   KeyValueList,
   SimpleListCard,
   SimpleListCardItem,
-  theme
+  theme,
 } from '../src'
 
 const customTheme = createMuiTheme(theme)
