@@ -1,4 +1,7 @@
 // Package ethdss implements the Distributed Schnorr Signature protocol from the
+////////////////////////////////////////////////////////////////////////////////
+//       XXX: Do not use in production until this code has been audited.
+////////////////////////////////////////////////////////////////////////////////
 // paper "Provably Secure Distributed Schnorr Signatures and a (t, n)
 // Threshold Scheme for Implicit Certificates".
 // https://dl.acm.org/citation.cfm?id=678297
