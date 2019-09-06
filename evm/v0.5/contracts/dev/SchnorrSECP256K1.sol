@@ -25,7 +25,7 @@ contract SchnorrSECP256K1 {
 
       @dev First PKx must be less than HALF_Q. Then follow these instructions
            (see evm/test/schnorr_test.js, for an example of carrying them out):
-      @dev 1. Hash the target message to a uint256, called _msgHash here, using
+      @dev 1. Hash the target message to a uint256, called msgHash here, using
               keccak256
 
       @dev 2. Pick k uniformly and cryptographically securely randomly from
@@ -48,25 +48,25 @@ contract SchnorrSECP256K1 {
 
       @dev 5. Compute e=uint256(keccak256(PKx as a 32-byte big-endian
                                         ‖ PKyp as a single byte
-                                        ‖ _msgHash
+                                        ‖ msgHash
                                         ‖ nonceTimesGeneratorAddress))
               This value e is called "msgChallenge" in verifySignature's source
               code below. Here "‖" means concatenation of the listed byte
               arrays.
 
       @dev 6. Let x be your secret key. Compute s = (k - d * e) % Q. Add Q to
-              it, if it's negative. This is your _signature. (d is your secret
+              it, if it's negative. This is your signature. (d is your secret
               key.)
       **************************************************************************
       @dev TO VERIFY A SIGNATURE
 
-      @dev Given a signature (s, e) of _msgHash, constructed as above, compute
+      @dev Given a signature (s, e) of msgHash, constructed as above, compute
       S=e*PK+s*generator in the secp256k1 group law, and then the ethereum
       address of S, as described in step 4. Call that
-      _nonceTimesGeneratorAddress. Then call the verifySignature method as:
+      nonceTimesGeneratorAddress. Then call the verifySignature method as:
 
-      @dev    verifySignature(PKx, PKyp, s, _msgHash,
-                              _nonceTimesGeneratorAddress)
+      @dev    verifySignature(PKx, PKyp, s, msgHash,
+                              nonceTimesGeneratorAddress)
       **************************************************************************
       @dev This signging scheme deviates slightly from the classical Schnorr
       signature, in that the address of k*g is used in place of k*g itself,
@@ -78,35 +78,35 @@ contract SchnorrSECP256K1 {
       giant-step" is only 128 bits, so this weakening constitutes no compromise
       in the security of the signatures or the key.
 
-      @dev The constraint _signingPubKeyX < HALF_Q comes from Eq. (281), p. 24
+      @dev The constraint signingPubKeyX < HALF_Q comes from Eq. (281), p. 24
       of Yellow Paper version 78d7b9a. ecrecover only accepts "s" inputs less
       than HALF_Q, to protect against a signature- malleability vulnerability in
       ECDSA. Schnorr does not have this vulnerability, but we must account for
       ecrecover's defense anyway. And since we are abusing ecrecover by putting
-      _signingPubKeyX in ecrecover's "s" argument the constraint applies to
-      _signingPubKeyX, even though it represents a value in the base field, and
+      signingPubKeyX in ecrecover's "s" argument the constraint applies to
+      signingPubKeyX, even though it represents a value in the base field, and
       has no natural relationship to the order of the curve's cyclic group.
       **************************************************************************
-      @param _signingPubKeyX is the x ordinate of the public key. This must be
+      @param signingPubKeyX is the x ordinate of the public key. This must be
              less than HALF_Q. 
-      @param _pubKeyYParity is 0 if the y ordinate of the public key is even, 1 
+      @param pubKeyYParity is 0 if the y ordinate of the public key is even, 1 
              if it's odd.
-      @param _signature is the actual signature, described as s in the above
+      @param signature is the actual signature, described as s in the above
              instructions.
-      @param _msgHash is a 256-bit hash of the message being signed.
-      @param _nonceTimesGeneratorAddress is the ethereum address of k*g in the
+      @param msgHash is a 256-bit hash of the message being signed.
+      @param nonceTimesGeneratorAddress is the ethereum address of k*g in the
              above instructions
       **************************************************************************
       @return True if passed a valid signature, false otherwise. */
   function verifySignature(
-    uint256 _signingPubKeyX,
-    uint8 _pubKeyYParity,
-    uint256 _signature,
-    uint256 _msgHash,
-    address _nonceTimesGeneratorAddress) external pure returns (bool) {
-    require(_signingPubKeyX < HALF_Q, "Public-key x >= HALF_Q");
+    uint256 signingPubKeyX,
+    uint8 pubKeyYParity,
+    uint256 signature,
+    uint256 msgHash,
+    address nonceTimesGeneratorAddress) external pure returns (bool) {
+    require(signingPubKeyX < HALF_Q, "Public-key x >= HALF_Q");
     // Avoid signature malleability from multiple representations for ℤ/Qℤ elts
-    require(_signature < Q, "signature must be reduced modulo Q");
+    require(signature < Q, "signature must be reduced modulo Q");
 
     // Forbid trivial inputs, to avoid ecrecover edge cases. The main thing to
     // avoid is something which causes ecrecover to return 0x0: then trivial
@@ -114,17 +114,17 @@ contract SchnorrSECP256K1 {
     // set to 0x0.
     //
     // solium-disable-next-line indentation
-    require(_nonceTimesGeneratorAddress != address(0) && _signingPubKeyX > 0 &&
-      _signature > 0 && _msgHash > 0, "no zero inputs allowed");
+    require(nonceTimesGeneratorAddress != address(0) && signingPubKeyX > 0 &&
+      signature > 0 && msgHash > 0, "no zero inputs allowed");
 
     // solium-disable-next-line indentation
     uint256 msgChallenge = // "e"
       // solium-disable-next-line indentation
-      uint256(keccak256(abi.encodePacked(_signingPubKeyX, _pubKeyYParity,
-        _msgHash, _nonceTimesGeneratorAddress))
+      uint256(keccak256(abi.encodePacked(signingPubKeyX, pubKeyYParity,
+        msgHash, nonceTimesGeneratorAddress))
     );
 
-    // Verify msgChallenge * _signingPubKey + _signature * generator ==
+    // Verify msgChallenge * signingPubKey + signature * generator ==
     //        nonce * generator
     //
     // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
@@ -133,15 +133,15 @@ contract SchnorrSECP256K1 {
     // is the (v,r) point. See https://crypto.stackexchange.com/a/18106
     //
     // solium-disable-next-line indentation
-    address nonceTimesGeneratorAddress = ecrecover(
+    address recoveredAddress = ecrecover(
       // solium-disable-next-line zeppelin/no-arithmetic-operations
-      bytes32(Q - mulmod(_signingPubKeyX, _signature, Q)),
+      bytes32(Q - mulmod(signingPubKeyX, signature, Q)),
       // https://ethereum.github.io/yellowpaper/paper.pdf p. 24, "The
       // value 27 represents an even y value and 28 represents an odd
       // y value."
-      (_pubKeyYParity == 0) ? 27 : 28,
-      bytes32(_signingPubKeyX),
-      bytes32(mulmod(msgChallenge, _signingPubKeyX, Q)));
-    return _nonceTimesGeneratorAddress == nonceTimesGeneratorAddress;
+      (pubKeyYParity == 0) ? 27 : 28,
+      bytes32(signingPubKeyX),
+      bytes32(mulmod(msgChallenge, signingPubKeyX, Q)));
+    return nonceTimesGeneratorAddress == recoveredAddress;
   }
 }
