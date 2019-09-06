@@ -1,7 +1,7 @@
 const waitWithTimeout = async (promise, taskName, timeout) => {
   let rejectCallback
   const timeoutError = new Error(
-    `waiting for ${taskName} failed: timeout ${timeout}ms exceeded`
+    `waiting for ${taskName} failed: timeout ${timeout}ms exceeded`,
   )
   const timeoutPromise = new Promise((resolve, reject) => {
     rejectCallback = reject
@@ -35,5 +35,5 @@ module.exports = {
     let match = await waitWithTimeout(checkPage, 'scrape', 30000)
     expect(match).toBeDefined()
     return (await match())[1]
-  }
+  },
 }

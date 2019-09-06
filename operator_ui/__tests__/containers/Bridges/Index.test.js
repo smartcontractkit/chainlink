@@ -17,7 +17,7 @@ const mountIndex = (opts = {}) =>
       <MemoryRouter>
         <Index classes={classes} pageSize={opts.pageSize} />
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   )
 
 describe('containers/Bridges/Index', () => {
@@ -27,8 +27,8 @@ describe('containers/Bridges/Index', () => {
     const bridgesResponse = bridgesFactory([
       {
         name: 'reggaeIsntThatGood',
-        url: 'butbobistho.com'
-      }
+        url: 'butbobistho.com',
+      },
     ])
     global.fetch.getOnce('begin:/v2/bridge_types', bridgesResponse)
 
@@ -44,7 +44,7 @@ describe('containers/Bridges/Index', () => {
 
     const pageOneResponse = bridgesFactory(
       [{ name: 'ID-ON-FIRST-PAGE', url: 'bridge.com' }],
-      2
+      2,
     )
     global.fetch.getOnce('begin:/v2/bridge_types', pageOneResponse)
 
@@ -56,7 +56,7 @@ describe('containers/Bridges/Index', () => {
 
     const pageTwoResponse = bridgesFactory(
       [{ name: 'ID-ON-SECOND-PAGE', url: 'bridge.com' }],
-      2
+      2,
     )
     global.fetch.getOnce('begin:/v2/bridge_types', pageTwoResponse)
     clickNextPage(wrapper)

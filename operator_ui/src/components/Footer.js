@@ -11,12 +11,12 @@ const styles = theme => ({
     position: 'fixed',
     left: '0',
     bottom: '0',
-    width: '100%'
+    width: '100%',
   },
   bareAnchor: {
     color: theme.palette.common.black,
-    textDecoration: 'none'
-  }
+    textDecoration: 'none',
+  },
 })
 
 const { version, sha } = extractBuildInfo()

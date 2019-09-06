@@ -15,7 +15,7 @@ describe('Titleizes strings', () => {
     const brokenCaseWithUnderscores = 'job_error_now'
     const brokenCaseWithUnderscoresCorrect = 'Job Error Now'
     expect(titleize(brokenCaseWithUnderscores)).toEqual(
-      brokenCaseWithUnderscoresCorrect
+      brokenCaseWithUnderscoresCorrect,
     )
   })
 })

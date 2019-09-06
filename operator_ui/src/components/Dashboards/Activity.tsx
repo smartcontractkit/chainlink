@@ -6,7 +6,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
@@ -26,8 +26,8 @@ const noActivityStyles = ({ palette, spacing }: Theme) =>
   createStyles({
     noActivity: {
       backgroundColor: palette.primary.light,
-      padding: spacing.unit * 3
-    }
+      padding: spacing.unit * 3,
+    },
   })
 
 interface INoActivityProps extends WithStyles<typeof noActivityStyles> {}
@@ -48,7 +48,7 @@ const NoActivity = withStyles(noActivityStyles)(
         </Grid>
       </Card>
     </CardContent>
-  )
+  ),
 )
 
 const Fetching = () => {
@@ -67,17 +67,17 @@ const styles = ({ palette, spacing }: Theme) =>
       borderColor: palette.divider,
       borderTop: `1px solid`,
       borderBottom: 'none',
-      padding: 0
+      padding: 0,
     },
     footer: {
       borderColor: palette.divider,
       borderTop: `1px solid`,
       paddingTop: spacing.unit * 2,
-      paddingBottom: spacing.unit * 2
+      paddingBottom: spacing.unit * 2,
     },
     content: {
       position: 'relative',
-      paddingLeft: 50
+      paddingLeft: 50,
     },
     status: {
       position: 'absolute',
@@ -88,14 +88,14 @@ const styles = ({ palette, spacing }: Theme) =>
       borderRight: 'solid 1px',
       borderRightColor: palette.divider,
       width: 50,
-      height: '100%'
+      height: '100%',
     },
     runDetails: {
       paddingTop: spacing.unit * 3,
       paddingBottom: spacing.unit * 3,
       paddingLeft: spacing.unit * 4,
-      paddingRight: spacing.unit * 4
-    }
+      paddingRight: spacing.unit * 4,
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {

@@ -9,16 +9,16 @@ import { set, get } from 'utils/storage'
 
 const styles = theme => ({
   card: {
-    paddingBottom: theme.spacing.unit * 2
+    paddingBottom: theme.spacing.unit * 2,
   },
   flash: {
     textAlign: 'center',
     paddingTop: theme.spacing.unit,
-    paddingBottom: theme.spacing.unit
+    paddingBottom: theme.spacing.unit,
   },
   button: {
-    marginTop: theme.spacing.unit * 2
-  }
+    marginTop: theme.spacing.unit * 2,
+  },
 })
 
 const Form = ({
@@ -29,7 +29,7 @@ const Form = ({
   values,
   touched,
   errors,
-  submitCount
+  submitCount,
 }) => {
   return (
     <React.Fragment>
@@ -76,7 +76,7 @@ const Form = ({
 
 Form.propTypes = {
   actionText: PropTypes.string.isRequired,
-  onSubmit: PropTypes.func.isRequired
+  onSubmit: PropTypes.func.isRequired,
 }
 
 const formikOpts = {
@@ -110,7 +110,7 @@ const formikOpts = {
     setTimeout(() => {
       setSubmitting(false)
     }, 1000)
-  }
+  },
 }
 
 const FormikForm = formik.withFormik(formikOpts)(Form)

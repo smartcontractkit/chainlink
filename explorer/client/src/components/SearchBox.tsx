@@ -8,7 +8,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import classNames from 'classnames'
 import { IState } from '../reducers'
@@ -19,13 +19,13 @@ const styles = ({ palette, spacing }: Theme) =>
       display: 'flex',
       border: 'solid 1px',
       borderColor: palette.grey['300'],
-      padding: spacing.unit
+      padding: spacing.unit,
     },
     query: {
       flexGrow: 1,
       boxSizing: 'border-box',
-      color: palette.text.primary
-    }
+      color: palette.text.primary,
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {
@@ -51,7 +51,7 @@ const SearchBox = ({ classes, className, query }: IProps) => {
 
 const mapStateToProps = (state: IState) => {
   return {
-    query: state.search.query
+    query: state.search.query,
   }
 }
 
@@ -59,7 +59,7 @@ const mapDispatchToProps = () => ({})
 
 const ConnectedSearchBox = connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(SearchBox)
 
 export default withStyles(styles)(ConnectedSearchBox)

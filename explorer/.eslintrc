@@ -9,17 +9,9 @@
     "tsconfigRootDir": "."
   },
 
-  "extends": [
-    "prettier-standard",
-    "plugin:react/recommended"
-  ],
+  "extends": ["prettier-standard", "plugin:react/recommended"],
 
-  "plugins": [
-    "import",
-    "prettier",
-    "standard",
-    "react"
-  ],
+  "plugins": ["import", "prettier", "standard", "react"],
 
   "rules": {
     "prettier/prettier": [

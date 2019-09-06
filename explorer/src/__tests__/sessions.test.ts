@@ -17,7 +17,7 @@ describe('sessions', () => {
     it('creates a session record', async () => {
       const [chainlinkNode, secret] = await createChainlinkNode(
         db,
-        'valid-chainlink-node'
+        'valid-chainlink-node',
       )
       const session = await authenticate(db, chainlinkNode.accessKey, secret)
       expect(session).toBeDefined()
@@ -40,12 +40,12 @@ describe('sessions', () => {
     it('returns null if the secret is incorrect', async () => {
       const [chainlinkNode, _] = await createChainlinkNode(
         db,
-        'invalid-chainlink-node'
+        'invalid-chainlink-node',
       )
       const result = await authenticate(
         db,
         chainlinkNode.accessKey,
-        'wrong-secret'
+        'wrong-secret',
       )
       expect(result).toBeNull()
     })

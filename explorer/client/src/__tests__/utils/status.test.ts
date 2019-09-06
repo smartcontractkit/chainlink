@@ -3,12 +3,12 @@ import status from '../../utils/status'
 const COMPLETED_ETHTX_WITHOUT_STATUS = {
   type: 'ethtx',
   status: 'completed',
-  transactionStatus: undefined
+  transactionStatus: undefined,
 } as ITaskRun
 const COMPLETED_ETHTX_WITH_STATUS = {
   type: 'ethtx',
   status: 'completed',
-  transactionStatus: 'fulfilledRunLog'
+  transactionStatus: 'fulfilledRunLog',
 } as ITaskRun
 
 describe('utils/status', () => {

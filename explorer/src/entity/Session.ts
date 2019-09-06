@@ -7,7 +7,7 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-  UpdateResult
+  UpdateResult,
 } from 'typeorm'
 import { ChainlinkNode } from './ChainlinkNode'
 import { TaskRun } from './TaskRun'
@@ -32,7 +32,7 @@ export class Session {
 
 export async function createSession(
   db: Connection,
-  node: ChainlinkNode
+  node: ChainlinkNode,
 ): Promise<Session> {
   const now = new Date()
   await db.manager
@@ -57,7 +57,7 @@ export async function retireSessions(db: Connection): Promise<UpdateResult> {
 
 export async function closeSession(
   db: Connection,
-  session: Session
+  session: Session,
 ): Promise<UpdateResult> {
   return db.manager
     .createQueryBuilder()

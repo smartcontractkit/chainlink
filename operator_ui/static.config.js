@@ -11,7 +11,7 @@ const generateClassName = createGenerateClassName()
 export default {
   maxThreads: MAX_EXPORT_HTML_THREADS || CORES,
   getSiteData: () => ({
-    title: 'Chainlink'
+    title: 'Chainlink',
   }),
   getRoutes: async () => {
     return [{ path: '404', component: 'src/containers/NotFound.js' }]
@@ -20,7 +20,7 @@ export default {
   plugins: [
     ['react-static-plugin-jss', { providerProps: { generateClassName } }],
     'react-static-plugin-react-router',
-    'react-static-plugin-typescript'
+    'react-static-plugin-typescript',
   ],
   Document: class CustomHtml extends Component {
     render() {
@@ -47,5 +47,5 @@ export default {
         </Html>
       )
     }
-  }
+  },
 }

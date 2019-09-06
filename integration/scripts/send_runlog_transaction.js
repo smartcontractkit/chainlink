@@ -24,9 +24,9 @@ const generateJob = requesterAddress => ({
     { type: 'HttpPost', params: { url: ECHO_SERVER_URL } },
     {
       type: 'EthTx',
-      params: { functionSelector: 'fulfillOracleRequest(uint256,bytes32)' }
-    }
-  ]
+      params: { functionSelector: 'fulfillOracleRequest(uint256,bytes32)' },
+    },
+  ],
 })
 
 const main = async () => {
@@ -36,7 +36,7 @@ const main = async () => {
   await linkToken
     .transfer(runLog.address, amount, {
       gas: 100000,
-      from: DEVNET_ADDRESS
+      from: DEVNET_ADDRESS,
     })
     .catch(abort('Error transferring link to RunLog'))
   console.log(`Transferred ${amount} to RunLog at: ${runLog.address}`)
@@ -51,7 +51,7 @@ const main = async () => {
   await runLog
     .request(web3.utils.asciiToHex(Job.data.id), {
       from: DEVNET_ADDRESS,
-      gas: 2000000
+      gas: 2000000,
     })
     .catch(abort('Error making RunLog request'))
   console.log(`Made RunLog request`)

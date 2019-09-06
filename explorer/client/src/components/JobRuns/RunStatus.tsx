@@ -4,7 +4,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import Card from '@material-ui/core/Card'
 import Typography from '@material-ui/core/Typography'
@@ -16,24 +16,24 @@ import status from '../../utils/status'
 const styles = ({ palette, spacing }: Theme) =>
   createStyles({
     completed: {
-      backgroundColor: green['50']
+      backgroundColor: green['50'],
     },
     errored: {
-      backgroundColor: palette.error.light
+      backgroundColor: palette.error.light,
     },
     pending: {
-      backgroundColor: yellow['50']
+      backgroundColor: yellow['50'],
     },
     statusCard: {
       display: 'flex',
       alignItems: 'center',
       '&:last-child': {
-        padding: spacing.unit * 2
-      }
+        padding: spacing.unit * 2,
+      },
     },
     statusText: {
-      marginLeft: spacing.unit * 2
-    }
+      marginLeft: spacing.unit * 2,
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {
@@ -51,7 +51,8 @@ const StatusCard = ({ classes, jobRun }: IProps) => {
       <Typography
         className={classes.statusText}
         variant="h5"
-        color="textPrimary">
+        color="textPrimary"
+      >
         {text} {unfulfilled && '(Receiver Reverted)'}
       </Typography>
     </Card>

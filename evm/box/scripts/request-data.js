@@ -27,7 +27,7 @@ module.exports = async callback => {
     payment,
     url,
     path,
-    times
+    times,
   )
   callback(tx.tx)
 }

@@ -31,7 +31,7 @@ contract('PreCoordinator', accounts => {
   const totalPayment = web3.utils.toWei('4')
 
   const fulfilledEventSig = web3.utils.soliditySha3(
-    'ChainlinkFulfilled(bytes32)'
+    'ChainlinkFulfilled(bytes32)',
   )
 
   let link, oc1, oc2, oc3, oc4, rc, pc
@@ -44,16 +44,16 @@ contract('PreCoordinator', accounts => {
     oc4 = await Oracle.new(link.address, { from: defaultAccount })
     pc = await PreCoordinator.new(link.address, { from: defaultAccount })
     await oc1.setFulfillmentPermission(oracleNode1, true, {
-      from: defaultAccount
+      from: defaultAccount,
     })
     await oc2.setFulfillmentPermission(oracleNode2, true, {
-      from: defaultAccount
+      from: defaultAccount,
     })
     await oc3.setFulfillmentPermission(oracleNode3, true, {
-      from: defaultAccount
+      from: defaultAccount,
     })
     await oc4.setFulfillmentPermission(oracleNode4, true, {
-      from: defaultAccount
+      from: defaultAccount,
     })
   })
 
@@ -66,7 +66,7 @@ contract('PreCoordinator', accounts => {
           [oc1.address, oc2.address, oc3.address, oc4.address],
           [job1, job2, job3, job4],
           [payment, payment, payment, payment],
-          { from: defaultAccount }
+          { from: defaultAccount },
         )
         expectEvent.inLogs(logs, 'NewServiceAgreement')
       })
@@ -78,7 +78,7 @@ contract('PreCoordinator', accounts => {
           [oc1.address, oc2.address, oc3.address, oc4.address],
           [job1, job2, job3, job4],
           [payment, payment, payment, payment],
-          { from: defaultAccount }
+          { from: defaultAccount },
         )
         const saId = tx.receipt.rawLogs[0].topics[1]
         const sa = await pc.getServiceAgreement.call(saId)
@@ -88,14 +88,14 @@ contract('PreCoordinator', accounts => {
           oc1.address,
           oc2.address,
           oc3.address,
-          oc4.address
+          oc4.address,
         ])
         assert.deepEqual(sa.jobIds, [job1, job2, job3, job4])
         assert.equal(sa.payments.toString(), [
           payment,
           payment,
           payment,
-          payment
+          payment,
         ])
       })
     })
@@ -109,8 +109,8 @@ contract('PreCoordinator', accounts => {
             [oc1.address, oc2.address, oc3.address, oc4.address],
             [job1, job2, job3, job4],
             [payment, payment, payment, payment],
-            { from: stranger }
-          )
+            { from: stranger },
+          ),
         )
       })
     })
@@ -124,9 +124,9 @@ contract('PreCoordinator', accounts => {
             [oc1.address, oc2.address, oc3.address, oc4.address],
             [job1, job2, job3],
             [payment, payment, payment, payment],
-            { from: defaultAccount }
+            { from: defaultAccount },
           ),
-          'Unmet length'
+          'Unmet length',
         )
       })
     })
@@ -140,9 +140,9 @@ contract('PreCoordinator', accounts => {
             [oc1.address, oc2.address, oc3.address, oc4.address],
             [job1, job2, job3, job4],
             [payment, payment, payment, payment],
-            { from: defaultAccount }
+            { from: defaultAccount },
           ),
-          'Invalid min responses'
+          'Invalid min responses',
         )
       })
     })
@@ -158,7 +158,7 @@ contract('PreCoordinator', accounts => {
         [oc1.address, oc2.address, oc3.address, oc4.address],
         [job1, job2, job3, job4],
         [payment, payment, payment, payment],
-        { from: defaultAccount }
+        { from: defaultAccount },
       )
       saId = tx.receipt.rawLogs[0].topics[1]
     })
@@ -166,7 +166,7 @@ contract('PreCoordinator', accounts => {
     context('when called by a stranger', () => {
       it('reverts', async () => {
         await expectRevert.unspecified(
-          pc.deleteServiceAgreement(saId, { from: stranger })
+          pc.deleteServiceAgreement(saId, { from: stranger }),
         )
       })
     })
@@ -194,19 +194,21 @@ contract('PreCoordinator', accounts => {
           [oc1.address, oc2.address, oc3.address, oc4.address],
           [job1, job2, job3, job4],
           [payment, payment, payment, payment],
-          { from: defaultAccount }
+          { from: defaultAccount },
         )
         let badRc = await RequesterConsumer.new(
           notLink.address,
           pc.address,
           saId,
-          { from: consumer }
+          { from: consumer },
         )
         await notLink.transfer(badRc.address, totalPayment, {
-          from: defaultAccount
+          from: defaultAccount,
         })
         await expectRevert.unspecified(
-          badRc.requestEthereumPrice(currency, totalPayment, { from: consumer })
+          badRc.requestEthereumPrice(currency, totalPayment, {
+            from: consumer,
+          }),
         )
       })
     })
@@ -220,18 +222,18 @@ contract('PreCoordinator', accounts => {
           [oc1.address, oc2.address, oc3.address, oc4.address],
           [job1, job2, job3, job4],
           [payment, payment, payment, payment],
-          { from: defaultAccount }
+          { from: defaultAccount },
         )
         saId = tx.receipt.rawLogs[0].topics[1]
         rc = await RequesterConsumer.new(link.address, pc.address, saId, {
-          from: consumer
+          from: consumer,
         })
         await link.transfer(rc.address, totalPayment)
       })
 
       it('creates Chainlink requests', async () => {
         let tx = await rc.requestEthereumPrice(currency, totalPayment, {
-          from: consumer
+          from: consumer,
         })
         const log1 = tx.receipt.rawLogs[7]
         assert.equal(oc1.address, log1.address)
@@ -252,7 +254,7 @@ contract('PreCoordinator', accounts => {
         const expected = {
           path: ['USD'],
           get:
-            'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
+            'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY',
         }
         assert.deepEqual(expected, await cbor.decodeFirst(request1.data))
         assert.deepEqual(expected, await cbor.decodeFirst(request2.data))
@@ -263,7 +265,7 @@ contract('PreCoordinator', accounts => {
       context('when insufficient payment is supplied', () => {
         it('reverts', async () => {
           await expectRevert.unspecified(
-            rc.requestEthereumPrice(currency, payment, { from: consumer })
+            rc.requestEthereumPrice(currency, payment, { from: consumer }),
           )
         })
       })
@@ -275,7 +277,7 @@ contract('PreCoordinator', accounts => {
           const beforeBalance = await link.balanceOf(rc.address)
           assert.equal(beforeBalance, extraPayment)
           await rc.requestEthereumPrice(currency, extraPayment, {
-            from: consumer
+            from: consumer,
           })
           const afterBalance = await link.balanceOf(rc.address)
           assert.equal(afterBalance, payment)
@@ -302,16 +304,16 @@ contract('PreCoordinator', accounts => {
         [oc1.address, oc2.address, oc3.address, oc4.address],
         [job1, job2, job3, job4],
         [payment, payment, payment, payment],
-        { from: defaultAccount }
+        { from: defaultAccount },
       )
       saId = tx.receipt.rawLogs[0].topics[1]
       rc = await RequesterConsumer.new(link.address, pc.address, saId, {
-        from: consumer
+        from: consumer,
       })
       await link.transfer(rc.address, totalPayment)
 
       const reqTx = await rc.requestEthereumPrice(currency, totalPayment, {
-        from: consumer
+        from: consumer,
       })
       const log1 = reqTx.receipt.rawLogs[7]
       request1 = h.decodeRunRequest(log1)
@@ -327,7 +329,7 @@ contract('PreCoordinator', accounts => {
       it('reverts', async () => {
         await expectRevert(
           pc.chainlinkCallback(saId, response1),
-          'Source must be the oracle of the request'
+          'Source must be the oracle of the request',
         )
       })
     })
@@ -341,7 +343,7 @@ contract('PreCoordinator', accounts => {
           request1.callbackFunc,
           request1.expiration,
           response1,
-          { from: oracleNode1 }
+          { from: oracleNode1 },
         )
         assert.equal(tx.receipt.rawLogs[0].topics[0], fulfilledEventSig)
       })
@@ -356,7 +358,7 @@ contract('PreCoordinator', accounts => {
           request1.callbackFunc,
           request1.expiration,
           response1,
-          { from: oracleNode1 }
+          { from: oracleNode1 },
         )
         await oc2.fulfillOracleRequest(
           request2.id,
@@ -365,7 +367,7 @@ contract('PreCoordinator', accounts => {
           request2.callbackFunc,
           request2.expiration,
           response2,
-          { from: oracleNode2 }
+          { from: oracleNode2 },
         )
         await oc3.fulfillOracleRequest(
           request3.id,
@@ -374,7 +376,7 @@ contract('PreCoordinator', accounts => {
           request3.callbackFunc,
           request3.expiration,
           response3,
-          { from: oracleNode3 }
+          { from: oracleNode3 },
         )
       })
 
@@ -392,7 +394,7 @@ contract('PreCoordinator', accounts => {
             request4.callbackFunc,
             request4.expiration,
             response4,
-            { from: oracleNode4 }
+            { from: oracleNode4 },
           )
           const currentPrice = await rc.currentPrice.call()
           assert.equal(currentPrice.toString(), expected2)
@@ -431,16 +433,16 @@ contract('PreCoordinator', accounts => {
         [oc1.address, oc2.address, oc3.address, oc4.address],
         [job1, job2, job3, job4],
         [payment, payment, payment, payment],
-        { from: defaultAccount }
+        { from: defaultAccount },
       )
       const saId = tx.receipt.rawLogs[0].topics[1]
       rc = await RequesterConsumer.new(link.address, pc.address, saId, {
-        from: consumer
+        from: consumer,
       })
       await link.transfer(rc.address, totalPayment)
 
       const reqTx = await rc.requestEthereumPrice(currency, totalPayment, {
-        from: consumer
+        from: consumer,
       })
 
       const log1 = reqTx.receipt.rawLogs[7]
@@ -456,9 +458,9 @@ contract('PreCoordinator', accounts => {
             request.payment,
             request.callbackFunc,
             request.expiration,
-            { from: consumer }
+            { from: consumer },
           ),
-          'Request is not expired'
+          'Request is not expired',
         )
       })
     })
@@ -472,7 +474,7 @@ contract('PreCoordinator', accounts => {
           request.payment,
           request.callbackFunc,
           request.expiration,
-          { from: consumer }
+          { from: consumer },
         )
         const balance = await link.balanceOf(rc.address)
         assert.equal(balance.toString(), payment)
@@ -485,7 +487,7 @@ contract('PreCoordinator', accounts => {
           request.payment,
           request.callbackFunc,
           request.expiration,
-          { from: stranger }
+          { from: stranger },
         )
         const balance = await link.balanceOf(rc.address)
         assert.equal(balance.toString(), payment)

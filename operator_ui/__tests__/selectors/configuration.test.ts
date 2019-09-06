@@ -7,9 +7,9 @@ describe('selectors - configs', () => {
       configuration: {
         data: {
           camelCased: 'value',
-          key: 'value'
-        }
-      }
+          key: 'value',
+        },
+      },
     }
 
     const expectation = [['CAMEL_CASED', 'value'], ['KEY', 'value']]

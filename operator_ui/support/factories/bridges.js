@@ -8,8 +8,8 @@ export default (bridges, totalCount) => {
       return {
         type: 'bridges',
         id: b.name,
-        attributes: b
+        attributes: b,
       }
-    })
+    }),
   })
 }

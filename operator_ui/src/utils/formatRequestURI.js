@@ -3,7 +3,7 @@ import url from 'url'
 export default (path, query = {}, options = {}) => {
   let formatOptions = {
     pathname: path,
-    query: query
+    query: query,
   }
 
   if (options.port) {

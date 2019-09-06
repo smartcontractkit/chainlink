@@ -8,7 +8,7 @@ export interface Action {
 }
 
 enum ConfigurationActionType {
-  UPSERT = 'UPSERT_CONFIGURATION'
+  UPSERT = 'UPSERT_CONFIGURATION',
 }
 
 interface NormalizedResponse {
@@ -20,7 +20,7 @@ interface Attributes {
 type Attribute = string | number | null
 
 const initialState: IState = {
-  data: {}
+  data: {},
 }
 
 export default (state: IState = initialState, action: Action) => {

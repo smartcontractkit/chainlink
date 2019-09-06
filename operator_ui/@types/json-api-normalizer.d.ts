@@ -195,7 +195,7 @@ declare module 'json-api-normalizer' {
    */
   export default function normalize<TNormalized>(
     json: JsonApiResponse<any, any, any, any, any>,
-    opts?: Opts
+    opts?: Opts,
   ): TNormalized
 
   interface Opts {

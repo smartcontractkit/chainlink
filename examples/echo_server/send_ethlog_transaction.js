@@ -11,12 +11,12 @@ const web3 = new Web3(provider)
 const networkId = Object.keys(EthLogJSON.networks)[0]
 const wc3 = new web3.eth.Contract(
   EthLogJSON.abi,
-  EthLogJSON.networks[networkId].address
+  EthLogJSON.networks[networkId].address,
 )
 
 wc3.methods.logEvent().send(
   {
-    from: devnetAddress
+    from: devnetAddress,
   },
   (error, transactionHash) => {
     if (error) {
@@ -24,5 +24,5 @@ wc3.methods.logEvent().send(
     } else {
       console.log('sent tx: ', transactionHash)
     }
-  }
+  },
 )

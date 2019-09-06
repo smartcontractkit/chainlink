@@ -17,7 +17,7 @@ const searchParams = (req: Request): ISearchParams => {
   return {
     searchQuery: req.query.query,
     page: page,
-    limit: size
+    limit: size,
   }
 }
 

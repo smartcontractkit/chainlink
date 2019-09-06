@@ -22,7 +22,7 @@ const normalizeSearchToken = (id: string): string => {
 
 const searchBuilder = (
   db: Connection,
-  params: ISearchParams
+  params: ISearchParams,
 ): SelectQueryBuilder<JobRun> => {
   let query = db.getRepository(JobRun).createQueryBuilder('job_run')
 
@@ -33,13 +33,13 @@ const searchBuilder = (
       .where('job_run.runId IN(:...searchTokens)', { searchTokens })
       .orWhere('job_run.jobId IN(:...searchTokens)', { searchTokens })
       .orWhere('job_run.requester IN(:...normalizedSearchTokens)', {
-        normalizedSearchTokens
+        normalizedSearchTokens,
       })
       .orWhere('job_run.requestId IN(:...normalizedSearchTokens)', {
-        normalizedSearchTokens
+        normalizedSearchTokens,
       })
       .orWhere('job_run.txHash IN(:...normalizedSearchTokens)', {
-        normalizedSearchTokens
+        normalizedSearchTokens,
       })
   } else {
     query = query.where('true = false')
@@ -61,14 +61,14 @@ const searchBuilder = (
 
 export const search = async (
   db: Connection,
-  params: ISearchParams
+  params: ISearchParams,
 ): Promise<JobRun[]> => {
   return searchBuilder(db, params).getMany()
 }
 
 export const count = async (
   db: Connection,
-  params: ISearchParams
+  params: ISearchParams,
 ): Promise<number> => {
   return searchBuilder(db, params).getCount()
 }

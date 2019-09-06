@@ -12,7 +12,7 @@ const create = jsonapi.createResource<
 const INDEX_ENDPOINT = '/v2/bridge_types'
 type IndexRequestParams = jsonapi.PaginatedRequestParams
 const index = jsonapi.fetchResource<IndexRequestParams, models.BridgeType[]>(
-  INDEX_ENDPOINT
+  INDEX_ENDPOINT,
 )
 
 // Show returns the details of a specific Bridge.
@@ -21,7 +21,7 @@ interface ShowPathParams {
   bridgeName: string
 }
 const show = jsonapi.fetchResource<{}, models.BridgeType, ShowPathParams>(
-  SHOW_ENDPOINT
+  SHOW_ENDPOINT,
 )
 
 // Update can change the restricted attributes for a bridge
@@ -37,7 +37,7 @@ const update = jsonapi.updateResource<
 
 export function getBridges(
   page: number,
-  size: number
+  size: number,
 ): Promise<jsonapi.PaginatedApiResponse<models.BridgeType[]>> {
   return index({ page, size })
 }
@@ -48,7 +48,7 @@ export function getBridges(
  * @param name The name of the bridge spec to fetch
  */
 export function getBridgeSpec(
-  name: string
+  name: string,
 ): Promise<jsonapi.ApiResponse<models.BridgeType>> {
   return show({}, { bridgeName: name })
 }
@@ -59,13 +59,13 @@ export function getBridgeSpec(
  * @param bridgeTypeRequest The request object to create a bridge type from
  */
 export function createBridge(
-  bridgeTypeRequest: models.BridgeTypeRequest
+  bridgeTypeRequest: models.BridgeTypeRequest,
 ): Promise<jsonapi.ApiResponse<models.BridgeTypeAuthentication>> {
   return create(bridgeTypeRequest)
 }
 
 export function updateBridge(
-  bridgeTypeRequest: models.BridgeTypeRequest
+  bridgeTypeRequest: models.BridgeTypeRequest,
 ): Promise<jsonapi.ApiResponse<models.BridgeType>> {
   return update(bridgeTypeRequest, { bridgeName: bridgeTypeRequest.name })
 }

@@ -3,7 +3,7 @@ import {
   Connection,
   Entity,
   OneToMany,
-  PrimaryGeneratedColumn
+  PrimaryGeneratedColumn,
 } from 'typeorm'
 import { JobRun } from './JobRun'
 import { sha256 } from 'js-sha256'
@@ -19,7 +19,7 @@ export class ChainlinkNode {
   public static build({
     name,
     url,
-    secret
+    secret,
   }: {
     name: string
     url?: string
@@ -53,14 +53,14 @@ export class ChainlinkNode {
   salt: string
 
   @OneToMany(() => JobRun, jobRun => jobRun.chainlinkNode, {
-    onDelete: 'CASCADE'
+    onDelete: 'CASCADE',
   })
   jobRuns: Array<JobRun>
 
   public present(): IChainlinkNodePresenter {
     return {
       id: this.id,
-      name: this.name
+      name: this.name,
     }
   }
 }
@@ -75,7 +75,7 @@ const generateRandomString = (size: number): string => {
 export const createChainlinkNode = async (
   db: Connection,
   name: string,
-  url?: string
+  url?: string,
 ): Promise<[ChainlinkNode, string]> => {
   const secret = generateRandomString(64)
   const chainlinkNode = ChainlinkNode.build({ name, url, secret })
@@ -88,7 +88,7 @@ export const deleteChainlinkNode = async (db: Connection, name: string) => {
     .delete()
     .from(ChainlinkNode)
     .where('name = :name', {
-      name: name
+      name: name,
     })
     .execute()
 }
@@ -96,7 +96,7 @@ export const deleteChainlinkNode = async (db: Connection, name: string) => {
 export const hashCredentials = (
   accessKey: string,
   secret: string,
-  salt: string
+  salt: string,
 ): string => {
   return sha256(`v0-${accessKey}-${secret}-${salt}`)
 }
