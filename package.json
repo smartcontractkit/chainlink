@@ -6,6 +6,7 @@
     "evm/box",
     "evm/v0.5",
     "tools",
+    "tools/prettier-config",
     "operator_ui",
     "integration",
     "styleguide",
