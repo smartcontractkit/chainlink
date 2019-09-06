@@ -20,7 +20,8 @@
     "lint:styleguide": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./styleguide",
     "lint:operator-ui": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./operator_ui",
     "lint:evm": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./evm",
-    "lint:examples": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./examples"
+    "lint:examples": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./examples",
+    "format:all": "yarn workspaces run format"
   },
   "devDependencies": {
     "@types/mocha": "^5.2.0",
@@ -33,12 +34,10 @@
     "eslint-config-standard": "^12.0.0",
     "eslint-plugin-import": "^2.16.0",
     "eslint-plugin-node": "^8.0.1",
-    "eslint-plugin-prettier": "^3.0.1",
     "eslint-plugin-promise": "^4.0.1",
     "eslint-plugin-react": "^7.12.4",
     "eslint-plugin-react-hooks": "^1.3.0",
-    "eslint-plugin-standard": "^4.0.0",
-    "prettier": "^1.16.4"
+    "eslint-plugin-standard": "^4.0.0"
   },
   "resolutions": {
     "caniuse-lite": "1.0.30000957"
