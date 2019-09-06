@@ -85,18 +85,18 @@ contract VRF {
 
   uint256 constant public WORD_LENGTH_BYTES = 0x20;
 
-  // (_base**_exponent) % _modulus
+  // (base**exponent) % modulus
   // Cribbed from https://medium.com/@rbkhmrcr/precompiles-solidity-e5d29bd428c4
-  function bigModExp(uint256 _base, uint256 _exponent, uint256 _modulus)
+  function bigModExp(uint256 base, uint256 exponent, uint256 modulus)
     public view returns (uint256 exponentiation) {
       uint256 callResult;
       uint256[6] memory bigModExpContractInputs;
-      bigModExpContractInputs[0] = WORD_LENGTH_BYTES;  // Length of _base
-      bigModExpContractInputs[1] = WORD_LENGTH_BYTES;  // Length of _exponent
-      bigModExpContractInputs[2] = WORD_LENGTH_BYTES;  // Length of _modulus
-      bigModExpContractInputs[3] = _base;
-      bigModExpContractInputs[4] = _exponent;
-      bigModExpContractInputs[5] = _modulus;
+      bigModExpContractInputs[0] = WORD_LENGTH_BYTES;  // Length of base
+      bigModExpContractInputs[1] = WORD_LENGTH_BYTES;  // Length of exponent
+      bigModExpContractInputs[2] = WORD_LENGTH_BYTES;  // Length of modulus
+      bigModExpContractInputs[3] = base;
+      bigModExpContractInputs[4] = exponent;
+      bigModExpContractInputs[5] = modulus;
       uint256[1] memory output;
       assembly { // solhint-disable-line no-inline-assembly
       callResult :=
@@ -111,29 +111,29 @@ contract VRF {
       return output[0];
     }
 
-  // Computes a s.t. a^2 = _x in the field. Assumes _x is a square.
-  function squareRoot(uint256 _x) public view returns (uint256) {
-    return bigModExp(_x, SQRT_POWER, FIELD_SIZE);
+  // Computes a s.t. a^2 = x in the field. Assumes x is a square.
+  function squareRoot(uint256 x) public view returns (uint256) {
+    return bigModExp(x, SQRT_POWER, FIELD_SIZE);
   }
 
-  function ySquared(uint256 _x) public view returns (uint256) {
-    // Curve equation is y^2=_x^3+7. See
-    return (bigModExp(_x, 3, FIELD_SIZE) + 7) % FIELD_SIZE;
+  function ySquared(uint256 x) public view returns (uint256) {
+    // Curve equation is y^2=x^3+7. See
+    return (bigModExp(x, 3, FIELD_SIZE) + 7) % FIELD_SIZE;
   }
 
-  // Hash _x uniformly into {0, ..., q-1}. Expects _x to ALREADY have the
-  // necessary entropy... If _x < q, returns _x!
-  function zqHash(uint256 q, uint256 _x) public pure returns (uint256 x) {
-    x = _x;
-    while (x >= q) {
-      x = uint256(keccak256(abi.encodePacked(x)));
+  // Hash x uniformly into {0, ..., q-1}. Expects x to ALREADY have the
+  // necessary entropy... If x < q, returns x!
+  function zqHash(uint256 q, uint256 x) public pure returns (uint256 x_) {
+    x_ = x;
+    while (x_ >= q) {
+      x_ = uint256(keccak256(abi.encodePacked(x_)));
     }
   }
 
   // One-way hash function onto the curve.
-  function hashToCurve(uint256[2] memory _k, uint256 _input)
+  function hashToCurve(uint256[2] memory k, uint256 input)
     public view returns (uint256[2] memory rv) {
-      bytes32 hash = keccak256(abi.encodePacked(_k, _input));
+      bytes32 hash = keccak256(abi.encodePacked(k, input));
       rv[0] = zqHash(FIELD_SIZE, uint256(hash));
       while (true) {
         rv[0] = zqHash(FIELD_SIZE, uint256(keccak256(abi.encodePacked(rv[0]))));
@@ -143,7 +143,7 @@ contract VRF {
         }
       }
       // Two possible y ordinates for x ordinate rv[0]; pick one "randomly"
-      if (uint256(keccak256(abi.encodePacked(rv[0], _input))) % 2 == 0) {
+      if (uint256(keccak256(abi.encodePacked(rv[0], input))) % 2 == 0) {
         rv[1] = -rv[1];
       }
     }
@@ -211,7 +211,7 @@ contract VRF {
       @dev To use this with x and y in affine coordinates, compute
            projectiveECAdd(x[0], x[1], 1, y[0], y[1], 1)
 
-      @dev This can be used to calculate the z which is the inverse to _zInv in
+      @dev This can be used to calculate the z which is the inverse to zInv in
            isValidVRFOutput. But consider using a faster re-implementation.
 
       @dev This function assumes [x1,y1,z1],[x2,y2,z2] are valid projective
@@ -267,116 +267,116 @@ contract VRF {
       }
     }
 
-  // Returns p1+p2, as affine points on secp256k1. _invZ must be the inverse of
-  // the z returned by projectiveECAdd(_p1, _p2). It is computed off-chain to
+  // Returns p1+p2, as affine points on secp256k1. invZ must be the inverse of
+  // the z returned by projectiveECAdd(p1, p2). It is computed off-chain to
   // save gas.
   function affineECAdd(
-    uint256[2] memory _p1, uint256[2] memory _p2,
-    uint256 _invZ) public pure returns (uint256[2] memory) {
+    uint256[2] memory p1, uint256[2] memory p2,
+    uint256 invZ) public pure returns (uint256[2] memory) {
     uint256 x;
     uint256 y;
     uint256 z;
-    (x, y, z) = projectiveECAdd(_p1[0], _p1[1], _p2[0], _p2[1]);
-    require(mulmod(z, _invZ, FIELD_SIZE) == 1, "_invZ must be inverse of z");
+    (x, y, z) = projectiveECAdd(p1[0], p1[1], p2[0], p2[1]);
+    require(mulmod(z, invZ, FIELD_SIZE) == 1, "_invZ must be inverse of z");
     // Clear the z ordinate of the projective representation by dividing through
     // by it, to obtain the affine representation
-    return [mulmod(x, _invZ, FIELD_SIZE), mulmod(y, _invZ, FIELD_SIZE)];
+    return [mulmod(x, invZ, FIELD_SIZE), mulmod(y, invZ, FIELD_SIZE)];
   }
 
-  // Returns true iff address(_c*_p+_s*g) == _lcWitness, where g is generator.
+  // Returns true iff address(c*p+s*g) == lcWitness, where g is generator.
   function verifyLinearCombinationWithGenerator(
-    uint256 _c, uint256[2] memory _p, uint256 _s, address _lcWitness)
+    uint256 c, uint256[2] memory p, uint256 s, address lcWitness)
     public pure returns (bool) {
       // ecrecover returns 0x0 in certain failure modes. Ensure witness differs.
-      require(_lcWitness != address(0), "bad witness");
+      require(lcWitness != address(0), "bad witness");
       // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
       // The point corresponding to the address returned by
-      // ecrecover(-_s*_p[0],v,_p[0],_c*_p[0]) is
-      // (_p[0]⁻¹ mod GROUP_ORDER)*(_c*_p[0]-(-_s)*_p[0]*g)=_c*_p+_s*g, where v
-      // is the parity of _p[1]. See https://crypto.stackexchange.com/a/18106
-      bytes32 pseudoHash = bytes32(GROUP_ORDER - mulmod(_p[0], _s, GROUP_ORDER));
+      // ecrecover(-s*p[0],v,_p[0],_c*p[0]) is
+      // (p[0]⁻¹ mod GROUP_ORDER)*(c*p[0]-(-s)*p[0]*g)=_c*p+s*g, where v
+      // is the parity of p[1]. See https://crypto.stackexchange.com/a/18106
+      bytes32 pseudoHash = bytes32(GROUP_ORDER - mulmod(p[0], s, GROUP_ORDER));
       // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
-      uint8 v = (_p[1] % 2 == 0) ? 27 : 28;
-      bytes32 pseudoSignature = bytes32(mulmod(_c, _p[0], GROUP_ORDER));
-      address computed = ecrecover(pseudoHash, v, bytes32(_p[0]), pseudoSignature);
-      return computed == _lcWitness;
+      uint8 v = (p[1] % 2 == 0) ? 27 : 28;
+      bytes32 pseudoSignature = bytes32(mulmod(c, p[0], GROUP_ORDER));
+      address computed = ecrecover(pseudoHash, v, bytes32(p[0]), pseudoSignature);
+      return computed == lcWitness;
     }
 
-  // _c*_p1 + _s*_p2
+  // c*p1 + s*p2
   function linearCombination(
-    uint256 _c, uint256[2] memory _p1, uint256[2] memory _cp1Witness,
-    uint256 _s, uint256[2] memory _p2, uint256[2] memory _sp2Witness,
-    uint256 _zInv)
+    uint256 c, uint256[2] memory p1, uint256[2] memory cp1Witness,
+    uint256 s, uint256[2] memory p2, uint256[2] memory sp2Witness,
+    uint256 zInv)
     public pure returns (uint256[2] memory) {
-      require(_cp1Witness[0] != _sp2Witness[0], "points must differ in sum");
-      require(ecmulVerify(_p1, _c, _cp1Witness), "First multiplication check failed");
-      require(ecmulVerify(_p2, _s, _sp2Witness), "Second multiplication check failed");
-      return affineECAdd(_cp1Witness, _sp2Witness, _zInv);
+      require(cp1Witness[0] != sp2Witness[0], "points must differ in sum");
+      require(ecmulVerify(p1, c, cp1Witness), "First multiplication check failed");
+      require(ecmulVerify(p2, s, sp2Witness), "Second multiplication check failed");
+      return affineECAdd(cp1Witness, sp2Witness, zInv);
     }
 
   // Pseudo-random number from inputs. Corresponds to vrf.go/scalarFromCurve.
   function scalarFromCurve(
-    uint256[2] memory _hash, uint256[2] memory _pk, uint256[2] memory _gamma,
-    address _uWitness, uint256[2] memory _v)
+    uint256[2] memory hash, uint256[2] memory pk, uint256[2] memory gamma,
+    address uWitness, uint256[2] memory v)
     public pure returns (uint256 s) {
-      bytes32 iHash = keccak256(abi.encodePacked(_hash, _pk, _gamma, _v, _uWitness));
+      bytes32 iHash = keccak256(abi.encodePacked(hash, pk, gamma, v, uWitness));
       return zqHash(GROUP_ORDER, uint256(iHash));
     }
 
-  // True if (gamma, c, s) is a correctly constructed randomness proof from _pk
-  // and _seed. _zInv must be the inverse of the third ordinate from
-  // projectiveECAdd applied to _cGammaWitness and _sHashWitness
+  // True if (gamma, c, s) is a correctly constructed randomness proof from pk
+  // and seed. zInv must be the inverse of the third ordinate from
+  // projectiveECAdd applied to cGammaWitness and sHashWitness
   function verifyVRFProof(
-    uint256[2] memory _pk, uint256[2] memory _gamma, uint256 _c, uint256 _s,
-    uint256 _seed, address _uWitness, uint256[2] memory _cGammaWitness,
-    uint256[2] memory _sHashWitness, uint256 _zInv)
+    uint256[2] memory pk, uint256[2] memory gamma, uint256 c, uint256 s,
+    uint256 seed, address uWitness, uint256[2] memory cGammaWitness,
+    uint256[2] memory sHashWitness, uint256 zInv)
     public view returns (bool) {
-    // NB: Curve operations already check that (_pkX, _pkY), (_gammaX, _gammaY)
+    // NB: Curve operations already check that (pkX, pkY), (gammaX, gammaY)
     // are valid curve points. No need to do that explicitly.
       require(
-        verifyLinearCombinationWithGenerator(_c, _pk, _s, _uWitness),
-        "Could not verify that address(_c*_pk+_s*generator)=_uWitness");
-      uint256[2] memory hash = hashToCurve(_pk, _seed);
+        verifyLinearCombinationWithGenerator(c, pk, s, uWitness),
+        "Could not verify that address(c*pk+s*generator)=_uWitness");
+      uint256[2] memory hash = hashToCurve(pk, seed);
       uint256[2] memory v = linearCombination(
-        _c, _gamma, _cGammaWitness, _s, hash, _sHashWitness, _zInv);
-      return (_c == scalarFromCurve(hash, _pk, _gamma, _uWitness, v));
+        c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
+      return (c == scalarFromCurve(hash, pk, gamma, uWitness, v));
     }
 
   /** **************************************************************************
       @notice isValidVRFOutput returns true iff the proof can be verified as
-      showing that _output was generated as mandated.
+      showing that output was generated as mandated.
 
       @dev See the invocation of verifyVRFProof in VRF.js, for an example.
       **************************************************************************
-      @dev Let x be the secret key associated with the public key _pk
+      @dev Let x be the secret key associated with the public key pk
 
-      @param _pk Affine coordinates of the secp256k1 public key for this VRF
-      @param _gamma Intermediate output of the VRF as an affine secp256k1 point
-      @param _c The challenge value for proof that _gamma = x*hashToCurve(_seed)
+      @param pk Affine coordinates of the secp256k1 public key for this VRF
+      @param gamma Intermediate output of the VRF as an affine secp256k1 point
+      @param c The challenge value for proof that gamma = x*hashToCurve(seed)
               See the variable c on  p. 28 of
               https://www.cs.bu.edu/~goldbe/papers/VRF_ietf99_print.pdf
-      @param _s The response value for the proof. See s on p. 28
-      @param _seed The input seed from which the VRF output is computed
-      @param _uWitness The ethereum address of _c*_pk + _s*<generator>, in
+      @param s The response value for the proof. See s on p. 28
+      @param seed The input seed from which the VRF output is computed
+      @param uWitness The ethereum address of c*pk + s*<generator>, in
              elliptic-curve arithmetic
-      @param _cGammaWitness _c*_gamma on the elliptic-curve
-      @param _sHashWitness _s*hashToCurve(_seed) on the elliptic-curve
-      @param _zInv Inverse of the third ordinate of the return value from
-             projectiveECAdd(_c*_gamma, _s*hashToCurve(_seed)). Passed in here
+      @param cGammaWitness c*gamma on the elliptic-curve
+      @param sHashWitness s*hashToCurve(seed) on the elliptic-curve
+      @param zInv Inverse of the third ordinate of the return value from
+             projectiveECAdd(c*gamma, s*hashToCurve(seed)). Passed in here
              to save gas, because computing modular inverses is expensive in the
              EVM.
-      @param _output The actual output of the VRF.
+      @param output The actual output of the VRF.
       **************************************************************************
       @return True iff all the above parameters are correct
   */
   function isValidVRFOutput(
-    uint256[2] memory _pk, uint256[2] memory _gamma, uint256 _c, uint256 _s,
-    uint256 _seed, address _uWitness, uint256[2] memory _cGammaWitness,
-    uint256[2] memory _sHashWitness, uint256 _zInv, uint256 _output)
+    uint256[2] memory pk, uint256[2] memory gamma, uint256 c, uint256 s,
+    uint256 seed, address uWitness, uint256[2] memory cGammaWitness,
+    uint256[2] memory sHashWitness, uint256 zInv, uint256 output)
     public view returns (bool) {
       return verifyVRFProof(
-        _pk, _gamma, _c, _s, _seed, _uWitness, _cGammaWitness, _sHashWitness,
-        _zInv) &&
-        (uint256(keccak256(abi.encodePacked(_gamma))) == _output);
+        pk, gamma, c, s, seed, uWitness, cGammaWitness, sHashWitness,
+        zInv) &&
+        (uint256(keccak256(abi.encodePacked(gamma))) == output);
     }
 }
