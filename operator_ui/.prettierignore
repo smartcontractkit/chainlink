@@ -1,0 +1,5 @@
+.prettierignore
+.gitignore
+main.go
+public/
+src/images
