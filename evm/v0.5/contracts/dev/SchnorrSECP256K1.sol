@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.0;
 
 ////////////////////////////////////////////////////////////////////////////////
 //       XXX: Do not use in production until this code has been audited.
