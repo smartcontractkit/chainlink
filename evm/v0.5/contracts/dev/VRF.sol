@@ -152,7 +152,7 @@ contract VRF {
   uint256 constant public BOTTOM_160_BITS = 2**161 - 1;
 
   // Returns the ethereum address associated with point.
-  function pointAddress(uint256[2] memory point) public pure returns(address) {
+  function pointAddress(uint256[2] calldata point) external pure returns(address) {
     bytes memory packedPoint = abi.encodePacked(point);
     // Lower 160 bits of the keccak hash of (x,y) as 64 bytes
     return address(uint256(keccak256(packedPoint)) & BOTTOM_160_BITS);
@@ -175,7 +175,7 @@ contract VRF {
 
   // Returns x1/z1+x2/z2=(x1z2+x2z1)/(z1z2) in projective coordinates on P¹(𝔽ₙ)
   function projectiveAdd(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
-    public pure returns(uint256 x3, uint256 z3) {
+    external pure returns(uint256 x3, uint256 z3) {
       uint256 crossMultNumerator1 = mulmod(z2, x1, FIELD_SIZE);
       uint256 crossMultNumerator2 = mulmod(z1, x2, FIELD_SIZE);
       uint256 denom = mulmod(z1, z2, FIELD_SIZE);
@@ -199,7 +199,7 @@ contract VRF {
 
   // Returns x1/z1/(x2/z2)=(x1z2)/(x2z1), in projective coordinates on P¹(𝔽ₙ)
   function projectiveDiv(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
-    public pure returns(uint256 x3, uint256 z3) {
+    external pure returns(uint256 x3, uint256 z3) {
       (x3, z3) = (mulmod(x1, z2, FIELD_SIZE), mulmod(z1, x2, FIELD_SIZE));
     }
 
@@ -370,10 +370,10 @@ contract VRF {
       @return True iff all the above parameters are correct
   */
   function isValidVRFOutput(
-    uint256[2] memory pk, uint256[2] memory gamma, uint256 c, uint256 s,
-    uint256 seed, address uWitness, uint256[2] memory cGammaWitness,
-    uint256[2] memory sHashWitness, uint256 zInv, uint256 output)
-    public view returns (bool) {
+    uint256[2] calldata pk, uint256[2] calldata gamma, uint256 c, uint256 s,
+    uint256 seed, address uWitness, uint256[2] calldata cGammaWitness,
+    uint256[2] calldata sHashWitness, uint256 zInv, uint256 output)
+    external view returns (bool) {
       return verifyVRFProof(
         pk, gamma, c, s, seed, uWitness, cGammaWitness, sHashWitness,
         zInv) &&
