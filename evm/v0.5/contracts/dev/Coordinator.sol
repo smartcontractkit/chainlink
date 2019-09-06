@@ -88,26 +88,26 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     sufficientLINK(_amount, _sAId)
     // checkServiceAgreementPresence(_sAId) // TODO(alx): This would be nice to have, but it exhausts the stack
     checkCallbackAddress(_callbackAddress) {
-    bytes32 requestId = keccak256(abi.encodePacked(_sender, _sAId, _nonce));
-    require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
-    callbacks[requestId].sAId = _sAId;
-    callbacks[requestId].amount = _amount;
-    callbacks[requestId].addr = _callbackAddress;
-    callbacks[requestId].functionId = _callbackFunctionId;
-    // solhint-disable-next-line not-rely-on-time
-    callbacks[requestId].cancelExpiration = uint64(now.add(EXPIRY_TIME));
+      bytes32 requestId = keccak256(abi.encodePacked(_sender, _sAId, _nonce));
+      require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
+      callbacks[requestId].sAId = _sAId;
+      callbacks[requestId].amount = _amount;
+      callbacks[requestId].addr = _callbackAddress;
+      callbacks[requestId].functionId = _callbackFunctionId;
+      // solhint-disable-next-line not-rely-on-time
+      callbacks[requestId].cancelExpiration = uint64(now.add(EXPIRY_TIME));
 
-    emit OracleRequest(
-      _sAId,
-      _sender,
-      requestId,
-      _amount,
-      _callbackAddress,
-      _callbackFunctionId,
-      now.add(EXPIRY_TIME), // solhint-disable-line not-rely-on-time
-      _dataVersion,
-      _data);
-  }
+      emit OracleRequest(
+        _sAId,
+        _sender,
+        requestId,
+        _amount,
+        _callbackAddress,
+        _callbackFunctionId,
+        now.add(EXPIRY_TIME), // solhint-disable-line not-rely-on-time
+        _dataVersion,
+        _data);
+    }
 
   /**
    * @notice Stores a Service Agreement which has been signed by the given oracles
@@ -163,7 +163,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     }
     require(success, string(message));
   }
-  
+
   /**
    * @dev Validates that each signer address matches for the given oracles
    * @param _serviceAgreementID Service agreement ID
