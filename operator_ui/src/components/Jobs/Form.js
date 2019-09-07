@@ -82,7 +82,7 @@ Form.propTypes = {
 const formikOpts = {
   mapPropsToValues({ definition }) {
     const shouldPersist = Object.keys(get('persistSpec')).length !== 0
-    let persistedJSON = shouldPersist && get('persistSpec')
+    const persistedJSON = shouldPersist && get('persistSpec')
     if (shouldPersist) set('persistSpec', {})
     const json =
       JSON.stringify(definition, null, '\t') ||

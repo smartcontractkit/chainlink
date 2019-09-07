@@ -2,7 +2,7 @@ import storage from 'local-storage-fallback'
 
 export const get = key => {
   const localStorageItem = storage.getItem(`chainlink.${key}`)
-  let obj = {}
+  const obj = {}
 
   if (localStorageItem) {
     try {
