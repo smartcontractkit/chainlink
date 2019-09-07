@@ -1,7 +1,7 @@
 import url from 'url'
 
 export default (path, query = {}, options = {}) => {
-  let formatOptions = {
+  const formatOptions = {
     pathname: path,
     query: query,
   }

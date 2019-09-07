@@ -121,7 +121,7 @@ interface IProps extends WithStyles<typeof styles> {
   deleteJobSpec: Function
   jobSpecId: string
   job: IJobSpec
-  url: String
+  url: string
 }
 
 const RegionalNav = ({

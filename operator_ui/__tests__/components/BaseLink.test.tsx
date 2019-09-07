@@ -4,13 +4,13 @@ import BaseLink from '../../src/components/BaseLink'
 
 describe('components/BaseLink', () => {
   it('renders an anchor', () => {
-    let component = render(<BaseLink href="/foo">My Link</BaseLink>)
+    const component = render(<BaseLink href="/foo">My Link</BaseLink>)
     expect(component.text()).toContain('My Link')
     expect(component.prop('href')).toEqual('/foo')
   })
 
   it('can render an id', () => {
-    let component = render(
+    const component = render(
       <BaseLink id="my-id" href="/foo">
         My Link
       </BaseLink>,
@@ -19,7 +19,7 @@ describe('components/BaseLink', () => {
   })
 
   it('can render a css class', () => {
-    let component = render(
+    const component = render(
       <BaseLink className="my-css-class" href="/foo">
         My Link
       </BaseLink>,

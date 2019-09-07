@@ -26,27 +26,27 @@ describe('components/JobRuns/StatusCard', () => {
     finishedAt: MINUTE_MS,
   }
   it('converts the given title to title case', () => {
-    let component = mountWithTheme(
+    const component = mountWithTheme(
       <StatusCard title={'pending_confirmations'} />,
     )
     expect(component.text()).toContain('Pending Confirmations')
   })
 
   it('can display children', () => {
-    let withChildren = mountWithTheme(
+    const withChildren = mountWithTheme(
       <StatusCard title={'pending_confirmations'}>I am a child</StatusCard>,
     )
     expect(withChildren.text()).toContain('I am a child')
   })
 
   it('can display the elapsed time for jobruns', () => {
-    let erroredStatus = mountWithTheme(
+    const erroredStatus = mountWithTheme(
       <StatusCard title="errored" jobRun={erroredRun} />,
     )
-    let completedStatus = mountWithTheme(
+    const completedStatus = mountWithTheme(
       <StatusCard title="completed" jobRun={completedRun} />,
     )
-    let pendingStatus = mountWithTheme(
+    const pendingStatus = mountWithTheme(
       <StatusCard title="pending" jobRun={pendingRun} />,
     )
 
@@ -56,17 +56,17 @@ describe('components/JobRuns/StatusCard', () => {
   })
 
   it('can display link earned for completed jobs', () => {
-    let completedStatus = mountWithTheme(
+    const completedStatus = mountWithTheme(
       <StatusCard title="completed" jobRun={completedRun} />,
     )
     expect(completedStatus.text()).toContain('+2 Link')
   })
 
   it('will not display link earned for errored or pending jobs', () => {
-    let erroredStatus = mountWithTheme(
+    const erroredStatus = mountWithTheme(
       <StatusCard title="errored" jobRun={erroredRun} />,
     )
-    let pendingStatus = mountWithTheme(
+    const pendingStatus = mountWithTheme(
       <StatusCard title="pending_confirmations" jobRun={pendingRun} />,
     )
     expect(erroredStatus.text()).not.toContain('Link')
