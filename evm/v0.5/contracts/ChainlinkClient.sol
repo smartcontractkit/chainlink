@@ -80,7 +80,7 @@ contract ChainlinkClient {
     internal
     returns (bytes32 requestId)
   {
-    requestId = keccak256(abi.encodePacked(this, requestCount));
+    requestId = keccak256(abi.encodePacked(this, _req.id, requestCount));
     _req.nonce = requestCount;
     pendingRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
