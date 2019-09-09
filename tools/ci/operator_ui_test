@@ -2,8 +2,6 @@
 
 set -e
 
-yarn lint:styleguide && yarn lint:operator_ui
-
 cd operator_ui
 yarn test:ci
 
