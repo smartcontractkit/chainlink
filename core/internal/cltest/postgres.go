@@ -23,7 +23,8 @@ func CreatePostgresDatabase(t testing.TB, config *TestConfig) func() {
 		}
 		defer db.Close()
 
-		dbname := fmt.Sprintf("chainlink_test_%s", models.NewID().String())
+		originalDB := extractDB(t, originalURL)
+		dbname := fmt.Sprintf("%s_%s", originalDB, models.NewID().String())
 
 		//`CREATE DATABASE $1` does not seem to work w CREATE DATABASE
 		err = db.Exec(
@@ -33,7 +34,7 @@ func CreatePostgresDatabase(t testing.TB, config *TestConfig) func() {
 			t.Fatalf("unable to create postgres test database: %+v", err)
 		}
 
-		config.Set("DATABASE_URL", swapNewNameIntoDatabase(originalURL, dbname))
+		config.Set("DATABASE_URL", swapDB(originalDB, originalURL, dbname))
 
 		return func() {
 			reapChainlinkTestDB(t, originalURL, dbname)
@@ -57,11 +58,20 @@ func reapChainlinkTestDB(t testing.TB, dbURL, testdb string) {
 	}
 }
 
-var chainlinkTestRe = regexp.MustCompile(`(/chainlink_test[_a-zA-Z0-9]*)`)
+// postgresDBRe is used to find the db name from local, and only local, test DBs.
+var postgresDBRe = regexp.MustCompile(`postgres://.*localhost:5432/([_\-a-zA-Z0-9]*)`)
 
-// swapNewNameIntoDatabase uses regex to swap the databasename from a postgres URL. eg:
+func extractDB(t testing.TB, originalURL string) string {
+	matches := postgresDBRe.FindStringSubmatch(originalURL)
+	if len(matches) < 2 {
+		t.Fatalf("unable to extract database from %v, matches: %v", originalURL, matches)
+	}
+	return matches[1]
+}
+
+// swapDB uses replaces the DB part of the URL:
 // postgres://localhost:5432/chainlink_test?sslmode=disable becomes
 // postgres://localhost:5432/chainlink_test_4d63a0af83c34e348292189c0648a2af?sslmode=disable
-func swapNewNameIntoDatabase(dburl, newdb string) string {
-	return chainlinkTestRe.ReplaceAllString(dburl, "/"+newdb)
+func swapDB(originalDB, dburl, newdb string) string {
+	return strings.Replace(dburl, originalDB, newdb, 1)
 }
