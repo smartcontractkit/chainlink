@@ -107,6 +107,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
       if (session != null) {
         closeSession(db, session)
         sessions.delete(accessKey)
+        connections.delete(accessKey)
       }
 
       clnodeCount = clnodeCount - 1
