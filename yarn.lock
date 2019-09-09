@@ -5903,15 +5903,10 @@ caniuse-api@^3.0.0:
     lodash.memoize "^4.1.2"
     lodash.uniq "^4.5.0"
 
-caniuse-lite@^1.0.0, caniuse-lite@^1.0.30000884, caniuse-lite@^1.0.30000939, caniuse-lite@^1.0.30000947, caniuse-lite@^1.0.30000951, caniuse-lite@^1.0.30000955:
+caniuse-lite@1.0.30000957, caniuse-lite@^1.0.0, caniuse-lite@^1.0.30000884, caniuse-lite@^1.0.30000939, caniuse-lite@^1.0.30000947, caniuse-lite@^1.0.30000951, caniuse-lite@^1.0.30000955, caniuse-lite@^1.0.30000980, caniuse-lite@^1.0.30000984:
   version "1.0.30000957"
   resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30000957.tgz#fb1026bf184d7d62c685205358c3b24b9e29f7b3"
   integrity sha512-8wxNrjAzyiHcLXN/iunskqQnJquQQ6VX8JHfW5kLgAPRSiSuKZiNfmIkP5j7jgyXqAQBSoXyJxfnbCFS0ThSiQ==
-
-caniuse-lite@^1.0.30000980, caniuse-lite@^1.0.30000984:
-  version "1.0.30000989"
-  resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30000989.tgz#b9193e293ccf7e4426c5245134b8f2a56c0ac4b9"
-  integrity sha512-vrMcvSuMz16YY6GSVZ0dWDTJP8jqk3iFQ/Aq5iqblPwxSVVZI+zxDyTX0VPqtQsDnfdrBDcsmhgTEOh5R8Lbpw==
 
 capture-exit@^2.0.0:
   version "2.0.0"
@@ -8914,14 +8909,16 @@ eslint-scope@^4.0.0, eslint-scope@^4.0.3:
     estraverse "^4.1.1"
 
 eslint-utils@^1.3.0, eslint-utils@^1.3.1:
-  version "1.3.1"
-  resolved "https://registry.npmjs.org/eslint-utils/-/eslint-utils-1.3.1.tgz#9a851ba89ee7c460346f97cf8939c7298827e512"
-  integrity sha512-Z7YjnIldX+2XMcjr7ZkgEsOj/bREONV60qYeB/bjMAqqqZ4zxKyWX+BOUkdmRmA9riiIPVvo5x86m5elviOk0Q==
+  version "1.4.2"
+  resolved "https://registry.yarnpkg.com/eslint-utils/-/eslint-utils-1.4.2.tgz#166a5180ef6ab7eb462f162fd0e6f2463d7309ab"
+  integrity sha512-eAZS2sEUMlIeCjBeubdj45dmBHQwPHWyBcT1VSYB7o9x9WRRqKxyUoiXlRjyAwzN7YEzHJlYg0NmzDRWx6GP4Q==
+  dependencies:
+    eslint-visitor-keys "^1.0.0"
 
 eslint-visitor-keys@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.npmjs.org/eslint-visitor-keys/-/eslint-visitor-keys-1.0.0.tgz#3f3180fb2e291017716acb4c9d6d5b5c34a6a81d"
-  integrity sha512-qzm/XxIbxm/FHyH341ZrbnMUpe+5Bocte9xkmFMzPMjRaZMcXww+MpBptFvtU+79L362nqiLhekCxCxDPaUMBQ==
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/eslint-visitor-keys/-/eslint-visitor-keys-1.1.0.tgz#e2a82cea84ff246ad6fb57f9bde5b46621459ec2"
+  integrity sha512-8y9YjtM1JBJU/A9Kc+SbaOV4y29sSWckBwMHa+FGtVj5gN/sbnKDf6xJUl+8g7FAij9LVaP8C24DUiH/f/2Z9A==
 
 eslint@5.12.0:
   version "5.12.0"
@@ -21673,11 +21670,6 @@ truffle-blockchain-utils@^0.0.5:
   resolved "https://registry.yarnpkg.com/truffle-blockchain-utils/-/truffle-blockchain-utils-0.0.5.tgz#a4e5c064dadd69f782a137f3d276d21095da7a47"
   integrity sha1-pOXAZNrdafeCoTfz0nbSEJXaekc=
 
-truffle-blockchain-utils@^0.0.8:
-  version "0.0.8"
-  resolved "https://registry.yarnpkg.com/truffle-blockchain-utils/-/truffle-blockchain-utils-0.0.8.tgz#09995c36016a54092b337f237c3dc1a3dca12341"
-  integrity sha512-4dbgqd4GrloKNLiaXACiymE3R2PsNFOlbgOh/CGkQVLArtcbgBAl7Fg2l5yVfDV8dtOFWHddj/2UkY25KY1+Dw==
-
 truffle-blockchain-utils@^0.0.9:
   version "0.0.9"
   resolved "https://registry.yarnpkg.com/truffle-blockchain-utils/-/truffle-blockchain-utils-0.0.9.tgz#ac61d703878c36eeabaa770c5bdf553e2260877e"
@@ -21778,22 +21770,6 @@ truffle-contract@^4.0.27:
     web3-eth-abi "1.2.1"
     web3-utils "1.2.1"
 
-truffle-contract@^4.0.17:
-  version "4.0.17"
-  resolved "https://registry.yarnpkg.com/truffle-contract/-/truffle-contract-4.0.17.tgz#2b4dce1e140c34f3c0309c4e403927e3092b6786"
-  integrity sha512-LV9Ws/RaHReSf6gTmrka92I4jXRPy59t3bsiF0655gAXe7Pz4DYCTmNti2bR7/vZIU8qtLlDSUmImuyFpO8p5g==
-  dependencies:
-    bignumber.js "^7.2.1"
-    ethers "^4.0.0-beta.1"
-    truffle-blockchain-utils "^0.0.9"
-    truffle-contract-schema "^3.0.9"
-    truffle-error "^0.0.4"
-    truffle-interface-adapter "^0.1.5"
-    web3 "1.0.0-beta.37"
-    web3-core-promievent "1.0.0-beta.37"
-    web3-eth-abi "1.0.0-beta.37"
-    web3-utils "1.0.0-beta.37"
-
 truffle-error@^0.0.3:
   version "0.0.3"
   resolved "https://registry.yarnpkg.com/truffle-error/-/truffle-error-0.0.3.tgz#4bf55242e14deee1c7194932709182deff2c97ca"
@@ -21847,25 +21823,7 @@ truffle-interface-adapter@^0.2.4:
     lodash "^4.17.13"
     web3 "1.2.1"
 
-truffle-interface-adapter@^0.1.5:
-  version "0.1.5"
-  resolved "https://registry.yarnpkg.com/truffle-interface-adapter/-/truffle-interface-adapter-0.1.5.tgz#406b00f8f751335d9c4a66b24b460f2bce9c37e6"
-  integrity sha512-TbKD7oUdz/0GqeR4PStNoad4uwKkHtZMUQQH+Xyy5acVZxBCJ7uTGwYVaOvtxeAITaX5zxeyhjlU8IKyrnd4QA==
-  dependencies:
-    bn.js "^4.11.8"
-    web3 "1.0.0-beta.37"
-
-truffle@5.0.13:
-  version "5.0.13"
-  resolved "https://registry.npmjs.org/truffle/-/truffle-5.0.13.tgz#bd0c6c142889140ab9db57d9a8738d5f5afaed68"
-  integrity sha512-TF8X95780TqfxkWtITG8n3dyBI23ifLmOpsrQp6TugmB150nLZrZ1ncW63wgF9jwj/B0UXGE04bE72SYhbgcvg==
-  dependencies:
-    app-module-path "^2.2.0"
-    mocha "^4.1.0"
-    original-require "1.0.1"
-    solc "0.5.0"
-
-truffle@^4.1.12, truffle@^4.1.15:
+truffle@^4.1.15:
   version "4.1.15"
   resolved "https://registry.yarnpkg.com/truffle/-/truffle-4.1.15.tgz#5f866997144dbc4c5d3e12e700930dab55c2792a"
   integrity sha512-6gaNn9ZjvNjdalJMF/qEDUDoRdieKfdYcyFVpVxd+ogAta5kgJxI3XlEmS79Ih0vBhb00tKa9rBweVJ5892sYg==
