@@ -47,6 +47,10 @@ const (
 	SessionName = "clsession"
 	// SessionIDKey is the session ID key in the session map
 	SessionIDKey = "clsession_id"
+	// SessionUserKey is the User key in the session map
+	SessionUserKey = "user"
+	// SessionExternalInitiator is the Externale Initiator key in the session map
+	SessionExternalInitiatorKey = "external_initiator"
 	// ExternalInitiatorAccessKeyHeader is the header name for the access key
 	// used by external initiators to authenticate
 	ExternalInitiatorAccessKeyHeader = "X-Chainlink-EA-AccessKey"
@@ -154,12 +158,12 @@ func sessionAuth(store *store.Store, c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	c.Set("user", &user)
+	c.Set(SessionUserKey, &user)
 	return nil
 }
 
 func authenticatedUser(c *gin.Context) (*models.User, bool) {
-	obj, ok := c.Get("user")
+	obj, ok := c.Get(SessionUserKey)
 	if !ok {
 		return nil, false
 	}
@@ -185,13 +189,13 @@ func tokenAuth(store *store.Store, c *gin.Context) error {
 	if !ok {
 		return ErrorAuthFailed
 	}
-	c.Set("external_initiator", ei)
+	c.Set(SessionExternalInitiatorKey, ei)
 
 	return nil
 }
 
 func authenticatedEI(c *gin.Context) (*models.ExternalInitiator, bool) {
-	obj, ok := c.Get("external_initiator")
+	obj, ok := c.Get(SessionExternalInitiatorKey)
 	if !ok {
 		return nil, false
 	}
