@@ -128,9 +128,13 @@ function update(data, linksData) {
         .on('end', dragended)
     )
 
+  // create nodes
+
   node
     .append('circle')
     .attr('class', d => d.type)
+    .attr('fill', theme.backgroud)
+    .attr('stroke', '#8e8e8e')
     .attr('r', d => {
       return d.type === 'contract' ? 30 : 10
     })
@@ -233,6 +237,7 @@ function update(data, linksData) {
   link = link
     .enter()
     .append('line')
+    .attr('class', 'network-graph__line-wait')
     .merge(link)
 
   simulation.nodes(data)

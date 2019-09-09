@@ -21,7 +21,7 @@ const migrations = {
 }
 
 const persistConfig = {
-  key: 'aggregation',
+  key: 'hearbeat',
   version: 1,
   storage,
   whitelist: ['aggregation'],
