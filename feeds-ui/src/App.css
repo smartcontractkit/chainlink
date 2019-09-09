@@ -1,0 +1,10 @@
+@import url('https://fonts.googleapis.com/css?family=Cabin:400,500,600,700&display=swap');
+
+body {
+  font-family: 'Cabin', sans-serif;
+  background: #f1f1f1;
+}
+
+.page-wrapper {
+  margin: 0 60px;
+}
