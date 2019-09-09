@@ -7,45 +7,54 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jinzhu/gorm"
+	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
-func CreatePostgresDatabase(t testing.TB, config *TestConfig) func() {
+// PrepareTestDB prepares the database to run tests, functionality varies
+// on the underlying database.
+// SQLite: No-op.
+// Postgres: Creates a second database, and returns a cleanup callback
+// that drops said DB.
+func PrepareTestDB(t testing.TB, config *TestConfig) func() {
 	t.Helper()
 
 	originalURL := config.DatabaseURL()
-	if strings.HasPrefix(strings.ToLower(originalURL), string(orm.DialectPostgres)) {
-		db, err := gorm.Open(string(orm.DialectPostgres), originalURL)
-		if err != nil {
-			t.Fatalf("unable to open postgres database for creating test db: %+v", err)
-		}
-		defer db.Close()
-
-		originalDB := extractDB(t, originalURL)
-		dbname := fmt.Sprintf("%s_%s", originalDB, models.NewID().String())
-
-		//`CREATE DATABASE $1` does not seem to work w CREATE DATABASE
-		err = db.Exec(
-			fmt.Sprintf("CREATE DATABASE %s", dbname),
-		).Error
-		if err != nil {
-			t.Fatalf("unable to create postgres test database: %+v", err)
-		}
-
-		config.Set("DATABASE_URL", swapDB(originalDB, originalURL, dbname))
-
-		return func() {
-			reapChainlinkTestDB(t, originalURL, dbname)
-			config.Set("DATABASE_URL", originalURL)
-		}
+	if dbutil.IsPostgresURL(originalURL) {
+		return createPostgresChildDB(t, config, originalURL)
 	}
 
 	return func() {}
 }
 
-func reapChainlinkTestDB(t testing.TB, dbURL, testdb string) {
+func createPostgresChildDB(t testing.TB, config *TestConfig, originalURL string) func() {
+	db, err := sql.Open(string(orm.DialectPostgres), originalURL)
+	if err != nil {
+		t.Fatalf("unable to open postgres database for creating test db: %+v", err)
+	}
+	defer db.Close()
+
+	originalDB := extractDB(t, originalURL)
+	dbname := fmt.Sprintf("%s_%s", originalDB, models.NewID().String())
+
+	//`CREATE DATABASE $1` does not seem to work w CREATE DATABASE
+	_, err = db.Exec(
+		fmt.Sprintf("CREATE DATABASE %s", dbname),
+	)
+	if err != nil {
+		t.Fatalf("unable to create postgres test database: %+v", err)
+	}
+
+	config.Set("DATABASE_URL", swapDB(originalDB, originalURL, dbname))
+
+	return func() {
+		reapPostgresChildDB(t, originalURL, dbname)
+		config.Set("DATABASE_URL", originalURL)
+	}
+}
+
+func reapPostgresChildDB(t testing.TB, dbURL, testdb string) {
 	db, err := sql.Open(string(orm.DialectPostgres), dbURL)
 	if err != nil {
 		t.Fatalf("Unable to connect to parent CL db to clean up test database: %v", err)
