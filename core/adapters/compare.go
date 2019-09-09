@@ -35,61 +35,37 @@ func (c *Compare) Perform(input models.RunResult, _ *store.Store) models.RunResu
 
 	switch c.Operator {
 	case "eq":
-		if c.Value == prevResult.String() {
-			input.CompleteWithResult(true)
-		} else {
-			input.CompleteWithResult(false)
-		}
+		input.CompleteWithResult(c.Value == prevResult.String())
 	case "neq":
-		if c.Value != prevResult.String() {
-			input.CompleteWithResult(true)
-		} else {
-			input.CompleteWithResult(false)
-		}
+		input.CompleteWithResult(c.Value != prevResult.String())
 	case "gt":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
 			input.SetError(err)
 			return input
 		}
-		if desired < value {
-			input.CompleteWithResult(true)
-		} else {
-			input.CompleteWithResult(false)
-		}
+		input.CompleteWithResult(desired < value)
 	case "gte":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
 			input.SetError(err)
 			return input
 		}
-		if desired <= value {
-			input.CompleteWithResult(true)
-		} else {
-			input.CompleteWithResult(false)
-		}
+		input.CompleteWithResult(desired <= value)
 	case "lt":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
 			input.SetError(err)
 			return input
 		}
-		if desired > value {
-			input.CompleteWithResult(true)
-		} else {
-			input.CompleteWithResult(false)
-		}
+		input.CompleteWithResult(desired > value)
 	case "lte":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
 			input.SetError(err)
 			return input
 		}
-		if desired >= value {
-			input.CompleteWithResult(true)
-		} else {
-			input.CompleteWithResult(false)
-		}
+		input.CompleteWithResult(desired >= value)
 	default:
 		input.SetError(ErrOperatorNotSpecified)
 	}
