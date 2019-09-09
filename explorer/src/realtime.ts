@@ -28,6 +28,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
   const db = await getDb()
   let clnodeCount = 0
   const sessions = new Map<string, Session>()
+  const connections = new Map<string, WebSocket>()
 
   // NOTE: This relies on the subtle detail that info.req is the same request
   // as passed in to wss.on to key a session
@@ -70,8 +71,17 @@ export const bootstrapRealtime = async (server: http.Server) => {
   })
 
   wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
-    clnodeCount = clnodeCount + 1
+    // accessKey type already validated in verifyClient()
     const accessKey = request.headers['x-explore-chainlink-accesskey'].toString()
+
+    const existingConnection = connections.get(accessKey)
+    if (existingConnection) {
+      // close any existing connection
+      existingConnection.close(1000, 'Duplicate connection opened')
+    } else {
+      clnodeCount = clnodeCount + 1
+    }
+    connections.set(accessKey, ws)
 
     logger.info(
       `websocket connected, total chainlink nodes connected: ${clnodeCount}`,
