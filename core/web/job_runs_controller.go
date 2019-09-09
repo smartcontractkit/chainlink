@@ -76,7 +76,6 @@ func getAuthenticatedInitiator(c *gin.Context, js models.JobSpec) (*models.Initi
 		}
 		return &webInitiators[0], nil
 	} else if ei, ok := authenticatedEI(c); ok {
-		// TODO(felder-cl): Add test case for external initiator created Job
 		var initiator *models.Initiator
 		for _, i := range js.InitiatorsFor(models.InitiatorExternal) {
 			if strings.ToLower(i.Name) == ei.Name {
