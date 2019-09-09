@@ -169,7 +169,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     uint256 totalPayment = serviceAgreements[_saId].totalPayment;
     // this revert message does not bubble up
     require(_payment >= totalPayment, "Insufficient payment");
-    bytes32 callbackRequestId = keccak256(abi.encodePacked(_sender, _nonce));
+    bytes32 callbackRequestId = keccak256(abi.encodePacked(_sender, _saId, _nonce));
     requesters[callbackRequestId].callbackFunctionId = _callbackFunctionId;
     requesters[callbackRequestId].callbackAddress = _sender;
     createRequests(_saId, callbackRequestId, _data);

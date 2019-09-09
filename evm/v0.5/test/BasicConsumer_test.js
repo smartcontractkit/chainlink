@@ -56,7 +56,7 @@ contract('BasicConsumer', () => {
 
       it('has a reasonable gas cost', async () => {
         let tx = await cc.requestEthereumPrice(currency, payment)
-        assert.isBelow(tx.receipt.gasUsed, 120000)
+        assert.isBelow(tx.receipt.gasUsed, 130000)
       })
     })
   })
@@ -77,7 +77,6 @@ contract('BasicConsumer', () => {
       })
 
       const currentPrice = await cc.currentPrice.call()
-      debugger
       assert.equal(h.toUtf8(currentPrice), response)
     })
 
@@ -96,6 +95,10 @@ contract('BasicConsumer', () => {
 
       beforeEach(async () => {
         const funcSig = h.functionSelector('fulfill(bytes32,bytes32)')
+        // Create a request directly via the oracle, rather than through the
+        // chainlink client (consumer). The client should not respond to
+        // fulfillment of this request, even though the oracle will faithfully
+        // forward the fulfillment to it.
         const args = h.requestDataBytes(
           h.toHex(specId),
           cc.address,
