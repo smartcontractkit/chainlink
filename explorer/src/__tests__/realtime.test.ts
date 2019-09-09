@@ -186,8 +186,16 @@ describe('realtime', () => {
   it('rejects multiple connections from single node', async done => {
     expect.assertions(4)
 
-    const ws1 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
-    const ws2 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+    const ws1 = await newChainlinkNode(
+      ENDPOINT,
+      chainlinkNode.accessKey,
+      secret
+    )
+    const ws2 = await newChainlinkNode(
+      ENDPOINT,
+      chainlinkNode.accessKey,
+      secret
+    )
 
     ws1.addEventListener('close', event => {
       expect(ws1.readyState).toBe(3) // connection closed
