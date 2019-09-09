@@ -172,7 +172,7 @@ describe('realtime', () => {
     })
   })
 
-  it('reject invalid authentication', async (done: any) => {
+  it('rejects invalid authentication', async (done: any) => {
     expect.assertions(1)
 
     newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, 'lol-no').catch(
@@ -181,5 +181,17 @@ describe('realtime', () => {
         done()
       },
     )
+  })
+
+  it.only('rejects multiple connections from single node', async () => {
+    // expect.assertions(3)
+
+    const ws1 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+    expect(ws1.readyState).toBe(1) // connection open
+    const ws2 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+    expect(ws2.readyState).toBe(1) // connection open
+    expect(ws1.readyState).toBe(3) // connection closed
+    ws1.close()
+    ws2.close()
   })
 })
