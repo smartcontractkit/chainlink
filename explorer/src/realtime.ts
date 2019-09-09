@@ -27,7 +27,7 @@ const handleMessage = async (
 export const bootstrapRealtime = async (server: http.Server) => {
   const db = await getDb()
   let clnodeCount = 0
-  const sessions = new Map<http.IncomingMessage, Session>()
+  const sessions = new Map<string, Session>()
 
   // NOTE: This relies on the subtle detail that info.req is the same request
   // as passed in to wss.on to key a session
@@ -63,7 +63,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
         logger.debug(
           `websocket client successfully authenticated, new session for node ${session.chainlinkNodeId}`,
         )
-        sessions.set(info.req, session)
+        sessions.set(accessKey, session)
         callback(true, 200)
       })
     },
@@ -71,12 +71,14 @@ export const bootstrapRealtime = async (server: http.Server) => {
 
   wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
     clnodeCount = clnodeCount + 1
+    const accessKey = request.headers['x-explore-chainlink-accesskey'].toString()
+
     logger.info(
       `websocket connected, total chainlink nodes connected: ${clnodeCount}`,
     )
 
     ws.on('message', async (message: WebSocket.Data) => {
-      const session = sessions.get(request)
+      const session = sessions.get(accessKey)
       if (session == null) {
         ws.close()
         return
@@ -91,10 +93,10 @@ export const bootstrapRealtime = async (server: http.Server) => {
     })
 
     ws.on('close', () => {
-      const session = sessions.get(request)
+      const session = sessions.get(accessKey)
       if (session != null) {
         closeSession(db, session)
-        sessions.delete(request)
+        sessions.delete(accessKey)
       }
 
       clnodeCount = clnodeCount - 1

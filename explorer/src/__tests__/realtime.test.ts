@@ -183,15 +183,20 @@ describe('realtime', () => {
     )
   })
 
-  it.only('rejects multiple connections from single node', async () => {
-    // expect.assertions(3)
+  it.only('rejects multiple connections from single node', async (done) => {
+    expect.assertions(5)
 
     const ws1 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
     expect(ws1.readyState).toBe(1) // connection open
     const ws2 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
-    expect(ws2.readyState).toBe(1) // connection open
-    expect(ws1.readyState).toBe(3) // connection closed
-    ws1.close()
-    ws2.close()
+
+    ws1.addEventListener('close', event => {
+      expect(ws2.readyState).toBe(1) // connection open
+      expect(ws1.readyState).toBe(3) // connection closed
+      expect(event.code).toBe(1000)
+      expect(event.reason).toEqual('Duplicate connection opened')
+      ws2.close()
+      done()
+    })
   })
 })
