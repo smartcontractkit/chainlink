@@ -72,7 +72,9 @@ export const bootstrapRealtime = async (server: http.Server) => {
 
   wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
     // accessKey type already validated in verifyClient()
-    const accessKey = request.headers['x-explore-chainlink-accesskey'].toString()
+    const accessKey = request.headers[
+      'x-explore-chainlink-accesskey'
+    ].toString()
 
     const existingConnection = connections.get(accessKey)
     if (existingConnection) {
