@@ -17,8 +17,8 @@ import { useHooks, useEffect, useState } from 'use-react-hooks'
 const styles = theme => ({
   breadcrumb: {
     marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  }
+    marginBottom: theme.spacing.unit * 5,
+  },
 })
 
 const renderLatestRuns = (props, state, handleChangePage) => {
@@ -101,12 +101,12 @@ Index.propTypes = {
   latestJobRuns: PropTypes.array,
   jobRunsCount: PropTypes.number,
   pageSize: PropTypes.number.isRequired,
-  pagePath: PropTypes.string.isRequired
+  pagePath: PropTypes.string.isRequired,
 }
 
 Index.defaultProps = {
   latestJobRuns: [],
-  pageSize: 25
+  pageSize: 25,
 }
 
 const mapStateToProps = (state, ownProps) => {
@@ -117,13 +117,13 @@ const mapStateToProps = (state, ownProps) => {
   return {
     jobSpecId,
     latestJobRuns,
-    jobRunsCount
+    jobRunsCount,
   }
 }
 
 export const ConnectedIndex = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJobRuns })
+  matchRouteAndMapDispatchToProps({ fetchJobRuns }),
 )(Index)
 
 export default withStyles(styles)(ConnectedIndex)

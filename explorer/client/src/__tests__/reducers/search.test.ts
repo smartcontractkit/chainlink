@@ -7,7 +7,7 @@ describe('reducers/search', () => {
     const state = reducer({}, action) as IState
 
     expect(state.search).toEqual({
-      query: undefined
+      query: undefined,
     })
   })
 
@@ -17,7 +17,7 @@ describe('reducers/search', () => {
     const state = reducer({}, action) as IState
 
     expect(state.search).toEqual({
-      query: 'find-me'
+      query: 'find-me',
     })
   })
 })

@@ -48,65 +48,65 @@ declare module '@material-ui/core/Grid' {
 export const theme: ThemeOptions = {
   props: {
     MuiGrid: {
-      spacing: spacing.unit * 3
-    }
+      spacing: spacing.unit * 3,
+    },
   },
   palette: {
     action: {
-      hoverOpacity: 0.3
+      hoverOpacity: 0.3,
     },
     primary: {
       light: '#E5F1FF',
       main: '#3c40c6',
-      contrastText: '#fff'
+      contrastText: '#fff',
     },
     secondary: {
-      main: '#3d5170'
+      main: '#3d5170',
     },
     success: {
       light: '#e8faf1',
       main: green.A700,
       dark: green['700'],
-      contrastText: common.white
+      contrastText: common.white,
     },
     warning: {
       light: '#FFFBF1',
       main: '#fff6b6',
-      contrastText: '#fad27a'
+      contrastText: '#fad27a',
     },
     error: {
       light: '#ffdada',
       main: '#f44336',
       dark: '#d32f2f',
-      contrastText: '#fff'
+      contrastText: '#fff',
     },
     background: {
       default: '#f5f6f8',
-      appBar: '#3c40c6'
+      appBar: '#3c40c6',
     },
     text: {
       primary: darken(grey['A700'], 0.7),
-      secondary: '#818ea3'
+      secondary: '#818ea3',
     },
     listPendingStatus: {
       background: '#fef7e5',
-      color: '#fecb4c'
+      color: '#fecb4c',
     },
     listCompletedStatus: {
       background: '#e9faf2',
-      color: '#4ed495'
-    }
+      color: '#4ed495',
+    },
   },
   shape: {
-    borderRadius: spacing.unit
+    borderRadius: spacing.unit,
   },
   overrides: {
     MuiButton: {
       root: {
         borderRadius: spacing.unit / 2,
-        textTransform: 'none'
-      }
-    }
+        textTransform: 'none',
+      },
+    },
   },
   typography: {
     useNextVariants: true,
@@ -116,42 +116,42 @@ export const theme: ThemeOptions = {
       'Roboto',
       'Helvetica',
       'Arial',
-      'sans-serif'
+      'sans-serif',
     ].join(','),
     body1: {
       fontSize: '1.0rem',
       fontWeight: 400,
       lineHeight: '1.46429em',
       color: 'rgba(0, 0, 0, 0.87)',
-      letterSpacing: -0.4
+      letterSpacing: -0.4,
     },
     body2: {
       fontSize: '1.0rem',
       fontWeight: 500,
       lineHeight: '1.71429em',
       color: 'rgba(0, 0, 0, 0.87)',
-      letterSpacing: -0.4
+      letterSpacing: -0.4,
     },
     body1Next: {
       color: 'rgb(29, 29, 29)',
       fontWeight: 400,
       fontSize: '1rem',
       lineHeight: 1.5,
-      letterSpacing: -0.4
+      letterSpacing: -0.4,
     },
     body2Next: {
       color: 'rgb(29, 29, 29)',
       fontWeight: 400,
       fontSize: '0.875rem',
       lineHeight: 1.5,
-      letterSpacing: -0.4
+      letterSpacing: -0.4,
     },
     display1: {
       color: '#818ea3',
       fontSize: '2.125rem',
       fontWeight: 400,
       lineHeight: '1.20588em',
-      letterSpacing: -0.4
+      letterSpacing: -0.4,
     },
     display2: {
       color: '#818ea3',
@@ -159,7 +159,7 @@ export const theme: ThemeOptions = {
       fontWeight: 400,
       lineHeight: '1.13333em',
       marginLeft: '-.02em',
-      letterSpacing: -0.4
+      letterSpacing: -0.4,
     },
     display3: {
       color: '#818ea3',
@@ -167,74 +167,74 @@ export const theme: ThemeOptions = {
       fontWeight: 400,
       lineHeight: '1.30357em',
       marginLeft: '-.02em',
-      letterSpacing: -0.4
+      letterSpacing: -0.4,
     },
     display4: {
       fontSize: 14,
       fontWeightLight: 300,
       fontWeightMedium: 500,
       fontWeightRegular: 400,
-      letterSpacing: -0.4
+      letterSpacing: -0.4,
     },
     h1: {
       color: 'rgb(29, 29, 29)',
       fontSize: '6rem',
       fontWeight: 300,
-      lineHeight: 1
+      lineHeight: 1,
     },
     h2: {
       color: 'rgb(29, 29, 29)',
       fontSize: '3.75rem',
       fontWeight: 300,
-      lineHeight: 1
+      lineHeight: 1,
     },
     h3: {
       color: 'rgb(29, 29, 29)',
       fontSize: '3rem',
       fontWeight: 400,
-      lineHeight: 1.04
+      lineHeight: 1.04,
     },
     h4: {
       color: 'rgb(29, 29, 29)',
       fontSize: '2.125rem',
       fontWeight: 400,
-      lineHeight: 1.17
+      lineHeight: 1.17,
     },
     h5: {
       color: 'rgb(29, 29, 29)',
       fontSize: '1.5rem',
       fontWeight: 400,
       lineHeight: 1.33,
-      letterSpacing: -0.4
+      letterSpacing: -0.4,
     },
     h6: {
       fontSize: '0.8rem',
       fontWeight: 450,
       lineHeight: '1.71429em',
       color: 'rgba(0, 0, 0, 0.87)',
-      letterSpacing: -0.4
+      letterSpacing: -0.4,
     },
     subheading: {
       color: 'rgb(29, 29, 29)',
       fontSize: '1rem',
       fontWeight: 400,
       lineHeight: '1.5em',
-      letterSpacing: -0.4
+      letterSpacing: -0.4,
     },
     subtitle1: {
       color: 'rgb(29, 29, 29)',
       fontSize: '1rem',
       fontWeight: 400,
       lineHeight: 1.75,
-      letterSpacing: -0.4
+      letterSpacing: -0.4,
     },
     subtitle2: {
       color: 'rgb(29, 29, 29)',
       fontSize: '0.875rem',
       fontWeight: 500,
       lineHeight: 1.57,
-      letterSpacing: -0.4
-    }
+      letterSpacing: -0.4,
+    },
   },
   shadows: [
     'none',
@@ -261,6 +261,6 @@ export const theme: ThemeOptions = {
     '0px 10px 13px -6px rgba(0, 0, 0, 0.1),0px 21px 33px 3px rgba(0, 0, 0, 0.04),0px 8px 40px 7px rgba(0, 0, 0, 0.02)',
     '0px 10px 14px -6px rgba(0, 0, 0, 0.1),0px 22px 35px 3px rgba(0, 0, 0, 0.04),0px 8px 42px 7px rgba(0, 0, 0, 0.02)',
     '0px 11px 14px -7px rgba(0, 0, 0, 0.1),0px 23px 36px 3px rgba(0, 0, 0, 0.04),0px 9px 44px 8px rgba(0, 0, 0, 0.02)',
-    '0px 11px 15px -7px rgba(0, 0, 0, 0.1),0px 24px 38px 3px rgba(0, 0, 0, 0.04),0px 9px 46px 8px rgba(0, 0, 0, 0.02)'
-  ]
+    '0px 11px 15px -7px rgba(0, 0, 0, 0.1),0px 24px 38px 3px rgba(0, 0, 0, 0.04),0px 9px 46px 8px rgba(0, 0, 0, 0.02)',
+  ],
 }

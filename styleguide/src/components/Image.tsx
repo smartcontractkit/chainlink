@@ -3,13 +3,13 @@ import React from 'react'
 
 const styles = createStyles({
   animate: {
-    animation: 'spin 4s linear infinite'
+    animation: 'spin 4s linear infinite',
   },
   '@keyframes spin': {
     '100%': {
-      transform: 'rotate(360deg)'
-    }
-  }
+      transform: 'rotate(360deg)',
+    },
+  },
 })
 
 interface Props extends WithStyles<typeof styles> {
@@ -26,7 +26,7 @@ const UnstyledImage = ({
   height,
   alt,
   classes,
-  spin = false
+  spin = false,
 }: Props) => {
   return (
     <img

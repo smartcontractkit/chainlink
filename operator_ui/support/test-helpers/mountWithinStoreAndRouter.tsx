@@ -6,6 +6,6 @@ export default (children: React.ReactNode, initialEntries?: string[]) => {
   return mount(
     <StoreAndMemoryRouter initialEntries={initialEntries}>
       {children}
-    </StoreAndMemoryRouter>
+    </StoreAndMemoryRouter>,
   )
 }

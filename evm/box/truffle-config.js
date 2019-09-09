@@ -5,7 +5,7 @@ module.exports = {
     cldev: {
       host: '127.0.0.1',
       port: 8545,
-      network_id: '*'
+      network_id: '*',
     },
     live: {
       provider: () => {
@@ -14,12 +14,12 @@ module.exports = {
       network_id: '*',
       // Necessary due to https://github.com/trufflesuite/truffle/issues/1971
       // Should be fixed in Truffle 5.0.17
-      skipDryRun: true
-    }
+      skipDryRun: true,
+    },
   },
   compilers: {
     solc: {
-      version: '0.4.24'
-    }
-  }
+      version: '0.4.24',
+    },
+  },
 }

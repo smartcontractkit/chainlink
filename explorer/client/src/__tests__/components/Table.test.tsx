@@ -15,10 +15,10 @@ describe('components/Table', () => {
   it('renders the columns from each row', () => {
     const rows = [
       [{ type: 'text', text: 'Michael' }, { type: 'text', text: 'Jordan' }],
-      [{ type: 'text', text: 'Charles' }, { type: 'text', text: 'Barkley' }]
+      [{ type: 'text', text: 'Charles' }, { type: 'text', text: 'Barkley' }],
     ]
     const wrapper = mount(
-      <Table headers={HEADERS} rows={rows} onChangePage={() => {}} />
+      <Table headers={HEADERS} rows={rows} onChangePage={() => {}} />,
     )
 
     expect(wrapper.text()).toContain('Michael')
@@ -29,7 +29,7 @@ describe('components/Table', () => {
 
   it('renders a default loading message when rows are undefined', () => {
     const wrapper = mount(
-      <Table headers={HEADERS} rows={undefined} onChangePage={() => {}} />
+      <Table headers={HEADERS} rows={undefined} onChangePage={() => {}} />,
     )
 
     expect(wrapper.text()).toContain('Loading...')
@@ -42,7 +42,7 @@ describe('components/Table', () => {
         rows={undefined}
         loadingMsg="LOADING"
         onChangePage={() => {}}
-      />
+      />,
     )
 
     expect(wrapper.text()).not.toContain('Loading...')
@@ -51,7 +51,7 @@ describe('components/Table', () => {
 
   it('renders a default empty message when there are no rows', () => {
     const wrapper = mount(
-      <Table headers={HEADERS} rows={[]} onChangePage={() => {}} />
+      <Table headers={HEADERS} rows={[]} onChangePage={() => {}} />,
     )
 
     expect(wrapper.text()).toContain('No results')
@@ -64,7 +64,7 @@ describe('components/Table', () => {
         rows={[]}
         emptyMsg="EMPTY"
         onChangePage={() => {}}
-      />
+      />,
     )
 
     expect(wrapper.text()).not.toContain('No results')

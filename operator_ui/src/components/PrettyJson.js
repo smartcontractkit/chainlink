@@ -8,7 +8,7 @@ const PrettyJson = ({ object }) => (
 )
 
 PrettyJson.propTypes = {
-  object: PropTypes.object.isRequired
+  object: PropTypes.object.isRequired,
 }
 
 export default PrettyJson

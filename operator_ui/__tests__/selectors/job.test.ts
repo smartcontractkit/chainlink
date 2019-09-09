@@ -5,9 +5,9 @@ describe('selectors - job', () => {
     const state = {
       jobs: {
         items: {
-          jobA: { id: 'jobA' }
-        }
-      }
+          jobA: { id: 'jobA' },
+        },
+      },
     }
 
     expect(jobSelector(state, 'jobA')).toEqual({ id: 'jobA' })

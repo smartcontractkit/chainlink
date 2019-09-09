@@ -14,13 +14,13 @@ import PrivateRoute from './PrivateRoute'
 const uniOpts = { loading: Loading }
 const DashboardsIndex = universal(
   import('./containers/Dashboards/Index'),
-  uniOpts
+  uniOpts,
 )
 const JobsIndex = universal(import('./containers/Jobs/Index'), uniOpts)
 const JobsShow = universal(import('./containers/Jobs/Show'), uniOpts)
 const JobsDefinition = universal(
   import('./containers/Jobs/Definition'),
-  uniOpts
+  uniOpts,
 )
 const JobsNew = universal(import('./containers/Jobs/New'), uniOpts)
 const BridgesIndex = universal(import('./containers/Bridges/Index'), uniOpts)
@@ -30,23 +30,23 @@ const BridgesEdit = universal(import('./containers/Bridges/Edit'), uniOpts)
 const JobRunsIndex = universal(import('./containers/JobRuns/Index'), uniOpts)
 const JobRunsShowOverview = universal(
   import('./containers/JobRuns/Show/Overview'),
-  uniOpts
+  uniOpts,
 )
 const JobRunsShowJson = universal(
   import('./containers/JobRuns/Show/Json'),
-  uniOpts
+  uniOpts,
 )
 const JobRunsShowErrorLog = universal(
   import('./containers/JobRuns/Show/ErrorLog'),
-  uniOpts
+  uniOpts,
 )
 const TransactionsIndex = universal(
   import('./containers/Transactions/Index'),
-  uniOpts
+  uniOpts,
 )
 const TransactionsShow = universal(
   import('./containers/Transactions/Show'),
-  uniOpts
+  uniOpts,
 )
 const Configuration = universal(import('./containers/Configuration'), uniOpts)
 const NotFound = universal(import('./containers/NotFound'), uniOpts)
@@ -55,8 +55,8 @@ const styles = theme => {
   return {
     content: {
       marginTop: 0,
-      marginBottom: theme.spacing.unit * 5
-    }
+      marginBottom: theme.spacing.unit * 5,
+    },
   }
 }
 

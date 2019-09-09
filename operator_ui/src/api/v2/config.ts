@@ -7,7 +7,7 @@ import * as presenters from 'core/store/presenters'
  */
 const SHOW_ENDPOINT = '/v2/config'
 const show = jsonapi.fetchResource<{}, presenters.ConfigWhitelist, {}>(
-  SHOW_ENDPOINT
+  SHOW_ENDPOINT,
 )
 
 /**

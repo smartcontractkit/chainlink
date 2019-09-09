@@ -8,7 +8,7 @@ import syncFetch from 'test-helpers/syncFetch'
 const classes = {}
 const mount = props => {
   return mountWithinStoreAndRouter(
-    <Configuration classes={classes} {...props} />
+    <Configuration classes={classes} {...props} />,
   )
 }
 
@@ -18,7 +18,7 @@ describe('containers/Configuration', () => {
 
     const configurationResponse = configurationFactory({
       band: 'Major Lazer',
-      singer: 'Bob Marley'
+      singer: 'Bob Marley',
     })
     global.fetch.getOnce('/v2/config', configurationResponse)
 

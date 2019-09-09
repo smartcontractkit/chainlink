@@ -5,22 +5,22 @@ describe('connectors/reducers/configuration', () => {
     const state = reducer(undefined, {})
 
     expect(state.configuration).toEqual({
-      data: {}
+      data: {},
     })
   })
 
   it('UPSERT_CONFIGURATION stores the attribute data', () => {
     const previousState = {
-      configuration: {}
+      configuration: {},
     }
     const response = {
       configWhitelists: {
-        idA: { attributes: { attributeA: 'ValueA' } }
-      }
+        idA: { attributes: { attributeA: 'ValueA' } },
+      },
     }
     const action = {
       type: 'UPSERT_CONFIGURATION',
-      data: response
+      data: response,
     }
     const state = reducer(previousState, action)
 

@@ -15,7 +15,7 @@ const mountShow = props =>
       <MemoryRouter>
         <Show classes={classes} {...props} />
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   )
 
 describe('containers/JobRuns/Show/Overview', () => {
@@ -32,26 +32,26 @@ describe('containers/JobRuns/Show/Overview', () => {
       jobId: jobSpecId,
       initiator: {
         type: 'web',
-        params: {}
+        params: {},
       },
       taskRuns: [
         {
           id: 'taskRunA',
           status: 'completed',
-          task: { type: 'noop', params: {} }
-        }
+          task: { type: 'noop', params: {} },
+        },
       ],
       result: {
         data: {
           value:
-            '0x05070f7f6a40e4ce43be01fa607577432c68730c2cb89a0f50b665e980d926b5'
-        }
-      }
+            '0x05070f7f6a40e4ce43be01fa607577432c68730c2cb89a0f50b665e980d926b5',
+        },
+      },
     })
     global.fetch.getOnce(`/v2/runs/${jobRunId}`, jobRunResponse)
 
     const props = {
-      match: { params: { jobSpecId: jobSpecId, jobRunId: jobRunId } }
+      match: { params: { jobSpecId: jobSpecId, jobRunId: jobRunId } },
     }
     const wrapper = mountShow(props)
 

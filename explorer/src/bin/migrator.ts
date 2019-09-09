@@ -36,12 +36,12 @@ const _ = yargs
   .command({
     command: 'migrate',
     describe: 'Run migrations',
-    handler: migrate
+    handler: migrate,
   })
   .command({
     command: 'revert',
     describe: 'Revert last migration',
-    handler: revert
+    handler: revert,
   })
   .help('h')
   .alias('h', 'help')

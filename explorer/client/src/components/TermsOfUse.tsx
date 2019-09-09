@@ -3,7 +3,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 
 const styles = ({ breakpoints, spacing, palette }: Theme) =>
@@ -13,13 +13,13 @@ const styles = ({ breakpoints, spacing, palette }: Theme) =>
       paddingRight: spacing.unit * 2,
       [breakpoints.up('sm')]: {
         paddingLeft: spacing.unit * 3,
-        paddingRight: spacing.unit * 3
+        paddingRight: spacing.unit * 3,
       },
-      textAlign: 'right'
+      textAlign: 'right',
     },
     link: {
-      color: palette.grey['500']
-    }
+      color: palette.grey['500'],
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {}

@@ -7,6 +7,7 @@
     "test": "cross-env NODE_ENV=test jest",
     "test:nocache": "cross-env NODE_ENV=test jest --no-cache",
     "lint": "echo \"No linter configured for integration\" && exit 0",
+    "format": "prettier --write \"**/*\"",
     "depcheck": "echo '@chainlink/integration' && depcheck || true",
     "truffle:migrate": "truffle migrate --compile-all --reset --network test",
     "truffle:exec:send-runlog-transaction": "truffle exec scripts/send_runlog_transaction.js --network test",
@@ -16,6 +17,7 @@
     "chainlink": "0.6.1"
   },
   "devDependencies": {
+    "@chainlink/prettier-config": "0.0.1",
     "babel-jest": "^24.1.0",
     "body-parser": "^1.18.3",
     "command-line-args": "^5.1.1",
@@ -27,9 +29,11 @@
     "jest-environment-enzyme": "^7.0.1",
     "jest-silent-reporter": "^0.1.0",
     "link_token": "^1.0.3",
+    "prettier": "^1.18.2",
     "puppeteer": "^1.10.0",
     "request-promise": "^4.2.4",
     "solc": "0.4.24",
     "truffle": "^5.0.25"
-  }
+  },
+  "prettier": "@chainlink/prettier-config"
 }

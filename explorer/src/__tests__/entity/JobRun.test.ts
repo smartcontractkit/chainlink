@@ -27,7 +27,7 @@ describe('entity/jobRun/fromString', () => {
     expect(jr.type).toEqual('runlog')
     expect(jr.requestId).toEqual('RequestID')
     expect(jr.txHash).toEqual(
-      '0x00000000000000000000000000000000000000000000000000000000deadbeef'
+      '0x00000000000000000000000000000000000000000000000000000000deadbeef',
     )
     expect(jr.requester).toEqual('0x9FBDa871d559710256a2502A2517b794B482Db40')
 
@@ -42,7 +42,7 @@ describe('entity/jobRun/fromString', () => {
 
     const [chainlinkNode, _] = await createChainlinkNode(
       db,
-      'job-run-fromString-chainlink-node'
+      'job-run-fromString-chainlink-node',
     )
     jr.chainlinkNodeId = chainlinkNode.id
     const r = await db.manager.save(jr)
@@ -62,14 +62,14 @@ describe('entity/jobRun/fromString', () => {
     expect(ethtxTask.status).toEqual('completed')
     expect(ethtxTask.error).toEqual(null)
     expect(ethtxTask.transactionHash).toEqual(
-      '0x1111111111111111111111111111111111111111111111111111111111111111'
+      '0x1111111111111111111111111111111111111111111111111111111111111111',
     )
     expect(ethtxTask.transactionStatus).toEqual('fulfilledRunLog')
   })
 
   it('creates when finishedAt is null', () => {
     const fixtureWithoutFinishedAt = Object.assign({}, fixture, {
-      finishedAt: null
+      finishedAt: null,
     })
     const jr = fromString(JSON.stringify(fixtureWithoutFinishedAt))
     expect(jr.runId).toEqual('f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa')
@@ -89,7 +89,7 @@ describe('entity/jobRun/saveJobRunTree', () => {
   it('updates jobRun error', async () => {
     const [chainlinkNode, _] = await createChainlinkNode(
       db,
-      'testOverwriteJobRunsErrorOnConflict'
+      'testOverwriteJobRunsErrorOnConflict',
     )
 
     const jr = fromString(JSON.stringify(fixture))
@@ -114,7 +114,7 @@ describe('entity/jobRun/saveJobRunTree', () => {
   it('overwrites taskRun values on conflict', async () => {
     const [chainlinkNode, _] = await createChainlinkNode(
       db,
-      'testOverwriteTaskRunsOnConflict'
+      'testOverwriteTaskRunsOnConflict',
     )
 
     const jr = fromString(JSON.stringify(fixture))
@@ -128,7 +128,7 @@ describe('entity/jobRun/saveJobRunTree', () => {
       status: 'errored',
       transactionHash:
         '0x2222222222222222222222222222222222222222222222222222222222222222',
-      transactionStatus: 'fulfilledRunLog'
+      transactionStatus: 'fulfilledRunLog',
     }
 
     const initial = await db.manager.findOne(JobRun)

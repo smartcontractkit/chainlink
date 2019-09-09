@@ -7,7 +7,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
@@ -19,7 +19,7 @@ import Link from '../../../components/Link'
 const navItemStyles = ({ palette, spacing }: Theme) =>
   createStyles({
     item: {
-      display: 'inline'
+      display: 'inline',
     },
     link: {
       paddingTop: spacing.unit * 4,
@@ -29,22 +29,22 @@ const navItemStyles = ({ palette, spacing }: Theme) =>
       borderBottom: 'solid 1px',
       borderBottomColor: palette.common.white,
       '&:hover': {
-        borderBottomColor: palette.primary.main
-      }
+        borderBottomColor: palette.primary.main,
+      },
     },
     activeLink: {
       color: palette.primary.main,
-      borderBottomColor: palette.primary.main
+      borderBottomColor: palette.primary.main,
     },
     error: {
       color: palette.error.main,
       '&:hover': {
-        borderBottomColor: palette.error.main
-      }
+        borderBottomColor: palette.error.main,
+      },
     },
     errorAndActiveLink: {
-      borderBottomColor: palette.error.main
-    }
+      borderBottomColor: palette.error.main,
+    },
   })
 
 interface INavItemProps extends WithStyles<typeof navItemStyles> {
@@ -61,7 +61,7 @@ const NavItem = withStyles(navItemStyles)(
       classes.link,
       error && classes.error,
       active && classes.activeLink,
-      error && active && classes.errorAndActiveLink
+      error && active && classes.errorAndActiveLink,
     )
 
     return (
@@ -71,7 +71,7 @@ const NavItem = withStyles(navItemStyles)(
         </Link>
       </ListItem>
     )
-  }
+  },
 )
 
 const styles = ({ palette, spacing }: Theme) =>
@@ -79,14 +79,14 @@ const styles = ({ palette, spacing }: Theme) =>
     container: {
       backgroundColor: palette.common.white,
       padding: spacing.unit * 5,
-      paddingBottom: 0
+      paddingBottom: 0,
     },
     duplicate: {
-      margin: spacing.unit
+      margin: spacing.unit,
     },
     horizontalNav: {
-      paddingBottom: 0
-    }
+      paddingBottom: 0,
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {
@@ -147,7 +147,7 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }: IProps) => {
 
 export const ConnectedRegionalNav = connect(
   null,
-  { fetchJob, createJobRun }
+  { fetchJob, createJobRun },
 )(RegionalNav)
 
 export default withStyles(styles)(ConnectedRegionalNav)

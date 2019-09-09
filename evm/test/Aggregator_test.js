@@ -47,7 +47,7 @@ contract('Aggregator', () => {
       // Ownable methods:
       'owner',
       'renounceOwnership',
-      'transferOwnership'
+      'transferOwnership',
     ])
   })
 
@@ -61,7 +61,7 @@ contract('Aggregator', () => {
           basePayment,
           1,
           [oc1.address],
-          [jobId1]
+          [jobId1],
         )
 
         await link.transfer(rate.address, deposit)
@@ -106,7 +106,7 @@ contract('Aggregator', () => {
         assert.equal(answerId, web3.utils.hexToNumber(receivedLog.topics[2]))
         assert.equal(
           oc1.address,
-          web3.utils.toChecksumAddress(receivedLog.topics[3].slice(26, 66))
+          web3.utils.toChecksumAddress(receivedLog.topics[3].slice(26, 66)),
         )
       })
 
@@ -119,11 +119,11 @@ contract('Aggregator', () => {
         const answerUpdatedLog = tx.receipt.rawLogs[2]
         assert.equal(
           response,
-          web3.utils.hexToNumber(answerUpdatedLog.topics[1])
+          web3.utils.hexToNumber(answerUpdatedLog.topics[1]),
         )
         assert.equal(
           answerId,
-          web3.utils.hexToNumber(answerUpdatedLog.topics[2])
+          web3.utils.hexToNumber(answerUpdatedLog.topics[2]),
         )
       })
     })
@@ -135,7 +135,7 @@ contract('Aggregator', () => {
           basePayment,
           oracles.length,
           oracles.map(o => o.address),
-          [jobId1, jobId2, jobId3]
+          [jobId1, jobId2, jobId3],
         )
 
         await link.transfer(rate.address, deposit)
@@ -168,7 +168,7 @@ contract('Aggregator', () => {
         const requests = [
           h.decodeRunRequest(request1.receipt.rawLogs[3]),
           h.decodeRunRequest(request1.receipt.rawLogs[7]),
-          h.decodeRunRequest(request1.receipt.rawLogs[11])
+          h.decodeRunRequest(request1.receipt.rawLogs[11]),
         ]
 
         const request2 = await rate.requestRateUpdate()
@@ -196,7 +196,7 @@ contract('Aggregator', () => {
           basePayment,
           oracles.length,
           oracles.map(o => o.address),
-          [jobId1, jobId2, jobId3, jobId4]
+          [jobId1, jobId2, jobId3, jobId4],
         )
 
         await link.transfer(rate.address, deposit)
@@ -231,7 +231,7 @@ contract('Aggregator', () => {
         basePayment,
         1,
         [oc1.address],
-        [jobId1]
+        [jobId1],
       )
       await rate.transferOwnership(personas.Carol)
       oc2 = await Oracle.new(link.address)
@@ -250,8 +250,8 @@ contract('Aggregator', () => {
           [oc2.address],
           [jobId2],
           {
-            from: personas.Carol
-          }
+            from: personas.Carol,
+          },
         )
 
         await rate.requestRateUpdate({ from: personas.Carol })
@@ -266,8 +266,8 @@ contract('Aggregator', () => {
           [oc1.address, oc2.address],
           [jobId1, jobId2],
           {
-            from: personas.Carol
-          }
+            from: personas.Carol,
+          },
         )
 
         const requestTx = await rate.requestRateUpdate({ from: personas.Carol })
@@ -282,7 +282,7 @@ contract('Aggregator', () => {
         await h.fulfillOracleRequest(oc2, request2, response2)
         assertBigNum(
           (response1 + response2) / 2,
-          await rate.currentAnswer.call()
+          await rate.currentAnswer.call(),
         )
       })
 
@@ -295,8 +295,8 @@ contract('Aggregator', () => {
               [oc1.address, oc2.address],
               [jobId2],
               {
-                from: personas.Carol
-              }
+                from: personas.Carol,
+              },
             )
           })
         })
@@ -311,8 +311,8 @@ contract('Aggregator', () => {
               [oc1.address, oc2.address],
               [jobId1, jobId2],
               {
-                from: personas.Carol
-              }
+                from: personas.Carol,
+              },
             )
           })
         })
@@ -328,8 +328,8 @@ contract('Aggregator', () => {
             [oc2.address],
             [jobId2],
             {
-              from: personas.Eddy
-            }
+              from: personas.Eddy,
+            },
           )
         })
       })
@@ -342,7 +342,7 @@ contract('Aggregator', () => {
           basePayment,
           1,
           [oc1.address],
-          [jobId1]
+          [jobId1],
         )
         await link.transfer(rate.address, deposit)
 
@@ -360,7 +360,7 @@ contract('Aggregator', () => {
           basePayment,
           2,
           [oc2.address, oc3.address],
-          [jobId2, jobId3]
+          [jobId2, jobId3],
         )
 
         // make new request
@@ -402,7 +402,7 @@ contract('Aggregator', () => {
           maxOracleCount,
           oracles,
           jobIds,
-          { from: personas.Carol }
+          { from: personas.Carol },
         )
       })
 
@@ -422,7 +422,7 @@ contract('Aggregator', () => {
             overMaxOracles,
             oracles,
             jobIds,
-            { from: personas.Carol }
+            { from: personas.Carol },
           )
         })
       })
@@ -436,7 +436,7 @@ contract('Aggregator', () => {
         basePayment,
         1,
         [oc1.address],
-        [jobId1]
+        [jobId1],
       )
       await rate.transferOwnership(personas.Carol)
       await link.transfer(rate.address, deposit)
@@ -446,7 +446,7 @@ contract('Aggregator', () => {
     context('when called by the owner', () => {
       it('succeeds', async () => {
         await rate.transferLINK(personas.Carol, deposit, {
-          from: personas.Carol
+          from: personas.Carol,
         })
 
         assertBigNum(0, await link.balanceOf.call(rate.address))
@@ -457,7 +457,7 @@ contract('Aggregator', () => {
         it('fails', async () => {
           await h.assertActionThrows(async () => {
             await rate.transferLINK(personas.Carol, deposit.add(basePayment), {
-              from: personas.Carol
+              from: personas.Carol,
             })
           })
 
@@ -470,7 +470,7 @@ contract('Aggregator', () => {
       it('fails', async () => {
         await h.assertActionThrows(async () => {
           await rate.transferLINK(personas.Carol, deposit, {
-            from: personas.Eddy
+            from: personas.Eddy,
           })
         })
 
@@ -486,7 +486,7 @@ contract('Aggregator', () => {
         basePayment,
         1,
         [oc1.address],
-        [jobId1]
+        [jobId1],
       )
       await rate.transferOwnership(personas.Carol)
       await link.transfer(rate.address, deposit)
@@ -523,7 +523,7 @@ contract('Aggregator', () => {
         basePayment,
         1,
         [oc1.address],
-        [jobId1]
+        [jobId1],
       )
       await link.transfer(rate.address, deposit)
     })
@@ -570,7 +570,7 @@ contract('Aggregator', () => {
         basePayment,
         1,
         [oc1.address],
-        [jobId1]
+        [jobId1],
       )
 
       await link.transfer(rate.address, basePayment)
@@ -601,7 +601,7 @@ contract('Aggregator', () => {
         await rate.cancelRequest(
           request.id,
           request.payment,
-          request.expiration
+          request.expiration,
         )
 
         assertBigNum(basePayment, await link.balanceOf.call(rate.address))
@@ -615,7 +615,7 @@ contract('Aggregator', () => {
           await rate.cancelRequest(
             request.id,
             request.payment,
-            request.expiration
+            request.expiration,
           )
         })
 
@@ -630,27 +630,27 @@ contract('Aggregator', () => {
       {
         name: 'ordered ascending',
         responses: [0, 1, 2, 3, 4, 5, 6, 7],
-        want: 3
+        want: 3,
       },
       {
         name: 'ordered descending',
         responses: [7, 6, 5, 4, 3, 2, 1, 0],
-        want: 3
+        want: 3,
       },
       {
         name: 'unordered 1',
         responses: [1001, 1, 101, 10, 11, 0, 111],
-        want: 11
+        want: 11,
       },
       {
         name: 'unordered 2',
         responses: [8, 8, 4, 5, 5, 7, 9, 5, 9],
-        want: 7
+        want: 7,
       },
       {
         name: 'unordered 3',
         responses: [33, 44, 89, 101, 67, 7, 23, 55, 88, 324, 0, 88],
-        want: 61 // 67 + 55 / 2
+        want: 61, // 67 + 55 / 2
       },
       {
         name: 'long unordered',
@@ -673,10 +673,10 @@ contract('Aggregator', () => {
           388867,
           337879,
           333324,
-          338678
+          338678,
         ],
-        want: 335477
-      }
+        want: 335477,
+      },
     ]
 
     beforeEach(async () => {
@@ -699,7 +699,7 @@ contract('Aggregator', () => {
           basePayment,
           oracles.length,
           oracles.map(o => o.address),
-          jobIds
+          jobIds,
         )
 
         const requestTx = await rate.requestRateUpdate()

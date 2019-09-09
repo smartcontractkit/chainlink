@@ -4,7 +4,7 @@ Using Chainlink (CL), this application simply echos incoming ethereum logs
 as JSON, listened to by a CL job. It is intended to demonstrate the the first
 step to bridging on chain to off chain activity.
 
-![Log Echo Server](screenshot.jpg?raw=true "Log Echo Server")
+![Log Echo Server](screenshot.jpg?raw=true 'Log Echo Server')
 
 ## Configure and run [Chainlink development environment](../README.md)
 

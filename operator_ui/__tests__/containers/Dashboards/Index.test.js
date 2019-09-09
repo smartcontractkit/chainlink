@@ -20,8 +20,8 @@ describe('containers/Dashboards/Index', () => {
           attributes: {
             id: 'runA',
             createdAt: new Date().toISOString(),
-            status: 'completed'
-          }
+            status: 'completed',
+          },
         },
         {
           id: 'runB',
@@ -29,11 +29,11 @@ describe('containers/Dashboards/Index', () => {
           attributes: {
             id: 'runB',
             createdAt: new Date().toISOString(),
-            status: 'completed'
-          }
-        }
+            status: 'completed',
+          },
+        },
       ],
-      meta: { count: 2 }
+      meta: { count: 2 },
     }
     global.fetch.getOnce('begin:/v2/runs', recentJobRuns)
 
@@ -44,24 +44,24 @@ describe('containers/Dashboards/Index', () => {
           type: 'specs',
           attributes: {
             id: 'job_b',
-            createdAt: new Date().toISOString()
-          }
+            createdAt: new Date().toISOString(),
+          },
         },
         {
           id: 'job_a',
           type: 'specs',
           attributes: {
             id: 'job_a',
-            createdAt: new Date().toISOString()
-          }
-        }
-      ]
+            createdAt: new Date().toISOString(),
+          },
+        },
+      ],
     }
     global.fetch.getOnce('begin:/v2/specs', recentlyCreatedJobsResponse)
 
     const accountBalanceResponse = accountBalanceFactory(
       '10123456000000000000000',
-      '7467870000000000000000'
+      '7467870000000000000000',
     )
     global.fetch.getOnce('/v2/user/balances', accountBalanceResponse)
 

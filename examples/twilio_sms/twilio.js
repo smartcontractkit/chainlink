@@ -2,7 +2,7 @@
 
 if (process.argv.length <= 3) {
   console.log(
-    `Usage: ${__filename} <twilio_account_sid> <twilio_auth_token> <from_number> <to_number>`
+    `Usage: ${__filename} <twilio_account_sid> <twilio_auth_token> <from_number> <to_number>`,
   )
   process.exit(-1)
 }
@@ -25,13 +25,13 @@ app.all('*', function(req, res) {
     ' wei at ' +
     log.address
   console.log(
-    'Sending text from ' + from + ' to ' + to + ' with message: ' + message
+    'Sending text from ' + from + ' to ' + to + ' with message: ' + message,
   )
   client.messages
     .create({
       from: from,
       to: to,
-      body: message
+      body: message,
     })
     .then(null, console.log)
 

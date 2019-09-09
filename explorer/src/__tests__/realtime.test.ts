@@ -16,13 +16,13 @@ const ENDPOINT = `ws://localhost:${DEFAULT_TEST_PORT}`
 const newChainlinkNode = (
   url: string,
   accessKey: string,
-  secret: string
+  secret: string,
 ): Promise<WebSocket> => {
   const ws = new WebSocket(ENDPOINT, {
     headers: {
       'X-Explore-Chainlink-AccessKey': accessKey,
-      'X-Explore-Chainlink-Secret': secret
-    }
+      'X-Explore-Chainlink-Secret': secret,
+    },
   })
 
   return new Promise((resolve: (arg0: WebSocket) => void, reject) => {
@@ -49,7 +49,7 @@ describe('realtime', () => {
     clearDb()
     ;[chainlinkNode, secret] = await createChainlinkNode(
       db,
-      'explore realtime test chainlinkNode'
+      'explore realtime test chainlinkNode',
     )
   })
 
@@ -147,7 +147,7 @@ describe('realtime', () => {
     const tr = jr.taskRuns[3]
     expect(tr.status).toEqual('completed')
     expect(tr.transactionHash).toEqual(
-      '0x1111111111111111111111111111111111111111111111111111111111111111'
+      '0x1111111111111111111111111111111111111111111111111111111111111111',
     )
     expect(tr.transactionStatus).toEqual('fulfilledRunLog')
     ws.close()
@@ -179,7 +179,7 @@ describe('realtime', () => {
       error => {
         expect(error).toBeDefined()
         done()
-      }
+      },
     )
   })
 })

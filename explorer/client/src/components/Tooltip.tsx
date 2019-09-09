@@ -7,8 +7,8 @@ const styles = ({ palette, shadows, typography }: Theme) => ({
     background: palette.primary.contrastText,
     color: palette.text.primary,
     boxShadow: shadows[24],
-    ...typography.h6
-  }
+    ...typography.h6,
+  },
 })
 
 interface IProps extends WithStyles<typeof styles> {

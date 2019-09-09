@@ -7,20 +7,20 @@ const styles = theme => ({
   root: {
     flexGrow: 1,
     height: 3,
-    overflow: 'hidden'
+    overflow: 'hidden',
   },
   colorPrimary: {
-    backgroundColor: theme.palette.background.default
+    backgroundColor: theme.palette.background.default,
   },
   barColorPrimary: {
-    backgroundColor: theme.palette.primary.main
-  }
+    backgroundColor: theme.palette.primary.main,
+  },
 })
 
 const LoadingBar = ({ classes, fetchCount }) => {
   const progressClasses = {
     colorPrimary: classes.colorPrimary,
-    barColorPrimary: classes.barColorPrimary
+    barColorPrimary: classes.barColorPrimary,
   }
 
   return (
@@ -33,7 +33,7 @@ const LoadingBar = ({ classes, fetchCount }) => {
 }
 
 LoadingBar.propTypes = {
-  fetchCount: PropTypes.number.isRequired
+  fetchCount: PropTypes.number.isRequired,
 }
 
 export default withStyles(styles)(LoadingBar)
