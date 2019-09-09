@@ -52,7 +52,7 @@
     "json-api-normalizer": "^0.4.13",
     "json-pretty-html": "^1.1.2",
     "local-storage-fallback": "^4.1.1",
-    "lodash": "^4.17.0",
+    "lodash": "^4.17.13",
     "mock-local-storage": "^1.0.5",
     "moment": "^2.24.0",
     "normalize-url": "^4.2.0",
