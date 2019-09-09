@@ -188,9 +188,9 @@ func sessionAuthRequired(store *store.Store) gin.HandlerFunc {
 	}
 }
 
-// tokenAuthRequired first tries session authentication, then falls back to
+// sessionOrTokenAuthRequired first tries session authentication, then falls back to
 // token authentication, strictly for External Initiators
-func tokenAuthRequired(store *store.Store) gin.HandlerFunc {
+func sessionOrTokenAuthRequired(store *store.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		err := sessionAuth(store, c)
 		if err == ErrorAuthFailed {
@@ -307,9 +307,9 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 	}
 
 	ping := PingController{app}
-	tokAuthv2 := r.Group("/v2", tokenAuthRequired(app.GetStore()))
-	tokAuthv2.POST("/specs/:SpecID/runs", jr.Create)
-	tokAuthv2.GET("/ping", ping.Show)
+	sotAuth := r.Group("/v2", sessionOrTokenAuthRequired(app.GetStore()))
+	sotAuth.POST("/specs/:SpecID/runs", jr.Create)
+	sotAuth.GET("/ping", ping.Show)
 }
 
 func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
