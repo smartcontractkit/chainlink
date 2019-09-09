@@ -1,0 +1,52 @@
+{
+  "root": true,
+  "plugins": ["prettier"],
+  "extends": [
+    "react-app",
+    "eslint:recommended",
+    "plugin:react/recommended",
+    "prettier"
+  ],
+  "settings": {
+    "react": {
+      "pragma": "React",
+      "version": "detect"
+    }
+  },
+  "rules": {
+    "semi": ["error", "never"],
+    "quotes": [
+      "error",
+      "single",
+      {
+        "avoidEscape": true,
+        "allowTemplateLiterals": true
+      }
+    ],
+    "no-trailing-spaces": ["warn"],
+    "no-multiple-empty-lines": [
+      "error",
+      {
+        "max": 2,
+        "maxEOF": 1
+      }
+    ],
+    "react/display-name": ["off"],
+    "react/prop-types": [
+      "off",
+      {
+        "ignore": ["navigation"]
+      }
+    ],
+    "no-unused-vars": "warn",
+    "no-console": "warn",
+    "jsx-a11y/anchor-is-valid": ["off"],
+    "prettier/prettier": "error",
+    "no-empty": [
+      "error",
+      {
+        "allowEmptyCatch": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+.header {
+  height: 50px;
+  margin: 30px 60px 60px 60px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.header-logotype {
+  width: 400px;
+  display: flex;
+  align-items: center;
+}
+
+.header h1 {
+  font-size: 18px;
+  font-family: Helvetica, sans-serif;
+  margin: 0 15px;
+  display: block;
+  font-weight: 400;
+}
