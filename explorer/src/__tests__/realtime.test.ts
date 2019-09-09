@@ -183,7 +183,7 @@ describe('realtime', () => {
     )
   })
 
-  it.only('rejects multiple connections from single node', async done => {
+  it('rejects multiple connections from single node', async done => {
     expect.assertions(4)
 
     const ws1 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
