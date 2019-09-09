@@ -59,7 +59,7 @@ export const Configuration = useHooks(props => {
 })
 
 Configuration.propTypes = {
-  data: PropTypes.array.isRequired
+  data: PropTypes.array.isRequired,
 }
 
 const mapStateToProps = state => {
@@ -69,7 +69,7 @@ const mapStateToProps = state => {
 
 export const ConnectedConfiguration = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchConfiguration })
+  matchRouteAndMapDispatchToProps({ fetchConfiguration }),
 )(Configuration)
 
 export default ConnectedConfiguration

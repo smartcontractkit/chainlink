@@ -10,7 +10,7 @@ const getJobRuns = (query: Query, page: number, size: number) => {
       const normalizedData = normalize(r, { endpoint: 'jobRuns' })
       const action: JobRunsAction = {
         type: 'UPSERT_JOB_RUNS',
-        data: normalizedData
+        data: normalizedData,
       }
 
       dispatch(action)
@@ -24,7 +24,7 @@ const getJobRun = (jobRunId?: string) => {
       const normalizedData = normalize(r, { endpoint: 'jobRun' })
       const action: JobRunsAction = {
         type: 'UPSERT_JOB_RUN',
-        data: normalizedData
+        data: normalizedData,
       }
 
       dispatch(action)

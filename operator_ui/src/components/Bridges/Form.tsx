@@ -3,7 +3,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import Button from 'components/Button'
 import { withFormik, FormikProps, Form as FormikForm } from 'formik'
@@ -15,19 +15,19 @@ import { get, set } from 'utils/storage'
 const styles = (theme: Theme) =>
   createStyles({
     textfield: {
-      paddingTop: theme.spacing.unit * 1.25
+      paddingTop: theme.spacing.unit * 1.25,
     },
     card: {
-      paddingBottom: theme.spacing.unit * 2
+      paddingBottom: theme.spacing.unit * 2,
     },
     button: {
-      marginTop: theme.spacing.unit * 3
+      marginTop: theme.spacing.unit * 3,
     },
     flash: {
       textAlign: 'center',
       paddingTop: theme.spacing.unit,
-      paddingBottom: theme.spacing.unit
-    }
+      paddingBottom: theme.spacing.unit,
+    },
   })
 
 const isDirty = ({ values, submitCount }: Props) => {
@@ -135,7 +135,7 @@ const Form: React.SFC<Props> = props => (
 )
 
 Form.defaultProps = {
-  nameDisabled: false
+  nameDisabled: false,
 }
 
 const WithFormikForm = withFormik<OwnProps, FormValues>({
@@ -147,7 +147,7 @@ const WithFormikForm = withFormik<OwnProps, FormValues>({
       name: name || '',
       url: url || '',
       minimumContractPayment: minimumContractPayment || 0,
-      confirmations: confirmations || 0
+      confirmations: confirmations || 0,
     }
     return (shouldPersist && persistedJSON) || json
   },
@@ -163,7 +163,7 @@ const WithFormikForm = withFormik<OwnProps, FormValues>({
     setTimeout(() => {
       setSubmitting(false)
     }, 1000)
-  }
+  },
 })(Form)
 
 export default withStyles(styles)(WithFormikForm)

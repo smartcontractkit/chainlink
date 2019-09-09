@@ -22,7 +22,7 @@ const INVALIDVALUE = {
   // before they were initialized. Do any test initialization which requires
   // them in a callback passed to Mocha's `before` or `beforeEach`.
   // https://mochajs.org/#asynchronous-hooks
-  unitializedValueProbablyShouldUseVaribleInMochaBeforeCallback: null
+  unitializedValueProbablyShouldUseVaribleInMochaBeforeCallback: null,
 }
 
 export let [
@@ -33,7 +33,7 @@ export let [
   oracleNode3,
   stranger,
   consumer,
-  oracleNode
+  oracleNode,
 ] = Array(1000).fill(INVALIDVALUE)
 export let personas = {}
 
@@ -45,7 +45,7 @@ before(async function queryEthClientForConstants() {
     oracleNode2,
     oracleNode3,
     stranger,
-    consumer
+    consumer,
   ] = accounts.slice(0, 6)
   oracleNode = oracleNode1
 
@@ -69,14 +69,14 @@ export const wrappedERC20 = (contract: any): any => ({
     address: any,
     amount: any,
     payload: any,
-    options: any
+    options: any,
   ) =>
     contract.transferAndCall(
       address,
       bNToStringOrIdentity(amount),
       payload,
-      options
-    )
+      options,
+    ),
 })
 
 export const linkContract = async (account: any): Promise<any> => {
@@ -84,14 +84,14 @@ export const linkContract = async (account: any): Promise<any> => {
   const receipt = await web3.eth.sendTransaction({
     data: linkToken.bytecode,
     from: account,
-    gasLimit: 2000000
+    gasLimit: 2000000,
   })
   const contract = TruffleContract({ abi: linkToken.abi })
   contract.setProvider(web3.currentProvider)
   contract.defaults({
     from: account,
     gas: 3500000,
-    gasPrice: 10000000000
+    gasPrice: 10000000000,
   })
 
   return wrappedERC20(await contract.at(receipt.contractAddress))
@@ -101,7 +101,7 @@ export const bigNum = (num: any): BigNumber => web3.utils.toBN(num)
 assertBigNum(
   bigNum('1'),
   bigNum(1),
-  'Different representations should give same BNs'
+  'Different representations should give same BNs',
 )
 
 // toWei(n) is n * 10**18, as a BN.
@@ -110,7 +110,7 @@ export const toWei = (num: string | number): any =>
 assertBigNum(
   toWei('1'),
   toWei(1),
-  'Different representations should give same BNs'
+  'Different representations should give same BNs',
 )
 
 export const toUtf8 = web3.utils.toUtf8
@@ -126,7 +126,7 @@ export const toHexWithoutPrefix = (arg: any): string => {
     return Array.prototype.reduce.call(
       arg,
       (a: any, v: any) => a + v.toString('16').padStart(2, '0'),
-      ''
+      '',
     )
   } else if (Number(arg) === arg) {
     return arg.toString(16).padStart(64, '0')
@@ -152,7 +152,7 @@ export const getEvents = (contract: any): Promise<any[]> =>
     contract
       .getPastEvents()
       .then((events: any) => resolve(events))
-      .catch((error: any) => reject(error))
+      .catch((error: any) => reject(error)),
   )
 
 export const getLatestEvent = async (contract: any): Promise<any[]> => {
@@ -166,7 +166,7 @@ export const requestDataFrom = (
   link: any,
   amount: any,
   args: any,
-  options: any
+  options: any,
 ): any => {
   if (!options) {
     options = { value: 0 }
@@ -192,12 +192,12 @@ export const assertActionThrows = (action: any) =>
       assert(errorMessage, 'Expected an error to be raised')
       const invalidOpcode = errorMessage.includes('invalid opcode')
       const reverted = errorMessage.includes(
-        'VM Exception while processing transaction: revert'
+        'VM Exception while processing transaction: revert',
       )
       assert(
         invalidOpcode || reverted,
         'expected following error message to include "invalid JUMP" or ' +
-          `"revert": "${errorMessage}"`
+          `"revert": "${errorMessage}"`,
       )
       // see https://github.com/ethereumjs/testrpc/issues/39
       // for why the "invalid JUMP" is the throw related error when using TestRPC
@@ -241,7 +241,7 @@ export const decodeRunRequest = (log: any): any => {
     'bytes4',
     'uint256',
     'uint256',
-    'bytes'
+    'bytes',
   ]
   const [
     requester,
@@ -251,7 +251,7 @@ export const decodeRunRequest = (log: any): any => {
     callbackFunc,
     expiration,
     version,
-    data
+    data,
   ] = abi.rawDecode(types, runABI)
 
   return {
@@ -264,7 +264,7 @@ export const decodeRunRequest = (log: any): any => {
     jobId: log.topics[1],
     payment: toHex(payment),
     requester: Ox(requester),
-    topic: log.topics[0]
+    topic: log.topics[0],
   }
 }
 
@@ -274,7 +274,7 @@ const autoAddMapDelimiters = (data: any): Buffer => {
   if (buffer[0] >> 5 !== 5) {
     buffer = Buffer.concat(
       [startMapBuffer, buffer, endMapBuffer],
-      buffer.length + 2
+      buffer.length + 2,
     )
   }
 
@@ -295,7 +295,7 @@ export const requestDataBytes = (
   to: any,
   fHash: any,
   nonce: any,
-  data: any
+  data: any,
 ): any => {
   const types = [
     'address',
@@ -305,12 +305,12 @@ export const requestDataBytes = (
     'bytes4',
     'uint256',
     'uint256',
-    'bytes'
+    'bytes',
   ]
   const values = [0, 0, specId, to, fHash, nonce, 1, data]
   const encoded = abiEncode(types, values)
   const funcSelector = functionSelector(
-    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)'
+    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)',
   )
   return funcSelector + encoded
 }
@@ -321,7 +321,7 @@ export const abiEncode = (types: any, values: any): string => {
 
 export const newUint8ArrayFromStr = (str: string): Uint8Array => {
   const codePoints = Array.prototype.map.call(str, (c: string) =>
-    c.charCodeAt(0)
+    c.charCodeAt(0),
   )
   return Uint8Array.from(codePoints)
 }
@@ -356,7 +356,7 @@ export const newSignature = (str: string): any => {
     full: oracleSignature,
     r: oracleSignature.slice(0, 32),
     s: oracleSignature.slice(32, 64),
-    v
+    v,
   }
 }
 
@@ -404,7 +404,7 @@ export const increaseTime5Minutes = async () => {
       id: 0,
       jsonrpc: '2.0',
       method: 'evm_increaseTime',
-      params: [300]
+      params: [300],
     },
     (error: any, result: any) => {
       if (error) {
@@ -412,7 +412,7 @@ export const increaseTime5Minutes = async () => {
         console.log(`Error during helpers.increaseTime5Minutes! ${error}`)
         throw error
       }
-    }
+    },
   )
 }
 
@@ -422,7 +422,7 @@ export const sendToEvm = async (evmMethod: string, ...params: any) => {
       id: 0,
       jsonrpc: '2.0',
       method: evmMethod,
-      params: [...params]
+      params: [...params],
     },
     (error: any, result: any) => {
       if (error) {
@@ -430,7 +430,7 @@ export const sendToEvm = async (evmMethod: string, ...params: any) => {
         console.log(`Error during ${evmMethod}! ${error}`)
         throw error
       }
-    }
+    },
   )
 }
 
@@ -443,7 +443,7 @@ export const mineBlocks = async (blocks: number) => {
 export const createTxData = (
   selector: string,
   types: any,
-  values: any
+  values: any,
 ): any => {
   const funcSelector = functionSelector(selector)
   const encoded = abiEncode([...types], [...values])
@@ -455,7 +455,7 @@ export const calculateSAID = ({
   expiration,
   endAt,
   oracles,
-  requestDigest
+  requestDigest,
 }: any): Uint8Array => {
   const serviceAgreementIDInput = concatTypedArrays(
     newHash(payment.toString()),
@@ -465,43 +465,43 @@ export const calculateSAID = ({
       ...oracles
         .map(newAddress)
         .map(toHex)
-        .map(newHash)
+        .map(newHash),
     ),
-    requestDigest
+    requestDigest,
   )
   const serviceAgreementIDInputDigest = ethjsUtils.keccak(
-    toHex(serviceAgreementIDInput)
+    toHex(serviceAgreementIDInput),
   )
   return newHash(toHex(serviceAgreementIDInputDigest))
 }
 
 export const recoverPersonalSignature = (
   message: Uint8Array,
-  signature: any
+  signature: any,
 ): any => {
   const personalSignPrefix = newUint8ArrayFromStr(
-    '\x19Ethereum Signed Message:\n'
+    '\x19Ethereum Signed Message:\n',
   )
   const personalSignMessage = Uint8Array.from(
     concatTypedArrays(
       personalSignPrefix,
       newUint8ArrayFromStr(message.length.toString()),
-      message
-    )
+      message,
+    ),
   )
   const digest = ethjsUtils.keccak(toBuffer(personalSignMessage))
   const requestDigestPubKey = ethjsUtils.ecrecover(
     digest,
     signature.v,
     toBuffer(signature.r),
-    toBuffer(signature.s)
+    toBuffer(signature.s),
   )
   return ethjsUtils.pubToAddress(requestDigestPubKey)
 }
 
 export const personalSign = async (
   account: any,
-  message: any
+  message: any,
 ): Promise<any> => {
   if (!isByteRepresentation(message)) {
     throw new Error(`Message ${message} is not a recognized representation of a byte array.
@@ -515,7 +515,7 @@ export const executeServiceAgreementBytes = (
   to: any,
   fHash: any,
   nonce: any,
-  data: any
+  data: any,
 ): any => {
   const types = [
     'address',
@@ -525,12 +525,12 @@ export const executeServiceAgreementBytes = (
     'bytes4',
     'uint256',
     'uint256',
-    'bytes'
+    'bytes',
   ]
   const values = [0, 0, sAID, to, fHash, nonce, 1, data]
   const encoded = abiEncode(types, values)
   const funcSelector = functionSelector(
-    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)'
+    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)',
   )
   return funcSelector + encoded
 }
@@ -546,7 +546,7 @@ export const padNumTo256Bit = (n: number): string =>
 
 export const constructStructArgs = (
   fieldNames: string[],
-  values: any[]
+  values: any[],
 ): any[] => {
   assert.equal(fieldNames.length, values.length)
   const args = []
@@ -563,7 +563,7 @@ export const initiateServiceAgreementArgs = ({
   endAt,
   oracles,
   oracleSignatures,
-  requestDigest
+  requestDigest,
 }: any): any[] => {
   return [
     constructStructArgs(
@@ -573,17 +573,17 @@ export const initiateServiceAgreementArgs = ({
         toHex(newHash(expiration.toString())),
         toHex(newHash(endAt.toString())),
         oracles.map(newAddress).map(toHex),
-        toHex(requestDigest)
-      ]
+        toHex(requestDigest),
+      ],
     ),
     constructStructArgs(
       ['vs', 'rs', 'ss'],
       [
         oracleSignatures.map((os: any) => os.v),
         oracleSignatures.map((os: any) => toHex(os.r)),
-        oracleSignatures.map((os: any) => toHex(os.s))
-      ]
-    )
+        oracleSignatures.map((os: any) => toHex(os.s)),
+      ],
+    ),
   ]
 }
 
@@ -591,23 +591,23 @@ export const initiateServiceAgreementArgs = ({
 // get the return value
 export const initiateServiceAgreementCall = async (
   coordinator: any,
-  args: any
+  args: any,
 ): Promise<any> =>
   coordinator.initiateServiceAgreement.call(
-    ...initiateServiceAgreementArgs(args)
+    ...initiateServiceAgreementArgs(args),
   )
 
 /** Call coordinator contract to initiate the specified service agreement. */
 export const initiateServiceAgreement = async (
   coordinator: any,
-  args: any
+  args: any,
 ): Promise<any> =>
   coordinator.initiateServiceAgreement(...initiateServiceAgreementArgs(args))
 
 /** Check that the given service agreement was stored at the correct location */
 export const checkServiceAgreementPresent = async (
   coordinator: any,
-  { payment, expiration, endAt, requestDigest, id }: any
+  { payment, expiration, endAt, requestDigest, id }: any,
 ): Promise<any> => {
   const sa = await coordinator.serviceAgreements.call(id)
   assertBigNum(sa[0], bigNum(payment))
@@ -640,17 +640,17 @@ export const checkServiceAgreementPresent = async (
 // nothing was changed due to invalid request
 export const checkServiceAgreementAbsent = async (
   coordinator: any,
-  serviceAgreementID: any
+  serviceAgreementID: any,
 ) => {
   const sa = await coordinator.serviceAgreements.call(
-    toHex(serviceAgreementID).slice(0, 66)
+    toHex(serviceAgreementID).slice(0, 66),
   )
   assertBigNum(sa[0], bigNum(0))
   assertBigNum(sa[1], bigNum(0))
   assertBigNum(sa[2], bigNum(0))
   assert.equal(
     sa[3],
-    '0x0000000000000000000000000000000000000000000000000000000000000000'
+    '0x0000000000000000000000000000000000000000000000000000000000000000',
   )
 }
 
@@ -665,7 +665,7 @@ export const newServiceAgreement = async (params: any): Promise<any> => {
   agreement.requestDigest =
     params.requestDigest ||
     newHash(
-      '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5'
+      '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5',
     )
 
   const sAID = calculateSAID(agreement)
@@ -688,7 +688,7 @@ export const fulfillOracleRequest = async (
   oracle: any,
   request: any,
   response: any,
-  options: any
+  options: any,
 ): Promise<any> => {
   if (!options) {
     options = { value: 0 }
@@ -701,14 +701,14 @@ export const fulfillOracleRequest = async (
     request.callbackFunc,
     request.expiration,
     toHex(response),
-    options
+    options,
   )
 }
 
 export const cancelOracleRequest = async (
   oracle: any,
   request: any,
-  options: any
+  options: any,
 ): Promise<any> => {
   if (!options) {
     options = { value: 0 }
@@ -719,6 +719,6 @@ export const cancelOracleRequest = async (
     request.payment,
     request.callbackFunc,
     request.expiration,
-    options
+    options,
   )
 }

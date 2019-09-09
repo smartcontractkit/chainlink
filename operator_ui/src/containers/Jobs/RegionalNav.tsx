@@ -8,7 +8,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
@@ -31,23 +31,23 @@ const styles = (theme: Theme) =>
     container: {
       backgroundColor: theme.palette.common.white,
       padding: theme.spacing.unit * 5,
-      paddingBottom: 0
+      paddingBottom: 0,
     },
     mainRow: {
-      marginBottom: theme.spacing.unit * 2
+      marginBottom: theme.spacing.unit * 2,
     },
     actions: {
-      textAlign: 'right'
+      textAlign: 'right',
     },
     duplicate: {
       marginLeft: theme.spacing.unit,
-      marginRight: theme.spacing.unit
+      marginRight: theme.spacing.unit,
     },
     horizontalNav: {
-      paddingBottom: 0
+      paddingBottom: 0,
     },
     horizontalNavItem: {
-      display: 'inline'
+      display: 'inline',
     },
     horizontalNavLink: {
       paddingTop: theme.spacing.unit * 4,
@@ -57,16 +57,16 @@ const styles = (theme: Theme) =>
       borderBottom: 'solid 1px',
       borderBottomColor: theme.palette.common.white,
       '&:hover': {
-        borderBottomColor: theme.palette.primary.main
-      }
+        borderBottomColor: theme.palette.primary.main,
+      },
     },
     activeNavLink: {
       color: theme.palette.primary.main,
-      borderBottomColor: theme.palette.primary.main
+      borderBottomColor: theme.palette.primary.main,
     },
     jobSpecId: {
       overflow: 'hidden',
-      textOverflow: 'ellipsis'
+      textOverflow: 'ellipsis',
     },
     dialogPaper: {
       minHeight: '240px',
@@ -74,29 +74,29 @@ const styles = (theme: Theme) =>
       minWidth: '670px',
       maxWidth: '670px',
       overflow: 'hidden',
-      borderRadius: theme.spacing.unit * 3
+      borderRadius: theme.spacing.unit * 3,
     },
     warningText: {
       fontWeight: 500,
       marginLeft: theme.spacing.unit * 3,
       marginTop: theme.spacing.unit * 3,
-      marginBottom: theme.spacing.unit
+      marginBottom: theme.spacing.unit,
     },
     closeButton: {
       marginRight: theme.spacing.unit * 3,
-      marginTop: theme.spacing.unit * 3
+      marginTop: theme.spacing.unit * 3,
     },
     infoText: {
       fontSize: theme.spacing.unit * 2,
       fontWeight: 450,
-      marginLeft: theme.spacing.unit * 6
+      marginLeft: theme.spacing.unit * 6,
     },
     modalContent: {
-      width: 'inherit'
+      width: 'inherit',
     },
     archiveButton: {
-      marginTop: theme.spacing.unit * 4
-    }
+      marginTop: theme.spacing.unit * 4,
+    },
   })
 
 const CreateRunSuccessNotification = ({ data }: any) => (
@@ -131,7 +131,7 @@ const RegionalNav = ({
   jobSpecId,
   job,
   deleteJobSpec,
-  url
+  url,
 }: IProps) => {
   const navOverviewActive = url && !url.includes('json')
   const navDefinitionACtive = !navOverviewActive
@@ -143,8 +143,8 @@ const RegionalNav = ({
       fetchJobRuns({
         jobSpecId: job.id,
         page: DEFAULT_PAGE,
-        size: RECENT_RUNS_COUNT
-      })
+        size: RECENT_RUNS_COUNT,
+      }),
     )
   }
   const handleDelete = (id: string) => {
@@ -249,7 +249,7 @@ const RegionalNav = ({
                   <Button
                     href={{
                       pathname: '/jobs/new',
-                      state: { definition: definition }
+                      state: { definition: definition },
                     }}
                     component={BaseLink}
                     className={classes.duplicate}
@@ -278,7 +278,7 @@ const RegionalNav = ({
                   href={`/jobs/${jobSpecId}`}
                   className={classNames(
                     classes.horizontalNavLink,
-                    navOverviewActive && classes.activeNavLink
+                    navOverviewActive && classes.activeNavLink,
                   )}
                 >
                   Overview
@@ -289,7 +289,7 @@ const RegionalNav = ({
                   href={`/jobs/${jobSpecId}/json`}
                   className={classNames(
                     classes.horizontalNavLink,
-                    navDefinitionACtive && classes.activeNavLink
+                    navDefinitionACtive && classes.activeNavLink,
                   )}
                 >
                   JSON
@@ -304,12 +304,12 @@ const RegionalNav = ({
 }
 
 const mapStateToProps = (state: any) => ({
-  url: state.notifications.currentUrl
+  url: state.notifications.currentUrl,
 })
 
 export const ConnectedRegionalNav = connect(
   mapStateToProps,
-  { fetchJobRuns, createJobRun, deleteJobSpec }
+  { fetchJobRuns, createJobRun, deleteJobSpec },
 )(RegionalNav)
 
 export default withStyles(styles)(ConnectedRegionalNav)

@@ -16,16 +16,16 @@ describe('fetchJob', () => {
       type: 'httpget',
       params: {
         headers: {
-          'x-api-key': ['SOME_API_KEY']
-        }
-      }
+          'x-api-key': ['SOME_API_KEY'],
+        },
+      },
     }
     const jobSpecId = 'someid'
     const jobSpecResponse = jsonApiJobSpecFactory({
       createdAt: minuteAgo,
       id: jobSpecId,
       initiators: [{ type: 'web' }],
-      tasks: [expectedTask]
+      tasks: [expectedTask],
     })
 
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
@@ -45,18 +45,18 @@ describe('fetchJobRun', () => {
       type: 'noop',
       params: {
         headers: {
-          'x-api-key': ['SOME_API_KEY']
-        }
-      }
+          'x-api-key': ['SOME_API_KEY'],
+        },
+      },
     }
     const runResponse = jsonApiJobSpecRunFactory({
       taskRuns: [
         {
           id: 'taskRunA',
           status: 'completed',
-          task: expectedTask
-        }
-      ]
+          task: expectedTask,
+        },
+      ],
     })
 
     const id = runResponse.data.id

@@ -7,8 +7,8 @@ const styles = theme => ({
   node: {
     display: 'inline-block',
     marginLeft: theme.spacing.unit / 2,
-    marginRight: theme.spacing.unit / 2
-  }
+    marginRight: theme.spacing.unit / 2,
+  },
 })
 
 const renderLink = ({ children, href }) => <Link href={href}>{children}</Link>

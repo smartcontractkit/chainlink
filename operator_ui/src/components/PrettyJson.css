@@ -1,5 +1,5 @@
 .json-pretty {
-  font-family: Roboto Mono, Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-family: Roboto Mono, Menlo, Monaco, Consolas, 'Courier New', monospace;
   font-weight: normal;
   font-size: 14px;
   line-height: 16px;
@@ -10,21 +10,21 @@
 }
 
 .json-selected {
-    background-color: rgba(139, 191, 228, 0.19999999999999996);
+  background-color: rgba(139, 191, 228, 0.19999999999999996);
 }
 
 .json-string {
-    color: #6caedd;
+  color: #6caedd;
 }
 
 .json-key {
-    color: #ec5f67;
+  color: #ec5f67;
 }
 
 .json-boolean {
-    color: #99c794;
+  color: #99c794;
 }
 
 .json-number {
-    color: #99c794;
+  color: #99c794;
 }

@@ -25,8 +25,8 @@ const server = (port: number = DEFAULT_PORT) => {
         if (mime.lookup(path) === 'text/html') {
           res.setHeader('Cache-Control', 'public, max-age=0')
         }
-      }
-    })
+      },
+    }),
   )
   app.use('/api/v1', controllers.jobRuns)
 

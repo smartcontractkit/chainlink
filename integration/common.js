@@ -19,7 +19,7 @@ const DEVNET_ADDRESS = '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
 const optionsDefinitions = [
   { name: 'args', type: String, multiple: true, defaultOption: true },
   { name: 'compile', type: Boolean },
-  { name: 'network', type: String }
+  { name: 'network', type: String },
 ]
 
 // wrapper for main truffle script functions
@@ -49,5 +49,5 @@ module.exports = {
   provider,
   port,
   scriptRunner,
-  wallet
+  wallet,
 }

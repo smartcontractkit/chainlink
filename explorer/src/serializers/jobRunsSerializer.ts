@@ -1,6 +1,6 @@
 import {
   Serializer as JSONAPISerializer,
-  SerializerOptions
+  SerializerOptions,
 } from 'jsonapi-serializer'
 import { JobRun } from '../entity/JobRun'
 import { BASE_ATTRIBUTES, chainlinkNode } from './jobRunSerializer'
@@ -10,7 +10,7 @@ const jobRunsSerializer = (runs: JobRun[], runCount: number) => {
     attributes: BASE_ATTRIBUTES,
     chainlinkNode: chainlinkNode,
     keyForAttribute: 'camelCase',
-    meta: { count: runCount }
+    meta: { count: runCount },
   } as SerializerOptions
 
   return new JSONAPISerializer('job_runs', opts).serialize(runs)

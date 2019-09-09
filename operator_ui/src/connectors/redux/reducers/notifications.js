@@ -2,7 +2,7 @@ import {
   MATCH_ROUTE,
   RECEIVE_SIGNIN_FAIL,
   NOTIFY_SUCCESS,
-  NOTIFY_ERROR
+  NOTIFY_ERROR,
 } from 'actions'
 import { set } from 'utils/storage'
 import { BadRequestError } from '../../../api/errors'
@@ -10,7 +10,7 @@ import { BadRequestError } from '../../../api/errors'
 const initialState = {
   errors: [],
   successes: [],
-  currentUrl: null
+  currentUrl: null,
 }
 const SIGN_IN_FAIL_MSG = 'Your email or password is incorrect. Please try again'
 
@@ -21,7 +21,7 @@ export default (state = initialState, action = {}) => {
         return Object.assign({}, state, {
           errors: [],
           successes: [],
-          currentUrl: action.match.url
+          currentUrl: action.match.url,
         })
       }
 
@@ -30,20 +30,20 @@ export default (state = initialState, action = {}) => {
     case RECEIVE_SIGNIN_FAIL: {
       return Object.assign({}, state, {
         successes: [],
-        errors: [{ props: { msg: SIGN_IN_FAIL_MSG } }]
+        errors: [{ props: { msg: SIGN_IN_FAIL_MSG } }],
       })
     }
     case NOTIFY_SUCCESS: {
       const success = {
         component: action.component,
-        props: action.props
+        props: action.props,
       }
       if (success.props.data && success.props.data.type === 'specs')
         set('persistSpec', {})
       else if (typeof success.props.url === 'string') set('persistBridge', {})
       return Object.assign({}, state, {
         successes: [success],
-        errors: []
+        errors: [],
       })
     }
     case NOTIFY_ERROR: {
@@ -53,14 +53,14 @@ export default (state = initialState, action = {}) => {
       if (error.errors) {
         errorNotifications = error.errors.map(e => ({
           component: component,
-          props: { msg: e.detail }
+          props: { msg: e.detail },
         }))
       } else if (error.message) {
         errorNotifications = [
           {
             component: component,
-            props: { msg: error.message }
-          }
+            props: { msg: error.message },
+          },
         ]
       } else {
         errorNotifications = [error]
@@ -69,7 +69,7 @@ export default (state = initialState, action = {}) => {
 
       return Object.assign({}, state, {
         successes: [],
-        errors: errorNotifications
+        errors: errorNotifications,
       })
     }
     default:

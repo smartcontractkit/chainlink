@@ -25,6 +25,7 @@
     "prebuild": "yarn install",
     "build": "craco build",
     "lint": "eslint . --color",
+    "format": "prettier --write \"**/*\"",
     "test": "react-scripts test",
     "test-ci": "CI=true react-scripts test",
     "test-ci:silent": "yarn test-ci --silent",
@@ -35,6 +36,7 @@
   "dependencies": {
     "@babel/core": "7.4.3",
     "@babel/preset-typescript": "~7.3.3",
+    "@chainlink/prettier-config": "0.0.1",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^3.0.2",
     "@reach/router": "^1.2.1",
@@ -91,12 +93,13 @@
     "react-scripts": "3.0.1",
     "redux-devtools-extension": "^2.13.8",
     "redux-logger": "^3.0.6",
-    "prettier": "^1.16.4",
+    "prettier": "^1.18.2",
     "prettier-config-standard": ">= 1.0.0",
     "typescript": "^3.5.0",
     "depcheck": "^0.8.3"
   },
   "comments": {
     "resolutions": "Had to lock caniuse-lite version at last working version with browserlists"
-  }
+  },
+  "prettier": "@chainlink/prettier-config"
 }

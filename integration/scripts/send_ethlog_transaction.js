@@ -17,7 +17,7 @@ const main = async () => {
   const job = {
     _comment: 'An ethlog with no address listens to all addresses.',
     initiators: [{ type: 'ethlog', params: { address: ethLog.address } }],
-    tasks: [{ type: 'HttpPost', params: { url: ECHO_SERVER_URL } }]
+    tasks: [{ type: 'HttpPost', params: { url: ECHO_SERVER_URL } }],
   }
   const specsUrl = url.resolve(CHAINLINK_URL, '/v2/specs')
   let Job = await request

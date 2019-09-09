@@ -13,10 +13,10 @@ export const SignOut = useHooks(props => {
 })
 
 SignOut.propTypes = {
-  receiveSignoutSuccess: PropTypes.func.isRequired
+  receiveSignoutSuccess: PropTypes.func.isRequired,
 }
 
 export default connect(
   null,
-  { receiveSignoutSuccess }
+  { receiveSignoutSuccess },
 )(SignOut)

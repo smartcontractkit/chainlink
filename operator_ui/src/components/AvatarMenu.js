@@ -20,29 +20,29 @@ import { submitSignOut } from 'actions'
 const styles = theme => {
   return {
     button: {
-      marginTop: -4
+      marginTop: -4,
     },
     avatar: {
       width: 30,
-      height: 30
+      height: 30,
     },
     menuListGrow: {
       marginTop: 10,
       borderRadius: theme.spacing.unit * 2,
-      backgroundColor: theme.palette.primary.main
+      backgroundColor: theme.palette.primary.main,
     },
     menuItem: {
       '&:hover': {
-        backgroundColor: 'transparent'
-      }
+        backgroundColor: 'transparent',
+      },
     },
     link: {
       color: theme.palette.common.white,
       textDecoration: 'none',
       '&:hover': {
-        color: grey[200]
-      }
-    }
+        color: grey[200],
+      },
+    },
   }
 }
 
@@ -82,7 +82,7 @@ const AvatarMenu = useHooks(({ classes, submitSignOut }) => {
             className={classes.menuListGrow}
             style={{
               transformOrigin:
-                placement === 'bottom' ? 'center top' : 'center bottom'
+                placement === 'bottom' ? 'center top' : 'center bottom',
             }}
           >
             <Paper square={false}>
@@ -112,7 +112,7 @@ const mapDispatchToProps = dispatch =>
 
 export const ConnectedAvatarMenu = connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(AvatarMenu)
 
 export default withStyles(styles)(ConnectedAvatarMenu)

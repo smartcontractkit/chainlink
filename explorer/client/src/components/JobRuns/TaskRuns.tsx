@@ -5,7 +5,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import StatusIcon from '../Icons/Status'
 import EtherscanLink from './EtherscanLink'
@@ -15,7 +15,7 @@ const styles = ({ spacing, palette }: Theme) =>
     container: {
       margin: 0,
       marginLeft: spacing.unit * 2,
-      paddingLeft: 0
+      paddingLeft: 0,
     },
     item: {
       borderLeft: 'solid 2px',
@@ -26,24 +26,24 @@ const styles = ({ spacing, palette }: Theme) =>
       listStyle: 'none',
       paddingBottom: spacing.unit * 2,
       '&:last-child': {
-        paddingBottom: 0
-      }
+        paddingBottom: 0,
+      },
     },
     status: {
       marginRight: spacing.unit * 2,
-      marginLeft: -22
+      marginLeft: -22,
     },
     track: {
       display: 'flex',
       alignItems: 'center',
-      flexGrow: 1
+      flexGrow: 1,
     },
     pendingConfirmations: {
-      marginLeft: spacing.unit
+      marginLeft: spacing.unit,
     },
     etherscan: {
-      marginLeft: spacing.unit
-    }
+      marginLeft: spacing.unit,
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {
@@ -54,14 +54,15 @@ interface IProps extends WithStyles<typeof styles> {
 const renderConfirmations = (
   { confirmations, minimumConfirmations }: ITaskRun,
   prevConfs: string,
-  classes: any
+  classes: any,
 ) => {
   if (minimumConfirmations && JSBI.GT(minimumConfirmations, prevConfs)) {
     return (
       <Typography
         variant="subtitle2"
         color="textSecondary"
-        className={classes.pendingConfirmations}>
+        className={classes.pendingConfirmations}
+      >
         ({confirmations} / {minimumConfirmations} pending confirmations)
       </Typography>
     )
@@ -72,7 +73,7 @@ const renderConfirmations = (
 const calculatePrevConfs = (taskRuns: ITaskRun[] | undefined): string[] => {
   if (taskRuns) {
     const prevMinConfs = taskRuns.map(
-      taskRun => taskRun.minimumConfirmations
+      taskRun => taskRun.minimumConfirmations,
     ) as string[]
     prevMinConfs.unshift('0')
     return prevMinConfs

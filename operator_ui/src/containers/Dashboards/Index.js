@@ -11,7 +11,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import {
   fetchRecentJobRuns,
   fetchRecentlyCreatedJobs,
-  fetchAccountBalance
+  fetchAccountBalance,
 } from 'actions'
 import accountBalanceSelector from 'selectors/accountBalance'
 import dashboardJobRunsCountSelector from 'selectors/dashboardJobRunsCount'
@@ -68,12 +68,12 @@ Index.propTypes = {
   jobRunsCount: PropTypes.number,
   recentJobRuns: PropTypes.array,
   recentlyCreatedJobs: PropTypes.array,
-  recentlyCreatedPageSize: PropTypes.number
+  recentlyCreatedPageSize: PropTypes.number,
 }
 
 Index.defaultProps = {
   recentJobRunsCount: 2,
-  recentlyCreatedPageSize: 2
+  recentlyCreatedPageSize: 2,
 }
 
 const mapStateToProps = state => {
@@ -81,7 +81,7 @@ const mapStateToProps = state => {
     accountBalance: accountBalanceSelector(state),
     jobRunsCount: dashboardJobRunsCountSelector(state),
     recentJobRuns: recentJobRunsSelector(state),
-    recentlyCreatedJobs: recentlyCreatedJobsSelector(state)
+    recentlyCreatedJobs: recentlyCreatedJobsSelector(state),
   }
 }
 
@@ -90,8 +90,8 @@ export const ConnectedIndex = connect(
   matchRouteAndMapDispatchToProps({
     fetchAccountBalance,
     fetchRecentJobRuns,
-    fetchRecentlyCreatedJobs
-  })
+    fetchRecentlyCreatedJobs,
+  }),
 )(Index)
 
 export default ConnectedIndex

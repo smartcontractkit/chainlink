@@ -11,6 +11,7 @@
     "serve": "serve dist -p 3000",
     "prelint": "yarn build:tsc",
     "lint": "tsc --noEmit",
+    "format": "prettier --write \"**/*\"",
     "test": "yarn build:tsc && cross-env NODE_ENV=test jest",
     "test:nocache": "yarn build:tsc:clean && yarn test --no-cache",
     "test:ci": "yarn test:nocache --runInBand --coverage --reporters jest-silent-reporter",
@@ -87,6 +88,7 @@
     "uuid": "^3.3.2"
   },
   "devDependencies": {
+    "@chainlink/prettier-config": "0.0.1",
     "@types/classnames": "^2.2.8",
     "@types/enzyme": "^3.10.3",
     "@types/fetch-mock": "^7.3.1",
@@ -101,6 +103,8 @@
     "@types/react-resize-detector": "^4.0.1",
     "@types/react-router-dom": "^4.3.4",
     "@types/redux-mock-store": "^1.0.1",
-    "depcheck": "^0.8.3"
-  }
+    "depcheck": "^0.8.3",
+    "prettier": "^1.18.2"
+  },
+  "prettier": "@chainlink/prettier-config"
 }

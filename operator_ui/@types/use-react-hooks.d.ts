@@ -11,7 +11,7 @@ declare module 'use-react-hooks' {
     useMemo,
     useReducer,
     useRef,
-    useState
+    useState,
   } from 'react'
 
   export function useHooks<Props = {}>(func: (props: Props) => void): FC<Props>

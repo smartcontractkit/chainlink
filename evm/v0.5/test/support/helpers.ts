@@ -19,7 +19,7 @@ const INVALIDVALUE: Record<string, any> = {
   // before they were initialized. Do any test initialization which requires
   // them in a callback passed to Mocha's `before` or `beforeEach`.
   // https://mochajs.org/#asynchronous-hooks
-  unitializedValueProbablyShouldUseVaribleInMochaBeforeCallback: null
+  unitializedValueProbablyShouldUseVaribleInMochaBeforeCallback: null,
 }
 
 export let [
@@ -30,7 +30,7 @@ export let [
   oracleNode3,
   stranger,
   consumer,
-  oracleNode
+  oracleNode,
 ] = Array(1000).fill(INVALIDVALUE)
 export let personas: Record<string, any> = {}
 
@@ -42,7 +42,7 @@ before(async function queryEthClientForConstants() {
     oracleNode2,
     oracleNode3,
     stranger,
-    consumer
+    consumer,
   ] = accounts.slice(0, 6)
   oracleNode = oracleNode1
 
@@ -57,7 +57,7 @@ before(async function queryEthClientForConstants() {
 
 const bNToStringOrIdentity = (a: any): any => (BN.isBN(a) ? a.toString() : a)
 export const BNtoUint8Array = (n: BN): Uint8Array =>
-  Uint8Array.from((new BN(n)).toArray('be', 32))
+  Uint8Array.from(new BN(n).toArray('be', 32))
 
 // Deal with transfer amount type truffle doesn't currently handle. (BN)
 export const wrappedERC20 = (contract: any): any => ({
@@ -68,14 +68,14 @@ export const wrappedERC20 = (contract: any): any => ({
     address: any,
     amount: any,
     payload: any,
-    options: any
+    options: any,
   ) =>
     contract.transferAndCall(
       address,
       bNToStringOrIdentity(amount),
       payload,
-      options
-    )
+      options,
+    ),
 })
 
 export const linkContract = async (account: any): Promise<any> => {
@@ -83,14 +83,14 @@ export const linkContract = async (account: any): Promise<any> => {
   const receipt = await web3.eth.sendTransaction({
     data: linkToken.bytecode,
     from: account,
-    gasLimit: 2000000
+    gasLimit: 2000000,
   })
   const contract = TruffleContract({ abi: linkToken.abi })
   contract.setProvider(web3.currentProvider)
   contract.defaults({
     from: account,
     gas: 3500000,
-    gasPrice: 10000000000
+    gasPrice: 10000000000,
   })
 
   return wrappedERC20(await contract.at(receipt.contractAddress))
@@ -100,7 +100,7 @@ export const bigNum = web3.utils.toBN
 assertBigNum(
   bigNum('1'),
   bigNum(1),
-  'Different representations should give same BNs'
+  'Different representations should give same BNs',
 )
 
 // toWei(n) is n * 10**18, as a BN.
@@ -109,7 +109,7 @@ export const toWei = (num: string | number): any =>
 assertBigNum(
   toWei('1'),
   toWei(1),
-  'Different representations should give same BNs'
+  'Different representations should give same BNs',
 )
 
 export const toUtf8 = web3.utils.toUtf8
@@ -128,12 +128,16 @@ export const toHexWithoutPrefix = (arg: any): string => {
     return Array.prototype.reduce.call(
       arg,
       (a: any, v: any) => a + v.toString('16').padStart(2, '0'),
-      ''
+      '',
     )
   } else if (Number(arg) === arg) {
     return arg.toString(16).padStart(64, '0')
   } else {
-    assert.equal(typeof arg, 'string', `Don't know how to convert ${arg} to hex`)
+    assert.equal(
+      typeof arg,
+      'string',
+      `Don't know how to convert ${arg} to hex`,
+    )
     return Buffer.from(arg, 'ascii').toString('hex')
   }
 }
@@ -155,7 +159,7 @@ export const getEvents = (contract: any): Promise<any[]> =>
     contract
       .getPastEvents('allEvents', { fromBlock: 1 }) // https://ethereum.stackexchange.com/questions/71307/mycontract-getpasteventsallevents-returns-empty-array
       .then((events: any) => resolve(events))
-      .catch((error: any) => reject(error))
+      .catch((error: any) => reject(error)),
   )
 
 export const getLatestEvent = async (contract: any): Promise<any[]> => {
@@ -169,7 +173,7 @@ export const requestDataFrom = (
   link: any,
   amount: any,
   args: any,
-  options: any
+  options: any,
 ): any => {
   if (!options) {
     options = { value: 0 }
@@ -178,9 +182,12 @@ export const requestDataFrom = (
 }
 
 // ABI specification for the given method on the given contract
-export const getMethod = (contract: TruffleContract, methodName: string): FunctionFragment => {
+export const getMethod = (
+  contract: TruffleContract,
+  methodName: string,
+): FunctionFragment => {
   const methodABIs = contract.abi.filter(
-    ({ name: attrName }: FunctionFragment) => attrName == methodName
+    ({ name: attrName }: FunctionFragment) => attrName == methodName,
   )
   const fqName = `${contract.contractName}.${methodName}: ${methodABIs}`
   assert.equal(methodABIs.length, 1, `No method ${fqName}, or ambiguous`)
@@ -189,8 +196,10 @@ export const getMethod = (contract: TruffleContract, methodName: string): Functi
 
 export const functionSelector = web3.eth.abi.encodeFunctionSignature
 
-export const functionSelectorFromAbi = (contract: TruffleContract, name: string): string => 
-  functionSelector(getMethod(contract, name))
+export const functionSelectorFromAbi = (
+  contract: TruffleContract,
+  name: string,
+): string => functionSelector(getMethod(contract, name))
 
 export const assertActionThrows = (action: any, messageContains?: RegExp) =>
   Promise.resolve()
@@ -204,16 +213,16 @@ export const assertActionThrows = (action: any, messageContains?: RegExp) =>
       assert(errorMessage, 'Expected an error to be raised')
       const invalidOpcode = errorMessage.includes('invalid opcode')
       const reverted = errorMessage.includes(
-        'VM Exception while processing transaction: revert'
+        'VM Exception while processing transaction: revert',
       )
       assert(
         invalidOpcode || reverted,
         'expected following error message to include "invalid JUMP" or ' +
-          `"revert": "${errorMessage}"`
+          `"revert": "${errorMessage}"`,
       )
       assert(
-        (!messageContains) || messageContains.test(errorMessage),
-        `expected error message to contain ${messageContains}: ${errorMessage}`
+        !messageContains || messageContains.test(errorMessage),
+        `expected error message to contain ${messageContains}: ${errorMessage}`,
       )
       // see https://github.com/ethereumjs/testrpc/issues/39
       // for why the "invalid JUMP" is the throw related error when using TestRPC
@@ -257,7 +266,7 @@ export const decodeRunRequest = (log: any): any => {
     'bytes4',
     'uint256',
     'uint256',
-    'bytes'
+    'bytes',
   ]
   const [
     requester,
@@ -267,7 +276,7 @@ export const decodeRunRequest = (log: any): any => {
     callbackFunc,
     expiration,
     version,
-    data
+    data,
   ] = abi.rawDecode(types, runABI)
 
   return {
@@ -280,7 +289,7 @@ export const decodeRunRequest = (log: any): any => {
     jobId: log.topics[1],
     payment,
     requester: Ox(requester),
-    topic: log.topics[0]
+    topic: log.topics[0],
   }
 }
 
@@ -290,7 +299,7 @@ const autoAddMapDelimiters = (data: any): Buffer => {
   if (buffer[0] >> 5 !== 5) {
     buffer = Buffer.concat(
       [startMapBuffer, buffer, endMapBuffer],
-      buffer.length + 2
+      buffer.length + 2,
     )
   }
 
@@ -311,7 +320,7 @@ export const requestDataBytes = (
   to: any,
   fHash: any,
   nonce: any,
-  data: any
+  data: any,
 ): any => {
   const types = [
     'address',
@@ -321,12 +330,12 @@ export const requestDataBytes = (
     'bytes4',
     'uint256',
     'uint256',
-    'bytes'
+    'bytes',
   ]
   const values = [0, 0, specId, to, fHash, nonce, 1, data]
   const encoded = abiEncode(types, values)
   const funcSelector = functionSelector(
-    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)'
+    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)',
   )
   return funcSelector + encoded
 }
@@ -337,14 +346,17 @@ export const abiEncode = (types: any, values: any): string => {
 
 export const newUint8ArrayFromStr = (str: string): Uint8Array => {
   const codePoints = Array.prototype.map.call(str, (c: string) =>
-    c.charCodeAt(0)
+    c.charCodeAt(0),
   )
   return Uint8Array.from(codePoints)
 }
 
 // newUint8ArrayFromHex returns count bytes from hex string. They are padded at
 // the end to have `count` bytes
-export const newUint8ArrayFromHex = (str: string, count: number): Uint8Array => {
+export const newUint8ArrayFromHex = (
+  str: string,
+  count: number,
+): Uint8Array => {
   assert(isHex(str), `${str} is not a hexadecimal value`)
   const hexCount = 2 * count + 2
   const hexStr = Ox(str)
@@ -357,7 +369,7 @@ export const newUint8ArrayFromHex = (str: string, count: number): Uint8Array => 
 export const newUint8ArrayFromDecimal = (str: string, count: number): any => {
   assert(/^[0-9]+$/.test(str), `${str} is not a decimal value.`)
   const hexCount = 2 * count
-  const hexStr = (new BN(str, 10)).toString(16).padStart(hexCount, '0')
+  const hexStr = new BN(str, 10).toString(16).padStart(hexCount, '0')
   assert(hexStr.length <= hexCount, `${str} won't fit in ${count} bytes`)
   return Uint8Array.from(web3.utils.hexToBytes(Ox(hexStr)))
 }
@@ -373,7 +385,7 @@ export const newSignature = (str: string): any => {
     full: oracleSignature,
     r: oracleSignature.slice(0, 32),
     s: oracleSignature.slice(32, 64),
-    v
+    v,
   }
 }
 
@@ -383,11 +395,11 @@ export const newSignature = (str: string): any => {
  *          the right. If decimal, zero-padded on the left.
  * @todo (alx): Split this into more specific and explicit functions.
  */
-export const newHash = (str: string): Uint8Array => 
+export const newHash = (str: string): Uint8Array =>
   (/^0[xX]/.test(str) ? newUint8ArrayFromHex : newUint8ArrayFromDecimal)(
-  str,
-  32
-)
+    str,
+    32,
+  )
 
 // newAddress returns a 20-byte Uint8Array for representing an address
 export const newAddress = (str: string): Uint8Array => {
@@ -408,13 +420,13 @@ export const increaseTime5Minutes = async () => {
       id: 0,
       jsonrpc: '2.0',
       method: 'evm_increaseTime',
-      params: [300]
+      params: [300],
     },
     (error: any) => {
       if (error) {
         throw Error(`Error during helpers.increaseTime5Minutes! ${error}`)
       }
-    }
+    },
   )
 }
 
@@ -424,13 +436,13 @@ export const sendToEvm = async (evmMethod: string, ...params: any) => {
       id: 0,
       jsonrpc: '2.0',
       method: evmMethod,
-      params: [...params]
+      params: [...params],
     },
     (error: any) => {
       if (error) {
         throw Error(`Error during ${evmMethod}! ${error}`)
       }
-    }
+    },
   )
 }
 
@@ -443,24 +455,29 @@ export const mineBlocks = async (blocks: number) => {
 export const createTxData = (
   selector: string,
   types: any,
-  values: any
+  values: any,
 ): any => {
   const funcSelector = functionSelector(selector)
   const encoded = abiEncode([...types], [...values])
   return funcSelector + encoded
 }
 
-interface Signature {v: number, r: Uint8Array, s: Uint8Array}
+interface Signature {
+  v: number
+  r: Uint8Array
+  s: Uint8Array
+}
 
-interface ServiceAgreement { // Corresponds to ServiceAgreement struct in CoordinatorInterface.sol
-  payment: BN, // uint256
-  expiration: BN, // uint256
-  endAt: BN, // uint256
-  oracles: string[], // 0x hex representation of oracle addresses (uint160's)
-  requestDigest: string, // 0x hex representation of bytes32
-  aggregator: string, // 0x hex representation of aggregator address
-  aggInitiateJobSelector: string, // 0x hex representation of aggregator.initiateAggregatorForJob function selector (uint32)
-  aggFulfillSelector: string, // function selector for aggregator.fulfill
+interface ServiceAgreement {
+  // Corresponds to ServiceAgreement struct in CoordinatorInterface.sol
+  payment: BN // uint256
+  expiration: BN // uint256
+  endAt: BN // uint256
+  oracles: string[] // 0x hex representation of oracle addresses (uint160's)
+  requestDigest: string // 0x hex representation of bytes32
+  aggregator: string // 0x hex representation of aggregator address
+  aggInitiateJobSelector: string // 0x hex representation of aggregator.initiateAggregatorForJob function selector (uint32)
+  aggFulfillSelector: string // function selector for aggregator.fulfill
   // Information which is useful to carry around with the agreement, but not
   // part of the solidity struct
   id: string // ServiceAgreement Id (sAId)
@@ -477,43 +494,44 @@ export const calculateSAID = (sa: ServiceAgreement): Uint8Array => {
     newHash(sa.requestDigest),
     newAddress(sa.aggregator),
     newSelector(sa.aggInitiateJobSelector),
-    newSelector(sa.aggFulfillSelector)
+    newSelector(sa.aggFulfillSelector),
   )
   const serviceAgreementIDInputDigest = util.keccak(
-    toHex(serviceAgreementIDInput)
+    toHex(serviceAgreementIDInput),
   )
   return newHash(toHex(serviceAgreementIDInputDigest))
 }
 
 export const recoverPersonalSignature = (
   message: Uint8Array,
-  signature: Signature
+  signature: Signature,
 ): any => {
   const personalSignPrefix = newUint8ArrayFromStr(
-    '\x19Ethereum Signed Message:\n'
+    '\x19Ethereum Signed Message:\n',
   )
   const personalSignMessage = Uint8Array.from(
     concatUint8Arrays(
       personalSignPrefix,
       newUint8ArrayFromStr(message.length.toString()),
-      message
-    )
+      message,
+    ),
   )
   const digest = util.keccak(toBuffer(personalSignMessage))
   const requestDigestPubKey = util.ecrecover(
     digest,
     signature.v,
     Buffer.from(signature.r),
-    Buffer.from(signature.s)
+    Buffer.from(signature.s),
   )
   return util.pubToAddress(requestDigestPubKey)
 }
 
 export const personalSign = async (
   account: any,
-  message: any
+  message: any,
 ): Promise<any> => {
-  const eMsg = `Message ${message} is not a recognized representation of a ` +
+  const eMsg =
+    `Message ${message} is not a recognized representation of a ` +
     'byte array. (Can be Buffer, BigNumber, Uint8Array, 0x-prepended ' +
     'hexadecimal string.)'
   assert(isByteRepresentation(message), eMsg)
@@ -525,7 +543,7 @@ export const executeServiceAgreementBytes = (
   callbackAddr: any,
   callbackFunctionId: any,
   nonce: any,
-  data: any
+  data: any,
 ): any => {
   const types = [
     'address',
@@ -535,12 +553,12 @@ export const executeServiceAgreementBytes = (
     'bytes4',
     'uint256',
     'uint256',
-    'bytes'
+    'bytes',
   ]
   const values = [0, 0, sAID, callbackAddr, callbackFunctionId, nonce, 1, data]
   const encoded = abiEncode(types, values)
   const funcSelector = functionSelector(
-    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)'
+    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)',
   )
   return funcSelector + encoded
 }
@@ -557,7 +575,7 @@ export const padNumTo256Bit = (n: number): string =>
 
 export const constructStructArgs = (
   fieldNames: string[],
-  values: any[]
+  values: any[],
 ): any[] => {
   assert.equal(fieldNames.length, values.length)
   const args = []
@@ -572,7 +590,7 @@ export const constructStructArgs = (
 const getMethodArg = (
   contract: any,
   methodName: string,
-  argName: string
+  argName: string,
 ): ParamType => {
   const fqName = `${contract.contractName}.${methodName}`
   const methodABI = getMethod(contract, methodName)
@@ -591,13 +609,14 @@ const getMethodArg = (
 // type, checks whether the input value is a map or a sequence, and if a map,
 // converts it to a sequence as I'm doing here.
 export const structAsTuple = (
-  struct: { [fieldName: string]: any},
+  struct: { [fieldName: string]: any },
   contract: TruffleContract,
   methodName: string,
-  argName: string
-): { abi: ParamType, struct: ArrayLike<any> } => {
+  argName: string,
+): { abi: ParamType; struct: ArrayLike<any> } => {
   const abi: ParamType = getMethodArg(contract, methodName, argName)
-  const eMsg = `${contract.contractName}.${methodName}'s argument ${argName} ` +
+  const eMsg =
+    `${contract.contractName}.${methodName}'s argument ${argName} ` +
     `is not a struct: ${abi}`
   assert.equal(abi.type, 'tuple', eMsg)
   return { abi, struct: abi.components.map(({ name }) => struct[name]) }
@@ -605,12 +624,12 @@ export const structAsTuple = (
 
 export const initiateServiceAgreementArgs = (
   coordinator: TruffleContract,
-  serviceAgreement: ServiceAgreement
+  serviceAgreement: ServiceAgreement,
 ): any[] => {
   const signatures = {
     vs: serviceAgreement.oracleSignatures.map(os => os.v),
     rs: serviceAgreement.oracleSignatures.map(os => os.r),
-    ss: serviceAgreement.oracleSignatures.map(os => os.s)
+    ss: serviceAgreement.oracleSignatures.map(os => os.s),
   }
   const tup = (s: any, n: any) =>
     structAsTuple(s, coordinator, 'initiateServiceAgreement', n).struct
@@ -621,26 +640,33 @@ export const initiateServiceAgreementArgs = (
 // get the return value
 export const initiateServiceAgreementCall = async (
   coordinator: TruffleContract,
-  serviceAgreement: ServiceAgreement
-) => await coordinator.initiateServiceAgreement.call(
-  ...initiateServiceAgreementArgs(coordinator, serviceAgreement)
-)
+  serviceAgreement: ServiceAgreement,
+) =>
+  await coordinator.initiateServiceAgreement.call(
+    ...initiateServiceAgreementArgs(coordinator, serviceAgreement),
+  )
 
 /** Call coordinator contract to initiate the specified service agreement. */
 export const initiateServiceAgreement = async (
   coordinator: TruffleContract,
-  serviceAgreement: ServiceAgreement
-) => coordinator.initiateServiceAgreement(
-  ...initiateServiceAgreementArgs(coordinator, serviceAgreement))
+  serviceAgreement: ServiceAgreement,
+) =>
+  coordinator.initiateServiceAgreement(
+    ...initiateServiceAgreementArgs(coordinator, serviceAgreement),
+  )
 
 /** Check that the given service agreement was stored at the correct location */
 export const checkServiceAgreementPresent = async (
   coordinator: TruffleContract,
-  serviceAgreement: ServiceAgreement
+  serviceAgreement: ServiceAgreement,
 ) => {
   const sa = await coordinator.serviceAgreements.call(serviceAgreement.id)
   assertBigNum(sa[0], bigNum(serviceAgreement.payment), 'expected payment')
-  assertBigNum(sa[1], bigNum(serviceAgreement.expiration), 'expected expiration')
+  assertBigNum(
+    sa[1],
+    bigNum(serviceAgreement.expiration),
+    'expected expiration',
+  )
   assertBigNum(sa[2], bigNum(serviceAgreement.endAt), 'expected endAt date')
   assert.equal(sa[3], serviceAgreement.requestDigest, 'expected requestDigest')
 }
@@ -649,22 +675,22 @@ export const checkServiceAgreementPresent = async (
 // nothing was changed due to invalid request
 export const checkServiceAgreementAbsent = async (
   coordinator: any,
-  serviceAgreementID: any
+  serviceAgreementID: any,
 ) => {
   const sa = await coordinator.serviceAgreements.call(
-    toHex(serviceAgreementID).slice(0, 66)
+    toHex(serviceAgreementID).slice(0, 66),
   )
   assertBigNum(sa[0], bigNum(0), 'service agreement is not absent')
   assertBigNum(sa[1], bigNum(0), 'service agreement is not absent')
   assertBigNum(sa[2], bigNum(0), 'service agreement is not absent')
   assert.equal(
     sa[3],
-    '0x0000000000000000000000000000000000000000000000000000000000000000'
+    '0x0000000000000000000000000000000000000000000000000000000000000000',
   )
 }
 
 export const newServiceAgreement = async (
-  params: Partial<ServiceAgreement>
+  params: Partial<ServiceAgreement>,
 ): Promise<ServiceAgreement> => {
   const agreement: Partial<ServiceAgreement> = {}
   params = params || {}
@@ -673,10 +699,13 @@ export const newServiceAgreement = async (
   agreement.endAt = params.endAt || sixMonthsFromNow()
   agreement.oracles = params.oracles || [oracleNode]
   agreement.oracleSignatures = []
-  agreement.requestDigest = params.requestDigest ||
+  agreement.requestDigest =
+    params.requestDigest ||
     '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5'
-  agreement.aggregator = params.aggregator || '0x3141592653589793238462643383279502884197'
-  agreement.aggInitiateJobSelector = params.aggInitiateJobSelector || '0x12345678'
+  agreement.aggregator =
+    params.aggregator || '0x3141592653589793238462643383279502884197'
+  agreement.aggInitiateJobSelector =
+    params.aggInitiateJobSelector || '0x12345678'
   agreement.aggFulfillSelector = params.aggFulfillSelector || '0x87654321'
   const sAID = calculateSAID(agreement as ServiceAgreement)
   agreement.id = toHex(sAID)
@@ -698,7 +727,7 @@ export const fulfillOracleRequest = async (
   oracle: any,
   request: any,
   response: any,
-  options: any
+  options: any,
 ): Promise<any> => {
   if (!options) {
     options = { value: 0 }
@@ -711,14 +740,14 @@ export const fulfillOracleRequest = async (
     request.callbackFunc,
     request.expiration,
     toHex(response),
-    options
+    options,
   )
 }
 
 export const cancelOracleRequest = async (
   oracle: any,
   request: any,
-  options: any
+  options: any,
 ): Promise<any> => {
   if (!options) {
     options = { value: 0 }
@@ -729,17 +758,17 @@ export const cancelOracleRequest = async (
     request.payment,
     request.callbackFunc,
     request.expiration,
-    options
+    options,
   )
 }
 
 type numeric = number | BN
 
 export const hexPadUint256 = (n: BN): string => n.toJSON().padStart(64, '0')
-export const encodeUint256 = (int: numeric): string => hexPadUint256(new BN(int))
-export const encodeInt256 = (int: numeric): string => hexPadUint256(
-  (new BN(int)).toTwos(256)
-)
+export const encodeUint256 = (int: numeric): string =>
+  hexPadUint256(new BN(int))
+export const encodeInt256 = (int: numeric): string =>
+  hexPadUint256(new BN(int).toTwos(256))
 export const encodeAddress = (a: string): string => {
   assert(Ox(a).length <= 40, `${a} is too long to be an address`)
   return Ox(strip0x(a).padStart(40, '0'))

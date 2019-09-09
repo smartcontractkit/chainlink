@@ -8,9 +8,9 @@ describe('selectors - jobRuns', () => {
         items: {
           runA: { id: 'runA' },
           runB: { id: 'runB' },
-          runC: { id: 'runC' }
-        }
-      }
+          runC: { id: 'runC' },
+        },
+      },
     }
 
     const runs = jobRunsSelector(state)
@@ -23,9 +23,9 @@ describe('selectors - jobRuns', () => {
       jobRuns: {
         currentPage: [],
         items: {
-          runA: { id: 'runA' }
-        }
-      }
+          runA: { id: 'runA' },
+        },
+      },
     }
     const runs = jobRunsSelector(state)
 
@@ -37,9 +37,9 @@ describe('selectors - jobRuns', () => {
       jobRuns: {
         currentPage: ['runA', 'runB'],
         items: {
-          runA: { id: 'runA' }
-        }
-      }
+          runA: { id: 'runA' },
+        },
+      },
     }
     const runs = jobRunsSelector(state)
 

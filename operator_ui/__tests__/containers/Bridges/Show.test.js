@@ -13,7 +13,7 @@ const mountShow = props =>
       <MemoryRouter>
         <Show classes={classes} {...props} />
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   )
 
 describe('containers/Bridges/Show', () => {
@@ -27,9 +27,9 @@ describe('containers/Bridges/Show', () => {
           name: 'Tall Bridge',
           url: 'https://localhost.com:712/endpoint',
           confirmations: 9,
-          outgoingToken: 'outgoingToken'
-        }
-      }
+          outgoingToken: 'outgoingToken',
+        },
+      },
     }
 
     global.fetch.getOnce(`/v2/bridge_types/tallbridge`, response)

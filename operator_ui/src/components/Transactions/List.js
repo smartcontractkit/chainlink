@@ -134,7 +134,7 @@ List.propTypes = {
   pageSize: PropTypes.number.isRequired,
   fetchTransactions: PropTypes.func.isRequired,
   transactions: PropTypes.array,
-  error: PropTypes.string
+  error: PropTypes.string,
 }
 
 export default List

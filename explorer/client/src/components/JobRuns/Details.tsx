@@ -5,7 +5,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import Grid, { GridSize } from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
@@ -31,18 +31,18 @@ const itemContentStyles = ({ spacing, breakpoints }: Theme) =>
     text: {
       paddingLeft: spacing.unit * 2,
       paddingRight: spacing.unit * 2,
-      paddingBottom: spacing.unit
+      paddingBottom: spacing.unit,
     },
     key: {
-      paddingTop: spacing.unit * 2
+      paddingTop: spacing.unit * 2,
     },
     value: {
       paddingTop: 0,
       [breakpoints.up('md')]: {
         paddingTop: spacing.unit * 2,
-        paddingBottom: spacing.unit
-      }
-    }
+        paddingBottom: spacing.unit,
+      },
+    },
   })
 
 interface IItemProps extends WithStyles<typeof itemContentStyles> {
@@ -55,11 +55,12 @@ const Key = withStyles(itemContentStyles)(
       <Typography
         variant="body1"
         color="textPrimary"
-        className={classNames(classes.key, classes.text)}>
+        className={classNames(classes.key, classes.text)}
+      >
         {children}
       </Typography>
     </BaseItem>
-  )
+  ),
 )
 
 const Value = withStyles(itemContentStyles)(
@@ -67,11 +68,12 @@ const Value = withStyles(itemContentStyles)(
     <BaseItem sm={12} md={8}>
       <Typography
         variant="body1"
-        className={classNames(classes.value, classes.text)}>
+        className={classNames(classes.value, classes.text)}
+      >
         {children}
       </Typography>
     </BaseItem>
-  )
+  ),
 )
 
 const rowStyles = ({ palette }: Theme) =>
@@ -80,8 +82,8 @@ const rowStyles = ({ palette }: Theme) =>
       borderBottom: 'solid 1px',
       borderBottomColor: palette.divider,
       display: 'block',
-      width: '100%'
-    }
+      width: '100%',
+    },
   })
 
 interface IRowProps extends WithStyles<typeof rowStyles> {
@@ -96,7 +98,7 @@ const Row = withStyles(rowStyles)(
         {children}
       </Grid>
     </div>
-  )
+  ),
 )
 
 const styles = ({ spacing, palette }: Theme) =>
@@ -105,16 +107,16 @@ const styles = ({ spacing, palette }: Theme) =>
       borderBottom: 'solid 1px',
       borderBottomColor: palette.divider,
       display: 'block',
-      width: '100%'
+      width: '100%',
     },
     bottomRow: {
-      borderBottom: 'none'
+      borderBottom: 'none',
     },
     task: {
       paddingLeft: spacing.unit * 2,
       paddingRight: spacing.unit * 2,
-      paddingTop: spacing.unit
-    }
+      paddingTop: spacing.unit,
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {
@@ -143,7 +145,8 @@ const Details = ({ classes, jobRun, etherscanHost }: IProps) => {
             <a
               href={jobRun.chainlinkNode.url}
               target="_blank"
-              rel="noopener noreferrer">
+              rel="noopener noreferrer"
+            >
               {nodeName}
             </a>
           ) : (

@@ -20,5 +20,5 @@ module.exports = {
     await expect(page).toFill('form input[id=email]', email)
     await expect(page).toFill('form input[id=password]', 'twochains')
     return expect(page).toClick('form button')
-  }
+  },
 }

@@ -7,11 +7,11 @@ describe('selectors - bridge', () => {
       bridges: {
         items: {
           a: { attributes: { name: 'A' } },
-          b: { attributes: { name: 'B' } }
+          b: { attributes: { name: 'B' } },
         },
         count: 0,
-        currentPage: ['0']
-      }
+        currentPage: ['0'],
+      },
     }
 
     const selected = bridgeSelector(state, 'a')

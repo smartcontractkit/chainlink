@@ -23,7 +23,7 @@ contract('AggregatorProxy', () => {
       basePayment,
       1,
       [oc1.address],
-      [jobId1]
+      [jobId1],
     )
     await link.transfer(aggregator.address, deposit)
 
@@ -40,7 +40,7 @@ contract('AggregatorProxy', () => {
       // Ownable methods:
       'owner',
       'renounceOwnership',
-      'transferOwnership'
+      'transferOwnership',
     ])
   })
 
@@ -63,7 +63,7 @@ contract('AggregatorProxy', () => {
           basePayment,
           1,
           [oc1.address],
-          [jobId1]
+          [jobId1],
         )
         await link.transfer(aggregator2.address, deposit)
         const requestTx = await aggregator2.requestRateUpdate()
@@ -92,7 +92,7 @@ contract('AggregatorProxy', () => {
     it('pulls the height from the aggregator', async () => {
       assertBigNum(
         await aggregator.updatedHeight.call(),
-        await proxy.updatedHeight.call()
+        await proxy.updatedHeight.call(),
       )
     })
 
@@ -103,7 +103,7 @@ contract('AggregatorProxy', () => {
           basePayment,
           1,
           [oc1.address],
-          [jobId1]
+          [jobId1],
         )
         await link.transfer(aggregator2.address, deposit)
         const requestTx = await aggregator2.requestRateUpdate()
@@ -120,7 +120,7 @@ contract('AggregatorProxy', () => {
       it('pulls the height from the new aggregator', async () => {
         assertBigNum(
           await aggregator2.updatedHeight.call(),
-          await proxy.updatedHeight.call()
+          await proxy.updatedHeight.call(),
         )
       })
     })
@@ -135,7 +135,7 @@ contract('AggregatorProxy', () => {
         basePayment,
         1,
         [oc1.address],
-        [jobId1]
+        [jobId1],
       )
 
       assert.equal(aggregator.address, await proxy.aggregator.call())
@@ -144,7 +144,7 @@ contract('AggregatorProxy', () => {
     context('when called by the owner', () => {
       it('sets the address of the new aggregator', async () => {
         await proxy.setAggregator(aggregator2.address, {
-          from: personas.Carol
+          from: personas.Carol,
         })
 
         assert.equal(aggregator2.address, await proxy.aggregator.call())
@@ -155,7 +155,7 @@ contract('AggregatorProxy', () => {
       it('does not update', async () => {
         h.assertActionThrows(async () => {
           await proxy.setAggregator(aggregator2.address, {
-            from: personas.Neil
+            from: personas.Neil,
           })
         })
 
