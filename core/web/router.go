@@ -307,9 +307,9 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 	}
 
 	ping := PingController{app}
-	tokAuthv2 := r.Group("/v2", sessionOrTokenAuthRequired(app.GetStore()))
-	tokAuthv2.POST("/specs/:SpecID/runs", jr.Create)
-	tokAuthv2.GET("/ping", ping.Show)
+	sotAuth := r.Group("/v2", sessionOrTokenAuthRequired(app.GetStore()))
+	sotAuth.POST("/specs/:SpecID/runs", jr.Create)
+	sotAuth.GET("/ping", ping.Show)
 }
 
 func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
