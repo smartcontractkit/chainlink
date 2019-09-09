@@ -87,9 +87,8 @@ func getAuthenticatedInitiator(c *gin.Context, js models.JobSpec) (*models.Initi
 			return nil, fmt.Errorf("Job not available via External Initiator '%s'", ei.Name)
 		}
 		return initiator, nil
-	} else {
-		return nil, errors.New("authentication required")
 	}
+	return nil, errors.New("authentication required")
 }
 
 func getRunData(c *gin.Context) (models.JSON, error) {
