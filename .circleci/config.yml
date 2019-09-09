@@ -60,7 +60,7 @@ jobs:
           key: go-mod-{{ checksum "go.sum" }}
           paths:
             - "/go/pkg/mod"
-      - run: ./tools/ci/go_single_threaded_test
+      - run: go test -p 3 ./...
   rust:
     docker:
       - image: smartcontract/builder:1.0.22
