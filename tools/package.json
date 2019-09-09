@@ -7,7 +7,7 @@
     "lint": "echo 'No linter configured for @chainlink/tools project' && exit 0"
   },
   "dependencies": {
-    "axios": "^0.18.0"
+    "axios": "^0.18.1"
   },
   "devDependencies": {
     "depcheck": "^0.8.3"
