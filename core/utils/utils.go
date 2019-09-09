@@ -4,6 +4,8 @@ package utils
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -29,6 +31,8 @@ import (
 )
 
 const (
+	// DefaultSecretSize is the entroy in bytes to generate a base64 string of 64 characters.
+	DefaultSecretSize = 48
 	// HumanTimeFormat is the predefined layout for use in Time.Format and time.Parse
 	HumanTimeFormat = "2006-01-02 15:04:05 MST"
 	// EVMWordByteLen the length of an EVM Word Byte
@@ -102,7 +106,20 @@ const NewBytes32Length = 32
 // NewBytes32ID returns a randomly generated UUID that conforms to
 // Ethereum bytes32.
 func NewBytes32ID() string {
-	return strings.Replace(uuid.Must(uuid.NewV4()).String(), "-", "", -1)
+	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
+}
+
+// NewSecret returns a new securely random sequence of n bytes of entropy.  The
+// result is a base64 encoded string.
+//
+// Panics on failed attempts to read from system's PRNG.
+func NewSecret(n int) string {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(errors.Wrap(err, "generating secret failed"))
+	}
+	return base64.StdEncoding.EncodeToString(b)
 }
 
 // RemoveHexPrefix removes the prefix (0x) of a given hex string.

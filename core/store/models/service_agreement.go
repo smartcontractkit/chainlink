@@ -33,7 +33,7 @@ type ServiceAgreement struct {
 	RequestBody   string      `json:"requestBody"`
 	Signature     Signature   `json:"signature" gorm:"type:varchar(255)"`
 	JobSpec       JobSpec     `gorm:"foreignkey:JobSpecID"`
-	JobSpecID     string      `json:"jobSpecId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
+	JobSpecID     *ID         `json:"jobSpecId"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.

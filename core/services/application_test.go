@@ -24,6 +24,8 @@ func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 	defer cleanup()
 	app, appCleanUp := cltest.NewApplicationWithConfig(t, config)
 	defer appCleanUp()
+	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 
 	completed := abool.New()
 	app.Exiter = func(code int) {
@@ -42,6 +44,8 @@ func TestChainlinkApplication_AddJob(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	jobSubscriberMock := mock_services.NewMockJobSubscriber(ctrl)
 	app.ChainlinkApplication.JobSubscriber = jobSubscriberMock
 	jobSubscriberMock.EXPECT().AddJob(gomock.Any(), nil) // nil to represent "latest" block
@@ -82,7 +86,7 @@ func TestPendingConnectionResumer(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	resumedRuns := []string{}
+	resumedRuns := []*models.ID{}
 	resumer := func(run *models.JobRun, store *strpkg.Store) error {
 		resumedRuns = append(resumedRuns, run.ID)
 		return nil
@@ -101,5 +105,5 @@ func TestPendingConnectionResumer(t *testing.T) {
 	_ = cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusCompleted)
 
 	assert.NoError(t, pcr.Connect(cltest.Head(1)))
-	assert.Equal(t, []string{expectedRun.ID}, resumedRuns)
+	assert.Equal(t, []*models.ID{expectedRun.ID}, resumedRuns)
 }

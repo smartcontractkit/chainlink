@@ -1,15 +1,16 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/asaskevich/govalidator"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 // ValidateJob checks the job and its associated Initiators and Tasks for any
@@ -51,6 +52,28 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 	ts := models.TaskSpec{Type: bt.Name}
 	if a, _ := adapters.For(ts, store); a != nil {
 		fe.Add(fmt.Sprintf("Adapter %v already exists", bt.Name))
+	}
+	return fe.CoerceEmptyToNil()
+}
+
+// ValidateExternalInitiator checks whether External Initiator parameters are
+// safe for processing.
+func ValidateExternalInitiator(
+	exi *models.ExternalInitiatorRequest,
+	store *store.Store,
+) error {
+	fe := models.NewJSONAPIErrors()
+	if len([]rune(exi.Name)) == 0 {
+		fe.Add("No name specified")
+	} else if onlyValidRunes := govalidator.StringMatches(exi.Name, "^[a-zA-Z0-9-_]*$"); !onlyValidRunes {
+		fe.Add("Name must be alphanumeric and may contain '_' or '-'")
+	} else if _, err := store.FindExternalInitiatorByName(exi.Name); err == nil {
+		fe.Add(fmt.Sprintf("Name %v already exists", exi.Name))
+	} else if err != orm.ErrorNotFound {
+		return errors.Wrap(err, "validating external initiator")
+	}
+	if isURL := govalidator.IsURL(exi.URL.String()); !isURL {
+		fe.Add("Invalid URL format")
 	}
 	return fe.CoerceEmptyToNil()
 }

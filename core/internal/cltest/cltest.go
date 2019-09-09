@@ -74,7 +74,7 @@ func init() {
 // TestConfig struct with test store and wsServer
 type TestConfig struct {
 	t testing.TB
-	strpkg.Config
+	*orm.Config
 	wsServer *httptest.Server
 }
 
@@ -86,18 +86,20 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	return NewConfigWithWSServer(t, wsserver), cleanup
 }
 
-// NewConfigWithWSServer return new config with specified wsserver
-func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig {
+// NewTestConfig returns a test configuration
+func NewTestConfig(t testing.TB) *TestConfig {
 	t.Helper()
 
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
-	rawConfig := strpkg.NewConfig()
+	rawConfig := orm.NewConfig()
 	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
 	rawConfig.Set("ETH_CHAIN_ID", 3)
 	rawConfig.Set("CHAINLINK_DEV", true)
 	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
-	rawConfig.Set("LOG_LEVEL", strpkg.LogLevel{Level: zapcore.DebugLevel})
+	rawConfig.Set("LOG_LEVEL", orm.LogLevel{Level: zapcore.DebugLevel})
+	rawConfig.Set("LOG_SQL", false)
+	rawConfig.Set("LOG_SQL_MIGRATIONS", false)
 	rawConfig.Set("MINIMUM_SERVICE_DURATION", "24h")
 	rawConfig.Set("MIN_INCOMING_CONFIRMATIONS", 1)
 	rawConfig.Set("MIN_OUTGOING_CONFIRMATIONS", 6)
@@ -106,8 +108,16 @@ func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig 
 	rawConfig.Set("SESSION_TIMEOUT", "2m")
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
-	config.SetEthereumServer(wsserver)
 	return &config
+}
+
+// NewConfigWithWSServer return new config with specified wsserver
+func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig {
+	t.Helper()
+
+	config := NewTestConfig(t)
+	config.SetEthereumServer(wsserver)
+	return config
 }
 
 // SetEthereumServer sets the ethereum server for testconfig with given wsserver
@@ -123,7 +133,7 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 type TestApplication struct {
 	t testing.TB
 	*services.ChainlinkApplication
-	Config           strpkg.Config
+	Config           *orm.Config
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
@@ -254,10 +264,9 @@ func (ta *TestApplication) WaitForConnection() error {
 }
 
 func (ta *TestApplication) MockStartAndConnect() (*EthMock, error) {
-	chainID := Int(ta.Config.ChainID())
-	ethMock := ta.MockEthClient()
+	ethMock := ta.MockEthCallerSubscriber()
 	ethMock.Context("TestApplication#MockStartAndConnect()", func(ethMock *EthMock) {
-		ethMock.Register("eth_chainId", *chainID)
+		ethMock.Register("eth_chainId", ta.Config.ChainID())
 		ethMock.Register("eth_getTransactionCount", `0x0`)
 	})
 
@@ -388,11 +397,11 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 	require.NoError(t, store.Close())
 }
 
-func WipePostgresDatabase(t testing.TB, c strpkg.Config) {
+func WipePostgresDatabase(t testing.TB, config orm.ConfigReader) {
 	t.Helper()
 
-	if strings.HasPrefix(strings.ToLower(c.NormalizedDatabaseURL()), string(orm.DialectPostgres)) {
-		db, err := gorm.Open(string(orm.DialectPostgres), c.NormalizedDatabaseURL())
+	if strings.HasPrefix(strings.ToLower(orm.NormalizedDatabaseURL(config)), string(orm.DialectPostgres)) {
+		db, err := gorm.Open(string(orm.DialectPostgres), orm.NormalizedDatabaseURL(config))
 		if err != nil {
 			t.Fatalf("unable to open postgres database for wiping: %+v", err)
 			return
@@ -599,7 +608,7 @@ func ReadLogs(app *TestApplication) (string, error) {
 }
 
 // FindJob returns JobSpec for given JobID
-func FindJob(t testing.TB, s *strpkg.Store, id string) models.JobSpec {
+func FindJob(t testing.TB, s *strpkg.Store, id *models.ID) models.JobSpec {
 	t.Helper()
 
 	j, err := s.FindJob(id)
@@ -609,7 +618,7 @@ func FindJob(t testing.TB, s *strpkg.Store, id string) models.JobSpec {
 }
 
 // FindJobRun returns JobRun for given JobRunID
-func FindJobRun(t testing.TB, s *strpkg.Store, id string) models.JobRun {
+func FindJobRun(t testing.TB, s *strpkg.Store, id *models.ID) models.JobRun {
 	t.Helper()
 
 	j, err := s.FindJobRun(id)
@@ -660,7 +669,7 @@ func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, bo
 		bodyBuffer = bytes.NewBufferString(body[0])
 	}
 	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/specs/"+j.ID+"/runs", bodyBuffer)
+	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", bodyBuffer)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	var jr models.JobRun
@@ -698,7 +707,7 @@ func UpdateJobRunViaWeb(
 
 	client := app.NewHTTPClient()
 	headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
-	resp, cleanup := client.Patch("/v2/runs/"+jr.ID, bytes.NewBufferString(body), headers)
+	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
 	defer cleanup()
 
 	AssertServerResponse(t, resp, 200)
@@ -729,6 +738,28 @@ func CreateBridgeTypeViaWeb(
 	require.NoError(t, err)
 
 	return bt
+}
+
+// CreateExternalInitiatorViaWeb creates a bridgetype via web using /v2/bridge_types
+func CreateExternalInitiatorViaWeb(
+	t testing.TB,
+	app *TestApplication,
+	payload string,
+) *presenters.ExternalInitiatorAuthentication {
+	t.Helper()
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post(
+		"/v2/external_initiators",
+		bytes.NewBufferString(payload),
+	)
+	defer cleanup()
+	AssertServerResponse(t, resp, 201)
+	ei := &presenters.ExternalInitiatorAuthentication{}
+	err := ParseJSONAPIResponse(t, resp, ei)
+	require.NoError(t, err)
+
+	return ei
 }
 
 // WaitForJobRunToComplete waits for a JobRun to reach Completed Status
@@ -1146,6 +1177,15 @@ func NewSession(optionalSessionID ...string) models.Session {
 		session.ID = optionalSessionID[0]
 	}
 	return session
+}
+
+func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalInitiator {
+	t.Helper()
+
+	var all []models.ExternalInitiator
+	err := store.ORM.DB.Find(&all).Error
+	require.NoError(t, err)
+	return all
 }
 
 func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {

@@ -3,19 +3,20 @@ import accountBalances from './accountBalances'
 import authentication from './authentication'
 import bridges, { IState as IBridgesState } from './bridges'
 import configuration, { IState as IConfigurationState } from './configuration'
+import dashboardIndex, { IState as IDashboardState } from './dashboardIndex'
 import fetching from './fetching'
-import jobRuns from './jobRuns'
+import jobRuns, { IState as IJobRunsState } from './jobRuns'
 import jobs from './jobs'
-import transactions from './transactions'
 import notifications from './notifications'
 import redirect from './redirect'
-import dashboardIndex, { IState as IDashboardState } from './dashboardIndex'
+import transactions from './transactions'
 import transactionsIndex from './transactionsIndex'
 
-export interface IState {
+export interface AppState {
   bridges: IBridgesState
   configuration: IConfigurationState
   dashboardIndex: IDashboardState
+  jobRuns: IJobRunsState
 }
 
 const reducer = combineReducers({

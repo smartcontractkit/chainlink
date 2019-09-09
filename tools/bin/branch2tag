@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -e
+
+branch=`echo $1 | awk '{print tolower($0)}'`
+if [ "${branch}" = "develop" ]; then
+  echo develop
+elif [ "${branch}" = "master" ]; then
+  echo latest
+elif [[ "${branch}" =~ ^hotfix\/([a-zA-Z0-9.]+) ]]; then
+  echo hotfix-${BASH_REMATCH[1]}
+elif [[ "${branch}" =~ ^release\/([a-zA-Z0-9.]+) ]]; then
+  echo "${BASH_REMATCH[1]}"
+else
+  echo unable to deduce docker tag from ${branch}
+  exit 1
+fi

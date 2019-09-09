@@ -4,7 +4,7 @@
   "status": "completed",
   "error": null,
   "createdAt": "2019-04-01T22:07:04Z",
-  "amount": null,
+  "payment": null,
   "finishedAt": "2018-04-01T22:07:04Z",
   "initiator": {
     "type": "runlog",

@@ -1,11 +1,11 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import { connect } from 'react-redux'
-import { useHooks, useEffect } from 'use-react-hooks'
-import KeyValueList from '@chainlink/styleguide/components/KeyValueList'
-import Content from 'components/Content'
+import { KeyValueList } from '@chainlink/styleguide'
 import { fetchTransaction } from 'actions'
+import Content from 'components/Content'
+import PropTypes from 'prop-types'
+import React from 'react'
+import { connect } from 'react-redux'
 import transactionSelector from 'selectors/transaction'
+import { useEffect, useHooks } from 'use-react-hooks'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
 export const Show = useHooks(props => {

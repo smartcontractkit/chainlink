@@ -1,4 +1,4 @@
-import { IState } from '../connectors/redux/reducers/index'
+import { AppState } from 'connectors/redux/reducers'
 
-export default ({ dashboardIndex }: IState): number =>
+export default ({ dashboardIndex }: AppState): number | undefined =>
   dashboardIndex.jobRunsCount

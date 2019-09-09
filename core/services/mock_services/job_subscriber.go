@@ -91,7 +91,7 @@ func (mr *MockJobSubscriberMockRecorder) OnNewHead(arg0 interface{}) *gomock.Cal
 }
 
 // RemoveJob mocks base method
-func (m *MockJobSubscriber) RemoveJob(arg0 string) error {
+func (m *MockJobSubscriber) RemoveJob(arg0 *models.ID) error {
 	ret := m.ctrl.Call(m, "RemoveJob", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

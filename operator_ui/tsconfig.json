@@ -1,8 +1,14 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "*": ["*", "src/*", "support/*", "@types/*"]
+    },
+    "declaration": true,
     "target": "es2015",
     "module": "esnext",
-    "lib": ["es2015", "dom"],
+    "lib": ["dom"],
+    "outDir": "./dist",
     "moduleResolution": "node",
     "skipLibCheck": true,
     "isolatedModules": false,
@@ -14,7 +20,7 @@
     "strict": true,
     "esModuleInterop": true
   },
-  "files": [
-    "@types/use-react-hooks.d.ts"
-  ]
+  "include": ["src", "./@types"],
+
+  "references": [{ "path": "../styleguide" }]
 }

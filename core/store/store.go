@@ -2,14 +2,15 @@ package store
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
@@ -18,13 +19,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
+	"golang.org/x/time/rate"
 )
 
 // Store contains fields for the database, Config, KeyStore, and TxManager
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config      Config
+	Config      *orm.Config
 	Clock       utils.AfterNower
 	KeyStore    *KeyStore
 	RunChannel  RunChannel
@@ -37,9 +39,10 @@ type lazyRPCWrapper struct {
 	url         *url.URL
 	mutex       *sync.Mutex
 	initialized *abool.AtomicBool
+	limiter     *rate.Limiter
 }
 
-func newLazyRPCWrapper(urlString string) (CallerSubscriber, error) {
+func newLazyRPCWrapper(urlString string, limiter *rate.Limiter) (CallerSubscriber, error) {
 	parsed, err := url.ParseRequestURI(urlString)
 	if err != nil {
 		return nil, err
@@ -51,6 +54,7 @@ func newLazyRPCWrapper(urlString string) (CallerSubscriber, error) {
 		url:         parsed,
 		mutex:       &sync.Mutex{},
 		initialized: abool.New(),
+		limiter:     limiter,
 	}, nil
 }
 
@@ -81,6 +85,11 @@ func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...i
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	wrapper.limiter.Wait(ctx)
+
 	return wrapper.client.Call(result, method, args...)
 }
 
@@ -98,22 +107,31 @@ type Dialer interface {
 }
 
 // EthDialer is Dialer which accesses rpc urls
-type EthDialer struct{}
+type EthDialer struct {
+	limiter *rate.Limiter
+}
+
+// NewEthDialer returns an eth dialer with the specified rate limit
+func NewEthDialer(rateLimit uint64) *EthDialer {
+	return &EthDialer{
+		limiter: rate.NewLimiter(rate.Limit(rateLimit), 1),
+	}
+}
 
 // Dial will dial the given url and return a CallerSubscriber
 func (ed *EthDialer) Dial(urlString string) (CallerSubscriber, error) {
-	return newLazyRPCWrapper(urlString)
+	return newLazyRPCWrapper(urlString, ed.limiter)
 }
 
 // NewStore will create a new database file at the config's RootDir if
 // it is not already present, otherwise it will use the existing db.sqlite3
 // file.
-func NewStore(config Config) *Store {
-	return NewStoreWithDialer(config, &EthDialer{})
+func NewStore(config *orm.Config) *Store {
+	return NewStoreWithDialer(config, NewEthDialer(config.MaxRPCCallsPerSecond()))
 }
 
 // NewStoreWithDialer creates a new store with the given config and dialer
-func NewStoreWithDialer(config Config, dialer Dialer) *Store {
+func NewStoreWithDialer(config *orm.Config, dialer Dialer) *Store {
 	err := os.MkdirAll(config.RootDir(), os.FileMode(0700))
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
@@ -137,7 +155,7 @@ func NewStoreWithDialer(config Config, dialer Dialer) *Store {
 		KeyStore:    keyStore,
 		ORM:         orm,
 		RunChannel:  NewQueuedRunChannel(),
-		TxManager:   NewEthTxManager(&EthClient{ethrpc}, config, keyStore, orm),
+		TxManager:   NewEthTxManager(&EthCallerSubscriber{ethrpc}, config, keyStore, orm),
 		StatsPusher: synchronization.NewStatsPusher(orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret()),
 	}
 	return store
@@ -199,13 +217,14 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 	return merr
 }
 
-func initializeORM(config Config) (*orm.ORM, error) {
-	orm, err := orm.NewORM(config.NormalizedDatabaseURL(), config.DatabaseTimeout())
+func initializeORM(config *orm.Config) (*orm.ORM, error) {
+	orm, err := orm.NewORM(orm.NormalizedDatabaseURL(config), config.DatabaseTimeout())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
+	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
 	if err = migrations.Migrate(orm.DB); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "initializeORM#Migrate")
 	}
 	orm.SetLogging(config.LogSQLStatements())
 	return orm, nil
@@ -214,12 +233,12 @@ func initializeORM(config Config) (*orm.ORM, error) {
 // RunRequest is the type that the RunChannel uses to package all the necessary
 // pieces to execute a Job Run.
 type RunRequest struct {
-	ID string
+	ID *models.ID
 }
 
 // RunChannel manages and dispatches incoming runs.
 type RunChannel interface {
-	Send(jobRunID string) error
+	Send(jobRunID *models.ID) error
 	Receive() <-chan RunRequest
 	Close()
 }
@@ -240,7 +259,7 @@ func NewQueuedRunChannel() RunChannel {
 }
 
 // Send adds another entry to the queue of runs.
-func (rq *QueuedRunChannel) Send(jobRunID string) error {
+func (rq *QueuedRunChannel) Send(jobRunID *models.ID) error {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 
@@ -248,7 +267,7 @@ func (rq *QueuedRunChannel) Send(jobRunID string) error {
 		return errors.New("QueuedRunChannel.Add: cannot add to a closed QueuedRunChannel")
 	}
 
-	if jobRunID == "" {
+	if jobRunID == nil {
 		return errors.New("QueuedRunChannel.Add: cannot add an empty jobRunID")
 	}
 

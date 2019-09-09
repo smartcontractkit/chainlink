@@ -4,7 +4,7 @@ set -e
 
 GIT_ROOT=`git rev-parse --show-toplevel`
 
-export SRCROOT=${CIRCLE_WORKING_DIRECTORY:-${TRAVIS_BUILD_DIR:-$GIT_ROOT}}
+export SRCROOT=`pwd`
 export PATH=$SRCROOT/tools/bin:./node_modules/.bin:$PATH
 
 export ROOT="$SRCROOT/tools/clroot"
@@ -17,8 +17,6 @@ export CHAINLINK_URL=http://127.0.0.1:$CHAINLINK_PORT/
 
 export MIN_OUTGOING_CONFIRMATIONS=1
 export MIN_INCOMING_CONFIRMATIONS=1
-
-export ETH_CHAIN_ID=${ETH_CHAIN_ID=34055}
 
 pushd $SRCROOT >/dev/null
 
@@ -41,9 +39,9 @@ fi
 launch_explorer
 add_clnode_to_explorer
 launch_chainlink
-deploy_oracle_and_linktoken_contracts
+deploy_contracts
 launch_echo_server
-chainlink login --file ./tools/clroot/apicredentials
+chainlink admin login --file ./tools/clroot/apicredentials
 
 heading 'Running tests...'
 
@@ -55,11 +53,10 @@ pushd integration >/dev/null
 title 'End to end tests.'
 
 set -o pipefail
-yarn cross-env NODE_ENV=test yarn jest integration/ --runInBand | tee $SRCROOT/integration/e2e.tests.log
+yarn workspace @chainlink/integration run test | tee $SRCROOT/integration/e2e.tests.log
 set +o pipefail
 
 title 'All tests passed.'
 
 # Return to caller's PWD
-popd >/dev/null
 popd >/dev/null

@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
 )
 
 // Renderer implements the Render method.
@@ -62,8 +63,14 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderServiceAgreement(*typed)
 	case *[]models.TxAttempt:
 		return rt.renderTxAttempts(*typed)
-	case *models.ExternalInitiatorAuthentication:
+	case *[]presenters.Tx:
+		return rt.renderTxs(*typed)
+	case *presenters.Tx:
+		return rt.renderTx(*typed)
+	case *presenters.ExternalInitiatorAuthentication:
 		return rt.renderExternalInitiatorAuthentication(*typed)
+	case *web.ConfigPatchResponse:
+		return rt.renderConfigPatchResponse(typed)
 	default:
 		return fmt.Errorf("Unable to render object of type %T: %v", typed, typed)
 	}
@@ -92,7 +99,7 @@ func render(name string, table *tablewriter.Table) {
 func jobRowToStrings(job models.JobSpec) []string {
 	p := presenters.JobSpec{JobSpec: job}
 	return []string{
-		p.ID,
+		p.ID.String(),
 		p.FriendlyCreatedAt(),
 		p.FriendlyInitiators(),
 		p.FriendlyTasks(),
@@ -161,12 +168,13 @@ func (rt RendererTable) renderJobRun(run presenters.JobRun) error {
 }
 
 func (rt RendererTable) renderJobSingles(j presenters.JobSpec) error {
-	table := rt.newTable([]string{"ID", "Created At", "Start At", "End At"})
+	table := rt.newTable([]string{"ID", "Created At", "Start At", "End At", "Min Payment"})
 	table.Append([]string{
-		j.ID,
+		j.ID.String(),
 		j.FriendlyCreatedAt(),
 		j.FriendlyStartAt(),
 		j.FriendlyEndAt(),
+		j.FriendlyMinPayment(),
 	})
 	render("Job", table)
 	return nil
@@ -205,7 +213,7 @@ func (rt RendererTable) renderJobRuns(runs []presenters.JobRun) error {
 	table := rt.newTable([]string{"ID", "Status", "Created", "Completed", "Result", "Error"})
 	for _, jr := range runs {
 		table.Append([]string{
-			jr.ID,
+			jr.ID.String(),
 			string(jr.Status),
 			utils.ISO8601UTC(jr.CreatedAt),
 			utils.NullISO8601UTC(jr.FinishedAt),
@@ -243,15 +251,17 @@ func (rt RendererTable) renderServiceAgreement(sa presenters.ServiceAgreement) e
 	return nil
 }
 
-func (rt RendererTable) renderExternalInitiatorAuthentication(eia models.ExternalInitiatorAuthentication) error {
-	table := rt.newTable([]string{"ID", "Value"})
+func (rt RendererTable) renderExternalInitiatorAuthentication(eia presenters.ExternalInitiatorAuthentication) error {
+	table := rt.newTable([]string{"Name", "URL", "AccessKey", "Secret", "OutgoingToken", "OutgoingSecret"})
 	table.Append([]string{
-		"AccessKey",
+		eia.Name,
+		eia.URL.String(),
 		eia.AccessKey,
-		"Secret",
 		eia.Secret,
+		eia.OutgoingToken,
+		eia.OutgoingSecret,
 	})
-	render("External Initiator Credentials", table)
+	render("External Initiator Credentials:", table)
 	return nil
 }
 
@@ -273,6 +283,47 @@ func (rt RendererTable) renderTxAttempts(attempts []models.TxAttempt) error {
 		})
 	}
 
-	render("Tx Attempts", table)
+	render("Ethereum Transaction Attempts", table)
+	return nil
+}
+
+func (rt RendererTable) renderTx(tx presenters.Tx) error {
+	table := rt.newTable([]string{"From", "Nonce", "To", "Confirmed"})
+	table.Append([]string{
+		tx.From.Hex(),
+		tx.Nonce,
+		tx.To.Hex(),
+		fmt.Sprint(tx.Confirmed),
+	})
+
+	render(fmt.Sprintf("Ethereum Transaction %v", tx.Hash.Hex()), table)
+	return nil
+}
+
+func (rt RendererTable) renderTxs(txs []presenters.Tx) error {
+	table := rt.newTable([]string{"Hash", "Nonce", "From", "GasPrice", "SentAt", "Confirmed"})
+	for _, tx := range txs {
+		table.Append([]string{
+			tx.Hash.Hex(),
+			tx.Nonce,
+			tx.From.Hex(),
+			tx.GasPrice,
+			tx.SentAt,
+			fmt.Sprint(tx.Confirmed),
+		})
+	}
+
+	render("Ethereum Transactions", table)
+	return nil
+}
+
+func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchResponse) error {
+	table := rt.newTable([]string{"Config", "Old Value", "New Value"})
+	table.Append([]string{
+		"EthGasPriceDefault",
+		config.EthGasPriceDefault.From,
+		config.EthGasPriceDefault.To,
+	})
+	render("Configuration Changes", table)
 	return nil
 }

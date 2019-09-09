@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,7 +18,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 
 	data := ""
 	token := ""
-	mock, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending": true}`,
+	mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending": true}`,
 		func(h http.Header, b string) {
 			body := cltest.JSONFromString(t, b)
 			data = body.Get("data").String()
@@ -47,7 +46,7 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 
-	mock, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`,
+	mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", fmt.Sprintf(`{"jobRunID": "%s", "data": 251990120, "statusCode": 200}`, models.NewID()),
 		func(h http.Header, b string) {},
 	)
 	defer cleanup()
@@ -85,7 +84,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			mock, _ := cltest.NewHTTPMockServer(t, 200, "POST", `{"pending": true}`)
+			mock, _ := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending": true}`)
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			ba := &adapters.Bridge{BridgeType: bt}
 
@@ -115,19 +114,19 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 		wantPending bool
 		response    string
 	}{
-		{"success", 200, "purchased", false, false, `{"data":{"result": "purchased"}}`},
-		{"run error", 200, "lot 49", true, false, `{"error": "overload", "data": {}}`},
-		{"server error", 400, "lot 49", true, false, `bad request`},
-		{"server error", 500, "lot 49", true, false, `big error`},
-		{"JSON parse error", 200, "lot 49", true, false, `}`},
-		{"pending response", 200, "lot 49", false, true, `{"pending":true}`},
-		{"unsetting result", 200, "", false, false, `{"data":{"result":null}}`},
+		{"success", http.StatusOK, "purchased", false, false, `{"data":{"result": "purchased"}}`},
+		{"run error", http.StatusOK, "lot 49", true, false, `{"error": "overload", "data": {}}`},
+		{"server error", http.StatusBadRequest, "lot 49", true, false, `bad request`},
+		{"server error", http.StatusInternalServerError, "lot 49", true, false, `big error`},
+		{"JSON parse error", http.StatusOK, "lot 49", true, false, `}`},
+		{"pending response", http.StatusOK, "lot 49", false, true, `{"pending":true}`},
+		{"unsetting result", http.StatusOK, "", false, false, `{"data":{"result":null}}`},
 	}
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", "")
-	runID := utils.NewBytes32ID()
+	runID := models.NewID()
 	wantedBody := fmt.Sprintf(`{"id":"%v","data":{"result":"lot 49"}}`, runID)
 
 	for _, test := range cases {
@@ -154,7 +153,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 
 func TestBridge_Perform_responseURL(t *testing.T) {
 	input := cltest.RunResultWithResult("lot 49")
-	input.CachedJobRunID = "1234"
+	input.CachedJobRunID = models.NewID()
 
 	t.Parallel()
 	cases := []struct {
@@ -165,12 +164,12 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 		{
 			name:          "basic URL",
 			configuredURL: cltest.WebURL(t, "https://chain.link"),
-			want:          `{"id":"1234","data":{"result":"lot 49"},"responseURL":"https://chain.link/v2/runs/1234"}`,
+			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"},"responseURL":"https://chain.link/v2/runs/%s"}`, input.CachedJobRunID, input.CachedJobRunID),
 		},
 		{
 			name:          "blank URL",
 			configuredURL: cltest.WebURL(t, ""),
-			want:          `{"id":"1234","data":{"result":"lot 49"}}`,
+			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"}}`, input.CachedJobRunID),
 		},
 	}
 
@@ -180,7 +179,7 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 			defer cleanup()
 			store.Config.Set("BRIDGE_RESPONSE_URL", test.configuredURL)
 
-			mock, ensureCalled := cltest.NewHTTPMockServer(t, 200, "POST", ``,
+			mock, ensureCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", ``,
 				func(_ http.Header, body string) {
 					assert.JSONEq(t, test.want, body)
 				})

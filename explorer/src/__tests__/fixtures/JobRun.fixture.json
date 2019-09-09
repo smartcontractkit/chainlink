@@ -4,7 +4,7 @@
   "status": "in_progress",
   "error": null,
   "createdAt": "2019-04-01T22:07:04Z",
-  "amount": null,
+  "payment": null,
   "finishedAt": null,
   "initiator": {
     "type": "runlog",

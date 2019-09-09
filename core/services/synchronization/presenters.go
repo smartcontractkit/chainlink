@@ -30,18 +30,18 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 		Status     string                 `json:"status"`
 		Error      null.String            `json:"error"`
 		CreatedAt  string                 `json:"createdAt"`
-		Amount     *assets.Link           `json:"amount"`
+		Payment    *assets.Link           `json:"payment"`
 		FinishedAt null.Time              `json:"finishedAt"`
 		Initiator  syncInitiatorPresenter `json:"initiator"`
 		Tasks      []syncTaskRunPresenter `json:"tasks"`
 	}{
-		ID:         p.ID,
-		RunID:      p.ID,
-		JobID:      p.JobSpecID,
+		ID:         p.ID.String(),
+		RunID:      p.ID.String(),
+		JobID:      p.JobSpecID.String(),
 		Status:     string(p.Status),
 		Error:      p.Result.ErrorMessage,
 		CreatedAt:  utils.ISO8601UTC(p.CreatedAt),
-		Amount:     p.Result.Amount,
+		Payment:    p.Payment,
 		FinishedAt: p.FinishedAt,
 		Initiator:  p.initiator(),
 		Tasks:      tasks,

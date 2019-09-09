@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"flag"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,7 +22,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Register("eth_getBalance", "0x0100")
 	ethMock.Register("eth_call", "0x0100")
 
@@ -34,7 +35,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 	assert.Equal(t, from.Hex(), balances[0].Address)
 }
 
-func TestClient_GetJobSpecs(t *testing.T) {
+func TestClient_IndexJobSpecs(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
@@ -47,7 +48,7 @@ func TestClient_GetJobSpecs(t *testing.T) {
 
 	client, r := app.NewClientAndRenderer()
 
-	require.Nil(t, client.GetJobSpecs(cltest.EmptyCLIContext()))
+	require.Nil(t, client.IndexJobSpecs(cltest.EmptyCLIContext()))
 	jobs := *r.Renders[0].(*[]models.JobSpec)
 	assert.Equal(t, 2, len(jobs))
 	assert.Equal(t, j1.ID, jobs[0].ID)
@@ -67,7 +68,7 @@ func TestClient_ShowJobRun_Exists(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{jr.ID})
+	set.Parse([]string{jr.ID.String()})
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ShowJobRun(c))
 	assert.Equal(t, 1, len(r.Renders))
@@ -89,7 +90,7 @@ func TestClient_ShowJobRun_NotFound(t *testing.T) {
 	assert.Empty(t, r.Renders)
 }
 
-func TestClient_GetJobRuns(t *testing.T) {
+func TestClient_IndexJobRuns(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
@@ -104,7 +105,7 @@ func TestClient_GetJobRuns(t *testing.T) {
 
 	client, r := app.NewClientAndRenderer()
 
-	require.Nil(t, client.GetJobRuns(cltest.EmptyCLIContext()))
+	require.Nil(t, client.IndexJobRuns(cltest.EmptyCLIContext()))
 	runs := *r.Renders[0].(*[]presenters.JobRun)
 	require.Equal(t, 3, len(runs))
 	assert.Equal(t, jr0.Result, runs[0].Result)
@@ -123,7 +124,7 @@ func TestClient_ShowJobSpec_Exists(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{job.ID})
+	set.Parse([]string{job.ID.String()})
 	c := cli.NewContext(nil, set, nil)
 	require.Nil(t, client.ShowJobSpec(c))
 	require.Equal(t, 1, len(r.Renders))
@@ -187,6 +188,75 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	}
 }
 
+func TestClient_CreateExternalInitiator(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"create external initiator", []string{"exi", "http://testing.com/external_initiators"}},
+		{"create external initiator w/ query params", []string{"exiqueryparams", "http://testing.com/external_initiators?query=param"}},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			app, cleanup := cltest.NewApplicationWithKey(t)
+			defer cleanup()
+
+			client, _ := app.NewClientAndRenderer()
+
+			set := flag.NewFlagSet("create", 0)
+			assert.NoError(t, set.Parse(test.args))
+			c := cli.NewContext(nil, set, nil)
+
+			err := client.CreateExternalInitiator(c)
+			assert.NoError(t, err)
+
+			var exi models.ExternalInitiator
+			err = app.Store.ORM.Where("name", test.args[0], &exi)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.args[1], exi.URL.String())
+		})
+	}
+}
+
+func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"no arguments", []string{}},
+		{"not enough arguments", []string{"bitcoin"}},
+		{"too many arguments", []string{"bitcoin", "https://valid.url", "extra arg"}},
+		{"invalid url", []string{"bitcoin", "not a url"}},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			app, cleanup := cltest.NewApplicationWithKey(t)
+			defer cleanup()
+
+			client, _ := app.NewClientAndRenderer()
+
+			set := flag.NewFlagSet("create", 0)
+			assert.NoError(t, set.Parse(test.args))
+			c := cli.NewContext(nil, set, nil)
+
+			err := client.CreateExternalInitiator(c)
+			assert.Error(t, err)
+
+			exis := cltest.AllExternalInitiators(t, app.Store)
+			assert.Len(t, exis, 0)
+		})
+	}
+}
+
 func TestClient_CreateJobSpec(t *testing.T) {
 	t.Parallel()
 
@@ -233,7 +303,7 @@ func TestClient_ArchiveJobSpec(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("archive", 0)
-	set.Parse([]string{job.ID})
+	set.Parse([]string{job.ID.String()})
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.ArchiveJobSpec(c))
@@ -284,7 +354,7 @@ func TestClient_CreateJobRun(t *testing.T) {
 			assert.Nil(t, app.Store.CreateJob(&test.jobSpec))
 
 			args := make([]string, 1)
-			args[0] = test.jobSpec.ID
+			args[0] = test.jobSpec.ID.String()
 			if test.name == "NotFound" {
 				args[0] = "badID"
 			}
@@ -305,7 +375,7 @@ func TestClient_CreateJobRun(t *testing.T) {
 	}
 }
 
-func TestClient_AddBridge(t *testing.T) {
+func TestClient_CreateBridge(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
@@ -333,15 +403,15 @@ func TestClient_AddBridge(t *testing.T) {
 			set.Parse([]string{test.param})
 			c := cli.NewContext(nil, set, nil)
 			if test.errored {
-				assert.Error(t, client.AddBridge(c))
+				assert.Error(t, client.CreateBridge(c))
 			} else {
-				assert.Nil(t, client.AddBridge(c))
+				assert.Nil(t, client.CreateBridge(c))
 			}
 		})
 	}
 }
 
-func TestClient_GetBridges(t *testing.T) {
+func TestClient_IndexBridges(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
@@ -364,7 +434,7 @@ func TestClient_GetBridges(t *testing.T) {
 
 	client, r := app.NewClientAndRenderer()
 
-	require.Nil(t, client.GetBridges(cltest.EmptyCLIContext()))
+	require.Nil(t, client.IndexBridges(cltest.EmptyCLIContext()))
 	bridges := *r.Renders[0].(*[]models.BridgeType)
 	require.Equal(t, 2, len(bridges))
 	assert.Equal(t, bt1.Name, bridges[0].Name)
@@ -462,7 +532,7 @@ func TestClient_WithdrawSuccess(t *testing.T) {
 	assert.NoError(t, app.StartAndConnect())
 
 	client, _ := app.NewClientAndRenderer()
-	set := flag.NewFlagSet("withdraw", 0)
+	set := flag.NewFlagSet("admin withdraw", 0)
 	set.Parse([]string{"0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C", "1"})
 
 	c := cli.NewContext(nil, set, nil)
@@ -479,7 +549,7 @@ func TestClient_WithdrawNoArgs(t *testing.T) {
 	assert.NoError(t, utils.JustError(app.MockStartAndConnect()))
 
 	client, _ := app.NewClientAndRenderer()
-	set := flag.NewFlagSet("withdraw", 0)
+	set := flag.NewFlagSet("admin withdraw", 0)
 	set.Parse([]string{})
 
 	c := cli.NewContext(nil, set, nil)
@@ -502,9 +572,9 @@ func TestClient_WithdrawFromSpecifiedContractAddress(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 	cliParserRouter := cmd.NewApp(client)
 	assert.Nil(t, cliParserRouter.Run([]string{
-		"chainlink", "withdraw",
+		"chainlink", "admin", "withdraw",
 		"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF", "1234",
-		"--from-oracle-contract-address=" +
+		"--from=" +
 			"0x3141592653589793238462643383279502884197"}))
 	ethMockCheck(t)
 }
@@ -516,19 +586,17 @@ func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func(),
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 
 	hash := cltest.NewHash()
-	sentAt := "0x5BA0"
 	nonce := "0x100"
-	ethMock := app.MockEthClient()
+	ethMock := app.MockEthCallerSubscriber()
 
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", nonce)
-		ethMock.Register("eth_chainId", *cltest.Int(config.ChainID()))
+		ethMock.Register("eth_chainId", config.ChainID())
 	})
 
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_call", "0xDE0B6B3A7640000")
 		ethMock.Register("eth_sendRawTransaction", hash)
-		ethMock.Register("eth_blockNumber", sentAt)
 	})
 
 	return app, cleanup, ethMock.EventuallyAllCalled
@@ -602,12 +670,12 @@ func TestClient_ChangePassword(t *testing.T) {
 	assert.NoError(t, err)
 
 	// otherClient should now be logged out
-	err = otherClient.GetBridges(c)
+	err = otherClient.IndexBridges(c)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "401 Unauthorized")
 }
 
-func TestClient_GetTransactions(t *testing.T) {
+func TestClient_IndexTransactions(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
@@ -624,7 +692,7 @@ func TestClient_GetTransactions(t *testing.T) {
 	set.Int("page", 1, "doc")
 	c := cli.NewContext(nil, set, nil)
 	require.Equal(t, 1, c.Int("page"))
-	assert.NoError(t, client.GetTransactions(c))
+	assert.NoError(t, client.IndexTransactions(c))
 
 	renderedTxs := *r.Renders[0].(*[]presenters.Tx)
 	assert.Equal(t, 1, len(renderedTxs))
@@ -635,13 +703,34 @@ func TestClient_GetTransactions(t *testing.T) {
 	set.Int("page", 2, "doc")
 	c = cli.NewContext(nil, set, nil)
 	require.Equal(t, 2, c.Int("page"))
-	assert.NoError(t, client.GetTransactions(c))
+	assert.NoError(t, client.IndexTransactions(c))
 
 	renderedTxs = *r.Renders[1].(*[]presenters.Tx)
 	assert.Equal(t, 0, len(renderedTxs))
 }
 
-func TestClient_GetTxAttempts(t *testing.T) {
+func TestClient_ShowTransaction(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+
+	store := app.GetStore()
+	from := cltest.GetAccountAddress(t, store)
+	tx := cltest.CreateTx(t, store, from, 1)
+
+	client, r := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("test get tx", 0)
+	set.Parse([]string{tx.Hash.Hex()})
+	c := cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.ShowTransaction(c))
+
+	renderedTx := *r.Renders[0].(*presenters.Tx)
+	assert.Equal(t, &tx.From, renderedTx.From)
+}
+
+func TestClient_IndexTxAttempts(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
@@ -658,7 +747,7 @@ func TestClient_GetTxAttempts(t *testing.T) {
 	set.Int("page", 1, "doc")
 	c := cli.NewContext(nil, set, nil)
 	require.Equal(t, 1, c.Int("page"))
-	assert.NoError(t, client.GetTxAttempts(c))
+	assert.NoError(t, client.IndexTxAttempts(c))
 
 	renderedAttempts := *r.Renders[0].(*[]models.TxAttempt)
 	require.Len(t, tx.Attempts, 1)
@@ -669,7 +758,7 @@ func TestClient_GetTxAttempts(t *testing.T) {
 	set.Int("page", 2, "doc")
 	c = cli.NewContext(nil, set, nil)
 	require.Equal(t, 2, c.Int("page"))
-	assert.NoError(t, client.GetTxAttempts(c))
+	assert.NoError(t, client.IndexTxAttempts(c))
 
 	renderedAttempts = *r.Renders[1].(*[]models.TxAttempt)
 	assert.Equal(t, 0, len(renderedAttempts))
@@ -693,4 +782,32 @@ func TestClient_CreateExtraKey(t *testing.T) {
 	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: "password"}
 
 	assert.NoError(t, client.CreateExtraKey(c))
+}
+
+func TestClient_SetMinimumGasPrice(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup, _ := setupWithdrawalsApplication(t)
+	defer cleanup()
+
+	assert.NoError(t, app.StartAndConnect())
+
+	client, _ := app.NewClientAndRenderer()
+	set := flag.NewFlagSet("setgasprice", 0)
+	set.Parse([]string{"8616460799"})
+
+	c := cli.NewContext(nil, set, nil)
+
+	assert.NoError(t, client.SetMinimumGasPrice(c))
+	assert.Equal(t, big.NewInt(8616460799), app.Store.Config.EthGasPriceDefault())
+
+	client, _ = app.NewClientAndRenderer()
+	set = flag.NewFlagSet("setgasprice", 0)
+	set.String("amount", "861.6460799", "")
+	set.Bool("gwei", true, "")
+	set.Parse([]string{"-gwei", "861.6460799"})
+
+	c = cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.SetMinimumGasPrice(c))
+	assert.Equal(t, big.NewInt(861646079900), app.Store.Config.EthGasPriceDefault())
 }

@@ -1,6 +1,6 @@
 pragma solidity 0.4.24;
 
-import "../SignedSafeMath.sol";
+import "../vendor/SignedSafeMath.sol";
 
 contract ConcreteSignedSafeMath {
   using SignedSafeMath for int256;

@@ -1,14 +1,19 @@
 {
   "private": true,
-  "name": "chainlink-twilio-sms",
+  "name": "@chainlink/example-twilio-sms",
   "version": "0.6.0",
   "license": "MIT",
   "scripts": {
+    "depcheck": "echo \"@chainlink/example-twilio-sms\" && depcheck --ignore-dirs=contracts || true",
+    "lint": "yarn solhint",
+    "solhint": "solhint ./contracts/**/*.sol",
     "test": "truffle test"
   },
   "devDependencies": {
     "body-parser": "^1.18.3",
+    "depcheck": "^0.8.3",
     "express": "^4.16.2",
+    "solhint": "^2.1.0",
     "request": "^2.83.0",
     "truffle": "^5.0.25",
     "truffle-contract": "^3.0.6",

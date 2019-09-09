@@ -1,12 +1,12 @@
 pragma solidity 0.4.24;
 
 import "./Chainlink.sol";
-import "./ENSResolver.sol";
 import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/PointerInterface.sol";
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import { ENSResolver as ENSResolver_Chainlink } from "./vendor/ENSResolver.sol";
+import { SafeMath as SafeMath_Chainlink } from "./vendor/SafeMath.sol";
 
 /**
  * @title The ChainlinkClient contract
@@ -15,7 +15,7 @@ import "openzeppelin-solidity/contracts/math/SafeMath.sol";
  */
 contract ChainlinkClient {
   using Chainlink for Chainlink.Request;
-  using SafeMath for uint256;
+  using SafeMath_Chainlink for uint256;
 
   uint256 constant internal LINK = 10**18;
   uint256 constant private AMOUNT_OVERRIDE = 0;
@@ -187,7 +187,7 @@ contract ChainlinkClient {
     ens = ENSInterface(_ens);
     ensNode = _node;
     bytes32 linkSubnode = keccak256(abi.encodePacked(ensNode, ENS_TOKEN_SUBNAME));
-    ENSResolver resolver = ENSResolver(ens.resolver(linkSubnode));
+    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(ens.resolver(linkSubnode));
     setChainlinkToken(resolver.addr(linkSubnode));
     updateChainlinkOracleWithENS();
   }
@@ -200,7 +200,7 @@ contract ChainlinkClient {
     internal
   {
     bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ENS_ORACLE_SUBNAME));
-    ENSResolver resolver = ENSResolver(ens.resolver(oracleSubnode));
+    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(ens.resolver(oracleSubnode));
     setChainlinkOracle(resolver.addr(oracleSubnode));
   }
 
@@ -236,7 +236,7 @@ contract ChainlinkClient {
   function validateChainlinkCallback(bytes32 _requestId)
     internal
     recordChainlinkFulfillment(_requestId)
-    // solium-disable-next-line no-empty-blocks
+    // solhint-disable-next-line no-empty-blocks
   {}
 
   /**

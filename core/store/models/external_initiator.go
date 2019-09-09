@@ -4,7 +4,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
+	"strings"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -12,27 +12,44 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+// ExternalInitiatorRequest is the incoming record used to create an ExternalInitiator.
+type ExternalInitiatorRequest struct {
+	Name string `json:"name"`
+	URL  WebURL `json:"url"`
+}
+
 // ExternalInitiator represents a user that can initiate runs remotely
 type ExternalInitiator struct {
 	*gorm.Model
-	AccessKey    string
-	Salt         string
-	HashedSecret string
+	Name           string `gorm:"not null,unique"`
+	URL            WebURL `gorm:"not null"`
+	AccessKey      string `gorm:"not null"`
+	Salt           string `gorm:"not null"`
+	HashedSecret   string `gorm:"not null"`
+	OutgoingSecret string `gorm:"not null"`
+	OutgoingToken  string `gorm:"not null"`
 }
 
 // NewExternalInitiator generates an ExternalInitiator from an
 // ExternalInitiatorAuthentication, hashing the password for storage
-func NewExternalInitiator(eia *ExternalInitiatorAuthentication) (*ExternalInitiator, error) {
-	salt := NewSecret()
+func NewExternalInitiator(
+	eia *ExternalInitiatorAuthentication,
+	eir *ExternalInitiatorRequest,
+) (*ExternalInitiator, error) {
+	salt := utils.NewSecret(utils.DefaultSecretSize)
 	hashedSecret, err := HashedSecret(eia, salt)
 	if err != nil {
 		return nil, errors.Wrap(err, "error hashing secret for external initiator")
 	}
 
 	return &ExternalInitiator{
-		AccessKey:    eia.AccessKey,
-		HashedSecret: hashedSecret,
-		Salt:         salt,
+		Name:           strings.ToLower(eir.Name),
+		URL:            eir.URL,
+		AccessKey:      eia.AccessKey,
+		HashedSecret:   hashedSecret,
+		Salt:           salt,
+		OutgoingToken:  utils.NewSecret(utils.DefaultSecretSize),
+		OutgoingSecret: utils.NewSecret(utils.DefaultSecretSize),
 	}, nil
 }
 
@@ -53,7 +70,7 @@ func AuthenticateExternalInitiator(eia *ExternalInitiatorAuthentication, ea *Ext
 func NewExternalInitiatorAuthentication() *ExternalInitiatorAuthentication {
 	return &ExternalInitiatorAuthentication{
 		AccessKey: utils.NewBytes32ID(),
-		Secret:    NewSecret(),
+		Secret:    utils.NewSecret(utils.DefaultSecretSize),
 	}
 }
 
@@ -93,14 +110,4 @@ func (eia *ExternalInitiatorAuthentication) GetName() string {
 func (eia *ExternalInitiatorAuthentication) SetID(id string) error {
 	eia.AccessKey = id
 	return nil
-}
-
-// NewSecret returns a new secret for use for authenticating external initiators
-func NewSecret() string {
-	var characters = []rune("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	b := make([]rune, 64)
-	for i := range b {
-		b[i] = characters[rand.Intn(len(characters))]
-	}
-	return string(b)
 }
