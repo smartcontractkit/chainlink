@@ -1,3 +1,5 @@
+# Chainlink Hearbeat ETH/USD network graph
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts
@@ -30,5 +32,5 @@ See the section about [deployment](https://facebook.github.io/create-react-app/d
 ## Env variables
 
 ```
-export REACT_APP_ETHEREUM_NETWORK="https://mainnet.infura.io/v3/{yourkey}"
+REACT_APP_ETHEREUM_NETWORK="https://mainnet.infura.io/v3/{yourkey}"
 ```
