@@ -206,7 +206,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig) (*TestApplicat
 func NewApplicationWithConfig(t testing.TB, tc *TestConfig) (*TestApplication, func()) {
 	t.Helper()
 
-	cleanupDB := CreatePostgresDatabase(t, tc)
+	cleanupDB := PrepareTestDB(t, tc)
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
 	app := services.NewApplication(tc.Config, func(app services.Application) {
@@ -223,9 +223,9 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig) (*TestApplication, f
 	ta.Server = server
 	ta.wsServer = tc.wsServer
 	return ta, func() {
-		require.True(t, ethMock.AllCalled(), ethMock.Remaining())
 		require.NoError(t, ta.Stop())
 		cleanupDB()
+		require.True(t, ethMock.AllCalled(), ethMock.Remaining())
 	}
 }
 
@@ -364,7 +364,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
-	cleanupDB := CreatePostgresDatabase(config.t, config)
+	cleanupDB := PrepareTestDB(config.t, config)
 	s := strpkg.NewStore(config.Config)
 	return s, func() {
 		cleanUpStore(config.t, s)
