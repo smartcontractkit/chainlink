@@ -52,7 +52,7 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 				assert.NotEqual(t, "", createdSA.Signature.String())
 				assert.Equal(t, time.Unix(1571523439, 0).UTC(), createdSA.Encumbrance.EndAt.Time)
 
-				var jobids []string
+				var jobids []*models.ID
 				for _, j := range app.JobSubscriber.Jobs() {
 					jobids = append(jobids, j.ID)
 				}

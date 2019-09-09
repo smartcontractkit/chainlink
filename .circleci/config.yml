@@ -3,49 +3,45 @@ orbs:
   aws-ecr: circleci/aws-ecr@4.0.1
 jobs:
   go-sqlite:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.21
+      - image: smartcontract/builder:1.0.22
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
+      - run: go mod download
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/go_test | tee /tmp/go_test.txt
       - store_artifacts:
           path: /tmp/go_test.txt
   go-sqlite-race:
     resource_class: large
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.21
+      - image: smartcontract/builder:1.0.22
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: ./tools/ci/gorace_test | tee /tmp/gorace_test.txt
       - store_artifacts:
           path: /tmp/gorace_test.txt
   go-postgres:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.21
+      - image: smartcontract/builder:1.0.22
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -57,35 +53,32 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
+      - run: go mod download
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: ./tools/ci/go_single_threaded_test
   rust:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.21
+      - image: smartcontract/builder:1.0.22
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: ./tools/ci/rust_test
   sgx:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.21
+      - image: smartcontract/builder:1.0.22
     environment:
       SGX_ENABLED: yes
       # XXX: These are set in the base image but circleci seems to wipe them out
@@ -97,19 +90,18 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: make enclave
       - run: ./tools/ci/sgx_test
   geth-postgres:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
+    resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.21
+      - image: smartcontract/builder:1.0.22
         environment:
           TYPEORM_NAME: ci
           TYPEORM_HOST: explorerdb
@@ -131,18 +123,17 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: ./tools/ci/ethereum_test
   parity-postgres:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
+    resource_class: large
     docker:
-      - image: smartcontract/builder:1.0.21
+      - image: smartcontract/builder:1.0.22
         environment:
           TYPEORM_NAME: ci
           TYPEORM_HOST: explorerdb
@@ -166,18 +157,16 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
-      - run: dep ensure -vendor-only
+          key: go-mod-{{ checksum "go.sum" }}
       - save_cache:
           name: Save Go Vendor Cache
-          key: v{{ checksum "cache.version" }}-go-vendor-{{ checksum "Gopkg.lock" }}
+          key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - ./vendor
+            - "/go/pkg/mod"
       - run: ./tools/ci/ethereum_test parity
   truffle:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.21
+      - image: smartcontract/builder:1.0.22
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -190,11 +179,11 @@ jobs:
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
           paths:
             - /usr/local/share/.cache/yarn
+      - run: pip3 install -r requirements.txt
       - run: ./tools/ci/truffle_test
   operator-ui:
-    working_directory: /go/src/github.com/smartcontractkit/chainlink
     docker:
-      - image: smartcontract/builder:1.0.21
+      - image: smartcontract/builder:1.0.22
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -210,7 +199,7 @@ jobs:
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/operator_ui_test
   explorer:
-    working_directory: ~/chainlink/explorer
+    working_directory: ~/chainlink
     docker:
       - image: circleci/node:10-browsers
         environment:
@@ -222,41 +211,57 @@ jobs:
     steps:
       - checkout:
           path: ~/chainlink
+      - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
-          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "client/yarn.lock" }}
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}-node:10-browsers
       - run:
-          name: Install Server Packages
+          name: Install New Packages
           command: yarn install
-      - run:
-          name: Install Client Packages
-          command: cd client && yarn install
       - save_cache:
-          key: dependency-cache-{{ checksum "yarn.lock" }}-{{checksum "client/yarn.lock" }}
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}-node:10-browsers
           paths:
             - ~/.cache/yarn
             - /usr/local/share/.cache/yarn
       - run:
           name: Run Lint
-          command: yarn lint
+          command: yarn workspace @chainlink/explorer run lint
       - run:
           name: Run Server Tests
-          command: yarn test-ci:silent
+          command: yarn workspace @chainlink/explorer run test-ci:silent
       - run:
           name: Run Client Tests
-          command: cd client && yarn test-ci:silent
+          command: yarn workspace @chainlink/explorer-client run test-ci:silent
       - run:
           name: Run E2E Tests
-          command: cd client && yarn build && cd .. && yarn test-ci:e2e:silent
+          command: yarn workspace @chainlink/explorer-client run build && yarn workspace @chainlink/explorer run test-ci:e2e:silent
   build-explorer-image:
     machine: true
     steps:
       - checkout
       - run:
           name: Docker build
-          command: cd explorer && docker build .
+          command: docker build -f explorer/Dockerfile .
+  build-and-publish-chainlink:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: |
+            DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}` make docker
+      - run:
+          name: Docker push
+          command: |
+            DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}` make dockerpush
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.21
+      - image: smartcontract/builder:1.0.22
     steps:
       - checkout
       - run: ./tools/ci/init_gcloud
@@ -279,6 +284,24 @@ workflows:
           filters:
             branches:
               ignore: master
+      - build-and-publish-chainlink:
+          requires:
+            - go-sqlite
+            - go-sqlite-race
+            - go-postgres
+            - truffle
+            - geth-postgres
+            - parity-postgres
+            - operator-ui
+            - rust
+            - explorer
+          filters:
+            branches:
+              only:
+                - master
+                - develop
+                - /^hotfix\/.*/
+                - /^release\/.*/
       - aws-ecr/build_and_push_image:
           requires:
             - explorer

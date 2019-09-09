@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"net/url"
 	"os"
@@ -66,14 +67,32 @@ func (cli *Client) CreateServiceAgreement(c *clipkg.Context) error {
 
 // CreateExternalInitiator adds an external initiator
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
-	resp, err := cli.HTTP.Post("/v2/external_initiators", nil)
+	if c.NArg() != 2 {
+		return cli.errorOut(errors.New("create expects two arguments: a name and a url"))
+	}
+
+	var request models.ExternalInitiatorRequest
+	request.Name = c.Args().Get(0)
+	if url, err := url.ParseRequestURI(c.Args().Get(1)); err == nil {
+		request.URL = models.WebURL(*url)
+	} else {
+		return cli.errorOut(err)
+	}
+
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	resp, err := cli.HTTP.Post("/v2/external_initiators", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 	defer resp.Body.Close()
 
-	var eia models.ExternalInitiatorAuthentication
-	return cli.renderAPIResponse(resp, &eia)
+	var ei presenters.ExternalInitiatorAuthentication
+	return cli.renderAPIResponse(resp, &ei)
 }
 
 // DeleteExternalInitiator removes an external initiator
@@ -104,9 +123,9 @@ func (cli *Client) ShowJobRun(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &job)
 }
 
-// GetJobRuns returns the list of all job runs for a specific job
+// IndexJobRuns returns the list of all job runs for a specific job
 // if no jobid is passed, defaults to returning all jobruns
-func (cli *Client) GetJobRuns(c *clipkg.Context) error {
+func (cli *Client) IndexJobRuns(c *clipkg.Context) error {
 	jobID := c.String("jobid")
 	if jobID != "" {
 		return cli.getPage("/v2/runs?jobSpecId="+jobID, c.Int("page"), &[]presenters.JobRun{})
@@ -128,8 +147,8 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &job)
 }
 
-// GetJobSpecs returns all job specs.
-func (cli *Client) GetJobSpecs(c *clipkg.Context) error {
+// IndexJobSpecs returns all job specs.
+func (cli *Client) IndexJobSpecs(c *clipkg.Context) error {
 	return cli.getPage("/v2/specs", c.Int("page"), &[]models.JobSpec{})
 }
 
@@ -194,8 +213,8 @@ func (cli *Client) CreateJobRun(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &run)
 }
 
-// AddBridge adds a new bridge to the chainlink node
-func (cli *Client) AddBridge(c *clipkg.Context) error {
+// CreateBridge adds a new bridge to the chainlink node
+func (cli *Client) CreateBridge(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in the bridge's parameters [JSON blob | JSON filepath]"))
 	}
@@ -215,8 +234,8 @@ func (cli *Client) AddBridge(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &bridge)
 }
 
-// GetBridges returns all bridges.
-func (cli *Client) GetBridges(c *clipkg.Context) error {
+// IndexBridges returns all bridges.
+func (cli *Client) IndexBridges(c *clipkg.Context) error {
 	return cli.getPage("/v2/bridge_types", c.Int("page"), &[]models.BridgeType{})
 }
 
@@ -422,15 +441,30 @@ func (cli *Client) ChangePassword(c *clipkg.Context) error {
 	return nil
 }
 
-// GetTransactions returns the list of transactions in descending order,
+// IndexTransactions returns the list of transactions in descending order,
 // taking an optional page parameter
-func (cli *Client) GetTransactions(c *clipkg.Context) error {
+func (cli *Client) IndexTransactions(c *clipkg.Context) error {
 	return cli.getPage("/v2/transactions", c.Int("page"), &[]presenters.Tx{})
 }
 
-// GetTxAttempts returns the list of transactions in descending order,
+// ShowTransaction returns the info for the given transaction hash
+func (cli *Client) ShowTransaction(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the hash of the transaction"))
+	}
+	hash := c.Args().First()
+	resp, err := cli.HTTP.Get("/v2/transactions/" + hash)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+	var tx presenters.Tx
+	return cli.renderAPIResponse(resp, &tx)
+}
+
+// IndexTxAttempts returns the list of transactions in descending order,
 // taking an optional page parameter
-func (cli *Client) GetTxAttempts(c *clipkg.Context) error {
+func (cli *Client) IndexTxAttempts(c *clipkg.Context) error {
 	return cli.getPage("/v2/tx_attempts", c.Int("page"), &[]models.TxAttempt{})
 }
 
@@ -563,4 +597,44 @@ func (cli *Client) CreateExtraKey(c *clipkg.Context) error {
 	defer resp.Body.Close()
 
 	return cli.printResponseBody(resp)
+}
+
+// SetMinimumGasPrice specifies the minimum gas price to use for outgoing transactions
+func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) error {
+	if c.NArg() != 1 {
+		return cli.errorOut(errors.New("expecting an amount"))
+	}
+
+	value := c.Args().Get(0)
+	amount, ok := new(big.Float).SetString(value)
+	if !ok {
+		return cli.errorOut(fmt.Errorf("invalid ethereum amount %s", value))
+	}
+
+	if c.IsSet("gwei") {
+		amount.Mul(amount, big.NewFloat(1000000000))
+	}
+
+	adjustedAmount, _ := amount.Int(nil)
+	request := struct {
+		EthGasPriceDefault string `json:"ethGasPriceDefault"`
+	}{EthGasPriceDefault: adjustedAmount.String()}
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	response, err := cli.HTTP.Patch("/v2/config", buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer response.Body.Close()
+
+	patchResponse := web.ConfigPatchResponse{}
+	if err := cli.deserializeAPIResponse(response, &patchResponse, &jsonapi.Links{}); err != nil {
+		return err
+	}
+
+	return cli.errorOut(cli.Render(&patchResponse))
 }

@@ -5,6 +5,7 @@ ENVIRONMENT ?= release
 REPO := smartcontract/chainlink
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
+GOBIN ?= $(GOPATH)/bin
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 DOCKERFILE := Dockerfile
@@ -31,24 +32,16 @@ TAGGED_REPO := $(REPO):$(DOCKER_TAG)
 install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
 
 .PHONY: install-chainlink-autoinstall
-install-chainlink-autoinstall: | godep-autoinstall install-chainlink
+install-chainlink-autoinstall: | gomod install-chainlink
 .PHONY: operator-ui-autoinstall
 operator-ui-autoinstall: | yarndep operator-ui
-.PHONY: godep-autoinstall
-godep-autoinstall: | install-godep godep
 
-.PHONY: install-godep
-install-godep:
-	@if [ -z "`which dep`" ]; then \
-		go get github.com/golang/dep/cmd/dep; \
-	fi || true
+.PHONY: gomod
+gomod: ## Ensure chainlink's go dependencies are installed.
 	@if [ -z "`which gencodec`" ]; then \
 		go get github.com/smartcontractkit/gencodec; \
 	fi || true
-
-.PHONY: godep
-godep: ## Ensure chainlink's go dependencies are installed.
-	dep ensure -v -vendor-only
+	go mod download
 
 .PHONY: yarndep
 yarndep: ## Ensure the frontend's dependencies are installed.
@@ -56,14 +49,14 @@ yarndep: ## Ensure the frontend's dependencies are installed.
 
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
-	cp $< $(GOPATH)/bin/chainlink
+	cp $< $(GOBIN)/chainlink
 
 chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
 	go build $(GOFLAGS) -o $@ ./core/
 
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.
-	cd operator_ui && CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn build
+	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui run build
 	CGO_ENABLED=0 go run operator_ui/main.go "${CURDIR}/core/services"
 
 .PHONY: docker

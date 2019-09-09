@@ -1,5 +1,5 @@
+import { RouterActionType } from 'actions'
 import reducer from 'connectors/redux/reducers'
-import { MATCH_ROUTE, REDIRECT } from 'actions'
 
 describe('connectors/reducers/redirect', () => {
   it('should return the initial state', () => {
@@ -11,7 +11,10 @@ describe('connectors/reducers/redirect', () => {
   })
 
   it('REDIRECT sets "to" as the given url', () => {
-    const state = reducer(undefined, { type: REDIRECT, to: '/foo' })
+    const state = reducer(undefined, {
+      type: RouterActionType.REDIRECT,
+      to: '/foo'
+    })
 
     expect(state.redirect).toEqual({
       to: '/foo'
@@ -22,7 +25,7 @@ describe('connectors/reducers/redirect', () => {
     const previousState = {
       redirect: { to: '/foo' }
     }
-    const state = reducer(previousState, { type: MATCH_ROUTE })
+    const state = reducer(previousState, { type: RouterActionType.MATCH_ROUTE })
 
     expect(state.redirect).toEqual({
       to: null

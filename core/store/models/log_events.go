@@ -8,7 +8,6 @@ import (
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
@@ -49,7 +48,7 @@ var (
 	// Coordinator.RunRequest(...) events which Chainlink nodes watch for. See
 	// https://github.com/smartcontractkit/chainlink/blob/master/evm/contracts/Coordinator.sol#RunRequest
 	ServiceAgreementExecutionLogTopic = utils.MustHash("ServiceAgreementExecution(bytes32,address,uint256,uint256,uint256,bytes)")
-	// ChainlinkFulfilled is the signature for the event emitted after calling
+	// ChainlinkFulfilledTopic is the signature for the event emitted after calling
 	// ChainlinkClient.validateChainlinkCallback(requestId).
 	// https://github.com/smartcontractkit/chainlink/blob/master/evm/contracts/ChainlinkClient.sol
 	ChainlinkFulfilledTopic = utils.MustHash("ChainlinkFulfilled(bytes32)")
@@ -81,16 +80,8 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 // TopicFiltersForRunLog generates the two variations of RunLog IDs that could
 // possibly be entered on a RunLog or a ServiceAgreementExecutionLog. There is the ID,
 // hex encoded and the ID zero padded.
-func TopicFiltersForRunLog(logTopics []common.Hash, jobID string) ([][]common.Hash, error) {
-	hexJobID := common.BytesToHash([]byte(jobID))
-	b, err := hexutil.Decode("0x" + jobID)
-	if err != nil {
-		return [][]common.Hash{}, fmt.Errorf("Could not hex decode %v: %v", jobID, err)
-	}
-	jobIDZeroPadded := common.BytesToHash(common.RightPadBytes(b, utils.EVMWordByteLen))
-	// LogTopics AND (0xHEXJOBID OR 0xJOBID0padded)
-	// i.e. (RunLogTopic0original OR RunLogTopic20190123withFullfillmentParams) AND (0xHEXJOBID OR 0xJOBID0padded)
-	return [][]common.Hash{logTopics, {hexJobID, jobIDZeroPadded}}, nil
+func TopicFiltersForRunLog(logTopics []common.Hash, jobID *ID) [][]common.Hash {
+	return [][]common.Hash{logTopics, {IDToTopic(jobID), IDToHexTopic(jobID)}}
 }
 
 // FilterQueryFactory returns the ethereum FilterQuery for this initiator.
@@ -100,12 +91,12 @@ func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error
 		return newInitiatorFilterQuery(i, from, nil), nil
 	case InitiatorRunLog:
 		topics := []common.Hash{RunLogTopic20190207withoutIndexes, RunLogTopic20190123withFullfillmentParams, RunLogTopic0original}
-		filters, err := TopicFiltersForRunLog(topics, i.JobSpecID)
-		return newInitiatorFilterQuery(i, from, filters), err
+		filters := TopicFiltersForRunLog(topics, i.JobSpecID)
+		return newInitiatorFilterQuery(i, from, filters), nil
 	case InitiatorServiceAgreementExecutionLog:
 		topics := []common.Hash{ServiceAgreementExecutionLogTopic}
-		filters, err := TopicFiltersForRunLog(topics, i.JobSpecID)
-		return newInitiatorFilterQuery(i, from, filters), err
+		filters := TopicFiltersForRunLog(topics, i.JobSpecID)
+		return newInitiatorFilterQuery(i, from, filters), nil
 	default:
 		return ethereum.FilterQuery{}, fmt.Errorf("Cannot generate a FilterQuery for initiator of type %T", i)
 	}
@@ -133,7 +124,6 @@ type LogRequest interface {
 	JSON() (JSON, error)
 	ToDebug()
 	ForLogger(kvs ...interface{}) []interface{}
-	ContractPayment() (*assets.Link, error)
 	ValidateRequester() error
 	BlockNumber() *big.Int
 	RunRequest() (RunRequest, error)
@@ -180,15 +170,13 @@ func (le InitiatorLogEvent) GetInitiator() Initiator {
 // ForLogger formats the InitiatorSubscriptionLogEvent for easy common
 // formatting in logs (trace statements, not ethereum events).
 func (le InitiatorLogEvent) ForLogger(kvs ...interface{}) []interface{} {
-	topic := ""
-	if len(le.Log.Topics) > 0 {
-		topic = le.Log.Topics[0].Hex()
-	}
 	output := []interface{}{
 		"job", le.JobSpec.ID,
 		"log", le.Log.BlockNumber,
-		"topic0", topic,
 		"initiator", le.Initiator,
+	}
+	for index, topic := range le.Log.Topics {
+		output = append(output, fmt.Sprintf("topic%d", index), topic.Hex())
 	}
 
 	return append(kvs, output...)
@@ -241,11 +229,6 @@ func (le InitiatorLogEvent) JSON() (JSON, error) {
 	return out, json.Unmarshal(b, &out)
 }
 
-// ContractPayment returns the amount attached to a contract to pay the Oracle upon fulfillment.
-func (le InitiatorLogEvent) ContractPayment() (*assets.Link, error) {
-	return nil, nil
-}
-
 // EthLogEvent provides functionality specific to a log event emitted
 // for an eth log initiator.
 type EthLogEvent struct {
@@ -261,29 +244,29 @@ type RunLogEvent struct {
 // Validate returns whether or not the contained log has a properly encoded
 // job id.
 func (le RunLogEvent) Validate() bool {
-	el := le.Log
-	jid := jobIDFromHexEncodedTopic(el)
-	if jid != le.JobSpec.ID && jobIDFromImproperEncodedTopic(el) != le.JobSpec.ID {
-		logger.Errorw(fmt.Sprintf("Run Log didn't have matching job ID: %v != %v", jid, le.JobSpec.ID), le.ForLogger()...)
+	jobSpecID := le.JobSpec.ID
+	topic := le.Log.Topics[RequestLogTopicJobID]
+
+	if IDToTopic(jobSpecID) != topic && IDToHexTopic(jobSpecID) != topic {
+		logger.Errorw("Run Log didn't have matching job ID", le.ForLogger("id", le.JobSpec.ID)...)
 		return false
 	}
-
 	return true
 }
 
 // ContractPayment returns the amount attached to a contract to pay the Oracle upon fulfillment.
-func (le RunLogEvent) ContractPayment() (*assets.Link, error) {
-	version, err := le.Log.getTopic(0)
+func contractPayment(log Log) (*assets.Link, error) {
+	version, err := log.getTopic(0)
 	if err != nil {
 		return nil, fmt.Errorf("Missing RunLogEvent Topic#0: %v", err)
 	}
 
 	var encodedAmount common.Hash
 	if oldRequestVersion(version) {
-		encodedAmount = le.Log.Topics[RequestLogTopicPayment]
+		encodedAmount = log.Topics[RequestLogTopicPayment]
 	} else {
 		paymentStart := requesterSize + idSize
-		encodedAmount = common.BytesToHash(le.Log.Data[paymentStart : paymentStart+paymentSize])
+		encodedAmount = common.BytesToHash(log.Data[paymentStart : paymentStart+paymentSize])
 	}
 
 	payment, ok := new(assets.Link).SetString(encodedAmount.Hex(), 0)
@@ -334,6 +317,11 @@ func (le RunLogEvent) RunRequest() (RunRequest, error) {
 		return RunRequest{}, err
 	}
 
+	payment, err := contractPayment(le.Log)
+	if err != nil {
+		return RunRequest{}, err
+	}
+
 	txHash := common.BytesToHash(le.Log.TxHash.Bytes())
 	blockHash := common.BytesToHash(le.Log.BlockHash.Bytes())
 	str := parser.parseRequestID(le.Log)
@@ -343,6 +331,7 @@ func (le RunLogEvent) RunRequest() (RunRequest, error) {
 		TxHash:    &txHash,
 		BlockHash: &blockHash,
 		Requester: &requester,
+		Payment:   payment,
 	}, nil
 }
 
@@ -404,7 +393,7 @@ func (parseRunLog0original) parseRequestID(log Log) string {
 // parseRunLog20190123withFulfillmentParams parses the OracleRequest log format
 // which includes the callback, the payment amount, and expiration time
 // The fulfillment also includes the callback, payment amount, and expiration,
-// in addtion to the request ID and data.
+// in addition to the request ID and data.
 type parseRunLog20190123withFulfillmentParams struct{}
 
 func (parseRunLog20190123withFulfillmentParams) parseJSON(log Log) (JSON, error) {
@@ -477,10 +466,13 @@ func bytesToHex(data []byte) string {
 	return utils.AddHexPrefix(hex.EncodeToString(data))
 }
 
-func jobIDFromHexEncodedTopic(log Log) string {
-	return string(log.Topics[RequestLogTopicJobID].Bytes())
+// IDToTopic encodes the bytes representation of the ID padded to fit into a
+// bytes32
+func IDToTopic(id *ID) common.Hash {
+	return common.BytesToHash(common.RightPadBytes(id.Bytes(), utils.EVMWordByteLen))
 }
 
-func jobIDFromImproperEncodedTopic(log Log) string {
-	return log.Topics[RequestLogTopicJobID].String()[2:34]
+// IDToHexTopic encodes the string representation of the ID
+func IDToHexTopic(id *ID) common.Hash {
+	return common.BytesToHash([]byte(id.String()))
 }

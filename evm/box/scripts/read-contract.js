@@ -5,7 +5,7 @@ let MyContract = artifacts.require('MyContract')
   of the requesting contract.
 */
 
-module.exports = async (callback) => {
+module.exports = async callback => {
   let mc = await MyContract.deployed()
   let data = await mc.data.call()
   callback(data)

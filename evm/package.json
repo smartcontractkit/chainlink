@@ -4,20 +4,45 @@
   "license": "MIT",
   "scripts": {
     "build": "truffle build",
+    "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box || true",
+    "lint": "yarn solhint",
+    "slither": "truffle compile --quiet && slither .",
+    "solhint": "solhint ./contracts/**/*.sol",
     "test": "truffle test",
-    "flatten": "../tools/bin/flatten-testnet"
+    "truffle:migrate:cldev": "truffle migrate --network cldev"
   },
   "dependencies": {
-    "@ensdomains/ens": "^0.1.1",
-    "link_token": "^1.0.3",
-    "openzeppelin-solidity": "^1.12.0",
-    "solidity-cborutils": "^1.0.4"
+    "cbor": "^4.1.1",
+    "eth-ens-namehash": "^2.0.8",
+    "ethereumjs-abi": "^0.6.7",
+    "ethereumjs-util": "^6.1.0",
+    "truffle-contract": "^4.0.27",
+    "web3": "^1.2.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.5.5",
+    "@babel/plugin-proposal-class-properties": "^7.3.0",
+    "@babel/plugin-proposal-export-namespace-from": "^7.2.0",
+    "@babel/plugin-proposal-throw-expressions": "^7.2.0",
+    "@babel/polyfill": "^7.2.5",
+    "@babel/preset-env": "^7.3.1",
+    "@babel/preset-typescript": "^7.1.0",
+    "@babel/register": "^7.0.0",
+    "@types/cbor": "^2.0.0",
+    "@types/chai": "^4.2.0",
+    "@types/web3": "^1.0.0",
+    "babel-eslint": "^10.0.1",
+    "bn.js": "^4.11.0",
+    "chai": "^4.2.0",
+    "depcheck": "^0.8.3",
+    "eslint": "5.12.0",
+    "solc": "0.4.24",
+    "solhint": "^2.1.0",
     "truffle": "^5.0.25"
   },
   "files": [
     "contracts",
+    "v0.5/contracts",
     "zos.json",
     "zos.rinkeby.json",
     "zos.ropsten.json"

@@ -1,14 +1,16 @@
-import { IState } from '../../src/connectors/redux/reducers/index'
-import bridgeSelector from '../../src/selectors/bridge'
+import { AppState } from 'connectors/redux/reducers'
+import bridgeSelector from 'selectors/bridge'
 
 describe('selectors - bridge', () => {
   it('returns the bridge with the given id', () => {
-    const state = <IState>{
+    const state: Pick<AppState, 'bridges'> = {
       bridges: {
         items: {
           a: { attributes: { name: 'A' } },
           b: { attributes: { name: 'B' } }
-        }
+        },
+        count: 0,
+        currentPage: ['0']
       }
     }
 

@@ -20,11 +20,16 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	requestID := "RequestID"
 	txHash := common.HexToHash("0xdeadbeef")
 
+	runID := models.NewID()
+	specID := models.NewID()
+	task0RunID := models.NewID()
+	task1RunID := models.NewID()
 	jobRun := models.JobRun{
-		ID:        "runID-411",
-		JobSpecID: "jobSpecID-312",
+		ID:        runID,
+		JobSpecID: specID,
 		Status:    models.RunStatusInProgress,
-		Result:    models.RunResult{Amount: assets.NewLink(2)},
+		Result:    models.RunResult{},
+		Payment:   assets.NewLink(2),
 		Initiator: models.Initiator{
 			Type: models.InitiatorRunLog,
 		},
@@ -35,13 +40,13 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 		},
 		TaskRuns: []models.TaskRun{
 			models.TaskRun{
-				ID:                   "task0RunID-938",
+				ID:                   task0RunID,
 				Status:               models.RunStatusPendingConfirmations,
 				Confirmations:        clnull.Uint32From(1),
 				MinimumConfirmations: clnull.Uint32From(3),
 			},
 			models.TaskRun{
-				ID:     "task1RunID-17",
+				ID:     task1RunID,
 				Status: models.RunStatusErrored,
 				Result: models.RunResult{ErrorMessage: null.StringFrom("yikes fam")},
 			},
@@ -56,12 +61,12 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	err = json.Unmarshal(bytes, &data)
 	require.NoError(t, err)
 
-	assert.Equal(t, data["runId"], "runID-411")
-	assert.Equal(t, data["jobId"], "jobSpecID-312")
+	assert.Equal(t, data["runId"], runID.String())
+	assert.Equal(t, data["jobId"], specID.String())
 	assert.Equal(t, data["status"], "in_progress")
 	assert.Contains(t, data, "error")
 	assert.Contains(t, data, "createdAt")
-	assert.Equal(t, data["amount"], "2")
+	assert.Equal(t, data["payment"], "2")
 	assert.Equal(t, data["finishedAt"], nil)
 	assert.Contains(t, data, "tasks")
 
@@ -119,7 +124,8 @@ func TestSyncJobRunPresenter_Initiators(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.initrType, func(t *testing.T) {
 			jobRun := models.JobRun{
-				ID:         "runID-412",
+				ID:         models.NewID(),
+				JobSpecID:  models.NewID(),
 				Initiator:  models.Initiator{Type: test.initrType},
 				RunRequest: test.rr,
 			}
@@ -172,10 +178,11 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 			}
 
 			jobRun := models.JobRun{
-				ID:        "runID-411",
-				JobSpecID: "jobSpecID-312",
+				ID:        models.NewID(),
+				JobSpecID: models.NewID(),
 				Status:    models.RunStatusCompleted,
-				Result:    models.RunResult{Amount: assets.NewLink(2)},
+				Result:    models.RunResult{},
+				Payment:   assets.NewLink(2),
 				Initiator: models.Initiator{
 					Type: models.InitiatorRunLog,
 				},
@@ -186,7 +193,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 				},
 				TaskRuns: []models.TaskRun{
 					models.TaskRun{
-						ID:       "task0RunID-938",
+						ID:       models.NewID(),
 						TaskSpec: taskSpec,
 						Status:   models.RunStatusPendingConfirmations,
 						Result:   models.RunResult{Data: dataJSON},

@@ -63,6 +63,7 @@ type HTTPPost struct {
 	POST         models.WebURL   `json:"post"`
 	Headers      http.Header     `json:"headers"`
 	QueryParams  QueryParameters `json:"queryParams"`
+	Body         *string         `json:"body,omitempty"`
 	ExtendedPath ExtendedPath    `json:"extPath"`
 }
 
@@ -86,9 +87,15 @@ func (hpa *HTTPPost) GetURL() string {
 }
 
 // GetRequest takes the request body and returns the HTTP request including
-// query parameters and headers
+// query parameters and headers.
+//
+// HTTPPost's Body parameter overrides the given argument if present.
 func (hpa *HTTPPost) GetRequest(body string) (*http.Request, error) {
+	if hpa.Body != nil {
+		body = *hpa.Body
+	}
 	reqBody := bytes.NewBufferString(body)
+
 	request, err := http.NewRequest("POST", hpa.GetURL(), reqBody)
 	if err != nil {
 		return nil, err

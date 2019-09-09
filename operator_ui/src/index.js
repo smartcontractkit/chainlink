@@ -1,17 +1,16 @@
+import { theme } from '@chainlink/styleguide'
+import { createMuiTheme, MuiThemeProvider } from '@material-ui/core/styles'
+import JavascriptTimeAgo from 'javascript-time-ago'
+import en from 'javascript-time-ago/locale/en'
+import moment from 'moment'
+import promiseFinally from 'promise.prototype.finally'
 import React from 'react'
 import ReactDOM from 'react-dom'
-import promiseFinally from 'promise.prototype.finally'
-import JavascriptTimeAgo from 'javascript-time-ago'
-import moment from 'moment'
-import en from 'javascript-time-ago/locale/en'
 import { AppContainer } from 'react-hot-loader'
-import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'
-import theme from '@chainlink/styleguide/theme'
 import App from './App'
 
 promiseFinally.shim(Promise)
 
-window.JavascriptTimeAgo = JavascriptTimeAgo
 JavascriptTimeAgo.locale(en)
 moment.defaultFormat = 'YYYY-MM-DD h:mm:ss A'
 
@@ -19,12 +18,11 @@ export default App
 
 if (typeof document !== 'undefined') {
   const renderMethod = module.hot ? ReactDOM.render : ReactDOM.hydrate
-  const muiTheme = createMuiTheme(theme)
 
   const render = Comp => {
     renderMethod(
       <AppContainer>
-        <MuiThemeProvider theme={muiTheme}>
+        <MuiThemeProvider theme={createMuiTheme(theme)}>
           <Comp />
         </MuiThemeProvider>
       </AppContainer>,

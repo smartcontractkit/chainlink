@@ -1,20 +1,16 @@
-import React from 'react'
-import {
-  createStyles,
-  Theme,
-  withStyles,
-  WithStyles
-} from '@material-ui/core/styles'
-import Typography from '@material-ui/core/Typography'
-import classNames from 'classnames'
-import PaddedCard from '@chainlink/styleguide/components/PaddedCard'
-import { titleCase } from 'change-case'
-import StatusIcon from '../JobRuns/StatusIcon'
+import { PaddedCard } from '@chainlink/styleguide'
 import { Grid } from '@material-ui/core'
-import { IJobRun } from '../../../@types/operator_ui'
+import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
+import Typography from '@material-ui/core/Typography'
+import { titleCase } from 'change-case'
+import classNames from 'classnames'
+import { IJobRun } from 'operator_ui'
+import React from 'react'
+import { useEffect, useHooks, useState } from 'use-react-hooks'
 import ElapsedTime from '../ElapsedTime'
+import StatusIcon from '../JobRuns/StatusIcon'
 
-const styles = (theme: Theme) =>
+const styles = (theme: any) =>
   createStyles({
     completed: {
       backgroundColor: theme.palette.success.light
@@ -67,7 +63,7 @@ const EarnedLink = ({
   jobRun?: IJobRun
   classes: WithStyles<typeof styles>['classes']
 }) => {
-  const linkEarned = jobRun && jobRun.result && jobRun.result.amount
+  const linkEarned = jobRun && jobRun.payment
   return (
     <Typography className={classes.earnedLink} variant="h6">
       +{linkEarned ? selectLink(linkEarned) : 0} Link
@@ -75,31 +71,36 @@ const EarnedLink = ({
   )
 }
 
-const StatusCard = ({ title, classes, children, jobRun }: IProps) => {
+const StatusCard = useHooks(({ title, classes, children, jobRun }: IProps) => {
   const statusClass = classes[title as keyof typeof classes] || classes.pending
   const { status, createdAt, finishedAt } = jobRun || {
     status: '',
     createdAt: '',
     finishedAt: ''
   }
+  const stillPending = status !== 'completed' && status !== 'errored'
+  const [liveTime, setLiveTime] = useState(Date.now())
+  useEffect(() => {
+    if (stillPending) setInterval(() => setLiveTime(Date.now()), 1000)
+  }, [])
+  const endDate = stillPending ? liveTime.toString() : finishedAt
+
   return (
     <PaddedCard className={classNames(classes.statusCard, statusClass)}>
       <div className={classes.head}>
-        <StatusIcon className={classes.statusIcon}  width={80} >
-          {title}
-        </StatusIcon>
+        <StatusIcon width={80}>{title}</StatusIcon>
         <Grid container alignItems="center" className={classes.statusRoot}>
           <Grid item xs={9}>
             <Typography className={classes.statusText} variant="h5">
               {titleCase(title)}
             </Typography>
-            {status !== 'pending' && (
+            {
               <ElapsedTime
                 start={createdAt}
-                end={finishedAt}
+                end={endDate}
                 className={classes.elapsedText}
               />
-            )}
+            }
           </Grid>
           <Grid item xs={3}>
             {title === 'completed' && (
@@ -111,6 +112,6 @@ const StatusCard = ({ title, classes, children, jobRun }: IProps) => {
       {children}
     </PaddedCard>
   )
-}
+})
 
 export default withStyles(styles)(StatusCard)

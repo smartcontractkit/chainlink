@@ -20,6 +20,6 @@ func (ra *Random) Perform(input models.RunResult, _ *store.Store) models.RunResu
 		return input
 	}
 	ran := new(big.Int).SetBytes(b)
-	input.ApplyResult(ran.String())
+	input.CompleteWithResult(ran.String())
 	return input
 }

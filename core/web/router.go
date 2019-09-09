@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	helmet "github.com/danielkov/gin-helmet"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/expvar"
 	limits "github.com/gin-contrib/size"
@@ -26,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -80,6 +82,7 @@ func Router(app services.Application) *gin.Engine {
 		cors,
 		secureMiddleware(config),
 	)
+	engine.Use(helmet.Default())
 
 	api := engine.Group(
 		"/",
@@ -107,18 +110,18 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 
 // secureOptions configure security options for the secure middleware, mostly
 // for TLS redirection
-func secureOptions(config store.Config) secure.Options {
+func secureOptions(config orm.ConfigReader) secure.Options {
 	return secure.Options{
 		FrameDeny:     true,
 		IsDevelopment: config.Dev(),
-		SSLRedirect:   config.TLSPort() != 0,
+		SSLRedirect:   config.TLSRedirect(),
 		SSLHost:       config.TLSHost(),
 	}
 }
 
 // secureMiddleware adds a TLS handler and redirector, to button up security
 // for this node
-func secureMiddleware(config store.Config) gin.HandlerFunc {
+func secureMiddleware(config orm.ConfigReader) gin.HandlerFunc {
 	secureMiddleware := secure.New(secureOptions(config))
 	secureFunc := func() gin.HandlerFunc {
 		return func(c *gin.Context) {
@@ -260,6 +263,7 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 		authv2.POST("/external_initiators", eia.Create)
 		authv2.DELETE("/external_initiators/:AccessKey", eia.Destroy)
 
+		authv2.POST("/specs", j.Create)
 		authv2.GET("/specs", paginatedRequest(j.Index))
 		authv2.GET("/specs/:SpecID", j.Show)
 		authv2.DELETE("/specs/:SpecID", j.Destroy)
@@ -289,6 +293,7 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
+		authv2.PATCH("/config", cc.Patch)
 
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
@@ -301,9 +306,10 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
 	}
 
+	ping := PingController{app}
 	tokAuthv2 := r.Group("/v2", tokenAuthRequired(app.GetStore()))
 	tokAuthv2.POST("/specs/:SpecID/runs", jr.Create)
-	tokAuthv2.POST("/specs", j.Create)
+	tokAuthv2.GET("/ping", ping.Show)
 }
 
 func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
@@ -329,20 +335,28 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
 			}
 		}
 
-		if matchedBoxPath != "" {
-			file, err := box.Open(matchedBoxPath)
-			if err != nil {
-				if err == os.ErrNotExist {
-					c.AbortWithStatus(http.StatusNotFound)
-				} else {
-					err := fmt.Errorf("failed to open static file '%s': %+v", path, err)
-					logger.Error(err.Error())
-					jsonAPIError(c, http.StatusInternalServerError, err)
-				}
-				return
-			}
-			defer file.Close()
+		var is404 bool
+		if matchedBoxPath == "" {
+			matchedBoxPath = "404.html"
+			is404 = true
+		}
 
+		file, err := box.Open(matchedBoxPath)
+		if err != nil {
+			if err == os.ErrNotExist {
+				c.AbortWithStatus(http.StatusNotFound)
+			} else {
+				logger.Errorf("failed to open static file '%s': %+v", path, err)
+				c.AbortWithStatus(http.StatusInternalServerError)
+			}
+			return
+		}
+		defer file.Close()
+
+		if is404 {
+			c.Writer.WriteHeader(http.StatusNotFound)
+			io.Copy(c.Writer, file)
+		} else {
 			http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 		}
 	})
@@ -386,7 +400,7 @@ func loggerFunc() gin.HandlerFunc {
 }
 
 // Add CORS headers so UI can make api requests
-func uiCorsHandler(config store.Config) gin.HandlerFunc {
+func uiCorsHandler(config orm.ConfigReader) gin.HandlerFunc {
 	c := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},

@@ -5,6 +5,6 @@ set -e
 go get -u github.com/smartcontractkit/goverage
 goverage -parallel 2 -coverprofile=c.out ./...
 if [ -n "$CC_TEST_REPORTER_ID"  ]; then
-  cc-test-reporter format-coverage --output "coverage/codeclimate.go.json"
+  cc-test-reporter format-coverage --output "coverage/codeclimate.go.json" --prefix "github.com/smartcontractkit/chainlink"
   gsutil cp "coverage/codeclimate.go.json" gs://codeclimate-aggregation/$CIRCLE_WORKFLOW_ID/
 fi

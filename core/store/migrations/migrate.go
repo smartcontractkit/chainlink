@@ -11,8 +11,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560433987"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560791143"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881846"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881855"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560886530"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560924400"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1564007745"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565139192"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565210496"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565877314"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1566498796"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1567029116"
 	gormigrate "gopkg.in/gormigrate.v1"
 )
 
@@ -55,6 +62,39 @@ func Migrate(db *gorm.DB) error {
 			ID:      "1560924400",
 			Migrate: migration1560924400.Migrate,
 		},
+		{
+			ID:      "1560881855",
+			Migrate: migration1560881855.Migrate,
+		},
+		{
+			ID:      "1565139192",
+			Migrate: migration1565139192.Migrate,
+		},
+		{
+			ID:      "1564007745",
+			Migrate: migration1564007745.Migrate,
+		},
+		{
+			ID:      "1565210496",
+			Migrate: migration1565210496.Migrate,
+		},
+		// XXX: Disable this migration, it is taking some time on staging
+		//{
+		//ID:      "1565291711",
+		//Migrate: migration1565291711.Migrate,
+		//},
+		{
+			ID:      "1566498796",
+			Migrate: migration1566498796.Migrate,
+		},
+		{
+			ID:      "1565877314",
+			Migrate: migration1565877314.Migrate,
+		},
+		{
+			ID:      "1567029116",
+			Migrate: migration1567029116.Migrate,
+		},
 	}
 
 	m := gormigrate.New(db, &options, migrations)
@@ -69,7 +109,6 @@ func Migrate(db *gorm.DB) error {
 		return errors.New("database is newer than current chainlink version")
 	}
 
-	db.LogMode(true)
 	err = m.Migrate()
 	if err != nil {
 		return errors.Wrap(err, "error running migrations")

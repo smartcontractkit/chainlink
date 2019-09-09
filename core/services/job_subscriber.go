@@ -15,14 +15,14 @@ import (
 type JobSubscriber interface {
 	store.HeadTrackable
 	AddJob(job models.JobSpec, bn *models.Head) error
-	RemoveJob(ID string) error
+	RemoveJob(ID *models.ID) error
 	Jobs() []models.JobSpec
 }
 
 // jobSubscriber implementation
 type jobSubscriber struct {
 	store            *store.Store
-	jobSubscriptions map[string]JobSubscription
+	jobSubscriptions map[*models.ID]JobSubscription
 	jobsMutex        *sync.RWMutex
 }
 
@@ -30,7 +30,7 @@ type jobSubscriber struct {
 func NewJobSubscriber(store *store.Store) JobSubscriber {
 	return &jobSubscriber{
 		store:            store,
-		jobSubscriptions: map[string]JobSubscription{},
+		jobSubscriptions: map[*models.ID]JobSubscription{},
 		jobsMutex:        &sync.RWMutex{},
 	}
 }
@@ -51,7 +51,7 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 }
 
 // RemoveJob unsubscribes the job from a log subscription to trigger runs.
-func (js *jobSubscriber) RemoveJob(ID string) error {
+func (js *jobSubscriber) RemoveJob(ID *models.ID) error {
 	js.jobsMutex.Lock()
 	sub, ok := js.jobSubscriptions[ID]
 	delete(js.jobSubscriptions, ID)
@@ -98,7 +98,7 @@ func (js *jobSubscriber) Disconnect() {
 	for _, sub := range js.jobSubscriptions {
 		sub.Unsubscribe()
 	}
-	js.jobSubscriptions = map[string]JobSubscription{}
+	js.jobSubscriptions = map[*models.ID]JobSubscription{}
 }
 
 // OnNewHead resumes all pending job runs based on the new head activity.

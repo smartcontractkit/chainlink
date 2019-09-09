@@ -67,7 +67,7 @@ func getTxData(e *EthTx, input *models.RunResult) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-	return utils.ConcatBytes(payloadOffset, output)
+	return utils.ConcatBytes(payloadOffset, output), nil
 }
 
 func createTxRunResult(
@@ -81,14 +81,15 @@ func createTxRunResult(
 		return
 	}
 
-	data, err := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, value)
-	if err != nil {
-		input.SetError(err)
-		return
+	data := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, value)
+
+	jobRunID := null.String{}
+	if input.CachedJobRunID != nil {
+		jobRunID = null.StringFrom(input.CachedJobRunID.String())
 	}
 
 	tx, err := store.TxManager.CreateTxWithGas(
-		null.StringFrom(input.CachedJobRunID),
+		jobRunID,
 		e.Address,
 		data,
 		e.GasPrice.ToInt(),
