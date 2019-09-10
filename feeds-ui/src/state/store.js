@@ -17,12 +17,15 @@ const logger = createLogger({
 const migrations = {
   1: state => {
     return {}
+  },
+  2: state => {
+    return {}
   }
 }
 
 const persistConfig = {
   key: 'hearbeat',
-  version: 1,
+  version: 2,
   storage,
   whitelist: ['aggregation'],
   transforms: [createFilter('aggregation', ['oracles'])],

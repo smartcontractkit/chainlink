@@ -114,7 +114,7 @@ export function listenNextAnswerId(callback) {
   answerIdTimer = setInterval(async () => {
     const answerId = await nextAnswerId()
     return callback(answerId)
-  }, 8000)
+  }, 4000)
 }
 
 export async function answerUpdated(pastBlocks = 6700) {
