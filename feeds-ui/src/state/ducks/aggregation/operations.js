@@ -1,4 +1,5 @@
 import * as actions from './actions'
+import _ from 'lodash'
 
 import {
   oracleAddresses,
@@ -13,7 +14,8 @@ import {
   oracleResponseById,
   chainlinkRequested,
   listenOracleResponseEvent,
-  listenNextAnswerId
+  listenNextAnswerId,
+  answerUpdated
 } from 'state/contract/events'
 
 const fetchOracles = () => {
@@ -95,28 +97,26 @@ const fetchMinimumResponses = () => {
   }
 }
 
-// TODO
-// const fetchAnswerHistory = () => {
-//   return async (dispatch, getState) => {
-//     try {
-//       let payload = await answerUpdated()
+const fetchAnswerHistory = () => {
+  return async (dispatch, getState) => {
+    try {
+      let payload = await answerUpdated()
 
-//       const uniquePayload = _.uniqBy(payload, e => {
-//         return e.answerId
-//       })
+      const uniquePayload = _.uniqBy(payload, e => {
+        return e.answerId
+      })
 
-//       const formattedPayload = uniquePayload.map(e => ({
-//         answerId: e.answerId,
-//         response: e.response,
-//         responseFormatted: e.responseFormatted,
-//         blockNumber: e.meta.blockNumber,
-//         timestamp: e.meta.timestamp
-//       }))
+      const formattedPayload = uniquePayload.map(e => ({
+        answerId: e.answerId,
+        response: e.response,
+        responseFormatted: e.responseFormatted,
+        blockNumber: e.meta.blockNumber
+      }))
 
-//       dispatch(actions.setAnswerHistory(formattedPayload))
-//     } catch (error) {}
-//   }
-// }
+      dispatch(actions.setAnswerHistory(formattedPayload))
+    } catch (error) {}
+  }
+}
 
 const fetchInitData = () => {
   return async (dispatch, getState) => {
@@ -130,6 +130,7 @@ const fetchInitData = () => {
     fetchCurrentAnswer()(dispatch)
     fetchUpdateHeight()(dispatch)
     initListeners()(dispatch, getState)
+    fetchAnswerHistory()(dispatch)
   }
 }
 

@@ -1,13 +1,4 @@
 import * as d3 from 'd3'
-import _ from 'lodash'
-import moment from 'moment'
-
-const theme = {
-  brand: '#2a5ada',
-  backgroud: '#f1f1f1',
-  strokeActive: '#a0a0a0',
-  nodeActive: '#2d2a2b'
-}
 
 let svg
 let path
@@ -17,15 +8,15 @@ let y
 let line
 let overlay
 let tooltipPrice
-let tooltipTimestamp
-let topValue
+let tooltipAnswerId
+// let heighestPricePoint
 
 let margin = { top: 30, right: 30, bottom: 30, left: 30 }
 let width = 1200
 let height = 300
 
 const bisectDate = d3.bisector(d => {
-  return d.timestamp
+  return d.answerId
 }).left
 
 export function createChart() {
@@ -61,13 +52,15 @@ export function createChart() {
     .attr('x', '10')
     .attr('y', '-5')
 
-  tooltipTimestamp = tooltip
+  tooltipAnswerId = tooltip
     .append('text')
     .attr('class', 'answer-history-graph--timestamp')
     .attr('x', '10')
     .attr('y', '10')
 
-  topValue = svg.append('circle').attr('class', 'answer-history-graph--top')
+  // heighestPricePoint = svg
+  //   .append('circle')
+  //   .attr('class', 'answer-history-graph--top')
 
   overlay = svg
     .append('rect')
@@ -87,19 +80,9 @@ export function update(updatedData) {
   }
   const data = JSON.parse(JSON.stringify(updatedData))
 
-  line = d3
-    .line()
-    .x(function(d) {
-      return x(d.timestamp)
-    })
-    .y(function(d) {
-      return y(d.response)
-    })
-    .curve(d3.curveMonotoneX)
-
   x = d3
     .scaleLinear()
-    .domain(d3.extent(data, d => d.timestamp))
+    .domain(d3.extent(data, d => d.answerId))
     .range([0, width])
 
   y = d3
@@ -107,7 +90,26 @@ export function update(updatedData) {
     .domain(d3.extent(data, d => Number(d.response)))
     .range([height, 0])
 
+  line = d3
+    .line()
+    .x(d => {
+      return x(d.answerId)
+    })
+    .y(d => {
+      return y(Number(d.response))
+    })
+    .curve(d3.curveMonotoneX)
+
   path.datum(data).attr('d', line)
+
+  const totalLength = path.node().getTotalLength()
+
+  path
+    .attr('stroke-dasharray', totalLength + ' ' + totalLength)
+    .attr('stroke-dashoffset', totalLength)
+    .transition()
+    .duration(2000)
+    .attr('stroke-dashoffset', 0)
 
   // const maxY = d3.max(data, d => {
   //   return Number(d.response)
@@ -117,14 +119,13 @@ export function update(updatedData) {
   //   return Number(b.response) - Number(a.response)
   // })[0]
 
-  // topValue
-  //   .style('fill', '#2a59da')
-  //   .style('stroke', '#2a59da')
+  // heighestPricePoint
+  //   .style('fill', 'black')
   //   .attr('r', 4)
   //   .attr(
   //     'transform',
   //     'translate(' +
-  //       (x(sortedByValue.timestamp) + margin.left) +
+  //       (x(sortedByValue.answerId) + margin.left) +
   //       ',' +
   //       (y(maxY) + margin.top) +
   //       ')'
@@ -141,21 +142,21 @@ export function update(updatedData) {
     if (!d1) {
       return
     }
-    const d = x0 - d0.timestamp > d1.timestamp - x0 ? d1 : d0
+    const d = x0 - d0.answerId > d1.answerId - x0 ? d1 : d0
 
     tooltip
       .style('display', 'block')
       .attr(
         'transform',
         'translate(' +
-          (x(d.timestamp) + margin.left) +
+          (x(d.answerId) + margin.left) +
           ',' +
           (y(d.response) + margin.top) +
           ')'
       )
 
-    tooltipTimestamp.text(function() {
-      return moment.unix(d.timestamp).format('hh:mm:ss A')
+    tooltipAnswerId.text(function() {
+      return `ID ${d.answerId}`
     })
 
     tooltipPrice.text(function() {

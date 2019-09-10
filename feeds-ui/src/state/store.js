@@ -25,7 +25,7 @@ const persistConfig = {
   version: 1,
   storage,
   whitelist: ['aggregation'],
-  transforms: [createFilter('aggregation', ['oracles', 'answerHistory'])],
+  transforms: [createFilter('aggregation', ['oracles'])],
   migrate: createMigrate(migrations, {
     debug: process.env.NODE_ENV !== 'production'
   })
