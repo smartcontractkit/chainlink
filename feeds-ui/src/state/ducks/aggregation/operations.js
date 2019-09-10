@@ -1,5 +1,6 @@
 import * as actions from './actions'
 import _ from 'lodash'
+import moment from 'moment'
 
 import {
   oracleAddresses,
@@ -140,7 +141,7 @@ const initListeners = () => {
      * Listen to next answer id
      * - change next answer id
      * - reset oracle data
-     * - reset request time
+     * - reset request time (hardcode current time)
      */
 
     listenNextAnswerId(async responseNextAnswerId => {
@@ -149,7 +150,7 @@ const initListeners = () => {
       if (responseNextAnswerId > nextAnswerId) {
         dispatch(actions.setNextAnswerId(responseNextAnswerId))
         dispatch(actions.setOracleResponse([]))
-        fetchRequestTime()(dispatch, getState)
+        dispatch(actions.setRequestTime(moment().unix()))
       }
     })
 
