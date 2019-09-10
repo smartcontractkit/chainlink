@@ -25,16 +25,6 @@ const createErrorAction = (error: Error, type: string) => ({
   error: error.stack,
 })
 
-const curryErrorHandler = (dispatch: Dispatch, type: string) => (
-  error: Error,
-) => {
-  if (error instanceof api.errors.AuthenticationError) {
-    dispatch(redirectToSignOut())
-  } else {
-    dispatch(createErrorAction(error, type))
-  }
-}
-
 export enum RouterActionType {
   REDIRECT = 'REDIRECT',
   MATCH_ROUTE = 'MATCH_ROUTE',
@@ -44,6 +34,16 @@ const redirectToSignOut = () => ({
   type: RouterActionType.REDIRECT,
   to: '/signout',
 })
+
+const curryErrorHandler = (dispatch: Dispatch, type: string) => (
+  error: Error,
+) => {
+  if (error instanceof api.errors.AuthenticationError) {
+    dispatch(redirectToSignOut())
+  } else {
+    dispatch(createErrorAction(error, type))
+  }
+}
 
 export const MATCH_ROUTE = 'MATCH_ROUTE'
 
@@ -353,10 +353,6 @@ function request<
   }
 }
 
-export type NormalizedAccountBalance = GetNormalizedData<
-  typeof fetchAccountBalance
->
-
 export const fetchAccountBalance = request(
   'ACCOUNT_BALANCE',
   api.v2.user.balances.getAccountBalances,
@@ -365,6 +361,10 @@ export const fetchAccountBalance = request(
       accountBalances: presenters.AccountBalance[]
     }>(json),
 )
+
+export type NormalizedAccountBalance = GetNormalizedData<
+  typeof fetchAccountBalance
+>
 
 export const fetchConfiguration = request(
   'CONFIGURATION',

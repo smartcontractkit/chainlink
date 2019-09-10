@@ -37,6 +37,8 @@ const SHARED_NAV_ITEMS = [
   ['/config', 'Configuration'],
 ]
 
+const drawerWidth = 240
+
 const drawerStyles = ({ palette, spacing }: Theme) =>
   createStyles({
     menuitem: {
@@ -170,8 +172,6 @@ const Nav = withStyles(navStyles)(
     )
   },
 )
-
-const drawerWidth = 240
 
 const styles = ({ palette, spacing, zIndex }: Theme) =>
   createStyles({
