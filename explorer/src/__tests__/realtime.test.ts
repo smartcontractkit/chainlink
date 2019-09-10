@@ -189,7 +189,7 @@ describe('realtime', () => {
     let ws1: WebSocket
     let ws2: WebSocket
 
-    const onCloseCallback = event => {
+    const onCloseCallback = (event: WebSocket.CloseEvent) => {
       expect(ws1.readyState).toBe(3) // connection closed
       expect(ws2.readyState).toBe(1) // connection open
       expect(event.code).toBe(1000)
