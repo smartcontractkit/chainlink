@@ -3,7 +3,7 @@ package cltest
 import (
 	"database/sql"
 	"fmt"
-	"regexp"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -62,22 +62,19 @@ func reapPostgresChildDB(t testing.TB, dbURL, testdb string) {
 		t.Fatalf("Unable to connect to parent CL db to clean up test database: %v", err)
 	}
 	defer db.Close()
-	dbsSQL := "DROP DATABASE IF EXISTS " + testdb
+	dbsSQL := "DROP DATABASE " + testdb
 	_, err = db.Exec(dbsSQL)
 	if err != nil {
 		t.Fatalf("Unable to clean up previous test database: %v", err)
 	}
 }
 
-// postgresDBRe is used to find the db name from local, and only local, test DBs.
-var postgresDBRe = regexp.MustCompile(`postgres://.*localhost:5432/([_\-a-zA-Z0-9]*)`)
-
 func extractDB(t testing.TB, originalURL string) string {
-	matches := postgresDBRe.FindStringSubmatch(originalURL)
-	if len(matches) < 2 {
-		t.Fatalf("unable to extract database from %v, matches: %v", originalURL, matches)
+	parsed, err := url.Parse(originalURL)
+	if err != nil {
+		t.Fatalf("unable to extract database from %v: %v", originalURL, err)
 	}
-	return matches[1]
+	return parsed.Path[1:]
 }
 
 // swapDB uses replaces the DB part of the URL:
