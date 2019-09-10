@@ -6,7 +6,7 @@ import mountWithTheme from 'test-helpers/mountWithTheme'
 import syncFetch from 'test-helpers/syncFetch'
 
 const classes = {}
-const mountIndex = (opts = {}) => mountWithTheme(<Index classes={classes} />)
+const mountIndex = () => mountWithTheme(<Index classes={classes} />)
 
 describe('containers/Dashboards/Index', () => {
   it('renders the recent activity, account balances & recently created jobs', async () => {

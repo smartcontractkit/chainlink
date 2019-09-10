@@ -14,7 +14,7 @@ import StatusIcon from '../JobRuns/StatusIcon'
 import classNames from 'classnames'
 import { Grid } from '@material-ui/core'
 
-const withChildrenStyles = (theme: Theme) =>
+const withChildrenStyles = () =>
   createStyles({
     summary: {
       minHeight: '0 !important',

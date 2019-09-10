@@ -55,9 +55,7 @@ const Details = withStyles(detailsStyles)(
   },
 )
 
-const styles = (theme: Theme) => ({})
-
-interface Props extends WithStyles<typeof styles> {
+interface Props {
   jobSpecId: string
   jobRunId: string
   jobRun?: JobRun
@@ -109,4 +107,4 @@ export const ConnectedShowErrorLog = connect(
   matchRouteAndMapDispatchToProps({ fetchJobRun }),
 )(ShowErrorLog)
 
-export default withStyles(styles)(ConnectedShowErrorLog)
+export default ConnectedShowErrorLog

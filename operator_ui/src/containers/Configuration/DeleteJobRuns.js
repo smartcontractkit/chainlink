@@ -115,8 +115,6 @@ const DeleteJobRuns = useHooks(
   },
 )
 
-const mapStateToProps = state => ({})
-
 const mapDispatchToProps = dispatch =>
   bindActionCreators(
     {
@@ -127,7 +125,7 @@ const mapDispatchToProps = dispatch =>
   )
 
 export const ConnectedDeleteJobRuns = connect(
-  mapStateToProps,
+  undefined,
   mapDispatchToProps,
 )(DeleteJobRuns)
 

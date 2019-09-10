@@ -1,7 +1,7 @@
 const path = require('path')
 
-export default pluginOptions => ({
-  webpack: (currentWebpackConfig, state) => {
+export default () => ({
+  webpack: currentWebpackConfig => {
     return {
       ...currentWebpackConfig,
       resolve: {
