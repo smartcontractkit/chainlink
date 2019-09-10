@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"io/ioutil"
+	"net/http"
 	"testing"
 	"time"
 
@@ -28,9 +29,9 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 		input    string
 		wantCode int
 	}{
-		{"success", base, 200},
-		{"fails validation", cltest.MustJSONDel(t, base, "payment"), 422},
-		{"invalid JSON", "{", 422},
+		{"success", base, http.StatusOK},
+		{"fails validation", cltest.MustJSONDel(t, base, "payment"), http.StatusUnprocessableEntity},
+		{"invalid JSON", "{", http.StatusUnprocessableEntity},
 	}
 
 	for _, test := range tests {
@@ -39,7 +40,7 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 			defer cleanup()
 
 			cltest.AssertServerResponse(t, resp, test.wantCode)
-			if test.wantCode == 200 {
+			if test.wantCode == http.StatusOK {
 				responseSA := models.ServiceAgreement{}
 
 				err := cltest.ParseJSONAPIResponse(t, resp, &responseSA)
@@ -76,14 +77,14 @@ func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 	reader := bytes.NewBuffer(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
 	resp, cleanup := client.Post("/v2/service_agreements", reader)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	response1 := models.ServiceAgreement{}
 	assert.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &response1))
 
 	reader = bytes.NewBuffer(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
 	resp, cleanup = client.Post("/v2/service_agreements", reader)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	response2 := models.ServiceAgreement{}
 	assert.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &response2))
 
@@ -105,7 +106,7 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/service_agreements/" + sa.ID)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	b, err := ioutil.ReadAll(resp.Body)
 	assert.NoError(t, err)
