@@ -85,51 +85,92 @@
 //
 // EthTxEncode
 //
-// The EthTxEncode adapter serializes the contents of a json string as the list
-// of primitive static solidity types in its `types` parameter, ordered as
-// specified in its `order` parameter. See
-// https://solidity.readthedocs.io/en/v0.5.3/abi-spec.html#formal-specification-of-the-encoding
-// for the serialization format. Currently only uint256's are implemented. E.g.
+// The EthTxEncode adapter serializes the contents of a json object as transaction data
+// calling an arbitrary function of a smart contract. See
+// https://solidity.readthedocs.io/en/v0.5.11/abi-spec.html#formal-specification-of-the-encoding
+// for the serialization format. We currently support all types that solidity contracts
+// as of solc v0.5.11 can decode, i.e. address, bool, bytes*, int*, uint*, arrays (e.g. address[2]),
+// bytes (variable length), string (variable length), and slices (e.g. uint256[] or address[2][]).
+//
+// The ABI of the function to be called is specified in the functionABI field, using the ABI JSON
+// format used by solc and vyper.
+// For example,
 //
 //   {
 //     "type": "EthTxEncode",
-//     "methodName": "verifyVRFProof",
-//     "types": {"gammaX": "uint256", "gammaY": "uint256", "c": "uint256", "s": "uint256"},
-//     "functionSelector": "0x1234"
-//     "order": ["gammaX", "gammaY", "c", "s"],
-//     "address": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+//     "functionABI": {
+//       "name": "example"
+//       "inputs": [
+//         {"name": "x", "type": "uint256"},
+//         {"name": "y", "type": "bool[2][]"}
+//         {"name": "z", "type": "string"}
+//       ]
+//     },
+//     "address": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 //   }
 //
-// will expect a list containing four uint256's.
-//
-// The `methodName` field must match the name of the target method on the contract.
-//
-// Only the type uint256 is implemented, for now.
+// will encode a transaction to a function example(uint256 x, bool[2][] y, string z) for a contract
+// at address 0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef.
 //
 // Upon use, the json input to an EthTxEncode task is expected to have a
-// corresponding map of argument names to compatible hex-encoded data in its
+// corresponding map of argument names to compatible data in its
 // `result` field such as
 //
 //   {
 //     "result": {
-//                 "gammaX": "0xa2e03a05b089db7b79cd0f6655d6af3e2d06bd0129f87f9f2155612b4e2a41d8",
-//                 "gammaY": "0xa1dadcabf900bdfb6484e9a4390bffa6ccd666a565a991f061faf868cc9fce8",
-//                 "c": "0xf82b4f9161ab41ae7c11e7deb628024ef9f5e9a0bca029f0ccb5cb534c70be31",
-//                 "s": "0x2b1049accb1596a24517f96761b22600a690ee5c6b6cadae3fa522e7d95ba338"
-//               }
+//       "x": "680564733841876926926749227234810109236",
+//       "y": [[true, false], [false, false]],
+//       "z": "hello world! привет мир!"
+//     }
 //   }
 //
 // which will result in a call to
-// `verifyVRFProof(uint256,uint256,uint256,uint256)` at address
+// `example(uint256,bool[2][],string)` at address
 // 0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef, with arguments
 //
-//   verifyVRFProof(
-//     0xa2e03a05b089db7b79cd0f6655d6af3e2d06bd0129f87f9f2155612b4e2a41d8,
-//     0x0a1dadcabf900bdfb6484e9a4390bffa6ccd666a565a991f061faf868cc9fce8,
-//     0xf82b4f9161ab41ae7c11e7deb628024ef9f5e9a0bca029f0ccb5cb534c70be31,
-//     0x2b1049accb1596a24517f96761b22600a690ee5c6b6cadae3fa522e7d95ba338
+//   example(
+//     680564733841876926926749227234810109236,
+//     [[true, false], [false, false]],
+//     "hello world! привет мир!"
 //   )
 //
 // The result from EthTxEncode is the hash of the resulting transaction, if it
 // was successfully transmitted, or an error if not.
+//
+// ABI types must be represented in JSON as follows:
+//   address:
+//     - a hexstring containing exactly 20 bytes, e.g.
+//       "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+//   bool:
+//     - true or false
+//   bytes<n>:
+//     - a hexstring containing exactly n bytes, e.g.
+//       "0xdeadbeef" for a bytes8
+//     - an array of numbers containing exactly n bytes, e.g.
+//       [1,2,3,4,5,6,7,8,9,10] for a bytes10
+//   int<n>:
+//     - a decimal number, e.g. from "-128" to "127" for an int8
+//     - a positive hex number, e.g. "0xdeadbeef" for an int64
+//     - for n <= 48, a number, e.g. 4294967296 for an int40
+//       (for larger n, json numbers aren't suitable due to them commonly
+//       being interpreted as floats who lose precision about 2**53)
+//   uint<n>:
+//     - a decimal number, e.g. from "0" to "255" for an uint8
+//     - a positive hex number, e.g. "0xdeadbeef" for an uint64
+//     - for n <= 48, a number, e.g. 4294967296 for an uint40
+//       (for larger n, json numbers aren't suitable due to them commonly
+//       being interpreted as floats who lose precision about 2**53)
+//   arrays:
+//     - a json array of the appropriate length, e.g. ["0x1", "-1"] for int8[2]
+//   ==============
+//   bytes:
+//     - a hexstring of variable length, e.g. "0xdeadbeefc0ffee"
+//     - an array of numbers of variable length, e.g.
+//       [1,2,1,2,1,2]
+//   string:
+//     - a utf8 string, e.g. "hello world! привет мир!"
+//   slice:
+//     - an array of variable length, e.g. ["0x1", "-2", 3] for
+//       an int128[]
+//
 package adapters

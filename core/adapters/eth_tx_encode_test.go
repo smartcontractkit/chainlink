@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/tidwall/gjson"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,18 +23,50 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var adapterUnderTest = adapters.EthTxEncode{
-	Address: common.HexToAddress(
-		"0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-	MethodName: "verifyVRFProof",
-	Types: map[string]string{
-		"gammaX": "uint256", "gammaY": "uint256", "c": "uint256", "s": "uint256"},
-	Order:    []string{"gammaX", "gammaY", "c", "s"},
-	GasPrice: models.NewBig(big.NewInt(1 << 44)), // ~20k Gwei
-	GasLimit: 500000,
-}
+// var adapterUnderTest = adapters.EthTxEncode{
+// 	Address: common.HexToAddress(
+// 		"0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+// 	MethodName: "verifyVRFProof",
+// 	Types: map[string]string{
+// 		"gammaX": "uint256", "gammaY": "uint256", "c": "uint256", "s": "uint256"},
+// 	Order:    []string{"gammaX", "gammaY", "c", "s"},
+// 	GasPrice: models.NewBig(big.NewInt(1 << 44)), // ~20k Gwei
+// 	GasLimit: 500000,
+// }
 
 func TestEthTxEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
+	uint256Type, err := abi.NewType("uint256", []abi.ArgumentMarshaling{})
+	var adapterUnderTest = adapters.EthTxEncode{
+		Address: common.HexToAddress(
+			"0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+		FunctionABI: abi.Method{
+			Name:    "verifyVRFProof",
+			RawName: "verifyVRFProof",
+			Const:   false,
+			Inputs: []abi.Argument{
+				abi.Argument{
+					Name: "gammaX",
+					Type: uint256Type,
+				},
+				abi.Argument{
+					Name: "gammaY",
+					Type: uint256Type,
+				},
+				abi.Argument{
+					Name: "c",
+					Type: uint256Type,
+				},
+				abi.Argument{
+					Name: "s",
+					Type: uint256Type,
+				},
+			},
+			Outputs: []abi.Argument{},
+		},
+		GasPrice: models.NewBig(big.NewInt(1 << 44)), // ~20k Gwei
+		GasLimit: 500000,
+	}
+
 	rawInput := `
     {
        "result": {
@@ -49,17 +83,20 @@ func TestEthTxEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 `
 	require.True(t, gjson.Valid(rawInput), "invalid result json: %s", rawInput)
 	inputValue := gjson.Parse(rawInput).Get("result").Value().(map[string]interface{})
-	types := make([]string, len(adapterUnderTest.Order))
-	values := make([]string, len(adapterUnderTest.Order))
-	for idx, name := range adapterUnderTest.Order {
-		types[idx] = adapterUnderTest.Types[name]
-		fullVal := inputValue[name].(string)
-		require.Equal(t, "0x", fullVal[:2], "not a 0x hex value: %s", fullVal)
-		values[idx] = fullVal[2:]
+
+	types := []string{}
+	for _, input := range adapterUnderTest.FunctionABI.Inputs {
+		types = append(types, input.Type.String())
 	}
 	fullSignatureHash := utils.MustHash(fmt.Sprintf(
-		"%s(%s)", adapterUnderTest.MethodName, strings.Join(types, ",")))
+		"%s(%s)", adapterUnderTest.FunctionABI.RawName, strings.Join(types, ",")))
 	selector := []string{"0x" + hex.EncodeToString(fullSignatureHash[:4])}
+
+	values := []string{}
+	for _, input := range adapterUnderTest.FunctionABI.Inputs {
+		values = append(values, inputValue[input.Name].(string)[2:])
+	}
+
 	expectedAsHex := strings.Join(append(selector, values...), "")
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
