@@ -1,11 +1,11 @@
 package adapters
 
 import (
+	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
-
-	"github.com/tidwall/gjson"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,20 +15,19 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// EthTx holds the Address to send the result to and the FunctionSelector
-// to execute.
+const evmWordSize = 32
+
+// TODO(lorenzb): rename to EthTxABIEncode
+
+// EthTxEncode holds the Address to send the result to and the FunctionABI
+// to use for encoding arguments.
 type EthTxEncode struct {
 	// Ethereum address of the contract this task calls
 	Address common.Address `json:"address"`
-	// Name of the contract method this task calls
-	MethodName string `json:"methodName"`
-	// Solidity types of the arguments to this method. (Must be primitive types.)
-	// Keys are the argument names in `Order` field
-	Types map[string]string `json:"types"`
-	// Names of the arguments to the method, in appropriate order
-	Order    []string    `json:"order"`
-	GasPrice *models.Big `json:"gasPrice" gorm:"type:numeric"`
-	GasLimit uint64      `json:"gasLimit"`
+	// ABI of contract function this task calls
+	FunctionABI abi.Method  `json:"functionABI"`
+	GasPrice    *models.Big `json:"gasPrice" gorm:"type:numeric"`
+	GasLimit    uint64      `json:"gasLimit"`
 }
 
 // Perform creates the run result for the transaction if the existing run result
@@ -41,9 +40,9 @@ func (etx *EthTxEncode) Perform(
 		return input
 	}
 	if !input.Status.PendingConfirmations() {
-		data, err := getTxEncodeData(etx, &input)
+		data, err := etx.abiEncode(&input)
 		if err != nil {
-			input.SetError(errors.Wrap(err, "while constructing EthTx data"))
+			input.SetError(errors.Wrap(err, "while constructing EthTxEncode data"))
 			return input
 		}
 		createTxRunResult(etx.Address, etx.GasPrice, etx.GasLimit, data, &input, store)
@@ -53,80 +52,363 @@ func (etx *EthTxEncode) Perform(
 	return input
 }
 
-// ABI presents the method specified in etx as required by the abi package
-func (etx EthTxEncode) ABI() (*abi.ABI, error) {
-	rv := abi.ABI{}
-	method := abi.Method{}
-	method.Name = etx.MethodName
-	method.RawName = etx.MethodName
-	method.Inputs = make([]abi.Argument, len(etx.Order))
-	for idx, argName := range etx.Order {
-		typeName := etx.Types[argName]
-		// TODO(alx): Enable composite types with a parser for the input JSON into
-		// the correct golang types. Then `nil` must be replaced with the components
-		typ, err := abi.NewType(typeName, nil)
-		if err != nil {
-			return nil, errors.Wrapf(
-				err, `bad type for argument %s: %s`, argName, typeName)
-		}
-		method.Inputs[idx] = abi.Argument{Name: argName, Type: typ}
+// abiEncode ABI-encodes the arguments passed in a RunResult's result field
+// according to etx.FunctionABI
+func (etx *EthTxEncode) abiEncode(runResult *models.RunResult) ([]byte, error) {
+	args, ok := runResult.Get("result").Value().(map[string]interface{})
+	if !ok {
+		return nil, errors.Errorf("json result is not an object")
 	}
-	rv.Methods = make(map[string]abi.Method)
-	rv.Methods[method.Name] = method
-	return &rv, nil
+	return abiEncode(&etx.FunctionABI, args)
 }
 
-// getTxData returns the data to save against the callback encoded according to
-// the `types` and `order` fields of the job.
-//
-// At the time of writing it only uint256 arguments, so the use of the abi
-// package is kind of overkill. Should make more complex method signatures
-// easier in future, though.
-func getTxEncodeData(e *EthTxEncode, input *models.RunResult) ([]byte, error) {
-	abi, err := e.ABI()
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not parse method ABI from %+v", e)
+// abiEncode ABI-encodes the arguments in args according to fnABI.
+func abiEncode(fnABI *abi.Method, args map[string]interface{}) ([]byte, error) {
+	if len(fnABI.Inputs) != len(args) {
+		return nil, errors.Errorf(
+			"json result has wrong length. should have %v entries, one for each argument",
+			len(fnABI.Inputs))
 	}
-	// Extract values in the order specified by e.Order
-	unorderedValues := input.Result()
-	values := make([]interface{}, len(e.Order))
-	for idx, name := range e.Order {
-		switch e.Types[name] {
-		case "uint256":
-			var rawNum *big.Int
-			rawVal := unorderedValues.Get(name)
-			switch rawVal.Type {
-			case gjson.String:
-				rawNum, err = utils.HexToUint256(rawVal.Str)
-				if err != nil {
-					return nil, errors.Wrapf(
-						err, "while casting argument %s for EthTxEncode", name)
-				}
-			case gjson.Number:
-				var accuracy big.Accuracy
-				rawNum, accuracy = big.NewFloat(rawVal.Num).Int(big.NewInt(0))
-				if accuracy != big.Exact {
-					return nil, errors.Errorf(
-						"argument %s is not a whole number, as required for uint256 type",
-						name)
-				}
-			default:
-				return nil, errors.Errorf(
-					"argument %s, which is of uint256 type, is not a number", name)
-			}
-			if rawNum.Cmp(big.NewInt(0)) == -1 {
-				return nil, errors.Errorf(
-					"cannot use negative number for uint256 argument %s", name)
-			}
-			values[idx] = rawNum
-		default:
-			return nil, errors.Errorf(
-				"unimplelmented type for argument %s", name)
+
+	encodedStaticPartSize := 0
+	for _, input := range fnABI.Inputs {
+		encodedStaticPartSize += staticSize(&input.Type)
+	}
+
+	encodedStaticPart := make([]byte, 0, encodedStaticPartSize)
+	encodedDynamicPart := make([]byte, 0)
+	dynamicOffset := encodedStaticPartSize
+	for _, input := range fnABI.Inputs {
+		name := input.Name
+		jval, ok := args[name]
+		if !ok {
+			return nil, errors.Errorf("entry for argument %s is missing", name)
+		}
+
+		if !isSupportedABIType(&input.Type) {
+			errors.Errorf(
+				"argument %s has unsupported ABI type %s",
+				name, input.Type)
+		}
+
+		static, dynamic, err := enc(&input.Type, jval, name)
+		switch {
+		case err != nil:
+			return nil, err
+		case static != nil && dynamic != nil:
+			panic("static AND dynamic returned")
+		case static != nil:
+			assertPadded(static)
+			encodedStaticPart = append(encodedStaticPart, static...)
+		case dynamic != nil:
+			assertPadded(dynamic)
+			encodedStaticPart = append(encodedStaticPart, encPositiveInt(dynamicOffset)...)
+			dynamicOffset += len(dynamic)
+			encodedDynamicPart = append(encodedDynamicPart, dynamic...)
 		}
 	}
-	data, err := abi.Pack(e.MethodName, values...)
-	if err != nil {
-		err = errors.Wrapf(err, "while packing %+v into %+v", values, abi)
+
+	result := fnABI.ID()
+	result = append(result, encodedStaticPart...)
+	result = append(result, encodedDynamicPart...)
+	return result, nil
+}
+
+// we aim to support every type that solidity contracts as of solc v0.5.11
+// can decode: address, bool, bytes, bytes*, int*, string, uint*, as well as
+// fixed size arrays (e.g. int128[6] and bool[3][3]) and slices (e.g.
+// address[] and bool[3][3][])
+func isSupportedABIType(typ *abi.Type) bool {
+	switch typ.T {
+	case abi.StringTy, abi.BytesTy:
+		return true
+	case abi.SliceTy:
+		return isSupportedStaticABIType(typ.Elem)
+	default:
+		return isSupportedStaticABIType(typ)
 	}
-	return data, err
+}
+
+func isSupportedStaticABIType(typ *abi.Type) bool {
+	switch typ.T {
+	case abi.AddressTy, abi.BoolTy:
+		return true
+	case abi.ArrayTy:
+		return isSupportedStaticABIType(typ.Elem)
+	case abi.IntTy, abi.UintTy:
+		return typ.Size%8 == 0 && 0 < typ.Size && typ.Size <= 8*evmWordSize
+	case abi.FixedBytesTy:
+		return 0 < typ.Size && typ.Size <= evmWordSize
+	default:
+		return false
+	}
+}
+
+// enc encodes a JSON value jval of ABI type typ. name is passed for better error
+// reporting.
+func enc(typ *abi.Type, jval interface{}, name string) (static []byte, dynamic []byte, err error) {
+	switch typ.T {
+	case abi.BytesTy:
+		bytes, err := bytesFromJSON(jval, name)
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, padAndPrefixDynamic(bytes), nil
+	case abi.SliceTy:
+		s, ok := jval.([]interface{})
+		if !ok {
+			return nil, nil, errors.Errorf("argument %s is not an array", name)
+		}
+
+		result := encPositiveInt(len(s))
+		for i, elem := range s {
+			encoded, err := encStatic(typ.Elem, elem, fmt.Sprintf("%s[%v]", name, i))
+			if err != nil {
+				return nil, nil, err
+			}
+			result = append(result, encoded...)
+		}
+		return nil, result, nil
+	case abi.StringTy:
+		s, ok := jval.(string)
+		if !ok {
+			return nil, nil, errors.Errorf("argument %s is not a string", name)
+		}
+		bytes := []byte(s)
+		return nil, padAndPrefixDynamic(bytes), nil
+	default:
+		static, err := encStatic(typ, jval, name)
+		return static, nil, err
+	}
+}
+
+// Dynamic types like bytes and string are length-prefixed and padded to a
+// multiple of evmWordSize
+func padAndPrefixDynamic(bytes []byte) []byte {
+	result := encPositiveInt(len(bytes))
+	result = append(result, bytes...)
+	result = padRight(result, (len(result)+evmWordSize-1)/evmWordSize*evmWordSize)
+	return result
+}
+
+func staticSize(typ *abi.Type) int {
+	switch typ.T {
+	case abi.AddressTy, abi.BoolTy, abi.BytesTy, abi.FixedBytesTy, abi.IntTy, abi.SliceTy, abi.StringTy, abi.UintTy:
+		return evmWordSize
+	case abi.ArrayTy:
+		return typ.Size * staticSize(typ.Elem)
+	default:
+		panic("Unsupported type")
+	}
+}
+
+// Encodes JSON value jval according to static ABI type (e.g. int*, uint*, ...)
+// typ. name is used for better error messages.
+func encStatic(typ *abi.Type, jval interface{}, name string) ([]byte, error) {
+	switch typ.T {
+	case abi.AddressTy:
+		s, ok := jval.(string)
+		if !ok {
+			return nil, errors.Errorf("argument %s is not an address string", name)
+		}
+		if !utils.HasHexPrefix(s) {
+			return nil, errors.Errorf("argument %s is not a hexstring", name)
+		}
+		addressBytes, err := hex.DecodeString(s[2:])
+		if err != nil {
+			return nil, errors.Wrapf(err, "argument %s is not a hexstring", name)
+		}
+		if len(addressBytes) != 20 {
+			return nil, errors.Errorf("argument %s is not an address with 20 bytes", name)
+		}
+		return padLeft(addressBytes, evmWordSize), nil
+	case abi.ArrayTy:
+		a, ok := jval.([]interface{})
+		if !ok {
+			return nil, errors.Errorf("argument %s is not an array", name)
+		}
+		if len(a) != typ.Size {
+			return nil, errors.Errorf("argument %s is an array with %v items, but we need %v", name, len(a), typ.Size)
+		}
+		result := make([]byte, 0, staticSize(typ))
+		for i, elem := range a {
+			encoded, err := encStatic(typ.Elem, elem, fmt.Sprintf("%s[%v]", name, i))
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, encoded...)
+		}
+		return result, nil
+	case abi.BoolTy:
+		b, ok := jval.(bool)
+		if !ok {
+			return nil, errors.Errorf("argument %s is not a boolean", name)
+		}
+		if b {
+			return padLeft([]byte{1}, evmWordSize), nil
+		} else {
+			return padLeft([]byte{0}, evmWordSize), nil
+		}
+	case abi.FixedBytesTy:
+		bytes, err := bytesFromJSON(jval, name)
+		if err != nil {
+			return nil, err
+		}
+		if len(bytes) != typ.Size {
+			return nil, errors.Errorf("argument %s doesn't have exactly %v bytes", name, typ.Size)
+		}
+		return padRight(bytes, evmWordSize), nil
+	case abi.IntTy:
+		if _, ok := jval.(float64); ok && typ.Size > 48 {
+			return nil, errors.Errorf("argument %s is a json number which isn't suitable for storing integers greater than 2**53", name)
+		}
+		n, err := bigIntFromJSON(jval, name)
+		if err != nil {
+			return nil, err
+		}
+		encoded, err := encSigned(uint(typ.Size/8), n, name)
+		if err != nil {
+			return nil, err
+		}
+		return encoded, nil
+	case abi.UintTy:
+		if _, ok := jval.(float64); ok && typ.Size > 48 {
+			return nil, errors.Errorf("argument %s is a json number which isn't suitable for storing integers greater than 2**53", name)
+		}
+		n, err := bigIntFromJSON(jval, name)
+		if err != nil {
+			return nil, err
+		}
+		encoded, err := encUnsigned(uint(typ.Size/8), n, name)
+		if err != nil {
+			return nil, err
+		}
+		return encoded, nil
+	default:
+		panic(fmt.Sprintf("Unsupported type: %s", typ.String()))
+	}
+}
+
+func encSigned(sizeInBytes uint, n *big.Int, name string) ([]byte, error) {
+	min, max := big.NewInt(0), big.NewInt(0)
+	min.Lsh(big.NewInt(1), sizeInBytes*8-1)
+	max.Sub(min, big.NewInt(1))
+	min.Neg(min)
+	if n.Cmp(min) < 0 || max.Cmp(n) < 0 {
+		return nil, errors.Errorf(
+			"argument %s out of valid range for signed integer with %v bytes", name, sizeInBytes)
+	}
+	if n.Sign() < 0 {
+		n.Neg(n)
+		n.Sub(min.Lsh(big.NewInt(1), evmWordSize*8), n)
+	}
+	return padLeft(n.Bytes(), evmWordSize), nil
+}
+
+func encUnsigned(sizeInBytes uint, n *big.Int, name string) ([]byte, error) {
+	min, max := big.NewInt(0), big.NewInt(0)
+	max.Lsh(big.NewInt(1), sizeInBytes*8)
+	max.Sub(max, big.NewInt(1))
+	if n.Cmp(min) < 0 || max.Cmp(n) < 0 {
+		return nil, errors.Errorf(
+			"argument %s out of valid range for unsigned integer with %v bytes", name, sizeInBytes)
+	}
+
+	return padLeft(n.Bytes(), evmWordSize), nil
+}
+
+func encPositiveInt(i int) []byte {
+	if i < 0 {
+		panic("Negative int not allowed")
+	}
+	encoded, err := encUnsigned(evmWordSize, big.NewInt(int64(i)), "")
+	if err != nil {
+		panic("Unexpected error")
+	}
+	return encoded
+}
+
+func bigIntFromJSON(jval interface{}, name string) (*big.Int, error) {
+	switch val := jval.(type) {
+	case string:
+		n := big.NewInt(0)
+		valid := false
+		if utils.HasHexPrefix(val) {
+			n, valid = big.NewInt(0).SetString(val[2:], 16)
+			if !valid {
+				return nil, errors.Errorf("argument %s starts with '0x', but doesn't encode valid hex number", name)
+			}
+		} else {
+			n, valid = big.NewInt(0).SetString(val, 10)
+			if !valid {
+				return nil, errors.Errorf("argument %s doesn't encode valid decimal number", name)
+			}
+		}
+		return n, nil
+	case float64:
+		n, accuracy := big.NewFloat(val).Int(big.NewInt(0))
+		if accuracy != big.Exact {
+			return nil, errors.Errorf("argument %s isn't a whole number", name)
+		}
+		return n, nil
+	default:
+		return nil, errors.Errorf("argument %s isn't a JSON string or number", name)
+	}
+}
+
+func bytesFromJSON(jval interface{}, name string) ([]byte, error) {
+	switch val := jval.(type) {
+	case string:
+		if !utils.HasHexPrefix(val) {
+			return nil, errors.Errorf("argument %s is not a hexstring", name)
+		}
+		bytes, err := hex.DecodeString(val[2:])
+		if err != nil {
+			return nil, errors.Wrapf(err, "argument %s is not a hexstring", name)
+		}
+		return bytes, nil
+	case []interface{}:
+		result := make([]byte, 0)
+		for i, elem := range val {
+			n, ok := elem.(float64)
+			if !ok {
+				return nil, errors.Errorf("argument %s[%v] is not a number", name, i)
+			}
+			if float64(byte(n)) != n {
+				return nil, errors.Errorf("argument %s[%v] is not a byte", name, i)
+			}
+			result = append(result, byte(n))
+		}
+		return result, nil
+	default:
+		return nil, errors.Errorf("argument %s is not a hexstring or array", name)
+	}
+}
+
+func padRight(b []byte, n int) []byte {
+	if n < len(b) {
+		panic("input to pad longer than desired output length")
+	}
+	for len(b) < n {
+		b = append(b, 0)
+	}
+	return b
+}
+
+func padLeft(b []byte, n int) []byte {
+	if n < len(b) {
+		panic("input to pad longer than desired output length")
+	}
+	result := make([]byte, 0, n)
+	for len(result)+len(b) < n {
+		result = append(result, 0)
+	}
+	result = append(result, b...)
+	return result
+}
+
+func assertPadded(b []byte) {
+	if len(b)%evmWordSize != 0 {
+		panic("ABI encoded data isn't padded properly")
+	}
 }
