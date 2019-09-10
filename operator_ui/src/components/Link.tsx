@@ -26,7 +26,7 @@ const styles = (_theme: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   children: React.ReactNode
   href: string
   variant?: Variant
@@ -41,7 +41,7 @@ const Link = ({
   href,
   variant,
   color,
-}: IProps) => {
+}: Props) => {
   const v = variant || 'body1'
   const c = color || 'inherit'
 

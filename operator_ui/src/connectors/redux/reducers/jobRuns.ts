@@ -1,12 +1,12 @@
 import pickBy from 'lodash/pickBy'
 
-export interface IState {
+export interface State {
   items: { [k: string]: any }
   currentPage?: number
   currentJobRunsCount?: number
 }
 
-const initialState: IState = {
+const initialState: State = {
   items: {},
   currentPage: undefined,
   currentJobRunsCount: undefined,
@@ -18,7 +18,7 @@ export type Action =
   | { type: 'UPSERT_JOB_RUN'; data: any }
   | { type: 'RECEIVE_DELETE_SUCCESS'; response: any }
 
-export default (state: IState = initialState, action: Action) => {
+export default (state: State = initialState, action: Action) => {
   switch (action.type) {
     case 'UPSERT_JOB_RUNS': {
       return Object.assign(

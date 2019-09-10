@@ -5,7 +5,7 @@ import { fetchJobRun } from 'actions'
 import Content from 'components/Content'
 import StatusCard from 'components/JobRuns/StatusCard'
 import { AppState } from 'connectors/redux/reducers'
-import { IJobRun, ITaskRun } from 'operator_ui'
+import { JobRun, TaskRun } from 'operator_ui'
 import React from 'react'
 import { connect } from 'react-redux'
 import jobRunSelector from 'selectors/jobRun'
@@ -13,8 +13,8 @@ import { useEffect, useHooks } from 'use-react-hooks'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import RegionalNav from './RegionalNav'
 
-const filterErrorTaskRuns = (jobRun: IJobRun) => {
-  return jobRun.taskRuns.filter((tr: ITaskRun) => {
+const filterErrorTaskRuns = (jobRun: JobRun) => {
+  return jobRun.taskRuns.filter((tr: TaskRun) => {
     return tr.status === 'errored'
   })
 }
@@ -25,12 +25,12 @@ const detailsStyles = ({ spacing }: Theme) => ({
   },
 })
 
-interface IDetailsProps extends WithStyles<typeof detailsStyles> {
-  jobRun?: IJobRun
+interface DetailsProps extends WithStyles<typeof detailsStyles> {
+  jobRun?: JobRun
 }
 
 const Details = withStyles(detailsStyles)(
-  ({ jobRun, classes }: IDetailsProps) => {
+  ({ jobRun, classes }: DetailsProps) => {
     if (!jobRun) {
       return <div>Fetching job run...</div>
     }
@@ -42,7 +42,7 @@ const Details = withStyles(detailsStyles)(
         <Grid item xs={12}>
           <StatusCard title={jobRun.status}>
             <ul className={classes.list}>
-              {errorTaskRuns.map((tr: ITaskRun) => (
+              {errorTaskRuns.map((tr: TaskRun) => (
                 <li key={tr.id}>
                   <Typography variant="body1">{tr.result.error}</Typography>
                 </li>
@@ -57,15 +57,15 @@ const Details = withStyles(detailsStyles)(
 
 const styles = (theme: Theme) => ({})
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   jobSpecId: string
   jobRunId: string
-  jobRun?: IJobRun
+  jobRun?: JobRun
   fetchJobRun: (id: string) => Promise<any>
 }
 
 const ShowErrorLog = useHooks(
-  ({ jobRunId, jobSpecId, jobRun, fetchJobRun }: IProps) => {
+  ({ jobRunId, jobSpecId, jobRun, fetchJobRun }: Props) => {
     useEffect(() => {
       fetchJobRun(jobRunId)
     }, [jobRunId])

@@ -53,7 +53,7 @@ const drawerStyles = ({ palette, spacing }: Theme) =>
     },
   })
 
-interface IDrawerProps extends WithStyles<typeof drawerStyles> {
+interface DrawerProps extends WithStyles<typeof drawerStyles> {
   authenticated: boolean
   drawerOpen: boolean
   toggleDrawer: () => void
@@ -67,7 +67,7 @@ const Drawer = withStyles(drawerStyles)(
     authenticated,
     classes,
     submitSignOut,
-  }: IDrawerProps) => {
+  }: DrawerProps) => {
     return (
       <MuiDrawer
         anchor="right"
@@ -137,13 +137,13 @@ const navStyles = ({ palette, spacing }: Theme) =>
 const isNavActive = (current?: string, to?: string) =>
   `${to && to.toLowerCase()}` === current
 
-interface INavProps extends WithStyles<typeof navStyles> {
+interface NavProps extends WithStyles<typeof navStyles> {
   authenticated: boolean
   url?: string
 }
 
 const Nav = withStyles(navStyles)(
-  ({ authenticated, url, classes }: INavProps) => {
+  ({ authenticated, url, classes }: NavProps) => {
     return (
       <Typography variant="body1" component="div">
         <List className={classes.horizontalNav}>
@@ -185,7 +185,7 @@ const styles = ({ palette, spacing, zIndex }: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   fetchCount: number
   authenticated: boolean
   drawerContainer: Element
@@ -203,7 +203,7 @@ const Header = useHooks(
     drawerContainer,
     onResize,
     submitSignOut,
-  }: IProps) => {
+  }: Props) => {
     const [drawerOpen, setDrawerOpen] = useState(false)
     const toggleDrawer = () => setDrawerOpen(!drawerOpen)
 

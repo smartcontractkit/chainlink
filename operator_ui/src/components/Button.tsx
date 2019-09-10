@@ -91,7 +91,7 @@ const muiProps = (variant: ButtonVariant, classes: any): MuiButtonProps => {
   }
 }
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   children: React.ReactNode
   component?: React.ReactNode
   onClick?: React.MouseEventHandler<JSX.Element>
@@ -121,7 +121,7 @@ const Button = ({
   className,
   children,
   onClick,
-}: IProps) => {
+}: Props) => {
   const curryProps = Object.assign(
     { component, disabled, href, onClick, type },
     muiProps(variant, classes),

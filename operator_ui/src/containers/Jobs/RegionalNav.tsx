@@ -12,7 +12,7 @@ import {
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
-import { IJobSpec } from 'operator_ui'
+import { JobSpec } from 'operator_ui'
 import React from 'react'
 import { connect } from 'react-redux'
 import { Redirect } from 'react-router-dom'
@@ -115,12 +115,12 @@ const DeleteSuccessNotification = ({ id }: any) => (
 const DEFAULT_PAGE = 1
 const RECENT_RUNS_COUNT = 5
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   fetchJobRuns: Function
   createJobRun: Function
   deleteJobSpec: Function
   jobSpecId: string
-  job: IJobSpec
+  job: JobSpec
   url: string
 }
 
@@ -132,7 +132,7 @@ const RegionalNav = ({
   job,
   deleteJobSpec,
   url,
-}: IProps) => {
+}: Props) => {
   const navOverviewActive = url && !url.includes('json')
   const navDefinitionACtive = !navOverviewActive
   const definition = job && jobSpecDefinition(job)

@@ -47,14 +47,14 @@ const navItemStyles = ({ palette, spacing }: Theme) =>
     },
   })
 
-interface INavItemProps extends WithStyles<typeof navItemStyles> {
+interface NavItemProps extends WithStyles<typeof navItemStyles> {
   children: React.ReactNode
   href: string
   error?: boolean
 }
 
 const NavItem = withStyles(navItemStyles)(
-  ({ children, href, classes, error }: INavItemProps) => {
+  ({ children, href, classes, error }: NavItemProps) => {
     const pathname = document ? document.location.pathname : ''
     const active = pathname === href
     const linkClasses = classNames(
@@ -89,13 +89,13 @@ const styles = ({ palette, spacing }: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   jobSpecId: string
   jobRunId: string
   jobRun?: any
 }
 
-const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }: IProps) => {
+const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }: Props) => {
   return (
     <Card className={classes.container}>
       <Grid container spacing={0}>
