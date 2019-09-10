@@ -141,7 +141,7 @@ func removeRecordNotFound(db *gorm.DB) (bool, error) {
 	var merr error
 	removed := false
 	for _, err := range db.GetErrors() {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Cause(err) == gorm.ErrRecordNotFound {
 			removed = true
 		} else {
 			merr = multierr.Append(merr, err)
