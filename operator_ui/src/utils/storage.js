@@ -7,7 +7,9 @@ export const get = key => {
   if (localStorageItem) {
     try {
       return JSON.parse(localStorageItem)
-    } catch (e) {}
+    } catch (e) {
+      // continue regardless of error
+    }
   }
 
   return obj
