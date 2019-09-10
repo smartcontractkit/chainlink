@@ -127,7 +127,7 @@ type ResponseType<TParams, T> = TParams extends PaginatedRequestParams
 
 function parseResponse<T>(response: Response): Promise<T> {
   if (response.status === 204) {
-    return new Promise((resolve, _reject) => resolve({} as T))
+    return new Promise(resolve => resolve({} as T))
   } else if (response.status >= 200 && response.status < 300) {
     return response.json()
   } else if (response.status === 400) {
