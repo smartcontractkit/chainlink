@@ -30,7 +30,7 @@ const noActivityStyles = ({ palette, spacing }: Theme) =>
     },
   })
 
-interface NoActivityProps extends WithStyles<typeof noActivityStyles> {}
+type NoActivityProps = WithStyles<typeof noActivityStyles>
 
 const NoActivity = withStyles(noActivityStyles)(
   ({ classes }: NoActivityProps) => (

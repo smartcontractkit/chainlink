@@ -1,3 +1,5 @@
+/* eslint @typescript-eslint/no-empty-interface: 'off' */
+
 import {
   AttributesObject,
   ErrorsObject,
