@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -19,9 +20,9 @@ func TestCors_DefaultOrigins(t *testing.T) {
 		origin     string
 		statusCode int
 	}{
-		{"http://localhost:3000", 200},
-		{"http://localhost:6689", 200},
-		{"http://localhost:1234", 403},
+		{"http://localhost:3000", http.StatusOK},
+		{"http://localhost:6689", http.StatusOK},
+		{"http://localhost:1234", http.StatusForbidden},
 	}
 
 	for _, test := range tests {
@@ -42,10 +43,10 @@ func TestCors_OverrideOrigins(t *testing.T) {
 		origin     string
 		statusCode int
 	}{
-		{"http://chainlink.com", "http://chainlink.com", 200},
-		{"http://chainlink.com", "http://localhost:3000", 403},
-		{"*", "http://chainlink.com", 200},
-		{"*", "http://localhost:3000", 200},
+		{"http://chainlink.com", "http://chainlink.com", http.StatusOK},
+		{"http://chainlink.com", "http://localhost:3000", http.StatusForbidden},
+		{"*", "http://chainlink.com", http.StatusOK},
+		{"*", "http://localhost:3000", http.StatusOK},
 	}
 
 	for _, test := range tests {

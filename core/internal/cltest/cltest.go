@@ -652,7 +652,7 @@ func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.Jo
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBufferString(spec))
 	defer cleanup()
-	AssertServerResponse(t, resp, 200)
+	AssertServerResponse(t, resp, http.StatusOK)
 
 	var createdJob models.JobSpec
 	err := ParseJSONAPIResponse(t, resp, &createdJob)
@@ -671,7 +671,7 @@ func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, bo
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", bodyBuffer)
 	defer cleanup()
-	AssertServerResponse(t, resp, 200)
+	AssertServerResponse(t, resp, http.StatusOK)
 	var jr models.JobRun
 	err := ParseJSONAPIResponse(t, resp, &jr)
 	require.NoError(t, err)
@@ -710,7 +710,7 @@ func UpdateJobRunViaWeb(
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
 	defer cleanup()
 
-	AssertServerResponse(t, resp, 200)
+	AssertServerResponse(t, resp, http.StatusOK)
 	var respJobRun presenters.JobRun
 	assert.NoError(t, ParseJSONAPIResponse(t, resp, &respJobRun))
 	assert.Equal(t, jr.ID, respJobRun.ID)
@@ -732,7 +732,7 @@ func CreateBridgeTypeViaWeb(
 		bytes.NewBufferString(payload),
 	)
 	defer cleanup()
-	AssertServerResponse(t, resp, 200)
+	AssertServerResponse(t, resp, http.StatusOK)
 	bt := &models.BridgeTypeAuthentication{}
 	err := ParseJSONAPIResponse(t, resp, bt)
 	require.NoError(t, err)
@@ -754,7 +754,7 @@ func CreateExternalInitiatorViaWeb(
 		bytes.NewBufferString(payload),
 	)
 	defer cleanup()
-	AssertServerResponse(t, resp, 201)
+	AssertServerResponse(t, resp, http.StatusCreated)
 	ei := &presenters.ExternalInitiatorAuthentication{}
 	err := ParseJSONAPIResponse(t, resp, ei)
 	require.NoError(t, err)
