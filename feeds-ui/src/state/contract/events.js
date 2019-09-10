@@ -3,7 +3,9 @@ import { ethers } from 'ethers'
 import {
   formatEthPrice,
   getLogs,
+  getLogsWithoutTimestamp,
   getLogsFromEvent,
+  getLogsFromEventWithoutTimestamp,
   removeListener
 } from './utils'
 
@@ -29,8 +31,6 @@ export async function oracleResponseById(answerId, pastBlocks = 100) {
       sender: decodedLog.sender
     })
   })
-
-  // console.log(logs)
 
   return logs
 }
@@ -117,14 +117,14 @@ export function listenNextAnswerId(callback) {
   }, 8000)
 }
 
-export async function answerUpdated(pastBlocks = 7000) {
+export async function answerUpdated(pastBlocks = 6700) {
   const answerUpdatedFilter = {
     ...HeartbeatContract.filters.AnswerUpdated(null, null),
     fromBlock: provider.getBlockNumber().then(b => b - pastBlocks),
     toBlock: 'latest'
   }
 
-  const logs = await getLogs({
+  const logs = await getLogsWithoutTimestamp({
     name: 'AnswerUpdated',
     filter: answerUpdatedFilter,
     eventInterface: HeartbeatContract.interface.events.AnswerUpdated,
@@ -136,4 +136,33 @@ export async function answerUpdated(pastBlocks = 7000) {
   })
 
   return logs
+}
+
+let answerUpdatedEventFilter
+let answerUpdatedEventListener
+
+export function listenAnswerUpdatedEvent(callback) {
+  removeListener(answerUpdatedEventFilter, answerUpdatedEventListener)
+
+  answerUpdatedEventFilter = {
+    ...HeartbeatContract.filters.AnswerUpdated(null, null)
+  }
+
+  provider.on(
+    answerUpdatedEventFilter,
+    (answerUpdatedEventListener = async log => {
+      const logged = await getLogsFromEventWithoutTimestamp({
+        name: 'AnswerUpdated',
+        log,
+        eventInterface: HeartbeatContract.interface.events.AnswerUpdated,
+        cb: decodedLog => ({
+          responseFormatted: formatEthPrice(decodedLog.current),
+          response: String(decodedLog.current),
+          answerId: Number(decodedLog.answerId)
+        })
+      })
+
+      return callback ? callback(logged) : logged
+    })
+  )
 }

@@ -66,3 +66,52 @@ export async function getLogsFromEvent({
     ...cb(decodedLog)
   }
 }
+
+export async function getLogsFromEventWithoutTimestamp({
+  name,
+  log,
+  eventInterface,
+  cb = () => {}
+}) {
+  const decodedLog = eventInterface.decode(log.data, log.topics)
+  const meta = {
+    name,
+    blockNumber: log.blockNumber,
+    transactionHash: log.transactionHash
+  }
+  return {
+    ...{ meta },
+    ...{ rawLog: log },
+    ...{ decodedLog },
+    ...cb(decodedLog)
+  }
+}
+
+export async function getLogsWithoutTimestamp({
+  name,
+  filter,
+  eventInterface,
+  cb = () => {}
+}) {
+  const logs = await provider.getLogs(filter)
+
+  return logs
+    .filter(log => {
+      return log !== null
+    })
+    .map((log, i) => {
+      const decodedLog = eventInterface.decode(logs[i].data, logs[i].topics)
+      const meta = {
+        name,
+        blockNumber: logs[i].blockNumber,
+        transactionHash: logs[i].transactionHash
+      }
+
+      return {
+        ...{ meta },
+        ...{ rawLog: logs[i] },
+        ...{ decodedLog },
+        ...cb(decodedLog)
+      }
+    })
+}
