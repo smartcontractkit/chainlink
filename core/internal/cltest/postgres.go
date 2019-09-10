@@ -17,18 +17,20 @@ import (
 // SQLite: No-op.
 // Postgres: Creates a second database, and returns a cleanup callback
 // that drops said DB.
-func PrepareTestDB(t testing.TB, config *TestConfig) func() {
+func PrepareTestDB(tc *TestConfig) func() {
+	t := tc.t
 	t.Helper()
 
-	originalURL := config.DatabaseURL()
+	originalURL := tc.DatabaseURL()
 	if dbutil.IsPostgresURL(originalURL) {
-		return createPostgresChildDB(t, config, originalURL)
+		return createPostgresChildDB(tc, originalURL)
 	}
 
 	return func() {}
 }
 
-func createPostgresChildDB(t testing.TB, config *TestConfig, originalURL string) func() {
+func createPostgresChildDB(tc *TestConfig, originalURL string) func() {
+	t := tc.t
 	db, err := sql.Open(string(orm.DialectPostgres), originalURL)
 	if err != nil {
 		t.Fatalf("unable to open postgres database for creating test db: %+v", err)
@@ -46,11 +48,11 @@ func createPostgresChildDB(t testing.TB, config *TestConfig, originalURL string)
 		t.Fatalf("unable to create postgres test database: %+v", err)
 	}
 
-	config.Set("DATABASE_URL", swapDB(originalDB, originalURL, dbname))
+	tc.Set("DATABASE_URL", swapDB(originalDB, originalURL, dbname))
 
 	return func() {
 		reapPostgresChildDB(t, originalURL, dbname)
-		config.Set("DATABASE_URL", originalURL)
+		tc.Set("DATABASE_URL", originalURL)
 	}
 }
 

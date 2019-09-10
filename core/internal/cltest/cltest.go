@@ -206,7 +206,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig) (*TestApplicat
 func NewApplicationWithConfig(t testing.TB, tc *TestConfig) (*TestApplication, func()) {
 	t.Helper()
 
-	cleanupDB := PrepareTestDB(t, tc)
+	cleanupDB := PrepareTestDB(tc)
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
 	app := services.NewApplication(tc.Config, func(app services.Application) {
@@ -364,7 +364,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
-	cleanupDB := PrepareTestDB(config.t, config)
+	cleanupDB := PrepareTestDB(config)
 	s := strpkg.NewStore(config.Config)
 	return s, func() {
 		cleanUpStore(config.t, s)
