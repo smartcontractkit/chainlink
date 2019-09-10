@@ -13,12 +13,16 @@ import { clearDb } from './testdatabase'
 
 const ENDPOINT = `ws://localhost:${DEFAULT_TEST_PORT}`
 
-const newChainlinkNode = (url: string, accessKey: string, secret: string): Promise<WebSocket> => {
+const newChainlinkNode = (
+  url: string,
+  accessKey: string,
+  secret: string,
+): Promise<WebSocket> => {
   const ws = new WebSocket(ENDPOINT, {
     headers: {
       'X-Explore-Chainlink-AccessKey': accessKey,
-      'X-Explore-Chainlink-Secret': secret
-    }
+      'X-Explore-Chainlink-Secret': secret,
+    },
   })
 
   return new Promise((resolve: (arg0: WebSocket) => void, reject) => {
@@ -43,7 +47,10 @@ describe('realtime', () => {
 
   beforeEach(async () => {
     clearDb()
-    ;[chainlinkNode, secret] = await createChainlinkNode(db, 'explore realtime test chainlinkNode')
+    ;[chainlinkNode, secret] = await createChainlinkNode(
+      db,
+      'explore realtime test chainlinkNode',
+    )
   })
 
   afterAll(async () => {
@@ -139,7 +146,9 @@ describe('realtime', () => {
 
     const tr = jr.taskRuns[3]
     expect(tr.status).toEqual('completed')
-    expect(tr.transactionHash).toEqual('0x1111111111111111111111111111111111111111111111111111111111111111')
+    expect(tr.transactionHash).toEqual(
+      '0x1111111111111111111111111111111111111111111111111111111111111111',
+    )
     expect(tr.transactionStatus).toEqual('fulfilledRunLog')
     ws.close()
   })
@@ -166,17 +175,27 @@ describe('realtime', () => {
   it('rejects invalid authentication', async (done: any) => {
     expect.assertions(1)
 
-    newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, 'lol-no').catch(error => {
-      expect(error).toBeDefined()
-      done()
-    })
+    newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, 'lol-no').catch(
+      error => {
+        expect(error).toBeDefined()
+        done()
+      },
+    )
   })
 
   it('rejects multiple connections from single node', async done => {
     expect.assertions(4)
 
-    const ws1 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
-    const ws2 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+    const ws1 = await newChainlinkNode(
+      ENDPOINT,
+      chainlinkNode.accessKey,
+      secret,
+    )
+    const ws2 = await newChainlinkNode(
+      ENDPOINT,
+      chainlinkNode.accessKey,
+      secret,
+    )
 
     ws1.addEventListener('close', event => {
       expect(ws1.readyState).toBe(3) // connection closed
