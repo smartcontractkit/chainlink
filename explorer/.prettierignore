@@ -7,3 +7,4 @@ Dockerfile
 src/public
 .migrations*
 .env
+*.md5
