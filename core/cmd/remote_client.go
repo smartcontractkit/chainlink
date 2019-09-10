@@ -542,9 +542,9 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	if err != nil {
 		return b, multierr.Append(errors.New(resp.Status), err)
 	}
-	if resp.StatusCode == 401 {
+	if resp.StatusCode == http.StatusUnauthorized {
 		return b, errUnauthorized
-	} else if resp.StatusCode >= 400 {
+	} else if resp.StatusCode >= http.StatusBadRequest {
 		return b, errors.New(resp.Status)
 	}
 	return b, err
