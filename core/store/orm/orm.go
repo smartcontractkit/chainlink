@@ -214,7 +214,7 @@ func (orm *ORM) FindInitiator(ID uint) (models.Initiator, error) {
 func (orm *ORM) preloadJobs() *gorm.DB {
 	return orm.DB.
 		Preload("Initiators", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped().Order("\"id\" asc")
+			return db.Unscoped().Order(`"id" asc`)
 		}).
 		Preload("Tasks", func(db *gorm.DB) *gorm.DB {
 			return db.Unscoped().Order("id asc")
@@ -625,7 +625,7 @@ func (orm *ORM) UpdateTx(
 func (orm *ORM) FindLaterConfirmedTx(tx *models.Tx) (*models.Tx, error) {
 	later := models.Tx{}
 	rval := orm.DB.Order("nonce asc").
-		Where("\"confirmed\" = true AND \"from\" = ? AND \"nonce\" > ?", tx.From, tx.Nonce).
+		Where(`"confirmed" = true AND "from" = ? AND "nonce" > ?`, tx.From, tx.Nonce).
 		First(&later)
 
 	removed, err := removeRecordNotFound(rval)
@@ -721,7 +721,7 @@ func (orm *ORM) AddTxAttempt(
 // GetLastNonce retrieves the last known nonce in the database for an account
 func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
 	var transaction models.Tx
-	rval := orm.DB.Order("nonce desc").Where("\"from\" = ?", address).First(&transaction)
+	rval := orm.DB.Order("nonce desc").Where(`"from" = ?`, address).First(&transaction)
 	return transaction.Nonce, ignoreRecordNotFound(rval)
 }
 
