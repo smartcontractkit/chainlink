@@ -1,4 +1,4 @@
-# Chainlink Hearbeat ETH/USD network graph
+# Chainlink Heartbeat ETH/USD network graph
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
