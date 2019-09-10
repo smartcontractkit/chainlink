@@ -6,6 +6,7 @@ import { aggregationOperations } from 'state/ducks/aggregation'
 
 import { NetworkGraph } from 'components/networkGraph'
 import { NetworkGraphInfo } from 'components/networkGraphInfo'
+import { AnswerHistory } from 'components/answerHistory'
 
 const NetworkPage = ({ fetchInitData }) => {
   useEffect(() => {
@@ -15,6 +16,7 @@ const NetworkPage = ({ fetchInitData }) => {
     <div className="page-wrapper">
       <NetworkGraphInfo />
       <NetworkGraph />
+      <AnswerHistory />
     </div>
   )
 }
