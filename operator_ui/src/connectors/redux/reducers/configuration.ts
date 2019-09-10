@@ -25,13 +25,15 @@ const initialState: State = {
 
 export default (state: State = initialState, action: Action) => {
   switch (action.type) {
-    case ConfigurationActionType.UPSERT:
+    case ConfigurationActionType.UPSERT: {
       const id = Object.keys(action.data.configWhitelists)[0]
       const attributes = action.data.configWhitelists[id].attributes
 
       return { ...state, data: attributes }
+    }
 
-    default:
+    default: {
       return state
+    }
   }
 }
