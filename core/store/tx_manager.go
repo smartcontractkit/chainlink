@@ -392,7 +392,7 @@ func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*models.TxRec
 func (txm *EthTxManager) checkDBForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
 	later, err := txm.orm.FindLaterConfirmedTx(tx)
 	if err != nil {
-		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe checkDBForConfrimation")
+		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe checkDBForConfirmation")
 	} else if later == nil {
 		return nil, Unconfirmed, nil
 	}
