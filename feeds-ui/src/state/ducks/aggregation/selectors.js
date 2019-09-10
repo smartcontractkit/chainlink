@@ -56,6 +56,10 @@ const NODE_NAMES = [
   {
     address: '0x992Ef8145ab8B3DbFC75523281DaD6A0981891bb',
     name: 'Figment Networks'
+  },
+  {
+    address: '0x83dA1beEb89Ffaf56d0B7C50aFB0A66Fb4DF8cB1',
+    name: 'Omniscience'
   }
 ]
 
