@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"math/big"
+	"net/http"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -36,7 +37,7 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/tx_attempts?size=2")
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var links jsonapi.Links
 	var attempts []models.TxAttempt

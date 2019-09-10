@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"math/big"
+	"net/http"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -40,7 +41,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/transactions?size=2")
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var links jsonapi.Links
 	var txs []presenters.Tx
@@ -103,7 +104,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			resp, cleanup := client.Get("/v2/transactions/" + test.hash)
 			defer cleanup()
-			cltest.AssertServerResponse(t, resp, 200)
+			cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 			ptx := presenters.Tx{}
 			require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &ptx))
@@ -141,5 +142,5 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/transactions/" + (tx.Hash.String() + "1"))
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 404)
+	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 }
