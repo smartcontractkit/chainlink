@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
@@ -31,55 +30,51 @@ func PrepareTestDB(tc *TestConfig) func() {
 
 func createPostgresChildDB(tc *TestConfig, originalURL string) func() {
 	t := tc.t
-	db, err := sql.Open(string(orm.DialectPostgres), originalURL)
+
+	parsed, err := url.Parse(originalURL)
+	if err != nil {
+		t.Fatalf("unable to extract database from %v: %v", originalURL, err)
+	}
+
+	testdb := createTestDB(t, parsed)
+	tc.Set("DATABASE_URL", testdb.String())
+
+	return func() {
+		reapPostgresChildDB(t, parsed, testdb)
+		tc.Set("DATABASE_URL", originalURL)
+	}
+}
+
+func createTestDB(t testing.TB, parsed *url.URL) *url.URL {
+	dbname := fmt.Sprintf("%s_%s", parsed.Path[1:], models.NewID().String())
+	db, err := sql.Open(string(orm.DialectPostgres), parsed.String())
 	if err != nil {
 		t.Fatalf("unable to open postgres database for creating test db: %+v", err)
 	}
 	defer db.Close()
 
-	originalDB := extractDB(t, originalURL)
-	dbname := fmt.Sprintf("%s_%s", originalDB, models.NewID().String())
-
 	//`CREATE DATABASE $1` does not seem to work w CREATE DATABASE
-	_, err = db.Exec(
-		fmt.Sprintf("CREATE DATABASE %s", dbname),
-	)
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbname))
 	if err != nil {
 		t.Fatalf("unable to create postgres test database: %+v", err)
 	}
 
-	tc.Set("DATABASE_URL", swapDB(originalDB, originalURL, dbname))
-
-	return func() {
-		reapPostgresChildDB(t, originalURL, dbname)
-		tc.Set("DATABASE_URL", originalURL)
-	}
+	newURL := *parsed
+	newURL.Path = "/" + dbname
+	return &newURL
 }
 
-func reapPostgresChildDB(t testing.TB, dbURL, testdb string) {
-	db, err := sql.Open(string(orm.DialectPostgres), dbURL)
+func reapPostgresChildDB(t testing.TB, parentURL, testURL *url.URL) {
+	db, err := sql.Open(string(orm.DialectPostgres), parentURL.String())
 	if err != nil {
 		t.Fatalf("Unable to connect to parent CL db to clean up test database: %v", err)
 	}
 	defer db.Close()
+
+	testdb := testURL.Path[1:]
 	dbsSQL := "DROP DATABASE " + testdb
 	_, err = db.Exec(dbsSQL)
 	if err != nil {
 		t.Fatalf("Unable to clean up previous test database: %v", err)
 	}
-}
-
-func extractDB(t testing.TB, originalURL string) string {
-	parsed, err := url.Parse(originalURL)
-	if err != nil {
-		t.Fatalf("unable to extract database from %v: %v", originalURL, err)
-	}
-	return parsed.Path[1:]
-}
-
-// swapDB uses replaces the DB part of the URL:
-// postgres://localhost:5432/chainlink_test?sslmode=disable becomes
-// postgres://localhost:5432/chainlink_test_4d63a0af83c34e348292189c0648a2af?sslmode=disable
-func swapDB(originalDB, dburl, newdb string) string {
-	return strings.Replace(dburl, originalDB, newdb, 1)
 }
