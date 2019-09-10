@@ -20,12 +20,15 @@ const migrations = {
   },
   2: state => {
     return {}
+  },
+  3: state => {
+    return {}
   }
 }
 
 const persistConfig = {
   key: 'hearbeat',
-  version: 2,
+  version: 3,
   storage,
   whitelist: ['aggregation'],
   transforms: [createFilter('aggregation', ['oracles'])],
