@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -76,13 +75,7 @@ func getAuthenticatedInitiator(c *gin.Context, js models.JobSpec) (*models.Initi
 		}
 		return &webInitiators[0], nil
 	} else if ei, ok := authenticatedEI(c); ok {
-		var initiator *models.Initiator
-		for _, i := range js.InitiatorsFor(models.InitiatorExternal) {
-			if strings.ToLower(i.Name) == ei.Name {
-				initiator = &i
-				break
-			}
-		}
+		initiator := js.InitiatorExternal(ei.Name)
 		if initiator == nil {
 			return nil, fmt.Errorf("Job not available via External Initiator '%s'", ei.Name)
 		}
