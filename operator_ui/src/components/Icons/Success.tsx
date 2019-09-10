@@ -1,12 +1,12 @@
 import React from 'react'
 
-interface IProps {
+interface Props {
   width?: number
   height?: number
   className?: string
 }
 
-const Success = ({ width, height, className }: IProps) => (
+const Success = ({ width, height, className }: Props) => (
   <svg
     data-name="Layer 1"
     viewBox="0 0 48 48"

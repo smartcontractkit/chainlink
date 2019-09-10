@@ -1,4 +1,4 @@
-export interface IState {
+export interface State {
   recentJobRuns?: string
   jobRunsCount?: number
 }
@@ -8,30 +8,30 @@ const initialState = {
   jobRunsCount: undefined,
 }
 
-interface IRecentJobRun {
+interface RecentJobRun {
   id: string
 }
 
-interface IRecentJobRunsMeta {
+interface RecentJobRunsMeta {
   count: number
 }
 
-interface IRecentJobRuns {
-  data: IRecentJobRun[]
-  meta: IRecentJobRunsMeta
+interface RecentJobRuns {
+  data: RecentJobRun[]
+  meta: RecentJobRunsMeta
 }
 
-interface IMeta {
-  recentJobRuns: IRecentJobRuns
+interface Meta {
+  recentJobRuns: RecentJobRuns
 }
 
-interface IData {
-  meta: IMeta
+interface Data {
+  meta: Meta
 }
 
-export type Action = { type: 'UPSERT_RECENT_JOB_RUNS'; data: IData }
+export type Action = { type: 'UPSERT_RECENT_JOB_RUNS'; data: Data }
 
-export default (state: IState = initialState, action: Action) => {
+export default (state: State = initialState, action: Action) => {
   switch (action.type) {
     case 'UPSERT_RECENT_JOB_RUNS': {
       return Object.assign({}, state, {

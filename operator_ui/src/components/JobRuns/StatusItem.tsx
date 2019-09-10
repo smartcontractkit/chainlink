@@ -27,7 +27,7 @@ const withChildrenStyles = (theme: Theme) =>
     },
   })
 
-interface IWithChildrenProps extends WithStyles<typeof withChildrenStyles> {
+interface WithChildrenProps extends WithStyles<typeof withChildrenStyles> {
   children: React.ReactNode
   summary: string
   minConfirmations?: number
@@ -41,7 +41,7 @@ const WithChildren = withStyles(withChildrenStyles)(
     classes,
     confirmations,
     minConfirmations,
-  }: IWithChildrenProps) => {
+  }: WithChildrenProps) => {
     return (
       <ExpansionPanel className={classes.expansionPanel}>
         <ExpansionPanelSummary
@@ -68,11 +68,11 @@ const WithChildren = withStyles(withChildrenStyles)(
   },
 )
 
-interface IWithoutChildrenProps {
+interface WithoutChildrenProps {
   summary: string
 }
 
-const WithoutChildren = ({ summary }: IWithoutChildrenProps) => {
+const WithoutChildren = ({ summary }: WithoutChildrenProps) => {
   return <Typography>{summary}</Typography>
 }
 
@@ -102,7 +102,7 @@ const styles = (theme: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   status: string
   borderTop: boolean
   children: React.ReactNode
@@ -119,7 +119,7 @@ const StatusItem = ({
   classes,
   confirmations,
   minConfirmations,
-}: IProps) => (
+}: Props) => (
   <div className={classNames(classes.item, { [classes.borderTop]: borderTop })}>
     <div className={classes.status}>
       <StatusIcon width={38} height={38}>

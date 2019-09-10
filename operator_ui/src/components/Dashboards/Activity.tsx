@@ -14,7 +14,7 @@ import TableCell from '@material-ui/core/TableCell'
 import TableFooter from '@material-ui/core/TableFooter'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
-import { IJobRun, IJobRuns } from 'operator_ui'
+import { JobRun, JobRuns } from 'operator_ui'
 import React from 'react'
 import BaseLink from '../BaseLink'
 import Button from '../Button'
@@ -30,10 +30,10 @@ const noActivityStyles = ({ palette, spacing }: Theme) =>
     },
   })
 
-interface INoActivityProps extends WithStyles<typeof noActivityStyles> {}
+interface NoActivityProps extends WithStyles<typeof noActivityStyles> {}
 
 const NoActivity = withStyles(noActivityStyles)(
-  ({ classes }: INoActivityProps) => (
+  ({ classes }: NoActivityProps) => (
     <CardContent>
       <Card elevation={0} className={classes.noActivity}>
         <Grid container alignItems="center" spacing={16}>
@@ -98,13 +98,13 @@ const styles = ({ palette, spacing }: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   pageSize: number
-  runs?: IJobRuns
+  runs?: JobRuns
   count?: number
 }
 
-const Activity = ({ classes, runs, count, pageSize }: IProps) => {
+const Activity = ({ classes, runs, count, pageSize }: Props) => {
   let activity
 
   if (!runs) {
@@ -115,7 +115,7 @@ const Activity = ({ classes, runs, count, pageSize }: IProps) => {
     activity = (
       <Table>
         <TableBody>
-          {runs.map((r: IJobRun) => (
+          {runs.map((r: JobRun) => (
             <TableRow key={r.id}>
               <TableCell scope="row" className={classes.cell}>
                 <div className={classes.content}>

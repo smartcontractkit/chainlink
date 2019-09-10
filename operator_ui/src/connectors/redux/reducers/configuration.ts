@@ -1,4 +1,4 @@
-export interface IState {
+export interface State {
   data: Record<string, Attribute>
 }
 
@@ -19,11 +19,11 @@ interface Attributes {
 }
 type Attribute = string | number | null
 
-const initialState: IState = {
+const initialState: State = {
   data: {},
 }
 
-export default (state: IState = initialState, action: Action) => {
+export default (state: State = initialState, action: Action) => {
   switch (action.type) {
     case ConfigurationActionType.UPSERT:
       const id = Object.keys(action.data.configWhitelists)[0]
