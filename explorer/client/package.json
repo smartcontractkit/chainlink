@@ -98,8 +98,5 @@
     "typescript": "^3.5.0",
     "depcheck": "^0.8.3"
   },
-  "comments": {
-    "resolutions": "Had to lock caniuse-lite version at last working version with browserlists"
-  },
   "prettier": "@chainlink/prettier-config"
 }
