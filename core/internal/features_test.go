@@ -802,20 +802,31 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
 
-func TestIntegration_ExternalInitiatorCreate(t *testing.T) {
+func TestIntegration_ExternalInitiator(t *testing.T) {
 	t.Parallel()
+
+	var eiReceived *models.JobSpecNotice
+	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
+		func(header http.Header, body string) {
+			err := json.Unmarshal([]byte(body), &eiReceived)
+			require.NoError(t, err)
+		},
+	)
+	defer assertCalled()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-
-	initiatorName := "someCoin"
-	initiatorURL := cltest.WebURL(t, "https://test.chain.link/initiator")
 	eth := app.MockEthCallerSubscriber(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
-	eiJSON := fmt.Sprintf(`{"name":"%s","url":"%s"}`, initiatorName, initiatorURL)
-	eip := cltest.CreateExternalInitiatorViaWeb(t, app, eiJSON)
+	eiCreate := map[string]string{
+		"name": "someCoin",
+		"url":  eiMockServer.URL,
+	}
+	eiCreateJSON, err := json.Marshal(eiCreate)
+	require.NoError(t, err)
+	eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
 
 	eia := &models.ExternalInitiatorAuthentication{
 		AccessKey: eip.AccessKey,
@@ -824,15 +835,20 @@ func TestIntegration_ExternalInitiatorCreate(t *testing.T) {
 	ei, err := app.Store.FindExternalInitiator(eia)
 	require.NoError(t, err)
 
-	require.Equal(t, initiatorURL, ei.URL)
-	require.Equal(t, strings.ToLower(initiatorName), ei.Name)
+	require.Equal(t, eiCreate["url"], ei.URL.String())
+	require.Equal(t, strings.ToLower(eiCreate["name"]), ei.Name)
 	require.Equal(t, eip.AccessKey, ei.AccessKey)
 	require.Equal(t, eip.OutgoingSecret, ei.OutgoingSecret)
 
 	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
-	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
+	expected := &models.JobSpecNotice{
+		JobID:  jobSpec.ID,
+		Type:   models.InitiatorExternal,
+		Params: cltest.JSONFromString(t, `{"foo":"bar"}`),
+	}
+	assert.Equal(t, expected, eiReceived)
 
-	// Check the new run has been created
+	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.ID)
 	assert.NoError(t, err)
 }

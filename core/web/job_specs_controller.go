@@ -1,11 +1,15 @@
 package web
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -36,6 +40,45 @@ func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
 	paginatedResponse(c, "Jobs", size, page, pjs, count, err)
 }
 
+// notifyExternalInitiator sends a POST notification to the External Initiator
+// responsible for initiating the JobRun.
+func notifyExternalInitiator(
+	c *gin.Context,
+	js models.JobSpec,
+	store *store.Store,
+) error {
+	initrs := js.InitiatorsFor(models.InitiatorExternal)
+	if len(initrs) > 1 {
+		return errors.New("must have one or less External Initiators")
+	}
+	if len(initrs) == 0 {
+		return nil
+	}
+	initr := initrs[0]
+
+	ei, err := store.FindExternalInitiatorByName(initr.Name)
+	if err != nil {
+		return err
+	}
+
+	notice, err := models.NewJobSpecNotice(initr, js)
+	if err != nil {
+		return errors.Wrap(err, "new Job Spec notification")
+	}
+	buf, err := json.Marshal(notice)
+	if err != nil {
+		return errors.Wrap(err, "new Job Spec notification")
+	}
+	resp, err := http.Post(ei.URL.String(), "application/json", bytes.NewBuffer(buf))
+	if err != nil {
+		return errors.Wrap(err, "could not notify '%s' (%s)")
+	}
+	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
+		return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", ei.Name, ei.URL, resp.Status)
+	}
+	return nil
+}
+
 // Create adds validates, saves, and starts a new JobSpec.
 // Example:
 //  "<application>/specs"
@@ -46,6 +89,8 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 	} else if js := models.NewJobFromRequest(jsr); false {
 	} else if err := services.ValidateJob(js, jsc.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
+	} else if err := notifyExternalInitiator(c, js, jsc.App.GetStore()); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if err = jsc.App.AddJob(js); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
