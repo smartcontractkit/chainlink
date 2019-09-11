@@ -5,8 +5,8 @@ const BasicConsumer = artifacts.require('BasicConsumer.sol')
 const Oracle = artifacts.require('Oracle.sol')
 
 contract('BasicConsumer', () => {
-  let specId = h.newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
-  let currency = 'USD'
+  const specId = h.newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
+  const currency = 'USD'
   let link, oc, cc
 
   beforeEach(async () => {
@@ -54,14 +54,14 @@ contract('BasicConsumer', () => {
       })
 
       it('has a reasonable gas cost', async () => {
-        let tx = await cc.requestEthereumPrice(currency)
+        const tx = await cc.requestEthereumPrice(currency)
         assert.isBelow(tx.receipt.gasUsed, 120000)
       })
     })
   })
 
   describe('#fulfillOracleRequest', () => {
-    let response = '1,000,000.00'
+    const response = '1,000,000.00'
     let request
 
     beforeEach(async () => {
@@ -123,7 +123,7 @@ contract('BasicConsumer', () => {
           })
         })
 
-        let received = await cc.currentPrice.call()
+        const received = await cc.currentPrice.call()
         assert.equal(h.toUtf8(received), '')
       })
     })

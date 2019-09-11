@@ -17,7 +17,7 @@ const GetterSetter = artifacts.require('GetterSetter.sol')
 const Oracle = artifacts.require('Oracle.sol')
 
 contract('ConcreteChainlinked', () => {
-  let specId =
+  const specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   let cc, gs, oc, newoc, link
 
@@ -31,15 +31,15 @@ contract('ConcreteChainlinked', () => {
 
   describe('#newRequest', () => {
     it('forwards the information to the oracle contract through the link token', async () => {
-      let tx = await cc.publicNewRequest(
+      const tx = await cc.publicNewRequest(
         specId,
         gs.address,
         toHex('requestedBytes32(bytes32,bytes32)'),
       )
 
       assert.equal(1, tx.receipt.rawLogs.length)
-      let [jId, cbAddr, cbFId, cborData] = decodeRunABI(tx.receipt.rawLogs[0])
-      let params = await decodeDietCBOR(cborData)
+      const [jId, cbAddr, cbFId, cborData] = decodeRunABI(tx.receipt.rawLogs[0])
+      const params = await decodeDietCBOR(cborData)
 
       assert.equal(specId.toLowerCase(), toHex(jId))
       assert.equal(gs.address.toLowerCase(), `0x${cbAddr.toLowerCase()}`)
@@ -57,9 +57,9 @@ contract('ConcreteChainlinked', () => {
         0,
       )
 
-      let events = await getEvents(cc)
+      const events = await getEvents(cc)
       assert.equal(1, events.length)
-      let event = events[0]
+      const event = events[0]
       assert.equal(event.event, 'ChainlinkRequested')
     })
   })
@@ -74,9 +74,9 @@ contract('ConcreteChainlinked', () => {
         0,
       )
 
-      let events = await getEvents(cc)
+      const events = await getEvents(cc)
       assert.equal(1, events.length)
-      let event = events[0]
+      const event = events[0]
       assert.equal(event.event, 'ChainlinkRequested')
     })
 
@@ -89,9 +89,9 @@ contract('ConcreteChainlinked', () => {
         0,
       )
 
-      let events = await getEvents(newoc)
+      const events = await getEvents(newoc)
       assert.equal(1, events.length)
-      let event = events[0]
+      const event = events[0]
       assert.equal(event.event, 'OracleRequest')
     })
 
@@ -129,7 +129,7 @@ contract('ConcreteChainlinked', () => {
 
       const events = await getEvents(cc)
       assert.equal(1, events.length)
-      let event = events[0]
+      const event = events[0]
       assert.equal(event.event, 'ChainlinkCancelled')
       assert.equal(requestId, event.args.id)
     })
@@ -157,9 +157,9 @@ contract('ConcreteChainlinked', () => {
     it('emits an event marking the request fulfilled', async () => {
       await fulfillOracleRequest(oc, request, toHex('hi mom!'))
 
-      let events = await getEvents(cc)
+      const events = await getEvents(cc)
       assert.equal(1, events.length)
-      let event = events[0]
+      const event = events[0]
       assert.equal(event.event, 'ChainlinkFulfilled')
       assert.equal(request.id, event.args.id)
     })
