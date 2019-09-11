@@ -83,9 +83,9 @@
 // which is similarly unverifiable and has additional possible points of failure.
 //  { "type": "Random" }
 //
-// EthTxEncode
+// EthTxABIEncode
 //
-// The EthTxEncode adapter serializes the contents of a json object as transaction data
+// The EthTxABIEncode adapter serializes the contents of a json object as transaction data
 // calling an arbitrary function of a smart contract. See
 // https://solidity.readthedocs.io/en/v0.5.11/abi-spec.html#formal-specification-of-the-encoding
 // for the serialization format. We currently support all types that solidity contracts
@@ -97,7 +97,7 @@
 // For example,
 //
 //   {
-//     "type": "EthTxEncode",
+//     "type": "EthTxABIEncode",
 //     "functionABI": {
 //       "name": "example"
 //       "inputs": [
@@ -112,7 +112,7 @@
 // will encode a transaction to a function example(uint256 x, bool[2][] y, string z) for a contract
 // at address 0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef.
 //
-// Upon use, the json input to an EthTxEncode task is expected to have a
+// Upon use, the json input to an EthTxABIEncode task is expected to have a
 // corresponding map of argument names to compatible data in its
 // `result` field such as
 //
@@ -134,7 +134,7 @@
 //     "hello world! привет мир!"
 //   )
 //
-// The result from EthTxEncode is the hash of the resulting transaction, if it
+// The result from EthTxABIEncode is the hash of the resulting transaction, if it
 // was successfully transmitted, or an error if not.
 //
 // ABI types must be represented in JSON as follows:

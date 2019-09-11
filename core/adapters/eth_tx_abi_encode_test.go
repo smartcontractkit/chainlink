@@ -23,20 +23,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// var adapterUnderTest = adapters.EthTxEncode{
-// 	Address: common.HexToAddress(
-// 		"0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-// 	MethodName: "verifyVRFProof",
-// 	Types: map[string]string{
-// 		"gammaX": "uint256", "gammaY": "uint256", "c": "uint256", "s": "uint256"},
-// 	Order:    []string{"gammaX", "gammaY", "c", "s"},
-// 	GasPrice: models.NewBig(big.NewInt(1 << 44)), // ~20k Gwei
-// 	GasLimit: 500000,
-// }
-
-func TestEthTxEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
+func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 	uint256Type, err := abi.NewType("uint256", []abi.ArgumentMarshaling{})
-	var adapterUnderTest = adapters.EthTxEncode{
+	var adapterUnderTest = adapters.EthTxABIEncode{
 		Address: common.HexToAddress(
 			"0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
 		FunctionABI: abi.Method{

@@ -49,7 +49,7 @@ var isSupportedABITypeTests = []struct {
 	{"uint256[][]", false},
 }
 
-func TestEthTxEncodeAdapter_isSupportedABIType(t *testing.T) {
+func TestEthTxABIEncodeAdapter_isSupportedABIType(t *testing.T) {
 	for _, test := range isSupportedABITypeTests {
 		typ, err := abi.NewType(test.typeString, []abi.ArgumentMarshaling{})
 		assert.NoError(t, err)
@@ -325,7 +325,7 @@ var encodeTests = []struct {
 	},
 }
 
-func TestEthTxEncodeAdapter_encode(t *testing.T) {
+func TestEthTxABIEncodeAdapter_encode(t *testing.T) {
 	for i, test := range encodeTests {
 		testABI, err := abi.JSON(strings.NewReader(test.abiJSON))
 		assert.NoError(t, err)
