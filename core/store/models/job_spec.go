@@ -31,6 +31,27 @@ type InitiatorRequest struct {
 	InitiatorParams `json:"params,omitempty"`
 }
 
+// UnmarshalJSON ...
+func (i *InitiatorRequest) UnmarshalJSON(buf []byte) error {
+	type Alias InitiatorRequest
+	temp := struct {
+		*Alias
+		Params json.RawMessage `json:"params"`
+	}{
+		Alias: (*Alias)(i),
+	}
+	if err := json.Unmarshal(buf, &temp); err != nil {
+		return err
+	}
+	if temp.Type == InitiatorExternal {
+		temp.InitiatorParams.Params = string(temp.Params)
+	}
+	if len(temp.Params) == 0 {
+		return nil
+	}
+	return json.Unmarshal(temp.Params, &temp.Alias.InitiatorParams)
+}
+
 // TaskSpecRequest represents a schema for incoming TaskSpec requests as used by the API.
 type TaskSpecRequest struct {
 	Type          TaskType      `json:"type"`
@@ -241,6 +262,7 @@ type InitiatorParams struct {
 	Address    common.Address    `json:"address,omitempty" gorm:"index"`
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
 	Name       string            `json:"name,omitempty"`
+	Params     string            `json:"-"`
 }
 
 // NewInitiatorFromRequest creates an Initiator from the corresponding
