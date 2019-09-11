@@ -72,7 +72,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
-		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
+		eth.Register("eth_getTransactionCount", "0x100") // TxManager.ActivateAccount()
 		eth.Register("eth_chainId", config.ChainID())
 	})
 	assert.NoError(t, app.Start())
@@ -80,7 +80,6 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	eth.Context("ethTx.Perform()#1 at block 23456", func(eth *cltest.EthMock) {
 		eth.Register("eth_sendRawTransaction", attempt1Hash) // Initial tx attempt sent
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
 	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
@@ -153,7 +152,6 @@ func TestIntegration_FeeBump(t *testing.T) {
 	// starts unconfirmed
 	eth.Context("ethTx.Perform()#1", func(eth *cltest.EthMock) {
 		eth.Register("eth_sendRawTransaction", attempt1Hash)
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
 	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
