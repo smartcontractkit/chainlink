@@ -684,6 +684,7 @@ contract('Aggregator', () => {
       await link.transfer(rate.address, deposit)
     })
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const test of tests) {
       const responses = test.responses
       const oracles = []

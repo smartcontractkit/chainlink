@@ -1,4 +1,4 @@
-import { deploy, stranger, toHex, toUtf8 } from './support/helpers'
+import { stranger, toHex, toUtf8 } from './support/helpers'
 import { assertBigNum } from './support/matchers'
 const GetterSetter = artifacts.require('GetterSetter.sol')
 
