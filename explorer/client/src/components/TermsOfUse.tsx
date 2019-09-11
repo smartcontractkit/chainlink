@@ -22,7 +22,7 @@ const styles = ({ breakpoints, spacing, palette }: Theme) =>
     },
   })
 
-interface Props extends WithStyles<typeof styles> {}
+type Props = WithStyles<typeof styles>
 
 const TermsOfUse = withStyles(styles)(({ classes }: Props) => {
   return (
