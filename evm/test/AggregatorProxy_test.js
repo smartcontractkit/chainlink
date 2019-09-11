@@ -13,7 +13,7 @@ contract('AggregatorProxy', () => {
   const response = 54321
   const response2 = 67890
   let link, aggregator, aggregator2, oc1, proxy
-  let jobIds = [jobId1]
+  const jobIds = [jobId1]
 
   beforeEach(async () => {
     link = await h.linkContract()

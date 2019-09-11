@@ -48,7 +48,7 @@ contract('Oracle', () => {
       })
 
       it('adds an authorized node', async () => {
-        let authorized = await oc.getAuthorizationStatus(h.stranger)
+        const authorized = await oc.getAuthorizationStatus(h.stranger)
         assert.equal(true, authorized)
       })
 
@@ -56,7 +56,7 @@ contract('Oracle', () => {
         await oc.setFulfillmentPermission(h.stranger, false, {
           from: h.defaultAccount,
         })
-        let authorized = await oc.getAuthorizationStatus(h.stranger)
+        const authorized = await oc.getAuthorizationStatus(h.stranger)
         assert.equal(false, authorized)
       })
     })
@@ -75,7 +75,7 @@ contract('Oracle', () => {
   describe('#onTokenTransfer', () => {
     context('when called from any address but the LINK token', () => {
       it('triggers the intended method', async () => {
-        let callData = h.requestDataBytes(specId, to, fHash, 'id', '')
+        const callData = h.requestDataBytes(specId, to, fHash, 'id', '')
 
         await h.assertActionThrows(async () => {
           await oc.onTokenTransfer(h.oracleNode, 0, callData)
@@ -85,9 +85,9 @@ contract('Oracle', () => {
 
     context('when called from the LINK token', () => {
       it('triggers the intended method', async () => {
-        let callData = h.requestDataBytes(specId, to, fHash, 'id', '')
+        const callData = h.requestDataBytes(specId, to, fHash, 'id', '')
 
-        let tx = await link.transferAndCall(oc.address, 0, callData, {
+        const tx = await link.transferAndCall(oc.address, 0, callData, {
           value: 0,
         })
         assert.equal(3, tx.receipt.rawLogs.length)
@@ -133,7 +133,7 @@ contract('Oracle', () => {
         () => {
           it('the requesters ID will not match with the oracle contract', async () => {
             const tx = await mock.maliciousTargetConsumer(to)
-            let events = await h.getEvents(oc)
+            const events = await h.getEvents(oc)
             const mockRequestId = tx.receipt.rawLogs[0].data
             const requestId = events[0].args.requestId
             assert.notEqual(mockRequestId, requestId)
@@ -181,7 +181,7 @@ contract('Oracle', () => {
       let log, tx
 
       beforeEach(async () => {
-        let args = h.requestDataBytes(specId, to, fHash, 1, '')
+        const args = h.requestDataBytes(specId, to, fHash, 1, '')
         tx = await h.requestDataFrom(oc, link, paid, args)
         assert.equal(3, tx.receipt.rawLogs.length)
 
@@ -205,7 +205,7 @@ contract('Oracle', () => {
       })
 
       it('does not allow the same requestId to be used twice', async () => {
-        let args2 = h.requestDataBytes(specId, to, fHash, 1, '')
+        const args2 = h.requestDataBytes(specId, to, fHash, 1, '')
         await h.assertActionThrows(async () => {
           await h.requestDataFrom(oc, link, paid, args2)
         })
@@ -587,7 +587,7 @@ contract('Oracle', () => {
           await h.assertActionThrows(async () => {
             await withdraw(h.oracleNode, payment, { from: h.defaultAccount })
           })
-          let balance = await link.balanceOf(h.oracleNode)
+          const balance = await link.balanceOf(h.oracleNode)
           assert.equal(0, balance)
         })
       })
@@ -698,7 +698,7 @@ contract('Oracle', () => {
 
         await link.transfer(h.consumer, startingBalance)
 
-        let args = h.requestDataBytes(specId, h.consumer, fHash, 1, '')
+        const args = h.requestDataBytes(specId, h.consumer, fHash, 1, '')
         tx = await link.transferAndCall(oc.address, requestAmount, args, {
           from: h.consumer,
         })
@@ -707,10 +707,10 @@ contract('Oracle', () => {
       })
 
       it('has correct initial balances', async () => {
-        let oracleBalance = await link.balanceOf(oc.address)
+        const oracleBalance = await link.balanceOf(oc.address)
         assertBigNum(request.payment, oracleBalance)
 
-        let consumerAmount = await link.balanceOf(h.consumer)
+        const consumerAmount = await link.balanceOf(h.consumer)
         assert.equal(startingBalance - request.payment, consumerAmount)
       })
 
@@ -726,7 +726,7 @@ contract('Oracle', () => {
         it('refunds the correct amount', async () => {
           await h.increaseTime5Minutes()
           await h.cancelOracleRequest(oc, request, { from: h.consumer })
-          let balance = await link.balanceOf(h.consumer)
+          const balance = await link.balanceOf(h.consumer)
           assert.equal(startingBalance, balance) // 100
         })
 

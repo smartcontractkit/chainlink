@@ -684,10 +684,10 @@ contract('Aggregator', () => {
       await link.transfer(rate.address, deposit)
     })
 
-    for (let test of tests) {
+    for (const test of tests) {
       const responses = test.responses
-      let oracles = []
-      let jobIds = []
+      const oracles = []
+      const jobIds = []
 
       it(test.name, async () => {
         for (let i = 0; i < responses.length; i++) {
