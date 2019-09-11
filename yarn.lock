@@ -8615,22 +8615,10 @@ escope@^3.6.0:
     esrecurse "^4.1.0"
     estraverse "^4.1.1"
 
-eslint-config-prettier-standard@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.npmjs.org/eslint-config-prettier-standard/-/eslint-config-prettier-standard-2.0.0.tgz#2e659002e11d6219d5f897b1ec1bcadc423bbeae"
-  integrity sha512-DANa3QnGU00qesi2BTVV12ymkQce3vnh8Zgv7ZfEMgwY0QnxmEDPDrCfBKCW2V8MPhFKD6JKrN6CkDtLK/aV1A==
-
 eslint-config-prettier-standard@^3.0.0:
   version "3.0.1"
   resolved "https://registry.npmjs.org/eslint-config-prettier-standard/-/eslint-config-prettier-standard-3.0.1.tgz#d7127b56515b2f0f08d10d290f5f80933120bea6"
   integrity sha512-myiM0WllCOBNYi1gI4AuI128eb7QVOE74H4bUVqS7oChRzbTIyHPwJwvrt/7QF++2NDNiDHAjsDVhdXtOrJyag==
-
-eslint-config-prettier@^4.1.0:
-  version "4.1.0"
-  resolved "https://registry.npmjs.org/eslint-config-prettier/-/eslint-config-prettier-4.1.0.tgz#181364895899fff9fd3605fecb5c4f20e7d5f395"
-  integrity sha512-zILwX9/Ocz4SV2vX7ox85AsrAgXV3f2o2gpIicdMIOra48WYqgUnWNH/cR/iHtmD2Vb3dLSC3LiEJnS05Gkw7w==
-  dependencies:
-    get-stdin "^6.0.0"
 
 eslint-config-prettier@^6.0.0:
   version "6.1.0"
@@ -8742,13 +8730,6 @@ eslint-plugin-node@^8.0.1:
     resolve "^1.8.1"
     semver "^5.5.0"
 
-eslint-plugin-prettier@^3.0.1:
-  version "3.0.1"
-  resolved "https://registry.npmjs.org/eslint-plugin-prettier/-/eslint-plugin-prettier-3.0.1.tgz#19d521e3981f69dd6d14f64aec8c6a6ac6eb0b0d"
-  integrity sha512-/PMttrarPAY78PLvV3xfWibMOdMDl57hmlQ2XqFeA37wd+CJ7WSxV7txqjVPHi/AAFKd2lX0ZqfsOc/i5yFCSQ==
-  dependencies:
-    prettier-linter-helpers "^1.0.0"
-
 eslint-plugin-prettier@^3.1.0:
   version "3.1.0"
   resolved "https://registry.yarnpkg.com/eslint-plugin-prettier/-/eslint-plugin-prettier-3.1.0.tgz#8695188f95daa93b0dc54b249347ca3b79c4686d"
@@ -8761,7 +8742,7 @@ eslint-plugin-promise@^4.0.1:
   resolved "https://registry.npmjs.org/eslint-plugin-promise/-/eslint-plugin-promise-4.0.1.tgz#2d074b653f35a23d1ba89d8e976a985117d1c6a2"
   integrity sha512-Si16O0+Hqz1gDHsys6RtFRrW7cCTB6P7p3OJmKp3Y3dxpQE2qwOA7d3xnV+0mBmrPoi0RBnxlCKvqu70te6wjg==
 
-eslint-plugin-react-hooks@^1.5.0, eslint-plugin-react-hooks@^1.6.0:
+eslint-plugin-react-hooks@^1.5.0:
   version "1.7.0"
   resolved "https://registry.yarnpkg.com/eslint-plugin-react-hooks/-/eslint-plugin-react-hooks-1.7.0.tgz#6210b6d5a37205f0b92858f895a4e827020a7d04"
   integrity sha512-iXTCFcOmlWvw4+TOE8CLWj6yX1GwzT0Y6cUfHHZqWnSk144VmVIRcVGtUAzrLES7C798lmvnt02C7rxaOX1HNA==
