@@ -136,6 +136,73 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 	assert.Equal(t, "100", val)
 }
 
+func TestJobRunsController_Create_Wrong_ExternalInitiator(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t)
+	app.Start()
+	defer cleanup()
+
+	eir := &models.ExternalInitiatorRequest{
+		Name: "bitcoin",
+		URL:  cltest.WebURL(t, "http://localhost:8888"),
+	}
+	eia := models.NewExternalInitiatorAuthentication()
+	ei, err := models.NewExternalInitiator(eia, eir)
+	require.NoError(t, err)
+	assert.NoError(t, app.Store.CreateExternalInitiator(ei))
+
+	j := cltest.NewJobWithExternalInitiator(ei)
+	assert.NoError(t, app.Store.CreateJob(&j))
+
+	wrongEIR := &models.ExternalInitiatorRequest{
+		Name: "someCoin",
+		URL:  cltest.WebURL(t, "http://localhost:8888"),
+	}
+	wrongEIA := models.NewExternalInitiatorAuthentication()
+	wrongEI, err := models.NewExternalInitiator(wrongEIA, wrongEIR)
+	require.NoError(t, err)
+	assert.NoError(t, app.Store.CreateExternalInitiator(wrongEI))
+
+	// Set up AUTH
+	headers := make(map[string]string)
+	headers[web.ExternalInitiatorAccessKeyHeader] = wrongEIA.AccessKey
+	headers[web.ExternalInitiatorSecretHeader] = wrongEIA.Secret
+
+	url := app.Config.ClientNodeURL() + "/v2/specs/" + j.ID.String() + "/runs"
+	bodyBuf := bytes.NewBufferString(`{"result":"100"}`)
+	resp, cleanup := cltest.UnauthenticatedPost(t, url, bodyBuf, headers)
+	defer cleanup()
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode, "Response should be forbidden")
+}
+
+func TestJobRunsController_Create_ExternalInitiator_Success(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t)
+	app.Start()
+	defer cleanup()
+
+	eia := models.NewExternalInitiatorAuthentication()
+	eir := &models.ExternalInitiatorRequest{
+		Name: "bitcoin",
+		URL:  cltest.WebURL(t, "http://localhost:8888"),
+	}
+	ei, err := models.NewExternalInitiator(eia, eir)
+	require.NoError(t, err)
+	assert.NoError(t, app.Store.CreateExternalInitiator(ei))
+
+	j := cltest.NewJobWithExternalInitiator(ei)
+	assert.NoError(t, app.Store.CreateJob(&j))
+
+	jr := cltest.CreateJobRunViaExternalInitiator(
+		t, app,
+		j, *eia, `{"result":"100"}`,
+	)
+	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	val, err := jr.Result.ResultString()
+	assert.NoError(t, err)
+	assert.Equal(t, "100", val)
+}
+
 func TestJobRunsController_Create_Archived(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)

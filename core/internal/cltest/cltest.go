@@ -654,6 +654,32 @@ func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, bo
 	return jr
 }
 
+func CreateJobRunViaExternalInitiator(
+	t testing.TB,
+	app *TestApplication,
+	j models.JobSpec,
+	eia models.ExternalInitiatorAuthentication,
+	body string,
+) models.JobRun {
+	t.Helper()
+
+	headers := make(map[string]string)
+	headers[web.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
+	headers[web.ExternalInitiatorSecretHeader] = eia.Secret
+
+	url := app.Config.ClientNodeURL() + "/v2/specs/" + j.ID.String() + "/runs"
+	bodyBuf := bytes.NewBufferString(body)
+	resp, cleanup := UnauthenticatedPost(t, url, bodyBuf, headers)
+	defer cleanup()
+	AssertServerResponse(t, resp, 200)
+	var jr models.JobRun
+	err := ParseJSONAPIResponse(t, resp, &jr)
+	require.NoError(t, err)
+
+	assert.Equal(t, j.ID, jr.JobSpecID)
+	return jr
+}
+
 // CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
 func CreateHelloWorldJobViaWeb(t testing.TB, app *TestApplication, url string) models.JobSpec {
 	t.Helper()
@@ -1120,6 +1146,21 @@ func AssertError(t testing.TB, want bool, err error) {
 	} else {
 		assert.NoError(t, err)
 	}
+}
+
+func UnauthenticatedPost(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
+	t.Helper()
+
+	client := http.Client{}
+	request, err := http.NewRequest("POST", url, body)
+	require.NoError(t, err)
+	request.Header.Set("Content-Type", "application/json")
+	for key, value := range headers {
+		request.Header.Add(key, value)
+	}
+	resp, err := client.Do(request)
+	require.NoError(t, err)
+	return resp, func() { resp.Body.Close() }
 }
 
 func UnauthenticatedPatch(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {

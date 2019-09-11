@@ -52,6 +52,19 @@ func NewTask(t *testing.T, taskType string, json ...string) models.TaskSpec {
 	}
 }
 
+// NewJobWithExternalInitiator creates new Job with external inititaor
+func NewJobWithExternalInitiator(ei *models.ExternalInitiator) models.JobSpec {
+	j := NewJob()
+	j.Initiators = []models.Initiator{{
+		JobSpecID: j.ID,
+		Type:      models.InitiatorExternal,
+		InitiatorParams: models.InitiatorParams{
+			Name: ei.Name,
+		},
+	}}
+	return j
+}
+
 // NewJobWithSchedule create new job with the given schedule
 func NewJobWithSchedule(sched string) models.JobSpec {
 	j := NewJob()
