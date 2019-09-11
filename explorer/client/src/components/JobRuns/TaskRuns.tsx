@@ -46,13 +46,13 @@ const styles = ({ spacing, palette }: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   etherscanHost: string
-  taskRuns?: ITaskRun[]
+  taskRuns?: TaskRun[]
 }
 
 const renderConfirmations = (
-  { confirmations, minimumConfirmations }: ITaskRun,
+  { confirmations, minimumConfirmations }: TaskRun,
   prevConfs: string,
   classes: any,
 ) => {
@@ -70,7 +70,7 @@ const renderConfirmations = (
   return null
 }
 
-const calculatePrevConfs = (taskRuns: ITaskRun[] | undefined): string[] => {
+const calculatePrevConfs = (taskRuns: TaskRun[] | undefined): string[] => {
   if (taskRuns) {
     const prevMinConfs = taskRuns.map(
       taskRun => taskRun.minimumConfirmations,
@@ -81,12 +81,12 @@ const calculatePrevConfs = (taskRuns: ITaskRun[] | undefined): string[] => {
   return []
 }
 
-const TaskRuns = ({ etherscanHost, taskRuns, classes }: IProps) => {
+const TaskRuns = ({ etherscanHost, taskRuns, classes }: Props) => {
   const prevConfs = calculatePrevConfs(taskRuns)
   return (
     <ul className={classes.container}>
       {taskRuns &&
-        taskRuns.map((run: ITaskRun, i: number) => {
+        taskRuns.map((run: TaskRun, i: number) => {
           return (
             <li key={run.id} className={classes.item}>
               <div className={classes.track}>

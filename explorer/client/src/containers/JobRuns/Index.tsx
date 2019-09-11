@@ -11,7 +11,7 @@ import build from 'redux-object'
 import { getJobRuns } from '../../actions/jobRuns'
 import List from '../../components/JobRuns/List'
 import { ChangePageEvent } from '../../components/Table'
-import { IState as State } from '../../reducers'
+import { State } from '../../reducers'
 import { Query } from '../../reducers/search'
 
 const EMPTY_MSG =
@@ -40,7 +40,7 @@ interface OwnProps {
 
 interface StateProps {
   query: State['search']['query']
-  jobRuns?: IJobRun[]
+  jobRuns?: JobRun[]
   count: State['jobRunsIndex']['count']
 }
 
@@ -84,7 +84,7 @@ const jobRunsSelector = ({
   jobRunsIndex,
   jobRuns,
   chainlinkNodes,
-}: State): IJobRun[] | undefined => {
+}: State): JobRun[] | undefined => {
   if (jobRunsIndex.items) {
     return jobRunsIndex.items.map((id: string) => {
       const document = {

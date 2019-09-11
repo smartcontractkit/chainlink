@@ -26,7 +26,7 @@ const styles = ({ palette, spacing }: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   txHash: string
   host: string
   className?: string
@@ -34,7 +34,7 @@ interface IProps extends WithStyles<typeof styles> {
 
 const url = (host: string, txHash: string) => `https://${host}/tx/${txHash}`
 
-const EtherscanLink = ({ classes, host, txHash, className }: IProps) => {
+const EtherscanLink = ({ classes, host, txHash, className }: Props) => {
   return (
     <a
       href={url(host, txHash)}
