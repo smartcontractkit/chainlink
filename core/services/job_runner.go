@@ -27,7 +27,7 @@ type jobRunner struct {
 	bootMutex            sync.Mutex
 	store                *store.Store
 	workerMutex          sync.RWMutex
-	workers              map[*models.ID]chan struct{}
+	workers              map[string]chan struct{}
 	workersWg            sync.WaitGroup
 	demultiplexStopperWg sync.WaitGroup
 }
@@ -37,7 +37,7 @@ func NewJobRunner(str *store.Store) JobRunner {
 	return &jobRunner{
 		// Unscoped allows the processing of runs that are soft deleted asynchronously
 		store:   str.Unscoped(),
-		workers: make(map[*models.ID]chan struct{}),
+		workers: make(map[string]chan struct{}),
 	}
 }
 
@@ -131,17 +131,17 @@ func (rm *jobRunner) channelForRun(runID *models.ID) chan<- struct{} {
 	rm.workerMutex.Lock()
 	defer rm.workerMutex.Unlock()
 
-	workerChannel, present := rm.workers[runID]
+	workerChannel, present := rm.workers[runID.String()]
 	if !present {
 		workerChannel = make(chan struct{}, 1)
-		rm.workers[runID] = workerChannel
+		rm.workers[runID.String()] = workerChannel
 		rm.workersWg.Add(1)
 
 		go func() {
 			rm.workerLoop(runID, workerChannel)
 
 			rm.workerMutex.Lock()
-			delete(rm.workers, runID)
+			delete(rm.workers, runID.String())
 			rm.workersWg.Done()
 			rm.workerMutex.Unlock()
 

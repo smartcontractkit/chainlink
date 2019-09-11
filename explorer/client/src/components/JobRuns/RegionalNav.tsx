@@ -3,7 +3,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import { ThemeStyle } from '@material-ui/core/styles/createTypography'
 import Grid from '@material-ui/core/Grid'
@@ -57,9 +57,9 @@ const regionalNavStyles = ({ spacing, breakpoints }: Theme) =>
         paddingTop: spacing.unit * 3,
         paddingBottom: spacing.unit * 3,
         paddingLeft: spacing.unit * 3,
-        paddingRight: spacing.unit * 3
-      }
-    }
+        paddingRight: spacing.unit * 3,
+      },
+    },
   })
 
 interface IRegionalNavProps extends WithStyles<typeof regionalNavStyles> {
@@ -91,7 +91,7 @@ const RegionalNav = withStyles(regionalNavStyles)(
         </Grid>
       </Paper>
     )
-  }
+  },
 )
 
 export default RegionalNav

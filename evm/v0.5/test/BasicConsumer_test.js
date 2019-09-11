@@ -44,7 +44,7 @@ contract('BasicConsumer', () => {
         const expected = {
           path: ['USD'],
           get:
-            'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY'
+            'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY',
         }
 
         assert.equal(h.toHex(specId), request.jobId)
@@ -56,7 +56,7 @@ contract('BasicConsumer', () => {
 
       it('has a reasonable gas cost', async () => {
         let tx = await cc.requestEthereumPrice(currency, payment)
-        assert.isBelow(tx.receipt.gasUsed, 120000)
+        assert.isBelow(tx.receipt.gasUsed, 130000)
       })
     })
   })
@@ -73,17 +73,16 @@ contract('BasicConsumer', () => {
 
     it('records the data given to it by the oracle', async () => {
       await h.fulfillOracleRequest(oc, request, response, {
-        from: h.oracleNode
+        from: h.oracleNode,
       })
 
       const currentPrice = await cc.currentPrice.call()
-      debugger
       assert.equal(h.toUtf8(currentPrice), response)
     })
 
     it('logs the data given to it by the oracle', async () => {
       const tx = await h.fulfillOracleRequest(oc, request, response, {
-        from: h.oracleNode
+        from: h.oracleNode,
       })
       assert.equal(2, tx.receipt.rawLogs.length)
       const log = tx.receipt.rawLogs[1]
@@ -96,12 +95,16 @@ contract('BasicConsumer', () => {
 
       beforeEach(async () => {
         const funcSig = h.functionSelector('fulfill(bytes32,bytes32)')
+        // Create a request directly via the oracle, rather than through the
+        // chainlink client (consumer). The client should not respond to
+        // fulfillment of this request, even though the oracle will faithfully
+        // forward the fulfillment to it.
         const args = h.requestDataBytes(
           h.toHex(specId),
           cc.address,
           funcSig,
           43,
-          ''
+          '',
         )
         const tx = await h.requestDataFrom(oc, link, 0, args)
         otherRequest = h.decodeRunRequest(tx.receipt.rawLogs[2])
@@ -109,7 +112,7 @@ contract('BasicConsumer', () => {
 
       it('does not accept the data provided', async () => {
         await h.fulfillOracleRequest(oc, otherRequest, response, {
-          from: h.oracleNode
+          from: h.oracleNode,
         })
 
         const received = await cc.currentPrice.call()
@@ -121,7 +124,7 @@ contract('BasicConsumer', () => {
       it('does not accept the data provided', async () => {
         await h.assertActionThrows(async () => {
           await cc.fulfill(request.id, h.toHex(response), {
-            from: h.oracleNode
+            from: h.oracleNode,
           })
         })
 
@@ -150,7 +153,7 @@ contract('BasicConsumer', () => {
             request.payment,
             request.callbackFunc,
             request.expiration,
-            { from: h.consumer }
+            { from: h.consumer },
           )
         })
       })
@@ -166,7 +169,7 @@ contract('BasicConsumer', () => {
           request.payment,
           request.callbackFunc,
           request.expiration,
-          { from: h.consumer }
+          { from: h.consumer },
         )
       })
     })

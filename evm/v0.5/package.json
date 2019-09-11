@@ -6,6 +6,7 @@
     "build": "truffle build",
     "depcheck": "echo \"chainlinkv0.5\" && depcheck --ignore-dirs=build/contracts || true",
     "lint": "yarn solhint",
+    "format": "prettier --write \"**/*\"",
     "slither": "truffle compile --quiet && slither .",
     "solhint": "solhint ./contracts/**/*.sol",
     "test": "truffle test"
@@ -13,21 +14,31 @@
   "dependencies": {
     "bn.js": "^4.11.0",
     "cbor": "^4.1.1",
-    "ethereumjs-abi": "^0.6.7",
+    "ethereumjs-abi": "^0.6.8",
     "ethereumjs-util": "^6.1.0",
     "truffle-contract": "^4.0.27"
   },
   "devDependencies": {
+    "@chainlink/prettier-config": "0.0.1",
     "@babel/polyfill": "^7.2.5",
     "@babel/register": "^7.0.0",
     "babel-eslint": "^10.0.1",
     "depcheck": "^0.8.3",
+    "chai": "^4.2.0",
+    "ethereumjs-abi": "^0.6.5",
     "openzeppelin-test-helpers": "^0.4.1",
+    "prettier": "^1.18.2",
     "solc": "0.5.0",
     "solhint": "^2.1.0",
-    "truffle": "^5.0.25"
+    "truffle": "^5.0.25",
+    "types-bn": "^0.0.1",
+    "@machinomy/types-truffle-contract": "^0.2.0",
+    "@types/cbor": "^2.0.0",
+    "@types/ethereumjs-abi": "^0.6.3",
+    "truffle-typings": "^1.0.8"
   },
   "files": [
     "contracts"
-  ]
+  ],
+  "prettier": "@chainlink/prettier-config"
 }

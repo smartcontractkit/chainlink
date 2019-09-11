@@ -54,11 +54,11 @@ export const Index = props => {
 Index.propTypes = {
   count: PropTypes.number.isRequired,
   bridges: PropTypes.array.isRequired,
-  pageSize: PropTypes.number
+  pageSize: PropTypes.number,
 }
 
 Index.defaultProps = {
-  pageSize: 10
+  pageSize: 10,
 }
 
 const mapStateToProps = state => {
@@ -70,7 +70,7 @@ const mapStateToProps = state => {
 
 export const ConnectedIndex = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchBridges })
+  matchRouteAndMapDispatchToProps({ fetchBridges }),
 )(Index)
 
 export default withSiteData(ConnectedIndex)

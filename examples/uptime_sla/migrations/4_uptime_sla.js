@@ -16,8 +16,8 @@ let job = {
     { type: 'jsonParse' },
     { type: 'multiply', params: { times: 10000 } },
     { type: 'ethuint256' },
-    { type: 'ethtx' }
-  ]
+    { type: 'ethtx' },
+  ],
 }
 
 module.exports = clmigration(async function(truffleDeployer) {
@@ -38,6 +38,6 @@ module.exports = clmigration(async function(truffleDeployer) {
     LINK.address,
     Oracle.address,
     body.id,
-    { value: 1000000000 }
+    { value: 1000000000 },
   )
 })

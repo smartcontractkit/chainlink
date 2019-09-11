@@ -39,14 +39,14 @@ describe('#index', () => {
     beforeEach(async () => {
       const [node, _] = await createChainlinkNode(
         db,
-        'jobRunsIndexTestChainlinkNode'
+        'jobRunsIndexTestChainlinkNode',
       )
       jobRun = await createJobRun(db, node)
     })
 
     it('returns runs with chainlink node names', async () => {
       const response = await request(server).get(
-        `/api/v1/job_runs?query=${jobRun.runId}`
+        `/api/v1/job_runs?query=${jobRun.runId}`,
       )
       expect(response.status).toEqual(200)
 
@@ -66,7 +66,7 @@ describe('#show', () => {
     let secret: string
     ;[node, secret] = await createChainlinkNode(
       db,
-      'jobRunsShowTestChainlinkNode'
+      'jobRunsShowTestChainlinkNode',
     )
   })
 
@@ -84,7 +84,7 @@ describe('#show', () => {
     beforeEach(async () => {
       const [chainlinkNode, _] = await createChainlinkNode(
         db,
-        'testOutOfOrderTaskRuns'
+        'testOutOfOrderTaskRuns',
       )
       const jobRun = new JobRun()
       jobRun.chainlinkNodeId = chainlinkNode.id

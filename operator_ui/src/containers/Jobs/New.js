@@ -42,7 +42,7 @@ const New = props => {
                 onSubmit={props.createJobSpec}
                 onSuccess={SuccessNotification}
                 onError={ErrorMessage}
-                {...props.location && props.location.state}
+                {...(props.location && props.location.state)}
               />
             </CardContent>
           </Card>
@@ -54,7 +54,7 @@ const New = props => {
 
 export const ConnectedNew = connect(
   null,
-  matchRouteAndMapDispatchToProps({ createJobSpec })
+  matchRouteAndMapDispatchToProps({ createJobSpec }),
 )(New)
 
 export default ConnectedNew

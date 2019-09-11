@@ -3,10 +3,10 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import MuiButton, {
-  ButtonProps as MuiButtonProps
+  ButtonProps as MuiButtonProps,
 } from '@material-ui/core/Button'
 import classNames from 'classnames'
 
@@ -18,8 +18,8 @@ const styles = ({ palette }: Theme) =>
         backgroundColor: palette.common.white,
         borderColor: '#BECAD6',
         boxShadow:
-          '0 2px 4px 0 rgba(0,123,255,0.06), 0 2px 2px 0 rgba(0,0,0,0.06)'
-      }
+          '0 2px 4px 0 rgba(0,123,255,0.06), 0 2px 2px 0 rgba(0,0,0,0.06)',
+      },
     },
     primary: {
       boxShadow: '0 0',
@@ -28,13 +28,13 @@ const styles = ({ palette }: Theme) =>
       '&:hover': {
         backgroundColor: palette.primary.main,
         boxShadow:
-          '0 2px 4px 0 rgba(0,123,255,0.19), 0 2px 2px 0 rgba(0,0,0,0.15)'
-      }
+          '0 2px 4px 0 rgba(0,123,255,0.19), 0 2px 2px 0 rgba(0,0,0,0.15)',
+      },
     },
     secondary: {
       '&:hover': {
-        backgroundColor: palette.common.white
-      }
+        backgroundColor: palette.common.white,
+      },
     },
     danger: {
       borderColor: palette.error.main,
@@ -43,12 +43,12 @@ const styles = ({ palette }: Theme) =>
         backgroundColor: palette.common.white,
         borderColor: palette.error.main,
         boxShadow:
-          '0 2px 4px 0 rgba(0,123,255,0.06), 0 2px 2px 0 rgba(0,0,0,0.06)'
-      }
+          '0 2px 4px 0 rgba(0,123,255,0.06), 0 2px 2px 0 rgba(0,0,0,0.06)',
+      },
     },
     defaultRipple: {
-      color: palette.text.secondary
-    }
+      color: palette.text.secondary,
+    },
   })
 
 // Unfortunately @material-ui/core does not export the type so we have to redefine it.
@@ -83,9 +83,9 @@ const muiProps = (variant: ButtonVariant, classes: any): MuiButtonProps => {
         color: 'secondary',
         TouchRippleProps: {
           classes: {
-            root: classes.defaultRipple
-          }
-        }
+            root: classes.defaultRipple,
+          },
+        },
       }
     }
   }
@@ -120,11 +120,11 @@ const Button = ({
   classes,
   className,
   children,
-  onClick
+  onClick,
 }: IProps) => {
   const curryProps = Object.assign(
     { component, disabled, href, onClick, type },
-    muiProps(variant, classes)
+    muiProps(variant, classes),
   )
   const cn = classNames(classes[variant as keyof typeof classes], className)
 

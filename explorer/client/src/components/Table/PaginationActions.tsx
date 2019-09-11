@@ -8,7 +8,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 
 const styles = (theme: Theme) =>
@@ -16,8 +16,8 @@ const styles = (theme: Theme) =>
     root: {
       flexShrink: 0,
       color: theme.palette.text.secondary,
-      marginLeft: theme.spacing.unit * 2.5
-    }
+      marginLeft: theme.spacing.unit * 2.5,
+    },
   })
 
 type PageEvent = React.MouseEvent<HTMLButtonElement> | null
@@ -46,7 +46,7 @@ class PaginationActions extends React.Component<IProps> {
   handleLastPageButtonClick = (event: any) => {
     this.props.onChangePage(
       event,
-      Math.max(0, Math.ceil(this.props.count / this.props.rowsPerPage) - 1)
+      Math.max(0, Math.ceil(this.props.count / this.props.rowsPerPage) - 1),
     )
   }
 
@@ -58,13 +58,15 @@ class PaginationActions extends React.Component<IProps> {
         <IconButton
           disabled={page === 0}
           aria-label="First Page"
-          onClick={this.handleFirstPageButtonClick}>
+          onClick={this.handleFirstPageButtonClick}
+        >
           {theme.direction === 'rtl' ? <LastPageIcon /> : <FirstPageIcon />}
         </IconButton>
         <IconButton
           disabled={page === 0}
           aria-label="Previous Page"
-          onClick={this.handleBackButtonClick}>
+          onClick={this.handleBackButtonClick}
+        >
           {theme.direction === 'rtl' ? (
             <KeyboardArrowRight />
           ) : (
@@ -74,7 +76,8 @@ class PaginationActions extends React.Component<IProps> {
         <IconButton
           disabled={page >= Math.ceil(count / rowsPerPage) - 1}
           aria-label="Next Page"
-          onClick={this.handleNextButtonClick}>
+          onClick={this.handleNextButtonClick}
+        >
           {theme.direction === 'rtl' ? (
             <KeyboardArrowLeft />
           ) : (
@@ -84,7 +87,8 @@ class PaginationActions extends React.Component<IProps> {
         <IconButton
           disabled={page >= Math.ceil(count / rowsPerPage) - 1}
           aria-label="Last Page"
-          onClick={this.handleLastPageButtonClick}>
+          onClick={this.handleLastPageButtonClick}
+        >
           {theme.direction === 'rtl' ? <FirstPageIcon /> : <LastPageIcon />}
         </IconButton>
       </div>

@@ -91,7 +91,7 @@ export const Edit = useHooks(props => {
 })
 
 Edit.propTypes = {
-  bridge: PropTypes.object
+  bridge: PropTypes.object,
 }
 
 const mapStateToProps = (state, ownProps) => {
@@ -101,7 +101,7 @@ const mapStateToProps = (state, ownProps) => {
 
 export const ConnectedEdit = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchBridgeSpec, updateBridge })
+  matchRouteAndMapDispatchToProps({ fetchBridgeSpec, updateBridge }),
 )(Edit)
 
 export default ConnectedEdit

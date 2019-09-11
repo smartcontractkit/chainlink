@@ -11,7 +11,7 @@ const formatBalance = (val: string) => {
   const tokenBalance = b.dividedBy(WEI_PER_TOKEN).toNumber()
   return {
     formatted: numeral(tokenBalance).format('0.200000a'),
-    unformatted: tokenBalance
+    unformatted: tokenBalance,
   }
 }
 

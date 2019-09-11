@@ -1,9 +1,6 @@
 {
   "compilerOptions": {
-    "lib": [
-      "es5",
-      "es6"
-    ],
+    "lib": ["es5", "es6"],
     "incremental": true,
     "target": "es6",
     "module": "commonjs",
@@ -18,8 +15,5 @@
     "baseUrl": ".",
     "typeRoots": ["node_modules/@types", "../node_modules/@types", "@types"]
   },
-  "include": [
-    "src/**/*",
-    "e2e/**/*"
-  ]
+  "include": ["src/**/*", "e2e/**/*"]
 }

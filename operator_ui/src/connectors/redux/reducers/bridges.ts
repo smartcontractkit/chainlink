@@ -7,7 +7,7 @@ export interface IState {
 const initialState: IState = {
   items: {},
   currentPage: [],
-  count: 0
+  count: 0,
 }
 
 interface NormalizedBridgeResponse {
@@ -36,12 +36,12 @@ export default (state: IState = initialState, action: Action) => {
       return Object.assign({}, state, {
         items: Object.assign({}, state.items, bridges),
         currentPage: meta.currentPageBridges.data.map(b => b.id),
-        count: meta.currentPageBridges.meta.count
+        count: meta.currentPageBridges.meta.count,
       })
     }
     case 'UPSERT_BRIDGE':
       return Object.assign({}, state, {
-        items: Object.assign({}, state.items, action.data.bridges)
+        items: Object.assign({}, state.items, action.data.bridges),
       })
     default:
       return state

@@ -18,7 +18,7 @@ const mountSignIn = (store, props) =>
           <Route exact path="/" component={RedirectApp} />
         </Switch>
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   )
 
 const submitForm = wrapper => {
@@ -32,8 +32,8 @@ const AUTHENTICATED_RESPONSE = {
   data: {
     type: 'session',
     id: 'sessionID',
-    attributes: { authenticated: true }
-  }
+    attributes: { authenticated: true },
+  },
 }
 
 describe('containers/SignIn', () => {
@@ -55,7 +55,7 @@ describe('containers/SignIn', () => {
     global.fetch.postOnce(
       '/sessions',
       { authenticated: false, errors: [{ detail: 'Invalid email' }] },
-      { response: { status: 401 } }
+      { response: { status: 401 } },
     )
 
     const wrapper = mountSignIn(store)
@@ -68,16 +68,16 @@ describe('containers/SignIn', () => {
       errors: [
         {
           props: {
-            msg: 'Your email or password is incorrect. Please try again'
-          }
-        }
+            msg: 'Your email or password is incorrect. Please try again',
+          },
+        },
       ],
       successes: [],
-      currentUrl: '/signin'
+      currentUrl: '/signin',
     })
     expect(newState.authentication.allowed).toEqual(false)
     expect(wrapper.text()).toContain(
-      'Your email or password is incorrect. Please try again'
+      'Your email or password is incorrect. Please try again',
     )
   })
 })

@@ -4,5 +4,5 @@ const bigNum = (num: number): any => web3.utils.toBN(num)
 export const assertBigNum = (a, b, failureMessage) =>
   assert(
     bigNum(a).eq(bigNum(b)),
-    `BigNum ${a} is not ${b}` + (failureMessage ? ': ' + failureMessage : '')
+    `BigNum ${a} is not ${b}` + (failureMessage ? ': ' + failureMessage : ''),
   )

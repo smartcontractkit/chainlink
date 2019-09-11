@@ -86,28 +86,28 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     external
     onlyLINK
     sufficientLINK(_amount, _sAId)
-    checkCallbackAddress(_callbackAddress)
-  {
-    bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
-    require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
+    // checkServiceAgreementPresence(_sAId) // TODO(alx): This would be nice to have, but it exhausts the stack
+    checkCallbackAddress(_callbackAddress) {
+      bytes32 requestId = keccak256(abi.encodePacked(_sender, _sAId, _nonce));
+      require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
+      callbacks[requestId].sAId = _sAId;
+      callbacks[requestId].amount = _amount;
+      callbacks[requestId].addr = _callbackAddress;
+      callbacks[requestId].functionId = _callbackFunctionId;
+      // solhint-disable-next-line not-rely-on-time
+      callbacks[requestId].cancelExpiration = uint64(now.add(EXPIRY_TIME));
 
-    callbacks[requestId].sAId = _sAId;
-    callbacks[requestId].amount = _amount;
-    callbacks[requestId].addr = _callbackAddress;
-    callbacks[requestId].functionId = _callbackFunctionId;
-    callbacks[requestId].cancelExpiration = uint64(now.add(EXPIRY_TIME)); // solhint-disable-line not-rely-on-time
-
-    emit OracleRequest(
-      _sAId,
-      _sender,
-      requestId,
-      _amount,
-      _callbackAddress,
-      _callbackFunctionId,
-      now.add(EXPIRY_TIME), // solhint-disable-line not-rely-on-time
-      _dataVersion,
-      _data);
-  }
+      emit OracleRequest(
+        _sAId,
+        _sender,
+        requestId,
+        _amount,
+        _callbackAddress,
+        _callbackFunctionId,
+        now.add(EXPIRY_TIME), // solhint-disable-line not-rely-on-time
+        _dataVersion,
+        _data);
+    }
 
   /**
    * @notice Stores a Service Agreement which has been signed by the given oracles
@@ -131,7 +131,10 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       "Must pass in as many signatures as oracles"
     );
      // solhint-disable-next-line not-rely-on-time
-    require(_agreement.endAt > block.timestamp, "End of ServiceAgreement must be in the future");
+    require(_agreement.endAt > block.timestamp,
+      "ServiceAgreement must end in the future");
+    require(serviceAgreements[serviceAgreementID].endAt == 0,
+      "serviceAgreement already initiated");
 
     serviceAgreementID = getId(_agreement);
 
@@ -143,6 +146,22 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
 
     serviceAgreements[serviceAgreementID] = _agreement;
     emit NewServiceAgreement(serviceAgreementID, _agreement.requestDigest);
+    // solhint-disable-next-line avoid-low-level-calls
+    (bool ok, bytes memory response) = _agreement.aggregator.call(
+      abi.encodeWithSelector(
+        _agreement.aggInitiateJobSelector,
+        serviceAgreementID,
+        _agreement
+      )
+    );
+    require(ok, "Aggregator failed to initiate Service Agreement");
+    require(response.length > 0, "probably wrong address/selector");
+    (bool success, bytes memory message) = abi.decode(response, (bool, bytes));
+    if ((!success) && message.length == 0) {
+      // Revert with a non-empty message to give user a hint where to look
+      require(success, "initiation failed; empty message"); 
+    }
+    require(success, string(message));
   }
 
   /**
@@ -210,23 +229,27 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   function fulfillOracleRequest(
     bytes32 _requestId,
     bytes32 _data
-  )
-    external
-    isValidRequest(_requestId)
-    returns (bool)
-  {
-    storeResponse(_requestId, _data);
-
+  ) external isValidRequest(_requestId) returns (bool) {
     Callback memory callback = callbacks[_requestId];
-    address[] memory oracles = serviceAgreements[callback.sAId].oracles;
-    if (oracles.length != callback.responseCount) {
-      return true; // exit early if not all response have been received
-    }
-
-    uint256 result = aggregateAndPay(_requestId, callback.amount, oracles);
+    ServiceAgreement memory sA = serviceAgreements[callback.sAId];
     // solhint-disable-next-line avoid-low-level-calls
-    (bool success,) = callback.addr.call(abi.encodePacked(callback.functionId, _requestId, result));
-    return success;
+    (bool ok, bytes memory aggResponse) = sA.aggregator.call(
+      abi.encodeWithSelector(
+        sA.aggFulfillSelector, _requestId, callback.sAId, msg.sender, _data));
+    require(ok, "aggregator.fulfill failed");
+    require(aggResponse.length > 0, "probably wrong address/selector");
+    (bool aggSuccess, bool aggComplete, bytes memory response) = abi.decode(
+      aggResponse, (bool, bool, bytes));
+    require(aggSuccess, string(response));
+    if (aggComplete) {
+      for (uint256 oIdx = 0; oIdx < sA.oracles.length; oIdx++) { // pay oracles
+        withdrawableTokens[sA.oracles[oIdx]] += sA.payment / sA.oracles.length;
+      } // solhint-disable-next-line avoid-low-level-calls
+      (bool success,) = callback.addr.call(abi.encodeWithSelector( // report final result
+        callback.functionId, _requestId, abi.decode(response, (bytes32))));
+      return success;
+    }
+    return true;
   }
 
   /**
@@ -271,13 +294,13 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       mstore(add(_data, 68), _amount)    // ensure correct amount is passed
     }
     // solhint-disable-next-line avoid-low-level-calls
-    (bool success,) = address(this).delegatecall(_data);
-    require(success, "Unable to create request"); // calls oracleRequest
+    (bool success,) = address(this).delegatecall(_data); // calls oracleRequest
+    require(success, "Unable to create request");
   }
 
   /**
    * @notice Retrieve the Service Agreement ID for the given parameters
-      * @param _agreement contains all of the terms of the service agreement that can be verified on-chain.
+   * @param _agreement contains all of the terms of the service agreement that can be verified on-chain.
    * @return The Service Agreement ID, a keccak256 hash of the input params
    */
   function getId(ServiceAgreement memory _agreement) public pure returns (bytes32)
@@ -288,41 +311,11 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
         _agreement.expiration,
         _agreement.endAt,
         _agreement.oracles,
-        _agreement.requestDigest
+        _agreement.requestDigest,
+        _agreement.aggregator,
+        _agreement.aggInitiateJobSelector,
+        _agreement.aggFulfillSelector
     ));
-  }
-
-  /**
-   * @dev Stores an oracle's response and then increments the total number of repsonse received.
-   * @param _requestId is the unique identifier generated by the requester and their nonce
-   * @param _data is the actual answer to a request submitted by an oracle node
-   */
-  function storeResponse(bytes32 _requestId, bytes32 _data) private {
-    callbacks[_requestId].responses[msg.sender] = uint256(_data);
-    callbacks[_requestId].responseCount += 1;
-  }
-
-  /**
-   * @dev Aggregates the responses in storage and cleans them up.
-   * Then pays associated oracles their share of LINK.
-   * Deletes the request's callback record, and finally returns the aggregated result.
-   * @param _requestId is the unique identifier generated by the requester and their nonce
-   * @param _paymentAmount is the amount of LINK shared between the oracles
-   * @param _oracles is the list of oracle addresses
-   */
-  function aggregateAndPay(bytes32 _requestId, uint256 _paymentAmount, address[] memory _oracles) private returns (uint256) {
-    uint256 sumQuotients;
-    uint256 sumRemainders;
-    uint256 oraclePayment = _paymentAmount.div(_oracles.length);
-    for (uint i = 0; i < _oracles.length; i++) {
-      uint256 response = callbacks[_requestId].responses[_oracles[i]];
-      sumQuotients = sumQuotients.add(response.div(_oracles.length)); // aggregate responses and protect from overflows
-      sumRemainders = sumRemainders.add(response % _oracles.length);
-      delete callbacks[_requestId].responses[_oracles[i]]; // must explicitly clean-up mappings for gas refund
-      withdrawableTokens[_oracles[i]] = withdrawableTokens[_oracles[i]].add(oraclePayment);
-    }
-    delete callbacks[_requestId];
-    return sumQuotients.add(sumRemainders.div(_oracles.length)); // recover lost accuracy from result
   }
 
   /**
@@ -349,7 +342,6 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    */
   modifier isValidRequest(bytes32 _requestId) {
     require(callbacks[_requestId].addr != address(0), "Must have a valid requestId");
-    require(callbacks[_requestId].responses[msg.sender] == 0, "Cannot respond twice");
     require(allowedOracles[callbacks[_requestId].sAId][msg.sender], "Oracle not recognized on service agreement");
     _;
   }
@@ -373,6 +365,12 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
     require(funcSelector[0] == this.oracleRequest.selector, "Must use whitelisted functions");
+    _;
+  }
+
+  modifier checkServiceAgreementPresence(bytes32 _sAId) {
+    require(uint256(serviceAgreements[_sAId].requestDigest) != 0,
+            "Must reference an existing ServiceAgreement");
     _;
   }
 }

@@ -1,30 +1,45 @@
 // Package adapters contain the core adapters used by the Chainlink node.
 //
+// Bridge
+//
+// The Bridge adapter is used to send and receive data to and from external adapters.
+// The adapter will POST to the target adapter URL with an "id" field for the TaskRunID
+// and a "data" field.
+// For example:
+//  {"id": "b8004e2989e24e1d8e4449afad2eb480", "data": {}}
+//
+// Compare
+//
+// The Compare adapter is used to compare the previous task's result
+// against a specified value. Just like an `if` statement, the compare
+// adapter will save `true` or `false` in the task run's result.
+//  { "type": "Compare", "params": {"operator": "eq", "value": "Hello" }}
+//
 // HTTPGet
 //
 // The HTTPGet adapter is used to grab the JSON data from the given URL.
-//  { "type": "HTTPGet", "url": "https://some-api-example.net/api" }
+//  { "type": "HTTPGet", "params": {"get": "https://some-api-example.net/api" }}
 //
 // HTTPPost
 //
 // Sends a POST request to the specified URL and will return the response.
-//  { "type": "HTTPPost", "url": "https://weiwatchers.com/api" }
+//  { "type": "HTTPPost", "params": {"post": "https://weiwatchers.com/api" }}
 //
 // JSONParse
 //
 // The JSONParse adapter will obtain the value(s) for the given field(s).
-//  { "type": "JSONParse", "path": ["someField"] }
+//  { "type": "JSONParse", "params": {"path": ["someField"] }}
 //
 // EthBool
 //
 // The EthBool adapter will take the given values and format them for
-// the Ethereum blockhain in boolean value.
+// the Ethereum blockchain in boolean value.
 //  { "type": "EthBool" }
 //
 // EthBytes32
 //
 // The EthBytes32 adapter will take the given values and format them for
-// the Ethereum blockhain.
+// the Ethereum blockchain.
 //  { "type": "EthBytes32" }
 //
 // EthInt256
@@ -43,24 +58,17 @@
 //
 // The EthTx adapter will write the data to the given address and functionSelector.
 //   {
-//     "type": "EthTx",
-//     "address": "0x0000000000000000000000000000000000000000",
-//     "functionSelector": "0xffffffff"
+//     "type": "EthTx", "params": {
+//       "address": "0x0000000000000000000000000000000000000000",
+//       "functionSelector": "0xffffffff"
+//     }
 //   }
 //
 // Multiplier
 //
 // The Multiplier adapter multiplies the given input value times another specified
 // value.
-//   { "type": "Multiply", "times": 100 }
-//
-// Bridge
-//
-// The Bridge adapter is used to send and receive data to and from external adapters.
-// The adapter will POST to the target adapter URL with an "id" field for the TaskRunID
-// and a "data" field.
-// For example:
-//  {"id":"b8004e2989e24e1d8e4449afad2eb480","data":{}}
+//   { "type": "Multiply", "params": {"times": 100 }}
 //
 // Random
 //

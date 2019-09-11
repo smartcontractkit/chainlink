@@ -26,7 +26,7 @@ const fields: [string, string][] = [
   ['url', 'URL'],
   ['confirmations', 'Confirmations'],
   ['minimumContractPayment', 'Minimum Contract Payment'],
-  ['outgoingToken', 'Outgoing Token']
+  ['outgoingToken', 'Outgoing Token'],
 ]
 
 const Loaded = ({ bridge }: ILoadedProps) => (
@@ -103,12 +103,12 @@ export const Show = useHooks(({ bridge, fetchBridgeSpec, match }: IProps) => {
 })
 
 const mapStateToProps = (state: AppState, ownProps: IProps) => ({
-  bridge: bridgeSelector(state, ownProps.match.params.bridgeId)
+  bridge: bridgeSelector(state, ownProps.match.params.bridgeId),
 })
 
 export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchBridgeSpec })
+  matchRouteAndMapDispatchToProps({ fetchBridgeSpec }),
 )(Show)
 
 export default ConnectedShow

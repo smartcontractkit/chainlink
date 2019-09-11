@@ -44,14 +44,14 @@ class Layout extends React.Component {
 }
 
 const mapStateToProps = state => ({
-  redirectTo: state.redirect.to
+  redirectTo: state.redirect.to,
 })
 
 const mapDispatchToProps = dispatch => bindActionCreators({}, dispatch)
 
 export const ConnectedLayout = connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(Layout)
 
 export default ConnectedLayout

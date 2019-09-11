@@ -6,8 +6,8 @@ import classNames from 'classnames'
 
 const styles = theme => ({
   title: {
-    marginBottom: theme.spacing.unit * 5
-  }
+    marginBottom: theme.spacing.unit * 5,
+  },
 })
 
 const Title = ({ children, classes, className }) => (
@@ -23,8 +23,8 @@ const Title = ({ children, classes, className }) => (
 Title.propTypes = {
   children: PropTypes.oneOfType([
     PropTypes.arrayOf(PropTypes.node),
-    PropTypes.node
-  ])
+    PropTypes.node,
+  ]),
 }
 
 export default withStyles(styles)(Title)

@@ -7,7 +7,7 @@ describe('connectors/reducers/bridges', () => {
     expect(state.bridges).toEqual({
       items: {},
       currentPage: [],
-      count: 0
+      count: 0,
     })
   })
 
@@ -17,21 +17,21 @@ describe('connectors/reducers/bridges', () => {
       data: {
         bridges: {
           a: { id: 'a', name: 'A' },
-          b: { id: 'b', name: 'B' }
+          b: { id: 'b', name: 'B' },
         },
         meta: {
           currentPageBridges: {
             data: [{ id: 'a' }, { id: 'b' }],
-            meta: { count: 5 }
-          }
-        }
-      }
+            meta: { count: 5 },
+          },
+        },
+      },
     }
     const state = reducer(undefined, action)
 
     expect(state.bridges.items).toEqual({
       a: { id: 'a', name: 'A' },
-      b: { id: 'b', name: 'B' }
+      b: { id: 'b', name: 'B' },
     })
     expect(state.bridges.currentPage).toEqual(['a', 'b'])
     expect(state.bridges.count).toEqual(5)
@@ -45,22 +45,22 @@ describe('connectors/reducers/bridges', () => {
           a: {
             id: 'a',
             attributes: {
-              name: 'A'
-            }
-          }
-        }
-      }
+              name: 'A',
+            },
+          },
+        },
+      },
     }
     const previousState = {
-      bridges: { items: {} }
+      bridges: { items: {} },
     }
     const state = reducer(previousState, action)
 
     expect(state.bridges.items.a).toEqual({
       id: 'a',
       attributes: {
-        name: 'A'
-      }
+        name: 'A',
+      },
     })
   })
 })

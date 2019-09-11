@@ -6,6 +6,10 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+func IsPostgresURL(url string) bool {
+	return strings.HasPrefix(strings.ToLower(url), "postgres")
+}
+
 // IsPostgres returns true if the underlying database is postgres.
 func IsPostgres(db *gorm.DB) bool {
 	return db.Dialect().GetName() == "postgres"

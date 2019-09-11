@@ -9,7 +9,7 @@ module.exports = clmigration(function(deployer) {
       .then(async function(runLogInstance) {
         await linkInstance.transfer(
           runLogInstance.address,
-          web3.utils.toWei('1000')
+          web3.utils.toWei('1000'),
         )
         await linkInstance.transfer(devnetAddress, web3.utils.toWei('1000'))
       })

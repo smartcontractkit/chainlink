@@ -9,7 +9,7 @@ const INITIAL_STATE = { items: undefined }
 
 export default (
   state: IState = INITIAL_STATE,
-  action: JobRunsAction
+  action: JobRunsAction,
 ): IState => {
   switch (action.type) {
     case '@@redux/INIT':
@@ -18,7 +18,7 @@ export default (
     case 'UPSERT_JOB_RUNS':
       return {
         items: action.data.meta.jobRuns.data.map(r => r.id),
-        count: action.data.meta.jobRuns.meta.count
+        count: action.data.meta.jobRuns.meta.count,
       }
     case 'UPSERT_JOB_RUN':
       return INITIAL_STATE

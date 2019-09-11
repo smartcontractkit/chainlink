@@ -21,8 +21,8 @@ contract('UptimeSLA', accounts => {
       oc.address,
       specId,
       {
-        value: deposit
-      }
+        value: deposit,
+      },
     )
     link.transfer(sla.address, web3.utils.toWei('1', 'ether'))
     startAt = await h.getLatestTimestamp()
@@ -44,13 +44,13 @@ contract('UptimeSLA', accounts => {
       assert.equal(1, events.length)
       assert.equal(
         events[0].args.specId,
-        specId + '00000000000000000000000000000000'
+        specId + '00000000000000000000000000000000',
       )
 
       const decoded = await h.decodeDietCBOR(events[0].args.data)
       assert.deepEqual(decoded, {
         get: 'https://status.heroku.com/api/ui/availabilities',
-        path: ['data', '0', 'attributes', 'calculation']
+        path: ['data', '0', 'attributes', 'calculation'],
       })
     })
   })
@@ -71,7 +71,7 @@ contract('UptimeSLA', accounts => {
 
       it('sends the deposit to the client', async () => {
         await h.fulfillOracleRequest(oc, request, response, {
-          from: oracleNode
+          from: oracleNode,
         })
 
         assert.equal(await web3.eth.getBalance(sla.address), 0)
@@ -91,7 +91,7 @@ contract('UptimeSLA', accounts => {
 
       it('does not move the money', async () => {
         await h.fulfillOracleRequest(oc, request, response, {
-          from: oracleNode
+          from: oracleNode,
         })
 
         h.assertBigNum(await web3.eth.getBalance(sla.address), deposit)
@@ -106,13 +106,13 @@ contract('UptimeSLA', accounts => {
 
         it('gives the money back to the service provider', async () => {
           await h.fulfillOracleRequest(oc, request, response, {
-            from: oracleNode
+            from: oracleNode,
           })
 
           h.assertBigNum(await web3.eth.getBalance(sla.address), 0)
           h.assertBigNum(
             await web3.eth.getBalance(client),
-            originalClientBalance
+            originalClientBalance,
           )
           h.assertBigNum(await web3.eth.getBalance(serviceProvider), deposit)
         })
@@ -130,7 +130,7 @@ contract('UptimeSLA', accounts => {
       it('does not accept the data provided', async () => {
         let originalUptime = await sla.uptime()
         await h.fulfillOracleRequest(oc, request, response, {
-          from: oracleNode
+          from: oracleNode,
         })
         let newUptime = await sla.uptime()
 

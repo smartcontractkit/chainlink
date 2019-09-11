@@ -13,7 +13,7 @@ export default (state: IState = initialState, action: Action) => {
   switch (action.type) {
     case 'UPSERT_JOB_RUN':
       return Object.assign({}, state, {
-        etherscanHost: action.data.meta.jobRun.meta.etherscanHost
+        etherscanHost: action.data.meta.jobRun.meta.etherscanHost,
       })
     default:
       return state

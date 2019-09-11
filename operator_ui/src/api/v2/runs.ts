@@ -12,7 +12,7 @@ export interface IndexParams extends jsonapi.PaginatedRequestParams {
 }
 const INDEX_ENDPOINT = '/v2/runs'
 const index = jsonapi.fetchResource<IndexParams, models.JobRun[]>(
-  INDEX_ENDPOINT
+  INDEX_ENDPOINT,
 )
 
 /**
@@ -40,7 +40,7 @@ interface ShowPathParams {
 }
 const SHOW_ENDPOINT = '/v2/runs/:runId'
 const show = jsonapi.fetchResource<{}, models.JobRun, ShowPathParams>(
-  SHOW_ENDPOINT
+  SHOW_ENDPOINT,
 )
 
 /**
@@ -49,11 +49,11 @@ const show = jsonapi.fetchResource<{}, models.JobRun, ShowPathParams>(
  * @param params Job spec params
  */
 export function getJobSpecRuns(
-  params: IndexParams
+  params: IndexParams,
 ): Promise<jsonapi.PaginatedApiResponse<models.JobRun[]>> {
   return index({
     sort: '-createdAt',
-    ...params
+    ...params,
   })
 }
 /**
@@ -62,7 +62,7 @@ export function getJobSpecRuns(
  * @param n The number of recent job runs to fetch
  */
 export function getRecentJobRuns(
-  n: number
+  n: number,
 ): Promise<jsonapi.PaginatedApiResponse<models.JobRun[]>> {
   return index({ size: n, sort: '-createdAt' })
 }
@@ -73,7 +73,7 @@ export function getRecentJobRuns(
  * @param id The id of the job run
  */
 export function getJobSpecRun(
-  id: string
+  id: string,
 ): Promise<jsonapi.ApiResponse<models.JobRun>> {
   return show({}, { runId: id })
 }
@@ -84,7 +84,7 @@ export function getJobSpecRun(
  * @param id The specification id of the job spec to run
  */
 export function createJobSpecRun(
-  id: string
+  id: string,
 ): Promise<jsonapi.ApiResponse<presenters.JobRun>> {
   return create(undefined, { specId: id })
 }

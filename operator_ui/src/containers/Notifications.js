@@ -35,7 +35,7 @@ export const Notifications = props => {
 
 const mapStateToProps = state => ({
   errors: state.notifications.errors,
-  successes: state.notifications.successes
+  successes: state.notifications.successes,
 })
 
 const mapDispatchToProps = dispatch =>
@@ -43,7 +43,7 @@ const mapDispatchToProps = dispatch =>
 
 export const ConnectedNotifications = connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(Notifications)
 
 export default ConnectedNotifications

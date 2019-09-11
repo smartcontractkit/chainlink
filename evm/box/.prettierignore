@@ -1,0 +1,4 @@
+**/*.sol
+*.log
+.gitignore
+.prettierignore

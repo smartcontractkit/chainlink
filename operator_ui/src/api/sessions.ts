@@ -17,11 +17,11 @@ const create = jsonapi.createResource<
  */
 const DESTROY_ENDPOINT = '/sessions'
 const destroy = jsonapi.deleteResource<undefined, sessions_controller.Session>(
-  DESTROY_ENDPOINT
+  DESTROY_ENDPOINT,
 )
 
 export function createSession(
-  sessionRequest: models.SessionRequest
+  sessionRequest: models.SessionRequest,
 ): Promise<jsonapi.ApiResponse<sessions_controller.Session>> {
   return create(sessionRequest)
 }

@@ -21,6 +21,7 @@ COPY explorer/client/package.json ./explorer/client/
 COPY explorer/package.json ./explorer/
 COPY operator_ui/package.json ./operator_ui/
 COPY styleguide/package.json ./styleguide/
+COPY tools/prettier-config/package.json ./tools/prettier-config/
 RUN make yarndep
 
 # Install chainlink

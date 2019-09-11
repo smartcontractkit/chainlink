@@ -5,13 +5,13 @@ describe('selectors - transaction', () => {
     const state = {
       transactions: {
         items: {
-          transactionA: { id: 'transactionA' }
-        }
-      }
+          transactionA: { id: 'transactionA' },
+        },
+      },
     }
 
     expect(transactionSelector(state, 'transactionA')).toEqual({
-      id: 'transactionA'
+      id: 'transactionA',
     })
     expect(transactionSelector(state, 'transactiona')).toBeNull()
   })

@@ -1,0 +1,8 @@
+box/
+build/
+v0.5/
+**/*.sol
+*.log
+.gitignore
+.prettierignore
+slither.db.json

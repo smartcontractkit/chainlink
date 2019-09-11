@@ -5,7 +5,7 @@ export default configOptions => {
     data: {
       id: 'someConfigId',
       type: 'configWhitelists',
-      attributes: configOptions
-    }
+      attributes: configOptions,
+    },
   })
 }

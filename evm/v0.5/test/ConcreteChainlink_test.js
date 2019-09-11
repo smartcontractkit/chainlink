@@ -18,7 +18,7 @@ contract('ConcreteChainlink', () => {
       'addStringArray',
       'addUint',
       'closeEvent',
-      'setBuffer'
+      'setBuffer',
     ])
   })
 
@@ -64,7 +64,7 @@ contract('ConcreteChainlink', () => {
 
       assert.deepEqual(decoded, {
         first: 'uno',
-        second: 'dos'
+        second: 'dos',
       })
     })
   })
@@ -90,7 +90,7 @@ contract('ConcreteChainlink', () => {
       const expectedSecond = toBuffer('0x646F73')
       assert.deepEqual(decoded, {
         first: expectedFirst,
-        second: expectedSecond
+        second: expectedSecond,
       })
     })
 
@@ -122,7 +122,7 @@ contract('ConcreteChainlink', () => {
 
       assert.deepEqual(decoded, {
         first: 1,
-        second: 2
+        second: 2,
       })
     })
   })
@@ -145,7 +145,7 @@ contract('ConcreteChainlink', () => {
 
       assert.deepEqual(decoded, {
         first: 1,
-        second: 2
+        second: 2,
       })
     })
   })
@@ -155,7 +155,7 @@ contract('ConcreteChainlink', () => {
       await ccl.addStringArray('word', [
         toHex('seinfeld'),
         toHex('"4"'),
-        toHex('LIFE')
+        toHex('LIFE'),
       ])
       const tx = await ccl.closeEvent()
       const [payload] = parseCCLEvent(tx)

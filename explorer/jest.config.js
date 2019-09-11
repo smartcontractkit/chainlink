@@ -5,6 +5,6 @@ module.exports = {
   testPathIgnorePatterns: [
     '/node_modules/',
     '/client/',
-    'src/__tests__/testdatabase.ts'
-  ]
+    'src/__tests__/testdatabase.ts',
+  ],
 }

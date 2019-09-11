@@ -1,7 +1,7 @@
 import {
   requestWhitelist,
   logger as loggerConfig,
-  errorLogger
+  errorLogger,
 } from 'express-winston'
 import * as winston from 'winston'
 import express from 'express'
@@ -11,7 +11,7 @@ const LOGGER_WHITELIST = [
   'method',
   'httpVersion',
   'originalUrl',
-  'query'
+  'query',
 ]
 requestWhitelist.splice(0, requestWhitelist.length, ...LOGGER_WHITELIST)
 
@@ -23,24 +23,24 @@ export const addRequestLogging = (app: express.Express) => {
       expressFormat: true,
       meta: true,
       msg: 'HTTP {{req.method}} {{req.url}}',
-      transports: [consoleTransport]
-    })
+      transports: [consoleTransport],
+    }),
   )
 
   app.use(
     errorLogger({
-      transports: [consoleTransport]
-    })
+      transports: [consoleTransport],
+    }),
   )
 }
 
 const transports = {
   console: new winston.transports.Console({
     level: 'info',
-    silent: process.env.NODE_ENV === 'test'
-  })
+    silent: process.env.NODE_ENV === 'test',
+  }),
 }
 
 export const logger = winston.createLogger({
-  transports: [transports.console]
+  transports: [transports.console],
 })

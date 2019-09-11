@@ -5,7 +5,7 @@ var contract = require('truffle-contract')
 var path = require('path')
 const UptimeSLAJSON = require(path.join(
   __dirname,
-  'build/contracts/UptimeSLA.json'
+  'build/contracts/UptimeSLA.json',
 ))
 
 var provider = new Web3.providers.HttpProvider('http://localhost:18545')

@@ -8,7 +8,7 @@ describe('connectors/reducers/jobRuns', () => {
     expect(state.jobRuns).toEqual({
       currentPage: undefined,
       currentJobRunsCount: undefined,
-      items: {}
+      items: {},
     })
   })
 
@@ -18,23 +18,23 @@ describe('connectors/reducers/jobRuns', () => {
       data: {
         runs: {
           a: { id: 'a' },
-          b: { id: 'b' }
+          b: { id: 'b' },
         },
         meta: {
           currentPageJobRuns: {
             data: [{ id: 'b' }, { id: 'a' }],
             meta: {
-              count: 10
-            }
-          }
-        }
-      }
+              count: 10,
+            },
+          },
+        },
+      },
     }
     const state = reducer(undefined, action)
 
     expect(state.jobRuns.items).toEqual({
       a: { id: 'a' },
-      b: { id: 'b' }
+      b: { id: 'b' },
     })
     expect(state.jobRuns.currentPage).toEqual(['b', 'a'])
     expect(state.jobRuns.currentJobRunsCount).toEqual(10)
@@ -46,14 +46,14 @@ describe('connectors/reducers/jobRuns', () => {
       data: {
         runs: { a: { id: 'a' } },
         meta: {
-          recentJobRuns: { data: [], meta: {} }
-        }
-      }
+          recentJobRuns: { data: [], meta: {} },
+        },
+      },
     }
     const state = reducer(undefined, action)
 
     expect(state.jobRuns.items).toEqual({
-      a: { id: 'a' }
+      a: { id: 'a' },
     })
   })
 
@@ -62,14 +62,14 @@ describe('connectors/reducers/jobRuns', () => {
       type: 'UPSERT_JOB_RUN',
       data: {
         runs: {
-          a: { id: 'a' }
-        }
-      }
+          a: { id: 'a' },
+        },
+      },
     }
     const state = reducer(undefined, action)
 
     expect(state.jobRuns.items).toEqual({
-      a: { id: 'a' }
+      a: { id: 'a' },
     })
   })
 
@@ -78,17 +78,17 @@ describe('connectors/reducers/jobRuns', () => {
       type: 'UPSERT_JOB_RUN',
       data: {
         runs: {
-          b: { attributes: { jobId: 'b' } }
-        }
-      }
+          b: { attributes: { jobId: 'b' } },
+        },
+      },
     }
     const preDeleteState = reducer(undefined, upsertAction)
     expect(preDeleteState.jobRuns.items).toEqual({
-      b: { attributes: { jobId: 'b' } }
+      b: { attributes: { jobId: 'b' } },
     })
     const deleteAction = {
       type: RECEIVE_DELETE_SUCCESS,
-      response: 'b'
+      response: 'b',
     }
     const postDeleteState = reducer(preDeleteState, deleteAction)
     expect(postDeleteState.jobRuns.items).toEqual({})

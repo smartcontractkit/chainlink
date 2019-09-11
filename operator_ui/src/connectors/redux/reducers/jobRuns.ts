@@ -9,7 +9,7 @@ export interface IState {
 const initialState: IState = {
   items: {},
   currentPage: undefined,
-  currentJobRunsCount: undefined
+  currentJobRunsCount: undefined,
 }
 
 export type Action =
@@ -27,22 +27,22 @@ export default (state: IState = initialState, action: Action) => {
         { items: Object.assign({}, state.items, action.data.runs) },
         {
           currentPage: action.data.meta.currentPageJobRuns.data.map(
-            (r: { id: string }) => r.id
-          )
+            (r: { id: string }) => r.id,
+          ),
         },
-        { currentJobRunsCount: action.data.meta.currentPageJobRuns.meta.count }
+        { currentJobRunsCount: action.data.meta.currentPageJobRuns.meta.count },
       )
     }
     case 'UPSERT_RECENT_JOB_RUNS':
     case 'UPSERT_JOB_RUN': {
       return Object.assign({}, state, {
-        items: Object.assign({}, state.items, action.data.runs)
+        items: Object.assign({}, state.items, action.data.runs),
       })
     }
     case 'RECEIVE_DELETE_SUCCESS': {
       const cleanUpRuns = pickBy(
         state.items,
-        item => item.attributes.jobId !== action.response
+        item => item.attributes.jobId !== action.response,
       )
       return Object.assign({}, state, { items: cleanUpRuns })
     }

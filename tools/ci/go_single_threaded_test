@@ -1,6 +1,0 @@
-#!/bin/bash
-
-set -e
-
-go test -cpu 1 -parallel 1 -p 1 \
-  ./...
