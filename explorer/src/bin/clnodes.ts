@@ -30,7 +30,9 @@ async function bootstrap(cb: any) {
   }
   try {
     await closeDbConnection()
-  } catch (e) {}
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 yargs
