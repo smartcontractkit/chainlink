@@ -7,7 +7,6 @@ import {
   getEvents,
   getLatestEvent,
   linkContract,
-  Ox,
   toHexWithoutPrefix,
   toHex,
 } from './support/helpers'

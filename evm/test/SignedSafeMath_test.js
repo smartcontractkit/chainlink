@@ -1,6 +1,5 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
-const personas = h.personas
 const ConcreteSignedSafeMath = artifacts.require('ConcreteSignedSafeMath.sol')
 
 contract('SignedSafeMath', () => {
