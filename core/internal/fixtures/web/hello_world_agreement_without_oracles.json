@@ -12,5 +12,8 @@
     }
   ],
   "payment": "1000000000000000000",
-  "expiration": 300
+  "expiration": 300,
+  "aggregator": "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+  "aggInitiateJobSelector": "0xd0771e55",
+  "aggFulfillSelector": "0xbadc0de5"
 }

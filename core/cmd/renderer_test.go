@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRendererJSON_RenderJobs(t *testing.T) {
@@ -265,6 +266,8 @@ func TestRendererTable_Render_Txs(t *testing.T) {
 	assert.Contains(t, output, fmt.Sprint(txs[0].Confirmed))
 }
 
+func checkPresence(t *testing.T, s, output string) { assert.Regexp(t, regexp.MustCompile(s), output) }
+
 func TestRendererTable_ServiceAgreementShow(t *testing.T) {
 	t.Parallel()
 
@@ -275,11 +278,14 @@ func TestRendererTable_ServiceAgreementShow(t *testing.T) {
 	buffer := bytes.NewBufferString("")
 	r := cmd.RendererTable{Writer: buffer}
 
-	assert.NoError(t, r.Render(&psa))
+	require.NoError(t, r.Render(&psa))
 	output := buffer.String()
-	assert.Regexp(t, regexp.MustCompile("0x[0-9a-zA-Z]{64}"), output)
-	assert.Regexp(t, regexp.MustCompile("1.000000000000000000 LINK"), output)
-	assert.Regexp(t, regexp.MustCompile("300 seconds"), output)
+	checkPresence(t, "0x[0-9a-zA-Z]{64}", output)
+	checkPresence(t, "1.000000000000000000 LINK", output)
+	checkPresence(t, "300 seconds", output)
+	checkPresence(t, "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF", output) // Aggregator address
+	checkPresence(t, "0xd0771e55", output)                                 // AggInitiateJobSelector
+	checkPresence(t, "0xbadc0de5", output)                                 // AggFulfillSelector
 }
 
 func TestRendererTable_PatchResponse(t *testing.T) {

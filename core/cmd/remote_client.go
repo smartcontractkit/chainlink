@@ -52,12 +52,12 @@ func (cli *Client) CreateServiceAgreement(c *clipkg.Context) error {
 
 	buf, err := getBufferFromJSON(c.Args().First())
 	if err != nil {
-		return cli.errorOut(err)
+		return cli.errorOut(errors.Wrap(err, "while extracting json to buffer"))
 	}
 
 	resp, err := cli.HTTP.Post("/v2/service_agreements", buf)
 	if err != nil {
-		return cli.errorOut(err)
+		return cli.errorOut(errors.Wrap(err, "from initializing service-agreement-creation request"))
 	}
 	defer resp.Body.Close()
 

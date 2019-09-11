@@ -44,7 +44,7 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 				responseSA := models.ServiceAgreement{}
 
 				err := cltest.ParseJSONAPIResponse(t, resp, &responseSA)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.NotEqual(t, "", responseSA.ID)
 				assert.NotEqual(t, "", responseSA.Signature.String())
 
@@ -79,14 +79,14 @@ func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	response1 := models.ServiceAgreement{}
-	assert.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &response1))
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &response1))
 
 	reader = bytes.NewBuffer(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
 	resp, cleanup = client.Post("/v2/service_agreements", reader)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	response2 := models.ServiceAgreement{}
-	assert.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &response2))
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &response2))
 
 	assert.Equal(t, response1.ID, response2.ID)
 	assert.Equal(t, response1.JobSpec.ID, response2.JobSpec.ID)
