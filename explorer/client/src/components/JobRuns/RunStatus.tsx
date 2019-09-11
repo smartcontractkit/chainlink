@@ -61,8 +61,8 @@ const StatusCard = ({ classes, jobRun }: Props) => {
 
 type Status = 'completed' | 'errored' | 'pending'
 
-const statusKey = (jobRun: JobRun, unfulfilled: boolean): Status => {
-  return (unfulfilled ? 'errored' : jobRun.status) as Status
+function statusKey(jobRun: JobRun, unfulfilled: boolean): Status {
+  return unfulfilled ? 'errored' : (jobRun.status as Status)
 }
 
 export default withStyles(styles)(StatusCard)
