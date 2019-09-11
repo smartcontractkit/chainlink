@@ -21,7 +21,7 @@ const remove = async (name: string) => {
   })
 }
 
-const bootstrap = async (cb: any) => {
+async function bootstrap(cb: any) {
   const db = await getDb()
   try {
     await cb(db)
