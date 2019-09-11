@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -24,7 +23,6 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
-	"github.com/jinzhu/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -133,7 +131,7 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 type TestApplication struct {
 	t testing.TB
 	*services.ChainlinkApplication
-	Config           *orm.Config
+	Config           *TestConfig
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
@@ -208,7 +206,8 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig) (*TestApplicat
 func NewApplicationWithConfig(t testing.TB, tc *TestConfig) (*TestApplication, func()) {
 	t.Helper()
 
-	WipePostgresDatabase(t, tc.Config)
+	cleanupDB := PrepareTestDB(tc)
+
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
 	app := services.NewApplication(tc.Config, func(app services.Application) {
 		ta.connectedChannel <- struct{}{}
@@ -220,14 +219,13 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig) (*TestApplication, f
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
 	app.Store.Config = tc.Config
 
-	ta.Config = tc.Config
+	ta.Config = tc
 	ta.Server = server
 	ta.wsServer = tc.wsServer
 	return ta, func() {
-		if !ethMock.AllCalled() {
-			panic("mock expectations set and not used on default TestApplication ethMock!!!")
-		}
 		require.NoError(t, ta.Stop())
+		cleanupDB()
+		require.True(t, ethMock.AllCalled(), ethMock.Remaining())
 	}
 }
 
@@ -331,7 +329,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	r := &RendererMock{}
 	client := &cmd.Client{
 		Renderer:                       r,
-		Config:                         ta.Config,
+		Config:                         ta.Config.Config,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		KeyStoreAuthenticator:          CallbackAuthenticator{func(*strpkg.Store, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
@@ -347,10 +345,10 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 
 func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
 	ta.MustSeedUserSession()
-	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Config, &cmd.MemoryCookieStore{})
+	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Config.Config, &cmd.MemoryCookieStore{})
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
-		Config:                         ta.Config,
+		Config:                         ta.Config.Config,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		KeyStoreAuthenticator:          CallbackAuthenticator{func(*strpkg.Store, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
@@ -366,10 +364,11 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
-	WipePostgresDatabase(config.t, config.Config)
+	cleanupDB := PrepareTestDB(config)
 	s := strpkg.NewStore(config.Config)
 	return s, func() {
 		cleanUpStore(config.t, s)
+		cleanupDB()
 	}
 }
 
@@ -395,31 +394,6 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 	}()
 	logger.Sync()
 	require.NoError(t, store.Close())
-}
-
-func WipePostgresDatabase(t testing.TB, config orm.ConfigReader) {
-	t.Helper()
-
-	if strings.HasPrefix(strings.ToLower(orm.NormalizedDatabaseURL(config)), string(orm.DialectPostgres)) {
-		db, err := gorm.Open(string(orm.DialectPostgres), orm.NormalizedDatabaseURL(config))
-		if err != nil {
-			t.Fatalf("unable to open postgres database for wiping: %+v", err)
-			return
-		}
-		defer db.Close()
-
-		if err := db.Exec(`
-DO $$ DECLARE
-    r RECORD;
-BEGIN
-    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = current_schema()) LOOP
-        EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
-    END LOOP;
-END $$;
-		`).Error; err != nil {
-			t.Fatalf("unable to wipe postgres database: %+v", err)
-		}
-	}
 }
 
 // NewJobSubscriber creates a new JobSubscriber
