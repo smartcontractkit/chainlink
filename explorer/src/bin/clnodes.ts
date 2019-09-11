@@ -33,7 +33,7 @@ const bootstrap = async (cb: any) => {
   } catch (e) {}
 }
 
-const _ = yargs
+yargs
   .usage('Usage: $0 <command> [options]')
   .command({
     command: 'add <name> [url]',

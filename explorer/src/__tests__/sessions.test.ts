@@ -38,7 +38,7 @@ describe('sessions', () => {
     })
 
     it('returns null if the secret is incorrect', async () => {
-      const [chainlinkNode, _] = await createChainlinkNode(
+      const [chainlinkNode] = await createChainlinkNode(
         db,
         'invalid-chainlink-node',
       )
