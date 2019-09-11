@@ -24,7 +24,7 @@ const buildIdCol = (jobRun: IJobRun): LinkColumn => {
   return {
     type: 'link',
     text: jobRun.runId,
-    to: `/job-runs/${jobRun.id}`
+    to: `/job-runs/${jobRun.id}`,
   }
 }
 
@@ -35,7 +35,7 @@ const buildJobIdCol = (jobRun: IJobRun): TextColumn => {
 const buildCreatedAtCol = (jobRun: IJobRun): TimeAgoColumn => {
   return {
     type: 'time_ago',
-    text: jobRun.createdAt
+    text: jobRun.createdAt,
   }
 }
 
@@ -45,7 +45,7 @@ const mobileRows = (jobRuns: IJobRun[]) => {
       buildIdCol(r),
       buildJobIdCol(r),
       buildCreatedAtCol(r),
-      buildNodeCol(r)
+      buildNodeCol(r),
     ]
   })
 }
@@ -56,7 +56,7 @@ const defaultRows = (jobRuns: IJobRun[]) => {
       buildNodeCol(r),
       buildIdCol(r),
       buildJobIdCol(r),
-      buildCreatedAtCol(r)
+      buildCreatedAtCol(r),
     ]
   })
 }

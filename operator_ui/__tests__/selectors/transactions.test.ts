@@ -9,15 +9,15 @@ describe('selectors - transactions', () => {
       transactions: {
         items: {
           transactionA: { id: 'transactionA' },
-          transactionB: { id: 'transactionB' }
-        }
-      }
+          transactionB: { id: 'transactionB' },
+        },
+      },
     }
     const transactions = transactionsSelector(state)
 
     expect(transactions).toEqual([
       { id: 'transactionA' },
-      { id: 'transactionB' }
+      { id: 'transactionB' },
     ])
   })
 
@@ -26,9 +26,9 @@ describe('selectors - transactions', () => {
       transactionsIndex: { currentPage: CURRENT_PAGE },
       transactions: {
         items: {
-          transactionA: { id: 'transactionA' }
-        }
-      }
+          transactionA: { id: 'transactionA' },
+        },
+      },
     }
     const transactions = transactionsSelector(state)
 

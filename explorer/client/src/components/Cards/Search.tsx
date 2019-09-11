@@ -6,7 +6,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import TermsOfUse from '../TermsOfUse'
 import Logo from '../Logo'
@@ -18,17 +18,17 @@ const styles = ({ spacing }: Theme) =>
     container: {
       display: 'flex',
       alignItems: 'center',
-      width: '100%'
+      width: '100%',
     },
     card: {
       paddingTop: spacing.unit * 5,
       paddingBottom: spacing.unit * 5,
       paddingLeft: spacing.unit * 8,
-      paddingRight: spacing.unit * 8
+      paddingRight: spacing.unit * 8,
     },
     logo: {
-      display: 'flex'
-    }
+      display: 'flex',
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {

@@ -6,7 +6,7 @@ import { TaskRun } from './entity/TaskRun'
 
 export const createJobRun = async (
   db: Connection,
-  chainlinkNode: ChainlinkNode
+  chainlinkNode: ChainlinkNode,
 ): Promise<JobRun> => {
   const jobRun = new JobRun()
   jobRun.chainlinkNodeId = chainlinkNode.id

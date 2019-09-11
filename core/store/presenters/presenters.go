@@ -366,8 +366,12 @@ func initiatorParams(i Initiator) (interface{}, error) {
 		return struct {
 			Address common.Address `json:"address"`
 		}{i.Address}, nil
+	case models.InitiatorExternal:
+		return struct {
+			Name string `json:"name"`
+		}{i.Name}, nil
 	default:
-		return nil, fmt.Errorf("Cannot marshal unsupported initiator type %v", i.Type)
+		return nil, fmt.Errorf("Cannot marshal unsupported initiator type '%v'", i.Type)
 	}
 }
 

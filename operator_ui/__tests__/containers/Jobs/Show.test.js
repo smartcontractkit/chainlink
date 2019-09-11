@@ -16,7 +16,7 @@ const mountShow = props =>
       <MemoryRouter>
         <Show {...props} />
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   )
 
 describe('containers/Jobs/Show', () => {
@@ -31,7 +31,7 @@ describe('containers/Jobs/Show', () => {
       initiators: [{ type: 'web' }],
       createdAt: minuteAgo,
       earnings: GWEI_PER_TOKEN,
-      minPayment: 100 * WEI_PER_TOKEN
+      minPayment: 100 * WEI_PER_TOKEN,
     })
     global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
 
@@ -39,8 +39,8 @@ describe('containers/Jobs/Show', () => {
       {
         id: jobRunId,
         jobId: jobSpecId,
-        status: 'pending'
-      }
+        status: 'pending',
+      },
     ])
     global.fetch.getOnce(`begin:/v2/runs`, jobRunResponse)
 
@@ -63,11 +63,11 @@ describe('containers/Jobs/Show', () => {
     const runs = [
       { id: 'runA', jobId: jobSpecId },
       { id: 'runB', jobId: jobSpecId },
-      { id: 'runC', jobId: jobSpecId }
+      { id: 'runC', jobId: jobSpecId },
     ]
 
     const jobSpecResponse = jsonApiJobSpecFactory({
-      id: jobSpecId
+      id: jobSpecId,
     })
     const jobRunsResponse = jsonApiJobSpecRunsFactory(runs)
 

@@ -1,0 +1,5 @@
+**/*.sol
+*.log
+.gitignore
+.prettierignore
+slither.db.json

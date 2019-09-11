@@ -17,18 +17,18 @@ const sendEth = (method, params) =>
         jsonrpc: '2.0',
         method: method,
         params: params || [],
-        id: new Date().getTime()
+        id: new Date().getTime(),
       },
       (error, response) => (error ? reject(error) : resolve(response.result)),
       () => {},
-      () => {}
+      () => {},
     )
   })
 
 exps.assertBigNum = (a, b, failureMessage) =>
   assert(
     bigNum(a).eq(bigNum(b)),
-    `BigNum ${a} is not ${b}` + (failureMessage ? ': ' + failureMessage : '')
+    `BigNum ${a} is not ${b}` + (failureMessage ? ': ' + failureMessage : ''),
   )
 
 exps.getLatestTimestamp = async () => {
@@ -62,7 +62,7 @@ const autoAddMapDelimiters = data => {
   if (buffer[0] >> 5 !== 5) {
     buffer = Buffer.concat(
       [startMapBuffer, buffer, endMapBuffer],
-      buffer.length + 2
+      buffer.length + 2,
     )
   }
 
@@ -78,7 +78,7 @@ const toHexWithoutPrefix = arg => {
     return Array.prototype.reduce.call(
       arg,
       (a, v) => a + v.toString('16').padStart(2, '0'),
-      ''
+      '',
     )
   } else {
     return Buffer.from(arg, 'ascii').toString('hex')
@@ -101,12 +101,12 @@ exps.assertActionThrows = action =>
       assert(errorMessage, 'Expected an error to be raised')
       const invalidOpcode = errorMessage.includes('invalid opcode')
       const reverted = errorMessage.includes(
-        'VM Exception while processing transaction: revert'
+        'VM Exception while processing transaction: revert',
       )
       assert(
         invalidOpcode || reverted,
         'expected following error message to include "invalid JUMP" or ' +
-          `"revert": "${errorMessage}"`
+          `"revert": "${errorMessage}"`,
       )
       // see https://github.com/ethereumjs/testrpc/issues/39
       // for why the "invalid JUMP" is the throw related error when using TestRPC
@@ -126,7 +126,7 @@ exps.decodeRunRequest = log => {
     'bytes4',
     'uint256',
     'uint256',
-    'bytes'
+    'bytes',
   ]
   const [
     requester,
@@ -136,7 +136,7 @@ exps.decodeRunRequest = log => {
     callbackFunc,
     expiration,
     version,
-    data
+    data,
   ] = abi.rawDecode(types, runABI)
 
   return {
@@ -149,7 +149,7 @@ exps.decodeRunRequest = log => {
     callbackFunc: toHex(callbackFunc),
     expiration: toHex(expiration),
     dataVersion: version,
-    data: autoAddMapDelimiters(data)
+    data: autoAddMapDelimiters(data),
   }
 }
 
@@ -170,7 +170,7 @@ exps.fulfillOracleRequest = async (oracle, request, response, options) => {
     request.callbackFunc,
     request.expiration,
     response,
-    options
+    options,
   )
 }
 
@@ -183,12 +183,12 @@ exps.requestDataBytes = (specId, to, fHash, nonce, data) => {
     'bytes4',
     'uint256',
     'uint256',
-    'bytes'
+    'bytes',
   ]
   const values = [0, 0, specId, to, fHash, nonce, 1, data]
   const encoded = abiEncode(types, values)
   const funcSelector = exps.functionSelector(
-    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)'
+    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)',
   )
   return funcSelector + encoded
 }

@@ -9,7 +9,7 @@ export class PrivateRoute extends Route {
 
 const mapStateToProps = state => {
   return {
-    authenticated: state.authentication.allowed
+    authenticated: state.authentication.allowed,
   }
 }
 

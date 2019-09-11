@@ -14,11 +14,11 @@ const styles = theme => {
   return {
     borderTop: {
       borderTop: 'solid 1px',
-      borderTopColor: theme.palette.divider
+      borderTopColor: theme.palette.divider,
     },
     item: {
       position: 'relative',
-      paddingLeft: 50
+      paddingLeft: 50,
     },
     status: {
       position: 'absolute',
@@ -29,20 +29,20 @@ const styles = theme => {
       borderRight: 'solid 1px',
       borderRightColor: theme.palette.divider,
       width: 50,
-      height: '100%'
+      height: '100%',
     },
     summary: {
-      minHeight: '0 !important'
+      minHeight: '0 !important',
     },
     content: {
-      margin: '12px 0 !important'
+      margin: '12px 0 !important',
     },
     details: {
-      padding: theme.spacing.unit * 2
+      padding: theme.spacing.unit * 2,
     },
     expansionPanel: {
-      boxShadow: 'none'
-    }
+      boxShadow: 'none',
+    },
   }
 }
 
@@ -51,7 +51,7 @@ const render = (
   children,
   classes,
   confirmations,
-  minConfirmations
+  minConfirmations,
 ) => {
   if (children) {
     return (
@@ -91,7 +91,7 @@ const StatusItem = ({
   children,
   classes,
   confirmations,
-  minConfirmations
+  minConfirmations,
 }) => (
   <div className={classNames(classes.item, { [classes.borderTop]: borderTop })}>
     <div className={classes.status}>
@@ -106,12 +106,12 @@ const StatusItem = ({
 )
 
 StatusItem.defaultProps = {
-  borderTop: true
+  borderTop: true,
 }
 
 StatusItem.propTypes = {
   status: PropTypes.string.isRequired,
-  borderTop: PropTypes.bool.isRequired
+  borderTop: PropTypes.bool.isRequired,
 }
 
 export default withStyles(styles)(StatusItem)

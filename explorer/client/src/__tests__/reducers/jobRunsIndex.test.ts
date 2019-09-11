@@ -16,7 +16,7 @@ describe('reducers/jobRunsIndex', () => {
     const state = reducer(STATE, action) as IState
 
     expect(state.jobRunsIndex).toEqual({
-      items: undefined
+      items: undefined,
     })
   })
 
@@ -25,7 +25,7 @@ describe('reducers/jobRunsIndex', () => {
     const state = reducer(STATE, action) as IState
 
     expect(state.jobRunsIndex).toEqual({
-      items: undefined
+      items: undefined,
     })
   })
 
@@ -36,17 +36,17 @@ describe('reducers/jobRunsIndex', () => {
         meta: {
           jobRuns: {
             data: jobRuns,
-            meta: { count: 100 }
-          }
+            meta: { count: 100 },
+          },
         },
-        entities: {}
+        entities: {},
       }
       const action = { type: 'UPSERT_JOB_RUNS', data: data } as JobRunsAction
       const state = reducer(STATE, action) as IState
 
       expect(state.jobRunsIndex).toEqual({
         items: ['9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'],
-        count: 100
+        count: 100,
       })
     })
   })
@@ -56,14 +56,14 @@ describe('reducers/jobRunsIndex', () => {
       const data = {
         jobRuns: {},
         meta: {
-          jobRun: { meta: {} }
-        }
+          jobRun: { meta: {} },
+        },
       }
       const action = { type: 'UPSERT_JOB_RUN', data: data } as JobRunsAction
       const state = reducer(STATE, action) as IState
 
       expect(state.jobRunsIndex).toEqual({
-        items: undefined
+        items: undefined,
       })
     })
   })

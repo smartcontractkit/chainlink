@@ -18,12 +18,12 @@ import { useHooks, useEffect } from 'use-react-hooks'
 const styles = theme => ({
   definitionTitle: {
     marginTop: theme.spacing.unit * 2,
-    marginBottom: theme.spacing.unit * 2
+    marginBottom: theme.spacing.unit * 2,
   },
   divider: {
     marginTop: theme.spacing.unit,
-    marginBottom: theme.spacing.unit * 3
-  }
+    marginBottom: theme.spacing.unit * 3,
+  },
 })
 
 const renderDetails = ({ job, classes }) => {
@@ -75,13 +75,13 @@ const mapStateToProps = (state, ownProps) => {
 
   return {
     jobSpecId,
-    job
+    job,
   }
 }
 
 export const ConnectedDefinition = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJob, createJobRun })
+  matchRouteAndMapDispatchToProps({ fetchJob, createJobRun }),
 )(Definition)
 
 export default withStyles(styles)(ConnectedDefinition)

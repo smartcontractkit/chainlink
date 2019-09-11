@@ -152,6 +152,21 @@ func (j JobSpec) InitiatorsFor(types ...string) []Initiator {
 	return list
 }
 
+// InitiatorExternal finds the Job Spec's Initiator field associated with the
+// External Initiator's name using a case insensitive search.
+//
+// Returns nil if not found.
+func (j JobSpec) InitiatorExternal(name string) *Initiator {
+	var found *Initiator
+	for _, i := range j.InitiatorsFor(InitiatorExternal) {
+		if strings.ToLower(i.Name) == strings.ToLower(name) {
+			found = &i
+			break
+		}
+	}
+	return found
+}
+
 // WebAuthorized returns true if the "web" initiator is present.
 func (j JobSpec) WebAuthorized() bool {
 	for _, initr := range j.Initiators {
@@ -204,6 +219,8 @@ const (
 	// InitiatorServiceAgreementExecutionLog for tasks in a job to watch a
 	// Solidity Coordinator contract and expect a payload from a log event.
 	InitiatorServiceAgreementExecutionLog = "execagreement"
+	// InitiatorExternal for tasks in a job to be trigger by an external party.
+	InitiatorExternal = "external"
 )
 
 // Initiator could be thought of as a trigger, defines how a Job can be
@@ -228,6 +245,7 @@ type InitiatorParams struct {
 	Ran        bool              `json:"ran,omitempty"`
 	Address    common.Address    `json:"address,omitempty" gorm:"index"`
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
+	Name       string            `json:"name,omitempty"`
 }
 
 // UnmarshalJSON parses the raw initiator data and updates the

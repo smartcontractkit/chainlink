@@ -15,5 +15,5 @@ const scrub = payload => {
 export default jobSpec =>
   DEFINITION_KEYS.reduce(
     (obj, key) => ({ ...obj, [key]: scrub(jobSpec[key]) }),
-    {}
+    {},
   )

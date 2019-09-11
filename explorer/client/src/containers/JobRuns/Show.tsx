@@ -4,7 +4,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
@@ -43,13 +43,13 @@ const styles = ({ spacing, breakpoints }: Theme) =>
         paddingTop: spacing.unit * 3,
         paddingBottom: spacing.unit * 3,
         paddingLeft: spacing.unit * 3,
-        paddingRight: spacing.unit * 3
-      }
+        paddingRight: spacing.unit * 3,
+      },
     },
     card: {
       paddingTop: spacing.unit,
-      paddingBottom: spacing.unit
-    }
+      paddingBottom: spacing.unit,
+    },
   })
 
 interface OwnProps {
@@ -106,18 +106,18 @@ const Show = withStyles(styles)(
         </Grid>
       </>
     )
-  }
+  },
 )
 
 const jobRunSelector = (
   { jobRuns, taskRuns, chainlinkNodes }: State,
-  jobRunId?: string
+  jobRunId?: string,
 ): IJobRun | undefined => {
   if (jobRuns.items) {
     const document = {
       jobRuns: jobRuns.items,
       taskRuns: taskRuns.items,
-      chainlinkNodes: chainlinkNodes.items
+      chainlinkNodes: chainlinkNodes.items,
     }
     return build(document, 'jobRuns', jobRunId)
   }
@@ -125,7 +125,7 @@ const jobRunSelector = (
 
 const mapStateToProps: MapStateToProps<StateProps, OwnProps, State> = (
   state,
-  { jobRunId }
+  { jobRunId },
 ) => {
   const jobRun = jobRunSelector(state, jobRunId)
   const etherscanHost = state.config.etherscanHost
@@ -140,7 +140,7 @@ const mapDispatchToProps: MapDispatchToProps<
 
 const ConnectedShow = connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(Show)
 
 export default withStyles(styles)(ConnectedShow)

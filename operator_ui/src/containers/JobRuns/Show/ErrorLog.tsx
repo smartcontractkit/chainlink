@@ -21,8 +21,8 @@ const filterErrorTaskRuns = (jobRun: IJobRun) => {
 
 const detailsStyles = ({ spacing }: Theme) => ({
   list: {
-    marginTop: spacing.unit * 4
-  }
+    marginTop: spacing.unit * 4,
+  },
 })
 
 interface IDetailsProps extends WithStyles<typeof detailsStyles> {
@@ -52,7 +52,7 @@ const Details = withStyles(detailsStyles)(
         </Grid>
       </Grid>
     )
-  }
+  },
 )
 
 const styles = (theme: Theme) => ({})
@@ -83,7 +83,7 @@ const ShowErrorLog = useHooks(
         </Content>
       </div>
     )
-  }
+  },
 )
 
 interface Match {
@@ -100,13 +100,13 @@ const mapStateToProps = (state: AppState, ownProps: { match: Match }) => {
   return {
     jobSpecId,
     jobRunId,
-    jobRun
+    jobRun,
   }
 }
 
 export const ConnectedShowErrorLog = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJobRun })
+  matchRouteAndMapDispatchToProps({ fetchJobRun }),
 )(ShowErrorLog)
 
 export default withStyles(styles)(ConnectedShowErrorLog)

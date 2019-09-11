@@ -77,7 +77,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable, LinkToke
     onlyLINK
     checkCallbackAddress(_callbackAddress)
   {
-    bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
+    bytes32 requestId = keccak256(abi.encodePacked(_sender, _specId, _nonce));
     require(commitments[requestId] == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
     uint256 expiration = now.add(EXPIRY_TIME);

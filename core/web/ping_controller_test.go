@@ -20,7 +20,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/ping")
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	require.Equal(t, `{"message":"pong"}`, string(cltest.ParseResponseBody(t, resp)))
 }
 
@@ -56,7 +56,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	require.Equal(t, `{"message":"pong"}`, string(cltest.ParseResponseBody(t, resp)))
 }
 

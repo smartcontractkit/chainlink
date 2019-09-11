@@ -9,17 +9,9 @@
     "sourceType": "module"
   },
 
-  "extends": [
-    "prettier/standard",
-    "plugin:react/recommended"
-  ],
+  "extends": ["prettier/standard", "plugin:react/recommended"],
 
-  "plugins": [
-    "import",
-    "prettier",
-    "standard",
-    "react-hooks"
-  ],
+  "plugins": ["import", "standard", "react-hooks"],
 
   "settings": {
     "react": {

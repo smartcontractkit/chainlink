@@ -7,7 +7,7 @@ describe('reducers/config', () => {
     const state = reducer({}, action) as IState
 
     expect(state.search).toEqual({
-      etherscanHost: undefined
+      etherscanHost: undefined,
     })
   })
 
@@ -18,16 +18,16 @@ describe('reducers/config', () => {
         meta: {
           jobRun: {
             meta: {
-              etherscanHost: 'ropsten.etherscan.io'
-            }
-          }
-        }
-      }
+              etherscanHost: 'ropsten.etherscan.io',
+            },
+          },
+        },
+      },
     } as Action
     const state = reducer({}, action) as IState
 
     expect(state.config).toEqual({
-      etherscanHost: 'ropsten.etherscan.io'
+      etherscanHost: 'ropsten.etherscan.io',
     })
   })
 })

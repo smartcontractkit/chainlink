@@ -22,7 +22,7 @@ interface IndexParams extends jsonapi.PaginatedRequestParams {
 }
 const INDEX_ENDPOINT = '/v2/specs'
 const index = jsonapi.fetchResource<IndexParams, models.JobSpec[]>(
-  INDEX_ENDPOINT
+  INDEX_ENDPOINT,
 )
 
 /**
@@ -35,7 +35,7 @@ interface ShowPathParams {
 }
 const SHOW_ENDPOINT = `/v2/specs/:specId`
 const show = jsonapi.fetchResource<{}, models.JobSpec, ShowPathParams>(
-  SHOW_ENDPOINT
+  SHOW_ENDPOINT,
 )
 
 /**
@@ -48,7 +48,7 @@ interface DestroyPathParams {
 }
 const DESTROY_ENDPOINT = '/v2/specs/:specId'
 const destroy = jsonapi.deleteResource<undefined, null, DestroyPathParams>(
-  DESTROY_ENDPOINT
+  DESTROY_ENDPOINT,
 )
 
 /**
@@ -58,7 +58,7 @@ const destroy = jsonapi.deleteResource<undefined, null, DestroyPathParams>(
  */
 export function getJobSpecs(
   page: number,
-  size: number
+  size: number,
 ): Promise<jsonapi.PaginatedApiResponse<models.JobSpec[]>> {
   return index({ page, size })
 }
@@ -68,7 +68,7 @@ export function getJobSpecs(
  * @param n The number of job specs to fetch
  */
 export function getRecentJobSpecs(
-  n: number
+  n: number,
 ): Promise<jsonapi.PaginatedApiResponse<models.JobSpec[]>> {
   return index({ size: n })
 }
@@ -78,13 +78,13 @@ export function getRecentJobSpecs(
  * @param id The id of the JobSpec to obtain
  */
 export function getJobSpec(
-  id: string
+  id: string,
 ): Promise<jsonapi.ApiResponse<models.JobSpec>> {
   return show({}, { specId: id })
 }
 
 export function createJobSpec(
-  jobSpecRequest: models.JobSpecRequest
+  jobSpecRequest: models.JobSpecRequest,
 ): Promise<jsonapi.ApiResponse<presenters.JobSpec>> {
   return create(jobSpecRequest)
 }

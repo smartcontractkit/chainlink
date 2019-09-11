@@ -5,7 +5,7 @@ export enum Method {
   GET = 'GET',
   POST = 'POST',
   PATCH = 'PATCH',
-  DELETE = 'DELETE'
+  DELETE = 'DELETE',
 }
 
 type FetchOptions = Parameters<typeof fetch>[1]
@@ -18,7 +18,7 @@ export function getOptions(method: Method): (val?: any) => FetchOptions {
   if (method === Method.GET) {
     return () => ({
       method: 'GET',
-      credentials: 'include'
+      credentials: 'include',
     })
   }
 
@@ -28,7 +28,7 @@ export function getOptions(method: Method): (val?: any) => FetchOptions {
 export function formatURI(path: string, query: object = {}) {
   return formatRequestURI(path, query, {
     hostname: location.hostname,
-    port: process.env.CHAINLINK_PORT
+    port: process.env.CHAINLINK_PORT,
   })
 }
 
@@ -43,7 +43,7 @@ function CUDOptionFactory(method: Method): (body?: any) => FetchOptions {
     credentials: 'include',
     headers: {
       Accept: 'application/json',
-      'Content-Type': 'application/json'
-    }
+      'Content-Type': 'application/json',
+    },
   })
 }

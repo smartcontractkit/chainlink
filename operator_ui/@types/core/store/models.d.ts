@@ -80,7 +80,7 @@ declare module 'core/store/models' {
      * InitiatorServiceAgreementExecutionLog for tasks in a job to watch a
      * Solidity Coordinator contract and expect a payload from a log event.
      */
-    SERVICE_AGREEMENT_EXECUTION_LOG = 'execagreement'
+    SERVICE_AGREEMENT_EXECUTION_LOG = 'execagreement',
   }
 
   /**
@@ -197,7 +197,7 @@ declare module 'core/store/models' {
     PENDING_BRIDGE = 'pending_bridge',
     PENDING_SLEEP = 'pending_sleep',
     ERRORED = 'errored',
-    COMPLETED = 'completed'
+    COMPLETED = 'completed',
   }
 
   /**

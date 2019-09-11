@@ -25,7 +25,7 @@ contract('LinkEx', () => {
       // Ownable methods:
       'isOwner',
       'owner',
-      'transferOwnership'
+      'transferOwnership',
     ])
   })
 
@@ -56,7 +56,7 @@ contract('LinkEx', () => {
         h.eth.sendTransaction({
           data: txData,
           from: h.oracleNode,
-          to: contract.address
+          to: contract.address,
         })
         const expectedRate = await contract.currentRate()
 
@@ -119,7 +119,7 @@ contract('LinkEx', () => {
         const expected4 = 8616460198
         const expected5 = 8616460756
         const newExpectedAvg = Math.trunc(
-          (expected + expected2 + expected3 + expected4 + expected5) / 5
+          (expected + expected2 + expected3 + expected4 + expected5) / 5,
         )
 
         beforeEach(async () => {
@@ -144,7 +144,7 @@ contract('LinkEx', () => {
 
           beforeEach(async () => {
             await contract.removeOracle(h.oracleNode, {
-              from: h.defaultAccount
+              from: h.defaultAccount,
             })
           })
 
@@ -161,12 +161,12 @@ contract('LinkEx', () => {
 
           context('then adding an oracle', () => {
             const newExpectedAvg2 = Math.trunc(
-              (updated + expected2 + expected3) / 3
+              (updated + expected2 + expected3) / 3,
             )
 
             beforeEach(async () => {
               await contract.addOracle(h.accounts[8], {
-                from: h.defaultAccount
+                from: h.defaultAccount,
               })
             })
 
@@ -183,7 +183,7 @@ contract('LinkEx', () => {
 
           beforeEach(async () => {
             await contract.removeOracle(h.oracleNode3, {
-              from: h.defaultAccount
+              from: h.defaultAccount,
             })
             await contract.update(updated, { from: h.oracleNode2 })
           })
@@ -202,12 +202,12 @@ contract('LinkEx', () => {
           context('then adding an oracle', () => {
             const newUpdated = 8616460357
             const newExpectedAvg2 = Math.trunc(
-              (updated + expected + newUpdated) / 3
+              (updated + expected + newUpdated) / 3,
             )
 
             beforeEach(async () => {
               await contract.addOracle(h.accounts[8], {
-                from: h.defaultAccount
+                from: h.defaultAccount,
               })
             })
 
@@ -316,7 +316,7 @@ contract('LinkEx', () => {
         it('reverts', async () => {
           await h.assertActionThrows(async () => {
             await contract.removeOracle(h.oracleNode3, {
-              from: h.defaultAccount
+              from: h.defaultAccount,
             })
           })
         })

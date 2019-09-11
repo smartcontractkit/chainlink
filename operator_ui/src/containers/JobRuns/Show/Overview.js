@@ -15,8 +15,8 @@ import RegionalNav from './RegionalNav'
 const styles = theme => ({
   breadcrumb: {
     marginTop: theme.spacing.unit * 5,
-    marginBottom: theme.spacing.unit * 5
-  }
+    marginBottom: theme.spacing.unit * 5,
+  },
 })
 
 const renderDetails = ({ classes, fetching, jobRun }) => {
@@ -66,13 +66,13 @@ const mapStateToProps = (state, ownProps) => {
     jobSpecId,
     jobRunId,
     jobRun,
-    fetching
+    fetching,
   }
 }
 
 export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJobRun })
+  matchRouteAndMapDispatchToProps({ fetchJobRun }),
 )(Show)
 
 export default withStyles(styles)(ConnectedShow)

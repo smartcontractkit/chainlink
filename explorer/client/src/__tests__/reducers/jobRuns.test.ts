@@ -3,8 +3,8 @@ import { JobRunsAction } from '../../reducers/jobRuns'
 
 const STATE = {
   jobRuns: {
-    items: { 'replace-me': { id: 'replace-me' } }
-  }
+    items: { 'replace-me': { id: 'replace-me' } },
+  },
 }
 
 describe('reducers/jobRuns', () => {
@@ -20,7 +20,7 @@ describe('reducers/jobRuns', () => {
     const state = reducer(STATE, action) as IState
 
     expect(state.jobRuns).toEqual({
-      items: undefined
+      items: undefined,
     })
   })
 
@@ -29,7 +29,7 @@ describe('reducers/jobRuns', () => {
     const state = reducer(STATE, action) as IState
 
     expect(state.jobRuns).toEqual({
-      items: undefined
+      items: undefined,
     })
   })
 
@@ -37,8 +37,8 @@ describe('reducers/jobRuns', () => {
     it('can replace items', () => {
       const normalizedJobRuns = {
         '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
-          id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'
-        }
+          id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e',
+        },
       }
       const orderedJobRuns = [{ id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e' }]
       const data = {
@@ -46,9 +46,9 @@ describe('reducers/jobRuns', () => {
         meta: {
           jobRuns: {
             data: orderedJobRuns,
-            meta: {}
-          }
-        }
+            meta: {},
+          },
+        },
       }
       const action = { type: 'UPSERT_JOB_RUNS', data: data } as JobRunsAction
       const state = reducer(STATE, action) as IState
@@ -56,9 +56,9 @@ describe('reducers/jobRuns', () => {
       expect(state.jobRuns).toEqual({
         items: {
           '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
-            id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'
-          }
-        }
+            id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e',
+          },
+        },
       })
     })
   })
@@ -67,14 +67,14 @@ describe('reducers/jobRuns', () => {
     it('can replace items', () => {
       const normalizedJobRuns = {
         '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
-          id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'
-        }
+          id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e',
+        },
       }
       const data = {
         jobRuns: normalizedJobRuns,
         meta: {
-          jobRun: { meta: {} }
-        }
+          jobRun: { meta: {} },
+        },
       }
       const action = { type: 'UPSERT_JOB_RUN', data: data } as JobRunsAction
       const state = reducer(STATE, action) as IState
@@ -82,9 +82,9 @@ describe('reducers/jobRuns', () => {
       expect(state.jobRuns).toEqual({
         items: {
           '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
-            id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'
-          }
-        }
+            id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e',
+          },
+        },
       })
     })
   })

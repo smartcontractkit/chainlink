@@ -1,0 +1,7 @@
+client
+.gitignore
+.prettierignore
+Dockerfile
+.dockerignore
+.eslintignore
+src/public

@@ -10,12 +10,12 @@ describe('components/JobRuns/TaskRuns', () => {
       {
         id: 1,
         status: 'completed',
-        type: 'httpget'
-      } as ITaskRun
+        type: 'httpget',
+      } as ITaskRun,
     ]
 
     const wrapper = mount(
-      <TaskRuns taskRuns={taskRuns} etherscanHost={etherscanHost} />
+      <TaskRuns taskRuns={taskRuns} etherscanHost={etherscanHost} />,
     )
     expect(wrapper.text()).not.toContain('pending confirmations')
   })
@@ -27,12 +27,12 @@ describe('components/JobRuns/TaskRuns', () => {
         id: 1,
         minimumConfirmations: '3',
         status: 'completed',
-        type: 'httpget'
-      } as ITaskRun
+        type: 'httpget',
+      } as ITaskRun,
     ]
 
     const wrapper = mount(
-      <TaskRuns taskRuns={taskRuns} etherscanHost={etherscanHost} />
+      <TaskRuns taskRuns={taskRuns} etherscanHost={etherscanHost} />,
     )
     expect(wrapper.text()).toContain('pending confirmations')
     expect(wrapper.text()).toContain('0')
@@ -46,12 +46,12 @@ describe('components/JobRuns/TaskRuns', () => {
         id: 1,
         minimumConfirmations: '3',
         status: 'completed',
-        type: 'httpget'
-      } as ITaskRun
+        type: 'httpget',
+      } as ITaskRun,
     ]
 
     const wrapper = mount(
-      <TaskRuns taskRuns={taskRuns} etherscanHost={etherscanHost} />
+      <TaskRuns taskRuns={taskRuns} etherscanHost={etherscanHost} />,
     )
     expect(wrapper.text()).toContain('pending confirmations')
     expect(wrapper.text()).toContain('1')
@@ -65,19 +65,19 @@ describe('components/JobRuns/TaskRuns', () => {
         id: 1,
         minimumConfirmations: '3',
         status: 'completed',
-        type: 'httpget'
+        type: 'httpget',
       } as ITaskRun,
       {
         confirmations: '3',
         id: 2,
         minimumConfirmations: '3',
         status: 'completed',
-        type: 'jsonparse'
-      } as ITaskRun
+        type: 'jsonparse',
+      } as ITaskRun,
     ]
 
     const wrapper = mount(
-      <TaskRuns taskRuns={taskRuns} etherscanHost={etherscanHost} />
+      <TaskRuns taskRuns={taskRuns} etherscanHost={etherscanHost} />,
     )
     const pendingConfs = wrapper.text().match(/pending confirmation/g)
     expect(pendingConfs).toHaveLength(1)
@@ -90,19 +90,19 @@ describe('components/JobRuns/TaskRuns', () => {
         id: 1,
         minimumConfirmations: '3',
         status: 'completed',
-        type: 'httpget'
+        type: 'httpget',
       } as ITaskRun,
       {
         confirmations: '4',
         id: 2,
         minimumConfirmations: '5',
         status: 'completed',
-        type: 'jsonparse'
-      } as ITaskRun
+        type: 'jsonparse',
+      } as ITaskRun,
     ]
 
     const wrapper = mount(
-      <TaskRuns taskRuns={taskRuns} etherscanHost={etherscanHost} />
+      <TaskRuns taskRuns={taskRuns} etherscanHost={etherscanHost} />,
     )
     const pendingConfs = wrapper.text().match(/pending confirmation/g)
     expect(pendingConfs).toHaveLength(2)
