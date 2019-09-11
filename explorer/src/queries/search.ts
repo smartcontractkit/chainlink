@@ -1,7 +1,7 @@
 import { Connection, SelectQueryBuilder } from 'typeorm'
 import { JobRun } from '../entity/JobRun'
 
-export interface ISearchParams {
+export interface SearchParams {
   searchQuery?: string
   page?: number
   limit?: number
@@ -22,7 +22,7 @@ const normalizeSearchToken = (id: string): string => {
 
 const searchBuilder = (
   db: Connection,
-  params: ISearchParams,
+  params: SearchParams,
 ): SelectQueryBuilder<JobRun> => {
   let query = db.getRepository(JobRun).createQueryBuilder('job_run')
 
@@ -61,14 +61,14 @@ const searchBuilder = (
 
 export const search = async (
   db: Connection,
-  params: ISearchParams,
+  params: SearchParams,
 ): Promise<JobRun[]> => {
   return searchBuilder(db, params).getMany()
 }
 
 export const count = async (
   db: Connection,
-  params: ISearchParams,
+  params: SearchParams,
 ): Promise<number> => {
   return searchBuilder(db, params).getCount()
 }
