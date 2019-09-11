@@ -115,7 +115,6 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	assert.Len(t, ntx.Attempts, 1)
 
 	manager.OnNewHead(cltest.Head(bumpAt))
-	eth.EXPECT().GetTxReceipt(createdTx1.Attempts[0].Hash).Return(&models.TxReceipt{}, nil)
 	eth.EXPECT().SendRawTx(gomock.Any()).Return(cltest.NewHash(), nil)
 
 	// bump gas
@@ -189,7 +188,6 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	assert.Len(t, ntx.Attempts, 1)
 
 	manager.OnNewHead(cltest.Head(bumpAt))
-	eth.EXPECT().GetTxReceipt(gomock.Any()).Return(&models.TxReceipt{}, nil)
 	eth.EXPECT().SendRawTx(gomock.Any()).Return(tx.Attempts[0].Hash, nil)
 
 	receipt, state, err := manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
@@ -198,7 +196,6 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	assert.Equal(t, strpkg.Unconfirmed, state)
 
 	manager.OnNewHead(cltest.Head(bumpAgainAt))
-	eth.EXPECT().GetTxReceipt(gomock.Any()).Return(&models.TxReceipt{}, nil)
 	eth.EXPECT().GetTxReceipt(gomock.Any()).Return(&models.TxReceipt{}, nil)
 
 	receipt, state, err = manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
@@ -409,8 +406,6 @@ func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
-
 	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	assert.NoError(t, err)
 	assert.Nil(t, receipt)
@@ -445,7 +440,6 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
 	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
@@ -482,7 +476,6 @@ func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
 	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
@@ -506,13 +499,12 @@ func TestTxManager_BumpGasUntilSafe_confirmed_lessThanGasThreshold(t *testing.T)
 	store := app.Store
 	config := store.Config
 
-	minConfs := config.MinOutgoingConfirmations() - 1
 	sentAt := uint64(23456)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
 	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold+minConfs-1)))
+	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold-1)))
 	require.NoError(t, app.StartAndConnect())
 
 	txm := store.TxManager
@@ -521,12 +513,10 @@ func TestTxManager_BumpGasUntilSafe_confirmed_lessThanGasThreshold(t *testing.T)
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
-
 	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	assert.NoError(t, err)
-	assert.NotNil(t, receipt)
-	assert.Equal(t, strpkg.Confirmed, state)
+	assert.Equal(t, strpkg.Unconfirmed, state)
+	assert.Nil(t, receipt)
 
 	tx, err = store.FindTx(tx.ID)
 	require.NoError(t, err)
@@ -635,18 +625,11 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	}{
 		{"no conf, no error", (sentAt2 + 1), func(ethMock *cltest.EthMock) {
 			ethMock.Register("eth_getTransactionCount", "0x0")
-			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
-			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
 		}, false, false},
-		{"no conf, early error", (sentAt2 + 1), func(ethMock *cltest.EthMock) {
+		{"no conf, early error", (safeAt + 1), func(ethMock *cltest.EthMock) {
 			ethMock.Register("eth_getTransactionCount", "0x0")
 			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
 			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
-		}, false, true},
-		{"no conf, later error", (sentAt2 + 1), func(ethMock *cltest.EthMock) {
-			ethMock.Register("eth_getTransactionCount", "0x0")
-			ethMock.Register("eth_getTransactionReceipt", nonConfedReceipt)
-			ethMock.RegisterError("eth_getTransactionReceipt", "FUBAR")
 		}, false, true},
 		{"early conf", (safeAt + 1), func(ethMock *cltest.EthMock) {
 			ethMock.Register("eth_getTransactionCount", "0x0")
@@ -715,40 +698,49 @@ func TestTxManager_CheckAttempt(t *testing.T) {
 	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(14770)
 	hash := cltest.NewHash()
+	confirmedThreshold := sentAt + config.MinOutgoingConfirmations()
 	gasBumpThreshold := sentAt + config.EthGasBumpThreshold()
 
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Len(t, tx.Attempts, 1)
 
 	// Initial check, no receipt, no change of the block height
-	retrievedReceipt := models.TxReceipt{}
-	ethMock.Register("eth_getTransactionReceipt", retrievedReceipt)
-
 	receipt, state, err := txm.CheckAttempt(tx.Attempts[0], sentAt)
 	require.NoError(t, err)
 	assert.Equal(t, strpkg.Unconfirmed, state)
-	assert.Equal(t, receipt, &retrievedReceipt)
+	assert.Nil(t, receipt)
 
 	ethMock.EventuallyAllCalled(t)
 
-	// A receipt is found, but is not yet safe
-	retrievedReceipt = models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(sentAt)}
+	// Initial check, empty receipt, block height is confirmed
+	retrievedReceipt := models.TxReceipt{}
 	ethMock.Register("eth_getTransactionReceipt", retrievedReceipt)
 
-	receipt, state, err = txm.CheckAttempt(tx.Attempts[0], sentAt)
+	receipt, state, err = txm.CheckAttempt(tx.Attempts[0], confirmedThreshold)
 	require.NoError(t, err)
-	assert.Equal(t, strpkg.Confirmed, state)
-	assert.Equal(t, receipt, &retrievedReceipt)
+	assert.Equal(t, strpkg.Unconfirmed, state)
+	assert.Equal(t, &retrievedReceipt, receipt)
+
+	ethMock.EventuallyAllCalled(t)
+
+	// A receipt is found, but the gas bump threshold has been exceeded
+	retrievedReceipt = models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(sentAt)}
+
+	receipt, state, err = txm.CheckAttempt(tx.Attempts[0], gasBumpThreshold)
+	require.NoError(t, err)
+	assert.Equal(t, strpkg.Unconfirmed, state)
+	assert.Nil(t, receipt)
 
 	ethMock.EventuallyAllCalled(t)
 
 	// A receipt is found, and now is safe
+	retrievedReceipt = models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(sentAt)}
 	ethMock.Register("eth_getTransactionReceipt", retrievedReceipt)
 
-	receipt, state, err = txm.CheckAttempt(tx.Attempts[0], sentAt+gasBumpThreshold)
+	receipt, state, err = txm.CheckAttempt(tx.Attempts[0], confirmedThreshold)
 	require.NoError(t, err)
 	assert.Equal(t, strpkg.Safe, state)
-	assert.Equal(t, receipt, &retrievedReceipt)
+	assert.Equal(t, &retrievedReceipt, receipt)
 
 	ethMock.EventuallyAllCalled(t)
 }

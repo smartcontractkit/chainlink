@@ -443,7 +443,21 @@ func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash,
 
 // CheckAttempt retrieves a receipt for a TxAttempt, and check if it meets the
 // minimum number of confirmations
-func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*models.TxReceipt, AttemptState, error) {
+func (txm *EthTxManager) CheckAttempt(
+	txAttempt *models.TxAttempt,
+	blockHeight uint64,
+) (*models.TxReceipt, AttemptState, error) {
+
+	minimumConfirmations := new(big.Int).SetUint64(txm.config.MinOutgoingConfirmations())
+	confirmations := new(big.Int).Sub(
+		new(big.Int).SetUint64(blockHeight),
+		new(big.Int).SetUint64(txAttempt.SentAt),
+	)
+
+	if minimumConfirmations.Cmp(confirmations) > 0 {
+		return nil, Unconfirmed, nil
+	}
+
 	receipt, err := txm.GetTxReceipt(txAttempt.Hash)
 	if err != nil {
 		return nil, Unknown, errors.Wrap(err, "CheckAttempt GetTxReceipt failed")
@@ -451,16 +465,6 @@ func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight u
 
 	if receipt.Unconfirmed() {
 		return receipt, Unconfirmed, nil
-	}
-
-	minimumConfirmations := new(big.Int).SetUint64(txm.config.MinOutgoingConfirmations())
-	confirmedAt := new(big.Int).Add(minimumConfirmations, receipt.BlockNumber.ToInt())
-
-	// 0 based indexing since receipt is 1 conf
-	confirmedAt.Sub(confirmedAt, big.NewInt(1))
-
-	if new(big.Int).SetUint64(blockHeight).Cmp(confirmedAt) == -1 {
-		return receipt, Confirmed, nil
 	}
 
 	return receipt, Safe, nil
@@ -476,7 +480,7 @@ const (
 	Unknown AttemptState = iota
 	// Unconfirmed means that a transaction has had no confirmations at all
 	Unconfirmed
-	// Confirmed means that a transaftion has had at least one transaction, but
+	// Confirmed means that a transaction has had at least one confirmation, but
 	// not enough to satisfy the minimum number of confirmations configuration
 	// option
 	Confirmed
@@ -508,58 +512,51 @@ func (txm *EthTxManager) processAttempt(
 ) (*models.TxReceipt, AttemptState, error) {
 	txAttempt := tx.Attempts[attemptIndex]
 
-	logger.Debugw(
-		fmt.Sprintf("Tx #%d checking on-chain state", attemptIndex),
-		"txHash", txAttempt.Hash.String(),
-		"txID", txAttempt.TxID,
-	)
-
 	receipt, state, err := txm.CheckAttempt(txAttempt, blockHeight)
-	if err != nil {
-		return nil, Unknown, errors.Wrap(err, "processAttempt CheckAttempt failed")
-	}
 
-	logger.Debugw(
-		fmt.Sprintf("Tx #%d is %s", attemptIndex, state),
+	logFields := []interface{}{
 		"txHash", txAttempt.Hash.String(),
 		"txID", txAttempt.TxID,
-		"receiptBlockNumber", receipt.BlockNumber.ToInt(),
 		"currentBlockNumber", blockHeight,
-		"receiptHash", receipt.Hash.Hex(),
-	)
+		"error", err,
+	}
+	if receipt != nil {
+		logFields = append(logFields,
+			"receiptBlockNumber", receipt.BlockNumber.ToInt(),
+			"receiptHash", receipt.Hash.Hex(),
+		)
+	}
+	logMessage := fmt.Sprintf("Tx #%d is %s", attemptIndex, state)
 
 	switch state {
 	case Safe:
-		return receipt, state, txm.handleSafe(tx, attemptIndex)
+		return receipt, state, txm.handleSafe(tx, attemptIndex, state)
 
 	case Confirmed: // nothing to do, need to wait
+		logger.Debugw(logMessage, logFields...)
+
 		return receipt, state, nil
 
 	case Unconfirmed:
 		attemptLimit := txm.config.TxAttemptLimit()
 		if attemptIndex >= int(attemptLimit) {
-			logger.Warnw(
-				fmt.Sprintf("Tx #%d has met TxAttemptLimit", attemptIndex),
-				"txAttemptLimit", attemptLimit,
-				"txHash", txAttempt.Hash.String(),
-				"txID", txAttempt.TxID,
-			)
+			logger.Warnw(logMessage+", has exceeded attempt limit", logFields...)
 			return receipt, state, nil
 		}
 
 		if isLatestAttempt(tx, attemptIndex) && txm.hasTxAttemptMetGasBumpThreshold(tx, attemptIndex, blockHeight) {
-			logger.Debugw(
-				fmt.Sprintf("Tx #%d has met gas bump threshold, bumping gas", attemptIndex),
-				"txHash", txAttempt.Hash.String(),
-				"txID", txAttempt.TxID,
-			)
+			logger.Debugw(logMessage+", has met gas bump threshold", logFields...)
 			err = txm.bumpGas(tx, attemptIndex, blockHeight)
+		} else {
+			logger.Debugw(logMessage, logFields...)
 		}
 
 		return receipt, state, err
-	}
 
-	panic("invariant violated, 'Unknown' state returned without error")
+	default:
+		logger.Debugw(logMessage, logFields...)
+		return nil, Unknown, errors.Wrap(err, "processAttempt CheckAttempt failed")
+	}
 }
 
 // hasTxAttemptMetGasBumpThreshold returns true if the current block height
@@ -586,7 +583,8 @@ func isLatestAttempt(tx *models.Tx, attemptIndex int) bool {
 // handleSafe marks a transaction as safe, no more work needs to be done
 func (txm *EthTxManager) handleSafe(
 	tx *models.Tx,
-	attemptIndex int) error {
+	attemptIndex int,
+	state AttemptState) error {
 	txAttempt := tx.Attempts[attemptIndex]
 
 	if err := txm.orm.MarkTxSafe(tx, txAttempt); err != nil {
@@ -597,7 +595,7 @@ func (txm *EthTxManager) handleSafe(
 	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
 
 	logger.Infow(
-		fmt.Sprintf("Tx #%d got minimum confirmations (%d)", attemptIndex, minimumConfirmations),
+		fmt.Sprintf("Tx #%d is %s, got minimum confirmations (%d)", attemptIndex, state, minimumConfirmations),
 		"txHash", txAttempt.Hash.String(),
 		"txID", txAttempt.TxID,
 		"ethBalance", ethBalance,
@@ -643,7 +641,7 @@ func (txm *EthTxManager) createAttempt(
 		return nil, errors.Wrap(err, "createAttempt#SignTx failed")
 	}
 
-	logger.Debugw(fmt.Sprintf("Adding Tx attempt #%d", len(tx.Attempts)+1), "txID", tx.ID)
+	logger.Debugw(fmt.Sprintf("Adding Tx attempt #%d", len(tx.Attempts)), "txID", tx.ID)
 
 	txAttempt, err := txm.orm.AddTxAttempt(tx, etx, blockHeight)
 	if err != nil {
