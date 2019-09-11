@@ -5,6 +5,7 @@
   "main": "./dist/src",
   "scripts": {
     "build": "truffle build",
+    "build:windows": "truffle.cmd build",
     "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box || true",
     "eslint": "eslint --ext .ts,.js test",
     "solhint": "solhint ./contracts/**/*.sol",

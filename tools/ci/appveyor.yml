@@ -26,6 +26,7 @@ install:
   - ps: Install-Product node $env:nodejs_version
   # Generate solidity contract artifacts
   - yarn install
+  - yarn workspace chainlink build:windows
 
   # Install the specific Go version.
   - rmdir c:\go /s /q
