@@ -17,11 +17,9 @@ import (
 
 const evmWordSize = 32
 
-// TODO(lorenzb): rename to EthTxABIEncode
-
-// EthTxEncode holds the Address to send the result to and the FunctionABI
+// EthTxABIEncode holds the Address to send the result to and the FunctionABI
 // to use for encoding arguments.
-type EthTxEncode struct {
+type EthTxABIEncode struct {
 	// Ethereum address of the contract this task calls
 	Address common.Address `json:"address"`
 	// ABI of contract function this task calls
@@ -33,7 +31,7 @@ type EthTxEncode struct {
 // Perform creates the run result for the transaction if the existing run result
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
-func (etx *EthTxEncode) Perform(
+func (etx *EthTxABIEncode) Perform(
 	input models.RunResult, store *strpkg.Store) models.RunResult {
 	if !store.TxManager.Connected() {
 		input.MarkPendingConnection()
@@ -42,7 +40,7 @@ func (etx *EthTxEncode) Perform(
 	if !input.Status.PendingConfirmations() {
 		data, err := etx.abiEncode(&input)
 		if err != nil {
-			input.SetError(errors.Wrap(err, "while constructing EthTxEncode data"))
+			input.SetError(errors.Wrap(err, "while constructing EthTxABIEncode data"))
 			return input
 		}
 		createTxRunResult(etx.Address, etx.GasPrice, etx.GasLimit, data, &input, store)
@@ -54,7 +52,7 @@ func (etx *EthTxEncode) Perform(
 
 // abiEncode ABI-encodes the arguments passed in a RunResult's result field
 // according to etx.FunctionABI
-func (etx *EthTxEncode) abiEncode(runResult *models.RunResult) ([]byte, error) {
+func (etx *EthTxABIEncode) abiEncode(runResult *models.RunResult) ([]byte, error) {
 	args, ok := runResult.Get("result").Value().(map[string]interface{})
 	if !ok {
 		return nil, errors.Errorf("json result is not an object")
