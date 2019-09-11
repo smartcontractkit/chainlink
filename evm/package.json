@@ -4,6 +4,7 @@
   "license": "MIT",
   "scripts": {
     "build": "truffle build",
+    "build:windows": "truffle.cmd build",
     "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box || true",
     "lint": "yarn solhint",
     "slither": "truffle compile --quiet && slither .",

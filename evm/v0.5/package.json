@@ -4,6 +4,7 @@
   "license": "MIT",
   "scripts": {
     "build": "truffle build",
+    "build.windows": "truffle.cmd build",
     "depcheck": "echo \"chainlinkv0.5\" && depcheck --ignore-dirs=build/contracts || true",
     "lint": "yarn solhint",
     "format": "prettier --write \"**/*\"",
