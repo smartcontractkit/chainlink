@@ -17,14 +17,14 @@ export default async () => {
   const count = await db.manager.count(ChainlinkNode)
 
   if (count === 0) {
-    const node = await db.manager.save(buildChainlinkNode('default'))
+    const node = await db.manager.save(buildChainlinkNode())
 
     await createJobRun(db, node)
     await createJobRun(db, node)
   }
 }
 
-const buildChainlinkNode = (name: string) => {
+const buildChainlinkNode = () => {
   const node = new ChainlinkNode()
   node.name = 'default'
   node.accessKey = CORE_NODE_ACCESS_KEY

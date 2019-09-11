@@ -31,7 +31,7 @@ const bootstrap = async (cb: any) => {
   }
 }
 
-const _ = yargs
+yargs
   .usage('Usage: $0 <command> [options]')
   .command({
     command: 'migrate',

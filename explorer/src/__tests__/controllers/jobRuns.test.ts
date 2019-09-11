@@ -37,7 +37,7 @@ describe('#index', () => {
     let jobRun: JobRun
 
     beforeEach(async () => {
-      const [node, _] = await createChainlinkNode(
+      const [node] = await createChainlinkNode(
         db,
         'jobRunsIndexTestChainlinkNode',
       )
@@ -63,11 +63,7 @@ describe('#show', () => {
   let node: ChainlinkNode
 
   beforeEach(async () => {
-    let secret: string
-    ;[node, secret] = await createChainlinkNode(
-      db,
-      'jobRunsShowTestChainlinkNode',
-    )
+    ;[node] = await createChainlinkNode(db, 'jobRunsShowTestChainlinkNode')
   })
 
   it('returns the job run with task runs', async () => {
@@ -82,7 +78,7 @@ describe('#show', () => {
   describe('with out of order task runs', () => {
     let jobRunId: string
     beforeEach(async () => {
-      const [chainlinkNode, _] = await createChainlinkNode(
+      const [chainlinkNode] = await createChainlinkNode(
         db,
         'testOutOfOrderTaskRuns',
       )

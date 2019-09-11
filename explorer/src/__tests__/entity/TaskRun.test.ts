@@ -14,7 +14,7 @@ afterAll(async () => closeDbConnection())
 
 describe('entity/taskRun', () => {
   it('copies old confirmations to new column on INSERT', async () => {
-    const [chainlinkNode, _] = await createChainlinkNode(
+    const [chainlinkNode] = await createChainlinkNode(
       db,
       'testOverwriteJobRunsErrorOnConflict',
     )
@@ -43,7 +43,7 @@ describe('entity/taskRun', () => {
   })
 
   it('copies old confirmations to new column on UPDATE', async () => {
-    const [chainlinkNode, _] = await createChainlinkNode(
+    const [chainlinkNode] = await createChainlinkNode(
       db,
       'testOverwriteJobRunsErrorOnConflict',
     )
