@@ -11,7 +11,7 @@ describe('components/JobRuns/TaskRuns', () => {
         id: 1,
         status: 'completed',
         type: 'httpget',
-      } as ITaskRun,
+      } as TaskRun,
     ]
 
     const wrapper = mount(
@@ -28,7 +28,7 @@ describe('components/JobRuns/TaskRuns', () => {
         minimumConfirmations: '3',
         status: 'completed',
         type: 'httpget',
-      } as ITaskRun,
+      } as TaskRun,
     ]
 
     const wrapper = mount(
@@ -47,7 +47,7 @@ describe('components/JobRuns/TaskRuns', () => {
         minimumConfirmations: '3',
         status: 'completed',
         type: 'httpget',
-      } as ITaskRun,
+      } as TaskRun,
     ]
 
     const wrapper = mount(
@@ -66,14 +66,14 @@ describe('components/JobRuns/TaskRuns', () => {
         minimumConfirmations: '3',
         status: 'completed',
         type: 'httpget',
-      } as ITaskRun,
+      } as TaskRun,
       {
         confirmations: '3',
         id: 2,
         minimumConfirmations: '3',
         status: 'completed',
         type: 'jsonparse',
-      } as ITaskRun,
+      } as TaskRun,
     ]
 
     const wrapper = mount(
@@ -91,14 +91,14 @@ describe('components/JobRuns/TaskRuns', () => {
         minimumConfirmations: '3',
         status: 'completed',
         type: 'httpget',
-      } as ITaskRun,
+      } as TaskRun,
       {
         confirmations: '4',
         id: 2,
         minimumConfirmations: '5',
         status: 'completed',
         type: 'jsonparse',
-      } as ITaskRun,
+      } as TaskRun,
     ]
 
     const wrapper = mount(

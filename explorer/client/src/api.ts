@@ -7,7 +7,7 @@ const getJobRuns = async (
   query: Query,
   page: number,
   size: number,
-): Promise<IJobRun[]> => {
+): Promise<JobRun[]> => {
   const url = new URL('/api/v1/job_runs', base())
   url.searchParams.set('page', page.toString())
   url.searchParams.set('size', size.toString())
@@ -19,7 +19,7 @@ const getJobRuns = async (
   return r.json()
 }
 
-const getJobRun = async (jobRunId?: string): Promise<IJobRun> => {
+const getJobRun = async (jobRunId?: string): Promise<JobRun> => {
   const url = new URL(`/api/v1/job_runs/${jobRunId}`, base())
   const r: Response = await fetch(url.toString())
   return r.json()

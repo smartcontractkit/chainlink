@@ -22,7 +22,7 @@ const styles = (theme: Theme) =>
 
 type PageEvent = React.MouseEvent<HTMLButtonElement> | null
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   count: number
   page: number
   rowsPerPage: number
@@ -30,7 +30,7 @@ interface IProps extends WithStyles<typeof styles> {
   onChangePage: (event: PageEvent, page: number) => void
 }
 
-class PaginationActions extends React.Component<IProps> {
+class PaginationActions extends React.Component<Props> {
   handleFirstPageButtonClick = (event: any) => {
     this.props.onChangePage(event, 0)
   }

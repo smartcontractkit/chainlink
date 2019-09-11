@@ -6,7 +6,7 @@ import { Query } from '../reducers/search'
 
 const getJobRuns = (query: Query, page: number, size: number) => {
   return (dispatch: Dispatch<any>) => {
-    api.getJobRuns(query, page, size).then((r: IJobRun[]) => {
+    api.getJobRuns(query, page, size).then((r: JobRun[]) => {
       const normalizedData = normalize(r, { endpoint: 'jobRuns' })
       const action: JobRunsAction = {
         type: 'UPSERT_JOB_RUNS',
@@ -20,7 +20,7 @@ const getJobRuns = (query: Query, page: number, size: number) => {
 
 const getJobRun = (jobRunId?: string) => {
   return (dispatch: Dispatch<any>) => {
-    api.getJobRun(jobRunId).then((r: IJobRun) => {
+    api.getJobRun(jobRunId).then((r: JobRun) => {
       const normalizedData = normalize(r, { endpoint: 'jobRun' })
       const action: JobRunsAction = {
         type: 'UPSERT_JOB_RUN',

@@ -22,9 +22,9 @@ const styles = ({ breakpoints, spacing, palette }: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {}
+interface Props extends WithStyles<typeof styles> {}
 
-const TermsOfUse = withStyles(styles)(({ classes }: IProps) => {
+const TermsOfUse = withStyles(styles)(({ classes }: Props) => {
   return (
     <div className={classes.container}>
       <a href="https://chain.link/terms/" className={classes.link}>
