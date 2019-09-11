@@ -17,7 +17,7 @@ describe('search', () => {
   beforeEach(async () => {
     const [chainlinkNode, _] = await createChainlinkNode(
       db,
-      'job-run-search-chainlink-node'
+      'job-run-search-chainlink-node',
     )
 
     const jrA = fromString(JSON.stringify(fixture))
@@ -27,7 +27,7 @@ describe('search', () => {
 
     const fixtureB = Object.assign({}, fixture, {
       jobId: 'jobB',
-      runId: 'runB'
+      runId: 'runB',
     })
     const jrB = fromString(JSON.stringify(fixtureB))
     jrB.chainlinkNodeId = chainlinkNode.id
@@ -39,7 +39,7 @@ describe('search', () => {
 
     const fixtureC = Object.assign({}, fixture, {
       jobId: 'jobB',
-      runId: 'runC'
+      runId: 'runC',
     })
     const jrC = fromString(JSON.stringify(fixtureC))
     jrC.chainlinkNodeId = chainlinkNode.id
@@ -51,7 +51,7 @@ describe('search', () => {
 
     const fixtureD = Object.assign({}, fixture, {
       jobId: 'jobD',
-      runId: 'runD'
+      runId: 'runD',
     })
     const jrD = fromString(JSON.stringify(fixtureD))
     jrD.chainlinkNodeId = chainlinkNode.id
@@ -91,14 +91,14 @@ describe('search', () => {
     results = await search(db, {
       limit: 1,
       page: 1,
-      searchQuery: 'jobB'
+      searchQuery: 'jobB',
     })
     expect(results[0].runId).toEqual('runC')
 
     results = await search(db, {
       limit: 1,
       page: 2,
-      searchQuery: 'jobB'
+      searchQuery: 'jobB',
     })
     expect(results[0].runId).toEqual('runB')
   })
@@ -110,14 +110,14 @@ describe('search', () => {
 
   it('returns one result for an exact match on jobId', async () => {
     const results = await search(db, {
-      searchQuery: 'f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa'
+      searchQuery: 'f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa',
     })
     expect(results).toHaveLength(1)
   })
 
   it('returns one result for an exact match on jobId and runId', async () => {
     const results = await search(db, {
-      searchQuery: `${'f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa'} aeb2861d306645b1ba012079aeb2e53a`
+      searchQuery: `${'f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa'} aeb2861d306645b1ba012079aeb2e53a`,
     })
     expect(results).toHaveLength(1)
   })
@@ -164,13 +164,13 @@ describe('search', () => {
     expect(resultsRequester).toHaveLength(1)
     expect(resultsRequestId).toHaveLength(1)
     const resultsPrefixedTxHash = await search(db, {
-      searchQuery: '0x' + txHash
+      searchQuery: '0x' + txHash,
     })
     const resultsPrefixedRequester = await search(db, {
-      searchQuery: '0x' + requester
+      searchQuery: '0x' + requester,
     })
     const resultsPrefixedRequestId = await search(db, {
-      searchQuery: '0x' + requestId
+      searchQuery: '0x' + requestId,
     })
     expect(resultsPrefixedTxHash).toHaveLength(1)
     expect(resultsPrefixedRequester).toHaveLength(1)

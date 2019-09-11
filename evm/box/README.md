@@ -43,6 +43,7 @@ npm run migrate:live
 ## Helper Scripts
 
 There are 3 helper scripts provided with this box in the scripts directory:
+
 - `fund-contract.js`
 - `request-data.js`
 - `read-contract.js`

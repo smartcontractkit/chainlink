@@ -53,7 +53,7 @@ const New = props => {
 
 export const ConnectedNew = connect(
   null,
-  matchRouteAndMapDispatchToProps({ createBridge })
+  matchRouteAndMapDispatchToProps({ createBridge }),
 )(New)
 
 export default ConnectedNew

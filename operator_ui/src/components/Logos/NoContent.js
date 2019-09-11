@@ -9,7 +9,7 @@ const NoContent = props => {
 
 NoContent.propTypes = {
   width: PropTypes.number,
-  height: PropTypes.number
+  height: PropTypes.number,
 }
 
 export default NoContent

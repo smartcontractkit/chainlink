@@ -9,6 +9,7 @@
     "build-storybook": "build-storybook",
     "build": "rm -rf dist && tsc",
     "lint": "tsc --noEmit",
+    "format": "prettier --write \"**/*\"",
     "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true"
   },
   "dependencies": {
@@ -17,7 +18,7 @@
     "bignumber.js": "^8.0.1",
     "change-case": "^3.0.2",
     "core-js": "^3.1.4",
-    "lodash": "^4.17.0",
+    "lodash": "^4.17.13",
     "javascript-time-ago": "^2.0.1",
     "moment": "^2.24.0",
     "numeral": "^2.0.6",
@@ -33,6 +34,7 @@
     "@babel/preset-env": "^7.3.1",
     "@babel/preset-react": "^7.0.0",
     "@babel/preset-typescript": "^7.1.0",
+    "@chainlink/prettier-config": "0.0.1",
     "@storybook/addon-actions": "^5.1.10",
     "@storybook/addon-info": "^5.1.10",
     "@storybook/addon-links": "^5.1.10",
@@ -43,8 +45,10 @@
     "@types/storybook__addon-links": "^3.3.5",
     "@types/storybook__react": "^4.0.2",
     "babel-loader": "^8.0.6",
+    "depcheck": "^0.8.3",
+    "prettier": "^1.18.2",
     "react-docgen-typescript-loader": "^3.1.0",
-    "webpack": "^4.39.1",
-    "depcheck": "^0.8.3"
-  }
+    "webpack": "^4.39.1"
+  },
+  "prettier": "@chainlink/prettier-config"
 }

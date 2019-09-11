@@ -8,7 +8,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import ReactResizeDetector from 'react-resize-detector'
 import Logo from '../components/Logo'
@@ -22,29 +22,29 @@ const styles = (theme: Theme) =>
   createStyles({
     appBar: {
       backgroundColor: theme.palette.common.white,
-      zIndex: theme.zIndex.modal + 1
+      zIndex: theme.zIndex.modal + 1,
     },
     toolbar: {
       paddingTop: theme.spacing.unit * 2,
-      paddingBottom: theme.spacing.unit * 2
+      paddingBottom: theme.spacing.unit * 2,
     },
     logoAndSearch: {
       display: 'flex',
-      alignItems: 'center'
+      alignItems: 'center',
     },
     logo: {
       marginRight: theme.spacing.unit * 2,
-      width: 200
+      width: 200,
     },
     stackedLogo: {
-      display: 'block'
+      display: 'block',
     },
     searchForm: {
-      flexGrow: 1
+      flexGrow: 1,
     },
     connectedNodes: {
-      textAlign: 'right'
-    }
+      textAlign: 'right',
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {
@@ -58,7 +58,8 @@ const Header = ({ classes, onResize }: IProps) => {
         refreshMode="debounce"
         refreshRate={200}
         handleWidth
-        onResize={onResize}>
+        onResize={onResize}
+      >
         <Toolbar className={classes.toolbar}>
           <Hidden xsDown>
             <Grid container alignItems="center">
@@ -95,7 +96,7 @@ const Header = ({ classes, onResize }: IProps) => {
 
 const mapStateToProps = (state: IState) => {
   return {
-    search: state.search.query
+    search: state.search.query,
   }
 }
 
@@ -103,7 +104,7 @@ const mapDispatchToProps = () => ({})
 
 const ConnectedHeader = connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(Header)
 
 export default withStyles(styles)(ConnectedHeader)

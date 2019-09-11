@@ -5,7 +5,7 @@ const { scrape } = require('./support/scrape.js')
 const {
   signIn,
   clickNewJobButton,
-  clickTransactionsMenuItem
+  clickTransactionsMenuItem,
 } = require('./support/helpers.js')
 
 const AVERAGE_CLIENT_WIDTH = 1366
@@ -19,12 +19,12 @@ describe('End to end', () => {
     browser = await puppeteer.launch({
       devtools: false,
       headless: true,
-      args: ['--no-sandbox']
+      args: ['--no-sandbox'],
     })
     page = await browser.newPage()
     await page.setViewport({
       width: AVERAGE_CLIENT_WIDTH,
-      height: AVERAGE_CLIENT_HEIGHT
+      height: AVERAGE_CLIENT_HEIGHT,
     })
     server = await newServer(`{"last": "3843.95"}`)
     page.on('console', msg => {
@@ -75,7 +75,7 @@ describe('End to end', () => {
     await pupExpect(page).toClick('button', { text: 'Run' })
     await pupExpect(page).toMatch(/success.+?run/i)
     const flashMessage = await page.$x(
-      "//p[contains(text(), 'Successfully created job run')]"
+      "//p[contains(text(), 'Successfully created job run')]",
     )
     await new Promise(resolve => setTimeout(resolve, 2000)) // FIXME timeout until we can reload again
     const jobRunLink = await flashMessage[0].$('a')

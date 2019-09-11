@@ -13,7 +13,7 @@ describe('components/BaseLink', () => {
     let component = render(
       <BaseLink id="my-id" href="/foo">
         My Link
-      </BaseLink>
+      </BaseLink>,
     )
     expect(component.prop('id')).toEqual('my-id')
   })
@@ -22,7 +22,7 @@ describe('components/BaseLink', () => {
     let component = render(
       <BaseLink className="my-css-class" href="/foo">
         My Link
-      </BaseLink>
+      </BaseLink>,
     )
     expect(component.prop('class')).toEqual('my-css-class')
   })

@@ -20,7 +20,7 @@ const mountAuthenticatedApp = store =>
       <MemoryRouter initialEntries={['/']}>
         <Route component={AuthenticatedApp} />
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   )
 
 describe('PrivateRoute', () => {
@@ -28,7 +28,7 @@ describe('PrivateRoute', () => {
     const state = { authentication: { allowed: false } }
     const wrapper = mountAuthenticatedApp(mockStore(state))
     expect(wrapper.find(AuthenticatedApp).props().location.pathname).toBe(
-      '/signin'
+      '/signin',
     )
   })
 

@@ -1,7 +1,7 @@
 import {
   SimpleListCard,
   SimpleListCardItem,
-  TimeAgo
+  TimeAgo,
 } from '@chainlink/styleguide'
 import Grid from '@material-ui/core/Grid'
 import { withStyles } from '@material-ui/core/styles'
@@ -14,7 +14,7 @@ import React from 'react'
 
 const styles = () => ({
   block: { display: 'block' },
-  overflowEllipsis: { textOverflow: 'ellipsis', overflow: 'hidden' }
+  overflowEllipsis: { textOverflow: 'ellipsis', overflow: 'hidden' },
 })
 
 const RecentlyCreated = ({ jobs, classes }) => {
@@ -77,7 +77,7 @@ const RecentlyCreated = ({ jobs, classes }) => {
 }
 
 RecentlyCreated.propTypes = {
-  jobs: PropTypes.array
+  jobs: PropTypes.array,
 }
 
 export default withStyles(styles)(RecentlyCreated)

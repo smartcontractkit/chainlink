@@ -8,10 +8,9 @@ interface IProps {
   className: string
 }
 
-const ElapsedTime =
-({ start, end, className }: IProps) => {
+const ElapsedTime = ({ start, end, className }: IProps) => {
   return (
-    <Typography id='elapsedTime' variant="h6" className={className}>
+    <Typography id="elapsedTime" variant="h6" className={className}>
       {elapsedTimeHHMMSS(start, end)}
     </Typography>
   )

@@ -2,7 +2,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import React, { useEffect, useState } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
@@ -28,9 +28,9 @@ const styles = ({ spacing, breakpoints }: Theme) =>
         paddingTop: spacing.unit * 3,
         paddingBottom: spacing.unit * 3,
         paddingLeft: spacing.unit * 3,
-        paddingRight: spacing.unit * 3
-      }
-    }
+        paddingRight: spacing.unit * 3,
+      },
+    },
   })
 
 interface OwnProps {
@@ -77,19 +77,19 @@ const Index = withStyles(styles)(
         />
       </div>
     )
-  }
+  },
 )
 
 const jobRunsSelector = ({
   jobRunsIndex,
   jobRuns,
-  chainlinkNodes
+  chainlinkNodes,
 }: State): IJobRun[] | undefined => {
   if (jobRunsIndex.items) {
     return jobRunsIndex.items.map((id: string) => {
       const document = {
         jobRuns: jobRuns.items,
-        chainlinkNodes: chainlinkNodes.items
+        chainlinkNodes: chainlinkNodes.items,
       }
       return build(document, 'jobRuns', id)
     })
@@ -105,13 +105,13 @@ const mapStateToProps: MapStateToProps<StateProps, OwnProps, State> = state => {
   return {
     query: state.search.query,
     jobRuns: jobRunsSelector(state),
-    count: state.jobRunsIndex.count
+    count: state.jobRunsIndex.count,
   }
 }
 
 const ConnectedIndex = connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(Index)
 
 export default ConnectedIndex

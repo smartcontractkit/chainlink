@@ -14,16 +14,16 @@ describe('components/Dashboards/Activity', () => {
   it('displays a "View More" link when there is more than 1 page of runs', () => {
     const runs = [
       { id: 'runA', createdAt: CREATED_AT },
-      { id: 'runB', createdAt: CREATED_AT }
+      { id: 'runB', createdAt: CREATED_AT },
     ]
 
     const componentWithMore = mountWithTheme(
-      <Activity runs={runs} pageSize={1} count={2} />
+      <Activity runs={runs} pageSize={1} count={2} />,
     )
     expect(componentWithMore.text()).toContain('View More')
 
     const componentWithoutMore = mountWithTheme(
-      <Activity runs={runs} pageSize={2} count={2} />
+      <Activity runs={runs} pageSize={2} count={2} />,
     )
     expect(componentWithoutMore.text()).not.toContain('View More')
   })

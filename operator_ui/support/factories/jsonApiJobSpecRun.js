@@ -7,7 +7,7 @@ export default ({
   taskRuns,
   status,
   result,
-  createdAt
+  createdAt,
 }) => {
   const _id = id || uuid().replace(/-/g, '')
   const _jobId = jobId || uuid().replace(/-/g, '')
@@ -18,8 +18,8 @@ export default ({
   const _result = result || {
     data: {
       value:
-        '0x05070f7f6a40e4ce43be01fa607577432c68730c2cb89a0f50b665e980d926b5'
-    }
+        '0x05070f7f6a40e4ce43be01fa607577432c68730c2cb89a0f50b665e980d926b5',
+    },
   }
 
   return {
@@ -33,8 +33,8 @@ export default ({
         taskRuns: _taskRuns,
         result: _result,
         status: _status,
-        createdAt: _createdAt
-      }
-    }
+        createdAt: _createdAt,
+      },
+    },
   }
 }

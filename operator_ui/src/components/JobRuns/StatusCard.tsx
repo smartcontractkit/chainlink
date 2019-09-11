@@ -13,40 +13,40 @@ import StatusIcon from '../JobRuns/StatusIcon'
 const styles = (theme: any) =>
   createStyles({
     completed: {
-      backgroundColor: theme.palette.success.light
+      backgroundColor: theme.palette.success.light,
     },
     errored: {
-      backgroundColor: theme.palette.error.light
+      backgroundColor: theme.palette.error.light,
     },
     pending: {
-      backgroundColor: theme.palette.warning.light
+      backgroundColor: theme.palette.warning.light,
     },
     statusCard: {
       '&:last-child': {
-        paddingBottom: theme.spacing.unit * 2
-      }
+        paddingBottom: theme.spacing.unit * 2,
+      },
     },
     head: {
       display: 'flex',
-      alignItems: 'center'
+      alignItems: 'center',
     },
     statusIcon: {
-      display: 'inline-block'
+      display: 'inline-block',
     },
     statusText: {
       display: 'inline-block',
       textTransform: 'capitalize',
-      color: theme.palette.secondary.main
+      color: theme.palette.secondary.main,
     },
     statusRoot: {
-      paddingLeft: theme.spacing.unit * 2
+      paddingLeft: theme.spacing.unit * 2,
     },
     elapsedText: {
-      color: theme.typography.display1.color
+      color: theme.typography.display1.color,
     },
     earnedLink: {
-      color: theme.palette.success.main
-    }
+      color: theme.palette.success.main,
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {
@@ -58,7 +58,7 @@ interface IProps extends WithStyles<typeof styles> {
 const selectLink = (inWei: number) => inWei / 1e18
 const EarnedLink = ({
   classes,
-  jobRun
+  jobRun,
 }: {
   jobRun?: IJobRun
   classes: WithStyles<typeof styles>['classes']
@@ -76,7 +76,7 @@ const StatusCard = useHooks(({ title, classes, children, jobRun }: IProps) => {
   const { status, createdAt, finishedAt } = jobRun || {
     status: '',
     createdAt: '',
-    finishedAt: ''
+    finishedAt: '',
   }
   const stillPending = status !== 'completed' && status !== 'errored'
   const [liveTime, setLiveTime] = useState(Date.now())

@@ -35,7 +35,7 @@ const mergeOptions = (): PostgresConnectionOptions => {
   }
   return {
     ...loadOptions(),
-    ...envOptions
+    ...envOptions,
   } as PostgresConnectionOptions
 }
 

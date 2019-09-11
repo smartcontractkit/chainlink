@@ -9,7 +9,7 @@ const Main = props => {
 
 Main.propTypes = {
   width: PropTypes.number,
-  height: PropTypes.number
+  height: PropTypes.number,
 }
 
 export default Main

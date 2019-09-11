@@ -29,7 +29,7 @@ export const Show = useHooks(props => {
 
 Show.propTypes = {
   classes: PropTypes.object.isRequired,
-  transaction: PropTypes.object
+  transaction: PropTypes.object,
 }
 
 const mapStateToProps = (state, ownProps) => {
@@ -41,7 +41,7 @@ const mapStateToProps = (state, ownProps) => {
 
 export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchTransaction })
+  matchRouteAndMapDispatchToProps({ fetchTransaction }),
 )(Show)
 
 export default ConnectedShow

@@ -1,0 +1,12 @@
+{
+  "name": "@chainlink/prettier-config",
+  "version": "0.0.1",
+  "description": "A base prettier config for the chainlink organization",
+  "main": ".prettierrc.js",
+  "repository": "https://github.com/smartcontractkit/chainlink",
+  "license": "MIT",
+  "scripts": {
+    "format": "echo \"No formatter configured for @chainlink/prettier-config\" && exit 0",
+    "lint": "echo \"No linter configured for @chainlink/prettier-config\" && exit 0"
+  }
+}

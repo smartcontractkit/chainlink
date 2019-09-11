@@ -4,8 +4,8 @@ describe('selectors - jobs', () => {
   it('returns null when not loaded', () => {
     const state = {
       jobs: {
-        recentlyCreated: null
-      }
+        recentlyCreated: null,
+      },
     }
     const jobs = recentlyCreatedJobsSelector(state)
 
@@ -18,9 +18,9 @@ describe('selectors - jobs', () => {
         recentlyCreated: ['jobA', 'jobB', 'jobC'],
         items: {
           jobA: { id: 'jobA' },
-          jobB: { id: 'jobB' }
-        }
-      }
+          jobB: { id: 'jobB' },
+        },
+      },
     }
     const jobs = recentlyCreatedJobsSelector(state)
 

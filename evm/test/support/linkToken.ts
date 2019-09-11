@@ -10,19 +10,19 @@ export const linkToken = {
       outputs: [{ name: '', type: 'string' }],
       payable: false,
       stateMutability: 'view',
-      type: 'function'
+      type: 'function',
     },
     {
       constant: false,
       inputs: [
         { name: '_spender', type: 'address' },
-        { name: '_value', type: 'uint256' }
+        { name: '_value', type: 'uint256' },
       ],
       name: 'approve',
       outputs: [{ name: '', type: 'bool' }],
       payable: false,
       stateMutability: 'nonpayable',
-      type: 'function'
+      type: 'function',
     },
     {
       constant: true,
@@ -31,20 +31,20 @@ export const linkToken = {
       outputs: [{ name: '', type: 'uint256' }],
       payable: false,
       stateMutability: 'view',
-      type: 'function'
+      type: 'function',
     },
     {
       constant: false,
       inputs: [
         { name: '_from', type: 'address' },
         { name: '_to', type: 'address' },
-        { name: '_value', type: 'uint256' }
+        { name: '_value', type: 'uint256' },
       ],
       name: 'transferFrom',
       outputs: [{ name: '', type: 'bool' }],
       payable: false,
       stateMutability: 'nonpayable',
-      type: 'function'
+      type: 'function',
     },
     {
       constant: true,
@@ -53,32 +53,32 @@ export const linkToken = {
       outputs: [{ name: '', type: 'uint8' }],
       payable: false,
       stateMutability: 'view',
-      type: 'function'
+      type: 'function',
     },
     {
       constant: false,
       inputs: [
         { name: '_to', type: 'address' },
         { name: '_value', type: 'uint256' },
-        { name: '_data', type: 'bytes' }
+        { name: '_data', type: 'bytes' },
       ],
       name: 'transferAndCall',
       outputs: [{ name: 'success', type: 'bool' }],
       payable: false,
       stateMutability: 'nonpayable',
-      type: 'function'
+      type: 'function',
     },
     {
       constant: false,
       inputs: [
         { name: '_spender', type: 'address' },
-        { name: '_subtractedValue', type: 'uint256' }
+        { name: '_subtractedValue', type: 'uint256' },
       ],
       name: 'decreaseApproval',
       outputs: [{ name: 'success', type: 'bool' }],
       payable: false,
       stateMutability: 'nonpayable',
-      type: 'function'
+      type: 'function',
     },
     {
       constant: true,
@@ -87,7 +87,7 @@ export const linkToken = {
       outputs: [{ name: 'balance', type: 'uint256' }],
       payable: false,
       stateMutability: 'view',
-      type: 'function'
+      type: 'function',
     },
     {
       constant: true,
@@ -96,49 +96,49 @@ export const linkToken = {
       outputs: [{ name: '', type: 'string' }],
       payable: false,
       stateMutability: 'view',
-      type: 'function'
+      type: 'function',
     },
     {
       constant: false,
       inputs: [
         { name: '_to', type: 'address' },
-        { name: '_value', type: 'uint256' }
+        { name: '_value', type: 'uint256' },
       ],
       name: 'transfer',
       outputs: [{ name: 'success', type: 'bool' }],
       payable: false,
       stateMutability: 'nonpayable',
-      type: 'function'
+      type: 'function',
     },
     {
       constant: false,
       inputs: [
         { name: '_spender', type: 'address' },
-        { name: '_addedValue', type: 'uint256' }
+        { name: '_addedValue', type: 'uint256' },
       ],
       name: 'increaseApproval',
       outputs: [{ name: 'success', type: 'bool' }],
       payable: false,
       stateMutability: 'nonpayable',
-      type: 'function'
+      type: 'function',
     },
     {
       constant: true,
       inputs: [
         { name: '_owner', type: 'address' },
-        { name: '_spender', type: 'address' }
+        { name: '_spender', type: 'address' },
       ],
       name: 'allowance',
       outputs: [{ name: 'remaining', type: 'uint256' }],
       payable: false,
       stateMutability: 'view',
-      type: 'function'
+      type: 'function',
     },
     {
       inputs: [],
       payable: false,
       stateMutability: 'nonpayable',
-      type: 'constructor'
+      type: 'constructor',
     },
     {
       anonymous: false,
@@ -146,20 +146,20 @@ export const linkToken = {
         { indexed: true, name: 'from', type: 'address' },
         { indexed: true, name: 'to', type: 'address' },
         { indexed: false, name: 'value', type: 'uint256' },
-        { indexed: false, name: 'data', type: 'bytes' }
+        { indexed: false, name: 'data', type: 'bytes' },
       ],
       name: 'Transfer',
-      type: 'event'
+      type: 'event',
     },
     {
       anonymous: false,
       inputs: [
         { indexed: true, name: 'owner', type: 'address' },
         { indexed: true, name: 'spender', type: 'address' },
-        { indexed: false, name: 'value', type: 'uint256' }
+        { indexed: false, name: 'value', type: 'uint256' },
       ],
       name: 'Approval',
-      type: 'event'
-    }
-  ]
+      type: 'event',
+    },
+  ],
 }

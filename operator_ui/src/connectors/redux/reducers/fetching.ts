@@ -8,11 +8,11 @@ export interface State {
 enum FetchPrefix {
   REQUEST = 'REQUEST_',
   RECEIVE = 'RECEIVE_',
-  RESPONSE = 'RESPONSE_'
+  RESPONSE = 'RESPONSE_',
 }
 
 const initialState: State = {
-  count: 0
+  count: 0,
 }
 
 export default (state: State = initialState, action: Action<String>) => {

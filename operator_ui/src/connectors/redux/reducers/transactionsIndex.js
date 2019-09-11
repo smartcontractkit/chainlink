@@ -1,6 +1,6 @@
 const initialState = {
   currentPage: null,
-  count: 0
+  count: 0,
 }
 
 export const UPSERT_TRANSACTIONS = 'UPSERT_TRANSACTIONS'
@@ -12,8 +12,10 @@ export default (state = initialState, action = {}) => {
       return Object.assign(
         {},
         state,
-        { currentPage: data.meta.currentPageTransactions.data.map(t => t.id) },
-        { count: data.meta.currentPageTransactions.meta.count }
+        {
+          currentPage: data.meta.currentPageTransactions.data.map(t => t.id),
+        },
+        { count: data.meta.currentPageTransactions.meta.count },
       )
     }
     default:

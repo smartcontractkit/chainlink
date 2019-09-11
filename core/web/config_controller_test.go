@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"math/big"
+	"net/http"
 	"testing"
 	"time"
 
@@ -23,7 +24,7 @@ func TestConfigController_Show(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/config")
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	cwl := presenters.ConfigWhitelist{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cwl))

@@ -35,23 +35,23 @@ export const Index = props => {
 Index.propTypes = {
   count: PropTypes.number.isRequired,
   transactions: PropTypes.array,
-  pageSize: PropTypes.number
+  pageSize: PropTypes.number,
 }
 
 Index.defaultProps = {
-  pageSize: 10
+  pageSize: 10,
 }
 
 const mapStateToProps = state => {
   return {
     count: state.transactionsIndex.count,
-    transactions: transactionsSelector(state)
+    transactions: transactionsSelector(state),
   }
 }
 
 export const ConnectedIndex = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchTransactions })
+  matchRouteAndMapDispatchToProps({ fetchTransactions }),
 )(Index)
 
 export default ConnectedIndex

@@ -5,7 +5,7 @@ const initialState = {
   items: {},
   currentPage: null,
   recentlyCreated: null,
-  count: 0
+  count: 0,
 }
 
 export const UPSERT_JOBS = 'UPSERT_JOBS'
@@ -21,7 +21,7 @@ export default (state = initialState, action = {}) => {
         state,
         { currentPage: data.meta.currentPageJobs.data.map(j => j.id) },
         { count: data.meta.currentPageJobs.meta.count },
-        { items: Object.assign({}, state.items, action.data.specs) }
+        { items: Object.assign({}, state.items, action.data.specs) },
       )
     }
     case UPSERT_RECENTLY_CREATED_JOBS: {
@@ -30,20 +30,20 @@ export default (state = initialState, action = {}) => {
         state,
         {
           recentlyCreated: action.data.meta['recentlyCreatedJobs'].data.map(
-            j => j.id
-          )
+            j => j.id,
+          ),
         },
-        { items: Object.assign({}, state.items, action.data.specs) }
+        { items: Object.assign({}, state.items, action.data.specs) },
       )
     }
     case UPSERT_JOB: {
       return Object.assign({}, state, {
-        items: Object.assign({}, state.items, action.data.specs)
+        items: Object.assign({}, state.items, action.data.specs),
       })
     }
     case RECEIVE_DELETE_SUCCESS: {
       return Object.assign({}, state, {
-        items: pickBy(state.items, i => i.id !== action.id)
+        items: pickBy(state.items, i => i.id !== action.id),
       })
     }
     default:

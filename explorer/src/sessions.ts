@@ -8,7 +8,7 @@ import { timingSafeEqual } from 'crypto'
 export const authenticate = async (
   db: Connection,
   accessKey: string,
-  secret: string
+  secret: string,
 ): Promise<Session | null> => {
   return db.manager.transaction(async manager => {
     const chainlinkNode = await findNode(db, accessKey)
@@ -29,7 +29,7 @@ function findNode(db: Connection, accessKey: string): Promise<ChainlinkNode> {
 function authenticateSession(
   accessKey: string,
   secret: string,
-  node: ChainlinkNode
+  node: ChainlinkNode,
 ): boolean {
   const hash = hashCredentials(accessKey, secret, node.salt)
   return timingSafeEqual(Buffer.from(hash), Buffer.from(node.hashedSecret))

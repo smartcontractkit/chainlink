@@ -23,7 +23,7 @@ const renderEntries = (entries: Array<Array<string>>, titleize: boolean) =>
 const renderBody = (
   entries: Array<Array<string>>,
   error: string,
-  titleize: boolean
+  titleize: boolean,
 ) => {
   if (error) {
     return <ErrorRow>{error}</ErrorRow>
@@ -91,7 +91,7 @@ export const KeyValueList = ({
   error = '',
   showHead = false,
   title,
-  titleize = false
+  titleize = false,
 }: KeyValueListProps) => (
   <Card>
     {title && <CardTitle divider>{title}</CardTitle>}

@@ -22,7 +22,7 @@ const mountIndex = props =>
           {...props}
         />
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   )
 
 describe('containers/JobRuns/Index', () => {
@@ -47,7 +47,7 @@ describe('containers/JobRuns/Index', () => {
 
     const pageOneResponse = jsonApiJobSpecRunFactory(
       [{ id: 'ID-ON-FIRST-PAGE', jobId: jobSpecId }],
-      3
+      3,
     )
     global.fetch.getOnce(`begin:/v2/runs`, pageOneResponse)
 
@@ -60,7 +60,7 @@ describe('containers/JobRuns/Index', () => {
 
     const pageTwoResponse = jsonApiJobSpecRunFactory(
       [{ id: 'ID-ON-SECOND-PAGE', jobId: jobSpecId }],
-      3
+      3,
     )
     global.fetch.getOnce(`begin:/v2/runs`, pageTwoResponse)
     clickNextPage(wrapper)
@@ -78,7 +78,7 @@ describe('containers/JobRuns/Index', () => {
 
     const pageThreeResponse = jsonApiJobSpecRunFactory(
       [{ id: 'ID-ON-THIRD-PAGE', jobId: jobSpecId }],
-      3
+      3,
     )
     global.fetch.getOnce(`begin:/v2/runs`, pageThreeResponse)
     clickLastPage(wrapper)

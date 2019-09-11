@@ -7,7 +7,7 @@ const {
   optionsDefinitions,
   provider,
   scriptRunner,
-  wallet
+  wallet,
 } = require('../common.js')
 
 const USAGE =
@@ -21,7 +21,7 @@ const main = async () => {
   recipient = recipient || wallet.address // default
   const tx = {
     to: recipient,
-    value: utils.bigNumberify(10).pow(21) // 10 ** 21
+    value: utils.bigNumberify(10).pow(21), // 10 ** 21
   }
   // send tx
   const devnetMinerWallet = provider.getSigner(DEVNET_ADDRESS)

@@ -9,7 +9,8 @@ const Success = (props: any) => (
         y={16}
         width={21}
         height={15}
-        maskUnits="userSpaceOnUse">
+        maskUnits="userSpaceOnUse"
+      >
         <path fillRule="evenodd" fill="#fff" d="M13.75 16h21v15h-21V16z" />
       </mask>
     </defs>

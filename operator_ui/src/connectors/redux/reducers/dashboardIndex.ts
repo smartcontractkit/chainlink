@@ -5,7 +5,7 @@ export interface IState {
 
 const initialState = {
   recentJobRuns: undefined,
-  jobRunsCount: undefined
+  jobRunsCount: undefined,
 }
 
 interface IRecentJobRun {
@@ -36,7 +36,7 @@ export default (state: IState = initialState, action: Action) => {
     case 'UPSERT_RECENT_JOB_RUNS': {
       return Object.assign({}, state, {
         recentJobRuns: action.data.meta.recentJobRuns.data.map(r => r.id),
-        jobRunsCount: action.data.meta.recentJobRuns.meta.count
+        jobRunsCount: action.data.meta.recentJobRuns.meta.count,
       })
     }
     default:

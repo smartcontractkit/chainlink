@@ -3,7 +3,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import { Link as RouterLink } from '@reach/router'
 import classNames from 'classnames'
@@ -12,8 +12,8 @@ const styles = ({ palette }: Theme) =>
   createStyles({
     link: {
       color: palette.primary.main,
-      textDecoration: 'none'
-    }
+      textDecoration: 'none',
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {

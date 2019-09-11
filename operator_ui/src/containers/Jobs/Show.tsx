@@ -4,7 +4,7 @@ import {
   Theme,
   Typography,
   WithStyles,
-  withStyles
+  withStyles,
 } from '@material-ui/core'
 import Card from '@material-ui/core/Card'
 import Grid from '@material-ui/core/Grid'
@@ -30,7 +30,7 @@ const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
   const info = {
     runCount: recentRunsCount,
     initiator: formatInitiators(job.initiators),
-    minimumPayment: `${formatMinPayment(job.minPayment) || 0} Link`
+    minimumPayment: `${formatMinPayment(job.minPayment) || 0} Link`,
   }
 
   return (
@@ -66,16 +66,16 @@ const chartCardStyles = (theme: Theme) =>
     wrapper: {
       marginLeft: theme.spacing.unit * 3,
       marginTop: theme.spacing.unit * 2,
-      marginBottom: theme.spacing.unit * 2
+      marginBottom: theme.spacing.unit * 2,
     },
     paymentText: {
       color: theme.palette.secondary.main,
-      fontWeight: 450
+      fontWeight: 450,
     },
     earnedText: {
       color: theme.palette.text.secondary,
-      fontSize: theme.spacing.unit * 2
-    }
+      fontSize: theme.spacing.unit * 2,
+    },
   })
 
 interface ChartProps extends WithStyles<typeof chartCardStyles> {
@@ -94,14 +94,14 @@ const ChartArea = withStyles(chartCardStyles)(
         </Typography>
       </Grid>
     </Card>
-  )
+  ),
 )
 
 const RecentJobRuns = ({
   job,
   recentRuns,
   recentRunsCount,
-  showJobRunsCount
+  showJobRunsCount,
 }: IRecentJobRunsProps) => {
   return (
     <Card>
@@ -128,7 +128,7 @@ const Details = ({
   job,
   recentRuns,
   recentRunsCount,
-  showJobRunsCount
+  showJobRunsCount,
 }: IDetailsProps) => {
   if (job) {
     return (
@@ -182,7 +182,7 @@ export const Show = useHooks(
     fetchJobRuns,
     recentRunsCount,
     recentRuns = [],
-    showJobRunsCount = 2
+    showJobRunsCount = 2,
   }: IProps) => {
     useEffect(() => {
       document.title = 'Show Job'
@@ -190,7 +190,7 @@ export const Show = useHooks(
       fetchJobRuns({
         jobSpecId: jobSpecId,
         page: DEFAULT_PAGE,
-        size: RECENT_RUNS_COUNT
+        size: RECENT_RUNS_COUNT,
       })
     }, [])
     return (
@@ -207,7 +207,7 @@ export const Show = useHooks(
         </Content>
       </div>
     )
-  }
+  },
 )
 
 interface Match {
@@ -218,14 +218,14 @@ interface Match {
 
 const mapStateToProps = (
   state: AppState,
-  ownProps: { match: Match; showJobRunsCount: number }
+  ownProps: { match: Match; showJobRunsCount: number },
 ) => {
   const jobSpecId = ownProps.match.params.jobSpecId
   const job = jobSelector(state, jobSpecId)
   const recentRuns = jobRunsByJobIdSelector(
     state,
     jobSpecId,
-    ownProps.showJobRunsCount
+    ownProps.showJobRunsCount,
   )
   const recentRunsCount = jobsShowRunCountSelector(state)
 
@@ -234,7 +234,7 @@ const mapStateToProps = (
 
 export const ConnectedShow = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJob, fetchJobRuns })
+  matchRouteAndMapDispatchToProps({ fetchJob, fetchJobRuns }),
 )(Show)
 
 export default ConnectedShow

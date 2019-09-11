@@ -2,7 +2,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import MuiTooltip from '@material-ui/core/Tooltip'
 import React from 'react'
@@ -13,8 +13,8 @@ const styles = ({ palette, shadows, typography }: Theme) =>
       background: palette.primary.contrastText,
       color: palette.text.primary,
       boxShadow: shadows[24],
-      ...typography.h6
-    }
+      ...typography.h6,
+    },
   })
 
 interface Props extends WithStyles<typeof styles> {

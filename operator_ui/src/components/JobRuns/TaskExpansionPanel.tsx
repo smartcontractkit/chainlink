@@ -13,13 +13,13 @@ const fontStyles = () =>
       fontFamily: 'Roboto Mono',
       fontWeight: 'bold',
       fontSize: '14px',
-      color: '#818ea3'
+      color: '#818ea3',
     },
     subHeader: {
       fontFamily: 'Roboto Mono',
       fontSize: '12px',
-      color: '#818ea3'
-    }
+      color: '#818ea3',
+    },
   })
 
 interface IItemProps extends WithStyles<typeof fontStyles> {
@@ -43,7 +43,7 @@ const Item = withStyles(fontStyles)(
         </p>
       </Grid>
     </Grid>
-  )
+  ),
 )
 
 interface IInitiatorProps {
