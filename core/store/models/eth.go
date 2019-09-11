@@ -1,11 +1,13 @@
 package models
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"regexp"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -190,16 +192,13 @@ func (f FunctionSelector) WithoutPrefix() string { return f.String()[2:] }
 // SetBytes sets the FunctionSelector to that of the given bytes (will trim).
 func (f *FunctionSelector) SetBytes(b []byte) { copy(f[:], b[:FunctionSelectorLength]) }
 
-// UnmarshalJSON parses the raw FunctionSelector and sets the FunctionSelector
-// type to the given input.
-func (f *FunctionSelector) UnmarshalJSON(input []byte) error {
-	var s string
-	err := json.Unmarshal(input, &s)
-	if err != nil {
-		return err
-	}
+var hexRegexp *regexp.Regexp = regexp.MustCompile("^[0-9a-fA-F]*$")
 
+func unmarshalFromString(s string, f *FunctionSelector) error {
 	if utils.HasHexPrefix(s) {
+		if !hexRegexp.Match([]byte(s)[2:]) {
+			return fmt.Errorf("function selector %s must be 0x-hex encoded", s)
+		}
 		bytes := common.FromHex(s)
 		if len(bytes) != FunctionSelectorLength {
 			return errors.New("Function ID must be 4 bytes in length")
@@ -212,7 +211,41 @@ func (f *FunctionSelector) UnmarshalJSON(input []byte) error {
 		}
 		f.SetBytes(bytes[0:4])
 	}
+	return nil
+}
 
+// UnmarshalJSON parses the raw FunctionSelector and sets the FunctionSelector
+// type to the given input.
+func (f *FunctionSelector) UnmarshalJSON(input []byte) error {
+	var s string
+	err := json.Unmarshal(input, &s)
+	if err != nil {
+		return err
+	}
+	return unmarshalFromString(s, f)
+}
+
+// MarshalJSON returns the JSON encoding of f
+func (f FunctionSelector) MarshalJSON() ([]byte, error) {
+	return json.Marshal(f.String())
+}
+
+// Value returns this instance serialized for database storage
+func (f FunctionSelector) Value() (driver.Value, error) {
+	return f.Bytes(), nil
+}
+
+// Scan returns the selector from its serialization in the database
+func (f FunctionSelector) Scan(value interface{}) error {
+	temp, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("unable to convent %v of type %T to FunctionSelector", value, value)
+	}
+	if len(temp) != FunctionSelectorLength {
+		return fmt.Errorf("function selector %v should have length %d, but has length %d",
+			temp, FunctionSelectorLength, len(temp))
+	}
+	copy(f[:], temp)
 	return nil
 }
 

@@ -40,7 +40,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 			jsonAPIError(c, http.StatusUnprocessableEntity, err)
 			return
 		} else if err = sac.App.AddServiceAgreement(&sa); err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err)
+			jsonAPIError(c, http.StatusInternalServerError, errors.Wrap(err, "#AddServiceAgreement"))
 			return
 		}
 	}
