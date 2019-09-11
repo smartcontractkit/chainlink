@@ -65,7 +65,7 @@ export class ChainlinkNode {
   }
 }
 
-const generateRandomString = (size: number): string => {
+function generateRandomString(size: number): string {
   return randomBytes(size)
     .toString('base64')
     .replace(/[/+=]/g, '')
@@ -93,10 +93,10 @@ export const deleteChainlinkNode = async (db: Connection, name: string) => {
     .execute()
 }
 
-export const hashCredentials = (
+export function hashCredentials(
   accessKey: string,
   secret: string,
   salt: string,
-): string => {
+): string {
   return sha256(`v0-${accessKey}-${secret}-${salt}`)
 }

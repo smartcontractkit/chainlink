@@ -24,7 +24,7 @@ export default async () => {
   }
 }
 
-const buildChainlinkNode = () => {
+function buildChainlinkNode() {
   const node = new ChainlinkNode()
   node.name = 'default'
   node.accessKey = CORE_NODE_ACCESS_KEY
