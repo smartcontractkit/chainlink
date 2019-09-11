@@ -7,7 +7,7 @@ const migrate = async () => {
     console.log(`Migrating [\x1b[32m${db.options.database}\x1b[0m]...`)
 
     const pendingMigrations = await db.runMigrations()
-    for (let m of pendingMigrations) {
+    for (const m of pendingMigrations) {
       console.log('ran', m)
     }
   })
