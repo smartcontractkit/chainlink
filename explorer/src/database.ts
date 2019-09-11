@@ -39,6 +39,8 @@ const mergeOptions = (): PostgresConnectionOptions => {
   } as PostgresConnectionOptions
 }
 
+// TODO: make not global due to race condition chances https://eslint.org/docs/rules/require-atomic-updates
+/* eslint require-atomic-updates: 'warn' */
 let db: Connection | undefined
 
 export const getDb = async (): Promise<Connection> => {
@@ -51,7 +53,7 @@ export const getDb = async (): Promise<Connection> => {
   return db
 }
 
-export const closeDbConnection = async (): Promise<void> => {
+export const closeDbConnection = (): Promise<void> => {
   const saveDb = db
   db = null
   return saveDb.close()
