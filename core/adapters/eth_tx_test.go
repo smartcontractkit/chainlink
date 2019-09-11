@@ -315,7 +315,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
 	var receipts []models.TxReceipt
-	assert.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
+	require.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
 	assert.Equal(t, 1, len(receipts))
 	assert.Equal(t, receipt, receipts[0])
 

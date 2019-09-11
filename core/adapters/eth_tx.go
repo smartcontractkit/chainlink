@@ -106,13 +106,21 @@ func createTxRunResult(
 	input.ApplyResult(tx.Hash.String())
 
 	txAttempt := tx.Attempts[0]
-	logger.Debugw(
-		fmt.Sprintf("Tx #0 checking on-chain state"),
-		"txHash", txAttempt.Hash.String(),
-		"txID", txAttempt.TxID,
-	)
 
 	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
+	logFields := []interface{}{
+		"txHash", txAttempt.Hash.String(),
+		"txID", txAttempt.TxID,
+		"currentBlockNumber", tx.SentAt,
+	}
+	if receipt != nil {
+		logFields = append(logFields,
+			"receiptBlockNumber", receipt.BlockNumber.ToInt(),
+			"receiptHash", receipt.Hash.Hex(),
+		)
+	}
+	logger.Debugw(fmt.Sprintf("Tx #0 is %s", state), logFields...)
+
 	if IsClientRetriable(err) {
 		input.MarkPendingConnection()
 		return
@@ -123,15 +131,6 @@ func createTxRunResult(
 		input.SetError(err)
 		return
 	}
-
-	logger.Debugw(
-		fmt.Sprintf("Tx #0 is %s", state),
-		"txHash", txAttempt.Hash.String(),
-		"txID", txAttempt.TxID,
-		"receiptBlockNumber", receipt.BlockNumber.ToInt(),
-		"currentBlockNumber", tx.SentAt,
-		"receiptHash", receipt.Hash.Hex(),
-	)
 
 	if state != strpkg.Safe {
 		input.MarkPendingConfirmations()
