@@ -49,23 +49,23 @@ export const Index = props => {
 Index.propTypes = {
   jobCount: PropTypes.number.isRequired,
   jobs: PropTypes.array,
-  pageSize: PropTypes.number
+  pageSize: PropTypes.number,
 }
 
 Index.defaultProps = {
-  pageSize: 10
+  pageSize: 10,
 }
 
 const mapStateToProps = state => {
   return {
     jobCount: state.jobs.count,
-    jobs: jobsSelector(state)
+    jobs: jobsSelector(state),
   }
 }
 
 export const ConnectedIndex = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJobs })
+  matchRouteAndMapDispatchToProps({ fetchJobs }),
 )(Index)
 
 export default ConnectedIndex

@@ -2,7 +2,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import { ITaskSpecs } from 'operator_ui'
@@ -15,7 +15,7 @@ const styles = ({ spacing, palette }: Theme) =>
     container: {
       margin: 0,
       marginLeft: spacing.unit * 2,
-      paddingLeft: 0
+      paddingLeft: 0,
     },
     item: {
       borderLeft: 'solid 2px',
@@ -25,12 +25,12 @@ const styles = ({ spacing, palette }: Theme) =>
       listStyle: 'none',
       paddingBottom: spacing.unit * 1,
       paddingTop: spacing.unit * 1,
-      marginLeft: spacing.unit * 2
+      marginLeft: spacing.unit * 2,
     },
     status: {
       marginRight: spacing.unit * 2,
-      marginLeft: -22
-    }
+      marginLeft: -22,
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {

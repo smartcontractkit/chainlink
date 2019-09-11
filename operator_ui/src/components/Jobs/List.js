@@ -132,7 +132,7 @@ List.propTypes = {
   jobCount: PropTypes.number.isRequired,
   pageSize: PropTypes.number.isRequired,
   error: PropTypes.string,
-  fetchJobs: PropTypes.func.isRequired
+  fetchJobs: PropTypes.func.isRequired,
 }
 
 export default List

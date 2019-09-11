@@ -3,7 +3,7 @@ import {
   MATCH_ROUTE,
   RECEIVE_SIGNIN_FAIL,
   NOTIFY_SUCCESS,
-  NOTIFY_ERROR
+  NOTIFY_ERROR,
 } from 'actions'
 
 describe('connectors/reducers/notifications', () => {
@@ -13,7 +13,7 @@ describe('connectors/reducers/notifications', () => {
     expect(state.notifications).toEqual({
       errors: [],
       successes: [],
-      currentUrl: null
+      currentUrl: null,
     })
   })
 
@@ -22,8 +22,8 @@ describe('connectors/reducers/notifications', () => {
       notifications: {
         errors: [{ detail: 'error 1' }],
         successes: [{ id: '123' }],
-        currentUrl: null
-      }
+        currentUrl: null,
+      },
     }
 
     const sameUrlAction = { type: MATCH_ROUTE, match: { url: null } }
@@ -32,7 +32,7 @@ describe('connectors/reducers/notifications', () => {
     expect(state.notifications).toEqual({
       errors: [{ detail: 'error 1' }],
       successes: [{ id: '123' }],
-      currentUrl: null
+      currentUrl: null,
     })
 
     const changedUrlAction = { type: MATCH_ROUTE, match: { url: '/' } }
@@ -40,7 +40,7 @@ describe('connectors/reducers/notifications', () => {
     expect(state.notifications).toEqual({
       errors: [],
       successes: [],
-      currentUrl: '/'
+      currentUrl: '/',
     })
   })
 
@@ -52,12 +52,12 @@ describe('connectors/reducers/notifications', () => {
       errors: [
         {
           props: {
-            msg: 'Your email or password is incorrect. Please try again'
-          }
-        }
+            msg: 'Your email or password is incorrect. Please try again',
+          },
+        },
       ],
       successes: [],
-      currentUrl: null
+      currentUrl: null,
     })
   })
 
@@ -66,8 +66,8 @@ describe('connectors/reducers/notifications', () => {
       notifications: {
         errors: [{ detail: 'error 1' }],
         successes: [],
-        currentUrl: null
-      }
+        currentUrl: null,
+      },
     }
 
     const component = () => {}
@@ -78,7 +78,7 @@ describe('connectors/reducers/notifications', () => {
     expect(state.notifications).toEqual({
       errors: [],
       successes: [{ component: component, props: props }],
-      currentUrl: null
+      currentUrl: null,
     })
   })
 
@@ -87,20 +87,20 @@ describe('connectors/reducers/notifications', () => {
       const previousState = {
         notifications: {
           errors: [],
-          successes: []
-        }
+          successes: [],
+        },
       }
 
       const component = () => {}
       const error = {
-        errors: [{ detail: 'Error 1' }, { detail: 'Error 2' }]
+        errors: [{ detail: 'Error 1' }, { detail: 'Error 2' }],
       }
       const action = { type: NOTIFY_ERROR, component: component, error: error }
       const state = reducer(previousState, action)
 
       expect(state.notifications.errors).toEqual([
         { component: component, props: { msg: 'Error 1' } },
-        { component: component, props: { msg: 'Error 2' } }
+        { component: component, props: { msg: 'Error 2' } },
       ])
     })
 
@@ -108,8 +108,8 @@ describe('connectors/reducers/notifications', () => {
       const previousState = {
         notifications: {
           errors: [],
-          successes: []
-        }
+          successes: [],
+        },
       }
 
       const component = () => {}
@@ -118,7 +118,7 @@ describe('connectors/reducers/notifications', () => {
       const state = reducer(previousState, action)
 
       expect(state.notifications.errors).toEqual([
-        { component: component, props: { msg: 'Single Error' } }
+        { component: component, props: { msg: 'Single Error' } },
       ])
     })
 
@@ -126,8 +126,8 @@ describe('connectors/reducers/notifications', () => {
       const previousState = {
         notifications: {
           errors: [],
-          successes: []
-        }
+          successes: [],
+        },
       }
 
       const component = () => {}
@@ -142,8 +142,8 @@ describe('connectors/reducers/notifications', () => {
       const previousState = {
         notifications: {
           errors: [],
-          successes: [{}]
-        }
+          successes: [{}],
+        },
       }
 
       const component = () => {}

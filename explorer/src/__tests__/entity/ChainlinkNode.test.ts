@@ -3,7 +3,7 @@ import {
   ChainlinkNode,
   createChainlinkNode,
   deleteChainlinkNode,
-  hashCredentials
+  hashCredentials,
 } from '../../entity/ChainlinkNode'
 import { closeDbConnection, getDb } from '../../database'
 
@@ -19,7 +19,7 @@ describe('createChainlinkNode', () => {
   it('returns a valid ChainlinkNode record', async () => {
     const [chainlinkNode, secret] = await createChainlinkNode(
       db,
-      'new-valid-chainlink-node-record'
+      'new-valid-chainlink-node-record',
     )
     expect(chainlinkNode.accessKey).toHaveLength(16)
     expect(chainlinkNode.salt).toHaveLength(32)
@@ -37,7 +37,7 @@ describe('deleteChainlinkNode', () => {
   it('deletes a ChainlinkNode with the specified name', async () => {
     const [chainlinkNode, _] = await createChainlinkNode(
       db,
-      'chainlink-node-to-be-deleted'
+      'chainlink-node-to-be-deleted',
     )
     let count = await db.manager.count(ChainlinkNode)
     expect(count).toBe(1)

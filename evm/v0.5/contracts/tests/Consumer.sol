@@ -32,8 +32,8 @@ contract Consumer is ChainlinkClient {
   }
 
   function withdrawLink() public {
-    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-    require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
+    LinkTokenInterface _link = LinkTokenInterface(chainlinkTokenAddress());
+    require(_link.transfer(msg.sender, _link.balanceOf(address(this))), "Unable to transfer");
   }
 
   function fulfill(bytes32 _requestId, bytes32 _price)

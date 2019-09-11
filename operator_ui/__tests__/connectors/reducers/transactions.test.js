@@ -1,7 +1,7 @@
 import reducer from 'connectors/redux/reducers'
 import {
   UPSERT_TRANSACTIONS,
-  UPSERT_TRANSACTION
+  UPSERT_TRANSACTION,
 } from 'connectors/redux/reducers/transactions'
 
 describe('connectors/reducers/transactions', () => {
@@ -17,21 +17,21 @@ describe('connectors/reducers/transactions', () => {
       data: {
         transactions: {
           a: { id: 'a' },
-          b: { id: 'b' }
+          b: { id: 'b' },
         },
         meta: {
           currentPageTransactions: {
             data: [],
-            meta: {}
-          }
-        }
-      }
+            meta: {},
+          },
+        },
+      },
     }
     const state = reducer(undefined, action)
 
     expect(state.transactions.items).toEqual({
       a: { id: 'a' },
-      b: { id: 'b' }
+      b: { id: 'b' },
     })
   })
 
@@ -40,9 +40,9 @@ describe('connectors/reducers/transactions', () => {
       type: UPSERT_TRANSACTION,
       data: {
         transactions: {
-          a: { id: 'a' }
-        }
-      }
+          a: { id: 'a' },
+        },
+      },
     }
     const state = reducer(undefined, action)
 

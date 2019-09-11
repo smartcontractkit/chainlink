@@ -3,7 +3,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import ExpansionPanel from '@material-ui/core/ExpansionPanel'
 import ExpansionPanelSummary from '@material-ui/core/ExpansionPanelSummary'
@@ -17,14 +17,14 @@ import { Grid } from '@material-ui/core'
 const withChildrenStyles = (theme: Theme) =>
   createStyles({
     summary: {
-      minHeight: '0 !important'
+      minHeight: '0 !important',
     },
     content: {
-      margin: '12px 0 !important'
+      margin: '12px 0 !important',
     },
     expansionPanel: {
-      boxShadow: 'none'
-    }
+      boxShadow: 'none',
+    },
   })
 
 interface IWithChildrenProps extends WithStyles<typeof withChildrenStyles> {
@@ -40,7 +40,7 @@ const WithChildren = withStyles(withChildrenStyles)(
     children,
     classes,
     confirmations,
-    minConfirmations
+    minConfirmations,
   }: IWithChildrenProps) => {
     return (
       <ExpansionPanel className={classes.expansionPanel}>
@@ -65,7 +65,7 @@ const WithChildren = withStyles(withChildrenStyles)(
         <ExpansionPanelDetails>{children}</ExpansionPanelDetails>
       </ExpansionPanel>
     )
-  }
+  },
 )
 
 interface IWithoutChildrenProps {
@@ -80,11 +80,11 @@ const styles = (theme: Theme) =>
   createStyles({
     borderTop: {
       borderTop: 'solid 1px',
-      borderTopColor: theme.palette.divider
+      borderTopColor: theme.palette.divider,
     },
     item: {
       position: 'relative',
-      paddingLeft: 50
+      paddingLeft: 50,
     },
     status: {
       position: 'absolute',
@@ -95,11 +95,11 @@ const styles = (theme: Theme) =>
       borderRight: 'solid 1px',
       borderRightColor: theme.palette.divider,
       width: 50,
-      height: '100%'
+      height: '100%',
     },
     details: {
-      padding: theme.spacing.unit * 2
-    }
+      padding: theme.spacing.unit * 2,
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {
@@ -118,7 +118,7 @@ const StatusItem = ({
   children,
   classes,
   confirmations,
-  minConfirmations
+  minConfirmations,
 }: IProps) => (
   <div className={classNames(classes.item, { [classes.borderTop]: borderTop })}>
     <div className={classes.status}>

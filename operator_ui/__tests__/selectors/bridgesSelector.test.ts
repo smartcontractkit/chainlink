@@ -8,11 +8,11 @@ describe('selectors - bridges', () => {
         items: {
           a: { attributes: { name: 'A' } },
           b: { attributes: { name: 'B' } },
-          c: { attributes: { name: 'C' } }
+          c: { attributes: { name: 'C' } },
         },
         currentPage: ['c', 'a'],
-        count: 0
-      }
+        count: 0,
+      },
     }
 
     const selected = bridgesSelector(state)
@@ -25,11 +25,11 @@ describe('selectors - bridges', () => {
         items: {
           a: { attributes: { name: 'A' } },
           b: { attributes: { name: 'B' } },
-          c: { attributes: { name: 'C' } }
+          c: { attributes: { name: 'C' } },
         },
         currentPage: ['C', 'A', 'b'],
-        count: 0
-      }
+        count: 0,
+      },
     }
 
     const selected = bridgesSelector(state)

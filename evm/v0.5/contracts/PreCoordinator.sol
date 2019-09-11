@@ -169,14 +169,14 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     uint256 totalPayment = serviceAgreements[_saId].totalPayment;
     // this revert message does not bubble up
     require(_payment >= totalPayment, "Insufficient payment");
-    bytes32 callbackRequestId = keccak256(abi.encodePacked(_sender, _nonce));
+    bytes32 callbackRequestId = keccak256(abi.encodePacked(_sender, _saId, _nonce));
     requesters[callbackRequestId].callbackFunctionId = _callbackFunctionId;
     requesters[callbackRequestId].callbackAddress = _sender;
     createRequests(_saId, callbackRequestId, _data);
     if (_payment > totalPayment) {
       uint256 overage = _payment.sub(totalPayment);
-      LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-      assert(link.transfer(_sender, overage));
+      LinkTokenInterface _link = LinkTokenInterface(chainlinkTokenAddress());
+      assert(_link.transfer(_sender, overage));
     }
   }
 
@@ -254,8 +254,8 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
    * is if a user accidentally sent LINK directly to this contract's address.
    */
   function withdrawLink() external onlyOwner {
-    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-    require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer");
+    LinkTokenInterface _link = LinkTokenInterface(chainlinkTokenAddress());
+    require(_link.transfer(msg.sender, _link.balanceOf(address(this))), "Unable to transfer");
   }
 
   /**
@@ -280,8 +280,8 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     Requester memory req = requesters[cbRequestId];
     delete requesters[cbRequestId];
     cancelChainlinkRequest(_requestId, _payment, _callbackFunctionId, _expiration);
-    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-    require(link.transfer(req.callbackAddress, _payment), "Unable to transfer");
+    LinkTokenInterface _link = LinkTokenInterface(chainlinkTokenAddress());
+    require(_link.transfer(req.callbackAddress, _payment), "Unable to transfer");
   }
 
   /**

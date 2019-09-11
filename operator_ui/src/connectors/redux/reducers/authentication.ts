@@ -3,13 +3,13 @@ import * as authenticationStorage from 'utils/authenticationStorage'
 const defaultState = {
   allowed: false,
   errors: [],
-  networkError: false
+  networkError: false,
 }
 
 const initialState = Object.assign(
   {},
   defaultState,
-  authenticationStorage.get()
+  authenticationStorage.get(),
 )
 
 export type AuthenticationAction =
@@ -42,7 +42,7 @@ enum AuthenticationActionType {
   RECEIVE_SIGNIN_SUCCESS = 'RECEIVE_SIGNIN_SUCCESS',
   RECEIVE_SIGNIN_FAIL = 'RECEIVE_SIGNIN_FAIL',
   RECEIVE_SIGNIN_ERROR = 'RECEIVE_SIGNIN_ERROR',
-  RECEIVE_SIGNOUT_ERROR = 'RECEIVE_SIGNOUT_ERROR'
+  RECEIVE_SIGNOUT_ERROR = 'RECEIVE_SIGNOUT_ERROR',
 }
 
 export default (state = initialState, action: AuthenticationAction) => {
@@ -56,7 +56,7 @@ export default (state = initialState, action: AuthenticationAction) => {
       authenticationStorage.set(allowed)
       return Object.assign({}, state, allowed, {
         errors: [],
-        networkError: false
+        networkError: false,
       })
     }
     case AuthenticationActionType.RECEIVE_SIGNIN_FAIL: {
@@ -70,7 +70,7 @@ export default (state = initialState, action: AuthenticationAction) => {
       authenticationStorage.set(allowed)
       return Object.assign({}, state, allowed, {
         errors: action.errors || [],
-        networkError: action.networkError
+        networkError: action.networkError,
       })
     }
     default:

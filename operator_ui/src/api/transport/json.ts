@@ -2,7 +2,7 @@ import {
   AttributesObject,
   ErrorsObject,
   JsonApiResponse,
-  ResourceObject
+  ResourceObject,
 } from 'json-api-normalizer'
 import pathToRegexp from 'path-to-regexp'
 import fetchWithTimeout from 'utils/fetchWithTimeout'
@@ -10,7 +10,7 @@ import {
   AuthenticationError,
   BadRequestError,
   ServerError,
-  UnknownResponseError
+  UnknownResponseError,
 } from '../errors'
 import * as http from './http'
 
@@ -70,7 +70,7 @@ export const deleteResource = methodFactory(http.Method.DELETE)
 
 function methodFactory(method: http.Method) {
   return function<Params, T, NamedPathParams extends object = object>(
-    url: string
+    url: string,
   ): Method<Params, T, NamedPathParams> {
     const toPath = pathToRegexp.compile<NamedPathParams>(url)
 
@@ -79,7 +79,7 @@ function methodFactory(method: http.Method) {
       const path = namedPathParams ? toPath(namedPathParams) : url
       const uri = http.formatURI(
         path,
-        method === http.Method.GET ? params : undefined // add query string options if its a GET method
+        method === http.Method.GET ? params : undefined, // add query string options if its a GET method
       )
       const options = http.getOptions(method)
       const fetch = fetchWithTimeout(uri, options(params))
@@ -109,7 +109,7 @@ function methodFactory(method: http.Method) {
  */
 type Method<TParams, T, TNamedPathParams extends object = object> = (
   params?: Partial<TParams>,
-  namedPathParams?: TNamedPathParams
+  namedPathParams?: TNamedPathParams,
 ) => Promise<ResponseType<TParams, T>>
 
 /**

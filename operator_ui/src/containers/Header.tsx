@@ -11,7 +11,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import Toolbar from '@material-ui/core/Toolbar'
 import Typography from '@material-ui/core/Typography'
@@ -34,23 +34,23 @@ const SHARED_NAV_ITEMS = [
   ['/runs', 'Runs'],
   ['/bridges', 'Bridges'],
   ['/transactions', 'Transactions'],
-  ['/config', 'Configuration']
+  ['/config', 'Configuration'],
 ]
 
 const drawerStyles = ({ palette, spacing }: Theme) =>
   createStyles({
     menuitem: {
       padding: spacing.unit * 3,
-      display: 'block'
+      display: 'block',
     },
     drawerPaper: {
       backgroundColor: palette.common.white,
       paddingTop: spacing.unit * 7,
-      width: drawerWidth
+      width: drawerWidth,
     },
     drawerList: {
-      padding: 0
-    }
+      padding: 0,
+    },
   })
 
 interface IDrawerProps extends WithStyles<typeof drawerStyles> {
@@ -66,14 +66,14 @@ const Drawer = withStyles(drawerStyles)(
     toggleDrawer,
     authenticated,
     classes,
-    submitSignOut
+    submitSignOut,
   }: IDrawerProps) => {
     return (
       <MuiDrawer
         anchor="right"
         open={drawerOpen}
         classes={{
-          paper: classes.drawerPaper
+          paper: classes.drawerPaper,
         }}
         onClose={toggleDrawer}
       >
@@ -104,17 +104,17 @@ const Drawer = withStyles(drawerStyles)(
         </div>
       </MuiDrawer>
     )
-  }
+  },
 )
 
 const navStyles = ({ palette, spacing }: Theme) =>
   createStyles({
     horizontalNav: {
       paddingTop: 0,
-      paddingBottom: 0
+      paddingBottom: 0,
     },
     horizontalNavItem: {
-      display: 'inline'
+      display: 'inline',
     },
     horizontalNavLink: {
       color: palette.secondary.main,
@@ -125,13 +125,13 @@ const navStyles = ({ palette, spacing }: Theme) =>
       borderBottom: 'solid 1px',
       borderBottomColor: palette.common.white,
       '&:hover': {
-        borderBottomColor: palette.primary.main
-      }
+        borderBottomColor: palette.primary.main,
+      },
     },
     activeNavLink: {
       color: palette.primary.main,
-      borderBottomColor: palette.primary.main
-    }
+      borderBottomColor: palette.primary.main,
+    },
   })
 
 const isNavActive = (current?: string, to?: string) =>
@@ -153,7 +153,7 @@ const Nav = withStyles(navStyles)(
                 href={to}
                 className={classNames(
                   classes.horizontalNavLink,
-                  isNavActive(to, url) && classes.activeNavLink
+                  isNavActive(to, url) && classes.activeNavLink,
                 )}
               >
                 {text}
@@ -168,7 +168,7 @@ const Nav = withStyles(navStyles)(
         </List>
       </Typography>
     )
-  }
+  },
 )
 
 const drawerWidth = 240
@@ -177,12 +177,12 @@ const styles = ({ palette, spacing, zIndex }: Theme) =>
   createStyles({
     appBar: {
       backgroundColor: palette.common.white,
-      zIndex: zIndex.modal - 1
+      zIndex: zIndex.modal - 1,
     },
     toolbar: {
       paddingLeft: spacing.unit * 5,
-      paddingRight: spacing.unit * 5
-    }
+      paddingRight: spacing.unit * 5,
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {
@@ -202,7 +202,7 @@ const Header = useHooks(
     url,
     drawerContainer,
     onResize,
-    submitSignOut
+    submitSignOut,
   }: IProps) => {
     const [drawerOpen, setDrawerOpen] = useState(false)
     const toggleDrawer = () => setDrawerOpen(!drawerOpen)
@@ -254,13 +254,13 @@ const Header = useHooks(
         </Portal>
       </AppBar>
     )
-  }
+  },
 )
 
 const mapStateToProps = (state: any) => ({
   authenticated: state.authentication.allowed,
   fetchCount: fetchCountSelector(state),
-  url: state.notifications.currentUrl
+  url: state.notifications.currentUrl,
 })
 
 const mapDispatchToProps = (dispatch: Dispatch) =>
@@ -268,7 +268,7 @@ const mapDispatchToProps = (dispatch: Dispatch) =>
 
 export const ConnectedHeader = connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(Header)
 
 export default withStyles(styles)(ConnectedHeader)

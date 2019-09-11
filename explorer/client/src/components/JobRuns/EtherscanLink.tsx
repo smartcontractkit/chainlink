@@ -3,7 +3,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import Icon from '@material-ui/core/Icon'
@@ -15,15 +15,15 @@ const styles = ({ palette, spacing }: Theme) =>
       textDecoration: 'none',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'flex-end'
+      justifyContent: 'flex-end',
     },
     linkText: {
       color: palette.primary.main,
-      marginRight: spacing.unit * 4
+      marginRight: spacing.unit * 4,
     },
     bottomCol: {
-      borderBottom: 'none'
-    }
+      borderBottom: 'none',
+    },
   })
 
 interface IProps extends WithStyles<typeof styles> {
@@ -40,7 +40,8 @@ const EtherscanLink = ({ classes, host, txHash, className }: IProps) => {
       href={url(host, txHash)}
       target="_blank"
       rel="noopener noreferrer"
-      className={classNames(classes.link, className)}>
+      className={classNames(classes.link, className)}
+    >
       <Typography variant="body1" className={classes.linkText} inline>
         {txHash}
       </Typography>

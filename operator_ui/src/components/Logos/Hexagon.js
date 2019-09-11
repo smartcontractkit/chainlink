@@ -9,7 +9,7 @@ const Hexagon = props => {
 
 Hexagon.propTypes = {
   width: PropTypes.number,
-  height: PropTypes.number
+  height: PropTypes.number,
 }
 
 export default Hexagon

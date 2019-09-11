@@ -7,7 +7,7 @@ describe('connectors/reducers/transactionsIndex', () => {
 
     expect(state.transactionsIndex).toEqual({
       currentPage: null,
-      count: 0
+      count: 0,
     })
   })
 
@@ -19,11 +19,11 @@ describe('connectors/reducers/transactionsIndex', () => {
           currentPageTransactions: {
             data: [{ id: 'b' }, { id: 'a' }],
             meta: {
-              count: 10
-            }
-          }
-        }
-      }
+              count: 10,
+            },
+          },
+        },
+      },
     }
     const state = reducer(undefined, action)
 

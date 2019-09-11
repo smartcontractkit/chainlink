@@ -9,7 +9,7 @@ import {
   linkContract,
   Ox,
   toHexWithoutPrefix,
-  toHex
+  toHex,
 } from './support/helpers'
 const ConcreteChainlinked = artifacts.require('ConcreteChainlinked.sol')
 const EmptyOracle = artifacts.require('EmptyOracle.sol')
@@ -34,7 +34,7 @@ contract('ConcreteChainlinked', () => {
       let tx = await cc.publicNewRequest(
         specId,
         gs.address,
-        toHex('requestedBytes32(bytes32,bytes32)')
+        toHex('requestedBytes32(bytes32,bytes32)'),
       )
 
       assert.equal(1, tx.receipt.rawLogs.length)
@@ -54,7 +54,7 @@ contract('ConcreteChainlinked', () => {
         specId,
         cc.address,
         toHex('fulfillRequest(bytes32,bytes32)'),
-        0
+        0,
       )
 
       let events = await getEvents(cc)
@@ -71,7 +71,7 @@ contract('ConcreteChainlinked', () => {
         specId,
         cc.address,
         toHex('fulfillRequest(bytes32,bytes32)'),
-        0
+        0,
       )
 
       let events = await getEvents(cc)
@@ -86,7 +86,7 @@ contract('ConcreteChainlinked', () => {
         specId,
         cc.address,
         toHex('fulfillRequest(bytes32,bytes32)'),
-        0
+        0,
       )
 
       let events = await getEvents(newoc)
@@ -101,7 +101,7 @@ contract('ConcreteChainlinked', () => {
         specId,
         cc.address,
         toHex('fulfillRequest(bytes32,bytes32)'),
-        0
+        0,
       )
 
       const actualOracleAddress = await cc.publicOracleAddress()
@@ -119,7 +119,7 @@ contract('ConcreteChainlinked', () => {
         specId,
         cc.address,
         toHex('fulfillRequest(bytes32,bytes32)'),
-        0
+        0,
       )
       requestId = (await getLatestEvent(cc)).args.id
     })
@@ -149,7 +149,7 @@ contract('ConcreteChainlinked', () => {
         specId,
         cc.address,
         toHex('fulfillRequest(bytes32,bytes32)'),
-        0
+        0,
       )
       request = decodeRunRequest(tx.receipt.rawLogs[3])
     })
@@ -173,7 +173,7 @@ contract('ConcreteChainlinked', () => {
         specId,
         cc.address,
         toHex('publicFulfillChainlinkRequest(bytes32,bytes32)'),
-        0
+        0,
       )
       request = decodeRunRequest(tx.receipt.rawLogs[3])
     })
@@ -205,7 +205,7 @@ contract('ConcreteChainlinked', () => {
         specId,
         mock.address,
         toHex('fulfillRequest(bytes32,bytes32)'),
-        0
+        0,
       )
       request = decodeRunRequest(tx.receipt.rawLogs[3])
       await mock.publicAddExternalRequest(oc.address, request.id)

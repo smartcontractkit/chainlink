@@ -36,7 +36,7 @@ describe('utils/jobSpecDefinition', () => {
     expect(output.tasks[0].UpdatedAt).toBeUndefined()
     expect(output.tasks[0].params.ID).toEqual('KeepMeBecauseIAmUserDefined')
     expect(output.tasks[0].params.get).toEqual(
-      'https://localhost:9000/file.tar.gz'
+      'https://localhost:9000/file.tar.gz',
     )
   })
 })

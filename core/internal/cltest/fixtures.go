@@ -3,6 +3,7 @@ package cltest
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -34,7 +35,7 @@ func FixtureCreateServiceAgreementViaWeb(
 	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBufferString(agreementWithOracle))
 	defer cleanup()
 
-	AssertServerResponse(t, resp, 200)
+	AssertServerResponse(t, resp, http.StatusOK)
 	responseSA := models.ServiceAgreement{}
 	err := ParseJSONAPIResponse(t, resp, &responseSA)
 	require.NoError(t, err)

@@ -1,4 +1,4 @@
-import * as storage from 'utils/storage';
+import * as storage from 'utils/storage'
 
 export const get = () => storage.get('authentication')
 

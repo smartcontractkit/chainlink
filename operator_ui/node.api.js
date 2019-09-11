@@ -10,14 +10,14 @@ export default pluginOptions => ({
           ...currentWebpackConfig.resolve.alias,
           'core/store/models': path.resolve(
             __dirname,
-            '@types/core/store/models.d.ts'
+            '@types/core/store/models.d.ts',
           ),
           'core/store/presenters': path.resolve(
             __dirname,
-            '@types/core/store/presenters.d.ts'
-          )
-        }
-      }
+            '@types/core/store/presenters.d.ts',
+          ),
+        },
+      },
     }
-  }
+  },
 })

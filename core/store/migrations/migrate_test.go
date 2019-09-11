@@ -37,8 +37,7 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 	config := tc.Config
 
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
-	cltest.WipePostgresDatabase(t, tc.Config)
-
+	cleanupDB := cltest.PrepareTestDB(tc)
 	orm, err := orm.NewORM(orm.NormalizedDatabaseURL(config), config.DatabaseTimeout())
 	require.NoError(t, err)
 	orm.DB.LogMode(true)
@@ -47,6 +46,7 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 		assert.NoError(t, orm.Close())
 		cleanup()
 		os.RemoveAll(config.RootDir())
+		cleanupDB()
 	}
 }
 

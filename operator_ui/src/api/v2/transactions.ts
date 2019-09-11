@@ -7,7 +7,7 @@ import * as presenters from 'core/store/presenters'
 type IndexParams = jsonapi.PaginatedRequestParams
 const INDEX_ENDPOINT = '/v2/transactions'
 const index = jsonapi.fetchResource<IndexParams, presenters.Tx[]>(
-  INDEX_ENDPOINT
+  INDEX_ENDPOINT,
 )
 
 /**
@@ -20,18 +20,18 @@ interface ShowPathParams {
 }
 const SHOW_ENDPOINT = '/v2/transactions/:txHash'
 const show = jsonapi.fetchResource<undefined, presenters.Tx, ShowPathParams>(
-  SHOW_ENDPOINT
+  SHOW_ENDPOINT,
 )
 
 export function getTransactions(
   page: number,
-  size: number
+  size: number,
 ): Promise<jsonapi.PaginatedApiResponse<presenters.Tx[]>> {
   return index({ page, size })
 }
 
 export function getTransaction(
-  txHash: string
+  txHash: string,
 ): Promise<jsonapi.ApiResponse<presenters.Tx>> {
   return show(undefined, { txHash })
 }

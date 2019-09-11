@@ -2,7 +2,7 @@ import yargs from 'yargs'
 import { Connection } from 'typeorm'
 import {
   createChainlinkNode,
-  deleteChainlinkNode
+  deleteChainlinkNode,
 } from '../entity/ChainlinkNode'
 import { closeDbConnection, getDb } from '../database'
 
@@ -43,13 +43,13 @@ const _ = yargs
       yargs
         .positional('name', {
           describe: 'The name of the Chainlink Node to create',
-          type: 'string'
+          type: 'string',
         })
         .describe('u', 'The URL of the Chainlink Node to create')
         .alias('u', 'url')
         .nargs('u', 1)
     },
-    handler: argv => add(argv.name as string, argv.url as string)
+    handler: argv => add(argv.name as string, argv.url as string),
   })
   .command({
     command: 'delete <name>',
@@ -58,10 +58,10 @@ const _ = yargs
     builder: (yargs): any => {
       yargs.positional('name', {
         describe: 'The name of the Chainlink Node to remove',
-        type: 'string'
+        type: 'string',
       })
     },
-    handler: argv => remove(argv.name as string)
+    handler: argv => remove(argv.name as string),
   })
   .help('h')
   .alias('h', 'help')

@@ -17,8 +17,8 @@ export default (jobs, count) => {
         {
           confirmations: 0,
           type: 'httpget',
-          url: 'https://bitstamp.net/api/ticker/'
-        }
+          url: 'https://bitstamp.net/api/ticker/',
+        },
       ]
       const createdAt = config.createdAt || new Date().toISOString()
       const runs = c.runs || []
@@ -39,11 +39,11 @@ export default (jobs, count) => {
               { createdAt: isoDate(Date.now()) },
               { result: {} },
               { jobId: id },
-              r
-            )
-          )
-        }
+              r,
+            ),
+          ),
+        },
       }
-    })
+    }),
   }
 }

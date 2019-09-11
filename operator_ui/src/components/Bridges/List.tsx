@@ -89,7 +89,7 @@ export const BridgeList = useHooks<Props>(props => {
     fetchBridges,
     pageSize,
     fetching,
-    error
+    error,
   } = props
   const TableButtonsWithProps = () => (
     <TableButtons

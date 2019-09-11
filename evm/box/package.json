@@ -8,6 +8,7 @@
     "console:live": "npx truffle console --network live",
     "depcheck": "echo '@chainlink/box' && depcheck --ignore-dirs=build/contracts || true",
     "lint": "yarn solhint",
+    "format": "prettier --write \"**/*\"",
     "migrate:dev": "npx truffle migrate --reset --network cldev",
     "migrate:live": "npx truffle migrate --network live",
     "solhint": "solhint ./contracts/**/*.sol",
@@ -21,10 +22,13 @@
     "openzeppelin-solidity": "^1.12.0"
   },
   "devDependencies": {
+    "@chainlink/prettier-config": "0.0.1",
     "depcheck": "^0.8.3",
+    "prettier": "^1.18.2",
     "solc": "0.4.24",
     "solhint": "^2.1.0",
     "truffle": "^5.0.25",
     "truffle-hdwallet-provider": "^1.0.8"
-  }
+  },
+  "prettier": "@chainlink/prettier-config"
 }

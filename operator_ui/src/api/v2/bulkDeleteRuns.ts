@@ -8,11 +8,11 @@ import * as models from 'core/store/models'
  */
 const DELETE_ENDPOINT = '/v2/bulk_delete_runs'
 const destroy = jsonapi.deleteResource<models.BulkDeleteRunRequest, null>(
-  DELETE_ENDPOINT
+  DELETE_ENDPOINT,
 )
 
 export function bulkDeleteJobRuns(
-  bulkDeleteRunRequest: models.BulkDeleteRunRequest
+  bulkDeleteRunRequest: models.BulkDeleteRunRequest,
 ): Promise<jsonapi.ApiResponse<null>> {
   return destroy(bulkDeleteRunRequest)
 }

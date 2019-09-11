@@ -1,8 +1,8 @@
-import Card from '@material-ui/core/Card';
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
-import React from 'react';
-import { CardTitle } from './Title';
+import Card from '@material-ui/core/Card'
+import Table from '@material-ui/core/Table'
+import TableBody from '@material-ui/core/TableBody'
+import React from 'react'
+import { CardTitle } from './Title'
 
 interface Props {
   children: React.ReactNode

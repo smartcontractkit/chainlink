@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -62,7 +63,7 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	resp, cleanup := client.Post("/v2/withdrawals", bytes.NewBuffer(body))
 	defer cleanup()
 
-	cltest.AssertServerResponse(t, resp, 200)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	assert.True(t, ethMock.AllCalled(), "Not Called")
 }
@@ -105,6 +106,6 @@ func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
 	resp, cleanup := client.Post("/v2/withdrawals", bytes.NewBuffer(body))
 	defer cleanup()
 
-	cltest.AssertServerResponse(t, resp, 400)
+	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 	assert.True(t, ethMock.AllCalled(), ethMock.Remaining())
 }

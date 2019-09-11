@@ -3,7 +3,7 @@ import {
   createStyles,
   Theme,
   withStyles,
-  WithStyles
+  WithStyles,
 } from '@material-ui/core/styles'
 import MuiTable from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
@@ -51,16 +51,16 @@ const Empty = ({ colCount, msg }: IEmptyProps) => {
 const styles = (theme: Theme) =>
   createStyles({
     header: {
-      backgroundColor: theme.palette.grey['50']
+      backgroundColor: theme.palette.grey['50'],
     },
     table: {
       minHeight: 150,
-      whiteSpace: 'nowrap'
+      whiteSpace: 'nowrap',
     },
     root: {
       width: '100%',
-      overflowX: 'auto'
-    }
+      overflowX: 'auto',
+    },
   })
 
 export type ChangePageEvent = React.MouseEvent<HTMLButtonElement> | null
@@ -112,7 +112,7 @@ const Table = (props: IProps) => {
         rowsPerPage={props.rowsPerPage}
         page={props.currentPage}
         SelectProps={{
-          native: true
+          native: true,
         }}
         onChangePage={props.onChangePage}
         ActionsComponent={PaginationActions}
@@ -123,7 +123,7 @@ const Table = (props: IProps) => {
 
 Table.defaultProps = {
   rowsPerPage: DEFAULT_ROWS_PER_PAGE,
-  currentPage: DEFAULT_CURRENT_PAGE
+  currentPage: DEFAULT_CURRENT_PAGE,
 }
 
 export default withStyles(styles)(Table)

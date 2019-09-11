@@ -17,7 +17,7 @@ const mountIndex = (opts = {}) =>
       <MemoryRouter>
         <Index classes={classes} pageSize={opts.pageSize} />
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   )
 
 describe('containers/Jobs/Index', () => {
@@ -28,8 +28,8 @@ describe('containers/Jobs/Index', () => {
       {
         id: 'c60b9927eeae43168ddbe92584937b1b',
         initiators: [{ type: 'web' }],
-        createdAt: new Date().toISOString()
-      }
+        createdAt: new Date().toISOString(),
+      },
     ])
     global.fetch.getOnce(`begin:/v2/specs`, jobSpecsResponse)
 
@@ -46,7 +46,7 @@ describe('containers/Jobs/Index', () => {
 
     const pageOneResponse = jsonApiJobSpecsFactory(
       [{ id: 'ID-ON-FIRST-PAGE' }],
-      2
+      2,
     )
     global.fetch.getOnce(`begin:/v2/specs`, pageOneResponse)
 
@@ -58,7 +58,7 @@ describe('containers/Jobs/Index', () => {
 
     const pageTwoResponse = jsonApiJobSpecsFactory(
       [{ id: 'ID-ON-SECOND-PAGE' }],
-      2
+      2,
     )
     global.fetch.getOnce(`begin:/v2/specs`, pageTwoResponse)
     clickNextPage(wrapper)

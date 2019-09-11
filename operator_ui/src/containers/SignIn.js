@@ -17,26 +17,26 @@ import { get } from 'utils/storage'
 
 const styles = theme => ({
   container: {
-    height: '100%'
+    height: '100%',
   },
   cardContent: {
     paddingTop: theme.spacing.unit * 6,
     paddingLeft: theme.spacing.unit * 4,
     paddingRight: theme.spacing.unit * 4,
     '&:last-child': {
-      paddingBottom: theme.spacing.unit * 6
-    }
+      paddingBottom: theme.spacing.unit * 6,
+    },
   },
   headerRow: {
-    textAlign: 'center'
+    textAlign: 'center',
   },
   error: {
     backgroundColor: theme.palette.error.light,
-    marginTop: theme.spacing.unit * 2
+    marginTop: theme.spacing.unit * 2,
   },
   errorText: {
-    color: theme.palette.error.main
-  }
+    color: theme.palette.error.main,
+  },
 })
 
 export const SignIn = useHooks(props => {
@@ -150,12 +150,12 @@ export const SignIn = useHooks(props => {
 const mapStateToProps = state => ({
   fetching: state.authentication.fetching,
   authenticated: state.authentication.allowed,
-  errors: state.notifications.errors
+  errors: state.notifications.errors,
 })
 
 export const ConnectedSignIn = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ submitSignIn })
+  matchRouteAndMapDispatchToProps({ submitSignIn }),
 )(SignIn)
 
 export default hot(module)(withStyles(styles)(ConnectedSignIn))

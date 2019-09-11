@@ -1,6 +1,6 @@
 import {
   Serializer as JSONAPISerializer,
-  SerializerOptions
+  SerializerOptions,
 } from 'jsonapi-serializer'
 import { JobRun } from '../entity/JobRun'
 
@@ -15,12 +15,12 @@ export const BASE_ATTRIBUTES = [
   'requester',
   'error',
   'createdAt',
-  'finishedAt'
+  'finishedAt',
 ]
 
 export const chainlinkNode = {
   ref: 'id',
-  attributes: ['name', 'url']
+  attributes: ['name', 'url'],
 }
 
 export const taskRuns = {
@@ -34,8 +34,8 @@ export const taskRuns = {
     'minimumConfirmations',
     'error',
     'transactionHash',
-    'transactionStatus'
-  ]
+    'transactionStatus',
+  ],
 }
 
 const ETHERSCAN_HOST = process.env.ETHERSCAN_HOST || 'ropsten.etherscan.io'
@@ -47,8 +47,8 @@ const jobRunSerializer = (run: JobRun) => {
     keyForAttribute: 'camelCase',
     taskRuns,
     meta: {
-      etherscanHost: ETHERSCAN_HOST
-    }
+      etherscanHost: ETHERSCAN_HOST,
+    },
   } as SerializerOptions
 
   return new JSONAPISerializer('job_runs', opts).serialize(run)
