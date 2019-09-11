@@ -31,5 +31,7 @@ export class ConvertTaskRunConfirmationsToBigInt1562419039813
     `)
   }
 
-  public async down(): Promise<any> {}
+  public async down(): Promise<any> {
+    return undefined
+  }
 }
