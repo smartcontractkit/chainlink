@@ -22,7 +22,7 @@ type JobSubscriber interface {
 // jobSubscriber implementation
 type jobSubscriber struct {
 	store            *store.Store
-	jobSubscriptions map[*models.ID]JobSubscription
+	jobSubscriptions map[string]JobSubscription
 	jobsMutex        *sync.RWMutex
 }
 
@@ -30,7 +30,7 @@ type jobSubscriber struct {
 func NewJobSubscriber(store *store.Store) JobSubscriber {
 	return &jobSubscriber{
 		store:            store,
-		jobSubscriptions: map[*models.ID]JobSubscription{},
+		jobSubscriptions: map[string]JobSubscription{},
 		jobsMutex:        &sync.RWMutex{},
 	}
 }
@@ -53,8 +53,8 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 // RemoveJob unsubscribes the job from a log subscription to trigger runs.
 func (js *jobSubscriber) RemoveJob(ID *models.ID) error {
 	js.jobsMutex.Lock()
-	sub, ok := js.jobSubscriptions[ID]
-	delete(js.jobSubscriptions, ID)
+	sub, ok := js.jobSubscriptions[ID.String()]
+	delete(js.jobSubscriptions, ID.String())
 	js.jobsMutex.Unlock()
 	if !ok {
 		return fmt.Errorf("JobSubscriber#RemoveJob: job %s not found", ID)
@@ -77,7 +77,7 @@ func (js *jobSubscriber) Jobs() []models.JobSpec {
 func (js *jobSubscriber) addSubscription(sub JobSubscription) {
 	js.jobsMutex.Lock()
 	defer js.jobsMutex.Unlock()
-	js.jobSubscriptions[sub.Job.ID] = sub
+	js.jobSubscriptions[sub.Job.ID.String()] = sub
 }
 
 // Connect connects the jobs to the ethereum node by creating corresponding subscriptions.
@@ -98,7 +98,7 @@ func (js *jobSubscriber) Disconnect() {
 	for _, sub := range js.jobSubscriptions {
 		sub.Unsubscribe()
 	}
-	js.jobSubscriptions = map[*models.ID]JobSubscription{}
+	js.jobSubscriptions = map[string]JobSubscription{}
 }
 
 // OnNewHead resumes all pending job runs based on the new head activity.
