@@ -9,7 +9,7 @@ import { JobRun } from './JobRun'
 import { sha256 } from 'js-sha256'
 import { randomBytes } from 'crypto'
 
-export interface IChainlinkNodePresenter {
+export interface ChainlinkNodePresenter {
   id: number
   name: string
 }
@@ -57,7 +57,7 @@ export class ChainlinkNode {
   })
   jobRuns: Array<JobRun>
 
-  public present(): IChainlinkNodePresenter {
+  public present(): ChainlinkNodePresenter {
     return {
       id: this.id,
       name: this.name,
