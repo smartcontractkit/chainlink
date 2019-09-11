@@ -135,8 +135,9 @@ export const toHex = (value: any): string => {
   return Ox(toHexWithoutPrefix(value))
 }
 
-export const Ox = (value: any): string =>
-  value.slice(0, 2) !== '0x' ? `0x${value}` : value
+export function Ox(value: any): string {
+  return value.slice(0, 2) !== '0x' ? `0x${value}` : value
+}
 
 // True if h is a standard representation of a byte array, false otherwise
 export const isByteRepresentation = (h: any): boolean => {
@@ -267,7 +268,7 @@ export const decodeRunRequest = (log: any): any => {
   }
 }
 
-const autoAddMapDelimiters = (data: any): Buffer => {
+function autoAddMapDelimiters(data: any): Buffer {
   let buffer = data
 
   if (buffer[0] >> 5 !== 5) {
@@ -314,7 +315,7 @@ export const requestDataBytes = (
   return funcSelector + encoded
 }
 
-export const abiEncode = (types: any, values: any): string => {
+export function abiEncode(types: any, values: any): string {
   return abi.rawEncode(types, values).toString('hex')
 }
 
@@ -360,7 +361,7 @@ export const newSignature = (str: string): any => {
 }
 
 // newHash returns a 65 byte Uint8Array for representing a hash
-export const newHash = (str: string): Uint8Array => {
+export function newHash(str: string): Uint8Array {
   return newUint8Array(str, 32)
 }
 
@@ -678,8 +679,9 @@ export const newServiceAgreement = async (params: any): Promise<any> => {
   return agreement
 }
 
-export const sixMonthsFromNow = (): number =>
-  Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60
+export function sixMonthsFromNow(): number {
+  return Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60
+}
 
 export const fulfillOracleRequest = async (
   oracle: any,
