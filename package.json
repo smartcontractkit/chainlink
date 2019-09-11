@@ -22,7 +22,10 @@
   "devDependencies": {
     "@types/mocha": "^5.2.0"
   },
+  "resolutions": {
+    "**/react-scripts/**/eslint": "6.3.0"
+  },
   "comments": {
-    "resolutions": "Had to lock caniuse-lite version at last working version with browserlists"
+    "resolutions-eslint": "Locking eslint to >5 so that our module resolution patch within @chainlink/eslint/resolve.js works properly"
   }
 }
