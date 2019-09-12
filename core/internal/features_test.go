@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -807,57 +808,29 @@ func TestIntegration_ExternalInitiatorCreate(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
-	initiatorName := "bitcoin"
+	initiatorName := "someCoin"
 	initiatorURL := cltest.WebURL(t, "https://test.chain.link/initiator")
 	eth := app.MockEthCallerSubscriber(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
-	eiJSON := fmt.Sprintf(`{"name":"%v","url":"%v"}`, initiatorName, initiatorURL)
+	eiJSON := fmt.Sprintf(`{"name":"%s","url":"%s"}`, initiatorName, initiatorURL)
 	eip := cltest.CreateExternalInitiatorViaWeb(t, app, eiJSON)
 
-	var count int
-	err := app.Store.DB.Model(&models.ExternalInitiator{}).Count(&count).Error
-	require.NoError(t, err)
-	require.Equal(t, 1, count)
 	eia := &models.ExternalInitiatorAuthentication{
 		AccessKey: eip.AccessKey,
 		Secret:    eip.Secret,
 	}
-
 	ei, err := app.Store.FindExternalInitiator(eia)
 	require.NoError(t, err)
 
 	require.Equal(t, initiatorURL, ei.URL)
-	require.Equal(t, initiatorName, ei.Name)
+	require.Equal(t, strings.ToLower(initiatorName), ei.Name)
 	require.Equal(t, eip.AccessKey, ei.AccessKey)
 	require.Equal(t, eip.OutgoingSecret, ei.OutgoingSecret)
-}
-
-func TestIntegration_ExternalInitiatorStartAt(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t)
-	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
-	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
-
-	// create external initiator
-	eiJSON := fmt.Sprintf(`{"name":"someCoin","url":"https://test.chain.link/initiator"}`)
-	eip := cltest.CreateExternalInitiatorViaWeb(t, app, eiJSON)
-
-	var count int
-	err := app.Store.DB.Model(&models.ExternalInitiator{}).Count(&count).Error
-	require.NoError(t, err)
-	require.Equal(t, 1, count)
-	eia := models.ExternalInitiatorAuthentication{
-		AccessKey: eip.AccessKey,
-		Secret:    eip.Secret,
-	}
 
 	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
-	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, eia, "")
+	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 
 	// Check the new run has been created
 	_, err = app.Store.JobRunsFor(jobRun.ID)
