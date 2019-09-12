@@ -8,11 +8,11 @@
     "console:live": "npx truffle console --network live",
     "depcheck": "echo '@chainlink/box' && depcheck --ignore-dirs=build/contracts || true",
     "eslint": "eslint --ext .js,.ts test scripts",
-    "lint": "yarn solhint",
+    "solhint": "solhint ./contracts/**/*.sol",
+    "lint": "yarn eslint && yarn solhint",
     "format": "prettier --write \"**/*\"",
     "migrate:dev": "npx truffle migrate --reset --network cldev",
     "migrate:live": "npx truffle migrate --network live",
-    "solhint": "solhint ./contracts/**/*.sol",
     "test": "npx truffle test"
   },
   "license": "MIT",

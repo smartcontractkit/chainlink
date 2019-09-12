@@ -6,9 +6,9 @@
     "build": "truffle build",
     "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box || true",
     "eslint": "eslint --ext .ts,.js test",
-    "lint": "yarn solhint",
-    "slither": "truffle compile --quiet && slither .",
     "solhint": "solhint ./contracts/**/*.sol",
+    "lint": "yarn solhint && yarn eslint",
+    "slither": "truffle compile --quiet && slither .",
     "test": "truffle test",
     "format": "prettier --write \"**/*\"",
     "truffle:migrate:cldev": "truffle migrate --network cldev"
