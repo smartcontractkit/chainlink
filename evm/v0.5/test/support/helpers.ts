@@ -7,8 +7,6 @@ import TruffleContract from 'truffle-contract'
 import { linkToken } from './linkToken'
 import { assertBigNum } from './matchers'
 
-const HEX_BASE = 16
-
 // https://github.com/ethereum/web3.js/issues/1119#issuecomment-394217563
 web3.providers.HttpProvider.prototype.sendAsync =
   web3.providers.HttpProvider.prototype.send
