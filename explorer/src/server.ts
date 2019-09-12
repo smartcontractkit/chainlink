@@ -30,7 +30,7 @@ const server = (port: number = DEFAULT_PORT) => {
     }),
   )
   app.use('/api/v1', controllers.jobRuns)
-  app.use('/api/v1', controllers.adminLogin)
+  app.use('/api/v1/admin', controllers.adminLogin)
 
   app.get('/*', (_, res) => {
     res.sendFile(`${__dirname}/public/index.html`)
