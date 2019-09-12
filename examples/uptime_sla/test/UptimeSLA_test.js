@@ -121,18 +121,18 @@ contract('UptimeSLA', accounts => {
 
     context('when the consumer does not recognize the request ID', () => {
       beforeEach(async () => {
-        let fid = h.functionSelector('report(uint256,bytes32)')
-        let args = h.requestDataBytes(specId, sla.address, fid, 'xid', 'foo')
+        const fid = h.functionSelector('report(uint256,bytes32)')
+        const args = h.requestDataBytes(specId, sla.address, fid, 'xid', 'foo')
         const tx = await link.transferAndCall(oc.address, 0, args)
         request = h.decodeRunRequest(tx.receipt.rawLogs[2])
       })
 
       it('does not accept the data provided', async () => {
-        let originalUptime = await sla.uptime()
+        const originalUptime = await sla.uptime()
         await h.fulfillOracleRequest(oc, request, response, {
           from: oracleNode,
         })
-        let newUptime = await sla.uptime()
+        const newUptime = await sla.uptime()
 
         h.assertBigNum(originalUptime, newUptime)
       })
