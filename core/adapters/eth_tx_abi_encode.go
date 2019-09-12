@@ -1,7 +1,9 @@
 package adapters
 
 import (
+	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -26,6 +28,35 @@ type EthTxABIEncode struct {
 	FunctionABI abi.Method  `json:"functionABI"`
 	GasPrice    *models.Big `json:"gasPrice" gorm:"type:numeric"`
 	GasLimit    uint64      `json:"gasLimit"`
+}
+
+// UnmarshalJSON for custom JSON unmarshal that is strict, i.e. doesn't
+// accept spurious fields. (In particular, we wan't to ensure that we don't
+// get spurious fields in the FunctionABI, so that users don't get any wrong
+// ideas about what parts of the ABI we use for encoding data.)
+func (etx *EthTxABIEncode) UnmarshalJSON(data []byte) error {
+	var fields struct {
+		Address     common.Address
+		FunctionABI struct {
+			Name   string
+			Inputs abi.Arguments
+		}
+		GasPrice *models.Big
+		GasLimit uint64
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&fields); err != nil {
+		return err
+	}
+
+	etx.Address = fields.Address
+	etx.FunctionABI.Name = fields.FunctionABI.Name
+	etx.FunctionABI.Inputs = fields.FunctionABI.Inputs
+	etx.GasPrice = fields.GasPrice
+	etx.GasLimit = fields.GasLimit
+	return nil
 }
 
 // Perform creates the run result for the transaction if the existing run result
