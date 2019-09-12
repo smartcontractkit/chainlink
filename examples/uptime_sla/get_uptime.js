@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-var-requires */
 
 const Web3 = require('web3')
 const contract = require('truffle-contract')

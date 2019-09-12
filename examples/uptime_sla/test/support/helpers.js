@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 const bigNum = number => web3.utils.toBN(number)
 const cbor = require('cbor')
 const abi = require('ethereumjs-abi')

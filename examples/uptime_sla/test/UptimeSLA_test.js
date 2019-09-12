@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 const h = require('./support/helpers')
 const LinkToken = artifacts.require('LinkToken')
 const Oracle = artifacts.require('Oracle')
