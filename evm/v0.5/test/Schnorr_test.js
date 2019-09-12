@@ -1,3 +1,6 @@
+import tests from './tests'
+import dssTest from './dssTest'
+
 const SchnorrSECP256K1 = artifacts.require('SchnorrSECP256K1')
 
 const BN = web3.utils.BN
@@ -84,8 +87,6 @@ contract('SchnorrSECP256K1', async () => {
     assert.isBelow(gasUsed, 37500, 'burns too much gas')
   })
   it('Accepts the signatures generated on the go side', async () => {
-    const tests = require('./tests')
-    const dssTest = require('./dssTest')
     tests.push(dssTest)
     for (let i = 0; i < Math.min(1, tests.length); i++) {
       const numbers = tests[i].slice(0, tests[i].length - 1)
