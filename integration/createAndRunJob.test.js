@@ -7,6 +7,7 @@ const { scrape } = require('./support/scrape.js')
 const puppeteerConfig = require('./puppeteer.config.js')
 const {
   signIn,
+  consoleLogger,
   clickNewJobButton,
   clickTransactionsMenuItem,
 } = require('./support/helpers.js')
@@ -19,9 +20,7 @@ describe('End to end', () => {
     server = await newServer(`{"last": "3843.95"}`)
     browser = await puppeteer.launch(puppeteerConfig)
     page = await browser.newPage()
-    page.on('console', msg => {
-      console.log(`PAGE LOG url: ${page.url()} | msg: ${msg.text()}`)
-    })
+    page.on('console', consoleLogger)
   })
 
   afterAll(async () => {
