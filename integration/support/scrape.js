@@ -19,7 +19,7 @@ module.exports = {
   // if any, it will refresh the page until the match is found or timeout
   // occurs.
   scrape: async (page, regex) => {
-    checkPage = async () => {
+    const checkPage = async () => {
       const element = await page.$('body')
       const text = await (await element.getProperty('textContent')).jsonValue()
       const match = text
