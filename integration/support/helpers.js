@@ -1,16 +1,18 @@
 const clickLink = async (page, title) => {
-  return expect(page).toClick('a', { text: title })
+  await expect(page).toClick('a', { text: title })
+  await page.waitForNavigation({
+    waitUntil: 'networkidle0',
+  })
 }
 
 module.exports = {
   clickLink: clickLink,
 
-  clickNewJobButton: async page => {
-    // XXX: This button doesn't do anything if you click it too quickly, so for
-    // now, add a small delay
-    await page.waitFor(500)
-    return clickLink(page, 'New Job')
-  },
+  clickNewJobButton: async page => clickLink(page, 'New Job'),
+
+  clickBridgesTab: async page => clickLink(page, 'Bridges'),
+
+  clickNewBridgeButton: async page => clickLink(page, 'New Bridge'),
 
   clickTransactionsMenuItem: async page => {
     return expect(page).toClick('li > a', { text: 'Transactions' })

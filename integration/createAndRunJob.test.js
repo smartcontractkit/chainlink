@@ -4,31 +4,21 @@ const puppeteer = require('puppeteer')
 const pupExpect = require('expect-puppeteer')
 const { newServer } = require('./support/server.js')
 const { scrape } = require('./support/scrape.js')
+const puppeteerConfig = require('./puppeteer.config.js')
 const {
   signIn,
   clickNewJobButton,
   clickTransactionsMenuItem,
 } = require('./support/helpers.js')
 
-const AVERAGE_CLIENT_WIDTH = 1366
-const AVERAGE_CLIENT_HEIGHT = 768
-
 describe('End to end', () => {
   let browser, page, server
   beforeAll(async () => {
     jest.setTimeout(30000)
     pupExpect.setDefaultOptions({ timeout: 3000 })
-    browser = await puppeteer.launch({
-      devtools: false,
-      headless: true,
-      args: ['--no-sandbox'],
-    })
-    page = await browser.newPage()
-    await page.setViewport({
-      width: AVERAGE_CLIENT_WIDTH,
-      height: AVERAGE_CLIENT_HEIGHT,
-    })
     server = await newServer(`{"last": "3843.95"}`)
+    browser = await puppeteer.launch(puppeteerConfig)
+    page = await browser.newPage()
     page.on('console', msg => {
       console.log(`PAGE LOG url: ${page.url()} | msg: ${msg.text()}`)
     })
