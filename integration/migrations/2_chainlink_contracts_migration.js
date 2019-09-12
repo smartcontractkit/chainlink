@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 const { DEVNET_ADDRESS: from } = require('../common.js')
 const { CHAINLINK_NODE_ADDRESS } = process.env
 const LinkToken = artifacts.require('LinkToken')

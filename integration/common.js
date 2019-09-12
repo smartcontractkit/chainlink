@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 const ethers = require('ethers')
 
 // Setup provider & wallet
