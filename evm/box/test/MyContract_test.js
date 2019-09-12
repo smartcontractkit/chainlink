@@ -63,7 +63,7 @@ contract('MyContract', accounts => {
 
       context('sending a request to a specific oracle contract address', () => {
         it('triggers a log event in the new Oracle contract', async () => {
-          let tx = await cc.createRequestTo(
+          const tx = await cc.createRequestTo(
             oc.address,
             jobId,
             payment,
@@ -92,7 +92,7 @@ contract('MyContract', accounts => {
 
     beforeEach(async () => {
       await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
-      let tx = await cc.createRequestTo(
+      const tx = await cc.createRequestTo(
         oc.address,
         jobId,
         payment,
@@ -143,7 +143,7 @@ contract('MyContract', accounts => {
 
     beforeEach(async () => {
       await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
-      let tx = await cc.createRequestTo(
+      const tx = await cc.createRequestTo(
         oc.address,
         jobId,
         payment,
