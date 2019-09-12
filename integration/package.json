@@ -6,7 +6,8 @@
   "scripts": {
     "test": "cross-env NODE_ENV=test jest",
     "test:nocache": "cross-env NODE_ENV=test jest --no-cache",
-    "lint": "echo \"No linter configured for integration\" && exit 0",
+    "eslint": "eslint --ext .js,.ts .",
+    "lint": "yarn eslint",
     "format": "prettier --write \"**/*\"",
     "depcheck": "echo '@chainlink/integration' && depcheck || true",
     "truffle:migrate": "truffle migrate --compile-all --reset --network test",
@@ -17,12 +18,14 @@
     "chainlink": "0.6.1"
   },
   "devDependencies": {
+    "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
     "babel-jest": "^24.1.0",
     "body-parser": "^1.18.3",
     "command-line-args": "^5.1.1",
     "cross-env": "^5.2.0",
     "depcheck": "^0.8.3",
+    "eslint": "^6.3.0",
     "ethers": "^4.0.36",
     "expect-puppeteer": "^4.1.0",
     "jest": "^24.7.0",

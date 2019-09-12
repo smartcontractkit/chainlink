@@ -22,6 +22,7 @@ COPY explorer/package.json ./explorer/
 COPY operator_ui/package.json ./operator_ui/
 COPY styleguide/package.json ./styleguide/
 COPY tools/prettier-config/package.json ./tools/prettier-config/
+COPY tools/eslint-config/package.json ./tools/eslint-config/
 RUN make yarndep
 
 # Install chainlink

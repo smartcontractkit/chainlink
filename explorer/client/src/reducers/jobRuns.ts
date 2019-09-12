@@ -1,34 +1,34 @@
-export interface IState {
-  items?: IJobRun[]
+export interface State {
+  items?: JobRun[]
 }
 
-export interface IMeta {
+export interface Meta {
   count: number
 }
 
-export interface INormalizedEndpoint {
+export interface NormalizedEndpoint {
   data: any[]
-  meta: IMeta
+  meta: Meta
 }
 
-export interface INormalizedMeta {
-  jobRuns: INormalizedEndpoint
+export interface NormalizedMeta {
+  jobRuns: NormalizedEndpoint
 }
 
-export interface INormalizedData {
+export interface NormalizedData {
   jobRuns: any
-  meta: INormalizedMeta
+  meta: NormalizedMeta
 }
 
 export type JobRunsAction =
-  | { type: 'UPSERT_JOB_RUNS'; data: INormalizedData }
-  | { type: 'UPSERT_JOB_RUN'; data: INormalizedData }
+  | { type: 'UPSERT_JOB_RUNS'; data: NormalizedData }
+  | { type: 'UPSERT_JOB_RUN'; data: NormalizedData }
   | { type: '@@redux/INIT' }
   | { type: '@@INIT' }
 
 const INITIAL_STATE = { items: undefined }
 
-export default (state: IState = INITIAL_STATE, action: JobRunsAction) => {
+export default (state: State = INITIAL_STATE, action: JobRunsAction) => {
   switch (action.type) {
     case '@@redux/INIT':
     case '@@INIT':

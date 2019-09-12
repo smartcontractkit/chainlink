@@ -4,7 +4,7 @@ import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import { titleCase } from 'change-case'
 import classNames from 'classnames'
-import { IJobRun } from 'operator_ui'
+import { JobRun } from 'operator_ui'
 import React from 'react'
 import { useEffect, useHooks, useState } from 'use-react-hooks'
 import ElapsedTime from '../ElapsedTime'
@@ -49,10 +49,10 @@ const styles = (theme: any) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   title: string
   children?: React.ReactNode
-  jobRun?: IJobRun
+  jobRun?: JobRun
 }
 
 const selectLink = (inWei: number) => inWei / 1e18
@@ -60,7 +60,7 @@ const EarnedLink = ({
   classes,
   jobRun,
 }: {
-  jobRun?: IJobRun
+  jobRun?: JobRun
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const linkEarned = jobRun && jobRun.payment
@@ -71,7 +71,7 @@ const EarnedLink = ({
   )
 }
 
-const StatusCard = useHooks(({ title, classes, children, jobRun }: IProps) => {
+const StatusCard = useHooks(({ title, classes, children, jobRun }: Props) => {
   const statusClass = classes[title as keyof typeof classes] || classes.pending
   const { status, createdAt, finishedAt } = jobRun || {
     status: '',

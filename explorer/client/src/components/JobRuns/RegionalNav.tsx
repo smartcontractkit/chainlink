@@ -15,12 +15,12 @@ import TimeAgo from '../../components/TimeAgo'
 
 type Variant = ThemeStyle | 'srOnly' | 'inherit'
 
-interface IJobRunProps {
-  jobRun?: IJobRun
+interface JobRunProps {
+  jobRun?: JobRun
   variant: Variant
 }
 
-const JobRunId = ({ jobRun, variant }: IJobRunProps) => {
+const JobRunId = ({ jobRun, variant }: JobRunProps) => {
   return (
     <Typography variant={variant} color="secondary" gutterBottom>
       {jobRun ? jobRun.runId : '...'}
@@ -28,12 +28,12 @@ const JobRunId = ({ jobRun, variant }: IJobRunProps) => {
   )
 }
 
-interface ICreatedProps {
-  jobRun?: IJobRun
+interface CreatedProps {
+  jobRun?: JobRun
   showTimeAgo?: boolean
 }
 
-const Created = ({ jobRun, showTimeAgo }: ICreatedProps) => {
+const Created = ({ jobRun, showTimeAgo }: CreatedProps) => {
   return (
     <>
       {jobRun && (
@@ -62,12 +62,12 @@ const regionalNavStyles = ({ spacing, breakpoints }: Theme) =>
     },
   })
 
-interface IRegionalNavProps extends WithStyles<typeof regionalNavStyles> {
-  jobRun?: IJobRun
+interface RegionalNavProps extends WithStyles<typeof regionalNavStyles> {
+  jobRun?: JobRun
 }
 
 const RegionalNav = withStyles(regionalNavStyles)(
-  ({ jobRun, classes }: IRegionalNavProps) => {
+  ({ jobRun, classes }: RegionalNavProps) => {
     return (
       <Paper square className={classes.container}>
         <Grid container spacing={0}>

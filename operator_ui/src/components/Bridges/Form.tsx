@@ -141,7 +141,7 @@ Form.defaultProps = {
 const WithFormikForm = withFormik<OwnProps, FormValues>({
   mapPropsToValues({ name, url, minimumContractPayment, confirmations }) {
     const shouldPersist = Object.keys(get('persistBridge')).length !== 0
-    let persistedJSON = shouldPersist && get('persistBridge')
+    const persistedJSON = shouldPersist && get('persistBridge')
     if (shouldPersist) set('persistBridge', {})
     const json = {
       name: name || '',

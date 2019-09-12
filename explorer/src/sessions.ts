@@ -10,7 +10,7 @@ export const authenticate = async (
   accessKey: string,
   secret: string,
 ): Promise<Session | null> => {
-  return db.manager.transaction(async manager => {
+  return db.manager.transaction(async () => {
     const chainlinkNode = await findNode(db, accessKey)
     if (chainlinkNode != null) {
       if (authenticateSession(accessKey, secret, chainlinkNode)) {

@@ -1,4 +1,4 @@
-let MyContract = artifacts.require('MyContract')
+const MyContract = artifacts.require('MyContract')
 
 /*
   This script allows for a Chainlink request to be created from
@@ -19,9 +19,9 @@ const path = process.env.TRUFFLE_CL_BOX_JSON_PATH || 'USD'
 const times = process.env.TRUFFLE_CL_BOX_TIMES || '100'
 
 module.exports = async callback => {
-  let mc = await MyContract.deployed()
+  const mc = await MyContract.deployed()
   console.log('Creating request on contract:', mc.address)
-  let tx = await mc.createRequestTo(
+  const tx = await mc.createRequestTo(
     oracleAddress,
     web3.utils.toHex(jobId),
     payment,

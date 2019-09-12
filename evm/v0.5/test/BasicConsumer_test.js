@@ -55,14 +55,14 @@ contract('BasicConsumer', () => {
       })
 
       it('has a reasonable gas cost', async () => {
-        let tx = await cc.requestEthereumPrice(currency, payment)
+        const tx = await cc.requestEthereumPrice(currency, payment)
         assert.isBelow(tx.receipt.gasUsed, 130000)
       })
     })
   })
 
   describe('#fulfillOracleRequest', () => {
-    let response = '1,000,000.00'
+    const response = '1,000,000.00'
     let request
 
     beforeEach(async () => {
@@ -128,7 +128,7 @@ contract('BasicConsumer', () => {
           })
         })
 
-        let received = await cc.currentPrice.call()
+        const received = await cc.currentPrice.call()
         assert.equal(h.toUtf8(received), '')
       })
     })

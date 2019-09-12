@@ -1,10 +1,10 @@
-import reducer, { IState } from '../../reducers'
+import reducer, { State } from '../../reducers'
 import { Action } from '../../reducers/config'
 
 describe('reducers/config', () => {
   it('returns an initial state', () => {
     const action = {} as Action
-    const state = reducer({}, action) as IState
+    const state = reducer({}, action) as State
 
     expect(state.search).toEqual({
       etherscanHost: undefined,
@@ -24,7 +24,7 @@ describe('reducers/config', () => {
         },
       },
     } as Action
-    const state = reducer({}, action) as IState
+    const state = reducer({}, action) as State
 
     expect(state.config).toEqual({
       etherscanHost: 'ropsten.etherscan.io',

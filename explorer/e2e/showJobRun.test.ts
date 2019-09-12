@@ -3,7 +3,6 @@ import { Server } from 'http'
 import { Browser, launch, Page } from 'puppeteer'
 import { closeDbConnection, getDb } from '../src/database'
 import { createChainlinkNode } from '../src/entity/ChainlinkNode'
-import { JobRun } from '../src/entity/JobRun'
 import { DEFAULT_TEST_PORT, start as startServer } from '../src/support/server'
 import { createJobRun } from '../src/factories'
 
@@ -31,7 +30,7 @@ describe('End to end', () => {
 
   it('can search for job run', async () => {
     const db = await getDb()
-    const [node, _] = await createChainlinkNode(db, 'endToEndChainlinkNode')
+    const [node] = await createChainlinkNode(db, 'endToEndChainlinkNode')
     const jobRun = await createJobRun(db, node)
 
     await page.goto(`http://localhost:${DEFAULT_TEST_PORT}`)

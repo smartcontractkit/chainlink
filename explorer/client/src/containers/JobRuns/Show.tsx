@@ -18,7 +18,7 @@ import { getJobRun } from '../../actions/jobRuns'
 import Details from '../../components/JobRuns/Details'
 import RegionalNav from '../../components/JobRuns/RegionalNav'
 import RunStatus from '../../components/JobRuns/RunStatus'
-import { IState as State } from '../../reducers'
+import { State } from '../../reducers'
 
 const Loading = () => (
   <Table>
@@ -58,7 +58,7 @@ interface OwnProps {
 }
 
 interface StateProps {
-  jobRun?: IJobRun
+  jobRun?: JobRun
   etherscanHost?: string
 }
 
@@ -66,14 +66,14 @@ interface DispatchProps {
   getJobRun: any
 }
 
-interface IProps
+interface Props
   extends WithStyles<typeof styles>,
     OwnProps,
     StateProps,
     DispatchProps {}
 
 const Show = withStyles(styles)(
-  ({ jobRunId, jobRun, getJobRun, classes, etherscanHost }: IProps) => {
+  ({ jobRunId, jobRun, getJobRun, classes, etherscanHost }: Props) => {
     useEffect(() => {
       getJobRun(jobRunId)
     }, [getJobRun, jobRunId])
@@ -112,7 +112,7 @@ const Show = withStyles(styles)(
 const jobRunSelector = (
   { jobRuns, taskRuns, chainlinkNodes }: State,
   jobRunId?: string,
-): IJobRun | undefined => {
+): JobRun | undefined => {
   if (jobRuns.items) {
     const document = {
       jobRuns: jobRuns.items,

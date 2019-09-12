@@ -7,7 +7,7 @@ import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
-import { IJobRun, IJobRuns } from 'operator_ui'
+import { JobRun, JobRuns } from 'operator_ui'
 import React from 'react'
 import titleize from '../../utils/titleize'
 import BaseLink from '../BaseLink'
@@ -75,7 +75,7 @@ const classFromStatus = (classes: any, status: string) => {
   return classes[status.toLowerCase()]
 }
 
-const renderRuns = (runs: IJobRuns, classes: any) => {
+const renderRuns = (runs: JobRuns, classes: any) => {
   if (runs && runs.length === 0) {
     return (
       <TableRow>
@@ -91,7 +91,7 @@ const renderRuns = (runs: IJobRuns, classes: any) => {
       </TableRow>
     )
   } else if (runs) {
-    return runs.map((r: IJobRun) => (
+    return runs.map((r: JobRun) => (
       <TableRow key={r.id}>
         <TableCell className={classes.idCell} scope="row">
           <div className={classes.runDetails}>
@@ -133,20 +133,14 @@ const renderRuns = (runs: IJobRuns, classes: any) => {
   )
 }
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   jobSpecId: string
-  runs: IJobRuns
+  runs: JobRuns
   count: number
   showJobRunsCount: number
 }
 
-const List = ({
-  jobSpecId,
-  runs,
-  count,
-  showJobRunsCount,
-  classes,
-}: IProps) => {
+const List = ({ jobSpecId, runs, count, showJobRunsCount, classes }: Props) => {
   return (
     <Card className={classes.jobRunsCard}>
       <Table padding="none">

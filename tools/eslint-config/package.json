@@ -1,0 +1,35 @@
+{
+  "name": "@chainlink/eslint-config",
+  "version": "0.0.1",
+  "description": "Shared eslint configs for the chainlink project",
+  "main": "base.js",
+  "repository": "https://github.com/smartcontractkit/chainlink",
+  "license": "MIT",
+  "scripts": {
+    "lint": "eslint --ext .js,.ts .",
+    "format": "prettier --write \"*.js\"",
+    "eslint:config:base": "eslint -c ./base.js --print-config ./base",
+    "eslint:config:node": "eslint -c ./node.js --print-config ./base",
+    "eslint:config:react": "eslint -c ./react.js --print-config ./base"
+  },
+  "peerDependencies": {
+    "@chainlink/prettier-config": "0.0.1",
+    "eslint": "^6.3.0",
+    "prettier": "^1.18.2",
+    "typescript": "^3.6.2"
+  },
+  "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^2.1.0",
+    "@typescript-eslint/parser": "^2.1.0",
+    "eslint-config-prettier": "^6.2.0",
+    "eslint-plugin-prettier": "^3.1.0",
+    "eslint-plugin-react": "^7.14.3",
+    "eslint-plugin-react-hooks": "^2.0.1"
+  },
+  "devDependencies": {
+    "@chainlink/prettier-config": "0.0.1",
+    "eslint": "^6.3.0",
+    "prettier": "^1.18.2"
+  },
+  "prettier": "@chainlink/prettier-config"
+}

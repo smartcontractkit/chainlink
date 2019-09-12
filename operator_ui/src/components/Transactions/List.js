@@ -58,7 +58,9 @@ const renderBody = (transactions, error) => {
 }
 
 export const List = useHooks(props => {
+  const { transactions, count, fetchTransactions, pageSize, error } = props
   const [page, setPage] = useState(FIRST_PAGE)
+
   useEffect(() => {
     const queryPage =
       (props.match && parseInt(props.match.params.transactionsPage, 10)) ||
@@ -66,11 +68,12 @@ export const List = useHooks(props => {
     setPage(queryPage)
     fetchTransactions(queryPage, pageSize)
   }, [])
-  const { transactions, count, fetchTransactions, pageSize, error } = props
+
   const handleChangePage = (e, page) => {
     fetchTransactions(page, pageSize)
     setPage(page)
   }
+
   const TableButtonsWithProps = () => (
     <TableButtons
       {...props}

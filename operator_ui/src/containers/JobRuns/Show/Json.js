@@ -1,6 +1,5 @@
 import { PaddedCard } from '@chainlink/styleguide'
 import Grid from '@material-ui/core/Grid'
-import { withStyles } from '@material-ui/core/styles'
 import { fetchJobRun } from 'actions'
 import Content from 'components/Content'
 import StatusCard from 'components/JobRuns/StatusCard'
@@ -11,8 +10,6 @@ import jobRunSelector from 'selectors/jobRun'
 import { useEffect, useHooks } from 'use-react-hooks'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import RegionalNav from './RegionalNav'
-
-const styles = theme => ({})
 
 const renderDetails = ({ fetching, jobRun }) => {
   if (fetching || !jobRun) {
@@ -69,4 +66,4 @@ export const ConnectedShow = connect(
   matchRouteAndMapDispatchToProps({ fetchJobRun }),
 )(Show)
 
-export default withStyles(styles)(ConnectedShow)
+export default ConnectedShow

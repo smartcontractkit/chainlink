@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/camelcase */
 require('@babel/register')
 require('@babel/polyfill')
 

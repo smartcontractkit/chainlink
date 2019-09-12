@@ -9,7 +9,7 @@ import SignIn from 'containers/SignIn'
 import fillIn from 'test-helpers/fillIn'
 
 const RedirectApp = () => <div>Behind authentication</div>
-const mountSignIn = (store, props) =>
+const mountSignIn = store =>
   mount(
     <Provider store={store}>
       <MemoryRouter initialEntries={['/signin']}>

@@ -15,7 +15,7 @@ afterAll(async () => closeDbConnection())
 
 describe('search', () => {
   beforeEach(async () => {
-    const [chainlinkNode, _] = await createChainlinkNode(
+    const [chainlinkNode] = await createChainlinkNode(
       db,
       'job-run-search-chainlink-node',
     )

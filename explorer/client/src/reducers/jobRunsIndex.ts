@@ -1,16 +1,13 @@
 import { JobRunsAction } from './jobRuns'
 
-export interface IState {
+export interface State {
   items?: string[]
   count?: number
 }
 
 const INITIAL_STATE = { items: undefined }
 
-export default (
-  state: IState = INITIAL_STATE,
-  action: JobRunsAction,
-): IState => {
+export default (state: State = INITIAL_STATE, action: JobRunsAction): State => {
   switch (action.type) {
     case '@@redux/INIT':
     case '@@INIT':

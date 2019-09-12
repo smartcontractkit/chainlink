@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 // truffle script
 
 const commandLineArgs = require('command-line-args')
@@ -13,7 +15,7 @@ const main = async () => {
     .catch(abort('Error getting transaction receipt'))
   // count events in transaction
   let count = 0
-  for (let log of transaction.logs) {
+  for (const log of transaction.logs) {
     if (log.address.toLowerCase() === fromAddress.toLowerCase()) {
       count += 1
     }

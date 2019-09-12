@@ -75,14 +75,6 @@ type Props = OwnProps & RouteProps
 
 // FIXME - remove unused export?
 export const BridgeList = useHooks<Props>(props => {
-  const [page, setPage] = useState(FIRST_PAGE)
-  useEffect(() => {
-    const queryPage =
-      (props.match && parseInt(props.match.params.bridgePage, 10)) || FIRST_PAGE
-    setPage(queryPage)
-    fetchBridges(queryPage, pageSize)
-  }, [])
-
   const {
     bridges,
     bridgeCount,
@@ -91,6 +83,20 @@ export const BridgeList = useHooks<Props>(props => {
     fetching,
     error,
   } = props
+  const [page, setPage] = useState(FIRST_PAGE)
+
+  useEffect(() => {
+    const queryPage =
+      (props.match && parseInt(props.match.params.bridgePage, 10)) || FIRST_PAGE
+    setPage(queryPage)
+    fetchBridges(queryPage, pageSize)
+  }, [])
+
+  const handleChangePage = (_: never, page: React.SetStateAction<number>) => {
+    fetchBridges(page, pageSize)
+    setPage(page)
+  }
+
   const TableButtonsWithProps = () => (
     <TableButtons
       history={props.history}
@@ -101,10 +107,6 @@ export const BridgeList = useHooks<Props>(props => {
       replaceWith={`/bridges/page`}
     />
   )
-  const handleChangePage = (_: never, page: React.SetStateAction<number>) => {
-    fetchBridges(page, pageSize)
-    setPage(page)
-  }
 
   return (
     <Card>

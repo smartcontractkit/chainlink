@@ -5,6 +5,7 @@ module.exports = {
     '<rootDir>/dist/',
     '<rootDir>/tmp/',
     '<rootDir>/node_modules/',
+    '<rootDir>/__tests__/.eslintrc.js',
   ],
   transform: {
     '^.+\\.(js|jsx|ts|tsx)?$': './support/upwardBabelJestTransform.js',
