@@ -27,7 +27,7 @@ storiesOf('Cards', module)
       <Grid xs={4}>
         <SimpleListCard title="Recently Created">
           {['jobs', 'distribution', 'jump'].map(text => (
-            <SimpleListCardItem>
+            <SimpleListCardItem key={`simple-list-card-${text}`}>
               <Typography>{text}</Typography>
             </SimpleListCardItem>
           ))}
