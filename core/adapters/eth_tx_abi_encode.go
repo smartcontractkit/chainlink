@@ -251,8 +251,8 @@ func encStatic(typ *abi.Type, jval interface{}, name string) ([]byte, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "argument %s is not a hexstring", name)
 		}
-		if len(addressBytes) != 20 {
-			return nil, errors.Errorf("argument %s is not an address with 20 bytes", name)
+		if len(addressBytes) > 20 {
+			return nil, errors.Errorf("argument %s is too long for an address (20 bytes)", name)
 		}
 		return padLeft(addressBytes, evmWordSize), nil
 	case abi.ArrayTy:
