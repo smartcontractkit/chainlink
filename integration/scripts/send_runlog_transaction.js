@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 // truffle script
 
 const request = require('request-promise').defaults({ jar: true })

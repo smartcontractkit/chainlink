@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 // truffle script
 
 const commandLineArgs = require('command-line-args')

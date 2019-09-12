@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 const puppeteer = require('puppeteer')
 const pupExpect = require('expect-puppeteer')
 const { newServer } = require('./support/server.js')
