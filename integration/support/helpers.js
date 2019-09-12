@@ -16,7 +16,7 @@ module.exports = {
     return expect(page).toClick('li > a', { text: 'Transactions' })
   },
 
-  signIn: async (page, email, password) => {
+  signIn: async (page, email) => {
     await expect(page).toFill('form input[id=email]', email)
     await expect(page).toFill('form input[id=password]', 'twochains')
     return expect(page).toClick('form button')
