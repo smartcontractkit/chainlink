@@ -139,7 +139,7 @@
 //
 // ABI types must be represented in JSON as follows:
 //   address:
-//     - a hexstring containing exactly 20 bytes, e.g.
+//     - a hexstring containing at most 20 bytes, e.g.
 //       "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 //   bool:
 //     - true or false

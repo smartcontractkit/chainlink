@@ -132,9 +132,15 @@ var encodeTests = []struct {
 		``,
 	},
 	{
-		"invalid address",
+		"short address",
 		`[{"inputs":[{"name":"a","type":"address"}],"name":"foo","type":"function"}]`,
 		`{"a": "0xf917e3eb94eae199d827dad837fac4cb"}`,
+		`fdf80bda00000000000000000000000000000000f917e3eb94eae199d827dad837fac4cb`,
+	},
+	{
+		"address too long",
+		`[{"inputs":[{"name":"a","type":"address"}],"name":"foo","type":"function"}]`,
+		`{"a": "0xffffffffffffffffffffffffffffffffffffffffff"}`,
 		``,
 	},
 	// Array
