@@ -53,8 +53,8 @@ func TestEthTxABIEncodeAdapter_UnmarshallJSON(t *testing.T) {
 		      {"name": "x", "type": "uint256"},
 		      {"name": "y", "type": "bool[2][]"},
 		      {"name": "z", "type": "string"}
-			],
-			"outputs": []
+		    ],
+		    "outputs": []
 		  },
 		  "address": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 		}`
