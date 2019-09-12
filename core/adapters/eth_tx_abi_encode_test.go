@@ -2,6 +2,7 @@ package adapters_test
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -22,6 +23,44 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestEthTxABIEncodeAdapter_UnmarshallJSON(t *testing.T) {
+	const valid = `
+		{
+		  "functionABI": {
+		    "name": "example",
+		    "inputs": [
+		      {"name": "x", "type": "uint256"},
+		      {"name": "y", "type": "bool[2][]"},
+		      {"name": "z", "type": "string"}
+			]
+		  },
+		  "address": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+		}`
+	var etx adapters.EthTxABIEncode
+	err := json.Unmarshal([]byte(valid), &etx)
+	assert.NoError(t, err)
+	assert.Equal(t, "example", etx.FunctionABI.Name)
+	assert.Equal(t, "y", etx.FunctionABI.Inputs[1].Name)
+	assert.Equal(t, abi.ArrayTy, etx.FunctionABI.Inputs[1].Type.Elem.T)
+	assert.Equal(t, abi.StringTy, etx.FunctionABI.Inputs[2].Type.T)
+
+	const invalid = `
+		{
+		  "functionABI": {
+		    "name": "example",
+		    "inputs": [
+		      {"name": "x", "type": "uint256"},
+		      {"name": "y", "type": "bool[2][]"},
+		      {"name": "z", "type": "string"}
+			],
+			"outputs": []
+		  },
+		  "address": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+		}`
+	err = json.Unmarshal([]byte(invalid), &etx)
+	assert.Error(t, err)
+}
 
 func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 	uint256Type, err := abi.NewType("uint256", []abi.ArgumentMarshaling{})
