@@ -7,6 +7,7 @@
     "console:dev": "npx truffle console --network cldev",
     "console:live": "npx truffle console --network live",
     "depcheck": "echo '@chainlink/box' && depcheck --ignore-dirs=build/contracts || true",
+    "eslint": "eslint --ext .js,.ts test scripts",
     "lint": "yarn solhint",
     "format": "prettier --write \"**/*\"",
     "migrate:dev": "npx truffle migrate --reset --network cldev",
@@ -22,8 +23,10 @@
     "openzeppelin-solidity": "^1.12.0"
   },
   "devDependencies": {
+    "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
     "depcheck": "^0.8.3",
+    "eslint": "^6.3.0",
     "prettier": "^1.18.2",
     "solc": "0.4.24",
     "solhint": "^2.1.0",
