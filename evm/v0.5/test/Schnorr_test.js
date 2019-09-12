@@ -13,16 +13,13 @@ const toHex = (d, l) =>
   // Make sure there's just one 0x prefix
   web3.utils.padLeft(d.toString(16), l / 4).replace(/^(0[xX])*/, '0x')
 
-const bottom160bits = bigOne.shln(160).sub(bigOne)
-const bottom256bits = bigOne.shln(257).sub(bigOne)
-
 // Returns the EIP55-capitalized ethereum address for this secp256k1 public key
 const toAddress = (x, y) => {
   const k256 = web3.utils.soliditySha3(toHex(x, 256), toHex(y, 256))
   return web3.utils.toChecksumAddress(k256.slice(k256.length - 40))
 }
 
-contract('SchnorrSECP256K1', async accounts => {
+contract('SchnorrSECP256K1', async () => {
   let c
   beforeEach(async () => {
     c = await SchnorrSECP256K1.new()
