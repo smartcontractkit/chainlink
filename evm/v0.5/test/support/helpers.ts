@@ -144,8 +144,9 @@ export const toHex = (value: any): string => {
   return Ox(toHexWithoutPrefix(value))
 }
 
-export const Ox = (value: any): string =>
-  value.slice(0, 2) !== '0x' ? `0x${value}` : value
+export function Ox(value: any): string {
+  return value.slice(0, 2) !== '0x' ? `0x${value}` : value
+}
 
 // True if h is a standard representation of a byte array, false otherwise
 export const isByteRepresentation = (h: any): boolean => {
@@ -291,7 +292,7 @@ export const decodeRunRequest = (log: any): any => {
   }
 }
 
-const autoAddMapDelimiters = (data: any): Buffer => {
+function autoAddMapDelimiters(data: any): Buffer {
   let buffer = data
 
   if (buffer[0] >> 5 !== 5) {
@@ -338,7 +339,7 @@ export const requestDataBytes = (
   return funcSelector + encoded
 }
 
-export const abiEncode = (types: any, values: any): string => {
+export function abiEncode(types: any, values: any): string {
   return abi.rawEncode(types, values).toString('hex')
 }
 
@@ -566,8 +567,9 @@ export const executeServiceAgreementBytes = (
 export const strip0x = (s: string): string =>
   /^0[xX]/.test(s) ? s.slice(2) : s
 export const padHexTo256Bit = (s: string): string => s.padStart(64, '0')
-export const pad0xHexTo256Bit = (s: string): string =>
-  Ox(padHexTo256Bit(strip0x(s)))
+export function pad0xHexTo256Bit(s: string): string {
+  return Ox(padHexTo256Bit(strip0x(s)))
+}
 export const padNumTo256Bit = (n: number): string =>
   padHexTo256Bit(n.toString(16))
 
@@ -718,8 +720,9 @@ export const newServiceAgreement = async (
   return agreement as ServiceAgreement
 }
 
-export const sixMonthsFromNow = (): number =>
-  new BN(Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60)
+export function sixMonthsFromNow(): number {
+  return new BN(Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60)
+}
 
 export const fulfillOracleRequest = async (
   oracle: any,
