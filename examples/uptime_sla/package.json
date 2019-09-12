@@ -6,8 +6,8 @@
   "scripts": {
     "depcheck": "echo \"@chainlink/example-uptime-sla\" && depcheck --ignore-dirs=contracts || true",
     "eslint": "eslint --ext .js,.ts .",
-    "lint": "yarn solhint",
     "solhint": "solhint ./contracts/**/*.sol",
+    "lint": "yarn eslint && yarn solhint",
     "format": "prettier --write \"**/*\"",
     "test": "truffle test"
   },

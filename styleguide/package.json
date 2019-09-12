@@ -9,7 +9,7 @@
     "build-storybook": "build-storybook",
     "build": "rm -rf dist && tsc",
     "eslint": "eslint --ext .js,.jsx,.ts,.tsx src stories @types",
-    "lint": "tsc --noEmit",
+    "lint": "tsc --noEmit && yarn eslint",
     "format": "prettier --write \"**/*\"",
     "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true"
   },

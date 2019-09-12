@@ -5,10 +5,10 @@
   "private": true,
   "scripts": {
     "depcheck": "echo \"@chainlink/example-echo-server\" && depcheck --ignore-dirs=contracts || true",
-    "lint": "yarn solhint",
-    "format": "prettier --write \"**/*\"",
     "eslint": "eslint --ext .js,.ts .",
     "solhint": "solhint ./contracts/**/*.sol",
+    "lint": "yarn eslint && yarn solhint",
+    "format": "prettier --write \"**/*\"",
     "test": "truffle test"
   },
   "dependencies": {

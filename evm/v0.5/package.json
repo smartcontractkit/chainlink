@@ -6,10 +6,10 @@
     "build": "truffle build",
     "depcheck": "echo \"chainlinkv0.5\" && depcheck --ignore-dirs=build/contracts || true",
     "eslint": "eslint --ext .ts,.js test",
-    "lint": "yarn solhint",
+    "solhint": "solhint ./contracts/**/*.sol",
+    "lint": "yarn eslint && yarn solhint",
     "format": "prettier --write \"**/*\"",
     "slither": "truffle compile --quiet && slither .",
-    "solhint": "solhint ./contracts/**/*.sol",
     "test": "truffle test"
   },
   "dependencies": {

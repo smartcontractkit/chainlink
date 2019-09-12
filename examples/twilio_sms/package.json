@@ -6,9 +6,9 @@
   "scripts": {
     "depcheck": "echo \"@chainlink/example-twilio-sms\" && depcheck --ignore-dirs=contracts || true",
     "eslint": "eslint --ext .js,.ts .",
-    "lint": "yarn solhint",
-    "format": "prettier --write \"**/*\"",
     "solhint": "solhint ./contracts/**/*.sol",
+    "lint": "yarn eslint && yarn solhint",
+    "format": "prettier --write \"**/*\"",
     "test": "truffle test"
   },
   "devDependencies": {
