@@ -112,10 +112,13 @@ func abiEncode(fnABI *abi.Method, args map[string]interface{}) ([]byte, error) {
 	return result, nil
 }
 
-// we aim to support every type that solidity contracts as of solc v0.5.11
-// can decode: address, bool, bytes, bytes*, int*, string, uint*, as well as
-// fixed size arrays (e.g. int128[6] and bool[3][3]) and slices (e.g.
-// address[] and bool[3][3][])
+// We support every type that solidity contracts as of solc v0.5.11 can decode:
+// address, bool, bytes, bytes1, ..., bytes32, int8, ..., int256, string, uint8,
+// ..., uint256, as well as fixed size arrays (e.g. int128[6] and bool[3][3])
+// and slices (e.g. address[] and bool[3][3][])
+//
+// We (like solidity) don't support nested dynamic types like address[][] or
+// string[].
 func isSupportedABIType(typ *abi.Type) bool {
 	switch typ.T {
 	case abi.StringTy, abi.BytesTy:
@@ -142,8 +145,8 @@ func isSupportedStaticABIType(typ *abi.Type) bool {
 	}
 }
 
-// enc encodes a JSON value jval of ABI type typ. name is passed for better error
-// reporting.
+// enc encodes a JSON value jval of ABI type typ. name is passed for better
+// error reporting.
 func enc(typ *abi.Type, jval interface{}, name string) (static []byte, dynamic []byte, err error) {
 	switch typ.T {
 	case abi.BytesTy:
@@ -191,7 +194,8 @@ func padAndPrefixDynamic(bytes []byte) []byte {
 
 func staticSize(typ *abi.Type) int {
 	switch typ.T {
-	case abi.AddressTy, abi.BoolTy, abi.BytesTy, abi.FixedBytesTy, abi.IntTy, abi.SliceTy, abi.StringTy, abi.UintTy:
+	case abi.AddressTy, abi.BoolTy, abi.BytesTy, abi.FixedBytesTy,
+		abi.IntTy, abi.SliceTy, abi.StringTy, abi.UintTy:
 		return evmWordSize
 	case abi.ArrayTy:
 		return typ.Size * staticSize(typ.Elem)
@@ -297,6 +301,8 @@ func encSigned(sizeInBytes uint, n *big.Int, name string) ([]byte, error) {
 			"argument %s out of valid range for signed integer with %v bytes", name, sizeInBytes)
 	}
 	if n.Sign() < 0 {
+		// Convert to two's complement: make n positive, then subtract from
+		// 2**256
 		n.Neg(n)
 		n.Sub(min.Lsh(big.NewInt(1), evmWordSize*8), n)
 	}

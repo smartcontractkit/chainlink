@@ -64,7 +64,6 @@ var encodeTests = []struct {
 	resultJSON string
 	hexEncoded string // leave empty to signal that encode is expected to fail
 }{
-	//TODO(lorenzb): negative numbers like int128. what's the proper two's complement?
 	{
 		"empty result should fail",
 		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
@@ -178,7 +177,7 @@ var encodeTests = []struct {
 		``,
 	},
 	{
-		"bytes32 too short",
+		"bytes32 too long",
 		`[{"inputs":[{"name":"a","type":"bytes32"}],"name":"foo","type":"function"}]`,
 		`{"a": "0xffffbb22aaaccaaaa00aaaa13aaa88d60255f91243eb94eae1943827dad837fac4"}`,
 		``,
