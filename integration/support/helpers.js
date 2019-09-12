@@ -8,7 +8,7 @@ const clickLink = async (page, title) => {
 module.exports = {
   clickLink: clickLink,
 
-  consoleLogger: msg => {
+  consoleLogger: page => msg => {
     console.log(`PAGE LOG url: ${page.url()} | msg: ${msg.text()}`)
   },
 
