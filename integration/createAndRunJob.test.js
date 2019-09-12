@@ -20,7 +20,7 @@ describe('End to end', () => {
     server = await newServer(`{"last": "3843.95"}`)
     browser = await puppeteer.launch(puppeteerConfig)
     page = await browser.newPage()
-    page.on('console', consoleLogger)
+    page.on('console', consoleLogger(page))
   })
 
   afterAll(async () => {

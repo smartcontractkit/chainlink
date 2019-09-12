@@ -15,7 +15,7 @@ describe('End to end', () => {
     pupExpect.setDefaultOptions({ timeout: 3000 })
     browser = await puppeteer.launch(puppeteerConfig)
     page = await browser.newPage()
-    page.on('console', consoleLogger)
+    page.on('console', consoleLogger(page))
   })
 
   afterAll(async () => {
