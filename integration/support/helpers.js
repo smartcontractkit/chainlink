@@ -10,7 +10,7 @@ module.exports = {
 
   consoleLogger: msg => {
     console.log(`PAGE LOG url: ${page.url()} | msg: ${msg.text()}`)
-  }
+  },
 
   clickNewJobButton: async page => clickLink(page, 'New Job'),
 
