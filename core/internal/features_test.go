@@ -354,7 +354,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
 			confirmedReceipt := models.TxReceipt{
 				Hash:        runlog.TxHash,
-				BlockHash:   test.receiptBlockHash,
+				BlockHash:   &test.receiptBlockHash,
 				BlockNumber: cltest.Int(creationHeight),
 			}
 			eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
@@ -460,7 +460,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 
 	confirmedReceipt := models.TxReceipt{
 		Hash:        runlog.TxHash,
-		BlockHash:   runlog.BlockHash,
+		BlockHash:   &runlog.BlockHash,
 		BlockNumber: cltest.Int(logBlockNumber),
 	}
 	eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
