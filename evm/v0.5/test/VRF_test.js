@@ -185,7 +185,7 @@ contract('VRF', () => {
       sHash[1],
     )
     const zInv = projSum[2].invm(fieldSize)
-    const common_args = [
+    const commonArgs = [
       pk,
       gamma,
       c,
@@ -196,7 +196,7 @@ contract('VRF', () => {
       sHash,
       zInv,
     ]
-    const checkOutput = async o => VRF.isValidVRFOutput(...common_args, o)
+    const checkOutput = async o => VRF.isValidVRFOutput(...commonArgs, o)
     assert(!(await checkOutput(0)), 'accepted a bad proof')
     const bOutput = keccak256(Buffer.concat(gamma.map(v => v.toBuffer())))
     const output = bigNum('0x' + bOutput.toString('hex'))
