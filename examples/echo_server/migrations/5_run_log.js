@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 const clmigration = require('../clmigration.js')
 const request = require('request-promise').defaults({ jar: true })
 const LinkToken = artifacts.require('LinkToken')
