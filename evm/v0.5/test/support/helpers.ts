@@ -32,7 +32,7 @@ export let [
   consumer,
   oracleNode,
 ] = Array(1000).fill(INVALIDVALUE)
-export let personas: Record<string, any> = {}
+export const personas: Record<string, any> = {}
 
 before(async function queryEthClientForConstants() {
   accounts = await eth.getAccounts()

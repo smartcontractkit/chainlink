@@ -52,12 +52,12 @@ contract('ServiceAgreementConsumer', () => {
       })
 
       it('triggers a log event in the Coordinator contract', async () => {
-        let tx = await cc.requestEthereumPrice(currency)
-        let log = tx.receipt.rawLogs[3]
+        const tx = await cc.requestEthereumPrice(currency)
+        const log = tx.receipt.rawLogs[3]
         assert.equal(log.address.toLowerCase(), coord.address.toLowerCase())
 
         const request = h.decodeRunRequest(log)
-        let params = await h.decodeDietCBOR(request.data)
+        const params = await h.decodeDietCBOR(request.data)
         assert.equal(agreement.id, request.jobId)
         assertBigNum(paymentAmount, h.bigNum(request.payment))
         assert.equal(cc.address.toLowerCase(), request.requester.toLowerCase())
@@ -96,8 +96,8 @@ contract('ServiceAgreementConsumer', () => {
       let request2
 
       beforeEach(async () => {
-        let funcSig = h.functionSelector('fulfill(bytes32,bytes32)')
-        let args = h.executeServiceAgreementBytes(
+        const funcSig = h.functionSelector('fulfill(bytes32,bytes32)')
+        const args = h.executeServiceAgreementBytes(
           agreement.id,
           cc.address,
           funcSig,
@@ -113,7 +113,7 @@ contract('ServiceAgreementConsumer', () => {
           from: h.oracleNode,
         })
 
-        let received = await cc.currentPrice.call()
+        const received = await cc.currentPrice.call()
         assert.equal(h.toUtf8(received), '')
       })
     })
@@ -123,7 +123,7 @@ contract('ServiceAgreementConsumer', () => {
         await h.assertActionThrows(async () => {
           await cc.fulfill(request.id, response, { from: h.oracleNode })
         })
-        let received = await cc.currentPrice.call()
+        const received = await cc.currentPrice.call()
         assert.equal(h.toUtf8(received), '')
       })
     })
