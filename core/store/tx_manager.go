@@ -369,7 +369,7 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, 
 	// likely to be confirmed first
 	for attemptIndex := len(tx.Attempts) - 1; attemptIndex >= 0; attemptIndex-- {
 		receipt, state, err := txm.processAttempt(tx, attemptIndex, blockHeight)
-		if state == Safe || state == Confirmed {
+		if state == Safe {
 			return receipt, state, err // success, so all other attempt errors can be ignored.
 		}
 		merr = multierr.Append(merr, err)
@@ -448,7 +448,10 @@ func (txm *EthTxManager) CheckAttempt(
 	blockHeight uint64,
 ) (*models.TxReceipt, AttemptState, error) {
 
-	minimumConfirmations := new(big.Int).SetUint64(txm.config.MinOutgoingConfirmations())
+	minimumConfirmations := new(big.Int).Sub(
+		new(big.Int).SetUint64(txm.config.MinOutgoingConfirmations()),
+		big.NewInt(1),
+	)
 	confirmations := new(big.Int).Sub(
 		new(big.Int).SetUint64(blockHeight),
 		new(big.Int).SetUint64(txAttempt.SentAt),
@@ -480,10 +483,6 @@ const (
 	Unknown AttemptState = iota
 	// Unconfirmed means that a transaction has had no confirmations at all
 	Unconfirmed
-	// Confirmed means that a transaction has had at least one confirmation, but
-	// not enough to satisfy the minimum number of confirmations configuration
-	// option
-	Confirmed
 	// Safe has the required number of confirmations or more
 	Safe
 )
@@ -493,8 +492,6 @@ func (a AttemptState) String() string {
 	switch a {
 	case Unconfirmed:
 		return "unconfirmed"
-	case Confirmed:
-		return "confirmed"
 	case Safe:
 		return "safe"
 	default:
@@ -531,11 +528,6 @@ func (txm *EthTxManager) processAttempt(
 	switch state {
 	case Safe:
 		return receipt, state, txm.handleSafe(tx, attemptIndex, state)
-
-	case Confirmed: // nothing to do, need to wait
-		logger.Debugw(logMessage, logFields...)
-
-		return receipt, state, nil
 
 	case Unconfirmed:
 		attemptLimit := txm.config.TxAttemptLimit()

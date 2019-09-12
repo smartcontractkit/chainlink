@@ -130,13 +130,14 @@ func TestEthTxAdapter_Perform_SafeWithBytesAndNoDataPrefix(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
+	store.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
 
 	address := cltest.NewAddress()
 	fHash := models.HexToFunctionSelector("b3f98adc")
 	// contains diacritic acute to check bytes counted for length not chars
 	inputValue := "cönfirmed"
 
-	currentHeight := uint64(23456)
+	currentHeight := uint64(91283423)
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(currentHeight)))
 	ethMock, err := app.MockStartAndConnect()
 	require.NoError(t, err)
@@ -156,8 +157,7 @@ func TestEthTxAdapter_Perform_SafeWithBytesAndNoDataPrefix(t *testing.T) {
 			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
 			return nil
 		})
-	safe := currentHeight - store.Config.MinOutgoingConfirmations()
-	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(safe)}
+	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(currentHeight)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 
 	adapter := adapters.EthTx{
@@ -168,7 +168,7 @@ func TestEthTxAdapter_Perform_SafeWithBytesAndNoDataPrefix(t *testing.T) {
 	input := cltest.RunResultWithResult(inputValue)
 	data := adapter.Perform(input, store)
 
-	assert.NoError(t, data.GetError())
+	require.NoError(t, data.GetError())
 	assert.Equal(t, string(models.RunStatusCompleted), string(data.Status))
 
 	from := cltest.GetAccountAddress(t, store)
@@ -261,28 +261,27 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 
 	store := app.Store
 	config := store.Config
-	sentAt := uint64(23456)
 
 	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
-	ethMock.Register("eth_getTransactionCount", `0x100`)
+	ethMock.Register("eth_getTransactionCount", "0x100")
 	ethMock.Register("eth_call", "0x1")
 	ethMock.Register("eth_getBalance", "0x100")
 
 	ethMock.Register("eth_chainId", store.Config.ChainID())
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 	confirmedHash := cltest.NewHash()
+	sentAt := uint64(23456)
 	receipt := models.TxReceipt{Hash: confirmedHash, BlockNumber: cltest.Int(sentAt)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
+
 	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(confirmedAt)))
-
 	require.NoError(t, app.StartAndConnect())
 
 	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
 	tx.GasPrice = models.NewBig(config.EthGasPriceDefault())
 	require.NoError(t, store.DB.Save(tx).Error)
-	store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
-	a3, _ := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
+	store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt)
+	a3, _ := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+1)
 	adapter := adapters.EthTx{}
 	sentResult := cltest.RunResultWithResult(a3.Hash.String())
 	sentResult.MarkPendingConfirmations()
@@ -329,6 +328,9 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	ethMock := app.MockEthCallerSubscriber()
 	receipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt)}
 	ethMock.Register("eth_getTransactionCount", "0x100")
+	ethMock.Register("eth_getTransactionReceipt", receipt)
+	ethMock.Register("eth_call", "0x1")
+	ethMock.Register("eth_getBalance", "0x100")
 	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(confirmedAt)))
 	ethMock.Register("eth_chainId", config.ChainID())

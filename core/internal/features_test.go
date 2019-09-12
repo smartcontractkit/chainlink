@@ -64,7 +64,6 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold() + 1
 	safe := confirmed + config.MinOutgoingConfirmations() - 1
-	unconfirmedReceipt := models.TxReceipt{}
 	confirmedReceipt := models.TxReceipt{
 		Hash:        attempt1Hash,
 		BlockNumber: cltest.Int(confirmed),
@@ -135,7 +134,6 @@ func TestIntegration_FeeBump(t *testing.T) {
 		Hash:        attempt1Hash,
 		BlockNumber: cltest.Int(thirdTxConfirmedAt),
 	}
-	thirdTxSafeAt := thirdTxSentAt + config.MinOutgoingConfirmations()
 
 	newHeads := make(chan models.BlockHeader)
 	eth := app.MockEthCallerSubscriber(cltest.Strict)
@@ -160,9 +158,6 @@ func TestIntegration_FeeBump(t *testing.T) {
 
 	// At the next head, the transaction is still unconfirmed, but no thresholds
 	// have been met so we just wait...
-	eth.Context("ethTx.Perform()#2", func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(firstTxRemainsUnconfirmedAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
@@ -170,8 +165,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	// At the next head, the transaction remains unconfirmed but the gas bump
 	// threshold has been met, so a new transaction is made with a higher amount
 	// of gas ("bumped gas")
-	eth.Context("ethTx.Perform()#3", func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+	eth.Context("ethTx.Perform()#2", func(eth *cltest.EthMock) {
 		eth.Register("eth_sendRawTransaction", attempt2Hash)
 	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(firstTxGasBumpAt)}
@@ -181,18 +175,13 @@ func TestIntegration_FeeBump(t *testing.T) {
 
 	// Another head comes in and both transactions are still unconfirmed, more
 	// waiting...
-	eth.Context("ethTx.Perform()#4", func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-	})
 	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(secondTxRemainsUnconfirmedAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
 	// Now the second transaction attempt meets the gas bump threshold, so a
 	// final transaction attempt shoud be made
-	eth.Context("ethTx.Perform()#5", func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
+	eth.Context("ethTx.Perform()#3", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_sendRawTransaction", attempt3Hash)
 	})
@@ -203,21 +192,12 @@ func TestIntegration_FeeBump(t *testing.T) {
 
 	// This third attempt has enough gas and gets confirmed, but has not yet
 	// received sufficient confirmations, so we wait again...
-	eth.Context("ethTx.Perform()#6", func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
-	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(thirdTxConfirmedAt)}
-	eth.EventuallyAllCalled(t)
-	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
-
-	// Finally the third attempt gets to a minimum number of safe confirmations,
-	// the amount remaining in the account is printed (eth_getBalance, eth_call)
-	eth.Context("ethTx.Perform()#7", func(eth *cltest.EthMock) {
+	eth.Context("ethTx.Perform()#4", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
 		eth.Register("eth_getBalance", "0x100")
 		eth.Register("eth_call", "0x100")
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(thirdTxSafeAt)}
+	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(thirdTxConfirmedAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
@@ -661,8 +641,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
-	config, configCleanup := cltest.NewConfig(t)
-	defer configCleanup()
+	app.Store.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
 
@@ -671,7 +650,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
-		eth.Register("eth_chainId", config.ChainID())
+		eth.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(100)))
 	require.NoError(t, app.StartAndConnect())
