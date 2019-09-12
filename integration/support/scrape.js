@@ -22,7 +22,7 @@ module.exports = {
     checkPage = async () => {
       const element = await page.$('body')
       const text = await (await element.getProperty('textContent')).jsonValue()
-      let match = text
+      const match = text
         .replace(/\s+/g, ' ')
         .trim()
         .match(regex)
@@ -32,7 +32,7 @@ module.exports = {
       await page.reload()
       return await checkPage(page, regex)
     }
-    let match = await waitWithTimeout(checkPage, 'scrape', 30000)
+    const match = await waitWithTimeout(checkPage, 'scrape', 30000)
     expect(match).toBeDefined()
     return (await match())[1]
   },
