@@ -7,8 +7,9 @@
   "license": "MIT",
   "keywords": [],
   "scripts": {
-    "addclnode": "ts-node src/bin/clnodes.ts add",
     "admin:seed": "ts-node src/bin/admin.ts seed",
+    "admin:clnodes:add": "ts-node src/bin/clnodes.ts add",
+    "admin:clnodes:delete": "ts-node src/bin/clnodes.ts delete",
     "depcheck": "echo \"@chainlink/explorer\" && depcheck --ignore-dirs=client || exit 0",
     "predev": "yarn automigrate",
     "dev": "concurrently \"cd client && yarn start\" \"ts-node-dev --respawn --transpileOnly ./src/index.ts\"",
@@ -37,6 +38,7 @@
   "main": "src/index.ts",
   "dependencies": {
     "argon2": "^0.24.1",
+    "class-validator": "^0.10.0",
     "express": "^4.16.4",
     "express-winston": "^3.4.0",
     "helmet": "^3.20.0",

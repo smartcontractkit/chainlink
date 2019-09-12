@@ -1,40 +1,7 @@
 import yargs from 'yargs'
-import { Connection } from 'typeorm'
-import {
-  createChainlinkNode,
-  deleteChainlinkNode,
-} from '../entity/ChainlinkNode'
-import { closeDbConnection, getDb } from '../database'
+import { add, remove } from '../cli/clnodes'
 
-const add = async (name: string, url?: string) => {
-  return bootstrap(async (db: Connection) => {
-    const [chainlinkNode, secret] = await createChainlinkNode(db, name, url)
-    console.log('created new chainlink node with id %s', chainlinkNode.id)
-    console.log('AccessKey', chainlinkNode.accessKey)
-    console.log('Secret', secret)
-  })
-}
-
-const remove = async (name: string) => {
-  return bootstrap(async (db: Connection) => {
-    deleteChainlinkNode(db, name)
-  })
-}
-
-async function bootstrap(cb: any) {
-  const db = await getDb()
-  try {
-    await cb(db)
-  } catch (e) {
-    console.error(e)
-  }
-  try {
-    await closeDbConnection()
-  } catch (e) {
-    console.error(e)
-  }
-}
-
+/* eslint-disable-next-line no-unused-expressions */
 yargs
   .usage('Usage: $0 <command> [options]')
   .command({

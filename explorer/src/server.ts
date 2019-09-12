@@ -2,6 +2,7 @@ import express from 'express'
 import helmet from 'helmet'
 import http from 'http'
 import mime from 'mime-types'
+import adminAuth from './middleware/adminAuth'
 import * as controllers from './controllers'
 import { addRequestLogging, logger } from './logging'
 import { bootstrapRealtime } from './realtime'
@@ -9,7 +10,7 @@ import seed from './seed'
 
 export const DEFAULT_PORT = parseInt(process.env.SERVER_PORT, 10) || 8080
 
-const server = (port: number = DEFAULT_PORT) => {
+const server = (port: number = DEFAULT_PORT): http.Server => {
   if (process.env.NODE_ENV === 'development') {
     seed()
   }
@@ -29,8 +30,12 @@ const server = (port: number = DEFAULT_PORT) => {
       },
     }),
   )
+
+  app.use('/api/v1/admin/*', adminAuth)
+  const ADMIN_CONTROLLERS = [controllers.adminNodes]
+  ADMIN_CONTROLLERS.forEach(c => app.use('/api/v1/admin', c))
+
   app.use('/api/v1', controllers.jobRuns)
-  app.use('/api/v1/admin', controllers.adminLogin)
 
   app.get('/*', (_, res) => {
     res.sendFile(`${__dirname}/public/index.html`)
@@ -38,6 +43,7 @@ const server = (port: number = DEFAULT_PORT) => {
 
   const httpServer = new http.Server(app)
   bootstrapRealtime(httpServer)
+
   return httpServer.listen(port, () => {
     logger.info(`server started, listening on port ${port}`)
   })

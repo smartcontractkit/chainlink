@@ -118,13 +118,11 @@ launch_explorer() {
 add_clnode_to_explorer() {
   title "Adding CL Node to Explorer..."
 
-  pushd explorer >/dev/null
   clnode_name="test-$(date +%s)"
-  response=`yarn addclnode $clnode_name`
+  response=`yarn workspace @chainlink/explorer run admin:clnodes:add $clnode_name`
   export EXPLORER_ACCESS_KEY=$(echo $response | grep -o "AccessKey [a-zA-Z0-9]*" | awk '{print $2}')
   export EXPLORER_SECRET=$(echo $response | grep -o "Secret [a-zA-Z0-9]*" | awk '{print $2}')
   export EXPLORER_URL="ws://localhost:8080"
-  popd >/dev/null
   title "Added CL Node $clnode_name to Explorer."
 }
 
