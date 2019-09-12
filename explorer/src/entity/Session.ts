@@ -3,14 +3,11 @@ import {
   Connection,
   CreateDateColumn,
   Entity,
-  ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   UpdateResult,
 } from 'typeorm'
 import { ChainlinkNode } from './ChainlinkNode'
-import { TaskRun } from './TaskRun'
 
 @Entity()
 export class Session {

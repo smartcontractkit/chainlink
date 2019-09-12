@@ -1,4 +1,4 @@
-export interface IState {
+export interface State {
   etherscanHost?: string
 }
 
@@ -9,7 +9,7 @@ export type Action =
 
 const initialState = { etherscanHost: undefined }
 
-export default (state: IState = initialState, action: Action) => {
+export default (state: State = initialState, action: Action) => {
   switch (action.type) {
     case 'UPSERT_JOB_RUN':
       return Object.assign({}, state, {

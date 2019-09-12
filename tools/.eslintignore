@@ -1,0 +1,10 @@
+bin/
+ci/
+clroot/
+docker/
+gethnet/
+eslint-config/
+prettier-config/
+node_modules
+.prettierignore
+.gitignore

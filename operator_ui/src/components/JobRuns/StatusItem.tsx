@@ -14,7 +14,7 @@ import StatusIcon from '../JobRuns/StatusIcon'
 import classNames from 'classnames'
 import { Grid } from '@material-ui/core'
 
-const withChildrenStyles = (theme: Theme) =>
+const withChildrenStyles = () =>
   createStyles({
     summary: {
       minHeight: '0 !important',
@@ -27,52 +27,49 @@ const withChildrenStyles = (theme: Theme) =>
     },
   })
 
-interface IWithChildrenProps extends WithStyles<typeof withChildrenStyles> {
-  children: React.ReactNode
+interface WithChildrenProps extends WithStyles<typeof withChildrenStyles> {
   summary: string
   minConfirmations?: number
   confirmations?: number
 }
 
-const WithChildren = withStyles(withChildrenStyles)(
-  ({
-    summary,
-    children,
-    classes,
-    confirmations,
-    minConfirmations,
-  }: IWithChildrenProps) => {
-    return (
-      <ExpansionPanel className={classes.expansionPanel}>
-        <ExpansionPanelSummary
-          className={classes.summary}
-          classes={{ content: classes.content }}
-          expandIcon={<ExpandMoreIcon />}
-        >
-          <Grid container alignItems="baseline">
-            <Grid item sm={10}>
-              <Typography variant="h5">{summary}</Typography>
-            </Grid>
-            <Grid item>
-              {minConfirmations && (
-                <Typography variant="h6" color="secondary">
-                  Confirmations {confirmations}/{minConfirmations}
-                </Typography>
-              )}
-            </Grid>
-          </Grid>
-        </ExpansionPanelSummary>
-        <ExpansionPanelDetails>{children}</ExpansionPanelDetails>
-      </ExpansionPanel>
-    )
-  },
+const withChildrenUnstyled: React.FC<WithChildrenProps> = ({
+  summary,
+  classes,
+  children,
+  confirmations,
+  minConfirmations,
+}) => (
+  <ExpansionPanel className={classes.expansionPanel}>
+    <ExpansionPanelSummary
+      className={classes.summary}
+      classes={{ content: classes.content }}
+      expandIcon={<ExpandMoreIcon />}
+    >
+      <Grid container alignItems="baseline">
+        <Grid item sm={10}>
+          <Typography variant="h5">{summary}</Typography>
+        </Grid>
+        <Grid item>
+          {minConfirmations && (
+            <Typography variant="h6" color="secondary">
+              Confirmations {confirmations}/{minConfirmations}
+            </Typography>
+          )}
+        </Grid>
+      </Grid>
+    </ExpansionPanelSummary>
+    <ExpansionPanelDetails>{children}</ExpansionPanelDetails>
+  </ExpansionPanel>
 )
 
-interface IWithoutChildrenProps {
+const WithChildren = withStyles(withChildrenStyles)(withChildrenUnstyled)
+
+interface WithoutChildrenProps {
   summary: string
 }
 
-const WithoutChildren = ({ summary }: IWithoutChildrenProps) => {
+const WithoutChildren = ({ summary }: WithoutChildrenProps) => {
   return <Typography>{summary}</Typography>
 }
 
@@ -102,7 +99,7 @@ const styles = (theme: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   status: string
   borderTop: boolean
   children: React.ReactNode
@@ -119,7 +116,7 @@ const StatusItem = ({
   classes,
   confirmations,
   minConfirmations,
-}: IProps) => (
+}: Props) => (
   <div className={classNames(classes.item, { [classes.borderTop]: borderTop })}>
     <div className={classes.status}>
       <StatusIcon width={38} height={38}>
@@ -129,11 +126,12 @@ const StatusItem = ({
     <div className={classes.details}>
       {children ? (
         <WithChildren
-          children={children}
           summary={summary}
           confirmations={confirmations}
           minConfirmations={minConfirmations}
-        />
+        >
+          {children}
+        </WithChildren>
       ) : (
         <WithoutChildren summary={summary} />
       )}

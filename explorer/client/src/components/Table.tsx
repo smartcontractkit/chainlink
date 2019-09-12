@@ -18,12 +18,12 @@ import PaginationActions from './Table/PaginationActions'
 export const DEFAULT_ROWS_PER_PAGE = 10
 export const DEFAULT_CURRENT_PAGE = 0
 
-interface ILoadingProps {
+interface LoadingProps {
   colCount: number
   msg?: string
 }
 
-const Loading = ({ colCount, msg }: ILoadingProps) => {
+const Loading = ({ colCount, msg }: LoadingProps) => {
   return (
     <TableRow>
       <MuiTableCell component="th" scope="row" colSpan={colCount}>
@@ -33,12 +33,12 @@ const Loading = ({ colCount, msg }: ILoadingProps) => {
   )
 }
 
-interface IEmptyProps {
+interface EmptyProps {
   colCount: number
   msg?: string
 }
 
-const Empty = ({ colCount, msg }: IEmptyProps) => {
+const Empty = ({ colCount, msg }: EmptyProps) => {
   return (
     <TableRow>
       <MuiTableCell component="th" scope="row" colSpan={colCount}>
@@ -65,7 +65,7 @@ const styles = (theme: Theme) =>
 
 export type ChangePageEvent = React.MouseEvent<HTMLButtonElement> | null
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   headers: string[]
   rowsPerPage: number
   currentPage: number
@@ -76,7 +76,7 @@ interface IProps extends WithStyles<typeof styles> {
   emptyMsg?: string
 }
 
-const renderRows = ({ headers, rows, loadingMsg, emptyMsg }: IProps) => {
+const renderRows = ({ headers, rows, loadingMsg, emptyMsg }: Props) => {
   if (!rows) {
     return <Loading colCount={headers.length} msg={loadingMsg} />
   } else if (rows.length === 0) {
@@ -92,7 +92,7 @@ const renderRows = ({ headers, rows, loadingMsg, emptyMsg }: IProps) => {
   }
 }
 
-const Table = (props: IProps) => {
+const Table = (props: Props) => {
   return (
     <Paper className={props.classes.root}>
       <MuiTable className={props.classes.table}>

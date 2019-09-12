@@ -1,11 +1,11 @@
 import React from 'react'
 
-interface IProps {
+interface Props {
   className?: string
   children: React.ReactNode
 }
 
-const SearchBox = ({ className, children }: IProps) => {
+const SearchBox = ({ className, children }: Props) => {
   return (
     <form method="GET" action="/job-runs" className={className}>
       {children}

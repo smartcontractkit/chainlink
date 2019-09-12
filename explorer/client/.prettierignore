@@ -3,3 +3,4 @@ public/
 .gitignore
 .env
 src/images
+build/

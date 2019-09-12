@@ -13,7 +13,7 @@ import Content from 'components/Content'
 import JobRunsList from 'components/JobRuns/List'
 import TaskList from 'components/Jobs/TaskList'
 import { AppState } from 'connectors/redux/reducers'
-import { IJobRuns, IJobSpec } from 'operator_ui'
+import { JobRuns, JobSpec } from 'operator_ui'
 import React from 'react'
 import { connect } from 'react-redux'
 import jobSelector from 'selectors/job'
@@ -26,7 +26,7 @@ import { formatInitiators } from 'utils/jobSpecInitiators'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import RegionalNav from './RegionalNav'
 
-const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
+const renderJobSpec = (job: JobSpec, recentRunsCount: number) => {
   const info = {
     runCount: recentRunsCount,
     initiator: formatInitiators(job.initiators),
@@ -38,21 +38,21 @@ const renderJobSpec = (job: IJobSpec, recentRunsCount: number) => {
   )
 }
 
-const renderTaskRuns = (job: IJobSpec) => (
+const renderTaskRuns = (job: JobSpec) => (
   <Card>
     <CardTitle divider>Task List</CardTitle>
     <TaskList tasks={job.tasks} />
   </Card>
 )
 
-interface IRecentJobRunsProps {
-  job: IJobSpec
-  recentRuns: IJobRuns
+interface RecentJobRunsProps {
+  job: JobSpec
+  recentRuns: JobRuns
   recentRunsCount: number
   showJobRunsCount: number
 }
 
-const totalLinkEarned = (job: IJobSpec) => {
+const totalLinkEarned = (job: JobSpec) => {
   const zero = '0.000000'
   const unformatted = job.earnings && (job.earnings / GWEI_PER_TOKEN).toString()
   const formatted =
@@ -79,7 +79,7 @@ const chartCardStyles = (theme: Theme) =>
   })
 
 interface ChartProps extends WithStyles<typeof chartCardStyles> {
-  job: IJobSpec
+  job: JobSpec
 }
 
 const ChartArea = withStyles(chartCardStyles)(
@@ -102,7 +102,7 @@ const RecentJobRuns = ({
   recentRuns,
   recentRunsCount,
   showJobRunsCount,
-}: IRecentJobRunsProps) => {
+}: RecentJobRunsProps) => {
   return (
     <Card>
       <CardTitle divider>Recent Job Runs</CardTitle>
@@ -117,10 +117,10 @@ const RecentJobRuns = ({
   )
 }
 
-interface IDetailsProps {
-  recentRuns: IJobRuns
+interface DetailsProps {
+  recentRuns: JobRuns
   recentRunsCount: number
-  job?: IJobSpec
+  job?: JobSpec
   showJobRunsCount: number
 }
 
@@ -129,7 +129,7 @@ const Details = ({
   recentRuns,
   recentRunsCount,
   showJobRunsCount,
-}: IDetailsProps) => {
+}: DetailsProps) => {
   if (job) {
     return (
       <Grid container spacing={24}>
@@ -161,10 +161,10 @@ const Details = ({
   return <div>Fetching...</div>
 }
 
-interface IProps {
+interface Props {
   jobSpecId: string
-  job?: IJobSpec
-  recentRuns: IJobRuns
+  job?: JobSpec
+  recentRuns: JobRuns
   recentRunsCount: number
   showJobRunsCount: number
   fetchJob: (id: string) => Promise<any>
@@ -183,7 +183,7 @@ export const Show = useHooks(
     recentRunsCount,
     recentRuns = [],
     showJobRunsCount = 2,
-  }: IProps) => {
+  }: Props) => {
     useEffect(() => {
       document.title = 'Show Job'
       fetchJob(jobSpecId)

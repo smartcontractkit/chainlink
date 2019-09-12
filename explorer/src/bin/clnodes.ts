@@ -21,7 +21,7 @@ const remove = async (name: string) => {
   })
 }
 
-const bootstrap = async (cb: any) => {
+async function bootstrap(cb: any) {
   const db = await getDb()
   try {
     await cb(db)
@@ -30,10 +30,12 @@ const bootstrap = async (cb: any) => {
   }
   try {
     await closeDbConnection()
-  } catch (e) {}
+  } catch (e) {
+    console.error(e)
+  }
 }
 
-const _ = yargs
+yargs
   .usage('Usage: $0 <command> [options]')
   .command({
     command: 'add <name> [url]',

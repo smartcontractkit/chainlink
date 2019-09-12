@@ -15,7 +15,7 @@ const initialState: State = {
   count: 0,
 }
 
-export default (state: State = initialState, action: Action<String>) => {
+export default (state: State = initialState, action: Action<string>) => {
   if (!action.type) {
     return state
   }

@@ -31,11 +31,11 @@ const styles = ({ spacing }: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   path: string
 }
 
-const Search = ({ classes }: IProps) => {
+const Search = ({ classes }: Props) => {
   return (
     <div className={classes.container}>
       <Grid container justify="center" alignItems="center">

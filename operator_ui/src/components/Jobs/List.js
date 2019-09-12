@@ -62,18 +62,21 @@ const renderBody = (jobs, error) => {
 }
 
 export const List = useHooks(props => {
+  const { jobs, jobCount, fetchJobs, pageSize, error } = props
   const [page, setPage] = useState(FIRST_PAGE)
+
   useEffect(() => {
     const queryPage =
       (props.match && parseInt(props.match.params.jobPage, 10)) || FIRST_PAGE
     setPage(queryPage)
     fetchJobs(queryPage, pageSize)
   }, [])
-  const { jobs, jobCount, fetchJobs, pageSize, error } = props
+
   const handleChangePage = (e, page) => {
     fetchJobs(page, pageSize)
     setPage(page)
   }
+
   const TableButtonsWithProps = () => (
     <TableButtons
       {...props}

@@ -5,7 +5,7 @@ import Details from '../../../components/JobRuns/Details'
 describe('components/JobRuns/Details', () => {
   it('hides error when not present', () => {
     const chainlinkNode = {}
-    const jobRun = { chainlinkNode } as IJobRun
+    const jobRun = { chainlinkNode } as JobRun
     const wrapper = mount(<Details jobRun={jobRun} />)
 
     expect(wrapper.text()).not.toContain('Error')
@@ -13,7 +13,7 @@ describe('components/JobRuns/Details', () => {
 
   it('displays error when present', () => {
     const chainlinkNode = {}
-    const jobRun = { error: 'Failure!', chainlinkNode } as IJobRun
+    const jobRun = { error: 'Failure!', chainlinkNode } as JobRun
     const wrapper = mount(<Details jobRun={jobRun} />)
 
     expect(wrapper.text()).toContain('Error')

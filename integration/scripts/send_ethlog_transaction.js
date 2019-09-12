@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 // truffle script
 
 const request = require('request-promise').defaults({ jar: true })
@@ -20,7 +22,7 @@ const main = async () => {
     tasks: [{ type: 'HttpPost', params: { url: ECHO_SERVER_URL } }],
   }
   const specsUrl = url.resolve(CHAINLINK_URL, '/v2/specs')
-  let Job = await request
+  const Job = await request
     .post(specsUrl, { json: job })
     .catch(abort('Error creating Job'))
 

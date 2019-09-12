@@ -14,7 +14,7 @@ import ReactResizeDetector from 'react-resize-detector'
 import Logo from '../components/Logo'
 import SearchForm from '../components/SearchForm'
 import SearchBox from '../components/SearchBox'
-import { IState } from '../reducers'
+import { State } from '../reducers'
 
 const STACKED_LOGO_HEIGHT = 40
 
@@ -47,11 +47,11 @@ const styles = (theme: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   onResize: (width: number, height: number) => void
 }
 
-const Header = ({ classes, onResize }: IProps) => {
+const Header = ({ classes, onResize }: Props) => {
   return (
     <AppBar className={classes.appBar} color="default">
       <ReactResizeDetector
@@ -94,7 +94,7 @@ const Header = ({ classes, onResize }: IProps) => {
   )
 }
 
-const mapStateToProps = (state: IState) => {
+const mapStateToProps = (state: State) => {
   return {
     search: state.search.query,
   }

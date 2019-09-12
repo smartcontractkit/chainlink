@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 // truffle script
 
 const request = require('request-promise').defaults({ jar: true })
@@ -44,7 +46,7 @@ const main = async () => {
   const job = generateJob(runLog.address)
 
   await request.post(sessionsUrl, { json: credentials })
-  let Job = await request
+  const Job = await request
     .post(specsUrl, { json: job })
     .catch(abort('Error creating Job'))
 

@@ -5,13 +5,16 @@
   "license": "MIT",
   "scripts": {
     "depcheck": "echo \"@chainlink/example-testnet\" && depcheck --ignore-dirs=contracts || true",
-    "lint": "yarn solhint",
-    "format": "prettier --write \"**/*\"",
-    "solhint": "solhint ./contracts/**/*.sol"
+    "eslint": "eslint --ext .js,.ts .",
+    "solhint": "solhint ./contracts/**/*.sol",
+    "lint": "yarn eslint && yarn solhint",
+    "format": "prettier --write \"**/*\""
   },
   "devDependencies": {
+    "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
     "depcheck": "^0.8.3",
+    "eslint": "^6.3.0",
     "prettier": "^1.18.2",
     "solc": "0.4.24",
     "solhint": "^2.1.0",

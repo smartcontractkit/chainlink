@@ -1,5 +1,5 @@
 import { assertBigNum } from './support/matchers'
-import { bigNum, toHex } from './support/helpers'
+import { bigNum } from './support/helpers'
 import { pubToAddress, keccak256 } from 'ethereumjs-util'
 
 const VRFContract = artifacts.require('VRF.sol')
@@ -41,8 +41,6 @@ const seventeenTimesGenerator = [
   '0X4211AB0694635168E997B0EAD2A93DAECED1F4A04A95C0F6CFB199F69E56EB77',
 ].map(bigNum)
 
-const gFPNeg = n => fieldSize.sub(bigNum(n)) // Additive inverse in field
-const minusGenerator = [1, gFPNeg(2)].map(bigNum) // (1,-2)
 const big1 = bigNum(1)
 const big2 = bigNum(2)
 const big3 = bigNum(3)
@@ -187,7 +185,7 @@ contract('VRF', () => {
       sHash[1],
     )
     const zInv = projSum[2].invm(fieldSize)
-    const common_args = [
+    const commonArgs = [
       pk,
       gamma,
       c,
@@ -198,14 +196,10 @@ contract('VRF', () => {
       sHash,
       zInv,
     ]
-    const checkOutput = async o => VRF.isValidVRFOutput(...common_args, o)
+    const checkOutput = async o => VRF.isValidVRFOutput(...commonArgs, o)
     assert(!(await checkOutput(0)), 'accepted a bad proof')
     const bOutput = keccak256(Buffer.concat(gamma.map(v => v.toBuffer())))
     const output = bigNum('0x' + bOutput.toString('hex'))
     assert(await checkOutput(output), 'rejected good proof')
-    const gasUsed = await VRF.isValidVRFOutput.estimateGas(
-      ...common_args,
-      output,
-    )
   })
 })

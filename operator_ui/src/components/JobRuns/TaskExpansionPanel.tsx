@@ -3,7 +3,7 @@ import Grid from '@material-ui/core/Grid'
 import { withStyles, WithStyles } from '@material-ui/core/styles'
 import { stringify } from 'javascript-stringify'
 import capitalize from 'lodash/capitalize'
-import { IJobRun, ITaskRun } from 'operator_ui'
+import { JobRun, TaskRun } from 'operator_ui'
 import React from 'react'
 import StatusItem from './StatusItem'
 
@@ -22,7 +22,7 @@ const fontStyles = () =>
     },
   })
 
-interface IItemProps extends WithStyles<typeof fontStyles> {
+interface ItemProps extends WithStyles<typeof fontStyles> {
   colATitle: string
   colAValue: string
   colBTitle: string
@@ -30,7 +30,7 @@ interface IItemProps extends WithStyles<typeof fontStyles> {
 }
 
 const Item = withStyles(fontStyles)(
-  ({ colATitle, colAValue, colBTitle, colBValue, classes }: IItemProps) => (
+  ({ colATitle, colAValue, colBTitle, colBValue, classes }: ItemProps) => (
     <Grid container>
       <Grid item sm={2}>
         <p className={classes.header}>{colATitle}</p>
@@ -46,11 +46,11 @@ const Item = withStyles(fontStyles)(
   ),
 )
 
-interface IInitiatorProps {
+interface InitiatorProps {
   params: object
 }
 
-const Initiator = ({ params }: IInitiatorProps) => {
+const Initiator = ({ params }: InitiatorProps) => {
   const paramsArr = Object.entries(params)
   return (
     <>
@@ -76,11 +76,11 @@ const Initiator = ({ params }: IInitiatorProps) => {
   )
 }
 
-interface IParamsProps {
+interface ParamsProps {
   params?: object
 }
 
-const Params = ({ params }: IParamsProps) => {
+const Params = ({ params }: ParamsProps) => {
   return (
     <div>
       {Object.entries(params || {}).map((p, idx) => (
@@ -96,11 +96,11 @@ const Params = ({ params }: IParamsProps) => {
   )
 }
 
-interface IResultProps {
-  run: ITaskRun
+interface ResultProps {
+  run: TaskRun
 }
 
-const Result = ({ run }: IResultProps) => {
+const Result = ({ run }: ResultProps) => {
   const result = run.result && run.result.data && run.result.data.result
 
   return (
@@ -113,11 +113,11 @@ const Result = ({ run }: IResultProps) => {
   )
 }
 
-interface IProps {
-  jobRun: IJobRun
+interface Props {
+  jobRun: JobRun
 }
 
-const TaskExpansionPanel = ({ jobRun }: IProps) => {
+const TaskExpansionPanel = ({ jobRun }: Props) => {
   const initiator = jobRun.initiator
 
   return (
@@ -133,7 +133,7 @@ const TaskExpansionPanel = ({ jobRun }: IProps) => {
           <Initiator params={initiator.params} />
         </StatusItem>
       </Grid>
-      {jobRun.taskRuns.map((taskRun: ITaskRun) => {
+      {jobRun.taskRuns.map((taskRun: TaskRun) => {
         return (
           <Grid item xs={12} key={taskRun.id}>
             <StatusItem

@@ -11,7 +11,7 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import classNames from 'classnames'
-import { IState } from '../reducers'
+import { State } from '../reducers'
 
 const styles = ({ palette, spacing }: Theme) =>
   createStyles({
@@ -28,12 +28,12 @@ const styles = ({ palette, spacing }: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   className?: string
   query?: string
 }
 
-const SearchBox = ({ classes, className, query }: IProps) => {
+const SearchBox = ({ classes, className, query }: Props) => {
   return (
     <Paper elevation={0} className={classNames(classes.paper, className)}>
       <IconButton aria-label="Search" type="submit">
@@ -49,7 +49,7 @@ const SearchBox = ({ classes, className, query }: IProps) => {
   )
 }
 
-const mapStateToProps = (state: IState) => {
+const mapStateToProps = (state: State) => {
   return {
     query: state.search.query,
   }

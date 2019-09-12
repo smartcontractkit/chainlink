@@ -43,7 +43,6 @@ export const bootstrapRealtime = async (server: http.Server) => {
         headers?: http.OutgoingHttpHeaders,
       ) => void,
     ) => {
-      /* eslint-disable standard/no-callback-literal */
       logger.debug('websocket connection attempt')
 
       const accessKey = info.req.headers['x-explore-chainlink-accesskey']
@@ -67,7 +66,6 @@ export const bootstrapRealtime = async (server: http.Server) => {
         sessions.set(info.req, session)
         callback(true, 200)
       })
-      /* eslint-enable standard/no-callback-literal */
     },
   })
 
