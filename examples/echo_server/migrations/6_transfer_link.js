@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 const clmigration = require('../clmigration.js')
 const LinkToken = artifacts.require('LinkToken')
 const RunLog = artifacts.require('RunLog')
