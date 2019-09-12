@@ -70,7 +70,7 @@ contract('Coordinator', () => {
 
     context('with valid oracle signatures', () => {
       it('saves a service agreement struct from the parameters', async () => {
-        let tx = await h.initiateServiceAgreement(coordinator, agreement)
+        const tx = await h.initiateServiceAgreement(coordinator, agreement)
         await h.checkServiceAgreementPresent(coordinator, agreement)
       })
 
@@ -252,7 +252,7 @@ contract('Coordinator', () => {
       assert.equal(tx.logs[0].args.said, agreement.id)
     })
 
-    let fHash = h.functionSelectorFromAbi(GetterSetter, 'requestedBytes32')
+    const fHash = h.functionSelectorFromAbi(GetterSetter, 'requestedBytes32')
 
     context('cooperative consumer', () => {
       beforeEach(async () => {
