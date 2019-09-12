@@ -1,5 +1,6 @@
 'use strict'
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const h = require('chainlink-test-helpers')
 
 contract('MyContract', accounts => {
