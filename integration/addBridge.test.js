@@ -3,6 +3,7 @@ const pupExpect = require('expect-puppeteer')
 const puppeteerConfig = require('./puppeteer.config.js')
 const {
   signIn,
+  consoleLogger,
   clickBridgesTab,
   clickNewBridgeButton,
 } = require('./support/helpers.js')
@@ -14,9 +15,7 @@ describe('End to end', () => {
     pupExpect.setDefaultOptions({ timeout: 3000 })
     browser = await puppeteer.launch(puppeteerConfig)
     page = await browser.newPage()
-    page.on('console', msg => {
-      console.log(`PAGE LOG url: ${page.url()} | msg: ${msg.text()}`)
-    })
+    page.on('console', consoleLogger)
   })
 
   afterAll(async () => {
