@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-var echoes = 0
-var express = require('express')
-var bodyParser = require('body-parser')
-var app = express()
-var PORT = process.argv[2]
+let echoes = 0
+const express = require('express')
+const bodyParser = require('body-parser')
+const app = express()
+let PORT = process.argv[2]
 app.use(bodyParser.json())
 
 app.get('/count', function(req, res) {
