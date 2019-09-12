@@ -19,9 +19,7 @@
     "lint:all": "yarn workspaces run lint",
     "format:all": "yarn workspaces run format"
   },
-  "devDependencies": {
-    "@types/mocha": "^5.2.0"
-  },
+  "devDependencies": {},
   "resolutions": {
     "**/react-scripts/**/eslint": "6.3.0"
   },
