@@ -281,6 +281,16 @@ workflows:
       - rust
       - explorer
       - build-explorer-image:
+          requires:
+            - go-sqlite
+            - go-sqlite-race
+            - go-postgres
+            - truffle
+            - geth-postgres
+            - parity-postgres
+            - operator-ui
+            - rust
+            - explorer
           filters:
             branches:
               ignore: master
@@ -304,6 +314,14 @@ workflows:
                 - /^release\/.*/
       - aws-ecr/build_and_push_image:
           requires:
+            - go-sqlite
+            - go-sqlite-race
+            - go-postgres
+            - truffle
+            - geth-postgres
+            - parity-postgres
+            - operator-ui
+            - rust
             - explorer
           filters:
             branches:
@@ -314,4 +332,11 @@ workflows:
       - reportcoverage:
           requires:
             - go-sqlite
+            - go-sqlite-race
+            - go-postgres
+            - truffle
+            - geth-postgres
+            - parity-postgres
             - operator-ui
+            - rust
+            - explorer
