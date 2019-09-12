@@ -17,9 +17,9 @@ const client = require('twilio')(accountSid, authToken)
 
 app.use(bodyParser.json())
 app.all('*', function(req, res) {
-  let log = req.body
-  let amount = parseInt(log.topics[1], 16)
-  let message =
+  const log = req.body
+  const amount = parseInt(log.topics[1], 16)
+  const message =
     'Hello Chainlink! You just sent received ' +
     amount +
     ' wei at ' +
