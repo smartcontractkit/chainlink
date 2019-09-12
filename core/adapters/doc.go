@@ -143,18 +143,18 @@
 //       "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 //   bool:
 //     - true or false
-//   bytes<n>:
+//   bytes<n> (where 1 <= n <= 32):
 //     - a hexstring containing exactly n bytes, e.g.
 //       "0xdeadbeef" for a bytes8
 //     - an array of numbers containing exactly n bytes, e.g.
 //       [1,2,3,4,5,6,7,8,9,10] for a bytes10
-//   int<n>:
+//   int<n> (where n ∈ {8, 16, 24, ..., 256}):
 //     - a decimal number, e.g. from "-128" to "127" for an int8
 //     - a positive hex number, e.g. "0xdeadbeef" for an int64
 //     - for n <= 48, a number, e.g. 4294967296 for an int40
 //       (for larger n, json numbers aren't suitable due to them commonly
 //       being interpreted as floats who lose precision about 2**53)
-//   uint<n>:
+//   uint<n> (where n ∈ {8, 16, 24, ..., 256}):
 //     - a decimal number, e.g. from "0" to "255" for an uint8
 //     - a positive hex number, e.g. "0xdeadbeef" for an uint64
 //     - for n <= 48, a number, e.g. 4294967296 for an uint40
