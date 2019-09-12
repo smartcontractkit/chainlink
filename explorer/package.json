@@ -68,7 +68,7 @@
     "@chainlink/prettier-config": "0.0.1",
     "@types/expect-puppeteer": "^3.3.1",
     "@types/express": "^4.16.1",
-    "@types/jest": "^24.0.11",
+    "@types/jest": "^24.0.18",
     "@types/material-ui": "^0.21.6",
     "@types/node": "^11.11.3",
     "@types/puppeteer": "^1.12.3",
