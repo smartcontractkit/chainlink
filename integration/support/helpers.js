@@ -1,4 +1,6 @@
-import pupExpect from 'expect-puppeteer'
+/* eslint-disable @typescript-eslint/no-var-requires */
+
+const puppeteer = require('puppeteer')
 
 const clickNavigationTag = tagName => async (page, text) => {
   // XXX: Some buttons/links don't do anything if you click them too quickly,

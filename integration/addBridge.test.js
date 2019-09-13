@@ -1,12 +1,14 @@
-import puppeteer from 'puppeteer'
-import pupExpect from 'expect-puppeteer'
-import puppeteerConfig from './puppeteer.config.js'
-import {
+/* eslint-disable @typescript-eslint/no-var-requires */
+
+const puppeteer = require('puppeteer')
+const pupExpect = require('expect-puppeteer')
+const puppeteerConfig = require('./puppeteer.config.js')
+const {
   signIn,
   consoleLogger,
   clickButton,
   clickLink,
-} from './support/helpers.js'
+} = require('./support/helpers.js')
 
 describe('End to end', () => {
   let browser, page
