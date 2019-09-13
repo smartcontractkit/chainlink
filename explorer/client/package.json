@@ -58,7 +58,7 @@
     "compression-webpack-plugin": "^2.0.0",
     "enzyme": "^3.9.0",
     "enzyme-adapter-react-16": "^1.11.2",
-    "jsbi": "^3.0.0",
+    "jsbi": "^3.1.1",
     "json-api-normalizer": "^0.4.14",
     "moment": "^2.24.0",
     "react": "^16.8.4",
