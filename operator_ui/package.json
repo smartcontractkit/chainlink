@@ -45,7 +45,7 @@
     "cross-env": "^5.2.0",
     "enzyme": "^3.4.4",
     "enzyme-adapter-react-16": "^1.2.0",
-    "enzyme-matchers": "^7.0.1",
+    "enzyme-matchers": "^7.1.1",
     "fetch-mock": "^7.3.1",
     "formik": "^1.0.3",
     "humps": "^2.0.1",
