@@ -1,4 +1,4 @@
-const pupExpect = require('expect-puppeteer')
+import pupExpect from 'expect-puppeteer'
 
 const clickNavigationTag = tagName => async (page, text) => {
   // XXX: Some buttons/links don't do anything if you click them too quickly,
