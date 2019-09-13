@@ -43,7 +43,7 @@
     "console.table": "^0.10.0",
     "core-js": "^3.2.1",
     "cross-env": "^5.2.0",
-    "enzyme": "^3.4.4",
+    "enzyme": "^3.10.0",
     "enzyme-adapter-react-16": "^1.2.0",
     "enzyme-matchers": "^7.1.1",
     "fetch-mock": "^7.3.1",
