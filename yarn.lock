@@ -7934,10 +7934,10 @@ enzyme-adapter-utils@^1.12.0:
     prop-types "^15.7.2"
     semver "^5.6.0"
 
-enzyme-matchers@^7.0.1:
-  version "7.0.2"
-  resolved "https://registry.npmjs.org/enzyme-matchers/-/enzyme-matchers-7.0.2.tgz#fe47f2cb54f8b0c5a3f0e515faf8131c188f613a"
-  integrity sha512-hsWb4Mw+F0eJ9q6ljTK2RqLwsrdoKfr5IXmKtDaTPeOEFXsVl6L2RX2REdevvn2KJfSxkcKaCGwPldOSc1l9tQ==
+enzyme-matchers@^7.1.1:
+  version "7.1.1"
+  resolved "https://registry.yarnpkg.com/enzyme-matchers/-/enzyme-matchers-7.1.1.tgz#d1210ce0bd55b55d61af1ff72777bd8b1fa5176e"
+  integrity sha512-fw/FxwpEg6n1KYpEHnhA44iFduYHDUVVePXSMmf883q/JDMXb+sIU55maSw2oFWqt9zd7rcGqmSV8sHQO5pReg==
   dependencies:
     circular-json-es6 "^2.0.1"
     deep-equal-ident "^1.1.1"
