@@ -1,15 +1,15 @@
-const puppeteer = require('puppeteer')
-const pupExpect = require('expect-puppeteer')
-const puppeteerConfig = require('./puppeteer.config.js')
-const {
+import puppeteer from 'puppeteer'
+import pupExpect from 'expect-puppeteer'
+import puppeteerConfig from './puppeteer.config.js'
+import {
   signIn,
   consoleLogger,
   clickButton,
   clickLink,
-} = require('./support/helpers.js')
+} from './support/helpers.js'
 
 describe('End to end', () => {
-  let browser, page, server
+  let browser, page
   beforeAll(async () => {
     jest.setTimeout(30000)
     pupExpect.setDefaultOptions({ timeout: 3000 })
@@ -51,7 +51,7 @@ describe('End to end', () => {
     await new Promise(resolve => setTimeout(resolve, 2000)) // FIXME timeout until we can reload again
     const newBridgeLink = await flashMessage[0].$('a')
     await newBridgeLink.click()
-    const pathName = await page.evaluate(() => location.pathname)
+    const pathName = await page.evaluate(() => window.location.pathname)
     expect(pathName).toEqual('/bridges/new_bridge')
   })
 })
