@@ -13,9 +13,9 @@
     "eslint": "eslint --ext .js,.ts,.tsx,.jsx .",
     "lint": "tsc --noEmit && yarn eslint",
     "format": "prettier --write \"**/*\"",
-    "test": "yarn build:tsc && jest",
-    "test:nocache": "yarn build:tsc:clean && yarn test --no-cache",
-    "test:ci": "yarn test:nocache --runInBand --coverage --reporters jest-silent-reporter",
+    "pretest": "yarn build:tsc",
+    "test": "jest",
+    "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%",
     "watch": "yarn test --watchAll --notify",
     "depcheck": "echo '@chainlink/operator-ui' && depcheck --ignore-dirs=dist || true"
   },
