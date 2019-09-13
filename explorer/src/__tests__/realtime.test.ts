@@ -12,9 +12,7 @@ import { ChainlinkNode, createChainlinkNode } from '../entity/ChainlinkNode'
 import { clearDb } from './testdatabase'
 import {
   ACCESS_KEY_HEADER,
-  CLOSED_CONNECTION,
   NORMAL_CLOSE,
-  OPEN_CONNECTION,
   SECRET_HEADER,
 } from '../utils/constants'
 
@@ -205,8 +203,8 @@ describe('realtime', () => {
     )
 
     ws1.addEventListener('close', (event: WebSocket.CloseEvent) => {
-      expect(ws1.readyState).toBe(CLOSED_CONNECTION)
-      expect(ws2.readyState).toBe(OPEN_CONNECTION)
+      expect(ws1.readyState).toBe(WebSocket.CLOSED)
+      expect(ws2.readyState).toBe(WebSocket.OPEN)
       expect(event.code).toBe(NORMAL_CLOSE)
       expect(event.reason).toEqual('Duplicate connection opened')
       ws2.close()
