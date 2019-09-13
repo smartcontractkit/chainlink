@@ -10,6 +10,13 @@ import { JobRun } from '../entity/JobRun'
 import { TaskRun } from '../entity/TaskRun'
 import { ChainlinkNode, createChainlinkNode } from '../entity/ChainlinkNode'
 import { clearDb } from './testdatabase'
+import {
+  ACCESS_KEY_HEADER,
+  CLOSED_CONNECTION,
+  NORMAL_CLOSE,
+  OPEN_CONNECTION,
+  SECRET_HEADER,
+} from '../utils/constants'
 
 const ENDPOINT = `ws://localhost:${DEFAULT_TEST_PORT}`
 
@@ -20,8 +27,8 @@ const newChainlinkNode = (
 ): Promise<WebSocket> => {
   const ws = new WebSocket(ENDPOINT, {
     headers: {
-      'X-Explore-Chainlink-AccessKey': accessKey,
-      'X-Explore-Chainlink-Secret': secret,
+      [ACCESS_KEY_HEADER]: accessKey,
+      [SECRET_HEADER]: secret,
     },
   })
 
@@ -190,9 +197,9 @@ describe('realtime', () => {
     let ws2: WebSocket
 
     const onCloseCallback = (event: WebSocket.CloseEvent) => {
-      expect(ws1.readyState).toBe(3) // connection closed
-      expect(ws2.readyState).toBe(1) // connection open
-      expect(event.code).toBe(1000)
+      expect(ws1.readyState).toBe(CLOSED_CONNECTION)
+      expect(ws2.readyState).toBe(OPEN_CONNECTION)
+      expect(event.code).toBe(NORMAL_CLOSE)
       expect(event.reason).toEqual('Duplicate connection opened')
       ws2.close()
       done()
