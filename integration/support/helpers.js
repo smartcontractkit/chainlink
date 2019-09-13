@@ -1,4 +1,7 @@
 const clickLink = async (page, title) => {
+  // XXX: This buttons don't do anything if you click them too quickly, so for
+  // now, add a small delay
+  await page.waitFor(500)
   await expect(page).toClick('a', { text: title })
   await page.waitForNavigation({
     waitUntil: 'networkidle0',
