@@ -9,7 +9,7 @@ import {
   linkContract,
   toHexWithoutPrefix,
   toHex,
-} from './support/helpers'
+} from '../src/helpers'
 const ConcreteChainlinked = artifacts.require('ConcreteChainlinked.sol')
 const EmptyOracle = artifacts.require('EmptyOracle.sol')
 const GetterSetter = artifacts.require('GetterSetter.sol')
