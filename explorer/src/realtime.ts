@@ -6,6 +6,11 @@ import { Connection } from 'typeorm'
 import { getDb } from './database'
 import { authenticate } from './sessions'
 import { closeSession, Session } from './entity/Session'
+import {
+  ACCESS_KEY_HEADER,
+  NORMAL_CLOSE,
+  SECRET_HEADER,
+} from './utils/constants'
 
 const handleMessage = async (
   message: string,
@@ -46,8 +51,8 @@ export const bootstrapRealtime = async (server: http.Server) => {
     ) => {
       logger.debug('websocket connection attempt')
 
-      const accessKey = info.req.headers['x-explore-chainlink-accesskey']
-      const secret = info.req.headers['x-explore-chainlink-secret']
+      const accessKey = info.req.headers[ACCESS_KEY_HEADER]
+      const secret = info.req.headers[SECRET_HEADER]
 
       if (typeof accessKey !== 'string' || typeof secret !== 'string') {
         logger.info('client rejected, invalid authentication request')
@@ -72,14 +77,11 @@ export const bootstrapRealtime = async (server: http.Server) => {
 
   wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
     // accessKey type already validated in verifyClient()
-    const accessKey = request.headers[
-      'x-explore-chainlink-accesskey'
-    ].toString()
+    const accessKey = request.headers[ACCESS_KEY_HEADER].toString()
 
     const existingConnection = connections.get(accessKey)
     if (existingConnection) {
-      // close any existing connection
-      existingConnection.close(1000, 'Duplicate connection opened')
+      existingConnection.close(NORMAL_CLOSE, 'Duplicate connection opened')
     } else {
       clnodeCount = clnodeCount + 1
     }
