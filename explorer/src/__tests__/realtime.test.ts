@@ -193,20 +193,24 @@ describe('realtime', () => {
   it('rejects multiple connections from single node', async done => {
     expect.assertions(4)
 
-    let ws1: WebSocket
-    let ws2: WebSocket
+    const ws1: WebSocket = await newChainlinkNode(
+      ENDPOINT,
+      chainlinkNode.accessKey,
+      secret,
+    )
+    const ws2: WebSocket = await newChainlinkNode(
+      ENDPOINT,
+      chainlinkNode.accessKey,
+      secret,
+    )
 
-    const onCloseCallback = (event: WebSocket.CloseEvent) => {
+    ws1.addEventListener('close', (event: WebSocket.CloseEvent) => {
       expect(ws1.readyState).toBe(CLOSED_CONNECTION)
       expect(ws2.readyState).toBe(OPEN_CONNECTION)
       expect(event.code).toBe(NORMAL_CLOSE)
       expect(event.reason).toEqual('Duplicate connection opened')
       ws2.close()
       done()
-    }
-
-    ws1 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
-    ws1.addEventListener('close', onCloseCallback)
-    ws2 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+    })
   })
 })
