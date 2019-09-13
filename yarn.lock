@@ -12513,10 +12513,10 @@ js-yaml@^3.13.1, js-yaml@^3.4.2:
     argparse "^1.0.7"
     esprima "^4.0.0"
 
-jsbi@^3.0.0:
-  version "3.1.0"
-  resolved "https://registry.npmjs.org/jsbi/-/jsbi-3.1.0.tgz#d5491c1dd9423ece70af525866cae4adc0de9642"
-  integrity sha512-R3oYDbvvScLbv9y3z1lT7a8ZBVcTh6ehQDX7rjkZdKJeHlSP2mLkB2D66nrk+D1poU/u8vhlMz1RuOUXvSDbGQ==
+jsbi@^3.1.1:
+  version "3.1.1"
+  resolved "https://registry.yarnpkg.com/jsbi/-/jsbi-3.1.1.tgz#8ea18b3e08d102c6cc09acaa9a099921d775f4fa"
+  integrity sha512-+HQESPaV0mRiH614z4JPVPAftcRC2p53x92lySPzUzFwJbJTMpzHz8OYUkcXPN3fOcHUe0NdVcHnCtX/1+eCrA==
 
 jsbn@~0.1.0:
   version "0.1.1"
