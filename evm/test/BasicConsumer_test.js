@@ -1,6 +1,6 @@
 import cbor from 'cbor'
-import * as h from './support/helpers'
-import { assertBigNum } from './support/matchers'
+import * as h from '../src/helpers'
+import { assertBigNum } from '../src/matchers'
 const BasicConsumer = artifacts.require('BasicConsumer.sol')
 const Oracle = artifacts.require('Oracle.sol')
 

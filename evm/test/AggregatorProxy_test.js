@@ -1,5 +1,5 @@
-import * as h from './support/helpers'
-import { assertBigNum } from './support/matchers'
+import * as h from '../src/helpers'
+import { assertBigNum } from '../src/matchers'
 const personas = h.personas
 const Aggregator = artifacts.require('Aggregator.sol')
 const AggregatorProxy = artifacts.require('AggregatorProxy.sol')

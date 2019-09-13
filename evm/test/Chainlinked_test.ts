@@ -1,4 +1,4 @@
-import { checkPublicABI } from './support/helpers'
+import { checkPublicABI } from '../src/helpers'
 const Chainlinked = artifacts.require('Chainlinked.sol')
 
 contract('Chainlinked', () => {

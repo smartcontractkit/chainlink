@@ -1,5 +1,5 @@
-import { stranger, toHex, toUtf8 } from './support/helpers'
-import { assertBigNum } from './support/matchers'
+import { stranger, toHex, toUtf8 } from '../src/helpers'
+import { assertBigNum } from '../src/matchers'
 const GetterSetter = artifacts.require('GetterSetter.sol')
 
 contract('GetterSetter', () => {
