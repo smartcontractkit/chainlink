@@ -689,7 +689,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_Happy(t *testing.T) {
 
 			confirmedReceipt := models.TxReceipt{
 				Hash:        initiatingTxHash,
-				BlockHash:   test.receiptBlockHash,
+				BlockHash:   &test.receiptBlockHash,
 				BlockNumber: cltest.Int(3),
 			}
 			eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
