@@ -71,7 +71,6 @@
     "@types/puppeteer": "^1.12.3",
     "@types/supertest": "^2.0.7",
     "@types/uuid": "^3.4.4",
-    "@types/whatwg-fetch": "^0.0.33",
     "@types/ws": "^6.0.1",
     "@types/yargs": "^12.0.10",
     "concurrently": "^4.1.0",
