@@ -41,7 +41,7 @@
     "change-case": "^3.0.2",
     "classnames": "^2.2.6",
     "console.table": "^0.10.0",
-    "core-js": "^3.0.0",
+    "core-js": "^3.2.1",
     "cross-env": "^5.2.0",
     "enzyme": "^3.4.4",
     "enzyme-adapter-react-16": "^1.2.0",
