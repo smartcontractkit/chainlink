@@ -1,8 +1,10 @@
+const pupExpect = require('expect-puppeteer')
+
 const clickLink = async (page, title) => {
-  // XXX: This buttons don't do anything if you click them too quickly, so for
-  // now, add a small delay
+  // XXX: Some buttons don't do anything if you click them too quickly,
+  // so for, now, add a small delay
   await page.waitFor(500)
-  await expect(page).toClick('a', { text: title })
+  await pupExpect(page).toClick('a', { text: title })
   await page.waitForNavigation({
     waitUntil: 'networkidle0',
   })
@@ -22,12 +24,12 @@ module.exports = {
   clickNewBridgeButton: async page => clickLink(page, 'New Bridge'),
 
   clickTransactionsMenuItem: async page => {
-    return expect(page).toClick('li > a', { text: 'Transactions' })
+    return pupExpect(page).toClick('li > a', { text: 'Transactions' })
   },
 
-  signIn: async (page, email) => {
-    await expect(page).toFill('form input[id=email]', email)
-    await expect(page).toFill('form input[id=password]', 'twochains')
-    return expect(page).toClick('form button')
+  signIn: async (page, email, password) => {
+    await pupExpect(page).toFill('form input[id=email]', email)
+    await pupExpect(page).toFill('form input[id=password]', 'twochains')
+    return pupExpect(page).toClick('form button')
   },
 }
