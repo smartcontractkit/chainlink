@@ -97,7 +97,6 @@ const Form: React.SFC<Props> = props => (
                 name="minimumContractPayment"
                 placeholder="0"
                 value={props.values.minimumContractPayment}
-                type="number"
                 inputProps={{ min: 0 }}
                 onChange={props.handleChange}
                 className={props.classes.textfield}
@@ -143,10 +142,10 @@ const WithFormikForm = withFormik<OwnProps, FormValues>({
     const shouldPersist = Object.keys(get('persistBridge')).length !== 0
     const persistedJSON = shouldPersist && get('persistBridge')
     if (shouldPersist) set('persistBridge', {})
-    const json = {
+    const json: FormValues = {
       name: name || '',
       url: url || '',
-      minimumContractPayment: minimumContractPayment || 0,
+      minimumContractPayment: minimumContractPayment || '0',
       confirmations: confirmations || 0,
     }
     return (shouldPersist && persistedJSON) || json
