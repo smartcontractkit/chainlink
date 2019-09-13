@@ -4,8 +4,8 @@ const puppeteerConfig = require('./puppeteer.config.js')
 const {
   signIn,
   consoleLogger,
-  clickBridgesTab,
-  clickNewBridgeButton,
+  clickButton,
+  clickLink,
 } = require('./support/helpers.js')
 
 describe('End to end', () => {
@@ -32,24 +32,25 @@ describe('End to end', () => {
     await pupExpect(page).toMatch('Jobs')
 
     // Add Bridge
-    await clickBridgesTab(page)
+    await clickLink(page, 'Bridges')
     await pupExpect(page).toMatchElement('h4', { text: 'Bridges' })
-    await clickNewBridgeButton(page)
+    await clickLink(page, 'New Bridge')
     await pupExpect(page).toFillForm('form', {
       name: 'new_bridge',
       url: 'http://example.com',
       minimumContractPayment: '123',
       confirmations: '5',
     })
-    await pupExpect(page).toClick('button', { text: 'Create Bridge' })
+    await clickButton(page, 'Create Bridge')
+    await pupExpect(page).toMatch(/success.+?bridge/i)
 
     // Navigate to bridge show page
     const flashMessage = await page.$x(
       "//p[contains(text(), 'Successfully created bridge')]",
     )
     await new Promise(resolve => setTimeout(resolve, 2000)) // FIXME timeout until we can reload again
-    const jobRunLink = await flashMessage[0].$('a')
-    await jobRunLink.click()
+    const newBridgeLink = await flashMessage[0].$('a')
+    await newBridgeLink.click()
     const pathName = await page.evaluate(() => location.pathname)
     expect(pathName).toEqual('/bridges/new_bridge')
   })

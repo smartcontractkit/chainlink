@@ -8,8 +8,8 @@ const puppeteerConfig = require('./puppeteer.config.js')
 const {
   signIn,
   consoleLogger,
-  clickNewJobButton,
   clickTransactionsMenuItem,
+  clickLink,
 } = require('./support/helpers.js')
 
 describe('End to end', () => {
@@ -36,7 +36,7 @@ describe('End to end', () => {
     await pupExpect(page).toMatch('Jobs')
 
     // Create Job
-    await clickNewJobButton(page)
+    await clickLink(page, 'New Job')
     await pupExpect(page).toMatchElement('h5', { text: 'New Job' })
 
     // prettier-ignore
