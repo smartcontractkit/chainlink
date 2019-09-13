@@ -10,6 +10,11 @@ import { JobRun } from '../entity/JobRun'
 import { TaskRun } from '../entity/TaskRun'
 import { ChainlinkNode, createChainlinkNode } from '../entity/ChainlinkNode'
 import { clearDb } from './testdatabase'
+import {
+  ACCESS_KEY_HEADER,
+  NORMAL_CLOSE,
+  SECRET_HEADER,
+} from '../utils/constants'
 
 const ENDPOINT = `ws://localhost:${DEFAULT_TEST_PORT}`
 
@@ -20,8 +25,8 @@ const newChainlinkNode = (
 ): Promise<WebSocket> => {
   const ws = new WebSocket(ENDPOINT, {
     headers: {
-      'X-Explore-Chainlink-AccessKey': accessKey,
-      'X-Explore-Chainlink-Secret': secret,
+      [ACCESS_KEY_HEADER]: accessKey,
+      [SECRET_HEADER]: secret,
     },
   })
 
@@ -172,7 +177,7 @@ describe('realtime', () => {
     })
   })
 
-  it('reject invalid authentication', async (done: any) => {
+  it('rejects invalid authentication', async (done: any) => {
     expect.assertions(1)
 
     newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, 'lol-no').catch(
@@ -181,5 +186,29 @@ describe('realtime', () => {
         done()
       },
     )
+  })
+
+  it('rejects multiple connections from single node', async done => {
+    expect.assertions(4)
+
+    const ws1: WebSocket = await newChainlinkNode(
+      ENDPOINT,
+      chainlinkNode.accessKey,
+      secret,
+    )
+    const ws2: WebSocket = await newChainlinkNode(
+      ENDPOINT,
+      chainlinkNode.accessKey,
+      secret,
+    )
+
+    ws1.addEventListener('close', (event: WebSocket.CloseEvent) => {
+      expect(ws1.readyState).toBe(WebSocket.CLOSED)
+      expect(ws2.readyState).toBe(WebSocket.OPEN)
+      expect(event.code).toBe(NORMAL_CLOSE)
+      expect(event.reason).toEqual('Duplicate connection opened')
+      ws2.close()
+      done()
+    })
   })
 })
