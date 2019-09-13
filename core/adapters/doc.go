@@ -85,16 +85,17 @@
 //
 // EthTxABIEncode
 //
-// The EthTxABIEncode adapter serializes the contents of a json object as transaction data
-// calling an arbitrary function of a smart contract. See
+// The EthTxABIEncode adapter serializes the contents of a json object as
+// transaction data calling an arbitrary function of a smart contract. See
 // https://solidity.readthedocs.io/en/v0.5.11/abi-spec.html#formal-specification-of-the-encoding
-// for the serialization format. We currently support all types that solidity contracts
-// as of solc v0.5.11 can decode, i.e. address, bool, bytes*, int*, uint*, arrays (e.g. address[2]),
-// bytes (variable length), string (variable length), and slices (e.g. uint256[] or address[2][]).
+// for the serialization format. We currently support all types that solidity
+// contracts as of solc v0.5.11 can decode, i.e. address, bool, bytes1, ...,
+// bytes32, int8, ..., int256, uint8, ..., uint256, arrays (e.g. address[2]),
+// bytes (variable length), string (variable length), and slices (e.g. uint256[]
+// or address[2][]).
 //
-// The ABI of the function to be called is specified in the functionABI field, using the ABI JSON
-// format used by solc and vyper.
-// For example,
+// The ABI of the function to be called is specified in the functionABI field,
+// using the ABI JSON format used by solc and vyper. For example,
 //
 //   {
 //     "type": "EthTxABIEncode",
