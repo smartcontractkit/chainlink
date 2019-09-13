@@ -154,13 +154,15 @@
 //     - a positive hex number, e.g. "0xdeadbeef" for an int64
 //     - for n <= 48, a number, e.g. 4294967296 for an int40
 //       (for larger n, json numbers aren't suitable due to them commonly
-//       being interpreted as floats who lose precision about 2**53)
+//       being interpreted as doubles which cannot represent all integers above
+//       2**53)
 //   uint<n> (where n ∈ {8, 16, 24, ..., 256}):
 //     - a decimal number, e.g. from "0" to "255" for an uint8
 //     - a positive hex number, e.g. "0xdeadbeef" for an uint64
 //     - for n <= 48, a number, e.g. 4294967296 for an uint40
 //       (for larger n, json numbers aren't suitable due to them commonly
-//       being interpreted as floats who lose precision about 2**53)
+//       being interpreted as doubles which cannot represent all integers above
+//       2**53)
 //   arrays:
 //     - a json array of the appropriate length, e.g. ["0x1", "-1"] for int8[2]
 //   ==============
