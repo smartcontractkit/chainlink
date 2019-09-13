@@ -57,7 +57,7 @@
     "lodash": "^4.17.13",
     "mock-local-storage": "^1.0.5",
     "moment": "^2.24.0",
-    "normalize-url": "^4.2.0",
+    "normalize-url": "^4.3.0",
     "numeral": "^2.0.6",
     "oclif": "^1.11.4",
     "path-to-regexp": "^3.0.0",
