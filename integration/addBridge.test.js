@@ -47,6 +47,7 @@ describe('End to end', () => {
     const flashMessage = await page.$x(
       "//p[contains(text(), 'Successfully created bridge')]",
     )
+    await new Promise(resolve => setTimeout(resolve, 2000)) // FIXME timeout until we can reload again
     const jobRunLink = await flashMessage[0].$('a')
     await jobRunLink.click()
     const pathName = await page.evaluate(() => location.pathname)
