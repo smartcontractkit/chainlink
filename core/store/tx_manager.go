@@ -729,8 +729,9 @@ func (txm *EthTxManager) activateAccount(account accounts.Account) (*ManagedAcco
 // to coordinate outgoing transactions.
 type ManagedAccount struct {
 	accounts.Account
-	nonce uint64
-	mutex *sync.Mutex
+	nonce              uint64
+	lastConfirmedNonce uint64
+	mutex              *sync.Mutex
 }
 
 // NewManagedAccount creates a managed account that handles nonce increments
@@ -768,6 +769,12 @@ func (a *ManagedAccount) GetAndIncrementNonce(callback func(uint64) error) error
 	}
 
 	return err
+}
+
+func (a *ManagedAccount) updateLastConfirmedNonce(latest uint64) {
+	if latest > a.lastConfirmedNonce {
+		a.lastConfirmedNonce = latest
+	}
 }
 
 // Contract holds the solidity contract's parsed ABI
