@@ -877,23 +877,29 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 func TestTxManager_ReloadNonce(t *testing.T) {
 	t.Parallel()
 
-	ethMock := &cltest.EthMock{}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	eth := mocks.NewMockEthClient(ctrl)
 	txm := store.NewEthTxManager(
-		&strpkg.EthCallerSubscriber{CallerSubscriber: ethMock},
+		eth,
 		orm.NewConfig(),
 		nil,
 		nil,
 	)
 
-	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
-	ma := strpkg.NewManagedAccount(account, 0)
+	from := common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")
+	account := accounts.Account{Address: from}
+	ma := store.NewManagedAccount(account, 0)
 
-	ethMock.Register("eth_getTransactionCount", `0x2D1`)
-	assert.NoError(t, ma.ReloadNonce(txm))
-	ethMock.EventuallyAllCalled(t)
+	nonce := uint64(234)
+	eth.EXPECT().GetNonce(from).Return(nonce, nil)
+
+	err := ma.ReloadNonce(txm)
+	assert.NoError(t, err)
 
 	assert.Equal(t, account.Address, ma.Address)
-	assert.Equal(t, uint64(0x2d1), ma.Nonce())
+	assert.Equal(t, nonce, ma.Nonce())
+	assert.Equal(t, nonce, ma.PublicLastConfirmedNonce())
 }
 
 func TestTxManager_WithdrawLink_HappyPath(t *testing.T) {
