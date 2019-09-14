@@ -6,6 +6,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func (a *ManagedAccount) PublicLastConfirmedNonce() uint64 {
+	return a.lastConfirmedNonce
+}
+
 func TestTxManager_updateLastConfirmedNonce(t *testing.T) {
 	t.Parallel()
 
