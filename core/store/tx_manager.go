@@ -369,7 +369,7 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, 
 		return receipt, state, err
 	}
 
-	return txm.checkDBForConfirmation(tx)
+	return txm.checkAccountForConfirmation(tx)
 }
 
 func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
@@ -389,22 +389,29 @@ func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*models.TxRec
 	return nil, Unconfirmed, merr
 }
 
-func (txm *EthTxManager) checkDBForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
-	later, err := txm.orm.FindLaterConfirmedTx(tx)
-	if err != nil {
-		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe checkDBForConfirmation")
-	} else if later == nil {
-		return nil, Unconfirmed, nil
+func (txm *EthTxManager) checkAccountForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
+	ma := txm.GetAvailableAccount(tx.From)
+
+	if ma != nil && ma.lastConfirmedNonce > tx.Nonce {
+		tx.Confirmed = true
+		tx.Hash = utils.EmptyHash
+		if err := txm.orm.SaveTx(tx); err != nil {
+			return nil, Confirmed, fmt.Errorf("BumpGasUntilSafe error saving Tx confirmation to the database")
+		}
+		return nil, Confirmed, fmt.Errorf("BumpGasUntilSafe a version of the Ethereum Transaction from %v with nonce %v", tx.From, tx.Nonce)
 	}
 
-	tx.Confirmed = true
-	tx.Hash = utils.EmptyHash
-	if err = txm.orm.SaveTx(tx); err != nil {
-		return nil, Confirmed, fmt.Errorf("BumpGasUntilSafe error saving Tx confirmation to the database")
-	}
+	return nil, Unconfirmed, nil
+}
 
-	err = fmt.Errorf("BumpGasUntilSafe a version of the Ethereum Transaction from %v with nonce %v", tx.From, tx.Nonce)
-	return nil, Confirmed, err
+// GetAvailableAccount retrieves a managed account if it one matches the address given.
+func (txm *EthTxManager) GetAvailableAccount(from common.Address) *ManagedAccount {
+	for _, a := range txm.availableAccounts {
+		if a.Address == from {
+			return a
+		}
+	}
+	return nil
 }
 
 // ContractLINKBalance returns the balance for the contract associated with this

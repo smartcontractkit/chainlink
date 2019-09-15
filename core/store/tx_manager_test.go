@@ -609,9 +609,10 @@ func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
 
 	tx1 := cltest.CreateTxWithNonce(t, store, from, sentAt, 1)
 	tx2 := cltest.CreateTxWithNonce(t, store, from, sentAt, 2)
-	tx2a := tx2.Attempts[0]
-	tx2a.Confirmed = true
-	assert.NoError(t, store.MarkTxSafe(tx2, tx2a))
+
+	etm := txm.(*strpkg.EthTxManager)
+	aa := etm.GetAvailableAccount(from)
+	aa.SetLastConfirmedNonce(tx2.Nonce)
 
 	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 
