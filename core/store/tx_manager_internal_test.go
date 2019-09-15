@@ -13,13 +13,8 @@ func (a *ManagedAccount) PublicLastConfirmedNonce() uint64 {
 	return a.lastConfirmedNonce
 }
 
-func (txm *EthTxManager) GetAvailableAccount(from common.Address) *ManagedAccount {
-	for _, a := range txm.availableAccounts {
-		if a.Address == from {
-			return a
-		}
-	}
-	return nil
+func (a *ManagedAccount) SetLastConfirmedNonce(n uint64) {
+	a.lastConfirmedNonce = n
 }
 
 func TestManagedAccount_updateLastConfirmedNonce(t *testing.T) {
