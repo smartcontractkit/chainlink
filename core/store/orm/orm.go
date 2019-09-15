@@ -620,22 +620,6 @@ func (orm *ORM) UpdateTx(
 	return orm.DB.Save(tx).Error
 }
 
-// FindLaterConfirmedTx finds the earliest confirmed Ethereum transaction
-// that has the same sender and a higher nonce.
-func (orm *ORM) FindLaterConfirmedTx(tx *models.Tx) (*models.Tx, error) {
-	later := models.Tx{}
-	rval := orm.DB.Order("nonce asc").
-		Where(`"confirmed" = true AND "from" = ? AND "nonce" > ?`, tx.From, tx.Nonce).
-		First(&later)
-
-	removed, err := removeRecordNotFound(rval)
-	if removed {
-		return nil, err
-	}
-
-	return &later, err
-}
-
 // MarkTxSafe updates the database for the given transaction and attempt to
 // show that the transaction has not just been confirmed,
 // but has met the minimum number of outgoing confirmations to be deemed
