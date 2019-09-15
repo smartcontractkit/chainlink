@@ -485,8 +485,7 @@ func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight u
 	minimumConfirmations := new(big.Int).SetUint64(txm.config.MinOutgoingConfirmations())
 	confirmedAt := new(big.Int).Add(minimumConfirmations, receipt.BlockNumber.ToInt())
 
-	// 0 based indexing since receipt is 1 conf
-	confirmedAt.Sub(confirmedAt, big.NewInt(1))
+	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // confirmed at block counts as 1 conf
 
 	if new(big.Int).SetUint64(blockHeight).Cmp(confirmedAt) == -1 {
 		return receipt, Confirmed, nil
@@ -559,9 +558,11 @@ func (txm *EthTxManager) processAttempt(
 
 	switch state {
 	case Safe:
+		txm.updateManagedAccounts(tx)
 		return receipt, state, txm.handleSafe(tx, attemptIndex)
 
-	case Confirmed: // nothing to do, need to wait
+	case Confirmed:
+		txm.updateManagedAccounts(tx)
 		return receipt, state, nil
 
 	case Unconfirmed:
@@ -589,6 +590,14 @@ func (txm *EthTxManager) processAttempt(
 	}
 
 	panic("invariant violated, 'Unknown' state returned without error")
+}
+
+func (txm *EthTxManager) updateManagedAccounts(tx *models.Tx) {
+	for _, a := range txm.availableAccounts {
+		if tx.From == a.Address {
+			a.updateLastConfirmedNonce(tx.Nonce)
+		}
+	}
 }
 
 // hasTxAttemptMetGasBumpThreshold returns true if the current block height

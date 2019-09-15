@@ -506,6 +506,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	config := store.Config
 
 	sentAt := uint64(23456)
+	nonce := uint64(234)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
 	minConfs := config.MinOutgoingConfirmations() - 1
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold+minConfs-1)))
@@ -515,7 +516,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	txm := store.TxManager
 	from := cltest.GetAccountAddress(t, store)
 
-	tx := cltest.CreateTx(t, store, from, sentAt)
+	tx := cltest.CreateTxWithNonce(t, store, from, sentAt, nonce)
 	require.Greater(t, len(tx.Attempts), 0)
 
 	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
@@ -528,6 +529,10 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	tx, err = store.FindTx(tx.ID)
 	require.NoError(t, err)
 	assert.Len(t, tx.Attempts, 1)
+
+	etm := txm.(*strpkg.EthTxManager)
+	aa := etm.GetAvailableAccount(from)
+	assert.Equal(t, tx.Nonce, aa.PublicLastConfirmedNonce())
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -543,6 +548,9 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 		{"above threshold", 1},
 	}
 
+	sentAt := uint64(23456)
+	nonce := uint64(234)
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithKey(t)
@@ -550,7 +558,6 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 			store := app.Store
 			config := store.Config
 
-			sentAt := uint64(23456)
 			gasThreshold := sentAt + config.EthGasBumpThreshold()
 			minConfs := config.MinOutgoingConfirmations() - 1
 			head := cltest.Head(gasThreshold + minConfs + test.confsDiff)
@@ -561,7 +568,7 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 			txm := store.TxManager
 			from := cltest.GetAccountAddress(t, store)
 
-			tx := cltest.CreateTx(t, store, from, sentAt)
+			tx := cltest.CreateTxWithNonce(t, store, from, sentAt, nonce)
 			require.Greater(t, len(tx.Attempts), 0)
 
 			ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
@@ -576,6 +583,10 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 			tx, err = store.FindTx(tx.ID)
 			require.NoError(t, err)
 			assert.Len(t, tx.Attempts, 1)
+
+			etm := txm.(*strpkg.EthTxManager)
+			aa := etm.GetAvailableAccount(from)
+			assert.Equal(t, tx.Nonce, aa.PublicLastConfirmedNonce())
 
 			ethMock.EventuallyAllCalled(t)
 		})
