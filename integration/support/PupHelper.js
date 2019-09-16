@@ -12,13 +12,13 @@ module.exports = class PupHelper {
   }
 
   async clickButton(text) {
-    await this.page.wait(500)
+    await this.page.waitFor(500)
     await this.waitForContent('button', text)
     await pupExpect(this.page).toClick('button', { text })
   }
 
   async clickLink(text) {
-    await this.page.wait(500)
+    await this.page.waitFor(500)
     await this.waitForContent('a', text)
     await pupExpect(this.page).toClick('a', { text })
   }
