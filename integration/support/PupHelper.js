@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 const pupExpect = require('expect-puppeteer')
 
 module.exports = class PupHelper {
