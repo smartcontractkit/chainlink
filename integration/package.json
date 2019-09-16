@@ -33,7 +33,7 @@
     "jest-silent-reporter": "^0.1.0",
     "link_token": "^1.0.3",
     "prettier": "^1.18.2",
-    "puppeteer": "^1.10.0",
+    "puppeteer": "^1.20.0",
     "request-promise": "^4.2.4",
     "solc": "0.4.24",
     "truffle": "^5.0.25"
