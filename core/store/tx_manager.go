@@ -392,7 +392,7 @@ func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*models.TxRec
 func (txm *EthTxManager) checkAccountForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
 	ma := txm.GetAvailableAccount(tx.From)
 
-	if ma != nil && ma.lastConfirmedNonce > tx.Nonce {
+	if ma != nil && ma.lastSafeNonce > tx.Nonce {
 		tx.Confirmed = true
 		tx.Hash = utils.EmptyHash
 		if err := txm.orm.SaveTx(tx); err != nil {
@@ -565,11 +565,10 @@ func (txm *EthTxManager) processAttempt(
 
 	switch state {
 	case Safe:
-		txm.updateManagedAccounts(tx)
+		txm.updateLastSafeNonce(tx)
 		return receipt, state, txm.handleSafe(tx, attemptIndex)
 
 	case Confirmed:
-		txm.updateManagedAccounts(tx)
 		return receipt, state, nil
 
 	case Unconfirmed:
@@ -599,10 +598,10 @@ func (txm *EthTxManager) processAttempt(
 	panic("invariant violated, 'Unknown' state returned without error")
 }
 
-func (txm *EthTxManager) updateManagedAccounts(tx *models.Tx) {
+func (txm *EthTxManager) updateLastSafeNonce(tx *models.Tx) {
 	for _, a := range txm.availableAccounts {
 		if tx.From == a.Address {
-			a.updateLastConfirmedNonce(tx.Nonce)
+			a.updateLastSafeNonce(tx.Nonce)
 		}
 	}
 }
@@ -745,9 +744,9 @@ func (txm *EthTxManager) activateAccount(account accounts.Account) (*ManagedAcco
 // to coordinate outgoing transactions.
 type ManagedAccount struct {
 	accounts.Account
-	nonce              uint64
-	lastConfirmedNonce uint64
-	mutex              *sync.Mutex
+	nonce         uint64
+	lastSafeNonce uint64
+	mutex         *sync.Mutex
 }
 
 // NewManagedAccount creates a managed account that handles nonce increments
@@ -770,7 +769,7 @@ func (a *ManagedAccount) ReloadNonce(txm *EthTxManager) error {
 		return fmt.Errorf("TxManager ReloadNonce: %v", err)
 	}
 	a.nonce = nonce
-	a.updateLastConfirmedNonce(nonce)
+	a.updateLastSafeNonce(nonce)
 	return nil
 }
 
@@ -788,9 +787,9 @@ func (a *ManagedAccount) GetAndIncrementNonce(callback func(uint64) error) error
 	return err
 }
 
-func (a *ManagedAccount) updateLastConfirmedNonce(latest uint64) {
-	if latest > a.lastConfirmedNonce {
-		a.lastConfirmedNonce = latest
+func (a *ManagedAccount) updateLastSafeNonce(latest uint64) {
+	if latest > a.lastSafeNonce {
+		a.lastSafeNonce = latest
 	}
 }
 

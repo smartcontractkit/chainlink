@@ -532,7 +532,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 
 	etm := txm.(*strpkg.EthTxManager)
 	aa := etm.GetAvailableAccount(from)
-	assert.Equal(t, tx.Nonce, aa.PublicLastConfirmedNonce())
+	assert.NotEqual(t, tx.Nonce, aa.PublicLastSafeNonce())
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -586,7 +586,7 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 
 			etm := txm.(*strpkg.EthTxManager)
 			aa := etm.GetAvailableAccount(from)
-			assert.Equal(t, tx.Nonce, aa.PublicLastConfirmedNonce())
+			assert.Equal(t, tx.Nonce, aa.PublicLastSafeNonce())
 
 			ethMock.EventuallyAllCalled(t)
 		})
@@ -612,7 +612,7 @@ func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
 
 	etm := txm.(*strpkg.EthTxManager)
 	aa := etm.GetAvailableAccount(from)
-	aa.SetLastConfirmedNonce(tx2.Nonce)
+	aa.SetLastSafeNonce(tx2.Nonce)
 
 	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
 
@@ -881,7 +881,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 
 	assert.Equal(t, account.Address, ma.Address)
 	assert.Equal(t, nonce, ma.Nonce())
-	assert.Equal(t, nonce, ma.PublicLastConfirmedNonce())
+	assert.Equal(t, nonce, ma.PublicLastSafeNonce())
 }
 
 func TestTxManager_WithdrawLink_HappyPath(t *testing.T) {
