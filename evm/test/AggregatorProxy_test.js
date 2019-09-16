@@ -1,9 +1,12 @@
 import * as h from '../src/helpers'
 import { assertBigNum } from '../src/matchers'
+
 const personas = h.personas
 const Aggregator = artifacts.require('Aggregator.sol')
 const AggregatorProxy = artifacts.require('AggregatorProxy.sol')
 const Oracle = artifacts.require('Oracle.sol')
+
+before(h.queryEthClientForConstants)
 
 contract('AggregatorProxy', () => {
   const jobId1 =

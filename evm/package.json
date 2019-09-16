@@ -3,6 +3,7 @@
   "version": "0.6.5",
   "license": "MIT",
   "scripts": {
+    "build:tsc": "tsc",
     "build": "truffle build",
     "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box || true",
     "eslint": "eslint --ext .ts,.js test",
@@ -39,6 +40,8 @@
     "@chainlink/prettier-config": "0.0.1",
     "@types/cbor": "^2.0.0",
     "@types/chai": "^4.2.0",
+    "@types/mocha": "^5.2.7",
+    "@types/node": "^12.7.5",
     "@types/web3": "^1.0.0",
     "babel-eslint": "^10.0.1",
     "bn.js": "^4.11.0",
