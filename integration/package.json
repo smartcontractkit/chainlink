@@ -31,7 +31,7 @@
     "jest": "^24.7.0",
     "jest-environment-enzyme": "^7.1.1",
     "jest-silent-reporter": "^0.1.0",
-    "link_token": "^1.0.3",
+    "link_token": "^1.0.6",
     "prettier": "^1.18.2",
     "puppeteer": "^1.20.0",
     "request-promise": "^4.2.4",
