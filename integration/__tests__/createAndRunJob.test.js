@@ -32,7 +32,8 @@ describe('End to end', () => {
 
     // Create Job
     await pupHelper.clickLink('New Job')
-    await pupExpect(page).toMatchElement('h5', { text: 'New Job' })
+    await pupHelper.waitForContent('h5', 'New Job')
+    // await pupExpect(page).toMatchElement('h5', { text: 'New Job' })
 
     // prettier-ignore
     const jobJson = `{

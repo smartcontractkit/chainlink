@@ -16,9 +16,9 @@ module.exports = class PupHelper {
     await pupExpect(this.page).toClick('button', { text })
   }
 
-  async clickLink(text, selector = 'a') {
+  async clickLink(text) {
     await this.waitForContent('a', text)
-    await pupExpect(this.page).toClick(selector, { text })
+    await pupExpect(this.page).toClick('a', { text })
   }
 
   async signIn(email = 'notreal@fakeemail.ch', password = 'twochains') {
