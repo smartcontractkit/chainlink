@@ -31,8 +31,7 @@ func (ba *Bridge) Perform(input models.RunResult, store *store.Store) models.Run
 	} else if input.Status.PendingBridge() {
 		return resumeBridge(input)
 	}
-	ba.handleNewRun(&input, store.Config.BridgeResponseURL())
-	return input
+	return ba.handleNewRun(input, store.Config.BridgeResponseURL())
 }
 
 func resumeBridge(input models.RunResult) models.RunResult {
@@ -40,50 +39,54 @@ func resumeBridge(input models.RunResult) models.RunResult {
 	return input
 }
 
-func (ba *Bridge) handleNewRun(input *models.RunResult, bridgeResponseURL *url.URL) {
+func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL *url.URL) models.RunResult {
 	if ba.Params == nil {
 		ba.Params = new(models.JSON)
 	}
 	var err error
 	if input.Data, err = input.Data.Merge(*ba.Params); err != nil {
-		input.SetError(baRunResultError("handling data param", err))
-		return
+		return models.RunResultError(baRunResultError("handling data param", err))
 	}
 
 	responseURL := bridgeResponseURL
 	if *responseURL != *zeroURL {
 		responseURL.Path += fmt.Sprintf("/v2/runs/%s", input.CachedJobRunID)
 	}
+
 	body, err := ba.postToExternalAdapter(input, responseURL)
 	if err != nil {
-		input.SetError(baRunResultError("post to external adapter", err))
-		return
+		return models.RunResultError(baRunResultError("post to external adapter", err))
 	}
 
-	err = responseToRunResult(body, input)
-	if err != nil {
-		input.SetError(err)
-		return
-	}
+	return responseToRunResult(body, input)
 }
 
-func responseToRunResult(body []byte, input *models.RunResult) error {
+func responseToRunResult(body []byte, input models.RunResult) models.RunResult {
+	var output models.RunResult
+
 	var brr models.BridgeRunResult
 	err := json.Unmarshal(body, &brr)
 	if err != nil {
-		return baRunResultError("unmarshaling JSON", err)
+		return models.RunResultError(baRunResultError("unmarshaling JSON", err))
+	} else if brr.HasError() {
+		return brr.RunResult
 	}
 
 	if brr.RunResult.Data.Exists() && !brr.RunResult.Data.IsObject() {
-		input.CompleteWithResult(brr.RunResult.Data.String())
+		output.CompleteWithResult(brr.RunResult.Data.String())
 	}
 
-	return input.Merge(brr.RunResult)
+	err = output.Merge(brr.RunResult)
+	if err != nil {
+		output.SetError(err)
+	}
+
+	return output
 }
 
-func (ba *Bridge) postToExternalAdapter(input *models.RunResult, bridgeResponseURL *url.URL) ([]byte, error) {
+func (ba *Bridge) postToExternalAdapter(input models.RunResult, bridgeResponseURL *url.URL) ([]byte, error) {
 	in, err := json.Marshal(&bridgeOutgoing{
-		RunResult:   *input,
+		RunResult:   input,
 		ResponseURL: bridgeResponseURL,
 	})
 	if err != nil {

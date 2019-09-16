@@ -33,14 +33,12 @@ type JSONParse struct {
 func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.RunResult {
 	val, err := input.ResultString()
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.RunResultError(err)
 	}
 
 	js, err := simplejson.NewJson([]byte(val))
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.RunResultError(err)
 	}
 
 	last, err := dig(js, jpa.Path)
@@ -48,8 +46,7 @@ func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.Run
 		return moldErrorOutput(js, jpa.Path, input)
 	}
 
-	input.CompleteWithResult(last.Interface())
-	return input
+	return models.RunResultComplete(last.Interface())
 }
 
 func dig(js *simplejson.Json, path []string) (*simplejson.Json, error) {
@@ -71,11 +68,9 @@ func dig(js *simplejson.Json, path []string) (*simplejson.Json, error) {
 // i.e. Path = ["errorIfNonExistent", "nullIfNonExistent"]
 func moldErrorOutput(js *simplejson.Json, path []string, input models.RunResult) models.RunResult {
 	if _, err := getEarlyPath(js, path); err != nil {
-		input.SetError(err)
-		return input
+		return models.RunResultError(err)
 	}
-	input.CompleteWithResult(nil)
-	return input
+	return models.RunResultComplete(nil)
 }
 
 func getEarlyPath(js *simplejson.Json, path []string) (*simplejson.Json, error) {

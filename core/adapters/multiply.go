@@ -42,13 +42,11 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	val := input.Result()
 	i, ok := (&big.Float{}).SetString(val.String())
 	if !ok {
-		input.SetError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
-		return input
+		return models.RunResultError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
 	}
 
 	if ma.Times != nil {
 		i.Mul(i, big.NewFloat(float64(*ma.Times)))
 	}
-	input.CompleteWithResult(i.String())
-	return input
+	return models.RunResultComplete(i.String())
 }

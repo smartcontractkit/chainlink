@@ -122,9 +122,15 @@ func (jr *JobRun) SetError(err error) {
 }
 
 // ApplyResult updates the JobRun's Result and Status
-func (jr *JobRun) ApplyResult(result RunResult) {
+func (jr *JobRun) ApplyResult(result RunResult) error {
+	data, err := jr.Result.Data.Merge(result.Data)
+	if err != nil {
+		return err
+	}
 	jr.Result = result
+	jr.Result.Data = data
 	jr.Status = result.Status
+	return nil
 }
 
 // SetFinishedAt sets the JobRun's finished at time to now.
@@ -224,6 +230,18 @@ type RunResult struct {
 	Data            JSON        `json:"data" gorm:"type:text"`
 	Status          RunStatus   `json:"status"`
 	ErrorMessage    null.String `json:"error"`
+}
+
+func RunResultComplete(resultVal interface{}) RunResult {
+	var result RunResult
+	result.CompleteWithResult(resultVal)
+	return result
+}
+
+func RunResultError(err error) RunResult {
+	var result RunResult
+	result.SetError(err)
+	return result
 }
 
 // CompleteWithResult saves a value to a RunResult and marks it as completed

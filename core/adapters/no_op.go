@@ -10,8 +10,8 @@ type NoOp struct{}
 
 // Perform returns the empty RunResult
 func (noa *NoOp) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	input.Status = models.RunStatusCompleted
-	return input
+	val := input.Result().Value()
+	return models.RunResultComplete(val)
 }
 
 // NoOpPend adapter type holds no fields
@@ -20,6 +20,7 @@ type NoOpPend struct{}
 // Perform on this adapter type returns an empty RunResult with an
 // added field for the status to indicate the task is Pending.
 func (noa *NoOpPend) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	input.MarkPendingConfirmations()
-	return input
+	var output models.RunResult
+	output.MarkPendingConfirmations()
+	return output
 }
