@@ -881,7 +881,6 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 
 	assert.Equal(t, account.Address, ma.Address)
 	assert.Equal(t, nonce, ma.Nonce())
-	assert.Equal(t, nonce, ma.PublicLastSafeNonce())
 }
 
 func TestTxManager_WithdrawLink_HappyPath(t *testing.T) {

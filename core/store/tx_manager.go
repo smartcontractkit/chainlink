@@ -769,7 +769,6 @@ func (a *ManagedAccount) ReloadNonce(txm *EthTxManager) error {
 		return fmt.Errorf("TxManager ReloadNonce: %v", err)
 	}
 	a.nonce = nonce
-	a.updateLastSafeNonce(nonce)
 	return nil
 }
 
