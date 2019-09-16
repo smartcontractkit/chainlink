@@ -5,23 +5,17 @@ const pupExpect = require('expect-puppeteer')
 const { newServer } = require('../support/server.js')
 const { scrape } = require('../support/scrape.js')
 const puppeteerConfig = require('../puppeteer.config.js')
-const {
-  signIn,
-  consoleLogger,
-  clickTransactionsMenuItem,
-  clickLink,
-  waitForNotification,
-} = require('../support/helpers.js')
+const PupHelper = require('../support/PupHelper.js')
 
 describe('End to end', () => {
-  let browser, page, server
+  let browser, page, server, pupHelper
   beforeAll(async () => {
     jest.setTimeout(3000000)
     pupExpect.setDefaultOptions({ timeout: 3000 })
     server = await newServer(`{"last": "3843.95"}`)
     browser = await puppeteer.launch(puppeteerConfig)
     page = await browser.newPage()
-    page.on('console', consoleLogger(page))
+    pupHelper = new PupHelper(page)
   })
 
   afterAll(async () => {
@@ -33,11 +27,11 @@ describe('End to end', () => {
     await pupExpect(page).toMatch('Chainlink')
 
     // Login
-    await signIn(page, 'notreal@fakeemail.ch', 'twochains')
+    await pupHelper.signIn()
     await pupExpect(page).toMatch('Jobs')
 
     // Create Job
-    await clickLink(page, 'New Job')
+    await pupHelper.clickLink('New Job')
     await pupExpect(page).toMatchElement('h5', { text: 'New Job' })
 
     // prettier-ignore
@@ -67,8 +61,7 @@ describe('End to end', () => {
     await pupExpect(page).toClick('button', { text: 'Run' })
     await pupExpect(page).toMatch(/success.+?run/i)
 
-    const notification = await waitForNotification(
-      page,
+    const notification = await pupHelper.waitForNotification(
       'Successfully created job run',
     )
     const notificationLink = await notification.$('a')
@@ -82,7 +75,7 @@ describe('End to end', () => {
     expect(txHash).toBeDefined()
 
     // Navigate to transactions page
-    await clickTransactionsMenuItem(page)
+    await pupHelper.clickTransactionsMenuItem()
     await pupExpect(page).toMatchElement('h4', { text: 'Transactions' })
     await pupExpect(page).toMatchElement('p', { text: txHash })
 
