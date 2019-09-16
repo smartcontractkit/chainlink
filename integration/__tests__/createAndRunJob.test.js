@@ -10,7 +10,7 @@ const PupHelper = require('../support/PupHelper.js')
 describe('End to end', () => {
   let browser, page, server, pupHelper
   beforeAll(async () => {
-    jest.setTimeout(3000000)
+    jest.setTimeout(30000)
     pupExpect.setDefaultOptions({ timeout: 3000 })
     server = await newServer(`{"last": "3843.95"}`)
     browser = await puppeteer.launch(puppeteerConfig)
@@ -75,7 +75,7 @@ describe('End to end', () => {
     expect(txHash).toBeDefined()
 
     // Navigate to transactions page
-    await pupHelper.clickTransactionsMenuItem()
+    await pupHelper.clickMenuItem('Transactions')
     await pupExpect(page).toMatchElement('h4', { text: 'Transactions' })
     await pupExpect(page).toMatchElement('p', { text: txHash })
 
@@ -83,13 +83,12 @@ describe('End to end', () => {
     await pupExpect(page).toClick('a', { text: txHash })
 
     // Navigate to Explorer
-    await new Promise(resolve => setTimeout(resolve, 5000)) // Wait for CL Node to push SyncEvent
     await page.goto('http://localhost:8080')
     await pupExpect(page).toMatch('Search')
     await pupExpect(page).toFill('form input', runId)
     await pupExpect(page).toClick('button', { text: 'Search' })
 
-    await new Promise(resolve => setTimeout(resolve, 500)) // FIXME not sure why we need to wait here
+    await pupHelper.waitForContent('a', runId)
     await pupExpect(page).toMatch(runId)
     await pupExpect(page).toClick('a', { text: runId })
 
