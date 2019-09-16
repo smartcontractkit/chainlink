@@ -3,22 +3,16 @@
 const puppeteer = require('puppeteer')
 const pupExpect = require('expect-puppeteer')
 const puppeteerConfig = require('../puppeteer.config.js')
-const {
-  signIn,
-  consoleLogger,
-  clickButton,
-  clickLink,
-  waitForNotification,
-} = require('../support/helpers.js')
+const PupHelper = require('../support/PupHelper.js')
 
 describe('End to end', () => {
-  let browser, page
+  let browser, page, pupHelper
   beforeAll(async () => {
     jest.setTimeout(30000)
     pupExpect.setDefaultOptions({ timeout: 3000 })
     browser = await puppeteer.launch(puppeteerConfig)
     page = await browser.newPage()
-    page.on('console', consoleLogger(page))
+    pupHelper = new PupHelper(page)
   })
 
   afterAll(async () => {
@@ -31,25 +25,24 @@ describe('End to end', () => {
     await pupExpect(page).toMatch('Chainlink')
 
     // Login
-    await signIn(page, 'notreal@fakeemail.ch', 'twochains')
+    await pupHelper.signIn()
     await pupExpect(page).toMatch('Jobs')
 
     // Add Bridge
-    await clickLink(page, 'Bridges')
+    await pupHelper.clickLink('Bridges')
     await pupExpect(page).toMatchElement('h4', { text: 'Bridges' })
-    await clickLink(page, 'New Bridge')
+    await pupHelper.clickLink('New Bridge')
     await pupExpect(page).toFillForm('form', {
       name: 'new_bridge',
       url: 'http://example.com',
       minimumContractPayment: '123',
       confirmations: '5',
     })
-    await clickButton(page, 'Create Bridge')
+    await pupHelper.clickButton('Create Bridge')
     await pupExpect(page).toMatch(/success.+?bridge/i)
 
     // Navigate to bridge show page
-    const notification = await waitForNotification(
-      page,
+    const notification = await pupHelper.waitForNotification(
       'Successfully created bridge',
     )
     const notificationLink = await notification.$('a')
