@@ -81,14 +81,8 @@ func NewJob() JobSpec {
 func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 	jobSpec := NewJob()
 	for _, initr := range jsr.Initiators {
-		jobSpec.Initiators = append(jobSpec.Initiators, Initiator{
-			JobSpecID: jobSpec.ID,
-			// Type must be downcast to comply with Initiator deserialization
-			// logic. Ideally, Initiator.Type should be its own type (InitiatorType)
-			// that handles deserialization validation.
-			Type:            strings.ToLower(initr.Type),
-			InitiatorParams: initr.InitiatorParams,
-		})
+		init := NewInitiatorFromRequest(initr, jobSpec)
+		jobSpec.Initiators = append(jobSpec.Initiators, init)
 	}
 	for _, task := range jsr.Tasks {
 		jobSpec.Tasks = append(jobSpec.Tasks, TaskSpec{
@@ -246,6 +240,23 @@ type InitiatorParams struct {
 	Address    common.Address    `json:"address,omitempty" gorm:"index"`
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
 	Name       string            `json:"name,omitempty"`
+}
+
+// NewInitiatorFromRequest creates an Initiator from the corresponding
+// parameters in a InitiatorRequest
+func NewInitiatorFromRequest(
+	initr InitiatorRequest,
+	jobSpec JobSpec,
+) Initiator {
+	return Initiator{
+		JobSpecID: jobSpec.ID,
+		// Type must be downcast to comply with Initiator
+		// deserialization logic. Ideally, Initiator.Type should be its
+		// own type (InitiatorType) that handles deserialization
+		// validation.
+		Type:            strings.ToLower(initr.Type),
+		InitiatorParams: initr.InitiatorParams,
+	}
 }
 
 // UnmarshalJSON parses the raw initiator data and updates the
