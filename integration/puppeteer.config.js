@@ -1,6 +1,6 @@
 module.exports = {
   devtools: false,
-  headless: true,
+  headless: process.env.HEADLESS !== 'false',
   args: ['--no-sandbox'],
   defaultViewport: {
     width: 1366,
