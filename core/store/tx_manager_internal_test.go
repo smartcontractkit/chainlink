@@ -9,15 +9,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func (a *ManagedAccount) PublicLastConfirmedNonce() uint64 {
-	return a.lastConfirmedNonce
+func (a *ManagedAccount) PublicLastSafeNonce() uint64 {
+	return a.lastSafeNonce
 }
 
-func (a *ManagedAccount) SetLastConfirmedNonce(n uint64) {
-	a.lastConfirmedNonce = n
+func (a *ManagedAccount) SetLastSafeNonce(n uint64) {
+	a.lastSafeNonce = n
 }
 
-func TestManagedAccount_updateLastConfirmedNonce(t *testing.T) {
+func TestManagedAccount_updateLastSafeNonce(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -33,15 +33,15 @@ func TestManagedAccount_updateLastConfirmedNonce(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ma := &ManagedAccount{lastConfirmedNonce: test.last}
-			ma.updateLastConfirmedNonce(test.submitted)
+			ma := &ManagedAccount{lastSafeNonce: test.last}
+			ma.updateLastSafeNonce(test.submitted)
 
-			assert.Equal(t, test.want, ma.lastConfirmedNonce)
+			assert.Equal(t, test.want, ma.lastSafeNonce)
 		})
 	}
 }
 
-func TestTxManager_updateLastConfirmedTx_success(t *testing.T) {
+func TestTxManager_updateLastSafeNonce_success(t *testing.T) {
 	t.Parallel()
 
 	from := common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")
@@ -51,12 +51,12 @@ func TestTxManager_updateLastConfirmedTx_success(t *testing.T) {
 	txm := &EthTxManager{availableAccounts: []*ManagedAccount{ma}}
 	tx := &models.Tx{From: from, Nonce: nonce}
 
-	txm.updateManagedAccounts(tx)
+	txm.updateLastSafeNonce(tx)
 
-	assert.Equal(t, nonce, ma.lastConfirmedNonce)
+	assert.Equal(t, nonce, ma.lastSafeNonce)
 }
 
-func TestTxManager_updateLastConfirmedTx_noMatchingAccount(t *testing.T) {
+func TestTxManager_updateLastSafeNonce_noMatchingAccount(t *testing.T) {
 	t.Parallel()
 
 	from := common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")
@@ -66,7 +66,7 @@ func TestTxManager_updateLastConfirmedTx_noMatchingAccount(t *testing.T) {
 	txm := &EthTxManager{availableAccounts: []*ManagedAccount{ma}}
 	tx := &models.Tx{From: from, Nonce: nonce}
 
-	txm.updateManagedAccounts(tx)
+	txm.updateLastSafeNonce(tx)
 
-	assert.NotEqual(t, nonce, ma.lastConfirmedNonce)
+	assert.NotEqual(t, nonce, ma.lastSafeNonce)
 }
