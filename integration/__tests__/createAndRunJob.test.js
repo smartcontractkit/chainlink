@@ -10,7 +10,7 @@ const PupHelper = require('../support/PupHelper.js')
 describe('End to end', () => {
   let browser, page, server, pupHelper
   beforeAll(async () => {
-    jest.setTimeout(30000)
+    jest.setTimeout(3000000)
     pupExpect.setDefaultOptions({ timeout: 3000 })
     server = await newServer(`{"last": "3843.95"}`)
     browser = await puppeteer.launch(puppeteerConfig)
@@ -75,7 +75,7 @@ describe('End to end', () => {
     expect(txHash).toBeDefined()
 
     // Navigate to transactions page
-    await pupHelper.clickMenuItem('Transactions')
+    await pupHelper.clickLink('Transactions')
     await pupExpect(page).toMatchElement('h4', { text: 'Transactions' })
     await pupExpect(page).toMatchElement('p', { text: txHash })
 

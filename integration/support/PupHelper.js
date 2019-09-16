@@ -5,31 +5,20 @@ const pupExpect = require('expect-puppeteer')
 module.exports = class PupHelper {
   constructor(page) {
     this.page = page
-    // page.setDefaultTimeout(3000)
+    // page.setDefaultTimeout(29000)
     this.page.on('console', msg => {
       console.log(`PAGE LOG url: ${page.url()} | msg: ${msg.text()}`)
     })
   }
 
   async clickButton(text) {
-    // XXX: Some buttons/links don't do anything if you click them too quickly,
-    // so for, now, add a small delay
-    await this.page.waitFor(500)
+    await this.waitForContent('button', text)
     await pupExpect(this.page).toClick('button', { text })
   }
 
   async clickLink(text, selector = 'a') {
-    await this.page.waitFor(500)
-    return Promise.all([
-      this.page.waitForNavigation({
-        waitUntil: 'networkidle0',
-      }),
-      pupExpect(this.page).toClick(selector, { text }),
-    ])
-  }
-
-  async clickMenuItem(text) {
-    await this.clickLink(text, 'li > a')
+    await this.waitForContent('a', text)
+    await pupExpect(this.page).toClick(selector, { text })
   }
 
   async signIn(email = 'notreal@fakeemail.ch', password = 'twochains') {
@@ -39,11 +28,11 @@ module.exports = class PupHelper {
   }
 
   async waitForContent(tagName, content) {
-    const xpath = `//${tagName}[contains(text(), '${content}')]`
+    const xpath = `//${tagName}[contains(., '${content}')]`
     try {
       return await this.page.waitForXPath(xpath)
     } catch {
-      throw `Unable to find <${tagName}> tag with content: "${content}"`
+      throw `Unable to find <${tagName}> tag with content: '${content}'`
     }
   }
 

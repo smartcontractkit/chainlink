@@ -31,6 +31,7 @@ describe('End to end', () => {
     // Add Bridge
     await pupHelper.clickLink('Bridges')
     await pupExpect(page).toMatchElement('h4', { text: 'Bridges' })
+    // debugger
     await pupHelper.clickLink('New Bridge')
     await pupExpect(page).toFillForm('form', {
       name: 'new_bridge',
