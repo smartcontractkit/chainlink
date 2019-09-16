@@ -8,6 +8,7 @@ const {
   consoleLogger,
   clickButton,
   clickLink,
+  waitForNotification,
 } = require('../support/helpers.js')
 
 describe('End to end', () => {
@@ -47,12 +48,12 @@ describe('End to end', () => {
     await pupExpect(page).toMatch(/success.+?bridge/i)
 
     // Navigate to bridge show page
-    const flashMessage = await page.$x(
-      "//p[contains(text(), 'Successfully created bridge')]",
+    const notification = await waitForNotification(
+      page,
+      'Successfully created bridge',
     )
-    await new Promise(resolve => setTimeout(resolve, 2000)) // FIXME timeout until we can reload again
-    const newBridgeLink = await flashMessage[0].$('a')
-    await newBridgeLink.click()
+    const notificationLink = await notification.$('a')
+    await notificationLink.click()
     const pathName = await page.evaluate(() => window.location.pathname)
     expect(pathName).toEqual('/bridges/new_bridge')
   })
