@@ -23,7 +23,7 @@
     "ethereumjs-abi": "^0.6.5",
     "ethereumjs-util": "^5.1.5",
     "fs": "^0.0.1-security",
-    "link_token": "^1.0.3",
+    "link_token": "^1.0.6",
     "prettier": "^1.18.2",
     "request-promise": "^4.2.2",
     "solc": "0.4.24",
