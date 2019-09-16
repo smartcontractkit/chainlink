@@ -3,3 +3,4 @@ node_modules/
 build/contracts/*
 !contracts/vendor
 !build/contracts/Oracle.sol
+dist
