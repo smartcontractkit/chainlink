@@ -24,7 +24,7 @@ func TestCopy_Perform(t *testing.T) {
 		{"nonexistent path", `{"high":"11850.00","last":"11779.99"}`, []string{"doesnotexist"},
 			`{"high":"11850.00","last":"11779.99","result":null}`, models.RunStatusCompleted, false},
 		{"double nonexistent path", `{"high":"11850.00","last":"11779.99"}`, []string{"no", "really"},
-			`{"high":"11850.00","last":"11779.99","result":"{\"high\":\"11850.00\",\"last\":\"11779.99\"}"}`, models.RunStatusErrored, true},
+			``, models.RunStatusErrored, true},
 		{"array index path", `{"data":[{"availability":"0.99991"}]}`, []string{"data", "0", "availability"},
 			`{"data":[{"availability":"0.99991"}],"result":"0.99991"}`, models.RunStatusCompleted, false},
 		{"float result", `{"availability":0.99991}`, []string{"availability"},
