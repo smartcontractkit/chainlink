@@ -349,7 +349,7 @@ func TestAnyTime_MarshalJSON(t *testing.T) {
 }
 
 func TestAnyTime_JSONUnmarshal_Inversion(t *testing.T) {
-	var src models.JSON
+	src := cltest.JSONFromString(t, "")
 	var dst models.JSON
 
 	buf, err := json.Marshal(src)
