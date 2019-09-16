@@ -23,7 +23,7 @@
     "solhint": "^2.1.0",
     "truffle": "^5.0.25",
     "truffle-contract": "^3.0.6",
-    "twilio": "^3.11.3"
+    "twilio": "^3.34.0"
   },
   "prettier": "@chainlink/prettier-config"
 }
