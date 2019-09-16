@@ -453,14 +453,14 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 	ethMock.Register("eth_chainId", store.Config.ChainID())
 	assert.Nil(t, app.Start())
 
+	require.NoError(t, app.WaitForConnection())
+
 	from := cltest.GetAccountAddress(t, store)
 	tx := cltest.CreateTx(t, store, from, uint64(14372))
 	input := cltest.RunResultWithResult(tx.Attempts[0].Hash.String())
 	input.Status = models.RunStatusPendingConfirmations
 
 	ethMock.RegisterError("eth_getTransactionReceipt", "Connection reset by peer")
-
-	require.NoError(t, app.WaitForConnection())
 
 	adapter := adapters.EthTx{
 		Address:          cltest.NewAddress(),

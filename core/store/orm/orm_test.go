@@ -1278,3 +1278,42 @@ func isDirEmpty(t *testing.T, dir string) bool {
 
 	return false
 }
+
+func TestORM_UnconfirmedTxAttempts(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
+	to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
+	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
+	nonce := uint64(1232421)
+	gasLimit := uint64(50000)
+	data, err := hex.DecodeString("0987612345abcdef")
+	assert.NoError(t, err)
+
+	ethTx := types.NewTransaction(
+		nonce,
+		to,
+		value,
+		gasLimit,
+		new(big.Int),
+		data,
+	)
+
+	tx, err := store.CreateTx(null.String{}, ethTx, &from, 0)
+	require.NoError(t, err)
+
+	_, err = store.AddTxAttempt(tx, ethTx, 1)
+	require.NoError(t, err)
+	txAttempt, err := store.FindTxAttempt(tx.Attempts[1].Hash)
+	require.NoError(t, err)
+
+	txAttempt.Confirmed = true
+	err = store.ORM.DB.Save(&txAttempt).Error
+	require.NoError(t, err, "!!")
+
+	attempts, err := store.ORM.UnconfirmedTxAttempts()
+	require.NoError(t, err)
+
+	assert.Len(t, attempts, 1)
+}
