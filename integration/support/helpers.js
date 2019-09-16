@@ -26,4 +26,13 @@ module.exports = {
     await pupExpect(page).toFill('form input[id=password]', 'twochains')
     return pupExpect(page).toClick('form button')
   },
+
+  waitForNotification: async (page, notification) => {
+    const xpath = `//p[contains(text(), '${notification}')]`
+    try {
+      return await page.waitForXPath(xpath)
+    } catch {
+      throw `Unable to find notification: ${notification}`
+    }
+  },
 }

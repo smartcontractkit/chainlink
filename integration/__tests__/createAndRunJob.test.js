@@ -2,20 +2,21 @@
 
 const puppeteer = require('puppeteer')
 const pupExpect = require('expect-puppeteer')
-const { newServer } = require('./support/server.js')
-const { scrape } = require('./support/scrape.js')
-const puppeteerConfig = require('./puppeteer.config.js')
+const { newServer } = require('../support/server.js')
+const { scrape } = require('../support/scrape.js')
+const puppeteerConfig = require('../puppeteer.config.js')
 const {
   signIn,
   consoleLogger,
   clickTransactionsMenuItem,
   clickLink,
-} = require('./support/helpers.js')
+  waitForNotification,
+} = require('../support/helpers.js')
 
 describe('End to end', () => {
   let browser, page, server
   beforeAll(async () => {
-    jest.setTimeout(30000)
+    jest.setTimeout(3000000)
     pupExpect.setDefaultOptions({ timeout: 3000 })
     server = await newServer(`{"last": "3843.95"}`)
     browser = await puppeteer.launch(puppeteerConfig)
@@ -65,13 +66,14 @@ describe('End to end', () => {
     await pupExpect(page).toMatch('Job Spec Detail')
     await pupExpect(page).toClick('button', { text: 'Run' })
     await pupExpect(page).toMatch(/success.+?run/i)
-    const flashMessage = await page.$x(
-      "//p[contains(text(), 'Successfully created job run')]",
+
+    const notification = await waitForNotification(
+      page,
+      'Successfully created job run',
     )
-    await new Promise(resolve => setTimeout(resolve, 2000)) // FIXME timeout until we can reload again
-    const jobRunLink = await flashMessage[0].$('a')
-    const runId = await flashMessage[0].$eval('a', async link => link.innerText)
-    await jobRunLink.click()
+    const notificationLink = await notification.$('a')
+    const runId = await notificationLink.evaluate(tag => tag.innerText)
+    await notificationLink.click()
 
     // Transaction ID should eventually be coded on page like so:
     //    {"result":"0x6736ad06da823692cc66c5a51032c4aed83bfca9778eb1a7ad24de67f3f472fc"}

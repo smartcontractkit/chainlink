@@ -2,13 +2,13 @@
 
 const puppeteer = require('puppeteer')
 const pupExpect = require('expect-puppeteer')
-const puppeteerConfig = require('./puppeteer.config.js')
+const puppeteerConfig = require('../puppeteer.config.js')
 const {
   signIn,
   consoleLogger,
   clickButton,
   clickLink,
-} = require('./support/helpers.js')
+} = require('../support/helpers.js')
 
 describe('End to end', () => {
   let browser, page
