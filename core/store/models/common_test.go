@@ -347,3 +347,14 @@ func TestAnyTime_MarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestAnyTime_JSONUnmarshal_Inversion(t *testing.T) {
+	var src models.JSON
+	var dst models.JSON
+
+	buf, err := json.Marshal(src)
+	require.NoError(t, err)
+	err = json.Unmarshal(buf, &dst)
+	require.NoError(t, err)
+	require.Equal(t, src, dst, "inversion of marshalling should be the identity")
+}
