@@ -19,6 +19,7 @@ module.exports = class PupHelper {
   }
 
   async clickLink(text, selector = 'a') {
+    await this.page.waitFor(500)
     return Promise.all([
       this.page.waitForNavigation({
         waitUntil: 'networkidle0',
