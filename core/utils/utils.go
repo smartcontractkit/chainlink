@@ -530,22 +530,3 @@ func FileContents(path string) (string, error) {
 func JustError(_ interface{}, err error) error {
 	return err
 }
-
-var tmpZero = big.NewInt(0)
-var uint256Max = big.NewInt(0).Sub(tmpZero.Lsh(big.NewInt(1), 256), big.NewInt(1))
-
-// HexToUint256 returns the number n represents as hexadecimal digits, or
-// indicates failure via error
-func HexToUint256(n string) (*big.Int, error) {
-	if n[:2] == "0x" || n[:2] == "0X" {
-		n = n[2:]
-	}
-	rawNum, successfullyParsed := big.NewInt(0).SetString(n, 16)
-	if !successfullyParsed {
-		return nil, errors.Errorf("could not parse as hexadecimal")
-	}
-	if rawNum.Cmp(big.NewInt(0)) == -1 || rawNum.Cmp(uint256Max) == 1 {
-		return nil, errors.Errorf("out of bounds for uint256")
-	}
-	return rawNum, nil
-}
