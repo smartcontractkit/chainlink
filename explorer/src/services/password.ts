@@ -1,13 +1,14 @@
 import bcrypt from 'bcrypt'
 
-const SALT_ROUNDS: number = 10
+const DEFAULT_SALT_ROUNDS = 10
 
-function hash(plaintext: string): Promise<string> {
-  return bcrypt.hash(plaintext, SALT_ROUNDS)
+export function hash(
+  plaintext: string,
+  rounds: number = DEFAULT_SALT_ROUNDS,
+): Promise<string> {
+  return bcrypt.hash(plaintext, rounds)
 }
 
-function compare(plaintext: string, hash: string): Promise<boolean> {
+export function compare(plaintext: string, hash: string): Promise<boolean> {
   return bcrypt.compare(plaintext, hash)
 }
-
-export { hash, compare }
