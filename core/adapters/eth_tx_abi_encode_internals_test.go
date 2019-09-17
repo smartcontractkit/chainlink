@@ -363,12 +363,9 @@ func TestEthTxABIEncodeAdapter_encode(t *testing.T) {
 		assert.True(t, ok, "Failed to parse resultJSON in test %v: %s", i, test.desc)
 
 		encoded, err := abiEncode(&fnABI, args)
-		_ = encoded
 		if test.hexEncoded != "" {
 			assert.NoError(t, err, "in test %v: %s", i, test.desc)
-			if test.hexEncoded != "?" {
-				require.Equal(t, test.hexEncoded, hex.EncodeToString(encoded), "in test %v: %s", i, test.desc)
-			}
+			require.Equal(t, test.hexEncoded, hex.EncodeToString(encoded), "in test %v: %s", i, test.desc)
 		} else {
 			require.Error(t, err, "in test %v: %s", i, test.desc)
 		}
