@@ -28,11 +28,6 @@ afterAll(async () => {
   }
 })
 
-interface DoneCallback {
-  (...args: any[]): any
-  fail(error?: string | { message: string }): any
-}
-
 describe('#index', () => {
   const adminLoginPath = '/api/v1/admin/login'
 
@@ -41,7 +36,7 @@ describe('#index', () => {
     await createAdmin(db, USERNAME, PASSWORD)
   })
 
-  it('returns a 200 with valid credentials', (done: DoneCallback) => {
+  it('returns a 200 with valid credentials', done => {
     request(server)
       .post(adminLoginPath)
       .set('Content-Type', 'application/json')
@@ -51,7 +46,7 @@ describe('#index', () => {
       .end(done)
   })
 
-  it('returns a 401 unauthorized with invalid admin credentials', (done: DoneCallback) => {
+  it('returns a 401 unauthorized with invalid admin credentials', done => {
     request(server)
       .post(adminLoginPath)
       .set('Content-Type', 'application/json')
@@ -61,7 +56,7 @@ describe('#index', () => {
       .end(done)
   })
 
-  it('returns a 401 unauthorized when the username does not exist', (done: DoneCallback) => {
+  it('returns a 401 unauthorized when the username does not exist', done => {
     request(server)
       .post(adminLoginPath)
       .set('Content-Type', 'application/json')
