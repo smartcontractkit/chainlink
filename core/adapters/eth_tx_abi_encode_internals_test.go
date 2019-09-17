@@ -219,6 +219,12 @@ var encodeTests = []struct {
 		`{"a": [0,1,2,3,"p"]}`,
 		``,
 	},
+	{
+		"invalid bytes",
+		`[{"inputs":[{"name":"a","type":"bytes"}],"name":"foo","type":"function"}]`,
+		`{"a": [0,1,2.1]}`,
+		``,
+	},
 	// Int
 	{
 		"value too small for int8",
@@ -290,6 +296,12 @@ var encodeTests = []struct {
 		``,
 	},
 	{
+		"weird negative hex",
+		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
+		`{"a": "0x-01"}`,
+		``,
+	},
+	{
 		"value too small for uint",
 		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
 		`{"a": "-1"}`,
@@ -326,6 +338,12 @@ var encodeTests = []struct {
 		"uint56 doesn't accept numbers",
 		`[{"inputs":[{"name":"a","type":"uint56"}],"name":"foo","type":"function"}]`,
 		`{"a": 1"}`,
+		``,
+	},
+	{
+		"floats that aren't integers are not accepted",
+		`[{"inputs":[{"name":"a","type":"uint32"}],"name":"foo","type":"function"}]`,
+		`{"a": 1.1}`,
 		``,
 	},
 }
