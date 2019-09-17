@@ -1,14 +1,9 @@
-import bcrypt from 'bcrypt'
+import argon2 from 'argon2'
 
-const DEFAULT_SALT_ROUNDS = 10
-
-export function hash(
-  plaintext: string,
-  rounds: number = DEFAULT_SALT_ROUNDS,
-): Promise<string> {
-  return bcrypt.hash(plaintext, rounds)
+export function hash(plaintext: string): Promise<string> {
+  return argon2.hash(plaintext)
 }
 
 export function compare(plaintext: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(plaintext, hash)
+  return argon2.verify(hash, plaintext)
 }
