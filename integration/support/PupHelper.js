@@ -12,15 +12,33 @@ module.exports = class PupHelper {
   }
 
   async clickButton(text) {
-    await this.page.waitFor(500)
+    // await this.page.waitFor(500)
     await this.waitForContent('button', text)
-    await pupExpect(this.page).toClick('button', { text })
+    // await pupExpect(this.page).toClick('button', { text })
+    await this.nativeClick('button', text)
   }
 
   async clickLink(text) {
-    await this.page.waitFor(500)
+    // await this.page.waitFor(500)
     await this.waitForContent('a', text)
-    await pupExpect(this.page).toClick('a', { text })
+    // await pupExpect(this.page).toClick('a', { text })
+    await this.nativeClick('a', text)
+  }
+
+  async nativeClick(tagName, content) {
+    await this.page.evaluate(
+      (_tagName, _content) => {
+        const tags = Array.from(document.querySelectorAll(_tagName))
+        const tag = tags.find(tag => tag.innerText.includes(_content))
+        if (tag) {
+          tag.click()
+        } else {
+          throw `Unable to find <${_tagName}> tag with content: '${_content}'`
+        }
+      },
+      tagName,
+      content,
+    )
   }
 
   async signIn(email = 'notreal@fakeemail.ch', password = 'twochains') {
