@@ -31,7 +31,6 @@ describe('End to end', () => {
     await pupExpect(page).toMatch('Jobs')
 
     // Create Job
-    debugger
     await pupHelper.clickLink('New Job')
     await pupHelper.waitForContent('h5', 'New Job')
     // await pupExpect(page).toMatchElement('h5', { text: 'New Job' })

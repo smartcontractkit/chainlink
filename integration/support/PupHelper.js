@@ -11,34 +11,22 @@ module.exports = class PupHelper {
     })
   }
 
-  async clickButton(text) {
-    // await this.page.waitFor(500)
-    await this.waitForContent('button', text)
-    // await pupExpect(this.page).toClick('button', { text })
-    await this.nativeClick('button', text)
+  async clickButton(content) {
+    await this.nativeClick('button', content)
   }
 
-  async clickLink(text) {
-    // await this.page.waitFor(500)
-    await this.waitForContent('a', text)
-    // await pupExpect(this.page).toClick('a', { text })
-    await this.nativeClick('a', text)
+  async clickLink(content) {
+    await this.nativeClick('a', content)
   }
 
-  async nativeClick(tagName, content) {
-    await this.page.evaluate(
-      (_tagName, _content) => {
-        const tags = Array.from(document.querySelectorAll(_tagName))
-        const tag = tags.find(tag => tag.innerText.includes(_content))
-        if (tag) {
-          tag.click()
-        } else {
-          throw `Unable to find <${_tagName}> tag with content: '${_content}'`
-        }
-      },
-      tagName,
-      content,
-    )
+  // using puppeteer's #click method doesn't reliably trigger navigation
+  // workaround is to trigger click natively
+  async nativeClick(...params) {
+    await this.waitForContent(...params)
+    await this.page.evaluate((tagName, content) => {
+      const tags = Array.from(document.querySelectorAll(tagName))
+      tags.find(tag => tag.innerText.includes(content)).click()
+    }, ...params)
   }
 
   async signIn(email = 'notreal@fakeemail.ch', password = 'twochains') {
