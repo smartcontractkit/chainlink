@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"regexp"
 
 	"github.com/pkg/errors"
 
@@ -367,12 +368,17 @@ func encPositiveInt(i int) []byte {
 	return encoded
 }
 
+var hexDigitsRegexp = regexp.MustCompile("^[0-9a-fA-F]*$")
+
 func bigIntFromJSON(jval interface{}, name string) (*big.Int, error) {
 	switch val := jval.(type) {
 	case string:
 		n := big.NewInt(0)
 		valid := false
 		if utils.HasHexPrefix(val) {
+			if !hexDigitsRegexp.MatchString(val[2:]) {
+				return nil, errors.Errorf("argument %s starts with '0x', but doesn't encode valid hex number", name)
+			}
 			n, valid = big.NewInt(0).SetString(val[2:], 16)
 			if !valid {
 				return nil, errors.Errorf("argument %s starts with '0x', but doesn't encode valid hex number", name)
