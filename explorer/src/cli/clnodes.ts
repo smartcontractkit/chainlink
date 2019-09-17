@@ -43,15 +43,15 @@ const add = async (name: string, url?: string) => {
     console.log('AccessKey', chainlinkNode.accessKey)
     console.log('Secret', chainlinkNode.secret)
   } else if (response.status === httpStatus.UNAUTHORIZED) {
-    console.log(
+    console.error(
       'Invalid admin credentials. Please ensure the you have provided the correct admin username and password.',
     )
   } else if (response.status === httpStatus.CONFLICT) {
-    console.log(
+    console.error(
       `Error creating chainlink node. A node with the name: "${name}" already exists.`,
     )
   } else {
-    console.log(`Unhandled error. HTTP status: ${response.status}`)
+    console.error(`Unhandled error. HTTP status: ${response.status}`)
   }
 }
 
@@ -69,11 +69,11 @@ const remove = async (name: string) => {
   if (response.status === httpStatus.OK) {
     console.log('successfully deleted chainlink node with name %s', name)
   } else if (response.status === httpStatus.UNAUTHORIZED) {
-    console.log(
+    console.error(
       'Invalid admin credentials. Please ensure the you have provided the correct admin username and password.',
     )
   } else {
-    console.log(`Unhandled error. HTTP status: ${response.status}`)
+    console.error(`Unhandled error. HTTP status: ${response.status}`)
   }
 }
 
