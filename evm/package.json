@@ -10,7 +10,8 @@
     "solhint": "solhint ./contracts/**/*.sol",
     "lint": "yarn solhint && yarn eslint",
     "slither": "truffle compile --quiet && slither .",
-    "test": "truffle test",
+    "pretest": "yarn build:tsc",
+    "test": "truffle test ./dist/test/*",
     "format": "prettier --write \"**/*\"",
     "truffle:migrate:cldev": "truffle migrate --network cldev"
   },
@@ -28,14 +29,6 @@
     "web3": "^1.2.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.5.5",
-    "@babel/plugin-proposal-class-properties": "^7.3.0",
-    "@babel/plugin-proposal-export-namespace-from": "^7.2.0",
-    "@babel/plugin-proposal-throw-expressions": "^7.2.0",
-    "@babel/polyfill": "^7.2.5",
-    "@babel/preset-env": "^7.6.0",
-    "@babel/preset-typescript": "^7.1.0",
-    "@babel/register": "^7.0.0",
     "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
     "@types/cbor": "^2.0.0",
@@ -43,7 +36,6 @@
     "@types/mocha": "^5.2.7",
     "@types/node": "^12.7.5",
     "@types/web3": "^1.0.0",
-    "babel-eslint": "^10.0.1",
     "bn.js": "^4.11.0",
     "chai": "^4.2.0",
     "depcheck": "^0.8.3",
