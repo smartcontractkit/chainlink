@@ -10,7 +10,7 @@ const PupHelper = require('../support/PupHelper.js')
 describe('End to end', () => {
   let browser, page, server, pupHelper
   beforeAll(async () => {
-    jest.setTimeout(3000000)
+    jest.setTimeout(30000)
     pupExpect.setDefaultOptions({ timeout: 3000 })
     server = await newServer(`{"last": "3843.95"}`)
     browser = await puppeteer.launch(puppeteerConfig)
@@ -31,9 +31,10 @@ describe('End to end', () => {
     await pupExpect(page).toMatch('Jobs')
 
     // Create Job
-    await pupHelper.clickLink('New Job')
-    await pupHelper.waitForContent('h5', 'New Job')
-    // await pupExpect(page).toMatchElement('h5', { text: 'New Job' })
+    // await pupHelper.clickLink('New Job')
+    // await pupHelper.waitForContent('h5', 'New Job')
+    await pupExpect(page).toClick('a', { text: 'New Job' })
+    await pupExpect(page).toMatchElement('h5', { text: 'New Job' })
 
     // prettier-ignore
     const jobJson = `{
@@ -90,7 +91,7 @@ describe('End to end', () => {
     await pupExpect(page).toFill('form input', runId)
     await pupExpect(page).toClick('button', { text: 'Search' })
 
-    await pupHelper.waitForContent('a', runId)
+    await pupHelper.waitForContent('a', runId) // TODO
     await pupExpect(page).toMatch(runId)
     await pupExpect(page).toClick('a', { text: runId })
 

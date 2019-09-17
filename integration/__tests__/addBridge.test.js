@@ -29,10 +29,12 @@ describe('End to end', () => {
     await pupExpect(page).toMatch('Jobs')
 
     // Add Bridge
-    await pupHelper.clickLink('Bridges')
+    // await pupHelper.clickLink('Bridges')
+    await pupExpect(page).toClick('a', { text: 'Bridges' })
     await pupExpect(page).toMatchElement('h4', { text: 'Bridges' })
     // debugger
-    await pupHelper.clickLink('New Bridge')
+    // await pupHelper.clickLink('New Bridge')
+    await pupExpect(page).toClick('a', { text: 'New Bridge' })
     await pupExpect(page).toFillForm('form', {
       name: 'new_bridge',
       url: 'http://example.com',

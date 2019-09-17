@@ -12,17 +12,18 @@ module.exports = class PupHelper {
   }
 
   async clickButton(content) {
+    await this.waitForContent('button', content)
     await this.nativeClick('button', content)
   }
 
   async clickLink(content) {
+    await this.waitForContent('a', content)
     await this.nativeClick('a', content)
   }
 
   // using puppeteer's #click method doesn't reliably trigger navigation
   // workaround is to trigger click natively
   async nativeClick(...params) {
-    await this.waitForContent(...params)
     await this.page.evaluate((tagName, content) => {
       const tags = Array.from(document.querySelectorAll(tagName))
       tags.find(tag => tag.innerText.includes(content)).click()
@@ -32,11 +33,14 @@ module.exports = class PupHelper {
   async signIn(email = 'notreal@fakeemail.ch', password = 'twochains') {
     await pupExpect(this.page).toFill('form input[id=email]', email)
     await pupExpect(this.page).toFill('form input[id=password]', password)
-    return pupExpect(this.page).toClick('form button')
+    await Promise.all([
+      pupExpect(this.page).toClick('form button'),
+      this.page.waitForNavigation(),
+    ])
   }
 
   async waitForContent(tagName, content) {
-    const xpath = `//${tagName}[contains(., '${content}')]`
+    const xpath = this._xpath(tagName, content)
     try {
       return await this.page.waitForXPath(xpath)
     } catch {
@@ -44,7 +48,28 @@ module.exports = class PupHelper {
     }
   }
 
+  // async refreshUntilContentPresent(tagName, content, timeout = 5000) {
+  //   const xpath = this._xpath(tagName, content)
+  //   return Promise.race([
+  //     setTimeout(() => {
+  //       throw `Unable to find <${tagName}> tag with content: '${content}'`
+  //     }, timeout),
+  //     async () => {
+  //       let contentPresent = false
+  //       while (!contentPresent) {
+  //         await this.page.reload()
+  //         contentPresent = (await this.page.$x(xpath)).length != 0
+  //       }
+  //     },
+  //   ])
+  // }
+
   async waitForNotification(notification) {
     return await this.waitForContent('p', notification)
+  }
+
+  _xpath(tagName, content) {
+    // searches for tag with content any # of children deep
+    return `//${tagName}[contains(., '${content}')]`
   }
 }
