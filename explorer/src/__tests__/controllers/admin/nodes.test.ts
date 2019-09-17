@@ -9,6 +9,10 @@ import {
   find as findNode,
 } from '../../../entity/ChainlinkNode'
 import { start as testServer } from '../../../support/server'
+import {
+  ADMIN_USERNAME_HEADER,
+  ADMIN_PASSWORD_HEADER,
+} from '../../../utils/constants'
 
 const USERNAME = 'myadmin'
 const PASSWORD = 'validpassword'
@@ -40,8 +44,8 @@ describe('POST /nodes', () => {
       .send({ name: 'nodeA', url: 'http://nodea.com' })
       .set('Accept', 'application/json')
       .set('Content-Type', 'application/json')
-      .set('Explorer-Admin-Username', USERNAME)
-      .set('Explorer-Admin-Password', PASSWORD)
+      .set(ADMIN_USERNAME_HEADER, USERNAME)
+      .set(ADMIN_PASSWORD_HEADER, PASSWORD)
       .expect(201)
       .expect((res: Response) => {
         expect(res.body.id).toBeDefined()
@@ -57,8 +61,8 @@ describe('POST /nodes', () => {
       .send({ url: 'http://nodea.com' })
       .set('Accept', 'application/json')
       .set('Content-Type', 'application/json')
-      .set('Explorer-Admin-Username', USERNAME)
-      .set('Explorer-Admin-Password', PASSWORD)
+      .set(ADMIN_USERNAME_HEADER, USERNAME)
+      .set(ADMIN_PASSWORD_HEADER, PASSWORD)
       .expect(422)
       .expect((res: Response) => {
         const { errors } = res.body
@@ -79,8 +83,8 @@ describe('POST /nodes', () => {
       .send({ name: node.name })
       .set('Accept', 'application/json')
       .set('Content-Type', 'application/json')
-      .set('Explorer-Admin-Username', USERNAME)
-      .set('Explorer-Admin-Password', PASSWORD)
+      .set(ADMIN_USERNAME_HEADER, USERNAME)
+      .set(ADMIN_PASSWORD_HEADER, PASSWORD)
       .expect(409)
       .end(done)
   })
@@ -89,8 +93,8 @@ describe('POST /nodes', () => {
     request(server)
       .post(adminNodesPath)
       .set('Content-Type', 'application/json')
-      .set('Explorer-Admin-Username', USERNAME)
-      .set('Explorer-Admin-Password', 'invalidpassword')
+      .set(ADMIN_USERNAME_HEADER, USERNAME)
+      .set(ADMIN_PASSWORD_HEADER, 'invalidpassword')
       .expect(401)
       .end(done)
   })
@@ -107,8 +111,8 @@ describe('DELETE /nodes/:id', () => {
     request(server)
       .delete(path(node.id))
       .set('Content-Type', 'application/json')
-      .set('Explorer-Admin-Username', USERNAME)
-      .set('Explorer-Admin-Password', PASSWORD)
+      .set(ADMIN_USERNAME_HEADER, USERNAME)
+      .set(ADMIN_PASSWORD_HEADER, PASSWORD)
       .expect(200)
       .expect(async () => {
         const nodeAfter = await findNode(db, node.id)
@@ -121,8 +125,8 @@ describe('DELETE /nodes/:id', () => {
     request(server)
       .delete(path(10))
       .set('Content-Type', 'application/json')
-      .set('Explorer-Admin-Username', USERNAME)
-      .set('Explorer-Admin-Password', 'invalidpassword')
+      .set(ADMIN_USERNAME_HEADER, USERNAME)
+      .set(ADMIN_PASSWORD_HEADER, 'invalidpassword')
       .expect(401)
       .end(done)
   })

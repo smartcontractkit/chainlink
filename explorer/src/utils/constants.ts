@@ -4,5 +4,5 @@ export const NORMAL_CLOSE = 1000
 
 export const ACCESS_KEY_HEADER = 'x-explore-chainlink-accesskey'
 export const SECRET_HEADER = 'x-explore-chainlink-secret'
-export const ADMIN_USERNAME_HEADER = 'Explorer-Admin-Username'
-export const ADMIN_PASSWORD_HEADER = 'Explorer-Admin-Password'
+export const ADMIN_USERNAME_HEADER = 'x-explore-admin-username'
+export const ADMIN_PASSWORD_HEADER = 'x-explore-admin-password'
