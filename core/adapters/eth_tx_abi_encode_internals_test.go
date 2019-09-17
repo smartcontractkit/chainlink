@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -58,30 +59,12 @@ func TestEthTxABIEncodeAdapter_isSupportedABIType(t *testing.T) {
 	}
 }
 
-var encodeTests = []struct {
+var encodeSuccessTests = []struct {
 	desc       string
 	abiJSON    string
 	resultJSON string
-	hexEncoded string // leave empty to signal that encode is expected to fail
+	hexEncoded string
 }{
-	{
-		"empty result should fail",
-		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
-		`{}`,
-		``,
-	},
-	{
-		"result with wrong key should fail",
-		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
-		`{"b": "0xf"}`,
-		``,
-	},
-	{
-		"result with extra key should fail",
-		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
-		`{"a": "0xf", "b": "0xf"}`,
-		``,
-	},
 	// Testvectors
 	{
 		"testvec 1 from https://solidity.readthedocs.io/en/v0.5.11/abi-spec.html#examples",
@@ -126,22 +109,10 @@ var encodeTests = []struct {
 		`fdf80bda00000000000000000000000098d60255f917e3eb94eae199d827dad837fac4cb`,
 	},
 	{
-		"invalid address",
-		`[{"inputs":[{"name":"a","type":"address"}],"name":"foo","type":"function"}]`,
-		`{"a": "98d60255f917e3eb94eae199d827dad837fac4cb"}`,
-		``,
-	},
-	{
 		"short address",
 		`[{"inputs":[{"name":"a","type":"address"}],"name":"foo","type":"function"}]`,
 		`{"a": "0xf917e3eb94eae199d827dad837fac4cb"}`,
 		`fdf80bda00000000000000000000000000000000f917e3eb94eae199d827dad837fac4cb`,
-	},
-	{
-		"address too long",
-		`[{"inputs":[{"name":"a","type":"address"}],"name":"foo","type":"function"}]`,
-		`{"a": "0xffffffffffffffffffffffffffffffffffffffffff"}`,
-		``,
 	},
 	// Array
 	{
@@ -163,30 +134,12 @@ var encodeTests = []struct {
 		`{"a": true, "b": false}`,
 		`b3cedfcf00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000`,
 	},
-	{
-		"invalid bool",
-		`[{"inputs":[{"name":"a","type":"bool"},{"name":"b","type":"bool"}],"name":"foo","type":"function"}]`,
-		`{"a": 1, "b": null}`,
-		``,
-	},
 	// Bytes (fixed size)
 	{
 		"bytes1 and bytes32",
 		`[{"inputs":[{"name":"a","type":"bytes1"},{"name":"b","type":"bytes32"}],"name":"foo","type":"function"}]`,
 		`{"a": "0x12","b": "0xffbb22aaaccaaaa00aaaa13aaa88d60255f91243eb94eae1943827dad837fac4"}`,
 		`296874791200000000000000000000000000000000000000000000000000000000000000ffbb22aaaccaaaa00aaaa13aaa88d60255f91243eb94eae1943827dad837fac4`,
-	},
-	{
-		"bytes32 too short",
-		`[{"inputs":[{"name":"a","type":"bytes32"}],"name":"foo","type":"function"}]`,
-		`{"a": "0xaaaccaaaa00aaaa13aaa88d60255f91243eb94eae1943827dad837fac4"}`,
-		``,
-	},
-	{
-		"bytes32 too long",
-		`[{"inputs":[{"name":"a","type":"bytes32"}],"name":"foo","type":"function"}]`,
-		`{"a": "0xffffbb22aaaccaaaa00aaaa13aaa88d60255f91243eb94eae1943827dad837fac4"}`,
-		``,
 	},
 	// Bytes (variable size)
 	{
@@ -207,37 +160,7 @@ var encodeTests = []struct {
 		`{"a": [1,2,3]}`,
 		`30c8d1da000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000030102030000000000000000000000000000000000000000000000000000000000`,
 	},
-	{
-		"invalid bytes",
-		`[{"inputs":[{"name":"a","type":"bytes"}],"name":"foo","type":"function"}]`,
-		`{"a": "aabbcc"}`,
-		``,
-	},
-	{
-		"invalid bytes",
-		`[{"inputs":[{"name":"a","type":"bytes"}],"name":"foo","type":"function"}]`,
-		`{"a": [0,1,2,3,"p"]}`,
-		``,
-	},
-	{
-		"invalid bytes",
-		`[{"inputs":[{"name":"a","type":"bytes"}],"name":"foo","type":"function"}]`,
-		`{"a": [0,1,2.1]}`,
-		``,
-	},
 	// Int
-	{
-		"value too small for int8",
-		`[{"inputs":[{"name":"a","type":"int8"}],"name":"foo","type":"function"}]`,
-		`{"b": "-129"}`,
-		``,
-	},
-	{
-		"value too large for int8",
-		`[{"inputs":[{"name":"a","type":"int8"}],"name":"foo","type":"function"}]`,
-		`{"b": "128"}`,
-		``,
-	},
 	{
 		"min and max int8",
 		`[{"inputs":[{"name":"a","type":"int8"},{"name":"b","type":"int8"}],"name":"foo","type":"function"}]`,
@@ -249,12 +172,6 @@ var encodeTests = []struct {
 		`[{"inputs":[{"name":"a","type":"int32"},{"name":"b","type":"int128"}],"name":"foo","type":"function"}]`,
 		`{"a": "0xfff", "b": "-170141183460469231731687303715884105728"}`,
 		`a1f401870000000000000000000000000000000000000000000000000000000000000fffffffffffffffffffffffffffffffffff80000000000000000000000000000000`,
-	},
-	{
-		"value too large for uint256",
-		`[{"inputs":[{"name":"a","type":"uint256"}],"name":"foo","type":"function"}]`,
-		`{"a": "0xffaaaaaaaaaaaaaaaaaaaaaaaa88d60255f917e3eb94eae199d827dad837fac4cb"}`,
-		``,
 	},
 	// Slice
 	{
@@ -268,6 +185,12 @@ var encodeTests = []struct {
 		`[{"inputs":[{"name":"a","type":"int32[2][]"}],"name":"foo","type":"function"}]`,
 		`{"a": [[-12, 12], [17, "0xabc"], ["-2", "-2147483648"]]}`,
 		`c291cfa600000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff4000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000abcfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffffffffffffffffffffffffffffffffffffffffffffffffffff80000000`,
+	},
+	{
+		"empty slice",
+		`[{"inputs":[{"name":"a","type":"bool[]"}],"name":"foo","type":"function"}]`,
+		`{"a": []}`,
+		`78a4a11600000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000`,
 	},
 	// String
 	{
@@ -283,30 +206,6 @@ var encodeTests = []struct {
 		`f31a696900000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000`,
 	},
 	// Uint
-	{
-		"value too large for uint",
-		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
-		`{"a": "0x100"}`,
-		``,
-	},
-	{
-		"hex without 0x prefix for uint",
-		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
-		`{"a": "ff"}`,
-		``,
-	},
-	{
-		"weird negative hex",
-		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
-		`{"a": "0x-01"}`,
-		``,
-	},
-	{
-		"value too small for uint",
-		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
-		`{"a": "-1"}`,
-		``,
-	},
 	{
 		"different encodings for uint",
 		`[{"inputs":[{"name":"a","type":"uint8"}, {"name":"b","type":"uint8"}],"name":"foo","type":"function"}]`,
@@ -334,40 +233,170 @@ var encodeTests = []struct {
 		`{"a": 140737488355328, "b": "0x800000000001"}`,
 		`183cb15b00000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000800000000001`,
 	},
+}
+
+func TestEthTxABIEncodeAdapter_abiEncode_success(t *testing.T) {
+	for i, test := range encodeSuccessTests {
+		encoded, err := abiEncodeTestHelper(t, test.abiJSON, test.resultJSON,
+			fmt.Sprintf("'%s' (index %v)", test.desc, i))
+		assert.NoError(t, err, "in test %v: %s", i, test.desc)
+		require.Equal(t, test.hexEncoded, hex.EncodeToString(encoded), "in test %v: %s", i, test.desc)
+	}
+}
+
+var encodeErrorTests = []struct {
+	desc       string
+	abiJSON    string
+	resultJSON string
+}{
+	{
+		"empty result should fail",
+		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
+		`{}`,
+	},
+	{
+		"result with wrong key should fail",
+		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
+		`{"b": "0xf"}`,
+	},
+	{
+		"result with extra key should fail",
+		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
+		`{"a": "0xf", "b": "0xf"}`,
+	},
+	// Address
+	{
+		"invalid address",
+		`[{"inputs":[{"name":"a","type":"address"}],"name":"foo","type":"function"}]`,
+		`{"a": "98d60255f917e3eb94eae199d827dad837fac4cb"}`,
+	},
+	{
+		"address too long",
+		`[{"inputs":[{"name":"a","type":"address"}],"name":"foo","type":"function"}]`,
+		`{"a": "0xffffffffffffffffffffffffffffffffffffffffff"}`,
+	},
+	// Array
+	{
+		"array too short",
+		`[{"inputs":[{"name":"a","type":"uint256[2]"}],"name":"foo","type":"function"}]`,
+		`{"a": ["1"]}`,
+	},
+	{
+		"array too long",
+		`[{"inputs":[{"name":"a","type":"uint256[2]"}],"name":"foo","type":"function"}]`,
+		`{"a": ["1", "2", "3"]}`,
+	},
+	// Bool
+	{
+		"invalid bool",
+		`[{"inputs":[{"name":"a","type":"bool"},{"name":"b","type":"bool"}],"name":"foo","type":"function"}]`,
+		`{"a": 1, "b": null}`,
+	},
+	// Bytes (fixed size)
+	{
+		"bytes32 too short",
+		`[{"inputs":[{"name":"a","type":"bytes32"}],"name":"foo","type":"function"}]`,
+		`{"a": "0xaaaccaaaa00aaaa13aaa88d60255f91243eb94eae1943827dad837fac4"}`,
+	},
+	{
+		"bytes32 too long",
+		`[{"inputs":[{"name":"a","type":"bytes32"}],"name":"foo","type":"function"}]`,
+		`{"a": "0xffffbb22aaaccaaaa00aaaa13aaa88d60255f91243eb94eae1943827dad837fac4"}`,
+	},
+	// Bytes (variable size)
+	{
+		"invalid bytes",
+		`[{"inputs":[{"name":"a","type":"bytes"}],"name":"foo","type":"function"}]`,
+		`{"a": "aabbcc"}`,
+	},
+	{
+		"invalid bytes",
+		`[{"inputs":[{"name":"a","type":"bytes"}],"name":"foo","type":"function"}]`,
+		`{"a": [0,1,2,3,"p"]}`,
+	},
+	{
+		"invalid bytes",
+		`[{"inputs":[{"name":"a","type":"bytes"}],"name":"foo","type":"function"}]`,
+		`{"a": [0,1,2.1]}`,
+	},
+	// Int
+	{
+		"value too small for int8",
+		`[{"inputs":[{"name":"a","type":"int8"}],"name":"foo","type":"function"}]`,
+		`{"b": "-129"}`,
+	},
+	{
+		"value too large for int8",
+		`[{"inputs":[{"name":"a","type":"int8"}],"name":"foo","type":"function"}]`,
+		`{"b": "128"}`,
+	},
+	{
+		"value too large for uint256",
+		`[{"inputs":[{"name":"a","type":"uint256"}],"name":"foo","type":"function"}]`,
+		`{"a": "0xffaaaaaaaaaaaaaaaaaaaaaaaa88d60255f917e3eb94eae199d827dad837fac4cb"}`,
+	},
+	// Slice
+	{
+		"wrong element",
+		`[{"inputs":[{"name":"a","type":"bool[]"}],"name":"foo","type":"function"}]`,
+		`{"a": [true, false, true, 4]}`,
+	},
+	// String
+	// Uint
+	{
+		"value too large for uint",
+		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
+		`{"a": "0x100"}`,
+	},
+	{
+		"hex without 0x prefix for uint",
+		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
+		`{"a": "ff"}`,
+	},
+	{
+		"weird negative hex",
+		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
+		`{"a": "0x-01"}`,
+	},
+	{
+		"value too small for uint",
+		`[{"inputs":[{"name":"a","type":"uint8"}],"name":"foo","type":"function"}]`,
+		`{"a": "-1"}`,
+	},
 	{
 		"uint56 doesn't accept numbers",
 		`[{"inputs":[{"name":"a","type":"uint56"}],"name":"foo","type":"function"}]`,
-		`{"a": 1"}`,
-		``,
+		`{"a": 1}`,
 	},
 	{
 		"floats that aren't integers are not accepted",
 		`[{"inputs":[{"name":"a","type":"uint32"}],"name":"foo","type":"function"}]`,
 		`{"a": 1.1}`,
-		``,
 	},
 }
 
-func TestEthTxABIEncodeAdapter_encode(t *testing.T) {
-	for i, test := range encodeTests {
-		testABI, err := abi.JSON(strings.NewReader(test.abiJSON))
-		assert.NoError(t, err)
-
-		// there should be a single method, get its abi
-		assert.Equal(t, 1, len(testABI.Methods))
-		var fnABI abi.Method
-		for _, fnABI = range testABI.Methods {
-		}
-
-		args, ok := gjson.Parse(test.resultJSON).Value().(map[string]interface{})
-		assert.True(t, ok, "Failed to parse resultJSON in test %v: %s", i, test.desc)
-
-		encoded, err := abiEncode(&fnABI, args)
-		if test.hexEncoded != "" {
-			assert.NoError(t, err, "in test %v: %s", i, test.desc)
-			require.Equal(t, test.hexEncoded, hex.EncodeToString(encoded), "in test %v: %s", i, test.desc)
-		} else {
-			require.Error(t, err, "in test %v: %s", i, test.desc)
-		}
+func TestEthTxABIEncodeAdapter_abiEncode_error(t *testing.T) {
+	for i, test := range encodeErrorTests {
+		_, err := abiEncodeTestHelper(t, test.abiJSON, test.resultJSON,
+			fmt.Sprintf("'%s' (index %v)", test.desc, i))
+		require.Error(t, err, "in test %v: %s", i, test.desc)
 	}
+}
+
+// Wraps abiEncode(), does all the JSON decoding required for running tests.
+func abiEncodeTestHelper(t *testing.T, abiJSON string, resultJSON string, desc string) ([]byte, error) {
+	testABI, err := abi.JSON(strings.NewReader(abiJSON))
+	assert.NoError(t, err)
+
+	// there should be a single method, get its abi
+	assert.Equal(t, 1, len(testABI.Methods))
+	var fnABI abi.Method
+	for _, fnABI = range testABI.Methods {
+	}
+
+	assert.True(t, gjson.Valid(resultJSON), "Failed to parse resultJSON in test %s", desc)
+	args, ok := gjson.Parse(resultJSON).Value().(map[string]interface{})
+	assert.True(t, ok, "Failed to parse resultJSON in test %s", desc)
+
+	return abiEncode(&fnABI, args)
 }
