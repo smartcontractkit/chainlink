@@ -40,10 +40,10 @@ router.post('/nodes', async (req: Request, res: Response) => {
   return res.status(422).send({ errors: jsonApiErrors })
 })
 
-router.delete('/nodes/:id', async (req: Request, res: Response) => {
+router.delete('/nodes/:name', async (req: Request, res: Response) => {
   const db: Connection = await getDb()
 
-  await db.getRepository(ChainlinkNode).delete(req.params.id)
+  await db.getRepository(ChainlinkNode).delete({ name: req.params.name })
 
   return res.sendStatus(200)
 })

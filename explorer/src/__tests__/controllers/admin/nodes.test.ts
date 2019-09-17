@@ -100,16 +100,16 @@ describe('POST /nodes', () => {
   })
 })
 
-describe('DELETE /nodes/:id', () => {
-  function path(id: number): string {
-    return `${adminNodesPath}/${id}`
+describe('DELETE /nodes/:name', () => {
+  function path(name: string): string {
+    return `${adminNodesPath}/${name}`
   }
 
   it('can delete a node', async done => {
     const [node, _] = await createChainlinkNode(db, 'nodeA')
 
     request(server)
-      .delete(path(node.id))
+      .delete(path(node.name))
       .set('Content-Type', 'application/json')
       .set(ADMIN_USERNAME_HEADER, USERNAME)
       .set(ADMIN_PASSWORD_HEADER, PASSWORD)
@@ -123,7 +123,7 @@ describe('DELETE /nodes/:id', () => {
 
   it('returns a 401 unauthorized with invalid admin credentials', done => {
     request(server)
-      .delete(path(10))
+      .delete(path('idontexist'))
       .set('Content-Type', 'application/json')
       .set(ADMIN_USERNAME_HEADER, USERNAME)
       .set(ADMIN_PASSWORD_HEADER, 'invalidpassword')
