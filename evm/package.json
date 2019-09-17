@@ -3,6 +3,7 @@
   "version": "0.6.5",
   "license": "MIT",
   "scripts": {
+    "build:tsc": "tsc",
     "build": "truffle build",
     "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box || true",
     "eslint": "eslint --ext .ts,.js test",
@@ -20,7 +21,6 @@
     "eth-ens-namehash": "^2.0.8",
     "ethereumjs-abi": "^0.6.7",
     "ethereumjs-util": "^6.1.0",
-    "@ensdomains/ens": "^0.1.1",
     "link_token": "^1.0.6",
     "openzeppelin-solidity": "^1.12.0",
     "solidity-cborutils": "^1.0.4",
@@ -28,8 +28,6 @@
     "web3": "^1.2.0"
   },
   "devDependencies": {
-    "@chainlink/eslint-config": "0.0.1",
-    "@chainlink/prettier-config": "0.0.1",
     "@babel/core": "^7.5.5",
     "@babel/plugin-proposal-class-properties": "^7.3.0",
     "@babel/plugin-proposal-export-namespace-from": "^7.2.0",
@@ -38,8 +36,12 @@
     "@babel/preset-env": "^7.6.0",
     "@babel/preset-typescript": "^7.1.0",
     "@babel/register": "^7.0.0",
+    "@chainlink/eslint-config": "0.0.1",
+    "@chainlink/prettier-config": "0.0.1",
     "@types/cbor": "^2.0.0",
     "@types/chai": "^4.2.0",
+    "@types/mocha": "^5.2.7",
+    "@types/node": "^12.7.5",
     "@types/web3": "^1.0.0",
     "babel-eslint": "^10.0.1",
     "bn.js": "^4.11.0",
@@ -49,7 +51,8 @@
     "prettier": "^1.18.2",
     "solc": "0.4.24",
     "solhint": "^2.1.0",
-    "truffle": "^5.0.25"
+    "truffle": "^5.0.25",
+    "typescript": "^3.6.3"
   },
   "prettier": "@chainlink/prettier-config",
   "files": [

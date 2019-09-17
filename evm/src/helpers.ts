@@ -21,6 +21,7 @@ const INVALIDVALUE = {
   unitializedValueProbablyShouldUseVaribleInMochaBeforeCallback: null,
 }
 
+// TODO: refactor this out so we're not dependent on shared global state for tests
 export let [
   accounts,
   defaultAccount,
@@ -31,9 +32,18 @@ export let [
   consumer,
   oracleNode,
 ] = Array(1000).fill(INVALIDVALUE)
-export const personas = {}
 
-before(async function queryEthClientForConstants() {
+interface Personas {
+  Default: string
+  Neil: string
+  Ned: string
+  Nelly: string
+  Carol: string
+  Eddy: string
+}
+export const personas: Personas = {} as Personas
+
+export async function queryEthClientForConstants() {
   accounts = await eth.getAccounts()
   ;[
     defaultAccount,
@@ -52,7 +62,7 @@ before(async function queryEthClientForConstants() {
   personas.Nelly = oracleNode3
   personas.Carol = consumer
   personas.Eddy = stranger
-})
+}
 
 const bNToStringOrIdentity = (a: any): any => (BN.isBN(a) ? a.toString() : a)
 
@@ -80,7 +90,7 @@ export const linkContract = async (account: any): Promise<any> => {
   const receipt = await web3.eth.sendTransaction({
     data: linkToken.bytecode,
     from: account,
-    gasLimit: 2000000,
+    gas: 2000000,
   })
   const contract = TruffleContract({ abi: linkToken.abi })
   contract.setProvider(web3.currentProvider)
@@ -93,7 +103,7 @@ export const linkContract = async (account: any): Promise<any> => {
   return wrappedERC20(await contract.at(receipt.contractAddress))
 }
 
-export const bigNum = (num: any): BigNumber => web3.utils.toBN(num)
+export const bigNum = (num: any) => web3.utils.toBN(num)
 assertBigNum(
   bigNum('1'),
   bigNum(1),
@@ -119,11 +129,7 @@ export const toHexWithoutPrefix = (arg: any): string => {
   if (arg instanceof Buffer || arg instanceof BN) {
     return arg.toString('hex')
   } else if (arg instanceof Uint8Array) {
-    return Array.prototype.reduce.call(
-      arg,
-      (a: any, v: any) => a + v.toString('16').padStart(2, '0'),
-      '',
-    )
+    return arg.reduce((a, v) => a + v.toString(16).padStart(2, '0'), '')
   } else if (Number(arg) === arg) {
     return arg.toString(16).padStart(64, '0')
   } else {
@@ -320,9 +326,7 @@ export function abiEncode(types: any, values: any): string {
 }
 
 export const newUint8ArrayFromStr = (str: string): Uint8Array => {
-  const codePoints = Array.prototype.map.call(str, (c: string) =>
-    c.charCodeAt(0),
-  )
+  const codePoints = [...str].map(c => c.charCodeAt(0))
   return Uint8Array.from(codePoints)
 }
 
@@ -416,7 +420,7 @@ export const increaseTime5Minutes = async () => {
 }
 
 export const sendToEvm = async (evmMethod: string, ...params: any) => {
-  await web3.currentProvider.sendAsync(
+  await web3.currentProvider.send(
     {
       id: 0,
       jsonrpc: '2.0',
@@ -545,9 +549,9 @@ export const padNumTo256Bit = (n: number): string =>
 export const constructStructArgs = (
   fieldNames: string[],
   values: any[],
-): any[] => {
+): any => {
   assert.equal(fieldNames.length, values.length)
-  const args = []
+  const args: Record<number | string, any> = {}
   for (let i = 0; i < fieldNames.length; i++) {
     args[i] = values[i]
     args[fieldNames[i]] = values[i]

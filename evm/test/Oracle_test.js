@@ -1,5 +1,5 @@
-import * as h from './support/helpers'
-import { assertBigNum } from './support/matchers'
+import * as h from '../src/helpers'
+import { assertBigNum } from '../src/matchers'
 const BasicConsumer = artifacts.require('BasicConsumer.sol')
 const GetterSetter = artifacts.require('GetterSetter.sol')
 const MaliciousRequester = artifacts.require('MaliciousRequester.sol')
