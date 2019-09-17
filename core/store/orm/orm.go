@@ -133,22 +133,13 @@ func DeduceDialect(path string) (DialectName, error) {
 }
 
 func ignoreRecordNotFound(db *gorm.DB) error {
-	_, err := removeRecordNotFound(db)
-	return err
-}
-
-func removeRecordNotFound(db *gorm.DB) (bool, error) {
 	var merr error
-	removed := false
-	for _, err := range db.GetErrors() {
-		if errors.Cause(err) == gorm.ErrRecordNotFound {
-			removed = true
-		} else {
-			merr = multierr.Append(merr, err)
+	for _, e := range db.GetErrors() {
+		if e != gorm.ErrRecordNotFound {
+			merr = multierr.Append(merr, e)
 		}
 	}
-
-	return removed, merr
+	return merr
 }
 
 func (orm *ORM) DialectName() DialectName {
