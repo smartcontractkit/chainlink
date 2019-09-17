@@ -114,6 +114,7 @@ export const linkContract = async (account: string): Promise<any> => {
 }
 
 export const bigNum = (num: any) => web3.utils.toBN(num)
+// TODO: dont call assertions on import
 assertBigNum(
   bigNum('1'),
   bigNum(1),
@@ -123,6 +124,7 @@ assertBigNum(
 // toWei(n) is n * 10**18, as a BN.
 export const toWei = (num: string | number): any =>
   bigNum(web3.utils.toWei(bigNum(num)))
+// TODO: dont call assertions on import
 assertBigNum(
   toWei('1'),
   toWei(1),
