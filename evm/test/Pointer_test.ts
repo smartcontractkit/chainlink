@@ -1,4 +1,4 @@
-import * as h from './support/helpers'
+import * as h from '../src/helpers'
 const Pointer = artifacts.require('Pointer.sol')
 
 contract('Pointer', () => {

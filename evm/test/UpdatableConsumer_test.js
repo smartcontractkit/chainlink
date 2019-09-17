@@ -1,6 +1,6 @@
-import * as h from './support/helpers'
+import * as h from '../src/helpers'
 import namehash from 'eth-ens-namehash'
-import { assertBigNum } from './support/matchers'
+import { assertBigNum } from '../src/matchers'
 const ENSRegistry = artifacts.require('ENSRegistry.sol')
 const Oracle = artifacts.require('Oracle.sol')
 const PublicResolver = artifacts.require('PublicResolver.sol')
