@@ -1,8 +1,5 @@
 import { default as fetch, Response } from 'node-fetch'
 import httpStatus from 'http-status-codes'
-import { Connection } from 'typeorm'
-import { deleteChainlinkNode } from '../entity/ChainlinkNode'
-import { bootstrap } from './bootstrap'
 import {
   ADMIN_USERNAME_HEADER,
   ADMIN_PASSWORD_HEADER,
@@ -59,9 +56,25 @@ const add = async (name: string, url?: string) => {
 }
 
 const remove = async (name: string) => {
-  return bootstrap(async (db: Connection) => {
-    deleteChainlinkNode(db, name)
+  const deleteNodeUrl = `${EXPLORER_BASE_URL}/api/v1/admin/nodes/${name}`
+  const response: Response = await fetch(deleteNodeUrl, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      [ADMIN_USERNAME_HEADER]: EXPLORER_ADMIN_USERNAME,
+      [ADMIN_PASSWORD_HEADER]: EXPLORER_ADMIN_PASSWORD,
+    },
   })
+
+  if (response.status === httpStatus.OK) {
+    console.log('successfully deleted chainlink node with name %s', name)
+  } else if (response.status === httpStatus.UNAUTHORIZED) {
+    console.log(
+      'Invalid admin credentials. Please ensure the you have provided the correct admin username and password.',
+    )
+  } else {
+    console.log(`Unhandled error. HTTP status: ${response.status}`)
+  }
 }
 
 export { add, remove }
