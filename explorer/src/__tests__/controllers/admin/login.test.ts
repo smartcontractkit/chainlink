@@ -7,19 +7,19 @@ import { clearDb } from '../../testdatabase'
 import { createAdmin } from '../../../support/admin'
 import adminLogin from '../../../controllers/admin/login'
 
-const USERNAME: string = 'myadmin'
-const PASSWORD: string = 'validpassword'
+const USERNAME = 'myadmin'
+const PASSWORD = 'validpassword'
 
-const controller = express()
-controller.use(express.json())
-controller.use('/api/v1', adminLogin)
+const app = express()
+app.use(express.json())
+app.use('/api/v1', adminLogin)
 
 let server: http.Server
 let db: Connection
 
 beforeAll(async () => {
   db = await getDb()
-  server = controller.listen(null)
+  server = app.listen(null)
 })
 afterAll(async () => {
   if (server) {
@@ -38,7 +38,7 @@ describe('#index', () => {
 
   beforeEach(async () => {
     clearDb()
-    await createAdmin(db, 'myadmin', 'validpassword')
+    await createAdmin(db, USERNAME, PASSWORD)
   })
 
   it('returns a 200 with valid credentials', (done: DoneCallback) => {
