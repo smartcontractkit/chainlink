@@ -21,7 +21,7 @@ interface CreateChainlinkNodeOk {
   secret: string
 }
 
-const add = async (name: string, url?: string) => {
+export const add = async (name: string, url?: string) => {
   const createNodeUrl = `${EXPLORER_BASE_URL}/api/v1/admin/nodes`
   const data: CreateChainlinkNode = { name: name }
   if (url) {
@@ -55,7 +55,7 @@ const add = async (name: string, url?: string) => {
   }
 }
 
-const remove = async (name: string) => {
+export const remove = async (name: string) => {
   const deleteNodeUrl = `${EXPLORER_BASE_URL}/api/v1/admin/nodes/${name}`
   const response: Response = await fetch(deleteNodeUrl, {
     method: 'DELETE',
@@ -76,5 +76,3 @@ const remove = async (name: string) => {
     console.error(`Unhandled error. HTTP status: ${response.status}`)
   }
 }
-
-export { add, remove }
