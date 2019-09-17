@@ -137,6 +137,10 @@ func abiEncode(fnABI *abi.Method, args map[string]interface{}) ([]byte, error) {
 		}
 	}
 
+	if len(encodedStaticPart) != encodedStaticPartSize {
+		panic("unexpected size of static part")
+	}
+
 	result := fnABI.ID()
 	result = append(result, encodedStaticPart...)
 	result = append(result, encodedDynamicPart...)
