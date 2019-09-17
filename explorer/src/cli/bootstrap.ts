@@ -1,6 +1,6 @@
 import { closeDbConnection, getDb } from '../database'
 
-async function bootstrap(cb: any) {
+export async function bootstrap(cb: any) {
   const db = await getDb()
   try {
     await cb(db)
@@ -13,5 +13,3 @@ async function bootstrap(cb: any) {
     console.error(e)
   }
 }
-
-export { bootstrap }

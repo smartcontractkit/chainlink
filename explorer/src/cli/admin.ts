@@ -3,7 +3,7 @@ import { Admin } from '../entity/Admin'
 import { createAdmin } from '../support/admin'
 import { bootstrap } from './bootstrap'
 
-const seed = async (username: string, password: string) => {
+export const seed = async (username: string, password: string) => {
   return bootstrap(async (db: Connection) => {
     const admin: Admin = await createAdmin(db, username, password)
 
@@ -12,5 +12,3 @@ const seed = async (username: string, password: string) => {
     console.log('password: ', password)
   })
 }
-
-export { seed }
