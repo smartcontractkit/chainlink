@@ -43,7 +43,7 @@
     "node": "^10.15"
   },
   "dependencies": {
-    "bcrypt": "^3.0.6",
+    "argon2": "^0.24.1",
     "express": "^4.16.4",
     "express-winston": "^3.1.0",
     "helmet": "^3.20.0",

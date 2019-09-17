@@ -7,7 +7,7 @@ export async function createAdmin(
   username: string,
   password: string,
 ) {
-  const hashedPassword = await hash(password, 1)
+  const hashedPassword = await hash(password)
   const admin = new Admin()
   admin.username = username
   admin.hashedPassword = hashedPassword
