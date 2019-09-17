@@ -9,12 +9,15 @@ const router = Router()
 router.post('/admin/login', async (req: Request, res: Response) => {
   const username = req.header('Explorer-Admin-Username')
   const password = req.header('Explorer-Admin-Password')
-  const db = await getDb()
-  const admin = await findAdmin(db, username)
-  const validPassword = await isValidPassword(password, admin)
 
-  if (validPassword) {
-    return res.sendStatus(200)
+  if (username && password) {
+    const db = await getDb()
+    const admin = await findAdmin(db, username)
+    const validPassword = await isValidPassword(password, admin)
+
+    if (validPassword) {
+      return res.sendStatus(200)
+    }
   }
 
   return res.sendStatus(401)
