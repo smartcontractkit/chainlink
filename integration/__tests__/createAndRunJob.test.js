@@ -11,7 +11,7 @@ describe('End to end', () => {
   let browser, page, server, pupHelper
   beforeAll(async () => {
     jest.setTimeout(30000)
-    pupExpect.setDefaultOptions({ timeout: 3000 })
+    pupExpect.setDefaultOptions({ timeout: 6000 })
     server = await newServer(`{"last": "3843.95"}`)
     browser = await puppeteer.launch(puppeteerConfig)
     page = await browser.newPage()
