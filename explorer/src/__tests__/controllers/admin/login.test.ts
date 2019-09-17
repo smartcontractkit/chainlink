@@ -32,7 +32,7 @@ describe('#index', () => {
   const adminLoginPath = '/api/v1/admin/login'
 
   beforeEach(async () => {
-    clearDb()
+    await clearDb()
     await createAdmin(db, USERNAME, PASSWORD)
   })
 
