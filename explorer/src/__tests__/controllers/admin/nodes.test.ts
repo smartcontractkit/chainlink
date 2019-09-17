@@ -37,15 +37,34 @@ beforeEach(async () => {
   await createAdmin(db, USERNAME, PASSWORD)
 })
 
+function sendPost(
+  path: string,
+  data: object,
+  username: string,
+  password: string,
+) {
+  return request(server)
+    .post(adminNodesPath)
+    .send(data)
+    .set('Accept', 'application/json')
+    .set('Content-Type', 'application/json')
+    .set(ADMIN_USERNAME_HEADER, username)
+    .set(ADMIN_PASSWORD_HEADER, password)
+}
+
+function sendDelete(path: string, username: string, password: string) {
+  return request(server)
+    .delete(path)
+    .set('Content-Type', 'application/json')
+    .set(ADMIN_USERNAME_HEADER, username)
+    .set(ADMIN_PASSWORD_HEADER, password)
+}
+
 describe('POST /nodes', () => {
   it('can create a node and returns the generated information', done => {
-    request(server)
-      .post(adminNodesPath)
-      .send({ name: 'nodeA', url: 'http://nodea.com' })
-      .set('Accept', 'application/json')
-      .set('Content-Type', 'application/json')
-      .set(ADMIN_USERNAME_HEADER, USERNAME)
-      .set(ADMIN_PASSWORD_HEADER, PASSWORD)
+    const data = { name: 'nodeA', url: 'http://nodea.com' }
+
+    sendPost(adminNodesPath, data, USERNAME, PASSWORD)
       .expect(201)
       .expect((res: Response) => {
         expect(res.body.id).toBeDefined()
@@ -56,13 +75,9 @@ describe('POST /nodes', () => {
   })
 
   it('returns an error with invalid params', done => {
-    request(server)
-      .post(adminNodesPath)
-      .send({ url: 'http://nodea.com' })
-      .set('Accept', 'application/json')
-      .set('Content-Type', 'application/json')
-      .set(ADMIN_USERNAME_HEADER, USERNAME)
-      .set(ADMIN_PASSWORD_HEADER, PASSWORD)
+    const data = { url: 'http://nodea.com' }
+
+    sendPost(adminNodesPath, data, USERNAME, PASSWORD)
       .expect(422)
       .expect((res: Response) => {
         const { errors } = res.body
@@ -77,24 +92,15 @@ describe('POST /nodes', () => {
 
   it('returns an error when the node already exists', async done => {
     const [node] = await createChainlinkNode(db, 'nodeA')
+    const data = { name: node.name }
 
-    request(server)
-      .post(adminNodesPath)
-      .send({ name: node.name })
-      .set('Accept', 'application/json')
-      .set('Content-Type', 'application/json')
-      .set(ADMIN_USERNAME_HEADER, USERNAME)
-      .set(ADMIN_PASSWORD_HEADER, PASSWORD)
+    sendPost(adminNodesPath, data, USERNAME, PASSWORD)
       .expect(409)
       .end(done)
   })
 
   it('returns a 401 unauthorized with invalid admin credentials', done => {
-    request(server)
-      .post(adminNodesPath)
-      .set('Content-Type', 'application/json')
-      .set(ADMIN_USERNAME_HEADER, USERNAME)
-      .set(ADMIN_PASSWORD_HEADER, 'invalidpassword')
+    sendPost(adminNodesPath, {}, USERNAME, 'invalidpassword')
       .expect(401)
       .end(done)
   })
@@ -108,11 +114,7 @@ describe('DELETE /nodes/:name', () => {
   it('can delete a node', async done => {
     const [node, _] = await createChainlinkNode(db, 'nodeA')
 
-    request(server)
-      .delete(path(node.name))
-      .set('Content-Type', 'application/json')
-      .set(ADMIN_USERNAME_HEADER, USERNAME)
-      .set(ADMIN_PASSWORD_HEADER, PASSWORD)
+    sendDelete(path(node.name), USERNAME, PASSWORD)
       .expect(200)
       .expect(async () => {
         const nodeAfter = await findNode(db, node.id)
@@ -122,11 +124,7 @@ describe('DELETE /nodes/:name', () => {
   })
 
   it('returns a 401 unauthorized with invalid admin credentials', done => {
-    request(server)
-      .delete(path('idontexist'))
-      .set('Content-Type', 'application/json')
-      .set(ADMIN_USERNAME_HEADER, USERNAME)
-      .set(ADMIN_PASSWORD_HEADER, 'invalidpassword')
+    sendDelete(path('idontexist'), USERNAME, 'invalidpassword')
       .expect(401)
       .end(done)
   })
