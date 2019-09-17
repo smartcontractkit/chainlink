@@ -6,6 +6,14 @@ const MaliciousRequester = artifacts.require('MaliciousRequester.sol')
 const MaliciousConsumer = artifacts.require('MaliciousConsumer.sol')
 const Oracle = artifacts.require('Oracle.sol')
 
+let roles
+
+before(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas()
+
+  roles = rolesAndPersonas.roles
+})
+
 contract('Oracle', () => {
   const fHash = h.functionSelector('requestedBytes32(bytes32,bytes32)')
   const specId =
@@ -14,9 +22,9 @@ contract('Oracle', () => {
   let link, oc, withdraw
 
   beforeEach(async () => {
-    link = await h.linkContract()
+    link = await h.linkContract(roles.defaultAccount)
     oc = await Oracle.new(link.address)
-    await oc.setFulfillmentPermission(h.oracleNode, true)
+    await oc.setFulfillmentPermission(roles.oracleNode, true)
     withdraw = async (address, amount, options) =>
       oc.withdraw(address, amount.toString(), options)
   })
@@ -42,21 +50,21 @@ contract('Oracle', () => {
   describe('#setFulfillmentPermission', () => {
     context('when called by the owner', () => {
       beforeEach(async () => {
-        await oc.setFulfillmentPermission(h.stranger, true, {
-          from: h.defaultAccount,
+        await oc.setFulfillmentPermission(roles.stranger, true, {
+          from: roles.defaultAccount,
         })
       })
 
       it('adds an authorized node', async () => {
-        const authorized = await oc.getAuthorizationStatus(h.stranger)
+        const authorized = await oc.getAuthorizationStatus(roles.stranger)
         assert.equal(true, authorized)
       })
 
       it('removes an authorized node', async () => {
-        await oc.setFulfillmentPermission(h.stranger, false, {
-          from: h.defaultAccount,
+        await oc.setFulfillmentPermission(roles.stranger, false, {
+          from: roles.defaultAccount,
         })
-        const authorized = await oc.getAuthorizationStatus(h.stranger)
+        const authorized = await oc.getAuthorizationStatus(roles.stranger)
         assert.equal(false, authorized)
       })
     })
@@ -64,8 +72,8 @@ contract('Oracle', () => {
     context('when called by a non-owner', () => {
       it('cannot add an authorized node', async () => {
         await h.assertActionThrows(async () => {
-          await oc.setFulfillmentPermission(h.stranger, true, {
-            from: h.stranger,
+          await oc.setFulfillmentPermission(roles.stranger, true, {
+            from: roles.stranger,
           })
         })
       })
@@ -78,7 +86,7 @@ contract('Oracle', () => {
         const callData = h.requestDataBytes(specId, to, fHash, 'id', '')
 
         await h.assertActionThrows(async () => {
-          await oc.onTokenTransfer(h.oracleNode, 0, callData)
+          await oc.onTokenTransfer(roles.defaultAccount, 0, callData)
         })
       })
     })
@@ -193,7 +201,7 @@ contract('Oracle', () => {
 
         assert.equal(specId, log.topics[1])
         const req = h.decodeRunRequest(tx.receipt.rawLogs[2])
-        assert.equal(h.defaultAccount.toString().toLowerCase(), req.requester)
+        assert.equal(roles.defaultAccount.toLowerCase(), req.requester)
         assertBigNum(paid, req.payment)
       })
 
@@ -257,7 +265,7 @@ contract('Oracle', () => {
             1,
             1,
             '0x',
-            { from: h.oracleNode },
+            { from: roles.oracleNode },
           )
         })
       })
@@ -280,13 +288,13 @@ contract('Oracle', () => {
 
       context('when called by an unauthorized node', () => {
         beforeEach(async () => {
-          assert.equal(false, await oc.getAuthorizationStatus(h.stranger))
+          assert.equal(false, await oc.getAuthorizationStatus(roles.stranger))
         })
 
         it('raises an error', async () => {
           await h.assertActionThrows(async () => {
             await h.fulfillOracleRequest(oc, request, response, {
-              from: h.stranger,
+              from: roles.stranger,
             })
           })
         })
@@ -297,14 +305,14 @@ contract('Oracle', () => {
           request.id = '0xdeadbeef'
           await h.assertActionThrows(async () => {
             await h.fulfillOracleRequest(oc, request, response, {
-              from: h.oracleNode,
+              from: roles.oracleNode,
             })
           })
         })
 
         it('sets the value on the requested contract', async () => {
           await h.fulfillOracleRequest(oc, request, response, {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
 
           const currentValue = await mock.currentPrice.call()
@@ -315,12 +323,12 @@ contract('Oracle', () => {
           const response2 = response + ' && Hello World!!'
 
           await h.fulfillOracleRequest(oc, request, response, {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
 
           await h.assertActionThrows(async () => {
             await h.fulfillOracleRequest(oc, request, response2, {
-              from: h.oracleNode,
+              from: roles.oracleNode,
             })
           })
 
@@ -341,7 +349,7 @@ contract('Oracle', () => {
         it('does not allow the oracle to withdraw the payment', async () => {
           await h.assertActionThrows(async () => {
             await h.fulfillOracleRequest(oc, request, response, {
-              from: h.oracleNode,
+              from: roles.oracleNode,
               gas: 70000,
             })
           })
@@ -351,7 +359,7 @@ contract('Oracle', () => {
 
         it(`${defaultGasLimit} is enough to pass the gas requirement`, async () => {
           await h.fulfillOracleRequest(oc, request, response, {
-            from: h.oracleNode,
+            from: roles.oracleNode,
             gas: defaultGasLimit,
           })
 
@@ -415,16 +423,16 @@ contract('Oracle', () => {
 
         it('allows the oracle node to receive their payment', async () => {
           await h.fulfillOracleRequest(oc, request, response, {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
 
-          const balance = await link.balanceOf.call(h.oracleNode)
+          const balance = await link.balanceOf.call(roles.oracleNode)
           assertBigNum(balance, h.bigNum(0))
 
-          await withdraw(h.oracleNode, paymentAmount, {
-            from: h.defaultAccount,
+          await withdraw(roles.oracleNode, paymentAmount, {
+            from: roles.defaultAccount,
           })
-          const newBalance = await link.balanceOf.call(h.oracleNode)
+          const newBalance = await link.balanceOf.call(roles.oracleNode)
           assertBigNum(paymentAmount, newBalance)
         })
 
@@ -432,12 +440,12 @@ contract('Oracle', () => {
           const response2 = 'hack the planet 102'
 
           await h.fulfillOracleRequest(oc, request, response, {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
 
           await h.assertActionThrows(async () => {
             await h.fulfillOracleRequest(oc, request, response2, {
-              from: h.oracleNode,
+              from: roles.oracleNode,
             })
           })
         })
@@ -455,16 +463,16 @@ contract('Oracle', () => {
 
         it('allows the oracle node to receive their payment', async () => {
           await h.fulfillOracleRequest(oc, request, response, {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
 
-          const balance = await link.balanceOf.call(h.oracleNode)
+          const balance = await link.balanceOf.call(roles.oracleNode)
           assertBigNum(balance, h.bigNum(0))
 
-          await withdraw(h.oracleNode, paymentAmount, {
-            from: h.defaultAccount,
+          await withdraw(roles.oracleNode, paymentAmount, {
+            from: roles.defaultAccount,
           })
-          const newBalance = await link.balanceOf.call(h.oracleNode)
+          const newBalance = await link.balanceOf.call(roles.oracleNode)
           assertBigNum(paymentAmount, newBalance)
         })
       })
@@ -482,19 +490,19 @@ contract('Oracle', () => {
 
         it('allows the oracle node to receive their payment', async () => {
           await h.fulfillOracleRequest(oc, request, response, {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
 
           const mockBalance = await link.balanceOf.call(mock.address)
           assertBigNum(mockBalance, h.bigNum(0))
 
-          const balance = await link.balanceOf.call(h.oracleNode)
+          const balance = await link.balanceOf.call(roles.oracleNode)
           assertBigNum(balance, h.bigNum(0))
 
-          await withdraw(h.oracleNode, paymentAmount, {
-            from: h.defaultAccount,
+          await withdraw(roles.oracleNode, paymentAmount, {
+            from: roles.defaultAccount,
           })
-          const newBalance = await link.balanceOf.call(h.oracleNode)
+          const newBalance = await link.balanceOf.call(roles.oracleNode)
           assertBigNum(paymentAmount, newBalance)
         })
 
@@ -502,12 +510,12 @@ contract('Oracle', () => {
           const response2 = 'hack the planet 102'
 
           await h.fulfillOracleRequest(oc, request, response, {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
 
           await h.assertActionThrows(async () => {
             await h.fulfillOracleRequest(oc, request, response2, {
-              from: h.oracleNode,
+              from: roles.oracleNode,
             })
           })
         })
@@ -522,7 +530,7 @@ contract('Oracle', () => {
           request = h.decodeRunRequest(tx.receipt.rawLogs[3])
 
           await h.fulfillOracleRequest(oc, request, response, {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
 
           assertBigNum(0, await web3.eth.getBalance(mock.address))
@@ -536,7 +544,7 @@ contract('Oracle', () => {
           request = h.decodeRunRequest(tx.receipt.rawLogs[3])
 
           await h.fulfillOracleRequest(oc, request, response, {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
           assertBigNum(0, await web3.eth.getBalance(mock.address))
         })
@@ -549,7 +557,7 @@ contract('Oracle', () => {
           request = h.decodeRunRequest(tx.receipt.rawLogs[3])
 
           await h.fulfillOracleRequest(oc, request, response, {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
           assertBigNum(0, await web3.eth.getBalance(mock.address))
         })
@@ -560,12 +568,14 @@ contract('Oracle', () => {
   describe('#withdraw', () => {
     context('without reserving funds via oracleRequest', () => {
       it('does nothing', async () => {
-        let balance = await link.balanceOf(h.oracleNode)
+        let balance = await link.balanceOf(roles.oracleNode)
         assert.equal(0, balance)
         await h.assertActionThrows(async () => {
-          await withdraw(h.oracleNode, h.toWei(1), { from: h.defaultAccount })
+          await withdraw(roles.oracleNode, h.toWei(1), {
+            from: roles.defaultAccount,
+          })
         })
-        balance = await link.balanceOf(h.oracleNode)
+        balance = await link.balanceOf(roles.oracleNode)
         assert.equal(0, balance)
       })
     })
@@ -585,9 +595,11 @@ contract('Oracle', () => {
       context('but not freeing funds w fulfillOracleRequest', () => {
         it('does not transfer funds', async () => {
           await h.assertActionThrows(async () => {
-            await withdraw(h.oracleNode, payment, { from: h.defaultAccount })
+            await withdraw(roles.oracleNode, payment, {
+              from: roles.defaultAccount,
+            })
           })
-          const balance = await link.balanceOf(h.oracleNode)
+          const balance = await link.balanceOf(roles.oracleNode)
           assert.equal(0, balance)
         })
       })
@@ -595,24 +607,24 @@ contract('Oracle', () => {
       context('and freeing funds', () => {
         beforeEach(async () => {
           await h.fulfillOracleRequest(oc, request, 'Hello World!', {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
         })
 
         it('does not allow input greater than the balance', async () => {
           const originalOracleBalance = await link.balanceOf(oc.address)
-          const originalStrangerBalance = await link.balanceOf(h.stranger)
+          const originalStrangerBalance = await link.balanceOf(roles.stranger)
           const withdrawalAmount = payment + 1
 
           assert.isAbove(withdrawalAmount, originalOracleBalance.toNumber())
           await h.assertActionThrows(async () => {
-            await withdraw(h.stranger, withdrawalAmount, {
-              from: h.defaultAccount,
+            await withdraw(roles.stranger, withdrawalAmount, {
+              from: roles.defaultAccount,
             })
           })
 
           const newOracleBalance = await link.balanceOf(oc.address)
-          const newStrangerBalance = await link.balanceOf(h.stranger)
+          const newStrangerBalance = await link.balanceOf(roles.stranger)
 
           assert.equal(
             originalOracleBalance.toNumber(),
@@ -627,24 +639,28 @@ contract('Oracle', () => {
         it('allows transfer of partial balance by owner to specified address', async () => {
           const partialAmount = 6
           const difference = payment - partialAmount
-          await withdraw(h.stranger, partialAmount, { from: h.defaultAccount })
-          const strangerBalance = await link.balanceOf(h.stranger)
+          await withdraw(roles.stranger, partialAmount, {
+            from: roles.defaultAccount,
+          })
+          const strangerBalance = await link.balanceOf(roles.stranger)
           const oracleBalance = await link.balanceOf(oc.address)
           assert.equal(partialAmount, strangerBalance)
           assert.equal(difference, oracleBalance)
         })
 
         it('allows transfer of entire balance by owner to specified address', async () => {
-          await withdraw(h.stranger, payment, { from: h.defaultAccount })
-          const balance = await link.balanceOf(h.stranger)
+          await withdraw(roles.stranger, payment, {
+            from: roles.defaultAccount,
+          })
+          const balance = await link.balanceOf(roles.stranger)
           assert.equal(payment, balance)
         })
 
         it('does not allow a transfer of funds by non-owner', async () => {
           await h.assertActionThrows(async () => {
-            await withdraw(h.stranger, payment, { from: h.stranger })
+            await withdraw(roles.stranger, payment, { from: roles.stranger })
           })
-          const balance = await link.balanceOf(h.stranger)
+          const balance = await link.balanceOf(roles.stranger)
           assert.equal(0, balance)
         })
       })
@@ -662,7 +678,7 @@ contract('Oracle', () => {
       assert.equal(3, tx.receipt.rawLogs.length)
       request = h.decodeRunRequest(tx.receipt.rawLogs[2])
       await h.fulfillOracleRequest(oc, request, 'Hello World!', {
-        from: h.oracleNode,
+        from: roles.oracleNode,
       })
     })
 
@@ -684,7 +700,7 @@ contract('Oracle', () => {
         await h.increaseTime5Minutes()
 
         await h.assertActionThrows(async () => {
-          await h.cancelOracleRequest(oc, fakeRequest, { from: h.stranger })
+          await h.cancelOracleRequest(oc, fakeRequest, { from: roles.stranger })
         })
       })
     })
@@ -696,11 +712,11 @@ contract('Oracle', () => {
       beforeEach(async () => {
         const requestAmount = 20
 
-        await link.transfer(h.consumer, startingBalance)
+        await link.transfer(roles.consumer, startingBalance)
 
-        const args = h.requestDataBytes(specId, h.consumer, fHash, 1, '')
+        const args = h.requestDataBytes(specId, roles.consumer, fHash, 1, '')
         tx = await link.transferAndCall(oc.address, requestAmount, args, {
-          from: h.consumer,
+          from: roles.consumer,
         })
         assert.equal(3, tx.receipt.rawLogs.length)
         request = h.decodeRunRequest(tx.receipt.rawLogs[2])
@@ -710,14 +726,14 @@ contract('Oracle', () => {
         const oracleBalance = await link.balanceOf(oc.address)
         assertBigNum(request.payment, oracleBalance)
 
-        const consumerAmount = await link.balanceOf(h.consumer)
+        const consumerAmount = await link.balanceOf(roles.consumer)
         assert.equal(startingBalance - request.payment, consumerAmount)
       })
 
       context('from a stranger', () => {
         it('fails', async () => {
           await h.assertActionThrows(async () => {
-            await h.cancelOracleRequest(oc, request, { from: h.consumer })
+            await h.cancelOracleRequest(oc, request, { from: roles.consumer })
           })
         })
       })
@@ -725,15 +741,15 @@ contract('Oracle', () => {
       context('from the requester', () => {
         it('refunds the correct amount', async () => {
           await h.increaseTime5Minutes()
-          await h.cancelOracleRequest(oc, request, { from: h.consumer })
-          const balance = await link.balanceOf(h.consumer)
+          await h.cancelOracleRequest(oc, request, { from: roles.consumer })
+          const balance = await link.balanceOf(roles.consumer)
           assert.equal(startingBalance, balance) // 100
         })
 
         it('triggers a cancellation event', async () => {
           await h.increaseTime5Minutes()
           const tx = await h.cancelOracleRequest(oc, request, {
-            from: h.consumer,
+            from: roles.consumer,
           })
 
           assert.equal(tx.receipt.rawLogs.length, 2)
@@ -742,10 +758,10 @@ contract('Oracle', () => {
 
         it('fails when called twice', async () => {
           await h.increaseTime5Minutes()
-          await h.cancelOracleRequest(oc, request, { from: h.consumer })
+          await h.cancelOracleRequest(oc, request, { from: roles.consumer })
 
           await h.assertActionThrows(async () => {
-            await h.cancelOracleRequest(oc, request, { from: h.consumer })
+            await h.cancelOracleRequest(oc, request, { from: roles.consumer })
           })
         })
       })

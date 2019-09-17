@@ -1,8 +1,17 @@
 import * as h from '../src/helpers'
 import { assertBigNum } from '../src/matchers'
-const personas = h.personas
 const Aggregator = artifacts.require('Aggregator.sol')
 const Oracle = artifacts.require('Oracle.sol')
+
+let personas
+let defaultAccount
+
+before(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas()
+
+  personas = rolesAndPersonas.personas
+  defaultAccount = rolesAndPersonas.roles.defaultAccount
+})
 
 contract('Aggregator', () => {
   const jobId1 =
@@ -19,7 +28,7 @@ contract('Aggregator', () => {
   let jobIds = []
 
   beforeEach(async () => {
-    link = await h.linkContract()
+    link = await h.linkContract(defaultAccount)
     oc1 = await Oracle.new(link.address)
     oc2 = await Oracle.new(link.address)
     oc3 = await Oracle.new(link.address)

@@ -6,6 +6,14 @@ const Oracle = artifacts.require('Oracle.sol')
 const PublicResolver = artifacts.require('PublicResolver.sol')
 const UpdatableConsumer = artifacts.require('UpdatableConsumer.sol')
 
+let roles
+
+before(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas()
+
+  roles = rolesAndPersonas.roles
+})
+
 contract('UpdatableConsumer', () => {
   const ensRoot = namehash.hash()
   const tld = 'cltest'
@@ -22,42 +30,44 @@ contract('UpdatableConsumer', () => {
   let ens, ensResolver, link, oc, uc
 
   beforeEach(async () => {
-    link = await h.linkContract()
-    oc = await Oracle.new(link.address, { from: h.oracleNode })
+    link = await h.linkContract(roles.defaultAccount)
+    oc = await Oracle.new(link.address, { from: roles.oracleNode })
     ens = await ENSRegistry.new()
     ensResolver = await PublicResolver.new(ens.address)
 
     // register tld
-    await ens.setSubnodeOwner(ensRoot, h.keccak(tld), h.defaultAccount)
+    await ens.setSubnodeOwner(ensRoot, h.keccak(tld), roles.defaultAccount)
     // register domain
-    await ens.setSubnodeOwner(tldSubnode, h.keccak(domain), h.oracleNode)
+    await ens.setSubnodeOwner(tldSubnode, h.keccak(domain), roles.oracleNode)
     await ens.setResolver(domainNode, ensResolver.address, {
-      from: h.oracleNode,
+      from: roles.oracleNode,
     })
     // register token subdomain to point to token contract
     await ens.setSubnodeOwner(
       domainNode,
       h.keccak(tokenSubdomain),
-      h.oracleNode,
-      { from: h.oracleNode },
+      roles.oracleNode,
+      { from: roles.oracleNode },
     )
     await ens.setResolver(tokenSubnode, ensResolver.address, {
-      from: h.oracleNode,
+      from: roles.oracleNode,
     })
     await ensResolver.setAddr(tokenSubnode, link.address, {
-      from: h.oracleNode,
+      from: roles.oracleNode,
     })
     // register oracle subdomain to point to oracle contract
     await ens.setSubnodeOwner(
       domainNode,
       h.keccak(oracleSubdomain),
-      h.oracleNode,
-      { from: h.oracleNode },
+      roles.oracleNode,
+      { from: roles.oracleNode },
     )
     await ens.setResolver(oracleSubnode, ensResolver.address, {
-      from: h.oracleNode,
+      from: roles.oracleNode,
     })
-    await ensResolver.setAddr(oracleSubnode, oc.address, { from: h.oracleNode })
+    await ensResolver.setAddr(oracleSubnode, oc.address, {
+      from: roles.oracleNode,
+    })
 
     // deploy updatable consumer contract
     uc = await UpdatableConsumer.new(specId, ens.address, domainNode)
@@ -77,7 +87,7 @@ contract('UpdatableConsumer', () => {
     describe('when the ENS resolver has been updated', () => {
       beforeEach(async () => {
         await ensResolver.setAddr(oracleSubnode, newOracleAddress, {
-          from: h.oracleNode,
+          from: roles.oracleNode,
         })
       })
 
@@ -113,7 +123,7 @@ contract('UpdatableConsumer', () => {
 
     it('records the data given to it by the oracle', async () => {
       await h.fulfillOracleRequest(oc, request, response, {
-        from: h.oracleNode,
+        from: roles.oracleNode,
       })
 
       const currentPrice = await uc.currentPrice.call()
@@ -125,7 +135,7 @@ contract('UpdatableConsumer', () => {
       () => {
         beforeEach(async () => {
           await ensResolver.setAddr(oracleSubnode, newOracleAddress, {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
           await uc.updateOracle()
           assert.equal(
@@ -136,7 +146,7 @@ contract('UpdatableConsumer', () => {
 
         it('records the data given to it by the old oracle contract', async () => {
           await h.fulfillOracleRequest(oc, request, response, {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
 
           const currentPrice = await uc.currentPrice.call()
@@ -146,7 +156,7 @@ contract('UpdatableConsumer', () => {
         it('does not accept responses from the new oracle for the old requests', async () => {
           await h.assertActionThrows(async () => {
             await uc.fulfill(request.id, h.toHex(response), {
-              from: h.oracleNode,
+              from: roles.oracleNode,
             })
           })
 
