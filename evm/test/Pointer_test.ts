@@ -1,12 +1,20 @@
 import * as h from '../src/helpers'
 const Pointer = artifacts.require('Pointer.sol')
 
+let roles: h.Roles
+
+before(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas()
+
+  roles = rolesAndPersonas.roles
+})
+
 contract('Pointer', () => {
   let contract: any
   let link: any
 
   beforeEach(async () => {
-    link = await h.linkContract()
+    link = await h.linkContract(roles.defaultAccount)
     contract = await Pointer.new(link.address)
   })
 

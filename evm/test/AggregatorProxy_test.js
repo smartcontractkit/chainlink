@@ -1,12 +1,19 @@
 import * as h from '../src/helpers'
 import { assertBigNum } from '../src/matchers'
 
-const personas = h.personas
+let personas
+let defaultAccount
+
 const Aggregator = artifacts.require('Aggregator.sol')
 const AggregatorProxy = artifacts.require('AggregatorProxy.sol')
 const Oracle = artifacts.require('Oracle.sol')
 
-before(h.queryEthClientForConstants)
+before(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas()
+
+  personas = rolesAndPersonas.personas
+  defaultAccount = rolesAndPersonas.roles.defaultAccount
+})
 
 contract('AggregatorProxy', () => {
   const jobId1 =
@@ -18,7 +25,7 @@ contract('AggregatorProxy', () => {
   let link, aggregator, aggregator2, oc1, proxy
 
   beforeEach(async () => {
-    link = await h.linkContract()
+    link = await h.linkContract(defaultAccount)
     oc1 = await Oracle.new(link.address)
     aggregator = await Aggregator.new(
       link.address,

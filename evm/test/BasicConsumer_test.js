@@ -4,14 +4,22 @@ import { assertBigNum } from '../src/matchers'
 const BasicConsumer = artifacts.require('BasicConsumer.sol')
 const Oracle = artifacts.require('Oracle.sol')
 
+let roles
+
+before(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas()
+
+  roles = rolesAndPersonas.roles
+})
+
 contract('BasicConsumer', () => {
   const specId = h.newHash('0x4c7b7ffb66b344fbaa64995af81e355a')
   const currency = 'USD'
   let link, oc, cc
 
   beforeEach(async () => {
-    link = await h.linkContract()
-    oc = await Oracle.new(link.address, { from: h.oracleNode })
+    link = await h.linkContract(roles.defaultAccount)
+    oc = await Oracle.new(link.address, { from: roles.oracleNode })
     cc = await BasicConsumer.new(link.address, oc.address, h.toHex(specId))
   })
 
@@ -72,7 +80,7 @@ contract('BasicConsumer', () => {
 
     it('records the data given to it by the oracle', async () => {
       await h.fulfillOracleRequest(oc, request, response, {
-        from: h.oracleNode,
+        from: roles.oracleNode,
       })
 
       const currentPrice = await cc.currentPrice.call()
@@ -81,7 +89,7 @@ contract('BasicConsumer', () => {
 
     it('logs the data given to it by the oracle', async () => {
       const tx = await h.fulfillOracleRequest(oc, request, response, {
-        from: h.oracleNode,
+        from: roles.oracleNode,
       })
       assert.equal(2, tx.receipt.rawLogs.length)
       const log = tx.receipt.rawLogs[1]
@@ -107,7 +115,7 @@ contract('BasicConsumer', () => {
 
       it('does not accept the data provided', async () => {
         await h.fulfillOracleRequest(oc, otherRequest, response, {
-          from: h.oracleNode,
+          from: roles.oracleNode,
         })
 
         const received = await cc.currentPrice.call()
@@ -119,7 +127,7 @@ contract('BasicConsumer', () => {
       it('does not accept the data provided', async () => {
         await h.assertActionThrows(async () => {
           await cc.fulfill(request.id, h.toHex(response), {
-            from: h.oracleNode,
+            from: roles.oracleNode,
           })
         })
 
@@ -147,7 +155,7 @@ contract('BasicConsumer', () => {
             request.payment,
             request.callbackFunc,
             request.expiration,
-            { from: h.consumer },
+            { from: roles.consumer },
           )
         })
       })
@@ -162,7 +170,7 @@ contract('BasicConsumer', () => {
           request.payment,
           request.callbackFunc,
           request.expiration,
-          { from: h.consumer },
+          { from: roles.consumer },
         )
       })
     })
@@ -178,9 +186,9 @@ contract('BasicConsumer', () => {
     })
 
     it('transfers LINK out of the contract', async () => {
-      await cc.withdrawLink({ from: h.consumer })
+      await cc.withdrawLink({ from: roles.consumer })
       const ccBalance = await link.balanceOf(cc.address)
-      const consumerBalance = h.bigNum(await link.balanceOf(h.consumer))
+      const consumerBalance = h.bigNum(await link.balanceOf(roles.consumer))
       assertBigNum(ccBalance, 0)
       assertBigNum(consumerBalance, depositAmount)
     })
