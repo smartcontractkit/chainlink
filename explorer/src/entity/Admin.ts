@@ -28,8 +28,8 @@ export async function isValidPassword(
   admin?: Admin,
 ): Promise<boolean> {
   if (!admin) {
-    return new Promise(resolve => resolve(false))
+    return false
   }
 
-  return comparePassword(password, admin.hashedPassword)
+  return await comparePassword(password, admin.hashedPassword)
 }
