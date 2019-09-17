@@ -7,11 +7,11 @@ import { compare as comparePassword } from '../../services/password'
 const router = Router()
 
 router.post('/admin/login', async (req: Request, res: Response) => {
-  const username: string = req.header('Explorer-Admin-Username')
-  const password: string = req.header('Explorer-Admin-Password')
-  const db: Connection = await getDb()
-  const admin: Admin = await findAdmin(db, username)
-  const validPassword: boolean = await isValidPassword(password, admin)
+  const username = req.header('Explorer-Admin-Username')
+  const password = req.header('Explorer-Admin-Password')
+  const db = await getDb()
+  const admin = await findAdmin(db, username)
+  const validPassword = await isValidPassword(password, admin)
 
   if (validPassword) {
     return res.sendStatus(200)
@@ -32,7 +32,7 @@ async function isValidPassword(
 }
 
 function findAdmin(db: Connection, username: string): Promise<Admin> {
-  return db.getRepository(Admin).findOne({ username: username })
+  return db.getRepository(Admin).findOne({ username })
 }
 
 export default router
