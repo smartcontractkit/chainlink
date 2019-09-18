@@ -1,22 +1,17 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
-const puppeteer = require('puppeteer')
 const pupExpect = require('expect-puppeteer')
 const { newServer } = require('../support/server.js')
 const { scrape } = require('../support/scrape.js')
-const puppeteerConfig = require('../puppeteer.config.js')
 const PupHelper = require('../support/PupHelper.js')
 const generateJobJson = require('../support/generateJobJson.js')
 
 describe('End to end', () => {
   let browser, page, server, pupHelper
+
   beforeAll(async () => {
-    jest.setTimeout(30000)
-    pupExpect.setDefaultOptions({ timeout: 3000 })
     server = await newServer(`{"last": "3843.95"}`)
-    browser = await puppeteer.launch(puppeteerConfig)
-    page = await browser.newPage()
-    pupHelper = new PupHelper(page)
+    ;({ browser, page, pupHelper } = await PupHelper.launch())
   })
 
   afterAll(async () => {

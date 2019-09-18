@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
 const pupExpect = require('expect-puppeteer')
+const puppeteer = require('puppeteer')
+const puppeteerConfig = require('../puppeteer.config.js')
 
-module.exports = class PupHelper {
+class PupHelper {
   constructor(page) {
     this.page = page
     this.page.on('console', msg => {
@@ -49,3 +51,12 @@ module.exports = class PupHelper {
     return await this.waitForContent('p', notification)
   }
 }
+
+PupHelper.launch = async () => {
+  const browser = await puppeteer.launch(puppeteerConfig)
+  const page = await browser.newPage()
+  const pupHelper = new PupHelper(page)
+  return { browser, page, pupHelper }
+}
+
+module.exports = PupHelper

@@ -1,18 +1,13 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
-const puppeteer = require('puppeteer')
 const pupExpect = require('expect-puppeteer')
-const puppeteerConfig = require('../puppeteer.config.js')
 const PupHelper = require('../support/PupHelper.js')
 
 describe('End to end', () => {
   let browser, page, pupHelper
+
   beforeAll(async () => {
-    jest.setTimeout(30000)
-    pupExpect.setDefaultOptions({ timeout: 3000 })
-    browser = await puppeteer.launch(puppeteerConfig)
-    page = await browser.newPage()
-    pupHelper = new PupHelper(page)
+    ;({ browser, page, pupHelper } = await PupHelper.launch())
   })
 
   afterAll(async () => {
