@@ -5,7 +5,6 @@ const pupExpect = require('expect-puppeteer')
 module.exports = class PupHelper {
   constructor(page) {
     this.page = page
-    page.setDefaultTimeout(3000)
     this.page.on('console', msg => {
       console.log(`PAGE LOG url: ${page.url()} | msg: ${msg.text()}`)
     })
