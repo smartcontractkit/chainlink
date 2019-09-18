@@ -1,5 +1,5 @@
 {
-  "initiators": [{ "type": "external", "params": {"name": "someCoin"}}],
+  "initiators": [{ "type": "external", "name": "someCoin"}],
   "tasks": [
     { "type": "HttpGet", "params": {
         "get": "https://bitstamp.net/api/ticker/",

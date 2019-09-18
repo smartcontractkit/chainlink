@@ -27,6 +27,7 @@ type JobSpecRequest struct {
 // InitiatorRequest represents a schema for incoming initiator requests as used by the API.
 type InitiatorRequest struct {
 	Type            string `json:"type"`
+	Name            string `json:"name,omitempty"`
 	InitiatorParams `json:"params,omitempty"`
 }
 
@@ -248,7 +249,7 @@ func NewInitiatorFromRequest(
 	initr InitiatorRequest,
 	jobSpec JobSpec,
 ) Initiator {
-	return Initiator{
+	ret := Initiator{
 		JobSpecID: jobSpec.ID,
 		// Type must be downcast to comply with Initiator
 		// deserialization logic. Ideally, Initiator.Type should be its
@@ -257,6 +258,8 @@ func NewInitiatorFromRequest(
 		Type:            strings.ToLower(initr.Type),
 		InitiatorParams: initr.InitiatorParams,
 	}
+	ret.InitiatorParams.Name = initr.Name
+	return ret
 }
 
 // IsLogInitiated Returns true if triggered by event logs.
