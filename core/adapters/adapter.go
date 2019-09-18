@@ -22,6 +22,8 @@ var (
 	TaskTypeEthUint256 = models.MustNewTaskType("ethuint256")
 	// TaskTypeEthTx is the identifier for the EthTx adapter.
 	TaskTypeEthTx = models.MustNewTaskType("ethtx")
+	// TaskTypeEthTxABIEncode is the identifier for the EthTxABIEncode adapter.
+	TaskTypeEthTxABIEncode = models.MustNewTaskType("ethtxabiencode")
 	// TaskTypeHTTPGet is the identifier for the HTTPGet adapter.
 	TaskTypeHTTPGet = models.MustNewTaskType("httpget")
 	// TaskTypeHTTPPost is the identifier for the HTTPPost adapter.
@@ -92,6 +94,10 @@ func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeEthTx:
 		ba = &EthTx{}
+		mcp = store.Config.MinimumContractPayment()
+		err = unmarshalParams(task.Params, ba)
+	case TaskTypeEthTxABIEncode:
+		ba = &EthTxABIEncode{}
 		mcp = store.Config.MinimumContractPayment()
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeHTTPGet:
