@@ -4,7 +4,7 @@
   "version": "0.6.0",
   "license": "MIT",
   "scripts": {
-    "test": "cross-env NODE_ENV=test jest",
+    "test": "cross-env NODE_ENV=test jest --maxWorkers 1",
     "test:nocache": "cross-env NODE_ENV=test jest --no-cache",
     "eslint": "eslint --ext .js,.ts .",
     "lint": "yarn eslint",

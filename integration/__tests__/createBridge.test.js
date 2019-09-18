@@ -19,7 +19,7 @@ describe('End to end', () => {
     return browser.close()
   })
 
-  it('adds a bridge', async () => {
+  it('creates a bridge', async () => {
     await pupHelper.signIn()
 
     // Add Bridge

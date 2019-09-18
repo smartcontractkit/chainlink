@@ -69,7 +69,7 @@ describe('End to end', () => {
     await pupExpect(page).toFill('form input', runId)
     await pupExpect(page).toClick('button', { text: 'Search' })
 
-    await pupHelper.waitForContent('a', runId) // TODO
+    await pupHelper.waitForContent('a', runId)
     await pupExpect(page).toMatch(runId)
     await pupHelper.clickLink(runId)
 
