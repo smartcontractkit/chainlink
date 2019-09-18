@@ -11,11 +11,6 @@ module.exports = class PupHelper {
     })
   }
 
-  async clickButton(content) {
-    await this.waitForContent('button', content)
-    await this.nativeClick('button', content)
-  }
-
   async clickLink(content) {
     await this.waitForContent('a', content)
     await this.nativeClick('a', content)
@@ -31,16 +26,19 @@ module.exports = class PupHelper {
   }
 
   async signIn(email = 'notreal@fakeemail.ch', password = 'twochains') {
+    await this.page.goto('http://localhost:6688')
+    await pupExpect(this.page).toMatch('Chainlink')
     await pupExpect(this.page).toFill('form input[id=email]', email)
     await pupExpect(this.page).toFill('form input[id=password]', password)
     await Promise.all([
       pupExpect(this.page).toClick('form button'),
       this.page.waitForNavigation(),
     ])
+    await pupExpect(this.page).toMatch('Activity')
   }
 
   async waitForContent(tagName, content) {
-    const xpath = this._xpath(tagName, content)
+    const xpath = `//${tagName}[contains(., '${content}')]`
     try {
       return await this.page.waitForXPath(xpath)
     } catch {
@@ -48,28 +46,7 @@ module.exports = class PupHelper {
     }
   }
 
-  // async refreshUntilContentPresent(tagName, content, timeout = 5000) {
-  //   const xpath = this._xpath(tagName, content)
-  //   return Promise.race([
-  //     setTimeout(() => {
-  //       throw `Unable to find <${tagName}> tag with content: '${content}'`
-  //     }, timeout),
-  //     async () => {
-  //       let contentPresent = false
-  //       while (!contentPresent) {
-  //         await this.page.reload()
-  //         contentPresent = (await this.page.$x(xpath)).length != 0
-  //       }
-  //     },
-  //   ])
-  // }
-
   async waitForNotification(notification) {
     return await this.waitForContent('p', notification)
-  }
-
-  _xpath(tagName, content) {
-    // searches for tag with content any # of children deep
-    return `//${tagName}[contains(., '${content}')]`
   }
 }

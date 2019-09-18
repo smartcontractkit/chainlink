@@ -6,6 +6,7 @@ const { newServer } = require('../support/server.js')
 const { scrape } = require('../support/scrape.js')
 const puppeteerConfig = require('../puppeteer.config.js')
 const PupHelper = require('../support/PupHelper.js')
+const generateJobJson = require('../support/generateJobJson.js')
 
 describe('End to end', () => {
   let browser, page, server, pupHelper
@@ -23,34 +24,13 @@ describe('End to end', () => {
   })
 
   it('creates a job that runs', async () => {
-    await page.goto('http://localhost:6688')
-    await pupExpect(page).toMatch('Chainlink')
-
-    // Login
     await pupHelper.signIn()
-    await pupExpect(page).toMatch('Jobs')
 
     // Create Job
     await pupHelper.clickLink('New Job')
     await pupHelper.waitForContent('h5', 'New Job')
 
-    // prettier-ignore
-    const jobJson = `{
-      "initiators": [{"type": "web"}],
-      "tasks": [
-        {"type": "httpget", "params": {"get": "http://localhost:${server.port}"}},
-        {"type": "jsonparse", "params": {"path": ["last"]}},
-        {
-          "type": "ethtx",
-          "confirmations": 0,
-          "params": {
-            "address": "0xaa664fa2fdc390c662de1dbacf1218ac6e066ae6",
-            "functionSelector": "setBytes(bytes32,bytes)"
-          }
-        }
-      ]
-    }`
-
+    const jobJson = generateJobJson(server.port)
     await pupExpect(page).toFill('form textarea', jobJson)
     await pupExpect(page).toClick('button', { text: 'Create Job' })
     await pupExpect(page).toMatch(/success.+job/i)
