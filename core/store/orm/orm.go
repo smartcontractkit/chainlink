@@ -899,6 +899,18 @@ func (orm *ORM) TxAttempts(offset, limit int) ([]models.TxAttempt, int, error) {
 	return attempts, count, err
 }
 
+func (orm *ORM) UnconfirmedTxAttempts() ([]models.TxAttempt, error) {
+	var items []models.TxAttempt
+	err := orm.DB.
+		Where("confirmed = false").
+		Find(&items).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 // JobRunsSorted returns job runs ordered and filtered by the passed params.
 func (orm *ORM) JobRunsSorted(sort SortType, offset int, limit int) ([]models.JobRun, int, error) {
 	count, err := orm.countOf(&models.JobRun{})
