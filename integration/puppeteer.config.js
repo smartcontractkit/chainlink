@@ -6,5 +6,5 @@ module.exports = {
   },
   devtools: false,
   headless: process.env.HEADLESS !== 'false',
-  slowMo: process.env.SLOWMO || 10,
+  slowMo: process.env.SLOWMO || 10, // slowmo necessary when running on circleCI
 }

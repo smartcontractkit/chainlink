@@ -26,6 +26,5 @@ describe('End to end', () => {
     await pupHelper.clickLink('Configuration')
     await pupExpect(page).toMatchElement('h5', { text: 'Configuration' })
     await pupExpect(page).toMatch('ACCOUNT_ADDRESS')
-    await pupExpect(page).toMatch('0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f')
   })
 })
