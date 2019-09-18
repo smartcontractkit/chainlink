@@ -16,8 +16,9 @@
     "test:v2": "tsc && mocha ./dist/testv2/*.js",
     "test": "yarn test:v1 && yarn test:v2",
     "format": "prettier --write \"**/*\"",
-    "truffle:migrate:cldev": "truffle migrate --network cldev",
-    "prepublishOnly": "yarn build && yarn lint && yarn test"
+    "prepublishOnly": "yarn build && yarn lint && yarn test",
+    "setup": "cross-env ./scripts/build.js",
+    "truffle:migrate:cldev": "truffle migrate --network cldev"
   },
   "dependencies": {
     "@ensdomains/ens": "^0.1.1",
@@ -44,6 +45,7 @@
     "@types/web3": "^1.0.0",
     "bn.js": "^4.11.0",
     "chai": "^4.2.0",
+    "cross-env": "^6.0.0",
     "debug": "^4.1.1",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",

@@ -8,7 +8,8 @@
     "eslint": "eslint --ext .js,.ts .",
     "solhint": "solhint ./contracts/**/*.sol",
     "lint": "yarn eslint && yarn solhint",
-    "format": "prettier --write \"**/*\""
+    "format": "prettier --write \"**/*\"",
+    "setup": "echo \"No setup required for @chainlink/example-testnet\" && exit 0"
   },
   "devDependencies": {
     "@chainlink/eslint-config": "0.0.1",
