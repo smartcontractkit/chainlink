@@ -128,6 +128,22 @@ func (txm *EthTxManager) Connect(bn *models.Head) error {
 		txm.currentHead = *bn
 	}
 	txm.connected.Set()
+
+	// Upon connecting/reconnecting, rebroadcast any transactions that are still unconfirmed
+	attempts, err := txm.orm.UnconfirmedTxAttempts()
+	if err != nil {
+		return err
+	}
+
+	for _, attempt := range attempts {
+		logger.Infof("Rebroadcasting tx %v", attempt.Hash.String())
+
+		_, err := txm.SendRawTx(attempt.SignedRawTx)
+		if err != nil {
+			logger.Warnf("Failed to rebroadcast tx %v: %v", attempt.Hash, err)
+		}
+	}
+
 	return merr
 }
 
