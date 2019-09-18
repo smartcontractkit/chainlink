@@ -34,7 +34,6 @@
     "chai": "^4.2.0",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",
-    "ethereumjs-abi": "^0.6.5",
     "openzeppelin-test-helpers": "^0.4.1",
     "prettier": "^1.18.2",
     "solc": "0.5.0",
