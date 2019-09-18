@@ -15,7 +15,7 @@
     "build": "yarn workspace @chainlink/explorer-client run build",
     "prod": "yarn migration:run && ts-node ./src/index.ts",
     "pretest": "yarn autosetup",
-    "test": "cross-env TYPEORM_NAME=test yarn automigrate && yarn jest --runInBand --detectOpenHandles",
+    "test": "yarn jest --runInBand --detectOpenHandles",
     "pretest-ci": "yarn autosetup",
     "test-ci": "yarn jest src/__tests__ --runInBand --detectOpenHandles",
     "pretest-ci:e2e": "yarn autosetup",
@@ -35,6 +35,7 @@
     "autosetup": "yarn install && yarn automigrate",
     "automigrate": "md5sum -c .migrations.${TYPEORM_NAME:-dev}.md5 2>/dev/null || yarn migration:run && md5sum src/bin/migrator.ts src/migration/* > .migrations.${TYPEORM_NAME:-dev}.md5",
     "addclnode": "ts-node src/bin/clnodes.ts add",
+    "admin:seed": "ts-node src/bin/admin.ts seed",
     "depcheck": "echo \"@chainlink/explorer\" && depcheck --ignore-dirs=client || exit 0"
   },
   "main": "src/index.ts",
@@ -42,6 +43,7 @@
     "node": "^10.15"
   },
   "dependencies": {
+    "argon2": "^0.24.1",
     "express": "^4.16.4",
     "express-winston": "^3.1.0",
     "helmet": "^3.20.0",
