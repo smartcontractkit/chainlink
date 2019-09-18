@@ -11,7 +11,7 @@ describe('End to end', () => {
   let browser, page, server, pupHelper
   beforeAll(async () => {
     jest.setTimeout(30000)
-    pupExpect.setDefaultOptions({ timeout: 6000 })
+    pupExpect.setDefaultOptions({ timeout: 3000 })
     server = await newServer(`{"last": "3843.95"}`)
     browser = await puppeteer.launch(puppeteerConfig)
     page = await browser.newPage()
@@ -32,9 +32,7 @@ describe('End to end', () => {
 
     // Create Job
     await pupHelper.clickLink('New Job')
-    // await pupHelper.waitForContent('h5', 'New Job')
-    // await pupExpect(page).toClick('a', { text: 'New Job' })
-    await pupExpect(page).toMatchElement('h5', { text: 'New Job' })
+    await pupHelper.waitForContent('h5', 'New Job')
 
     // prettier-ignore
     const jobJson = `{
@@ -72,7 +70,7 @@ describe('End to end', () => {
 
     // Transaction ID should eventually be coded on page like so:
     //    {"result":"0x6736ad06da823692cc66c5a51032c4aed83bfca9778eb1a7ad24de67f3f472fc"}
-    await pupExpect(page).toClick('a', { text: 'JSON' })
+    await pupHelper.clickLink('JSON')
     const txHash = await scrape(page, /"transactionHash": "0x([0-9a-f]{64})"/)
     expect(txHash).toBeDefined()
 
@@ -82,7 +80,7 @@ describe('End to end', () => {
     await pupExpect(page).toMatchElement('p', { text: txHash })
 
     // Navigate to transaction page and check for the transaction
-    await pupExpect(page).toClick('a', { text: txHash })
+    await pupHelper.clickLink(txHash)
 
     // Navigate to Explorer
     // await new Promise(resolve => setTimeout(resolve, 5000)) // Wait for CL Node to push SyncEvent
@@ -93,7 +91,7 @@ describe('End to end', () => {
 
     await pupHelper.waitForContent('a', runId) // TODO
     await pupExpect(page).toMatch(runId)
-    await pupExpect(page).toClick('a', { text: runId })
+    await pupHelper.clickLink(runId)
 
     await scrape(page, /Complete/)
     await pupExpect(page).toMatchElement('h5', { text: 'Complete' })

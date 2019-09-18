@@ -9,7 +9,7 @@ describe('End to end', () => {
   let browser, page, pupHelper
   beforeAll(async () => {
     jest.setTimeout(30000)
-    pupExpect.setDefaultOptions({ timeout: 6000 })
+    pupExpect.setDefaultOptions({ timeout: 3000 })
     browser = await puppeteer.launch(puppeteerConfig)
     page = await browser.newPage()
     pupHelper = new PupHelper(page)
@@ -29,12 +29,9 @@ describe('End to end', () => {
     await pupExpect(page).toMatch('Jobs')
 
     // Add Bridge
-    // await pupHelper.clickLink('Bridges')
-    await pupExpect(page).toClick('a', { text: 'Bridges' })
+    await pupHelper.clickLink('Bridges')
     await pupExpect(page).toMatchElement('h4', { text: 'Bridges' })
-    // debugger
-    // await pupHelper.clickLink('New Bridge')
-    await pupExpect(page).toClick('a', { text: 'New Bridge' })
+    await pupHelper.clickLink('New Bridge')
     await pupExpect(page).toFillForm('form', {
       name: 'new_bridge',
       url: 'http://example.com',
