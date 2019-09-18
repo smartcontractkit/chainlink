@@ -61,7 +61,6 @@
   "devDependencies": {
     "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
-    "@types/bcrypt": "^3.0.0",
     "@types/expect-puppeteer": "^3.3.1",
     "@types/express": "^4.16.1",
     "@types/express-winston": "^3.0.1",
