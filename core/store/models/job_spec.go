@@ -259,20 +259,6 @@ func NewInitiatorFromRequest(
 	}
 }
 
-// UnmarshalJSON parses the raw initiator data and updates the
-// initiator as long as the type is valid.
-func (i *Initiator) UnmarshalJSON(input []byte) error {
-	type Alias Initiator
-	var aux Alias
-	if err := json.Unmarshal(input, &aux); err != nil {
-		return err
-	}
-
-	*i = Initiator(aux)
-	i.Type = strings.ToLower(aux.Type)
-	return nil
-}
-
 // IsLogInitiated Returns true if triggered by event logs.
 func (i Initiator) IsLogInitiated() bool {
 	return i.Type == InitiatorEthLog || i.Type == InitiatorRunLog ||
