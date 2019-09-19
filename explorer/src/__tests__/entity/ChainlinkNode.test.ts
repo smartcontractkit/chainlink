@@ -35,10 +35,7 @@ describe('createChainlinkNode', () => {
 
 describe('deleteChainlinkNode', () => {
   it('deletes a ChainlinkNode with the specified name', async () => {
-    const [chainlinkNode, _] = await createChainlinkNode(
-      db,
-      'chainlink-node-to-be-deleted',
-    )
+    await createChainlinkNode(db, 'chainlink-node-to-be-deleted')
     let count = await db.manager.count(ChainlinkNode)
     expect(count).toBe(1)
     await deleteChainlinkNode(db, 'chainlink-node-to-be-deleted')

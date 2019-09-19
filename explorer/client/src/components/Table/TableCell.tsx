@@ -18,7 +18,7 @@ export interface LinkColumn {
 }
 export type Column = TextColumn | LinkColumn | TimeAgoColumn
 
-interface IProps {
+interface Props {
   column: Column
 }
 
@@ -33,7 +33,7 @@ const renderCol = (col: Column) => {
   }
 }
 
-const TableCell = ({ column }: IProps) => {
+const TableCell = ({ column }: Props) => {
   return <MuiTableCell>{renderCol(column)}</MuiTableCell>
 }
 

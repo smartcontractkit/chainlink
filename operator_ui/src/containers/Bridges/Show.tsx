@@ -8,7 +8,7 @@ import BaseLink from 'components/BaseLink'
 import Button from 'components/Button'
 import Content from 'components/Content'
 import { AppState } from 'connectors/redux/reducers'
-import { IBridgeType } from 'operator_ui'
+import { BridgeType } from 'operator_ui'
 import React from 'react'
 import { connect } from 'react-redux'
 import bridgeSelector from 'selectors/bridge'
@@ -17,8 +17,8 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 
 const Loading = () => <div>Loading...</div>
 
-interface ILoadedProps {
-  bridge: IBridgeType
+interface LoadedProps {
+  bridge: BridgeType
 }
 
 const fields: [string, string][] = [
@@ -29,7 +29,7 @@ const fields: [string, string][] = [
   ['outgoingToken', 'Outgoing Token'],
 ]
 
-const Loaded = ({ bridge }: ILoadedProps) => (
+const Loaded = ({ bridge }: LoadedProps) => (
   <CardContent>
     {fields.map(([k, t]) => {
       return (
@@ -46,17 +46,17 @@ const Loaded = ({ bridge }: ILoadedProps) => (
   </CardContent>
 )
 
-interface IProps {
+interface Props {
   match: {
     params: {
       bridgeId: string
     }
   }
   fetchBridgeSpec: (name: string) => Promise<any>
-  bridge?: IBridgeType
+  bridge?: BridgeType
 }
 
-export const Show = useHooks(({ bridge, fetchBridgeSpec, match }: IProps) => {
+export const Show = useHooks(({ bridge, fetchBridgeSpec, match }: Props) => {
   useEffect(() => {
     document.title = 'Show Bridge'
     fetchBridgeSpec(match.params.bridgeId)
@@ -102,7 +102,7 @@ export const Show = useHooks(({ bridge, fetchBridgeSpec, match }: IProps) => {
   )
 })
 
-const mapStateToProps = (state: AppState, ownProps: IProps) => ({
+const mapStateToProps = (state: AppState, ownProps: Props) => ({
   bridge: bridgeSelector(state, ownProps.match.params.bridgeId),
 })
 

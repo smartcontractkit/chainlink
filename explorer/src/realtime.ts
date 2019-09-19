@@ -6,6 +6,11 @@ import { Connection } from 'typeorm'
 import { getDb } from './database'
 import { authenticate } from './sessions'
 import { closeSession, Session } from './entity/Session'
+import {
+  ACCESS_KEY_HEADER,
+  NORMAL_CLOSE,
+  SECRET_HEADER,
+} from './utils/constants'
 
 const handleMessage = async (
   message: string,
@@ -27,7 +32,8 @@ const handleMessage = async (
 export const bootstrapRealtime = async (server: http.Server) => {
   const db = await getDb()
   let clnodeCount = 0
-  const sessions = new Map<http.IncomingMessage, Session>()
+  const sessions = new Map<string, Session>()
+  const connections = new Map<string, WebSocket>()
 
   // NOTE: This relies on the subtle detail that info.req is the same request
   // as passed in to wss.on to key a session
@@ -43,11 +49,10 @@ export const bootstrapRealtime = async (server: http.Server) => {
         headers?: http.OutgoingHttpHeaders,
       ) => void,
     ) => {
-      /* eslint-disable standard/no-callback-literal */
       logger.debug('websocket connection attempt')
 
-      const accessKey = info.req.headers['x-explore-chainlink-accesskey']
-      const secret = info.req.headers['x-explore-chainlink-secret']
+      const accessKey = info.req.headers[ACCESS_KEY_HEADER]
+      const secret = info.req.headers[SECRET_HEADER]
 
       if (typeof accessKey !== 'string' || typeof secret !== 'string') {
         logger.info('client rejected, invalid authentication request')
@@ -64,21 +69,30 @@ export const bootstrapRealtime = async (server: http.Server) => {
         logger.debug(
           `websocket client successfully authenticated, new session for node ${session.chainlinkNodeId}`,
         )
-        sessions.set(info.req, session)
+        sessions.set(accessKey, session)
         callback(true, 200)
       })
-      /* eslint-enable standard/no-callback-literal */
     },
   })
 
   wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
-    clnodeCount = clnodeCount + 1
+    // accessKey type already validated in verifyClient()
+    const accessKey = request.headers[ACCESS_KEY_HEADER].toString()
+
+    const existingConnection = connections.get(accessKey)
+    if (existingConnection) {
+      existingConnection.close(NORMAL_CLOSE, 'Duplicate connection opened')
+    } else {
+      clnodeCount = clnodeCount + 1
+    }
+    connections.set(accessKey, ws)
+
     logger.info(
       `websocket connected, total chainlink nodes connected: ${clnodeCount}`,
     )
 
     ws.on('message', async (message: WebSocket.Data) => {
-      const session = sessions.get(request)
+      const session = sessions.get(accessKey)
       if (session == null) {
         ws.close()
         return
@@ -93,10 +107,11 @@ export const bootstrapRealtime = async (server: http.Server) => {
     })
 
     ws.on('close', () => {
-      const session = sessions.get(request)
+      const session = sessions.get(accessKey)
       if (session != null) {
         closeSession(db, session)
-        sessions.delete(request)
+        sessions.delete(accessKey)
+        connections.delete(accessKey)
       }
 
       clnodeCount = clnodeCount - 1

@@ -1,24 +1,29 @@
-const clickLink = async (page, title) => {
-  return expect(page).toClick('a', { text: title })
+/* eslint-disable @typescript-eslint/no-var-requires */
+
+const pupExpect = require('expect-puppeteer')
+
+const clickNavigationTag = tagName => async (page, text) => {
+  // XXX: Some buttons/links don't do anything if you click them too quickly,
+  // so for, now, add a small delay
+  await page.waitFor(500)
+  await pupExpect(page).toClick(tagName, { text })
 }
 
 module.exports = {
-  clickLink: clickLink,
+  clickLink: clickNavigationTag('a'),
+  clickButton: clickNavigationTag('button'),
 
-  clickNewJobButton: async page => {
-    // XXX: This button doesn't do anything if you click it too quickly, so for
-    // now, add a small delay
-    await page.waitFor(500)
-    return clickLink(page, 'New Job')
+  consoleLogger: page => msg => {
+    console.log(`PAGE LOG url: ${page.url()} | msg: ${msg.text()}`)
   },
 
   clickTransactionsMenuItem: async page => {
-    return expect(page).toClick('li > a', { text: 'Transactions' })
+    return pupExpect(page).toClick('li > a', { text: 'Transactions' })
   },
 
   signIn: async (page, email, password) => {
-    await expect(page).toFill('form input[id=email]', email)
-    await expect(page).toFill('form input[id=password]', 'twochains')
-    return expect(page).toClick('form button')
+    await pupExpect(page).toFill('form input[id=email]', email)
+    await pupExpect(page).toFill('form input[id=password]', 'twochains')
+    return pupExpect(page).toClick('form button')
   },
 }

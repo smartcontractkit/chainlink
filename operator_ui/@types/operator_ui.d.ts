@@ -1,3 +1,5 @@
+/* eslint @typescript-eslint/no-empty-interface: 'off' */
+
 import { adapterTypes, status } from './constants'
 import * as dbTypes from './db'
 
@@ -9,56 +11,56 @@ interface RunResult {
   status: status
 }
 
-export interface IBridgeType
+export interface BridgeType
   extends Omit<dbTypes.BridgeType, 'incomingTokenHash' | 'salt'> {
   id: string
 }
 
 //REVIEW what to do with this?
-export interface IExternalInitiator
+export interface ExternalInitiator
   extends Omit<
     dbTypes.ExternalInitiator,
     'salt' | 'hashedSecret' | 'accessKey'
   > {}
 
-export interface IInitiator extends dbTypes.Initiator {
+export interface Initiator extends dbTypes.Initiator {
   params: object
 }
 
-export interface IJobRun
+export interface JobRun
   extends Omit<
     dbTypes.JobRun,
     'initiatorId' | 'overridesId' | 'jobSpecId' | 'resultId'
   > {
   id: string
-  initiator: IInitiator
+  initiator: Initiator
   jobId: string
   overrides: RunResult
   result: RunResult
-  taskRuns: ITaskRuns
+  taskRuns: TaskRuns
   createdAt: string
   finishedAt: string
   status: string
   payment: number
 }
 
-export interface IJobSpec extends dbTypes.JobSpec {
-  initiators: IInitiators
-  tasks: ITaskSpecs
-  runs: ITaskRuns
+export interface JobSpec extends dbTypes.JobSpec {
+  initiators: Initiators
+  tasks: TaskSpecs
+  runs: TaskRuns
 }
 
-export interface ITaskRun
+export interface TaskRun
   extends Omit<dbTypes.TaskRun, 'taskSpecId' | 'jobRunId' | 'resultId'> {
   id: string
   result: RunResult
-  task: ITaskSpec
+  task: TaskSpec
   updatedAt: Date
   type: adapterTypes
   minimumConfirmations: number
   status: string
 }
-export interface ITaskSpec {
+export interface TaskSpec {
   id: number
   createdAt?: Date
   updatedAt?: Date
@@ -69,19 +71,19 @@ export interface ITaskSpec {
 }
 
 //REVIEW Not needed?
-export interface ITxAttempt extends dbTypes.TxAttempt {}
+export interface TxAttempt extends dbTypes.TxAttempt {}
 
-export interface ITransaction
+export interface Transaction
   extends Omit<dbTypes.Tx, 'surrogateId' | 'signedRawTx'> {
   rawHex: string
 }
 
-export type IBridgeTypes = Array<IBridgeType>
-export type IExternalInitiators = Array<IExternalInitiator>
-export type IInitiators = Array<IInitiator>
-export type IJobRuns = Array<IJobRun>
-export type IJobSpecs = Array<IJobSpec>
-export type ITaskRuns = Array<ITaskRun>
-export type ITaskSpecs = Array<ITaskSpec>
-export type ITxAttempts = Array<ITxAttempt>
-export type ITransactions = Array<ITransaction>
+export type BridgeTypes = Array<BridgeType>
+export type ExternalInitiators = Array<ExternalInitiator>
+export type Initiators = Array<Initiator>
+export type JobRuns = Array<JobRun>
+export type JobSpecs = Array<JobSpec>
+export type TaskRuns = Array<TaskRun>
+export type TaskSpecs = Array<TaskSpec>
+export type TxAttempts = Array<TxAttempt>
+export type Transactions = Array<Transaction>

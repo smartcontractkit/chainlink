@@ -4,7 +4,6 @@ import { createChainlinkNode } from '../../entity/ChainlinkNode'
 import { fromString, JobRun, saveJobRunTree } from '../../entity/JobRun'
 import ethtxFixture from '../fixtures/JobRun.ethtx.fixture.json'
 import fixture from '../fixtures/JobRun.fixture.json'
-import updateFixture from '../fixtures/JobRunUpdate.fixture.json'
 
 let db: Connection
 
@@ -40,7 +39,7 @@ describe('entity/jobRun/fromString', () => {
     expect(jr.taskRuns[0].minimumConfirmations).toEqual('3')
     expect(jr.taskRuns[0].error).toEqual(null)
 
-    const [chainlinkNode, _] = await createChainlinkNode(
+    const [chainlinkNode] = await createChainlinkNode(
       db,
       'job-run-fromString-chainlink-node',
     )
@@ -87,7 +86,7 @@ describe('entity/jobRun/fromString', () => {
 
 describe('entity/jobRun/saveJobRunTree', () => {
   it('updates jobRun error', async () => {
-    const [chainlinkNode, _] = await createChainlinkNode(
+    const [chainlinkNode] = await createChainlinkNode(
       db,
       'testOverwriteJobRunsErrorOnConflict',
     )
@@ -112,7 +111,7 @@ describe('entity/jobRun/saveJobRunTree', () => {
   })
 
   it('overwrites taskRun values on conflict', async () => {
-    const [chainlinkNode, _] = await createChainlinkNode(
+    const [chainlinkNode] = await createChainlinkNode(
       db,
       'testOverwriteTaskRunsOnConflict',
     )

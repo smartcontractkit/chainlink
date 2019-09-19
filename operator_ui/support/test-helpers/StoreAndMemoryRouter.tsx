@@ -3,15 +3,19 @@ import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router'
 import createStore from '../../src/connectors/redux'
 
-interface IProps {
-  children: React.ReactNode
+interface Props {
   initialEntries?: string[]
 }
 
-export default ({ children, initialEntries }: IProps) => {
+const StoreAndMemoryRouter: React.FC<Props> = ({
+  children,
+  initialEntries,
+}) => {
   return (
     <Provider store={createStore()}>
       <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
     </Provider>
   )
 }
+
+export default StoreAndMemoryRouter

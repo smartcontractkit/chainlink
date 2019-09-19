@@ -205,7 +205,7 @@ func (orm *ORM) FindInitiator(ID uint) (models.Initiator, error) {
 func (orm *ORM) preloadJobs() *gorm.DB {
 	return orm.DB.
 		Preload("Initiators", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped().Order("\"id\" asc")
+			return db.Unscoped().Order(`"id" asc`)
 		}).
 		Preload("Tasks", func(db *gorm.DB) *gorm.DB {
 			return db.Unscoped().Order("id asc")
@@ -696,7 +696,7 @@ func (orm *ORM) AddTxAttempt(
 // GetLastNonce retrieves the last known nonce in the database for an account
 func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
 	var transaction models.Tx
-	rval := orm.DB.Order("nonce desc").Where("\"from\" = ?", address).First(&transaction)
+	rval := orm.DB.Order("nonce desc").Where(`"from" = ?`, address).First(&transaction)
 	return transaction.Nonce, ignoreRecordNotFound(rval)
 }
 
@@ -951,6 +951,11 @@ func (orm *ORM) SaveUser(user *models.User) error {
 // SaveSession saves the session.
 func (orm *ORM) SaveSession(session *models.Session) error {
 	return orm.DB.Save(session).Error
+}
+
+// SaveTx saves the Ethereum Transaction.
+func (orm *ORM) SaveTx(tx *models.Tx) error {
+	return orm.DB.Save(tx).Error
 }
 
 // CreateBridgeType saves the bridge type.

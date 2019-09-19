@@ -37,6 +37,20 @@ func TestLog_UnmarshalEmptyTxHash(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestReceipt_UnmarshalEmptyBlockHash(t *testing.T) {
+	t.Parallel()
+
+	input := `{
+		"transactionHash": "0x444172bef57ad978655171a8af2cfd89baa02a97fcb773067aef7794d6913374",
+		"blockNumber": "0x8bf99b",
+		"blockHash": null
+	}`
+
+	var receipt models.TxReceipt
+	err := json.Unmarshal([]byte(input), &receipt)
+	require.NoError(t, err)
+}
+
 func TestModels_HexToFunctionSelector(t *testing.T) {
 	t.Parallel()
 	fid := models.HexToFunctionSelector("0xb3f98adc")

@@ -187,8 +187,8 @@ contract('PreCoordinator', accounts => {
   describe('#onTokenTransfer', () => {
     context('when called by an address other than the LINK token', () => {
       it('reverts', async () => {
-        let notLink = await h.linkContract(defaultAccount)
-        let saId = await pc.createServiceAgreement.call(
+        const notLink = await h.linkContract(defaultAccount)
+        const saId = await pc.createServiceAgreement.call(
           totalPayment,
           3,
           [oc1.address, oc2.address, oc3.address, oc4.address],
@@ -196,7 +196,7 @@ contract('PreCoordinator', accounts => {
           [payment, payment, payment, payment],
           { from: defaultAccount },
         )
-        let badRc = await RequesterConsumer.new(
+        const badRc = await RequesterConsumer.new(
           notLink.address,
           pc.address,
           saId,
@@ -232,7 +232,7 @@ contract('PreCoordinator', accounts => {
       })
 
       it('creates Chainlink requests', async () => {
-        let tx = await rc.requestEthereumPrice(currency, totalPayment, {
+        const tx = await rc.requestEthereumPrice(currency, totalPayment, {
           from: consumer,
         })
         const log1 = tx.receipt.rawLogs[7]

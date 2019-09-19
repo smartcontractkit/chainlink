@@ -11,14 +11,14 @@ import Grid, { GridSize } from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
 import TaskRuns from './TaskRuns'
 
-interface IBaseItemProps {
+interface BaseItemProps {
   children: React.ReactNode
   className?: string
   sm: GridSize
   md: GridSize
 }
 
-const BaseItem = ({ children, className, sm, md }: IBaseItemProps) => {
+const BaseItem = ({ children, className, sm, md }: BaseItemProps) => {
   return (
     <Grid item xs={sm} sm={sm} md={md} className={className}>
       {children}
@@ -45,12 +45,12 @@ const itemContentStyles = ({ spacing, breakpoints }: Theme) =>
     },
   })
 
-interface IItemProps extends WithStyles<typeof itemContentStyles> {
+interface ItemProps extends WithStyles<typeof itemContentStyles> {
   children: React.ReactNode
 }
 
 const Key = withStyles(itemContentStyles)(
-  ({ children, classes }: IItemProps) => (
+  ({ children, classes }: ItemProps) => (
     <BaseItem sm={12} md={4}>
       <Typography
         variant="body1"
@@ -64,7 +64,7 @@ const Key = withStyles(itemContentStyles)(
 )
 
 const Value = withStyles(itemContentStyles)(
-  ({ children, classes }: IItemProps) => (
+  ({ children, classes }: ItemProps) => (
     <BaseItem sm={12} md={8}>
       <Typography
         variant="body1"
@@ -86,13 +86,13 @@ const rowStyles = ({ palette }: Theme) =>
     },
   })
 
-interface IRowProps extends WithStyles<typeof rowStyles> {
+interface RowProps extends WithStyles<typeof rowStyles> {
   children: React.ReactNode
   className?: string
 }
 
 const Row = withStyles(rowStyles)(
-  ({ children, classes, className }: IRowProps) => (
+  ({ children, classes, className }: RowProps) => (
     <div className={classNames(classes.row, className)}>
       <Grid container spacing={0}>
         {children}
@@ -119,14 +119,14 @@ const styles = ({ spacing, palette }: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
-  jobRun: IJobRun
+interface Props extends WithStyles<typeof styles> {
+  jobRun: JobRun
   etherscanHost: string
 }
 
 const buildSearchQuery = (id: string) => `/job-runs?search=${id}`
 
-const Details = ({ classes, jobRun, etherscanHost }: IProps) => {
+const Details = ({ classes, jobRun, etherscanHost }: Props) => {
   const nodeHasUrl = jobRun.chainlinkNode.url !== ''
   const nodeName = jobRun.chainlinkNode.name
   return (

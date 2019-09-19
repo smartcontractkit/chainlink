@@ -15,7 +15,7 @@ const isEnvEqual = (optionName: string, env: string): boolean => {
 
 const loadOptions = (env?: string) => {
   env = env || process.env.TYPEORM_NAME || process.env.NODE_ENV || 'default'
-  for (let option of options) {
+  for (const option of options) {
     if (isEnvEqual(option.name, env)) {
       return option
     }
@@ -26,8 +26,8 @@ const loadOptions = (env?: string) => {
 // Loads the following ENV vars, giving them precedence.
 // i.e. TYPEORM_PORT will replace "port" in ormconfig.json.
 const mergeOptions = (): PostgresConnectionOptions => {
-  let envOptions: { [key: string]: string } = {}
-  for (let v of overridableKeys) {
+  const envOptions: { [key: string]: string } = {}
+  for (const v of overridableKeys) {
     const envVar = process.env[`TYPEORM_${v.toUpperCase()}`]
     if (envVar) {
       envOptions[v] = envVar
@@ -39,6 +39,8 @@ const mergeOptions = (): PostgresConnectionOptions => {
   } as PostgresConnectionOptions
 }
 
+// TODO: make not global due to race condition chances https://eslint.org/docs/rules/require-atomic-updates
+/* eslint require-atomic-updates: 'warn' */
 let db: Connection | undefined
 
 export const getDb = async (): Promise<Connection> => {
@@ -51,7 +53,7 @@ export const getDb = async (): Promise<Connection> => {
   return db
 }
 
-export const closeDbConnection = async (): Promise<void> => {
+export const closeDbConnection = (): Promise<void> => {
   const saveDb = db
   db = null
   return saveDb.close()

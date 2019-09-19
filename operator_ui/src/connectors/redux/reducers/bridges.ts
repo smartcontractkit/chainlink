@@ -1,10 +1,10 @@
-export interface IState {
+export interface State {
   items: { [id: string]: object }
   currentPage: string[]
   count: number
 }
 
-const initialState: IState = {
+const initialState: State = {
   items: {},
   currentPage: [],
   count: 0,
@@ -28,7 +28,7 @@ export type Action =
   | { type: 'UPSERT_BRIDGES'; data: NormalizedBridgesResponse }
   | { type: 'UPSERT_BRIDGE'; data: NormalizedBridgeResponse }
 
-export default (state: IState = initialState, action: Action) => {
+export default (state: State = initialState, action: Action) => {
   switch (action.type) {
     case 'UPSERT_BRIDGES': {
       const { bridges, meta } = action.data

@@ -3,9 +3,6 @@
 set -e
 
 yarn workspaces run lint
-# Need this because root package.json eslint scripts have not been converted yet.
-# Once they are removed the following line can be deleted
-yarn lint:evm && yarn lint:examples
 
 # We should merge these into the lint commands too
 yarn workspace chainlink run slither

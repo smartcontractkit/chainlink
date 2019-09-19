@@ -5,3 +5,6 @@ Dockerfile
 .dockerignore
 .eslintignore
 src/public
+.migrations*
+.env
+*.md5

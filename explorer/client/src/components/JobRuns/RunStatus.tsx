@@ -36,11 +36,11 @@ const styles = ({ palette, spacing }: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
-  jobRun: IJobRun
+interface Props extends WithStyles<typeof styles> {
+  jobRun: JobRun
 }
 
-const StatusCard = ({ classes, jobRun }: IProps) => {
+const StatusCard = ({ classes, jobRun }: Props) => {
   const [text, unfulfilled] = status(jobRun)
   const key = statusKey(jobRun, unfulfilled)
   const statusClass = classes[key] || classes.pending
@@ -61,8 +61,8 @@ const StatusCard = ({ classes, jobRun }: IProps) => {
 
 type Status = 'completed' | 'errored' | 'pending'
 
-const statusKey = (jobRun: IJobRun, unfulfilled: boolean): Status => {
-  return (unfulfilled ? 'errored' : jobRun.status) as Status
+function statusKey(jobRun: JobRun, unfulfilled: boolean): Status {
+  return unfulfilled ? 'errored' : (jobRun.status as Status)
 }
 
 export default withStyles(styles)(StatusCard)

@@ -41,9 +41,13 @@ const (
 	EVMWordHexLen = EVMWordByteLen * 2
 )
 
-// ZeroAddress is an empty address, otherwise in Ethereum as
+// ZeroAddress is an address of all zeroes, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000
 var ZeroAddress = common.Address{}
+
+// EmptyHash is a hash of all zeroes, otherwise in Ethereum as
+// 0x0000000000000000000000000000000000000000000000000000000000000000
+var EmptyHash = common.Hash{}
 
 // WithoutZeroAddresses returns a list of addresses excluding the zero address.
 func WithoutZeroAddresses(addresses []common.Address) []common.Address {
@@ -99,9 +103,6 @@ func DurationFromNow(t time.Time) time.Duration {
 func FormatJSON(v interface{}) ([]byte, error) {
 	return json.MarshalIndent(v, "", "  ")
 }
-
-// NewBytes32Length holds the length of bytes needed for Bytes32ID.
-const NewBytes32Length = 32
 
 // NewBytes32ID returns a randomly generated UUID that conforms to
 // Ethereum bytes32.

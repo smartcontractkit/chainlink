@@ -16,13 +16,13 @@ const styles = ({ palette }: Theme) =>
     },
   })
 
-interface IProps extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof styles> {
   children: React.ReactNode | string
   to: string
   className?: string
 }
 
-const Link = ({ to, children, classes, className }: IProps) => {
+const Link = ({ to, children, classes, className }: Props) => {
   return (
     <RouterLink to={to} className={classNames(classes.link, className)}>
       {children}

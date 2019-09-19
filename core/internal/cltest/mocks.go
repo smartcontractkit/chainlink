@@ -595,7 +595,7 @@ func NewHTTPMockServer(
 	server := httptest.NewServer(handler)
 	return server, func() {
 		server.Close()
-		assert.True(t, called)
+		assert.True(t, called, "expected call Mock HTTP endpoint '%s'", server.URL)
 	}
 }
 

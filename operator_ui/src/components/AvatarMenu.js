@@ -105,13 +105,11 @@ const AvatarMenu = useHooks(({ classes, submitSignOut }) => {
   )
 })
 
-const mapStateToProps = state => ({})
-
 const mapDispatchToProps = dispatch =>
   bindActionCreators({ submitSignOut }, dispatch)
 
 export const ConnectedAvatarMenu = connect(
-  mapStateToProps,
+  undefined,
   mapDispatchToProps,
 )(AvatarMenu)
 

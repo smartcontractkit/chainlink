@@ -1,11 +1,11 @@
 import { combineReducers } from 'redux'
 import accountBalances from './accountBalances'
 import authentication from './authentication'
-import bridges, { IState as IBridgesState } from './bridges'
-import configuration, { IState as IConfigurationState } from './configuration'
-import dashboardIndex, { IState as IDashboardState } from './dashboardIndex'
+import bridges, { State as BridgesState } from './bridges'
+import configuration, { State as ConfigurationState } from './configuration'
+import dashboardIndex, { State as DashboardState } from './dashboardIndex'
 import fetching from './fetching'
-import jobRuns, { IState as IJobRunsState } from './jobRuns'
+import jobRuns, { State as JobRunsState } from './jobRuns'
 import jobs from './jobs'
 import notifications from './notifications'
 import redirect from './redirect'
@@ -13,10 +13,10 @@ import transactions from './transactions'
 import transactionsIndex from './transactionsIndex'
 
 export interface AppState {
-  bridges: IBridgesState
-  configuration: IConfigurationState
-  dashboardIndex: IDashboardState
-  jobRuns: IJobRunsState
+  bridges: BridgesState
+  configuration: ConfigurationState
+  dashboardIndex: DashboardState
+  jobRuns: JobRunsState
 }
 
 const reducer = combineReducers({

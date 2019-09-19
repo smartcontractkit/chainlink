@@ -156,9 +156,20 @@ func CreateTx(
 	from common.Address,
 	sentAt uint64,
 ) *models.Tx {
+	return CreateTxWithNonce(t, store, from, sentAt, 0)
+}
+
+// CreateTxWithNonce creates a Tx from a specified address, sentAt, and nonce
+func CreateTxWithNonce(
+	t testing.TB,
+	store *strpkg.Store,
+	from common.Address,
+	sentAt uint64,
+	nonce uint64,
+) *models.Tx {
 	data := make([]byte, 36)
 	binary.LittleEndian.PutUint64(data, sentAt)
-	ethTx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), data)
+	ethTx := types.NewTransaction(nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), data)
 	tx, err := store.CreateTx(null.String{}, ethTx, &from, sentAt)
 	require.NoError(t, err)
 	return tx

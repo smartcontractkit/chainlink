@@ -14,7 +14,7 @@ const sheetsRegistry = new SheetsRegistry()
 const muiTheme = createMuiTheme(theme)
 const generateClassName = createGenerateClassName()
 
-export default (children, opts = {}) =>
+export default children =>
   mount(
     <JssProvider
       registry={sheetsRegistry}

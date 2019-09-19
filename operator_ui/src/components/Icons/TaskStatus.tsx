@@ -3,14 +3,14 @@ import SuccessIcon from './Success'
 import ErrorIcon from './Error'
 import PendingIcon from './Pending'
 
-interface IProps {
+interface Props {
   className: string
   children: React.ReactNode
   width?: number
   height?: number
 }
 
-const StatusIcon = ({ className, children, width, height }: IProps) => {
+const StatusIcon = ({ className, children, width, height }: Props) => {
   if (children === 'completed') {
     return <SuccessIcon className={className} width={width} height={height} />
   } else if (children === 'errored') {

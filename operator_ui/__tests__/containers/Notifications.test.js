@@ -37,7 +37,7 @@ describe('containers/Notifications', () => {
       },
     }
     const store = mockStore(state)
-    let wrapper = mountNotifications(store)
+    const wrapper = mountNotifications(store)
 
     expect(wrapper.text()).toContain('Success 1')
     expect(wrapper.text()).toContain('Error 2')
@@ -52,7 +52,7 @@ describe('containers/Notifications', () => {
       },
     }
     const store = mockStore(state)
-    let wrapper = mountNotifications(store)
+    const wrapper = mountNotifications(store)
 
     expect(wrapper.text()).toContain(
       'Unhandled error. Please help us by opening a bug report',
