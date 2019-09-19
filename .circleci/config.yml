@@ -236,7 +236,7 @@ jobs:
       - run:
           name: Run E2E Tests
           command: yarn workspace @chainlink/explorer-client run build && yarn workspace @chainlink/explorer run test-ci:e2e:silent
-  build-and-publish-explorer:
+  build-publish-explorer:
     machine: true
     steps:
       - checkout
@@ -257,7 +257,7 @@ jobs:
           command: |
             DOCKER_TAG=`tools/bin/gittag2dockertag ${CIRCLE_TAG}`; docker tag smartcontract/explorer:circleci smartcontract/explorer:${DOCKER_TAG}
             cd explorer && DOCKER_TAG=`tools/bin/gittag2dockertag ${CIRCLE_TAG}` make dockerpush
-  build-and-publish-chainlink:
+  build-publish-chainlink:
     machine: true
     steps:
       - checkout
@@ -299,7 +299,7 @@ workflows:
       - operator-ui
       - rust
       - explorer
-      - build-and-publish-explorer:
+      - build-publish-explorer:
           requires:
             - explorer
           filters:
@@ -308,7 +308,7 @@ workflows:
                 - master
                 - develop
                 - chores/explorer-tags-for-dockerhub
-      - build-and-publish-chainlink:
+      - build-publish-chainlink:
           requires:
             - go-sqlite
             - go-sqlite-race
