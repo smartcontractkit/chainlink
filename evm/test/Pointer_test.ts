@@ -1,25 +1,31 @@
-import * as h from '../src/helpers'
-const Pointer = artifacts.require('Pointer.sol')
-
+import * as h from '../src/helpersV2'
+import * as ethers from 'ethers'
+import ganache from 'ganache-core'
+import { AbstractContract } from '../src/contract'
+import { linkToken } from '../src/linkToken'
+import { assert } from 'chai'
+const Pointer = AbstractContract.fromArtifactName('Pointer')
+const Link = AbstractContract.fromBuildArtifact(linkToken)
 let roles: h.Roles
+const ganacheProvider: any = ganache.provider()
 
 before(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas()
+  const rolesAndPersonas = await h.initializeRolesAndPersonas(ganacheProvider)
 
   roles = rolesAndPersonas.roles
 })
 
-contract('Pointer', () => {
-  let contract: any
-  let link: any
+describe('Pointer', () => {
+  let contract: ethers.Contract
+  let link: ethers.Contract
 
   beforeEach(async () => {
-    link = await h.linkContract(roles.defaultAccount)
-    contract = await Pointer.new(link.address)
+    link = await Link.deploy(roles.defaultAccount)
+    contract = await Pointer.deploy(roles.defaultAccount, [link.address])
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(Pointer, ['getAddress'])
+    h.checkPublicABI(contract, ['getAddress'])
   })
 
   describe('#getAddress', () => {
