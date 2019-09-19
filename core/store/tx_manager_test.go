@@ -618,7 +618,7 @@ func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
 
 	receipt, state, err := txm.BumpGasUntilSafe(tx1.Attempts[0].Hash)
 	assert.Nil(t, receipt)
-	assert.Equal(t, strpkg.Confirmed, state)
+	assert.Equal(t, strpkg.Safe, state)
 	assert.Error(t, err)
 
 	tx, err := store.FindTx(tx1.ID)
