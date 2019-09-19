@@ -316,7 +316,6 @@ workflows:
             - parity-postgres
             - operator-ui
             - rust
-            - explorer
           filters:
             branches:
               only:
