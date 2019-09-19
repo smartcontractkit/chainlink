@@ -1,6 +1,4 @@
 version: 2.1
-orbs:
-  aws-ecr: circleci/aws-ecr@4.0.1
 jobs:
   go-sqlite:
     docker:
@@ -325,23 +323,6 @@ workflows:
                 - master
                 - develop
                 - chores/explorer-tags-for-dockerhub
-      - aws-ecr/build_and_push_image:
-          requires:
-            - go-sqlite
-            - go-sqlite-race
-            - go-postgres
-            - truffle
-            - geth-postgres
-            - parity-postgres
-            - operator-ui
-            - rust
-            - explorer
-          filters:
-            branches:
-              only: master
-          path: ./explorer
-          dockerfile: ./explorer/Dockerfile
-          repo: explorer
       - reportcoverage:
           requires:
             - go-sqlite
