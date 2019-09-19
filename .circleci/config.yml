@@ -236,13 +236,27 @@ jobs:
       - run:
           name: Run E2E Tests
           command: yarn workspace @chainlink/explorer-client run build && yarn workspace @chainlink/explorer run test-ci:e2e:silent
-  build-explorer-image:
+  build-and-publish-explorer:
     machine: true
     steps:
       - checkout
       - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
           name: Docker build
-          command: docker build -f explorer/Dockerfile .
+          command: docker build -f explorer/Dockerfile -t smartcontract/explorer:circleci .
+      - run:
+          name: Docker push develop or latest
+          command: |
+            DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}`; docker tag smartcontract/explorer:circleci smartcontract/explorer:${DOCKER_TAG}
+            cd explorer && DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}` make dockerpush
+      - run:
+          name: Docker push version tag, if applicable
+          command: |
+            DOCKER_TAG=`tools/bin/gittag2dockertag ${CIRCLE_TAG}`; docker tag smartcontract/explorer:circleci smartcontract/explorer:${DOCKER_TAG}
+            cd explorer && DOCKER_TAG=`tools/bin/gittag2dockertag ${CIRCLE_TAG}` make dockerpush
   build-and-publish-chainlink:
     machine: true
     steps:
@@ -256,9 +270,14 @@ jobs:
           command: |
             DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}` make docker
       - run:
-          name: Docker push
+          name: Docker push develop or latest
           command: |
-            DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}` make dockerpush
+            DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}`; make dockerpush
+      - run:
+          name: Docker push version tag, if applicable
+          command: |
+            tools/bin/dockertag_branch_to_gittag ${CIRCLE_BRANCH} ${CIRCLE_TAG}
+            DOCKER_TAG=`tools/bin/gittag2dockertag ${CIRCLE_TAG}`; make dockerpush
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.22
@@ -280,20 +299,15 @@ workflows:
       - operator-ui
       - rust
       - explorer
-      - build-explorer-image:
+      - build-and-publish-explorer:
           requires:
-            - go-sqlite
-            - go-sqlite-race
-            - go-postgres
-            - truffle
-            - geth-postgres
-            - parity-postgres
-            - operator-ui
-            - rust
             - explorer
           filters:
             branches:
-              ignore: master
+              only:
+                - master
+                - develop
+                - chores/explorer-tags-for-dockerhub
       - build-and-publish-chainlink:
           requires:
             - go-sqlite
@@ -310,8 +324,7 @@ workflows:
               only:
                 - master
                 - develop
-                - /^hotfix\/.*/
-                - /^release\/.*/
+                - chores/explorer-tags-for-dockerhub
       - aws-ecr/build_and_push_image:
           requires:
             - go-sqlite
