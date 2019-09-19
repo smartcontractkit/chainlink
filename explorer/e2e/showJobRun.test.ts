@@ -24,8 +24,12 @@ describe('End to end', () => {
     page.on('console', msg => console.log('PAGE LOG:', msg.text()))
   })
 
-  afterAll(async () => {
-    return Promise.all([browser.close(), server.close(), closeDbConnection()])
+  afterAll(async done => {
+    return Promise.all([
+      browser.close(),
+      server.close(done),
+      closeDbConnection(),
+    ])
   })
 
   it('can search for job run', async () => {
