@@ -9,7 +9,7 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Header from '../components/Header'
-import Logo from '../components/Logo'
+import { PublicLogo } from '../components/Logos/Public'
 import SearchForm from '../components/SearchForm'
 import SearchBox from '../components/SearchBox'
 import { State } from '../reducers'
@@ -48,7 +48,7 @@ const SearchHeader = ({ classes, onResize }: Props) => {
         <Grid container alignItems="center">
           <Grid item sm={12} md={10} lg={9}>
             <div className={classes.logoAndSearch}>
-              <Logo className={classes.logo} />
+              <PublicLogo href="/" className={classes.logo} />
               <SearchForm className={classes.searchForm}>
                 <SearchBox />
               </SearchForm>
@@ -59,7 +59,8 @@ const SearchHeader = ({ classes, onResize }: Props) => {
       <Hidden smUp>
         <Grid container alignItems="center" spacing={0}>
           <Grid item xs={12}>
-            <Logo
+            <PublicLogo
+              href="/"
               className={classes.stackedLogo}
               height={STACKED_LOGO_HEIGHT}
             />

@@ -2,6 +2,7 @@ import express from 'express'
 import request from 'supertest'
 import http from 'http'
 import httpStatus from 'http-status-codes'
+import cookieSession from 'cookie-session'
 import { Connection } from 'typeorm'
 import { closeDbConnection, getDb } from '../../database'
 import { clearDb } from '../testdatabase'
@@ -18,6 +19,13 @@ const ADMIN_PATH = '/api/v1/admin'
 const ROUTE_PATH = `${ADMIN_PATH}/test-route`
 
 const app = express()
+app.use(
+  cookieSession({
+    name: 'explorer',
+    maxAge: 60_000,
+    keys: ['key1', 'key2'],
+  }),
+)
 app.use(ROUTE_PATH, adminAuth)
 app.use(ROUTE_PATH, (req, res) => res.sendStatus(200))
 
@@ -26,7 +34,7 @@ let db: Connection
 
 beforeAll(async () => {
   db = await getDb()
-  server = await app.listen()
+  server = app.listen(null)
 })
 afterAll(async done => {
   if (server) {

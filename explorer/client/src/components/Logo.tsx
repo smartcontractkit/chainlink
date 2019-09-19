@@ -1,16 +1,25 @@
 import React from 'react'
-import logo from '../images/logo.svg'
 
 interface Props {
+  src: string
+  href: string
   className?: string
   width?: number
   height?: number
+  alt?: string
 }
 
-const Logo = ({ className, width, height }: Props) => {
+const Logo = ({
+  src,
+  href,
+  className,
+  width,
+  height,
+  alt = 'Chainlink Explorer',
+}: Props) => {
   return (
-    <a href="/" className={className}>
-      <img src={logo} width={width} height={height} alt="Chainlink Explorer" />
+    <a href={href} className={className}>
+      <img src={src} width={width} height={height} alt={alt} />
     </a>
   )
 }

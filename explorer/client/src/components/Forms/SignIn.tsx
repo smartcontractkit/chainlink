@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, FormEvent } from 'react'
 import {
   createStyles,
   withStyles,
@@ -9,8 +9,11 @@ import { Grid } from '@material-ui/core'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
 import Typography from '@material-ui/core/Typography'
+import TextField from '@material-ui/core/TextField'
+import Button from '../Button'
+import { HexagonLogo } from '../Logos/Hexagon'
 
-const styles = ({ spacing, palette }: Theme) =>
+const styles = ({ palette, spacing }: Theme) =>
   createStyles({
     container: {
       height: '100%',
@@ -36,36 +39,55 @@ const styles = ({ spacing, palette }: Theme) =>
   })
 
 interface Props extends WithStyles<typeof styles> {
-  onSubmit: () => void
+  onSubmit: (username: string, password: string) => void
+  errors?: string[]
+  usernameLabel?: string
+  passwordLabel?: string
 }
 
-export const SignIn = withStyles(styles)(({ classes, onSubmit }: Props) => {
-  return (
-    <Grid
-      container
-      justify="center"
-      alignItems="center"
-      className={classes.container}
-      spacing={0}
-    >
-      <Grid item xs={10} sm={6} md={4} lg={3} xl={2}>
-        <Card>
-          <CardContent className={classes.cardContent}>
-            <form noValidate onSubmit={onSubmit}>
-              <Grid container spacing={8}>
-                <Grid item xs={12}>
-                  <Grid container spacing={0}>
-                    <Grid item xs={12} className={classes.headerRow}>
-                      <HexagonLogo width={50} />
-                    </Grid>
-                    <Grid item xs={12} className={classes.headerRow}>
-                      <Typography variant="h5">Operator</Typography>
+export const SignIn = withStyles(styles)(
+  ({
+    classes,
+    onSubmit,
+    errors = [],
+    usernameLabel = 'Username',
+    passwordLabel = 'Password',
+  }: Props) => {
+    const [username, setUsername] = useState('')
+    const [password, setPassword] = useState('')
+
+    function submitForm(e: FormEvent) {
+      onSubmit(username, password)
+      e.preventDefault()
+    }
+
+    return (
+      <Grid
+        container
+        justify="center"
+        alignItems="center"
+        className={classes.container}
+        spacing={0}
+      >
+        <Grid item xs={10} sm={6} md={4} lg={3} xl={2}>
+          <Card>
+            <CardContent className={classes.cardContent}>
+              <form noValidate onSubmit={submitForm}>
+                <Grid container spacing={8}>
+                  <Grid item xs={12}>
+                    <Grid container spacing={0}>
+                      <Grid item xs={12} className={classes.headerRow}>
+                        <HexagonLogo href="/admin/signin" width={50} />
+                      </Grid>
+                      <Grid item xs={12} className={classes.headerRow}>
+                        <Typography variant="h5">Explorer Admin</Typography>
+                      </Grid>
                     </Grid>
                   </Grid>
                 </Grid>
 
                 {errors.length > 0 &&
-                  errors.map(({ props }, idx) => {
+                  errors.map((text, idx) => {
                     return (
                       <Grid item xs={12} key={idx}>
                         <Card raised={false} className={classes.error}>
@@ -74,7 +96,7 @@ export const SignIn = withStyles(styles)(({ classes, onSubmit }: Props) => {
                               variant="body1"
                               className={classes.errorText}
                             >
-                              {props.msg}
+                              {text}
                             </Typography>
                           </CardContent>
                         </Card>
@@ -84,30 +106,25 @@ export const SignIn = withStyles(styles)(({ classes, onSubmit }: Props) => {
 
                 <Grid item xs={12}>
                   <TextField
-                    id="email"
-                    label="Email"
+                    label={usernameLabel}
+                    onChange={e => setUsername(e.target.value)}
                     margin="normal"
-                    value={email}
-                    onChange={handleChange('email')}
-                    error={errors.length > 0}
                     variant="outlined"
                     fullWidth
                   />
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
-                    id="password"
-                    label="Password"
+                    label={passwordLabel}
+                    onChange={e => setPassword(e.target.value)}
                     type="password"
                     autoComplete="password"
                     margin="normal"
-                    value={password}
-                    onChange={handleChange('password')}
-                    error={errors.length > 0}
                     variant="outlined"
                     fullWidth
                   />
                 </Grid>
+
                 <Grid item xs={12}>
                   <Grid container spacing={0} justify="center">
                     <Grid item>
@@ -117,18 +134,11 @@ export const SignIn = withStyles(styles)(({ classes, onSubmit }: Props) => {
                     </Grid>
                   </Grid>
                 </Grid>
-                {fetching && (
-                  <Typography variant="body1" color="textSecondary">
-                    Signing in...
-                  </Typography>
-                )}
-              </Grid>
-            </form>
-          </CardContent>
-        </Card>
+              </form>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
-    </Grid>
-  )
-})
-
-export default SignIn
+    )
+  },
+)

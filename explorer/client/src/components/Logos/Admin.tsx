@@ -1,5 +1,5 @@
 import React from 'react'
-import logo from './logo.svg'
+import logo from './admin.svg'
 
 interface Props {
   className?: string
@@ -7,9 +7,9 @@ interface Props {
   height?: number
 }
 
-const Logo = ({ className, width, height }: Props) => {
+export const AdminLogo = ({ className, width, height }: Props) => {
   return (
-    <a href="/" className={className}>
+    <a href="/admin" className={className}>
       <img
         src={logo}
         width={width}
@@ -19,5 +19,3 @@ const Logo = ({ className, width, height }: Props) => {
     </a>
   )
 }
-
-export default Logo

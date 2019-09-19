@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { RouteComponentProps } from '@reach/router'
 import {
   createStyles,
   Theme,
@@ -6,21 +7,26 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
-import Header from '../components/Header'
-import Logo from '../components/Admin/Logo'
+import AdminPrivate from '../containers/Admin/Private'
+import Header from '../containers/Admin/Header'
 import { DEFAULT_HEADER_HEIGHT } from '../constants'
 
 const styles = (theme: Theme) =>
   createStyles({
+    avatar: {
+      float: 'right',
+    },
+    container: {
+      overflowX: 'hidden',
+    },
     logo: {
       marginRight: theme.spacing.unit * 2,
       width: 200,
     },
   })
 
-interface Props extends WithStyles<typeof styles> {
+interface Props extends RouteComponentProps, WithStyles<typeof styles> {
   children?: any
-  path: string
 }
 
 export const Admin = ({ children, classes }: Props) => {
@@ -28,15 +34,21 @@ export const Admin = ({ children, classes }: Props) => {
   const onHeaderResize = (_width: number, height: number) => setHeight(height)
 
   return (
-    <Grid container spacing={24}>
-      <Grid item xs={12}>
-        <Header onResize={onHeaderResize}>
-          <Logo className={classes.logo} />
-        </Header>
+    <>
+      <AdminPrivate />
 
-        <main style={{ paddingTop: height }}>{children}</main>
+      <Header onHeaderResize={onHeaderResize} />
+
+      <Grid container spacing={24} className={classes.container}>
+        <Grid item xs={12}>
+          <Grid container>
+            <Grid item xs={12}>
+              <main style={{ paddingTop: height }}>{children}</main>
+            </Grid>
+          </Grid>
+        </Grid>
       </Grid>
-    </Grid>
+    </>
   )
 }
 

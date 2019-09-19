@@ -2,6 +2,8 @@
   "compilerOptions": {
     "target": "es5",
     "lib": ["es5", "es6", "dom"],
+    "module": "esnext",
+    "moduleResolution": "node",
     "incremental": true,
     "allowJs": true,
     "skipLibCheck": true,
@@ -10,20 +12,18 @@
     "strict": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
-    "module": "esnext",
-    "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "typeRoots": ["node_modules/@types", "@types"],
     "jsx": "preserve"
   },
-  "include": ["src"],
   "files": [
     "@types/javascript-time-ago.d.ts",
     "@types/json-api-normalizer.d.ts",
     "@types/redux-object.d.ts",
     "@types/react-snapshot.d.ts",
     "@types/react-time-ago.d.ts"
-  ]
+  ],
+  "include": ["src"]
 }
