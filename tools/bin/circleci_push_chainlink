@@ -1,0 +1,45 @@
+#!/bin/bash
+
+set -e
+
+#
+# Pushes smartcontract/chainlink:circleci to relevant location based on passed args:
+# push_chainlink <branch> <gittag>
+# ie:
+# push_chainlink master 0.6.9
+# push_chainlink develop
+# push_chainlink release/0.6.9
+#
+# Ignores anything not matching above.
+# Key assumption: local version of smartcontract/chainlink:circleci is the image
+# to work with.
+#
+
+circle_branch=$1
+circle_tag=$2
+
+PROJECT_ROOT=`git rev-parse --show-toplevel`
+pushd $PROJECT_ROOT >/dev/null
+
+tools/bin/circleci_validate_if_versioned $circle_branch $circle_tag
+
+tag_and_push() {
+  # ie: docker tag and push smartcontract/chainlink:0.9.1, since DOCKER_TAG=0.9.1
+  export DOCKER_TAG=$1
+  (set -x; docker tag smartcontract/chainlink:circleci smartcontract/chainlink:${DOCKER_TAG})
+  make dockerpush
+}
+
+branch_tag=`tools/bin/branch2tag ${circle_branch}` # ie: develop, latest, candidate-*, etc.
+version_tag=`tools/bin/gittag2dockertag ${circle_tag}` # aka GIT_TAG. v0.9.1 -> 0.9.1
+
+# version tag takes precedence.
+if [ -n "${version_tag}" ]
+then
+  tag_and_push $version_tag
+  # if version tag, also push latest.
+  # ie: after pushing smartcontract/chainlink:0.6.9, also update smartcontract/chainlink:latest
+  tag_and_push latest
+else
+  tag_and_push $branch_tag
+fi

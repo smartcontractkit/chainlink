@@ -1,6 +1,4 @@
 version: 2.1
-orbs:
-  aws-ecr: circleci/aws-ecr@4.0.1
 jobs:
   go-sqlite:
     docker:
@@ -236,14 +234,22 @@ jobs:
       - run:
           name: Run E2E Tests
           command: yarn workspace @chainlink/explorer-client run build && yarn workspace @chainlink/explorer run test-ci:e2e:silent
-  build-explorer-image:
+  build-publish-explorer:
     machine: true
     steps:
       - checkout
       - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
           name: Docker build
-          command: docker build -f explorer/Dockerfile .
-  build-and-publish-chainlink:
+          command: docker build -f explorer/Dockerfile -t smartcontract/explorer:circleci .
+      - run:
+          name: Docker push, if applicable
+          command: |
+            tools/bin/circleci_push_explorer ${CIRCLE_BRANCH} ${CIRCLE_TAG}
+  build-publish-chainlink:
     machine: true
     steps:
       - checkout
@@ -254,11 +260,11 @@ jobs:
       - run:
           name: Docker build
           command: |
-            DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}` make docker
+            DOCKER_TAG=circleci make docker
       - run:
-          name: Docker push
+          name: Docker push, if applicable
           command: |
-            DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}` make dockerpush
+            tools/bin/circleci_push_chainlink ${CIRCLE_BRANCH} ${CIRCLE_TAG}
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.22
@@ -280,39 +286,17 @@ workflows:
       - operator-ui
       - rust
       - explorer
-      - build-explorer-image:
+      - build-publish-explorer:
           requires:
-            - go-sqlite
-            - go-sqlite-race
-            - go-postgres
-            - truffle
-            - geth-postgres
-            - parity-postgres
-            - operator-ui
-            - rust
-            - explorer
-          filters:
-            branches:
-              ignore: master
-      - build-and-publish-chainlink:
-          requires:
-            - go-sqlite
-            - go-sqlite-race
-            - go-postgres
-            - truffle
-            - geth-postgres
-            - parity-postgres
-            - operator-ui
-            - rust
             - explorer
           filters:
             branches:
               only:
-                - master
                 - develop
-                - /^hotfix\/.*/
                 - /^release\/.*/
-      - aws-ecr/build_and_push_image:
+            tags:
+              only: /^explorer-v.*/ # handles final versioned releases instead of master branch
+      - build-publish-chainlink:
           requires:
             - go-sqlite
             - go-sqlite-race
@@ -322,13 +306,13 @@ workflows:
             - parity-postgres
             - operator-ui
             - rust
-            - explorer
           filters:
             branches:
-              only: master
-          path: ./explorer
-          dockerfile: ./explorer/Dockerfile
-          repo: explorer
+              only:
+                - develop
+                - /^release\/.*/
+            tags:
+              only: /^v.*/ # handles final versioned releases instead of master branch
       - reportcoverage:
           requires:
             - go-sqlite

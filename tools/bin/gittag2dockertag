@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -e
+
+if [ -z "$1" ]
+then
+  exit 0 # No tag, skip.
+fi
+
+gittag=`echo $1 | awk '{print tolower($0)}'`
+if [[ "${gittag}" =~ ^v([a-zA-Z0-9.]+) ]]; then
+  echo ${BASH_REMATCH[1]}
+elif [[ "${gittag}" =~ ^explorer-v([a-zA-Z0-9.]+) ]]; then
+  echo "${BASH_REMATCH[1]}"
+else
+  echo unable to deduce docker tag from ${gittag}
+  exit 1
+fi

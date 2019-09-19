@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -e
+
+#
+# Ensures that version git tags can only exist on master branch.
+# ie:
+# master 0.6.9 OK
+# master ERROR
+# develop 0.6.9 ERROR
+#
+
+circle_branch=$1
+circle_tag=$2
+
+# if master, ensure a git tag version, or error
+if [ "$circle_branch" == "master" ] && [ -z "$circle_tag" ]
+then
+  echo On master with no git tag version, erroring.
+  exit 1
+fi
+
+# if version tagged, but not master, error. Only master can have versions.
+if [ "$circle_branch" != "master" ] && [ -n "$circle_tag" ]
+then
+  echo Not on master \(${circle_branch}\) with git tag version \(${circle_tag}\), erroring.
+  exit 1
+fi
