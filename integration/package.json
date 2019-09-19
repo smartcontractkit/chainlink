@@ -21,10 +21,12 @@
   "devDependencies": {
     "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
+    "@cypress/webpack-preprocessor": "^4.1.0",
     "babel-jest": "^24.1.0",
     "body-parser": "^1.18.3",
     "command-line-args": "^5.1.1",
     "cross-env": "^6.0.0",
+    "cypress": "^3.4.1",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",
     "ethers": "^4.0.36",
@@ -37,7 +39,10 @@
     "puppeteer": "^1.20.0",
     "request-promise": "^4.2.4",
     "solc": "0.4.24",
-    "truffle": "^5.0.25"
+    "truffle": "^5.0.25",
+    "ts-loader": "^6.1.0",
+    "typescript": "^3.6.3",
+    "webpack": "^4.40.2"
   },
   "prettier": "@chainlink/prettier-config"
 }
