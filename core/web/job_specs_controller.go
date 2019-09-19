@@ -41,7 +41,7 @@ func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
 }
 
 // notifyExternalInitiator sends a POST notification to the External Initiator
-// responsible for initiating the JobRun.
+// responsible for initiating the Job Spec.
 func notifyExternalInitiator(
 	c *gin.Context,
 	js models.JobSpec,

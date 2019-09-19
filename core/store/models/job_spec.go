@@ -31,7 +31,7 @@ type InitiatorRequest struct {
 	InitiatorParams `json:"params,omitempty"`
 }
 
-// UnmarshalJSON ...
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (i *InitiatorRequest) UnmarshalJSON(buf []byte) error {
 	type Alias InitiatorRequest
 	temp := struct {
