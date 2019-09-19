@@ -4,16 +4,16 @@ import React from 'react'
 
 describe('components/KeyValueList', () => {
   it('can display a title', () => {
-    let withTitle = render(<KeyValueList entries={[]} title="My Title" />)
+    const withTitle = render(<KeyValueList entries={[]} title="My Title" />)
     expect(withTitle.text()).toContain('My Title')
   })
 
   it('can display header columns', () => {
-    let withHead = render(<KeyValueList entries={[]} showHead />)
+    const withHead = render(<KeyValueList entries={[]} showHead />)
     expect(withHead.text()).toContain('Key')
     expect(withHead.text()).toContain('Value')
 
-    let withoutHead = render(<KeyValueList entries={[]} />)
+    const withoutHead = render(<KeyValueList entries={[]} />)
     expect(withoutHead.text()).not.toContain('Key')
     expect(withoutHead.text()).not.toContain('Value')
   })
@@ -21,7 +21,7 @@ describe('components/KeyValueList', () => {
   it('renders entry pairs', () => {
     const entries = [['CHAINLINK_DEV', 'true'], ['DATABASE_TIMEOUT', 1000]]
 
-    let wrapper = render(<KeyValueList entries={entries} />)
+    const wrapper = render(<KeyValueList entries={entries} />)
     expect(wrapper.text()).toContain('CHAINLINK_DEV')
     expect(wrapper.text()).toContain('true')
     expect(wrapper.text()).toContain('DATABASE_TIMEOUT')
@@ -31,13 +31,13 @@ describe('components/KeyValueList', () => {
   it('can titleize keys', () => {
     const entries = [['gasLimit', 50000], ['hash', 'abc123']]
 
-    let withoutTitleize = render(<KeyValueList entries={entries} />)
+    const withoutTitleize = render(<KeyValueList entries={entries} />)
     expect(withoutTitleize.text()).toContain('gasLimit')
     expect(withoutTitleize.text()).toContain('hash')
     expect(withoutTitleize.text()).toContain('50000')
     expect(withoutTitleize.text()).toContain('abc123')
 
-    let withTitleize = render(<KeyValueList entries={entries} titleize />)
+    const withTitleize = render(<KeyValueList entries={entries} titleize />)
     expect(withTitleize.text()).toContain('Gas Limit')
     expect(withTitleize.text()).toContain('Hash')
     expect(withTitleize.text()).toContain('50000')

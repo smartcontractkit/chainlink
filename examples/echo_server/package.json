@@ -5,9 +5,10 @@
   "private": true,
   "scripts": {
     "depcheck": "echo \"@chainlink/example-echo-server\" && depcheck --ignore-dirs=contracts || true",
-    "lint": "yarn solhint",
-    "format": "prettier --write \"**/*\"",
+    "eslint": "eslint --ext .js,.ts .",
     "solhint": "solhint ./contracts/**/*.sol",
+    "lint": "yarn eslint && yarn solhint",
+    "format": "prettier --write \"**/*\"",
     "test": "truffle test"
   },
   "dependencies": {
@@ -17,14 +18,16 @@
     "cbor": "^4.0.0",
     "chainlink": "^0.6.5",
     "express": "^4.16.2",
-    "link_token": "^1.0.3",
+    "link_token": "^1.0.6",
     "request-promise": "^4.2.2",
     "truffle": "^5.0.25",
     "web3": "^1.0.0-beta.55"
   },
   "devDependencies": {
+    "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
     "depcheck": "^0.8.3",
+    "eslint": "^6.3.0",
     "prettier": "^1.18.2",
     "solc": "0.4.24",
     "solhint": "^2.1.0"

@@ -462,6 +462,25 @@ func (sa ServiceAgreement) FriendlyPayment() string {
 	return fmt.Sprintf("%v LINK", sa.Encumbrance.Payment.String())
 }
 
+// FriendlyAggregator returns the ServiceAgreement's aggregator address,
+// in a human readable format.
+func (sa ServiceAgreement) FriendlyAggregator() string {
+	return sa.Encumbrance.Aggregator.String()
+}
+
+// FriendlyAggregator returns the ServiceAgreement's aggregator initialization
+// method's function selector, in a human readable format.
+func (sa ServiceAgreement) FriendlyAggregatorInitMethod() string {
+	return sa.Encumbrance.AggInitiateJobSelector.String()
+}
+
+// FriendlyAggregatorFulfillMethod returns the ServiceAgreement's aggregator
+// fulfillment (orcale reporting) method's function selector, in a human
+// readable format.
+func (sa ServiceAgreement) FriendlyAggregatorFulfillMethod() string {
+	return sa.Encumbrance.AggFulfillSelector.String()
+}
+
 // UserPresenter wraps the user record for shipping as a jsonapi response in
 // the API.
 type UserPresenter struct {

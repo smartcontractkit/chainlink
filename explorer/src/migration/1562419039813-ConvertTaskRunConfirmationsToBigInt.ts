@@ -1,5 +1,4 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
-import { TaskRun } from '../entity/TaskRun'
 
 export class ConvertTaskRunConfirmationsToBigInt1562419039813
   implements MigrationInterface {
@@ -32,5 +31,7 @@ export class ConvertTaskRunConfirmationsToBigInt1562419039813
     `)
   }
 
-  public async down(queryRunner: QueryRunner): Promise<any> {}
+  public async down(): Promise<any> {
+    return undefined
+  }
 }

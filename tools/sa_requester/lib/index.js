@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 const command = require('@oclif/command')
 const fs = require('fs')
 const URL = require('url').URL

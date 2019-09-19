@@ -5,14 +5,16 @@
   "scripts": {
     "depcheck": "echo '@chainlink/tools' && depcheck || true",
     "format": "prettier --write \"**/*\"",
-    "lint": "echo 'No linter configured for @chainlink/tools project' && exit 0"
+    "lint": "eslint --ext .js,.ts ."
   },
   "dependencies": {
     "axios": "^0.18.1"
   },
   "devDependencies": {
+    "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
     "depcheck": "^0.8.3",
+    "eslint": "^6.3.0",
     "prettier": "^1.18.2"
   },
   "prettier": "@chainlink/prettier-config"

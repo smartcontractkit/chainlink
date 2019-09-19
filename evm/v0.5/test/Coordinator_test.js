@@ -7,8 +7,6 @@ const GetterSetter = artifacts.require('GetterSetter.sol')
 const MaliciousConsumer = artifacts.require('MaliciousConsumer.sol')
 const MaliciousRequester = artifacts.require('MaliciousRequester.sol')
 
-let aggInitiateJobSelector, aggFulfillSelector
-
 contract('Coordinator', () => {
   let coordinator, link, newServiceAgreement, emptyAggregator, meanAggregator
 
@@ -70,7 +68,7 @@ contract('Coordinator', () => {
 
     context('with valid oracle signatures', () => {
       it('saves a service agreement struct from the parameters', async () => {
-        let tx = await h.initiateServiceAgreement(coordinator, agreement)
+        await h.initiateServiceAgreement(coordinator, agreement)
         await h.checkServiceAgreementPresent(coordinator, agreement)
       })
 
@@ -89,7 +87,7 @@ contract('Coordinator', () => {
       })
 
       it('calls the aggregator with the SA info', async () => {
-        const tx = await h.initiateServiceAgreement(coordinator, agreement)
+        await h.initiateServiceAgreement(coordinator, agreement)
         const event = await h.getLatestEvent(emptyAggregator)
         assert(event, 'event was expected')
         assert.equal('InitiatedJob', event.event)
@@ -252,7 +250,7 @@ contract('Coordinator', () => {
       assert.equal(tx.logs[0].args.said, agreement.id)
     })
 
-    let fHash = h.functionSelectorFromAbi(GetterSetter, 'requestedBytes32')
+    const fHash = h.functionSelectorFromAbi(GetterSetter, 'requestedBytes32')
 
     context('cooperative consumer', () => {
       beforeEach(async () => {

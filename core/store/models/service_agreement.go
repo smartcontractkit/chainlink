@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -79,22 +80,26 @@ func NewUnsignedServiceAgreementFromRequest(reader io.Reader) (UnsignedServiceAg
 
 	input, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return UnsignedServiceAgreement{}, err
+		return UnsignedServiceAgreement{}, errors.Wrap(err, "while reading service agreement JSON")
 	}
 
 	err = json.Unmarshal(input, &jsr)
 	if err != nil {
-		return UnsignedServiceAgreement{}, err
+		return UnsignedServiceAgreement{}, errors.Wrap(err, "while parsing job-spec JSON")
 	}
 
 	var encumbrance Encumbrance
 	if err := json.Unmarshal(input, &encumbrance); err != nil {
-		return UnsignedServiceAgreement{}, err
+		return UnsignedServiceAgreement{}, errors.Wrap(err, "while parsing service agreement JSON")
+	}
+
+	if encumbrance.Aggregator == "" {
+		return UnsignedServiceAgreement{}, fmt.Errorf("must set aggregator contract address")
 	}
 
 	normalized, err := utils.NormalizedJSON(input)
 	if err != nil {
-		return UnsignedServiceAgreement{}, err
+		return UnsignedServiceAgreement{}, errors.Wrap(err, "while normalizing service agreement JSON")
 	}
 
 	requestDigest, err := utils.Keccak256([]byte(normalized))
@@ -148,16 +153,28 @@ func serviceAgreementIDInputBuffer(encumbrance Encumbrance, digest common.Hash) 
 
 // Encumbrance connects job specifications with on-chain encumbrances.
 type Encumbrance struct {
-	ID         uint                   `json:"-" gorm:"primary_key;auto_increment"`
-	Payment    *assets.Link           `json:"payment" gorm:"type:varchar(255)"`
-	Expiration uint64                 `json:"expiration"`
-	EndAt      AnyTime                `json:"endAt"`
-	Oracles    EIP55AddressCollection `json:"oracles" gorm:"type:text"`
+	// Corresponds to requestDigest in solidity ServiceAgreement struct
+	ID uint `json:"-" gorm:"primary_key;auto_increment"`
+	// Price to request a report based on this agreement
+	Payment    *assets.Link `json:"payment" gorm:"type:varchar(255)"`
+	Expiration uint64       `json:"expiration"`
+	// Agreement is valid until this time
+	EndAt AnyTime `json:"endAt"`
+	// Addresses of oracles committed to this agreement
+	Oracles EIP55AddressCollection `json:"oracles" gorm:"type:text"`
+	// Address of aggregator contract
+	Aggregator EIP55Address `json:"aggregator" gorm:"not null"`
+	// selector for initialization method on aggregator contract
+	AggInitiateJobSelector FunctionSelector `json:"aggInitiateJobSelector" gorm:"not null"`
+	// selector for fulfillment (oracle reporting) method on aggregator contract
+	AggFulfillSelector FunctionSelector `json:"aggFulfillSelector" gorm:"not null"`
 }
 
-// ABI packs the encumberance as a byte array using the same technique as
-// abi.encodePacked, meaning that addresses are padded with left 0s to match
-// hashes in the oracle list
+// ABI packs the encumberance as a byte array using the same technique as abi.encodePacked.
+//
+// Used only for constructing a stable hash which will be signed by all oracles,
+// so it does not have to be easily parsed or unambiguous (e.g., re-ordering
+// Oracles will result in output), just an injective function.
 func (e Encumbrance) ABI() ([]byte, error) {
 	buffer := bytes.Buffer{}
 	var paymentHash common.Hash
@@ -166,18 +183,18 @@ func (e Encumbrance) ABI() ([]byte, error) {
 	}
 	_, err := buffer.Write(paymentHash.Bytes())
 	if err != nil {
-		return []byte{}, err
+		return nil, errors.Wrap(err, "while writing payment")
 	}
 	expirationHash := common.BigToHash(new(big.Int).SetUint64(e.Expiration))
 	_, err = buffer.Write(expirationHash.Bytes())
 	if err != nil {
-		return []byte{}, err
+		return nil, errors.Wrap(err, "while writing expiration")
 	}
 
-	// Get the absolute end date as a big-endian uint32 (unix seconds)
+	// Absolute end date as a big-endian uint32 (unix seconds)
 	endAt := e.EndAt.Time.Unix()
 	if endAt > 0xffffffff { // Optimistically, this could be an issue in 2038...
-		return []byte{}, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"endat date %s is too late to fit in uint32",
 			e.EndAt.Time)
 	}
@@ -185,24 +202,39 @@ func (e Encumbrance) ABI() ([]byte, error) {
 	binary.BigEndian.PutUint32(endAtSerialised, uint32(endAt&math.MaxUint32))
 	_, err = buffer.Write(endAtSerialised)
 	if err != nil {
-		return []byte{}, err
+		return nil, errors.Wrap(err, "while writing endAt")
 	}
 
 	err = encodeOracles(&buffer, e.Oracles)
 	if err != nil {
-		return []byte{}, err
+		return nil, errors.Wrap(err, "while writing oracles")
+	}
+	_, err = buffer.Write(address256Bits(e.Aggregator))
+	if err != nil {
+		return nil, errors.Wrap(err, "while writing aggregator address")
+	}
+	_, err = buffer.Write(e.AggInitiateJobSelector[:])
+	if err != nil {
+		return nil, errors.Wrap(err, "while writing aggregator initiation method selector")
+	}
+	_, err = buffer.Write(e.AggFulfillSelector[:])
+	if err != nil {
+		return nil, errors.Wrap(err, "while writing aggregator fulfill method selector")
 	}
 	return buffer.Bytes(), nil
 }
 
 func encodeOracles(buffer *bytes.Buffer, oracles []EIP55Address) error {
 	for _, o := range oracles {
-		// XXX: Solidity packs addresses as hashes when doing abi.encodePacking, so mirror here
-		oracleAddressHash := common.BytesToHash(o.Bytes())
-		_, err := buffer.Write(oracleAddressHash.Bytes())
+		_, err := buffer.Write(address256Bits(o))
 		if err != nil {
-			return err
+			return errors.Wrap(err, "while writing oracle address to buffer")
 		}
 	}
 	return nil
+}
+
+// address256Bits Zero left-pads a to 32 bytes, as in Solidity's abi.encodePacking
+func address256Bits(a EIP55Address) []byte {
+	return a.Hash().Bytes()
 }

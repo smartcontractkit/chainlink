@@ -1,7 +1,7 @@
 import { titleCase } from 'change-case'
 
-const hasUnfulfilledEthTx = (jobRun: IJobRun) => {
-  return (jobRun.taskRuns || []).some((tr: ITaskRun) => {
+const hasUnfulfilledEthTx = (jobRun: JobRun) => {
+  return (jobRun.taskRuns || []).some((tr: TaskRun) => {
     return (
       tr.type === 'ethtx' &&
       tr.status === 'completed' &&
@@ -10,7 +10,7 @@ const hasUnfulfilledEthTx = (jobRun: IJobRun) => {
   })
 }
 
-export default (jobRun: IJobRun): [string, boolean] => {
+export default (jobRun: JobRun): [string, boolean] => {
   let unfulfilledEthTx = false
   let text
 

@@ -1,14 +1,10 @@
 import cbor from 'cbor'
-import { join, resolve as pathResolve } from 'path'
 import TruffleContract from 'truffle-contract'
 import { linkToken } from './linkToken'
 import { assertBigNum } from './matchers'
-
-const abi = require('ethereumjs-abi')
-const util = require('ethereumjs-util')
-const BN = require('bn.js')
-const ethjsUtils = require('ethereumjs-util')
-/* tslint:enable no-var-requires */
+import * as abi from 'ethereumjs-abi'
+import BN from 'bn.js'
+import * as util from 'ethereumjs-util'
 
 const HEX_BASE = 16
 
@@ -35,7 +31,7 @@ export let [
   consumer,
   oracleNode,
 ] = Array(1000).fill(INVALIDVALUE)
-export let personas = {}
+export const personas = {}
 
 before(async function queryEthClientForConstants() {
   accounts = await eth.getAccounts()
@@ -139,8 +135,9 @@ export const toHex = (value: any): string => {
   return Ox(toHexWithoutPrefix(value))
 }
 
-export const Ox = (value: any): string =>
-  value.slice(0, 2) !== '0x' ? `0x${value}` : value
+export function Ox(value: any): string {
+  return value.slice(0, 2) !== '0x' ? `0x${value}` : value
+}
 
 // True if h is a standard representation of a byte array, false otherwise
 export const isByteRepresentation = (h: any): boolean => {
@@ -205,17 +202,20 @@ export const assertActionThrows = (action: any) =>
 
 export const checkPublicABI = (contract: any, expectedPublic: any) => {
   const actualPublic = []
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   for (const method of contract.abi) {
     if (method.type === 'function') {
       actualPublic.push(method.name)
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   for (const method of actualPublic) {
     const index = expectedPublic.indexOf(method)
     assert.isAtLeast(index, 0, `#${method} is NOT expected to be public`)
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   for (const method of expectedPublic) {
     const index = actualPublic.indexOf(method)
     assert.isAtLeast(index, 0, `#${method} is expected to be public`)
@@ -268,7 +268,7 @@ export const decodeRunRequest = (log: any): any => {
   }
 }
 
-const autoAddMapDelimiters = (data: any): Buffer => {
+function autoAddMapDelimiters(data: any): Buffer {
   let buffer = data
 
   if (buffer[0] >> 5 !== 5) {
@@ -315,7 +315,7 @@ export const requestDataBytes = (
   return funcSelector + encoded
 }
 
-export const abiEncode = (types: any, values: any): string => {
+export function abiEncode(types: any, values: any): string {
   return abi.rawEncode(types, values).toString('hex')
 }
 
@@ -361,7 +361,7 @@ export const newSignature = (str: string): any => {
 }
 
 // newHash returns a 65 byte Uint8Array for representing a hash
-export const newHash = (str: string): Uint8Array => {
+export function newHash(str: string): Uint8Array {
   return newUint8Array(str, 32)
 }
 
@@ -406,9 +406,8 @@ export const increaseTime5Minutes = async () => {
       method: 'evm_increaseTime',
       params: [300],
     },
-    (error: any, result: any) => {
+    (error: any) => {
       if (error) {
-        // tslint:disable-next-line:no-console
         console.log(`Error during helpers.increaseTime5Minutes! ${error}`)
         throw error
       }
@@ -424,9 +423,8 @@ export const sendToEvm = async (evmMethod: string, ...params: any) => {
       method: evmMethod,
       params: [...params],
     },
-    (error: any, result: any) => {
+    (error: any) => {
       if (error) {
-        // tslint:disable-next-line:no-console
         console.log(`Error during ${evmMethod}! ${error}`)
         throw error
       }
@@ -469,7 +467,7 @@ export const calculateSAID = ({
     ),
     requestDigest,
   )
-  const serviceAgreementIDInputDigest = ethjsUtils.keccak(
+  const serviceAgreementIDInputDigest = util.keccak(
     toHex(serviceAgreementIDInput),
   )
   return newHash(toHex(serviceAgreementIDInputDigest))
@@ -489,14 +487,14 @@ export const recoverPersonalSignature = (
       message,
     ),
   )
-  const digest = ethjsUtils.keccak(toBuffer(personalSignMessage))
-  const requestDigestPubKey = ethjsUtils.ecrecover(
+  const digest = util.keccak(toBuffer(personalSignMessage))
+  const requestDigestPubKey = util.ecrecover(
     digest,
     signature.v,
     toBuffer(signature.r),
     toBuffer(signature.s),
   )
-  return ethjsUtils.pubToAddress(requestDigestPubKey)
+  return util.pubToAddress(requestDigestPubKey)
 }
 
 export const personalSign = async (
@@ -681,8 +679,9 @@ export const newServiceAgreement = async (params: any): Promise<any> => {
   return agreement
 }
 
-export const sixMonthsFromNow = (): number =>
-  Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60
+export function sixMonthsFromNow(): number {
+  return Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60
+}
 
 export const fulfillOracleRequest = async (
   oracle: any,

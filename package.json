@@ -7,6 +7,7 @@
     "evm/v0.5",
     "tools",
     "tools/prettier-config",
+    "tools/eslint-config",
     "operator_ui",
     "integration",
     "styleguide",
@@ -16,33 +17,13 @@
   ],
   "scripts": {
     "lint:all": "yarn workspaces run lint",
-    "lint:fix": "eslint --fix --color --ext .js --ext .jsx --ext .ts --ext .tsx .",
-    "lint:styleguide": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./styleguide",
-    "lint:operator-ui": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./operator_ui",
-    "lint:evm": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./evm",
-    "lint:examples": "eslint --color --ext .js --ext .jsx --ext .ts --ext .tsx ./examples",
     "format:all": "yarn workspaces run format"
   },
-  "devDependencies": {
-    "@types/mocha": "^5.2.0",
-    "@typescript-eslint/parser": "^1.6.0",
-    "babel-eslint": "^10.0.1",
-    "eslint": "5.12.0",
-    "eslint-config-prettier": "^4.1.0",
-    "eslint-config-prettier-standard": "^2.0.0",
-    "eslint-config-react-tools": "1.x.x",
-    "eslint-config-standard": "^12.0.0",
-    "eslint-plugin-import": "^2.16.0",
-    "eslint-plugin-node": "^8.0.1",
-    "eslint-plugin-promise": "^4.0.1",
-    "eslint-plugin-react": "^7.12.4",
-    "eslint-plugin-react-hooks": "^1.3.0",
-    "eslint-plugin-standard": "^4.0.0"
-  },
+  "devDependencies": {},
   "resolutions": {
-    "caniuse-lite": "1.0.30000957"
+    "**/react-scripts/**/eslint": "6.3.0"
   },
   "comments": {
-    "resolutions": "Had to lock caniuse-lite version at last working version with browserlists"
+    "resolutions-eslint": "Locking eslint to >5 so that our module resolution patch within @chainlink/eslint/resolve.js works properly"
   }
 }

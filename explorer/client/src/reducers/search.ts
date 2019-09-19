@@ -1,4 +1,4 @@
-export interface IState {
+export interface State {
   query?: string
 }
 
@@ -17,6 +17,6 @@ const parseQuery = (location: Location = document.location): Query => {
   }
 }
 
-export default (state: IState = initialState, action: Action) => {
+export default (state: State = initialState, action: Action) => {
   return Object.assign({}, state, { query: parseQuery(action.location) })
 }

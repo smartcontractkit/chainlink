@@ -9,14 +9,14 @@ import TermsOfUse from './components/TermsOfUse'
 import JobRunsIndex from './containers/JobRuns/Index'
 import JobRunsShow from './containers/JobRuns/Show'
 
-interface IMainProps {
+interface MainProps {
   children: any
   path: string
 }
 
 const DEFAULT_HEIGHT = 98
 
-const Main = ({ children }: IMainProps) => {
+const Main = ({ children }: MainProps) => {
   const [height, setHeight] = useState<number>(DEFAULT_HEIGHT)
   const onHeaderResize = (width: number, height: number) => {
     setHeight(height)

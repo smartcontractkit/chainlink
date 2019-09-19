@@ -1,20 +1,20 @@
-export interface IState {
-  items?: IChainlinkNode[]
+export interface State {
+  items?: ChainlinkNode[]
 }
 
-export interface INormalizedData {
+export interface NormalizedData {
   chainlinkNodes: any[]
 }
 
 export type JobRunsAction =
-  | { type: 'UPSERT_JOB_RUNS'; data: INormalizedData }
-  | { type: 'UPSERT_JOB_RUN'; data: INormalizedData }
+  | { type: 'UPSERT_JOB_RUNS'; data: NormalizedData }
+  | { type: 'UPSERT_JOB_RUN'; data: NormalizedData }
   | { type: '@@redux/INIT' }
   | { type: '@@INIT' }
 
 const INITIAL_STATE = { items: undefined }
 
-export default (state: IState = INITIAL_STATE, action: JobRunsAction) => {
+export default (state: State = INITIAL_STATE, action: JobRunsAction) => {
   switch (action.type) {
     case '@@redux/INIT':
     case '@@INIT':

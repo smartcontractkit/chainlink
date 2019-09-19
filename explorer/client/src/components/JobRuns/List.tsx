@@ -4,10 +4,10 @@ import Hidden from '@material-ui/core/Hidden'
 import Table, { ChangePageEvent } from '../Table'
 import { LinkColumn, TextColumn, TimeAgoColumn } from '../Table/TableCell'
 
-interface IProps {
+interface Props {
   currentPage: number
   onChangePage: (event: ChangePageEvent, page: number) => void
-  jobRuns?: IJobRun[]
+  jobRuns?: JobRun[]
   count?: number
   emptyMsg?: string
   className?: string
@@ -16,11 +16,11 @@ interface IProps {
 const DEFAULT_HEADERS = ['Node', 'Run ID', 'Job ID', 'Created At']
 const MOBILE_HEADERS = ['Run ID', 'Job ID', 'Created At', 'Node']
 
-const buildNodeCol = (jobRun: IJobRun): TextColumn => {
+const buildNodeCol = (jobRun: JobRun): TextColumn => {
   return { type: 'text', text: jobRun.chainlinkNode.name }
 }
 
-const buildIdCol = (jobRun: IJobRun): LinkColumn => {
+const buildIdCol = (jobRun: JobRun): LinkColumn => {
   return {
     type: 'link',
     text: jobRun.runId,
@@ -28,19 +28,19 @@ const buildIdCol = (jobRun: IJobRun): LinkColumn => {
   }
 }
 
-const buildJobIdCol = (jobRun: IJobRun): TextColumn => {
+const buildJobIdCol = (jobRun: JobRun): TextColumn => {
   return { type: 'text', text: jobRun.jobId }
 }
 
-const buildCreatedAtCol = (jobRun: IJobRun): TimeAgoColumn => {
+const buildCreatedAtCol = (jobRun: JobRun): TimeAgoColumn => {
   return {
     type: 'time_ago',
     text: jobRun.createdAt,
   }
 }
 
-const mobileRows = (jobRuns: IJobRun[]) => {
-  return jobRuns.map((r: IJobRun) => {
+const mobileRows = (jobRuns: JobRun[]) => {
+  return jobRuns.map((r: JobRun) => {
     return [
       buildIdCol(r),
       buildJobIdCol(r),
@@ -50,8 +50,8 @@ const mobileRows = (jobRuns: IJobRun[]) => {
   })
 }
 
-const defaultRows = (jobRuns: IJobRun[]) => {
-  return jobRuns.map((r: IJobRun) => {
+const defaultRows = (jobRuns: JobRun[]) => {
+  return jobRuns.map((r: JobRun) => {
     return [
       buildNodeCol(r),
       buildIdCol(r),
@@ -61,7 +61,7 @@ const defaultRows = (jobRuns: IJobRun[]) => {
   })
 }
 
-const List = (props: IProps) => {
+const List = (props: Props) => {
   const jobRuns = props.jobRuns || []
   return (
     <Paper className={props.className}>

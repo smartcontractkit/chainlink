@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
 )
@@ -358,11 +359,21 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 // BumpGasUntilSafe process a collection of related TxAttempts, trying to get
 // at least one TxAttempt into a safe state, bumping gas if needed
 func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, AttemptState, error) {
-	blockHeight := uint64(txm.currentHead.Number)
 	tx, _, err := txm.orm.FindTxByAttempt(hash)
 	if err != nil {
 		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe FindTxByAttempt")
 	}
+
+	receipt, state, err := txm.checkChainForConfirmation(tx)
+	if err != nil || state != Unconfirmed {
+		return receipt, state, err
+	}
+
+	return txm.checkAccountForConfirmation(tx)
+}
+
+func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
+	blockHeight := uint64(txm.currentHead.Number)
 
 	var merr error
 	// Process attempts in reverse, since the attempt with the highest gas is
@@ -376,6 +387,31 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, 
 	}
 
 	return nil, Unconfirmed, merr
+}
+
+func (txm *EthTxManager) checkAccountForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
+	ma := txm.GetAvailableAccount(tx.From)
+
+	if ma != nil && ma.lastSafeNonce > tx.Nonce {
+		tx.Confirmed = true
+		tx.Hash = utils.EmptyHash
+		if err := txm.orm.SaveTx(tx); err != nil {
+			return nil, Safe, fmt.Errorf("BumpGasUntilSafe error saving Tx confirmation to the database")
+		}
+		return nil, Safe, fmt.Errorf("BumpGasUntilSafe a version of the Ethereum Transaction from %v with nonce %v", tx.From, tx.Nonce)
+	}
+
+	return nil, Unconfirmed, nil
+}
+
+// GetAvailableAccount retrieves a managed account if it one matches the address given.
+func (txm *EthTxManager) GetAvailableAccount(from common.Address) *ManagedAccount {
+	for _, a := range txm.availableAccounts {
+		if a.Address == from {
+			return a
+		}
+	}
+	return nil
 }
 
 // ContractLINKBalance returns the balance for the contract associated with this
@@ -456,8 +492,7 @@ func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight u
 	minimumConfirmations := new(big.Int).SetUint64(txm.config.MinOutgoingConfirmations())
 	confirmedAt := new(big.Int).Add(minimumConfirmations, receipt.BlockNumber.ToInt())
 
-	// 0 based indexing since receipt is 1 conf
-	confirmedAt.Sub(confirmedAt, big.NewInt(1))
+	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // confirmed at block counts as 1 conf
 
 	if new(big.Int).SetUint64(blockHeight).Cmp(confirmedAt) == -1 {
 		return receipt, Confirmed, nil
@@ -530,9 +565,10 @@ func (txm *EthTxManager) processAttempt(
 
 	switch state {
 	case Safe:
+		txm.updateLastSafeNonce(tx)
 		return receipt, state, txm.handleSafe(tx, attemptIndex)
 
-	case Confirmed: // nothing to do, need to wait
+	case Confirmed:
 		return receipt, state, nil
 
 	case Unconfirmed:
@@ -560,6 +596,14 @@ func (txm *EthTxManager) processAttempt(
 	}
 
 	panic("invariant violated, 'Unknown' state returned without error")
+}
+
+func (txm *EthTxManager) updateLastSafeNonce(tx *models.Tx) {
+	for _, a := range txm.availableAccounts {
+		if tx.From == a.Address {
+			a.updateLastSafeNonce(tx.Nonce)
+		}
+	}
 }
 
 // hasTxAttemptMetGasBumpThreshold returns true if the current block height
@@ -700,8 +744,9 @@ func (txm *EthTxManager) activateAccount(account accounts.Account) (*ManagedAcco
 // to coordinate outgoing transactions.
 type ManagedAccount struct {
 	accounts.Account
-	nonce uint64
-	mutex *sync.Mutex
+	nonce         uint64
+	lastSafeNonce uint64
+	mutex         *sync.Mutex
 }
 
 // NewManagedAccount creates a managed account that handles nonce increments
@@ -739,6 +784,12 @@ func (a *ManagedAccount) GetAndIncrementNonce(callback func(uint64) error) error
 	}
 
 	return err
+}
+
+func (a *ManagedAccount) updateLastSafeNonce(latest uint64) {
+	if latest > a.lastSafeNonce {
+		a.lastSafeNonce = latest
+	}
 }
 
 // Contract holds the solidity contract's parsed ABI

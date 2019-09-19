@@ -1,9 +1,9 @@
-interface IChainlinkNode {
+interface ChainlinkNode {
   name: string
   url?: string
 }
 
-interface IJobRun {
+interface JobRun {
   id: string
   runId: string
   jobId: string
@@ -15,12 +15,12 @@ interface IJobRun {
   error?: string
   createdAt: string
   finishedAt?: string
-  chainlinkNode: IChainlinkNode
+  chainlinkNode: ChainlinkNode
   etherscanHost: string
-  taskRuns: ITaskRun[]
+  taskRuns: TaskRun[]
 }
 
-interface ITaskRun {
+interface TaskRun {
   id: number
   type: string
   status: string
@@ -31,7 +31,7 @@ interface ITaskRun {
   error?: string
 }
 
-interface IChainlinkNode {
+interface ChainlinkNode {
   id: number
   name: string
   url?: string

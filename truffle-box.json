@@ -35,7 +35,6 @@
     "styleguide",
     "tools",
     "tsconfig.json",
-    "tslint.json",
     "VERSION",
     "yarn.lock"
   ],

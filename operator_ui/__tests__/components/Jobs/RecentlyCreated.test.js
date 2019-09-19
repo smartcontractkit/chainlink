@@ -24,18 +24,18 @@ describe('components/Jobs/RecentlyCreated', () => {
       createdAt: twoMinutesAgo,
     }
 
-    let wrapper = renderComponent([jobB, jobA])
+    const wrapper = renderComponent([jobB, jobA])
     expect(wrapper.text()).toContain('job_bCreated a minute ago')
     expect(wrapper.text()).toContain('job_aCreated 2 minutes ago')
   })
 
   it('shows a loading indicator', () => {
-    let wrapper = renderComponent(null)
+    const wrapper = renderComponent(null)
     expect(wrapper.text()).toContain('...')
   })
 
   it('shows a message for no jobs', () => {
-    let wrapper = renderComponent([])
+    const wrapper = renderComponent([])
     expect(wrapper.text()).toContain('No recently created jobs')
   })
 })

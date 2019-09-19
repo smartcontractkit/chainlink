@@ -240,12 +240,15 @@ func (rt RendererTable) renderAccountBalances(balances []presenters.AccountBalan
 }
 
 func (rt RendererTable) renderServiceAgreement(sa presenters.ServiceAgreement) error {
-	table := rt.newTable([]string{"ID", "Created At", "Payment", "Expiration"})
+	table := rt.newTable([]string{"ID", "Created At", "Payment", "Expiration", "Aggregator", "AggInit", "AggFulfill"})
 	table.Append([]string{
 		sa.ID,
 		sa.FriendlyCreatedAt(),
 		sa.FriendlyPayment(),
 		sa.FriendlyExpiration(),
+		sa.FriendlyAggregator(),
+		sa.FriendlyAggregatorInitMethod(),
+		sa.FriendlyAggregatorFulfillMethod(),
 	})
 	render("Service Agreement", table)
 	return nil

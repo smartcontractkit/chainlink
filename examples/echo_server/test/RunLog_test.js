@@ -15,7 +15,7 @@ contract('RunLog', () => {
   })
 
   it('has a limited public interface', async () => {
-    let tx = await logger.request()
+    const tx = await logger.request()
     assert.equal(4, tx.receipt.rawLogs.length)
   })
 })

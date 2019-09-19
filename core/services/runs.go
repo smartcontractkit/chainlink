@@ -401,7 +401,7 @@ func validateOnMainChain(jr *models.JobRun, taskRun *models.TaskRun, store *stor
 
 func invalidRequest(request models.RunRequest, receipt *models.TxReceipt) bool {
 	return receipt.Unconfirmed() ||
-		(request.BlockHash != nil && *request.BlockHash != receipt.BlockHash)
+		(request.BlockHash != nil && *request.BlockHash != *receipt.BlockHash)
 }
 
 func meetsMinimumConfirmations(
