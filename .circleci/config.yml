@@ -270,12 +270,11 @@ jobs:
       - run:
           name: Docker push develop or latest
           command: |
-            DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}`; make dockerpush
+            DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}` make dockerpush
       - run:
           name: Docker push version tag, if applicable
           command: |
-            tools/bin/dockertag_branch_to_gittag ${CIRCLE_BRANCH} ${CIRCLE_TAG}
-            DOCKER_TAG=`tools/bin/gittag2dockertag ${CIRCLE_TAG}`; make dockerpush
+            tools/bin/dockerpush_branch_to_gittag ${CIRCLE_BRANCH} ${CIRCLE_TAG}
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.22

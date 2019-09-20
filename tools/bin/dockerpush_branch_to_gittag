@@ -8,8 +8,11 @@ then
 fi
 
 #
-# Specifically for CircleCI. Retag smartcontract/chainlink:latest to smartcontract/chainlink:0.9.1
+# Specifically for CircleCI. Retag smartcontract/chainlink:latest to smartcontract/chainlink:0.9.1, for example.
 #
 BRANCH_TAG=`tools/bin/branch2tag ${1}` # ie: develop or latest
 export DOCKER_TAG=`tools/bin/gittag2dockertag ${2}` # aka GIT_TAG, i.e 0.9.1
 docker tag smartcontract/explorer:${BRANCH_TAG} smartcontract/explorer:${DOCKER_TAG}
+
+# docker push smartcontract/chainlink:0.9.1, since DOCKER_TAG=0.9.1
+make dockerpush
