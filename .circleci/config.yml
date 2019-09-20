@@ -249,12 +249,11 @@ jobs:
           name: Docker push develop or latest
           command: |
             DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}`; docker tag smartcontract/explorer:circleci smartcontract/explorer:${DOCKER_TAG}
-            cd explorer && DOCKER_TAG=`tools/bin/branch2tag ${CIRCLE_BRANCH}` make dockerpush
+            cd explorer && DOCKER_TAG=`../tools/bin/branch2tag ${CIRCLE_BRANCH}` make dockerpush
       - run:
           name: Docker push version tag, if applicable
           command: |
-            DOCKER_TAG=`tools/bin/gittag2dockertag ${CIRCLE_TAG}`; docker tag smartcontract/explorer:circleci smartcontract/explorer:${DOCKER_TAG}
-            cd explorer && DOCKER_TAG=`tools/bin/gittag2dockertag ${CIRCLE_TAG}` make dockerpush
+            tools/bin/push_explorer_gittag ${CIRCLE_BRANCH} ${CIRCLE_TAG}
   build-publish-chainlink:
     machine: true
     steps:
@@ -274,7 +273,7 @@ jobs:
       - run:
           name: Docker push version tag, if applicable
           command: |
-            tools/bin/dockerpush_branch_to_gittag ${CIRCLE_BRANCH} ${CIRCLE_TAG}
+            tools/bin/push_chainlink_gittag ${CIRCLE_BRANCH} ${CIRCLE_TAG}
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.22

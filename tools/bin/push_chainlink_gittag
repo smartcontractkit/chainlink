@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -e
+
+if [ -z "$2" ]
+then
+  echo No git tag, skipping.
+  exit 0
+fi
+
+PROJECT_ROOT=`git rev-parse --show-toplevel`
+pushd $PROJECT_ROOT >/dev/null
+
+#
+# Specifically for CircleCI. Retag smartcontract/chainlink:latest to smartcontract/chainlink:0.9.1, for example.
+#
+BRANCH_TAG=`tools/bin/branch2tag ${1}` # ie: develop or latest
+export DOCKER_TAG=`tools/bin/gittag2dockertag ${2}` # aka GIT_TAG, i.e v0.9.1 -> 0.9.1
+docker tag smartcontract/chainlink:${BRANCH_TAG} smartcontract/chainlink:${DOCKER_TAG} # retag latest to 0.9.1
+
+# docker push smartcontract/chainlink:0.9.1, since DOCKER_TAG=0.9.1
+make dockerpush
