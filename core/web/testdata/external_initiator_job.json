@@ -1,4 +1,4 @@
 {
-  "initiators": [{ "type": "external", "name": "somecoin", "params": {}}],
+  "initiators": [{ "type": "external", "name": "somecoin", "params": {"foo":"bar"}}],
   "tasks": [{"type":"NoOp"}]
 }

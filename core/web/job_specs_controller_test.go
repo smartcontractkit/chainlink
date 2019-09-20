@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
@@ -196,6 +197,47 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 	adapter1, _ = adapters.For(j.Tasks[0], app.Store)
 	httpGet = adapter1.BaseAdapter.(*adapters.HTTPGet)
 	assert.Equal(t, httpGet.GetURL(), "https://bitstamp.net/api/ticker/")
+}
+
+func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
+	t.Parallel()
+
+	var eiReceived *models.JobSpecNotice
+	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
+		func(header http.Header, body string) {
+			err := json.Unmarshal([]byte(body), &eiReceived)
+			require.NoError(t, err)
+		},
+	)
+	defer assertCalled()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
+	app.Start()
+
+	eir := models.ExternalInitiatorRequest{
+		Name: "someCoin",
+		URL:  cltest.WebURL(t, eiMockServer.URL),
+	}
+	eia := models.NewExternalInitiatorAuthentication()
+	ei, err := models.NewExternalInitiator(eia, &eir)
+	require.NoError(t, err)
+	err = app.GetStore().CreateExternalInitiator(ei)
+	require.NoError(t, err)
+
+	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
+	expected := &models.JobSpecNotice{
+		JobID:  jobSpec.ID,
+		Type:   models.InitiatorExternal,
+		Params: cltest.JSONFromString(t, `{"foo":"bar"}`),
+	}
+	assert.Equal(t, expected, eiReceived)
+
+	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
+	_, err = app.Store.JobRunsFor(jobRun.ID)
+	assert.NoError(t, err)
 }
 
 func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
