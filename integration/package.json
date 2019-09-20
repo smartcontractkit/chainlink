@@ -22,6 +22,7 @@
     "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
     "@cypress/webpack-preprocessor": "^4.1.0",
+    "@types/node": "^12.7.5",
     "babel-jest": "^24.1.0",
     "body-parser": "^1.18.3",
     "command-line-args": "^5.1.1",
@@ -42,7 +43,8 @@
     "truffle": "^5.0.25",
     "ts-loader": "^6.1.0",
     "typescript": "^3.6.3",
-    "webpack": "^4.40.2"
+    "webpack": "^4.40.2",
+    "webpack-cli": "^3.3.9"
   },
   "prettier": "@chainlink/prettier-config"
 }
