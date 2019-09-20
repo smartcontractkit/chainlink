@@ -60,6 +60,34 @@ export async function initializeRolesAndPersonas(
   return { personas, roles }
 }
 
+type AsyncFunction = () => Promise<void>
+export async function assertActionThrows(action: AsyncFunction) {
+  let e: Error | undefined = undefined
+  try {
+    await action()
+  } catch (error) {
+    e = error
+  }
+  if (!e) {
+    assert.exists(e, 'Expected an error to be raised')
+    return
+  }
+
+  const { message } = e
+  assert(message, 'Expected an error to contain a message')
+  const invalidOpcode = message.includes('invalid opcode')
+  const reverted = message.includes(
+    'VM Exception while processing transaction: revert',
+  )
+  assert(
+    invalidOpcode || reverted,
+    'expected following error message to include "invalid JUMP" or ' +
+      `"revert": "${message}"`,
+  )
+  // see https://github.com/ethereumjs/testrpc/issues/39
+  // for why the "invalid JUMP" is the throw related error when using TestRPC
+}
+
 export function checkPublicABI(
   contract: ethers.Contract,
   expectedPublic: string[],
