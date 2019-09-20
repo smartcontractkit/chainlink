@@ -8,7 +8,7 @@ if [ "${branch}" = "develop" ]; then
 elif [ "${branch}" = "master" ]; then
   echo latest
 elif [ "${branch}" = "chores/explorer-tags-for-dockerhub" ]; then
-  echo chores/explorer-tags-for-dockerhub
+  echo chores-explorer-tags-for-dockerhub
 else
   echo unable to deduce docker tag from ${branch}
   exit 1
