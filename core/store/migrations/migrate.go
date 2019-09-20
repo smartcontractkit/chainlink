@@ -82,10 +82,6 @@ func Migrate(db *gorm.DB) error {
 			Migrate: migration1565210496.Migrate,
 		},
 		{
-			ID:      "1565291711",
-			Migrate: migration1565291711.Migrate,
-		},
-		{
 			ID:      "1566498796",
 			Migrate: migration1566498796.Migrate,
 		},
@@ -104,6 +100,10 @@ func Migrate(db *gorm.DB) error {
 		{
 			ID:      "1568280052",
 			Migrate: migration1568280052.Migrate,
+		},
+		{
+			ID:      "1565291711",
+			Migrate: migration1565291711.Migrate,
 		},
 	}
 
