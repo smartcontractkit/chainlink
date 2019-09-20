@@ -7,6 +7,9 @@ then
   exit 0 # No tag, skip.
 fi
 
+echo forcedtag-chores-explorer-tags-for-dockerhub
+exit 0
+
 gittag=`echo $1 | awk '{print tolower($0)}'`
 if [[ "${gittag}" =~ ^v([a-zA-Z0-9.]+) ]]; then
   echo ${BASH_REMATCH[1]}

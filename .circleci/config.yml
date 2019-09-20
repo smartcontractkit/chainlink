@@ -294,6 +294,7 @@ workflows:
               only:
                 - develop
                 - /^release\/.*/
+                - chores/explorer-tags-for-dockerhub
             tags:
               only: /^explorer-v.*/ # handles final versioned releases instead of master branch
       - build-publish-chainlink:
@@ -311,6 +312,7 @@ workflows:
               only:
                 - develop
                 - /^release\/.*/
+                - chores/explorer-tags-for-dockerhub
             tags:
               only: /^v.*/ # handles final versioned releases instead of master branch
       - reportcoverage:
