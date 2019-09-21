@@ -1,1 +1,4 @@
-{}
+{
+  "chromeWebSecurity": false,
+  "video": false
+}
