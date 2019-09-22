@@ -323,7 +323,9 @@ workflows:
                 - /^release\/.*/
                 - chores/explorer-tags-for-dockerhub
             tags:
-              only: /^explorer-v.*/ # handles final versioned releases instead of master branch
+              only:
+                - /^explorer-v.*/ # handles final versioned releases instead of master branch
+                - /^chores-explorer-tags-for-dockerhub/
       - build-publish-chainlink:
           requires:
             - go-sqlite
@@ -341,7 +343,9 @@ workflows:
                 - /^release\/.*/
                 - chores/explorer-tags-for-dockerhub
             tags:
-              only: /^v.*/ # handles final versioned releases instead of master branch
+              only:
+                - /^v.*/ # handles final versioned releases instead of master branch
+                - /^chores-explorer-tags-for-dockerhub/
       - reportcoverage:
           requires:
             - go-sqlite
