@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 #
 # Pushes smartcontract/explorer:circleci to relevant location based on passed args:
