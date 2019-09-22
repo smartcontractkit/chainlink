@@ -26,7 +26,7 @@ tools/bin/circleci_validate_if_versioned $circle_branch $circle_tag
 tag_and_push() {
   # ie: docker tag and push smartcontract/explorer:0.9.1, since DOCKER_TAG=0.9.1
   export DOCKER_TAG=$1
-  (set -x; docker tag smartcontract/chainlink:circleci smartcontract/chainlink:${DOCKER_TAG})
+  (set -x; docker tag smartcontract/explorer:circleci smartcontract/explorer:${DOCKER_TAG})
   cd explorer && make dockerpush
 }
 
