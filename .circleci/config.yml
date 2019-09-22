@@ -277,15 +277,42 @@ workflows:
   version: 2
   test:
     jobs:
-      - go-sqlite
-      - go-sqlite-race
-      - go-postgres
-      - truffle
-      - geth-postgres
-      - parity-postgres
-      - operator-ui
-      - rust
-      - explorer
+      - go-sqlite:
+          filters:
+            tags:
+              only: /^v.*/ # all branches, and tags with this prefix. for build-publish...
+      - go-sqlite-race:
+          filters:
+            tags:
+              only: /^v.*/
+      - go-postgres:
+          filters:
+            tags:
+              only: /^v.*/
+      - truffle:
+          filters:
+            tags:
+              only: /^v.*/
+      - geth-postgres:
+          filters:
+            tags:
+              only: /^v.*/
+      - parity-postgres:
+          filters:
+            tags:
+              only: /^v.*/
+      - operator-ui:
+          filters:
+            tags:
+              only: /^v.*/
+      - rust:
+          filters:
+            tags:
+              only: /^v.*/
+      - explorer:
+          filters:
+            tags:
+              only: /^explorer-v.*/ # all branches and tags with this prefix. for build-publish...
       - build-publish-explorer:
           requires:
             - explorer
