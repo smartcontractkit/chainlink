@@ -22,7 +22,7 @@ Cypress.Commands.add('paste', { prevSubject: true }, (subject, text) => {
 
 Cypress.Commands.add(
   'login',
-  (email: 'notreal@fakeemail.ch', password: 'twochains') => {
+  (email = 'notreal@fakeemail.ch', password = 'twochains') => {
     cy.get('form input[id=email]').type(email)
     cy.get('form input[id=password]').type(password)
     cy.get('form button').click()
