@@ -40,6 +40,21 @@ func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
 	paginatedResponse(c, "Jobs", size, page, pjs, count, err)
 }
 
+func newNotifyHTTPRequest(jsn models.JobSpecNotice, ei models.ExternalInitiator) (*http.Request, error) {
+	buf, err := json.Marshal(jsn)
+	if err != nil {
+		return nil, errors.Wrap(err, "new Job Spec notification")
+	}
+	req, err := http.NewRequest(http.MethodPost, ei.URL.String(), bytes.NewBuffer(buf))
+	if err != nil {
+		return nil, errors.Wrap(err, "meh")
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(ExternalInitiatorAccessKeyHeader, ei.OutgoingToken)
+	req.Header.Set(ExternalInitiatorSecretHeader, ei.OutgoingSecret)
+	return req, nil
+}
+
 // notifyExternalInitiator sends a POST notification to the External Initiator
 // responsible for initiating the Job Spec.
 func notifyExternalInitiator(
@@ -60,16 +75,16 @@ func notifyExternalInitiator(
 	if err != nil {
 		return err
 	}
-
 	notice, err := models.NewJobSpecNotice(initr, js)
 	if err != nil {
 		return errors.Wrap(err, "new Job Spec notification")
 	}
-	buf, err := json.Marshal(notice)
+
+	req, err := newNotifyHTTPRequest(*notice, ei)
 	if err != nil {
-		return errors.Wrap(err, "new Job Spec notification")
+		return errors.Wrap(err, "creating notify HTTP request")
 	}
-	resp, err := http.Post(ei.URL.String(), "application/json", bytes.NewBuffer(buf))
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "could not notify '%s' (%s)")
 	}
