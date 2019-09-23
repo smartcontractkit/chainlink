@@ -1,6 +1,6 @@
 import yargs from 'yargs'
 import { Connection } from 'typeorm'
-import { Admin } from '../entity/admin'
+import { Admin } from '../entity/Admin'
 import { createAdmin } from '../support/admin'
 import { closeDbConnection, getDb } from '../database'
 
