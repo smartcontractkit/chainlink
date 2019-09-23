@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -805,20 +806,24 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 func TestIntegration_ExternalInitiator(t *testing.T) {
 	t.Parallel()
 
-	var eiReceived *models.JobSpecNotice
-	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
-		func(header http.Header, body string) {
-			err := json.Unmarshal([]byte(body), &eiReceived)
-			require.NoError(t, err)
-		},
-	)
-	defer assertCalled()
-
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	eth := app.MockEthCallerSubscriber(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
+
+	exInitr := struct {
+		Header http.Header
+		Body   models.JobSpecNotice
+	}{}
+	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
+		func(header http.Header, body string) {
+			exInitr.Header = header
+			err := json.Unmarshal([]byte(body), &exInitr.Body)
+			require.NoError(t, err)
+		},
+	)
+	defer assertCalled()
 
 	eiCreate := map[string]string{
 		"name": "someCoin",
@@ -841,12 +846,20 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	require.Equal(t, eip.OutgoingSecret, ei.OutgoingSecret)
 
 	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
-	expected := &models.JobSpecNotice{
+	assert.Equal(t,
+		eip.OutgoingToken,
+		exInitr.Header.Get(web.ExternalInitiatorAccessKeyHeader),
+	)
+	assert.Equal(t,
+		eip.OutgoingSecret,
+		exInitr.Header.Get(web.ExternalInitiatorSecretHeader),
+	)
+	expected := models.JobSpecNotice{
 		JobID:  jobSpec.ID,
 		Type:   models.InitiatorExternal,
 		Params: cltest.JSONFromString(t, `{"foo":"bar"}`),
 	}
-	assert.Equal(t, expected, eiReceived)
+	assert.Equal(t, expected, exInitr.Body)
 
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.ID)
