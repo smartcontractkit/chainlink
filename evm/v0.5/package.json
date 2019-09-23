@@ -38,7 +38,7 @@
     "prettier": "^1.18.2",
     "solc": "0.5.0",
     "solhint": "^2.1.0",
-    "truffle": "^5.0.25",
+    "truffle": "^5.0.37",
     "truffle-typings": "^1.0.8",
     "types-bn": "^0.0.1"
   },

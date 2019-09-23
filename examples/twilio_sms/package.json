@@ -21,7 +21,7 @@
     "prettier": "^1.18.2",
     "request": "^2.83.0",
     "solhint": "^2.1.0",
-    "truffle": "^5.0.25",
+    "truffle": "^5.0.37",
     "truffle-contract": "^3.0.6",
     "twilio": "^3.34.0"
   },

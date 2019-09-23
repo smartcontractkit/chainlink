@@ -20,7 +20,7 @@
     "express": "^4.16.2",
     "link_token": "^1.0.6",
     "request-promise": "^4.2.2",
-    "truffle": "^5.0.25",
+    "truffle": "^5.0.37",
     "web3": "^1.0.0-beta.55"
   },
   "devDependencies": {
