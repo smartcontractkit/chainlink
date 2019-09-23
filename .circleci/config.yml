@@ -326,6 +326,7 @@ workflows:
               only:
                 - /^explorer-v.*/ # handles final versioned releases instead of master branch
                 - /^chores-explorer-tags-for-dockerhub/
+                - /^chores-v.*/
       - build-publish-chainlink:
           requires:
             - go-sqlite
@@ -346,6 +347,7 @@ workflows:
               only:
                 - /^v.*/ # handles final versioned releases instead of master branch
                 - /^chores-explorer-tags-for-dockerhub/
+                - /^chores-v.*/
       - reportcoverage:
           requires:
             - go-sqlite

@@ -39,7 +39,8 @@ then
   tag_and_push $version_tag
   # if version tag, also push latest.
   # ie: after pushing smartcontract/explorer:0.6.9, also update smartcontract/explorer:latest
-  tag_and_push latest
+  # TODO: RETURN BACK, ignoring for experiments
+  #tag_and_push latest
 else
   tag_and_push $branch_tag
 fi

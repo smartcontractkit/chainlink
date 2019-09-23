@@ -7,14 +7,13 @@ then
   exit 0 # No tag, skip.
 fi
 
-echo forcedtag-chores-explorer-tags-for-dockerhub
-exit 0
-
 gittag=`echo $1 | awk '{print tolower($0)}'`
 if [[ "${gittag}" =~ ^v([a-zA-Z0-9.]+) ]]; then
   echo ${BASH_REMATCH[1]}
 elif [[ "${gittag}" =~ ^explorer-v([a-zA-Z0-9.]+) ]]; then
   echo "${BASH_REMATCH[1]}"
+elif [[ "${gittag}" =~ ^chores-v([a-zA-Z0-9.]+) ]]; then
+  echo "chores-${BASH_REMATCH[1]}"
 else
   echo unable to deduce docker tag from ${gittag}
   exit 1
