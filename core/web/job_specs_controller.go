@@ -73,7 +73,7 @@ func notifyExternalInitiator(
 
 	ei, err := store.FindExternalInitiatorByName(initr.Name)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "external initiator")
 	}
 	notice, err := models.NewJobSpecNotice(initr, js)
 	if err != nil {
