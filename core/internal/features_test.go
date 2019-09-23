@@ -814,7 +814,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 
 	exInitr := struct {
 		Header http.Header
-		Body   models.JobSpecNotice
+		Body   web.JobSpecNotice
 	}{}
 	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
 		func(header http.Header, body string) {
@@ -854,7 +854,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 		eip.OutgoingSecret,
 		exInitr.Header.Get(web.ExternalInitiatorSecretHeader),
 	)
-	expected := models.JobSpecNotice{
+	expected := web.JobSpecNotice{
 		JobID:  jobSpec.ID,
 		Type:   models.InitiatorExternal,
 		Params: cltest.JSONFromString(t, `{"foo":"bar"}`),
