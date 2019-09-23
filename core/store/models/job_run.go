@@ -56,7 +56,7 @@ func (jr *JobRun) SetID(value string) error {
 func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"job", jr.JobSpecID.String(),
-		"run", jr.ID,
+		"run", jr.ID.String(),
 		"status", jr.Status,
 	}
 
