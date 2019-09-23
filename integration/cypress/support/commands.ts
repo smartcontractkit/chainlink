@@ -1,6 +1,17 @@
-import { wrap } from 'module'
+type CypressChild = Cypress.Chainable<JQuery<any>>
+type CypressChildFunction = (subject: CypressChild, options: {}) => CypressChild
 
-// TODO - overright original click function
+// Cypress doesn't always click buttons because it thinks they are hidden (when they are not)
+Cypress.Commands.overwrite(
+  'click',
+  (originalFn: CypressChildFunction, subject: CypressChild, options: {}) => {
+    const defaultOptions = {
+      force: true,
+    }
+    options = Object.assign({}, defaultOptions, options)
+    return originalFn(subject, options)
+  },
+)
 
 Cypress.Commands.add('paste', { prevSubject: true }, (subject, text) => {
   cy.wrap(subject)
@@ -11,7 +22,7 @@ Cypress.Commands.add('paste', { prevSubject: true }, (subject, text) => {
 
 Cypress.Commands.add(
   'login',
-  (email = 'notreal@fakeemail.ch', password = 'twochains') => {
+  (email: string = 'notreal@fakeemail.ch', password: string = 'twochains') => {
     cy.get('form input[id=email]').type(email)
     cy.get('form input[id=password]').type(password)
     cy.get('form button').click()
@@ -19,7 +30,9 @@ Cypress.Commands.add(
   },
 )
 
-Cypress.Commands.add('refreshUntilFound', (selector, options = {}) => {
+// Command will continue to reload the page until a selector matches or
+// the max # of reloads is reached
+Cypress.Commands.add('reloadUntilFound', (selector, options = {}) => {
   const defaultOptions = {
     maxAttempts: 10,
     waitTime: Cypress.config('defaultCommandTimeout'),
@@ -35,7 +48,7 @@ Cypress.Commands.add('refreshUntilFound', (selector, options = {}) => {
   } else {
     cy.reload()
     cy.wait(options.waitTime)
-    cy.refreshUntilFound(selector, options)
+    cy.reloadUntilFound(selector, options)
   }
 })
 

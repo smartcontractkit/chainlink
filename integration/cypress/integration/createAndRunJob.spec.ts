@@ -6,7 +6,7 @@ context('End to end', function() {
     cy.login()
 
     // Create Job
-    cy.contains('New Job').click({ force: true })
+    cy.contains('New Job').click()
     cy.get('h5').should('contain', 'New Job')
     cy.fixture('job').then(job => {
       cy.get('textarea[id=json]').paste(JSON.stringify(job, null, 4))
@@ -15,22 +15,22 @@ context('End to end', function() {
     cy.contains('p', 'Successfully created job').should('exist')
 
     // Run Job
-    cy.get('#created-job').click({ force: true })
+    cy.get('#created-job').click()
     cy.contains('Job Spec Detail')
-    cy.contains('Button', 'Run').click({ force: true })
+    cy.contains('Button', 'Run').click()
     cy.contains('p', 'Successfully created job run')
       .children('a')
-      .click({ force: true })
+      .click()
       .invoke('text')
       .as('runId')
-    cy.contains('a > p', 'JSON').click({ force: true })
+    cy.contains('a > p', 'JSON').click()
 
     // Wait for job run to complete
-    cy.refreshUntilFound('h5:contains(Completed)', { waitTime: 500 })
+    cy.reloadUntilFound('h5:contains(Completed)', { waitTime: 500 })
     cy.contains('h5', 'Completed').should('exist')
 
     // Navigate to transactions page
-    cy.contains('li > a', 'Transactions').click({ force: true })
+    cy.contains('li > a', 'Transactions').click()
     cy.contains('h4', 'Transactions').should('exist')
 
     // Navigate to Explorer
@@ -38,9 +38,9 @@ context('End to end', function() {
     cy.get('@runId').then(runId => {
       cy.get('input[name=search]').type(runId)
     })
-    cy.contains('Button', 'Search').click({ force: true })
+    cy.contains('Button', 'Search').click()
     cy.get('@runId').then(runId => {
-      cy.contains('a', runId).click({ force: true })
+      cy.contains('a', runId).click()
     })
     cy.contains('h5', 'Complete').should('exist')
   })
