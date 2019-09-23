@@ -709,7 +709,7 @@ func (orm *ORM) MarkRan(i *models.Initiator, ran bool) error {
 		}
 
 		if ran && newi.Ran {
-			return fmt.Errorf("Initiator %v for job spec %s has already been run", i.ID, i.JobSpecID)
+			return fmt.Errorf("Initiator %v for job spec %s has already been run", i.ID, i.JobSpecID.String())
 		}
 
 		if err := dbtx.Model(i).UpdateColumn("ran", ran).Error; err != nil {

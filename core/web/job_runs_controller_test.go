@@ -315,7 +315,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 			}
 
 			// resume run
-			body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
+			body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID.String())
 			headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
 			url := app.Config.ClientNodeURL() + "/v2/runs/" + jr.ID.String()
 			resp, cleanup := cltest.UnauthenticatedPatch(t, url, bytes.NewBufferString(body), headers)
@@ -349,7 +349,7 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
-	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID.String())
 	headers := map[string]string{"Authorization": "Bearer " + "wrongaccesstoken"}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
 	defer cleanup()
@@ -374,7 +374,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	jr := j.NewRun(j.Initiators[0])
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
-	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID.String())
 	headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
 	defer cleanup()
@@ -396,7 +396,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
-	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"result": "0"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"result": "0"}}`, jr.ID.String())
 	headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
 	defer cleanup()
@@ -426,7 +426,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
-	body := fmt.Sprint(`{`, jr.ID)
+	body := fmt.Sprint(`{`, jr.ID.String())
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body))
 	defer cleanup()
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode, "Response should be successful")
@@ -450,7 +450,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
-	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID)
+	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID.String())
 	resp, cleanup := client.Patch("/v2/runs/4C95A8FA-EEAC-4BD5-97D9-27806D200D3C", bytes.NewBufferString(body))
 	defer cleanup()
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be not found")

@@ -167,7 +167,7 @@ func (ot *OneTime) Stop() {
 // or the specified time for the run is after the present time.
 func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 	if !initr.Time.Valid {
-		logger.Errorf("RunJobAt: JobSpec %s must have initiator with valid run at time: %v", job.ID, initr)
+		logger.Errorf("RunJobAt: JobSpec %s must have initiator with valid run at time: %v", job.ID.String(), initr)
 		return
 	}
 	select {

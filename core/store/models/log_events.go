@@ -185,7 +185,7 @@ func (le InitiatorLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 // ToDebug prints this event via logger.Debug.
 func (le InitiatorLogEvent) ToDebug() {
 	friendlyAddress := utils.LogListeningAddress(le.Initiator.Address)
-	msg := fmt.Sprintf("Received log from block #%v for address %v for job %v", le.Log.BlockNumber, friendlyAddress, le.JobSpec.ID)
+	msg := fmt.Sprintf("Received log from block #%v for address %v for job %v", le.Log.BlockNumber, friendlyAddress, le.JobSpec.ID.String())
 	logger.Debugw(msg, le.ForLogger()...)
 }
 
@@ -248,7 +248,7 @@ func (le RunLogEvent) Validate() bool {
 	topic := le.Log.Topics[RequestLogTopicJobID]
 
 	if IDToTopic(jobSpecID) != topic && IDToHexTopic(jobSpecID) != topic {
-		logger.Errorw("Run Log didn't have matching job ID", le.ForLogger("id", le.JobSpec.ID)...)
+		logger.Errorw("Run Log didn't have matching job ID", le.ForLogger("id", le.JobSpec.ID.String())...)
 		return false
 	}
 	return true
