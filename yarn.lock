@@ -7328,7 +7328,7 @@ eslint-visitor-keys@^1.0.0, eslint-visitor-keys@^1.1.0:
 
 eslint@6.3.0, eslint@^6.1.0, eslint@^6.3.0:
   version "6.3.0"
-  resolved "https://registry.npmjs.org/eslint/-/eslint-6.3.0.tgz#1f1a902f67bfd4c354e7288b81e40654d927eb6a"
+  resolved "https://registry.yarnpkg.com/eslint/-/eslint-6.3.0.tgz#1f1a902f67bfd4c354e7288b81e40654d927eb6a"
   integrity sha512-ZvZTKaqDue+N8Y9g0kp6UPZtS4FSY3qARxBs7p4f0H0iof381XHduqVerFWtK8DPtKmemqbqCFENWSQgPR/Gow==
   dependencies:
     "@babel/code-frame" "^7.0.0"
@@ -15702,10 +15702,10 @@ react-static-plugin-jss@^6.3.0:
   resolved "https://registry.npmjs.org/react-static-plugin-jss/-/react-static-plugin-jss-6.3.0.tgz#ebc0e10b043c4f691589e4a9dadde5bc99d57183"
   integrity sha512-dr7106pf5OcKj6aAuA8pMdb+8J2qcGSX8GeQjaRZm2Z+Hh8QyP1zzFtS81z6lsLscf/1SDVjeSEq2Xh13G7bTA==
 
-react-static-plugin-react-router@^6.3.4:
-  version "6.3.4"
-  resolved "https://registry.npmjs.org/react-static-plugin-react-router/-/react-static-plugin-react-router-6.3.4.tgz#18bbb8e751618c31fff29ad59b8d664797cad36e"
-  integrity sha512-aV+dtgLlaaUWSmjmbOyIDN6FOU+EZK15qZXNOJdDRxkJxwaFAf0fNek3BtK8Za5c/Wcf+wv8CFpUYXDNCH5R+Q==
+react-static-plugin-react-router@^7.0.10:
+  version "7.0.10"
+  resolved "https://registry.yarnpkg.com/react-static-plugin-react-router/-/react-static-plugin-react-router-7.0.10.tgz#77f78d843689a7c6f37a5bba4e5fa88443c1aaa3"
+  integrity sha512-4LnlqCM5et1ipr5pmTXq1/0p/+sTejxYU6FYxSJV/0sSATgozpS8a7tbGrlUEEAFJTGubjYgich5fxqzkvO7ow==
 
 react-static-plugin-typescript@^7.0.0:
   version "7.2.2"

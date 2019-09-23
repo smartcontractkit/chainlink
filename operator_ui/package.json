@@ -92,7 +92,7 @@
     "react-hot-loader": "^4.6.3",
     "react-static": "^6.3.8",
     "react-static-plugin-jss": "^6.3.0",
-    "react-static-plugin-react-router": "^6.3.4",
+    "react-static-plugin-react-router": "^7.0.10",
     "react-static-plugin-typescript": "^7.0.0",
     "redux-mock-store": "^1.5.3",
     "serve": "^10.0.0",
