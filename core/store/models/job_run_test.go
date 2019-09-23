@@ -140,9 +140,9 @@ func TestForLogger(t *testing.T) {
 	logsBeforeCompletion := jr.ForLogger()
 	require.Len(t, logsBeforeCompletion, 6)
 	assert.Equal(t, logsBeforeCompletion[0], "job")
-	assert.Equal(t, logsBeforeCompletion[1], jr.JobSpecID)
+	assert.Equal(t, logsBeforeCompletion[1], jr.JobSpecID.String())
 	assert.Equal(t, logsBeforeCompletion[2], "run")
-	assert.Equal(t, logsBeforeCompletion[3], jr.ID)
+	assert.Equal(t, logsBeforeCompletion[3], jr.ID.String())
 	assert.Equal(t, logsBeforeCompletion[4], "status")
 	assert.Equal(t, logsBeforeCompletion[5], jr.Status)
 

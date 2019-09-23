@@ -226,24 +226,26 @@ func TestResumePendingTask(t *testing.T) {
 	defer cleanup()
 
 	// reject a run with an invalid state
-	run := &models.JobRun{}
+	jobID := models.NewID()
+	runID := models.NewID()
+	run := &models.JobRun{
+		ID:        runID,
+		JobSpecID: jobID,
+	}
 	err := services.ResumePendingTask(run, store, models.RunResult{})
 	assert.Error(t, err)
 
 	// reject a run with no tasks
-	run = &models.JobRun{Status: models.RunStatusPendingBridge}
-	err = services.ResumePendingTask(run, store, models.RunResult{})
-	assert.Error(t, err)
-
-	// input with error errors run
-	jobID := models.NewID()
-	runID := models.NewID()
 	run = &models.JobRun{
 		ID:        runID,
 		JobSpecID: jobID,
 		Status:    models.RunStatusPendingBridge,
-		TaskRuns:  []models.TaskRun{models.TaskRun{ID: models.NewID(), JobRunID: runID}},
 	}
+	err = services.ResumePendingTask(run, store, models.RunResult{})
+	assert.Error(t, err)
+
+	// input with error errors run
+	run.TaskRuns = []models.TaskRun{models.TaskRun{ID: models.NewID(), JobRunID: runID}}
 	err = services.ResumePendingTask(run, store, models.RunResult{CachedJobRunID: runID, Status: models.RunStatusErrored})
 	assert.Error(t, err)
 	assert.True(t, run.FinishedAt.Valid)
@@ -284,12 +286,21 @@ func TestResumeConfirmingTask(t *testing.T) {
 	defer cleanup()
 
 	// reject a run with an invalid state
-	run := &models.JobRun{}
+	jobID := models.NewID()
+	runID := models.NewID()
+	run := &models.JobRun{
+		ID:        runID,
+		JobSpecID: jobID,
+	}
 	err := services.ResumeConfirmingTask(run, store, nil)
 	assert.Error(t, err)
 
 	// reject a run with no tasks
-	run = &models.JobRun{Status: models.RunStatusPendingConfirmations}
+	run = &models.JobRun{
+		ID:        runID,
+		JobSpecID: jobID,
+		Status:    models.RunStatusPendingConfirmations,
+	}
 	err = services.ResumeConfirmingTask(run, store, nil)
 	assert.Error(t, err)
 
@@ -345,12 +356,21 @@ func TestResumeConnectingTask(t *testing.T) {
 	defer cleanup()
 
 	// reject a run with an invalid state
-	run := &models.JobRun{}
+	jobID := models.NewID()
+	runID := models.NewID()
+	run := &models.JobRun{
+		ID:        runID,
+		JobSpecID: jobID,
+	}
 	err := services.ResumeConnectingTask(run, store)
 	assert.Error(t, err)
 
 	// reject a run with no tasks
-	run = &models.JobRun{Status: models.RunStatusPendingConnection}
+	run = &models.JobRun{
+		ID:        runID,
+		JobSpecID: jobID,
+		Status:    models.RunStatusPendingConnection,
+	}
 	err = services.ResumeConnectingTask(run, store)
 	assert.Error(t, err)
 
@@ -386,12 +406,21 @@ func TestQueueSleepingTask(t *testing.T) {
 	store.Clock = cltest.NeverClock{}
 
 	// reject a run with an invalid state
-	run := &models.JobRun{}
+	jobID := models.NewID()
+	runID := models.NewID()
+	run := &models.JobRun{
+		ID:        runID,
+		JobSpecID: jobID,
+	}
 	err := services.QueueSleepingTask(run, store)
 	assert.Error(t, err)
 
 	// reject a run with no tasks
-	run = &models.JobRun{Status: models.RunStatusPendingSleep}
+	run = &models.JobRun{
+		ID:        runID,
+		JobSpecID: jobID,
+		Status:    models.RunStatusPendingSleep,
+	}
 	err = services.QueueSleepingTask(run, store)
 	assert.Error(t, err)
 
