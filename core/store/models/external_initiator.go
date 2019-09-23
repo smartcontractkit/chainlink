@@ -12,26 +12,6 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// JobSpecNotice is sent to the External Initiator when JobSpecs are created.
-type JobSpecNotice struct {
-	JobID  *ID    `json:"jobId"`
-	Type   string `json:"type"`
-	Params JSON   `json:"params,omitempty"`
-}
-
-// NewJobSpecNotice returns a new JobSpec.
-func NewJobSpecNotice(initiator Initiator, js JobSpec) (*JobSpecNotice, error) {
-	params, err := ParseJSON([]byte(initiator.Params))
-	if err != nil {
-		return nil, errors.Wrap(err, "external initiator params")
-	}
-	return &JobSpecNotice{
-		JobID:  js.ID,
-		Type:   initiator.Type,
-		Params: params,
-	}, nil
-}
-
 // ExternalInitiatorRequest is the incoming record used to create an ExternalInitiator.
 type ExternalInitiatorRequest struct {
 	Name string `json:"name"`
