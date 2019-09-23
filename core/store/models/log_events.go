@@ -171,7 +171,7 @@ func (le InitiatorLogEvent) GetInitiator() Initiator {
 // formatting in logs (trace statements, not ethereum events).
 func (le InitiatorLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
-		"job", le.JobSpec.ID,
+		"job", le.JobSpec.ID.String(),
 		"log", le.Log.BlockNumber,
 		"initiator", le.Initiator,
 	}
