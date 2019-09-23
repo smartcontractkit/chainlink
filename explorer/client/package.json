@@ -71,7 +71,7 @@
     "@types/redux-thunk": "^2.1.0",
     "@types/whatwg-fetch": "^0.0.33",
     "brotli-webpack-plugin": "^1.1.0",
-    "compression-webpack-plugin": "^2.0.0",
+    "compression-webpack-plugin": "^3.0.0",
     "cross-env": "^5.2.0",
     "depcheck": "^0.8.3",
     "dynamic-cdn-webpack-plugin": "^4.0.0",
