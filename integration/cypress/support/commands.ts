@@ -13,6 +13,29 @@ Cypress.Commands.overwrite(
   },
 )
 
+Cypress.Commands.add('clickLink', linkText => {
+  cy.contains('a', linkText).click()
+})
+
+Cypress.Commands.add('clickButton', buttonText => {
+  cy.contains('button', buttonText).click()
+})
+
+// TODO - remove in future. Cypress potentially working on fix to 2 visit superdomain limit.
+// or refactor ete tests to not share state b/t tests
+// https://docs.cypress.io/guides/guides/web-security.html#One-Superdomain-per-Test
+// https://github.com/cypress-io/cypress/issues/944
+Cypress.Commands.add('forceVisit', url => {
+  cy.get('body').then(body$ => {
+    const appWindow = body$[0].ownerDocument!.defaultView
+    const appIframe = appWindow!.parent.document.querySelector('iframe')
+    return new Promise(resolve => {
+      appIframe!.onload = () => resolve()
+      appWindow!.location = url
+    })
+  })
+})
+
 Cypress.Commands.add(
   'login',
   (email = 'notreal@fakeemail.ch', password = 'twochains') => {
@@ -52,19 +75,4 @@ Cypress.Commands.add('reloadUntilFound', (selector, options = {}) => {
     cy.wait(options.waitTime)
     cy.reloadUntilFound(selector, options)
   }
-})
-
-// TODO - remove in future. Cypress potentially working on fix to 2 visit superdomain limit.
-// or refactor ete tests to not share state b/t tests
-// https://docs.cypress.io/guides/guides/web-security.html#One-Superdomain-per-Test
-// https://github.com/cypress-io/cypress/issues/944
-Cypress.Commands.add('forceVisit', url => {
-  cy.get('body').then(body$ => {
-    const appWindow = body$[0].ownerDocument!.defaultView
-    const appIframe = appWindow!.parent.document.querySelector('iframe')
-    return new Promise(resolve => {
-      appIframe!.onload = () => resolve()
-      appWindow!.location = url
-    })
-  })
 })
