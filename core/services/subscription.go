@@ -106,8 +106,8 @@ func NewInitiatorSubscription(
 }
 
 func (sub InitiatorSubscription) dispatchLog(log models.Log) {
-	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %v", sub.Initiator.Type, sub.Job.ID),
-		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Job.ID)
+	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %s", sub.Initiator.Type, sub.Job.ID.String()),
+		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Job.ID.String())
 
 	base := models.InitiatorLogEvent{
 		JobSpec:   sub.Job,
@@ -119,11 +119,11 @@ func (sub InitiatorSubscription) dispatchLog(log models.Log) {
 
 func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 	msg := fmt.Sprintf(
-		"Listening for %v from block %v for address %v for job %v",
+		"Listening for %v from block %v for address %v for job %s",
 		initr.Type,
 		presenters.FriendlyBigInt(blockNumber),
 		utils.LogListeningAddress(initr.Address),
-		initr.JobSpecID)
+		initr.JobSpecID.String())
 	logger.Infow(msg)
 }
 
@@ -135,7 +135,7 @@ func ReceiveLogRequest(store *strpkg.Store, le models.LogRequest) {
 	}
 
 	if le.GetLog().Removed {
-		logger.Debugw("Skipping run for removed log", "log", le.GetLog(), "jobId", le.GetJobSpec().ID)
+		logger.Debugw("Skipping run for removed log", "log", le.GetLog(), "jobId", le.GetJobSpec().ID.String())
 		return
 	}
 

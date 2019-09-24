@@ -102,7 +102,6 @@ type response struct {
 }
 
 func (sp *StatsPusher) eventLoop(parentCtx context.Context) {
-	logger.Debugw("Entered StatsPusher event loop")
 	for {
 		err := sp.pusherLoop(parentCtx)
 		if err == nil {
@@ -145,7 +144,6 @@ func (sp *StatsPusher) pusherLoop(parentCtx context.Context) error {
 
 func (sp *StatsPusher) pushEvents() error {
 	err := sp.ORM.AllSyncEvents(func(event *models.SyncEvent) error {
-		logger.Debugw("StatsPusher got event", "event", event.ID)
 		return sp.syncEvent(event)
 	})
 
