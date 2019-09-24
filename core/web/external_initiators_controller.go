@@ -34,7 +34,7 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		resp := presenters.NewExternalInitiatorAuthentication(*ei, *eia)
-		jsonAPIResponseWithStatus(c, resp, "external initiator authenticaion", http.StatusCreated)
+		jsonAPIResponseWithStatus(c, resp, "external initiator authentication", http.StatusCreated)
 	}
 }
 
