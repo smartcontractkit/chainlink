@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
+	"github.com/pkg/errors"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	null "gopkg.in/guregu/null.v3"
@@ -263,6 +264,33 @@ type InitiatorParams struct {
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
 	Name       string            `json:"name,omitempty"`
 	Params     string            `json:"-"`
+	FromBlock  *Big              `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
+	ToBlock    *Big              `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
+	Topics     Topics            `json:"topics,omitempty" gorm:"type:text"`
+}
+
+type Topics [][]common.Hash
+
+func (t Topics) Scan(value interface{}) error {
+	jsonStr, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to Topics", value, value)
+	}
+
+	err := json.Unmarshal([]byte(jsonStr), &t)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to convert %v of %T to Topics", value, value)
+	}
+	return nil
+}
+
+// Value returns this instance serialized for database storage.
+func (t Topics) Value() (driver.Value, error) {
+	j, err := json.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+	return string(j), nil
 }
 
 // NewInitiatorFromRequest creates an Initiator from the corresponding

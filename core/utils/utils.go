@@ -170,15 +170,6 @@ func AddHexPrefix(str string) string {
 	return str
 }
 
-// ToFilterQueryFor returns a struct that encapsulates desired arguments used to filter
-// event logs.
-func ToFilterQueryFor(fromBlock *big.Int, addresses []common.Address) ethereum.FilterQuery {
-	return ethereum.FilterQuery{
-		FromBlock: fromBlock,
-		Addresses: WithoutZeroAddresses(addresses),
-	}
-}
-
 // ToFilterArg filters logs with the given FilterQuery
 // https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L363
 func ToFilterArg(q ethereum.FilterQuery) interface{} {
@@ -298,6 +289,17 @@ func MinBigs(first *big.Int, bigs ...*big.Int) *big.Int {
 		}
 	}
 	return min
+}
+
+// MaxBigs finds the maximum value of a list of big.Ints.
+func MaxBigs(first *big.Int, bigs ...*big.Int) *big.Int {
+	max := first
+	for _, n := range bigs {
+		if max.Cmp(n) < 0 {
+			max = n
+		}
+	}
+	return max
 }
 
 // MaxUint64 finds the maximum value of a list of uint64s.
