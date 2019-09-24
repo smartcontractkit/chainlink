@@ -1,8 +1,5 @@
 context('End to end', function() {
   it('creates a job that runs', () => {
-    cy.visit('http://localhost:6688')
-    cy.contains('Chainlink').should('exist')
-
     cy.login()
 
     // Create Job
