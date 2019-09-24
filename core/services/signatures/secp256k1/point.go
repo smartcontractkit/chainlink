@@ -25,7 +25,7 @@ import (
 )
 
 // btcec's public interface uses this affine representation for points on the
-// curve. This does not naturally accomodate the point at infinity. btcec
+// curve. This does not naturally accommodate the point at infinity. btcec
 // represents it as (0, 0), which is not a point on {y²=x³+7}.
 type secp256k1Point struct {
 	X *fieldElt
