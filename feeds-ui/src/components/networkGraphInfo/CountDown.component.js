@@ -15,17 +15,17 @@ var toHHMMSS = secs => {
     .join(':')
 }
 
-function CountDown({ requestTime }) {
+function CountDown({ requestTime, counter }) {
   const [next, setNext] = useState()
 
   useEffect(() => {
     if (!requestTime) {
-      return
+      return setNext('00:00')
     }
 
     const finish = moment
       .unix(requestTime)
-      .add(5, 'm')
+      .add(counter, 'seconds')
       .unix()
 
     clearInterval(timer)
@@ -41,6 +41,11 @@ function CountDown({ requestTime }) {
 
       setNext(toHHMMSS(distance))
     }, 1000)
+
+    return () => {
+      clearInterval(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestTime])
 
   return <span className="countdown">{next || '...'}</span>

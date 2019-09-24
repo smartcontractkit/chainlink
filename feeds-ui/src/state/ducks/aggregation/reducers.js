@@ -1,8 +1,9 @@
 import * as types from './types'
 
 export const initialState = {
+  options: null,
+  contractAddress: null,
   oracles: null,
-  oraclesFetching: null,
   currentAnswer: null,
   latestCompletedAnswerId: null,
   pendingAnswerId: null,
@@ -14,16 +15,36 @@ export const initialState = {
   answerHistory: null
 }
 
+function clearState(state) {
+  const stateCopy = { ...state }
+  Object.keys(stateCopy).forEach(k => (stateCopy[k] = null))
+  return stateCopy
+}
+
 const reducer = (state = initialState, action) => {
   switch (action.type) {
-    case types.ORACLES_REQUEST:
-      return { ...state, oraclesFetching: true }
-
-    case types.ORACLES_SUCCESS:
+    case types.CLEAR_STATE:
       return {
         ...state,
-        oracles: action.payload,
-        oraclesFetching: false
+        ...clearState(state)
+      }
+
+    case types.OPTIONS:
+      return {
+        ...state,
+        options: action.payload
+      }
+
+    case types.CONTRACT_ADDRESS:
+      return {
+        ...state,
+        contractAddress: action.payload
+      }
+
+    case types.ORACLES:
+      return {
+        ...state,
+        oracles: action.payload
       }
 
     case types.CURRENT_ANSWER:

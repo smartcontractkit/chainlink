@@ -60,12 +60,25 @@ const NODE_NAMES = [
   {
     address: '0x83dA1beEb89Ffaf56d0B7C50aFB0A66Fb4DF8cB1',
     name: 'Omniscience'
+  },
+  {
+    address: '0x83dA1beEb89Ffaf56d0B7C50aFB0A66Fb4DF8cB1',
+    name: 'Omniscience'
+  },
+  {
+    address: '0x0Ce0224ba488ffC0F46bE32b333a874Eb775c613',
+    name: 'Cosmostation'
+  },
+  {
+    address: '0x64FE692be4b42F4Ac9d4617aB824E088350C11C2',
+    name: 'Ztake.org'
   }
 ]
 
 const oracles = state => state.aggregation.oracles
 const oracleResponse = state => state.aggregation.oracleResponse
 const currentAnswer = state => state.aggregation.currentAnswer
+const contractAddress = state => state.aggregation.contractAddress
 
 const oraclesList = createSelector(
   [oracles],
@@ -90,15 +103,15 @@ const oraclesList = createSelector(
 )
 
 const networkGraphNodes = createSelector(
-  [oraclesList],
-  list => {
+  [oraclesList, contractAddress],
+  (list, address) => {
     if (!list) return []
 
     let result = [
       {
         type: 'contract',
         name: 'Aggregation Contract',
-        address: '0x79fEbF6B9F76853EDBcBc913e6aAE8232cFB9De9'
+        address
       },
       ...list
     ]
@@ -111,22 +124,7 @@ const networkGraphNodes = createSelector(
   }
 )
 
-const networkGraphLinks = createSelector(
-  [networkGraphNodes],
-  list => {
-    if (!list) return []
-
-    const result = list
-      .map((a, i) => {
-        return { source: 0, target: a.id }
-      })
-      .filter((d, i) => i !== 0)
-
-    return result
-  }
-)
-
-const networkGraphData = createSelector(
+const networkGraphState = createSelector(
   [oracleResponse, currentAnswer],
   (list, answer) => {
     if (!list) return []
@@ -140,4 +138,4 @@ const networkGraphData = createSelector(
   }
 )
 
-export { oraclesList, networkGraphNodes, networkGraphLinks, networkGraphData }
+export { oraclesList, networkGraphNodes, networkGraphState }

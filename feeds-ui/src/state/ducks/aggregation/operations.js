@@ -1,33 +1,20 @@
 import * as actions from './actions'
 import _ from 'lodash'
 import moment from 'moment'
+import { ethers } from 'ethers'
 
-import {
-  oracleAddresses,
-  currentAnswer,
-  latestCompletedAnswer,
-  nextAnswerId,
-  minimumResponses,
-  updateHeight
-} from 'state/contract/api'
+import AggregationContract from 'contracts/AggregationContract'
 
-import {
-  oracleResponseById,
-  chainlinkRequested,
-  listenOracleResponseEvent,
-  listenNextAnswerId,
-  answerUpdated
-} from 'state/contract/events'
+let contractInstance
 
 const fetchOracles = () => {
   return async (dispatch, getState) => {
     if (getState().aggregation.oracles) {
       return
     }
-    dispatch(actions.requestOracles())
     try {
-      let payload = await oracleAddresses()
-      dispatch(actions.successOracles(payload))
+      let payload = await contractInstance.oracles()
+      dispatch(actions.setOracles(payload))
     } catch (error) {}
   }
 }
@@ -35,18 +22,8 @@ const fetchOracles = () => {
 const fetchLatestCompletedAnswerId = () => {
   return async (dispatch, getState) => {
     try {
-      let payload = await latestCompletedAnswer()
+      let payload = await contractInstance.latestCompletedAnswer()
       dispatch(actions.setLatestCompletedAnswerId(payload))
-      return payload
-    } catch (error) {}
-  }
-}
-
-const fetchNextAnswerId = () => {
-  return async (dispatch, getState) => {
-    try {
-      let payload = await nextAnswerId()
-      dispatch(actions.setNextAnswerId(payload))
       return payload
     } catch (error) {}
   }
@@ -55,7 +32,7 @@ const fetchNextAnswerId = () => {
 const fetchCurrentAnswer = () => {
   return async (dispatch, getState) => {
     try {
-      let payload = await currentAnswer()
+      let payload = await contractInstance.currentAnswer()
       dispatch(actions.setCurrentAnswer(payload))
     } catch (error) {}
   }
@@ -64,27 +41,43 @@ const fetchCurrentAnswer = () => {
 const fetchUpdateHeight = () => {
   return async (dispatch, getState) => {
     try {
-      let payload = await updateHeight()
+      let payload = await contractInstance.updateHeight()
       dispatch(actions.setUpdateHeight(payload))
-    } catch (error) {}
+      return payload || {}
+    } catch (error) {
+      return {}
+    }
   }
 }
 
-const fetchOracleResponseById = answerId => {
+const fetchOracleResponseById = request => {
   return async (dispatch, getState) => {
     try {
-      let payload = await oracleResponseById(answerId)
-      dispatch(actions.setOracleResponse(payload))
+      const currentLogs = getState().aggregation.oracleResponse || []
+
+      const logs = await contractInstance.oracleResponseLogs(request)
+      const withTimestamp = await contractInstance.addBlockTimestampToLogs(logs)
+
+      const uniquePayload = _.uniqBy([...withTimestamp, ...currentLogs], l => {
+        return l.sender
+      })
+
+      dispatch(actions.setOracleResponse(uniquePayload))
     } catch (error) {}
   }
 }
 
 const fetchRequestTime = () => {
-  return async (dispatch, getState) => {
+  return async dispatch => {
     try {
-      let payload = await chainlinkRequested()
-      const latestBlock = payload[payload.length - 1]
-      dispatch(actions.setRequestTime(latestBlock.meta.timestamp))
+      const logs = await contractInstance.chainlinkRequestedLogs()
+      const latestLog = logs.length && logs[logs.length - 1].meta.blockNumber
+
+      const block = latestLog
+        ? await contractInstance.provider.getBlock(latestLog)
+        : null
+
+      dispatch(actions.setRequestTime(block ? block.timestamp : null))
     } catch (error) {}
   }
 }
@@ -92,7 +85,7 @@ const fetchRequestTime = () => {
 const fetchMinimumResponses = () => {
   return async (dispatch, getState) => {
     try {
-      let payload = await minimumResponses()
+      let payload = await contractInstance.minimumResponses()
       dispatch(actions.setMinumumResponses(payload))
     } catch (error) {}
   }
@@ -101,17 +94,24 @@ const fetchMinimumResponses = () => {
 const fetchAnswerHistory = () => {
   return async (dispatch, getState) => {
     try {
-      let payload = await answerUpdated()
+      const fromBlock = await contractInstance.provider
+        .getBlockNumber()
+        .then(b => b - 6700) // 6700 block is ~24 hours
 
+      const payload = await contractInstance.answerUpdatedLogs({ fromBlock })
       const uniquePayload = _.uniqBy(payload, e => {
         return e.answerId
       })
+      const withTimestamp = await contractInstance.addBlockTimestampToLogs(
+        uniquePayload
+      )
 
-      const formattedPayload = uniquePayload.map(e => ({
+      const formattedPayload = withTimestamp.map(e => ({
         answerId: e.answerId,
         response: e.response,
         responseFormatted: e.responseFormatted,
-        blockNumber: e.meta.blockNumber
+        blockNumber: e.meta.blockNumber,
+        timestamp: e.meta.timestamp
       }))
 
       dispatch(actions.setAnswerHistory(formattedPayload))
@@ -119,19 +119,87 @@ const fetchAnswerHistory = () => {
   }
 }
 
-const fetchInitData = () => {
+const initContract = options => {
   return async (dispatch, getState) => {
-    await fetchMinimumResponses()(dispatch)
+    dispatch(actions.clearState())
+
+    try {
+      contractInstance.kill()
+    } catch (error) {
+      //
+    }
+
+    try {
+      ethers.utils.getAddress(options.contractAddress)
+    } catch (error) {
+      throw new Error('Wrong contract address')
+    }
+
+    dispatch(actions.setOptions(options))
+    dispatch(actions.setContractAddress(options.contractAddress))
+
+    contractInstance = new AggregationContract(
+      options.contractAddress,
+      options.name,
+      options.valuePrefix,
+      options.network
+    )
+
+    // Oracle addresses
+
     await fetchOracles()(dispatch, getState)
 
-    const nextAnswerId = await fetchNextAnswerId()(dispatch)
-    fetchOracleResponseById(nextAnswerId - 1)(dispatch)
-    fetchRequestTime()(dispatch, getState)
+    // Minimum oracle responses
+
+    fetchMinimumResponses()(dispatch)
+
+    // Set answer Id
+
+    let nextAnswerId = await contractInstance.nextAnswerId()
+    dispatch(actions.setNextAnswerId(nextAnswerId))
+    dispatch(actions.setPendingAnswerId(nextAnswerId - 1))
+
+    // Current answers
+
+    let height = await fetchUpdateHeight()(dispatch)
+
+    // Fetch previous responses (counter / block time + 10)
+
+    if (options.counter) {
+      await fetchOracleResponseById({
+        answerId: nextAnswerId - 2,
+        fromBlock: height.block - Math.round(options.counter / 13 + 30)
+      })(dispatch, getState)
+    }
+
+    // Takes last block height minus 10 blocks (to make sure we get all the reqests)
+
+    fetchOracleResponseById({
+      answerId: nextAnswerId - 1,
+      fromBlock: height.block - 10
+    })(dispatch, getState)
+
+    // Initial request time
+
+    fetchRequestTime()(dispatch)
+
+    // Latest completed answer id
+
     fetchLatestCompletedAnswerId()(dispatch)
+
+    // Current answer and block height
+
     fetchCurrentAnswer()(dispatch)
-    fetchUpdateHeight()(dispatch)
-    initListeners()(dispatch, getState)
-    fetchAnswerHistory()(dispatch)
+
+    // initalise listeners
+
+    if (options.counter) {
+      initListeners()(dispatch, getState)
+    }
+
+    if (options.history) {
+      fetchAnswerHistory()(dispatch)
+    }
   }
 }
 
@@ -144,12 +212,11 @@ const initListeners = () => {
      * - reset request time (hardcode current time)
      */
 
-    listenNextAnswerId(async responseNextAnswerId => {
+    contractInstance.listenNextAnswerId(async responseNextAnswerId => {
       const { nextAnswerId } = getState().aggregation
-
       if (responseNextAnswerId > nextAnswerId) {
         dispatch(actions.setNextAnswerId(responseNextAnswerId))
-        dispatch(actions.setOracleResponse([]))
+        dispatch(actions.setPendingAnswerId(responseNextAnswerId - 1))
         dispatch(actions.setRequestTime(moment().unix()))
       }
     })
@@ -160,7 +227,7 @@ const initListeners = () => {
      * - add unique oracles response data
      */
 
-    listenOracleResponseEvent(async responseLog => {
+    contractInstance.listenOracleResponseEvent(async responseLog => {
       const { nextAnswerId, minimumResponses } = getState().aggregation
 
       if (responseLog.answerId === nextAnswerId - 1) {
@@ -168,9 +235,26 @@ const initListeners = () => {
         const uniqueLogs = storeLogs.filter(l => {
           return l.meta.transactionHash !== responseLog.meta.transactionHash
         })
-        dispatch(actions.setOracleResponse([...uniqueLogs, ...[responseLog]]))
 
-        if (uniqueLogs.length >= minimumResponses) {
+        const updateLogs = uniqueLogs.map(l => {
+          return l.sender === responseLog.sender ? responseLog : l
+        })
+
+        const senderIndex = _.findIndex(uniqueLogs, {
+          sender: responseLog.sender
+        })
+
+        if (senderIndex < 0) {
+          updateLogs.push(responseLog)
+        }
+
+        dispatch(actions.setOracleResponse(updateLogs))
+
+        const responseNumber = _.filter(updateLogs, {
+          answerId: responseLog.answerId
+        })
+
+        if (responseNumber.length >= minimumResponses) {
           fetchLatestCompletedAnswerId()(dispatch)
           fetchCurrentAnswer()(dispatch)
           fetchUpdateHeight()(dispatch)
@@ -180,4 +264,24 @@ const initListeners = () => {
   }
 }
 
-export { fetchInitData, fetchOracles, fetchLatestCompletedAnswerId }
+const clearState = () => {
+  return async (dispatch, getState) => {
+    try {
+      contractInstance.kill()
+    } catch (error) {}
+
+    dispatch(actions.clearState())
+  }
+}
+
+const fetchJobId = address => {
+  return async (dispatch, getState) => {
+    const { oracles } = getState().aggregation
+    try {
+      const index = oracles.indexOf(address)
+      return contractInstance.jobId(index)
+    } catch (error) {}
+  }
+}
+
+export { initContract, clearState, fetchJobId }
