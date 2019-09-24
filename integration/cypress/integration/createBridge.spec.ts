@@ -8,14 +8,17 @@ const bridgeProperties = {
 context('End to end', function() {
   it('Creates a bridge', () => {
     cy.login()
+
     // Navigate to New Bridge page
     cy.clickLink('Bridges')
     cy.contains('h4', 'Bridges').should('exist')
     cy.clickLink('New Bridge')
     cy.contains('h5', 'New Bridge').should('exist')
+
     // Create Bridge
     cy.get('form').fill(bridgeProperties)
     cy.clickButton('Create Bridge')
+
     // Check new bridge created successfuly
     cy.contains('p', 'Successfully created bridge')
       .should('exist')
