@@ -21,6 +21,24 @@ Cypress.Commands.add('clickButton', buttonText => {
   cy.contains('button', buttonText).click()
 })
 
+// Used to fill a form by passing input fields as an argument in
+// the format {name: value}
+Cypress.Commands.add(
+  'fill',
+  { prevSubject: 'element' },
+  (form: CypressChild, values: object) => {
+    for (const field in values) {
+      if (values.hasOwnProperty(field)) {
+        const value = values[field]
+        cy.wrap(form)
+          .get(`input[name=${field}]`)
+          .clear()
+          .type(value)
+      }
+    }
+  },
+)
+
 // TODO - remove in future. Cypress potentially working on fix to 2 visit superdomain limit.
 // or refactor ete tests to not share state b/t tests
 // https://docs.cypress.io/guides/guides/web-security.html#One-Superdomain-per-Test
