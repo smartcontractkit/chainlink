@@ -1,11 +1,7 @@
 import * as types from './types'
 
-export const requestOracles = () => ({
-  type: types.ORACLES_REQUEST
-})
-
-export const successOracles = payload => ({
-  type: types.ORACLES_SUCCESS,
+export const setOracles = payload => ({
+  type: types.ORACLES,
   payload
 })
 
@@ -52,4 +48,18 @@ export const setUpdateHeight = payload => ({
 export const setAnswerHistory = payload => ({
   type: types.ANSWER_HISTORY,
   payload
+})
+
+export const setContractAddress = payload => ({
+  type: types.CONTRACT_ADDRESS,
+  payload
+})
+
+export const setOptions = payload => ({
+  type: types.OPTIONS,
+  payload
+})
+
+export const clearState = () => ({
+  type: types.CLEAR_STATE
 })

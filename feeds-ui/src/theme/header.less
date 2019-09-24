@@ -1,8 +1,9 @@
 .header {
-  height: 50px;
   margin: 30px 60px 60px 60px;
   display: flex;
   justify-content: space-between;
+  padding-bottom: 30px;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .header-logotype {
@@ -17,4 +18,22 @@
   margin: 0 15px;
   display: block;
   font-weight: 400;
+}
+
+.header-menu {
+  display: flex;
+  align-items: center;
+}
+
+.header-menu--link a {
+  padding: 10px;
+  color: #272727;
+}
+
+.header .ant-input-suffix {
+  right: 0 !important;
+}
+
+.header .ant-input {
+  padding-right: 60px !important;
 }
