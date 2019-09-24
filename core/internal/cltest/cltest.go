@@ -66,7 +66,16 @@ var minimumContractPayment = assets.NewLink(100)
 func init() {
 	gin.SetMode(gin.TestMode)
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
-	logger.SetLogger(logger.CreateTestLogger())
+	lvl := logLevelFromEnv()
+	logger.SetLogger(logger.CreateTestLogger(lvl))
+}
+
+func logLevelFromEnv() zapcore.Level {
+	lvl := zapcore.ErrorLevel
+	if env := os.Getenv("LOG_LEVEL"); env != "" {
+		_ = lvl.Set(env)
+	}
+	return lvl
 }
 
 // TestConfig struct with test store and wsServer
