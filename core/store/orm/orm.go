@@ -899,16 +899,19 @@ func (orm *ORM) TxAttempts(offset, limit int) ([]models.TxAttempt, int, error) {
 	return attempts, count, err
 }
 
+// UnconfirmedTxAttempts returns all TxAttempts for which the associated Tx is still unconfirmed.
 func (orm *ORM) UnconfirmedTxAttempts() ([]models.TxAttempt, error) {
 	var items []models.TxAttempt
-	err := orm.DB.
-		Where("confirmed = false").
-		Find(&items).Error
 
+	err := orm.DB.
+		Preload("Tx").
+		Joins("inner join txes on txes.id = tx_attempts.tx_id").
+		Where("txes.confirmed = ?", false).
+		Find(&items).Error
 	if err != nil {
 		return nil, err
 	}
-	return items, nil
+	return items, err
 }
 
 // JobRunsSorted returns job runs ordered and filtered by the passed params.
