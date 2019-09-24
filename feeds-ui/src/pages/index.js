@@ -1,15 +1,20 @@
 import React from 'react'
-import { Switch, Route, Redirect, BrowserRouter } from 'react-router-dom'
+import { Route, BrowserRouter } from 'react-router-dom'
+import { Header } from 'components/header'
 
-import NetworkPage from './NetworkPage'
+import EthUsdPage from './EthUsdPage'
+import Testnet from './Testnet'
+import CreatePage from './Create'
+import CustomPage from './Custom'
 
 const AppRoutes = () => {
   return (
     <BrowserRouter>
-      <Switch>
-        <Route exact path="/" component={NetworkPage} />
-        <Redirect to="/" />
-      </Switch>
+      <Header />
+      <Route exact path="/" component={EthUsdPage} />
+      <Route exact path="/testnet" component={Testnet} />
+      <Route exact path="/create" component={CreatePage} />
+      <Route exact path="/custom" component={CustomPage} />
     </BrowserRouter>
   )
 }

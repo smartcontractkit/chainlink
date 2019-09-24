@@ -1,0 +1,212 @@
+@keyframes dash-animation {
+  to {
+    stroke-dashoffset: 1000;
+  }
+}
+
+.network-page {
+  position: relative;
+}
+
+.network-graph-info {
+  margin-bottom: 30px;
+
+  &__wrapper {
+    position: absolute;
+    top: 0;
+  }
+
+  &__title {
+    margin-bottom: 20px;
+
+    &--address {
+      font-weight: 400;
+      margin-bottom: 5px;
+      color: #848484;
+    }
+    &--name {
+      font-size: 24px;
+    }
+  }
+
+  &__item {
+    margin-bottom: 20px;
+    &--label {
+      font-size: 14px;
+      margin-bottom: 5px;
+      color: #848484;
+    }
+
+    &--value {
+      font-size: 24px;
+      margin: 0;
+      font-weight: 600;
+    }
+  }
+}
+
+.network-graph {
+  width: 1200px;
+  height: 600px;
+  margin: 0 auto;
+  position: relative;
+
+  &__node__oracle {
+    cursor: pointer;
+
+    &:hover {
+      fill: #2a59da;
+      stroke: #2a59da;
+    }
+  }
+
+  &__node__oracle-label {
+    &--name,
+    &--price {
+      fill: #505050;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    &--name {
+      text-decoration: underline;
+    }
+  }
+
+  &__node__contract--label {
+    &--price {
+      fill: #505050;
+      font-size: 12px;
+    }
+  }
+
+  &__node__contract {
+    cursor: pointer;
+    fill: #f1f1f1;
+    stroke: #8e8e8e;
+
+    &.wait {
+      animation: dash-animation 20s infinite linear;
+      stroke-dasharray: 1, 8;
+      stroke-width: 2;
+      stroke-dashoffset: 0;
+      stroke-linecap: round;
+      stroke: #a0a0a0;
+    }
+  }
+
+  &__line--wait {
+    animation: dash-animation 20s infinite linear;
+    stroke-dasharray: 1, 8;
+    stroke-width: 2;
+    stroke-dashoffset: 0;
+    stroke-linecap: round;
+    stroke: #a0a0a0;
+  }
+
+  &__line--success {
+    stroke: #bdbdbd;
+    stroke-width: 1;
+  }
+
+  &__node-group .oracle:hover {
+    fill: #2a59da;
+    stroke: #2a59da;
+  }
+
+  &__tooltip--oracle,
+  &__tooltip--contract {
+    opacity: 0;
+    position: absolute;
+    padding: 15px 20px;
+    background: white;
+    border: 1px solid #ececec;
+    pointer-events: none;
+    min-width: 120px;
+    color: #2d2a2b;
+  }
+
+  &__tooltip--oracle .type,
+  &__tooltip--contract .type {
+    text-transform: capitalize;
+    color: #939598;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #bcbec0;
+    font-size: 14px;
+  }
+
+  &__tooltip--oracle .oracle,
+  &__tooltip--oracle .contract {
+    margin: 10px 0;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  &__tooltip--oracle .details {
+    margin: 10px 0;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
+
+.network-graph__node-details {
+  &__item {
+    margin-bottom: 20px;
+
+    &--label {
+      font-size: 14px;
+      margin-bottom: 5px;
+      color: #848484;
+    }
+
+    &--value {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 600;
+    }
+  }
+}
+
+.network-graph__contract-details {
+  &__item {
+    margin-bottom: 20px;
+
+    &--label {
+      font-size: 14px;
+      margin-bottom: 5px;
+      color: #848484;
+    }
+
+    &--value {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 600;
+    }
+  }
+}
+
+.answer-history {
+  margin: 60px 0;
+
+  .x-axis {
+    .domain,
+    line {
+      stroke: #c3c3c3;
+    }
+    text {
+      color: #a0a0a0;
+    }
+  }
+
+  &-header {
+    font-weight: 200;
+    top: 20px;
+    position: relative;
+  }
+
+  &-graph--timestamp,
+  &-graph--price {
+    font-size: 12px;
+    font-weight: 200;
+  }
+}

@@ -5,6 +5,7 @@ import { persistStore, persistReducer, createMigrate } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
 import { createFilter } from 'redux-persist-transform-filter'
 import * as reducers from './ducks'
+import aggregatorMiddleware from './middlewares/aggregatorMiddleware'
 
 const logger = createLogger({
   collapsed: true
@@ -17,21 +18,15 @@ const logger = createLogger({
 const migrations = {
   1: state => {
     return {}
-  },
-  2: state => {
-    return {}
-  },
-  3: state => {
-    return {}
   }
 }
 
 const persistConfig = {
-  key: 'hearbeat',
-  version: 3,
+  key: 'heartbeat',
+  version: 1,
   storage,
-  whitelist: ['aggregation'],
-  transforms: [createFilter('aggregation', ['oracles'])],
+  whitelist: [''],
+  transforms: [createFilter('aggregation', [''])],
   migrate: createMigrate(migrations, {
     debug: process.env.NODE_ENV !== 'production'
   })
@@ -45,9 +40,16 @@ const persistedReducer = persistReducer(persistConfig, rootReducer)
 
 const initialState = {}
 
-const developmentMiddlewares = applyMiddleware(thunkMiddleware, logger)
+const developmentMiddlewares = applyMiddleware(
+  thunkMiddleware,
+  aggregatorMiddleware,
+  logger
+)
 
-const productionMiddlewares = applyMiddleware(thunkMiddleware)
+const productionMiddlewares = applyMiddleware(
+  thunkMiddleware,
+  aggregatorMiddleware
+)
 
 const middlewares =
   process.env.NODE_ENV === 'production'
