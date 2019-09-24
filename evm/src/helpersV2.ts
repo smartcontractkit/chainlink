@@ -73,19 +73,20 @@ export async function assertActionThrows(action: AsyncFunction) {
     return
   }
 
-  const { message } = e
-  assert(message, 'Expected an error to contain a message')
-  const invalidOpcode = message.includes('invalid opcode')
-  const reverted = message.includes(
-    'VM Exception while processing transaction: revert',
+  assert(e.message, 'Expected an error to contain a message')
+
+  const ERROR_MESSAGES = ['invalid opcode', 'revert']
+  const hasErrored = ERROR_MESSAGES.reduce(
+    (prev, next) => prev || e!.message.includes(next),
+    false,
   )
+
   assert(
-    invalidOpcode || reverted,
-    'expected following error message to include "invalid JUMP" or ' +
-      `"revert": "${message}"`,
+    hasErrored,
+    `expected following error message to include ${ERROR_MESSAGES.join(
+      ' or ',
+    )}. Got: "${e.message}"`,
   )
-  // see https://github.com/ethereumjs/testrpc/issues/39
-  // for why the "invalid JUMP" is the throw related error when using TestRPC
 }
 
 export function checkPublicABI(
@@ -108,4 +109,199 @@ export function checkPublicABI(
     const index = actualPublic.indexOf(method)
     assert.isAtLeast(index, 0, `#${method} is expected to be public`)
   }
+}
+
+const { utils } = ethers
+/**
+ * Convert a value to a hex string
+ * @param args Value to convert to a hex string
+ */
+export function toHex(
+  ...args: Parameters<typeof utils.hexlify>
+): ReturnType<typeof utils.hexlify> {
+  return utils.hexlify(...args)
+}
+
+/**
+ * Convert an Ether value to a wei amount
+ * @param args Ether value to convert to an Ether amount
+ */
+export function toWei(
+  ...args: Parameters<typeof utils.parseEther>
+): ReturnType<typeof utils.parseEther> {
+  return utils.parseEther(...args)
+}
+
+export function decodeRunRequest(log: any): RunRequest {
+  const types = [
+    'address',
+    'bytes32',
+    'uint256',
+    'address',
+    'bytes4',
+    'uint256',
+    'uint256',
+    'bytes',
+  ]
+  const [
+    requester,
+    requestId,
+    payment,
+    callbackAddress,
+    callbackFunc,
+    expiration,
+    version,
+    data,
+  ] = ethers.utils.defaultAbiCoder.decode(types, log.data)
+
+  return {
+    callbackAddr: callbackAddress,
+    callbackFunc: toHex(callbackFunc),
+    data: addCBORMapDelimiters(Buffer.from(stripHexPrefix(data), 'hex')),
+    dataVersion: version.toNumber(),
+    expiration: toHex(expiration),
+    id: toHex(requestId),
+    jobId: log.topics[1],
+    payment: toHex(payment),
+    requester: requester,
+    topic: log.topics[0],
+  }
+}
+
+export interface RunRequest {
+  callbackAddr: string
+  callbackFunc: string
+  data: Buffer
+  dataVersion: number
+  expiration: string
+  id: string
+  jobId: string
+  payment: string
+  requester: string
+  topic: string
+}
+
+/**
+ * Add a starting and closing map characters to a CBOR encoding if they are not already present.
+ */
+function addCBORMapDelimiters(buffer: Buffer): Buffer {
+  if (buffer[0] >> 5 === 5) {
+    return buffer
+  }
+
+  /**
+   * This is the opening character of a CBOR map.
+   * @see https://en.wikipedia.org/wiki/CBOR#CBOR_data_item_header
+   */
+  const startIndefiniteLengthMap = Buffer.from([0xbf])
+  /**
+   * This is the closing character in a CBOR map.
+   * @see https://en.wikipedia.org/wiki/CBOR#CBOR_data_item_header
+   */
+  const endIndefiniteLengthMap = Buffer.from([0xff])
+  return Buffer.concat(
+    [startIndefiniteLengthMap, buffer, endIndefiniteLengthMap],
+    buffer.length + 2,
+  )
+}
+
+function stripHexPrefix(hex: string): string {
+  if (!ethers.utils.isHexString(hex)) {
+    throw Error(`Expected valid hex string, got: "${hex}"`)
+  }
+
+  return hex.replace('0x', '')
+}
+
+export function toUtf8(
+  ...args: Parameters<typeof ethers.utils.toUtf8Bytes>
+): ReturnType<typeof ethers.utils.toUtf8Bytes> {
+  return ethers.utils.toUtf8Bytes(...args)
+}
+
+export async function fulfillOracleRequest(
+  oracleContract: ethers.Contract,
+  runRequest: RunRequest,
+  response: string,
+  options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},
+): Promise<ethers.ContractTransaction> {
+  return oracleContract.fulfillOracleRequest(
+    runRequest.id,
+    runRequest.payment,
+    runRequest.callbackAddr,
+    runRequest.callbackFunc,
+    runRequest.expiration,
+    response,
+    options,
+  )
+}
+
+export function requestDataBytes(
+  specId: string,
+  to: string,
+  fHash: string,
+  nonce: number,
+  data: string,
+): any {
+  const types = [
+    'address',
+    'uint256',
+    'bytes32',
+    'address',
+    'bytes4',
+    'uint256',
+    'uint256',
+    'bytes',
+  ]
+
+  const values = [
+    ethers.constants.AddressZero,
+    0,
+    specId,
+    to,
+    fHash,
+    nonce,
+    1,
+    data,
+  ]
+  const encoded = ethers.utils.defaultAbiCoder.encode(types, values)
+  const funcSelector = ethers.utils.id(
+    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)',
+  )
+  return `${funcSelector}${stripHexPrefix(encoded)}`
+}
+
+// link param must be from linkContract(), if amount is a BN
+export function requestDataFrom(
+  oc: ethers.Contract,
+  link: ethers.Contract,
+  amount: number,
+  args: string,
+  options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},
+): Promise<ethers.ContractTransaction> {
+  if (!options) {
+    options = { value: 0 }
+  }
+  return link.transferAndCall(oc.address, amount, args, options)
+}
+
+export function increaseTime5Minutes(
+  provider: ethers.providers.AsyncSendable,
+): Promise<void> {
+  const jsonRpcCmd = {
+    id: 0,
+    jsonrpc: '2.0',
+    method: 'evm_increaseTime',
+    params: [300],
+  }
+  return new Promise((resolve, reject) => {
+    provider.send!(jsonRpcCmd, err => {
+      if (err) {
+        console.error(`Error during helpers.increaseTime5Minutes! ${err}`)
+        return reject(err)
+      }
+
+      resolve()
+    })
+  })
 }
