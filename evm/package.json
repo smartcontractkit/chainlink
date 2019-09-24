@@ -5,7 +5,7 @@
   "main": "./dist/src",
   "scripts": {
     "tsc": "tsc",
-    "mocha": "tsc && mocha",
+    "mocha": "tsc || true && mocha",
     "build": "truffle build",
     "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box || true",
     "eslint": "eslint --ext .ts,.js test",
