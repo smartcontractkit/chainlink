@@ -32,5 +32,5 @@ See the section about [deployment](https://facebook.github.io/create-react-app/d
 ## Env variables
 
 ```
-REACT_APP_ETHEREUM_NETWORK="https://mainnet.infura.io/v3/{yourkey}"
+REACT_APP_INFURA_KEY="yourkey"
 ```
