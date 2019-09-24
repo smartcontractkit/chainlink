@@ -338,7 +338,7 @@ func (l *Head) ToInt() *big.Int {
 	return big.NewInt(l.Number)
 }
 
-// GreaterThan compares BlockNumbers and returns true if the reciever BlockNumber is greater than
+// GreaterThan compares BlockNumbers and returns true if the receiver BlockNumber is greater than
 // the supplied BlockNumber
 func (l *Head) GreaterThan(r *Head) bool {
 	if l == nil {
