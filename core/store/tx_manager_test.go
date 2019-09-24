@@ -704,7 +704,6 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 				require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(test.blockHeight)))
 				ethMock.Register("eth_chainId", store.Config.ChainID())
 				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
 				require.NoError(t, app.StartAndConnect())
 				receipt, _, err := txm.BumpGasUntilSafe(a.Hash)
