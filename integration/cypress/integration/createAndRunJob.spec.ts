@@ -1,20 +1,20 @@
 context('End to end', function() {
-  it('creates a job that runs', () => {
+  it('Creates a job that runs', () => {
     cy.login()
 
     // Create Job
-    cy.contains('New Job').click()
-    cy.get('h5').should('contain', 'New Job')
+    cy.clickLink('New Job')
+    cy.contains('h5', 'New Job').should('exist')
     cy.fixture('job').then(job => {
       cy.get('textarea[id=json]').paste(JSON.stringify(job, null, 4))
     })
-    cy.contains('Button', 'Create Job').click()
+    cy.clickButton('Create Job')
     cy.contains('p', 'Successfully created job').should('exist')
 
     // Run Job
     cy.get('#created-job').click()
     cy.contains('Job Spec Detail')
-    cy.contains('Button', 'Run').click()
+    cy.clickButton('Run')
     cy.contains('p', 'Successfully created job run')
       .children('a')
       .click()
@@ -35,9 +35,9 @@ context('End to end', function() {
     cy.get('@runId').then(runId => {
       cy.get('input[name=search]').type(runId)
     })
-    cy.contains('Button', 'Search').click()
+    cy.clickButton('Search')
     cy.get('@runId').then(runId => {
-      cy.contains('a', runId).click()
+      cy.clickLink(runId)
     })
     cy.contains('h5', 'Complete').should('exist')
   })
