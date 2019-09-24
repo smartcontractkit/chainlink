@@ -55,8 +55,8 @@ func (jr *JobRun) SetID(value string) error {
 // ForLogger formats the JobRun for a common formatting in the log.
 func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
-		"job", jr.JobSpecID,
-		"run", jr.ID,
+		"job", jr.JobSpecID.String(),
+		"run", jr.ID.String(),
 		"status", jr.Status,
 	}
 
@@ -177,7 +177,7 @@ type TaskRun struct {
 
 // String returns info on the TaskRun as "ID,Type,Status,Result".
 func (tr TaskRun) String() string {
-	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID, tr.TaskSpec.Type, tr.Status, tr.Result)
+	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID.String(), tr.TaskSpec.Type, tr.Status, tr.Result)
 }
 
 // ForLogger formats the TaskRun info for a common formatting in the log.
