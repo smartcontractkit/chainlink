@@ -13,22 +13,24 @@ Cypress.Commands.overwrite(
   },
 )
 
-Cypress.Commands.add('paste', { prevSubject: true }, (subject, text) => {
-  cy.wrap(subject)
-    .clear()
-    .invoke('val', text)
-    .type(' {backspace}')
-})
-
 Cypress.Commands.add(
   'login',
   (email = 'notreal@fakeemail.ch', password = 'twochains') => {
+    cy.visit('http://localhost:6688')
+    cy.contains('Chainlink').should('exist')
     cy.get('form input[id=email]').type(email)
     cy.get('form input[id=password]').type(password)
     cy.get('form button').click()
     cy.contains('h5', 'Activity').should('exist')
   },
 )
+
+Cypress.Commands.add('paste', { prevSubject: true }, (subject, text) => {
+  cy.wrap(subject)
+    .clear()
+    .invoke('val', text)
+    .type(' {backspace}')
+})
 
 // Command will continue to reload the page until a selector matches or
 // the max # of reloads is reached
