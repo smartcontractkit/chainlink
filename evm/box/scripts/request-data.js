@@ -10,7 +10,7 @@ const oracleAddress =
   process.env.TRUFFLE_CL_BOX_ORACLE_ADDRESS ||
   '0xc99B3D447826532722E41bc36e644ba3479E4365'
 const jobId =
-  process.env.TRUFFLE_CL_BOX_JOB_ID || '9f0406209cf64acda32636018b33de11'
+  process.env.TRUFFLE_CL_BOX_JOB_ID || '3cff0a3524694ff8834bda9cf9c779a1'
 const payment = process.env.TRUFFLE_CL_BOX_PAYMENT || '1000000000000000000'
 const url =
   process.env.TRUFFLE_CL_BOX_URL ||
