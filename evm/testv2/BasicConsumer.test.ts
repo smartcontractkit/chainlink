@@ -7,6 +7,7 @@ import { ethers } from 'ethers'
 import { assert } from 'chai'
 import { linkToken } from '../src/linkToken'
 
+const context = describe
 const BasicConsumer = AbstractContract.fromArtifactName('BasicConsumer')
 const Oracle = AbstractContract.fromArtifactName('Oracle')
 const Link = AbstractContract.fromBuildArtifact(linkToken)
@@ -19,7 +20,7 @@ const provider = new ethers.providers.Web3Provider(ganacheProvider)
 
 let roles: h.Roles
 
-before(async () => {
+beforeAll(async () => {
   const rolesAndPersonas = await h.initializeRolesAndPersonas(ganacheProvider)
 
   roles = rolesAndPersonas.roles
@@ -48,7 +49,7 @@ describe('BasicConsumer', () => {
     assert.isBelow(rec.gasUsed!.toNumber(), 1700000)
   })
 
-  describe('#requestEthereumPrice', () => {
+  describe.only('#requestEthereumPrice', () => {
     context('without LINK', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {

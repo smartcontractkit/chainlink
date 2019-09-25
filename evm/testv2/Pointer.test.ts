@@ -4,12 +4,13 @@ import ganache from 'ganache-core'
 import { AbstractContract } from '../src/contract'
 import { linkToken } from '../src/linkToken'
 import { assert } from 'chai'
+
 const Pointer = AbstractContract.fromArtifactName('Pointer')
 const Link = AbstractContract.fromBuildArtifact(linkToken)
 let roles: h.Roles
 const ganacheProvider: any = ganache.provider()
 
-before(async () => {
+beforeAll(async () => {
   const rolesAndPersonas = await h.initializeRolesAndPersonas(ganacheProvider)
 
   roles = rolesAndPersonas.roles

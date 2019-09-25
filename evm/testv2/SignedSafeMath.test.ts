@@ -5,13 +5,14 @@ import ganache from 'ganache-core'
 import { AbstractContract } from '../src/contract'
 import { createFundedWallet } from '../src/wallet'
 
+const context = describe
 const ConcreteSignedSafeMathStatic = AbstractContract.fromArtifactName(
   'ConcreteSignedSafeMath',
 ).toStatic()
 const ganacheProvider: any = ganache.provider()
 let defaultAccount: ethers.Wallet
 
-before(async () => {
+beforeAll(async () => {
   const { wallet } = await createFundedWallet(ganacheProvider, 0)
   defaultAccount = wallet
 })
@@ -20,7 +21,7 @@ describe('SignedSafeMath', () => {
   // a version of the adder contract where we make all ABI exposed functions constant
   let adderStatic: ethers.Contract
 
-  let response
+  let response: ethers.utils.BigNumberish
   const INT256_MAX = ethers.utils.bigNumberify(
     '57896044618658097711785492504343953926634992332820282019728792003956564819967',
   )
@@ -44,7 +45,7 @@ describe('SignedSafeMath', () => {
         assertBigNum(INT256_MAX, response)
       })
 
-      context('when both are large enough to overflow', async () => {
+      context('when both are large enough to overflow', () => {
         it('throws', async () => {
           await h.assertActionThrows(async () => {
             response = await adderStatic.testAdd(INT256_MAX, 1)
@@ -64,7 +65,7 @@ describe('SignedSafeMath', () => {
         assertBigNum(INT256_MIN, response)
       })
 
-      context('when both are large enough to overflow', async () => {
+      context('when both are large enough to overflow', () => {
         it('throws', async () => {
           await h.assertActionThrows(async () => {
             await adderStatic.testAdd(INT256_MIN, -1)

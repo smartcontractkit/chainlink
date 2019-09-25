@@ -10,7 +10,7 @@ const ganacheProvider: any = ganache.provider()
 
 let roles: h.Roles
 
-before(async () => {
+beforeAll(async () => {
   const rolesAndPersonas = await h.initializeRolesAndPersonas(ganacheProvider)
 
   roles = rolesAndPersonas.roles
