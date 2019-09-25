@@ -107,11 +107,6 @@ func createTxRunResult(
 	input.ApplyResult(tx.Hash.String())
 
 	txAttempt := tx.Attempts[0]
-	logger.Debugw(
-		fmt.Sprintf("Tx #0 checking on-chain state"),
-		"txHash", txAttempt.Hash.String(),
-		"txID", txAttempt.TxID,
-	)
 
 	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
 	if IsClientRetriable(err) {
