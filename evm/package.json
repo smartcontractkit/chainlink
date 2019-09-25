@@ -4,8 +4,6 @@
   "license": "MIT",
   "main": "./dist/src",
   "scripts": {
-    "tsc": "tsc",
-    "mocha": "tsc || true && mocha",
     "build": "truffle build",
     "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box || true",
     "eslint": "eslint --ext .ts,.js test",
@@ -13,7 +11,9 @@
     "lint": "yarn solhint && yarn eslint",
     "slither": "truffle compile --quiet && slither .",
     "pretest": "yarn build",
-    "test": "truffle test ./dist/test/*",
+    "test:v1": "truffle test ./dist/test/*",
+    "test:v2": "tsc && mocha ./dist/testv2/*.js",
+    "test": "yarn test:v1 && yarn test:v2",
     "format": "prettier --write \"**/*\"",
     "truffle:migrate:cldev": "truffle migrate --network cldev",
     "prepublishOnly": "yarn build && yarn lint && yarn test"
