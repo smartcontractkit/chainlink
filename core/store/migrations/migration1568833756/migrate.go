@@ -10,9 +10,15 @@ import (
 	"gopkg.in/guregu/null.v3"
 )
 
-// InitiatorParams is a collection of the possible parameters that different
-// Initiators may require.
-type InitiatorParams struct {
+// Initiator could be thought of as a trigger, defines how a Job can be
+// started, or rather, how a JobRun can be created from a Job.
+// Initiators will have their own unique ID, but will be associated
+// to a parent JobID.
+type Initiator struct {
+	ID         uint       `gorm:"primary_key;auto_increment"`
+	JobSpecID  *models.ID `gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+	Type       string     `gorm:"index;not null"`
+	CreatedAt  time.Time  `gorm:"index"`
 	Schedule   models.Cron
 	Time       models.AnyTime
 	Ran        bool
@@ -20,19 +26,7 @@ type InitiatorParams struct {
 	Requesters models.AddressCollection `gorm:"type:text"`
 	Name       string
 	Params     string
-}
-
-// Initiator could be thought of as a trigger, defines how a Job can be
-// started, or rather, how a JobRun can be created from a Job.
-// Initiators will have their own unique ID, but will be associated
-// to a parent JobID.
-type Initiator struct {
-	ID        uint       `gorm:"primary_key;auto_increment"`
-	JobSpecID *models.ID `gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
-	Type      string     `gorm:"index;not null"`
-	CreatedAt time.Time  `gorm:"index"`
-	InitiatorParams
-	DeletedAt null.Time `gorm:"index"`
+	DeletedAt  null.Time `gorm:"index"`
 }
 
 // Migrate Initiator parameter 'Text' to support External Initaitor generic
