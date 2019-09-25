@@ -23,9 +23,7 @@ const NetworkPage = ({ initContract, clearState }) => {
     async function init() {
       try {
         await initContract(OPTIONS)
-      } catch (error) {
-        console.log(error)
-      }
+      } catch (error) {}
     }
 
     init()
