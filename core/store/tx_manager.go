@@ -559,39 +559,39 @@ func (txm *EthTxManager) processAttempt(
 ) (*models.TxReceipt, AttemptState, error) {
 	txAttempt := tx.Attempts[attemptIndex]
 
-	logger.Debugw(
-		fmt.Sprintf("Tx #%d checking on-chain state", attemptIndex),
-		"txHash", txAttempt.Hash.String(),
-		"txID", txAttempt.TxID,
-	)
-
 	receipt, state, err := txm.CheckAttempt(txAttempt, blockHeight)
-	if err != nil {
-		return nil, Unknown, errors.Wrap(err, "processAttempt CheckAttempt failed")
-	}
-
-	logger.Debugw(
-		fmt.Sprintf("Tx #%d is %s", attemptIndex, state),
-		"txHash", txAttempt.Hash.String(),
-		"txID", txAttempt.TxID,
-		"receiptBlockNumber", receipt.BlockNumber.ToInt(),
-		"currentBlockNumber", blockHeight,
-		"receiptHash", receipt.Hash.Hex(),
-	)
 
 	switch state {
 	case Safe:
+		logger.Debugw(
+			fmt.Sprintf("Tx #%d is %s", attemptIndex, state),
+			"txHash", txAttempt.Hash.String(),
+			"txID", txAttempt.TxID,
+			"receiptBlockNumber", receipt.BlockNumber.ToInt(),
+			"currentBlockNumber", blockHeight,
+			"receiptHash", receipt.Hash.Hex(),
+		)
+
 		txm.updateLastSafeNonce(tx)
 		return receipt, state, txm.handleSafe(tx, attemptIndex)
 
 	case Confirmed:
+		logger.Debugw(
+			fmt.Sprintf("Tx #%d is %s", attemptIndex, state),
+			"txHash", txAttempt.Hash.String(),
+			"txID", txAttempt.TxID,
+			"receiptBlockNumber", receipt.BlockNumber.ToInt(),
+			"currentBlockNumber", blockHeight,
+			"receiptHash", receipt.Hash.Hex(),
+		)
+
 		return receipt, state, nil
 
 	case Unconfirmed:
 		attemptLimit := txm.config.TxAttemptLimit()
 		if attemptIndex >= int(attemptLimit) {
 			logger.Warnw(
-				fmt.Sprintf("Tx #%d has met TxAttemptLimit", attemptIndex),
+				fmt.Sprintf("Tx #%d is %s, has met TxAttemptLimit", attemptIndex, state),
 				"txAttemptLimit", attemptLimit,
 				"txHash", txAttempt.Hash.String(),
 				"txID", txAttempt.TxID,
@@ -601,17 +601,31 @@ func (txm *EthTxManager) processAttempt(
 
 		if isLatestAttempt(tx, attemptIndex) && txm.hasTxAttemptMetGasBumpThreshold(tx, attemptIndex, blockHeight) {
 			logger.Debugw(
-				fmt.Sprintf("Tx #%d has met gas bump threshold, bumping gas", attemptIndex),
+				fmt.Sprintf("Tx #%d is %s, bumping gas", attemptIndex, state),
+				"txHash", txAttempt.Hash.String(),
+				"txID", txAttempt.TxID,
+				"currentBlockNumber", blockHeight,
+			)
+			err = txm.bumpGas(tx, attemptIndex, blockHeight)
+		} else {
+			logger.Debugw(
+				fmt.Sprintf("Tx #%d is %s", attemptIndex, state),
 				"txHash", txAttempt.Hash.String(),
 				"txID", txAttempt.TxID,
 			)
-			err = txm.bumpGas(tx, attemptIndex, blockHeight)
 		}
 
 		return receipt, state, err
-	}
 
-	panic("invariant violated, 'Unknown' state returned without error")
+	default:
+		logger.Debugw(
+			fmt.Sprintf("Tx #%d is %s, error fetching receipt", attemptIndex, state),
+			"txHash", txAttempt.Hash.String(),
+			"txID", txAttempt.TxID,
+			"error", err,
+		)
+		return nil, Unknown, errors.Wrap(err, "processAttempt CheckAttempt failed")
+	}
 }
 
 func (txm *EthTxManager) updateLastSafeNonce(tx *models.Tx) {
