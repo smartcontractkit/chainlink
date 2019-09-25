@@ -4,15 +4,16 @@
   "version": "0.6.0",
   "license": "MIT",
   "scripts": {
-    "test": "cross-env NODE_ENV=test cypress run",
-    "eslint": "eslint --ext .js,.ts .",
-    "lint": "yarn eslint",
-    "format": "prettier --write \"**/*\"",
+    "cypressJobServer": "node cypress/support/cypressJobServer.js",
     "depcheck": "echo '@chainlink/integration' && depcheck || true",
+    "eslint": "eslint --ext .js,.ts .",
+    "format": "prettier --write \"**/*\"",
     "setup": "echo \"No setup required for @chainlink/integration\"",
-    "truffle:migrate": "truffle migrate --compile-all --reset --network test",
+    "lint": "yarn eslint",
+    "test": "cross-env NODE_ENV=test cypress run",
     "truffle:exec:send-runlog-transaction": "truffle exec scripts/send_runlog_transaction.js --network test",
-    "truffle:exec:count-transaction-events": "truffle exec scripts/count_transaction_events.js --network test"
+    "truffle:exec:count-transaction-events": "truffle exec scripts/count_transaction_events.js --network test",
+    "truffle:migrate": "truffle migrate --compile-all --reset --network test"
   },
   "dependencies": {
     "chainlink": "0.6.1"
