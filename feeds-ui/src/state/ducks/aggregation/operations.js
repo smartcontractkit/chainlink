@@ -165,12 +165,13 @@ const initContract = options => {
 
     // Fetch previous responses (counter / block time + 10)
 
-    if (options.counter) {
-      await fetchOracleResponseById({
-        answerId: nextAnswerId - 2,
-        fromBlock: height.block - Math.round(options.counter / 13 + 30)
-      })(dispatch, getState)
-    }
+    await fetchOracleResponseById({
+      answerId: nextAnswerId - 2,
+      fromBlock:
+        height.block - options.counter
+          ? Math.round(options.counter / 13 + 30)
+          : 100
+    })(dispatch, getState)
 
     // Takes last block height minus 10 blocks (to make sure we get all the reqests)
 
@@ -193,9 +194,7 @@ const initContract = options => {
 
     // initalise listeners
 
-    if (options.counter) {
-      initListeners()(dispatch, getState)
-    }
+    initListeners()(dispatch, getState)
 
     if (options.history) {
       fetchAnswerHistory()(dispatch)
