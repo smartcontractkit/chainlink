@@ -37,6 +37,14 @@ Cypress.Commands.add(
   },
 )
 
+Cypress.Commands.add('getJobJson', () => {
+  cy.fixture('job').then(job => {
+    const port = Cypress.env('JOB_SERVER_PORT')
+    job.tasks[0].params.get = `http://localhost:${port}`
+    cy.wrap(JSON.stringify(job, null, 4))
+  })
+})
+
 // TODO - remove in future. Cypress potentially working on fix to 2 visit superdomain limit.
 // or refactor ete tests to not share state b/t tests
 // https://docs.cypress.io/guides/guides/web-security.html#One-Superdomain-per-Test

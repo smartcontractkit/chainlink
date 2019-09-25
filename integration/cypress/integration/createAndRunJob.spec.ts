@@ -5,10 +5,8 @@ context('End to end', function() {
     // Create Job
     cy.clickLink('New Job')
     cy.contains('h5', 'New Job').should('exist')
-    cy.fixture('job').then(job => {
-      const port = Cypress.env('JOB_SERVER_PORT')
-      job.tasks[0].params.get = `http://localhost:${port}`
-      cy.get('textarea[id=json]').paste(JSON.stringify(job, null, 4))
+    cy.getJobJson().then(jobJson => {
+      cy.get('textarea[id=json]').paste(jobJson)
     })
     cy.clickButton('Create Job')
     cy.contains('p', 'Successfully created job').should('exist')

@@ -5,8 +5,8 @@ context('End to end', function() {
     // Create Job
     cy.clickLink('New Job')
     cy.contains('h5', 'New Job').should('exist')
-    cy.fixture('job').then(job => {
-      cy.get('textarea[id=json]').paste(JSON.stringify(job, null, 4))
+    cy.getJobJson().then(jobJson => {
+      cy.get('textarea[id=json]').paste(jobJson)
     })
     cy.clickButton('Create Job')
     cy.contains('p', 'Successfully created job')
