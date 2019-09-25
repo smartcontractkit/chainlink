@@ -59,8 +59,8 @@ func TestHTTPGet_Perform(t *testing.T) {
 				"Key1": []string{"value"},
 				"Key2": []string{"value", "value"},
 			}, nil},
-		{"not found", http.StatusBadRequest, "inputValue", true, `<html>so bad</html>`, nil, nil},
-		{"server error", http.StatusBadRequest, "inputValue", true, `Invalid request`, nil, nil},
+		{"not found", http.StatusBadRequest, "", true, `<html>so bad</html>`, nil, nil},
+		{"server error", http.StatusBadRequest, "", true, `Invalid request`, nil, nil},
 		{"success with params", http.StatusOK, "results!", false, `results!`, nil,
 			adapters.QueryParameters{
 				"Key1": []string{"value0"},
@@ -89,9 +89,11 @@ func TestHTTPGet_Perform(t *testing.T) {
 
 			result := hga.Perform(input, store)
 
-			val, err := result.ResultString()
-			assert.NoError(t, err)
-			assert.Equal(t, test.want, val)
+			if !test.wantErrored {
+				val, err := result.ResultString()
+				assert.NoError(t, err)
+				assert.Equal(t, test.want, val)
+			}
 			assert.Equal(t, test.wantErrored, result.HasError())
 			assert.Equal(t, false, result.Status.PendingBridge())
 		})
@@ -122,7 +124,7 @@ func TestHTTP_TooLarge(t *testing.T) {
 
 			assert.Equal(t, true, result.HasError())
 			assert.Equal(t, "HTTP request too large, must be less than 1 bytes", result.Error())
-			assert.Equal(t, "inputValue", result.Result().String())
+			assert.Equal(t, "", result.Result().String())
 		})
 	}
 }
@@ -189,7 +191,7 @@ func TestHttpPost_Perform(t *testing.T) {
 		{
 			"not found",
 			http.StatusBadRequest,
-			"inputVal",
+			"",
 			`{"result":"inputVal"}`,
 			true,
 			`<html>so bad</html>`,
@@ -200,7 +202,7 @@ func TestHttpPost_Perform(t *testing.T) {
 		{
 			"server error",
 			http.StatusInternalServerError,
-			"inputVal",
+			"",
 			`{"result":"inputVal"}`,
 			true,
 			`big error`,
@@ -270,7 +272,7 @@ func TestHttpPost_Perform(t *testing.T) {
 
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())
-			assert.Equal(t, true, val.Exists())
+			assert.NotEqual(t, test.wantErrored, val.Exists())
 			assert.Equal(t, test.wantErrored, result.HasError())
 			assert.Equal(t, false, result.Status.PendingBridge())
 		})

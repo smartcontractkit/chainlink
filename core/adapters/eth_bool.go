@@ -18,13 +18,11 @@ type EthBool struct{}
 // ABI, it would be:
 // "0x0000000000000000000000000000000000000000000000000000000000000000"
 func (*EthBool) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	r := input.Result()
-	if boolean(r.Type) {
-		input.CompleteWithResult(evmTrue)
-		return input
+	if boolean(input.Result().Type) {
+		return models.RunResultComplete(evmTrue)
+	} else {
+		return models.RunResultComplete(evmFalse)
 	}
-	input.CompleteWithResult(evmFalse)
-	return input
 }
 
 func boolean(t gjson.Type) bool {
