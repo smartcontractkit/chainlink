@@ -2,8 +2,10 @@
 ;(async function() {
   const net = require('net')
 
-  const [response] = process.argv.slice(2)
-  const port = process.env.CYPRESS_JOB_SERVER_PORT
+  const [customResponse] = process.argv.slice(2)
+  const defaultResponse = '{"last": "3843.95"}'
+  const response = customResponse || defaultResponse
+  const port = process.env.CYPRESS_JOB_SERVER_PORT || 6692
 
   const server = new net.Server(socket => {
     socket.on('data', () => {
