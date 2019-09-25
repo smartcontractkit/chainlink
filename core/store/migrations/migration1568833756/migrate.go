@@ -39,7 +39,7 @@ type Initiator struct {
 // JSON parameters.
 func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&Initiator{}).Error; err != nil {
-		return errors.Wrap(err, "could not add 'text' field to Initiator table")
+		return errors.Wrap(err, "could not add fields 'names' and 'params' to the Initiator table")
 	}
 	return nil
 }
