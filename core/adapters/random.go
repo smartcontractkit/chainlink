@@ -16,10 +16,8 @@ func (ra *Random) Perform(input models.RunResult, _ *store.Store) models.RunResu
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.RunResultError(err)
 	}
 	ran := new(big.Int).SetBytes(b)
-	input.CompleteWithResult(ran.String())
-	return input
+	return models.RunResultComplete(ran.String())
 }

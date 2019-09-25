@@ -75,11 +75,9 @@ func (etx *EthTxABIEncode) Perform(
 			input.SetError(errors.Wrap(err, "while constructing EthTxABIEncode data"))
 			return input
 		}
-		createTxRunResult(etx.Address, etx.GasPrice, etx.GasLimit, data, &input, store)
-		return input
+		return createTxRunResult(etx.Address, etx.GasPrice, etx.GasLimit, data, input, store)
 	}
-	ensureTxRunResult(&input, store)
-	return input
+	return ensureTxRunResult(input, store)
 }
 
 // abiEncode ABI-encodes the arguments passed in a RunResult's result field
