@@ -164,6 +164,23 @@ launch_echo_server() {
   title "Echo server is running."
 }
 
+launch_cypress_job_server() {
+  printf -- "\033[34m%-50s\033[0m" "Checking for local job server"
+  if curl -s $CYPRESS_JOB_SERVER_URL >/dev/null; then
+    printf -- "[\033[32mrunning\033[0m]\n"
+    return
+  fi
+  printf -- "[\033[31mstopped\033[0m]\n"
+
+  title "Starting job server..."
+
+  yarn workspace @chainlink/integration cypressJobServer '{"last": "3843.95"}' &>/dev/null &
+  waitForResponse $CYPRESS_JOB_SERVER_URL
+
+  popd >/dev/null
+  title "Job server is running."
+}
+
 print_logs() {
   for log in $(find "$SRCROOT/integration" -maxdepth 1 -type f -iname '*.log'); do
     heading "$log"

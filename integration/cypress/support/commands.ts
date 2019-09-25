@@ -28,13 +28,11 @@ Cypress.Commands.add(
   { prevSubject: 'element' },
   (form: CypressChild, values: object) => {
     for (const field in values) {
-      if (values.hasOwnProperty(field)) {
-        const value = values[field]
-        cy.wrap(form)
-          .get(`input[name=${field}]`)
-          .clear()
-          .type(value)
-      }
+      const value = values[field]
+      cy.wrap(form)
+        .get(`input[name=${field}]`)
+        .clear()
+        .type(value)
     }
   },
 )
