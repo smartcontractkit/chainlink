@@ -165,7 +165,7 @@ launch_echo_server() {
 }
 
 launch_cypress_job_server() {
-  printf -- "\033[34m%-50s\033[0m" "Checking for local job server"
+  printf -- "\033[34m%-50s\033[0m" "Checking for cypress job server"
   if curl -s $CYPRESS_JOB_SERVER_URL >/dev/null; then
     printf -- "[\033[32mrunning\033[0m]\n"
     return
