@@ -31,7 +31,7 @@
     "migration:revert": "cross-env ts-node ./src/bin/migrator.ts revert",
     "test:migration:run": "NODE_ENV=test yarn migration:run",
     "test:migration:revert": "NODE_ENV=test yarn migration:revert",
-    "automigrate": "md5sum -c .migrations.${NODE_ENV:-dev}.md5 2>/dev/null || yarn migration:run && md5sum src/bin/migrator.ts src/migration/* > .migrations.${NODE_ENV:-dev}.md5",
+    "automigrate": "cross-env md5sum -c .migrations.${NODE_ENV:-dev}.md5 2>/dev/null || yarn migration:run && md5sum src/bin/migrator.ts src/migration/* > .migrations.${NODE_ENV:-dev}.md5",
     "setup": "yarn automigrate"
   },
   "main": "src/index.ts",
