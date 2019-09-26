@@ -11,7 +11,8 @@
     "eslint": "eslint --ext .js,.jsx,.ts,.tsx src stories @types",
     "lint": "tsc --noEmit && yarn eslint",
     "format": "prettier --write \"**/*\"",
-    "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true"
+    "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true",
+    "setup": "yarn build"
   },
   "dependencies": {
     "@material-ui/core": "^3.9.2",

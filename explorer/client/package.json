@@ -26,6 +26,7 @@
     "build": "craco build",
     "lint": "eslint --ext .js,.ts,.tsx,.jsx src",
     "format": "prettier --write \"**/*\"",
+    "setup": "echo \"No setup required for @chainlink/explorer-client\"",
     "test": "react-scripts test",
     "test-ci": "CI=true react-scripts test",
     "test-ci:silent": "yarn test-ci --silent",

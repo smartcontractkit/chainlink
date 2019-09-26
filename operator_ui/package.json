@@ -17,6 +17,7 @@
     "test": "jest",
     "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%",
     "watch": "yarn test --watchAll --notify",
+    "setup": "echo \"No setup required for @chainlink/operator-ui\"",
     "depcheck": "echo '@chainlink/operator-ui' && depcheck --ignore-dirs=dist || true"
   },
   "dependencies": {

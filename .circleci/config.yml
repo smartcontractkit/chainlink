@@ -50,6 +50,15 @@ jobs:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - restore_cache:
           name: Restore Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
       - run: go mod download
@@ -58,6 +67,7 @@ jobs:
           key: go-mod-{{ checksum "go.sum" }}
           paths:
             - "/go/pkg/mod"
+      - run: yarn workspace chainlink run setup
       - run: go test -p 3 -parallel 2 ./...
   rust:
     docker:
@@ -225,6 +235,7 @@ jobs:
       - run:
           name: Run Lint
           command: yarn workspace @chainlink/explorer run lint
+      - run: yarn workspace @chainlink/explorer run test:migration:run
       - run:
           name: Run Server Tests
           command: yarn workspace @chainlink/explorer run test-ci:silent
