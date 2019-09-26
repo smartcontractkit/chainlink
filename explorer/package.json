@@ -32,6 +32,7 @@
     "migration:run": "ts-node ./src/bin/migrator.ts migrate",
     "migration:revert": "ts-node ./src/bin/migrator.ts revert",
     "test:migration:run": "cross-env TYPEORM_NAME=test ts-node ./src/bin/migrator.ts migrate",
+    "test:migration:revert": "cross-env TYPEORM_NAME=test ts-node ./src/bin/migrator.ts revert",
     "autosetup": "yarn install && yarn automigrate",
     "automigrate": "md5sum -c .migrations.${TYPEORM_NAME:-dev}.md5 2>/dev/null || yarn migration:run && md5sum src/bin/migrator.ts src/migration/* > .migrations.${TYPEORM_NAME:-dev}.md5",
     "addclnode": "ts-node src/bin/clnodes.ts add",

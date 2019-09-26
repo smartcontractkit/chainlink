@@ -1,9 +1,10 @@
 import { getDb } from '../database'
-import { JobRun } from '../entity/JobRun'
 import { Router, Request, Response } from 'express'
 import { search, count, SearchParams } from '../queries/search'
 import jobRunsSerializer from '../serializers/jobRunsSerializer'
 import jobRunSerializer from '../serializers/jobRunSerializer'
+import { getCustomRepository } from 'typeorm'
+import { JobRunRepository } from '../repositories/JobRunRepository'
 
 const router = Router()
 
@@ -33,14 +34,8 @@ router.get('/job_runs', async (req: Request, res: Response) => {
 router.get('/job_runs/:id', async (req: Request, res: Response) => {
   const id = req.params.id
   const db = await getDb()
-  const jobRun = await db
-    .getRepository(JobRun)
-    .createQueryBuilder('job_run')
-    .leftJoinAndSelect('job_run.taskRuns', 'task_run')
-    .leftJoinAndSelect('job_run.chainlinkNode', 'chainlink_node')
-    .orderBy('job_run.createdAt, task_run.index', 'ASC')
-    .where('job_run.id = :id', { id })
-    .getOne()
+  const jobRunRepository = getCustomRepository(JobRunRepository, db.name)
+  const jobRun = await jobRunRepository.findById(id)
 
   if (jobRun) {
     const json = jobRunSerializer(jobRun)
