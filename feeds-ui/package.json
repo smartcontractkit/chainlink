@@ -12,7 +12,6 @@
     "express": "^4.17.1",
     "lodash": "^4.17.15",
     "moment": "^2.24.0",
-    "path": "^0.12.7",
     "prettier": "^1.18.2",
     "query-string": "^6.8.3",
     "react": "^16.9.0",
