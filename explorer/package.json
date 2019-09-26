@@ -86,7 +86,7 @@
     "supertest": "^4.0.2",
     "ts-jest": "^24.0.0",
     "ts-node-dev": "^1.0.0-pre.40",
-    "typescript": "^3.5.0"
+    "typescript": "^3.6.3"
   },
   "prettier": "@chainlink/prettier-config"
 }

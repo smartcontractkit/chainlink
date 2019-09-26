@@ -24,7 +24,7 @@
     "react-dom": "^16.7.0",
     "react-time-ago": "^5.0.2",
     "storybook-addon-material-ui": "^0.9.0-alpha.16",
-    "typescript": "^3.5.0"
+    "typescript": "^3.6.3"
   },
   "devDependencies": {
     "@babel/core": "^7.2.2",
