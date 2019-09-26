@@ -12,6 +12,6 @@ exec(`yarn workspace chainlink run ${task}`, (err, stdout, stderr) => {
     console.log(stdout)
   }
   if (stderr) {
-    console.log(stderr)
+    console.error(stderr)
   }
 })
