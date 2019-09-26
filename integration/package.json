@@ -10,7 +10,7 @@
     "lint": "yarn eslint",
     "format": "prettier --write \"**/*\"",
     "depcheck": "echo '@chainlink/integration' && depcheck || true",
-    "setup": "echo \"No setup required for @chainlink/integration\" && exit 0",
+    "setup": "echo \"No setup required for @chainlink/integration\"",
     "truffle:migrate": "truffle migrate --compile-all --reset --network test",
     "truffle:exec:send-runlog-transaction": "truffle exec scripts/send_runlog_transaction.js --network test",
     "truffle:exec:count-transaction-events": "truffle exec scripts/count_transaction_events.js --network test"

@@ -13,7 +13,7 @@
     "format": "prettier --write \"**/*\"",
     "migrate:dev": "npx truffle migrate --reset --network cldev",
     "migrate:live": "npx truffle migrate --network live",
-    "setup": "echo \"No setup required for @chainlink/box\" && exit 0",
+    "setup": "echo \"No setup required for @chainlink/box\"",
     "test": "npx truffle test"
   },
   "license": "MIT",
