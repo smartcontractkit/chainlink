@@ -42,6 +42,9 @@ export function createWallet(
     throw Error(`Account index must be greater than 0, got ${accountIndex}`)
   }
 
+  /**
+   * THIS IS FOR TESTING PURPOSES ONLY
+   */
   const mnemonicPhrase =
     'dose weasel clever culture letter volume endorse used harvest ripple circle install'
   const web3Provider = new ethers.providers.Web3Provider(provider)
