@@ -16,9 +16,9 @@
     "explorer"
   ],
   "scripts": {
-    "lint:all": "yarn workspaces run lint",
-    "format:all": "yarn workspaces run format",
-    "setup:all": "yarn workspaces run setup"
+    "lint": "yarn workspaces run lint",
+    "format": "yarn workspaces run format",
+    "setup": "yarn workspaces run setup"
   },
   "devDependencies": {},
   "resolutions": {
