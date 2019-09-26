@@ -9,8 +9,10 @@
     "eslint-plugin-prettier": "^3.1.0",
     "eslint-plugin-react": "^7.14.3",
     "ethers": "^4.0.36",
+    "express": "^4.17.1",
     "lodash": "^4.17.15",
     "moment": "^2.24.0",
+    "path": "^0.12.7",
     "prettier": "^1.18.2",
     "query-string": "^6.8.3",
     "react": "^16.9.0",
@@ -33,7 +35,9 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "build-theme": "lessc --js src/theme/theme.less src/theme.css",
-    "watch-theme": "less-watch-compiler --enable-js src/theme src theme.less"
+    "watch-theme": "less-watch-compiler --enable-js src/theme src theme.less",
+    "server": "node server",
+    "build:start": "npm run build && npm run server"
   },
   "eslintConfig": {
     "extends": "react-app"
