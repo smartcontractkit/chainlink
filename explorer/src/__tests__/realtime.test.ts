@@ -1,5 +1,5 @@
 import { Server } from 'http'
-import { Connection } from 'typeorm'
+import { Connection, getCustomRepository } from 'typeorm'
 import WebSocket from 'ws'
 import { closeDbConnection, getDb } from '../database'
 import { ChainlinkNode, createChainlinkNode } from '../entity/ChainlinkNode'
@@ -15,6 +15,7 @@ import {
   NORMAL_CLOSE,
   SECRET_HEADER,
 } from '../utils/constants'
+import { JobRunRepository } from '../repositories/JobRunRepository'
 
 const ENDPOINT = `ws://localhost:${DEFAULT_TEST_PORT}`
 
@@ -146,12 +147,8 @@ describe('realtime', () => {
     const taskRunCount = await db.manager.count(TaskRun)
     expect(taskRunCount).toEqual(4)
 
-    const jr = await db
-      .getRepository(JobRun)
-      .createQueryBuilder('jobRun')
-      .leftJoinAndSelect('jobRun.taskRuns', 'taskRun')
-      .orderBy('taskRun.index', 'ASC')
-      .getOne()
+    const jobRunRepository = getCustomRepository(JobRunRepository, db.name)
+    const jr = await jobRunRepository.getFirst()
 
     expect(jr.status).toEqual('completed')
 

@@ -1,8 +1,9 @@
-import { Connection } from 'typeorm'
+import { Connection, getCustomRepository } from 'typeorm'
 import { closeDbConnection, getDb } from '../../database'
 import { createChainlinkNode } from '../../entity/ChainlinkNode'
 import { fromString, JobRun, saveJobRunTree } from '../../entity/JobRun'
 import fixture from '../fixtures/JobRun.fixture.json'
+import { JobRunRepository } from '../../repositories/JobRunRepository'
 
 let db: Connection
 
@@ -33,13 +34,8 @@ describe('entity/taskRun', () => {
       [jr.id],
     )
 
-    const retrieved = await db
-      .getRepository(JobRun)
-      .createQueryBuilder('jobRun')
-      .leftJoinAndSelect('jobRun.taskRuns', 'taskRun')
-      .where('jobRun.id = :id', { id: jr.id })
-      .orderBy('taskRun.index', 'ASC')
-      .getOne()
+    const jobRunRepository = getCustomRepository(JobRunRepository, db.name)
+    const retrieved = await jobRunRepository.getFirst()
 
     const task = retrieved.taskRuns[1]
 
