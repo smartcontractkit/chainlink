@@ -1,20 +1,21 @@
 import { Server } from 'http'
+import { Connection, getCustomRepository } from 'typeorm'
 import WebSocket from 'ws'
-import { start as startServer, DEFAULT_TEST_PORT } from '../support/server'
-import { Connection } from 'typeorm'
 import { closeDbConnection, getDb } from '../database'
+import { ChainlinkNode, createChainlinkNode } from '../entity/ChainlinkNode'
+import { JobRun } from '../entity/JobRun'
+import { TaskRun } from '../entity/TaskRun'
+import { DEFAULT_TEST_PORT, start as startServer } from '../support/server'
 import ethtxFixture from './fixtures/JobRun.ethtx.fixture.json'
 import createFixture from './fixtures/JobRun.fixture.json'
 import updateFixture from './fixtures/JobRunUpdate.fixture.json'
-import { JobRun } from '../entity/JobRun'
-import { TaskRun } from '../entity/TaskRun'
-import { ChainlinkNode, createChainlinkNode } from '../entity/ChainlinkNode'
 import { clearDb } from './testdatabase'
 import {
   ACCESS_KEY_HEADER,
   NORMAL_CLOSE,
   SECRET_HEADER,
 } from '../utils/constants'
+import { JobRunRepository } from '../repositories/JobRunRepository'
 
 const ENDPOINT = `ws://localhost:${DEFAULT_TEST_PORT}`
 
@@ -125,7 +126,7 @@ describe('realtime', () => {
   })
 
   it('can create a task run with transactionHash and status', async () => {
-    expect.assertions(7)
+    expect.assertions(10)
 
     const ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
 
@@ -146,7 +147,9 @@ describe('realtime', () => {
     const taskRunCount = await db.manager.count(TaskRun)
     expect(taskRunCount).toEqual(4)
 
-    const jr = await db.manager.findOne(JobRun)
+    const jobRunRepository = getCustomRepository(JobRunRepository, db.name)
+    const jr = await jobRunRepository.getFirst()
+
     expect(jr.status).toEqual('completed')
 
     const tr = jr.taskRuns[3]
@@ -154,6 +157,9 @@ describe('realtime', () => {
     expect(tr.transactionHash).toEqual(
       '0x1111111111111111111111111111111111111111111111111111111111111111',
     )
+    expect(tr.timestamp).toEqual(new Date('2018-01-08T18:12:01.103Z'))
+    expect(tr.blockHeight).toEqual('3735928559')
+    expect(tr.blockHash).toEqual('0xbadc0de5')
     expect(tr.transactionStatus).toEqual('fulfilledRunLog')
     ws.close()
   })
