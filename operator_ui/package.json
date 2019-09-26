@@ -96,7 +96,7 @@
     "react-static-plugin-typescript": "^7.0.0",
     "redux-mock-store": "^1.5.3",
     "serve": "^10.0.0",
-    "typescript": "^3.5.0"
+    "typescript": "^3.6.3"
   },
   "prettier": "@chainlink/prettier-config"
 }
