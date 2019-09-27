@@ -1,6 +1,8 @@
 import { ethers } from 'ethers'
 import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
+import { Oracle } from 'contracts/Oracle'
+import { LinkTokenInterface } from 'contracts/LinkTokenInterface'
 
 export interface Roles {
   defaultAccount: ethers.Wallet
@@ -21,7 +23,7 @@ export interface Personas {
   Eddy: ethers.Wallet
 }
 
-interface RolesAndPersonasV2 {
+interface RolesAndPersonas {
   roles: Roles
   personas: Personas
 }
@@ -31,7 +33,7 @@ interface RolesAndPersonasV2 {
  */
 export async function initializeRolesAndPersonas(
   provider: ethers.providers.AsyncSendable,
-): Promise<RolesAndPersonasV2> {
+): Promise<RolesAndPersonas> {
   const accounts = await Promise.all(
     Array(6)
       .fill(null)
@@ -132,7 +134,7 @@ export function toWei(
   return utils.parseEther(...args)
 }
 
-export function decodeRunRequest(log: any): RunRequest {
+export function decodeRunRequest(log: ethers.providers.Log): RunRequest {
   const types = [
     'address',
     'bytes32',
@@ -220,12 +222,12 @@ export function toUtf8(
 }
 
 export async function fulfillOracleRequest(
-  oracleContract: ethers.Contract,
+  oracleContract: Oracle,
   runRequest: RunRequest,
   response: string,
   options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},
-): Promise<ethers.ContractTransaction> {
-  return oracleContract.fulfillOracleRequest(
+): ReturnType<typeof oracleContract.functions.fulfillOracleRequest> {
+  return oracleContract.functions.fulfillOracleRequest(
     runRequest.id,
     runRequest.payment,
     runRequest.callbackAddr,
@@ -273,15 +275,16 @@ export function requestDataBytes(
 
 // link param must be from linkContract(), if amount is a BN
 export function requestDataFrom(
-  oc: ethers.Contract,
-  link: ethers.Contract,
+  oc: Oracle,
+  link: LinkTokenInterface,
   amount: number,
   args: string,
   options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},
-): Promise<ethers.ContractTransaction> {
+): ReturnType<typeof link.functions.transferAndCall> {
   if (!options) {
     options = { value: 0 }
   }
+
   return link.transferAndCall(oc.address, amount, args, options)
 }
 
