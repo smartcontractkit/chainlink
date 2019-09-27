@@ -24,7 +24,7 @@
     "babel-jest": "^24.1.0",
     "body-parser": "^1.18.3",
     "command-line-args": "^5.1.1",
-    "cross-env": "^5.2.0",
+    "cross-env": "^6.0.0",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",
     "ethers": "^4.0.36",
