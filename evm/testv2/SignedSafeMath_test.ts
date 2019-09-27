@@ -4,7 +4,6 @@ import { ethers } from 'ethers'
 import ganache from 'ganache-core'
 import { AbstractContract } from '../src/contract'
 import { createFundedWallet } from '../src/wallet'
-
 const ConcreteSignedSafeMathStatic = AbstractContract.fromArtifactName(
   'ConcreteSignedSafeMath',
 ).toStatic()
@@ -18,6 +17,7 @@ before(async () => {
 
 describe('SignedSafeMath', () => {
   // a version of the adder contract where we make all ABI exposed functions constant
+  // TODO: submit upstream PR to support constant contract type generation
   let adderStatic: ethers.Contract
 
   let response
