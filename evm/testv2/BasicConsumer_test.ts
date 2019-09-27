@@ -6,10 +6,12 @@ import ganache from 'ganache-core'
 import { ethers } from 'ethers'
 import { assert } from 'chai'
 import { linkToken } from '../src/linkToken'
-
-const BasicConsumer = AbstractContract.fromArtifactName('BasicConsumer')
-const Oracle = AbstractContract.fromArtifactName('Oracle')
-const Link = AbstractContract.fromBuildArtifact(linkToken)
+import { LinkTokenInterface } from 'contracts/LinkTokenInterface'
+import { Oracle } from 'contracts/Oracle'
+import { BasicConsumer } from 'contracts/BasicConsumer'
+const BasicConsumerContract = AbstractContract.fromArtifactName('BasicConsumer')
+const OracleContract = AbstractContract.fromArtifactName('Oracle')
+const LinkContract = AbstractContract.fromBuildArtifact(linkToken)
 
 // create a web3js instance connected to in-memory ganache blockchain
 const ganacheProvider: any = ganache.provider()
@@ -29,14 +31,14 @@ describe('BasicConsumer', () => {
   const specId = '0x4c7b7ffb66b344fbaa64995af81e355a'.padEnd(66, '0')
 
   const currency = 'USD'
-  let link: ethers.Contract
-  let oc: ethers.Contract
-  let cc: ethers.Contract
+  let link: LinkTokenInterface
+  let oc: Oracle
+  let cc: BasicConsumer
 
   beforeEach(async () => {
-    link = await Link.deploy(roles.defaultAccount)
-    oc = await Oracle.deploy(roles.oracleNode, [link.address])
-    cc = await BasicConsumer.deploy(roles.defaultAccount, [
+    link = await LinkContract.deploy(roles.defaultAccount)
+    oc = await OracleContract.deploy(roles.oracleNode, [link.address])
+    cc = await BasicConsumerContract.deploy(roles.defaultAccount, [
       link.address,
       oc.address,
       specId,
@@ -52,20 +54,18 @@ describe('BasicConsumer', () => {
     context('without LINK', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await cc.requestEthereumPrice(currency)
+          await cc.functions.requestEthereumPrice(currency)
         })
       })
     })
 
     context('with LINK', () => {
       beforeEach(async () => {
-        await link.transfer(cc.address, ethers.utils.parseEther('1'))
+        await link.functions.transfer(cc.address, ethers.utils.parseEther('1'))
       })
 
       it('triggers a log event in the Oracle contract', async () => {
-        const tx: ethers.ContractTransaction = await cc.requestEthereumPrice(
-          currency,
-        )
+        const tx = await cc.functions.requestEthereumPrice(currency)
         const receipt = await tx.wait()
         const log = receipt.logs![3]
         assert.equal(log.address, oc.address)
@@ -85,9 +85,7 @@ describe('BasicConsumer', () => {
       })
 
       it('has a reasonable gas cost', async () => {
-        const tx: ethers.ContractTransaction = await cc.requestEthereumPrice(
-          currency,
-        )
+        const tx = await cc.functions.requestEthereumPrice(currency)
         const receipt = await tx.wait()
         assert.isBelow(receipt.gasUsed!.toNumber(), 120000)
       })
@@ -100,9 +98,7 @@ describe('BasicConsumer', () => {
 
     beforeEach(async () => {
       await link.transfer(cc.address, h.toWei('1'))
-      const tx: ethers.ContractTransaction = await cc.requestEthereumPrice(
-        currency,
-      )
+      const tx = await cc.functions.requestEthereumPrice(currency)
       const receipt = await tx.wait()
       request = h.decodeRunRequest(receipt.logs![3])
     })
@@ -115,12 +111,12 @@ describe('BasicConsumer', () => {
         { gasLimit: 1000000 }, // FIXME: incorrect gas estimation
       )
 
-      const currentPrice = await cc.currentPrice()
+      const currentPrice = await cc.functions.currentPrice()
       assert.equal(currentPrice, response)
     })
 
     it('logs the data given to it by the oracle', async () => {
-      const tx: ethers.ContractTransaction = await h.fulfillOracleRequest(
+      const tx = await h.fulfillOracleRequest(
         oc.connect(roles.oracleNode),
         request,
         response,
@@ -161,7 +157,7 @@ describe('BasicConsumer', () => {
           { gasLimit: 1000000 }, // FIXME: incorrect gas estimation
         )
 
-        const received = await cc.currentPrice()
+        const received = await cc.functions.currentPrice()
 
         assert.equal(received, ethers.constants.HashZero)
       })
@@ -173,7 +169,7 @@ describe('BasicConsumer', () => {
           await cc.connect(roles.oracleNode).fulfill(request.id, response)
         })
 
-        const received = await cc.currentPrice()
+        const received = await cc.functions.currentPrice()
         assert.equal(received, ethers.constants.HashZero)
       })
     })
@@ -185,9 +181,7 @@ describe('BasicConsumer', () => {
 
     beforeEach(async () => {
       await link.transfer(cc.address, depositAmount)
-      const tx: ethers.ContractTransaction = await cc.requestEthereumPrice(
-        currency,
-      )
+      const tx = await cc.functions.requestEthereumPrice(currency)
       const receipt = await tx.wait()
       request = h.decodeRunRequest(receipt.logs![3])
     })
@@ -197,7 +191,7 @@ describe('BasicConsumer', () => {
         await h.assertActionThrows(async () => {
           await cc
             .connect(roles.consumer)
-            .cancelRequest(
+            .functions.cancelRequest(
               request.id,
               request.payment,
               request.callbackFunc,
@@ -213,7 +207,7 @@ describe('BasicConsumer', () => {
 
         await cc
           .connect(roles.consumer)
-          .cancelRequest(
+          .functions.cancelRequest(
             request.id,
             request.payment,
             request.callbackFunc,
@@ -227,16 +221,16 @@ describe('BasicConsumer', () => {
     const depositAmount = h.toWei('1')
 
     beforeEach(async () => {
-      await link.transfer(cc.address, depositAmount)
-      const balance = await link.balanceOf(cc.address)
+      await link.functions.transfer(cc.address, depositAmount)
+      const balance = (await link.functions.balanceOf(cc.address)) as any
       assertBigNum(balance, depositAmount)
     })
 
     it('transfers LINK out of the contract', async () => {
-      await cc.connect(roles.consumer).withdrawLink()
-      const ccBalance = await link.balanceOf(cc.address)
+      await cc.connect(roles.consumer).functions.withdrawLink()
+      const ccBalance = (await link.functions.balanceOf(cc.address)) as any
       const consumerBalance = ethers.utils.bigNumberify(
-        await link.balanceOf(roles.consumer.address),
+        (await link.functions.balanceOf(roles.consumer.address)) as any,
       )
       assertBigNum(ccBalance, 0)
       assertBigNum(consumerBalance, depositAmount)
