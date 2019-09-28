@@ -109,7 +109,6 @@ describe('BasicConsumer', () => {
         oc.connect(roles.oracleNode),
         request,
         response,
-        { gasLimit: 1000000 }, // FIXME: incorrect gas estimation
       )
 
       const currentPrice = await cc.currentPrice()
@@ -121,7 +120,6 @@ describe('BasicConsumer', () => {
         oc.connect(roles.oracleNode),
         request,
         response,
-        { gasLimit: 1000000 }, // FIXME: incorrect gas estimation
       )
       const receipt = await tx.wait()
       assert.equal(2, receipt.logs!.length)
@@ -155,12 +153,11 @@ describe('BasicConsumer', () => {
           oc.connect(roles.oracleNode),
           otherRequest,
           response,
-          { gasLimit: 1000000 }, // FIXME: incorrect gas estimation
         )
 
         const received = await cc.currentPrice()
 
-        assert.equal(received, ethers.constants.HashZero)
+        assert.equal(ethers.utils.parseBytes32String(received), '')
       })
     })
 
@@ -171,7 +168,7 @@ describe('BasicConsumer', () => {
         })
 
         const received = await cc.currentPrice()
-        assert.equal(received, ethers.constants.HashZero)
+        assert.equal(ethers.utils.parseBytes32String(received), '')
       })
     })
   })
