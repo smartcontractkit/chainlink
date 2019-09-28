@@ -12,7 +12,8 @@
     "format": "prettier --write \"**/*\"",
     "slither": "truffle compile --quiet && slither .",
     "setup": "cross-env ./scripts/build.js",
-    "test": "truffle test"
+    "test": "truffle test",
+    "postinstall": "exit 0"
   },
   "dependencies": {
     "bn.js": "^4.11.0",

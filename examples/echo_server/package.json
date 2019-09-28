@@ -10,6 +10,7 @@
     "lint": "yarn eslint && yarn solhint",
     "format": "prettier --write \"**/*\"",
     "setup": "echo \"No setup required for @chainlink/example-echo-server\"",
+    "postinstall": "exit 0",
     "test": "truffle test"
   },
   "dependencies": {

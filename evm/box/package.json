@@ -14,7 +14,8 @@
     "migrate:dev": "npx truffle migrate --reset --network cldev",
     "migrate:live": "npx truffle migrate --network live",
     "setup": "echo \"No setup required for @chainlink/box\"",
-    "test": "npx truffle test"
+    "test": "npx truffle test",
+    "postinstall": "exit 0"
   },
   "license": "MIT",
   "dependencies": {

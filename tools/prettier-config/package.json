@@ -8,6 +8,7 @@
   "scripts": {
     "format": "echo \"No formatter configured for @chainlink/prettier-config\"",
     "lint": "echo \"No linter configured for @chainlink/prettier-config\"",
-    "setup": "echo \"No setup required for @chainlink/prettier-config\""
+    "setup": "echo \"No setup required for @chainlink/prettier-config\"",
+    "postinstall": "exit 0"
   }
 }

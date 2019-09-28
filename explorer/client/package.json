@@ -23,6 +23,7 @@
     "start": "cross-env PORT=3001 craco start",
     "build:clean": "rm -rf build",
     "prebuild": "yarn install",
+    "postinstall": "exit 0",
     "build": "craco build",
     "lint": "eslint --ext .js,.ts,.tsx,.jsx src",
     "format": "prettier --write \"**/*\"",

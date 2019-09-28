@@ -12,7 +12,8 @@
     "lint": "tsc --noEmit && yarn eslint",
     "format": "prettier --write \"**/*\"",
     "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true",
-    "setup": "yarn build"
+    "setup": "yarn build",
+    "postinstall": "exit 0"
   },
   "dependencies": {
     "@material-ui/core": "^3.9.2",
