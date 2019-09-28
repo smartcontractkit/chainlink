@@ -18,6 +18,7 @@
     "build": "yarn workspace @chainlink/explorer-client run build",
     "prod": "yarn migration:run && ts-node ./src/index.ts",
     "pretest": "NODE_ENV=test yarn automigrate",
+    "postinstall": "exit 0",
     "test": "yarn jest --runInBand --detectOpenHandles",
     "test-ci": "yarn jest src/__tests__ --runInBand --detectOpenHandles",
     "test-ci:e2e": "yarn build && yarn test-ci:e2e:no-build",

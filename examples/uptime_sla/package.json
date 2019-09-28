@@ -8,6 +8,7 @@
     "eslint": "eslint --ext .js,.ts .",
     "solhint": "solhint ./contracts/**/*.sol",
     "lint": "yarn eslint && yarn solhint",
+    "postinstall": "exit 0",
     "format": "prettier --write \"**/*\"",
     "setup": "echo \"No setup required for @chainlink/example-uptime-sla\"",
     "test": "truffle test"

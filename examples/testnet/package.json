@@ -7,6 +7,7 @@
     "depcheck": "echo \"@chainlink/example-testnet\" && depcheck --ignore-dirs=contracts || true",
     "eslint": "eslint --ext .js,.ts .",
     "solhint": "solhint ./contracts/**/*.sol",
+    "postinstall": "exit 0",
     "lint": "yarn eslint && yarn solhint",
     "format": "prettier --write \"**/*\"",
     "setup": "echo \"No setup required for @chainlink/example-testnet\""

@@ -11,7 +11,8 @@
     "eslint:config:base": "eslint -c ./base.js --print-config ./base",
     "eslint:config:node": "eslint -c ./node.js --print-config ./base",
     "eslint:config:react": "eslint -c ./react.js --print-config ./base",
-    "setup": "echo \"No setup required for @chainlink/eslint-config\""
+    "setup": "echo \"No setup required for @chainlink/eslint-config\"",
+    "postinstall": "exit 0"
   },
   "peerDependencies": {
     "@chainlink/prettier-config": "0.0.1",
