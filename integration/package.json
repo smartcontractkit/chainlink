@@ -4,7 +4,7 @@
   "version": "0.6.0",
   "license": "MIT",
   "scripts": {
-    "cypressJobServer": "node cypress/support/cypressJobServer.js",
+    "cypressJobServer": "cross-env ts-node cypress/support/cypressJobServer.ts",
     "depcheck": "echo '@chainlink/integration' && depcheck || true",
     "eslint": "eslint --ext .js,.ts .",
     "format": "prettier --write \"**/*\"",
@@ -37,6 +37,7 @@
     "solc": "0.4.24",
     "truffle": "^5.0.25",
     "ts-loader": "^6.1.0",
+    "ts-node": "^8.4.1",
     "typescript": "^3.6.3",
     "webpack": "^4.40.2",
     "webpack-cli": "^3.3.9"
