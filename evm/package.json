@@ -56,7 +56,8 @@
     "solc": "0.4.24",
     "solhint": "^2.1.0",
     "truffle": "^5.0.25",
-    "typechain": "^0.3.21",
+    "typechain": "1.0.0-beta.2",
+    "typechain-target-ethers": "^1.0.0-beta.1",
     "typescript": "^3.6.3"
   },
   "prettier": "@chainlink/prettier-config",
