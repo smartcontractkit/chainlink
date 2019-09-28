@@ -92,7 +92,7 @@ export async function assertActionThrows(action: AsyncFunction) {
 }
 
 export function checkPublicABI(
-  contract: ethers.Contract,
+  contract: ethers.Contract | ethers.ContractFactory,
   expectedPublic: string[],
 ) {
   const actualPublic = []
@@ -134,7 +134,11 @@ export function toWei(
   return utils.parseEther(...args)
 }
 
-export function decodeRunRequest(log: ethers.providers.Log): RunRequest {
+export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
+  if (!log) {
+    throw Error('No logs found to decode')
+  }
+
   const types = [
     'address',
     'bytes32',
@@ -221,13 +225,24 @@ export function toUtf8(
   return ethers.utils.toUtf8Bytes(...args)
 }
 
+/**
+ * Compute the keccak256 cryptographic hash of a value, returned as a hex string.
+ * (Note: often Ethereum documentation refers to this, incorrectly, as SHA3)
+ * @param args The data to compute the keccak256 hash of
+ */
+export function keccak(
+  ...args: Parameters<typeof ethers.utils.keccak256>
+): ReturnType<typeof ethers.utils.keccak256> {
+  return utils.keccak256(...args)
+}
+
 export async function fulfillOracleRequest(
   oracleContract: Oracle,
   runRequest: RunRequest,
   response: string,
   options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},
-): ReturnType<typeof oracleContract.functions.fulfillOracleRequest> {
-  return oracleContract.functions.fulfillOracleRequest(
+): ReturnType<typeof oracleContract.fulfillOracleRequest> {
+  return oracleContract.fulfillOracleRequest(
     runRequest.id,
     runRequest.payment,
     runRequest.callbackAddr,
@@ -280,7 +295,7 @@ export function requestDataFrom(
   amount: number,
   args: string,
   options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},
-): ReturnType<typeof link.functions.transferAndCall> {
+): ReturnType<typeof link.transferAndCall> {
   if (!options) {
     options = { value: 0 }
   }

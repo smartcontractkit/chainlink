@@ -6,7 +6,6 @@
 
 import * as ethers from 'ethers'
 import { makeDebug } from './debug'
-import { Contract } from 'ethers'
 const debug = makeDebug('abstractContract')
 
 interface NetworkMapping {
@@ -114,10 +113,7 @@ export class AbstractContract {
    * @param args Optional arguments to pass to contract constructor
    * @returns New contract instance
    */
-  public async deploy<T extends Contract>(
-    wallet: ethers.Wallet,
-    args: any[] = [],
-  ): Promise<T> {
+  public async deploy<T>(wallet: ethers.Wallet, args: any[] = []): Promise<T> {
     if (!wallet.provider) {
       throw new Error('Signer requires provider')
     }
@@ -134,7 +130,7 @@ export class AbstractContract {
     )
 
     const contract = await contractFactory.deploy(...args)
-    return contract as T
+    return (contract as any) as T
   }
 
   /**

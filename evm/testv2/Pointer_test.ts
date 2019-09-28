@@ -33,7 +33,7 @@ describe('Pointer', () => {
 
   describe('#getAddress', () => {
     it('returns the LINK token address', async () => {
-      assert.equal(await contract.functions.getAddress(), link.address)
+      assert.equal(await contract.getAddress(), link.address)
     })
   })
 })
