@@ -5,6 +5,7 @@ import { linkToken } from '../src/linkToken'
 import { assert } from 'chai'
 import { Pointer } from 'contracts/Pointer'
 import { LinkTokenInterface } from 'contracts/LinkTokenInterface'
+import { FF } from 'src/types'
 const PointerContract = AbstractContract.fromArtifactName('Pointer')
 const LinkContract = AbstractContract.fromBuildArtifact(linkToken)
 let roles: h.Roles
@@ -17,8 +18,8 @@ before(async () => {
 })
 
 describe('Pointer', () => {
-  let contract: Pointer
-  let link: LinkTokenInterface
+  let contract: FF<Pointer>
+  let link: FF<LinkTokenInterface>
 
   beforeEach(async () => {
     link = await LinkContract.deploy(roles.defaultAccount)
@@ -33,7 +34,7 @@ describe('Pointer', () => {
 
   describe('#getAddress', () => {
     it('returns the LINK token address', async () => {
-      assert.equal(await contract.functions.getAddress(), link.address)
+      assert.equal(await contract.getAddress(), link.address)
     })
   })
 })

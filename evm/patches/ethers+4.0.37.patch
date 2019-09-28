@@ -1,0 +1,12 @@
+diff --git a/node_modules/ethers/contract.d.ts b/node_modules/ethers/contract.d.ts
+index 8915174..e591691 100644
+--- a/node_modules/ethers/contract.d.ts
++++ b/node_modules/ethers/contract.d.ts
+@@ -47,7 +47,6 @@ export declare class Contract {
+     readonly estimate: Bucket<(...params: Array<any>) => Promise<BigNumber>>;
+     readonly functions: Bucket<ContractFunction>;
+     readonly filters: Bucket<(...params: Array<any>) => EventFilter>;
+-    readonly [name: string]: ContractFunction | any;
+     readonly addressPromise: Promise<string>;
+     readonly deployTransaction: TransactionResponse;
+     private _deployedPromise;
