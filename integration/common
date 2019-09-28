@@ -177,7 +177,6 @@ launch_cypress_job_server() {
   yarn workspace @chainlink/integration cypressJobServer '{"last": "3843.95"}' &>/dev/null &
   waitForResponse $CYPRESS_JOB_SERVER_URL
 
-  popd >/dev/null
   title "Job server is running."
 }
 
