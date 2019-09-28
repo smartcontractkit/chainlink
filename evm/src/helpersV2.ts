@@ -241,7 +241,9 @@ export async function fulfillOracleRequest(
   oracleContract: FF<Oracle>,
   runRequest: RunRequest,
   response: string,
-  options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},
+  options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {
+    gasLimit: 1000000, // FIXME: incorrect gas estimation
+  },
 ): ReturnType<typeof oracleContract.fulfillOracleRequest> {
   return oracleContract.fulfillOracleRequest(
     runRequest.id,
