@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import net from 'net'
 ;(async function() {
-  const net = require('net')
-
   const [customResponse] = process.argv.slice(2)
   const defaultResponse = '{"last": "3843.95"}'
   const response = customResponse || defaultResponse
