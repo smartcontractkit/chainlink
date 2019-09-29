@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import net from 'net'
-import { exists } from 'fs'
 ;(async function() {
   const net = require('net')
 
