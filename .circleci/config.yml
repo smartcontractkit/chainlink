@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   go-sqlite:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -22,7 +22,7 @@ jobs:
   go-sqlite-race:
     resource_class: large
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -39,7 +39,7 @@ jobs:
           path: /tmp/gorace_test.txt
   go-postgres:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -71,7 +71,7 @@ jobs:
       - run: go test -p 3 -parallel 2 ./...
   rust:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -86,7 +86,7 @@ jobs:
       - run: ./tools/ci/rust_test
   sgx:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     environment:
       SGX_ENABLED: yes
       # XXX: These are set in the base image but circleci seems to wipe them out
@@ -109,7 +109,7 @@ jobs:
   geth-postgres:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
         environment:
           TYPEORM_NAME: ci
           TYPEORM_HOST: explorerdb
@@ -141,7 +141,7 @@ jobs:
   parity-postgres:
     resource_class: large
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
         environment:
           TYPEORM_NAME: ci
           TYPEORM_HOST: explorerdb
@@ -174,7 +174,7 @@ jobs:
       - run: ./tools/ci/ethereum_test parity
   truffle:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -191,7 +191,7 @@ jobs:
       - run: ./tools/ci/truffle_test
   operator-ui:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -278,7 +278,7 @@ jobs:
             tools/ci/push_chainlink ${CIRCLE_BRANCH} ${CIRCLE_TAG}
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     steps:
       - checkout
       - run: ./tools/ci/init_gcloud
