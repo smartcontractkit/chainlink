@@ -57,10 +57,9 @@ export const add = async (name: string, url?: string) => {
         `Error creating chainlink node. A node with the name: "${name}" already exists.`,
       )
       break
-    default: {
+    default:
       console.error(`Unhandled error. HTTP status: ${response.status}`)
       break
-    }
   }
 }
 
@@ -75,13 +74,22 @@ export const remove = async (name: string) => {
     },
   })
 
-  if (response.status === httpStatus.OK) {
-    console.log('successfully deleted chainlink node with name %s', name)
-  } else if (response.status === httpStatus.UNAUTHORIZED) {
-    console.error(
-      'Invalid admin credentials. Please ensure the you have provided the correct admin username and password.',
-    )
-  } else {
-    console.error(`Unhandled error. HTTP status: ${response.status}`)
+  switch (response.status) {
+    case httpStatus.OK:
+      console.log('Successfully deleted chainlink node with name %s', name)
+      break
+    case httpStatus.NOT_FOUND:
+      console.error(
+        `Error deleting chainlink node. API endpoint not found. Have you set the correct EXPLORER_BASE_URL?`,
+      )
+      break
+    case httpStatus.UNAUTHORIZED:
+      console.error(
+        'Invalid admin credentials. Please ensure the you have provided the correct admin username and password.',
+      )
+      break
+    default:
+      console.error(`Unhandled error. HTTP status: ${response.status}`)
+      break
   }
 }
