@@ -9,9 +9,9 @@ import { PG_UNIQUE_CONSTRAINT_VIOLATION } from '../../utils/constants'
 const router = Router()
 
 router.post('/nodes', async (req: Request, res: Response) => {
-  const name: string = req.body.name
-  const url: string = req.body.url
-  const db: Connection = await getDb()
+  const name = req.body.name
+  const url = req.body.url
+  const db = await getDb()
   const [node, secret] = await buildChainlinkNode(db, name, url)
   const errors = await validate(node)
 
