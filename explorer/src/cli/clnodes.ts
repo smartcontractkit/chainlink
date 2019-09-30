@@ -1,4 +1,4 @@
-import { default as fetch, Response } from 'node-fetch'
+import fetch from 'node-fetch'
 import httpStatus from 'http-status-codes'
 import {
   ADMIN_USERNAME_HEADER,
@@ -24,7 +24,7 @@ interface CreateChainlinkNodeOk {
 export const add = async (name: string, url?: string) => {
   const createNodeUrl = `${EXPLORER_BASE_URL}/api/v1/admin/nodes`
   const data: CreateChainlinkNode = { name, url }
-  const response: Response = await fetch(createNodeUrl, {
+  const response = await fetch(createNodeUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -54,7 +54,7 @@ export const add = async (name: string, url?: string) => {
 
 export const remove = async (name: string) => {
   const deleteNodeUrl = `${EXPLORER_BASE_URL}/api/v1/admin/nodes/${name}`
-  const response: Response = await fetch(deleteNodeUrl, {
+  const response = await fetch(deleteNodeUrl, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
