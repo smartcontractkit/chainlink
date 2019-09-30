@@ -112,7 +112,7 @@ describe('DELETE /nodes/:name', () => {
   }
 
   it('can delete a node', async done => {
-    const [node, _] = await createChainlinkNode(db, 'nodeA')
+    const [node] = await createChainlinkNode(db, 'nodeA')
 
     sendDelete(path(node.name), USERNAME, PASSWORD)
       .expect(200)
