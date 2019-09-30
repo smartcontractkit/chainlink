@@ -8945,10 +8945,10 @@ expect@^24.9.0:
     jest-message-util "^24.9.0"
     jest-regex-util "^24.9.0"
 
-express-winston@^3.1.0:
-  version "3.3.0"
-  resolved "https://registry.npmjs.org/express-winston/-/express-winston-3.3.0.tgz#cda163acb9b848c1b2b967efc9b23bd4db862d00"
-  integrity sha512-7Ws97tPNTeSt9mtvXJlHIsSuTIE3BskOnxMVc23KokWEgYCcLmXtofvznzALiUCBQc8k24B66AycjqUU3IJz4A==
+express-winston@^3.4.0:
+  version "3.4.0"
+  resolved "https://registry.yarnpkg.com/express-winston/-/express-winston-3.4.0.tgz#8131822e0c9cbaa28d9600b5e866bd8edec1628b"
+  integrity sha512-CKo4ESwIV4BpNIsGVNiq2GcAwuomL4dVJRIIH/2K/jMpoRI2DakhkVTtaJACzV7n2I1v+knDJkkjZRCymJ7nmA==
   dependencies:
     chalk "^2.4.1"
     lodash "^4.17.10"
