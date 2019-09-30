@@ -36,7 +36,7 @@ export const add = async (name: string, url?: string) => {
 
   if (response.status === httpStatus.CREATED) {
     const chainlinkNode: CreateChainlinkNodeOk = await response.json()
-    console.log('created new chainlink node with id %s', chainlinkNode.id)
+    console.log('Created new chainlink node with id %s', chainlinkNode.id)
     console.log('AccessKey', chainlinkNode.accessKey)
     console.log('Secret', chainlinkNode.secret)
   } else if (response.status === httpStatus.UNAUTHORIZED) {
