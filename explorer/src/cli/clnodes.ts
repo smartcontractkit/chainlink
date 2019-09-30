@@ -42,6 +42,11 @@ export const add = async (name: string, url?: string) => {
       console.log('Secret', chainlinkNode.secret)
       break
     }
+    case httpStatus.NOT_FOUND:
+      console.error(
+        `Error creating chainlink node. API endpoint not found. Have you set the correct EXPLORER_BASE_URL?`,
+      )
+      break
     case httpStatus.UNAUTHORIZED:
       console.error(
         'Invalid admin credentials. Please ensure the you have provided the correct admin username and password.',
