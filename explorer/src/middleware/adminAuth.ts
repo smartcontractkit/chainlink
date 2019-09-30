@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
-import { Connection } from 'typeorm'
-import { Admin, find as findAdmin, isValidPassword } from '../entity/Admin'
+import { find as findAdmin, isValidPassword } from '../entity/Admin'
 import { getDb } from '../database'
 import {
   ADMIN_USERNAME_HEADER,
@@ -8,11 +7,11 @@ import {
 } from '../utils/constants'
 
 export default async function(req: Request, res: Response, next: NextFunction) {
-  const username: string = req.header(ADMIN_USERNAME_HEADER)
-  const password: string = req.header(ADMIN_PASSWORD_HEADER)
-  const db: Connection = await getDb()
-  const admin: Admin = await findAdmin(db, username)
-  const validPassword: boolean = await isValidPassword(password, admin)
+  const username = req.header(ADMIN_USERNAME_HEADER)
+  const password = req.header(ADMIN_PASSWORD_HEADER)
+  const db = await getDb()
+  const admin = await findAdmin(db, username)
+  const validPassword = await isValidPassword(password, admin)
 
   if (!validPassword) {
     res.sendStatus(401)
