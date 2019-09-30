@@ -117,5 +117,5 @@ export function hashCredentials(
 }
 
 export async function find(db: Connection, id: number): Promise<ChainlinkNode> {
-  return db.getRepository(ChainlinkNode).findOne({ id: id })
+  return db.getRepository(ChainlinkNode).findOne({ id })
 }
