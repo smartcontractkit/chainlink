@@ -23,10 +23,7 @@ interface CreateChainlinkNodeOk {
 
 export const add = async (name: string, url?: string) => {
   const createNodeUrl = `${EXPLORER_BASE_URL}/api/v1/admin/nodes`
-  const data: CreateChainlinkNode = { name: name }
-  if (url) {
-    data.url = url
-  }
+  const data: CreateChainlinkNode = { name, url }
   const response: Response = await fetch(createNodeUrl, {
     method: 'POST',
     headers: {
