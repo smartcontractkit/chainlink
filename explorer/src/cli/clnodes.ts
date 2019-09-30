@@ -34,21 +34,28 @@ export const add = async (name: string, url?: string) => {
     body: JSON.stringify(data),
   })
 
-  if (response.status === httpStatus.CREATED) {
-    const chainlinkNode: CreateChainlinkNodeOk = await response.json()
-    console.log('Created new chainlink node with id %s', chainlinkNode.id)
-    console.log('AccessKey', chainlinkNode.accessKey)
-    console.log('Secret', chainlinkNode.secret)
-  } else if (response.status === httpStatus.UNAUTHORIZED) {
-    console.error(
-      'Invalid admin credentials. Please ensure the you have provided the correct admin username and password.',
-    )
-  } else if (response.status === httpStatus.CONFLICT) {
-    console.error(
-      `Error creating chainlink node. A node with the name: "${name}" already exists.`,
-    )
-  } else {
-    console.error(`Unhandled error. HTTP status: ${response.status}`)
+  switch (response.status) {
+    case httpStatus.CREATED: {
+      const chainlinkNode: CreateChainlinkNodeOk = await response.json()
+      console.log('Created new chainlink node with id %s', chainlinkNode.id)
+      console.log('AccessKey', chainlinkNode.accessKey)
+      console.log('Secret', chainlinkNode.secret)
+      break
+    }
+    case httpStatus.UNAUTHORIZED:
+      console.error(
+        'Invalid admin credentials. Please ensure the you have provided the correct admin username and password.',
+      )
+      break
+    case httpStatus.CONFLICT:
+      console.error(
+        `Error creating chainlink node. A node with the name: "${name}" already exists.`,
+      )
+      break
+    default: {
+      console.error(`Unhandled error. HTTP status: ${response.status}`)
+      break
+    }
   }
 }
 
