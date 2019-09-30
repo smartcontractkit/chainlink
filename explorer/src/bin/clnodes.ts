@@ -1,7 +1,6 @@
 import yargs from 'yargs'
 import { add, remove } from '../cli/clnodes'
 
-/* eslint-disable-next-line no-unused-expressions */
 yargs
   .usage('Usage: $0 <command> [options]')
   .command({
