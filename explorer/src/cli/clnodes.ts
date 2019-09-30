@@ -21,6 +21,22 @@ interface CreateChainlinkNodeOk {
   secret: string
 }
 
+function logError(msg: string) {
+  console.error(msg)
+}
+
+function logUnauthorized() {
+  logError(
+    'Invalid admin credentials. Please ensure the you have provided the correct admin username and password.',
+  )
+}
+
+function logNotFound() {
+  logError(
+    `Error creating chainlink node. API endpoint not found. Have you set the correct EXPLORER_BASE_URL?`,
+  )
+}
+
 export const add = async (name: string, url?: string) => {
   const createNodeUrl = `${EXPLORER_BASE_URL}/api/v1/admin/nodes`
   const data: CreateChainlinkNode = { name, url }
@@ -43,14 +59,10 @@ export const add = async (name: string, url?: string) => {
       break
     }
     case httpStatus.NOT_FOUND:
-      console.error(
-        `Error creating chainlink node. API endpoint not found. Have you set the correct EXPLORER_BASE_URL?`,
-      )
+      logNotFound()
       break
     case httpStatus.UNAUTHORIZED:
-      console.error(
-        'Invalid admin credentials. Please ensure the you have provided the correct admin username and password.',
-      )
+      logUnauthorized()
       break
     case httpStatus.CONFLICT:
       console.error(
@@ -79,14 +91,10 @@ export const remove = async (name: string) => {
       console.log('Successfully deleted chainlink node with name %s', name)
       break
     case httpStatus.NOT_FOUND:
-      console.error(
-        `Error deleting chainlink node. API endpoint not found. Have you set the correct EXPLORER_BASE_URL?`,
-      )
+      logNotFound()
       break
     case httpStatus.UNAUTHORIZED:
-      console.error(
-        'Invalid admin credentials. Please ensure the you have provided the correct admin username and password.',
-      )
+      logUnauthorized()
       break
     default:
       console.error(`Unhandled error. HTTP status: ${response.status}`)
