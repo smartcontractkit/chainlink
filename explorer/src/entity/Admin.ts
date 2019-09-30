@@ -31,5 +31,5 @@ export async function isValidPassword(
     return false
   }
 
-  return await comparePassword(password, admin.hashedPassword)
+  return comparePassword(password, admin.hashedPassword)
 }
