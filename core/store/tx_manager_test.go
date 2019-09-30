@@ -1148,7 +1148,7 @@ func TestContract_EncodeMessageCall(t *testing.T) {
 	// Test with the Oracle contract
 	oracle, err := strpkg.GetContract("Oracle")
 	require.NoError(t, err)
-	require.NotNil(t, oracle)
+	require.NotNil(t, oracle, "Need compiled Oracle contract for this test")
 
 	data, err := oracle.EncodeMessageCall("withdraw", cltest.NewAddress(), (*big.Int)(assets.NewLink(10)))
 	assert.NoError(t, err)
@@ -1162,7 +1162,7 @@ func TestContract_EncodeMessageCall_errors(t *testing.T) {
 	// Test with the Oracle contract
 	oracle, err := strpkg.GetContract("Oracle")
 	require.NoError(t, err)
-	require.NotNil(t, oracle)
+	require.NotNil(t, oracle, "Need compiled Oracle contract for this test")
 
 	tests := []struct {
 		name   string
