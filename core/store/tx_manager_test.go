@@ -1140,6 +1140,8 @@ func TestGetContract(t *testing.T) {
 	}
 }
 
+// XXX: This test needs a compiled oracle contract, which can be built with
+// `yarn workspace chainlink run setup` in the base project directory.
 func TestContract_EncodeMessageCall(t *testing.T) {
 	t.Parallel()
 
@@ -1153,6 +1155,7 @@ func TestContract_EncodeMessageCall(t *testing.T) {
 	assert.NotNil(t, data)
 }
 
+// XXX: As above
 func TestContract_EncodeMessageCall_errors(t *testing.T) {
 	t.Parallel()
 
