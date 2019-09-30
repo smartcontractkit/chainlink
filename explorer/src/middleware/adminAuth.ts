@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
+import httpStatus from 'http-status-codes'
 import { find as findAdmin, isValidPassword } from '../entity/Admin'
 import { getDb } from '../database'
 import {
@@ -14,7 +15,7 @@ export default async function(req: Request, res: Response, next: NextFunction) {
   const validPassword = await isValidPassword(password, admin)
 
   if (!validPassword) {
-    res.sendStatus(401)
+    res.sendStatus(httpStatus.UNAUTHORIZED)
   }
 
   next()
