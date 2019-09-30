@@ -1,4 +1,4 @@
-import request, { Response } from 'supertest'
+import request from 'supertest'
 import http from 'http'
 import { Connection } from 'typeorm'
 import { closeDbConnection, getDb } from '../../../database'
@@ -66,7 +66,7 @@ describe('POST /nodes', () => {
 
     sendPost(adminNodesPath, data, USERNAME, PASSWORD)
       .expect(201)
-      .expect((res: Response) => {
+      .expect(res => {
         expect(res.body.id).toBeDefined()
         expect(res.body.accessKey).toBeDefined()
         expect(res.body.secret).toBeDefined()
@@ -79,7 +79,7 @@ describe('POST /nodes', () => {
 
     sendPost(adminNodesPath, data, USERNAME, PASSWORD)
       .expect(422)
-      .expect((res: Response) => {
+      .expect(res => {
         const { errors } = res.body
 
         expect(errors).toBeDefined()
