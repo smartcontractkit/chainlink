@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express'
+import { Router } from 'express'
 import { Connection } from 'typeorm'
 import { validate } from 'class-validator'
 import httpStatus from 'http-status-codes'
@@ -8,7 +8,7 @@ import { PG_UNIQUE_CONSTRAINT_VIOLATION } from '../../utils/constants'
 
 const router = Router()
 
-router.post('/nodes', async (req: Request, res: Response) => {
+router.post('/nodes', async (req, res) => {
   const name = req.body.name
   const url = req.body.url
   const db = await getDb()
@@ -44,7 +44,7 @@ router.post('/nodes', async (req: Request, res: Response) => {
     .send({ errors: jsonApiErrors })
 })
 
-router.delete('/nodes/:name', async (req: Request, res: Response) => {
+router.delete('/nodes/:name', async (req, res) => {
   const db: Connection = await getDb()
 
   await db.getRepository(ChainlinkNode).delete({ name: req.params.name })
