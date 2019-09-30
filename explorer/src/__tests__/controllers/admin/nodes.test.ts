@@ -80,7 +80,7 @@ describe('POST /nodes', () => {
     sendPost(adminNodesPath, data, USERNAME, PASSWORD)
       .expect(422)
       .expect(res => {
-        const { errors } = res.body
+        const errors = res.body.errors
 
         expect(errors).toBeDefined()
         expect(errors.name).toEqual({
