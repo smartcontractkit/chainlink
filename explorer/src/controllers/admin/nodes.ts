@@ -34,9 +34,10 @@ router.post('/nodes', async (req: Request, res: Response) => {
     }
   }
 
-  const jsonApiErrors = errors.reduce((acc, e) => {
-    return { ...acc, [e.property]: e.constraints }
-  }, {})
+  const jsonApiErrors = errors.reduce(
+    (acc, e) => ({ ...acc, [e.property]: e.constraints }),
+    {},
+  )
 
   return res
     .status(httpStatus.UNPROCESSABLE_ENTITY)
