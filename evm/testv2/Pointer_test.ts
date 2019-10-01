@@ -1,12 +1,12 @@
 import * as h from '../src/helpersV2'
 import ganache from 'ganache-core'
 import { AbstractContract } from '../src/contract'
-import { linkToken } from '../src/linkToken'
+import LinkTokenAbi from '../src/LinkToken.json'
 import { assert } from 'chai'
 import { Pointer } from 'contracts/Pointer'
-import { LinkTokenInterface } from 'contracts/LinkTokenInterface'
+import { LinkToken } from 'contracts/LinkToken'
 const PointerContract = AbstractContract.fromArtifactName('Pointer')
-const LinkContract = AbstractContract.fromBuildArtifact(linkToken)
+const LinkContract = AbstractContract.fromBuildArtifact(LinkTokenAbi)
 let roles: h.Roles
 const ganacheProvider: any = ganache.provider()
 
@@ -18,7 +18,7 @@ before(async () => {
 
 describe('Pointer', () => {
   let contract: Pointer
-  let link: LinkTokenInterface
+  let link: LinkToken
 
   beforeEach(async () => {
     link = await LinkContract.deploy(roles.defaultAccount)
@@ -33,7 +33,7 @@ describe('Pointer', () => {
 
   describe('#getAddress', () => {
     it('returns the LINK token address', async () => {
-      assert.equal(await contract.functions.getAddress(), link.address)
+      assert.equal(await contract.getAddress(), link.address)
     })
   })
 })

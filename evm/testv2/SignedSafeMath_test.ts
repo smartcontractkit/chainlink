@@ -18,7 +18,7 @@ before(async () => {
 describe('SignedSafeMath', () => {
   // a version of the adder contract where we make all ABI exposed functions constant
   // TODO: submit upstream PR to support constant contract type generation
-  let adderStatic: ethers.Contract
+  let adderStatic: any
 
   let response
   const INT256_MAX = ethers.utils.bigNumberify(
