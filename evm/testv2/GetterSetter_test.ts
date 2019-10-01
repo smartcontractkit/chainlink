@@ -1,11 +1,11 @@
 import * as h from '../src/helpersV2'
 import ganache from 'ganache-core'
-import { AbstractContract } from '../src/contract'
 import { ethers } from 'ethers'
 import { assert } from 'chai'
-import { GetterSetter } from 'contracts/GetterSetter'
+import { GetterSetterFactory } from 'contracts/GetterSetterFactory'
+import { Instance } from 'src/contract'
 
-const GetterSetterContract = AbstractContract.fromArtifactName('GetterSetter')
+const GetterSetterContract = new GetterSetterFactory()
 const ganacheProvider: any = ganache.provider()
 
 let roles: h.Roles
@@ -21,10 +21,10 @@ describe('GetterSetter', () => {
     '0x3bd198932d9cc01e2950ffc518fd38a303812200000000000000000000000000'
   const bytes32 = ethers.utils.formatBytes32String('Hi Mom!')
   const uint256 = ethers.utils.bigNumberify(645746535432)
-  let gs: GetterSetter
+  let gs: Instance<GetterSetterFactory>
 
   beforeEach(async () => {
-    gs = await GetterSetterContract.deploy(roles.defaultAccount)
+    gs = await GetterSetterContract.connect(roles.defaultAccount).deploy()
   })
 
   describe('#setBytes32Val', () => {
