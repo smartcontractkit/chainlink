@@ -5,6 +5,7 @@ import { Oracle } from 'contracts/Oracle'
 import { LinkToken } from 'contracts/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
+import { EmptyOracle } from 'contracts/EmptyOracle'
 
 const debug = makeDebug('helpers')
 
@@ -183,7 +184,9 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
  * @param log The log to decode
  * @todo Do we really need this?
  */
-export function decodeRunABI(log: ethers.providers.Log) {
+export function decodeRunABI(
+  log: ethers.providers.Log,
+): [string, string, string, string] {
   const d = debug.extend('decodeRunABI')
   d('params %o', log)
 
@@ -261,7 +264,7 @@ export function keccak(
 }
 
 export async function fulfillOracleRequest(
-  oracleContract: Oracle,
+  oracleContract: Oracle | EmptyOracle,
   runRequest: RunRequest,
   response: string,
   options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {
