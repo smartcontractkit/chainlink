@@ -2,7 +2,7 @@ import * as h from '../src/helpersV2'
 import ganache from 'ganache-core'
 import { assertBigNum } from '../src/matchersV2'
 import { AbstractContract } from '../src/contract'
-import { linkToken } from '../src/linkToken'
+import LinkToken from '../src/LinkToken.json'
 import { ENSRegistry } from 'contracts/ENSRegistry'
 import { Oracle } from 'contracts/Oracle'
 import { PublicResolver } from 'contracts/PublicResolver'
@@ -13,7 +13,7 @@ import { assert } from 'chai'
 
 const ganacheProvider: any = ganache.provider()
 
-const LinkContract = AbstractContract.fromBuildArtifact(linkToken)
+const LinkContract = AbstractContract.fromBuildArtifact(LinkToken)
 const ENSRegistryContract = AbstractContract.fromArtifactName('ENSRegistry')
 const OracleContract = AbstractContract.fromArtifactName('Oracle')
 const PublicResolverContract = AbstractContract.fromArtifactName(

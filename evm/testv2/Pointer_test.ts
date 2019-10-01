@@ -1,12 +1,12 @@
 import * as h from '../src/helpersV2'
 import ganache from 'ganache-core'
 import { AbstractContract } from '../src/contract'
-import { linkToken } from '../src/linkToken'
+import LinkToken from '../src/LinkToken.json'
 import { assert } from 'chai'
 import { Pointer } from 'contracts/Pointer'
 import { LinkTokenInterface } from 'contracts/LinkTokenInterface'
 const PointerContract = AbstractContract.fromArtifactName('Pointer')
-const LinkContract = AbstractContract.fromBuildArtifact(linkToken)
+const LinkContract = AbstractContract.fromBuildArtifact(LinkToken)
 let roles: h.Roles
 const ganacheProvider: any = ganache.provider()
 
