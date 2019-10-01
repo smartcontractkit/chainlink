@@ -2,7 +2,7 @@ import { ethers } from 'ethers'
 import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
 import { Oracle } from 'contracts/Oracle'
-import { LinkTokenInterface } from 'contracts/LinkTokenInterface'
+import { LinkToken } from 'contracts/LinkToken'
 
 export interface Roles {
   defaultAccount: ethers.Wallet
@@ -293,7 +293,7 @@ export function requestDataBytes(
 // link param must be from linkContract(), if amount is a BN
 export function requestDataFrom(
   oc: Oracle,
-  link: LinkTokenInterface,
+  link: LinkToken,
   amount: number,
   args: string,
   options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},

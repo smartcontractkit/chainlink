@@ -5,14 +5,14 @@ import { assertBigNum } from '../src/matchersV2'
 import ganache from 'ganache-core'
 import { ethers } from 'ethers'
 import { assert } from 'chai'
-import LinkToken from '../src/LinkToken.json'
-import { LinkTokenInterface } from 'contracts/LinkTokenInterface'
+import LinkTokenAbi from '../src/LinkToken.json'
+import { LinkToken } from 'contracts/LinkToken'
 import { Oracle } from 'contracts/Oracle'
 import { BasicConsumer } from 'contracts/BasicConsumer'
 
 const BasicConsumerContract = AbstractContract.fromArtifactName('BasicConsumer')
 const OracleContract = AbstractContract.fromArtifactName('Oracle')
-const LinkContract = AbstractContract.fromBuildArtifact(LinkToken)
+const LinkContract = AbstractContract.fromBuildArtifact(LinkTokenAbi)
 
 // create a web3js instance connected to in-memory ganache blockchain
 const ganacheProvider: any = ganache.provider()
@@ -32,7 +32,7 @@ describe('BasicConsumer', () => {
   const specId = '0x4c7b7ffb66b344fbaa64995af81e355a'.padEnd(66, '0')
 
   const currency = 'USD'
-  let link: LinkTokenInterface
+  let link: LinkToken
   let oc: Oracle
   let cc: BasicConsumer
 
@@ -220,16 +220,16 @@ describe('BasicConsumer', () => {
 
     beforeEach(async () => {
       await link.transfer(cc.address, depositAmount)
-      const balance = (await link.balanceOf(cc.address)) as any
+      const balance = await link.balanceOf(cc.address)
       assertBigNum(balance, depositAmount)
     })
 
     it('transfers LINK out of the contract', async () => {
       await cc.connect(roles.consumer).withdrawLink()
-      const ccBalance = (await link.balanceOf(cc.address)) as any
-      const consumerBalance = ethers.utils.bigNumberify((await link.balanceOf(
-        roles.consumer.address,
-      )) as any)
+      const ccBalance = await link.balanceOf(cc.address)
+      const consumerBalance = ethers.utils.bigNumberify(
+        await link.balanceOf(roles.consumer.address),
+      )
       assertBigNum(ccBalance, 0)
       assertBigNum(consumerBalance, depositAmount)
     })

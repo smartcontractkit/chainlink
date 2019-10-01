@@ -2,18 +2,18 @@ import * as h from '../src/helpersV2'
 import ganache from 'ganache-core'
 import { assertBigNum } from '../src/matchersV2'
 import { AbstractContract } from '../src/contract'
-import LinkToken from '../src/LinkToken.json'
+import LinkTokenAbi from '../src/LinkToken.json'
 import { ENSRegistry } from 'contracts/ENSRegistry'
 import { Oracle } from 'contracts/Oracle'
 import { PublicResolver } from 'contracts/PublicResolver'
 import { UpdatableConsumer } from 'contracts/UpdatableConsumer'
-import { LinkTokenInterface } from 'contracts/LinkTokenInterface'
+import { LinkToken } from 'contracts/LinkToken'
 import { ethers } from 'ethers'
 import { assert } from 'chai'
 
 const ganacheProvider: any = ganache.provider()
 
-const LinkContract = AbstractContract.fromBuildArtifact(LinkToken)
+const LinkContract = AbstractContract.fromBuildArtifact(LinkTokenAbi)
 const ENSRegistryContract = AbstractContract.fromArtifactName('ENSRegistry')
 const OracleContract = AbstractContract.fromArtifactName('Oracle')
 const PublicResolverContract = AbstractContract.fromArtifactName(
@@ -51,7 +51,7 @@ describe('UpdatableConsumer', () => {
 
   let ens: ENSRegistry
   let ensResolver: PublicResolver
-  let link: LinkTokenInterface
+  let link: LinkToken
   let oc: Oracle
   let uc: UpdatableConsumer
 
@@ -202,7 +202,7 @@ describe('UpdatableConsumer', () => {
           await h.increaseTime5Minutes(ganacheProvider)
           assertBigNum(
             0,
-            (await link.balanceOf(uc.address)) as any,
+            await link.balanceOf(uc.address),
             'Initial balance should be 0',
           )
 
@@ -215,7 +215,7 @@ describe('UpdatableConsumer', () => {
 
           assertBigNum(
             paymentAmount,
-            (await link.balanceOf(uc.address)) as any,
+            await link.balanceOf(uc.address),
             'Oracle should have been repaid on cancellation.',
           )
         })
