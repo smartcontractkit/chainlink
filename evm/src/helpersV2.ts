@@ -3,6 +3,10 @@ import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
 import { Oracle } from 'contracts/Oracle'
 import { LinkToken } from 'contracts/LinkToken'
+import { makeDebug } from './debug'
+import cbor from 'cbor'
+
+const debug = makeDebug('helpers')
 
 export interface Roles {
   defaultAccount: ethers.Wallet
@@ -174,6 +178,26 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
   }
 }
 
+/**
+ * Decode a log into a run
+ * @param log The log to decode
+ * @todo Do we really need this?
+ */
+export function decodeRunABI(log: ethers.providers.Log) {
+  const d = debug.extend('decodeRunABI')
+  d('params %o', log)
+
+  const types = ['bytes32', 'address', 'bytes4', 'bytes']
+  const decodedValue = ethers.utils.defaultAbiCoder.decode(types, log.data)
+  d('decoded value %o', decodedValue)
+
+  return decodedValue
+}
+
+export const decodeDietCBOR = (data: Buffer) => {
+  return cbor.decodeFirstSync(addCBORMapDelimiters(data))
+}
+
 export interface RunRequest {
   callbackAddr: string
   callbackFunc: string
@@ -211,7 +235,7 @@ function addCBORMapDelimiters(buffer: Buffer): Buffer {
   )
 }
 
-function stripHexPrefix(hex: string): string {
+export function stripHexPrefix(hex: string): string {
   if (!ethers.utils.isHexString(hex)) {
     throw Error(`Expected valid hex string, got: "${hex}"`)
   }
