@@ -4,8 +4,8 @@ import { validate } from 'class-validator'
 import httpStatus from 'http-status-codes'
 import { getDb } from '../../database'
 import { buildChainlinkNode, ChainlinkNode } from '../../entity/ChainlinkNode'
-import { PG_UNIQUE_CONSTRAINT_VIOLATION } from '../../utils/constants'
-
+import { PostgresErrorCode } from '../../utils/constants'
+import { isPostgresError } from '../../utils/errors'
 const router = Router()
 
 router.post('/nodes', async (req, res) => {
@@ -25,7 +25,10 @@ router.post('/nodes', async (req, res) => {
         secret: secret,
       })
     } catch (e) {
-      if (e.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
+      if (
+        isPostgresError(e) &&
+        e.code === PostgresErrorCode.UNIQUE_CONSTRAINT_VIOLATION
+      ) {
         return res.sendStatus(httpStatus.CONFLICT)
       }
 
