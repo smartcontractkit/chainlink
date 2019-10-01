@@ -5,14 +5,14 @@ import { assertBigNum } from '../src/matchersV2'
 import ganache from 'ganache-core'
 import { ethers } from 'ethers'
 import { assert } from 'chai'
-import { linkToken } from '../src/linkToken'
+import LinkToken from '../src/LinkToken.json'
 import { LinkTokenInterface } from 'contracts/LinkTokenInterface'
 import { Oracle } from 'contracts/Oracle'
 import { BasicConsumer } from 'contracts/BasicConsumer'
 
 const BasicConsumerContract = AbstractContract.fromArtifactName('BasicConsumer')
 const OracleContract = AbstractContract.fromArtifactName('Oracle')
-const LinkContract = AbstractContract.fromBuildArtifact(linkToken)
+const LinkContract = AbstractContract.fromBuildArtifact(LinkToken)
 
 // create a web3js instance connected to in-memory ganache blockchain
 const ganacheProvider: any = ganache.provider()
