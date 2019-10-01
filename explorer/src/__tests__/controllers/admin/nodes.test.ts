@@ -1,5 +1,6 @@
 import request from 'supertest'
 import http from 'http'
+import httpStatus from 'http-status-codes'
 import { Connection } from 'typeorm'
 import { closeDbConnection, getDb } from '../../../database'
 import { clearDb } from '../../testdatabase'
@@ -65,7 +66,7 @@ describe('POST /nodes', () => {
     const data = { name: 'nodeA', url: 'http://nodea.com' }
 
     sendPost(adminNodesPath, data, USERNAME, PASSWORD)
-      .expect(201)
+      .expect(httpStatus.CREATED)
       .expect(res => {
         expect(res.body.id).toBeDefined()
         expect(res.body.accessKey).toBeDefined()
@@ -78,7 +79,7 @@ describe('POST /nodes', () => {
     const data = { url: 'http://nodea.com' }
 
     sendPost(adminNodesPath, data, USERNAME, PASSWORD)
-      .expect(422)
+      .expect(httpStatus.UNPROCESSABLE_ENTITY)
       .expect(res => {
         const errors = res.body.errors
 
@@ -95,13 +96,13 @@ describe('POST /nodes', () => {
     const data = { name: node.name }
 
     sendPost(adminNodesPath, data, USERNAME, PASSWORD)
-      .expect(409)
+      .expect(httpStatus.CONFLICT)
       .end(done)
   })
 
   it('returns a 401 unauthorized with invalid admin credentials', done => {
     sendPost(adminNodesPath, {}, USERNAME, 'invalidpassword')
-      .expect(401)
+      .expect(httpStatus.UNAUTHORIZED)
       .end(done)
   })
 })
@@ -115,7 +116,7 @@ describe('DELETE /nodes/:name', () => {
     const [node] = await createChainlinkNode(db, 'nodeA')
 
     sendDelete(path(node.name), USERNAME, PASSWORD)
-      .expect(200)
+      .expect(httpStatus.OK)
       .expect(async () => {
         const nodeAfter = await findNode(db, node.id)
         expect(nodeAfter).not.toBeDefined()
@@ -125,7 +126,7 @@ describe('DELETE /nodes/:name', () => {
 
   it('returns a 401 unauthorized with invalid admin credentials', done => {
     sendDelete(path('idontexist'), USERNAME, 'invalidpassword')
-      .expect(401)
+      .expect(httpStatus.UNAUTHORIZED)
       .end(done)
   })
 })
