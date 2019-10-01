@@ -20,7 +20,7 @@ export class Admin {
 }
 
 export function find(db: Connection, username: string): Promise<Admin> {
-  return db.getRepository(Admin).findOne({ username: username })
+  return db.getRepository(Admin).findOne({ username })
 }
 
 export async function isValidPassword(
