@@ -1139,36 +1139,46 @@ func TestGetContract(t *testing.T) {
 	}
 }
 
+// XXX: This test needs a compiled oracle contract, which can be built with
+// `yarn workspace chainlink run setup` in the base project directory.
 func TestContract_EncodeMessageCall(t *testing.T) {
 	t.Parallel()
 
 	// Test with the Oracle contract
 	oracle, err := strpkg.GetContract("Oracle")
+	require.NoError(t, err)
+	require.NotNil(t, oracle)
+
+	data, err := oracle.EncodeMessageCall("withdraw", cltest.NewAddress(), (*big.Int)(assets.NewLink(10)))
 	assert.NoError(t, err)
+	assert.NotNil(t, data)
+}
+
+// XXX: As above
+func TestContract_EncodeMessageCall_errors(t *testing.T) {
+	t.Parallel()
+
+	// Test with the Oracle contract
+	oracle, err := strpkg.GetContract("Oracle")
+	require.NoError(t, err)
+	require.NotNil(t, oracle)
 
 	tests := []struct {
-		name      string
-		method    string
-		args      []interface{}
-		expectErr bool
+		name   string
+		method string
+		args   []interface{}
 	}{
-		{"Withdraw LINK", "withdraw", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10))}, false},
-		{"Non-existent method", "not-a-method", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10))}, true},
-		{"Too few arguments", "withdraw", []interface{}{cltest.NewAddress()}, true},
-		{"Too many arguments", "withdraw", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10)), (*big.Int)(assets.NewLink(10))}, true},
-		{"Incorrect argument types", "withdraw", []interface{}{(*big.Int)(assets.NewLink(10)), cltest.NewAddress()}, true},
+		{"Non-existent method", "not-a-method", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10))}},
+		{"Too few arguments", "withdraw", []interface{}{cltest.NewAddress()}},
+		{"Too many arguments", "withdraw", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10)), (*big.Int)(assets.NewLink(10))}},
+		{"Incorrect argument types", "withdraw", []interface{}{(*big.Int)(assets.NewLink(10)), cltest.NewAddress()}},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			data, err := oracle.EncodeMessageCall(test.method, test.args...)
-			if test.expectErr {
-				assert.Error(t, err)
-				assert.Nil(t, data)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, data)
-			}
+			assert.Error(t, err)
+			assert.Nil(t, data)
 		})
 	}
 }

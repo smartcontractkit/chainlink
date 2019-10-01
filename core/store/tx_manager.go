@@ -848,7 +848,7 @@ func GetContract(name string) (*Contract, error) {
 	box := packr.NewBox("../../evm/build/contracts")
 	jsonFile, err := box.Find(name + ".json")
 	if err != nil {
-		return nil, errors.New("unable to read contract JSON")
+		return nil, errors.Wrap(err, "unable to read contract JSON")
 	}
 
 	abiBytes := gjson.GetBytes(jsonFile, "abi")
