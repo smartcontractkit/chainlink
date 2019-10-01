@@ -1,6 +1,6 @@
 import cbor from 'cbor'
 import TruffleContract from 'truffle-contract'
-import { linkToken } from './linkToken'
+import LinkToken from './LinkToken.json'
 import { assertBigNum } from './matchers'
 import * as abi from 'ethereumjs-abi'
 import BN from 'bn.js'
@@ -97,11 +97,11 @@ export const linkContract = async (account: string): Promise<any> => {
     throw Error('No account supplied as a parameter')
   }
   const receipt = await web3.eth.sendTransaction({
-    data: linkToken.bytecode,
+    data: LinkToken.bytecode,
     from: account,
     gas: 2000000,
   })
-  const contract = TruffleContract({ abi: linkToken.abi })
+  const contract = TruffleContract({ abi: LinkToken.abi })
   contract.setProvider(web3.currentProvider)
   contract.defaults({
     from: account,
