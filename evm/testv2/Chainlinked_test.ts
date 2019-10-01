@@ -1,11 +1,10 @@
 import { checkPublicABI } from '../src/helpersV2'
-import { AbstractContract } from '../src/contract'
+import { ChainlinkedFactory } from 'contracts/ChainlinkedFactory'
 
-const Chainlinked = AbstractContract.fromArtifactName('Chainlinked')
+const chainlinkedFactory = new ChainlinkedFactory()
 
 describe('Chainlinked', () => {
   it('has a limited public interface', async () => {
-    const contractFactory = Chainlinked.getContractFactory()
-    checkPublicABI(contractFactory, [])
+    checkPublicABI(chainlinkedFactory, [])
   })
 })

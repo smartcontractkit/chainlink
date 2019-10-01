@@ -1,12 +1,12 @@
 import * as h from '../src/helpersV2'
 import ganache from 'ganache-core'
-import { AbstractContract } from '../src/contract'
-import LinkTokenAbi from '../src/LinkToken.json'
 import { assert } from 'chai'
-import { Pointer } from 'contracts/Pointer'
-import { LinkToken } from 'contracts/LinkToken'
-const PointerContract = AbstractContract.fromArtifactName('Pointer')
-const LinkContract = AbstractContract.fromBuildArtifact(LinkTokenAbi)
+import { PointerFactory } from 'contracts/PointerFactory'
+import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
+import { Instance } from 'src/contract'
+const pointerFactory = new PointerFactory()
+const linkTokenFactory = new LinkTokenFactory()
+
 let roles: h.Roles
 const ganacheProvider: any = ganache.provider()
 
@@ -17,14 +17,14 @@ before(async () => {
 })
 
 describe('Pointer', () => {
-  let contract: Pointer
-  let link: LinkToken
+  let contract: Instance<PointerFactory>
+  let link: Instance<LinkTokenFactory>
 
   beforeEach(async () => {
-    link = await LinkContract.deploy(roles.defaultAccount)
-    contract = await PointerContract.deploy(roles.defaultAccount, [
-      link.address,
-    ])
+    link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
+    contract = await pointerFactory
+      .connect(roles.defaultAccount)
+      .deploy(link.address)
   })
 
   it('has a limited public interface', () => {
