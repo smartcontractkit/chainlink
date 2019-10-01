@@ -10,12 +10,19 @@ import {
 export default async function(req: Request, res: Response, next: NextFunction) {
   const username = req.header(ADMIN_USERNAME_HEADER)
   const password = req.header(ADMIN_PASSWORD_HEADER)
+
+  if (!username || !password) {
+    res.sendStatus(httpStatus.UNAUTHORIZED)
+    return
+  }
+
   const db = await getDb()
   const admin = await findAdmin(db, username)
   const validPassword = await isValidPassword(password, admin)
 
   if (!validPassword) {
     res.sendStatus(httpStatus.UNAUTHORIZED)
+    return
   }
 
   next()
