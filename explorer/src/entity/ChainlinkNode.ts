@@ -4,7 +4,9 @@ import {
   Entity,
   OneToMany,
   PrimaryGeneratedColumn,
+  Unique,
 } from 'typeorm'
+import { MinLength } from 'class-validator'
 import { JobRun } from './JobRun'
 import { sha256 } from 'js-sha256'
 import { randomBytes } from 'crypto'
@@ -15,6 +17,7 @@ export interface ChainlinkNodePresenter {
 }
 
 @Entity()
+@Unique(['name'])
 export class ChainlinkNode {
   public static build({
     name,
@@ -37,6 +40,7 @@ export class ChainlinkNode {
   @PrimaryGeneratedColumn()
   id: number
 
+  @MinLength(3, { message: 'must be at least 3 characters' })
   @Column()
   name: string
 
@@ -72,6 +76,17 @@ function generateRandomString(size: number): string {
     .substring(0, size)
 }
 
+export const buildChainlinkNode = (
+  db: Connection,
+  name: string,
+  url?: string,
+): [ChainlinkNode, string] => {
+  const secret = generateRandomString(64)
+  const node = ChainlinkNode.build({ name, url, secret })
+
+  return [node, secret]
+}
+
 export const createChainlinkNode = async (
   db: Connection,
   name: string,
@@ -99,4 +114,8 @@ export function hashCredentials(
   salt: string,
 ): string {
   return sha256(`v0-${accessKey}-${secret}-${salt}`)
+}
+
+export async function find(db: Connection, id: number): Promise<ChainlinkNode> {
+  return db.getRepository(ChainlinkNode).findOne({ id })
 }
