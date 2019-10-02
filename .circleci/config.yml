@@ -138,6 +138,8 @@ jobs:
           paths:
             - "/go/pkg/mod"
       - run: ./tools/ci/ethereum_test
+      - store_artifacts:
+          path: ./integration/cypress/screenshots
   parity-postgres:
     resource_class: large
     docker:
@@ -172,6 +174,8 @@ jobs:
           paths:
             - "/go/pkg/mod"
       - run: ./tools/ci/ethereum_test parity
+      - store_artifacts:
+          path: ./integration/cypress/screenshots
   truffle:
     docker:
       - image: smartcontract/builder:1.0.25
