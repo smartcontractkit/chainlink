@@ -1,18 +1,17 @@
 import cbor from 'cbor'
 import * as h from '../src/helpersV2'
-import { AbstractContract } from '../src/contract'
 import { assertBigNum } from '../src/matchersV2'
 import ganache from 'ganache-core'
 import { ethers } from 'ethers'
 import { assert } from 'chai'
-import LinkTokenAbi from '../src/LinkToken.json'
-import { LinkToken } from 'contracts/LinkToken'
-import { Oracle } from 'contracts/Oracle'
-import { BasicConsumer } from 'contracts/BasicConsumer'
+import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
+import { OracleFactory } from 'contracts/OracleFactory'
+import { BasicConsumerFactory } from 'contracts/BasicConsumerFactory'
+import { Instance } from 'src/contract'
 
-const BasicConsumerContract = AbstractContract.fromArtifactName('BasicConsumer')
-const OracleContract = AbstractContract.fromArtifactName('Oracle')
-const LinkContract = AbstractContract.fromBuildArtifact(LinkTokenAbi)
+const basicConsumerFactory = new BasicConsumerFactory()
+const oracleFactory = new OracleFactory()
+const linkTokenFactory = new LinkTokenFactory()
 
 // create a web3js instance connected to in-memory ganache blockchain
 const ganacheProvider: any = ganache.provider()
@@ -32,18 +31,16 @@ describe('BasicConsumer', () => {
   const specId = '0x4c7b7ffb66b344fbaa64995af81e355a'.padEnd(66, '0')
 
   const currency = 'USD'
-  let link: LinkToken
-  let oc: Oracle
-  let cc: BasicConsumer
+  let link: Instance<LinkTokenFactory>
+  let oc: Instance<OracleFactory>
+  let cc: Instance<BasicConsumerFactory>
 
   beforeEach(async () => {
-    link = await LinkContract.deploy(roles.defaultAccount)
-    oc = await OracleContract.deploy(roles.oracleNode, [link.address])
-    cc = await BasicConsumerContract.deploy(roles.defaultAccount, [
-      link.address,
-      oc.address,
-      specId,
-    ])
+    link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
+    oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
+    cc = await basicConsumerFactory
+      .connect(roles.defaultAccount)
+      .deploy(link.address, oc.address, specId)
   })
 
   it('has a predictable gas price', async () => {

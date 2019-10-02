@@ -1,27 +1,22 @@
 import * as h from '../src/helpersV2'
 import ganache from 'ganache-core'
 import { assertBigNum } from '../src/matchersV2'
-import { AbstractContract } from '../src/contract'
-import LinkTokenAbi from '../src/LinkToken.json'
-import { ENSRegistry } from 'contracts/ENSRegistry'
-import { Oracle } from 'contracts/Oracle'
-import { PublicResolver } from 'contracts/PublicResolver'
-import { UpdatableConsumer } from 'contracts/UpdatableConsumer'
-import { LinkToken } from 'contracts/LinkToken'
+import { ENSRegistryFactory } from 'contracts/ENSRegistryFactory'
+import { PublicResolverFactory } from 'contracts/PublicResolverFactory'
+import { UpdatableConsumerFactory } from 'contracts/UpdatableConsumerFactory'
 import { ethers } from 'ethers'
 import { assert } from 'chai'
+import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
+import { OracleFactory } from 'contracts/OracleFactory'
+import { Instance } from 'src/contract'
 
 const ganacheProvider: any = ganache.provider()
 
-const LinkContract = AbstractContract.fromBuildArtifact(LinkTokenAbi)
-const ENSRegistryContract = AbstractContract.fromArtifactName('ENSRegistry')
-const OracleContract = AbstractContract.fromArtifactName('Oracle')
-const PublicResolverContract = AbstractContract.fromArtifactName(
-  'PublicResolver',
-)
-const UpdatableConsumerContract = AbstractContract.fromArtifactName(
-  'UpdatableConsumer',
-)
+const linkTokenFactory = new LinkTokenFactory()
+const ensRegistryFactory = new ENSRegistryFactory()
+const oracleFactory = new OracleFactory()
+const publicResolverFacotory = new PublicResolverFactory()
+const updatableConsumerFactory = new UpdatableConsumerFactory()
 
 let roles: h.Roles
 
@@ -49,20 +44,20 @@ describe('UpdatableConsumer', () => {
   const specId = ethers.utils.formatBytes32String('someSpecID')
   const newOracleAddress = '0xf000000000000000000000000000000000000ba7'
 
-  let ens: ENSRegistry
-  let ensResolver: PublicResolver
-  let link: LinkToken
-  let oc: Oracle
-  let uc: UpdatableConsumer
+  let ens: Instance<ENSRegistryFactory>
+  let ensResolver: Instance<PublicResolverFactory>
+  let link: Instance<LinkTokenFactory>
+  let oc: Instance<OracleFactory>
+  let uc: Instance<UpdatableConsumerFactory>
 
   beforeEach(async () => {
-    link = await LinkContract.deploy(roles.defaultAccount)
-    oc = await OracleContract.deploy(roles.oracleNode, [link.address])
+    link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
+    oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
+    ens = await ensRegistryFactory.connect(roles.defaultAccount).deploy()
 
-    ens = await ENSRegistryContract.deploy(roles.defaultAccount)
-    ensResolver = await PublicResolverContract.deploy(roles.defaultAccount, [
-      ens.address,
-    ])
+    ensResolver = await publicResolverFacotory
+      .connect(roles.defaultAccount)
+      .deploy(ens.address)
     const ensOracleNode = ens.connect(roles.oracleNode)
     const ensResolverOracleNode = ensResolver.connect(roles.oracleNode)
 
@@ -101,11 +96,9 @@ describe('UpdatableConsumer', () => {
     await ensResolverOracleNode.setAddr(oracleSubnode, oc.address)
 
     // deploy updatable consumer contract
-    uc = await UpdatableConsumerContract.deploy(roles.defaultAccount, [
-      specId,
-      ens.address,
-      domainNode,
-    ])
+    uc = await updatableConsumerFactory
+      .connect(roles.defaultAccount)
+      .deploy(specId, ens.address, domainNode)
   })
 
   describe('constructor', () => {
