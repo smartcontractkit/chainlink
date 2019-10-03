@@ -4,7 +4,7 @@ import { assert } from 'chai'
 import { GetterSetterFactory } from 'contracts/GetterSetterFactory'
 import { Instance } from 'src/contract'
 import env from '@nomiclabs/buidler'
-import { EthersProviderWrapper } from '../src/wallet'
+import { EthersProviderWrapper } from '../src/provider'
 
 const GetterSetterContract = new GetterSetterFactory()
 const provider = new EthersProviderWrapper(env.ethereum)

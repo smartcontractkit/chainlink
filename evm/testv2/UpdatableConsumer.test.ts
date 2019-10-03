@@ -9,7 +9,7 @@ import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
 import { OracleFactory } from 'contracts/OracleFactory'
 import { Instance } from 'src/contract'
 import env from '@nomiclabs/buidler'
-import { EthersProviderWrapper } from '../src/wallet'
+import { EthersProviderWrapper } from '../src/provider'
 
 const linkTokenFactory = new LinkTokenFactory()
 const ensRegistryFactory = new ENSRegistryFactory()
