@@ -30,10 +30,10 @@ if [ "$#" == 0 ]; then
   CHAINLINK_VERSION="$(mainexec --version)"
   export CHAINLINK_VERSION
 
-  pushd operator_ui >/dev/null
-  yarn install --no-progress | cat
-  yarn build | cat
-  popd >/dev/null
+  yarn install --no-progress | cat                        # ensure latest dependencies
+  yarn setup                                              # ensure latest build steps for dependencies 
+  yarn workspace @chainlink/operator-ui run build | cat
+
   mainexec local import $DEFAULT_KEY_PATH
   mainexec local node -d -p $ROOT/password.txt -a $ROOT/apicredentials
   exit
