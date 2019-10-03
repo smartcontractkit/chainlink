@@ -4,11 +4,11 @@ import { EmptyOracleFactory } from 'contracts/EmptyOracleFactory'
 import { OracleFactory } from 'contracts/OracleFactory'
 import { ConcreteChainlinkedFactory } from 'contracts/ConcreteChainlinkedFactory'
 import { assert } from 'chai'
-import ganache from 'ganache-core'
 import { ethers } from 'ethers'
 import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
 import { Instance } from 'src/contract'
 import env from '@nomiclabs/buidler'
+import { EthersProviderWrapper } from '../src/wallet'
 
 const concreteChainlinkedFactory = new ConcreteChainlinkedFactory()
 const emptyOracleFactory = new EmptyOracleFactory()
@@ -16,14 +16,12 @@ const getterSetterFactory = new GetterSetterFactory()
 const oracleFactory = new OracleFactory()
 const linkTokenFactory = new LinkTokenFactory()
 
-const ganacheProvider: any = ganache.provider()
+const provider = new EthersProviderWrapper(env.ethereum)
 
 let roles: h.Roles
 
-before(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(
-    env.ethereum as any,
-  )
+beforeAll(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
 
   roles = rolesAndPersonas.roles
 })

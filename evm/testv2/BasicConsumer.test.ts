@@ -1,7 +1,6 @@
 import cbor from 'cbor'
 import * as h from '../src/helpersV2'
 import { assertBigNum } from '../src/matchersV2'
-import ganache from 'ganache-core'
 import { ethers } from 'ethers'
 import { assert } from 'chai'
 import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
@@ -9,24 +8,19 @@ import { OracleFactory } from 'contracts/OracleFactory'
 import { BasicConsumerFactory } from 'contracts/BasicConsumerFactory'
 import { Instance } from 'src/contract'
 import env from '@nomiclabs/buidler'
-import { EthersProviderWrapper } from 'src/wallet'
+import { EthersProviderWrapper } from '../src/wallet'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const oracleFactory = new OracleFactory()
 const linkTokenFactory = new LinkTokenFactory()
 
-// create a web3js instance connected to in-memory ganache blockchain
-const ganacheProvider: any = ganache.provider()
-
 // create ethers provider from that web3js instance
-const provider = new EthersProviderWrapper(env.ethereum as any)
+const provider = new EthersProviderWrapper(env.ethereum)
 
 let roles: h.Roles
 
-before(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(
-    env.ethereum as any,
-  )
+beforeAll(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
 
   roles = rolesAndPersonas.roles
 })
@@ -53,7 +47,7 @@ describe('BasicConsumer', () => {
   })
 
   describe('#requestEthereumPrice', () => {
-    context('without LINK', () => {
+    describe('without LINK', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
           await cc.requestEthereumPrice(currency)
@@ -61,7 +55,7 @@ describe('BasicConsumer', () => {
       })
     })
 
-    context('with LINK', () => {
+    describe('with LINK', () => {
       beforeEach(async () => {
         await link.transfer(cc.address, ethers.utils.parseEther('1'))
       })
@@ -129,7 +123,7 @@ describe('BasicConsumer', () => {
       assert.equal(log.topics[2], response)
     })
 
-    context('when the consumer does not recognize the request ID', () => {
+    describe('when the consumer does not recognize the request ID', () => {
       let otherRequest: h.RunRequest
 
       beforeEach(async () => {
@@ -162,7 +156,7 @@ describe('BasicConsumer', () => {
       })
     })
 
-    context('when called by anyone other than the oracle contract', () => {
+    describe('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
         await h.assertActionThrows(async () => {
           await cc.connect(roles.oracleNode).fulfill(request.id, response)
@@ -185,7 +179,7 @@ describe('BasicConsumer', () => {
       request = h.decodeRunRequest(receipt.logs![3])
     })
 
-    context('before 5 minutes', () => {
+    describe('before 5 minutes', () => {
       it('cant cancel the request', async () => {
         await h.assertActionThrows(async () => {
           await cc
@@ -200,9 +194,9 @@ describe('BasicConsumer', () => {
       })
     })
 
-    context('after 5 minutes', () => {
+    describe('after 5 minutes', () => {
       it('can cancel the request', async () => {
-        await h.increaseTime5Minutes(env.ethereum as any)
+        await h.increaseTime5Minutes(provider)
 
         await cc
           .connect(roles.consumer)
