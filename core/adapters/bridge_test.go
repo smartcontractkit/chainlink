@@ -70,12 +70,12 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 		name       string
 		status     models.RunStatus
 		wantStatus models.RunStatus
+		result     string
 	}{
-		{"from pending bridge", models.RunStatusPendingBridge, models.RunStatusInProgress},
-		{"from errored", models.RunStatusErrored, models.RunStatusErrored},
-		{"from pending confirmations", models.RunStatusPendingConfirmations, models.RunStatusPendingBridge},
-		{"from in progress", models.RunStatusInProgress, models.RunStatusPendingBridge},
-		{"from completed", models.RunStatusCompleted, models.RunStatusCompleted},
+		{"from pending bridge", models.RunStatusPendingBridge, models.RunStatusInProgress, `{"result":"100"}`},
+		{"from errored", models.RunStatusErrored, models.RunStatusErrored, `{"result":"100"}`},
+		{"from in progress", models.RunStatusInProgress, models.RunStatusPendingBridge, `{}`},
+		{"from completed", models.RunStatusCompleted, models.RunStatusCompleted, `{"result":"100"}`},
 	}
 
 	store, cleanup := cltest.NewStore(t)
@@ -95,7 +95,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 
 			result := ba.Perform(input, store)
 
-			assert.Equal(t, `{"result":"100"}`, result.Data.String())
+			assert.Equal(t, test.result, result.Data.String())
 			assert.Equal(t, test.wantStatus, result.Status)
 			if test.wantStatus.Errored() || test.wantStatus.Completed() {
 				assert.Equal(t, input, result)
@@ -115,11 +115,11 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 		response    string
 	}{
 		{"success", http.StatusOK, "purchased", false, false, `{"data":{"result": "purchased"}}`},
-		{"run error", http.StatusOK, "lot 49", true, false, `{"error": "overload", "data": {}}`},
-		{"server error", http.StatusBadRequest, "lot 49", true, false, `bad request`},
-		{"server error", http.StatusInternalServerError, "lot 49", true, false, `big error`},
-		{"JSON parse error", http.StatusOK, "lot 49", true, false, `}`},
-		{"pending response", http.StatusOK, "lot 49", false, true, `{"pending":true}`},
+		{"run error", http.StatusOK, "", true, false, `{"error": "overload", "data": {}}`},
+		{"server error", http.StatusBadRequest, "", true, false, `bad request`},
+		{"server error", http.StatusInternalServerError, "", true, false, `big error`},
+		{"JSON parse error", http.StatusOK, "", true, false, `}`},
+		{"pending response", http.StatusOK, "", false, true, `{"pending":true}`},
 		{"unsetting result", http.StatusOK, "", false, false, `{"data":{"result":null}}`},
 	}
 

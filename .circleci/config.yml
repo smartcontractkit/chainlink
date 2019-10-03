@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   go-sqlite:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -22,7 +22,7 @@ jobs:
   go-sqlite-race:
     resource_class: large
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -39,7 +39,7 @@ jobs:
           path: /tmp/gorace_test.txt
   go-postgres:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -50,6 +50,15 @@ jobs:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - restore_cache:
           name: Restore Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
       - run: go mod download
@@ -58,10 +67,11 @@ jobs:
           key: go-mod-{{ checksum "go.sum" }}
           paths:
             - "/go/pkg/mod"
+      - run: yarn workspace chainlink run setup
       - run: go test -p 3 -parallel 2 ./...
   rust:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -76,7 +86,7 @@ jobs:
       - run: ./tools/ci/rust_test
   sgx:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     environment:
       SGX_ENABLED: yes
       # XXX: These are set in the base image but circleci seems to wipe them out
@@ -99,7 +109,7 @@ jobs:
   geth-postgres:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
         environment:
           TYPEORM_NAME: ci
           TYPEORM_HOST: explorerdb
@@ -131,7 +141,7 @@ jobs:
   parity-postgres:
     resource_class: large
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
         environment:
           TYPEORM_NAME: ci
           TYPEORM_HOST: explorerdb
@@ -164,7 +174,7 @@ jobs:
       - run: ./tools/ci/ethereum_test parity
   truffle:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -181,7 +191,7 @@ jobs:
       - run: ./tools/ci/truffle_test
   operator-ui:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -225,6 +235,7 @@ jobs:
       - run:
           name: Run Lint
           command: yarn workspace @chainlink/explorer run lint
+      - run: yarn workspace @chainlink/explorer run test:migration:run
       - run:
           name: Run Server Tests
           command: yarn workspace @chainlink/explorer run test-ci:silent
@@ -267,7 +278,7 @@ jobs:
             tools/ci/push_chainlink ${CIRCLE_BRANCH} ${CIRCLE_TAG}
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.22
+      - image: smartcontract/builder:1.0.25
     steps:
       - checkout
       - run: ./tools/ci/init_gcloud

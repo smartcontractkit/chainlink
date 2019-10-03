@@ -46,6 +46,8 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 	} else if js := models.NewJobFromRequest(jsr); false {
 	} else if err := services.ValidateJob(js, jsc.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
+	} else if err := NotifyExternalInitiator(js, jsc.App.GetStore()); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if err = jsc.App.AddJob(js); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {

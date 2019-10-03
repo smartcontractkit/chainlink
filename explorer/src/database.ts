@@ -50,6 +50,7 @@ export const getDb = async (): Promise<Connection> => {
   if (db == null) {
     throw new Error('no db connection returned')
   }
+
   return db
 }
 

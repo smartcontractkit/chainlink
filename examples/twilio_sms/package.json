@@ -9,6 +9,7 @@
     "solhint": "solhint ./contracts/**/*.sol",
     "lint": "yarn eslint && yarn solhint",
     "format": "prettier --write \"**/*\"",
+    "setup": "echo \"No setup required for @chainlink/example-twillio-sms\"",
     "test": "truffle test"
   },
   "devDependencies": {

@@ -1,8 +1,9 @@
-import { Connection } from 'typeorm'
+import { Connection, getCustomRepository } from 'typeorm'
 import { closeDbConnection, getDb } from '../../database'
 import { createChainlinkNode } from '../../entity/ChainlinkNode'
 import { fromString, JobRun, saveJobRunTree } from '../../entity/JobRun'
 import fixture from '../fixtures/JobRun.fixture.json'
+import { JobRunRepository } from '../../repositories/JobRunRepository'
 
 let db: Connection
 
@@ -33,7 +34,9 @@ describe('entity/taskRun', () => {
       [jr.id],
     )
 
-    const retrieved = await db.manager.findOne(JobRun, jr.id)
+    const jobRunRepository = getCustomRepository(JobRunRepository, db.name)
+    const retrieved = await jobRunRepository.getFirst()
+
     const task = retrieved.taskRuns[1]
 
     expect(task.confirmationsOld).toEqual(1)

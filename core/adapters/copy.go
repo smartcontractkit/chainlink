@@ -17,10 +17,19 @@ func (c *Copy) Perform(input models.RunResult, store *store.Store) models.RunRes
 
 	data, err := input.Data.Add("result", input.Data.String())
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.RunResultError(err)
 	}
 	input.Data = data
 
-	return jp.Perform(input, store)
+	rr := jp.Perform(input, store)
+	if rr.HasError() {
+		return rr
+	}
+
+	rr.Data, err = input.Data.Merge(rr.Data)
+	if err != nil {
+		return models.RunResultError(err)
+	}
+
+	return rr
 }

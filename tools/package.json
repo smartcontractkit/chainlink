@@ -5,7 +5,8 @@
   "scripts": {
     "depcheck": "echo '@chainlink/tools' && depcheck || true",
     "format": "prettier --write \"**/*\"",
-    "lint": "eslint --ext .js,.ts ."
+    "lint": "eslint --ext .js,.ts .",
+    "setup": "echo \"No setup required for @chainlink/tools\" && exit 0"
   },
   "dependencies": {
     "axios": "^0.18.1"

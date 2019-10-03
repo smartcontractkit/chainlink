@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"sort"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -218,4 +219,24 @@ func TestTx_PresenterMatchesHex(t *testing.T) {
 
 	ptx := presenters.NewTx(createdTx)
 	assert.Equal(t, signedHex, ptx.Hex)
+}
+
+func TestHighestPricedTxAttemptPerTx(t *testing.T) {
+	items := []models.TxAttempt{
+		{TxID: 1, GasPrice: models.NewBig(big.NewInt(5555))},
+		{TxID: 1, GasPrice: models.NewBig(big.NewInt(444))},
+		{TxID: 1, GasPrice: models.NewBig(big.NewInt(2))},
+		{TxID: 1, GasPrice: models.NewBig(big.NewInt(33333))},
+		{TxID: 2, GasPrice: models.NewBig(big.NewInt(4444))},
+		{TxID: 2, GasPrice: models.NewBig(big.NewInt(999))},
+		{TxID: 2, GasPrice: models.NewBig(big.NewInt(12211))},
+	}
+
+	items = models.HighestPricedTxAttemptPerTx(items)
+
+	sort.Slice(items, func(i, j int) bool { return items[i].TxID < items[j].TxID })
+
+	assert.Len(t, items, 2)
+	assert.True(t, items[0].GasPrice.ToInt().Cmp(big.NewInt(33333)) == 0)
+	assert.True(t, items[1].GasPrice.ToInt().Cmp(big.NewInt(12211)) == 0)
 }

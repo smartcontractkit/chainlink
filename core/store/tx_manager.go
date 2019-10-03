@@ -111,36 +111,51 @@ func (txm *EthTxManager) Connected() bool {
 // Connect iterates over the available accounts to retrieve their nonce
 // for client side management.
 func (txm *EthTxManager) Connect(bn *models.Head) error {
-	txm.accountsMutex.Lock()
-	defer txm.accountsMutex.Unlock()
-
-	txm.availableAccounts = []*ManagedAccount{}
 	var merr error
-	for _, a := range txm.registeredAccounts {
-		ma, err := txm.activateAccount(a)
-		merr = multierr.Append(merr, err)
-		if err == nil {
-			txm.availableAccounts = append(txm.availableAccounts, ma)
-		}
-	}
+	func() {
+		txm.accountsMutex.Lock()
+		defer txm.accountsMutex.Unlock()
 
-	if bn != nil {
-		txm.currentHead = *bn
-	}
-	txm.connected.Set()
+		txm.availableAccounts = []*ManagedAccount{}
+		for _, a := range txm.registeredAccounts {
+			ma, err := txm.activateAccount(a)
+			merr = multierr.Append(merr, err)
+			if err == nil {
+				txm.availableAccounts = append(txm.availableAccounts, ma)
+			}
+		}
+
+		if bn != nil {
+			txm.currentHead = *bn
+		}
+		txm.connected.Set()
+	}()
 
 	// Upon connecting/reconnecting, rebroadcast any transactions that are still unconfirmed
 	attempts, err := txm.orm.UnconfirmedTxAttempts()
 	if err != nil {
-		return err
+		merr = multierr.Append(merr, err)
+		return merr
 	}
 
-	for _, attempt := range attempts {
-		logger.Infof("Rebroadcasting tx %v", attempt.Hash.String())
+	attempts = models.HighestPricedTxAttemptPerTx(attempts)
 
-		_, err := txm.SendRawTx(attempt.SignedRawTx)
-		if err != nil {
-			logger.Warnf("Failed to rebroadcast tx %v: %v", attempt.Hash, err)
+	for _, attempt := range attempts {
+		ma := txm.getAccount(attempt.Tx.From)
+		if ma == nil {
+			logger.Warnf("Trying to rebroadcast tx %v, could not find account %v", attempt.Hash.Hex(), attempt.Tx.From.Hex())
+			continue
+		} else if ma.Nonce() > attempt.Tx.Nonce {
+			// Do not rebroadcast txs with nonces that are lower than our current nonce
+			logger.Errorf("nonce too low (account: %v, tx: %v)", ma.Nonce(), attempt.Tx.Nonce)
+			continue
+		}
+
+		logger.Infof("Rebroadcasting tx %v", attempt.Hash.Hex())
+
+		_, err = txm.SendRawTx(attempt.SignedRawTx)
+		if err != nil && !isNonceTooLowError(err) {
+			logger.Warnf("Failed to rebroadcast tx %v: %v", attempt.Hash.Hex(), err)
 		}
 	}
 
@@ -833,7 +848,7 @@ func GetContract(name string) (*Contract, error) {
 	box := packr.NewBox("../../evm/build/contracts")
 	jsonFile, err := box.Find(name + ".json")
 	if err != nil {
-		return nil, errors.New("unable to read contract JSON")
+		return nil, errors.Wrap(err, "unable to read contract JSON")
 	}
 
 	abiBytes := gjson.GetBytes(jsonFile, "abi")
