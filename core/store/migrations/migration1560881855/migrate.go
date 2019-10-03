@@ -5,8 +5,8 @@ import (
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/dbutil"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/dbutil"
 )
 
 func Migrate(tx *gorm.DB) error {

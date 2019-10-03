@@ -17,11 +17,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/logger"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/utils"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
 )
@@ -62,7 +62,7 @@ type TxManager interface {
 	GetChainID() (*big.Int, error)
 }
 
-//go:generate mockgen -package=mocks -destination=../internal/mocks/tx_manager_mocks.go github.com/smartcontractkit/chainlink/core/store TxManager
+//go:generate mockgen -package=mocks -destination=../internal/mocks/tx_manager_mocks.go chainlink/core/store TxManager
 
 // EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.

@@ -5,13 +5,13 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/adapters"
+	"chainlink/core/logger"
+	clnull "chainlink/core/null"
+	"chainlink/core/store"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
 )
 
 // ExecuteJob saves and immediately begins executing a run for a specified job

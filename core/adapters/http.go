@@ -12,9 +12,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
 )
 
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.

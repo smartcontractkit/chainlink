@@ -7,9 +7,9 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
 )
 
 // Multiplier represents the number to multiply by in Multiply adapter.

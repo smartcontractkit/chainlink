@@ -11,7 +11,7 @@ import (
 
 	"github.com/araddon/dateparse"
 	"github.com/jinzhu/gorm"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
+	"chainlink/core/store/assets"
 	null "gopkg.in/guregu/null.v3"
 
 	"github.com/ethereum/go-ethereum/common"

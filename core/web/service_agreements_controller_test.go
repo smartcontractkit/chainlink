@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

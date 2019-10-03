@@ -7,8 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
 )
 
 // StatusCodeForError returns an http status code for an error type.

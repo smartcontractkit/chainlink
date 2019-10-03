@@ -13,8 +13,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/store/assets"
+	"chainlink/core/utils"
 )
 
 // UnsignedServiceAgreement contains the information to sign a service agreement

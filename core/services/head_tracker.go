@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/logger"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
 )
 
 // HeadTracker holds and stores the latest block number experienced by this particular node

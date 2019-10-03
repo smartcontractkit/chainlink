@@ -10,8 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
+	clnull "chainlink/core/null"
+	"chainlink/core/store/assets"
 	null "gopkg.in/guregu/null.v3"
 )
 

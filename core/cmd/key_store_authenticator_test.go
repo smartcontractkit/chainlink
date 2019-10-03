@@ -3,8 +3,8 @@ package cmd_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"chainlink/core/cmd"
+	"chainlink/core/internal/cltest"
 	"github.com/stretchr/testify/assert"
 )
 

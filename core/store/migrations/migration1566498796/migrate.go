@@ -2,7 +2,7 @@ package migration1566498796
 
 import (
 	"github.com/jinzhu/gorm"
-	"github.com/smartcontractkit/chainlink/core/store/dbutil"
+	"chainlink/core/store/dbutil"
 )
 
 // Migrate optimizes the JobRuns table to reduce the cost of IDs

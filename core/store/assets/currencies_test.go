@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/store/assets"
+	"chainlink/core/store/assets"
 	"github.com/stretchr/testify/assert"
 )
 

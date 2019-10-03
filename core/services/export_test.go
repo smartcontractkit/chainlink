@@ -1,8 +1,8 @@
 package services
 
 import (
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
 )
 
 func ExportedExecuteRun(

@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/utils"
 )
 
 const (

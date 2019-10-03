@@ -3,10 +3,10 @@ package synchronization_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/services/synchronization"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

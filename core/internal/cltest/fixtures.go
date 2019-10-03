@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/store/models"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )

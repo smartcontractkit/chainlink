@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/core/services"
+	"chainlink/core/services"
 )
 
 // PingController has the ping endpoint.

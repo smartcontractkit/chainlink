@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/core/store"
+	"chainlink/core/store"
 )
 
 // KeyStoreAuthenticator implements the Authenticate method for the store and

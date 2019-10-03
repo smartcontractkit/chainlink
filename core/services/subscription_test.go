@@ -5,10 +5,10 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/services"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

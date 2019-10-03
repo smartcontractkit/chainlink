@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"chainlink/core/internal/cltest"
 )
 
 func TestCors_DefaultOrigins(t *testing.T) {

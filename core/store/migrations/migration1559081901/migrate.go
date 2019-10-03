@@ -3,7 +3,7 @@ package migration1559081901
 import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/store/models"
 )
 
 func Migrate(tx *gorm.DB) error {

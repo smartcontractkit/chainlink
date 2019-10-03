@@ -4,8 +4,8 @@ import (
 	"crypto/rand"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
 )
 
 // Random adapter type holds no fields
