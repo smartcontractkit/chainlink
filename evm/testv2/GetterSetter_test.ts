@@ -4,6 +4,7 @@ import { ethers } from 'ethers'
 import { assert } from 'chai'
 import { GetterSetterFactory } from 'contracts/GetterSetterFactory'
 import { Instance } from 'src/contract'
+import env from '@nomiclabs/buidler'
 
 const GetterSetterContract = new GetterSetterFactory()
 const ganacheProvider: any = ganache.provider()
@@ -11,7 +12,9 @@ const ganacheProvider: any = ganache.provider()
 let roles: h.Roles
 
 before(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(ganacheProvider)
+  const rolesAndPersonas = await h.initializeRolesAndPersonas(
+    env.ethereum as any,
+  )
 
   roles = rolesAndPersonas.roles
 })

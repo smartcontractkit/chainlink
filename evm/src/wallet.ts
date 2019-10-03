@@ -1,6 +1,37 @@
 import { ethers } from 'ethers'
 import { makeDebug } from './debug'
 
+import { IEthereumProvider } from '@nomiclabs/buidler/types'
+import { JsonRpcProvider } from 'ethers/providers'
+
+export class EthersProviderWrapper extends JsonRpcProvider {
+  private readonly _buidlerProvider: IEthereumProvider
+
+  constructor(buidlerProvider: IEthereumProvider) {
+    super()
+    this._buidlerProvider = buidlerProvider
+  }
+
+  public async send(method: string, params: any): Promise<any> {
+    const result = await this._buidlerProvider.send(method, params)
+
+    // We replicate ethers' behavior.
+    this.emit('debug', {
+      action: 'send',
+      request: {
+        id: 42,
+        jsonrpc: '2.0',
+        method,
+        params,
+      },
+      response: result,
+      provider: this,
+    })
+
+    return result
+  }
+}
+
 interface RCreateFundedWallet {
   /**
    * The created wallet
@@ -47,7 +78,7 @@ export function createWallet(
    */
   const mnemonicPhrase =
     'dose weasel clever culture letter volume endorse used harvest ripple circle install'
-  const web3Provider = new ethers.providers.Web3Provider(provider)
+  const web3Provider = new EthersProviderWrapper(provider as any)
   const path = `m/44'/60'/${accountIndex}'/0/0`
   debug('created wallet with parameters: %o', { mnemonicPhrase, path })
 
@@ -68,7 +99,7 @@ export async function fundWallet(
 ): Promise<ethers.providers.TransactionReceipt> {
   const debug = makeDebug('wallet:fundWallet')
   debug('funding wallet')
-  const web3Provider = new ethers.providers.Web3Provider(provider)
+  const web3Provider = new EthersProviderWrapper(provider as any)
   debug('retreiving accounts...')
 
   const nodeOwnedAccounts = await web3Provider.listAccounts()

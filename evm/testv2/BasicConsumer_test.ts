@@ -8,6 +8,8 @@ import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
 import { OracleFactory } from 'contracts/OracleFactory'
 import { BasicConsumerFactory } from 'contracts/BasicConsumerFactory'
 import { Instance } from 'src/contract'
+import env from '@nomiclabs/buidler'
+import { EthersProviderWrapper } from 'src/wallet'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const oracleFactory = new OracleFactory()
@@ -17,12 +19,14 @@ const linkTokenFactory = new LinkTokenFactory()
 const ganacheProvider: any = ganache.provider()
 
 // create ethers provider from that web3js instance
-const provider = new ethers.providers.Web3Provider(ganacheProvider)
+const provider = new EthersProviderWrapper(env.ethereum as any)
 
 let roles: h.Roles
 
 before(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(ganacheProvider)
+  const rolesAndPersonas = await h.initializeRolesAndPersonas(
+    env.ethereum as any,
+  )
 
   roles = rolesAndPersonas.roles
 })
@@ -198,7 +202,7 @@ describe('BasicConsumer', () => {
 
     context('after 5 minutes', () => {
       it('can cancel the request', async () => {
-        await h.increaseTime5Minutes(ganacheProvider)
+        await h.increaseTime5Minutes(env.ethereum as any)
 
         await cc
           .connect(roles.consumer)

@@ -9,6 +9,7 @@ import { assert } from 'chai'
 import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
 import { OracleFactory } from 'contracts/OracleFactory'
 import { Instance } from 'src/contract'
+import env from '@nomiclabs/buidler'
 
 const ganacheProvider: any = ganache.provider()
 
@@ -21,7 +22,9 @@ const updatableConsumerFactory = new UpdatableConsumerFactory()
 let roles: h.Roles
 
 before(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(ganacheProvider)
+  const rolesAndPersonas = await h.initializeRolesAndPersonas(
+    env.ethereum as any,
+  )
 
   roles = rolesAndPersonas.roles
 })
@@ -192,7 +195,7 @@ describe('UpdatableConsumer', () => {
         })
 
         it('still allows funds to be withdrawn from the oracle', async () => {
-          await h.increaseTime5Minutes(ganacheProvider)
+          await h.increaseTime5Minutes(env.ethereum as any)
           assertBigNum(
             0,
             await link.balanceOf(uc.address),

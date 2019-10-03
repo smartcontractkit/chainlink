@@ -39,6 +39,7 @@
   "devDependencies": {
     "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
+    "@nomiclabs/buidler": "^1.0.1",
     "@types/cbor": "^2.0.0",
     "@types/chai": "^4.2.0",
     "@types/debug": "^4.1.5",
