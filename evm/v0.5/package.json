@@ -4,12 +4,14 @@
   "license": "MIT",
   "scripts": {
     "build": "truffle build",
+    "build.windows": "truffle.cmd build",
     "depcheck": "echo \"chainlinkv0.5\" && depcheck --ignore-dirs=build/contracts || true",
     "eslint": "eslint --ext .ts,.js test",
     "solhint": "solhint ./contracts/**/*.sol",
     "lint": "yarn eslint && yarn solhint",
     "format": "prettier --write \"**/*\"",
     "slither": "truffle compile --quiet && slither .",
+    "setup": "cross-env ./scripts/build.js",
     "test": "truffle test"
   },
   "dependencies": {
@@ -32,6 +34,7 @@
     "@types/cbor": "^2.0.0",
     "@types/ethereumjs-abi": "^0.6.3",
     "chai": "^4.2.0",
+    "cross-env": "^6.0.0",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",
     "openzeppelin-test-helpers": "^0.4.3",

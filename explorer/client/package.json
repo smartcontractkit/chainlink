@@ -26,6 +26,7 @@
     "build": "craco build",
     "lint": "eslint --ext .js,.ts,.tsx,.jsx src",
     "format": "prettier --write \"**/*\"",
+    "setup": "echo \"No setup required for @chainlink/explorer-client\"",
     "test": "react-scripts test",
     "test-ci": "CI=true react-scripts test",
     "test-ci:silent": "yarn test-ci --silent",
@@ -72,7 +73,7 @@
     "@types/whatwg-fetch": "^0.0.33",
     "brotli-webpack-plugin": "^1.1.0",
     "compression-webpack-plugin": "^3.0.0",
-    "cross-env": "^5.2.0",
+    "cross-env": "^6.0.0",
     "depcheck": "^0.8.3",
     "dynamic-cdn-webpack-plugin": "^4.0.0",
     "enzyme": "^3.10.0",
@@ -85,7 +86,7 @@
     "react-scripts": "^3.1.0",
     "redux-devtools-extension": "^2.13.8",
     "redux-logger": "^3.0.6",
-    "typescript": "^3.5.0",
+    "typescript": "^3.6.3",
     "webpack": "4.35.0"
   },
   "prettier": "@chainlink/prettier-config"

@@ -161,6 +161,26 @@ func (txa *TxAttempt) SetID(value string) error {
 	return nil
 }
 
+func HighestPricedTxAttemptPerTx(items []TxAttempt) []TxAttempt {
+	highestPricedSet := map[uint64]TxAttempt{}
+	for _, item := range items {
+		if currentHighest, ok := highestPricedSet[item.TxID]; ok {
+			if currentHighest.GasPrice.ToInt().Cmp(item.GasPrice.ToInt()) == -1 {
+				highestPricedSet[item.TxID] = item
+			}
+		} else {
+			highestPricedSet[item.TxID] = item
+		}
+	}
+	highestPriced := make([]TxAttempt, len(highestPricedSet))
+	i := 0
+	for _, attempt := range highestPricedSet {
+		highestPriced[i] = attempt
+		i++
+	}
+	return highestPriced
+}
+
 // FunctionSelector is the first four bytes of the call data for a
 // function call and specifies the function to be called.
 type FunctionSelector [FunctionSelectorLength]byte

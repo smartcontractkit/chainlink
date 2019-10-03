@@ -7,6 +7,7 @@ contract ConcreteSignedSafeMath {
 
   function testAdd(int256 _a, int256 _b)
     external
+    pure
     returns (int256)
   {
     return _a.add(_b);
