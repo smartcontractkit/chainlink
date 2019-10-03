@@ -1,19 +1,18 @@
 import * as h from '../src/helpersV2'
 import { assertBigNum } from '../src/matchersV2'
 import { ethers } from 'ethers'
-import ganache from 'ganache-core'
-import { createFundedWallet } from '../src/wallet'
+import { createFundedWallet, EthersProviderWrapper } from '../src/wallet'
 import { ConcreteSignedSafeMathFactory } from 'contracts/ConcreteSignedSafeMathFactory'
 import { Instance } from 'src/contract'
 import env from '@nomiclabs/buidler'
 
 const concreteSignedSafeMathFactory = new ConcreteSignedSafeMathFactory()
+const provider = new EthersProviderWrapper(env.ethereum)
 
-const ganacheProvider: any = ganache.provider()
 let defaultAccount: ethers.Wallet
 
-before(async () => {
-  const { wallet } = await createFundedWallet(env.ethereum as any, 0)
+beforeAll(async () => {
+  const { wallet } = await createFundedWallet(provider, 0)
   defaultAccount = wallet
 })
 
@@ -35,7 +34,7 @@ describe('SignedSafeMath', () => {
   })
 
   describe('#add', () => {
-    context('given a positive and positive', () => {
+    describe('given a positive and positive', () => {
       it('works', async () => {
         response = await adder.testAdd(1, 2)
         assertBigNum(3, response)
@@ -46,7 +45,7 @@ describe('SignedSafeMath', () => {
         assertBigNum(INT256_MAX, response)
       })
 
-      context('when both are large enough to overflow', async () => {
+      describe('when both are large enough to overflow', () => {
         it('throws', async () => {
           await h.assertActionThrows(async () => {
             response = await adder.testAdd(INT256_MAX, 1)
@@ -55,7 +54,7 @@ describe('SignedSafeMath', () => {
       })
     })
 
-    context('given a negative and negative', () => {
+    describe('given a negative and negative', () => {
       it('works', async () => {
         response = await adder.testAdd(-1, -2)
         assertBigNum(-3, response)
@@ -66,7 +65,7 @@ describe('SignedSafeMath', () => {
         assertBigNum(INT256_MIN, response)
       })
 
-      context('when both are large enough to overflow', async () => {
+      describe('when both are large enough to overflow', () => {
         it('throws', async () => {
           await h.assertActionThrows(async () => {
             await adder.testAdd(INT256_MIN, -1)
@@ -75,14 +74,14 @@ describe('SignedSafeMath', () => {
       })
     })
 
-    context('given a positive and negative', () => {
+    describe('given a positive and negative', () => {
       it('works', async () => {
         response = await adder.testAdd(1, -2)
         assertBigNum(-1, response)
       })
     })
 
-    context('given a negative and positive', () => {
+    describe('given a negative and positive', () => {
       it('works', async () => {
         response = await adder.testAdd(-1, 2)
         assertBigNum(1, response)

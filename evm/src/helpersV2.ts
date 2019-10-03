@@ -1,5 +1,5 @@
 import { ethers } from 'ethers'
-import { createFundedWallet, EthersProviderWrapper } from './wallet'
+import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
 import { Oracle } from 'contracts/Oracle'
 import { LinkToken } from 'contracts/LinkToken'
@@ -37,7 +37,7 @@ interface RolesAndPersonas {
  * Generate roles and personas for tests along with their corrolated account addresses
  */
 export async function initializeRolesAndPersonas(
-  provider: ethers.providers.AsyncSendable,
+  provider: ethers.providers.JsonRpcProvider,
 ): Promise<RolesAndPersonas> {
   const accounts = await Promise.all(
     Array(6)
@@ -332,19 +332,8 @@ export function requestDataFrom(
   return link.transferAndCall(oc.address, amount, args, options)
 }
 
-export function increaseTime5Minutes(
-  provider: ethers.providers.AsyncSendable,
+export async function increaseTime5Minutes(
+  provider: ethers.providers.JsonRpcProvider,
 ): Promise<void> {
-  const jsonRpcCmd = {
-    id: 0,
-    jsonrpc: '2.0',
-    method: 'evm_increaseTime',
-    params: [300],
-  }
-  const p = new EthersProviderWrapper(provider as any)
-  return new Promise((resolve, reject) => {
-    p.send(jsonRpcCmd.method, jsonRpcCmd.params)
-      .then(resolve)
-      .catch(reject)
-  })
+  await provider.send('evm_increaseTime', [300])
 }

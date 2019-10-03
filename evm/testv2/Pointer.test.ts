@@ -4,15 +4,16 @@ import { PointerFactory } from 'contracts/PointerFactory'
 import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
 import { Instance } from 'src/contract'
 import env from '@nomiclabs/buidler'
+import { EthersProviderWrapper } from '../src/wallet'
 
 const pointerFactory = new PointerFactory()
 const linkTokenFactory = new LinkTokenFactory()
+const provider = new EthersProviderWrapper(env.ethereum)
 
 let roles: h.Roles
 
-before(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(env.network
-    .provider as any)
+beforeAll(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
 
   roles = rolesAndPersonas.roles
 })
