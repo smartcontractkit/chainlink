@@ -1,6 +1,6 @@
 import { toBuffer } from 'ethereumjs-util'
 import abi from 'ethereumjs-abi'
-import { checkPublicABI, decodeDietCBOR, toHex } from './support/helpers'
+import { checkPublicABI, decodeDietCBOR, toHex } from '../src/helpers'
 const ConcreteChainlink = artifacts.require('ConcreteChainlink.sol')
 
 contract('ConcreteChainlink', () => {

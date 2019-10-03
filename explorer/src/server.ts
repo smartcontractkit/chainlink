@@ -18,6 +18,7 @@ const server = (port: number = DEFAULT_PORT) => {
   addRequestLogging(app)
 
   app.use(helmet())
+  app.use(express.json())
   app.use(
     express.static('client/build', {
       maxAge: '1y',
@@ -29,6 +30,7 @@ const server = (port: number = DEFAULT_PORT) => {
     }),
   )
   app.use('/api/v1', controllers.jobRuns)
+  app.use('/api/v1', controllers.adminLogin)
 
   app.get('/*', (_, res) => {
     res.sendFile(`${__dirname}/public/index.html`)

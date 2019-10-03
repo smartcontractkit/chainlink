@@ -86,10 +86,10 @@ func CreateProductionLogger(
 
 // CreateTestLogger creates a logger that directs output to PrettyConsole
 // configured for test output.
-func CreateTestLogger() *zap.Logger {
+func CreateTestLogger(lvl zapcore.Level) *zap.Logger {
 	color.NoColor = false
 	config := zap.NewProductionConfig()
-	config.Level.SetLevel(zapcore.DebugLevel)
+	config.Level.SetLevel(lvl)
 	config.OutputPaths = []string{"pretty://console"}
 	zl, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {

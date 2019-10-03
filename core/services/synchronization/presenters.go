@@ -112,7 +112,7 @@ type syncReceiptPresenter struct {
 	Status TxStatus    `json:"transactionStatus"`
 }
 
-// TxStatus indicates if a transaction is fulfiled or not
+// TxStatus indicates if a transaction is fulfilled or not
 type TxStatus string
 
 const (

@@ -166,12 +166,12 @@ func (rm *jobRunner) workerLoop(runID *models.ID, workerChannel chan struct{}) {
 			}
 
 			if run.Status.Finished() {
-				logger.Debugw("All tasks complete for run", "run", run.ID)
+				logger.Debugw("All tasks complete for run", "run", run.ID.String())
 				return
 			}
 
 		case <-rm.done:
-			logger.Debug("JobRunner worker loop for ", runID, " finished")
+			logger.Debug("JobRunner worker loop for ", runID.String(), " finished")
 			return
 		}
 	}
@@ -215,7 +215,7 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 		return currentTaskRun.Result
 	}
 
-	logger.Infow(fmt.Sprintf("Processing task %s", taskCopy.Type), []interface{}{"task", currentTaskRun.ID}...)
+	logger.Infow(fmt.Sprintf("Processing task %s", taskCopy.Type), []interface{}{"task", currentTaskRun.ID.String()}...)
 
 	data, err := prepareTaskInput(run, currentTaskRun.Result.Data)
 	if err != nil {
@@ -254,14 +254,14 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 	run.ApplyResult(result)
 
 	if currentTaskRun.Status.PendingSleep() {
-		logger.Debugw("Task is sleeping", []interface{}{"run", run.ID}...)
+		logger.Debugw("Task is sleeping", []interface{}{"run", run.ID.String()}...)
 		if err := QueueSleepingTask(run, store); err != nil {
 			return err
 		}
 	} else if !currentTaskRun.Status.Runnable() {
-		logger.Debugw("Task execution blocked", []interface{}{"run", run.ID, "task", currentTaskRun.ID, "state", currentTaskRun.Result.Status}...)
+		logger.Debugw("Task execution blocked", []interface{}{"run", run.ID.String(), "task", currentTaskRun.ID.String(), "state", currentTaskRun.Result.Status}...)
 	} else if currentTaskRun.Status.Unstarted() {
-		return fmt.Errorf("run %s task %s cannot return a status of empty string or Unstarted", run.ID, currentTaskRun.TaskSpec.Type)
+		return fmt.Errorf("run %s task %s cannot return a status of empty string or Unstarted", run.ID.String(), currentTaskRun.TaskSpec.Type)
 	} else if futureTaskRun := run.NextTaskRun(); futureTaskRun != nil {
 		validateMinimumConfirmations(run, futureTaskRun, run.ObservedHeight, store)
 	}
