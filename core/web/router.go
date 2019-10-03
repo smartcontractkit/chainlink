@@ -3,7 +3,6 @@ package web
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -23,6 +22,7 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -177,8 +177,10 @@ func tokenAuth(store *store.Store, c *gin.Context) error {
 	}
 
 	ei, err := store.FindExternalInitiator(eia)
-	if err != nil {
-		return err
+	if errors.Cause(err) == orm.ErrorNotFound {
+		return ErrorAuthFailed
+	} else if err != nil {
+		return errors.Wrap(err, "finding external intiator")
 	}
 
 	ok, err := models.AuthenticateExternalInitiator(eia, ei)

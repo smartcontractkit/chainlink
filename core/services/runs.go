@@ -82,13 +82,13 @@ func NewRun(
 	now := store.Clock.Now()
 	if !job.Started(now) {
 		return nil, RecurringScheduleJobError{
-			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
+			msg: fmt.Sprintf("Job runner: Job %s unstarted: %v before job's start time %v", job.ID.String(), now, job.EndAt),
 		}
 	}
 
 	if job.Ended(now) {
 		return nil, RecurringScheduleJobError{
-			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
+			msg: fmt.Sprintf("Job runner: Job %s ended: %v past job's end time %v", job.ID.String(), now, job.EndAt),
 		}
 	}
 
@@ -159,7 +159,7 @@ func NewRun(
 	}
 
 	if len(run.TaskRuns) == 0 {
-		run.SetError(fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID))
+		run.SetError(fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID.String()))
 	}
 
 	if !run.Status.Runnable() {
@@ -186,11 +186,11 @@ func ResumeConfirmingTask(
 
 	currentTaskRun := run.NextTaskRun()
 	if currentTaskRun == nil {
-		return fmt.Errorf("Attempting to resume confirming run with no remaining tasks %s", run.ID)
+		return fmt.Errorf("Attempting to resume confirming run with no remaining tasks %s", run.ID.String())
 	}
 
 	if currentBlockHeight == nil {
-		return fmt.Errorf("Attempting to resume confirming run with no currentBlockHeight %s", run.ID)
+		return fmt.Errorf("Attempting to resume confirming run with no currentBlockHeight %s", run.ID.String())
 	}
 
 	run.ObservedHeight = models.NewBig(currentBlockHeight)
@@ -213,7 +213,7 @@ func ResumeConnectingTask(
 
 	currentTaskRun := run.NextTaskRun()
 	if currentTaskRun == nil {
-		return fmt.Errorf("Attempting to resume connecting run with no remaining tasks %s", run.ID)
+		return fmt.Errorf("Attempting to resume connecting run with no remaining tasks %s", run.ID.String())
 	}
 
 	run.Status = models.RunStatusInProgress
@@ -229,20 +229,20 @@ func ResumePendingTask(
 	input models.RunResult,
 ) error {
 	logger.Debugw("External adapter resuming job", []interface{}{
-		"run", run.ID,
-		"job", run.JobSpecID,
+		"run", run.ID.String(),
+		"job", run.JobSpecID.String(),
 		"status", run.Status,
 		"input_data", input.Data,
 		"input_result", input.Status,
 	}...)
 
 	if !run.Status.PendingBridge() {
-		return fmt.Errorf("Attempting to resume non pending run %s", run.ID)
+		return fmt.Errorf("Attempting to resume non pending run %s", run.ID.String())
 	}
 
 	currentTaskRun := run.NextTaskRun()
 	if currentTaskRun == nil {
-		return fmt.Errorf("Attempting to resume pending run with no remaining tasks %s", run.ID)
+		return fmt.Errorf("Attempting to resume pending run with no remaining tasks %s", run.ID.String())
 	}
 
 	run.Overrides.Merge(input)
@@ -283,16 +283,16 @@ func QueueSleepingTask(
 	store *store.Store,
 ) error {
 	if !run.Status.PendingSleep() {
-		return fmt.Errorf("Attempting to resume non sleeping run %s", run.ID)
+		return fmt.Errorf("Attempting to resume non sleeping run %s", run.ID.String())
 	}
 
 	currentTaskRun := run.NextTaskRun()
 	if currentTaskRun == nil {
-		return fmt.Errorf("Attempting to resume sleeping run with no remaining tasks %s", run.ID)
+		return fmt.Errorf("Attempting to resume sleeping run with no remaining tasks %s", run.ID.String())
 	}
 
 	if !currentTaskRun.Status.PendingSleep() {
-		return fmt.Errorf("Attempting to resume sleeping run with non sleeping task %s", run.ID)
+		return fmt.Errorf("Attempting to resume sleeping run with non sleeping task %s", run.ID.String())
 	}
 
 	adapter, err := prepareAdapter(currentTaskRun, run.Overrides.Data, store)
@@ -306,7 +306,7 @@ func QueueSleepingTask(
 		return performTaskSleep(run, currentTaskRun, sleepAdapter, store)
 	}
 
-	return fmt.Errorf("Attempting to resume non sleeping task for run %s (%s)", run.ID, currentTaskRun.TaskSpec.Type)
+	return fmt.Errorf("Attempting to resume non sleeping task for run %s (%s)", run.ID.String(), currentTaskRun.TaskSpec.Type)
 }
 
 func performTaskSleep(
@@ -356,12 +356,12 @@ func validateMinimumConfirmations(
 
 	updateTaskRunConfirmations(currentHeight, run, taskRun)
 	if !meetsMinimumConfirmations(run, taskRun, run.ObservedHeight) {
-		logger.Debugw("Run cannot continue because it lacks sufficient confirmations", []interface{}{"run", run.ID, "required_height", taskRun.MinimumConfirmations}...)
+		logger.Debugw("Run cannot continue because it lacks sufficient confirmations", []interface{}{"run", run.ID.String(), "required_height", taskRun.MinimumConfirmations}...)
 		run.Status = models.RunStatusPendingConfirmations
 	} else if err := validateOnMainChain(run, taskRun, store); err != nil {
 		run.SetError(err)
 	} else {
-		logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID, "nextTask", taskRun.TaskSpec.Type}...)
+		logger.Debugw("Adding next task to job run queue", []interface{}{"run", run.ID.String(), "nextTask", taskRun.TaskSpec.Type}...)
 		run.Status = models.RunStatusInProgress
 	}
 }
@@ -393,7 +393,7 @@ func validateOnMainChain(jr *models.JobRun, taskRun *models.TaskRun, store *stor
 		return fmt.Errorf(
 			"TxHash %s initiating run %s not on main chain; presumably has been uncled",
 			txhash.Hex(),
-			jr.ID,
+			jr.ID.String(),
 		)
 	}
 	return nil

@@ -1,5 +1,5 @@
-import * as h from './support/helpers'
-import { assertBigNum } from './support/matchers'
+import * as h from '../src/helpers'
+import { assertBigNum } from '../src/matchers'
 const ConcreteSignedSafeMath = artifacts.require('ConcreteSignedSafeMath.sol')
 
 contract('SignedSafeMath', () => {

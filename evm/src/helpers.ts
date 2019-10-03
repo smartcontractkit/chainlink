@@ -13,46 +13,64 @@ web3.providers.HttpProvider.prototype.sendAsync =
   web3.providers.HttpProvider.prototype.send
 export const eth = web3.eth
 
-const INVALIDVALUE = {
-  // If you got this value, you probably tried to use one of the variables below
-  // before they were initialized. Do any test initialization which requires
-  // them in a callback passed to Mocha's `before` or `beforeEach`.
-  // https://mochajs.org/#asynchronous-hooks
-  unitializedValueProbablyShouldUseVaribleInMochaBeforeCallback: null,
+export interface Roles {
+  defaultAccount: string
+  oracleNode: string
+  oracleNode1: string
+  oracleNode2: string
+  oracleNode3: string
+  stranger: string
+  consumer: string
 }
 
-export let [
-  accounts,
-  defaultAccount,
-  oracleNode1,
-  oracleNode2,
-  oracleNode3,
-  stranger,
-  consumer,
-  oracleNode,
-] = Array(1000).fill(INVALIDVALUE)
-export const personas = {}
+export interface Personas {
+  Default: string
+  Neil: string
+  Ned: string
+  Nelly: string
+  Carol: string
+  Eddy: string
+}
 
-before(async function queryEthClientForConstants() {
-  accounts = await eth.getAccounts()
-  ;[
+interface RolesAndPersonas {
+  roles: Roles
+  personas: Personas
+}
+
+/**
+ * Generate roles and personas for tests along with their corrolated account addresses
+ */
+export async function initializeRolesAndPersonas(): Promise<RolesAndPersonas> {
+  const [
     defaultAccount,
     oracleNode1,
     oracleNode2,
     oracleNode3,
     stranger,
     consumer,
-  ] = accounts.slice(0, 6)
-  oracleNode = oracleNode1
+  ] = await eth.getAccounts()
 
-  // allow personas instead of roles
-  personas.Default = defaultAccount
-  personas.Neil = oracleNode1
-  personas.Ned = oracleNode2
-  personas.Nelly = oracleNode3
-  personas.Carol = consumer
-  personas.Eddy = stranger
-})
+  const personas: Personas = {
+    Default: defaultAccount,
+    Neil: oracleNode1,
+    Ned: oracleNode2,
+    Nelly: oracleNode3,
+    Carol: consumer,
+    Eddy: stranger,
+  }
+
+  const roles: Roles = {
+    defaultAccount,
+    oracleNode: oracleNode1,
+    oracleNode1,
+    oracleNode2,
+    oracleNode3,
+    stranger,
+    consumer,
+  }
+
+  return { personas, roles }
+}
 
 const bNToStringOrIdentity = (a: any): any => (BN.isBN(a) ? a.toString() : a)
 
@@ -75,12 +93,14 @@ export const wrappedERC20 = (contract: any): any => ({
     ),
 })
 
-export const linkContract = async (account: any): Promise<any> => {
-  account = account || defaultAccount
+export const linkContract = async (account: string): Promise<any> => {
+  if (!account) {
+    throw Error('No account supplied as a parameter')
+  }
   const receipt = await web3.eth.sendTransaction({
     data: linkToken.bytecode,
     from: account,
-    gasLimit: 2000000,
+    gas: 2000000,
   })
   const contract = TruffleContract({ abi: linkToken.abi })
   contract.setProvider(web3.currentProvider)
@@ -93,7 +113,8 @@ export const linkContract = async (account: any): Promise<any> => {
   return wrappedERC20(await contract.at(receipt.contractAddress))
 }
 
-export const bigNum = (num: any): BigNumber => web3.utils.toBN(num)
+export const bigNum = (num: any) => web3.utils.toBN(num)
+// TODO: dont call assertions on import
 assertBigNum(
   bigNum('1'),
   bigNum(1),
@@ -103,6 +124,7 @@ assertBigNum(
 // toWei(n) is n * 10**18, as a BN.
 export const toWei = (num: string | number): any =>
   bigNum(web3.utils.toWei(bigNum(num)))
+// TODO: dont call assertions on import
 assertBigNum(
   toWei('1'),
   toWei(1),
@@ -119,11 +141,7 @@ export const toHexWithoutPrefix = (arg: any): string => {
   if (arg instanceof Buffer || arg instanceof BN) {
     return arg.toString('hex')
   } else if (arg instanceof Uint8Array) {
-    return Array.prototype.reduce.call(
-      arg,
-      (a: any, v: any) => a + v.toString('16').padStart(2, '0'),
-      '',
-    )
+    return arg.reduce((a, v) => a + v.toString(16).padStart(2, '0'), '')
   } else if (Number(arg) === arg) {
     return arg.toString(16).padStart(64, '0')
   } else {
@@ -320,9 +338,7 @@ export function abiEncode(types: any, values: any): string {
 }
 
 export const newUint8ArrayFromStr = (str: string): Uint8Array => {
-  const codePoints = Array.prototype.map.call(str, (c: string) =>
-    c.charCodeAt(0),
-  )
+  const codePoints = [...str].map(c => c.charCodeAt(0))
   return Uint8Array.from(codePoints)
 }
 
@@ -416,7 +432,7 @@ export const increaseTime5Minutes = async () => {
 }
 
 export const sendToEvm = async (evmMethod: string, ...params: any) => {
-  await web3.currentProvider.sendAsync(
+  await web3.currentProvider.send(
     {
       id: 0,
       jsonrpc: '2.0',
@@ -545,9 +561,9 @@ export const padNumTo256Bit = (n: number): string =>
 export const constructStructArgs = (
   fieldNames: string[],
   values: any[],
-): any[] => {
+): any => {
   assert.equal(fieldNames.length, values.length)
-  const args = []
+  const args: Record<number | string, any> = {}
   for (let i = 0; i < fieldNames.length; i++) {
     args[i] = values[i]
     args[fieldNames[i]] = values[i]
@@ -658,7 +674,10 @@ export const newServiceAgreement = async (params: any): Promise<any> => {
   agreement.payment = params.payment || '1000000000000000000'
   agreement.expiration = params.expiration || 300
   agreement.endAt = params.endAt || sixMonthsFromNow()
-  agreement.oracles = params.oracles || [oracleNode]
+  if (!params.oracles) {
+    throw Error('No Oracle node address provided')
+  }
+  agreement.oracles = params.oracles
   agreement.oracleSignatures = []
   agreement.requestDigest =
     params.requestDigest ||

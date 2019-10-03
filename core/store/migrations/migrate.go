@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1564007745"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565139192"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565210496"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565291711"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565877314"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1566498796"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1566915476"
@@ -80,11 +81,6 @@ func Migrate(db *gorm.DB) error {
 			ID:      "1565210496",
 			Migrate: migration1565210496.Migrate,
 		},
-		// XXX: Disable this migration, it is taking some time on staging
-		//{
-		//ID:      "1565291711",
-		//Migrate: migration1565291711.Migrate,
-		//},
 		{
 			ID:      "1566498796",
 			Migrate: migration1566498796.Migrate,
@@ -104,6 +100,10 @@ func Migrate(db *gorm.DB) error {
 		{
 			ID:      "1568280052",
 			Migrate: migration1568280052.Migrate,
+		},
+		{
+			ID:      "1565291711",
+			Migrate: migration1565291711.Migrate,
 		},
 	}
 

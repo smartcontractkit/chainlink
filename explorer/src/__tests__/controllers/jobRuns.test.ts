@@ -18,9 +18,9 @@ beforeAll(async () => {
   db = await getDb()
   server = controller.listen(null)
 })
-afterAll(async () => {
+afterAll(async done => {
   if (server) {
-    server.close()
+    server.close(done)
     await closeDbConnection()
   }
 })

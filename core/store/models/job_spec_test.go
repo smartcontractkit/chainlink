@@ -13,6 +13,55 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
+func TestNewInitiatorFromRequest(t *testing.T) {
+	t.Parallel()
+
+	job := cltest.NewJob()
+	tests := []struct {
+		name     string
+		initrReq models.InitiatorRequest
+		jobSpec  models.JobSpec
+		want     models.Initiator
+	}{
+		{
+			name: models.InitiatorExternal,
+			initrReq: models.InitiatorRequest{
+				Type: models.InitiatorExternal,
+				Name: "somecoin",
+			},
+			jobSpec: job,
+			want: models.Initiator{
+				Type:      models.InitiatorExternal,
+				JobSpecID: job.ID,
+				InitiatorParams: models.InitiatorParams{
+					Name: "somecoin",
+				},
+			},
+		},
+		{
+			name: models.InitiatorWeb,
+			initrReq: models.InitiatorRequest{
+				Type: models.InitiatorWeb,
+			},
+			jobSpec: job,
+			want: models.Initiator{
+				Type:      models.InitiatorWeb,
+				JobSpecID: job.ID,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			res := models.NewInitiatorFromRequest(
+				test.initrReq,
+				test.jobSpec,
+			)
+			assert.Equal(t, test.want, res)
+		})
+	}
+}
+
 func TestNewJobFromRequest(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
