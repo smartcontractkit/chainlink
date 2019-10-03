@@ -5,6 +5,7 @@ import ganache from 'ganache-core'
 import { createFundedWallet } from '../src/wallet'
 import { ConcreteSignedSafeMathFactory } from 'contracts/ConcreteSignedSafeMathFactory'
 import { Instance } from 'src/contract'
+import env from '@nomiclabs/buidler'
 
 const concreteSignedSafeMathFactory = new ConcreteSignedSafeMathFactory()
 
@@ -12,7 +13,7 @@ const ganacheProvider: any = ganache.provider()
 let defaultAccount: ethers.Wallet
 
 before(async () => {
-  const { wallet } = await createFundedWallet(ganacheProvider, 0)
+  const { wallet } = await createFundedWallet(env.ethereum as any, 0)
   defaultAccount = wallet
 })
 

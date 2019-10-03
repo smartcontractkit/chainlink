@@ -1,5 +1,5 @@
 import { ethers } from 'ethers'
-import { createFundedWallet } from './wallet'
+import { createFundedWallet, EthersProviderWrapper } from './wallet'
 import { assert } from 'chai'
 import { Oracle } from 'contracts/Oracle'
 import { LinkToken } from 'contracts/LinkToken'
@@ -341,14 +341,10 @@ export function increaseTime5Minutes(
     method: 'evm_increaseTime',
     params: [300],
   }
+  const p = new EthersProviderWrapper(provider as any)
   return new Promise((resolve, reject) => {
-    provider.send!(jsonRpcCmd, err => {
-      if (err) {
-        console.error(`Error during helpers.increaseTime5Minutes! ${err}`)
-        return reject(err)
-      }
-
-      resolve()
-    })
+    p.send(jsonRpcCmd.method, jsonRpcCmd.params)
+      .then(resolve)
+      .catch(reject)
   })
 }

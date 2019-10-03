@@ -8,6 +8,7 @@ import ganache from 'ganache-core'
 import { ethers } from 'ethers'
 import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
 import { Instance } from 'src/contract'
+import env from '@nomiclabs/buidler'
 
 const concreteChainlinkedFactory = new ConcreteChainlinkedFactory()
 const emptyOracleFactory = new EmptyOracleFactory()
@@ -20,7 +21,9 @@ const ganacheProvider: any = ganache.provider()
 let roles: h.Roles
 
 before(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(ganacheProvider)
+  const rolesAndPersonas = await h.initializeRolesAndPersonas(
+    env.ethereum as any,
+  )
 
   roles = rolesAndPersonas.roles
 })
