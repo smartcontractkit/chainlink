@@ -54,6 +54,7 @@
     "eslint": "^6.3.0",
     "ganache-core": "^2.8.0",
     "jest": "^24.9.0",
+    "jest-circus": "^24.9.0",
     "prettier": "^1.18.2",
     "solc": "0.4.24",
     "solhint": "^2.1.0",
