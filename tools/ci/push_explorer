@@ -21,7 +21,7 @@ circle_tag=$2
 PROJECT_ROOT=`git rev-parse --show-toplevel`
 pushd $PROJECT_ROOT >/dev/null
 
-tools/ci/validate_if_versioned $circle_branch $circle_tag
+tools/ci/validate_if_versioned "$circle_branch" "$circle_tag"
 
 tag_and_push() {
   # ie: docker tag and push smartcontract/explorer:0.9.1, since DOCKER_TAG=0.9.1
@@ -35,10 +35,10 @@ version_tag=`tools/ci/gittag2dockertag ${circle_tag}` # aka GIT_TAG. explorer-v0
 
 # version tag takes precedence.
 if [ -n "${version_tag}" ]; then
-  tag_and_push $version_tag
+  tag_and_push "$version_tag"
   # if version tag, also push latest.
   # ie: after pushing smartcontract/explorer:0.6.9, also update smartcontract/explorer:latest
   tag_and_push latest
 else
-  tag_and_push $branch_tag
+  tag_and_push "$branch_tag"
 fi
