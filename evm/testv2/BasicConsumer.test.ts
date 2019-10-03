@@ -8,7 +8,7 @@ import { OracleFactory } from 'contracts/OracleFactory'
 import { BasicConsumerFactory } from 'contracts/BasicConsumerFactory'
 import { Instance } from 'src/contract'
 import env from '@nomiclabs/buidler'
-import { EthersProviderWrapper } from '../src/wallet'
+import { EthersProviderWrapper } from '../src/provider'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const oracleFactory = new OracleFactory()

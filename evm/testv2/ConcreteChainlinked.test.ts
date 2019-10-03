@@ -8,7 +8,7 @@ import { ethers } from 'ethers'
 import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
 import { Instance } from 'src/contract'
 import env from '@nomiclabs/buidler'
-import { EthersProviderWrapper } from '../src/wallet'
+import { EthersProviderWrapper } from '../src/provider'
 
 const concreteChainlinkedFactory = new ConcreteChainlinkedFactory()
 const emptyOracleFactory = new EmptyOracleFactory()

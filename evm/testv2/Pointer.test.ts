@@ -4,7 +4,7 @@ import { PointerFactory } from 'contracts/PointerFactory'
 import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
 import { Instance } from 'src/contract'
 import env from '@nomiclabs/buidler'
-import { EthersProviderWrapper } from '../src/wallet'
+import { EthersProviderWrapper } from '../src/provider'
 
 const pointerFactory = new PointerFactory()
 const linkTokenFactory = new LinkTokenFactory()
