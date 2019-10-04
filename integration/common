@@ -157,7 +157,7 @@ launch_echo_server() {
   title "Starting echo server..."
   pushd integration >/dev/null
 
-  ./echo_server "$ECHO_SERVER_PORT" &>$SRCROOT/integration/echo-server.log &
+  ./scripts/echo_server "$ECHO_SERVER_PORT" &>$SRCROOT/integration/echo-server.log &
   waitForResponse $ECHO_SERVER_URL
 
   popd >/dev/null

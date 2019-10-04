@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
-const { DEVNET_ADDRESS: from } = require('../common.js')
+const { DEVNET_ADDRESS: from } = require('../scripts/common')
 const { CHAINLINK_NODE_ADDRESS } = process.env
 const LinkToken = artifacts.require('LinkToken')
 const Oracle = artifacts.require('Oracle')
