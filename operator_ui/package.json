@@ -92,7 +92,7 @@
     "mock-local-storage": "^1.0.5",
     "prettier": "^1.18.2",
     "react-hot-loader": "^4.6.3",
-    "react-static": "^6.3.8",
+    "react-static": "^7.2.2",
     "react-static-plugin-jss": "^6.3.0",
     "react-static-plugin-react-router": "^6.3.4",
     "react-static-plugin-typescript": "^7.0.0",
