@@ -13,6 +13,6 @@ if [[ "${gittag}" =~ ^v([a-zA-Z0-9.]+) ]]; then
 elif [[ "${gittag}" =~ ^explorer-v([a-zA-Z0-9.]+) ]]; then
   echo "${BASH_REMATCH[1]}"
 else
-  echo unable to deduce docker tag from ${gittag}
+  echo "unable to deduce docker tag from git tag ${gittag}"
   exit 1
 fi
