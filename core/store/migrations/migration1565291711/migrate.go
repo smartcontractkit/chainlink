@@ -46,12 +46,6 @@ SET
 		}
 
 		if err := tx.Exec(`
-ALTER TABLE link_earned DROP COLUMN "job_spec_id";
-	`).Error; err != nil {
-			return errors.Wrap(err, "failed to drop job_spec_id from link_earned")
-		}
-
-		if err := tx.Exec(`
 ALTER TABLE job_specs DROP CONSTRAINT "job_specs_pkey" CASCADE;
 ALTER TABLE job_specs DROP COLUMN "id";
 ALTER TABLE job_specs RENAME COLUMN "id_uuid" TO "id";
@@ -107,15 +101,6 @@ SET
 		}
 
 		if err := tx.Exec(`
-ALTER TABLE link_earned ADD COLUMN "job_run_id_uuid" uuid;
-UPDATE link_earned
-SET
-	"job_run_id_uuid" = CAST("job_run_id" as uuid);
-	`).Error; err != nil {
-			return errors.Wrap(err, "failed to add job_run_id_uuid on link_earned")
-		}
-
-		if err := tx.Exec(`
 ALTER TABLE job_runs DROP COLUMN "id";
 ALTER TABLE job_runs RENAME COLUMN "id_uuid" TO "id";
 ALTER TABLE job_runs ADD CONSTRAINT "job_run_pkey" PRIMARY KEY ("id");
@@ -133,15 +118,6 @@ ALTER TABLE task_runs ADD CONSTRAINT "task_runs_job_run_id_fkey" FOREIGN KEY ("j
 		}
 
 		if err := tx.Exec(`
-ALTER TABLE link_earned DROP COLUMN "job_run_id";
-ALTER TABLE link_earned RENAME COLUMN "job_run_id_uuid" TO "job_run_id";
-
-ALTER TABLE link_earned ADD CONSTRAINT "link_earned_job_run_id_fkey" FOREIGN KEY ("job_run_id") REFERENCES job_runs ("id") ON DELETE CASCADE;
-	`).Error; err != nil {
-			return errors.Wrap(err, "failed to update job_run_id id on link_earned")
-		}
-
-		if err := tx.Exec(`
 ALTER TABLE task_runs ADD COLUMN "id_uuid" uuid;
 UPDATE task_runs SET "id_uuid" = CAST("id" as uuid);
 ALTER TABLE task_runs DROP COLUMN "id";
@@ -149,20 +125,6 @@ ALTER TABLE task_runs RENAME COLUMN "id_uuid" TO "id";
 ALTER TABLE task_runs ADD CONSTRAINT "task_run_pkey" PRIMARY KEY ("id");
 	`).Error; err != nil {
 			return errors.Wrap(err, "failed to update id on task_runs")
-		}
-	} else {
-		if err := tx.Exec(`
-CREATE TABLE IF NOT EXISTS "link_earned_new" (
-	"id" integer primary key autoincrement NOT NULL,
-	"job_run_id" varchar(36) REFERENCES job_runs(id) NOT NULL UNIQUE,
-	"earned" varchar(255),
-	"earned_at" datetime
-);
-INSERT INTO "link_earned_new" SELECT "id", "job_run_id", "earned", "earned_at" FROM "link_earned";
-DROP TABLE "link_earned";
-ALTER TABLE "link_earned_new" RENAME TO "link_earned";
-	`).Error; err != nil {
-			return errors.Wrap(err, "failed to drop job_spec_id from link_earned")
 		}
 	}
 
