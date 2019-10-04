@@ -14,7 +14,7 @@
     "build": "tsc",
     "setup": "yarn build",
     "format": "prettier --write \"src/**/*\"",
-    "lint": "eslint --ext .js,.ts \"src/**/*\"",
+    "lint": "eslint --ext .ts src",
     "count-transaction-events": "node ./dist/countTransactionEvents",
     "send-runlog-transaction": "node ./dist/sendRunlogTransaction",
     "send-ethlog-transaction": "node ./dist/sendEthlogTransaction",
@@ -44,7 +44,9 @@
     "link_token": "^1.0.6",
     "request-promise": "4.2.4",
     "source-map-support": "^0.5.13",
-    "truffle": "^5.0.39"
+    "truffle": "^5.0.39",
+    "@chainlink/eslint-config": "0.0.1",
+    "@chainlink/prettier-config": "^0.0.1"
   },
   "prettier": "@chainlink/prettier-config"
 }
