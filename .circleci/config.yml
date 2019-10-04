@@ -259,7 +259,7 @@ jobs:
       - run:
           name: Docker push, if applicable
           command: |
-            tools/ci/push_explorer ${CIRCLE_BRANCH} ${CIRCLE_TAG}
+            tools/ci/push_explorer "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
   build-publish-chainlink:
     machine: true
     steps:
@@ -275,7 +275,7 @@ jobs:
       - run:
           name: Docker push, if applicable
           command: |
-            tools/ci/push_chainlink ${CIRCLE_BRANCH} ${CIRCLE_TAG}
+            tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.25

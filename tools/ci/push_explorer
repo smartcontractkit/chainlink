@@ -15,8 +15,8 @@ set -ex
 # to work with.
 #
 
-circle_branch=$1
-circle_tag=$2
+circle_branch="$1"
+circle_tag="$2"
 
 PROJECT_ROOT=`git rev-parse --show-toplevel`
 pushd $PROJECT_ROOT >/dev/null
