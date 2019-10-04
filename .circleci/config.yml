@@ -259,7 +259,7 @@ jobs:
       - run:
           name: Docker push, if applicable
           command: |
-            tools/ci/push_explorer ${CIRCLE_BRANCH} ${CIRCLE_TAG}
+            tools/ci/push_explorer "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
   build-publish-chainlink:
     machine: true
     steps:
@@ -275,7 +275,7 @@ jobs:
       - run:
           name: Docker push, if applicable
           command: |
-            tools/ci/push_chainlink ${CIRCLE_BRANCH} ${CIRCLE_TAG}
+            tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -289,9 +289,9 @@ workflows:
   test:
     jobs:
       - go-sqlite:
-          filters:
+          filters: # all branches, and /^v../ tags for build-publish...
             tags:
-              only: /^v.*/ # all branches, and tags with this prefix. for build-publish...
+              only: /^v.*/
       - go-sqlite-race:
           filters:
             tags:
@@ -321,9 +321,9 @@ workflows:
             tags:
               only: /^v.*/
       - explorer:
-          filters:
+          filters: # all branches, and /^explorer-v../ tags for build-publish...
             tags:
-              only: /^explorer-v.*/ # all branches and tags with this prefix. for build-publish...
+              only: /^explorer-v.*/
       - build-publish-explorer:
           requires:
             - explorer
@@ -333,11 +333,10 @@ workflows:
                 - develop
                 - /^release\/.*/
             tags:
-              only: /^explorer-v.*/ # handles final versioned releases instead of master branch
+              only: /^explorer-v.*/ # handles final versioned releases
       - build-publish-chainlink:
           requires:
             - go-sqlite
-            - go-sqlite-race
             - go-postgres
             - truffle
             - geth-postgres
@@ -350,7 +349,7 @@ workflows:
                 - develop
                 - /^release\/.*/
             tags:
-              only: /^v.*/ # handles final versioned releases instead of master branch
+              only: /^v.*/ # handles final versioned releases
       - reportcoverage:
           requires:
             - go-sqlite
