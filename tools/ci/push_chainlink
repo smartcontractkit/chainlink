@@ -21,8 +21,6 @@ circle_tag=$2
 PROJECT_ROOT=`git rev-parse --show-toplevel`
 pushd $PROJECT_ROOT >/dev/null
 
-tools/ci/validate_if_versioned "$circle_branch" "$circle_tag"
-
 tag_and_push() {
   # ie: docker tag and push smartcontract/chainlink:0.9.1, since DOCKER_TAG=0.9.1
   export DOCKER_TAG=$1
