@@ -1,17 +1,18 @@
 import * as h from '../src/helpersV2'
-import ganache from 'ganache-core'
 import { ethers } from 'ethers'
 import { assert } from 'chai'
 import { GetterSetterFactory } from 'contracts/GetterSetterFactory'
 import { Instance } from 'src/contract'
+import env from '@nomiclabs/buidler'
+import { EthersProviderWrapper } from '../src/provider'
 
 const GetterSetterContract = new GetterSetterFactory()
-const ganacheProvider: any = ganache.provider()
+const provider = new EthersProviderWrapper(env.ethereum)
 
 let roles: h.Roles
 
-before(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(ganacheProvider)
+beforeAll(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
 
   roles = rolesAndPersonas.roles
 })

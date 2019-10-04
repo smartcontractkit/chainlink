@@ -1,6 +1,8 @@
 import { ethers } from 'ethers'
 import { makeDebug } from './debug'
 
+import { JsonRpcProvider } from 'ethers/providers'
+
 interface RCreateFundedWallet {
   /**
    * The created wallet
@@ -18,7 +20,7 @@ interface RCreateFundedWallet {
  * @param accountIndex The account index of the corresponding wallet derivation path
  */
 export async function createFundedWallet(
-  provider: ethers.providers.AsyncSendable,
+  provider: JsonRpcProvider,
   accountIndex: number,
 ): Promise<RCreateFundedWallet> {
   const wallet = createWallet(provider, accountIndex)
@@ -34,7 +36,7 @@ export async function createFundedWallet(
  * @param accountIndex The account index to derive from the mnemonic phrase
  */
 export function createWallet(
-  provider: ethers.providers.AsyncSendable,
+  provider: ethers.providers.JsonRpcProvider,
   accountIndex: number,
 ): ethers.Wallet {
   const debug = makeDebug('wallet:createWallet')
@@ -47,11 +49,11 @@ export function createWallet(
    */
   const mnemonicPhrase =
     'dose weasel clever culture letter volume endorse used harvest ripple circle install'
-  const web3Provider = new ethers.providers.Web3Provider(provider)
+
   const path = `m/44'/60'/${accountIndex}'/0/0`
   debug('created wallet with parameters: %o', { mnemonicPhrase, path })
 
-  return ethers.Wallet.fromMnemonic(mnemonicPhrase, path).connect(web3Provider)
+  return ethers.Wallet.fromMnemonic(mnemonicPhrase, path).connect(provider)
 }
 
 /**
@@ -63,18 +65,18 @@ export function createWallet(
  */
 export async function fundWallet(
   wallet: ethers.Wallet,
-  provider: ethers.providers.AsyncSendable,
+  provider: ethers.providers.JsonRpcProvider,
   overrides?: Omit<ethers.providers.TransactionRequest, 'to' | 'from'>,
 ): Promise<ethers.providers.TransactionReceipt> {
   const debug = makeDebug('wallet:fundWallet')
   debug('funding wallet')
-  const web3Provider = new ethers.providers.Web3Provider(provider)
+
   debug('retreiving accounts...')
 
-  const nodeOwnedAccounts = await web3Provider.listAccounts()
+  const nodeOwnedAccounts = await provider.listAccounts()
   debug('retreived accounts: %o', nodeOwnedAccounts)
 
-  const signer = web3Provider.getSigner(nodeOwnedAccounts[0])
+  const signer = provider.getSigner(nodeOwnedAccounts[0])
 
   const txParams: ethers.providers.TransactionRequest = {
     to: wallet.address,

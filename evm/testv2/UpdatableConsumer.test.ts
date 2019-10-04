@@ -1,5 +1,4 @@
 import * as h from '../src/helpersV2'
-import ganache from 'ganache-core'
 import { assertBigNum } from '../src/matchersV2'
 import { ENSRegistryFactory } from 'contracts/ENSRegistryFactory'
 import { PublicResolverFactory } from 'contracts/PublicResolverFactory'
@@ -9,8 +8,8 @@ import { assert } from 'chai'
 import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
 import { OracleFactory } from 'contracts/OracleFactory'
 import { Instance } from 'src/contract'
-
-const ganacheProvider: any = ganache.provider()
+import env from '@nomiclabs/buidler'
+import { EthersProviderWrapper } from '../src/provider'
 
 const linkTokenFactory = new LinkTokenFactory()
 const ensRegistryFactory = new ENSRegistryFactory()
@@ -18,10 +17,12 @@ const oracleFactory = new OracleFactory()
 const publicResolverFacotory = new PublicResolverFactory()
 const updatableConsumerFactory = new UpdatableConsumerFactory()
 
+const provider = new EthersProviderWrapper(env.ethereum)
+
 let roles: h.Roles
 
-before(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(ganacheProvider)
+beforeAll(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
 
   roles = rolesAndPersonas.roles
 })
@@ -99,7 +100,7 @@ describe('UpdatableConsumer', () => {
     uc = await updatableConsumerFactory
       .connect(roles.defaultAccount)
       .deploy(specId, ens.address, domainNode)
-  })
+  }, 10000)
 
   describe('constructor', () => {
     it('pulls the token contract address from the resolver', async () => {
@@ -159,60 +160,57 @@ describe('UpdatableConsumer', () => {
       assert.equal(currentPrice, response)
     })
 
-    context(
-      'when the oracle address is updated before a request is fulfilled',
-      () => {
-        beforeEach(async () => {
-          await ensResolver
+    describe('when the oracle address is updated before a request is fulfilled', () => {
+      beforeEach(async () => {
+        await ensResolver
+          .connect(roles.oracleNode)
+          .setAddr(oracleSubnode, newOracleAddress)
+        await uc.updateOracle()
+        assert.equal(
+          newOracleAddress.toLowerCase(),
+          (await uc.getOracle()).toLowerCase(),
+        )
+      })
+
+      it('records the data given to it by the old oracle contract', async () => {
+        await h.fulfillOracleRequest(oc, request, response)
+
+        const currentPrice = await uc.currentPrice()
+        assert.equal(currentPrice, response)
+      })
+
+      it('does not accept responses from the new oracle for the old requests', async () => {
+        await h.assertActionThrows(async () => {
+          await uc
             .connect(roles.oracleNode)
-            .setAddr(oracleSubnode, newOracleAddress)
-          await uc.updateOracle()
-          assert.equal(
-            newOracleAddress.toLowerCase(),
-            (await uc.getOracle()).toLowerCase(),
-          )
+            .fulfill(request.id, h.toHex(response))
         })
 
-        it('records the data given to it by the old oracle contract', async () => {
-          await h.fulfillOracleRequest(oc, request, response)
+        const currentPrice = await uc.currentPrice()
+        assert.equal(ethers.utils.parseBytes32String(currentPrice), '')
+      })
 
-          const currentPrice = await uc.currentPrice()
-          assert.equal(currentPrice, response)
-        })
+      it('still allows funds to be withdrawn from the oracle', async () => {
+        await h.increaseTime5Minutes(provider)
+        assertBigNum(
+          0,
+          await link.balanceOf(uc.address),
+          'Initial balance should be 0',
+        )
 
-        it('does not accept responses from the new oracle for the old requests', async () => {
-          await h.assertActionThrows(async () => {
-            await uc
-              .connect(roles.oracleNode)
-              .fulfill(request.id, h.toHex(response))
-          })
+        await uc.cancelRequest(
+          request.id,
+          request.payment,
+          request.callbackFunc,
+          request.expiration,
+        )
 
-          const currentPrice = await uc.currentPrice()
-          assert.equal(ethers.utils.parseBytes32String(currentPrice), '')
-        })
-
-        it('still allows funds to be withdrawn from the oracle', async () => {
-          await h.increaseTime5Minutes(ganacheProvider)
-          assertBigNum(
-            0,
-            await link.balanceOf(uc.address),
-            'Initial balance should be 0',
-          )
-
-          await uc.cancelRequest(
-            request.id,
-            request.payment,
-            request.callbackFunc,
-            request.expiration,
-          )
-
-          assertBigNum(
-            paymentAmount,
-            await link.balanceOf(uc.address),
-            'Oracle should have been repaid on cancellation.',
-          )
-        })
-      },
-    )
+        assertBigNum(
+          paymentAmount,
+          await link.balanceOf(uc.address),
+          'Oracle should have been repaid on cancellation.',
+        )
+      })
+    })
   })
 })
