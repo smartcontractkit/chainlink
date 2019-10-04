@@ -10,7 +10,7 @@ const {
   provider,
   scriptRunner,
   wallet,
-} = require('../common.js')
+} = require('./common')
 
 const USAGE =
   'truffle exec scripts/fund_address.js [options] <optional address>'

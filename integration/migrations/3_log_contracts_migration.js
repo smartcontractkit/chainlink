@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
-const { DEVNET_ADDRESS: from } = require('../common.js')
+const { DEVNET_ADDRESS: from } = require('../scripts/common')
 const EthLog = artifacts.require('EthLog')
 const RunLog = artifacts.require('RunLog')
 const LinkToken = artifacts.require('LinkToken')
