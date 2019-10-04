@@ -1,0 +1,15 @@
+{
+  "name": "integration-scripts",
+  "version": "0.0.1",
+  "description": "Scripts for helping perform integration tests",
+  "main": "dist/index.js",
+  "repository": "https://github.com/smartcontractkit/chainlink",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "typescript": "^3.6.3"
+  },
+  "dependencies": {
+    "chainlink": "0.7.5"
+  }
+}
