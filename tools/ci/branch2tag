@@ -10,6 +10,5 @@ elif [ "${branch}" = "master" ]; then
 elif [[ "${branch}" =~ ^release\/([a-zA-Z0-9.]+) ]]; then
   echo "candidate-${BASH_REMATCH[1]}"
 else
-  echo unable to deduce docker tag from ${branch}
-  exit 1
+  echo "unknown"
 fi
