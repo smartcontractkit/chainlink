@@ -337,7 +337,6 @@ workflows:
       - build-publish-chainlink:
           requires:
             - go-sqlite
-            - go-sqlite-race
             - go-postgres
             - truffle
             - geth-postgres
