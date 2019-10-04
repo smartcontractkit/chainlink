@@ -6,10 +6,19 @@
   "repository": "https://github.com/smartcontractkit/chainlink",
   "license": "MIT",
   "private": true,
+  "scripts": {
+    "build": "tsc",
+    "format": "prettier --write \"src/**/*\"",
+    "lint": "eslint --ext .js,.ts \"src/**/*\""
+  },
   "devDependencies": {
+    "eslint": "6.3.0",
     "typescript": "^3.6.3"
   },
   "dependencies": {
+    "@chainlink/eslint-config": "0.0.1",
+    "@chainlink/prettier-config": "^0.0.1",
     "chainlink": "0.7.5"
-  }
+  },
+  "prettier": "@chainlink/prettier-config"
 }
