@@ -1,17 +1,19 @@
 import * as h from '../src/helpersV2'
-import ganache from 'ganache-core'
 import { assert } from 'chai'
 import { PointerFactory } from 'contracts/PointerFactory'
 import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
 import { Instance } from 'src/contract'
+import env from '@nomiclabs/buidler'
+import { EthersProviderWrapper } from '../src/provider'
+
 const pointerFactory = new PointerFactory()
 const linkTokenFactory = new LinkTokenFactory()
+const provider = new EthersProviderWrapper(env.ethereum)
 
 let roles: h.Roles
-const ganacheProvider: any = ganache.provider()
 
-before(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(ganacheProvider)
+beforeAll(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
 
   roles = rolesAndPersonas.roles
 })
