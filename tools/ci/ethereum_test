@@ -39,6 +39,7 @@ else
   launch_gethnet
 fi
 
+setup_scripts
 launch_explorer
 add_clnode_to_explorer
 launch_chainlink
