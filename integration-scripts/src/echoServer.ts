@@ -15,6 +15,7 @@ app.all('*', function(req, res) {
   echoes += 1
   const { headers, body } = req
 
+  console.log({ headers, body })
   res.json({ headers, body })
 })
 

@@ -57,7 +57,6 @@ export function getArgs<T extends string>(keys: T[]): { [K in T]: string } {
       if (!envVar) {
         throw new MissingEnvVarError(next)
       }
-
       prev[next] = envVar
       return prev
     },

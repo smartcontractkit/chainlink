@@ -36,6 +36,7 @@ async function deployContracts({ chainlinkNodeAddress }: Args) {
     linkToken.address,
   )
   await oracle.setFulfillmentPermission(chainlinkNodeAddress, true)
+  console.log(`Deployed Oracle at: ${oracle.address}`)
 
   await deployContract({ Factory: EthLogFactory, name: 'EthLog', signer })
 
