@@ -96,7 +96,7 @@ launch_chainlink() {
   waitFor "grep 'Unlocked account' '$SRCROOT/integration/chainlink.log'" 10
   export CHAINLINK_NODE_ADDRESS=`cat $SRCROOT/integration/chainlink.log | grep 'Unlocked account' | awk '{print$5}'`
 
-  yarn workspace @chainlink/integration run truffle exec scripts/fund_address.js --network test "$CHAINLINK_NODE_ADDRESS" > $SRCROOT/integration/fund_address.log
+  yarn workspace @chainlink/integration-scripts fund-address > $SRCROOT/integration/fund_address.log
 }
 
 explorer_url="http://127.0.0.1:8080"
@@ -110,7 +110,6 @@ launch_explorer() {
   printf -- "[\033[31mstopped\033[0m]\n"
   title "Starting explorer..."
 
-  yarn install
   yarn workspace @chainlink/explorer run build &>$SRCROOT/integration/explorer-yarn.log
   yarn workspace @chainlink/explorer run prod &>$SRCROOT/integration/explorer.log & waitForResponse $explorer_url
   title "Explorer is running."
@@ -128,14 +127,17 @@ add_clnode_to_explorer() {
   title "Added CL Node $clnode_name to Explorer."
 }
 
+setup_scripts() {
+  yarn --no-progress install &>$SRCROOT/integration/yarn.log
+  yarn workspace @chainlink/integration-scripts setup
+}
+
 deploy_contracts() {
   title "Migrating core contracts..."
   pushd integration >/dev/null
 
-  yarn --no-progress install &>$SRCROOT/integration/yarn.log
-
   # run migrations
-  yarn workspace @chainlink/integration truffle:migrate | tee $SRCROOT/integration/deploy.log
+  yarn workspace @chainlink/integration-scripts deploy-contracts | tee $SRCROOT/integration/deploy.log
   export LINK_TOKEN_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed LinkToken at:' | awk '{print$4}'`
   export ORACLE_CONTRACT_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed Oracle at:' | awk '{print$4}'`
   export ETH_LOG_ADDRESS=`cat $SRCROOT/integration/deploy.log | grep 'Deployed EthLog at:' | awk '{print$4}'`
@@ -157,7 +159,7 @@ launch_echo_server() {
   title "Starting echo server..."
   pushd integration >/dev/null
 
-  ./scripts/echo_server "$ECHO_SERVER_PORT" &>$SRCROOT/integration/echo-server.log &
+  yarn workspace @chainlink/integration-scripts start-echo-server "$ECHO_SERVER_PORT" &>$SRCROOT/integration/echo-server.log &
   waitForResponse $ECHO_SERVER_URL
 
   popd >/dev/null

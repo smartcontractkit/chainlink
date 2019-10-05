@@ -1,2 +1,4 @@
 dist/
 node_modules/
+build/
+src/generated/

@@ -10,10 +10,7 @@
     "format": "prettier --write \"**/*\"",
     "setup": "echo \"No setup required for @chainlink/integration\"",
     "lint": "yarn eslint",
-    "test": "cross-env NODE_ENV=test cypress run",
-    "truffle:exec:send-runlog-transaction": "truffle exec scripts/send_runlog_transaction.js --network test",
-    "truffle:exec:count-transaction-events": "truffle exec scripts/count_transaction_events.js --network test",
-    "truffle:migrate": "truffle migrate --compile-all --reset --network test"
+    "test": "cross-env NODE_ENV=test cypress run"
   },
   "dependencies": {
     "chainlink": "0.6.1"
@@ -24,14 +21,12 @@
     "@cypress/webpack-preprocessor": "^4.1.0",
     "@types/node": "^12.7.5",
     "babel-jest": "^24.1.0",
-    "body-parser": "^1.18.3",
     "command-line-args": "^5.1.1",
     "cross-env": "^6.0.0",
     "cypress": "^3.4.1",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",
     "ethers": "^4.0.36",
-    "link_token": "^1.0.6",
     "prettier": "^1.18.2",
     "request-promise": "^4.2.4",
     "solc": "0.4.24",
