@@ -1,6 +1,6 @@
 {
   "name": "chainlink",
-  "version": "0.6.5",
+  "version": "0.7.5",
   "license": "MIT",
   "main": "./dist/src",
   "scripts": {
@@ -15,7 +15,7 @@
     "slither": "truffle compile --quiet && slither .",
     "pretest": "yarn build",
     "test:v1": "tsc && truffle test ./dist/test/*",
-    "test:v2": "jest",
+    "test:v2": "jest --testTimeout 10000",
     "test": "yarn test:v1 && yarn test:v2",
     "format": "prettier --write \"**/*\"",
     "prepublishOnly": "yarn build && yarn lint && yarn test",
@@ -68,6 +68,7 @@
   "files": [
     "contracts",
     "v0.5/contracts",
+    "dist",
     "zos.json",
     "zos.rinkeby.json",
     "zos.ropsten.json"
