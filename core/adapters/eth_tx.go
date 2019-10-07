@@ -134,7 +134,9 @@ func createTxRunResult(
 		return output
 	}
 
-	addReceiptToResult(receipt, input, &output)
+	if receipt != nil {
+		addReceiptToResult(receipt, input, &output)
+	}
 	return output
 }
 
@@ -181,7 +183,9 @@ func ensureTxRunResult(input models.RunResult, str *strpkg.Store) models.RunResu
 		return output
 	}
 
-	addReceiptToResult(receipt, input, &output)
+	if receipt != nil {
+		addReceiptToResult(receipt, input, &output)
+	}
 	return output
 }
 
