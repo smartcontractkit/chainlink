@@ -33,7 +33,7 @@
     "link_token": "^1.0.6",
     "openzeppelin-solidity": "^1.12.0",
     "solidity-cborutils": "^1.0.4",
-    "truffle-contract": "^4.0.17",
+    "truffle-contract": "^4.0.31",
     "web3": "^1.2.0"
   },
   "devDependencies": {
