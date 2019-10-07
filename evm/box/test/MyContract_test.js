@@ -1,7 +1,7 @@
-'use strict'
-
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const h = require('chainlink-test-helpers')
+const h = require('chainlink').helpers
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { expectRevert, time } = require('openzeppelin-test-helpers')
 
 contract('MyContract', accounts => {
   const LinkToken = artifacts.require('LinkToken.sol')
@@ -41,17 +41,11 @@ contract('MyContract', accounts => {
   describe('#createRequest', () => {
     context('without LINK', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await cc.createRequestTo(
-            oc.address,
-            jobId,
-            payment,
-            url,
-            path,
-            times,
-            { from: consumer },
-          )
-        })
+        await expectRevert.unspecified(
+          cc.createRequestTo(oc.address, jobId, payment, url, path, times, {
+            from: consumer,
+          }),
+        )
       })
     })
 
@@ -122,19 +116,19 @@ contract('MyContract', accounts => {
       })
 
       it('does not accept the data provided', async () => {
-        await h.assertActionThrows(async () => {
-          await h.fulfillOracleRequest(oc, request, response, {
+        await expectRevert.unspecified(
+          h.fulfillOracleRequest(oc, request, response, {
             from: oracleNode,
-          })
-        })
+          }),
+        )
       })
     })
 
     context('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
-        await h.assertActionThrows(async () => {
-          await cc.fulfill(request.id, response, { from: stranger })
-        })
+        await expectRevert.unspecified(
+          cc.fulfill(request.id, response, { from: stranger }),
+        )
       })
     })
   })
@@ -158,34 +152,35 @@ contract('MyContract', accounts => {
 
     context('before the expiration time', () => {
       it('cannot cancel a request', async () => {
-        await h.assertActionThrows(async () => {
-          await cc.cancelRequest(
+        await expectRevert(
+          cc.cancelRequest(
             request.id,
             request.payment,
             request.callbackFunc,
             request.expiration,
             { from: consumer },
-          )
-        })
+          ),
+          'Request is not expired',
+        )
       })
     })
 
     context('after the expiration time', () => {
       beforeEach(async () => {
-        await h.increaseTime5Minutes()
+        await time.increase(300)
       })
 
       context('when called by a non-owner', () => {
         it('cannot cancel a request', async () => {
-          await h.assertActionThrows(async () => {
-            await cc.cancelRequest(
+          await expectRevert.unspecified(
+            cc.cancelRequest(
               request.id,
               request.payment,
               request.callbackFunc,
               request.expiration,
               { from: stranger },
-            )
-          })
+            ),
+          )
         })
       })
 
@@ -210,9 +205,7 @@ contract('MyContract', accounts => {
 
     context('when called by a non-owner', () => {
       it('cannot withdraw', async () => {
-        await h.assertActionThrows(async () => {
-          await cc.withdrawLink({ from: stranger })
-        })
+        await expectRevert.unspecified(cc.withdrawLink({ from: stranger }))
       })
     })
 
