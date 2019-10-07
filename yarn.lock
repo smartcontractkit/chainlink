@@ -5890,6 +5890,16 @@ chainlink@0.6.1:
     openzeppelin-solidity "^1.12.0"
     solidity-cborutils "^1.0.2"
 
+chainlink@0.6.5, chainlink@^0.6.5:
+  version "0.6.5"
+  resolved "https://registry.npmjs.org/chainlink/-/chainlink-0.6.5.tgz#35c8fef8529f4c48a996b6a1d2546cfcdb38af59"
+  integrity sha512-V6Z1Z4BYEwpicc5jVw66oyQeVe+WT90ZlDKTsbO04eASSJup2eCUxSp9nEDywA2gva/1D1F1q+AHDkMDWHpoPA==
+  dependencies:
+    "@ensdomains/ens" "^0.1.1"
+    link_token "^1.0.3"
+    openzeppelin-solidity "^1.12.0"
+    solidity-cborutils "^1.0.4"
+
 chalk@2.4.1:
   version "2.4.1"
   resolved "https://registry.npmjs.org/chalk/-/chalk-2.4.1.tgz#18c49ab16a037b6eb0152cc83e3471338215b66e"
