@@ -75,7 +75,7 @@
     "@types/node": "^11.9.5",
     "@types/numeral": "^0.0.25",
     "@types/path-to-regexp": "^1.7.0",
-    "@types/react": "^16.8.24",
+    "@types/react": "^16.9.5",
     "@types/react-dom": "^16.7.0",
     "@types/react-redux": "~6.0.0",
     "@types/react-resize-detector": "^4.0.1",
