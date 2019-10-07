@@ -562,6 +562,14 @@ export const executeServiceAgreementBytes = (
   return funcSelector + encoded
 }
 
+export const depositFundsBytes = (to: string, amount: number): string => {
+  const types = ['address', 'uint256']
+  const values = [to, amount]
+  const encoded = abiEncode(types, values)
+  const funcSelector = functionSelector('depositFunds(address,uint256)')
+  return funcSelector + encoded
+}
+
 // Convenience functions for constructing hexadecimal representations of
 // binary serializations.export const padHexTo256Bit = (s: string): string => s.padStart(64, '0')
 export const strip0x = (s: string): string =>

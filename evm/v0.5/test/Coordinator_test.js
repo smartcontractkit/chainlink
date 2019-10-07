@@ -6,6 +6,7 @@ const MeanAggregator = artifacts.require('test/MeanAggregator.sol')
 const GetterSetter = artifacts.require('GetterSetter.sol')
 const MaliciousConsumer = artifacts.require('MaliciousConsumer.sol')
 const MaliciousRequester = artifacts.require('MaliciousRequester.sol')
+const Oracle = artifacts.require('Oracle.sol')
 
 contract('Coordinator', () => {
   let coordinator, link, newServiceAgreement, emptyAggregator, meanAggregator
@@ -795,6 +796,28 @@ contract('Coordinator', () => {
           })
         })
       })
+    })
+  })
+
+  describe('#depositFunds', async () => {
+    let oracle
+
+    beforeEach(async () => {
+      oracle = h.oracleNode
+      await link.transfer(oracle, 10)
+      const initialBalance = await link.balanceOf(oracle)
+      assert.equal(initialBalance, 10)
+    })
+
+    it.only('permits deposit through link#transferAndCall', async () => {
+      const payload = h.depositFundsBytes(oracle, 1)
+      const tx = await link.transferAndCall(coordinator.address, 1, payload, {
+        from: oracle,
+      })
+      const balanceInLinkContract = await link.balanceOf(oracle)
+      const balanceInCoordinatorContract = await coordinator.balanceOf(oracle)
+      assert.equal(balanceInLinkContract, 9)
+      assert.equal(balanceInCoordinatorContract, 1)
     })
   })
 })
