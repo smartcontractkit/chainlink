@@ -147,7 +147,6 @@ func (txm *EthTxManager) Connect(bn *models.Head) error {
 			continue
 		} else if ma.Nonce() > attempt.Tx.Nonce {
 			// Do not rebroadcast txs with nonces that are lower than our current nonce
-			logger.Errorf("nonce too low (account: %v, tx: %v)", ma.Nonce(), attempt.Tx.Nonce)
 			continue
 		}
 
