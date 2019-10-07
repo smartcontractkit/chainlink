@@ -1377,6 +1377,19 @@
     testrpc "0.0.1"
     web3-utils "^1.0.0-beta.31"
 
+"@ensdomains/ens@^0.3.11":
+  version "0.3.11"
+  resolved "https://registry.yarnpkg.com/@ensdomains/ens/-/ens-0.3.11.tgz#3001c76687b2ee36523a234e520ee3b0b6800b89"
+  integrity sha512-XqOWQYqdjZTZQA7vAJty9Bdw5er+K0KGLTkrMDBXuJj5yNSf2oM4cj+dW6RATA4Bwz5cBCH2mjA8EsOxa+8eDA==
+  dependencies:
+    bluebird "^3.5.2"
+    eth-ens-namehash "^1.0.2"
+    ethereumjs-testrpc "^6.0.3"
+    ganache-cli "^6.1.0"
+    solc "^0.4.20"
+    testrpc "0.0.1"
+    web3-utils "^1.0.0-beta.31"
+
 "@hapi/address@2.x.x":
   version "2.0.0"
   resolved "https://registry.npmjs.org/@hapi/address/-/address-2.0.0.tgz#9f05469c88cb2fd3dcd624776b54ee95c312126a"
@@ -5105,15 +5118,10 @@ bluebird@^2.9.34:
   resolved "https://registry.yarnpkg.com/bluebird/-/bluebird-2.11.0.tgz#534b9033c022c9579c56ba3b3e5a5caafbb650e1"
   integrity sha1-U0uQM8AiyVecVro7Plpcqvu2UOE=
 
-bluebird@^3.3.5, bluebird@^3.5.3, bluebird@^3.5.5:
-  version "3.5.5"
-  resolved "https://registry.npmjs.org/bluebird/-/bluebird-3.5.5.tgz#a8d0afd73251effbbd5fe384a77d73003c17a71f"
-  integrity sha512-5am6HnnfN+urzt4yfg7IgTbotDjIT/u8AJpEt0sIU9FtXfVeezXAPKswrG+xKUCOYAINpSdgZVDU6QFh+cuH3w==
-
-bluebird@^3.5.0:
-  version "3.5.3"
-  resolved "https://registry.yarnpkg.com/bluebird/-/bluebird-3.5.3.tgz#7d01c6f9616c9a51ab0f8c549a79dfe6ec33efa7"
-  integrity sha512-/qKPUQlaW1OyR51WeCPBvRnAlnZFUJkCSG5HzGnuIqhgyJtF+T94lFnn33eiazjRm2LAHVy2guNnaq48X9SJuw==
+bluebird@^3.3.5, bluebird@^3.5.0, bluebird@^3.5.2, bluebird@^3.5.3, bluebird@^3.5.5:
+  version "3.7.0"
+  resolved "https://registry.yarnpkg.com/bluebird/-/bluebird-3.7.0.tgz#56a6a886e03f6ae577cffedeb524f8f2450293cf"
+  integrity sha512-aBQ1FxIa7kSWCcmKHlcHFlT2jt6J/l4FzC7KcPELkOJOsPOb/bccdhmIrKDfXhwFrmc7vDoDrrepFvGqjyXGJg==
 
 bn.js@4.11.6:
   version "4.11.6"
@@ -8633,7 +8641,7 @@ eslint-visitor-keys@^1.0.0, eslint-visitor-keys@^1.1.0:
 
 eslint@6.3.0, eslint@^6.1.0, eslint@^6.3.0:
   version "6.3.0"
-  resolved "https://registry.npmjs.org/eslint/-/eslint-6.3.0.tgz#1f1a902f67bfd4c354e7288b81e40654d927eb6a"
+  resolved "https://registry.yarnpkg.com/eslint/-/eslint-6.3.0.tgz#1f1a902f67bfd4c354e7288b81e40654d927eb6a"
   integrity sha512-ZvZTKaqDue+N8Y9g0kp6UPZtS4FSY3qARxBs7p4f0H0iof381XHduqVerFWtK8DPtKmemqbqCFENWSQgPR/Gow==
   dependencies:
     "@babel/code-frame" "^7.0.0"
