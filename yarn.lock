@@ -2677,22 +2677,14 @@
     "@types/node" "*"
     "@types/react" "*"
 
-"@types/react-redux@^7.0.5":
-  version "7.1.2"
-  resolved "https://registry.npmjs.org/@types/react-redux/-/react-redux-7.1.2.tgz#02303b77d87e54f327c09507cf80ee3ca3063898"
-  integrity sha512-Iim6UCtD0mZX9U3jBuT6ZObBZ8UlakoOgefiRgi5wakfbNnXd3TUwwUMgi3Ijc0fxsPLZ5ULoz0oDy15YIaLmQ==
+"@types/react-redux@^7.1.4", "@types/react-redux@~7.1.4":
+  version "7.1.4"
+  resolved "https://registry.yarnpkg.com/@types/react-redux/-/react-redux-7.1.4.tgz#e0d02a073e730b8b58a6341bddca2ea692ff0bce"
+  integrity sha512-SUV/7d+4L7C1Db/D4pqASgN1V1U2HnDEhEol9lYpPSguS76xFboZzf5ha2hTz6v31cUewyC7WksMh1q8JxhebQ==
   dependencies:
     "@types/hoist-non-react-statics" "^3.3.0"
     "@types/react" "*"
     hoist-non-react-statics "^3.3.0"
-    redux "^4.0.0"
-
-"@types/react-redux@~6.0.0":
-  version "6.0.14"
-  resolved "https://registry.npmjs.org/@types/react-redux/-/react-redux-6.0.14.tgz#8ffeb52c4f4d578bf74418d9aff5af7289924e4f"
-  integrity sha512-bvpWqBOvz2V+EfZ9Qu1d3gFKYCIn/BYoGWAVt1c526tbiI9rtfaBbjutbbapmtEZaEfLuHj3Ljg9qho0SBSwUg==
-  dependencies:
-    "@types/react" "*"
     redux "^4.0.0"
 
 "@types/react-resize-detector@^3.1.1":
