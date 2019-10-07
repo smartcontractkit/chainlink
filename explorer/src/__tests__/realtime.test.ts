@@ -197,13 +197,11 @@ describe('realtime', () => {
   it('rejects multiple connections from single node', async done => {
     expect.assertions(8)
 
+    // eslint-disable-next-line prefer-const
     let ws1: WebSocket, ws2: WebSocket, ws3: WebSocket
 
-    ws1 = await newChainlinkNode(
-      ENDPOINT,
-      chainlinkNode.accessKey,
-      secret,
-    )
+    // eslint-disable-next-line prefer-const
+    ws1 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
 
     ws1.addEventListener('close', (event: WebSocket.CloseEvent) => {
       expect(ws1.readyState).toBe(WebSocket.CLOSED)
@@ -212,11 +210,7 @@ describe('realtime', () => {
       expect(event.reason).toEqual('Duplicate connection opened')
     })
 
-    ws2 = await newChainlinkNode(
-      ENDPOINT,
-      chainlinkNode.accessKey,
-      secret,
-    )
+    ws2 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
 
     ws2.addEventListener('close', (event: WebSocket.CloseEvent) => {
       expect(ws2.readyState).toBe(WebSocket.CLOSED)
@@ -227,10 +221,6 @@ describe('realtime', () => {
       done()
     })
 
-    ws3 = await newChainlinkNode(
-      ENDPOINT,
-      chainlinkNode.accessKey,
-      secret,
-    )
+    ws3 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
   })
 })
