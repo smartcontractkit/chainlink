@@ -19,7 +19,7 @@
     "cbor": "^4.1.1",
     "ethereumjs-abi": "^0.6.8",
     "ethereumjs-util": "^6.1.0",
-    "truffle-contract": "^4.0.27"
+    "truffle-contract": "^4.0.31"
   },
   "devDependencies": {
     "@babel/core": "^7.5.5",

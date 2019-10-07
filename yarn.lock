@@ -2292,6 +2292,25 @@
   dependencies:
     defer-to-connect "^1.0.1"
 
+"@truffle/blockchain-utils@^0.0.11":
+  version "0.0.11"
+  resolved "https://registry.yarnpkg.com/@truffle/blockchain-utils/-/blockchain-utils-0.0.11.tgz#9886f4cb7a9f20deded4451ac78f8567ae5c0d75"
+  integrity sha512-9MyQ/20M96clhIcC7fVFIckGSB8qMsmcdU6iYt98HXJ9GOLNKsCaJFz1OVsJncVreYwTUhoEXTrVBc8zrmPDJQ==
+
+"@truffle/contract-schema@^3.0.14":
+  version "3.0.16"
+  resolved "https://registry.yarnpkg.com/@truffle/contract-schema/-/contract-schema-3.0.16.tgz#0de8670b2b0dacba57b43b65911c5376dd00bbdf"
+  integrity sha512-E88YTZNVvnSprvKS8qMx7e5zm3VAgkCAciQrX1VC+h14EbCJxHyg/9iBVm26ySKgghRzV3Ia8Y6ZJQt6o2iSJw==
+  dependencies:
+    ajv "^6.10.0"
+    crypto-js "^3.1.9-1"
+    debug "^4.1.0"
+
+"@truffle/error@^0.0.6":
+  version "0.0.6"
+  resolved "https://registry.yarnpkg.com/@truffle/error/-/error-0.0.6.tgz#75d499845b4b3a40537889e7d04c663afcaee85d"
+  integrity sha512-QUM9ZWiwlXGixFGpV18g5I6vua6/r+ZV9W/5DQA5go9A3eZUNPHPaTKMIQPJLYn6+ZV5jg5H28zCHq56LHF3yA==
+
 "@types/babel__core@^7.1.0":
   version "7.1.3"
   resolved "https://registry.npmjs.org/@types/babel__core/-/babel__core-7.1.3.tgz#e441ea7df63cd080dfcd02ab199e6d16a735fc30"
@@ -3372,16 +3391,6 @@ ajv@6.5.3:
     fast-json-stable-stringify "^2.0.0"
     json-schema-traverse "^0.4.1"
     uri-js "^4.2.2"
-
-ajv@^5.1.1:
-  version "5.5.2"
-  resolved "https://registry.npmjs.org/ajv/-/ajv-5.5.2.tgz#73b5eeca3fab653e3d3f9422b341ad42205dc965"
-  integrity sha1-c7Xuyj+rZT49P5Qis0GtQiBdyWU=
-  dependencies:
-    co "^4.6.0"
-    fast-deep-equal "^1.0.0"
-    fast-json-stable-stringify "^2.0.0"
-    json-schema-traverse "^0.3.0"
 
 ajv@^6.1.0, ajv@^6.10.0, ajv@^6.10.2:
   version "6.10.2"
@@ -5017,10 +5026,6 @@ bignumber.js@^9.0.0:
   version "9.0.0"
   resolved "https://registry.yarnpkg.com/bignumber.js/-/bignumber.js-9.0.0.tgz#805880f84a329b5eac6e7cb6f8274b6d82bdf075"
   integrity sha512-t/OYhhJ2SD+YGBQcjY8GzzDHEk9f3nerxjtfa6tlMXfe7frs/WozhvCNoGvpM0P3bNf3Gq5ZRMlGr5f3r4/N8A==
-
-"bignumber.js@git+https://github.com/frozeman/bignumber.js-nolookahead.git":
-  version "2.0.7"
-  resolved "git+https://github.com/frozeman/bignumber.js-nolookahead.git#57692b3ecfc98bbdd6b3a516cb2353652ea49934"
 
 binary-extensions@^1.0.0:
   version "1.13.1"
@@ -6930,11 +6935,6 @@ crypto-browserify@3.12.0, crypto-browserify@^3.11.0:
     randombytes "^2.0.0"
     randomfill "^1.0.3"
 
-crypto-js@^3.1.4:
-  version "3.1.8"
-  resolved "https://registry.yarnpkg.com/crypto-js/-/crypto-js-3.1.8.tgz#715f070bf6014f2ae992a98b3929258b713f08d5"
-  integrity sha1-cV8HC/YBTyrpkqmLOSkli3E/CNU=
-
 crypto-js@^3.1.9-1:
   version "3.1.9-1"
   resolved "https://registry.yarnpkg.com/crypto-js/-/crypto-js-3.1.9-1.tgz#fda19e761fc077e01ffbfdc6e9fdfc59e8806cd8"
@@ -8633,7 +8633,7 @@ eslint-visitor-keys@^1.0.0, eslint-visitor-keys@^1.1.0:
 
 eslint@6.3.0, eslint@^6.1.0, eslint@^6.3.0:
   version "6.3.0"
-  resolved "https://registry.npmjs.org/eslint/-/eslint-6.3.0.tgz#1f1a902f67bfd4c354e7288b81e40654d927eb6a"
+  resolved "https://registry.yarnpkg.com/eslint/-/eslint-6.3.0.tgz#1f1a902f67bfd4c354e7288b81e40654d927eb6a"
   integrity sha512-ZvZTKaqDue+N8Y9g0kp6UPZtS4FSY3qARxBs7p4f0H0iof381XHduqVerFWtK8DPtKmemqbqCFENWSQgPR/Gow==
   dependencies:
     "@babel/code-frame" "^7.0.0"
@@ -9185,55 +9185,7 @@ ethers@4.0.0-beta.3:
     uuid "2.0.1"
     xmlhttprequest "1.8.0"
 
-ethers@^4.0.0-beta.1:
-  version "4.0.27"
-  resolved "https://registry.npmjs.org/ethers/-/ethers-4.0.27.tgz#e570b0da9d805ad65c83d81919abe02b2264c6bf"
-  integrity sha512-+DXZLP/tyFnXWxqr2fXLT67KlGUfLuvDkHSOtSC9TUVG9OIj6yrG5JPeXRMYo15xkOYwnjgdMKrXp5V94rtjJA==
-  dependencies:
-    "@types/node" "^10.3.2"
-    aes-js "3.0.0"
-    bn.js "^4.4.0"
-    elliptic "6.3.3"
-    hash.js "1.1.3"
-    js-sha3 "0.5.7"
-    scrypt-js "2.0.4"
-    setimmediate "1.0.4"
-    uuid "2.0.1"
-    xmlhttprequest "1.8.0"
-
-ethers@^4.0.32:
-  version "4.0.33"
-  resolved "https://registry.npmjs.org/ethers/-/ethers-4.0.33.tgz#f7b88d2419d731a39aefc37843a3f293e396f918"
-  integrity sha512-lAHkSPzBe0Vj+JrhmkEHLtUEKEheVktIjGDyE9gbzF4zf1vibjYgB57LraDHu4/ItqWVkztgsm8GWqcDMN+6vQ==
-  dependencies:
-    "@types/node" "^10.3.2"
-    aes-js "3.0.0"
-    bn.js "^4.4.0"
-    elliptic "6.3.3"
-    hash.js "1.1.3"
-    js-sha3 "0.5.7"
-    scrypt-js "2.0.4"
-    setimmediate "1.0.4"
-    uuid "2.0.1"
-    xmlhttprequest "1.8.0"
-
-ethers@^4.0.36:
-  version "4.0.36"
-  resolved "https://registry.yarnpkg.com/ethers/-/ethers-4.0.36.tgz#96519fd3cc9317f938c8ee4d22050f34e3c2ef0e"
-  integrity sha512-rWdchEhUyXx01GiwexH6Sha97CQ9tJdQwe6FtYKxShC7VEZV41nuKt+lzCQ4OqvQwZK5PcAKaAZv2GDsCH33SA==
-  dependencies:
-    "@types/node" "^10.3.2"
-    aes-js "3.0.0"
-    bn.js "^4.4.0"
-    elliptic "6.3.3"
-    hash.js "1.1.3"
-    js-sha3 "0.5.7"
-    scrypt-js "2.0.4"
-    setimmediate "1.0.4"
-    uuid "2.0.1"
-    xmlhttprequest "1.8.0"
-
-ethers@^4.0.37:
+ethers@^4.0.0-beta.1, ethers@^4.0.32, ethers@^4.0.36, ethers@^4.0.37:
   version "4.0.37"
   resolved "https://registry.npmjs.org/ethers/-/ethers-4.0.37.tgz#dfa70d59498663878c5e4a977d14356660ca5b90"
   integrity sha512-B7bDdyQ45A5lPr6k2HOkEKMtYOuqlfy+nNf8glnRvWidkDQnToKw1bv7UyrwlbsIgY2mE03UxTVtouXcT6Vvcw==
@@ -9248,15 +9200,6 @@ ethers@^4.0.37:
     setimmediate "1.0.4"
     uuid "2.0.1"
     xmlhttprequest "1.8.0"
-
-ethjs-abi@0.1.8:
-  version "0.1.8"
-  resolved "https://registry.yarnpkg.com/ethjs-abi/-/ethjs-abi-0.1.8.tgz#cd288583ed628cdfadaf8adefa3ba1dbcbca6c18"
-  integrity sha1-zSiFg+1ijN+tr4re+juh28vKbBg=
-  dependencies:
-    bn.js "4.11.6"
-    js-sha3 "0.5.5"
-    number-to-bn "1.7.0"
 
 ethjs-abi@^0.2.1:
   version "0.2.1"
@@ -9634,11 +9577,6 @@ fancy-log@^1.3.2:
     color-support "^1.1.3"
     parse-node-version "^1.0.0"
     time-stamp "^1.0.0"
-
-fast-deep-equal@^1.0.0:
-  version "1.1.0"
-  resolved "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-1.1.0.tgz#c053477817c86b51daa853c81e059b733d023614"
-  integrity sha1-wFNHeBfIa1HaqFPIHgWbcz0CNhQ=
 
 fast-deep-equal@^2.0.1:
   version "2.0.1"
@@ -13246,11 +13184,6 @@ json-rpc-random-id@^1.0.0:
   version "1.0.1"
   resolved "https://registry.npmjs.org/json-rpc-random-id/-/json-rpc-random-id-1.0.1.tgz#ba49d96aded1444dbb8da3d203748acbbcdec8c8"
   integrity sha1-uknZat7RRE27jaPSA3SKy7zeyMg=
-
-json-schema-traverse@^0.3.0:
-  version "0.3.1"
-  resolved "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-0.3.1.tgz#349a6d44c53a51de89b40805c5d5e59b417d3340"
-  integrity sha1-NJptRMU6Ud6JtAgFxdXlm0F9M0A=
 
 json-schema-traverse@^0.4.1:
   version "0.4.1"
@@ -21081,70 +21014,21 @@ triple-beam@^1.2.0, triple-beam@^1.3.0:
   resolved "https://registry.npmjs.org/triple-beam/-/triple-beam-1.3.0.tgz#a595214c7298db8339eeeee083e4d10bd8cb8dd9"
   integrity sha512-XrHUvV5HpdLmIj4uVMxHggLbFSZYIn7HEWsqePZcI50pco+MPqJ50wMGY794X7AOOhxOBAjbkqfAbEe/QMp2Lw==
 
-truffle-blockchain-utils@^0.0.10:
-  version "0.0.10"
-  resolved "https://registry.npmjs.org/truffle-blockchain-utils/-/truffle-blockchain-utils-0.0.10.tgz#18b772673635a95a893f7083f7be6bd62227462b"
-  integrity sha512-gVvagLCvYD0QXfnkxy6I48P6O+d7TEY0smc2VFuwldl1/clLVWE+KfBO/jFMaAz+nupTQeKvPhNTeyh3JAsCeA==
-
-truffle-blockchain-utils@^0.0.5:
-  version "0.0.5"
-  resolved "https://registry.yarnpkg.com/truffle-blockchain-utils/-/truffle-blockchain-utils-0.0.5.tgz#a4e5c064dadd69f782a137f3d276d21095da7a47"
-  integrity sha1-pOXAZNrdafeCoTfz0nbSEJXaekc=
-
-truffle-contract-schema@^2.0.2:
-  version "2.0.2"
-  resolved "https://registry.yarnpkg.com/truffle-contract-schema/-/truffle-contract-schema-2.0.2.tgz#9db59e3a5ea85b63dca453a2dba9897c2c3523fd"
-  integrity sha512-8mYAu0Y7wgMqcIa612dxiN9pzr6rq2YxZCzPizvqyDq+/rGWy8s0irl/T7i92a/4ME1V5ddNFf3+86uIlYbPUg==
+truffle-contract@^4.0.26, truffle-contract@^4.0.31:
+  version "4.0.31"
+  resolved "https://registry.yarnpkg.com/truffle-contract/-/truffle-contract-4.0.31.tgz#e43b7f648e2db352c857d1202d710029b107b68d"
+  integrity sha512-u3q+p1wiX5C2GpnluGx/d2iaJk7bcWshk2/TohiJyA2iQiTfkS7M4n9D9tY3JqpXR8PmD/TrA69RylO0RhITFA==
   dependencies:
-    ajv "^5.1.1"
-    crypto-js "^3.1.9-1"
-    debug "^3.1.0"
-
-truffle-contract-schema@^3.0.13:
-  version "3.0.13"
-  resolved "https://registry.npmjs.org/truffle-contract-schema/-/truffle-contract-schema-3.0.13.tgz#8ace5734a0d57bfebc6ab3b60bf0883d46c68fdc"
-  integrity sha512-joF6oiG35xkRalc9Jeuq1NJ43jE3T0LVoWQ/8EhhGyE5E9PxYbUjNtdcj8ycOpn3BYFiomX2UUsgmt4W2U1Qtg==
-  dependencies:
-    ajv "^6.10.0"
-    crypto-js "^3.1.9-1"
-    debug "^4.1.0"
-
-truffle-contract@^3.0.6:
-  version "3.0.7"
-  resolved "https://registry.yarnpkg.com/truffle-contract/-/truffle-contract-3.0.7.tgz#487b2e1e9c5f01d223148766f6f320ba16bb4f63"
-  integrity sha512-av4MTJDP29PI3oVh8TrvRzRHt+nZJH8ODSiil/TfcXrKMSes52DTA5LHj00siLvcadkxUgoEZfEZ04qqhNGoiA==
-  dependencies:
-    ethjs-abi "0.1.8"
-    truffle-blockchain-utils "^0.0.5"
-    truffle-contract-schema "^2.0.2"
-    truffle-error "^0.0.3"
-    web3 "0.20.6"
-
-truffle-contract@^4.0.17, truffle-contract@^4.0.26, truffle-contract@^4.0.27:
-  version "4.0.30"
-  resolved "https://registry.npmjs.org/truffle-contract/-/truffle-contract-4.0.30.tgz#de0d7ac25c55dcafbe113f862f9a7fd5f83a1531"
-  integrity sha512-kQDqqhT6IPu1Vj111PzQvQ3xQiXx//cwFgMDZjaqRpBGuXGa5i80RxW+Vxfdn5pTrYk4pP0P7ZPyka9PJ248vw==
-  dependencies:
+    "@truffle/blockchain-utils" "^0.0.11"
+    "@truffle/contract-schema" "^3.0.14"
+    "@truffle/error" "^0.0.6"
     bignumber.js "^7.2.1"
     ethers "^4.0.0-beta.1"
-    truffle-blockchain-utils "^0.0.10"
-    truffle-contract-schema "^3.0.13"
-    truffle-error "^0.0.5"
-    truffle-interface-adapter "^0.2.4"
+    truffle-interface-adapter "^0.2.5"
     web3 "1.2.1"
     web3-core-promievent "1.2.1"
     web3-eth-abi "1.2.1"
     web3-utils "1.2.1"
-
-truffle-error@^0.0.3:
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/truffle-error/-/truffle-error-0.0.3.tgz#4bf55242e14deee1c7194932709182deff2c97ca"
-  integrity sha1-S/VSQuFN7uHHGUkycJGC3v8sl8o=
-
-truffle-error@^0.0.5:
-  version "0.0.5"
-  resolved "https://registry.npmjs.org/truffle-error/-/truffle-error-0.0.5.tgz#6b5740c9f3aac74f47b85d654fff7fe2c1fc5e0e"
-  integrity sha512-JpzPLMPSCE0vaZ3vH5NO5u42GpMj/Y1SRBkQ6b69PSw3xMSH1umApN32cEcg1nnh8q5FNYc5FnKu0m4tiBffyQ==
 
 truffle-hdwallet-provider@^1.0.8:
   version "1.0.9"
@@ -21156,10 +21040,10 @@ truffle-hdwallet-provider@^1.0.8:
     web3 "1.0.0-beta.37"
     websocket "^1.0.28"
 
-truffle-interface-adapter@^0.2.4:
-  version "0.2.4"
-  resolved "https://registry.npmjs.org/truffle-interface-adapter/-/truffle-interface-adapter-0.2.4.tgz#13db6b66a5746b15a725ccfad16c6414eb64de01"
-  integrity sha512-y1iu4aHI4VEjTcK1vaGOULApvk7QfFlF+zXLVYSJnJux6hqMmgq/F1+flCL73XEhO0zrtLjusnZrPUBYOVvWdw==
+truffle-interface-adapter@^0.2.5:
+  version "0.2.5"
+  resolved "https://registry.yarnpkg.com/truffle-interface-adapter/-/truffle-interface-adapter-0.2.5.tgz#aa0bee635517b4a8e06adcdc99eacb993e68c243"
+  integrity sha512-EL39OpP8FcZ99ne1Rno3jImfb92Nectd4iVsZzoEUCBfbwHe7sr0k+i45guoruSoP8nMUE81Mov2s8I5pi6d9Q==
   dependencies:
     bn.js "^4.11.8"
     ethers "^4.0.32"
@@ -21812,11 +21696,6 @@ utf8@3.0.0, utf8@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/utf8/-/utf8-3.0.0.tgz#f052eed1364d696e769ef058b183df88c87f69d1"
   integrity sha512-E8VjFIQ/TyQgp+TZfS6l8yp/xWppSAHzidGiRrqe4bK4XP9pTRyKFgGJpO3SN7zdX4DeomTrwaseCHovfpFcqQ==
-
-utf8@^2.1.1:
-  version "2.1.2"
-  resolved "https://registry.yarnpkg.com/utf8/-/utf8-2.1.2.tgz#1fa0d9270e9be850d9b05027f63519bf46457d96"
-  integrity sha1-H6DZJw6b6FDZsFAn9jUZv0ZFfZY=
 
 util-deprecate@^1.0.1, util-deprecate@^1.0.2, util-deprecate@~1.0.1:
   version "1.0.2"
@@ -22518,17 +22397,6 @@ web3-utils@1.2.1, web3-utils@^1.0.0-beta.31, web3-utils@^1.2.0:
     randomhex "0.1.5"
     underscore "1.9.1"
     utf8 "3.0.0"
-
-web3@0.20.6:
-  version "0.20.6"
-  resolved "https://registry.yarnpkg.com/web3/-/web3-0.20.6.tgz#3e97306ae024fb24e10a3d75c884302562215120"
-  integrity sha1-PpcwauAk+yThCj11yIQwJWIhUSA=
-  dependencies:
-    bignumber.js "git+https://github.com/frozeman/bignumber.js-nolookahead.git"
-    crypto-js "^3.1.4"
-    utf8 "^2.1.1"
-    xhr2 "*"
-    xmlhttprequest "*"
 
 web3@1.0.0-beta.37:
   version "1.0.0-beta.37"
@@ -23351,11 +23219,6 @@ xhr2-cookies@1.1.0:
   dependencies:
     cookiejar "^2.1.1"
 
-xhr2@*:
-  version "0.1.4"
-  resolved "https://registry.yarnpkg.com/xhr2/-/xhr2-0.1.4.tgz#7f87658847716db5026323812f818cadab387a5f"
-  integrity sha1-f4dliEdxbbUCYyOBL4GMras4el8=
-
 xhr@^2.0.4, xhr@^2.2.0, xhr@^2.3.3:
   version "2.5.0"
   resolved "https://registry.npmjs.org/xhr/-/xhr-2.5.0.tgz#bed8d1676d5ca36108667692b74b316c496e49dd"
@@ -23404,7 +23267,7 @@ xmlhttprequest-ssl@~1.5.4:
   resolved "https://registry.npmjs.org/xmlhttprequest-ssl/-/xmlhttprequest-ssl-1.5.5.tgz#c2876b06168aadc40e57d97e81191ac8f4398b3e"
   integrity sha1-wodrBhaKrcQOV9l+gRkayPQ5iz4=
 
-xmlhttprequest@*, xmlhttprequest@1.8.0:
+xmlhttprequest@1.8.0:
   version "1.8.0"
   resolved "https://registry.yarnpkg.com/xmlhttprequest/-/xmlhttprequest-1.8.0.tgz#67fe075c5c24fef39f9d65f5f7b7fe75171968fc"
   integrity sha1-Z/4HXFwk/vOfnWX197f+dRcZaPw=
