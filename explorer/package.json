@@ -15,7 +15,6 @@
     "dev": "concurrently \"cd client && yarn start\" \"ts-node-dev --respawn --transpileOnly ./src/index.ts\"",
     "dev:client": "yarn workspace @chainlink/explorer-client run start",
     "dev:server": "ts-node-dev --respawn --transpileOnly ./src/index.ts",
-    "prebuild": "yarn install",
     "build": "yarn workspace @chainlink/explorer-client run build",
     "prod": "yarn migration:run && ts-node ./src/index.ts",
     "pretest": "NODE_ENV=test yarn automigrate",
