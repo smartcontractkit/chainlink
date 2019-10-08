@@ -32,6 +32,7 @@ contract('Coordinator', () => {
     h.checkPublicABI(Coordinator, [
       'EXPIRY_TIME',
       'cancelOracleRequest',
+      'depositFunds',
       'fulfillOracleRequest',
       'getId',
       'initiateServiceAgreement',
