@@ -129,6 +129,7 @@ add_clnode_to_explorer() {
 
 setup_scripts() {
   yarn --no-progress install &>$SRCROOT/integration/yarn.log
+  yarn workspace chainlinkv0.5 build
   yarn workspace @chainlink/integration-scripts setup
 }
 
@@ -147,7 +148,9 @@ deploy_contracts() {
   popd >/dev/null
   title "Migration complete."
 }
-
+deploy_v05_contracts() { 
+  yarn workspace @chainlink/integration-scripts deploy-v0.5-contracts
+}
 launch_echo_server() {
   printf -- "\033[34m%-50s\033[0m" "Checking for local echo server"
   if curl -s $ECHO_SERVER_URL >/dev/null; then

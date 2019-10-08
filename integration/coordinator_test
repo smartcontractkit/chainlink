@@ -1,0 +1,46 @@
+#!/bin/bash
+
+source ./common
+
+title 'Coordinator test.'
+
+if ! [ -x "$(command -v jq)" ]; then
+  echo 'Error: jq is not installed.' >&2
+  exit 1
+fi
+
+sa_spec_path=$SRCROOT/integration/agreement.json
+initial_spec=$(cat $sa_spec_path)
+# FIXME use chainlink instead of cldev
+agreement_response=$(cldev -j agreements create $sa_spec_path)
+
+function query_agreement() {
+    echo "$agreement_response" | jq -r .$1
+}
+
+function check_sa_output() {
+    cl_output=$(query_agreement $1)
+    cl_input=$(echo "$initial_spec" | jq -r .$2)
+    if [ -z "$cl_output" ] ; then echo "output for $1 was empty"; exit 1; fi
+    if [ -z "$cl_input" ] ; then echo "input for $2 was empty"; exit 1; fi
+    if [ "$cl_output" != "$cl_input" ]; then
+        echo "mismatch for $1/$2: $cl_output $cl_input"; exit 1;
+    fi
+}
+
+check_sa_output encumbrance.payment                payment
+check_sa_output encumbrance.expiration             expiration
+check_sa_output encumbrance.oracles                oracles
+check_sa_output encumbrance.aggregator             aggregator
+check_sa_output encumbrance.aggInitiateJobSelector aggInitiateJobSelector
+check_sa_output encumbrance.aggFulfillSelector     aggFulfillSelector
+
+# Used in initiate_service_agreement.js
+export ORACLE_SIGNATURE=$(query_agreement signature) 
+export NORMALIZED_REQUEST=$(query_agreement requestBody)
+
+echo "ORACLE_SIGNATURE" $ORACLE_SIGNATURE
+echo "NORMALIZED_REQUEST" $NORMALIZED_REQUEST
+
+agreement_path=scripts/initiate_service_agreement.js
+yarn workspace @chainlink/integration truffle exec $agreement_path --network test
