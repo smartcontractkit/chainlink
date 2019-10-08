@@ -31,6 +31,7 @@ contract('Coordinator', () => {
   it('has a limited public interface', () => {
     h.checkPublicABI(Coordinator, [
       'EXPIRY_TIME',
+      'balanceOf',
       'cancelOracleRequest',
       'depositFunds',
       'fulfillOracleRequest',
