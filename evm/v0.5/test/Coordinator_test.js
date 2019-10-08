@@ -6,7 +6,6 @@ const MeanAggregator = artifacts.require('test/MeanAggregator.sol')
 const GetterSetter = artifacts.require('GetterSetter.sol')
 const MaliciousConsumer = artifacts.require('MaliciousConsumer.sol')
 const MaliciousRequester = artifacts.require('MaliciousRequester.sol')
-const Oracle = artifacts.require('Oracle.sol')
 
 contract('Coordinator', () => {
   let coordinator, link, newServiceAgreement, emptyAggregator, meanAggregator
