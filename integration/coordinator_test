@@ -30,8 +30,6 @@ function check_sa_output() {
     fi
 }
 
-echo "agreement ************************************************************************" $agreement_response
-
 check_sa_output encumbrance.payment                payment
 check_sa_output encumbrance.expiration             expiration
 check_sa_output encumbrance.oracles                oracles

@@ -91,27 +91,26 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
      checkCallbackAddress(_callbackAddress)
     // checkServiceAgreementPresence(_sAId) // TODO: exhausts the stack
   {
-      bytes32 requestId = keccak256(abi.encodePacked(_sender, _sAId, _nonce));
-      bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
-      require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
-      callbacks[requestId].sAId = _sAId;
-      callbacks[requestId].amount = _amount;
-      callbacks[requestId].addr = _callbackAddress;
-      callbacks[requestId].functionId = _callbackFunctionId;
-      // solhint-disable-next-line not-rely-on-time
-      callbacks[requestId].cancelExpiration = uint64(now.add(EXPIRY_TIME));
+    bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
+    require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
+    callbacks[requestId].sAId = _sAId;
+    callbacks[requestId].amount = _amount;
+    callbacks[requestId].addr = _callbackAddress;
+    callbacks[requestId].functionId = _callbackFunctionId;
+    // solhint-disable-next-line not-rely-on-time
+    callbacks[requestId].cancelExpiration = uint64(now.add(EXPIRY_TIME));
 
-      emit OracleRequest(
-        _sAId,
-        _sender,
-        requestId,
-        _amount,
-        _callbackAddress,
-        _callbackFunctionId,
-        now.add(EXPIRY_TIME), // solhint-disable-line not-rely-on-time
-        _dataVersion,
-        _data);
-    }
+    emit OracleRequest(
+      _sAId,
+      _sender,
+      requestId,
+      _amount,
+      _callbackAddress,
+      _callbackFunctionId,
+      now.add(EXPIRY_TIME), // solhint-disable-line not-rely-on-time
+      _dataVersion,
+      _data);
+  }
 
   /**
    * @notice Stores a Service Agreement which has been signed by the given oracles
