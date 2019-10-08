@@ -31,7 +31,9 @@ contract('Coordinator', () => {
   it('has a limited public interface', () => {
     h.checkPublicABI(Coordinator, [
       'EXPIRY_TIME',
+      'balanceOf',
       'cancelOracleRequest',
+      'depositFunds',
       'fulfillOracleRequest',
       'getId',
       'initiateServiceAgreement',
@@ -795,6 +797,80 @@ contract('Coordinator', () => {
           })
         })
       })
+    })
+  })
+
+  describe('#depositFunds', async () => {
+    let oracle
+
+    const assertBalances = async ({ link: linkBal, coordinator: coordBal }) => {
+      const linkBalance = await link.balanceOf(oracle)
+      const coordinatorBalance = await coordinator.balanceOf(oracle)
+      assert.equal(linkBalance, linkBal)
+      assert.equal(coordinatorBalance, coordBal)
+    }
+
+    beforeEach(async () => {
+      oracle = h.oracleNode
+      await link.transfer(oracle, 4)
+      const initialBalance = await link.balanceOf(oracle)
+      assert.equal(initialBalance, 4)
+    })
+
+    it('permits deposit through link#transferAndCall', async () => {
+      const payload = h.depositFundsBytes(oracle, 1)
+      await link.transferAndCall(coordinator.address, 1, payload, {
+        from: oracle,
+      })
+      await assertBalances({ link: 3, coordinator: 1 })
+    })
+
+    it('overrides invalid payloads', async () => {
+      const payload = h.depositFundsBytes(coordinator.address, 2) // wrong value and address
+      await link.transferAndCall(coordinator.address, 1, payload, {
+        from: oracle,
+      })
+      await assertBalances({ link: 3, coordinator: 1 })
+    })
+
+    it('reverts with insufficient payloads', async () => {
+      const payload = h.functionSelector('depositFunds(address,uint256)')
+      await h.assertActionThrows(async () => {
+        await link.transferAndCall(coordinator.address, 1, payload, {
+          from: oracle,
+        })
+      })
+    })
+
+    it('allows partial withdrawals', async () => {
+      const payload = h.depositFundsBytes(oracle, 4)
+      await link.transferAndCall(coordinator.address, 4, payload, {
+        from: oracle,
+      })
+      await coordinator.withdraw(oracle, 1, { from: oracle })
+      await assertBalances({ link: 1, coordinator: 3 })
+    })
+
+    it('allows full withdrawals', async () => {
+      const payload = h.depositFundsBytes(oracle, 4)
+      await link.transferAndCall(coordinator.address, 4, payload, {
+        from: oracle,
+      })
+      await coordinator.withdraw(oracle, 2, { from: oracle })
+      await coordinator.withdraw(oracle, 2, { from: oracle })
+      await assertBalances({ link: 4, coordinator: 0 })
+    })
+
+    it('reverts when overdrawing', async () => {
+      const payload = h.depositFundsBytes(oracle, 4)
+      await link.transferAndCall(coordinator.address, 4, payload, {
+        from: oracle,
+      })
+      await coordinator.withdraw(oracle, 4, { from: oracle })
+      await h.assertActionThrows(async () => {
+        await coordinator.withdraw(oracle, 1, { from: oracle })
+      })
+      await assertBalances({ link: 4, coordinator: 0 })
     })
   })
 })
