@@ -310,11 +310,22 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     ));
   }
 
-  function depositFunds(address to, uint256 amount) external onlyLINK
+  /**
+   * @notice Called when LINK is sent to the contract via `transferAndCall`
+   * @dev The data payload's first 2 words will be overwritten by the `_sender` and `_amount`
+   * values to ensure correctness. Calls oracleRequest.
+   * @param sender Address of the sender
+   * @param amount Amount of LINK sent (specified in wei)
+   */
+  function depositFunds(address sender, uint256 amount) external onlyLINK
   {
-    withdrawableTokens[to] = withdrawableTokens[to].add(amount);
+    withdrawableTokens[sender] = withdrawableTokens[sender].add(amount);
   }
 
+  /**
+   * @param account Address to check balance of
+   * @return Balance of account (specified in wei)
+   */
   function balanceOf(address account) public view returns (uint256)
   {
     return withdrawableTokens[account];
