@@ -130,6 +130,7 @@ add_clnode_to_explorer() {
 setup_scripts() {
   yarn --no-progress install &>$SRCROOT/integration/yarn.log
   yarn workspace chainlinkv0.5 build
+  yarn worksapce chainlink build
   yarn workspace @chainlink/integration-scripts setup
 }
 
