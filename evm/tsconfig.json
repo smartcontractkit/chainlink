@@ -16,11 +16,7 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "moduleResolution": "node",
-    "baseUrl": "./",
-    "paths": {
-      "contracts/*": ["dist/contracts/*"]
-    },
     "esModuleInterop": true
   },
-  "include": ["src", "@types", "test", "testv2", "dist/contracts"]
+  "include": ["src", "@types", "test", "testv2"]
 }
