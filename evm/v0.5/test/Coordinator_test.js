@@ -798,7 +798,7 @@ contract('Coordinator', () => {
     })
   })
 
-  describe.only('#depositFunds', async () => {
+  describe('#depositFunds', async () => {
     let oracle
 
     const assertBalances = async ({ link: linkBal, coordinator: coordBal }) => {
@@ -815,9 +815,8 @@ contract('Coordinator', () => {
       assert.equal(initialBalance, 4)
     })
 
-    it.only('permits deposit through link#transferAndCall', async () => {
-      // const payload = h.depositFundsBytes(oracle, 1)
-      const payload = h.functionSelector('depositFunds(address,uint256)')
+    it('permits deposit through link#transferAndCall', async () => {
+      const payload = h.depositFundsBytes(oracle, 1)
       await link.transferAndCall(coordinator.address, 1, payload, {
         from: oracle,
       })
