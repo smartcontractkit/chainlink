@@ -312,8 +312,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
 
   /**
    * @notice Called when LINK is sent to the contract via `transferAndCall`
-   * @param sender Address of the sender
-   * @param amount Amount of LINK sent (specified in wei)
+   * @param _sender Address of the sender
+   * @param _amount Amount of LINK sent (specified in wei)
    */
   function depositFunds(address _sender, uint256 _amount) external onlyLINK
   {
@@ -321,7 +321,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   }
 
   /**
-   * @param account Address to check balance of
+   * @param _account Address to check balance of
    * @return Balance of account (specified in wei)
    */
   function balanceOf(address _account) public view returns (uint256)
