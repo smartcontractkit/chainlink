@@ -7,9 +7,7 @@ ENV PATH /usr/src/app/node_modules/.bin:$PATH
 ADD . .
 
 RUN yarn install
-RUN cd explorer \
-      && yarn install \
-      && yarn build
+RUN yarn workspace @chainlink/explorer run build
 
 FROM node:10.15-alpine
 
