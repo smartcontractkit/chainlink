@@ -6,7 +6,7 @@
   "scripts": {
     "generate-typings": "typechain --target ethers --outDir src/generated \"{src/LinkToken*,build/contracts/*}\"",
     "build": "truffle build",
-    "postbuild": "yarn generate-typings",
+    "postbuild": "yarn generate-typings && yarn tsc",
     "build:windows": "truffle.cmd build",
     "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box || true",
     "eslint": "eslint --ext .ts,.js test",

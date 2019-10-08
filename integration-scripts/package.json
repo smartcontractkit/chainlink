@@ -21,6 +21,7 @@
     "fund-address": "node ./dist/fundAddress",
     "deploy-contracts": "node ./dist/deployContracts",
     "deploy-v0.5-contracts": "node ./dist/deployV0.5Contracts",
+    "initiate-service-agreement": "node ./dist/initiateServiceAgreement",
     "start-echo-server": "node ./dist/echoServer"
   },
   "devDependencies": {
