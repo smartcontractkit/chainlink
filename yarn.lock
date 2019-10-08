@@ -5871,15 +5871,6 @@ chai@^4.2.0:
     pathval "^1.1.0"
     type-detect "^4.0.5"
 
-chainlink-test-helpers@0.6.0-6:
-  version "0.6.0-6"
-  resolved "https://registry.npmjs.org/chainlink-test-helpers/-/chainlink-test-helpers-0.6.0-6.tgz#883ddc3a9fca3a5f839144e2006fa47a1073a6e6"
-  integrity sha512-X36iaG93fqHb9yULpnbiyZYzQWIe8uwgNBx7QAl+8iz88jjKBRByBFAIikLCcRJlTCWhIS3rz4v2PXjj4xF80w==
-  dependencies:
-    bn.js "^4.11.8"
-    ethereumjs-abi "^0.6.6"
-    ethereumjs-util "^6.0.0"
-
 chainlink@0.6.1:
   version "0.6.1"
   resolved "https://registry.npmjs.org/chainlink/-/chainlink-0.6.1.tgz#f658b44525d788dbbbdbe40b770eefdbac6b66a1"
@@ -5890,7 +5881,7 @@ chainlink@0.6.1:
     openzeppelin-solidity "^1.12.0"
     solidity-cborutils "^1.0.2"
 
-chainlink@0.6.5, chainlink@^0.6.5:
+chainlink@^0.6.5:
   version "0.6.5"
   resolved "https://registry.npmjs.org/chainlink/-/chainlink-0.6.5.tgz#35c8fef8529f4c48a996b6a1d2546cfcdb38af59"
   integrity sha512-V6Z1Z4BYEwpicc5jVw66oyQeVe+WT90ZlDKTsbO04eASSJup2eCUxSp9nEDywA2gva/1D1F1q+AHDkMDWHpoPA==
@@ -8940,7 +8931,7 @@ ethereumjs-abi@0.6.5:
     bn.js "^4.10.0"
     ethereumjs-util "^4.3.0"
 
-ethereumjs-abi@0.6.7, ethereumjs-abi@^0.6.5, ethereumjs-abi@^0.6.6:
+ethereumjs-abi@0.6.7, ethereumjs-abi@^0.6.5:
   version "0.6.7"
   resolved "https://registry.yarnpkg.com/ethereumjs-abi/-/ethereumjs-abi-0.6.7.tgz#d1d1c5cdb8d910a7d97645ba9e93be5d153bba2e"
   integrity sha512-EMLOA8ICO5yAaXDhjVEfYjsJIXYutY8ufTE93eEKwsVtp2usQreKwsDTJ9zvam3omYqNuffr8IONIqb2uUslGQ==
