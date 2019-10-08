@@ -118,7 +118,7 @@ export function checkPublicABI(
   }
 }
 
-const { utils } = ethers
+export const { utils } = ethers
 /**
  * Convert a value to a hex string
  * @param args Value to convert to a hex string

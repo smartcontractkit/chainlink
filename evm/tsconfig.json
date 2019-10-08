@@ -4,6 +4,7 @@
     "target": "es2019",
     "module": "commonjs",
     "allowJs": true,
+    "declaration": true,
     "sourceMap": true,
     "skipLibCheck": true,
     "outDir": "./dist",
