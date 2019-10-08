@@ -47,17 +47,11 @@ async function initiateServiceAgreement({
   const coordinatorFactory = new CoordinatorFactory(signer)
   const coordinator = coordinatorFactory.attach(coordinatorAddress)
 
-  console.log(
-    '########################################################################',
-    coordinatorFactory.interface.abi,
-  )
-
-  console.log('coordinator_address', coordinatorAddress)
-  const amount = ethers.utils.parseEther('1000')
-
   type CoordinatorParams = Parameters<Coordinator['initiateServiceAgreement']>
+  type ServiceAgreement = CoordinatorParams[0]
+  type OracleSignatures = CoordinatorParams[1]
 
-  const agreement: CoordinatorParams[0] = {
+  const agreement: ServiceAgreement = {
     aggFulfillSelector: agreementJson.aggFulfillSelector,
     aggInitiateJobSelector: agreementJson.aggInitiateJobSelector,
     aggregator: agreementJson.aggregator,
@@ -72,56 +66,37 @@ async function initiateServiceAgreement({
 
   const sig = ethers.utils.splitSignature(oracleSignature)
   if (!sig.v) {
-    throw Error(
-      `THIS SHOULD NOT HAPPEN: sig.v is undefined when it should always exist`,
-    )
+    throw Error(`Could not extract v from signature`)
   }
-  const oracleSignatures: CoordinatorParams[1] = {
+  const oracleSignatures: OracleSignatures = {
     rs: [sig.r],
     ss: [sig.s],
     vs: [sig.v],
   }
 
-  console.log('coordinator_address', coordinatorAddress)
-
-  console.log(
-    '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!',
-    await coordinator.dummyMethodXXX(),
-  )
-
+  console.log('Attempting to initiate service agreement')
   const tx = await coordinator.initiateServiceAgreement(
     agreement,
     oracleSignatures,
   )
-  await tx.wait()
-  console.log('initiateServiceAgreement', tx)
+  const iSAreceipt = await tx.wait()
+  console.log('initiateServiceAgreement receipt', iSAreceipt)
+  
+  const said = helpers.calculateSAID2(agreement)
 
-  let said
-  try {
-    said = helpers.calculateSAID2(agreement)
-  } catch (err) {
-    console.log("said err", err)
-  }
-
-  console.log('said ************************************************************************', said)
-
-  try {
-  const reqId = await coordinator.oracleRequest(
-    "0x0101010101010101010101010101010101010101",
-    10000000000000,
-    said as any, // XXX: 
-    '0x0101010101010101010101010101010101010101', // Receiving contract address
-    '0x12345678', // receiving method selector
-    1, // nonce
-    1, // data version
-    '0x0', // data for initialization of request
-  )
-  const receipt = await reqId.wait()
+    const reqId = await coordinator.oracleRequest(
+      '0x0101010101010101010101010101010101010101',
+      10000000000000,
+      said as any, // XXX: 
+      '0x0101010101010101010101010101010101010101', // Receiving contract address
+      '0x12345678', // receiving method selector
+      1, // nonce
+      1, // data version
+      '0x0', // data for initialization of request
+    )
+    const receipt = await reqId.wait()
     console.log(
       '************************************************************************ oracleRequest',
       receipt 
     )
-  } catch (err) {
-    console.log('err oracleRequest', err)
-  }
 }
