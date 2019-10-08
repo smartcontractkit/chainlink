@@ -1,11 +1,11 @@
 import { ethers } from 'ethers'
 import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
-import { Oracle } from 'contracts/Oracle'
-import { LinkToken } from 'contracts/LinkToken'
+import { Oracle } from './generated/Oracle'
+import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
-import { EmptyOracle } from 'contracts/EmptyOracle'
+import { EmptyOracle } from './generated/EmptyOracle'
 
 const debug = makeDebug('helpers')
 
