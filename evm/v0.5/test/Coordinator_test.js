@@ -826,11 +826,20 @@ contract('Coordinator', () => {
     })
 
     it('overrides invalid payloads', async () => {
-      const payload = h.depositFundsBytes(oracle, 2)
+      const payload = h.depositFundsBytes(coordinator.address, 2) // wrong value and address
       await link.transferAndCall(coordinator.address, 1, payload, {
         from: oracle,
       })
       await assertBalances({ link: 3, coordinator: 1 })
+    })
+
+    it('reverts with insufficient payloads', async () => {
+      const payload = h.functionSelector('depositFunds(address,uint256)')
+      await h.assertActionThrows(async () => {
+        await link.transferAndCall(coordinator.address, 1, payload, {
+          from: oracle,
+        })
+      })
     })
 
     it('allows partial withdrawals', async () => {
