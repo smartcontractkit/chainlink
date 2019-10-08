@@ -14,7 +14,7 @@
     "lint": "yarn solhint && yarn eslint",
     "slither": "truffle compile --quiet && slither .",
     "pretest": "yarn build",
-    "test:v1": "tsc && truffle test ./dist/test/*",
+    "test:v1": "tsc && truffle test ./dist/test/*.js",
     "test:v2": "jest --testTimeout 20000",
     "test": "yarn test:v1 && yarn test:v2",
     "format": "prettier --write \"**/*\"",
@@ -61,7 +61,7 @@
     "ts-jest": "^24.1.0",
     "typechain": "1.0.1",
     "typechain-target-ethers": "^1.0.0-beta.1",
-    "typescript": "^3.6.3"
+    "typescript": "^3.7.0-beta"
   },
   "prettier": "@chainlink/prettier-config",
   "files": [
