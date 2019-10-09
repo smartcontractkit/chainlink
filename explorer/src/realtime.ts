@@ -70,6 +70,10 @@ export const bootstrapRealtime = async (server: http.Server) => {
           `websocket client successfully authenticated, new session for node ${session.chainlinkNodeId}`,
         )
         sessions.set(accessKey, session)
+        const existingConnection = connections.get(accessKey)
+        if (existingConnection) {
+          existingConnection.close(NORMAL_CLOSE, 'Duplicate connection opened')
+        }
         callback(true, 200)
       })
     },
@@ -78,14 +82,8 @@ export const bootstrapRealtime = async (server: http.Server) => {
   wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
     // accessKey type already validated in verifyClient()
     const accessKey = request.headers[ACCESS_KEY_HEADER].toString()
-
-    const existingConnection = connections.get(accessKey)
-    if (existingConnection) {
-      existingConnection.close(NORMAL_CLOSE, 'Duplicate connection opened')
-    } else {
-      clnodeCount = clnodeCount + 1
-    }
     connections.set(accessKey, ws)
+    clnodeCount = clnodeCount + 1
 
     logger.info(
       `websocket connected, total chainlink nodes connected: ${clnodeCount}`,
@@ -108,12 +106,15 @@ export const bootstrapRealtime = async (server: http.Server) => {
 
     ws.on('close', () => {
       const session = sessions.get(accessKey)
+      const existingConnection = connections.get(accessKey)
+
       if (session != null) {
         closeSession(db, session)
         sessions.delete(accessKey)
+      }
+      if (ws === existingConnection) {
         connections.delete(accessKey)
       }
-
       clnodeCount = clnodeCount - 1
       logger.info(
         `websocket disconnected, total chainlink nodes connected: ${clnodeCount}`,
