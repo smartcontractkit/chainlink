@@ -149,8 +149,12 @@ deploy_contracts() {
   popd >/dev/null
   title "Migration complete."
 }
-deploy_v05_contracts() { 
-  yarn workspace @chainlink/integration-scripts deploy-v0.5-contracts
+deploy_v05_contracts() {
+    log_path=$SRCROOT/integration/initiate-service-agreement.log
+    yarn workspace @chainlink/integration-scripts deploy-v0.5-contracts | tee $log_path
+    export LINK_TOKEN_ADDRESS=`cat $log_path | grep 'Deployed LinkToken at:' | awk '{print$4}'`
+    export COORDINATOR_ADDRESS=`cat $log_path | grep 'Deployed Coordinator at:' | awk '{print$4}'`
+
 }
 launch_echo_server() {
   printf -- "\033[34m%-50s\033[0m" "Checking for local echo server"
