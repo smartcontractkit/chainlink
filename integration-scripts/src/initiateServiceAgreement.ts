@@ -1,4 +1,4 @@
-import { debug, } from 'chainlink'
+import { debug, helpers } from 'chainlink'
 import {
   getArgs,
   registerPromiseHandler,
@@ -96,14 +96,32 @@ async function initiateServiceAgreement({
   await tx.wait()
   console.log('initiateServiceAgreement', tx)
 
-  console.log(
-    'oracleRequest',
-    await Coordinator.oracleRequest(
-      ,
-      '0x0101010101010101010101010101010101010101', // Receiving contract address
-      '0x12345678', // receiving method selector
-      1, // nonce
-      '', // data for initialization of request
-    ),
-)
+  let said
+  try {
+    said = helpers.calculateSAID2(agreement)
+  } catch (err) {
+    console.log("said err", err)
+  }
+
+  console.log('said ************************************************************************', said)
+
+  try {
+  const reqId = await coordinator.oracleRequest(
+    "0x0101010101010101010101010101010101010101",
+    10000000000000,
+    said as any, // XXX: 
+    '0x0101010101010101010101010101010101010101', // Receiving contract address
+    '0x12345678', // receiving method selector
+    1, // nonce
+    1, // data version
+    '0x0', // data for initialization of request
+  )
+  const receipt = await reqId.wait()
+    console.log(
+      '************************************************************************ oracleRequest',
+      receipt 
+    )
+  } catch (err) {
+    console.log('err oracleRequest', err)
+  }
 }

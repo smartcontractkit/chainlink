@@ -26,5 +26,5 @@ async function deployContracts() {
   // deploy Coordinator
   const coordinatorFactory = new CoordinatorFactory(signer)
   const coordinator = await coordinatorFactory.deploy(linkToken.address)
-  console.log(`Deployed coordinator at: ${coordinator.address}`)
+  console.log(`Deployed Coordinator at: ${coordinator.address}`)
 }
