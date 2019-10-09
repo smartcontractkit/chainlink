@@ -9,10 +9,12 @@ if ! [ -x "$(command -v jq)" ]; then
   exit 1
 fi
 
-sa_spec_path=$SRCROOT/integration/agreement.json
+sa_spec_path=$SRCROOT/integration-scripts/src/fixtures/agreement.json
 initial_spec=$(cat $sa_spec_path)
 # FIXME use chainlink instead of cldev
-agreement_response=$(cldev -j agreements create $sa_spec_path)
+create_sa="$SRCROOT/tools/bin/cldev -j agreements create $sa_spec_path"
+echo $create_sa
+agreement_response=$($create_sa)
 
 function query_agreement() {
     echo "$agreement_response" | jq -r .$1
@@ -28,6 +30,8 @@ function check_sa_output() {
     fi
 }
 
+echo "agreement ************************************************************************" $agreement_response
+
 check_sa_output encumbrance.payment                payment
 check_sa_output encumbrance.expiration             expiration
 check_sa_output encumbrance.oracles                oracles
@@ -42,5 +46,4 @@ export NORMALIZED_REQUEST=$(query_agreement requestBody)
 echo "ORACLE_SIGNATURE" $ORACLE_SIGNATURE
 echo "NORMALIZED_REQUEST" $NORMALIZED_REQUEST
 
-agreement_path=scripts/initiate_service_agreement.js
-yarn workspace @chainlink/integration truffle exec $agreement_path --network test
+yarn workspace @chainlink/integration-scripts initiate-service-agreement

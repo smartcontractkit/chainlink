@@ -34,8 +34,8 @@ else
 fi
 
 export CHAINLINK_DEV=true
-launch_chainlink
-deploy_v05_contracts
+# launch_chainlink # XXX
+# deploy_v05_contracts # XXX
 
 heading 'Running tests...'
 pushd integration >/dev/null
