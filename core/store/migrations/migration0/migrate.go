@@ -13,11 +13,22 @@ import (
 )
 
 // Migrate runs the initial migration
+//
+// Do not reference the canonical structs from `store/models`, here. Place the
+// struct corresponding to the DB table at the bottom of this file, and
+// reference that in the `AutoMigrate` call. We don't want tables being
+// `AutoMigrate`d whenever we change the canonical struct, because that could
+// lead to data loss. Make an explicit migration in its own
+// ../migrations<rough_unix_time>/migrate.go file/package.
+//
+// For instance, the `JobRun` struct referenced here does not have a Payment
+// field. The "payment" column is added to the job_runs table later, in
+// ./migration1567029116/migrate.go.
 func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&models.BridgeType{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate BridgeType")
 	}
-	if err := tx.AutoMigrate(&models.Encumbrance{}).Error; err != nil {
+	if err := tx.AutoMigrate(&Encumbrance{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate Encumbrance")
 	}
 	if err := tx.AutoMigrate(&ExternalInitiator{}).Error; err != nil {
@@ -199,4 +210,15 @@ type RunResult struct {
 	Status       string
 	ErrorMessage string
 	Amount       *assets.Link `gorm:"type:varchar(255)"`
+}
+
+// Encumbrance is a capture of DB model before migration1568390387
+type Encumbrance struct {
+	ID         uint         `json:"-" gorm:"primary_key;auto_increment"`
+	Payment    *assets.Link `json:"payment" gorm:"type:varchar(255)"`
+	Expiration uint64       `json:"expiration"`
+	// This is a models.AnyTime in models.Encumbrance, but the DB column is a datetime
+	EndAt time.Time `json:"endAt" gorm:"type:datetime"`
+	// This is a models.EIP55AddressCollection in models.Encumbrance, but the DB column is text.
+	Oracles string `json:"oracles" gorm:"type:text"`
 }
