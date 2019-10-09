@@ -724,7 +724,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	assert.NotEqual(t, "", sa.ID)
 	j := cltest.FindJob(t, app.Store, sa.JobSpecID)
 
-	assert.Equal(t, assets.NewLink(1000000000000000000), sa.Encumbrance.Payment)
+	assert.Equal(t, assets.NewLink(100), sa.Encumbrance.Payment)
 	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)
 
 	assert.Equal(t, cltest.EndAt, sa.Encumbrance.EndAt.Time)

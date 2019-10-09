@@ -1,7 +1,9 @@
 import { ethers } from 'ethers'
+import { FunctionFragment } from 'ethers/utils/abi-coder'
 import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
 import { Oracle } from './generated/Oracle'
+import { CoordinatorFactory } from './generated/CoordinatorFactory'
 import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
@@ -361,4 +363,13 @@ export async function increaseTime5Minutes(
  */
 export function hexToBuf(hexstr: string): Buffer {
   return Buffer.from(stripHexPrefix(hexstr), 'hex')
+
+function getSAABI(): FunctionFragment['outputs'] {
+  const coordinatorFactory = new CoordinatorFactory()
+  const { abi } = coordinatorFactory.interface
+  const saABI = abi.filter(o => o.name === 'ServiceAgreements')
+  if (!saABI) { throw Error("service agreement abi not found") }
+  return (saABI as any).outputs // XXX: Fix type
 }
+
+type Hash = ReturnType<typeof ethers.utils.keccak256>

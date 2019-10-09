@@ -256,7 +256,7 @@ func (f FunctionSelector) Value() (driver.Value, error) {
 }
 
 // Scan returns the selector from its serialization in the database
-func (f FunctionSelector) Scan(value interface{}) error {
+func (f *FunctionSelector) Scan(value interface{}) error {
 	temp, ok := value.([]byte)
 	if !ok {
 		return fmt.Errorf("unable to convent %v of type %T to FunctionSelector", value, value)
