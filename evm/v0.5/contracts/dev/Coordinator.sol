@@ -30,6 +30,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   mapping(bytes32 => ServiceAgreement) public serviceAgreements;
   mapping(address => uint256) public withdrawableTokens;
 
+  function dummyMethodXXX() external returns(string memory) { return "foobar"; }
+
   /**
    * @notice Deploy with the address of the LINK token
    * @dev Sets the LinkToken address for the imported LinkTokenInterface
@@ -84,10 +86,12 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     bytes calldata _data
   )
     external
-    onlyLINK
-    sufficientLINK(_amount, _sAId)
-    // checkServiceAgreementPresence(_sAId) // TODO(alx): This would be nice to have, but it exhausts the stack
-    checkCallbackAddress(_callbackAddress) {
+     onlyLINK
+     sufficientLINK(_amount, _sAId)
+     checkCallbackAddress(_callbackAddress)
+    // checkServiceAgreementPresence(_sAId) // TODO: exhausts the stack
+  {
+      bytes32 requestId = keccak256(abi.encodePacked(_sender, _sAId, _nonce));
       bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
       require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
       callbacks[requestId].sAId = _sAId;

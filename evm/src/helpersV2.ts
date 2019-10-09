@@ -367,9 +367,44 @@ export function hexToBuf(hexstr: string): Buffer {
 function getSAABI(): FunctionFragment['outputs'] {
   const coordinatorFactory = new CoordinatorFactory()
   const { abi } = coordinatorFactory.interface
-  const saABI = abi.filter(o => o.name === 'ServiceAgreements')
-  if (!saABI) { throw Error("service agreement abi not found") }
-  return (saABI as any).outputs // XXX: Fix type
+  const saABI = abi.filter(o => o.name === 'serviceAgreements')
+  if (saABI.length != 1) {
+    throw Error('Should be only one serviceAgreements attribute')
+  }
+  if (!saABI) {
+    throw Error('service agreement abi not found')
+  }
+  return (saABI as any)[0].outputs // XXX: Fix type
 }
 
 type Hash = ReturnType<typeof ethers.utils.keccak256>
+type Coordinator = ReturnType<CoordinatorFactory['attach']>
+type ServiceAgreement = Parameters<Coordinator['initiateServiceAgreement']>[0]
+
+export const calculateSAID2 = ({
+  payment,
+  expiration,
+  endAt,
+  requestDigest,
+  aggregator,
+  aggInitiateJobSelector,
+  aggFulfillSelector,
+}: ServiceAgreement): Hash => {
+  const abi = getSAABI()
+  const serviceAgreementIDInput = ethers.utils.defaultAbiCoder.encode(
+    abi,
+    [
+      payment,
+      expiration,
+      endAt,
+      requestDigest,
+      aggregator,
+      aggInitiateJobSelector,
+      aggFulfillSelector,
+    ],
+  )
+  console.log('serviceAgreementIDInput', serviceAgreementIDInput)
+  return ethers.utils.keccak256(toHex(serviceAgreementIDInput))
+}
+
+//////////////////////////////////////////////////////////////////////////

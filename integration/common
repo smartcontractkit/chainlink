@@ -153,6 +153,9 @@ deploy_v05_contracts() {
     log_path=$SRCROOT/integration/initiate-service-agreement.log
     yarn workspace @chainlink/integration-scripts deploy-v0.5-contracts | tee $log_path
     export LINK_TOKEN_ADDRESS=`cat $log_path | grep 'Deployed LinkToken at:' | awk '{print$4}'`
+    echo "log output:"
+    cat $log_path
+    echo "log output done"
     export COORDINATOR_ADDRESS=`cat $log_path | grep 'Deployed Coordinator at:' | awk '{print$4}'`
 
 }
