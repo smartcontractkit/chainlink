@@ -31,8 +31,7 @@ type JobRun struct {
 	InitiatorID    uint         `json:"-"`
 	CreationHeight *Big         `json:"creationHeight"`
 	ObservedHeight *Big         `json:"observedHeight"`
-	Overrides      RunResult    `json:"overrides"`
-	OverridesID    uint         `json:"-"`
+	Overrides      JSON         `json:"overrides"`
 	DeletedAt      null.Time    `json:"-" gorm:"index"`
 	Payment        *assets.Link `json:"payment,omitempty"`
 }

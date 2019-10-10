@@ -190,7 +190,7 @@ func prepareTaskInput(run *models.JobRun, input models.JSON) (models.JSON, error
 		return models.JSON{}, err
 	}
 
-	if input, err = run.Overrides.Data.Merge(input); err != nil {
+	if input, err = run.Overrides.Merge(input); err != nil {
 		return models.JSON{}, err
 	}
 	return input, nil
@@ -200,7 +200,7 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 	taskCopy := currentTaskRun.TaskSpec // deliberately copied to keep mutations local
 
 	var err error
-	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides.Data); err != nil {
+	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides); err != nil {
 		currentTaskRun.Result.SetError(err)
 		return currentTaskRun.Result
 	}

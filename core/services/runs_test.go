@@ -47,7 +47,7 @@ func TestNewRun(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 1)
-	assert.Equal(t, input, run.Overrides.Data)
+	assert.Equal(t, input, run.Overrides)
 	assert.False(t, run.TaskRuns[0].Confirmations.Valid)
 }
 
