@@ -25,7 +25,7 @@ isolate_geth2:
 ETH_LOG_JOB = '$(shell cat eth_log_job.json)'
 create_job:
 	bash log_in_to_chainlink_node.sh
-	docker exec -it forks_chainlink_1 chainlink create ${ETH_LOG_JOB}
+	docker exec -it forks_chainlink_1 chainlink jobs create ${ETH_LOG_JOB}
 
 # Generates an ethereum transaction which creates a simple contract, which emits
 # a log in its constructor. See "Constructing the trigger transaction" in
