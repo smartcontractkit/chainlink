@@ -55,7 +55,7 @@ func TestStatsPusher_ClockTrigger(t *testing.T) {
 	wsserver, wscleanup := cltest.NewEventWebSocketServer(t)
 	defer wscleanup()
 
-	clock := cltest.NewTriggerClock()
+	clock := cltest.NewTriggerClock(t)
 	pusher := synchronization.NewStatsPusher(store.ORM, wsserver.URL, "", "", clock)
 	pusher.Start()
 	defer pusher.Close()
@@ -79,7 +79,7 @@ func TestStatsPusher_NoAckLeavesEvent(t *testing.T) {
 	wsserver, wscleanup := cltest.NewEventWebSocketServer(t)
 	defer wscleanup()
 
-	clock := cltest.NewTriggerClock()
+	clock := cltest.NewTriggerClock(t)
 	pusher := synchronization.NewStatsPusher(store.ORM, wsserver.URL, "", "", clock)
 	pusher.Start()
 	defer pusher.Close()
@@ -105,7 +105,7 @@ func TestStatsPusher_BadSyncLeavesEvent(t *testing.T) {
 	wsserver, wscleanup := cltest.NewEventWebSocketServer(t)
 	defer wscleanup()
 
-	clock := cltest.NewTriggerClock()
+	clock := cltest.NewTriggerClock(t)
 	pusher := synchronization.NewStatsPusher(store.ORM, wsserver.URL, "", "", clock)
 	pusher.Start()
 	defer pusher.Close()
