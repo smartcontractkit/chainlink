@@ -59,13 +59,6 @@ InsecureUnlockAllowed = true
 HTTPHost = "localhost"
 HTTPPort = 8545
 HTTPModules = ["net", "web3", "eth", "shh"]
-# Chainlink relies on geth1 for ethereum data, so expose its websocket service
-#
-# Fill this in with the IP address assigned to the node in docker-compose.yaml
-WSHost = "172.16.1.100"
-WSPort = 8546
-WSOrigins = ["*"]
-WSModules = ["net", "web3", "eth", "shh"]
 GraphQLPort = 8547
 
 [Node.P2P]
@@ -73,6 +66,7 @@ MaxPeers = 50
 NoDiscovery = false
 BootstrapNodes = []
 BootstrapNodesV5 = []
+
 # Fill StaticNodes in with the enode addresses for the other nodes of the
 # private network
 StaticNodes = ["enode://d5a5cc165e20bfa99f163b7dd6a70aae051b8e24162515b98cb238c962807f1b2c358393ce03466d039c47d2f0b40c95a833314563ac546daf50c310dce8d4a5@172.16.1.101:30303"]
@@ -89,3 +83,13 @@ IdleTimeout = 120000000000
 Host = "localhost"
 Port = 8080
 Refresh = 5000000000
+
+# Chainlink relies on geth1 for ethereum data, so expose its websocket service
+# Fill this in with the IP address assigned to the node in docker-compose.yaml
+WSHost = "172.16.1.100"
+WSPort = 8546
+WSOrigins = ["*"]
+WSModules = ["net", "web3", "eth", "shh"]
+GraphQLPort = 8547
+
+
