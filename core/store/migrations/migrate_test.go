@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565210496"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565291711"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565877314"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1570675883"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -283,6 +284,41 @@ func TestMigrate_Migration1565877314(t *testing.T) {
 	require.NoError(t, db.Where("id = ?", exi.ID).Find(&exiFound).Error)
 	assert.Equal(t, "access_key", exiFound.Name)
 	assert.Equal(t, "https://unset.url", exiFound.URL.String())
+}
+
+func TestMigrate_Migration1570675883(t *testing.T) {
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	db := orm.DB
+
+	require.NoError(t, migration0.Migrate(db))
+
+	overrides := models.RunResult{
+		Data: cltest.JSONFromString(t, `{"a": "b"}`),
+	}
+	require.NoError(t, db.Create(&overrides).Error)
+
+	jobSpec := migration0.JobSpec{
+		ID:        utils.NewBytes32ID(),
+		CreatedAt: time.Now(),
+	}
+	require.NoError(t, db.Create(&jobSpec).Error)
+	jobRun := migration0.JobRun{
+		ID:             utils.NewBytes32ID(),
+		JobSpecID:      jobSpec.ID,
+		OverridesID:    overrides.ID,
+		CreationHeight: "0",
+		ObservedHeight: "0",
+	}
+	require.NoError(t, db.Create(&jobRun).Error)
+
+	require.NoError(t, migration1570675883.Migrate(db))
+
+	jobRunFound := models.JobRun{}
+	require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
+	assert.Equal(t, `{"a": "b"}`, jobRunFound.Overrides.String())
+	require.Error(t, db.Where("id = ?", overrides.ID).Find(&overrides).Error)
 }
 
 func TestMigrate_NewerVersionGuard(t *testing.T) {
