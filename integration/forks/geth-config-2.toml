@@ -66,6 +66,7 @@ MaxPeers = 50
 NoDiscovery = false
 BootstrapNodes = []
 BootstrapNodesV5 = []
+
 # Fill StaticNodes in with the enode addresses for the other nodes of the
 # private network
 StaticNodes = ["enode://84d6781578958e4c3bf02a889651700c42b5928717d25df1c639deb40afbcd21e0bfc3df5fff8952dc5f69424174d934ade93ded5cddf95a99b98a94eb0b83ec@172.16.1.100:30303"]
