@@ -13,7 +13,8 @@
     "styleguide",
     "examples/*",
     "explorer/client",
-    "explorer"
+    "explorer",
+    "integration-scripts"
   ],
   "scripts": {
     "lint": "yarn workspaces run lint",
