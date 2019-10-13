@@ -201,11 +201,13 @@ func serviceAgreementIDInputBuffer(encumbrance Encumbrance, digest common.Hash) 
 	return buffer, nil
 }
 
-// ABI packs the encumberance as a byte array using the same technique as abi.encodePacked.
+// ABI packs the encumberance as a byte array using the same rules as the
+// abi.encodePacked in Coordinator#getId.
 //
 // Used only for constructing a stable hash which will be signed by all oracles,
 // so it does not have to be easily parsed or unambiguous (e.g., re-ordering
-// Oracles will result in output), just an injective function.
+// Oracles will result in different output.) It just has to be an injective
+// function.
 func (e Encumbrance) ABI() ([]byte, error) {
 	buffer := bytes.Buffer{}
 	var paymentHash common.Hash

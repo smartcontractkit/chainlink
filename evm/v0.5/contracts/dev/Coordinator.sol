@@ -133,12 +133,11 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       _signatures.rs.length == _signatures.ss.length,
       "Must pass in as many signatures as oracles"
     );
-     // solhint-disable-next-line not-rely-on-time
+    // solhint-disable-next-line not-rely-on-time
     require(_agreement.endAt > block.timestamp,
       "ServiceAgreement must end in the future");
     require(serviceAgreements[serviceAgreementID].endAt == 0,
       "serviceAgreement already initiated");
-
     serviceAgreementID = getId(_agreement);
 
     registerOracleSignatures(
@@ -162,7 +161,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     (bool success, bytes memory message) = abi.decode(response, (bool, bytes));
     if ((!success) && message.length == 0) {
       // Revert with a non-empty message to give user a hint where to look
-      require(success, "initiation failed; empty message");
+      require(success, "initiation failed; empty message"); 
     }
     require(success, string(message));
   }
