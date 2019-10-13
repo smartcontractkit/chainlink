@@ -75,6 +75,7 @@ async function initiateServiceAgreement({
   }
 
   console.log('Attempting to initiate service agreement')
+  console.log('oracle signatures', oracleSignatures)
   const tx = await coordinator.initiateServiceAgreement(
     agreement,
     oracleSignatures,
@@ -84,19 +85,21 @@ async function initiateServiceAgreement({
   
   const said = helpers.calculateSAID2(agreement)
 
-    const reqId = await coordinator.oracleRequest(
-      '0x0101010101010101010101010101010101010101',
-      10000000000000,
-      said as any, // XXX: 
-      '0x0101010101010101010101010101010101010101', // Receiving contract address
-      '0x12345678', // receiving method selector
-      1, // nonce
-      1, // data version
-      '0x0', // data for initialization of request
-    )
-    const receipt = await reqId.wait()
-    console.log(
-      '************************************************************************ oracleRequest',
-      receipt 
-    )
+  console.log('geetting to here, said is', said)
+
+  const reqId = await coordinator.oracleRequest(
+    '0x0101010101010101010101010101010101010101',
+    10000000000000,
+    said as any, // XXX: 
+    '0x0101010101010101010101010101010101010101', // Receiving contract address
+    '0x12345678', // receiving method selector
+    1, // nonce
+    1, // data version
+    '0x0', // data for initialization of request
+  )
+  const receipt = await reqId.wait()
+  console.log(
+    '************************************************************************ oracleRequest',
+    receipt 
+  )
 }

@@ -381,6 +381,16 @@ type Hash = ReturnType<typeof ethers.utils.keccak256>
 type Coordinator = ReturnType<CoordinatorFactory['attach']>
 type ServiceAgreement = Parameters<Coordinator['initiateServiceAgreement']>[0]
 
+console.log('ServiceAgreement type', typeof ServiceAgreement)
+
+/**
+ * The digest of the ServiceAgreement.
+ *
+ * Changes to this function necessitate changes to Used by Oracles to sign the
+ * agreement, and by the Coordinator contract as an index to it.
+ *
+ * 
+ */
 export const calculateSAID2 = ({
   payment,
   expiration,
@@ -403,7 +413,6 @@ export const calculateSAID2 = ({
       aggFulfillSelector,
     ],
   )
-  console.log('serviceAgreementIDInput', serviceAgreementIDInput)
   return ethers.utils.keccak256(toHex(serviceAgreementIDInput))
 }
 
