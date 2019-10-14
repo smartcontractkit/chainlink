@@ -1,9 +1,12 @@
 import { ethers } from 'ethers'
-import { FunctionFragment } from 'ethers/utils/abi-coder'
+import { Signer } from 'ethers/abstract-signer'
 import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
 import { Oracle } from './generated/Oracle'
 import { CoordinatorFactory } from './generated/CoordinatorFactory'
+import {
+  CoordinatorInterfaceFactory
+} from './generated/CoordinatorInterfaceFactory'
 import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
@@ -364,56 +367,53 @@ export async function increaseTime5Minutes(
 export function hexToBuf(hexstr: string): Buffer {
   return Buffer.from(stripHexPrefix(hexstr), 'hex')
 
-function getSAABI(): FunctionFragment['outputs'] {
-  const coordinatorFactory = new CoordinatorFactory()
-  const { abi } = coordinatorFactory.interface
-  const saABI = abi.filter(o => o.name === 'serviceAgreements')
-  if (saABI.length != 1) {
-    throw Error('Should be only one serviceAgreements attribute')
+interface ParamType { name: string, type: string }
+
+/**
+ * Names and types of the ServiceAgreement struct components
+ *
+ * Retrieves the struct fields from the ethers.js representation of
+ * CoordinatorInterface.sol, so it should silently adapt to changes in the
+ * struct, as long as the ethers.js representation is up to date.
+ */
+function serviceAgreementFieldTypes(): ParamType[] {
+  // XXX: It would be nice to use CoordinatorFactory().interface.abi, here, but
+  // for some reason it does not include the `oracles` field in the
+  // serviceAgreements return value. Why is that??
+  const dummyCoordinatorInterface = CoordinatorInterfaceFactory.connect(
+    '0x0000000000000000000000000000000000000000',  // Dummy address & signer
+    new (Signer as any /* Brutally instantiates an abstract class */ )()
+  )
+  const { abi } = dummyCoordinatorInterface.interface
+  const param = abi[0].inputs[0]
+  if (param.name !== '_agreement' || param.type !== 'tuple') {
+    throw Error(`extracted wrong version of struct tuple: ${param} from ${abi}`)
   }
-  if (!saABI) {
-    throw Error('service agreement abi not found')
+  const sAABI = param.components as ParamType[]
+  if (!sAABI.every(p => p.name && p.type)) {
+    throw Error(`ServiceAgreement types aren't all ParamType: ${sAABI}`)
   }
-  return (saABI as any)[0].outputs // XXX: Fix type
+  return sAABI
 }
 
 type Hash = ReturnType<typeof ethers.utils.keccak256>
 type Coordinator = ReturnType<CoordinatorFactory['attach']>
 type ServiceAgreement = Parameters<Coordinator['initiateServiceAgreement']>[0]
 
-console.log('ServiceAgreement type', typeof ServiceAgreement)
-
 /**
- * The digest of the ServiceAgreement.
+ * Digest of the ServiceAgreement.
  *
- * Changes to this function necessitate changes to Used by Oracles to sign the
- * agreement, and by the Coordinator contract as an index to it.
- *
- * 
+ * NB: Changes this function may necessitate changes in tandem to
+ * service_agreement.go/Encumberance.ABI, and Coordinator#getId, because this
+ * digest is used by oracles to sign the agreement, and used by the coordinator
+ * to index the agreement.
  */
-export const calculateSAID2 = ({
-  payment,
-  expiration,
-  endAt,
-  requestDigest,
-  aggregator,
-  aggInitiateJobSelector,
-  aggFulfillSelector,
-}: ServiceAgreement): Hash => {
-  const abi = getSAABI()
-  const serviceAgreementIDInput = ethers.utils.defaultAbiCoder.encode(
-    abi,
-    [
-      payment,
-      expiration,
-      endAt,
-      requestDigest,
-      aggregator,
-      aggInitiateJobSelector,
-      aggFulfillSelector,
-    ],
-  )
-  return ethers.utils.keccak256(toHex(serviceAgreementIDInput))
+export const calculateSAID2 = (sa: ServiceAgreement): Hash => {
+  const abi = serviceAgreementFieldTypes()
+  type SAKey = keyof ServiceAgreement
+  const typeStrings = abi.map((p:ParamType) => p.type) 
+  const inputs = abi.map((p:ParamType) => sa[p.name as SAKey])
+  return ethers.utils.solidityKeccak256(typeStrings, inputs)
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -18,8 +18,6 @@ type ServiceAgreementsController struct {
 	App services.Application
 }
 
-type signature struct{ Signature models.Signature }
-
 // Create builds and saves a new service agreement record.
 func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 	if !sac.App.GetStore().Config.Dev() {
