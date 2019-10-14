@@ -1,0 +1,2 @@
+rm -rf root/gethnet/datadir1/geth/
+node_init_data
