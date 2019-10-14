@@ -1,8 +1,19 @@
 # Integration test for ommers and re-orgs
 
-## Invoking this framework
+## Docker images
 
-Create geth image `docker build . -t geth:latest`
+From `integration/forks/bootnode`
+
+```
+docker build . -t bootnode:latest
+```
+
+From `integration/forks`
+```
+docker build . -t geth:latest
+```
+
+## Invoking this framework
 
 Run `docker-compose --compatibility up`.
 
