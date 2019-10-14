@@ -2,13 +2,11 @@ package models
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math"
 	"math/big"
 	"time"
 
@@ -156,7 +154,6 @@ func NewUnsignedServiceAgreementFromRequest(reader io.Reader) (UnsignedServiceAg
 		},
 	}
 
-	fmt.Println("normalized", []byte(normalized))
 	requestDigest, err := utils.Keccak256([]byte(normalized))
 	if err != nil {
 		return UnsignedServiceAgreement{}, err
@@ -172,33 +169,13 @@ func NewUnsignedServiceAgreementFromRequest(reader io.Reader) (UnsignedServiceAg
 }
 
 func generateServiceAgreementID(e Encumbrance, digest common.Hash) (common.Hash, error) {
-	buffer, err := serviceAgreementIDInputBuffer(e, digest)
-	fmt.Printf("serviceAgreementIDInputBuffer %x\n", buffer)
+	saBytes, err := e.ABI(digest)
+	fmt.Printf("serviceAgreementIDInputBuffer %x\n", saBytes)
 	if err != nil {
 		return common.Hash{}, nil
 	}
-
-	bytes, err := utils.Keccak256(buffer.Bytes())
+	bytes, err := utils.Keccak256(saBytes)
 	return common.BytesToHash(bytes), err
-}
-
-func serviceAgreementIDInputBuffer(encumbrance Encumbrance, digest common.Hash) (bytes.Buffer, error) {
-	buffer := bytes.Buffer{}
-
-	encumberanceBytes, err := encumbrance.ABI()
-	if err != nil {
-		return bytes.Buffer{}, err
-	}
-	_, err = buffer.Write(encumberanceBytes)
-	if err != nil {
-		return bytes.Buffer{}, err
-	}
-
-	_, err = buffer.Write(digest.Bytes())
-	if err != nil {
-		return bytes.Buffer{}, err
-	}
-	return buffer, nil
 }
 
 // ABI packs the encumberance as a byte array using the same rules as the
@@ -208,7 +185,7 @@ func serviceAgreementIDInputBuffer(encumbrance Encumbrance, digest common.Hash) 
 // so it does not have to be easily parsed or unambiguous (e.g., re-ordering
 // Oracles will result in different output.) It just has to be an injective
 // function.
-func (e Encumbrance) ABI() ([]byte, error) {
+func (e Encumbrance) ABI(digest common.Hash) ([]byte, error) {
 	buffer := bytes.Buffer{}
 	var paymentHash common.Hash
 	if e.Payment != nil {
@@ -225,15 +202,13 @@ func (e Encumbrance) ABI() ([]byte, error) {
 	}
 
 	// Absolute end date as a big-endian uint32 (unix seconds)
-	endAt := e.EndAt.Time.Unix()
+	endAt := uint64(e.EndAt.Time.Unix())
 	if endAt > 0xffffffff { // Optimistically, this could be an issue in 2038...
 		return nil, fmt.Errorf(
 			"endat date %s is too late to fit in uint32",
 			e.EndAt.Time)
 	}
-	endAtSerialised := make([]byte, 4)
-	binary.BigEndian.PutUint32(endAtSerialised, uint32(endAt&math.MaxUint32))
-	_, err = buffer.Write(endAtSerialised)
+	_, err = buffer.Write(utils.EVMWordUint64(endAt))
 	if err != nil {
 		return nil, errors.Wrap(err, "while writing endAt")
 	}
@@ -242,7 +217,11 @@ func (e Encumbrance) ABI() ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "while writing oracles")
 	}
-	_, err = buffer.Write(address256Bits(e.Aggregator))
+	_, err = buffer.Write(digest.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	_, err = buffer.Write(e.Aggregator.Bytes())
 	if err != nil {
 		return nil, errors.Wrap(err, "while writing aggregator address")
 	}
