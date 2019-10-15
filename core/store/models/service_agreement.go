@@ -88,12 +88,12 @@ func (sa *ServiceAgreement) SetID(value string) error {
 
 // Signer is used to produce a HMAC signature from an input digest
 type Signer interface {
-	Sign(input []byte) (Signature, error)
+	SignHash(hash common.Hash) (Signature, error)
 }
 
 // BuildServiceAgreement builds a signed service agreement
 func BuildServiceAgreement(us UnsignedServiceAgreement, signer Signer) (ServiceAgreement, error) {
-	signature, err := signer.Sign(us.ID.Bytes())
+	signature, err := signer.SignHash(us.ID)
 	if err != nil {
 		return ServiceAgreement{}, err
 	}
@@ -161,6 +161,8 @@ func NewUnsignedServiceAgreementFromRequest(reader io.Reader) (UnsignedServiceAg
 
 	us.ID, err = generateServiceAgreementID(us.Encumbrance,
 		common.BytesToHash(requestDigest))
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+	fmt.Printf("digest which is signed %x\n", us.ID)
 	if err != nil {
 		return UnsignedServiceAgreement{}, err
 	}
