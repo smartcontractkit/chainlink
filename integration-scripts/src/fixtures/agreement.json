@@ -20,6 +20,7 @@
   "oracles": ["0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"],
   "endAt": "2019-10-19T22:17:19Z",
   "aggregator": "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
-  "aggInitiateJobSelector": "0xd0771e55",
-  "aggFulfillSelector": "0xbadc0de5"
+  "_comment": "See initiateServiceAgreement.ts for comptutation/check of these selectors",
+  "aggInitiateJobSelector": "0xf8d00237",
+  "aggFulfillSelector": "0x243e08b8"
 }

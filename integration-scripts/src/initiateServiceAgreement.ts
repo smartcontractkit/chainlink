@@ -16,6 +16,7 @@ async function main() {
   registerPromiseHandler()
   const args = getArgs([
     'COORDINATOR_ADDRESS',
+    'MEAN_AGGREGATOR_ADDRESS',
     'ORACLE_SIGNATURE',
     'NORMALIZED_REQUEST',
   ])
@@ -24,6 +25,7 @@ async function main() {
 
   await initiateServiceAgreement({
     coordinatorAddress: args.COORDINATOR_ADDRESS,
+    meanAggregatorAddress: args.MEAN_AGGREGATOR_ADDRESS,
     normalizedRequest: args.NORMALIZED_REQUEST,
     oracleSignature: args.ORACLE_SIGNATURE,
   })
@@ -32,12 +34,14 @@ main()
 
 interface Args {
   coordinatorAddress: string
+  meanAggregatorAddress: string
   oracleSignature: string
   normalizedRequest: string
 }
 
 async function initiateServiceAgreement({
   coordinatorAddress,
+  meanAggregatorAddress,
   normalizedRequest,
   oracleSignature,
 }: Args) {
@@ -50,10 +54,25 @@ async function initiateServiceAgreement({
   type ServiceAgreement = CoordinatorParams[0]
   type OracleSignatures = CoordinatorParams[1]
 
+  const fieldTypes = helpers.serviceAgreementFieldTypes().map(f => f.type).join(',')
+  const aggInitiateJobSelector = helpers.functionSelector(
+    `initiateJob(bytes32,tuple(${fieldTypes}))`,
+  )
+  if (agreementJson.aggInitiateJobSelector !== aggInitiateJobSelector) {
+    throw Error('Unexpected aggInitiateJobSelector')
+  }
+  // Must be equal because creation of the job on the CL node is done elsewhere
+  const aggFulfillSelector = helpers.functionSelector(
+    'fulfull(bytes32,bytes32,bytes32,bytes32)',
+  )
+  if (agreementJson.aggFulfillSelector !== aggFulfillSelector) {
+    throw Error('Unexpected aggFulfillSelector')
+  }
+
   const agreement: ServiceAgreement = {
-    aggFulfillSelector: agreementJson.aggFulfillSelector,
-    aggInitiateJobSelector: agreementJson.aggInitiateJobSelector,
-    aggregator: agreementJson.aggregator,
+    aggFulfillSelector: aggFulfillSelector,
+    aggInitiateJobSelector: aggInitiateJobSelector,
+    aggregator: meanAggregatorAddress,
     payment: agreementJson.payment,
     expiration: agreementJson.expiration,
     endAt: Math.round(new Date(agreementJson.endAt).getTime() / 1000), // end date in seconds
@@ -62,6 +81,8 @@ async function initiateServiceAgreement({
       ethers.utils.toUtf8Bytes(normalizedRequest),
     ),
   }
+
+  console.log('agreement', agreement)
 
   const sig = ethers.utils.splitSignature(oracleSignature)
   if (!sig.v) {
@@ -81,6 +102,8 @@ async function initiateServiceAgreement({
 
   console.log('apparent address', ethers.utils.recoverAddress(said, oracleSignature))
   console.log('actual address', agreement.oracles)
+
+  throw Error('foo')
 
   try {
     provider.on(
