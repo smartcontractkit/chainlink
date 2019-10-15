@@ -32,6 +32,11 @@ import (
 // Migrate iterates through available migrations, running and tracking
 // migrations that have not been run.
 func Migrate(db *gorm.DB) error {
+	return MigrateTo(db, "")
+}
+
+// MigrateTo runs all migrations up to and including the specified migration ID
+func MigrateTo(db *gorm.DB, migrationID string) error {
 	options := *gormigrate.DefaultOptions
 	options.UseTransaction = true
 
@@ -134,7 +139,11 @@ func Migrate(db *gorm.DB) error {
 		return errors.New("database is newer than current chainlink version")
 	}
 
-	err = m.Migrate()
+	if migrationID == "" {
+		migrationID = migrations[len(migrations)-1].ID
+	}
+
+	err = m.MigrateTo(migrationID)
 	if err != nil {
 		return errors.Wrap(err, "error running migrations")
 	}
