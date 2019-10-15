@@ -34,13 +34,14 @@
   },
   "dependencies": {
     "body-parser": "^1.18.3",
-    "link_token": "^1.0.6",
-    "ethers": "^4.0.37",
-    "express": "^4.16.4",
-    "truffle": "^5.0.39",
     "chainlink": "0.7.5",
     "chalk": "^2.4.2",
-    "request-promise": "4.2.4"
+    "ethers": "^4.0.37",
+    "express": "^4.16.2",
+    "link_token": "^1.0.6",
+    "request-promise": "4.2.4",
+    "source-map-support": "^0.5.13",
+    "truffle": "^5.0.39"
   },
   "prettier": "@chainlink/prettier-config"
 }
