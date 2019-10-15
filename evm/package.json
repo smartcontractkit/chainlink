@@ -4,7 +4,7 @@
   "license": "MIT",
   "main": "./dist/src",
   "scripts": {
-    "generate-typings": "typechain --target ethers --outDir src/generated \"{src/LinkToken*,build/contracts/*,./v0.5/build/contracts/Coordinator.json}\"",
+    "generate-typings": "echo \"\u001b[1;33mWARN: Please import the generated contract factory classes for Coordinator directly from the chainlinkv0.5 package when exported.\u001b[0m\" && typechain --target ethers --outDir src/generated \"{src/LinkToken*,build/contracts/*,./v0.5/build/contracts/Coordinator.json}\"",
     "build": "truffle build",
     "_comment": "XXX: The definition files should be copied over by the tsc framework! This will break on windows!!",
     "postbuild": "yarn generate-typings && yarn tsc && cp --force src/generated/*.d.ts dist/src/generated",
