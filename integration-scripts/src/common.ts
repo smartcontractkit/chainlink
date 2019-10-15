@@ -1,5 +1,6 @@
 import { ethers } from 'ethers'
 import chalk from 'chalk'
+import 'source-map-support/register'
 
 /**
  * Devnet miner address
@@ -70,7 +71,7 @@ export function getArgs<T extends string>(keys: T[]): { [K in T]: string } {
  */
 export function registerPromiseHandler() {
   process.on('unhandledRejection', e => {
-    console.error(chalk.red(e as any))
+    console.error(e)
     console.error(chalk.red('Exiting due to promise rejection'))
     process.exit(1)
   })
