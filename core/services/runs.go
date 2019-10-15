@@ -94,7 +94,7 @@ func NewRun(
 
 	run := job.NewRun(initiator)
 
-	run.Overrides = input
+	run.Overrides = input.Data
 	run.ApplyResult(input)
 	run.CreationHeight = models.NewBig(currentHeight)
 	run.ObservedHeight = models.NewBig(currentHeight)
@@ -245,7 +245,7 @@ func ResumePendingTask(
 		return fmt.Errorf("Attempting to resume pending run with no remaining tasks %s", run.ID.String())
 	}
 
-	run.Overrides.Merge(input)
+	run.Overrides.Merge(input.Data)
 
 	currentTaskRun.ApplyResult(input)
 	if currentTaskRun.Status.Finished() && run.TasksRemain() {
@@ -295,7 +295,7 @@ func QueueSleepingTask(
 		return fmt.Errorf("Attempting to resume sleeping run with non sleeping task %s", run.ID.String())
 	}
 
-	adapter, err := prepareAdapter(currentTaskRun, run.Overrides.Data, store)
+	adapter, err := prepareAdapter(currentTaskRun, run.Overrides, store)
 	if err != nil {
 		currentTaskRun.SetError(err)
 		run.SetError(err)
