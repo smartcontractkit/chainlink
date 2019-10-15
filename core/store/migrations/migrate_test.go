@@ -12,18 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559081901"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1559767166"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560433987"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560791143"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881846"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881855"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560886530"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560924400"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565139192"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565210496"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565291711"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565877314"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -56,8 +45,7 @@ func TestMigrate_Migrations(t *testing.T) {
 
 	db := orm.DB
 
-	require.NoError(t, migration0.Migrate(db))
-	require.NoError(t, migration1559081901.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "1559081901"))
 
 	assert.True(t, db.HasTable("bridge_types"))
 	assert.True(t, db.HasTable("encumbrances"))
@@ -84,7 +72,7 @@ func TestMigrate_Migration1560791143(t *testing.T) {
 
 	db := orm.DB
 
-	require.NoError(t, migration0.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "0"))
 
 	tx := migration0.Tx{
 		ID:       1337,
@@ -94,12 +82,12 @@ func TestMigrate_Migration1560791143(t *testing.T) {
 	}
 	require.NoError(t, db.Create(&tx).Error)
 
-	require.NoError(t, migration1559081901.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "1559081901"))
 
 	txFound := models.Tx{}
 	require.NoError(t, db.Where("id = ?", tx.ID).Find(&txFound).Error)
 
-	require.NoError(t, migration1560791143.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "1560791143"))
 
 	txNoID := models.Tx{
 		Data:     make([]byte, 10),
@@ -119,15 +107,7 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 
 	db := orm.DB
 
-	require.NoError(t, migration0.Migrate(db))
-	require.NoError(t, migration1559081901.Migrate(db))
-	require.NoError(t, migration1559767166.Migrate(db))
-	require.NoError(t, migration1560433987.Migrate(db))
-	require.NoError(t, migration1560791143.Migrate(db))
-	require.NoError(t, migration1560881846.Migrate(db))
-	require.NoError(t, migration1560886530.Migrate(db))
-	require.NoError(t, migration1560924400.Migrate(db))
-	require.NoError(t, migration1565139192.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "1560924400"))
 
 	befCreation := time.Now()
 	jobSpecID := uuid.Must(uuid.NewV4())
@@ -142,7 +122,7 @@ INSERT INTO job_runs (id, job_spec_id, overrides_id) VALUES ('%s', '%s', (SELECT
 
 	// placement of this migration is important, as it makes sure backfilling
 	//  is done if there's already a RunResult with nonzero link reward
-	require.NoError(t, migration1560881855.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "1560881855"))
 
 	rowFound := migration1560881855.LinkEarned{}
 	require.NoError(t, db.Table("link_earned").Find(&rowFound).Error)
@@ -158,12 +138,7 @@ func TestMigrate_Migration1560881846(t *testing.T) {
 
 	db := orm.DB
 
-	require.NoError(t, migration0.Migrate(db))
-	require.NoError(t, migration1559081901.Migrate(db))
-	require.NoError(t, migration1559767166.Migrate(db))
-	require.NoError(t, migration1560433987.Migrate(db))
-	require.NoError(t, migration1560791143.Migrate(db))
-	require.NoError(t, migration1560881846.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "1560881846"))
 
 	head := migration0.Head{
 		HashRaw: "dad0000000000000000000000000000000000000000000000000000000000b0d",
@@ -171,7 +146,7 @@ func TestMigrate_Migration1560881846(t *testing.T) {
 	}
 	require.NoError(t, db.Create(&head).Error)
 
-	require.NoError(t, migration1560886530.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "1560886530"))
 
 	headFound := models.Head{}
 	require.NoError(t, db.Where("id = (SELECT MAX(id) FROM heads)").Find(&headFound).Error)
@@ -185,8 +160,8 @@ func TestMigrate_Migration1565139192(t *testing.T) {
 
 	db := orm.DB
 
-	require.NoError(t, migration0.Migrate(db))
-	require.NoError(t, migration1565139192.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "1565139192"))
+
 	specNoPayment := models.NewJobFromRequest(models.JobSpecRequest{})
 	specWithPayment := models.NewJobFromRequest(models.JobSpecRequest{
 		MinPayment: assets.NewLink(5),
@@ -208,7 +183,7 @@ func TestMigrate_Migration1565210496(t *testing.T) {
 
 	db := orm.DB
 
-	require.NoError(t, migration0.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "0"))
 
 	jobSpec := migration0.JobSpec{
 		ID:        utils.NewBytes32ID(),
@@ -223,7 +198,7 @@ func TestMigrate_Migration1565210496(t *testing.T) {
 	}
 	require.NoError(t, db.Create(&jobRun).Error)
 
-	require.NoError(t, migration1565210496.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "1565210496"))
 
 	jobRunFound := models.JobRun{}
 	require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
@@ -237,8 +212,7 @@ func TestMigrate_Migration1565291711(t *testing.T) {
 
 	db := orm.DB
 
-	require.NoError(t, migration0.Migrate(db))
-	require.NoError(t, migration1560881855.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "1560881855"))
 
 	jobSpec := migration0.JobSpec{
 		ID:        utils.NewBytes32ID(),
@@ -253,7 +227,7 @@ func TestMigrate_Migration1565291711(t *testing.T) {
 	}
 	require.NoError(t, db.Create(&jobRun).Error)
 
-	require.NoError(t, migration1565291711.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "1565291711"))
 
 	jobRunFound := models.JobRun{}
 	require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
@@ -266,7 +240,7 @@ func TestMigrate_Migration1565877314(t *testing.T) {
 
 	db := orm.DB
 
-	require.NoError(t, migration0.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "0"))
 
 	exi := migration0.ExternalInitiator{
 		AccessKey:    "access_key",
@@ -275,11 +249,9 @@ func TestMigrate_Migration1565877314(t *testing.T) {
 	}
 	require.NoError(t, db.Create(&exi).Error)
 
-	require.NoError(t, migration1565210496.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "1565877314"))
 
-	require.NoError(t, migration1565877314.Migrate(db))
-
-	exiFound := migration1565877314.ExternalInitiator{}
+	exiFound := models.ExternalInitiator{}
 	require.NoError(t, db.Where("id = ?", exi.ID).Find(&exiFound).Error)
 	assert.Equal(t, "access_key", exiFound.Name)
 	assert.Equal(t, "https://unset.url", exiFound.URL.String())
@@ -291,7 +263,7 @@ func TestMigrate_Migration1570675883(t *testing.T) {
 
 	db := orm.DB
 
-	require.NoError(t, migration0.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "0"))
 
 	overrides := models.RunResult{
 		Data: cltest.JSONFromString(t, `{"a": "b"}`),
