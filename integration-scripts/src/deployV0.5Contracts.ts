@@ -1,5 +1,6 @@
 import { LinkTokenV05Factory } from './generated/LinkTokenV05Factory'
 import { CoordinatorFactory } from './generated/CoordinatorFactory'
+import { MeanAggregatorFactory } from './generated/MeanAggregatorFactory'
 import {
   createProvider,
   DEVNET_ADDRESS,
@@ -28,4 +29,10 @@ async function deployContracts() {
   const coordinator = await coordinatorFactory.deploy(linkToken.address)
   await coordinator.deployed()
   console.log(`Deployed Coordinator at: ${coordinator.address}`)
+
+  // deploy MeanAggregator
+  const meanAggregatorFactory = new MeanAggregatorFactory(signer)
+  const meanAggregator = await meanAggregatorFactory.deploy()
+  await meanAggregator.deployed()
+  console.log(`Deployed MeanAggregator at: ${meanAggregator.address}`)
 }
