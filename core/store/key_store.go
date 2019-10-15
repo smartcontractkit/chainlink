@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -71,24 +72,28 @@ func (ks *KeyStore) SignTx(account accounts.Account, tx *types.Transaction, chai
 	return ks.KeyStore.SignTx(account, tx, chainID)
 }
 
-// Sign creates an HMAC from some input data using the account's private key
-func (ks *KeyStore) Sign(input []byte) (models.Signature, error) {
+// SignHash signs a precomputed digest, using the first account's private key
+func (ks *KeyStore) SignHash(hash common.Hash) (models.Signature, error) {
 	account, err := ks.GetFirstAccount()
 	if err != nil {
 		return models.Signature{}, err
 	}
-	hash, err := utils.Keccak256(input)
-	if err != nil {
-		return models.Signature{}, err
-	}
-
-	output, err := ks.KeyStore.SignHash(account, hash)
+	output, err := ks.KeyStore.SignHash(account, hash.Bytes())
 	if err != nil {
 		return models.Signature{}, err
 	}
 	var signature models.Signature
 	signature.SetBytes(output)
 	return signature, nil
+}
+
+// Sign creates an HMAC from some input data using the account's private key
+func (ks *KeyStore) Sign(input []byte) (models.Signature, error) {
+	hash, err := utils.Keccak256(input)
+	if err != nil {
+		return models.Signature{}, err
+	}
+	return ks.SignHash(common.BytesToHash(hash))
 }
 
 // GetFirstAccount returns the unlocked account in the KeyStore object. The client

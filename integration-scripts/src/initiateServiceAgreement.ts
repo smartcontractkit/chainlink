@@ -41,7 +41,6 @@ async function initiateServiceAgreement({
   normalizedRequest,
   oracleSignature,
 }: Args) {
-  const d = _d.extend('initiateServiceAgreement')
   const provider = createProvider()
   const signer = provider.getSigner(DEVNET_ADDRESS)
   const coordinatorFactory = new CoordinatorFactory(signer)
@@ -76,14 +75,29 @@ async function initiateServiceAgreement({
 
   console.log('Attempting to initiate service agreement')
   console.log('oracle signatures', oracleSignatures)
+
+  const said = helpers.calculateSAID2(agreement)
+  console.log('our said', said, 'solidity\'s said', await coordinator.getId(agreement))
+
+  console.log('apparent address', ethers.utils.recoverAddress(said, oracleSignature))
+  console.log('actual address', agreement.oracles)
+
+  try {
+    provider.on(
+      { topics: [ ethers.utils.id('SignatureCheck(address,address)')] },
+      r => console.log('SignatureCheck event', r),
+    )
+  } catch(e) {
+    console.log('provider.on error', e)
+    throw e
+  }
+  console.log('provider.on worked')
   const tx = await coordinator.initiateServiceAgreement(
     agreement,
     oracleSignatures,
   )
   const iSAreceipt = await tx.wait()
   console.log('initiateServiceAgreement receipt', iSAreceipt)
-  
-  const said = helpers.calculateSAID2(agreement)
 
   console.log('geetting to here, said is', said)
 

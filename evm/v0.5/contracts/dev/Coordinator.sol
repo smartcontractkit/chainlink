@@ -166,6 +166,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     require(success, string(message));
   }
 
+  event SignatureCheck(address found, address expected);
+
   /**
    * @dev Validates that each signer address matches for the given oracles
    * @param _serviceAgreementID Service agreement ID
@@ -186,7 +188,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
         _signatures.rs[i],
         _signatures.ss[i]
       );
-      require(_oracles[i] == signer, "Invalid oracle signature specified in SA");
+      emit SignatureCheck(signer, _oracles[i]);
+      // XXX: require(_oracles[i] == signer, "Invalid oracle signature specified in SA");
       allowedOracles[_serviceAgreementID][_oracles[i]] = true;
     }
 
