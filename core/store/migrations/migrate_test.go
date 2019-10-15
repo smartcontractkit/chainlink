@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565210496"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565291711"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565877314"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1570675883"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -313,7 +312,7 @@ func TestMigrate_Migration1570675883(t *testing.T) {
 	}
 	require.NoError(t, db.Create(&jobRun).Error)
 
-	require.NoError(t, migration1570675883.Migrate(db))
+	require.NoError(t, migrations.MigrateTo(db, "1570675883"))
 
 	jobRunFound := models.JobRun{}
 	require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
