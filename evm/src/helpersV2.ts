@@ -304,6 +304,15 @@ export async function fulfillOracleRequest(
   )
 }
 
+/**
+ * The solidity function selector for the given signature
+ */
+export function functionSelector(signature: string): string {
+  const fullHash = ethers.utils.id(signature)
+  assert(fullHash.startsWith('0x'))
+  return fullHash.slice(0, 2 + (4 * 2)) // '0x' + initial 4 bytes, in hex
+}
+
 export function requestDataBytes(
   specId: string,
   to: string,
@@ -333,7 +342,7 @@ export function requestDataBytes(
     data,
   ]
   const encoded = ethers.utils.defaultAbiCoder.encode(types, values)
-  const funcSelector = ethers.utils.id(
+  const funcSelector = functionSelector(
     'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)',
   )
   return `${funcSelector}${stripHexPrefix(encoded)}`
@@ -366,6 +375,7 @@ export async function increaseTime5Minutes(
  */
 export function hexToBuf(hexstr: string): Buffer {
   return Buffer.from(stripHexPrefix(hexstr), 'hex')
+}
 
 interface ParamType { name: string, type: string }
 
@@ -376,10 +386,11 @@ interface ParamType { name: string, type: string }
  * CoordinatorInterface.sol, so it should silently adapt to changes in the
  * struct, as long as the ethers.js representation is up to date.
  */
-function serviceAgreementFieldTypes(): ParamType[] {
-  // XXX: It would be nice to use CoordinatorFactory().interface.abi, here, but
-  // for some reason it does not include the `oracles` field in the
-  // serviceAgreements return value. Why is that??
+export function serviceAgreementFieldTypes(): ParamType[] {
+  // TODO: Use a function in CoordinatorFactory().interface.abi with a
+  // ServiceAgreement parameter, here. Don't use the output of
+  // serviceAgreements() directly, because abi outputs elide dynamic types (like
+  // `oracles`, in this case.)
   const dummyCoordinatorInterface = CoordinatorInterfaceFactory.connect(
     '0x0000000000000000000000000000000000000000',  // Dummy address & signer
     new (Signer as any /* Brutally instantiates an abstract class */ )()
@@ -400,20 +411,18 @@ type Hash = ReturnType<typeof ethers.utils.keccak256>
 type Coordinator = ReturnType<CoordinatorFactory['attach']>
 type ServiceAgreement = Parameters<Coordinator['initiateServiceAgreement']>[0]
 
-/**
- * Digest of the ServiceAgreement.
- *
- * NB: Changes this function may necessitate changes in tandem to
- * service_agreement.go/Encumberance.ABI, and Coordinator#getId, because this
- * digest is used by oracles to sign the agreement, and used by the coordinator
- * to index the agreement.
- */
-export const calculateSAID2 = (sa: ServiceAgreement): Hash => {
-  const abi = serviceAgreementFieldTypes()
-  type SAKey = keyof ServiceAgreement
-  const typeStrings = abi.map((p:ParamType) => p.type) 
-  const inputs = abi.map((p:ParamType) => sa[p.name as SAKey])
-  return ethers.utils.solidityKeccak256(typeStrings, inputs)
-}
-
-//////////////////////////////////////////////////////////////////////////
+  /**
+   * Digest of the ServiceAgreement.
+   *
+   * NB: Changes this function may necessitate changes in tandem to
+   * service_agreement.go/Encumberance.ABI, and Coordinator#getId, because this
+   * digest is used by oracles to sign the agreement, and used by the coordinator
+   * to index the agreement.
+   */
+  export const calculateSAID2 = (sa: ServiceAgreement): Hash => {
+    const abi = serviceAgreementFieldTypes()
+    type SAKey = keyof ServiceAgreement
+    const typeStrings = abi.map((p:ParamType) => p.type) 
+    const inputs = abi.map((p:ParamType) => sa[p.name as SAKey])
+    return ethers.utils.solidityKeccak256(typeStrings, inputs)
+  }
