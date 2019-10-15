@@ -80,10 +80,18 @@ func NewInitiatorSubscription(
 	initr models.Initiator,
 	job models.JobSpec,
 	store *strpkg.Store,
-	from *models.Head,
+	head *models.Head,
 	callback func(*strpkg.Store, models.LogRequest),
 ) (InitiatorSubscription, error) {
-	filter, err := models.FilterQueryFactory(initr, from.NextInt()) // Exclude current block from subscription
+	nextHead := head.NextInt() // Exclude current block from subscription
+	if replayFromBlock := store.Config.ReplayFromBlock(); replayFromBlock >= 0 {
+		replayFromBlockBN := big.NewInt(replayFromBlock)
+		if nextHead.Cmp(replayFromBlockBN) < 0 {
+			nextHead = big.NewInt(0).Add(replayFromBlockBN, big.NewInt(1))
+		}
+	}
+
+	filter, err := models.FilterQueryFactory(initr, nextHead)
 	if err != nil {
 		return InitiatorSubscription{}, errors.Wrap(err, "NewInitiatorSubscription#FilterQueryFactory")
 	}

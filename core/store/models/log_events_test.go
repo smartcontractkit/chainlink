@@ -285,13 +285,13 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 				},
 			},
 		}
-		fromBlock := big.NewInt(999)
+		fromBlock := big.NewInt(124)
 		filter, err := models.FilterQueryFactory(i, fromBlock)
 		assert.NoError(t, err)
 
 		want := ethereum.FilterQuery{
 			Addresses: []common.Address{common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef")},
-			FromBlock: big.NewInt(999),
+			FromBlock: big.NewInt(124),
 			ToBlock:   big.NewInt(456),
 			Topics: [][]common.Hash{
 				{
@@ -301,6 +301,27 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 			},
 		}
 		assert.Equal(t, want, filter)
+	}
+
+	// When the winning fromBlock is > InitiatorParams.ToBlock, it should error.
+	{
+		i := models.Initiator{
+			Type: models.InitiatorEthLog,
+			InitiatorParams: models.InitiatorParams{
+				Address:   common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+				FromBlock: models.NewBig(big.NewInt(123)),
+				ToBlock:   models.NewBig(big.NewInt(456)),
+				Topics: [][]common.Hash{
+					{
+						common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
+						common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
+					},
+				},
+			},
+		}
+		fromBlock := big.NewInt(999)
+		_, err := models.FilterQueryFactory(i, fromBlock)
+		assert.Error(t, err)
 	}
 }
 

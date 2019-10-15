@@ -148,6 +148,7 @@ type Whitelist struct {
 	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
 	Port                     uint16          `json:"chainlinkPort"`
 	ReaperExpiration         time.Duration   `json:"reaperExpiration"`
+	ReplayFromBlock          int64           `json:"replayFromBlock"`
 	RootDir                  string          `json:"root"`
 	SessionTimeout           time.Duration   `json:"sessionTimeout"`
 	TLSHost                  string          `json:"chainlinkTLSHost"`
@@ -196,6 +197,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			OracleContractAddress:    config.OracleContractAddress(),
 			Port:                     config.Port(),
 			ReaperExpiration:         config.ReaperExpiration(),
+			ReplayFromBlock:          config.ReplayFromBlock(),
 			RootDir:                  config.RootDir(),
 			SessionTimeout:           config.SessionTimeout(),
 			TLSHost:                  config.TLSHost(),

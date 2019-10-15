@@ -1,14 +1,21 @@
 package services_test
 
 import (
+	"math/big"
+	"sync"
 	"sync/atomic"
 	"testing"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -122,4 +129,62 @@ func TestServices_ReceiveLogRequest_IgnoredLogWithRemovedFlag(t *testing.T) {
 		require.NoError(t, err)
 		return count - originalCount
 	}).Should(gomega.Equal(0))
+}
+
+func TestServices_NewInitiatorSubscription_ReplayFromBlock(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	txmMock := mocks.NewMockTxManager(ctrl)
+	store.TxManager = txmMock
+
+	cases := []struct {
+		name                string
+		currentHead         int
+		initrParamFromBlock *models.Big
+		wantFromBlock       *big.Int
+	}{
+		{"head < ReplayFromBlock, no initr fromBlock", 5, nil, big.NewInt(11)},
+		{"head > ReplayFromBlock, no initr fromBlock", 14, nil, big.NewInt(15)},
+		{"head < ReplayFromBlock, initr fromBlock > ReplayFromBlock", 5, models.NewBig(big.NewInt(12)), big.NewInt(12)},
+		{"head < ReplayFromBlock, initr fromBlock < ReplayFromBlock", 5, models.NewBig(big.NewInt(9)), big.NewInt(11)},
+		{"head > ReplayFromBlock, initr fromBlock > ReplayFromBlock", 14, models.NewBig(big.NewInt(12)), big.NewInt(15)},
+		{"head > ReplayFromBlock, initr fromBlock < ReplayFromBlock", 14, models.NewBig(big.NewInt(9)), big.NewInt(15)},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			currentHead := cltest.Head(test.currentHead)
+
+			store.Config.Set(orm.EnvVarName("ReplayFromBlock"), 10)
+
+			job := cltest.NewJobWithLogInitiator()
+			initr := job.Initiators[0]
+			initr.InitiatorParams.FromBlock = test.initrParamFromBlock
+
+			expectedQuery := ethereum.FilterQuery{
+				FromBlock: test.wantFromBlock,
+				Addresses: []common.Address{initr.InitiatorParams.Address},
+				Topics:    [][]common.Hash{},
+			}
+
+			log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
+
+			txmMock.EXPECT().SubscribeToLogs(gomock.Any(), expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
+			txmMock.EXPECT().GetLogs(expectedQuery).Return([]models.Log{log}, nil)
+
+			var wg sync.WaitGroup
+			wg.Add(1)
+			callback := func(*strpkg.Store, models.LogRequest) { wg.Done() }
+
+			_, err := services.NewInitiatorSubscription(initr, job, store, currentHead, callback)
+			require.NoError(t, err)
+
+			wg.Wait()
+		})
+	}
 }

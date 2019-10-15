@@ -99,7 +99,14 @@ func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error
 			q.FromBlock = utils.MaxBigs(from, i.InitiatorParams.FromBlock.ToInt())
 		}
 		q.ToBlock = i.InitiatorParams.ToBlock.ToInt()
-		q.Topics = i.Topics
+
+		if q.FromBlock != nil && q.ToBlock != nil && q.FromBlock.Cmp(q.ToBlock) >= 0 {
+			return q, fmt.Errorf("cannot generate a FilterQuery with fromBlock >= toBlock")
+		}
+
+		q.Topics = make([][]common.Hash, len(i.Topics))
+		copy(q.Topics, i.Topics) // Simply coercing i.Topics to the underlying type confuses reflect.DeepEqual
+
 		return q, nil
 
 	case InitiatorRunLog:

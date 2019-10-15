@@ -189,6 +189,11 @@ func NewApp(client *Client) *cli.App {
 							Name:  "password, p",
 							Usage: "text file holding the password for the node's account",
 						},
+						cli.Int64Flag{
+							Name:  "replay-from-block, r",
+							Usage: "historical block height from which to replay log-initiated jobs",
+							Value: -1,
+						},
 					},
 					Usage:  "Run the chainlink node",
 					Action: client.RunNode,
