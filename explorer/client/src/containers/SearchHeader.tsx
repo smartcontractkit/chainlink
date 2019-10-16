@@ -38,10 +38,10 @@ const styles = (theme: Theme) =>
   })
 
 interface Props extends WithStyles<typeof styles> {
-  onResize: (width: number, height: number) => void
+  onResize: React.ComponentPropsWithoutRef<typeof Header>['onResize']
 }
 
-const SearchHeader = ({ classes, onResize }: Props) => {
+const SearchHeader: React.FC<Props> = ({ classes, onResize }) => {
   return (
     <Header onResize={onResize}>
       <Hidden xsDown>
