@@ -59,9 +59,7 @@ describe('realtime', () => {
     )
   })
 
-  afterAll(async done => {
-    return Promise.all([server.close(done), closeDbConnection()])
-  })
+  afterAll(async done => Promise.all([server.close(done), closeDbConnection()]))
 
   it('create a job run for valid JSON', async () => {
     expect.assertions(3)
