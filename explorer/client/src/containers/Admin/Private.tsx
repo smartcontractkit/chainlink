@@ -7,7 +7,7 @@ interface Props extends RouteComponentProps {
   authenticated: boolean
 }
 
-const Private = ({ authenticated }: Props) => {
+const Private: React.FC<Props> = ({ authenticated }) => {
   return authenticated ? <></> : <Redirect to="/admin/signin" noThrow />
 }
 
