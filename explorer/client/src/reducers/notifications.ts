@@ -2,8 +2,6 @@ export interface State {
   errors: string[]
 }
 
-export type Query = string | undefined
-
 export type Action =
   | { type: '@@redux/INIT' }
   | { type: '@@INIT' }
