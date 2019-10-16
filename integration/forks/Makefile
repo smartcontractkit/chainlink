@@ -39,6 +39,8 @@ run_chain_1:
 	# wait for chainlink to get notified about transaction
 	bash scripts/search_chainlink_logs.sh 'New run triggered by ethlog'
 	bash scripts/search_chainlink_logs.sh 'Run cannot continue because it lacks sufficient confirmations'
+	# save log
+	docker-compose --compatibility logs chainlink > chain_1.log
 	# tear down network before sufficient confirmations can be reached
 	docker-compose --compatibility down
 
@@ -52,5 +54,8 @@ run_chain_2:
 	bash scripts/search_chainlink_logs.sh 'Run cannot continue because it lacks sufficient confirmations services'
 	# should eventually abort running running job
 	bash scripts/search_chainlink_logs.sh 'presumably has been uncled'
+		# save log
+	docker-compose --compatibility logs chainlink > chain_2.log
+	# tear down
 	docker-compose --compatibility down
 
