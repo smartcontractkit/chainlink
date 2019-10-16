@@ -22,11 +22,10 @@ const styles = (theme: Theme) =>
   })
 
 interface Props extends WithStyles<typeof styles> {
-  children: any
   onResize: (width: number, height: number) => void
 }
 
-const Header = ({ children, classes, onResize }: Props) => {
+const Header: React.FC<Props> = ({ children, classes, onResize }) => {
   return (
     <AppBar className={classes.appBar} color="default">
       <ReactResizeDetector
