@@ -43,10 +43,7 @@ const AvatarMenu: React.FC<Props> = ({ classes, className, children }) => {
   const anchorEl = useRef<HTMLElement>(null)
   const [open, setOpenState] = useState(false)
   const handleToggle = () => setOpenState(!open)
-
-  const handleClose = () => {
-    setOpenState(false)
-  }
+  const handleClose = () => setOpenState(false)
 
   return (
     <>
