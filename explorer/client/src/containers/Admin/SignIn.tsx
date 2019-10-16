@@ -2,12 +2,9 @@ import React from 'react'
 import { bindActionCreators, Dispatch } from 'redux'
 import { connect } from 'react-redux'
 import { Redirect, RouteComponentProps } from '@reach/router'
-import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 import { SignIn as SignInForm } from '../../components/Forms/SignIn'
 import { signIn } from '../../actions/adminAuth'
 import { State } from '../../reducers'
-
-const styles = () => createStyles({})
 
 /* eslint-disable-next-line @typescript-eslint/no-empty-interface */
 interface OwnProps {}
@@ -22,8 +19,7 @@ interface DispatchProps {
 }
 
 interface Props
-  extends WithStyles<typeof styles>,
-    RouteComponentProps,
+  extends RouteComponentProps,
     StateProps,
     DispatchProps,
     OwnProps {}
@@ -52,4 +48,4 @@ export const ConnectedSignIn = connect(
   mapDispatchToProps,
 )(SignIn)
 
-export default withStyles(styles)(ConnectedSignIn)
+export default ConnectedSignIn
