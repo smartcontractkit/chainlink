@@ -58,9 +58,7 @@ describe('ConcreteChainlinked', () => {
 
       assert.equal(1, receipt.logs!.length)
       const [jId, cbAddr, cbFId, cborData] = h.decodeRunABI(receipt.logs![0])
-      const params = h.decodeDietCBOR(
-        Buffer.from(h.stripHexPrefix(cborData), 'hex'),
-      )
+      const params = h.decodeDietCBOR(cborData)
 
       assert.equal(specId, jId)
       assert.equal(gs.address, cbAddr)
