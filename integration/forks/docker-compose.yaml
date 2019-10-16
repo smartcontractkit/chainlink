@@ -50,6 +50,7 @@ services:
     secrets:
       - node_password
 
+  # imports the 0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f key
   chainlink_key_import:
     image: smartcontract/chainlink
     command: local import /root/clroot/keys/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json
@@ -66,7 +67,11 @@ services:
       - ./chainlink_node/clroot/:/root/clroot
     environment:
       - LOG_LEVEL=debug
+<<<<<<< HEAD
       - ETH_URL=ws://geth1:8546 # Gets ethereum information from slow geth node
+=======
+      - ETH_URL=ws://172.16.1.100:8546 # Gets ethereum information from geth node
+>>>>>>> cleanup
       - ROOT=/root/clroot
       - ETH_CHAIN_ID=17
       - MIN_OUTGOING_CONFIRMATIONS=2
@@ -93,6 +98,6 @@ networks:
 
 secrets:
   node_password:
-    file: ./chainlink_node/secrets/password.txt
+    file: ./secrets/password.txt
   node_api_credentials:
-    file: ./chainlink_node/secrets/apicredentials
+    file: ./secrets/apicredentials

@@ -1,21 +1,8 @@
 # Integration test for ommers and re-orgs
 
-## Docker images
-
-From `integration/forks/bootnode`
-
-```
-docker build . -t bootnode:latest
-```
-
-From `integration/forks`
-```
-docker build . -t geth:latest
-```
-
 ## Invoking this framework
 
-Run `docker-compose --compatibility up`.
+Run `test.sh`.
 
 To trigger a block-reorg on `chainlink`/`geth1`, disconnect `geth2` from the network with
 
