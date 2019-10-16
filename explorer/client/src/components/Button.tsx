@@ -92,7 +92,6 @@ const muiProps = (variant: ButtonVariant, classes: any): MuiButtonProps => {
 }
 
 interface Props extends WithStyles<typeof styles> {
-  children: React.ReactNode
   component?: React.ReactNode
   onClick?: React.MouseEventHandler<JSX.Element>
   type?: string
@@ -111,7 +110,7 @@ interface Props extends WithStyles<typeof styles> {
   href?: any
 }
 
-const Button = ({
+const Button: React.FC<Props> = ({
   variant = 'default',
   disabled,
   type,
@@ -121,7 +120,7 @@ const Button = ({
   className,
   children,
   onClick,
-}: Props) => {
+}) => {
   const curryProps = Object.assign(
     { component, disabled, href, onClick, type },
     muiProps(variant, classes),
