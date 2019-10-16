@@ -27,8 +27,9 @@ const styles = (theme: Theme) =>
     },
   })
 
-/* eslint-disable-next-line @typescript-eslint/no-empty-interface */
-interface OwnProps {}
+interface OwnProps {
+  onHeaderResize: (width: number, height: number) => void
+}
 
 interface StateProps {
   authenticated: boolean
@@ -40,15 +41,11 @@ interface DispatchProps {
 }
 
 interface Props
-  extends WithStyles<typeof styles>,
-    RouteComponentProps,
+  extends RouteComponentProps,
     StateProps,
     DispatchProps,
-    OwnProps {}
-
-interface Props extends RouteComponentProps, WithStyles<typeof styles> {
-  onHeaderResize: (width: number, height: number) => void
-}
+    OwnProps,
+    WithStyles<typeof styles> {}
 
 export const AdminHeader = ({ classes, onHeaderResize, signOut }: Props) => {
   return (
