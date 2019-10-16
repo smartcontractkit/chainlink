@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
-import { bindActionCreators, Dispatch } from 'redux'
+import { bindActionCreators, Action, Dispatch } from 'redux'
+import { ThunkAction } from 'redux-thunk'
 import { connect } from 'react-redux'
 import { RouteComponentProps } from '@reach/router'
 import {
@@ -12,7 +13,7 @@ import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
 import Paper from '@material-ui/core/Paper'
 import { fetchOperators } from '../../../actions/operators'
-import { State } from '../../../reducers'
+import { State as AppState } from '../../../reducers'
 
 const styles = ({ breakpoints, spacing }: Theme) =>
   createStyles({
@@ -39,7 +40,12 @@ interface StateProps {
 }
 
 interface DispatchProps {
-  fetchOperators: () => any
+  fetchOperators: () => ThunkAction<
+    Promise<void>,
+    AppState,
+    void,
+    Action<string>
+  >
 }
 
 interface Props
@@ -49,7 +55,7 @@ interface Props
     DispatchProps,
     OwnProps {}
 
-export const Index = ({ classes, fetchOperators }: Props) => {
+export const Index: React.FC<Props> = ({ classes, fetchOperators }) => {
   useEffect(() => {
     fetchOperators()
   }, [])
@@ -76,7 +82,7 @@ export const Index = ({ classes, fetchOperators }: Props) => {
   )
 }
 
-function mapStateToProps(state: State): StateProps {
+function mapStateToProps(state: AppState): StateProps {
   return {
     authenticated: state.adminAuth.allowed,
   }
