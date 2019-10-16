@@ -15,7 +15,7 @@ interface StateProps {
 }
 
 interface DispatchProps {
-  signIn: (username: string, password: string) => void
+  signIn: (...args: Parameters<typeof signIn>) => void
 }
 
 interface Props
