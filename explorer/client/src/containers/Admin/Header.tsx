@@ -27,7 +27,7 @@ const styles = (theme: Theme) =>
   })
 
 interface OwnProps {
-  onHeaderResize: (width: number, height: number) => void
+  onHeaderResize: React.ComponentPropsWithoutRef<typeof Header>['onResize']
 }
 
 interface StateProps {
