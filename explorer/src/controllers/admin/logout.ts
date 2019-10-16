@@ -1,8 +1,8 @@
-import { Router, Request, Response } from 'express'
+import { Router } from 'express'
 
 const router = Router()
 
-router.delete('/logout', async (req: Request, res: Response) => {
+router.delete('/logout', async (req, res) => {
   req.session.admin = null
   return res.sendStatus(200)
 })
