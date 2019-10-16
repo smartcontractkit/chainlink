@@ -54,7 +54,7 @@ services:
     image: smartcontract/chainlink
     command: local import /root/clroot/keys/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json
     volumes:
-      - ./chainlink_node/clroot_tmp/:/root/clroot
+      - ./chainlink_node/clroot/:/root/clroot
     environment:
       - ROOT=/root/clroot
 
@@ -63,7 +63,7 @@ services:
     command: local node -d -p /run/secrets/node_password -a /run/secrets/node_api_credentials
     restart: always
     volumes:
-      - ../../tools/clroot/:/root/clroot
+      - ./chainlink_node/clroot/:/root/clroot
     environment:
       - LOG_LEVEL=debug
       - ETH_URL=ws://geth1:8546 # Gets ethereum information from slow geth node

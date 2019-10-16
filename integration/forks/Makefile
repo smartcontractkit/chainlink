@@ -1,21 +1,17 @@
 build_geth_image:
 	docker build -t geth .
 
-# Reset the geth and CL databases to a known-good state
-clean_databases: tear_down
-	sudo cp -r chainlink_node/clroot chainlink_node/clroot_tmp
 
 tear_down:
 	docker-compose --compatibility down
-	sudo rm -rf chainlink_node/clroot_tmp
+	# Remove CL database
+	sudo rm -rf chainlink_node/clroot
+	git checkout chainlink_node/clroot/keys
 
 start_network:
 	( docker-compose --compatibility up > /dev/null ) &
 
-initial_setup: clean_databases build_geth_image start_network create_curl_script
-	# wait for network to start
-	sleep 5
-	make create_job
+initial_setup: build_geth_image start_network create_curl_script create_job
 
 # Isolate the faster node from the network, so that it creates a blockchain
 # re-org when re-attached.
@@ -24,6 +20,7 @@ isolate_geth2:
 
 ETH_LOG_JOB = '$(shell cat eth_log_job.json)'
 create_job:
+	sleep 3
 	bash scripts/log_in_to_chainlink_node.sh
 	docker exec -it forks_chainlink_1 chainlink jobs create ${ETH_LOG_JOB}
 
@@ -34,7 +31,7 @@ create_curl_script:
 	python3 scripts/construct_cmd.py > scripts/curl_cmd.sh
 
 run_chain_1:
-	@echo "\n STARTING CHAIN 1"
+	@echo "\nSTARTING CHAIN 1"
 	# make sure chainlink has actually started receiving blocks from geth
 	bash scripts/search_chainlink_logs.sh 'Received new head'
 	# broadcast contract creation transaction
@@ -46,7 +43,7 @@ run_chain_1:
 	docker-compose --compatibility down
 
 run_chain_2:
-	@echo "\n STARTING CHAIN 2"
+	@echo "\nSTARTING CHAIN 2"
 	# 2nd chain should be younger that first, and so chainlink won't immediately save new heads
 	bash scripts/search_chainlink_logs.sh 'Cannot save new head confirmation'
 	# when 2nd chain gets longer, chainlink resumes saving heads
