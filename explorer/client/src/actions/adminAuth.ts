@@ -1,10 +1,15 @@
-import { Dispatch } from 'redux'
+import { Action, Dispatch } from 'redux'
+import { ThunkAction } from 'redux-thunk'
 import httpStatus from 'http-status-codes'
 import * as api from '../api'
+import { State as AppState } from '../reducers'
 
-export function signIn(username: string, password: string) {
+export function signIn(
+  username: string,
+  password: string,
+): ThunkAction<Promise<void>, AppState, void, Action<string>> {
   return (dispatch: Dispatch<any>) => {
-    api.signIn(username, password).then(status => {
+    return api.signIn(username, password).then(status => {
       if (status === httpStatus.OK) {
         dispatch({ type: 'ADMIN_SIGNIN_SUCCEEDED' })
       } else if (status === httpStatus.UNAUTHORIZED) {
@@ -20,9 +25,14 @@ export function signIn(username: string, password: string) {
   }
 }
 
-export function signOut() {
+export function signOut(): ThunkAction<
+  Promise<void>,
+  AppState,
+  void,
+  Action<string>
+> {
   return (dispatch: Dispatch<any>) => {
-    api.signOut().then(() => {
+    return api.signOut().then(() => {
       dispatch({ type: 'ADMIN_SIGNOUT_SUCCEEDED' })
     })
   }
