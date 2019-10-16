@@ -1,17 +1,32 @@
-import { toBuffer } from 'ethereumjs-util'
-import abi from 'ethereumjs-abi'
-import { checkPublicABI, decodeDietCBOR, toHex } from '../src/helpers'
-const ConcreteChainlink = artifacts.require('ConcreteChainlink.sol')
+import {
+  checkPublicABI,
+  decodeDietCBOR,
+  initializeRolesAndPersonas,
+  hexToBuf,
+} from '../src/helpersV2'
+import { ConcreteChainlinkFactory } from 'contracts/ConcreteChainlinkFactory'
+import { Instance } from '../src/contract'
+import { ethers } from 'ethers'
+import env from '@nomiclabs/buidler'
+import { EthersProviderWrapper } from '../src/provider'
+import { assert } from 'chai'
+import { makeDebug } from '../src/debug'
+const provider = new EthersProviderWrapper(env.ethereum)
+const concreteChainlinkFactory = new ConcreteChainlinkFactory()
+const debug = makeDebug('ConcreteChainlink')
 
-contract('ConcreteChainlink', () => {
-  let ccl
-
+describe('ConcreteChainlink', () => {
+  let ccl: Instance<ConcreteChainlinkFactory>
+  let defaultAccount: ethers.Wallet
   beforeEach(async () => {
-    ccl = await ConcreteChainlink.new()
+    defaultAccount = await initializeRolesAndPersonas(provider).then(
+      r => r.roles.defaultAccount,
+    )
+    ccl = await concreteChainlinkFactory.connect(defaultAccount).deploy()
   })
 
   it('has a limited public interface', () => {
-    checkPublicABI(ConcreteChainlink, [
+    checkPublicABI(concreteChainlinkFactory, [
       'add',
       'addBytes',
       'addInt',
@@ -22,15 +37,18 @@ contract('ConcreteChainlink', () => {
     ])
   })
 
-  function parseCCLEvent(tx) {
-    const data = toBuffer(tx.receipt.rawLogs[0].data)
-    return abi.rawDecode(['bytes'], data)
+  async function parseCCLEvent(tx: ethers.providers.TransactionResponse) {
+    const receipt = await tx.wait()
+    const data = receipt.logs![0].data
+    const d = debug.extend('parseCCLEvent')
+    d('data %s', data)
+    return ethers.utils.defaultAbiCoder.decode(['bytes'], data)
   }
 
   describe('#close', () => {
     it('handles empty payloads', async () => {
       const tx = await ccl.closeEvent()
-      const [payload] = parseCCLEvent(tx)
+      const [payload] = await parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       assert.deepEqual(decoded, {})
     })
@@ -40,7 +58,7 @@ contract('ConcreteChainlink', () => {
     it('emits the buffer', async () => {
       await ccl.setBuffer('0xA161616162')
       const tx = await ccl.closeEvent()
-      const [payload] = parseCCLEvent(tx)
+      const [payload] = await parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       assert.deepEqual(decoded, { a: 'b' })
     })
@@ -50,7 +68,7 @@ contract('ConcreteChainlink', () => {
     it('stores and logs keys and values', async () => {
       await ccl.add('first', 'word!!')
       const tx = await ccl.closeEvent()
-      const [payload] = parseCCLEvent(tx)
+      const [payload] = await parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       assert.deepEqual(decoded, { first: 'word!!' })
     })
@@ -59,7 +77,7 @@ contract('ConcreteChainlink', () => {
       await ccl.add('first', 'uno')
       await ccl.add('second', 'dos')
       const tx = await ccl.closeEvent()
-      const [payload] = parseCCLEvent(tx)
+      const [payload] = await parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
 
       assert.deepEqual(decoded, {
@@ -73,9 +91,9 @@ contract('ConcreteChainlink', () => {
     it('stores and logs keys and values', async () => {
       await ccl.addBytes('first', '0xaabbccddeeff')
       const tx = await ccl.closeEvent()
-      const [payload] = parseCCLEvent(tx)
+      const [payload] = await parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      const expected = toBuffer('0xaabbccddeeff')
+      const expected = hexToBuf('0xaabbccddeeff')
       assert.deepEqual(decoded, { first: expected })
     })
 
@@ -83,11 +101,11 @@ contract('ConcreteChainlink', () => {
       await ccl.addBytes('first', '0x756E6F')
       await ccl.addBytes('second', '0x646F73')
       const tx = await ccl.closeEvent()
-      const [payload] = parseCCLEvent(tx)
+      const [payload] = await parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
 
-      const expectedFirst = toBuffer('0x756E6F')
-      const expectedSecond = toBuffer('0x646F73')
+      const expectedFirst = hexToBuf('0x756E6F')
+      const expectedSecond = hexToBuf('0x646F73')
       assert.deepEqual(decoded, {
         first: expectedFirst,
         second: expectedSecond,
@@ -95,11 +113,11 @@ contract('ConcreteChainlink', () => {
     })
 
     it('handles strings', async () => {
-      await ccl.addBytes('first', toHex('apple'))
+      await ccl.addBytes('first', ethers.utils.toUtf8Bytes('apple'))
       const tx = await ccl.closeEvent()
-      const [payload] = parseCCLEvent(tx)
+      const [payload] = await parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      const expected = toBuffer('apple')
+      const expected = ethers.utils.toUtf8Bytes('apple')
       assert.deepEqual(decoded, { first: expected })
     })
   })
@@ -108,7 +126,7 @@ contract('ConcreteChainlink', () => {
     it('stores and logs keys and values', async () => {
       await ccl.addInt('first', 1)
       const tx = await ccl.closeEvent()
-      const [payload] = parseCCLEvent(tx)
+      const [payload] = await parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       assert.deepEqual(decoded, { first: 1 })
     })
@@ -117,7 +135,7 @@ contract('ConcreteChainlink', () => {
       await ccl.addInt('first', 1)
       await ccl.addInt('second', 2)
       const tx = await ccl.closeEvent()
-      const [payload] = parseCCLEvent(tx)
+      const [payload] = await parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
 
       assert.deepEqual(decoded, {
@@ -131,7 +149,7 @@ contract('ConcreteChainlink', () => {
     it('stores and logs keys and values', async () => {
       await ccl.addUint('first', 1)
       const tx = await ccl.closeEvent()
-      const [payload] = parseCCLEvent(tx)
+      const [payload] = await parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       assert.deepEqual(decoded, { first: 1 })
     })
@@ -140,7 +158,7 @@ contract('ConcreteChainlink', () => {
       await ccl.addUint('first', 1)
       await ccl.addUint('second', 2)
       const tx = await ccl.closeEvent()
-      const [payload] = parseCCLEvent(tx)
+      const [payload] = await parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
 
       assert.deepEqual(decoded, {
@@ -153,12 +171,12 @@ contract('ConcreteChainlink', () => {
   describe('#addStringArray', () => {
     it('stores and logs keys and values', async () => {
       await ccl.addStringArray('word', [
-        toHex('seinfeld'),
-        toHex('"4"'),
-        toHex('LIFE'),
+        ethers.utils.formatBytes32String('seinfeld'),
+        ethers.utils.formatBytes32String('"4"'),
+        ethers.utils.formatBytes32String('LIFE'),
       ])
       const tx = await ccl.closeEvent()
-      const [payload] = parseCCLEvent(tx)
+      const [payload] = await parseCCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
       assert.deepEqual(decoded, { word: ['seinfeld', '"4"', 'LIFE'] })
     })
