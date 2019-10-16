@@ -6,7 +6,7 @@ export function get(key: string): any {
   if (localStorageItem) {
     try {
       return JSON.parse(localStorageItem)
-    } catch (e) {
+    } catch {
       // continue regardless of error
     }
   }
