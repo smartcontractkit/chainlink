@@ -108,9 +108,12 @@ func TestClient_IndexJobRuns(t *testing.T) {
 	require.Nil(t, client.IndexJobRuns(cltest.EmptyCLIContext()))
 	runs := *r.Renders[0].(*[]presenters.JobRun)
 	require.Equal(t, 3, len(runs))
-	assert.Equal(t, jr0.Result, runs[0].Result)
-	assert.Equal(t, jr1.Result, runs[1].Result)
-	assert.Equal(t, jr2.Result, runs[2].Result)
+	assert.Equal(t, jr0.ID, runs[0].ID)
+	assert.Equal(t, jr0.Result.ID, runs[0].Result.ID)
+	assert.Equal(t, jr1.ID, runs[1].ID)
+	assert.Equal(t, jr1.Result.ID, runs[1].Result.ID)
+	assert.Equal(t, jr2.ID, runs[2].ID)
+	assert.Equal(t, jr2.Result.ID, runs[2].Result.ID)
 }
 
 func TestClient_ShowJobSpec_Exists(t *testing.T) {

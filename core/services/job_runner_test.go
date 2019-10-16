@@ -70,10 +70,12 @@ func TestJobRunner_executeRun_correctlyPopulatesFinishedAt(t *testing.T) {
 	require.NoError(t, store.CreateJobRun(&run))
 
 	require.NoError(t, services.ExportedExecuteRun(&run, store))
+	assert.False(t, run.Result.ErrorMessage.Valid)
 	assert.False(t, run.FinishedAt.Valid)
 	assert.Equal(t, models.RunStatusInProgress, run.Status)
 
 	require.NoError(t, services.ExportedExecuteRun(&run, store))
+	assert.False(t, run.Result.ErrorMessage.Valid)
 	assert.False(t, run.FinishedAt.Valid)
 	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 }

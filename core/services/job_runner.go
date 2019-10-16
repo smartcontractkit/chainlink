@@ -263,10 +263,6 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 		validateMinimumConfirmations(run, futureTaskRun, run.ObservedHeight, store)
 	}
 
-	if run.Status.Finished() {
-		run.SetFinishedAt()
-	}
-
 	if err := updateAndTrigger(run, store); err != nil {
 		return err
 	}
