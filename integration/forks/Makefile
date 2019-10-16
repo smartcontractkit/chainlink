@@ -11,7 +11,7 @@ tear_down:
 start_network:
 	( docker-compose --compatibility up > /dev/null ) &
 
-initial_setup: build_geth_image start_network create_curl_script create_job
+initial_setup: tear_down build_geth_image start_network create_curl_script create_job
 
 # Isolate the faster node from the network, so that it creates a blockchain
 # re-org when re-attached.
