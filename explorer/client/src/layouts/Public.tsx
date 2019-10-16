@@ -4,13 +4,12 @@ import SearchHeader from '../containers/SearchHeader'
 import TermsOfUse from '../components/TermsOfUse'
 import { DEFAULT_HEADER_HEIGHT } from '../constants'
 
-interface MainProps {
-  children: any
+interface Props {
   path: string
 }
 
-const Public = ({ children }: MainProps) => {
-  const [height, setHeight] = useState<number>(DEFAULT_HEADER_HEIGHT)
+const Public: React.FC<Props> = ({ children }) => {
+  const [height, setHeight] = useState(DEFAULT_HEADER_HEIGHT)
   const onHeaderResize = (_width: number, height: number) => setHeight(height)
 
   return (
