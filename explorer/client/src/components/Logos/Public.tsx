@@ -10,6 +10,6 @@ interface Props {
   alt?: string
 }
 
-export const PublicLogo = (props: Props) => {
+export const PublicLogo: React.FC<Props> = props => {
   return <Logo src={src} {...props} />
 }

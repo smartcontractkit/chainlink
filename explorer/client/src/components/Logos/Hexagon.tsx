@@ -10,6 +10,6 @@ interface Props {
   alt?: string
 }
 
-export const HexagonLogo = (props: Props) => {
+export const HexagonLogo: React.FC<Props> = props => {
   return <Logo src={src} {...props} />
 }

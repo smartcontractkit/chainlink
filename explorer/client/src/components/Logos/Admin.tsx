@@ -7,7 +7,7 @@ interface Props {
   height?: number
 }
 
-export const AdminLogo = ({ className, width, height }: Props) => {
+export const AdminLogo: React.FC<Props> = ({ className, width, height }) => {
   return (
     <a href="/admin" className={className}>
       <img
