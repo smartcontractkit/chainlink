@@ -56,34 +56,17 @@ services:
           # it'll construct a weaker blockchain.
           cpus: "0.5"
 
-  # Fast-mining geth node which generates the block re-organization, when it's
-  # reconnected to geth1.
-  geth2:
-    image: geth
-    restart: on-failure
-    command: --nousb
-      --config /root/geth-config-2.toml
-      --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
-      --password /run/secrets/node_password
-      --nat extip:172.16.1.101 # Must match ipv4_address for this container
+  chainlink_key_import:
+    image: smartcontract/chainlink
+    command: local import /root/clroot/keys/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json
     volumes:
-      - .:/root
-    networks:
-      gethnet:
-        ipv4_address: 172.16.1.101
-    secrets:
-      - node_password
-    deploy:
-      resources:
-        limits:
-          # Make this node fast, so when it's disconnected from the network
-          # it'll construct a stronger blockchain.
-          cpus: "2.5"
+      - ./chainlink_node/clroot_tmp/:/root/clroot
+    environment:
+      - ROOT=/root/clroot
 
-  # Chainlink node which is connected to the slow-mining geth node
   chainlink:
     image: smartcontract/chainlink
-    command: local node -d -p /run/secrets/node_password -a /run/secrets/node_api
+    command: local node -d -p /run/secrets/node_password -a /run/secrets/node_api_credentials
     restart: always
     volumes:
       - ../../tools/clroot/:/root/clroot
@@ -99,12 +82,12 @@ services:
       gethnet:
         ipv4_address: 172.16.1.102
     depends_on:
-      - geth1
+      - chainlink_key_import
     expose:
       - 6688
     secrets:
       - node_password
-      - node_api
+      - node_api_credentials
     deploy:
       resources:
         limits:
@@ -120,6 +103,6 @@ networks:
 
 secrets:
   node_password:
-    file: ./secrets/password.txt
-  node_api:
-    file: ./secrets/apicredentials
+    file: ./chainlink_node/secrets/password.txt
+  node_api_credentials:
+    file: ./chainlink_node/secrets/apicredentials
