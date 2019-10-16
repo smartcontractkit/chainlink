@@ -61,7 +61,9 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	}
 	result := ba.Perform(input, store)
 	assert.NoError(t, result.GetError())
-	assert.Equal(t, "251990120", result.Data.Get("result").String())
+	resultString, err := result.ResultString()
+	assert.NoError(t, err)
+	assert.Equal(t, "251990120", resultString)
 }
 
 func TestBridge_Perform_transitionsTo(t *testing.T) {
@@ -98,7 +100,11 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 			assert.Equal(t, test.result, result.Data.String())
 			assert.Equal(t, test.wantStatus, result.Status)
 			if test.wantStatus.Errored() || test.wantStatus.Completed() {
-				assert.Equal(t, input, result)
+				outputWanted := models.RunOutput{
+					Data:   input.Data,
+					Status: input.Status,
+				}
+				assert.Equal(t, outputWanted, result)
 			}
 		})
 	}

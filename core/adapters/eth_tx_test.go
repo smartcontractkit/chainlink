@@ -315,8 +315,8 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
 	var receipts []models.TxReceipt
-	assert.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
-	assert.Equal(t, 1, len(receipts))
+	require.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
+	require.Len(t, receipts, 1)
 	assert.Equal(t, receipt, receipts[0])
 
 	confirmedTxHex := output.Get("latestOutgoingTxHash").String()
@@ -341,6 +341,9 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(confirmedAt)))
 	ethMock.Register("eth_chainId", config.ChainID())
+	ethMock.Register("eth_getTransactionCount", `0x100`)
+	ethMock.Register("eth_getBalance", "0x100")
+	ethMock.Register("eth_call", "0x1")
 
 	require.NoError(t, app.StartAndConnect())
 
@@ -359,8 +362,10 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 
 	output := adapter.Perform(input, store)
 	assert.True(t, output.Status.Completed())
+
 	receiptsJSON := output.Get("ethereumReceipts").String()
 	var receipts []models.TxReceipt
+	require.NotEqual(t, "", receiptsJSON)
 	assert.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
 	assert.Equal(t, []models.TxReceipt{previousReceipt, receipt}, receipts)
 
@@ -645,6 +650,7 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	badResponseErr := errors.New("Bad response on request: [ TransactionIndex ]. Error cause was EmptyResponse, (majority count: 94 / total: 94)")
 	txmMock := mocks.NewMockTxManager(ctrl)
 	store.TxManager = txmMock
 	txmMock.EXPECT().Connected().Return(true)
@@ -658,24 +664,27 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 	txmMock.EXPECT().CheckAttempt(
 		gomock.Any(),
 		gomock.Any(),
-	).Return(nil, strpkg.Unknown, errors.New("Bad response on request: [ TransactionIndex ]. Error cause was EmptyResponse, (majority count: 94 / total: 94)"))
+	).Return(nil, strpkg.Unknown, badResponseErr)
 
 	adapter := adapters.EthTx{}
-	input := models.RunResult{}
-	input = adapter.Perform(input, store)
+	output := adapter.Perform(models.RunResult{}, store)
 
-	assert.False(t, input.HasError())
-	assert.Equal(t, models.RunStatusPendingConfirmations, input.Status)
+	assert.False(t, output.HasError())
+	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status)
 
 	// Have a head come through with the same empty response
 	txmMock.EXPECT().Connected().Return(true)
 	txmMock.EXPECT().BumpGasUntilSafe(
 		gomock.Any(),
-	).Return(nil, strpkg.Unknown, errors.New("Bad response on request: [ TransactionIndex ]. Error cause was EmptyResponse, (majority count: 94 / total: 94)"))
+	).Return(nil, strpkg.Unknown, badResponseErr)
 
-	input = adapter.Perform(input, store)
-	assert.False(t, input.HasError())
-	assert.Equal(t, models.RunStatusPendingConfirmations, input.Status)
+	input := models.RunResult{
+		Data:   output.Data,
+		Status: output.Status,
+	}
+	output = adapter.Perform(input, store)
+	assert.False(t, output.HasError())
+	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status)
 }
 
 func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {

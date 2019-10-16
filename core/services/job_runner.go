@@ -196,33 +196,29 @@ func prepareTaskInput(run *models.JobRun, input models.JSON) (models.JSON, error
 	return input, nil
 }
 
-func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *store.Store) models.RunResult {
+func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *store.Store) models.RunOutput {
 	taskCopy := currentTaskRun.TaskSpec // deliberately copied to keep mutations local
 
 	var err error
 	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides); err != nil {
-		currentTaskRun.Result.SetError(err)
-		return currentTaskRun.Result
+		return models.NewRunOutputError(err)
 	}
 
 	adapter, err := adapters.For(taskCopy, store)
 	if err != nil {
-		currentTaskRun.Result.SetError(err)
-		return currentTaskRun.Result
+		return models.NewRunOutputError(err)
 	}
 
 	logger.Infow(fmt.Sprintf("Processing task %s", taskCopy.Type), []interface{}{"task", currentTaskRun.ID.String()}...)
 
 	data, err := prepareTaskInput(run, currentTaskRun.Result.Data)
 	if err != nil {
-		currentTaskRun.Result.SetError(err)
-		return currentTaskRun.Result
+		return models.NewRunOutputError(err)
 	}
 
 	currentTaskRun.Result.CachedJobRunID = run.ID
 	currentTaskRun.Result.Data = data
 	result := adapter.Perform(currentTaskRun.Result, store)
-	result.ID = currentTaskRun.Result.ID
 
 	logger.Infow(fmt.Sprintf("Finished processing task %s", taskCopy.Type), []interface{}{
 		"task", currentTaskRun.ID,
@@ -247,8 +243,8 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 
 	result := executeTask(run, currentTaskRun, store)
 
-	currentTaskRun.ApplyResult(result)
-	run.ApplyResult(result)
+	currentTaskRun.ApplyOutput(result)
+	run.ApplyOutput(result)
 
 	if currentTaskRun.Status.PendingSleep() {
 		logger.Debugw("Task is sleeping", []interface{}{"run", run.ID.String()}...)

@@ -63,17 +63,15 @@ func (etx *EthTxABIEncode) UnmarshalJSON(data []byte) error {
 // Perform creates the run result for the transaction if the existing run result
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
-func (etx *EthTxABIEncode) Perform(
-	input models.RunResult, store *strpkg.Store) models.RunResult {
+func (etx *EthTxABIEncode) Perform(input models.RunResult, store *strpkg.Store) models.RunOutput {
 	if !store.TxManager.Connected() {
-		input.MarkPendingConnection()
-		return input
+		return models.NewRunOutputPendingConnection()
 	}
 	if !input.Status.PendingConfirmations() {
 		data, err := etx.abiEncode(&input)
 		if err != nil {
-			input.SetError(errors.Wrap(err, "while constructing EthTxABIEncode data"))
-			return input
+			err = errors.Wrap(err, "while constructing EthTxABIEncode data")
+			return models.NewRunOutputError(err)
 		}
 		return createTxRunResult(etx.Address, etx.GasPrice, etx.GasLimit, data, input, store)
 	}

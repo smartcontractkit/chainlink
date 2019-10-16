@@ -273,7 +273,7 @@ func TestResumePendingTask(t *testing.T) {
 		ID:        runID,
 		JobSpecID: jobID,
 	}
-	err := services.ResumePendingTask(run, store, models.RunResult{})
+	err := services.ResumePendingTask(run, store, models.BridgeRunResult{})
 	assert.Error(t, err)
 
 	// reject a run with no tasks
@@ -282,12 +282,12 @@ func TestResumePendingTask(t *testing.T) {
 		JobSpecID: jobID,
 		Status:    models.RunStatusPendingBridge,
 	}
-	err = services.ResumePendingTask(run, store, models.RunResult{})
+	err = services.ResumePendingTask(run, store, models.BridgeRunResult{})
 	assert.Error(t, err)
 
 	// input with error errors run
 	run.TaskRuns = []models.TaskRun{models.TaskRun{ID: models.NewID(), JobRunID: runID}}
-	err = services.ResumePendingTask(run, store, models.RunResult{CachedJobRunID: runID, Status: models.RunStatusErrored})
+	err = services.ResumePendingTask(run, store, models.BridgeRunResult{Status: models.RunStatusErrored})
 	assert.Error(t, err)
 	assert.True(t, run.FinishedAt.Valid)
 
@@ -299,11 +299,10 @@ func TestResumePendingTask(t *testing.T) {
 		TaskRuns:  []models.TaskRun{models.TaskRun{ID: models.NewID(), JobRunID: runID}, models.TaskRun{ID: models.NewID(), JobRunID: runID}},
 	}
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
-	err = services.ResumePendingTask(run, store, models.RunResult{CachedJobRunID: runID, Data: input, Status: models.RunStatusCompleted})
+	err = services.ResumePendingTask(run, store, models.BridgeRunResult{Data: input, Status: models.RunStatusCompleted})
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 2)
-	assert.Equal(t, run.ID, run.TaskRuns[0].Result.CachedJobRunID)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Result.Status))
 
 	// completed input with no remaining tasks should get marked as complete
@@ -313,12 +312,11 @@ func TestResumePendingTask(t *testing.T) {
 		Status:    models.RunStatusPendingBridge,
 		TaskRuns:  []models.TaskRun{models.TaskRun{ID: models.NewID(), JobRunID: runID}},
 	}
-	err = services.ResumePendingTask(run, store, models.RunResult{CachedJobRunID: runID, Data: input, Status: models.RunStatusCompleted})
+	err = services.ResumePendingTask(run, store, models.BridgeRunResult{Data: input, Status: models.RunStatusCompleted})
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.Status))
 	assert.True(t, run.FinishedAt.Valid)
 	assert.Len(t, run.TaskRuns, 1)
-	assert.Equal(t, run.ID, run.TaskRuns[0].Result.CachedJobRunID)
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Result.Status))
 }
 

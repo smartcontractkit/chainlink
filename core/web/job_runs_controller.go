@@ -133,7 +133,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if !ok {
 		c.AbortWithStatus(http.StatusUnauthorized)
-	} else if err = services.ResumePendingTask(&jr, unscoped, brr.RunResult); err != nil {
+	} else if err = services.ResumePendingTask(&jr, unscoped, brr); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, jr, "job run")

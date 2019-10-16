@@ -34,11 +34,6 @@ func RunResultError(err error) RunResult {
 // CompleteWithResult saves a value to a RunResult and marks it as completed
 func (rr *RunResult) CompleteWithResult(val interface{}) {
 	rr.Status = RunStatusCompleted
-	rr.ApplyResult(val)
-}
-
-// ApplyResult saves a value to a RunResult with the key result.
-func (rr *RunResult) ApplyResult(val interface{}) {
 	rr.Add("result", val)
 }
 
