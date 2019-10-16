@@ -94,8 +94,12 @@ func NewRun(
 
 	run := job.NewRun(initiator)
 
+	if input.HasError() {
+		run.SetError(input.GetError())
+		return &run, nil
+	}
+
 	run.Overrides = input.Data
-	run.ApplyResult(input)
 	run.CreationHeight = models.NewBig(currentHeight)
 	run.ObservedHeight = models.NewBig(currentHeight)
 
@@ -248,14 +252,7 @@ func ResumePendingTask(
 	run.Overrides.Merge(input.Data)
 
 	currentTaskRun.ApplyResult(input)
-	if currentTaskRun.Status.Finished() && run.TasksRemain() {
-		run.Status = models.RunStatusInProgress
-	} else if currentTaskRun.Status.Finished() {
-		run.ApplyResult(input)
-		run.SetFinishedAt()
-	} else {
-		run.ApplyResult(input)
-	}
+	run.ApplyResult(input)
 
 	return updateAndTrigger(run, store)
 }
