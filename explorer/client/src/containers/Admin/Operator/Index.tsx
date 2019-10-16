@@ -1,6 +1,4 @@
 import React, { useEffect } from 'react'
-import { bindActionCreators, Action, Dispatch } from 'redux'
-import { ThunkAction } from 'redux-thunk'
 import { connect } from 'react-redux'
 import { RouteComponentProps } from '@reach/router'
 import {
@@ -40,12 +38,7 @@ interface StateProps {
 }
 
 interface DispatchProps {
-  fetchOperators: () => ThunkAction<
-    Promise<void>,
-    AppState,
-    void,
-    Action<string>
-  >
+  fetchOperators: () => void
 }
 
 interface Props
@@ -88,9 +81,7 @@ function mapStateToProps(state: AppState): StateProps {
   }
 }
 
-function mapDispatchToProps(dispatch: Dispatch): DispatchProps {
-  return bindActionCreators({ fetchOperators }, dispatch)
-}
+const mapDispatchToProps = { fetchOperators }
 
 export const ConnectedIndex = connect(
   mapStateToProps,

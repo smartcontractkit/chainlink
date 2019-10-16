@@ -1,5 +1,4 @@
 import React from 'react'
-import { bindActionCreators, Dispatch } from 'redux'
 import { connect } from 'react-redux'
 import { Redirect, RouteComponentProps } from '@reach/router'
 import { SignIn as SignInForm } from '../../components/Forms/SignIn'
@@ -39,9 +38,7 @@ function mapStateToProps(state: State): StateProps {
   }
 }
 
-function mapDispatchToProps(dispatch: Dispatch): DispatchProps {
-  return bindActionCreators({ signIn }, dispatch)
-}
+const mapDispatchToProps = { signIn }
 
 export const ConnectedSignIn = connect(
   mapStateToProps,
