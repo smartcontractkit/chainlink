@@ -36,11 +36,10 @@ interface Item {
 }
 
 interface Props extends WithStyles<typeof styles> {
-  children: any
-  className?: any
+  className?: string
 }
 
-const AvatarMenu = ({ classes, className, children }: Props) => {
+const AvatarMenu: React.FC<Props> = ({ classes, className, children }) => {
   const anchorEl = useRef<HTMLElement>(null)
   const [open, setOpenState] = useState(false)
   const handleToggle = () => setOpenState(!open)
