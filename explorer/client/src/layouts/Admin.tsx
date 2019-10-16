@@ -28,7 +28,7 @@ const styles = (theme: Theme) =>
 interface Props extends RouteComponentProps, WithStyles<typeof styles> {}
 
 export const Admin: React.FC<Props> = ({ children, classes }) => {
-  const [height, setHeight] = useState<number>(DEFAULT_HEADER_HEIGHT)
+  const [height, setHeight] = useState(DEFAULT_HEADER_HEIGHT)
   const onHeaderResize = (_width: number, height: number) => setHeight(height)
 
   return (
