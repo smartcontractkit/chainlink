@@ -82,11 +82,6 @@ const mapStateToProps = (state: State) => {
   }
 }
 
-const mapDispatchToProps = () => ({})
-
-const ConnectedSearchHeader = connect(
-  mapStateToProps,
-  mapDispatchToProps,
-)(SearchHeader)
+const ConnectedSearchHeader = connect(mapStateToProps)(SearchHeader)
 
 export default withStyles(styles)(ConnectedSearchHeader)
