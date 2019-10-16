@@ -7,6 +7,7 @@ import { Connection } from 'typeorm'
 import { closeDbConnection, getDb } from '../../database'
 import { clearDb } from '../testdatabase'
 import { createAdmin } from '../../support/admin'
+import { stop } from '../../support/server'
 import adminAuth from '../../middleware/adminAuth'
 import {
   ADMIN_USERNAME_HEADER,
@@ -36,12 +37,8 @@ beforeAll(async () => {
   db = await getDb()
   server = app.listen(null)
 })
-afterAll(async done => {
-  if (server) {
-    server.close(done)
-    await closeDbConnection()
-  }
-})
+afterAll(done => stop(server, done))
+
 beforeEach(async () => {
   await clearDb()
   await createAdmin(db, USERNAME, PASSWORD)

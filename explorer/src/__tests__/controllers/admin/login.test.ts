@@ -1,14 +1,14 @@
 import request from 'supertest'
 import http from 'http'
 import { Connection } from 'typeorm'
-import { closeDbConnection, getDb } from '../../../database'
+import { getDb } from '../../../database'
 import { clearDb } from '../../testdatabase'
 import { createAdmin } from '../../../support/admin'
 import {
   ADMIN_USERNAME_HEADER,
   ADMIN_PASSWORD_HEADER,
 } from '../../../utils/constants'
-import { start as testServer } from '../../../support/server'
+import { start, stop } from '../../../support/server'
 
 const USERNAME = 'myadmin'
 const PASSWORD = 'validpassword'
@@ -28,14 +28,9 @@ function sendPost(path: string, username: string, password: string) {
 
 beforeAll(async () => {
   db = await getDb()
-  server = await testServer()
+  server = await start()
 })
-afterAll(async done => {
-  if (server) {
-    server.close(done)
-    await closeDbConnection()
-  }
-})
+afterAll(async done => stop(server, done))
 
 describe('#index', () => {
   beforeEach(async () => {
