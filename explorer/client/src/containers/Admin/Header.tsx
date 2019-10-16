@@ -1,5 +1,4 @@
 import React from 'react'
-import { bindActionCreators, Dispatch } from 'redux'
 import { connect } from 'react-redux'
 import { RouteComponentProps } from '@reach/router'
 import {
@@ -74,9 +73,7 @@ function mapStateToProps(state: State): StateProps {
   }
 }
 
-function mapDispatchToProps(dispatch: Dispatch): DispatchProps {
-  return bindActionCreators({ signOut }, dispatch)
-}
+const mapDispatchToProps = { signOut }
 
 const ConnectedAdminHeader = connect(
   mapStateToProps,
