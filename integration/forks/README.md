@@ -4,11 +4,12 @@
 
 Run `test.sh`.
 
-To trigger a block-reorg on `chainlink`/`geth1`, disconnect `geth2` from the network with
+Here, `docker-compose` spins up a CL node and a POA geth node. The geth node always begins mining from the genesis block; it has no other persisted state. The CL node records data in `chainlink_node/clroot`. First, we create an EthLog job using `make create_job` and post a transaction using `scripts/curl_cmd.sh`.
 
-```
-docker network disconnect forks_gethnet forks_geth2_1
-```
+Then, we disconnect CL from the blockchain before the minimum # of block confirmations (10) is reached.
+
+Next, we restart the blockchain and start mining from genesis again. Eventually, the new chain becomes longer than the old chain and the CL node should abandon the job run. We test for this by looking for "presumable uncled" in the logs.
+
 
 Here `forks_gethnet` is the appropriate network name as reported by `docker network  ls | grep gethnet | awk '{ print $2 }'`, and `forks_geth2_1` is the appropriate container name as reported by `docker ps -a | grep geth2 | awk '{ print $(NF) }'`. These names may change depending on `docker-compose` and the directory in which you run this test.
 
