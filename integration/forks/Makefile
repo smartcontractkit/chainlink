@@ -1,15 +1,14 @@
 build_geth_image:
 	docker build -t geth .
 
+start_network:
+	( docker-compose --compatibility up > /dev/null ) &
 
 tear_down:
 	docker-compose --compatibility down
 	# Remove CL database
 	sudo rm -rf chainlink_node/clroot
 	git checkout chainlink_node/clroot/keys
-
-start_network:
-	( docker-compose --compatibility up > /dev/null ) &
 
 initial_setup: tear_down build_geth_image start_network create_curl_script create_job
 
@@ -24,12 +23,11 @@ create_job:
 	bash scripts/log_in_to_chainlink_node.sh
 	docker exec -it forks_chainlink_1 chainlink jobs create ${ETH_LOG_JOB}
 
-# Generates an ethereum transaction which creates a simple contract, which emits
-# a log in its constructor. See "Constructing the trigger transaction" in
-# `README.md`
+# Generates an ethereum transaction which creates a simple contract, which emits a log in its constructor.
 create_curl_script:
 	python3 scripts/construct_cmd.py > scripts/curl_cmd.sh
 
+# Runs the first chain, where the ethlog contract is deployed
 run_chain_1:
 	@echo "\nSTARTING CHAIN 1"
 	# make sure chainlink has actually started receiving blocks from geth
@@ -44,6 +42,7 @@ run_chain_1:
 	# tear down network before sufficient confirmations can be reached
 	docker-compose --compatibility down
 
+# Runs the 2nd chain, which eventually out-grows the first chain and uncles the ethlog contract
 run_chain_2:
 	@echo "\nSTARTING CHAIN 2"
 	# 2nd chain should be younger that first, and so chainlink won't immediately save new heads
@@ -54,7 +53,7 @@ run_chain_2:
 	bash scripts/search_chainlink_logs.sh 'Run cannot continue because it lacks sufficient confirmations services'
 	# should eventually abort running running job
 	bash scripts/search_chainlink_logs.sh 'presumably has been uncled'
-		# save log
+	# save log
 	docker-compose --compatibility logs chainlink > chain_2.log
 	# tear down
 	docker-compose --compatibility down

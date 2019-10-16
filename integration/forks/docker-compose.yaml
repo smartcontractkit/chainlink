@@ -1,20 +1,7 @@
 # This sets up a system for testing chainlink against block re-orgs and ommers.
 #
-# The geth<n> nodes are arranged in a cooperating network. See the README.md and
-# the instructions in `initialize-node-data.sh` for details.
-#
-# One geth node is run at 6 times the speed of the other. The chainlink node is
-# connected to the slow one. Disconnect the fast one from the network to induce
-# a block re-org on the chainlink node.
-#
-# The speeds are controlled by the `cpus` fields. Note that in order to invoke
-# this composition, it's necessary to call `docker-compose` with the
-# `--compatibility` option, because the `deploy` field containing the `cpus`
-# field is only supposed to be invoked by docker swarm.
-#
-# If you modify this, make sure to make corresponding modifications to the
-# `geth-config-*.toml` files. `geth` is bad about letting you know when it's
-# getting inconsistent inputs, so be careful.
+# If you modify this, make sure to make corresponding modifications to the scripts in forks/scripts.
+# Geth is bad about letting you know when it's getting inconsistent inputs, so be careful.
 
 version: "3.1"
 
@@ -50,7 +37,7 @@ services:
     secrets:
       - node_password
 
-  # imports the 0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f key
+  # imports the 0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f key into the CL db
   chainlink_key_import:
     image: smartcontract/chainlink
     command: local import /root/clroot/keys/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json
