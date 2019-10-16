@@ -1,9 +1,7 @@
 check_count=0;
 TIMEOUT=20
 
-echo $1
-
-until ( docker-compose --compatibility logs chainlink | grep "$1" > /dev/null ) ; do
+until ( docker-compose --compatibility logs chainlink | grep "$1" > /dev/null) ; do
   if [ $check_count -gt $TIMEOUT ]; then
     echo "Timed out searching chainlink logs for $1";
     exit 1 ;

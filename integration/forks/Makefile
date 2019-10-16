@@ -2,23 +2,20 @@ build_geth_image:
 	docker build -t geth .
 
 # Reset the geth and CL databases to a known-good state
-clean_databases:
-	sudo rm -rf ./gethnet/datadir* ../../tools/clroot
-	git checkout ./gethnet/datadir*
-	git checkout ../../tools/clroot
-	# Clean docker-compose logs. https://github.com/docker/compose/issues/1083#issuecomment-364359851
-	docker-compose --compatibility ps -q | \
-		xargs -n 1 -i docker inspect --format='{{.LogPath}}' '{}' | \
-		xargs -n 1 -i sudo truncate -s 0
+clean_databases: tear_down
+	sudo cp -r chainlink_node/clroot chainlink_node/clroot_tmp
 
-tear_down_network:
+tear_down:
 	docker-compose --compatibility down
+	sudo rm -rf chainlink_node/clroot_tmp
 
 start_network:
 	( docker-compose --compatibility up > /dev/null ) &
 
-initial_setup: tear_down_network clean_databases build_geth_image
-	( docker-compose --compatibility up > /dev/null ) &
+initial_setup: clean_databases build_geth_image start_network create_curl_script
+	# wait for network to start
+	sleep 5
+	make create_job
 
 # Isolate the faster node from the network, so that it creates a blockchain
 # re-org when re-attached.
@@ -33,29 +30,30 @@ create_job:
 # Generates an ethereum transaction which creates a simple contract, which emits
 # a log in its constructor. See "Constructing the trigger transaction" in
 # `README.md`
-curl_cmd.sh:
+create_curl_script:
 	python3 scripts/construct_cmd.py > scripts/curl_cmd.sh
 
-# inject_transaction sends the same tx to geth1 and geth2, after geth2 has been
-# isolated from the network. The goal here is to get a replay of the log emitted
-# by the transaction.
-inject_transaction: curl_cmd.sh create_job
-	bash scripts/curl_cmd.sh
-
-wait_for_chainlink_first_block:
+run_chain_1:
+	@echo "\n STARTING CHAIN 1"
+	# make sure chainlink has actually started receiving blocks from geth
 	bash scripts/search_chainlink_logs.sh 'Received new head'
-
-run_chain_1: curl_cmd.sh create_job
-	bash scripts/search_chainlink_logs.sh 'Received new head'
+	# broadcast contract creation transaction
 	bash scripts/curl_cmd.sh
+	# wait for chainlink to get notified about transaction
 	bash scripts/search_chainlink_logs.sh 'New run triggered by ethlog'
 	bash scripts/search_chainlink_logs.sh 'Run cannot continue because it lacks sufficient confirmations'
+	# tear down network before sufficient confirmations can be reached
 	docker-compose --compatibility down
 
-run_chain_2: start_network
+run_chain_2:
+	@echo "\n STARTING CHAIN 2"
+	# 2nd chain should be younger that first, and so chainlink won't immediately save new heads
 	bash scripts/search_chainlink_logs.sh 'Cannot save new head confirmation'
+	# when 2nd chain gets longer, chainlink resumes saving heads
 	bash scripts/search_chainlink_logs.sh 'New head resuming run'
+	# will wait for head # to be 10 more than block # with contract creation
 	bash scripts/search_chainlink_logs.sh 'Run cannot continue because it lacks sufficient confirmations services'
+	# should eventually abort running running job
 	bash scripts/search_chainlink_logs.sh 'presumably has been uncled'
 	docker-compose --compatibility down
-	bash scripts/assert_not_in_chainlink_logs.sh 'All tasks complete for run'
+
