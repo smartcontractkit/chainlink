@@ -24,7 +24,7 @@ interface Props
     DispatchProps,
     OwnProps {}
 
-export const SignIn = ({ authenticated, errors, signIn }: Props) => {
+export const SignIn: React.FC<Props> = ({ authenticated, errors, signIn }) => {
   return authenticated ? (
     <Redirect to="/admin" noThrow />
   ) : (
