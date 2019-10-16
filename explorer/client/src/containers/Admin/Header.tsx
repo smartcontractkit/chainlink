@@ -47,7 +47,11 @@ interface Props
     OwnProps,
     WithStyles<typeof styles> {}
 
-export const AdminHeader = ({ classes, onHeaderResize, signOut }: Props) => {
+export const AdminHeader: React.FC<Props> = ({
+  classes,
+  onHeaderResize,
+  signOut,
+}) => {
   return (
     <Header onResize={onHeaderResize}>
       <Grid container>
