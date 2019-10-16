@@ -9,8 +9,8 @@ import {
 
 export default async function(req: Request, res: Response, next: NextFunction) {
   if (!req.session.admin) {
-    const username: string = req.header(ADMIN_USERNAME_HEADER)
-    const password: string = req.header(ADMIN_PASSWORD_HEADER)
+    const username = req.header(ADMIN_USERNAME_HEADER)
+    const password = req.header(ADMIN_PASSWORD_HEADER)
 
     if (!username || !password) {
       res.sendStatus(httpStatus.UNAUTHORIZED)
@@ -19,7 +19,7 @@ export default async function(req: Request, res: Response, next: NextFunction) {
 
     const db = await getDb()
     const admin = await findAdmin(db, username)
-    const validPassword: boolean = await isValidPassword(password, admin)
+    const validPassword = await isValidPassword(password, admin)
 
     // Express.js middleware is sequential
     if (validPassword) {
