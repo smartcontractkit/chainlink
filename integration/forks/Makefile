@@ -36,50 +36,11 @@ curl_cmd.sh:
 # inject_transaction sends the same tx to geth1 and geth2, after geth2 has been
 # isolated from the network. The goal here is to get a replay of the log emitted
 # by the transaction.
-inject_transaction: curl_cmd.sh isolate_geth2 create_job
-	docker exec -it forks_geth1_1 bash /root/curl_cmd.sh
-	docker exec -it forks_geth2_1 bash /root/curl_cmd.sh
-
-# Check the logs for the geth docker containers, until geth2 has a heavier tail.
-# This happens pretty fast, with overwhelming probability, because geth2 is
-# running twice as fast as geth1. (See the `cpus` fields in
-# docker-compose.yaml.)
-ensure_geth2_has_heavier_tail:
-	until python3 check_geth2_has_heavier_chain.py ; do sleep 0.5; done
-
-# Re-connect geth2 to the network, so it shares its blocks with geth1, and
-# creates a blockchain re-org for the chainlink node (listening to geth1) to
-# deal with.
-reattach_geth2: inject_transaction ensure_geth2_has_heavier_tail
-	docker network connect forks_gethnet forks_geth2_1
-
-# Check logs for geth1 until it's resynchronizing with geth2
-await_geth1_resync: reattach_geth2
-	until docker-compose --compatibility logs geth1 | grep 'Block synchronisation started'; do \
-		sleep 0.5; \
-	done
+inject_transaction: curl_cmd.sh create_job
+	docker exec -it forks_geth_1 bash /root/curl_cmd.sh
 
 # Keep checking until we've verified that one job was completed, and one was
 # uncled.
-search_for_completed_chainlink_jobs: await_geth1_resync
-	# check_count lengthens by 1 roughly each second. Used to track a timeout.
-	check_count=''; \
-	until ( docker-compose --compatibility logs chainlink | grep 'Finished processing task noop' ) ; do \
-		if [ $${#check_count} -gt 120 ]; then \
-			echo 'Timed out waiting for chainlink job to finish'; \
-			exit 1 ; \
-		fi; \
-		check_count=$${check_count}'.'; \
-		sleep 1; \
-	done; \
-	until ( docker-compose --compatibility logs chainlink | grep 'presumably has been uncled' ) ; do \
-		if [ $${#check_count} -gt 120 ]; then \
-			echo 'Timed out waiting for chainlink job to be uncled'; \
-			exit 1 ; \
-		fi; \
-		check_count=$${check_count}'.'; \
-		sleep 1; \
-	done
-	num_complete=`docker-compose --compatibility logs chainlink | grep -c 'All tasks complete for run'`; \
-	if [ $num_complete != "1" ]; then  echo "More than one run completed!"; exit 1; fi
+search_for_completed_chainlink_jobs:
+	./search_for_completed_chainlink_jobs.sh
 
