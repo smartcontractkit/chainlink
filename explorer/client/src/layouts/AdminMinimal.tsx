@@ -10,11 +10,9 @@ const styles = () =>
     },
   })
 
-interface Props extends RouteComponentProps, WithStyles<typeof styles> {
-  children?: any
-}
+interface Props extends RouteComponentProps, WithStyles<typeof styles> {}
 
-export const AdminMinimal = ({ children, classes }: Props) => {
+export const AdminMinimal: React.FC<Props> = ({ children, classes }) => {
   return (
     <Grid
       container
