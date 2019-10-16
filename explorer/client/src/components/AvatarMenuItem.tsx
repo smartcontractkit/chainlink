@@ -30,7 +30,7 @@ interface Props extends WithStyles<typeof styles> {
   onClick: (e: React.MouseEvent) => void
 }
 
-const AvatarMenuItem = ({ classes, onClick, text }: Props) => {
+const AvatarMenuItem: React.FC<Props> = ({ classes, onClick, text }) => {
   return (
     <MenuItem className={classes.menuItem} onClick={onClick}>
       <Typography variant="body1" className={classes.link}>
