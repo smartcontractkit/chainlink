@@ -1,11 +1,11 @@
 import { Server } from 'http'
 import { Connection, getCustomRepository } from 'typeorm'
 import WebSocket from 'ws'
-import { closeDbConnection, getDb } from '../database'
+import { getDb } from '../database'
 import { ChainlinkNode, createChainlinkNode } from '../entity/ChainlinkNode'
 import { JobRun } from '../entity/JobRun'
 import { TaskRun } from '../entity/TaskRun'
-import { DEFAULT_TEST_PORT, start as startServer } from '../support/server'
+import { DEFAULT_TEST_PORT, start, stop } from '../support/server'
 import ethtxFixture from './fixtures/JobRun.ethtx.fixture.json'
 import createFixture from './fixtures/JobRun.fixture.json'
 import updateFixture from './fixtures/JobRunUpdate.fixture.json'
@@ -47,7 +47,7 @@ describe('realtime', () => {
   let secret: string
 
   beforeAll(async () => {
-    server = await startServer()
+    server = await start()
     db = await getDb()
   })
 
@@ -59,7 +59,7 @@ describe('realtime', () => {
     )
   })
 
-  afterAll(async done => Promise.all([server.close(done), closeDbConnection()]))
+  afterAll(async done => stop(server, done))
 
   it('create a job run for valid JSON', async () => {
     expect.assertions(3)

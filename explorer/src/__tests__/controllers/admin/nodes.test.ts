@@ -2,14 +2,14 @@ import request from 'supertest'
 import http from 'http'
 import httpStatus from 'http-status-codes'
 import { Connection } from 'typeorm'
-import { closeDbConnection, getDb } from '../../../database'
+import { getDb } from '../../../database'
 import { clearDb } from '../../testdatabase'
 import { createAdmin } from '../../../support/admin'
 import {
   createChainlinkNode,
   find as findNode,
 } from '../../../entity/ChainlinkNode'
-import { start as testServer } from '../../../support/server'
+import { start, stop } from '../../../support/server'
 import {
   ADMIN_USERNAME_HEADER,
   ADMIN_PASSWORD_HEADER,
@@ -25,14 +25,9 @@ let db: Connection
 
 beforeAll(async () => {
   db = await getDb()
-  server = await testServer()
+  server = await start()
 })
-afterAll(async done => {
-  if (server) {
-    server.close(done)
-    await closeDbConnection()
-  }
-})
+afterAll(async done => stop(server, done))
 beforeEach(async () => {
   await clearDb()
   await createAdmin(db, USERNAME, PASSWORD)
