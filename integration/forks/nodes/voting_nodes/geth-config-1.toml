@@ -71,8 +71,7 @@ MaxPeers = 50
 NoDiscovery = false
 BootstrapNodes = []
 BootstrapNodesV5 = []
-# Fill StaticNodes in with the enode addresses for the other nodes of the private network
-StaticNodes = ["enode://0b9031a46e5af1c9989dd232c5c3bb14f62d6e51ee2a837f5a615d2b605da4b4079c0752bc4e93df1b6a6e882d9bc56a791546b3bf0b0a2e7b402daa1a84b97d@172.16.1.103:30303"]
+StaticNodes = []
 TrustedNodes = []
 ListenAddr = ":30303"
 EnableMsgEvents = false
