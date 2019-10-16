@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -119,21 +118,31 @@ func (jr *JobRun) SetError(err error) {
 	jr.FinishedAt = null.TimeFrom(time.Now())
 }
 
-// ApplyResult updates the JobRun's Result and Status
-func (jr *JobRun) ApplyResult(result RunResult) error {
-	data, err := jr.Result.Data.Merge(result.Data)
-	if err != nil {
-		return err
-	}
-	jr.Result = result
-	jr.Result.Data = data
-	jr.Status = result.Status
+// ApplyOutput updates the JobRun's Result and Status
+func (jr *JobRun) ApplyOutput(result RunOutput) error {
+	jr.Result.Status = result.Status
+	jr.Result.ErrorMessage = result.ErrorMessage
+	jr.Result.Data = result.Data
+	jr.setStatus(result.Status)
+	return nil
+}
+
+// ApplyBridgeRunResult saves the input from a BridgeAdapter
+func (jr *JobRun) ApplyBridgeRunResult(result BridgeRunResult) error {
+	jr.Result.Status = result.Status
+	jr.Result.ErrorMessage = result.ErrorMessage
+	jr.Result.Data = result.Data
+	jr.setStatus(result.Status)
+	return nil
+}
+
+func (jr *JobRun) setStatus(status RunStatus) {
+	jr.Status = status
 	if jr.Status.Completed() && jr.TasksRemain() {
 		jr.Status = RunStatusInProgress
 	} else if jr.Status.Finished() {
 		jr.FinishedAt = null.TimeFrom(time.Now())
 	}
-	return nil
 }
 
 // JobRunsWithStatus filters passed job runs returning those that have
@@ -207,9 +216,19 @@ func (tr *TaskRun) SetError(err error) {
 	tr.Status = tr.Result.Status
 }
 
-// ApplyResult updates the TaskRun's Result and Status
-func (tr *TaskRun) ApplyResult(result RunResult) {
-	tr.Result = result
+// ApplyBridgeRunResult updates the TaskRun's Result and Status
+func (tr *TaskRun) ApplyBridgeRunResult(result BridgeRunResult) {
+	tr.Result.Status = result.Status
+	tr.Result.ErrorMessage = result.ErrorMessage
+	tr.Result.Data = result.Data
+	tr.Status = result.Status
+}
+
+// ApplyOutput updates the TaskRun's Result and Status
+func (tr *TaskRun) ApplyOutput(result RunOutput) {
+	tr.Result.Status = result.Status
+	tr.Result.ErrorMessage = result.ErrorMessage
+	tr.Result.Data = result.Data
 	tr.Status = result.Status
 }
 
@@ -217,30 +236,4 @@ func (tr *TaskRun) ApplyResult(result RunResult) {
 func (tr *TaskRun) MarkPendingConfirmations() {
 	tr.Status = RunStatusPendingConfirmations
 	tr.Result.Status = RunStatusPendingConfirmations
-}
-
-// BridgeRunResult handles the parsing of RunResults from external adapters.
-type BridgeRunResult struct {
-	RunResult
-	ExternalPending bool   `json:"pending"`
-	AccessToken     string `json:"accessToken"`
-}
-
-// UnmarshalJSON parses the given input and updates the BridgeRunResult in the
-// external adapter format.
-func (brr *BridgeRunResult) UnmarshalJSON(input []byte) error {
-	type biAlias BridgeRunResult
-	var anon biAlias
-	err := json.Unmarshal(input, &anon)
-	*brr = BridgeRunResult(anon)
-
-	if brr.Status.Errored() || brr.HasError() {
-		brr.Status = RunStatusErrored
-	} else if brr.ExternalPending || brr.Status.PendingBridge() {
-		brr.Status = RunStatusPendingBridge
-	} else {
-		brr.Status = RunStatusCompleted
-	}
-
-	return err
 }

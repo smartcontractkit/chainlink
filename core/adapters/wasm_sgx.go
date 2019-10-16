@@ -24,16 +24,14 @@ type Wasm struct {
 }
 
 // Perform ships the wasm representation to the SGX enclave where it is evaluated.
-func (wasm *Wasm) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (wasm *Wasm) Perform(input models.RunResult, _ *store.Store) models.RunOutput {
 	adapterJSON, err := json.Marshal(wasm)
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.NewRunOutputError(err)
 	}
 	inputJSON, err := json.Marshal(input)
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.NewRunOutputError(err)
 	}
 
 	cAdapter := C.CString(string(adapterJSON))
@@ -49,15 +47,13 @@ func (wasm *Wasm) Perform(input models.RunResult, _ *store.Store) models.RunResu
 
 	_, err = C.wasm(cAdapter, cInput, output, bufferCapacity, outputLenPtr)
 	if err != nil {
-		input.SetError(fmt.Errorf("SGX wasm: %v", err))
-		return input
+		return models.NewRunOutputError(fmt.Errorf("SGX wasm: %v", err)))
 	}
 
 	sgxResult := C.GoStringN(output, outputLen)
 	var result models.RunResult
 	if err := json.Unmarshal([]byte(sgxResult), &result); err != nil {
-		input.SetError(fmt.Errorf("unmarshaling SGX result: %v", err))
-		return input
+		return models.NewRunOutputError(fmt.Errorf("unmarshaling SGX result: %v", err))
 	}
 
 	return result

@@ -17,7 +17,7 @@ type EthBytes32 struct{}
 // For example, after converting the string "16800.01" to hex encoded Ethereum
 // ABI, it would be:
 // "0x31363830302e3031000000000000000000000000000000000000000000000000"
-func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunOutput {
 	result := input.Result()
 	value := common.RightPadBytes([]byte(result.String()), utils.EVMWordByteLen)
 	hex := utils.RemoveHexPrefix(hexutil.Encode(value))
@@ -26,7 +26,7 @@ func (*EthBytes32) Perform(input models.RunResult, _ *store.Store) models.RunRes
 		hex = hex[:utils.EVMWordHexLen]
 	}
 
-	return models.RunResultComplete(utils.AddHexPrefix(hex))
+	return models.NewRunOutputCompleteWithResult(utils.AddHexPrefix(hex))
 }
 
 // EthInt256 holds no fields
@@ -38,14 +38,13 @@ type EthInt256 struct{}
 // For example, after converting the string "-123.99" to hex encoded Ethereum
 // ABI, it would be:
 // "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff85"
-func (*EthInt256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (*EthInt256) Perform(input models.RunResult, _ *store.Store) models.RunOutput {
 	value, err := utils.EVMTranscodeInt256(input.Result())
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.NewRunOutputError(err)
 	}
 
-	return models.RunResultComplete(hexutil.Encode(value))
+	return models.NewRunOutputCompleteWithResult(hexutil.Encode(value))
 }
 
 // EthUint256 holds no fields.
@@ -57,12 +56,11 @@ type EthUint256 struct{}
 // For example, after converting the string "123.99" to hex encoded Ethereum
 // ABI, it would be:
 // "0x000000000000000000000000000000000000000000000000000000000000007b"
-func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (*EthUint256) Perform(input models.RunResult, _ *store.Store) models.RunOutput {
 	value, err := utils.EVMTranscodeUint256(input.Result())
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.NewRunOutputError(err)
 	}
 
-	return models.RunResultComplete(hexutil.Encode(value))
+	return models.NewRunOutputCompleteWithResult(hexutil.Encode(value))
 }

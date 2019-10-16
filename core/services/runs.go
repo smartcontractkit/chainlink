@@ -235,7 +235,7 @@ func ResumeConnectingTask(
 func ResumePendingTask(
 	run *models.JobRun,
 	store *store.Store,
-	input models.RunResult,
+	input models.BridgeRunResult,
 ) error {
 	logger.Debugw("External adapter resuming job", []interface{}{
 		"run", run.ID.String(),
@@ -256,8 +256,8 @@ func ResumePendingTask(
 
 	run.Overrides.Merge(input.Data)
 
-	currentTaskRun.ApplyResult(input)
-	run.ApplyResult(input)
+	currentTaskRun.ApplyBridgeRunResult(input)
+	run.ApplyBridgeRunResult(input)
 
 	return updateAndTrigger(run, store)
 }

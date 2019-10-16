@@ -30,15 +30,15 @@ type JSONParse struct {
 //   }
 //
 // Then ["0","last"] would be the path, and "111" would be the returned value
-func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.RunOutput {
 	val, err := input.ResultString()
 	if err != nil {
-		return models.RunResultError(err)
+		return models.NewRunOutputError(err)
 	}
 
 	js, err := simplejson.NewJson([]byte(val))
 	if err != nil {
-		return models.RunResultError(err)
+		return models.NewRunOutputError(err)
 	}
 
 	last, err := dig(js, jpa.Path)
@@ -46,7 +46,7 @@ func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.Run
 		return moldErrorOutput(js, jpa.Path, input)
 	}
 
-	return models.RunResultComplete(last.Interface())
+	return models.NewRunOutputCompleteWithResult(last.Interface())
 }
 
 func dig(js *simplejson.Json, path []string) (*simplejson.Json, error) {
@@ -66,11 +66,11 @@ func dig(js *simplejson.Json, path []string) (*simplejson.Json, error) {
 
 // only error if any keys prior to the last one in the path are nonexistent.
 // i.e. Path = ["errorIfNonExistent", "nullIfNonExistent"]
-func moldErrorOutput(js *simplejson.Json, path []string, input models.RunResult) models.RunResult {
+func moldErrorOutput(js *simplejson.Json, path []string, input models.RunResult) models.RunOutput {
 	if _, err := getEarlyPath(js, path); err != nil {
-		return models.RunResultError(err)
+		return models.NewRunOutputError(err)
 	}
-	return models.RunResultComplete(nil)
+	return models.NewRunOutputCompleteWithResult(nil)
 }
 
 func getEarlyPath(js *simplejson.Json, path []string) (*simplejson.Json, error) {

@@ -882,8 +882,6 @@ func TestCompareError_Perform(t *testing.T) {
 			input := cltest.RunResultWithResult(test.input)
 			adapter := test.adapter
 			result := adapter.Perform(input, nil)
-			_, err := result.ResultString()
-			assert.NoError(t, err)
 			assert.Equal(t, test.expected, result.GetError())
 		})
 	}

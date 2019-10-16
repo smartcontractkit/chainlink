@@ -25,27 +25,26 @@ type Bridge struct {
 //
 // If the Perform is resumed with a pending RunResult, the RunResult is marked
 // not pending and the RunResult is returned.
-func (ba *Bridge) Perform(input models.RunResult, store *store.Store) models.RunResult {
+func (ba *Bridge) Perform(input models.RunResult, store *store.Store) models.RunOutput {
 	if input.Status.Finished() {
-		return input
+		return models.RunOutput{
+			Data:         input.Data,
+			Status:       input.Status,
+			ErrorMessage: input.ErrorMessage,
+		}
 	} else if input.Status.PendingBridge() {
-		return resumeBridge(input)
+		return models.NewRunOutputInProgress()
 	}
 	return ba.handleNewRun(input, store.Config.BridgeResponseURL())
 }
 
-func resumeBridge(input models.RunResult) models.RunResult {
-	input.Status = models.RunStatusInProgress
-	return input
-}
-
-func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL *url.URL) models.RunResult {
+func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL *url.URL) models.RunOutput {
 	if ba.Params == nil {
 		ba.Params = new(models.JSON)
 	}
 	var err error
 	if input.Data, err = input.Data.Merge(*ba.Params); err != nil {
-		return models.RunResultError(baRunResultError("handling data param", err))
+		return models.NewRunOutputError(baRunResultError("handling data param", err))
 	}
 
 	responseURL := bridgeResponseURL
@@ -55,33 +54,34 @@ func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL *url.UR
 
 	body, err := ba.postToExternalAdapter(input, responseURL)
 	if err != nil {
-		return models.RunResultError(baRunResultError("post to external adapter", err))
+		return models.NewRunOutputError(baRunResultError("post to external adapter", err))
 	}
 
 	return responseToRunResult(body, input)
 }
 
-func responseToRunResult(body []byte, input models.RunResult) models.RunResult {
-	var output models.RunResult
-
+func responseToRunResult(body []byte, input models.RunResult) models.RunOutput {
 	var brr models.BridgeRunResult
 	err := json.Unmarshal(body, &brr)
 	if err != nil {
-		return models.RunResultError(baRunResultError("unmarshaling JSON", err))
-	} else if brr.HasError() {
-		return brr.RunResult
+		return models.NewRunOutputError(baRunResultError("unmarshaling JSON", err))
 	}
 
-	if brr.RunResult.Data.Exists() && !brr.RunResult.Data.IsObject() {
-		output.CompleteWithResult(brr.RunResult.Data.String())
+	status := brr.Status
+	// FIXME: This code is bizarre to me, what is the intention? It looks like it
+	// has a bunch of edge cases...
+	var data models.JSON
+	if brr.Data.Exists() && !brr.Data.IsObject() {
+		data, _ = data.Add("result", brr.Data.String())
+		status = models.RunStatusCompleted
 	}
+	data, _ = data.Merge(brr.Data)
 
-	err = output.Merge(brr.RunResult)
-	if err != nil {
-		output.SetError(err)
+	return models.RunOutput{
+		Status:       status,
+		ErrorMessage: brr.ErrorMessage,
+		Data:         data,
 	}
-
-	return output
 }
 
 func (ba *Bridge) postToExternalAdapter(input models.RunResult, bridgeResponseURL *url.URL) ([]byte, error) {

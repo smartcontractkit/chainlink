@@ -287,7 +287,7 @@ func TestJobSubscriber_OnNewHead_ResumePendingConfirmationsAndPendingConnections
 			require.NoError(t, store.CreateJob(&job))
 			initr := job.Initiators[0]
 			run := job.NewRun(initr)
-			run.ApplyResult(models.RunResult{Status: test.status})
+			run.Status = test.status
 			require.NoError(t, store.CreateJobRun(&run))
 
 			if test.archived {
