@@ -197,8 +197,15 @@ export function decodeRunABI(
   return decodedValue
 }
 
-export const decodeDietCBOR = (data: Buffer) => {
-  return cbor.decodeFirstSync(addCBORMapDelimiters(data))
+/**
+ * Decodes a CBOR hex string, and adds opening and closing brackets to the CBOR if they are not present.
+ *
+ * @param hexstr The hex string to decode
+ */
+export function decodeDietCBOR(hexstr: string) {
+  const buf = hexToBuf(hexstr)
+
+  return cbor.decodeFirstSync(addCBORMapDelimiters(buf))
 }
 
 export interface RunRequest {
@@ -336,4 +343,12 @@ export async function increaseTime5Minutes(
   provider: ethers.providers.JsonRpcProvider,
 ): Promise<void> {
   await provider.send('evm_increaseTime', [300])
+}
+
+/**
+ * Convert a buffer to a hex string
+ * @param hexstr The hex string to convert to a buffer
+ */
+export function hexToBuf(hexstr: string): Buffer {
+  return Buffer.from(stripHexPrefix(hexstr), 'hex')
 }
