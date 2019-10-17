@@ -1,5 +1,5 @@
 import React from 'react'
-import { connect } from 'react-redux'
+import { connect, MapStateToProps } from 'react-redux'
 import Hidden from '@material-ui/core/Hidden'
 import Grid from '@material-ui/core/Grid'
 import {
@@ -12,7 +12,7 @@ import Header from '../components/Header'
 import { PublicLogo } from '../components/Logos/Public'
 import SearchForm from '../components/SearchForm'
 import SearchBox from '../components/SearchBox'
-import { State } from '../reducers'
+import { State as AppState } from '../reducers'
 
 const STACKED_LOGO_HEIGHT = 40
 
@@ -37,9 +37,22 @@ const styles = (theme: Theme) =>
     },
   })
 
-interface Props extends WithStyles<typeof styles> {
+/* eslint-disable-next-line @typescript-eslint/no-empty-interface */
+interface OwnProps {}
+
+interface StateProps {
+  search?: string
+}
+
+interface DispatchProps {
   onResize: React.ComponentPropsWithoutRef<typeof Header>['onResize']
 }
+
+interface Props
+  extends StateProps,
+    DispatchProps,
+    OwnProps,
+    WithStyles<typeof styles> {}
 
 const SearchHeader: React.FC<Props> = ({ classes, onResize }) => {
   return (
@@ -76,7 +89,11 @@ const SearchHeader: React.FC<Props> = ({ classes, onResize }) => {
   )
 }
 
-const mapStateToProps = (state: State) => {
+const mapStateToProps: MapStateToProps<
+  StateProps,
+  OwnProps,
+  AppState
+> = state => {
   return {
     search: state.search.query,
   }

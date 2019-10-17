@@ -1,5 +1,5 @@
 import React from 'react'
-import { connect } from 'react-redux'
+import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { RouteComponentProps } from '@reach/router'
 import {
   createStyles,
@@ -13,7 +13,7 @@ import Header from '../../components/Header'
 import AvatarMenu from '../../components/AvatarMenu'
 import AvatarMenuItem from '../../components/AvatarMenuItem'
 import { signOut } from '../../actions/adminAuth'
-import { State } from '../../reducers'
+import { State as AppState } from '../../reducers'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -66,14 +66,21 @@ export const AdminHeader: React.FC<Props> = ({
     </Header>
   )
 }
-function mapStateToProps(state: State): StateProps {
+
+const mapStateToProps: MapStateToProps<
+  StateProps,
+  OwnProps,
+  AppState
+> = state => {
   return {
     authenticated: state.adminAuth.allowed,
     errors: state.notifications.errors,
   }
 }
 
-const mapDispatchToProps = { signOut }
+const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
+  signOut,
+}
 
 const ConnectedAdminHeader = connect(
   mapStateToProps,
