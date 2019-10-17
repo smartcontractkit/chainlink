@@ -45,10 +45,17 @@ async function initiateServiceAgreement({
   normalizedRequest,
   oracleSignature,
 }: Args) {
+  const d = _d.extend('main')
   const provider = createProvider()
   const signer = provider.getSigner(DEVNET_ADDRESS)
   const coordinatorFactory = new CoordinatorFactory(signer)
   const coordinator = coordinatorFactory.attach(coordinatorAddress)
+  const coordinatorStaticfactory = new ethers.ContractFactory(
+    coordinatorFactory.interface.abi.map(a => ({ ...a, constant: true })),
+    coordinatorFactory.bytecode,
+    signer,
+  )
+  const coordinatorStatic = coordinatorStaticfactory.attach(coordinatorAddress)
 
   type CoordinatorParams = Parameters<Coordinator['initiateServiceAgreement']>
   type ServiceAgreement = CoordinatorParams[0]
@@ -103,8 +110,6 @@ async function initiateServiceAgreement({
   console.log('apparent address', ethers.utils.recoverAddress(said, oracleSignature))
   console.log('actual address', agreement.oracles)
 
-  throw Error('foo')
-
   try {
     provider.on(
       { topics: [ ethers.utils.id('SignatureCheck(address,address)')] },
@@ -115,6 +120,14 @@ async function initiateServiceAgreement({
     throw e
   }
   console.log('provider.on worked')
+
+  // make static call here
+  const callVal = await coordinatorStatic.initiateServiceAgreement(
+    agreement,
+    oracleSignatures,
+  )
+  d('call value of coordinatorStatic.initiateServiceAgreement: %o', callVal)
+
   const tx = await coordinator.initiateServiceAgreement(
     agreement,
     oracleSignatures,
