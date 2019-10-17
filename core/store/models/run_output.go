@@ -84,12 +84,12 @@ func NewRunOutputPendingConnectionWithData(data JSON) RunOutput {
 	}
 }
 
-// FIXME: This seems a bit nonsensical but is used by the BridgeAdapter?
 // NewRunOutputPendingConnection returns a new RunOutput that indicates the
 // task is still in progress
-func NewRunOutputInProgress() RunOutput {
+func NewRunOutputInProgress(data JSON) RunOutput {
 	return RunOutput{
 		Status: RunStatusInProgress,
+		Data:   data,
 	}
 }
 
