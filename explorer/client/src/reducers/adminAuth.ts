@@ -9,16 +9,13 @@ export type Action =
   | { type: 'ADMIN_SIGNIN_FAILED' }
   | { type: 'ADMIN_SIGNIN_ERROR' }
   | { type: 'ADMIN_SIGNOUT_SUCCEEDED' }
-  | { type: '@@redux/INIT' }
-  | { type: '@@INIT' }
 
-const INITIAL_STATE: State = { allowed: false }
+const INITIAL_STATE: State = {
+  allowed: authenticationStorage.get('adminAllowed') || false,
+}
 
 export default (state: State = INITIAL_STATE, action: Action) => {
   switch (action.type) {
-    case '@@redux/INIT':
-    case '@@INIT':
-      return { allowed: authenticationStorage.get('adminAllowed') }
     case 'ADMIN_SIGNIN_SUCCEEDED':
       authenticationStorage.set('adminAllowed', true)
       return { allowed: true }
