@@ -72,6 +72,14 @@ const NODE_NAMES = [
   {
     address: '0x64FE692be4b42F4Ac9d4617aB824E088350C11C2',
     name: 'Ztake.org'
+  },
+  {
+    address: '0x260A96cEC05328f678754D1ACF143C8ac1DF079A',
+    name: 'HashQuark'
+  },
+  {
+    address: '0x38b6ab6B9294CCe1Ccb59c3e7D390690B4c18B1A',
+    name: 'Prophet'
   }
 ]
 
