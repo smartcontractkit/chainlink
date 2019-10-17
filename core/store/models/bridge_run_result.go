@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"errors"
 
 	null "gopkg.in/guregu/null.v3"
 )
@@ -35,6 +36,14 @@ func (brr *BridgeRunResult) UnmarshalJSON(input []byte) error {
 }
 
 // HasError returns true if the status is errored or the error message is set
-func (brr *BridgeRunResult) HasError() bool {
+func (brr BridgeRunResult) HasError() bool {
 	return brr.Status == RunStatusErrored || brr.ErrorMessage.Valid
+}
+
+// GetError returns the error of a BridgeRunResult if it is present.
+func (brr BridgeRunResult) GetError() error {
+	if brr.HasError() {
+		return errors.New(brr.ErrorMessage.ValueOrZero())
+	}
+	return nil
 }

@@ -68,21 +68,18 @@ func responseToRunResult(body []byte, input models.RunInput) models.RunOutput {
 		return models.NewRunOutputError(baRunResultError("unmarshaling JSON", err))
 	}
 
-	status := brr.Status
-	// FIXME: This code is bizarre to me, what is the intention? It looks like it
-	// has a bunch of edge cases...
+	if brr.HasError() {
+		return models.NewRunOutputError(brr.GetError())
+	}
+
 	var data models.JSON
 	if brr.Data.Exists() && !brr.Data.IsObject() {
 		data, _ = data.Add("result", brr.Data.String())
-		status = models.RunStatusCompleted
+	} else {
+		data = brr.Data
 	}
-	data, _ = data.Merge(brr.Data)
 
-	return models.RunOutput{
-		Status:       status,
-		ErrorMessage: brr.ErrorMessage,
-		Data:         data,
-	}
+	return models.NewRunOutputComplete(data)
 }
 
 func (ba *Bridge) postToExternalAdapter(input models.RunInput, bridgeResponseURL *url.URL) ([]byte, error) {
