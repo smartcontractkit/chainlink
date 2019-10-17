@@ -31,10 +31,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
 	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
 
-	input := models.RunInput{
-		Data:   cltest.JSONFromString(t, `{"result":"100"}`),
-		Status: models.RunStatusUnstarted,
-	}
+	input := models.RunInput{Data: cltest.JSONFromString(t, `{"result":"100"}`)}
 	ba.Perform(input, store)
 
 	assert.Equal(t, `{"bodyParam":true,"result":"100"}`, data)
@@ -56,8 +53,7 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
 
 	input := models.RunInput{
-		Data:   cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`),
-		Status: models.RunStatusUnstarted,
+		Data: cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`),
 	}
 	result := ba.Perform(input, store)
 	assert.NoError(t, result.GetError())
