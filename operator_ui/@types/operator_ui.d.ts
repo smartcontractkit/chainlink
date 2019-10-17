@@ -1,5 +1,3 @@
-/* eslint @typescript-eslint/no-empty-interface: 'off' */
-
 import { adapterTypes, status } from './constants'
 import * as dbTypes from './db'
 

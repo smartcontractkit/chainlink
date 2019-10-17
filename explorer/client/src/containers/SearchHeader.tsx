@@ -37,7 +37,6 @@ const styles = (theme: Theme) =>
     },
   })
 
-/* eslint-disable-next-line @typescript-eslint/no-empty-interface */
 interface OwnProps {}
 
 interface StateProps {

@@ -5,7 +5,6 @@ import { SignIn as SignInForm } from '../../components/Forms/SignIn'
 import { signIn } from '../../actions/adminAuth'
 import { State as AppState } from '../../reducers'
 
-/* eslint-disable-next-line @typescript-eslint/no-empty-interface */
 interface OwnProps {}
 
 interface StateProps {

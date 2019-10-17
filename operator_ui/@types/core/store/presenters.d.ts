@@ -1,5 +1,3 @@
-/* eslint @typescript-eslint/no-empty-interface: 'off' */
-
 declare module 'core/store/presenters' {
   import * as assets from 'core/store/assets'
   import * as models from 'core/store/models'
