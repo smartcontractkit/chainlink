@@ -7,6 +7,7 @@ import {
 } from '@material-ui/core/styles'
 import MuiButton, {
   ButtonProps as MuiButtonProps,
+  ButtonProps,
 } from '@material-ui/core/Button'
 import classNames from 'classnames'
 
@@ -51,23 +52,10 @@ const styles = ({ palette }: Theme) =>
     },
   })
 
-// Unfortunately @material-ui/core does not export the type so we have to redefine it.
-type MuiButtonVariant =
-  | 'text'
-  | 'flat'
-  | 'outlined'
-  | 'contained'
-  | 'raised'
-  | 'fab'
-  | 'extendedFab'
-  | undefined
+type MuiButtonVariant = ButtonProps['variant']
+type CustomVariants = 'primary' | 'secondary' | 'danger' | 'default'
 
-export type ButtonVariant =
-  | MuiButtonVariant
-  | 'primary'
-  | 'secondary'
-  | 'danger'
-  | 'default'
+export type ButtonVariant = MuiButtonVariant | CustomVariants
 
 const muiProps = (variant: ButtonVariant, classes: any): MuiButtonProps => {
   switch (variant) {
