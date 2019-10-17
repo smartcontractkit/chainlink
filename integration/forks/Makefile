@@ -45,7 +45,7 @@ run_chain_1:
 # Runs the 2nd chain, which eventually out-grows the first chain and uncles the ethlog contract
 run_chain_2:
 	@echo "\nSTARTING CHAIN 2"
-	# 2nd chain should be younger that first, and so chainlink won't immediately save new heads
+	# 2nd chain should be younger than first, and so chainlink won't immediately save new heads
 	bash scripts/search_chainlink_logs.sh 'Cannot save new head confirmation'
 	# when 2nd chain gets longer, chainlink resumes saving heads
 	bash scripts/search_chainlink_logs.sh 'New head resuming run'
