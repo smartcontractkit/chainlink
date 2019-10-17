@@ -44,11 +44,6 @@ func TestRunResult_WithError(t *testing.T) {
 	t.Parallel()
 
 	rr := models.RunResult{}
-
-	assert.Equal(t, models.RunStatusUnstarted, rr.Status)
-
 	rr.SetError(errors.New("this blew up"))
-
-	assert.Equal(t, models.RunStatusErrored, rr.Status)
 	assert.Equal(t, cltest.NullString("this blew up"), rr.ErrorMessage)
 }

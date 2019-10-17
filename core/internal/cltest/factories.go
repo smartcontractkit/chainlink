@@ -449,7 +449,6 @@ func RunInputWithResult(val interface{}) models.RunInput {
 // RunResultWithError creates a runresult with given error
 func RunResultWithError(err error) models.RunResult {
 	return models.RunResult{
-		Status:       models.RunStatusErrored,
 		ErrorMessage: null.StringFrom(err.Error()),
 	}
 }
@@ -457,9 +456,7 @@ func RunResultWithError(err error) models.RunResult {
 // MarkJobRunPendingBridge marks the jobrun as Pending Bridge Status
 func MarkJobRunPendingBridge(jr models.JobRun, i int) models.JobRun {
 	jr.Status = models.RunStatusPendingBridge
-	jr.Result.Status = models.RunStatusPendingBridge
 	jr.TaskRuns[i].Status = models.RunStatusPendingBridge
-	jr.TaskRuns[i].Result.Status = models.RunStatusPendingBridge
 	return jr
 }
 

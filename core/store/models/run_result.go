@@ -13,14 +13,12 @@ import (
 type RunResult struct {
 	ID           uint        `json:"-" gorm:"primary_key;auto_increment"`
 	Data         JSON        `json:"data" gorm:"type:text"`
-	Status       RunStatus   `json:"status"`
 	ErrorMessage null.String `json:"error"`
 }
 
 // SetError marks the result as errored and saves the specified error message
 func (rr *RunResult) SetError(err error) {
 	rr.ErrorMessage = null.StringFrom(err.Error())
-	rr.Status = RunStatusErrored
 }
 
 // ResultString returns the string result of the Data JSON field.

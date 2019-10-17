@@ -301,7 +301,7 @@ func TestResumePendingTask(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 2)
-	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Result.Status))
+	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Status))
 
 	// completed input with no remaining tasks should get marked as complete
 	run = &models.JobRun{
@@ -315,7 +315,7 @@ func TestResumePendingTask(t *testing.T) {
 	assert.Equal(t, string(models.RunStatusCompleted), string(run.Status))
 	assert.True(t, run.FinishedAt.Valid)
 	assert.Len(t, run.TaskRuns, 1)
-	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Result.Status))
+	assert.Equal(t, string(models.RunStatusCompleted), string(run.TaskRuns[0].Status))
 }
 
 func TestResumeConfirmingTask(t *testing.T) {
