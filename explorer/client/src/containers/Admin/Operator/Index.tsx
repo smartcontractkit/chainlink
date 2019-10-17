@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { connect } from 'react-redux'
+import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { RouteComponentProps } from '@reach/router'
 import {
   createStyles,
@@ -75,13 +75,19 @@ export const Index: React.FC<Props> = ({ classes, fetchOperators }) => {
   )
 }
 
-function mapStateToProps(state: AppState): StateProps {
+const mapStateToProps: MapStateToProps<
+  StateProps,
+  OwnProps,
+  AppState
+> = state => {
   return {
     authenticated: state.adminAuth.allowed,
   }
 }
 
-const mapDispatchToProps = { fetchOperators }
+const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
+  fetchOperators,
+}
 
 export const ConnectedIndex = connect(
   mapStateToProps,

@@ -1,9 +1,9 @@
 import React from 'react'
-import { connect } from 'react-redux'
+import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { Redirect, RouteComponentProps } from '@reach/router'
 import { SignIn as SignInForm } from '../../components/Forms/SignIn'
 import { signIn } from '../../actions/adminAuth'
-import { State } from '../../reducers'
+import { State as AppState } from '../../reducers'
 
 /* eslint-disable-next-line @typescript-eslint/no-empty-interface */
 interface OwnProps {}
@@ -31,14 +31,20 @@ export const SignIn: React.FC<Props> = ({ authenticated, errors, signIn }) => {
   )
 }
 
-function mapStateToProps(state: State): StateProps {
+const mapStateToProps: MapStateToProps<
+  StateProps,
+  OwnProps,
+  AppState
+> = state => {
   return {
     authenticated: state.adminAuth.allowed,
     errors: state.notifications.errors,
   }
 }
 
-const mapDispatchToProps = { signIn }
+const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
+  signIn,
+}
 
 export const ConnectedSignIn = connect(
   mapStateToProps,
