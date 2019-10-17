@@ -3,14 +3,12 @@ import { RouteComponentProps, Redirect } from '@reach/router'
 import { connect, MapStateToProps } from 'react-redux'
 import { State as AppState } from '../../reducers'
 
-/* eslint-disable-next-line @typescript-eslint/no-empty-interface */
 interface OwnProps {}
 
 interface StateProps {
   authenticated: boolean
 }
 
-/* eslint-disable-next-line @typescript-eslint/no-empty-interface */
 interface DispatchProps {}
 
 interface Props
