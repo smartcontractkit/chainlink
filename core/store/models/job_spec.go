@@ -135,7 +135,7 @@ func (j JobSpec) NewRun(i Initiator) JobRun {
 			ID:       trid,
 			JobRunID: jrid,
 			TaskSpec: task,
-			Result:   RunResult{CachedTaskRunID: trid, CachedJobRunID: jrid},
+			Result:   RunResult{},
 		}
 	}
 
@@ -151,7 +151,7 @@ func (j JobSpec) NewRun(i Initiator) JobRun {
 		Initiator:   i,
 		InitiatorID: i.ID,
 		Status:      RunStatusUnstarted,
-		Result:      RunResult{CachedJobRunID: jrid},
+		Result:      RunResult{},
 	}
 }
 
