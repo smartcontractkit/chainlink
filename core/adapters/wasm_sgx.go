@@ -24,7 +24,7 @@ type Wasm struct {
 }
 
 // Perform ships the wasm representation to the SGX enclave where it is evaluated.
-func (wasm *Wasm) Perform(input models.RunResult, _ *store.Store) models.RunOutput {
+func (wasm *Wasm) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
 	adapterJSON, err := json.Marshal(wasm)
 	if err != nil {
 		return models.NewRunOutputError(err)

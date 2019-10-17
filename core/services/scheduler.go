@@ -129,7 +129,7 @@ func (r *Recurring) AddJob(job models.JobSpec) {
 					archived = true
 					return
 				}
-				_, err := ExecuteJob(job, initr, models.RunResult{}, nil, r.store)
+				_, err := ExecuteJob(job, initr, models.RunInput{}, nil, r.store)
 				if err != nil && !expectedRecurringScheduleJobError(err) {
 					logger.Errorw(err.Error())
 				}
@@ -180,7 +180,7 @@ func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
 			logger.Error(err.Error())
 			return
 		}
-		_, err := ExecuteJob(job, initr, models.RunResult{}, nil, ot.Store)
+		_, err := ExecuteJob(job, initr, models.RunInput{}, nil, ot.Store)
 		if err != nil {
 			logger.Error(err.Error())
 			if err := ot.Store.MarkRan(&initr, false); err != nil {

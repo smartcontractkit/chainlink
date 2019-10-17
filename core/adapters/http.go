@@ -28,7 +28,7 @@ type HTTPGet struct {
 
 // Perform ensures that the adapter's URL responds to a GET request without
 // errors and returns the response body as the "value" field of the result.
-func (hga *HTTPGet) Perform(input models.RunResult, store *store.Store) models.RunOutput {
+func (hga *HTTPGet) Perform(input models.RunInput, store *store.Store) models.RunOutput {
 	request, err := hga.GetRequest()
 	if err != nil {
 		return models.NewRunOutputError(err)
@@ -68,7 +68,7 @@ type HTTPPost struct {
 
 // Perform ensures that the adapter's URL responds to a POST request without
 // errors and returns the response body as the "value" field of the result.
-func (hpa *HTTPPost) Perform(input models.RunResult, store *store.Store) models.RunOutput {
+func (hpa *HTTPPost) Perform(input models.RunInput, store *store.Store) models.RunOutput {
 	request, err := hpa.GetRequest(input.Data.String())
 	if err != nil {
 		return models.NewRunOutputError(err)
@@ -132,7 +132,7 @@ func setHeaders(request *http.Request, headers http.Header, contentType string) 
 	}
 }
 
-func sendRequest(input models.RunResult, request *http.Request, limit int64) models.RunOutput {
+func sendRequest(input models.RunInput, request *http.Request, limit int64) models.RunOutput {
 	tr := &http.Transport{
 		DisableCompression: true,
 	}

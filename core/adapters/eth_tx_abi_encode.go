@@ -63,7 +63,7 @@ func (etx *EthTxABIEncode) UnmarshalJSON(data []byte) error {
 // Perform creates the run result for the transaction if the existing run result
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
-func (etx *EthTxABIEncode) Perform(input models.RunResult, store *strpkg.Store) models.RunOutput {
+func (etx *EthTxABIEncode) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
 	if !store.TxManager.Connected() {
 		return models.NewRunOutputPendingConnection()
 	}
@@ -80,8 +80,8 @@ func (etx *EthTxABIEncode) Perform(input models.RunResult, store *strpkg.Store) 
 
 // abiEncode ABI-encodes the arguments passed in a RunResult's result field
 // according to etx.FunctionABI
-func (etx *EthTxABIEncode) abiEncode(runResult *models.RunResult) ([]byte, error) {
-	args, ok := runResult.Get("result").Value().(map[string]interface{})
+func (etx *EthTxABIEncode) abiEncode(runResult *models.RunInput) ([]byte, error) {
+	args, ok := runResult.Data.Get("result").Value().(map[string]interface{})
 	if !ok {
 		return nil, errors.Errorf("json result is not an object")
 	}

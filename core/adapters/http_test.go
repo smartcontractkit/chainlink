@@ -31,7 +31,7 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := test.adapter.Perform(models.RunResult{}, store)
+			result := test.adapter.Perform(models.RunInput{}, store)
 			assert.Equal(t, models.JSON{}, result.Data)
 			assert.True(t, result.HasError())
 		})
@@ -70,7 +70,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			input := cltest.RunResultWithResult("inputValue")
+			input := cltest.RunInputWithResult("inputValue")
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "GET", test.response,
 				func(header http.Header, body string) {
 					assert.Equal(t, ``, body)
@@ -114,7 +114,7 @@ func TestHTTP_TooLarge(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.verb, func(t *testing.T) {
-			input := cltest.RunResultWithResult("inputValue")
+			input := cltest.RunInputWithResult("inputValue")
 			largePayload := "12"
 			mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, test.verb, largePayload)
 			defer cleanup()
@@ -250,7 +250,7 @@ func TestHttpPost_Perform(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			input := cltest.RunResultWithResult("inputVal")
+			input := cltest.RunInputWithResult("inputVal")
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
 				func(header http.Header, body string) {
 					assert.Equal(t, test.wantBody, body)

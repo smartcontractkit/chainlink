@@ -25,7 +25,7 @@ var (
 
 // Perform uses the Operator to check the run's result against the
 // specified Value.
-func (c *Compare) Perform(input models.RunResult, _ *store.Store) models.RunOutput {
+func (c *Compare) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
 	prevResult := input.Result()
 
 	if c.Value == "" {

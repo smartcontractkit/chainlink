@@ -49,7 +49,7 @@ var (
 // BaseAdapter is the minimum interface required to create an adapter. Only core
 // adapters have this minimum requirement.
 type BaseAdapter interface {
-	Perform(models.RunResult, *store.Store) models.RunOutput
+	Perform(models.RunInput, *store.Store) models.RunOutput
 }
 
 // PipelineAdapter wraps a BaseAdapter with requirements for execution in the pipeline.

@@ -30,7 +30,7 @@ type JSONParse struct {
 //   }
 //
 // Then ["0","last"] would be the path, and "111" would be the returned value
-func (jpa *JSONParse) Perform(input models.RunResult, _ *store.Store) models.RunOutput {
+func (jpa *JSONParse) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
 	val, err := input.ResultString()
 	if err != nil {
 		return models.NewRunOutputError(err)
@@ -66,7 +66,7 @@ func dig(js *simplejson.Json, path []string) (*simplejson.Json, error) {
 
 // only error if any keys prior to the last one in the path are nonexistent.
 // i.e. Path = ["errorIfNonExistent", "nullIfNonExistent"]
-func moldErrorOutput(js *simplejson.Json, path []string, input models.RunResult) models.RunOutput {
+func moldErrorOutput(js *simplejson.Json, path []string, input models.RunInput) models.RunOutput {
 	if _, err := getEarlyPath(js, path); err != nil {
 		return models.NewRunOutputError(err)
 	}

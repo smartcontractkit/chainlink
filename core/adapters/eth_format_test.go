@@ -34,7 +34,7 @@ func TestEthBytes32_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			past := models.RunResult{
+			past := models.RunInput{
 				Data: cltest.JSONFromString(t, test.json),
 			}
 			adapter := adapters.EthBytes32{}
@@ -78,7 +78,7 @@ func TestEthInt256_Perform(t *testing.T) {
 	adapter := adapters.EthInt256{}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			input := models.RunResult{
+			input := models.RunInput{
 				Data: cltest.JSONFromString(t, test.json),
 			}
 			result := adapter.Perform(input, nil)
@@ -124,7 +124,7 @@ func TestEthUint256_Perform(t *testing.T) {
 	adapter := adapters.EthUint256{}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			input := models.RunResult{
+			input := models.RunInput{
 				Data: cltest.JSONFromString(t, test.json),
 			}
 			result := adapter.Perform(input, nil)

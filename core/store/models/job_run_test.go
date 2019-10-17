@@ -46,7 +46,7 @@ func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
 
 	jr := job.NewRun(initr)
 	data := `{"result":"11850.00"}`
-	jr.Result = cltest.RunResultWithData(data)
+	jr.Result = models.RunResult{Data: cltest.JSONFromString(t, data)}
 	err = store.CreateJobRun(&jr)
 	assert.NoError(t, err)
 
@@ -109,7 +109,7 @@ func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
 
 	jr := job.NewRun(initr)
 	data := `{"result":"921.02"}`
-	jr.Result = cltest.RunResultWithData(data)
+	jr.Result = models.RunResult{Data: cltest.JSONFromString(t, data)}
 	err = store.CreateJobRun(&jr)
 	assert.NoError(t, err)
 
@@ -133,7 +133,7 @@ func TestForLogger(t *testing.T) {
 	jr.JobSpecID = job.ID
 	linkReward := assets.NewLink(5)
 
-	jr.Result = cltest.RunResultWithData(`{"result":"11850.00"}`)
+	jr.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result":"11850.00"}`)}
 	jr.Payment = linkReward
 	logsBeforeCompletion := jr.ForLogger()
 	require.Len(t, logsBeforeCompletion, 6)

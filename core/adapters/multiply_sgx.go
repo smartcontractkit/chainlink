@@ -46,7 +46,7 @@ type Multiply struct {
 //
 // For example, if input value is "99.994" and the adapter's "times" is
 // set to "100", the result's value will be "9999.4".
-func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunOutput {
+func (ma *Multiply) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
 	adapterJSON, err := json.Marshal(ma)
 	if err != nil {
 		return models.NewRunOutputError(err)
