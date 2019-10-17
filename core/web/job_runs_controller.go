@@ -123,7 +123,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if !jr.Result.Status.PendingBridge() {
+	} else if !jr.Status.PendingBridge() {
 		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("Cannot resume a job run that isn't pending"))
 	} else if err := c.ShouldBindJSON(&brr); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
