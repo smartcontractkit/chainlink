@@ -17,11 +17,6 @@ const mapStateToProps = (state: State) => {
   }
 }
 
-const mapDispatchToProps = () => ({})
+const ConnectedPrivate = connect(mapStateToProps)(Private)
 
-const ConnectedSearchHeader = connect(
-  mapStateToProps,
-  mapDispatchToProps,
-)(Private)
-
-export default ConnectedSearchHeader
+export default ConnectedPrivate
