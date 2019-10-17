@@ -10,9 +10,8 @@ import (
 )
 
 func TestRandom_Perform(t *testing.T) {
-	input := models.RunResult{}
 	adapter := adapters.Random{}
-	result := adapter.Perform(input, nil)
+	result := adapter.Perform(models.RunInput{}, nil)
 	val, err := result.ResultString()
 	assert.NoError(t, err)
 	assert.NoError(t, result.GetError())

@@ -158,11 +158,12 @@ func ReceiveLogRequest(store *strpkg.Store, le models.LogRequest) {
 }
 
 func runJob(store *strpkg.Store, le models.LogRequest, data models.JSON) {
-	input := models.RunResult{Data: data}
+	input := models.RunInput{Data: data}
 	if err := le.ValidateRequester(); err != nil {
 		input.SetError(err)
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
+
 	rr, err := le.RunRequest()
 	if err != nil {
 		input.SetError(err)

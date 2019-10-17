@@ -19,7 +19,7 @@ import (
 func ExecuteJob(
 	job models.JobSpec,
 	initiator models.Initiator,
-	input models.RunResult,
+	input models.RunInput,
 	creationHeight *big.Int,
 	store *store.Store) (*models.JobRun, error) {
 	return ExecuteJobWithRunRequest(
@@ -37,7 +37,7 @@ func ExecuteJob(
 func ExecuteJobWithRunRequest(
 	job models.JobSpec,
 	initiator models.Initiator,
-	input models.RunResult,
+	input models.RunInput,
 	creationHeight *big.Int,
 	store *store.Store,
 	runRequest models.RunRequest) (*models.JobRun, error) {
@@ -74,7 +74,7 @@ func MeetsMinimumPayment(
 func NewRun(
 	job models.JobSpec,
 	initiator models.Initiator,
-	input models.RunResult,
+	input models.RunInput,
 	currentHeight *big.Int,
 	store *store.Store,
 	payment *assets.Link) (*models.JobRun, error) {

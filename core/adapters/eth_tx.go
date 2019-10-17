@@ -37,7 +37,7 @@ type EthTx struct {
 // Perform creates the run result for the transaction if the existing run result
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
-func (etx *EthTx) Perform(input models.RunResult, store *strpkg.Store) models.RunOutput {
+func (etx *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
 	if !store.TxManager.Connected() {
 		return models.NewRunOutputPendingConnection()
 	}
@@ -58,7 +58,7 @@ func (etx *EthTx) Perform(input models.RunResult, store *strpkg.Store) models.Ru
 
 // getTxData returns the data to save against the callback encoded according to
 // the dataFormat parameter in the job spec
-func getTxData(e *EthTx, input models.RunResult) ([]byte, error) {
+func getTxData(e *EthTx, input models.RunInput) ([]byte, error) {
 	result := input.Result()
 	if e.DataFormat == "" {
 		return common.HexToHash(result.Str).Bytes(), nil
@@ -80,16 +80,11 @@ func createTxRunResult(
 	gasPrice *models.Big,
 	gasLimit uint64,
 	data []byte,
-	input models.RunResult,
+	input models.RunInput,
 	store *strpkg.Store,
 ) models.RunOutput {
-	jobRunID := null.String{}
-	if input.CachedJobRunID != nil {
-		jobRunID = null.StringFrom(input.CachedJobRunID.String())
-	}
-
 	tx, err := store.TxManager.CreateTxWithGas(
-		jobRunID,
+		null.StringFrom(input.JobRunID.String()),
 		address,
 		data,
 		gasPrice.ToInt(),
@@ -130,7 +125,7 @@ func createTxRunResult(
 	return models.NewRunOutputPendingConfirmationsWithData(output)
 }
 
-func ensureTxRunResult(input models.RunResult, str *strpkg.Store) models.RunOutput {
+func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutput {
 	val, err := input.ResultString()
 	if err != nil {
 		return models.NewRunOutputError(err)
@@ -153,7 +148,7 @@ func ensureTxRunResult(input models.RunResult, str *strpkg.Store) models.RunOutp
 	var output models.JSON
 
 	if receipt != nil && !receipt.Unconfirmed() {
-		// If the tx has been confirmed, add its hash to the RunResult.
+		// If the tx has been confirmed, record the hash in the output
 		hex := receipt.Hash.String()
 		output, _ = output.Add("result", hex)
 		output, _ = output.Add("latestOutgoingTxHash", hex)
@@ -173,12 +168,12 @@ var zero = common.Hash{}
 
 func addReceiptToResult(
 	receipt *models.TxReceipt,
-	input models.RunResult,
+	input models.RunInput,
 	data models.JSON,
 ) models.RunOutput {
 	receipts := []models.TxReceipt{}
 
-	ethereumReceipts := input.Get("ethereumReceipts").String()
+	ethereumReceipts := input.Data.Get("ethereumReceipts").String()
 	if ethereumReceipts != "" {
 		if err := json.Unmarshal([]byte(ethereumReceipts), &receipts); err != nil {
 			logger.Errorw("Error unmarshaling ethereum Receipts", "error", err)

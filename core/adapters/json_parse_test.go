@@ -115,7 +115,7 @@ func TestJsonParse_Perform(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			input := cltest.RunResultWithResult(test.result)
+			input := cltest.RunInputWithResult(test.result)
 			adapter := adapters.JSONParse{Path: test.path}
 			result := adapter.Perform(input, nil)
 			assert.Equal(t, test.wantData, result.Data.String())

@@ -42,7 +42,7 @@ func TestNewRun(t *testing.T) {
 		Type: models.InitiatorEthLog,
 	}}
 
-	inputResult := models.RunResult{Data: input}
+	inputResult := models.RunInput{Data: input}
 	run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, creationHeight, store, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
@@ -155,8 +155,7 @@ func TestNewRun_taskSumPayment(t *testing.T) {
 				Type: models.InitiatorEthLog,
 			}}
 
-			inputResult := models.RunResult{Data: input}
-
+			inputResult := models.RunInput{Data: input}
 			run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, nil, store, test.payment)
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.expectedStatus), string(run.Status))
@@ -168,8 +167,7 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
-	inputResult := models.RunResult{Data: input}
+	inputResult := models.RunInput{Data: cltest.JSONFromString(t, `{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
 	creationHeight := big.NewInt(1000)
 
@@ -238,7 +236,7 @@ func TestNewRun_startAtAndEndAt(t *testing.T) {
 			job.EndAt = test.endAt
 			assert.Nil(t, store.CreateJob(&job))
 
-			_, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store, nil)
+			_, err := services.NewRun(job, job.Initiators[0], models.RunInput{}, nil, store, nil)
 			if test.errored {
 				assert.Error(t, err)
 			} else {
@@ -256,7 +254,7 @@ func TestNewRun_noTasksErrorsInsteadOfPanic(t *testing.T) {
 	job.Tasks = []models.TaskSpec{}
 	require.NoError(t, store.CreateJob(&job))
 
-	jr, err := services.NewRun(job, job.Initiators[0], models.RunResult{}, nil, store, nil)
+	jr, err := services.NewRun(job, job.Initiators[0], models.RunInput{}, nil, store, nil)
 	assert.NoError(t, err)
 	assert.True(t, jr.Status.Errored())
 	assert.True(t, jr.Result.HasError())
@@ -647,7 +645,7 @@ func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
 	jr, err := services.ExecuteJob(
 		job,
 		initr,
-		cltest.RunResultWithData(`{"random": "input"}`),
+		models.RunInput{Data: cltest.JSONFromString(t, `{"random": "input"}`)},
 		nil,
 		store,
 	)
@@ -683,7 +681,7 @@ func TestExecuteJobWithRunRequest(t *testing.T) {
 	jr, err := services.ExecuteJobWithRunRequest(
 		job,
 		initr,
-		cltest.RunResultWithData(`{"random": "input"}`),
+		models.RunInput{Data: cltest.JSONFromString(t, `{"random": "input"}`)},
 		nil,
 		store,
 		rr,
@@ -747,7 +745,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_Happy(t *testing.T) {
 			jr, err := services.ExecuteJobWithRunRequest(
 				job,
 				initr,
-				cltest.RunResultWithData(`{"random": "input"}`),
+				models.RunInput{Data: cltest.JSONFromString(t, `{"random": "input"}`)},
 				creationHeight,
 				store,
 				rr,
@@ -811,7 +809,7 @@ func TestExecuteJobWithRunRequest_fromRunLog_ConnectToLaggingEthNode(t *testing.
 	jr, err := services.ExecuteJobWithRunRequest(
 		job,
 		initr,
-		cltest.RunResultWithData(`{"random": "input"}`),
+		models.RunInput{Data: cltest.JSONFromString(t, `{"random": "input"}`)},
 		futureCreationHeight,
 		store,
 		rr,

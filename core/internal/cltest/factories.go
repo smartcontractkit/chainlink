@@ -439,24 +439,11 @@ func Int(val interface{}) *models.Big {
 	}
 }
 
-// RunResultWithResult creates a RunResult with given result
-func RunResultWithResult(val interface{}) models.RunResult {
+// RunInputWithResult creates a RunResult with given result
+func RunInputWithResult(val interface{}) models.RunInput {
 	data := models.JSON{}
-	data, err := data.Add("result", val)
-	if err != nil {
-		return RunResultWithError(err)
-	}
-
-	return models.RunResult{Data: data}
-}
-
-// RunResultWithData creates a run result with a given data JSON object
-func RunResultWithData(val string) models.RunResult {
-	data, err := models.ParseJSON([]byte(val))
-	if err != nil {
-		return RunResultWithError(err)
-	}
-	return models.RunResult{Data: data}
+	data, _ = data.Add("result", val)
+	return models.RunInput{Data: data}
 }
 
 // RunResultWithError creates a runresult with given error

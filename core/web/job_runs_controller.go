@@ -59,7 +59,7 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusForbidden, err)
 	} else if data, err := getRunData(c); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if jr, err := services.ExecuteJob(j, *initiator, models.RunResult{Data: data}, nil, jrc.App.GetStore()); err != nil {
+	} else if jr, err := services.ExecuteJob(j, *initiator, models.RunInput{Data: data}, nil, jrc.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.JobRun{JobRun: *jr}, "job run")

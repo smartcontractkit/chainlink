@@ -31,7 +31,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
 	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
 
-	input := models.RunResult{
+	input := models.RunInput{
 		Data:   cltest.JSONFromString(t, `{"result":"100"}`),
 		Status: models.RunStatusUnstarted,
 	}
@@ -55,7 +55,7 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
 	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
 
-	input := models.RunResult{
+	input := models.RunInput{
 		Data:   cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`),
 		Status: models.RunStatusUnstarted,
 	}
@@ -90,7 +90,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			ba := &adapters.Bridge{BridgeType: bt}
 
-			input := models.RunResult{
+			input := models.RunInput{
 				Data:   cltest.JSONFromString(t, `{"result":"100"}`),
 				Status: test.status,
 			}
@@ -145,8 +145,8 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			eb := &adapters.Bridge{BridgeType: bt}
-			input := cltest.RunResultWithResult("lot 49")
-			input.CachedJobRunID = runID
+			input := cltest.RunInputWithResult("lot 49")
+			input.JobRunID = *runID
 
 			result := eb.Perform(input, store)
 			val := result.Result()
@@ -158,8 +158,8 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 }
 
 func TestBridge_Perform_responseURL(t *testing.T) {
-	input := cltest.RunResultWithResult("lot 49")
-	input.CachedJobRunID = models.NewID()
+	input := cltest.RunInputWithResult("lot 49")
+	input.JobRunID = *models.NewID()
 
 	t.Parallel()
 	cases := []struct {
@@ -170,12 +170,12 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 		{
 			name:          "basic URL",
 			configuredURL: cltest.WebURL(t, "https://chain.link"),
-			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"},"responseURL":"https://chain.link/v2/runs/%s"}`, input.CachedJobRunID, input.CachedJobRunID),
+			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"},"responseURL":"https://chain.link/v2/runs/%s"}`, input.JobRunID.String(), input.JobRunID.String()),
 		},
 		{
 			name:          "blank URL",
 			configuredURL: cltest.WebURL(t, ""),
-			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"}}`, input.CachedJobRunID),
+			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"}}`, input.JobRunID.String()),
 		},
 	}
 
