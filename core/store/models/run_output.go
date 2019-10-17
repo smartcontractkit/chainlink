@@ -34,63 +34,51 @@ func NewRunOutputCompleteWithResult(resultVal interface{}) RunOutput {
 // NewRunOutputComplete returns a new RunOutput that is complete and contains
 // raw data
 func NewRunOutputComplete(data JSON) RunOutput {
-	return RunOutput{
-		Status: RunStatusCompleted,
-		Data:   data,
-	}
+	return RunOutput{Status: RunStatusCompleted, Data: data}
 }
 
 // NewRunOutputPendingSleep returns a new RunOutput that indicates the task is
 // sleeping
 func NewRunOutputPendingSleep() RunOutput {
-	return RunOutput{
-		Status: RunStatusPendingSleep,
-	}
+	return RunOutput{Status: RunStatusPendingSleep}
 }
 
 // NewRunOutputPendingConfirmations returns a new RunOutput that indicates the
 // task is pending confirmations
 func NewRunOutputPendingConfirmations() RunOutput {
-	return RunOutput{
-		Status: RunStatusPendingConfirmations,
-	}
+	return RunOutput{Status: RunStatusPendingConfirmations}
 }
 
 // NewRunOutputPendingConfirmationsWithData returns a new RunOutput that
 // indicates the task is pending confirmations but also has some data that
 // needs to be fed in on next invocation
 func NewRunOutputPendingConfirmationsWithData(data JSON) RunOutput {
-	return RunOutput{
-		Status: RunStatusPendingConfirmations,
-		Data:   data,
-	}
+	return RunOutput{Status: RunStatusPendingConfirmations, Data: data}
 }
 
 // NewRunOutputPendingConnection returns a new RunOutput that indicates the
 // task got disconnected
 func NewRunOutputPendingConnection() RunOutput {
-	return RunOutput{
-		Status: RunStatusPendingConnection,
-	}
+	return RunOutput{Status: RunStatusPendingConnection}
 }
 
 // NewRunOutputPendingConfirmationsWithData returns a new RunOutput that
 // indicates the task got disconnected but also has some data that needs to be
 // fed in on next invocation
 func NewRunOutputPendingConnectionWithData(data JSON) RunOutput {
-	return RunOutput{
-		Status: RunStatusPendingConnection,
-		Data:   data,
-	}
+	return RunOutput{Status: RunStatusPendingConnection, Data: data}
 }
 
-// NewRunOutputPendingConnection returns a new RunOutput that indicates the
+// NewRunOutputInProgress returns a new RunOutput that indicates the
 // task is still in progress
 func NewRunOutputInProgress(data JSON) RunOutput {
-	return RunOutput{
-		Status: RunStatusInProgress,
-		Data:   data,
-	}
+	return RunOutput{Status: RunStatusInProgress, Data: data}
+}
+
+// NewRunOutputPendingBridge returns a new RunOutput that indicates the
+// task is still in progress
+func NewRunOutputPendingBridge() RunOutput {
+	return RunOutput{Status: RunStatusPendingBridge}
 }
 
 // HasError returns true if the status is errored or the error message is set

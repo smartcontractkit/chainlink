@@ -29,7 +29,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 
 	_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
-	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
+	ba := &adapters.Bridge{BridgeType: bt, Params: params}
 
 	input := models.RunInput{Data: cltest.JSONFromString(t, `{"result":"100"}`)}
 	ba.Perform(input, store)
@@ -50,7 +50,7 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 
 	_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
-	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
+	ba := &adapters.Bridge{BridgeType: bt, Params: params}
 
 	input := models.RunInput{
 		Data: cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`),
@@ -72,7 +72,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 	}{
 		{"from pending bridge", models.RunStatusPendingBridge, models.RunStatusInProgress, `{"result":"100"}`},
 		{"from errored", models.RunStatusErrored, models.RunStatusErrored, `{"result":"100"}`},
-		{"from in progress", models.RunStatusInProgress, models.RunStatusPendingBridge, `{}`},
+		{"from in progress", models.RunStatusInProgress, models.RunStatusPendingBridge, ""},
 		{"from completed", models.RunStatusCompleted, models.RunStatusCompleted, `{"result":"100"}`},
 	}
 

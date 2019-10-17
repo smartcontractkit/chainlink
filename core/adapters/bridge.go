@@ -16,7 +16,7 @@ import (
 // adapters, allowing for custom computations to be executed and included in runs.
 type Bridge struct {
 	*models.BridgeType
-	Params *models.JSON
+	Params models.JSON
 }
 
 // Perform sends a POST request containing the JSON of the input to the
@@ -40,11 +40,8 @@ func (ba *Bridge) Perform(input models.RunInput, store *store.Store) models.RunO
 }
 
 func (ba *Bridge) handleNewRun(input models.RunInput, bridgeResponseURL *url.URL) models.RunOutput {
-	if ba.Params == nil {
-		ba.Params = new(models.JSON)
-	}
 	var err error
-	if input.Data, err = input.Data.Merge(*ba.Params); err != nil {
+	if input.Data, err = input.Data.Merge(ba.Params); err != nil {
 		return models.NewRunOutputError(baRunResultError("handling data param", err))
 	}
 
@@ -72,14 +69,15 @@ func responseToRunResult(body []byte, input models.RunInput) models.RunOutput {
 		return models.NewRunOutputError(brr.GetError())
 	}
 
-	var data models.JSON
-	if brr.Data.Exists() && !brr.Data.IsObject() {
-		data, _ = data.Add("result", brr.Data.String())
-	} else {
-		data = brr.Data
+	if brr.ExternalPending {
+		return models.NewRunOutputPendingBridge()
 	}
 
-	return models.NewRunOutputComplete(data)
+	if brr.Data.IsObject() {
+		return models.NewRunOutputComplete(brr.Data)
+	}
+
+	return models.NewRunOutputCompleteWithResult(brr.Data.String())
 }
 
 func (ba *Bridge) postToExternalAdapter(input models.RunInput, bridgeResponseURL *url.URL) ([]byte, error) {
