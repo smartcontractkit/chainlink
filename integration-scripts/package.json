@@ -29,6 +29,7 @@
     "@chainlink/prettier-config": "^0.0.1",
     "@types/body-parser": "^1.17.1",
     "@types/express": "^4.17.1",
+    "@types/shelljs": "^0.8.5",
     "debug": "4.1.1",
     "eslint": "6.3.0",
     "typechain": "1.0.1",
@@ -36,17 +37,20 @@
     "typescript": "^3.6.3"
   },
   "dependencies": {
+    "@0x/sol-compiler": "^3.1.15",
+    "@0x/sol-trace": "^2.0.20",
+    "@chainlink/eslint-config": "0.0.1",
+    "@chainlink/prettier-config": "^0.0.1",
     "body-parser": "^1.18.3",
     "chainlink": "0.7.6",
     "chalk": "^2.4.2",
     "ethers": "^4.0.37",
+    "express": "^4.16.4",
     "link_token": "^1.0.6",
     "request-promise": "4.2.4",
+    "shelljs": "^0.8.3",
     "source-map-support": "^0.5.13",
-    "truffle": "^5.0.39",
-    "@chainlink/eslint-config": "0.0.1",
-    "@chainlink/prettier-config": "^0.0.1",
-    "express": "^4.16.4"
+    "truffle": "^5.0.39"
   },
   "prettier": "@chainlink/prettier-config"
 }

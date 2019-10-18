@@ -4,7 +4,7 @@ import {
   initializeRolesAndPersonas,
   hexToBuf,
 } from '../src/helpersV2'
-import { ConcreteChainlinkFactory } from 'contracts/ConcreteChainlinkFactory'
+import { ConcreteChainlinkFactory } from '../src/generated/ConcreteChainlinkFactory'
 import { Instance } from '../src/contract'
 import { ethers } from 'ethers'
 import env from '@nomiclabs/buidler'

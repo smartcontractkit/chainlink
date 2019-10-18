@@ -1,22 +1,18 @@
 import { LinkTokenV05Factory } from './generated/LinkTokenV05Factory'
 import { CoordinatorFactory } from './generated/CoordinatorFactory'
 import { MeanAggregatorFactory } from './generated/MeanAggregatorFactory'
-import {
-  createProvider,
-  DEVNET_ADDRESS,
-  registerPromiseHandler,
-} from './common'
+import { ethers } from 'ethers'
 
-async function main() {
-  registerPromiseHandler()
+// async function main() {
+// registerPromiseHandler()
+// 
+// await deployContracts()
+// }
+// main()
 
-  await deployContracts()
-}
-main()
-
-async function deployContracts() {
-  const provider = createProvider()
+export async function deployContracts(provider: ethers.providers.JsonRpcProvider, DEVNET_ADDRESS: string) {
   const signer = provider.getSigner(DEVNET_ADDRESS)
+
 
   // deploy LINK token
   const linkTokenFactory = new LinkTokenV05Factory(signer)
@@ -35,4 +31,10 @@ async function deployContracts() {
   const meanAggregator = await meanAggregatorFactory.deploy()
   await meanAggregator.deployed()
   console.log(`Deployed MeanAggregator at: ${meanAggregator.address}`)
+
+  return {
+    linkToken,
+    coordinator,
+    meanAggregator
+  }
 }
