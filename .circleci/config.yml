@@ -245,6 +245,22 @@ jobs:
       - run:
           name: Run E2E Tests
           command: yarn workspace @chainlink/explorer-client run build && yarn workspace @chainlink/explorer run test-ci:e2e:silent
+  forks:
+    docker:
+      - image: smartcontract/builder:1.0.25
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Go Vendor Cache
+          key: go-mod-{{ checksum "go.sum" }}
+      - save_cache:
+          name: Save Go Vendor Cache
+          key: go-mod-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
+      - run: ./tools/ci/forks_test
+
   build-publish-explorer:
     machine: true
     steps:
@@ -324,6 +340,10 @@ workflows:
           filters: # all branches, and /^explorer-v../ tags for build-publish...
             tags:
               only: /^explorer-v.*/
+      - forks:
+          filters:
+            tags:
+              only: /^v.*/
       - build-publish-explorer:
           requires:
             - explorer
@@ -343,6 +363,7 @@ workflows:
             - parity-postgres
             - operator-ui
             - rust
+            - forks
           filters:
             branches:
               only:
@@ -361,3 +382,4 @@ workflows:
             - operator-ui
             - rust
             - explorer
+            - forks

@@ -9,7 +9,7 @@ build_chainlink_image:
 	docker build -t smartcontract/chainlink ../../
 
 start_network:
-	echo "See logs/{chain_[12],geth}.log for logs"
+	@echo "\nStarting Network. See logs/{chain_[12],geth}.log for logs"
 	( docker-compose --compatibility up > /dev/null ) &
 
 tear_down:
@@ -27,7 +27,9 @@ isolate_geth2:
 
 ETH_LOG_JOB = '$(shell cat eth_log_job.json)'
 create_job:
-	sleep 3
+	# wait for CL to start
+	bash scripts/search_chainlink_logs.sh 'Listening and serving HTTP on port 6688'
+	# add ethlog job
 	bash scripts/log_in_to_chainlink_node.sh
 	docker exec -it forks_chainlink_1 chainlink jobs create ${ETH_LOG_JOB}
 
