@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# resets the blockchain to a fresh state - ** this will create a new genesis block **
+rm -rf /root/.ethereum/geth/
+node_init_data

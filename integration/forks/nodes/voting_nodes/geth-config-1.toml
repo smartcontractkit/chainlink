@@ -1,3 +1,5 @@
+# This config file is generatev by running `geth dumpconfig > <filename>`
+
 [Eth]
 NetworkId = 17
 SyncMode = "full"
@@ -52,15 +54,15 @@ MinimumAcceptedPOW = 2e-01
 RestrictConnectionBetweenLightClients = true
 
 [Node]
-# Fill this in with the path to the datadir and keystore *in the container*
-DataDir = "/root/gethnet/datadir1"
-KeyStoreDir = "/root/gethnet/datadir1/keystore"
+# This is the path to the datadir and keystore *in the container*
+DataDir = "/root/.ethereum"
+KeyStoreDir = "/root/keystore/"
 InsecureUnlockAllowed = true
 HTTPHost = "172.16.1.100"
 HTTPPort = 8545
 HTTPModules = ["net", "web3", "eth", "shh"]
 GraphQLPort = 8547
-# Chainlink relies on geth1 for ethereum data, so expose its websocket service
+# Chainlink relies on geth for ethereum data, so expose its websocket service
 WSHost = "172.16.1.100" # Fill this in with the IP address assigned to the node in docker-compose.yaml
 WSPort = 8546
 WSOrigins = ["*"]

@@ -1,7 +1,9 @@
 FROM ethereum/client-go:alltools-latest
 RUN apk add curl bash
 
-COPY . ./root
+COPY root /root
+
+# some handy commands for messing with geth and chain data
 RUN chmod +x /root/bin/*
 
 # create genesis block
