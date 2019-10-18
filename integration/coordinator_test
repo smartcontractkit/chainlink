@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 source ./common
 
 title 'Coordinator test.'
@@ -10,10 +12,11 @@ if ! [ -x "$(command -v jq)" ]; then
 fi
 
 sa_spec_path=$SRCROOT/integration-scripts/src/fixtures/agreement.json
-initial_spec=$(cat $sa_spec_path)
+current_spec_path=$(mktemp)
+# Read in the spec template, and point it to the mean aggregator contract.
+jq ".aggregator=\"$MEAN_AGGREGATOR_ADDRESS\"" < $sa_spec_path > $current_spec_path
 # FIXME use chainlink instead of cldev
-create_sa="$SRCROOT/tools/bin/cldev -j agreements create $sa_spec_path"
-echo $create_sa
+create_sa="$SRCROOT/tools/bin/cldev -j agreements create $current_spec_path"
 agreement_response=$($create_sa)
 
 function query_agreement() {
@@ -22,7 +25,7 @@ function query_agreement() {
 
 function check_sa_output() {
     cl_output=$(query_agreement $1)
-    cl_input=$(echo "$initial_spec" | jq -r .$2)
+    cl_input=$(jq -r .$2 < $current_spec_path)
     if [ -z "$cl_output" ] ; then echo "output for $1 was empty"; exit 1; fi
     if [ -z "$cl_input" ] ; then echo "input for $2 was empty"; exit 1; fi
     if [ "$cl_output" != "$cl_input" ]; then
@@ -36,6 +39,8 @@ check_sa_output encumbrance.oracles                oracles
 check_sa_output encumbrance.aggregator             aggregator
 check_sa_output encumbrance.aggInitiateJobSelector aggInitiateJobSelector
 check_sa_output encumbrance.aggFulfillSelector     aggFulfillSelector
+
+rm $current_spec_path # Remove temp file
 
 # Used in initiate_service_agreement.js
 export ORACLE_SIGNATURE=$(query_agreement signature) 

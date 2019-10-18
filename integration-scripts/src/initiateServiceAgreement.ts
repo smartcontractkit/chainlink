@@ -1,4 +1,4 @@
-import { debug, helpers } from 'chainlink'
+import { helpers } from 'chainlink'
 import {
   getArgs,
   registerPromiseHandler,
@@ -9,10 +9,9 @@ import { CoordinatorFactory } from './generated/CoordinatorFactory'
 import agreementJson from './fixtures/agreement.json'
 import { ethers } from 'ethers'
 import { Coordinator } from './generated/Coordinator'
+import { MeanAggregatorFactory } from './generated/MeanAggregatorFactory'
 
-const _d = debug.makeDebug('initiateServiceAgreement')
 async function main() {
-  const d = _d.extend('main')
   registerPromiseHandler()
   const args = getArgs([
     'COORDINATOR_ADDRESS',
@@ -21,7 +20,6 @@ async function main() {
     'NORMALIZED_REQUEST',
   ])
 
-  d(args)
 
   await initiateServiceAgreement({
     coordinatorAddress: args.COORDINATOR_ADDRESS,
@@ -45,11 +43,14 @@ async function initiateServiceAgreement({
   normalizedRequest,
   oracleSignature,
 }: Args) {
-  const d = _d.extend('main')
   const provider = createProvider()
   const signer = provider.getSigner(DEVNET_ADDRESS)
   const coordinatorFactory = new CoordinatorFactory(signer)
   const coordinator = coordinatorFactory.attach(coordinatorAddress)
+
+  // Monkey-patches coordinator-contract interface to claim that all calls are
+  // static / constant, so that all its methods can be called rather than
+  // transacted upon, and their return values can be inspected.
   const coordinatorStaticfactory = new ethers.ContractFactory(
     coordinatorFactory.interface.abi.map(a => ({ ...a, constant: true })),
     coordinatorFactory.bytecode,
@@ -89,8 +90,6 @@ async function initiateServiceAgreement({
     ),
   }
 
-  console.log('agreement', agreement)
-
   const sig = ethers.utils.splitSignature(oracleSignature)
   if (!sig.v) {
     throw Error(`Could not extract v from signature`)
@@ -101,32 +100,27 @@ async function initiateServiceAgreement({
     vs: [sig.v],
   }
 
-  console.log('Attempting to initiate service agreement')
-  console.log('oracle signatures', oracleSignatures)
-
   const said = helpers.calculateSAID2(agreement)
-  console.log('our said', said, 'solidity\'s said', await coordinator.getId(agreement))
-
-  console.log('apparent address', ethers.utils.recoverAddress(said, oracleSignature))
-  console.log('actual address', agreement.oracles)
-
-  try {
-    provider.on(
-      { topics: [ ethers.utils.id('SignatureCheck(address,address)')] },
-      r => console.log('SignatureCheck event', r),
-    )
-  } catch(e) {
-    console.log('provider.on error', e)
-    throw e
+  const ssaid = await coordinator.getId(agreement)
+  if (said != ssaid) {
+    throw Error(`sAId mismatch. javascript: ${said} solidity: ${ssaid}`)
   }
-  console.log('provider.on worked')
 
-  // make static call here
+  const meanAggregator = (new MeanAggregatorFactory(signer))
+    .attach(meanAggregatorAddress)
+
+  meanAggregator.initiateJob(said, agreement)
+  
+  console.log('meanAggregator call worked...')
+
+  // call initiateServiceAgreement instead of sending it a transaction, so we
+  // can inspect the return value.
   const callVal = await coordinatorStatic.initiateServiceAgreement(
     agreement,
     oracleSignatures,
   )
-  d('call value of coordinatorStatic.initiateServiceAgreement: %o', callVal)
+  // if callVal !=  // XXX: Make this an assertion
+  console.log('call value of coordinatorStatic.initiateServiceAgreement', callVal)
 
   const tx = await coordinator.initiateServiceAgreement(
     agreement,
@@ -134,8 +128,6 @@ async function initiateServiceAgreement({
   )
   const iSAreceipt = await tx.wait()
   console.log('initiateServiceAgreement receipt', iSAreceipt)
-
-  console.log('geetting to here, said is', said)
 
   const reqId = await coordinator.oracleRequest(
     '0x0101010101010101010101010101010101010101',
