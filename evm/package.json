@@ -15,7 +15,7 @@
     "slither": "truffle compile --quiet && slither .",
     "pretest": "yarn build",
     "test:v1": "tsc && truffle test ./dist/test/*",
-    "test:v2": "jest --testTimeout 10000",
+    "test:v2": "jest --testTimeout 20000",
     "test": "yarn test:v1 && yarn test:v2",
     "format": "prettier --write \"**/*\"",
     "prepublishOnly": "yarn build && yarn lint && yarn test",

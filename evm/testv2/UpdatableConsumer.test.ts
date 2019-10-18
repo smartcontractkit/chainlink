@@ -100,7 +100,7 @@ describe('UpdatableConsumer', () => {
     uc = await updatableConsumerFactory
       .connect(roles.defaultAccount)
       .deploy(specId, ens.address, domainNode)
-  }, 10000)
+  })
 
   describe('constructor', () => {
     it('pulls the token contract address from the resolver', async () => {
