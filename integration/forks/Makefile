@@ -1,7 +1,15 @@
 build_geth_image:
-	docker build -t geth .
+	docker pull ethereum/client-go:stable
+	docker build -t geth ./geth_node
+
+build_chainlink_image:
+	# Pull docker images required by chainlink and then build chainlink from scratch
+	docker pull smartcontract/builder:1.0.22
+	docker pull ubuntu:18.04
+	docker build -t smartcontract/chainlink ../../
 
 start_network:
+	echo "See logs/{chain_[12],geth}.log for logs"
 	( docker-compose --compatibility up > /dev/null ) &
 
 tear_down:
@@ -10,7 +18,7 @@ tear_down:
 	sudo rm -rf chainlink_node/clroot
 	git checkout chainlink_node/clroot/keys
 
-initial_setup: tear_down build_geth_image start_network create_curl_script create_job
+initial_setup: tear_down build_geth_image build_chainlink_image start_network create_job
 
 # Isolate the faster node from the network, so that it creates a blockchain
 # re-org when re-attached.
@@ -38,7 +46,9 @@ run_chain_1:
 	bash scripts/search_chainlink_logs.sh 'New run triggered by ethlog'
 	bash scripts/search_chainlink_logs.sh 'Run cannot continue because it lacks sufficient confirmations'
 	# save log
-	docker-compose --compatibility logs chainlink > chain_1.log
+	mkdir -p logs
+	docker-compose --compatibility logs chainlink > logs/chain_1.log
+	docker-compose --compatibility logs geth > logs/geth.log
 	# tear down network before sufficient confirmations can be reached
 	docker-compose --compatibility down
 
@@ -54,7 +64,9 @@ run_chain_2:
 	# should eventually abort running running job
 	bash scripts/search_chainlink_logs.sh 'presumably has been uncled'
 	# save log
-	docker-compose --compatibility logs chainlink > chain_2.log
+	mkdir -p logs
+	docker-compose --compatibility logs chainlink > logs/chain_2.log
+	docker-compose --compatibility logs geth >> logs/geth.log
 	# tear down
 	docker-compose --compatibility down
 

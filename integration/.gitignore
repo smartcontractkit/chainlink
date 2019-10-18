@@ -1,6 +1,5 @@
 build/contracts/*
 cypress/videos
 cypress/screenshots
-forks/scripts/curl_cmd.sh
 forks/chainlink_node/clroot/*
 !forks/chainlink_node/clroot/keys/
