@@ -1,9 +1,5 @@
 import { helpers } from 'chainlink'
-import {
-  getArgs,
-  registerPromiseHandler,
-  
-} from './common'
+import { getArgs, registerPromiseHandler } from './common'
 import { CoordinatorFactory } from './generated/CoordinatorFactory'
 import agreementJson from './fixtures/agreement.json'
 import { ethers } from 'ethers'
@@ -40,7 +36,7 @@ async function main() {
     normalizedRequest: args.NORMALIZED_REQUEST,
     oracleSignature: args.ORACLE_SIGNATURE,
     provider,
-    DEVNET_ADDRESS: defaultFromAddress
+    DEVNET_ADDRESS: defaultFromAddress,
   })
 }
 main()
@@ -60,47 +56,20 @@ async function initiateServiceAgreement({
   normalizedRequest,
   oracleSignature,
   provider,
-  DEVNET_ADDRESS
+  DEVNET_ADDRESS,
 }: Args) {
   const signer = provider.getSigner(DEVNET_ADDRESS)
   const coordinatorFactory = new CoordinatorFactory(signer)
   const coordinator = coordinatorFactory.attach(coordinatorAddress)
-
-  // Monkey-patches coordinator-contract interface to claim that all calls are
-  // static / constant, so that all its methods can be called rather than
-  // transacted upon, and their return values can be inspected.
-  const coordinatorStaticfactory = new ethers.ContractFactory(
-    coordinatorFactory.interface.abi.map(a => ({ ...a, constant: true })),
-    coordinatorFactory.bytecode,
-    signer,
-  )
-  const coordinatorStatic = coordinatorStaticfactory.attach(coordinatorAddress)
-
+  const meanAggregator = new MeanAggregatorFactory()
   type CoordinatorParams = Parameters<Coordinator['initiateServiceAgreement']>
   type ServiceAgreement = CoordinatorParams[0]
   type OracleSignatures = CoordinatorParams[1]
 
-  const fieldTypes = helpers
-    .serviceAgreementFieldTypes()
-    .map(f => f.type)
-    .join(',')
-  const aggInitiateJobSelector = helpers.functionSelector(
-    `initiateJob(bytes32,tuple(${fieldTypes}))`,
-  )
-  if (agreementJson.aggInitiateJobSelector !== aggInitiateJobSelector) {
-    throw Error('Unexpected aggInitiateJobSelector')
-  }
-  // Must be equal because creation of the job on the CL node is done elsewhere
-  const aggFulfillSelector = helpers.functionSelector(
-    'fulfull(bytes32,bytes32,bytes32,bytes32)',
-  )
-  if (agreementJson.aggFulfillSelector !== aggFulfillSelector) {
-    throw Error('Unexpected aggFulfillSelector')
-  }
-
   const agreement: ServiceAgreement = {
-    aggFulfillSelector: aggFulfillSelector,
-    aggInitiateJobSelector: aggInitiateJobSelector,
+    aggFulfillSelector: meanAggregator.interface.functions.fulfill.sighash,
+    aggInitiateJobSelector:
+      meanAggregator.interface.functions.initiateJob.sighash,
     aggregator: meanAggregatorAddress,
     payment: agreementJson.payment,
     expiration: agreementJson.expiration,
@@ -122,35 +91,26 @@ async function initiateServiceAgreement({
   }
 
   const said = helpers.calculateSAID2(agreement)
+
   const ssaid = await coordinator.getId(agreement)
   if (said != ssaid) {
     throw Error(`sAId mismatch. javascript: ${said} solidity: ${ssaid}`)
   }
 
-  const meanAggregator = new MeanAggregatorFactory(signer).attach(
-    meanAggregatorAddress,
-  )
+  // const meanAggregator = new MeanAggregatorFactory(signer).attach(
+  //   meanAggregatorAddress,
+  // ).functions.initiateJob
 
-  meanAggregator.initiateJob(said, agreement)
+  // meanAggregator.initiateJob(said, agreement)
 
   console.log('meanAggregator call worked...')
-
-  // call initiateServiceAgreement instead of sending it a transaction, so we
-  // can inspect the return value.
-  const callVal = await coordinatorStatic.initiateServiceAgreement(
-    agreement,
-    oracleSignatures,
-  )
-  // if callVal !=  // XXX: Make this an assertion
-  console.log(
-    'call value of coordinatorStatic.initiateServiceAgreement',
-    callVal,
-  )
 
   const tx = await coordinator.initiateServiceAgreement(
     agreement,
     oracleSignatures,
   )
+  console.log(tx)
+
   const iSAreceipt = await tx.wait()
   console.log('initiateServiceAgreement receipt', iSAreceipt)
 
