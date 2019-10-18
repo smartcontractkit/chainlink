@@ -118,10 +118,11 @@ func (a *AccountBalance) SetID(value string) error {
 // ConfigWhitelist#String accordingly.
 type ConfigWhitelist struct {
 	AccountAddress string `json:"accountAddress"`
-	whitelist
+	Whitelist
 }
 
-type whitelist struct {
+// Whitelist contains the supported environment variables
+type Whitelist struct {
 	AllowOrigins             string          `json:"allowOrigins"`
 	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                  *big.Int        `json:"ethChainId"`
@@ -169,7 +170,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 	}
 	return ConfigWhitelist{
 		AccountAddress: account.Address.Hex(),
-		whitelist: whitelist{
+		Whitelist: Whitelist{
 			AllowOrigins:             config.AllowOrigins(),
 			BridgeResponseURL:        config.BridgeResponseURL().String(),
 			ChainID:                  config.ChainID(),
@@ -212,8 +213,9 @@ func (c ConfigWhitelist) String() string {
 	buffer.WriteString(fmt.Sprintf("ACCOUNT_ADDRESS: %v\n", c.AccountAddress))
 
 	schemaT := reflect.TypeOf(orm.ConfigSchema{})
-	cwlT := reflect.TypeOf(c.whitelist)
-	cwlV := reflect.ValueOf(c.whitelist)
+	cwlT := reflect.TypeOf(c.Whitelist)
+	cwlV := reflect.ValueOf(c.Whitelist)
+
 	for index := 0; index < cwlT.NumField(); index++ {
 		item := cwlT.FieldByIndex([]int{index})
 		schemaItem, ok := schemaT.FieldByName(item.Name)
@@ -224,7 +226,9 @@ func (c ConfigWhitelist) String() string {
 		if !ok {
 			continue
 		}
+		
 		field := cwlV.FieldByIndex(item.Index)
+
 		buffer.WriteString(envName)
 		buffer.WriteString(": ")
 		if stringer, ok := field.Interface().(fmt.Stringer); ok {
