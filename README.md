@@ -28,7 +28,7 @@ Examples of how to utilize and integrate Chainlinks can be found in the [example
 
 1. [Install Go 1.12+](https://golang.org/doc/install#install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
 2. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
-3. Download Chainlink: `git clone github.com/smartcontractkit/chainlink && cd chainlink`
+3. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
 4. Build and install Chainlink: `make install`
 5. Run the node: `chainlink help`
 
