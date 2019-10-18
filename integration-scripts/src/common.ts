@@ -55,7 +55,7 @@ export async function createTraceProvider() {
     contracts: '*',
     contractsDir: contracts,
     solcVersion: '0.5.0',
-    useDockerisedSolc: false,
+    useDockerisedSolc: true,
     compilerSettings: {
       outputSelection: {
         '*': {
@@ -96,14 +96,20 @@ export async function createTraceProvider() {
   const providerEngine = new Web3ProviderEngine()
   providerEngine.addProvider(new FakeGasEstimateSubprovider(4 * 10 ** 6)) // Ganache does a poor job of estimating gas, so just crank it up for testing.
   providerEngine.addProvider(revertTraceSubprovider)
-  providerEngine.addProvider(new GanacheSubprovider({ mnemonic, hdPath: path }))
+  providerEngine.addProvider(
+    new GanacheSubprovider({
+      mnemonic,
+      hdPath: path,
+      vmErrorsOnRPCResponse: true,
+    }),
+  )
   providerEngine.start()
 
   const provider = new ethers.providers.Web3Provider(providerEngine)
   const accounts = await provider.listAccounts()
   console.log(chalk.green(`Accounts from provider: ${accounts}`))
 
-  return {provider, defaultFromAddress}
+  return { provider, defaultFromAddress }
 }
 
 export function createProvider(): ethers.providers.JsonRpcProvider {
