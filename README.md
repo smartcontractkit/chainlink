@@ -83,7 +83,7 @@ For the latest information on setting up a development environment, see the [gui
 ### Build your current version
 
 ```bash
-$ go build -o chainlink
+$ go build -o chainlink ./core/
 ```
 
 - Run the binary:
