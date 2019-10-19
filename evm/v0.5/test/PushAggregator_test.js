@@ -62,7 +62,9 @@ contract('PushAggregator', () => {
         assert.equal(0, await aggregator.currentAnswer.call())
 
         await aggregator.updateAnswer(answer, nextRound, { from: personas.Ned })
-        await aggregator.updateAnswer(answer, nextRound, { from: personas.Nelly })
+        await aggregator.updateAnswer(answer, nextRound, {
+          from: personas.Nelly
+        })
 
         assert.equal(0, await aggregator.currentAnswer.call())
       })
@@ -77,6 +79,18 @@ contract('PushAggregator', () => {
         await aggregator.updateAnswer(101, nextRound, { from: personas.Nelly })
 
         assert.equal(100, await aggregator.currentAnswer.call())
+      })
+
+      it('announces the new answer with a log event', async () => {
+        assert.equal(0, await aggregator.currentAnswer.call())
+
+        await aggregator.updateAnswer(99, nextRound, { from: personas.Ned })
+        await aggregator.updateAnswer(100, nextRound, { from: personas.Ned })
+        const tx = await aggregator.updateAnswer(101, nextRound, { from: personas.Nelly })
+        const log = tx.receipt.rawLogs[1]
+        const newAnswer = web3.utils.toBN(log.topics[1])
+
+        assert.equal(100, newAnswer.toNumber())
       })
     })
 

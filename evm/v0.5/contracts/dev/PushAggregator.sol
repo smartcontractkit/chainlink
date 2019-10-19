@@ -34,6 +34,7 @@ contract PushAggregator is Ownable, Quickselectable {
   mapping(uint256 => Round) private rounds;
 
   event NewRound(uint256 indexed number);
+  event AnswerUpdated(int256 indexed current, uint256 indexed round);
 
   constructor(address _link, uint128 _paymentAmount)
     public
@@ -53,31 +54,7 @@ contract PushAggregator is Ownable, Quickselectable {
     }
     rounds[_round].answers.push(_answer);
     require(LINK.transfer(msg.sender, paymentAmount), "LINK transfer failed");
-    calculateRoundAverage(_round);
-  }
-
-  function calculateRoundAverage(uint256 _id)
-    private
-    ensureMinimumAnswersReceived(_id)
-  {
-    uint256 answerLength = rounds[_id].answers.length;
-    uint256 middleIndex = answerLength.div(2);
-    if (answerLength % 2 == 0) {
-      int256 median1 = quickselect(rounds[_id].answers, middleIndex);
-      int256 median2 = quickselect(rounds[_id].answers, middleIndex.add(1)); // quickselect is 1 indexed
-      currentAnswer = median1.add(median2) / 2; // signed integers are not supported by SafeMath
-    } else {
-      currentAnswer = quickselect(rounds[_id].answers, middleIndex.add(1)); // quickselect is 1 indexed
-    }
-  }
-
-  function startNewRound(uint256 _id)
-    internal
-  {
-    currentRound = _id;
-    rounds[_id].minimumAnswers = oracleCount;
-    rounds[_id].paymentAmount = paymentAmount;
-    emit NewRound(_id);
+    updateRoundAnswer(_round);
   }
 
   function addOracle(address _oracle)
@@ -111,6 +88,31 @@ contract PushAggregator is Ownable, Quickselectable {
     onlyOwner()
   {
     paymentAmount = _newAmount;
+  }
+
+  function updateRoundAnswer(uint256 _id)
+    private
+    ensureMinimumAnswersReceived(_id)
+  {
+    uint256 answerLength = rounds[_id].answers.length;
+    uint256 middleIndex = answerLength.div(2);
+    if (answerLength % 2 == 0) {
+      int256 median1 = quickselect(rounds[_id].answers, middleIndex);
+      int256 median2 = quickselect(rounds[_id].answers, middleIndex.add(1)); // quickselect is 1 indexed
+      currentAnswer = median1.add(median2) / 2; // signed integers are not supported by SafeMath
+    } else {
+      currentAnswer = quickselect(rounds[_id].answers, middleIndex.add(1)); // quickselect is 1 indexed
+    }
+    emit AnswerUpdated(currentAnswer, _id);
+  }
+
+  function startNewRound(uint256 _id)
+    private
+  {
+    currentRound = _id;
+    rounds[_id].minimumAnswers = oracleCount;
+    rounds[_id].paymentAmount = paymentAmount;
+    emit NewRound(_id);
   }
 
   modifier validateOracleRound(uint256 _round) {
