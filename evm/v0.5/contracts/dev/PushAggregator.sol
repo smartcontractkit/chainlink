@@ -40,7 +40,7 @@ contract PushAggregator is Ownable, Quickselectable {
     public
   {
     LINK = LinkTokenInterface(_link);
-    updatePaymentAmount(_paymentAmount);
+    setPaymentAmount(_paymentAmount);
   }
 
   function updateAnswer(int256 _answer, uint256 _round)
@@ -83,7 +83,7 @@ contract PushAggregator is Ownable, Quickselectable {
     require(LINK.transfer(_recipient, _amount), "LINK transfer failed");
   }
 
-  function updatePaymentAmount(uint128 _newAmount)
+  function setPaymentAmount(uint128 _newAmount)
     public
     onlyOwner()
   {

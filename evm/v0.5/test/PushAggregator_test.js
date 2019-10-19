@@ -24,12 +24,13 @@ contract('PushAggregator', () => {
       'addOracle',
       'currentAnswer',
       'currentRound',
+      'minimumAnswerCount',
       'oracleCount',
       'paymentAmount',
       'removeOracle',
       'transferLINK',
       'updateAnswer',
-      'updatePaymentAmount',
+      'setPaymentAmount',
       // Ownable methods:
       'isOwner',
       'owner',
@@ -63,7 +64,7 @@ contract('PushAggregator', () => {
 
         await aggregator.updateAnswer(answer, nextRound, { from: personas.Ned })
         await aggregator.updateAnswer(answer, nextRound, {
-          from: personas.Nelly
+          from: personas.Nelly,
         })
 
         assert.equal(0, await aggregator.currentAnswer.call())
@@ -86,7 +87,9 @@ contract('PushAggregator', () => {
 
         await aggregator.updateAnswer(99, nextRound, { from: personas.Ned })
         await aggregator.updateAnswer(100, nextRound, { from: personas.Ned })
-        const tx = await aggregator.updateAnswer(101, nextRound, { from: personas.Nelly })
+        const tx = await aggregator.updateAnswer(101, nextRound, {
+          from: personas.Nelly,
+        })
         const log = tx.receipt.rawLogs[1]
         const newAnswer = web3.utils.toBN(log.topics[1])
 
@@ -234,13 +237,13 @@ contract('PushAggregator', () => {
     })
   })
 
-  describe('#updatePaymentAmount', async () => {
+  describe('#setPaymentAmount', async () => {
     const newPaymentAmount = h.toWei('2')
 
     it('it updates the recorded value', async () => {
       assertBigNum(paymentAmount, await aggregator.paymentAmount.call())
 
-      await aggregator.updatePaymentAmount(newPaymentAmount, {
+      await aggregator.setPaymentAmount(newPaymentAmount, {
         from: personas.Carol,
       })
 
@@ -250,7 +253,7 @@ contract('PushAggregator', () => {
     context('when called by anyone but the owner', async () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.updatePaymentAmount(newPaymentAmount, {
+          await aggregator.setPaymentAmount(newPaymentAmount, {
             from: personas.Ned,
           })
         })
