@@ -1,4 +1,5 @@
 import * as h from './support/helpers'
+import { assertBigNum } from './support/matchers'
 const Aggregator = artifacts.require('Aggregator2.sol')
 
 const personas = h.personas
@@ -18,6 +19,7 @@ contract('Aggregator2', () => {
     h.checkPublicABI(Aggregator, [
       'addOracle',
       'oracleCount',
+      'removeOracle',
       // Ownable methods:
       'isOwner',
       'owner',
@@ -31,7 +33,7 @@ contract('Aggregator2', () => {
       await aggregator.addOracle(personas.Neil, { from: personas.Carol })
       const currentCount = await aggregator.oracleCount.call()
 
-      assert.isAbove(currentCount.toNumber(), pastCount.toNumber())
+      assertBigNum(currentCount, pastCount.add(web3.utils.toBN('1')))
     })
 
     context('when the oracle has already been added', async () => {
@@ -50,6 +52,40 @@ contract('Aggregator2', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
           await aggregator.addOracle(personas.Neil, { from: personas.Neil })
+        })
+      })
+    })
+  })
+
+  describe('#removeOracle', async () => {
+    beforeEach(async () => {
+      await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+    })
+
+    it('decreases the oracle count', async () => {
+      const pastCount = await aggregator.oracleCount.call()
+      await aggregator.removeOracle(personas.Neil, { from: personas.Carol })
+      const currentCount = await aggregator.oracleCount.call()
+
+      assertBigNum(currentCount, pastCount.sub(web3.utils.toBN('1')))
+    })
+
+    context('when the oracle is not currently added', async () => {
+      beforeEach(async () => {
+        await aggregator.removeOracle(personas.Neil, { from: personas.Carol })
+      })
+
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.removeOracle(personas.Neil, { from: personas.Carol })
+        })
+      })
+    })
+
+    context('when called by anyone but the owner', async () => {
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.removeOracle(personas.Neil, { from: personas.Ned })
         })
       })
     })

@@ -22,4 +22,10 @@ contract Aggregator2 is Ownable {
     oracleCount += 1;
   }
 
+  function removeOracle(address _oracle) public onlyOwner {
+    require(oracles[_oracle], "Address is not an oracle");
+    oracles[_oracle] = false;
+    oracleCount -= 1;
+  }
+
 }
