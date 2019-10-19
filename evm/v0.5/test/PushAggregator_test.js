@@ -73,7 +73,7 @@ contract('PushAggregator', () => {
       })
     })
 
-    context('when all oracles have reported', async () => {
+    context('when the minimum number of oracles have reported', async () => {
       it('updates the answer', async () => {
         assert.equal(0, await aggregator.currentAnswer.call())
 
@@ -87,7 +87,7 @@ contract('PushAggregator', () => {
       it('announces the new answer with a log event', async () => {
         assert.equal(0, await aggregator.currentAnswer.call())
 
-        await aggregator.updateAnswer(99, nextRound, { from: personas.Ned })
+        await aggregator.updateAnswer(99, nextRound, { from: personas.Neil })
         await aggregator.updateAnswer(100, nextRound, { from: personas.Ned })
         const tx = await aggregator.updateAnswer(101, nextRound, {
           from: personas.Nelly,
@@ -96,6 +96,19 @@ contract('PushAggregator', () => {
         const newAnswer = web3.utils.toBN(log.topics[1])
 
         assert.equal(100, newAnswer.toNumber())
+      })
+    })
+
+    context('when updated after the max answers submitted', async () => {
+      beforeEach(async () => {
+        await aggregator.setAnswerCountRange(1, 1, { from: personas.Carol })
+        await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
+      })
+
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.updateAnswer(100, nextRound, { from: personas.Ned })
+        })
       })
     })
 
