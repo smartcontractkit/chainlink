@@ -1,19 +1,20 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
 
-contract.only('PushAggregator', () => {
+contract('PushAggregator', () => {
   const Aggregator = artifacts.require('PushAggregator.sol')
   const personas = h.personas
   const paymentAmount = h.toWei('3')
   const deposit = h.toWei('100')
 
-  let aggregator, link
+  let aggregator, link, nextRound
 
   beforeEach(async () => {
     link = await h.linkContract(personas.defaultAccount)
     aggregator = await Aggregator.new(link.address, paymentAmount, { from: personas.Carol })
     await link.transfer(aggregator.address, deposit)
     assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
+    nextRound = 1
   })
 
   it('has a limited public interface', () => {
@@ -44,7 +45,7 @@ contract.only('PushAggregator', () => {
 
       assert.equal(0, await aggregator.currentAnswer.call())
 
-      await aggregator.updateAnswer(answer, { from: personas.Neil })
+      await aggregator.updateAnswer(answer, nextRound, { from: personas.Neil })
 
       assert.equal(answer, await aggregator.currentAnswer.call())
     })
@@ -52,7 +53,7 @@ contract.only('PushAggregator', () => {
     it('increments the answer round', async () => {
       assert.equal(0, await aggregator.answerRound.call())
 
-      await aggregator.updateAnswer(100, { from: personas.Neil })
+      await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
 
       assert.equal(1, await aggregator.answerRound.call())
     })
@@ -60,7 +61,7 @@ contract.only('PushAggregator', () => {
     it('pays the oracle', async () => {
       assertBigNum(0, await link.balanceOf.call(personas.Neil))
 
-      await aggregator.updateAnswer(100, { from: personas.Neil })
+      await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
 
       assertBigNum(paymentAmount, await link.balanceOf.call(personas.Neil))
     })
@@ -68,7 +69,15 @@ contract.only('PushAggregator', () => {
     context('when called by a non-oracle', async () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.updateAnswer(100, { from: personas.Carol })
+          await aggregator.updateAnswer(100, nextRound, { from: personas.Carol })
+        })
+      })
+    })
+
+    context('when a round is passed in higher than expected', async () => {
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.updateAnswer(100, nextRound + 1, { from: personas.Neil })
         })
       })
     })

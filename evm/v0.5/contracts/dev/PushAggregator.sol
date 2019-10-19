@@ -22,10 +22,11 @@ contract PushAggregator is Ownable {
     updatePaymentAmount(_paymentAmount);
   }
 
-  function updateAnswer(int256 _answer)
+  function updateAnswer(int256 _answer, uint256 _round)
     public
   {
     require(oracles[msg.sender], "Only updatable by designated oracles");
+    require(_round == (answerRound + 1), "Must increment rounds one at a time");
 
     currentAnswer = _answer;
     answerRound += 1;
