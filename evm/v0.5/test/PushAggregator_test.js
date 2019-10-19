@@ -45,45 +45,58 @@ contract('PushAggregator', () => {
       }
     })
 
-    it('updates the answer', async () => {
-      const answer = 100
+    context('when NOT all oracles have reported', async () => {
+      it('pays the oracles that have reported', async () => {
+        assertBigNum(0, await link.balanceOf.call(personas.Neil))
 
-      assert.equal(0, await aggregator.currentAnswer.call())
+        await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
 
-      await aggregator.updateAnswer(answer, nextRound, { from: personas.Neil })
+        assertBigNum(paymentAmount, await link.balanceOf.call(personas.Neil))
+        assertBigNum(0, await link.balanceOf.call(personas.Ned))
+        assertBigNum(0, await link.balanceOf.call(personas.Nelly))
+      })
 
-      assert.equal(answer, await aggregator.currentAnswer.call())
+      it('updates the answer', async () => {
+        const answer = 100
+
+        assert.equal(0, await aggregator.currentAnswer.call())
+
+        await aggregator.updateAnswer(answer, nextRound, { from: personas.Ned })
+        await aggregator.updateAnswer(answer, nextRound, { from: personas.Nelly })
+
+        assert.equal(0, await aggregator.currentAnswer.call())
+      })
     })
 
-    it('increments the answer round', async () => {
-      assert.equal(0, await aggregator.currentRound.call())
+    context('when all oracles have reported', async () => {
+      it('updates the answer', async () => {
+        assert.equal(0, await aggregator.currentAnswer.call())
 
-      await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
+        await aggregator.updateAnswer(99, nextRound, { from: personas.Ned })
+        await aggregator.updateAnswer(100, nextRound, { from: personas.Ned })
+        await aggregator.updateAnswer(101, nextRound, { from: personas.Nelly })
 
-      assert.equal(1, await aggregator.currentRound.call())
+        assert.equal(100, await aggregator.currentAnswer.call())
+      })
     })
 
-    it('announces a new round by emitting a log', async () => {
-      const tx = await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
-      const log = tx.receipt.rawLogs[0]
-      const roundNumber = web3.utils.toBN(log.topics[1])
+    context('when a new highest round number is passed in', async () => {
+      it('increments the answer round', async () => {
+        assert.equal(0, await aggregator.currentRound.call())
 
-      assert.equal(nextRound, roundNumber.toNumber())
-    })
+        for (const oracle of oracles) {
+          await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
+        }
 
-    it('pays the oracle', async () => {
-      assertBigNum(0, await link.balanceOf.call(personas.Neil))
+        assert.equal(1, await aggregator.currentRound.call())
+      })
 
-      await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
+      it('announces a new round by emitting a log', async () => {
+        const tx = await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
+        const log = tx.receipt.rawLogs[0]
+        const roundNumber = web3.utils.toBN(log.topics[1])
 
-      assertBigNum(paymentAmount, await link.balanceOf.call(personas.Neil))
-    })
-
-    context('when called by a non-oracle', async () => {
-      it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.updateAnswer(100, nextRound, { from: personas.Carol })
-        })
+        assert.equal(nextRound, roundNumber.toNumber())
       })
     })
 
@@ -91,6 +104,14 @@ contract('PushAggregator', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
           await aggregator.updateAnswer(100, nextRound + 1, { from: personas.Neil })
+        })
+      })
+    })
+
+    context('when called by a non-oracle', async () => {
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.updateAnswer(100, nextRound, { from: personas.Carol })
         })
       })
     })
