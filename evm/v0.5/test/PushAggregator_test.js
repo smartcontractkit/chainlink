@@ -4,7 +4,7 @@ import { assertBigNum } from './support/matchers'
 contract.only('PushAggregator', () => {
   const Aggregator = artifacts.require('PushAggregator.sol')
   const personas = h.personas
-  const paymentAmount = h.toWei('1')
+  const paymentAmount = h.toWei('3')
   const deposit = h.toWei('100')
 
   let aggregator, link
@@ -26,6 +26,7 @@ contract.only('PushAggregator', () => {
       'removeOracle',
       'transferLINK',
       'updateAnswer',
+      'updatePaymentAmount',
       // Ownable methods:
       'isOwner',
       'owner',
@@ -151,9 +152,11 @@ contract.only('PushAggregator', () => {
       context('with a number higher than the LINK balance', () => {
         it('fails', async () => {
           await h.assertActionThrows(async () => {
-            await aggregator.transferLINK(personas.Carol, deposit.add(web3.utils.toBN('1')), {
-              from: personas.Carol,
-            })
+            await aggregator.transferLINK(
+              personas.Carol,
+              deposit.add(web3.utils.toBN('1')),
+              { from: personas.Carol },
+            )
           })
 
           assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
@@ -170,6 +173,30 @@ contract.only('PushAggregator', () => {
         })
 
         assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
+      })
+    })
+  })
+
+  describe('#updatePaymentAmount', async () => {
+    const newPaymentAmount = h.toWei('2')
+
+    it('it updates the recorded value', async () => {
+      assertBigNum(paymentAmount, await aggregator.paymentAmount.call())
+
+      await aggregator.updatePaymentAmount(newPaymentAmount, {
+        from: personas.Carol,
+      })
+
+      assertBigNum(newPaymentAmount, await aggregator.paymentAmount.call())
+    })
+
+    context('when called by anyone but the owner', async () => {
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.updatePaymentAmount(newPaymentAmount, {
+            from: personas.Ned,
+          })
+        })
       })
     })
   })
