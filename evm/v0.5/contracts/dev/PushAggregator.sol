@@ -39,11 +39,9 @@ contract PushAggregator is Ownable {
 
   function updateAnswer(int256 _answer, uint256 _round)
     public
+    validateOracleRound(_round)
   {
-    OracleStatus memory oracle = oracles[msg.sender];
-    require(oracle.enabled, "Only updatable by designated oracles");
-    require(_round > oracle.lastReportedRound, "Cannot update round reports");
-    require(_round == currentRound + 1, "Cannot report on previous rounds");
+    require(_round == currentRound + 1 || _round == currentRound, "Cannot report on previous rounds");
 
     if (_round == currentRound + 1) {
       startNewRound(_round);
@@ -95,4 +93,9 @@ contract PushAggregator is Ownable {
     paymentAmount = _newAmount;
   }
 
+  modifier validateOracleRound(uint256 _round) {
+    require(oracles[msg.sender].enabled, "Only updatable by designated oracles");
+    require(_round > oracles[msg.sender].lastReportedRound, "Cannot update round reports");
+    _;
+  }
 }
