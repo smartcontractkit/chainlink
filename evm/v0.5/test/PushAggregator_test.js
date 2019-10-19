@@ -7,7 +7,7 @@ contract('PushAggregator', () => {
   const paymentAmount = h.toWei('3')
   const deposit = h.toWei('100')
 
-  let aggregator, link, nextRound
+  let aggregator, link, nextRound, oracles
 
   beforeEach(async () => {
     link = await h.linkContract(personas.defaultAccount)
@@ -39,7 +39,10 @@ contract('PushAggregator', () => {
 
   describe('#updateAnswer', async () => {
     beforeEach(async () => {
-      await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+      oracles = [personas.Neil, personas.Ned, personas.Nelly]
+      for (const oracle of oracles) {
+        await aggregator.addOracle(oracle, { from: personas.Carol })
+      }
     })
 
     it('updates the answer', async () => {
@@ -55,7 +58,7 @@ contract('PushAggregator', () => {
     it('increments the answer round', async () => {
       assert.equal(0, await aggregator.answerRound.call())
 
-      await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
+      const tx = await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
 
       assert.equal(1, await aggregator.answerRound.call())
     })
