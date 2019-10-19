@@ -38,4 +38,18 @@ contract PushAggregator is Ownable {
     oracleCount -= 1;
   }
 
+  /**
+   * @notice Allows the owner of the contract to withdraw any LINK balance
+   * available on the contract.
+   * @dev The contract will need to have a LINK balance in order to create requests.
+   * @param _recipient The address to receive the LINK tokens
+   * @param _amount The amount of LINK to send from the contract
+   */
+  function transferLINK(address _recipient, uint256 _amount)
+    public
+    onlyOwner()
+  {
+    require(LINK.transfer(_recipient, _amount), "LINK transfer failed");
+  }
+
 }
