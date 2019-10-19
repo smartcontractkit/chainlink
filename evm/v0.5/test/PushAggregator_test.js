@@ -11,7 +11,9 @@ contract('PushAggregator', () => {
 
   beforeEach(async () => {
     link = await h.linkContract(personas.defaultAccount)
-    aggregator = await Aggregator.new(link.address, paymentAmount, { from: personas.Carol })
+    aggregator = await Aggregator.new(link.address, paymentAmount, {
+      from: personas.Carol,
+    })
     await link.transfer(aggregator.address, deposit)
     assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
     nextRound = 1
