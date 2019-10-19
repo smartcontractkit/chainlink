@@ -15,9 +15,9 @@ contract PushAggregator is Ownable {
   LinkTokenInterface private LINK;
   mapping(address => bool) private oracles;
 
-  constructor(address _link, uint256 _payment) public {
+  constructor(address _link, uint256 _paymentAmount) public {
     LINK = LinkTokenInterface(_link);
-    paymentAmount = _payment;
+    updatePaymentAmount(_paymentAmount);
   }
 
   function updateAnswer(int256 _answer) public {
@@ -46,6 +46,13 @@ contract PushAggregator is Ownable {
     onlyOwner()
   {
     require(LINK.transfer(_recipient, _amount), "LINK transfer failed");
+  }
+
+  function updatePaymentAmount(uint256 _newAmount)
+    public
+    onlyOwner()
+  {
+    paymentAmount = _newAmount;
   }
 
 }
