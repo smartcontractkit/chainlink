@@ -2,8 +2,12 @@ package cmd_test
 
 import (
 	"flag"
+	"io/ioutil"
 	"math/big"
+	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -149,6 +153,8 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	assert.Empty(t, r.Renders)
 }
 
+var EndAt = time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
+
 func TestClient_CreateServiceAgreement(t *testing.T) {
 	t.Parallel()
 
@@ -156,7 +162,13 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
-	sa := cltest.MustReadFile(t, "testdata/hello_world_agreement.json")
+	sa := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
+	endAtISO8601 := EndAt.Format(time.RFC3339)
+	sa = strings.Replace(sa, "2019-10-19T22:17:19Z", endAtISO8601, 1)
+	tmpFile, err := ioutil.TempFile("", "sa.*.json")
+	require.NoError(t, err, "while opening temp file for modified service agreement")
+	defer os.Remove(tmpFile.Name())
+	tmpFile.WriteString(sa)
 
 	tests := []struct {
 		name        string
@@ -167,7 +179,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 		{"invalid json", "{bad son}", false, true},
 		{"bad file path", "bad/filepath/", false, true},
 		{"valid service agreement", string(sa), true, false},
-		{"service agreement specified as path", "testdata/hello_world_agreement.json", true, false},
+		{"service agreement specified as path", tmpFile.Name(), true, false},
 	}
 
 	for _, tt := range tests {
