@@ -9,6 +9,7 @@ import "../interfaces/LinkTokenInterface.sol";
 contract PushAggregator is Ownable {
 
   int256 public currentAnswer;
+  uint256 public answerRound;
   uint256 public oracleCount;
   LinkTokenInterface private LINK;
   mapping(address => bool) private oracles;
@@ -21,6 +22,7 @@ contract PushAggregator is Ownable {
     require(oracles[msg.sender], "Only updatable by designated oracles");
 
     currentAnswer = _answer;
+    answerRound += 1;
   }
 
   function addOracle(address _oracle) public onlyOwner {
