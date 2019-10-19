@@ -22,6 +22,7 @@ contract('PushAggregator', () => {
       'currentAnswer',
       'oracleCount',
       'removeOracle',
+      'transferLINK',
       'updateAnswer',
       // Ownable methods:
       'isOwner',
@@ -122,6 +123,50 @@ contract('PushAggregator', () => {
         await h.assertActionThrows(async () => {
           await aggregator.removeOracle(personas.Neil, { from: personas.Ned })
         })
+      })
+    })
+  })
+
+  describe('#transferLINK', () => {
+    const deposit = h.toWei('100')
+
+    beforeEach(async () => {
+      await link.transfer(aggregator.address, deposit)
+      assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
+    })
+
+    context('when called by the owner', () => {
+      it('succeeds', async () => {
+        await aggregator.transferLINK(personas.Carol, deposit, {
+          from: personas.Carol,
+        })
+
+        assertBigNum(0, await link.balanceOf.call(aggregator.address))
+        assertBigNum(deposit, await link.balanceOf.call(personas.Carol))
+      })
+
+      context('with a number higher than the LINK balance', () => {
+        it('fails', async () => {
+          await h.assertActionThrows(async () => {
+            await aggregator.transferLINK(personas.Carol, deposit.add(web3.utils.toBN('1')), {
+              from: personas.Carol,
+            })
+          })
+
+          assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
+        })
+      })
+    })
+
+    context('when called by a non-owner', () => {
+      it('fails', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.transferLINK(personas.Carol, deposit, {
+            from: personas.Eddy,
+          })
+        })
+
+        assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
       })
     })
   })
