@@ -28,6 +28,7 @@ contract PushAggregator is Ownable, Quickselectable {
   uint256 public currentRound;
   uint128 public paymentAmount;
   uint128 public oracleCount;
+  uint128 public minimumAnswerCount;
 
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
@@ -65,6 +66,7 @@ contract PushAggregator is Ownable, Quickselectable {
 
     oracles[_oracle].enabled = true;
     oracleCount += 1;
+    setMinimumAnswerCount(minimumAnswerCount + 1);
   }
 
   function removeOracle(address _oracle)
@@ -74,6 +76,7 @@ contract PushAggregator is Ownable, Quickselectable {
     require(oracles[_oracle].enabled, "Address is not an oracle");
     oracles[_oracle].enabled = false;
     oracleCount -= 1;
+    setMinimumAnswerCount(minimumAnswerCount - 1);
   }
 
   function transferLINK(address _recipient, uint256 _amount)
@@ -88,6 +91,14 @@ contract PushAggregator is Ownable, Quickselectable {
     onlyOwner()
   {
     paymentAmount = _newAmount;
+  }
+
+  function setMinimumAnswerCount(uint128 _count)
+    public
+    onlyOwner()
+  {
+    require(oracleCount >= _count, "Cannot have the answer minimum higher oracle count");
+    minimumAnswerCount = _count;
   }
 
   function updateRoundAnswer(uint256 _id)
@@ -110,7 +121,7 @@ contract PushAggregator is Ownable, Quickselectable {
     private
   {
     currentRound = _id;
-    rounds[_id].minimumAnswers = oracleCount;
+    rounds[_id].minimumAnswers = minimumAnswerCount;
     rounds[_id].paymentAmount = paymentAmount;
     emit NewRound(_id);
   }

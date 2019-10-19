@@ -28,9 +28,10 @@ contract('PushAggregator', () => {
       'oracleCount',
       'paymentAmount',
       'removeOracle',
+      'setPaymentAmount',
+      'setMinimumAnswerCount',
       'transferLINK',
       'updateAnswer',
-      'setPaymentAmount',
       // Ownable methods:
       'isOwner',
       'owner',
@@ -240,7 +241,7 @@ contract('PushAggregator', () => {
   describe('#setPaymentAmount', async () => {
     const newPaymentAmount = h.toWei('2')
 
-    it('it updates the recorded value', async () => {
+    it('it updates the payment amount record', async () => {
       assertBigNum(paymentAmount, await aggregator.paymentAmount.call())
 
       await aggregator.setPaymentAmount(newPaymentAmount, {
@@ -254,6 +255,47 @@ contract('PushAggregator', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
           await aggregator.setPaymentAmount(newPaymentAmount, {
+            from: personas.Ned,
+          })
+        })
+      })
+    })
+  })
+
+  describe('#setMinimumAnswerCount', async () => {
+    beforeEach(async () => {
+      oracles = [personas.Neil, personas.Ned, personas.Nelly]
+      for (const oracle of oracles) {
+        await aggregator.addOracle(oracle, { from: personas.Carol })
+      }
+
+      assert.equal(3, await aggregator.minimumAnswerCount.call())
+    })
+
+    it('it updates the minimum answer count record', async () => {
+      const newMinimum = 2
+
+      await aggregator.setMinimumAnswerCount(newMinimum, {
+        from: personas.Carol,
+      })
+
+      assert.equal(newMinimum, await aggregator.minimumAnswerCount.call())
+    })
+
+    context('when it is set to higher than the number or oracles', async () => {
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.setMinimumAnswerCount(4, {
+            from: personas.Carol,
+          })
+        })
+      })
+    })
+
+    context('when called by anyone but the owner', async () => {
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.setMinimumAnswerCount(2, {
             from: personas.Ned,
           })
         })
