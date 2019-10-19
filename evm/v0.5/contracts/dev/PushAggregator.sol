@@ -1,12 +1,17 @@
 pragma solidity 0.5.0;
 
+import "./Quickselectable.sol";
 import "../vendor/Ownable.sol";
+import "../vendor/SafeMath.sol";
+import "../vendor/SignedSafeMath.sol";
 import "../interfaces/LinkTokenInterface.sol";
 
 /**
  * @title The PushAggregator handles aggregating data pushed in from off-chain.
  */
-contract PushAggregator is Ownable {
+contract PushAggregator is Ownable, Quickselectable {
+  using SafeMath for uint256;
+  using SignedSafeMath for int256;
 
   struct OracleStatus {
     bool enabled;
@@ -14,7 +19,7 @@ contract PushAggregator is Ownable {
   }
 
   struct Round {
-    uint128 minimumResponses;
+    uint128 minimumAnswers;
     uint128 paymentAmount;
     int256[] answers;
   }
@@ -47,17 +52,32 @@ contract PushAggregator is Ownable {
       startNewRound(_round);
     }
     rounds[_round].answers.push(_answer);
-    currentAnswer = _answer;
     require(LINK.transfer(msg.sender, paymentAmount), "LINK transfer failed");
+    calculateRoundAverage(_round);
   }
 
-  function startNewRound(uint256 _number)
+  function calculateRoundAverage(uint256 _id)
+    private
+    ensureMinimumAnswersReceived(_id)
+  {
+    uint256 answerLength = rounds[_id].answers.length;
+    uint256 middleIndex = answerLength.div(2);
+    if (answerLength % 2 == 0) {
+      int256 median1 = quickselect(rounds[_id].answers, middleIndex);
+      int256 median2 = quickselect(rounds[_id].answers, middleIndex.add(1)); // quickselect is 1 indexed
+      currentAnswer = median1.add(median2) / 2; // signed integers are not supported by SafeMath
+    } else {
+      currentAnswer = quickselect(rounds[_id].answers, middleIndex.add(1)); // quickselect is 1 indexed
+    }
+  }
+
+  function startNewRound(uint256 _id)
     internal
   {
-    currentRound = _number;
-    rounds[_number].minimumResponses = oracleCount;
-    rounds[_number].paymentAmount = paymentAmount;
-    emit NewRound(_number);
+    currentRound = _id;
+    rounds[_id].minimumAnswers = oracleCount;
+    rounds[_id].paymentAmount = paymentAmount;
+    emit NewRound(_id);
   }
 
   function addOracle(address _oracle)
@@ -97,5 +117,11 @@ contract PushAggregator is Ownable {
     require(oracles[msg.sender].enabled, "Only updatable by designated oracles");
     require(_round > oracles[msg.sender].lastReportedRound, "Cannot update round reports");
     _;
+  }
+
+  modifier ensureMinimumAnswersReceived(uint256 _id) {
+    if (rounds[_id].answers.length == rounds[_id].minimumAnswers) {
+      _;
+    }
   }
 }
