@@ -28,6 +28,8 @@ contract PushAggregator is Ownable {
   mapping(address => OracleStatus) private oracles;
   mapping(uint256 => Round) private rounds;
 
+  event NewRound(uint256 indexed number);
+
   constructor(address _link, uint128 _paymentAmount)
     public
   {
@@ -57,6 +59,7 @@ contract PushAggregator is Ownable {
     answerRound = _number;
     rounds[_number].minimumResponses = oracleCount;
     rounds[_number].paymentAmount = paymentAmount;
+    emit NewRound(_number);
   }
 
   function addOracle(address _oracle)
