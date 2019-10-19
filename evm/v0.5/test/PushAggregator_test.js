@@ -48,7 +48,7 @@ contract('PushAggregator', () => {
       }
     })
 
-    context('when NOT all oracles have reported', async () => {
+    context('when the minimum number of oracles have NOT reported', async () => {
       it('pays the oracles that have reported', async () => {
         assertBigNum(0, await link.balanceOf.call(personas.Neil))
 
@@ -77,7 +77,7 @@ contract('PushAggregator', () => {
       it('updates the answer', async () => {
         assert.equal(0, await aggregator.currentAnswer.call())
 
-        await aggregator.updateAnswer(99, nextRound, { from: personas.Ned })
+        await aggregator.updateAnswer(99, nextRound, { from: personas.Neil })
         await aggregator.updateAnswer(100, nextRound, { from: personas.Ned })
         await aggregator.updateAnswer(101, nextRound, { from: personas.Nelly })
 
@@ -99,6 +99,16 @@ contract('PushAggregator', () => {
       })
     })
 
+    context('when an oracle submits for a round twice', async () => {
+      it('reverts', async () => {
+        await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
+
+        await h.assertActionThrows(async () => {
+          await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
+        })
+      })
+    })
+
     context('when updated after the max answers submitted', async () => {
       beforeEach(async () => {
         await aggregator.setAnswerCountRange(1, 1, { from: personas.Carol })
@@ -117,7 +127,7 @@ contract('PushAggregator', () => {
         assert.equal(0, await aggregator.currentRound.call())
 
         for (const oracle of oracles) {
-          await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
+          await aggregator.updateAnswer(100, nextRound, { from: oracle })
         }
 
         assert.equal(1, await aggregator.currentRound.call())
