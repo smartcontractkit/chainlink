@@ -77,7 +77,16 @@ contract PushAggregator is Ownable, Quickselectable {
     require(oracles[_oracle].enabled, "Address is not an oracle");
     oracles[_oracle].enabled = false;
     oracleCount -= 1;
-    setAnswerCountRange(minAnswerCount - 1, maxAnswerCount - 1);
+
+    uint64 min = minAnswerCount;
+    uint64 max = maxAnswerCount;
+    if (min > 0) {
+      min = min - 1;
+    }
+    if (max > 0) {
+      max = max - 1;
+    }
+    setAnswerCountRange(min, max);
   }
 
   function transferLINK(address _recipient, uint256 _amount)

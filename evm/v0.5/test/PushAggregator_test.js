@@ -48,7 +48,7 @@ contract('PushAggregator', () => {
       }
     })
 
-    context('when the minimum number of oracles have NOT reported', async () => {
+    context('when the minimum number of oracles have not reported', async () => {
       it('pays the oracles that have reported', async () => {
         assertBigNum(0, await link.balanceOf.call(personas.Neil))
 
@@ -251,6 +251,21 @@ contract('PushAggregator', () => {
         await h.assertActionThrows(async () => {
           await aggregator.removeOracle(personas.Neil, { from: personas.Ned })
         })
+      })
+    })
+
+    context('when called with a lower number of minimum oracles', async () => {
+      beforeEach(async () => {
+        await aggregator.setAnswerCountRange(0, 0, {
+          from: personas.Carol,
+        })
+      })
+
+      it('does not lower the answer range below 0', async () => {
+        await aggregator.removeOracle(personas.Neil, { from: personas.Carol })
+
+        assert.equal(0, await aggregator.minAnswerCount.call())
+        assert.equal(0, await aggregator.maxAnswerCount.call())
       })
     })
   })
