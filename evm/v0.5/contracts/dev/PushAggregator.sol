@@ -10,12 +10,14 @@ contract PushAggregator is Ownable {
 
   int256 public currentAnswer;
   uint256 public answerRound;
+  uint256 public paymentAmount;
   uint256 public oracleCount;
   LinkTokenInterface private LINK;
   mapping(address => bool) private oracles;
 
-  constructor(address _link) public {
+  constructor(address _link, uint256 _payment) public {
     LINK = LinkTokenInterface(_link);
+    paymentAmount = _payment;
   }
 
   function updateAnswer(int256 _answer) public {
@@ -23,6 +25,7 @@ contract PushAggregator is Ownable {
 
     currentAnswer = _answer;
     answerRound += 1;
+    require(LINK.transfer(msg.sender, paymentAmount), "LINK transfer failed");
   }
 
   function addOracle(address _oracle) public onlyOwner {
@@ -38,13 +41,6 @@ contract PushAggregator is Ownable {
     oracleCount -= 1;
   }
 
-  /**
-   * @notice Allows the owner of the contract to withdraw any LINK balance
-   * available on the contract.
-   * @dev The contract will need to have a LINK balance in order to create requests.
-   * @param _recipient The address to receive the LINK tokens
-   * @param _amount The amount of LINK to send from the contract
-   */
   function transferLINK(address _recipient, uint256 _amount)
     public
     onlyOwner()
