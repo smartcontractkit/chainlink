@@ -20,7 +20,7 @@ contract PushAggregator is Ownable {
   }
 
   int256 public currentAnswer;
-  uint256 public answerRound;
+  uint256 public currentRound;
   uint128 public paymentAmount;
   uint128 public oracleCount;
 
@@ -43,9 +43,9 @@ contract PushAggregator is Ownable {
     OracleStatus memory oracle = oracles[msg.sender];
     require(oracle.enabled, "Only updatable by designated oracles");
     require(_round > oracle.lastReportedRound, "Cannot update round reports");
-    require(_round == answerRound + 1, "Cannot report on previous rounds");
+    require(_round == currentRound + 1, "Cannot report on previous rounds");
 
-    if (_round == answerRound + 1) {
+    if (_round == currentRound + 1) {
       startNewRound(_round);
     }
     rounds[_round].answers.push(_answer);
@@ -56,7 +56,7 @@ contract PushAggregator is Ownable {
   function startNewRound(uint256 _number)
     internal
   {
-    answerRound = _number;
+    currentRound = _number;
     rounds[_number].minimumResponses = oracleCount;
     rounds[_number].paymentAmount = paymentAmount;
     emit NewRound(_number);

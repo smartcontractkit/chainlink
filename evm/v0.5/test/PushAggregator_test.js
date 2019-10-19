@@ -22,8 +22,8 @@ contract('PushAggregator', () => {
   it('has a limited public interface', () => {
     h.checkPublicABI(Aggregator, [
       'addOracle',
-      'answerRound',
       'currentAnswer',
+      'currentRound',
       'oracleCount',
       'paymentAmount',
       'removeOracle',
@@ -56,11 +56,11 @@ contract('PushAggregator', () => {
     })
 
     it('increments the answer round', async () => {
-      assert.equal(0, await aggregator.answerRound.call())
+      assert.equal(0, await aggregator.currentRound.call())
 
       await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
 
-      assert.equal(1, await aggregator.answerRound.call())
+      assert.equal(1, await aggregator.currentRound.call())
     })
 
     it('announces a new round by emitting a log', async () => {
