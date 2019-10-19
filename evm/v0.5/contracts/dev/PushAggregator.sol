@@ -4,9 +4,9 @@ import "../vendor/Ownable.sol";
 import "../interfaces/LinkTokenInterface.sol";
 
 /**
- * @title The Aggregator2 handles aggregating data pushed in from off-chain.
+ * @title The PushAggregator handles aggregating data pushed in from off-chain.
  */
-contract Aggregator2 is Ownable {
+contract PushAggregator is Ownable {
 
   uint256 public oracleCount;
   LinkTokenInterface private LINK;
