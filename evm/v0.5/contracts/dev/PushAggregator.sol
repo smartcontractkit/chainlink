@@ -19,7 +19,8 @@ contract PushAggregator is Ownable, Quickselectable {
   }
 
   struct Round {
-    uint128 minimumAnswers;
+    uint64 maxAnswers;
+    uint64 minAnswers;
     uint128 paymentAmount;
     int256[] answers;
   }
@@ -28,7 +29,8 @@ contract PushAggregator is Ownable, Quickselectable {
   uint256 public currentRound;
   uint128 public paymentAmount;
   uint128 public oracleCount;
-  uint128 public minimumAnswerCount;
+  uint64 public maxAnswerCount;
+  uint64 public minAnswerCount;
 
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
@@ -67,7 +69,7 @@ contract PushAggregator is Ownable, Quickselectable {
 
     oracles[_oracle].enabled = true;
     oracleCount += 1;
-    setMinimumAnswerCount(minimumAnswerCount + 1);
+    setAnswerCountRange(minAnswerCount + 1, maxAnswerCount + 1);
   }
 
   function removeOracle(address _oracle)
@@ -77,7 +79,7 @@ contract PushAggregator is Ownable, Quickselectable {
     require(oracles[_oracle].enabled, "Address is not an oracle");
     oracles[_oracle].enabled = false;
     oracleCount -= 1;
-    setMinimumAnswerCount(minimumAnswerCount - 1);
+    setAnswerCountRange(minAnswerCount - 1, maxAnswerCount - 1);
   }
 
   function transferLINK(address _recipient, uint256 _amount)
@@ -94,17 +96,19 @@ contract PushAggregator is Ownable, Quickselectable {
     paymentAmount = _newAmount;
   }
 
-  function setMinimumAnswerCount(uint128 _count)
+  function setAnswerCountRange(uint64 _min, uint64 _max)
     public
     onlyOwner()
   {
-    require(oracleCount >= _count, "Cannot have the answer minimum higher oracle count");
-    minimumAnswerCount = _count;
+    require(oracleCount >= _max, "Cannot have the answer max higher oracle count");
+    require(_max >= _min, "Cannot have the answer minimum higher the max");
+    minAnswerCount = _min;
+    maxAnswerCount = _max;
   }
 
   function updateRoundAnswer(uint256 _id)
     private
-    ensureMinimumAnswersReceived(_id)
+    ensureMinAnswersReceived(_id)
   {
     uint256 answerLength = rounds[_id].answers.length;
     uint256 middleIndex = answerLength.div(2);
@@ -122,7 +126,8 @@ contract PushAggregator is Ownable, Quickselectable {
     private
   {
     currentRound = _id;
-    rounds[_id].minimumAnswers = minimumAnswerCount;
+    rounds[_id].maxAnswers = maxAnswerCount;
+    rounds[_id].minAnswers = minAnswerCount;
     rounds[_id].paymentAmount = paymentAmount;
     emit NewRound(_id);
   }
@@ -133,8 +138,8 @@ contract PushAggregator is Ownable, Quickselectable {
     _;
   }
 
-  modifier ensureMinimumAnswersReceived(uint256 _id) {
-    if (rounds[_id].answers.length == rounds[_id].minimumAnswers) {
+  modifier ensureMinAnswersReceived(uint256 _id) {
+    if (rounds[_id].answers.length == rounds[_id].minAnswers) {
       _;
     }
   }
