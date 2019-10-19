@@ -1,6 +1,6 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
-const Aggregator = artifacts.require('Aggregator2.sol')
+const Aggregator = artifacts.require('PushAggregator.sol')
 
 const personas = h.personas
 const defaultAccount = h.personas.Default
@@ -8,7 +8,7 @@ const jobId1 =
   '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000001'
 let aggregator, link
 
-contract('Aggregator2', () => {
+contract('PushAggregator', () => {
 
   beforeEach(async () => {
     link = await h.linkContract(defaultAccount)
