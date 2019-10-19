@@ -24,12 +24,13 @@ contract('PushAggregator', () => {
       'addOracle',
       'currentAnswer',
       'currentRound',
-      'minimumAnswerCount',
+      'maxAnswerCount',
+      'minAnswerCount',
       'oracleCount',
       'paymentAmount',
       'removeOracle',
+      'setAnswerCountRange',
       'setPaymentAmount',
-      'setMinimumAnswerCount',
       'transferLINK',
       'updateAnswer',
       // Ownable methods:
@@ -144,6 +145,22 @@ contract('PushAggregator', () => {
       assertBigNum(currentCount, pastCount.add(web3.utils.toBN('1')))
     })
 
+    it('updates the answer range', async () => {
+      const pastMin = await aggregator.minAnswerCount.call()
+      const pastMax = await aggregator.maxAnswerCount.call()
+
+      await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+
+      assertBigNum(
+        pastMin.add(web3.utils.toBN('1')),
+        await aggregator.minAnswerCount.call(),
+      )
+      assertBigNum(
+        pastMax.add(web3.utils.toBN('1')),
+        await aggregator.maxAnswerCount.call(),
+      )
+    })
+
     context('when the oracle has already been added', async () => {
       beforeEach(async () => {
         await aggregator.addOracle(personas.Neil, { from: personas.Carol })
@@ -176,6 +193,22 @@ contract('PushAggregator', () => {
       const currentCount = await aggregator.oracleCount.call()
 
       assertBigNum(currentCount, pastCount.sub(web3.utils.toBN('1')))
+    })
+
+    it('updates the answer range', async () => {
+      const pastMin = await aggregator.minAnswerCount.call()
+      const pastMax = await aggregator.maxAnswerCount.call()
+
+      await aggregator.removeOracle(personas.Neil, { from: personas.Carol })
+
+      assertBigNum(
+        pastMin.sub(web3.utils.toBN('1')),
+        await aggregator.minAnswerCount.call(),
+      )
+      assertBigNum(
+        pastMax.sub(web3.utils.toBN('1')),
+        await aggregator.maxAnswerCount.call(),
+      )
     })
 
     context('when the oracle is not currently added', async () => {
@@ -262,30 +295,47 @@ contract('PushAggregator', () => {
     })
   })
 
-  describe('#setMinimumAnswerCount', async () => {
+  describe('#setAnswerCountRange', async () => {
+    let minAnswerCount, maxAnswerCount
+
     beforeEach(async () => {
       oracles = [personas.Neil, personas.Ned, personas.Nelly]
       for (const oracle of oracles) {
         await aggregator.addOracle(oracle, { from: personas.Carol })
       }
+      minAnswerCount = oracles.length
+      maxAnswerCount = oracles.length
 
-      assert.equal(3, await aggregator.minimumAnswerCount.call())
+      assert.equal(minAnswerCount, await aggregator.minAnswerCount.call())
+      assert.equal(maxAnswerCount, await aggregator.maxAnswerCount.call())
     })
 
-    it('it updates the minimum answer count record', async () => {
-      const newMinimum = 2
+    it('it updates the min and max answer counts', async () => {
+      const newMin = 1
+      const newMax = 2
 
-      await aggregator.setMinimumAnswerCount(newMinimum, {
+      await aggregator.setAnswerCountRange(newMin, newMax, {
         from: personas.Carol,
       })
 
-      assert.equal(newMinimum, await aggregator.minimumAnswerCount.call())
+      assert.equal(newMin, await aggregator.minAnswerCount.call())
+      assert.equal(newMax, await aggregator.maxAnswerCount.call())
     })
 
     context('when it is set to higher than the number or oracles', async () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.setMinimumAnswerCount(4, {
+          await aggregator.setAnswerCountRange(minAnswerCount, 4, {
+            from: personas.Carol,
+          })
+        })
+      })
+    })
+
+    context('when it sets the min higher than the max', async () => {
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.setAnswerCountRange(3, 2, {
             from: personas.Carol,
           })
         })
@@ -295,7 +345,7 @@ contract('PushAggregator', () => {
     context('when called by anyone but the owner', async () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.setMinimumAnswerCount(2, {
+          await aggregator.setAnswerCountRange(1, 3, {
             from: personas.Ned,
           })
         })
