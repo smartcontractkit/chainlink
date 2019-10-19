@@ -18,13 +18,37 @@ contract('PushAggregator', () => {
   it('has a limited public interface', () => {
     h.checkPublicABI(Aggregator, [
       'addOracle',
+      'currentAnswer',
       'oracleCount',
       'removeOracle',
+      'updateAnswer',
       // Ownable methods:
       'isOwner',
       'owner',
       'transferOwnership',
     ])
+  })
+
+  describe('#updateAnswer', async () => {
+    beforeEach(async () => {
+      await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+    })
+
+    it('updates the answer', async () => {
+      assert.equal(0, await aggregator.currentAnswer.call())
+
+      await aggregator.updateAnswer(100, { from: personas.Neil })
+
+      assert.equal(100, await aggregator.currentAnswer.call())
+    })
+
+    context('when called by a non-oracle', async () => {
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.updateAnswer(100, { from: personas.Carol })
+        })
+      })
+    })
   })
 
   describe('#addOracle', async () => {
