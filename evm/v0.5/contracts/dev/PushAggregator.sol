@@ -48,15 +48,13 @@ contract PushAggregator is Ownable, Quickselectable {
 
   function updateAnswer(int256 _answer, uint256 _round)
     public
+    ensureValidRoundId(_round)
     validateOracleRound(_round)
   {
-    require(_round == currentRound + 1 || _round == currentRound, "Cannot report on previous rounds");
-    if (_round == currentRound + 1) {
-      startNewRound(_round);
-    }
-
-    rounds[_round].answers.push(_answer);
+    startNewRound(_round);
+    recordAnswer(_answer, _round);
     updateRoundAnswer(_round);
+    deleteRound(_round);
 
     require(LINK.transfer(msg.sender, paymentAmount), "LINK transfer failed");
   }
@@ -106,6 +104,17 @@ contract PushAggregator is Ownable, Quickselectable {
     maxAnswerCount = _max;
   }
 
+  function startNewRound(uint256 _id)
+    private
+    ensureNextRound(_id)
+  {
+    currentRound = _id;
+    rounds[_id].maxAnswers = maxAnswerCount;
+    rounds[_id].minAnswers = minAnswerCount;
+    rounds[_id].paymentAmount = paymentAmount;
+    emit NewRound(_id);
+  }
+
   function updateRoundAnswer(uint256 _id)
     private
     ensureMinAnswersReceived(_id)
@@ -122,14 +131,18 @@ contract PushAggregator is Ownable, Quickselectable {
     emit AnswerUpdated(currentAnswer, _id);
   }
 
-  function startNewRound(uint256 _id)
+  function recordAnswer(int256 _answer, uint256 _id)
     private
+    ensureAcceptingAnswers(_id)
   {
-    currentRound = _id;
-    rounds[_id].maxAnswers = maxAnswerCount;
-    rounds[_id].minAnswers = minAnswerCount;
-    rounds[_id].paymentAmount = paymentAmount;
-    emit NewRound(_id);
+    rounds[_id].answers.push(_answer);
+  }
+
+  function deleteRound(uint256 _id)
+    private
+    ensureMaxAnswersReceived(_id)
+  {
+    delete rounds[_id];
   }
 
   modifier validateOracleRound(uint256 _round) {
@@ -142,5 +155,27 @@ contract PushAggregator is Ownable, Quickselectable {
     if (rounds[_id].answers.length == rounds[_id].minAnswers) {
       _;
     }
+  }
+
+  modifier ensureMaxAnswersReceived(uint256 _id) {
+    if (rounds[_id].answers.length == rounds[_id].maxAnswers) {
+      _;
+    }
+  }
+
+  modifier ensureAcceptingAnswers(uint256 _id) {
+    require(rounds[_id].maxAnswers != 0, "Max number of responses already received for round");
+    _;
+  }
+
+  modifier ensureNextRound(uint256 _id) {
+    if (_id == currentRound + 1) {
+      _;
+    }
+  }
+
+  modifier ensureValidRoundId(uint256 _id) {
+    require(_id == currentRound + 1 || _id == currentRound, "Cannot report on previous rounds");
+    _;
   }
 }
