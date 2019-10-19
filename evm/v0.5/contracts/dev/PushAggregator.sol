@@ -8,12 +8,16 @@ import "../interfaces/LinkTokenInterface.sol";
  */
 contract PushAggregator is Ownable {
 
+  struct OracleStatus {
+    bool enabled;
+  }
+
   int256 public currentAnswer;
   uint256 public answerRound;
   uint256 public paymentAmount;
   uint256 public oracleCount;
   LinkTokenInterface private LINK;
-  mapping(address => bool) private oracles;
+  mapping(address => OracleStatus) private oracles;
 
   constructor(address _link, uint256 _paymentAmount)
     public
@@ -25,7 +29,7 @@ contract PushAggregator is Ownable {
   function updateAnswer(int256 _answer, uint256 _round)
     public
   {
-    require(oracles[msg.sender], "Only updatable by designated oracles");
+    require(oracles[msg.sender].enabled, "Only updatable by designated oracles");
     require(_round == (answerRound + 1), "Must increment rounds one at a time");
 
     currentAnswer = _answer;
@@ -37,9 +41,9 @@ contract PushAggregator is Ownable {
     public
     onlyOwner()
   {
-    require(!oracles[_oracle], "Address is already recorded as an oracle");
+    require(!oracles[_oracle].enabled, "Address is already recorded as an oracle");
 
-    oracles[_oracle] = true;
+    oracles[_oracle].enabled = true;
     oracleCount += 1;
   }
 
@@ -47,8 +51,8 @@ contract PushAggregator is Ownable {
     public
     onlyOwner()
   {
-    require(oracles[_oracle], "Address is not an oracle");
-    oracles[_oracle] = false;
+    require(oracles[_oracle].enabled, "Address is not an oracle");
+    oracles[_oracle].enabled = false;
     oracleCount -= 1;
   }
 
