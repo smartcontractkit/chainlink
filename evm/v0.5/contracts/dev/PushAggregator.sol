@@ -136,6 +136,7 @@ contract PushAggregator is Ownable, Quickselectable {
     ensureAcceptingAnswers(_id)
   {
     rounds[_id].answers.push(_answer);
+    oracles[msg.sender].lastReportedRound = _id;
   }
 
   function deleteRound(uint256 _id)
