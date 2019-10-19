@@ -58,9 +58,17 @@ contract('PushAggregator', () => {
     it('increments the answer round', async () => {
       assert.equal(0, await aggregator.answerRound.call())
 
-      const tx = await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
+      await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
 
       assert.equal(1, await aggregator.answerRound.call())
+    })
+
+    it('announces a new round by emitting a log', async () => {
+      const tx = await aggregator.updateAnswer(100, nextRound, { from: personas.Neil })
+      const log = tx.receipt.rawLogs[0]
+      const roundNumber = web3.utils.toBN(log.topics[1])
+
+      assert.equal(nextRound, roundNumber.toNumber())
     })
 
     it('pays the oracle', async () => {
