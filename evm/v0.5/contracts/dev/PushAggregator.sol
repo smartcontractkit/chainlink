@@ -10,16 +10,25 @@ contract PushAggregator is Ownable {
 
   struct OracleStatus {
     bool enabled;
+    uint256 lastReportedRound;
+  }
+
+  struct Round {
+    uint128 minimumResponses;
+    uint128 paymentAmount;
+    int256[] answers;
   }
 
   int256 public currentAnswer;
   uint256 public answerRound;
-  uint256 public paymentAmount;
-  uint256 public oracleCount;
+  uint128 public paymentAmount;
+  uint128 public oracleCount;
+
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
+  mapping(uint256 => Round) private rounds;
 
-  constructor(address _link, uint256 _paymentAmount)
+  constructor(address _link, uint128 _paymentAmount)
     public
   {
     LINK = LinkTokenInterface(_link);
@@ -29,12 +38,25 @@ contract PushAggregator is Ownable {
   function updateAnswer(int256 _answer, uint256 _round)
     public
   {
-    require(oracles[msg.sender].enabled, "Only updatable by designated oracles");
-    require(_round == (answerRound + 1), "Must increment rounds one at a time");
+    OracleStatus memory oracle = oracles[msg.sender];
+    require(oracle.enabled, "Only updatable by designated oracles");
+    require(_round > oracle.lastReportedRound, "Cannot update round reports");
+    require(_round == answerRound + 1, "Cannot report on previous rounds");
 
+    if (_round == answerRound + 1) {
+      startNewRound(_round);
+    }
+    rounds[_round].answers.push(_answer);
     currentAnswer = _answer;
-    answerRound += 1;
     require(LINK.transfer(msg.sender, paymentAmount), "LINK transfer failed");
+  }
+
+  function startNewRound(uint256 _number)
+    internal
+  {
+    answerRound = _number;
+    rounds[_number].minimumResponses = oracleCount;
+    rounds[_number].paymentAmount = paymentAmount;
   }
 
   function addOracle(address _oracle)
@@ -63,7 +85,7 @@ contract PushAggregator is Ownable {
     require(LINK.transfer(_recipient, _amount), "LINK transfer failed");
   }
 
-  function updatePaymentAmount(uint256 _newAmount)
+  function updatePaymentAmount(uint128 _newAmount)
     public
     onlyOwner()
   {
