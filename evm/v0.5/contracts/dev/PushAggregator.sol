@@ -49,13 +49,14 @@ contract PushAggregator is Ownable, Quickselectable {
     validateOracleRound(_round)
   {
     require(_round == currentRound + 1 || _round == currentRound, "Cannot report on previous rounds");
-
     if (_round == currentRound + 1) {
       startNewRound(_round);
     }
+
     rounds[_round].answers.push(_answer);
-    require(LINK.transfer(msg.sender, paymentAmount), "LINK transfer failed");
     updateRoundAnswer(_round);
+
+    require(LINK.transfer(msg.sender, paymentAmount), "LINK transfer failed");
   }
 
   function addOracle(address _oracle)

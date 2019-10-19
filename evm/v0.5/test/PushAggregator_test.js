@@ -91,7 +91,7 @@ contract('PushAggregator', () => {
         const tx = await aggregator.updateAnswer(101, nextRound, {
           from: personas.Nelly,
         })
-        const log = tx.receipt.rawLogs[1]
+        const log = tx.receipt.rawLogs[0]
         const newAnswer = web3.utils.toBN(log.topics[1])
 
         assert.equal(100, newAnswer.toNumber())
