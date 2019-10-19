@@ -1,18 +1,19 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
-const Aggregator = artifacts.require('PushAggregator.sol')
 
-const personas = h.personas
-const defaultAccount = h.personas.Default
-const jobId1 =
-  '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000001'
-let aggregator, link
+contract.only('PushAggregator', () => {
+  const Aggregator = artifacts.require('PushAggregator.sol')
+  const personas = h.personas
+  const paymentAmount = h.toWei('1')
+  const deposit = h.toWei('100')
 
-contract('PushAggregator', () => {
+  let aggregator, link
 
   beforeEach(async () => {
-    link = await h.linkContract(defaultAccount)
-    aggregator = await Aggregator.new(link.address, { from: personas.Carol })
+    link = await h.linkContract(personas.defaultAccount)
+    aggregator = await Aggregator.new(link.address, paymentAmount, { from: personas.Carol })
+    await link.transfer(aggregator.address, deposit)
+    assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
   })
 
   it('has a limited public interface', () => {
@@ -21,6 +22,7 @@ contract('PushAggregator', () => {
       'answerRound',
       'currentAnswer',
       'oracleCount',
+      'paymentAmount',
       'removeOracle',
       'transferLINK',
       'updateAnswer',
@@ -52,6 +54,14 @@ contract('PushAggregator', () => {
       await aggregator.updateAnswer(100, { from: personas.Neil })
 
       assert.equal(1, await aggregator.answerRound.call())
+    })
+
+    it('pays the oracle', async () => {
+      assertBigNum(0, await link.balanceOf.call(personas.Neil))
+
+      await aggregator.updateAnswer(100, { from: personas.Neil })
+
+      assertBigNum(paymentAmount, await link.balanceOf.call(personas.Neil))
     })
 
     context('when called by a non-oracle', async () => {
@@ -128,13 +138,6 @@ contract('PushAggregator', () => {
   })
 
   describe('#transferLINK', () => {
-    const deposit = h.toWei('100')
-
-    beforeEach(async () => {
-      await link.transfer(aggregator.address, deposit)
-      assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
-    })
-
     context('when called by the owner', () => {
       it('succeeds', async () => {
         await aggregator.transferLINK(personas.Carol, deposit, {
