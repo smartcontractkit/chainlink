@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/require"
@@ -20,6 +22,8 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 	return CreateSpecViaWeb(t, app, string(MustReadFile(t, path)))
 }
 
+var EndAt = time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
+
 // FixtureCreateServiceAgreementViaWeb creates a service agreement from a fixture using /v2/service_agreements
 func FixtureCreateServiceAgreementViaWeb(
 	t *testing.T,
@@ -29,6 +33,9 @@ func FixtureCreateServiceAgreementViaWeb(
 	client := app.NewHTTPClient()
 
 	agreementWithoutOracle := string(MustReadFile(t, path))
+	var endAtISO8601 = EndAt.Format(time.RFC3339)
+	agreementWithoutOracle = strings.Replace(agreementWithoutOracle,
+		"2019-10-19T22:17:19Z", endAtISO8601, 1)
 	from := GetAccountAddress(t, app.ChainlinkApplication.GetStore())
 	agreementWithOracle := MustJSONSet(t, agreementWithoutOracle, "oracles", []string{from.Hex()})
 
