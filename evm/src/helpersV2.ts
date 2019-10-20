@@ -278,13 +278,23 @@ export async function fulfillOracleRequest(
     gasLimit: 1000000, // FIXME: incorrect gas estimation
   },
 ): ReturnType<typeof oracleContract.fulfillOracleRequest> {
+  const d = debug.extend('fulfillOracleRequest')
+  d('Response param: %s', response)
+
+  const bytes32Len = 32 * 2 + 2
+  const convertedResponse =
+    response.length < bytes32Len
+      ? ethers.utils.formatBytes32String(response)
+      : response
+  d('Converted Response param: %s', convertedResponse)
+
   return oracleContract.fulfillOracleRequest(
     runRequest.id,
     runRequest.payment,
     runRequest.callbackAddr,
     runRequest.callbackFunc,
     runRequest.expiration,
-    response,
+    convertedResponse,
     options,
   )
 }
