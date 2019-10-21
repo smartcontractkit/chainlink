@@ -1204,10 +1204,10 @@
     exec-sh "^0.3.2"
     minimist "^1.2.0"
 
-"@craco/craco@^5.2.0":
-  version "5.4.0"
-  resolved "https://registry.npmjs.org/@craco/craco/-/craco-5.4.0.tgz#0e74e3e034f7f2228d0d8935b7b432de05ceec48"
-  integrity sha512-g5htgEDTgC2d4N2luk9c1xHdAT/4qmfp5/JzqI2x5lvmmxtCJXJLMfqrxOx1kobinYWOqdipPmLYVrF10yp0Rw==
+"@craco/craco@^5.5.0":
+  version "5.5.0"
+  resolved "https://registry.yarnpkg.com/@craco/craco/-/craco-5.5.0.tgz#081b25522d866fbc14b80fe61517f2f10e3e4499"
+  integrity sha512-VN4pkBku4OmB8DHT/COGfmk4DKIyBDqM8KeGX6jGqsqxhxIf8OI1ULKNtenwvdKTx3XrYMEr0ya4n3VBu8CXew==
   dependencies:
     cross-spawn "^6.0.5"
     lodash.mergewith "^4.6.2"
