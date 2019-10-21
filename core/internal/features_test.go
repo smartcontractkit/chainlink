@@ -529,8 +529,6 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	val, err := tr.Result.ResultString()
 	assert.NoError(t, err)
 	assert.Equal(t, eaPrice, val)
-	res := tr.Result.Data.Get("quote")
-	assert.Equal(t, eaQuote, res.String())
 }
 
 // This test ensures that an bridge adapter task is resumed from pending after
