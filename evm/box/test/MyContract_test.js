@@ -82,7 +82,7 @@ contract('MyContract', accounts => {
 
   describe('#fulfill', () => {
     const expected = 50000
-    const response = web3.utils.toHex(expected)
+    const response = web3.utils.padRight(web3.utils.toHex(expected), 64)
     let request
 
     beforeEach(async () => {
