@@ -246,19 +246,48 @@ jobs:
           name: Run E2E Tests
           command: yarn workspace @chainlink/explorer-client run build && yarn workspace @chainlink/explorer run test-ci:e2e:silent
   forks:
-    docker:
-      - image: smartcontract/builder:1.0.25
+    machine:
+      image: ubuntu-1604:201903-01
+      # docker_layer_caching: true
+    working_directory: ~/chainlink
+    # docker:
+    #   - image: smartcontract/builder:1.0.25
+    #   - image: docker:17.05.0-ce-git
     steps:
       - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-          paths:
-            - "/go/pkg/mod"
+      # - run:
+      #     name: Install docker
+      #     command: |
+      #       apt-get update --fix-missing
+      #       apt-get install -y apt-transport-https ca-certificates software-properties-common
+      #       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+      #       apt-key fingerprint 0EBFCD88
+      #       add-apt-repository \
+      #         "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+      #         $(lsb_release -cs) \
+      #         stable"
+      #       apt-get update
+      #       apt-get install -y docker-ce
+      #       docker --version
+      # - run:
+      #     name: Install Docker Compose
+      #     command: |
+      #       curl -L https://github.com/docker/compose/releases/download/1.24.0/docker-compose-`uname -s`-`uname -m` > ~/docker-compose &&
+      #       chmod +x ~/docker-compose
+      #       sudo mv ~/docker-compose /usr/local/bin/docker-compose
+      # - setup_remote_docker
+      # - run: echo $CACHE_VERSION > cache.version
+      # - restore_cache:
+      #     name: Restore Go Vendor Cache
+      #     key: go-mod-{{ checksum "go.sum" }}
+      # - save_cache:
+      #     name: Save Go Vendor Cache
+      #     key: go-mod-{{ checksum "go.sum" }}
+      #     paths:
+      #       - "/go/pkg/mod"
+      # - run: ./tools/ci/forks_test
+      # - run: docker-compose --version
+      # - run: pwd
       - run: ./tools/ci/forks_test
 
   build-publish-explorer:
