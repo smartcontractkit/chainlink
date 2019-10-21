@@ -23,6 +23,7 @@ services:
   # Slow-mining geth node which chainlink connects to.
   geth1:
     image: geth
+    container_name: forks_geth
     restart: on-failure
     command: --nousb
       --config /root/geth-config-1.toml
@@ -48,6 +49,7 @@ services:
 
   chainlink:
     image: smartcontract/chainlink
+    container_name: forks_chainlink
     command: local node -d -p /run/secrets/node_password -a /run/secrets/node_api_credentials
     restart: always
     volumes:
