@@ -6,32 +6,18 @@
 version: "3.1"
 
 services:
-  # Static bootnode for other nodes to use to connect
-  bootnode:
-    image: bootnode
-    restart: on-failure
-    volumes:
-      - .:/root
-    networks:
-      gethnet:
-        ipv4_address: 172.16.1.103
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-
-  # Slow-mining geth node which chainlink connects to.
-  geth1:
+  geth:
     image: geth
     container_name: forks_geth
     restart: on-failure
-    command: --nousb
-      --config /root/geth-config-1.toml
+    # --miner.threads must be positive, or geth won't mine!
+    command: --mine
+      --miner.threads 1
+      --nousb
+      --config /root/geth-config.toml
+      --password /root/password.txt
       --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
-      --password /run/secrets/node_password
-      --nat extip:172.16.1.100 # Must match ipv4_address for this container
-    volumes:
-      - .:/root
+      --nat extip:172.16.1.100
     networks:
       gethnet:
         ipv4_address: 172.16.1.100
