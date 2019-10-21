@@ -255,6 +255,9 @@ jobs:
     #   - image: docker:17.05.0-ce-git
     steps:
       - checkout
+      - run:
+          name: Install Yarn
+          command: npm install -g yarn
       # - run:
       #     name: Install docker
       #     command: |
