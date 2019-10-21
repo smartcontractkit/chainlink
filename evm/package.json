@@ -59,7 +59,7 @@
     "solhint": "^2.1.0",
     "truffle": "^5.0.25",
     "ts-jest": "^24.1.0",
-    "typechain": "1.0.0-beta.2",
+    "typechain": "1.0.1",
     "typechain-target-ethers": "^1.0.0-beta.1",
     "typescript": "^3.6.3"
   },
