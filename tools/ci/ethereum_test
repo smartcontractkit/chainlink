@@ -59,7 +59,7 @@ title 'End to end tests.'
 launch_cypress_job_server
 
 set -o pipefail
-yarn workspace @chainlink/integration run test | tee $SRCROOT/integration/e2e.tests.log
+yarn workspace @chainlink/integration test:cypress | tee $SRCROOT/integration/e2e.tests.log
 set +o pipefail
 
 title 'All tests passed.'
