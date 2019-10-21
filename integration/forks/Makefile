@@ -20,11 +20,6 @@ tear_down:
 
 initial_setup: tear_down build_geth_image build_chainlink_image start_network create_job
 
-# Isolate the faster node from the network, so that it creates a blockchain
-# re-org when re-attached.
-isolate_geth2:
-	docker network disconnect forks_gethnet forks_geth2_1 || true
-
 ETH_LOG_JOB = '$(shell cat eth_log_job.json)'
 create_job:
 	# wait for CL to start

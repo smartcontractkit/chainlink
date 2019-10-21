@@ -1,7 +1,7 @@
 require 'eth'
 
 Eth.configure do |config|
-  config.chain_id = 1994
+  config.chain_id = 17
 end
 
 gwei = 10**9
