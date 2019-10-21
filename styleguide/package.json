@@ -35,7 +35,7 @@
     "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
     "@storybook/addon-actions": "^5.1.10",
-    "@storybook/addon-info": "^5.1.10",
+    "@storybook/addon-info": "^5.2.4",
     "@storybook/addon-links": "^5.2.4",
     "@storybook/addons": "^5.2.1",
     "@storybook/react": "^5.1.10",
