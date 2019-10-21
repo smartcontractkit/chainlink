@@ -841,16 +841,16 @@ type Contract struct {
 	ABI abi.ABI
 }
 
-// GetContract loads the contract JSON file from ../evm/build/contracts
+// GetContract loads the contract JSON file from ../evm/dist/artifacts
 // and parses the ABI JSON contents into an abi.ABI object
 func GetContract(name string) (*Contract, error) {
-	box := packr.NewBox("../../evm/build/contracts")
+	box := packr.NewBox("../../evm/dist/artifacts")
 	jsonFile, err := box.Find(name + ".json")
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to read contract JSON")
 	}
 
-	abiBytes := gjson.GetBytes(jsonFile, "abi")
+	abiBytes := gjson.GetBytes(jsonFile, "abi.compilerOutput")
 	abiParsed, err := abi.JSON(strings.NewReader(abiBytes.Raw))
 	if err != nil {
 		return nil, err
