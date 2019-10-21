@@ -2,10 +2,8 @@ pragma solidity 0.5.0;
 
 import "./ChainlinkClient.sol";
 import "./LinkTokenReceiver.sol";
-import "./Quickselect.sol";
+import "./Median.sol";
 import "./vendor/Ownable.sol";
-import "./vendor/SafeMath.sol";
-import "./vendor/SignedSafeMath.sol";
 
 /**
  * @title PreCoordinator is a contract that builds on-chain service agreements
@@ -14,8 +12,6 @@ import "./vendor/SignedSafeMath.sol";
  * the corresponding list of oracles to create distinct requests to each one.
  */
 contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, LinkTokenReceiver {
-  using SafeMath for uint256;
-  using SignedSafeMath for int256;
 
   uint256 constant private MAX_ORACLE_COUNT = 45;
 
@@ -220,32 +216,12 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     if (requesters[cbRequestId].responses.push(_data) == minResponses) {
       Requester memory req = requesters[cbRequestId];
       delete requesters[cbRequestId];
-      int256 result = getMedian(req.responses);
+      int256 result = Median.get(req.responses);
       // solhint-disable-next-line avoid-low-level-calls
       (bool success, ) = req.callbackAddress.call(abi.encodeWithSelector(req.callbackFunctionId, cbRequestId, result));
       return success;
     }
     return true;
-  }
-
-  /**
-   * @dev Performs aggregation of the answers received from the Chainlink nodes.
-   * Assumes that at least half the oracles are honest and so can't contol the
-   * middle of the ordered responses.
-   * @param _responses The answer ID associated with the group of requests
-   */
-  function getMedian(int256[] memory _responses)
-    private pure returns (int256 result)
-  {
-    uint256 responseLength = _responses.length;
-    uint256 middleIndex = responseLength.div(2);
-    if (responseLength % 2 == 0) {
-      int256 median1 = Quickselect.quickselect(_responses, middleIndex);
-      int256 median2 = Quickselect.quickselect(_responses, middleIndex.add(1)); // quickselect is 1 indexed
-      result = median1.add(median2) / 2; // signed integers are not supported by SafeMath
-    } else {
-      result = Quickselect.quickselect(_responses, middleIndex.add(1)); // quickselect is 1 indexed
-    }
   }
 
   /**
