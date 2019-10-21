@@ -21187,10 +21187,10 @@ typechain-target-ethers@^1.0.0-beta.1:
   dependencies:
     lodash "^4.17.15"
 
-typechain@1.0.0-beta.2:
-  version "1.0.0-beta.2"
-  resolved "https://registry.npmjs.org/typechain/-/typechain-1.0.0-beta.2.tgz#3b933eeb996be623cbb1c9aba1f38130afec585e"
-  integrity sha512-hD/PJNE8sG1IGfDUTCPtjG7ZyMZOhTcacimSe1B6Xa4rN0ly9l8ElRLVOilKPoAU8n+3h93OkJU301hWd2Tkyg==
+typechain@1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/typechain/-/typechain-1.0.1.tgz#e0dcf63bb0ae8feb74a56ff3153abfd706473efe"
+  integrity sha512-mB/8UbcziE+CJi3ph8hHhBRILAnFjIpAELIhkNWYs08xg2UPFIWVEfK5v0Eb+G7B/XEhOMFbd0EJwGaeWp54Xg==
   dependencies:
     command-line-args "^4.0.7"
     debug "^3.0.1"
