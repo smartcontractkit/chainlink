@@ -15,8 +15,7 @@
     "test:forks": "./forks/test"
   },
   "dependencies": {
-    "chainlink": "0.6.1",
-    "ethereumjs-tx": "^2.0.0"
+    "chainlink": "0.6.1"
   },
   "devDependencies": {
     "@chainlink/eslint-config": "0.0.1",
