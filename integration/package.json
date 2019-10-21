@@ -8,8 +8,9 @@
     "depcheck": "echo '@chainlink/integration' && depcheck || true",
     "eslint": "eslint --ext .js,.ts .",
     "format": "prettier --write \"**/*\"",
-    "setup": "echo \"No setup required for @chainlink/integration\"",
     "lint": "yarn eslint",
+    "setup": "echo \"No setup required for @chainlink/integration\"",
+    "test": "yarn test:cypress && yarn test:forks",
     "test:cypress": "cross-env NODE_ENV=test cypress run",
     "test:forks": "./forks/test"
   },

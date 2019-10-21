@@ -31,7 +31,7 @@ create_job:
 	bash scripts/search_chainlink_logs.sh 'Listening and serving HTTP on port 6688'
 	# add ethlog job
 	bash scripts/log_in_to_chainlink_node.sh
-	docker exec -it forks_chainlink_1 chainlink jobs create ${ETH_LOG_JOB}
+	docker exec -it forks_chainlink chainlink jobs create ${ETH_LOG_JOB}
 
 # Generates an ethereum transaction which creates a simple contract, which emits a log in its constructor.
 create_curl_script:
