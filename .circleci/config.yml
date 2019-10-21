@@ -358,7 +358,6 @@ workflows:
             - parity-postgres
             - operator-ui
             - rust
-            - forks
           filters:
             branches:
               only:
@@ -377,4 +376,3 @@ workflows:
             - operator-ui
             - rust
             - explorer
-            - forks

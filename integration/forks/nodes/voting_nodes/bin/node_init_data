@@ -1,1 +1,0 @@
-geth --nousb --config /root/geth-config-1.toml init /root/genesis.json
