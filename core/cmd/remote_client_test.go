@@ -826,3 +826,27 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 	assert.NoError(t, client.SetMinimumGasPrice(c))
 	assert.Equal(t, big.NewInt(861646079900), app.Store.Config.EthGasPriceDefault())
 }
+
+func TestClient_GetConfiguration(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+
+	client, r := app.NewClientAndRenderer()
+	assert.NoError(t, client.GetConfiguration(cltest.EmptyCLIContext()))
+	require.Equal(t, 1, len(r.Renders))
+	
+	cwl := *r.Renders[0].(*presenters.ConfigWhitelist)
+	assert.Equal(t, cwl.Whitelist.BridgeResponseURL, app.Config.BridgeResponseURL().String())
+	assert.Equal(t, cwl.Whitelist.ChainID, app.Config.ChainID())
+	assert.Equal(t, cwl.Whitelist.Dev, app.Config.Dev())
+	assert.Equal(t, cwl.Whitelist.EthGasBumpThreshold, app.Config.EthGasBumpThreshold())
+	assert.Equal(t, cwl.Whitelist.LogLevel, app.Config.LogLevel())
+	assert.Equal(t, cwl.Whitelist.LogSQLStatements, app.Config.LogSQLStatements())
+	assert.Equal(t, cwl.Whitelist.MinIncomingConfirmations, app.Config.MinIncomingConfirmations())
+	assert.Equal(t, cwl.Whitelist.MinOutgoingConfirmations, app.Config.MinOutgoingConfirmations())
+	assert.Equal(t, cwl.Whitelist.MinimumContractPayment, app.Config.MinimumContractPayment())
+	assert.Equal(t, cwl.Whitelist.RootDir, app.Config.RootDir())
+	assert.Equal(t, cwl.Whitelist.SessionTimeout, app.Config.SessionTimeout())
+}
