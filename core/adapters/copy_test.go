@@ -13,7 +13,7 @@ import (
 func TestCopy_Perform(t *testing.T) {
 	tests := []struct {
 		name            string
-		result          string
+		input           string
 		copyPath        []string
 		wantData        string
 		wantStatus      models.RunStatus
@@ -81,16 +81,16 @@ func TestCopy_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := cltest.RunInputWithResult(test.result)
+			input := models.RunInput{Data: cltest.JSONFromString(t, test.input)}
 			adapter := adapters.Copy{CopyPath: test.copyPath}
 			result := adapter.Perform(input, nil)
 			assert.Equal(t, test.wantData, result.Data.String())
 			assert.Equal(t, test.wantStatus, result.Status)
 
 			if test.wantResultError {
-				assert.NotNil(t, result.GetError())
+				assert.Error(t, result.GetError())
 			} else {
-				assert.Nil(t, result.GetError())
+				assert.NoError(t, result.GetError())
 			}
 		})
 	}
