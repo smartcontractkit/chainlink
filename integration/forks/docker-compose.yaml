@@ -56,11 +56,7 @@ services:
       - ./chainlink_node/clroot/:/root/clroot
     environment:
       - LOG_LEVEL=debug
-<<<<<<< HEAD
-      - ETH_URL=ws://geth1:8546 # Gets ethereum information from slow geth node
-=======
       - ETH_URL=ws://172.16.1.100:8546 # Gets ethereum information from geth node
->>>>>>> cleanup
       - ROOT=/root/clroot
       - ETH_CHAIN_ID=17
       - MIN_OUTGOING_CONFIRMATIONS=2
