@@ -1,17 +1,13 @@
 pragma solidity 0.5.0;
 
-import "./Quickselectable.sol";
+import "../Median.sol";
 import "../vendor/Ownable.sol";
-import "../vendor/SafeMath.sol";
-import "../vendor/SignedSafeMath.sol";
 import "../interfaces/LinkTokenInterface.sol";
 
 /**
  * @title The PushAggregator handles aggregating data pushed in from off-chain.
  */
-contract PushAggregator is Ownable, Quickselectable {
-  using SafeMath for uint256;
-  using SignedSafeMath for int256;
+contract PushAggregator is Ownable {
 
   struct OracleStatus {
     bool enabled;
@@ -128,16 +124,9 @@ contract PushAggregator is Ownable, Quickselectable {
     private
     ensureMinAnswersReceived(_id)
   {
-    uint256 answerLength = rounds[_id].answers.length;
-    uint256 middleIndex = answerLength.div(2);
-    if (answerLength % 2 == 0) {
-      int256 median1 = quickselect(rounds[_id].answers, middleIndex);
-      int256 median2 = quickselect(rounds[_id].answers, middleIndex.add(1)); // quickselect is 1 indexed
-      currentAnswer = median1.add(median2) / 2; // signed integers are not supported by SafeMath
-    } else {
-      currentAnswer = quickselect(rounds[_id].answers, middleIndex.add(1)); // quickselect is 1 indexed
-    }
-    emit AnswerUpdated(currentAnswer, _id);
+    int256 newAnswer = Median.get(rounds[_id].answers);
+    currentAnswer = newAnswer;
+    emit AnswerUpdated(newAnswer, _id);
   }
 
   function recordAnswer(int256 _answer, uint256 _id)

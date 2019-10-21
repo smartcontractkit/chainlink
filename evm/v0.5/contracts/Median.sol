@@ -34,7 +34,7 @@ library Median {
    * @param _k The index, 1 based, of the elements you want to pull from when ordered
    */
   function quickselect(int256[] memory _a, uint256 _k)
-    internal
+    private
     pure
     returns (int256)
   {
