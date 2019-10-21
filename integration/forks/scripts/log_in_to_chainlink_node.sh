@@ -1,5 +1,7 @@
+container_name=`docker ps | grep chainlink_1 | awk '{ print $NF }'`
+
 login() {
-    docker exec -it forks_chainlink_1 chainlink \
+    docker exec -it forks_chainlink chainlink \
            admin login -f /run/secrets/node_api_credentials
 }
 
