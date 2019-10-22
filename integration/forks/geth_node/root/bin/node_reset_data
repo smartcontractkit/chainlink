@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# NOTE: only usable inside of geth container after running docker run -ti --network=forks_gethnet --ip=172.16.1.100 geth bash
+
 # resets the blockchain to a fresh state - ** this will create a new genesis block **
 rm -rf /root/.ethereum/geth/
 node_init_data

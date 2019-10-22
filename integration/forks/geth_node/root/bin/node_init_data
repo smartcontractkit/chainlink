@@ -1,4 +1,6 @@
 #!/bin/sh
 
+# NOTE: only usable inside of geth container after running docker run -ti --network=forks_gethnet --ip=172.16.1.100 geth bash
+
 # creates the genesis block from the genesis.json config
 geth --nousb --config /root/geth-config.toml init /root/genesis.json

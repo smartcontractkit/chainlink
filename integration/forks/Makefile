@@ -1,11 +1,8 @@
 build_geth_image:
-	# docker pull ethereum/client-go:stable
 	docker build -t geth ./geth_node
 
 build_chainlink_image:
 	# Pull docker images required by chainlink and then build chainlink from scratch
-	# docker pull smartcontract/builder:1.0.22
-	# docker pull ubuntu:18.04
 	docker build -t smartcontract/chainlink ../../
 
 start_network:
