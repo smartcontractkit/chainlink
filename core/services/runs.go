@@ -119,7 +119,8 @@ func NewRun(
 		run.SetError(err)
 	}
 
-	cost := assets.NewLink(0)
+	cost := &assets.Link{}
+	cost.Set(job.MinPayment)
 	for i, taskRun := range run.TaskRuns {
 		adapter, err := adapters.For(taskRun.TaskSpec, store)
 
@@ -128,9 +129,11 @@ func NewRun(
 			return &run, nil
 		}
 
-		mp := adapter.MinContractPayment()
-		if mp != nil {
-			cost.Add(cost, mp)
+		if job.MinPayment.IsZero() {
+			mp := adapter.MinContractPayment()
+			if mp != nil {
+				cost.Add(cost, mp)
+			}
 		}
 
 		if currentHeight != nil {
