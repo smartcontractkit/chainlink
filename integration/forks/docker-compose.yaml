@@ -1,0 +1,74 @@
+# This sets up a system for testing chainlink against block re-orgs and ommers.
+#
+# If you modify this, make sure to make corresponding modifications to the scripts in forks/scripts.
+# Geth is bad about letting you know when it's getting inconsistent inputs, so be careful.
+
+version: "3.1"
+
+services:
+  geth:
+    image: geth
+    container_name: forks_geth
+    restart: on-failure
+    # --miner.threads must be positive, or geth won't mine!
+    command: --mine
+      --miner.threads 1
+      --nousb
+      --config /root/geth-config.toml
+      --password /root/password.txt
+      --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
+      --nat extip:172.16.1.100
+    networks:
+      gethnet:
+        ipv4_address: 172.16.1.100
+    secrets:
+      - node_password
+
+  # imports the 0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f key into the CL db
+  chainlink_key_import:
+    image: smartcontract/chainlink
+    command: local import /root/clroot/keys/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json
+    volumes:
+      - ./chainlink_node/clroot/:/root/clroot
+    environment:
+      - ROOT=/root/clroot
+
+  chainlink:
+    image: smartcontract/chainlink
+    container_name: forks_chainlink
+    command: local node -d -p /run/secrets/node_password -a /run/secrets/node_api_credentials
+    restart: always
+    volumes:
+      - ./chainlink_node/clroot/:/root/clroot
+    environment:
+      - LOG_LEVEL=debug
+      - ETH_URL=ws://172.16.1.100:8546 # Gets ethereum information from geth node
+      - ROOT=/root/clroot
+      - ETH_CHAIN_ID=17
+      - MIN_OUTGOING_CONFIRMATIONS=2
+      - MINIMUM_CONTRACT_PAYMENT=1000000000000
+      - CHAINLINK_DEV=true
+    networks:
+      gethnet:
+        ipv4_address: 172.16.1.102
+    depends_on:
+      - chainlink_key_import
+    expose:
+      - 6688
+    secrets:
+      - node_password
+      - node_api_credentials
+
+networks:
+  gethnet:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.1.0/24
+
+secrets:
+  node_password:
+    file: ./secrets/password.txt
+  node_api_credentials:
+    file: ./secrets/apicredentials

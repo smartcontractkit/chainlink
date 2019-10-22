@@ -245,6 +245,17 @@ jobs:
       - run:
           name: Run E2E Tests
           command: yarn workspace @chainlink/explorer-client run build && yarn workspace @chainlink/explorer run test-ci:e2e:silent
+  forks:
+    machine:
+      image: ubuntu-1604:201903-01
+    working_directory: ~/chainlink
+    steps:
+      - checkout
+      - run:
+          name: Install Yarn
+          command: npm install -g yarn
+      - run: ./tools/ci/forks_test
+
   build-publish-explorer:
     machine: true
     steps:
@@ -324,6 +335,10 @@ workflows:
           filters: # all branches, and /^explorer-v../ tags for build-publish...
             tags:
               only: /^explorer-v.*/
+      - forks:
+          filters:
+            tags:
+              only: /^v.*/
       - build-publish-explorer:
           requires:
             - explorer
