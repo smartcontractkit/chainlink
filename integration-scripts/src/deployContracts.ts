@@ -1,4 +1,4 @@
-import { LinkTokenFactory } from './generated/LinkTokenFactory'
+import { LinkTokenFactory } from 'chainlink/src/generated/LinkTokenFactory'
 import { OracleFactory } from './generated/OracleFactory'
 import {
   createProvider,
