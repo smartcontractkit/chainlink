@@ -68,6 +68,7 @@ async function initiateServiceAgreement({
   type ServiceAgreement = CoordinatorParams[0]
   type OracleSignatures = CoordinatorParams[1]
 
+  console.log('Creating service agreement to initiate with...')
   const agreement: ServiceAgreement = {
     aggFulfillSelector: meanAggregator.interface.functions.fulfill.sighash,
     aggInitiateJobSelector:
@@ -99,6 +100,7 @@ async function initiateServiceAgreement({
     throw Error(`sAId mismatch. javascript: ${said} solidity: ${ssaid}`)
   }
 
+  console.log('Initiating service agreement...')
   const tx = await coordinator.initiateServiceAgreement(
     agreement,
     oracleSignatures,
