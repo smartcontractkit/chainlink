@@ -10,7 +10,7 @@ export function fetchOperators(): ThunkAction<
   void,
   Action<string>
 > {
-  return (dispatch: Dispatch<any>) => {
+  return (dispatch: Dispatch) => {
     return api.getOperators().then(status => {
       if (status === httpStatus.OK) {
         dispatch({ type: 'FETCH_OPERATORS_SUCCEEDED', data: [] })

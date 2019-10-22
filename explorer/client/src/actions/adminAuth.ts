@@ -8,7 +8,7 @@ export function signIn(
   username: string,
   password: string,
 ): ThunkAction<Promise<void>, AppState, void, Action<string>> {
-  return (dispatch: Dispatch<any>) => {
+  return (dispatch: Dispatch) => {
     return api.signIn(username, password).then(status => {
       if (status === httpStatus.OK) {
         dispatch({ type: 'ADMIN_SIGNIN_SUCCEEDED' })
@@ -31,7 +31,7 @@ export function signOut(): ThunkAction<
   void,
   Action<string>
 > {
-  return (dispatch: Dispatch<any>) => {
+  return (dispatch: Dispatch) => {
     return api.signOut().then(() => {
       dispatch({ type: 'ADMIN_SIGNOUT_SUCCEEDED' })
     })
