@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e
+
+source ./integration/common
+
+heading 'Forks Test'
+
+yarn workspace @chainlink/integration test:forks
+
+title 'All tests passed.'
+

@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -e
+
+# set this directory as working directory
+cd "$(dirname "$0")"
+
+# build docker images, reset CL db
+make initial_setup
+
+# create chain with EthLog contract, but disconnect before min num confirmations is reached
+make run_chain_1
+bash scripts/assert_not_in_chainlink_logs.sh 'presumably has been uncled'
+
+# create 2nd chain that is longer than first chain. Job should be uncled, not run
+make start_network
+make run_chain_2
+bash scripts/assert_not_in_chainlink_logs.sh 'All tasks complete for run'
+
+echo "test passed!"
