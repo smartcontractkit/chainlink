@@ -5,6 +5,7 @@ import { Router, Redirect } from '@reach/router'
 import PublicLayout from './layouts/Public'
 import AdminMinimalLayout from './layouts/AdminMinimal'
 import AdminLayout from './layouts/Admin'
+import NotFound from './components/NotFound'
 import SearchCard from './components/Cards/Search'
 import JobRunsIndex from './containers/JobRuns/Index'
 import JobRunsShow from './containers/JobRuns/Show'
@@ -30,7 +31,8 @@ const App = () => {
 
         <AdminLayout path="/admin">
           <AdminOperatorIndex path="/operators" />
-          <Redirect from="/" to="/admin/operators" noThrow default />
+          <Redirect path="/" from="/" to="/admin/operators" noThrow />
+          <NotFound default />
         </AdminLayout>
       </Router>
     </>
