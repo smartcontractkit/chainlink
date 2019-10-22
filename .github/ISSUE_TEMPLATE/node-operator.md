@@ -18,6 +18,7 @@ assignees: ''
  - Operating System: [name and version of operating system running Chainlink node]
  - Commit: [log INFO line when starting node]
  - Hosting Provider: [e.g. AWS, GCP, self-hosted]
+ - Startup Command: [e.g. `docker run smartcontract/chainlink local n`]
 
 **Environment Variables**
 [replace this line with the output of the environment variables when running the node in debug mode]
