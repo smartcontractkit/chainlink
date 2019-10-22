@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -45,5 +44,5 @@ func TestRunResult_WithError(t *testing.T) {
 
 	rr := models.RunResult{}
 	rr.SetError(errors.New("this blew up"))
-	assert.Equal(t, cltest.NullString("this blew up"), rr.ErrorMessage)
+	assert.True(t, rr.ErrorMessage.Valid)
 }

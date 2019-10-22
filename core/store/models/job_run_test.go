@@ -3,7 +3,6 @@ package models_test
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	null "gopkg.in/guregu/null.v3"
 )
 
 func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
@@ -24,14 +24,14 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	require.NoError(t, store.CreateJob(&job))
 	jr := job.NewRun(job.Initiators[0])
 	jr.JobSpecID = job.ID
-	jr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
+	jr.Result.ErrorMessage = null.StringFrom("bad idea")
 	err := store.CreateJobRun(&jr)
 	require.NoError(t, err)
 
 	run, err := store.FindJobRun(jr.ID)
-	assert.NoError(t, err)
-	assert.True(t, run.Result.HasError())
-	assert.Equal(t, "bad idea", run.Result.Error())
+	require.NoError(t, err)
+	assert.True(t, run.Result.ErrorMessage.Valid)
+	assert.Equal(t, "bad idea", run.Result.ErrorString())
 }
 
 func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
@@ -52,7 +52,7 @@ func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
 
 	run, err := store.FindJobRun(jr.ID)
 	assert.NoError(t, err)
-	assert.False(t, run.Result.HasError())
+	assert.False(t, run.Result.ErrorMessage.Valid)
 	assert.JSONEq(t, data, run.Result.Data.String())
 }
 
@@ -161,11 +161,11 @@ func TestForLogger(t *testing.T) {
 	assert.Equal(t, logsWithBlockHeights[8], "observed_height")
 	assert.Equal(t, logsWithBlockHeights[9], big.NewInt(10))
 
-	jrErr := job.NewRun(job.Initiators[0])
-	jrErr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
-	logsWithErr := jrErr.ForLogger()
+	result := job.NewRun(job.Initiators[0])
+	result.Result.ErrorMessage = null.StringFrom("bad idea")
+	logsWithErr := result.ForLogger()
 	assert.Equal(t, logsWithErr[6], "job_error")
-	assert.Equal(t, logsWithErr[7], jrErr.Result.Error())
+	assert.Equal(t, logsWithErr[7], result.Result.ErrorString())
 
 }
 

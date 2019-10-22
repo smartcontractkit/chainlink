@@ -32,7 +32,6 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	fHash := models.HexToFunctionSelector("b3f98adc")
 	dataPrefix := hexutil.Bytes(
 		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
-	inputValue := "0x9786856756"
 
 	ethMock, err := app.MockStartAndConnect()
 	require.NoError(t, err)
@@ -56,15 +55,14 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 
+	input := *models.NewRunInputWithResult(models.NewID(), "0x9786856756", models.RunStatusUnstarted)
 	adapter := adapters.EthTx{
 		Address:          address,
 		DataPrefix:       dataPrefix,
 		FunctionSelector: fHash,
 	}
-	input := cltest.RunInputWithResult(inputValue)
-	data := adapter.Perform(input, store)
-
-	assert.NoError(t, data.GetError())
+	result := adapter.Perform(input, store)
+	require.NoError(t, result.Error())
 
 	from := cltest.GetAccountAddress(t, store)
 	txs, err := store.TxFrom(from)
@@ -86,7 +84,6 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 	fHash := models.HexToFunctionSelector("b3f98adc")
 	dataPrefix := hexutil.Bytes(
 		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
-	inputValue := "cönfirmed" // contains diacritic acute to check bytes counted for length not chars
 
 	ethMock, err := app.MockStartAndConnect()
 	require.NoError(t, err)
@@ -118,10 +115,11 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 		FunctionSelector: fHash,
 		DataFormat:       adapters.DataFormatBytes,
 	}
-	input := cltest.RunInputWithResult(inputValue)
-	data := adapter.Perform(input, store)
 
-	assert.NoError(t, data.GetError())
+	inputValue := "cönfirmed" // contains diacritic acute to check bytes counted for length not chars
+	input := *models.NewRunInputWithResult(models.NewID(), inputValue, models.RunStatusUnstarted)
+	result := adapter.Perform(input, store)
+	assert.NoError(t, result.Error())
 
 	from := cltest.GetAccountAddress(t, store)
 	txs, err := store.TxFrom(from)
@@ -141,8 +139,6 @@ func TestEthTxAdapter_Perform_SafeWithBytesAndNoDataPrefix(t *testing.T) {
 
 	address := cltest.NewAddress()
 	fHash := models.HexToFunctionSelector("b3f98adc")
-	// contains diacritic acute to check bytes counted for length not chars
-	inputValue := "cönfirmed"
 
 	currentHeight := uint64(23456)
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(currentHeight)))
@@ -173,11 +169,13 @@ func TestEthTxAdapter_Perform_SafeWithBytesAndNoDataPrefix(t *testing.T) {
 		FunctionSelector: fHash,
 		DataFormat:       adapters.DataFormatBytes,
 	}
-	input := cltest.RunInputWithResult(inputValue)
-	data := adapter.Perform(input, store)
 
-	assert.NoError(t, data.GetError())
-	assert.Equal(t, string(models.RunStatusCompleted), string(data.Status))
+	// contains diacritic acute to check bytes counted for length not chars
+	inputValue := "cönfirmed"
+	input := *models.NewRunInputWithResult(models.NewID(), inputValue, models.RunStatusUnstarted)
+	result := adapter.Perform(input, store)
+	require.NoError(t, result.Error())
+	assert.Equal(t, string(models.RunStatusCompleted), string(result.Status()))
 
 	from := cltest.GetAccountAddress(t, store)
 	var txs []models.Tx
@@ -212,13 +210,14 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	a := tx.Attempts[0]
 	adapter := adapters.EthTx{}
-	sentResult := cltest.RunInputWithResult(a.Hash.String())
-	sentResult.Status = models.RunStatusPendingConfirmations
+	sentResult := *models.NewRunInputWithResult(
+		models.NewID(), a.Hash.String(), models.RunStatusPendingConfirmations,
+	)
 
 	output := adapter.Perform(sentResult, store)
 
-	assert.False(t, output.HasError())
-	assert.True(t, output.Status.PendingConfirmations())
+	require.NoError(t, output.Error())
+	assert.True(t, output.Status().PendingConfirmations())
 	tx, err := store.FindTx(tx.ID)
 	require.NoError(t, err)
 	assert.Len(t, tx.Attempts, 1)
@@ -249,12 +248,13 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 	a := tx.Attempts[0]
 
 	adapter := adapters.EthTx{}
-	sentResult := cltest.RunInputWithResult(a.Hash.String())
-	sentResult.Status = models.RunStatusPendingConfirmations
+	sentResult := *models.NewRunInputWithResult(
+		models.NewID(), a.Hash.String(), models.RunStatusPendingConfirmations,
+	)
 
 	output := adapter.Perform(sentResult, store)
-	assert.False(t, output.HasError())
-	assert.True(t, output.Status.PendingConfirmations())
+	require.NoError(t, output.Error())
+	assert.True(t, output.Status().PendingConfirmations())
 	tx, err = store.FindTx(tx.ID)
 	require.NoError(t, err)
 	assert.Len(t, tx.Attempts, 2)
@@ -293,17 +293,18 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 	store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
 	a3, _ := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
 	adapter := adapters.EthTx{}
-	sentResult := cltest.RunInputWithResult(a3.Hash.String())
-	sentResult.Status = models.RunStatusPendingConfirmations
+	sentResult := *models.NewRunInputWithResult(
+		models.NewID(), a3.Hash.String(), models.RunStatusPendingConfirmations,
+	)
 
 	assert.False(t, tx.Confirmed)
 
 	output := adapter.Perform(sentResult, store)
 
-	assert.True(t, output.Status.Completed())
-	assert.False(t, output.HasError())
+	require.NoError(t, output.Error())
+	assert.True(t, output.Status().Completed())
 	value, err := output.ResultString()
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	assert.Equal(t, confirmedHash.String(), value)
 
 	tx, err = store.FindTx(tx.ID)
@@ -355,17 +356,13 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	adapter := adapters.EthTx{}
 
 	previousReceipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt - 10)}
-	data := map[string]interface{}{
-		"result":           a.Hash.String(),
-		"ethereumReceipts": []models.TxReceipt{previousReceipt},
-	}
-	input := models.RunInput{
-		Data:   cltest.MustJSONMarshal(t, data),
-		Status: models.RunStatusPendingConfirmations,
-	}
+	data, _ := models.JSON{}.Add("result", a.Hash.String())
+	data, _ = data.Add("ethereumReceipts", []models.TxReceipt{previousReceipt})
+	input := *models.NewRunInput(models.NewID(), data, models.RunStatusPendingConfirmations)
 
 	output := adapter.Perform(input, store)
-	assert.True(t, output.Status.Completed())
+	require.NoError(t, output.Error())
+	assert.True(t, output.Status().Completed())
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
 	var receipts []models.TxReceipt
@@ -390,12 +387,12 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
-	input := cltest.RunInputWithResult("0x9786856756")
+	input := *models.NewRunInputWithResult(models.NewID(), "0x9786856756", models.RunStatusUnstarted)
 	ethMock.RegisterError("eth_sendRawTransaction", "Cannot connect to nodes")
 	output := adapter.Perform(input, store)
 
-	assert.True(t, output.HasError())
-	assert.Contains(t, output.Error(), "Cannot connect to nodes")
+	require.Error(t, output.Error())
+	assert.Contains(t, output.Error().Error(), "Cannot connect to nodes")
 }
 
 func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
@@ -414,12 +411,12 @@ func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
 		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF1"),
 	}
-	input := cltest.RunInputWithResult("0x9786856756")
+	input := *models.NewRunInputWithResult(models.NewID(), "0x9786856756", models.RunStatusUnstarted)
 	ethMock.RegisterError("eth_sendRawTransaction", "Cannot connect to nodes")
 	output := adapter.Perform(input, store)
 
-	assert.True(t, output.HasError())
-	assert.Contains(t, output.Error(), "Cannot connect to nodes")
+	require.Error(t, output.Error())
+	assert.Contains(t, output.Error().Error(), "Cannot connect to nodes")
 }
 
 func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *testing.T) {
@@ -440,13 +437,14 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *
 		Address:          cltest.NewAddress(),
 		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
 	}
-	input := cltest.RunInputWithResult(cltest.NewHash().String())
-	input.Status = models.RunStatusPendingConfirmations
+	input := *models.NewRunInputWithResult(
+		models.NewID(), cltest.NewHash().String(), models.RunStatusPendingConfirmations,
+	)
 	output := adapter.Perform(input, store)
 
 	ethMock.AssertAllCalled()
 
-	assert.Equal(t, models.RunStatusErrored, output.Status)
+	assert.Equal(t, models.RunStatusErrored, output.Status())
 	assert.NotNil(t, output.Error())
 }
 
@@ -466,9 +464,9 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 
 	from := cltest.GetAccountAddress(t, store)
 	tx := cltest.CreateTx(t, store, from, uint64(14372))
-	input := cltest.RunInputWithResult(tx.Attempts[0].Hash.String())
-	input.Status = models.RunStatusPendingConfirmations
-
+	input := *models.NewRunInputWithResult(
+		models.NewID(), tx.Attempts[0].Hash.String(), models.RunStatusPendingConfirmations,
+	)
 	ethMock.RegisterError("eth_getTransactionReceipt", "Connection reset by peer")
 
 	adapter := adapters.EthTx{
@@ -479,8 +477,8 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 
 	ethMock.AssertAllCalled()
 
-	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status)
-	assert.NoError(t, output.GetError())
+	require.NoError(t, output.Error())
+	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
 }
 
 func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
@@ -514,13 +512,9 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, ethtx.DataFormat, adapters.DataFormatBytes)
 
-	input := models.RunInput{
-		Data:   cltest.JSONFromString(t, `{"result": "hello world"}`),
-		Status: models.RunStatusInProgress,
-	}
+	input := *models.NewRunInputWithResult(models.NewID(), "hello world", models.RunStatusInProgress)
 	result := adapter.Perform(input, store)
-	assert.False(t, result.HasError())
-	assert.Equal(t, result.Error(), "")
+	assert.NoError(t, result.Error())
 }
 
 func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
@@ -556,13 +550,9 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 		GasLimit:         gasLimit,
 	}
 
-	input := models.RunInput{
-		Data:   cltest.JSONFromString(t, `{"result": "hello world"}`),
-		Status: models.RunStatusInProgress,
-	}
-
+	input := *models.NewRunInputWithResult(models.NewID(), "hello world", models.RunStatusInProgress)
 	result := adapter.Perform(input, store)
-	assert.False(t, result.HasError())
+	assert.NoError(t, result.Error())
 }
 
 func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
@@ -575,8 +565,8 @@ func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 	adapter := adapters.EthTx{}
 	data := adapter.Perform(models.RunInput{}, store)
 
-	assert.NoError(t, data.GetError())
-	assert.Equal(t, models.RunStatusPendingConnection, data.Status)
+	require.NoError(t, data.Error())
+	assert.Equal(t, models.RunStatusPendingConnection, data.Status())
 }
 
 func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testing.T) {
@@ -603,8 +593,8 @@ func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testin
 	adapter := adapters.EthTx{}
 	data := adapter.Perform(models.RunInput{}, store)
 
-	assert.NoError(t, data.GetError())
-	assert.Equal(t, models.RunStatusPendingConnection, data.Status)
+	require.NoError(t, data.Error())
+	assert.Equal(t, models.RunStatusPendingConnection, data.Status())
 }
 
 func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T) {
@@ -634,8 +624,8 @@ func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T
 	adapter := adapters.EthTx{}
 	data := adapter.Perform(models.RunInput{}, store)
 
-	assert.NoError(t, data.GetError())
-	assert.Equal(t, models.RunStatusPendingConnection, data.Status)
+	require.NoError(t, data.Error())
+	assert.Equal(t, models.RunStatusPendingConnection, data.Status())
 }
 
 func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfirmations(t *testing.T) {
@@ -671,7 +661,7 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 	output := adapter.Perform(models.RunInput{}, store)
 
 	assert.False(t, output.HasError())
-	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status)
+	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
 
 	// Have a head come through with the same empty response
 	txmMock.EXPECT().Connected().Return(true)
@@ -679,13 +669,10 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 		gomock.Any(),
 	).Return(nil, strpkg.Unknown, badResponseErr)
 
-	input := models.RunInput{
-		Data:   output.Data,
-		Status: output.Status,
-	}
+	input := *models.NewRunInput(models.NewID(), output.Data(), output.Status())
 	output = adapter.Perform(input, store)
-	assert.False(t, output.HasError())
-	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status)
+	require.NoError(t, output.Error())
+	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
 }
 
 func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
@@ -723,10 +710,9 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 		DataPrefix:       dataPrefix,
 		FunctionSelector: fHash,
 	}
-	input := cltest.RunInputWithResult(inputValue)
-	input.JobRunID = *models.NewID()
+	input := cltest.NewRunInputWithResult(inputValue)
 	data := adapter.Perform(input, store)
-	assert.Error(t, data.GetError())
+	require.Error(t, data.Error())
 
 	// Run the adapter again
 	confirmed := sentAt + 1
@@ -740,7 +726,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 
 	data = adapter.Perform(input, store)
-	assert.NoError(t, data.GetError())
+	require.NoError(t, data.Error())
 
 	// The first and second transaction should have the same data
 	assert.Equal(t, firstTxData, secondTxData)
@@ -799,10 +785,9 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 		DataPrefix:       dataPrefix,
 		FunctionSelector: fHash,
 	}
-	input := cltest.RunInputWithResult(inputValue)
-	input.JobRunID = *models.NewID()
+	input := cltest.NewRunInputWithResult(inputValue)
 	data := adapter.Perform(input, store)
-	assert.Error(t, data.GetError())
+	require.Error(t, data.Error())
 
 	// Run the adapter again
 	var secondTxData []interface{}
@@ -813,7 +798,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 		})
 
 	data = adapter.Perform(input, store)
-	assert.NoError(t, data.GetError())
+	require.NoError(t, data.Error())
 
 	// Since the nonce (and from address) changed, the data should also change
 	assert.NotEqual(t, firstTxData, secondTxData)

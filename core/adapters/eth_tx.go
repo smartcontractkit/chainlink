@@ -42,7 +42,7 @@ func (etx *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.Run
 		return models.NewRunOutputPendingConnection()
 	}
 
-	if input.Status.PendingConfirmations() {
+	if input.Status().PendingConfirmations() {
 		return ensureTxRunResult(input, store)
 	}
 
@@ -84,7 +84,7 @@ func createTxRunResult(
 	store *strpkg.Store,
 ) models.RunOutput {
 	tx, err := store.TxManager.CreateTxWithGas(
-		null.StringFrom(input.JobRunID.String()),
+		null.StringFrom(input.JobRunID().String()),
 		address,
 		data,
 		gasPrice.ToInt(),
@@ -173,7 +173,7 @@ func addReceiptToResult(
 ) models.RunOutput {
 	receipts := []models.TxReceipt{}
 
-	ethereumReceipts := input.Data.Get("ethereumReceipts").String()
+	ethereumReceipts := input.Data().Get("ethereumReceipts").String()
 	if ethereumReceipts != "" {
 		if err := json.Unmarshal([]byte(ethereumReceipts), &receipts); err != nil {
 			logger.Errorw("Error unmarshaling ethereum Receipts", "error", err)

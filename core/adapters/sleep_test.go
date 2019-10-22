@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSleep_Perform(t *testing.T) {
@@ -16,8 +17,9 @@ func TestSleep_Perform(t *testing.T) {
 
 	adapter := adapters.Sleep{}
 	err := json.Unmarshal([]byte(`{"until": 1332151919}`), &adapter)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	result := adapter.Perform(models.RunInput{}, store)
-	assert.Equal(t, string(models.RunStatusPendingSleep), string(result.Status))
+	require.NoError(t, result.Error())
+	assert.Equal(t, string(models.RunStatusPendingSleep), string(result.Status()))
 }

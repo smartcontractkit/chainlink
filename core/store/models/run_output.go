@@ -1,25 +1,23 @@
 package models
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/tidwall/gjson"
-	null "gopkg.in/guregu/null.v3"
 )
 
 // RunOutput represents the result of performing a Task
 type RunOutput struct {
-	Data         JSON
-	Status       RunStatus
-	ErrorMessage null.String
+	data   JSON
+	status RunStatus
+	err    error
 }
 
 // NewRunOutputError returns a new RunOutput with an error
 func NewRunOutputError(err error) RunOutput {
 	return RunOutput{
-		Status:       RunStatusErrored,
-		ErrorMessage: null.StringFrom(err.Error()),
+		status: RunStatusErrored,
+		err:    err,
 	}
 }
 
@@ -34,69 +32,61 @@ func NewRunOutputCompleteWithResult(resultVal interface{}) RunOutput {
 // NewRunOutputComplete returns a new RunOutput that is complete and contains
 // raw data
 func NewRunOutputComplete(data JSON) RunOutput {
-	return RunOutput{Status: RunStatusCompleted, Data: data}
+	return RunOutput{status: RunStatusCompleted, data: data}
 }
 
 // NewRunOutputPendingSleep returns a new RunOutput that indicates the task is
 // sleeping
 func NewRunOutputPendingSleep() RunOutput {
-	return RunOutput{Status: RunStatusPendingSleep}
+	return RunOutput{status: RunStatusPendingSleep}
 }
 
 // NewRunOutputPendingConfirmations returns a new RunOutput that indicates the
 // task is pending confirmations
 func NewRunOutputPendingConfirmations() RunOutput {
-	return RunOutput{Status: RunStatusPendingConfirmations}
+	return RunOutput{status: RunStatusPendingConfirmations}
 }
 
 // NewRunOutputPendingConfirmationsWithData returns a new RunOutput that
 // indicates the task is pending confirmations but also has some data that
 // needs to be fed in on next invocation
 func NewRunOutputPendingConfirmationsWithData(data JSON) RunOutput {
-	return RunOutput{Status: RunStatusPendingConfirmations, Data: data}
+	return RunOutput{status: RunStatusPendingConfirmations, data: data}
 }
 
 // NewRunOutputPendingConnection returns a new RunOutput that indicates the
 // task got disconnected
 func NewRunOutputPendingConnection() RunOutput {
-	return RunOutput{Status: RunStatusPendingConnection}
+	return RunOutput{status: RunStatusPendingConnection}
 }
 
-// NewRunOutputPendingConfirmationsWithData returns a new RunOutput that
+// NewRunOutputPendingConnectionWithData returns a new RunOutput that
 // indicates the task got disconnected but also has some data that needs to be
 // fed in on next invocation
 func NewRunOutputPendingConnectionWithData(data JSON) RunOutput {
-	return RunOutput{Status: RunStatusPendingConnection, Data: data}
+	return RunOutput{status: RunStatusPendingConnection, data: data}
 }
 
 // NewRunOutputInProgress returns a new RunOutput that indicates the
 // task is still in progress
 func NewRunOutputInProgress(data JSON) RunOutput {
-	return RunOutput{Status: RunStatusInProgress, Data: data}
+	return RunOutput{status: RunStatusInProgress, data: data}
 }
 
 // NewRunOutputPendingBridge returns a new RunOutput that indicates the
 // task is still in progress
 func NewRunOutputPendingBridge() RunOutput {
-	return RunOutput{Status: RunStatusPendingBridge}
+	return RunOutput{status: RunStatusPendingBridge}
 }
 
 // HasError returns true if the status is errored or the error message is set
 func (ro RunOutput) HasError() bool {
-	return ro.Status == RunStatusErrored || ro.ErrorMessage.Valid
+	return ro.status == RunStatusErrored
 }
 
 // Result returns the result as a gjson object
 func (ro RunOutput) Result() gjson.Result {
-	return ro.Data.Get("result")
-}
-
-// GetError returns the error of a RunResult if it is present.
-func (ro RunOutput) GetError() error {
-	if ro.HasError() {
-		return errors.New(ro.ErrorMessage.ValueOrZero())
-	}
-	return nil
+	return ro.data.Get("result")
 }
 
 // ResultString returns the string result of the Data JSON field.
@@ -110,10 +100,28 @@ func (ro RunOutput) ResultString() (string, error) {
 
 // Get searches for and returns the JSON at the given path.
 func (ro RunOutput) Get(path string) gjson.Result {
-	return ro.Data.Get(path)
+	return ro.data.Get(path)
 }
 
-// Error returns the string value of the ErrorMessage field.
-func (ro RunOutput) Error() string {
-	return ro.ErrorMessage.String
+// Error returns error for this RunOutput
+func (ro RunOutput) Error() error {
+	return ro.err
+}
+
+// ErrorMessage returns the error as a string if present, otherwise "".
+func (ro RunOutput) ErrorMessage() string {
+	if ro.err != nil {
+		return ro.err.Error()
+	}
+	return ""
+}
+
+// Data returns the data held by this RunOutput
+func (ro RunOutput) Data() JSON {
+	return ro.data
+}
+
+// Status returns the status returned from a task
+func (ro RunOutput) Status() RunStatus {
+	return ro.status
 }
