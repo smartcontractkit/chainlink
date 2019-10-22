@@ -5,6 +5,12 @@ build_chainlink_image:
 	# Pull docker images required by chainlink and then build chainlink from scratch
 	docker build -t smartcontract/chainlink ../../
 
+copy_keys:
+	mkdir -p geth_node/root/keystore
+	mkdir -p chainlink_node/clroot/keys
+	cp ../../tools/keys/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json geth_node/root/keystore/
+	cp ../../tools/keys/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json chainlink_node/clroot/keys
+
 start_network:
 	@echo "\nStarting Network. See logs/{chain_[12],geth}.log for logs"
 	( docker-compose --compatibility up > /dev/null ) &
@@ -15,7 +21,7 @@ tear_down:
 	sudo rm -rf chainlink_node/clroot
 	git checkout chainlink_node/clroot/keys
 
-initial_setup: tear_down build_geth_image build_chainlink_image start_network create_job
+initial_setup: tear_down build_geth_image build_chainlink_image copy_keys start_network create_job
 
 ETH_LOG_JOB = '$(shell cat eth_log_job.json)'
 create_job:
