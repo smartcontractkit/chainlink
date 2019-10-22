@@ -18,8 +18,7 @@ start_network:
 tear_down:
 	docker-compose --compatibility down
 	# Remove CL database
-	sudo rm -rf chainlink_node/clroot
-	git checkout chainlink_node/clroot/keys
+	sudo rm -rf chainlink_node
 
 initial_setup: tear_down build_geth_image build_chainlink_image copy_keys start_network create_job
 
