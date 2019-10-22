@@ -16,11 +16,13 @@ import { rm, cp } from 'shelljs'
 
 /**
  * Devnet miner address
+ * FIXME: duplicated
  */
 export const DEVNET_ADDRESS = '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
 
 /**
  * Default credentials for testing node
+ * FIXME: duplicated
  */
 export const credentials = {
   email: 'notreal@fakeemail.ch',
@@ -55,7 +57,7 @@ export async function createTraceProvider() {
     contracts: '*',
     contractsDir: contracts,
     solcVersion: '0.5.0',
-    useDockerisedSolc: true,
+    useDockerisedSolc: false,
     compilerSettings: {
       outputSelection: {
         '*': {
@@ -97,6 +99,7 @@ export async function createTraceProvider() {
   providerEngine.addProvider(new FakeGasEstimateSubprovider(4 * 10 ** 6)) // Ganache does a poor job of estimating gas, so just crank it up for testing.
   providerEngine.addProvider(revertTraceSubprovider)
   providerEngine.addProvider(
+    // Start an in-process ganache instance
     new GanacheSubprovider({
       mnemonic,
       hdPath: path,
