@@ -5,8 +5,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var evmFalse = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -29,16 +29,14 @@ func TestEthBool_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			past := models.RunInput{
-				Data: cltest.JSONFromString(t, test.json),
-			}
+			past := cltest.NewRunInput(cltest.JSONFromString(t, test.json))
 			adapter := adapters.EthBool{}
 			result := adapter.Perform(past, nil)
 
 			val, err := result.ResultString()
+			require.NoError(t, err)
+			assert.NoError(t, result.Error())
 			assert.Equal(t, test.expected, val)
-			assert.NoError(t, err)
-			assert.NoError(t, result.GetError())
 		})
 	}
 }

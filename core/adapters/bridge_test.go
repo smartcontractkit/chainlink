@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
@@ -29,11 +30,11 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 
 	_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
-	ba := &adapters.Bridge{BridgeType: bt, Params: params}
+	ba := &adapters.Bridge{BridgeType: *bt, Params: params}
 
-	input := models.RunInput{Data: cltest.JSONFromString(t, `{"result":"100"}`)}
-	ba.Perform(input, store)
-
+	input := cltest.NewRunInputWithResult("100")
+	result := ba.Perform(input, store)
+	require.NoError(t, result.Error())
 	assert.Equal(t, `{"bodyParam":true,"result":"100"}`, data)
 	assert.Equal(t, "Bearer "+bt.OutgoingToken, token)
 }
@@ -42,21 +43,20 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
+	jobRunID := models.NewID()
 
-	mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", fmt.Sprintf(`{"jobRunID": "%s", "data": 251990120, "statusCode": 200}`, models.NewID()),
+	mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", fmt.Sprintf(`{"jobRunID": "%s", "data": 251990120, "statusCode": 200}`, jobRunID.String()),
 		func(h http.Header, b string) {},
 	)
 	defer cleanup()
 
 	_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
-	ba := &adapters.Bridge{BridgeType: bt, Params: params}
+	ba := &adapters.Bridge{BridgeType: *bt, Params: params}
 
-	input := models.RunInput{
-		Data: cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`),
-	}
+	input := *models.NewRunInput(jobRunID, cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`), models.RunStatusUnstarted)
 	result := ba.Perform(input, store)
-	assert.NoError(t, result.GetError())
+	require.NoError(t, result.Error())
 	resultString, err := result.ResultString()
 	assert.NoError(t, err)
 	assert.Equal(t, "251990120", resultString)
@@ -71,7 +71,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 		result     string
 	}{
 		{"from pending bridge", models.RunStatusPendingBridge, models.RunStatusInProgress, `{"result":"100"}`},
-		{"from errored", models.RunStatusErrored, models.RunStatusErrored, `{"result":"100"}`},
+		{"from errored", models.RunStatusErrored, models.RunStatusErrored, ""},
 		{"from in progress", models.RunStatusInProgress, models.RunStatusPendingBridge, ""},
 		{"from completed", models.RunStatusCompleted, models.RunStatusCompleted, `{"result":"100"}`},
 	}
@@ -84,23 +84,16 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			mock, _ := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending": true}`)
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
-			ba := &adapters.Bridge{BridgeType: bt}
+			ba := &adapters.Bridge{BridgeType: *bt}
 
-			input := models.RunInput{
-				Data:   cltest.JSONFromString(t, `{"result":"100"}`),
-				Status: test.status,
-			}
-
+			input := *models.NewRunInputWithResult(models.NewID(), "100", test.status)
 			result := ba.Perform(input, store)
 
-			assert.Equal(t, test.result, result.Data.String())
-			assert.Equal(t, test.wantStatus, result.Status)
-			if test.wantStatus.Errored() || test.wantStatus.Completed() {
-				outputWanted := models.RunOutput{
-					Data:   input.Data,
-					Status: input.Status,
-				}
-				assert.Equal(t, outputWanted, result)
+			assert.Equal(t, test.result, result.Data().String())
+			assert.Equal(t, test.wantStatus, result.Status())
+			if test.wantStatus.Completed() {
+				assert.Equal(t, input.Data(), result.Data())
+				assert.Equal(t, input.Status(), result.Status())
 			}
 		})
 	}
@@ -140,22 +133,20 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 			defer ensureCalled()
 
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
-			eb := &adapters.Bridge{BridgeType: bt}
-			input := cltest.RunInputWithResult("lot 49")
-			input.JobRunID = *runID
+			eb := &adapters.Bridge{BridgeType: *bt}
 
+			input := *models.NewRunInput(runID, cltest.JSONFromString(t, `{"result": "lot 49"}`), models.RunStatusUnstarted)
 			result := eb.Perform(input, store)
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, test.wantErrored, result.HasError())
-			assert.Equal(t, test.wantPending, result.Status.PendingBridge())
+			assert.Equal(t, test.wantPending, result.Status().PendingBridge())
 		})
 	}
 }
 
 func TestBridge_Perform_responseURL(t *testing.T) {
-	input := cltest.RunInputWithResult("lot 49")
-	input.JobRunID = *models.NewID()
+	input := cltest.NewRunInputWithResult("lot 49")
 
 	t.Parallel()
 	cases := []struct {
@@ -166,12 +157,12 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 		{
 			name:          "basic URL",
 			configuredURL: cltest.WebURL(t, "https://chain.link"),
-			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"},"responseURL":"https://chain.link/v2/runs/%s"}`, input.JobRunID.String(), input.JobRunID.String()),
+			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"},"responseURL":"https://chain.link/v2/runs/%s"}`, input.JobRunID().String(), input.JobRunID().String()),
 		},
 		{
 			name:          "blank URL",
 			configuredURL: cltest.WebURL(t, ""),
-			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"}}`, input.JobRunID.String()),
+			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"}}`, input.JobRunID().String()),
 		},
 	}
 
@@ -188,7 +179,7 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 			defer ensureCalled()
 
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
-			eb := &adapters.Bridge{BridgeType: bt}
+			eb := &adapters.Bridge{BridgeType: *bt}
 			eb.Perform(input, store)
 		})
 	}

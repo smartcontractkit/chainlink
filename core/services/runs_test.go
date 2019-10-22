@@ -26,8 +26,6 @@ func TestNewRun(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
-
 	_, bt := cltest.NewBridgeType(t, "timecube", "http://http://timecube.2enp.com/")
 	bt.MinimumContractPayment = assets.NewLink(10)
 	require.NoError(t, store.CreateBridgeType(bt))
@@ -42,12 +40,12 @@ func TestNewRun(t *testing.T) {
 		Type: models.InitiatorEthLog,
 	}}
 
-	inputResult := models.RunInput{Data: input}
-	run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, creationHeight, store, nil)
+	data := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
+	run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], &data, creationHeight, store, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 1)
-	assert.Equal(t, input, run.Overrides)
+	assert.Equal(t, `{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`, run.Overrides.String())
 	assert.False(t, run.TaskRuns[0].Confirmations.Valid)
 }
 
@@ -78,7 +76,7 @@ func TestNewRun_jobSpecMinPayment(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
+	data := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
 	tests := []struct {
 		name           string
@@ -155,8 +153,7 @@ func TestNewRun_taskSumPayment(t *testing.T) {
 				Type: models.InitiatorEthLog,
 			}}
 
-			inputResult := models.RunInput{Data: input}
-			run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, nil, store, test.payment)
+			run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], &data, nil, store, test.payment)
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.expectedStatus), string(run.Status))
 		})
@@ -167,8 +164,7 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	inputResult := models.RunInput{Data: cltest.JSONFromString(t, `{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
-
+	data := cltest.JSONFromString(t, `{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)
 	creationHeight := big.NewInt(1000)
 
 	tests := []struct {
@@ -193,7 +189,7 @@ func TestNewRun_minimumConfirmations(t *testing.T) {
 			run, err := services.NewRun(
 				jobSpec,
 				jobSpec.Initiators[0],
-				inputResult,
+				&data,
 				creationHeight,
 				store,
 				nil)
@@ -236,7 +232,7 @@ func TestNewRun_startAtAndEndAt(t *testing.T) {
 			job.EndAt = test.endAt
 			assert.Nil(t, store.CreateJob(&job))
 
-			_, err := services.NewRun(job, job.Initiators[0], models.RunInput{}, nil, store, nil)
+			_, err := services.NewRun(job, job.Initiators[0], &models.JSON{}, nil, store, nil)
 			if test.errored {
 				assert.Error(t, err)
 			} else {
@@ -254,10 +250,10 @@ func TestNewRun_noTasksErrorsInsteadOfPanic(t *testing.T) {
 	job.Tasks = []models.TaskSpec{}
 	require.NoError(t, store.CreateJob(&job))
 
-	jr, err := services.NewRun(job, job.Initiators[0], models.RunInput{}, nil, store, nil)
+	jr, err := services.NewRun(job, job.Initiators[0], &models.JSON{}, nil, store, nil)
 	assert.NoError(t, err)
 	assert.True(t, jr.Status.Errored())
-	assert.True(t, jr.Result.HasError())
+	assert.True(t, jr.Result.ErrorMessage.Valid)
 }
 
 func TestResumePendingTask(t *testing.T) {
@@ -642,10 +638,11 @@ func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
 	require.NoError(t, store.CreateJob(&job))
 
 	initr := job.Initiators[0]
+	data := cltest.JSONFromString(t, `{"random": "input"}`)
 	jr, err := services.ExecuteJob(
 		job,
 		initr,
-		models.RunInput{Data: cltest.JSONFromString(t, `{"random": "input"}`)},
+		&data,
 		nil,
 		store,
 	)
@@ -675,13 +672,14 @@ func TestExecuteJobWithRunRequest(t *testing.T) {
 	require.NoError(t, store.CreateJob(&job))
 
 	requestID := "RequestID"
+	data := cltest.JSONFromString(t, `{"random": "input"}`)
 	initr := job.Initiators[0]
 	rr := models.NewRunRequest()
 	rr.RequestID = &requestID
 	jr, err := services.ExecuteJobWithRunRequest(
 		job,
 		initr,
-		models.RunInput{Data: cltest.JSONFromString(t, `{"random": "input"}`)},
+		&data,
 		nil,
 		store,
 		rr,
@@ -742,14 +740,8 @@ func TestExecuteJobWithRunRequest_fromRunLog_Happy(t *testing.T) {
 			rr.RequestID = &requestID
 			rr.TxHash = &initiatingTxHash
 			rr.BlockHash = &test.logBlockHash
-			jr, err := services.ExecuteJobWithRunRequest(
-				job,
-				initr,
-				models.RunInput{Data: cltest.JSONFromString(t, `{"random": "input"}`)},
-				creationHeight,
-				store,
-				rr,
-			)
+			data := cltest.JSONFromString(t, `{"random": "input"}`)
+			jr, err := services.ExecuteJobWithRunRequest(job, initr, &data, creationHeight, store, rr)
 			require.NoError(t, err)
 			cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
 
@@ -806,14 +798,8 @@ func TestExecuteJobWithRunRequest_fromRunLog_ConnectToLaggingEthNode(t *testing.
 	futureCreationHeight := big.NewInt(9)
 	pastCurrentHeight := big.NewInt(1)
 
-	jr, err := services.ExecuteJobWithRunRequest(
-		job,
-		initr,
-		models.RunInput{Data: cltest.JSONFromString(t, `{"random": "input"}`)},
-		futureCreationHeight,
-		store,
-		rr,
-	)
+	data := cltest.JSONFromString(t, `{"random": "input"}`)
+	jr, err := services.ExecuteJobWithRunRequest(job, initr, &data, futureCreationHeight, store, rr)
 	require.NoError(t, err)
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
 

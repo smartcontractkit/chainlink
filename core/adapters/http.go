@@ -69,7 +69,7 @@ type HTTPPost struct {
 // Perform ensures that the adapter's URL responds to a POST request without
 // errors and returns the response body as the "value" field of the result.
 func (hpa *HTTPPost) Perform(input models.RunInput, store *store.Store) models.RunOutput {
-	request, err := hpa.GetRequest(input.Data.String())
+	request, err := hpa.GetRequest(input.Data().String())
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}

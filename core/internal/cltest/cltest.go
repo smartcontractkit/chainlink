@@ -1140,3 +1140,13 @@ func MustParseURL(input string) *url.URL {
 	}
 	return u
 }
+
+func NewRunInput(value models.JSON) models.RunInput {
+	jobRunID := models.NewID()
+	return *models.NewRunInput(jobRunID, value, models.RunStatusUnstarted)
+}
+
+func NewRunInputWithResult(value interface{}) models.RunInput {
+	jobRunID := models.NewID()
+	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
+}

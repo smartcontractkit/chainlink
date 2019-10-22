@@ -67,7 +67,7 @@ func (etx *EthTxABIEncode) Perform(input models.RunInput, store *strpkg.Store) m
 	if !store.TxManager.Connected() {
 		return models.NewRunOutputPendingConnection()
 	}
-	if !input.Status.PendingConfirmations() {
+	if !input.Status().PendingConfirmations() {
 		data, err := etx.abiEncode(&input)
 		if err != nil {
 			err = errors.Wrap(err, "while constructing EthTxABIEncode data")
@@ -80,8 +80,8 @@ func (etx *EthTxABIEncode) Perform(input models.RunInput, store *strpkg.Store) m
 
 // abiEncode ABI-encodes the arguments passed in a RunResult's result field
 // according to etx.FunctionABI
-func (etx *EthTxABIEncode) abiEncode(runResult *models.RunInput) ([]byte, error) {
-	args, ok := runResult.Data.Get("result").Value().(map[string]interface{})
+func (etx *EthTxABIEncode) abiEncode(input *models.RunInput) ([]byte, error) {
+	args, ok := input.Data().Get("result").Value().(map[string]interface{})
 	if !ok {
 		return nil, errors.Errorf("json result is not an object")
 	}

@@ -216,18 +216,13 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 		return models.NewRunOutputError(err)
 	}
 
-	input := models.RunInput{
-		JobRunID:     *run.ID,
-		Data:         data,
-		Status:       currentTaskRun.Status,
-		ErrorMessage: currentTaskRun.Result.ErrorMessage,
-	}
+	input := *models.NewRunInput(run.ID, data, currentTaskRun.Status)
 	result := adapter.Perform(input, store)
 
 	logger.Infow(fmt.Sprintf("Finished processing task %s", taskCopy.Type), []interface{}{
 		"task", currentTaskRun.ID,
-		"result", result.Status,
-		"result_data", result.Data,
+		"result", result.Status(),
+		"result_data", result.Data(),
 	}...)
 
 	return result

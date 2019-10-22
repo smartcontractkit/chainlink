@@ -267,7 +267,7 @@ func (rt RendererTable) renderJobRuns(runs []presenters.JobRun) error {
 			utils.ISO8601UTC(jr.CreatedAt),
 			utils.NullISO8601UTC(jr.FinishedAt),
 			jr.Result.Data.String(),
-			jr.Result.ErrorMessage.String,
+			jr.Result.ErrorString(),
 		})
 	}
 

@@ -439,20 +439,6 @@ func Int(val interface{}) *models.Big {
 	}
 }
 
-// RunInputWithResult creates a RunResult with given result
-func RunInputWithResult(val interface{}) models.RunInput {
-	data := models.JSON{}
-	data, _ = data.Add("result", val)
-	return models.RunInput{Data: data}
-}
-
-// RunResultWithError creates a runresult with given error
-func RunResultWithError(err error) models.RunResult {
-	return models.RunResult{
-		ErrorMessage: null.StringFrom(err.Error()),
-	}
-}
-
 // MarkJobRunPendingBridge marks the jobrun as Pending Bridge Status
 func MarkJobRunPendingBridge(jr models.JobRun, i int) models.JobRun {
 	jr.Status = models.RunStatusPendingBridge

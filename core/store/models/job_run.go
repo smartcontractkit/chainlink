@@ -64,8 +64,8 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 		output = append(output, "observed_height", jr.ObservedHeight.ToInt())
 	}
 
-	if jr.Result.HasError() {
-		output = append(output, "job_error", jr.Result.Error())
+	if jr.Result.ErrorMessage.Valid {
+		output = append(output, "job_error", jr.Result.ErrorString())
 	}
 
 	if jr.Status == "completed" {
@@ -112,22 +112,22 @@ func (jr *JobRun) TasksRemain() bool {
 
 // SetError sets this job run to failed and saves the error message
 func (jr *JobRun) SetError(err error) {
-	jr.Result.ErrorMessage = null.StringFrom(err.Error())
+	jr.Result.SetError(err)
 	jr.Status = RunStatusErrored
 	jr.FinishedAt = null.TimeFrom(time.Now())
 }
 
 // ApplyOutput updates the JobRun's Result and Status
 func (jr *JobRun) ApplyOutput(result RunOutput) error {
-	jr.Result.ErrorMessage = result.ErrorMessage
-	jr.Result.Data = result.Data
-	jr.setStatus(result.Status)
+	jr.Result.SetError(result.Error())
+	jr.Result.Data = result.Data()
+	jr.setStatus(result.Status())
 	return nil
 }
 
 // ApplyBridgeRunResult saves the input from a BridgeAdapter
 func (jr *JobRun) ApplyBridgeRunResult(result BridgeRunResult) error {
-	jr.Result.ErrorMessage = result.ErrorMessage
+	jr.Result.SetError(result.GetError())
 	jr.Result.Data = result.Data
 	jr.setStatus(result.Status)
 	return nil
@@ -199,8 +199,8 @@ func (tr *TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 		"status", tr.Status,
 	}
 
-	if tr.Result.HasError() {
-		output = append(output, "error", tr.Result.Error())
+	if tr.Result.ErrorMessage.Valid {
+		output = append(output, "error", tr.Result.ErrorString())
 	}
 
 	return append(kvs, output...)
@@ -208,20 +208,20 @@ func (tr *TaskRun) ForLogger(kvs ...interface{}) []interface{} {
 
 // SetError sets this task run to failed and saves the error message
 func (tr *TaskRun) SetError(err error) {
-	tr.Result.ErrorMessage = null.StringFrom(err.Error())
+	tr.Result.SetError(err)
 	tr.Status = RunStatusErrored
 }
 
 // ApplyBridgeRunResult updates the TaskRun's Result and Status
 func (tr *TaskRun) ApplyBridgeRunResult(result BridgeRunResult) {
-	tr.Result.ErrorMessage = result.ErrorMessage
+	tr.Result.SetError(result.GetError())
 	tr.Result.Data = result.Data
 	tr.Status = result.Status
 }
 
 // ApplyOutput updates the TaskRun's Result and Status
 func (tr *TaskRun) ApplyOutput(result RunOutput) {
-	tr.Result.ErrorMessage = result.ErrorMessage
-	tr.Result.Data = result.Data
-	tr.Status = result.Status
+	tr.Result.SetError(result.Error())
+	tr.Result.Data = result.Data()
+	tr.Status = result.Status()
 }
