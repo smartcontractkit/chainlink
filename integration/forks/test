@@ -1,22 +1,22 @@
 #!/bin/bash
 
-set -e
-
 # set this directory as working directory
 cd "$(dirname "$0")"
+# import test helpers
+source ./test_helpers
 
 # build docker images, reset CL db
-make initial_setup
+initial_setup
 
 # Runs the first chain, where the ethlog contract is deployed
-printf "\nSTARTING CHAIN 1"
+printf "\nSTARTING CHAIN 1\n"
 # make sure chainlink has actually started receiving blocks from geth
-bash scripts/search_chainlink_logs 'Received new head'
+search_chainlink_logs 'Received new head'
 # broadcast contract creation transaction
-bash scripts/create_contract
+create_contract
 # wait for chainlink to get notified about transaction
-bash scripts/search_chainlink_logs 'New run triggered by ethlog'
-bash scripts/search_chainlink_logs 'Run cannot continue because it lacks sufficient confirmations'
+search_chainlink_logs 'New run triggered by ethlog'
+search_chainlink_logs 'Run cannot continue because it lacks sufficient confirmations'
 # save log
 mkdir -p logs
 docker-compose logs chainlink > logs/chain_1.log
@@ -24,25 +24,25 @@ docker-compose logs geth > logs/geth.log
 # tear down network before sufficient confirmations can be reached
 docker-compose down
 # assert that nothing has been uncled yet
-bash scripts/assert_not_in_chainlink_logs 'presumably has been uncled'
+assert_not_in_chainlink_logs 'presumably has been uncled'
 
 # create 2nd chain that is longer than first chain. Job should be uncled, not run
-printf "\nSTARTING CHAIN 2"
-make start_network
+printf "\nSTARTING CHAIN 2\n"
+start_network
 # 2nd chain should be younger than first, and so chainlink won't immediately save new heads
-bash scripts/search_chainlink_logs 'Cannot save new head confirmation'
+search_chainlink_logs 'Cannot save new head confirmation'
 # when 2nd chain gets longer, chainlink resumes saving heads
-bash scripts/search_chainlink_logs 'New head resuming run'
+search_chainlink_logs 'New head resuming run'
 # will wait for head # to be 10 more than block # with contract creation
-bash scripts/search_chainlink_logs 'Run cannot continue because it lacks sufficient confirmations services'
+search_chainlink_logs 'Run cannot continue because it lacks sufficient confirmations services'
 # should eventually abort running running job
-bash scripts/search_chainlink_logs 'presumably has been uncled'
+search_chainlink_logs 'presumably has been uncled'
 # save log
 mkdir -p logs
 docker-compose logs chainlink > logs/chain_2.log
 docker-compose logs geth >> logs/geth.log
 # tear down
 docker-compose down
-bash scripts/assert_not_in_chainlink_logs 'All tasks complete for run'
+assert_not_in_chainlink_logs 'All tasks complete for run'
 
-printf "test passed!"
+echo "test passed!"
