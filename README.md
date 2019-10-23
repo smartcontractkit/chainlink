@@ -68,6 +68,25 @@ Check out the [wiki](https://github.com/smartcontractkit/chainlink/wiki)'s pages
 
 You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding environment variable is found. The latest information on configuration variables are available in [the docs](https://docs.chain.link/docs/configuration-variables).
 
+## Project Directory
+
+This project contains several sub-projects, some with their own documentation.
+
+ - [evm](/evm) - smart contract-related resources
+   - [box](/evm/box) - [Chainlink Truffle box](https://www.trufflesuite.com/blog/using-truffle-to-interact-with-chainlink-smart-contracts)
+   - [v0.5](/evm/v0.5) - Chainlink using Solidity v0.5.0
+ - [examples](/examples) - collection of example Chainlink integrations
+   - [echo_server](/examples/echo_server) - demonstrates using Chainlink to monitor incoming Ethereum logs and report them as JSON
+   - [testnet](/examples/testnet) - guide to creating, deploying and using Chainlinked smart contracts
+   - [twilio_sms](/examples/twilio_sms) - send a text message when a smart contract receives payment
+   - [uptime_sla](/examples/uptime_sla) - example SLA that uses ChainLink to determine the release of payment
+ - [explorer](/explorer) - [Chainlink Explorer](https://explorer.chain.link/)
+ - [integration/forks](/integration/forks) - integration test for [ommers](https://ethereum.stackexchange.com/a/46/19503) and [re-orgs](https://en.bitcoin.it/wiki/Chain_Reorganization) 
+ - [sgx](/sgx) - experimental, optional module that can be loaded into Chainlink to do processing within an [SGX](https://software.intel.com/en-us/sgx) enclave
+ - [styleguide](/styleguide) - Chainlink style guide
+ - [tools](/tools) - Chainlink tools
+
+
 ## External Adapters
 
 External adapters are what make Chainlink easily extensible, providing simple integration of custom computations and specialized APIs.
