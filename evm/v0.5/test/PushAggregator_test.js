@@ -134,7 +134,9 @@ contract('PushAggregator', () => {
       })
 
       it('announces a new round by emitting a log', async () => {
-        const tx = await aggregator.updateAnswer(nextRound, 100, { from: personas.Neil })
+        const tx = await aggregator.updateAnswer(nextRound, 100, {
+          from: personas.Neil,
+        })
         const log = tx.receipt.rawLogs[0]
         const roundNumber = web3.utils.toBN(log.topics[1])
 
@@ -145,7 +147,9 @@ contract('PushAggregator', () => {
     context('when a round is passed in higher than expected', async () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.updateAnswer(nextRound + 1, 100, { from: personas.Neil })
+          await aggregator.updateAnswer(nextRound + 1, 100, {
+            from: personas.Neil,
+          })
         })
       })
     })
@@ -153,7 +157,9 @@ contract('PushAggregator', () => {
     context('when called by a non-oracle', async () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.updateAnswer(nextRound, 100, { from: personas.Carol })
+          await aggregator.updateAnswer(nextRound, 100, {
+            from: personas.Carol,
+          })
         })
       })
     })

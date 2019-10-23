@@ -1,6 +1,6 @@
 import { assertBigNum } from './support/matchers'
 
-contract('Median', accounts => {
+contract('Median', () => {
   const Median = artifacts.require('ConcreteMedian.sol')
   let median
 
