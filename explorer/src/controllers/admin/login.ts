@@ -2,7 +2,7 @@ import { Router } from 'express'
 
 const router = Router()
 
-router.post('/login', async (_req, res) => {
+router.post('/login', (_req, res) => {
   return res.sendStatus(200)
 })
 

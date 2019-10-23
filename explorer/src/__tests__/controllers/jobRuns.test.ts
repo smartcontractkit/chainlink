@@ -15,7 +15,7 @@ beforeAll(async () => {
   db = await getDb()
   server = await start()
 })
-afterAll(async done => stop(server, done))
+afterAll(done => stop(server, done))
 
 describe('#index', () => {
   describe('with no runs', () => {
