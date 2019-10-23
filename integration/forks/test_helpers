@@ -43,6 +43,7 @@ create_contract() {
 
 initial_setup() {
   tear_down
+	build_images
   start_network
   create_job
 }
