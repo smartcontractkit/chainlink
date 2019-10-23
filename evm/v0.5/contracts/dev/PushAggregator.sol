@@ -42,7 +42,7 @@ contract PushAggregator is Ownable {
     setPaymentAmount(_paymentAmount);
   }
 
-  function updateAnswer(int256 _answer, uint256 _round)
+  function updateAnswer(uint256 _round, int256 _answer)
     public
     ensureValidRoundId(_round)
     validateOracleRound(_round)
