@@ -95,15 +95,6 @@ func (jr *JobRun) NextTaskRun() *TaskRun {
 	return nil
 }
 
-// PreviousTaskRun returns the last task to be processed, if it exists
-func (jr *JobRun) PreviousTaskRun() *TaskRun {
-	index, runnable := jr.NextTaskRunIndex()
-	if runnable && index > 0 {
-		return &jr.TaskRuns[index-1]
-	}
-	return nil
-}
-
 // TasksRemain returns true if there are unfinished tasks left for this job run
 func (jr *JobRun) TasksRemain() bool {
 	_, runnable := jr.NextTaskRunIndex()
@@ -142,18 +133,6 @@ func (jr *JobRun) setStatus(status RunStatus) {
 	}
 }
 
-// JobRunsWithStatus filters passed job runs returning those that have
-// the desired status, entirely in memory.
-func JobRunsWithStatus(runs []JobRun, status RunStatus) []JobRun {
-	rval := []JobRun{}
-	for _, r := range runs {
-		if r.Status == status {
-			rval = append(rval, r)
-		}
-	}
-	return rval
-}
-
 // RunRequest stores the fields used to initiate the parent job run.
 type RunRequest struct {
 	ID        uint `gorm:"primary_key"`
@@ -188,22 +167,6 @@ type TaskRun struct {
 // String returns info on the TaskRun as "ID,Type,Status,Result".
 func (tr TaskRun) String() string {
 	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID.String(), tr.TaskSpec.Type, tr.Status, tr.Result)
-}
-
-// ForLogger formats the TaskRun info for a common formatting in the log.
-func (tr *TaskRun) ForLogger(kvs ...interface{}) []interface{} {
-	output := []interface{}{
-		"type", tr.TaskSpec.Type,
-		"params", tr.TaskSpec.Params,
-		"taskrun", tr.ID,
-		"status", tr.Status,
-	}
-
-	if tr.Result.ErrorMessage.Valid {
-		output = append(output, "error", tr.Result.ErrorString())
-	}
-
-	return append(kvs, output...)
 }
 
 // SetError sets this task run to failed and saves the error message

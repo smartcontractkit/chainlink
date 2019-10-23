@@ -184,16 +184,6 @@ func (j JobSpec) InitiatorExternal(name string) *Initiator {
 	return found
 }
 
-// WebAuthorized returns true if the "web" initiator is present.
-func (j JobSpec) WebAuthorized() bool {
-	for _, initr := range j.Initiators {
-		if initr.Type == InitiatorWeb {
-			return true
-		}
-	}
-	return false
-}
-
 // IsLogInitiated Returns true if any of the job's initiators are triggered by event logs.
 func (j JobSpec) IsLogInitiated() bool {
 	for _, initr := range j.Initiators {
