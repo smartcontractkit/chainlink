@@ -7,6 +7,7 @@ source ./test_helpers
 
 # build docker images, reset CL db
 initial_setup
+mkdir -p logs
 
 # Runs the first chain, where the ethlog contract is deployed
 printf "\nSTARTING CHAIN 1\n"
@@ -18,7 +19,6 @@ create_contract
 search_chainlink_logs 'New run triggered by ethlog'
 search_chainlink_logs 'Run cannot continue because it lacks sufficient confirmations'
 # save log
-mkdir -p logs
 docker-compose logs chainlink > logs/chain_1.log
 docker-compose logs geth > logs/geth.log
 # tear down network before sufficient confirmations can be reached
@@ -38,7 +38,6 @@ search_chainlink_logs 'Run cannot continue because it lacks sufficient confirmat
 # should eventually abort running running job
 search_chainlink_logs 'presumably has been uncled'
 # save log
-mkdir -p logs
 docker-compose logs chainlink > logs/chain_2.log
 docker-compose logs geth >> logs/geth.log
 # tear down
