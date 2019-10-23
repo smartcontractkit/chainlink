@@ -228,7 +228,7 @@ func (c ConfigWhitelist) String() string {
 		if !ok {
 			continue
 		}
-		
+
 		field := cwlV.FieldByIndex(item.Index)
 
 		buffer.WriteString(envName)
@@ -460,7 +460,7 @@ type ServiceAgreementPresentation struct {
 func (sa ServiceAgreement) MarshalJSON() ([]byte, error) {
 	return json.Marshal(ServiceAgreementPresentation{
 		ID:            sa.ID,
-		CreatedAt:     sa.CreatedAt.String(),
+		CreatedAt:     utils.ISO8601UTC(sa.CreatedAt),
 		Encumbrance:   sa.Encumbrance,
 		EncumbranceID: sa.EncumbranceID,
 		RequestBody:   sa.RequestBody,
