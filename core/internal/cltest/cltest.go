@@ -38,17 +38,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 	null "gopkg.in/guregu/null.v3"
 )
 
 const (
 	// RootDir the root directory for cltest
 	RootDir = "/tmp/chainlink_test"
-	// Username the test username
-	Username = "testusername"
 	// APIEmail of the API user
 	APIEmail = "email@test.net"
 	// Password the password
@@ -416,46 +412,12 @@ func NewJobSubscriber(t testing.TB) (*strpkg.Store, services.JobSubscriber, func
 	}
 }
 
-// CommonJSON has an ID, and Name
-type CommonJSON struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Digest string `json:"digest"`
-}
-
-// ParseCommonJSON will unmarshall given body into CommonJSON
-func ParseCommonJSON(t testing.TB, body io.Reader) CommonJSON {
-	t.Helper()
-
-	b, err := ioutil.ReadAll(body)
-	require.NoError(t, err)
-	var respJSON CommonJSON
-	json.Unmarshal(b, &respJSON)
-	return respJSON
-}
-
 func ParseJSON(t testing.TB, body io.Reader) models.JSON {
 	t.Helper()
 
 	b, err := ioutil.ReadAll(body)
 	require.NoError(t, err)
 	return models.JSON{Result: gjson.ParseBytes(b)}
-}
-
-// ErrorsJSON has an errors attribute
-type ErrorsJSON struct {
-	Errors []string `json:"errors"`
-}
-
-// ParseErrorsJSON will unmarshall given body into ErrorsJSON
-func ParseErrorsJSON(t testing.TB, body io.Reader) ErrorsJSON {
-	t.Helper()
-
-	b, err := ioutil.ReadAll(body)
-	require.NoError(t, err)
-	var respJSON ErrorsJSON
-	json.Unmarshal(b, &respJSON)
-	return respJSON
 }
 
 func ParseJSONAPIErrors(t testing.TB, body io.Reader) *models.JSONAPIErrors {
@@ -475,21 +437,6 @@ func MustReadFile(t testing.TB, file string) []byte {
 	content, err := ioutil.ReadFile(file)
 	require.NoError(t, err)
 	return content
-}
-
-func CopyFile(t testing.TB, src, dst string) {
-	t.Helper()
-
-	from, err := os.Open(src)
-	require.NoError(t, err)
-	defer from.Close()
-
-	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE, 0666)
-	require.NoError(t, err)
-
-	_, err = io.Copy(to, from)
-	require.NoError(t, err)
-	require.NoError(t, to.Close())
 }
 
 type HTTPClientCleaner struct {
@@ -573,16 +520,6 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 	return metaCount, err
 }
 
-// ObserveLogs returns the observed logs
-func ObserveLogs() (*observer.ObservedLogs, func()) {
-	previousLogger := logger.GetLogger()
-	core, observed := observer.New(zapcore.DebugLevel)
-	logger.SetLogger(zap.New(core))
-	return observed, func() {
-		logger.SetLogger(previousLogger.Desugar())
-	}
-}
-
 // ReadLogs returns the contents of the applications log file as a string
 func ReadLogs(app *TestApplication) (string, error) {
 	logFile := fmt.Sprintf("%s/log.jsonl", app.Store.Config.RootDir())
@@ -595,16 +532,6 @@ func FindJob(t testing.TB, s *strpkg.Store, id *models.ID) models.JobSpec {
 	t.Helper()
 
 	j, err := s.FindJob(id)
-	require.NoError(t, err)
-
-	return j
-}
-
-// FindJobRun returns JobRun for given JobRunID
-func FindJobRun(t testing.TB, s *strpkg.Store, id *models.ID) models.JobRun {
-	t.Helper()
-
-	j, err := s.FindJobRun(id)
 	require.NoError(t, err)
 
 	return j
@@ -930,26 +857,6 @@ func WaitForTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models
 	return tas
 }
 
-// WaitForJobs waits for the wanted number of jobs.
-func WaitForJobs(t testing.TB, store *strpkg.Store, want int) []models.JobSpec {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var jobs []models.JobSpec
-	if want == 0 {
-		g.Consistently(func() []models.JobSpec {
-			jobs = AllJobs(t, store)
-			return jobs
-		}).Should(gomega.HaveLen(want))
-	} else {
-		g.Eventually(func() []models.JobSpec {
-			jobs = AllJobs(t, store)
-			return jobs
-		}).Should(gomega.HaveLen(want))
-	}
-	return jobs
-}
-
 // WaitForSyncEventCount checks if the sync event count eventually reaches
 // the amound specified in parameter want.
 func WaitForSyncEventCount(
@@ -1046,44 +953,6 @@ func GetAccountAddresses(store *strpkg.Store) []common.Address {
 
 func StringToHash(s string) common.Hash {
 	return common.BytesToHash([]byte(s))
-}
-
-func hasHexPrefix(str string) bool {
-	return len(str) >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')
-}
-
-func isHexCharacter(c byte) bool {
-	return ('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')
-}
-
-func isHex(str string) bool {
-	if len(str)%2 != 0 {
-		return false
-	}
-	for _, c := range []byte(str) {
-		if !isHexCharacter(c) {
-			return false
-		}
-	}
-	return true
-}
-
-// AssertValidHash checks that a string matches a specific hash format,
-// includes a leading 0x and has a specific length (in bytes)
-func AssertValidHash(t testing.TB, length int, hash string) {
-	t.Helper()
-
-	if !hasHexPrefix(hash) {
-		assert.FailNowf(t, "Missing hash prefix", `"%+v" is missing hash prefix`, hash)
-	}
-	hash = hash[2:]
-	hashlen := len(hash) / 2
-	if hashlen != length {
-		assert.FailNowf(t, "Wrong hash length", `"%+v" represents %d bytes, want %d`, hash, hashlen, length)
-	}
-	if !isHex(hash) {
-		assert.FailNowf(t, "Invalid character", `"%+v" contains a non hexadecimal character`, hash)
-	}
 }
 
 // AssertServerResponse is used to match against a client response, will print
@@ -1262,11 +1131,6 @@ func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams
 	case <-time.After(duration):
 		t.Fatal(fmt.Sprintf("CallbackOrTimeout: %s timed out", msg))
 	}
-}
-
-func MustSha256(in string) string {
-	out, _ := utils.Sha256(in)
-	return out
 }
 
 func MustParseURL(input string) *url.URL {
