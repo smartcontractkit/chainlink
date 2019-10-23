@@ -48,7 +48,7 @@ contract('PushAggregator', () => {
       }
     })
 
-    context('when the minimum number of oracles have not reported', async () => {
+    context('when the minimum oracles have not reported', async () => {
       it('pays the oracles that have reported', async () => {
         assertBigNum(0, await link.balanceOf.call(personas.Neil))
 
