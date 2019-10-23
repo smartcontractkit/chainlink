@@ -103,9 +103,7 @@ func TestNewRun_jobSpecMinPayment(t *testing.T) {
 			}}
 			jobSpec.MinPayment = test.minPayment
 
-			inputResult := models.RunResult{Data: input}
-
-			run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, nil, store, test.payment)
+			run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], &data, nil, store, test.payment)
 			assert.NoError(t, err)
 			assert.Equal(t, string(test.expectedStatus), string(run.Status))
 		})
@@ -126,7 +124,7 @@ func TestNewRun_taskSumPayment(t *testing.T) {
 
 	store.Config.Set("MINIMUM_CONTRACT_PAYMENT", "1")
 
-	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
+	data := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
 	tests := []struct {
 		name           string
