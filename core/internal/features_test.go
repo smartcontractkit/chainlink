@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -724,7 +723,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	assert.NotEqual(t, "", sa.ID)
 	j := cltest.FindJob(t, app.Store, sa.JobSpecID)
 
-	assert.Equal(t, assets.NewLink(100), sa.Encumbrance.Payment)
+	assert.Equal(t, cltest.NewLink(t, "1000000000000000000"), sa.Encumbrance.Payment)
 	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)
 
 	assert.Equal(t, cltest.EndAt, sa.Encumbrance.EndAt.Time)

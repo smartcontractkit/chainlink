@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
@@ -311,9 +312,16 @@ func NewServiceAgreementExecutionLog(
 			models.ServiceAgreementExecutionLogTopic,
 			models.IDToTopic(jobID),
 			executionRequester.Hash(),
-			assets.NewLink(1000000000).ToHash(),
+			NewLink(t, "1000000000000000000").ToHash(),
 		},
 	}
+}
+
+func NewLink(t *testing.T, amount string) *assets.Link {
+	link := assets.NewLink(0)
+	link, ok := link.SetString(amount, 10)
+	assert.True(t, ok)
+	return link
 }
 
 func StringToVersionedLogData0(t *testing.T, internalID, str string) []byte {
