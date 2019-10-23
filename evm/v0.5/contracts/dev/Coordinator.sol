@@ -30,8 +30,6 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   mapping(bytes32 => ServiceAgreement) public serviceAgreements;
   mapping(address => uint256) public withdrawableTokens;
 
-  function dummyMethodXXX() external returns(string memory) { return "foobar"; }
-
   /**
    * @notice Deploy with the address of the LINK token
    * @dev Sets the LinkToken address for the imported LinkTokenInterface
@@ -166,8 +164,6 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     require(success, string(message));
   }
 
-  event SignatureCheck(address found, address expected);
-
   /**
    * @dev Validates that each signer address matches for the given oracles
    * @param _serviceAgreementID Service agreement ID
@@ -188,8 +184,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
         _signatures.rs[i],
         _signatures.ss[i]
       );
-      emit SignatureCheck(signer, _oracles[i]);
-      // XXX: require(_oracles[i] == signer, "Invalid oracle signature specified in SA");
+      require(_oracles[i] == signer, "Invalid oracle signature specified in SA");
       allowedOracles[_serviceAgreementID][_oracles[i]] = true;
     }
 
