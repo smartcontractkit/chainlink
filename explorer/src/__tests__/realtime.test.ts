@@ -59,7 +59,7 @@ describe('realtime', () => {
     )
   })
 
-  afterAll(async done => stop(server, done))
+  afterAll(done => stop(server, done))
 
   it('create a job run for valid JSON', async () => {
     expect.assertions(3)

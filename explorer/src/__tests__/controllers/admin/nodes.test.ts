@@ -27,7 +27,7 @@ beforeAll(async () => {
   db = await getDb()
   server = await start()
 })
-afterAll(async done => stop(server, done))
+afterAll(done => stop(server, done))
 beforeEach(async () => {
   await clearDb()
   await createAdmin(db, USERNAME, PASSWORD)
