@@ -278,16 +278,3 @@ func TestNewTaskType(t *testing.T) {
 		})
 	}
 }
-
-func TestJobSpec_NewLinkEarned(t *testing.T) {
-	t.Parallel()
-
-	runID := models.NewID()
-	befCreation := time.Now()
-	earned := models.NewLinkEarned(runID, assets.NewLink(3))
-	aftCreation := time.Now()
-
-	assert.Equal(t, earned.JobRunID, runID)
-	assert.Equal(t, earned.Earned, assets.NewLink(3))
-	assert.True(t, true, earned.EarnedAt.After(aftCreation), earned.EarnedAt.Before(befCreation))
-}
