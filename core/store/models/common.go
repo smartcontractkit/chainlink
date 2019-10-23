@@ -202,11 +202,6 @@ func (j JSON) Merge(j2 JSON) (JSON, error) {
 	return rval, gjson.Unmarshal(b, &rval)
 }
 
-// Empty returns true if the JSON does not exist.
-func (j JSON) Empty() bool {
-	return !j.Exists()
-}
-
 // Bytes returns the raw JSON.
 func (j JSON) Bytes() []byte {
 	return []byte(j.String())
