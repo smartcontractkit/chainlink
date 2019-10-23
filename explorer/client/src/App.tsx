@@ -1,37 +1,16 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { hot } from 'react-hot-loader/root'
 import CssBaseline from '@material-ui/core/CssBaseline'
-import Grid from '@material-ui/core/Grid'
-import { Router } from '@reach/router'
-import Header from './containers/Header'
+import { Router, Redirect } from '@reach/router'
+import PublicLayout from './layouts/Public'
+import AdminMinimalLayout from './layouts/AdminMinimal'
+import AdminLayout from './layouts/Admin'
+import NotFound from './components/NotFound'
 import SearchCard from './components/Cards/Search'
-import TermsOfUse from './components/TermsOfUse'
 import JobRunsIndex from './containers/JobRuns/Index'
 import JobRunsShow from './containers/JobRuns/Show'
-
-interface MainProps {
-  children: any
-  path: string
-}
-
-const DEFAULT_HEIGHT = 98
-
-const Main = ({ children }: MainProps) => {
-  const [height, setHeight] = useState<number>(DEFAULT_HEIGHT)
-  const onHeaderResize = (width: number, height: number) => {
-    setHeight(height)
-  }
-
-  return (
-    <Grid container spacing={24}>
-      <Grid item xs={12}>
-        <Header onResize={onHeaderResize} />
-        <main style={{ paddingTop: height }}>{children}</main>
-        <TermsOfUse />
-      </Grid>
-    </Grid>
-  )
-}
+import AdminSignIn from './containers/Admin/SignIn'
+import AdminOperatorIndex from './containers/Admin/Operator/Index'
 
 const App = () => {
   return (
@@ -41,10 +20,20 @@ const App = () => {
       <Router style={{ display: 'flex', height: '100%', overflowX: 'hidden' }}>
         <SearchCard path="/" />
 
-        <Main path="/job-runs">
+        <PublicLayout path="/job-runs">
           <JobRunsIndex path="/" />
           <JobRunsShow path="/:jobRunId" />
-        </Main>
+        </PublicLayout>
+
+        <AdminMinimalLayout path="/admin/signin">
+          <AdminSignIn default />
+        </AdminMinimalLayout>
+
+        <AdminLayout path="/admin">
+          <AdminOperatorIndex path="/operators" />
+          <Redirect path="/" from="/" to="/admin/operators" noThrow />
+          <NotFound default />
+        </AdminLayout>
       </Router>
     </>
   )

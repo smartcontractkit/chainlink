@@ -45,6 +45,7 @@ let db: Connection | undefined
 
 export const getDb = async (): Promise<Connection> => {
   if (db === undefined) {
+    /* eslint-disable-next-line require-atomic-updates */
     db = await createConnection(mergeOptions())
   }
   if (db == null) {
