@@ -49,7 +49,7 @@ initial_setup() {
 
 
 assert_not_in_chainlink_logs() {
-	echo "asserting... '$1'"
+	echo "asserting \"$1\" not present ..."
 	num_found=`docker-compose logs chainlink | grep -c "$1"`
 	if [ $num_found != "0" ]; then
 		printf "\n"

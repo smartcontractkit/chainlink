@@ -26,24 +26,13 @@ services:
       - password
       - "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"
 
-  # setus up the CL database and imports the 0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f key
-  chainlink_key_import:
-    image: smartcontract/chainlink
-    command: local import /run/secrets/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f
-    volumes:
-      - ./tmp/clroot/:/clroot/
-    environment:
-      - ROOT=/clroot
-    secrets:
-      - "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"
-
   chainlink:
     image: smartcontract/chainlink
     container_name: forks_chainlink
     command: local node -d -p /run/secrets/password -a /run/secrets/apicredentials
     restart: always
     volumes:
-      - ./tmp/chainlink/clroot/:/clroot/
+      - ./tmp/clroot/:/clroot/
     environment:
       - LOG_LEVEL=debug
       - ETH_URL=ws://172.16.1.100:8546 # Gets ethereum information from geth node
@@ -55,8 +44,6 @@ services:
     networks:
       gethnet:
         ipv4_address: 172.16.1.102
-    depends_on:
-      - chainlink_key_import
     expose:
       - 6688
     secrets:
