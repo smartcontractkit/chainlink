@@ -1,5 +1,3 @@
-/* eslint @typescript-eslint/no-empty-interface: 'off' */
-
 declare type JSONValue = JSONPrimitive | JSONObject | JSONArray
 declare type JSONPrimitive = string | number | boolean | null
 declare type JSONObject = { [member: string]: JSONValue }

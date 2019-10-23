@@ -30,7 +30,6 @@ declare module '@material-ui/core/styles/createTypography' {
     marginLeft?: string
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-interface
   interface TypographyOptions
     extends Partial<
       Record<AdditionalThemeStyle, TypographyStyleOptions> & FontStyleOptions
