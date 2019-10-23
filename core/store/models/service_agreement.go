@@ -2,9 +2,7 @@ package models
 
 import (
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -161,18 +159,14 @@ func NewUnsignedServiceAgreementFromRequest(reader io.Reader) (UnsignedServiceAg
 
 	us.ID, err = generateServiceAgreementID(us.Encumbrance,
 		common.BytesToHash(requestDigest))
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-	fmt.Printf("digest which is signed %x\n", us.ID)
 	if err != nil {
 		return UnsignedServiceAgreement{}, err
 	}
-	fmt.Println("requestDigest", hex.EncodeToString(requestDigest), "sAID", us.ID.Hex())
 	return us, nil
 }
 
 func generateServiceAgreementID(e Encumbrance, digest common.Hash) (common.Hash, error) {
 	saBytes, err := e.ABI(digest)
-	fmt.Printf("serviceAgreementIDInputBuffer %x\n", saBytes)
 	if err != nil {
 		return common.Hash{}, nil
 	}
@@ -204,13 +198,12 @@ func (e Encumbrance) ABI(digest common.Hash) ([]byte, error) {
 	}
 
 	// Absolute end date as a big-endian uint32 (unix seconds)
-	endAt := uint64(e.EndAt.Time.Unix())
-	if endAt > 0xffffffff { // Optimistically, this could be an issue in 2038...
-		return nil, fmt.Errorf(
-			"endat date %s is too late to fit in uint32",
-			e.EndAt.Time)
+	var endAt uint64
+	if e.EndAt.Valid {
+		endAt = uint64(e.EndAt.Time.Unix())
 	}
-	_, err = buffer.Write(utils.EVMWordUint64(endAt))
+	endAtBytes := common.BigToHash(new(big.Int).SetUint64(endAt))
+	_, err = buffer.Write(endAtBytes.Bytes())
 	if err != nil {
 		return nil, errors.Wrap(err, "while writing endAt")
 	}
