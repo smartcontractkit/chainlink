@@ -58,9 +58,8 @@ contract PushAggregator is Ownable {
   function addOracle(address _oracle)
     public
     onlyOwner()
+    ensureNotEnabledAddress(_oracle)
   {
-    require(!oracles[_oracle].enabled, "Address is already recorded as an oracle");
-
     oracles[_oracle].enabled = true;
     oracleCount += 1;
     setAnswerCountRange(minAnswerCount + 1, maxAnswerCount + 1);
@@ -69,8 +68,8 @@ contract PushAggregator is Ownable {
   function removeOracle(address _oracle)
     public
     onlyOwner()
+    ensureEnabledAddress(_oracle)
   {
-    require(oracles[_oracle].enabled, "Address is not an oracle");
     oracles[_oracle].enabled = false;
     oracleCount -= 1;
 
@@ -102,9 +101,8 @@ contract PushAggregator is Ownable {
   function setAnswerCountRange(uint64 _min, uint64 _max)
     public
     onlyOwner()
+    ensureValidRange(_min, _max)
   {
-    require(oracleCount >= _max, "Cannot have the answer max higher oracle count");
-    require(_max >= _min, "Cannot have the answer minimum higher the max");
     minAnswerCount = _min;
     maxAnswerCount = _max;
   }
@@ -177,4 +175,21 @@ contract PushAggregator is Ownable {
     require(_id == currentRound + 1 || _id == currentRound, "Cannot report on previous rounds");
     _;
   }
+
+  modifier ensureValidRange(uint64 _min, uint64 _max) {
+    require(oracleCount >= _max, "Cannot have the answer max higher oracle count");
+    require(_max >= _min, "Cannot have the answer minimum higher the max");
+    _;
+  }
+
+  modifier ensureNotEnabledAddress(address _oracle) {
+    require(!oracles[_oracle].enabled, "Address is already recorded as an oracle");
+    _;
+  }
+
+  modifier ensureEnabledAddress(address _oracle) {
+    require(oracles[_oracle].enabled, "Address is not an oracle");
+    _;
+  }
+
 }
