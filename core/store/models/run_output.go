@@ -108,14 +108,6 @@ func (ro RunOutput) Error() error {
 	return ro.err
 }
 
-// ErrorMessage returns the error as a string if present, otherwise "".
-func (ro RunOutput) ErrorMessage() string {
-	if ro.err != nil {
-		return ro.err.Error()
-	}
-	return ""
-}
-
 // Data returns the data held by this RunOutput
 func (ro RunOutput) Data() JSON {
 	return ro.data

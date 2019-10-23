@@ -164,8 +164,6 @@ func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutpu
 	return models.NewRunOutputPendingConfirmationsWithData(output)
 }
 
-var zero = common.Hash{}
-
 func addReceiptToResult(
 	receipt *models.TxReceipt,
 	input models.RunInput,

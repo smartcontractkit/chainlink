@@ -52,20 +52,6 @@ func (ri RunInput) Error() error {
 	return ri.err
 }
 
-// ErrorMessage returns the error as a string if present, otherwise "".
-func (ri RunInput) ErrorMessage() string {
-	if ri.err != nil {
-		return ri.err.Error()
-	}
-	return ""
-}
-
-// SetError marks the result as errored and saves the specified error message
-func (ri *RunInput) SetError(err error) {
-	ri.status = RunStatusErrored
-	ri.err = err
-}
-
 // Status returns the RunInput's status
 func (ri RunInput) Status() RunStatus {
 	return ri.status
