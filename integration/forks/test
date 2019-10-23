@@ -8,13 +8,41 @@ cd "$(dirname "$0")"
 # build docker images, reset CL db
 make initial_setup
 
-# create chain with EthLog contract, but disconnect before min num confirmations is reached
-make run_chain_1
-bash scripts/assert_not_in_chainlink_logs.sh 'presumably has been uncled'
+# Runs the first chain, where the ethlog contract is deployed
+printf "\nSTARTING CHAIN 1"
+# make sure chainlink has actually started receiving blocks from geth
+bash scripts/search_chainlink_logs 'Received new head'
+# broadcast contract creation transaction
+bash scripts/create_contract
+# wait for chainlink to get notified about transaction
+bash scripts/search_chainlink_logs 'New run triggered by ethlog'
+bash scripts/search_chainlink_logs 'Run cannot continue because it lacks sufficient confirmations'
+# save log
+mkdir -p logs
+docker-compose logs chainlink > logs/chain_1.log
+docker-compose logs geth > logs/geth.log
+# tear down network before sufficient confirmations can be reached
+docker-compose down
+# assert that nothing has been uncled yet
+bash scripts/assert_not_in_chainlink_logs 'presumably has been uncled'
 
 # create 2nd chain that is longer than first chain. Job should be uncled, not run
+printf "\nSTARTING CHAIN 2"
 make start_network
-make run_chain_2
-bash scripts/assert_not_in_chainlink_logs.sh 'All tasks complete for run'
+# 2nd chain should be younger than first, and so chainlink won't immediately save new heads
+bash scripts/search_chainlink_logs 'Cannot save new head confirmation'
+# when 2nd chain gets longer, chainlink resumes saving heads
+bash scripts/search_chainlink_logs 'New head resuming run'
+# will wait for head # to be 10 more than block # with contract creation
+bash scripts/search_chainlink_logs 'Run cannot continue because it lacks sufficient confirmations services'
+# should eventually abort running running job
+bash scripts/search_chainlink_logs 'presumably has been uncled'
+# save log
+mkdir -p logs
+docker-compose logs chainlink > logs/chain_2.log
+docker-compose logs geth >> logs/geth.log
+# tear down
+docker-compose down
+bash scripts/assert_not_in_chainlink_logs 'All tasks complete for run'
 
-echo "test passed!"
+printf "test passed!"
