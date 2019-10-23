@@ -387,28 +387,3 @@ func (t *TaskType) Scan(value interface{}) error {
 	*t = TaskType(temp)
 	return nil
 }
-
-// LinkEarned is to track Chainlink earnings of individual
-// job specs from job runs
-type LinkEarned struct {
-	ID       uint64       `json:"id" gorm:"primary_key;not null;auto_increment"`
-	JobRunID *ID          `json:"jobRunId"`
-	Earned   *assets.Link `json:"earned" gorm:"type:varchar(255)"`
-	EarnedAt time.Time    `json:"earnedAt" gorm:"index"`
-}
-
-// TableName will let us choose and use singular table name
-func (LinkEarned) TableName() string {
-	return "link_earned"
-}
-
-// NewLinkEarned initializes the LinkEarned from params
-// and sets the CreatedAt field.
-func NewLinkEarned(jrunid *ID, ear *assets.Link) LinkEarned {
-	now := time.Now()
-	return LinkEarned{
-		JobRunID: jrunid,
-		Earned:   ear,
-		EarnedAt: now,
-	}
-}
