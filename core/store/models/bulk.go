@@ -7,34 +7,6 @@ import (
 	"time"
 )
 
-// BulkTaskStatus indicates what a bulk task is doing.
-type BulkTaskStatus string
-
-const (
-	// BulkTaskStatusInProgress is the default state of any run status.
-	BulkTaskStatusInProgress = BulkTaskStatus("")
-	// BulkTaskStatusErrored means a bulk task stopped because it encountered an error.
-	BulkTaskStatusErrored = BulkTaskStatus("errored")
-	// BulkTaskStatusCompleted means a bulk task finished.
-	BulkTaskStatusCompleted = BulkTaskStatus("completed")
-)
-
-// Value returns this instance serialized for database storage.
-func (t BulkTaskStatus) Value() (driver.Value, error) {
-	return string(t), nil
-}
-
-// Scan reads the database value and returns an instance.
-func (t *BulkTaskStatus) Scan(value interface{}) error {
-	temp, ok := value.(string)
-	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to BulkTaskStatus", value, value)
-	}
-
-	*t = BulkTaskStatus(temp)
-	return nil
-}
-
 // BulkDeleteRunRequest describes the query for deletion of runs
 type BulkDeleteRunRequest struct {
 	ID            uint                `gorm:"primary_key"`
