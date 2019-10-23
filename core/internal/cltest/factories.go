@@ -519,11 +519,3 @@ func CreateServiceAgreementViaWeb(
 	err := ParseJSONAPIResponse(t, resp, &responseSA)
 	require.NoError(t, err)
 }
-
-func MustJSONMarshal(t *testing.T, input interface{}) models.JSON {
-	bytes, err := json.Marshal(input)
-	require.NoError(t, err)
-	json, err := models.ParseJSON(bytes)
-	require.NoError(t, err)
-	return json
-}
