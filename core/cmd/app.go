@@ -104,6 +104,11 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for the node's configuration",
 			Subcommands: []cli.Command{
 				{
+					Name: "list",
+					Usage: "Show the node's environment variables",
+					Action: client.GetConfiguration,
+				},
+				{
 					Name:   "setgasprice",
 					Usage:  "Set the minimum gas price to use for outgoing transactions",
 					Action: client.SetMinimumGasPrice,
