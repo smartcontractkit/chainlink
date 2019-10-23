@@ -142,10 +142,6 @@ func ignoreRecordNotFound(db *gorm.DB) error {
 	return merr
 }
 
-func (orm *ORM) DialectName() DialectName {
-	return orm.dialectName
-}
-
 // SetLogging turns on SQL statement logging
 func (orm *ORM) SetLogging(enabled bool) {
 	orm.DB.LogMode(enabled)
@@ -780,20 +776,6 @@ func (orm *ORM) DeleteUserSession(sessionID string) error {
 // DeleteBridgeType removes the bridge type
 func (orm *ORM) DeleteBridgeType(bt *models.BridgeType) error {
 	return orm.DB.Delete(bt).Error
-}
-
-// DeleteJobRun deletes the job run and corresponding task runs.
-func (orm *ORM) DeleteJobRun(ID string) error {
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		if err := dbtx.Where("id = ?", ID).Delete(models.JobRun{}).Error; err != nil {
-			return err
-		}
-
-		if err := dbtx.Where("job_run_id = ?", ID).Delete(models.TaskRun{}).Error; err != nil {
-			return err
-		}
-		return nil
-	})
 }
 
 // CreateSession will check the password in the SessionRequest against
