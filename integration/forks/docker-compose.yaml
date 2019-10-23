@@ -3,7 +3,7 @@
 # If you modify this, make sure to make corresponding modifications to the scripts in forks/scripts.
 # Geth is bad about letting you know when it's getting inconsistent inputs, so be careful.
 
-version: "3.1"
+version: "3.7"
 
 services:
   geth:

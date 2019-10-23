@@ -4,10 +4,10 @@ build_images:
 
 start_network:
 	@echo "\nStarting Network. See logs/{chain_[12],geth}.log for logs"
-	( docker-compose --compatibility up > /dev/null ) &
+	( docker-compose up > /dev/null ) &
 
 tear_down:
-	docker-compose --compatibility down
+	docker-compose down
 	# Remove CL database
 	sudo rm -rf tmp
 
@@ -37,10 +37,10 @@ run_chain_1:
 	bash scripts/search_chainlink_logs.sh 'Run cannot continue because it lacks sufficient confirmations'
 	# save log
 	mkdir -p logs
-	docker-compose --compatibility logs chainlink > logs/chain_1.log
-	docker-compose --compatibility logs geth > logs/geth.log
+	docker-compose logs chainlink > logs/chain_1.log
+	docker-compose logs geth > logs/geth.log
 	# tear down network before sufficient confirmations can be reached
-	docker-compose --compatibility down
+	docker-compose down
 
 # Runs the 2nd chain, which eventually out-grows the first chain and uncles the ethlog contract
 run_chain_2:
@@ -55,8 +55,8 @@ run_chain_2:
 	bash scripts/search_chainlink_logs.sh 'presumably has been uncled'
 	# save log
 	mkdir -p logs
-	docker-compose --compatibility logs chainlink > logs/chain_2.log
-	docker-compose --compatibility logs geth >> logs/geth.log
+	docker-compose logs chainlink > logs/chain_2.log
+	docker-compose logs geth >> logs/geth.log
 	# tear down
-	docker-compose --compatibility down
+	docker-compose down
 
