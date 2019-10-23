@@ -430,12 +430,6 @@ func Int(val interface{}) *models.Big {
 	}
 }
 
-// NewBigHexInt creates new BigHexInt from value
-func NewBigHexInt(val interface{}) *hexutil.Big {
-	rval := BigHexInt(val)
-	return &rval
-}
-
 // RunResultWithResult creates a RunResult with given result
 func RunResultWithResult(val interface{}) models.RunResult {
 	data := models.JSON{}
