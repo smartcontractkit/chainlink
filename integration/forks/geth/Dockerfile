@@ -2,11 +2,8 @@ FROM ethereum/client-go
 
 RUN apk add curl bash
 
-COPY root /root
-
-# some handy commands for messing with geth and chain data
-RUN chmod +x /root/bin/*
-ENV PATH="$PATH:/root/bin"
+COPY ./genesis.json /root
+COPY ./geth-config.toml /root
 
 # create genesis block
 RUN geth --nousb --config /root/geth-config.toml init /root/genesis.json

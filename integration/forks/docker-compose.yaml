@@ -15,35 +15,39 @@ services:
       --miner.threads 1
       --nousb
       --config /root/geth-config.toml
-      --password /root/password.txt
-      --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
+      --keystore /run/secrets/
+      --password /run/secrets/password
+      --unlock "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"
       --nat extip:172.16.1.100
     networks:
       gethnet:
         ipv4_address: 172.16.1.100
     secrets:
-      - node_password
+      - password
+      - "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"
 
-  # imports the 0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f key into the CL db
+  # setus up the CL database and imports the 0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f key
   chainlink_key_import:
     image: smartcontract/chainlink
-    command: local import /root/clroot/keys/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json
+    command: local import /run/secrets/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f
     volumes:
-      - ./chainlink_node/clroot/:/root/clroot
+      - ./tmp/clroot/:/clroot/
     environment:
-      - ROOT=/root/clroot
+      - ROOT=/clroot
+    secrets:
+      - "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"
 
   chainlink:
     image: smartcontract/chainlink
     container_name: forks_chainlink
-    command: local node -d -p /run/secrets/node_password -a /run/secrets/node_api_credentials
+    command: local node -d -p /run/secrets/password -a /run/secrets/apicredentials
     restart: always
     volumes:
-      - ./chainlink_node/clroot/:/root/clroot
+      - ./tmp/chainlink/clroot/:/clroot/
     environment:
       - LOG_LEVEL=debug
       - ETH_URL=ws://172.16.1.100:8546 # Gets ethereum information from geth node
-      - ROOT=/root/clroot
+      - ROOT=/clroot
       - ETH_CHAIN_ID=17
       - MIN_OUTGOING_CONFIRMATIONS=2
       - MINIMUM_CONTRACT_PAYMENT=1000000000000
@@ -56,8 +60,8 @@ services:
     expose:
       - 6688
     secrets:
-      - node_password
-      - node_api_credentials
+      - password
+      - apicredentials
 
 networks:
   gethnet:
@@ -68,7 +72,9 @@ networks:
         - subnet: 172.16.1.0/24
 
 secrets:
-  node_password:
-    file: ./secrets/password.txt
-  node_api_credentials:
-    file: ./secrets/apicredentials
+  password:
+    file: ../../tools/secrets/password.txt
+  apicredentials:
+    file: ../../tools/secrets/apicredentials
+  "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f":
+    file: ../../tools/secrets/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json
