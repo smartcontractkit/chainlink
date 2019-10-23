@@ -12,7 +12,6 @@ import (
 	"github.com/araddon/dateparse"
 	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
-	null "gopkg.in/guregu/null.v3"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mrwonko/cron"
@@ -303,11 +302,6 @@ type AnyTime struct {
 // NewAnyTime creates a new Time.
 func NewAnyTime(t time.Time) AnyTime {
 	return AnyTime{Time: t, Valid: true}
-}
-
-// AnyTimeFromNull returns an AnyTime from a null.Time.
-func AnyTimeFromNull(t null.Time) AnyTime {
-	return AnyTime{Time: t.Time, Valid: t.Valid}
 }
 
 // MarshalJSON implements json.Marshaler.
