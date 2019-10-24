@@ -18,7 +18,7 @@
     "test:v1": "tsc && truffle test ./dist/test/*.js",
     "test:v2": "jest --testTimeout 20000",
     "test": "yarn test:v1 && yarn test:v2",
-    "format": "prettier --write \"**/*\"",
+    "format": "prettier --write \"{src,test,testv2}/*/**\"",
     "prepublishOnly": "yarn build && yarn lint && yarn test",
     "setup": "cross-env ./scripts/build.js",
     "truffle:migrate:cldev": "truffle migrate --network cldev"

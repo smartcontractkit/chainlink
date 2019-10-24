@@ -4,9 +4,7 @@ import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
 import { Oracle } from './generated/Oracle'
 import { CoordinatorFactory } from './generated/CoordinatorFactory'
-import {
-  CoordinatorInterfaceFactory
-} from './generated/CoordinatorInterfaceFactory'
+import { CoordinatorInterfaceFactory } from './generated/CoordinatorInterfaceFactory'
 import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
@@ -310,7 +308,7 @@ export async function fulfillOracleRequest(
 export function functionSelector(signature: string): string {
   const fullHash = ethers.utils.id(signature)
   assert(fullHash.startsWith('0x'))
-  return fullHash.slice(0, 2 + (4 * 2)) // '0x' + initial 4 bytes, in hex
+  return fullHash.slice(0, 2 + 4 * 2) // '0x' + initial 4 bytes, in hex
 }
 
 export function requestDataBytes(
@@ -377,7 +375,10 @@ export function hexToBuf(hexstr: string): Buffer {
   return Buffer.from(stripHexPrefix(hexstr), 'hex')
 }
 
-interface ParamType { name: string, type: string }
+interface ParamType {
+  name: string
+  type: string
+}
 
 /**
  * Names and types of the ServiceAgreement struct components
@@ -392,8 +393,8 @@ export function serviceAgreementFieldTypes(): ParamType[] {
   // serviceAgreements() directly, because abi outputs elide dynamic types (like
   // `oracles`, in this case.)
   const dummyCoordinatorInterface = CoordinatorInterfaceFactory.connect(
-    '0x0000000000000000000000000000000000000000',  // Dummy address & signer
-    new (Signer as any /* Brutally instantiates an abstract class */ )()
+    '0x0000000000000000000000000000000000000000', // Dummy address & signer
+    new (Signer as any)(/* Brutally instantiates an abstract class */),
   )
   const { abi } = dummyCoordinatorInterface.interface
   const param = abi[0].inputs[0]
@@ -411,18 +412,18 @@ type Hash = ReturnType<typeof ethers.utils.keccak256>
 type Coordinator = ReturnType<CoordinatorFactory['attach']>
 type ServiceAgreement = Parameters<Coordinator['initiateServiceAgreement']>[0]
 
-  /**
-   * Digest of the ServiceAgreement.
-   *
-   * NB: Changes this function may necessitate changes in tandem to
-   * service_agreement.go/Encumberance.ABI, and Coordinator#getId, because this
-   * digest is used by oracles to sign the agreement, and used by the coordinator
-   * to index the agreement.
-   */
-  export const calculateSAID2 = (sa: ServiceAgreement): Hash => {
-    const abi = serviceAgreementFieldTypes()
-    type SAKey = keyof ServiceAgreement
-    const typeStrings = abi.map((p:ParamType) => p.type) 
-    const inputs = abi.map((p:ParamType) => sa[p.name as SAKey])
-    return ethers.utils.solidityKeccak256(typeStrings, inputs)
-  }
+/**
+ * Digest of the ServiceAgreement.
+ *
+ * NB: Changes this function may necessitate changes in tandem to
+ * service_agreement.go/Encumberance.ABI, and Coordinator#getId, because this
+ * digest is used by oracles to sign the agreement, and used by the coordinator
+ * to index the agreement.
+ */
+export const calculateSAID2 = (sa: ServiceAgreement): Hash => {
+  const abi = serviceAgreementFieldTypes()
+  type SAKey = keyof ServiceAgreement
+  const typeStrings = abi.map((p: ParamType) => p.type)
+  const inputs = abi.map((p: ParamType) => sa[p.name as SAKey])
+  return ethers.utils.solidityKeccak256(typeStrings, inputs)
+}
