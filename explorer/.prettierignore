@@ -8,3 +8,4 @@ src/public
 .migrations*
 .env
 *.md5
+GNUmakefile

@@ -9,7 +9,7 @@
     "eslint": "eslint --ext .ts,.js test",
     "solhint": "solhint ./contracts/**/*.sol",
     "lint": "yarn eslint && yarn solhint",
-    "format": "prettier --write \"**/*\"",
+    "format": "prettier --write \"{src,test}/**/*\"",
     "slither": "truffle compile --quiet && slither .",
     "setup": "cross-env ./scripts/build.js",
     "test": "truffle test"

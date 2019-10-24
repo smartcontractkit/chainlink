@@ -7,7 +7,7 @@
     "cypressJobServer": "cross-env ts-node cypress/support/cypressJobServer.ts",
     "depcheck": "echo '@chainlink/integration' && depcheck || true",
     "eslint": "eslint --ext .js,.ts .",
-    "format": "prettier --write \"**/*\"",
+    "format": "prettier --write \"**/*.{ts,js,jsx,tsx}\"",
     "lint": "yarn eslint",
     "setup": "echo \"No setup required for @chainlink/integration\"",
     "test": "yarn test:cypress && yarn test:forks",

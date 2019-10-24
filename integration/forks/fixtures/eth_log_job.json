@@ -1,4 +1,4 @@
 {
-  "initiators": [{"type": "ethlog" }],
+  "initiators": [{ "type": "ethlog" }],
   "tasks": [{ "type": "noop", "confirmations": 10 }]
 }
