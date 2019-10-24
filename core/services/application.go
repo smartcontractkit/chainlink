@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/gobuffalo/packr"
@@ -39,6 +40,7 @@ type ChainlinkApplication struct {
 	Store                    *store.Store
 	SessionReaper            SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
+	shutdownOnce             sync.Once
 }
 
 // NewApplication initializes a new store if one is not already
@@ -111,15 +113,18 @@ func (app *ChainlinkApplication) Start() error {
 // Stop allows the application to exit by halting schedules, closing
 // logs, and closing the DB connection.
 func (app *ChainlinkApplication) Stop() error {
-	defer logger.Sync()
-	logger.Info("Gracefully exiting...")
-
 	var merr error
-	app.Scheduler.Stop()
-	merr = multierr.Append(merr, app.HeadTracker.Stop())
-	app.JobRunner.Stop()
-	merr = multierr.Append(merr, app.SessionReaper.Stop())
-	return multierr.Append(merr, app.Store.Close())
+	app.shutdownOnce.Do(func() {
+		defer logger.Sync()
+		logger.Info("Gracefully exiting...")
+
+		app.Scheduler.Stop()
+		merr = multierr.Append(merr, app.HeadTracker.Stop())
+		app.JobRunner.Stop()
+		merr = multierr.Append(merr, app.SessionReaper.Stop())
+		merr = multierr.Append(merr, app.Store.Close())
+	})
+	return merr
 }
 
 // GetStore returns the pointer to the store for the ChainlinkApplication.
