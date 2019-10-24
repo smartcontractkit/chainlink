@@ -7,6 +7,7 @@ import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
 import { EmptyOracle } from './generated/EmptyOracle'
+import { OracleFactory } from './generated/OracleFactory'
 
 const debug = makeDebug('helpers')
 
@@ -340,20 +341,11 @@ export function requestDataBytes(
   to: string,
   fHash: string,
   nonce: number,
-  data: string,
-): any {
-  const types = [
-    'address',
-    'uint256',
-    'bytes32',
-    'address',
-    'bytes4',
-    'uint256',
-    'uint256',
-    'bytes',
-  ]
+  dataBytes: string,
+): string {
+  const ocFactory = new OracleFactory()
 
-  const values = [
+  return ocFactory.interface.functions.oracleRequest.encode([
     ethers.constants.AddressZero,
     0,
     specId,
@@ -361,13 +353,8 @@ export function requestDataBytes(
     fHash,
     nonce,
     1,
-    data,
-  ]
-  const encoded = ethers.utils.defaultAbiCoder.encode(types, values)
-  const funcSelector = functionSelector(
-    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)',
-  )
-  return `${funcSelector}${stripHexPrefix(encoded)}`
+    dataBytes,
+  ])
 }
 
 // link param must be from linkContract(), if amount is a BN
