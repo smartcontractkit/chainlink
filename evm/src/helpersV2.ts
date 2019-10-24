@@ -368,7 +368,7 @@ export function requestDataBytes(
 export function requestDataFrom(
   oc: Oracle,
   link: LinkToken,
-  amount: number,
+  amount: ethers.utils.BigNumberish,
   args: string,
   options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},
 ): ReturnType<typeof link.transferAndCall> {
