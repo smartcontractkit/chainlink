@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source ../common
+
 build_images() {
   docker build -t geth ./geth
 	docker build -t smartcontract/chainlink ../../
@@ -17,34 +19,29 @@ tear_down() {
 }
 
 login() {
-  until docker exec -it forks_chainlink chainlink admin login -f /run/secrets/apicredentials
-  do
-      sleep 0.1
-  done
+  docker exec -it forks_chainlink chainlink admin login -f /run/secrets/apicredentials
 }
 
 create_job() {
-  ETH_LOG_JOB=`cat fixtures/eth_log_job.json`
-	# wait for CL to start
-	search_chainlink_logs 'Listening and serving HTTP on port 6688'
-	# add ethlog job
 	login
+  ETH_LOG_JOB=`cat fixtures/eth_log_job.json`
 	docker exec -it forks_chainlink chainlink jobs create "$ETH_LOG_JOB"
 }
 
 create_contract() {
   CONTRACT_DATA=`cat fixtures/create_contract.json`
-	`curl \
+	curl \
 		-X POST \
 		-H "Content-Type: application/json" \
 		--data "$CONTRACT_DATA" \
-		172.16.1.100:8545`
+		172.16.1.100:8545
 }
 
 initial_setup() {
   tear_down
 	build_images
   start_network
+	waitForResponse "172.16.1.102:6688"
   create_job
 }
 
