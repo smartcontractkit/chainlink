@@ -1,4 +1,0 @@
-#!/bin/sh
-
-# starts the geth rpc server but will not mine blocks
-geth --nousb --config /root/geth-config.toml --password /root/password.txt --unlock "0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f" --nat extip:172.16.1.100
