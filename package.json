@@ -23,7 +23,8 @@
   },
   "devDependencies": {},
   "resolutions": {
-    "**/react-scripts/**/eslint": "6.3.0"
+    "**/react-scripts/**/eslint": "6.3.0",
+    "**/sha3": "^2.0.7"
   },
   "comments": {
     "resolutions-eslint": "Locking eslint to >5 so that our module resolution patch within @chainlink/eslint/resolve.js works properly"
