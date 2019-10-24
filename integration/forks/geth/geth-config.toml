@@ -54,9 +54,8 @@ MinimumAcceptedPOW = 2e-01
 RestrictConnectionBetweenLightClients = true
 
 [Node]
-# This is the path to the datadir and keystore *in the container*
+# This is the path to the datadir *in the container*
 DataDir = "/root/.ethereum"
-KeyStoreDir = "/root/keystore/"
 InsecureUnlockAllowed = true
 HTTPHost = "172.16.1.100"
 HTTPPort = 8545

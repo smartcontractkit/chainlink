@@ -1,4 +1,0 @@
-#!/bin/sh
-
-# creates the genesis block from the genesis.json config
-geth --nousb --config /root/geth-config.toml init /root/genesis.json
