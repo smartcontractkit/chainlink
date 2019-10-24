@@ -272,6 +272,9 @@ jobs:
           name: Run Server Tests
           command: yarn workspace @chainlink/explorer run test-ci:silent
       - run:
+          name: Build json-api-client package
+          command: yarn workspace @chainlink/json-api-client run build
+      - run:
           name: Run Client Tests
           command: yarn workspace @chainlink/explorer-client run test-ci:silent
       - store_artifacts:

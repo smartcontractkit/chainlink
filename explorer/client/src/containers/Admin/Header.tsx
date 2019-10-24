@@ -1,5 +1,5 @@
 import React from 'react'
-import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
+import { connect, MapStateToProps } from 'react-redux'
 import { RouteComponentProps } from '@reach/router'
 import {
   createStyles,
@@ -12,17 +12,20 @@ import { AdminLogo } from '../../components/Logos/Admin'
 import Header from '../../components/Header'
 import AvatarMenu from '../../components/AvatarMenu'
 import AvatarMenuItem from '../../components/AvatarMenuItem'
-import { signOut } from '../../actions/adminAuth'
 import { State as AppState } from '../../reducers'
 
-const styles = (theme: Theme) =>
+const styles = ({ palette, spacing }: Theme) =>
   createStyles({
     avatar: {
       float: 'right',
     },
     logo: {
-      marginRight: theme.spacing.unit * 2,
+      marginRight: spacing.unit * 2,
       width: 200,
+    },
+    link: {
+      color: palette.common.white,
+      textDecoration: 'none',
     },
   })
 
@@ -35,9 +38,7 @@ interface StateProps {
   errors: string[]
 }
 
-interface DispatchProps {
-  signOut: () => void
-}
+interface DispatchProps {}
 
 interface Props
   extends RouteComponentProps,
@@ -46,11 +47,7 @@ interface Props
     OwnProps,
     WithStyles<typeof styles> {}
 
-export const AdminHeader: React.FC<Props> = ({
-  classes,
-  onHeaderResize,
-  signOut,
-}) => {
+export const AdminHeader: React.FC<Props> = ({ classes, onHeaderResize }) => {
   return (
     <Header onResize={onHeaderResize}>
       <Grid container>
@@ -59,7 +56,11 @@ export const AdminHeader: React.FC<Props> = ({
         </Grid>
         <Grid item xs={6}>
           <AvatarMenu className={classes.avatar}>
-            <AvatarMenuItem text="Sign Out" onClick={signOut} />
+            <AvatarMenuItem>
+              <a href="/admin/signout" className={classes.link}>
+                Sign Out
+              </a>
+            </AvatarMenuItem>
           </AvatarMenu>
         </Grid>
       </Grid>
@@ -78,13 +79,6 @@ const mapStateToProps: MapStateToProps<
   }
 }
 
-const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
-  signOut,
-}
-
-const ConnectedAdminHeader = connect(
-  mapStateToProps,
-  mapDispatchToProps,
-)(AdminHeader)
+const ConnectedAdminHeader = connect(mapStateToProps)(AdminHeader)
 
 export default withStyles(styles)(ConnectedAdminHeader)

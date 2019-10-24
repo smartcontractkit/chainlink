@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "es5",
-    "lib": ["es5", "es6", "dom"],
+    "lib": [
+      "es5",
+      "es6",
+      "dom"
+    ],
     "module": "esnext",
     "moduleResolution": "node",
     "incremental": true,
@@ -15,15 +19,28 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "typeRoots": ["node_modules/@types", "@types"],
+    "sourceMap": true,
+    "typeRoots": [
+      "node_modules/@types",
+      "@types"
+    ],
     "jsx": "preserve"
   },
   "files": [
+    "@types/explorer.d.ts",
     "@types/javascript-time-ago.d.ts",
     "@types/json-api-normalizer.d.ts",
     "@types/redux-object.d.ts",
     "@types/react-snapshot.d.ts",
     "@types/react-time-ago.d.ts"
   ],
-  "include": ["src"]
+  "include": [
+    "src",
+    "./@types"
+  ],
+  "references": [
+    {
+      "path": "../../tools/json-api-client"
+    }
+  ]
 }

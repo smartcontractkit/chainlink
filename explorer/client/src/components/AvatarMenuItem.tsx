@@ -6,38 +6,21 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import MenuItem from '@material-ui/core/MenuItem'
-import Typography from '@material-ui/core/Typography'
-import { grey } from '@material-ui/core/colors'
 
 const styles = ({ palette }: Theme) =>
   createStyles({
     menuItem: {
+      color: palette.common.white,
       '&:hover': {
         backgroundColor: 'transparent',
       },
     },
-    link: {
-      color: palette.common.white,
-      textDecoration: 'none',
-      '&:hover': {
-        color: grey[200],
-      },
-    },
   })
 
-interface Props extends WithStyles<typeof styles> {
-  text: string
-  onClick: (e: React.MouseEvent) => void
-}
+interface Props extends WithStyles<typeof styles> {}
 
-const AvatarMenuItem: React.FC<Props> = ({ classes, onClick, text }) => {
-  return (
-    <MenuItem className={classes.menuItem} onClick={onClick}>
-      <Typography variant="body1" className={classes.link}>
-        {text}
-      </Typography>
-    </MenuItem>
-  )
+const AvatarMenuItem: React.FC<Props> = ({ classes, children }) => {
+  return <MenuItem className={classes.menuItem}>{children}</MenuItem>
 }
 
 export default withStyles(styles)(AvatarMenuItem)

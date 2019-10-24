@@ -5,12 +5,16 @@ import { getDb } from '../database'
 import {
   ADMIN_USERNAME_HEADER,
   ADMIN_PASSWORD_HEADER,
+  ADMIN_USERNAME_PARAM,
+  ADMIN_PASSWORD_PARAM,
 } from '../utils/constants'
 
 export default async function(req: Request, res: Response, next: NextFunction) {
   if (!req.session.admin) {
-    const username = req.header(ADMIN_USERNAME_HEADER)
-    const password = req.header(ADMIN_PASSWORD_HEADER)
+    const username =
+      req.body[ADMIN_USERNAME_PARAM] || req.header(ADMIN_USERNAME_HEADER)
+    const password =
+      req.body[ADMIN_PASSWORD_PARAM] || req.header(ADMIN_PASSWORD_HEADER)
 
     if (!username || !password) {
       res.sendStatus(httpStatus.UNAUTHORIZED)

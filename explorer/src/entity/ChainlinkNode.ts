@@ -56,6 +56,9 @@ export class ChainlinkNode {
   @Column()
   salt: string
 
+  @Column()
+  createdAt: Date
+
   @OneToMany(() => JobRun, jobRun => jobRun.chainlinkNode, {
     onDelete: 'CASCADE',
   })

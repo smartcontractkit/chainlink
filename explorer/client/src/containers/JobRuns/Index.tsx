@@ -6,9 +6,8 @@ import {
 } from '@material-ui/core/styles'
 import React, { useEffect, useState } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
-import { bindActionCreators } from 'redux'
 import build from 'redux-object'
-import { getJobRuns } from '../../actions/jobRuns'
+import { fetchJobRuns } from '../../actions/jobRuns'
 import List from '../../components/JobRuns/List'
 import { ChangePageEvent } from '../../components/Table'
 import { State } from '../../reducers'
@@ -45,7 +44,7 @@ interface StateProps {
 }
 
 interface DispatchProps {
-  getJobRuns: (query: Query, page: number, size: number) => void
+  fetchJobRuns: (query: Query, page: number, size: number) => void
 }
 
 interface Props
@@ -55,16 +54,23 @@ interface Props
     DispatchProps {}
 
 const Index = withStyles(styles)(
-  ({ getJobRuns, query, rowsPerPage = 10, classes, jobRuns, count }: Props) => {
+  ({
+    fetchJobRuns,
+    query,
+    rowsPerPage = 10,
+    classes,
+    jobRuns,
+    count,
+  }: Props) => {
     const [currentPage, setCurrentPage] = useState(0)
     const onChangePage = (_event: ChangePageEvent, page: number) => {
       setCurrentPage(page)
-      getJobRuns(query, page + 1, rowsPerPage)
+      fetchJobRuns(query, page + 1, rowsPerPage)
     }
 
     useEffect(() => {
-      getJobRuns(query, currentPage + 1, rowsPerPage)
-    }, [getJobRuns, query, currentPage, rowsPerPage])
+      fetchJobRuns(query, currentPage + 1, rowsPerPage)
+    }, [fetchJobRuns, query, currentPage, rowsPerPage])
 
     return (
       <div className={classes.container}>
@@ -96,17 +102,16 @@ const jobRunsSelector = ({
   }
 }
 
-const mapDispatchToProps: MapDispatchToProps<
-  DispatchProps,
-  OwnProps
-> = dispatch => bindActionCreators({ getJobRuns }, dispatch)
-
 const mapStateToProps: MapStateToProps<StateProps, OwnProps, State> = state => {
   return {
     query: state.search.query,
     jobRuns: jobRunsSelector(state),
     count: state.jobRunsIndex.count,
   }
+}
+
+const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
+  fetchJobRuns,
 }
 
 const ConnectedIndex = connect(

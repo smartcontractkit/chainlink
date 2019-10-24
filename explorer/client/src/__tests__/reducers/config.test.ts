@@ -1,9 +1,9 @@
 import reducer, { State } from '../../reducers'
-import { Action } from '../../reducers/config'
+import { FetchJobRunSucceededAction } from '../../reducers/actions'
 
 describe('reducers/config', () => {
   it('returns an initial state', () => {
-    const action = {} as Action
+    const action = {} as FetchJobRunSucceededAction
     const state = reducer({}, action) as State
 
     expect(state.search).toEqual({
@@ -13,7 +13,7 @@ describe('reducers/config', () => {
 
   it('can update the search query', () => {
     const action = {
-      type: 'UPSERT_JOB_RUN',
+      type: 'FETCH_JOB_RUN_SUCCEEDED',
       data: {
         meta: {
           jobRun: {
@@ -23,7 +23,7 @@ describe('reducers/config', () => {
           },
         },
       },
-    } as Action
+    } as FetchJobRunSucceededAction
     const state = reducer({}, action) as State
 
     expect(state.config).toEqual({

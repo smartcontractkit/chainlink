@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, Request } from 'express'
 import { Connection } from 'typeorm'
 import { validate } from 'class-validator'
 import httpStatus from 'http-status-codes'
@@ -6,7 +6,35 @@ import { getDb } from '../../database'
 import { buildChainlinkNode, ChainlinkNode } from '../../entity/ChainlinkNode'
 import { PostgresErrorCode } from '../../utils/constants'
 import { isPostgresError } from '../../utils/errors'
+import {
+  DEFAULT_PAGE,
+  DEFAULT_PAGE_SIZE,
+  PaginationParams,
+} from '../../queries/pagination'
+import { all, count } from '../../queries/chainlinkNodes'
+import chainlinkNodesSerializer from '../../serializers/chainlinkNodesSerializer'
+
 const router = Router()
+
+const parseParams = (req: Request): PaginationParams => {
+  const page = parseInt(req.query.page, 10) || DEFAULT_PAGE
+  const size = parseInt(req.query.size, 10) || DEFAULT_PAGE_SIZE
+
+  return {
+    page: page,
+    limit: size,
+  }
+}
+
+router.get('/nodes', async (req, res) => {
+  const params = parseParams(req)
+  const db = await getDb()
+  const chainlinkNodes = await all(db, params)
+  const nodeCount = await count(db, params)
+  const json = chainlinkNodesSerializer(chainlinkNodes, nodeCount)
+
+  return res.send(json)
+})
 
 router.post('/nodes', async (req, res) => {
   const name = req.body.name

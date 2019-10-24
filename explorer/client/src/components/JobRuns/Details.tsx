@@ -129,6 +129,7 @@ const buildSearchQuery = (id: string) => `/job-runs?search=${id}`
 const Details = ({ classes, jobRun, etherscanHost }: Props) => {
   const nodeHasUrl = jobRun.chainlinkNode.url !== ''
   const nodeName = jobRun.chainlinkNode.name
+
   return (
     <div>
       <Row>
