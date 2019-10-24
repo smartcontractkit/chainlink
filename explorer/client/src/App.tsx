@@ -10,6 +10,7 @@ import SearchCard from './components/Cards/Search'
 import JobRunsIndex from './containers/JobRuns/Index'
 import JobRunsShow from './containers/JobRuns/Show'
 import AdminSignIn from './containers/Admin/SignIn'
+import AdminSignOut from './containers/Admin/SignOut'
 import AdminOperatorIndex from './containers/Admin/Operator/Index'
 
 const App = () => {
@@ -27,6 +28,9 @@ const App = () => {
 
         <AdminMinimalLayout path="/admin/signin">
           <AdminSignIn default />
+        </AdminMinimalLayout>
+        <AdminMinimalLayout path="/admin/signout">
+          <AdminSignOut default />
         </AdminMinimalLayout>
 
         <AdminLayout path="/admin">

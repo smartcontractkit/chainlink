@@ -1,15 +1,15 @@
+import { Actions } from './actions'
+
 export interface State {
-  errors: string[]
+  items?: ChainlinkNode[]
 }
 
-export type Action = { type: 'FETCH_OPERATORS_SUCCEEDED'; data: object[] }
+const INITIAL_STATE: State = {}
 
-const INITIAL_STATE: State = { errors: [] }
-
-export default (state: State = INITIAL_STATE, action: Action) => {
+export default (state: State = INITIAL_STATE, action: Actions) => {
   switch (action.type) {
-    case 'FETCH_OPERATORS_SUCCEEDED':
-      return { errors: action.data }
+    case 'FETCH_ADMIN_OPERATORS_SUCCEEDED':
+      return { items: { ...action.data.chainlinkNodes } }
     default:
       return state
   }

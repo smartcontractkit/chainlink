@@ -9,13 +9,11 @@ const INITIAL_STATE: State = {}
 
 export default (state: State = INITIAL_STATE, action: Actions): State => {
   switch (action.type) {
-    case 'FETCH_JOB_RUNS_SUCCEEDED':
+    case 'FETCH_ADMIN_OPERATORS_SUCCEEDED':
       return {
-        items: action.data.meta.currentPageJobRuns.data.map(r => r.id),
-        count: action.data.meta.currentPageJobRuns.meta.count,
+        items: action.data.meta.currentPageOperators.data.map(o => o.id),
+        count: action.data.meta.currentPageOperators.meta.count,
       }
-    case 'FETCH_JOB_RUN_SUCCEEDED':
-      return INITIAL_STATE
     default:
       return state
   }

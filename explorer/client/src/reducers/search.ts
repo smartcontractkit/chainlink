@@ -18,5 +18,5 @@ const parseQuery = (location: Location = document.location): Query => {
 }
 
 export default (state: State = INITIAL_STATE, action: Action) => {
-  return Object.assign({}, state, { query: parseQuery(action.location) })
+  return { ...state, query: parseQuery(action.location) }
 }

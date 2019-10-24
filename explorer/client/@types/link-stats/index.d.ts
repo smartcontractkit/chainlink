@@ -1,6 +1,7 @@
 interface ChainlinkNode {
   name: string
   url?: string
+  createdAt: string
 }
 
 interface JobRun {

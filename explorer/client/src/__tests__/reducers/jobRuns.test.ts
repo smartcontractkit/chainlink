@@ -1,5 +1,8 @@
 import reducer, { State } from '../../reducers'
-import { JobRunsAction } from '../../reducers/jobRuns'
+import {
+  FetchJobRunsSucceededAction,
+  FetchJobRunSucceededAction,
+} from '../../reducers/actions'
 
 const STATE = {
   jobRuns: {
@@ -9,13 +12,13 @@ const STATE = {
 
 describe('reducers/jobRuns', () => {
   it('returns the current state for other actions', () => {
-    const action = {} as JobRunsAction
+    const action = {} as FetchJobRunsSucceededAction
     const state = reducer(STATE, action) as State
 
     expect(state.jobRuns).toEqual(STATE.jobRuns)
   })
 
-  describe('UPSERT_JOB_RUNS', () => {
+  describe('FETCH_JOB_RUNS_SUCCEEDED', () => {
     it('can replace items', () => {
       const normalizedJobRuns = {
         '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
@@ -26,13 +29,16 @@ describe('reducers/jobRuns', () => {
       const data = {
         jobRuns: normalizedJobRuns,
         meta: {
-          jobRuns: {
+          currentPageJobRuns: {
             data: orderedJobRuns,
             meta: {},
           },
         },
       }
-      const action = { type: 'UPSERT_JOB_RUNS', data: data } as JobRunsAction
+      const action = {
+        type: 'FETCH_JOB_RUNS_SUCCEEDED',
+        data: data,
+      } as FetchJobRunsSucceededAction
       const state = reducer(STATE, action) as State
 
       expect(state.jobRuns).toEqual({
@@ -45,7 +51,7 @@ describe('reducers/jobRuns', () => {
     })
   })
 
-  describe('UPSERT_JOB_RUN', () => {
+  describe('FETCH_JOB_RUN_SUCCEEDED', () => {
     it('can replace items', () => {
       const normalizedJobRuns = {
         '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
@@ -58,7 +64,10 @@ describe('reducers/jobRuns', () => {
           jobRun: { meta: {} },
         },
       }
-      const action = { type: 'UPSERT_JOB_RUN', data: data } as JobRunsAction
+      const action = {
+        type: 'FETCH_JOB_RUN_SUCCEEDED',
+        data: data,
+      } as FetchJobRunSucceededAction
       const state = reducer(STATE, action) as State
 
       expect(state.jobRuns).toEqual({

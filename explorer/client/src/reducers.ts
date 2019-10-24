@@ -1,5 +1,11 @@
 import { combineReducers } from 'redux'
 import adminAuth, { State as AdminAuthState } from './reducers/adminAuth'
+import adminOperators, {
+  State as AdminOperatorsState,
+} from './reducers/adminOperators'
+import adminOperatorsIndex, {
+  State as AdminOperatorsIndexState,
+} from './reducers/adminOperatorsIndex'
 import chainlinkNodes, {
   State as ChainlinkNodesState,
 } from './reducers/chainlinkNodes'
@@ -16,6 +22,8 @@ import taskRuns, { State as TaskRunsState } from './reducers/taskRuns'
 
 export interface State {
   adminAuth: AdminAuthState
+  adminOperators: AdminOperatorsState
+  adminOperatorsIndex: AdminOperatorsIndexState
   chainlinkNodes: ChainlinkNodesState
   config: ConfigState
   jobRuns: JobRunsState
@@ -27,6 +35,8 @@ export interface State {
 
 const reducer = combineReducers({
   adminAuth,
+  adminOperators,
+  adminOperatorsIndex,
   chainlinkNodes,
   config,
   jobRuns,

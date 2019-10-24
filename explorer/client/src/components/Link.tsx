@@ -22,7 +22,13 @@ interface Props extends WithStyles<typeof styles> {
   className?: string
 }
 
+const PROTOCOL = /^https?:\/\//
+
 const Link = ({ to, children, classes, className }: Props) => {
+  if (PROTOCOL.test(to)) {
+    return <a href={to}>{children}</a>
+  }
+
   return (
     <RouterLink to={to} className={classNames(classes.link, className)}>
       {children}

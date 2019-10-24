@@ -1,37 +1,17 @@
+import { Actions } from './actions'
+
 export interface State {
   items?: JobRun[]
 }
 
-export interface Meta {
-  count: number
-}
+const INITIAL_STATE: State = {}
 
-export interface NormalizedEndpoint {
-  data: any[]
-  meta: Meta
-}
-
-export interface NormalizedMeta {
-  jobRuns: NormalizedEndpoint
-}
-
-export interface NormalizedData {
-  jobRuns: any
-  meta: NormalizedMeta
-}
-
-export type JobRunsAction =
-  | { type: 'UPSERT_JOB_RUNS'; data: NormalizedData }
-  | { type: 'UPSERT_JOB_RUN'; data: NormalizedData }
-
-const INITIAL_STATE: State = { items: undefined }
-
-export default (state: State = INITIAL_STATE, action: JobRunsAction) => {
+export default (state: State = INITIAL_STATE, action: Actions) => {
   switch (action.type) {
-    case 'UPSERT_JOB_RUNS':
-      return { items: action.data.jobRuns }
-    case 'UPSERT_JOB_RUN':
-      return { items: action.data.jobRuns }
+    case 'FETCH_JOB_RUNS_SUCCEEDED':
+      return { items: { ...action.data.jobRuns } }
+    case 'FETCH_JOB_RUN_SUCCEEDED':
+      return { items: { ...action.data.jobRuns } }
     default:
       return state
   }
