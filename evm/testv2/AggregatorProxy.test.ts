@@ -31,8 +31,8 @@ describe('AggregatorProxy', () => {
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000001'
   const deposit = h.toWei('100')
   const basePayment = h.toWei('1')
-  const response = ethers.utils.formatBytes32String('54321')
-  const response2 = ethers.utils.formatBytes32String('67890')
+  const response = h.numToBytes32(54321)
+  const response2 = h.numToBytes32(67890)
 
   let link: Instance<LinkTokenFactory>
   let aggregator: Instance<AggregatorFactory>
