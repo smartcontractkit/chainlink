@@ -245,12 +245,38 @@ function addCBORMapDelimiters(buffer: Buffer): Buffer {
   )
 }
 
+/**
+ * Add a hex prefix to a hex string
+ * @param hex The hex string to prepend the hex prefix to
+ */
+export function addHexPrefix(hex: string): string {
+  return hex.startsWith('0x') ? hex : `0x${hex}`
+}
+
 export function stripHexPrefix(hex: string): string {
   if (!ethers.utils.isHexString(hex)) {
     throw Error(`Expected valid hex string, got: "${hex}"`)
   }
 
   return hex.replace('0x', '')
+}
+
+/**
+ * Convert a number value to bytes32 format
+ *
+ * @param num The number value to convert to bytes32 format
+ */
+export function numToBytes32(
+  num: Parameters<typeof ethers.utils.hexlify>[0],
+): string {
+  const hexNum = ethers.utils.hexlify(num)
+  const strippedNum = stripHexPrefix(hexNum)
+  if (strippedNum.length > 32 * 2) {
+    throw Error(
+      'Cannot convert number to bytes32 format, value is greater than maximum bytes32 value',
+    )
+  }
+  return addHexPrefix(strippedNum.padStart(32 * 2, '0'))
 }
 
 export function toUtf8(
