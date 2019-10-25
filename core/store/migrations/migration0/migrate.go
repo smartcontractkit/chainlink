@@ -214,11 +214,11 @@ type RunResult struct {
 
 // Encumbrance is a capture of DB model before migration1568390387
 type Encumbrance struct {
-	ID         uint         `json:"-" gorm:"primary_key;auto_increment"`
-	Payment    *assets.Link `json:"payment" gorm:"type:varchar(255)"`
-	Expiration uint64       `json:"expiration"`
+	ID         uint         `gorm:"primary_key;auto_increment"`
+	Payment    *assets.Link `gorm:"type:varchar(255)"`
+	Expiration uint64
 	// This is a models.AnyTime in models.Encumbrance, but the DB column is a datetime
-	EndAt time.Time `json:"endAt" gorm:"type:datetime"`
+	EndAt time.Time
 	// This is a models.EIP55AddressCollection in models.Encumbrance, but the DB column is text.
-	Oracles string `json:"oracles" gorm:"type:text"`
+	Oracles string `gorm:"type:text"`
 }
