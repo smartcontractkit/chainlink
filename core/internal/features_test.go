@@ -718,7 +718,8 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 		eth.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 	assert.NoError(t, app.StartAndConnect())
-	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "fixtures/web/noop_agreement.json")
+	endAt := time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
+	sa := cltest.CreateServiceAgreementViaWeb(t, app, "fixtures/web/noop_agreement.json", endAt)
 
 	assert.NotEqual(t, "", sa.ID)
 	j := cltest.FindJob(t, app.Store, sa.JobSpecID)
@@ -726,7 +727,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	assert.Equal(t, cltest.NewLink(t, "1000000000000000000"), sa.Encumbrance.Payment)
 	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)
 
-	assert.Equal(t, cltest.EndAt, sa.Encumbrance.EndAt.Time)
+	assert.Equal(t, endAt, sa.Encumbrance.EndAt.Time)
 	assert.NotEqual(t, "", sa.ID)
 
 	// Request execution of the job associated with this ServiceAgreement
