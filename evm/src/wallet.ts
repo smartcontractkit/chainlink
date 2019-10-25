@@ -80,7 +80,7 @@ export async function fundWallet(
 
   const txParams: ethers.providers.TransactionRequest = {
     to: wallet.address,
-    value: ethers.utils.parseEther('1'),
+    value: ethers.utils.parseEther('10'),
     ...overrides,
   }
   debug('sending tx with the following parameters: %o', txParams)
