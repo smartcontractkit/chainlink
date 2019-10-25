@@ -63,7 +63,7 @@ func TestUnlockKey_MultipleAddresses(t *testing.T) {
 	}
 }
 
-func TestKeyStore_SignSuccess(t *testing.T) {
+func TestKeyStore_Sign_Success(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -78,7 +78,7 @@ func TestKeyStore_SignSuccess(t *testing.T) {
 	assert.NotEqual(t, "", signature)
 }
 
-func TestKeyStore_SignAccountLocked(t *testing.T) {
+func TestKeyStore_Sign_AccountLocked(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
