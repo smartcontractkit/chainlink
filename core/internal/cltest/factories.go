@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -525,4 +526,30 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 	err = json.Unmarshal(bytes, &dst)
 	require.NoError(t, err)
 	return dst
+}
+
+// CreateServiceAgreementViaWeb creates a service agreement from a fixture using /v2/service_agreements
+func CreateServiceAgreementViaWeb(
+	t *testing.T,
+	app *TestApplication,
+	path string,
+	endAt time.Time,
+) models.ServiceAgreement {
+	client := app.NewHTTPClient()
+
+	agreementWithoutOracle := string(MustReadFile(t, path))
+	agreementWithoutOracle = strings.Replace(agreementWithoutOracle,
+		"2019-10-19T22:17:19Z", utils.ISO8601UTC(endAt), 1)
+	from := GetAccountAddress(t, app.ChainlinkApplication.GetStore())
+	agreementWithOracle := MustJSONSet(t, agreementWithoutOracle, "oracles", []string{from.Hex()})
+
+	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBufferString(agreementWithOracle))
+	defer cleanup()
+
+	AssertServerResponse(t, resp, http.StatusOK)
+	responseSA := models.ServiceAgreement{}
+	err := ParseJSONAPIResponse(t, resp, &responseSA)
+	require.NoError(t, err)
+
+	return FindServiceAgreement(t, app.Store, responseSA.ID)
 }
