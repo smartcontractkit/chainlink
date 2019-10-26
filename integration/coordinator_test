@@ -15,6 +15,7 @@ sa_spec_path=$SRCROOT/integration-scripts/src/fixtures/agreement.json
 current_spec_path=$(mktemp)
 # Read in the spec template, and point it to the mean aggregator contract.
 jq ".aggregator=\"$MEAN_AGGREGATOR_ADDRESS\"" < $sa_spec_path > $current_spec_path
+jq ".oracles=[\"$CHAINLINK_NODE_ADDRESS\"]" < $sa_spec_path > $current_spec_path
 # FIXME use chainlink instead of cldev
 create_sa="$SRCROOT/tools/bin/cldev -j agreements create $current_spec_path"
 agreement_response=$($create_sa)
