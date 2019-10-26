@@ -20,7 +20,7 @@
     "test": "yarn test:v1 && yarn test:v2",
     "format": "prettier --write \"{src,test,testv2}/*/**\"",
     "prepublishOnly": "yarn build && yarn lint && yarn test",
-    "setup": "cross-env ./scripts/build.js",
+    "setup": "ts-node ./scripts/build",
     "truffle:migrate:cldev": "truffle migrate --network cldev"
   },
   "dependencies": {
@@ -52,6 +52,7 @@
     "debug": "^4.1.1",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",
+    "execa": "^3.2.0",
     "ganache-core": "^2.8.0",
     "jest": "^24.9.0",
     "jest-circus": "^24.9.0",
@@ -60,6 +61,7 @@
     "solhint": "^2.1.0",
     "truffle": "^5.0.25",
     "ts-jest": "^24.1.0",
+    "ts-node": "^8.4.1",
     "typechain": "1.0.1",
     "typechain-target-ethers": "^1.0.0-beta.1",
     "typescript": "^3.7.0-beta"
