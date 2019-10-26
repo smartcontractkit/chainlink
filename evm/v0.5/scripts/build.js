@@ -4,14 +4,10 @@ const { exec } = require('child_process')
 
 const task = /^win/i.test(process.platform) ? 'build:windows' : 'build'
 
-exec(`yarn workspace chainlinkv0.5 run ${task}`, (err, stdout, stderr) => {
+const subprocess = exec(`yarn -s workspace chainlinkv0.5 run ${task}`, err => {
   if (err) {
-    throw err
-  }
-  if (stdout) {
-    console.log(stdout)
-  }
-  if (stderr) {
-    console.error(stderr)
   }
 })
+
+subprocess.stderr.pipe(process.stderr)
+subprocess.stdout.pipe(process.stdout)
