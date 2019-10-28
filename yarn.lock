@@ -2396,10 +2396,10 @@
   dependencies:
     "@types/node" "*"
 
-"@types/chai@^4.2.0":
-  version "4.2.0"
-  resolved "https://registry.npmjs.org/@types/chai/-/chai-4.2.0.tgz#2478260021408dec32c123a7cad3414beb811a07"
-  integrity sha512-zw8UvoBEImn392tLjxoavuonblX/4Yb9ha4KBU10FirCfwgzhKO0dvyJSF9ByxV1xK1r2AgnAi/tvQaLgxQqxA==
+"@types/chai@^4.2.4":
+  version "4.2.4"
+  resolved "https://registry.yarnpkg.com/@types/chai/-/chai-4.2.4.tgz#8936cffad3c96ec470a2dc26a38c3ba8b9b6f619"
+  integrity sha512-7qvf9F9tMTzo0akeswHPGqgUx/gIaJqrOEET/FCD8CFRkSUHlygQiM5yB6OvjrtdxBVLSyw7COJubsFYs0683g==
 
 "@types/cheerio@*":
   version "0.22.12"
