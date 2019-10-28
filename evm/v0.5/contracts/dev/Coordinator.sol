@@ -88,7 +88,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     sufficientLINK(_amount, _sAId)
     // checkServiceAgreementPresence(_sAId) // TODO(alx): This would be nice to have, but it exhausts the stack
     checkCallbackAddress(_callbackAddress) {
-      bytes32 requestId = keccak256(abi.encodePacked(_sender, _sAId, _nonce));
+      bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
       require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
       callbacks[requestId].sAId = _sAId;
       callbacks[requestId].amount = _amount;
