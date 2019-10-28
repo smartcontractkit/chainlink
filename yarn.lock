@@ -5559,7 +5559,7 @@ buffer-xor@^1.0.3:
 
 buffer@5.4.0, buffer@^5.1.0:
   version "5.4.0"
-  resolved "https://registry.npmjs.org/buffer/-/buffer-5.4.0.tgz#33294f5c1f26e08461e528b69fa06de3c45cbd8c"
+  resolved "https://registry.yarnpkg.com/buffer/-/buffer-5.4.0.tgz#33294f5c1f26e08461e528b69fa06de3c45cbd8c"
   integrity sha512-Xpgy0IwHK2N01ncykXTy6FpCWuM+CJSHoPVBLyNqyrWxsedpLvwsYUhf0ME3WRFNUhos0dMamz9cOS/xRDtU5g==
   dependencies:
     base64-js "^1.0.2"
@@ -12626,10 +12626,10 @@ javascript-stringify@^2.0.0:
   resolved "https://registry.yarnpkg.com/javascript-stringify/-/javascript-stringify-2.0.0.tgz#ef750216ae66504ffd670b68c8b8aa07bdf7b588"
   integrity sha512-zzK8+ByrzvOL6N92hRewwUKL0wN0TOaIuUjX0Jj8lraxWvr5wHYs2YTjaj2lstF+8qMv5cmPPef47va8NT8lDw==
 
-javascript-time-ago@^2.0.1:
-  version "2.0.1"
-  resolved "https://registry.npmjs.org/javascript-time-ago/-/javascript-time-ago-2.0.1.tgz#11c85cac73f68eebf0256c9b1610e2ce2f429972"
-  integrity sha512-ec5m6x3eh2MloVvSd6Yy9ShqeQmWHl4GaKSZNF4UlRhqGMdxPtsAAjkhUmO/PHk7c13R8yfkSygNZkdi4QpBww==
+javascript-time-ago@^2.0.1, javascript-time-ago@^2.0.2:
+  version "2.0.3"
+  resolved "https://registry.yarnpkg.com/javascript-time-ago/-/javascript-time-ago-2.0.3.tgz#2dc97e4de6c293b405dcffffedcd0ca63ffa555d"
+  integrity sha512-v5Es1AFiiQbSPwUIlV2HYjNTwNbG3yS7XRxhFIKBxgxgEPkSFcm5pf05LZhgGSv4AUxZw2i6e7rWlf1vCDlMjA==
   dependencies:
     relative-time-format "^0.1.3"
 
@@ -17946,10 +17946,10 @@ react-resize-detector@^4.0.5, react-resize-detector@^4.2.1:
     raf-schd "^4.0.2"
     resize-observer-polyfill "^1.5.1"
 
-react-responsive-ui@^0.14.131:
-  version "0.14.150"
-  resolved "https://registry.npmjs.org/react-responsive-ui/-/react-responsive-ui-0.14.150.tgz#ec7b6da8c4fe846116d29e4fb618394cba69957f"
-  integrity sha512-Q4LQi4T2gAP9v7EvUPaPriCq5+98nZI2afL7r4tSr9ivZ77xkwBxDrE6iYJEVvNWiPMsslagZMRkcpUPTM/u+g==
+react-responsive-ui@^0.14.177:
+  version "0.14.179"
+  resolved "https://registry.yarnpkg.com/react-responsive-ui/-/react-responsive-ui-0.14.179.tgz#ee607a6a814a512d8347156239d42ada01b31b18"
+  integrity sha512-GovDp568+XDM6TDaJ+Pnn7iO5ynU6tDZvXu0BdSQrGeZVVqFNCJgSXRySulEI2sdBcpqebn61JqaL9jgcz19zw==
   dependencies:
     classnames "^2.2.5"
     create-react-context "^0.2.2"
@@ -18196,14 +18196,14 @@ react-textarea-autosize@^7.1.0:
     "@babel/runtime" "^7.1.2"
     prop-types "^15.6.0"
 
-react-time-ago@^5.0.2:
-  version "5.0.4"
-  resolved "https://registry.npmjs.org/react-time-ago/-/react-time-ago-5.0.4.tgz#318362ed676224ab5a29112d05a99d96abf857fa"
-  integrity sha512-F9qBrCLfs5ux/FSP6KPxEWtQWyXh/8d42funJdRSeMTF/FobcfGfkuoiPvnP/X4Kqt4vD6B7m2Fzz9m9cZiMWA==
+react-time-ago@^5.0.7:
+  version "5.0.7"
+  resolved "https://registry.yarnpkg.com/react-time-ago/-/react-time-ago-5.0.7.tgz#a24b1e65ee29aa9ad063354d3dcb7d28a2dd3e73"
+  integrity sha512-E4laf5QSSPk9TcX+JssIt+1LCPe+3leRp43i6oVLoI4Viepv7nyxHqQCr/wrEvz+0OAxs16QzeHp9pZcfwp44A==
   dependencies:
-    javascript-time-ago "^2.0.1"
+    javascript-time-ago "^2.0.2"
     prop-types "^15.6.0"
-    react-responsive-ui "^0.14.131"
+    react-responsive-ui "^0.14.177"
 
 react-transition-group@^2.2.1:
   version "2.9.0"
@@ -19510,7 +19510,7 @@ sha.js@^2.4.0, sha.js@^2.4.8:
 
 sha3@^1.2.2, sha3@^2.0.7:
   version "2.0.7"
-  resolved "https://registry.npmjs.org/sha3/-/sha3-2.0.7.tgz#02ed270099647cbcc681b064ba091af72f561f35"
+  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.0.7.tgz#02ed270099647cbcc681b064ba091af72f561f35"
   integrity sha512-7Qsj/0J3pxCWfmyuDbTZWoKNSKY/rg2eecNRvTYE4EAPJ11Uh6xuEObyCG295AqgrtOjzdDbfwtGLDY52h11tA==
   dependencies:
     buffer "5.4.0"
