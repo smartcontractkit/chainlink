@@ -4,6 +4,7 @@
   "license": "MIT",
   "private": true,
   "scripts": {
+    "start": "node echo.js",
     "depcheck": "echo \"@chainlink/example-echo-server\" && depcheck --ignore-dirs=contracts || true",
     "eslint": "eslint --ext .js,.ts .",
     "solhint": "solhint ./contracts/**/*.sol",
