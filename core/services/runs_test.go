@@ -90,6 +90,7 @@ func TestNewRun_jobSpecMinPayment(t *testing.T) {
 		{"payment = min payment", assets.NewLink(10), assets.NewLink(10), models.RunStatusInProgress},
 		{"payment > min payment", assets.NewLink(11), assets.NewLink(10), models.RunStatusInProgress},
 		{"payment is nil", nil, assets.NewLink(10), models.RunStatusInProgress},
+		{"minPayment is nil", nil, nil, models.RunStatusInProgress},
 	}
 
 	for _, tt := range tests {
