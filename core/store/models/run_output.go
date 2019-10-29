@@ -89,7 +89,7 @@ func (ro RunOutput) Result() gjson.Result {
 	return ro.data.Get("result")
 }
 
-// ResultString returns the string result of the Data JSON field.
+// ResultString returns the "result" value as a string if possible
 func (ro RunOutput) ResultString() (string, error) {
 	val := ro.Result()
 	if val.Type != gjson.String {
