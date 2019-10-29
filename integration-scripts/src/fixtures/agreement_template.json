@@ -22,6 +22,6 @@
   "_comment": "aggregator field should be overwritten with deployed aggregator contract address",
   "aggregator": "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
   "__comment": "See initiateServiceAgreement.ts for comptutation/check of these selectors",
-  "aggInitiateJobSelector": "0xf8d00237",
-  "aggFulfillSelector": "0x243e08b8"
+  "aggInitiateJobSelector": "0xe16c4c94",
+  "aggFulfillSelector": "0x9760168f"
 }
