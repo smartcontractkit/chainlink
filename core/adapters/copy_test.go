@@ -2,6 +2,7 @@ package adapters_test
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -17,7 +18,7 @@ func TestCopy_Perform(t *testing.T) {
 		copyPath        []string
 		wantData        string
 		wantStatus      models.RunStatus
-		wantResultError bool
+		wantResultError error
 	}{
 		{
 			"existing path",
@@ -25,7 +26,7 @@ func TestCopy_Perform(t *testing.T) {
 			[]string{"last"},
 			`{"result":"11779.99"}`,
 			models.RunStatusCompleted,
-			false,
+			nil,
 		},
 		{
 			"nonexistent path",
@@ -33,15 +34,7 @@ func TestCopy_Perform(t *testing.T) {
 			[]string{"doesnotexist"},
 			`{"result":null}`,
 			models.RunStatusCompleted,
-			false,
-		},
-		{
-			"double nonexistent path",
-			`{"high":"11850.00","last":"11779.99"}`,
-			[]string{"no", "really"},
-			``,
-			models.RunStatusErrored,
-			true,
+			nil,
 		},
 		{
 			"array index path",
@@ -49,7 +42,7 @@ func TestCopy_Perform(t *testing.T) {
 			[]string{"data", "0", "availability"},
 			`{"result":"0.99991"}`,
 			models.RunStatusCompleted,
-			false,
+			nil,
 		},
 		{
 			"float result",
@@ -57,7 +50,7 @@ func TestCopy_Perform(t *testing.T) {
 			[]string{"availability"},
 			`{"result":0.99991}`,
 			models.RunStatusCompleted,
-			false,
+			nil,
 		},
 		{
 			"result with quotes",
@@ -65,7 +58,7 @@ func TestCopy_Perform(t *testing.T) {
 			[]string{`"`},
 			`{"result":null}`,
 			models.RunStatusCompleted,
-			false,
+			nil,
 		},
 		{
 			"index array of array",
@@ -73,7 +66,15 @@ func TestCopy_Perform(t *testing.T) {
 			[]string{"data", "0", "0"},
 			`{"result":0}`,
 			models.RunStatusCompleted,
-			false,
+			nil,
+		},
+		{
+			"double nonexistent path",
+			`{"high":"11850.00","last":"11779.99"}`,
+			[]string{"no", "really"},
+			``,
+			models.RunStatusErrored,
+			errors.New("No value could be found for the key 'no'"),
 		},
 	}
 
@@ -86,12 +87,7 @@ func TestCopy_Perform(t *testing.T) {
 			result := adapter.Perform(input, nil)
 			assert.Equal(t, test.wantData, result.Data().String())
 			assert.Equal(t, test.wantStatus, result.Status())
-
-			if test.wantResultError {
-				assert.Error(t, result.Error())
-			} else {
-				assert.NoError(t, result.Error())
-			}
+			assert.Equal(t, test.wantResultError, result.Error())
 		})
 	}
 }
