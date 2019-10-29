@@ -63,37 +63,6 @@ func TestUnlockKey_MultipleAddresses(t *testing.T) {
 	}
 }
 
-func TestKeyStore_Sign_Success(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	_, err := store.KeyStore.NewAccount(correctPassphrase)
-	assert.NoError(t, err)
-	assert.NoError(t, store.KeyStore.Unlock(correctPassphrase))
-
-	signature, err := store.KeyStore.Sign([]byte("abc123"))
-	assert.NoError(t, err)
-	assert.NotEqual(t, "", signature)
-}
-
-func TestKeyStore_Sign_AccountLocked(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	account, err := store.KeyStore.NewAccount(correctPassphrase)
-	assert.NoError(t, err)
-
-	err = store.KeyStore.Lock(account.Address)
-	assert.NoError(t, err)
-
-	_, err = store.KeyStore.Sign([]byte("abc123"))
-	assert.Error(t, err)
-}
-
 func TestKeyStore_SignHash_Success(t *testing.T) {
 	t.Parallel()
 
