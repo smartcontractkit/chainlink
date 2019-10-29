@@ -93,3 +93,17 @@ func TestKeyStore_Sign_AccountLocked(t *testing.T) {
 	_, err = store.KeyStore.Sign([]byte("abc123"))
 	assert.Error(t, err)
 }
+
+func TestKeyStore_SignHash_Success(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	_, err := store.KeyStore.NewAccount(correctPassphrase)
+	assert.NoError(t, err)
+	assert.NoError(t, store.KeyStore.Unlock(correctPassphrase))
+
+	_, err = store.KeyStore.SignHash(cltest.StringToHash("abc123"))
+	assert.NoError(t, err)
+}

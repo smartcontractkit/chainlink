@@ -15,6 +15,11 @@ import (
 	"go.uber.org/multierr"
 )
 
+// EthereumMessageHashPrefix is a Geth-originating message prefix that seeks to
+// prevent arbitrary message data to be representable as a valid Ethereum transaction
+// For more information, see: https://github.com/ethereum/go-ethereum/issues/3731
+const EthereumMessageHashPrefix = "\x19Ethereum Signed Message:\n32"
+
 // KeyStore manages a key storage directory on disk.
 type KeyStore struct {
 	*keystore.KeyStore
@@ -73,7 +78,30 @@ func (ks *KeyStore) SignTx(account accounts.Account, tx *types.Transaction, chai
 }
 
 // SignHash signs a precomputed digest, using the first account's private key
+// This method adds an ethereum message prefix to the message before signing it,
+// invalidating any would-be valid Ethereum transactions
 func (ks *KeyStore) SignHash(hash common.Hash) (models.Signature, error) {
+	// add message prefix and re-hash the result to get a new 32bytes message
+	prefixedMessageBytes, err := utils.Keccak256(append([]byte(EthereumMessageHashPrefix), hash.Bytes()...))
+	if err != nil {
+		return models.Signature{}, err
+	}
+
+	// sign it
+	signature, err := ks.SignHashUnsafe(common.BytesToHash(prefixedMessageBytes))
+	if err != nil {
+		return models.Signature{}, err
+	}
+
+	return signature, nil
+}
+
+// SignHashUnsafe signs a precomputed digest, using the first account's private
+// key
+// NOTE: Do not use this method to sign arbitrary message hashes, it may be an
+// Ethereum transaction in disguise! Use SignHashSafe instead unless this is
+// strictly needed
+func (ks *KeyStore) SignHashUnsafe(hash common.Hash) (models.Signature, error) {
 	account, err := ks.GetFirstAccount()
 	if err != nil {
 		return models.Signature{}, err
@@ -93,7 +121,7 @@ func (ks *KeyStore) Sign(input []byte) (models.Signature, error) {
 	if err != nil {
 		return models.Signature{}, err
 	}
-	return ks.SignHash(common.BytesToHash(hash))
+	return ks.SignHashUnsafe(common.BytesToHash(hash))
 }
 
 // GetFirstAccount returns the unlocked account in the KeyStore object. The client
