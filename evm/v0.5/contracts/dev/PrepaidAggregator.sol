@@ -2,12 +2,14 @@ pragma solidity 0.5.0;
 
 import "../Median.sol";
 import "../vendor/Ownable.sol";
+import "../vendor/SafeMath.sol";
 import "../interfaces/LinkTokenInterface.sol";
 
 /**
  * @title The PrepaidAggregator handles aggregating data pushed in from off-chain.
  */
 contract PrepaidAggregator is Ownable {
+  using SafeMath for uint256;
 
   struct OracleStatus {
     bool enabled;
@@ -168,13 +170,13 @@ contract PrepaidAggregator is Ownable {
   }
 
   modifier ensureNextRound(uint256 _id) {
-    if (_id == currentRound + 1) {
+    if (_id == currentRound.add(1)) {
       _;
     }
   }
 
   modifier ensureValidRoundId(uint256 _id) {
-    require(_id == currentRound + 1 || _id == currentRound, "Cannot report on previous rounds");
+    require(_id == currentRound.add(1) || _id == currentRound, "Cannot report on previous rounds");
     _;
   }
 
