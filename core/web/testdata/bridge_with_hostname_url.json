@@ -1,0 +1,6 @@
+{
+  "name": "coinmarketcap",
+  "url": "http://chainlink_cmc-adapter_1:8080",
+  "confirmations": 10,
+  "minimumContractPayment": "350"
+}
