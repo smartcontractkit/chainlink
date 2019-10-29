@@ -161,12 +161,11 @@ func TestForLogger(t *testing.T) {
 	assert.Equal(t, logsWithBlockHeights[8], "observed_height")
 	assert.Equal(t, logsWithBlockHeights[9], big.NewInt(10))
 
-	result := job.NewRun(job.Initiators[0])
-	result.Result.ErrorMessage = null.StringFrom("bad idea")
-	logsWithErr := result.ForLogger()
+	run := job.NewRun(job.Initiators[0])
+	run.SetError(errors.New("bad idea"))
+	logsWithErr := run.ForLogger()
 	assert.Equal(t, logsWithErr[6], "job_error")
-	assert.Equal(t, logsWithErr[7], result.Result.ErrorString())
-
+	assert.Equal(t, logsWithErr[7], run.Result.ErrorString())
 }
 
 func TestJobRun_NextTaskRun(t *testing.T) {
