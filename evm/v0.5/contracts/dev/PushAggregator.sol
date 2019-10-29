@@ -24,9 +24,10 @@ contract PushAggregator is Ownable {
   int256 public currentAnswer;
   uint256 public currentRound;
   uint128 public paymentAmount;
-  uint128 public oracleCount;
+  uint64 public oracleCount;
   uint64 public maxAnswerCount;
   uint64 public minAnswerCount;
+  uint256 public updatedHeight;
 
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
@@ -124,6 +125,7 @@ contract PushAggregator is Ownable {
   {
     int256 newAnswer = Median.get(rounds[_id].answers);
     currentAnswer = newAnswer;
+    updatedHeight = block.number;
     emit AnswerUpdated(newAnswer, _id);
   }
 
