@@ -33,6 +33,7 @@ contract('PushAggregator', () => {
       'setPaymentAmount',
       'transferLINK',
       'updateAnswer',
+      'updatedHeight',
       // Ownable methods:
       'isOwner',
       'owner',
@@ -59,7 +60,7 @@ contract('PushAggregator', () => {
         assertBigNum(0, await link.balanceOf.call(personas.Nelly))
       })
 
-      it('updates the answer', async () => {
+      it('does not update the answer', async () => {
         const answer = 100
 
         assert.equal(0, await aggregator.currentAnswer.call())
@@ -74,21 +75,28 @@ contract('PushAggregator', () => {
     })
 
     context('when the minimum number of oracles have reported', async () => {
+      beforeEach(async () => {
+        await aggregator.updateAnswer(nextRound, 99, { from: personas.Neil })
+        await aggregator.updateAnswer(nextRound, 100, { from: personas.Ned })
+      })
+
       it('updates the answer', async () => {
         assert.equal(0, await aggregator.currentAnswer.call())
 
-        await aggregator.updateAnswer(nextRound, 99, { from: personas.Neil })
-        await aggregator.updateAnswer(nextRound, 100, { from: personas.Ned })
+        await aggregator.updateAnswer(nextRound, 101, { from: personas.Nelly })
+
+        assert.equal(100, await aggregator.currentAnswer.call())
+      })
+
+      it('updates the updated height', async () => {
+        assert.equal(0, await aggregator.updatedHeight.call())
+
         await aggregator.updateAnswer(nextRound, 101, { from: personas.Nelly })
 
         assert.equal(100, await aggregator.currentAnswer.call())
       })
 
       it('announces the new answer with a log event', async () => {
-        assert.equal(0, await aggregator.currentAnswer.call())
-
-        await aggregator.updateAnswer(nextRound, 99, { from: personas.Neil })
-        await aggregator.updateAnswer(nextRound, 100, { from: personas.Ned })
         const tx = await aggregator.updateAnswer(nextRound, 101, {
           from: personas.Nelly,
         })
