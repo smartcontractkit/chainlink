@@ -1,6 +1,6 @@
-import { fromJSONObject, saveJobRunTree } from './entity/JobRun'
-import { logger } from './logging'
-import { getDb } from './database'
+import { fromJSONObject, saveJobRunTree } from '../entity/JobRun'
+import { logger } from '../logging'
+import { getDb } from '../database'
 import { messageContext } from './handleMessage'
 
 import jayson from 'jayson'
@@ -19,7 +19,8 @@ const methods = {
       jobRun.chainlinkNodeId = context.chainlinkNodeId
       await saveJobRunTree(db, jobRun)
       callback(null, 'success')
-    } catch {
+    } catch (e) {
+      logger.error(e)
       callback({ code: INVALID_PARAMS, message: 'invalid params' })
     }
   },
