@@ -1,15 +1,15 @@
 import http from 'http'
-import { logger } from './logging'
+import { logger } from '../logging'
 import WebSocket from 'ws'
-import { getDb } from './database'
-import { authenticate } from './sessions'
-import { closeSession, Session } from './entity/Session'
+import { getDb } from '../database'
+import { authenticate } from '../sessions'
+import { closeSession, Session } from '../entity/Session'
 import { handleMessage } from './handleMessage'
 import {
   ACCESS_KEY_HEADER,
   NORMAL_CLOSE,
   SECRET_HEADER,
-} from './utils/constants'
+} from '../utils/constants'
 
 export const bootstrapRealtime = async (server: http.Server) => {
   const db = await getDb()

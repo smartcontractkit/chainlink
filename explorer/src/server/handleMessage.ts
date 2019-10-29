@@ -1,10 +1,7 @@
-import { saveJobRunTree, fromString } from './entity/JobRun'
-// import { Connection } from 'typeorm'
-import { logger } from './logging'
+import { saveJobRunTree, fromString } from '../entity/JobRun'
+import { logger } from '../logging'
 import rpcServer from './rpcServer'
-import { getDb } from './database'
-import { reject } from 'q'
-import jayson from 'jayson'
+import { getDb } from '../database'
 
 // todo make jsonRPC
 export const legacyErrorResponse = { status: 422 }
@@ -20,7 +17,8 @@ const handleLegacy = async (json: string, context: messageContext) => {
     jobRun.chainlinkNodeId = context.chainlinkNodeId
     await saveJobRunTree(db, jobRun)
     return { status: 201 }
-  } catch {
+  } catch (e) {
+    logger.error(e)
     return { status: 422 }
   }
 }
