@@ -22,7 +22,7 @@ func (rr *RunResult) SetError(err error) {
 	}
 }
 
-// ResultString returns the string result of the Data JSON field.
+// ResultString returns the "result" value as a string if possible
 func (rr RunResult) ResultString() (string, error) {
 	val := rr.Result()
 	if val.Type != gjson.String {
