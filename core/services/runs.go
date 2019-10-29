@@ -120,7 +120,9 @@ func NewRun(
 	}
 
 	cost := &assets.Link{}
-	cost.Set(job.MinPayment)
+	if job.MinPayment != nil {
+		cost.Set(job.MinPayment)
+	}
 	for i, taskRun := range run.TaskRuns {
 		adapter, err := adapters.For(taskRun.TaskSpec, store)
 
@@ -129,7 +131,7 @@ func NewRun(
 			return &run, nil
 		}
 
-		if job.MinPayment.IsZero() {
+		if job.MinPayment == nil || job.MinPayment.IsZero() {
 			mp := adapter.MinContractPayment()
 			if mp != nil {
 				cost.Add(cost, mp)
