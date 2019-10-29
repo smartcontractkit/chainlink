@@ -230,12 +230,14 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
         sA.aggFulfillSelector, _requestId, callback.sAId, msg.sender, _data));
     require(ok, "aggregator.fulfill failed");
     require(aggResponse.length > 0, "probably wrong address/selector");
-    (bool aggSuccess, bool aggComplete, bytes memory response) = abi.decode(
-      aggResponse, (bool, bool, bytes));
+    (bool aggSuccess, bool aggComplete, bytes memory response, int256[] memory paymentAmounts) = abi.decode( // solhint-disable-line
+      aggResponse, (bool, bool, bytes, int256[]));
     require(aggSuccess, string(response));
     if (aggComplete) {
+      require(paymentAmounts.length == sA.oracles.length, "wrong paymentAmounts.length");
       for (uint256 oIdx = 0; oIdx < sA.oracles.length; oIdx++) { // pay oracles
-        withdrawableTokens[sA.oracles[oIdx]] += sA.payment / sA.oracles.length;
+        withdrawableTokens[sA.oracles[oIdx]] = uint256(int256(
+          withdrawableTokens[sA.oracles[oIdx]]) + paymentAmounts[oIdx]);
       } // solhint-disable-next-line avoid-low-level-calls
       (bool success,) = callback.addr.call(abi.encodeWithSelector( // report final result
         callback.functionId, _requestId, abi.decode(response, (bytes32))));

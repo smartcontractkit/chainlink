@@ -12,6 +12,7 @@ contract MeanAggregator {
   mapping(bytes32 /* service agreement ID */ => uint256) numOracles;
   mapping(bytes32 /* request ID */ => mapping(address /* oracle */ => bool))
     reported;
+  mapping(bytes32 /* service agreement ID */ => uint256) payment;
   mapping(bytes32 /* request ID */ => uint256) numberReported;
 
   // Current total for given request, divided by number of oracles reporting
@@ -29,14 +30,16 @@ contract MeanAggregator {
         return (false, bytes("must depend on at least one oracle"));
       }
       numOracles[_sAId] = _sa.oracles.length;
+      payment[_sAId] = _sa.payment;
       success = true;
     }
 
   function fulfill(bytes32 _requestId, bytes32 _sAId, address _oracle,
     bytes32 _value) public
-    returns (bool success, bool complete, bytes memory response) {
+    returns (bool success, bool complete, bytes memory response,
+    int256[] memory paymentAmounts) {
       if (reported[_requestId][_oracle]) {
-        return (false, false, "oracle already reported");
+        return (false, false, "oracle already reported", paymentAmounts);
       }
       uint256 oDividend = uint256(_value) / numOracles[_sAId];
       uint256 oRemainder = uint256(_value) % numOracles[_sAId];
@@ -51,6 +54,10 @@ contract MeanAggregator {
       complete = (numberReported[_requestId] == numOracles[_sAId]);
       if (complete) {
         response = abi.encode(average[_requestId]);
+        paymentAmounts = new int256[](numOracles[_sAId]);
+        for (uint256 oIdx = 0; oIdx < numOracles[_sAId]; oIdx++) {
+          paymentAmounts[oIdx] = int256(payment[_sAId] / numOracles[_sAId]);
+        }
       }
     }
 }
