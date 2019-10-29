@@ -161,7 +161,7 @@ contract PushAggregator is Ownable {
   }
 
   modifier ensureAcceptingAnswers(uint256 _id) {
-    require(rounds[_id].maxAnswers != 0, "Max number of responses already received for round");
+    require(rounds[_id].maxAnswers != 0, "Max responses reached for round");
     _;
   }
 
