@@ -125,10 +125,10 @@ func TestValidateAdapter(t *testing.T) {
 			models.NewJSONAPIErrorsWith("Task Type validation: name invalid/adapter contains invalid characters"),
 		},
 		{
-			"invalid adapter url",
-			"adapterwithinvalidurl",
+			"valid url",
+			"adapterwithvalidurl",
 			cltest.WebURL(t, "//denergy"),
-			models.NewJSONAPIErrorsWith("Invalid URL format"),
+			nil,
 		},
 		{"new external adapter", "gdaxprice", bt.URL, nil},
 	}
