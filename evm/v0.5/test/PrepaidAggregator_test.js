@@ -235,6 +235,18 @@ contract('PrepaidAggregator', () => {
         })
       })
     })
+
+    const limit = 42
+    context(`when adding more than ${limit} oracles`, async () => {
+      it('reverts', async () => {
+        for (let i = 0; i < limit; i++) {
+          await aggregator.addOracle(web3.utils.randomHex(20), { from: personas.Carol })
+        }
+        await h.assertActionThrows(async () => {
+          await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+        })
+      })
+    })
   })
 
   describe('#removeOracle', async () => {
