@@ -49,6 +49,24 @@ contract('PrepaidAggregator', () => {
       }
     })
 
+    context('when price is updated mid-round', async () => {
+      const newAmount = h.toWei('50')
+
+      it('pays the same amount to all oracles per round', async () => {
+        assertBigNum(0, await link.balanceOf.call(personas.Neil))
+        assertBigNum(0, await link.balanceOf.call(personas.Nelly))
+
+        await aggregator.updateAnswer(nextRound, 99, { from: personas.Neil })
+
+        await aggregator.setPaymentAmount(newAmount, { from: personas.Carol })
+
+        await aggregator.updateAnswer(nextRound, 100, { from: personas.Nelly })
+
+        assertBigNum(paymentAmount, await link.balanceOf.call(personas.Neil))
+        assertBigNum(paymentAmount, await link.balanceOf.call(personas.Nelly))
+      })
+    })
+
     context('when the minimum oracles have not reported', async () => {
       it('pays the oracles that have reported', async () => {
         assertBigNum(0, await link.balanceOf.call(personas.Neil))
