@@ -57,9 +57,7 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	input := *models.NewRunInput(jobRunID, cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`), models.RunStatusUnstarted)
 	result := ba.Perform(input, store)
 	require.NoError(t, result.Error())
-	resultString, err := result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, "251990120", resultString)
+	assert.Equal(t, "251990120", result.Result().String())
 }
 
 func TestBridge_Perform_transitionsTo(t *testing.T) {

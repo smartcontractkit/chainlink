@@ -40,9 +40,7 @@ func TestEthBytes32_Perform(t *testing.T) {
 			result := adapter.Perform(past, nil)
 
 			require.NoError(t, result.Error())
-			val, err := result.ResultString()
-			require.NoError(t, err)
-			assert.Equal(t, test.expected, val)
+			assert.Equal(t, test.expected, result.Result().String())
 		})
 	}
 }
@@ -84,9 +82,7 @@ func TestEthInt256_Perform(t *testing.T) {
 				assert.Error(t, result.Error())
 			} else {
 				require.NoError(t, result.Error())
-				val, err := result.ResultString()
-				require.NoError(t, err)
-				assert.Equal(t, test.want, val)
+				assert.Equal(t, test.want, result.Result().String())
 			}
 		})
 	}
@@ -128,9 +124,7 @@ func TestEthUint256_Perform(t *testing.T) {
 				require.Error(t, result.Error())
 			} else {
 				require.NoError(t, result.Error())
-				val, err := result.ResultString()
-				require.NoError(t, err)
-				assert.Equal(t, test.want, val)
+				assert.Equal(t, test.want, result.Result().String())
 			}
 		})
 	}

@@ -303,11 +303,9 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 
 	require.NoError(t, output.Error())
 	assert.True(t, output.Status().Completed())
-	value, err := output.ResultString()
-	require.Nil(t, err)
-	assert.Equal(t, confirmedHash.String(), value)
+	assert.Equal(t, confirmedHash.String(), output.Result().String())
 
-	tx, err = store.FindTx(tx.ID)
+	tx, err := store.FindTx(tx.ID)
 	require.NoError(t, err)
 	assert.True(t, tx.Confirmed)
 	require.Len(t, tx.Attempts, 2)

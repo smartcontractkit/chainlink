@@ -1,8 +1,6 @@
 package models
 
 import (
-	"fmt"
-
 	"github.com/tidwall/gjson"
 )
 
@@ -87,15 +85,6 @@ func (ro RunOutput) HasError() bool {
 // Result returns the result as a gjson object
 func (ro RunOutput) Result() gjson.Result {
 	return ro.data.Get("result")
-}
-
-// ResultString returns the "result" value as a string if possible
-func (ro RunOutput) ResultString() (string, error) {
-	val := ro.Result()
-	if val.Type != gjson.String {
-		return "", fmt.Errorf("non string result")
-	}
-	return val.String(), nil
 }
 
 // Get searches for and returns the JSON at the given path.
