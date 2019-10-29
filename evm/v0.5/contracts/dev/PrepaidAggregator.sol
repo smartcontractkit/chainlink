@@ -63,6 +63,7 @@ contract PrepaidAggregator is Ownable {
     onlyOwner()
     ensureNotEnabledAddress(_oracle)
   {
+    require(oracleCount < 42, "cannot add more than 42 oracles");
     oracles[_oracle].enabled = true;
     oracleCount += 1;
     setAnswerCountRange(minAnswerCount + 1, maxAnswerCount + 1);
