@@ -84,9 +84,9 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     bytes calldata _data
   )
     external
-     onlyLINK
-     sufficientLINK(_amount, _sAId)
-     checkCallbackAddress(_callbackAddress)
+    onlyLINK
+    sufficientLINK(_amount, _sAId)
+    checkCallbackAddress(_callbackAddress)
     // checkServiceAgreementPresence(_sAId) // TODO: exhausts the stack
   {
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
@@ -159,7 +159,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     (bool success, bytes memory message) = abi.decode(response, (bool, bytes));
     if ((!success) && message.length == 0) {
       // Revert with a non-empty message to give user a hint where to look
-      require(success, "initiation failed; empty message"); 
+      require(success, "initiation failed; empty message");
     }
     require(success, string(message));
   }
