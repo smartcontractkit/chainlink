@@ -6,6 +6,10 @@ import { ChainlinkNode, createChainlinkNode } from '../entity/ChainlinkNode'
 import { JobRun } from '../entity/JobRun'
 import { TaskRun } from '../entity/TaskRun'
 import { DEFAULT_TEST_PORT, start, stop } from '../support/server'
+import { DEFAULT_TEST_PORT, start as startServer } from '../support/server'
+import ethtxFixtureLegacy from './fixtures/JobRunLegacy.ethtx.fixture.json'
+import createFixtureLegacy from './fixtures/JobRunLegacy.fixture.json'
+import updateFixtureLegacy from './fixtures/JobRunUpdateLegacy.fixture.json'
 import ethtxFixture from './fixtures/JobRun.ethtx.fixture.json'
 import createFixture from './fixtures/JobRun.fixture.json'
 import updateFixture from './fixtures/JobRunUpdate.fixture.json'
@@ -46,6 +50,9 @@ describe('realtime', () => {
   let chainlinkNode: ChainlinkNode
   let secret: string
 
+  const authenticatedNode = async () =>
+    newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+
   beforeAll(async () => {
     server = await start()
     db = await getDb()
@@ -61,123 +68,254 @@ describe('realtime', () => {
 
   afterAll(done => stop(server, done))
 
-  it('create a job run for valid JSON', async () => {
-    expect.assertions(3)
+  describe('legacy message format', () => {
+    it('can create a job run with valid JSON', async () => {
+      expect.assertions(3)
 
-    const ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+      const ws = await authenticatedNode()
 
-    ws.send(JSON.stringify(createFixture))
+      ws.send(JSON.stringify(createFixtureLegacy))
 
-    await new Promise(resolve => {
-      ws.on('message', (data: WebSocket.Data) => {
-        const result = JSON.parse(data as string)
-        expect(result.status).toEqual(201)
-        ws.close()
-        resolve()
-      })
-    })
-
-    const jobRunCount = await db.manager.count(JobRun)
-    expect(jobRunCount).toEqual(1)
-
-    const taskRunCount = await db.manager.count(TaskRun)
-    expect(taskRunCount).toEqual(1)
-  })
-
-  it('can create and update a job run and task runs', async () => {
-    expect.assertions(6)
-
-    const ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
-
-    ws.send(JSON.stringify(createFixture))
-
-    await new Promise(resolve => {
-      let responses = 0
-      ws.on('message', (data: any) => {
-        responses += 1
-        const result = JSON.parse(data)
-
-        if (responses === 1) {
-          expect(result.status).toEqual(201)
-          ws.send(JSON.stringify(updateFixture))
-        }
-
-        if (responses === 2) {
-          expect(result.status).toEqual(201)
+      await new Promise(resolve => {
+        ws.on('message', (data: WebSocket.Data) => {
+          const response = JSON.parse(data as string)
+          expect(response.status).toEqual(201)
           ws.close()
           resolve()
-        }
+        })
       })
+
+      const jobRunCount = await db.manager.count(JobRun)
+      expect(jobRunCount).toEqual(1)
+
+      const taskRunCount = await db.manager.count(TaskRun)
+      expect(taskRunCount).toEqual(1)
     })
 
-    const jobRunCount = await db.manager.count(JobRun)
-    expect(jobRunCount).toEqual(1)
+    it('can create and update a job run and task runs', async () => {
+      expect.assertions(6)
 
-    const taskRunCount = await db.manager.count(TaskRun)
-    expect(taskRunCount).toEqual(1)
+      const ws = await authenticatedNode()
 
-    const jr = await db.manager.findOne(JobRun)
-    expect(jr.status).toEqual('completed')
+      ws.send(JSON.stringify(createFixtureLegacy))
 
-    const tr = jr.taskRuns[0]
-    expect(tr.status).toEqual('completed')
-  })
+      await new Promise(resolve => {
+        let responses = 0
+        ws.on('message', (data: any) => {
+          responses += 1
+          const response = JSON.parse(data)
 
-  it('can create a task run with transactionHash and status', async () => {
-    expect.assertions(10)
+          if (responses === 1) {
+            expect(response.status).toEqual(201)
+            ws.send(JSON.stringify(updateFixtureLegacy))
+          }
 
-    const ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
-
-    const messageReceived = new Promise(resolve => {
-      ws.on('message', (data: any) => {
-        const result = JSON.parse(data)
-        expect(result.status).toEqual(201)
-        resolve()
+          if (responses === 2) {
+            expect(response.status).toEqual(201)
+            ws.close()
+            resolve()
+          }
+        })
       })
+
+      const jobRunCount = await db.manager.count(JobRun)
+      expect(jobRunCount).toEqual(1)
+
+      const taskRunCount = await db.manager.count(TaskRun)
+      expect(taskRunCount).toEqual(1)
+
+      const jr = await db.manager.findOne(JobRun)
+      expect(jr.status).toEqual('completed')
+
+      const tr = jr.taskRuns[0]
+      expect(tr.status).toEqual('completed')
     })
 
-    ws.send(JSON.stringify(ethtxFixture))
-    await messageReceived
+    it('can create a task run with transactionHash and status', async () => {
+      expect.assertions(10)
 
-    const jobRunCount = await db.manager.count(JobRun)
-    expect(jobRunCount).toEqual(1)
+      const ws = await authenticatedNode()
 
-    const taskRunCount = await db.manager.count(TaskRun)
-    expect(taskRunCount).toEqual(4)
+      const messageReceived = new Promise(resolve => {
+        ws.on('message', (data: any) => {
+          const response = JSON.parse(data)
+          expect(response.status).toEqual(201)
+          resolve()
+        })
+      })
 
-    const jobRunRepository = getCustomRepository(JobRunRepository, db.name)
-    const jr = await jobRunRepository.getFirst()
+      ws.send(JSON.stringify(ethtxFixtureLegacy))
+      await messageReceived
 
-    expect(jr.status).toEqual('completed')
+      const jobRunCount = await db.manager.count(JobRun)
+      expect(jobRunCount).toEqual(1)
 
-    const tr = jr.taskRuns[3]
-    expect(tr.status).toEqual('completed')
-    expect(tr.transactionHash).toEqual(
-      '0x1111111111111111111111111111111111111111111111111111111111111111',
-    )
-    expect(tr.timestamp).toEqual(new Date('2018-01-08T18:12:01.103Z'))
-    expect(tr.blockHeight).toEqual('3735928559')
-    expect(tr.blockHash).toEqual('0xbadc0de5')
-    expect(tr.transactionStatus).toEqual('fulfilledRunLog')
-    ws.close()
-  })
+      const taskRunCount = await db.manager.count(TaskRun)
+      expect(taskRunCount).toEqual(4)
 
-  it('rejects malformed json events with code 422', async (done: any) => {
-    expect.assertions(2)
+      const jobRunRepository = getCustomRepository(JobRunRepository, db.name)
+      const jr = await jobRunRepository.getFirst()
 
-    const ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+      expect(jr.status).toEqual('completed')
 
-    ws.send('{invalid json}')
-
-    ws.on('message', async (data: any) => {
-      const result = JSON.parse(data)
-      expect(result.status).toEqual(422)
-
-      const count = await db.manager.count(JobRun)
-      expect(count).toEqual(0)
-
+      const tr = jr.taskRuns[3]
+      expect(tr.status).toEqual('completed')
+      expect(tr.transactionHash).toEqual(
+        '0x1111111111111111111111111111111111111111111111111111111111111111',
+      )
+      expect(tr.timestamp).toEqual(new Date('2018-01-08T18:12:01.103Z'))
+      expect(tr.blockHeight).toEqual('3735928559')
+      expect(tr.blockHash).toEqual('0xbadc0de5')
+      expect(tr.transactionStatus).toEqual('fulfilledRunLog')
       ws.close()
-      done()
+    })
+
+    it('rejects malformed json events with code 422', async (done: any) => {
+      expect.assertions(2)
+
+      const ws = await authenticatedNode()
+
+      ws.send('{invalid json}')
+
+      ws.on('message', async (data: any) => {
+        const response = JSON.parse(data)
+        expect(response.status).toEqual(422)
+
+        const count = await db.manager.count(JobRun)
+        expect(count).toEqual(0)
+
+        ws.close()
+        done()
+      })
+    })
+  })
+
+  describe('jsonRPC message format', () => {
+    it('can create a job run with valid JSON', async () => {
+      expect.assertions(3)
+
+      const ws = await authenticatedNode()
+
+      ws.send(JSON.stringify(createFixture))
+
+      await new Promise(resolve => {
+        ws.on('message', (data: WebSocket.Data) => {
+          const response = JSON.parse(data as string)
+          expect(response.result).toEqual('success')
+          ws.close()
+          resolve()
+        })
+      })
+
+      const jobRunCount = await db.manager.count(JobRun)
+      expect(jobRunCount).toEqual(1)
+
+      const taskRunCount = await db.manager.count(TaskRun)
+      expect(taskRunCount).toEqual(1)
+    })
+
+    it('can create and update a job run and task runs', async () => {
+      expect.assertions(6)
+
+      const ws = await authenticatedNode()
+
+      ws.send(JSON.stringify(createFixture))
+
+      await new Promise(resolve => {
+        ws.on('message', (data: any) => {
+          const response = JSON.parse(data)
+
+          if (response.id === createFixture.id) {
+            expect(response.result).toEqual('success')
+            ws.send(JSON.stringify(updateFixture))
+          }
+
+          if (response.id === updateFixture.id) {
+            expect(response.result).toEqual('success')
+            ws.close()
+            resolve()
+          }
+        })
+      })
+
+      const jobRunCount = await db.manager.count(JobRun)
+      expect(jobRunCount).toEqual(1)
+
+      const taskRunCount = await db.manager.count(TaskRun)
+      expect(taskRunCount).toEqual(1)
+
+      const jr = await db.manager.findOne(JobRun)
+      expect(jr.status).toEqual('completed')
+
+      const tr = jr.taskRuns[0]
+      expect(tr.status).toEqual('completed')
+    })
+
+    it('can create a task run with transactionHash and status', async () => {
+      expect.assertions(10)
+
+      const ws = await authenticatedNode()
+
+      const messageReceived = new Promise(resolve => {
+        ws.on('message', (data: any) => {
+          const response = JSON.parse(data)
+          expect(response.result).toEqual('success')
+          resolve()
+        })
+      })
+
+      ws.send(JSON.stringify(ethtxFixture))
+      await messageReceived
+
+      const jobRunCount = await db.manager.count(JobRun)
+      expect(jobRunCount).toEqual(1)
+
+      const taskRunCount = await db.manager.count(TaskRun)
+      expect(taskRunCount).toEqual(4)
+
+      const jobRunRepository = getCustomRepository(JobRunRepository, db.name)
+      const jr = await jobRunRepository.getFirst()
+
+      expect(jr.status).toEqual('completed')
+
+      const tr = jr.taskRuns[3]
+      expect(tr.status).toEqual('completed')
+      expect(tr.transactionHash).toEqual(
+        '0x1111111111111111111111111111111111111111111111111111111111111111',
+      )
+      expect(tr.timestamp).toEqual(new Date('2018-01-08T18:12:01.103Z'))
+      expect(tr.blockHeight).toEqual('3735928559')
+      expect(tr.blockHash).toEqual('0xbadc0de5')
+      expect(tr.transactionStatus).toEqual('fulfilledRunLog')
+      ws.close()
+    })
+
+    it('rejects malformed json events with code -32602', async (done: any) => {
+      expect.assertions(2)
+
+      const ws = await authenticatedNode()
+
+      const invalidJSON = {
+        jsonrpc: '2.0',
+        method: 'upsertJobRun',
+        id: 1,
+        params: {
+          invalid: 'json',
+        },
+      }
+
+      ws.send(JSON.stringify(invalidJSON))
+
+      ws.on('message', async (data: any) => {
+        const response = JSON.parse(data)
+        expect(response.error.code).toEqual(-32602)
+
+        const count = await db.manager.count(JobRun)
+        expect(count).toEqual(0)
+
+        ws.close()
+        done()
+      })
     })
   })
 
