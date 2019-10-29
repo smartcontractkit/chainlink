@@ -115,15 +115,6 @@ func (ks *KeyStore) SignHashUnsafe(hash common.Hash) (models.Signature, error) {
 	return signature, nil
 }
 
-// Sign creates an HMAC from some input data using the account's private key
-func (ks *KeyStore) Sign(input []byte) (models.Signature, error) {
-	hash, err := utils.Keccak256(input)
-	if err != nil {
-		return models.Signature{}, err
-	}
-	return ks.SignHashUnsafe(common.BytesToHash(hash))
-}
-
 // GetFirstAccount returns the unlocked account in the KeyStore object. The client
 // ensures that an account exists during authentication.
 func (ks *KeyStore) GetFirstAccount() (accounts.Account, error) {
