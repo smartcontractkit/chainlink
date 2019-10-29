@@ -44,6 +44,7 @@ type ConfigSchema struct {
 	OracleContractAddress    common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
 	Port                     uint16         `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration         time.Duration  `env:"REAPER_EXPIRATION" default:"240h"`
+	ReplayFromBlock          int64          `env:"REPLAY_FROM_BLOCK" default:"-1"`
 	RootDir                  string         `env:"ROOT" default:"~/.chainlink"`
 	SecureCookies            bool           `env:"SECURE_COOKIES" default:"true"`
 	SessionTimeout           time.Duration  `env:"SESSION_TIMEOUT" default:"15m"`

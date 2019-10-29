@@ -21,7 +21,7 @@ import (
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	updateConfig(cli.Config, c.Bool("debug"))
+	updateConfig(cli.Config, c.Bool("debug"), c.Int64("replay-from-block"))
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 
@@ -104,9 +104,12 @@ func localNonceIsNotCurrent(lastNonce, nonce uint64) bool {
 	return false
 }
 
-func updateConfig(config *orm.Config, debug bool) {
+func updateConfig(config *orm.Config, debug bool, replayFromBlock int64) {
 	if debug {
 		config.Set("LOG_LEVEL", zapcore.DebugLevel.String())
+	}
+	if replayFromBlock >= 0 {
+		config.Set(orm.EnvVarName("ReplayFromBlock"), replayFromBlock)
 	}
 }
 
