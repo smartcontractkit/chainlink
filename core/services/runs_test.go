@@ -250,8 +250,7 @@ func TestNewRun_noTasksErrorsInsteadOfPanic(t *testing.T) {
 
 	jr, err := services.NewRun(job, job.Initiators[0], &models.JSON{}, nil, store, nil)
 	assert.NoError(t, err)
-	assert.True(t, jr.Status.Errored())
-	assert.True(t, jr.Result.ErrorMessage.Valid)
+	assert.True(t, jr.HasError())
 }
 
 func TestResumePendingTask(t *testing.T) {

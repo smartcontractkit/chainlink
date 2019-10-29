@@ -64,7 +64,7 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 		output = append(output, "observed_height", jr.ObservedHeight.ToInt())
 	}
 
-	if jr.Result.ErrorMessage.Valid {
+	if jr.HasError() {
 		output = append(output, "job_error", jr.Result.ErrorString())
 	}
 
@@ -73,6 +73,11 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	}
 
 	return append(kvs, output...)
+}
+
+// HasError returns true if this JobRun has errored
+func (jr JobRun) HasError() bool {
+	return jr.Status.Errored()
 }
 
 // NextTaskRunIndex returns the position of the next unfinished task
