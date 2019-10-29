@@ -14,9 +14,7 @@ func TestRandom_Perform(t *testing.T) {
 	adapter := adapters.Random{}
 	result := adapter.Perform(models.RunInput{}, nil)
 	require.NoError(t, result.Error())
-	val, err := result.ResultString()
-	require.NoError(t, err)
 	res := new(big.Int)
-	res, ok := res.SetString(val, 10)
+	res, ok := res.SetString(result.Result().String(), 10)
 	assert.True(t, ok)
 }

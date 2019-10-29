@@ -53,10 +53,7 @@ func TestMultiply_Perform(t *testing.T) {
 				assert.NoError(t, jsonErr)
 			} else {
 				require.NoError(t, result.Error())
-				val, err := result.ResultString()
-				assert.NoError(t, err)
-				assert.Equal(t, test.want, val)
-				assert.NoError(t, jsonErr)
+				assert.Equal(t, test.want, result.Result().String())
 			}
 		})
 	}

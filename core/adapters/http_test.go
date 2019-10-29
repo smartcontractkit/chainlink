@@ -94,9 +94,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 				require.Error(t, result.Error())
 			} else {
 				require.NoError(t, result.Error())
-				val, err := result.ResultString()
-				require.NoError(t, err)
-				assert.Equal(t, test.want, val)
+				assert.Equal(t, test.want, result.Result().String())
 			}
 			assert.Equal(t, false, result.Status().PendingBridge())
 		})
