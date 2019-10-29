@@ -206,7 +206,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   )
     private pure returns (address)
   {
-    return ecrecover(_serviceAgreementID, _v, _r, _s);
+    bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _serviceAgreementID));
+    return ecrecover(prefixedHash, _v, _r, _s);
   }
 
   /**
