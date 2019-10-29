@@ -15,13 +15,6 @@ type RunResult struct {
 	ErrorMessage null.String `json:"error"`
 }
 
-// SetError marks the result as errored and saves the specified error message
-func (rr *RunResult) SetError(err error) {
-	if err != nil {
-		rr.ErrorMessage = null.StringFrom(err.Error())
-	}
-}
-
 // ResultString returns the "result" value as a string if possible
 func (rr RunResult) ResultString() (string, error) {
 	val := rr.Result()

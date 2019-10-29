@@ -2,7 +2,6 @@ package models_test
 
 import (
 	"encoding/json"
-	"errors"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -37,12 +36,4 @@ func TestRunResult_Value(t *testing.T) {
 			assert.Equal(t, test.wantErrored, (err != nil))
 		})
 	}
-}
-
-func TestRunResult_WithError(t *testing.T) {
-	t.Parallel()
-
-	rr := models.RunResult{}
-	rr.SetError(errors.New("this blew up"))
-	assert.True(t, rr.ErrorMessage.Valid)
 }
