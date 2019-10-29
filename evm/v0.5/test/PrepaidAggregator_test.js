@@ -1,8 +1,8 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
 
-contract('PushAggregator', () => {
-  const Aggregator = artifacts.require('PushAggregator.sol')
+contract('PrepaidAggregator', () => {
+  const Aggregator = artifacts.require('PrepaidAggregator.sol')
   const personas = h.personas
   const paymentAmount = h.toWei('3')
   const deposit = h.toWei('100')

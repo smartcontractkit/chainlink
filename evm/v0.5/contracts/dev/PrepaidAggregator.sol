@@ -5,9 +5,9 @@ import "../vendor/Ownable.sol";
 import "../interfaces/LinkTokenInterface.sol";
 
 /**
- * @title The PushAggregator handles aggregating data pushed in from off-chain.
+ * @title The PrepaidAggregator handles aggregating data pushed in from off-chain.
  */
-contract PushAggregator is Ownable {
+contract PrepaidAggregator is Ownable {
 
   struct OracleStatus {
     bool enabled;
