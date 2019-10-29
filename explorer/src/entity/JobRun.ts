@@ -61,6 +61,10 @@ export class JobRun {
 
 export const fromString = (str: string): JobRun => {
   const json = JSON.parse(str)
+  return fromJSONObject(json)
+}
+
+export const fromJSONObject = (json: any): JobRun => {
   const jr = new JobRun()
   jr.runId = json.runId
   jr.jobId = json.jobId

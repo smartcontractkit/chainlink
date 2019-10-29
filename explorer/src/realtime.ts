@@ -1,33 +1,15 @@
 import http from 'http'
-import { fromString, saveJobRunTree } from './entity/JobRun'
 import { logger } from './logging'
 import WebSocket from 'ws'
-import { Connection } from 'typeorm'
 import { getDb } from './database'
 import { authenticate } from './sessions'
 import { closeSession, Session } from './entity/Session'
+import { handleMessage } from './handleMessage'
 import {
   ACCESS_KEY_HEADER,
   NORMAL_CLOSE,
   SECRET_HEADER,
 } from './utils/constants'
-
-const handleMessage = async (
-  message: string,
-  chainlinkNodeId: number,
-  db: Connection,
-) => {
-  try {
-    const jobRun = fromString(message)
-    jobRun.chainlinkNodeId = chainlinkNodeId
-
-    await saveJobRunTree(db, jobRun)
-    return { status: 201 }
-  } catch (e) {
-    logger.error(e)
-    return { status: 422 }
-  }
-}
 
 export const bootstrapRealtime = async (server: http.Server) => {
   const db = await getDb()
@@ -96,11 +78,10 @@ export const bootstrapRealtime = async (server: http.Server) => {
         return
       }
 
-      const result = await handleMessage(
-        message as string,
-        session.chainlinkNodeId,
-        db,
-      )
+      const result = await handleMessage(message as string, {
+        chainlinkNodeId: session.chainlinkNodeId,
+      })
+
       ws.send(JSON.stringify(result))
     })
 
