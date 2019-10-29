@@ -53,7 +53,7 @@ contract PrepaidAggregator is Ownable {
     updateRoundAnswer(_round);
     deleteRound(_round);
 
-    require(LINK.transfer(msg.sender, paymentAmount), "LINK transfer failed");
+    require(LINK.transfer(msg.sender, rounds[_round].paymentAmount), "LINK transfer failed");
   }
 
   function addOracle(address _oracle)
