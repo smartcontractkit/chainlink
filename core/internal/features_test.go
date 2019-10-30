@@ -497,20 +497,20 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	eaResponse := fmt.Sprintf(`{"data":{"price": "%v", "quote": "%v"}}`, eaPrice, eaQuote)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "/", r.URL.Path)
+		require.Equal(t, "POST", r.Method)
+		require.Equal(t, "/", r.URL.Path)
 
 		b, err := ioutil.ReadAll(r.Body)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		body := cltest.JSONFromBytes(t, b)
 		data := body.Get("data")
-		assert.True(t, data.Exists())
+		require.True(t, data.Exists())
 		bodyParam := data.Get("bodyParam")
-		assert.True(t, bodyParam.Exists())
-		assert.Equal(t, true, bodyParam.Bool())
+		require.True(t, bodyParam.Exists())
+		require.Equal(t, true, bodyParam.Bool())
 
 		url := body.Get("responseURL")
-		assert.Contains(t, url.String(), "https://test.chain.link/always/v2/runs")
+		require.Contains(t, url.String(), "https://test.chain.link/always/v2/runs")
 
 		w.WriteHeader(http.StatusOK)
 		io.WriteString(w, eaResponse)

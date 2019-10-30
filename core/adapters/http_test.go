@@ -274,11 +274,7 @@ func TestHttpPost_Perform(t *testing.T) {
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())
 			assert.NotEqual(t, test.wantErrored, val.Exists())
-			if test.wantErrored {
-				require.Error(t, result.Error())
-			} else {
-				require.NoError(t, result.Error())
-			}
+			require.Equal(t, test.wantErrored, result.HasError())
 			assert.Equal(t, false, result.Status().PendingBridge())
 		})
 	}

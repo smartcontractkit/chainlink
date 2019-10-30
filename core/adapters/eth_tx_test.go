@@ -658,7 +658,7 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 	adapter := adapters.EthTx{}
 	output := adapter.Perform(models.RunInput{}, store)
 
-	assert.False(t, output.HasError())
+	require.NoError(t, output.Error())
 	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
 
 	// Have a head come through with the same empty response
