@@ -25,7 +25,7 @@ const handleJSONRCP = async (request: string, context: serverContext) => {
     // @ts-ignore - broken typing for server.call - should be able to accept 3 arguments
     // https://github.com/tedeh/jayson#server-context
     // https://github.com/tedeh/jayson/pull/152
-    rpcServer.call(request, context, (error: any, response: any) => {
+    rpcServer.call(request, context, (error, response) => {
       // resolve both error and success responses
       error ? resolve(error) : resolve(response)
     })
