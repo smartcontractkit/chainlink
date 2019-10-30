@@ -380,7 +380,7 @@ type ServiceAgreement = Parameters<Coordinator['initiateServiceAgreement']>[0]
 /**
  * Digest of the ServiceAgreement.
  */
-export const calculateSAID2 = (sa: ServiceAgreement): Hash => {
+export const generateSAID = (sa: ServiceAgreement): Hash => {
   const [saParam] = new CoordinatorFactory().interface.functions.getId.inputs
   if (
     saParam.name !== '_agreement' ||
