@@ -1,15 +1,13 @@
 import { Server } from 'http'
 import { Connection, getCustomRepository } from 'typeorm'
 import WebSocket from 'ws'
+import jayson from 'jayson'
 import { getDb } from '../database'
 import { ChainlinkNode, createChainlinkNode } from '../entity/ChainlinkNode'
 import { JobRun } from '../entity/JobRun'
 import { TaskRun } from '../entity/TaskRun'
 import { DEFAULT_TEST_PORT, start, stop } from '../support/server'
 import { DEFAULT_TEST_PORT, start as startServer } from '../support/server'
-import ethtxFixtureLegacy from './fixtures/JobRunLegacy.ethtx.fixture.json'
-import createFixtureLegacy from './fixtures/JobRunLegacy.fixture.json'
-import updateFixtureLegacy from './fixtures/JobRunUpdateLegacy.fixture.json'
 import ethtxFixture from './fixtures/JobRun.ethtx.fixture.json'
 import createFixture from './fixtures/JobRun.fixture.json'
 import updateFixture from './fixtures/JobRunUpdate.fixture.json'
@@ -44,6 +42,10 @@ const newChainlinkNode = (
   })
 }
 
+const jsonClient = new jayson.Client(null, null)
+const createRPCRequest = (method: string, params?: any) =>
+  jsonClient.request(method, params)
+
 describe('realtime', () => {
   let server: Server
   let db: Connection
@@ -73,8 +75,7 @@ describe('realtime', () => {
       expect.assertions(3)
 
       const ws = await authenticatedNode()
-
-      ws.send(JSON.stringify(createFixtureLegacy))
+      ws.send(JSON.stringify(createFixture))
 
       await new Promise(resolve => {
         ws.on('message', (data: WebSocket.Data) => {
@@ -96,8 +97,7 @@ describe('realtime', () => {
       expect.assertions(6)
 
       const ws = await authenticatedNode()
-
-      ws.send(JSON.stringify(createFixtureLegacy))
+      ws.send(JSON.stringify(createFixture))
 
       await new Promise(resolve => {
         let responses = 0
@@ -107,7 +107,7 @@ describe('realtime', () => {
 
           if (responses === 1) {
             expect(response.status).toEqual(201)
-            ws.send(JSON.stringify(updateFixtureLegacy))
+            ws.send(JSON.stringify(updateFixture))
           }
 
           if (responses === 2) {
@@ -144,7 +144,7 @@ describe('realtime', () => {
         })
       })
 
-      ws.send(JSON.stringify(ethtxFixtureLegacy))
+      ws.send(JSON.stringify(ethtxFixture))
       await messageReceived
 
       const jobRunCount = await db.manager.count(JobRun)
@@ -174,7 +174,6 @@ describe('realtime', () => {
       expect.assertions(2)
 
       const ws = await authenticatedNode()
-
       ws.send('{invalid json}')
 
       ws.on('message', async (data: any) => {
@@ -196,8 +195,8 @@ describe('realtime', () => {
         expect.assertions(3)
 
         const ws = await authenticatedNode()
-
-        ws.send(JSON.stringify(createFixture))
+        const request = createRPCRequest('upsertJobRun', createFixture)
+        ws.send(JSON.stringify(request))
 
         await new Promise(resolve => {
           ws.on('message', (data: WebSocket.Data) => {
@@ -219,19 +218,18 @@ describe('realtime', () => {
         expect.assertions(6)
 
         const ws = await authenticatedNode()
-
-        ws.send(JSON.stringify(createFixture))
+        const createRequest = createRPCRequest('upsertJobRun', createFixture)
+        const updateRequest = createRPCRequest('upsertJobRun', updateFixture)
+        ws.send(JSON.stringify(createRequest))
 
         await new Promise(resolve => {
           ws.on('message', (data: any) => {
             const response = JSON.parse(data)
-
-            if (response.id === createFixture.id) {
+            if (response.id === createRequest.id) {
               expect(response.result).toEqual('success')
-              ws.send(JSON.stringify(updateFixture))
+              ws.send(JSON.stringify(updateRequest))
             }
-
-            if (response.id === updateFixture.id) {
+            if (response.id === updateRequest.id) {
               expect(response.result).toEqual('success')
               ws.close()
               resolve()
@@ -265,7 +263,9 @@ describe('realtime', () => {
           })
         })
 
-        ws.send(JSON.stringify(ethtxFixture))
+        const request = createRPCRequest('upsertJobRun', ethtxFixture)
+        ws.send(JSON.stringify(request))
+
         await messageReceived
 
         const jobRunCount = await db.manager.count(JobRun)
@@ -291,21 +291,12 @@ describe('realtime', () => {
         ws.close()
       })
 
-      it('rejects invalid json params with code -32602', async (done: any) => {
+      it('rejects invalid params with code -32602', async (done: any) => {
         expect.assertions(2)
 
         const ws = await authenticatedNode()
-
-        const invalidJSON = {
-          jsonrpc: '2.0',
-          method: 'upsertJobRun',
-          id: 1,
-          params: {
-            invalid: 'json',
-          },
-        }
-
-        ws.send(JSON.stringify(invalidJSON))
+        const request = createRPCRequest('upsertJobRun', { invalid: 'params' })
+        ws.send(JSON.stringify(request))
 
         ws.on('message', async (data: any) => {
           const response = JSON.parse(data)
@@ -324,13 +315,7 @@ describe('realtime', () => {
       expect.assertions(2)
 
       const ws = await authenticatedNode()
-
-      const request = {
-        jsonrpc: '2.0',
-        method: 'doesNotExist',
-        id: 1,
-      }
-
+      const request = createRPCRequest('doesNotExist', { invalid: 'params' })
       ws.send(JSON.stringify(request))
 
       ws.on('message', async (data: any) => {
@@ -353,9 +338,7 @@ describe('realtime', () => {
       expect.assertions(2)
 
       const ws = await authenticatedNode()
-
       const request = 'jsonrpc invalid'
-
       ws.send(request)
 
       ws.on('message', async (data: any) => {
