@@ -142,7 +142,7 @@ jobs:
       - store_artifacts:
           path: ./integration/cypress/screenshots
   parity-postgres:
-    resource_class: large
+    resource_class: xlarge
     docker:
       - image: smartcontract/builder:1.0.25
         environment:
