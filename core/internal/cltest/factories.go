@@ -518,4 +518,6 @@ func CreateServiceAgreementViaWeb(
 	responseSA := models.ServiceAgreement{}
 	err := ParseJSONAPIResponse(t, resp, &responseSA)
 	require.NoError(t, err)
+
+	return FindServiceAgreement(t, app.Store, responseSA.ID)
 }

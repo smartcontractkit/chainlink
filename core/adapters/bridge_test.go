@@ -89,10 +89,6 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 
 			assert.Equal(t, test.result, result.Data().String())
 			assert.Equal(t, test.wantStatus, result.Status())
-			if test.wantStatus.Completed() {
-				assert.Equal(t, input.Data(), result.Data())
-				assert.Equal(t, input.Status(), result.Status())
-			}
 		})
 	}
 }
