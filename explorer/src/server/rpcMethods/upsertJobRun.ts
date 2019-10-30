@@ -1,7 +1,7 @@
 import { fromJSONObject, saveJobRunTree } from '../../entity/JobRun'
 import { logger } from '../../logging'
 import { getDb } from '../../database'
-import { serverContext } from './../handleMessage'
+import { ServerContext } from './../handleMessage'
 import jayson from 'jayson'
 
 // default invalid params error
@@ -10,7 +10,7 @@ const invalidParamsError = new jayson.Server().error(INVALID_PARAMS)
 
 export default async (
   payload: object,
-  context: serverContext,
+  context: ServerContext,
   callback: jayson.JSONRPCCallbackTypePlain,
 ) => {
   try {

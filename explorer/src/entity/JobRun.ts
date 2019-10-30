@@ -59,11 +59,6 @@ export class JobRun {
   chainlinkNode: ChainlinkNode
 }
 
-export const fromString = (str: string): JobRun => {
-  const json = JSON.parse(str)
-  return fromJSONObject(json)
-}
-
 export const fromJSONObject = (json: any): JobRun => {
   const jr = new JobRun()
   jr.runId = json.runId
@@ -100,6 +95,11 @@ export const fromJSONObject = (json: any): JobRun => {
   })
 
   return jr
+}
+
+export const fromString = (str: string): JobRun => {
+  const json = JSON.parse(str)
+  return fromJSONObject(json)
 }
 
 export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {

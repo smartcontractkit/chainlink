@@ -1,13 +1,14 @@
-import rpcServer from './rpcServer'
+import { callRPCServer } from './rpcServer'
 import { logger } from '../logging'
 import { getDb } from '../database'
 import { fromString, saveJobRunTree } from '../entity/JobRun'
+import jayson from 'jayson'
 
-export type serverContext = {
+export interface ServerContext {
   chainlinkNodeId: number
 }
 
-const handleLegacy = async (json: string, context: serverContext) => {
+const handleLegacy = async (json: string, context: ServerContext) => {
   try {
     const db = await getDb()
     const jobRun = fromString(json)
@@ -20,21 +21,22 @@ const handleLegacy = async (json: string, context: serverContext) => {
   }
 }
 
-const handleJSONRCP = async (request: string, context: serverContext) => {
-  return await new Promise((resolve, reject) => {
-    // @ts-ignore - broken typing for server.call - should be able to accept 3 arguments
-    // https://github.com/tedeh/jayson#server-context
-    // https://github.com/tedeh/jayson/pull/152
-    rpcServer.call(request, context, (error, response) => {
-      // resolve both error and success responses
-      error ? resolve(error) : resolve(response)
-    })
+const handleJSONRCP = async (request: string, context: ServerContext) => {
+  return await new Promise(resolve => {
+    callRPCServer(
+      request,
+      context,
+      (error: jayson.JSONRPCErrorLike, response: jayson.JSONRPCResultLike) => {
+        // resolve both error and success responses
+        error ? resolve(error) : resolve(response)
+      },
+    )
   })
 }
 
 export const handleMessage = async (
   message: string,
-  context: serverContext,
+  context: ServerContext,
 ) => {
   if (message.includes('jsonrpc')) {
     return await handleJSONRCP(message, context)
