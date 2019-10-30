@@ -1,7 +1,7 @@
 {
   "name": "@chainlink/explorer-client",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "LINK Explorer Client",
   "author": "Chainlink Dev Team",
   "license": "MIT",
