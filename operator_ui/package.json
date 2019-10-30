@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@babel/polyfill": "^7.2.5",
-    "@chainlink/styleguide": "0.0.0",
+    "@chainlink/styleguide": "0.0.1",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^3.0.1",
     "bignumber.js": "^9.0.0",
