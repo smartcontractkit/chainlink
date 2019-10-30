@@ -5926,6 +5926,24 @@ chainlink@0.6.1:
     openzeppelin-solidity "^1.12.0"
     solidity-cborutils "^1.0.2"
 
+chainlink@0.7.5:
+  version "0.7.5"
+  resolved "https://registry.npmjs.org/chainlink/-/chainlink-0.7.5.tgz#82043e99b8477dac8478a1707d217d0ef716b28d"
+  integrity sha512-UFwFuF5EdxVIBj6lSUmDsEUjnM+hOefelKTZ5vfjPEfUJCq4KAw3Ew1JJYsssmceaOYWcg4iL3A5Q40MnTpmIg==
+  dependencies:
+    "@ensdomains/ens" "^0.1.1"
+    "@types/path-to-regexp" "^1.7.0"
+    cbor "^4.1.1"
+    eth-ens-namehash "^2.0.8"
+    ethereumjs-abi "^0.6.7"
+    ethereumjs-util "^6.1.0"
+    ethers "^4.0.37"
+    link_token "^1.0.6"
+    openzeppelin-solidity "^1.12.0"
+    solidity-cborutils "^1.0.4"
+    truffle-contract "^4.0.31"
+    web3 "^1.2.0"
+
 chainlink@^0.6.5:
   version "0.6.5"
   resolved "https://registry.npmjs.org/chainlink/-/chainlink-0.6.5.tgz#35c8fef8529f4c48a996b6a1d2546cfcdb38af59"
