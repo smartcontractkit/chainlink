@@ -1,15 +1,15 @@
 import { fromJSONObject, saveJobRunTree } from '../../entity/JobRun'
 import { logger } from '../../logging'
 import { getDb } from '../../database'
-import { messageContext } from './../handleMessage'
+import { serverContext } from './../handleMessage'
 import jayson from 'jayson'
 
 const { INVALID_PARAMS } = jayson.Server.errors
 
 export default async (
-  payload: any,
-  context: messageContext,
-  callback: (a: any, b?: any) => void,
+  payload: object,
+  context: serverContext,
+  callback: jayson.JSONRPCCallbackTypePlain,
 ) => {
   try {
     const db = await getDb()
