@@ -291,7 +291,7 @@ describe('realtime', () => {
         ws.close()
       })
 
-      it('rejects malformed json events with code -32602', async (done: any) => {
+      it('rejects invalid json params with code -32602', async (done: any) => {
         expect.assertions(2)
 
         const ws = await authenticatedNode()

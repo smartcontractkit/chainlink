@@ -4,7 +4,9 @@ import { getDb } from '../../database'
 import { serverContext } from './../handleMessage'
 import jayson from 'jayson'
 
+// default invalid params error
 const { INVALID_PARAMS } = jayson.Server.errors
+const invalidParamsError = new jayson.Server().error(INVALID_PARAMS)
 
 export default async (
   payload: object,
@@ -19,6 +21,6 @@ export default async (
     callback(null, 'success')
   } catch (e) {
     logger.error(e)
-    callback({ code: INVALID_PARAMS, message: 'invalid params' })
+    callback(invalidParamsError)
   }
 }
