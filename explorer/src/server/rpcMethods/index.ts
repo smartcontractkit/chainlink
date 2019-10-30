@@ -1,5 +1,1 @@
-import upsertJobRun from './upsertJobRun'
-
-export default {
-  upsertJobRun,
-}
+export { default as upsertJobRun } from './upsertJobRun'
