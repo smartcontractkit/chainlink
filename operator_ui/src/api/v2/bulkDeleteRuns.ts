@@ -1,4 +1,4 @@
-import * as jsonapi from 'api/transport/json'
+import * as jsonapi from '@chainlink/json-api-client'
 import * as models from 'core/store/models'
 
 /**

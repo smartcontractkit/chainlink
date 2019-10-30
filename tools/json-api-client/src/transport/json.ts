@@ -5,7 +5,7 @@ import {
   ResourceObject,
 } from 'json-api-normalizer'
 import pathToRegexp from 'path-to-regexp'
-import fetchWithTimeout from 'utils/fetchWithTimeout'
+import fetchWithTimeout from '../fetchWithTimeout'
 import {
   AuthenticationError,
   BadRequestError,

@@ -5,7 +5,7 @@ import {
   NOTIFY_ERROR,
 } from 'actions'
 import { set } from 'utils/storage'
-import { BadRequestError } from '../../../api/errors'
+import { BadRequestError } from '@chainlink/json-api-client'
 
 const initialState = {
   errors: [],

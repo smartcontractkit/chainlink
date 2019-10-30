@@ -194,6 +194,22 @@ jobs:
             - /usr/local/share/.cache/yarn
       - run: pip3 install -r requirements.txt
       - run: ./tools/ci/truffle_test
+  json-api-client:
+    docker:
+      - image: smartcontract/builder:1.0.25
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - run: yarn workspace @chainlink/json-api-client
   operator-ui:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -329,6 +345,10 @@ workflows:
           filters:
             tags:
               only: /^v.*/
+      - json-api-client:
+          filters:
+            tags:
+              only: /^v.*/
       - operator-ui:
           filters:
             tags:
@@ -362,6 +382,7 @@ workflows:
             - truffle
             - geth-postgres
             - parity-postgres
+            - json-api-client
             - operator-ui
             - rust
           filters:
