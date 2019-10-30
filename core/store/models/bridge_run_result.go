@@ -19,6 +19,7 @@ type BridgeRunResult struct {
 // UnmarshalJSON parses the given input and updates the BridgeRunResult in the
 // external adapter format.
 func (brr *BridgeRunResult) UnmarshalJSON(input []byte) error {
+	// XXX: This indirection prevents an infinite regress during json.Unmarshal
 	type biAlias BridgeRunResult
 	var anon biAlias
 	err := json.Unmarshal(input, &anon)
