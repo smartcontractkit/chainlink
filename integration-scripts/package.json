@@ -19,6 +19,7 @@
     "send-runlog-transaction": "node ./dist/sendRunlogTransaction",
     "send-ethlog-transaction": "node ./dist/sendEthlogTransaction",
     "fund-address": "node ./dist/fundAddress",
+    "deploy-link-token-contract": "node ./dist/deployLinkTokenContract",
     "deploy-contracts": "node ./dist/deployContracts",
     "deploy-v0.5-contracts": "node ./dist/deployV0.5Contracts",
     "initiate-service-agreement": "node ./dist/initiateServiceAgreement",
