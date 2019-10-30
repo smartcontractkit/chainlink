@@ -1,6 +1,6 @@
-import { calculateSAID2 } from './helpersV2'
+import { generateSAID } from './helpersV2'
 
-describe('calculateSAID2 test', () => {
+describe('generateSAID test', () => {
   it('should the hashed result of the abi encoded service agreement', () => {
     const sa = {
       initiators: [{ type: 'execagreement' }],
@@ -32,7 +32,7 @@ describe('calculateSAID2 test', () => {
 
     const expected =
       '0x31e6113ed6267498e525eb904421e8d2e2a90289553334c692f07505c8c059a6'
-    const actual = calculateSAID2(sa)
+    const actual = generateSAID(sa)
     expect(actual).toEqual(expected)
   })
 })

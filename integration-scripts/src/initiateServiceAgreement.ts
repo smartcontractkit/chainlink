@@ -113,7 +113,7 @@ async function initiateServiceAgreement({
     vs: [sig.v],
   }
 
-  const said = helpers.calculateSAID2(sa)
+  const said = helpers.generateSAID(sa)
   const ssaid = await coordinator.getId(sa)
   if (said != ssaid) {
     throw Error(`sAId mismatch. javascript: ${said} solidity: ${ssaid}`)
