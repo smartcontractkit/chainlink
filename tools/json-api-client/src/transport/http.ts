@@ -25,7 +25,7 @@ export function getOptions(method: Method): (val?: any) => FetchOptions {
   return CUDOptionFactory(method)
 }
 
-export function formatURI(path: string, query: object = {}) {
+export function formatURI(path: string, query: Record<string, string> = {}) {
   return formatRequestURI(path, query, {
     hostname: location.hostname,
     port: process.env.CHAINLINK_PORT,

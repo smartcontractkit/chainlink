@@ -1,15 +1,16 @@
-import url, { UrlObject } from 'url'
+import * as url from 'url'
 
 export interface Options {
   port?: string
   hostname?: string
 }
 
-export default (path: string, query = {}, options: Options = {}) => {
-  const formatOptions: UrlObject = {
-    pathname: path,
-    query: query,
-  }
+export default function(
+  pathname: string,
+  query: Record<string, string> = {},
+  options: Options = {},
+) {
+  const formatOptions: url.UrlObject = { pathname, query }
 
   if (options.port) {
     formatOptions.port = options.port
