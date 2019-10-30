@@ -43,7 +43,7 @@
     "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "^0.0.1",
     "body-parser": "^1.18.3",
-    "chainlink": "0.7.6",
+    "chainlink": "0.7.7",
     "chalk": "^2.4.2",
     "ethers": "^4.0.37",
     "express": "^4.16.4",

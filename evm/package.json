@@ -1,6 +1,6 @@
 {
   "name": "chainlink",
-  "version": "0.7.6",
+  "version": "0.7.7",
   "license": "MIT",
   "main": "./dist/src",
   "scripts": {
