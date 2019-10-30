@@ -365,7 +365,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	receiptsJSON := output.Get("ethereumReceipts").String()
 	var receipts []models.TxReceipt
 	require.NotEqual(t, "", receiptsJSON)
-	assert.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
+	require.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
 	assert.Equal(t, []models.TxReceipt{previousReceipt, receipt}, receipts)
 
 	ethMock.EventuallyAllCalled(t)
