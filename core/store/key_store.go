@@ -81,14 +81,12 @@ func (ks *KeyStore) SignTx(account accounts.Account, tx *types.Transaction, chai
 // This method adds an ethereum message prefix to the message before signing it,
 // invalidating any would-be valid Ethereum transactions
 func (ks *KeyStore) SignHash(hash common.Hash) (models.Signature, error) {
-	// add message prefix and re-hash the result to get a new 32bytes message
 	prefixedMessageBytes, err := utils.Keccak256(append([]byte(EthereumMessageHashPrefix), hash.Bytes()...))
 	if err != nil {
 		return models.Signature{}, err
 	}
 
-	// sign it
-	signature, err := ks.SignHashUnsafe(common.BytesToHash(prefixedMessageBytes))
+	signature, err := ks.unsafeSignHash(common.BytesToHash(prefixedMessageBytes))
 	if err != nil {
 		return models.Signature{}, err
 	}
@@ -96,12 +94,12 @@ func (ks *KeyStore) SignHash(hash common.Hash) (models.Signature, error) {
 	return signature, nil
 }
 
-// SignHashUnsafe signs a precomputed digest, using the first account's private
+// unsafeSignHash signs a precomputed digest, using the first account's private
 // key
 // NOTE: Do not use this method to sign arbitrary message hashes, it may be an
 // Ethereum transaction in disguise! Use SignHashSafe instead unless this is
 // strictly needed
-func (ks *KeyStore) SignHashUnsafe(hash common.Hash) (models.Signature, error) {
+func (ks *KeyStore) unsafeSignHash(hash common.Hash) (models.Signature, error) {
 	account, err := ks.GetFirstAccount()
 	if err != nil {
 		return models.Signature{}, err
