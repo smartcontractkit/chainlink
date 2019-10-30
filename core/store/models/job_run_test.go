@@ -204,8 +204,7 @@ func TestJobRun_ApplyOutput_CompletedWithNoTasksRemaining(t *testing.T) {
 
 	result := models.NewRunOutputComplete(models.JSON{})
 	jobRun.TaskRuns[0].ApplyOutput(result)
-	err := jobRun.ApplyOutput(result)
-	assert.NoError(t, err)
+	jobRun.ApplyOutput(result)
 	assert.True(t, jobRun.FinishedAt.Valid)
 }
 
@@ -216,8 +215,7 @@ func TestJobRun_ApplyOutput_CompletedWithTasksRemaining(t *testing.T) {
 	jobRun := job.NewRun(job.Initiators[0])
 
 	result := models.NewRunOutputComplete(models.JSON{})
-	err := jobRun.ApplyOutput(result)
-	assert.NoError(t, err)
+	jobRun.ApplyOutput(result)
 	assert.False(t, jobRun.FinishedAt.Valid)
 	assert.Equal(t, jobRun.Status, models.RunStatusInProgress)
 }
@@ -230,7 +228,6 @@ func TestJobRun_ApplyOutput_ErrorSetsFinishedAt(t *testing.T) {
 	jobRun.Status = models.RunStatusErrored
 
 	result := models.NewRunOutputError(errors.New("oh futz"))
-	err := jobRun.ApplyOutput(result)
-	assert.NoError(t, err)
+	jobRun.ApplyOutput(result)
 	assert.True(t, jobRun.FinishedAt.Valid)
 }
