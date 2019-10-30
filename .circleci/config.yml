@@ -374,11 +374,8 @@ workflows:
       - reportcoverage:
           requires:
             - go-sqlite
-            - go-sqlite-race
             - go-postgres
             - truffle
-            - geth-postgres
-            - parity-postgres
             - operator-ui
             - rust
             - explorer
