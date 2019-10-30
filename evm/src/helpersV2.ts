@@ -1,10 +1,8 @@
 import { ethers } from 'ethers'
-import { Signer } from 'ethers/abstract-signer'
 import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
 import { Oracle } from './generated/Oracle'
 import { CoordinatorFactory } from './generated/CoordinatorFactory'
-import { CoordinatorInterfaceFactory } from './generated/CoordinatorInterfaceFactory'
 import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
@@ -375,55 +373,34 @@ export function hexToBuf(hexstr: string): Buffer {
   return Buffer.from(stripHexPrefix(hexstr), 'hex')
 }
 
-interface ParamType {
-  name: string
-  type: string
-}
-
-/**
- * Names and types of the ServiceAgreement struct components
- *
- * Retrieves the struct fields from the ethers.js representation of
- * CoordinatorInterface.sol, so it should silently adapt to changes in the
- * struct, as long as the ethers.js representation is up to date.
- */
-export function serviceAgreementFieldTypes(): ParamType[] {
-  // TODO: Use a function in CoordinatorFactory().interface.abi with a
-  // ServiceAgreement parameter, here. Don't use the output of
-  // serviceAgreements() directly, because abi outputs elide dynamic types (like
-  // `oracles`, in this case.)
-  const dummyCoordinatorInterface = CoordinatorInterfaceFactory.connect(
-    '0x0000000000000000000000000000000000000000', // Dummy address & signer
-    new (Signer as any)(/* Brutally instantiates an abstract class */),
-  )
-  const { abi } = dummyCoordinatorInterface.interface
-  const param = abi[0].inputs[0]
-  if (param.name !== '_agreement' || param.type !== 'tuple') {
-    throw Error(`extracted wrong version of struct tuple: ${param} from ${abi}`)
-  }
-  const sAABI = param.components as ParamType[]
-  if (!sAABI.every(p => p.name && p.type)) {
-    throw Error(`ServiceAgreement types aren't all ParamType: ${sAABI}`)
-  }
-  return sAABI
-}
-
 type Hash = ReturnType<typeof ethers.utils.keccak256>
 type Coordinator = ReturnType<CoordinatorFactory['attach']>
 type ServiceAgreement = Parameters<Coordinator['initiateServiceAgreement']>[0]
 
 /**
  * Digest of the ServiceAgreement.
- *
- * NB: Changes this function may necessitate changes in tandem to
- * service_agreement.go/Encumberance.ABI, and Coordinator#getId, because this
- * digest is used by oracles to sign the agreement, and used by the coordinator
- * to index the agreement.
  */
 export const calculateSAID2 = (sa: ServiceAgreement): Hash => {
-  const abi = serviceAgreementFieldTypes()
-  type SAKey = keyof ServiceAgreement
-  const typeStrings = abi.map((p: ParamType) => p.type)
-  const inputs = abi.map((p: ParamType) => sa[p.name as SAKey])
-  return ethers.utils.solidityKeccak256(typeStrings, inputs)
+  const [saParam] = new CoordinatorFactory().interface.functions.getId.inputs
+  if (
+    saParam.name !== '_agreement' ||
+    saParam.type !== 'tuple' ||
+    !saParam.components
+  ) {
+    throw Error(
+      `extracted wrong version of struct tuple: ${saParam} from coordinatorFactory.interface.functions.getId`,
+    )
+  }
+
+  const abiValues = saParam.components.reduce(
+    (prev, next) => {
+      prev.types.push(next.type)
+      prev.values.push(sa[next.name as keyof ServiceAgreement])
+
+      return prev
+    },
+    { types: [], values: [] },
+  )
+
+  return ethers.utils.solidityKeccak256(abiValues.types, abiValues.values)
 }
