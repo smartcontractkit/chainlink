@@ -115,24 +115,22 @@ func (jr *JobRun) SetError(err error) {
 }
 
 // ApplyOutput updates the JobRun's Result and Status
-func (jr *JobRun) ApplyOutput(result RunOutput) error {
+func (jr *JobRun) ApplyOutput(result RunOutput) {
 	if result.HasError() {
 		jr.SetError(result.Error())
-		return nil
+		return
 	}
 	jr.Result.Data = result.Data()
 	jr.setStatus(result.Status())
-	return nil
 }
 
 // ApplyBridgeRunResult saves the input from a BridgeAdapter
-func (jr *JobRun) ApplyBridgeRunResult(result BridgeRunResult) error {
+func (jr *JobRun) ApplyBridgeRunResult(result BridgeRunResult) {
 	if result.HasError() {
 		jr.SetError(result.GetError())
 	}
 	jr.Result.Data = result.Data
 	jr.setStatus(result.Status)
-	return nil
 }
 
 func (jr *JobRun) setStatus(status RunStatus) {
