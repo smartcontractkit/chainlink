@@ -31,7 +31,7 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	run, err := store.FindJobRun(jr.ID)
 	require.NoError(t, err)
 	assert.True(t, run.Result.ErrorMessage.Valid)
-	assert.Equal(t, "bad idea", run.Result.ErrorString())
+	assert.Equal(t, "bad idea", run.ErrorString())
 }
 
 func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
@@ -165,7 +165,7 @@ func TestForLogger(t *testing.T) {
 	run.SetError(errors.New("bad idea"))
 	logsWithErr := run.ForLogger()
 	assert.Equal(t, logsWithErr[6], "job_error")
-	assert.Equal(t, logsWithErr[7], run.Result.ErrorString())
+	assert.Equal(t, logsWithErr[7], run.ErrorString())
 }
 
 func TestJobRun_NextTaskRun(t *testing.T) {

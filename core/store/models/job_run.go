@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
+	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -65,7 +66,7 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 	}
 
 	if jr.HasError() {
-		output = append(output, "job_error", jr.Result.ErrorString())
+		output = append(output, "job_error", jr.ErrorString())
 	}
 
 	if jr.Status == "completed" {
@@ -143,6 +144,20 @@ func (jr *JobRun) setStatus(status RunStatus) {
 	}
 }
 
+// ResultString returns the "result" value as a string if possible
+func (jr *JobRun) ResultString() (string, error) {
+	val := jr.Result.Data.Get("result")
+	if val.Type != gjson.String {
+		return "", fmt.Errorf("non string result")
+	}
+	return val.String(), nil
+}
+
+// ErrorString returns the error as a string if present, otherwise "".
+func (jr *JobRun) ErrorString() string {
+	return jr.Result.ErrorMessage.ValueOrZero()
+}
+
 // RunRequest stores the fields used to initiate the parent job run.
 type RunRequest struct {
 	ID        uint `gorm:"primary_key"`
@@ -202,4 +217,18 @@ func (tr *TaskRun) ApplyOutput(result RunOutput) {
 	}
 	tr.Result.Data = result.Data()
 	tr.Status = result.Status()
+}
+
+// ErrorString returns the error as a string if present, otherwise "".
+func (tr *TaskRun) ErrorString() string {
+	return tr.Result.ErrorMessage.ValueOrZero()
+}
+
+// ResultString returns the "result" value as a string if possible
+func (tr *TaskRun) ResultString() (string, error) {
+	val := tr.Result.Data.Get("result")
+	if val.Type != gjson.String {
+		return "", fmt.Errorf("non string result")
+	}
+	return val.String(), nil
 }
