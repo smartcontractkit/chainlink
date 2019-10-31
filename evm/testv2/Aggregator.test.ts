@@ -4,9 +4,9 @@ import { ethers } from 'ethers'
 import { EthersProviderWrapper } from '../src/provider'
 import env from '@nomiclabs/buidler'
 import { Instance } from '../src/contract'
-import { OracleFactory } from 'contracts/OracleFactory'
-import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
-import { AggregatorFactory } from 'contracts/AggregatorFactory'
+import { OracleFactory } from '../src/generated/OracleFactory'
+import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
+import { AggregatorFactory } from '../src/generated/AggregatorFactory'
 import { assert } from 'chai'
 
 const aggregatorFactory = new AggregatorFactory()
