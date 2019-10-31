@@ -15,10 +15,8 @@
     "lint": "yarn solhint && yarn eslint",
     "slither": "truffle compile --quiet && slither .",
     "pretest": "yarn build",
-    "test:v1": "tsc && truffle test ./dist/test/*.js",
-    "test:v2": "jest --testTimeout 20000",
-    "test": "yarn test:v1 && yarn test:v2",
-    "format": "prettier --write \"{src,test,testv2}/*/**\"",
+    "test": "jest --testTimeout 20000",
+    "format": "prettier --write \"{src,testv2}/*/**\"",
     "prepublishOnly": "yarn build && yarn lint && yarn test",
     "setup": "ts-node ./scripts/build",
     "truffle:migrate:cldev": "truffle migrate --network cldev"
