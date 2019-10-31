@@ -11,7 +11,6 @@ type RunInput struct {
 	jobRunID ID
 	data     JSON
 	status   RunStatus
-	err      error
 }
 
 // NewRunInput creates a new RunInput with arbitrary data
@@ -45,11 +44,6 @@ func (ri RunInput) ResultString() (string, error) {
 		return "", fmt.Errorf("non string result")
 	}
 	return val.String(), nil
-}
-
-// GetError returns the error of a RunResult if it is present.
-func (ri RunInput) Error() error {
-	return ri.err
 }
 
 // Status returns the RunInput's status

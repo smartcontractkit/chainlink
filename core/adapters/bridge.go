@@ -30,8 +30,6 @@ type Bridge struct {
 func (ba *Bridge) Perform(input models.RunInput, store *store.Store) models.RunOutput {
 	if input.Status().Completed() {
 		return models.NewRunOutputComplete(input.Data())
-	} else if input.Status().Errored() {
-		return models.NewRunOutputError(input.Error())
 	} else if input.Status().PendingBridge() {
 		return models.NewRunOutputInProgress(input.Data())
 	}
