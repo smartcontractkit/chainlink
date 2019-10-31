@@ -83,7 +83,7 @@
     "jest": "^24.7.0",
     "node-fetch": "^2.6.0",
     "prettier": "^1.18.2",
-    "puppeteer": "^1.20.0",
+    "puppeteer": "^2.0.0",
     "supertest": "^4.0.2",
     "ts-jest": "^24.0.0",
     "ts-node-dev": "^1.0.0-pre.40",
