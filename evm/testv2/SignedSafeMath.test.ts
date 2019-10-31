@@ -3,8 +3,8 @@ import { assertBigNum } from '../src/matchersV2'
 import { ethers } from 'ethers'
 import { createFundedWallet } from '../src/wallet'
 import { EthersProviderWrapper } from '../src/provider'
-import { ConcreteSignedSafeMathFactory } from 'contracts/ConcreteSignedSafeMathFactory'
-import { Instance } from 'src/contract'
+import { ConcreteSignedSafeMathFactory } from '../src/generated/ConcreteSignedSafeMathFactory'
+import { Instance } from '../src/contract'
 import env from '@nomiclabs/buidler'
 
 const concreteSignedSafeMathFactory = new ConcreteSignedSafeMathFactory()

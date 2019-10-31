@@ -1,8 +1,8 @@
 import * as h from '../src/helpersV2'
 import { ethers } from 'ethers'
 import { assert } from 'chai'
-import { GetterSetterFactory } from 'contracts/GetterSetterFactory'
-import { Instance } from 'src/contract'
+import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
+import { Instance } from '../src/contract'
 import env from '@nomiclabs/buidler'
 import { EthersProviderWrapper } from '../src/provider'
 

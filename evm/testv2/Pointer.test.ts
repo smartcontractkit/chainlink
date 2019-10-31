@@ -1,8 +1,8 @@
 import * as h from '../src/helpersV2'
 import { assert } from 'chai'
-import { PointerFactory } from 'contracts/PointerFactory'
-import { LinkTokenFactory } from 'contracts/LinkTokenFactory'
-import { Instance } from 'src/contract'
+import { PointerFactory } from '../src/generated/PointerFactory'
+import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
+import { Instance } from '../src/contract'
 import env from '@nomiclabs/buidler'
 import { EthersProviderWrapper } from '../src/provider'
 

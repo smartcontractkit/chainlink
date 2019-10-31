@@ -53,6 +53,7 @@ pushd integration >/dev/null
 
 ./runlog_test
 ./ethlog_test
+./service_agreement_test
 
 title 'End to end tests.'
 

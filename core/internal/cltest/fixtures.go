@@ -1,12 +1,8 @@
 package cltest
 
 import (
-	"bytes"
 	"encoding/json"
-	"net/http"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/require"
@@ -20,34 +16,6 @@ const (
 // FixtureCreateJobViaWeb creates a job from a fixture using /v2/specs
 func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
 	return CreateSpecViaWeb(t, app, string(MustReadFile(t, path)))
-}
-
-var EndAt = time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
-
-// FixtureCreateServiceAgreementViaWeb creates a service agreement from a fixture using /v2/service_agreements
-func FixtureCreateServiceAgreementViaWeb(
-	t *testing.T,
-	app *TestApplication,
-	path string,
-) models.ServiceAgreement {
-	client := app.NewHTTPClient()
-
-	agreementWithoutOracle := string(MustReadFile(t, path))
-	var endAtISO8601 = EndAt.Format(time.RFC3339)
-	agreementWithoutOracle = strings.Replace(agreementWithoutOracle,
-		"2019-10-19T22:17:19Z", endAtISO8601, 1)
-	from := GetAccountAddress(t, app.ChainlinkApplication.GetStore())
-	agreementWithOracle := MustJSONSet(t, agreementWithoutOracle, "oracles", []string{from.Hex()})
-
-	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBufferString(agreementWithOracle))
-	defer cleanup()
-
-	AssertServerResponse(t, resp, http.StatusOK)
-	responseSA := models.ServiceAgreement{}
-	err := ParseJSONAPIResponse(t, resp, &responseSA)
-	require.NoError(t, err)
-
-	return FindServiceAgreement(t, app.Store, responseSA.ID)
 }
 
 // JSONFromFixture create models.JSON from file path

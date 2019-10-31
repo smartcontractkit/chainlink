@@ -3,3 +3,4 @@
 .prettierignore
 .gitignore
 deploy
+.eslintignore

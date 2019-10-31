@@ -62,7 +62,7 @@ func (cli *Client) CreateServiceAgreement(c *clipkg.Context) error {
 	defer resp.Body.Close()
 
 	var sa presenters.ServiceAgreement
-	return cli.renderResponse(resp, &sa)
+	return cli.renderAPIResponse(resp, &sa)
 }
 
 // CreateExternalInitiator adds an external initiator

@@ -67,6 +67,7 @@ jobs:
           key: go-mod-{{ checksum "go.sum" }}
           paths:
             - "/go/pkg/mod"
+      - run: yarn workspace chainlinkv0.5 run setup
       - run: yarn workspace chainlink run setup
       - run: go test -p 3 -parallel 2 ./...
   rust:
@@ -141,7 +142,7 @@ jobs:
       - store_artifacts:
           path: ./integration/cypress/screenshots
   parity-postgres:
-    resource_class: large
+    resource_class: xlarge
     docker:
       - image: smartcontract/builder:1.0.25
         environment:
@@ -373,11 +374,8 @@ workflows:
       - reportcoverage:
           requires:
             - go-sqlite
-            - go-sqlite-race
             - go-postgres
             - truffle
-            - geth-postgres
-            - parity-postgres
             - operator-ui
             - rust
             - explorer

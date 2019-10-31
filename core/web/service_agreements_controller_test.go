@@ -2,7 +2,6 @@ package web_test
 
 import (
 	"bytes"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -115,9 +115,8 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	b, err := ioutil.ReadAll(resp.Body)
-	assert.NoError(t, err)
 	normalizedInput := cltest.NormalizedJSON(t, input)
-	saBody := cltest.JSONFromBytes(t, b).Get("data").Get("attributes")
-	assert.Equal(t, normalizedInput, saBody.String())
+	parsed := presenters.ServiceAgreement{}
+	cltest.ParseJSONAPIResponse(t, resp, &parsed)
+	assert.Equal(t, normalizedInput, parsed.RequestBody)
 }

@@ -3,3 +3,4 @@ node_modules/
 build/contracts/*
 !contracts/vendor
 dist
+src/generated

@@ -483,7 +483,7 @@ interface ServiceAgreement {
   oracleSignatures: Signature[]
 }
 
-export const calculateSAID = (sa: ServiceAgreement): Uint8Array => {
+export const generateSAID = (sa: ServiceAgreement): Uint8Array => {
   const serviceAgreementIDInput = concatUint8Arrays(
     BNtoUint8Array(sa.payment),
     BNtoUint8Array(sa.expiration),
@@ -715,7 +715,7 @@ export const newServiceAgreement = async (
   agreement.aggInitiateJobSelector =
     params.aggInitiateJobSelector || '0x12345678'
   agreement.aggFulfillSelector = params.aggFulfillSelector || '0x87654321'
-  const sAID = calculateSAID(agreement as ServiceAgreement)
+  const sAID = generateSAID(agreement as ServiceAgreement)
   agreement.id = toHex(sAID)
 
   for (let i = 0; i < agreement.oracles.length; i++) {
