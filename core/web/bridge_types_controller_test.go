@@ -30,7 +30,6 @@ func BenchmarkBridgeTypesController_Index(b *testing.B) {
 }
 
 func TestBridgeTypesController_Index(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -97,7 +96,6 @@ func setupBridgeControllerIndex(t testing.TB, app *cltest.TestApplication) ([]*m
 }
 
 func TestBridgeTypesController_Create_Success(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -125,7 +123,6 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 }
 
 func TestBridgeTypesController_Update_Success(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -148,7 +145,6 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 }
 
 func TestBridgeController_Show(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -177,7 +173,6 @@ func TestBridgeController_Show(t *testing.T) {
 }
 
 func TestBridgeController_Destroy(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -212,7 +207,6 @@ func TestBridgeController_Destroy(t *testing.T) {
 }
 
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -227,7 +221,6 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 }
 
 func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -242,7 +235,6 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 }
 
 func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()

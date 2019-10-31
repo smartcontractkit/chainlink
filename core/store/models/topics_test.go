@@ -10,7 +10,6 @@ import (
 )
 
 func TestTopicFiltersForRunLog(t *testing.T) {
-	t.Parallel()
 
 	jobID, err := models.NewIDFromString("4a1eb0e8df314cb894024a38991cff0f")
 	require.NoError(t, err)

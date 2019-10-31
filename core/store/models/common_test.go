@@ -16,7 +16,6 @@ import (
 )
 
 func TestJSON_Merge(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name      string
@@ -100,7 +99,6 @@ func TestJSON_MergeNull(t *testing.T) {
 }
 
 func TestJSON_UnmarshalJSON(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name        string
@@ -121,7 +119,6 @@ func TestJSON_UnmarshalJSON(t *testing.T) {
 }
 
 func TestJSON_ParseJSON(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name        string
@@ -144,7 +141,6 @@ func TestJSON_ParseJSON(t *testing.T) {
 }
 
 func TestJSON_Add(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name    string
@@ -171,7 +167,6 @@ func TestJSON_Add(t *testing.T) {
 }
 
 func TestJSON_Delete(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name string
@@ -195,7 +190,6 @@ func TestJSON_Delete(t *testing.T) {
 }
 
 func TestJSON_CBOR(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name string
@@ -230,7 +224,6 @@ func TestJSON_CBOR(t *testing.T) {
 }
 
 func TestWebURL_UnmarshalJSON_Error(t *testing.T) {
-	t.Parallel()
 	j := []byte(`"NotAUrl"`)
 	wurl := &models.WebURL{}
 	err := json.Unmarshal(j, wurl)
@@ -238,7 +231,6 @@ func TestWebURL_UnmarshalJSON_Error(t *testing.T) {
 }
 
 func TestWebURL_UnmarshalJSON(t *testing.T) {
-	t.Parallel()
 	j := []byte(`"http://www.duckduckgo.com"`)
 	wurl := &models.WebURL{}
 	err := json.Unmarshal(j, wurl)
@@ -246,7 +238,6 @@ func TestWebURL_UnmarshalJSON(t *testing.T) {
 }
 
 func TestWebURL_MarshalJSON(t *testing.T) {
-	t.Parallel()
 
 	str := "http://www.duckduckgo.com"
 	parsed, err := url.ParseRequestURI(str)
@@ -258,7 +249,6 @@ func TestWebURL_MarshalJSON(t *testing.T) {
 }
 
 func TestWebURL_String_HasURL(t *testing.T) {
-	t.Parallel()
 
 	u, _ := url.Parse("http://www.duckduckgo.com")
 	w := models.WebURL(*u)
@@ -267,7 +257,6 @@ func TestWebURL_String_HasURL(t *testing.T) {
 }
 
 func TestWebURL_String_HasNilURL(t *testing.T) {
-	t.Parallel()
 
 	w := models.WebURL{}
 
@@ -329,7 +318,6 @@ func TestAnyTime_UnmarshalJSON_Null(t *testing.T) {
 }
 
 func TestAnyTime_MarshalJSON(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name  string

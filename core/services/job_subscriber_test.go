@@ -17,7 +17,6 @@ import (
 )
 
 func TestJobSubscriber_Connect_WithJobs(t *testing.T) {
-	t.Parallel()
 
 	store, el, cleanup := cltest.NewJobSubscriber(t)
 	defer cleanup()
@@ -41,7 +40,6 @@ func newAddr() common.Address {
 }
 
 func TestJobSubscriber_reconnectLoop_Resubscribing(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -76,7 +74,6 @@ func TestJobSubscriber_reconnectLoop_Resubscribing(t *testing.T) {
 }
 
 func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
-	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
 	store, el, cleanup := cltest.NewJobSubscriber(t)
@@ -99,7 +96,6 @@ func TestJobSubscriber_AttachedToHeadTracker(t *testing.T) {
 }
 
 func TestJobSubscriber_AddJob_Listening(t *testing.T) {
-	t.Parallel()
 	sharedAddr := newAddr()
 	noAddr := common.Address{}
 
@@ -163,7 +159,6 @@ func TestJobSubscriber_AddJob_Listening(t *testing.T) {
 }
 
 func TestJobSubscriber_RemoveJob_RunLog(t *testing.T) {
-	t.Parallel()
 
 	store, el, cleanup := cltest.NewJobSubscriber(t)
 	defer cleanup()
@@ -199,7 +194,6 @@ func TestJobSubscriber_RemoveJob_RunLog(t *testing.T) {
 }
 
 func TestJobSubscriber_RemoveJob_EthLog(t *testing.T) {
-	t.Parallel()
 
 	store, el, cleanup := cltest.NewJobSubscriber(t)
 	defer cleanup()
@@ -246,7 +240,6 @@ func sendingOnClosedChannel(callback func()) (rval bool) {
 }
 
 func TestJobSubscriber_OnNewHead_ResumePendingConfirmationsAndPendingConnections(t *testing.T) {
-	t.Parallel()
 
 	block := cltest.NewBlockHeader(10)
 	prettyLabel := func(archived bool, rs models.RunStatus) string {

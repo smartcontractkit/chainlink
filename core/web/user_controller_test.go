@@ -12,7 +12,6 @@ import (
 )
 
 func TestUserController_UpdatePassword(t *testing.T) {
-	t.Parallel()
 
 	appWithUser, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -46,7 +45,6 @@ func TestUserController_UpdatePassword(t *testing.T) {
 }
 
 func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
-	t.Parallel()
 
 	appWithoutAccount, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -64,7 +62,6 @@ func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
 }
 
 func TestUserController_AccountBalances_Success(t *testing.T) {
-	t.Parallel()
 
 	appWithAccount, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()

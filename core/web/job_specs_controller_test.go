@@ -33,7 +33,6 @@ func BenchmarkJobSpecsController_Index(b *testing.B) {
 }
 
 func TestJobSpecsController_Index_noSort(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -81,7 +80,6 @@ func TestJobSpecsController_Index_noSort(t *testing.T) {
 }
 
 func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -155,7 +153,6 @@ func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec,
 }
 
 func TestJobSpecsController_Create_HappyPath(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -200,7 +197,6 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 }
 
 func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
-	t.Parallel()
 
 	var eiReceived web.JobSpecNotice
 	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
@@ -241,7 +237,6 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 }
 
 func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
@@ -267,7 +262,6 @@ func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 }
 
 func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -283,7 +277,6 @@ func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 }
 
 func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -299,7 +292,6 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 }
 
 func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -315,7 +307,6 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 }
 
 func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -331,7 +322,6 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 }
 
 func TestJobSpecsController_Create_Task_Only(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -360,7 +350,6 @@ func BenchmarkJobSpecsController_Show(b *testing.B) {
 }
 
 func TestJobSpecsController_Show(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -396,7 +385,6 @@ func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication)
 }
 
 func TestJobSpecsController_Show_NotFound(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -407,7 +395,6 @@ func TestJobSpecsController_Show_NotFound(t *testing.T) {
 }
 
 func TestJobSpecsController_Show_InvalidUuid(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client := app.NewHTTPClient()
@@ -418,7 +405,6 @@ func TestJobSpecsController_Show_InvalidUuid(t *testing.T) {
 }
 
 func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
@@ -428,7 +414,6 @@ func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 }
 
 func TestJobSpecsController_Destroy(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client := app.NewHTTPClient()

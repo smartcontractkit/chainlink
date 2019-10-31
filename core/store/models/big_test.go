@@ -10,7 +10,6 @@ import (
 )
 
 func TestBig_UnmarshalText(t *testing.T) {
-	t.Parallel()
 
 	i := &Big{}
 	tests := []struct {
@@ -34,7 +33,6 @@ func TestBig_UnmarshalText(t *testing.T) {
 }
 
 func TestBig_UnmarshalTextErrors(t *testing.T) {
-	t.Parallel()
 
 	i := &Big{}
 	tests := []struct {
@@ -55,7 +53,6 @@ func TestBig_UnmarshalTextErrors(t *testing.T) {
 }
 
 func TestBig_MarshalJSON(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name  string
@@ -75,7 +72,6 @@ func TestBig_MarshalJSON(t *testing.T) {
 }
 
 func TestBig_Scan(t *testing.T) {
-	t.Parallel()
 
 	uint256Max, ok := new(big.Int).SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
 	require.True(t, ok)
@@ -117,7 +113,6 @@ func TestBig_Scan(t *testing.T) {
 }
 
 func TestBig_ScanErrors(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name  string

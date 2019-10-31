@@ -9,7 +9,6 @@ import (
 )
 
 func TestAssets_NewLinkAndString(t *testing.T) {
-	t.Parallel()
 
 	link := assets.NewLink(0)
 
@@ -32,7 +31,6 @@ func TestAssets_NewLinkAndString(t *testing.T) {
 }
 
 func TestAssets_Link_MarshalJson(t *testing.T) {
-	t.Parallel()
 
 	link := assets.NewLink(1)
 
@@ -42,7 +40,6 @@ func TestAssets_Link_MarshalJson(t *testing.T) {
 }
 
 func TestAssets_Link_UnmarshalJsonOk(t *testing.T) {
-	t.Parallel()
 
 	link := assets.Link{}
 
@@ -52,7 +49,6 @@ func TestAssets_Link_UnmarshalJsonOk(t *testing.T) {
 }
 
 func TestAssets_Link_UnmarshalJsonError(t *testing.T) {
-	t.Parallel()
 
 	link := assets.Link{}
 
@@ -64,7 +60,6 @@ func TestAssets_Link_UnmarshalJsonError(t *testing.T) {
 }
 
 func TestAssets_NewEthAndString(t *testing.T) {
-	t.Parallel()
 
 	eth := assets.NewEth(0)
 
@@ -84,7 +79,6 @@ func TestAssets_NewEthAndString(t *testing.T) {
 }
 
 func TestAssets_Eth_IsZero(t *testing.T) {
-	t.Parallel()
 
 	zeroEth := assets.NewEth(0)
 	assert.True(t, zeroEth.IsZero())
@@ -94,7 +88,6 @@ func TestAssets_Eth_IsZero(t *testing.T) {
 }
 
 func TestAssets_Eth_MarshalJson(t *testing.T) {
-	t.Parallel()
 
 	eth := assets.NewEth(1)
 
@@ -104,7 +97,6 @@ func TestAssets_Eth_MarshalJson(t *testing.T) {
 }
 
 func TestAssets_Eth_UnmarshalJsonOk(t *testing.T) {
-	t.Parallel()
 
 	eth := assets.Eth{}
 
@@ -114,7 +106,6 @@ func TestAssets_Eth_UnmarshalJsonOk(t *testing.T) {
 }
 
 func TestAssets_Eth_UnmarshalJsonError(t *testing.T) {
-	t.Parallel()
 
 	eth := assets.Eth{}
 

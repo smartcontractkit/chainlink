@@ -74,7 +74,6 @@ func TestTxReceipt_FulfilledRunlog(t *testing.T) {
 }
 
 func TestEthCallerSubscriber_GetNonce(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	ethMock := app.MockEthCallerSubscriber()
@@ -87,7 +86,6 @@ func TestEthCallerSubscriber_GetNonce(t *testing.T) {
 }
 
 func TestEthCallerSubscriber_SendRawTx(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	ethMock := app.MockEthCallerSubscriber()
@@ -99,7 +97,6 @@ func TestEthCallerSubscriber_SendRawTx(t *testing.T) {
 }
 
 func TestEthCallerSubscriber_GetEthBalance(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
@@ -126,7 +123,6 @@ func TestEthCallerSubscriber_GetEthBalance(t *testing.T) {
 }
 
 func TestEthCallerSubscriber_GetERC20Balance(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 

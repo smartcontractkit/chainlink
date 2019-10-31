@@ -15,7 +15,6 @@ import (
 )
 
 func TestScheduler_Start_LoadingRecurringJobs(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -34,7 +33,6 @@ func TestScheduler_Start_LoadingRecurringJobs(t *testing.T) {
 }
 
 func TestScheduler_AddJob_WhenStopped(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -209,7 +207,6 @@ func TestOneTime_AddJob(t *testing.T) {
 }
 
 func TestOneTime_RunJobAt_StopJobBeforeExecution(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -240,7 +237,6 @@ func TestOneTime_RunJobAt_StopJobBeforeExecution(t *testing.T) {
 }
 
 func TestOneTime_RunJobAt_ExecuteLateJob(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -270,7 +266,6 @@ func TestOneTime_RunJobAt_ExecuteLateJob(t *testing.T) {
 }
 
 func TestOneTime_RunJobAt_RunTwice(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -295,7 +290,6 @@ func TestOneTime_RunJobAt_RunTwice(t *testing.T) {
 }
 
 func TestOneTime_RunJobAt_UnstartedRun(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -318,7 +312,6 @@ func TestOneTime_RunJobAt_UnstartedRun(t *testing.T) {
 }
 
 func TestOneTime_RunJobAt_ArchivedRun(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()

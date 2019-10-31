@@ -18,7 +18,6 @@ func (a *ManagedAccount) SetLastSafeNonce(n uint64) {
 }
 
 func TestManagedAccount_updateLastSafeNonce(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name      string
@@ -42,7 +41,6 @@ func TestManagedAccount_updateLastSafeNonce(t *testing.T) {
 }
 
 func TestTxManager_updateLastSafeNonce_success(t *testing.T) {
-	t.Parallel()
 
 	from := common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")
 	nonce := uint64(234)
@@ -57,7 +55,6 @@ func TestTxManager_updateLastSafeNonce_success(t *testing.T) {
 }
 
 func TestTxManager_updateLastSafeNonce_noMatchingAccount(t *testing.T) {
-	t.Parallel()
 
 	from := common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")
 	nonce := uint64(234)

@@ -18,13 +18,11 @@ import (
 )
 
 func TestUtils_NewBytes32ID(t *testing.T) {
-	t.Parallel()
 	id := utils.NewBytes32ID()
 	assert.NotContains(t, id, "-")
 }
 
 func TestUtils_NewSecret(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		numOfBytes int
 		wantStrLen int
@@ -51,7 +49,6 @@ func TestUtils_IsEmptyAddress(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			actual := utils.IsEmptyAddress(test.addr)
 			assert.Equal(t, test.want, actual)
 		})
@@ -71,7 +68,6 @@ func TestUtils_StringToHex(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.utf8, func(t *testing.T) {
-			t.Parallel()
 			assert.Equal(t, test.hex, utils.StringToHex(test.utf8))
 		})
 	}
@@ -96,14 +92,12 @@ func TestUtils_BackoffSleeper(t *testing.T) {
 }
 
 func TestUtils_DurationFromNow(t *testing.T) {
-	t.Parallel()
 	future := time.Now().Add(time.Second)
 	duration := utils.DurationFromNow(future)
 	assert.True(t, 0 < duration)
 }
 
 func TestCoerceInterfaceMapToStringMap(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name      string
@@ -163,7 +157,6 @@ func TestCoerceInterfaceMapToStringMap(t *testing.T) {
 }
 
 func TestKeccak256(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name  string

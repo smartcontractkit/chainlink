@@ -10,7 +10,6 @@ import (
 )
 
 func TestNormalizedJSON(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name      string

@@ -16,7 +16,6 @@ import (
 )
 
 func TestConfigController_Show(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()

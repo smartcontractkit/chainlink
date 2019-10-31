@@ -9,7 +9,6 @@ import (
 )
 
 func TestGuiAssets_WildcardIndexHtml(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -49,7 +48,6 @@ func TestGuiAssets_WildcardIndexHtml(t *testing.T) {
 }
 
 func TestGuiAssets_WildcardRouteInfo(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -73,7 +71,6 @@ func TestGuiAssets_WildcardRouteInfo(t *testing.T) {
 }
 
 func TestGuiAssets_Exact(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()

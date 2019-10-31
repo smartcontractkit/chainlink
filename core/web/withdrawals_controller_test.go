@@ -28,7 +28,6 @@ func verifyLinkBalanceCheck(address common.Address, t *testing.T) func(interface
 }
 
 func TestWithdrawalsController_CreateSuccess(t *testing.T) {
-	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
@@ -69,7 +68,6 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 }
 
 func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
-	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
 	oca := common.HexToAddress("0xDEADB3333333F")

@@ -65,7 +65,6 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 }
 
 func TestBridge_Perform_transitionsTo(t *testing.T) {
-	t.Parallel()
 	cases := []struct {
 		name       string
 		status     models.RunStatus
@@ -105,7 +104,6 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 }
 
 func TestBridge_Perform_startANewRun(t *testing.T) {
-	t.Parallel()
 	cases := []struct {
 		name        string
 		status      int
@@ -155,7 +153,6 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 	input := cltest.RunResultWithResult("lot 49")
 	input.CachedJobRunID = models.NewID()
 
-	t.Parallel()
 	cases := []struct {
 		name          string
 		configuredURL models.WebURL

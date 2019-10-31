@@ -28,7 +28,6 @@ func TestEthBool_Perform(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			past := models.RunResult{
 				Data: cltest.JSONFromString(t, test.json),
 			}

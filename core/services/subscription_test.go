@@ -21,7 +21,6 @@ import (
 )
 
 func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -48,7 +47,6 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 }
 
 func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -69,7 +67,6 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 }
 
 func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -102,7 +99,6 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 }
 
 func TestServices_ReceiveLogRequest_IgnoredLogWithRemovedFlag(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -132,7 +128,6 @@ func TestServices_ReceiveLogRequest_IgnoredLogWithRemovedFlag(t *testing.T) {
 }
 
 func TestServices_NewInitiatorSubscription_ReplayFromBlock(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()

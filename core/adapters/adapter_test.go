@@ -12,7 +12,6 @@ import (
 )
 
 func TestCreatingAdapterWithConfig(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -23,7 +22,6 @@ func TestCreatingAdapterWithConfig(t *testing.T) {
 }
 
 func TestAdapterFor(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 

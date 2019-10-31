@@ -22,7 +22,6 @@ import (
 )
 
 func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -76,7 +75,6 @@ func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
 }
 
 func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -133,7 +131,6 @@ func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
 }
 
 func TestEthTxAdapter_Perform_SafeWithBytesAndNoDataPrefix(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -194,7 +191,6 @@ func TestEthTxAdapter_Perform_SafeWithBytesAndNoDataPrefix(t *testing.T) {
 }
 
 func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -227,7 +223,6 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 }
 
 func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -263,7 +258,6 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
 }
 
 func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -326,7 +320,6 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testi
 }
 
 func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -368,7 +361,6 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 }
 
 func TestEthTxAdapter_Perform_WithError(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -390,7 +382,6 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 }
 
 func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -414,7 +405,6 @@ func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
 }
 
 func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -442,7 +432,6 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *
 }
 
 func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManager(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -515,7 +504,6 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 }
 
 func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -557,7 +545,6 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 }
 
 func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -572,7 +559,6 @@ func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 }
 
 func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -601,7 +587,6 @@ func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testin
 }
 
 func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -633,7 +618,6 @@ func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T
 }
 
 func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfirmations(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -679,7 +663,6 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 }
 
 func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -748,7 +731,6 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 }
 
 func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -823,7 +805,6 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t
 }
 
 func TestEthTxAdapter_IsClientRetriable(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name      string

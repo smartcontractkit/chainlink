@@ -18,7 +18,6 @@ var endAt = time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
 var endAtISO8601 = endAt.Format(time.RFC3339)
 
 func TestServiceAgreementsController_Create(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -69,7 +68,6 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 }
 
 func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -101,7 +99,6 @@ func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 }
 
 func TestServiceAgreementsController_Show(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	client := app.NewHTTPClient()

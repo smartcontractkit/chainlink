@@ -18,7 +18,6 @@ import (
 )
 
 func TestRendererJSON_RenderJobs(t *testing.T) {
-	t.Parallel()
 	r := cmd.RendererJSON{Writer: ioutil.Discard}
 	job := cltest.NewJob()
 	jobs := []models.JobSpec{job}
@@ -26,7 +25,6 @@ func TestRendererJSON_RenderJobs(t *testing.T) {
 }
 
 func TestRendererTable_RenderJobs(t *testing.T) {
-	t.Parallel()
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	job := cltest.NewJob()
 	jobs := []models.JobSpec{job}
@@ -34,22 +32,20 @@ func TestRendererTable_RenderJobs(t *testing.T) {
 }
 
 func TestRendererTable_RenderConfiguration(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	client := app.NewHTTPClient()
-	
+
 	resp, cleanup := client.Get("/v2/config")
 	cwl := presenters.ConfigWhitelist{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cwl))
-	
+
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	assert.NoError(t, r.Render(&cwl))
 }
 
 func TestRendererTable_RenderShowJob(t *testing.T) {
-	t.Parallel()
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	job := cltest.NewJobWithWebInitiator()
 	p := presenters.JobSpec{JobSpec: job}
@@ -57,7 +53,6 @@ func TestRendererTable_RenderShowJob(t *testing.T) {
 }
 
 func TestRenderer_RenderJobRun(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name     string
@@ -77,7 +72,6 @@ func TestRenderer_RenderJobRun(t *testing.T) {
 }
 
 func TestRendererTable_RenderJobRun(t *testing.T) {
-	t.Parallel()
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	job := cltest.NewJob()
 	jobs := []models.JobSpec{job}
@@ -98,7 +92,6 @@ func (w *testWriter) Write(actual []byte) (int, error) {
 }
 
 func TestRendererTable_RenderBridgeShow(t *testing.T) {
-	t.Parallel()
 	_, bridge := cltest.NewBridgeType(t, "hapax", "http://hap.ax")
 	bridge.Confirmations = 0
 
@@ -121,7 +114,6 @@ func TestRendererTable_RenderBridgeShow(t *testing.T) {
 }
 
 func TestRendererTable_RenderBridgeAdd(t *testing.T) {
-	t.Parallel()
 	bridge, _ := cltest.NewBridgeType(t, "hapax", "http://hap.ax")
 	bridge.Confirmations = 0
 
@@ -145,7 +137,6 @@ func TestRendererTable_RenderBridgeAdd(t *testing.T) {
 }
 
 func TestRendererTable_RenderBridgeList(t *testing.T) {
-	t.Parallel()
 	_, bridge := cltest.NewBridgeType(t, "hapax", "http://hap.ax")
 	bridge.Confirmations = 0
 
@@ -169,7 +160,6 @@ func TestRendererTable_RenderBridgeList(t *testing.T) {
 }
 
 func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
-	t.Parallel()
 
 	eia := presenters.ExternalInitiatorAuthentication{
 		Name:           "bitcoin",
@@ -202,7 +192,6 @@ func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 }
 
 func TestRendererTable_Render_TxAttempts(t *testing.T) {
-	t.Parallel()
 
 	attempts := []models.TxAttempt{
 		models.TxAttempt{
@@ -227,7 +216,6 @@ func TestRendererTable_Render_TxAttempts(t *testing.T) {
 }
 
 func TestRendererTable_Render_Tx(t *testing.T) {
-	t.Parallel()
 
 	from := cltest.NewAddress()
 	to := cltest.NewAddress()
@@ -254,7 +242,6 @@ func TestRendererTable_Render_Tx(t *testing.T) {
 }
 
 func TestRendererTable_Render_Txs(t *testing.T) {
-	t.Parallel()
 
 	a := cltest.NewAddress()
 	txs := []presenters.Tx{
@@ -284,7 +271,6 @@ func TestRendererTable_Render_Txs(t *testing.T) {
 func checkPresence(t *testing.T, s, output string) { assert.Regexp(t, regexp.MustCompile(s), output) }
 
 func TestRendererTable_ServiceAgreementShow(t *testing.T) {
-	t.Parallel()
 
 	sa, err := cltest.ServiceAgreementFromString(string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json")))
 	assert.NoError(t, err)
@@ -304,7 +290,6 @@ func TestRendererTable_ServiceAgreementShow(t *testing.T) {
 }
 
 func TestRendererTable_PatchResponse(t *testing.T) {
-	t.Parallel()
 
 	buffer := bytes.NewBufferString("")
 	r := cmd.RendererTable{Writer: buffer}
@@ -323,7 +308,6 @@ func TestRendererTable_PatchResponse(t *testing.T) {
 }
 
 func TestRendererTable_RenderUnknown(t *testing.T) {
-	t.Parallel()
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	anon := struct{ Name string }{"Romeo"}
 	assert.Error(t, r.Render(&anon))

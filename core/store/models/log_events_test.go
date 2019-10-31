@@ -16,7 +16,6 @@ import (
 )
 
 func TestParseRunLog(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name        string
@@ -70,7 +69,6 @@ func TestParseRunLog(t *testing.T) {
 }
 
 func TestEthLogEvent_JSON(t *testing.T) {
-	t.Parallel()
 
 	hwLog := cltest.LogFromFixture(t, "testdata/requestLog0original.json")
 	exampleLog := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
@@ -96,7 +94,6 @@ func TestEthLogEvent_JSON(t *testing.T) {
 }
 
 func TestRequestLogEvent_Validate(t *testing.T) {
-	t.Parallel()
 
 	job := cltest.NewJob()
 	id, err := models.NewIDFromString("4a1eb0e8df314cb894024a38991cff0f")
@@ -231,7 +228,6 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 }
 
 func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
-	t.Parallel()
 
 	// When InitiatorParams.fromBlock > the fromBlock passed into FilterQueryFactory, it should win
 	// due to being larger.
@@ -326,7 +322,6 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 }
 
 func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
-	t.Parallel()
 
 	id, err := models.NewIDFromString("4a1eb0e8df314cb894024a38991cff0f")
 	require.NoError(t, err)
@@ -355,7 +350,6 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 }
 
 func TestRunLogEvent_ContractPayment(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name        string
@@ -396,7 +390,6 @@ func TestRunLogEvent_ContractPayment(t *testing.T) {
 }
 
 func TestRunLogEvent_Requester(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name        string
@@ -436,7 +429,6 @@ func TestRunLogEvent_Requester(t *testing.T) {
 }
 
 func TestRunLogEvent_RunRequest(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name          string

@@ -10,7 +10,6 @@ import (
 )
 
 func TestBox_MatchWildcardBoxPath(t *testing.T) {
-	t.Parallel()
 
 	rootIndex := "index.html"
 	jobSpecRunShowRouteInfo := strings.Join(
@@ -43,7 +42,6 @@ func TestBox_MatchWildcardBoxPath(t *testing.T) {
 }
 
 func TestBox_MatchExactBoxPath(t *testing.T) {
-	t.Parallel()
 
 	main := "main.js"
 	pageMain := strings.Join([]string{"page", "main.js"}, (string)(os.PathSeparator))

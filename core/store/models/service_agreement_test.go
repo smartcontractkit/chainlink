@@ -15,7 +15,6 @@ import (
 )
 
 func TestNewUnsignedServiceAgreementFromRequest(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name        string
 		input       string
@@ -52,7 +51,6 @@ func TestNewUnsignedServiceAgreementFromRequest(t *testing.T) {
 }
 
 func TestBuildServiceAgreement(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name        string
 		input       string
@@ -94,7 +92,6 @@ func TestBuildServiceAgreement(t *testing.T) {
 }
 
 func TestEncumbrance_ABI(t *testing.T) {
-	t.Parallel()
 	endAt := cltest.ParseISO8601(t, "2007-01-02T15:04:05.000Z")
 	digest := cltest.NewHash()
 	requestDigestHex := utils.RemoveHexPrefix(digest.Hex())
@@ -204,7 +201,6 @@ func TestEncumbrance_ABI(t *testing.T) {
 }
 
 func TestServiceAgreementRequest_UnmarshalJSON(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name        string
 		input       string

@@ -15,7 +15,6 @@ import (
 )
 
 func TestNewInitiatorFromRequest(t *testing.T) {
-	t.Parallel()
 
 	job := cltest.NewJob()
 	tests := []struct {
@@ -119,7 +118,6 @@ func TestUnmarshalInitiatorRequest(t *testing.T) {
 }
 
 func TestNewJobFromRequest(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -151,7 +149,6 @@ func TestNewJobFromRequest(t *testing.T) {
 }
 
 func TestJobSpec_Save(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -175,7 +172,6 @@ func TestJobSpec_Save(t *testing.T) {
 }
 
 func TestJobSpec_NewRun(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -198,7 +194,6 @@ func TestJobSpec_NewRun(t *testing.T) {
 }
 
 func TestJobEnded(t *testing.T) {
-	t.Parallel()
 
 	endAt := cltest.ParseNullableTime(t, "3000-01-01T00:00:00.000Z")
 
@@ -225,7 +220,6 @@ func TestJobEnded(t *testing.T) {
 }
 
 func TestJobSpec_Started(t *testing.T) {
-	t.Parallel()
 
 	startAt := cltest.ParseNullableTime(t, "3000-01-01T00:00:00.000Z")
 
@@ -252,7 +246,6 @@ func TestJobSpec_Started(t *testing.T) {
 }
 
 func TestNewTaskType(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name    string

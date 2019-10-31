@@ -19,7 +19,6 @@ import (
 )
 
 func TestHeadTracker_New(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -38,7 +37,6 @@ func TestHeadTracker_New(t *testing.T) {
 }
 
 func TestHeadTracker_New_Limit_At_100(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -58,7 +56,6 @@ func TestHeadTracker_New_Limit_At_100(t *testing.T) {
 }
 
 func TestHeadTracker_Get(t *testing.T) {
-	t.Parallel()
 
 	start := cltest.Head(5)
 
@@ -104,7 +101,6 @@ func TestHeadTracker_Get(t *testing.T) {
 }
 
 func TestHeadTracker_Start_NewHeads(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -120,7 +116,6 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 }
 
 func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
-	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
 	store, cleanup := cltest.NewStore(t)
@@ -151,7 +146,6 @@ func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
 }
 
 func TestHeadTracker_ReconnectOnError(t *testing.T) {
-	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
 	store, cleanup := cltest.NewStore(t)
@@ -190,7 +184,6 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 }
 
 func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
-	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
 	store, cleanup := cltest.NewStore(t)

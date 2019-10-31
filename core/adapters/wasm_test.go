@@ -73,7 +73,6 @@ func TestWasm_Perform(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 
 			input := models.RunResult{
 				Data: cltest.JSONFromString(t, test.json),

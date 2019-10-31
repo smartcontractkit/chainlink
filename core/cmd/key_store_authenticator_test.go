@@ -9,7 +9,6 @@ import (
 )
 
 func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesAccount(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -27,7 +26,6 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesAccount(t *testing.
 }
 
 func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -42,7 +40,6 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *te
 }
 
 func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -59,7 +56,6 @@ func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing
 }
 
 func TestTerminalKeyStoreAuthenticator_WithAcctAndPwd(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()

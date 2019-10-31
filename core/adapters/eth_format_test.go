@@ -33,7 +33,6 @@ func TestEthBytes32_Perform(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			past := models.RunResult{
 				Data: cltest.JSONFromString(t, test.json),
 			}
@@ -49,7 +48,6 @@ func TestEthBytes32_Perform(t *testing.T) {
 }
 
 func TestEthInt256_Perform(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name    string
 		json    string
@@ -96,7 +94,6 @@ func TestEthInt256_Perform(t *testing.T) {
 }
 
 func TestEthUint256_Perform(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name    string
 		json    string

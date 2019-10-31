@@ -79,7 +79,6 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 }
 
 func TestClient_RunNodeWithPasswords(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name         string
@@ -135,7 +134,6 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 }
 
 func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name       string
@@ -181,7 +179,6 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 }
 
 func TestClient_ImportKey(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()

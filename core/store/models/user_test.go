@@ -9,7 +9,6 @@ import (
 )
 
 func TestNewUser(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		email, pwd string

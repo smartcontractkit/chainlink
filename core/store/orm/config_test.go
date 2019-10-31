@@ -18,7 +18,6 @@ import (
 )
 
 func TestStore_ConfigDefaults(t *testing.T) {
-	t.Parallel()
 	config := NewConfig()
 	assert.Equal(t, big.NewInt(0), config.ChainID())
 	assert.Equal(t, big.NewInt(20000000000), config.EthGasPriceDefault())
@@ -29,7 +28,6 @@ func TestStore_ConfigDefaults(t *testing.T) {
 }
 
 func TestConfig_sessionSecret(t *testing.T) {
-	t.Parallel()
 	config := NewConfig()
 	config.Set("ROOT", path.Join("/tmp/chainlink_test", "TestConfig_sessionSecret"))
 	err := os.MkdirAll(config.RootDir(), os.FileMode(0770))
@@ -47,7 +45,6 @@ func TestConfig_sessionSecret(t *testing.T) {
 }
 
 func TestConfig_sessionOptions(t *testing.T) {
-	t.Parallel()
 	config := NewConfig()
 
 	config.Set("SECURE_COOKIES", false)
@@ -159,7 +156,6 @@ func TestStore_urlParser(t *testing.T) {
 }
 
 func TestConfig_NormalizedDatabaseURL(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name, uri, expect string
@@ -185,7 +181,6 @@ func TestConfig_NormalizedDatabaseURL(t *testing.T) {
 }
 
 func TestConfig_EthGasPriceDefault(t *testing.T) {
-	t.Parallel()
 
 	config := NewConfig()
 

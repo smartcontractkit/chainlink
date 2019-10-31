@@ -18,7 +18,6 @@ import (
 )
 
 func TestStore_Start(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -34,7 +33,6 @@ func TestStore_Start(t *testing.T) {
 }
 
 func TestStore_Close(t *testing.T) {
-	t.Parallel()
 
 	s, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -56,7 +54,6 @@ func TestStore_Close(t *testing.T) {
 }
 
 func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -89,7 +86,6 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 }
 
 func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	app.AddUnlockedKey() // second account
@@ -137,7 +133,6 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 }
 
 func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -163,7 +158,6 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 }
 
 func TestQueuedRunChannel_Send(t *testing.T) {
-	t.Parallel()
 
 	rq := store.NewQueuedRunChannel()
 
@@ -173,7 +167,6 @@ func TestQueuedRunChannel_Send(t *testing.T) {
 }
 
 func TestQueuedRunChannel_Send_afterClose(t *testing.T) {
-	t.Parallel()
 
 	rq := store.NewQueuedRunChannel()
 	rq.Close()

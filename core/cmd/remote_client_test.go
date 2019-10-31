@@ -21,7 +21,6 @@ import (
 )
 
 func TestClient_DisplayAccountBalance(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -40,7 +39,6 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 }
 
 func TestClient_IndexJobSpecs(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -59,7 +57,6 @@ func TestClient_IndexJobSpecs(t *testing.T) {
 }
 
 func TestClient_ShowJobRun_Exists(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -80,7 +77,6 @@ func TestClient_ShowJobRun_Exists(t *testing.T) {
 }
 
 func TestClient_ShowJobRun_NotFound(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -95,7 +91,6 @@ func TestClient_ShowJobRun_NotFound(t *testing.T) {
 }
 
 func TestClient_IndexJobRuns(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -121,7 +116,6 @@ func TestClient_IndexJobRuns(t *testing.T) {
 }
 
 func TestClient_ShowJobSpec_Exists(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -139,7 +133,6 @@ func TestClient_ShowJobSpec_Exists(t *testing.T) {
 }
 
 func TestClient_ShowJobSpec_NotFound(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -156,7 +149,6 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 var EndAt = time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
 
 func TestClient_CreateServiceAgreement(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -204,7 +196,6 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 }
 
 func TestClient_CreateExternalInitiator(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name string
@@ -239,7 +230,6 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 }
 
 func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name string
@@ -273,7 +263,6 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 }
 
 func TestClient_CreateJobSpec(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -307,7 +296,6 @@ func TestClient_CreateJobSpec(t *testing.T) {
 }
 
 func TestClient_ArchiveJobSpec(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -328,7 +316,6 @@ func TestClient_ArchiveJobSpec(t *testing.T) {
 }
 
 func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -344,7 +331,6 @@ func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
 }
 
 func TestClient_CreateJobRun(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -391,7 +377,6 @@ func TestClient_CreateJobRun(t *testing.T) {
 }
 
 func TestClient_CreateBridge(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -427,7 +412,6 @@ func TestClient_CreateBridge(t *testing.T) {
 }
 
 func TestClient_IndexBridges(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -456,7 +440,6 @@ func TestClient_IndexBridges(t *testing.T) {
 }
 
 func TestClient_ShowBridge(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -478,7 +461,6 @@ func TestClient_ShowBridge(t *testing.T) {
 }
 
 func TestClient_RemoveBridge(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -501,7 +483,6 @@ func TestClient_RemoveBridge(t *testing.T) {
 }
 
 func TestClient_RemoteLogin(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -539,7 +520,6 @@ func TestClient_RemoteLogin(t *testing.T) {
 }
 
 func TestClient_WithdrawSuccess(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup, _ := setupWithdrawalsApplication(t)
 	defer cleanup()
@@ -556,7 +536,6 @@ func TestClient_WithdrawSuccess(t *testing.T) {
 }
 
 func TestClient_WithdrawNoArgs(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup, _ := setupWithdrawalsApplication(t)
 	defer cleanup()
@@ -577,7 +556,6 @@ func TestClient_WithdrawNoArgs(t *testing.T) {
 }
 
 func TestClient_WithdrawFromSpecifiedContractAddress(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup, ethMockCheck := setupWithdrawalsApplication(t)
 	defer cleanup()
@@ -618,7 +596,6 @@ func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func(),
 }
 
 func TestClient_SendEther(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup, _ := setupWithdrawalsApplication(t)
 	defer cleanup()
@@ -635,7 +612,6 @@ func TestClient_SendEther(t *testing.T) {
 }
 
 func TestClient_SendEther_From(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup, _ := setupWithdrawalsApplication(t)
 	defer cleanup()
@@ -654,7 +630,6 @@ func TestClient_SendEther_From(t *testing.T) {
 }
 
 func TestClient_ChangePassword(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -691,7 +666,6 @@ func TestClient_ChangePassword(t *testing.T) {
 }
 
 func TestClient_IndexTransactions(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -725,7 +699,6 @@ func TestClient_IndexTransactions(t *testing.T) {
 }
 
 func TestClient_ShowTransaction(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -746,7 +719,6 @@ func TestClient_ShowTransaction(t *testing.T) {
 }
 
 func TestClient_IndexTxAttempts(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -780,7 +752,6 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 }
 
 func TestClient_CreateExtraKey(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -800,7 +771,6 @@ func TestClient_CreateExtraKey(t *testing.T) {
 }
 
 func TestClient_SetMinimumGasPrice(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup, _ := setupWithdrawalsApplication(t)
 	defer cleanup()
@@ -828,7 +798,6 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 }
 
 func TestClient_GetConfiguration(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -836,7 +805,7 @@ func TestClient_GetConfiguration(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 	assert.NoError(t, client.GetConfiguration(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
-	
+
 	cwl := *r.Renders[0].(*presenters.ConfigWhitelist)
 	assert.Equal(t, cwl.Whitelist.BridgeResponseURL, app.Config.BridgeResponseURL().String())
 	assert.Equal(t, cwl.Whitelist.ChainID, app.Config.ChainID())

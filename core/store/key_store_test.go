@@ -11,7 +11,6 @@ import (
 const correctPassphrase = "p@ssword"
 
 func TestCreateEthereumAccount(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -23,7 +22,6 @@ func TestCreateEthereumAccount(t *testing.T) {
 }
 
 func TestUnlockKey_SingleAddress(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -34,7 +32,6 @@ func TestUnlockKey_SingleAddress(t *testing.T) {
 }
 
 func TestUnlockKey_MultipleAddresses(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name                     string
@@ -64,7 +61,6 @@ func TestUnlockKey_MultipleAddresses(t *testing.T) {
 }
 
 func TestKeyStore_SignHash_Success(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()

@@ -24,7 +24,6 @@ import (
 )
 
 func TestIntegration_Scheduler(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -239,7 +238,6 @@ func TestIntegration_FeeBump(t *testing.T) {
 }
 
 func TestIntegration_RunAt(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 	eth := app.MockEthCallerSubscriber(cltest.Strict)
@@ -258,7 +256,6 @@ func TestIntegration_RunAt(t *testing.T) {
 }
 
 func TestIntegration_EthLog(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
@@ -368,7 +365,6 @@ func TestIntegration_RunLog(t *testing.T) {
 }
 
 func TestIntegration_EndAt(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -397,7 +393,6 @@ func TestIntegration_EndAt(t *testing.T) {
 }
 
 func TestIntegration_StartAt(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -422,7 +417,6 @@ func TestIntegration_StartAt(t *testing.T) {
 }
 
 func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -482,7 +476,6 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 // This test ensures that the response body of an external adapter are supplied
 // as params to the successive task
 func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -537,7 +530,6 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 // sending out a request to an external adapter and waiting to receive a
 // request back
 func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -588,7 +580,6 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 }
 
 func TestIntegration_WeiWatchers(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -656,7 +647,6 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 }
 
 func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -705,7 +695,6 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 }
 
 func TestIntegration_CreateServiceAgreement(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -747,7 +736,6 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 }
 
 func TestIntegration_SyncJobRuns(t *testing.T) {
-	t.Parallel()
 	wsserver, wsserverCleanup := cltest.NewEventWebSocketServer(t)
 	defer wsserverCleanup()
 
@@ -781,7 +769,6 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 }
 
 func TestIntegration_SleepAdapter(t *testing.T) {
-	t.Parallel()
 
 	sleepSeconds := 4
 	app, cleanup := cltest.NewApplication(t)
@@ -801,7 +788,6 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 }
 
 func TestIntegration_ExternalInitiator(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()

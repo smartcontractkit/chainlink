@@ -23,7 +23,6 @@ import (
 )
 
 func TestTxManager_CreateTx_Success(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -69,7 +68,6 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 }
 
 func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -140,7 +138,6 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 }
 
 func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -208,7 +205,6 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 }
 
 func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
-	t.Parallel()
 
 	config, configCleanup := cltest.NewConfig(t)
 	defer configCleanup()
@@ -271,7 +267,6 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 }
 
 func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name              string
@@ -332,7 +327,6 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 }
 
 func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
@@ -373,7 +367,6 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 }
 
 func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
@@ -388,7 +381,6 @@ func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 }
 
 func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -424,7 +416,6 @@ func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 }
 
 func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -461,7 +452,6 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 }
 
 func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -498,7 +488,6 @@ func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 }
 
 func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -538,7 +527,6 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 }
 
 func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name      string
@@ -594,7 +582,6 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 }
 
 func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -631,7 +618,6 @@ func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
 }
 
 func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
-	t.Parallel()
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
@@ -717,7 +703,6 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 }
 
 func TestTxManager_CheckAttempt(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -774,7 +759,6 @@ func TestTxManager_CheckAttempt(t *testing.T) {
 }
 
 func TestTxManager_CheckAttempt_error(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -802,7 +786,6 @@ func TestTxManager_CheckAttempt_error(t *testing.T) {
 }
 
 func TestTxManager_Register(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -827,7 +810,6 @@ func TestTxManager_Register(t *testing.T) {
 }
 
 func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -865,7 +847,6 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 }
 
 func TestTxManager_ReloadNonce(t *testing.T) {
-	t.Parallel()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -892,7 +873,6 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 }
 
 func TestTxManager_WithdrawLink_HappyPath(t *testing.T) {
-	t.Parallel()
 	config, configCleanup := cltest.NewConfig(t)
 	defer configCleanup()
 	oca := common.HexToAddress("0xDEADB3333333F")
@@ -936,7 +916,6 @@ func TestTxManager_WithdrawLink_HappyPath(t *testing.T) {
 }
 
 func TestTxManager_WithdrawLink_Unconfigured_Oracle(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
@@ -992,7 +971,6 @@ func TestManagedAccount_GetAndIncrementNonce_DoesNotIncrementWhenCallbackThrowsE
 }
 
 func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -1054,7 +1032,6 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 }
 
 func TestTxManager_CreateTxWithGas(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -1114,7 +1091,6 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 }
 
 func TestGetContract(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name      string
@@ -1142,7 +1118,6 @@ func TestGetContract(t *testing.T) {
 // XXX: This test needs a compiled oracle contract, which can be built with
 // `yarn workspace chainlink run setup` in the base project directory.
 func TestContract_EncodeMessageCall(t *testing.T) {
-	t.Parallel()
 
 	// Test with the Oracle contract
 	oracle, err := strpkg.GetContract("Oracle")
@@ -1156,7 +1131,6 @@ func TestContract_EncodeMessageCall(t *testing.T) {
 
 // XXX: As above
 func TestContract_EncodeMessageCall_errors(t *testing.T) {
-	t.Parallel()
 
 	// Test with the Oracle contract
 	oracle, err := strpkg.GetContract("Oracle")
@@ -1184,7 +1158,6 @@ func TestContract_EncodeMessageCall_errors(t *testing.T) {
 }
 
 func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()

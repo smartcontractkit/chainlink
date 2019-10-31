@@ -44,7 +44,6 @@ func TestCopy_Perform(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			input := cltest.RunResultWithData(test.result)
 			adapter := adapters.Copy{CopyPath: test.copyPath}
 			result := adapter.Perform(input, nil)
@@ -61,7 +60,6 @@ func TestCopy_Perform(t *testing.T) {
 }
 
 func TestCopy_UnmarshalJSON(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name      string
 		input     string

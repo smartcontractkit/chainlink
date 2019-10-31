@@ -631,7 +631,6 @@ func TestQueueSleepingTaskA_CompletesSleepingTaskAfterDurationElapsed_Archived(t
 }
 
 func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
@@ -664,7 +663,6 @@ func TestExecuteJob_DoesNotSaveToTaskSpec(t *testing.T) {
 }
 
 func TestExecuteJobWithRunRequest(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
@@ -696,7 +694,6 @@ func TestExecuteJobWithRunRequest(t *testing.T) {
 }
 
 func TestExecuteJobWithRunRequest_fromRunLog_Happy(t *testing.T) {
-	t.Parallel()
 
 	initiatingTxHash := cltest.NewHash()
 	triggeringBlockHash := cltest.NewHash()
@@ -780,7 +777,6 @@ func TestExecuteJobWithRunRequest_fromRunLog_Happy(t *testing.T) {
 }
 
 func TestExecuteJobWithRunRequest_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
-	t.Parallel()
 
 	initiatingTxHash := cltest.NewHash()
 	triggeringBlockHash := cltest.NewHash()

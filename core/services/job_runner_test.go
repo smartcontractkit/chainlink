@@ -102,7 +102,6 @@ func TestJobRunner_executeRun_correctlyAddsLinkEarnings(t *testing.T) {
 }
 
 func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -124,7 +123,6 @@ func TestJobRunner_ChannelForRun_equalityBetweenRuns(t *testing.T) {
 }
 
 func TestJobRunner_ChannelForRun_sendAfterClosing(t *testing.T) {
-	t.Parallel()
 
 	s, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -151,7 +149,6 @@ func TestJobRunner_ChannelForRun_sendAfterClosing(t *testing.T) {
 }
 
 func TestJobRunner_ChannelForRun_equalityWithoutClosing(t *testing.T) {
-	t.Parallel()
 
 	s, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -176,7 +173,6 @@ func TestJobRunner_ChannelForRun_equalityWithoutClosing(t *testing.T) {
 }
 
 func TestJobRunner_Stop(t *testing.T) {
-	t.Parallel()
 
 	s, cleanup := cltest.NewStore(t)
 	defer cleanup()

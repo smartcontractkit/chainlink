@@ -19,7 +19,6 @@ import (
 )
 
 func TestLog_UnmarshalEmptyTxHash(t *testing.T) {
-	t.Parallel()
 
 	input := `{
 		"transactionHash": null,
@@ -39,7 +38,6 @@ func TestLog_UnmarshalEmptyTxHash(t *testing.T) {
 }
 
 func TestReceipt_UnmarshalEmptyBlockHash(t *testing.T) {
-	t.Parallel()
 
 	input := `{
 		"transactionHash": "0x444172bef57ad978655171a8af2cfd89baa02a97fcb773067aef7794d6913374",
@@ -53,19 +51,16 @@ func TestReceipt_UnmarshalEmptyBlockHash(t *testing.T) {
 }
 
 func TestModels_HexToFunctionSelector(t *testing.T) {
-	t.Parallel()
 	fid := models.HexToFunctionSelector("0xb3f98adc")
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
 func TestModels_HexToFunctionSelectorOverflow(t *testing.T) {
-	t.Parallel()
 	fid := models.HexToFunctionSelector("0xb3f98adc123456")
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
 func TestModels_FunctionSelectorUnmarshalJSON(t *testing.T) {
-	t.Parallel()
 	bytes := []byte(`"0xb3f98adc"`)
 	var fid models.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
@@ -74,7 +69,6 @@ func TestModels_FunctionSelectorUnmarshalJSON(t *testing.T) {
 }
 
 func TestModels_FunctionSelectorUnmarshalJSONLiteral(t *testing.T) {
-	t.Parallel()
 	literalSelectorBytes := []byte(`"setBytes(bytes)"`)
 	var fid models.FunctionSelector
 	err := json.Unmarshal(literalSelectorBytes, &fid)
@@ -83,7 +77,6 @@ func TestModels_FunctionSelectorUnmarshalJSONLiteral(t *testing.T) {
 }
 
 func TestModels_FunctionSelectorUnmarshalJSONError(t *testing.T) {
-	t.Parallel()
 	bytes := []byte(`"0xb3f98adc123456"`)
 	var fid models.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
@@ -91,7 +84,6 @@ func TestModels_FunctionSelectorUnmarshalJSONError(t *testing.T) {
 }
 
 func TestModels_Header_UnmarshalJSON(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name       string
 		path       string
@@ -127,7 +119,6 @@ func TestModels_Header_UnmarshalJSON(t *testing.T) {
 }
 
 func TestHead_NewHead(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		input *big.Int
 		want  string
@@ -145,7 +136,6 @@ func TestHead_NewHead(t *testing.T) {
 }
 
 func TestHead_GreaterThan(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name    string
 		left    *models.Head
@@ -167,7 +157,6 @@ func TestHead_GreaterThan(t *testing.T) {
 }
 
 func TestHead_NextInt(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name string
 		bn   *models.Head
@@ -184,7 +173,6 @@ func TestHead_NextInt(t *testing.T) {
 }
 
 func TestTx_PresenterMatchesHex(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store

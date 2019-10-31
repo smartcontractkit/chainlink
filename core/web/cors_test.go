@@ -8,7 +8,6 @@ import (
 )
 
 func TestCors_DefaultOrigins(t *testing.T) {
-	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
 	config.Set("ALLOW_ORIGINS", "http://localhost:3000,http://localhost:6689")
@@ -36,7 +35,6 @@ func TestCors_DefaultOrigins(t *testing.T) {
 }
 
 func TestCors_OverrideOrigins(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		allow      string

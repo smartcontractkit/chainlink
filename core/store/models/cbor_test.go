@@ -10,7 +10,6 @@ import (
 )
 
 func Test_ParseCBOR(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name        string
@@ -64,7 +63,6 @@ func Test_ParseCBOR(t *testing.T) {
 }
 
 func Test_autoAddMapDelimiters(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name string

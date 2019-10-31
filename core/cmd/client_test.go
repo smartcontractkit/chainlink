@@ -11,7 +11,6 @@ import (
 )
 
 func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name, email, pwd string
@@ -41,7 +40,6 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 }
 
 func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -83,7 +81,6 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 }
 
 func TestDiskCookieStore_Retrieve(t *testing.T) {
-	t.Parallel()
 
 	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
@@ -114,7 +111,6 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 }
 
 func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name           string
@@ -153,7 +149,6 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 }
 
 func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -203,7 +198,6 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 }
 
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -231,7 +225,6 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 }
 
 func TestPromptingSessionRequestBuilder(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		email, pwd string
@@ -254,7 +247,6 @@ func TestPromptingSessionRequestBuilder(t *testing.T) {
 }
 
 func TestFileSessionRequestBuilder(t *testing.T) {
-	t.Parallel()
 
 	builder := cmd.NewFileSessionRequestBuilder()
 	tests := []struct {

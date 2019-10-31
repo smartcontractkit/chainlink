@@ -8,7 +8,6 @@ import (
 )
 
 func TestID_UnmarshalText(t *testing.T) {
-	t.Parallel()
 
 	i := &ID{}
 
@@ -32,7 +31,6 @@ func TestID_UnmarshalText(t *testing.T) {
 }
 
 func TestID_UnmarshalString(t *testing.T) {
-	t.Parallel()
 
 	i := &ID{}
 
@@ -56,7 +54,6 @@ func TestID_UnmarshalString(t *testing.T) {
 }
 
 func TestID_Scan(t *testing.T) {
-	t.Parallel()
 
 	i := &ID{}
 

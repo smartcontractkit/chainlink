@@ -15,7 +15,6 @@ import (
 )
 
 func TestTransfersController_CreateSuccess(t *testing.T) {
-	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
@@ -52,7 +51,6 @@ func TestTransfersController_CreateSuccess(t *testing.T) {
 }
 
 func TestTransfersController_CreateSuccess_From(t *testing.T) {
-	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
@@ -90,7 +88,6 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 }
 
 func TestTransfersController_TransferError(t *testing.T) {
-	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
@@ -125,7 +122,6 @@ func TestTransfersController_TransferError(t *testing.T) {
 }
 
 func TestTransfersController_JSONBindingError(t *testing.T) {
-	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)

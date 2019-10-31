@@ -11,7 +11,6 @@ import (
 )
 
 func TestJsonParse_Perform(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name            string
 		result          string
@@ -131,7 +130,6 @@ func TestJsonParse_Perform(t *testing.T) {
 }
 
 func TestJSON_UnmarshalJSON(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name      string
 		input     string

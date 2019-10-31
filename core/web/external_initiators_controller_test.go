@@ -12,7 +12,6 @@ import (
 )
 
 func TestExternalInitiatorsController_Create_success(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -37,7 +36,6 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 }
 
 func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -52,7 +50,6 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 }
 
 func TestExternalInitiatorsController_Delete(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -65,7 +62,6 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 }
 
 func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()

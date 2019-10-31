@@ -18,7 +18,6 @@ func leanStore() *store.Store {
 }
 
 func TestHttpAdapters_NotAUrlError(t *testing.T) {
-	t.Parallel()
 
 	store := leanStore()
 	tests := []struct {
@@ -39,7 +38,6 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 }
 
 func TestHTTPGet_Perform(t *testing.T) {
-	t.Parallel()
 
 	store := leanStore()
 	cases := []struct {
@@ -134,7 +132,6 @@ func stringRef(str string) *string {
 }
 
 func TestHttpPost_Perform(t *testing.T) {
-	t.Parallel()
 
 	cases := []struct {
 		name        string
@@ -280,7 +277,6 @@ func TestHttpPost_Perform(t *testing.T) {
 }
 
 func TestQueryParameters_Success(t *testing.T) {
-	t.Parallel()
 
 	baseUrl := "http://example.com"
 
@@ -363,7 +359,6 @@ func TestQueryParameters_Success(t *testing.T) {
 }
 
 func TestQueryParameters_Error(t *testing.T) {
-	t.Parallel()
 
 	baseUrl := "http://example.com"
 
@@ -414,7 +409,6 @@ func TestQueryParameters_Error(t *testing.T) {
 }
 
 func TestExtendedPath_Success(t *testing.T) {
-	t.Parallel()
 
 	baseUrl := "http://example.com"
 
@@ -520,7 +514,6 @@ func TestExtendedPath_Success(t *testing.T) {
 }
 
 func TestExtendedPath_Error(t *testing.T) {
-	t.Parallel()
 
 	baseUrl := "http://example.com"
 
@@ -565,7 +558,6 @@ func TestExtendedPath_Error(t *testing.T) {
 }
 
 func TestHTTP_BuildingURL(t *testing.T) {
-	t.Parallel()
 
 	baseUrl := "http://example.com"
 

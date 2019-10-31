@@ -16,7 +16,6 @@ import (
 )
 
 func TestSessionsController_Create(t *testing.T) {
-	t.Parallel()
 
 	user := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication(t)
@@ -71,7 +70,6 @@ func TestSessionsController_Create(t *testing.T) {
 }
 
 func TestSessionsController_Create_ReapSessions(t *testing.T) {
-	t.Parallel()
 
 	user := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication(t)
@@ -98,7 +96,6 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 }
 
 func TestSessionsController_Destroy(t *testing.T) {
-	t.Parallel()
 
 	seedUser := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication(t)
@@ -142,7 +139,6 @@ func TestSessionsController_Destroy(t *testing.T) {
 }
 
 func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
-	t.Parallel()
 
 	client := http.Client{}
 	user := cltest.MustUser("email@test.net", "password123")

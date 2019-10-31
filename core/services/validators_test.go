@@ -16,7 +16,6 @@ import (
 )
 
 func TestValidateJob(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name  string
 		input []byte
@@ -83,7 +82,6 @@ func TestValidateJob_DevRejectsSleepAdapter(t *testing.T) {
 }
 
 func TestValidateAdapter(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -143,7 +141,6 @@ func TestValidateAdapter(t *testing.T) {
 }
 
 func TestValidateExternalInitiator(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -179,7 +176,6 @@ func TestValidateExternalInitiator(t *testing.T) {
 }
 
 func TestValidateInitiator(t *testing.T) {
-	t.Parallel()
 	startAt := time.Now()
 	endAt := startAt.Add(time.Second)
 	job := cltest.NewJob()
@@ -216,7 +212,6 @@ func TestValidateInitiator(t *testing.T) {
 }
 
 func TestValidateServiceAgreement(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	_, err := store.KeyStore.NewAccount("password") // matches correct_password.txt

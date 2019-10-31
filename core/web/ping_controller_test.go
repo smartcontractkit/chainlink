@@ -11,7 +11,6 @@ import (
 )
 
 func TestPingController_Show_APICredentials(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -25,7 +24,6 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 }
 
 func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
@@ -61,7 +59,6 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 }
 
 func TestPingController_Show_NoCredentials(t *testing.T) {
-	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()

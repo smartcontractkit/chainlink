@@ -24,7 +24,6 @@ import (
 )
 
 func TestORM_WhereNotFound(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -37,7 +36,6 @@ func TestORM_WhereNotFound(t *testing.T) {
 }
 
 func TestORM_AllNotFound(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -48,7 +46,6 @@ func TestORM_AllNotFound(t *testing.T) {
 }
 
 func TestORM_CreateJob(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -65,7 +62,6 @@ func TestORM_CreateJob(t *testing.T) {
 }
 
 func TestORM_Unscoped(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -79,7 +75,6 @@ func TestORM_Unscoped(t *testing.T) {
 }
 
 func TestORM_ArchiveJob(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -101,7 +96,6 @@ func TestORM_ArchiveJob(t *testing.T) {
 }
 
 func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -118,7 +112,6 @@ func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 }
 
 func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -144,7 +137,6 @@ func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
 }
 
 func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -171,7 +163,6 @@ func coercedJSON(v string) string {
 }
 
 func TestORM_JobRunsFor(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -206,7 +197,6 @@ func TestORM_JobRunsFor(t *testing.T) {
 }
 
 func TestORM_LinkEarnedFor(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -237,7 +227,6 @@ func TestORM_LinkEarnedFor(t *testing.T) {
 }
 
 func TestORM_JobRunsSortedFor(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -268,7 +257,6 @@ func TestORM_JobRunsSortedFor(t *testing.T) {
 }
 
 func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -323,7 +311,6 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 }
 
 func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -381,7 +368,6 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 }
 
 func TestORM_UnscopedJobRunsWithStatus_OrdersByCreatedAt(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -406,7 +392,6 @@ func TestORM_UnscopedJobRunsWithStatus_OrdersByCreatedAt(t *testing.T) {
 }
 
 func TestORM_AnyJobWithType(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -424,7 +409,6 @@ func TestORM_AnyJobWithType(t *testing.T) {
 }
 
 func TestORM_JobRunsCountFor(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -453,7 +437,6 @@ func TestORM_JobRunsCountFor(t *testing.T) {
 }
 
 func TestORM_CreateTx(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -495,7 +478,6 @@ func TestORM_CreateTx(t *testing.T) {
 }
 
 func TestORM_CreateTx_WithSurrogateIDIsIdempotent(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -545,7 +527,6 @@ func TestORM_CreateTx_WithSurrogateIDIsIdempotent(t *testing.T) {
 }
 
 func TestORM_UpdateTx(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -595,7 +576,6 @@ func TestORM_UpdateTx(t *testing.T) {
 }
 
 func TestORM_AddTxAttempt(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -673,7 +653,6 @@ func TestORM_AddTxAttempt(t *testing.T) {
 }
 
 func TestORM_FindBridge(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -704,7 +683,6 @@ func TestORM_FindBridge(t *testing.T) {
 }
 
 func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -730,7 +708,6 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 }
 
 func TestORM_PendingBridgeType_success(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -750,7 +727,6 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 }
 
 func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
@@ -763,7 +739,6 @@ func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 }
 
 func TestORM_GetLastNonce_Valid(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	store := app.Store
@@ -789,7 +764,6 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 }
 
 func TestORM_MarkRan(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -815,7 +789,6 @@ func TestORM_MarkRan(t *testing.T) {
 }
 
 func TestORM_FindUser(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -833,7 +806,6 @@ func TestORM_FindUser(t *testing.T) {
 }
 
 func TestORM_AuthorizedUserWithSession(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -877,7 +849,6 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 }
 
 func TestORM_DeleteUser(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -892,7 +863,6 @@ func TestORM_DeleteUser(t *testing.T) {
 }
 
 func TestORM_DeleteUserSession(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -914,7 +884,6 @@ func TestORM_DeleteUserSession(t *testing.T) {
 }
 
 func TestORM_CreateSession(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -1072,7 +1041,6 @@ func TestBulkDeleteRuns(t *testing.T) {
 }
 
 func TestORM_FindTxAttempt_CurrentAttempt(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	_, err := store.KeyStore.NewAccount(cltest.Password)
@@ -1094,7 +1062,6 @@ func TestORM_FindTxAttempt_CurrentAttempt(t *testing.T) {
 }
 
 func TestORM_FindTxAttempt_PastAttempt(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	_, err := store.KeyStore.NewAccount(cltest.Password)
@@ -1118,7 +1085,6 @@ func TestORM_FindTxAttempt_PastAttempt(t *testing.T) {
 }
 
 func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	_, err := store.KeyStore.NewAccount(cltest.Password)
@@ -1149,7 +1115,6 @@ func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
 }
 
 func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	_, err := store.KeyStore.NewAccount(cltest.Password)
@@ -1184,7 +1149,6 @@ func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
 }
 
 func TestORM_DeduceDialect(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name, connection string

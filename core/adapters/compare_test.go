@@ -346,7 +346,7 @@ func TestCompare_Perform(t *testing.T) {
 				Operator: "gte",
 				Value:    "2.12",
 			},
-			true,
+			false,
 		},
 		{
 			"less than integer as string",
@@ -800,9 +800,9 @@ func TestCompare_Perform(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
+	for _, tt := range tests {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			input := cltest.RunResultWithResult(test.input)
 			adapter := test.adapter
 			result := adapter.Perform(input, nil)
@@ -876,9 +876,9 @@ func TestCompareError_Perform(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
+	for _, tt := range tests {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			input := cltest.RunResultWithResult(test.input)
 			adapter := test.adapter
 			result := adapter.Perform(input, nil)

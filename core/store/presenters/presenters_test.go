@@ -11,7 +11,6 @@ import (
 )
 
 func Test_NewTx(t *testing.T) {
-	t.Parallel()
 
 	tx := models.Tx{
 		GasLimit: uint64(5000),
@@ -25,7 +24,6 @@ func Test_NewTx(t *testing.T) {
 }
 
 func TestTx_MarshalJSON(t *testing.T) {
-	t.Parallel()
 	hex := "0xfa85d5aa5c48e23b40f5a75d62adfc8036330f9bf86c601229e2bc63e1331d3c"
 	want := fmt.Sprintf("{\"hash\":\"%s\"}", hex)
 

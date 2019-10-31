@@ -18,7 +18,6 @@ import (
 )
 
 func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -37,7 +36,6 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 }
 
 func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -59,7 +57,6 @@ func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
 }
 
 func TestJobRuns_SavesASyncEvent(t *testing.T) {
-	t.Parallel()
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", "http://localhost:4201")
 	store, cleanup := cltest.NewStoreWithConfig(config)
@@ -98,7 +95,6 @@ func TestJobRuns_SavesASyncEvent(t *testing.T) {
 }
 
 func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
-	t.Parallel()
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", "")
 	store, cleanup := cltest.NewStoreWithConfig(config)
@@ -125,7 +121,6 @@ func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
 }
 
 func TestForLogger(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -172,7 +167,6 @@ func TestForLogger(t *testing.T) {
 }
 
 func TestJobRun_NextTaskRun(t *testing.T) {
-	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -200,7 +194,6 @@ func TestJobRun_NextTaskRun(t *testing.T) {
 }
 
 func TestRunResult_Value(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name        string
@@ -230,7 +223,6 @@ func TestRunResult_Value(t *testing.T) {
 }
 
 func TestRunResult_Add(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name  string
@@ -257,7 +249,6 @@ func TestRunResult_Add(t *testing.T) {
 }
 
 func TestRunResult_WithError(t *testing.T) {
-	t.Parallel()
 
 	rr := models.RunResult{}
 
@@ -270,7 +261,6 @@ func TestRunResult_WithError(t *testing.T) {
 }
 
 func TestRunResult_Merge(t *testing.T) {
-	t.Parallel()
 
 	inProgress := models.RunStatusInProgress
 	pending := models.RunStatusPendingBridge
@@ -339,7 +329,6 @@ func TestRunResult_Merge(t *testing.T) {
 }
 
 func TestJobRun_ApplyResult_CompletedWithNoTasksRemaining(t *testing.T) {
-	t.Parallel()
 
 	job := cltest.NewJobWithWebInitiator()
 	jobRun := job.NewRun(job.Initiators[0])
@@ -352,7 +341,6 @@ func TestJobRun_ApplyResult_CompletedWithNoTasksRemaining(t *testing.T) {
 }
 
 func TestJobRun_ApplyResult_CompletedWithTasksRemaining(t *testing.T) {
-	t.Parallel()
 
 	job := cltest.NewJobWithWebInitiator()
 	jobRun := job.NewRun(job.Initiators[0])
@@ -365,7 +353,6 @@ func TestJobRun_ApplyResult_CompletedWithTasksRemaining(t *testing.T) {
 }
 
 func TestJobRun_ApplyResult_ErrorSetsFinishedAt(t *testing.T) {
-	t.Parallel()
 
 	job := cltest.NewJobWithWebInitiator()
 	jobRun := job.NewRun(job.Initiators[0])

@@ -10,7 +10,6 @@ import (
 )
 
 func TestHelpers_StatusCodeForError(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name       string
@@ -25,7 +24,6 @@ func TestHelpers_StatusCodeForError(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			assert.Equal(t, test.statusCode, web.StatusCodeForError(test.err))
 		})
 	}
