@@ -288,6 +288,9 @@ jobs:
       - run:
           name: Install Yarn
           command: npm install -g yarn
+      - run:
+          name: Install New Packages
+          command: yarn install
       - run: ./tools/ci/forks_test
       - store_artifacts:
           path: ./integration/logs
