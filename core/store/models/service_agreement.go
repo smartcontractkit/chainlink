@@ -20,8 +20,9 @@ type Encumbrance struct {
 	// Corresponds to requestDigest in solidity ServiceAgreement struct
 	ID uint `json:"-" gorm:"primary_key;auto_increment"`
 	// Price to request a report based on this agreement
-	Payment    *assets.Link `json:"payment" gorm:"type:varchar(255)"`
-	Expiration uint64       `json:"expiration"`
+	Payment *assets.Link `json:"payment" gorm:"type:varchar(255)"`
+	// Expiration is the amount of time an oracle has to answer a request
+	Expiration uint64 `json:"expiration"`
 	// Agreement is valid until this time
 	EndAt AnyTime `json:"endAt"`
 	// Addresses of oracles committed to this agreement
@@ -157,7 +158,7 @@ func NewUnsignedServiceAgreementFromRequest(reader io.Reader) (UnsignedServiceAg
 		return UnsignedServiceAgreement{}, err
 	}
 
-	us.ID, err = generateServiceAgreementID(us.Encumbrance,
+	us.ID, err = generateSAID(us.Encumbrance,
 		common.BytesToHash(requestDigest))
 	if err != nil {
 		return UnsignedServiceAgreement{}, err
@@ -165,7 +166,7 @@ func NewUnsignedServiceAgreementFromRequest(reader io.Reader) (UnsignedServiceAg
 	return us, nil
 }
 
-func generateServiceAgreementID(e Encumbrance, digest common.Hash) (common.Hash, error) {
+func generateSAID(e Encumbrance, digest common.Hash) (common.Hash, error) {
 	saBytes, err := e.ABI(digest)
 	if err != nil {
 		return common.Hash{}, nil
