@@ -69,7 +69,6 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 		result     string
 	}{
 		{"from pending bridge", models.RunStatusPendingBridge, models.RunStatusInProgress, `{"result":"100"}`},
-		{"from errored", models.RunStatusErrored, models.RunStatusErrored, ""},
 		{"from in progress", models.RunStatusInProgress, models.RunStatusPendingBridge, ""},
 		{"from completed", models.RunStatusCompleted, models.RunStatusCompleted, `{"result":"100"}`},
 	}
