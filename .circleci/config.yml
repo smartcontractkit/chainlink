@@ -141,6 +141,8 @@ jobs:
       - run: ./tools/ci/ethereum_test
       - store_artifacts:
           path: ./integration/cypress/screenshots
+      - store_artifacts:
+          path: ./integration/logs
   parity-postgres:
     resource_class: xlarge
     docker:
@@ -177,6 +179,8 @@ jobs:
       - run: ./tools/ci/ethereum_test parity
       - store_artifacts:
           path: ./integration/cypress/screenshots
+      - store_artifacts:
+          path: ./integration/logs
   truffle:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -194,6 +198,8 @@ jobs:
             - /usr/local/share/.cache/yarn
       - run: pip3 install -r requirements.txt
       - run: ./tools/ci/truffle_test
+      - store_artifacts:
+          path: ./integration/logs
   json-api-client:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -210,6 +216,8 @@ jobs:
           paths:
             - /usr/local/share/.cache/yarn
       - run: yarn workspace @chainlink/json-api-client
+      - store_artifacts:
+          path: ./integration/logs
   operator-ui:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -227,6 +235,8 @@ jobs:
             - /usr/local/share/.cache/yarn
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/operator_ui_test
+      - store_artifacts:
+          path: ./integration/logs
   explorer:
     working_directory: ~/chainlink
     docker:
@@ -266,6 +276,8 @@ jobs:
       - run:
           name: Run E2E Tests
           command: yarn workspace @chainlink/explorer-client run build && yarn workspace @chainlink/explorer run test-ci:e2e:silent
+      - store_artifacts:
+          path: ./integration/logs
   forks:
     machine:
       image: ubuntu-1604:201903-01
@@ -277,7 +289,8 @@ jobs:
           name: Install Yarn
           command: npm install -g yarn
       - run: ./tools/ci/forks_test
-
+      - store_artifacts:
+          path: ./integration/logs
   build-publish-explorer:
     machine: true
     steps:
