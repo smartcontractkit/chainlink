@@ -228,7 +228,7 @@ func (c ConfigWhitelist) String() string {
 		if !ok {
 			continue
 		}
-		
+
 		field := cwlV.FieldByIndex(item.Index)
 
 		buffer.WriteString(envName)
@@ -445,9 +445,29 @@ type ServiceAgreement struct {
 	models.ServiceAgreement
 }
 
-// MarshalJSON returns the JSON data of the ServiceAgreement.
+type ServiceAgreementPresentation struct {
+	ID            string             `json:"id"`
+	CreatedAt     string             `json:"createdAt"`
+	Encumbrance   models.Encumbrance `json:"encumbrance"`
+	EncumbranceID uint               `json:"encumbranceID"`
+	RequestBody   string             `json:"requestBody"`
+	Signature     string             `json:"signature"`
+	JobSpec       models.JobSpec     `json:"jobSpec"`
+	JobSpecID     string             `json:"jobSpecId"`
+}
+
+// MarshalJSON presents the ServiceAgreement as public JSON data
 func (sa ServiceAgreement) MarshalJSON() ([]byte, error) {
-	return []byte(sa.ServiceAgreement.RequestBody), nil
+	return json.Marshal(ServiceAgreementPresentation{
+		ID:            sa.ID,
+		CreatedAt:     utils.ISO8601UTC(sa.CreatedAt),
+		Encumbrance:   sa.Encumbrance,
+		EncumbranceID: sa.EncumbranceID,
+		RequestBody:   sa.RequestBody,
+		Signature:     sa.Signature.String(),
+		JobSpec:       sa.JobSpec,
+		JobSpecID:     sa.JobSpecID.String(),
+	})
 }
 
 // FriendlyCreatedAt returns the ServiceAgreement's created at time in a human

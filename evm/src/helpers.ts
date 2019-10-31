@@ -463,7 +463,7 @@ export const createTxData = (
   return funcSelector + encoded
 }
 
-export const calculateSAID = ({
+export const generateSAID = ({
   payment,
   expiration,
   endAt,
@@ -684,7 +684,7 @@ export const newServiceAgreement = async (params: any): Promise<any> => {
       '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5',
     )
 
-  const sAID = calculateSAID(agreement)
+  const sAID = generateSAID(agreement)
   agreement.id = toHex(sAID)
 
   for (let i = 0; i < agreement.oracles.length; i++) {

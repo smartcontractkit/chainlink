@@ -100,7 +100,7 @@ contract('Coordinator', () => {
     context('with an invalid oracle signatures', () => {
       let badOracleSignature, badRequestDigestAddr
       beforeEach(async () => {
-        const sAID = h.calculateSAID(agreement)
+        const sAID = h.generateSAID(agreement)
         badOracleSignature = await h.personalSign(h.stranger, sAID)
         badRequestDigestAddr = h.recoverPersonalSignature(
           sAID,

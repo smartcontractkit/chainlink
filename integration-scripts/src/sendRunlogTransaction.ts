@@ -1,5 +1,5 @@
 import { RunLogFactory } from './generated/RunLogFactory'
-import { LinkTokenFactory } from './generated/LinkTokenFactory'
+import { LinkTokenFactory } from 'chainlink/dist/src/generated/LinkTokenFactory'
 import { RunLog } from './generated/RunLog'
 import { ethers } from 'ethers'
 import url from 'url'

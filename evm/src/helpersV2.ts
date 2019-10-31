@@ -1,11 +1,12 @@
 import { ethers } from 'ethers'
 import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
-import { Oracle } from 'contracts/Oracle'
-import { LinkToken } from 'contracts/LinkToken'
+import { Oracle } from './generated/Oracle'
+import { CoordinatorFactory } from './generated/CoordinatorFactory'
+import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
-import { EmptyOracle } from 'contracts/EmptyOracle'
+import { EmptyOracle } from './generated/EmptyOracle'
 
 const debug = makeDebug('helpers')
 
@@ -118,7 +119,7 @@ export function checkPublicABI(
   }
 }
 
-const { utils } = ethers
+export const { utils } = ethers
 /**
  * Convert a value to a hex string
  * @param args Value to convert to a hex string
@@ -299,6 +300,15 @@ export async function fulfillOracleRequest(
   )
 }
 
+/**
+ * The solidity function selector for the given signature
+ */
+export function functionSelector(signature: string): string {
+  const fullHash = ethers.utils.id(signature)
+  assert(fullHash.startsWith('0x'))
+  return fullHash.slice(0, 2 + 4 * 2) // '0x' + initial 4 bytes, in hex
+}
+
 export function requestDataBytes(
   specId: string,
   to: string,
@@ -328,7 +338,7 @@ export function requestDataBytes(
     data,
   ]
   const encoded = ethers.utils.defaultAbiCoder.encode(types, values)
-  const funcSelector = ethers.utils.id(
+  const funcSelector = functionSelector(
     'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)',
   )
   return `${funcSelector}${stripHexPrefix(encoded)}`
@@ -361,4 +371,36 @@ export async function increaseTime5Minutes(
  */
 export function hexToBuf(hexstr: string): Buffer {
   return Buffer.from(stripHexPrefix(hexstr), 'hex')
+}
+
+type Hash = ReturnType<typeof ethers.utils.keccak256>
+type Coordinator = ReturnType<CoordinatorFactory['attach']>
+type ServiceAgreement = Parameters<Coordinator['initiateServiceAgreement']>[0]
+
+/**
+ * Digest of the ServiceAgreement.
+ */
+export const generateSAID = (sa: ServiceAgreement): Hash => {
+  const [saParam] = new CoordinatorFactory().interface.functions.getId.inputs
+  if (
+    saParam.name !== '_agreement' ||
+    saParam.type !== 'tuple' ||
+    !saParam.components
+  ) {
+    throw Error(
+      `extracted wrong version of struct tuple: ${saParam} from coordinatorFactory.interface.functions.getId`,
+    )
+  }
+
+  const abiValues = saParam.components.reduce(
+    (prev, next) => {
+      prev.types.push(next.type)
+      prev.values.push(sa[next.name as keyof ServiceAgreement])
+
+      return prev
+    },
+    { types: [], values: [] },
+  )
+
+  return ethers.utils.solidityKeccak256(abiValues.types, abiValues.values)
 }
