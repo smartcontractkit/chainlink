@@ -537,9 +537,7 @@ func CreateServiceAgreementViaWeb(
 ) models.ServiceAgreement {
 	client := app.NewHTTPClient()
 
-	agreementWithoutOracle := string(MustReadFile(t, path))
-	agreementWithoutOracle = strings.Replace(agreementWithoutOracle,
-		"2019-10-19T22:17:19Z", utils.ISO8601UTC(endAt), 1)
+	agreementWithoutOracle := MustJSONSet(t, string(MustReadFile(t, path)), "endAt", utils.ISO8601UTC(endAt))
 	from := GetAccountAddress(t, app.ChainlinkApplication.GetStore())
 	agreementWithOracle := MustJSONSet(t, agreementWithoutOracle, "oracles", []string{from.Hex()})
 
