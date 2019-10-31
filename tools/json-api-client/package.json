@@ -6,7 +6,7 @@
   "types": "./dist/src",
   "scripts": {
     "build": "rm -rf dist && tsc",
-    "lint": "eslint --ext .js,.ts .",
+    "lint": "eslint --ext .ts .",
     "format": "prettier --write \"*.ts\"",
     "setup": "yarn build",
     "test": "jest",
