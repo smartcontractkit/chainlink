@@ -17,11 +17,9 @@
   ],
   "payment": "1000000000000000000",
   "expiration": 300,
-  "oracles": ["0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"],
+  "oracles": ["{{ $ORACLE_ADDRESS }}"],
   "endAt": "2020-10-19T22:17:19Z",
-  "_comment": "aggregator field should be overwritten with deployed aggregator contract address",
-  "aggregator": "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
-  "__comment": "See initiateServiceAgreement.ts for comptutation/check of these selectors",
+  "aggregator": "{{ $AGGREGATOR_ADDRESS }}",
   "aggInitiateJobSelector": "0xe16c4c94",
   "aggFulfillSelector": "0x9760168f"
 }
