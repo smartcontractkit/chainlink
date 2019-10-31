@@ -11,11 +11,6 @@
     "outDir": "./dist",
     "noEmitOnError": false,
     "resolveJsonModule": true,
-    // "strict": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
-    // "noImplicitReturns": true,
-    // "noFallthroughCasesInSwitch": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
     "typeRoots": ["src/generated"]
