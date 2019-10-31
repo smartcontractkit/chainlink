@@ -22,5 +22,8 @@
   },
   "include": ["src", "./@types"],
 
-  "references": [{ "path": "../styleguide" }]
+  "references": [
+    { "path": "../styleguide" },
+    { "path": "../tools/json-api-client" }
+  ]
 }

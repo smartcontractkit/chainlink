@@ -5,7 +5,7 @@ import {
   ResourceObject,
 } from 'json-api-normalizer'
 import pathToRegexp from 'path-to-regexp'
-import fetchWithTimeout from 'utils/fetchWithTimeout'
+import fetchWithTimeout from '../fetchWithTimeout'
 import {
   AuthenticationError,
   BadRequestError,
@@ -77,10 +77,9 @@ function methodFactory(method: http.Method) {
     return (params, namedPathParams) => {
       // if required, compile our path with its named path parameters
       const path = namedPathParams ? toPath(namedPathParams) : url
-      const uri = http.formatURI(
-        path,
-        method === http.Method.GET ? params : undefined, // add query string options if its a GET method
-      )
+      // add query string options if its a GET method
+      const query = method === http.Method.GET ? params : {}
+      const uri = http.formatURI(path, query)
       const options = http.getOptions(method)
       const fetch = fetchWithTimeout(uri, options(params))
 

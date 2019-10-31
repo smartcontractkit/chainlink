@@ -1,9 +1,10 @@
+import * as jsonapi from '@chainlink/json-api-client'
+import * as api from './api'
 import * as models from 'core/store/models'
 import * as presenters from 'core/store/presenters'
 import normalize from 'json-api-normalizer'
 import { Action, Dispatch } from 'redux'
 import { ThunkAction } from 'redux-thunk'
-import * as api from './api'
 import { AppState } from './connectors/redux/reducers'
 
 export type GetNormalizedData<T extends AnyFunc> = ReturnType<
@@ -13,10 +14,10 @@ export type GetNormalizedData<T extends AnyFunc> = ReturnType<
   : never
 
 type Errors =
-  | api.errors.AuthenticationError
-  | api.errors.BadRequestError
-  | api.errors.ServerError
-  | api.errors.UnknownResponseError
+  | jsonapi.AuthenticationError
+  | jsonapi.BadRequestError
+  | jsonapi.ServerError
+  | jsonapi.UnknownResponseError
 
 const createAction = (type: string) => ({ type: type })
 
@@ -38,7 +39,7 @@ const redirectToSignOut = () => ({
 const curryErrorHandler = (dispatch: Dispatch, type: string) => (
   error: Error,
 ) => {
-  if (error instanceof api.errors.AuthenticationError) {
+  if (error instanceof jsonapi.AuthenticationError) {
     dispatch(redirectToSignOut())
   } else {
     dispatch(createErrorAction(error, type))
@@ -120,7 +121,7 @@ function sendSignIn(data: Parameter<typeof api.createSession>) {
       .createSession(data)
       .then(doc => dispatch(signInSuccessAction(doc)))
       .catch((error: Errors) => {
-        if (error instanceof api.errors.AuthenticationError) {
+        if (error instanceof jsonapi.AuthenticationError) {
           dispatch(signInFailAction())
         } else {
           dispatch(createErrorAction(error, RECEIVE_SIGNIN_ERROR))
@@ -283,7 +284,7 @@ export const updateBridge = (
 //
 // The calls above will be converted gradually.
 const handleError = (dispatch: Dispatch) => (error: Error) => {
-  if (error instanceof api.errors.AuthenticationError) {
+  if (error instanceof jsonapi.AuthenticationError) {
     dispatch(redirectToSignOut())
   } else {
     dispatch(notifyError(({ msg }: any) => msg, error))
