@@ -8,6 +8,7 @@ export interface ServerContext {
   chainlinkNodeId: number
 }
 
+// legacy server response synonymous with upsertJobRun RPC method
 const handleLegacy = async (json: string, context: ServerContext) => {
   try {
     const db = await getDb()
