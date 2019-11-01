@@ -25,7 +25,8 @@ contract EmptyAggregator {
 
   function fulfill(bytes32 _requestId, bytes32 _saId, address _oracle,
     bytes32 _fulfillment)
-    public returns (bool success, bool complete, bytes memory response) {
+    public returns (bool success, bool complete, bytes memory response,
+    int256[] memory paymentAmounts) {
       success = true;
       complete = true;
       response = abi.encode(_fulfillment);
