@@ -37,7 +37,7 @@ describe('realtime', () => {
     clearDb()
     ;[chainlinkNode, secret] = await createChainlinkNode(
       db,
-      'explore realtime test chainlinkNode',
+      'upsertJobRun test chainlinkNode',
     )
     ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
   })
