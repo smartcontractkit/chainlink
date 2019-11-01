@@ -11,7 +11,11 @@ import createFixture from '../fixtures/JobRun.fixture.json'
 import updateFixture from '../fixtures/JobRunUpdate.fixture.json'
 import { clearDb } from '../testdatabase'
 import { JobRunRepository } from '../../repositories/JobRunRepository'
-import { ENDPOINT, newChainlinkNode } from '../../support/client'
+import {
+  ENDPOINT,
+  createRPCRequest,
+  newChainlinkNode,
+} from '../../support/client'
 
 describe('realtime', () => {
   let server: Server
@@ -37,17 +41,18 @@ describe('realtime', () => {
 
   afterAll(done => stop(server, done))
 
-  describe('when sending messages in legacy format', () => {
+  describe('#upsertJobRun', () => {
     it('can create a job run with valid JSON', async () => {
       expect.assertions(3)
 
       const ws = await authenticatedNode()
-      ws.send(JSON.stringify(createFixture))
+      const request = createRPCRequest('upsertJobRun', createFixture)
+      ws.send(JSON.stringify(request))
 
       await new Promise(resolve => {
         ws.on('message', (data: WebSocket.Data) => {
           const response = JSON.parse(data as string)
-          expect(response.status).toEqual(201)
+          expect(response.result).toEqual('success')
           ws.close()
           resolve()
         })
@@ -64,21 +69,19 @@ describe('realtime', () => {
       expect.assertions(6)
 
       const ws = await authenticatedNode()
-      ws.send(JSON.stringify(createFixture))
+      const createRequest = createRPCRequest('upsertJobRun', createFixture)
+      const updateRequest = createRPCRequest('upsertJobRun', updateFixture)
+      ws.send(JSON.stringify(createRequest))
 
       await new Promise(resolve => {
-        let responses = 0
         ws.on('message', (data: any) => {
-          responses += 1
           const response = JSON.parse(data)
-
-          if (responses === 1) {
-            expect(response.status).toEqual(201)
-            ws.send(JSON.stringify(updateFixture))
+          if (response.id === createRequest.id) {
+            expect(response.result).toEqual('success')
+            ws.send(JSON.stringify(updateRequest))
           }
-
-          if (responses === 2) {
-            expect(response.status).toEqual(201)
+          if (response.id === updateRequest.id) {
+            expect(response.result).toEqual('success')
             ws.close()
             resolve()
           }
@@ -106,12 +109,14 @@ describe('realtime', () => {
       const messageReceived = new Promise(resolve => {
         ws.on('message', (data: any) => {
           const response = JSON.parse(data)
-          expect(response.status).toEqual(201)
+          expect(response.result).toEqual('success')
           resolve()
         })
       })
 
-      ws.send(JSON.stringify(ethtxFixture))
+      const request = createRPCRequest('upsertJobRun', ethtxFixture)
+      ws.send(JSON.stringify(request))
+
       await messageReceived
 
       const jobRunCount = await db.manager.count(JobRun)
@@ -137,15 +142,16 @@ describe('realtime', () => {
       ws.close()
     })
 
-    it('rejects malformed json events with code 422', async (done: any) => {
+    it('rejects invalid params with code -32602', async (done: any) => {
       expect.assertions(2)
 
       const ws = await authenticatedNode()
-      ws.send('{invalid json}')
+      const request = createRPCRequest('upsertJobRun', { invalid: 'params' })
+      ws.send(JSON.stringify(request))
 
       ws.on('message', async (data: any) => {
         const response = JSON.parse(data)
-        expect(response.status).toEqual(422)
+        expect(response.error.code).toEqual(-32602)
 
         const count = await db.manager.count(JobRun)
         expect(count).toEqual(0)
