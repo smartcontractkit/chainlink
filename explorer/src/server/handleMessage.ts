@@ -26,9 +26,14 @@ const handleJSONRCP = async (request: string, context: ServerContext) => {
     callRPCServer(
       request,
       context,
-      (error: jayson.JSONRPCErrorLike, response: jayson.JSONRPCResultLike) => {
-        // resolve both error and success responses
-        error ? resolve(error) : resolve(response)
+      (error: jayson.JSONRPCErrorLike, result: jayson.JSONRPCResultLike) => {
+        // resolve both errored and successful responses
+        if (error) {
+          logger.error(error.message)
+          resolve(error)
+        } else {
+          resolve(result)
+        }
       },
     )
   })
