@@ -6,10 +6,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"chainlink/core/services"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/store/presenters"
 )
 
 // ServiceAgreementsController manages service agreements.

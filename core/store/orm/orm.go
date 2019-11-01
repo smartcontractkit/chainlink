@@ -16,11 +16,11 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 	_ "github.com/jinzhu/gorm/dialects/sqlite"   // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/dbutil"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/logger"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/dbutil"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v3"
 )

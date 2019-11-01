@@ -9,9 +9,9 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/logger"
+	"chainlink/core/store/assets"
+	"chainlink/core/utils"
 )
 
 // Descriptive indices of a RunLog's Topic array
@@ -46,11 +46,11 @@ var (
 	RunLogTopic20190207withoutIndexes = utils.MustHash("OracleRequest(bytes32,address,bytes32,uint256,address,bytes4,uint256,uint256,bytes)")
 	// ServiceAgreementExecutionLogTopic is the signature for the
 	// Coordinator.RunRequest(...) events which Chainlink nodes watch for. See
-	// https://github.com/smartcontractkit/chainlink/blob/master/evm/contracts/Coordinator.sol#RunRequest
+	// https://chainlink/blob/master/evm/contracts/Coordinator.sol#RunRequest
 	ServiceAgreementExecutionLogTopic = utils.MustHash("ServiceAgreementExecution(bytes32,address,uint256,uint256,uint256,bytes)")
 	// ChainlinkFulfilledTopic is the signature for the event emitted after calling
 	// ChainlinkClient.validateChainlinkCallback(requestId).
-	// https://github.com/smartcontractkit/chainlink/blob/master/evm/contracts/ChainlinkClient.sol
+	// https://chainlink/blob/master/evm/contracts/ChainlinkClient.sol
 	ChainlinkFulfilledTopic = utils.MustHash("ChainlinkFulfilled(bytes32)")
 	// OracleFullfillmentFunctionID0original is the original function selector for fulfilling Ethereum requests.
 	OracleFullfillmentFunctionID0original = utils.MustHash("fulfillData(uint256,bytes32)").Hex()[:10]

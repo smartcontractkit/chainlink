@@ -1,7 +1,7 @@
 package orm
 
 import (
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"chainlink/core/logger"
 	"go.uber.org/zap"
 )
 

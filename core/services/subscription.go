@@ -7,11 +7,11 @@ import (
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/logger"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
 	"go.uber.org/multierr"
 )
 
@@ -225,7 +225,7 @@ func (sub ManagedSubscription) Unsubscribe() {
 // timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
 // unblocking the application. This is an effort to mitigate the occasional
 // indefinite block described here from go-ethereum:
-// https://github.com/smartcontractkit/chainlink/pull/600#issuecomment-426320971
+// https://chainlink/pull/600#issuecomment-426320971
 func timedUnsubscribe(unsubscriber Unsubscriber) {
 	unsubscribed := make(chan struct{})
 	go func() {

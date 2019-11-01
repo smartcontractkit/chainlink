@@ -7,12 +7,12 @@ import (
 	"strconv"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"chainlink/core/logger"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+	"chainlink/core/web"
 )
 
 // Renderer implements the Render method.

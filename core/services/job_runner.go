@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/adapters"
+	"chainlink/core/logger"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
 	"go.uber.org/multierr"
 )
 
@@ -83,7 +83,7 @@ func (rm *jobRunner) Stop() {
 //
 // To recap: This must run before anything else writes job run status to the db,
 // ie. tries to run a job.
-// https://github.com/smartcontractkit/chainlink/pull/807
+// https://chainlink/pull/807
 func (rm *jobRunner) resumeRunsSinceLastShutdown() error {
 	// Do all querying of run statuses since last shutdown before enqueuing
 	// runs in progress and asleep, to prevent the following race condition:

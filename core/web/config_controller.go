@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"chainlink/core/services"
+	"chainlink/core/store/models"
+	"chainlink/core/store/presenters"
 )
 
 // ConfigController manages config variables

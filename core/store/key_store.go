@@ -9,9 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/logger"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
 	"go.uber.org/multierr"
 )
 

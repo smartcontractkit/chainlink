@@ -8,11 +8,11 @@ import (
 	"syscall"
 
 	"github.com/gobuffalo/packr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"chainlink/core/logger"
+	"chainlink/core/store"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
 	"go.uber.org/multierr"
 )
 

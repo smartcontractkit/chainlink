@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 )
 

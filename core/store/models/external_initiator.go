@@ -8,7 +8,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/utils"
 	"golang.org/x/crypto/sha3"
 )
 

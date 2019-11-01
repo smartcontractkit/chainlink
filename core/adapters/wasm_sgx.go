@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
 )
 
 // Wasm represents a wasm binary encoded as base64 or wasm encoded as text (a lisp like language).

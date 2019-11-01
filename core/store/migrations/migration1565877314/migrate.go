@@ -5,9 +5,9 @@ import (
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/store/migrations/migration0"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
 )
 
 type ExternalInitiator struct {

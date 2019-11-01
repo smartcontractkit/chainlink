@@ -7,11 +7,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/services"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
 )
 
 // JobRunsController manages JobRun requests in the node.

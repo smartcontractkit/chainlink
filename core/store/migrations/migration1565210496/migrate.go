@@ -3,7 +3,7 @@ package migration1565210496
 import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/dbutil"
+	"chainlink/core/store/dbutil"
 )
 
 // Migrate optimizes the JobRuns table for reduced on disk footprint

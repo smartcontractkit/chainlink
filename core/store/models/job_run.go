@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
+	clnull "chainlink/core/null"
+	"chainlink/core/store/assets"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )

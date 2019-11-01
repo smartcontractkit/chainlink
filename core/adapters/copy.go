@@ -1,8 +1,8 @@
 package adapters
 
 import (
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
 )
 
 // Copy obj keys refers to which value to copy inside `data`,

@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/common"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	clnull "chainlink/core/null"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
 	null "gopkg.in/guregu/null.v3"
 )
 

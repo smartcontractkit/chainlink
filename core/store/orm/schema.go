@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
+	"chainlink/core/store/assets"
 )
 
 // ConfigSchema records the schema of configuration at the type level

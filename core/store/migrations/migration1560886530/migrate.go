@@ -4,10 +4,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/dbutil"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"chainlink/core/store/dbutil"
+	"chainlink/core/store/migrations/migration0"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
 )
 
 // Migrate converts the heads table to use a surrogate ID and binary hash

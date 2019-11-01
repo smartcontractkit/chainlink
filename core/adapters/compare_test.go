@@ -3,8 +3,8 @@ package adapters_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
 	"github.com/stretchr/testify/assert"
 )
 

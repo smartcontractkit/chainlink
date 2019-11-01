@@ -6,9 +6,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	clnull "chainlink/core/null"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
 	"gopkg.in/guregu/null.v3"
 )
 

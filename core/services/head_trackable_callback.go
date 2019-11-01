@@ -1,6 +1,6 @@
 package services
 
-import "github.com/smartcontractkit/chainlink/core/store/models"
+import "chainlink/core/store/models"
 
 // headTrackableCallback is a simple wrapper around an On Connect callback
 type headTrackableCallback struct {

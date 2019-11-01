@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+	"chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -6,7 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/utils"
 )
 
 // Big stores large integers and can deserialize a variety of inputs.

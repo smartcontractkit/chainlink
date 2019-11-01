@@ -10,10 +10,10 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/logger"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/utils"
 )
 
 // StatsPusher polls for events and pushes them via a WebSocketClient

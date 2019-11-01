@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 	null "gopkg.in/guregu/null.v3"
