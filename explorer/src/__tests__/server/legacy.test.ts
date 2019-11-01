@@ -24,9 +24,6 @@ describe('realtime', () => {
   let secret: string
   let ws: WebSocket
 
-  const authenticatedNode = async () =>
-    newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
-
   beforeAll(async () => {
     server = await start()
     db = await getDb()
