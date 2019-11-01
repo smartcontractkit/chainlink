@@ -354,8 +354,10 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	adapter := adapters.EthTx{}
 
 	previousReceipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt - 10)}
-	data, _ := models.JSON{}.Add("result", a.Hash.String())
-	data, _ = data.Add("ethereumReceipts", []models.TxReceipt{previousReceipt})
+	data, err := models.JSON{}.Add("result", a.Hash.String())
+	require.NoError(t, err)
+	data, err = data.Add("ethereumReceipts", []models.TxReceipt{previousReceipt})
+	require.NoError(t, err)
 	input := *models.NewRunInput(models.NewID(), data, models.RunStatusPendingConfirmations)
 
 	output := adapter.Perform(input, store)
