@@ -33,7 +33,7 @@ require (
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.0
 	github.com/gorilla/websocket v1.4.1
-	github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2
+	github.com/jinzhu/gorm v1.9.12-0.20191028081811-179760d8343e
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mattn/go-colorable v0.0.9 // indirect

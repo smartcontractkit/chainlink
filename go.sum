@@ -173,6 +173,8 @@ github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M
 github.com/jinzhu/gorm v1.9.2/go.mod h1:Vla75njaFJ8clLU1W44h34PjIkijhjHIYnZxMqCdxqo=
 github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2 h1:eu2awDYp8UzrW/0XKvV4Z8iF3WT3z0osR9HoCSDllbk=
 github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2/go.mod h1:bu/pK8szGZ2puuErfU0RwyeNdsf3e6nCX/noXaVxkfw=
+github.com/jinzhu/gorm v1.9.12-0.20191028081811-179760d8343e h1:lqt96JG9Ppzv/cTXBanE70Gjvgbl6oD6SwFnXypUU8Q=
+github.com/jinzhu/gorm v1.9.12-0.20191028081811-179760d8343e/go.mod h1:bu/pK8szGZ2puuErfU0RwyeNdsf3e6nCX/noXaVxkfw=
 github.com/jinzhu/inflection v0.0.0-20180308033659-04140366298a/go.mod h1:h+uFLlag+Qp1Va5pdKtLDYj+kHp5pxUVkryuEj+Srlc=
 github.com/jinzhu/inflection v1.0.0 h1:K317FqzuhWc8YvSVlFMCCUb36O/S9MCKRDI7QkRKD/E=
 github.com/jinzhu/inflection v1.0.0/go.mod h1:h+uFLlag+Qp1Va5pdKtLDYj+kHp5pxUVkryuEj+Srlc=
