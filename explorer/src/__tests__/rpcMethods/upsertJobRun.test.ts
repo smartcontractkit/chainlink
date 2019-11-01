@@ -1,6 +1,7 @@
 import { Server } from 'http'
 import { Connection, getCustomRepository } from 'typeorm'
 import WebSocket from 'ws'
+import jayson from 'jayson'
 import { getDb } from '../../database'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun } from '../../entity/JobRun'
@@ -15,16 +16,17 @@ import {
   ENDPOINT,
   createRPCRequest,
   newChainlinkNode,
+  sendSingleMessage,
 } from '../../support/client'
+
+const { INVALID_PARAMS } = jayson.Server.errors
 
 describe('realtime', () => {
   let server: Server
   let db: Connection
   let chainlinkNode: ChainlinkNode
   let secret: string
-
-  const authenticatedNode = async () =>
-    newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+  let ws: WebSocket
 
   beforeAll(async () => {
     server = await start()
@@ -37,6 +39,11 @@ describe('realtime', () => {
       db,
       'explore realtime test chainlinkNode',
     )
+    ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+  })
+
+  afterEach(async () => {
+    ws.close()
   })
 
   afterAll(done => stop(server, done))
@@ -45,18 +52,9 @@ describe('realtime', () => {
     it('can create a job run with valid JSON', async () => {
       expect.assertions(3)
 
-      const ws = await authenticatedNode()
       const request = createRPCRequest('upsertJobRun', createFixture)
-      ws.send(JSON.stringify(request))
-
-      await new Promise(resolve => {
-        ws.on('message', (data: WebSocket.Data) => {
-          const response = JSON.parse(data as string)
-          expect(response.result).toEqual('success')
-          ws.close()
-          resolve()
-        })
-      })
+      const response = await sendSingleMessage(ws, request)
+      expect(response.result).toEqual('success')
 
       const jobRunCount = await db.manager.count(JobRun)
       expect(jobRunCount).toEqual(1)
@@ -68,7 +66,6 @@ describe('realtime', () => {
     it('can create and update a job run and task runs', async () => {
       expect.assertions(6)
 
-      const ws = await authenticatedNode()
       const createRequest = createRPCRequest('upsertJobRun', createFixture)
       const updateRequest = createRPCRequest('upsertJobRun', updateFixture)
       ws.send(JSON.stringify(createRequest))
@@ -104,20 +101,9 @@ describe('realtime', () => {
     it('can create a task run with transactionHash and status', async () => {
       expect.assertions(10)
 
-      const ws = await authenticatedNode()
-
-      const messageReceived = new Promise(resolve => {
-        ws.on('message', (data: any) => {
-          const response = JSON.parse(data)
-          expect(response.result).toEqual('success')
-          resolve()
-        })
-      })
-
       const request = createRPCRequest('upsertJobRun', ethtxFixture)
-      ws.send(JSON.stringify(request))
-
-      await messageReceived
+      const response = await sendSingleMessage(ws, request)
+      expect(response.result).toEqual('success')
 
       const jobRunCount = await db.manager.count(JobRun)
       expect(jobRunCount).toEqual(1)
@@ -139,26 +125,15 @@ describe('realtime', () => {
       expect(tr.blockHeight).toEqual('3735928559')
       expect(tr.blockHash).toEqual('0xbadc0de5')
       expect(tr.transactionStatus).toEqual('fulfilledRunLog')
-      ws.close()
     })
 
-    it('rejects invalid params with code -32602', async (done: any) => {
+    it(`rejects invalid params with code ${INVALID_PARAMS}`, async () => {
       expect.assertions(2)
-
-      const ws = await authenticatedNode()
       const request = createRPCRequest('upsertJobRun', { invalid: 'params' })
-      ws.send(JSON.stringify(request))
-
-      ws.on('message', async (data: any) => {
-        const response = JSON.parse(data)
-        expect(response.error.code).toEqual(-32602)
-
-        const count = await db.manager.count(JobRun)
-        expect(count).toEqual(0)
-
-        ws.close()
-        done()
-      })
+      const response = await sendSingleMessage(ws, request)
+      expect(response.error.code).toEqual(INVALID_PARAMS)
+      const count = await db.manager.count(JobRun)
+      expect(count).toEqual(0)
     })
   })
 })

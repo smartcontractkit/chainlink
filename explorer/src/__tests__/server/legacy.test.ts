@@ -11,13 +11,18 @@ import createFixture from '../fixtures/JobRun.fixture.json'
 import updateFixture from '../fixtures/JobRunUpdate.fixture.json'
 import { clearDb } from '../testdatabase'
 import { JobRunRepository } from '../../repositories/JobRunRepository'
-import { ENDPOINT, newChainlinkNode } from '../../support/client'
+import {
+  ENDPOINT,
+  newChainlinkNode,
+  sendSingleMessage,
+} from '../../support/client'
 
 describe('realtime', () => {
   let server: Server
   let db: Connection
   let chainlinkNode: ChainlinkNode
   let secret: string
+  let ws: WebSocket
 
   const authenticatedNode = async () =>
     newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
@@ -33,6 +38,11 @@ describe('realtime', () => {
       db,
       'explore realtime test chainlinkNode',
     )
+    ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+  })
+
+  afterEach(async () => {
+    ws.close()
   })
 
   afterAll(done => stop(server, done))
@@ -41,17 +51,8 @@ describe('realtime', () => {
     it('can create a job run with valid JSON', async () => {
       expect.assertions(3)
 
-      const ws = await authenticatedNode()
-      ws.send(JSON.stringify(createFixture))
-
-      await new Promise(resolve => {
-        ws.on('message', (data: WebSocket.Data) => {
-          const response = JSON.parse(data as string)
-          expect(response.status).toEqual(201)
-          ws.close()
-          resolve()
-        })
-      })
+      const response = await sendSingleMessage(ws, createFixture)
+      expect(response.status).toEqual(201)
 
       const jobRunCount = await db.manager.count(JobRun)
       expect(jobRunCount).toEqual(1)
@@ -63,7 +64,6 @@ describe('realtime', () => {
     it('can create and update a job run and task runs', async () => {
       expect.assertions(6)
 
-      const ws = await authenticatedNode()
       ws.send(JSON.stringify(createFixture))
 
       await new Promise(resolve => {
@@ -101,18 +101,8 @@ describe('realtime', () => {
     it('can create a task run with transactionHash and status', async () => {
       expect.assertions(10)
 
-      const ws = await authenticatedNode()
-
-      const messageReceived = new Promise(resolve => {
-        ws.on('message', (data: any) => {
-          const response = JSON.parse(data)
-          expect(response.status).toEqual(201)
-          resolve()
-        })
-      })
-
-      ws.send(JSON.stringify(ethtxFixture))
-      await messageReceived
+      const response = await sendSingleMessage(ws, ethtxFixture)
+      expect(response.status).toEqual(201)
 
       const jobRunCount = await db.manager.count(JobRun)
       expect(jobRunCount).toEqual(1)
@@ -137,22 +127,13 @@ describe('realtime', () => {
       ws.close()
     })
 
-    it('rejects malformed json events with code 422', async (done: any) => {
+    it('rejects malformed json events with code 422', async () => {
       expect.assertions(2)
-
-      const ws = await authenticatedNode()
-      ws.send('{invalid json}')
-
-      ws.on('message', async (data: any) => {
-        const response = JSON.parse(data)
-        expect(response.status).toEqual(422)
-
-        const count = await db.manager.count(JobRun)
-        expect(count).toEqual(0)
-
-        ws.close()
-        done()
-      })
+      const request = '{invalid json}'
+      const response = await sendSingleMessage(ws, request)
+      expect(response.status).toEqual(422)
+      const count = await db.manager.count(JobRun)
+      expect(count).toEqual(0)
     })
   })
 })

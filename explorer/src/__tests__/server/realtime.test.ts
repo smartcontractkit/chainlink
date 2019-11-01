@@ -1,9 +1,9 @@
 import { Server } from 'http'
 import { Connection } from 'typeorm'
 import WebSocket from 'ws'
+import jayson from 'jayson'
 import { getDb } from '../../database'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
-import { JobRun } from '../../entity/JobRun'
 import { start, stop } from '../../support/server'
 import { clearDb } from '../testdatabase'
 import { NORMAL_CLOSE } from '../../utils/constants'
@@ -11,7 +11,10 @@ import {
   ENDPOINT,
   createRPCRequest,
   newChainlinkNode,
+  sendSingleMessage,
 } from '../../support/client'
+
+const { PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND } = jayson.Server.errors
 
 describe('realtime', () => {
   let server: Server
@@ -38,77 +41,48 @@ describe('realtime', () => {
   afterAll(done => stop(server, done))
 
   describe('when sending messages in JSON-RPC format', () => {
-    it('rejects non-existing methods with code -32601', async (done: any) => {
-      expect.assertions(2)
+    let ws: WebSocket
 
-      const ws = await newAuthenticatedNode()
+    beforeEach(async () => {
+      ws = await newAuthenticatedNode()
+    })
+
+    afterEach(async () => {
+      ws.close()
+    })
+
+    it(`rejects non-existing methods with code ${METHOD_NOT_FOUND}`, async () => {
+      expect.assertions(1)
       const request = createRPCRequest('doesNotExist')
-      ws.send(JSON.stringify(request))
-
-      ws.on('message', async (data: any) => {
-        const response = JSON.parse(data)
-        expect(response.error.code).toEqual(-32601)
-
-        const count = await db.manager.count(JobRun)
-        expect(count).toEqual(0)
-
-        ws.close()
-        done()
-      })
+      const response = await sendSingleMessage(ws, request)
+      expect(response.error.code).toEqual(METHOD_NOT_FOUND)
     })
 
     // this test depends on the presence of "jsonrpc" in the message
     // otherwise, the server will attempt to process the message as a
     // legacy message and will respond with { status: 422 }.
     // This test will be more appropriate once the legacy format is removed.
-    it('rejects malformed json with code -32700', async (done: any) => {
-      expect.assertions(2)
-
-      const ws = await newAuthenticatedNode()
+    it(`rejects malformed json with code ${PARSE_ERROR}`, async () => {
+      expect.assertions(1)
       const request = 'jsonrpc invalid'
-      ws.send(request)
-
-      ws.on('message', async (data: any) => {
-        const response = JSON.parse(data)
-        expect(response.error.code).toEqual(-32700)
-
-        const count = await db.manager.count(JobRun)
-        expect(count).toEqual(0)
-
-        ws.close()
-        done()
-      })
+      const response = await sendSingleMessage(ws, request)
+      expect(response.error.code).toEqual(PARSE_ERROR)
     })
 
-    it('rejects invalid rpc requests with code -32600', async (done: any) => {
-      expect.assertions(2)
-
-      const ws = await newAuthenticatedNode()
-
+    it(`rejects invalid rpc requests with code ${INVALID_REQUEST}`, async () => {
+      expect.assertions(1)
       const request = {
         jsonrpc: '2.0',
         function: 'foo',
         id: 1,
       }
-
-      ws.send(JSON.stringify(request))
-
-      ws.on('message', async (data: any) => {
-        const response = JSON.parse(data)
-        expect(response.error.code).toEqual(-32600)
-
-        const count = await db.manager.count(JobRun)
-        expect(count).toEqual(0)
-
-        ws.close()
-        done()
-      })
+      const response = await sendSingleMessage(ws, request)
+      expect(response.error.code).toEqual(INVALID_REQUEST)
     })
   })
 
   it('rejects invalid authentication', async (done: any) => {
     expect.assertions(1)
-
     newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, 'lol-no').catch(
       error => {
         expect(error).toBeDefined()
@@ -124,7 +98,7 @@ describe('realtime', () => {
     let ws1: WebSocket, ws2: WebSocket, ws3: WebSocket
 
     // eslint-disable-next-line prefer-const
-    ws1 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+    ws1 = await newAuthenticatedNode()
 
     ws1.addEventListener('close', (event: WebSocket.CloseEvent) => {
       expect(ws1.readyState).toBe(WebSocket.CLOSED)
@@ -133,7 +107,7 @@ describe('realtime', () => {
       expect(event.reason).toEqual('Duplicate connection opened')
     })
 
-    ws2 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+    ws2 = await newAuthenticatedNode()
 
     ws2.addEventListener('close', (event: WebSocket.CloseEvent) => {
       expect(ws2.readyState).toBe(WebSocket.CLOSED)
@@ -144,6 +118,6 @@ describe('realtime', () => {
       done()
     })
 
-    ws3 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+    ws3 = await newAuthenticatedNode()
   })
 })
