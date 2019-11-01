@@ -217,11 +217,6 @@ func (tr *TaskRun) ApplyOutput(result RunOutput) {
 	tr.Status = result.Status()
 }
 
-// ErrorString returns the error as a string if present, otherwise "".
-func (tr *TaskRun) ErrorString() string {
-	return tr.Result.ErrorMessage.ValueOrZero()
-}
-
 // ResultString returns the "result" value as a string if possible
 func (tr *TaskRun) ResultString() (string, error) {
 	val := tr.Result.Data.Get("result")
