@@ -96,8 +96,10 @@ func createTxRunResult(
 		return models.NewRunOutputError(err)
 	}
 
-	var output models.JSON
-	output, _ = output.Add("result", tx.Hash.String())
+	output, err := models.JSON{}.Add("result", tx.Hash.String())
+	if err != nil {
+		return models.NewRunOutputError(err)
+	}
 
 	txAttempt := tx.Attempts[0]
 	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
@@ -150,11 +152,20 @@ func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutpu
 	if receipt != nil && !receipt.Unconfirmed() {
 		// If the tx has been confirmed, record the hash in the output
 		hex := receipt.Hash.String()
-		output, _ = output.Add("result", hex)
-		output, _ = output.Add("latestOutgoingTxHash", hex)
+		output, err = output.Add("result", hex)
+		if err != nil {
+			return models.NewRunOutputError(err)
+		}
+		output, err = output.Add("latestOutgoingTxHash", hex)
+		if err != nil {
+			return models.NewRunOutputError(err)
+		}
 	} else {
 		// If the tx is still unconfirmed, just copy over the original tx hash.
-		output, _ = output.Add("result", hash)
+		output, err = output.Add("result", hash)
+		if err != nil {
+			return models.NewRunOutputError(err)
+		}
 	}
 
 	if state == strpkg.Safe {
@@ -179,8 +190,15 @@ func addReceiptToResult(
 	}
 
 	receipts = append(receipts, *receipt)
-	data, _ = data.Add("ethereumReceipts", receipts)
-	data, _ = data.Add("result", receipt.Hash.String())
+	var err error
+	data, err = data.Add("ethereumReceipts", receipts)
+	if err != nil {
+		return models.NewRunOutputError(err)
+	}
+	data, err = data.Add("result", receipt.Hash.String())
+	if err != nil {
+		return models.NewRunOutputError(err)
+	}
 	return models.NewRunOutputComplete(data)
 }
 

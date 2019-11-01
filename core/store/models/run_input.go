@@ -24,7 +24,10 @@ func NewRunInput(jobRunID *ID, data JSON, status RunStatus) *RunInput {
 
 // NewRunInputWithResult creates a new RunInput with a value in the "result" field
 func NewRunInputWithResult(jobRunID *ID, value interface{}, status RunStatus) *RunInput {
-	data, _ := JSON{}.Add("result", value)
+	data, err := JSON{}.Add("result", value)
+	if err != nil {
+		panic(fmt.Sprintf("invariant violated, add should not fail on empty JSON %v", err))
+	}
 	return &RunInput{
 		jobRunID: *jobRunID,
 		data:     data,

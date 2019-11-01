@@ -1,6 +1,8 @@
 package models
 
 import (
+	"fmt"
+
 	"github.com/tidwall/gjson"
 )
 
@@ -22,8 +24,10 @@ func NewRunOutputError(err error) RunOutput {
 // NewRunOutputCompleteWithResult returns a new RunOutput that is complete and
 // contains a result
 func NewRunOutputCompleteWithResult(resultVal interface{}) RunOutput {
-	var data JSON
-	data, _ = data.Add("result", resultVal)
+	data, err := JSON{}.Add("result", resultVal)
+	if err != nil {
+		panic(fmt.Sprintf("invariant violated, add should not fail on empty JSON %v", err))
+	}
 	return NewRunOutputComplete(data)
 }
 
