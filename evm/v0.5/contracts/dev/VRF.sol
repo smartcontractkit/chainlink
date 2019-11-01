@@ -4,69 +4,142 @@ pragma solidity 0.5.0;
 //       XXX: Do not use in production until this code has been audited.
 ////////////////////////////////////////////////////////////////////////////////
 
-/** ****************************************************************************
-    @notice on-chain verification of verifiable-random-function (VRF) proofs as
-            described in https://eprint.iacr.org/2017/099.pdf (security proofs)
-            and https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5 (spec)
-    ****************************************************************************
+/** ***********************************************************************
+    @notice On-chain verification of verifiable-random-function (VRF) 
+    @notice proofs as described in
+    @notice https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.3
+    @notice and https://eprint.iacr.org/2017/099.pdf (security proofs) 
+
+    @dev Links into to the above documents are given below for convenience,
+    @dev but in case they die here are the bibliographic references:
+
+    @dev Goldberg, et al., "Verifiable Random Functions (VRFs)", Internet
+    @dev Draft draft-irtf-cfrg-vrf-05, IETF, Aug 11 2019,
+    @dev https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05
+
+    @dev Papadopoulos, et al., "Making NSEC5 Practical for DNSSEC",
+    @dev Cryptology ePrint Archive, Report 2017/099, 2017
+    ***********************************************************************
     @dev PURPOSE
 
-    @dev Reggie the Random Oracle (not his real job) wants to provide randomness
-         to Vera the verifier in such a way that Vera can be sure he's not
-         making his output up to suit himself. Reggie provides Vera a public key
-         to which he knows the secret key. Each time Vera provides a seed to
-         Reggie, he gives back a value which is computed completely
-         deterministically from the seed and the secret key, but which is
-         indistinguishable from randomness to Vera. Nonetheless, Vera is able to
-         verify that Reggie's output came from her seed and his secret key.
+    @dev Reggie the Random Oracle (not his real job) wants to provide
+    @dev randomness to Vera the verifier in such a way that Vera can be
+    @dev sure he's not making his output up to suit himself. Reggie
+    @dev provides Vera a public key to which he knows the secret key. Each
+    @dev time Vera provides a seed to Reggie, he gives back a value which
+    @dev is computed completely deterministically from the seed and the
+    @dev secret key.
+
+    @dev Reggie provides a proof by which Vera can verify that the output
+    @dev was correctly computed once Reggie tells it to her, but without
+    @dev that proof, the output is indistinguishable to her from a uniform
+    @dev random sample from the output space.
 
     @dev The purpose of this contract is to perform that verification.
-    ****************************************************************************
+    ***********************************************************************
     @dev USAGE
 
     @dev The main entry point is isValidVRFOutput. See its docstring.
-    Design notes
-    ------------
+    ***********************************************************************
+    @dev DESIGN NOTES
 
-    An elliptic curve point is generally represented in the solidity code as a
-    uint256[2], corresponding to its affine coordinates in GF(fieldSize).
+    @dev The VRF algorithm verified here satisfies the full unqiqueness,
+    @dev full collision resistance, and full pseudorandomness security
+    @dev properties. See "SECURITY PROPERTIES" below, and
+    @dev https://tools.ietf.org/html/draft-goldbe-vrf-01#section-3
 
-    For the sake of efficiency, this implementation deviates from the spec in
-    some minor ways:
+    @dev An elliptic curve point is generally represented in the solidity
+    @dev code as a uint256[2], corresponding to its affine coordinates in
+    @dev GF(FIELD_SIZE).
 
-    - Keccak hash rather than SHA256. This is because it's provided natively by
-      the EVM, and therefore costs much less gas. The impact on security should
-      be minor.
+    @dev For the sake of efficiency, this implementation deviates from the
+    @dev spec in some minor ways:
 
-    - Secp256k1 curve instead of P-256. It abuses ECRECOVER for the most
-      expensive ECC arithmetic.
+    @dev - Keccak hash rather than SHA256, as recommended in
+    @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.5 . 
+    @dev   This is because keccak costs much less gas on the EVM. The 
+    @dev   impact onsecurity should be minor.
 
-    - scalarFromCurve recursively hashes and takes the relevant hash bits until
-      it finds a point less than the group order. This results in uniform
-      sampling over the the possible values scalarFromCurve could take. The spec
-      recommends just uing the first hash output as a uint256, which is a
-      slightly biased sample. See the zqHash function.
+    @dev - Secp256k1 curve instead of P-256 or ED25519 as recommended in
+    @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.5 .
+    @dev   This is because it's much cheaper to abuse ECRECOVER for the
+    @dev   most expensive ECC arithmetic, when computing in the EVM.
 
-    - hashToCurve recursively hashes until it finds a curve x-ordinate. The spec
-      recommends that the initial input should be concatenated with a nonce and
-      then hashed, and this input should be rehashed with the nonce updated
-      until an x-ordinate is found. Recursive hashing is slightly more
-      efficient. The spec also recommends
-      (https://tools.ietf.org/html/rfc8032#section-5.1.3 , by the specification
-      of RS2ECP) that the x-ordinate should be rejected if it is greater than
-      the modulus.
+    @dev - scalarFromCurve recursively hashes until it finds an output
+    @dev   which is less than the group order when represented as a 
+    @dev   uint256. (See function zqHash.) This results in uniform sampling
+    @dev   over the the possible values scalarFromCurve could take. 
+    @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.2 ,
+    @dev   steps 3-5, recommends just using the first hash output as a
+    @dev   uint256, which is a slightly biased sample.
+    @dev   
 
-    - In the calculation of the challenge value "c", the "u" value (or "k*g", if
-      you know the secret nonce)
+    @dev - hashToCurve recursively hashes until it finds a curve
+    @dev   x-ordinate. On the EVM, this is slightly more efficient than the
+    @dev   recommendation in
+    @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.1.1
+    @dev   step 4 to concatenate with a nonce then hash, and rehash with
+    @dev   the nonce updated until a valid x-ordinate is found.
 
-    The spec also requires the y ordinate of the hashToCurve to be negated if y
-    is odd. See http://www.secg.org/sec1-v2.pdf#page=17 . This sacrifices one
-    bit of entropy in the random output. Instead, here y is chosen based on
-    whether an extra hash of the inputs is even or odd. */
+    @dev - In the calculation of the challenge value "c", the "u" value
+    @dev   (i.e. the value computed by Reggie as the nonce times the
+    @dev   secp256k1 generator point, see steps 4 and 7 of
+    @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.3) is
+    @dev   replaced by its ethereum address of the point, which is the
+    @dev   lower 160 bits of the keccak hash of the original u. This is
+    @dev   because we only verify the calculation of u up to its address,
+    @dev   by abusing ECRECOVER.
+    ****************************************************************************
+    @dev SECURITY PROPERTIES
 
+    @dev Here are the security properties for this VRF:
+
+    @dev Full uniqueness: For any seed and valid VRF public key, there is
+    @dev   exactly one VRF output which can be proved to come from that 
+    @dev   seed, in the sense that the proof will pass isValidVRFOutput. 
+
+    @dev Full collision resistance: It's cryptographically infeasible to
+    @dev   find two seeds with same VRF output from a fixed, valid VRF key
+
+    @dev Full pseudorandomness: Absent the proofs that the VRF outputs are
+    @dev   derived from a given seed, the outputs are computationally
+    @dev   indistinguishable from randomness.
+
+    @dev https://eprint.iacr.org/2017/099.pdf, Appendix B contains the
+    @dev proofs for these properties. The introduction to
+    @dev https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5 is
+    @dev very conservative about the security properties it claims, but is
+    @dev implicitly stronger in its claims for the specific cipher suites
+    @dev described in section 5.5. The reason for this is given in the 
+    @dev "NOTE" at the bottom of section 5.5, namely, to quote Appendix B:
+
+    @dev     If the group E is fixed and trusted to have been correctly
+    @dev     generated (i.e., E is known to have a subgroup of prime order
+    @dev     q), and the generator g is known to be in G − {1}, then the
+    @dev     verifier just needs to check that [VRF public key] PK ∈ E.
+    @dev     (This is the only requirement on PK in the proof [of trusted 
+    @dev     uniqueness] above.)
+
+    @dev A similar note is on the proof for trusted collision-resistance:
+
+    @dev     **Collision resistance without trusting the key**. Similarly
+    @dev     to the case with uniqueness, our VRF can be modified the same
+    @dev     way to attain collision resistance without needing to trust
+    @dev     the key generation. The modifications are the same as in the
+    @dev     case of uniqueness (to ensure that F_{SK} is uniquely 
+    @dev     defined), with the additional check that PK^f≠1 to ensure that
+    @dev     x is not divisible by q.
+
+    @dev (For secp256k1, f, the cofactor of the subgroup, is 1)
+
+    @dev Thus, here we rely on the fact that the secp256k1 parameters are
+    @dev correct, and we can check that the VRF public key lies on
+    @dev secp256k1 and is not the generator or the zero point, so we do not
+    @dev have to trust in correct key generation.
+*/
 contract VRF {
 
-  // See https://en.bitcoin.it/wiki/Secp256k1 for these constants.
+  // See https://www.secg.org/sec2-v2.pdf, section 2.4.1, for these constants.
   uint256 constant public GROUP_ORDER = // Number of points in Secp256k1
     // solium-disable-next-line indentation
     0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
@@ -79,13 +152,9 @@ contract VRF {
   // solium-disable zeppelin/no-arithmetic-operations
   uint256 constant public MINUS_ONE = FIELD_SIZE - 1;
   uint256 constant public MULTIPLICATIVE_GROUP_ORDER = FIELD_SIZE - 1;
-  // pow(x, SQRT_POWER, FIELD_SIZE) == √x, since FIELD_SIZE % 4 = 3
-  // https://en.wikipedia.org/wiki/Modular_square_root#Prime_or_prime_power_modulus
-  uint256 constant public SQRT_POWER = (FIELD_SIZE + 1) >> 2;
-
   uint256 constant public WORD_LENGTH_BYTES = 0x20;
 
-  // (base**exponent) % modulus
+  // (base^exponent) % modulus
   // Cribbed from https://medium.com/@rbkhmrcr/precompiles-solidity-e5d29bd428c4
   function bigModExp(uint256 base, uint256 exponent, uint256 modulus)
     public view returns (uint256 exponentiation) {
@@ -99,32 +168,43 @@ contract VRF {
       bigModExpContractInputs[5] = modulus;
       uint256[1] memory output;
       assembly { // solhint-disable-line no-inline-assembly
-      callResult :=
-        staticcall(13056,           // Gas cost. See EIP-198's 1st e.g.
-          0x05,                     // Bigmodexp contract address
-          bigModExpContractInputs,
-          0xc0,                     // Length of input segment
-          output,
-          0x20)                     // Length of output segment
+      callResult := staticcall(
+        not(0),                   // Gas cost: no limit
+        0x05,                     // Bigmodexp contract address
+        bigModExpContractInputs,
+        0xc0,                     // Length of input segment
+        output,
+        0x20                      // Length of output segment
+      )
       }
       if (callResult == 0) {revert("bigModExp failure!");}
       return output[0];
     }
 
-  // Computes a s.t. a^2 = x in the field. Assumes x is a square.
+  // Let q=FIELD_SIZE. q % 4 = 3, ∴ p≡r^2 mod q ⇒ p^SQRT_POWER≡m±r mod q.  See
+  // https://en.wikipedia.org/wiki/Modular_square_root#Prime_or_prime_power_modulus
+  uint256 constant public SQRT_POWER = (FIELD_SIZE + 1) >> 2;
+
+  // Computes a s.t. a^2 = x in the field. Assumes a exists
   function squareRoot(uint256 x) public view returns (uint256) {
     return bigModExp(x, SQRT_POWER, FIELD_SIZE);
   }
 
   function ySquared(uint256 x) public view returns (uint256) {
-    // Curve equation is y^2=x^3+7. See
+    // Curve is y^2=x^3+7. See section 2.4.1 of https://www.secg.org/sec2-v2.pdf
     return (bigModExp(x, 3, FIELD_SIZE) + 7) % FIELD_SIZE;
   }
 
-  // Hash x uniformly into {0, ..., q-1}. Expects x to ALREADY have the
-  // necessary entropy... If x < q, returns x!
-  function zqHash(uint256 q, uint256 x) public pure returns (uint256 x_) {
-    x_ = x;
+  // Hash x uniformly into {0, ..., q-1}.
+  function zqHash(uint256 q, bytes memory m) public pure returns (uint256 x_) {
+    x_ = uint256(keccak256(m));
+    // When q is FIELD_SIZE, rejecting if x >= q corresponds to step 1 in
+    // section 2.3.6 of http://www.secg.org/sec1-v2.pdf , which is part of the
+    // definition of RS2ECP via section 2.3.4 via OS2ECP via
+    // https://tools.ietf.org/html/rfc8032#section-5.1.3
+    //
+    // When q is GROUP_ORDER, this is is a deviation from the spec, but
+    // does result in a uniform distribution in {0, ..., GROUP_ORDER-1}.
     while (x_ >= q) {
       x_ = uint256(keccak256(abi.encodePacked(x_)));
     }
@@ -133,17 +213,23 @@ contract VRF {
   // One-way hash function onto the curve.
   function hashToCurve(uint256[2] memory k, uint256 input)
     public view returns (uint256[2] memory rv) {
-      bytes32 hash = keccak256(abi.encodePacked(k, input));
-      rv[0] = zqHash(FIELD_SIZE, uint256(hash));
+      rv[0] = zqHash(abi.encodePacked(k, input));
       while (true) {
-        rv[0] = zqHash(FIELD_SIZE, uint256(keccak256(abi.encodePacked(rv[0]))));
+        rv[0] = zqHash(keccak256(abi.encodePacked(rv[0])));
         rv[1] = squareRoot(ySquared(rv[0]));
         if (mulmod(rv[1], rv[1], FIELD_SIZE) == ySquared(rv[0])) {
           break;
         }
       }
-      // Two possible y ordinates for x ordinate rv[0]; pick one "randomly"
-      if (uint256(keccak256(abi.encodePacked(rv[0], input))) % 2 == 0) {
+      // See
+      // https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.1.1
+      // step 4.D, referencing RS2ECP,
+      // https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.5 , for
+      // definition of RS2ECP, and http://www.secg.org/sec1-v2.pdf#page=17
+      // , steps 2.3-2.4.1 of section 2.3.4 for relevant part of OS2ECP
+      // definition. Together, these specify that the y ordinate must be
+      // even.
+      if (rv[1] % 2 == 1) {
         rv[1] = -rv[1];
       }
     }
@@ -151,15 +237,8 @@ contract VRF {
   // Bits used in Ethereum address
   uint256 constant public BOTTOM_160_BITS = 2**161 - 1;
 
-  // Returns the ethereum address associated with point.
-  function pointAddress(uint256[2] calldata point) external pure returns(address) {
-    bytes memory packedPoint = abi.encodePacked(point);
-    // Lower 160 bits of the keccak hash of (x,y) as 64 bytes
-    return address(uint256(keccak256(packedPoint)) & BOTTOM_160_BITS);
-  }
-
   // Returns true iff q==scalar*x, with cryptographically high probability.
-  // Based on Vitalik Buterin's idea in above ethresear.ch post.
+  // Based on Vitalik Buterin's idea in ethresear.ch post mentioned below.
   function ecmulVerify(uint256[2] memory x, uint256 scalar, uint256[2] memory q)
     public pure returns(bool) {
       // This ecrecover returns the address associated with c*R. See
@@ -171,16 +250,6 @@ contract VRF {
       uint8 parity = x[1] % 2 != 0 ? 28 : 27;
       return ecrecover(bytes32(0), parity, bytes32(x[0]), cTimesX0) ==
         address(uint256(keccak256(abi.encodePacked(q))) & BOTTOM_160_BITS);
-    }
-
-  // Returns x1/z1+x2/z2=(x1z2+x2z1)/(z1z2) in projective coordinates on P¹(𝔽ₙ)
-  function projectiveAdd(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
-    external pure returns(uint256 x3, uint256 z3) {
-      uint256 crossMultNumerator1 = mulmod(z2, x1, FIELD_SIZE);
-      uint256 crossMultNumerator2 = mulmod(z1, x2, FIELD_SIZE);
-      uint256 denom = mulmod(z1, z2, FIELD_SIZE);
-      uint256 numerator = addmod(crossMultNumerator1, crossMultNumerator2, FIELD_SIZE);
-      return (numerator, denom);
     }
 
   // Returns x1/z1-x2/z2=(x1z2+x2z1)/(z1z2) in projective coordinates on P¹(𝔽ₙ)
@@ -195,12 +264,6 @@ contract VRF {
   function projectiveMul(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
     public pure returns(uint256 x3, uint256 z3) {
       (x3, z3) = (mulmod(x1, x2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
-    }
-
-  // Returns x1/z1/(x2/z2)=(x1z2)/(x2z1), in projective coordinates on P¹(𝔽ₙ)
-  function projectiveDiv(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
-    external pure returns(uint256 x3, uint256 z3) {
-      (x3, z3) = (mulmod(x1, z2, FIELD_SIZE), mulmod(z1, x2, FIELD_SIZE));
     }
 
   /** **************************************************************************
@@ -224,6 +287,8 @@ contract VRF {
       @param y1 The second affine coordinate of the first summand
       @param x2 The first affine coordinate of the second summand
       @param y2 The second affine coordinate of the second summand
+
+      (x1, y1) must be a different point from (x2, y2).
       **************************************************************************
       @return [x1,y1,z1]+[x2,y2,z2] as points on secp256k1, in P²(𝔽ₙ)
   */
@@ -267,9 +332,13 @@ contract VRF {
       }
     }
 
-  // Returns p1+p2, as affine points on secp256k1. invZ must be the inverse of
-  // the z returned by projectiveECAdd(p1, p2). It is computed off-chain to
-  // save gas.
+  // Returns p1+p2, as affine points on secp256k1.
+  //
+  // invZ must be the inverse of the z returned by projectiveECAdd(p1, p2). It
+  // is computed off-chain to save gas.
+  //
+  // It must not be the case that p1 == p2, because projectiveECAdd doesn't
+  // handle point doubling.
   function affineECAdd(
     uint256[2] memory p1, uint256[2] memory p2,
     uint256 invZ) public pure returns (uint256[2] memory) {
@@ -302,19 +371,30 @@ contract VRF {
       return computed == lcWitness;
     }
 
-  // c*p1 + s*p2
+  // c*p1 + s*p2. Requires cp1Witness=c*p1 and sp2Witness=s*p2. Also requires
+  // cp1Witness != sp2Witness (which is fine for this application, since it is
+  // cryptographically impossible for them to be equal. A prover should verify
+  // that that's the case before publishing, and retry with a different nonce if
+  // they're equal.)
   function linearCombination(
     uint256 c, uint256[2] memory p1, uint256[2] memory cp1Witness,
     uint256 s, uint256[2] memory p2, uint256[2] memory sp2Witness,
     uint256 zInv)
     public pure returns (uint256[2] memory) {
-      require(cp1Witness[0] != sp2Witness[0], "points must differ in sum");
+      require((cp1Witness[0] - sp2Witness[0]) % FIELD_SIZE != 0,
+              "points must differ in sum");
       require(ecmulVerify(p1, c, cp1Witness), "First multiplication check failed");
       require(ecmulVerify(p2, s, sp2Witness), "Second multiplication check failed");
       return affineECAdd(cp1Witness, sp2Witness, zInv);
     }
 
-  // Pseudo-random number from inputs. Corresponds to vrf.go/scalarFromCurve.
+  // Pseudo-random number from inputs. Corresponds to vrf.go/scalarFromCurve,
+  // and section 5.4.2 of the IETF draft. However, the draft calls (in section
+  // 5.3 step 5 and section 5.4.2 steps 3-5) for taking the first hash without
+  // checking that it corresponds to a number less than the group order (which
+  // is the context in which the resulting scalar is used.) Here we avoid that
+  // slight bias by recursively hashing until we have something less than
+  // GROUP_ORDER in zqHash.)
   function scalarFromCurve(
     uint256[2] memory hash, uint256[2] memory pk, uint256[2] memory gamma,
     address uWitness, uint256[2] memory v)
@@ -325,20 +405,28 @@ contract VRF {
 
   // True if (gamma, c, s) is a correctly constructed randomness proof from pk
   // and seed. zInv must be the inverse of the third ordinate from
-  // projectiveECAdd applied to cGammaWitness and sHashWitness
+  // projectiveECAdd applied to cGammaWitness and sHashWitness. Corresponds to
+  // section 5.3 of the IETF draft.
   function verifyVRFProof(
     uint256[2] memory pk, uint256[2] memory gamma, uint256 c, uint256 s,
     uint256 seed, address uWitness, uint256[2] memory cGammaWitness,
     uint256[2] memory sHashWitness, uint256 zInv)
     public view returns (bool) {
-    // NB: Curve operations already check that (pkX, pkY), (gammaX, gammaY)
-    // are valid curve points. No need to do that explicitly.
+      // NB: Curve operations already check that (pkX, pkY), (gammaX, gammaY)
+      // are valid curve points. No need to do that explicitly.
+      //
+      // Step 4. of IETF draft section 5.3 (pk corresponds to 5.3's y, and here
+      // we use the hash of u instead of u itself.)
       require(
         verifyLinearCombinationWithGenerator(c, pk, s, uWitness),
-        "Could not verify that address(c*pk+s*generator)=_uWitness");
+        "Could not verify that address(c*pk+s*generator)=_uWitness"
+      );
+      // Step 5. of IETF draft section 5.3 (pk corresponds to y, seed to beta)
       uint256[2] memory hash = hashToCurve(pk, seed);
+      // Step 6. of IETF draft section 5.3
       uint256[2] memory v = linearCombination(
         c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
+      // Steps 7. and 8. of IETF draft section 5.3
       return (c == scalarFromCurve(hash, pk, gamma, uWitness, v));
     }
 
@@ -348,24 +436,29 @@ contract VRF {
 
       @dev See the invocation of verifyVRFProof in VRF.js, for an example.
       **************************************************************************
-      @dev Let x be the secret key associated with the public key pk
+      @dev Let x be the secret key associated with the public key pk (which is
+           known as y in section 5.3 of the IETF draft.)
 
-      @param pk Affine coordinates of the secp256k1 public key for this VRF
+      @param pk Affine coordinates of the secp256k1 public key for this VRF.
       @param gamma Intermediate output of the VRF as an affine secp256k1 point
       @param c The challenge value for proof that gamma = x*hashToCurve(seed)
-              See the variable c on  p. 28 of
-              https://www.cs.bu.edu/~goldbe/papers/VRF_ietf99_print.pdf
+              See the variable c on  p. oeuta28 of
+              https://www.cs.bu.edu/~gold-be/papers/VRF_ietf99_print.pdf
       @param s The response value for the proof. See s on p. 28
-      @param seed The input seed from which the VRF output is computed
+      @param seed The input seed from which the VRF output is computed. Also
+             known as alpha in the IETF draft, section 5.3
       @param uWitness The ethereum address of c*pk + s*<generator>, in
-             elliptic-curve arithmetic
+             elliptic-curve arithmetic. This corresponds to u in section 5.3 of
+             the IETF draft, but there it as an elliptic curve point, not an
+             address.
       @param cGammaWitness c*gamma on the elliptic-curve
       @param sHashWitness s*hashToCurve(seed) on the elliptic-curve
       @param zInv Inverse of the third ordinate of the return value from
              projectiveECAdd(c*gamma, s*hashToCurve(seed)). Passed in here
              to save gas, because computing modular inverses is expensive in the
              EVM.
-      @param output The actual output of the VRF.
+      @param output The actual output of the VRF. Known as beta in the
+             IETF standard, section 5.3
       **************************************************************************
       @return True iff all the above parameters are correct
   */
