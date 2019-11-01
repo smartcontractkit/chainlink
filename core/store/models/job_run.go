@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -142,15 +141,6 @@ func (jr *JobRun) setStatus(status RunStatus) {
 	}
 }
 
-// ResultString returns the "result" value as a string if possible
-func (jr *JobRun) ResultString() (string, error) {
-	val := jr.Result.Data.Get("result")
-	if val.Type != gjson.String {
-		return "", fmt.Errorf("non string result")
-	}
-	return val.String(), nil
-}
-
 // ErrorString returns the error as a string if present, otherwise "".
 func (jr *JobRun) ErrorString() string {
 	return jr.Result.ErrorMessage.ValueOrZero()
@@ -215,15 +205,6 @@ func (tr *TaskRun) ApplyOutput(result RunOutput) {
 	}
 	tr.Result.Data = result.Data()
 	tr.Status = result.Status()
-}
-
-// ResultString returns the "result" value as a string if possible
-func (tr *TaskRun) ResultString() (string, error) {
-	val := tr.Result.Data.Get("result")
-	if val.Type != gjson.String {
-		return "", fmt.Errorf("non string result")
-	}
-	return val.String(), nil
 }
 
 // RunResult keeps track of the outcome of a TaskRun or JobRun. It stores the

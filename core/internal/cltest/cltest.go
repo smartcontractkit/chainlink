@@ -1150,3 +1150,9 @@ func NewRunInputWithResult(value interface{}) models.RunInput {
 	jobRunID := models.NewID()
 	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
 }
+
+func MustResultString(t *testing.T, input models.RunResult) string {
+	result := input.Data.Get("result")
+	require.Equal(t, gjson.String, result.Type, fmt.Sprintf("result type %s is not string", result.Type))
+	return result.String()
+}
