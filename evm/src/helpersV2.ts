@@ -7,6 +7,7 @@ import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
 import { EmptyOracle } from './generated/EmptyOracle'
+import { OracleFactory } from './generated/OracleFactory'
 
 const debug = makeDebug('helpers')
 
@@ -297,11 +298,13 @@ export function keccak(
   return utils.keccak256(...args)
 }
 
+type TxOptions = Omit<ethers.providers.TransactionRequest, 'to' | 'from'>
+
 export async function fulfillOracleRequest(
   oracleContract: Oracle | EmptyOracle,
   runRequest: RunRequest,
   response: string,
-  options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {
+  options: TxOptions = {
     gasLimit: 1000000, // FIXME: incorrect gas estimation
   },
 ): ReturnType<typeof oracleContract.fulfillOracleRequest> {
@@ -326,13 +329,18 @@ export async function fulfillOracleRequest(
   )
 }
 
-/**
- * The solidity function selector for the given signature
- */
-export function functionSelector(signature: string): string {
-  const fullHash = ethers.utils.id(signature)
-  assert(fullHash.startsWith('0x'))
-  return fullHash.slice(0, 2 + 4 * 2) // '0x' + initial 4 bytes, in hex
+export async function cancelOracleRequest(
+  oracleContract: Oracle | EmptyOracle,
+  request: RunRequest,
+  options: TxOptions = {},
+): ReturnType<typeof oracleContract.cancelOracleRequest> {
+  return oracleContract.cancelOracleRequest(
+    request.id,
+    request.payment,
+    request.callbackFunc,
+    request.expiration,
+    options,
+  )
 }
 
 export function requestDataBytes(
@@ -340,20 +348,11 @@ export function requestDataBytes(
   to: string,
   fHash: string,
   nonce: number,
-  data: string,
-): any {
-  const types = [
-    'address',
-    'uint256',
-    'bytes32',
-    'address',
-    'bytes4',
-    'uint256',
-    'uint256',
-    'bytes',
-  ]
+  dataBytes: string,
+): string {
+  const ocFactory = new OracleFactory()
 
-  const values = [
+  return ocFactory.interface.functions.oracleRequest.encode([
     ethers.constants.AddressZero,
     0,
     specId,
@@ -361,20 +360,15 @@ export function requestDataBytes(
     fHash,
     nonce,
     1,
-    data,
-  ]
-  const encoded = ethers.utils.defaultAbiCoder.encode(types, values)
-  const funcSelector = functionSelector(
-    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)',
-  )
-  return `${funcSelector}${stripHexPrefix(encoded)}`
+    dataBytes,
+  ])
 }
 
 // link param must be from linkContract(), if amount is a BN
 export function requestDataFrom(
   oc: Oracle,
   link: LinkToken,
-  amount: number,
+  amount: ethers.utils.BigNumberish,
   args: string,
   options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},
 ): ReturnType<typeof link.transferAndCall> {
