@@ -215,6 +215,22 @@ contract('PrepaidAggregator', () => {
       })
     })
 
+    context('when there are not sufficient available funds', async () => {
+      beforeEach(async () => {
+        await aggregator.withdrawFunds(personas.Carol, deposit, {
+          from: personas.Carol,
+        })
+      })
+
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.updateAnswer(nextRound, answer, {
+            from: personas.Neil,
+          })
+        })
+      })
+    })
+
     context('when price is updated mid-round', async () => {
       const newAmount = h.toWei('50')
 
