@@ -3,6 +3,7 @@ pragma solidity 0.5.0;
 import "../Median.sol";
 import "../vendor/Ownable.sol";
 import "../vendor/SafeMath.sol";
+import "./SafeMath128.sol";
 import "../interfaces/LinkTokenInterface.sol";
 
 /**
@@ -10,11 +11,12 @@ import "../interfaces/LinkTokenInterface.sol";
  */
 contract PrepaidAggregator is Ownable {
   using SafeMath for uint256;
+  using SafeMath128 for uint128;
 
   struct OracleStatus {
     bool enabled;
+    uint128 withdrawable;
     uint256 lastReportedRound;
-    uint256 withdrawable;
   }
 
   struct Round {
@@ -31,8 +33,8 @@ contract PrepaidAggregator is Ownable {
   uint64 public maxAnswerCount;
   uint64 public minAnswerCount;
   uint256 public updatedHeight;
-  uint256 public availableFunds;
-  uint256 public allocatedFunds;
+  uint128 public availableFunds;
+  uint128 public allocatedFunds;
 
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
@@ -120,11 +122,12 @@ contract PrepaidAggregator is Ownable {
   function withdraw(address _recipient, uint256 _amount)
     public
   {
-    uint256 available = oracles[msg.sender].withdrawable;
-    require(available >= _amount, "Insufficient balance");
+    uint128 amount = uint128(_amount);
+    uint128 available = oracles[msg.sender].withdrawable;
+    require(available >= amount, "Insufficient balance");
 
-    oracles[msg.sender].withdrawable = available.sub(_amount);
-    allocatedFunds = allocatedFunds.sub(_amount);
+    oracles[msg.sender].withdrawable = available.sub(amount);
+    allocatedFunds = allocatedFunds.sub(amount);
 
     assert(LINK.transfer(_recipient, _amount));
   }
@@ -162,7 +165,7 @@ contract PrepaidAggregator is Ownable {
   function payOracle(uint256 _id)
     private
   {
-    uint256 payment = uint256(rounds[_id].paymentAmount);
+    uint128 payment = rounds[_id].paymentAmount;
     availableFunds = availableFunds.sub(payment);
     allocatedFunds = allocatedFunds.add(payment);
     oracles[msg.sender].withdrawable = oracles[msg.sender].withdrawable.add(payment);
