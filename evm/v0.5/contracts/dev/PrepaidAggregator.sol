@@ -14,7 +14,7 @@ contract PrepaidAggregator is Ownable {
   struct OracleStatus {
     bool enabled;
     uint256 lastReportedRound;
-    uint128 withdrawable;
+    uint256 withdrawable;
   }
 
   struct Round {
@@ -31,9 +31,8 @@ contract PrepaidAggregator is Ownable {
   uint64 public maxAnswerCount;
   uint64 public minAnswerCount;
   uint256 public updatedHeight;
-  uint128 public availableFunds;
-
-  uint128 private allocatedFunds;
+  uint256 public availableFunds;
+  uint256 public allocatedFunds;
 
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
@@ -60,9 +59,9 @@ contract PrepaidAggregator is Ownable {
     deleteRound(_round);
 
     uint128 payment = rounds[_round].paymentAmount;
-    availableFunds -= payment;
-    allocatedFunds += payment;
-    oracles[msg.sender].withdrawable += payment;
+    availableFunds = availableFunds.sub(payment);
+    allocatedFunds = allocatedFunds.add(payment);
+    oracles[msg.sender].withdrawable = oracles[msg.sender].withdrawable.add(payment);
     require(LINK.transfer(msg.sender, payment), "LINK transfer failed");
   }
 
