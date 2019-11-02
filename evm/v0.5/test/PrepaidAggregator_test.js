@@ -24,6 +24,7 @@ contract('PrepaidAggregator', () => {
   it('has a limited public interface', () => {
     h.checkPublicABI(Aggregator, [
       'addOracle',
+      'availableFunds',
       'currentAnswer',
       'currentRound',
       'maxAnswerCount',
@@ -37,6 +38,7 @@ contract('PrepaidAggregator', () => {
       'updateAnswer',
       'updateAvailableFunds',
       'updatedHeight',
+      'withdrawable',
       // Ownable methods:
       'isOwner',
       'owner',
@@ -58,6 +60,14 @@ contract('PrepaidAggregator', () => {
       it('pays the same amount to all oracles per round', async () => {
         assertBigNum(0, await link.balanceOf.call(personas.Neil))
         assertBigNum(0, await link.balanceOf.call(personas.Nelly))
+        assertBigNum(
+          0,
+          await aggregator.withdrawable.call({ from: personas.Neil }),
+        )
+        assertBigNum(
+          0,
+          await aggregator.withdrawable.call({ from: personas.Nelly }),
+        )
 
         await aggregator.updateAnswer(nextRound, answer, {
           from: personas.Neil,
@@ -71,12 +81,24 @@ contract('PrepaidAggregator', () => {
 
         assertBigNum(paymentAmount, await link.balanceOf.call(personas.Neil))
         assertBigNum(paymentAmount, await link.balanceOf.call(personas.Nelly))
+        assertBigNum(
+          paymentAmount,
+          await aggregator.withdrawable.call({ from: personas.Neil }),
+        )
+        assertBigNum(
+          paymentAmount,
+          await aggregator.withdrawable.call({ from: personas.Nelly }),
+        )
       })
     })
 
     context('when the minimum oracles have not reported', async () => {
       it('pays the oracles that have reported', async () => {
         assertBigNum(0, await link.balanceOf.call(personas.Neil))
+        assertBigNum(
+          0,
+          await aggregator.withdrawable.call({ from: personas.Neil }),
+        )
 
         await aggregator.updateAnswer(nextRound, answer, {
           from: personas.Neil,
@@ -85,6 +107,18 @@ contract('PrepaidAggregator', () => {
         assertBigNum(paymentAmount, await link.balanceOf.call(personas.Neil))
         assertBigNum(0, await link.balanceOf.call(personas.Ned))
         assertBigNum(0, await link.balanceOf.call(personas.Nelly))
+        assertBigNum(
+          paymentAmount,
+          await aggregator.withdrawable.call({ from: personas.Neil }),
+        )
+        assertBigNum(
+          0,
+          await aggregator.withdrawable.call({ from: personas.Ned }),
+        )
+        assertBigNum(
+          0,
+          await aggregator.withdrawable.call({ from: personas.Nelly }),
+        )
       })
 
       it('does not update the answer', async () => {
@@ -346,6 +380,8 @@ contract('PrepaidAggregator', () => {
 
         assertBigNum(0, await link.balanceOf.call(aggregator.address))
         assertBigNum(deposit, await link.balanceOf.call(personas.Carol))
+        assertBigNum(0, await aggregator.availableFunds.call())
+        assertBigNum(deposit, await link.balanceOf.call(personas.Carol))
       })
 
       context('with a number higher than the LINK balance', () => {
@@ -359,6 +395,7 @@ contract('PrepaidAggregator', () => {
           })
 
           assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
+          assertBigNum(deposit, await aggregator.availableFunds.call())
         })
       })
     })
@@ -372,6 +409,7 @@ contract('PrepaidAggregator', () => {
         })
 
         assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
+        assertBigNum(deposit, await aggregator.availableFunds.call())
       })
     })
   })
