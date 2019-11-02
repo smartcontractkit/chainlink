@@ -54,12 +54,7 @@ contract PrepaidAggregator is Ownable {
     startNewRound(_round);
     recordAnswer(_answer, _round);
     updateRoundAnswer(_round);
-
-    uint128 payment = rounds[_round].paymentAmount;
-    availableFunds = availableFunds.sub(payment);
-    allocatedFunds = allocatedFunds.add(payment);
-    oracles[msg.sender].withdrawable = oracles[msg.sender].withdrawable.add(payment);
-
+    payOracle(_round);
     deleteRound(_round);
   }
 
@@ -162,6 +157,15 @@ contract PrepaidAggregator is Ownable {
     currentAnswer = newAnswer;
     updatedHeight = block.number;
     emit AnswerUpdated(newAnswer, _id);
+  }
+
+  function payOracle(uint256 _id)
+    private
+  {
+    uint256 payment = uint256(rounds[_id].paymentAmount);
+    availableFunds = availableFunds.sub(payment);
+    allocatedFunds = allocatedFunds.add(payment);
+    oracles[msg.sender].withdrawable = oracles[msg.sender].withdrawable.add(payment);
   }
 
   function recordAnswer(int256 _answer, uint256 _id)
