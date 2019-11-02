@@ -40,7 +40,7 @@ contract PrepaidAggregator is Ownable {
   mapping(address => OracleStatus) private oracles;
   mapping(uint256 => Round) private rounds;
 
-  event NewRound(uint256 indexed number);
+  event NewRound(uint256 indexed number, address indexed startedBy);
   event AnswerUpdated(int256 indexed current, uint256 indexed round);
   event AvailableFundsUpdated(uint256 indexed amount);
 
@@ -152,7 +152,7 @@ contract PrepaidAggregator is Ownable {
     rounds[_id].maxAnswers = maxAnswerCount;
     rounds[_id].minAnswers = minAnswerCount;
     rounds[_id].paymentAmount = paymentAmount;
-    emit NewRound(_id);
+    emit NewRound(_id, msg.sender);
   }
 
   function updateRoundAnswer(uint256 _id)
