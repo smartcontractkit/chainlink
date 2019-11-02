@@ -16,6 +16,7 @@ contract('PrepaidAggregator', () => {
       from: personas.Carol,
     })
     await link.transfer(aggregator.address, deposit)
+    await aggregator.updateAvailableFunds()
     assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
     nextRound = 1
   })
@@ -34,6 +35,7 @@ contract('PrepaidAggregator', () => {
       'setPaymentAmount',
       'transferLINK',
       'updateAnswer',
+      'updateAvailableFunds',
       'updatedHeight',
       // Ownable methods:
       'isOwner',
@@ -453,6 +455,22 @@ contract('PrepaidAggregator', () => {
           })
         })
       })
+    })
+  })
+
+  describe('#updateAvailableFunds', async () => {
+    it('checks the LINK token to see if any additional funds are available', async () => {
+      const originalBalance = await aggregator.availableFunds.call()
+
+      await aggregator.updateAvailableFunds()
+
+      assertBigNum(originalBalance, await aggregator.availableFunds.call())
+
+      await link.transfer(aggregator.address, deposit)
+      await aggregator.updateAvailableFunds()
+
+      const newBalance = await aggregator.availableFunds.call()
+      assertBigNum(originalBalance.add(deposit), newBalance)
     })
   })
 })

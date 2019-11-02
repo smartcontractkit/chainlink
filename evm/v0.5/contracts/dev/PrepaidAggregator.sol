@@ -30,6 +30,9 @@ contract PrepaidAggregator is Ownable {
   uint64 public maxAnswerCount;
   uint64 public minAnswerCount;
   uint256 public updatedHeight;
+  uint128 public availableFunds;
+
+  uint128 private allocatedFunds;
 
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
@@ -109,6 +112,12 @@ contract PrepaidAggregator is Ownable {
   {
     minAnswerCount = _min;
     maxAnswerCount = _max;
+  }
+
+  function updateAvailableFunds()
+    public
+  {
+    availableFunds = uint128(LINK.balanceOf(address(this)));
   }
 
   function startNewRound(uint256 _id)
