@@ -546,6 +546,15 @@ contract('PrepaidAggregator', () => {
       const newBalance = await aggregator.availableFunds.call()
       assertBigNum(originalBalance.add(deposit), newBalance)
     })
+
+    it('emits a log', async () => {
+      await link.transfer(aggregator.address, deposit)
+
+      const tx = await aggregator.updateAvailableFunds()
+
+      const reportedBalance = h.bigNum(tx.receipt.rawLogs[0].topics[1])
+      assertBigNum(await aggregator.availableFunds.call(), reportedBalance)
+    })
   })
 
   describe('#withdraw', async () => {

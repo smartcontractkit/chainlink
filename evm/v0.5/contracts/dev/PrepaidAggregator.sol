@@ -42,6 +42,7 @@ contract PrepaidAggregator is Ownable {
 
   event NewRound(uint256 indexed number);
   event AnswerUpdated(int256 indexed current, uint256 indexed round);
+  event AvailableFundsUpdated(uint256 indexed amount);
 
   constructor(address _link, uint128 _paymentAmount) public {
     LINK = LinkTokenInterface(_link);
@@ -109,7 +110,9 @@ contract PrepaidAggregator is Ownable {
   function updateAvailableFunds()
     public
   {
-    availableFunds = uint128(LINK.balanceOf(address(this)));
+    uint256 available = LINK.balanceOf(address(this));
+    availableFunds = uint128(available);
+    emit AvailableFundsUpdated(available);
   }
 
   function withdrawable()
