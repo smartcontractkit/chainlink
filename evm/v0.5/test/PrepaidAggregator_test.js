@@ -39,6 +39,7 @@ contract('PrepaidAggregator', () => {
       'updateAnswer',
       'updateAvailableFunds',
       'updatedHeight',
+      'withdraw',
       'withdrawable',
       // Ownable methods:
       'isOwner',
@@ -67,7 +68,6 @@ contract('PrepaidAggregator', () => {
 
     context('when the minimum oracles have not reported', async () => {
       it('pays the oracles that have reported', async () => {
-        assertBigNum(0, await link.balanceOf.call(personas.Neil))
         assertBigNum(
           0,
           await aggregator.withdrawable.call({ from: personas.Neil }),
@@ -77,9 +77,6 @@ contract('PrepaidAggregator', () => {
           from: personas.Neil,
         })
 
-        assertBigNum(paymentAmount, await link.balanceOf.call(personas.Neil))
-        assertBigNum(0, await link.balanceOf.call(personas.Ned))
-        assertBigNum(0, await link.balanceOf.call(personas.Nelly))
         assertBigNum(
           paymentAmount,
           await aggregator.withdrawable.call({ from: personas.Neil }),
@@ -139,7 +136,7 @@ contract('PrepaidAggregator', () => {
           from: personas.Nelly,
         })
         const log = tx.receipt.rawLogs[0]
-        const newAnswer = web3.utils.toBN(log.topics[1])
+        const newAnswer = h.bigNum(log.topics[1])
 
         assert.equal(answer, newAnswer.toNumber())
       })
@@ -192,7 +189,7 @@ contract('PrepaidAggregator', () => {
           from: personas.Neil,
         })
         const log = tx.receipt.rawLogs[0]
-        const roundNumber = web3.utils.toBN(log.topics[1])
+        const roundNumber = h.bigNum(log.topics[1])
 
         assert.equal(nextRound, roundNumber.toNumber())
       })
@@ -222,8 +219,6 @@ contract('PrepaidAggregator', () => {
       const newAmount = h.toWei('50')
 
       it('pays the same amount to all oracles per round', async () => {
-        assertBigNum(0, await link.balanceOf.call(personas.Neil))
-        assertBigNum(0, await link.balanceOf.call(personas.Nelly))
         assertBigNum(
           0,
           await aggregator.withdrawable.call({ from: personas.Neil }),
@@ -243,8 +238,6 @@ contract('PrepaidAggregator', () => {
           from: personas.Nelly,
         })
 
-        assertBigNum(paymentAmount, await link.balanceOf.call(personas.Neil))
-        assertBigNum(paymentAmount, await link.balanceOf.call(personas.Nelly))
         assertBigNum(
           paymentAmount,
           await aggregator.withdrawable.call({ from: personas.Neil }),
@@ -263,7 +256,7 @@ contract('PrepaidAggregator', () => {
       await aggregator.addOracle(personas.Neil, { from: personas.Carol })
       const currentCount = await aggregator.oracleCount.call()
 
-      assertBigNum(currentCount, pastCount.add(web3.utils.toBN('1')))
+      assertBigNum(currentCount, pastCount.add(h.bigNum(1)))
     })
 
     it('updates the answer range', async () => {
@@ -273,11 +266,11 @@ contract('PrepaidAggregator', () => {
       await aggregator.addOracle(personas.Neil, { from: personas.Carol })
 
       assertBigNum(
-        pastMin.add(web3.utils.toBN('1')),
+        pastMin.add(h.bigNum(1)),
         await aggregator.minAnswerCount.call(),
       )
       assertBigNum(
-        pastMax.add(web3.utils.toBN('1')),
+        pastMax.add(h.bigNum(1)),
         await aggregator.maxAnswerCount.call(),
       )
     })
@@ -327,7 +320,7 @@ contract('PrepaidAggregator', () => {
       await aggregator.removeOracle(personas.Neil, { from: personas.Carol })
       const currentCount = await aggregator.oracleCount.call()
 
-      assertBigNum(currentCount, pastCount.sub(web3.utils.toBN('1')))
+      assertBigNum(currentCount, pastCount.sub(h.bigNum(1)))
     })
 
     it('updates the answer range', async () => {
@@ -337,11 +330,11 @@ contract('PrepaidAggregator', () => {
       await aggregator.removeOracle(personas.Neil, { from: personas.Carol })
 
       assertBigNum(
-        pastMin.sub(web3.utils.toBN('1')),
+        pastMin.sub(h.bigNum(1)),
         await aggregator.minAnswerCount.call(),
       )
       assertBigNum(
-        pastMax.sub(web3.utils.toBN('1')),
+        pastMax.sub(h.bigNum(1)),
         await aggregator.maxAnswerCount.call(),
       )
     })
@@ -389,8 +382,6 @@ contract('PrepaidAggregator', () => {
           from: personas.Carol,
         })
 
-        assertBigNum(0, await link.balanceOf.call(aggregator.address))
-        assertBigNum(deposit, await link.balanceOf.call(personas.Carol))
         assertBigNum(0, await aggregator.availableFunds.call())
         assertBigNum(deposit, await link.balanceOf.call(personas.Carol))
       })
@@ -400,12 +391,11 @@ contract('PrepaidAggregator', () => {
           await h.assertActionThrows(async () => {
             await aggregator.transferLINK(
               personas.Carol,
-              deposit.add(web3.utils.toBN('1')),
+              deposit.add(h.bigNum(1)),
               { from: personas.Carol },
             )
           })
 
-          assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
           assertBigNum(deposit, await aggregator.availableFunds.call())
         })
       })
@@ -419,7 +409,6 @@ contract('PrepaidAggregator', () => {
           })
         })
 
-        assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
         assertBigNum(deposit, await aggregator.availableFunds.call())
       })
     })
@@ -520,6 +509,57 @@ contract('PrepaidAggregator', () => {
 
       const newBalance = await aggregator.availableFunds.call()
       assertBigNum(originalBalance.add(deposit), newBalance)
+    })
+  })
+
+  describe('#withdraw', async () => {
+    beforeEach(async () => {
+      await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+      await aggregator.updateAnswer(nextRound, answer, {
+        from: personas.Neil,
+      })
+    })
+
+    it('tranfers LINK to the caller', async () => {
+      const originalBalance = await link.balanceOf.call(aggregator.address)
+      assertBigNum(0, await link.balanceOf.call(personas.Neil))
+
+      await aggregator.withdraw(personas.Neil, paymentAmount, {
+        from: personas.Neil,
+      })
+
+      assertBigNum(
+        originalBalance.sub(paymentAmount),
+        await link.balanceOf.call(aggregator.address),
+      )
+      assertBigNum(paymentAmount, await link.balanceOf.call(personas.Neil))
+    })
+
+    it('decrements the allocated funds counter', async () => {
+      const originalAllocation = await aggregator.allocatedFunds.call()
+
+      await aggregator.withdraw(personas.Neil, paymentAmount, {
+        from: personas.Neil,
+      })
+
+      assertBigNum(
+        originalAllocation.sub(paymentAmount),
+        await aggregator.allocatedFunds.call(),
+      )
+    })
+
+    context('when the caller withdraws more than they have', async () => {
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.withdraw(
+            personas.Neil,
+            paymentAmount.add(h.bigNum(1)),
+            {
+              from: personas.Neil,
+            },
+          )
+        })
+      })
     })
   })
 })
