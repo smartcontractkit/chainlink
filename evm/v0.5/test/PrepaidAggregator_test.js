@@ -106,12 +106,14 @@ contract('PrepaidAggregator', () => {
         assert.equal(100, await aggregator.currentAnswer.call())
       })
 
-      it('updates the updated height', async () => {
-        assert.equal(0, await aggregator.updatedHeight.call())
+      it.only('updates the updated height', async () => {
+        const originalHeight = await aggregator.updatedHeight.call()
+        assert.equal(0, originalHeight.toNumber())
 
         await aggregator.updateAnswer(nextRound, 101, { from: personas.Nelly })
 
-        assert.equal(100, await aggregator.currentAnswer.call())
+        const currentHeight = await aggregator.updatedHeight.call()
+        assert.isAbove(currentHeight.toNumber(), originalHeight.toNumber())
       })
 
       it('announces the new answer with a log event', async () => {
@@ -240,7 +242,9 @@ contract('PrepaidAggregator', () => {
     context(`when adding more than ${limit} oracles`, async () => {
       it('reverts', async () => {
         for (let i = 0; i < limit; i++) {
-          await aggregator.addOracle(web3.utils.randomHex(20), { from: personas.Carol })
+          await aggregator.addOracle(web3.utils.randomHex(20), {
+            from: personas.Carol,
+          })
         }
         await h.assertActionThrows(async () => {
           await aggregator.addOracle(personas.Neil, { from: personas.Carol })
