@@ -24,6 +24,7 @@ contract('PrepaidAggregator', () => {
   it('has a limited public interface', () => {
     h.checkPublicABI(Aggregator, [
       'addOracle',
+      'allocatedFunds',
       'availableFunds',
       'currentAnswer',
       'currentRound',
@@ -54,42 +55,14 @@ contract('PrepaidAggregator', () => {
       }
     })
 
-    context('when price is updated mid-round', async () => {
-      const newAmount = h.toWei('50')
+    it('updates the allocated funds counter', async () => {
+      assertBigNum(0, await aggregator.allocatedFunds.call())
 
-      it('pays the same amount to all oracles per round', async () => {
-        assertBigNum(0, await link.balanceOf.call(personas.Neil))
-        assertBigNum(0, await link.balanceOf.call(personas.Nelly))
-        assertBigNum(
-          0,
-          await aggregator.withdrawable.call({ from: personas.Neil }),
-        )
-        assertBigNum(
-          0,
-          await aggregator.withdrawable.call({ from: personas.Nelly }),
-        )
-
-        await aggregator.updateAnswer(nextRound, answer, {
-          from: personas.Neil,
-        })
-
-        await aggregator.setPaymentAmount(newAmount, { from: personas.Carol })
-
-        await aggregator.updateAnswer(nextRound, answer, {
-          from: personas.Nelly,
-        })
-
-        assertBigNum(paymentAmount, await link.balanceOf.call(personas.Neil))
-        assertBigNum(paymentAmount, await link.balanceOf.call(personas.Nelly))
-        assertBigNum(
-          paymentAmount,
-          await aggregator.withdrawable.call({ from: personas.Neil }),
-        )
-        assertBigNum(
-          paymentAmount,
-          await aggregator.withdrawable.call({ from: personas.Nelly }),
-        )
+      await aggregator.updateAnswer(nextRound, answer, {
+        from: personas.Neil,
       })
+
+      assertBigNum(paymentAmount, await aggregator.allocatedFunds.call())
     })
 
     context('when the minimum oracles have not reported', async () => {
@@ -242,6 +215,44 @@ contract('PrepaidAggregator', () => {
             from: personas.Carol,
           })
         })
+      })
+    })
+
+    context('when price is updated mid-round', async () => {
+      const newAmount = h.toWei('50')
+
+      it('pays the same amount to all oracles per round', async () => {
+        assertBigNum(0, await link.balanceOf.call(personas.Neil))
+        assertBigNum(0, await link.balanceOf.call(personas.Nelly))
+        assertBigNum(
+          0,
+          await aggregator.withdrawable.call({ from: personas.Neil }),
+        )
+        assertBigNum(
+          0,
+          await aggregator.withdrawable.call({ from: personas.Nelly }),
+        )
+
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Neil,
+        })
+
+        await aggregator.setPaymentAmount(newAmount, { from: personas.Carol })
+
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Nelly,
+        })
+
+        assertBigNum(paymentAmount, await link.balanceOf.call(personas.Neil))
+        assertBigNum(paymentAmount, await link.balanceOf.call(personas.Nelly))
+        assertBigNum(
+          paymentAmount,
+          await aggregator.withdrawable.call({ from: personas.Neil }),
+        )
+        assertBigNum(
+          paymentAmount,
+          await aggregator.withdrawable.call({ from: personas.Nelly }),
+        )
       })
     })
   })
