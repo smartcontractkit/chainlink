@@ -35,11 +35,11 @@ contract('PrepaidAggregator', () => {
       'removeOracle',
       'setAnswerCountRange',
       'setPaymentAmount',
-      'transferLINK',
       'updateAnswer',
       'updateAvailableFunds',
       'updatedHeight',
       'withdraw',
+      'withdrawFunds',
       'withdrawable',
       // Ownable methods:
       'isOwner',
@@ -375,10 +375,10 @@ contract('PrepaidAggregator', () => {
     })
   })
 
-  describe('#transferLINK', () => {
+  describe('#withdrawFunds', () => {
     context('when called by the owner', () => {
       it('succeeds', async () => {
-        await aggregator.transferLINK(personas.Carol, deposit, {
+        await aggregator.withdrawFunds(personas.Carol, deposit, {
           from: personas.Carol,
         })
 
@@ -386,17 +386,37 @@ contract('PrepaidAggregator', () => {
         assertBigNum(deposit, await link.balanceOf.call(personas.Carol))
       })
 
-      context('with a number higher than the LINK balance', () => {
+      it('does not let withrawals happen multiple times', async () => {
+        await aggregator.withdrawFunds(personas.Carol, deposit, {
+          from: personas.Carol,
+        })
+
+        await h.assertActionThrows(async () => {
+          await aggregator.withdrawFunds(personas.Carol, deposit, {
+            from: personas.Carol,
+          })
+        })
+      })
+
+      context('with a number higher than the available LINK balance', () => {
+        beforeEach(async () => {
+          await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+          await aggregator.updateAnswer(nextRound, answer, {
+            from: personas.Neil,
+          })
+        })
+
         it('fails', async () => {
           await h.assertActionThrows(async () => {
-            await aggregator.transferLINK(
-              personas.Carol,
-              deposit.add(h.bigNum(1)),
-              { from: personas.Carol },
-            )
+            await aggregator.withdrawFunds(personas.Carol, deposit, {
+              from: personas.Carol,
+            })
           })
 
-          assertBigNum(deposit, await aggregator.availableFunds.call())
+          assertBigNum(
+            deposit.sub(paymentAmount),
+            await aggregator.availableFunds.call(),
+          )
         })
       })
     })
@@ -404,7 +424,7 @@ contract('PrepaidAggregator', () => {
     context('when called by a non-owner', () => {
       it('fails', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.transferLINK(personas.Carol, deposit, {
+          await aggregator.withdrawFunds(personas.Carol, deposit, {
             from: personas.Eddy,
           })
         })
