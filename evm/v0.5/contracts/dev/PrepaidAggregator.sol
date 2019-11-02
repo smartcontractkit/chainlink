@@ -41,9 +41,7 @@ contract PrepaidAggregator is Ownable {
   event NewRound(uint256 indexed number);
   event AnswerUpdated(int256 indexed current, uint256 indexed round);
 
-  constructor(address _link, uint128 _paymentAmount)
-    public
-  {
+  constructor(address _link, uint128 _paymentAmount) public {
     LINK = LinkTokenInterface(_link);
     setPaymentAmount(_paymentAmount);
   }
@@ -95,15 +93,6 @@ contract PrepaidAggregator is Ownable {
     setAnswerCountRange(min, max);
   }
 
-  function transferLINK(address _recipient, uint256 _amount)
-    public
-    onlyOwner()
-  {
-    require(availableFunds >= _amount, "Insufficient funds");
-    require(LINK.transfer(_recipient, _amount), "LINK transfer failed");
-    updateAvailableFunds();
-  }
-
   function setPaymentAmount(uint128 _newAmount)
     public
     onlyOwner()
@@ -143,6 +132,15 @@ contract PrepaidAggregator is Ownable {
     allocatedFunds = allocatedFunds.sub(_amount);
 
     assert(LINK.transfer(_recipient, _amount));
+  }
+
+  function withdrawFunds(address _recipient, uint256 _amount)
+    public
+    onlyOwner()
+  {
+    require(availableFunds >= _amount, "Insufficient funds");
+    require(LINK.transfer(_recipient, _amount), "LINK transfer failed");
+    updateAvailableFunds();
   }
 
   function startNewRound(uint256 _id)
