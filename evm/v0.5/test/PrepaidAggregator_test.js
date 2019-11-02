@@ -190,8 +190,10 @@ contract('PrepaidAggregator', () => {
         })
         const log = tx.receipt.rawLogs[0]
         const roundNumber = h.bigNum(log.topics[1])
+        const startedBy = web3.utils.toChecksumAddress(log.topics[2].slice(26))
 
         assert.equal(nextRound, roundNumber.toNumber())
+        assert.equal(startedBy, personas.Neil)
       })
     })
 
