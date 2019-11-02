@@ -56,13 +56,13 @@ contract PrepaidAggregator is Ownable {
     startNewRound(_round);
     recordAnswer(_answer, _round);
     updateRoundAnswer(_round);
-    deleteRound(_round);
 
     uint128 payment = rounds[_round].paymentAmount;
     availableFunds = availableFunds.sub(payment);
     allocatedFunds = allocatedFunds.add(payment);
     oracles[msg.sender].withdrawable = oracles[msg.sender].withdrawable.add(payment);
-    require(LINK.transfer(msg.sender, payment), "LINK transfer failed");
+
+    deleteRound(_round);
   }
 
   function addOracle(address _oracle)
@@ -130,7 +130,19 @@ contract PrepaidAggregator is Ownable {
     public
     returns (uint256)
   {
-    return uint256(oracles[msg.sender].withdrawable);
+    return oracles[msg.sender].withdrawable;
+  }
+
+  function withdraw(address _recipient, uint256 _amount)
+    public
+  {
+    uint256 available = oracles[msg.sender].withdrawable;
+    require(available >= _amount, "Insufficient balance");
+
+    oracles[msg.sender].withdrawable = available.sub(_amount);
+    allocatedFunds = allocatedFunds.sub(_amount);
+
+    assert(LINK.transfer(_recipient, _amount));
   }
 
   function startNewRound(uint256 _id)
