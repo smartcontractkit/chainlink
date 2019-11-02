@@ -547,6 +547,21 @@ contract('PrepaidAggregator', () => {
       assertBigNum(originalBalance.add(deposit), newBalance)
     })
 
+    it('removes allocated funds from the available balance', async () => {
+      const originalBalance = await aggregator.availableFunds.call()
+
+      await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+      await aggregator.updateAnswer(nextRound, answer, {
+        from: personas.Neil,
+      })
+      await link.transfer(aggregator.address, deposit)
+      await aggregator.updateAvailableFunds()
+
+      const expected = originalBalance.add(deposit).sub(paymentAmount)
+      const newBalance = await aggregator.availableFunds.call()
+      assertBigNum(expected, newBalance)
+    })
+
     it('emits a log', async () => {
       await link.transfer(aggregator.address, deposit)
 

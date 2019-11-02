@@ -110,7 +110,7 @@ contract PrepaidAggregator is Ownable {
   function updateAvailableFunds()
     public
   {
-    uint256 available = LINK.balanceOf(address(this));
+    uint256 available = LINK.balanceOf(address(this)).sub(allocatedFunds);
     availableFunds = uint128(available);
     emit AvailableFundsUpdated(available);
   }
