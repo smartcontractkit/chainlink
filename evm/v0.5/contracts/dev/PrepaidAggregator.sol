@@ -14,6 +14,7 @@ contract PrepaidAggregator is Ownable {
   struct OracleStatus {
     bool enabled;
     uint256 lastReportedRound;
+    uint128 withdrawable;
   }
 
   struct Round {
@@ -58,7 +59,11 @@ contract PrepaidAggregator is Ownable {
     updateRoundAnswer(_round);
     deleteRound(_round);
 
-    require(LINK.transfer(msg.sender, rounds[_round].paymentAmount), "LINK transfer failed");
+    uint128 payment = rounds[_round].paymentAmount;
+    availableFunds -= payment;
+    allocatedFunds += payment;
+    oracles[msg.sender].withdrawable += payment;
+    require(LINK.transfer(msg.sender, payment), "LINK transfer failed");
   }
 
   function addOracle(address _oracle)
@@ -95,7 +100,9 @@ contract PrepaidAggregator is Ownable {
     public
     onlyOwner()
   {
+    require(availableFunds >= _amount, "Insufficient funds");
     require(LINK.transfer(_recipient, _amount), "LINK transfer failed");
+    updateAvailableFunds();
   }
 
   function setPaymentAmount(uint128 _newAmount)
@@ -118,6 +125,13 @@ contract PrepaidAggregator is Ownable {
     public
   {
     availableFunds = uint128(LINK.balanceOf(address(this)));
+  }
+
+  function withdrawable()
+    public
+    returns (uint256)
+  {
+    return uint256(oracles[msg.sender].withdrawable);
   }
 
   function startNewRound(uint256 _id)
