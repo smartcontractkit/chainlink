@@ -2589,7 +2589,7 @@
 
 "@types/chai@^4.2.4":
   version "4.2.4"
-  resolved "https://registry.yarnpkg.com/@types/chai/-/chai-4.2.4.tgz#8936cffad3c96ec470a2dc26a38c3ba8b9b6f619"
+  resolved "https://registry.npmjs.org/@types/chai/-/chai-4.2.4.tgz#8936cffad3c96ec470a2dc26a38c3ba8b9b6f619"
   integrity sha512-7qvf9F9tMTzo0akeswHPGqgUx/gIaJqrOEET/FCD8CFRkSUHlygQiM5yB6OvjrtdxBVLSyw7COJubsFYs0683g==
 
 "@types/cheerio@*":
@@ -10713,7 +10713,7 @@ ganache-cli@^6.1.0:
     source-map-support "0.5.9"
     yargs "11.1.0"
 
-ganache-core@*, ganache-core@^2.6.0, ganache-core@^2.8.0:
+ganache-core@*, ganache-core@^2.6.0:
   version "2.8.0"
   resolved "https://registry.npmjs.org/ganache-core/-/ganache-core-2.8.0.tgz#eeadc7f7fc3a0c20d99f8f62021fb80b5a05490c"
   integrity sha512-hfXqZGJx700jJqwDHNXrU2BnPYuETn1ekm36oRHuXY3oOuJLFs5C+cFdUFaBlgUxcau1dOgZUUwKqTAy0gTA9Q==
