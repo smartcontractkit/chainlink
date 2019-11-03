@@ -21559,15 +21559,6 @@ truffle@^5.0.25:
     mocha "5.2.0"
     original-require "1.0.1"
 
-truffle@^5.0.39:
-  version "5.0.39"
-  resolved "https://registry.yarnpkg.com/truffle/-/truffle-5.0.39.tgz#5710ba8f60a7184d9eb51d632308f2af0a2e8aff"
-  integrity sha512-2a17t4o6r0rNMpeQXBc51nXigtIaP9/sU8N2zflaazvzYgDgLMZfqh/dir2mTfyybOsrR47NL310p+6+c8u8VA==
-  dependencies:
-    app-module-path "^2.2.0"
-    mocha "5.2.0"
-    original-require "1.0.1"
-
 tryer@^1.0.1:
   version "1.0.1"
   resolved "https://registry.npmjs.org/tryer/-/tryer-1.0.1.tgz#f2c85406800b9b0f74c9f7465b81eaad241252f8"
@@ -21778,30 +21769,12 @@ type@^1.0.1:
   resolved "https://registry.npmjs.org/type/-/type-1.0.3.tgz#16f5d39f27a2d28d86e48f8981859e9d3296c179"
   integrity sha512-51IMtNfVcee8+9GJvj0spSuFcZHe9vSib6Xtgsny1Km9ugyz2mbS08I3rsUIRYgJohFRFU1160sgRodYz378Hg==
 
-typechain-target-ethers@^1.0.0-beta.1:
-  version "1.0.0-beta.1"
-  resolved "https://registry.npmjs.org/typechain-target-ethers/-/typechain-target-ethers-1.0.0-beta.1.tgz#3c97f28e66fedb37153e152bc8a4f1f5fe2c62a1"
-  integrity sha512-n8IoNCcbQSvX8hvl+Q8pjh13n9ezRzvKpk0ZYIE+WEdfR76EUYN0/6k/lzSgkpJUM33QF62dwjo7ZZsXlOV6pw==
-  dependencies:
-    lodash "^4.17.15"
-
 typechain-target-ethers@^1.0.1:
   version "1.0.1"
   resolved "https://registry.npmjs.org/typechain-target-ethers/-/typechain-target-ethers-1.0.1.tgz#b4a1467a115d8bc46dbc6a2531d9da278bc358e5"
   integrity sha512-4rsWiKxZc20D4ldF0Pviqo2z07yrW3xIbf6+GdifEZP6zmc0Z2yXOHxEVkqhjLpBp/4z5yRgpW5G2/I32TsI/w==
   dependencies:
     lodash "^4.17.15"
-
-typechain@1.0.1:
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/typechain/-/typechain-1.0.1.tgz#e0dcf63bb0ae8feb74a56ff3153abfd706473efe"
-  integrity sha512-mB/8UbcziE+CJi3ph8hHhBRILAnFjIpAELIhkNWYs08xg2UPFIWVEfK5v0Eb+G7B/XEhOMFbd0EJwGaeWp54Xg==
-  dependencies:
-    command-line-args "^4.0.7"
-    debug "^3.0.1"
-    fs-extra "^7.0.0"
-    lodash "^4.17.15"
-    ts-generator "^0.0.8"
 
 typechain@1.0.3, typechain@^1.0.3:
   version "1.0.3"

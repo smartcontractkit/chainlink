@@ -1,5 +1,4 @@
-import { CoordinatorFactory } from './generated/CoordinatorFactory'
-import { MeanAggregatorFactory } from './generated/MeanAggregatorFactory'
+import { generated as chainlink } from 'chainlinkv0.5'
 import {
   registerPromiseHandler,
   DEVNET_ADDRESS,
@@ -7,6 +6,7 @@ import {
   deployContract,
 } from './common'
 import { deployLinkTokenContract } from './deployLinkTokenContract'
+const { CoordinatorFactory, MeanAggregatorFactory } = chainlink
 
 async function main() {
   registerPromiseHandler()
