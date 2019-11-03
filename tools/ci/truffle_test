@@ -8,6 +8,8 @@ yarn workspaces run lint
 yarn workspace chainlink run slither
 yarn workspace chainlinkv0.5 run slither
 
+yarn workspace chainlinkv0.5 build
+
 # These should be merged into a global test command
 yarn workspace chainlink test
 yarn workspace chainlinkv0.5 test
