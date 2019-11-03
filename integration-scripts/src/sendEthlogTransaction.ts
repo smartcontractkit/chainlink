@@ -1,5 +1,5 @@
 import url from 'url'
-import { EthLogFactory } from './generated/EthLogFactory'
+import { EthLogFactory } from './generated'
 import {
   createProvider,
   getArgs,

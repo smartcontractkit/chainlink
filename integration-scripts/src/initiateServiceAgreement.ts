@@ -1,3 +1,5 @@
+import { generated as chainlink } from 'chainlinkv0.5'
+import { contract } from 'chainlink'
 import { helpers } from 'chainlink'
 import {
   getArgs,
@@ -5,11 +7,12 @@ import {
   DEVNET_ADDRESS,
   createProvider,
 } from './common'
-import { CoordinatorFactory } from './generated/CoordinatorFactory'
 import { ethers } from 'ethers'
-import { Coordinator } from './generated/Coordinator'
+const { CoordinatorFactory } = chainlink
 
-type CoordinatorParams = Parameters<Coordinator['initiateServiceAgreement']>
+type CoordinatorParams = Parameters<
+  contract.Instance<chainlink.CoordinatorFactory>['initiateServiceAgreement']
+>
 type ServiceAgreement = CoordinatorParams[0]
 type OracleSignatures = CoordinatorParams[1]
 
