@@ -22,17 +22,11 @@
     "export-typings": "ts-node scripts/export-generated-contract-factories"
   },
   "dependencies": {
-    "@types/path-to-regexp": "^1.7.0",
     "cbor": "^4.1.1",
     "chainlinkv0.5": "0.0.2",
-    "eth-ens-namehash": "^2.0.8",
-    "ethereumjs-abi": "^0.6.7",
-    "ethereumjs-util": "^6.1.0",
     "ethers": "^4.0.37",
     "link_token": "^1.0.6",
-    "openzeppelin-solidity": "^1.12.0",
-    "solidity-cborutils": "^1.0.4",
-    "truffle-contract": "^4.0.31"
+    "openzeppelin-solidity": "^1.12.0"
   },
   "devDependencies": {
     "@0x/sol-compiler": "^3.1.15",
@@ -48,18 +42,15 @@
     "bn.js": "^4.11.0",
     "chai": "^4.2.0",
     "chalk": "^2.4.2",
-    "cross-env": "^6.0.3",
     "debug": "^4.1.1",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",
     "execa": "^3.2.0",
-    "ganache-core": "^2.8.0",
     "jest": "^24.9.0",
     "jest-circus": "^24.9.0",
     "prettier": "^1.18.2",
     "rimraf": "^3.0.0",
     "shelljs": "^0.8.3",
-    "solc": "0.4.24",
     "solhint": "^2.1.0",
     "truffle": "^5.0.25",
     "ts-jest": "^24.1.0",

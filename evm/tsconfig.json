@@ -16,5 +16,5 @@
     "moduleResolution": "node",
     "esModuleInterop": true
   },
-  "include": ["src", "@types", "test", "testv2"]
+  "include": ["src", "testv2"]
 }
