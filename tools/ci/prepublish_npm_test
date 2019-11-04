@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -e
+
+yarn workspace chainlink prepublishOnly
+yarn workspace chainlinkv0.5 prepublishOnly

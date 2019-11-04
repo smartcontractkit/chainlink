@@ -17,7 +17,7 @@
     "pretest": "yarn build",
     "test": "jest --testTimeout 20000",
     "format": "prettier --write \"{src,testv2}/*/**\"",
-    "prepublishOnly": "yarn build && yarn lint && yarn test",
+    "prepublishOnly": "yarn workspace chainlinkv0.5 setup && yarn setup && yarn lint && yarn test",
     "setup": "ts-node ./scripts/build",
     "truffle:migrate:cldev": "truffle migrate --network cldev"
   },
