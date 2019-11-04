@@ -21,9 +21,11 @@
     "url": "^0.11.0"
   },
   "devDependencies": {
+    "@chainlink/eslint-config": "0.0.1",
     "@types/fetch-mock": "^7.3.1",
     "@types/jest": "^24.0.18",
     "@types/path-to-regexp": "^1.7.0",
+    "eslint": "^6.3.0",
     "fetch-mock": "^7.3.1",
     "jest": "^24.9.0",
     "rimraf": "^3.0.0",
