@@ -6,11 +6,10 @@ import { MaliciousRequesterFactory } from '../src/generated/MaliciousRequesterFa
 import { MaliciousConsumerFactory } from '../src/generated/MaliciousConsumerFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
-import { EthersProviderWrapper } from '../src/provider'
-import env from '@nomiclabs/buidler'
 import { Instance } from '../src/contract'
 import { ethers } from 'ethers'
 import { assert } from 'chai'
+import ganache from 'ganache-core'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const getterSetterFactory = new GetterSetterFactory()
@@ -20,7 +19,7 @@ const oracleFactory = new OracleFactory()
 const linkTokenFactory = new LinkTokenFactory()
 
 let roles: h.Roles
-const provider = new EthersProviderWrapper(env.ethereum)
+const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
 
 beforeAll(async () => {
   const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
@@ -35,11 +34,14 @@ describe('Oracle', () => {
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
   let link: Instance<LinkTokenFactory>
   let oc: Instance<OracleFactory>
-
-  beforeEach(async () => {
+  const deployment = h.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
     await oc.setFulfillmentPermission(roles.oracleNode.address, true)
+  })
+
+  beforeEach(async () => {
+    await deployment()
   })
 
   it('has a limited public interface', () => {
