@@ -7,7 +7,7 @@
   "scripts": {
     "start": "start-storybook -p 9001",
     "build-storybook": "build-storybook",
-    "build": "rm -rf dist && tsc",
+    "build": "rimraf -rf dist && tsc",
     "eslint": "eslint --ext .js,.jsx,.ts,.tsx src stories @types",
     "lint": "tsc --noEmit && yarn eslint",
     "format": "prettier --write \"**/*\"",
@@ -48,6 +48,7 @@
     "eslint": "^6.3.0",
     "prettier": "^1.18.2",
     "react-docgen-typescript-loader": "^3.1.0",
+    "rimraf": "^3.0.0",
     "webpack": "^4.41.1"
   },
   "prettier": "@chainlink/prettier-config"

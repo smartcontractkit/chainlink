@@ -21,7 +21,7 @@
   },
   "scripts": {
     "start": "cross-env PORT=3001 craco start",
-    "build:clean": "rm -rf build",
+    "build:clean": "rimraf -rf build",
     "prebuild": "yarn install",
     "build": "craco build",
     "lint": "eslint --ext .js,.ts,.tsx,.jsx src",
@@ -85,6 +85,7 @@
     "react-scripts": "^3.1.0",
     "redux-devtools-extension": "^2.13.8",
     "redux-logger": "^3.0.6",
+    "rimraf": "^3.0.0",
     "typescript": "^3.6.3",
     "webpack": "4.41.1"
   },
