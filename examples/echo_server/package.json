@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@babel/polyfill": "^7.2.5",
-    "@babel/register": "^7.0.0",
+    "@babel/register": "^7.6.2",
     "body-parser": "^1.18.3",
     "cbor": "^4.0.0",
     "chainlink": "^0.6.5",
