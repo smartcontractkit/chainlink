@@ -19,7 +19,7 @@
     "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
     "@cypress/webpack-preprocessor": "^4.1.0",
-    "cross-env": "^6.0.0",
+    "cross-env": "^6.0.3",
     "cypress": "^3.4.1",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",

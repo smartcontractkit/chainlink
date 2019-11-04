@@ -75,7 +75,7 @@
     "@types/ws": "^6.0.1",
     "@types/yargs": "^12.0.10",
     "concurrently": "^4.1.0",
-    "cross-env": "^6.0.0",
+    "cross-env": "^6.0.3",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",
     "expect-puppeteer": "^4.1.0",
