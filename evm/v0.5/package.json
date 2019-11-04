@@ -34,7 +34,7 @@
     "@types/cbor": "^2.0.0",
     "@types/ethereumjs-abi": "^0.6.3",
     "chai": "^4.2.0",
-    "cross-env": "^6.0.0",
+    "cross-env": "^6.0.3",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",
     "execa": "^3.2.0",
