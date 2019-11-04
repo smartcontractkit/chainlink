@@ -1,9 +1,9 @@
-import { lstatSync, readdirSync, writeFileSync, readFileSync } from 'fs'
 import { resolve, join, parse } from 'path'
 import chalk from 'chalk'
-import { cp, rm } from 'shelljs'
-import { mkdir } from 'shelljs'
+import { cp, rm, ls, test, mkdir, cat } from 'shelljs'
+import { writeFileSync } from 'fs'
 
+// when this is non-empty, no files will be written
 const DRY_RUN = process.env.DRY_RUN
 
 // logging functions with colour output
@@ -17,18 +17,19 @@ function main() {
     resolve(p),
   )
 
-  console.log(process.cwd())
   exportGeneratedContractFactories(generatedPath, distPath)
 }
 main()
 
 /**
  * Export all generated contract factories and their associated types
+ * @param generatedPath The path of the generated files
+ * @param distPath The path of the post-tsc generated files
  */
 export function exportGeneratedContractFactories(
   generatedPath: string,
   distPath: string,
-) {
+): void {
   const dir = getGeneratedFilePaths(generatedPath)
   const exportPaths = dir
     .map(makeExportPath)
@@ -49,7 +50,7 @@ export function exportGeneratedContractFactories(
  * @param generatedPath The path of the generated files
  * @param distPath The path of the post-tsc generated files
  */
-function copyTypings(generatedPath: string, distPath: string) {
+function copyTypings(generatedPath: string, distPath: string): void {
   mkdir('-p', distPath)
   cp(`${generatedPath}/*.d.ts`, distPath)
 }
@@ -57,9 +58,10 @@ function copyTypings(generatedPath: string, distPath: string) {
 /**
  * Create a barrel file which contains all of the exports.
  * This will replace the existing barrel file if it already exists.
+ * @path the path to create the barrel file
  * @param data The data to write to the barrel file
  */
-function makeBarrelFile(path: string, data: string) {
+function makeBarrelFile(path: string, data: string): void {
   const exportFilePath = join(path, 'index.ts')
   warn(`Writing barrel file to ${exportFilePath}`)
   writeFileSync(exportFilePath, data)
@@ -74,11 +76,11 @@ function makeBarrelFile(path: string, data: string) {
  * .d.fs one.
  * @param path The path of the generated files
  */
-function mergeIndexes(path: string) {
+function mergeIndexes(path: string): void {
   const exportFilePath = join(path, 'index.ts')
   const declarationsFilePath = join(path, 'index.d.ts')
-  const declarationFile = readFileSync(declarationsFilePath)
-  const exportsFile = readFileSync(exportFilePath)
+  const declarationFile = cat(declarationsFilePath)
+  const exportsFile = cat(exportFilePath)
 
   writeFileSync(exportFilePath, [declarationFile, exportsFile].join('\n'))
   rm(declarationsFilePath)
@@ -86,15 +88,17 @@ function mergeIndexes(path: string) {
 
 /**
  * Check if the generated directory for smart contract factories exists
+ * @param path The path of the generated files
  */
 function generatedDirExists(path: string): boolean {
   log(`Checking if directory: ${path} exists...`)
-  const exists = lstatSync(path).isDirectory()
-  return exists
+
+  return test('-d', path)
 }
 
 /**
  * Get all the generated file paths from the generated directory
+ * @param path The path of the generated files
  */
 function getGeneratedFilePaths(path: string): string[] {
   if (!generatedDirExists(path)) {
@@ -102,14 +106,14 @@ function getGeneratedFilePaths(path: string): string[] {
     process.exit(1)
   }
   log(`Directory ${path} exists, continuing...`)
-  return readdirSync(path)
+  return ls(path)
 }
 
 /**
  * Create an es6 export of a filename, handles interface and index conflicts naively
  * @param fileName The filename to export
  */
-function makeExportPath(fileName: string) {
+function makeExportPath(fileName: string): string {
   const { name } = parse(fileName)
 
   if (name.endsWith('.d')) {
