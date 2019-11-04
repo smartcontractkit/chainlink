@@ -22,8 +22,8 @@ const handleLegacy = async (json: string, context: ServerContext) => {
   }
 }
 
-const handleJSONRCP = async (request: string, context: ServerContext) => {
-  return await new Promise(resolve => {
+const handleJSONRCP = (request: string, context: ServerContext) => {
+  return new Promise(resolve => {
     callRPCServer(
       request,
       context,
