@@ -357,6 +357,8 @@ func initiatorParams(i Initiator) (interface{}, error) {
 	switch i.Type {
 	case models.InitiatorWeb:
 		return struct{}{}, nil
+	case models.InitiatorServiceAgreementExecutionLog:
+		return struct{}{}, nil
 	case models.InitiatorCron:
 		return struct {
 			Schedule models.Cron `json:"schedule"`
