@@ -154,29 +154,31 @@ func ReceiveLogRequest(store *strpkg.Store, le models.LogRequest) {
 		return
 	}
 
-	runJob(store, le, data)
+	runJob(store, le, &data)
 }
 
-func runJob(store *strpkg.Store, le models.LogRequest, data models.JSON) {
-	input := models.RunResult{Data: data}
+func runJob(store *strpkg.Store, le models.LogRequest, data *models.JSON) {
+	jobSpec := le.GetJobSpec()
+	initiator := le.GetInitiator()
+
 	if err := le.ValidateRequester(); err != nil {
-		input.SetError(err)
+		if _, err := CreateErroredJob(jobSpec, initiator, err, store); err != nil {
+			logger.Errorw(err.Error())
+		}
 		logger.Errorw(err.Error(), le.ForLogger()...)
-	}
-	rr, err := le.RunRequest()
-	if err != nil {
-		input.SetError(err)
-		logger.Errorw(err.Error(), le.ForLogger()...)
+		return
 	}
 
-	_, err = ExecuteJobWithRunRequest(
-		le.GetJobSpec(),
-		le.GetInitiator(),
-		input,
-		le.BlockNumber(),
-		store.Unscoped(),
-		rr,
-	)
+	rr, err := le.RunRequest()
+	if err != nil {
+		if _, err := CreateErroredJob(jobSpec, initiator, err, store); err != nil {
+			logger.Errorw(err.Error())
+		}
+		logger.Errorw(err.Error(), le.ForLogger()...)
+		return
+	}
+
+	_, err = ExecuteJobWithRunRequest(jobSpec, initiator, data, le.BlockNumber(), store, rr)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}

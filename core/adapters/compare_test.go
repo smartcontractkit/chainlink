@@ -803,11 +803,11 @@ func TestCompare_Perform(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := cltest.RunResultWithResult(test.input)
+			input := cltest.NewRunInputWithResult(test.input)
 			adapter := test.adapter
 			result := adapter.Perform(input, nil)
 			val := result.Result()
-			assert.NoError(t, result.GetError())
+			assert.NoError(t, result.Error())
 			assert.Equal(t, test.wantResult, val.Bool())
 		})
 	}
@@ -879,12 +879,11 @@ func TestCompareError_Perform(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := cltest.RunResultWithResult(test.input)
+
+			input := cltest.NewRunInputWithResult(test.input)
 			adapter := test.adapter
 			result := adapter.Perform(input, nil)
-			_, err := result.ResultString()
-			assert.NoError(t, err)
-			assert.Equal(t, test.expected, result.GetError())
+			assert.Equal(t, test.expected, result.Error())
 		})
 	}
 }

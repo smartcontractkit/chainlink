@@ -148,7 +148,7 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 		})
 	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
-	input := cltest.RunResultWithData(rawInput)
+	input := cltest.NewRunInput(cltest.JSONFromString(t, rawInput))
 	responseData := adapterUnderTest.Perform(input, store)
 	assert.False(t, responseData.HasError())
 	from := cltest.GetAccountAddress(t, store)

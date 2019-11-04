@@ -135,7 +135,6 @@ func (j JobSpec) NewRun(i Initiator) JobRun {
 			ID:       trid,
 			JobRunID: jrid,
 			TaskSpec: task,
-			Result:   RunResult{CachedTaskRunID: trid, CachedJobRunID: jrid},
 		}
 	}
 
@@ -151,7 +150,6 @@ func (j JobSpec) NewRun(i Initiator) JobRun {
 		Initiator:   i,
 		InitiatorID: i.ID,
 		Status:      RunStatusUnstarted,
-		Result:      RunResult{CachedJobRunID: jrid},
 	}
 }
 
@@ -182,16 +180,6 @@ func (j JobSpec) InitiatorExternal(name string) *Initiator {
 		}
 	}
 	return found
-}
-
-// WebAuthorized returns true if the "web" initiator is present.
-func (j JobSpec) WebAuthorized() bool {
-	for _, initr := range j.Initiators {
-		if initr.Type == InitiatorWeb {
-			return true
-		}
-	}
-	return false
 }
 
 // IsLogInitiated Returns true if any of the job's initiators are triggered by event logs.

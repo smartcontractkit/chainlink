@@ -28,10 +28,10 @@ type HTTPGet struct {
 
 // Perform ensures that the adapter's URL responds to a GET request without
 // errors and returns the response body as the "value" field of the result.
-func (hga *HTTPGet) Perform(input models.RunResult, store *store.Store) models.RunResult {
+func (hga *HTTPGet) Perform(input models.RunInput, store *store.Store) models.RunOutput {
 	request, err := hga.GetRequest()
 	if err != nil {
-		return models.RunResultError(err)
+		return models.NewRunOutputError(err)
 	}
 	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
 }
@@ -68,10 +68,10 @@ type HTTPPost struct {
 
 // Perform ensures that the adapter's URL responds to a POST request without
 // errors and returns the response body as the "value" field of the result.
-func (hpa *HTTPPost) Perform(input models.RunResult, store *store.Store) models.RunResult {
-	request, err := hpa.GetRequest(input.Data.String())
+func (hpa *HTTPPost) Perform(input models.RunInput, store *store.Store) models.RunOutput {
+	request, err := hpa.GetRequest(input.Data().String())
 	if err != nil {
-		return models.RunResultError(err)
+		return models.NewRunOutputError(err)
 	}
 	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
 }
@@ -132,14 +132,14 @@ func setHeaders(request *http.Request, headers http.Header, contentType string) 
 	}
 }
 
-func sendRequest(input models.RunResult, request *http.Request, limit int64) models.RunResult {
+func sendRequest(input models.RunInput, request *http.Request, limit int64) models.RunOutput {
 	tr := &http.Transport{
 		DisableCompression: true,
 	}
 	client := &http.Client{Transport: tr}
 	response, err := client.Do(request)
 	if err != nil {
-		return models.RunResultError(err)
+		return models.NewRunOutputError(err)
 	}
 
 	defer response.Body.Close()
@@ -147,15 +147,15 @@ func sendRequest(input models.RunResult, request *http.Request, limit int64) mod
 	source := newMaxBytesReader(response.Body, limit)
 	bytes, err := ioutil.ReadAll(source)
 	if err != nil {
-		return models.RunResultError(err)
+		return models.NewRunOutputError(err)
 	}
 
 	responseBody := string(bytes)
 	if response.StatusCode >= 400 {
-		return models.RunResultError(errors.New(responseBody))
+		return models.NewRunOutputError(errors.New(responseBody))
 	}
 
-	return models.RunResultComplete(responseBody)
+	return models.NewRunOutputCompleteWithResult(responseBody)
 }
 
 // maxBytesReader is inspired by

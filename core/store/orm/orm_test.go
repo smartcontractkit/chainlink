@@ -1015,29 +1015,36 @@ func TestBulkDeleteRuns(t *testing.T) {
 	require.NoError(t, store.ORM.CreateJob(&job))
 	initiator := job.Initiators[0]
 
-	// matches updated before but none of the statuses
+	// bulk delete should not delete these because they match the updated before
+	// but none of the statuses
 	oldIncompleteRun := job.NewRun(initiator)
+	oldIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 17}`)}
 	oldIncompleteRun.Status = models.RunStatusInProgress
 	err := orm.CreateJobRun(&oldIncompleteRun)
 	require.NoError(t, err)
 	db.Model(&oldIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
 
-	// matches one of the statuses and the updated before
+	// bulk delete *SHOULD* delete these because they match one of the statuses
+	// and the updated before
 	oldCompletedRun := job.NewRun(initiator)
+	oldCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 19}`)}
 	oldCompletedRun.Status = models.RunStatusCompleted
 	err = orm.CreateJobRun(&oldCompletedRun)
 	require.NoError(t, err)
 	db.Model(&oldCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
 
-	// matches one of the statuses but not the updated before
+	// bulk delete should not delete these because they match one of the
+	// statuses but not the updated before
 	newCompletedRun := job.NewRun(initiator)
+	newCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 23}`)}
 	newCompletedRun.Status = models.RunStatusCompleted
 	err = orm.CreateJobRun(&newCompletedRun)
 	require.NoError(t, err)
 	db.Model(&newCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
 
-	// matches nothing
+	// bulk delete should not delete these because none of their attributes match
 	newIncompleteRun := job.NewRun(initiator)
+	newIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 71}`)}
 	newIncompleteRun.Status = models.RunStatusCompleted
 	err = orm.CreateJobRun(&newIncompleteRun)
 	require.NoError(t, err)
@@ -1063,7 +1070,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 	var resultCount int
 	err = db.Model(&models.RunResult{}).Count(&resultCount).Error
 	assert.NoError(t, err)
-	assert.Equal(t, 6, resultCount)
+	assert.Equal(t, 3, resultCount)
 
 	var requestCount int
 	err = db.Model(&models.RunRequest{}).Count(&requestCount).Error
