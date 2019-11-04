@@ -10,7 +10,7 @@
     "postbuild": "yarn generate-typings && yarn tsc && cp -f src/generated/*.d.ts dist/src/generated",
     "build:windows": "truffle.cmd build",
     "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box || true",
-    "eslint": "eslint --ext .ts,.js testv2 src",
+    "eslint": "eslint --ext .ts, testv2 src",
     "solhint": "solhint ./contracts/**/*.sol",
     "lint": "yarn solhint && yarn eslint",
     "slither": "truffle compile --quiet && slither .",
