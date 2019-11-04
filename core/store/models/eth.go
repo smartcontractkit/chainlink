@@ -95,7 +95,7 @@ type Tx struct {
 
 // String implements Stringer for Tx
 func (tx *Tx) String() string {
-	return fmt.Sprintf("Tx{ID: %d, From: %s, To: %s, Hash: %s, SentAt: %d}",
+	return fmt.Sprintf("Tx(ID: %d, From: %s, To: %s, Hash: %s, SentAt: %d)",
 		tx.ID,
 		tx.From.String(),
 		tx.To.String(),

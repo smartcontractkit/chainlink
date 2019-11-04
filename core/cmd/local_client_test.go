@@ -6,30 +6,39 @@ import (
 	"path/filepath"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 )
 
 func TestClient_RunNodeShowsEnv(t *testing.T) {
-	config, configCleanup := cltest.NewConfig(t)
-	defer configCleanup()
-	config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
-	config.Set("CHAINLINK_PORT", 6688)
-
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	_, err := store.KeyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
 
-	auth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) (string, error) { return "", nil }}
+	store.Config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
+	store.Config.Set("CHAINLINK_PORT", 6688)
+
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+	app.On("Start").Return(nil)
+	app.On("Stop").Return(nil)
+
+	auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
-		Config:                 app.Store.Config,
-		AppFactory:             cltest.InstanceAppFactory{App: app.ChainlinkApplication},
+		Config:                 store.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
 		KeyStoreAuthenticator:  auth,
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 		Runner:                 runner,
@@ -39,23 +48,20 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	set.Bool("debug", true, "")
 	c := cli.NewContext(nil, set, nil)
 
-	eth := app.MockEthCallerSubscriber()
-	eth.Register("eth_getTransactionCount", `0x1`)
-	eth.Register("eth_chainId", config.ChainID())
-
 	// Start RunNode in a goroutine, it will block until we resume the runner
 	go func() {
 		assert.NoError(t, client.RunNode(c))
 	}()
 
-	// Wait for RunNode to connect the app
-	require.NoError(t, app.WaitForConnection())
-
 	// Unlock the runner to the client can begin shutdown
-	runner.Done <- struct{}{}
+	select {
+	case runner.Done <- struct{}{}:
+	case <-time.After(30 * time.Second):
+		t.Fatal("Timed out waiting for runner")
+	}
 
 	logger.Sync()
-	logs, err := cltest.ReadLogs(app)
+	logs, err := cltest.ReadLogs(store.Config)
 	require.NoError(t, err)
 
 	assert.Contains(t, logs, "LOG_LEVEL: debug\\n")
@@ -76,6 +82,8 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.Contains(t, logs, "ORACLE_CONTRACT_ADDRESS: \\n")
 	assert.Contains(t, logs, "ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688\\n")
 	assert.Contains(t, logs, "BRIDGE_RESPONSE_URL: http://localhost:6688\\n")
+
+	app.AssertExpectations(t)
 }
 
 func TestClient_RunNodeWithPasswords(t *testing.T) {
@@ -93,13 +101,22 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplication(t)
+			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
-			_, err := app.Store.KeyStore.NewAccount("password") // matches correct_password.txt
-			assert.NoError(t, err)
+			_, err := store.KeyStore.NewAccount(cltest.Password)
+			require.NoError(t, err)
+			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+
+			app := new(mocks.Application)
+			app.On("GetStore").Return(store)
+			app.On("Start").Maybe().Return(nil)
+			app.On("Stop").Maybe().Return(nil)
+
+			_, err = store.KeyStore.NewAccount("password") // matches correct_password.txt
+			require.NoError(t, err)
 
 			var unlocked bool
-			callback := func(store *store.Store, phrase string) (string, error) {
+			callback := func(store *strpkg.Store, phrase string) (string, error) {
 				err := store.KeyStore.Unlock(phrase)
 				unlocked = err == nil
 				return phrase, err
@@ -108,7 +125,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			auth := cltest.CallbackAuthenticator{Callback: callback}
 			apiPrompt := &cltest.MockAPIInitializer{}
 			client := cmd.Client{
-				Config:                 app.Store.Config,
+				Config:                 store.Config,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				KeyStoreAuthenticator:  auth,
 				FallbackAPIInitializer: apiPrompt,
@@ -119,8 +136,6 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			set.String("password", test.pwdfile, "")
 			c := cli.NewContext(nil, set, nil)
 
-			eth := app.MockEthCallerSubscriber()
-			eth.Register("eth_getTransactionCount", `0x1`)
 			if test.wantUnlocked {
 				assert.NoError(t, client.RunNode(c))
 				assert.True(t, unlocked)
@@ -150,13 +165,24 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey(t)
-			defer cleanup()
+			config := orm.NewConfig()
 
-			noauth := cltest.CallbackAuthenticator{Callback: func(*store.Store, string) (string, error) { return "", nil }}
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+			_, err := store.KeyStore.NewAccount(cltest.Password)
+			require.NoError(t, err)
+			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+
+			app := new(mocks.Application)
+			app.On("GetStore").Return(store)
+			app.On("Start").Maybe().Return(nil)
+			app.On("Stop").Maybe().Return(nil)
+
+			callback := func(*strpkg.Store, string) (string, error) { return "", nil }
+			noauth := cltest.CallbackAuthenticator{Callback: callback}
 			apiPrompt := &cltest.MockAPIInitializer{}
 			client := cmd.Client{
-				Config:                 app.Config.Config,
+				Config:                 config,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				KeyStoreAuthenticator:  noauth,
 				FallbackAPIInitializer: apiPrompt,
@@ -167,15 +193,14 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			set.String("api", test.apiFile, "")
 			c := cli.NewContext(nil, set, nil)
 
-			eth := app.MockEthCallerSubscriber()
-			eth.Register("eth_getTransactionCount", `0x1`)
-
 			if test.wantError {
 				assert.Error(t, client.RunNode(c))
 			} else {
 				assert.NoError(t, client.RunNode(c))
 			}
 			assert.Equal(t, test.wantPrompt, apiPrompt.Count > 0)
+
+			app.AssertExpectations(t)
 		})
 	}
 }
@@ -185,6 +210,8 @@ func TestClient_ImportKey(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("import", 0)

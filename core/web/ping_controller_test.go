@@ -15,6 +15,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
@@ -29,6 +30,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	eia := &models.ExternalInitiatorAuthentication{
 		AccessKey: "abracadabra",
@@ -65,6 +67,7 @@ func TestPingController_Show_NoCredentials(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	client := http.Client{}
 	url := app.Config.ClientNodeURL() + "/v2/ping"

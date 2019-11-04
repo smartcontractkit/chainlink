@@ -22,6 +22,8 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	eth := cltest.MockEthOnStore(t, app.GetStore())
 	eth.RegisterSubscription("logs")
 
@@ -73,6 +75,8 @@ func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	eth := cltest.MockEthOnStore(t, app.GetStore())
 	eth.RegisterSubscription("logs")
 
@@ -104,6 +108,8 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	input := cltest.MustReadFile(t, "testdata/hello_world_agreement.json")

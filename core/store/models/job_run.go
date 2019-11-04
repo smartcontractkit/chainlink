@@ -100,6 +100,15 @@ func (jr *JobRun) NextTaskRun() *TaskRun {
 	return nil
 }
 
+// PreviousTaskRun returns the last task to be processed, if it exists
+func (jr *JobRun) PreviousTaskRun() *TaskRun {
+	index, runnable := jr.NextTaskRunIndex()
+	if runnable && index > 0 {
+		return &jr.TaskRuns[index-1]
+	}
+	return nil
+}
+
 // TasksRemain returns true if there are unfinished tasks left for this job run
 func (jr *JobRun) TasksRemain() bool {
 	_, runnable := jr.NextTaskRunIndex()
@@ -158,8 +167,8 @@ type RunRequest struct {
 }
 
 // NewRunRequest returns a new RunRequest instance.
-func NewRunRequest() RunRequest {
-	return RunRequest{CreatedAt: time.Now()}
+func NewRunRequest() *RunRequest {
+	return &RunRequest{CreatedAt: time.Now()}
 }
 
 // TaskRun stores the Task and represents the status of the

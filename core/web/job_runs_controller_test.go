@@ -287,6 +287,8 @@ func TestJobRunsController_Create_InvalidID(t *testing.T) {
 func TestJobRunsController_Update_Success(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
+	eth := app.MockEthCallerSubscriber()
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 	defer cleanup()
 
