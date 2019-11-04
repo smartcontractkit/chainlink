@@ -123,8 +123,7 @@ func TestServices_ReceiveLogRequest_IgnoredLogWithRemovedFlag(t *testing.T) {
 		},
 	}
 
-	originalCount := 0
-	err := store.ORM.DB.Model(&models.JobRun{}).Count(&originalCount).Error
+	_, err := store.ORM.CountOf(&models.JobRun{})
 	require.NoError(t, err)
 
 	jm := new(mocks.RunManager)

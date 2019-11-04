@@ -57,8 +57,11 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters
 	if url != nil {
 		sp.WSClient = NewWebSocketClient(url, accessKey, secret)
 		gormCallbacksMutex.Lock()
-		orm.DB.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp))
-		orm.DB.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp))
+		_ = orm.RawDB(func(db *gorm.DB) error {
+			db.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp, orm))
+			db.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp, orm))
+			return nil
+		})
 		gormCallbacksMutex.Unlock()
 	}
 	return sp
@@ -82,9 +85,11 @@ func (sp *StatsPusher) Close() error {
 		sp.cancel()
 	}
 	gormCallbacksMutex.Lock()
-	callbacks := sp.ORM.DB.Callback()
-	callbacks.Create().Remove(createCallbackName)
-	callbacks.Update().Remove(updateCallbackName)
+	_ = sp.ORM.RawDB(func(db *gorm.DB) error {
+		db.Callback().Create().Remove(createCallbackName)
+		db.Callback().Update().Remove(updateCallbackName)
+		return nil
+	})
 	gormCallbacksMutex.Unlock()
 	return sp.WSClient.Close()
 }
@@ -170,7 +175,9 @@ func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
 		return errors.New("event not created")
 	}
 
-	err = sp.ORM.DB.Delete(event).Error
+	err = sp.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Delete(event).Error
+	})
 	if err != nil {
 		return errors.Wrap(err, "syncEvent#DB.Delete failed")
 	}
@@ -178,7 +185,7 @@ func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
 	return nil
 }
 
-func createSyncEventWithStatsPusher(sp *StatsPusher) func(*gorm.Scope) {
+func createSyncEventWithStatsPusher(sp *StatsPusher, orm *orm.ORM) func(*gorm.Scope) {
 	return func(scope *gorm.Scope) {
 		if scope.HasError() {
 			return
@@ -193,6 +200,8 @@ func createSyncEventWithStatsPusher(sp *StatsPusher) func(*gorm.Scope) {
 			logger.Error("Invariant violated scope.Value is not type *models.JobRun, but TableName was job_runes")
 			return
 		}
+
+		orm.MustEnsureAdvisoryLock()
 
 		presenter := SyncJobRunPresenter{run}
 		bodyBytes, err := json.Marshal(presenter)
