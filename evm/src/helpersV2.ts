@@ -59,15 +59,18 @@ export function useSnapshot(
       await cb()
 
       d('snapshotting...')
+      /* eslint-disable-next-line require-atomic-updates */
       snapshotId = await provider.send('evm_snapshot', undefined)
       d('snapshot id:%s', snapshotId)
 
+      /* eslint-disable-next-line require-atomic-updates */
       hasDeployed = true
     } else {
       d('reverting to snapshot: %s', snapshotId)
       await provider.send('evm_revert', snapshotId)
 
       d('re-creating snapshot..')
+      /* eslint-disable-next-line require-atomic-updates */
       snapshotId = await provider.send('evm_snapshot', undefined)
       d('recreated snapshot id:%s', snapshotId)
     }
