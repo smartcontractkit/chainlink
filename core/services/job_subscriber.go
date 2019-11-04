@@ -24,12 +24,14 @@ type jobSubscriber struct {
 	store            *store.Store
 	jobSubscriptions map[string]JobSubscription
 	jobsMutex        *sync.RWMutex
+	runManager       RunManager
 }
 
 // NewJobSubscriber returns a new job subscriber.
-func NewJobSubscriber(store *store.Store) JobSubscriber {
+func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
 	return &jobSubscriber{
 		store:            store,
+		runManager:       runManager,
 		jobSubscriptions: map[string]JobSubscription{},
 		jobsMutex:        &sync.RWMutex{},
 	}
@@ -42,7 +44,7 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 		return nil
 	}
 
-	sub, err := StartJobSubscription(job, bn, js.store)
+	sub, err := StartJobSubscription(job, bn, js.store, js.runManager)
 	if err != nil {
 		return err
 	}
@@ -56,6 +58,7 @@ func (js *jobSubscriber) RemoveJob(ID *models.ID) error {
 	sub, ok := js.jobSubscriptions[ID.String()]
 	delete(js.jobSubscriptions, ID.String())
 	js.jobsMutex.Unlock()
+
 	if !ok {
 		return fmt.Errorf("JobSubscriber#RemoveJob: job %s not found", ID)
 	}
@@ -67,6 +70,7 @@ func (js *jobSubscriber) RemoveJob(ID *models.ID) error {
 func (js *jobSubscriber) Jobs() []models.JobSpec {
 	js.jobsMutex.RLock()
 	defer js.jobsMutex.RUnlock()
+
 	var jobs []models.JobSpec
 	for _, sub := range js.jobSubscriptions {
 		jobs = append(jobs, sub.Job)
@@ -77,14 +81,15 @@ func (js *jobSubscriber) Jobs() []models.JobSpec {
 func (js *jobSubscriber) addSubscription(sub JobSubscription) {
 	js.jobsMutex.Lock()
 	defer js.jobsMutex.Unlock()
+
 	js.jobSubscriptions[sub.Job.ID.String()] = sub
 }
 
 // Connect connects the jobs to the ethereum node by creating corresponding subscriptions.
 func (js *jobSubscriber) Connect(bn *models.Head) error {
 	var merr error
-	err := js.store.Jobs(func(j models.JobSpec) bool {
-		merr = multierr.Append(merr, js.AddJob(j, bn))
+	err := js.store.Jobs(func(j *models.JobSpec) bool {
+		merr = multierr.Append(merr, js.AddJob(*j, bn))
 		return true
 	})
 	return multierr.Append(merr, err)
@@ -95,6 +100,7 @@ func (js *jobSubscriber) Connect(bn *models.Head) error {
 func (js *jobSubscriber) Disconnect() {
 	js.jobsMutex.Lock()
 	defer js.jobsMutex.Unlock()
+
 	for _, sub := range js.jobSubscriptions {
 		sub.Unsubscribe()
 	}
@@ -103,17 +109,8 @@ func (js *jobSubscriber) Disconnect() {
 
 // OnNewHead resumes all pending job runs based on the new head activity.
 func (js *jobSubscriber) OnNewHead(head *models.Head) {
-	height := head.ToInt()
-
-	err := js.store.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
-		err := ResumeConfirmingTask(run, js.store.Unscoped(), height)
-		if err != nil {
-			logger.Errorf("JobSubscriber.OnNewHead: %v", err)
-		}
-
-	}, models.RunStatusPendingConnection, models.RunStatusPendingConfirmations)
-
+	err := js.runManager.ResumeAllConfirming(head.ToInt())
 	if err != nil {
-		logger.Errorf("error fetching pending job runs: %v", err)
+		logger.Errorw("Failed to resume confirming tasks on new head", "error", err)
 	}
 }

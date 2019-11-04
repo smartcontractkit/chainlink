@@ -47,6 +47,8 @@ const (
 	RunStatusErrored = RunStatus("errored")
 	// RunStatusCompleted is used for when a run has successfully completed execution.
 	RunStatusCompleted = RunStatus("completed")
+	// RunStatusCancelled is used to indicate a run is no longer desired.
+	RunStatusCancelled = RunStatus("cancelled")
 )
 
 // Unstarted returns true if the status is the initial state.

@@ -140,6 +140,7 @@ type TestApplication struct {
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
+	Started          bool
 }
 
 func newWSServer() (*httptest.Server, func()) {
@@ -245,6 +246,13 @@ func (ta *TestApplication) NewBox() packr.Box {
 	return packr.NewBox("../fixtures/operator_ui/dist")
 }
 
+func (ta *TestApplication) Start() error {
+	ta.t.Helper()
+	ta.Started = true
+
+	return ta.ChainlinkApplication.Start()
+}
+
 func (ta *TestApplication) StartAndConnect() error {
 	ta.t.Helper()
 
@@ -283,6 +291,12 @@ func (ta *TestApplication) MockStartAndConnect() (*EthMock, error) {
 
 // Stop will stop the test application and perform cleanup
 func (ta *TestApplication) Stop() error {
+	ta.t.Helper()
+
+	if !ta.Started {
+		ta.t.Fatal("TestApplication Stop() called on an unstarted application")
+	}
+
 	// TODO: Here we double close, which is less than ideal.
 	// We would prefer to invoke a method on an interface that
 	// cleans up only in test.
@@ -401,17 +415,6 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 	require.NoError(t, store.Close())
 }
 
-// NewJobSubscriber creates a new JobSubscriber
-func NewJobSubscriber(t testing.TB) (*strpkg.Store, services.JobSubscriber, func()) {
-	t.Helper()
-
-	store, cl := NewStore(t)
-	nl := services.NewJobSubscriber(store)
-	return store, nl, func() {
-		cl()
-	}
-}
-
 func ParseJSON(t testing.TB, body io.Reader) models.JSON {
 	t.Helper()
 
@@ -521,8 +524,8 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 }
 
 // ReadLogs returns the contents of the applications log file as a string
-func ReadLogs(app *TestApplication) (string, error) {
-	logFile := fmt.Sprintf("%s/log.jsonl", app.Store.Config.RootDir())
+func ReadLogs(config orm.ConfigReader) (string, error) {
+	logFile := fmt.Sprintf("%s/log.jsonl", config.RootDir())
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
 }
@@ -731,17 +734,6 @@ func WaitForJobRunToPendConfirmations(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingConfirmations)
 }
 
-// WaitForJobRunToPendSleep waits for a JobRun to reach PendingBridge Status
-func WaitForJobRunToPendSleep(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-) models.JobRun {
-	t.Helper()
-
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingSleep)
-}
-
 // WaitForJobRunStatus waits for a JobRun to reach given status
 func WaitForJobRunStatus(
 	t testing.TB,
@@ -923,11 +915,6 @@ func Head(val interface{}) *models.Head {
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 		return nil
 	}
-}
-
-// NewBlockHeader return a new BlockHeader with given number
-func NewBlockHeader(number int) *models.BlockHeader {
-	return &models.BlockHeader{Number: BigHexInt(number)}
 }
 
 // GetAccountAddress returns Address of the account in the keystore of the passed in store
@@ -1139,16 +1126,6 @@ func MustParseURL(input string) *url.URL {
 		logger.Panic(err)
 	}
 	return u
-}
-
-func NewRunInput(value models.JSON) models.RunInput {
-	jobRunID := models.NewID()
-	return *models.NewRunInput(jobRunID, value, models.RunStatusUnstarted)
-}
-
-func NewRunInputWithResult(value interface{}) models.RunInput {
-	jobRunID := models.NewID()
-	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
 }
 
 func MustResultString(t *testing.T, input models.RunResult) string {

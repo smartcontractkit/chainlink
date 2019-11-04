@@ -513,17 +513,6 @@ func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, 
 	return nil
 }
 
-func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) error {
-	b, err := cli.parseResponse(resp)
-	if err != nil {
-		return err
-	}
-	if err = json.Unmarshal(b, &dst); err != nil {
-		return cli.errorOut(err)
-	}
-	return nil
-}
-
 func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
 	if err == errUnauthorized {
@@ -558,14 +547,6 @@ func (cli *Client) printResponseBody(resp *http.Response) error {
 
 	fmt.Println(string(b))
 	return nil
-}
-
-func (cli *Client) renderResponse(resp *http.Response, dst interface{}) error {
-	err := cli.deserializeResponse(resp, dst)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	return cli.errorOut(cli.Render(dst))
 }
 
 func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error {
@@ -638,7 +619,6 @@ func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) error {
 
 	return cli.errorOut(cli.Render(&patchResponse))
 }
-
 
 // GetConfiguration gets the nodes environment variables
 func (cli *Client) GetConfiguration(c *clipkg.Context) error {

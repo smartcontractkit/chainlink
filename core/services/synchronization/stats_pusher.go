@@ -120,8 +120,6 @@ func (sp *StatsPusher) eventLoop(parentCtx context.Context) {
 }
 
 func (sp *StatsPusher) pusherLoop(parentCtx context.Context) error {
-	logger.Debugw("Started StatsPusher")
-
 	for {
 		select {
 		case <-sp.waker:
@@ -135,7 +133,6 @@ func (sp *StatsPusher) pusherLoop(parentCtx context.Context) error {
 				return err
 			}
 		case <-parentCtx.Done():
-			logger.Debugw("StatsPusher got done signal, shutting down")
 			return nil
 		}
 	}

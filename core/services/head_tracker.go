@@ -239,7 +239,7 @@ func (ht *HeadTracker) subscribeToHead() error {
 	}
 
 	if err := verifyEthereumChainID(ht); err != nil {
-		return errors.Wrap(err, "verifyEthereumChainID")
+		return errors.Wrap(err, "verifyEthereumChainID failed")
 	}
 
 	ht.headSubscription = sub

@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -161,6 +162,33 @@ func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
 
 	require.Error(t, utils.JustError(store.FindJobRun(jr.ID)))
 	require.NoError(t, utils.JustError(store.Unscoped().FindJobRun(jr.ID)))
+}
+
+func TestORM_SaveJobRun_Cancelled(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	store.ORM.SetLogging(true)
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+
+	jr := job.NewRun(job.Initiators[0])
+	require.NoError(t, store.CreateJobRun(&jr))
+
+	jr.Status = models.RunStatusInProgress
+	require.NoError(t, store.SaveJobRun(&jr))
+
+	// Save the updated at before saving with cancelled
+	updatedAt := jr.UpdatedAt
+
+	jr.Status = models.RunStatusCancelled
+	require.NoError(t, store.SaveJobRun(&jr))
+
+	// Restore the previous updated at to simulate a conflict
+	jr.UpdatedAt = updatedAt
+	jr.Status = models.RunStatusInProgress
+	assert.Equal(t, orm.OptimisticUpdateConflictError, store.SaveJobRun(&jr))
 }
 
 func coercedJSON(v string) string {
@@ -708,9 +736,6 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	jobRunner, cleanup := cltest.NewJobRunner(store)
-	defer cleanup()
-	jobRunner.Start()
 
 	_, bt := cltest.NewBridgeType(t)
 	require.NoError(t, store.CreateBridgeType(bt))
@@ -722,7 +747,9 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	run := job.NewRun(initr)
 	require.NoError(t, store.CreateJobRun(&run))
 
-	store.RunChannel.Send(run.ID)
+	executor := services.NewRunExecutor(store)
+	require.NoError(t, executor.Execute(run.ID))
+
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
 
 	_, err := store.PendingBridgeType(run)
@@ -751,8 +778,10 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 
 func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 	store := app.Store
 
 	account := cltest.GetAccountAddress(t, store)
@@ -1219,10 +1248,8 @@ func TestORM_DeduceDialect(t *testing.T) {
 }
 
 func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
-	app, cleanup := cltest.NewApplication(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-
-	store := app.GetStore()
 	orm := store.ORM
 
 	seed, err := models.NewKeyFromFile("../../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")

@@ -6,7 +6,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/tidwall/gjson"
 )
 
 // Compare adapter type takes an Operator and a Value field to
@@ -26,7 +25,7 @@ var (
 // Perform uses the Operator to check the run's result against the
 // specified Value.
 func (c *Compare) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
-	prevResult := input.Result()
+	prevResult := input.Result().String()
 
 	if c.Value == "" {
 		return models.NewRunOutputError(ErrValueNotSpecified)
@@ -34,9 +33,9 @@ func (c *Compare) Perform(input models.RunInput, _ *store.Store) models.RunOutpu
 
 	switch c.Operator {
 	case "eq":
-		return models.NewRunOutputCompleteWithResult(c.Value == prevResult.String())
+		return models.NewRunOutputCompleteWithResult(c.Value == prevResult)
 	case "neq":
-		return models.NewRunOutputCompleteWithResult(c.Value != prevResult.String())
+		return models.NewRunOutputCompleteWithResult(c.Value != prevResult)
 	case "gt":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
@@ -66,8 +65,8 @@ func (c *Compare) Perform(input models.RunInput, _ *store.Store) models.RunOutpu
 	}
 }
 
-func getValues(result gjson.Result, d string) (float64, float64, error) {
-	value, err := strconv.ParseFloat(result.String(), 64)
+func getValues(result string, d string) (float64, float64, error) {
+	value, err := strconv.ParseFloat(result, 64)
 	if err != nil {
 		return 0, 0, ErrResultNotNumber
 	}

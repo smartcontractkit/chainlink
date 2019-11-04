@@ -41,7 +41,7 @@ func TestMultiply_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := cltest.NewRunInput(cltest.JSONFromString(t, test.json))
+			input := cltest.NewRunInputWithString(t, test.json)
 			adapter := adapters.Multiply{}
 			jsonErr := json.Unmarshal([]byte(test.params), &adapter)
 			result := adapter.Perform(input, nil)

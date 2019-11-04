@@ -16,6 +16,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
@@ -41,6 +42,7 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
@@ -56,6 +58,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
@@ -69,6 +72,8 @@ func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	err := app.GetStore().CreateExternalInitiator(&models.ExternalInitiator{
 		AccessKey: "abracadabra",
 	})
