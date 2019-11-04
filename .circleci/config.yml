@@ -332,6 +332,22 @@ jobs:
       - checkout
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/report_coverage
+  prepublish_npm:
+    docker:
+      - image: smartcontract/builder:1.0.25
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - run: ./tools/ci/prepublish_npm_test
 
 workflows:
   version: 2
@@ -378,6 +394,10 @@ workflows:
             tags:
               only: /^explorer-v.*/
       - forks:
+          filters:
+            tags:
+              only: /^v.*/
+      - prepublish_npm:
           filters:
             tags:
               only: /^v.*/

@@ -12,6 +12,7 @@
     "format": "prettier --write \"{src,test}/**/*\"",
     "slither": "truffle compile --quiet && slither .",
     "setup": "ts-node ./scripts/build",
+    "prepublishOnly": "yarn setup && yarn lint && yarn test",
     "test": "truffle test"
   },
   "dependencies": {
