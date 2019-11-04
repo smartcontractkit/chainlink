@@ -17,6 +17,7 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
@@ -32,6 +33,7 @@ type Store struct {
 	KeyStore    *KeyStore
 	TxManager   TxManager
 	StatsPusher *synchronization.StatsPusher
+	closeOnce   sync.Once
 }
 
 type lazyRPCWrapper struct {
@@ -171,10 +173,12 @@ func (s *Store) Start() error {
 
 // Close shuts down all of the working parts of the store.
 func (s *Store) Close() error {
-	return multierr.Combine(
-		s.ORM.Close(),
-		s.StatsPusher.Close(),
-	)
+	var err1, err2 error
+	s.closeOnce.Do(func() {
+		err1 = s.StatsPusher.Close()
+		err2 = s.ORM.Close()
+	})
+	return multierr.Combine(err1, err2)
 }
 
 // Unscoped returns a shallow copy of the store, with an unscoped ORM allowing
@@ -221,7 +225,10 @@ func initializeORM(config *orm.Config) (*orm.ORM, error) {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
 	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
-	if err = migrations.Migrate(orm.DB); err != nil {
+	err = orm.RawDB(func(db *gorm.DB) error {
+		return migrations.Migrate(db)
+	})
+	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#Migrate")
 	}
 	orm.SetLogging(config.LogSQLStatements())
