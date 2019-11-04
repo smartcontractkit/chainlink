@@ -8,8 +8,7 @@ import { assert } from 'chai'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
 import { Instance } from '../src/contract'
-import env from '@nomiclabs/buidler'
-import { EthersProviderWrapper } from '../src/provider'
+import ganache from 'ganache-core'
 
 const linkTokenFactory = new LinkTokenFactory()
 const ensRegistryFactory = new ENSRegistryFactory()
@@ -17,7 +16,7 @@ const oracleFactory = new OracleFactory()
 const publicResolverFacotory = new PublicResolverFactory()
 const updatableConsumerFactory = new UpdatableConsumerFactory()
 
-const provider = new EthersProviderWrapper(env.ethereum)
+const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
 
 let roles: h.Roles
 
@@ -50,8 +49,7 @@ describe('UpdatableConsumer', () => {
   let link: Instance<LinkTokenFactory>
   let oc: Instance<OracleFactory>
   let uc: Instance<UpdatableConsumerFactory>
-
-  beforeEach(async () => {
+  const deployment = h.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
     ens = await ensRegistryFactory.connect(roles.defaultAccount).deploy()
@@ -100,6 +98,10 @@ describe('UpdatableConsumer', () => {
     uc = await updatableConsumerFactory
       .connect(roles.defaultAccount)
       .deploy(specId, ens.address, domainNode)
+  })
+
+  beforeEach(async () => {
+    await deployment()
   })
 
   describe('constructor', () => {
