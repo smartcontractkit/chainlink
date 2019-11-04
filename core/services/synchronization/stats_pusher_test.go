@@ -36,7 +36,7 @@ func TestStatsPusher(t *testing.T) {
 	})
 	cltest.WaitForSyncEventCount(t, store.ORM, 0)
 
-	jr.ApplyResult(models.RunResult{Status: models.RunStatusCompleted})
+	jr.Status = models.RunStatusCompleted
 	require.NoError(t, store.SaveJobRun(&jr))
 	assert.Equal(t, 1, lenSyncEvents(t, store.ORM))
 

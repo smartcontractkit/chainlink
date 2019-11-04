@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -15,80 +16,84 @@ import (
 // Bridge adapter is responsible for connecting the task pipeline to external
 // adapters, allowing for custom computations to be executed and included in runs.
 type Bridge struct {
-	*models.BridgeType
-	Params *models.JSON
+	models.BridgeType
+	Params models.JSON
 }
 
-// Perform sends a POST request containing the JSON of the input RunResult to
-// the external adapter specified in the BridgeType.
+// Perform sends a POST request containing the JSON of the input to the
+// external adapter specified in the BridgeType.
+//
 // It records the RunResult returned to it, and optionally marks the RunResult pending.
 //
 // If the Perform is resumed with a pending RunResult, the RunResult is marked
 // not pending and the RunResult is returned.
-func (ba *Bridge) Perform(input models.RunResult, store *store.Store) models.RunResult {
-	if input.Status.Finished() {
-		return input
-	} else if input.Status.PendingBridge() {
-		return resumeBridge(input)
+func (ba *Bridge) Perform(input models.RunInput, store *store.Store) models.RunOutput {
+	if input.Status().Completed() {
+		return models.NewRunOutputComplete(input.Data())
+	} else if input.Status().PendingBridge() {
+		return models.NewRunOutputInProgress(input.Data())
 	}
 	return ba.handleNewRun(input, store.Config.BridgeResponseURL())
 }
 
-func resumeBridge(input models.RunResult) models.RunResult {
-	input.Status = models.RunStatusInProgress
-	return input
-}
-
-func (ba *Bridge) handleNewRun(input models.RunResult, bridgeResponseURL *url.URL) models.RunResult {
-	if ba.Params == nil {
-		ba.Params = new(models.JSON)
-	}
-	var err error
-	if input.Data, err = input.Data.Merge(*ba.Params); err != nil {
-		return models.RunResultError(baRunResultError("handling data param", err))
+func (ba *Bridge) handleNewRun(input models.RunInput, bridgeResponseURL *url.URL) models.RunOutput {
+	data, err := input.Data().Merge(ba.Params)
+	if err != nil {
+		return models.NewRunOutputError(baRunResultError("handling data param", err))
 	}
 
 	responseURL := bridgeResponseURL
 	if *responseURL != *zeroURL {
-		responseURL.Path += fmt.Sprintf("/v2/runs/%s", input.CachedJobRunID)
+		responseURL.Path += fmt.Sprintf("/v2/runs/%s", input.JobRunID().String())
 	}
 
 	body, err := ba.postToExternalAdapter(input, responseURL)
 	if err != nil {
-		return models.RunResultError(baRunResultError("post to external adapter", err))
+		return models.NewRunOutputError(baRunResultError("post to external adapter", err))
 	}
 
-	return responseToRunResult(body, input)
+	input = *models.NewRunInput(input.JobRunID(), data, input.Status())
+	return ba.responseToRunResult(body, input)
 }
 
-func responseToRunResult(body []byte, input models.RunResult) models.RunResult {
-	var output models.RunResult
-
+func (ba *Bridge) responseToRunResult(body []byte, input models.RunInput) models.RunOutput {
 	var brr models.BridgeRunResult
 	err := json.Unmarshal(body, &brr)
 	if err != nil {
-		return models.RunResultError(baRunResultError("unmarshaling JSON", err))
-	} else if brr.HasError() {
-		return brr.RunResult
+		return models.NewRunOutputError(baRunResultError("unmarshaling JSON", err))
 	}
 
-	if brr.RunResult.Data.Exists() && !brr.RunResult.Data.IsObject() {
-		output.CompleteWithResult(brr.RunResult.Data.String())
+	if brr.HasError() {
+		return models.NewRunOutputError(brr.GetError())
 	}
 
-	err = output.Merge(brr.RunResult)
-	if err != nil {
-		output.SetError(err)
+	if brr.ExternalPending {
+		return models.NewRunOutputPendingBridge()
 	}
 
-	return output
+	if brr.Data.IsObject() {
+		data, err := ba.Params.Merge(brr.Data)
+		if err != nil {
+			return models.NewRunOutputError(baRunResultError("handling data param", err))
+		}
+
+		return models.NewRunOutputComplete(data)
+	}
+
+	return models.NewRunOutputCompleteWithResult(brr.Data.String())
 }
 
-func (ba *Bridge) postToExternalAdapter(input models.RunResult, bridgeResponseURL *url.URL) ([]byte, error) {
-	in, err := json.Marshal(&bridgeOutgoing{
-		RunResult:   input,
-		ResponseURL: bridgeResponseURL,
-	})
+func (ba *Bridge) postToExternalAdapter(input models.RunInput, bridgeResponseURL *url.URL) ([]byte, error) {
+	data, err := input.Data().Merge(ba.Params)
+	if err != nil {
+		return nil, errors.Wrap(err, "error merging bridge params with input params")
+	}
+
+	outgoing := bridgeOutgoing{JobRunID: input.JobRunID().String(), Data: data}
+	if bridgeResponseURL != nil {
+		outgoing.ResponseURL = bridgeResponseURL.String()
+	}
+	in, err := json.Marshal(&outgoing)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling request body: %v", err)
 	}
@@ -121,21 +126,9 @@ func baRunResultError(str string, err error) error {
 }
 
 type bridgeOutgoing struct {
-	models.RunResult
-	ResponseURL *url.URL
-}
-
-func (bp bridgeOutgoing) MarshalJSON() ([]byte, error) {
-	anon := struct {
-		JobRunID    *models.ID  `json:"id"`
-		Data        models.JSON `json:"data"`
-		ResponseURL string      `json:"responseURL,omitempty"`
-	}{
-		JobRunID:    bp.CachedJobRunID,
-		Data:        bp.Data,
-		ResponseURL: bp.ResponseURL.String(),
-	}
-	return json.Marshal(anon)
+	JobRunID    string      `json:"id"`
+	Data        models.JSON `json:"data"`
+	ResponseURL string      `json:"responseURL,omitempty"`
 }
 
 var zeroURL = new(url.URL)

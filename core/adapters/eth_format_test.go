@@ -5,8 +5,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEthBytes32_Perform(t *testing.T) {
@@ -34,16 +34,13 @@ func TestEthBytes32_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			past := models.RunResult{
-				Data: cltest.JSONFromString(t, test.json),
-			}
+
+			past := cltest.NewRunInput(cltest.JSONFromString(t, test.json))
 			adapter := adapters.EthBytes32{}
 			result := adapter.Perform(past, nil)
 
-			val, err := result.ResultString()
-			assert.NoError(t, err)
-			assert.NoError(t, result.GetError())
-			assert.Equal(t, test.expected, val)
+			require.NoError(t, result.Error())
+			assert.Equal(t, test.expected, result.Result().String())
 		})
 	}
 }
@@ -78,18 +75,14 @@ func TestEthInt256_Perform(t *testing.T) {
 	adapter := adapters.EthInt256{}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			input := models.RunResult{
-				Data: cltest.JSONFromString(t, test.json),
-			}
+			input := cltest.NewRunInput(cltest.JSONFromString(t, test.json))
 			result := adapter.Perform(input, nil)
 
 			if test.errored {
-				assert.Error(t, result.GetError())
+				assert.Error(t, result.Error())
 			} else {
-				val, err := result.ResultString()
-				assert.NoError(t, result.GetError())
-				assert.NoError(t, err)
-				assert.Equal(t, test.want, val)
+				require.NoError(t, result.Error())
+				assert.Equal(t, test.want, result.Result().String())
 			}
 		})
 	}
@@ -124,18 +117,14 @@ func TestEthUint256_Perform(t *testing.T) {
 	adapter := adapters.EthUint256{}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			input := models.RunResult{
-				Data: cltest.JSONFromString(t, test.json),
-			}
+			input := cltest.NewRunInput(cltest.JSONFromString(t, test.json))
 			result := adapter.Perform(input, nil)
 
 			if test.errored {
-				assert.Error(t, result.GetError())
+				require.Error(t, result.Error())
 			} else {
-				val, err := result.ResultString()
-				assert.NoError(t, result.GetError())
-				assert.NoError(t, err)
-				assert.Equal(t, test.want, val)
+				require.NoError(t, result.Error())
+				assert.Equal(t, test.want, result.Result().String())
 			}
 		})
 	}

@@ -5,7 +5,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,16 +28,11 @@ func TestEthBool_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			past := models.RunResult{
-				Data: cltest.JSONFromString(t, test.json),
-			}
+			past := cltest.NewRunInput(cltest.JSONFromString(t, test.json))
 			adapter := adapters.EthBool{}
 			result := adapter.Perform(past, nil)
-
-			val, err := result.ResultString()
-			assert.Equal(t, test.expected, val)
-			assert.NoError(t, err)
-			assert.NoError(t, result.GetError())
+			assert.NoError(t, result.Error())
+			assert.Equal(t, test.expected, result.Result().String())
 		})
 	}
 }

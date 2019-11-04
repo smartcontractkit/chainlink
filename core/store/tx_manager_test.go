@@ -930,6 +930,7 @@ func TestTxManager_WithdrawLink_HappyPath(t *testing.T) {
 
 	transactions, err := app.Store.TxFrom(from)
 	require.NoError(t, err)
+	require.Len(t, transactions, 1)
 	tx := transactions[0]
 	assert.Equal(t, hash, tx.Hash)
 	assert.Equal(t, nonce, tx.Nonce)

@@ -2,6 +2,7 @@ package adapters_test
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -13,31 +14,67 @@ import (
 func TestCopy_Perform(t *testing.T) {
 	tests := []struct {
 		name            string
-		result          string
+		input           string
 		copyPath        []string
 		wantData        string
 		wantStatus      models.RunStatus
-		wantResultError bool
+		wantResultError error
 	}{
-		{"existing path", `{"high":"11850.00","last":"11779.99"}`, []string{"last"},
-			`{"high":"11850.00","last":"11779.99","result":"11779.99"}`, models.RunStatusCompleted, false},
-		{"nonexistent path", `{"high":"11850.00","last":"11779.99"}`, []string{"doesnotexist"},
-			`{"high":"11850.00","last":"11779.99","result":null}`, models.RunStatusCompleted, false},
-		{"double nonexistent path", `{"high":"11850.00","last":"11779.99"}`, []string{"no", "really"},
-			``, models.RunStatusErrored, true},
-		{"array index path", `{"data":[{"availability":"0.99991"}]}`, []string{"data", "0", "availability"},
-			`{"data":[{"availability":"0.99991"}],"result":"0.99991"}`, models.RunStatusCompleted, false},
-		{"float result", `{"availability":0.99991}`, []string{"availability"},
-			`{"availability":0.99991,"result":0.99991}`, models.RunStatusCompleted, false},
-		{"result with quotes", `{"availability":"\""}`, []string{`"`},
-			`{"availability":"\"","result":null}`, models.RunStatusCompleted, false},
+		{
+			"existing path",
+			`{"high":"11850.00","last":"11779.99"}`,
+			[]string{"last"},
+			`{"result":"11779.99"}`,
+			models.RunStatusCompleted,
+			nil,
+		},
+		{
+			"nonexistent path",
+			`{"high":"11850.00","last":"11779.99"}`,
+			[]string{"doesnotexist"},
+			`{"result":null}`,
+			models.RunStatusCompleted,
+			nil,
+		},
+		{
+			"array index path",
+			`{"data":[{"availability":"0.99991"}]}`,
+			[]string{"data", "0", "availability"},
+			`{"result":"0.99991"}`,
+			models.RunStatusCompleted,
+			nil,
+		},
+		{
+			"float result",
+			`{"availability":0.99991}`,
+			[]string{"availability"},
+			`{"result":0.99991}`,
+			models.RunStatusCompleted,
+			nil,
+		},
+		{
+			"result with quotes",
+			`{"availability":"\""}`,
+			[]string{`"`},
+			`{"result":null}`,
+			models.RunStatusCompleted,
+			nil,
+		},
 		{
 			"index array of array",
 			`{"data":[[0,1]]}`,
 			[]string{"data", "0", "0"},
-			`{"data":[[0,1]],"result":0}`,
+			`{"result":0}`,
 			models.RunStatusCompleted,
-			false,
+			nil,
+		},
+		{
+			"double nonexistent path",
+			`{"high":"11850.00","last":"11779.99"}`,
+			[]string{"no", "really"},
+			``,
+			models.RunStatusErrored,
+			errors.New("No value could be found for the key 'no'"),
 		},
 	}
 
@@ -45,17 +82,12 @@ func TestCopy_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := cltest.RunResultWithData(test.result)
+			input := cltest.NewRunInput(cltest.JSONFromString(t, test.input))
 			adapter := adapters.Copy{CopyPath: test.copyPath}
 			result := adapter.Perform(input, nil)
-			assert.Equal(t, test.wantData, result.Data.String())
-			assert.Equal(t, test.wantStatus, result.Status)
-
-			if test.wantResultError {
-				assert.NotNil(t, result.GetError())
-			} else {
-				assert.Nil(t, result.GetError())
-			}
+			assert.Equal(t, test.wantData, result.Data().String())
+			assert.Equal(t, test.wantStatus, result.Status())
+			assert.Equal(t, test.wantResultError, result.Error())
 		})
 	}
 }

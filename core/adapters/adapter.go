@@ -49,7 +49,7 @@ var (
 // BaseAdapter is the minimum interface required to create an adapter. Only core
 // adapters have this minimum requirement.
 type BaseAdapter interface {
-	Perform(models.RunResult, *store.Store) models.RunResult
+	Perform(models.RunInput, *store.Store) models.RunOutput
 }
 
 // PipelineAdapter wraps a BaseAdapter with requirements for execution in the pipeline.
@@ -135,7 +135,7 @@ func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 		}
-		b := Bridge{BridgeType: &bt, Params: &task.Params}
+		b := Bridge{BridgeType: bt, Params: task.Params}
 		ba = &b
 		mic = b.Confirmations
 		mcp = bt.MinimumContractPayment

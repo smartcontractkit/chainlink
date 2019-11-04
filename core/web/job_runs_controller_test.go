@@ -131,9 +131,8 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"100"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-	val, err := jr.Result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, "100", val)
+	value := cltest.MustResultString(t, jr.Result)
+	assert.Equal(t, "100", value)
 }
 
 func TestJobRunsController_Create_Wrong_ExternalInitiator(t *testing.T) {
@@ -198,9 +197,8 @@ func TestJobRunsController_Create_ExternalInitiator_Success(t *testing.T) {
 		j, *eia, `{"result":"100"}`,
 	)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-	val, err := jr.Result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, "100", val)
+	value := cltest.MustResultString(t, jr.Result)
+	assert.Equal(t, "100", value)
 }
 
 func TestJobRunsController_Create_Archived(t *testing.T) {
@@ -327,9 +325,8 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 			require.Equal(t, jr.ID, respJobRun.ID)
 
 			jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-			val, err := jr.Result.ResultString()
-			assert.NoError(t, err)
-			assert.Equal(t, "100", val)
+			value := cltest.MustResultString(t, jr.Result)
+			assert.Equal(t, "100", value)
 		})
 	}
 }
@@ -406,9 +403,8 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	assert.Equal(t, jr.ID, respJobRun.ID)
 
 	jr = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusErrored)
-	val, err := jr.Result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, "0", val)
+	value := cltest.MustResultString(t, jr.Result)
+	assert.Equal(t, "0", value)
 }
 
 func TestJobRunsController_Update_BadInput(t *testing.T) {

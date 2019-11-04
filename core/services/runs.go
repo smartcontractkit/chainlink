@@ -14,18 +14,31 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// CreateErroredJob creates a job that is in the errored state. This is a
+// special case where this job cannot run but we want to create the run record
+// so the error is more visible to the node operator.
+func CreateErroredJob(
+	job models.JobSpec,
+	initiator models.Initiator,
+	err error,
+	store *store.Store) (*models.JobRun, error) {
+	run := job.NewRun(initiator)
+	run.SetError(err)
+	return &run, store.CreateJobRun(&run)
+}
+
 // ExecuteJob saves and immediately begins executing a run for a specified job
 // if it is ready.
 func ExecuteJob(
 	job models.JobSpec,
 	initiator models.Initiator,
-	input models.RunResult,
+	data *models.JSON,
 	creationHeight *big.Int,
 	store *store.Store) (*models.JobRun, error) {
 	return ExecuteJobWithRunRequest(
 		job,
 		initiator,
-		input,
+		data,
 		creationHeight,
 		store,
 		models.NewRunRequest(),
@@ -37,18 +50,17 @@ func ExecuteJob(
 func ExecuteJobWithRunRequest(
 	job models.JobSpec,
 	initiator models.Initiator,
-	input models.RunResult,
+	data *models.JSON,
 	creationHeight *big.Int,
 	store *store.Store,
 	runRequest models.RunRequest) (*models.JobRun, error) {
 
 	logger.Debugw(fmt.Sprintf("New run triggered by %s", initiator.Type),
 		"job", job.ID,
-		"input_status", input.Status,
 		"creation_height", creationHeight,
 	)
 
-	run, err := NewRun(job, initiator, input, creationHeight, store, runRequest.Payment)
+	run, err := NewRun(job, initiator, data, creationHeight, store, runRequest.Payment)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewRun failed")
 	}
@@ -74,7 +86,7 @@ func MeetsMinimumPayment(
 func NewRun(
 	job models.JobSpec,
 	initiator models.Initiator,
-	input models.RunResult,
+	data *models.JSON,
 	currentHeight *big.Int,
 	store *store.Store,
 	payment *assets.Link) (*models.JobRun, error) {
@@ -94,12 +106,7 @@ func NewRun(
 
 	run := job.NewRun(initiator)
 
-	if input.HasError() {
-		run.SetError(input.GetError())
-		return &run, nil
-	}
-
-	run.Overrides = input.Data
+	run.Overrides = *data
 	run.CreationHeight = models.NewBig(currentHeight)
 	run.ObservedHeight = models.NewBig(currentHeight)
 
@@ -235,7 +242,7 @@ func ResumeConnectingTask(
 func ResumePendingTask(
 	run *models.JobRun,
 	store *store.Store,
-	input models.RunResult,
+	input models.BridgeRunResult,
 ) error {
 	logger.Debugw("External adapter resuming job", []interface{}{
 		"run", run.ID.String(),
@@ -256,8 +263,8 @@ func ResumePendingTask(
 
 	run.Overrides.Merge(input.Data)
 
-	currentTaskRun.ApplyResult(input)
-	run.ApplyResult(input)
+	currentTaskRun.ApplyBridgeRunResult(input)
+	run.ApplyBridgeRunResult(input)
 
 	return updateAndTrigger(run, store)
 }

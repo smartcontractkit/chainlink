@@ -91,7 +91,7 @@ func (rm *jobRunner) resumeRunsSinceLastShutdown() error {
 	var merr error
 	err := rm.store.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
 
-		if run.Result.Status == models.RunStatusPendingSleep {
+		if run.Status == models.RunStatusPendingSleep {
 			if err := QueueSleepingTask(run, rm.store.Unscoped()); err != nil {
 				logger.Errorw("Error resuming sleeping job", "error", err)
 			}
@@ -196,38 +196,33 @@ func prepareTaskInput(run *models.JobRun, input models.JSON) (models.JSON, error
 	return input, nil
 }
 
-func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *store.Store) models.RunResult {
+func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *store.Store) models.RunOutput {
 	taskCopy := currentTaskRun.TaskSpec // deliberately copied to keep mutations local
 
 	var err error
 	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides); err != nil {
-		currentTaskRun.Result.SetError(err)
-		return currentTaskRun.Result
+		return models.NewRunOutputError(err)
 	}
 
 	adapter, err := adapters.For(taskCopy, store)
 	if err != nil {
-		currentTaskRun.Result.SetError(err)
-		return currentTaskRun.Result
+		return models.NewRunOutputError(err)
 	}
 
 	logger.Infow(fmt.Sprintf("Processing task %s", taskCopy.Type), []interface{}{"task", currentTaskRun.ID.String()}...)
 
 	data, err := prepareTaskInput(run, currentTaskRun.Result.Data)
 	if err != nil {
-		currentTaskRun.Result.SetError(err)
-		return currentTaskRun.Result
+		return models.NewRunOutputError(err)
 	}
 
-	currentTaskRun.Result.CachedJobRunID = run.ID
-	currentTaskRun.Result.Data = data
-	result := adapter.Perform(currentTaskRun.Result, store)
-	result.ID = currentTaskRun.Result.ID
+	input := *models.NewRunInput(run.ID, data, currentTaskRun.Status)
+	result := adapter.Perform(input, store)
 
 	logger.Infow(fmt.Sprintf("Finished processing task %s", taskCopy.Type), []interface{}{
 		"task", currentTaskRun.ID,
-		"result", result.Status,
-		"result_data", result.Data,
+		"result", result.Status(),
+		"result_data", result.Data(),
 	}...)
 
 	return result
@@ -247,8 +242,8 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 
 	result := executeTask(run, currentTaskRun, store)
 
-	currentTaskRun.ApplyResult(result)
-	run.ApplyResult(result)
+	currentTaskRun.ApplyOutput(result)
+	run.ApplyOutput(result)
 
 	if currentTaskRun.Status.PendingSleep() {
 		logger.Debugw("Task is sleeping", []interface{}{"run", run.ID.String()}...)
@@ -256,7 +251,7 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 			return err
 		}
 	} else if !currentTaskRun.Status.Runnable() {
-		logger.Debugw("Task execution blocked", []interface{}{"run", run.ID.String(), "task", currentTaskRun.ID.String(), "state", currentTaskRun.Result.Status}...)
+		logger.Debugw("Task execution blocked", []interface{}{"run", run.ID.String(), "task", currentTaskRun.ID.String(), "state", currentTaskRun.Status}...)
 	} else if currentTaskRun.Status.Unstarted() {
 		return fmt.Errorf("run %s task %s cannot return a status of empty string or Unstarted", run.ID.String(), currentTaskRun.TaskSpec.Type)
 	} else if futureTaskRun := run.NextTaskRun(); futureTaskRun != nil {

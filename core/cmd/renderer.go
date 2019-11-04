@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"reflect"
 	"fmt"
 	"io"
+	"reflect"
 	"strconv"
 
 	"github.com/olekukonko/tablewriter"
@@ -93,7 +93,7 @@ func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
 
 func (rt RendererTable) renderConfiguration(cwl presenters.ConfigWhitelist) error {
 	table := rt.newTable([]string{"Key", "Value"})
-	
+
 	table.Append([]string{
 		"ACCOUNT_ADDRESS",
 		cwl.AccountAddress,
@@ -133,7 +133,6 @@ func (rt RendererTable) renderConfiguration(cwl presenters.ConfigWhitelist) erro
 	render("Configuration", table)
 	return nil
 }
-
 
 func render(name string, table *tablewriter.Table) {
 	table.SetRowLine(true)
@@ -267,7 +266,7 @@ func (rt RendererTable) renderJobRuns(runs []presenters.JobRun) error {
 			utils.ISO8601UTC(jr.CreatedAt),
 			utils.NullISO8601UTC(jr.FinishedAt),
 			jr.Result.Data.String(),
-			jr.Result.ErrorMessage.String,
+			jr.ErrorString(),
 		})
 	}
 

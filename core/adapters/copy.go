@@ -12,24 +12,13 @@ type Copy struct {
 }
 
 // Perform returns the copied values from the desired mapping within the `data` JSON object
-func (c *Copy) Perform(input models.RunResult, store *store.Store) models.RunResult {
+func (c *Copy) Perform(input models.RunInput, store *store.Store) models.RunOutput {
+	data, err := models.JSON{}.Add("result", input.Data().String())
+	if err != nil {
+		return models.NewRunOutputError(err)
+	}
+
 	jp := JSONParse{Path: c.CopyPath}
-
-	data, err := input.Data.Add("result", input.Data.String())
-	if err != nil {
-		return models.RunResultError(err)
-	}
-	input.Data = data
-
-	rr := jp.Perform(input, store)
-	if rr.HasError() {
-		return rr
-	}
-
-	rr.Data, err = input.Data.Merge(rr.Data)
-	if err != nil {
-		return models.RunResultError(err)
-	}
-
-	return rr
+	input = *models.NewRunInput(input.JobRunID(), data, input.Status())
+	return jp.Perform(input, store)
 }
