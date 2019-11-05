@@ -70,7 +70,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 		assert.Equal(t, models.RunStatusErrored, run.TaskRuns[0].Status)
 	})
 
-	t.Run("completed input with remaining tasks should put task into pending", func(t *testing.T) {
+	t.Run("completed input with remaining tasks should put task into in-progress", func(t *testing.T) {
 		runID := models.NewID()
 		run := models.JobRun{
 			ID:        runID,
