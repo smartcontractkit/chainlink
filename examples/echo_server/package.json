@@ -23,7 +23,7 @@
     "link_token": "^1.0.6",
     "request-promise": "^4.2.2",
     "truffle": "^5.0.25",
-    "web3": "^1.0.0-beta.55"
+    "web3": "^1.2.2"
   },
   "devDependencies": {
     "@chainlink/eslint-config": "0.0.1",
