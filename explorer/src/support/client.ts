@@ -27,8 +27,10 @@ export const newChainlinkNode = (
 }
 
 const jsonClient = new jayson.Client(null, null)
-export const createRPCRequest = (method: string, params?: any) =>
-  jsonClient.request(method, params)
+export const createRPCRequest = (
+  method: string,
+  params?: jayson.RequestParamsLike,
+) => jsonClient.request(method, params)
 
 // helper function that sends a message and only resolves once the
 // rsponse is received

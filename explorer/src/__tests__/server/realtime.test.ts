@@ -81,7 +81,7 @@ describe('realtime', () => {
     })
   })
 
-  it('rejects invalid authentication', async (done: any) => {
+  it('rejects invalid authentication', async done => {
     expect.assertions(1)
     newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, 'lol-no').catch(
       error => {
