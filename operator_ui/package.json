@@ -46,7 +46,7 @@
     "react": "^16.7.0",
     "react-copy-to-clipboard": "^5.0.1",
     "react-dom": "^16.7.0",
-    "react-jss": "^8.6.1",
+    "react-jss": "^10.0.0",
     "react-redux": "~6.0.0",
     "react-resize-detector": "^4.2.1",
     "react-router": "^4.3.1",
