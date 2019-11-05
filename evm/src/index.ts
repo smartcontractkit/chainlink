@@ -4,6 +4,5 @@ import * as debug from './debug'
 import LinkToken from './LinkToken.json'
 import * as wallet from './wallet'
 import * as matchers from './matchersV2'
-import * as provider from './provider'
 
-export { contract, helpers, debug, LinkToken, wallet, matchers, provider }
+export { contract, helpers, debug, LinkToken, wallet, matchers }
