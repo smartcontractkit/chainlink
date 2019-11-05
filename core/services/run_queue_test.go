@@ -109,6 +109,10 @@ func TestRunQueue_OneWorkerForSameRunTriggeredMultipleTimes(t *testing.T) {
 		return runQueue.WorkerCount()
 	}).Should(gomega.Equal(1))
 
+	g.Consistently(func() int {
+		return runQueue.WorkerCount()
+	}).Should(gomega.BeNumerically("<", 2))
+
 	cltest.CallbackOrTimeout(t, "Execute", func() {
 		<-executeJobChannel
 		<-executeJobChannel
