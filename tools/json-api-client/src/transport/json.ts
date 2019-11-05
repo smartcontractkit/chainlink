@@ -137,25 +137,27 @@ async function parseResponse<T>(response: Response): Promise<T> {
   } else if (response.status === 401) {
     throw new AuthenticationError(response)
   } else if (response.status >= 500) {
-    const json = await response.json()
-    let errors: ErrorItem[]
-
-    if (json.errors) {
-      errors = json.errors.map((e: ErrorsObject) => ({
-        status: response.status,
-        detail: e.detail,
-      }))
-    } else {
-      errors = [
-        {
-          status: response.status,
-          detail: response.statusText,
-        },
-      ]
-    }
-
+    const errors = await errorItems(response)
     throw new ServerError(errors)
   } else {
     throw new UnknownResponseError(response)
   }
+}
+
+async function errorItems(response: Response): Promise<ErrorItem[]> {
+  const json = await response.json()
+
+  if (json.errors) {
+    return json.errors.map((e: ErrorsObject) => ({
+      status: response.status,
+      detail: e.detail,
+    }))
+  }
+
+  return [
+    {
+      status: response.status,
+      detail: response.statusText,
+    },
+  ]
 }
