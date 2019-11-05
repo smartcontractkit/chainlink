@@ -11,6 +11,7 @@ import {
   BadRequestError,
   ServerError,
   UnknownResponseError,
+  ErrorItem,
 } from '../errors'
 import * as http from './http'
 
@@ -124,7 +125,7 @@ type ResponseType<TParams, T> = TParams extends PaginatedRequestParams
   ? PaginatedApiResponse<T>
   : ApiResponse<T>
 
-function parseResponse<T>(response: Response): Promise<T> {
+async function parseResponse<T>(response: Response): Promise<T> {
   if (response.status === 204) {
     return new Promise(resolve => resolve({} as T))
   } else if (response.status >= 200 && response.status < 300) {
@@ -136,7 +137,24 @@ function parseResponse<T>(response: Response): Promise<T> {
   } else if (response.status === 401) {
     throw new AuthenticationError(response)
   } else if (response.status >= 500) {
-    throw new ServerError(response)
+    const json = await response.json()
+    let errors: ErrorItem[]
+
+    if (json.errors) {
+      errors = json.errors.map((e: any) => ({
+        status: response.status,
+        detail: e.detail,
+      }))
+    } else {
+      errors = [
+        {
+          status: response.status,
+          detail: response.statusText,
+        },
+      ]
+    }
+
+    throw new ServerError(errors)
   } else {
     throw new UnknownResponseError(response)
   }
