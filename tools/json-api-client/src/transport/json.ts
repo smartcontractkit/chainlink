@@ -141,7 +141,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
     let errors: ErrorItem[]
 
     if (json.errors) {
-      errors = json.errors.map((e: any) => ({
+      errors = json.errors.map((e: ErrorsObject) => ({
         status: response.status,
         detail: e.detail,
       }))
