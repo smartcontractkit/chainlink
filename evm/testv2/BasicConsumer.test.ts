@@ -7,15 +7,14 @@ import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
 import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
 import { Instance } from '../src/contract'
-import env from '@nomiclabs/buidler'
-import { EthersProviderWrapper } from '../src/provider'
+import ganache from 'ganache-core'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const oracleFactory = new OracleFactory()
 const linkTokenFactory = new LinkTokenFactory()
 
 // create ethers provider from that web3js instance
-const provider = new EthersProviderWrapper(env.ethereum)
+const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
 
 let roles: h.Roles
 
@@ -27,18 +26,20 @@ beforeAll(async () => {
 
 describe('BasicConsumer', () => {
   const specId = '0x4c7b7ffb66b344fbaa64995af81e355a'.padEnd(66, '0')
-
   const currency = 'USD'
   let link: Instance<LinkTokenFactory>
   let oc: Instance<OracleFactory>
   let cc: Instance<BasicConsumerFactory>
-
-  beforeEach(async () => {
+  const deployment = h.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
     cc = await basicConsumerFactory
       .connect(roles.defaultAccount)
       .deploy(link.address, oc.address, specId)
+  })
+
+  beforeEach(async () => {
+    await deployment()
   })
 
   it('has a predictable gas price', async () => {
