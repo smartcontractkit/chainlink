@@ -15,7 +15,7 @@
     "lint": "yarn solhint && yarn eslint",
     "slither": "truffle compile --quiet && slither .",
     "pretest": "yarn build",
-    "test": "jest --testTimeout 20000",
+    "test": "jest --testTimeout 80000",
     "format": "prettier --write \"{src,testv2}/*/**\"",
     "prepublishOnly": "yarn workspace chainlinkv0.5 setup && yarn setup && yarn lint && yarn test",
     "setup": "ts-node ./scripts/build",
