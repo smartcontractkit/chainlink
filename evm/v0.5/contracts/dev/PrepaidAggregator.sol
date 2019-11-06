@@ -161,7 +161,7 @@ contract PrepaidAggregator is Ownable {
     private
     onlyIfMinAnswersReceived(_id)
   {
-    int256 newAnswer = Median.get(rounds[_id].answers);
+    int256 newAnswer = Median.calculate(rounds[_id].answers);
     currentAnswer = newAnswer;
     updatedHeight = block.number;
     emit AnswerUpdated(newAnswer, _id);
