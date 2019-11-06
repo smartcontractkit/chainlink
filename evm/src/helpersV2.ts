@@ -2,7 +2,7 @@ import { ethers } from 'ethers'
 import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
 import { Oracle } from './generated/Oracle'
-import { CoordinatorFactory } from './generated/CoordinatorFactory'
+import { generated as chainlinkv05 } from 'chainlinkv0.5'
 import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
@@ -435,8 +435,9 @@ export function hexToBuf(hexstr: string): Buffer {
   return Buffer.from(stripHexPrefix(hexstr), 'hex')
 }
 
+const { CoordinatorFactory } = chainlinkv05
 type Hash = ReturnType<typeof ethers.utils.keccak256>
-type Coordinator = ReturnType<CoordinatorFactory['attach']>
+type Coordinator = ReturnType<chainlinkv05.CoordinatorFactory['attach']>
 type ServiceAgreement = Parameters<Coordinator['initiateServiceAgreement']>[0]
 
 /**

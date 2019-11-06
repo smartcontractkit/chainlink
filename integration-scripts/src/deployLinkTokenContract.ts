@@ -1,9 +1,9 @@
 import { createProvider, DEVNET_ADDRESS, deployContract } from './common'
-import { LinkTokenFactory } from 'chainlink/dist/src/generated/LinkTokenFactory'
-import { Instance } from 'chainlink/dist/src/contract'
+import { contract, generated as chainlink } from 'chainlink'
+const { LinkTokenFactory } = chainlink
 
 export async function deployLinkTokenContract(): Promise<
-  Instance<LinkTokenFactory>
+  contract.Instance<chainlink.LinkTokenFactory>
 > {
   const provider = createProvider()
   const signer = provider.getSigner(DEVNET_ADDRESS)

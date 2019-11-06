@@ -4,7 +4,7 @@ import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
 import { FunctionFragment, ParamType } from 'ethers/utils/abi-coder'
 import TruffleContract from 'truffle-contract'
-import { linkToken } from './linkToken'
+import linkToken from './LinkToken.json'
 import { assertBigNum } from './matchers'
 
 // https://github.com/ethereum/web3.js/issues/1119#issuecomment-394217563
