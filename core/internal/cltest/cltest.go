@@ -635,8 +635,9 @@ func CreateHelloWorldJobViaWeb(t testing.TB, app *TestApplication, url string) m
 	err := json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
 
-	job.Tasks[0].Params, err = job.Tasks[0].Params.Merge(JSONFromString(t, `{"get":"%v"}`, url))
-	assert.NoError(t, err)
+	data, err := models.Merge(job.Tasks[0].Params, JSONFromString(t, `{"get":"%v"}`, url))
+	require.NoError(t, err)
+	job.Tasks[0].Params = data
 	return CreateJobSpecViaWeb(t, app, job)
 }
 
