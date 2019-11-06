@@ -3,14 +3,16 @@ import { Provider } from 'react-redux'
 import createStore from './connectors/redux'
 import './index.css'
 import Layout from './Layout'
-import { set } from './utils/storage'
+import { setPersistUrl } from './utils/urlStorage'
+
+const SIGNIN_PATH = '/signin'
 
 const store = createStore()
 
 store.subscribe(() => {
   const prevURL = store.getState().notifications.currentUrl
-  if (prevURL !== '/signin') {
-    set('persistURL', prevURL)
+  if (prevURL && prevURL !== SIGNIN_PATH) {
+    setPersistUrl(prevURL)
   }
 })
 

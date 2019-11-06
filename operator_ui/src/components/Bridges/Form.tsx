@@ -10,7 +10,7 @@ import { withFormik, FormikProps, Form as FormikForm } from 'formik'
 import normalizeUrl from 'normalize-url'
 import React from 'react'
 import { Prompt } from 'react-router-dom'
-import { get, set } from 'utils/storage'
+import * as storage from '@chainlink/local-storage'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -139,9 +139,10 @@ Form.defaultProps = {
 
 const WithFormikForm = withFormik<OwnProps, FormValues>({
   mapPropsToValues({ name, url, minimumContractPayment, confirmations }) {
-    const shouldPersist = Object.keys(get('persistBridge')).length !== 0
-    const persistedJSON = shouldPersist && get('persistBridge')
-    if (shouldPersist) set('persistBridge', {})
+    const shouldPersist =
+      Object.keys(storage.getJson('persistBridge')).length !== 0
+    const persistedJSON = shouldPersist && storage.getJson('persistBridge')
+    if (shouldPersist) storage.setJson('persistBridge', {})
     const json: FormValues = {
       name: name || '',
       url: url || '',
@@ -158,7 +159,7 @@ const WithFormikForm = withFormik<OwnProps, FormValues>({
       values.url = ''
     }
     props.onSubmit(values, props.onSuccess, props.onError)
-    set('persistBridge', values)
+    storage.setJson('persistBridge', values)
     setTimeout(() => {
       setSubmitting(false)
     }, 1000)

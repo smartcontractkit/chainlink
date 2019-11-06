@@ -7,6 +7,7 @@
     "evm/v0.5",
     "tools",
     "tools/eslint-config",
+    "tools/local-storage",
     "tools/json-api-client",
     "tools/prettier-config",
     "operator_ui",
