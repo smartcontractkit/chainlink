@@ -879,3 +879,34 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.Equal(t, cwl.Whitelist.RootDir, app.Config.RootDir())
 	assert.Equal(t, cwl.Whitelist.SessionTimeout, app.Config.SessionTimeout())
 }
+
+func TestClient_CancelJobRun(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+	ethMock := app.MockEthCallerSubscriber()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", 0)
+		ethMock.Register("eth_chainId", app.Config.ChainID())
+	})
+	require.NoError(t, app.Start())
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, app.Store.CreateJob(&job))
+	run := job.NewRun(job.Initiators[0])
+	require.NoError(t, app.Store.CreateJobRun(&run))
+
+	client, _ := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("cancel", 0)
+	set.Parse([]string{run.ID.String()})
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.CancelJobRun(c))
+
+	runs := cltest.MustAllJobsWithStatus(t, app.Store, models.RunStatusCancelled)
+	require.Len(t, runs, 1)
+	assert.Equal(t, models.RunStatusCancelled, runs[0].Status)
+	assert.NotNil(t, runs[0].FinishedAt)
+}

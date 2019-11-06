@@ -244,20 +244,29 @@ func TestORM_LinkEarnedFor(t *testing.T) {
 
 	initr := job.Initiators[0]
 	jr1 := job.NewRun(initr)
+	jr1.Status = models.RunStatusCompleted
 	jr1.Payment = assets.NewLink(2)
 	jr1.FinishedAt = null.TimeFrom(time.Now())
 	require.NoError(t, store.CreateJobRun(&jr1))
 	jr2 := job.NewRun(initr)
+	jr2.Status = models.RunStatusCompleted
 	jr2.Payment = assets.NewLink(3)
 	jr2.FinishedAt = null.TimeFrom(time.Now())
 	require.NoError(t, store.CreateJobRun(&jr2))
 	jr3 := job.NewRun(initr)
+	jr3.Status = models.RunStatusCompleted
 	jr3.Payment = assets.NewLink(5)
 	jr3.FinishedAt = null.TimeFrom(time.Now())
 	require.NoError(t, store.CreateJobRun(&jr3))
 	jr4 := job.NewRun(initr)
+	jr4.Status = models.RunStatusCompleted
 	jr4.Payment = assets.NewLink(5)
 	require.NoError(t, store.CreateJobRun(&jr4))
+	jr5 := job.NewRun(initr)
+	jr5.Status = models.RunStatusCancelled
+	jr5.Payment = assets.NewLink(5)
+	jr5.FinishedAt = null.TimeFrom(time.Now())
+	require.NoError(t, store.CreateJobRun(&jr5))
 
 	totalEarned, err := store.LinkEarnedFor(&job)
 	require.NoError(t, err)

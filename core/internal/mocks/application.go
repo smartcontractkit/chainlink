@@ -57,17 +57,26 @@ func (_m *Application) ArchiveJob(_a0 *models.ID) error {
 }
 
 // Cancel provides a mock function with given fields: runID
-func (_m *Application) Cancel(runID *models.ID) error {
+func (_m *Application) Cancel(runID *models.ID) (*models.JobRun, error) {
 	ret := _m.Called(runID)
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*models.ID) error); ok {
+	var r0 *models.JobRun
+	if rf, ok := ret.Get(0).(func(*models.ID) *models.JobRun); ok {
 		r0 = rf(runID)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.JobRun)
+		}
 	}
 
-	return r0
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*models.ID) error); ok {
+		r1 = rf(runID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // Create provides a mock function with given fields: jobSpecID, initiator, data, creationHeight, runRequest

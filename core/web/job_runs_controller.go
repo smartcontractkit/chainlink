@@ -143,3 +143,19 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		jsonAPIResponse(c, jr, "job run")
 	}
 }
+
+// Cancel stops a Run from continuing.
+// Example:
+//  "<application>/runs/:RunID/cancellation"
+func (jrc *JobRunsController) Cancel(c *gin.Context) {
+	var jr *models.JobRun
+	if id, err := models.NewIDFromString(c.Param("RunID")); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+	} else if jr, err = jrc.App.Cancel(id); errors.Cause(err) == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("Job run not found"))
+	} else if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+	} else {
+		jsonAPIResponse(c, presenters.JobRun{JobRun: *jr}, "job run")
+	}
+}

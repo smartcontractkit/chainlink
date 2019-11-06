@@ -137,6 +137,7 @@ func createServer(handler *gin.Engine, port uint16) *http.Server {
 type HTTPClient interface {
 	Get(string, ...map[string]string) (*http.Response, error)
 	Post(string, io.Reader) (*http.Response, error)
+	Put(string, io.Reader) (*http.Response, error)
 	Patch(string, io.Reader, ...map[string]string) (*http.Response, error)
 	Delete(string) (*http.Response, error)
 }
@@ -165,6 +166,11 @@ func (h *authenticatedHTTPClient) Get(path string, headers ...map[string]string)
 // Post performs an HTTP Post using the authenticated HTTP client's cookie.
 func (h *authenticatedHTTPClient) Post(path string, body io.Reader) (*http.Response, error) {
 	return h.doRequest("POST", path, body)
+}
+
+// Put performs an HTTP Put using the authenticated HTTP client's cookie.
+func (h *authenticatedHTTPClient) Put(path string, body io.Reader) (*http.Response, error) {
+	return h.doRequest("PUT", path, body)
 }
 
 // Patch performs an HTTP Patch using the authenticated HTTP client's cookie.
