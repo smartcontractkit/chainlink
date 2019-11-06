@@ -4,7 +4,7 @@ import {
   NOTIFY_SUCCESS,
   NOTIFY_ERROR,
 } from 'actions'
-import { set } from 'utils/storage'
+import * as storage from '@chainlink/local-storage'
 import { BadRequestError } from '@chainlink/json-api-client'
 
 const initialState = {
@@ -38,9 +38,12 @@ export default (state = initialState, action = {}) => {
         component: action.component,
         props: action.props,
       }
-      if (success.props.data && success.props.data.type === 'specs')
-        set('persistSpec', {})
-      else if (typeof success.props.url === 'string') set('persistBridge', {})
+      if (success.props.data && success.props.data.type === 'specs') {
+        storage.setJson('persistSpec', {})
+      } else if (typeof success.props.url === 'string') {
+        storage.setJson('persistBridge', {})
+      }
+
       return Object.assign({}, state, {
         successes: [success],
         errors: [],
@@ -65,7 +68,9 @@ export default (state = initialState, action = {}) => {
       } else {
         errorNotifications = [error]
       }
-      if (error instanceof BadRequestError) set('persistBridge', {})
+      if (error instanceof BadRequestError) {
+        storage.setJson('persistBridge', {})
+      }
 
       return Object.assign({}, state, {
         successes: [],

@@ -1,6 +1,13 @@
-import * as storage from 'utils/storage'
+import * as storage from '@chainlink/local-storage'
 
-export const get = () => storage.get('authentication')
+interface Auth {
+  allowed?: boolean
+}
 
-// CHECK ME
-export const set = (obj: any) => storage.set('authentication', obj)
+export function get(): Auth {
+  return storage.getJson('authentication')
+}
+
+export function set(auth: Auth): void {
+  storage.setJson('authentication', auth)
+}

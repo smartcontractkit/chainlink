@@ -24,6 +24,7 @@
 
   "references": [
     { "path": "../styleguide" },
-    { "path": "../tools/json-api-client" }
+    { "path": "../tools/json-api-client" },
+    { "path": "../tools/local-storage" }
   ]
 }
