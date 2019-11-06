@@ -169,9 +169,13 @@ contract PrepaidAggregator is Ownable {
     private
   {
     uint128 payment = rounds[_id].paymentAmount;
-    availableFunds = availableFunds.sub(payment);
+    uint128 available = availableFunds.sub(payment);
+
+    availableFunds = available;
     allocatedFunds = allocatedFunds.add(payment);
     oracles[msg.sender].withdrawable = oracles[msg.sender].withdrawable.add(payment);
+
+    emit AvailableFundsUpdated(available);
   }
 
   function recordAnswer(int256 _answer, uint256 _id)

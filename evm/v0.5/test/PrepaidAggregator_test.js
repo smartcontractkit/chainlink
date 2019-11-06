@@ -56,14 +56,18 @@ contract('PrepaidAggregator', () => {
       }
     })
 
-    it('updates the allocated funds counter', async () => {
+    it('updates the allocated and available funds counters', async () => {
       assertBigNum(0, await aggregator.allocatedFunds.call())
 
-      await aggregator.updateAnswer(nextRound, answer, {
+      const tx = await aggregator.updateAnswer(nextRound, answer, {
         from: personas.Neil,
       })
 
       assertBigNum(paymentAmount, await aggregator.allocatedFunds.call())
+      const expectedAvailable = deposit.sub(paymentAmount)
+      assertBigNum(expectedAvailable, await aggregator.availableFunds.call())
+      const logged = h.bigNum(tx.receipt.rawLogs[1].topics[1])
+      assertBigNum(expectedAvailable, logged)
     })
 
     context('when the minimum oracles have not reported', async () => {
