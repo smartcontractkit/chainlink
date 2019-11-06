@@ -281,10 +281,23 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	return dbtx.Commit().Error
 }
 
+// OptimisticUpdateConflictError is returned when a record update failed
+// because another update occurred while the model was in memory and the
+// differences must be reconciled.
+var OptimisticUpdateConflictError = errors.New("conflict while updating record")
+
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Unscoped().Omit("deleted_at").Save(run).Error
+		result := dbtx.Unscoped().
+			Model(run).
+			Where("updated_at = ?", run.UpdatedAt).
+			Omit("deleted_at").
+			Save(run)
+		if result.RowsAffected == 0 {
+			return OptimisticUpdateConflictError
+		}
+		return result.Error
 	})
 }
 
@@ -350,7 +363,7 @@ func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error)
 }
 
 // Jobs fetches all jobs.
-func (orm *ORM) Jobs(cb func(models.JobSpec) bool) error {
+func (orm *ORM) Jobs(cb func(*models.JobSpec) bool) error {
 	return Batch(1000, func(offset, limit uint) (uint, error) {
 		jobs := []models.JobSpec{}
 		err := orm.preloadJobs().
@@ -362,7 +375,7 @@ func (orm *ORM) Jobs(cb func(models.JobSpec) bool) error {
 		}
 
 		for _, j := range jobs {
-			if !cb(j) {
+			if !cb(&j) {
 				return 0, nil
 			}
 		}
@@ -445,15 +458,6 @@ func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 	}
 
 	return tx.Create(job).Error
-}
-
-// Archived returns whether or not a job has been archived.
-func (orm *ORM) Archived(id *models.ID) bool {
-	j, err := orm.Unscoped().FindJob(id)
-	if err != nil {
-		return false
-	}
-	return j.DeletedAt.Valid
 }
 
 // ArchiveJob soft deletes the job and its associated job runs.

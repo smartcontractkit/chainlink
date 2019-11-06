@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
@@ -219,30 +218,6 @@ func WebURL(t testing.TB, unparsed string) models.WebURL {
 	parsed, err := url.Parse(unparsed)
 	require.NoError(t, err)
 	return models.WebURL(*parsed)
-}
-
-// NullString creates null.String from given value
-func NullString(val interface{}) null.String {
-	switch val.(type) {
-	case string:
-		return null.StringFrom(val.(string))
-	case nil:
-		return null.NewString("", false)
-	default:
-		panic("cannot create a null string of any type other than string or nil")
-	}
-}
-
-// NullTime creates a null.Time from given value
-func NullTime(t testing.TB, val interface{}) null.Time {
-	switch val.(type) {
-	case string:
-		return ParseNullableTime(t, val.(string))
-	case nil:
-		return null.NewTime(time.Unix(0, 0), false)
-	default:
-		panic("cannot create a null time of any type other than string or nil")
-	}
 }
 
 // JSONFromString create JSON from given body and arguments
@@ -446,11 +421,6 @@ func MarkJobRunPendingBridge(jr models.JobRun, i int) models.JobRun {
 	return jr
 }
 
-func NewJobRunner(s *strpkg.Store) (services.JobRunner, func()) {
-	rm := services.NewJobRunner(s)
-	return rm, func() { rm.Stop() }
-}
-
 type MockSigner struct{}
 
 func (s MockSigner) SignHash(common.Hash) (models.Signature, error) {
@@ -520,4 +490,20 @@ func CreateServiceAgreementViaWeb(
 	require.NoError(t, err)
 
 	return FindServiceAgreement(t, app.Store, responseSA.ID)
+}
+
+func NewRunInput(value models.JSON) models.RunInput {
+	jobRunID := models.NewID()
+	return *models.NewRunInput(jobRunID, value, models.RunStatusUnstarted)
+}
+
+func NewRunInputWithString(t testing.TB, value string) models.RunInput {
+	jobRunID := models.NewID()
+	data := JSONFromString(t, value)
+	return *models.NewRunInput(jobRunID, data, models.RunStatusUnstarted)
+}
+
+func NewRunInputWithResult(value interface{}) models.RunInput {
+	jobRunID := models.NewID()
+	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
 }

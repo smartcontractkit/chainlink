@@ -38,12 +38,13 @@ func TestRendererTable_RenderConfiguration(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
-	
+
 	resp, cleanup := client.Get("/v2/config")
 	cwl := presenters.ConfigWhitelist{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cwl))
-	
+
 	r := cmd.RendererTable{Writer: ioutil.Discard}
 	assert.NoError(t, r.Render(&cwl))
 }

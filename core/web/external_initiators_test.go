@@ -72,8 +72,9 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey(t)
+			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
+
 			exInitr := struct {
 				Header http.Header
 				Body   web.JobSpecNotice
@@ -91,13 +92,13 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 			eia := models.NewExternalInitiatorAuthentication()
 			ei, err := models.NewExternalInitiator(eia, &test.ExInitr)
 			require.NoError(t, err)
-			err = app.GetStore().CreateExternalInitiator(ei)
+			err = store.CreateExternalInitiator(ei)
 			require.NoError(t, err)
 
-			err = app.GetStore().CreateJob(&test.JobSpec)
+			err = store.CreateJob(&test.JobSpec)
 			require.NoError(t, err)
 
-			err = web.NotifyExternalInitiator(test.JobSpec, app.GetStore())
+			err = web.NotifyExternalInitiator(test.JobSpec, store)
 			require.NoError(t, err)
 			assert.Equal(t,
 				ei.OutgoingToken,
@@ -149,7 +150,7 @@ func TestNotifyExternalInitiator_NotNotified(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey(t)
+			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
 			var remoteNotified bool
@@ -164,13 +165,13 @@ func TestNotifyExternalInitiator_NotNotified(t *testing.T) {
 			eia := models.NewExternalInitiatorAuthentication()
 			ei, err := models.NewExternalInitiator(eia, &test.ExInitr)
 			require.NoError(t, err)
-			err = app.GetStore().CreateExternalInitiator(ei)
+			err = store.CreateExternalInitiator(ei)
 			require.NoError(t, err)
 
-			err = app.GetStore().CreateJob(&test.JobSpec)
+			err = store.CreateJob(&test.JobSpec)
 			require.NoError(t, err)
 
-			err = web.NotifyExternalInitiator(test.JobSpec, app.GetStore())
+			err = web.NotifyExternalInitiator(test.JobSpec, store)
 			require.NoError(t, err)
 
 			require.False(t, remoteNotified)

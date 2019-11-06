@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -15,7 +14,7 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
-func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
+func TestJobRun_RetrievingFromDBWithError(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -34,7 +33,7 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	assert.Equal(t, "bad idea", run.ErrorString())
 }
 
-func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
+func TestJobRun_RetrievingFromDBWithData(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -56,7 +55,7 @@ func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
 	assert.JSONEq(t, data, run.Result.Data.String())
 }
 
-func TestJobRuns_SavesASyncEvent(t *testing.T) {
+func TestJobRun_SavesASyncEvent(t *testing.T) {
 	t.Parallel()
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", "http://localhost:4201")
@@ -95,7 +94,7 @@ func TestJobRuns_SavesASyncEvent(t *testing.T) {
 	assert.Contains(t, data, "status")
 }
 
-func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
+func TestJobRun_SkipsEventSaveIfURLBlank(t *testing.T) {
 	t.Parallel()
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", "")
@@ -122,7 +121,7 @@ func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
 	require.Len(t, events, 0)
 }
 
-func TestForLogger(t *testing.T) {
+func TestJobRun_ForLogger(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -162,38 +161,12 @@ func TestForLogger(t *testing.T) {
 	assert.Equal(t, logsWithBlockHeights[9], big.NewInt(10))
 
 	run := job.NewRun(job.Initiators[0])
-	run.SetError(errors.New("bad idea"))
+	run.Status = models.RunStatusErrored
+	run.Result.ErrorMessage = null.StringFrom("bad idea")
 	logsWithErr := run.ForLogger()
+	require.Len(t, logsWithErr, 8)
 	assert.Equal(t, logsWithErr[6], "job_error")
 	assert.Equal(t, logsWithErr[7], run.ErrorString())
-}
-
-func TestJobRun_NextTaskRun(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	jobRunner, cleanup := cltest.NewJobRunner(store)
-	defer cleanup()
-	jobRunner.Start()
-
-	job := cltest.NewJobWithWebInitiator()
-	job.Tasks = []models.TaskSpec{
-		{Type: adapters.TaskTypeNoOp},
-		{Type: adapters.TaskTypeNoOpPend},
-		{Type: adapters.TaskTypeNoOp},
-	}
-	assert.NoError(t, store.CreateJob(&job))
-	run := job.NewRun(job.Initiators[0])
-	assert.NoError(t, store.CreateJobRun(&run))
-	assert.Equal(t, &run.TaskRuns[0], run.NextTaskRun())
-
-	store.RunChannel.Send(run.ID)
-	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
-
-	run, err := store.FindJobRun(run.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, &run.TaskRuns[1], run.NextTaskRun())
 }
 
 func TestJobRun_ApplyOutput_CompletedWithNoTasksRemaining(t *testing.T) {

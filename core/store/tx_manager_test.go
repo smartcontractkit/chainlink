@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/golang/mock/gomock"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -374,16 +375,15 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 
 func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
+
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store := app.Store
 	manager := store.TxManager
 
 	to := cltest.NewAddress()
-	data, err := hex.DecodeString("0000abcdef")
-	assert.NoError(t, err)
+	data := hexutil.MustDecode("0x0000abcdef")
 
-	_, err = manager.CreateTx(to, data)
+	_, err := manager.CreateTx(to, data)
 	assert.Contains(t, err.Error(), strpkg.ErrPendingConnection.Error())
 }
 

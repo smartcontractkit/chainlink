@@ -37,12 +37,6 @@ func NewRunOutputComplete(data JSON) RunOutput {
 	return RunOutput{status: RunStatusCompleted, data: data}
 }
 
-// NewRunOutputPendingSleep returns a new RunOutput that indicates the task is
-// sleeping
-func NewRunOutputPendingSleep() RunOutput {
-	return RunOutput{status: RunStatusPendingSleep}
-}
-
 // NewRunOutputPendingConfirmations returns a new RunOutput that indicates the
 // task is pending confirmations
 func NewRunOutputPendingConfirmations() RunOutput {

@@ -82,11 +82,12 @@ func TestCopy_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := cltest.NewRunInput(cltest.JSONFromString(t, test.input))
+			input := cltest.NewRunInputWithString(t, test.input)
 			adapter := adapters.Copy{CopyPath: test.copyPath}
 			result := adapter.Perform(input, nil)
 			assert.Equal(t, test.wantData, result.Data().String())
 			assert.Equal(t, test.wantStatus, result.Status())
+
 			assert.Equal(t, test.wantResultError, result.Error())
 		})
 	}

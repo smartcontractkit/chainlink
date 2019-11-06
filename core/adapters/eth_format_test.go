@@ -35,7 +35,7 @@ func TestEthBytes32_Perform(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			past := cltest.NewRunInput(cltest.JSONFromString(t, test.json))
+			past := cltest.NewRunInputWithString(t, test.json)
 			adapter := adapters.EthBytes32{}
 			result := adapter.Perform(past, nil)
 
@@ -75,7 +75,7 @@ func TestEthInt256_Perform(t *testing.T) {
 	adapter := adapters.EthInt256{}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			input := cltest.NewRunInput(cltest.JSONFromString(t, test.json))
+			input := cltest.NewRunInputWithString(t, test.json)
 			result := adapter.Perform(input, nil)
 
 			if test.errored {

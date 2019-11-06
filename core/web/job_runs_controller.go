@@ -59,7 +59,9 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusForbidden, err)
 	} else if data, err := getRunData(c); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if jr, err := services.ExecuteJob(j, *initiator, &data, nil, jrc.App.GetStore()); err != nil {
+	} else if jr, err := jrc.App.Create(j.ID, initiator, &data, nil, &models.RunRequest{}); errors.Cause(err) == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("Job not found"))
+	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.JobRun{JobRun: *jr}, "job run")
@@ -117,9 +119,9 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	authToken := utils.StripBearer(c.Request.Header.Get("Authorization"))
 	unscoped := jrc.App.GetStore().Unscoped()
 
-	if id, err := models.NewIDFromString(c.Param("RunID")); err != nil {
+	if runID, err := models.NewIDFromString(c.Param("RunID")); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if jr, err := unscoped.FindJobRun(id); errors.Cause(err) == orm.ErrorNotFound {
+	} else if jr, err := unscoped.FindJobRun(runID); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -133,7 +135,9 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if !ok {
 		c.AbortWithStatus(http.StatusUnauthorized)
-	} else if err = services.ResumePendingTask(&jr, unscoped, brr); err != nil {
+	} else if err = jrc.App.ResumePending(runID, brr); errors.Cause(err) == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
+	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, jr, "job run")

@@ -139,8 +139,8 @@ func TestRequestLogEvent_Validate(t *testing.T) {
 			}
 
 			logRequest := models.InitiatorLogEvent{
-				JobSpec: job,
-				Log:     log,
+				JobSpecID: *job.ID,
+				Log:       log,
 				Initiator: models.Initiator{
 					Type: models.InitiatorRunLog,
 					InitiatorParams: models.InitiatorParams{
