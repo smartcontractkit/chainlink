@@ -13,6 +13,8 @@ func TestGuiAssets_WildcardIndexHtml(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := &http.Client{}
 
 	resp, err := client.Get(app.Server.URL + "/")
@@ -53,6 +55,8 @@ func TestGuiAssets_WildcardRouteInfo(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := &http.Client{}
 
 	resp, err := client.Get(app.Server.URL + "/job_specs/abc123/routeInfo.json")
@@ -77,6 +81,8 @@ func TestGuiAssets_Exact(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := &http.Client{}
 
 	resp, err := client.Get(app.Server.URL + "/main.js")

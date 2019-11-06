@@ -506,7 +506,7 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, task.Type, adapters.TaskTypeEthTx)
 
-	adapter, err := adapters.For(task, store)
+	adapter, err := adapters.For(task, store.Config, store.ORM)
 	assert.NoError(t, err)
 	ethtx, ok := adapter.BaseAdapter.(*adapters.EthTx)
 	assert.True(t, ok)
@@ -558,9 +558,8 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store := app.Store
 
 	adapter := adapters.EthTx{}
 	data := adapter.Perform(models.RunInput{}, store)
@@ -572,9 +571,8 @@ func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store := app.Store
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -600,9 +598,8 @@ func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testin
 func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store := app.Store
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -631,11 +628,10 @@ func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T
 func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfirmations(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store := app.Store
 
-	from := cltest.GetAccountAddress(t, store)
+	from := cltest.NewAddress()
 	tx := cltest.CreateTx(t, store, from, 1)
 
 	ctrl := gomock.NewController(t)

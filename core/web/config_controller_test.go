@@ -20,6 +20,7 @@ func TestConfigController_Show(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v2/config")

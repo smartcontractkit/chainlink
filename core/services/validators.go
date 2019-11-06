@@ -50,7 +50,7 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 		fe.Add("Invalid URL format")
 	}
 	ts := models.TaskSpec{Type: bt.Name}
-	if a, _ := adapters.For(ts, store); a != nil {
+	if a, _ := adapters.For(ts, store.Config, store.ORM); a != nil {
 		fe.Add(fmt.Sprintf("Adapter %v already exists", bt.Name))
 	}
 	return fe.CoerceEmptyToNil()
@@ -135,7 +135,7 @@ func validateServiceAgreementInitiator(i models.Initiator, j models.JobSpec) err
 }
 
 func validateTask(task models.TaskSpec, store *store.Store) error {
-	adapter, err := adapters.For(task, store)
+	adapter, err := adapters.For(task, store.Config, store.ORM)
 	if !store.Config.Dev() {
 		if _, ok := adapter.BaseAdapter.(*adapters.Sleep); ok {
 			return errors.New("Sleep Adapter is not implemented yet")

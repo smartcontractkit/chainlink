@@ -124,6 +124,11 @@ func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 	return jobSpec
 }
 
+// Archived returns true if the job spec has been soft deleted
+func (j JobSpec) Archived() bool {
+	return j.DeletedAt.Valid
+}
+
 // NewRun initializes the job by creating the IDs for the job
 // and all associated tasks, and setting the CreatedAt field.
 func (j JobSpec) NewRun(i Initiator) JobRun {
@@ -146,7 +151,7 @@ func (j JobSpec) NewRun(i Initiator) JobRun {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		TaskRuns:    taskRuns,
-		RunRequest:  runRequest,
+		RunRequest:  *runRequest,
 		Initiator:   i,
 		InitiatorID: i.ID,
 		Status:      RunStatusUnstarted,

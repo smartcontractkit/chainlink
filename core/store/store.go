@@ -29,7 +29,6 @@ type Store struct {
 	Config      *orm.Config
 	Clock       utils.AfterNower
 	KeyStore    *KeyStore
-	RunChannel  RunChannel
 	TxManager   TxManager
 	StatsPusher *synchronization.StatsPusher
 }
@@ -154,7 +153,6 @@ func NewStoreWithDialer(config *orm.Config, dialer Dialer) *Store {
 		Config:      config,
 		KeyStore:    keyStore,
 		ORM:         orm,
-		RunChannel:  NewQueuedRunChannel(),
 		TxManager:   NewEthTxManager(&EthCallerSubscriber{ethrpc}, config, keyStore, orm),
 		StatsPusher: synchronization.NewStatsPusher(orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret()),
 	}
@@ -172,7 +170,6 @@ func (s *Store) Start() error {
 
 // Close shuts down all of the working parts of the store.
 func (s *Store) Close() error {
-	s.RunChannel.Close()
 	return multierr.Combine(
 		s.ORM.Close(),
 		s.StatsPusher.Close(),
@@ -228,66 +225,4 @@ func initializeORM(config *orm.Config) (*orm.ORM, error) {
 	}
 	orm.SetLogging(config.LogSQLStatements())
 	return orm, nil
-}
-
-// RunRequest is the type that the RunChannel uses to package all the necessary
-// pieces to execute a Job Run.
-type RunRequest struct {
-	ID *models.ID
-}
-
-// RunChannel manages and dispatches incoming runs.
-type RunChannel interface {
-	Send(jobRunID *models.ID) error
-	Receive() <-chan RunRequest
-	Close()
-}
-
-// QueuedRunChannel manages incoming results and blocks by enqueuing them
-// in a queue per run.
-type QueuedRunChannel struct {
-	queue  chan RunRequest
-	closed bool
-	mutex  sync.Mutex
-}
-
-// NewQueuedRunChannel initializes a QueuedRunChannel.
-func NewQueuedRunChannel() RunChannel {
-	return &QueuedRunChannel{
-		queue: make(chan RunRequest, 1000),
-	}
-}
-
-// Send adds another entry to the queue of runs.
-func (rq *QueuedRunChannel) Send(jobRunID *models.ID) error {
-	rq.mutex.Lock()
-	defer rq.mutex.Unlock()
-
-	if rq.closed {
-		return errors.New("QueuedRunChannel.Add: cannot add to a closed QueuedRunChannel")
-	}
-
-	if jobRunID == nil {
-		return errors.New("QueuedRunChannel.Add: cannot add an empty jobRunID")
-	}
-
-	rq.queue <- RunRequest{ID: jobRunID}
-	return nil
-}
-
-// Receive returns a channel for listening to sent runs.
-func (rq *QueuedRunChannel) Receive() <-chan RunRequest {
-	return rq.queue
-}
-
-// Close closes the QueuedRunChannel so that no runs can be added to it without
-// throwing an error.
-func (rq *QueuedRunChannel) Close() {
-	rq.mutex.Lock()
-	defer rq.mutex.Unlock()
-
-	if !rq.closed {
-		rq.closed = true
-		close(rq.queue)
-	}
 }
