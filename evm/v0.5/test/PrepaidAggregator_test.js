@@ -98,6 +98,7 @@ contract('PrepaidAggregator', () => {
       it('does not update the answer', async () => {
         assert.equal(0, await aggregator.currentAnswer.call())
 
+        // Not updated because of changes by the owner setting minAnswerCount to 3
         await aggregator.updateAnswer(nextRound, answer, { from: personas.Ned })
         await aggregator.updateAnswer(nextRound, answer, {
           from: personas.Nelly,
@@ -408,7 +409,7 @@ contract('PrepaidAggregator', () => {
         assertBigNum(deposit, await link.balanceOf.call(personas.Carol))
       })
 
-      it('does not let withrawals happen multiple times', async () => {
+      it('does not let withdrawals happen multiple times', async () => {
         await aggregator.withdrawFunds(personas.Carol, deposit, {
           from: personas.Carol,
         })
