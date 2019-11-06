@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"chainlink/core/cmd"
+	"chainlink/core/internal/cltest"
 )
 
 func ExampleRun() {

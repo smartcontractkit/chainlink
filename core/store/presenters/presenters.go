@@ -13,16 +13,17 @@ import (
 	"strings"
 	"time"
 
+	"chainlink/core/logger"
+	"chainlink/core/store"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 )
@@ -195,15 +196,15 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			MinIncomingConfirmations: config.MinIncomingConfirmations(),
 			MinOutgoingConfirmations: config.MinOutgoingConfirmations(),
 			OracleContractAddress:    config.OracleContractAddress(),
-			Port:                     config.Port(),
-			ReaperExpiration:         config.ReaperExpiration(),
-			ReplayFromBlock:          config.ReplayFromBlock(),
-			RootDir:                  config.RootDir(),
-			SessionTimeout:           config.SessionTimeout(),
-			TLSHost:                  config.TLSHost(),
-			TLSPort:                  config.TLSPort(),
-			TLSRedirect:              config.TLSRedirect(),
-			TxAttemptLimit:           config.TxAttemptLimit(),
+			Port:             config.Port(),
+			ReaperExpiration: config.ReaperExpiration(),
+			ReplayFromBlock:  config.ReplayFromBlock(),
+			RootDir:          config.RootDir(),
+			SessionTimeout:   config.SessionTimeout(),
+			TLSHost:          config.TLSHost(),
+			TLSPort:          config.TLSPort(),
+			TLSRedirect:      config.TLSRedirect(),
+			TxAttemptLimit:   config.TxAttemptLimit(),
 		},
 	}, nil
 }

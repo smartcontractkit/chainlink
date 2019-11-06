@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"net/http"
 
+	"chainlink/core/services"
+	"chainlink/core/store/models"
+
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"go.uber.org/multierr"
 )
 

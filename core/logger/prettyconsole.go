@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"chainlink/core/utils"
+
 	"github.com/fatih/color"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 )

@@ -6,9 +6,9 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/store/dbutil"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"chainlink/core/store/dbutil"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
 )
 
 // PrepareTestDB prepares the database to run tests, functionality varies

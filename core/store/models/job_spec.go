@@ -8,11 +8,12 @@ import (
 	"strings"
 	"time"
 
+	clnull "chainlink/core/null"
+	"chainlink/core/store/assets"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
 	null "gopkg.in/guregu/null.v3"
 )
 

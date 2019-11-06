@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/logger"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+
 	"go.uber.org/multierr"
 )
 

@@ -3,10 +3,11 @@ package migration1560881855
 import (
 	"time"
 
+	"chainlink/core/store/assets"
+	"chainlink/core/store/dbutil"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 )
 
 func Migrate(tx *gorm.DB) error {
