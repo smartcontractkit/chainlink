@@ -216,7 +216,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     if (requesters[cbRequestId].responses.push(_data) == minResponses) {
       Requester memory req = requesters[cbRequestId];
       delete requesters[cbRequestId];
-      int256 result = Median.get(req.responses);
+      int256 result = Median.calculate(req.responses);
       // solhint-disable-next-line avoid-low-level-calls
       (bool success, ) = req.callbackAddress.call(abi.encodeWithSelector(req.callbackFunctionId, cbRequestId, result));
       return success;

@@ -8,7 +8,7 @@ contract ConcreteMedian {
     public
     returns (int256)
   {
-    return Median.get(_list);
+    return Median.calculate(_list);
   }
 
 }

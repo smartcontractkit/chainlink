@@ -12,7 +12,7 @@ library Median {
    * items if the array has an even number of elements
    * @param _list The list of elements to compare
    */
-  function get(int256[] memory _list)
+  function calculate(int256[] memory _list)
     internal
     returns (int256)
   {
