@@ -169,6 +169,7 @@ contract PrepaidAggregator is Ownable {
     private
   {
     uint128 payment = rounds[_id].paymentAmount;
+    // SafeMath128's underflow check ensures that there are enough funds to pay the oracle.
     uint128 available = availableFunds.sub(payment);
 
     availableFunds = available;
