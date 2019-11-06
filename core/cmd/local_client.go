@@ -117,18 +117,14 @@ func logNodeBalance(store *strpkg.Store) {
 	accounts, err := presenters.ShowEthBalance(store)
 	logger.WarnIf(err)
 	for _, a := range accounts {
-		logAccountBalance(a)
+		logger.Infow(a["message"], "address", a["address"], "ethBalance", a["balance"])
 	}
 
 	accounts, err = presenters.ShowLinkBalance(store)
 	logger.WarnIf(err)
 	for _, a := range accounts {
-		logAccountBalance(a)
+		logger.Infow(a["message"], "address", a["address"], "linkBalance", a["balance"])
 	}
-}
-
-func logAccountBalance(kv map[string]interface{}) {
-	logger.Infow(fmt.Sprint(kv["message"]), "address", kv["address"], "balance", kv["balance"])
 }
 
 func logConfigVariables(store *strpkg.Store) error {

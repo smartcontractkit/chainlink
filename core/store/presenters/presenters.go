@@ -35,22 +35,22 @@ const (
 )
 
 // ShowEthBalance returns the current Eth Balance for current Account
-func ShowEthBalance(store *store.Store) ([]map[string]interface{}, error) {
+func ShowEthBalance(store *store.Store) ([]map[string]string, error) {
 	return showBalanceFor(store, ethRequest)
 }
 
 // ShowLinkBalance returns the current Link Balance for current Account
-func ShowLinkBalance(store *store.Store) ([]map[string]interface{}, error) {
+func ShowLinkBalance(store *store.Store) ([]map[string]string, error) {
 	return showBalanceFor(store, linkRequest)
 }
 
-func showBalanceFor(store *store.Store, balanceType requestType) ([]map[string]interface{}, error) {
+func showBalanceFor(store *store.Store, balanceType requestType) ([]map[string]string, error) {
 	if !store.KeyStore.HasAccounts() {
 		logger.Panic("KeyStore must have an account in order to show balance")
 	}
 
 	var merr error
-	info := []map[string]interface{}{}
+	info := []map[string]string{}
 	for _, account := range store.KeyStore.Accounts() {
 		b, err := showBalanceForAccount(store, account, balanceType)
 		merr = multierr.Append(merr, err)
@@ -62,16 +62,16 @@ func showBalanceFor(store *store.Store, balanceType requestType) ([]map[string]i
 }
 
 // ShowEthBalance returns the current Eth Balance for current Account
-func showBalanceForAccount(store *store.Store, account accounts.Account, balanceType requestType) (map[string]interface{}, error) {
+func showBalanceForAccount(store *store.Store, account accounts.Account, balanceType requestType) (map[string]string, error) {
 	balance, err := getBalance(store, account, balanceType)
 	if err != nil {
 		return nil, err
 	}
 	address := account.Address
-	keysAndValues := make(map[string]interface{})
+	keysAndValues := make(map[string]string)
 	keysAndValues["message"] = fmt.Sprintf("%v Balance for %v: %v", balance.Symbol(), address.Hex(), balance.String())
 	keysAndValues["balance"] = balance.String()
-	keysAndValues["address"] = address
+	keysAndValues["address"] = address.String()
 	if balance.IsZero() && balanceType == ethRequest {
 		return nil, errors.New("0 ETH Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
 	}
