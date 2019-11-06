@@ -850,7 +850,7 @@ func GetContract(name string) (*Contract, error) {
 		return nil, errors.Wrap(err, "unable to read contract JSON")
 	}
 
-	abiBytes := gjson.GetBytes(jsonFile, "abi.compilerOutput")
+	abiBytes := gjson.GetBytes(jsonFile, "compilerOutput.abi")
 	abiParsed, err := abi.JSON(strings.NewReader(abiBytes.Raw))
 	if err != nil {
 		return nil, err

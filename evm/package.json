@@ -12,7 +12,7 @@
     "eslint": "eslint --ext .ts, testv2 src",
     "solhint": "solhint ./contracts/**/*.sol",
     "lint": "yarn solhint && yarn eslint",
-    "slither": "truffle compile --quiet && slither .",
+    "slither": "truffle compile --quiet && slither . && rimraf dist/artifacts",
     "pretest": "yarn build",
     "test": "jest --testTimeout 80000",
     "format": "prettier --write \"{src,testv2}/*/**\"",

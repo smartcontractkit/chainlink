@@ -14,7 +14,7 @@
     "solhint": "solhint ./contracts/**/*.sol",
     "lint": "yarn eslint && yarn solhint",
     "format": "prettier --write \"{src,test}/**/*\"",
-    "slither": "truffle compile --quiet && slither .",
+    "slither": "truffle compile --quiet && slither . && rimraf dist/artifacts",
     "setup": "ts-node ./scripts/build",
     "prepublishOnly": "yarn setup && yarn lint && yarn test",
     "test": "truffle test"
