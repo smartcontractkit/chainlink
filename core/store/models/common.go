@@ -81,6 +81,11 @@ func (s RunStatus) Completed() bool {
 	return s == RunStatusCompleted
 }
 
+// Cancelled returns true if the status is RunStatusCancelled.
+func (s RunStatus) Cancelled() bool {
+	return s == RunStatusCancelled
+}
+
 // Errored returns true if the status is RunStatusErrored.
 func (s RunStatus) Errored() bool {
 	return s == RunStatusErrored
@@ -93,7 +98,7 @@ func (s RunStatus) Pending() bool {
 
 // Finished returns true if the status is final and can't be changed.
 func (s RunStatus) Finished() bool {
-	return s.Completed() || s.Errored()
+	return s.Completed() || s.Errored() || s.Cancelled()
 }
 
 // Runnable returns true if the status is ready to be run.
