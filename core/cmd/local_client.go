@@ -154,7 +154,6 @@ func (cli *Client) DeleteUser(c *clipkg.Context) error {
 func (cli *Client) ImportKey(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app := cli.AppFactory.NewApplication(cli.Config)
-	defer app.Stop()
 
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in filepath to key"))
