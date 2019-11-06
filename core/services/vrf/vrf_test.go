@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/services/signatures/secp256k1"
+	"chainlink/core/utils"
 )
 
 func TestVRF_IsSquare(t *testing.T) {

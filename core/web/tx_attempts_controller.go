@@ -1,8 +1,9 @@
 package web
 
 import (
+	"chainlink/core/services"
+
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/core/services"
 )
 
 // TxAttemptsController lists TxAttempts requests.

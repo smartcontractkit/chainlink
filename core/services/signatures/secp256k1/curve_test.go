@@ -1,8 +1,9 @@
 package secp256k1
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 var group = &Secp256k1{}

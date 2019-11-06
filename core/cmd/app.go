@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/smartcontractkit/chainlink/core/store"
+	"chainlink/core/store"
+
 	"github.com/urfave/cli"
 )
 
@@ -104,8 +105,8 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for the node's configuration",
 			Subcommands: []cli.Command{
 				{
-					Name: "list",
-					Usage: "Show the node's environment variables",
+					Name:   "list",
+					Usage:  "Show the node's environment variables",
 					Action: client.GetConfiguration,
 				},
 				{

@@ -4,7 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"chainlink/core/internal/cltest"
+
 	"github.com/stretchr/testify/require"
 )
 

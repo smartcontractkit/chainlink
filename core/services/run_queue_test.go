@@ -3,11 +3,12 @@ package services_test
 import (
 	"testing"
 
+	"chainlink/core/internal/cltest"
+	"chainlink/core/internal/mocks"
+	"chainlink/core/services"
+	"chainlink/core/store/models"
+
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/mock"
 )
 

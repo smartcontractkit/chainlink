@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"time"
 
+	clnull "chainlink/core/null"
+	"chainlink/core/store/assets"
+
 	"github.com/ethereum/go-ethereum/common"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
 	null "gopkg.in/guregu/null.v3"
 )
 

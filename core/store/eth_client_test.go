@@ -6,10 +6,11 @@ import (
 
 	"math/big"
 
+	"chainlink/core/internal/cltest"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/models"
+
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

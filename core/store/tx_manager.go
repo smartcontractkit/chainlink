@@ -11,19 +11,20 @@ import (
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
-	"gopkg.in/guregu/null.v3"
+
+	"chainlink/core/logger"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v3"
 )
 
 // DefaultGasLimit sets the default gas limit for outgoing transactions.
@@ -62,7 +63,7 @@ type TxManager interface {
 	GetChainID() (*big.Int, error)
 }
 
-//go:generate mockgen -package=mocks -destination=../internal/mocks/tx_manager_mocks.go github.com/smartcontractkit/chainlink/core/store TxManager
+//go:generate mockgen -package=mocks -destination=../internal/mocks/tx_manager_mocks.go chainlink/core/store TxManager
 
 // EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.

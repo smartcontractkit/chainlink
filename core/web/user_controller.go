@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"net/http"
 
+	"chainlink/core/services"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // UserController manages the current Session's User User.

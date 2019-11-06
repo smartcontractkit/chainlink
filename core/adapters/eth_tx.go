@@ -6,14 +6,15 @@ import (
 	"net"
 	"regexp"
 
+	"chainlink/core/logger"
+	"chainlink/core/store"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v3"
 )
 

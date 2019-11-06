@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/logger"
+	"chainlink/core/store/models"
 )
 
 //go:generate mockery -name RunQueue -output ../internal/mocks/ -case=underscore

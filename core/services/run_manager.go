@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"math/big"
 
+	"chainlink/core/adapters"
+	"chainlink/core/logger"
+	clnull "chainlink/core/null"
+	"chainlink/core/store"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/utils"
+
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // RecurringScheduleJobError contains the field for the error message.
@@ -319,7 +320,7 @@ func (jm *runManager) ResumePending(
 //
 // To recap: This must run before anything else writes job run status to the db,
 // ie. tries to run a job.
-// https://github.com/smartcontractkit/chainlink/pull/807
+// https://chainlink/pull/807
 func (jm *runManager) ResumeAllInProgress() error {
 	return jm.orm.UnscopedJobRunsWithStatus(jm.runQueue.Run, models.RunStatusInProgress, models.RunStatusPendingSleep)
 }

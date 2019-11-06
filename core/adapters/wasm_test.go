@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+
 	"github.com/stretchr/testify/assert"
 )
 

@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"strings"
 
+	"chainlink/core/utils"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"golang.org/x/crypto/sha3"
 )
 

@@ -3,8 +3,9 @@ package models_test
 import (
 	"testing"
 
+	"chainlink/core/store/models"
+
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
