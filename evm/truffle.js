@@ -1,4 +1,5 @@
 module.exports = {
+  contracts_build_directory: 'dist/artifacts',
   compilers: {
     solc: {
       version: '0.4.24',
