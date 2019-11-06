@@ -5,7 +5,6 @@ import "./vendor/SafeMath.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/OracleInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
-import "./interfaces/WithdrawalInterface.sol";
 
 /**
  * @title The Chainlink Oracle contract
