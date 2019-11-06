@@ -43,6 +43,7 @@ contract PrepaidAggregator is Ownable {
   event NewRound(uint256 indexed number, address indexed startedBy);
   event AnswerUpdated(int256 indexed current, uint256 indexed round);
   event AvailableFundsUpdated(uint256 indexed amount);
+  event PaymentAmountUpdated(uint128 indexed amount);
 
   constructor(address _link, uint128 _paymentAmount) public {
     LINK = LinkTokenInterface(_link);
@@ -96,6 +97,7 @@ contract PrepaidAggregator is Ownable {
     onlyOwner()
   {
     paymentAmount = _newAmount;
+    emit PaymentAmountUpdated(_newAmount);
   }
 
   function setAnswerCountRange(uint64 _min, uint64 _max)

@@ -469,6 +469,14 @@ contract('PrepaidAggregator', () => {
       assertBigNum(newPaymentAmount, await aggregator.paymentAmount.call())
     })
 
+    it('logs an event announcing the new amount', async () => {
+      const tx = await aggregator.setPaymentAmount(newPaymentAmount, {
+        from: personas.Carol,
+      })
+
+      assertBigNum(newPaymentAmount, h.bigNum(tx.receipt.rawLogs[0].topics[1]))
+    })
+
     context('when called by anyone but the owner', async () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
