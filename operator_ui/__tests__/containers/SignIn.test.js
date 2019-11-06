@@ -47,6 +47,8 @@ describe('containers/SignIn', () => {
     await syncFetch(wrapper)
     const newState = store.getState()
     expect(newState.authentication.allowed).toEqual(true)
+
+    await syncFetch(wrapper)
     expect(wrapper.text()).toContain('Behind authentication')
   })
 
