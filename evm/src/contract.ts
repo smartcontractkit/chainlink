@@ -1,5 +1,5 @@
 /**
- * The type of any function
+ * The type of any function that is deployable
  */
 type Deployable = {
   deploy: (...deployArgs: any[]) => Promise<any>

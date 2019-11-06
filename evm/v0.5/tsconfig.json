@@ -3,18 +3,17 @@
     "incremental": true,
     "target": "es2019",
     "module": "commonjs",
+    "allowJs": true,
     "declaration": true,
+    "declarationDir": "./dist",
     "sourceMap": true,
     "skipLibCheck": true,
     "outDir": "./dist",
+    "noEmitOnError": false,
     "resolveJsonModule": true,
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
     "moduleResolution": "node",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "typeRoots": ["src/generated"]
   },
-  "include": ["src", "testv2"]
+  "include": ["test", "src"]
 }

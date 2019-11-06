@@ -1,5 +1,5 @@
-import { RunLogFactory } from './generated/RunLogFactory'
-import { LinkTokenFactory } from 'chainlink/dist/src/generated/LinkTokenFactory'
+import { RunLogFactory } from './generated'
+import { generated as chainlink } from 'chainlink'
 import { RunLog } from './generated/RunLog'
 import { ethers } from 'ethers'
 import url from 'url'
@@ -46,7 +46,7 @@ async function sendRunlogTransaction({
   const signer = provider.getSigner(DEVNET_ADDRESS)
 
   const runLogFactory = new RunLogFactory(signer)
-  const linkTokenFactory = new LinkTokenFactory(signer)
+  const linkTokenFactory = new chainlink.LinkTokenFactory(signer)
   const runLog = runLogFactory.attach(runLogAddress)
   const linkToken = linkTokenFactory.attach(linkTokenAddress)
 
