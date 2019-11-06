@@ -45,7 +45,7 @@ func TestMigrate_Migrations(t *testing.T) {
 
 	db := orm.DB
 
-	require.NoError(t, migrations.MigrateTo(db, "1559081901"))
+	require.NoError(t, migrations.Migrate(db))
 
 	assert.True(t, db.HasTable("bridge_types"))
 	assert.True(t, db.HasTable("encumbrances"))
