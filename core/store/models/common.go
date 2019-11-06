@@ -184,31 +184,6 @@ func (j JSON) MarshalJSON() ([]byte, error) {
 	return []byte("{}"), nil
 }
 
-// Merge combines the given JSON with the existing JSON.
-func (j JSON) Merge(j2 JSON) (JSON, error) {
-	body := j.Map()
-	if body == nil || (j.Type != gjson.JSON && j.Type != gjson.Null) {
-		return JSON{}, ErrorCannotMergeNonObject
-	}
-
-	for key, value := range j2.Map() {
-		body[key] = value
-	}
-
-	cleaned := map[string]interface{}{}
-	for k, v := range body {
-		cleaned[k] = v.Value()
-	}
-
-	b, err := json.Marshal(cleaned)
-	if err != nil {
-		return JSON{}, err
-	}
-
-	var rval JSON
-	return rval, gjson.Unmarshal(b, &rval)
-}
-
 // Bytes returns the raw JSON.
 func (j JSON) Bytes() []byte {
 	return []byte(j.String())
@@ -216,16 +191,17 @@ func (j JSON) Bytes() []byte {
 
 // Add returns a new instance of JSON with the new value added.
 func (j JSON) Add(key string, val interface{}) (JSON, error) {
-	var j2 JSON
 	b, err := json.Marshal(val)
 	if err != nil {
-		return j2, err
+		return JSON{}, err
 	}
+
+	var j2 JSON
 	str := fmt.Sprintf(`{"%v":%v}`, key, string(b))
 	if err = json.Unmarshal([]byte(str), &j2); err != nil {
 		return j2, err
 	}
-	return j.Merge(j2)
+	return Merge(j, j2)
 }
 
 // Delete returns a new instance of JSON with the specified key removed.
@@ -479,4 +455,28 @@ type Configuration struct {
 	gorm.Model
 	Name  string `gorm:"not null;unique;index"`
 	Value string `gorm:"not null"`
+}
+
+// Merge returns a new map with all keys merged from right to left
+func Merge(inputs ...JSON) (JSON, error) {
+	output := make(map[string]interface{})
+
+	for _, input := range inputs {
+		switch v := input.Result.Value().(type) {
+		case map[string]interface{}:
+			for key, value := range v {
+				output[key] = value
+			}
+		case nil:
+		default:
+			return JSON{}, errors.New("can only merge JSON objects")
+		}
+	}
+
+	bytes, err := json.Marshal(output)
+	if err != nil {
+		return JSON{}, err
+	}
+
+	return JSON{Result: gjson.ParseBytes(bytes)}, nil
 }

@@ -38,7 +38,7 @@ func (ba *Bridge) Perform(input models.RunInput, store *store.Store) models.RunO
 }
 
 func (ba *Bridge) handleNewRun(input models.RunInput, bridgeResponseURL *url.URL) models.RunOutput {
-	data, err := input.Data().Merge(ba.Params)
+	data, err := models.Merge(input.Data(), ba.Params)
 	if err != nil {
 		return models.NewRunOutputError(baRunResultError("handling data param", err))
 	}
@@ -73,7 +73,7 @@ func (ba *Bridge) responseToRunResult(body []byte, input models.RunInput) models
 	}
 
 	if brr.Data.IsObject() {
-		data, err := ba.Params.Merge(brr.Data)
+		data, err := models.Merge(ba.Params, brr.Data)
 		if err != nil {
 			return models.NewRunOutputError(baRunResultError("handling data param", err))
 		}
@@ -85,7 +85,7 @@ func (ba *Bridge) responseToRunResult(body []byte, input models.RunInput) models
 }
 
 func (ba *Bridge) postToExternalAdapter(input models.RunInput, bridgeResponseURL *url.URL) ([]byte, error) {
-	data, err := input.Data().Merge(ba.Params)
+	data, err := models.Merge(input.Data(), ba.Params)
 	if err != nil {
 		return nil, errors.Wrap(err, "error merging bridge params with input params")
 	}
