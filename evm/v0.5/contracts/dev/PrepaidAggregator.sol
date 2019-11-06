@@ -51,8 +51,8 @@ contract PrepaidAggregator is Ownable {
 
   function updateAnswer(uint256 _round, int256 _answer)
     public
-    ensureValidRoundId(_round)
-    validateOracleRound(_round)
+    onlyValidRoundId(_round)
+    onlyValidOracleRound(_round)
   {
     startNewRound(_round);
     recordAnswer(_answer, _round);
@@ -64,7 +64,7 @@ contract PrepaidAggregator is Ownable {
   function addOracle(address _oracle)
     public
     onlyOwner()
-    ensureNotEnabledAddress(_oracle)
+    onlyUnenabledAddress(_oracle)
   {
     require(oracleCount < 42, "cannot add more than 42 oracles");
     oracles[_oracle].enabled = true;
@@ -75,7 +75,7 @@ contract PrepaidAggregator is Ownable {
   function removeOracle(address _oracle)
     public
     onlyOwner()
-    ensureEnabledAddress(_oracle)
+    onlyEnabledAddress(_oracle)
   {
     oracles[_oracle].enabled = false;
     oracleCount -= 1;
@@ -101,7 +101,7 @@ contract PrepaidAggregator is Ownable {
   function setAnswerCountRange(uint64 _min, uint64 _max)
     public
     onlyOwner()
-    ensureValidRange(_min, _max)
+    onlyValidRange(_min, _max)
   {
     minAnswerCount = _min;
     maxAnswerCount = _max;
@@ -146,7 +146,7 @@ contract PrepaidAggregator is Ownable {
 
   function startNewRound(uint256 _id)
     private
-    ensureNextRound(_id)
+    onlyOnNewRound(_id)
   {
     currentRound = _id;
     rounds[_id].maxAnswers = maxAnswerCount;
@@ -157,7 +157,7 @@ contract PrepaidAggregator is Ownable {
 
   function updateRoundAnswer(uint256 _id)
     private
-    ensureMinAnswersReceived(_id)
+    onlyIfMinAnswersReceived(_id)
   {
     int256 newAnswer = Median.get(rounds[_id].answers);
     currentAnswer = newAnswer;
@@ -181,7 +181,7 @@ contract PrepaidAggregator is Ownable {
 
   function recordAnswer(int256 _answer, uint256 _id)
     private
-    ensureAcceptingAnswers(_id)
+    onlyIfAcceptingAnswers(_id)
   {
     rounds[_id].answers.push(_answer);
     oracles[msg.sender].lastReportedRound = _id;
@@ -189,57 +189,57 @@ contract PrepaidAggregator is Ownable {
 
   function deleteRound(uint256 _id)
     private
-    ensureMaxAnswersReceived(_id)
+    onlyIfMaxAnswersReceived(_id)
   {
     delete rounds[_id];
   }
 
-  modifier validateOracleRound(uint256 _round) {
+  modifier onlyValidOracleRound(uint256 _round) {
     require(oracles[msg.sender].enabled, "Only updatable by designated oracles");
     require(_round > oracles[msg.sender].lastReportedRound, "Cannot update round reports");
     _;
   }
 
-  modifier ensureMinAnswersReceived(uint256 _id) {
+  modifier onlyIfMinAnswersReceived(uint256 _id) {
     if (rounds[_id].answers.length == rounds[_id].minAnswers) {
       _;
     }
   }
 
-  modifier ensureMaxAnswersReceived(uint256 _id) {
+  modifier onlyIfMaxAnswersReceived(uint256 _id) {
     if (rounds[_id].answers.length == rounds[_id].maxAnswers) {
       _;
     }
   }
 
-  modifier ensureAcceptingAnswers(uint256 _id) {
+  modifier onlyIfAcceptingAnswers(uint256 _id) {
     require(rounds[_id].maxAnswers != 0, "Max responses reached for round");
     _;
   }
 
-  modifier ensureNextRound(uint256 _id) {
+  modifier onlyOnNewRound(uint256 _id) {
     if (_id == currentRound.add(1)) {
       _;
     }
   }
 
-  modifier ensureValidRoundId(uint256 _id) {
+  modifier onlyValidRoundId(uint256 _id) {
     require(_id == currentRound.add(1) || _id == currentRound, "Cannot report on previous rounds");
     _;
   }
 
-  modifier ensureValidRange(uint64 _min, uint64 _max) {
+  modifier onlyValidRange(uint64 _min, uint64 _max) {
     require(oracleCount >= _max, "Cannot have the answer max higher oracle count");
     require(_max >= _min, "Cannot have the answer minimum higher the max");
     _;
   }
 
-  modifier ensureNotEnabledAddress(address _oracle) {
+  modifier onlyUnenabledAddress(address _oracle) {
     require(!oracles[_oracle].enabled, "Address is already recorded as an oracle");
     _;
   }
 
-  modifier ensureEnabledAddress(address _oracle) {
+  modifier onlyEnabledAddress(address _oracle) {
     require(oracles[_oracle].enabled, "Address is not an oracle");
     _;
   }
