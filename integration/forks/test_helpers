@@ -42,6 +42,7 @@ initial_setup() {
   build_images
   start_network
   waitForResponse "172.16.1.102:6688"
+  assert_testing_correct_artifact
   create_job
 }
 
@@ -54,6 +55,12 @@ assert_not_in_chainlink_logs() {
     echo "TEST FAILED - Found $1 in chainlink logs and shouldn't have"
     exit 1
   fi;
+}
+
+assert_testing_correct_artifact() {
+  version="`cat ../../VERSION`"
+  sha="`git rev-parse HEAD`"
+  search_chainlink_logs "Starting Chainlink Node ${version} at commit ${sha}"
 }
 
 search_chainlink_logs() {
