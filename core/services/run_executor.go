@@ -61,6 +61,7 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 		}
 
 		if err := je.store.ORM.SaveJobRun(&run); errors.Cause(err) == orm.OptimisticUpdateConflictError {
+			logger.Debugw("Optimistic update conflict while updating run", run.ForLogger()...)
 			return nil
 		} else if err != nil {
 			return err

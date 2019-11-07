@@ -43,7 +43,7 @@ type RunManager interface {
 	ResumePending(
 		runID *models.ID,
 		input models.BridgeRunResult) error
-	Cancel(runID *models.ID) error
+	Cancel(runID *models.ID) (*models.JobRun, error)
 
 	ResumeAllInProgress() error
 	ResumeAllConfirming(currentBlockHeight *big.Int) error
@@ -256,7 +256,7 @@ func (jm *runManager) ResumeAllConfirming(currentBlockHeight *big.Int) error {
 
 		err := jm.updateAndTrigger(run)
 		if err != nil {
-			logger.Error("Error saving job run", "error", err)
+			logger.Error("Error saving run", "error", err)
 		}
 	}, models.RunStatusPendingConnection, models.RunStatusPendingConfirmations)
 }
@@ -276,7 +276,7 @@ func (jm *runManager) ResumeAllConnecting() error {
 		run.Status = models.RunStatusInProgress
 		err := jm.updateAndTrigger(run)
 		if err != nil {
-			logger.Error("Error saving job run", "error", err)
+			logger.Error("Error saving run", "error", err)
 		}
 	}, models.RunStatusPendingConnection, models.RunStatusPendingConfirmations)
 }
@@ -291,7 +291,7 @@ func (jm *runManager) ResumePending(
 		return err
 	}
 
-	logger.Debugw("External adapter resuming job", run.ForLogger("input_data", input.Data)...)
+	logger.Debugw("External adapter resuming run", run.ForLogger("input_data", input.Data)...)
 
 	if !run.Status.PendingBridge() {
 		return fmt.Errorf("Attempting to resume non pending run %s", run.ID)
@@ -325,24 +325,19 @@ func (jm *runManager) ResumeAllInProgress() error {
 }
 
 // Cancel suspends a running task.
-func (jm *runManager) Cancel(runID *models.ID) error {
+func (jm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
 	run, err := jm.orm.FindJobRun(runID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	logger.Debugw("Cancelling job", run.ForLogger()...)
-	if !run.Status.Runnable() {
-		return fmt.Errorf("Cannot cancel a non runnable job")
+	logger.Debugw("Cancelling run", run.ForLogger()...)
+	if run.Status.Finished() {
+		return nil, fmt.Errorf("Cannot cancel a run that has already finished")
 	}
 
-	currentTaskRun := run.NextTaskRun()
-	if currentTaskRun != nil {
-		currentTaskRun.Status = models.RunStatusCancelled
-	}
-
-	run.Status = models.RunStatusCancelled
-	return jm.orm.SaveJobRun(&run)
+	run.Cancel()
+	return &run, jm.orm.SaveJobRun(&run)
 }
 
 func (jm *runManager) updateWithError(run *models.JobRun, msg string, args ...interface{}) error {
@@ -350,7 +345,7 @@ func (jm *runManager) updateWithError(run *models.JobRun, msg string, args ...in
 	logger.Error(fmt.Sprintf(msg, args...))
 
 	if err := jm.orm.SaveJobRun(run); err != nil {
-		logger.Error("Error saving job run", "error", err)
+		logger.Error("Error saving run", "error", err)
 		return err
 	}
 	return nil

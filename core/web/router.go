@@ -297,6 +297,7 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 
 		authv2.GET("/runs", paginatedRequest(jr.Index))
 		authv2.GET("/runs/:RunID", jr.Show)
+		authv2.PUT("/runs/:RunID/cancellation", jr.Cancel)
 
 		authv2.GET("/service_agreements/:SAID", sa.Show)
 
