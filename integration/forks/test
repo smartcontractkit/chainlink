@@ -41,7 +41,7 @@ mkdir -p logs
   # when 2nd chain gets longer, chainlink resumes saving heads
   search_chainlink_logs 'New head resuming run'
   # will wait for head # to be 10 more than block # with contract creation
-  search_chainlink_logs 'Run cannot continue because it lacks sufficient confirmations services'
+  search_chainlink_logs 'Pausing run pending confirmations'
   # should eventually abort running running job
   search_chainlink_logs 'presumably has been uncled'
   # assert job was never run
