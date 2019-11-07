@@ -90,6 +90,7 @@ func (ht *HeadTracker) Stop() error {
 		ht.connected = false
 		ht.disconnect()
 	}
+	logger.Info(fmt.Sprintf("Head tracker disconnecting from %v", ht.store.Config.EthereumURL()))
 	close(ht.done)
 	close(ht.subscriptionSucceeded)
 	ht.started = false
@@ -179,7 +180,7 @@ func (ht *HeadTracker) subscribe() bool {
 	ht.sleeper.Reset()
 	for {
 		ht.unsubscribeFromHead()
-		logger.Info("Connecting to node ", ht.store.Config.EthereumURL(), " in ", ht.sleeper.Duration())
+		logger.Info("Connecting to ethereum node ", ht.store.Config.EthereumURL(), " in ", ht.sleeper.Duration())
 		select {
 		case <-ht.done:
 			return false
