@@ -182,6 +182,7 @@ jobs:
       - store_artifacts:
           path: ./integration/logs
   truffle:
+    resource_class: large
     docker:
       - image: smartcontract/builder:1.0.25
     steps:
@@ -333,6 +334,7 @@ jobs:
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/report_coverage
   prepublish_npm:
+    resource_class: large
     docker:
       - image: smartcontract/builder:1.0.25
     steps:
