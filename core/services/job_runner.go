@@ -200,7 +200,7 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 	taskCopy := currentTaskRun.TaskSpec // deliberately copied to keep mutations local
 
 	var err error
-	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides); err != nil {
+	if taskCopy.Params, err = run.Overrides.Merge(taskCopy.Params); err != nil {
 		currentTaskRun.Result.SetError(err)
 		return currentTaskRun.Result
 	}
