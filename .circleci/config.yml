@@ -310,6 +310,17 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_explorer "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
+  build-explorer:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f explorer/Dockerfile -t smartcontract/explorer:circleci .
   build-publish-chainlink:
     machine: true
     steps:
@@ -326,6 +337,18 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
+  build-chainlink:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: |
+            DOCKER_TAG=circleci make docker
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -396,6 +419,14 @@ workflows:
             tags:
               only: /^explorer-v.*/
       - forks:
+          filters:
+            tags:
+              only: /^v.*/
+      - build-chainlink:
+          filters:
+            tags:
+              only: /^v.*/
+      - build-explorer:
           filters:
             tags:
               only: /^v.*/
