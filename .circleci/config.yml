@@ -279,6 +279,22 @@ jobs:
           command: yarn workspace @chainlink/explorer-client run build && yarn workspace @chainlink/explorer run test-ci:e2e:silent
       - store_artifacts:
           path: ./integration/logs
+  forks:
+    machine:
+      image: ubuntu-1604:201903-01
+      docker_layer_caching: true
+    working_directory: ~/chainlink
+    steps:
+      - checkout
+      - run:
+          name: Install Yarn
+          command: npm install -g yarn
+      - run:
+          name: Install New Packages
+          command: yarn install
+      - run: ./tools/ci/forks_test
+      - store_artifacts:
+          path: ./integration/forks/logs
   build-publish-explorer:
     machine: true
     steps:
