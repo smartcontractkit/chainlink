@@ -10,6 +10,7 @@ import {
 import Grid, { GridSize } from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
 import TaskRuns from './TaskRuns'
+import { JobRun } from 'explorer/models'
 
 interface BaseItemProps {
   children: React.ReactNode

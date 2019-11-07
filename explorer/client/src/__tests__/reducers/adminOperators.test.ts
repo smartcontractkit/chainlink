@@ -1,18 +1,29 @@
-import reducer, { State } from '../../reducers'
+import reducer, {
+  INITIAL_STATE as initialRootState,
+  AppState,
+} from '../../reducers'
 import { FetchAdminOperatorsSucceededAction } from '../../reducers/actions'
+import { mockPartial } from '../support/mocks'
+import { ChainlinkNode } from 'explorer/models'
 
-const STATE = {
+const ADMIN_OPERATOR_ID = 5555555
+const INITIAL_ADMIN_OPERATOR = mockPartial<ChainlinkNode>({
+  id: ADMIN_OPERATOR_ID,
+})
+
+const INITIAL_STATE: AppState = {
+  ...initialRootState,
   adminOperators: {
-    items: { 'replace-me': { id: 'replace-me' } },
+    items: { [ADMIN_OPERATOR_ID]: INITIAL_ADMIN_OPERATOR },
   },
 }
 
 describe('reducers/adminOperators', () => {
   it('returns the current state for other actions', () => {
     const action = {} as FetchAdminOperatorsSucceededAction
-    const state = reducer(STATE, action) as State
+    const state = reducer(INITIAL_STATE, action)
 
-    expect(state.adminOperators).toEqual(STATE.adminOperators)
+    expect(state.adminOperators).toEqual(INITIAL_STATE.adminOperators)
   })
 
   describe('FETCH_ADMIN_OPERATORS_SUCCEEDED', () => {
@@ -36,9 +47,9 @@ describe('reducers/adminOperators', () => {
       }
       const action = {
         type: 'FETCH_ADMIN_OPERATORS_SUCCEEDED',
-        data: data,
-      } as FetchAdminOperatorsSucceededAction
-      const state = reducer(STATE, action) as State
+        data,
+      }
+      const state = reducer(INITIAL_STATE, action)
 
       expect(state.adminOperators).toEqual({
         items: {

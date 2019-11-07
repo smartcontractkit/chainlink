@@ -1,5 +1,6 @@
 import * as jsonapi from '@chainlink/json-api-client'
 import { Actions } from './actions'
+import { Reducer } from 'redux'
 
 export interface State {
   errors: string[]
@@ -7,7 +8,10 @@ export interface State {
 
 const INITIAL_STATE: State = { errors: [] }
 
-export default (state: State = INITIAL_STATE, action: Actions) => {
+const notificationsReducer: Reducer<State, Actions> = (
+  state = INITIAL_STATE,
+  action,
+) => {
   switch (action.type) {
     case 'FETCH_ADMIN_SIGNIN_ERROR':
       if (isUnauthorized(action.error)) {
@@ -25,3 +29,5 @@ export default (state: State = INITIAL_STATE, action: Actions) => {
 function isUnauthorized(error: Error) {
   return error instanceof jsonapi.AuthenticationError
 }
+
+export default notificationsReducer

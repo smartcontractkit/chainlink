@@ -1,12 +1,17 @@
 import { Actions } from './actions'
+import { Reducer } from 'redux'
+import { ChainlinkNode } from 'explorer/models'
 
 export interface State {
-  items?: ChainlinkNode[]
+  items?: Record<string, ChainlinkNode>
 }
 
 const INITIAL_STATE: State = {}
 
-export default (state: State = INITIAL_STATE, action: Actions) => {
+export const adminOperators: Reducer<State, Actions> = (
+  state = INITIAL_STATE,
+  action,
+) => {
   switch (action.type) {
     case 'FETCH_ADMIN_OPERATORS_SUCCEEDED':
       return { items: { ...action.data.chainlinkNodes } }
@@ -14,3 +19,5 @@ export default (state: State = INITIAL_STATE, action: Actions) => {
       return state
   }
 }
+
+export default adminOperators

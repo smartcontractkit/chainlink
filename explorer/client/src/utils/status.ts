@@ -1,4 +1,5 @@
 import { titleCase } from 'change-case'
+import { JobRun, TaskRun } from 'explorer/models'
 
 const hasUnfulfilledEthTx = (jobRun: JobRun) => {
   return (jobRun.taskRuns || []).some((tr: TaskRun) => {

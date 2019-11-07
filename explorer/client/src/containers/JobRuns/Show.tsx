@@ -19,7 +19,8 @@ import { fetchJobRun } from '../../actions/jobRuns'
 import Details from '../../components/JobRuns/Details'
 import RegionalNav from '../../components/JobRuns/RegionalNav'
 import RunStatus from '../../components/JobRuns/RunStatus'
-import { State } from '../../reducers'
+import { AppState } from '../../reducers'
+import { JobRun } from 'explorer/models'
 
 const Loading = () => (
   <Table>
@@ -113,7 +114,7 @@ const Show = withStyles(styles)(
 )
 
 const jobRunSelector = (
-  { jobRuns, taskRuns, chainlinkNodes }: State,
+  { jobRuns, taskRuns, chainlinkNodes }: AppState,
   jobRunId?: string,
 ): JobRun | undefined => {
   if (jobRuns.items) {
@@ -126,7 +127,7 @@ const jobRunSelector = (
   }
 }
 
-const mapStateToProps: MapStateToProps<StateProps, OwnProps, State> = (
+const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (
   state,
   { jobRunId },
 ) => {

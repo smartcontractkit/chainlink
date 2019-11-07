@@ -9,6 +9,7 @@ import {
 } from '@material-ui/core/styles'
 import StatusIcon from '../Icons/Status'
 import EtherscanLink from './EtherscanLink'
+import { TaskRun } from 'explorer/models'
 
 const styles = ({ spacing, palette }: Theme) =>
   createStyles({

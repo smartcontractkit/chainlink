@@ -1,17 +1,23 @@
-import reducer, { State } from '../../reducers'
+import reducer, {
+  INITIAL_STATE as initialRootState,
+  AppState,
+} from '../../reducers'
 import {
   FetchJobRunsSucceededAction,
   FetchJobRunSucceededAction,
 } from '../../reducers/actions'
 
-const STATE = { jobRunsIndex: { items: ['replace-me'] } }
+const INITIAL_STATE: AppState = {
+  ...initialRootState,
+  jobRunsIndex: { items: ['replace-me'] },
+}
 
 describe('reducers/jobRunsIndex', () => {
   it('returns the current state for other actions', () => {
     const action = {} as FetchJobRunsSucceededAction
-    const state = reducer(STATE, action) as State
+    const state = reducer(INITIAL_STATE, action)
 
-    expect(state.jobRunsIndex).toEqual(STATE.jobRunsIndex)
+    expect(state.jobRunsIndex).toEqual(INITIAL_STATE.jobRunsIndex)
   })
 
   describe('FETCH_JOB_RUNS_SUCCEEDED', () => {
@@ -29,8 +35,8 @@ describe('reducers/jobRunsIndex', () => {
       const action = {
         type: 'FETCH_JOB_RUNS_SUCCEEDED',
         data: data,
-      } as FetchJobRunsSucceededAction
-      const state = reducer(STATE, action) as State
+      }
+      const state = reducer(INITIAL_STATE, action)
 
       expect(state.jobRunsIndex).toEqual({
         items: ['9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'],
@@ -51,7 +57,7 @@ describe('reducers/jobRunsIndex', () => {
         type: 'FETCH_JOB_RUN_SUCCEEDED',
         data: data,
       } as FetchJobRunSucceededAction
-      const state = reducer(STATE, action) as State
+      const state = reducer(INITIAL_STATE, action)
 
       expect(state.jobRunsIndex).toEqual({
         items: undefined,

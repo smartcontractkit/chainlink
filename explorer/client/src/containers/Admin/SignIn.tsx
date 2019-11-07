@@ -3,7 +3,7 @@ import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { Redirect, RouteComponentProps } from '@reach/router'
 import { SignIn as SignInForm } from '../../components/Forms/SignIn'
 import { signIn } from '../../actions/adminAuth'
-import { State as AppState } from '../../reducers'
+import { AppState } from '../../reducers'
 
 interface OwnProps {}
 

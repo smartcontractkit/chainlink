@@ -12,7 +12,7 @@ import { AdminLogo } from '../../components/Logos/Admin'
 import Header from '../../components/Header'
 import AvatarMenu from '../../components/AvatarMenu'
 import AvatarMenuItem from '../../components/AvatarMenuItem'
-import { State as AppState } from '../../reducers'
+import { AppState } from '../../reducers'
 
 const styles = ({ palette, spacing }: Theme) =>
   createStyles({
