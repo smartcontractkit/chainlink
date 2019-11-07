@@ -190,18 +190,29 @@ func (j JSON) Bytes() []byte {
 }
 
 // Add returns a new instance of JSON with the new value added.
-func (j JSON) Add(key string, val interface{}) (JSON, error) {
-	b, err := json.Marshal(val)
+func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
+	output := make(map[string]interface{})
+
+	switch v := j.Result.Value().(type) {
+	case map[string]interface{}:
+		for key, value := range v {
+			if key != insertKey {
+				output[key] = value
+			}
+		}
+		output[insertKey] = insertValue
+	case nil:
+		output[insertKey] = insertValue
+	default:
+		return JSON{}, errors.New("can only add to JSON objects or null")
+	}
+
+	bytes, err := json.Marshal(output)
 	if err != nil {
 		return JSON{}, err
 	}
 
-	var j2 JSON
-	str := fmt.Sprintf(`{"%v":%v}`, key, string(b))
-	if err = json.Unmarshal([]byte(str), &j2); err != nil {
-		return j2, err
-	}
-	return Merge(j, j2)
+	return JSON{Result: gjson.ParseBytes(bytes)}, nil
 }
 
 // Delete returns a new instance of JSON with the specified key removed.
