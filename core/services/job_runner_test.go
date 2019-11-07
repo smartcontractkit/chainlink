@@ -2,9 +2,11 @@ package services_test
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 
 	"github.com/onsi/gomega"
@@ -196,4 +198,32 @@ func TestJobRunner_Stop(t *testing.T) {
 	gomega.NewGomegaWithT(t).Eventually(func() int {
 		return services.ExportedWorkerCount(rm)
 	}).Should(gomega.Equal(0))
+}
+
+func TestJobRunner_prioritizeSpecParamsOverRequestParams(t *testing.T) {
+	t.Parallel()
+
+	expectedResponse := "100"
+	specServer, assertSpecCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", expectedResponse)
+	defer assertSpecCalled()
+	requestServer, _ := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", "should not be called",
+		func(_ http.Header, _ string) { require.Fail(t, "this URL is not expected to be called") })
+
+	s, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	rm, cleanup := cltest.NewJobRunner(s)
+	defer cleanup()
+	assert.NoError(t, rm.Start())
+
+	j := cltest.NewJobWithWebInitiator()
+	taskParams := cltest.JSONFromString(t, fmt.Sprintf(`{"get":"%s"}`, specServer.URL))
+	j.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeHTTPGet, Params: taskParams}}
+	assert.NoError(t, s.CreateJob(&j))
+	initr := j.Initiators[0]
+	jr := j.NewRun(initr)
+	jr.Overrides = cltest.JSONFromString(t, fmt.Sprintf(`{"get":"%s"}`, requestServer.URL))
+	assert.NoError(t, s.CreateJobRun(&jr))
+
+	services.ExportedChannelForRun(rm, jr.ID) <- struct{}{}
+	cltest.WaitForJobRunToComplete(t, s, jr)
 }
