@@ -78,6 +78,30 @@ export function useSnapshot(
 }
 
 /**
+ * A wrapper function to make generated contracts compatible with truffle test suites.
+ *
+ * Note that the returned contract is an instance of ethers.Contract, not a @truffle/contract, so there are slight
+ * api differences, though largely the same.
+ *
+ * @see https://docs.ethers.io/ethers.js/html/api-contract.html
+ * @param contractFactory The ethers based contract factory to interop with
+ * @param address The address to supply as the signer
+ */
+export function create<T extends new (...args: any[]) => any>(
+  contractFactory: T,
+  address: string,
+): InstanceType<T> {
+  const web3Instance = (global as any).web3
+  const provider = new ethers.providers.Web3Provider(
+    web3Instance.currentProvider,
+  )
+  const signer = provider.getSigner(address)
+  const factory = new contractFactory(signer)
+
+  return factory
+}
+
+/**
  * Generate roles and personas for tests along with their corrolated account addresses
  */
 export async function initializeRolesAndPersonas(
