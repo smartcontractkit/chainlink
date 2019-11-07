@@ -127,35 +127,6 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	assert.NotEmpty(t, bt.OutgoingToken)
 }
 
-func TestBridgeTypesController_Create_Host_URL(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t)
-	defer cleanup()
-	require.NoError(t, app.Start())
-	client := app.NewHTTPClient()
-
-	resp, cleanup := client.Post(
-		"/v2/bridge_types",
-		bytes.NewBuffer(cltest.MustReadFile(t, "testdata/bridge_with_hostname_url.json")),
-	)
-	defer cleanup()
-	cltest.AssertServerResponse(t, resp, http.StatusOK)
-	respJSON := cltest.ParseJSON(t, resp.Body)
-	btName := respJSON.Get("data.attributes.name").String()
-
-	assert.NotEmpty(t, respJSON.Get("data.attributes.incomingToken").String())
-	assert.NotEmpty(t, respJSON.Get("data.attributes.outgoingToken").String())
-
-	bt, err := app.Store.FindBridge(models.MustNewTaskType(btName))
-	assert.NoError(t, err)
-	assert.Equal(t, "coinmarketcap", bt.Name.String())
-	assert.Equal(t, uint32(10), bt.Confirmations)
-	assert.Equal(t, "http://chainlink_cmc-adapter_1:8080", bt.URL.String())
-	assert.Equal(t, assets.NewLink(350), bt.MinimumContractPayment)
-	assert.NotEmpty(t, bt.OutgoingToken)
-}
-
 func TestBridgeTypesController_Update_Success(t *testing.T) {
 	t.Parallel()
 
