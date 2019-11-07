@@ -102,7 +102,7 @@ func (je *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) 
 		previousTaskInput = previousTaskRun.Result.Data
 	}
 
-	data, err := models.Merge(previousTaskInput, currentTaskRun.Result.Data, run.Overrides)
+	data, err := models.Merge(run.Overrides, previousTaskInput, taskRun.Result.Data)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
