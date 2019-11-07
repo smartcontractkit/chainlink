@@ -14,7 +14,7 @@
     "lint": "yarn solhint && yarn eslint",
     "slither": "truffle compile --quiet && slither . && rimraf dist/artifacts",
     "pretest": "yarn build",
-    "test": "jest --testTimeout 80000",
+    "test": "jest --testTimeout 80000 --maxWorkers=50%",
     "format": "prettier --write \"{src,testv2}/*/**\"",
     "prepublishOnly": "yarn workspace chainlinkv0.5 setup && yarn setup && yarn lint && yarn test",
     "setup": "ts-node ./scripts/build",
