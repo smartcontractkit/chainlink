@@ -515,3 +515,35 @@ func TestJobRunsController_Show_Unauthenticated(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Response should be forbidden")
 }
+
+func TestJobRunsController_Cancel(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t)
+	app.Start()
+	defer cleanup()
+
+	client := app.NewHTTPClient()
+
+	t.Run("invalid run id", func(t *testing.T) {
+		response, cleanup := client.Put("/v2/runs/xxx/cancellation", nil)
+		defer cleanup()
+		cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
+	})
+
+	t.Run("missing run", func(t *testing.T) {
+		resp, cleanup := client.Put("/v2/runs/29023583-0D39-4844-9696-451102590936/cancellation", nil)
+		defer cleanup()
+		cltest.AssertServerResponse(t, resp, http.StatusNotFound)
+	})
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, app.Store.CreateJob(&job))
+	run := job.NewRun(job.Initiators[0])
+	require.NoError(t, app.Store.CreateJobRun(&run))
+
+	t.Run("valid run", func(t *testing.T) {
+		resp, cleanup := client.Put(fmt.Sprintf("/v2/runs/%s/cancellation", run.ID), nil)
+		defer cleanup()
+		cltest.AssertServerResponse(t, resp, http.StatusOK)
+	})
+}
