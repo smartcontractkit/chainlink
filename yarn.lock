@@ -3149,10 +3149,10 @@
   dependencies:
     "@types/node" "*"
 
-"@types/validator@10.11.2":
-  version "10.11.2"
-  resolved "https://registry.npmjs.org/@types/validator/-/validator-10.11.2.tgz#48b60ca2cca927081f37a1ad1de3e25d04abc9f0"
-  integrity sha512-k/ju1RsdP5ACFUWebqsyEy0avP5uNJCs2p3pmTHzOZdd4gMSAJTq7iUEHFY3tt3emBrPTm6oGvfZ4SzcqOgLPQ==
+"@types/validator@10.11.3":
+  version "10.11.3"
+  resolved "https://registry.yarnpkg.com/@types/validator/-/validator-10.11.3.tgz#945799bef24a953c5bc02011ca8ad79331a3ef25"
+  integrity sha512-GKF2VnEkMmEeEGvoo03ocrP9ySMuX1ypKazIYMlsjfslfBMhOAtC5dmEWKdJioW4lJN7MZRS88kalTsVClyQ9w==
 
 "@types/web3-provider-engine@^14.0.0":
   version "14.0.0"
@@ -5844,7 +5844,7 @@ buffer-xor@^1.0.3:
 
 buffer@5.4.0, buffer@^5.1.0:
   version "5.4.0"
-  resolved "https://registry.npmjs.org/buffer/-/buffer-5.4.0.tgz#33294f5c1f26e08461e528b69fa06de3c45cbd8c"
+  resolved "https://registry.yarnpkg.com/buffer/-/buffer-5.4.0.tgz#33294f5c1f26e08461e528b69fa06de3c45cbd8c"
   integrity sha512-Xpgy0IwHK2N01ncykXTy6FpCWuM+CJSHoPVBLyNqyrWxsedpLvwsYUhf0ME3WRFNUhos0dMamz9cOS/xRDtU5g==
   dependencies:
     base64-js "^1.0.2"
@@ -6186,6 +6186,17 @@ chainlink@0.7.5:
     truffle-contract "^4.0.31"
     web3 "^1.2.0"
 
+chainlink@0.7.8:
+  version "0.7.8"
+  resolved "https://registry.yarnpkg.com/chainlink/-/chainlink-0.7.8.tgz#4b7f93d629bb35d7201155e30bb587b56579f848"
+  integrity sha512-S8oCmasY95irJouUKBA02RhX4bSaE4hJ81HMeiF7Cg/GYAkoUg1L2umRc1WLc+3pDg7udMt2pRDmEmx3tpCIpQ==
+  dependencies:
+    cbor "^4.1.1"
+    chainlinkv0.5 "0.0.2"
+    ethers "^4.0.37"
+    link_token "^1.0.6"
+    openzeppelin-solidity "^1.12.0"
+
 chainlink@^0.6.5:
   version "0.6.5"
   resolved "https://registry.npmjs.org/chainlink/-/chainlink-0.6.5.tgz#35c8fef8529f4c48a996b6a1d2546cfcdb38af59"
@@ -6411,14 +6422,14 @@ class-utils@^0.3.5:
     isobject "^3.0.0"
     static-extend "^0.1.1"
 
-class-validator@^0.10.0:
-  version "0.10.0"
-  resolved "https://registry.npmjs.org/class-validator/-/class-validator-0.10.0.tgz#5e5f8108fa200d5ce1906cd5537af102c072dbcd"
-  integrity sha512-RvjxRlvoCvM/ojUq11j78ISpReGdBoMErdmDk1e27aQZK6ppSXq751UE6jB9JI7ayEnL6Nnmllzn/HXVSu3dmg==
+class-validator@^0.11.0:
+  version "0.11.0"
+  resolved "https://registry.yarnpkg.com/class-validator/-/class-validator-0.11.0.tgz#5fca8b8a957c738a6749391e03ee81fad375dc4a"
+  integrity sha512-niAmmSPFku9xsnpYYrddy8NZRrCX3yyoZ/rgPKOilE5BG0Ma1eVCIxpR4X0LasL/6BzbYzsutG+mSbAXlh4zNw==
   dependencies:
-    "@types/validator" "10.11.2"
+    "@types/validator" "10.11.3"
     google-libphonenumber "^3.1.6"
-    validator "11.1.0"
+    validator "12.0.0"
 
 classnames@^2.2.5, classnames@^2.2.6:
   version "2.2.6"
@@ -19896,7 +19907,7 @@ sha.js@^2.4.0, sha.js@^2.4.8:
 
 sha3@^1.2.2, sha3@^2.0.7:
   version "2.0.7"
-  resolved "https://registry.npmjs.org/sha3/-/sha3-2.0.7.tgz#02ed270099647cbcc681b064ba091af72f561f35"
+  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.0.7.tgz#02ed270099647cbcc681b064ba091af72f561f35"
   integrity sha512-7Qsj/0J3pxCWfmyuDbTZWoKNSKY/rg2eecNRvTYE4EAPJ11Uh6xuEObyCG295AqgrtOjzdDbfwtGLDY52h11tA==
   dependencies:
     buffer "5.4.0"
@@ -22274,10 +22285,10 @@ validate-npm-package-license@^3.0.1:
     spdx-correct "^3.0.0"
     spdx-expression-parse "^3.0.0"
 
-validator@11.1.0:
-  version "11.1.0"
-  resolved "https://registry.npmjs.org/validator/-/validator-11.1.0.tgz#ac18cac42e0aa5902b603d7a5d9b7827e2346ac4"
-  integrity sha512-qiQ5ktdO7CD6C/5/mYV4jku/7qnqzjrxb3C/Q5wR3vGGinHTgJZN/TdFT3ZX4vXhX2R1PXx42fB1cn5W+uJ4lg==
+validator@12.0.0:
+  version "12.0.0"
+  resolved "https://registry.yarnpkg.com/validator/-/validator-12.0.0.tgz#fb33221f5320abe2422cda2f517dc3838064e813"
+  integrity sha512-r5zA1cQBEOgYlesRmSEwc9LkbfNLTtji+vWyaHzRZUxCTHdsX3bd+sdHfs5tGZ2W6ILGGsxWxCNwT/h3IY/3ng==
 
 value-equal@^0.4.0:
   version "0.4.0"
