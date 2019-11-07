@@ -18,7 +18,7 @@ mkdir -p logs
   create_contract
   # wait for chainlink to get notified about transaction
   search_chainlink_logs 'New run triggered by ethlog'
-  search_chainlink_logs 'Run cannot continue because it lacks sufficient confirmations'
+  search_chainlink_logs 'Pausing run pending confirmations'
   # stop mining before sufficient confirmations can be reached
   docker-compose stop
   # assert that nothing has been uncled yet
