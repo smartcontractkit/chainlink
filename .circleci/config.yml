@@ -294,7 +294,7 @@ jobs:
           command: yarn install
       - run: ./tools/ci/forks_test
       - store_artifacts:
-          path: ./integration/logs
+          path: ./integration/forks/logs
   build-publish-explorer:
     machine: true
     steps:
