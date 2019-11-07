@@ -209,7 +209,10 @@ export const assertActionThrows = (action: any, messageContains?: RegExp) =>
       return error.message
     })
     .then(errorMessage => {
-      assert(errorMessage, 'Expected an error to be raised')
+      assert(
+        errorMessage && errorMessage.includes,
+        'Expected an error to be raised',
+      )
       const invalidOpcode = errorMessage.includes('invalid opcode')
       const reverted = errorMessage.includes(
         'VM Exception while processing transaction: revert',
