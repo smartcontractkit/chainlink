@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -46,8 +47,9 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 	if _, err := models.NewTaskType(bt.Name.String()); err != nil {
 		fe.Merge(err)
 	}
-	if isURL := govalidator.IsURL(bt.URL.String()); !isURL {
+	if _, err := url.Parse(bt.URL.String()); err != nil {
 		fe.Add("Invalid URL format")
+		fe.Merge(err)
 	}
 	ts := models.TaskSpec{Type: bt.Name}
 	if a, _ := adapters.For(ts, store.Config, store.ORM); a != nil {
