@@ -5844,7 +5844,7 @@ buffer-xor@^1.0.3:
 
 buffer@5.4.0, buffer@^5.1.0:
   version "5.4.0"
-  resolved "https://registry.npmjs.org/buffer/-/buffer-5.4.0.tgz#33294f5c1f26e08461e528b69fa06de3c45cbd8c"
+  resolved "https://registry.yarnpkg.com/buffer/-/buffer-5.4.0.tgz#33294f5c1f26e08461e528b69fa06de3c45cbd8c"
   integrity sha512-Xpgy0IwHK2N01ncykXTy6FpCWuM+CJSHoPVBLyNqyrWxsedpLvwsYUhf0ME3WRFNUhos0dMamz9cOS/xRDtU5g==
   dependencies:
     base64-js "^1.0.2"
@@ -6185,6 +6185,17 @@ chainlink@0.7.5:
     solidity-cborutils "^1.0.4"
     truffle-contract "^4.0.31"
     web3 "^1.2.0"
+
+chainlink@0.7.8:
+  version "0.7.8"
+  resolved "https://registry.yarnpkg.com/chainlink/-/chainlink-0.7.8.tgz#4b7f93d629bb35d7201155e30bb587b56579f848"
+  integrity sha512-S8oCmasY95irJouUKBA02RhX4bSaE4hJ81HMeiF7Cg/GYAkoUg1L2umRc1WLc+3pDg7udMt2pRDmEmx3tpCIpQ==
+  dependencies:
+    cbor "^4.1.1"
+    chainlinkv0.5 "0.0.2"
+    ethers "^4.0.37"
+    link_token "^1.0.6"
+    openzeppelin-solidity "^1.12.0"
 
 chainlink@^0.6.5:
   version "0.6.5"
@@ -19896,7 +19907,7 @@ sha.js@^2.4.0, sha.js@^2.4.8:
 
 sha3@^1.2.2, sha3@^2.0.7:
   version "2.0.7"
-  resolved "https://registry.npmjs.org/sha3/-/sha3-2.0.7.tgz#02ed270099647cbcc681b064ba091af72f561f35"
+  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.0.7.tgz#02ed270099647cbcc681b064ba091af72f561f35"
   integrity sha512-7Qsj/0J3pxCWfmyuDbTZWoKNSKY/rg2eecNRvTYE4EAPJ11Uh6xuEObyCG295AqgrtOjzdDbfwtGLDY52h11tA==
   dependencies:
     buffer "5.4.0"
@@ -23631,10 +23642,10 @@ ws@^6.0.0, ws@^6.1.0, ws@^6.1.2, ws@^6.2.1:
   dependencies:
     async-limiter "~1.0.0"
 
-ws@^7.1.0:
-  version "7.1.2"
-  resolved "https://registry.npmjs.org/ws/-/ws-7.1.2.tgz#c672d1629de8bb27a9699eb599be47aeeedd8f73"
-  integrity sha512-gftXq3XI81cJCgkUiAVixA0raD9IVmXqsylCrjRygw4+UOOGzPoxnQ6r/CnVL9i+mDncJo94tSkyrtuuQVBmrg==
+ws@^7.2.0:
+  version "7.2.0"
+  resolved "https://registry.yarnpkg.com/ws/-/ws-7.2.0.tgz#422eda8c02a4b5dba7744ba66eebbd84bcef0ec7"
+  integrity sha512-+SqNqFbwTm/0DC18KYzIsMTnEWpLwJsiasW/O17la4iDRRIO9uaHbvKiAS3AHgTiuuWerK/brj4O6MYZkei9xg==
   dependencies:
     async-limiter "^1.0.0"
 
