@@ -70,3 +70,9 @@ search_chainlink_logs() {
     sleep 1;
 	done
 }
+
+save_logs() {
+  echo "saving logs for chain $1"
+  docker-compose logs chainlink > "logs/chain_$1.log"
+  docker-compose logs geth >> "logs/geth_$1.log"
+}
