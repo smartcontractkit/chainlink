@@ -457,6 +457,11 @@ func (r *HTTPClientCleaner) Post(path string, body io.Reader) (*http.Response, f
 	return bodyCleaner(r.t, resp, err)
 }
 
+func (r *HTTPClientCleaner) Put(path string, body io.Reader) (*http.Response, func()) {
+	resp, err := r.HTTPClient.Put(path, body)
+	return bodyCleaner(r.t, resp, err)
+}
+
 func (r *HTTPClientCleaner) Patch(path string, body io.Reader, headers ...map[string]string) (*http.Response, func()) {
 	resp, err := r.HTTPClient.Patch(path, body, headers...)
 	return bodyCleaner(r.t, resp, err)

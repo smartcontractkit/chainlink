@@ -68,7 +68,7 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 		output = append(output, "job_error", jr.ErrorString())
 	}
 
-	if jr.Status == "completed" {
+	if jr.Status.Completed() {
 		output = append(output, "link_earned", jr.Payment)
 	}
 
@@ -118,8 +118,16 @@ func (jr *JobRun) TasksRemain() bool {
 // SetError sets this job run to failed and saves the error message
 func (jr *JobRun) SetError(err error) {
 	jr.Result.ErrorMessage = null.StringFrom(err.Error())
-	jr.Status = RunStatusErrored
-	jr.FinishedAt = null.TimeFrom(time.Now())
+	jr.setStatus(RunStatusErrored)
+}
+
+// Cancel sets this run as cancelled, it should no longer be processed.
+func (jr *JobRun) Cancel() {
+	currentTaskRun := jr.NextTaskRun()
+	if currentTaskRun != nil {
+		currentTaskRun.Status = RunStatusCancelled
+	}
+	jr.setStatus(RunStatusCancelled)
 }
 
 // ApplyOutput updates the JobRun's Result and Status

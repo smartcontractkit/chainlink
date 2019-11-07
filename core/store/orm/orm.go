@@ -311,7 +311,7 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 	var earned *assets.Link
 	query := orm.DB.Table("job_runs").
 		Joins("JOIN job_specs ON job_runs.job_spec_id = job_specs.id").
-		Where("job_specs.id = ? AND job_runs.finished_at IS NOT NULL", spec.ID)
+		Where("job_specs.id = ? AND job_runs.status = ? AND job_runs.finished_at IS NOT NULL", spec.ID, models.RunStatusCompleted)
 
 	if dbutil.IsPostgres(orm.DB) {
 		query = query.Select("SUM(payment)")
