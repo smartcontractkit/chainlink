@@ -55,7 +55,10 @@ const AvatarMenu = useHooks(({ classes, submitSignOut }) => {
     if (anchorEl.current.contains(event.target)) {
       return
     }
+    setOpenState(false)
+  }
 
+  const handleLogOut = () => {
     submitSignOut()
     setOpenState(false)
   }
@@ -89,7 +92,10 @@ const AvatarMenu = useHooks(({ classes, submitSignOut }) => {
               <ClickAwayListener onClickAway={handleClose}>
                 <MenuList>
                   <BaseLink href="/signout" className={classes.link}>
-                    <MenuItem className={classes.menuItem}>
+                    <MenuItem
+                      onClick={handleLogOut}
+                      className={classes.menuItem}
+                    >
                       <Typography variant="body1" className={classes.link}>
                         Log out
                       </Typography>
