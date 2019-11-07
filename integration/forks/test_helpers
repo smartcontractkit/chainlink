@@ -30,7 +30,7 @@ create_job() {
 
 create_contract() {
   CONTRACT_DATA=`cat fixtures/create_contract.json`
-  curl \
+  docker run --network forks_gethnet --ip 172.16.1.199 --rm pstauffer/curl:latest curl \
     -X POST \
     -H "Content-Type: application/json" \
     --data "$CONTRACT_DATA" \
@@ -41,11 +41,10 @@ initial_setup() {
   tear_down
   build_images
   start_network
-  waitForResponse "172.16.1.102:6688"
+  waitFor "docker run --network forks_gethnet --ip 172.16.1.199 --rm pstauffer/curl:latest curl -s 172.16.1.102:6688 2>/dev/null"
   assert_testing_correct_artifact
   create_job
 }
-
 
 assert_not_in_chainlink_logs() {
   echo "asserting \"$1\" not present ..."
