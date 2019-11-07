@@ -45,7 +45,7 @@
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",
     "execa": "^3.2.0",
-    "openzeppelin-test-helpers": "^0.4.3",
+    "openzeppelin-test-helpers": "^0.5.1",
     "prettier": "^1.18.2",
     "solc": "0.5.0",
     "solhint": "^2.1.0",
