@@ -545,5 +545,9 @@ func TestJobRunsController_Cancel(t *testing.T) {
 		resp, cleanup := client.Put(fmt.Sprintf("/v2/runs/%s/cancellation", run.ID), nil)
 		defer cleanup()
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
+
+		run, err := app.Store.FindJobRun(run.ID)
+		assert.NoError(t, err)
+		assert.Equal(t, models.RunStatusCancelled, run.Status)
 	})
 }
