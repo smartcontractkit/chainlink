@@ -10,6 +10,10 @@ const generateClassName = createGenerateClassName()
 
 export default {
   maxThreads: MAX_EXPORT_HTML_THREADS || CORES,
+  devServer: {
+    port: 3000,
+    host: '127.0.0.1',
+  },
   getSiteData: () => ({
     title: 'Chainlink',
   }),
