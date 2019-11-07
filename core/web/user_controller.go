@@ -86,9 +86,13 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User,
 func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.AccountBalance {
 	txm := store.TxManager
 	if ethBalance, err := txm.GetEthBalance(account.Address); err != nil {
+		err = fmt.Errorf("Error calling getEthBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
+		ctx.Abort()
 	} else if linkBalance, err := txm.GetLINKBalance(account.Address); err != nil {
+		err = fmt.Errorf("Error calling getLINKBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
+		ctx.Abort()
 	} else {
 		return presenters.AccountBalance{
 			Address:     account.Address.Hex(),
