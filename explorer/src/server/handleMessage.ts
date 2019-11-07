@@ -1,4 +1,4 @@
-import { callRPCServer } from './rpcServer'
+import rpcServer from './rpcServer'
 import { logger } from '../logging'
 import { getDb } from '../database'
 import { fromString, saveJobRunTree } from '../entity/JobRun'
@@ -24,7 +24,7 @@ const handleLegacy = async (json: string, context: ServerContext) => {
 
 const handleJSONRCP = (request: string, context: ServerContext) => {
   return new Promise(resolve => {
-    callRPCServer(
+    rpcServer.call(
       request,
       context,
       (error: jayson.JSONRPCErrorLike, result: jayson.JSONRPCResultLike) => {
