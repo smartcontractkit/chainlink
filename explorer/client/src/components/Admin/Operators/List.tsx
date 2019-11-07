@@ -3,6 +3,7 @@ import Paper from '@material-ui/core/Paper'
 import Hidden from '@material-ui/core/Hidden'
 import Table, { ChangePageEvent } from '../../Table'
 import { LinkColumn, TextColumn, TimeAgoColumn } from '../../Table/TableCell'
+import { ChainlinkNode } from 'explorer/models'
 
 const HEADERS = ['Name', 'URL', 'Created At']
 

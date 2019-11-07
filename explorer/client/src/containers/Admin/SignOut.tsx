@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { Redirect, RouteComponentProps } from '@reach/router'
 import { signOut } from '../../actions/adminAuth'
-import { State as AppState } from '../../reducers'
+import { AppState } from '../../reducers'
 
 interface OwnProps {}
 

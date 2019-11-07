@@ -12,7 +12,7 @@ import Header from '../components/Header'
 import { PublicLogo } from '../components/Logos/Public'
 import SearchForm from '../components/SearchForm'
 import SearchBox from '../components/SearchBox'
-import { State as AppState } from '../reducers'
+import { AppState } from '../reducers'
 
 const STACKED_LOGO_HEIGHT = 40
 

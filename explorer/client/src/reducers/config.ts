@@ -1,4 +1,5 @@
 import { Actions } from './actions'
+import { Reducer } from 'redux'
 
 export interface State {
   etherscanHost?: string
@@ -6,7 +7,10 @@ export interface State {
 
 const initialState: State = { etherscanHost: undefined }
 
-export default (state: State = initialState, action: Actions) => {
+const configReducer: Reducer<State, Actions> = (
+  state = initialState,
+  action,
+) => {
   switch (action.type) {
     case 'FETCH_JOB_RUN_SUCCEEDED':
       return {
@@ -17,3 +21,5 @@ export default (state: State = initialState, action: Actions) => {
       return state
   }
 }
+
+export default configReducer

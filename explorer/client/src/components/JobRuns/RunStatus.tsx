@@ -9,6 +9,7 @@ import {
 import Card from '@material-ui/core/Card'
 import Typography from '@material-ui/core/Typography'
 import yellow from '@material-ui/core/colors/yellow'
+import { JobRun } from 'explorer/models'
 import StatusIcon from '../Icons/Status'
 import green from '../../colors/green'
 import status from '../../utils/status'

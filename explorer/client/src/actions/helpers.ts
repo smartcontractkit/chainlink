@@ -1,7 +1,7 @@
 import * as jsonapi from '@chainlink/json-api-client'
 import { Action } from 'redux'
 import { ThunkAction } from 'redux-thunk'
-import { State as AppState } from '../reducers'
+import { AppState } from '../reducers'
 
 /**
  * Extract the inner type of a promise if any

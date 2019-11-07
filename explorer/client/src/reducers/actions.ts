@@ -82,7 +82,6 @@ export type FetchJobRunsSucceededAction = {
 /**
  * FETCH_JOB_RUN_SUCCEEDED
  */
-
 export interface JobRunNormalizedMeta {
   jobRun: any
 }
@@ -99,6 +98,8 @@ export type FetchJobRunSucceededAction = {
   data: JobRunNormalizedData
 }
 
+export type UpdateQueryAction = { type: 'QUERY_UPDATED'; data?: string }
+
 export type Actions =
   | NotifyErrorAction
   | FetchAdminSigninSucceededAction
@@ -107,3 +108,4 @@ export type Actions =
   | FetchAdminOperatorsSucceededAction
   | FetchJobRunsSucceededAction
   | FetchJobRunSucceededAction
+  | UpdateQueryAction

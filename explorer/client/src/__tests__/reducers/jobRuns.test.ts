@@ -1,21 +1,28 @@
-import reducer, { State } from '../../reducers'
+import reducer, {
+  INITIAL_STATE as initialRootState,
+  AppState,
+} from '../../reducers'
 import {
   FetchJobRunsSucceededAction,
   FetchJobRunSucceededAction,
 } from '../../reducers/actions'
+import { JobRun } from 'explorer/models'
 
-const STATE = {
+const INITIAL_JOB_RUN = { id: 'replace-me' } as JobRun
+
+const INITIAL_STATE: AppState = {
+  ...initialRootState,
   jobRuns: {
-    items: { 'replace-me': { id: 'replace-me' } },
+    items: { 'replace-me': INITIAL_JOB_RUN },
   },
 }
 
 describe('reducers/jobRuns', () => {
   it('returns the current state for other actions', () => {
     const action = {} as FetchJobRunsSucceededAction
-    const state = reducer(STATE, action) as State
+    const state = reducer(INITIAL_STATE, action)
 
-    expect(state.jobRuns).toEqual(STATE.jobRuns)
+    expect(state.jobRuns).toEqual(INITIAL_STATE.jobRuns)
   })
 
   describe('FETCH_JOB_RUNS_SUCCEEDED', () => {
@@ -39,7 +46,7 @@ describe('reducers/jobRuns', () => {
         type: 'FETCH_JOB_RUNS_SUCCEEDED',
         data: data,
       } as FetchJobRunsSucceededAction
-      const state = reducer(STATE, action) as State
+      const state = reducer(INITIAL_STATE, action)
 
       expect(state.jobRuns).toEqual({
         items: {
@@ -68,7 +75,7 @@ describe('reducers/jobRuns', () => {
         type: 'FETCH_JOB_RUN_SUCCEEDED',
         data: data,
       } as FetchJobRunSucceededAction
-      const state = reducer(STATE, action) as State
+      const state = reducer(INITIAL_STATE, action)
 
       expect(state.jobRuns).toEqual({
         items: {

@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "target": "es6",
-    "lib": ["es6", "dom"],
+    "lib": [
+      "es6",
+      "dom"
+    ],
     "module": "esnext",
     "moduleResolution": "node",
     "incremental": true,
@@ -16,9 +19,13 @@
     "isolatedModules": true,
     "noEmit": true,
     "sourceMap": true,
-    "jsx": "preserve"
+    "jsx": "react"
   },
-  "include": ["src", "@types"],
+  "include": [
+    "src",
+    "@types",
+    "test"
+  ],
   "references": [
     {
       "path": "../../tools/json-api-client"

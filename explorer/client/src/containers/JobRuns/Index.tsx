@@ -10,8 +10,9 @@ import build from 'redux-object'
 import { fetchJobRuns } from '../../actions/jobRuns'
 import List from '../../components/JobRuns/List'
 import { ChangePageEvent } from '../../components/Table'
-import { State } from '../../reducers'
-import { Query } from '../../reducers/search'
+import { AppState } from '../../reducers'
+import { Query } from '../../reducers/query'
+import { JobRun } from 'explorer/models'
 
 const EMPTY_MSG =
   "We couldn't find any results for your search query. Try again with the job id, run id, requester, requester id or transaction hash"
@@ -38,9 +39,9 @@ interface OwnProps {
 }
 
 interface StateProps {
-  query: State['search']['query']
+  query: AppState['search']['query']
   jobRuns?: JobRun[]
-  count: State['jobRunsIndex']['count']
+  count: AppState['jobRunsIndex']['count']
 }
 
 interface DispatchProps {
@@ -90,7 +91,7 @@ const jobRunsSelector = ({
   jobRunsIndex,
   jobRuns,
   chainlinkNodes,
-}: State): JobRun[] | undefined => {
+}: AppState): JobRun[] | undefined => {
   if (jobRunsIndex.items) {
     return jobRunsIndex.items.map((id: string) => {
       const document = {
@@ -102,7 +103,11 @@ const jobRunsSelector = ({
   }
 }
 
-const mapStateToProps: MapStateToProps<StateProps, OwnProps, State> = state => {
+const mapStateToProps: MapStateToProps<
+  StateProps,
+  OwnProps,
+  AppState
+> = state => {
   return {
     query: state.search.query,
     jobRuns: jobRunsSelector(state),

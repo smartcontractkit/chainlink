@@ -1,4 +1,5 @@
 import { Actions } from './actions'
+import { Reducer } from 'redux'
 
 export interface State {
   items?: string[]
@@ -7,7 +8,10 @@ export interface State {
 
 const INITIAL_STATE: State = {}
 
-export default (state: State = INITIAL_STATE, action: Actions): State => {
+export const adminOperatorsIndex: Reducer<State, Actions> = (
+  state = INITIAL_STATE,
+  action,
+) => {
   switch (action.type) {
     case 'FETCH_ADMIN_OPERATORS_SUCCEEDED':
       return {
@@ -18,3 +22,5 @@ export default (state: State = INITIAL_STATE, action: Actions): State => {
       return state
   }
 }
+
+export default adminOperatorsIndex
