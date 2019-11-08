@@ -327,7 +327,8 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
+	for _, tt := range tests {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			config, cfgCleanup := cltest.NewConfig(t)
 			defer cfgCleanup()
@@ -336,10 +337,11 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithConfig(t, config)
 			defer cleanup()
 
-			store := app.GetStore()
-
 			eth := app.MockEthCallerSubscriber()
-			eth.Register("eth_chainId", store.Config.ChainID())
+			store := app.GetStore()
+			eth.Context("app.Start()", func(eth *cltest.EthMock) {
+				eth.Register("eth_chainId", store.Config.ChainID())
+			})
 			app.Start()
 
 			job := cltest.NewJobWithRunLogInitiator()
@@ -356,23 +358,29 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			data := cltest.JSONFromString(t, `{"random": "input"}`)
 			jr, err := app.RunManager.Create(job.ID, &initr, &data, creationHeight, rr)
 			require.NoError(t, err)
-			cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
+
+			run := cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
+			assert.Equal(t, models.RunStatusPendingConfirmations, run.TaskRuns[0].Status)
+			assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 
 			confirmedReceipt := models.TxReceipt{
 				Hash:        initiatingTxHash,
 				BlockHash:   &test.receiptBlockHash,
 				BlockNumber: cltest.Int(3),
 			}
-			eth.Register("eth_getTransactionReceipt", confirmedReceipt)
+			eth.Context("validateOnMainChain", func(eth *cltest.EthMock) {
+				eth.Register("eth_getTransactionReceipt", confirmedReceipt)
+			})
 
 			err = app.RunManager.ResumeAllConfirming(big.NewInt(2))
 			require.NoError(t, err)
-			updatedJR := cltest.WaitForJobRunStatus(t, store, *jr, test.wantStatus)
-			assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
-			assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].MinimumConfirmations.Uint32)
-			assert.True(t, updatedJR.TaskRuns[0].MinimumConfirmations.Valid)
-			assert.Equal(t, minimumConfirmations, updatedJR.TaskRuns[0].Confirmations.Uint32, "task run should track its current confirmations")
-			assert.True(t, updatedJR.TaskRuns[0].Confirmations.Valid)
+			run = cltest.WaitForJobRunStatus(t, store, *jr, test.wantStatus)
+			assert.Equal(t, rr.RequestID, run.RunRequest.RequestID)
+			assert.Equal(t, minimumConfirmations, run.TaskRuns[0].MinimumConfirmations.Uint32)
+			assert.True(t, run.TaskRuns[0].MinimumConfirmations.Valid)
+			assert.Equal(t, minimumConfirmations, run.TaskRuns[0].Confirmations.Uint32, "task run should track its current confirmations")
+			assert.True(t, run.TaskRuns[0].Confirmations.Valid)
+
 			assert.True(t, eth.AllCalled(), eth.Remaining())
 		})
 	}
