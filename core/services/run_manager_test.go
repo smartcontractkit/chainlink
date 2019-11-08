@@ -246,6 +246,35 @@ func TestRunManager_ResumeAllConnecting(t *testing.T) {
 	})
 }
 
+func TestRunManager_ResumeAllConnecting_NotEnoughConfirmations(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+
+	store := app.Store
+	eth := cltest.MockEthOnStore(t, store)
+	eth.Register("eth_chainId", store.Config.ChainID())
+
+	app.Start()
+
+	job := cltest.NewJobWithRunLogInitiator()
+	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
+	require.NoError(t, store.CreateJob(&job))
+
+	initiator := job.Initiators[0]
+	run := job.NewRun(initiator)
+	run.Status = models.RunStatusPendingConnection
+	run.CreationHeight = models.NewBig(big.NewInt(0))
+	run.ObservedHeight = run.CreationHeight
+	run.TaskRuns[0].MinimumConfirmations = clnull.Uint32From(807)
+	run.TaskRuns[0].Status = models.RunStatusPendingConnection
+	require.NoError(t, store.CreateJobRun(&run))
+
+	app.RunManager.ResumeAllConnecting()
+
+	cltest.WaitForJobRunToPendConfirmations(t, store, run)
+}
+
 func TestRunManager_Create(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
