@@ -9,6 +9,7 @@ import { MemoryRouter } from 'react-router-dom'
 import clickNextPage from 'test-helpers/clickNextPage'
 import clickPreviousPage from 'test-helpers/clickPreviousPage'
 import syncFetch from 'test-helpers/syncFetch'
+import globPath from 'test-helpers/globPath'
 
 const classes = {}
 const mountIndex = (opts = {}) =>
@@ -30,7 +31,7 @@ describe('containers/Bridges/Index', () => {
         url: 'butbobistho.com',
       },
     ])
-    global.fetch.getOnce('begin:/v2/bridge_types', bridgesResponse)
+    global.fetch.getOnce(globPath('/v2/bridge_types'), bridgesResponse)
 
     const wrapper = mountIndex()
 
@@ -46,7 +47,7 @@ describe('containers/Bridges/Index', () => {
       [{ name: 'ID-ON-FIRST-PAGE', url: 'bridge.com' }],
       2,
     )
-    global.fetch.getOnce('begin:/v2/bridge_types', pageOneResponse)
+    global.fetch.getOnce(globPath('/v2/bridge_types'), pageOneResponse)
 
     const wrapper = mountIndex({ pageSize: 1 })
 
@@ -58,14 +59,14 @@ describe('containers/Bridges/Index', () => {
       [{ name: 'ID-ON-SECOND-PAGE', url: 'bridge.com' }],
       2,
     )
-    global.fetch.getOnce('begin:/v2/bridge_types', pageTwoResponse)
+    global.fetch.getOnce(globPath('/v2/bridge_types'), pageTwoResponse)
     clickNextPage(wrapper)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).toContain('ID-ON-SECOND-PAGE')
 
-    global.fetch.getOnce('begin:/v2/bridge_types', pageOneResponse)
+    global.fetch.getOnce(globPath('/v2/bridge_types'), pageOneResponse)
     clickPreviousPage(wrapper)
 
     await syncFetch(wrapper)
