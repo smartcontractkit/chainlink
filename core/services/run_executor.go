@@ -39,6 +39,10 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 	}
 
 	for taskIndex := range run.TaskRuns {
+		if !run.Status.Runnable() {
+			break
+		}
+
 		taskRun := &run.TaskRuns[taskIndex]
 		if taskRun.Status.Completed() {
 			continue
@@ -68,10 +72,6 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 			return nil
 		} else if err != nil {
 			return err
-		}
-
-		if !run.Status.Runnable() {
-			break
 		}
 	}
 
