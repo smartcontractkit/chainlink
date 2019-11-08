@@ -336,10 +336,12 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithConfig(t, config)
 			defer cleanup()
 
+			store := app.GetStore()
+
 			eth := app.MockEthCallerSubscriber()
+			eth.Register("eth_chainId", store.Config.ChainID())
 			app.Start()
 
-			store := app.GetStore()
 			job := cltest.NewJobWithRunLogInitiator()
 			job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
 			require.NoError(t, store.CreateJob(&job))
@@ -361,9 +363,7 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 				BlockHash:   &test.receiptBlockHash,
 				BlockNumber: cltest.Int(3),
 			}
-			eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
-				eth.Register("eth_getTransactionReceipt", confirmedReceipt)
-			})
+			eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 
 			err = app.RunManager.ResumeAllConfirming(big.NewInt(2))
 			require.NoError(t, err)
