@@ -12,7 +12,7 @@ import Grid from '@material-ui/core/Grid'
 import Title from '../../../components/Title'
 import List from '../../../components/Admin/Operators/List'
 import { ChangePageEvent } from '../../../components/Table'
-import { fetchOperators } from '../../../actions/operators'
+import { fetchAdminOperators } from '../../../actions/adminOperators'
 import { AppState } from '../../../reducers'
 import { ChainlinkNode } from 'explorer/models'
 
@@ -40,7 +40,7 @@ interface StateProps {
 }
 
 interface DispatchProps {
-  fetchOperators: (page: number, size: number) => void
+  fetchAdminOperators: (page: number, size: number) => void
 }
 
 interface Props
@@ -53,18 +53,18 @@ interface Props
 export const Index: React.FC<Props> = ({
   classes,
   adminOperators,
-  fetchOperators,
+  fetchAdminOperators,
   count,
   rowsPerPage = 10,
 }) => {
   const [currentPage, setCurrentPage] = useState(0)
   const onChangePage = (_event: ChangePageEvent, page: number) => {
     setCurrentPage(page)
-    fetchOperators(page + 1, rowsPerPage)
+    fetchAdminOperators(page + 1, rowsPerPage)
   }
 
   useEffect(() => {
-    fetchOperators(currentPage + 1, rowsPerPage)
+    fetchAdminOperators(currentPage + 1, rowsPerPage)
   }, [rowsPerPage])
 
   return (
@@ -114,7 +114,7 @@ const mapStateToProps: MapStateToProps<
 }
 
 const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
-  fetchOperators,
+  fetchAdminOperators,
 }
 
 export const ConnectedIndex = connect(
