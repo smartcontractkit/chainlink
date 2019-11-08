@@ -7,6 +7,7 @@ import { Switch, Route } from 'react-router-dom'
 import { MemoryRouter } from 'react-router'
 import SignIn from 'containers/SignIn'
 import fillIn from 'test-helpers/fillIn'
+import globPath from 'test-helpers/globPath'
 
 const RedirectApp = () => <div>Behind authentication</div>
 const mountSignIn = store =>
@@ -39,7 +40,7 @@ const AUTHENTICATED_RESPONSE = {
 describe('containers/SignIn', () => {
   it('unauthenticated user can input credentials and sign in', async () => {
     const store = createStore()
-    global.fetch.postOnce(`/sessions`, AUTHENTICATED_RESPONSE)
+    global.fetch.postOnce(globPath('/sessions'), AUTHENTICATED_RESPONSE)
 
     const wrapper = mountSignIn(store)
     submitForm(wrapper)
@@ -55,7 +56,7 @@ describe('containers/SignIn', () => {
   it('unauthenticated user inputs wrong credentials', async () => {
     const store = createStore()
     global.fetch.postOnce(
-      '/sessions',
+      globPath('/sessions'),
       { authenticated: false, errors: [{ detail: 'Invalid email' }] },
       { response: { status: 401 } },
     )

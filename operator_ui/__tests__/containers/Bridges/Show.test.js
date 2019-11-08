@@ -5,6 +5,7 @@ import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { ConnectedShow as Show } from 'containers/Bridges/Show'
+import globPath from 'test-helpers/globPath'
 
 const classes = {}
 const mountShow = props =>
@@ -32,7 +33,7 @@ describe('containers/Bridges/Show', () => {
       },
     }
 
-    global.fetch.getOnce(`/v2/bridge_types/tallbridge`, response)
+    global.fetch.getOnce(globPath(`/v2/bridge_types/tallbridge`), response)
 
     const props = { match: { params: { bridgeId: 'tallbridge' } } }
     const wrapper = mountShow(props)
