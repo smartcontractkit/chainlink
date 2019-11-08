@@ -222,8 +222,6 @@ func (jm *runManager) Create(
 	}
 
 	run.RunRequest = *runRequest
-	currentTaskRun := run.TaskRuns[0]
-	currentTaskRun.Status = models.RunStatusInProgress
 	run.Status = models.RunStatusInProgress
 
 	if err := jm.orm.CreateJobRun(run); err != nil {
