@@ -7,12 +7,11 @@ package mocks
 import (
 	assets "chainlink/core/store/assets"
 	models "chainlink/core/store/models"
-	big "math/big"
-	reflect "reflect"
-
 	go_ethereum "github.com/ethereum/go-ethereum"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "github.com/golang/mock/gomock"
+	big "math/big"
+	reflect "reflect"
 )
 
 // MockEthClient is a mock of EthClient interface
