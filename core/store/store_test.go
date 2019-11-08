@@ -1,6 +1,7 @@
 package store_test
 
 import (
+	"math/big"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -10,8 +11,8 @@ import (
 	"chainlink/core/internal/mocks"
 	"chainlink/core/utils"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -22,13 +23,13 @@ func TestStore_Start(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	txManager := new(mocks.TxManager)
+	txManager.On("Register", mock.Anything).Return(big.NewInt(3), nil)
+	store.TxManager = txManager
 
-	txmMock := mocks.NewMockTxManager(ctrl)
-	store.TxManager = txmMock
-	txmMock.EXPECT().Register(gomock.Any())
 	assert.NoError(t, store.Start())
+
+	txManager.AssertExpectations(t)
 }
 
 func TestStore_Close(t *testing.T) {

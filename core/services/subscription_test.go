@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/golang/mock/gomock"
 
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
@@ -321,10 +320,8 @@ func TestServices_NewInitiatorSubscription_ReplayFromBlock(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	txmMock := mocks.NewMockTxManager(ctrl)
-	store.TxManager = txmMock
+	txManager := new(mocks.TxManager)
+	store.TxManager = txManager
 
 	cases := []struct {
 		name                string
@@ -358,8 +355,8 @@ func TestServices_NewInitiatorSubscription_ReplayFromBlock(t *testing.T) {
 
 			log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 
-			txmMock.EXPECT().SubscribeToLogs(gomock.Any(), expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
-			txmMock.EXPECT().GetLogs(expectedQuery).Return([]models.Log{log}, nil)
+			txManager.On("SubscribeToLogs", mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
+			txManager.On("GetLogs", expectedQuery).Return([]models.Log{log}, nil)
 
 			executeJobChannel := make(chan struct{})
 
@@ -378,6 +375,8 @@ func TestServices_NewInitiatorSubscription_ReplayFromBlock(t *testing.T) {
 			require.NoError(t, err)
 
 			wg.Wait()
+
+			txManager.AssertExpectations(t)
 		})
 	}
 }
