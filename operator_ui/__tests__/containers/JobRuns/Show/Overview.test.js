@@ -7,6 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { ConnectedShow as Show } from 'containers/JobRuns/Show/Overview'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 import mountWithTheme from 'test-helpers/mountWithTheme'
+import globPath from 'test-helpers/globPath'
 
 const classes = {}
 const mountShow = props =>
@@ -48,7 +49,7 @@ describe('containers/JobRuns/Show/Overview', () => {
         },
       },
     })
-    global.fetch.getOnce(`/v2/runs/${jobRunId}`, jobRunResponse)
+    global.fetch.getOnce(globPath(`/v2/runs/${jobRunId}`), jobRunResponse)
 
     const props = {
       match: { params: { jobSpecId: jobSpecId, jobRunId: jobRunId } },
