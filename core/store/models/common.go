@@ -9,9 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"chainlink/core/store/assets"
+
 	"github.com/araddon/dateparse"
 	"github.com/jinzhu/gorm"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mrwonko/cron"

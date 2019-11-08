@@ -6,8 +6,9 @@ import (
 	"math/big"
 	"strings"
 
+	"chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // EIP55Address is a newtype for string which persists an ethereum address in

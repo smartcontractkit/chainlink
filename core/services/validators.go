@@ -6,12 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"chainlink/core/adapters"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+
 	"github.com/asaskevich/govalidator"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 // ValidateJob checks the job and its associated Initiators and Tasks for any

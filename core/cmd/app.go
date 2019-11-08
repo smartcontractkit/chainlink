@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/smartcontractkit/chainlink/core/store"
+	"chainlink/core/store"
+
 	"github.com/urfave/cli"
 )
 

@@ -7,16 +7,17 @@ import (
 	"syscall"
 	"testing"
 
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/internal/mocks"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -6,12 +6,13 @@ import (
 	"syscall"
 	"testing"
 
+	"chainlink/core/internal/cltest"
+	"chainlink/core/services/mock_services"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
+
 	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/mock_services"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
 	"github.com/tevino/abool"
 )

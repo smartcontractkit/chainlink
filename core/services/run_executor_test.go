@@ -4,11 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/internal/mocks"
+	"chainlink/core/services"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

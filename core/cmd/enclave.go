@@ -3,7 +3,7 @@
 package cmd
 
 import (
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"chainlink/core/logger"
 )
 
 // InitEnclave is a stub in non SGX enabled builds.

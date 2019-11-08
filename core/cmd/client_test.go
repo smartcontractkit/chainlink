@@ -3,10 +3,11 @@ package cmd_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"chainlink/core/cmd"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

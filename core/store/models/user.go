@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/utils"
 )
 
 // User holds the credentials for API user.

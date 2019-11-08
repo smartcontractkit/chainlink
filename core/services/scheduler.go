@@ -4,11 +4,12 @@ import (
 	"errors"
 	"sync"
 
+	"chainlink/core/logger"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
+
 	"github.com/mrwonko/cron"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Scheduler contains fields for Recurring and OneTime for occurrences,

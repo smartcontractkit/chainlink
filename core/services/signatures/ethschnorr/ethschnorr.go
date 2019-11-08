@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"chainlink/core/services/signatures/secp256k1"
 
 	"go.dedis.ch/kyber/v3"
 )
