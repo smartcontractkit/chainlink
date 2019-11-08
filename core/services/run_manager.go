@@ -155,8 +155,6 @@ func newRun(
 		return &run, nil
 	}
 
-	initialTask := run.TaskRuns[0]
-	validateMinimumConfirmations(&run, &initialTask, run.CreationHeight, txManager)
 	return &run, nil
 }
 
@@ -224,19 +222,19 @@ func (jm *runManager) Create(
 	}
 
 	run.RunRequest = *runRequest
+	currentTaskRun := run.TaskRuns[0]
+	currentTaskRun.Status = models.RunStatusInProgress
+	run.Status = models.RunStatusInProgress
 
 	if err := jm.orm.CreateJobRun(run); err != nil {
 		return nil, errors.Wrap(err, "CreateJobRun failed")
 	}
 
-	if run.Status == models.RunStatusInProgress {
-		logger.Debugw(
-			fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
-			run.ForLogger()...,
-		)
-		jm.runQueue.Run(run)
-	}
-
+	logger.Debugw(
+		fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
+		run.ForLogger()...,
+	)
+	jm.runQueue.Run(run)
 	return run, nil
 }
 
@@ -274,6 +272,7 @@ func (jm *runManager) ResumeAllConnecting() error {
 			return
 		}
 
+		currentTaskRun.Status = models.RunStatusInProgress
 		run.Status = models.RunStatusInProgress
 		err := jm.updateAndTrigger(run)
 		if err != nil {

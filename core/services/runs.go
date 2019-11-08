@@ -26,11 +26,23 @@ func MeetsMinimumPayment(
 
 func validateMinimumConfirmations(run *models.JobRun, taskRun *models.TaskRun, currentHeight *models.Big, txManager store.TxManager) {
 	updateTaskRunConfirmations(currentHeight, run, taskRun)
+
 	if !meetsMinimumConfirmations(run, taskRun, run.ObservedHeight) {
-		logger.Debugw("Pausing run pending confirmations", []interface{}{"run", run.ID.String(), "required_height", taskRun.MinimumConfirmations}...)
+		logger.Debugw("Pausing run pending confirmations",
+			run.ForLogger("required_height", taskRun.MinimumConfirmations)...,
+		)
+
+		taskRun.Status = models.RunStatusPendingConfirmations
 		run.Status = models.RunStatusPendingConfirmations
+
 	} else if err := validateOnMainChain(run, taskRun, txManager); err != nil {
+		logger.Warnw("Failure while trying to validate chain",
+			run.ForLogger("error", err)...,
+		)
+
+		taskRun.SetError(err)
 		run.SetError(err)
+
 	} else {
 		run.Status = models.RunStatusInProgress
 	}

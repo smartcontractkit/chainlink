@@ -87,6 +87,9 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
+	jr.ObservedHeight = confirmedReceipt.BlockNumber
+	require.NoError(t, app.Store.SaveJobRun(&jr))
+
 	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
 		eth.Register("eth_getBalance", "0x0100")
