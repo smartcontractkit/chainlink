@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -169,4 +171,37 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 	actual, err := store.LinkEarnedFor(&j)
 	require.NoError(t, err)
 	assert.Nil(t, actual)
+}
+
+func TestRunExecutor_UncleForkDoesNotCompleteJob(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	txManager := new(mocks.TxManager)
+	store.TxManager = txManager
+
+	runExecutor := services.NewRunExecutor(store)
+
+	j := cltest.NewJobWithWebInitiator()
+	j.Tasks = []models.TaskSpec{cltest.NewTask(t, "noop"), cltest.NewTask(t, "nooppend")}
+	assert.NoError(t, store.CreateJob(&j))
+
+	run := j.NewRun(j.Initiators[0])
+	txHash := cltest.NewHash()
+	run.RunRequest.TxHash = &txHash
+	run.TaskRuns[0].MinimumConfirmations = null.Uint32From(10)
+	run.ObservedHeight = models.NewBig(big.NewInt(0))
+	require.NoError(t, store.CreateJobRun(&run))
+	txManager.On("GetTxReceipt", txHash).Return(&models.TxReceipt{}, nil)
+	require.NoError(t, runExecutor.Execute(run.ID))
+
+	run, err := store.FindJobRun(run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, models.RunStatusErrored, run.Status)
+	require.Len(t, run.TaskRuns, 2)
+	assert.Equal(t, models.RunStatusErrored, run.TaskRuns[0].Status)
+	assert.Equal(t, models.RunStatusUnstarted, run.TaskRuns[1].Status)
+
+	txManager.AssertExpectations(t)
 }
