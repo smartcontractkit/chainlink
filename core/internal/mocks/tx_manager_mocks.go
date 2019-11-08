@@ -8,14 +8,13 @@ import (
 	store "chainlink/core/store"
 	assets "chainlink/core/store/assets"
 	models "chainlink/core/store/models"
-	big "math/big"
-	reflect "reflect"
-
 	go_ethereum "github.com/ethereum/go-ethereum"
 	accounts "github.com/ethereum/go-ethereum/accounts"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "github.com/golang/mock/gomock"
 	null_v3 "gopkg.in/guregu/null.v3"
+	big "math/big"
+	reflect "reflect"
 )
 
 // MockTxManager is a mock of TxManager interface
