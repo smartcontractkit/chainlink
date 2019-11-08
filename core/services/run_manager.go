@@ -155,8 +155,6 @@ func newRun(
 		return &run, nil
 	}
 
-	initialTask := run.TaskRuns[0]
-	validateMinimumConfirmations(&run, &initialTask, run.CreationHeight, txManager)
 	return &run, nil
 }
 
@@ -224,19 +222,17 @@ func (jm *runManager) Create(
 	}
 
 	run.RunRequest = *runRequest
+	run.Status = models.RunStatusInProgress
 
 	if err := jm.orm.CreateJobRun(run); err != nil {
 		return nil, errors.Wrap(err, "CreateJobRun failed")
 	}
 
-	if run.Status == models.RunStatusInProgress {
-		logger.Debugw(
-			fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
-			run.ForLogger()...,
-		)
-		jm.runQueue.Run(run)
-	}
-
+	logger.Debugw(
+		fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
+		run.ForLogger()...,
+	)
+	jm.runQueue.Run(run)
 	return run, nil
 }
 
@@ -257,7 +253,7 @@ func (jm *runManager) ResumeAllConfirming(currentBlockHeight *big.Int) error {
 
 		err := jm.updateAndTrigger(run)
 		if err != nil {
-			logger.Error("Error saving run", "error", err)
+			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
 		}
 	}, models.RunStatusPendingConnection, models.RunStatusPendingConfirmations)
 }
@@ -274,10 +270,11 @@ func (jm *runManager) ResumeAllConnecting() error {
 			return
 		}
 
+		currentTaskRun.Status = models.RunStatusInProgress
 		run.Status = models.RunStatusInProgress
 		err := jm.updateAndTrigger(run)
 		if err != nil {
-			logger.Error("Error saving run", "error", err)
+			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
 		}
 	}, models.RunStatusPendingConnection, models.RunStatusPendingConfirmations)
 }
@@ -346,7 +343,7 @@ func (jm *runManager) updateWithError(run *models.JobRun, msg string, args ...in
 	logger.Error(fmt.Sprintf(msg, args...))
 
 	if err := jm.orm.SaveJobRun(run); err != nil {
-		logger.Error("Error saving run", "error", err)
+		logger.Errorw("Error saving run", run.ForLogger("error", err)...)
 		return err
 	}
 	return nil

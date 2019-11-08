@@ -64,6 +64,7 @@ type TxManager interface {
 }
 
 //go:generate mockgen -package=mocks -destination=../internal/mocks/tx_manager_mocks.go chainlink/core/store TxManager
+//go:generate mockery -name TxManager -output ../internal/mocks/ -case=underscore
 
 // EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.

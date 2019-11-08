@@ -1,11 +1,13 @@
 package services_test
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
+	"chainlink/core/null"
 	"chainlink/core/services"
 	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
@@ -96,30 +98,6 @@ func TestRunExecutor_Execute_RunNotFoundError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRunExecutor_Execute_RunNotRunnableError(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	runExecutor := services.NewRunExecutor(store)
-
-	j := models.NewJob()
-	i := models.Initiator{Type: models.InitiatorWeb}
-	j.Initiators = []models.Initiator{i}
-	j.Tasks = []models.TaskSpec{
-		cltest.NewTask(t, "noop"),
-	}
-	assert.NoError(t, store.CreateJob(&j))
-
-	run := j.NewRun(i)
-	run.Status = models.RunStatusPendingConfirmations
-	require.NoError(t, store.CreateJobRun(&run))
-
-	err := runExecutor.Execute(run.ID)
-	require.Error(t, err)
-}
-
 func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 	t.Parallel()
 
@@ -169,4 +147,32 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 	actual, err := store.LinkEarnedFor(&j)
 	require.NoError(t, err)
 	assert.Nil(t, actual)
+}
+
+func TestRunExecutor_InitialTaskLacksConfirmations(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	runExecutor := services.NewRunExecutor(store)
+
+	j := cltest.NewJobWithWebInitiator()
+	j.Tasks = []models.TaskSpec{cltest.NewTask(t, "noop")}
+	assert.NoError(t, store.CreateJob(&j))
+
+	run := j.NewRun(j.Initiators[0])
+	txHash := cltest.NewHash()
+	run.RunRequest.TxHash = &txHash
+	run.TaskRuns[0].MinimumConfirmations = null.Uint32From(10)
+	run.CreationHeight = models.NewBig(big.NewInt(0))
+	run.ObservedHeight = run.CreationHeight
+	require.NoError(t, store.CreateJobRun(&run))
+	require.NoError(t, runExecutor.Execute(run.ID))
+
+	run, err := store.FindJobRun(run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+	require.Len(t, run.TaskRuns, 1)
+	assert.Equal(t, models.RunStatusPendingConfirmations, run.TaskRuns[0].Status)
 }

@@ -30,7 +30,7 @@ create_job() {
 
 create_contract() {
   CONTRACT_DATA=`cat fixtures/create_contract.json`
-  curl \
+  docker run --network forks_gethnet --ip 172.16.1.199 --rm pstauffer/curl:latest curl \
     -X POST \
     -H "Content-Type: application/json" \
     --data "$CONTRACT_DATA" \
@@ -41,10 +41,10 @@ initial_setup() {
   tear_down
   build_images
   start_network
-  waitForResponse "172.16.1.102:6688"
+  waitFor "docker run --network forks_gethnet --ip 172.16.1.199 --rm pstauffer/curl:latest curl -s 172.16.1.102:6688 2>/dev/null"
+  assert_testing_correct_artifact
   create_job
 }
-
 
 assert_not_in_chainlink_logs() {
   echo "asserting \"$1\" not present ..."
@@ -54,6 +54,12 @@ assert_not_in_chainlink_logs() {
     echo "TEST FAILED - Found $1 in chainlink logs and shouldn't have"
     exit 1
   fi;
+}
+
+assert_testing_correct_artifact() {
+  version="`cat ../../VERSION`"
+  sha="`git rev-parse HEAD`"
+  search_chainlink_logs "Starting Chainlink Node ${version} at commit ${sha}"
 }
 
 search_chainlink_logs() {
@@ -69,4 +75,10 @@ search_chainlink_logs() {
     check_count=$((check_count + 1))
     sleep 1;
 	done
+}
+
+save_logs() {
+  echo "saving logs for chain $1"
+  docker-compose logs chainlink > "logs/chain_$1.log"
+  docker-compose logs geth >> "logs/geth_$1.log"
 }

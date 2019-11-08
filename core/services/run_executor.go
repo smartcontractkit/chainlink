@@ -35,30 +35,36 @@ func NewRunExecutor(store *store.Store) RunExecutor {
 func (je *runExecutor) Execute(runID *models.ID) error {
 	run, err := je.store.Unscoped().FindJobRun(runID)
 	if err != nil {
-		return fmt.Errorf("Error finding run %s", runID.String())
+		return errors.Wrapf(err, "error finding run %s", runID)
 	}
 
-	if !run.Status.Runnable() {
-		return fmt.Errorf("Run triggered in non runnable state %s", run.Status)
-	}
-
-	for run.Status.Runnable() {
-		currentTaskRun := run.NextTaskRun()
-		if currentTaskRun == nil {
-			return errors.New("Run triggered with no remaining tasks")
+	for taskIndex := range run.TaskRuns {
+		if !run.Status.Runnable() {
+			break
 		}
 
-		result := je.executeTask(&run, currentTaskRun)
+		taskRun := &run.TaskRuns[taskIndex]
+		if taskRun.Status.Completed() {
+			continue
+		}
 
-		currentTaskRun.ApplyOutput(result)
-		run.ApplyOutput(result)
+		if meetsMinimumConfirmations(&run, taskRun, run.ObservedHeight) {
+			result := je.executeTask(&run, taskRun)
 
-		if !result.Status().Runnable() {
-			logger.Debugw("Task execution blocked", []interface{}{"run", run.ID, "task", currentTaskRun.ID.String(), "state", currentTaskRun.Status}...)
-		} else if currentTaskRun.Status.Unstarted() {
-			return fmt.Errorf("run %s task %s cannot return a status of empty string or Unstarted", run.ID, currentTaskRun.TaskSpec.Type)
-		} else if futureTaskRun := run.NextTaskRun(); futureTaskRun != nil {
-			validateMinimumConfirmations(&run, futureTaskRun, run.ObservedHeight, je.store.TxManager)
+			taskRun.ApplyOutput(result)
+			run.ApplyOutput(result)
+
+			if !result.Status().Runnable() {
+				logger.Debugw("Task execution blocked", run.ForLogger("task", taskRun.ID.String())...)
+			}
+
+		} else {
+			logger.Debugw("Pausing run pending confirmations",
+				run.ForLogger("required_height", taskRun.MinimumConfirmations)...,
+			)
+			taskRun.Status = models.RunStatusPendingConfirmations
+			run.Status = models.RunStatusPendingConfirmations
+
 		}
 
 		if err := je.store.ORM.SaveJobRun(&run); errors.Cause(err) == orm.OptimisticUpdateConflictError {
@@ -67,18 +73,16 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 		} else if err != nil {
 			return err
 		}
-
-		if run.Status.Finished() {
-			logger.Debugw("All tasks complete for run", run.ForLogger()...)
-			break
-		}
 	}
 
+	if run.Status.Finished() {
+		logger.Debugw("All tasks complete for run", run.ForLogger()...)
+	}
 	return nil
 }
 
-func (je *runExecutor) executeTask(run *models.JobRun, currentTaskRun *models.TaskRun) models.RunOutput {
-	taskCopy := currentTaskRun.TaskSpec // deliberately copied to keep mutations local
+func (je *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) models.RunOutput {
+	taskCopy := taskRun.TaskSpec // deliberately copied to keep mutations local
 
 	var err error
 	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides); err != nil {
@@ -94,7 +98,7 @@ func (je *runExecutor) executeTask(run *models.JobRun, currentTaskRun *models.Ta
 
 	data := models.JSON{}
 	if previousTaskRun != nil {
-		if data, err = previousTaskRun.Result.Data.Merge(currentTaskRun.Result.Data); err != nil {
+		if data, err = previousTaskRun.Result.Data.Merge(taskRun.Result.Data); err != nil {
 			return models.NewRunOutputError(err)
 		}
 	}
@@ -103,12 +107,12 @@ func (je *runExecutor) executeTask(run *models.JobRun, currentTaskRun *models.Ta
 		return models.NewRunOutputError(err)
 	}
 
-	input := *models.NewRunInput(run.ID, data, currentTaskRun.Status)
+	input := *models.NewRunInput(run.ID, data, taskRun.Status)
 
 	start := time.Now()
 	result := adapter.Perform(input, je.store)
 	logger.Debugw(fmt.Sprintf("Executed task %s", taskCopy.Type), []interface{}{
-		"task", currentTaskRun.ID.String(),
+		"task", taskRun.ID.String(),
 		"result", result.Status(),
 		"result_data", result.Data(),
 		"elapsed", time.Since(start).Seconds(),
