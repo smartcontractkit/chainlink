@@ -102,11 +102,10 @@ describe('containers/JobRuns/Index', () => {
     expect.assertions(1)
 
     const runsResponse = jsonApiJobSpecRunFactory([])
-    await global.fetch.getOnce(`glob:*/v2/runs*`, runsResponse)
+    await global.fetch.getOnce(globPath('/v2/runs'), runsResponse)
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountIndex(props)
-    console.log('yeah', wrapper)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('No jobs have been run yet')
