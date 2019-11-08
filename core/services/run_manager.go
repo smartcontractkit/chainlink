@@ -255,7 +255,7 @@ func (jm *runManager) ResumeAllConfirming(currentBlockHeight *big.Int) error {
 
 		err := jm.updateAndTrigger(run)
 		if err != nil {
-			logger.Error("Error saving run", "error", err)
+			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
 		}
 	}, models.RunStatusPendingConnection, models.RunStatusPendingConfirmations)
 }
@@ -276,7 +276,7 @@ func (jm *runManager) ResumeAllConnecting() error {
 		run.Status = models.RunStatusInProgress
 		err := jm.updateAndTrigger(run)
 		if err != nil {
-			logger.Error("Error saving run", "error", err)
+			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
 		}
 	}, models.RunStatusPendingConnection, models.RunStatusPendingConfirmations)
 }
@@ -345,7 +345,7 @@ func (jm *runManager) updateWithError(run *models.JobRun, msg string, args ...in
 	logger.Error(fmt.Sprintf(msg, args...))
 
 	if err := jm.orm.SaveJobRun(run); err != nil {
-		logger.Error("Error saving run", "error", err)
+		logger.Errorw("Error saving run", run.ForLogger("error", err)...)
 		return err
 	}
 	return nil
