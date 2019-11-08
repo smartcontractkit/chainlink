@@ -98,30 +98,6 @@ func TestRunExecutor_Execute_RunNotFoundError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRunExecutor_Execute_RunNotRunnableError(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	runExecutor := services.NewRunExecutor(store)
-
-	j := models.NewJob()
-	i := models.Initiator{Type: models.InitiatorWeb}
-	j.Initiators = []models.Initiator{i}
-	j.Tasks = []models.TaskSpec{
-		cltest.NewTask(t, "noop"),
-	}
-	assert.NoError(t, store.CreateJob(&j))
-
-	run := j.NewRun(i)
-	run.Status = models.RunStatusPendingConfirmations
-	require.NoError(t, store.CreateJobRun(&run))
-
-	err := runExecutor.Execute(run.ID)
-	require.Error(t, err)
-}
-
 func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 	t.Parallel()
 
