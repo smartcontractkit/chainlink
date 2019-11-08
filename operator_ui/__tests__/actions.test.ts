@@ -4,6 +4,7 @@ import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRun'
 import configureStore from 'redux-mock-store'
 import thunk from 'redux-thunk'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
+import globPath from 'test-helpers/globPath'
 
 const middlewares = [thunk]
 const mockStore = configureStore(middlewares)
@@ -28,7 +29,7 @@ describe('fetchJob', () => {
       tasks: [expectedTask],
     })
 
-    global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
+    global.fetch.getOnce(globPath(`/v2/specs/${jobSpecId}`), jobSpecResponse)
 
     const store = mockStore({})
     return store.dispatch(actions.fetchJob(jobSpecId)).then(() => {
@@ -60,7 +61,7 @@ describe('fetchJobRun', () => {
     })
 
     const id = runResponse.data.id
-    global.fetch.getOnce(`/v2/runs/${id}`, runResponse)
+    global.fetch.getOnce(globPath(`/v2/runs/${id}`), runResponse)
 
     const store = mockStore({})
     return store.dispatch(actions.fetchJobRun(id)).then(() => {

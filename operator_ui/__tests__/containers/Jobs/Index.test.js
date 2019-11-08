@@ -9,6 +9,7 @@ import { MemoryRouter } from 'react-router-dom'
 import clickNextPage from 'test-helpers/clickNextPage'
 import clickPreviousPage from 'test-helpers/clickPreviousPage'
 import syncFetch from 'test-helpers/syncFetch'
+import globPath from 'test-helpers/globPath'
 
 const classes = {}
 const mountIndex = (opts = {}) =>
@@ -31,7 +32,7 @@ describe('containers/Jobs/Index', () => {
         createdAt: new Date().toISOString(),
       },
     ])
-    global.fetch.getOnce(`begin:/v2/specs`, jobSpecsResponse)
+    global.fetch.getOnce(globPath('/v2/specs'), jobSpecsResponse)
 
     const wrapper = mountIndex()
 
@@ -48,7 +49,7 @@ describe('containers/Jobs/Index', () => {
       [{ id: 'ID-ON-FIRST-PAGE' }],
       2,
     )
-    global.fetch.getOnce(`begin:/v2/specs`, pageOneResponse)
+    global.fetch.getOnce(globPath('/v2/specs'), pageOneResponse)
 
     const wrapper = mountIndex({ pageSize: 1 })
 
@@ -60,14 +61,14 @@ describe('containers/Jobs/Index', () => {
       [{ id: 'ID-ON-SECOND-PAGE' }],
       2,
     )
-    global.fetch.getOnce(`begin:/v2/specs`, pageTwoResponse)
+    global.fetch.getOnce(globPath('/v2/specs'), pageTwoResponse)
     clickNextPage(wrapper)
 
     await syncFetch(wrapper)
     expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).toContain('ID-ON-SECOND-PAGE')
 
-    global.fetch.getOnce(`begin:/v2/specs`, pageOneResponse)
+    global.fetch.getOnce(globPath('/v2/specs'), pageOneResponse)
     clickPreviousPage(wrapper)
 
     await syncFetch(wrapper)
