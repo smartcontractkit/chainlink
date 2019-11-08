@@ -1,10 +1,11 @@
 package migration1568280052
 
 import (
+	"chainlink/core/store/migrations/migration1565877314"
+	"chainlink/core/store/models"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1565877314"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type ExternalInitiator struct {

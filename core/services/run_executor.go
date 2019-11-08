@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"time"
 
+	"chainlink/core/adapters"
+	"chainlink/core/logger"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 //go:generate mockery -name RunExecutor -output ../internal/mocks/ -case=underscore

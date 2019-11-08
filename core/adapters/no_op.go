@@ -1,8 +1,8 @@
 package adapters
 
 import (
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
 )
 
 // NoOp adapter type holds no fields

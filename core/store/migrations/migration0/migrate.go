@@ -3,13 +3,15 @@ package migration0
 import (
 	"time"
 
+	clnull "chainlink/core/null"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gopkg.in/guregu/null.v3"
+
 )
 
 // Migrate runs the initial migration
