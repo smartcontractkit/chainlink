@@ -62,10 +62,6 @@ const NODE_NAMES = [
     name: 'Omniscience'
   },
   {
-    address: '0x83dA1beEb89Ffaf56d0B7C50aFB0A66Fb4DF8cB1',
-    name: 'Omniscience'
-  },
-  {
     address: '0x0Ce0224ba488ffC0F46bE32b333a874Eb775c613',
     name: 'Cosmostation'
   },
@@ -80,6 +76,14 @@ const NODE_NAMES = [
   {
     address: '0x38b6ab6B9294CCe1Ccb59c3e7D390690B4c18B1A',
     name: 'Prophet'
+  },
+  {
+    address: '0x2Ed7E9fCd3c0568dC6167F0b8aEe06A02CD9ebd8',
+    name: 'Secure Data Links'
+  },
+  {
+    address: '0x78E76126719715Eddf107cD70f3A31dddF31f85A',
+    name: 'Honeycomb'
   }
 ]
 
