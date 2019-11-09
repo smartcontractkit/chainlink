@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v3"
 )
@@ -30,17 +30,14 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	eth := mocks.NewMockEthClient(ctrl)
+	ethClient := new(mocks.EthClient)
 
 	config := cltest.NewTestConfig(t)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())
 	account, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
-	manager := strpkg.NewEthTxManager(eth, config, keyStore, store.ORM)
+	manager := strpkg.NewEthTxManager(ethClient, config, keyStore, store.ORM)
 
 	from := account.Address
 	to := cltest.NewAddress()
@@ -50,12 +47,12 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	manager.Register(keyStore.Accounts())
 	require.NoError(t, err)
 
-	eth.EXPECT().GetNonce(from).Return(nonce, nil)
+	ethClient.On("GetNonce", from).Return(nonce, nil)
 
 	err = manager.Connect(cltest.Head(nonce))
 	require.NoError(t, err)
 
-	eth.EXPECT().SendRawTx(gomock.Any())
+	ethClient.On("SendRawTx", mock.Anything).Return(cltest.NewHash(), nil)
 
 	tx, err := manager.CreateTx(to, data)
 	require.NoError(t, err)
@@ -68,6 +65,8 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	assert.Equal(t, from, ntx.From)
 	assert.Equal(t, nonce, ntx.Nonce)
 	assert.Len(t, ntx.Attempts, 1)
+
+	ethClient.AssertExpectations(t)
 }
 
 func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
@@ -76,10 +75,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	eth := mocks.NewMockEthClient(ctrl)
+	ethClient := new(mocks.EthClient)
 
 	config := cltest.NewTestConfig(t)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())
@@ -91,7 +87,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
 
-	manager := strpkg.NewEthTxManager(eth, config, keyStore, store.ORM)
+	manager := strpkg.NewEthTxManager(ethClient, config, keyStore, store.ORM)
 
 	to := cltest.NewAddress()
 	data, err := hex.DecodeString("0000abcdef")
@@ -102,12 +98,12 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	manager.Register(keyStore.Accounts())
 	require.NoError(t, err)
 
-	eth.EXPECT().GetNonce(gomock.Any()).Return(nonce, nil).Times(2)
+	ethClient.On("GetNonce", mock.Anything).Return(nonce, nil).Times(2)
 
 	err = manager.Connect(cltest.Head(sentAt))
 	require.NoError(t, err)
 
-	eth.EXPECT().SendRawTx(gomock.Any()).Return(cltest.NewHash(), nil)
+	ethClient.On("SendRawTx", mock.Anything).Return(cltest.NewHash(), nil)
 
 	createdTx1, err := manager.CreateTx(to, data)
 	require.NoError(t, err)
@@ -117,8 +113,8 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	assert.Len(t, ntx.Attempts, 1)
 
 	manager.OnNewHead(cltest.Head(bumpAt))
-	eth.EXPECT().GetTxReceipt(createdTx1.Attempts[0].Hash).Return(&models.TxReceipt{}, nil)
-	eth.EXPECT().SendRawTx(gomock.Any()).Return(cltest.NewHash(), nil)
+	ethClient.On("GetTxReceipt", createdTx1.Attempts[0].Hash).Return(&models.TxReceipt{}, nil)
+	ethClient.On("SendRawTx", mock.Anything).Return(cltest.NewHash(), nil)
 
 	// bump gas
 	receipt, state, err := manager.BumpGasUntilSafe(createdTx1.Attempts[0].Hash)
@@ -134,11 +130,13 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	assert.Equal(t, createdTx1.From, ntx.From)
 
 	// ensure second tx uses the first account again
-	eth.EXPECT().SendRawTx(gomock.Any()).Return(cltest.NewHash(), nil)
+	ethClient.On("SendRawTx", mock.Anything).Return(cltest.NewHash(), nil)
 
 	createdTx2, err := manager.CreateTx(to, data)
 	assert.NoError(t, err)
 	require.NotEqual(t, createdTx1.From.Hex(), createdTx2.From.Hex(), "should come from a different account")
+
+	ethClient.AssertExpectations(t)
 }
 
 func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
@@ -147,10 +145,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	eth := mocks.NewMockEthClient(ctrl)
+	ethClient := new(mocks.EthClient)
 
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
@@ -158,7 +153,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	account, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
-	manager := strpkg.NewEthTxManager(eth, config, keyStore, store.ORM)
+	manager := strpkg.NewEthTxManager(ethClient, config, keyStore, store.ORM)
 
 	from := account.Address
 	to := cltest.NewAddress()
@@ -171,12 +166,12 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	manager.Register(keyStore.Accounts())
 	require.NoError(t, err)
 
-	eth.EXPECT().GetNonce(from).Return(nonce, nil)
+	ethClient.On("GetNonce", from).Return(nonce, nil)
 
 	err = manager.Connect(cltest.Head(sentAt))
 	require.NoError(t, err)
 
-	eth.EXPECT().SendRawTx(gomock.Any())
+	ethClient.On("SendRawTx", mock.Anything).Return(cltest.NewHash(), nil)
 
 	tx, err := manager.CreateTx(to, data)
 	require.NoError(t, err)
@@ -191,8 +186,8 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	assert.Len(t, ntx.Attempts, 1)
 
 	manager.OnNewHead(cltest.Head(bumpAt))
-	eth.EXPECT().GetTxReceipt(gomock.Any()).Return(&models.TxReceipt{}, nil)
-	eth.EXPECT().SendRawTx(gomock.Any()).Return(tx.Attempts[0].Hash, nil)
+	ethClient.On("GetTxReceipt", mock.Anything).Return(&models.TxReceipt{}, nil)
+	ethClient.On("SendRawTx", mock.Anything).Return(tx.Attempts[0].Hash, nil)
 
 	receipt, state, err := manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	require.NoError(t, err)
@@ -200,13 +195,15 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	assert.Equal(t, strpkg.Unconfirmed, state)
 
 	manager.OnNewHead(cltest.Head(bumpAgainAt))
-	eth.EXPECT().GetTxReceipt(gomock.Any()).Return(&models.TxReceipt{}, nil)
-	eth.EXPECT().GetTxReceipt(gomock.Any()).Return(&models.TxReceipt{}, nil)
+	ethClient.On("GetTxReceipt", mock.Anything).Return(&models.TxReceipt{}, nil)
+	ethClient.On("GetTxReceipt", mock.Anything).Return(&models.TxReceipt{}, nil)
 
 	receipt, state, err = manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	require.NoError(t, err)
 	assert.Nil(t, receipt)
 	assert.Equal(t, strpkg.Unconfirmed, state)
+
+	ethClient.AssertExpectations(t)
 }
 
 func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
@@ -868,11 +865,9 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 func TestTxManager_ReloadNonce(t *testing.T) {
 	t.Parallel()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	eth := mocks.NewMockEthClient(ctrl)
+	ethClient := new(mocks.EthClient)
 	txm := store.NewEthTxManager(
-		eth,
+		ethClient,
 		orm.NewConfig(),
 		nil,
 		nil,
@@ -883,13 +878,15 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 	ma := store.NewManagedAccount(account, 0)
 
 	nonce := uint64(234)
-	eth.EXPECT().GetNonce(from).Return(nonce, nil)
+	ethClient.On("GetNonce", from).Return(nonce, nil)
 
 	err := ma.ReloadNonce(txm)
 	assert.NoError(t, err)
 
 	assert.Equal(t, account.Address, ma.Address)
 	assert.Equal(t, nonce, ma.Nonce())
+
+	ethClient.AssertExpectations(t)
 }
 
 func TestTxManager_WithdrawLink_HappyPath(t *testing.T) {
@@ -999,17 +996,14 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	eth := mocks.NewMockEthClient(ctrl)
+	ethClient := new(mocks.EthClient)
 
 	config := cltest.NewTestConfig(t)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())
 	account, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
-	manager := strpkg.NewEthTxManager(eth, config, keyStore, store.ORM)
+	manager := strpkg.NewEthTxManager(ethClient, config, keyStore, store.ORM)
 
 	from := account.Address
 	to := cltest.NewAddress()
@@ -1021,12 +1015,12 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	manager.Register(keyStore.Accounts())
 	require.NoError(t, err)
 
-	eth.EXPECT().GetNonce(from).Return(nonce, nil)
+	ethClient.On("GetNonce", from).Return(nonce, nil)
 
 	err = manager.Connect(cltest.Head(sentAt))
 	require.NoError(t, err)
 
-	eth.EXPECT().SendRawTx(gomock.Any())
+	ethClient.On("SendRawTx", mock.Anything).Return(cltest.NewHash(), nil)
 
 	tx, err := manager.CreateTx(to, data)
 	require.NoError(t, err)
@@ -1045,14 +1039,16 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 		BlockNumber: cltest.Int(sentAt),
 	}
 	manager.OnNewHead(cltest.Head(confirmedAt))
-	eth.EXPECT().GetTxReceipt(tx.Attempts[0].Hash).Return(&confirmedReceipt, nil)
-	eth.EXPECT().GetERC20Balance(from, gomock.Any())
-	eth.EXPECT().GetEthBalance(from)
+	ethClient.On("GetTxReceipt", tx.Attempts[0].Hash).Return(&confirmedReceipt, nil)
+	ethClient.On("GetERC20Balance", from, mock.Anything).Return(nil, nil)
+	ethClient.On("GetEthBalance", from).Return(nil, nil)
 
 	receipt, state, err := manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	require.NoError(t, err)
 	assert.NotNil(t, receipt)
 	assert.Equal(t, strpkg.Safe, state)
+
+	ethClient.AssertExpectations(t)
 }
 
 func TestTxManager_CreateTxWithGas(t *testing.T) {
@@ -1191,10 +1187,7 @@ func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	eth := mocks.NewMockEthClient(ctrl)
+	ethClient := new(mocks.EthClient)
 
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
@@ -1202,7 +1195,7 @@ func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 	_, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
-	manager := strpkg.NewEthTxManager(eth, config, keyStore, store.ORM)
+	manager := strpkg.NewEthTxManager(ethClient, config, keyStore, store.ORM)
 
 	to := cltest.NewAddress()
 	data, err := hex.DecodeString("0000abcdef")
@@ -1211,21 +1204,22 @@ func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 	manager.Register(keyStore.Accounts())
 	require.NoError(t, err)
 
-	eth.EXPECT().GetNonce(gomock.Any())
-	eth.EXPECT().GetNonce(gomock.Any())
+	ethClient.On("GetNonce", mock.Anything).Times(2).Return(uint64(0), nil)
 
 	err = manager.Connect(cltest.Head(sentAt))
 	require.NoError(t, err)
 
 	hash := cltest.NewHash()
-	eth.EXPECT().SendRawTx(gomock.Any()).Return(hash, nil)
+	ethClient.On("SendRawTx", mock.Anything).Return(hash, nil)
 
 	_, err = manager.CreateTx(to, data)
 	require.NoError(t, err)
 
 	manager.Disconnect()
 
-	eth.EXPECT().SendRawTx(gomock.Any()).Return(hash, nil)
+	ethClient.On("SendRawTx", mock.Anything).Return(hash, nil)
 	err = manager.Connect(cltest.Head(sentAt))
 	require.NoError(t, err)
+
+	ethClient.AssertExpectations(t)
 }
