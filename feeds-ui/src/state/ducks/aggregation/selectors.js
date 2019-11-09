@@ -83,7 +83,7 @@ const NODE_NAMES = [
   },
   {
     address: '0x78E76126719715Eddf107cD70f3A31dddF31f85A',
-    name: 'Honeycomb'
+    name: 'Honeycomb.market'
   }
 ]
 
