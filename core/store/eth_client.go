@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
-//go:generate mockgen -package=mocks -destination=../internal/mocks/eth_client_mocks.go chainlink/core/store EthClient
+//go:generate mockery -name EthClient -output ../internal/mocks/ -case=underscore
 
 // EthClient is the interface supplied by EthCallerSubscriber
 type EthClient interface {
