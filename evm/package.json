@@ -22,7 +22,7 @@
     "export-typings": "ts-node scripts/export-generated-contract-factories"
   },
   "dependencies": {
-    "cbor": "^4.1.1",
+    "cbor": "^5.0.1",
     "chainlinkv0.5": "0.0.2",
     "ethers": "^4.0.37",
     "link_token": "^1.0.6",
