@@ -13,9 +13,9 @@ import (
 	"chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -158,20 +158,16 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	txmMock := mocks.NewMockTxManager(ctrl)
-	store.TxManager = txmMock
+	txManager := new(mocks.TxManager)
+	subscription := cltest.EmptyMockSubscription()
+	txManager.On("GetChainID").Maybe().Return(store.Config.ChainID(), nil)
+	txManager.On("SubscribeToNewHeads", mock.Anything).Return(subscription, nil)
+	txManager.On("SubscribeToNewHeads", mock.Anything).Return(nil, errors.New("cannot reconnect"))
+	txManager.On("SubscribeToNewHeads", mock.Anything).Return(subscription, nil)
+	store.TxManager = txManager
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
-
-	subscription := cltest.EmptyMockSubscription()
-	txmMock.EXPECT().GetChainID().Return(store.Config.ChainID(), nil).AnyTimes()
-	txmMock.EXPECT().SubscribeToNewHeads(gomock.Any()).Return(subscription, nil)
-	txmMock.EXPECT().SubscribeToNewHeads(gomock.Any()).Return(nil, errors.New("cannot reconnect"))
-	txmMock.EXPECT().SubscribeToNewHeads(gomock.Any()).Return(subscription, nil)
 
 	// connect
 	assert.Nil(t, ht.Start())

@@ -13,8 +13,8 @@ import (
 	"chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 // verifyLinkBalanceCheck(t) is used to check that the address checked in a
@@ -36,24 +36,19 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	wr := models.WithdrawalRequest{
 		DestinationAddress: common.HexToAddress("0xDEADEAFDEADEAFDEADEAFDEADEAFDEAD00000000"),
 		Amount:             assets.NewLink(1000000000000000000),
 	}
 
 	subscription := cltest.EmptyMockSubscription()
-
-	txmMock := mocks.NewMockTxManager(ctrl)
-	txmMock.EXPECT().SubscribeToNewHeads(gomock.Any()).Return(subscription, nil).AnyTimes()
-	txmMock.EXPECT().GetChainID().Return(big.NewInt(3), nil).AnyTimes()
-	txmMock.EXPECT().Register(gomock.Any())
-
-	txmMock.EXPECT().ContractLINKBalance(wr).Return(*wr.Amount, nil)
-	txmMock.EXPECT().WithdrawLINK(wr).Return(cltest.NewHash(), nil)
-	app.Store.TxManager = txmMock
+	txManager := new(mocks.TxManager)
+	txManager.On("SubscribeToNewHeads", mock.Anything).Maybe().Return(subscription, nil)
+	txManager.On("GetChainID").Maybe().Return(big.NewInt(3), nil)
+	txManager.On("Register", mock.Anything).Return(big.NewInt(3), nil)
+	txManager.On("ContractLINKBalance", wr).Return(*wr.Amount, nil)
+	txManager.On("WithdrawLINK", wr).Return(cltest.NewHash(), nil)
+	app.Store.TxManager = txManager
 
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
@@ -67,6 +62,7 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
+	txManager.AssertExpectations(t)
 }
 
 func TestWithdrawalsController_BalanceTooLow(t *testing.T) {

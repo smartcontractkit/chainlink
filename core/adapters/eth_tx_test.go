@@ -16,9 +16,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -485,22 +485,19 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
-	txmMock := mocks.NewMockTxManager(ctrl)
-	store.TxManager = txmMock
-
+	txManager := new(mocks.TxManager)
 	txAttempt := &models.TxAttempt{}
 	tx := &models.Tx{Attempts: []*models.TxAttempt{txAttempt}}
-	txmMock.EXPECT().Connected().Return(true).AnyTimes()
-	txmMock.EXPECT().CreateTxWithGas(gomock.Any(), gomock.Any(), hexutil.MustDecode(
+	txManager.On("Connected").Maybe().Return(true)
+	txManager.On("CreateTxWithGas", mock.Anything, mock.Anything, hexutil.MustDecode(
 		"0x00000000"+
 			"0000000000000000000000000000000000000000000000000000000000000020"+
 			"000000000000000000000000000000000000000000000000000000000000000b"+
 			"68656c6c6f20776f726c64000000000000000000000000000000000000000000"),
-		gomock.Any(), gomock.Any()).Return(tx, nil)
-	txmMock.EXPECT().CheckAttempt(txAttempt, uint64(0)).Return(&models.TxReceipt{}, strpkg.Unconfirmed, nil)
+		mock.Anything, mock.Anything).Return(tx, nil)
+	txManager.On("CheckAttempt", txAttempt, uint64(0)).Return(&models.TxReceipt{}, strpkg.Unconfirmed, nil)
+	store.TxManager = txManager
 
 	task := models.TaskSpec{}
 	err := json.Unmarshal([]byte(`{"type": "EthTx", "params": {"format": "bytes"}}`), &task)
@@ -516,6 +513,8 @@ func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	input := *models.NewRunInputWithResult(models.NewID(), "hello world", models.RunStatusInProgress)
 	result := adapter.Perform(input, store)
 	assert.NoError(t, result.Error())
+
+	txManager.AssertExpectations(t)
 }
 
 func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
@@ -527,22 +526,19 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 	gasPrice := big.NewInt(187)
 	gasLimit := uint64(911)
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	txmMock := mocks.NewMockTxManager(ctrl)
-	store.TxManager = txmMock
-	txmMock.EXPECT().Connected().Return(true)
-	txmMock.EXPECT().CreateTxWithGas(
-		gomock.Any(),
-		gomock.Any(),
-		gomock.Any(),
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(true)
+	txManager.On("CreateTxWithGas",
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
 		gasPrice,
 		gasLimit,
 	).Return(&models.Tx{
 		Attempts: []*models.TxAttempt{&models.TxAttempt{}},
 	}, nil)
-	txmMock.EXPECT().CheckAttempt(gomock.Any(), gomock.Any()).Return(&models.TxReceipt{}, strpkg.Unconfirmed, nil)
+	txManager.On("CheckAttempt", mock.Anything, mock.Anything).Return(&models.TxReceipt{}, strpkg.Unconfirmed, nil)
+	store.TxManager = txManager
 
 	adapter := adapters.EthTx{
 		Address:          cltest.NewAddress(),
@@ -554,6 +550,8 @@ func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
 	input := *models.NewRunInputWithResult(models.NewID(), "hello world", models.RunStatusInProgress)
 	result := adapter.Perform(input, store)
 	assert.NoError(t, result.Error())
+
+	txManager.AssertExpectations(t)
 }
 
 func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
@@ -575,25 +573,24 @@ func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testin
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	txmMock := mocks.NewMockTxManager(ctrl)
-	store.TxManager = txmMock
-	txmMock.EXPECT().Connected().Return(true)
-	txmMock.EXPECT().CreateTxWithGas(
-		gomock.Any(),
-		gomock.Any(),
-		gomock.Any(),
-		gomock.Any(),
-		gomock.Any(),
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(true)
+	txManager.On("CreateTxWithGas",
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
 	).Return(nil, syscall.ETIMEDOUT)
+	store.TxManager = txManager
 
 	adapter := adapters.EthTx{}
 	data := adapter.Perform(models.RunInput{}, store)
 
 	require.NoError(t, data.Error())
 	assert.Equal(t, models.RunStatusPendingConnection, data.Status())
+
+	txManager.AssertExpectations(t)
 }
 
 func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T) {
@@ -602,28 +599,27 @@ func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	txmMock := mocks.NewMockTxManager(ctrl)
-	store.TxManager = txmMock
-	txmMock.EXPECT().Connected().Return(true)
-	txmMock.EXPECT().CreateTxWithGas(
-		gomock.Any(),
-		gomock.Any(),
-		gomock.Any(),
-		gomock.Any(),
-		gomock.Any(),
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(true)
+	txManager.On("CreateTxWithGas",
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
 	).Return(&models.Tx{
 		Attempts: []*models.TxAttempt{&models.TxAttempt{}},
 	}, nil)
-	txmMock.EXPECT().CheckAttempt(gomock.Any(), gomock.Any()).Return(nil, strpkg.Unknown, syscall.EWOULDBLOCK)
+	txManager.On("CheckAttempt", mock.Anything, mock.Anything).Return(nil, strpkg.Unknown, syscall.EWOULDBLOCK)
+	store.TxManager = txManager
 
 	adapter := adapters.EthTx{}
 	data := adapter.Perform(models.RunInput{}, store)
 
 	require.NoError(t, data.Error())
 	assert.Equal(t, models.RunStatusPendingConnection, data.Status())
+
+	txManager.AssertExpectations(t)
 }
 
 func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfirmations(t *testing.T) {
@@ -635,24 +631,18 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 	from := cltest.NewAddress()
 	tx := cltest.CreateTx(t, store, from, 1)
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	badResponseErr := errors.New("Bad response on request: [ TransactionIndex ]. Error cause was EmptyResponse, (majority count: 94 / total: 94)")
-	txmMock := mocks.NewMockTxManager(ctrl)
-	store.TxManager = txmMock
-	txmMock.EXPECT().Connected().Return(true)
-	txmMock.EXPECT().CreateTxWithGas(
-		gomock.Any(),
-		gomock.Any(),
-		gomock.Any(),
-		gomock.Any(),
-		gomock.Any(),
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(true)
+	txManager.On("CreateTxWithGas",
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
 	).Return(tx, nil)
-	txmMock.EXPECT().CheckAttempt(
-		gomock.Any(),
-		gomock.Any(),
-	).Return(nil, strpkg.Unknown, badResponseErr)
+	txManager.On("CheckAttempt", mock.Anything, mock.Anything).Return(nil, strpkg.Unknown, badResponseErr)
+	store.TxManager = txManager
 
 	adapter := adapters.EthTx{}
 	output := adapter.Perform(models.RunInput{}, store)
@@ -661,15 +651,15 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
 
 	// Have a head come through with the same empty response
-	txmMock.EXPECT().Connected().Return(true)
-	txmMock.EXPECT().BumpGasUntilSafe(
-		gomock.Any(),
-	).Return(nil, strpkg.Unknown, badResponseErr)
+	txManager.On("Connected").Return(true)
+	txManager.On("BumpGasUntilSafe", mock.Anything).Return(nil, strpkg.Unknown, badResponseErr)
 
 	input := *models.NewRunInput(models.NewID(), output.Data(), output.Status())
 	output = adapter.Perform(input, store)
 	require.NoError(t, output.Error())
 	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
+
+	txManager.AssertExpectations(t)
 }
 
 func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
