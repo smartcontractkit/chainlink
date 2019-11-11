@@ -40,7 +40,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mrwonko/cron v0.0.0-20180828170130-e0ddd0f7e7db
-	github.com/olekukonko/tablewriter v0.0.1
+	github.com/olekukonko/tablewriter v0.0.2
 	github.com/onsi/gomega v1.7.0
 	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709 // indirect
 	github.com/pkg/errors v0.8.1
