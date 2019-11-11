@@ -14,7 +14,7 @@ export class JobRun {
   @PrimaryGeneratedColumn('uuid')
   id: string
 
-  @Column({ nullable: true })
+  @Column()
   chainlinkNodeId: number
 
   @Column()
