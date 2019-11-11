@@ -40,5 +40,8 @@ context('End to end', function() {
       cy.clickLink(runId)
     })
     cy.contains('h5', 'Complete').should('exist')
+    cy.get('@runId').then(runId => {
+      cy.contains(runId).should('exist')
+    })
   })
 })
