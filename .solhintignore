@@ -1,7 +1,4 @@
 node_modules
-examples/echo_server/node_modules
-examples/uptime_sla/node_modules
-examples/twilio_sms/node_modules
 examples/testnet/node_modules
 examples/testnet/contracts/TestnetConsumer.sol
 examples/testnet/contracts/Oracle.sol
