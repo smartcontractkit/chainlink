@@ -17,7 +17,7 @@
     "@babel/polyfill": "^7.2.5",
     "@babel/register": "^7.6.2",
     "body-parser": "^1.18.3",
-    "cbor": "^4.0.0",
+    "cbor": "^5.0.1",
     "chainlink": "^0.6.5",
     "express": "^4.16.2",
     "link_token": "^1.0.6",
