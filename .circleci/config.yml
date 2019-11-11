@@ -274,9 +274,6 @@ jobs:
       - run:
           name: Run Client Tests
           command: yarn workspace @chainlink/explorer-client run test-ci:silent
-      - run:
-          name: Run E2E Tests
-          command: yarn workspace @chainlink/explorer-client run build && yarn workspace @chainlink/explorer run test-ci:e2e:silent
       - store_artifacts:
           path: ./integration/logs
   forks:
