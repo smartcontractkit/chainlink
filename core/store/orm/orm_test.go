@@ -166,13 +166,6 @@ func TestORM_SaveJobRun_Cancelled(t *testing.T) {
 	assert.Equal(t, orm.OptimisticUpdateConflictError, store.SaveJobRun(&jr))
 }
 
-func coercedJSON(v string) string {
-	if v == "" {
-		return "{}"
-	}
-	return v
-}
-
 func TestORM_JobRunsFor(t *testing.T) {
 	t.Parallel()
 
