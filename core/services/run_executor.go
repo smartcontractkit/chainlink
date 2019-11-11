@@ -84,10 +84,11 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 func (je *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) models.RunOutput {
 	taskCopy := taskRun.TaskSpec // deliberately copied to keep mutations local
 
-	var err error
-	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides); err != nil {
+	params, err := models.Merge(taskCopy.Params, run.Overrides)
+	if err != nil {
 		return models.NewRunOutputError(err)
 	}
+	taskCopy.Params = params
 
 	adapter, err := adapters.For(taskCopy, je.store.Config, je.store.ORM)
 	if err != nil {
@@ -96,14 +97,13 @@ func (je *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) 
 
 	previousTaskRun := run.PreviousTaskRun()
 
-	data := models.JSON{}
+	previousTaskInput := models.JSON{}
 	if previousTaskRun != nil {
-		if data, err = previousTaskRun.Result.Data.Merge(taskRun.Result.Data); err != nil {
-			return models.NewRunOutputError(err)
-		}
+		previousTaskInput = previousTaskRun.Result.Data
 	}
 
-	if data, err = run.Overrides.Merge(data); err != nil {
+	data, err := models.Merge(run.Overrides, previousTaskInput, taskRun.Result.Data)
+	if err != nil {
 		return models.NewRunOutputError(err)
 	}
 

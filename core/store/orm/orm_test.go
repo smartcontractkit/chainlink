@@ -119,32 +119,6 @@ func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 	assert.Equal(t, 1, requestCount)
 }
 
-func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	job := cltest.NewJobWithSchedule("* * * * *")
-	require.NoError(t, store.CreateJob(&job))
-
-	jr := job.NewRun(job.Initiators[0])
-	require.NoError(t, store.CreateJobRun(&jr))
-
-	var err error
-	jr.TaskRuns[0].TaskSpec.Params, err = jr.TaskRuns[0].TaskSpec.Params.Merge(cltest.JSONFromString(t, `{"random": "input"}`))
-	require.NoError(t, err)
-	require.NoError(t, store.SaveJobRun(&jr))
-
-	retrievedJob, err := store.FindJob(job.ID)
-	require.NoError(t, err)
-	require.Len(t, job.Tasks, 1)
-	require.Len(t, retrievedJob.Tasks, 1)
-	assert.JSONEq(
-		t,
-		coercedJSON(job.Tasks[0].Params.String()),
-		retrievedJob.Tasks[0].Params.String())
-}
-
 func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
@@ -190,13 +164,6 @@ func TestORM_SaveJobRun_Cancelled(t *testing.T) {
 	jr.UpdatedAt = updatedAt
 	jr.Status = models.RunStatusInProgress
 	assert.Equal(t, orm.OptimisticUpdateConflictError, store.SaveJobRun(&jr))
-}
-
-func coercedJSON(v string) string {
-	if v == "" {
-		return "{}"
-	}
-	return v
 }
 
 func TestORM_JobRunsFor(t *testing.T) {

@@ -300,7 +300,11 @@ func (jm *runManager) ResumePending(
 		return jm.updateWithError(&run, "Attempting to resume pending run with no remaining tasks %s", run.ID)
 	}
 
-	run.Overrides.Merge(input.Data)
+	data, err := models.Merge(run.Overrides, input.Data)
+	if err != nil {
+		return jm.updateWithError(&run, "Error while merging onto overrides for run %s", run.ID)
+	}
+	run.Overrides = data
 
 	currentTaskRun.ApplyBridgeRunResult(input)
 	run.ApplyBridgeRunResult(input)
