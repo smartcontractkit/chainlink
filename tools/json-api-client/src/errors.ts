@@ -32,6 +32,15 @@ export class BadRequestError extends Error {
   }
 }
 
+export class UnprocessableEntityError extends Error {
+  errors: ErrorItem[]
+
+  constructor(errors: ErrorItem[]) {
+    super('UnprocessableEntityError')
+    this.errors = errors
+  }
+}
+
 export class ServerError extends Error {
   errors: ErrorItem[]
 
