@@ -22,7 +22,7 @@ describe('getJson', () => {
     expect(getJson('foo')).toEqual({ foo: 'FOO' })
   })
 
-  it('returns an empty JS object when not valid JSON', () => {
+  it('returns an empty JS object when it retrieves invalid JSON from storage', () => {
     storage.setItem('chainlink.foo', '{"foo"}')
     expect(getJson('foo')).toEqual({})
   })
