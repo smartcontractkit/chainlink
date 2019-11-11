@@ -62,7 +62,7 @@ require (
 	github.com/urfave/cli v1.22.1
 	github.com/willf/pad v0.0.0-20190207183901-eccfe5d84172
 	go.dedis.ch/fixbuf v1.0.3
-	go.dedis.ch/kyber/v3 v3.0.7
+	go.dedis.ch/kyber/v3 v3.0.9
 	go.uber.org/multierr v1.2.0
 	go.uber.org/zap v1.11.0
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
