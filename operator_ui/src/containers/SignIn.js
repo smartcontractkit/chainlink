@@ -13,7 +13,7 @@ import { hot } from 'react-hot-loader'
 import { submitSignIn } from 'actions'
 import HexagonLogo from 'components/Logos/Hexagon'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { getPersistUrl } from '../utils/urlStorage'
+import { getPersistUrl } from '../utils/storage'
 
 const styles = theme => ({
   container: {

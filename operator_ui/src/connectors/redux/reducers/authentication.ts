@@ -1,4 +1,4 @@
-import * as authenticationStorage from 'utils/authenticationStorage'
+import * as storage from 'utils/storage'
 
 const defaultState = {
   allowed: false,
@@ -9,7 +9,7 @@ const defaultState = {
 const initialState = Object.assign(
   {},
   defaultState,
-  authenticationStorage.get(),
+  storage.getAuthentication(),
 )
 
 export type AuthenticationAction =
@@ -53,7 +53,8 @@ export default (state = initialState, action: AuthenticationAction) => {
     case AuthenticationActionType.RECEIVE_SIGNOUT_SUCCESS:
     case AuthenticationActionType.RECEIVE_SIGNIN_SUCCESS: {
       const allowed = { allowed: action.authenticated }
-      authenticationStorage.set(allowed)
+      storage.setAuthentication(allowed)
+
       return Object.assign({}, state, allowed, {
         errors: [],
         networkError: false,
@@ -61,13 +62,15 @@ export default (state = initialState, action: AuthenticationAction) => {
     }
     case AuthenticationActionType.RECEIVE_SIGNIN_FAIL: {
       const allowed = { allowed: false }
-      authenticationStorage.set(allowed)
+      storage.setAuthentication(allowed)
+
       return Object.assign({}, state, allowed, { errors: [] })
     }
     case AuthenticationActionType.RECEIVE_SIGNIN_ERROR:
     case AuthenticationActionType.RECEIVE_SIGNOUT_ERROR: {
       const allowed = { allowed: false }
-      authenticationStorage.set(allowed)
+      storage.setAuthentication(allowed)
+
       return Object.assign({}, state, allowed, {
         errors: action.errors || [],
         networkError: action.networkError,

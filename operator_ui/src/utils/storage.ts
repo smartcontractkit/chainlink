@@ -9,3 +9,15 @@ export function getPersistUrl(): string {
 export function setPersistUrl(url: string): void {
   storage.set(PERSIST_URL, url)
 }
+
+export interface Auth {
+  allowed?: boolean
+}
+
+export function getAuthentication(): Auth {
+  return storage.getJson('authentication')
+}
+
+export function setAuthentication(auth: Auth): void {
+  storage.setJson('authentication', auth)
+}
