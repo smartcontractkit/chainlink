@@ -804,15 +804,12 @@ func TestTxManager_CheckAttempt_error(t *testing.T) {
 func TestTxManager_Register(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
 	ethMock := &cltest.EthMock{}
-	txm := strpkg.NewEthTxManager(
+	txm := store.NewEthTxManager(
 		&strpkg.EthCallerSubscriber{CallerSubscriber: ethMock},
 		orm.NewConfig(),
 		nil,
-		store.ORM,
+		nil,
 	)
 
 	ethMock.Register("eth_getTransactionCount", `0x2D0`)
@@ -829,15 +826,12 @@ func TestTxManager_Register(t *testing.T) {
 func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
 	ethMock := &cltest.EthMock{}
-	txm := strpkg.NewEthTxManager(
+	txm := store.NewEthTxManager(
 		&strpkg.EthCallerSubscriber{CallerSubscriber: ethMock},
 		orm.NewConfig(),
 		nil,
-		store.ORM,
+		nil,
 	)
 
 	accounts := []accounts.Account{
@@ -1181,49 +1175,4 @@ func TestContract_EncodeMessageCall_errors(t *testing.T) {
 			assert.Nil(t, data)
 		})
 	}
-}
-
-func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	eth := mocks.NewMockEthClient(ctrl)
-
-	config := cltest.NewTestConfig(t)
-	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
-	keyStore := strpkg.NewKeyStore(config.KeysDir())
-	_, err := keyStore.NewAccount(cltest.Password)
-	require.NoError(t, err)
-	require.NoError(t, keyStore.Unlock(cltest.Password))
-	manager := strpkg.NewEthTxManager(eth, config, keyStore, store.ORM)
-
-	to := cltest.NewAddress()
-	data, err := hex.DecodeString("0000abcdef")
-	sentAt := uint64(1)
-
-	manager.Register(keyStore.Accounts())
-	require.NoError(t, err)
-
-	eth.EXPECT().GetNonce(gomock.Any())
-	eth.EXPECT().GetNonce(gomock.Any())
-
-	err = manager.Connect(cltest.Head(sentAt))
-	require.NoError(t, err)
-
-	hash := cltest.NewHash()
-	eth.EXPECT().SendRawTx(gomock.Any()).Return(hash, nil)
-
-	_, err = manager.CreateTx(to, data)
-	require.NoError(t, err)
-
-	manager.Disconnect()
-
-	eth.EXPECT().SendRawTx(gomock.Any()).Return(hash, nil)
-	err = manager.Connect(cltest.Head(sentAt))
-	require.NoError(t, err)
 }
