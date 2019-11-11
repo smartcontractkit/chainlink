@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"chainlink/core/internal/cltest"
-	"chainlink/core/services/mock_services"
+	"chainlink/core/internal/mocks"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 
-	"github.com/golang/mock/gomock"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tevino/abool"
 )
@@ -43,13 +43,13 @@ func TestChainlinkApplication_AddJob(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	jobSubscriber := new(mocks.JobSubscriber)
+	jobSubscriber.On("AddJob", mock.Anything, (*models.Head)(nil)).Return(nil, nil)
+	app.ChainlinkApplication.JobSubscriber = jobSubscriber
 
-	jobSubscriberMock := mock_services.NewMockJobSubscriber(ctrl)
-	app.ChainlinkApplication.JobSubscriber = jobSubscriberMock
-	jobSubscriberMock.EXPECT().AddJob(gomock.Any(), nil) // nil to represent "latest" block
 	app.AddJob(cltest.NewJob())
+
+	jobSubscriber.AssertExpectations(t)
 }
 
 func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
