@@ -3,7 +3,7 @@ import { Provider } from 'react-redux'
 import createStore from './connectors/redux'
 import './index.css'
 import Layout from './Layout'
-import { setPersistUrl } from './utils/urlStorage'
+import { setPersistUrl } from './utils/storage'
 
 const SIGNIN_PATH = '/signin'
 
