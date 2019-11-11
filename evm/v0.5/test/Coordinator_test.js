@@ -714,9 +714,15 @@ contract('Coordinator', () => {
 
       it('oracle balances are updated', async () => {
         // Given the 3 oracles from the SA, each should have the following balance after fulfillment
-        const expected = h.bigNum('333333333333333333')
+        const expected1 = h.bigNum('555555555555555555')
+        const expected2 = h.bigNum('333333333333333333')
+        const expected3 = h.bigNum('111111111111111111')
         const balance1 = await coordinator.withdrawableTokens.call(oracle1)
-        assertBigNum(expected, balance1)
+        const balance2 = await coordinator.withdrawableTokens.call(oracle2)
+        const balance3 = await coordinator.withdrawableTokens.call(oracle3)
+        assertBigNum(expected1, balance1)
+        assertBigNum(expected2, balance2)
+        assertBigNum(expected3, balance3)
       })
     })
 
