@@ -21,12 +21,6 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-var (
-	// ErrorCannotMergeNonObject is returned if a Merge was attempted on a string
-	// or array JSON value
-	ErrorCannotMergeNonObject = errors.New("Cannot merge, expected object '{}'")
-)
-
 // RunStatus is a string that represents the run status
 type RunStatus string
 
