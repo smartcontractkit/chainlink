@@ -39,11 +39,12 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 	}
 
 	for taskIndex := range run.TaskRuns {
+		taskRun := &run.TaskRuns[taskIndex]
 		if !run.Status.Runnable() {
+			logger.Debugw("Task execution blocked", run.ForLogger("task", taskRun.ID.String())...)
 			break
 		}
 
-		taskRun := &run.TaskRuns[taskIndex]
 		if taskRun.Status.Completed() {
 			continue
 		}
@@ -53,10 +54,6 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 
 			taskRun.ApplyOutput(result)
 			run.ApplyOutput(result)
-
-			if !result.Status().Runnable() {
-				logger.Debugw("Task execution blocked", run.ForLogger("task", taskRun.ID.String())...)
-			}
 
 		} else {
 			logger.Debugw("Pausing run pending confirmations",
