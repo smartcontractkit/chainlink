@@ -17,7 +17,7 @@
     "@chainlink/prettier-config": "0.0.1",
     "bignumber.js": "^9.0.0",
     "bn.js": "^4.11.8",
-    "cbor": "^4.0.0",
+    "cbor": "^5.0.1",
     "chainlink": "^0.6.5",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",

@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "bn.js": "^4.11.0",
-    "cbor": "^4.1.1",
+    "cbor": "^5.0.1",
     "ethereumjs-abi": "^0.6.8",
     "ethereumjs-util": "^6.1.0",
     "truffle-contract": "^4.0.31",
