@@ -31,7 +31,8 @@ if [ "$#" == 0 ]; then
   export CHAINLINK_VERSION
 
   yarn install --no-progress | cat                        # ensure latest dependencies
-  yarn setup                                              # ensure latest build steps for dependencies 
+  yarn workspace chainlink setup | cat                    # ensure evm contract is built
+  yarn workspace @chainlink/operator-ui setup | cat       # currently a no-op
   yarn workspace @chainlink/operator-ui run build | cat
 
   mainexec local import $DEFAULT_KEY_PATH
