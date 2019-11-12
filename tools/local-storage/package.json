@@ -1,5 +1,5 @@
 {
-  "name": "@chainlink/json-api-client",
+  "name": "@chainlink/local-storage",
   "private": true,
   "version": "0.0.1",
   "main": "./dist/src",
@@ -14,20 +14,14 @@
   },
   "peerDependencies": {},
   "dependencies": {
-    "isomorphic-unfetch": "^3.0.0",
-    "json-api-normalizer": "^0.4.13",
-    "path-to-regexp": "^3.0.0",
-    "typescript": "^3.6.3",
-    "url": "^0.11.0"
+    "local-storage-fallback": "^4.1.1",
+    "typescript": "^3.6.3"
   },
   "devDependencies": {
     "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
-    "@types/fetch-mock": "^7.3.1",
     "@types/jest": "^24.0.18",
-    "@types/path-to-regexp": "^1.7.0",
     "eslint": "^6.3.0",
-    "fetch-mock": "^7.3.1",
     "jest": "^24.9.0",
     "rimraf": "^3.0.0",
     "ts-jest": "^24.0.0"
