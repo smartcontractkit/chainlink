@@ -8,6 +8,10 @@ export function set(key: string, val: string): void {
   storage.setItem(`chainlink.${key}`, val)
 }
 
+export function remove(key: string): void {
+  storage.removeItem(`chainlink.${key}`)
+}
+
 export function getJson(key: string): any {
   const stored = get(key)
   const obj = {}
