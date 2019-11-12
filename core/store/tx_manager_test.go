@@ -804,12 +804,15 @@ func TestTxManager_CheckAttempt_error(t *testing.T) {
 func TestTxManager_Register(t *testing.T) {
 	t.Parallel()
 
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
 	ethMock := &cltest.EthMock{}
-	txm := store.NewEthTxManager(
+	txm := strpkg.NewEthTxManager(
 		&strpkg.EthCallerSubscriber{CallerSubscriber: ethMock},
 		orm.NewConfig(),
 		nil,
-		nil,
+		store.ORM,
 	)
 
 	ethMock.Register("eth_getTransactionCount", `0x2D0`)
@@ -826,12 +829,15 @@ func TestTxManager_Register(t *testing.T) {
 func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	t.Parallel()
 
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
 	ethMock := &cltest.EthMock{}
-	txm := store.NewEthTxManager(
+	txm := strpkg.NewEthTxManager(
 		&strpkg.EthCallerSubscriber{CallerSubscriber: ethMock},
 		orm.NewConfig(),
 		nil,
-		nil,
+		store.ORM,
 	)
 
 	accounts := []accounts.Account{
