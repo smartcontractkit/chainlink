@@ -2,10 +2,13 @@ import reducer, { INITIAL_STATE } from '../../reducers'
 import { FetchJobRunSucceededAction } from '../../reducers/actions'
 
 describe('reducers/config', () => {
-  it('can update the search query', () => {
-    const action = {
+  it('updates the current etherscan host when job runs are fetched', () => {
+    const action: FetchJobRunSucceededAction = {
       type: 'FETCH_JOB_RUN_SUCCEEDED',
       data: {
+        chainlinkNodes: [],
+        jobRuns: [],
+        taskRuns: [],
         meta: {
           jobRun: {
             meta: {
@@ -14,7 +17,7 @@ describe('reducers/config', () => {
           },
         },
       },
-    } as FetchJobRunSucceededAction
+    }
     const state = reducer(INITIAL_STATE, action)
 
     expect(state.config).toEqual({
