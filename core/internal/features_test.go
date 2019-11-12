@@ -2,6 +2,7 @@ package internal_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -861,4 +862,42 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.ID)
 	assert.NoError(t, err)
+}
+
+func TestIntegration_RunLog_paramsMerging(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+
+	eth := app.MockEthCallerSubscriber()
+	logs := make(chan models.Log, 1)
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("logs", logs)
+	})
+	eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
+	eth.Register("eth_sendRawTransaction", cltest.NewHash()) // Initial tx attempt sent
+	app.Start()
+
+	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_override_selector_job.json")
+
+	initr := j.Initiators[0]
+	assert.Equal(t, models.InitiatorRunLog, initr.Type)
+	creationHeight := 1
+	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), creationHeight, `{}`)
+	confirmedReceipt := models.TxReceipt{BlockNumber: cltest.Int(creationHeight)}
+	eth.Register("eth_getTransactionReceipt", confirmedReceipt)
+	logs <- runlog
+	runs := cltest.WaitForRuns(t, j, app.Store, 1)
+
+	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, runs[0])
+	require.Len(t, jr.TaskRuns, 1)
+	tr := jr.TaskRuns[0]
+	txid, err := tr.Result.ResultString()
+	assert.NoError(t, err)
+	txa, err := app.Store.FindTxAttempt(common.HexToHash(txid))
+	assert.NoError(t, err)
+	expected := models.OracleFulfillmentFunctionID20190123withFulfillmentParams[2:]
+	assert.Equal(t, expected, hex.EncodeToString(txa.Tx.Data[:4]))
+
+	eth.EventuallyAllCalled(t)
 }

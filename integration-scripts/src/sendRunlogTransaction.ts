@@ -106,10 +106,7 @@ async function createJob(
       // 10 seconds to ensure the time has not elapsed by the time the run is triggered
       { type: 'Sleep', params: { until: futureOffsetSeconds(10) } },
       { type: 'HttpPost', params: { url: echoServerUrl } },
-      {
-        type: 'EthTx',
-        params: { functionSelector: 'fulfillOracleRequest(uint256,bytes32)' },
-      },
+      { type: 'EthTx' },
     ],
   }
 
