@@ -14,6 +14,7 @@ and will go on to form the basis for Chainlink's [decentralized oracle network](
 Further development of the Chainlink Node and Chainlink Network will happen here,
 if you are interested in contributing please see our [contribution guidelines](./docs/CONTRIBUTING.md).
 The current node supports:
+
 - easy connectivity of on-chain contracts to any off-chain computation or API
 - multiple methods for scheduling both on-chain and off-chain computation for a user's smart contract
 - automatic gas price bumping to prevent stuck transactions, assuring your data is delivered in a timely manner
@@ -46,16 +47,21 @@ Ethereum node versions currently tested and supported:
 **NOTE**: By default, chainlink will run in TLS mode. For local development you can either disable this by setting CHAINLINK_DEV to true, or generate self signed certificates using `tools/bin/self-signed-certs` or [manually](https://github.com/smartcontractkit/chainlink/wiki/Creating-Self-Signed-Certificates).
 
 To start your Chainlink node, simply run:
+
 ```bash
 $ chainlink local node
 ```
+
 By default this will start on port 6688, where it exposes a [REST API](https://github.com/smartcontractkit/chainlink/wiki/REST-API).
 
 Once your node has started, you can view your current jobs with:
+
 ```bash
 $ chainlink jobspecs
-````
+```
+
 View details of a specific job with:
+
 ```bash
 $ chainlink show $JOB_ID
 ```
@@ -72,20 +78,16 @@ You can configure your node's behavior by setting environment variables which ca
 
 This project contains several sub-projects, some with their own documentation.
 
- - [evm](/evm) - smart contract-related resources
-   - [box](/evm/box) - [Chainlink Truffle box](https://www.trufflesuite.com/blog/using-truffle-to-interact-with-chainlink-smart-contracts)
-   - [v0.5](/evm/v0.5) - Chainlink using Solidity v0.5.0
- - [examples](/examples) - collection of example Chainlink integrations
-   - [echo_server](/examples/echo_server) - demonstrates using Chainlink to monitor incoming Ethereum logs and report them as JSON
-   - [testnet](/examples/testnet) - guide to creating, deploying and using Chainlinked smart contracts
-   - [twilio_sms](/examples/twilio_sms) - send a text message when a smart contract receives payment
-   - [uptime_sla](/examples/uptime_sla) - example SLA that uses ChainLink to determine the release of payment
- - [explorer](/explorer) - [Chainlink Explorer](https://explorer.chain.link/)
- - [integration/forks](/integration/forks) - integration test for [ommers](https://ethereum.stackexchange.com/a/46/19503) and [re-orgs](https://en.bitcoin.it/wiki/Chain_Reorganization) 
- - [sgx](/sgx) - experimental, optional module that can be loaded into Chainlink to do processing within an [SGX](https://software.intel.com/en-us/sgx) enclave
- - [styleguide](/styleguide) - Chainlink style guide
- - [tools](/tools) - Chainlink tools
-
+- [evm](/evm) - smart contract-related resources
+  - [box](/evm/box) - [Chainlink Truffle box](https://www.trufflesuite.com/blog/using-truffle-to-interact-with-chainlink-smart-contracts)
+  - [v0.5](/evm/v0.5) - Chainlink using Solidity v0.5.0
+- [examples](/examples) - collection of example Chainlink integrations
+  - [testnet](/examples/testnet) - guide to creating, deploying and using Chainlinked smart contracts
+- [explorer](/explorer) - [Chainlink Explorer](https://explorer.chain.link/)
+- [integration/forks](/integration/forks) - integration test for [ommers](https://ethereum.stackexchange.com/a/46/19503) and [re-orgs](https://en.bitcoin.it/wiki/Chain_Reorganization)
+- [sgx](/sgx) - experimental, optional module that can be loaded into Chainlink to do processing within an [SGX](https://software.intel.com/en-us/sgx) enclave
+- [styleguide](/styleguide) - Chainlink style guide
+- [tools](/tools) - Chainlink tools
 
 ## External Adapters
 
@@ -93,7 +95,6 @@ External adapters are what make Chainlink easily extensible, providing simple in
 A Chainlink node communicates with external adapters via a simple REST API.
 
 For more information on creating and using external adapters, please see our [external adapters page](https://github.com/smartcontractkit/chainlink/wiki/External-Adapters).
-
 
 ## Development Setup
 
@@ -106,6 +107,7 @@ $ go build -o chainlink ./core/
 ```
 
 - Run the binary:
+
 ```bash
 $ ./chainlink
 ```
@@ -120,14 +122,18 @@ $ go test ./...
 
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
 2. Install the dependencies:
+
 ```bash
 $ cd evm
 $ yarn install
 ```
+
 3. Run tests:
+
 ```bash
 $ yarn run test-sol
 ```
+
 ### Development Tips
 
 For more tips on how to build and test Chainlink, see our [development tips page](https://github.com/smartcontractkit/chainlink/wiki/Development-Tips).
