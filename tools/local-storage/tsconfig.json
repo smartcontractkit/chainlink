@@ -9,7 +9,10 @@
     "moduleResolution": "node",
     "target": "es2017",
     "module": "es2015",
-    "lib": ["es2018"],
+    "lib": [
+      "es2018",
+      "dom"
+    ],
     "outDir": "./dist",
     "jsx": "preserve",
     "sourceMap": true,
