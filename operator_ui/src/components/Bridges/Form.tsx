@@ -5,12 +5,14 @@ import {
   withStyles,
   WithStyles,
 } from '@material-ui/core/styles'
-import Button from 'components/Button'
+import * as storage from '@chainlink/local-storage'
 import { withFormik, FormikProps, Form as FormikForm } from 'formik'
 import normalizeUrl from 'normalize-url'
 import React from 'react'
 import { Prompt } from 'react-router-dom'
-import * as storage from '@chainlink/local-storage'
+import isEmpty from 'lodash/isEmpty'
+import isEqual from 'lodash/isEqual'
+import Button from 'components/Button'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -30,25 +32,9 @@ const styles = (theme: Theme) =>
     },
   })
 
-const isDirty = ({ values, submitCount }: Props) => {
-  return (
-    (values.name !== '' ||
-      values.url !== '' ||
-      (values.minimumContractPayment !== '0' && values.confirmations !== 0)) &&
-    submitCount === 0
-  )
-}
+const SUBMITTING_TIMEOUT_MS = 1000
+const UNSAVED_BRIDGE = 'persistBridge'
 
-// CHECKME
-interface OwnProps extends Partial<FormValues>, WithStyles<typeof styles> {
-  actionText: string
-  nameDisabled?: boolean
-  onSubmit: any
-  onSuccess: any
-  onError: any
-}
-
-// CHECKME
 interface FormValues {
   name: string
   minimumContractPayment: string
@@ -56,7 +42,55 @@ interface FormValues {
   url: string
 }
 
+interface OwnProps extends Partial<FormValues>, WithStyles<typeof styles> {
+  actionText: string
+  nameDisabled?: boolean
+  onSubmit: (
+    values: FormValues,
+    onSuccesss: Function,
+    onError: Function,
+  ) => void
+  onSuccess: Function
+  onError: Function
+}
+
 type Props = FormikProps<FormValues> & OwnProps
+
+function submitSuccess(callback: Function) {
+  return (response: object) => {
+    storage.remove(UNSAVED_BRIDGE)
+    return callback(response)
+  }
+}
+
+function submitError(callback: Function, values: FormValues) {
+  return (error: object) => {
+    storage.setJson(UNSAVED_BRIDGE, values)
+    return callback(error)
+  }
+}
+
+function initialValues({
+  name,
+  url,
+  minimumContractPayment,
+  confirmations,
+}: OwnProps): FormValues {
+  const unsavedBridge = storage.getJson(UNSAVED_BRIDGE)
+  const propValues = {
+    name: name || '',
+    url: url || '',
+    minimumContractPayment: minimumContractPayment || '0',
+    confirmations: confirmations || 0,
+  }
+
+  return isEmpty(unsavedBridge) ? propValues : unsavedBridge
+}
+
+function isDirty(props: Props): boolean {
+  const initial = initialValues(props)
+  return !isEqual(props.values, initial) && props.submitCount === 0
+}
 
 const Form: React.SFC<Props> = props => (
   <>
@@ -138,18 +172,8 @@ Form.defaultProps = {
 }
 
 const WithFormikForm = withFormik<OwnProps, FormValues>({
-  mapPropsToValues({ name, url, minimumContractPayment, confirmations }) {
-    const shouldPersist =
-      Object.keys(storage.getJson('persistBridge')).length !== 0
-    const persistedJSON = shouldPersist && storage.getJson('persistBridge')
-    if (shouldPersist) storage.setJson('persistBridge', {})
-    const json: FormValues = {
-      name: name || '',
-      url: url || '',
-      minimumContractPayment: minimumContractPayment || '0',
-      confirmations: confirmations || 0,
-    }
-    return (shouldPersist && persistedJSON) || json
+  mapPropsToValues(ownProps) {
+    return initialValues(ownProps)
   },
 
   handleSubmit(values, { props, setSubmitting }) {
@@ -158,11 +182,14 @@ const WithFormikForm = withFormik<OwnProps, FormValues>({
     } catch {
       values.url = ''
     }
-    props.onSubmit(values, props.onSuccess, props.onError)
-    storage.setJson('persistBridge', values)
+    props.onSubmit(
+      values,
+      submitSuccess(props.onSuccess),
+      submitError(props.onError, values),
+    )
     setTimeout(() => {
       setSubmitting(false)
-    }, 1000)
+    }, SUBMITTING_TIMEOUT_MS)
   },
 })(Form)
 
