@@ -2,7 +2,7 @@ package services_test
 
 import (
 	"fmt"
-	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
@@ -203,27 +203,29 @@ func TestJobRunner_Stop(t *testing.T) {
 func TestJobRunner_prioritizeSpecParamsOverRequestParams(t *testing.T) {
 	t.Parallel()
 
-	expectedResponse := "100"
-	specServer, assertSpecCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", expectedResponse)
-	defer assertSpecCalled()
-	requestServer, _ := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", "should not be called",
-		func(_ http.Header, _ string) { require.Fail(t, "this URL is not expected to be called") })
-
 	s, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	rm, cleanup := cltest.NewJobRunner(s)
 	defer cleanup()
 	assert.NoError(t, rm.Start())
 
+	requestBase := 2
+	requestParameter := 10
+	specParameter := 100
 	j := cltest.NewJobWithWebInitiator()
-	taskParams := cltest.JSONFromString(t, fmt.Sprintf(`{"get":"%s"}`, specServer.URL))
-	j.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeHTTPGet, Params: taskParams}}
+	taskParams := cltest.JSONFromString(t, fmt.Sprintf(`{"times":%v}`, specParameter))
+	j.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeMultiply, Params: taskParams}}
 	assert.NoError(t, s.CreateJob(&j))
 	initr := j.Initiators[0]
 	jr := j.NewRun(initr)
-	jr.Overrides = cltest.JSONFromString(t, fmt.Sprintf(`{"get":"%s"}`, requestServer.URL))
+	jr.Overrides = cltest.JSONFromString(t, fmt.Sprintf(`{"times":%v, "result": %v}`, requestParameter, requestBase))
 	assert.NoError(t, s.CreateJobRun(&jr))
 
 	services.ExportedChannelForRun(rm, jr.ID) <- struct{}{}
-	cltest.WaitForJobRunToComplete(t, s, jr)
+	jr = cltest.WaitForJobRunToComplete(t, s, jr)
+
+	result, err := jr.Result.ResultString()
+	assert.NoError(t, err)
+	want := strconv.FormatUint(uint64(requestBase*specParameter), 10)
+	assert.Equal(t, want, result)
 }
