@@ -1,5 +1,5 @@
 import storage from 'local-storage-fallback'
-import { get, set, getJson, setJson } from '../src/storage'
+import { get, set, remove, getJson, setJson } from '../src/storage'
 
 beforeEach(() => {
   storage.clear()
@@ -16,6 +16,25 @@ describe('get', () => {
   })
 })
 
+describe('set', () => {
+  it('saves the string keyed under "chainlink." in localStorage', () => {
+    set('foo', 'FOO')
+
+    const stored = storage.getItem('chainlink.foo')
+    expect(stored).toEqual('FOO')
+  })
+})
+
+describe('remove', () => {
+  it('deletes the chainlink key', () => {
+    storage.setItem('chainlink.foo', 'FOO')
+    expect(storage.getItem('chainlink.foo')).toEqual('FOO')
+
+    remove('foo')
+    expect(storage.getItem('chainlink.foo')).toEqual(null)
+  })
+})
+
 describe('getJson', () => {
   it('returns a JS object for JSON keyed under "chainlink." in localStorage', () => {
     storage.setItem('chainlink.foo', '{"foo":"FOO"}')
@@ -29,15 +48,6 @@ describe('getJson', () => {
 
   it('returns an empty JS object when the key does not exist', () => {
     expect(getJson('foo')).toEqual({})
-  })
-})
-
-describe('set', () => {
-  it('saves the string keyed under "chainlink." in localStorage', () => {
-    set('foo', 'FOO')
-
-    const stored = storage.getItem('chainlink.foo')
-    expect(stored).toEqual('FOO')
   })
 })
 
