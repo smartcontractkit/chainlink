@@ -11,7 +11,7 @@ const store = createStore()
 
 store.subscribe(() => {
   const prevURL = store.getState().notifications.currentUrl
-  if (prevURL && prevURL !== SIGNIN_PATH) {
+  if (prevURL !== SIGNIN_PATH) {
     setPersistUrl(prevURL)
   }
 })
