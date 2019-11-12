@@ -1224,3 +1224,43 @@ func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 
 	ethClient.AssertExpectations(t)
 }
+
+func TestTxManager_FailOnSendReturnsNonce(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	keyStore := strpkg.NewKeyStore(store.Config.KeysDir())
+	_, err := keyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+	require.NoError(t, keyStore.Unlock(cltest.Password))
+
+	ethClient := new(mocks.EthClient)
+	manager := strpkg.NewEthTxManager(ethClient, store.Config, keyStore, store.ORM)
+
+	to := cltest.NewAddress()
+	data, err := hex.DecodeString("0000abcdef")
+
+	manager.Register(keyStore.Accounts())
+	require.NoError(t, err)
+
+	ethClient.On("GetNonce", mock.Anything).Return(uint64(0), nil)
+
+	err = manager.Connect(cltest.Head(uint64(1)))
+	require.NoError(t, err)
+
+	ethClient.On("SendRawTx", mock.Anything).Once().Return(nil, errors.New("send failed"))
+
+	tx0, err := manager.CreateTx(to, data)
+	require.Error(t, err)
+
+	ethClient.On("SendRawTx", mock.Anything).Once().Return(cltest.NewHash(), nil)
+
+	tx1, err := manager.CreateTx(to, data)
+	require.NoError(t, err)
+
+	assert.NotEqualf(t, tx0.Nonce, tx1.Nonce, "nonce of %d was reused", tx0.Nonce)
+
+	ethClient.AssertExpectations(t)
+}
