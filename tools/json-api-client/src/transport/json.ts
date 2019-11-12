@@ -9,6 +9,7 @@ import fetchWithTimeout from '../fetchWithTimeout'
 import {
   AuthenticationError,
   BadRequestError,
+  UnprocessableEntityError,
   ServerError,
   UnknownResponseError,
   ErrorItem,
@@ -136,6 +137,9 @@ async function parseResponse<T>(response: Response): Promise<T> {
     })
   } else if (response.status === 401) {
     throw new AuthenticationError(response)
+  } else if (response.status === 422) {
+    const errors = await errorItems(response)
+    throw new UnprocessableEntityError(errors)
   } else if (response.status >= 500) {
     const errors = await errorItems(response)
     throw new ServerError(errors)
