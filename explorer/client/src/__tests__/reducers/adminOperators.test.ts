@@ -28,26 +28,23 @@ describe('reducers/adminOperators', () => {
 
   describe('FETCH_ADMIN_OPERATORS_SUCCEEDED', () => {
     it('can replace items', () => {
-      const normalizedChainlinkNodes = {
-        '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
-          id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e',
-        },
-      }
-      const orderedChainlinkNodes = [
-        { id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e' },
-      ]
-      const data = {
-        chainlinkNodes: normalizedChainlinkNodes,
-        meta: {
-          currentPageOperators: {
-            data: orderedChainlinkNodes,
-            meta: {},
+      const action: FetchAdminOperatorsSucceededAction = {
+        type: 'FETCH_ADMIN_OPERATORS_SUCCEEDED',
+        data: {
+          chainlinkNodes: {
+            '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
+              id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e',
+            },
+          },
+          meta: {
+            currentPageOperators: {
+              data: [{ id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e' }],
+              meta: {
+                count: 1,
+              },
+            },
           },
         },
-      }
-      const action = {
-        type: 'FETCH_ADMIN_OPERATORS_SUCCEEDED',
-        data,
       }
       const state = reducer(INITIAL_STATE, action)
 

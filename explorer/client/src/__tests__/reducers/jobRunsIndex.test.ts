@@ -23,19 +23,20 @@ describe('reducers/jobRunsIndex', () => {
   describe('FETCH_JOB_RUNS_SUCCEEDED', () => {
     it('can replace items', () => {
       const jobRuns = [{ id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e' }]
-      const data = {
-        meta: {
-          currentPageJobRuns: {
-            data: jobRuns,
-            meta: { count: 100 },
+      const action: FetchJobRunsSucceededAction = {
+        type: 'FETCH_JOB_RUNS_SUCCEEDED',
+        data: {
+          chainlinkNodes: [],
+          jobRuns: jobRuns,
+          meta: {
+            currentPageJobRuns: {
+              data: jobRuns,
+              meta: { count: 100 },
+            },
           },
         },
-        entities: {},
       }
-      const action = {
-        type: 'FETCH_JOB_RUNS_SUCCEEDED',
-        data: data,
-      }
+
       const state = reducer(INITIAL_STATE, action)
 
       expect(state.jobRunsIndex).toEqual({
