@@ -3,11 +3,14 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/golang/mock/gomock"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
@@ -28,34 +31,33 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
-	oca := common.HexToAddress("0xDEADB3333333F")
-	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
-	hash := cltest.NewHash()
 	client := app.NewHTTPClient()
 
-	ethMock := app.MockEthCallerSubscriber()
-	nonce := "0x100"
-
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", nonce)
-	})
-
-	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
-		ethMock.Register(
-			"eth_call", "0xDE0B6B3A7640000",
-			verifyLinkBalanceCheck(oca, t))
-		ethMock.Register("eth_sendRawTransaction", hash)
-		ethMock.Register("eth_chainId", config.ChainID())
-	})
-
-	assert.NoError(t, app.StartAndConnect())
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
 	wr := models.WithdrawalRequest{
 		DestinationAddress: common.HexToAddress("0xDEADEAFDEADEAFDEADEAFDEADEAFDEAD00000000"),
 		Amount:             assets.NewLink(1000000000000000000),
 	}
+
+	subscription := cltest.EmptyMockSubscription()
+
+	txmMock := mocks.NewMockTxManager(ctrl)
+	txmMock.EXPECT().SubscribeToNewHeads(gomock.Any()).Return(subscription, nil).AnyTimes()
+	txmMock.EXPECT().GetChainID().Return(big.NewInt(3), nil).AnyTimes()
+	txmMock.EXPECT().Register(gomock.Any())
+
+	txmMock.EXPECT().ContractLINKBalance(wr).Return(*wr.Amount, nil)
+	txmMock.EXPECT().WithdrawLINK(wr).Return(cltest.NewHash(), nil)
+	app.Store.TxManager = txmMock
+
+	oca := common.HexToAddress("0xDEADB3333333F")
+	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
+
+	assert.NoError(t, app.StartAndConnect())
 
 	body, err := json.Marshal(&wr)
 	assert.NoError(t, err)
@@ -64,8 +66,6 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
-
-	assert.True(t, ethMock.AllCalled(), "Not Called")
 }
 
 func TestWithdrawalsController_BalanceTooLow(t *testing.T) {

@@ -8,6 +8,6 @@ interface Props {
   alt?: string
 }
 
-export const Logo = (props: Props) => {
+export const Logo: React.FC<Props> = props => {
   return <Image {...props} />
 }

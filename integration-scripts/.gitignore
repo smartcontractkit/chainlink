@@ -1,0 +1,6 @@
+dist/
+node_modules/
+build/
+src/generated/
+contracts/v0.5
+artifacts

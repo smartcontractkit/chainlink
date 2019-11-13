@@ -62,7 +62,7 @@ func (cli *Client) CreateServiceAgreement(c *clipkg.Context) error {
 	defer resp.Body.Close()
 
 	var sa presenters.ServiceAgreement
-	return cli.renderResponse(resp, &sa)
+	return cli.renderAPIResponse(resp, &sa)
 }
 
 // CreateExternalInitiator adds an external initiator
@@ -637,4 +637,16 @@ func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) error {
 	}
 
 	return cli.errorOut(cli.Render(&patchResponse))
+}
+
+
+// GetConfiguration gets the nodes environment variables
+func (cli *Client) GetConfiguration(c *clipkg.Context) error {
+	resp, err := cli.HTTP.Get("/v2/config")
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer resp.Body.Close()
+	cwl := presenters.ConfigWhitelist{}
+	return cli.renderAPIResponse(resp, &cwl)
 }

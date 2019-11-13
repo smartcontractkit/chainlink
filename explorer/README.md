@@ -2,7 +2,14 @@
 
 ## Deployment
 
-TODO...
+### Build Docker image
+
+The Explorer application is part of our yarn workspace monorepo. To ensure that `yarn` can
+resolve dependencies correctly you must build the Docker image from the root of the monorepo.
+
+```bash
+docker build . -f explorer/Dockerfile -t smartcontract/explorer
+```
 
 ## Setup
 

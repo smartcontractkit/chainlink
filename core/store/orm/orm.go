@@ -142,10 +142,6 @@ func ignoreRecordNotFound(db *gorm.DB) error {
 	return merr
 }
 
-func (orm *ORM) DialectName() DialectName {
-	return orm.dialectName
-}
-
 // SetLogging turns on SQL statement logging
 func (orm *ORM) SetLogging(enabled bool) {
 	orm.DB.LogMode(enabled)
@@ -226,7 +222,6 @@ func (orm *ORM) preloadJobRuns() *gorm.DB {
 			return db.Unscoped()
 		}).
 		Preload("RunRequest").
-		Preload("Overrides").
 		Preload("TaskRuns", func(db *gorm.DB) *gorm.DB {
 			return preloadTaskRuns(db).Order("task_spec_id asc")
 		}).
@@ -343,9 +338,9 @@ func (orm *ORM) FindExternalInitiator(eia *models.ExternalInitiatorAuthenticatio
 }
 
 // FindExternalInitiatorByName finds an external initiator given an authentication request
-func (orm *ORM) FindExternalInitiatorByName(name string) (models.ExternalInitiator, error) {
+func (orm *ORM) FindExternalInitiatorByName(iname string) (models.ExternalInitiator, error) {
 	var exi models.ExternalInitiator
-	return exi, orm.DB.First(&exi, "name = ?", name).Error
+	return exi, orm.DB.First(&exi, "lower(name) = lower(?)", iname).Error
 }
 
 // FindServiceAgreement looks up a ServiceAgreement by its ID.
@@ -783,20 +778,6 @@ func (orm *ORM) DeleteBridgeType(bt *models.BridgeType) error {
 	return orm.DB.Delete(bt).Error
 }
 
-// DeleteJobRun deletes the job run and corresponding task runs.
-func (orm *ORM) DeleteJobRun(ID string) error {
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		if err := dbtx.Where("id = ?", ID).Delete(models.JobRun{}).Error; err != nil {
-			return err
-		}
-
-		if err := dbtx.Where("job_run_id = ?", ID).Delete(models.TaskRun{}).Error; err != nil {
-			return err
-		}
-		return nil
-	})
-}
-
 // CreateSession will check the password in the SessionRequest against
 // the hashed API User password in the db.
 func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
@@ -897,6 +878,21 @@ func (orm *ORM) TxAttempts(offset, limit int) ([]models.TxAttempt, int, error) {
 	var attempts []models.TxAttempt
 	err = orm.getRecords(&attempts, "sent_at desc", offset, limit)
 	return attempts, count, err
+}
+
+// UnconfirmedTxAttempts returns all TxAttempts for which the associated Tx is still unconfirmed.
+func (orm *ORM) UnconfirmedTxAttempts() ([]models.TxAttempt, error) {
+	var items []models.TxAttempt
+
+	err := orm.DB.
+		Preload("Tx").
+		Joins("inner join txes on txes.id = tx_attempts.tx_id").
+		Where("txes.confirmed = ?", false).
+		Find(&items).Error
+	if err != nil {
+		return nil, err
+	}
+	return items, err
 }
 
 // JobRunsSorted returns job runs ordered and filtered by the passed params.

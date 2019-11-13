@@ -2,12 +2,9 @@ package models
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
-	"math"
 	"math/big"
 	"time"
 
@@ -15,7 +12,28 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	null "gopkg.in/guregu/null.v3"
 )
+
+// Encumbrance connects job specifications with on-chain encumbrances.
+type Encumbrance struct {
+	// Corresponds to requestDigest in solidity ServiceAgreement struct
+	ID uint `json:"-" gorm:"primary_key;auto_increment"`
+	// Price to request a report based on this agreement
+	Payment *assets.Link `json:"payment" gorm:"type:varchar(255)"`
+	// Expiration is the amount of time an oracle has to answer a request
+	Expiration uint64 `json:"expiration"`
+	// Agreement is valid until this time
+	EndAt AnyTime `json:"endAt"`
+	// Addresses of oracles committed to this agreement
+	Oracles EIP55AddressCollection `json:"oracles" gorm:"type:text"`
+	// Address of aggregator contract
+	Aggregator EIP55Address `json:"aggregator" gorm:"not null"`
+	// selector for initialization method on aggregator contract
+	AggInitiateJobSelector FunctionSelector `json:"aggInitiateJobSelector" gorm:"not null"`
+	// selector for fulfillment (oracle reporting) method on aggregator contract
+	AggFulfillSelector FunctionSelector `json:"aggFulfillSelector" gorm:"not null"`
+}
 
 // UnsignedServiceAgreement contains the information to sign a service agreement
 type UnsignedServiceAgreement struct {
@@ -37,6 +55,20 @@ type ServiceAgreement struct {
 	JobSpecID     *ID         `json:"jobSpecId"`
 }
 
+// ServiceAgreementRequest encodes external ServiceAgreement json representation.
+type ServiceAgreementRequest struct {
+	Initiators             []InitiatorRequest     `json:"initiators"`
+	Tasks                  []TaskSpecRequest      `json:"tasks"`
+	Payment                *assets.Link           `json:"payment"`
+	Expiration             uint64                 `json:"expiration"`
+	EndAt                  AnyTime                `json:"endAt"`
+	Oracles                EIP55AddressCollection `json:"oracles"`
+	Aggregator             EIP55Address           `json:"aggregator"`
+	AggInitiateJobSelector FunctionSelector       `json:"aggInitiateJobSelector"`
+	AggFulfillSelector     FunctionSelector       `json:"aggFulfillSelector"`
+	StartAt                AnyTime                `json:"startAt"`
+}
+
 // GetID returns the ID of this structure for jsonapi serialization.
 func (sa ServiceAgreement) GetID() string {
 	return sa.ID
@@ -55,12 +87,12 @@ func (sa *ServiceAgreement) SetID(value string) error {
 
 // Signer is used to produce a HMAC signature from an input digest
 type Signer interface {
-	Sign(input []byte) (Signature, error)
+	SignHash(hash common.Hash) (Signature, error)
 }
 
 // BuildServiceAgreement builds a signed service agreement
 func BuildServiceAgreement(us UnsignedServiceAgreement, signer Signer) (ServiceAgreement, error) {
-	signature, err := signer.Sign(us.ID.Bytes())
+	signature, err := signer.SignHash(us.ID)
 	if err != nil {
 		return ServiceAgreement{}, err
 	}
@@ -73,33 +105,52 @@ func BuildServiceAgreement(us UnsignedServiceAgreement, signer Signer) (ServiceA
 	}, nil
 }
 
+func parseServiceAgreementJSON(reader io.Reader) (
+	string, ServiceAgreementRequest, error) {
+	input, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return "", ServiceAgreementRequest{}, errors.Wrap(err,
+			"while reading service agreement JSON")
+	}
+	var sar ServiceAgreementRequest
+	err = json.Unmarshal(input, &sar)
+	if err != nil {
+		return "", ServiceAgreementRequest{}, errors.Wrap(err,
+			"while parsing service agreement JSON")
+	}
+	normalized, err := utils.NormalizedJSON(input)
+	if err != nil {
+		return "", ServiceAgreementRequest{}, errors.Wrap(err,
+			"while normalizing service agreement JSON")
+	}
+	return normalized, sar, nil
+}
+
 // NewUnsignedServiceAgreementFromRequest builds the information required to
 // sign a service agreement
 func NewUnsignedServiceAgreementFromRequest(reader io.Reader) (UnsignedServiceAgreement, error) {
-	var jsr JobSpecRequest
-
-	input, err := ioutil.ReadAll(reader)
+	normalized, sar, err := parseServiceAgreementJSON(reader)
 	if err != nil {
-		return UnsignedServiceAgreement{}, errors.Wrap(err, "while reading service agreement JSON")
+		return UnsignedServiceAgreement{}, err
 	}
-
-	err = json.Unmarshal(input, &jsr)
-	if err != nil {
-		return UnsignedServiceAgreement{}, errors.Wrap(err, "while parsing job-spec JSON")
-	}
-
-	var encumbrance Encumbrance
-	if err := json.Unmarshal(input, &encumbrance); err != nil {
-		return UnsignedServiceAgreement{}, errors.Wrap(err, "while parsing service agreement JSON")
-	}
-
-	if encumbrance.Aggregator == "" {
-		return UnsignedServiceAgreement{}, fmt.Errorf("must set aggregator contract address")
-	}
-
-	normalized, err := utils.NormalizedJSON(input)
-	if err != nil {
-		return UnsignedServiceAgreement{}, errors.Wrap(err, "while normalizing service agreement JSON")
+	us := UnsignedServiceAgreement{
+		Encumbrance: Encumbrance{
+			Payment:                sar.Payment,
+			Expiration:             sar.Expiration,
+			EndAt:                  sar.EndAt,
+			Oracles:                sar.Oracles,
+			Aggregator:             sar.Aggregator,
+			AggInitiateJobSelector: sar.AggInitiateJobSelector,
+			AggFulfillSelector:     sar.AggFulfillSelector,
+		},
+		RequestBody: normalized,
+		JobSpecRequest: JobSpecRequest{
+			Initiators: sar.Initiators,
+			Tasks:      sar.Tasks,
+			StartAt:    null.NewTime(sar.StartAt.Time, sar.StartAt.Valid),
+			EndAt:      null.NewTime(sar.EndAt.Time, sar.EndAt.Valid),
+			MinPayment: sar.Payment,
+		},
 	}
 
 	requestDigest, err := utils.Keccak256([]byte(normalized))
@@ -107,75 +158,31 @@ func NewUnsignedServiceAgreementFromRequest(reader io.Reader) (UnsignedServiceAg
 		return UnsignedServiceAgreement{}, err
 	}
 
-	id, err := generateServiceAgreementID(encumbrance, common.BytesToHash(requestDigest))
+	us.ID, err = generateSAID(us.Encumbrance,
+		common.BytesToHash(requestDigest))
 	if err != nil {
 		return UnsignedServiceAgreement{}, err
 	}
-
-	us := UnsignedServiceAgreement{
-		ID:             id,
-		Encumbrance:    encumbrance,
-		RequestBody:    normalized,
-		JobSpecRequest: jsr,
-	}
-
-	return us, err
+	return us, nil
 }
 
-func generateServiceAgreementID(e Encumbrance, digest common.Hash) (common.Hash, error) {
-	buffer, err := serviceAgreementIDInputBuffer(e, digest)
+func generateSAID(e Encumbrance, digest common.Hash) (common.Hash, error) {
+	saBytes, err := e.ABI(digest)
 	if err != nil {
 		return common.Hash{}, nil
 	}
-
-	bytes, err := utils.Keccak256(buffer.Bytes())
+	bytes, err := utils.Keccak256(saBytes)
 	return common.BytesToHash(bytes), err
 }
 
-func serviceAgreementIDInputBuffer(encumbrance Encumbrance, digest common.Hash) (bytes.Buffer, error) {
-	buffer := bytes.Buffer{}
-
-	encumberanceBytes, err := encumbrance.ABI()
-	if err != nil {
-		return bytes.Buffer{}, err
-	}
-	_, err = buffer.Write(encumberanceBytes)
-	if err != nil {
-		return bytes.Buffer{}, err
-	}
-
-	_, err = buffer.Write(digest.Bytes())
-	if err != nil {
-		return bytes.Buffer{}, err
-	}
-	return buffer, nil
-}
-
-// Encumbrance connects job specifications with on-chain encumbrances.
-type Encumbrance struct {
-	// Corresponds to requestDigest in solidity ServiceAgreement struct
-	ID uint `json:"-" gorm:"primary_key;auto_increment"`
-	// Price to request a report based on this agreement
-	Payment    *assets.Link `json:"payment" gorm:"type:varchar(255)"`
-	Expiration uint64       `json:"expiration"`
-	// Agreement is valid until this time
-	EndAt AnyTime `json:"endAt"`
-	// Addresses of oracles committed to this agreement
-	Oracles EIP55AddressCollection `json:"oracles" gorm:"type:text"`
-	// Address of aggregator contract
-	Aggregator EIP55Address `json:"aggregator" gorm:"not null"`
-	// selector for initialization method on aggregator contract
-	AggInitiateJobSelector FunctionSelector `json:"aggInitiateJobSelector" gorm:"not null"`
-	// selector for fulfillment (oracle reporting) method on aggregator contract
-	AggFulfillSelector FunctionSelector `json:"aggFulfillSelector" gorm:"not null"`
-}
-
-// ABI packs the encumberance as a byte array using the same technique as abi.encodePacked.
+// ABI packs the encumberance as a byte array using the same rules as the
+// abi.encodePacked in Coordinator#getId.
 //
 // Used only for constructing a stable hash which will be signed by all oracles,
 // so it does not have to be easily parsed or unambiguous (e.g., re-ordering
-// Oracles will result in output), just an injective function.
-func (e Encumbrance) ABI() ([]byte, error) {
+// Oracles will result in different output.) It just has to be an injective
+// function.
+func (e Encumbrance) ABI(digest common.Hash) ([]byte, error) {
 	buffer := bytes.Buffer{}
 	var paymentHash common.Hash
 	if e.Payment != nil {
@@ -192,15 +199,12 @@ func (e Encumbrance) ABI() ([]byte, error) {
 	}
 
 	// Absolute end date as a big-endian uint32 (unix seconds)
-	endAt := e.EndAt.Time.Unix()
-	if endAt > 0xffffffff { // Optimistically, this could be an issue in 2038...
-		return nil, fmt.Errorf(
-			"endat date %s is too late to fit in uint32",
-			e.EndAt.Time)
+	var endAt uint64
+	if e.EndAt.Valid {
+		endAt = uint64(e.EndAt.Time.Unix())
 	}
-	endAtSerialised := make([]byte, 4)
-	binary.BigEndian.PutUint32(endAtSerialised, uint32(endAt&math.MaxUint32))
-	_, err = buffer.Write(endAtSerialised)
+	endAtBytes := common.BigToHash(new(big.Int).SetUint64(endAt))
+	_, err = buffer.Write(endAtBytes.Bytes())
 	if err != nil {
 		return nil, errors.Wrap(err, "while writing endAt")
 	}
@@ -209,7 +213,11 @@ func (e Encumbrance) ABI() ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "while writing oracles")
 	}
-	_, err = buffer.Write(address256Bits(e.Aggregator))
+	_, err = buffer.Write(digest.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	_, err = buffer.Write(e.Aggregator.Bytes())
 	if err != nil {
 		return nil, errors.Wrap(err, "while writing aggregator address")
 	}

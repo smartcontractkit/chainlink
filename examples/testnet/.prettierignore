@@ -1,3 +1,4 @@
 **/*.sol
 .gitignore
 .prettierignore
+.eslintignore

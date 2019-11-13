@@ -2,6 +2,12 @@
 
 set -e
 
+# Generate contract artifacts
+yarn install
+yarn workspace chainlinkv0.5 setup
+yarn workspace chainlink setup
+
+# Run golang coverage
 go get -u github.com/smartcontractkit/goverage
 goverage -parallel 2 -coverprofile=c.out ./...
 if [ -n "$CC_TEST_REPORTER_ID"  ]; then

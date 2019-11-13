@@ -1,6 +1,7 @@
 package models_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -58,6 +59,61 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 				test.jobSpec,
 			)
 			assert.Equal(t, test.want, res)
+		})
+	}
+}
+
+func TestUnmarshalInitiatorRequest(t *testing.T) {
+	tests := []struct {
+		Name   string
+		JSON   map[string]interface{}
+		Expect models.InitiatorRequest
+	}{
+		{
+			Name: "ExternalInitiator",
+			JSON: map[string]interface{}{
+				"type": "external",
+				"name": "somecoin",
+				"params": map[string]string{
+					"foo":  "bar",
+					"name": "bitcoin",
+				},
+			},
+			Expect: models.InitiatorRequest{
+				Type: models.InitiatorExternal,
+				Name: "somecoin",
+				InitiatorParams: models.InitiatorParams{
+					Name:   "bitcoin",
+					Params: `{"foo":"bar","name":"bitcoin"}`,
+				},
+			},
+		},
+		{
+			Name: "CronInitiator",
+			JSON: map[string]interface{}{
+				"type": "cron",
+				"params": map[string]string{
+					"schedule": "* * * * *",
+				},
+			},
+			Expect: models.InitiatorRequest{
+				Type: models.InitiatorCron,
+				InitiatorParams: models.InitiatorParams{
+					Schedule: "* * * * *",
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			buf, err := json.Marshal(test.JSON)
+			require.NoError(t, err)
+
+			var i models.InitiatorRequest
+			err = json.Unmarshal(buf, &i)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.Expect, i)
 		})
 	}
 }
@@ -221,17 +277,4 @@ func TestNewTaskType(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestJobSpec_NewLinkEarned(t *testing.T) {
-	t.Parallel()
-
-	runID := models.NewID()
-	befCreation := time.Now()
-	earned := models.NewLinkEarned(runID, assets.NewLink(3))
-	aftCreation := time.Now()
-
-	assert.Equal(t, earned.JobRunID, runID)
-	assert.Equal(t, earned.Earned, assets.NewLink(3))
-	assert.True(t, true, earned.EarnedAt.After(aftCreation), earned.EarnedAt.Before(befCreation))
 }

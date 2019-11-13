@@ -337,3 +337,42 @@ func TestRunResult_Merge(t *testing.T) {
 		})
 	}
 }
+
+func TestJobRun_ApplyResult_CompletedWithNoTasksRemaining(t *testing.T) {
+	t.Parallel()
+
+	job := cltest.NewJobWithWebInitiator()
+	jobRun := job.NewRun(job.Initiators[0])
+
+	result := models.RunResult{Status: models.RunStatusCompleted}
+	jobRun.TaskRuns[0].ApplyResult(result)
+	err := jobRun.ApplyResult(result)
+	assert.NoError(t, err)
+	assert.True(t, jobRun.FinishedAt.Valid)
+}
+
+func TestJobRun_ApplyResult_CompletedWithTasksRemaining(t *testing.T) {
+	t.Parallel()
+
+	job := cltest.NewJobWithWebInitiator()
+	jobRun := job.NewRun(job.Initiators[0])
+
+	result := models.RunResult{Status: models.RunStatusCompleted}
+	err := jobRun.ApplyResult(result)
+	assert.NoError(t, err)
+	assert.False(t, jobRun.FinishedAt.Valid)
+	assert.Equal(t, jobRun.Status, models.RunStatusInProgress)
+}
+
+func TestJobRun_ApplyResult_ErrorSetsFinishedAt(t *testing.T) {
+	t.Parallel()
+
+	job := cltest.NewJobWithWebInitiator()
+	jobRun := job.NewRun(job.Initiators[0])
+	jobRun.Status = models.RunStatusErrored
+
+	result := models.RunResult{Status: models.RunStatusErrored}
+	err := jobRun.ApplyResult(result)
+	assert.NoError(t, err)
+	assert.True(t, jobRun.FinishedAt.Valid)
+}

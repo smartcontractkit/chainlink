@@ -2,8 +2,12 @@ package cmd_test
 
 import (
 	"flag"
+	"io/ioutil"
 	"math/big"
+	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -108,9 +112,12 @@ func TestClient_IndexJobRuns(t *testing.T) {
 	require.Nil(t, client.IndexJobRuns(cltest.EmptyCLIContext()))
 	runs := *r.Renders[0].(*[]presenters.JobRun)
 	require.Equal(t, 3, len(runs))
-	assert.Equal(t, jr0.Result, runs[0].Result)
-	assert.Equal(t, jr1.Result, runs[1].Result)
-	assert.Equal(t, jr2.Result, runs[2].Result)
+	assert.Equal(t, jr0.ID, runs[0].ID)
+	assert.Equal(t, jr0.Result.ID, runs[0].Result.ID)
+	assert.Equal(t, jr1.ID, runs[1].ID)
+	assert.Equal(t, jr1.Result.ID, runs[1].Result.ID)
+	assert.Equal(t, jr2.ID, runs[2].ID)
+	assert.Equal(t, jr2.Result.ID, runs[2].Result.ID)
 }
 
 func TestClient_ShowJobSpec_Exists(t *testing.T) {
@@ -146,6 +153,8 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	assert.Empty(t, r.Renders)
 }
 
+var EndAt = time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
+
 func TestClient_CreateServiceAgreement(t *testing.T) {
 	t.Parallel()
 
@@ -153,7 +162,13 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	defer cleanup()
 	client, _ := app.NewClientAndRenderer()
 
-	sa := cltest.MustReadFile(t, "testdata/hello_world_agreement.json")
+	sa := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
+	endAtISO8601 := EndAt.Format(time.RFC3339)
+	sa = strings.Replace(sa, "2019-10-19T22:17:19Z", endAtISO8601, 1)
+	tmpFile, err := ioutil.TempFile("", "sa.*.json")
+	require.NoError(t, err, "while opening temp file for modified service agreement")
+	defer os.Remove(tmpFile.Name())
+	tmpFile.WriteString(sa)
 
 	tests := []struct {
 		name        string
@@ -164,7 +179,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 		{"invalid json", "{bad son}", false, true},
 		{"bad file path", "bad/filepath/", false, true},
 		{"valid service agreement", string(sa), true, false},
-		{"service agreement specified as path", "testdata/hello_world_agreement.json", true, false},
+		{"service agreement specified as path", tmpFile.Name(), true, false},
 	}
 
 	for _, tt := range tests {
@@ -810,4 +825,28 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.SetMinimumGasPrice(c))
 	assert.Equal(t, big.NewInt(861646079900), app.Store.Config.EthGasPriceDefault())
+}
+
+func TestClient_GetConfiguration(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+
+	client, r := app.NewClientAndRenderer()
+	assert.NoError(t, client.GetConfiguration(cltest.EmptyCLIContext()))
+	require.Equal(t, 1, len(r.Renders))
+	
+	cwl := *r.Renders[0].(*presenters.ConfigWhitelist)
+	assert.Equal(t, cwl.Whitelist.BridgeResponseURL, app.Config.BridgeResponseURL().String())
+	assert.Equal(t, cwl.Whitelist.ChainID, app.Config.ChainID())
+	assert.Equal(t, cwl.Whitelist.Dev, app.Config.Dev())
+	assert.Equal(t, cwl.Whitelist.EthGasBumpThreshold, app.Config.EthGasBumpThreshold())
+	assert.Equal(t, cwl.Whitelist.LogLevel, app.Config.LogLevel())
+	assert.Equal(t, cwl.Whitelist.LogSQLStatements, app.Config.LogSQLStatements())
+	assert.Equal(t, cwl.Whitelist.MinIncomingConfirmations, app.Config.MinIncomingConfirmations())
+	assert.Equal(t, cwl.Whitelist.MinOutgoingConfirmations, app.Config.MinOutgoingConfirmations())
+	assert.Equal(t, cwl.Whitelist.MinimumContractPayment, app.Config.MinimumContractPayment())
+	assert.Equal(t, cwl.Whitelist.RootDir, app.Config.RootDir())
+	assert.Equal(t, cwl.Whitelist.SessionTimeout, app.Config.SessionTimeout())
 }

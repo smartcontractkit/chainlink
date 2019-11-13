@@ -4,11 +4,13 @@
   "license": "MIT",
   "private": true,
   "scripts": {
+    "start": "node echo.js",
     "depcheck": "echo \"@chainlink/example-echo-server\" && depcheck --ignore-dirs=contracts || true",
     "eslint": "eslint --ext .js,.ts .",
     "solhint": "solhint ./contracts/**/*.sol",
     "lint": "yarn eslint && yarn solhint",
     "format": "prettier --write \"**/*\"",
+    "setup": "echo \"No setup required for @chainlink/example-echo-server\"",
     "test": "truffle test"
   },
   "dependencies": {

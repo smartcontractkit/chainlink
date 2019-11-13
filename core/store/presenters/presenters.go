@@ -118,10 +118,11 @@ func (a *AccountBalance) SetID(value string) error {
 // ConfigWhitelist#String accordingly.
 type ConfigWhitelist struct {
 	AccountAddress string `json:"accountAddress"`
-	whitelist
+	Whitelist
 }
 
-type whitelist struct {
+// Whitelist contains the supported environment variables
+type Whitelist struct {
 	AllowOrigins             string          `json:"allowOrigins"`
 	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                  *big.Int        `json:"ethChainId"`
@@ -147,6 +148,7 @@ type whitelist struct {
 	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
 	Port                     uint16          `json:"chainlinkPort"`
 	ReaperExpiration         time.Duration   `json:"reaperExpiration"`
+	ReplayFromBlock          int64           `json:"replayFromBlock"`
 	RootDir                  string          `json:"root"`
 	SessionTimeout           time.Duration   `json:"sessionTimeout"`
 	TLSHost                  string          `json:"chainlinkTLSHost"`
@@ -169,7 +171,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 	}
 	return ConfigWhitelist{
 		AccountAddress: account.Address.Hex(),
-		whitelist: whitelist{
+		Whitelist: Whitelist{
 			AllowOrigins:             config.AllowOrigins(),
 			BridgeResponseURL:        config.BridgeResponseURL().String(),
 			ChainID:                  config.ChainID(),
@@ -195,6 +197,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			OracleContractAddress:    config.OracleContractAddress(),
 			Port:                     config.Port(),
 			ReaperExpiration:         config.ReaperExpiration(),
+			ReplayFromBlock:          config.ReplayFromBlock(),
 			RootDir:                  config.RootDir(),
 			SessionTimeout:           config.SessionTimeout(),
 			TLSHost:                  config.TLSHost(),
@@ -212,8 +215,9 @@ func (c ConfigWhitelist) String() string {
 	buffer.WriteString(fmt.Sprintf("ACCOUNT_ADDRESS: %v\n", c.AccountAddress))
 
 	schemaT := reflect.TypeOf(orm.ConfigSchema{})
-	cwlT := reflect.TypeOf(c.whitelist)
-	cwlV := reflect.ValueOf(c.whitelist)
+	cwlT := reflect.TypeOf(c.Whitelist)
+	cwlV := reflect.ValueOf(c.Whitelist)
+
 	for index := 0; index < cwlT.NumField(); index++ {
 		item := cwlT.FieldByIndex([]int{index})
 		schemaItem, ok := schemaT.FieldByName(item.Name)
@@ -224,7 +228,9 @@ func (c ConfigWhitelist) String() string {
 		if !ok {
 			continue
 		}
+
 		field := cwlV.FieldByIndex(item.Index)
+
 		buffer.WriteString(envName)
 		buffer.WriteString(": ")
 		if stringer, ok := field.Interface().(fmt.Stringer); ok {
@@ -351,6 +357,8 @@ func initiatorParams(i Initiator) (interface{}, error) {
 	switch i.Type {
 	case models.InitiatorWeb:
 		return struct{}{}, nil
+	case models.InitiatorServiceAgreementExecutionLog:
+		return struct{}{}, nil
 	case models.InitiatorCron:
 		return struct {
 			Schedule models.Cron `json:"schedule"`
@@ -439,9 +447,29 @@ type ServiceAgreement struct {
 	models.ServiceAgreement
 }
 
-// MarshalJSON returns the JSON data of the ServiceAgreement.
+type ServiceAgreementPresentation struct {
+	ID            string             `json:"id"`
+	CreatedAt     string             `json:"createdAt"`
+	Encumbrance   models.Encumbrance `json:"encumbrance"`
+	EncumbranceID uint               `json:"encumbranceID"`
+	RequestBody   string             `json:"requestBody"`
+	Signature     string             `json:"signature"`
+	JobSpec       models.JobSpec     `json:"jobSpec"`
+	JobSpecID     string             `json:"jobSpecId"`
+}
+
+// MarshalJSON presents the ServiceAgreement as public JSON data
 func (sa ServiceAgreement) MarshalJSON() ([]byte, error) {
-	return []byte(sa.ServiceAgreement.RequestBody), nil
+	return json.Marshal(ServiceAgreementPresentation{
+		ID:            sa.ID,
+		CreatedAt:     utils.ISO8601UTC(sa.CreatedAt),
+		Encumbrance:   sa.Encumbrance,
+		EncumbranceID: sa.EncumbranceID,
+		RequestBody:   sa.RequestBody,
+		Signature:     sa.Signature.String(),
+		JobSpec:       sa.JobSpec,
+		JobSpecID:     sa.JobSpecID.String(),
+	})
 }
 
 // FriendlyCreatedAt returns the ServiceAgreement's created at time in a human

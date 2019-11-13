@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"math/big"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -33,8 +32,6 @@ import (
 const (
 	// DefaultSecretSize is the entroy in bytes to generate a base64 string of 64 characters.
 	DefaultSecretSize = 48
-	// HumanTimeFormat is the predefined layout for use in Time.Format and time.Parse
-	HumanTimeFormat = "2006-01-02 15:04:05 MST"
 	// EVMWordByteLen the length of an EVM Word Byte
 	EVMWordByteLen = 32
 	// EVMWordHexLen the length of an EVM Word Hex
@@ -170,15 +167,6 @@ func AddHexPrefix(str string) string {
 	return str
 }
 
-// ToFilterQueryFor returns a struct that encapsulates desired arguments used to filter
-// event logs.
-func ToFilterQueryFor(fromBlock *big.Int, addresses []common.Address) ethereum.FilterQuery {
-	return ethereum.FilterQuery{
-		FromBlock: fromBlock,
-		Addresses: WithoutZeroAddresses(addresses),
-	}
-}
-
 // ToFilterArg filters logs with the given FilterQuery
 // https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L363
 func ToFilterArg(q ethereum.FilterQuery) interface{} {
@@ -259,36 +247,6 @@ func (bs *BackoffSleeper) Reset() {
 	bs.Backoff.Reset()
 }
 
-// ConstantSleeper is to assist with reattempts with
-// the same sleep duration.
-type ConstantSleeper struct {
-	interval time.Duration
-}
-
-// NewConstantSleeper returns a ConstantSleeper that is configured to
-// sleep for a constant duration based on the input.
-func NewConstantSleeper(d time.Duration) ConstantSleeper {
-	return ConstantSleeper{interval: d}
-}
-
-// Reset is a no op since sleep time is constant.
-func (cs ConstantSleeper) Reset() {}
-
-// Sleep waits for the given duration before reattempting.
-func (cs ConstantSleeper) Sleep() {
-	time.Sleep(cs.interval)
-}
-
-// After returns the duration.
-func (cs ConstantSleeper) After() time.Duration {
-	return cs.interval
-}
-
-// Duration returns the duration value.
-func (cs ConstantSleeper) Duration() time.Duration {
-	return cs.interval
-}
-
 // MinBigs finds the minimum value of a list of big.Ints.
 func MinBigs(first *big.Int, bigs ...*big.Int) *big.Int {
 	min := first
@@ -300,11 +258,11 @@ func MinBigs(first *big.Int, bigs ...*big.Int) *big.Int {
 	return min
 }
 
-// MaxUint64 finds the maximum value of a list of uint64s.
-func MaxUint64(uints ...uint64) uint64 {
-	var max uint64
-	for _, n := range uints {
-		if n > max {
+// MaxBigs finds the maximum value of a list of big.Ints.
+func MaxBigs(first *big.Int, bigs ...*big.Int) *big.Int {
+	max := first
+	for _, n := range bigs {
+		if max.Cmp(n) < 0 {
 			max = n
 		}
 	}
@@ -478,28 +436,6 @@ func LogListeningAddress(address common.Address) string {
 		return "[all]"
 	}
 	return address.String()
-}
-
-// RemoveContents removes everything in a directory but not the directory
-// itself.
-// https://stackoverflow.com/questions/33450980/how-to-remove-all-contents-of-a-directory-using-golang
-func RemoveContents(dir string) error {
-	d, err := os.Open(dir)
-	if err != nil {
-		return err
-	}
-	defer d.Close()
-	names, err := d.Readdirnames(-1)
-	if err != nil {
-		return err
-	}
-	for _, name := range names {
-		err = os.RemoveAll(filepath.Join(dir, name))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // FilesInDir returns an array of filenames in the directory.

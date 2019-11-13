@@ -75,17 +75,6 @@ func (mock *EthMock) Dial(url string) (store.CallerSubscriber, error) {
 	return mock, nil
 }
 
-// Clear all stubs/mocks/expectations
-func (mock *EthMock) Clear() {
-	mock.mutex.Lock()
-	defer mock.mutex.Unlock()
-
-	mock.Responses = nil
-	mock.Subscriptions = nil
-	mock.newHeadsCalled = false
-	mock.logsCalled = false
-}
-
 // Context adds helpful context to EthMock values set in the callback function.
 func (mock *EthMock) Context(context string, callback func(*EthMock)) {
 	mock.context = context
@@ -318,10 +307,6 @@ func (mock *EthMock) RegisterNewHead(blockNumber int64) chan models.BlockHeader 
 	return newHeads
 }
 
-func (mock *EthMock) NoMagic() {
-	mock.newHeadsCalled = true
-}
-
 func fwdLogs(actual, mock interface{}) {
 	logChan := actual.(chan<- models.Log)
 	mockChan := mock.(chan models.Log)
@@ -445,19 +430,25 @@ func (InstantClock) After(_ time.Duration) <-chan time.Time {
 // to resume computation on After.
 type TriggerClock struct {
 	triggers chan time.Time
+	t        testing.TB
 }
 
 // NewTriggerClock returns a new TriggerClock, that a test can manually fire
 // to continue processing in a Clock dependency.
-func NewTriggerClock() *TriggerClock {
+func NewTriggerClock(t testing.TB) *TriggerClock {
 	return &TriggerClock{
 		triggers: make(chan time.Time),
+		t:        t,
 	}
 }
 
 // Trigger sends a time to unblock the After call.
 func (t *TriggerClock) Trigger() {
-	t.triggers <- time.Now()
+	select {
+	case t.triggers <- time.Now():
+	case <-time.After(60 * time.Second):
+		t.t.Error("timed out while trying to trigger clock")
+	}
 }
 
 // After waits on a manual trigger.

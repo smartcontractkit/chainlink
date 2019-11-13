@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -24,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
@@ -311,9 +313,16 @@ func NewServiceAgreementExecutionLog(
 			models.ServiceAgreementExecutionLogTopic,
 			models.IDToTopic(jobID),
 			executionRequester.Hash(),
-			assets.NewLink(1000000000).ToHash(),
+			NewLink(t, "1000000000000000000").ToHash(),
 		},
 	}
+}
+
+func NewLink(t *testing.T, amount string) *assets.Link {
+	link := assets.NewLink(0)
+	link, ok := link.SetString(amount, 10)
+	assert.True(t, ok)
+	return link
 }
 
 func StringToVersionedLogData0(t *testing.T, internalID, str string) []byte {
@@ -430,12 +439,6 @@ func Int(val interface{}) *models.Big {
 	}
 }
 
-// NewBigHexInt creates new BigHexInt from value
-func NewBigHexInt(val interface{}) *hexutil.Big {
-	rval := BigHexInt(val)
-	return &rval
-}
-
 // RunResultWithResult creates a RunResult with given result
 func RunResultWithResult(val interface{}) models.RunResult {
 	data := models.JSON{}
@@ -480,7 +483,7 @@ func NewJobRunner(s *strpkg.Store) (services.JobRunner, func()) {
 
 type MockSigner struct{}
 
-func (s MockSigner) Sign(input []byte) (models.Signature, error) {
+func (s MockSigner) SignHash(common.Hash) (models.Signature, error) {
 	return models.NewSignature("0xb7a987222fc36c4c8ed1b91264867a422769998aadbeeb1c697586a04fa2b616025b5ca936ec5bdb150999e298b6ecf09251d3c4dd1306dedec0692e7037584800")
 }
 
@@ -525,11 +528,26 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 	return dst
 }
 
-// FakeLinkEarned mocks a link earning
-func FakeLinkEarned(run *models.JobRun, rewardAmt *assets.Link) models.LinkEarned {
-	return models.LinkEarned{
-		JobRunID: run.ID,
-		Earned:   rewardAmt,
-		EarnedAt: time.Now(),
-	}
+// CreateServiceAgreementViaWeb creates a service agreement from a fixture using /v2/service_agreements
+func CreateServiceAgreementViaWeb(
+	t *testing.T,
+	app *TestApplication,
+	path string,
+	endAt time.Time,
+) models.ServiceAgreement {
+	client := app.NewHTTPClient()
+
+	agreementWithoutOracle := MustJSONSet(t, string(MustReadFile(t, path)), "endAt", utils.ISO8601UTC(endAt))
+	from := GetAccountAddress(t, app.ChainlinkApplication.GetStore())
+	agreementWithOracle := MustJSONSet(t, agreementWithoutOracle, "oracles", []string{from.Hex()})
+
+	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBufferString(agreementWithOracle))
+	defer cleanup()
+
+	AssertServerResponse(t, resp, http.StatusOK)
+	responseSA := models.ServiceAgreement{}
+	err := ParseJSONAPIResponse(t, resp, &responseSA)
+	require.NoError(t, err)
+
+	return FindServiceAgreement(t, app.Store, responseSA.ID)
 }

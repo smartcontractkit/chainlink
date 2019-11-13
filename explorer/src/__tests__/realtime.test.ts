@@ -1,20 +1,21 @@
 import { Server } from 'http'
+import { Connection, getCustomRepository } from 'typeorm'
 import WebSocket from 'ws'
-import { start as startServer, DEFAULT_TEST_PORT } from '../support/server'
-import { Connection } from 'typeorm'
-import { closeDbConnection, getDb } from '../database'
+import { getDb } from '../database'
+import { ChainlinkNode, createChainlinkNode } from '../entity/ChainlinkNode'
+import { JobRun } from '../entity/JobRun'
+import { TaskRun } from '../entity/TaskRun'
+import { DEFAULT_TEST_PORT, start, stop } from '../support/server'
 import ethtxFixture from './fixtures/JobRun.ethtx.fixture.json'
 import createFixture from './fixtures/JobRun.fixture.json'
 import updateFixture from './fixtures/JobRunUpdate.fixture.json'
-import { JobRun } from '../entity/JobRun'
-import { TaskRun } from '../entity/TaskRun'
-import { ChainlinkNode, createChainlinkNode } from '../entity/ChainlinkNode'
 import { clearDb } from './testdatabase'
 import {
   ACCESS_KEY_HEADER,
   NORMAL_CLOSE,
   SECRET_HEADER,
 } from '../utils/constants'
+import { JobRunRepository } from '../repositories/JobRunRepository'
 
 const ENDPOINT = `ws://localhost:${DEFAULT_TEST_PORT}`
 
@@ -46,7 +47,7 @@ describe('realtime', () => {
   let secret: string
 
   beforeAll(async () => {
-    server = await startServer()
+    server = await start()
     db = await getDb()
   })
 
@@ -58,9 +59,7 @@ describe('realtime', () => {
     )
   })
 
-  afterAll(async () => {
-    return Promise.all([server.close(), closeDbConnection()])
-  })
+  afterAll(done => stop(server, done))
 
   it('create a job run for valid JSON', async () => {
     expect.assertions(3)
@@ -125,7 +124,7 @@ describe('realtime', () => {
   })
 
   it('can create a task run with transactionHash and status', async () => {
-    expect.assertions(7)
+    expect.assertions(10)
 
     const ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
 
@@ -146,7 +145,9 @@ describe('realtime', () => {
     const taskRunCount = await db.manager.count(TaskRun)
     expect(taskRunCount).toEqual(4)
 
-    const jr = await db.manager.findOne(JobRun)
+    const jobRunRepository = getCustomRepository(JobRunRepository, db.name)
+    const jr = await jobRunRepository.getFirst()
+
     expect(jr.status).toEqual('completed')
 
     const tr = jr.taskRuns[3]
@@ -154,6 +155,9 @@ describe('realtime', () => {
     expect(tr.transactionHash).toEqual(
       '0x1111111111111111111111111111111111111111111111111111111111111111',
     )
+    expect(tr.timestamp).toEqual(new Date('2018-01-08T18:12:01.103Z'))
+    expect(tr.blockHeight).toEqual('3735928559')
+    expect(tr.blockHash).toEqual('0xbadc0de5')
     expect(tr.transactionStatus).toEqual('fulfilledRunLog')
     ws.close()
   })
@@ -189,26 +193,32 @@ describe('realtime', () => {
   })
 
   it('rejects multiple connections from single node', async done => {
-    expect.assertions(4)
+    expect.assertions(8)
 
-    const ws1: WebSocket = await newChainlinkNode(
-      ENDPOINT,
-      chainlinkNode.accessKey,
-      secret,
-    )
-    const ws2: WebSocket = await newChainlinkNode(
-      ENDPOINT,
-      chainlinkNode.accessKey,
-      secret,
-    )
+    // eslint-disable-next-line prefer-const
+    let ws1: WebSocket, ws2: WebSocket, ws3: WebSocket
+
+    // eslint-disable-next-line prefer-const
+    ws1 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
 
     ws1.addEventListener('close', (event: WebSocket.CloseEvent) => {
       expect(ws1.readyState).toBe(WebSocket.CLOSED)
       expect(ws2.readyState).toBe(WebSocket.OPEN)
       expect(event.code).toBe(NORMAL_CLOSE)
       expect(event.reason).toEqual('Duplicate connection opened')
-      ws2.close()
+    })
+
+    ws2 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+
+    ws2.addEventListener('close', (event: WebSocket.CloseEvent) => {
+      expect(ws2.readyState).toBe(WebSocket.CLOSED)
+      expect(ws3.readyState).toBe(WebSocket.OPEN)
+      expect(event.code).toBe(NORMAL_CLOSE)
+      expect(event.reason).toEqual('Duplicate connection opened')
+      ws3.close()
       done()
     })
+
+    ws3 = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
   })
 })

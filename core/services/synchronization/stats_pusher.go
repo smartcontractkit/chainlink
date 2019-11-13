@@ -72,7 +72,6 @@ func (sp *StatsPusher) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	sp.cancel = cancel
 	go sp.eventLoop(ctx)
-	logger.Infow("Started StatsPusher")
 	return nil
 }
 
@@ -121,7 +120,7 @@ func (sp *StatsPusher) eventLoop(parentCtx context.Context) {
 }
 
 func (sp *StatsPusher) pusherLoop(parentCtx context.Context) error {
-	logger.Debugw("Entered StatsPusher push loop")
+	logger.Debugw("Started StatsPusher")
 
 	for {
 		select {

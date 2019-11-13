@@ -94,8 +94,12 @@ func NewRun(
 
 	run := job.NewRun(initiator)
 
-	run.Overrides = input
-	run.ApplyResult(input)
+	if input.HasError() {
+		run.SetError(input.GetError())
+		return &run, nil
+	}
+
+	run.Overrides = input.Data
 	run.CreationHeight = models.NewBig(currentHeight)
 	run.ObservedHeight = models.NewBig(currentHeight)
 
@@ -115,7 +119,10 @@ func NewRun(
 		run.SetError(err)
 	}
 
-	cost := assets.NewLink(0)
+	cost := &assets.Link{}
+	if job.MinPayment != nil {
+		cost.Set(job.MinPayment)
+	}
 	for i, taskRun := range run.TaskRuns {
 		adapter, err := adapters.For(taskRun.TaskSpec, store)
 
@@ -124,9 +131,11 @@ func NewRun(
 			return &run, nil
 		}
 
-		mp := adapter.MinContractPayment()
-		if mp != nil {
-			cost.Add(cost, mp)
+		if job.MinPayment == nil || job.MinPayment.IsZero() {
+			mp := adapter.MinContractPayment()
+			if mp != nil {
+				cost.Add(cost, mp)
+			}
 		}
 
 		if currentHeight != nil {
@@ -245,17 +254,10 @@ func ResumePendingTask(
 		return fmt.Errorf("Attempting to resume pending run with no remaining tasks %s", run.ID.String())
 	}
 
-	run.Overrides.Merge(input)
+	run.Overrides.Merge(input.Data)
 
 	currentTaskRun.ApplyResult(input)
-	if currentTaskRun.Status.Finished() && run.TasksRemain() {
-		run.Status = models.RunStatusInProgress
-	} else if currentTaskRun.Status.Finished() {
-		run.ApplyResult(input)
-		run.SetFinishedAt()
-	} else {
-		run.ApplyResult(input)
-	}
+	run.ApplyResult(input)
 
 	return updateAndTrigger(run, store)
 }
@@ -295,7 +297,7 @@ func QueueSleepingTask(
 		return fmt.Errorf("Attempting to resume sleeping run with non sleeping task %s", run.ID.String())
 	}
 
-	adapter, err := prepareAdapter(currentTaskRun, run.Overrides.Data, store)
+	adapter, err := prepareAdapter(currentTaskRun, run.Overrides, store)
 	if err != nil {
 		currentTaskRun.SetError(err)
 		run.SetError(err)

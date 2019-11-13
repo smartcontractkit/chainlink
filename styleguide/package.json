@@ -11,7 +11,8 @@
     "eslint": "eslint --ext .js,.jsx,.ts,.tsx src stories @types",
     "lint": "tsc --noEmit && yarn eslint",
     "format": "prettier --write \"**/*\"",
-    "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true"
+    "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true",
+    "setup": "yarn build"
   },
   "dependencies": {
     "@material-ui/core": "^3.9.2",
@@ -22,9 +23,9 @@
     "prop-types": "^15.6.2",
     "react": "^16.7.0",
     "react-dom": "^16.7.0",
-    "react-time-ago": "^5.0.2",
+    "react-time-ago": "^5.0.7",
     "storybook-addon-material-ui": "^0.9.0-alpha.16",
-    "typescript": "^3.5.0"
+    "typescript": "^3.6.3"
   },
   "devDependencies": {
     "@babel/core": "^7.2.2",
@@ -34,11 +35,11 @@
     "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
     "@storybook/addon-actions": "^5.1.10",
-    "@storybook/addon-info": "^5.1.10",
-    "@storybook/addon-links": "^5.1.11",
+    "@storybook/addon-info": "^5.2.4",
+    "@storybook/addon-links": "^5.2.4",
     "@storybook/addons": "^5.2.1",
     "@storybook/react": "^5.1.10",
-    "@types/react": "^16.7.0",
+    "@types/react": "^16.9.5",
     "@types/react-dom": "^16.7.0",
     "@types/storybook__addon-links": "^3.3.5",
     "@types/storybook__react": "^4.0.2",
@@ -47,7 +48,7 @@
     "eslint": "^6.3.0",
     "prettier": "^1.18.2",
     "react-docgen-typescript-loader": "^3.1.0",
-    "webpack": "^4.39.1"
+    "webpack": "^4.41.1"
   },
   "prettier": "@chainlink/prettier-config"
 }

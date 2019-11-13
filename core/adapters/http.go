@@ -31,8 +31,7 @@ type HTTPGet struct {
 func (hga *HTTPGet) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	request, err := hga.GetRequest()
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.RunResultError(err)
 	}
 	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
 }
@@ -72,8 +71,7 @@ type HTTPPost struct {
 func (hpa *HTTPPost) Perform(input models.RunResult, store *store.Store) models.RunResult {
 	request, err := hpa.GetRequest(input.Data.String())
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.RunResultError(err)
 	}
 	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
 }
@@ -141,8 +139,7 @@ func sendRequest(input models.RunResult, request *http.Request, limit int64) mod
 	client := &http.Client{Transport: tr}
 	response, err := client.Do(request)
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.RunResultError(err)
 	}
 
 	defer response.Body.Close()
@@ -150,18 +147,15 @@ func sendRequest(input models.RunResult, request *http.Request, limit int64) mod
 	source := newMaxBytesReader(response.Body, limit)
 	bytes, err := ioutil.ReadAll(source)
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.RunResultError(err)
 	}
 
 	responseBody := string(bytes)
 	if response.StatusCode >= 400 {
-		input.SetError(errors.New(responseBody))
-		return input
+		return models.RunResultError(errors.New(responseBody))
 	}
 
-	input.CompleteWithResult(responseBody)
-	return input
+	return models.RunResultComplete(responseBody)
 }
 
 // maxBytesReader is inspired by

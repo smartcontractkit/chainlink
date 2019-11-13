@@ -18,6 +18,9 @@ export CHAINLINK_URL=http://127.0.0.1:$CHAINLINK_PORT/
 export MIN_OUTGOING_CONFIRMATIONS=1
 export MIN_INCOMING_CONFIRMATIONS=1
 
+export CYPRESS_JOB_SERVER_PORT=6692
+export CYPRESS_JOB_SERVER_URL=http://127.0.0.1:$CYPRESS_JOB_SERVER_PORT/
+
 pushd $SRCROOT >/dev/null
 
 source ./integration/common
@@ -36,6 +39,7 @@ else
   launch_gethnet
 fi
 
+setup_scripts
 launch_explorer
 add_clnode_to_explorer
 launch_chainlink
@@ -49,11 +53,14 @@ pushd integration >/dev/null
 
 ./runlog_test
 ./ethlog_test
+./service_agreement_test
 
 title 'End to end tests.'
 
+launch_cypress_job_server
+
 set -o pipefail
-yarn workspace @chainlink/integration run test | tee $SRCROOT/integration/e2e.tests.log
+yarn workspace @chainlink/integration test:cypress | tee $SRCROOT/integration/e2e.tests.log
 set +o pipefail
 
 title 'All tests passed.'

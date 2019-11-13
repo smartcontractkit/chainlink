@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
+	"github.com/pkg/errors"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/assets"
 	null "gopkg.in/guregu/null.v3"
@@ -29,6 +30,27 @@ type InitiatorRequest struct {
 	Type            string `json:"type"`
 	Name            string `json:"name,omitempty"`
 	InitiatorParams `json:"params,omitempty"`
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (i *InitiatorRequest) UnmarshalJSON(buf []byte) error {
+	type Alias InitiatorRequest
+	temp := struct {
+		*Alias
+		Params json.RawMessage `json:"params"`
+	}{
+		Alias: (*Alias)(i),
+	}
+	if err := json.Unmarshal(buf, &temp); err != nil {
+		return err
+	}
+	if temp.Type == InitiatorExternal {
+		temp.InitiatorParams.Params = string(temp.Params)
+	}
+	if len(temp.Params) == 0 {
+		return nil
+	}
+	return json.Unmarshal(temp.Params, &temp.Alias.InitiatorParams)
 }
 
 // TaskSpecRequest represents a schema for incoming TaskSpec requests as used by the API.
@@ -241,6 +263,34 @@ type InitiatorParams struct {
 	Address    common.Address    `json:"address,omitempty" gorm:"index"`
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
 	Name       string            `json:"name,omitempty"`
+	Params     string            `json:"-"`
+	FromBlock  *Big              `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
+	ToBlock    *Big              `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
+	Topics     Topics            `json:"topics,omitempty" gorm:"type:text"`
+}
+
+type Topics [][]common.Hash
+
+func (t Topics) Scan(value interface{}) error {
+	jsonStr, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to Topics", value, value)
+	}
+
+	err := json.Unmarshal([]byte(jsonStr), &t)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to convert %v of %T to Topics", value, value)
+	}
+	return nil
+}
+
+// Value returns this instance serialized for database storage.
+func (t Topics) Value() (driver.Value, error) {
+	j, err := json.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+	return string(j), nil
 }
 
 // NewInitiatorFromRequest creates an Initiator from the corresponding
@@ -336,29 +386,4 @@ func (t *TaskType) Scan(value interface{}) error {
 
 	*t = TaskType(temp)
 	return nil
-}
-
-// LinkEarned is to track Chainlink earnings of individual
-// job specs from job runs
-type LinkEarned struct {
-	ID       uint64       `json:"id" gorm:"primary_key;not null;auto_increment"`
-	JobRunID *ID          `json:"jobRunId"`
-	Earned   *assets.Link `json:"earned" gorm:"type:varchar(255)"`
-	EarnedAt time.Time    `json:"earnedAt" gorm:"index"`
-}
-
-// TableName will let us choose and use singular table name
-func (LinkEarned) TableName() string {
-	return "link_earned"
-}
-
-// NewLinkEarned initializes the LinkEarned from params
-// and sets the CreatedAt field.
-func NewLinkEarned(jrunid *ID, ear *assets.Link) LinkEarned {
-	now := time.Now()
-	return LinkEarned{
-		JobRunID: jrunid,
-		Earned:   ear,
-		EarnedAt: now,
-	}
 }

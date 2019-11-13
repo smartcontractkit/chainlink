@@ -15,9 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -290,21 +290,18 @@ func TestIntegration_RunLog(t *testing.T) {
 		logBlockHash     common.Hash
 		receiptBlockHash common.Hash
 		wantStatus       models.RunStatus
-		wantFinishedAt   bool
 	}{
 		{
 			name:             "completed",
 			logBlockHash:     triggeringBlockHash,
 			receiptBlockHash: triggeringBlockHash,
 			wantStatus:       models.RunStatusCompleted,
-			wantFinishedAt:   true,
 		},
 		{
 			name:             "ommered request",
 			logBlockHash:     triggeringBlockHash,
 			receiptBlockHash: otherBlockHash,
 			wantStatus:       models.RunStatusErrored,
-			wantFinishedAt:   false,
 		},
 	}
 
@@ -363,7 +360,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			})
 
 			jr = cltest.WaitForJobRunStatus(t, app.Store, jr, test.wantStatus)
-			assert.Equal(t, test.wantFinishedAt, jr.FinishedAt.Valid)
+			assert.True(t, jr.FinishedAt.Valid)
 			assert.Equal(t, requiredConfs, jr.TaskRuns[0].Confirmations.Uint32)
 			assert.True(t, eth.AllCalled(), eth.Remaining())
 		})
@@ -721,15 +718,16 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 		eth.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 	assert.NoError(t, app.StartAndConnect())
-	sa := cltest.FixtureCreateServiceAgreementViaWeb(t, app, "fixtures/web/noop_agreement.json")
+	endAt := time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
+	sa := cltest.CreateServiceAgreementViaWeb(t, app, "fixtures/web/noop_agreement.json", endAt)
 
 	assert.NotEqual(t, "", sa.ID)
 	j := cltest.FindJob(t, app.Store, sa.JobSpecID)
 
-	assert.Equal(t, assets.NewLink(1000000000000000000), sa.Encumbrance.Payment)
+	assert.Equal(t, cltest.NewLink(t, "1000000000000000000"), sa.Encumbrance.Payment)
 	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)
 
-	assert.Equal(t, time.Unix(1571523439, 0).UTC(), sa.Encumbrance.EndAt.Time)
+	assert.Equal(t, endAt, sa.Encumbrance.EndAt.Time)
 	assert.NotEqual(t, "", sa.ID)
 
 	// Request execution of the job associated with this ServiceAgreement
@@ -802,20 +800,35 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
 
-func TestIntegration_ExternalInitiatorCreate(t *testing.T) {
+func TestIntegration_ExternalInitiator(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-
-	initiatorName := "someCoin"
-	initiatorURL := cltest.WebURL(t, "https://test.chain.link/initiator")
 	eth := app.MockEthCallerSubscriber(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
-	eiJSON := fmt.Sprintf(`{"name":"%s","url":"%s"}`, initiatorName, initiatorURL)
-	eip := cltest.CreateExternalInitiatorViaWeb(t, app, eiJSON)
+	exInitr := struct {
+		Header http.Header
+		Body   web.JobSpecNotice
+	}{}
+	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
+		func(header http.Header, body string) {
+			exInitr.Header = header
+			err := json.Unmarshal([]byte(body), &exInitr.Body)
+			require.NoError(t, err)
+		},
+	)
+	defer assertCalled()
+
+	eiCreate := map[string]string{
+		"name": "someCoin",
+		"url":  eiMockServer.URL,
+	}
+	eiCreateJSON, err := json.Marshal(eiCreate)
+	require.NoError(t, err)
+	eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
 
 	eia := &models.ExternalInitiatorAuthentication{
 		AccessKey: eip.AccessKey,
@@ -824,15 +837,28 @@ func TestIntegration_ExternalInitiatorCreate(t *testing.T) {
 	ei, err := app.Store.FindExternalInitiator(eia)
 	require.NoError(t, err)
 
-	require.Equal(t, initiatorURL, ei.URL)
-	require.Equal(t, strings.ToLower(initiatorName), ei.Name)
+	require.Equal(t, eiCreate["url"], ei.URL.String())
+	require.Equal(t, strings.ToLower(eiCreate["name"]), ei.Name)
 	require.Equal(t, eip.AccessKey, ei.AccessKey)
 	require.Equal(t, eip.OutgoingSecret, ei.OutgoingSecret)
 
 	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
-	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
+	assert.Equal(t,
+		eip.OutgoingToken,
+		exInitr.Header.Get(web.ExternalInitiatorAccessKeyHeader),
+	)
+	assert.Equal(t,
+		eip.OutgoingSecret,
+		exInitr.Header.Get(web.ExternalInitiatorSecretHeader),
+	)
+	expected := web.JobSpecNotice{
+		JobID:  jobSpec.ID,
+		Type:   models.InitiatorExternal,
+		Params: cltest.JSONFromString(t, `{"foo":"bar"}`),
+	}
+	assert.Equal(t, expected, exInitr.Body)
 
-	// Check the new run has been created
+	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.ID)
 	assert.NoError(t, err)
 }

@@ -2,16 +2,20 @@ package web_test
 
 import (
 	"bytes"
-	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var endAt = time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
+var endAtISO8601 = endAt.Format(time.RFC3339)
 
 func TestServiceAgreementsController_Create(t *testing.T) {
 	t.Parallel()
@@ -23,7 +27,7 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 
 	client := app.NewHTTPClient()
 	base := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
-
+	base = strings.Replace(base, "2019-10-19T22:17:19Z", endAtISO8601, 1)
 	tests := []struct {
 		name     string
 		input    string
@@ -51,7 +55,7 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 				createdSA := cltest.FindServiceAgreement(t, app.Store, responseSA.ID)
 				assert.NotEqual(t, "", createdSA.ID)
 				assert.NotEqual(t, "", createdSA.Signature.String())
-				assert.Equal(t, time.Unix(1571523439, 0).UTC(), createdSA.Encumbrance.EndAt.Time)
+				assert.Equal(t, endAt, createdSA.Encumbrance.EndAt.Time)
 
 				var jobids []*models.ID
 				for _, j := range app.JobSubscriber.Jobs() {
@@ -74,14 +78,17 @@ func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	reader := bytes.NewBuffer(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
+	base := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
+	base = strings.Replace(base, "2019-10-19T22:17:19Z", endAtISO8601, 1)
+	reader := bytes.NewBuffer([]byte(base))
+
 	resp, cleanup := client.Post("/v2/service_agreements", reader)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	response1 := models.ServiceAgreement{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &response1))
 
-	reader = bytes.NewBuffer(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
+	reader = bytes.NewBuffer([]byte(base))
 	resp, cleanup = client.Post("/v2/service_agreements", reader)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
@@ -108,9 +115,8 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	b, err := ioutil.ReadAll(resp.Body)
-	assert.NoError(t, err)
 	normalizedInput := cltest.NormalizedJSON(t, input)
-	saBody := cltest.JSONFromBytes(t, b).Get("data").Get("attributes")
-	assert.Equal(t, normalizedInput, saBody.String())
+	parsed := presenters.ServiceAgreement{}
+	cltest.ParseJSONAPIResponse(t, resp, &parsed)
+	assert.Equal(t, normalizedInput, parsed.RequestBody)
 }

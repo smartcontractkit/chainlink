@@ -9,7 +9,7 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import TermsOfUse from '../TermsOfUse'
-import Logo from '../Logo'
+import { PublicLogo } from '../Logos/Public'
 import SearchBox from '../SearchBox'
 import SearchForm from '../SearchForm'
 
@@ -46,7 +46,12 @@ const Search = ({ classes }: Props) => {
                 <SearchForm>
                   <Grid container justify="center">
                     <Grid item>
-                      <Logo className={classes.logo} width={300} height={80} />
+                      <PublicLogo
+                        href="/"
+                        className={classes.logo}
+                        width={300}
+                        height={80}
+                      />
                     </Grid>
                     <Grid item xs={12}>
                       <SearchBox />
