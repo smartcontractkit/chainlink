@@ -57,11 +57,11 @@ func TestAssets_Link_UnmarshalJsonError(t *testing.T) {
 
 	link := assets.Link{}
 
-	err := json.Unmarshal([]byte(`"a"`), &link)
-	assert.EqualError(t, err, "assets: cannot unmarshal \"a\" into a *assets.Link")
+	err := json.Unmarshal([]byte(`"x"`), &link)
+	assert.EqualError(t, err, "assets: cannot unmarshal \"x\" into a *assets.Link")
 
 	err = json.Unmarshal([]byte(`1`), &link)
-	assert.EqualError(t, err, "json: cannot unmarshal number into Go value of type *assets.Link")
+	assert.Equal(t, assets.ErrNoQuotesForCurrency, err)
 }
 
 func TestAssets_NewEthAndString(t *testing.T) {
@@ -119,9 +119,9 @@ func TestAssets_Eth_UnmarshalJsonError(t *testing.T) {
 
 	eth := assets.Eth{}
 
-	err := json.Unmarshal([]byte(`"a"`), &eth)
-	assert.EqualError(t, err, "assets: cannot unmarshal \"a\" into a *assets.Eth")
+	err := json.Unmarshal([]byte(`"x"`), &eth)
+	assert.EqualError(t, err, "assets: cannot unmarshal \"x\" into a *assets.Eth")
 
 	err = json.Unmarshal([]byte(`1`), &eth)
-	assert.EqualError(t, err, "json: cannot unmarshal number into Go value of type *assets.Eth")
+	assert.Equal(t, assets.ErrNoQuotesForCurrency, err)
 }

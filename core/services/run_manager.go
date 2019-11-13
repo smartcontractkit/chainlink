@@ -89,7 +89,7 @@ func newRun(
 	run.CreationHeight = models.NewBig(currentHeight)
 	run.ObservedHeight = models.NewBig(currentHeight)
 
-	if !MeetsMinimumPayment(job.MinPayment, payment) {
+	if !MeetsMinimumPayment(&job.MinPayment, payment) {
 		logger.Infow("Rejecting run with insufficient payment",
 			run.ForLogger(
 				"input_payment", payment,
@@ -104,7 +104,7 @@ func newRun(
 	}
 
 	cost := &assets.Link{}
-	cost.Set(job.MinPayment)
+	cost.Set(&job.MinPayment)
 	for i, taskRun := range run.TaskRuns {
 		adapter, err := adapters.For(taskRun.TaskSpec, config, orm)
 
@@ -321,7 +321,6 @@ func (jm *runManager) ResumePending(
 //
 // To recap: This must run before anything else writes job run status to the db,
 // ie. tries to run a job.
-// https://chainlink/pull/807
 func (jm *runManager) ResumeAllInProgress() error {
 	return jm.orm.UnscopedJobRunsWithStatus(jm.runQueue.Run, models.RunStatusInProgress, models.RunStatusPendingSleep)
 }

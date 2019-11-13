@@ -165,7 +165,7 @@ func TestMigrate_Migration1565139192(t *testing.T) {
 
 	specNoPayment := models.NewJobFromRequest(models.JobSpecRequest{})
 	specWithPayment := models.NewJobFromRequest(models.JobSpecRequest{
-		MinPayment: assets.NewLink(5),
+		MinPayment: *assets.NewLink(5),
 	})
 	specOneFound := models.JobSpec{}
 	specTwoFound := models.JobSpec{}
@@ -173,9 +173,9 @@ func TestMigrate_Migration1565139192(t *testing.T) {
 	require.NoError(t, db.Create(&specWithPayment).Error)
 	require.NoError(t, db.Create(&specNoPayment).Error)
 	require.NoError(t, db.Where("id = ?", specNoPayment.ID).Find(&specOneFound).Error)
-	require.Equal(t, assets.NewLink(0), specNoPayment.MinPayment)
+	require.Equal(t, *assets.NewLink(0), specNoPayment.MinPayment)
 	require.NoError(t, db.Where("id = ?", specWithPayment.ID).Find(&specTwoFound).Error)
-	require.Equal(t, assets.NewLink(5), specWithPayment.MinPayment)
+	require.Equal(t, *assets.NewLink(5), specWithPayment.MinPayment)
 }
 
 func TestMigrate_Migration1565210496(t *testing.T) {
