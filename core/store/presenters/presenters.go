@@ -196,15 +196,15 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			MinIncomingConfirmations: config.MinIncomingConfirmations(),
 			MinOutgoingConfirmations: config.MinOutgoingConfirmations(),
 			OracleContractAddress:    config.OracleContractAddress(),
-			Port:             config.Port(),
-			ReaperExpiration: config.ReaperExpiration(),
-			ReplayFromBlock:  config.ReplayFromBlock(),
-			RootDir:          config.RootDir(),
-			SessionTimeout:   config.SessionTimeout(),
-			TLSHost:          config.TLSHost(),
-			TLSPort:          config.TLSPort(),
-			TLSRedirect:      config.TLSRedirect(),
-			TxAttemptLimit:   config.TxAttemptLimit(),
+			Port:                     config.Port(),
+			ReaperExpiration:         config.ReaperExpiration(),
+			ReplayFromBlock:          config.ReplayFromBlock(),
+			RootDir:                  config.RootDir(),
+			SessionTimeout:           config.SessionTimeout(),
+			TLSHost:                  config.TLSHost(),
+			TLSPort:                  config.TLSPort(),
+			TLSRedirect:              config.TLSRedirect(),
+			TxAttemptLimit:           config.TxAttemptLimit(),
 		},
 	}, nil
 }
@@ -308,9 +308,6 @@ func (job JobSpec) FriendlyEndAt() string {
 // FriendlyMinPayment returns a formatted string of the Job's
 // Minimum Link Payment threshold
 func (job JobSpec) FriendlyMinPayment() string {
-	if job.MinPayment == nil {
-		return assets.NewLink(0).Text(10)
-	}
 	return job.MinPayment.Text(10)
 }
 
