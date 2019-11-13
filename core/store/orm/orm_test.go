@@ -1278,3 +1278,121 @@ func isDirEmpty(t *testing.T, dir string) bool {
 
 	return false
 }
+
+func TestORM_UnconfirmedTxAttempts(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	// tx #1, 4 attempts
+	{
+		from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
+		to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
+		value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
+		nonce := uint64(1232421)
+		gasLimit := uint64(50000)
+		data, err := hex.DecodeString("0987612345abcdef")
+		assert.NoError(t, err)
+
+		ethTx := types.NewTransaction(
+			nonce,
+			to,
+			value,
+			gasLimit,
+			new(big.Int),
+			data,
+		)
+
+		tx, err := store.CreateTx(null.String{}, ethTx, &from, 0)
+		require.NoError(t, err)
+
+		_, err = store.AddTxAttempt(tx, ethTx, 1)
+		require.NoError(t, err)
+
+		_, err = store.AddTxAttempt(tx, ethTx, 2)
+		require.NoError(t, err)
+
+		_, err = store.AddTxAttempt(tx, ethTx, 3)
+		require.NoError(t, err)
+
+		tx.Attempts[0].GasPrice = models.NewBig(big.NewInt(1111))
+		tx.Attempts[1].GasPrice = models.NewBig(big.NewInt(2222))
+		tx.Attempts[2].GasPrice = models.NewBig(big.NewInt(3333))
+		tx.Attempts[3].GasPrice = models.NewBig(big.NewInt(4444))
+
+		err = store.ORM.DB.Save(&tx).Error
+		require.NoError(t, err)
+	}
+
+	// tx #2, 3 attempts
+	{
+		from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
+		to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
+		value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
+		nonce := uint64(33322211)
+		gasLimit := uint64(50000)
+		data, err := hex.DecodeString("0987612345abcdef")
+		assert.NoError(t, err)
+
+		ethTx := types.NewTransaction(
+			nonce,
+			to,
+			value,
+			gasLimit,
+			new(big.Int),
+			data,
+		)
+
+		tx, err := store.CreateTx(null.String{}, ethTx, &from, 0)
+		require.NoError(t, err)
+
+		_, err = store.AddTxAttempt(tx, ethTx, 1)
+		require.NoError(t, err)
+
+		_, err = store.AddTxAttempt(tx, ethTx, 2)
+		require.NoError(t, err)
+
+		tx.Attempts[0].GasPrice = models.NewBig(big.NewInt(5555))
+		tx.Attempts[1].GasPrice = models.NewBig(big.NewInt(6666))
+		tx.Attempts[2].GasPrice = models.NewBig(big.NewInt(7777))
+
+		err = store.ORM.DB.Save(&tx).Error
+		require.NoError(t, err)
+	}
+
+	// tx #3, 2 attempts
+	{
+		from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
+		to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
+		value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
+		nonce := uint64(432211)
+		gasLimit := uint64(50000)
+		data, err := hex.DecodeString("0987612345abcdef")
+		assert.NoError(t, err)
+
+		ethTx := types.NewTransaction(
+			nonce,
+			to,
+			value,
+			gasLimit,
+			new(big.Int),
+			data,
+		)
+
+		tx, err := store.CreateTx(null.String{}, ethTx, &from, 0)
+		require.NoError(t, err)
+
+		_, err = store.AddTxAttempt(tx, ethTx, 1)
+		require.NoError(t, err)
+
+		// This tx's attempts should not appear in the results
+		tx.Confirmed = true
+
+		err = store.ORM.DB.Save(&tx).Error
+		require.NoError(t, err)
+	}
+
+	attempts, err := store.ORM.UnconfirmedTxAttempts()
+	require.NoError(t, err)
+
+	assert.Len(t, attempts, 7)
+}

@@ -3,5 +3,8 @@ ci/
 clroot/
 docker/
 gethnet/
+eslint-config/
+prettier-config/
+.eslintignore
 .prettierignore
 .gitignore

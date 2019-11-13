@@ -703,6 +703,8 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			ethMock.ShouldCall(test.mockSetup).During(func() {
 				require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(test.blockHeight)))
 				ethMock.Register("eth_chainId", store.Config.ChainID())
+				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+
 				require.NoError(t, app.StartAndConnect())
 				receipt, _, err := txm.BumpGasUntilSafe(a.Hash)
 
@@ -802,12 +804,15 @@ func TestTxManager_CheckAttempt_error(t *testing.T) {
 func TestTxManager_Register(t *testing.T) {
 	t.Parallel()
 
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
 	ethMock := &cltest.EthMock{}
-	txm := store.NewEthTxManager(
+	txm := strpkg.NewEthTxManager(
 		&strpkg.EthCallerSubscriber{CallerSubscriber: ethMock},
 		orm.NewConfig(),
 		nil,
-		nil,
+		store.ORM,
 	)
 
 	ethMock.Register("eth_getTransactionCount", `0x2D0`)
@@ -824,12 +829,15 @@ func TestTxManager_Register(t *testing.T) {
 func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	t.Parallel()
 
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
 	ethMock := &cltest.EthMock{}
-	txm := store.NewEthTxManager(
+	txm := strpkg.NewEthTxManager(
 		&strpkg.EthCallerSubscriber{CallerSubscriber: ethMock},
 		orm.NewConfig(),
 		nil,
-		nil,
+		store.ORM,
 	)
 
 	accounts := []accounts.Account{
@@ -1131,36 +1139,46 @@ func TestGetContract(t *testing.T) {
 	}
 }
 
+// XXX: This test needs a compiled oracle contract, which can be built with
+// `yarn workspace chainlink run setup` in the base project directory.
 func TestContract_EncodeMessageCall(t *testing.T) {
 	t.Parallel()
 
 	// Test with the Oracle contract
 	oracle, err := strpkg.GetContract("Oracle")
+	require.NoError(t, err)
+	require.NotNil(t, oracle)
+
+	data, err := oracle.EncodeMessageCall("withdraw", cltest.NewAddress(), (*big.Int)(assets.NewLink(10)))
 	assert.NoError(t, err)
+	assert.NotNil(t, data)
+}
+
+// XXX: As above
+func TestContract_EncodeMessageCall_errors(t *testing.T) {
+	t.Parallel()
+
+	// Test with the Oracle contract
+	oracle, err := strpkg.GetContract("Oracle")
+	require.NoError(t, err)
+	require.NotNil(t, oracle)
 
 	tests := []struct {
-		name      string
-		method    string
-		args      []interface{}
-		expectErr bool
+		name   string
+		method string
+		args   []interface{}
 	}{
-		{"Withdraw LINK", "withdraw", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10))}, false},
-		{"Non-existent method", "not-a-method", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10))}, true},
-		{"Too few arguments", "withdraw", []interface{}{cltest.NewAddress()}, true},
-		{"Too many arguments", "withdraw", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10)), (*big.Int)(assets.NewLink(10))}, true},
-		{"Incorrect argument types", "withdraw", []interface{}{(*big.Int)(assets.NewLink(10)), cltest.NewAddress()}, true},
+		{"Non-existent method", "not-a-method", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10))}},
+		{"Too few arguments", "withdraw", []interface{}{cltest.NewAddress()}},
+		{"Too many arguments", "withdraw", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10)), (*big.Int)(assets.NewLink(10))}},
+		{"Incorrect argument types", "withdraw", []interface{}{(*big.Int)(assets.NewLink(10)), cltest.NewAddress()}},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			data, err := oracle.EncodeMessageCall(test.method, test.args...)
-			if test.expectErr {
-				assert.Error(t, err)
-				assert.Nil(t, data)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, data)
-			}
+			assert.Error(t, err)
+			assert.Nil(t, data)
 		})
 	}
 }

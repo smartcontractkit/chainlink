@@ -1,0 +1,3 @@
+#!/bin/bash
+
+yarn workspace @chainlink/example-echo-server run start

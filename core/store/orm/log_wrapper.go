@@ -27,6 +27,6 @@ func (l *ormLogWrapper) Print(args ...interface{}) {
 	case "sql":
 		l.Debugw(args[3].(string), "time", args[2], "rows_affected", args[5])
 	default:
-		l.Info(args...)
+		// Don't log these, only seems to be the callback logs which aren't super useful
 	}
 }

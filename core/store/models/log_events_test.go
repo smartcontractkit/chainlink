@@ -230,6 +230,101 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 	}
 }
 
+func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
+	t.Parallel()
+
+	// When InitiatorParams.fromBlock > the fromBlock passed into FilterQueryFactory, it should win
+	// due to being larger.
+	{
+		i := models.Initiator{
+			Type: models.InitiatorEthLog,
+			InitiatorParams: models.InitiatorParams{
+				Address:   common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+				FromBlock: models.NewBig(big.NewInt(123)),
+				ToBlock:   models.NewBig(big.NewInt(456)),
+				Topics: [][]common.Hash{
+					{
+						common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
+						common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
+					},
+				},
+			},
+		}
+		fromBlock := big.NewInt(42)
+		filter, err := models.FilterQueryFactory(i, fromBlock)
+		assert.NoError(t, err)
+
+		want := ethereum.FilterQuery{
+			Addresses: []common.Address{common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef")},
+			FromBlock: big.NewInt(123),
+			ToBlock:   big.NewInt(456),
+			Topics: [][]common.Hash{
+				{
+					common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
+					common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
+				},
+			},
+		}
+		assert.Equal(t, want, filter)
+	}
+
+	// When the fromBlock passed into FilterQueryFactory > InitiatorParams.fromBlock, it should win
+	// due to being larger.
+	{
+		i := models.Initiator{
+			Type: models.InitiatorEthLog,
+			InitiatorParams: models.InitiatorParams{
+				Address:   common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+				FromBlock: models.NewBig(big.NewInt(123)),
+				ToBlock:   models.NewBig(big.NewInt(456)),
+				Topics: [][]common.Hash{
+					{
+						common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
+						common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
+					},
+				},
+			},
+		}
+		fromBlock := big.NewInt(124)
+		filter, err := models.FilterQueryFactory(i, fromBlock)
+		assert.NoError(t, err)
+
+		want := ethereum.FilterQuery{
+			Addresses: []common.Address{common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef")},
+			FromBlock: big.NewInt(124),
+			ToBlock:   big.NewInt(456),
+			Topics: [][]common.Hash{
+				{
+					common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
+					common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
+				},
+			},
+		}
+		assert.Equal(t, want, filter)
+	}
+
+	// When the winning fromBlock is > InitiatorParams.ToBlock, it should error.
+	{
+		i := models.Initiator{
+			Type: models.InitiatorEthLog,
+			InitiatorParams: models.InitiatorParams{
+				Address:   common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+				FromBlock: models.NewBig(big.NewInt(123)),
+				ToBlock:   models.NewBig(big.NewInt(456)),
+				Topics: [][]common.Hash{
+					{
+						common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
+						common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
+					},
+				},
+			},
+		}
+		fromBlock := big.NewInt(999)
+		_, err := models.FilterQueryFactory(i, fromBlock)
+		assert.Error(t, err)
+	}
+}
+
 func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 	t.Parallel()
 

@@ -23,12 +23,21 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1566915476"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1567029116"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1568280052"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1568390387"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1568833756"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1570087128"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1570675883"
 	gormigrate "gopkg.in/gormigrate.v1"
 )
 
 // Migrate iterates through available migrations, running and tracking
 // migrations that have not been run.
 func Migrate(db *gorm.DB) error {
+	return MigrateTo(db, "")
+}
+
+// MigrateTo runs all migrations up to and including the specified migration ID
+func MigrateTo(db *gorm.DB, migrationID string) error {
 	options := *gormigrate.DefaultOptions
 	options.UseTransaction = true
 
@@ -105,6 +114,22 @@ func Migrate(db *gorm.DB) error {
 			ID:      "1565291711",
 			Migrate: migration1565291711.Migrate,
 		},
+		{
+			ID:      "1568390387",
+			Migrate: migration1568390387.Migrate,
+		},
+		{
+			ID:      "1568833756",
+			Migrate: migration1568833756.Migrate,
+		},
+		{
+			ID:      "1570087128",
+			Migrate: migration1570087128.Migrate,
+		},
+		{
+			ID:      "1570675883",
+			Migrate: migration1570675883.Migrate,
+		},
 	}
 
 	m := gormigrate.New(db, &options, migrations)
@@ -119,7 +144,11 @@ func Migrate(db *gorm.DB) error {
 		return errors.New("database is newer than current chainlink version")
 	}
 
-	err = m.Migrate()
+	if migrationID == "" {
+		migrationID = migrations[len(migrations)-1].ID
+	}
+
+	err = m.MigrateTo(migrationID)
 	if err != nil {
 		return errors.Wrap(err, "error running migrations")
 	}

@@ -1,9 +1,7 @@
 package cltest
 
 import (
-	"bytes"
 	"encoding/json"
-	"net/http"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -18,29 +16,6 @@ const (
 // FixtureCreateJobViaWeb creates a job from a fixture using /v2/specs
 func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
 	return CreateSpecViaWeb(t, app, string(MustReadFile(t, path)))
-}
-
-// FixtureCreateServiceAgreementViaWeb creates a service agreement from a fixture using /v2/service_agreements
-func FixtureCreateServiceAgreementViaWeb(
-	t *testing.T,
-	app *TestApplication,
-	path string,
-) models.ServiceAgreement {
-	client := app.NewHTTPClient()
-
-	agreementWithoutOracle := string(MustReadFile(t, path))
-	from := GetAccountAddress(t, app.ChainlinkApplication.GetStore())
-	agreementWithOracle := MustJSONSet(t, agreementWithoutOracle, "oracles", []string{from.Hex()})
-
-	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBufferString(agreementWithOracle))
-	defer cleanup()
-
-	AssertServerResponse(t, resp, http.StatusOK)
-	responseSA := models.ServiceAgreement{}
-	err := ParseJSONAPIResponse(t, resp, &responseSA)
-	require.NoError(t, err)
-
-	return FindServiceAgreement(t, app.Store, responseSA.ID)
 }
 
 // JSONFromFixture create models.JSON from file path

@@ -10,21 +10,21 @@
     "format": "prettier --write \"*.js\"",
     "eslint:config:base": "eslint -c ./base.js --print-config ./base",
     "eslint:config:node": "eslint -c ./node.js --print-config ./base",
-    "eslint:config:react": "eslint -c ./react.js --print-config ./base"
+    "eslint:config:react": "eslint -c ./react.js --print-config ./base",
+    "setup": "echo \"No setup required for @chainlink/eslint-config\""
   },
   "peerDependencies": {
     "@chainlink/prettier-config": "0.0.1",
-    "eslint": "^6.3.0",
     "prettier": "^1.18.2",
-    "typescript": "^3.6.2"
+    "typescript": "^3.6.3"
   },
   "dependencies": {
     "@typescript-eslint/eslint-plugin": "^2.1.0",
-    "@typescript-eslint/parser": "^2.1.0",
+    "@typescript-eslint/parser": "^2.5.0",
     "eslint-config-prettier": "^6.2.0",
     "eslint-plugin-prettier": "^3.1.0",
     "eslint-plugin-react": "^7.14.3",
-    "eslint-plugin-react-hooks": "^2.0.1"
+    "eslint-plugin-react-hooks": "^2.1.2"
   },
   "devDependencies": {
     "@chainlink/prettier-config": "0.0.1",

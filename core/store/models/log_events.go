@@ -86,30 +86,42 @@ func TopicFiltersForRunLog(logTopics []common.Hash, jobID *ID) [][]common.Hash {
 
 // FilterQueryFactory returns the ethereum FilterQuery for this initiator.
 func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error) {
+	q := ethereum.FilterQuery{
+		FromBlock: from,
+		Addresses: utils.WithoutZeroAddresses([]common.Address{i.Address}),
+	}
+
 	switch i.Type {
 	case InitiatorEthLog:
-		return newInitiatorFilterQuery(i, from, nil), nil
+		if from == nil {
+			q.FromBlock = i.InitiatorParams.FromBlock.ToInt()
+		} else if from != nil && i.InitiatorParams.FromBlock != nil {
+			q.FromBlock = utils.MaxBigs(from, i.InitiatorParams.FromBlock.ToInt())
+		}
+		q.ToBlock = i.InitiatorParams.ToBlock.ToInt()
+
+		if q.FromBlock != nil && q.ToBlock != nil && q.FromBlock.Cmp(q.ToBlock) >= 0 {
+			return q, fmt.Errorf("cannot generate a FilterQuery with fromBlock >= toBlock")
+		}
+
+		q.Topics = make([][]common.Hash, len(i.Topics))
+		copy(q.Topics, i.Topics) // Simply coercing i.Topics to the underlying type confuses reflect.DeepEqual
+
+		return q, nil
+
 	case InitiatorRunLog:
 		topics := []common.Hash{RunLogTopic20190207withoutIndexes, RunLogTopic20190123withFullfillmentParams, RunLogTopic0original}
-		filters := TopicFiltersForRunLog(topics, i.JobSpecID)
-		return newInitiatorFilterQuery(i, from, filters), nil
+		q.Topics = TopicFiltersForRunLog(topics, i.JobSpecID)
+		return q, nil
+
 	case InitiatorServiceAgreementExecutionLog:
 		topics := []common.Hash{ServiceAgreementExecutionLogTopic}
-		filters := TopicFiltersForRunLog(topics, i.JobSpecID)
-		return newInitiatorFilterQuery(i, from, filters), nil
+		q.Topics = TopicFiltersForRunLog(topics, i.JobSpecID)
+		return q, nil
+
 	default:
 		return ethereum.FilterQuery{}, fmt.Errorf("Cannot generate a FilterQuery for initiator of type %T", i)
 	}
-}
-
-func newInitiatorFilterQuery(
-	initr Initiator,
-	listenFrom *big.Int,
-	topics [][]common.Hash,
-) ethereum.FilterQuery {
-	q := utils.ToFilterQueryFor(listenFrom, []common.Address{initr.Address})
-	q.Topics = topics
-	return q
 }
 
 // LogRequest is the interface to allow polymorphic functionality of different

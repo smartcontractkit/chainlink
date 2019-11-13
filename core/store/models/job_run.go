@@ -31,8 +31,7 @@ type JobRun struct {
 	InitiatorID    uint         `json:"-"`
 	CreationHeight *Big         `json:"creationHeight"`
 	ObservedHeight *Big         `json:"observedHeight"`
-	Overrides      RunResult    `json:"overrides"`
-	OverridesID    uint         `json:"-"`
+	Overrides      JSON         `json:"overrides"`
 	DeletedAt      null.Time    `json:"-" gorm:"index"`
 	Payment        *assets.Link `json:"payment,omitempty"`
 }
@@ -119,17 +118,24 @@ func (jr *JobRun) SetError(err error) {
 	jr.Result.ErrorMessage = null.StringFrom(err.Error())
 	jr.Result.Status = RunStatusErrored
 	jr.Status = jr.Result.Status
+	jr.FinishedAt = null.TimeFrom(time.Now())
 }
 
 // ApplyResult updates the JobRun's Result and Status
-func (jr *JobRun) ApplyResult(result RunResult) {
+func (jr *JobRun) ApplyResult(result RunResult) error {
+	data, err := jr.Result.Data.Merge(result.Data)
+	if err != nil {
+		return err
+	}
 	jr.Result = result
+	jr.Result.Data = data
 	jr.Status = result.Status
-}
-
-// SetFinishedAt sets the JobRun's finished at time to now.
-func (jr *JobRun) SetFinishedAt() {
-	jr.FinishedAt = null.TimeFrom(time.Now())
+	if jr.Status.Completed() && jr.TasksRemain() {
+		jr.Status = RunStatusInProgress
+	} else if jr.Status.Finished() {
+		jr.FinishedAt = null.TimeFrom(time.Now())
+	}
+	return nil
 }
 
 // JobRunsWithStatus filters passed job runs returning those that have
@@ -224,6 +230,18 @@ type RunResult struct {
 	Data            JSON        `json:"data" gorm:"type:text"`
 	Status          RunStatus   `json:"status"`
 	ErrorMessage    null.String `json:"error"`
+}
+
+func RunResultComplete(resultVal interface{}) RunResult {
+	var result RunResult
+	result.CompleteWithResult(resultVal)
+	return result
+}
+
+func RunResultError(err error) RunResult {
+	var result RunResult
+	result.SetError(err)
+	return result
 }
 
 // CompleteWithResult saves a value to a RunResult and marks it as completed

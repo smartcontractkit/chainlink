@@ -104,6 +104,11 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for the node's configuration",
 			Subcommands: []cli.Command{
 				{
+					Name: "list",
+					Usage: "Show the node's environment variables",
+					Action: client.GetConfiguration,
+				},
+				{
 					Name:   "setgasprice",
 					Usage:  "Set the minimum gas price to use for outgoing transactions",
 					Action: client.SetMinimumGasPrice,
@@ -183,6 +188,11 @@ func NewApp(client *Client) *cli.App {
 						cli.StringFlag{
 							Name:  "password, p",
 							Usage: "text file holding the password for the node's account",
+						},
+						cli.Int64Flag{
+							Name:  "replay-from-block, r",
+							Usage: "historical block height from which to replay log-initiated jobs",
+							Value: -1,
 						},
 					},
 					Usage:  "Run the chainlink node",

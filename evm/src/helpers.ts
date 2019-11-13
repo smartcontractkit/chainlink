@@ -1,6 +1,6 @@
 import cbor from 'cbor'
 import TruffleContract from 'truffle-contract'
-import { linkToken } from './linkToken'
+import LinkToken from './LinkToken.json'
 import { assertBigNum } from './matchers'
 import * as abi from 'ethereumjs-abi'
 import BN from 'bn.js'
@@ -8,7 +8,6 @@ import * as util from 'ethereumjs-util'
 
 const HEX_BASE = 16
 
-// https://github.com/ethereum/web3.js/issues/1119#issuecomment-394217563
 web3.providers.HttpProvider.prototype.sendAsync =
   web3.providers.HttpProvider.prototype.send
 export const eth = web3.eth
@@ -98,11 +97,11 @@ export const linkContract = async (account: string): Promise<any> => {
     throw Error('No account supplied as a parameter')
   }
   const receipt = await web3.eth.sendTransaction({
-    data: linkToken.bytecode,
+    data: LinkToken.bytecode,
     from: account,
     gas: 2000000,
   })
-  const contract = TruffleContract({ abi: linkToken.abi })
+  const contract = TruffleContract({ abi: LinkToken.abi })
   contract.setProvider(web3.currentProvider)
   contract.defaults({
     from: account,
@@ -464,7 +463,7 @@ export const createTxData = (
   return funcSelector + encoded
 }
 
-export const calculateSAID = ({
+export const generateSAID = ({
   payment,
   expiration,
   endAt,
@@ -685,7 +684,7 @@ export const newServiceAgreement = async (params: any): Promise<any> => {
       '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5',
     )
 
-  const sAID = calculateSAID(agreement)
+  const sAID = generateSAID(agreement)
   agreement.id = toHex(sAID)
 
   for (let i = 0; i < agreement.oracles.length; i++) {

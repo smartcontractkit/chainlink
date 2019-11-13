@@ -47,7 +47,7 @@ func TestNewRun(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, string(models.RunStatusInProgress), string(run.Status))
 	assert.Len(t, run.TaskRuns, 1)
-	assert.Equal(t, input, run.Overrides.Data)
+	assert.Equal(t, input, run.Overrides)
 	assert.False(t, run.TaskRuns[0].Confirmations.Valid)
 }
 
@@ -74,45 +74,86 @@ func TestNewRun_MeetsMinimumPayment(t *testing.T) {
 	}
 }
 
-func TestNewRun_requiredPayment(t *testing.T) {
+func TestNewRun_jobSpecMinPayment(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
 
-	_, bt := cltest.NewBridgeType(t, "timecube", "http://http://timecube.2enp.com/")
-	bt.MinimumContractPayment = assets.NewLink(10)
-	require.NoError(t, store.CreateBridgeType(bt))
-
 	tests := []struct {
-		name                  string
-		payment               *assets.Link
-		minimumConfigPayment  *assets.Link
-		minimumJobSpecPayment *assets.Link
-		expectedStatus        models.RunStatus
+		name           string
+		payment        *assets.Link
+		minPayment     *assets.Link
+		expectedStatus models.RunStatus
 	}{
-		{"creates runnable job", nil, assets.NewLink(0), assets.NewLink(0), models.RunStatusInProgress},
-		{"insufficient payment as specified by config", assets.NewLink(9), assets.NewLink(10), assets.NewLink(0), models.RunStatusErrored},
-		{"sufficient payment as specified by config", assets.NewLink(10), assets.NewLink(10), assets.NewLink(0), models.RunStatusInProgress},
-		{"insufficient payment as specified by adapter", assets.NewLink(9), assets.NewLink(0), assets.NewLink(0), models.RunStatusErrored},
-		{"sufficient payment as specified by adapter", assets.NewLink(10), assets.NewLink(0), assets.NewLink(0), models.RunStatusInProgress},
-		{"insufficient payment as specified by jobSpec MinPayment", assets.NewLink(9), assets.NewLink(0), assets.NewLink(10), models.RunStatusErrored},
-		{"sufficient payment as specified by jobSpec MinPayment", assets.NewLink(10), assets.NewLink(0), assets.NewLink(10), models.RunStatusInProgress},
+		{"payment < min payment", assets.NewLink(9), assets.NewLink(10), models.RunStatusErrored},
+		{"payment = min payment", assets.NewLink(10), assets.NewLink(10), models.RunStatusInProgress},
+		{"payment > min payment", assets.NewLink(11), assets.NewLink(10), models.RunStatusInProgress},
+		{"payment is nil", nil, assets.NewLink(10), models.RunStatusInProgress},
+		{"minPayment is nil", nil, nil, models.RunStatusInProgress},
 	}
 
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			store.Config.Set("MINIMUM_CONTRACT_PAYMENT", test.minimumConfigPayment)
-
 			jobSpec := models.NewJob()
 			jobSpec.Tasks = []models.TaskSpec{{
-				Type: "timecube",
+				Type: "noop",
 			}}
 			jobSpec.Initiators = []models.Initiator{{
 				Type: models.InitiatorEthLog,
 			}}
-			jobSpec.MinPayment = test.minimumJobSpecPayment
+			jobSpec.MinPayment = test.minPayment
+
+			inputResult := models.RunResult{Data: input}
+
+			run, err := services.NewRun(jobSpec, jobSpec.Initiators[0], inputResult, nil, store, test.payment)
+			assert.NoError(t, err)
+			assert.Equal(t, string(test.expectedStatus), string(run.Status))
+		})
+	}
+}
+
+func TestNewRun_taskSumPayment(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	_, bta := cltest.NewBridgeType(t, "timecube_a", "http://http://timecube.2enp.com/")
+	bta.MinimumContractPayment = assets.NewLink(8)
+	require.NoError(t, store.CreateBridgeType(bta))
+
+	_, btb := cltest.NewBridgeType(t, "timecube_b", "http://http://timecube.2enp.com/")
+	btb.MinimumContractPayment = assets.NewLink(7)
+	require.NoError(t, store.CreateBridgeType(btb))
+
+	store.Config.Set("MINIMUM_CONTRACT_PAYMENT", "1")
+
+	input := models.JSON{Result: gjson.Parse(`{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)}
+
+	tests := []struct {
+		name           string
+		payment        *assets.Link
+		expectedStatus models.RunStatus
+	}{
+		{"payment < min payment", assets.NewLink(15), models.RunStatusErrored},
+		{"payment = min payment", assets.NewLink(16), models.RunStatusInProgress},
+		{"payment > min payment", assets.NewLink(17), models.RunStatusInProgress},
+		{"payment is nil", nil, models.RunStatusInProgress},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			jobSpec := models.NewJob()
+			jobSpec.Tasks = []models.TaskSpec{
+				{Type: "timecube_a"},
+				{Type: "timecube_b"},
+				{Type: "ethtx"},
+				{Type: "noop"},
+			}
+			jobSpec.Initiators = []models.Initiator{{
+				Type: models.InitiatorEthLog,
+			}}
 
 			inputResult := models.RunResult{Data: input}
 

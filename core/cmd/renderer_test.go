@@ -33,6 +33,21 @@ func TestRendererTable_RenderJobs(t *testing.T) {
 	assert.NoError(t, r.Render(&jobs))
 }
 
+func TestRendererTable_RenderConfiguration(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	client := app.NewHTTPClient()
+	
+	resp, cleanup := client.Get("/v2/config")
+	cwl := presenters.ConfigWhitelist{}
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cwl))
+	
+	r := cmd.RendererTable{Writer: ioutil.Discard}
+	assert.NoError(t, r.Render(&cwl))
+}
+
 func TestRendererTable_RenderShowJob(t *testing.T) {
 	t.Parallel()
 	r := cmd.RendererTable{Writer: ioutil.Discard}

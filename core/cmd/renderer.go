@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"reflect"
 	"fmt"
 	"io"
 	"strconv"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -71,6 +74,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderExternalInitiatorAuthentication(*typed)
 	case *web.ConfigPatchResponse:
 		return rt.renderConfigPatchResponse(typed)
+	case *presenters.ConfigWhitelist:
+		return rt.renderConfiguration(*typed)
 	default:
 		return fmt.Errorf("Unable to render object of type %T: %v", typed, typed)
 	}
@@ -85,6 +90,50 @@ func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
 	render("Jobs", table)
 	return nil
 }
+
+func (rt RendererTable) renderConfiguration(cwl presenters.ConfigWhitelist) error {
+	table := rt.newTable([]string{"Key", "Value"})
+	
+	table.Append([]string{
+		"ACCOUNT_ADDRESS",
+		cwl.AccountAddress,
+	})
+
+	schemaT := reflect.TypeOf(orm.ConfigSchema{})
+	cwlT := reflect.TypeOf(cwl.Whitelist)
+	cwlV := reflect.ValueOf(cwl.Whitelist)
+
+	for index := 0; index < cwlT.NumField(); index++ {
+		item := cwlT.FieldByIndex([]int{index})
+		schemaItem, ok := schemaT.FieldByName(item.Name)
+		if !ok {
+			logger.Panicf("Field %s missing from store.Schema", item.Name)
+		}
+		envName, ok := schemaItem.Tag.Lookup("env")
+		if !ok {
+			continue
+		}
+		field := cwlV.FieldByIndex(item.Index)
+
+		if stringer, ok := field.Interface().(fmt.Stringer); ok {
+			if stringer != reflect.Zero(reflect.TypeOf(stringer)).Interface() {
+				table.Append([]string{
+					envName,
+					stringer.String(),
+				})
+			}
+		} else {
+			table.Append([]string{
+				envName,
+				fmt.Sprintf("%v", field),
+			})
+		}
+	}
+
+	render("Configuration", table)
+	return nil
+}
+
 
 func render(name string, table *tablewriter.Table) {
 	table.SetRowLine(true)

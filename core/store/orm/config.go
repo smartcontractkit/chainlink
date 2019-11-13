@@ -268,7 +268,7 @@ func (c Config) MinOutgoingConfirmations() uint64 {
 	return c.viper.GetUint64(EnvVarName("MinOutgoingConfirmations"))
 }
 
-// MinimumContractPayment represents the minimum amount of ETH that must be
+// MinimumContractPayment represents the minimum amount of LINK that must be
 // supplied for a contract to be considered.
 func (c Config) MinimumContractPayment() *assets.Link {
 	return c.getWithFallback("MinimumContractPayment", parseLink).(*assets.Link)
@@ -287,6 +287,10 @@ func (c Config) Port() uint16 {
 // ReaperExpiration represents
 func (c Config) ReaperExpiration() time.Duration {
 	return c.viper.GetDuration(EnvVarName("ReaperExpiration"))
+}
+
+func (c Config) ReplayFromBlock() int64 {
+	return c.viper.GetInt64(EnvVarName("ReplayFromBlock"))
 }
 
 // RootDir represents the location on the file system where Chainlink should

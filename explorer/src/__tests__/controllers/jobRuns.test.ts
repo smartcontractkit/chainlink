@@ -1,29 +1,21 @@
-import express from 'express'
 import http from 'http'
-import jobRuns from '../../controllers/jobRuns'
 import request from 'supertest'
-import { closeDbConnection, getDb } from '../../database'
 import { Connection } from 'typeorm'
+import { getDb } from '../../database'
+import { start, stop } from '../../support/server'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun } from '../../entity/JobRun'
 import { TaskRun } from '../../entity/TaskRun'
 import { createJobRun } from '../../factories'
 
-const controller = express()
-controller.use('/api/v1', jobRuns)
-
 let server: http.Server
 let db: Connection
+
 beforeAll(async () => {
   db = await getDb()
-  server = controller.listen(null)
+  server = await start()
 })
-afterAll(async done => {
-  if (server) {
-    server.close(done)
-    await closeDbConnection()
-  }
-})
+afterAll(done => stop(server, done))
 
 describe('#index', () => {
   describe('with no runs', () => {

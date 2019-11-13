@@ -29,6 +29,15 @@ export class TaskRun {
   @Column({ nullable: true })
   transactionStatus?: TransactionStatus
 
+  @Column({ nullable: true, name: 'timestamp' })
+  timestamp?: Date
+
+  @Column({ nullable: true, name: 'blockHeight' })
+  blockHeight?: string
+
+  @Column({ nullable: true, name: 'blockHash' })
+  blockHash?: string
+
   @Column({ nullable: true, name: 'minimumConfirmations_new1562419039813' })
   minimumConfirmations?: string
 

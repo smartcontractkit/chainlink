@@ -1,9 +1,9 @@
 import expect from 'expect-puppeteer'
 import { Server } from 'http'
 import { Browser, launch, Page } from 'puppeteer'
-import { closeDbConnection, getDb } from '../src/database'
+import { getDb } from '../src/database'
 import { createChainlinkNode } from '../src/entity/ChainlinkNode'
-import { DEFAULT_TEST_PORT, start as startServer } from '../src/support/server'
+import { DEFAULT_TEST_PORT, start, stop } from '../src/support/server'
 import { createJobRun } from '../src/factories'
 
 describe('End to end', () => {
@@ -19,13 +19,14 @@ describe('End to end', () => {
     })
 
     page = await browser.newPage()
-    server = await startServer()
+    server = await start()
 
     page.on('console', msg => console.log('PAGE LOG:', msg.text()))
   })
 
-  afterAll(async () => {
-    return Promise.all([browser.close(), server.close(), closeDbConnection()])
+  afterAll(async done => {
+    browser.close()
+    stop(server, done)
   })
 
   it('can search for job run', async () => {

@@ -1,7 +1,5 @@
 # dependencies
 node_modules/
-vendor/
-.vendor-new/
 tmp/
 
 /chainlink

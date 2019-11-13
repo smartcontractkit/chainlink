@@ -185,16 +185,12 @@ func (rm *jobRunner) workerCount() int {
 }
 
 func prepareTaskInput(run *models.JobRun, input models.JSON) (models.JSON, error) {
-	previousTaskRun := run.PreviousTaskRun()
-
 	var err error
-	if previousTaskRun != nil {
-		if input, err = previousTaskRun.Result.Data.Merge(input); err != nil {
-			return models.JSON{}, err
-		}
+	if input, err = run.Result.Data.Merge(input); err != nil {
+		return models.JSON{}, err
 	}
 
-	if input, err = run.Overrides.Data.Merge(input); err != nil {
+	if input, err = run.Overrides.Merge(input); err != nil {
 		return models.JSON{}, err
 	}
 	return input, nil
@@ -204,7 +200,7 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 	taskCopy := currentTaskRun.TaskSpec // deliberately copied to keep mutations local
 
 	var err error
-	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides.Data); err != nil {
+	if taskCopy.Params, err = taskCopy.Params.Merge(run.Overrides); err != nil {
 		currentTaskRun.Result.SetError(err)
 		return currentTaskRun.Result
 	}
@@ -226,6 +222,7 @@ func executeTask(run *models.JobRun, currentTaskRun *models.TaskRun, store *stor
 	currentTaskRun.Result.CachedJobRunID = run.ID
 	currentTaskRun.Result.Data = data
 	result := adapter.Perform(currentTaskRun.Result, store)
+	result.ID = currentTaskRun.Result.ID
 
 	logger.Infow(fmt.Sprintf("Finished processing task %s", taskCopy.Type), []interface{}{
 		"task", currentTaskRun.ID,
@@ -264,10 +261,6 @@ func executeRun(run *models.JobRun, store *store.Store) error {
 		return fmt.Errorf("run %s task %s cannot return a status of empty string or Unstarted", run.ID.String(), currentTaskRun.TaskSpec.Type)
 	} else if futureTaskRun := run.NextTaskRun(); futureTaskRun != nil {
 		validateMinimumConfirmations(run, futureTaskRun, run.ObservedHeight, store)
-	}
-
-	if run.Status.Finished() {
-		run.SetFinishedAt()
 	}
 
 	if err := updateAndTrigger(run, store); err != nil {

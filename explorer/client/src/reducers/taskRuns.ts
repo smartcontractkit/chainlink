@@ -7,12 +7,9 @@ export interface NormalizedData {
   result: any
 }
 
-export type TaskRunsAction =
-  | { type: 'UPSERT_JOB_RUN'; data: NormalizedData }
-  | { type: '@@redux/INIT' }
-  | { type: '@@INIT' }
+export type TaskRunsAction = { type: 'UPSERT_JOB_RUN'; data: NormalizedData }
 
-const INITIAL_STATE = { items: undefined }
+const INITIAL_STATE: State = { items: undefined }
 
 export default (state: State = INITIAL_STATE, action: TaskRunsAction) => {
   switch (action.type) {

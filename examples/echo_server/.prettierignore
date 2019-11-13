@@ -1,5 +1,6 @@
 .prettierignore
 .gitignore
+.eslintignore
 **/*.sol
 screenshot.jpg
 create_ethlog_job

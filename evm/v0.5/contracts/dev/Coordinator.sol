@@ -86,28 +86,29 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     external
     onlyLINK
     sufficientLINK(_amount, _sAId)
-    // checkServiceAgreementPresence(_sAId) // TODO(alx): This would be nice to have, but it exhausts the stack
-    checkCallbackAddress(_callbackAddress) {
-      bytes32 requestId = keccak256(abi.encodePacked(_sender, _sAId, _nonce));
-      require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
-      callbacks[requestId].sAId = _sAId;
-      callbacks[requestId].amount = _amount;
-      callbacks[requestId].addr = _callbackAddress;
-      callbacks[requestId].functionId = _callbackFunctionId;
-      // solhint-disable-next-line not-rely-on-time
-      callbacks[requestId].cancelExpiration = uint64(now.add(EXPIRY_TIME));
+    checkCallbackAddress(_callbackAddress)
+    // checkServiceAgreementPresence(_sAId) // TODO: exhausts the stack
+  {
+    bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
+    require(callbacks[requestId].cancelExpiration == 0, "Must use a unique ID");
+    callbacks[requestId].sAId = _sAId;
+    callbacks[requestId].amount = _amount;
+    callbacks[requestId].addr = _callbackAddress;
+    callbacks[requestId].functionId = _callbackFunctionId;
+    // solhint-disable-next-line not-rely-on-time
+    callbacks[requestId].cancelExpiration = uint64(now.add(EXPIRY_TIME));
 
-      emit OracleRequest(
-        _sAId,
-        _sender,
-        requestId,
-        _amount,
-        _callbackAddress,
-        _callbackFunctionId,
-        now.add(EXPIRY_TIME), // solhint-disable-line not-rely-on-time
-        _dataVersion,
-        _data);
-    }
+    emit OracleRequest(
+      _sAId,
+      _sender,
+      requestId,
+      _amount,
+      _callbackAddress,
+      _callbackFunctionId,
+      now.add(EXPIRY_TIME), // solhint-disable-line not-rely-on-time
+      _dataVersion,
+      _data);
+  }
 
   /**
    * @notice Stores a Service Agreement which has been signed by the given oracles
@@ -130,12 +131,11 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       _signatures.rs.length == _signatures.ss.length,
       "Must pass in as many signatures as oracles"
     );
-     // solhint-disable-next-line not-rely-on-time
+    // solhint-disable-next-line not-rely-on-time
     require(_agreement.endAt > block.timestamp,
       "ServiceAgreement must end in the future");
     require(serviceAgreements[serviceAgreementID].endAt == 0,
       "serviceAgreement already initiated");
-
     serviceAgreementID = getId(_agreement);
 
     registerOracleSignatures(
@@ -159,7 +159,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     (bool success, bytes memory message) = abi.decode(response, (bool, bytes));
     if ((!success) && message.length == 0) {
       // Revert with a non-empty message to give user a hint where to look
-      require(success, "initiation failed; empty message"); 
+      require(success, "initiation failed; empty message");
     }
     require(success, string(message));
   }
@@ -208,14 +208,6 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   {
     bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _serviceAgreementID));
     return ecrecover(prefixedHash, _v, _r, _s);
-  }
-
-  /**
-   * @dev Reverts if not sent from the LINK token
-   */
-  modifier onlyLINK() {
-    require(msg.sender == address(LINK), "Must use LINK token");
-    _;
   }
 
   /**
@@ -291,10 +283,10 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   {
     assembly { // solhint-disable-line no-inline-assembly
       mstore(add(_data, 36), _sender) // ensure correct sender is passed
-      mstore(add(_data, 68), _amount)    // ensure correct amount is passed
+      mstore(add(_data, 68), _amount) // ensure correct amount is passed
     }
     // solhint-disable-next-line avoid-low-level-calls
-    (bool success,) = address(this).delegatecall(_data); // calls oracleRequest
+    (bool success,) = address(this).delegatecall(_data); // calls oracleRequest or depositFunds
     require(success, "Unable to create request");
   }
 
@@ -316,6 +308,25 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
         _agreement.aggInitiateJobSelector,
         _agreement.aggFulfillSelector
     ));
+  }
+
+  /**
+   * @notice Called when LINK is sent to the contract via `transferAndCall`
+   * @param _sender Address of the sender
+   * @param _amount Amount of LINK sent (specified in wei)
+   */
+  function depositFunds(address _sender, uint256 _amount) external onlyLINK
+  {
+    withdrawableTokens[_sender] = withdrawableTokens[_sender].add(_amount);
+  }
+
+  /**
+   * @param _account Address to check balance of
+   * @return Balance of account (specified in wei)
+   */
+  function balanceOf(address _account) public view returns (uint256)
+  {
+    return withdrawableTokens[_account];
   }
 
   /**
@@ -357,20 +368,32 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   }
 
   /**
-   * @dev Reverts if the given data does not begin with the `oracleRequest` function selector
+   * @dev Reverts if the given data does not begin with the `oracleRequest` or
+   * `depositFunds` function selector
    */
   modifier permittedFunctionsForLINK() {
     bytes4[1] memory funcSelector;
     assembly { // solhint-disable-line no-inline-assembly
       calldatacopy(funcSelector, 132, 4) // grab function selector from calldata
     }
-    require(funcSelector[0] == this.oracleRequest.selector, "Must use whitelisted functions");
+    require(
+      funcSelector[0] == this.oracleRequest.selector || funcSelector[0] == this.depositFunds.selector,
+      "Must use whitelisted functions"
+    );
     _;
   }
 
   modifier checkServiceAgreementPresence(bytes32 _sAId) {
     require(uint256(serviceAgreements[_sAId].requestDigest) != 0,
             "Must reference an existing ServiceAgreement");
+    _;
+  }
+
+  /**
+   * @dev Reverts if not sent from the LINK token
+   */
+  modifier onlyLINK() {
+    require(msg.sender == address(LINK), "Must use LINK token");
     _;
   }
 }
