@@ -7,7 +7,7 @@ import { ChainlinkNode } from 'explorer/models'
 
 const HEADERS = ['Name', 'URL', 'Created At']
 
-const buildNameCol = (operator: ChainlinkNode): TextColumn => {
+function buildNameCol(operator: ChainlinkNode): TextColumn {
   return {
     type: 'text',
     text: operator.name,
@@ -16,7 +16,7 @@ const buildNameCol = (operator: ChainlinkNode): TextColumn => {
 
 type UrlColumn = LinkColumn | TextColumn
 
-const buildUrlCol = (operator: ChainlinkNode): UrlColumn => {
+function buildUrlCol(operator: ChainlinkNode): UrlColumn {
   if (operator.url) {
     return {
       type: 'link',
@@ -28,16 +28,16 @@ const buildUrlCol = (operator: ChainlinkNode): UrlColumn => {
   return { type: 'text', text: '-' }
 }
 
-const buildCreatedAtCol = (operator: ChainlinkNode): TimeAgoColumn => {
+function buildCreatedAtCol(operator: ChainlinkNode): TimeAgoColumn {
   return {
     type: 'time_ago',
     text: operator.createdAt,
   }
 }
 
-const rows = (
+function rows(
   operators?: ChainlinkNode[],
-): [TextColumn, UrlColumn, TimeAgoColumn][] | undefined => {
+): [TextColumn, UrlColumn, TimeAgoColumn][] | undefined {
   if (operators) {
     return operators.map(o => {
       return [buildNameCol(o), buildUrlCol(o), buildCreatedAtCol(o)]
