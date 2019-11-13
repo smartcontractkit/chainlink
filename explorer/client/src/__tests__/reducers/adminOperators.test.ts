@@ -3,11 +3,11 @@ import reducer, {
   AppState,
 } from '../../reducers'
 import { FetchAdminOperatorsSucceededAction } from '../../reducers/actions'
-import { mockPartial } from '../support/mocks'
+import { partialAsFull } from '../support/mocks'
 import { ChainlinkNode } from 'explorer/models'
 
 const ADMIN_OPERATOR_ID = 5555555
-const INITIAL_ADMIN_OPERATOR = mockPartial<ChainlinkNode>({
+const INITIAL_ADMIN_OPERATOR = partialAsFull<ChainlinkNode>({
   id: ADMIN_OPERATOR_ID,
 })
 

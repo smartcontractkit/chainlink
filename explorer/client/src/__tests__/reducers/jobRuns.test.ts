@@ -9,7 +9,7 @@ import {
   FetchJobRunSucceededAction,
 } from '../../reducers/actions'
 import { JobRun } from 'explorer/models'
-import { mockPartial } from '../support/mocks'
+import { partialAsFull } from '../support/mocks'
 
 const INITIAL_JOB_RUN = { id: 'replace-me' } as JobRun
 
@@ -23,7 +23,7 @@ const INITIAL_STATE: AppState = {
 describe('reducers/jobRuns', () => {
   describe('FETCH_JOB_RUNS_SUCCEEDED', () => {
     it('can replace items', () => {
-      const data = mockPartial<JobRunsNormalizedData>({
+      const data = partialAsFull<JobRunsNormalizedData>({
         jobRuns: {
           '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
             id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e',
@@ -54,7 +54,7 @@ describe('reducers/jobRuns', () => {
 
   describe('FETCH_JOB_RUN_SUCCEEDED', () => {
     it('can replace items', () => {
-      const data = mockPartial<JobRunNormalizedData>({
+      const data = partialAsFull<JobRunNormalizedData>({
         jobRuns: {
           '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
             id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e',
