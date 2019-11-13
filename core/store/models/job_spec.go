@@ -23,7 +23,7 @@ type JobSpecRequest struct {
 	Tasks      []TaskSpecRequest  `json:"tasks"`
 	StartAt    null.Time          `json:"startAt"`
 	EndAt      null.Time          `json:"endAt"`
-	MinPayment *assets.Link       `json:"minPayment"`
+	MinPayment assets.Link        `json:"minPayment"`
 }
 
 // InitiatorRequest represents a schema for incoming initiator requests as used by the API.
@@ -65,14 +65,14 @@ type TaskSpecRequest struct {
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID         *ID          `json:"id,omitempty" gorm:"primary_key;not null"`
-	CreatedAt  time.Time    `json:"createdAt" gorm:"index"`
-	Initiators []Initiator  `json:"initiators"`
-	MinPayment *assets.Link `json:"minPayment" gorm:"type:varchar(255)"`
-	Tasks      []TaskSpec   `json:"tasks"`
-	StartAt    null.Time    `json:"startAt" gorm:"index"`
-	EndAt      null.Time    `json:"endAt" gorm:"index"`
-	DeletedAt  null.Time    `json:"-" gorm:"index"`
+	ID         *ID         `json:"id,omitempty" gorm:"primary_key;not null"`
+	CreatedAt  time.Time   `json:"createdAt" gorm:"index"`
+	Initiators []Initiator `json:"initiators"`
+	MinPayment assets.Link `json:"minPayment" gorm:"type:varchar(255)"`
+	Tasks      []TaskSpec  `json:"tasks"`
+	StartAt    null.Time   `json:"startAt" gorm:"index"`
+	EndAt      null.Time   `json:"endAt" gorm:"index"`
+	DeletedAt  null.Time   `json:"-" gorm:"index"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -96,7 +96,7 @@ func NewJob() JobSpec {
 	return JobSpec{
 		ID:         NewID(),
 		CreatedAt:  time.Now(),
-		MinPayment: assets.NewLink(0),
+		MinPayment: *assets.NewLink(0),
 	}
 }
 
@@ -119,9 +119,7 @@ func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 
 	jobSpec.EndAt = jsr.EndAt
 	jobSpec.StartAt = jsr.StartAt
-	if jsr.MinPayment != nil {
-		jobSpec.MinPayment = jsr.MinPayment
-	}
+	jobSpec.MinPayment = jsr.MinPayment
 	return jobSpec
 }
 
