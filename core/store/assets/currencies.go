@@ -1,13 +1,17 @@
 package assets
 
 import (
+	"chainlink/core/utils"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/willf/pad"
 )
+
+var ErrNoQuotesForCurrency = errors.New("cannot unmarshal json.Number into currency")
 
 func format(i *big.Int, precision int) string {
 	v := "1" + pad.Right("", precision, "0")
@@ -81,6 +85,23 @@ func (l *Link) Text(base int) string {
 // MarshalText implements the encoding.TextMarshaler interface.
 func (l *Link) MarshalText() ([]byte, error) {
 	return (*big.Int)(l).MarshalText()
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (l Link) MarshalJSON() ([]byte, error) {
+	value, err := l.MarshalText()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(fmt.Sprintf(`"%s"`, value)), nil
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (l *Link) UnmarshalJSON(data []byte) error {
+	if utils.IsQuoted(data) {
+		return l.UnmarshalText(utils.RemoveQuotes(data))
+	}
+	return ErrNoQuotesForCurrency
 }
 
 // UnmarshalText implements the encoding.TextUnmarshaler interface.
@@ -161,9 +182,26 @@ func (e *Eth) SetString(s string, base int) (*Eth, bool) {
 	return (*Eth)(w), ok
 }
 
+// MarshalJSON implements the json.Marshaler interface.
+func (e Eth) MarshalJSON() ([]byte, error) {
+	value, err := e.MarshalText()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(fmt.Sprintf(`"%s"`, value)), nil
+}
+
 // MarshalText implements the encoding.TextMarshaler interface.
 func (e *Eth) MarshalText() ([]byte, error) {
 	return e.ToInt().MarshalText()
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (e *Eth) UnmarshalJSON(data []byte) error {
+	if utils.IsQuoted(data) {
+		return e.UnmarshalText(utils.RemoveQuotes(data))
+	}
+	return ErrNoQuotesForCurrency
 }
 
 // UnmarshalText implements the encoding.TextUnmarshaler interface.
