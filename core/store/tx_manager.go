@@ -578,15 +578,6 @@ func (txm *EthTxManager) processAttempt(
 
 	switch state {
 	case Safe:
-		logger.Debugw(
-			fmt.Sprintf("Tx #%d is %s", attemptIndex, state),
-			"txHash", txAttempt.Hash.String(),
-			"txID", txAttempt.TxID,
-			"receiptBlockNumber", receipt.BlockNumber.ToInt(),
-			"currentBlockNumber", blockHeight,
-			"receiptHash", receipt.Hash.Hex(),
-		)
-
 		txm.updateLastSafeNonce(tx)
 		return receipt, state, txm.handleSafe(tx, attemptIndex)
 
@@ -686,7 +677,8 @@ func (txm *EthTxManager) handleSafe(
 	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
 
 	logger.Infow(
-		fmt.Sprintf("Tx #%d got minimum confirmations (%d)", attemptIndex, minimumConfirmations),
+		fmt.Sprintf("Tx #%d is safe", attemptIndex),
+		"minimumConfirmations", minimumConfirmations,
 		"txHash", txAttempt.Hash.String(),
 		"txID", txAttempt.TxID,
 		"ethBalance", ethBalance,
