@@ -18,13 +18,6 @@ const INITIAL_STATE: AppState = {
 }
 
 describe('reducers/jobRuns', () => {
-  it('returns the current state for other actions', () => {
-    const action = {} as FetchJobRunsSucceededAction
-    const state = reducer(INITIAL_STATE, action)
-
-    expect(state.jobRuns).toEqual(INITIAL_STATE.jobRuns)
-  })
-
   describe('FETCH_JOB_RUNS_SUCCEEDED', () => {
     it('can replace items', () => {
       const normalizedJobRuns = {
