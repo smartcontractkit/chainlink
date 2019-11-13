@@ -1,13 +1,13 @@
 import status from '../../utils/status'
-import { mockPartial } from '../support/mocks'
+import { partialAsFull } from '../support/mocks'
 import { JobRun, TaskRun } from 'explorer/models'
 
-const COMPLETED_ETHTX_WITHOUT_STATUS = mockPartial<TaskRun>({
+const COMPLETED_ETHTX_WITHOUT_STATUS = partialAsFull<TaskRun>({
   type: 'ethtx',
   status: 'completed',
   transactionStatus: undefined,
 })
-const COMPLETED_ETHTX_WITH_STATUS = mockPartial<TaskRun>({
+const COMPLETED_ETHTX_WITH_STATUS = partialAsFull<TaskRun>({
   type: 'ethtx',
   status: 'completed',
   transactionStatus: 'fulfilledRunLog',
@@ -16,7 +16,7 @@ const COMPLETED_ETHTX_WITH_STATUS = mockPartial<TaskRun>({
 describe('utils/status', () => {
   it('is Pending not fulfilled for a status of "in_progress" without successful ethtx transaction', () => {
     const taskRuns: TaskRun[] = [COMPLETED_ETHTX_WITHOUT_STATUS]
-    const jobRun = mockPartial<JobRun>({
+    const jobRun = partialAsFull<JobRun>({
       status: 'in_progress',
       taskRuns: taskRuns,
     })
@@ -28,7 +28,7 @@ describe('utils/status', () => {
 
   it('is Pending for a status of "in_progress" with ethtx successful transaction', () => {
     const taskRuns: TaskRun[] = [COMPLETED_ETHTX_WITH_STATUS]
-    const jobRun = mockPartial<JobRun>({
+    const jobRun = partialAsFull<JobRun>({
       status: 'in_progress',
       taskRuns: taskRuns,
     })
@@ -39,7 +39,7 @@ describe('utils/status', () => {
   })
 
   it('is Pending for a status of "in_progress" when there is no ethtx', () => {
-    const jobRun = mockPartial<JobRun>({ status: 'in_progress' })
+    const jobRun = partialAsFull<JobRun>({ status: 'in_progress' })
 
     const [text, unfulfilledEthTx] = status(jobRun)
     expect(text).toEqual('Pending')
@@ -48,7 +48,10 @@ describe('utils/status', () => {
 
   it('is Errored not fulfilled for a status of "error" without successful ethx transaction', () => {
     const taskRuns: TaskRun[] = [COMPLETED_ETHTX_WITHOUT_STATUS]
-    const jobRun = mockPartial<JobRun>({ status: 'error', taskRuns: taskRuns })
+    const jobRun = partialAsFull<JobRun>({
+      status: 'error',
+      taskRuns: taskRuns,
+    })
 
     const [text, unfulfilledEthTx] = status(jobRun)
     expect(text).toEqual('Errored')
@@ -57,7 +60,10 @@ describe('utils/status', () => {
 
   it('is Errored for a status of "error" with ethx successful transaction', () => {
     const taskRuns: TaskRun[] = [COMPLETED_ETHTX_WITH_STATUS]
-    const jobRun = mockPartial<JobRun>({ status: 'error', taskRuns: taskRuns })
+    const jobRun = partialAsFull<JobRun>({
+      status: 'error',
+      taskRuns: taskRuns,
+    })
 
     const [text, unfulfilledEthTx] = status(jobRun)
     expect(text).toEqual('Errored')
@@ -65,7 +71,7 @@ describe('utils/status', () => {
   })
 
   it('is Errored for a status of "error"', () => {
-    const jobRun = mockPartial<JobRun>({ status: 'error' })
+    const jobRun = partialAsFull<JobRun>({ status: 'error' })
 
     const [text, unfulfilledEthTx] = status(jobRun)
     expect(text).toEqual('Errored')
@@ -74,7 +80,7 @@ describe('utils/status', () => {
 
   it('is Complete not fullfilled for a status of "completed" without ethtx successful transaction', () => {
     const taskRuns: TaskRun[] = [COMPLETED_ETHTX_WITHOUT_STATUS]
-    const jobRun = mockPartial<JobRun>({
+    const jobRun = partialAsFull<JobRun>({
       status: 'completed',
       taskRuns: taskRuns,
     })
@@ -86,7 +92,7 @@ describe('utils/status', () => {
 
   it('is Complete for a status of "completed" without ethtx successful transaction', () => {
     const taskRuns: TaskRun[] = [COMPLETED_ETHTX_WITH_STATUS]
-    const jobRun = mockPartial<JobRun>({
+    const jobRun = partialAsFull<JobRun>({
       status: 'completed',
       taskRuns: taskRuns,
     })
@@ -97,7 +103,7 @@ describe('utils/status', () => {
   })
 
   it('is Complete for a status of "completed"', () => {
-    const jobRun = mockPartial<JobRun>({ status: 'completed' })
+    const jobRun = partialAsFull<JobRun>({ status: 'completed' })
 
     const [text, unfulfilledEthTx] = status(jobRun)
     expect(text).toEqual('Complete')
@@ -105,7 +111,7 @@ describe('utils/status', () => {
   })
 
   it('returns the status as titlecase by default', () => {
-    const jobRun = mockPartial<JobRun>({ status: 'pending_confirmations' })
+    const jobRun = partialAsFull<JobRun>({ status: 'pending_confirmations' })
 
     const [text, unfulfilledEthTx] = status(jobRun)
     expect(text).toEqual('Pending Confirmations')

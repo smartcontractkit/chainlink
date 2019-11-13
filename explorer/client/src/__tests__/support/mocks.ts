@@ -1,3 +1,3 @@
-export function mockPartial<T>(val: Partial<T>): T {
+export function partialAsFull<T>(val: Partial<T>): T {
   return val as T
 }

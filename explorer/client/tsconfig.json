@@ -24,7 +24,7 @@
   "include": [
     "src",
     "@types",
-    "test"
+    "test",
   ],
   "references": [
     {

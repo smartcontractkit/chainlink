@@ -7,7 +7,7 @@ import {
   FetchJobRunSucceededAction,
   JobRunNormalizedData,
 } from '../../reducers/actions'
-import { mockPartial } from '../support/mocks'
+import { partialAsFull } from '../support/mocks'
 
 const INITIAL_STATE: AppState = {
   ...initialRootState,
@@ -43,7 +43,7 @@ describe('reducers/jobRunsIndex', () => {
 
   describe('FETCH_JOB_RUN_SUCCEEDED', () => {
     it('clears items', () => {
-      const data = mockPartial<JobRunNormalizedData>({
+      const data = partialAsFull<JobRunNormalizedData>({
         jobRuns: {},
         meta: {
           jobRun: { meta: {} },

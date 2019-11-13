@@ -2,12 +2,12 @@ import { mount } from 'enzyme'
 import React from 'react'
 import Details from '../../../components/JobRuns/Details'
 import { JobRun, ChainlinkNode } from 'explorer/models'
-import { mockPartial } from '../../support/mocks'
+import { partialAsFull } from '../../support/mocks'
 
 describe('components/JobRuns/Details', () => {
   it('hides error when not present', () => {
-    const chainlinkNode = mockPartial<ChainlinkNode>({})
-    const jobRun = mockPartial<JobRun>({ chainlinkNode })
+    const chainlinkNode = partialAsFull<ChainlinkNode>({})
+    const jobRun = partialAsFull<JobRun>({ chainlinkNode })
 
     const wrapper = mount(<Details jobRun={jobRun} etherscanHost="" />)
 
@@ -15,8 +15,8 @@ describe('components/JobRuns/Details', () => {
   })
 
   it('displays error when present', () => {
-    const chainlinkNode = mockPartial<ChainlinkNode>({})
-    const jobRun = mockPartial<JobRun>({ error: 'Failure!', chainlinkNode })
+    const chainlinkNode = partialAsFull<ChainlinkNode>({})
+    const jobRun = partialAsFull<JobRun>({ error: 'Failure!', chainlinkNode })
 
     const wrapper = mount(<Details jobRun={jobRun} etherscanHost="" />)
 
