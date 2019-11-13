@@ -5,7 +5,9 @@ import reducer, {
 import {
   FetchJobRunsSucceededAction,
   FetchJobRunSucceededAction,
+  JobRunNormalizedData,
 } from '../../reducers/actions'
+import { mockPartial } from '../support/mocks'
 
 const INITIAL_STATE: AppState = {
   ...initialRootState,
@@ -41,16 +43,16 @@ describe('reducers/jobRunsIndex', () => {
 
   describe('FETCH_JOB_RUN_SUCCEEDED', () => {
     it('clears items', () => {
-      const data = {
+      const data = mockPartial<JobRunNormalizedData>({
         jobRuns: {},
         meta: {
           jobRun: { meta: {} },
         },
-      }
-      const action = {
+      })
+      const action: FetchJobRunSucceededAction = {
         type: 'FETCH_JOB_RUN_SUCCEEDED',
         data: data,
-      } as FetchJobRunSucceededAction
+      }
       const state = reducer(INITIAL_STATE, action)
 
       expect(state.jobRunsIndex).toEqual({
