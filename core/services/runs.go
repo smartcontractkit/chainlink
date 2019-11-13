@@ -18,7 +18,7 @@ func MeetsMinimumPayment(
 	expectedMinJobPayment *assets.Link,
 	actualRunPayment *assets.Link) bool {
 	// input.Payment is always present for runs triggered by ethlogs
-	if actualRunPayment == nil || expectedMinJobPayment == nil || expectedMinJobPayment.IsZero() {
+	if actualRunPayment == nil || expectedMinJobPayment.IsZero() {
 		return true
 	}
 	return expectedMinJobPayment.Cmp(actualRunPayment) < 1
