@@ -1,5 +1,5 @@
 import normalize from 'json-api-normalizer'
-import * as api from '../api/index'
+import * as api from '../api'
 import { request } from './helpers'
 
 export const signIn = request(
