@@ -55,7 +55,7 @@ interface Props {
   className?: string
 }
 
-const List = ({
+const List: React.FC<Props> = ({
   operators,
   count,
   currentPage,
@@ -63,7 +63,7 @@ const List = ({
   onChangePage,
   loadingMsg,
   emptyMsg,
-}: Props) => {
+}) => {
   return (
     <Paper className={className}>
       <Hidden xsDown>
