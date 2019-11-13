@@ -41,7 +41,7 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 	for taskIndex := range run.TaskRuns {
 		taskRun := &run.TaskRuns[taskIndex]
 		if !run.Status.Runnable() {
-			logger.Debugw("Task execution blocked", run.ForLogger("task", taskRun.ID.String())...)
+			logger.Debugw("Run execution blocked", run.ForLogger("task", taskRun.ID.String())...)
 			break
 		}
 
@@ -50,10 +50,16 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 		}
 
 		if meetsMinimumConfirmations(&run, taskRun, run.ObservedHeight) {
+			start := time.Now()
+
 			result := je.executeTask(&run, taskRun)
 
 			taskRun.ApplyOutput(result)
 			run.ApplyOutput(result)
+
+			elapsed := time.Since(start).Seconds()
+
+			logger.Debugw(fmt.Sprintf("Executed task %s", taskRun.TaskSpec.Type), run.ForLogger("task", taskRun.ID.String(), "elapsed", elapsed)...)
 
 		} else {
 			logger.Debugw("Pausing run pending confirmations",
@@ -105,15 +111,6 @@ func (je *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) 
 	}
 
 	input := *models.NewRunInput(run.ID, data, taskRun.Status)
-
-	start := time.Now()
 	result := adapter.Perform(input, je.store)
-	logger.Debugw(fmt.Sprintf("Executed task %s", taskCopy.Type), []interface{}{
-		"task", taskRun.ID.String(),
-		"result", result.Status(),
-		"result_data", result.Data(),
-		"elapsed", time.Since(start).Seconds(),
-	}...)
-
 	return result
 }
