@@ -19,13 +19,6 @@ const INITIAL_STATE: AppState = {
 }
 
 describe('reducers/adminOperators', () => {
-  it('returns the current state for other actions', () => {
-    const action = {} as FetchAdminOperatorsSucceededAction
-    const state = reducer(INITIAL_STATE, action)
-
-    expect(state.adminOperators).toEqual(INITIAL_STATE.adminOperators)
-  })
-
   describe('FETCH_ADMIN_OPERATORS_SUCCEEDED', () => {
     it('can replace items', () => {
       const action: FetchAdminOperatorsSucceededAction = {
