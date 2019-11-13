@@ -13,13 +13,6 @@ const INITIAL_STATE: AppState = {
 }
 
 describe('reducers/jobRunsIndex', () => {
-  it('returns the current state for other actions', () => {
-    const action = {} as FetchJobRunsSucceededAction
-    const state = reducer(INITIAL_STATE, action)
-
-    expect(state.jobRunsIndex).toEqual(INITIAL_STATE.jobRunsIndex)
-  })
-
   describe('FETCH_JOB_RUNS_SUCCEEDED', () => {
     it('can replace items', () => {
       const jobRuns = [{ id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e' }]
