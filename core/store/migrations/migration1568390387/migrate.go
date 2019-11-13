@@ -1,18 +1,34 @@
 package migration1568390387
 
 import (
+	"time"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/store/assets"
 )
+
+type Encumbrance struct {
+	ID                     uint         `gorm:"primary_key;auto_increment"`
+	Payment                *assets.Link `gorm:"type:varchar(255)"`
+	Expiration             uint64
+	EndAt                  time.Time
+	Oracles                string  `gorm:"type:text"`
+	Aggregator             string  `gorm:"not null"`
+	AggInitiateJobSelector [4]byte `gorm:"not null"`
+	AggFulfillSelector     [4]byte `gorm:"not null"`
+}
 
 // Migrate amends the encumbrances table to include the aggregator contact details
 func Migrate(tx *gorm.DB) error {
-	if err := tx.Exec(
-		`ALTER TABLE encumbrances ADD COLUMN "aggregator"                VARCHAR(42);
-     ALTER TABLE encumbrances ADD COLUMN "agg_initiate_job_selector" BYTEA;
-     ALTER TABLE encumbrances ADD COLUMN "agg_fulfill_selector"      BYTEA;`,
-	).Error; err != nil {
-		return errors.Wrap(err, "failed to automigrate encumbrances to include aggregator info")
+	// This table is behind the development flag and so any records are safe to remove
+	if err := tx.Exec(`DROP TABLE "encumbrances";`).Error; err != nil {
+		return errors.Wrap(err, "could not drop Encumbrances table")
 	}
+
+	if err := tx.AutoMigrate(&Encumbrance{}).Error; err != nil {
+		return errors.Wrap(err, "failed to auto migrate Encumbrance")
+	}
+
 	return nil
 }
