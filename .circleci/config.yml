@@ -353,6 +353,7 @@ workflows:
               only:
                 - develop
                 - /^release\/.*/
+                - master
             tags:
               only: /^explorer-v.*/ # handles final versioned releases
       - build-publish-chainlink:
@@ -369,6 +370,7 @@ workflows:
               only:
                 - develop
                 - /^release\/.*/
+                - master
             tags:
               only: /^v.*/ # handles final versioned releases
       - reportcoverage:
