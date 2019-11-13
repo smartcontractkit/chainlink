@@ -1,13 +1,19 @@
 import React from 'react'
-import { withStyles, WithStyles, Theme } from '@material-ui/core/styles'
+import {
+  createStyles,
+  Theme,
+  withStyles,
+  WithStyles,
+} from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
 
-const styles = ({ spacing }: Theme) => ({
-  title: {
-    marginBottom: spacing.unit * 5,
-  },
-})
+const styles = ({ spacing }: Theme) =>
+  createStyles({
+    title: {
+      marginBottom: spacing.unit * 5,
+    },
+  })
 
 interface Props extends WithStyles<typeof styles> {
   className?: string
