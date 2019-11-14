@@ -11,19 +11,20 @@ import (
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
-	"gopkg.in/guregu/null.v3"
+
+	"chainlink/core/logger"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v3"
 )
 
 // DefaultGasLimit sets the default gas limit for outgoing transactions.
@@ -62,7 +63,7 @@ type TxManager interface {
 	GetChainID() (*big.Int, error)
 }
 
-//go:generate mockgen -package=mocks -destination=../internal/mocks/tx_manager_mocks.go github.com/smartcontractkit/chainlink/core/store TxManager
+//go:generate mockery -name TxManager -output ../internal/mocks/ -case=underscore
 
 // EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
@@ -577,15 +578,6 @@ func (txm *EthTxManager) processAttempt(
 
 	switch state {
 	case Safe:
-		logger.Debugw(
-			fmt.Sprintf("Tx #%d is %s", attemptIndex, state),
-			"txHash", txAttempt.Hash.String(),
-			"txID", txAttempt.TxID,
-			"receiptBlockNumber", receipt.BlockNumber.ToInt(),
-			"currentBlockNumber", blockHeight,
-			"receiptHash", receipt.Hash.Hex(),
-		)
-
 		txm.updateLastSafeNonce(tx)
 		return receipt, state, txm.handleSafe(tx, attemptIndex)
 
@@ -685,7 +677,8 @@ func (txm *EthTxManager) handleSafe(
 	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
 
 	logger.Infow(
-		fmt.Sprintf("Tx #%d got minimum confirmations (%d)", attemptIndex, minimumConfirmations),
+		fmt.Sprintf("Tx #%d is safe", attemptIndex),
+		"minimumConfirmations", minimumConfirmations,
 		"txHash", txAttempt.Hash.String(),
 		"txID", txAttempt.TxID,
 		"ethBalance", ethBalance,
@@ -841,16 +834,16 @@ type Contract struct {
 	ABI abi.ABI
 }
 
-// GetContract loads the contract JSON file from ../evm/build/contracts
+// GetContract loads the contract JSON file from ../evm/dist/artifacts
 // and parses the ABI JSON contents into an abi.ABI object
 func GetContract(name string) (*Contract, error) {
-	box := packr.NewBox("../../evm/build/contracts")
+	box := packr.NewBox("../../evm/dist/artifacts")
 	jsonFile, err := box.Find(name + ".json")
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to read contract JSON")
 	}
 
-	abiBytes := gjson.GetBytes(jsonFile, "abi")
+	abiBytes := gjson.GetBytes(jsonFile, "compilerOutput.abi")
 	abiParsed, err := abi.JSON(strings.NewReader(abiBytes.Raw))
 	if err != nil {
 		return nil, err

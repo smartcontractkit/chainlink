@@ -1,4 +1,4 @@
-import { OracleFactory } from './generated/OracleFactory'
+import { generated as chainlink } from 'chainlink'
 import {
   createProvider,
   DEVNET_ADDRESS,
@@ -6,9 +6,8 @@ import {
   getArgs,
   deployContract,
 } from './common'
-import { EthLogFactory } from './generated/EthLogFactory'
-import { RunLogFactory } from './generated/RunLogFactory'
 import { deployLinkTokenContract } from './deployLinkTokenContract'
+import { EthLogFactory, RunLogFactory } from './generated'
 
 async function main() {
   registerPromiseHandler()
@@ -28,7 +27,7 @@ async function deployContracts({ chainlinkNodeAddress }: Args) {
   const linkToken = await deployLinkTokenContract()
 
   const oracle = await deployContract(
-    { Factory: OracleFactory, name: 'Oracle', signer },
+    { Factory: chainlink.OracleFactory, name: 'Oracle', signer },
     linkToken.address,
   )
   await oracle.setFulfillmentPermission(chainlinkNodeAddress, true)

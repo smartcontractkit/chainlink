@@ -2,15 +2,17 @@ package services
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
+	"chainlink/core/adapters"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+
 	"github.com/asaskevich/govalidator"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 // ValidateJob checks the job and its associated Initiators and Tasks for any
@@ -46,11 +48,12 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 	if _, err := models.NewTaskType(bt.Name.String()); err != nil {
 		fe.Merge(err)
 	}
-	if isURL := govalidator.IsURL(bt.URL.String()); !isURL {
+	if _, err := url.Parse(bt.URL.String()); err != nil {
 		fe.Add("Invalid URL format")
+		fe.Merge(err)
 	}
 	ts := models.TaskSpec{Type: bt.Name}
-	if a, _ := adapters.For(ts, store); a != nil {
+	if a, _ := adapters.For(ts, store.Config, store.ORM); a != nil {
 		fe.Add(fmt.Sprintf("Adapter %v already exists", bt.Name))
 	}
 	return fe.CoerceEmptyToNil()
@@ -135,7 +138,7 @@ func validateServiceAgreementInitiator(i models.Initiator, j models.JobSpec) err
 }
 
 func validateTask(task models.TaskSpec, store *store.Store) error {
-	adapter, err := adapters.For(task, store)
+	adapter, err := adapters.For(task, store.Config, store.ORM)
 	if !store.Config.Dev() {
 		if _, ok := adapter.BaseAdapter.(*adapters.Sleep); ok {
 			return errors.New("Sleep Adapter is not implemented yet")
@@ -152,7 +155,7 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 	fe := models.NewJSONAPIErrors()
 	config := store.Config
 
-	if sa.Encumbrance.Payment == nil {
+	if sa.Encumbrance.Payment.IsZero() {
 		fe.Add("Service agreement encumbrance error: No payment amount set")
 	} else if sa.Encumbrance.Payment.Cmp(config.MinimumContractPayment()) == -1 {
 		fe.Add(fmt.Sprintf("Service agreement encumbrance error: Payment amount is below minimum %v", config.MinimumContractPayment().String()))

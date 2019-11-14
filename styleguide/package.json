@@ -1,13 +1,13 @@
 {
   "name": "@chainlink/styleguide",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "main": "./dist/src",
   "types": "./dist/src",
   "scripts": {
     "start": "start-storybook -p 9001",
     "build-storybook": "build-storybook",
-    "build": "rm -rf dist && tsc",
+    "build": "rimraf -rf dist && tsc",
     "eslint": "eslint --ext .js,.jsx,.ts,.tsx src stories @types",
     "lint": "tsc --noEmit && yarn eslint",
     "format": "prettier --write \"**/*\"",
@@ -17,7 +17,7 @@
   "dependencies": {
     "@material-ui/core": "^3.9.2",
     "change-case": "^3.0.2",
-    "core-js": "^3.2.1",
+    "core-js": "^3.4.0",
     "javascript-time-ago": "^2.0.1",
     "moment": "^2.24.0",
     "prop-types": "^15.6.2",
@@ -28,7 +28,7 @@
     "typescript": "^3.6.3"
   },
   "devDependencies": {
-    "@babel/core": "^7.2.2",
+    "@babel/core": "^7.6.4",
     "@babel/preset-env": "^7.6.0",
     "@babel/preset-react": "^7.0.0",
     "@babel/preset-typescript": "^7.1.0",
@@ -36,7 +36,7 @@
     "@chainlink/prettier-config": "0.0.1",
     "@storybook/addon-actions": "^5.1.10",
     "@storybook/addon-info": "^5.2.4",
-    "@storybook/addon-links": "^5.2.4",
+    "@storybook/addon-links": "^5.2.5",
     "@storybook/addons": "^5.2.1",
     "@storybook/react": "^5.1.10",
     "@types/react": "^16.9.5",
@@ -48,6 +48,7 @@
     "eslint": "^6.3.0",
     "prettier": "^1.18.2",
     "react-docgen-typescript-loader": "^3.1.0",
+    "rimraf": "^3.0.0",
     "webpack": "^4.41.1"
   },
   "prettier": "@chainlink/prettier-config"

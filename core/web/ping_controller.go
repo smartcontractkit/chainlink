@@ -3,8 +3,9 @@ package web
 import (
 	"net/http"
 
+	"chainlink/core/services"
+
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/core/services"
 )
 
 // PingController has the ping endpoint.

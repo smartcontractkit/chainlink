@@ -8,11 +8,12 @@ import (
 	"strings"
 	"time"
 
+	clnull "chainlink/core/null"
+	"chainlink/core/store/assets"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -22,7 +23,7 @@ type JobSpecRequest struct {
 	Tasks      []TaskSpecRequest  `json:"tasks"`
 	StartAt    null.Time          `json:"startAt"`
 	EndAt      null.Time          `json:"endAt"`
-	MinPayment *assets.Link       `json:"minPayment"`
+	MinPayment assets.Link        `json:"minPayment"`
 }
 
 // InitiatorRequest represents a schema for incoming initiator requests as used by the API.
@@ -64,14 +65,14 @@ type TaskSpecRequest struct {
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID         *ID          `json:"id,omitempty" gorm:"primary_key;not null"`
-	CreatedAt  time.Time    `json:"createdAt" gorm:"index"`
-	Initiators []Initiator  `json:"initiators"`
-	MinPayment *assets.Link `json:"minPayment" gorm:"type:varchar(255)"`
-	Tasks      []TaskSpec   `json:"tasks"`
-	StartAt    null.Time    `json:"startAt" gorm:"index"`
-	EndAt      null.Time    `json:"endAt" gorm:"index"`
-	DeletedAt  null.Time    `json:"-" gorm:"index"`
+	ID         *ID         `json:"id,omitempty" gorm:"primary_key;not null"`
+	CreatedAt  time.Time   `json:"createdAt" gorm:"index"`
+	Initiators []Initiator `json:"initiators"`
+	MinPayment assets.Link `json:"minPayment" gorm:"type:varchar(255)"`
+	Tasks      []TaskSpec  `json:"tasks"`
+	StartAt    null.Time   `json:"startAt" gorm:"index"`
+	EndAt      null.Time   `json:"endAt" gorm:"index"`
+	DeletedAt  null.Time   `json:"-" gorm:"index"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -95,7 +96,7 @@ func NewJob() JobSpec {
 	return JobSpec{
 		ID:         NewID(),
 		CreatedAt:  time.Now(),
-		MinPayment: assets.NewLink(0),
+		MinPayment: *assets.NewLink(0),
 	}
 }
 
@@ -118,10 +119,13 @@ func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 
 	jobSpec.EndAt = jsr.EndAt
 	jobSpec.StartAt = jsr.StartAt
-	if jsr.MinPayment != nil {
-		jobSpec.MinPayment = jsr.MinPayment
-	}
+	jobSpec.MinPayment = jsr.MinPayment
 	return jobSpec
+}
+
+// Archived returns true if the job spec has been soft deleted
+func (j JobSpec) Archived() bool {
+	return j.DeletedAt.Valid
 }
 
 // NewRun initializes the job by creating the IDs for the job
@@ -135,7 +139,6 @@ func (j JobSpec) NewRun(i Initiator) JobRun {
 			ID:       trid,
 			JobRunID: jrid,
 			TaskSpec: task,
-			Result:   RunResult{CachedTaskRunID: trid, CachedJobRunID: jrid},
 		}
 	}
 
@@ -147,11 +150,10 @@ func (j JobSpec) NewRun(i Initiator) JobRun {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		TaskRuns:    taskRuns,
-		RunRequest:  runRequest,
+		RunRequest:  *runRequest,
 		Initiator:   i,
 		InitiatorID: i.ID,
 		Status:      RunStatusUnstarted,
-		Result:      RunResult{CachedJobRunID: jrid},
 	}
 }
 
@@ -182,16 +184,6 @@ func (j JobSpec) InitiatorExternal(name string) *Initiator {
 		}
 	}
 	return found
-}
-
-// WebAuthorized returns true if the "web" initiator is present.
-func (j JobSpec) WebAuthorized() bool {
-	for _, initr := range j.Initiators {
-		if initr.Type == InitiatorWeb {
-			return true
-		}
-	}
-	return false
 }
 
 // IsLogInitiated Returns true if any of the job's initiators are triggered by event logs.

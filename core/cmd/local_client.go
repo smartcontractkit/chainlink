@@ -8,13 +8,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/logger"
+	"chainlink/core/services"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
 )
@@ -117,18 +118,14 @@ func logNodeBalance(store *strpkg.Store) {
 	accounts, err := presenters.ShowEthBalance(store)
 	logger.WarnIf(err)
 	for _, a := range accounts {
-		logAccountBalance(a)
+		logger.Infow(a["message"], "address", a["address"], "ethBalance", a["balance"])
 	}
 
 	accounts, err = presenters.ShowLinkBalance(store)
 	logger.WarnIf(err)
 	for _, a := range accounts {
-		logAccountBalance(a)
+		logger.Infow(a["message"], "address", a["address"], "linkBalance", a["balance"])
 	}
-}
-
-func logAccountBalance(kv map[string]interface{}) {
-	logger.Infow(fmt.Sprint(kv["message"]), "address", kv["address"], "balance", kv["balance"])
 }
 
 func logConfigVariables(store *strpkg.Store) error {
@@ -158,7 +155,6 @@ func (cli *Client) DeleteUser(c *clipkg.Context) error {
 func (cli *Client) ImportKey(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app := cli.AppFactory.NewApplication(cli.Config)
-	defer app.Stop()
 
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in filepath to key"))

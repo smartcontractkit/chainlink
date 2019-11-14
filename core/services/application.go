@@ -1,20 +1,22 @@
 package services
 
 import (
-	"errors"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
+	"chainlink/core/logger"
+	"chainlink/core/store"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+
 	"github.com/gobuffalo/packr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"go.uber.org/multierr"
 )
+
+//go:generate mockery -name Application -output ../internal/mocks/ -case=underscore
 
 // Application implements the common functions used in the core node.
 type Application interface {
@@ -26,15 +28,17 @@ type Application interface {
 	ArchiveJob(*models.ID) error
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
+	RunManager
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	Exiter                   func(int)
-	HeadTracker              *HeadTracker
-	JobRunner                JobRunner
+	Exiter      func(int)
+	HeadTracker *HeadTracker
+	RunManager
+	RunQueue                 RunQueue
 	JobSubscriber            JobSubscriber
 	Scheduler                *Scheduler
 	Store                    *store.Store
@@ -51,16 +55,21 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	store := store.NewStore(config)
 	config.SetRuntimeStore(store.ORM)
 
-	jobSubscriber := NewJobSubscriber(store)
-	pendingConnectionResumer := newPendingConnectionResumer(store)
+	runExecutor := NewRunExecutor(store)
+	runQueue := NewRunQueue(runExecutor)
+	runManager := NewRunManager(runQueue, config, store.ORM, store.TxManager, store.Clock)
+	jobSubscriber := NewJobSubscriber(store, runManager)
+
+	pendingConnectionResumer := newPendingConnectionResumer(runManager)
 
 	app := &ChainlinkApplication{
-		JobSubscriber:            jobSubscriber,
-		JobRunner:                NewJobRunner(store),
-		Scheduler:                NewScheduler(store),
-		Store:                    store,
-		SessionReaper:            NewStoreReaper(store),
-		Exiter:                   os.Exit,
+		JobSubscriber: jobSubscriber,
+		RunManager:    runManager,
+		RunQueue:      runQueue,
+		Scheduler:     NewScheduler(store, runManager),
+		Store:         store,
+		SessionReaper: NewStoreReaper(store),
+		Exiter:        os.Exit,
 		pendingConnectionResumer: pendingConnectionResumer,
 	}
 
@@ -96,15 +105,15 @@ func (app *ChainlinkApplication) Start() error {
 
 	return multierr.Combine(
 		app.Store.Start(),
+		app.RunQueue.Start(),
+		app.RunManager.ResumeAllInProgress(),
 
-		// Deliberately started immediately after Store, to start the RunChannel consumer
-		app.JobRunner.Start(),
-		app.JobRunner.resumeRunsSinceLastShutdown(), // Started before any other service writes RunStatus to db.
-
-		// HeadTracker deliberately started after JobRunner#resumeRunsSinceLastShutdown
-		// since it Connects JobSubscriber which leads to writes of JobRuns RunStatus to the db.
+		// HeadTracker deliberately started after
+		// RunQueue#resumeRunsSinceLastShutdown since it Connects JobSubscriber
+		// which leads to writes of JobRuns RunStatus to the db.
 		// https://www.pivotaltracker.com/story/show/162230780
 		app.HeadTracker.Start(),
+
 		app.Scheduler.Start(),
 		app.SessionReaper.Start(),
 	)
@@ -120,7 +129,7 @@ func (app *ChainlinkApplication) Stop() error {
 
 		app.Scheduler.Stop()
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
-		app.JobRunner.Stop()
+		app.RunQueue.Stop()
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		merr = multierr.Append(merr, app.Store.Close())
 	})
@@ -175,28 +184,15 @@ func (app *ChainlinkApplication) NewBox() packr.Box {
 }
 
 type pendingConnectionResumer struct {
-	store   *store.Store
-	resumer func(*models.JobRun, *store.Store) error
+	runManager RunManager
 }
 
-func newPendingConnectionResumer(store *store.Store) *pendingConnectionResumer {
-	return &pendingConnectionResumer{store: store, resumer: ResumeConnectingTask}
+func newPendingConnectionResumer(runManager RunManager) *pendingConnectionResumer {
+	return &pendingConnectionResumer{runManager: runManager}
 }
 
 func (p *pendingConnectionResumer) Connect(head *models.Head) error {
-	var merr error
-	err := p.store.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
-		err := p.resumer(run, p.store.Unscoped())
-		if err != nil {
-			merr = multierr.Append(merr, err)
-		}
-	}, models.RunStatusPendingConnection)
-
-	if err != nil {
-		return multierr.Append(errors.New("error resuming pending connections"), err)
-	}
-
-	return merr
+	return p.runManager.ResumeAllConnecting()
 }
 
 func (p *pendingConnectionResumer) Disconnect()            {}

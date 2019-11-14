@@ -4,6 +4,7 @@ import accountBalanceFactory from 'factories/accountBalance'
 import React from 'react'
 import mountWithTheme from 'test-helpers/mountWithTheme'
 import syncFetch from 'test-helpers/syncFetch'
+import globPath from 'test-helpers/globPath'
 
 const classes = {}
 const mountIndex = () => mountWithTheme(<Index classes={classes} />)
@@ -35,7 +36,7 @@ describe('containers/Dashboards/Index', () => {
       ],
       meta: { count: 2 },
     }
-    global.fetch.getOnce('begin:/v2/runs', recentJobRuns)
+    global.fetch.getOnce(globPath('/v2/runs'), recentJobRuns)
 
     const recentlyCreatedJobsResponse = {
       data: [
@@ -57,13 +58,13 @@ describe('containers/Dashboards/Index', () => {
         },
       ],
     }
-    global.fetch.getOnce('begin:/v2/specs', recentlyCreatedJobsResponse)
+    global.fetch.getOnce(globPath('/v2/specs'), recentlyCreatedJobsResponse)
 
     const accountBalanceResponse = accountBalanceFactory(
       '10123456000000000000000',
       '7467870000000000000000',
     )
-    global.fetch.getOnce('/v2/user/balances', accountBalanceResponse)
+    global.fetch.getOnce(globPath('/v2/user/balances'), accountBalanceResponse)
 
     const wrapper = mountIndex()
 

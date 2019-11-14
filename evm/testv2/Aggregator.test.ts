@@ -1,13 +1,12 @@
 import * as h from '../src/helpersV2'
 import { assertBigNum } from '../src/matchersV2'
 import { ethers } from 'ethers'
-import { EthersProviderWrapper } from '../src/provider'
-import env from '@nomiclabs/buidler'
 import { Instance } from '../src/contract'
 import { OracleFactory } from '../src/generated/OracleFactory'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { AggregatorFactory } from '../src/generated/AggregatorFactory'
 import { assert } from 'chai'
+import ganache from 'ganache-core'
 
 const aggregatorFactory = new AggregatorFactory()
 const oracleFactory = new OracleFactory()
@@ -15,7 +14,7 @@ const linkTokenFactory = new LinkTokenFactory()
 
 let personas: h.Personas
 let defaultAccount: ethers.Wallet
-const provider = new EthersProviderWrapper(env.ethereum)
+const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
 
 beforeAll(async () => {
   const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
@@ -43,14 +42,17 @@ describe('Aggregator', () => {
   let oc4: Instance<OracleFactory>
   let oracles: Instance<OracleFactory>[]
   let jobIds: string[] = []
-
-  beforeEach(async () => {
+  const deployment = h.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
     oc2 = await oracleFactory.connect(defaultAccount).deploy(link.address)
     oc3 = await oracleFactory.connect(defaultAccount).deploy(link.address)
     oc4 = await oracleFactory.connect(defaultAccount).deploy(link.address)
     oracles = [oc1, oc2, oc3]
+  })
+
+  beforeEach(async () => {
+    await deployment()
   })
 
   it('has a limited public interface', () => {

@@ -6,9 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+	"chainlink/core/web"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,6 +17,7 @@ import (
 func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	router := web.Router(app)
 	ts := httptest.NewServer(router)
@@ -30,6 +32,7 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	router := web.Router(app)
 	ts := httptest.NewServer(router)
@@ -45,6 +48,7 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	router := web.Router(app)
 	ts := httptest.NewServer(router)
@@ -76,6 +80,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	router := web.Router(app)
 	ts := httptest.NewServer(router)
@@ -107,6 +112,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 func TestSessions_RateLimited(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	router := web.Router(app)
 	ts := httptest.NewServer(router)
@@ -135,6 +141,7 @@ func TestSessions_RateLimited(t *testing.T) {
 func TestRouter_LargePOSTBody(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	router := web.Router(app)
 	ts := httptest.NewServer(router)
@@ -154,6 +161,8 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 func TestRouter_GinHelmetHeaders(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	router := web.Router(app)
 	ts := httptest.NewServer(router)
 	defer ts.Close()

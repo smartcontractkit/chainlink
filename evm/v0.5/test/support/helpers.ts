@@ -4,7 +4,7 @@ import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
 import { FunctionFragment, ParamType } from 'ethers/utils/abi-coder'
 import TruffleContract from 'truffle-contract'
-import { linkToken } from './linkToken'
+import linkToken from './LinkToken.json'
 import { assertBigNum } from './matchers'
 
 // https://github.com/ethereum/web3.js/issues/1119#issuecomment-394217563
@@ -209,7 +209,10 @@ export const assertActionThrows = (action: any, messageContains?: RegExp) =>
       return error.message
     })
     .then(errorMessage => {
-      assert(errorMessage, 'Expected an error to be raised')
+      assert(
+        errorMessage && errorMessage.includes,
+        'Expected an error to be raised',
+      )
       const invalidOpcode = errorMessage.includes('invalid opcode')
       const reverted = errorMessage.includes(
         'VM Exception while processing transaction: revert',

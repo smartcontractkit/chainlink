@@ -4,9 +4,8 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/tidwall/gjson"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
 )
 
 // Compare adapter type takes an Operator and a Value field to
@@ -25,56 +24,49 @@ var (
 
 // Perform uses the Operator to check the run's result against the
 // specified Value.
-func (c *Compare) Perform(input models.RunResult, _ *store.Store) models.RunResult {
-	prevResult := input.Result()
+func (c *Compare) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
+	prevResult := input.Result().String()
 
 	if c.Value == "" {
-		input.SetError(ErrValueNotSpecified)
-		return input
+		return models.NewRunOutputError(ErrValueNotSpecified)
 	}
 
 	switch c.Operator {
 	case "eq":
-		input.CompleteWithResult(c.Value == prevResult.String())
+		return models.NewRunOutputCompleteWithResult(c.Value == prevResult)
 	case "neq":
-		input.CompleteWithResult(c.Value != prevResult.String())
+		return models.NewRunOutputCompleteWithResult(c.Value != prevResult)
 	case "gt":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
-			input.SetError(err)
-			return input
+			return models.NewRunOutputError(err)
 		}
-		input.CompleteWithResult(desired < value)
+		return models.NewRunOutputCompleteWithResult(desired < value)
 	case "gte":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
-			input.SetError(err)
-			return input
+			return models.NewRunOutputError(err)
 		}
-		input.CompleteWithResult(desired <= value)
+		return models.NewRunOutputCompleteWithResult(desired <= value)
 	case "lt":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
-			input.SetError(err)
-			return input
+			return models.NewRunOutputError(err)
 		}
-		input.CompleteWithResult(desired > value)
+		return models.NewRunOutputCompleteWithResult(desired > value)
 	case "lte":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
-			input.SetError(err)
-			return input
+			return models.NewRunOutputError(err)
 		}
-		input.CompleteWithResult(desired >= value)
+		return models.NewRunOutputCompleteWithResult(desired >= value)
 	default:
-		input.SetError(ErrOperatorNotSpecified)
+		return models.NewRunOutputError(ErrOperatorNotSpecified)
 	}
-
-	return input
 }
 
-func getValues(result gjson.Result, d string) (float64, float64, error) {
-	value, err := strconv.ParseFloat(result.String(), 64)
+func getValues(result string, d string) (float64, float64, error) {
+	value, err := strconv.ParseFloat(result, 64)
 	if err != nil {
 		return 0, 0, ErrResultNotNumber
 	}

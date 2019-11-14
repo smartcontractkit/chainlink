@@ -9,21 +9,16 @@ import (
 	"strings"
 	"time"
 
+	"chainlink/core/store/assets"
+
 	"github.com/araddon/dateparse"
 	"github.com/jinzhu/gorm"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mrwonko/cron"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/ugorji/go/codec"
-)
-
-var (
-	// ErrorCannotMergeNonObject is returned if a Merge was attempted on a string
-	// or array JSON value
-	ErrorCannotMergeNonObject = errors.New("Cannot merge, expected object '{}'")
 )
 
 // RunStatus is a string that represents the run status
@@ -47,6 +42,8 @@ const (
 	RunStatusErrored = RunStatus("errored")
 	// RunStatusCompleted is used for when a run has successfully completed execution.
 	RunStatusCompleted = RunStatus("completed")
+	// RunStatusCancelled is used to indicate a run is no longer desired.
+	RunStatusCancelled = RunStatus("cancelled")
 )
 
 // Unstarted returns true if the status is the initial state.
@@ -79,6 +76,11 @@ func (s RunStatus) Completed() bool {
 	return s == RunStatusCompleted
 }
 
+// Cancelled returns true if the status is RunStatusCancelled.
+func (s RunStatus) Cancelled() bool {
+	return s == RunStatusCancelled
+}
+
 // Errored returns true if the status is RunStatusErrored.
 func (s RunStatus) Errored() bool {
 	return s == RunStatusErrored
@@ -91,7 +93,7 @@ func (s RunStatus) Pending() bool {
 
 // Finished returns true if the status is final and can't be changed.
 func (s RunStatus) Finished() bool {
-	return s.Completed() || s.Errored()
+	return s.Completed() || s.Errored() || s.Cancelled()
 }
 
 // Runnable returns true if the status is ready to be run.
@@ -176,48 +178,35 @@ func (j JSON) MarshalJSON() ([]byte, error) {
 	return []byte("{}"), nil
 }
 
-// Merge combines the given JSON with the existing JSON.
-func (j JSON) Merge(j2 JSON) (JSON, error) {
-	body := j.Map()
-	if body == nil || (j.Type != gjson.JSON && j.Type != gjson.Null) {
-		return JSON{}, ErrorCannotMergeNonObject
-	}
-
-	for key, value := range j2.Map() {
-		body[key] = value
-	}
-
-	cleaned := map[string]interface{}{}
-	for k, v := range body {
-		cleaned[k] = v.Value()
-	}
-
-	b, err := json.Marshal(cleaned)
-	if err != nil {
-		return JSON{}, err
-	}
-
-	var rval JSON
-	return rval, gjson.Unmarshal(b, &rval)
-}
-
 // Bytes returns the raw JSON.
 func (j JSON) Bytes() []byte {
 	return []byte(j.String())
 }
 
 // Add returns a new instance of JSON with the new value added.
-func (j JSON) Add(key string, val interface{}) (JSON, error) {
-	var j2 JSON
-	b, err := json.Marshal(val)
+func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
+	output := make(map[string]interface{})
+
+	switch v := j.Result.Value().(type) {
+	case map[string]interface{}:
+		for key, value := range v {
+			if key != insertKey {
+				output[key] = value
+			}
+		}
+		output[insertKey] = insertValue
+	case nil:
+		output[insertKey] = insertValue
+	default:
+		return JSON{}, errors.New("can only add to JSON objects or null")
+	}
+
+	bytes, err := json.Marshal(output)
 	if err != nil {
-		return j2, err
+		return JSON{}, err
 	}
-	str := fmt.Sprintf(`{"%v":%v}`, key, string(b))
-	if err = json.Unmarshal([]byte(str), &j2); err != nil {
-		return j2, err
-	}
-	return j.Merge(j2)
+
+	return JSON{Result: gjson.ParseBytes(bytes)}, nil
 }
 
 // Delete returns a new instance of JSON with the specified key removed.
@@ -471,4 +460,28 @@ type Configuration struct {
 	gorm.Model
 	Name  string `gorm:"not null;unique;index"`
 	Value string `gorm:"not null"`
+}
+
+// Merge returns a new map with all keys merged from right to left
+func Merge(inputs ...JSON) (JSON, error) {
+	output := make(map[string]interface{})
+
+	for _, input := range inputs {
+		switch v := input.Result.Value().(type) {
+		case map[string]interface{}:
+			for key, value := range v {
+				output[key] = value
+			}
+		case nil:
+		default:
+			return JSON{}, errors.New("can only merge JSON objects")
+		}
+	}
+
+	bytes, err := json.Marshal(output)
+	if err != nil {
+		return JSON{}, err
+	}
+
+	return JSON{Result: gjson.ParseBytes(bytes)}, nil
 }

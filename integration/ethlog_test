@@ -26,4 +26,4 @@ assert "Jobs count" "chainlink -j jobs list | jq length" $expected_job_count
 assert "EthLog Runs count" "chainlink -j runs list --jobid $jid | jq length" 1
 
 # Check that the run completed
-assert "Run completed" 'chainlink -j runs list --jobid $jid | jq ".[].result.status" | sed s/\"//g' completed
+assert "Run completed" 'chainlink -j runs list --jobid $jid | jq ".[].status" | sed s/\"//g' completed

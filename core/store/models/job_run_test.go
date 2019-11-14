@@ -3,21 +3,19 @@ package models_test
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
 
-func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
+func TestJobRun_RetrievingFromDBWithError(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -26,17 +24,17 @@ func TestJobRuns_RetrievingFromDBWithError(t *testing.T) {
 	require.NoError(t, store.CreateJob(&job))
 	jr := job.NewRun(job.Initiators[0])
 	jr.JobSpecID = job.ID
-	jr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
+	jr.Result.ErrorMessage = null.StringFrom("bad idea")
 	err := store.CreateJobRun(&jr)
 	require.NoError(t, err)
 
 	run, err := store.FindJobRun(jr.ID)
-	assert.NoError(t, err)
-	assert.True(t, run.Result.HasError())
-	assert.Equal(t, "bad idea", run.Result.Error())
+	require.NoError(t, err)
+	assert.True(t, run.Result.ErrorMessage.Valid)
+	assert.Equal(t, "bad idea", run.ErrorString())
 }
 
-func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
+func TestJobRun_RetrievingFromDBWithData(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -48,17 +46,17 @@ func TestJobRuns_RetrievingFromDBWithData(t *testing.T) {
 
 	jr := job.NewRun(initr)
 	data := `{"result":"11850.00"}`
-	jr.Result = cltest.RunResultWithData(data)
+	jr.Result = models.RunResult{Data: cltest.JSONFromString(t, data)}
 	err = store.CreateJobRun(&jr)
 	assert.NoError(t, err)
 
 	run, err := store.FindJobRun(jr.ID)
 	assert.NoError(t, err)
-	assert.False(t, run.Result.HasError())
+	assert.False(t, run.Result.ErrorMessage.Valid)
 	assert.JSONEq(t, data, run.Result.Data.String())
 }
 
-func TestJobRuns_SavesASyncEvent(t *testing.T) {
+func TestJobRun_SavesASyncEvent(t *testing.T) {
 	t.Parallel()
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", "http://localhost:4201")
@@ -97,7 +95,7 @@ func TestJobRuns_SavesASyncEvent(t *testing.T) {
 	assert.Contains(t, data, "status")
 }
 
-func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
+func TestJobRun_SkipsEventSaveIfURLBlank(t *testing.T) {
 	t.Parallel()
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", "")
@@ -111,7 +109,7 @@ func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
 
 	jr := job.NewRun(initr)
 	data := `{"result":"921.02"}`
-	jr.Result = cltest.RunResultWithData(data)
+	jr.Result = models.RunResult{Data: cltest.JSONFromString(t, data)}
 	err = store.CreateJobRun(&jr)
 	assert.NoError(t, err)
 
@@ -124,7 +122,7 @@ func TestJobRuns_SkipsEventSaveIfURLBlank(t *testing.T) {
 	require.Len(t, events, 0)
 }
 
-func TestForLogger(t *testing.T) {
+func TestJobRun_ForLogger(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -135,7 +133,7 @@ func TestForLogger(t *testing.T) {
 	jr.JobSpecID = job.ID
 	linkReward := assets.NewLink(5)
 
-	jr.Result = cltest.RunResultWithData(`{"result":"11850.00"}`)
+	jr.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result":"11850.00"}`)}
 	jr.Payment = linkReward
 	logsBeforeCompletion := jr.ForLogger()
 	require.Len(t, logsBeforeCompletion, 6)
@@ -163,216 +161,47 @@ func TestForLogger(t *testing.T) {
 	assert.Equal(t, logsWithBlockHeights[8], "observed_height")
 	assert.Equal(t, logsWithBlockHeights[9], big.NewInt(10))
 
-	jrErr := job.NewRun(job.Initiators[0])
-	jrErr.Result = cltest.RunResultWithError(fmt.Errorf("bad idea"))
-	logsWithErr := jrErr.ForLogger()
-	assert.Equal(t, logsWithErr[6], "job_error")
-	assert.Equal(t, logsWithErr[7], jrErr.Result.Error())
-
-}
-
-func TestJobRun_NextTaskRun(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	jobRunner, cleanup := cltest.NewJobRunner(store)
-	defer cleanup()
-	jobRunner.Start()
-
-	job := cltest.NewJobWithWebInitiator()
-	job.Tasks = []models.TaskSpec{
-		{Type: adapters.TaskTypeNoOp},
-		{Type: adapters.TaskTypeNoOpPend},
-		{Type: adapters.TaskTypeNoOp},
-	}
-	assert.NoError(t, store.CreateJob(&job))
 	run := job.NewRun(job.Initiators[0])
-	assert.NoError(t, store.CreateJobRun(&run))
-	assert.Equal(t, &run.TaskRuns[0], run.NextTaskRun())
-
-	store.RunChannel.Send(run.ID)
-	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusPendingConfirmations)
-
-	run, err := store.FindJobRun(run.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, &run.TaskRuns[1], run.NextTaskRun())
+	run.Status = models.RunStatusErrored
+	run.Result.ErrorMessage = null.StringFrom("bad idea")
+	logsWithErr := run.ForLogger()
+	require.Len(t, logsWithErr, 8)
+	assert.Equal(t, logsWithErr[6], "job_error")
+	assert.Equal(t, logsWithErr[7], run.ErrorString())
 }
 
-func TestRunResult_Value(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		json        string
-		want        string
-		wantErrored bool
-	}{
-		{"string", `{"result": "100", "other": "101"}`, "100", false},
-		{"integer", `{"result": 100}`, "", true},
-		{"float", `{"result": 100.01}`, "", true},
-		{"boolean", `{"result": true}`, "", true},
-		{"null", `{"result": null}`, "", true},
-		{"no key", `{"other": 100}`, "", true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var data models.JSON
-			assert.NoError(t, json.Unmarshal([]byte(test.json), &data))
-			rr := models.RunResult{Data: data}
-
-			val, err := rr.ResultString()
-			assert.Equal(t, test.want, val)
-			assert.Equal(t, test.wantErrored, (err != nil))
-		})
-	}
-}
-
-func TestRunResult_Add(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		json  string
-		key   string
-		value interface{}
-		want  string
-	}{
-		{"string", `{"a": "1"}`, "b", "2", `{"a": "1", "b": "2"}`},
-		{"int", `{"a": "1"}`, "b", 2, `{"a": "1", "b": 2}`},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var data models.JSON
-			assert.NoError(t, json.Unmarshal([]byte(test.json), &data))
-			rr := models.RunResult{Data: data}
-
-			rr.Add(test.key, test.value)
-
-			assert.JSONEq(t, test.want, rr.Data.String())
-		})
-	}
-}
-
-func TestRunResult_WithError(t *testing.T) {
-	t.Parallel()
-
-	rr := models.RunResult{}
-
-	assert.Equal(t, models.RunStatusUnstarted, rr.Status)
-
-	rr.SetError(errors.New("this blew up"))
-
-	assert.Equal(t, models.RunStatusErrored, rr.Status)
-	assert.Equal(t, cltest.NullString("this blew up"), rr.ErrorMessage)
-}
-
-func TestRunResult_Merge(t *testing.T) {
-	t.Parallel()
-
-	inProgress := models.RunStatusInProgress
-	pending := models.RunStatusPendingBridge
-	errored := models.RunStatusErrored
-	completed := models.RunStatusCompleted
-
-	nullString := cltest.NullString(nil)
-	tests := []struct {
-		name             string
-		originalData     string
-		originalError    null.String
-		originalStatus   models.RunStatus
-		inData           string
-		inError          null.String
-		inStatus         models.RunStatus
-		wantData         string
-		wantErrorMessage null.String
-		wantStatus       models.RunStatus
-	}{
-		{"merging data",
-			`{"result":"old&busted","unique":"1"}`, nullString, inProgress,
-			`{"result":"newHotness","and":"!"}`, nullString, inProgress,
-			`{"result":"newHotness","unique":"1","and":"!"}`, nullString, inProgress},
-		{"completed result",
-			`{"result":"old"}`, nullString, inProgress,
-			`{}`, nullString, completed,
-			`{"result":"old"}`, nullString, completed},
-		{"error override",
-			`{"result":"old"}`, nullString, inProgress,
-			`{}`, cltest.NullString("new problem"), errored,
-			`{"result":"old"}`, cltest.NullString("new problem"), errored},
-		{"pending override",
-			`{"result":"old"}`, nullString, inProgress,
-			`{}`, nullString, pending,
-			`{"result":"old"}`, nullString, pending},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			original := models.RunResult{
-				Data:         models.JSON{Result: gjson.Parse(test.originalData)},
-				ErrorMessage: test.originalError,
-				Status:       test.originalStatus,
-			}
-			in := models.RunResult{
-				Data:         cltest.JSONFromString(t, test.inData),
-				ErrorMessage: test.inError,
-				Status:       test.inStatus,
-			}
-			merged := original
-			merged.Merge(in)
-
-			assert.JSONEq(t, test.originalData, original.Data.String())
-			assert.Equal(t, test.originalError, original.ErrorMessage)
-			assert.Equal(t, test.originalStatus, original.Status)
-
-			assert.JSONEq(t, test.inData, in.Data.String())
-			assert.Equal(t, test.inError, in.ErrorMessage)
-			assert.Equal(t, test.inStatus, in.Status)
-
-			assert.JSONEq(t, test.wantData, merged.Data.String())
-			assert.Equal(t, test.wantErrorMessage, merged.ErrorMessage)
-			assert.Equal(t, test.wantStatus, merged.Status)
-		})
-	}
-}
-
-func TestJobRun_ApplyResult_CompletedWithNoTasksRemaining(t *testing.T) {
+func TestJobRun_ApplyOutput_CompletedWithNoTasksRemaining(t *testing.T) {
 	t.Parallel()
 
 	job := cltest.NewJobWithWebInitiator()
 	jobRun := job.NewRun(job.Initiators[0])
 
-	result := models.RunResult{Status: models.RunStatusCompleted}
-	jobRun.TaskRuns[0].ApplyResult(result)
-	err := jobRun.ApplyResult(result)
-	assert.NoError(t, err)
+	result := models.NewRunOutputComplete(models.JSON{})
+	jobRun.TaskRuns[0].ApplyOutput(result)
+	jobRun.ApplyOutput(result)
 	assert.True(t, jobRun.FinishedAt.Valid)
 }
 
-func TestJobRun_ApplyResult_CompletedWithTasksRemaining(t *testing.T) {
+func TestJobRun_ApplyOutput_CompletedWithTasksRemaining(t *testing.T) {
 	t.Parallel()
 
 	job := cltest.NewJobWithWebInitiator()
 	jobRun := job.NewRun(job.Initiators[0])
 
-	result := models.RunResult{Status: models.RunStatusCompleted}
-	err := jobRun.ApplyResult(result)
-	assert.NoError(t, err)
+	result := models.NewRunOutputComplete(models.JSON{})
+	jobRun.ApplyOutput(result)
 	assert.False(t, jobRun.FinishedAt.Valid)
 	assert.Equal(t, jobRun.Status, models.RunStatusInProgress)
 }
 
-func TestJobRun_ApplyResult_ErrorSetsFinishedAt(t *testing.T) {
+func TestJobRun_ApplyOutput_ErrorSetsFinishedAt(t *testing.T) {
 	t.Parallel()
 
 	job := cltest.NewJobWithWebInitiator()
 	jobRun := job.NewRun(job.Initiators[0])
 	jobRun.Status = models.RunStatusErrored
 
-	result := models.RunResult{Status: models.RunStatusErrored}
-	err := jobRun.ApplyResult(result)
-	assert.NoError(t, err)
+	result := models.NewRunOutputError(errors.New("oh futz"))
+	jobRun.ApplyOutput(result)
 	assert.True(t, jobRun.FinishedAt.Valid)
 }

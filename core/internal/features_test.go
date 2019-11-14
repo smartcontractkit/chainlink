@@ -1,7 +1,6 @@
 package internal_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,12 +11,12 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
+	"chainlink/core/web"
+
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -87,6 +86,9 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 	eth.EventuallyAllCalled(t)
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
+
+	jr.ObservedHeight = confirmedReceipt.BlockNumber
+	require.NoError(t, app.Store.SaveJobRun(&jr))
 
 	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
@@ -224,18 +226,15 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
-	val, err := jr.TaskRuns[0].Result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, tickerResponse, val)
-	val, err = jr.TaskRuns[1].Result.ResultString()
-	assert.Equal(t, "10583.75", val)
-	assert.NoError(t, err)
-	val, err = jr.TaskRuns[3].Result.ResultString()
-	assert.Equal(t, attempt1Hash.String(), val)
-	assert.NoError(t, err)
-	val, err = jr.Result.ResultString()
-	assert.Equal(t, attempt1Hash.String(), val)
-	assert.NoError(t, err)
+	require.Len(t, jr.TaskRuns, 4)
+	value := cltest.MustResultString(t, jr.TaskRuns[0].Result)
+	assert.Equal(t, tickerResponse, value)
+	value = cltest.MustResultString(t, jr.TaskRuns[1].Result)
+	assert.Equal(t, "10583.75", value)
+	value = cltest.MustResultString(t, jr.TaskRuns[3].Result)
+	assert.Equal(t, attempt1Hash.String(), value)
+	value = cltest.MustResultString(t, jr.Result)
+	assert.Equal(t, attempt1Hash.String(), value)
 }
 
 func TestIntegration_RunAt(t *testing.T) {
@@ -367,35 +366,6 @@ func TestIntegration_RunLog(t *testing.T) {
 	}
 }
 
-func TestIntegration_EndAt(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t)
-	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
-	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	clock := cltest.UseSettableClock(app.Store)
-	app.Start()
-	client := app.NewHTTPClient()
-
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/end_at_job.json")
-	endAt := cltest.ParseISO8601(t, "3000-01-01T00:00:00.000Z")
-	assert.Equal(t, endAt, j.EndAt.Time)
-
-	cltest.CreateJobRunViaWeb(t, app, j)
-
-	clock.SetTime(endAt.Add(time.Nanosecond))
-
-	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", &bytes.Buffer{})
-	defer cleanup()
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-	gomega.NewGomegaWithT(t).Consistently(func() []models.JobRun {
-		jobRuns, err := app.Store.JobRunsFor(j.ID)
-		assert.NoError(t, err)
-		return jobRuns
-	}).Should(gomega.HaveLen(1))
-}
-
 func TestIntegration_StartAt(t *testing.T) {
 	t.Parallel()
 
@@ -403,20 +373,11 @@ func TestIntegration_StartAt(t *testing.T) {
 	defer cleanup()
 	eth := app.MockEthCallerSubscriber(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	clock := cltest.UseSettableClock(app.Store)
 	app.Start()
-	client := app.NewHTTPClient()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/start_at_job.json")
-	startAt := cltest.ParseISO8601(t, "3000-01-01T00:00:00.000Z")
+	startAt := cltest.ParseISO8601(t, "1970-01-01T00:00:00.000Z")
 	assert.Equal(t, startAt, j.StartAt.Time)
-
-	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", &bytes.Buffer{})
-	defer cleanup()
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-	cltest.WaitForRuns(t, j, app.Store, 0)
-
-	clock.SetTime(startAt)
 
 	cltest.CreateJobRunViaWeb(t, app, j)
 }
@@ -470,10 +431,9 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.TaskSpec.Type.String())
-	val, err := tr.Result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, eaValue, val)
-	res := tr.Result.Get("extra")
+	value := cltest.MustResultString(t, tr.Result)
+	assert.Equal(t, eaValue, value)
+	res := tr.Result.Data.Get("extra")
 	assert.Equal(t, eaExtra, res.String())
 
 	assert.True(t, eth.AllCalled(), eth.Remaining())
@@ -497,20 +457,20 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	eaResponse := fmt.Sprintf(`{"data":{"price": "%v", "quote": "%v"}}`, eaPrice, eaQuote)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "/", r.URL.Path)
+		require.Equal(t, "POST", r.Method)
+		require.Equal(t, "/", r.URL.Path)
 
 		b, err := ioutil.ReadAll(r.Body)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		body := cltest.JSONFromBytes(t, b)
 		data := body.Get("data")
-		assert.True(t, data.Exists())
+		require.True(t, data.Exists())
 		bodyParam := data.Get("bodyParam")
-		assert.True(t, bodyParam.Exists())
-		assert.Equal(t, true, bodyParam.Bool())
+		require.True(t, bodyParam.Exists())
+		require.Equal(t, true, bodyParam.Bool())
 
 		url := body.Get("responseURL")
-		assert.Contains(t, url.String(), "https://test.chain.link/always/v2/runs")
+		require.Contains(t, url.String(), "https://test.chain.link/always/v2/runs")
 
 		w.WriteHeader(http.StatusOK)
 		io.WriteString(w, eaResponse)
@@ -526,11 +486,8 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	assert.Equal(t, "assetprice", tr.TaskSpec.Type.String())
 	tr = jr.TaskRuns[1]
 	assert.Equal(t, "copy", tr.TaskSpec.Type.String())
-	val, err := tr.Result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, eaPrice, val)
-	res := tr.Result.Get("quote")
-	assert.Equal(t, eaQuote, res.String())
+	value := cltest.MustResultString(t, tr.Result)
+	assert.Equal(t, eaPrice, value)
 }
 
 // This test ensures that an bridge adapter task is resumed from pending after
@@ -574,17 +531,15 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusPendingBridge, tr.Status)
-	val, err := tr.Result.ResultString()
-	assert.Error(t, err)
-	assert.Equal(t, "", val)
+	assert.Equal(t, gjson.Null, tr.Result.Data.Get("result").Type)
 
 	jr = cltest.UpdateJobRunViaWeb(t, app, jr, bta, `{"data":{"result":"100"}}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	tr = jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusCompleted, tr.Status)
-	val, err = tr.Result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, "100", val)
+
+	value := cltest.MustResultString(t, tr.Result)
+	assert.Equal(t, "100", value)
 }
 
 func TestIntegration_WeiWatchers(t *testing.T) {
@@ -634,9 +589,8 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"-10221.30"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
-	val, err := jr.Result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0674e", val)
+	value := cltest.MustResultString(t, jr.Result)
+	assert.Equal(t, "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0674e", value)
 }
 
 func TestIntegration_MultiplierUint256(t *testing.T) {
@@ -650,9 +604,8 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"10221.30"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
-	val, err := jr.Result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, "0x00000000000000000000000000000000000000000000000000000000000f98b2", val)
+	value := cltest.MustResultString(t, jr.Result)
+	assert.Equal(t, "0x00000000000000000000000000000000000000000000000000000000000f98b2", value)
 }
 
 func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
@@ -724,7 +677,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	assert.NotEqual(t, "", sa.ID)
 	j := cltest.FindJob(t, app.Store, sa.JobSpecID)
 
-	assert.Equal(t, cltest.NewLink(t, "1000000000000000000"), sa.Encumbrance.Payment)
+	assert.Equal(t, *cltest.NewLink(t, "1000000000000000000"), sa.Encumbrance.Payment)
 	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)
 
 	assert.Equal(t, endAt, sa.Encumbrance.EndAt.Time)
@@ -759,10 +712,9 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	eth.Register("eth_chainId", config.ChainID())
 
 	app.InstantClock()
-
 	app.Store.StatsPusher.Period = 300 * time.Millisecond
-
 	app.Start()
+
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/run_at_job.json")
 
 	cltest.CallbackOrTimeout(t, "stats pusher connects", func() {
@@ -795,8 +747,8 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	runInput := fmt.Sprintf("{\"until\": \"%s\"}", time.Now().Local().Add(time.Second*time.Duration(sleepSeconds)))
 	jr := cltest.CreateJobRunViaWeb(t, app, j, runInput)
 
-	cltest.WaitForJobRunToPendSleep(t, app.Store, jr)
-	cltest.JobRunStays(t, app.Store, jr, models.RunStatusPendingSleep, time.Second)
+	cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusInProgress)
+	cltest.JobRunStays(t, app.Store, jr, models.RunStatusInProgress, time.Second)
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
 

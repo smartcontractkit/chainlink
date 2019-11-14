@@ -7,13 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+	"chainlink/core/web"
+
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -37,6 +38,7 @@ func TestJobSpecsController_Index_noSort(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
 	j1, err := setupJobSpecsControllerIndex(app)
@@ -85,6 +87,8 @@ func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	j2 := cltest.NewJobWithWebInitiator()
@@ -159,6 +163,8 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(cltest.MustReadFile(t, "testdata/hello_world_job.json")))
@@ -170,15 +176,15 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 	err := cltest.ParseJSONAPIResponse(t, resp, &j)
 	require.NoError(t, err)
 
-	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
+	adapter1, _ := adapters.For(j.Tasks[0], app.Store.Config, app.Store.ORM)
 	httpGet := adapter1.BaseAdapter.(*adapters.HTTPGet)
 	assert.Equal(t, httpGet.GetURL(), "https://bitstamp.net/api/ticker/")
 
-	adapter2, _ := adapters.For(j.Tasks[1], app.Store)
+	adapter2, _ := adapters.For(j.Tasks[1], app.Store.Config, app.Store.ORM)
 	jsonParse := adapter2.BaseAdapter.(*adapters.JSONParse)
 	assert.Equal(t, []string(jsonParse.Path), []string{"last"})
 
-	adapter4, _ := adapters.For(j.Tasks[3], app.Store)
+	adapter4, _ := adapters.For(j.Tasks[3], app.Store.Config, app.Store.ORM)
 	signTx := adapter4.BaseAdapter.(*adapters.EthTx)
 	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
@@ -194,7 +200,7 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 	require.Len(t, j.Initiators, 1)
 	assert.Equal(t, models.InitiatorWeb, j.Initiators[0].Type)
 
-	adapter1, _ = adapters.For(j.Tasks[0], app.Store)
+	adapter1, _ = adapters.For(j.Tasks[0], app.Store.Config, app.Store.ORM)
 	httpGet = adapter1.BaseAdapter.(*adapters.HTTPGet)
 	assert.Equal(t, httpGet.GetURL(), "https://bitstamp.net/api/ticker/")
 }
@@ -244,20 +250,21 @@ func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "testdata/caseinsensitive_hello_world_job.json")
 
-	adapter1, _ := adapters.For(j.Tasks[0], app.Store)
+	adapter1, _ := adapters.For(j.Tasks[0], app.Store.Config, app.Store.ORM)
 	httpGet := adapter1.BaseAdapter.(*adapters.HTTPGet)
 	assert.Equal(t, httpGet.GetURL(), "https://bitstamp.net/api/ticker/")
 
-	adapter2, _ := adapters.For(j.Tasks[1], app.Store)
+	adapter2, _ := adapters.For(j.Tasks[1], app.Store.Config, app.Store.ORM)
 	jsonParse := adapter2.BaseAdapter.(*adapters.JSONParse)
 	assert.Equal(t, []string(jsonParse.Path), []string{"last"})
 
 	assert.Equal(t, "ethbytes32", j.Tasks[2].Type.String())
 
-	adapter4, _ := adapters.For(j.Tasks[3], app.Store)
+	adapter4, _ := adapters.For(j.Tasks[3], app.Store.Config, app.Store.ORM)
 	signTx := adapter4.BaseAdapter.(*adapters.EthTx)
 	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
@@ -270,6 +277,8 @@ func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	jsonStr := cltest.MustReadFile(t, "testdata/nonexistent_task_job.json")
@@ -286,6 +295,8 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	jsonStr := cltest.MustReadFile(t, "testdata/run_at_wo_time_job.json")
@@ -302,6 +313,8 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	jsonStr := cltest.MustReadFile(t, "testdata/invalid_cron.json")
@@ -318,6 +331,8 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	jsonStr := cltest.MustReadFile(t, "testdata/initiator_only_job.json")
@@ -334,6 +349,8 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	jsonStr := cltest.MustReadFile(t, "testdata/task_only_job.json")
@@ -349,6 +366,8 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 func BenchmarkJobSpecsController_Show(b *testing.B) {
 	app, cleanup := cltest.NewApplication(b)
 	defer cleanup()
+	require.NoError(b, app.Start())
+
 	client := app.NewHTTPClient()
 	j := setupJobSpecsControllerShow(b, app)
 
@@ -364,6 +383,8 @@ func TestJobSpecsController_Show(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	j := setupJobSpecsControllerShow(t, app)
@@ -399,6 +420,8 @@ func TestJobSpecsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v2/specs/190AE4CE-40B6-4D60-A3DA-061C5ACD32D0")
@@ -410,6 +433,8 @@ func TestJobSpecsController_Show_InvalidUuid(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v2/specs/garbage")
@@ -420,6 +445,8 @@ func TestJobSpecsController_Show_InvalidUuid(t *testing.T) {
 func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
+	require.NoError(t, app.Start())
+
 	defer cleanup()
 
 	resp, err := http.Get(app.Server.URL + "/v2/specs/" + "garbage")
@@ -431,6 +458,8 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 	job := cltest.NewJobWithLogInitiator()
 	require.NoError(t, app.Store.CreateJob(&job))

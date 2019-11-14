@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"net/http"
 
+	"chainlink/core/services"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // UserController manages the current Session's User User.
@@ -86,9 +87,13 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User,
 func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.AccountBalance {
 	txm := store.TxManager
 	if ethBalance, err := txm.GetEthBalance(account.Address); err != nil {
+		err = fmt.Errorf("Error calling getEthBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
+		ctx.Abort()
 	} else if linkBalance, err := txm.GetLINKBalance(account.Address); err != nil {
+		err = fmt.Errorf("Error calling getLINKBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
+		ctx.Abort()
 	} else {
 		return presenters.AccountBalance{
 			Address:     account.Address.Hex(),

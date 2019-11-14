@@ -8,6 +8,7 @@ import { MemoryRouter } from 'react-router-dom'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 import mountWithTheme from 'test-helpers/mountWithTheme'
 import syncFetch from 'test-helpers/syncFetch'
+import globPath from 'test-helpers/globPath'
 import { GWEI_PER_TOKEN, WEI_PER_TOKEN } from '../../../src/utils/constants'
 
 const mountShow = props =>
@@ -33,7 +34,7 @@ describe('containers/Jobs/Show', () => {
       earnings: GWEI_PER_TOKEN,
       minPayment: 100 * WEI_PER_TOKEN,
     })
-    global.fetch.getOnce(`/v2/specs/${jobSpecId}`, jobSpecResponse)
+    global.fetch.getOnce(globPath(`/v2/specs/${jobSpecId}`), jobSpecResponse)
 
     const jobRunResponse = jsonApiJobSpecRunsFactory([
       {
@@ -42,7 +43,7 @@ describe('containers/Jobs/Show', () => {
         status: 'pending',
       },
     ])
-    global.fetch.getOnce(`begin:/v2/runs`, jobRunResponse)
+    global.fetch.getOnce(globPath('/v2/runs'), jobRunResponse)
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)
@@ -71,8 +72,8 @@ describe('containers/Jobs/Show', () => {
     })
     const jobRunsResponse = jsonApiJobSpecRunsFactory(runs)
 
-    global.fetch.getOnce(`begin:/v2/specs/${jobSpecId}`, jobSpecResponse)
-    global.fetch.getOnce(`begin:/v2/runs`, jobRunsResponse)
+    global.fetch.getOnce(globPath(`/v2/specs/${jobSpecId}`), jobSpecResponse)
+    global.fetch.getOnce(globPath('/v2/runs'), jobRunsResponse)
 
     const props = { match: { params: { jobSpecId: jobSpecId } } }
     const wrapper = mountShow(props)

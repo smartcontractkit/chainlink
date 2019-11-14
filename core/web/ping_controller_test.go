@@ -4,9 +4,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+	"chainlink/core/web"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,6 +16,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
@@ -29,6 +31,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	eia := &models.ExternalInitiatorAuthentication{
 		AccessKey: "abracadabra",
@@ -65,6 +68,7 @@ func TestPingController_Show_NoCredentials(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	client := http.Client{}
 	url := app.Config.ClientNodeURL() + "/v2/ping"

@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "incremental": true,
+    "target": "es2019",
+    "module": "commonjs",
+    "allowJs": true,
+    "declaration": true,
+    "declarationDir": "./dist",
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "outDir": "./dist",
+    "noEmitOnError": false,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "typeRoots": ["src/generated"]
+  },
+  "include": ["test", "src"]
+}

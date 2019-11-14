@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"chainlink/core/utils"
+
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // ID is a UUID that has a custom display format

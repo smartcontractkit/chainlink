@@ -8,7 +8,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"chainlink/core/logger"
+
 	"golang.org/x/crypto/ssh/terminal"
 )
 

@@ -1,18 +1,19 @@
 package cmd
 
 import (
-	"reflect"
 	"fmt"
 	"io"
+	"reflect"
 	"strconv"
 
+	"chainlink/core/logger"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+	"chainlink/core/web"
+
 	"github.com/olekukonko/tablewriter"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
 )
 
 // Renderer implements the Render method.
@@ -93,7 +94,7 @@ func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
 
 func (rt RendererTable) renderConfiguration(cwl presenters.ConfigWhitelist) error {
 	table := rt.newTable([]string{"Key", "Value"})
-	
+
 	table.Append([]string{
 		"ACCOUNT_ADDRESS",
 		cwl.AccountAddress,
@@ -133,7 +134,6 @@ func (rt RendererTable) renderConfiguration(cwl presenters.ConfigWhitelist) erro
 	render("Configuration", table)
 	return nil
 }
-
 
 func render(name string, table *tablewriter.Table) {
 	table.SetRowLine(true)
@@ -267,7 +267,7 @@ func (rt RendererTable) renderJobRuns(runs []presenters.JobRun) error {
 			utils.ISO8601UTC(jr.CreatedAt),
 			utils.NullISO8601UTC(jr.FinishedAt),
 			jr.Result.Data.String(),
-			jr.Result.ErrorMessage.String,
+			jr.ErrorString(),
 		})
 	}
 

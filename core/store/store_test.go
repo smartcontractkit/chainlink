@@ -1,18 +1,18 @@
 package store_test
 
 import (
+	"math/big"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/internal/mocks"
+	"chainlink/core/utils"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -20,17 +20,16 @@ import (
 func TestStore_Start(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	store := app.Store
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	txManager := new(mocks.TxManager)
+	txManager.On("Register", mock.Anything).Return(big.NewInt(3), nil)
+	store.TxManager = txManager
 
-	txmMock := mocks.NewMockTxManager(ctrl)
-	store.TxManager = txmMock
-	txmMock.EXPECT().Register(gomock.Any())
 	assert.NoError(t, store.Start())
+
+	txManager.AssertExpectations(t)
 }
 
 func TestStore_Close(t *testing.T) {
@@ -39,20 +38,7 @@ func TestStore_Close(t *testing.T) {
 	s, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	s.RunChannel.Send(models.NewID())
-	s.RunChannel.Send(models.NewID())
-
-	_, open := <-s.RunChannel.Receive()
-	assert.True(t, open)
-
-	_, open = <-s.RunChannel.Receive()
-	assert.True(t, open)
-
 	assert.NoError(t, s.Close())
-
-	rr, open := <-s.RunChannel.Receive()
-	assert.Equal(t, store.RunRequest{}, rr)
-	assert.False(t, open)
 }
 
 func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
@@ -60,6 +46,7 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 	store := app.GetStore()
 
 	// create key on disk
@@ -94,6 +81,7 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	app.AddUnlockedKey() // second account
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	store := app.GetStore()
 
@@ -160,23 +148,4 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 	require.Equal(t, acc.Address.Hex(), keys[0].Address.String())
-}
-
-func TestQueuedRunChannel_Send(t *testing.T) {
-	t.Parallel()
-
-	rq := store.NewQueuedRunChannel()
-
-	assert.NoError(t, rq.Send(models.NewID()))
-	rr1 := <-rq.Receive()
-	assert.NotNil(t, rr1)
-}
-
-func TestQueuedRunChannel_Send_afterClose(t *testing.T) {
-	t.Parallel()
-
-	rq := store.NewQueuedRunChannel()
-	rq.Close()
-
-	assert.Error(t, rq.Send(models.NewID()))
 }

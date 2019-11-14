@@ -15,9 +15,9 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
 )
 
 // Multiplier represents the number to multiply by in Multiply adapter.
@@ -46,16 +46,14 @@ type Multiply struct {
 //
 // For example, if input value is "99.994" and the adapter's "times" is
 // set to "100", the result's value will be "9999.4".
-func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (ma *Multiply) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
 	adapterJSON, err := json.Marshal(ma)
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.NewRunOutputError(err)
 	}
 	inputJSON, err := json.Marshal(input)
 	if err != nil {
-		input.SetError(err)
-		return input
+		return models.NewRunOutputError(err)
 	}
 
 	cAdapter := C.CString(string(adapterJSON))
@@ -70,15 +68,13 @@ func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunRe
 	outputLenPtr := (*C.int)(unsafe.Pointer(&outputLen))
 
 	if _, err = C.multiply(cAdapter, cInput, output, bufferCapacity, outputLenPtr); err != nil {
-		input.SetError(fmt.Errorf("SGX multiply: %v", err))
-		return input
+		return models.NewRunOutputError(fmt.Errorf("SGX multiply: %v", err))
 	}
 
 	sgxResult := C.GoStringN(output, outputLen)
 	var result models.RunResult
 	if err := json.Unmarshal([]byte(sgxResult), &result); err != nil {
-		input.SetError(fmt.Errorf("unmarshaling SGX result: %v", err))
-		return input
+		return models.NewRunOutputError(fmt.Errorf("unmarshaling SGX result: %v", err))
 	}
 
 	return result

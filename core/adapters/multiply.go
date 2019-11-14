@@ -7,9 +7,9 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
 )
 
 // Multiplier represents the number to multiply by in Multiply adapter.
@@ -38,15 +38,15 @@ type Multiply struct {
 //
 // For example, if input value is "99.994" and the adapter's "times" is
 // set to "100", the result's value will be "9999.4".
-func (ma *Multiply) Perform(input models.RunResult, _ *store.Store) models.RunResult {
+func (ma *Multiply) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
 	val := input.Result()
 	i, ok := (&big.Float{}).SetString(val.String())
 	if !ok {
-		return models.RunResultError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
+		return models.NewRunOutputError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
 	}
 
 	if ma.Times != nil {
 		i.Mul(i, big.NewFloat(float64(*ma.Times)))
 	}
-	return models.RunResultComplete(i.String())
+	return models.NewRunOutputCompleteWithResult(i.String())
 }

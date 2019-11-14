@@ -3,9 +3,10 @@ package store
 import (
 	"testing"
 
+	"chainlink/core/store/models"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 )
 

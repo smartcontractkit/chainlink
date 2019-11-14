@@ -1,40 +1,47 @@
 {
   "name": "chainlinkv0.5",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "license": "MIT",
+  "main": "./dist/src",
+  "typings": "./dist/src",
   "scripts": {
-    "build": "truffle build",
-    "build.windows": "truffle.cmd build",
+    "generate-typings": "typechain --target ethers --outDir src/generated \"{test/support/LinkToken*,dist/artifacts/*}\"",
+    "postgenerate-typings": "yarn workspace chainlink export-typings v0.5/src/generated v0.5/dist/src/generated",
+    "build:windows": "truffle.cmd build && yarn generate-typings && (tsc || true)",
+    "build": "sol-compiler && yarn generate-typings && (tsc || true)",
     "depcheck": "echo \"chainlinkv0.5\" && depcheck --ignore-dirs=build/contracts || true",
     "eslint": "eslint --ext .ts,.js test",
     "solhint": "solhint ./contracts/**/*.sol",
     "lint": "yarn eslint && yarn solhint",
     "format": "prettier --write \"{src,test}/**/*\"",
-    "slither": "truffle compile --quiet && slither .",
+    "slither": "truffle compile --quiet && slither . && rimraf dist/artifacts",
     "setup": "ts-node ./scripts/build",
+    "prepublishOnly": "yarn setup && yarn lint && yarn test",
     "test": "truffle test"
   },
   "dependencies": {
     "bn.js": "^4.11.0",
-    "cbor": "^4.1.1",
+    "cbor": "^5.0.1",
     "ethereumjs-abi": "^0.6.8",
     "ethereumjs-util": "^6.1.0",
-    "truffle-contract": "^4.0.31"
+    "truffle-contract": "^4.0.31",
+    "typescript": "^3.7.0-beta"
   },
   "devDependencies": {
-    "@babel/core": "^7.5.5",
+    "@babel/core": "^7.6.4",
+    "@0x/sol-compiler": "^3.1.15",
     "@babel/plugin-proposal-class-properties": "^7.3.0",
     "@babel/polyfill": "^7.2.5",
     "@babel/preset-env": "^7.6.0",
     "@babel/preset-typescript": "^7.1.0",
-    "@babel/register": "^7.0.0",
+    "@babel/register": "^7.6.2",
     "@chainlink/eslint-config": "0.0.1",
     "@chainlink/prettier-config": "0.0.1",
     "@machinomy/types-truffle-contract": "^0.2.0",
     "@types/cbor": "^2.0.0",
     "@types/ethereumjs-abi": "^0.6.3",
     "chai": "^4.2.0",
-    "cross-env": "^6.0.0",
+    "cross-env": "^6.0.3",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",
     "execa": "^3.2.0",
@@ -44,10 +51,13 @@
     "solhint": "^2.1.0",
     "truffle": "^5.0.25",
     "ts-node": "^8.4.1",
+    "typechain": "^1.0.3",
+    "typechain-target-ethers": "^1.0.1",
     "types-bn": "^0.0.1"
   },
   "files": [
-    "contracts"
+    "contracts",
+    "dist"
   ],
   "prettier": "@chainlink/prettier-config"
 }

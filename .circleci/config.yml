@@ -141,6 +141,8 @@ jobs:
       - run: ./tools/ci/ethereum_test
       - store_artifacts:
           path: ./integration/cypress/screenshots
+      - store_artifacts:
+          path: ./integration/logs
   parity-postgres:
     resource_class: xlarge
     docker:
@@ -177,7 +179,10 @@ jobs:
       - run: ./tools/ci/ethereum_test parity
       - store_artifacts:
           path: ./integration/cypress/screenshots
+      - store_artifacts:
+          path: ./integration/logs
   truffle:
+    resource_class: large
     docker:
       - image: smartcontract/builder:1.0.25
     steps:
@@ -194,6 +199,26 @@ jobs:
             - /usr/local/share/.cache/yarn
       - run: pip3 install -r requirements.txt
       - run: ./tools/ci/truffle_test
+      - store_artifacts:
+          path: ./integration/logs
+  json-api-client:
+    docker:
+      - image: smartcontract/builder:1.0.25
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - run: yarn workspace @chainlink/json-api-client
+      - store_artifacts:
+          path: ./integration/logs
   operator-ui:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -211,6 +236,8 @@ jobs:
             - /usr/local/share/.cache/yarn
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/operator_ui_test
+      - store_artifacts:
+          path: ./integration/logs
   explorer:
     working_directory: ~/chainlink
     docker:
@@ -247,9 +274,8 @@ jobs:
       - run:
           name: Run Client Tests
           command: yarn workspace @chainlink/explorer-client run test-ci:silent
-      - run:
-          name: Run E2E Tests
-          command: yarn workspace @chainlink/explorer-client run build && yarn workspace @chainlink/explorer run test-ci:e2e:silent
+      - store_artifacts:
+          path: ./integration/logs
   forks:
     machine:
       image: ubuntu-1604:201903-01
@@ -260,8 +286,12 @@ jobs:
       - run:
           name: Install Yarn
           command: npm install -g yarn
+      - run:
+          name: Install New Packages
+          command: yarn install
       - run: ./tools/ci/forks_test
-
+      - store_artifacts:
+          path: ./integration/forks/logs
   build-publish-explorer:
     machine: true
     steps:
@@ -277,6 +307,17 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_explorer "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
+  build-explorer:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f explorer/Dockerfile -t smartcontract/explorer:circleci .
   build-publish-chainlink:
     machine: true
     steps:
@@ -293,6 +334,18 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
+  build-chainlink:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: |
+            DOCKER_TAG=circleci make docker
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -300,6 +353,23 @@ jobs:
       - checkout
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/report_coverage
+  prepublish_npm:
+    resource_class: large
+    docker:
+      - image: smartcontract/builder:1.0.25
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - run: ./tools/ci/prepublish_npm_test
 
 workflows:
   version: 2
@@ -329,6 +399,10 @@ workflows:
           filters:
             tags:
               only: /^v.*/
+      - json-api-client:
+          filters:
+            tags:
+              only: /^v.*/
       - operator-ui:
           filters:
             tags:
@@ -342,6 +416,18 @@ workflows:
             tags:
               only: /^explorer-v.*/
       - forks:
+          filters:
+            tags:
+              only: /^v.*/
+      - build-chainlink:
+          filters:
+            tags:
+              only: /^v.*/
+      - build-explorer:
+          filters:
+            tags:
+              only: /^v.*/
+      - prepublish_npm:
           filters:
             tags:
               only: /^v.*/
@@ -362,6 +448,7 @@ workflows:
             - truffle
             - geth-postgres
             - parity-postgres
+            - json-api-client
             - operator-ui
             - rust
           filters:

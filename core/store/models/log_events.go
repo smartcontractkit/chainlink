@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"math/big"
 
+	"chainlink/core/logger"
+	"chainlink/core/store/assets"
+	"chainlink/core/utils"
+
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Descriptive indices of a RunLog's Topic array
@@ -46,11 +47,11 @@ var (
 	RunLogTopic20190207withoutIndexes = utils.MustHash("OracleRequest(bytes32,address,bytes32,uint256,address,bytes4,uint256,uint256,bytes)")
 	// ServiceAgreementExecutionLogTopic is the signature for the
 	// Coordinator.RunRequest(...) events which Chainlink nodes watch for. See
-	// https://github.com/smartcontractkit/chainlink/blob/master/evm/contracts/Coordinator.sol#RunRequest
+	// https://chainlink/blob/master/evm/contracts/Coordinator.sol#RunRequest
 	ServiceAgreementExecutionLogTopic = utils.MustHash("ServiceAgreementExecution(bytes32,address,uint256,uint256,uint256,bytes)")
 	// ChainlinkFulfilledTopic is the signature for the event emitted after calling
 	// ChainlinkClient.validateChainlinkCallback(requestId).
-	// https://github.com/smartcontractkit/chainlink/blob/master/evm/contracts/ChainlinkClient.sol
+	// https://chainlink/blob/master/evm/contracts/ChainlinkClient.sol
 	ChainlinkFulfilledTopic = utils.MustHash("ChainlinkFulfilled(bytes32)")
 	// OracleFullfillmentFunctionID0original is the original function selector for fulfilling Ethereum requests.
 	OracleFullfillmentFunctionID0original = utils.MustHash("fulfillData(uint256,bytes32)").Hex()[:10]
@@ -129,7 +130,7 @@ func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error
 // i.e. EthLogEvent, RunLogEvent, ServiceAgreementLogEvent, OracleLogEvent
 type LogRequest interface {
 	GetLog() Log
-	GetJobSpec() JobSpec
+	GetJobSpecID() *ID
 	GetInitiator() Initiator
 
 	Validate() bool
@@ -144,8 +145,8 @@ type LogRequest interface {
 // InitiatorLogEvent encapsulates all information as a result of a received log from an
 // InitiatorSubscription.
 type InitiatorLogEvent struct {
+	JobSpecID ID
 	Log       Log
-	JobSpec   JobSpec
 	Initiator Initiator
 }
 
@@ -169,9 +170,9 @@ func (le InitiatorLogEvent) GetLog() Log {
 	return le.Log
 }
 
-// GetJobSpec returns the associated JobSpec
-func (le InitiatorLogEvent) GetJobSpec() JobSpec {
-	return le.JobSpec
+// GetJobSpecID returns the associated JobSpecID
+func (le InitiatorLogEvent) GetJobSpecID() *ID {
+	return &le.JobSpecID
 }
 
 // GetInitiator returns the initiator.
@@ -183,7 +184,7 @@ func (le InitiatorLogEvent) GetInitiator() Initiator {
 // formatting in logs (trace statements, not ethereum events).
 func (le InitiatorLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
-		"job", le.JobSpec.ID.String(),
+		"job", le.JobSpecID.String(),
 		"log", le.Log.BlockNumber,
 		"initiator", le.Initiator,
 	}
@@ -197,8 +198,10 @@ func (le InitiatorLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 // ToDebug prints this event via logger.Debug.
 func (le InitiatorLogEvent) ToDebug() {
 	friendlyAddress := utils.LogListeningAddress(le.Initiator.Address)
-	msg := fmt.Sprintf("Received log from block #%v for address %v for job %v", le.Log.BlockNumber, friendlyAddress, le.JobSpec.ID.String())
-	logger.Debugw(msg, le.ForLogger()...)
+	logger.Debugw(
+		fmt.Sprintf("Received log from block #%v for address %v", le.Log.BlockNumber, friendlyAddress),
+		le.ForLogger()...,
+	)
 }
 
 // BlockNumber returns the block number for the given InitiatorSubscriptionLogEvent.
@@ -256,11 +259,11 @@ type RunLogEvent struct {
 // Validate returns whether or not the contained log has a properly encoded
 // job id.
 func (le RunLogEvent) Validate() bool {
-	jobSpecID := le.JobSpec.ID
+	jobSpecID := &le.JobSpecID
 	topic := le.Log.Topics[RequestLogTopicJobID]
 
 	if IDToTopic(jobSpecID) != topic && IDToHexTopic(jobSpecID) != topic {
-		logger.Errorw("Run Log didn't have matching job ID", le.ForLogger("id", le.JobSpec.ID.String())...)
+		logger.Errorw("Run Log didn't have matching job ID", le.ForLogger("id", le.JobSpecID.String())...)
 		return false
 	}
 	return true
@@ -359,7 +362,7 @@ func parserFromLog(log Log) (logRequestParser, error) {
 	}
 	parser, ok := topicFactoryMap[topic]
 	if !ok {
-		return nil, fmt.Errorf("No parser for the RunLogEvent topic %v", topic)
+		return nil, fmt.Errorf("No parser for the RunLogEvent topic %s", topic.String())
 	}
 	return parser, nil
 }

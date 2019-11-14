@@ -9,15 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/services"
+	"chainlink/core/services/synchronization"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v3"
@@ -117,32 +119,6 @@ func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 	assert.Equal(t, 1, requestCount)
 }
 
-func TestORM_SaveJobRun_DoesNotSaveTaskSpec(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	job := cltest.NewJobWithSchedule("* * * * *")
-	require.NoError(t, store.CreateJob(&job))
-
-	jr := job.NewRun(job.Initiators[0])
-	require.NoError(t, store.CreateJobRun(&jr))
-
-	var err error
-	jr.TaskRuns[0].TaskSpec.Params, err = jr.TaskRuns[0].TaskSpec.Params.Merge(cltest.JSONFromString(t, `{"random": "input"}`))
-	require.NoError(t, err)
-	require.NoError(t, store.SaveJobRun(&jr))
-
-	retrievedJob, err := store.FindJob(job.ID)
-	require.NoError(t, err)
-	require.Len(t, job.Tasks, 1)
-	require.Len(t, retrievedJob.Tasks, 1)
-	assert.JSONEq(
-		t,
-		coercedJSON(job.Tasks[0].Params.String()),
-		retrievedJob.Tasks[0].Params.String())
-}
-
 func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
@@ -163,11 +139,31 @@ func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
 	require.NoError(t, utils.JustError(store.Unscoped().FindJobRun(jr.ID)))
 }
 
-func coercedJSON(v string) string {
-	if v == "" {
-		return "{}"
-	}
-	return v
+func TestORM_SaveJobRun_Cancelled(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	store.ORM.SetLogging(true)
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+
+	jr := job.NewRun(job.Initiators[0])
+	require.NoError(t, store.CreateJobRun(&jr))
+
+	jr.Status = models.RunStatusInProgress
+	require.NoError(t, store.SaveJobRun(&jr))
+
+	// Save the updated at before saving with cancelled
+	updatedAt := jr.UpdatedAt
+
+	jr.Status = models.RunStatusCancelled
+	require.NoError(t, store.SaveJobRun(&jr))
+
+	// Restore the previous updated at to simulate a conflict
+	jr.UpdatedAt = updatedAt
+	jr.Status = models.RunStatusInProgress
+	assert.Equal(t, orm.OptimisticUpdateConflictError, store.SaveJobRun(&jr))
 }
 
 func TestORM_JobRunsFor(t *testing.T) {
@@ -216,20 +212,29 @@ func TestORM_LinkEarnedFor(t *testing.T) {
 
 	initr := job.Initiators[0]
 	jr1 := job.NewRun(initr)
+	jr1.Status = models.RunStatusCompleted
 	jr1.Payment = assets.NewLink(2)
 	jr1.FinishedAt = null.TimeFrom(time.Now())
 	require.NoError(t, store.CreateJobRun(&jr1))
 	jr2 := job.NewRun(initr)
+	jr2.Status = models.RunStatusCompleted
 	jr2.Payment = assets.NewLink(3)
 	jr2.FinishedAt = null.TimeFrom(time.Now())
 	require.NoError(t, store.CreateJobRun(&jr2))
 	jr3 := job.NewRun(initr)
+	jr3.Status = models.RunStatusCompleted
 	jr3.Payment = assets.NewLink(5)
 	jr3.FinishedAt = null.TimeFrom(time.Now())
 	require.NoError(t, store.CreateJobRun(&jr3))
 	jr4 := job.NewRun(initr)
+	jr4.Status = models.RunStatusCompleted
 	jr4.Payment = assets.NewLink(5)
 	require.NoError(t, store.CreateJobRun(&jr4))
+	jr5 := job.NewRun(initr)
+	jr5.Status = models.RunStatusCancelled
+	jr5.Payment = assets.NewLink(5)
+	jr5.FinishedAt = null.TimeFrom(time.Now())
+	require.NoError(t, store.CreateJobRun(&jr5))
 
 	totalEarned, err := store.LinkEarnedFor(&job)
 	require.NoError(t, err)
@@ -708,9 +713,6 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	jobRunner, cleanup := cltest.NewJobRunner(store)
-	defer cleanup()
-	jobRunner.Start()
 
 	_, bt := cltest.NewBridgeType(t)
 	require.NoError(t, store.CreateBridgeType(bt))
@@ -722,7 +724,9 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	run := job.NewRun(initr)
 	require.NoError(t, store.CreateJobRun(&run))
 
-	store.RunChannel.Send(run.ID)
+	executor := services.NewRunExecutor(store)
+	require.NoError(t, executor.Execute(run.ID))
+
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
 
 	_, err := store.PendingBridgeType(run)
@@ -751,8 +755,10 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 
 func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 	store := app.Store
 
 	account := cltest.GetAccountAddress(t, store)
@@ -1015,29 +1021,36 @@ func TestBulkDeleteRuns(t *testing.T) {
 	require.NoError(t, store.ORM.CreateJob(&job))
 	initiator := job.Initiators[0]
 
-	// matches updated before but none of the statuses
+	// bulk delete should not delete these because they match the updated before
+	// but none of the statuses
 	oldIncompleteRun := job.NewRun(initiator)
+	oldIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 17}`)}
 	oldIncompleteRun.Status = models.RunStatusInProgress
 	err := orm.CreateJobRun(&oldIncompleteRun)
 	require.NoError(t, err)
 	db.Model(&oldIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
 
-	// matches one of the statuses and the updated before
+	// bulk delete *SHOULD* delete these because they match one of the statuses
+	// and the updated before
 	oldCompletedRun := job.NewRun(initiator)
+	oldCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 19}`)}
 	oldCompletedRun.Status = models.RunStatusCompleted
 	err = orm.CreateJobRun(&oldCompletedRun)
 	require.NoError(t, err)
 	db.Model(&oldCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
 
-	// matches one of the statuses but not the updated before
+	// bulk delete should not delete these because they match one of the
+	// statuses but not the updated before
 	newCompletedRun := job.NewRun(initiator)
+	newCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 23}`)}
 	newCompletedRun.Status = models.RunStatusCompleted
 	err = orm.CreateJobRun(&newCompletedRun)
 	require.NoError(t, err)
 	db.Model(&newCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
 
-	// matches nothing
+	// bulk delete should not delete these because none of their attributes match
 	newIncompleteRun := job.NewRun(initiator)
+	newIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 71}`)}
 	newIncompleteRun.Status = models.RunStatusCompleted
 	err = orm.CreateJobRun(&newIncompleteRun)
 	require.NoError(t, err)
@@ -1063,7 +1076,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 	var resultCount int
 	err = db.Model(&models.RunResult{}).Count(&resultCount).Error
 	assert.NoError(t, err)
-	assert.Equal(t, 6, resultCount)
+	assert.Equal(t, 3, resultCount)
 
 	var requestCount int
 	err = db.Model(&models.RunRequest{}).Count(&requestCount).Error
@@ -1212,10 +1225,8 @@ func TestORM_DeduceDialect(t *testing.T) {
 }
 
 func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
-	app, cleanup := cltest.NewApplication(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-
-	store := app.GetStore()
 	orm := store.ORM
 
 	seed, err := models.NewKeyFromFile("../../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")

@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+	"chainlink/core/store/presenters"
+	"chainlink/core/web"
+
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -131,9 +132,8 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"100"}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-	val, err := jr.Result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, "100", val)
+	value := cltest.MustResultString(t, jr.Result)
+	assert.Equal(t, "100", value)
 }
 
 func TestJobRunsController_Create_Wrong_ExternalInitiator(t *testing.T) {
@@ -198,9 +198,8 @@ func TestJobRunsController_Create_ExternalInitiator_Success(t *testing.T) {
 		j, *eia, `{"result":"100"}`,
 	)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-	val, err := jr.Result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, "100", val)
+	value := cltest.MustResultString(t, jr.Result)
+	assert.Equal(t, "100", value)
 }
 
 func TestJobRunsController_Create_Archived(t *testing.T) {
@@ -289,6 +288,8 @@ func TestJobRunsController_Create_InvalidID(t *testing.T) {
 func TestJobRunsController_Update_Success(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
+	eth := app.MockEthCallerSubscriber()
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 	defer cleanup()
 
@@ -327,9 +328,8 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 			require.Equal(t, jr.ID, respJobRun.ID)
 
 			jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
-			val, err := jr.Result.ResultString()
-			assert.NoError(t, err)
-			assert.Equal(t, "100", val)
+			value := cltest.MustResultString(t, jr.Result)
+			assert.Equal(t, "100", value)
 		})
 	}
 }
@@ -406,9 +406,8 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	assert.Equal(t, jr.ID, respJobRun.ID)
 
 	jr = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusErrored)
-	val, err := jr.Result.ResultString()
-	assert.NoError(t, err)
-	assert.Equal(t, "0", val)
+	value := cltest.MustResultString(t, jr.Result)
+	assert.Equal(t, "0", value)
 }
 
 func TestJobRunsController_Update_BadInput(t *testing.T) {
@@ -516,4 +515,40 @@ func TestJobRunsController_Show_Unauthenticated(t *testing.T) {
 	resp, err := http.Get(app.Server.URL + "/v2/runs/notauthorized")
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Response should be forbidden")
+}
+
+func TestJobRunsController_Cancel(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t)
+	app.Start()
+	defer cleanup()
+
+	client := app.NewHTTPClient()
+
+	t.Run("invalid run id", func(t *testing.T) {
+		response, cleanup := client.Put("/v2/runs/xxx/cancellation", nil)
+		defer cleanup()
+		cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
+	})
+
+	t.Run("missing run", func(t *testing.T) {
+		resp, cleanup := client.Put("/v2/runs/29023583-0D39-4844-9696-451102590936/cancellation", nil)
+		defer cleanup()
+		cltest.AssertServerResponse(t, resp, http.StatusNotFound)
+	})
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, app.Store.CreateJob(&job))
+	run := job.NewRun(job.Initiators[0])
+	require.NoError(t, app.Store.CreateJobRun(&run))
+
+	t.Run("valid run", func(t *testing.T) {
+		resp, cleanup := client.Put(fmt.Sprintf("/v2/runs/%s/cancellation", run.ID), nil)
+		defer cleanup()
+		cltest.AssertServerResponse(t, resp, http.StatusOK)
+
+		run, err := app.Store.FindJobRun(run.ID)
+		assert.NoError(t, err)
+		assert.Equal(t, models.RunStatusCancelled, run.Status)
+	})
 }

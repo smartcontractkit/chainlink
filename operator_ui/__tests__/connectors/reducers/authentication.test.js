@@ -1,5 +1,5 @@
 import reducer from 'connectors/redux/reducers'
-import { get as getAuthenticationStorage } from 'utils/authenticationStorage'
+import { getAuthentication } from 'utils/storage'
 import {
   REQUEST_SIGNIN,
   RECEIVE_SIGNIN_SUCCESS,
@@ -46,7 +46,7 @@ describe('connectors/reducers/authentication', () => {
       const action = { type: RECEIVE_SIGNIN_SUCCESS, authenticated: true }
       reducer(undefined, action)
 
-      expect(getAuthenticationStorage()).toEqual({ allowed: true })
+      expect(getAuthentication()).toEqual({ allowed: true })
     })
   })
 
@@ -69,7 +69,7 @@ describe('connectors/reducers/authentication', () => {
       const action = { type: RECEIVE_SIGNIN_FAIL }
       reducer(undefined, action)
 
-      expect(getAuthenticationStorage()).toEqual({ allowed: false })
+      expect(getAuthentication()).toEqual({ allowed: false })
     })
   })
 
@@ -92,7 +92,7 @@ describe('connectors/reducers/authentication', () => {
       const action = { type: RECEIVE_SIGNIN_ERROR }
       reducer(undefined, action)
 
-      expect(getAuthenticationStorage()).toEqual({ allowed: false })
+      expect(getAuthentication()).toEqual({ allowed: false })
     })
   })
 
@@ -122,7 +122,7 @@ describe('connectors/reducers/authentication', () => {
       const action = { type: RECEIVE_SIGNOUT_SUCCESS, authenticated: false }
       reducer(undefined, action)
 
-      expect(getAuthenticationStorage()).toEqual({ allowed: false })
+      expect(getAuthentication()).toEqual({ allowed: false })
     })
   })
 
@@ -145,7 +145,7 @@ describe('connectors/reducers/authentication', () => {
       const action = { type: RECEIVE_SIGNOUT_ERROR }
       reducer(undefined, action)
 
-      expect(getAuthenticationStorage()).toEqual({ allowed: false })
+      expect(getAuthentication()).toEqual({ allowed: false })
     })
   })
 })
