@@ -96,7 +96,7 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 	case models.InitiatorRunLog:
 		return validateRunLogInitiator(i, j)
 	case models.InitiatorWeb:
-		fallthrough
+		return nil
 	case models.InitiatorEthLog:
 		return nil
 	default:
