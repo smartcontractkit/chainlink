@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/auth"
 	"chainlink/core/cmd"
 	"chainlink/core/logger"
 	"chainlink/core/services"
@@ -604,7 +605,7 @@ func CreateJobRunViaExternalInitiator(
 	t testing.TB,
 	app *TestApplication,
 	j models.JobSpec,
-	eia models.ExternalInitiatorAuthentication,
+	eia auth.Token,
 	body string,
 ) models.JobRun {
 	t.Helper()

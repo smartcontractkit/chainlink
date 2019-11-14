@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/web"
@@ -33,7 +34,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	eia := &models.ExternalInitiatorAuthentication{
+	eia := &auth.Token{
 		AccessKey: "abracadabra",
 		Secret:    "opensesame",
 	}

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
@@ -782,7 +783,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	require.NoError(t, err)
 	eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
 
-	eia := &models.ExternalInitiatorAuthentication{
+	eia := &auth.Token{
 		AccessKey: eip.AccessKey,
 		Secret:    eip.Secret,
 	}
@@ -831,7 +832,7 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	require.NoError(t, err)
 	eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
 
-	eia := &models.ExternalInitiatorAuthentication{
+	eia := &auth.Token{
 		AccessKey: eip.AccessKey,
 		Secret:    eip.Secret,
 	}

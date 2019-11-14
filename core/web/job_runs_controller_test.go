@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
@@ -148,7 +149,7 @@ func TestJobRunsController_Create_Wrong_ExternalInitiator(t *testing.T) {
 		Name: "bitcoin",
 		URL:  &eir_url,
 	}
-	eia := models.NewExternalInitiatorAuthentication()
+	eia := auth.NewToken()
 	ei, err := models.NewExternalInitiator(eia, eir)
 	require.NoError(t, err)
 	assert.NoError(t, app.Store.CreateExternalInitiator(ei))
@@ -160,7 +161,7 @@ func TestJobRunsController_Create_Wrong_ExternalInitiator(t *testing.T) {
 		Name: "someCoin",
 		URL:  &eir_url,
 	}
-	wrongEIA := models.NewExternalInitiatorAuthentication()
+	wrongEIA := auth.NewToken()
 	wrongEI, err := models.NewExternalInitiator(wrongEIA, wrongEIR)
 	require.NoError(t, err)
 	assert.NoError(t, app.Store.CreateExternalInitiator(wrongEI))
@@ -184,8 +185,7 @@ func TestJobRunsController_Create_ExternalInitiator_Success(t *testing.T) {
 	defer cleanup()
 
 	url := cltest.WebURL(t, "http://localhost:8888")
-
-	eia := models.NewExternalInitiatorAuthentication()
+	eia := auth.NewToken()
 	eir := &models.ExternalInitiatorRequest{
 		Name: "bitcoin",
 		URL:  &url,

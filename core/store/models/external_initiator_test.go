@@ -3,6 +3,7 @@ package models_test
 import (
 	"testing"
 
+	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 
@@ -10,7 +11,7 @@ import (
 )
 
 func TestNewExternalInitiator(t *testing.T) {
-	eia := models.NewExternalInitiatorAuthentication()
+	eia := auth.NewToken()
 	assert.Len(t, eia.AccessKey, 32)
 	assert.Len(t, eia.Secret, 64)
 

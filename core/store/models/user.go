@@ -13,6 +13,8 @@ type User struct {
 	Email          string    `json:"email" gorm:"primary_key"`
 	HashedPassword string    `json:"hashedPassword"`
 	CreatedAt      time.Time `json:"createdAt" gorm:"index"`
+	TokenKey       string    `json:"tokenKey"`
+	TokenSecret    string    `json:"tokenSecret"`
 }
 
 // https://davidcel.is/posts/stop-validating-email-addresses-with-regex/
