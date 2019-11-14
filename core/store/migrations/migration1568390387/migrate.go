@@ -3,9 +3,10 @@ package migration1568390387
 import (
 	"time"
 
+	"chainlink/core/store/assets"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
 )
 
 type Encumbrance struct {
