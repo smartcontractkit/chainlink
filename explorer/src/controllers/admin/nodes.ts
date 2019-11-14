@@ -1,4 +1,4 @@
-import { Router, Request } from 'express'
+import { Router } from 'express'
 import { Connection } from 'typeorm'
 import { validate } from 'class-validator'
 import httpStatus from 'http-status-codes'
@@ -6,29 +6,15 @@ import { getDb } from '../../database'
 import { buildChainlinkNode, ChainlinkNode } from '../../entity/ChainlinkNode'
 import { PostgresErrorCode } from '../../utils/constants'
 import { isPostgresError } from '../../utils/errors'
-import {
-  DEFAULT_PAGE,
-  DEFAULT_PAGE_SIZE,
-  PaginationParams,
-} from '../../utils/pagination'
+import { parseParams } from '../../utils/pagination'
 import { getCustomRepository } from 'typeorm'
 import { ChainlinkNodeRepository } from '../../repositories/ChainlinkNodeRepository'
 import chainlinkNodesSerializer from '../../serializers/chainlinkNodesSerializer'
 
 const router = Router()
 
-const parseParams = (req: Request): PaginationParams => {
-  const page = parseInt(req.query.page, 10) || DEFAULT_PAGE
-  const size = parseInt(req.query.size, 10) || DEFAULT_PAGE_SIZE
-
-  return {
-    page: page,
-    limit: size,
-  }
-}
-
 router.get('/nodes', async (req, res) => {
-  const params = parseParams(req)
+  const params = parseParams(req.query)
   const db = await getDb()
   const chainlinkNodeRepository = getCustomRepository(
     ChainlinkNodeRepository,
