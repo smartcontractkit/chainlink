@@ -9,13 +9,10 @@ export interface PaginationParams {
 
 export function parseParams(query: Record<string, string>): PaginationParams {
   const page = parseInt(query.page, 10) || DEFAULT_PAGE
-  const size = Math.min(
+  const limit = Math.min(
     parseInt(query.size, 10) || DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
   )
 
-  return {
-    page: page,
-    limit: size,
-  }
+  return { page, limit }
 }
