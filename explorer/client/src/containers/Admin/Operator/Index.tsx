@@ -90,15 +90,14 @@ export const Index: React.FC<Props> = ({
   )
 }
 
-const operatorsSelector = ({
+const adminOperatorsSelector = ({
   adminOperatorsIndex,
   adminOperators,
 }: AppState): ChainlinkNode[] | undefined => {
   if (adminOperatorsIndex.items) {
-    return adminOperatorsIndex.items.map((id: string) => {
-      const document = { adminOperators: adminOperators.items }
-      return build(document, 'adminOperators', id)
-    })
+    return adminOperatorsIndex.items.map(id =>
+      build({ adminOperators: adminOperators.items }, 'adminOperators', id),
+    )
   }
 }
 
@@ -108,7 +107,7 @@ const mapStateToProps: MapStateToProps<
   AppState
 > = state => {
   return {
-    adminOperators: operatorsSelector(state),
+    adminOperators: adminOperatorsSelector(state),
     count: state.adminOperatorsIndex.count,
   }
 }
