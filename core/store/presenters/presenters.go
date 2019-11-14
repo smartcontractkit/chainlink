@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"chainlink/core/auth"
 	"chainlink/core/logger"
 	"chainlink/core/store"
 	"chainlink/core/store/assets"
@@ -633,7 +634,7 @@ type ExternalInitiatorAuthentication struct {
 // NewExternalInitiatorAuthentication creates an instance of ExternalInitiatorAuthentication.
 func NewExternalInitiatorAuthentication(
 	ei models.ExternalInitiator,
-	eia models.ExternalInitiatorAuthentication,
+	eia auth.Token,
 ) *ExternalInitiatorAuthentication {
 	var result = &ExternalInitiatorAuthentication{
 		Name:           ei.Name,

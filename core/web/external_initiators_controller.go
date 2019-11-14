@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"chainlink/core/auth"
 	"chainlink/core/services"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
@@ -24,7 +25,7 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 		return
 	}
 
-	eia := models.NewExternalInitiatorAuthentication()
+	eia := auth.NewToken()
 	if err := c.ShouldBindJSON(eir); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 	} else if ei, err := models.NewExternalInitiator(eia, eir); err != nil {

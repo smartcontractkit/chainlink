@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/web"
@@ -54,7 +55,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	eia := models.NewExternalInitiatorAuthentication()
+	eia := auth.NewToken()
 	url := cltest.WebURL(t, "http://localhost:8888")
 	eir := &models.ExternalInitiatorRequest{
 		Name: "bitcoin",
@@ -87,7 +88,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	eia := models.NewExternalInitiatorAuthentication()
+	eia := auth.NewToken()
 	url := cltest.WebURL(t, "http://localhost:8888")
 	eir := &models.ExternalInitiatorRequest{
 		Name: "bitcoin",

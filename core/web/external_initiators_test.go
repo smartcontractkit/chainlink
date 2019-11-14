@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/web"
@@ -91,7 +92,7 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 
 			url := cltest.WebURL(t, eiMockServer.URL)
 			test.ExInitr.URL = &url
-			eia := models.NewExternalInitiatorAuthentication()
+			eia := auth.NewToken()
 			ei, err := models.NewExternalInitiator(eia, &test.ExInitr)
 			require.NoError(t, err)
 			err = store.CreateExternalInitiator(ei)
@@ -165,7 +166,7 @@ func TestNotifyExternalInitiator_NotNotified(t *testing.T) {
 
 			url := cltest.WebURL(t, eiMockServer.URL)
 			test.ExInitr.URL = &url
-			eia := models.NewExternalInitiatorAuthentication()
+			eia := auth.NewToken()
 			ei, err := models.NewExternalInitiator(eia, &test.ExInitr)
 			require.NoError(t, err)
 			err = store.CreateExternalInitiator(ei)
