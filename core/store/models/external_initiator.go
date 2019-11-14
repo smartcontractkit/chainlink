@@ -19,6 +19,11 @@ type ExternalInitiatorRequest struct {
 	URL  WebURL `json:"url"`
 }
 
+// ExternalInitiatorRequestWithoutURL is... TODO
+type ExternalInitiatorRequestWithoutURL struct {
+	Name string `json:"name"`
+}
+
 // ExternalInitiator represents a user that can initiate runs remotely
 type ExternalInitiator struct {
 	*gorm.Model
