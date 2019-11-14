@@ -38,12 +38,9 @@ interface StateProps {
   errors: string[]
 }
 
-interface DispatchProps {}
-
 interface Props
   extends RouteComponentProps,
     StateProps,
-    DispatchProps,
     OwnProps,
     WithStyles<typeof styles> {}
 
