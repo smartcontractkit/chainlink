@@ -94,8 +94,6 @@ function methodFactory(method: http.Method) {
  * A json-api method which describes a function which accepts the required parameters to make a request,
  * and the return value of the request.
  *
- * @param params The parameters to the json-api endpoint
- * @param namedPathParams The named path parameters to the json-api endpoint
  * @template TParams The parameters to the json-api end point, it comes in the form of
  * an object which will either be serialized to the body of the request if it is a `POST`, `PATCH`, `DELETE` HTTP request,
  * or will be serialized to the query string of the url of the request if it is a `GET` HTTP request.
@@ -107,6 +105,9 @@ function methodFactory(method: http.Method) {
  *  txHash: string
  * }
  * ```
+ *
+ * @param params The parameters to the json-api endpoint
+ * @param namedPathParams The named path parameters to the json-api endpoint
  */
 type Method<TParams, T, TNamedPathParams extends object = object> = (
   params?: Partial<TParams>,
