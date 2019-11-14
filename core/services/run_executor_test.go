@@ -1,10 +1,13 @@
 package services_test
 
 import (
+	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
+	"chainlink/core/adapters"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
 	"chainlink/core/null"
@@ -175,4 +178,30 @@ func TestRunExecutor_InitialTaskLacksConfirmations(t *testing.T) {
 	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 	require.Len(t, run.TaskRuns, 1)
 	assert.Equal(t, models.RunStatusPendingConfirmations, run.TaskRuns[0].Status)
+}
+
+func TestJobRunner_prioritizeSpecParamsOverRequestParams(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	runExecutor := services.NewRunExecutor(store)
+	requestBase := 2
+	requestParameter := 10
+	specParameter := 100
+	j := cltest.NewJobWithWebInitiator()
+	taskParams := cltest.JSONFromString(t, fmt.Sprintf(`{"times":%v}`, specParameter))
+	j.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeMultiply, Params: taskParams}}
+	assert.NoError(t, store.CreateJob(&j))
+	initr := j.Initiators[0]
+	run := j.NewRun(initr)
+	run.Overrides = cltest.JSONFromString(t, fmt.Sprintf(`{"times":%v, "result": %v}`, requestParameter, requestBase))
+	assert.NoError(t, store.CreateJobRun(&run))
+
+	require.NoError(t, runExecutor.Execute(run.ID))
+	run = cltest.WaitForJobRunToComplete(t, store, run)
+
+	actual := run.Result.Data.Get("result").String()
+	expected := strconv.FormatUint(uint64(requestBase*specParameter), 10)
+	assert.Equal(t, expected, actual)
 }
