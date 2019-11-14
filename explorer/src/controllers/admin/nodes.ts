@@ -10,8 +10,9 @@ import {
   DEFAULT_PAGE,
   DEFAULT_PAGE_SIZE,
   PaginationParams,
-} from '../../queries/pagination'
-import { all, count } from '../../queries/chainlinkNodes'
+} from '../../utils/pagination'
+import { getCustomRepository } from 'typeorm'
+import { ChainlinkNodeRepository } from '../../repositories/ChainlinkNodeRepository'
 import chainlinkNodesSerializer from '../../serializers/chainlinkNodesSerializer'
 
 const router = Router()
@@ -29,8 +30,12 @@ const parseParams = (req: Request): PaginationParams => {
 router.get('/nodes', async (req, res) => {
   const params = parseParams(req)
   const db = await getDb()
-  const chainlinkNodes = await all(db, params)
-  const nodeCount = await count(db, params)
+  const chainlinkNodeRepository = getCustomRepository(
+    ChainlinkNodeRepository,
+    db.name,
+  )
+  const chainlinkNodes = await chainlinkNodeRepository.all(params)
+  const nodeCount = await chainlinkNodeRepository.count()
   const json = chainlinkNodesSerializer(chainlinkNodes, nodeCount)
 
   return res.send(json)
@@ -40,7 +45,7 @@ router.post('/nodes', async (req, res) => {
   const name = req.body.name
   const url = req.body.url
   const db = await getDb()
-  const [node, secret] = await buildChainlinkNode(db, name, url)
+  const [node, secret] = buildChainlinkNode(db, name, url)
   const errors = await validate(node)
 
   if (errors.length === 0) {

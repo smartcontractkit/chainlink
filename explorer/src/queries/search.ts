@@ -1,10 +1,9 @@
 import { Connection, SelectQueryBuilder } from 'typeorm'
 import { JobRun } from '../entity/JobRun'
+import { PaginationParams } from '../utils/pagination'
 
-export interface SearchParams {
+export interface SearchParams extends PaginationParams {
   searchQuery?: string
-  page?: number
-  limit?: number
 }
 
 const normalizeSearchToken = (id: string): string => {
