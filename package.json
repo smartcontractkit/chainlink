@@ -21,7 +21,7 @@
   "scripts": {
     "lint": "yarn workspaces run lint",
     "format": "yarn workspaces run format",
-    "setup": "yarn workspaces run setup"
+    "setup": "yarn workspace chainlinkv0.5 && yarn workspaces run setup"
   },
   "devDependencies": {},
   "resolutions": {
