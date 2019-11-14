@@ -76,8 +76,10 @@ func ValidateExternalInitiator(
 	} else if err != orm.ErrorNotFound {
 		return errors.Wrap(err, "validating external initiator")
 	}
-	if isURL := govalidator.IsURL(exi.URL.String()); !isURL {
-		fe.Add("Invalid URL format")
+	if len([]rune(exi.URL.String())) > 0 {
+		if isURL := govalidator.IsURL(exi.URL.String()); !isURL {
+			fe.Add("Invalid URL format")
+		}
 	}
 	return fe.CoerceEmptyToNil()
 }
