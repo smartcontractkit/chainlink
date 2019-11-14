@@ -1,6 +1,7 @@
 import yargs from 'yargs'
 import { Connection } from 'typeorm'
 import { closeDbConnection, getDb } from '../database'
+import { ChainlinkNode } from '../entity/ChainlinkNode'
 
 const migrate = async () => {
   return bootstrap(async (db: Connection) => {
@@ -9,6 +10,17 @@ const migrate = async () => {
     const pendingMigrations = await db.runMigrations()
     for (const m of pendingMigrations) {
       console.log('ran', m)
+    }
+
+    if (process.env.COMPOSE_MODE) {
+      const node = new ChainlinkNode()
+      node.id = 1
+      node.name = 'NodeyMcNodeFace'
+      node.accessKey = 'u4HULe0pj5xPyuvv'
+      node.hashedSecret =
+        '302df2b42ab313cb9b00fe0cca9932dacaaf09e662f2dca1be9c2ad2d927d5df'
+      node.salt = 'wZ02sJ8iZ6WffxXduxwzkCfOc3PS8BZJ'
+      await db.manager.save(node)
     }
   })
 }
