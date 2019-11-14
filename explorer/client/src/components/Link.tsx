@@ -17,14 +17,13 @@ const styles = ({ palette }: Theme) =>
   })
 
 interface Props extends WithStyles<typeof styles> {
-  children: React.ReactNode | string
   to: string
   className?: string
 }
 
 const PROTOCOL = /^https?:\/\//
 
-const Link = ({ to, children, classes, className }: Props) => {
+const Link: React.FC<Props> = ({ to, children, classes, className }) => {
   if (PROTOCOL.test(to)) {
     return <a href={to}>{children}</a>
   }
