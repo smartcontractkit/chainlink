@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/ugorji/go/codec"
@@ -81,7 +82,7 @@ func TestJSON_Merge(t *testing.T) {
 			j1 := cltest.JSONFromString(t, test.original)
 			j2 := cltest.JSONFromString(t, test.input)
 
-			merged, err := j1.Merge(j2)
+			merged, err := models.Merge(j1, j2)
 			if test.wantError {
 				require.Error(t, err)
 			} else {
@@ -94,7 +95,7 @@ func TestJSON_Merge(t *testing.T) {
 }
 
 func TestJSON_MergeNull(t *testing.T) {
-	merged, err := models.JSON{}.Merge(models.JSON{})
+	merged, err := models.Merge(models.JSON{}, models.JSON{})
 	require.NoError(t, err)
 	assert.Equal(t, `{}`, merged.String())
 }

@@ -4,7 +4,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"chainlink/core/internal/cltest"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestCors_DefaultOrigins(t *testing.T) {
@@ -14,6 +16,8 @@ func TestCors_DefaultOrigins(t *testing.T) {
 	config.Set("ALLOW_ORIGINS", "http://localhost:3000,http://localhost:6689")
 	app, appCleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer appCleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	tests := []struct {
@@ -53,8 +57,11 @@ func TestCors_OverrideOrigins(t *testing.T) {
 		t.Run(test.origin, func(t *testing.T) {
 			config, _ := cltest.NewConfig(t)
 			config.Set("ALLOW_ORIGINS", test.allow)
+
 			app, appCleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 			defer appCleanup()
+			require.NoError(t, app.Start())
+
 			client := app.NewHTTPClient()
 
 			headers := map[string]string{"Origin": test.origin}

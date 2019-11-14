@@ -6,7 +6,7 @@ import cookieSession from 'cookie-session'
 import adminAuth from './middleware/adminAuth'
 import * as controllers from './controllers'
 import { addRequestLogging, logger } from './logging'
-import { bootstrapRealtime } from './realtime'
+import { bootstrapRealtime } from './server/realtime'
 import seed from './seed'
 
 export const DEFAULT_PORT = parseInt(process.env.SERVER_PORT, 10) || 8080

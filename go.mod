@@ -1,4 +1,4 @@
-module github.com/smartcontractkit/chainlink
+module chainlink
 
 go 1.12
 
@@ -28,7 +28,6 @@ require (
 	github.com/gobuffalo/packr v1.30.1
 	github.com/gofrs/flock v0.7.1
 	github.com/gofrs/uuid v3.2.0+incompatible
-	github.com/golang/mock v1.3.1
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.0
@@ -37,24 +36,23 @@ require (
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mattn/go-colorable v0.0.9 // indirect
-	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mrwonko/cron v0.0.0-20180828170130-e0ddd0f7e7db
-	github.com/olekukonko/tablewriter v0.0.1
-	github.com/onsi/gomega v1.7.0
+	github.com/olekukonko/tablewriter v0.0.2
+	github.com/onsi/gomega v1.7.1
 	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/rjeczalik/notify v0.9.2 // indirect
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/afero v1.2.1 // indirect
-	github.com/spf13/viper v1.4.0
+	github.com/spf13/viper v1.5.0
 	github.com/steakknife/bloomfilter v0.0.0-20180922174646-6819c0d2a570 // indirect
 	github.com/steakknife/hamming v0.0.0-20180906055917-c99c65617cd3 // indirect
-	github.com/stretchr/testify v1.3.1-0.20190712000136-221dbe5ed467
+	github.com/stretchr/testify v1.4.0
 	github.com/syndtr/goleveldb v0.0.0-20190203031304-2f17a3356c66 // indirect
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
-	github.com/tidwall/gjson v1.3.2
+	github.com/tidwall/gjson v1.3.4
 	github.com/tidwall/sjson v1.0.4
 	github.com/ugorji/go/codec v1.1.7
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
@@ -62,9 +60,9 @@ require (
 	github.com/urfave/cli v1.22.1
 	github.com/willf/pad v0.0.0-20190207183901-eccfe5d84172
 	go.dedis.ch/fixbuf v1.0.3
-	go.dedis.ch/kyber/v3 v3.0.7
-	go.uber.org/multierr v1.2.0
-	go.uber.org/zap v1.11.0
+	go.dedis.ch/kyber/v3 v3.0.9
+	go.uber.org/multierr v1.4.0
+	go.uber.org/zap v1.12.0
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2

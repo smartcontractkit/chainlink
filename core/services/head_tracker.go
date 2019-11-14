@@ -5,12 +5,13 @@ import (
 	"sync"
 	"time"
 
+	"chainlink/core/logger"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
@@ -90,6 +91,7 @@ func (ht *HeadTracker) Stop() error {
 		ht.connected = false
 		ht.disconnect()
 	}
+	logger.Info(fmt.Sprintf("Head tracker disconnecting from %v", ht.store.Config.EthereumURL()))
 	close(ht.done)
 	close(ht.subscriptionSucceeded)
 	ht.started = false
@@ -179,7 +181,7 @@ func (ht *HeadTracker) subscribe() bool {
 	ht.sleeper.Reset()
 	for {
 		ht.unsubscribeFromHead()
-		logger.Info("Connecting to node ", ht.store.Config.EthereumURL(), " in ", ht.sleeper.Duration())
+		logger.Info("Connecting to ethereum node ", ht.store.Config.EthereumURL(), " in ", ht.sleeper.Duration())
 		select {
 		case <-ht.done:
 			return false
@@ -239,7 +241,7 @@ func (ht *HeadTracker) subscribeToHead() error {
 	}
 
 	if err := verifyEthereumChainID(ht); err != nil {
-		return errors.Wrap(err, "verifyEthereumChainID")
+		return errors.Wrap(err, "verifyEthereumChainID failed")
 	}
 
 	ht.headSubscription = sub

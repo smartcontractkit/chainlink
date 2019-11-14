@@ -3,9 +3,10 @@ package adapters
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/logger"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
 )
 
 // Sleep adapter allows a job to do nothing for some amount of wall time.
@@ -14,10 +15,14 @@ type Sleep struct {
 }
 
 // Perform returns the input RunResult after waiting for the specified Until parameter.
-func (adapter *Sleep) Perform(input models.RunResult, str *store.Store) models.RunResult {
-	var output models.RunResult
-	output.Status = models.RunStatusPendingSleep
-	return output
+func (adapter *Sleep) Perform(input models.RunInput, str *store.Store) models.RunOutput {
+	duration := adapter.Duration()
+	if duration > 0 {
+		logger.Debugw("Task sleeping...", "duration", duration)
+		<-str.Clock.After(duration)
+	}
+
+	return models.NewRunOutputComplete(models.JSON{})
 }
 
 // Duration returns the amount of sleeping this task should be paused for.

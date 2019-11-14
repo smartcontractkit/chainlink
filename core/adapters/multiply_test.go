@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMultiply_Perform(t *testing.T) {
@@ -41,9 +42,7 @@ func TestMultiply_Perform(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			input := models.RunResult{
-				Data: cltest.JSONFromString(t, test.json),
-			}
+			input := cltest.NewRunInputWithString(t, test.json)
 			adapter := adapters.Multiply{}
 			jsonErr := json.Unmarshal([]byte(test.params), &adapter)
 			result := adapter.Perform(input, nil)
@@ -51,14 +50,11 @@ func TestMultiply_Perform(t *testing.T) {
 			if test.jsonError {
 				assert.Error(t, jsonErr)
 			} else if test.errored {
-				assert.Error(t, result.GetError())
+				require.Error(t, result.Error())
 				assert.NoError(t, jsonErr)
 			} else {
-				val, err := result.ResultString()
-				assert.NoError(t, err)
-				assert.Equal(t, test.want, val)
-				assert.NoError(t, result.GetError())
-				assert.NoError(t, jsonErr)
+				require.NoError(t, result.Error())
+				assert.Equal(t, test.want, result.Result().String())
 			}
 		})
 	}

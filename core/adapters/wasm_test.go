@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -85,14 +86,13 @@ func TestWasm_Perform(t *testing.T) {
 			if test.jsonError {
 				assert.Error(t, jsonErr)
 			} else if test.errored {
+				assert.NoError(t, jsonErr)
 				assert.Error(t, result.GetError())
-				assert.NoError(t, jsonErr)
 			} else {
-				val, err := result.ResultString()
-				assert.NoError(t, err)
-				assert.Equal(t, test.want, val)
-				assert.NoError(t, result.GetError())
 				assert.NoError(t, jsonErr)
+				value := cltest.MustResultString(t, result)
+				assert.Equal(t, test.want, value)
+				assert.NoError(t, result.GetError())
 			}
 		})
 	}

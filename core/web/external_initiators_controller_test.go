@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+	"chainlink/core/store/presenters"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,6 +17,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
@@ -41,6 +43,7 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
@@ -56,6 +59,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
@@ -69,6 +73,8 @@ func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	err := app.GetStore().CreateExternalInitiator(&models.ExternalInitiator{
 		AccessKey: "abracadabra",
 	})

@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/services"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -125,10 +126,16 @@ func TestValidateAdapter(t *testing.T) {
 			models.NewJSONAPIErrorsWith("Task Type validation: name invalid/adapter contains invalid characters"),
 		},
 		{
-			"invalid adapter url",
-			"adapterwithinvalidurl",
+			"valid url",
+			"adapterwithvalidurl",
 			cltest.WebURL(t, "//denergy"),
-			models.NewJSONAPIErrorsWith("Invalid URL format"),
+			nil,
+		},
+		{
+			"valid docker url",
+			"adapterwithdockerurl",
+			cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
+			nil,
 		},
 		{"new external adapter", "gdaxprice", bt.URL, nil},
 	}

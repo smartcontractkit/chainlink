@@ -18,14 +18,15 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/cmd"
+	"chainlink/core/logger"
+	"chainlink/core/services"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -92,7 +93,6 @@ func (mock *EthMock) ShouldCall(setup func(mock *EthMock)) ethMockDuring {
 
 type ethMockDuring struct {
 	mock *EthMock
-	t    testing.TB
 }
 
 func (emd ethMockDuring) During(action func()) {
@@ -374,47 +374,10 @@ func (ta *TestApplication) InstantClock() InstantClock {
 	return clock
 }
 
-// UseSettableClock creates a SettableClock on the store
-func UseSettableClock(s *store.Store) *SettableClock {
-	clock := &SettableClock{}
-	s.Clock = clock
-	return clock
-}
-
-// SettableClock a settable clock
-type SettableClock struct {
-	mutex sync.Mutex
-	time  time.Time
-}
-
-// Now get the current time
-func (clock *SettableClock) Now() time.Time {
-	clock.mutex.Lock()
-	defer clock.mutex.Unlock()
-	if clock.time.IsZero() {
-		return time.Now()
-	}
-	return clock.time
-}
-
-// SetTime set the current time
-func (clock *SettableClock) SetTime(t time.Time) {
-	clock.mutex.Lock()
-	defer clock.mutex.Unlock()
-	clock.time = t
-}
-
-// After return channel of time
-func (*SettableClock) After(_ time.Duration) <-chan time.Time {
-	channel := make(chan time.Time, 1)
-	channel <- time.Now()
-	return channel
-}
-
 // InstantClock an InstantClock
 type InstantClock struct{}
 
-// Now current local time
+// Now returns the current local time
 func (InstantClock) Now() time.Time {
 	return time.Now()
 }
@@ -451,22 +414,14 @@ func (t *TriggerClock) Trigger() {
 	}
 }
 
+// Now returns the current local time
+func (t TriggerClock) Now() time.Time {
+	return time.Now()
+}
+
 // After waits on a manual trigger.
 func (t *TriggerClock) After(_ time.Duration) <-chan time.Time {
 	return t.triggers
-}
-
-// NeverClock a never clock
-type NeverClock struct{}
-
-// After return channel of time
-func (NeverClock) After(_ time.Duration) <-chan time.Time {
-	return make(chan time.Time)
-}
-
-// Now returns current local time
-func (NeverClock) Now() time.Time {
-	return time.Now()
 }
 
 // RendererMock a mock renderer
@@ -537,6 +492,7 @@ func (r EmptyRunner) Run(app services.Application) error {
 
 // MockCountingPrompter is a mock counting prompt
 type MockCountingPrompter struct {
+	T              *testing.T
 	EnteredStrings []string
 	Count          int
 	NotTerminal    bool
@@ -546,6 +502,10 @@ type MockCountingPrompter struct {
 func (p *MockCountingPrompter) Prompt(string) string {
 	i := p.Count
 	p.Count++
+	if len(p.EnteredStrings)-1 < i {
+		p.T.Errorf("Not enough passwords supplied to MockCountingPrompter, wanted %d", i)
+		p.T.FailNow()
+	}
 	return p.EnteredStrings[i]
 }
 
@@ -553,6 +513,10 @@ func (p *MockCountingPrompter) Prompt(string) string {
 func (p *MockCountingPrompter) PasswordPrompt(string) string {
 	i := p.Count
 	p.Count++
+	if len(p.EnteredStrings)-1 < i {
+		p.T.Errorf("Not enough passwords supplied to MockCountingPrompter, wanted %d", i)
+		p.T.FailNow()
+	}
 	return p.EnteredStrings[i]
 }
 
@@ -736,28 +700,6 @@ type mockSecretGenerator struct{}
 func (m mockSecretGenerator) Generate(orm.Config) ([]byte, error) {
 	return []byte(SessionSecret), nil
 }
-
-type MockRunChannel struct {
-	Runs               []models.RunResult
-	neverReturningChan chan store.RunRequest
-}
-
-func NewMockRunChannel() *MockRunChannel {
-	return &MockRunChannel{
-		neverReturningChan: make(chan store.RunRequest, 1),
-	}
-}
-
-func (m *MockRunChannel) Send(jobRunID *models.ID) error {
-	m.Runs = append(m.Runs, models.RunResult{})
-	return nil
-}
-
-func (m *MockRunChannel) Receive() <-chan store.RunRequest {
-	return m.neverReturningChan
-}
-
-func (m *MockRunChannel) Close() {}
 
 // extractERC20BalanceTargetAddress returns the address whose balance is being
 // queried by the message in the given call to an ERC20 contract, which is

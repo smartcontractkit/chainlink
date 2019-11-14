@@ -9,12 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/cmd"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -25,6 +26,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Register("eth_getBalance", "0x0100")
@@ -44,6 +46,7 @@ func TestClient_IndexJobSpecs(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	j1 := cltest.NewJob()
 	app.Store.CreateJob(&j1)
@@ -63,6 +66,7 @@ func TestClient_ShowJobRun_Exists(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, app.Store.CreateJob(&j))
@@ -84,6 +88,7 @@ func TestClient_ShowJobRun_NotFound(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	client, r := app.NewClientAndRenderer()
 
@@ -99,25 +104,27 @@ func TestClient_IndexJobRuns(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, app.Store.CreateJob(&j))
 
-	jr0 := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"100"}`)
-	jr1 := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"105"}`)
-	jr2 := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"110"}`)
+	jr0 := j.NewRun(j.Initiators[0])
+	jr0.Result.Data = cltest.JSONFromString(t, `{"a":"b"}`)
+	require.NoError(t, app.Store.CreateJobRun(&jr0))
+	jr1 := j.NewRun(j.Initiators[0])
+	jr1.Result.Data = cltest.JSONFromString(t, `{"x":"y"}`)
+	require.NoError(t, app.Store.CreateJobRun(&jr1))
 
 	client, r := app.NewClientAndRenderer()
 
 	require.Nil(t, client.IndexJobRuns(cltest.EmptyCLIContext()))
 	runs := *r.Renders[0].(*[]presenters.JobRun)
-	require.Equal(t, 3, len(runs))
+	require.Len(t, runs, 2)
 	assert.Equal(t, jr0.ID, runs[0].ID)
-	assert.Equal(t, jr0.Result.ID, runs[0].Result.ID)
+	assert.JSONEq(t, `{"a":"b"}`, runs[0].Result.Data.String())
 	assert.Equal(t, jr1.ID, runs[1].ID)
-	assert.Equal(t, jr1.Result.ID, runs[1].Result.ID)
-	assert.Equal(t, jr2.ID, runs[2].ID)
-	assert.Equal(t, jr2.Result.ID, runs[2].Result.ID)
+	assert.JSONEq(t, `{"x":"y"}`, runs[1].Result.Data.String())
 }
 
 func TestClient_ShowJobSpec_Exists(t *testing.T) {
@@ -125,6 +132,8 @@ func TestClient_ShowJobSpec_Exists(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	job := cltest.NewJob()
 	app.Store.CreateJob(&job)
 
@@ -143,6 +152,7 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	client, r := app.NewClientAndRenderer()
 
@@ -160,6 +170,8 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client, _ := app.NewClientAndRenderer()
 
 	sa := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
@@ -219,6 +231,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithKey(t)
 			defer cleanup()
+			require.NoError(t, app.Start())
 
 			client, _ := app.NewClientAndRenderer()
 
@@ -256,6 +269,7 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithKey(t)
 			defer cleanup()
+			require.NoError(t, app.Start())
 
 			client, _ := app.NewClientAndRenderer()
 
@@ -277,6 +291,8 @@ func TestClient_CreateJobSpec(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client, _ := app.NewClientAndRenderer()
 
 	tests := []struct {
@@ -311,6 +327,7 @@ func TestClient_ArchiveJobSpec(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	job := cltest.NewJob()
 	require.NoError(t, app.Store.CreateJob(&job))
@@ -332,6 +349,8 @@ func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("create", 0)
@@ -348,6 +367,8 @@ func TestClient_CreateJobRun(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client, _ := app.NewClientAndRenderer()
 
 	tests := []struct {
@@ -395,6 +416,8 @@ func TestClient_CreateBridge(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client, _ := app.NewClientAndRenderer()
 
 	tests := []struct {
@@ -431,6 +454,8 @@ func TestClient_IndexBridges(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	bt1 := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
@@ -460,6 +485,8 @@ func TestClient_ShowBridge(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	bt := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
@@ -482,6 +509,8 @@ func TestClient_RemoveBridge(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	bt := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
@@ -505,7 +534,7 @@ func TestClient_RemoteLogin(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	app.Start()
+	require.NoError(t, app.Start())
 
 	tests := []struct {
 		name, file string
@@ -543,8 +572,7 @@ func TestClient_WithdrawSuccess(t *testing.T) {
 
 	app, cleanup, _ := setupWithdrawalsApplication(t)
 	defer cleanup()
-
-	assert.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.StartAndConnect())
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("admin withdraw", 0)
@@ -581,8 +609,7 @@ func TestClient_WithdrawFromSpecifiedContractAddress(t *testing.T) {
 
 	app, cleanup, ethMockCheck := setupWithdrawalsApplication(t)
 	defer cleanup()
-
-	assert.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.StartAndConnect())
 
 	client, _ := app.NewClientAndRenderer()
 	cliParserRouter := cmd.NewApp(client)
@@ -658,7 +685,7 @@ func TestClient_ChangePassword(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	app.Start()
+	require.NoError(t, app.Start())
 
 	enteredStrings := []string{cltest.APIEmail, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
@@ -695,6 +722,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(t, store)
@@ -729,6 +757,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(t, store)
@@ -750,6 +779,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(t, store)
@@ -784,7 +814,7 @@ func TestClient_CreateExtraKey(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	app.Start()
+	require.NoError(t, app.Start())
 
 	client, _ := app.NewClientAndRenderer()
 
@@ -804,8 +834,7 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 
 	app, cleanup, _ := setupWithdrawalsApplication(t)
 	defer cleanup()
-
-	assert.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.StartAndConnect())
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("setgasprice", 0)
@@ -832,11 +861,12 @@ func TestClient_GetConfiguration(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	client, r := app.NewClientAndRenderer()
 	assert.NoError(t, client.GetConfiguration(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
-	
+
 	cwl := *r.Renders[0].(*presenters.ConfigWhitelist)
 	assert.Equal(t, cwl.Whitelist.BridgeResponseURL, app.Config.BridgeResponseURL().String())
 	assert.Equal(t, cwl.Whitelist.ChainID, app.Config.ChainID())
@@ -849,4 +879,35 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.Equal(t, cwl.Whitelist.MinimumContractPayment, app.Config.MinimumContractPayment())
 	assert.Equal(t, cwl.Whitelist.RootDir, app.Config.RootDir())
 	assert.Equal(t, cwl.Whitelist.SessionTimeout, app.Config.SessionTimeout())
+}
+
+func TestClient_CancelJobRun(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+	ethMock := app.MockEthCallerSubscriber()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getTransactionCount", 0)
+		ethMock.Register("eth_chainId", app.Config.ChainID())
+	})
+	require.NoError(t, app.Start())
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, app.Store.CreateJob(&job))
+	run := job.NewRun(job.Initiators[0])
+	require.NoError(t, app.Store.CreateJobRun(&run))
+
+	client, _ := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("cancel", 0)
+	set.Parse([]string{run.ID.String()})
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.CancelJobRun(c))
+
+	runs := cltest.MustAllJobsWithStatus(t, app.Store, models.RunStatusCancelled)
+	require.Len(t, runs, 1)
+	assert.Equal(t, models.RunStatusCancelled, runs[0].Status)
+	assert.NotNil(t, runs[0].FinishedAt)
 }

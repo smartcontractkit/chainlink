@@ -5,13 +5,14 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"chainlink/core/services"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // JobRunsController manages JobRun requests in the node.
@@ -59,7 +60,9 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusForbidden, err)
 	} else if data, err := getRunData(c); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if jr, err := services.ExecuteJob(j, *initiator, models.RunResult{Data: data}, nil, jrc.App.GetStore()); err != nil {
+	} else if jr, err := jrc.App.Create(j.ID, initiator, &data, nil, &models.RunRequest{}); errors.Cause(err) == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("Job not found"))
+	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.JobRun{JobRun: *jr}, "job run")
@@ -117,13 +120,13 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	authToken := utils.StripBearer(c.Request.Header.Get("Authorization"))
 	unscoped := jrc.App.GetStore().Unscoped()
 
-	if id, err := models.NewIDFromString(c.Param("RunID")); err != nil {
+	if runID, err := models.NewIDFromString(c.Param("RunID")); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if jr, err := unscoped.FindJobRun(id); errors.Cause(err) == orm.ErrorNotFound {
+	} else if jr, err := unscoped.FindJobRun(runID); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if !jr.Result.Status.PendingBridge() {
+	} else if !jr.Status.PendingBridge() {
 		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("Cannot resume a job run that isn't pending"))
 	} else if err := c.ShouldBindJSON(&brr); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -133,9 +136,27 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if !ok {
 		c.AbortWithStatus(http.StatusUnauthorized)
-	} else if err = services.ResumePendingTask(&jr, unscoped, brr.RunResult); err != nil {
+	} else if err = jrc.App.ResumePending(runID, brr); errors.Cause(err) == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
+	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, jr, "job run")
+	}
+}
+
+// Cancel stops a Run from continuing.
+// Example:
+//  "<application>/runs/:RunID/cancellation"
+func (jrc *JobRunsController) Cancel(c *gin.Context) {
+	var jr *models.JobRun
+	if id, err := models.NewIDFromString(c.Param("RunID")); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+	} else if jr, err = jrc.App.Cancel(id); errors.Cause(err) == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("Job run not found"))
+	} else if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+	} else {
+		jsonAPIResponse(c, presenters.JobRun{JobRun: *jr}, "job run")
 	}
 }

@@ -1,15 +1,13 @@
 package models
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
+	clnull "chainlink/core/null"
+	"chainlink/core/store/assets"
+
 	"github.com/ethereum/go-ethereum/common"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -67,15 +65,20 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 		output = append(output, "observed_height", jr.ObservedHeight.ToInt())
 	}
 
-	if jr.Result.HasError() {
-		output = append(output, "job_error", jr.Result.Error())
+	if jr.HasError() {
+		output = append(output, "job_error", jr.ErrorString())
 	}
 
-	if jr.Status == "completed" {
+	if jr.Status.Completed() {
 		output = append(output, "link_earned", jr.Payment)
 	}
 
 	return append(kvs, output...)
+}
+
+// HasError returns true if this JobRun has errored
+func (jr JobRun) HasError() bool {
+	return jr.Status.Errored()
 }
 
 // NextTaskRunIndex returns the position of the next unfinished task
@@ -116,38 +119,49 @@ func (jr *JobRun) TasksRemain() bool {
 // SetError sets this job run to failed and saves the error message
 func (jr *JobRun) SetError(err error) {
 	jr.Result.ErrorMessage = null.StringFrom(err.Error())
-	jr.Result.Status = RunStatusErrored
-	jr.Status = jr.Result.Status
-	jr.FinishedAt = null.TimeFrom(time.Now())
+	jr.setStatus(RunStatusErrored)
 }
 
-// ApplyResult updates the JobRun's Result and Status
-func (jr *JobRun) ApplyResult(result RunResult) error {
-	data, err := jr.Result.Data.Merge(result.Data)
-	if err != nil {
-		return err
+// Cancel sets this run as cancelled, it should no longer be processed.
+func (jr *JobRun) Cancel() {
+	currentTaskRun := jr.NextTaskRun()
+	if currentTaskRun != nil {
+		currentTaskRun.Status = RunStatusCancelled
 	}
-	jr.Result = result
-	jr.Result.Data = data
-	jr.Status = result.Status
+	jr.setStatus(RunStatusCancelled)
+}
+
+// ApplyOutput updates the JobRun's Result and Status
+func (jr *JobRun) ApplyOutput(result RunOutput) {
+	if result.HasError() {
+		jr.SetError(result.Error())
+		return
+	}
+	jr.Result.Data = result.Data()
+	jr.setStatus(result.Status())
+}
+
+// ApplyBridgeRunResult saves the input from a BridgeAdapter
+func (jr *JobRun) ApplyBridgeRunResult(result BridgeRunResult) {
+	if result.HasError() {
+		jr.SetError(result.GetError())
+	}
+	jr.Result.Data = result.Data
+	jr.setStatus(result.Status)
+}
+
+func (jr *JobRun) setStatus(status RunStatus) {
+	jr.Status = status
 	if jr.Status.Completed() && jr.TasksRemain() {
 		jr.Status = RunStatusInProgress
 	} else if jr.Status.Finished() {
 		jr.FinishedAt = null.TimeFrom(time.Now())
 	}
-	return nil
 }
 
-// JobRunsWithStatus filters passed job runs returning those that have
-// the desired status, entirely in memory.
-func JobRunsWithStatus(runs []JobRun, status RunStatus) []JobRun {
-	rval := []JobRun{}
-	for _, r := range runs {
-		if r.Status == status {
-			rval = append(rval, r)
-		}
-	}
-	return rval
+// ErrorString returns the error as a string if present, otherwise "".
+func (jr *JobRun) ErrorString() string {
+	return jr.Result.ErrorMessage.ValueOrZero()
 }
 
 // RunRequest stores the fields used to initiate the parent job run.
@@ -162,8 +176,8 @@ type RunRequest struct {
 }
 
 // NewRunRequest returns a new RunRequest instance.
-func NewRunRequest() RunRequest {
-	return RunRequest{CreatedAt: time.Now()}
+func NewRunRequest() *RunRequest {
+	return &RunRequest{CreatedAt: time.Now()}
 }
 
 // TaskRun stores the Task and represents the status of the
@@ -186,178 +200,35 @@ func (tr TaskRun) String() string {
 	return fmt.Sprintf("TaskRun(%v,%v,%v,%v)", tr.ID.String(), tr.TaskSpec.Type, tr.Status, tr.Result)
 }
 
-// ForLogger formats the TaskRun info for a common formatting in the log.
-func (tr *TaskRun) ForLogger(kvs ...interface{}) []interface{} {
-	output := []interface{}{
-		"type", tr.TaskSpec.Type,
-		"params", tr.TaskSpec.Params,
-		"taskrun", tr.ID,
-		"status", tr.Status,
-	}
-
-	if tr.Result.HasError() {
-		output = append(output, "error", tr.Result.Error())
-	}
-
-	return append(kvs, output...)
-}
-
 // SetError sets this task run to failed and saves the error message
 func (tr *TaskRun) SetError(err error) {
 	tr.Result.ErrorMessage = null.StringFrom(err.Error())
-	tr.Result.Status = RunStatusErrored
-	tr.Status = tr.Result.Status
+	tr.Status = RunStatusErrored
 }
 
-// ApplyResult updates the TaskRun's Result and Status
-func (tr *TaskRun) ApplyResult(result RunResult) {
-	tr.Result = result
+// ApplyBridgeRunResult updates the TaskRun's Result and Status
+func (tr *TaskRun) ApplyBridgeRunResult(result BridgeRunResult) {
+	if result.HasError() {
+		tr.SetError(result.GetError())
+	}
+	tr.Result.Data = result.Data
 	tr.Status = result.Status
 }
 
-// MarkPendingConfirmations marks the task's status as blocked.
-func (tr *TaskRun) MarkPendingConfirmations() {
-	tr.Status = RunStatusPendingConfirmations
-	tr.Result.Status = RunStatusPendingConfirmations
+// ApplyOutput updates the TaskRun's Result and Status
+func (tr *TaskRun) ApplyOutput(result RunOutput) {
+	if result.HasError() {
+		tr.SetError(result.Error())
+		return
+	}
+	tr.Result.Data = result.Data()
+	tr.Status = result.Status()
 }
 
 // RunResult keeps track of the outcome of a TaskRun or JobRun. It stores the
-// Data and ErrorMessage, and contains a field to track the status.
+// Data and ErrorMessage.
 type RunResult struct {
-	ID              uint        `json:"-" gorm:"primary_key;auto_increment"`
-	CachedJobRunID  *ID         `json:"jobRunId" gorm:"-"`
-	CachedTaskRunID *ID         `json:"taskRunId" gorm:"-"`
-	Data            JSON        `json:"data" gorm:"type:text"`
-	Status          RunStatus   `json:"status"`
-	ErrorMessage    null.String `json:"error"`
-}
-
-func RunResultComplete(resultVal interface{}) RunResult {
-	var result RunResult
-	result.CompleteWithResult(resultVal)
-	return result
-}
-
-func RunResultError(err error) RunResult {
-	var result RunResult
-	result.SetError(err)
-	return result
-}
-
-// CompleteWithResult saves a value to a RunResult and marks it as completed
-func (rr *RunResult) CompleteWithResult(val interface{}) {
-	rr.Status = RunStatusCompleted
-	rr.ApplyResult(val)
-}
-
-// ApplyResult saves a value to a RunResult with the key result.
-func (rr *RunResult) ApplyResult(val interface{}) {
-	rr.Add("result", val)
-}
-
-// Add adds a key and result to the RunResult's JSON payload.
-func (rr *RunResult) Add(key string, result interface{}) {
-	data, err := rr.Data.Add(key, result)
-	if err != nil {
-		rr.SetError(err)
-		return
-	}
-	rr.Data = data
-}
-
-// SetError marks the result as errored and saves the specified error message
-func (rr *RunResult) SetError(err error) {
-	rr.ErrorMessage = null.StringFrom(err.Error())
-	rr.Status = RunStatusErrored
-}
-
-// MarkPendingBridge sets the status to pending_bridge
-func (rr *RunResult) MarkPendingBridge() {
-	rr.Status = RunStatusPendingBridge
-}
-
-// MarkPendingConfirmations sets the status to pending_confirmations.
-func (rr *RunResult) MarkPendingConfirmations() {
-	rr.Status = RunStatusPendingConfirmations
-}
-
-// MarkPendingConnection sets the status to pending_connection.
-func (rr *RunResult) MarkPendingConnection() {
-	rr.Status = RunStatusPendingConnection
-}
-
-// Get searches for and returns the JSON at the given path.
-func (rr *RunResult) Get(path string) gjson.Result {
-	return rr.Data.Get(path)
-}
-
-// ResultString returns the string result of the Data JSON field.
-func (rr *RunResult) ResultString() (string, error) {
-	val := rr.Result()
-	if val.Type != gjson.String {
-		return "", fmt.Errorf("non string result")
-	}
-	return val.String(), nil
-}
-
-// Result returns the result as a gjson object
-func (rr *RunResult) Result() gjson.Result {
-	return rr.Get("result")
-}
-
-// HasError returns true if the ErrorMessage is present.
-func (rr *RunResult) HasError() bool {
-	return rr.ErrorMessage.Valid
-}
-
-// Error returns the string value of the ErrorMessage field.
-func (rr *RunResult) Error() string {
-	return rr.ErrorMessage.String
-}
-
-// GetError returns the error of a RunResult if it is present.
-func (rr *RunResult) GetError() error {
-	if rr.HasError() {
-		return errors.New(rr.ErrorMessage.ValueOrZero())
-	}
-	return nil
-}
-
-// Merge saves the specified result's data onto the receiving RunResult. The
-// input result's data takes preference over the receivers'.
-func (rr *RunResult) Merge(in RunResult) error {
-	var err error
-	rr.Data, err = rr.Data.Merge(in.Data)
-	if err != nil {
-		return err
-	}
-	rr.ErrorMessage = in.ErrorMessage
-	rr.Status = in.Status
-	return nil
-}
-
-// BridgeRunResult handles the parsing of RunResults from external adapters.
-type BridgeRunResult struct {
-	RunResult
-	ExternalPending bool   `json:"pending"`
-	AccessToken     string `json:"accessToken"`
-}
-
-// UnmarshalJSON parses the given input and updates the BridgeRunResult in the
-// external adapter format.
-func (brr *BridgeRunResult) UnmarshalJSON(input []byte) error {
-	type biAlias BridgeRunResult
-	var anon biAlias
-	err := json.Unmarshal(input, &anon)
-	*brr = BridgeRunResult(anon)
-
-	if brr.Status.Errored() || brr.HasError() {
-		brr.Status = RunStatusErrored
-	} else if brr.ExternalPending || brr.Status.PendingBridge() {
-		brr.Status = RunStatusPendingBridge
-	} else {
-		brr.Status = RunStatusCompleted
-	}
-
-	return err
+	ID           uint        `json:"-" gorm:"primary_key;auto_increment"`
+	Data         JSON        `json:"data" gorm:"type:text"`
+	ErrorMessage null.String `json:"error"`
 }

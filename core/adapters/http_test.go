@@ -5,12 +5,14 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func leanStore() *store.Store {
@@ -31,9 +33,9 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := test.adapter.Perform(models.RunResult{}, store)
-			assert.Equal(t, models.JSON{}, result.Data)
+			result := test.adapter.Perform(models.RunInput{}, store)
 			assert.True(t, result.HasError())
+			assert.Empty(t, result.Data())
 		})
 	}
 }
@@ -70,7 +72,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			input := cltest.RunResultWithResult("inputValue")
+			input := cltest.NewRunInputWithResult("inputValue")
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "GET", test.response,
 				func(header http.Header, body string) {
 					assert.Equal(t, ``, body)
@@ -89,13 +91,13 @@ func TestHTTPGet_Perform(t *testing.T) {
 
 			result := hga.Perform(input, store)
 
-			if !test.wantErrored {
-				val, err := result.ResultString()
-				assert.NoError(t, err)
-				assert.Equal(t, test.want, val)
+			if test.wantErrored {
+				require.Error(t, result.Error())
+			} else {
+				require.NoError(t, result.Error())
+				assert.Equal(t, test.want, result.Result().String())
 			}
-			assert.Equal(t, test.wantErrored, result.HasError())
-			assert.Equal(t, false, result.Status.PendingBridge())
+			assert.Equal(t, false, result.Status().PendingBridge())
 		})
 	}
 }
@@ -114,7 +116,7 @@ func TestHTTP_TooLarge(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.verb, func(t *testing.T) {
-			input := cltest.RunResultWithResult("inputValue")
+			input := cltest.NewRunInputWithResult("inputValue")
 			largePayload := "12"
 			mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, test.verb, largePayload)
 			defer cleanup()
@@ -122,8 +124,8 @@ func TestHTTP_TooLarge(t *testing.T) {
 			hga := test.factory(cltest.WebURL(t, mock.URL))
 			result := hga.Perform(input, store)
 
-			assert.Equal(t, true, result.HasError())
-			assert.Equal(t, "HTTP request too large, must be less than 1 bytes", result.Error())
+			require.Error(t, result.Error())
+			assert.Equal(t, "HTTP request too large, must be less than 1 bytes", result.Error().Error())
 			assert.Equal(t, "", result.Result().String())
 		})
 	}
@@ -250,7 +252,7 @@ func TestHttpPost_Perform(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			input := cltest.RunResultWithResult("inputVal")
+			input := cltest.NewRunInputWithResult("inputVal")
 			mock, cleanup := cltest.NewHTTPMockServer(t, test.status, "POST", test.response,
 				func(header http.Header, body string) {
 					assert.Equal(t, test.wantBody, body)
@@ -273,8 +275,8 @@ func TestHttpPost_Perform(t *testing.T) {
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())
 			assert.NotEqual(t, test.wantErrored, val.Exists())
-			assert.Equal(t, test.wantErrored, result.HasError())
-			assert.Equal(t, false, result.Status.PendingBridge())
+			require.Equal(t, test.wantErrored, result.HasError())
+			assert.Equal(t, false, result.Status().PendingBridge())
 		})
 	}
 }

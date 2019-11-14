@@ -5,11 +5,12 @@ import (
 	"strings"
 	"testing"
 
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +21,7 @@ func TestNewUnsignedServiceAgreementFromRequest(t *testing.T) {
 		name        string
 		input       string
 		wantDigest  string
-		wantPayment *assets.Link
+		wantPayment assets.Link
 	}{
 		{
 			"basic",
@@ -34,7 +35,7 @@ func TestNewUnsignedServiceAgreementFromRequest(t *testing.T) {
 				`"aggFulfillSelector":"0x87654321"` +
 				`}`,
 			"0xad12826461f2259eac07e762d9f1d32dd6af2e4ed0797b08cb3d8a8c3c4dd61d",
-			assets.NewLink(1),
+			*assets.NewLink(1),
 		},
 	}
 	for _, test := range tests {
@@ -57,7 +58,7 @@ func TestBuildServiceAgreement(t *testing.T) {
 		name        string
 		input       string
 		wantDigest  string
-		wantPayment *assets.Link
+		wantPayment assets.Link
 	}{
 		{
 			"basic",
@@ -71,7 +72,7 @@ func TestBuildServiceAgreement(t *testing.T) {
 				`"aggFulfillSelector":"0x87654321"` +
 				`}`,
 			"0xad12826461f2259eac07e762d9f1d32dd6af2e4ed0797b08cb3d8a8c3c4dd61d",
-			assets.NewLink(1),
+			*assets.NewLink(1),
 		},
 	}
 	for _, test := range tests {
@@ -101,7 +102,7 @@ func TestEncumbrance_ABI(t *testing.T) {
 
 	tests := []struct {
 		name                   string
-		payment                *assets.Link
+		payment                assets.Link
 		expiration             int
 		endAt                  models.AnyTime
 		oracles                []models.EIP55Address
@@ -110,7 +111,7 @@ func TestEncumbrance_ABI(t *testing.T) {
 		aggFulfillSelector     string
 		want                   string
 	}{
-		{"basic", assets.NewLink(1), 2, models.AnyTime{}, nil,
+		{"basic", *assets.NewLink(1), 2, models.AnyTime{}, nil,
 			"0x0000000000000000000000000000000000000000000000000000000000000000", "0x00000000", "0x00000000",
 			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000001" + // Payment
@@ -120,7 +121,7 @@ func TestEncumbrance_ABI(t *testing.T) {
 				"0000000000000000000000000000000000000000" + // Aggregator address
 				"00000000" + "00000000", // Function selectors
 		},
-		{"basic dead beef payment", assets.NewLink(3735928559), 2, models.AnyTime{}, nil,
+		{"basic dead beef payment", *assets.NewLink(3735928559), 2, models.AnyTime{}, nil,
 			"0x0000000000000000000000000000000000000000000000000000000000000000", "0x00000000", "0x00000000",
 			"0x" +
 				"00000000000000000000000000000000000000000000000000000000deadbeef" + // Payment
@@ -130,7 +131,7 @@ func TestEncumbrance_ABI(t *testing.T) {
 				"0000000000000000000000000000000000000000" + // Aggregator address
 				"00000000" + "00000000", // Function selectors
 		},
-		{"empty", nil, 0, models.AnyTime{}, nil,
+		{"empty", *assets.NewLink(0), 0, models.AnyTime{}, nil,
 			"0x0000000000000000000000000000000000000000000000000000000000000000", "0x00000000", "0x00000000",
 			"0x" +
 				"0000000000000000000000000000000000000000000000000000000000000000" + // Payment
@@ -140,7 +141,7 @@ func TestEncumbrance_ABI(t *testing.T) {
 				"0000000000000000000000000000000000000000" + // Aggregator address
 				"00000000" + "00000000", // Function selectors
 		},
-		{"oracle address", nil, 0, models.AnyTime{},
+		{"oracle address", *assets.NewLink(0), 0, models.AnyTime{},
 			[]models.EIP55Address{models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")},
 			"0x0000000000000000000000000000000000000000000000000000000000000000", "0x00000000", "0x00000000",
 			"0x" +
@@ -152,7 +153,7 @@ func TestEncumbrance_ABI(t *testing.T) {
 				"0000000000000000000000000000000000000000" + // Aggregator address
 				"00000000" + "00000000", // Function selectors
 		},
-		{"different endAt", nil, 0, models.NewAnyTime(endAt),
+		{"different endAt", *assets.NewLink(0), 0, models.NewAnyTime(endAt),
 			[]models.EIP55Address{models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")},
 			"0x0000000000000000000000000000000000000000000000000000000000000000", "0x00000000", "0x00000000",
 			"0x" +
@@ -164,7 +165,7 @@ func TestEncumbrance_ABI(t *testing.T) {
 				"0000000000000000000000000000000000000000" + // Aggregator address
 				"00000000" + "00000000", // Function selectors
 		},
-		{name: "aggregator info", payment: nil, expiration: 0, endAt: models.NewAnyTime(endAt),
+		{name: "aggregator info", expiration: 0, endAt: models.NewAnyTime(endAt),
 			oracles: []models.EIP55Address{
 				models.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e"),
 			},
@@ -209,7 +210,7 @@ func TestServiceAgreementRequest_UnmarshalJSON(t *testing.T) {
 		name        string
 		input       string
 		wantDigest  string
-		wantPayment *assets.Link
+		wantPayment assets.Link
 	}{
 		{
 			"basic",
@@ -224,7 +225,7 @@ func TestServiceAgreementRequest_UnmarshalJSON(t *testing.T) {
 				`"endAt":"2018-06-19T22:17:19Z"}` +
 				`}`,
 			"0x57bf5be3447b9a3f8491b6538b01f828bcfcaf2d685ea90375ed4ec2943f4865",
-			assets.NewLink(1),
+			*assets.NewLink(1),
 		},
 	}
 	for _, test := range tests {

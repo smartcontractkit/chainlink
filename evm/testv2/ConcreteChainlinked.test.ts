@@ -7,8 +7,7 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { Instance } from '../src/contract'
-import env from '@nomiclabs/buidler'
-import { EthersProviderWrapper } from '../src/provider'
+import ganache from 'ganache-core'
 
 const concreteChainlinkedFactory = new ConcreteChainlinkedFactory()
 const emptyOracleFactory = new EmptyOracleFactory()
@@ -16,7 +15,7 @@ const getterSetterFactory = new GetterSetterFactory()
 const oracleFactory = new OracleFactory()
 const linkTokenFactory = new LinkTokenFactory()
 
-const provider = new EthersProviderWrapper(env.ethereum)
+const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
 
 let roles: h.Roles
 
@@ -34,8 +33,7 @@ describe('ConcreteChainlinked', () => {
   let oc: Instance<OracleFactory | EmptyOracleFactory>
   let newoc: Instance<OracleFactory>
   let link: Instance<LinkTokenFactory>
-
-  beforeEach(async () => {
+  const deployment = h.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
     newoc = await oracleFactory
@@ -45,6 +43,10 @@ describe('ConcreteChainlinked', () => {
     cc = await concreteChainlinkedFactory
       .connect(roles.defaultAccount)
       .deploy(link.address, oc.address)
+  })
+
+  beforeEach(async () => {
+    await deployment()
   })
 
   describe('#newRequest', () => {
@@ -131,16 +133,20 @@ describe('ConcreteChainlinked', () => {
 
   describe('#cancelChainlinkRequest', () => {
     let requestId: string
+    // a concrete chainlink attached to an empty oracle
+    let ecc: Instance<ConcreteChainlinkedFactory>
 
     beforeEach(async () => {
-      oc = await emptyOracleFactory.connect(roles.defaultAccount).deploy()
-      cc = await concreteChainlinkedFactory
+      const emptyOracle = await emptyOracleFactory
         .connect(roles.defaultAccount)
-        .deploy(link.address, oc.address)
+        .deploy()
+      ecc = await concreteChainlinkedFactory
+        .connect(roles.defaultAccount)
+        .deploy(link.address, emptyOracle.address)
 
-      const tx = await cc.publicRequest(
+      const tx = await ecc.publicRequest(
         specId,
-        cc.address,
+        ecc.address,
         ethers.utils.toUtf8Bytes('fulfillRequest(bytes32,bytes32)'),
         0,
       )
@@ -149,7 +155,7 @@ describe('ConcreteChainlinked', () => {
     })
 
     it('emits an event from the contract showing the run was cancelled', async () => {
-      const tx = await cc.publicCancelRequest(
+      const tx = await ecc.publicCancelRequest(
         requestId,
         0,
         ethers.utils.hexZeroPad('0x', 4),
@@ -164,7 +170,7 @@ describe('ConcreteChainlinked', () => {
 
     it('throws if given a bogus event ID', async () => {
       await h.assertActionThrows(async () => {
-        await cc.publicCancelRequest(
+        await ecc.publicCancelRequest(
           ethers.utils.formatBytes32String('bogusId'),
           0,
           ethers.utils.hexZeroPad('0x', 4),

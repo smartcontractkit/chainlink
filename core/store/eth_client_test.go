@@ -6,10 +6,11 @@ import (
 
 	"math/big"
 
+	"chainlink/core/internal/cltest"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/models"
+
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -77,6 +78,8 @@ func TestEthCallerSubscriber_GetNonce(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	ethMock := app.MockEthCallerSubscriber()
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
 	ethMock.Register("eth_getTransactionCount", "0x0100")
@@ -90,6 +93,8 @@ func TestEthCallerSubscriber_SendRawTx(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	ethMock := app.MockEthCallerSubscriber()
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
 	ethMock.Register("eth_sendRawTransaction", common.Hash{1})
@@ -102,6 +107,7 @@ func TestEthCallerSubscriber_GetEthBalance(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	tests := []struct {
 		name     string
@@ -129,6 +135,7 @@ func TestEthCallerSubscriber_GetERC20Balance(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 
 	ethMock := app.MockEthCallerSubscriber()
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient

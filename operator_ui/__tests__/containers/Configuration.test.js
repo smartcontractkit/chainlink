@@ -4,6 +4,7 @@ import configurationFactory from 'factories/configuration'
 import React from 'react'
 import mountWithinStoreAndRouter from 'test-helpers/mountWithinStoreAndRouter'
 import syncFetch from 'test-helpers/syncFetch'
+import globPath from 'test-helpers/globPath'
 
 const classes = {}
 const mount = props => {
@@ -20,7 +21,7 @@ describe('containers/Configuration', () => {
       band: 'Major Lazer',
       singer: 'Bob Marley',
     })
-    global.fetch.getOnce('/v2/config', configurationResponse)
+    global.fetch.getOnce(globPath('/v2/config'), configurationResponse)
 
     const wrapper = mount()
 

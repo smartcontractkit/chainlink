@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // JobSpecNotice is sent to the External Initiator when JobSpecs are created.

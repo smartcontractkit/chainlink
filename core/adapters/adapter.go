@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/store"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
 )
 
 var (
@@ -49,7 +50,7 @@ var (
 // BaseAdapter is the minimum interface required to create an adapter. Only core
 // adapters have this minimum requirement.
 type BaseAdapter interface {
-	Perform(models.RunResult, *store.Store) models.RunResult
+	Perform(models.RunInput, *store.Store) models.RunOutput
 }
 
 // PipelineAdapter wraps a BaseAdapter with requirements for execution in the pipeline.
@@ -70,10 +71,10 @@ func (p PipelineAdapter) MinContractPayment() *assets.Link {
 }
 
 // For determines the adapter type to use for a given task.
-func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
+func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*PipelineAdapter, error) {
 	var ba BaseAdapter
 	var err error
-	mic := store.Config.MinIncomingConfirmations()
+	mic := config.MinIncomingConfirmations()
 	mcp := assets.NewLink(0)
 
 	switch task.Type {
@@ -94,11 +95,11 @@ func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeEthTx:
 		ba = &EthTx{}
-		mcp = store.Config.MinimumContractPayment()
+		mcp = config.MinimumContractPayment()
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeEthTxABIEncode:
 		ba = &EthTxABIEncode{}
-		mcp = store.Config.MinimumContractPayment()
+		mcp = config.MinimumContractPayment()
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeHTTPGet:
 		ba = &HTTPGet{}
@@ -131,11 +132,11 @@ func For(task models.TaskSpec, store *store.Store) (*PipelineAdapter, error) {
 		ba = &Compare{}
 		err = unmarshalParams(task.Params, ba)
 	default:
-		bt, err := store.FindBridge(task.Type)
+		bt, err := orm.FindBridge(task.Type)
 		if err != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 		}
-		b := Bridge{BridgeType: &bt, Params: &task.Params}
+		b := Bridge{BridgeType: bt, Params: task.Params}
 		ba = &b
 		mic = b.Confirmations
 		mcp = bt.MinimumContractPayment

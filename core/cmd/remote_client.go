@@ -11,15 +11,16 @@ import (
 	"os"
 	"strconv"
 
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+	"chainlink/core/web"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/tidwall/gjson"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -513,17 +514,6 @@ func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, 
 	return nil
 }
 
-func (cli *Client) deserializeResponse(resp *http.Response, dst interface{}) error {
-	b, err := cli.parseResponse(resp)
-	if err != nil {
-		return err
-	}
-	if err = json.Unmarshal(b, &dst); err != nil {
-		return cli.errorOut(err)
-	}
-	return nil
-}
-
 func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
 	if err == errUnauthorized {
@@ -558,14 +548,6 @@ func (cli *Client) printResponseBody(resp *http.Response) error {
 
 	fmt.Println(string(b))
 	return nil
-}
-
-func (cli *Client) renderResponse(resp *http.Response, dst interface{}) error {
-	err := cli.deserializeResponse(resp, dst)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	return cli.errorOut(cli.Render(dst))
 }
 
 func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error {
@@ -639,7 +621,6 @@ func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) error {
 	return cli.errorOut(cli.Render(&patchResponse))
 }
 
-
 // GetConfiguration gets the nodes environment variables
 func (cli *Client) GetConfiguration(c *clipkg.Context) error {
 	resp, err := cli.HTTP.Get("/v2/config")
@@ -649,4 +630,21 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) error {
 	defer resp.Body.Close()
 	cwl := presenters.ConfigWhitelist{}
 	return cli.renderAPIResponse(resp, &cwl)
+}
+
+// CancelJob cancels a running job
+func (cli *Client) CancelJobRun(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the run id to be cancelled"))
+	}
+
+	response, err := cli.HTTP.Put(fmt.Sprintf("/v2/runs/%s/cancellation", c.Args().First()), nil)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "HTTP.Put"))
+	}
+	_, err = cli.parseResponse(response)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "cli.parseResponse"))
+	}
+	return nil
 }

@@ -15,10 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -148,7 +148,7 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 		})
 	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
-	input := cltest.RunResultWithData(rawInput)
+	input := cltest.NewRunInputWithString(t, rawInput)
 	responseData := adapterUnderTest.Perform(input, store)
 	assert.False(t, responseData.HasError())
 	from := cltest.GetAccountAddress(t, store)

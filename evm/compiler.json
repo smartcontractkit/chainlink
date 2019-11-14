@@ -1,0 +1,20 @@
+{
+  "contractsDir": "contracts",
+  "artifactsDir": "dist/artifacts",
+  "contracts": "*",
+  "solcVersion": "0.4.24",
+  "useDockerisedSolc": false,
+  "compilerSettings": {
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode.object",
+          "evm.bytecode.sourceMap",
+          "evm.deployedBytecode.object",
+          "evm.deployedBytecode.sourceMap"
+        ]
+      }
+    }
+  }
+}

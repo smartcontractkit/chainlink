@@ -7,13 +7,14 @@ import (
 	"sync"
 	"time"
 
+	"chainlink/core/logger"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/utils"
+
 	"github.com/jinzhu/gorm"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // StatsPusher polls for events and pushes them via a WebSocketClient
@@ -120,8 +121,6 @@ func (sp *StatsPusher) eventLoop(parentCtx context.Context) {
 }
 
 func (sp *StatsPusher) pusherLoop(parentCtx context.Context) error {
-	logger.Debugw("Started StatsPusher")
-
 	for {
 		select {
 		case <-sp.waker:
@@ -135,7 +134,6 @@ func (sp *StatsPusher) pusherLoop(parentCtx context.Context) error {
 				return err
 			}
 		case <-parentCtx.Done():
-			logger.Debugw("StatsPusher got done signal, shutting down")
 			return nil
 		}
 	}

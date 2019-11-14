@@ -13,14 +13,9 @@
     "eslint:config:react": "eslint -c ./react.js --print-config ./base",
     "setup": "echo \"No setup required for @chainlink/eslint-config\""
   },
-  "peerDependencies": {
-    "@chainlink/prettier-config": "0.0.1",
-    "prettier": "^1.18.2",
-    "typescript": "^3.6.3"
-  },
   "dependencies": {
     "@typescript-eslint/eslint-plugin": "^2.1.0",
-    "@typescript-eslint/parser": "^2.5.0",
+    "@typescript-eslint/parser": "^2.6.1",
     "eslint-config-prettier": "^6.2.0",
     "eslint-plugin-prettier": "^3.1.0",
     "eslint-plugin-react": "^7.14.3",

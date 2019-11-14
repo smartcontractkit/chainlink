@@ -15,6 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"chainlink/core/logger"
+	"chainlink/core/services"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+
 	helmet "github.com/danielkov/gin-helmet"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/expvar"
@@ -23,11 +29,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -297,6 +298,7 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 
 		authv2.GET("/runs", paginatedRequest(jr.Index))
 		authv2.GET("/runs/:RunID", jr.Show)
+		authv2.PUT("/runs/:RunID/cancellation", jr.Cancel)
 
 		authv2.GET("/service_agreements/:SAID", sa.Show)
 

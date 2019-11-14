@@ -3,9 +3,11 @@ package cmd_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/cmd"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,12 +25,11 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplication(t)
-			defer cleanup()
+			config := orm.NewConfig()
 
 			sr := models.SessionRequest{Email: test.email, Password: test.pwd}
 			store := &cmd.MemoryCookieStore{}
-			tca := cmd.NewSessionCookieAuthenticator(app.Config.Config, store)
+			tca := cmd.NewSessionCookieAuthenticator(config, store)
 			cookie, err := tca.Authenticate(sr)
 
 			assert.Error(t, err)
@@ -45,6 +46,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 	app.MustSeedUserSession()
 
 	tests := []struct {

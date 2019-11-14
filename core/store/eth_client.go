@@ -4,15 +4,16 @@ import (
 	"context"
 	"math/big"
 
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
+
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockgen -package=mocks -destination=../internal/mocks/eth_client_mocks.go github.com/smartcontractkit/chainlink/core/store EthClient
+//go:generate mockery -name EthClient -output ../internal/mocks/ -case=underscore
 
 // EthClient is the interface supplied by EthCallerSubscriber
 type EthClient interface {

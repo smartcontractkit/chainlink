@@ -4,11 +4,12 @@ import (
 	"errors"
 	"sync"
 
+	"chainlink/core/logger"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
+
 	"github.com/mrwonko/cron"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Scheduler contains fields for Recurring and OneTime for occurrences,
@@ -18,20 +19,23 @@ type Scheduler struct {
 	Recurring    *Recurring
 	OneTime      *OneTime
 	store        *store.Store
+	runManager   RunManager
 	startedMutex sync.RWMutex
 	started      bool
 }
 
 // NewScheduler initializes the Scheduler instances with both Recurring
 // and OneTime fields since jobs can contain tasks which utilize both.
-func NewScheduler(store *store.Store) *Scheduler {
+func NewScheduler(store *store.Store, runManager RunManager) *Scheduler {
 	return &Scheduler{
-		Recurring: NewRecurring(store),
+		Recurring: NewRecurring(runManager),
 		OneTime: &OneTime{
-			Store: store,
-			Clock: store.Clock,
+			Store:      store,
+			Clock:      store.Clock,
+			RunManager: runManager,
 		},
-		store: store,
+		store:      store,
+		runManager: runManager,
 	}
 }
 
@@ -53,7 +57,7 @@ func (s *Scheduler) Start() error {
 	}
 	s.started = true
 
-	return s.store.Jobs(func(j models.JobSpec) bool {
+	return s.store.Jobs(func(j *models.JobSpec) bool {
 		s.addJob(j)
 		return true
 	})
@@ -71,9 +75,9 @@ func (s *Scheduler) Stop() {
 	}
 }
 
-func (s *Scheduler) addJob(job models.JobSpec) {
-	s.Recurring.AddJob(job)
-	s.OneTime.AddJob(job)
+func (s *Scheduler) addJob(job *models.JobSpec) {
+	s.Recurring.AddJob(*job)
+	s.OneTime.AddJob(*job)
 }
 
 // AddJob is the governing function for Recurring and OneTime,
@@ -84,23 +88,22 @@ func (s *Scheduler) AddJob(job models.JobSpec) {
 	if !s.started {
 		return
 	}
-	s.addJob(job)
+	s.addJob(&job)
 }
 
 // Recurring is used for runs that need to execute on a schedule,
 // and is configured with cron.
 // Instances of Recurring must be initialized using NewRecurring().
 type Recurring struct {
-	Cron  Cron
-	Clock utils.Nower
-	store *store.Store
+	Cron       Cron
+	Clock      utils.Nower
+	runManager RunManager
 }
 
 // NewRecurring create a new instance of Recurring, ready to use.
-func NewRecurring(store *store.Store) *Recurring {
+func NewRecurring(runManager RunManager) *Recurring {
 	return &Recurring{
-		store: store,
-		Clock: store.Clock,
+		runManager: runManager,
 	}
 }
 
@@ -120,29 +123,22 @@ func (r *Recurring) Stop() {
 // AddJob looks for "cron" initiators, adds them to cron's schedule
 // for execution when specified.
 func (r *Recurring) AddJob(job models.JobSpec) {
-	for _, i := range job.InitiatorsFor(models.InitiatorCron) {
-		initr := i
-		if !job.Ended(r.Clock.Now()) {
-			archived := false
-			r.Cron.AddFunc(string(initr.Schedule), func() {
-				if archived || r.store.Archived(job.ID) {
-					archived = true
-					return
-				}
-				_, err := ExecuteJob(job, initr, models.RunResult{}, nil, r.store)
-				if err != nil && !expectedRecurringScheduleJobError(err) {
-					logger.Errorw(err.Error())
-				}
-			})
-		}
+	for _, initr := range job.InitiatorsFor(models.InitiatorCron) {
+		r.Cron.AddFunc(string(initr.Schedule), func() {
+			_, err := r.runManager.Create(job.ID, &initr, &models.JSON{}, nil, &models.RunRequest{})
+			if err != nil && !expectedRecurringScheduleJobError(err) {
+				logger.Errorw(err.Error())
+			}
+		})
 	}
 }
 
 // OneTime represents runs that are to be executed only once.
 type OneTime struct {
-	Store *store.Store
-	Clock utils.Afterer
-	done  chan struct{}
+	Store      *store.Store
+	Clock      utils.Afterer
+	RunManager RunManager
+	done       chan struct{}
 }
 
 // Start allocates a channel for the "done" field with an empty struct.
@@ -153,8 +149,13 @@ func (ot *OneTime) Start() error {
 
 // AddJob runs the job at the time specified for the "runat" initiator.
 func (ot *OneTime) AddJob(job models.JobSpec) {
-	for _, initr := range job.InitiatorsFor(models.InitiatorRunAt) {
-		go ot.RunJobAt(initr, job)
+	for _, initiator := range job.InitiatorsFor(models.InitiatorRunAt) {
+		if !initiator.Time.Valid {
+			logger.Errorf("RunJobAt: JobSpec %s must have initiator with valid run at time: %v", job.ID, initiator)
+			continue
+		}
+
+		go ot.RunJobAt(initiator, job)
 	}
 }
 
@@ -165,27 +166,17 @@ func (ot *OneTime) Stop() {
 
 // RunJobAt wait until the Stop() function has been called on the run
 // or the specified time for the run is after the present time.
-func (ot *OneTime) RunJobAt(initr models.Initiator, job models.JobSpec) {
-	if !initr.Time.Valid {
-		logger.Errorf("RunJobAt: JobSpec %s must have initiator with valid run at time: %v", job.ID.String(), initr)
-		return
-	}
+func (ot *OneTime) RunJobAt(initiator models.Initiator, job models.JobSpec) {
 	select {
 	case <-ot.done:
-	case <-ot.Clock.After(utils.DurationFromNow(initr.Time.Time)):
-		if ot.Store.Archived(job.ID) {
-			return
-		}
-		if err := ot.Store.MarkRan(&initr, true); err != nil {
-			logger.Error(err.Error())
-			return
-		}
-		_, err := ExecuteJob(job, initr, models.RunResult{}, nil, ot.Store)
+	case <-ot.Clock.After(utils.DurationFromNow(initiator.Time.Time)):
+		_, err := ot.RunManager.Create(job.ID, &initiator, &models.JSON{}, nil, &models.RunRequest{})
 		if err != nil {
 			logger.Error(err.Error())
-			if err := ot.Store.MarkRan(&initr, false); err != nil {
-				logger.Error(err.Error())
-			}
+			return
+		}
+		if err := ot.Store.MarkRan(&initiator, true); err != nil {
+			logger.Error(err.Error())
 		}
 	}
 }

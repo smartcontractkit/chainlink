@@ -5,10 +5,12 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
@@ -29,14 +31,11 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 
 	_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
-	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
+	ba := &adapters.Bridge{BridgeType: *bt, Params: params}
 
-	input := models.RunResult{
-		Data:   cltest.JSONFromString(t, `{"result":"100"}`),
-		Status: models.RunStatusUnstarted,
-	}
-	ba.Perform(input, store)
-
+	input := cltest.NewRunInputWithResult("100")
+	result := ba.Perform(input, store)
+	require.NoError(t, result.Error())
 	assert.Equal(t, `{"bodyParam":true,"result":"100"}`, data)
 	assert.Equal(t, "Bearer "+bt.OutgoingToken, token)
 }
@@ -45,23 +44,21 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
+	jobRunID := models.NewID()
 
-	mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", fmt.Sprintf(`{"jobRunID": "%s", "data": 251990120, "statusCode": 200}`, models.NewID()),
+	mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", fmt.Sprintf(`{"jobRunID": "%s", "data": 251990120, "statusCode": 200}`, jobRunID.String()),
 		func(h http.Header, b string) {},
 	)
 	defer cleanup()
 
 	_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
-	ba := &adapters.Bridge{BridgeType: bt, Params: &params}
+	ba := &adapters.Bridge{BridgeType: *bt, Params: params}
 
-	input := models.RunResult{
-		Data:   cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`),
-		Status: models.RunStatusUnstarted,
-	}
+	input := *models.NewRunInput(jobRunID, cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`), models.RunStatusUnstarted)
 	result := ba.Perform(input, store)
-	assert.NoError(t, result.GetError())
-	assert.Equal(t, "251990120", result.Data.Get("result").String())
+	require.NoError(t, result.Error())
+	assert.Equal(t, "251990120", result.Result().String())
 }
 
 func TestBridge_Perform_transitionsTo(t *testing.T) {
@@ -73,8 +70,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 		result     string
 	}{
 		{"from pending bridge", models.RunStatusPendingBridge, models.RunStatusInProgress, `{"result":"100"}`},
-		{"from errored", models.RunStatusErrored, models.RunStatusErrored, `{"result":"100"}`},
-		{"from in progress", models.RunStatusInProgress, models.RunStatusPendingBridge, `{}`},
+		{"from in progress", models.RunStatusInProgress, models.RunStatusPendingBridge, ""},
 		{"from completed", models.RunStatusCompleted, models.RunStatusCompleted, `{"result":"100"}`},
 	}
 
@@ -86,20 +82,13 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			mock, _ := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending": true}`)
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
-			ba := &adapters.Bridge{BridgeType: bt}
+			ba := &adapters.Bridge{BridgeType: *bt}
 
-			input := models.RunResult{
-				Data:   cltest.JSONFromString(t, `{"result":"100"}`),
-				Status: test.status,
-			}
-
+			input := *models.NewRunInputWithResult(models.NewID(), "100", test.status)
 			result := ba.Perform(input, store)
 
-			assert.Equal(t, test.result, result.Data.String())
-			assert.Equal(t, test.wantStatus, result.Status)
-			if test.wantStatus.Errored() || test.wantStatus.Completed() {
-				assert.Equal(t, input, result)
-			}
+			assert.Equal(t, test.result, result.Data().String())
+			assert.Equal(t, test.wantStatus, result.Status())
 		})
 	}
 }
@@ -138,22 +127,20 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 			defer ensureCalled()
 
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
-			eb := &adapters.Bridge{BridgeType: bt}
-			input := cltest.RunResultWithResult("lot 49")
-			input.CachedJobRunID = runID
+			eb := &adapters.Bridge{BridgeType: *bt}
 
+			input := *models.NewRunInput(runID, cltest.JSONFromString(t, `{"result": "lot 49"}`), models.RunStatusUnstarted)
 			result := eb.Perform(input, store)
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())
 			assert.Equal(t, test.wantErrored, result.HasError())
-			assert.Equal(t, test.wantPending, result.Status.PendingBridge())
+			assert.Equal(t, test.wantPending, result.Status().PendingBridge())
 		})
 	}
 }
 
 func TestBridge_Perform_responseURL(t *testing.T) {
-	input := cltest.RunResultWithResult("lot 49")
-	input.CachedJobRunID = models.NewID()
+	input := cltest.NewRunInputWithResult("lot 49")
 
 	t.Parallel()
 	cases := []struct {
@@ -164,12 +151,12 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 		{
 			name:          "basic URL",
 			configuredURL: cltest.WebURL(t, "https://chain.link"),
-			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"},"responseURL":"https://chain.link/v2/runs/%s"}`, input.CachedJobRunID, input.CachedJobRunID),
+			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"},"responseURL":"https://chain.link/v2/runs/%s"}`, input.JobRunID().String(), input.JobRunID().String()),
 		},
 		{
 			name:          "blank URL",
 			configuredURL: cltest.WebURL(t, ""),
-			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"}}`, input.CachedJobRunID),
+			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"}}`, input.JobRunID().String()),
 		},
 	}
 
@@ -186,7 +173,7 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 			defer ensureCalled()
 
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
-			eb := &adapters.Bridge{BridgeType: bt}
+			eb := &adapters.Bridge{BridgeType: *bt}
 			eb.Perform(input, store)
 		})
 	}

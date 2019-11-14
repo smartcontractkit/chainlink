@@ -2,11 +2,12 @@ import { ethers } from 'ethers'
 import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
 import { Oracle } from './generated/Oracle'
-import { CoordinatorFactory } from './generated/CoordinatorFactory'
+import { generated as chainlinkv05 } from 'chainlinkv0.5'
 import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
 import { EmptyOracle } from './generated/EmptyOracle'
+import { OracleFactory } from './generated/OracleFactory'
 
 const debug = makeDebug('helpers')
 
@@ -32,6 +33,72 @@ export interface Personas {
 interface RolesAndPersonas {
   roles: Roles
   personas: Personas
+}
+
+/**
+ * This helper function allows us to make use of ganache snapshots,
+ * which allows us to snapshot one state instance and revert back to it.
+ *
+ * This is used to memoize expensive setup calls typically found in beforeEach hooks when we
+ * need to setup our state with contract deployments before running assertions.
+ *
+ * @param provider The provider that's used within the tests
+ * @param cb The callback to execute that generates the state we want to snapshot
+ */
+export function useSnapshot(
+  provider: ethers.providers.JsonRpcProvider,
+  cb: () => Promise<void>,
+) {
+  const d = debug.extend('memoizeDeploy')
+  let hasDeployed = false
+  let snapshotId = ''
+
+  return async () => {
+    if (!hasDeployed) {
+      d('executing deployment..')
+      await cb()
+
+      d('snapshotting...')
+      /* eslint-disable-next-line require-atomic-updates */
+      snapshotId = await provider.send('evm_snapshot', undefined)
+      d('snapshot id:%s', snapshotId)
+
+      /* eslint-disable-next-line require-atomic-updates */
+      hasDeployed = true
+    } else {
+      d('reverting to snapshot: %s', snapshotId)
+      await provider.send('evm_revert', snapshotId)
+
+      d('re-creating snapshot..')
+      /* eslint-disable-next-line require-atomic-updates */
+      snapshotId = await provider.send('evm_snapshot', undefined)
+      d('recreated snapshot id:%s', snapshotId)
+    }
+  }
+}
+
+/**
+ * A wrapper function to make generated contracts compatible with truffle test suites.
+ *
+ * Note that the returned contract is an instance of ethers.Contract, not a @truffle/contract, so there are slight
+ * api differences, though largely the same.
+ *
+ * @see https://docs.ethers.io/ethers.js/html/api-contract.html
+ * @param contractFactory The ethers based contract factory to interop with
+ * @param address The address to supply as the signer
+ */
+export function create<T extends new (...args: any[]) => any>(
+  contractFactory: T,
+  address: string,
+): InstanceType<T> {
+  const web3Instance = (global as any).web3
+  const provider = new ethers.providers.Web3Provider(
+    web3Instance.currentProvider,
+  )
+  const signer = provider.getSigner(address)
+  const factory = new contractFactory(signer)
+
+  return factory
 }
 
 /**
@@ -297,11 +364,13 @@ export function keccak(
   return utils.keccak256(...args)
 }
 
+type TxOptions = Omit<ethers.providers.TransactionRequest, 'to' | 'from'>
+
 export async function fulfillOracleRequest(
   oracleContract: Oracle | EmptyOracle,
   runRequest: RunRequest,
   response: string,
-  options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {
+  options: TxOptions = {
     gasLimit: 1000000, // FIXME: incorrect gas estimation
   },
 ): ReturnType<typeof oracleContract.fulfillOracleRequest> {
@@ -326,13 +395,18 @@ export async function fulfillOracleRequest(
   )
 }
 
-/**
- * The solidity function selector for the given signature
- */
-export function functionSelector(signature: string): string {
-  const fullHash = ethers.utils.id(signature)
-  assert(fullHash.startsWith('0x'))
-  return fullHash.slice(0, 2 + 4 * 2) // '0x' + initial 4 bytes, in hex
+export async function cancelOracleRequest(
+  oracleContract: Oracle | EmptyOracle,
+  request: RunRequest,
+  options: TxOptions = {},
+): ReturnType<typeof oracleContract.cancelOracleRequest> {
+  return oracleContract.cancelOracleRequest(
+    request.id,
+    request.payment,
+    request.callbackFunc,
+    request.expiration,
+    options,
+  )
 }
 
 export function requestDataBytes(
@@ -340,20 +414,11 @@ export function requestDataBytes(
   to: string,
   fHash: string,
   nonce: number,
-  data: string,
-): any {
-  const types = [
-    'address',
-    'uint256',
-    'bytes32',
-    'address',
-    'bytes4',
-    'uint256',
-    'uint256',
-    'bytes',
-  ]
+  dataBytes: string,
+): string {
+  const ocFactory = new OracleFactory()
 
-  const values = [
+  return ocFactory.interface.functions.oracleRequest.encode([
     ethers.constants.AddressZero,
     0,
     specId,
@@ -361,20 +426,15 @@ export function requestDataBytes(
     fHash,
     nonce,
     1,
-    data,
-  ]
-  const encoded = ethers.utils.defaultAbiCoder.encode(types, values)
-  const funcSelector = functionSelector(
-    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)',
-  )
-  return `${funcSelector}${stripHexPrefix(encoded)}`
+    dataBytes,
+  ])
 }
 
 // link param must be from linkContract(), if amount is a BN
 export function requestDataFrom(
   oc: Oracle,
   link: LinkToken,
-  amount: number,
+  amount: ethers.utils.BigNumberish,
   args: string,
   options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},
 ): ReturnType<typeof link.transferAndCall> {
@@ -399,8 +459,9 @@ export function hexToBuf(hexstr: string): Buffer {
   return Buffer.from(stripHexPrefix(hexstr), 'hex')
 }
 
+const { CoordinatorFactory } = chainlinkv05
 type Hash = ReturnType<typeof ethers.utils.keccak256>
-type Coordinator = ReturnType<CoordinatorFactory['attach']>
+type Coordinator = ReturnType<chainlinkv05.CoordinatorFactory['attach']>
 type ServiceAgreement = Parameters<Coordinator['initiateServiceAgreement']>[0]
 
 /**

@@ -17,6 +17,17 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/cmd"
+	"chainlink/core/logger"
+	"chainlink/core/services"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+	"chainlink/core/web"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
@@ -25,16 +36,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -140,6 +141,7 @@ type TestApplication struct {
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
+	Started          bool
 }
 
 func newWSServer() (*httptest.Server, func()) {
@@ -245,6 +247,13 @@ func (ta *TestApplication) NewBox() packr.Box {
 	return packr.NewBox("../fixtures/operator_ui/dist")
 }
 
+func (ta *TestApplication) Start() error {
+	ta.t.Helper()
+	ta.Started = true
+
+	return ta.ChainlinkApplication.Start()
+}
+
 func (ta *TestApplication) StartAndConnect() error {
 	ta.t.Helper()
 
@@ -283,6 +292,12 @@ func (ta *TestApplication) MockStartAndConnect() (*EthMock, error) {
 
 // Stop will stop the test application and perform cleanup
 func (ta *TestApplication) Stop() error {
+	ta.t.Helper()
+
+	if !ta.Started {
+		ta.t.Fatal("TestApplication Stop() called on an unstarted application")
+	}
+
 	// TODO: Here we double close, which is less than ideal.
 	// We would prefer to invoke a method on an interface that
 	// cleans up only in test.
@@ -401,17 +416,6 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 	require.NoError(t, store.Close())
 }
 
-// NewJobSubscriber creates a new JobSubscriber
-func NewJobSubscriber(t testing.TB) (*strpkg.Store, services.JobSubscriber, func()) {
-	t.Helper()
-
-	store, cl := NewStore(t)
-	nl := services.NewJobSubscriber(store)
-	return store, nl, func() {
-		cl()
-	}
-}
-
 func ParseJSON(t testing.TB, body io.Reader) models.JSON {
 	t.Helper()
 
@@ -451,6 +455,11 @@ func (r *HTTPClientCleaner) Get(path string, headers ...map[string]string) (*htt
 
 func (r *HTTPClientCleaner) Post(path string, body io.Reader) (*http.Response, func()) {
 	resp, err := r.HTTPClient.Post(path, body)
+	return bodyCleaner(r.t, resp, err)
+}
+
+func (r *HTTPClientCleaner) Put(path string, body io.Reader) (*http.Response, func()) {
+	resp, err := r.HTTPClient.Put(path, body)
 	return bodyCleaner(r.t, resp, err)
 }
 
@@ -521,8 +530,8 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 }
 
 // ReadLogs returns the contents of the applications log file as a string
-func ReadLogs(app *TestApplication) (string, error) {
-	logFile := fmt.Sprintf("%s/log.jsonl", app.Store.Config.RootDir())
+func ReadLogs(config orm.ConfigReader) (string, error) {
+	logFile := fmt.Sprintf("%s/log.jsonl", config.RootDir())
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
 }
@@ -626,8 +635,9 @@ func CreateHelloWorldJobViaWeb(t testing.TB, app *TestApplication, url string) m
 	err := json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
 
-	job.Tasks[0].Params, err = job.Tasks[0].Params.Merge(JSONFromString(t, `{"get":"%v"}`, url))
-	assert.NoError(t, err)
+	data, err := models.Merge(job.Tasks[0].Params, JSONFromString(t, `{"get":"%v"}`, url))
+	require.NoError(t, err)
+	job.Tasks[0].Params = data
 	return CreateJobSpecViaWeb(t, app, job)
 }
 
@@ -729,17 +739,6 @@ func WaitForJobRunToPendConfirmations(
 	t.Helper()
 
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingConfirmations)
-}
-
-// WaitForJobRunToPendSleep waits for a JobRun to reach PendingBridge Status
-func WaitForJobRunToPendSleep(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-) models.JobRun {
-	t.Helper()
-
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingSleep)
 }
 
 // WaitForJobRunStatus waits for a JobRun to reach given status
@@ -923,11 +922,6 @@ func Head(val interface{}) *models.Head {
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 		return nil
 	}
-}
-
-// NewBlockHeader return a new BlockHeader with given number
-func NewBlockHeader(number int) *models.BlockHeader {
-	return &models.BlockHeader{Number: BigHexInt(number)}
 }
 
 // GetAccountAddress returns Address of the account in the keystore of the passed in store
@@ -1139,4 +1133,10 @@ func MustParseURL(input string) *url.URL {
 		logger.Panic(err)
 	}
 	return u
+}
+
+func MustResultString(t *testing.T, input models.RunResult) string {
+	result := input.Data.Get("result")
+	require.Equal(t, gjson.String, result.Type, fmt.Sprintf("result type %s is not string", result.Type))
+	return result.String()
 }

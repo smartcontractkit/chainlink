@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	null "gopkg.in/guregu/null.v3"
@@ -131,7 +132,7 @@ func TestNewJobFromRequest(t *testing.T) {
 		Tasks:      cltest.BuildTaskRequests(t, j1.Tasks),
 		StartAt:    j1.StartAt,
 		EndAt:      j1.EndAt,
-		MinPayment: assets.NewLink(5),
+		MinPayment: *assets.NewLink(5),
 	}
 
 	j2 := models.NewJobFromRequest(jsr)
@@ -141,13 +142,13 @@ func TestNewJobFromRequest(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, fetched1.Initiators, 1)
 	assert.Len(t, fetched1.Tasks, 1)
-	assert.Equal(t, fetched1.MinPayment, assets.NewLink(0))
+	assert.Equal(t, fetched1.MinPayment, *assets.NewLink(0))
 
 	fetched2, err := store.FindJob(j2.ID)
 	assert.NoError(t, err)
 	assert.Len(t, fetched2.Initiators, 1)
 	assert.Len(t, fetched2.Tasks, 1)
-	assert.Equal(t, fetched2.MinPayment, assets.NewLink(5))
+	assert.Equal(t, fetched2.MinPayment, *assets.NewLink(5))
 }
 
 func TestJobSpec_Save(t *testing.T) {
@@ -190,7 +191,7 @@ func TestJobSpec_NewRun(t *testing.T) {
 
 	taskRun := run.TaskRuns[0]
 	assert.Equal(t, "noop", taskRun.TaskSpec.Type.String())
-	adapter, _ := adapters.For(taskRun.TaskSpec, store)
+	adapter, _ := adapters.For(taskRun.TaskSpec, store.Config, store.ORM)
 	assert.NotNil(t, adapter)
 	assert.JSONEq(t, `{"type":"NoOp","a":1}`, taskRun.TaskSpec.Params.String())
 

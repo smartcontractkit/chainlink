@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"testing"
 
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/models"
+	"chainlink/core/web"
+
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,9 +36,10 @@ func TestBridgeTypesController_Index(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
-	bt, err := setupBridgeControllerIndex(t, app)
+	bt, err := setupBridgeControllerIndex(t, app.Store)
 	assert.NoError(t, err)
 
 	resp, cleanup := client.Get("/v2/specs?size=x")
@@ -75,14 +78,14 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	assert.Equal(t, bt[1].Confirmations, bridges[0].Confirmations, "should have the same Confirmations")
 }
 
-func setupBridgeControllerIndex(t testing.TB, app *cltest.TestApplication) ([]*models.BridgeType, error) {
+func setupBridgeControllerIndex(t testing.TB, store *store.Store) ([]*models.BridgeType, error) {
 
 	bt1 := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	err := app.GetStore().CreateBridgeType(bt1)
+	err := store.CreateBridgeType(bt1)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +95,7 @@ func setupBridgeControllerIndex(t testing.TB, app *cltest.TestApplication) ([]*m
 		URL:           cltest.WebURL(t, "https://testing.com/tari"),
 		Confirmations: 0,
 	}
-	err = app.GetStore().CreateBridgeType(bt2)
+	err = store.CreateBridgeType(bt2)
 	return []*models.BridgeType{bt1, bt2}, err
 }
 
@@ -101,6 +104,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post(
@@ -129,6 +133,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
 	bt := &models.BridgeType{
@@ -152,6 +157,7 @@ func TestBridgeController_Show(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
 	bt := &models.BridgeType{
@@ -181,6 +187,8 @@ func TestBridgeController_Destroy(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Delete("/v2/bridge_types/testingbridges1")
 	defer cleanup()
@@ -216,6 +224,8 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post(
@@ -231,6 +241,8 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post(
@@ -246,6 +258,8 @@ func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post(

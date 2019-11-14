@@ -7,15 +7,16 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/assets"
+	"chainlink/core/store/migrations"
+	"chainlink/core/store/migrations/migration0"
+	"chainlink/core/store/migrations/migration1560881855"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/utils"
+
 	"github.com/gofrs/uuid"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/assets"
-	"github.com/smartcontractkit/chainlink/core/store/migrations"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881855"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gormigrate "gopkg.in/gormigrate.v1"
@@ -45,7 +46,7 @@ func TestMigrate_Migrations(t *testing.T) {
 
 	db := orm.DB
 
-	require.NoError(t, migrations.MigrateTo(db, "1559081901"))
+	require.NoError(t, migrations.Migrate(db))
 
 	assert.True(t, db.HasTable("bridge_types"))
 	assert.True(t, db.HasTable("encumbrances"))
@@ -164,7 +165,7 @@ func TestMigrate_Migration1565139192(t *testing.T) {
 
 	specNoPayment := models.NewJobFromRequest(models.JobSpecRequest{})
 	specWithPayment := models.NewJobFromRequest(models.JobSpecRequest{
-		MinPayment: assets.NewLink(5),
+		MinPayment: *assets.NewLink(5),
 	})
 	specOneFound := models.JobSpec{}
 	specTwoFound := models.JobSpec{}
@@ -172,9 +173,9 @@ func TestMigrate_Migration1565139192(t *testing.T) {
 	require.NoError(t, db.Create(&specWithPayment).Error)
 	require.NoError(t, db.Create(&specNoPayment).Error)
 	require.NoError(t, db.Where("id = ?", specNoPayment.ID).Find(&specOneFound).Error)
-	require.Equal(t, assets.NewLink(0), specNoPayment.MinPayment)
+	require.Equal(t, *assets.NewLink(0), specNoPayment.MinPayment)
 	require.NoError(t, db.Where("id = ?", specWithPayment.ID).Find(&specTwoFound).Error)
-	require.Equal(t, assets.NewLink(5), specWithPayment.MinPayment)
+	require.Equal(t, *assets.NewLink(5), specWithPayment.MinPayment)
 }
 
 func TestMigrate_Migration1565210496(t *testing.T) {

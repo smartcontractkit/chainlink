@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/presenters"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,9 +15,10 @@ import (
 func TestUserController_UpdatePassword(t *testing.T) {
 	t.Parallel()
 
-	appWithUser, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
-	client := appWithUser.NewHTTPClient()
+	require.NoError(t, app.Start())
+	client := app.NewHTTPClient()
 
 	// Invalid request
 	resp, cleanup := client.Patch("/v2/user/password", bytes.NewBufferString(""))
@@ -48,9 +50,11 @@ func TestUserController_UpdatePassword(t *testing.T) {
 func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
 	t.Parallel()
 
-	appWithoutAccount, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	client := appWithoutAccount.NewHTTPClient()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v2/user/balances")
 	defer cleanup()
@@ -66,12 +70,14 @@ func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
 func TestUserController_AccountBalances_Success(t *testing.T) {
 	t.Parallel()
 
-	appWithAccount, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
-	appWithAccount.AddUnlockedKey()
-	client := appWithAccount.NewHTTPClient()
+	require.NoError(t, app.Start())
 
-	ethMock := appWithAccount.MockEthCallerSubscriber()
+	app.AddUnlockedKey()
+	client := app.NewHTTPClient()
+
+	ethMock := app.MockEthCallerSubscriber()
 	ethMock.Context("first wallet", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getBalance", "0x0100")
 		ethMock.Register("eth_call", "0x0100")
@@ -85,7 +91,7 @@ func TestUserController_AccountBalances_Success(t *testing.T) {
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	expectedAccounts := appWithAccount.Store.KeyStore.Accounts()
+	expectedAccounts := app.Store.KeyStore.Accounts()
 	actualBalances := []presenters.AccountBalance{}
 	err := cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
 	assert.NoError(t, err)

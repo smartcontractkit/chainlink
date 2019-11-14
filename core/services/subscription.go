@@ -5,13 +5,14 @@ import (
 	"math/big"
 	"time"
 
+	"chainlink/core/logger"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
 )
 
@@ -29,7 +30,7 @@ type JobSubscription struct {
 // StartJobSubscription constructs a JobSubscription which listens for and
 // tracks event logs corresponding to the specified job. Ignores any errors if
 // there is at least one successful subscription to an initiator log.
-func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.Store) (JobSubscription, error) {
+func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.Store, runManager RunManager) (JobSubscription, error) {
 	var merr error
 	var unsubscribers []Unsubscriber
 
@@ -40,7 +41,7 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 	)
 
 	for _, initr := range initrs {
-		unsubscriber, err := NewInitiatorSubscription(initr, job, store, head, ReceiveLogRequest)
+		unsubscriber, err := NewInitiatorSubscription(initr, job, store, runManager, head, ReceiveLogRequest)
 		if err == nil {
 			unsubscribers = append(unsubscribers, unsubscriber)
 		} else {
@@ -68,10 +69,11 @@ func (js JobSubscription) Unsubscribe() {
 // to the callback.
 type InitiatorSubscription struct {
 	*ManagedSubscription
-	Job       models.JobSpec
-	Initiator models.Initiator
-	store     *strpkg.Store
-	callback  func(*strpkg.Store, models.LogRequest)
+	runManager RunManager
+	JobSpecID  models.ID
+	Initiator  models.Initiator
+	store      *strpkg.Store
+	callback   func(*strpkg.Store, RunManager, models.LogRequest)
 }
 
 // NewInitiatorSubscription creates a new InitiatorSubscription that feeds received
@@ -80,8 +82,9 @@ func NewInitiatorSubscription(
 	initr models.Initiator,
 	job models.JobSpec,
 	store *strpkg.Store,
+	runManager RunManager,
 	head *models.Head,
-	callback func(*strpkg.Store, models.LogRequest),
+	callback func(*strpkg.Store, RunManager, models.LogRequest),
 ) (InitiatorSubscription, error) {
 	nextHead := head.NextInt() // Exclude current block from subscription
 	if replayFromBlock := store.Config.ReplayFromBlock(); replayFromBlock >= 0 {
@@ -97,10 +100,11 @@ func NewInitiatorSubscription(
 	}
 
 	sub := InitiatorSubscription{
-		Job:       job,
-		Initiator: initr,
-		store:     store,
-		callback:  callback,
+		JobSpecID:  *job.ID,
+		runManager: runManager,
+		Initiator:  initr,
+		store:      store,
+		callback:   callback,
 	}
 
 	managedSub, err := NewManagedSubscription(store, filter, sub.dispatchLog)
@@ -114,36 +118,31 @@ func NewInitiatorSubscription(
 }
 
 func (sub InitiatorSubscription) dispatchLog(log models.Log) {
-	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %s", sub.Initiator.Type, sub.Job.ID.String()),
-		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Job.ID.String())
+	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %s", sub.Initiator.Type, sub.JobSpecID.String()),
+		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.JobSpecID.String())
 
 	base := models.InitiatorLogEvent{
-		JobSpec:   sub.Job,
+		JobSpecID: sub.JobSpecID,
 		Initiator: sub.Initiator,
 		Log:       log,
 	}
-	sub.callback(sub.store, base.LogRequest())
+	sub.callback(sub.store, sub.runManager, base.LogRequest())
 }
 
 func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
-	msg := fmt.Sprintf(
-		"Listening for %v from block %v for address %v for job %s",
-		initr.Type,
-		presenters.FriendlyBigInt(blockNumber),
-		utils.LogListeningAddress(initr.Address),
-		initr.JobSpecID.String())
-	logger.Infow(msg)
+	msg := fmt.Sprintf("Listening for %v from block %v", initr.Type, presenters.FriendlyBigInt(blockNumber))
+	logger.Infow(msg, "address", utils.LogListeningAddress(initr.Address), "jobID", initr.JobSpecID.String())
 }
 
 // ReceiveLogRequest parses the log and runs the job indicated by a RunLog or
 // ServiceAgreementExecutionLog. (Both log events have the same format.)
-func ReceiveLogRequest(store *strpkg.Store, le models.LogRequest) {
+func ReceiveLogRequest(store *strpkg.Store, runManager RunManager, le models.LogRequest) {
 	if !le.Validate() {
 		return
 	}
 
 	if le.GetLog().Removed {
-		logger.Debugw("Skipping run for removed log", "log", le.GetLog(), "jobId", le.GetJobSpec().ID.String())
+		logger.Debugw("Skipping run for removed log", "log", le.GetLog(), "jobId", le.GetJobSpecID().String())
 		return
 	}
 
@@ -154,29 +153,31 @@ func ReceiveLogRequest(store *strpkg.Store, le models.LogRequest) {
 		return
 	}
 
-	runJob(store, le, data)
+	runJob(store, runManager, le, data)
 }
 
-func runJob(store *strpkg.Store, le models.LogRequest, data models.JSON) {
-	input := models.RunResult{Data: data}
+func runJob(store *strpkg.Store, runManager RunManager, le models.LogRequest, data models.JSON) {
+	jobSpecID := le.GetJobSpecID()
+	initiator := le.GetInitiator()
+
 	if err := le.ValidateRequester(); err != nil {
-		input.SetError(err)
+		if _, err := runManager.CreateErrored(jobSpecID, initiator, err); err != nil {
+			logger.Errorw(err.Error())
+		}
 		logger.Errorw(err.Error(), le.ForLogger()...)
-	}
-	rr, err := le.RunRequest()
-	if err != nil {
-		input.SetError(err)
-		logger.Errorw(err.Error(), le.ForLogger()...)
+		return
 	}
 
-	_, err = ExecuteJobWithRunRequest(
-		le.GetJobSpec(),
-		le.GetInitiator(),
-		input,
-		le.BlockNumber(),
-		store.Unscoped(),
-		rr,
-	)
+	rr, err := le.RunRequest()
+	if err != nil {
+		if _, err := runManager.CreateErrored(jobSpecID, initiator, err); err != nil {
+			logger.Errorw(err.Error())
+		}
+		logger.Errorw(err.Error(), le.ForLogger()...)
+		return
+	}
+
+	_, err = runManager.Create(jobSpecID, &initiator, &data, le.BlockNumber(), &rr)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
@@ -225,7 +226,7 @@ func (sub ManagedSubscription) Unsubscribe() {
 // timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
 // unblocking the application. This is an effort to mitigate the occasional
 // indefinite block described here from go-ethereum:
-// https://github.com/smartcontractkit/chainlink/pull/600#issuecomment-426320971
+// https://chainlink/pull/600#issuecomment-426320971
 func timedUnsubscribe(unsubscriber Unsubscriber) {
 	unsubscribed := make(chan struct{})
 	go func() {

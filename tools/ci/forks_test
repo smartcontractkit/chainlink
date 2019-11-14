@@ -6,7 +6,7 @@ source ./integration/common
 
 heading 'Forks Test'
 
-yarn workspace @chainlink/integration test:forks
+./integration/forks/test
 
 title 'All tests passed.'
 

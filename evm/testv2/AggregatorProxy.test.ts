@@ -1,7 +1,5 @@
 import * as h from '../src/helpersV2'
 import { assertBigNum } from '../src/matchersV2'
-import env from '@nomiclabs/buidler'
-import { EthersProviderWrapper } from '../src/provider'
 import { ethers } from 'ethers'
 import { Instance } from '../src/contract'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
@@ -9,11 +7,12 @@ import { AggregatorFactory } from '../src/generated/AggregatorFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
 import { AggregatorProxyFactory } from '../src/generated/AggregatorProxyFactory'
 import { assert } from 'chai'
+import ganache from 'ganache-core'
 
 let personas: h.Personas
 let defaultAccount: ethers.Wallet
 
-const provider = new EthersProviderWrapper(env.ethereum)
+const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
 const linkTokenFactory = new LinkTokenFactory()
 const aggregatorFactory = new AggregatorFactory()
 const oracleFactory = new OracleFactory()
@@ -39,20 +38,20 @@ describe('AggregatorProxy', () => {
   let aggregator2: Instance<AggregatorFactory>
   let oc1: Instance<OracleFactory>
   let proxy: Instance<AggregatorProxyFactory>
-
-  beforeEach(async () => {
+  const deployment = h.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
-
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
-
     aggregator = await aggregatorFactory
       .connect(defaultAccount)
       .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
     await link.transfer(aggregator.address, deposit)
-
     proxy = await aggregatorProxyFactory
       .connect(defaultAccount)
       .deploy(aggregator.address)
+  })
+
+  beforeEach(async () => {
+    await deployment()
   })
 
   it('has a limited public interface', () => {

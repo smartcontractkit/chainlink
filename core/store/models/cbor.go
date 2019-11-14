@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"chainlink/core/utils"
+
 	"github.com/ugorji/go/codec"
 )
 

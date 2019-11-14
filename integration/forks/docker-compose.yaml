@@ -3,7 +3,7 @@
 # If you modify this, make sure to make corresponding modifications to the scripts in forks/scripts.
 # Geth is bad about letting you know when it's getting inconsistent inputs, so be careful.
 
-version: '3.7'
+version: "3.7"
 
 services:
   geth:
@@ -26,6 +26,17 @@ services:
       - password
       - "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"
 
+  # imports the 0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f key into the CL db
+  chainlink_key_import:
+    image: smartcontract/chainlink
+    command: local import /run/secrets/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f
+    volumes:
+      - ./tmp/clroot/:/clroot/
+    environment:
+      - ROOT=/clroot
+    secrets:
+      - "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"
+
   chainlink:
     image: smartcontract/chainlink
     container_name: forks_chainlink
@@ -41,9 +52,12 @@ services:
       - MIN_OUTGOING_CONFIRMATIONS=2
       - MINIMUM_CONTRACT_PAYMENT=1000000000000
       - CHAINLINK_DEV=true
+      - CHAINLINK_TLS_PORT=0
     networks:
       gethnet:
         ipv4_address: 172.16.1.102
+    depends_on:
+      - chainlink_key_import
     expose:
       - 6688
     secrets:

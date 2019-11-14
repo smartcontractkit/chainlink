@@ -3,11 +3,10 @@ import { ethers } from 'ethers'
 import { assert } from 'chai'
 import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
 import { Instance } from '../src/contract'
-import env from '@nomiclabs/buidler'
-import { EthersProviderWrapper } from '../src/provider'
+import ganache from 'ganache-core'
 
 const GetterSetterContract = new GetterSetterFactory()
-const provider = new EthersProviderWrapper(env.ethereum)
+const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
 
 let roles: h.Roles
 
@@ -23,9 +22,12 @@ describe('GetterSetter', () => {
   const bytes32 = ethers.utils.formatBytes32String('Hi Mom!')
   const uint256 = ethers.utils.bigNumberify(645746535432)
   let gs: Instance<GetterSetterFactory>
+  const deployment = h.useSnapshot(provider, async () => {
+    gs = await GetterSetterContract.connect(roles.defaultAccount).deploy()
+  })
 
   beforeEach(async () => {
-    gs = await GetterSetterContract.connect(roles.defaultAccount).deploy()
+    await deployment()
   })
 
   describe('#setBytes32Val', () => {

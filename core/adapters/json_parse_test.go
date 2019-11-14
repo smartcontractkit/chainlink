@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"chainlink/core/adapters"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -115,16 +116,16 @@ func TestJsonParse_Perform(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			input := cltest.RunResultWithResult(test.result)
+			input := cltest.NewRunInputWithResult(test.result)
 			adapter := adapters.JSONParse{Path: test.path}
 			result := adapter.Perform(input, nil)
-			assert.Equal(t, test.wantData, result.Data.String())
-			assert.Equal(t, test.wantStatus, result.Status)
+			assert.Equal(t, test.wantData, result.Data().String())
+			assert.Equal(t, test.wantStatus, result.Status())
 
 			if test.wantResultError {
-				assert.Error(t, result.GetError())
+				assert.Error(t, result.Error())
 			} else {
-				assert.NoError(t, result.GetError())
+				assert.NoError(t, result.Error())
 			}
 		})
 	}

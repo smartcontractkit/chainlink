@@ -1,8 +1,9 @@
 package migration1570087128
 
 import (
+	"chainlink/core/store/dbutil"
+
 	"github.com/jinzhu/gorm"
-	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 )
 
 func Migrate(tx *gorm.DB) error {
