@@ -40,7 +40,7 @@ interface StateProps {
 }
 
 interface DispatchProps {
-  fetchAdminOperators: (page: number, size: number) => void
+  fetchAdminOperators: (...args: Parameters<typeof fetchAdminOperators>) => void
 }
 
 interface Props
