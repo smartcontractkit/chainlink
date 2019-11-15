@@ -16,12 +16,7 @@ import (
 // ExternalInitiatorRequest is the incoming record used to create an ExternalInitiator.
 type ExternalInitiatorRequest struct {
 	Name string `json:"name"`
-	URL  WebURL `json:"url"`
-}
-
-// ExternalInitiatorRequestWithoutURL is... TODO
-type ExternalInitiatorRequestWithoutURL struct {
-	Name string `json:"name"`
+	URL  WebURL `json:"url,omitempty"`
 }
 
 // ExternalInitiator represents a user that can initiate runs remotely
