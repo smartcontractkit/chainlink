@@ -1,6 +1,7 @@
 package internal_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -848,4 +849,26 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.ID)
 	assert.NoError(t, err)
+}
+
+func TestIntegration_AuthToken(t *testing.T) {
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+
+	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
+	app.Start()
+
+	// set up user
+	app.MustSeedUserAPIKey()
+
+	url := app.Config.ClientNodeURL() + "/v2/config"
+	headers := make(map[string]string)
+	headers[web.APIKey] = cltest.APIKey
+	headers[web.APISecret] = cltest.APISecret
+	buf := bytes.NewBufferString(`{"ethGasPriceDefault":15000000}`)
+
+	resp, cleanup := cltest.UnauthenticatedPatch(t, url, buf, headers)
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 }

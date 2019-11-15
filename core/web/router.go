@@ -179,11 +179,13 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 
 	j := JobSpecsController{app}
 
-	authv2 := r.Group("/v2", RequireAuth(app.GetStore(), AuthenticateBySession))
+	authv2 := r.Group("/v2", RequireAuth(app.GetStore(), AuthenticateByToken, AuthenticateBySession))
 	{
 		uc := UserController{app}
 		authv2.PATCH("/user/password", uc.UpdatePassword)
 		authv2.GET("/user/balances", uc.AccountBalances)
+		authv2.POST("/user/token", uc.NewAPIToken)
+		authv2.POST("/user/token/delete", uc.DeleteAPIToken)
 
 		eia := ExternalInitiatorsController{app}
 		authv2.POST("/external_initiators", eia.Create)
@@ -234,12 +236,13 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 	}
 
 	ping := PingController{app}
-	sotAuth := r.Group("/v2", RequireAuth(app.GetStore(),
+	userOrEI := r.Group("/v2", RequireAuth(app.GetStore(),
 		AuthenticateExternalInitiator,
+		AuthenticateByToken,
 		AuthenticateBySession,
 	))
-	sotAuth.POST("/specs/:SpecID/runs", jr.Create)
-	sotAuth.GET("/ping", ping.Show)
+	userOrEI.POST("/specs/:SpecID/runs", jr.Create)
+	userOrEI.GET("/ping", ping.Show)
 }
 
 func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
