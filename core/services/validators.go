@@ -13,6 +13,7 @@ import (
 
 	"github.com/asaskevich/govalidator"
 	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
 )
 
 // ValidateJob checks the job and its associated Initiators and Tasks for any
@@ -92,15 +93,39 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 		return validateExternalInitiator(i)
 	case models.InitiatorServiceAgreementExecutionLog:
 		return validateServiceAgreementInitiator(i, j)
-	case models.InitiatorWeb:
-		fallthrough
 	case models.InitiatorRunLog:
-		fallthrough
+		return validateRunLogInitiator(i, j)
+	case models.InitiatorWeb:
+		return nil
 	case models.InitiatorEthLog:
 		return nil
 	default:
 		return models.NewJSONAPIErrorsWith(fmt.Sprintf("type %v does not exist", i.Type))
 	}
+}
+
+func validateRunLogInitiator(i models.Initiator, j models.JobSpec) error {
+	fe := models.NewJSONAPIErrors()
+	ethTxCount := 0
+	for _, task := range j.Tasks {
+		if task.Type == adapters.TaskTypeEthTx {
+			ethTxCount += 1
+
+			task.Params.ForEach(func(k, _ gjson.Result) bool {
+				key := strings.ToLower(k.String())
+				if key == "functionselector" {
+					fe.Add("Cannot set EthTx Task's function selector parameter with a RunLog Initiator")
+				} else if key == "address" {
+					fe.Add("Cannot set EthTx Task's address parameter with a RunLog Initiator")
+				}
+				return true
+			})
+		}
+	}
+	if ethTxCount > 1 {
+		fe.Add("Cannot RunLog initiated jobs cannot have more than one EthTx Task")
+	}
+	return fe.CoerceEmptyToNil()
 }
 
 func validateRunAtInitiator(i models.Initiator, j models.JobSpec) error {
