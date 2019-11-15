@@ -7,6 +7,8 @@ contract('PrepaidAggregator', () => {
   const paymentAmount = h.toWei('3')
   const deposit = h.toWei('100')
   const answer = 100
+  const defaultMin = 1
+  const defaultMax = 1
 
   let aggregator, link, nextRound, oracles
 
@@ -51,8 +53,11 @@ contract('PrepaidAggregator', () => {
   describe('#updateAnswer', async () => {
     beforeEach(async () => {
       oracles = [personas.Neil, personas.Ned, personas.Nelly]
-      for (const oracle of oracles) {
-        await aggregator.addOracle(oracle, { from: personas.Carol })
+      for (let i = 0; i < oracles.length; i++) {
+        const minMax = i + 1
+        await aggregator.addOracle(oracles[i], minMax, minMax, {
+          from: personas.Carol,
+        })
       }
     })
 
@@ -276,7 +281,9 @@ contract('PrepaidAggregator', () => {
   describe('#addOracle', async () => {
     it('increases the oracle count', async () => {
       const pastCount = await aggregator.oracleCount.call()
-      await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+      await aggregator.addOracle(personas.Neil, defaultMin, defaultMax, {
+        from: personas.Carol,
+      })
       const currentCount = await aggregator.oracleCount.call()
 
       assertBigNum(currentCount, pastCount.add(h.bigNum(1)))
@@ -286,7 +293,9 @@ contract('PrepaidAggregator', () => {
       const pastMin = await aggregator.minAnswerCount.call()
       const pastMax = await aggregator.maxAnswerCount.call()
 
-      await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+      await aggregator.addOracle(personas.Neil, defaultMin, defaultMax, {
+        from: personas.Carol,
+      })
 
       assertBigNum(
         pastMin.add(h.bigNum(1)),
@@ -300,12 +309,16 @@ contract('PrepaidAggregator', () => {
 
     context('when the oracle has already been added', async () => {
       beforeEach(async () => {
-        await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+        await aggregator.addOracle(personas.Neil, defaultMin, defaultMax, {
+          from: personas.Carol,
+        })
       })
 
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+          await aggregator.addOracle(personas.Neil, defaultMin, defaultMax, {
+            from: personas.Carol,
+          })
         })
       })
     })
@@ -313,7 +326,9 @@ contract('PrepaidAggregator', () => {
     context('when called by anyone but the owner', async () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.addOracle(personas.Neil, { from: personas.Neil })
+          await aggregator.addOracle(personas.Neil, defaultMin, defaultMax, {
+            from: personas.Neil,
+          })
         })
       })
     })
@@ -322,12 +337,16 @@ contract('PrepaidAggregator', () => {
     context(`when adding more than ${limit} oracles`, async () => {
       it('reverts', async () => {
         for (let i = 0; i < limit; i++) {
-          await aggregator.addOracle(web3.utils.randomHex(20), {
+          const minMax = i + 1
+          const fakeAddress = web3.utils.randomHex(20)
+          await aggregator.addOracle(fakeAddress, minMax, minMax, {
             from: personas.Carol,
           })
         }
         await h.assertActionThrows(async () => {
-          await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+          await aggregator.addOracle(personas.Neil, limit + 1, limit + 1, {
+            from: personas.Carol,
+          })
         })
       })
     })
@@ -335,7 +354,9 @@ contract('PrepaidAggregator', () => {
 
   describe('#removeOracle', async () => {
     beforeEach(async () => {
-      await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+      await aggregator.addOracle(personas.Neil, defaultMin, defaultMax, {
+        from: personas.Carol,
+      })
     })
 
     it('decreases the oracle count', async () => {
@@ -423,7 +444,9 @@ contract('PrepaidAggregator', () => {
 
       context('with a number higher than the available LINK balance', () => {
         beforeEach(async () => {
-          await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+          await aggregator.addOracle(personas.Neil, defaultMin, defaultMax, {
+            from: personas.Carol,
+          })
           await aggregator.updateAnswer(nextRound, answer, {
             from: personas.Neil,
           })
@@ -494,8 +517,11 @@ contract('PrepaidAggregator', () => {
 
     beforeEach(async () => {
       oracles = [personas.Neil, personas.Ned, personas.Nelly]
-      for (const oracle of oracles) {
-        await aggregator.addOracle(oracle, { from: personas.Carol })
+      for (let i = 0; i < oracles.length; i++) {
+        const minMax = i + 1
+        await aggregator.addOracle(oracles[i], minMax, minMax, {
+          from: personas.Carol,
+        })
       }
       minAnswerCount = oracles.length
       maxAnswerCount = oracles.length
@@ -565,7 +591,9 @@ contract('PrepaidAggregator', () => {
     it('removes allocated funds from the available balance', async () => {
       const originalBalance = await aggregator.availableFunds.call()
 
-      await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+      await aggregator.addOracle(personas.Neil, defaultMin, defaultMax, {
+        from: personas.Carol,
+      })
       await aggregator.updateAnswer(nextRound, answer, {
         from: personas.Neil,
       })
@@ -589,13 +617,15 @@ contract('PrepaidAggregator', () => {
 
   describe('#withdraw', async () => {
     beforeEach(async () => {
-      await aggregator.addOracle(personas.Neil, { from: personas.Carol })
+      await aggregator.addOracle(personas.Neil, defaultMin, defaultMax, {
+        from: personas.Carol,
+      })
       await aggregator.updateAnswer(nextRound, answer, {
         from: personas.Neil,
       })
     })
 
-    it('tranfers LINK to the caller', async () => {
+    it('transfers LINK to the caller', async () => {
       const originalBalance = await link.balanceOf.call(aggregator.address)
       assertBigNum(0, await link.balanceOf.call(personas.Neil))
 

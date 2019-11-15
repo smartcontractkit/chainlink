@@ -62,7 +62,7 @@ contract PrepaidAggregator is Ownable {
     deleteRound(_round);
   }
 
-  function addOracle(address _oracle)
+  function addOracle(address _oracle, uint64 _minAnswers, uint64 _maxAnswers)
     public
     onlyOwner()
     onlyUnenabledAddress(_oracle)
@@ -70,7 +70,7 @@ contract PrepaidAggregator is Ownable {
     require(oracleCount < 42, "cannot add more than 42 oracles");
     oracles[_oracle].enabled = true;
     oracleCount += 1;
-    setAnswerCountRange(minAnswerCount + 1, maxAnswerCount + 1);
+    setAnswerCountRange(_minAnswers, _maxAnswers);
   }
 
   function removeOracle(address _oracle)
