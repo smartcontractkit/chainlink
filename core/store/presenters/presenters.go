@@ -637,7 +637,7 @@ func NewExternalInitiatorAuthentication(
 ) *ExternalInitiatorAuthentication {
 	return &ExternalInitiatorAuthentication{
 		Name:           ei.Name,
-		URL:            ei.URL,
+		URL:            *ei.URL,
 		AccessKey:      ei.AccessKey,
 		Secret:         eia.Secret,
 		OutgoingToken:  ei.OutgoingToken,
