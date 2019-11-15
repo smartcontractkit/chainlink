@@ -15,20 +15,20 @@ import (
 
 // ExternalInitiatorRequest is the incoming record used to create an ExternalInitiator.
 type ExternalInitiatorRequest struct {
-	Name string `json:"name"`
-	URL  WebURL `json:"url"`
+	Name string  `json:"name"`
+	URL  *WebURL `json:"url,omitempty"`
 }
 
 // ExternalInitiator represents a user that can initiate runs remotely
 type ExternalInitiator struct {
 	*gorm.Model
-	Name           string `gorm:"not null;unique"`
-	URL            WebURL `gorm:"not null"`
-	AccessKey      string `gorm:"not null"`
-	Salt           string `gorm:"not null"`
-	HashedSecret   string `gorm:"not null"`
-	OutgoingSecret string `gorm:"not null"`
-	OutgoingToken  string `gorm:"not null"`
+	Name           string  `gorm:"not null;unique"`
+	URL            *WebURL `gorm:"url,omitempty"`
+	AccessKey      string  `gorm:"not null"`
+	Salt           string  `gorm:"not null"`
+	HashedSecret   string  `gorm:"not null"`
+	OutgoingSecret string  `gorm:"not null"`
+	OutgoingToken  string  `gorm:"not null"`
 }
 
 // NewExternalInitiator generates an ExternalInitiator from an
