@@ -50,6 +50,10 @@ const (
 	RootDir = "/tmp/chainlink_test"
 	// APIEmail of the API user
 	APIEmail = "email@test.net"
+	// APIKey of the API user
+	APIKey = "2d25e62eaf9143e993acaf48691564b2"
+	// APISecret of the API user.
+	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
 	// Password the password
 	Password = "password"
 	// APISessionID ID for API user
@@ -319,6 +323,16 @@ func (ta *TestApplication) MustSeedUserSession() models.User {
 	require.NoError(ta.t, ta.Store.SaveUser(&mockUser))
 	session := NewSession(APISessionID)
 	require.NoError(ta.t, ta.Store.SaveSession(&session))
+	return mockUser
+}
+
+// MustSeedUserAPIKey creates and returns a User with their API Token Key and
+// Secret generated.
+func (ta *TestApplication) MustSeedUserAPIKey() models.User {
+	mockUser := MustUser(APIEmail, Password)
+	apiToken := auth.Token{APIKey, APISecret}
+	require.NoError(ta.t, mockUser.SetAuthToken(&apiToken))
+	require.NoError(ta.t, ta.Store.SaveUser(&mockUser))
 	return mockUser
 }
 

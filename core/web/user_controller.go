@@ -37,6 +37,42 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 	}
 }
 
+// NewAPIToken generates a new API token for a user overwriting any pre-existing one set.
+func (c *UserController) NewAPIToken(ctx *gin.Context) {
+	var request models.ChangeAuthTokenRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
+	} else if user, err := c.App.GetStore().FindUser(); err != nil {
+		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
+	} else if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
+		jsonAPIError(ctx, http.StatusUnauthorized, errors.New("incorrect password"))
+	} else if newToken, err := user.GenerateAuthToken(); err != nil {
+		jsonAPIError(ctx, http.StatusInternalServerError, err)
+	} else if err := c.App.GetStore().SaveUser(&user); err != nil {
+		jsonAPIError(ctx, http.StatusInternalServerError, err)
+	} else {
+		jsonAPIResponseWithStatus(ctx, newToken, "auth_token", http.StatusCreated)
+	}
+}
+
+// DeleteAPIToken deletes and disables a user's API token.
+func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
+	var request models.ChangeAuthTokenRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
+	} else if user, err := c.App.GetStore().FindUser(); err != nil {
+		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
+	} else if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
+		jsonAPIError(ctx, http.StatusUnauthorized, errors.New("incorrect password"))
+	} else if user.DeleteAuthToken(); false {
+		jsonAPIError(ctx, http.StatusInternalServerError, err)
+	} else if err := c.App.GetStore().SaveUser(&user); err != nil {
+		jsonAPIError(ctx, http.StatusInternalServerError, err)
+	} else {
+		jsonAPIResponseWithStatus(ctx, nil, "auth_token", http.StatusNoContent)
+	}
+}
+
 // AccountBalances returns the account balances of ETH & LINK.
 // Example:
 //  "<application>/user/balances"

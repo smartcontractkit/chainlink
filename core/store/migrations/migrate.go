@@ -26,6 +26,7 @@ import (
 	"chainlink/core/store/migrations/migration1570087128"
 	"chainlink/core/store/migrations/migration1570675883"
 	"chainlink/core/store/migrations/migration1573667511"
+	"chainlink/core/store/migrations/migration1573812490"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -135,6 +136,10 @@ func MigrateTo(db *gorm.DB, migrationID string) error {
 		{
 			ID:      "1573667511",
 			Migrate: migration1573667511.Migrate,
+		},
+		{
+			ID:      "1573812490",
+			Migrate: migration1573812490.Migrate,
 		},
 	}
 

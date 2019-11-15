@@ -71,6 +71,32 @@ func authenticatedEI(c *gin.Context) (*models.ExternalInitiator, bool) {
 	return obj.(*models.ExternalInitiator), ok
 }
 
+// AuthenticateByToken authenticates a User by their API token.
+func AuthenticateByToken(store *store.Store, c *gin.Context) error {
+	token := &auth.Token{
+		AccessKey: c.GetHeader(APIKey),
+		Secret:    c.GetHeader(APISecret),
+	}
+
+	user, err := store.FindUser()
+	if errors.Cause(err) == orm.ErrorNotFound {
+		return auth.ErrorAuthFailed
+	} else if err != nil {
+		return err
+	}
+
+	ok, err := models.AuthenticateUserByToken(token, &user)
+	if err != nil {
+		return err
+	} else if !ok {
+		return auth.ErrorAuthFailed
+	}
+	c.Set(SessionUserKey, &user)
+	return nil
+}
+
+var _ authType = AuthenticateByToken
+
 func AuthenticateBySession(store *store.Store, c *gin.Context) error {
 	session := sessions.Default(c)
 	sessionID, ok := session.Get(SessionIDKey).(string)

@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"chainlink/core/auth"
+	"chainlink/core/internal/cltest"
 	"chainlink/core/store"
 	"chainlink/core/web"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func authError(_ *store.Store, _ *gin.Context) error {
@@ -23,6 +25,56 @@ func authFailure(_ *store.Store, _ *gin.Context) error {
 
 func authSuccess(_ *store.Store, _ *gin.Context) error {
 	return nil
+}
+
+func TestAuthenticateByToken_Success(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	app.Start()
+	app.MustSeedUserAPIKey()
+
+	called := false
+	router := gin.New()
+	router.Use(web.RequireAuth(app.GetStore(), web.AuthenticateByToken))
+	router.GET("/", func(c *gin.Context) {
+		called = true
+		c.String(http.StatusOK, "")
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/", nil)
+	req.Header.Set(web.APIKey, cltest.APIKey)
+	req.Header.Set(web.APISecret, cltest.APISecret)
+	router.ServeHTTP(w, req)
+
+	assert.True(t, called)
+	assert.Equal(t, http.StatusText(http.StatusOK), http.StatusText(w.Code))
+}
+
+func TestAuthenticateByToken_AuthFailed(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	app.Start()
+	app.MustSeedUserAPIKey()
+
+	called := false
+	router := gin.New()
+	router.Use(web.RequireAuth(app.GetStore(), web.AuthenticateByToken))
+	router.GET("/", func(c *gin.Context) {
+		called = true
+		c.String(http.StatusOK, "")
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/", nil)
+	req.Header.Set(web.APIKey, cltest.APIKey)
+	req.Header.Set(web.APISecret, "bad-secret")
+	router.ServeHTTP(w, req)
+
+	assert.False(t, called)
+	assert.Equal(t, http.StatusText(http.StatusUnauthorized), http.StatusText(w.Code))
 }
 
 func TestRequireAuth_NoneRequired(t *testing.T) {
