@@ -85,7 +85,6 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
 	}
 
 	requestData, err := json.Marshal(request)
-
 	if err != nil {
 		return cli.errorOut(err)
 	}
