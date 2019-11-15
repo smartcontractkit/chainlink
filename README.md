@@ -126,7 +126,7 @@ $ yarn build
 3. Ready for testing:
 
 ```bash
-$ go test ./...
+$ go test -parallel=1 ./...
 ```
 
 ### Solidity Development
