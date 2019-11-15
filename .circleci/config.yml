@@ -419,18 +419,17 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-      - build-chainlink:
+      - prepublish_npm:
           filters:
             tags:
               only: /^v.*/
       - build-explorer:
           filters:
-            tags:
-              only: /^v.*/
-      - prepublish_npm:
-          filters:
-            tags:
-              only: /^v.*/
+            branches:
+              ignore:
+                - develop
+                - /^release\/.*/
+                - master
       - build-publish-explorer:
           requires:
             - explorer
@@ -441,6 +440,13 @@ workflows:
                 - /^release\/.*/
             tags:
               only: /^explorer-v.*/ # handles final versioned releases
+      - build-chainlink:
+          filters:
+            branches:
+              ignore:
+                - develop
+                - /^release\/.*/
+                - master
       - build-publish-chainlink:
           requires:
             - go-sqlite
