@@ -40,8 +40,14 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 		models.InitiatorServiceAgreementExecutionLog,
 	)
 
+	nextHead := head.NextInt() // Exclude current block from subscription
+	if replayFromBlock := store.Config.ReplayFromBlock(); replayFromBlock >= 0 {
+		replayFromBlockBN := big.NewInt(replayFromBlock)
+		nextHead = replayFromBlockBN
+	}
+
 	for _, initr := range initrs {
-		unsubscriber, err := NewInitiatorSubscription(initr, job, store, runManager, head, ReceiveLogRequest)
+		unsubscriber, err := NewInitiatorSubscription(initr, job, store, runManager, nextHead, ReceiveLogRequest)
 		if err == nil {
 			unsubscribers = append(unsubscribers, unsubscriber)
 		} else {
@@ -83,16 +89,9 @@ func NewInitiatorSubscription(
 	job models.JobSpec,
 	store *strpkg.Store,
 	runManager RunManager,
-	head *models.Head,
+	nextHead *big.Int,
 	callback func(*strpkg.Store, RunManager, models.LogRequest),
 ) (InitiatorSubscription, error) {
-	nextHead := head.NextInt() // Exclude current block from subscription
-	if replayFromBlock := store.Config.ReplayFromBlock(); replayFromBlock >= 0 {
-		replayFromBlockBN := big.NewInt(replayFromBlock)
-		if nextHead.Cmp(replayFromBlockBN) < 0 {
-			nextHead = big.NewInt(0).Add(replayFromBlockBN, big.NewInt(1))
-		}
-	}
 
 	filter, err := models.FilterQueryFactory(initr, nextHead)
 	if err != nil {
