@@ -242,6 +242,11 @@ func (w *WebURL) UnmarshalJSON(j []byte) error {
 	if err != nil {
 		return err
 	}
+	// handle no url case
+	if len(v) == 0 {
+		return nil
+	}
+
 	u, err := url.ParseRequestURI(v)
 	if err != nil {
 		return err
