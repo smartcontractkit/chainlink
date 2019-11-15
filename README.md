@@ -114,6 +114,17 @@ $ ./chainlink
 
 ### Test
 
+1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
+
+2. Build contracts:
+
+```bash
+$ cd evm
+$ yarn build
+```
+
+3. Ready for testing:
+
 ```bash
 $ go test ./...
 ```
