@@ -73,23 +73,14 @@ contract PrepaidAggregator is Ownable {
     setAnswerCountRange(_minAnswers, _maxAnswers);
   }
 
-  function removeOracle(address _oracle)
+  function removeOracle(address _oracle, uint64 _minAnswers, uint64 _maxAnswers)
     public
     onlyOwner()
     onlyEnabledAddress(_oracle)
   {
     oracles[_oracle].enabled = false;
     oracleCount -= 1;
-
-    uint64 min = minAnswerCount;
-    uint64 max = maxAnswerCount;
-    if (min > 0) {
-      min = min - 1;
-    }
-    if (max > 0) {
-      max = max - 1;
-    }
-    setAnswerCountRange(min, max);
+    setAnswerCountRange(_minAnswers, _maxAnswers);
   }
 
   function setPaymentAmount(uint128 _newAmount)
