@@ -87,7 +87,7 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 func (je *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) models.RunOutput {
 	taskCopy := taskRun.TaskSpec // deliberately copied to keep mutations local
 
-	params, err := models.Merge(taskCopy.Params, run.Overrides)
+	params, err := models.Merge(run.Overrides, taskCopy.Params)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
