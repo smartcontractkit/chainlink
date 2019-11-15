@@ -56,7 +56,7 @@ function sendDelete(path: string, username: string, password: string) {
     .set(ADMIN_PASSWORD_HEADER, password)
 }
 
-describe('POST /nodes', () => {
+describe('POST /api/v1/admin/nodes', () => {
   it('can create a node and returns the generated information', done => {
     const data = { name: 'nodeA', url: 'http://nodea.com' }
 
@@ -102,7 +102,7 @@ describe('POST /nodes', () => {
   })
 })
 
-describe('DELETE /nodes/:name', () => {
+describe('DELETE /api/v1/admin/nodes/:name', () => {
   function path(name: string): string {
     return `${adminNodesPath}/${name}`
   }

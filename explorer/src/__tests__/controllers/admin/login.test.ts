@@ -32,7 +32,7 @@ beforeAll(async () => {
 })
 afterAll(done => stop(server, done))
 
-describe('#index', () => {
+describe('POST /api/v1/admin/login', () => {
   beforeEach(async () => {
     await clearDb()
     await createAdmin(db, USERNAME, PASSWORD)
@@ -41,6 +41,9 @@ describe('#index', () => {
   it('returns a 200 with valid credentials', done => {
     sendPost(adminLoginPath, USERNAME, PASSWORD)
       .expect(200)
+      .expect(res => {
+        expect(res.body).toEqual({})
+      })
       .end(done)
   })
 
