@@ -72,23 +72,19 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("create expects 1 - 2 arguments: a name and a url (optional)"))
 	}
 
-	var requestData []byte
-	var err error
+	var request models.ExternalInitiatorRequest
+	request.Name = c.Args().Get(0)
 
+	// process optional URL
 	if c.NArg() == 2 {
-		var request models.ExternalInitiatorRequest
-		request.Name = c.Args().Get(0)
 		if url, err := url.ParseRequestURI(c.Args().Get(1)); err == nil {
 			request.URL = models.WebURL(*url)
-			requestData, err = json.Marshal(request)
 		} else {
 			return cli.errorOut(err)
 		}
-	} else {
-		var request models.ExternalInitiatorRequestWithoutURL
-		request.Name = c.Args().Get(0)
-		requestData, err = json.Marshal(request)
 	}
+
+	requestData, err := json.Marshal(request)
 
 	if err != nil {
 		return cli.errorOut(err)
