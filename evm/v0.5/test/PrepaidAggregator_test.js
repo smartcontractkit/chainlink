@@ -9,6 +9,7 @@ contract('PrepaidAggregator', () => {
   const answer = 100
   const minAns = 1
   const maxAns = 1
+  const rrDelay = 0
 
   let aggregator, link, nextRound, oracles
 
@@ -56,7 +57,7 @@ contract('PrepaidAggregator', () => {
       oracles = [personas.Neil, personas.Ned, personas.Nelly]
       for (let i = 0; i < oracles.length; i++) {
         const minMax = i + 1
-        await aggregator.addOracle(oracles[i], minMax, minMax, {
+        await aggregator.addOracle(oracles[i], minMax, minMax, rrDelay, {
           from: personas.Carol,
         })
       }
@@ -169,7 +170,9 @@ contract('PrepaidAggregator', () => {
 
     context('when updated after the max answers submitted', async () => {
       beforeEach(async () => {
-        await aggregator.setAnswerCountRange(1, 1, { from: personas.Carol })
+        await aggregator.setAnswerCountRange(1, 1, rrDelay, {
+          from: personas.Carol,
+        })
         await aggregator.updateAnswer(nextRound, answer, {
           from: personas.Neil,
         })
@@ -282,7 +285,7 @@ contract('PrepaidAggregator', () => {
   describe('#addOracle', async () => {
     it('increases the oracle count', async () => {
       const pastCount = await aggregator.oracleCount.call()
-      await aggregator.addOracle(personas.Neil, minAns, maxAns, {
+      await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
         from: personas.Carol,
       })
       const currentCount = await aggregator.oracleCount.call()
@@ -294,7 +297,7 @@ contract('PrepaidAggregator', () => {
       const pastMin = await aggregator.minAnswerCount.call()
       const pastMax = await aggregator.maxAnswerCount.call()
 
-      await aggregator.addOracle(personas.Neil, minAns, maxAns, {
+      await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
         from: personas.Carol,
       })
 
@@ -310,14 +313,14 @@ contract('PrepaidAggregator', () => {
 
     context('when the oracle has already been added', async () => {
       beforeEach(async () => {
-        await aggregator.addOracle(personas.Neil, minAns, maxAns, {
+        await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
           from: personas.Carol,
         })
       })
 
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.addOracle(personas.Neil, minAns, maxAns, {
+          await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
             from: personas.Carol,
           })
         })
@@ -327,7 +330,7 @@ contract('PrepaidAggregator', () => {
     context('when called by anyone but the owner', async () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.addOracle(personas.Neil, minAns, maxAns, {
+          await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
             from: personas.Neil,
           })
         })
@@ -340,14 +343,20 @@ contract('PrepaidAggregator', () => {
         for (let i = 0; i < limit; i++) {
           const minMax = i + 1
           const fakeAddress = web3.utils.randomHex(20)
-          await aggregator.addOracle(fakeAddress, minMax, minMax, {
+          await aggregator.addOracle(fakeAddress, minMax, minMax, rrDelay, {
             from: personas.Carol,
           })
         }
         await h.assertActionThrows(async () => {
-          await aggregator.addOracle(personas.Neil, limit + 1, limit + 1, {
-            from: personas.Carol,
-          })
+          await aggregator.addOracle(
+            personas.Neil,
+            limit + 1,
+            limit + 1,
+            rrDelay,
+            {
+              from: personas.Carol,
+            },
+          )
         })
       })
     })
@@ -355,17 +364,17 @@ contract('PrepaidAggregator', () => {
 
   describe('#removeOracle', async () => {
     beforeEach(async () => {
-      await aggregator.addOracle(personas.Neil, minAns, maxAns, {
+      await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
         from: personas.Carol,
       })
-      await aggregator.addOracle(personas.Nelly, 2, 2, {
+      await aggregator.addOracle(personas.Nelly, 2, 2, rrDelay, {
         from: personas.Carol,
       })
     })
 
     it('decreases the oracle count', async () => {
       const pastCount = await aggregator.oracleCount.call()
-      await aggregator.removeOracle(personas.Neil, minAns, maxAns, {
+      await aggregator.removeOracle(personas.Neil, minAns, maxAns, rrDelay, {
         from: personas.Carol,
       })
       const currentCount = await aggregator.oracleCount.call()
@@ -374,7 +383,7 @@ contract('PrepaidAggregator', () => {
     })
 
     it('updates the answer range', async () => {
-      await aggregator.removeOracle(personas.Neil, minAns, maxAns, {
+      await aggregator.removeOracle(personas.Neil, minAns, maxAns, rrDelay, {
         from: personas.Carol,
       })
 
@@ -384,16 +393,22 @@ contract('PrepaidAggregator', () => {
 
     context('when the oracle is not currently added', async () => {
       beforeEach(async () => {
-        await aggregator.removeOracle(personas.Neil, minAns, maxAns, {
+        await aggregator.removeOracle(personas.Neil, minAns, maxAns, rrDelay, {
           from: personas.Carol,
         })
       })
 
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.removeOracle(personas.Neil, minAns, maxAns, {
-            from: personas.Carol,
-          })
+          await aggregator.removeOracle(
+            personas.Neil,
+            minAns,
+            maxAns,
+            rrDelay,
+            {
+              from: personas.Carol,
+            },
+          )
         })
       })
     })
@@ -401,7 +416,7 @@ contract('PrepaidAggregator', () => {
     context('when called by anyone but the owner', async () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.removeOracle(personas.Neil, 0, 0, {
+          await aggregator.removeOracle(personas.Neil, 0, 0, rrDelay, {
             from: personas.Ned,
           })
         })
@@ -434,7 +449,7 @@ contract('PrepaidAggregator', () => {
 
       context('with a number higher than the available LINK balance', () => {
         beforeEach(async () => {
-          await aggregator.addOracle(personas.Neil, minAns, maxAns, {
+          await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
             from: personas.Carol,
           })
           await aggregator.updateAnswer(nextRound, answer, {
@@ -509,7 +524,7 @@ contract('PrepaidAggregator', () => {
       oracles = [personas.Neil, personas.Ned, personas.Nelly]
       for (let i = 0; i < oracles.length; i++) {
         const minMax = i + 1
-        await aggregator.addOracle(oracles[i], minMax, minMax, {
+        await aggregator.addOracle(oracles[i], minMax, minMax, rrDelay, {
           from: personas.Carol,
         })
       }
@@ -524,7 +539,7 @@ contract('PrepaidAggregator', () => {
       const newMin = 1
       const newMax = 2
 
-      await aggregator.setAnswerCountRange(newMin, newMax, {
+      await aggregator.setAnswerCountRange(newMin, newMax, rrDelay, {
         from: personas.Carol,
       })
 
@@ -535,7 +550,7 @@ contract('PrepaidAggregator', () => {
     context('when it is set to higher than the number or oracles', async () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.setAnswerCountRange(minAnswerCount, 4, {
+          await aggregator.setAnswerCountRange(minAnswerCount, 4, rrDelay, {
             from: personas.Carol,
           })
         })
@@ -545,7 +560,7 @@ contract('PrepaidAggregator', () => {
     context('when it sets the min higher than the max', async () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.setAnswerCountRange(3, 2, {
+          await aggregator.setAnswerCountRange(3, 2, rrDelay, {
             from: personas.Carol,
           })
         })
@@ -555,7 +570,7 @@ contract('PrepaidAggregator', () => {
     context('when called by anyone but the owner', async () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
-          await aggregator.setAnswerCountRange(1, 3, {
+          await aggregator.setAnswerCountRange(1, 3, rrDelay, {
             from: personas.Ned,
           })
         })
@@ -581,7 +596,7 @@ contract('PrepaidAggregator', () => {
     it('removes allocated funds from the available balance', async () => {
       const originalBalance = await aggregator.availableFunds.call()
 
-      await aggregator.addOracle(personas.Neil, minAns, maxAns, {
+      await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
         from: personas.Carol,
       })
       await aggregator.updateAnswer(nextRound, answer, {
@@ -607,7 +622,7 @@ contract('PrepaidAggregator', () => {
 
   describe('#withdraw', async () => {
     beforeEach(async () => {
-      await aggregator.addOracle(personas.Neil, minAns, maxAns, {
+      await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
         from: personas.Carol,
       })
       await aggregator.updateAnswer(nextRound, answer, {
