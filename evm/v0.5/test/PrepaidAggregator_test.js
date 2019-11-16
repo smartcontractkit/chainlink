@@ -35,6 +35,7 @@ contract('PrepaidAggregator', () => {
       'oracleCount',
       'paymentAmount',
       'removeOracle',
+      'roundRestartDelay',
       'setAnswerCountRange',
       'setPaymentAmount',
       'updateAnswer',
@@ -519,7 +520,7 @@ contract('PrepaidAggregator', () => {
       assert.equal(maxAnswerCount, await aggregator.maxAnswerCount.call())
     })
 
-    it('it updates the min and max answer counts', async () => {
+    it('updates the min and max answer counts', async () => {
       const newMin = 1
       const newMax = 2
 
