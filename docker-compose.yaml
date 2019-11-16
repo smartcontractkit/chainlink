@@ -2,6 +2,7 @@ version: "3.1"
 
 services:
   node:
+    container_name: chainlink-node
     image: smartcontract/chainlink
     build:
       context: .
@@ -39,6 +40,7 @@ services:
       - apicredentials
 
   node-db:
+    container_name: chainlink-db
     image: postgres:11.5
     networks:
       - node-internal
@@ -49,11 +51,13 @@ services:
       POSTGRES_PASSWORD: node
 
   devnet:
+    container_name: parity-node
     image: smartcontract/devnet
     networks:
       - ethereum-node
 
   explorer:
+    container_name: chainlink-explorer
     image: chainlink/explorer
     build:
       context: .
@@ -75,6 +79,7 @@ services:
       PGPASSWORD: explorer
 
   explorer-db:
+    container_name: chainlink-explorer-db
     image: postgres:11.5
     networks:
       - explorer-internal
