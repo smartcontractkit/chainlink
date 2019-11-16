@@ -22,7 +22,6 @@
   "scripts": {
     "start": "cross-env PORT=3001 craco start",
     "build:clean": "rimraf -rf build",
-    "prebuild": "yarn install",
     "build": "craco build",
     "lint": "eslint --ext .js,.ts,.tsx,.jsx src",
     "format": "prettier --write \"**/*\"",
