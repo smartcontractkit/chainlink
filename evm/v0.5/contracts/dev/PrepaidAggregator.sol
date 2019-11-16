@@ -32,6 +32,7 @@ contract PrepaidAggregator is Ownable {
   uint64 public oracleCount;
   uint64 public maxAnswerCount;
   uint64 public minAnswerCount;
+  uint64 public roundRestartDelay;
   uint256 public updatedHeight;
   uint128 public availableFunds;
   uint128 public allocatedFunds;
