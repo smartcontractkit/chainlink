@@ -63,7 +63,12 @@ contract PrepaidAggregator is Ownable {
     deleteRound(_round);
   }
 
-  function addOracle(address _oracle, uint64 _minAnswers, uint64 _maxAnswers)
+  function addOracle(
+    address _oracle,
+    uint64 _minAnswers,
+    uint64 _maxAnswers,
+    uint64 _roundRestartDelay
+  )
     public
     onlyOwner()
     onlyUnenabledAddress(_oracle)
@@ -71,17 +76,22 @@ contract PrepaidAggregator is Ownable {
     require(oracleCount < 42, "cannot add more than 42 oracles");
     oracles[_oracle].enabled = true;
     oracleCount += 1;
-    setAnswerCountRange(_minAnswers, _maxAnswers);
+    setAnswerCountRange(_minAnswers, _maxAnswers, _roundRestartDelay);
   }
 
-  function removeOracle(address _oracle, uint64 _minAnswers, uint64 _maxAnswers)
+  function removeOracle(
+    address _oracle,
+    uint64 _minAnswers,
+    uint64 _maxAnswers,
+    uint64 _roundRestartDelay
+  )
     public
     onlyOwner()
     onlyEnabledAddress(_oracle)
   {
     oracles[_oracle].enabled = false;
     oracleCount -= 1;
-    setAnswerCountRange(_minAnswers, _maxAnswers);
+    setAnswerCountRange(_minAnswers, _maxAnswers, _roundRestartDelay);
   }
 
   function setPaymentAmount(uint128 _newAmount)
@@ -92,13 +102,18 @@ contract PrepaidAggregator is Ownable {
     emit PaymentAmountUpdated(_newAmount);
   }
 
-  function setAnswerCountRange(uint64 _min, uint64 _max)
+  function setAnswerCountRange(
+    uint64 _minAnswerCount,
+    uint64 _maxAnswerCount,
+    uint64 _roundRestartDelay
+  )
     public
     onlyOwner()
-    onlyValidRange(_min, _max)
+    onlyValidRange(_minAnswerCount, _maxAnswerCount)
   {
-    minAnswerCount = _min;
-    maxAnswerCount = _max;
+    minAnswerCount = _minAnswerCount;
+    maxAnswerCount = _maxAnswerCount;
+    roundRestartDelay = _roundRestartDelay;
   }
 
   function updateAvailableFunds()
