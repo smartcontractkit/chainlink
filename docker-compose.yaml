@@ -1,7 +1,7 @@
 version: "3.1"
 
 services:
-  chainlink:
+  node:
     image: smartcontract/chainlink
     build:
       context: .
@@ -20,20 +20,34 @@ services:
       - RUST_BACKTRACE=1
       - CHAINLINK_DEV=true
       - EXPLORER_URL=ws://explorer:3000
+      - DATABASE_URL=postgresql://postgres:node@node-db:5432/node_dev?sslmode=disable
       # Development only credentials, requires record in node table in tools/docker/docker-entrypoint-initdb.d/explorer_schema.sql
       - EXPLORER_ACCESS_KEY=u4HULe0pj5xPyuvv
       - EXPLORER_SECRET=YDxkVRTmcliehGZPw7f0L2Td3sz3LqutAQyy7sLCEIP6xcWzbO8zgfBWi4DXC6U6
     networks:
       - explorer-external
       - ethereum-node
+      - node-internal
     ports:
       - 6688:6688
     depends_on:
       - devnet
       - explorer
+      - node-db
     secrets:
       - node_password
       - apicredentials
+
+  node-db:
+    image: postgres:11.5
+    networks:
+      - node-internal
+    volumes:
+      - node-db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: node_dev
+      POSTGRES_PASSWORD: node
+
   devnet:
     image: smartcontract/devnet
     networks:
@@ -59,6 +73,7 @@ services:
       TYPEORM_USERNAME: postgres
       TYPEORM_HOST: explorer-db
       PGPASSWORD: explorer
+
   explorer-db:
     image: postgres:11.5
     networks:
@@ -68,6 +83,7 @@ services:
     environment:
       POSTGRES_DB: explorer_dev
       POSTGRES_PASSWORD: explorer
+
 networks:
   ethereum-node:
     driver: bridge
@@ -75,11 +91,15 @@ networks:
     driver: bridge
   explorer-internal:
     driver: bridge
+  node-internal:
+    driver: bridge
+
 secrets:
   node_password:
     file: ./tools/clroot/password.txt
   apicredentials:
     file: ./tools/clroot/apicredentials
+
 volumes:
   explorer-db-data:
-    driver: local
+  node-db-data:
