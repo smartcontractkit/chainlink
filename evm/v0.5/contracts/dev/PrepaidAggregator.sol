@@ -34,14 +34,13 @@ contract PrepaidAggregator is Ownable {
     uint256 lastStartedRound;
   }
 
-  int256 public currentAnswer;
+  uint256 public latestRound;
   uint256 public currentRound;
   uint128 public paymentAmount;
   uint64 public oracleCount;
   uint64 public maxAnswerCount;
   uint64 public minAnswerCount;
   uint64 public restartDelay;
-  uint256 public updatedHeight;
   uint128 public availableFunds;
   uint128 public allocatedFunds;
 
@@ -197,6 +196,25 @@ contract PrepaidAggregator is Ownable {
     return oracles[msg.sender].withdrawable;
   }
 
+  /**
+   * @notice get the most recently reported answer
+   */
+  function currentAnswer()
+    public
+    returns (int256)
+  {
+    return rounds[latestRound].answer;
+  }
+
+  /**
+   * @notice get the last updated at block height
+   */
+  function updatedHeight()
+    public
+    returns (uint256)
+  {
+    return rounds[latestRound].updatedHeight;
+  }
 
   /**
    * @notice transfers the oracle's LINK to another address
@@ -250,8 +268,10 @@ contract PrepaidAggregator is Ownable {
     onlyIfMinAnswersReceived(_id)
   {
     int256 newAnswer = Median.calculate(rounds[_id].details.answers);
-    currentAnswer = newAnswer;
-    updatedHeight = block.number;
+    rounds[_id].answer = newAnswer;
+    rounds[_id].updatedHeight = block.number;
+    latestRound = _id;
+
     emit AnswerUpdated(newAnswer, _id);
   }
 
