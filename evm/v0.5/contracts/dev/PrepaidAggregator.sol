@@ -45,7 +45,7 @@ contract PrepaidAggregator is Ownable {
   event NewRound(uint256 indexed number, address indexed startedBy);
   event AnswerUpdated(int256 indexed current, uint256 indexed round);
   event AvailableFundsUpdated(uint256 indexed amount);
-  event RoundDetailsUpdated(
+  event RoundSettingsUpdated(
     uint128 indexed paymentAmount,
     uint64 indexed minAnswerCount,
     uint64 indexed maxAnswerCount,
@@ -54,7 +54,7 @@ contract PrepaidAggregator is Ownable {
 
   constructor(address _link, uint128 _paymentAmount) public {
     LINK = LinkTokenInterface(_link);
-    setPaymentAmount(_paymentAmount);
+    updateFutureRounds(_paymentAmount, 0, 0, 0);
   }
 
   function updateAnswer(uint256 _round, int256 _answer)
@@ -83,7 +83,7 @@ contract PrepaidAggregator is Ownable {
     oracles[_oracle].enabled = true;
     oracleCount += 1;
 
-    setAnswerCountRange(_minAnswers, _maxAnswers, _restartDelay);
+    updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay);
   }
 
   function removeOracle(
@@ -99,24 +99,11 @@ contract PrepaidAggregator is Ownable {
     oracles[_oracle].enabled = false;
     oracleCount -= 1;
 
-    setAnswerCountRange(_minAnswers, _maxAnswers, _restartDelay);
+    updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay);
   }
 
-  function setPaymentAmount(uint128 _newAmount)
-    public
-    onlyOwner()
-  {
-    paymentAmount = _newAmount;
-
-    emit RoundDetailsUpdated(
-      _newAmount,
-      minAnswerCount,
-      maxAnswerCount,
-      restartDelay
-    );
-  }
-
-  function setAnswerCountRange(
+  function updateFutureRounds(
+    uint128 _newPaymentAmount,
     uint64 _minAnswerCount,
     uint64 _maxAnswerCount,
     uint64 _restartDelay
@@ -125,11 +112,12 @@ contract PrepaidAggregator is Ownable {
     onlyOwner()
     onlyValidRange(_minAnswerCount, _maxAnswerCount, _restartDelay)
   {
+    paymentAmount = _newPaymentAmount;
     minAnswerCount = _minAnswerCount;
     maxAnswerCount = _maxAnswerCount;
     restartDelay = _restartDelay;
 
-    emit RoundDetailsUpdated(
+    emit RoundSettingsUpdated(
       paymentAmount,
       _minAnswerCount,
       _maxAnswerCount,
