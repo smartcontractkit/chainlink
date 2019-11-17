@@ -45,7 +45,7 @@ contract('PrepaidAggregator', () => {
       'oracleCount',
       'paymentAmount',
       'removeOracle',
-      'roundRestartDelay',
+      'restartDelay',
       'setAnswerCountRange',
       'setPaymentAmount',
       'updateAnswer',
@@ -302,22 +302,18 @@ contract('PrepaidAggregator', () => {
       assertBigNum(currentCount, pastCount.add(h.bigNum(1)))
     })
 
-    it('updates the answer range', async () => {
+    it('updates the round details', async () => {
       const pastMin = await aggregator.minAnswerCount.call()
       const pastMax = await aggregator.maxAnswerCount.call()
+      const pastDelay = await aggregator.maxAnswerCount.call()
 
-      await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
+      await aggregator.addOracle(personas.Neil, 0, 1, 2, {
         from: personas.Carol,
       })
 
-      assertBigNum(
-        pastMin.add(h.bigNum(1)),
-        await aggregator.minAnswerCount.call(),
-      )
-      assertBigNum(
-        pastMax.add(h.bigNum(1)),
-        await aggregator.maxAnswerCount.call(),
-      )
+      assertBigNum(h.bigNum(0), await aggregator.minAnswerCount.call())
+      assertBigNum(h.bigNum(1), await aggregator.maxAnswerCount.call())
+      assertBigNum(h.bigNum(2), await aggregator.restartDelay.call())
     })
 
     context('when the oracle has already been added', async () => {
@@ -391,13 +387,14 @@ contract('PrepaidAggregator', () => {
       assertBigNum(currentCount, pastCount.sub(h.bigNum(1)))
     })
 
-    it('updates the answer range', async () => {
-      await aggregator.removeOracle(personas.Neil, minAns, maxAns, rrDelay, {
+    it('updates the round details', async () => {
+      await aggregator.removeOracle(personas.Neil, 0, 1, 1, {
         from: personas.Carol,
       })
 
-      assertBigNum(h.bigNum(minAns), await aggregator.minAnswerCount.call())
-      assertBigNum(h.bigNum(maxAns), await aggregator.maxAnswerCount.call())
+      assertBigNum(h.bigNum(0), await aggregator.minAnswerCount.call())
+      assertBigNum(h.bigNum(1), await aggregator.maxAnswerCount.call())
+      assertBigNum(h.bigNum(1), await aggregator.restartDelay.call())
     })
 
     context('when the oracle is not currently added', async () => {
@@ -529,7 +526,7 @@ contract('PrepaidAggregator', () => {
   describe('#setAnswerCountRange', async () => {
     let minAnswerCount, maxAnswerCount
     const newMin = 1
-    const newMax = 2
+    const newMax = 3
     const newDelay = 2
 
     beforeEach(async () => {
@@ -548,12 +545,13 @@ contract('PrepaidAggregator', () => {
     })
 
     it('updates the min and max answer counts', async () => {
-      await aggregator.setAnswerCountRange(newMin, newMax, rrDelay, {
+      await aggregator.setAnswerCountRange(newMin, newMax, newDelay, {
         from: personas.Carol,
       })
 
-      assert.equal(newMin, await aggregator.minAnswerCount.call())
-      assert.equal(newMax, await aggregator.maxAnswerCount.call())
+      assertBigNum(h.bigNum(newMin), await aggregator.minAnswerCount.call())
+      assertBigNum(h.bigNum(newMax), await aggregator.maxAnswerCount.call())
+      assertBigNum(h.bigNum(newDelay), await aggregator.restartDelay.call())
     })
 
     it('emits a log announcing the new round details', async () => {
