@@ -123,7 +123,7 @@ contract PrepaidAggregator is Ownable {
   )
     public
     onlyOwner()
-    onlyValidRange(_minAnswerCount, _maxAnswerCount)
+    onlyValidRange(_minAnswerCount, _maxAnswerCount, _restartDelay)
   {
     minAnswerCount = _minAnswerCount;
     maxAnswerCount = _maxAnswerCount;
@@ -269,9 +269,13 @@ contract PrepaidAggregator is Ownable {
     _;
   }
 
-  modifier onlyValidRange(uint64 _min, uint64 _max) {
-    require(oracleCount >= _max, "Cannot have the answer max higher oracle count");
+  modifier onlyValidRange(uint64 _min, uint64 _max, uint64 _restartDelay) {
+    uint64 oracleNum = oracleCount; // Save on storage reads
+    require(oracleNum >= _max, "Cannot have the answer max higher oracle count");
     require(_max >= _min, "Cannot have the answer minimum higher the max");
+    if (oracleNum > 0) {
+      require(oracleNum > _restartDelay, "Restart delay must be less than oracle count");
+    }
     _;
   }
 

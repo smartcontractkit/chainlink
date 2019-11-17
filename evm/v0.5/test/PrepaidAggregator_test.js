@@ -361,13 +361,13 @@ contract('PrepaidAggregator', () => {
       const pastMax = await aggregator.maxAnswerCount.call()
       const pastDelay = await aggregator.maxAnswerCount.call()
 
-      await aggregator.addOracle(personas.Neil, 0, 1, 2, {
+      await aggregator.addOracle(personas.Neil, 0, 1, 0, {
         from: personas.Carol,
       })
 
       assertBigNum(h.bigNum(0), await aggregator.minAnswerCount.call())
       assertBigNum(h.bigNum(1), await aggregator.maxAnswerCount.call())
-      assertBigNum(h.bigNum(2), await aggregator.restartDelay.call())
+      assertBigNum(h.bigNum(0), await aggregator.restartDelay.call())
     })
 
     context('when the oracle has already been added', async () => {
@@ -442,13 +442,13 @@ contract('PrepaidAggregator', () => {
     })
 
     it('updates the round details', async () => {
-      await aggregator.removeOracle(personas.Neil, 0, 1, 1, {
+      await aggregator.removeOracle(personas.Neil, 0, 1, 0, {
         from: personas.Carol,
       })
 
       assertBigNum(h.bigNum(0), await aggregator.minAnswerCount.call())
       assertBigNum(h.bigNum(1), await aggregator.maxAnswerCount.call())
-      assertBigNum(h.bigNum(1), await aggregator.restartDelay.call())
+      assertBigNum(h.bigNum(0), await aggregator.restartDelay.call())
     })
 
     context('when the oracle is not currently added', async () => {
@@ -469,6 +469,18 @@ contract('PrepaidAggregator', () => {
               from: personas.Carol,
             },
           )
+        })
+      })
+    })
+
+    context('when removing the last oracle', async () => {
+      it('does not revert', async () => {
+        await aggregator.removeOracle(personas.Neil, minAns, maxAns, rrDelay, {
+          from: personas.Carol,
+        })
+
+        await aggregator.removeOracle(personas.Nelly, 0, 0, 0, {
+          from: personas.Carol,
         })
       })
     })
@@ -640,6 +652,16 @@ contract('PrepaidAggregator', () => {
       it('reverts', async () => {
         await h.assertActionThrows(async () => {
           await aggregator.setAnswerCountRange(3, 2, rrDelay, {
+            from: personas.Carol,
+          })
+        })
+      })
+    })
+
+    context('when delay equal or greater the oracle count', async () => {
+      it('reverts', async () => {
+        await h.assertActionThrows(async () => {
+          await aggregator.setAnswerCountRange(1, 1, 3, {
             from: personas.Carol,
           })
         })
