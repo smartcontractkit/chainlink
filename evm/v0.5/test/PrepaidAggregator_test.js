@@ -213,7 +213,7 @@ contract('PrepaidAggregator', () => {
         })
         const log = tx.receipt.rawLogs[0]
         const roundNumber = h.bigNum(log.topics[1])
-        const startedBy = web3.utils.toChecksumAddress(log.topics[2].slice(26))
+        const startedBy = h.toAddress(log.topics[2])
 
         assert.equal(nextRound, roundNumber.toNumber())
         assert.equal(startedBy, personas.Neil)
@@ -380,6 +380,21 @@ contract('PrepaidAggregator', () => {
       assertBigNum(h.bigNum(0), await aggregator.minAnswerCount.call())
       assertBigNum(h.bigNum(1), await aggregator.maxAnswerCount.call())
       assertBigNum(h.bigNum(0), await aggregator.restartDelay.call())
+    })
+
+    it('emits a log', async () => {
+      const tx = await aggregator.addOracle(
+        personas.Neil,
+        minAns,
+        maxAns,
+        rrDelay,
+        {
+          from: personas.Carol,
+        },
+      )
+
+      const added = h.toAddress(tx.receipt.rawLogs[0].topics[1])
+      assertBigNum(added, personas.Neil)
     })
 
     context('when the oracle has already been added', async () => {
