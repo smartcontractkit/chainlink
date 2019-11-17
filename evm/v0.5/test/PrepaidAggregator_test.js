@@ -40,7 +40,7 @@ contract('PrepaidAggregator', () => {
       'availableFunds',
       'currentAnswer',
       'currentRound',
-      'getRound',
+      'latestRound',
       'maxAnswerCount',
       'minAnswerCount',
       'oracleCount',
@@ -356,31 +356,6 @@ contract('PrepaidAggregator', () => {
         })
       },
     )
-  })
-
-  describe('#getRound', async () => {
-    beforeEach(async () => {
-      await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
-        from: personas.Carol,
-      })
-      for (let i = 0; i < 10; i++) {
-        const answer = i + 100
-        await aggregator.updateAnswer(nextRound, i + 100, {
-          from: personas.Neil,
-        })
-        nextRound++
-      }
-    })
-
-    it('retrieves the answer recorded for past rounds', async () => {
-      //for (let i = 1; i <= 10; i++) {
-      const answer = await aggregator.getRound.call(1, {
-        from: personas.Ned,
-      })
-      console.log(answer)
-      //nextRound++
-      //}
-    })
   })
 
   describe('#addOracle', async () => {
