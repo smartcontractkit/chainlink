@@ -44,7 +44,6 @@ contract PrepaidAggregator is Ownable {
   event NewRound(uint256 indexed number, address indexed startedBy);
   event AnswerUpdated(int256 indexed current, uint256 indexed round);
   event AvailableFundsUpdated(uint256 indexed amount);
-  event PaymentAmountUpdated(uint128 indexed amount);
   event RoundDetailsUpdated(
     uint128 indexed paymentAmount,
     uint64 indexed minAnswerCount,
@@ -105,7 +104,13 @@ contract PrepaidAggregator is Ownable {
     onlyOwner()
   {
     paymentAmount = _newAmount;
-    emit PaymentAmountUpdated(_newAmount);
+
+    emit RoundDetailsUpdated(
+      _newAmount,
+      minAnswerCount,
+      maxAnswerCount,
+      roundRestartDelay
+    );
   }
 
   function setAnswerCountRange(
@@ -121,7 +126,12 @@ contract PrepaidAggregator is Ownable {
     maxAnswerCount = _maxAnswerCount;
     roundRestartDelay = _roundRestartDelay;
 
-    emit RoundDetailsUpdated(paymentAmount, _minAnswerCount, _maxAnswerCount, _roundRestartDelay);
+    emit RoundDetailsUpdated(
+      paymentAmount,
+      _minAnswerCount,
+      _maxAnswerCount,
+      _roundRestartDelay
+    );
   }
 
   function updateAvailableFunds()
