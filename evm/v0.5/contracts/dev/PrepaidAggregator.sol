@@ -17,12 +17,12 @@ contract PrepaidAggregator is Ownable {
     bool enabled;
     uint128 withdrawable;
     uint256 lastReportedRound;
+    uint256 lastStartedRound;
   }
 
   struct Round {
     uint64 maxAnswers;
     uint64 minAnswers;
-    uint64 restartDelay;
     uint128 paymentAmount;
     int256[] answers;
   }
@@ -177,12 +177,15 @@ contract PrepaidAggregator is Ownable {
   function startNewRound(uint256 _id)
     private
     onlyOnNewRound(_id)
+    onlyIfDelayed(_id)
   {
     currentRound = _id;
     rounds[_id].maxAnswers = maxAnswerCount;
     rounds[_id].minAnswers = minAnswerCount;
-    rounds[_id].restartDelay = restartDelay;
     rounds[_id].paymentAmount = paymentAmount;
+
+    oracles[msg.sender].lastStartedRound = _id;
+
     emit NewRound(_id, msg.sender);
   }
 
@@ -250,6 +253,13 @@ contract PrepaidAggregator is Ownable {
 
   modifier onlyOnNewRound(uint256 _id) {
     if (_id == currentRound.add(1)) {
+      _;
+    }
+  }
+
+  modifier onlyIfDelayed(uint256 _id) {
+    uint256 lastStarted = oracles[msg.sender].lastStartedRound;
+    if (_id > lastStarted + restartDelay) {
       _;
     }
   }

@@ -289,6 +289,60 @@ contract('PrepaidAggregator', () => {
         )
       })
     })
+
+    context(
+      'when an oracle starts a round before the restart delay is over',
+      async () => {
+        beforeEach(async () => {
+          await aggregator.setAnswerCountRange(1, 1, 0, {
+            from: personas.Carol,
+          })
+
+          oracles = [personas.Neil, personas.Ned, personas.Nelly]
+          for (let i = 0; i < oracles.length; i++) {
+            await aggregator.updateAnswer(nextRound, answer, {
+              from: oracles[i],
+            })
+            nextRound = nextRound + 1
+          }
+
+          const newDelay = 2
+          // Since Ned and Nelly have answered recently, and we set the delay
+          // to 2, only Nelly can answer as she is the only oracle that hasn't
+          // started the last two rounds.
+          await aggregator.setAnswerCountRange(1, oracles.length, newDelay, {
+            from: personas.Carol,
+          })
+        })
+
+        context(
+          'when called by an oracle who has not answered recently',
+          async () => {
+            it('does not revert', async () => {
+              await aggregator.updateAnswer(nextRound, answer, {
+                from: personas.Neil,
+              })
+            })
+          },
+        )
+
+        context('when called by an oracle who answered recently', async () => {
+          it('reverts', async () => {
+            await h.assertActionThrows(async () => {
+              await aggregator.updateAnswer(nextRound, answer, {
+                from: personas.Ned,
+              })
+            })
+
+            await h.assertActionThrows(async () => {
+              await aggregator.updateAnswer(nextRound, answer, {
+                from: personas.Nelly,
+              })
+            })
+          })
+        })
+      },
+    )
   })
 
   describe('#addOracle', async () => {
