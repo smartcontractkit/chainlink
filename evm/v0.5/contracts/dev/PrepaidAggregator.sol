@@ -14,18 +14,24 @@ contract PrepaidAggregator is Ownable {
   using SafeMath for uint256;
   using SafeMath128 for uint128;
 
+  struct Round {
+    int256 answer;
+    uint256 updatedHeight;
+    RoundDetails details;
+  }
+
+  struct RoundDetails {
+    int256[] answers;
+    uint64 maxAnswers;
+    uint64 minAnswers;
+    uint128 paymentAmount;
+  }
+
   struct OracleStatus {
     bool enabled;
     uint128 withdrawable;
     uint256 lastReportedRound;
     uint256 lastStartedRound;
-  }
-
-  struct Round {
-    uint64 maxAnswers;
-    uint64 minAnswers;
-    uint128 paymentAmount;
-    int256[] answers;
   }
 
   int256 public currentAnswer;
@@ -46,7 +52,7 @@ contract PrepaidAggregator is Ownable {
   event NewRound(uint256 indexed number, address indexed startedBy);
   event AnswerUpdated(int256 indexed current, uint256 indexed round);
   event AvailableFundsUpdated(uint256 indexed amount);
-  event RoundSettingsUpdated(
+  event RoundDetailsUpdated(
     uint128 indexed paymentAmount,
     uint64 indexed minAnswerCount,
     uint64 indexed maxAnswerCount,
@@ -162,7 +168,7 @@ contract PrepaidAggregator is Ownable {
     maxAnswerCount = _maxAnswers;
     restartDelay = _restartDelay;
 
-    emit RoundSettingsUpdated(
+    emit RoundDetailsUpdated(
       paymentAmount,
       _minAnswers,
       _maxAnswers,
@@ -230,9 +236,9 @@ contract PrepaidAggregator is Ownable {
     onlyIfDelayed(_id)
   {
     currentRound = _id;
-    rounds[_id].maxAnswers = maxAnswerCount;
-    rounds[_id].minAnswers = minAnswerCount;
-    rounds[_id].paymentAmount = paymentAmount;
+    rounds[_id].details.maxAnswers = maxAnswerCount;
+    rounds[_id].details.minAnswers = minAnswerCount;
+    rounds[_id].details.paymentAmount = paymentAmount;
 
     oracles[msg.sender].lastStartedRound = _id;
 
@@ -243,7 +249,7 @@ contract PrepaidAggregator is Ownable {
     private
     onlyIfMinAnswersReceived(_id)
   {
-    int256 newAnswer = Median.calculate(rounds[_id].answers);
+    int256 newAnswer = Median.calculate(rounds[_id].details.answers);
     currentAnswer = newAnswer;
     updatedHeight = block.number;
     emit AnswerUpdated(newAnswer, _id);
@@ -252,7 +258,7 @@ contract PrepaidAggregator is Ownable {
   function payOracle(uint256 _id)
     private
   {
-    uint128 payment = rounds[_id].paymentAmount;
+    uint128 payment = rounds[_id].details.paymentAmount;
     // SafeMath128's underflow check ensures that there are enough funds to pay the oracle.
     uint128 available = availableFunds.sub(payment);
 
@@ -267,7 +273,7 @@ contract PrepaidAggregator is Ownable {
     private
     onlyIfAcceptingAnswers(_id)
   {
-    rounds[_id].answers.push(_answer);
+    rounds[_id].details.answers.push(_answer);
     oracles[msg.sender].lastReportedRound = _id;
   }
 
@@ -275,7 +281,7 @@ contract PrepaidAggregator is Ownable {
     private
     onlyIfMaxAnswersReceived(_id)
   {
-    delete rounds[_id];
+    delete rounds[_id].details;
   }
 
   modifier onlyValidOracleRound(uint256 _round) {
@@ -285,19 +291,19 @@ contract PrepaidAggregator is Ownable {
   }
 
   modifier onlyIfMinAnswersReceived(uint256 _id) {
-    if (rounds[_id].answers.length == rounds[_id].minAnswers) {
+    if (rounds[_id].details.answers.length == rounds[_id].details.minAnswers) {
       _;
     }
   }
 
   modifier onlyIfMaxAnswersReceived(uint256 _id) {
-    if (rounds[_id].answers.length == rounds[_id].maxAnswers) {
+    if (rounds[_id].details.answers.length == rounds[_id].details.maxAnswers) {
       _;
     }
   }
 
   modifier onlyIfAcceptingAnswers(uint256 _id) {
-    require(rounds[_id].maxAnswers != 0, "Max responses reached for round");
+    require(rounds[_id].details.maxAnswers != 0, "Max responses reached for round");
     _;
   }
 
