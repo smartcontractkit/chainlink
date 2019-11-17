@@ -346,6 +346,10 @@ export function abiEncode(types: any, values: any): string {
   return abi.rawEncode(types, values).toString('hex')
 }
 
+export function toAddress(hex: string): string {
+  return web3.utils.toChecksumAddress(hex.slice(26))
+}
+
 export const newUint8ArrayFromStr = (str: string): Uint8Array => {
   const codePoints = Array.prototype.map.call(str, (c: string) =>
     c.charCodeAt(0),

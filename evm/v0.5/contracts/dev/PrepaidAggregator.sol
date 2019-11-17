@@ -51,6 +51,7 @@ contract PrepaidAggregator is Ownable {
     uint64 indexed maxAnswerCount,
     uint64 restartDelay
   );
+  event OracleAdded(address indexed oracle);
 
   constructor(address _link, uint128 _paymentAmount) public {
     LINK = LinkTokenInterface(_link);
@@ -82,6 +83,8 @@ contract PrepaidAggregator is Ownable {
     require(oracleCount < 42, "cannot add more than 42 oracles");
     oracles[_oracle].enabled = true;
     oracleCount += 1;
+
+    emit OracleAdded(_oracle);
 
     updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay);
   }
