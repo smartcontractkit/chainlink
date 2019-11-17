@@ -22,6 +22,7 @@ contract PrepaidAggregator is Ownable {
   struct Round {
     uint64 maxAnswers;
     uint64 minAnswers;
+    uint64 restartDelay;
     uint128 paymentAmount;
     int256[] answers;
   }
@@ -32,7 +33,7 @@ contract PrepaidAggregator is Ownable {
   uint64 public oracleCount;
   uint64 public maxAnswerCount;
   uint64 public minAnswerCount;
-  uint64 public roundRestartDelay;
+  uint64 public restartDelay;
   uint256 public updatedHeight;
   uint128 public availableFunds;
   uint128 public allocatedFunds;
@@ -48,7 +49,7 @@ contract PrepaidAggregator is Ownable {
     uint128 indexed paymentAmount,
     uint64 indexed minAnswerCount,
     uint64 indexed maxAnswerCount,
-    uint64 roundRestartDelay
+    uint64 restartDelay
   );
 
   constructor(address _link, uint128 _paymentAmount) public {
@@ -72,7 +73,7 @@ contract PrepaidAggregator is Ownable {
     address _oracle,
     uint64 _minAnswers,
     uint64 _maxAnswers,
-    uint64 _roundRestartDelay
+    uint64 _restartDelay
   )
     public
     onlyOwner()
@@ -81,14 +82,15 @@ contract PrepaidAggregator is Ownable {
     require(oracleCount < 42, "cannot add more than 42 oracles");
     oracles[_oracle].enabled = true;
     oracleCount += 1;
-    setAnswerCountRange(_minAnswers, _maxAnswers, _roundRestartDelay);
+
+    setAnswerCountRange(_minAnswers, _maxAnswers, _restartDelay);
   }
 
   function removeOracle(
     address _oracle,
     uint64 _minAnswers,
     uint64 _maxAnswers,
-    uint64 _roundRestartDelay
+    uint64 _restartDelay
   )
     public
     onlyOwner()
@@ -96,7 +98,8 @@ contract PrepaidAggregator is Ownable {
   {
     oracles[_oracle].enabled = false;
     oracleCount -= 1;
-    setAnswerCountRange(_minAnswers, _maxAnswers, _roundRestartDelay);
+
+    setAnswerCountRange(_minAnswers, _maxAnswers, _restartDelay);
   }
 
   function setPaymentAmount(uint128 _newAmount)
@@ -109,14 +112,14 @@ contract PrepaidAggregator is Ownable {
       _newAmount,
       minAnswerCount,
       maxAnswerCount,
-      roundRestartDelay
+      restartDelay
     );
   }
 
   function setAnswerCountRange(
     uint64 _minAnswerCount,
     uint64 _maxAnswerCount,
-    uint64 _roundRestartDelay
+    uint64 _restartDelay
   )
     public
     onlyOwner()
@@ -124,13 +127,13 @@ contract PrepaidAggregator is Ownable {
   {
     minAnswerCount = _minAnswerCount;
     maxAnswerCount = _maxAnswerCount;
-    roundRestartDelay = _roundRestartDelay;
+    restartDelay = _restartDelay;
 
     emit RoundDetailsUpdated(
       paymentAmount,
       _minAnswerCount,
       _maxAnswerCount,
-      _roundRestartDelay
+      _restartDelay
     );
   }
 
@@ -178,6 +181,7 @@ contract PrepaidAggregator is Ownable {
     currentRound = _id;
     rounds[_id].maxAnswers = maxAnswerCount;
     rounds[_id].minAnswers = minAnswerCount;
+    rounds[_id].restartDelay = restartDelay;
     rounds[_id].paymentAmount = paymentAmount;
     emit NewRound(_id, msg.sender);
   }
