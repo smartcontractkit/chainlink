@@ -52,6 +52,7 @@ contract PrepaidAggregator is Ownable {
     uint64 restartDelay
   );
   event OracleAdded(address indexed oracle);
+  event OracleRemoved(address indexed oracle);
 
   constructor(address _link, uint128 _paymentAmount) public {
     LINK = LinkTokenInterface(_link);
@@ -101,6 +102,8 @@ contract PrepaidAggregator is Ownable {
   {
     oracles[_oracle].enabled = false;
     oracleCount -= 1;
+
+    emit OracleRemoved(_oracle);
 
     updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay);
   }
