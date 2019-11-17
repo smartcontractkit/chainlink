@@ -478,6 +478,21 @@ contract('PrepaidAggregator', () => {
       assertBigNum(h.bigNum(0), await aggregator.restartDelay.call())
     })
 
+    it('emits a log', async () => {
+      const tx = await aggregator.removeOracle(
+        personas.Neil,
+        minAns,
+        maxAns,
+        rrDelay,
+        {
+          from: personas.Carol,
+        },
+      )
+
+      const added = h.toAddress(tx.receipt.rawLogs[0].topics[1])
+      assertBigNum(added, personas.Neil)
+    })
+
     context('when the oracle is not currently added', async () => {
       beforeEach(async () => {
         await aggregator.removeOracle(personas.Neil, minAns, maxAns, rrDelay, {
