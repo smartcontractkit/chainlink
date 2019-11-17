@@ -7,7 +7,8 @@ import "./SafeMath128.sol";
 import "../interfaces/LinkTokenInterface.sol";
 
 /**
- * @title The PrepaidAggregator handles aggregating data pushed in from off-chain.
+ * @title The Prepaid Aggregator contract
+ * @notice Node handles aggregating data pushed in from off-chain.
  */
 contract PrepaidAggregator is Ownable {
   using SafeMath for uint256;
@@ -54,11 +55,22 @@ contract PrepaidAggregator is Ownable {
   event OracleAdded(address indexed oracle);
   event OracleRemoved(address indexed oracle);
 
+  /**
+   * @notice Deploy with the address of the LINK token and initial payment amount
+   * @dev Sets the LinkToken address and amount of LINK paid
+   * @param _link The address of the LINK token
+   * @param _paymentAmount The amount paid of LINK paid to each oracle per response
+   */
   constructor(address _link, uint128 _paymentAmount) public {
     LINK = LinkTokenInterface(_link);
     updateFutureRounds(_paymentAmount, 0, 0, 0);
   }
 
+  /**
+   * @notice called by oracles when they have witnessed a need to update
+   * @param _round is the ID of the round this answer pertains to
+   * @param _answer is the updated data that the oracle is submitting
+   */
   function updateAnswer(uint256 _round, int256 _answer)
     public
     onlyValidRoundId(_round)
@@ -71,6 +83,15 @@ contract PrepaidAggregator is Ownable {
     deleteRound(_round);
   }
 
+  /**
+   * @notice called by the owner to add a new Oracle and update the round
+   * related parameters
+   * @param _oracle is the address of the new Oracle being added
+   * @param _minAnswers is the new minimum answer count for each round
+   * @param _maxAnswers is the new maximum answer count for each round
+   * @param _restartDelay is the number of rounds an Oracle has to wait before
+   * they can initiate a round
+   */
   function addOracle(
     address _oracle,
     uint64 _minAnswers,
@@ -90,6 +111,15 @@ contract PrepaidAggregator is Ownable {
     updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay);
   }
 
+  /**
+   * @notice called by the owner to remove an Oracle and update the round
+   * related parameters
+   * @param _oracle is the address of the Oracle being removed
+   * @param _minAnswers is the new minimum answer count for each round
+   * @param _maxAnswers is the new maximum answer count for each round
+   * @param _restartDelay is the number of rounds an Oracle has to wait before
+   * they can initiate a round
+   */
   function removeOracle(
     address _oracle,
     uint64 _minAnswers,
@@ -103,34 +133,46 @@ contract PrepaidAggregator is Ownable {
     oracles[_oracle].enabled = false;
     oracleCount -= 1;
 
-    emit OracleRemoved(_oracle);
+    emit OracleAdded(_oracle);
 
     updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay);
   }
 
+  /**
+   * @notice update the round and payment related parameters for subsequent
+   * rounds
+   * @param _newPaymentAmount is the payment amount for subsequent rounds
+   * @param _minAnswers is the new minimum answer count for each round
+   * @param _maxAnswers is the new maximum answer count for each round
+   * @param _restartDelay is the number of rounds an Oracle has to wait before
+   * they can initiate a round
+   */
   function updateFutureRounds(
     uint128 _newPaymentAmount,
-    uint64 _minAnswerCount,
-    uint64 _maxAnswerCount,
+    uint64 _minAnswers,
+    uint64 _maxAnswers,
     uint64 _restartDelay
   )
     public
     onlyOwner()
-    onlyValidRange(_minAnswerCount, _maxAnswerCount, _restartDelay)
+    onlyValidRange(_minAnswers, _maxAnswers, _restartDelay)
   {
     paymentAmount = _newPaymentAmount;
-    minAnswerCount = _minAnswerCount;
-    maxAnswerCount = _maxAnswerCount;
+    minAnswerCount = _minAnswers;
+    maxAnswerCount = _maxAnswers;
     restartDelay = _restartDelay;
 
     emit RoundSettingsUpdated(
       paymentAmount,
-      _minAnswerCount,
-      _maxAnswerCount,
+      _minAnswers,
+      _maxAnswers,
       _restartDelay
     );
   }
 
+  /**
+   * @notice recalculate the amount of LINK available for payouts
+   */
   function updateAvailableFunds()
     public
   {
@@ -139,6 +181,9 @@ contract PrepaidAggregator is Ownable {
     emit AvailableFundsUpdated(available);
   }
 
+  /**
+   * @notice query the available amount of LINK for an oracle to withdraw
+   */
   function withdrawable()
     public
     returns (uint256)
@@ -146,6 +191,12 @@ contract PrepaidAggregator is Ownable {
     return oracles[msg.sender].withdrawable;
   }
 
+
+  /**
+   * @notice transfers the oracle's LINK to another address
+   * @param _recipient is the address to send the LINK to
+   * @param _amount is the amount of LINK to send
+   */
   function withdraw(address _recipient, uint256 _amount)
     public
   {
@@ -159,6 +210,11 @@ contract PrepaidAggregator is Ownable {
     assert(LINK.transfer(_recipient, _amount));
   }
 
+  /**
+   * @notice transfers the owner's LINK to another address
+   * @param _recipient is the address to send the LINK to
+   * @param _amount is the amount of LINK to send
+   */
   function withdrawFunds(address _recipient, uint256 _amount)
     public
     onlyOwner()
