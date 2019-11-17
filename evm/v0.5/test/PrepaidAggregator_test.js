@@ -13,6 +13,15 @@ contract('PrepaidAggregator', () => {
 
   let aggregator, link, nextRound, oracles
 
+  function parseRound(log) {
+    return {
+      paymentAmount: h.bigNum(log.topics[1]),
+      minAnswerCount: h.bigNum(log.topics[2]),
+      maxAnswerCount: h.bigNum(log.topics[3]),
+      restartDelay: h.bigNum(log.data),
+    }
+  }
+
   beforeEach(async () => {
     link = await h.linkContract(personas.defaultAccount)
     aggregator = await Aggregator.new(link.address, paymentAmount, {
@@ -519,6 +528,9 @@ contract('PrepaidAggregator', () => {
 
   describe('#setAnswerCountRange', async () => {
     let minAnswerCount, maxAnswerCount
+    const newMin = 1
+    const newMax = 2
+    const newDelay = 2
 
     beforeEach(async () => {
       oracles = [personas.Neil, personas.Ned, personas.Nelly]
@@ -536,15 +548,30 @@ contract('PrepaidAggregator', () => {
     })
 
     it('updates the min and max answer counts', async () => {
-      const newMin = 1
-      const newMax = 2
-
       await aggregator.setAnswerCountRange(newMin, newMax, rrDelay, {
         from: personas.Carol,
       })
 
       assert.equal(newMin, await aggregator.minAnswerCount.call())
       assert.equal(newMax, await aggregator.maxAnswerCount.call())
+    })
+
+    it('emits a log announcing the new round details', async () => {
+      const tx = await aggregator.setAnswerCountRange(
+        newMin,
+        newMax,
+        newDelay,
+        {
+          from: personas.Carol,
+        },
+      )
+
+      const round = parseRound(tx.receipt.rawLogs[0])
+
+      assertBigNum(paymentAmount, round.paymentAmount)
+      assertBigNum(h.bigNum(newMin), round.minAnswerCount)
+      assertBigNum(h.bigNum(newMax), round.maxAnswerCount)
+      assertBigNum(h.bigNum(newDelay), round.restartDelay)
     })
 
     context('when it is set to higher than the number or oracles', async () => {
