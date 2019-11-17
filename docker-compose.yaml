@@ -9,22 +9,23 @@ services:
       dockerfile: Dockerfile
     command: node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
     restart: always
-    volumes:
-      - ./tools/clroot/:/root/clroot
     environment:
-      - ETH_CHAIN_ID=34055
-      - LOG_LEVEL=debug
-      - ROOT=/root/clroot
-      - ETH_URL=ws://devnet:8546
-      - MIN_OUTGOING_CONFIRMATIONS=2
-      - MINIMUM_CONTRACT_PAYMENT=1000000000000
-      - RUST_BACKTRACE=1
-      - CHAINLINK_DEV=true
-      - EXPLORER_URL=ws://explorer:3000
-      - DATABASE_URL=postgresql://postgres:node@node-db:5432/node_dev?sslmode=disable
-      # Development only credentials, requires record in node table in tools/docker/docker-entrypoint-initdb.d/explorer_schema.sql
-      - EXPLORER_ACCESS_KEY=u4HULe0pj5xPyuvv
-      - EXPLORER_SECRET=YDxkVRTmcliehGZPw7f0L2Td3sz3LqutAQyy7sLCEIP6xcWzbO8zgfBWi4DXC6U6
+      - ETH_CHAIN_ID
+      - LOG_LEVEL
+      - ROOT
+      - ETH_URL
+      - MIN_OUTGOING_CONFIRMATIONS
+      - MINIMUM_CONTRACT_PAYMENT
+      - RUST_BACKTRACE
+      - CHAINLINK_DEV
+      - EXPLORER_URL
+      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db:5432/$CHAINLINK_DB_NAME?sslmode=disable
+      - EXPLORER_ACCESS_KEY
+      - EXPLORER_SECRET
+      - SECURE_COOKIES
+      - CHAINLINK_TLS_PORT
+    env_file:
+      - chainlink-variables.env
     networks:
       - explorer-external
       - ethereum-node
@@ -47,8 +48,8 @@ services:
     volumes:
       - node-db-data:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: node_dev
-      POSTGRES_PASSWORD: node
+      POSTGRES_DB: $CHAINLINK_DB_NAME
+      POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD
 
   devnet:
     container_name: parity-node
@@ -68,15 +69,15 @@ services:
       - explorer-external
       - explorer-internal
     ports:
-      - 3000:3000
+      - 3001:3001
     depends_on:
       - explorer-db
     environment:
-      SERVER_PORT: 3000
-      TYPEORM_DATABASE: explorer_dev
-      TYPEORM_USERNAME: postgres
-      TYPEORM_HOST: explorer-db
-      PGPASSWORD: explorer
+      - SERVER_PORT=$EXPLORER_SERVER_PORT
+      - TYPEORM_DATABASE
+      - TYPEORM_USERNAME
+      - TYPEORM_HOST
+      - PGPASSWORD=$EXPLORER_PGPASSWORD
 
   explorer-db:
     container_name: chainlink-explorer-db
@@ -86,8 +87,8 @@ services:
     volumes:
       - explorer-db-data:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: explorer_dev
-      POSTGRES_PASSWORD: explorer
+      POSTGRES_DB: $EXPLORER_DB_NAME
+      POSTGRES_PASSWORD: $EXPLORER_PGPASSWORD
 
 networks:
   ethereum-node:
