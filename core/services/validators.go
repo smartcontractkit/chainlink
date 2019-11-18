@@ -82,8 +82,6 @@ func ValidateExternalInitiator(
 			fe.Add("Invalid URL format")
 		}
 	}
-	// if len([]rune((*exi.URL).String())) > 0 {
-	// }
 	return fe.CoerceEmptyToNil()
 }
 

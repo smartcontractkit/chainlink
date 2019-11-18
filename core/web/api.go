@@ -100,7 +100,6 @@ func NewPaginatedResponse(url url.URL, size, page, count int, resource interface
 
 // ParsePaginatedResponse parse a JSONAPI response for a document with links
 func ParsePaginatedResponse(input []byte, resource interface{}, links *jsonapi.Links) error {
-	fmt.Println(string(input))
 	err := ParseJSONAPIResponse(input, resource)
 	if err != nil {
 		return errors.Wrap(err, "ParseJSONAPIResponse error")
