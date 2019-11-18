@@ -213,17 +213,29 @@ contract PrepaidAggregator is Ownable {
     public
     returns (uint256)
   {
-    return rounds[latestRound].updatedHeight;
+    return getUpdatedHeight(latestRound);
   }
 
   /**
-   * @notice get historical answers and last updated heights of rounds
+   * @notice get past rounds answers
+   * @param _id the round number to retrieve the answer for
    */
   function getAnswer(uint256 _id)
     public
     returns (int256)
   {
     return rounds[_id].answer;
+  }
+
+  /**
+   * @notice get block height when an answer was last updated
+   * @param _id the round number to retrieve the updated height for
+   */
+  function getUpdatedHeight(uint256 _id)
+    public
+    returns (uint256)
+  {
+    return rounds[_id].updatedHeight;
   }
 
   /**
