@@ -635,14 +635,17 @@ func NewExternalInitiatorAuthentication(
 	ei models.ExternalInitiator,
 	eia models.ExternalInitiatorAuthentication,
 ) *ExternalInitiatorAuthentication {
-	return &ExternalInitiatorAuthentication{
+	var result = &ExternalInitiatorAuthentication{
 		Name:           ei.Name,
-		URL:            *ei.URL,
 		AccessKey:      ei.AccessKey,
 		Secret:         eia.Secret,
 		OutgoingToken:  ei.OutgoingToken,
 		OutgoingSecret: ei.OutgoingSecret,
 	}
+	if ei.URL != nil {
+		result.URL = *ei.URL
+	}
+	return result
 }
 
 // GetID returns the jsonapi ID.

@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"chainlink/core/services"
@@ -28,10 +29,12 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 	if err := c.ShouldBindJSON(eir); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 	} else if ei, err := models.NewExternalInitiator(eia, eir); err != nil {
+		fmt.Println("here 1")
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if err := services.ValidateExternalInitiator(eir, eic.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if err := eic.App.GetStore().CreateExternalInitiator(ei); err != nil {
+		fmt.Println("here 2")
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		resp := presenters.NewExternalInitiatorAuthentication(*ei, *eia)
