@@ -87,7 +87,7 @@
     "redux-logger": "^3.0.6",
     "rimraf": "^3.0.0",
     "typescript": "^3.6.3",
-    "webpack": "4.41.1"
+    "webpack": "4.41.2"
   },
   "prettier": "@chainlink/prettier-config"
 }
