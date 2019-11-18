@@ -121,7 +121,7 @@ func TestHTTP_TooLarge(t *testing.T) {
 			mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, test.verb, largePayload)
 			defer cleanup()
 
-			hga := test.factory(cltest.WebURL(t, mock.URL))
+			hga := test.factory(*cltest.WebURL(t, mock.URL))
 			result := hga.Perform(input, store)
 
 			require.Error(t, result.Error())
