@@ -204,9 +204,9 @@ func NewBridgeType(t testing.TB, info ...string) (*models.BridgeTypeAuthenticati
 	}
 
 	if len(info) > 1 {
-		btr.URL = WebURL(t, info[1])
+		btr.URL = *WebURL(t, info[1])
 	} else {
-		btr.URL = WebURL(t, "https://bridge.example.com/api")
+		btr.URL = *WebURL(t, "https://bridge.example.com/api")
 	}
 
 	bta, bt, err := models.NewBridgeType(btr)
@@ -215,10 +215,10 @@ func NewBridgeType(t testing.TB, info ...string) (*models.BridgeTypeAuthenticati
 }
 
 // WebURL parses a url into a models.WebURL
-func WebURL(t testing.TB, unparsed string) models.WebURL {
+func WebURL(t testing.TB, unparsed string) *models.WebURL {
 	parsed, err := url.Parse(unparsed)
 	require.NoError(t, err)
-	return models.WebURL(*parsed)
+	return (*models.WebURL)(parsed)
 }
 
 // JSONFromString create JSON from given body and arguments
