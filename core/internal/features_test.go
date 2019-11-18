@@ -448,7 +448,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	defer cleanup()
 	eth := app.MockEthCallerSubscriber(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	bridgeURL := cltest.WebURL(t, "https://test.chain.link/always")
+	bridgeURL := *cltest.WebURL(t, "https://test.chain.link/always")
 	app.Store.Config.Set("BRIDGE_RESPONSE_URL", bridgeURL)
 	app.Start()
 

@@ -149,7 +149,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 
 	ubt, err := app.Store.FindBridge(bt.Name)
 	assert.NoError(t, err)
-	assert.Equal(t, cltest.WebURL(t, "http://yourbridge"), ubt.URL)
+	assert.Equal(t, *cltest.WebURL(t, "http://yourbridge"), ubt.URL)
 }
 
 func TestBridgeController_Show(t *testing.T) {

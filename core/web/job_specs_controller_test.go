@@ -225,7 +225,7 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 
 	eir := models.ExternalInitiatorRequest{
 		Name: "someCoin",
-		URL:  cltest.WebURL(t, eiMockServer.URL),
+		URL:  *cltest.WebURL(t, eiMockServer.URL),
 	}
 	eia := models.NewExternalInitiatorAuthentication()
 	ei, err := models.NewExternalInitiator(eia, &eir)
