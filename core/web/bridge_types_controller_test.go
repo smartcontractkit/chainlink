@@ -82,7 +82,7 @@ func setupBridgeControllerIndex(t testing.TB, store *store.Store) ([]*models.Bri
 
 	bt1 := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
+		URL:           *cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
 	err := store.CreateBridgeType(bt1)
@@ -92,7 +92,7 @@ func setupBridgeControllerIndex(t testing.TB, store *store.Store) ([]*models.Bri
 
 	bt2 := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges2"),
-		URL:           cltest.WebURL(t, "https://testing.com/tari"),
+		URL:           *cltest.WebURL(t, "https://testing.com/tari"),
 		Confirmations: 0,
 	}
 	err = store.CreateBridgeType(bt2)
@@ -138,7 +138,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 
 	bt := &models.BridgeType{
 		Name: models.MustNewTaskType("BRidgea"),
-		URL:  cltest.WebURL(t, "http://mybridge"),
+		URL:  *cltest.WebURL(t, "http://mybridge"),
 	}
 	require.NoError(t, app.GetStore().CreateBridgeType(bt))
 
@@ -162,7 +162,7 @@ func TestBridgeController_Show(t *testing.T) {
 
 	bt := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
+		URL:           *cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
 	require.NoError(t, app.GetStore().CreateBridgeType(bt))
