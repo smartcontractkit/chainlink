@@ -28,6 +28,7 @@ require (
 	github.com/gobuffalo/packr v1.30.1
 	github.com/gofrs/flock v0.7.1
 	github.com/gofrs/uuid v3.2.0+incompatible
+	github.com/golang/mock v1.2.0
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.0
