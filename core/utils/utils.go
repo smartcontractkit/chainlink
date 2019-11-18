@@ -4,6 +4,7 @@ package utils
 
 import (
 	"bytes"
+	"chainlink/core/logger"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -79,7 +80,7 @@ func EncodeTxToHex(tx *types.Transaction) (string, error) {
 
 // ISO8601UTC formats given time to ISO8601.
 func ISO8601UTC(t time.Time) string {
-	return t.UTC().Format(time.RFC3339)
+	return logger.ISO8601UTC(t)
 }
 
 // NullISO8601UTC returns formatted time if valid, empty string otherwise.
