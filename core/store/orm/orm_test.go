@@ -685,7 +685,7 @@ func TestORM_FindBridge(t *testing.T) {
 
 	bt := models.BridgeType{}
 	bt.Name = models.MustNewTaskType("solargridreporting")
-	bt.URL = *cltest.WebURL(t, "https://denergy.eth")
+	bt.URL = cltest.WebURL(t, "https://denergy.eth")
 	assert.NoError(t, store.CreateBridgeType(&bt))
 
 	cases := []struct {
@@ -1257,13 +1257,13 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 
 	firstBridge := &models.BridgeType{
 		Name: "UniqueName",
-		URL:  *cltest.WebURL(t, "http:/oneurl.com"),
+		URL:  cltest.WebURL(t, "http:/oneurl.com"),
 	}
 
 	require.NoError(t, store.CreateBridgeType(firstBridge))
 
 	updateBridge := &models.BridgeTypeRequest{
-		URL: *cltest.WebURL(t, "http:/updatedurl.com"),
+		URL: cltest.WebURL(t, "http:/updatedurl.com"),
 	}
 
 	require.NoError(t, store.UpdateBridgeType(firstBridge, updateBridge))

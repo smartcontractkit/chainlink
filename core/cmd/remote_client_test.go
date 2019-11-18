@@ -458,7 +458,7 @@ func TestClient_IndexBridges(t *testing.T) {
 
 	bt1 := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           *cltest.WebURL(t, "https://testing.com/bridges"),
+		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
 	err := app.GetStore().CreateBridgeType(bt1)
@@ -466,7 +466,7 @@ func TestClient_IndexBridges(t *testing.T) {
 
 	bt2 := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges2"),
-		URL:           *cltest.WebURL(t, "https://testing.com/bridges"),
+		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
 	err = app.GetStore().CreateBridgeType(bt2)
@@ -489,7 +489,7 @@ func TestClient_ShowBridge(t *testing.T) {
 
 	bt := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           *cltest.WebURL(t, "https://testing.com/bridges"),
+		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
 	require.NoError(t, app.GetStore().CreateBridgeType(bt))
@@ -513,7 +513,7 @@ func TestClient_RemoveBridge(t *testing.T) {
 
 	bt := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           *cltest.WebURL(t, "https://testing.com/bridges"),
+		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
 	err := app.GetStore().CreateBridgeType(bt)

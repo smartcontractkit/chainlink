@@ -14,9 +14,10 @@ func TestNewExternalInitiator(t *testing.T) {
 	assert.Len(t, eia.AccessKey, 32)
 	assert.Len(t, eia.Secret, 64)
 
+	url := cltest.WebURL(t, "http://localhost:8888")
 	eir := &models.ExternalInitiatorRequest{
 		Name: "bitcoin",
-		URL:  cltest.WebURL(t, "http://localhost:8888"),
+		URL:  &url,
 	}
 	ei, err := models.NewExternalInitiator(eia, eir)
 	assert.NoError(t, err)

@@ -107,7 +107,7 @@ func TestValidateAdapter(t *testing.T) {
 	// Create a duplicate
 	bt := models.BridgeType{}
 	bt.Name = models.MustNewTaskType("solargridreporting")
-	bt.URL = *cltest.WebURL(t, "https://denergy.eth")
+	bt.URL = cltest.WebURL(t, "https://denergy.eth")
 	assert.NoError(t, store.CreateBridgeType(&bt))
 
 	tests := []struct {
@@ -143,13 +143,13 @@ func TestValidateAdapter(t *testing.T) {
 		{
 			"valid url",
 			"adapterwithvalidurl",
-			*cltest.WebURL(t, "//denergy"),
+			cltest.WebURL(t, "//denergy"),
 			nil,
 		},
 		{
 			"valid docker url",
 			"adapterwithdockerurl",
-			*cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
+			cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
 			nil,
 		},
 		{"new external adapter", "gdaxprice", bt.URL, nil},
@@ -170,8 +170,14 @@ func TestValidateExternalInitiator(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	url := cltest.WebURL(t, "https://a.web.url")
+
 	//  Add duplicate
-	exi := models.ExternalInitiator{Name: "duplicate", URL: cltest.WebURL(t, "https://a.web.url")}
+	exi := models.ExternalInitiator{
+		Name: "duplicate",
+		URL:  &url,
+	}
+
 	assert.NoError(t, store.CreateExternalInitiator(&exi))
 
 	tests := []struct {
