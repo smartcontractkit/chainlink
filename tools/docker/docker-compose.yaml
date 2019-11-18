@@ -17,7 +17,6 @@ services:
       - RUST_BACKTRACE
       - CHAINLINK_DEV
       - EXPLORER_URL
-      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db:5432/$CHAINLINK_DB_NAME?sslmode=disable
       - EXPLORER_ACCESS_KEY
       - EXPLORER_SECRET
       - SECURE_COOKIES
@@ -27,33 +26,13 @@ services:
     networks:
       - explorer-external
       - ethereum-node
-      - node-internal
     ports:
       - 6688:6688
     depends_on:
-      - devnet
       - explorer
-      - node-db
     secrets:
       - node_password
       - apicredentials
-
-  node-db:
-    container_name: chainlink-db
-    image: postgres:11.5
-    networks:
-      - node-internal
-    volumes:
-      - node-db-data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: $CHAINLINK_DB_NAME
-      POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD
-
-  devnet:
-    container_name: parity-node
-    image: smartcontract/devnet
-    networks:
-      - ethereum-node
 
   explorer:
     container_name: chainlink-explorer
@@ -89,13 +68,9 @@ services:
       POSTGRES_PASSWORD: $EXPLORER_PGPASSWORD
 
 networks:
-  ethereum-node:
-    driver: bridge
   explorer-external:
     driver: bridge
   explorer-internal:
-    driver: bridge
-  node-internal:
     driver: bridge
 
 secrets:
@@ -106,4 +81,3 @@ secrets:
 
 volumes:
   explorer-db-data:
-  node-db-data:

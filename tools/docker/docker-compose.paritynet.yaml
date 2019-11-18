@@ -1,0 +1,16 @@
+version: "3.1"
+
+services:
+  node:
+    networks:
+      - ethereum-node
+    depends_on:
+      - devnet
+  devnet:
+    container_name: parity-node
+    image: smartcontract/devnet
+    networks:
+      - ethereum-node
+networks:
+  ethereum-node:
+    driver: bridge
