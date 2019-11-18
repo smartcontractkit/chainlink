@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"chainlink/core/utils"
-
 	"github.com/fatih/color"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
@@ -49,7 +47,7 @@ func (pc PrettyConsole) Write(b []byte) (int, error) {
 func generateHeadline(js gjson.Result) string {
 	sec, dec := math.Modf(js.Get("ts").Float())
 	headline := []interface{}{
-		utils.ISO8601UTC(time.Unix(int64(sec), int64(dec*(1e9)))),
+		ISO8601UTC(time.Unix(int64(sec), int64(dec*(1e9)))),
 		" ",
 		coloredLevel(js.Get("level")),
 		fmt.Sprintf("%-50s", js.Get("msg")),
@@ -97,4 +95,9 @@ func coloredLevel(level gjson.Result) string {
 		color = levelColors["default"]
 	}
 	return color(fmt.Sprintf("%-8s", fmt.Sprint("[", strings.ToUpper(level.String()), "]")))
+}
+
+// ISO8601UTC formats given time to ISO8601.
+func ISO8601UTC(t time.Time) string {
+	return t.UTC().Format(time.RFC3339)
 }
