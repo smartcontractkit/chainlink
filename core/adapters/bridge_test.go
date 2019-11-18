@@ -16,7 +16,7 @@ import (
 func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store.Config.Set("BRIDGE_RESPONSE_URL", *cltest.WebURL(t, ""))
+	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 
 	data := ""
 	token := ""
@@ -43,7 +43,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store.Config.Set("BRIDGE_RESPONSE_URL", *cltest.WebURL(t, ""))
+	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 	jobRunID := models.NewID()
 
 	mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", fmt.Sprintf(`{"jobRunID": "%s", "data": 251990120, "statusCode": 200}`, jobRunID.String()),
@@ -150,12 +150,12 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 	}{
 		{
 			name:          "basic URL",
-			configuredURL: *cltest.WebURL(t, "https://chain.link"),
+			configuredURL: cltest.WebURL(t, "https://chain.link"),
 			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"},"responseURL":"https://chain.link/v2/runs/%s"}`, input.JobRunID().String(), input.JobRunID().String()),
 		},
 		{
 			name:          "blank URL",
-			configuredURL: *cltest.WebURL(t, ""),
+			configuredURL: cltest.WebURL(t, ""),
 			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"}}`, input.JobRunID().String()),
 		},
 	}
