@@ -77,11 +77,13 @@ func ValidateExternalInitiator(
 		return errors.Wrap(err, "validating external initiator")
 	}
 	// only validate URL if present
-	if len([]rune(exi.URL.String())) > 0 {
-		if isURL := govalidator.IsURL(exi.URL.String()); !isURL {
+	if exi.URL != nil {
+		if isURL := govalidator.IsURL((*exi.URL).String()); !isURL {
 			fe.Add("Invalid URL format")
 		}
 	}
+	// if len([]rune((*exi.URL).String())) > 0 {
+	// }
 	return fe.CoerceEmptyToNil()
 }
 
