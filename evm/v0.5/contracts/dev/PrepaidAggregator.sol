@@ -203,7 +203,7 @@ contract PrepaidAggregator is Ownable {
     public
     returns (int256)
   {
-    return rounds[latestRound].answer;
+    return getAnswer(latestRound);
   }
 
   /**
@@ -214,6 +214,16 @@ contract PrepaidAggregator is Ownable {
     returns (uint256)
   {
     return rounds[latestRound].updatedHeight;
+  }
+
+  /**
+   * @notice get historical answers and last updated heights of rounds
+   */
+  function getAnswer(uint256 _id)
+    public
+    returns (int256)
+  {
+    return rounds[_id].answer;
   }
 
   /**
