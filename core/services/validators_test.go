@@ -171,7 +171,7 @@ func TestValidateExternalInitiator(t *testing.T) {
 	defer cleanup()
 
 	//  Add duplicate
-	exi := models.ExternalInitiator{Name: "duplicate", URL: *cltest.WebURL(t, "https://a.web.url")}
+	exi := models.ExternalInitiator{Name: "duplicate", URL: cltest.WebURL(t, "https://a.web.url")}
 	assert.NoError(t, store.CreateExternalInitiator(&exi))
 
 	tests := []struct {
