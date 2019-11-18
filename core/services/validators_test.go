@@ -143,13 +143,13 @@ func TestValidateAdapter(t *testing.T) {
 		{
 			"valid url",
 			"adapterwithvalidurl",
-			cltest.WebURL(t, "//denergy"),
+			*cltest.WebURL(t, "//denergy"),
 			nil,
 		},
 		{
 			"valid docker url",
 			"adapterwithdockerurl",
-			cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
+			*cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
 			nil,
 		},
 		{"new external adapter", "gdaxprice", bt.URL, nil},
