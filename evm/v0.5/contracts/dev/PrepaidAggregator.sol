@@ -5,12 +5,13 @@ import "../vendor/Ownable.sol";
 import "../vendor/SafeMath.sol";
 import "./SafeMath128.sol";
 import "../interfaces/LinkTokenInterface.sol";
+import "../interfaces/WithdrawalInterface.sol";
 
 /**
  * @title The Prepaid Aggregator contract
  * @notice Node handles aggregating data pushed in from off-chain.
  */
-contract PrepaidAggregator is Ownable {
+contract PrepaidAggregator is Ownable, WithdrawalInterface {
   using SafeMath for uint256;
   using SafeMath128 for uint128;
 
