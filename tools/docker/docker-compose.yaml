@@ -4,9 +4,7 @@ services:
   node:
     container_name: chainlink-node
     image: smartcontract/chainlink
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: ../../
     command: node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
     restart: always
     environment:
@@ -61,7 +59,7 @@ services:
     container_name: chainlink-explorer
     image: chainlink/explorer
     build:
-      context: .
+      context: ../../
       dockerfile: explorer/Dockerfile
     entrypoint: yarn workspace @chainlink/explorer dev:compose
     restart: always
@@ -102,9 +100,9 @@ networks:
 
 secrets:
   node_password:
-    file: ./tools/clroot/password.txt
+    file: ../clroot/password.txt
   apicredentials:
-    file: ./tools/clroot/apicredentials
+    file: ../clroot/apicredentials
 
 volumes:
   explorer-db-data:
