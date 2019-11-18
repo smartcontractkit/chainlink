@@ -41,6 +41,7 @@ contract('PrepaidAggregator', () => {
       'currentAnswer',
       'currentRound',
       'getAnswer',
+      'getUpdatedHeight',
       'latestRound',
       'maxAnswerCount',
       'minAnswerCount',
@@ -377,11 +378,33 @@ contract('PrepaidAggregator', () => {
 
     it('retrieves the answer recorded for past rounds', async () => {
       for (let i = nextRound; i < nextRound; i++) {
-        const answer = await aggregator.getAnswer.call(i, {
-          from: personas.Ned,
-        })
-
+        const answer = await aggregator.getAnswer.call(i)
         assertBigNum(h.bigNum(answers[i - 1]), answer)
+      }
+    })
+  })
+
+  describe('#getUpdatedHeight', async () => {
+    beforeEach(async () => {
+      await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
+        from: personas.Carol,
+      })
+
+      for (let i = 0; i < 10; i++) {
+        await aggregator.updateAnswer(nextRound, i, {
+          from: personas.Neil,
+        })
+        nextRound++
+      }
+    })
+
+    it('retrieves the answer recorded for past rounds', async () => {
+      let lastHeight = h.bigNum(0)
+
+      for (let i = 1; i < nextRound; i++) {
+        const currentHeight = await aggregator.getUpdatedHeight.call(i)
+        assert.isAbove(currentHeight.toNumber(), lastHeight.toNumber())
+        lastHeight = currentHeight
       }
     })
   })
@@ -398,10 +421,6 @@ contract('PrepaidAggregator', () => {
     })
 
     it('updates the round details', async () => {
-      const pastMin = await aggregator.minAnswerCount.call()
-      const pastMax = await aggregator.maxAnswerCount.call()
-      const pastDelay = await aggregator.maxAnswerCount.call()
-
       await aggregator.addOracle(personas.Neil, 0, 1, 0, {
         from: personas.Carol,
       })
