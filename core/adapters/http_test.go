@@ -27,8 +27,8 @@ func TestHttpAdapters_NotAUrlError(t *testing.T) {
 		name    string
 		adapter adapters.BaseAdapter
 	}{
-		{"HTTPGet", &adapters.HTTPGet{URL: cltest.WebURL(t, "NotAURL")}},
-		{"HTTPPost", &adapters.HTTPPost{URL: cltest.WebURL(t, "NotAURL")}},
+		{"HTTPGet", &adapters.HTTPGet{URL: *cltest.WebURL(t, "NotAURL")}},
+		{"HTTPPost", &adapters.HTTPPost{URL: *cltest.WebURL(t, "NotAURL")}},
 	}
 
 	for _, test := range tests {
@@ -83,7 +83,7 @@ func TestHTTPGet_Perform(t *testing.T) {
 			defer cleanup()
 
 			hga := adapters.HTTPGet{
-				URL:         cltest.WebURL(t, mock.URL),
+				URL:         *cltest.WebURL(t, mock.URL),
 				Headers:     test.headers,
 				QueryParams: test.queryParams,
 			}
@@ -263,7 +263,7 @@ func TestHttpPost_Perform(t *testing.T) {
 			defer cleanup()
 
 			hpa := adapters.HTTPPost{
-				URL:         cltest.WebURL(t, mock.URL),
+				URL:         *cltest.WebURL(t, mock.URL),
 				Headers:     test.headers,
 				QueryParams: test.queryParams,
 				Body:        test.body,
@@ -346,11 +346,11 @@ func TestQueryParameters_Success(t *testing.T) {
 			qp := adapters.QueryParameters{}
 			err := json.Unmarshal([]byte(test.queryParams), &qp)
 			hga := adapters.HTTPGet{
-				URL:         cltest.WebURL(t, test.startingUrl),
+				URL:         *cltest.WebURL(t, test.startingUrl),
 				QueryParams: qp,
 			}
 			hpa := adapters.HTTPPost{
-				URL:         cltest.WebURL(t, test.startingUrl),
+				URL:         *cltest.WebURL(t, test.startingUrl),
 				QueryParams: qp,
 			}
 			requestGET, _ := hga.GetRequest()
@@ -397,11 +397,11 @@ func TestQueryParameters_Error(t *testing.T) {
 			qp := adapters.QueryParameters{}
 			err := json.Unmarshal([]byte(test.queryParams), &qp)
 			hga := adapters.HTTPGet{
-				URL:         cltest.WebURL(t, test.startingUrl),
+				URL:         *cltest.WebURL(t, test.startingUrl),
 				QueryParams: qp,
 			}
 			hpa := adapters.HTTPPost{
-				URL:         cltest.WebURL(t, test.startingUrl),
+				URL:         *cltest.WebURL(t, test.startingUrl),
 				QueryParams: qp,
 			}
 			requestGET, _ := hga.GetRequest()
@@ -503,11 +503,11 @@ func TestExtendedPath_Success(t *testing.T) {
 			ep := adapters.ExtendedPath{}
 			err := json.Unmarshal([]byte(test.path), &ep)
 			hga := adapters.HTTPGet{
-				URL:          cltest.WebURL(t, test.startingUrl),
+				URL:          *cltest.WebURL(t, test.startingUrl),
 				ExtendedPath: ep,
 			}
 			hpa := adapters.HTTPPost{
-				URL:          cltest.WebURL(t, test.startingUrl),
+				URL:          *cltest.WebURL(t, test.startingUrl),
 				ExtendedPath: ep,
 			}
 			requestGET, _ := hga.GetRequest()
@@ -547,11 +547,11 @@ func TestExtendedPath_Error(t *testing.T) {
 			ep := adapters.ExtendedPath{}
 			err := json.Unmarshal([]byte(test.path), &ep)
 			hga := adapters.HTTPGet{
-				URL:          cltest.WebURL(t, test.startingUrl),
+				URL:          *cltest.WebURL(t, test.startingUrl),
 				ExtendedPath: ep,
 			}
 			hpa := adapters.HTTPPost{
-				URL:          cltest.WebURL(t, test.startingUrl),
+				URL:          *cltest.WebURL(t, test.startingUrl),
 				ExtendedPath: ep,
 			}
 			requestGET, _ := hga.GetRequest()
@@ -636,12 +636,12 @@ func TestHTTP_BuildingURL(t *testing.T) {
 			err := json.Unmarshal([]byte(test.path), &ep)
 			err = json.Unmarshal([]byte(test.queryParams), &qp)
 			hga := adapters.HTTPGet{
-				URL:          cltest.WebURL(t, test.startingUrl),
+				URL:          *cltest.WebURL(t, test.startingUrl),
 				QueryParams:  qp,
 				ExtendedPath: ep,
 			}
 			hpa := adapters.HTTPPost{
-				URL:          cltest.WebURL(t, test.startingUrl),
+				URL:          *cltest.WebURL(t, test.startingUrl),
 				QueryParams:  qp,
 				ExtendedPath: ep,
 			}

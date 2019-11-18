@@ -175,7 +175,7 @@ func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 
 	eia := presenters.ExternalInitiatorAuthentication{
 		Name:           "bitcoin",
-		URL:            cltest.WebURL(t, "http://localhost:8888"),
+		URL:            *cltest.WebURL(t, "http://localhost:8888"),
 		AccessKey:      "accesskey",
 		Secret:         "secret",
 		OutgoingToken:  "outgoingToken",
