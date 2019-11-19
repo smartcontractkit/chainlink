@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { RouteComponentProps } from '@reach/router'
+import build from 'redux-object'
 import {
   createStyles,
   withStyles,
@@ -8,10 +9,16 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
-import Typography from '@material-ui/core/Typography'
-import Paper from '@material-ui/core/Paper'
-import { fetchOperators } from '../../../actions/operators'
-import { State as AppState } from '../../../reducers'
+import { ChainlinkNode } from 'explorer/models'
+import Title from '../../../components/Title'
+import List from '../../../components/Admin/Operators/List'
+import { ChangePageEvent } from '../../../components/Table'
+import { fetchAdminOperators } from '../../../actions/adminOperators'
+import { AppState } from '../../../reducers'
+import { DispatchBinding } from '../../../utils/types'
+
+const LOADING_MSG = 'Loading operators...'
+const EMPTY_MSG = 'There are no operators added to the Explorer yet.'
 
 const styles = ({ breakpoints, spacing }: Theme) =>
   createStyles({
@@ -22,22 +29,19 @@ const styles = ({ breakpoints, spacing }: Theme) =>
         padding: spacing.unit * 3,
       },
     },
-    paper: {
-      padding: spacing.unit * 2,
-      [breakpoints.up('sm')]: {
-        padding: spacing.unit * 3,
-      },
-    },
   })
 
-interface OwnProps {}
+interface OwnProps {
+  rowsPerPage?: number
+}
 
 interface StateProps {
-  authenticated: boolean
+  adminOperators?: ChainlinkNode[]
+  count: AppState['adminOperatorsIndex']['count']
 }
 
 interface DispatchProps {
-  fetchOperators: () => void
+  fetchAdminOperators: DispatchBinding<typeof fetchAdminOperators>
 }
 
 interface Props
@@ -47,10 +51,22 @@ interface Props
     DispatchProps,
     OwnProps {}
 
-export const Index: React.FC<Props> = ({ classes, fetchOperators }) => {
+export const Index: React.FC<Props> = ({
+  classes,
+  adminOperators,
+  fetchAdminOperators,
+  count,
+  rowsPerPage = 10,
+}) => {
+  const [currentPage, setCurrentPage] = useState(0)
+  const onChangePage = (_event: ChangePageEvent, page: number) => {
+    setCurrentPage(page)
+    fetchAdminOperators(page + 1, rowsPerPage)
+  }
+
   useEffect(() => {
-    fetchOperators()
-  }, [])
+    fetchAdminOperators(currentPage + 1, rowsPerPage)
+  }, [rowsPerPage])
 
   return (
     <Grid
@@ -60,18 +76,30 @@ export const Index: React.FC<Props> = ({ classes, fetchOperators }) => {
       className={classes.container}
     >
       <Grid item xs={12}>
-        <Paper className={classes.paper}>
-          <Typography variant="h3" gutterBottom>
-            Operators
-          </Typography>
+        <Title>Endorsed Operators</Title>
 
-          <Typography variant="body1">
-            Add list of operators when working on story [#166832915]
-          </Typography>
-        </Paper>
+        <List
+          currentPage={currentPage}
+          operators={adminOperators}
+          count={count}
+          onChangePage={onChangePage}
+          emptyMsg={EMPTY_MSG}
+          loadingMsg={LOADING_MSG}
+        />
       </Grid>
     </Grid>
   )
+}
+
+const adminOperatorsSelector = ({
+  adminOperatorsIndex,
+  adminOperators,
+}: AppState): ChainlinkNode[] | undefined => {
+  if (adminOperatorsIndex.items) {
+    return adminOperatorsIndex.items.map(id =>
+      build({ adminOperators: adminOperators.items }, 'adminOperators', id),
+    )
+  }
 }
 
 const mapStateToProps: MapStateToProps<
@@ -80,12 +108,13 @@ const mapStateToProps: MapStateToProps<
   AppState
 > = state => {
   return {
-    authenticated: state.adminAuth.allowed,
+    adminOperators: adminOperatorsSelector(state),
+    count: state.adminOperatorsIndex.count,
   }
 }
 
 const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
-  fetchOperators,
+  fetchAdminOperators,
 }
 
 export const ConnectedIndex = connect(

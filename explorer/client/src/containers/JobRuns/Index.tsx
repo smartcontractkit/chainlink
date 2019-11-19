@@ -6,13 +6,13 @@ import {
 } from '@material-ui/core/styles'
 import React, { useEffect, useState } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
-import { bindActionCreators } from 'redux'
 import build from 'redux-object'
-import { getJobRuns } from '../../actions/jobRuns'
+import { JobRun } from 'explorer/models'
+import { fetchJobRuns } from '../../actions/jobRuns'
 import List from '../../components/JobRuns/List'
 import { ChangePageEvent } from '../../components/Table'
-import { State } from '../../reducers'
-import { Query } from '../../reducers/search'
+import { AppState } from '../../reducers'
+import { DispatchBinding } from '../../utils/types'
 
 const EMPTY_MSG =
   "We couldn't find any results for your search query. Try again with the job id, run id, requester, requester id or transaction hash"
@@ -39,13 +39,13 @@ interface OwnProps {
 }
 
 interface StateProps {
-  query: State['search']['query']
+  query: AppState['search']['query']
   jobRuns?: JobRun[]
-  count: State['jobRunsIndex']['count']
+  count: AppState['jobRunsIndex']['count']
 }
 
 interface DispatchProps {
-  getJobRuns: (query: Query, page: number, size: number) => void
+  fetchJobRuns: DispatchBinding<typeof fetchJobRuns>
 }
 
 interface Props
@@ -55,16 +55,23 @@ interface Props
     DispatchProps {}
 
 const Index = withStyles(styles)(
-  ({ getJobRuns, query, rowsPerPage = 10, classes, jobRuns, count }: Props) => {
+  ({
+    fetchJobRuns,
+    query,
+    rowsPerPage = 10,
+    classes,
+    jobRuns,
+    count,
+  }: Props) => {
     const [currentPage, setCurrentPage] = useState(0)
     const onChangePage = (_event: ChangePageEvent, page: number) => {
       setCurrentPage(page)
-      getJobRuns(query, page + 1, rowsPerPage)
+      fetchJobRuns(query, page + 1, rowsPerPage)
     }
 
     useEffect(() => {
-      getJobRuns(query, currentPage + 1, rowsPerPage)
-    }, [getJobRuns, query, currentPage, rowsPerPage])
+      fetchJobRuns(query, currentPage + 1, rowsPerPage)
+    }, [fetchJobRuns, query, currentPage, rowsPerPage])
 
     return (
       <div className={classes.container}>
@@ -84,7 +91,7 @@ const jobRunsSelector = ({
   jobRunsIndex,
   jobRuns,
   chainlinkNodes,
-}: State): JobRun[] | undefined => {
+}: AppState): JobRun[] | undefined => {
   if (jobRunsIndex.items) {
     return jobRunsIndex.items.map((id: string) => {
       const document = {
@@ -96,17 +103,20 @@ const jobRunsSelector = ({
   }
 }
 
-const mapDispatchToProps: MapDispatchToProps<
-  DispatchProps,
-  OwnProps
-> = dispatch => bindActionCreators({ getJobRuns }, dispatch)
-
-const mapStateToProps: MapStateToProps<StateProps, OwnProps, State> = state => {
+const mapStateToProps: MapStateToProps<
+  StateProps,
+  OwnProps,
+  AppState
+> = state => {
   return {
     query: state.search.query,
     jobRuns: jobRunsSelector(state),
     count: state.jobRunsIndex.count,
   }
+}
+
+const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
+  fetchJobRuns,
 }
 
 const ConnectedIndex = connect(

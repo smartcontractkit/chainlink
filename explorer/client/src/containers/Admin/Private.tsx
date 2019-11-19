@@ -1,7 +1,7 @@
 import React from 'react'
 import { RouteComponentProps, Redirect } from '@reach/router'
 import { connect, MapStateToProps } from 'react-redux'
-import { State as AppState } from '../../reducers'
+import { AppState } from '../../reducers'
 
 interface OwnProps {}
 

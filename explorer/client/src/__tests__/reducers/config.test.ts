@@ -1,20 +1,14 @@
-import reducer, { State } from '../../reducers'
-import { Action } from '../../reducers/config'
+import reducer, { INITIAL_STATE } from '../../reducers'
+import { FetchJobRunSucceededAction } from '../../reducers/actions'
 
 describe('reducers/config', () => {
-  it('returns an initial state', () => {
-    const action = {} as Action
-    const state = reducer({}, action) as State
-
-    expect(state.search).toEqual({
-      etherscanHost: undefined,
-    })
-  })
-
-  it('can update the search query', () => {
-    const action = {
-      type: 'UPSERT_JOB_RUN',
+  it('updates the current etherscan host when job runs are fetched', () => {
+    const action: FetchJobRunSucceededAction = {
+      type: 'FETCH_JOB_RUN_SUCCEEDED',
       data: {
+        chainlinkNodes: [],
+        jobRuns: [],
+        taskRuns: [],
         meta: {
           jobRun: {
             meta: {
@@ -23,8 +17,8 @@ describe('reducers/config', () => {
           },
         },
       },
-    } as Action
-    const state = reducer({}, action) as State
+    }
+    const state = reducer(INITIAL_STATE, action)
 
     expect(state.config).toEqual({
       etherscanHost: 'ropsten.etherscan.io',

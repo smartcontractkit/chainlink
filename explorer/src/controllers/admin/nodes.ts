@@ -6,13 +6,32 @@ import { getDb } from '../../database'
 import { buildChainlinkNode, ChainlinkNode } from '../../entity/ChainlinkNode'
 import { PostgresErrorCode } from '../../utils/constants'
 import { isPostgresError } from '../../utils/errors'
+import { parseParams } from '../../utils/pagination'
+import { getCustomRepository } from 'typeorm'
+import { ChainlinkNodeRepository } from '../../repositories/ChainlinkNodeRepository'
+import chainlinkNodesSerializer from '../../serializers/chainlinkNodesSerializer'
+
 const router = Router()
+
+router.get('/nodes', async (req, res) => {
+  const params = parseParams(req.query)
+  const db = await getDb()
+  const chainlinkNodeRepository = getCustomRepository(
+    ChainlinkNodeRepository,
+    db.name,
+  )
+  const chainlinkNodes = await chainlinkNodeRepository.all(params)
+  const nodeCount = await chainlinkNodeRepository.count()
+  const json = chainlinkNodesSerializer(chainlinkNodes, nodeCount)
+
+  return res.send(json)
+})
 
 router.post('/nodes', async (req, res) => {
   const name = req.body.name
   const url = req.body.url
   const db = await getDb()
-  const [node, secret] = await buildChainlinkNode(db, name, url)
+  const [node, secret] = buildChainlinkNode(db, name, url)
   const errors = await validate(node)
 
   if (errors.length === 0) {

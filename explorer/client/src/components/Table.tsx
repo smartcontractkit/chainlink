@@ -70,7 +70,7 @@ interface Props extends WithStyles<typeof styles> {
   rowsPerPage: number
   currentPage: number
   onChangePage: (event: ChangePageEvent, page: number) => void
-  rows?: any[][]
+  rows?: Column[][]
   count?: number
   loadingMsg?: string
   emptyMsg?: string

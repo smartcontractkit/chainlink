@@ -13542,7 +13542,7 @@ jsesc@~0.5.0:
   resolved "https://registry.npmjs.org/jsesc/-/jsesc-0.5.0.tgz#e7dee66e35d6fc16f710fe91d5cf69f70f08911d"
   integrity sha1-597mbjXW/Bb3EP6R1c9p9w8IkR0=
 
-json-api-normalizer@^0.4.13, json-api-normalizer@^0.4.14:
+json-api-normalizer@^0.4.13, json-api-normalizer@^0.4.16:
   version "0.4.16"
   resolved "https://registry.npmjs.org/json-api-normalizer/-/json-api-normalizer-0.4.16.tgz#43fd741e346ec2d934cd00f0a9611e651a20533f"
   integrity sha512-ZWhN23gmauEjLXdV2Gdm7PhoGy67zCyO7hIhrhrRMEqzfCYm1U4fexNZHXqyRYDeU/ougwhW12ImEz3s907cuA==

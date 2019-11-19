@@ -1,3 +1,5 @@
+import React, { useEffect } from 'react'
+import { RouteComponentProps } from '@reach/router'
 import Card from '@material-ui/core/Card'
 import Grid from '@material-ui/core/Grid'
 import {
@@ -10,15 +12,16 @@ import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
-import React, { useEffect } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import build from 'redux-object'
-import { getJobRun } from '../../actions/jobRuns'
+import { JobRun } from 'explorer/models'
+import { fetchJobRun } from '../../actions/jobRuns'
 import Details from '../../components/JobRuns/Details'
 import RegionalNav from '../../components/JobRuns/RegionalNav'
 import RunStatus from '../../components/JobRuns/RunStatus'
-import { State } from '../../reducers'
+import { AppState } from '../../reducers'
+import { DispatchBinding } from '../../utils/types'
 
 const Loading = () => (
   <Table>
@@ -53,7 +56,6 @@ const styles = ({ spacing, breakpoints }: Theme) =>
   })
 
 interface OwnProps {
-  path: string
   jobRunId?: string
 }
 
@@ -63,20 +65,23 @@ interface StateProps {
 }
 
 interface DispatchProps {
-  getJobRun: any
+  fetchJobRun: DispatchBinding<typeof fetchJobRun>
 }
 
 interface Props
   extends WithStyles<typeof styles>,
+    RouteComponentProps,
     OwnProps,
     StateProps,
     DispatchProps {}
 
 const Show = withStyles(styles)(
-  ({ jobRunId, jobRun, getJobRun, classes, etherscanHost }: Props) => {
+  ({ jobRunId, jobRun, fetchJobRun, classes, etherscanHost }: Props) => {
     useEffect(() => {
-      getJobRun(jobRunId)
-    }, [getJobRun, jobRunId])
+      if (jobRunId) {
+        fetchJobRun(jobRunId)
+      }
+    }, [fetchJobRun, jobRunId])
 
     return (
       <>
@@ -92,10 +97,10 @@ const Show = withStyles(styles)(
 
             <div className={classes.container}>
               <Card className={classes.card}>
-                {jobRun && etherscanHost ? (
+                {jobRun ? (
                   <Details
                     jobRun={jobRun}
-                    etherscanHost={etherscanHost.toString()}
+                    etherscanHost={(etherscanHost || '').toString()}
                   />
                 ) : (
                   <Loading />
@@ -110,7 +115,7 @@ const Show = withStyles(styles)(
 )
 
 const jobRunSelector = (
-  { jobRuns, taskRuns, chainlinkNodes }: State,
+  { jobRuns, taskRuns, chainlinkNodes }: AppState,
   jobRunId?: string,
 ): JobRun | undefined => {
   if (jobRuns.items) {
@@ -123,7 +128,7 @@ const jobRunSelector = (
   }
 }
 
-const mapStateToProps: MapStateToProps<StateProps, OwnProps, State> = (
+const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (
   state,
   { jobRunId },
 ) => {
@@ -136,7 +141,7 @@ const mapStateToProps: MapStateToProps<StateProps, OwnProps, State> = (
 const mapDispatchToProps: MapDispatchToProps<
   DispatchProps,
   OwnProps
-> = dispatch => bindActionCreators({ getJobRun }, dispatch)
+> = dispatch => bindActionCreators({ fetchJobRun }, dispatch)
 
 const ConnectedShow = connect(
   mapStateToProps,

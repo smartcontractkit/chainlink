@@ -12,6 +12,7 @@ import Typography from '@material-ui/core/Typography'
 import Hidden from '@material-ui/core/Hidden'
 import moment from 'moment'
 import TimeAgo from '../../components/TimeAgo'
+import { JobRun } from 'explorer/models'
 
 type Variant = ThemeStyle | 'srOnly' | 'inherit'
 
