@@ -92,7 +92,7 @@
     "jest-silent-reporter": "^0.1.2",
     "mock-local-storage": "^1.0.5",
     "prettier": "^1.18.2",
-    "react-hot-loader": "^4.12.16",
+    "react-hot-loader": "^4.12.18",
     "react-static": "^6.3.8",
     "react-static-plugin-jss": "^6.3.0",
     "react-static-plugin-react-router": "^6.3.4",
