@@ -7,6 +7,7 @@ import { aggregationOperations } from 'state/ducks/aggregation'
 import { NetworkGraph } from 'components/networkGraph'
 import { NetworkGraphInfo } from 'components/networkGraphInfo'
 import { AnswerHistory } from 'components/answerHistory'
+import { DeviationHistory } from 'components/deviationHistory'
 
 const OPTIONS = {
   contractAddress: '0x79fEbF6B9F76853EDBcBc913e6aAE8232cFB9De9',
@@ -38,6 +39,7 @@ const NetworkPage = ({ initContract, clearState }) => {
       <NetworkGraph options={OPTIONS} />
       <NetworkGraphInfo options={OPTIONS} />
       <AnswerHistory options={OPTIONS} />
+      <DeviationHistory options={OPTIONS} />
     </div>
   )
 }

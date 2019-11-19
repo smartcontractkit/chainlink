@@ -21525,10 +21525,13 @@ hr {
   margin: 60px 0;
 }
 .answer-history .x-axis .domain,
-.answer-history .x-axis line {
+.answer-history .y-axis .domain,
+.answer-history .x-axis line,
+.answer-history .y-axis line {
   stroke: #c3c3c3;
 }
-.answer-history .x-axis text {
+.answer-history .x-axis text,
+.answer-history .y-axis text {
   color: #a0a0a0;
 }
 .answer-history-header {
@@ -21538,6 +21541,31 @@ hr {
 }
 .answer-history-graph--timestamp,
 .answer-history-graph--price {
+  font-size: 12px;
+  font-weight: 200;
+}
+.deviation-history {
+  margin: 60px 0;
+}
+.deviation-history .x-axis .domain,
+.deviation-history .y-axis .domain,
+.deviation-history .x-axis line,
+.deviation-history .y-axis line {
+  stroke: #c3c3c3;
+}
+.deviation-history .x-axis text,
+.deviation-history .y-axis text {
+  color: #a0a0a0;
+}
+.deviation-history-header {
+  font-weight: 200;
+  top: 20px;
+  position: relative;
+}
+.deviation-history-graph--timestamp,
+.deviation-history-graph--percentage,
+.deviation-history-graph--price {
+  text-anchor: end;
   font-size: 12px;
   font-weight: 200;
 }
