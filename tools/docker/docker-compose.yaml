@@ -1,0 +1,109 @@
+version: "3.1"
+
+services:
+  node:
+    container_name: chainlink-node
+    image: smartcontract/chainlink
+    build: ../../
+    command: node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
+    restart: always
+    environment:
+      - ETH_CHAIN_ID
+      - LOG_LEVEL
+      - ROOT
+      - ETH_URL
+      - MIN_OUTGOING_CONFIRMATIONS
+      - MINIMUM_CONTRACT_PAYMENT
+      - RUST_BACKTRACE
+      - CHAINLINK_DEV
+      - EXPLORER_URL
+      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db:5432/$CHAINLINK_DB_NAME?sslmode=disable
+      - EXPLORER_ACCESS_KEY
+      - EXPLORER_SECRET
+      - SECURE_COOKIES
+      - CHAINLINK_TLS_PORT
+    env_file:
+      - chainlink-variables.env
+    networks:
+      - explorer-external
+      - ethereum-node
+      - node-internal
+    ports:
+      - 6688:6688
+    depends_on:
+      - devnet
+      - explorer
+      - node-db
+    secrets:
+      - node_password
+      - apicredentials
+
+  node-db:
+    container_name: chainlink-db
+    image: postgres:11.5
+    networks:
+      - node-internal
+    volumes:
+      - node-db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: $CHAINLINK_DB_NAME
+      POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD
+
+  devnet:
+    container_name: parity-node
+    image: smartcontract/devnet
+    networks:
+      - ethereum-node
+
+  explorer:
+    container_name: chainlink-explorer
+    image: chainlink/explorer
+    build:
+      context: ../../
+      dockerfile: explorer/Dockerfile
+    entrypoint: yarn workspace @chainlink/explorer dev:compose
+    restart: always
+    networks:
+      - explorer-external
+      - explorer-internal
+    ports:
+      - 3001:3001
+    depends_on:
+      - explorer-db
+    environment:
+      - SERVER_PORT=$EXPLORER_SERVER_PORT
+      - TYPEORM_DATABASE
+      - TYPEORM_USERNAME
+      - TYPEORM_HOST
+      - PGPASSWORD=$EXPLORER_PGPASSWORD
+
+  explorer-db:
+    container_name: chainlink-explorer-db
+    image: postgres:11.5
+    networks:
+      - explorer-internal
+    volumes:
+      - explorer-db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: $EXPLORER_DB_NAME
+      POSTGRES_PASSWORD: $EXPLORER_PGPASSWORD
+
+networks:
+  ethereum-node:
+    driver: bridge
+  explorer-external:
+    driver: bridge
+  explorer-internal:
+    driver: bridge
+  node-internal:
+    driver: bridge
+
+secrets:
+  node_password:
+    file: ../clroot/password.txt
+  apicredentials:
+    file: ../clroot/apicredentials
+
+volumes:
+  explorer-db-data:
+  node-db-data:
