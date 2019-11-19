@@ -33,6 +33,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     uint128 withdrawable;
     uint128 lastReportedRound;
     uint128 lastStartedRound;
+    int256 latestAnswer;
   }
 
   uint128 public latestRound;
@@ -85,7 +86,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     onlyValidOracleRound(_round)
   {
     startNewRound(_round);
-    recordAnswer(_answer, _round);
+    recordSubmission(_answer, _round);
     updateRoundAnswer(_round);
     payOracle(_round);
     deleteRound(_round);
@@ -273,6 +274,17 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     updateAvailableFunds();
   }
 
+  /**
+   * @notice get the latest submission for any oracle
+   * @param _oracle is the address to lookup the latest submission for
+   */
+  function latestSubmission(address _oracle)
+    public
+    returns (int256, uint256)
+  {
+    return (oracles[_oracle].latestAnswer, oracles[_oracle].lastReportedRound);
+  }
+
   function startNewRound(uint128 _id)
     private
     onlyOnNewRound(_id)
@@ -314,12 +326,13 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     emit AvailableFundsUpdated(available);
   }
 
-  function recordAnswer(int256 _answer, uint128 _id)
+  function recordSubmission(int256 _answer, uint128 _id)
     private
     onlyIfAcceptingAnswers(_id)
   {
     rounds[_id].details.answers.push(_answer);
     oracles[msg.sender].lastReportedRound = _id;
+    oracles[msg.sender].latestAnswer = _answer;
   }
 
   function deleteRound(uint128 _id)

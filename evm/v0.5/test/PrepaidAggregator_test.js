@@ -43,6 +43,7 @@ contract('PrepaidAggregator', () => {
       'getAnswer',
       'getUpdatedHeight',
       'latestRound',
+      'latestSubmission',
       'maxAnswerCount',
       'minAnswerCount',
       'oracleCount',
@@ -65,6 +66,7 @@ contract('PrepaidAggregator', () => {
 
   describe('#updateAnswer', async () => {
     let minMax
+
     beforeEach(async () => {
       oracles = [personas.Neil, personas.Ned, personas.Nelly]
       for (let i = 0; i < oracles.length; i++) {
@@ -87,6 +89,21 @@ contract('PrepaidAggregator', () => {
       assertBigNum(expectedAvailable, await aggregator.availableFunds.call())
       const logged = h.bigNum(tx.receipt.rawLogs[1].topics[1])
       assertBigNum(expectedAvailable, logged)
+    })
+
+    it('updates the latest submission record for the oracle', async () => {
+      let latest = await aggregator.latestSubmission.call(personas.Neil)
+      assert.equal(0, latest[0])
+      assert.equal(0, latest[1])
+
+      const newAnswer = 427
+      await aggregator.updateAnswer(nextRound, newAnswer, {
+        from: personas.Neil,
+      })
+
+      latest = await aggregator.latestSubmission.call(personas.Neil)
+      assert.equal(newAnswer, latest[0])
+      assert.notEqual(0, latest[1])
     })
 
     context('when the minimum oracles have not reported', async () => {
