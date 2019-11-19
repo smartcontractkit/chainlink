@@ -224,6 +224,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 	}{
 		{"create external initiator", []string{"exi", "http://testing.com/external_initiators"}},
 		{"create external initiator w/ query params", []string{"exiqueryparams", "http://testing.com/external_initiators?query=param"}},
+		{"create external initiator w/o url", []string{"exi_no_url"}},
 	}
 
 	for _, tt := range tests {
