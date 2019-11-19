@@ -1,7 +1,6 @@
 package models_test
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -11,8 +10,8 @@ import (
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
-	"chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -186,40 +185,37 @@ func TestHead_NextInt(t *testing.T) {
 
 func TestTx_PresenterMatchesHex(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-	store := app.Store
-	manager := store.TxManager
-	account := store.KeyStore.Accounts()[0]
-	to := cltest.NewAddress()
-	data, err := hex.DecodeString("0000abcdef")
+
+	createdTx := models.Tx{
+		From:        common.HexToAddress("0xf208"),
+		To:          common.HexToAddress("0x70"),
+		Data:        []byte(`{"data": "is wilding out"}`),
+		Nonce:       0x8008,
+		Value:       models.NewBig(big.NewInt(777)),
+		GasLimit:    1999,
+		Hash:        common.HexToHash("0x0"),
+		GasPrice:    models.NewBig(big.NewInt(333)),
+		Confirmed:   true,
+		SentAt:      1745,
+		SignedRawTx: "signed",
+	}
+
+	ptx := presenters.NewTx(&createdTx)
+	bytes, err := json.Marshal(ptx)
 	require.NoError(t, err)
-
-	ethMock := app.MockEthCallerSubscriber()
-	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", "0x00")
-		ethMock.Register("eth_getTransactionCount", "0x10")
-		ethMock.Register("eth_chainId", store.Config.ChainID())
-	})
-
-	require.NoError(t, app.StartAndConnect())
-
-	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-	})
-
-	createdTx, err := manager.CreateTx(to, data)
-	require.NoError(t, err)
-
-	unsigned := createdTx.EthTx(createdTx.GasPrice.ToInt())
-	signed, err := store.KeyStore.SignTx(account, unsigned, store.Config.ChainID())
-	require.NoError(t, err)
-
-	signedHex, err := utils.EncodeTxToHex(signed)
-	assert.NoError(t, err)
-
-	ptx := presenters.NewTx(createdTx)
-	assert.Equal(t, signedHex, ptx.Hex)
+	assert.JSONEq(t, `{`+
+		`"confirmed":true,`+
+		`"data":"0x7b2264617461223a202269732077696c64696e67206f7574227d",`+
+		`"from":"0x000000000000000000000000000000000000f208",`+
+		`"gasLimit":"1999",`+
+		`"gasPrice":"333",`+
+		`"hash":"0x0000000000000000000000000000000000000000000000000000000000000000",`+
+		`"rawHex":"signed",`+
+		`"nonce":"32776",`+
+		`"sentAt":"1745",`+
+		`"to":"0x0000000000000000000000000000000000000070",`+
+		`"value":"777"`+
+		`}`, string(bytes))
 }
 
 func TestHighestPricedTxAttemptPerTx(t *testing.T) {

@@ -1,6 +1,7 @@
 package adapters_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"math/big"
@@ -12,544 +13,284 @@ import (
 	"chainlink/core/internal/mocks"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
-	"chainlink/core/utils"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func TestEthTxAdapter_Perform_Confirmed(t *testing.T) {
+func TestEthTxAdapter_Perform(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-	store := app.Store
+	gasPrice := models.NewBig(big.NewInt(187))
+	gasLimit := uint64(911)
 
-	address := cltest.NewAddress()
-	fHash := models.HexToFunctionSelector("b3f98adc")
-	dataPrefix := hexutil.Bytes(
-		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
-
-	ethMock, err := app.MockStartAndConnect()
-	require.NoError(t, err)
-
-	hash := cltest.NewHash()
-	sentAt := uint64(23456)
-	confirmed := sentAt + 1
-	ethMock.Register("eth_sendRawTransaction", hash,
-		func(_ interface{}, data ...interface{}) error {
-			rlp := data[0].([]interface{})[0].(string)
-			tx, err := utils.DecodeEthereumTx(rlp)
-			assert.NoError(t, err)
-			assert.Equal(t, address.String(), tx.To().String())
-			wantData := "0x" +
-				"b3f98adc" +
-				"0000000000000000000000000000000000000000000000000045746736453745" +
-				"0000000000000000000000000000000000000000000000000000009786856756"
-			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
-			return nil
-		})
-	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
-	ethMock.Register("eth_getTransactionReceipt", receipt)
-
-	input := *models.NewRunInputWithResult(models.NewID(), "0x9786856756", models.RunStatusUnstarted)
-	adapter := adapters.EthTx{
-		Address:          address,
-		DataPrefix:       dataPrefix,
-		FunctionSelector: fHash,
+	tests := []struct {
+		name         string
+		input        string
+		format       string
+		receiptState strpkg.AttemptState
+		output       string
+		finalStatus  models.RunStatus
+	}{
+		{
+			"safe",
+			"0xf7fffff1",
+			"",
+			strpkg.Safe,
+			"0x0000000000000000000000000000000000000000000000000000000000000000f7fffff1",
+			models.RunStatusCompleted,
+		},
+		{
+			"safe with bytes format",
+			"cönfirmed",
+			"bytes",
+			strpkg.Safe,
+			"0x" +
+				"00000000" + // function selector
+				"0000000000000000000000000000000000000000000000000000000000000020" + // offset
+				"000000000000000000000000000000000000000000000000000000000000000a" + // length in bytes = 10, umlaut = 2 bytes
+				"63c3b66e6669726d656400000000000000000000000000000000000000000000", // encoded string left padded
+			models.RunStatusCompleted,
+		},
+		{
+			"confirmd",
+			"0x19999990",
+			"",
+			strpkg.Confirmed,
+			"0x000000000000000000000000000000000000000000000000000000000000000019999990",
+			models.RunStatusPendingConfirmations,
+		},
+		{
+			"confirmd with bytes format",
+			"cönfirmed",
+			"bytes",
+			strpkg.Confirmed,
+			"0x" +
+				"00000000" + // function selector
+				"0000000000000000000000000000000000000000000000000000000000000020" + // offset
+				"000000000000000000000000000000000000000000000000000000000000000a" + // length in bytes = 10, umlaut = 2 bytes
+				"63c3b66e6669726d656400000000000000000000000000000000000000000000", // encoded string left padded
+			models.RunStatusPendingConfirmations,
+		},
 	}
-	result := adapter.Perform(input, store)
-	require.NoError(t, result.Error())
 
-	from := cltest.GetAccountAddress(t, store)
-	txs, err := store.TxFrom(from)
-	assert.NoError(t, err)
-	require.Len(t, txs, 1)
-	assert.Len(t, txs[0].Attempts, 1)
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
 
-	ethMock.EventuallyAllCalled(t)
+			txManager := new(mocks.TxManager)
+			txManager.On("Connected").Once().Return(true)
+
+			tx := &models.Tx{Attempts: []*models.TxAttempt{&models.TxAttempt{}}}
+			txData := hexutil.MustDecode(test.output)
+			txManager.On("CreateTxWithGas", mock.Anything, mock.Anything, txData, gasPrice.ToInt(), gasLimit).Once().Return(tx, nil)
+			txManager.On("CheckAttempt", mock.Anything, mock.Anything).Once().Return(&models.TxReceipt{}, test.receiptState, nil)
+
+			store.TxManager = txManager
+
+			adapter := adapters.EthTx{DataFormat: test.format, GasPrice: gasPrice, GasLimit: gasLimit}
+			input := cltest.NewRunInputWithResult(test.input)
+			result := adapter.Perform(input, store)
+
+			assert.NoError(t, result.Error())
+			assert.Equal(t, test.finalStatus, result.Status())
+
+			txManager.AssertExpectations(t)
+		})
+	}
 }
 
-func TestEthTxAdapter_Perform_ConfirmedWithBytes(t *testing.T) {
+func TestEthTxAdapter_Perform_BytesFormatWithDataPrefix(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store := app.Store
 
-	address := cltest.NewAddress()
-	fHash := models.HexToFunctionSelector("b3f98adc")
-	dataPrefix := hexutil.Bytes(
-		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
+	txManager := new(mocks.TxManager)
+	tx := &models.Tx{Attempts: []*models.TxAttempt{&models.TxAttempt{}}}
+	txManager.On("Connected").Maybe().Return(true)
+	txManager.On("CreateTxWithGas", mock.Anything, mock.Anything,
+		hexutil.MustDecode("0x"+
+			"00000000"+ // function selector
+			"88888888"+ // data prefix
+			"0000000000000000000000000000000000000000000000000000000000000040"+ // offset
+			"000000000000000000000000000000000000000000000000000000000000000a"+ // length in bytes
+			"63c3b66e6669726d656400000000000000000000000000000000000000000000"), // encoded string left padded
+		mock.Anything, mock.Anything).Return(tx, nil)
+	txManager.On("CheckAttempt", mock.Anything, mock.Anything).Return(&models.TxReceipt{}, strpkg.Unconfirmed, nil)
+	store.TxManager = txManager
 
-	ethMock, err := app.MockStartAndConnect()
-	require.NoError(t, err)
-
-	hash := cltest.NewHash()
-	sentAt := uint64(23456)
-	confirmed := sentAt + 1
-	ethMock.Register("eth_sendRawTransaction", hash,
-		func(_ interface{}, data ...interface{}) error {
-			rlp := data[0].([]interface{})[0].(string)
-			tx, err := utils.DecodeEthereumTx(rlp)
-			assert.NoError(t, err)
-			assert.Equal(t, address.String(), tx.To().String())
-			wantData := "0x" +
-				"b3f98adc" +
-				"0000000000000000000000000000000000000000000000000045746736453745" +
-				"0000000000000000000000000000000000000000000000000000000000000040" +
-				"000000000000000000000000000000000000000000000000000000000000000a" +
-				"63c3b66e6669726d656400000000000000000000000000000000000000000000"
-			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
-			return nil
-		})
-	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
-	ethMock.Register("eth_getTransactionReceipt", receipt)
-
-	adapter := adapters.EthTx{
-		Address:          address,
-		DataPrefix:       dataPrefix,
-		FunctionSelector: fHash,
-		DataFormat:       adapters.DataFormatBytes,
-	}
-
-	inputValue := "cönfirmed" // contains diacritic acute to check bytes counted for length not chars
-	input := *models.NewRunInputWithResult(models.NewID(), inputValue, models.RunStatusUnstarted)
+	adapter := adapters.EthTx{DataFormat: "bytes", DataPrefix: hexutil.MustDecode("0x88888888")}
+	input := cltest.NewRunInputWithResult("cönfirmed")
 	result := adapter.Perform(input, store)
+
 	assert.NoError(t, result.Error())
+	assert.Equal(t, models.RunStatusPendingConfirmations, result.Status())
 
-	from := cltest.GetAccountAddress(t, store)
-	txs, err := store.TxFrom(from)
-	assert.NoError(t, err)
-	require.Len(t, txs, 1)
-	assert.Len(t, txs[0].Attempts, 1)
-
-	ethMock.EventuallyAllCalled(t)
-}
-
-func TestEthTxAdapter_Perform_SafeWithBytesAndNoDataPrefix(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-	store := app.Store
-
-	address := cltest.NewAddress()
-	fHash := models.HexToFunctionSelector("b3f98adc")
-
-	currentHeight := uint64(23456)
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(currentHeight)))
-	ethMock, err := app.MockStartAndConnect()
-	require.NoError(t, err)
-
-	hash := cltest.NewHash()
-	ethMock.Register("eth_sendRawTransaction", hash,
-		func(_ interface{}, data ...interface{}) error {
-			rlp := data[0].([]interface{})[0].(string)
-			tx, err := utils.DecodeEthereumTx(rlp)
-			assert.NoError(t, err)
-			assert.Equal(t, address.String(), tx.To().String())
-			wantData := "0x" +
-				"b3f98adc" +
-				"0000000000000000000000000000000000000000000000000000000000000020" +
-				"000000000000000000000000000000000000000000000000000000000000000a" +
-				"63c3b66e6669726d656400000000000000000000000000000000000000000000"
-			assert.Equal(t, wantData, hexutil.Encode(tx.Data()))
-			return nil
-		})
-	safe := currentHeight - store.Config.MinOutgoingConfirmations()
-	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(safe)}
-	ethMock.Register("eth_getTransactionReceipt", receipt)
-
-	adapter := adapters.EthTx{
-		Address:          address,
-		FunctionSelector: fHash,
-		DataFormat:       adapters.DataFormatBytes,
-	}
-
-	// contains diacritic acute to check bytes counted for length not chars
-	inputValue := "cönfirmed"
-	input := *models.NewRunInputWithResult(models.NewID(), inputValue, models.RunStatusUnstarted)
-	result := adapter.Perform(input, store)
-	require.NoError(t, result.Error())
-	assert.Equal(t, string(models.RunStatusCompleted), string(result.Status()))
-
-	from := cltest.GetAccountAddress(t, store)
-	var txs []models.Tx
-	gomega.NewGomegaWithT(t).Eventually(func() []models.Tx {
-		var err error
-		txs, err = store.TxFrom(from)
-		assert.NoError(t, err)
-		return txs
-	}).Should(gomega.HaveLen(1))
-	require.Len(t, txs, 1)
-	assert.Len(t, txs[0].Attempts, 1)
-
-	ethMock.EventuallyAllCalled(t)
+	txManager.AssertExpectations(t)
 }
 
 func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store := app.Store
-	config := store.Config
-	ethMock := app.MockEthCallerSubscriber()
 
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
-	sentAt := uint64(23456)
-	ethMock.Register("eth_chainId", config.ChainID())
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(true)
+	txManager.On("BumpGasUntilSafe", mock.Anything).Return(&models.TxReceipt{}, strpkg.Confirmed, nil)
+	store.TxManager = txManager
 
-	require.NoError(t, app.StartAndConnect())
-
-	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, sentAt)
-	a := tx.Attempts[0]
 	adapter := adapters.EthTx{}
-	sentResult := *models.NewRunInputWithResult(
-		models.NewID(), a.Hash.String(), models.RunStatusPendingConfirmations,
+	input := *models.NewRunInputWithResult(
+		models.NewID(), cltest.NewHash(), models.RunStatusPendingConfirmations,
 	)
-
-	output := adapter.Perform(sentResult, store)
+	output := adapter.Perform(input, store)
 
 	require.NoError(t, output.Error())
 	assert.True(t, output.Status().PendingConfirmations())
-	tx, err := store.FindTx(tx.ID)
-	require.NoError(t, err)
-	assert.Len(t, tx.Attempts, 1)
 
-	ethMock.EventuallyAllCalled(t)
+	txManager.AssertExpectations(t)
 }
 
-func TestEthTxAdapter_Perform_FromPendingConfirmations_BumpGas(t *testing.T) {
+func TestEthTxAdapter_Perform_FromPendingConfirmations_Safe(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-	store := app.Store
-	config := store.Config
-
-	sentAt := uint64(23456)
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(sentAt+config.EthGasBumpThreshold())))
-	ethMock, err := app.MockStartAndConnect()
-	require.NoError(t, err)
-
-	ethMock.Context("ethtx perform", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
-		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-	})
-
-	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, sentAt)
-	a := tx.Attempts[0]
-
-	adapter := adapters.EthTx{}
-	sentResult := *models.NewRunInputWithResult(
-		models.NewID(), a.Hash.String(), models.RunStatusPendingConfirmations,
-	)
-
-	output := adapter.Perform(sentResult, store)
-	require.NoError(t, output.Error())
-	assert.True(t, output.Status().PendingConfirmations())
-	tx, err = store.FindTx(tx.ID)
-	require.NoError(t, err)
-	assert.Len(t, tx.Attempts, 2)
-
-	ethMock.EventuallyAllCalled(t)
-}
-
-func TestEthTxAdapter_Perform_FromPendingConfirmations_ConfirmCompletes(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	store := app.Store
-	config := store.Config
-	sentAt := uint64(23456)
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(true)
+	receiptHash := cltest.NewHash()
+	receipt := &models.TxReceipt{Hash: receiptHash, BlockNumber: cltest.Int(129831)}
+	txManager.On("BumpGasUntilSafe", mock.Anything).Return(receipt, strpkg.Safe, nil)
+	store.TxManager = txManager
 
-	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
-	ethMock.Register("eth_getTransactionCount", `0x100`)
-	ethMock.Register("eth_call", "0x1")
-	ethMock.Register("eth_getBalance", "0x100")
-
-	ethMock.Register("eth_chainId", store.Config.ChainID())
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
-	confirmedHash := cltest.NewHash()
-	receipt := models.TxReceipt{Hash: confirmedHash, BlockNumber: cltest.Int(sentAt)}
-	ethMock.Register("eth_getTransactionReceipt", receipt)
-	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(confirmedAt)))
-
-	require.NoError(t, app.StartAndConnect())
-
-	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
-	tx.GasPrice = models.NewBig(config.EthGasPriceDefault())
-	require.NoError(t, store.DB.Save(tx).Error)
-	store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt+1)
-	a3, _ := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), sentAt+2)
 	adapter := adapters.EthTx{}
-	sentResult := *models.NewRunInputWithResult(
-		models.NewID(), a3.Hash.String(), models.RunStatusPendingConfirmations,
+	input := *models.NewRunInputWithResult(
+		models.NewID(), cltest.NewHash(), models.RunStatusPendingConfirmations,
 	)
-
-	assert.False(t, tx.Confirmed)
-
-	output := adapter.Perform(sentResult, store)
+	output := adapter.Perform(input, store)
 
 	require.NoError(t, output.Error())
-	assert.True(t, output.Status().Completed())
-	assert.Equal(t, confirmedHash.String(), output.Result().String())
-
-	tx, err := store.FindTx(tx.ID)
-	require.NoError(t, err)
-	assert.True(t, tx.Confirmed)
-	require.Len(t, tx.Attempts, 2)
-	assert.True(t, tx.Attempts[0].Confirmed)
-	assert.False(t, tx.Attempts[1].Confirmed)
+	assert.Equal(t, models.RunStatusCompleted, output.Status())
+	assert.Equal(t, receiptHash.String(), output.Result().String())
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
 	var receipts []models.TxReceipt
 	require.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
 	require.Len(t, receipts, 1)
-	assert.Equal(t, receipt, receipts[0])
+	assert.Equal(t, receipt, &receipts[0])
 
-	confirmedTxHex := output.Get("latestOutgoingTxHash").String()
-	assert.Equal(t, confirmedHash, common.HexToHash(confirmedTxHex))
+	latestOutgoingTxHash := output.Get("latestOutgoingTxHash").String()
+	assert.Equal(t, receiptHash.String(), latestOutgoingTxHash)
 
-	ethMock.EventuallyAllCalled(t)
+	txManager.AssertExpectations(t)
 }
 
 func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	store := app.Store
-	config := store.Config
-	sentAt := uint64(23456)
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(true)
+	receiptHash := cltest.NewHash()
+	receipt := &models.TxReceipt{Hash: receiptHash, BlockNumber: cltest.Int(129831)}
+	txManager.On("BumpGasUntilSafe", mock.Anything).Return(receipt, strpkg.Safe, nil)
+	store.TxManager = txManager
 
-	ethMock := app.MockEthCallerSubscriber()
-	receipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt)}
-	ethMock.Register("eth_getTransactionReceipt", receipt)
-	confirmedAt := sentAt + config.MinOutgoingConfirmations() - 1 // confirmations are 0-based idx
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(confirmedAt)))
-	ethMock.Register("eth_chainId", config.ChainID())
-	ethMock.Register("eth_getTransactionCount", `0x100`)
-	ethMock.Register("eth_getBalance", "0x100")
-	ethMock.Register("eth_call", "0x1")
-
-	require.NoError(t, app.StartAndConnect())
-
-	tx := cltest.NewTx(cltest.NewAddress(), sentAt)
-	tx.GasPrice = models.NewBig(config.EthGasPriceDefault())
-	require.NoError(t, store.DB.Save(tx).Error)
-	a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(1)), sentAt)
-	assert.NoError(t, err)
 	adapter := adapters.EthTx{}
-
-	previousReceipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(sentAt - 10)}
-	data, err := models.JSON{}.Add("result", a.Hash.String())
-	require.NoError(t, err)
-	data, err = data.Add("ethereumReceipts", []models.TxReceipt{previousReceipt})
-	require.NoError(t, err)
-	input := *models.NewRunInput(models.NewID(), data, models.RunStatusPendingConfirmations)
-
+	data := cltest.JSONFromString(t, `{
+		"ethereumReceipts": [{}],
+		"result":"0x3f839aaf5915da8714313a57b9c0a362d1a9a3fac1210190ace5cf3b008d780f"
+	}`)
+	input := *models.NewRunInput(
+		models.NewID(), data, models.RunStatusPendingConfirmations,
+	)
 	output := adapter.Perform(input, store)
+
 	require.NoError(t, output.Error())
-	assert.True(t, output.Status().Completed())
+	assert.Equal(t, models.RunStatusCompleted, output.Status())
+	assert.Equal(t, receiptHash.String(), output.Result().String())
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
 	var receipts []models.TxReceipt
-	require.NotEqual(t, "", receiptsJSON)
 	require.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
-	assert.Equal(t, []models.TxReceipt{previousReceipt, receipt}, receipts)
+	require.Len(t, receipts, 2)
 
-	ethMock.EventuallyAllCalled(t)
+	latestOutgoingTxHash := output.Get("latestOutgoingTxHash").String()
+	assert.Equal(t, receiptHash.String(), latestOutgoingTxHash)
+
+	txManager.AssertExpectations(t)
 }
 
 func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	store := app.Store
-	ethMock, err := app.MockStartAndConnect()
-	require.NoError(t, err)
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(true)
+	txManager.On("CreateTxWithGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("Cannot connect to node"))
+	store.TxManager = txManager
 
-	adapter := adapters.EthTx{
-		Address:          cltest.NewAddress(),
-		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
-	}
-	input := *models.NewRunInputWithResult(models.NewID(), "0x9786856756", models.RunStatusUnstarted)
-	ethMock.RegisterError("eth_sendRawTransaction", "Cannot connect to nodes")
+	adapter := adapters.EthTx{}
+	input := cltest.NewRunInputWithResult("0x9786856756")
 	output := adapter.Perform(input, store)
+	assert.EqualError(t, output.Error(), "Cannot connect to node")
 
-	require.Error(t, output.Error())
-	assert.Contains(t, output.Error().Error(), "Cannot connect to nodes")
-}
-
-func TestEthTxAdapter_Perform_WithErrorInvalidInput(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-
-	store := app.Store
-	ethMock := app.MockEthCallerSubscriber()
-	ethMock.Register("eth_chainId", store.Config.ChainID())
-	ethMock.Register("eth_getTransactionCount", `0x0100`)
-	require.NoError(t, app.StartAndConnect())
-
-	adapter := adapters.EthTx{
-		Address:          cltest.NewAddress(),
-		FunctionSelector: models.HexToFunctionSelector("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF1"),
-	}
-	input := *models.NewRunInputWithResult(models.NewID(), "0x9786856756", models.RunStatusUnstarted)
-	ethMock.RegisterError("eth_sendRawTransaction", "Cannot connect to nodes")
-	output := adapter.Perform(input, store)
-
-	require.Error(t, output.Error())
-	assert.Contains(t, output.Error().Error(), "Cannot connect to nodes")
+	txManager.AssertExpectations(t)
 }
 
 func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	store := app.Store
-	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
-	ethMock.Register("eth_getTransactionCount", `0x17`)
-	ethMock.Register("eth_chainId", store.Config.ChainID())
-	assert.Nil(t, app.Start())
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(true)
+	txManager.On("BumpGasUntilSafe", mock.Anything).Return(nil, strpkg.Unknown, errors.New("Fatal"))
+	store.TxManager = txManager
 
-	require.NoError(t, app.WaitForConnection())
-
-	adapter := adapters.EthTx{
-		Address:          cltest.NewAddress(),
-		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
-	}
+	adapter := adapters.EthTx{}
 	input := *models.NewRunInputWithResult(
 		models.NewID(), cltest.NewHash().String(), models.RunStatusPendingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
-	ethMock.AssertAllCalled()
-
 	assert.Equal(t, models.RunStatusErrored, output.Status())
 	assert.NotNil(t, output.Error())
+
+	txManager.AssertExpectations(t)
 }
 
 func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManager(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-
-	store := app.Store
-	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
-	ethMock.Register("eth_getTransactionCount", `0x12`)
-	ethMock.Register("eth_chainId", store.Config.ChainID())
-	assert.Nil(t, app.Start())
-
-	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, uint64(14372))
-	input := *models.NewRunInputWithResult(
-		models.NewID(), tx.Attempts[0].Hash.String(), models.RunStatusPendingConfirmations,
-	)
-	ethMock.RegisterError("eth_getTransactionReceipt", "Connection reset by peer")
-
-	require.NoError(t, app.WaitForConnection())
-
-	adapter := adapters.EthTx{
-		Address:          cltest.NewAddress(),
-		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
-	}
-	output := adapter.Perform(input, store)
-
-	ethMock.AssertAllCalled()
-
-	require.NoError(t, output.Error())
-	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
-}
-
-func TestEthTxAdapter_DeserializationBytesFormat(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-
-	txManager := new(mocks.TxManager)
-	txAttempt := &models.TxAttempt{}
-	tx := &models.Tx{Attempts: []*models.TxAttempt{txAttempt}}
-	txManager.On("Connected").Maybe().Return(true)
-	txManager.On("CreateTxWithGas", mock.Anything, mock.Anything, hexutil.MustDecode(
-		"0x00000000"+
-			"0000000000000000000000000000000000000000000000000000000000000020"+
-			"000000000000000000000000000000000000000000000000000000000000000b"+
-			"68656c6c6f20776f726c64000000000000000000000000000000000000000000"),
-		mock.Anything, mock.Anything).Return(tx, nil)
-	txManager.On("CheckAttempt", txAttempt, uint64(0)).Return(&models.TxReceipt{}, strpkg.Unconfirmed, nil)
-	store.TxManager = txManager
-
-	task := models.TaskSpec{}
-	err := json.Unmarshal([]byte(`{"type": "EthTx", "params": {"format": "bytes"}}`), &task)
-	assert.NoError(t, err)
-	assert.Equal(t, task.Type, adapters.TaskTypeEthTx)
-
-	adapter, err := adapters.For(task, store.Config, store.ORM)
-	assert.NoError(t, err)
-	ethtx, ok := adapter.BaseAdapter.(*adapters.EthTx)
-	assert.True(t, ok)
-	assert.Equal(t, ethtx.DataFormat, adapters.DataFormatBytes)
-
-	input := *models.NewRunInputWithResult(models.NewID(), "hello world", models.RunStatusInProgress)
-	result := adapter.Perform(input, store)
-	assert.NoError(t, result.Error())
-
-	txManager.AssertExpectations(t)
-}
-
-func TestEthTxAdapter_Perform_CustomGas(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	gasPrice := big.NewInt(187)
-	gasLimit := uint64(911)
 
 	txManager := new(mocks.TxManager)
 	txManager.On("Connected").Return(true)
-	txManager.On("CreateTxWithGas",
-		mock.Anything,
-		mock.Anything,
-		mock.Anything,
-		gasPrice,
-		gasLimit,
-	).Return(&models.Tx{
-		Attempts: []*models.TxAttempt{&models.TxAttempt{}},
-	}, nil)
-	txManager.On("CheckAttempt", mock.Anything, mock.Anything).Return(&models.TxReceipt{}, strpkg.Unconfirmed, nil)
+	txManager.On("BumpGasUntilSafe", mock.Anything).Return(nil, strpkg.Confirmed, errors.New("Connection reset by peer"))
 	store.TxManager = txManager
 
-	adapter := adapters.EthTx{
-		Address:          cltest.NewAddress(),
-		FunctionSelector: models.HexToFunctionSelector("0xb3f98adc"),
-		GasPrice:         models.NewBig(gasPrice),
-		GasLimit:         gasLimit,
-	}
+	adapter := adapters.EthTx{}
+	input := *models.NewRunInputWithResult(
+		models.NewID(), cltest.NewHash().String(), models.RunStatusPendingConfirmations,
+	)
+	output := adapter.Perform(input, store)
 
-	input := *models.NewRunInputWithResult(models.NewID(), "hello world", models.RunStatusInProgress)
-	result := adapter.Perform(input, store)
-	assert.NoError(t, result.Error())
+	require.NoError(t, output.Error())
+	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
 
 	txManager.AssertExpectations(t)
 }
@@ -560,11 +301,17 @@ func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(false)
+	store.TxManager = txManager
+
 	adapter := adapters.EthTx{}
 	data := adapter.Perform(models.RunInput{}, store)
 
 	require.NoError(t, data.Error())
 	assert.Equal(t, models.RunStatusPendingConnection, data.Status())
+
+	txManager.AssertExpectations(t)
 }
 
 func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testing.T) {
@@ -665,143 +412,45 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store := app.Store
-	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
-	ethMock.Register("eth_getTransactionCount", `0x1`)
-	ethMock.Register("eth_chainId", store.Config.ChainID())
 
-	address := cltest.NewAddress()
-	fHash := models.HexToFunctionSelector("b3f98adc")
-	dataPrefix := hexutil.Bytes(
-		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
-	inputValue := "0x9786856756"
+	var sentData []byte
 
-	assert.Nil(t, app.StartAndConnect())
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(true)
+	txManager.On("CreateTxWithGas",
+		mock.Anything,
+		mock.Anything,
+		mock.MatchedBy(func(data []byte) bool {
+			sentData = data
+			return len(data) > 0
+		}),
+		mock.Anything,
+		mock.Anything).Once().Return(nil, errors.New("no bueno"))
+	store.TxManager = txManager
 
-	// Run the adapter, but make sure the transaction sending fails
+	adapter := adapters.EthTx{}
+	input := cltest.NewRunInputWithResult("0x9786856756")
+	result := adapter.Perform(input, store)
+	require.Error(t, result.Error())
 
-	hash := cltest.NewHash()
-	sentAt := uint64(9183)
+	txAttempt := &models.TxAttempt{}
+	tx := &models.Tx{Attempts: []*models.TxAttempt{txAttempt}}
+	txManager.On("CreateTxWithGas",
+		mock.Anything,
+		mock.Anything,
+		mock.MatchedBy(func(data []byte) bool {
+			return bytes.Equal(sentData, data)
+		}),
+		mock.Anything,
+		mock.Anything).Once().Return(tx, nil)
+	txManager.On("CheckAttempt", txAttempt, uint64(0)).Return(&models.TxReceipt{}, strpkg.Confirmed, nil)
 
-	var firstTxData []interface{}
-	ethMock.Register("eth_sendRawTransaction", hash,
-		func(_ interface{}, data ...interface{}) error {
-			firstTxData = data
-			return errors.New("no bueno")
-		})
+	result = adapter.Perform(input, store)
+	require.NoError(t, result.Error())
 
-	adapter := adapters.EthTx{
-		Address:          address,
-		DataPrefix:       dataPrefix,
-		FunctionSelector: fHash,
-	}
-	input := cltest.NewRunInputWithResult(inputValue)
-	data := adapter.Perform(input, store)
-	require.Error(t, data.Error())
-
-	// Run the adapter again
-	confirmed := sentAt + 1
-	var secondTxData []interface{}
-	ethMock.Register("eth_sendRawTransaction", hash,
-		func(_ interface{}, data ...interface{}) error {
-			secondTxData = data
-			return nil
-		})
-	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
-	ethMock.Register("eth_getTransactionReceipt", receipt)
-
-	data = adapter.Perform(input, store)
-	require.NoError(t, data.Error())
-
-	// The first and second transaction should have the same data
-	assert.Equal(t, firstTxData, secondTxData)
-
-	addresses := cltest.GetAccountAddresses(store)
-	require.Len(t, addresses, 1)
-
-	// There should only be one transaction with one attempt
-	transactions, err := store.TxFrom(addresses[0])
-	require.NoError(t, err)
-	require.Len(t, transactions, 1)
-	assert.Len(t, transactions[0].Attempts, 1)
-
-	ethMock.EventuallyAllCalled(t)
-}
-
-func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFailAndNonceChange(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-	store := app.Store
-
-	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
-	ethMock.Register("eth_getTransactionCount", `0x1`)
-	ethMock.Register("eth_getTransactionCount", `0x2`)
-	ethMock.Register("eth_chainId", store.Config.ChainID())
-	app.AddUnlockedKey()
-
-	addresses := cltest.GetAccountAddresses(store)
-	require.Len(t, addresses, 2)
-
-	address := cltest.NewAddress()
-	fHash := models.HexToFunctionSelector("b3f98adc")
-	dataPrefix := hexutil.Bytes(
-		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000045746736453745"))
-	inputValue := "0x9786856756"
-
-	assert.Nil(t, app.StartAndConnect())
-
-	// Run the adapter, but make sure the transaction sending fails
-
-	hash := cltest.NewHash()
-	sentAt := uint64(9183)
-	var firstTxData []interface{}
-	ethMock.Register("eth_sendRawTransaction", hash,
-		func(_ interface{}, data ...interface{}) error {
-			firstTxData = data
-			return errors.New("no bueno")
-		})
-	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(sentAt)}
-	ethMock.Register("eth_getTransactionReceipt", receipt)
-
-	adapter := adapters.EthTx{
-		Address:          address,
-		DataPrefix:       dataPrefix,
-		FunctionSelector: fHash,
-	}
-	input := cltest.NewRunInputWithResult(inputValue)
-	data := adapter.Perform(input, store)
-	require.Error(t, data.Error())
-
-	// Run the adapter again
-	var secondTxData []interface{}
-	ethMock.Register("eth_sendRawTransaction", hash,
-		func(_ interface{}, data ...interface{}) error {
-			secondTxData = data
-			return nil
-		})
-
-	data = adapter.Perform(input, store)
-	require.NoError(t, data.Error())
-
-	// Since the nonce (and from address) changed, the data should also change
-	assert.NotEqual(t, firstTxData, secondTxData)
-
-	// The original account should have no txes, because it was reassigned
-	txs, err := store.TxFrom(addresses[0])
-	require.NoError(t, err)
-	assert.Len(t, txs, 0)
-
-	// The second account should have only one tx
-	txs, err = store.TxFrom(addresses[1])
-	require.NoError(t, err)
-	require.Len(t, txs, 1)
-	assert.Len(t, txs[0].Attempts, 1)
-
-	ethMock.EventuallyAllCalled(t)
+	txManager.AssertExpectations(t)
 }
 
 func TestEthTxAdapter_IsClientRetriable(t *testing.T) {
