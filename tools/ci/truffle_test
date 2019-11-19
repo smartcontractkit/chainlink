@@ -6,7 +6,11 @@ yarn workspaces run lint
 
 # We should merge these into the lint commands too
 yarn workspace chainlink run slither
+# if the above fails, you can mark it in the db by running:
+#   `cd evm && slither --triage-mode .`
 yarn workspace chainlinkv0.5 run slither
+# if the above fails, you can mark it in the db by running:
+#   `cd evm/v0.5 && slither --triage-mode .`
 
 yarn workspace chainlinkv0.5 build
 
