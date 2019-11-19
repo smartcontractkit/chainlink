@@ -74,3 +74,29 @@ This will remove all volumes of the spun-up services. Useful if you want to comp
 ```sh
 docker-compose down -v
 ```
+
+# Environment Variables
+For more information regarding environment variables, the docker [documentation](https://docs.docker.com/compose/environment-variables/) explains it in great detail.
+All of the environment variables listed under the `environment` key in each service contains a default entry under the `.env` file of this directory.
+
+## Overriding existing variables 
+The existing variables listed under the `environment` key in each service can be overridden by setting a shell environment variable of the same key. For example, referring to `ETH_CHAIN_ID` variable under the `node` service, the default value of `ETH_CHAIN_ID` in `.env` is `34055`. If we wanted to change this to `1337`, we could set a shell variable to override this value.
+
+```sh
+export ETH_CHAIN_ID=1337
+docker-compose up # ETH_CHAIN_ID now has the value of 1337, instead of the default value of 34055
+```
+
+## Adding new environment variables
+What if we want to add new environment variables that are not listed under the `environment` key of a service? `docker-compose` provides us with a way to pass our own variables that are not defined under the `environment` key by using an [env_file](https://docs.docker.com/compose/compose-file/#env_file). We can see from our `docker-compose.yaml` file that there is an env file under the name of `chainlink-variables.env`. In this file, you can specify any extra environment variables that you'd like to pass to the associated container.
+
+For example, lets say we want to pass the variable `ALLOW_ORIGINS` defined in `store/orm/schema.go`, so that we can serve our api from a different port without getting CORS errors. We can't pass this in as a shell variable, as the variable is not defined under the `environment` key under the `node` service. What we can do though, is specify `ALLOW_ORIGINS` in `chainlink-variables.env`, which will get passed to the container.
+```sh
+# assuming that we're in the tools/docker directory
+
+# Add our custom environment variable
+echo "ALLOW_ORIGINS=http://localhost:1337" > chainlink-variables.env
+
+# now the node will allow requests from the origin of http://localhost:1337 rather than the default value of http://localhost:3000,http://localhost:6688
+docker-compose up 
+```
