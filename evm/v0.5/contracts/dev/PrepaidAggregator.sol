@@ -9,7 +9,11 @@ import "../interfaces/WithdrawalInterface.sol";
 
 /**
  * @title The Prepaid Aggregator contract
- * @notice Node handles aggregating data pushed in from off-chain.
+ * @notice Node handles aggregating data pushed in from off-chain, and unlocks
+ * payment for oracles as they report. Oracles' submissions are gathered in
+ * rounds, with each round aggregating the submissions for each oracle into a
+ * single answer. The latest aggregated answer is exposed as well as historical
+ * answers and their updated at blockheight.
  */
 contract PrepaidAggregator is Ownable, WithdrawalInterface {
   using SafeMath for uint256;
@@ -291,6 +295,10 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     return (oracles[_oracle].latestAnswer, oracles[_oracle].lastReportedRound);
   }
 
+  /**
+   * Private
+   */
+
   function startNewRound(uint128 _id)
     private
     onlyOnNewRound(_id)
@@ -353,6 +361,10 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     require(_round > oracles[msg.sender].lastReportedRound, "Cannot update round reports");
     _;
   }
+
+  /**
+   * Modifiers
+   */
 
   modifier onlyIfMinAnswersReceived(uint128 _id) {
     if (rounds[_id].details.answers.length >= rounds[_id].details.minAnswers) {
