@@ -9,12 +9,13 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
+import { ChainlinkNode } from 'explorer/models'
 import Title from '../../../components/Title'
 import List from '../../../components/Admin/Operators/List'
 import { ChangePageEvent } from '../../../components/Table'
 import { fetchAdminOperators } from '../../../actions/adminOperators'
 import { AppState } from '../../../reducers'
-import { ChainlinkNode } from 'explorer/models'
+import { DispatchBinding } from '../../../utils/types'
 
 const LOADING_MSG = 'Loading operators...'
 const EMPTY_MSG = 'There are no operators added to the Explorer yet.'
@@ -40,7 +41,7 @@ interface StateProps {
 }
 
 interface DispatchProps {
-  fetchAdminOperators: (...args: Parameters<typeof fetchAdminOperators>) => void
+  fetchAdminOperators: DispatchBinding<typeof fetchAdminOperators>
 }
 
 interface Props

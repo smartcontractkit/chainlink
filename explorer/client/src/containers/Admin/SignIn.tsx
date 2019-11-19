@@ -4,6 +4,7 @@ import { Redirect, RouteComponentProps } from '@reach/router'
 import { SignIn as SignInForm } from '../../components/Forms/SignIn'
 import { signIn } from '../../actions/adminAuth'
 import { AppState } from '../../reducers'
+import { DispatchBinding } from '../../utils/types'
 
 interface OwnProps {}
 
@@ -13,7 +14,7 @@ interface StateProps {
 }
 
 interface DispatchProps {
-  signIn: (...args: Parameters<typeof signIn>) => void
+  signIn: DispatchBinding<typeof signIn>
 }
 
 interface Props

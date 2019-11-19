@@ -3,6 +3,7 @@ import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { Redirect, RouteComponentProps } from '@reach/router'
 import { signOut } from '../../actions/adminAuth'
 import { AppState } from '../../reducers'
+import { DispatchBinding } from '../../utils/types'
 
 interface OwnProps {}
 
@@ -11,7 +12,7 @@ interface StateProps {
 }
 
 interface DispatchProps {
-  signOut: () => void
+  signOut: DispatchBinding<typeof signOut>
 }
 
 interface Props
