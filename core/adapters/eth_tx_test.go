@@ -280,7 +280,7 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 
 	txManager := new(mocks.TxManager)
 	txManager.On("Connected").Return(true)
-	txManager.On("BumpGasUntilSafe", mock.Anything).Return(nil, strpkg.Unknown, errors.New("Connection reset by peer"))
+	txManager.On("BumpGasUntilSafe", mock.Anything).Return(nil, strpkg.Confirmed, errors.New("Connection reset by peer"))
 	store.TxManager = txManager
 
 	adapter := adapters.EthTx{}
