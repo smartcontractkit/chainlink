@@ -11,7 +11,7 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import classNames from 'classnames'
-import { State } from '../reducers'
+import { AppState } from '../reducers'
 
 const styles = ({ palette, spacing }: Theme) =>
   createStyles({
@@ -49,7 +49,7 @@ const SearchBox = ({ classes, className, query }: Props) => {
   )
 }
 
-const mapStateToProps = (state: State) => {
+const mapStateToProps = (state: AppState) => {
   return {
     query: state.search.query,
   }

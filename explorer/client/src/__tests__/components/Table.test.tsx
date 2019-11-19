@@ -13,7 +13,7 @@ describe('components/Table', () => {
   })
 
   it('renders the columns from each row', () => {
-    const rows = [
+    const rows: React.ComponentPropsWithoutRef<typeof Table>['rows'] = [
       [{ type: 'text', text: 'Michael' }, { type: 'text', text: 'Jordan' }],
       [{ type: 'text', text: 'Charles' }, { type: 'text', text: 'Barkley' }],
     ]
