@@ -25,10 +25,6 @@ export default class DeviationGraph {
 
   bisectDate = d3.bisector(d => d.timestamp).left
 
-  nearest(n) {
-    return n < 0 ? Math.floor(n) : Math.round(n)
-  }
-
   build() {
     this.svg = d3
       .select('.deviation-history-graph')
@@ -166,9 +162,12 @@ export default class DeviationGraph {
       .domain(d3.extent(data, d => d.timestamp))
       .range([0, this.width - this.margin.left])
 
+    const ymin = d3.min(data, d => d.deviation)
+    const ymax = d3.max(data, d => d.deviation)
+
     this.y = d3
       .scaleLinear()
-      .domain(d3.extent(data, d => this.nearest(d.deviation)))
+      .domain([Math.floor(ymin), Math.ceil(ymax)])
       .range([this.height, 0])
 
     const y_axis = d3
