@@ -81,7 +81,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    * @param _answer is the updated data that the oracle is submitting
    */
   function updateAnswer(uint128 _round, int256 _answer)
-    public
+    external
     onlyValidRoundId(_round)
     onlyValidOracleRound(_round)
   {
@@ -107,7 +107,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     uint64 _maxAnswers,
     uint64 _restartDelay
   )
-    public
+    external
     onlyOwner()
     onlyUnenabledAddress(_oracle)
   {
@@ -135,7 +135,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     uint64 _maxAnswers,
     uint64 _restartDelay
   )
-    public
+    external
     onlyOwner()
     onlyEnabledAddress(_oracle)
   {
@@ -194,17 +194,19 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    * @notice query the available amount of LINK for an oracle to withdraw
    */
   function withdrawable()
-    public
+    external
+    view
     returns (uint256)
   {
-    return oracles[msg.sender].withdrawable;
+    return uint256(oracles[msg.sender].withdrawable);
   }
 
   /**
    * @notice get the most recently reported answer
    */
   function currentAnswer()
-    public
+    external
+    view
     returns (int256)
   {
     return getAnswer(latestRound);
@@ -214,7 +216,8 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    * @notice get the last updated at block height
    */
   function updatedHeight()
-    public
+    external
+    view
     returns (uint256)
   {
     return getUpdatedHeight(latestRound);
@@ -226,6 +229,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    */
   function getAnswer(uint128 _id)
     public
+    view
     returns (int256)
   {
     return rounds[_id].answer;
@@ -237,6 +241,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    */
   function getUpdatedHeight(uint128 _id)
     public
+    view
     returns (uint256)
   {
     return rounds[_id].updatedHeight;
@@ -248,7 +253,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    * @param _amount is the amount of LINK to send
    */
   function withdraw(address _recipient, uint256 _amount)
-    public
+    external
   {
     uint128 amount = uint128(_amount);
     uint128 available = oracles[msg.sender].withdrawable;
@@ -266,7 +271,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    * @param _amount is the amount of LINK to send
    */
   function withdrawFunds(address _recipient, uint256 _amount)
-    public
+    external
     onlyOwner()
   {
     require(availableFunds >= _amount, "Insufficient funds");
@@ -279,7 +284,8 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    * @param _oracle is the address to lookup the latest submission for
    */
   function latestSubmission(address _oracle)
-    public
+    external
+    view
     returns (int256, uint256)
   {
     return (oracles[_oracle].latestAnswer, oracles[_oracle].lastReportedRound);
