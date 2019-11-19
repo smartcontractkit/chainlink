@@ -77,11 +77,11 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
 
 	// process optional URL
 	if c.NArg() == 2 {
-		if url, err := url.ParseRequestURI(c.Args().Get(1)); err == nil {
-			request.URL = (*models.WebURL)(url)
-		} else {
+		url, err := url.ParseRequestURI(c.Args().Get(1))
+		if err != nil {
 			return cli.errorOut(err)
 		}
+		request.URL = (*models.WebURL)(url)
 	}
 
 	requestData, err := json.Marshal(request)
