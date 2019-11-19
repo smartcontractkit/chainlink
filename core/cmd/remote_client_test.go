@@ -247,7 +247,9 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			err = app.Store.ORM.Where("name", test.args[0], &exi)
 			require.NoError(t, err)
 
-			assert.Equal(t, test.args[1], exi.URL.String())
+			if len(test.args) > 1 {
+				assert.Equal(t, test.args[1], exi.URL.String())
+			}
 		})
 	}
 }
