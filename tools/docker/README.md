@@ -16,7 +16,7 @@ The `devnet` service spins up an ethereum blockchain in development mode, it's u
 ## explorer
 The `explorer` service contains the Chainlink Explorer, a service that allows users to search and discover chainlink specific transactions, jobs, and more. The served explorer site is accessible from `localhost:3000`. 
 
-## Setup
+# Setup
 The following commands assume that you're executing `docker-compose` commands with the current working directory being `tools/docker`.
 A full description of how to run `docker-compose` can be found in its [web documentation](https://docs.docker.com/compose/).
 
@@ -40,9 +40,11 @@ The following command will build a single image, along with all of its dependent
 docker-compose build <service name>
 ```
 
-## Startup
-### Start all services
-The following command will start up all services and their dependent child services.
+## Run
+Running a service is the process of launching a process for a built image, allowing us to interact with it. Docker compose lets up run multiple interdependent services in a fashion where they are launched in the correct order.
+
+### Run all services
+The following command will run up all services and their dependent child services.
 ```sh 
 docker-compose up
 ```
@@ -52,8 +54,8 @@ Adding the `-d` flag will detach the spun up services from your terminal.
 docker-compose up -d
 ```
 
-### Start a single service
-The following command will start up a single service along with any service dependencies it has.
+### Run a single service
+The following command will run up a single service along with any service dependencies it has.
 ```sh
 docker-compose up <service name>
 ```
@@ -77,7 +79,7 @@ docker-compose down -v
 
 # Environment Variables
 For more information regarding environment variables, the docker [documentation](https://docs.docker.com/compose/environment-variables/) explains it in great detail.
-All of the environment variables listed under the `environment` key in each service contains a default entry under the `.env` file of this directory.
+All of the environment variables listed under the `environment` key in each service contains a default entry under the `.env` file of this directory. Additional environment variables can be added by using the `chainlink-variables.env` file. Both files are further expanded upon below.
 
 ## Overriding existing variables 
 The existing variables listed under the `environment` key in each service can be overridden by setting a shell environment variable of the same key. For example, referring to `ETH_CHAIN_ID` variable under the `node` service, the default value of `ETH_CHAIN_ID` in `.env` is `34055`. If we wanted to change this to `1337`, we could set a shell variable to override this value.
