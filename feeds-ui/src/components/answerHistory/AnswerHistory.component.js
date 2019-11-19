@@ -8,8 +8,7 @@ function AnswerHistory({ answerHistory, options }) {
   useEffect(() => {
     graph.current = new HistoryGraphD3(options)
     graph.current.build()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [options])
 
   useEffect(() => {
     graph.current.update(answerHistory)
@@ -18,9 +17,9 @@ function AnswerHistory({ answerHistory, options }) {
   return (
     <>
       <div className="answer-history">
-        <h3 className="answer-history-header">
+        <h2 className="answer-history-header">
           24h Price history {!answerHistory && <Icon type="loading" />}
-        </h3>
+        </h2>
         <div className="answer-history-graph"></div>
       </div>
     </>
