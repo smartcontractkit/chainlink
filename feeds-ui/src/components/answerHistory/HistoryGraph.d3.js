@@ -1,8 +1,10 @@
 import * as d3 from 'd3'
-import moment from 'moment'
+import { formatEthPrice } from 'contracts/utils'
+import { ethers } from 'ethers'
+import { humanizeUnixTimestamp } from 'utils'
 
 export default class HistoryGraph {
-  margin = { top: 30, right: 30, bottom: 30, left: 30 }
+  margin = { top: 30, right: 30, bottom: 30, left: 50 }
   width = 1200
   height = 300
   svg
@@ -66,10 +68,6 @@ export default class HistoryGraph {
       .attr('x', '10')
       .attr('y', '10')
 
-    // heighestPricePoint = svg
-    //   .append('circle')
-    //   .attr('class', 'answer-history-graph--top')
-
     this.overlay = this.svg
       .append('rect')
       .attr('width', this.width - this.margin.left)
@@ -98,40 +96,37 @@ export default class HistoryGraph {
 
     this.y = d3
       .scaleLinear()
-      .domain(d3.extent(data, d => Number(d.response)))
+      .domain(d3.extent(data, d => d.response))
       .range([this.height, 0])
 
-    // const y_axis = d3
-    //   .axisLeft()
-    //   .scale(this.y)
-    //   .ticks(4)
-    //   .tickFormat(f => {
-    //     return `${this.options.valuePrefix} ${f / 100000000}`
-    //   })
+    const y_axis = d3
+      .axisLeft()
+      .scale(this.y)
+      .ticks(4)
+      .tickFormat(f => formatEthPrice(ethers.utils.bigNumberify(f)))
 
-    // this.svg
-    //   .append('g')
-    //   .attr('transform', 'translate(50,' + this.margin.top + ')')
-    //   .call(y_axis)
+    this.svg
+      .append('g')
+      .attr('class', 'y-axis')
+      .attr(
+        'transform',
+        `translate(${this.margin.left - 10}, ${this.margin.top})`
+      )
+      .call(y_axis)
 
     const x_axis = d3
       .axisBottom()
       .scale(this.x)
-      .ticks(3)
-      .tickFormat(f => {
-        return moment.unix(f).format('DD/MM/YY h:mm:ss A')
-      })
+      .ticks(7)
+      .tickFormat(f => humanizeUnixTimestamp(f))
 
     this.svg
       .append('g')
       .attr('class', 'x-axis')
       .attr(
         'transform',
-        `translate(${this.margin.left}, ${this.height +
-          this.margin.top +
-          this.margin.bottom})`
+        `translate(${this.margin.left}, ${this.height + this.margin.top + 10})`
       )
-      // .attr('transform', 'translate(50,' + this.margin.top + ')')
       .call(x_axis)
 
     this.line = d3
@@ -155,26 +150,6 @@ export default class HistoryGraph {
       .duration(2000)
       .attr('stroke-dashoffset', 0)
 
-    // const maxY = d3.max(data, d => {
-    //   return Number(d.response)
-    // })
-
-    // const sortedByValue = [...data].sort(function(a, b) {
-    //   return Number(b.response) - Number(a.response)
-    // })[0]
-
-    // heighestPricePoint
-    //   .style('fill', 'black')
-    //   .attr('r', 4)
-    //   .attr(
-    //     'transform',
-    //     'translate(' +
-    //       (x(sortedByValue.answerId) + margin.left) +
-    //       ',' +
-    //       (y(maxY) + margin.top) +
-    //       ')'
-    //   )
-
     this.overlay.on('mousemove', null)
     this.overlay.on('mousemove', () => mousemove())
 
@@ -197,12 +172,10 @@ export default class HistoryGraph {
             (this.y(d.response) + this.margin.top) +
             ')'
         )
-      this.tooltipTimestamp.text(function() {
-        return moment.unix(d.timestamp).format('h:mm:ss A')
-      })
-      this.tooltipPrice.text(function() {
-        return `$ ${d.responseFormatted}`
-      })
+      this.tooltipTimestamp.text(() => humanizeUnixTimestamp(d.timestamp))
+      this.tooltipPrice.text(
+        () => `${this.options.valuePrefix} ${d.responseFormatted}`
+      )
     }
   }
 }

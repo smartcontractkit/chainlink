@@ -188,7 +188,8 @@
 .answer-history {
   margin: 60px 0;
 
-  .x-axis {
+  .x-axis,
+  .y-axis {
     .domain,
     line {
       stroke: #c3c3c3;
@@ -206,6 +207,35 @@
 
   &-graph--timestamp,
   &-graph--price {
+    font-size: 12px;
+    font-weight: 200;
+  }
+}
+
+.deviation-history {
+  margin: 60px 0;
+
+  .x-axis,
+  .y-axis {
+    .domain,
+    line {
+      stroke: #c3c3c3;
+    }
+    text {
+      color: #a0a0a0;
+    }
+  }
+
+  &-header {
+    font-weight: 200;
+    top: 20px;
+    position: relative;
+  }
+
+  &-graph--timestamp,
+  &-graph--percentage,
+  &-graph--price {
+    text-anchor: end;
     font-size: 12px;
     font-weight: 200;
   }
