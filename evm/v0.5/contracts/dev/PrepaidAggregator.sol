@@ -334,7 +334,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   }
 
   modifier onlyIfMinAnswersReceived(uint256 _id) {
-    if (rounds[_id].details.answers.length == rounds[_id].details.minAnswers) {
+    if (rounds[_id].details.answers.length >= rounds[_id].details.minAnswers) {
       _;
     }
   }

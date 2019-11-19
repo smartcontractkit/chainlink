@@ -129,12 +129,19 @@ contract('PrepaidAggregator', () => {
 
     context('when the minimum number of oracles have reported', async () => {
       beforeEach(async () => {
-        await aggregator.updateAnswer(nextRound, 99, { from: personas.Neil })
-        await aggregator.updateAnswer(nextRound, 100, { from: personas.Ned })
+        await aggregator.updateFutureRounds(paymentAmount, 2, 3, 0, {
+          from: personas.Carol,
+        })
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Neil,
+        })
       })
 
       it('updates the answer with the median', async () => {
         assert.equal(0, await aggregator.currentAnswer.call())
+
+        await aggregator.updateAnswer(nextRound, 99, { from: personas.Ned })
+        assert.equal(99, await aggregator.currentAnswer.call()) // ((100+99) / 2).to_i
 
         await aggregator.updateAnswer(nextRound, 101, {
           from: personas.Nelly,
