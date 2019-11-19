@@ -29,8 +29,8 @@
     "reselect": "^4.0.0"
   },
   "scripts": {
-    "start:build": "npm run build && npm run server",
-    "start": "react-scripts start",
+    "start": "npm run server",
+    "start:dev": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
