@@ -2,13 +2,16 @@
  * NOTIFY_ERROR
  */
 
-export type NotifyErrorAction = { type: 'NOTIFY_ERROR'; text: string }
+export interface NotifyErrorAction {
+  type: 'NOTIFY_ERROR'
+  text: string
+}
 
 /**
  * ADMIN_SIGNIN_SUCCEEDED
  */
 
-export type FetchAdminSigninSucceededAction = {
+export interface FetchAdminSigninSucceededAction {
   type: 'FETCH_ADMIN_SIGNIN_SUCCEEDED'
   data: {
     allowed: boolean
@@ -19,7 +22,7 @@ export type FetchAdminSigninSucceededAction = {
  * FETCH_ADMIN_SIGNIN_ERROR
  */
 
-export type FetchAdminSigninErrorAction = {
+export interface FetchAdminSigninErrorAction {
   type: 'FETCH_ADMIN_SIGNIN_ERROR'
   error: Error
 }
@@ -28,7 +31,7 @@ export type FetchAdminSigninErrorAction = {
  * FETCH_ADMIN_SIGNOUT_SUCCEEDED
  */
 
-export type FetchAdminSignoutSucceededAction = {
+export interface FetchAdminSignoutSucceededAction {
   type: 'FETCH_ADMIN_SIGNOUT_SUCCEEDED'
 }
 
@@ -82,6 +85,7 @@ export type FetchJobRunsSucceededAction = {
 /**
  * FETCH_JOB_RUN_SUCCEEDED
  */
+
 export interface JobRunNormalizedMeta {
   jobRun: any
 }
@@ -93,12 +97,15 @@ export interface JobRunNormalizedData {
   meta: JobRunNormalizedMeta
 }
 
-export type FetchJobRunSucceededAction = {
+export interface FetchJobRunSucceededAction {
   type: 'FETCH_JOB_RUN_SUCCEEDED'
   data: JobRunNormalizedData
 }
 
-export type UpdateQueryAction = { type: 'QUERY_UPDATED'; data?: string }
+export interface UpdateQueryAction {
+  type: 'QUERY_UPDATED'
+  data?: string
+}
 
 export type Actions =
   | NotifyErrorAction
