@@ -15,12 +15,13 @@ import TableRow from '@material-ui/core/TableRow'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import build from 'redux-object'
+import { JobRun } from 'explorer/models'
 import { fetchJobRun } from '../../actions/jobRuns'
 import Details from '../../components/JobRuns/Details'
 import RegionalNav from '../../components/JobRuns/RegionalNav'
 import RunStatus from '../../components/JobRuns/RunStatus'
 import { AppState } from '../../reducers'
-import { JobRun } from 'explorer/models'
+import { DispatchBinding } from '../../utils/types'
 
 const Loading = () => (
   <Table>
@@ -64,7 +65,7 @@ interface StateProps {
 }
 
 interface DispatchProps {
-  fetchJobRun: (id: string) => void
+  fetchJobRun: DispatchBinding<typeof fetchJobRun>
 }
 
 interface Props

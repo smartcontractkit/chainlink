@@ -7,12 +7,12 @@ import {
 import React, { useEffect, useState } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import build from 'redux-object'
+import { JobRun } from 'explorer/models'
 import { fetchJobRuns } from '../../actions/jobRuns'
 import List from '../../components/JobRuns/List'
 import { ChangePageEvent } from '../../components/Table'
 import { AppState } from '../../reducers'
-import { Query } from '../../reducers/query'
-import { JobRun } from 'explorer/models'
+import { DispatchBinding } from '../../utils/types'
 
 const EMPTY_MSG =
   "We couldn't find any results for your search query. Try again with the job id, run id, requester, requester id or transaction hash"
@@ -45,7 +45,7 @@ interface StateProps {
 }
 
 interface DispatchProps {
-  fetchJobRuns: (query: Query, page: number, size: number) => void
+  fetchJobRuns: DispatchBinding<typeof fetchJobRuns>
 }
 
 interface Props
