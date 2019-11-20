@@ -19,7 +19,7 @@ const mountNotifications = store =>
   )
 
 describe('containers/Notifications', () => {
-  it('renders success and error components', () => {
+  it('renders success and error component notifications', () => {
     const successes = [
       {
         component: ({ msg }) => <span>Success {msg}</span>,
@@ -43,7 +43,24 @@ describe('containers/Notifications', () => {
     expect(wrapper.text()).toContain('Error 2')
   })
 
-  it('renders an unhandled error message when there is no component', () => {
+  it('renders success and error text notifications', () => {
+    const errors = ['Error Message']
+    const successes = ['Success Message']
+    const state = {
+      notifications: {
+        successes,
+        errors,
+        currentUrl: null,
+      },
+    }
+    const store = mockStore(state)
+    const wrapper = mountNotifications(store)
+
+    expect(wrapper.text()).toContain('Success Message')
+    expect(wrapper.text()).toContain('Error Message')
+  })
+
+  it('renders an unhandled error when there is no component', () => {
     const state = {
       notifications: {
         successes: [],

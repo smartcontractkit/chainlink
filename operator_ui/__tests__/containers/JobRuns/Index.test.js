@@ -1,4 +1,4 @@
-import createStore from 'connectors/redux'
+import createStore from 'createStore'
 import { ConnectedIndex as Index } from 'containers/JobRuns/Index'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRuns'
 import React from 'react'

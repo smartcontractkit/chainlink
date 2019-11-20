@@ -1,5 +1,5 @@
 /* eslint-env jest */
-import createStore from 'connectors/redux'
+import createStore from 'createStore'
 import { ConnectedIndex as Index } from 'containers/Bridges/Index'
 import { mount } from 'enzyme'
 import bridgesFactory from 'factories/bridges'

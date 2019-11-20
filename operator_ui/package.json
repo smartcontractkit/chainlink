@@ -30,6 +30,7 @@
     "change-case": "^3.0.2",
     "classnames": "^2.2.6",
     "core-js": "^3.4.0",
+    "cookie": "^0.4.0",
     "formik": "^1.0.3",
     "humps": "^2.0.1",
     "isomorphic-unfetch": "^3.0.0",
@@ -69,6 +70,7 @@
     "@chainlink/eslint-config": "0.0.3",
     "@chainlink/prettier-config": "0.0.2",
     "@types/classnames": "^2.2.8",
+    "@types/cookie": "^0.3.3",
     "@types/enzyme": "^3.10.3",
     "@types/fetch-mock": "^7.3.1",
     "@types/jest": "^24.0.18",
@@ -97,6 +99,7 @@
     "react-static-plugin-jss": "^6.3.0",
     "react-static-plugin-react-router": "^6.3.4",
     "react-static-plugin-typescript": "^7.0.0",
+    "redux-devtools-extension": "^2.13.8",
     "redux-mock-store": "^1.5.3",
     "serve": "^11.2.0",
     "typescript": "^3.6.3"

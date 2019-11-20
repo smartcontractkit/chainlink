@@ -1,5 +1,5 @@
 import React from 'react'
-import createStore from 'connectors/redux'
+import createStore from 'createStore'
 import syncFetch from 'test-helpers/syncFetch'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRun'
 import { Provider } from 'react-redux'

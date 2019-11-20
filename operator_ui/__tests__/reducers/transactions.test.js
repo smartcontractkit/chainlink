@@ -1,10 +1,7 @@
-import reducer from 'connectors/redux/reducers'
-import {
-  UPSERT_TRANSACTIONS,
-  UPSERT_TRANSACTION,
-} from 'connectors/redux/reducers/transactions'
+import reducer from 'reducers'
+import { UPSERT_TRANSACTIONS, UPSERT_TRANSACTION } from 'reducers/transactions'
 
-describe('connectors/reducers/transactions', () => {
+describe('reducers/transactions', () => {
   it('should return the initial state', () => {
     const state = reducer(undefined, {})
 

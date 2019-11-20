@@ -1,7 +1,7 @@
 import React from 'react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router'
-import createStore from '../../src/connectors/redux'
+import createStore from 'createStore'
 
 interface Props {
   initialEntries?: string[]
