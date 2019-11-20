@@ -223,9 +223,10 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
+	url := cltest.WebURL(t, eiMockServer.URL)
 	eir := models.ExternalInitiatorRequest{
 		Name: "someCoin",
-		URL:  cltest.WebURL(t, eiMockServer.URL),
+		URL:  &url,
 	}
 	eia := models.NewExternalInitiatorAuthentication()
 	ei, err := models.NewExternalInitiator(eia, &eir)

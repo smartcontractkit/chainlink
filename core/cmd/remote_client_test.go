@@ -224,6 +224,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 	}{
 		{"create external initiator", []string{"exi", "http://testing.com/external_initiators"}},
 		{"create external initiator w/ query params", []string{"exiqueryparams", "http://testing.com/external_initiators?query=param"}},
+		{"create external initiator w/o url", []string{"exi_no_url"}},
 	}
 
 	for _, tt := range tests {
@@ -246,7 +247,9 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			err = app.Store.ORM.Where("name", test.args[0], &exi)
 			require.NoError(t, err)
 
-			assert.Equal(t, test.args[1], exi.URL.String())
+			if len(test.args) > 1 {
+				assert.Equal(t, test.args[1], exi.URL.String())
+			}
 		})
 	}
 }
@@ -259,7 +262,6 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 		args []string
 	}{
 		{"no arguments", []string{}},
-		{"not enough arguments", []string{"bitcoin"}},
 		{"too many arguments", []string{"bitcoin", "https://valid.url", "extra arg"}},
 		{"invalid url", []string{"bitcoin", "not a url"}},
 	}

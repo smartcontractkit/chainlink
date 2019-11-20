@@ -38,6 +38,32 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	assert.NotEmpty(t, ei.OutgoingSecret)
 }
 
+func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	resp, cleanup := client.Post("/v2/external_initiators",
+		bytes.NewBufferString(`{"name":"no-url"}`),
+	)
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 201)
+	ei := &presenters.ExternalInitiatorAuthentication{}
+	err := cltest.ParseJSONAPIResponse(t, resp, ei)
+	require.NoError(t, err)
+
+	assert.Equal(t, "no-url", ei.Name)
+	assert.Equal(t, "", ei.URL.String())
+	assert.NotEmpty(t, ei.AccessKey)
+	assert.NotEmpty(t, ei.Secret)
+	assert.NotEmpty(t, ei.OutgoingToken)
+	assert.NotEmpty(t, ei.OutgoingSecret)
+}
+
 func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 	t.Parallel()
 

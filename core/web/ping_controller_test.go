@@ -37,9 +37,10 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 		AccessKey: "abracadabra",
 		Secret:    "opensesame",
 	}
+	eir_url := cltest.WebURL(t, "http://localhost:8888")
 	eir := &models.ExternalInitiatorRequest{
 		Name: "bitcoin",
-		URL:  cltest.WebURL(t, "http://localhost:8888"),
+		URL:  &eir_url,
 	}
 
 	ei, err := models.NewExternalInitiator(eia, eir)
