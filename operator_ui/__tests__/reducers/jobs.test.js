@@ -1,12 +1,12 @@
-import reducer from 'connectors/redux/reducers'
+import reducer from 'reducers'
 import {
   UPSERT_JOBS,
   UPSERT_RECENTLY_CREATED_JOBS,
   UPSERT_JOB,
-} from 'connectors/redux/reducers/jobs'
-import { RECEIVE_DELETE_SUCCESS } from '../../../src/actions'
+} from 'reducers/jobs'
+import { RECEIVE_DELETE_SUCCESS } from 'actions'
 
-describe('connectors/reducers/jobs', () => {
+describe('reducers/jobs', () => {
   it('should return the initial state', () => {
     const state = reducer(undefined, {})
 

@@ -1,4 +1,4 @@
-import reducer from 'connectors/redux/reducers'
+import reducer from 'reducers'
 import { getAuthentication } from 'utils/storage'
 import {
   REQUEST_SIGNIN,
@@ -10,7 +10,7 @@ import {
   RECEIVE_SIGNOUT_ERROR,
 } from 'actions'
 
-describe('connectors/reducers/authentication', () => {
+describe('reducers/authentication', () => {
   beforeEach(() => {
     global.localStorage.clear()
   })
