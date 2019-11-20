@@ -418,10 +418,6 @@ workflows:
           filters: # all branches, and /^explorer-v../ tags for build-publish...
             tags:
               only: /^explorer-v.*/
-      - forks:
-          filters:
-            tags:
-              only: /^v.*/
       - prepublish_npm:
           filters:
             tags:
