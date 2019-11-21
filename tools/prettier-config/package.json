@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/prettier-config",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A base prettier config for the chainlink organization",
   "main": ".prettierrc.js",
   "repository": "https://github.com/smartcontractkit/chainlink",
