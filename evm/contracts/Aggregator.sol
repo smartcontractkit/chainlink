@@ -22,9 +22,9 @@ contract Aggregator is ChainlinkClient, Ownable {
   event ResponseReceived(int256 indexed response, uint256 indexed answerId, address indexed sender);
   event AnswerUpdated(int256 indexed current, uint256 indexed answerId);
 
-  int256 public currentAnswer;
+  int256 private currentAnswerValue;
+  uint256 private updatedTimestampValue;
   uint256 public latestCompletedAnswer;
-  uint256 public updatedHeight;
   uint128 public paymentAmount;
   uint128 public minimumResponses;
   bytes32[] public jobIds;
@@ -34,6 +34,8 @@ contract Aggregator is ChainlinkClient, Ownable {
   mapping(address => bool) public authorizedRequesters;
   mapping(bytes32 => uint256) private requestAnswers;
   mapping(uint256 => Answer) private answers;
+  mapping(uint256 => int256) private currentAnswers;
+  mapping(uint256 => uint256) private updatedTimestamps;
 
   uint256 constant private MAX_ORACLE_COUNT = 45;
 
@@ -219,13 +221,61 @@ contract Aggregator is ChainlinkClient, Ownable {
     if (responseLength % 2 == 0) {
       int256 median1 = quickselect(answers[_answerId].responses, middleIndex);
       int256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
-      currentAnswer = median1.add(median2) / 2; // signed integers are not supported by SafeMath
+      currentAnswerValue = median1.add(median2) / 2; // signed integers are not supported by SafeMath
     } else {
-      currentAnswer = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
+      currentAnswerValue = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
     }
     latestCompletedAnswer = _answerId;
-    updatedHeight = block.number;
-    emit AnswerUpdated(currentAnswer, _answerId);
+    updatedTimestampValue = now;
+    updatedTimestamps[_answerId] = now;
+    currentAnswers[_answerId] = currentAnswerValue;
+    emit AnswerUpdated(currentAnswerValue, _answerId);
+  }
+
+  /**
+   * @notice get the most recently reported answer
+   */
+  function currentAnswer()
+    external
+    view
+    returns (int256)
+  {
+    return getAnswer(latestCompletedAnswer);
+  }
+
+  /**
+   * @notice get the last updated at block timestamp
+   */
+  function updatedTimestamp()
+    external
+    view
+    returns (uint256)
+  {
+    return getUpdatedTimestamp(latestCompletedAnswer);
+  }
+
+  /**
+   * @notice get past rounds answers
+   * @param _id the answer number to retrieve the answer for
+   */
+  function getAnswer(uint256 _id)
+    public
+    view
+    returns (int256)
+  {
+    return currentAnswers[_id];
+  }
+
+  /**
+   * @notice get block timestamp when an answer was last updated
+   * @param _id the answer number to retrieve the updated timestamp for
+   */
+  function getUpdatedTimestamp(uint256 _id)
+    public
+    view
+    returns (uint256)
+  {
+    return updatedTimestamps[_id];
   }
 
   /**
