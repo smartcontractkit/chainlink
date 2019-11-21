@@ -1,4 +1,4 @@
-FROM node:10.15 as builder
+FROM node:10.17 as builder
 
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
@@ -10,7 +10,7 @@ RUN yarn install
 RUN yarn workspace @chainlink/json-api-client run build
 RUN yarn workspace @chainlink/explorer run build
 
-FROM node:10.15-alpine
+FROM node:10.17-alpine
 
 WORKDIR /app
 
