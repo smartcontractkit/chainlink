@@ -12,8 +12,8 @@
     "axios": "^0.19.0"
   },
   "devDependencies": {
-    "@chainlink/eslint-config": "0.0.1",
-    "@chainlink/prettier-config": "0.0.1",
+    "@chainlink/eslint-config": "0.0.2",
+    "@chainlink/prettier-config": "0.0.2",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",
     "prettier": "^1.18.2"

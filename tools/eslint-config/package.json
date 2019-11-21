@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/eslint-config",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Shared eslint configs for the chainlink project",
   "main": "base.js",
   "repository": "https://github.com/smartcontractkit/chainlink",
@@ -22,7 +22,7 @@
     "eslint-plugin-react-hooks": "^2.3.0"
   },
   "devDependencies": {
-    "@chainlink/prettier-config": "0.0.1",
+    "@chainlink/prettier-config": "0.0.2",
     "eslint": "^6.3.0",
     "prettier": "^1.18.2"
   },
