@@ -55,7 +55,7 @@
   },
   "devDependencies": {
     "@chainlink/eslint-config": "0.0.2",
-    "@chainlink/prettier-config": "0.0.1",
+    "@chainlink/prettier-config": "0.0.2",
     "@craco/craco": "^5.5.0",
     "@types/classnames": "^2.2.7",
     "@types/enzyme": "^3.9.1",
