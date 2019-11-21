@@ -13,7 +13,7 @@ import "../interfaces/WithdrawalInterface.sol";
  * payment for oracles as they report. Oracles' submissions are gathered in
  * rounds, with each round aggregating the submissions for each oracle into a
  * single answer. The latest aggregated answer is exposed as well as historical
- * answers and their updated at blockheight.
+ * answers and their updated at timestamp.
  */
 contract PrepaidAggregator is Ownable, WithdrawalInterface {
   using SafeMath for uint256;
@@ -21,7 +21,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
 
   struct Round {
     int256 answer;
-    uint256 updatedHeight;
+    uint256 updatedTimestamp;
     RoundDetails details;
   }
 
@@ -217,14 +217,14 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   }
 
   /**
-   * @notice get the last updated at block height
+   * @notice get the last updated at timestamp
    */
-  function updatedHeight()
+  function updatedTimestamp()
     external
     view
     returns (uint256)
   {
-    return getUpdatedHeight(latestRound);
+    return getUpdatedTimestamp(latestRound);
   }
 
   /**
@@ -240,15 +240,15 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   }
 
   /**
-   * @notice get block height when an answer was last updated
-   * @param _id the round number to retrieve the updated height for
+   * @notice get timestamp when an answer was last updated
+   * @param _id the round number to retrieve the updated timestamp for
    */
-  function getUpdatedHeight(uint128 _id)
+  function getUpdatedTimestamp(uint128 _id)
     public
     view
     returns (uint256)
   {
-    return rounds[_id].updatedHeight;
+    return rounds[_id].updatedTimestamp;
   }
 
   /**
@@ -320,7 +320,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   {
     int256 newAnswer = Median.calculate(rounds[_id].details.answers);
     rounds[_id].answer = newAnswer;
-    rounds[_id].updatedHeight = block.number;
+    rounds[_id].updatedTimestamp = block.number;
     latestRound = _id;
 
     emit AnswerUpdated(newAnswer, _id);
