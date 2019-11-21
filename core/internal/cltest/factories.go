@@ -30,7 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
-	null "gopkg.in/guregu/null.v3"
+	"gopkg.in/guregu/null.v3"
 )
 
 // NewJob return new NoOp JobSpec
@@ -152,6 +152,23 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	return tx
 }
 
+func NewTransaction(nonce uint64, sentAtV ...uint64) *models.Transaction {
+	from := common.HexToAddress("0xf208000000000000000000000000000000000000")
+	to := common.HexToAddress("0x7000000000000000000000000000000000000000")
+
+	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
+	gasLimit := uint64(50000)
+	data := hexutil.MustDecode("0xda7ada7a")
+
+	sentAt := uint64(0)
+	if len(sentAtV) > 0 {
+		sentAt = sentAtV[0]
+	}
+
+	ethTx := types.NewTransaction(nonce, to, value, gasLimit, new(big.Int), data)
+	return &models.Transaction{Transaction: *ethTx, From: from, SentAt: sentAt, SignedRaw: "signed-raw"}
+}
+
 // CreateTx creates a Tx from a specified address, and sentAt
 func CreateTx(
 	t testing.TB,
@@ -173,9 +190,30 @@ func CreateTxWithNonce(
 	data := make([]byte, 36)
 	binary.LittleEndian.PutUint64(data, sentAt)
 	ethTx := types.NewTransaction(nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), data)
-	tx, err := store.CreateTx(null.String{}, ethTx, &from, sentAt)
+
+	transaction := &models.Transaction{Transaction: *ethTx, From: from, SentAt: sentAt, SignedRaw: "signed-raw-tx"}
+
+	tx, err := store.CreateTx(transaction, null.String{})
+	require.NoError(t, err)
+	_, err = store.AddTxAttempt(tx, transaction)
 	require.NoError(t, err)
 	return tx
+}
+
+func AddTxAttempt(
+	t testing.TB,
+	store *strpkg.Store,
+	tx *models.Tx,
+	etx *types.Transaction,
+	blkNum uint64,
+) *models.TxAttempt {
+	ethTx := types.NewTransaction(tx.Nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), tx.Data)
+
+	transaction := &models.Transaction{Transaction: *ethTx, From: tx.From, SentAt: blkNum, SignedRaw: "signed-raw-tx-attempt"}
+
+	txAttempt, err := store.AddTxAttempt(tx, transaction)
+	require.NoError(t, err)
+	return txAttempt
 }
 
 // NewHash return random Keccak256
