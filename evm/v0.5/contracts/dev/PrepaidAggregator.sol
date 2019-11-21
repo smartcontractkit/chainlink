@@ -397,6 +397,9 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
 
   modifier onlyValidRoundId(uint128 _id) {
     require(_id == currentRound || _id == currentRound.add(1), "Must report on current round");
+    if (_id > 1) {
+      require(rounds[_id.sub(1)].updatedTimestamp > 0, "Cannot bump round until previous round has an answer");
+    }
     _;
   }
 
