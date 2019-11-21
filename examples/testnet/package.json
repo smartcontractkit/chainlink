@@ -12,7 +12,7 @@
     "setup": "echo \"No setup required for @chainlink/example-testnet\""
   },
   "devDependencies": {
-    "@chainlink/eslint-config": "0.0.1",
+    "@chainlink/eslint-config": "0.0.2",
     "@chainlink/prettier-config": "0.0.1",
     "depcheck": "^0.8.3",
     "eslint": "^6.3.0",
