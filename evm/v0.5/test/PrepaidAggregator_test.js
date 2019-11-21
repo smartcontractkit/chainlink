@@ -43,7 +43,7 @@ contract('PrepaidAggregator', () => {
       'currentAnswer',
       'currentRound',
       'getAnswer',
-      'getUpdatedHeight',
+      'getUpdatedTimestamp',
       'latestRound',
       'latestSubmission',
       'maxAnswerCount',
@@ -55,7 +55,7 @@ contract('PrepaidAggregator', () => {
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
-      'updatedHeight',
+      'updatedTimestamp',
       'withdraw',
       'withdrawFunds',
       'withdrawable',
@@ -169,16 +169,19 @@ contract('PrepaidAggregator', () => {
         assert.equal(100, await aggregator.currentAnswer.call())
       })
 
-      it('updates the updated height', async () => {
-        const originalHeight = await aggregator.updatedHeight.call()
-        assert.equal(0, originalHeight.toNumber())
+      it('updates the updated timestamp', async () => {
+        const originalTimestamp = await aggregator.updatedTimestamp.call()
+        assert.equal(0, originalTimestamp.toNumber())
 
         await aggregator.updateAnswer(nextRound, answer, {
           from: personas.Nelly,
         })
 
-        const currentHeight = await aggregator.updatedHeight.call()
-        assert.isAbove(currentHeight.toNumber(), originalHeight.toNumber())
+        const currentTimestamp = await aggregator.updatedTimestamp.call()
+        assert.isAbove(
+          currentTimestamp.toNumber(),
+          originalTimestamp.toNumber(),
+        )
       })
 
       it('announces the new answer with a log event', async () => {
@@ -417,7 +420,7 @@ contract('PrepaidAggregator', () => {
     })
   })
 
-  describe('#getUpdatedHeight', async () => {
+  describe('#getUpdatedTimestamp', async () => {
     beforeEach(async () => {
       await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
         from: personas.Carol,
@@ -432,12 +435,12 @@ contract('PrepaidAggregator', () => {
     })
 
     it('retrieves the answer recorded for past rounds', async () => {
-      let lastHeight = h.bigNum(0)
+      let lastTimestamp = h.bigNum(0)
 
       for (let i = 1; i < nextRound; i++) {
-        const currentHeight = await aggregator.getUpdatedHeight.call(i)
-        assert.isAbove(currentHeight.toNumber(), lastHeight.toNumber())
-        lastHeight = currentHeight
+        const currentTimestamp = await aggregator.getUpdatedTimestamp.call(i)
+        assert.isAbove(currentTimestamp.toNumber(), lastTimestamp.toNumber())
+        lastTimestamp = currentTimestamp
       }
     })
   })
