@@ -1,6 +1,9 @@
 {
   "private": true,
   "license": "MIT",
+  "engines" : {
+    "node" : "^10.16.3"
+  },
   "workspaces": [
     "evm",
     "evm/box",
