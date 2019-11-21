@@ -1,6 +1,8 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
 
+import { expectRevert } from 'openzeppelin-test-helpers'
+
 contract('PrepaidAggregator', () => {
   const Aggregator = artifacts.require('PrepaidAggregator.sol')
   const personas = h.personas
@@ -196,11 +198,12 @@ contract('PrepaidAggregator', () => {
           from: personas.Neil,
         })
 
-        await h.assertActionThrows(async () => {
-          await aggregator.updateAnswer(nextRound, answer, {
+        await expectRevert(
+          aggregator.updateAnswer(nextRound, answer, {
             from: personas.Neil,
-          })
-        })
+          }),
+          'Cannot update round reports',
+        )
       })
     })
 
@@ -215,11 +218,12 @@ contract('PrepaidAggregator', () => {
       })
 
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.updateAnswer(nextRound, answer, {
+        await expectRevert(
+          aggregator.updateAnswer(nextRound, answer, {
             from: personas.Ned,
-          })
-        })
+          }),
+          'Max responses reached for round',
+        )
       })
     })
 
@@ -249,21 +253,23 @@ contract('PrepaidAggregator', () => {
 
     context('when a round is passed in higher than expected', async () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.updateAnswer(nextRound + 1, answer, {
+        await expectRevert(
+          aggregator.updateAnswer(nextRound + 1, answer, {
             from: personas.Neil,
-          })
-        })
+          }),
+          'Must report on current round',
+        )
       })
     })
 
     context('when called by a non-oracle', async () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.updateAnswer(nextRound, answer, {
+        await expectRevert(
+          aggregator.updateAnswer(nextRound, answer, {
             from: personas.Carol,
-          })
-        })
+          }),
+          'Only updatable by designated oracles',
+        )
       })
     })
 
@@ -275,11 +281,12 @@ contract('PrepaidAggregator', () => {
       })
 
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.updateAnswer(nextRound, answer, {
+        await expectRevert(
+          aggregator.updateAnswer(nextRound, answer, {
             from: personas.Neil,
-          })
-        })
+          }),
+          'SafeMath: subtraction overflow',
+        )
       })
     })
 
@@ -367,17 +374,19 @@ contract('PrepaidAggregator', () => {
 
         context('when called by an oracle who answered recently', async () => {
           it('reverts', async () => {
-            await h.assertActionThrows(async () => {
-              await aggregator.updateAnswer(nextRound, answer, {
+            await expectRevert(
+              aggregator.updateAnswer(nextRound, answer, {
                 from: personas.Ned,
-              })
-            })
+              }),
+              'Max responses reached for round',
+            )
 
-            await h.assertActionThrows(async () => {
-              await aggregator.updateAnswer(nextRound, answer, {
+            await expectRevert(
+              aggregator.updateAnswer(nextRound, answer, {
                 from: personas.Nelly,
-              })
-            })
+              }),
+              'Max responses reached for round',
+            )
           })
         })
       },
@@ -477,21 +486,23 @@ contract('PrepaidAggregator', () => {
       })
 
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
+        await expectRevert(
+          aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
             from: personas.Carol,
-          })
-        })
+          }),
+          'Address is already recorded as an oracle',
+        )
       })
     })
 
     context('when called by anyone but the owner', async () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
+        await expectRevert(
+          aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
             from: personas.Neil,
-          })
-        })
+          }),
+          'Ownable: caller is not the owner',
+        )
       })
     })
 
@@ -505,17 +516,12 @@ contract('PrepaidAggregator', () => {
             from: personas.Carol,
           })
         }
-        await h.assertActionThrows(async () => {
-          await aggregator.addOracle(
-            personas.Neil,
-            limit + 1,
-            limit + 1,
-            rrDelay,
-            {
-              from: personas.Carol,
-            },
-          )
-        })
+        await expectRevert(
+          aggregator.addOracle(personas.Neil, limit + 1, limit + 1, rrDelay, {
+            from: personas.Carol,
+          }),
+          `cannot add more than ${limit} oracles`,
+        )
       })
     })
   })
@@ -573,17 +579,12 @@ contract('PrepaidAggregator', () => {
       })
 
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.removeOracle(
-            personas.Neil,
-            minAns,
-            maxAns,
-            rrDelay,
-            {
-              from: personas.Carol,
-            },
-          )
-        })
+        await expectRevert(
+          aggregator.removeOracle(personas.Neil, minAns, maxAns, rrDelay, {
+            from: personas.Carol,
+          }),
+          'Address is not an oracle',
+        )
       })
     })
 
@@ -601,11 +602,12 @@ contract('PrepaidAggregator', () => {
 
     context('when called by anyone but the owner', async () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.removeOracle(personas.Neil, 0, 0, rrDelay, {
+        await expectRevert(
+          aggregator.removeOracle(personas.Neil, 0, 0, rrDelay, {
             from: personas.Ned,
-          })
-        })
+          }),
+          'Ownable: caller is not the owner',
+        )
       })
     })
   })
@@ -626,11 +628,12 @@ contract('PrepaidAggregator', () => {
           from: personas.Carol,
         })
 
-        await h.assertActionThrows(async () => {
-          await aggregator.withdrawFunds(personas.Carol, deposit, {
+        await expectRevert(
+          aggregator.withdrawFunds(personas.Carol, deposit, {
             from: personas.Carol,
-          })
-        })
+          }),
+          'Insufficient funds',
+        )
       })
 
       context('with a number higher than the available LINK balance', () => {
@@ -644,11 +647,12 @@ contract('PrepaidAggregator', () => {
         })
 
         it('fails', async () => {
-          await h.assertActionThrows(async () => {
-            await aggregator.withdrawFunds(personas.Carol, deposit, {
+          await expectRevert(
+            aggregator.withdrawFunds(personas.Carol, deposit, {
               from: personas.Carol,
-            })
-          })
+            }),
+            'Insufficient funds',
+          )
 
           assertBigNum(
             deposit.sub(paymentAmount),
@@ -660,11 +664,12 @@ contract('PrepaidAggregator', () => {
 
     context('when called by a non-owner', () => {
       it('fails', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.withdrawFunds(personas.Carol, deposit, {
+        await expectRevert(
+          aggregator.withdrawFunds(personas.Carol, deposit, {
             from: personas.Eddy,
-          })
-        })
+          }),
+          'Ownable: caller is not the owner',
+        )
 
         assertBigNum(deposit, await aggregator.availableFunds.call())
       })
@@ -732,8 +737,8 @@ contract('PrepaidAggregator', () => {
 
     context('when it is set to higher than the number or oracles', async () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.updateFutureRounds(
+        await expectRevert(
+          aggregator.updateFutureRounds(
             paymentAmount,
             minAnswerCount,
             4,
@@ -741,38 +746,42 @@ contract('PrepaidAggregator', () => {
             {
               from: personas.Carol,
             },
-          )
-        })
+          ),
+          'Cannot have the answer max higher oracle count',
+        )
       })
     })
 
     context('when it sets the min higher than the max', async () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.updateFutureRounds(paymentAmount, 3, 2, rrDelay, {
+        await expectRevert(
+          aggregator.updateFutureRounds(paymentAmount, 3, 2, rrDelay, {
             from: personas.Carol,
-          })
-        })
+          }),
+          'Cannot have the answer minimum higher the max',
+        )
       })
     })
 
     context('when delay equal or greater the oracle count', async () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.updateFutureRounds(paymentAmount, 1, 1, 3, {
+        await expectRevert(
+          aggregator.updateFutureRounds(paymentAmount, 1, 1, 3, {
             from: personas.Carol,
-          })
-        })
+          }),
+          'Restart delay must be less than oracle count',
+        )
       })
     })
 
     context('when called by anyone but the owner', async () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.updateFutureRounds(paymentAmount, 1, 3, rrDelay, {
+        await expectRevert(
+          aggregator.updateFutureRounds(paymentAmount, 1, 3, rrDelay, {
             from: personas.Ned,
-          })
-        })
+          }),
+          'caller is not the owner',
+        )
       })
     })
   })
@@ -859,15 +868,12 @@ contract('PrepaidAggregator', () => {
 
     context('when the caller withdraws more than they have', async () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await aggregator.withdraw(
-            personas.Neil,
-            paymentAmount.add(h.bigNum(1)),
-            {
-              from: personas.Neil,
-            },
-          )
-        })
+        await expectRevert(
+          aggregator.withdraw(personas.Neil, paymentAmount.add(h.bigNum(1)), {
+            from: personas.Neil,
+          }),
+          'Insufficient balance',
+        )
       })
     })
   })

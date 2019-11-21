@@ -330,7 +330,6 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     private
   {
     uint128 payment = rounds[_id].details.paymentAmount;
-    // SafeMath128's underflow check ensures that there are enough funds to pay the oracle.
     uint128 available = availableFunds.sub(payment);
 
     availableFunds = available;
@@ -397,7 +396,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   }
 
   modifier onlyValidRoundId(uint128 _id) {
-    require(_id == currentRound.add(1) || _id == currentRound, "Cannot report on previous rounds");
+    require(_id == currentRound || _id == currentRound.add(1), "Must report on current round");
     _;
   }
 
