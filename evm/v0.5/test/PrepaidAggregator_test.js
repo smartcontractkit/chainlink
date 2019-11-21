@@ -529,6 +529,46 @@ contract('PrepaidAggregator', () => {
       })
     })
 
+    context('when an oracle gets added mid-round', async () => {
+      beforeEach(async () => {
+        oracles = [personas.Neil, personas.Ned]
+        for (let i = 0; i < oracles.length; i++) {
+          await aggregator.addOracle(oracles[i], i + 1, i + 1, rrDelay, {
+            from: personas.Carol,
+          })
+        }
+
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Neil,
+        })
+
+        await aggregator.addOracle(personas.Nelly, 3, 3, rrDelay, {
+          from: personas.Carol,
+        })
+      })
+
+      it('does not allow the oracle to update the round', async () => {
+        await expectRevert(
+          aggregator.updateAnswer(nextRound, answer, {
+            from: personas.Nelly,
+          }),
+          'New oracles cannot participate in in-progress rounds',
+        )
+      })
+
+      it('does allow the oracle to update future rounds', async () => {
+        // complete round
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Ned,
+        })
+
+        // now can participate in new rounds
+        await aggregator.updateAnswer(nextRound + 1, answer, {
+          from: personas.Nelly,
+        })
+      })
+    })
+
     const limit = 42
     context(`when adding more than ${limit} oracles`, async () => {
       it('reverts', async () => {
