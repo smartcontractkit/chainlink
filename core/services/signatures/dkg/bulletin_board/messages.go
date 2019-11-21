@@ -2,7 +2,11 @@ package bulletin_board
 
 import "regexp"
 
-type SubscriptionHandler func(BoardKey, BoardValue)
+// BoardUpdateHandler is used to communicate values on a Board.
+type BoardUpdateHandler func(BoardKey, BoardValue)
+
+type Timeout error
+type TimeoutHandler func(Timeout)
 
 // Subscription represents a node's subscription to messages on another board
 type Subscription struct {

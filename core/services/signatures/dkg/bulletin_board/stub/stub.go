@@ -6,15 +6,17 @@ import (
 	board "chainlink/core/services/signatures/dkg/bulletin_board"
 )
 
+type BoardMap map[board.BoardKey]board.BoardValue
+
 // network represents the bird's eye view of all the boards combined. This is
 // how the nodes communicate, in this stub board. More realistic implementations
 // will replace this with some kind of network communication.
 var network = make(map[board.PublicKey]*stubBoards)
 
 type stubBoards struct {
-	board         board.BoardMap
+	board         BoardMap
 	subscriptions []board.Subscription
-	listeners     []board.SubscriptionHandler
+	listeners     []board.BoardUpdateHandler
 }
 
 var _ board.Boards = &stubBoards{} // assert interface implementation
@@ -34,7 +36,7 @@ var _ board.OwnBulletinBoard = &ownStubBoard{} // assert interface implementatio
 func Boards(key board.PublicKey) board.Boards {
 	rv := &stubBoards{}
 	network[key] = rv
-	rv.board = make(board.BoardMap)
+	rv.board = make(BoardMap)
 	return rv
 }
 

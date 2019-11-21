@@ -2,27 +2,34 @@ package bulletin_board
 
 type BoardKey string
 type BoardValue []byte
-type BoardMap map[BoardKey]BoardValue
 
 // Boards represents the communication system provided by bulletin_board
 type Boards interface {
-	// MakeOwnBoard returns the publishing mechanism for the current node.
-	MakeOwnBoard(key SecretKey) (OwnBulletinBoard, error)
+	// MakeOwnBoard returns publishing mechanism for current node. Synchronous.
+	MakeOwnBoard(SecretKey) (OwnBulletinBoard, error)
 	// MakeBoard returns the viewing mechanism for the node represented by key
-	MakeBoard(key PublicKey) (BulletinBoard, error)
+	MakeBoard(PublicKey, TimeoutHandler) BulletinBoard
 }
 
-// BulletinBoard represents the public information a node presents to the
-// others.
+// BulletinBoard represents public information a node presents to others.
+//
+// It must deal with network failures (except timeouts) transparently to the
+// interface user. For this reason, all responses are via callbacks.
+//
+// It must ignore unauthenticated messages.
 type BulletinBoard interface {
-	// Get returns the value associated with key, if available, or an error
-	Get(key BoardKey) BoardValue
+	// Get passes the value associated with key, if available, or an error
+	Get(BoardKey, BoardUpdateHandler, TimeoutHandler)
 	// Subscribe listens for updates on a string / regexp, passing them to handler
-	Subscribe(key Subscription, handler SubscriptionHandler)
+	Subscribe(Subscription, BoardUpdateHandler, TimeoutHandler)
 }
 
 // OwnBulletinBoard represents the publishing mechanism for a BulletinBoard
 type OwnBulletinBoard interface {
 	// Publish makes the given key, value pair available to listening Boards
-	Publish(key BoardKey, value BoardValue)
+	//
+	// It must take responsibility for asynchronously pushing the value out to
+	// subscribed participants, so that this is "fire-and-forget" for the
+	// interface user (except for timeouts.)
+	Publish(BoardKey, BoardValue, TimeoutHandler)
 }
