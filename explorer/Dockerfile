@@ -17,6 +17,7 @@ WORKDIR /app
 COPY --from=builder /usr/src/app/package.json package.json
 COPY --from=builder /usr/src/app/yarn.lock yarn.lock
 COPY --from=builder /usr/src/app/node_modules node_modules
+COPY --from=builder /usr/src/app/explorer/node_modules explorer/node_modules
 COPY --from=builder /usr/src/app/explorer/package.json explorer/package.json
 COPY --from=builder /usr/src/app/explorer/src explorer/src
 COPY --from=builder /usr/src/app/explorer/tsconfig.json explorer/tsconfig.json
