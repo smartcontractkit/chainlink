@@ -35,6 +35,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   struct OracleStatus {
     bool enabled;
     uint128 withdrawable;
+    uint128 startingRound;
     uint128 lastReportedRound;
     uint128 lastStartedRound;
     int256 latestAnswer;
@@ -116,6 +117,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     onlyUnenabledAddress(_oracle)
   {
     require(oracleCount < 42, "cannot add more than 42 oracles");
+    oracles[_oracle].startingRound = currentRound.add(1);
     oracles[_oracle].enabled = true;
     oracleCount += 1;
 
@@ -355,15 +357,16 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     delete rounds[_id].details;
   }
 
-  modifier onlyValidOracleRound(uint256 _round) {
-    require(oracles[msg.sender].enabled, "Only updatable by designated oracles");
-    require(_round > oracles[msg.sender].lastReportedRound, "Cannot update round reports");
-    _;
-  }
-
   /**
    * Modifiers
    */
+
+  modifier onlyValidOracleRound(uint128 _id) {
+    require(oracles[msg.sender].enabled, "Only updatable by designated oracles");
+    require(oracles[msg.sender].startingRound <= _id, "New oracles cannot participate in in-progress rounds");
+    require(_id > oracles[msg.sender].lastReportedRound, "Cannot update round reports");
+    _;
+  }
 
   modifier onlyIfMinAnswersReceived(uint128 _id) {
     if (rounds[_id].details.answers.length >= rounds[_id].details.minAnswers) {
