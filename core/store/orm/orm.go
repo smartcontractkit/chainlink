@@ -20,7 +20,6 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 	_ "github.com/jinzhu/gorm/dialects/sqlite"   // http://doc.gorm.io/database.html#connecting-to-a-database
@@ -582,54 +581,42 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 }
 
 // CreateTx returns a transaction by its surrogate key, if it exists, or
-// creates it and its attempts
+// creates it
 func (orm *ORM) CreateTx(
+	transaction *models.Transaction,
 	surrogateID null.String,
-	ethTx *types.Transaction,
-	from *common.Address,
-	sentAt uint64,
 ) (*models.Tx, error) {
 	orm.MustEnsureAdvisoryLock()
-	signedRawTx, err := utils.EncodeTxToHex(ethTx)
-	if err != nil {
-		return nil, err
-	}
 
 	tx := &models.Tx{}
-	err = orm.convenientTransaction(func(dbtx *gorm.DB) error {
+	err := orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		var err error
 		if surrogateID.Valid {
-			err = preloadAttempts(dbtx).First(tx, "surrogate_id = ?", surrogateID.ValueOrZero()).Error
+			err = dbtx.First(tx, "surrogate_id = ?", surrogateID.ValueOrZero()).Error
 		} else {
-			err = preloadAttempts(dbtx).First(tx, "hash = ?", ethTx.Hash()).Error
+			err = dbtx.First(tx, "hash = ?", transaction.Hash()).Error
 		}
 
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return errors.Wrap(err, "CreateTx#First failed")
 		}
 
+		newTx := transaction.Tx()
 		tx.SurrogateID = surrogateID
-		tx.From = *from
-		tx.To = *ethTx.To()
-		tx.Nonce = ethTx.Nonce()
-		tx.Data = ethTx.Data()
-		tx.Value = utils.NewBig(ethTx.Value())
-		tx.GasLimit = ethTx.Gas()
-		tx.GasPrice = utils.NewBig(ethTx.GasPrice())
-		tx.Hash = ethTx.Hash()
-		tx.SentAt = sentAt
-		tx.SignedRawTx = signedRawTx
+		tx.From = newTx.From
+		tx.To = newTx.To
+		tx.Nonce = newTx.Nonce
+		tx.Data = newTx.Data
+		tx.Value = newTx.Value
+		tx.GasLimit = newTx.GasLimit
+		tx.GasPrice = newTx.GasPrice
+		tx.Hash = newTx.Hash
+		tx.SentAt = newTx.SentAt
+		tx.SignedRawTx = newTx.SignedRawTx
+
 		if err == gorm.ErrRecordNotFound {
-			attempt := models.TxAttempt{
-				TxID:        tx.ID,
-				Hash:        tx.Hash,
-				GasPrice:    tx.GasPrice,
-				SentAt:      tx.SentAt,
-				SignedRawTx: tx.SignedRawTx,
-			}
-			tx.Attempts = []*models.TxAttempt{&attempt}
 			return dbtx.Create(tx).Error
 		}
-
 		return dbtx.Save(tx).Error
 	})
 	if err != nil {
@@ -638,33 +625,26 @@ func (orm *ORM) CreateTx(
 	return tx, nil
 }
 
-// UpdateTx assigns new EthTx details to a transaction, typically used after a
-// failed Eth transaction attempt
-func (orm *ORM) UpdateTx(
-	tx *models.Tx,
-	ethTx *types.Transaction,
-	from *common.Address,
-	sentAt uint64,
-) error {
+// AddTxAttempt attaches a new attempt to a Tx, after the attempt has been sent to the chain
+func (orm *ORM) AddTxAttempt(tx *models.Tx, transaction *models.Transaction) (*models.TxAttempt, error) {
 	orm.MustEnsureAdvisoryLock()
-	signedRawTx, err := utils.EncodeTxToHex(ethTx)
-	if err != nil {
-		return errors.Wrap(err, "Update(tx) EncodeTxToHex failed")
+
+	newTx := transaction.Tx()
+	tx.From = newTx.From
+	tx.Nonce = newTx.Nonce
+	tx.GasPrice = newTx.GasPrice
+	tx.Hash = newTx.Hash
+	tx.SentAt = newTx.SentAt
+	tx.SignedRawTx = newTx.SignedRawTx
+	txAttempt := &models.TxAttempt{
+		Hash:        tx.Hash,
+		GasPrice:    tx.GasPrice,
+		SentAt:      tx.SentAt,
+		SignedRawTx: tx.SignedRawTx,
 	}
+	tx.Attempts = append(tx.Attempts, txAttempt)
 
-	tx.From = *from
-	tx.Nonce = ethTx.Nonce()
-	tx.GasPrice = utils.NewBig(ethTx.GasPrice())
-	tx.Hash = ethTx.Hash()
-	tx.SentAt = sentAt
-	tx.SignedRawTx = signedRawTx
-	txAttempt := tx.Attempts[0]
-	txAttempt.Hash = tx.Hash
-	txAttempt.GasPrice = tx.GasPrice
-	txAttempt.SentAt = tx.SentAt
-	txAttempt.SignedRawTx = tx.SignedRawTx
-
-	return orm.db.Save(tx).Error
+	return txAttempt, orm.db.Save(tx).Error
 }
 
 // MarkTxSafe updates the database for the given transaction and attempt to
@@ -719,39 +699,6 @@ func (orm *ORM) FindTxAttempt(hash common.Hash) (*models.TxAttempt, error) {
 		return nil, errors.Wrap(err, "FindTxByAttempt First(txAttempt) failed")
 	}
 	return txAttempt, nil
-}
-
-// AddTxAttempt creates a new transaction attempt and stores it
-// in the database.
-func (orm *ORM) AddTxAttempt(
-	tx *models.Tx,
-	etx *types.Transaction,
-	blkNum uint64,
-) (*models.TxAttempt, error) {
-	orm.MustEnsureAdvisoryLock()
-	signedRawTx, err := utils.EncodeTxToHex(etx)
-	if err != nil {
-		return nil, errors.Wrap(err, "AddTxAttempt#EncodeTxToHex failed")
-	}
-
-	txAttempt := &models.TxAttempt{
-		Hash:        etx.Hash(),
-		GasPrice:    utils.NewBig(etx.GasPrice()),
-		TxID:        tx.ID,
-		SentAt:      blkNum,
-		SignedRawTx: signedRawTx,
-	}
-	tx.Hash = txAttempt.Hash
-	tx.GasPrice = txAttempt.GasPrice
-	tx.Confirmed = txAttempt.Confirmed
-	tx.SentAt = txAttempt.SentAt
-	tx.SignedRawTx = txAttempt.SignedRawTx
-	tx.Attempts = append(tx.Attempts, txAttempt)
-
-	err = orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return dbtx.Save(tx).Error
-	})
-	return txAttempt, errors.Wrap(err, "AddTxAttempt#Save(tx) failed")
 }
 
 // GetLastNonce retrieves the last known nonce in the database for an account

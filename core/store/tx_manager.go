@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"regexp"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
@@ -237,22 +239,28 @@ func (txm *EthTxManager) createTx(
 	gasLimit uint64,
 	value *assets.Eth) (*models.Tx, error) {
 
-	tx, err := txm.sendInitialTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, value)
-	for nrc := 0; isNonceTooLowError(err); nrc++ {
-		logger.Warnw("Tx #0: nonce too low, retrying with network nonce")
-
-		if nrc >= nonceReloadLimit {
-			err = fmt.Errorf(
-				"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v",
-				nonceReloadLimit,
-			)
-			return nil, err
+	for nrc := 0; nrc <= nonceReloadLimit; nrc++ {
+		tx, err := txm.sendInitialTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, value)
+		if err == nil {
+			return tx, nil
 		}
 
-		err = txm.retryInitialTx(tx, ma, gasPriceWei)
+		if !isNonceTooLowError(err) {
+			return nil, errors.Wrap(err, "TxManager#retryInitialTx sendInitialTx")
+		}
+
+		logger.Warnw("Tx #0: nonce too low, retrying with network nonce")
+
+		err = ma.ReloadNonce(txm)
+		if err != nil {
+			return nil, errors.Wrap(err, "TxManager#retryInitialTx ReloadNonce")
+		}
 	}
 
-	return tx, err
+	return nil, fmt.Errorf(
+		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v",
+		nonceReloadLimit,
+	)
 }
 
 // sendInitialTx creates the initial Tx record + attempt for an Ethereum Tx,
@@ -266,8 +274,11 @@ func (txm *EthTxManager) sendInitialTx(
 	gasLimit uint64,
 	value *assets.Eth) (*models.Tx, error) {
 
+	var err error
 	var tx *models.Tx
-	err := ma.GetAndIncrementNonce(func(nonce uint64) error {
+
+	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
+		blockHeight := uint64(txm.currentHead.Number)
 		ethTx, err := txm.newEthTx(
 			ma.Account,
 			nonce,
@@ -275,77 +286,35 @@ func (txm *EthTxManager) sendInitialTx(
 			value.ToInt(),
 			gasLimit,
 			gasPriceWei,
-			data)
+			data,
+			&ma.Address,
+			blockHeight,
+		)
 		if err != nil {
 			return errors.Wrap(err, "TxManager#sendInitialTx newEthTx")
 		}
 
-		blockHeight := uint64(txm.currentHead.Number)
-		tx, err = txm.orm.CreateTx(surrogateID, ethTx, &ma.Address, blockHeight)
+		tx, err = txm.orm.CreateTx(ethTx, surrogateID)
 		if err != nil {
 			return errors.Wrap(err, "TxManager#sendInitialTx CreateTx")
 		}
 
-		logger.Debugw(fmt.Sprintf("Adding Tx attempt #%d", 0), "txID", tx.ID)
-
-		_, err = txm.SendRawTx(tx.SignedRawTx)
+		_, err = txm.SendRawTx(ethTx.SignedRaw)
 		if err != nil {
 			return errors.Wrap(err, "TxManager#sendInitialTx SendRawTx")
 		}
 
+		txAttempt, err := txm.orm.AddTxAttempt(tx, ethTx)
+		if err != nil {
+			return errors.Wrap(err, "TxManager#sendInitialTx AddTxAttempt")
+		}
+
+		logger.Debugw("Added Tx attempt #0", "txID", tx.ID, "txAttemptID", txAttempt.ID)
+
 		return nil
 	})
 
-	// XXX: Small subtlety here: return the tx as it is initialized and is passed to retryInitialTx
-	if err != nil {
-		err = errors.Wrap(err, "TxManager#sendInitialTx ma#GetAndIncrementNonce")
-	}
 	return tx, err
-}
-
-// retryInitialTx is used to update the Tx record and attempt for an Ethereum
-// Tx when a Tx is reattempted because of a nonce too low error
-func (txm *EthTxManager) retryInitialTx(
-	tx *models.Tx,
-	ma *ManagedAccount,
-	gasPriceWei *big.Int) error {
-
-	err := ma.ReloadNonce(txm)
-	if err != nil {
-		return errors.Wrap(err, "TxManager#retryInitialTx ReloadNonce")
-	}
-
-	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
-		ethTx, err := txm.newEthTx(
-			ma.Account,
-			nonce,
-			tx.To,
-			tx.Value.ToInt(),
-			tx.GasLimit,
-			gasPriceWei,
-			tx.Data)
-		if err != nil {
-			return errors.Wrap(err, "TxManager#retryInitialTx newEthTx")
-		}
-
-		blockHeight := uint64(txm.currentHead.Number)
-		err = txm.orm.UpdateTx(tx, ethTx, &ma.Address, blockHeight)
-		if err != nil {
-			return errors.Wrap(err, "TxManager#retryInitialTx UpdateTx")
-		}
-
-		_, err = txm.SendRawTx(tx.SignedRawTx)
-		if err != nil {
-			return errors.Wrap(err, "TxManager#retryInitialTx SendRawTx")
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return errors.Wrap(err, "TxManager#retryInitialTx ma#GetAndIncrementNonce")
-	}
-	return nil
 }
 
 var (
@@ -364,16 +333,28 @@ func (txm *EthTxManager) newEthTx(
 	amount *big.Int,
 	gasLimit uint64,
 	gasPrice *big.Int,
-	data []byte) (*types.Transaction, error) {
+	data []byte,
+	from *common.Address,
+	sentAt uint64) (*models.Transaction, error) {
 
 	ethTx := types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data)
 
 	ethTx, err := txm.keyStore.SignTx(account, ethTx, txm.config.ChainID())
 	if err != nil {
-		return nil, errors.Wrap(err, "TxManager keyStore.SignTx")
+		return nil, errors.Wrap(err, "TxManager newEthTx.SignTx")
 	}
 
-	return ethTx, nil
+	rlp := new(bytes.Buffer)
+	if err := ethTx.EncodeRLP(rlp); err != nil {
+		return nil, errors.Wrap(err, "TxManager newEthTx.EncodeRLP")
+	}
+
+	return &models.Transaction{
+		Transaction: *ethTx,
+		From:        *from,
+		SentAt:      sentAt,
+		SignedRaw:   hexutil.Encode(rlp.Bytes()),
+	}, nil
 }
 
 // GetLINKBalance returns the balance of LINK at the given address
@@ -717,22 +698,32 @@ func (txm *EthTxManager) createAttempt(
 	if ma == nil {
 		return nil, fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", tx.From.Hex())
 	}
-	etx := tx.EthTx(gasPriceWei)
-	etx, err := txm.keyStore.SignTx(ma.Account, etx, txm.config.ChainID())
+
+	ethTx, err := txm.newEthTx(
+		ma.Account,
+		tx.Nonce,
+		tx.To,
+		tx.Value.ToInt(),
+		tx.GasLimit,
+		gasPriceWei,
+		tx.Data,
+		&ma.Address,
+		blockHeight,
+	)
 	if err != nil {
-		return nil, errors.Wrap(err, "createAttempt#SignTx failed")
+		return nil, errors.Wrap(err, "createAttempt#newEthTx failed")
 	}
 
-	logger.Debugw(fmt.Sprintf("Adding Tx attempt #%d", len(tx.Attempts)+1), "txID", tx.ID)
+	if _, err = txm.SendRawTx(ethTx.SignedRaw); err != nil {
+		return nil, errors.Wrap(err, "createAttempt#SendRawTx failed")
+	}
 
-	txAttempt, err := txm.orm.AddTxAttempt(tx, etx, blockHeight)
+	txAttempt, err := txm.orm.AddTxAttempt(tx, ethTx)
 	if err != nil {
 		return nil, errors.Wrap(err, "createAttempt#AddTxAttempt failed")
 	}
 
-	if _, err = txm.SendRawTx(txAttempt.SignedRawTx); err != nil {
-		return nil, errors.Wrap(err, "createAttempt#SendRawTx failed")
-	}
+	logger.Debugw(fmt.Sprintf("Added Tx attempt #%d", len(tx.Attempts)+1), "txID", tx.ID, "txAttemptID", txAttempt.ID)
 
 	return txAttempt, nil
 }
