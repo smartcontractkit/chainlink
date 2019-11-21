@@ -32,7 +32,7 @@
     "@babel/preset-env": "^7.6.0",
     "@babel/preset-react": "^7.0.0",
     "@babel/preset-typescript": "^7.1.0",
-    "@chainlink/eslint-config": "0.0.1",
+    "@chainlink/eslint-config": "0.0.2",
     "@chainlink/prettier-config": "0.0.1",
     "@storybook/addon-actions": "^5.1.10",
     "@storybook/addon-info": "^5.2.4",
