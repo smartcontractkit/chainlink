@@ -146,6 +146,26 @@ contract('PrepaidAggregator', () => {
       })
     })
 
+    context('when an oracle prematurely bumps the round', async () => {
+      beforeEach(async () => {
+        await aggregator.updateFutureRounds(paymentAmount, 2, 3, 0, {
+          from: personas.Carol,
+        })
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Neil,
+        })
+      })
+
+      it('pays the oracles that have reported', async () => {
+        await expectRevert(
+          aggregator.updateAnswer(nextRound + 1, answer, {
+            from: personas.Neil,
+          }),
+          'Cannot bump round until previous round has an answer',
+        )
+      })
+    })
+
     context('when the minimum number of oracles have reported', async () => {
       beforeEach(async () => {
         await aggregator.updateFutureRounds(paymentAmount, 2, 3, 0, {
