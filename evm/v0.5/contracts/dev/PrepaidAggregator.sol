@@ -33,9 +33,9 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   }
 
   struct OracleStatus {
-    bool enabled;
     uint128 withdrawable;
     uint128 startingRound;
+    uint128 endingRound;
     uint128 lastReportedRound;
     uint128 lastStartedRound;
     int256 latestAnswer;
@@ -118,7 +118,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   {
     require(oracleCount < 42, "cannot add more than 42 oracles");
     oracles[_oracle].startingRound = currentRound.add(1);
-    oracles[_oracle].enabled = true;
+    oracles[_oracle].endingRound = 0;
     oracleCount += 1;
 
     emit OracleAdded(_oracle);
@@ -145,10 +145,11 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     onlyOwner()
     onlyEnabledAddress(_oracle)
   {
-    oracles[_oracle].enabled = false;
     oracleCount -= 1;
+    oracles[_oracle].startingRound = 0;
+    oracles[_oracle].endingRound = currentRound;
 
-    emit OracleAdded(_oracle);
+    emit OracleRemoved(_oracle);
 
     updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay);
   }
@@ -362,8 +363,15 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    */
 
   modifier onlyValidOracleRound(uint128 _id) {
-    require(oracles[msg.sender].enabled, "Only updatable by designated oracles");
-    require(oracles[msg.sender].startingRound <= _id, "New oracles cannot participate in in-progress rounds");
+    uint128 endingRound = oracles[msg.sender].endingRound;
+    if (endingRound > 0) {
+      require(endingRound >= _id, "Oracle has been removed from whitelist");
+    } else {
+      uint128 startingRound = oracles[msg.sender].startingRound;
+      require(startingRound != 0, "Only updatable by whitelisted oracles");
+      require(startingRound <= _id, "New oracles cannot participate in in-progress rounds");
+    }
+
     require(_id > oracles[msg.sender].lastReportedRound, "Cannot update round reports");
     _;
   }
@@ -417,12 +425,12 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   }
 
   modifier onlyUnenabledAddress(address _oracle) {
-    require(!oracles[_oracle].enabled, "Address is already recorded as an oracle");
+    require(oracles[_oracle].startingRound == 0, "Address is already recorded as an oracle");
     _;
   }
 
   modifier onlyEnabledAddress(address _oracle) {
-    require(oracles[_oracle].enabled, "Address is not an oracle");
+    require(oracles[_oracle].startingRound != 0, "Address is not an oracle");
     _;
   }
 
