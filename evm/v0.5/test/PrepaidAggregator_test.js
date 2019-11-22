@@ -15,15 +15,6 @@ contract('PrepaidAggregator', () => {
 
   let aggregator, link, nextRound, oracles
 
-  function parseRound(log) {
-    return {
-      paymentAmount: h.bigNum(log.topics[1]),
-      minAnswerCount: h.bigNum(log.topics[2]),
-      maxAnswerCount: h.bigNum(log.topics[3]),
-      restartDelay: h.bigNum(log.data),
-    }
-  }
-
   beforeEach(async () => {
     link = await h.linkContract(personas.defaultAccount)
     aggregator = await Aggregator.new(link.address, paymentAmount, {
@@ -790,7 +781,7 @@ contract('PrepaidAggregator', () => {
         },
       )
 
-      const round = parseRound(tx.receipt.rawLogs[0])
+      const round = h.parseAggregatorRoundLog(tx.receipt.rawLogs[0])
 
       assertBigNum(paymentAmount, round.paymentAmount)
       assertBigNum(h.bigNum(newMin), round.minAnswerCount)
