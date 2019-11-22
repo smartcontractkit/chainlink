@@ -4,7 +4,7 @@ import net from 'net'
   const [customResponse] = process.argv.slice(2)
   const defaultResponse = '{"last": "3843.95"}'
   const response = customResponse || defaultResponse
-  const port = process.env.CYPRESS_JOB_SERVER_PORT || 6692
+  const port = process.env.JOB_SERVER_PORT || 6692
 
   const server = new net.Server((socket: net.Socket) => {
     socket.on('data', () => {
