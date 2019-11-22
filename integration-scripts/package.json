@@ -26,7 +26,6 @@
   "dependencies": {
     "@0x/sol-compiler": "^3.1.15",
     "@0x/sol-trace": "^2.0.20",
-    "@chainlink/prettier-config": "^0.0.1",
     "body-parser": "^1.18.3",
     "chainlink": "0.7.8",
     "chainlinkv0.5": "0.0.2",
@@ -48,8 +47,7 @@
     "eslint": "6.3.0",
     "typechain": "1.0.3",
     "typechain-target-ethers": "^1.0.1",
-    "typescript": "^3.6.3",
-    "@0x/sol-compiler": "^3.1.15"
+    "typescript": "^3.6.3"
   },
   "prettier": "@chainlink/prettier-config"
 }
