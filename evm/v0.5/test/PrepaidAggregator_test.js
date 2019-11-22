@@ -282,7 +282,7 @@ contract('PrepaidAggregator', () => {
           aggregator.updateAnswer(nextRound, answer, {
             from: personas.Carol,
           }),
-          'Only updatable by designated oracles',
+          'Only updatable by whitelisted oracles',
         )
       })
     })
@@ -456,7 +456,7 @@ contract('PrepaidAggregator', () => {
     })
   })
 
-  describe('#addOracle', async () => {
+  describe('#addOrace', async () => {
     it('increases the oracle count', async () => {
       const pastCount = await aggregator.oracleCount.call()
       await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
@@ -555,6 +555,44 @@ contract('PrepaidAggregator', () => {
 
         // now can participate in new rounds
         await aggregator.updateAnswer(nextRound + 1, answer, {
+          from: personas.Nelly,
+        })
+      })
+    })
+
+    context('when an oracle is added after being removed', async () => {
+      beforeEach(async () => {
+        oracles = [personas.Neil, personas.Nelly]
+        for (let i = 0; i < oracles.length; i++) {
+          await aggregator.addOracle(oracles[i], i + 1, i + 1, rrDelay, {
+            from: personas.Carol,
+          })
+        }
+
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Neil,
+        })
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Nelly,
+        })
+        nextRound++
+
+        await aggregator.removeOracle(personas.Nelly, 1, 1, rrDelay, {
+          from: personas.Carol,
+        })
+
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Neil,
+        })
+        nextRound++
+      })
+
+      it('is allowed to update answers again', async () => {
+        await aggregator.addOracle(personas.Nelly, 1, 1, rrDelay, {
+          from: personas.Carol,
+        })
+
+        await aggregator.updateAnswer(nextRound, answer, {
           from: personas.Nelly,
         })
       })
@@ -661,6 +699,33 @@ contract('PrepaidAggregator', () => {
             from: personas.Ned,
           }),
           'Ownable: caller is not the owner',
+        )
+      })
+    })
+
+    context('when an oracle gets removed mid-round', async () => {
+      beforeEach(async () => {
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Neil,
+        })
+
+        await aggregator.removeOracle(personas.Nelly, 1, 1, rrDelay, {
+          from: personas.Carol,
+        })
+      })
+
+      it('is allowed to finish that round', async () => {
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Nelly,
+        })
+        nextRound++
+
+        // cannot participate in future rounds
+        await expectRevert(
+          aggregator.updateAnswer(nextRound, answer, {
+            from: personas.Nelly,
+          }),
+          'Oracle has been removed from whitelist',
         )
       })
     })
