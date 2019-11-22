@@ -25,7 +25,6 @@ services:
       - chainlink-variables.env
     networks:
       - explorer-external
-      - ethereum-node
     ports:
       - 6688:6688
     depends_on:
