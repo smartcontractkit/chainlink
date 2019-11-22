@@ -382,10 +382,6 @@ workflows:
           filters: # all branches, and /^v../ tags for build-publish...
             tags:
               only: /^v.*/
-      - go-sqlite-race:
-          filters:
-            tags:
-              only: /^v.*/
       - go-postgres:
           filters:
             tags:
