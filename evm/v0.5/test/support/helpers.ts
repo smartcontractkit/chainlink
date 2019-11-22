@@ -789,3 +789,12 @@ export const encodeAddress = (a: string): string => {
   assert(Ox(a).length <= 40, `${a} is too long to be an address`)
   return Ox(strip0x(a).padStart(40, '0'))
 }
+
+export const parseAggregatorRoundLog = (log: any): object => {
+  return {
+    paymentAmount: bigNum(log.topics[1]),
+    minAnswerCount: bigNum(log.topics[2]),
+    maxAnswerCount: bigNum(log.topics[3]),
+    restartDelay: bigNum(log.data),
+  }
+}
