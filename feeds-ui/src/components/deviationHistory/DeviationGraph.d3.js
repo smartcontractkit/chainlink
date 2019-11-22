@@ -35,7 +35,7 @@ export default class DeviationGraph {
       .append('g')
       .attr(
         'transform',
-        'translate(' + this.margin.left + ',' + this.margin.top + ')'
+        'translate(' + this.margin.left + ',' + this.margin.top + ')',
       )
       .append('path')
       .attr('class', 'line')
@@ -59,7 +59,7 @@ export default class DeviationGraph {
       .attr('class', 'info')
       .attr(
         'transform',
-        'translate(' + this.width + ',' + this.margin.top + ')'
+        'translate(' + this.width + ',' + this.margin.top + ')',
       )
 
     this.tooltipPercentage = this.info
@@ -88,7 +88,7 @@ export default class DeviationGraph {
       .style('pointer-events', 'all')
       .attr(
         'transform',
-        'translate(' + this.margin.left + ',' + this.margin.top + ')'
+        'translate(' + this.margin.left + ',' + this.margin.top + ')',
       )
       .on('mouseout', () => {
         this.tooltip.style('display', 'none')
@@ -113,12 +113,12 @@ export default class DeviationGraph {
 
     this.linearGradient
       .append('stop')
-      .attr('offset', '40%')
+      .attr('offset', '20%')
       .attr('stop-color', color(2))
 
     this.linearGradient
       .append('stop')
-      .attr('offset', '60%')
+      .attr('offset', '80%')
       .attr('stop-color', color(2))
 
     this.linearGradient
@@ -141,9 +141,9 @@ export default class DeviationGraph {
         ...[
           {
             ...current,
-            ...{ deviation: Number(deviation.toFixed(3)) }
-          }
-        ]
+            ...{ deviation: Number(deviation.toFixed(3)) },
+          },
+        ],
       ]
     }, [])
     return reducedData
@@ -170,7 +170,7 @@ export default class DeviationGraph {
       .domain([Math.floor(ymin), Math.ceil(ymax)])
       .range([this.height, 0])
 
-    const y_axis = d3
+    const yAxis = d3
       .axisLeft()
       .scale(this.y)
       .ticks(3)
@@ -181,11 +181,11 @@ export default class DeviationGraph {
       .attr('class', 'y-axis')
       .attr(
         'transform',
-        `translate(${this.margin.left - 10}, ${this.margin.top})`
+        `translate(${this.margin.left - 10}, ${this.margin.top})`,
       )
-      .call(y_axis)
+      .call(yAxis)
 
-    const x_axis = d3
+    const xAxis = d3
       .axisBottom()
       .scale(this.x)
       .ticks(7)
@@ -196,9 +196,9 @@ export default class DeviationGraph {
       .attr('class', 'x-axis')
       .attr(
         'transform',
-        `translate(${this.margin.left}, ${this.height + this.margin.top + 10})`
+        `translate(${this.margin.left}, ${this.height + this.margin.top + 10})`,
       )
-      .call(x_axis)
+      .call(xAxis)
 
     this.line = d3
       .line()
@@ -241,13 +241,13 @@ export default class DeviationGraph {
           (this.x(d.timestamp) + this.margin.left) +
           ',' +
           (this.y(d.deviation) + this.margin.top) +
-          ')'
+          ')',
       )
 
     this.info.style('display', 'block')
     this.tooltipTimestamp.text(() => humanizeUnixTimestamp(d.timestamp))
     this.tooltipPrice.text(
-      () => `${this.options.valuePrefix} ${d.responseFormatted}`
+      () => `${this.options.valuePrefix} ${d.responseFormatted}`,
     )
     this.tooltipPercentage.text(() => `${d.deviation.toFixed(2)}%`)
   }

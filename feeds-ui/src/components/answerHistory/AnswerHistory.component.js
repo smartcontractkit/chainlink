@@ -3,7 +3,7 @@ import HistoryGraphD3 from './HistoryGraph.d3'
 import { Icon } from 'antd'
 
 function AnswerHistory({ answerHistory, options }) {
-  let graph = useRef()
+  const graph = useRef()
 
   useEffect(() => {
     graph.current = new HistoryGraphD3(options)

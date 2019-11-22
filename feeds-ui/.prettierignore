@@ -1,3 +1,9 @@
-config/*
-test/*
-scripts/*
+build/
+.env*
+.gitignore
+.prettierignore
+.*
+node_modules
+public
+yarn.lock
+src/theme.css

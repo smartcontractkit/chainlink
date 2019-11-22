@@ -10,14 +10,7 @@ const mapStateToProps = state => ({
   oracles: state.aggregation.oracles,
   requestTime: state.aggregation.requestTime,
   minimumResponses: state.aggregation.minimumResponses,
-  updateHeight: state.aggregation.updateHeight
+  updateHeight: state.aggregation.updateHeight,
 })
 
-const mapDispatchToProps = {}
-
-export default compose(
-  connect(
-    mapStateToProps,
-    mapDispatchToProps
-  )
-)(NetworkGraphInfo)
+export default compose(connect(mapStateToProps))(NetworkGraphInfo)

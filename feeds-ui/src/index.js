@@ -14,7 +14,7 @@ ReactDOM.render(
       <AppRoutes />
     </PersistGate>
   </ReduxProvider>,
-  document.getElementById('root')
+  document.getElementById('root'),
 )
 
 serviceWorker.unregister()

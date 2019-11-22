@@ -154,9 +154,7 @@ export default class NetworkGraph {
       .attr('class', 'network-graph__node__contract-label--price')
       .attr('y', '5')
       .attr('text-anchor', 'middle')
-      .text(c => {
-        return 'Loading...'
-      })
+      .text('Loading...')
 
     this.nodes.select('.network-graph__node__contract').attr('class', () => {
       if (this.nodes.data().length > 1) {
@@ -175,18 +173,10 @@ export default class NetworkGraph {
       .enter()
       .append('line')
       .attr('class', 'network-graph__line--wait')
-      .attr('x1', l => {
-        return this.width / 2
-      })
-      .attr('y1', l => {
-        return this.height / 2
-      })
-      .attr('x2', l => {
-        return l.x
-      })
-      .attr('y2', l => {
-        return l.y
-      })
+      .attr('x1', this.width / 2)
+      .attr('y1', this.height / 2)
+      .attr('x2', l => l.x)
+      .attr('y2', l => l.y)
   }
 
   setOracleTooltip(d) {
@@ -308,7 +298,7 @@ export default class NetworkGraph {
 
     // Put state on nodes object
 
-    nodesData.forEach((d, i) => {
+    nodesData.forEach(d => {
       const oracleData = _.find(state, { sender: d.address })
       d.state = oracleData
 

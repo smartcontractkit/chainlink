@@ -7,7 +7,7 @@ const ContractDetailsModal = ({
   visible,
   data,
   options,
-  updateHeight
+  updateHeight,
 }) => {
   return (
     <Drawer
@@ -15,7 +15,8 @@ const ContractDetailsModal = ({
       closable={true}
       width={600}
       onClose={onClose}
-      visible={visible}>
+      visible={visible}
+    >
       <ContractDetailsContent
         data={data}
         options={options}
@@ -25,13 +26,7 @@ const ContractDetailsModal = ({
   )
 }
 
-const ContractDetailsContent = ({
-  data = {},
-  pendingAnswerId,
-  jobId,
-  options,
-  updateHeight
-}) => {
+const ContractDetailsContent = ({ data = {}, options, updateHeight }) => {
   const dateResonse = timestamp =>
     moment.unix(timestamp).format('DD/MM/YY h:mm:ss A')
   return (
@@ -74,7 +69,8 @@ const ContractDetailsContent = ({
           <a
             target="_BLANK"
             rel="noopener noreferrer"
-            href={`https://explorer.chain.link/job-runs?search=${options.contractAddress}`}>
+            href={`https://explorer.chain.link/job-runs?search=${options.contractAddress}`}
+          >
             Chainlink Explorer
           </a>
         </Button>
@@ -82,7 +78,8 @@ const ContractDetailsContent = ({
           <a
             target="_BLANK"
             rel="noopener noreferrer"
-            href={`https://etherscan.io/address/${options.contractAddress}`}>
+            href={`https://etherscan.io/address/${options.contractAddress}`}
+          >
             Etherscan
           </a>
         </Button>

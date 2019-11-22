@@ -9,13 +9,13 @@ const { Option } = Select
 
 const formItemLayout = {
   labelCol: { span: 4, offset: 5 },
-  wrapperCol: { span: 6 }
+  wrapperCol: { span: 6 },
 }
 const formTailLayout = {
-  wrapperCol: { span: 8, offset: 9 }
+  wrapperCol: { span: 8, offset: 9 },
 }
 
-export const isAddress = form => (rule, value, callback) => {
+export const isAddress = () => (rule, value, callback) => {
   try {
     ethers.utils.getAddress(value)
     callback()
@@ -25,12 +25,12 @@ export const isAddress = form => (rule, value, callback) => {
 }
 
 const Create = ({ form, history }) => {
-  const handleSubmit = e => {
+  const handleSubmit = () => {
     form.validateFields((err, values) => {
       if (!err) {
         history.push({
           pathname: 'custom',
-          search: `?${queryString.stringify(values)}`
+          search: `?${queryString.stringify(values)}`,
         })
       }
     })
@@ -51,16 +51,16 @@ const Create = ({ form, history }) => {
             validateTrigger: 'onBlur',
             rules: [
               { required: true, message: 'Contract address is required!' },
-              { validator: isAddress(form) }
-            ]
+              { validator: isAddress(form) },
+            ],
           })(
-            <Input placeholder="0x79fEbF6B9F76853EDBcBc913e6aAE8232cFB9De9" />
+            <Input placeholder="0x79fEbF6B9F76853EDBcBc913e6aAE8232cFB9De9" />,
           )}
         </Form.Item>
 
         <Form.Item label="Name">
           {getFieldDecorator('name', {
-            rules: [{ required: true, message: 'Name is required!' }]
+            rules: [{ required: true, message: 'Name is required!' }],
           })(<Input placeholder="ETH / USD" />)}
         </Form.Item>
 
@@ -70,19 +70,19 @@ const Create = ({ form, history }) => {
 
         <Form.Item label="Counter (seconds)">
           {getFieldDecorator('counter')(
-            <InputNumber placeholder="300" style={{ width: '100%' }} />
+            <InputNumber placeholder="300" style={{ width: '100%' }} />,
           )}
         </Form.Item>
 
         <Form.Item label="Network">
           {getFieldDecorator('network', {
             rules: [{ required: true }],
-            initialValue: 'mainnet'
+            initialValue: 'mainnet',
           })(
             <Select placeholder="Select a Network">
               <Option value="mainnet">Mainnet</Option>
               <Option value="ropsten">Ropsten</Option>
-            </Select>
+            </Select>,
           )}
         </Form.Item>
 

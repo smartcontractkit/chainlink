@@ -4,23 +4,20 @@ import { connect } from 'react-redux'
 
 import {
   aggregationSelectors,
-  aggregationOperations
+  aggregationOperations,
 } from 'state/ducks/aggregation'
 
 const mapStateToProps = state => ({
   networkGraphNodes: aggregationSelectors.networkGraphNodes(state),
   networkGraphState: aggregationSelectors.networkGraphState(state),
   pendingAnswerId: state.aggregation.pendingAnswerId,
-  updateHeight: state.aggregation.updateHeight
+  updateHeight: state.aggregation.updateHeight,
 })
 
 const mapDispatchToProps = {
-  fetchJobId: aggregationOperations.fetchJobId
+  fetchJobId: aggregationOperations.fetchJobId,
 }
 
-export default compose(
-  connect(
-    mapStateToProps,
-    mapDispatchToProps
-  )
-)(NetworkGraph)
+export default compose(connect(mapStateToProps, mapDispatchToProps))(
+  NetworkGraph,
+)

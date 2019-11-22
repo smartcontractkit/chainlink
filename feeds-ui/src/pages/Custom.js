@@ -27,8 +27,7 @@ const CustomPage = ({ initContract, clearState, history }) => {
       clearState()
       message.destroy()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [urlOptions, clearState, initContract])
 
   return (
     <div className="page-wrapper network-page">
@@ -38,17 +37,12 @@ const CustomPage = ({ initContract, clearState, history }) => {
   )
 }
 
-const mapStateToProps = state => ({})
-
 const mapDispatchToProps = {
   initContract: aggregationOperations.initContract,
-  clearState: aggregationOperations.clearState
+  clearState: aggregationOperations.clearState,
 }
 
 export default compose(
-  connect(
-    mapStateToProps,
-    mapDispatchToProps
-  ),
-  withRouter
+  connect(null, mapDispatchToProps),
+  withRouter,
 )(CustomPage)
