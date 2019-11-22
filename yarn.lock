@@ -2935,6 +2935,11 @@
   resolved "https://registry.npmjs.org/@types/node/-/node-11.13.20.tgz#da42fe93d6599f80b35ffeb5006f4c31f40d89ea"
   integrity sha512-JE0UpLWZTV1sGcaj0hN+Q0760OEjpgyFJ06DOMVW6qKBducKdJQaIw0TGL6ccj7VXRduIOHLWQi+tHwulZJHVQ==
 
+"@types/node@^12.12.11":
+  version "12.12.11"
+  resolved "https://registry.npmjs.org/@types/node/-/node-12.12.11.tgz#bec2961975888d964196bf0016a2f984d793d3ce"
+  integrity sha512-O+x6uIpa6oMNTkPuHDa9MhMMehlxLAd5QcOvKRjAFsBVpeFWTOPnXbDvILvFgFFZfQ1xh1EZi1FbXxUix+zpsQ==
+
 "@types/node@^12.7.5":
   version "12.7.5"
   resolved "https://registry.npmjs.org/@types/node/-/node-12.7.5.tgz#e19436e7f8e9b4601005d73673b6dc4784ffcc2f"
@@ -5901,7 +5906,15 @@ buffer@^4.3.0:
     ieee754 "^1.1.4"
     isarray "^1.0.0"
 
-buffer@^5.0.5, buffer@^5.1.0, buffer@^5.2.1:
+buffer@^5.0.5, buffer@^5.2.1:
+  version "5.2.1"
+  resolved "https://registry.npmjs.org/buffer/-/buffer-5.2.1.tgz#dd57fa0f109ac59c602479044dca7b8b3d0b71d6"
+  integrity sha512-c+Ko0loDaFfuPWiL02ls9Xd3GO3cPVmUobQ6t3rXNUk304u6hGq+8N/kFi+QEIKhzK3uwolVhLzszmfLmMLnqg==
+  dependencies:
+    base64-js "^1.0.2"
+    ieee754 "^1.1.4"
+
+buffer@^5.1.0:
   version "5.4.0"
   resolved "https://registry.yarnpkg.com/buffer/-/buffer-5.4.0.tgz#33294f5c1f26e08461e528b69fa06de3c45cbd8c"
   integrity sha512-Xpgy0IwHK2N01ncykXTy6FpCWuM+CJSHoPVBLyNqyrWxsedpLvwsYUhf0ME3WRFNUhos0dMamz9cOS/xRDtU5g==
@@ -19809,11 +19822,11 @@ sha.js@^2.4.0, sha.js@^2.4.8:
     safe-buffer "^5.0.1"
 
 sha3@^1.2.2, sha3@^2.0.7:
-  version "2.1.1"
-  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.1.1.tgz#488c0f978a73ea540cc4f4a2235a77aed095c031"
-  integrity sha512-hj6dCLbWByenZarg2gb2VFD9zoY5kr/FMriDcbtVDLJ5geOWGOJCI0jQUjAzoY/ZHlkt8BSEbh9KJEDT8AGuJQ==
+  version "2.0.7"
+  resolved "https://registry.npmjs.org/sha3/-/sha3-2.0.7.tgz#02ed270099647cbcc681b064ba091af72f561f35"
+  integrity sha512-7Qsj/0J3pxCWfmyuDbTZWoKNSKY/rg2eecNRvTYE4EAPJ11Uh6xuEObyCG295AqgrtOjzdDbfwtGLDY52h11tA==
   dependencies:
-    buffer "5.4.3"
+    buffer "5.4.0"
 
 shallow-clone@^0.1.2:
   version "0.1.2"
