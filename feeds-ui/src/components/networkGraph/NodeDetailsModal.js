@@ -8,7 +8,7 @@ const NodeDetailsModal = ({
   data,
   pendingAnswerId,
   jobId,
-  options
+  options,
 }) => {
   return (
     <Drawer
@@ -16,7 +16,8 @@ const NodeDetailsModal = ({
       closable={true}
       width={600}
       onClose={onClose}
-      visible={visible}>
+      visible={visible}
+    >
       <NodeDetailsContent
         data={data}
         pendingAnswerId={pendingAnswerId}
@@ -27,7 +28,7 @@ const NodeDetailsModal = ({
   )
 }
 
-const NodeDetailsContent = ({ data = {}, pendingAnswerId, jobId, options }) => {
+const NodeDetailsContent = ({ data = {}, jobId, options }) => {
   const dateResonse = timestamp =>
     moment.unix(timestamp).format('DD/MM/YY h:mm:ss A')
 
@@ -62,11 +63,13 @@ const NodeDetailsContent = ({ data = {}, pendingAnswerId, jobId, options }) => {
           style={{ marginRight: 10 }}
           ghost
           type="primary"
-          disabled={!jobId}>
+          disabled={!jobId}
+        >
           <a
             target="_BLANK"
             rel="noopener noreferrer"
-            href={`https://explorer.chain.link/job-runs?search=${jobId}`}>
+            href={`https://explorer.chain.link/job-runs?search=${jobId}`}
+          >
             Chainlink Explorer
           </a>
         </Button>
@@ -74,7 +77,8 @@ const NodeDetailsContent = ({ data = {}, pendingAnswerId, jobId, options }) => {
           <a
             target="_BLANK"
             rel="noopener noreferrer"
-            href={`https://market.link/search/nodes?&name=${data.name}`}>
+            href={`https://market.link/search/nodes?&name=${data.name}`}
+          >
             Market.link
           </a>
         </Button>
@@ -82,7 +86,8 @@ const NodeDetailsContent = ({ data = {}, pendingAnswerId, jobId, options }) => {
           <a
             target="_BLANK"
             rel="noopener noreferrer"
-            href={`https://etherscan.io/address/${data.address}`}>
+            href={`https://etherscan.io/address/${data.address}`}
+          >
             Etherscan
           </a>
         </Button>

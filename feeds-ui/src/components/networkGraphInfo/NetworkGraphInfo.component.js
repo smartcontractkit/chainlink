@@ -7,13 +7,12 @@ import CountDown from './CountDown.component'
 function NetworkGraphInfo({
   currentAnswer,
   requestTime,
-  nextAnswerId,
   minimumResponses,
   oracleResponse,
   oracles,
   updateHeight,
   options,
-  pendingAnswerId
+  pendingAnswerId,
 }) {
   const updateTime =
     updateHeight && updateHeight.timestamp

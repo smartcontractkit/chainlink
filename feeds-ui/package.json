@@ -3,16 +3,16 @@
   "version": "0.2.0",
   "private": true,
   "dependencies": {
+    "@chainlink/eslint-config": "^0.0.2",
+    "@chainlink/prettier-config": "^0.0.2",
     "antd": "^3.23.3",
     "d3": "^5.11.0",
-    "eslint-config-prettier": "^6.1.0",
-    "eslint-plugin-prettier": "^3.1.0",
-    "eslint-plugin-react": "^7.14.3",
+    "eslint": "^6.6.0",
     "ethers": "^4.0.36",
     "express": "^4.17.1",
     "lodash": "^4.17.15",
     "moment": "^2.24.0",
-    "prettier": "^1.18.2",
+    "prettier": "^1.19.1",
     "query-string": "^6.8.3",
     "react": "^16.9.0",
     "react-dom": "^16.9.0",
@@ -26,7 +26,8 @@
     "redux-persist": "^5.10.0",
     "redux-persist-transform-filter": "^0.0.18",
     "redux-thunk": "^2.3.0",
-    "reselect": "^4.0.0"
+    "reselect": "^4.0.0",
+    "typescript": "^3.7.2"
   },
   "scripts": {
     "start": "npm run server",
@@ -36,10 +37,9 @@
     "eject": "react-scripts eject",
     "build-theme": "lessc --js src/theme/theme.less src/theme.css",
     "watch-theme": "less-watch-compiler --enable-js src/theme src theme.less",
-    "server": "node server"
-  },
-  "eslintConfig": {
-    "extends": "react-app"
+    "server": "node server",
+    "lint": "eslint --ext .js,.ts,.tsx,.jsx src",
+    "format": "prettier --write \"**/*\" "
   },
   "browserslist": {
     "production": [
@@ -52,5 +52,6 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "prettier": "@chainlink/prettier-config"
 }

@@ -36,7 +36,7 @@ export default class HistoryGraph {
       .append('g')
       .attr(
         'transform',
-        'translate(' + this.margin.left + ',' + this.margin.top + ')'
+        'translate(' + this.margin.left + ',' + this.margin.top + ')',
       )
       .append('path')
       .attr('class', 'line')
@@ -76,7 +76,7 @@ export default class HistoryGraph {
       .style('pointer-events', 'all')
       .attr(
         'transform',
-        'translate(' + this.margin.left + ',' + this.margin.top + ')'
+        'translate(' + this.margin.left + ',' + this.margin.top + ')',
       )
       .on('mouseout', () => {
         this.tooltip.style('display', 'none')
@@ -99,7 +99,7 @@ export default class HistoryGraph {
       .domain(d3.extent(data, d => d.response))
       .range([this.height, 0])
 
-    const y_axis = d3
+    const yAxis = d3
       .axisLeft()
       .scale(this.y)
       .ticks(4)
@@ -110,11 +110,11 @@ export default class HistoryGraph {
       .attr('class', 'y-axis')
       .attr(
         'transform',
-        `translate(${this.margin.left - 10}, ${this.margin.top})`
+        `translate(${this.margin.left - 10}, ${this.margin.top})`,
       )
-      .call(y_axis)
+      .call(yAxis)
 
-    const x_axis = d3
+    const xAxis = d3
       .axisBottom()
       .scale(this.x)
       .ticks(7)
@@ -125,9 +125,9 @@ export default class HistoryGraph {
       .attr('class', 'x-axis')
       .attr(
         'transform',
-        `translate(${this.margin.left}, ${this.height + this.margin.top + 10})`
+        `translate(${this.margin.left}, ${this.height + this.margin.top + 10})`,
       )
-      .call(x_axis)
+      .call(xAxis)
 
     this.line = d3
       .line()
@@ -150,9 +150,6 @@ export default class HistoryGraph {
       .duration(2000)
       .attr('stroke-dashoffset', 0)
 
-    this.overlay.on('mousemove', null)
-    this.overlay.on('mousemove', () => mousemove())
-
     const mousemove = () => {
       const x0 = this.x.invert(d3.mouse(this.overlay.node())[0])
       const i = this.bisectDate(data, x0, 1)
@@ -170,12 +167,13 @@ export default class HistoryGraph {
             (this.x(d.timestamp) + this.margin.left) +
             ',' +
             (this.y(d.response) + this.margin.top) +
-            ')'
+            ')',
         )
       this.tooltipTimestamp.text(() => humanizeUnixTimestamp(d.timestamp))
       this.tooltipPrice.text(
-        () => `${this.options.valuePrefix} ${d.responseFormatted}`
+        () => `${this.options.valuePrefix} ${d.responseFormatted}`,
       )
     }
+    this.overlay.on('mousemove', () => mousemove())
   }
 }

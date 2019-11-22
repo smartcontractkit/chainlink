@@ -3,11 +3,11 @@ import moment from 'moment'
 
 let timer
 
-var toHHMMSS = secs => {
-  var sec_num = parseInt(secs, 10)
-  var hours = Math.floor(sec_num / 3600)
-  var minutes = Math.floor(sec_num / 60) % 60
-  var seconds = sec_num % 60
+const toHHMMSS = secs => {
+  const secNum = parseInt(secs, 10)
+  const hours = Math.floor(secNum / 3600)
+  const minutes = Math.floor(secNum / 60) % 60
+  const seconds = secNum % 60
 
   return [hours, minutes, seconds]
     .map(v => (v < 10 ? '0' + v : v))
@@ -31,7 +31,7 @@ function CountDown({ requestTime, counter }) {
     clearInterval(timer)
 
     timer = setInterval(() => {
-      let now = moment(new Date()).unix()
+      const now = moment(new Date()).unix()
       const distance = finish - now
 
       if (distance <= 0) {
