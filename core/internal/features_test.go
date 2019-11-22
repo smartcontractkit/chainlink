@@ -814,3 +814,37 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	_, err = app.Store.JobRunsFor(jobRun.ID)
 	assert.NoError(t, err)
 }
+
+func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
+	app.Start()
+
+	eiCreate := map[string]string{
+		"name": "someCoin",
+	}
+	eiCreateJSON, err := json.Marshal(eiCreate)
+	require.NoError(t, err)
+	eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
+
+	eia := &models.ExternalInitiatorAuthentication{
+		AccessKey: eip.AccessKey,
+		Secret:    eip.Secret,
+	}
+	ei, err := app.Store.FindExternalInitiator(eia)
+	require.NoError(t, err)
+
+	require.Equal(t, strings.ToLower(eiCreate["name"]), ei.Name)
+	require.Equal(t, eip.AccessKey, ei.AccessKey)
+	require.Equal(t, eip.OutgoingSecret, ei.OutgoingSecret)
+
+	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
+
+	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
+	_, err = app.Store.JobRunsFor(jobRun.ID)
+	assert.NoError(t, err)
+}

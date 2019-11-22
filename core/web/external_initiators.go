@@ -66,6 +66,9 @@ func NotifyExternalInitiator(
 	if err != nil {
 		return errors.Wrap(err, "external initiator")
 	}
+	if ei.URL == nil {
+		return nil
+	}
 	notice, err := NewJobSpecNotice(initr, js)
 	if err != nil {
 		return errors.Wrap(err, "new Job Spec notification")
