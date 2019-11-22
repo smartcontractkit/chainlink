@@ -20,7 +20,7 @@ ${response}`)
     server.unref()
   })
 
-  const endpoint = await server.listen(port)
+  const endpoint = server.listen(port)
   const address = endpoint.address()
   if (address && typeof address != 'string') {
     console.log(`Job Server listening on port ${address.port}`)
