@@ -16,7 +16,7 @@ const OPTIONS = {
   answerName: 'ETH',
   counter: 300,
   network: 'mainnet',
-  history: true
+  history: true,
 }
 
 const NetworkPage = ({ initContract, clearState }) => {
@@ -24,15 +24,16 @@ const NetworkPage = ({ initContract, clearState }) => {
     async function init() {
       try {
         await initContract(OPTIONS)
-      } catch (error) {}
+      } catch (error) {
+        //
+      }
     }
 
     init()
     return () => {
       clearState()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [initContract, clearState])
 
   return (
     <div className="page-wrapper network-page">
@@ -44,16 +45,9 @@ const NetworkPage = ({ initContract, clearState }) => {
   )
 }
 
-const mapStateToProps = state => ({})
-
 const mapDispatchToProps = {
   initContract: aggregationOperations.initContract,
-  clearState: aggregationOperations.clearState
+  clearState: aggregationOperations.clearState,
 }
 
-export default compose(
-  connect(
-    mapStateToProps,
-    mapDispatchToProps
-  )
-)(NetworkPage)
+export default compose(connect(null, mapDispatchToProps))(NetworkPage)

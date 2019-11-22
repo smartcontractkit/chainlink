@@ -8,7 +8,7 @@ import * as reducers from './ducks'
 import aggregatorMiddleware from './middlewares/aggregatorMiddleware'
 
 const logger = createLogger({
-  collapsed: true
+  collapsed: true,
 })
 
 /**
@@ -16,9 +16,9 @@ const logger = createLogger({
  */
 
 const migrations = {
-  1: state => {
+  1: () => {
     return {}
-  }
+  },
 }
 
 const persistConfig = {
@@ -28,12 +28,12 @@ const persistConfig = {
   whitelist: [''],
   transforms: [createFilter('aggregation', [''])],
   migrate: createMigrate(migrations, {
-    debug: process.env.NODE_ENV !== 'production'
-  })
+    debug: process.env.NODE_ENV !== 'production',
+  }),
 }
 
 const rootReducer = combineReducers({
-  ...reducers
+  ...reducers,
 })
 
 const persistedReducer = persistReducer(persistConfig, rootReducer)
@@ -43,12 +43,12 @@ const initialState = {}
 const developmentMiddlewares = applyMiddleware(
   thunkMiddleware,
   aggregatorMiddleware,
-  logger
+  logger,
 )
 
 const productionMiddlewares = applyMiddleware(
   thunkMiddleware,
-  aggregatorMiddleware
+  aggregatorMiddleware,
 )
 
 const middlewares =

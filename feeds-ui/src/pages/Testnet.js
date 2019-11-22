@@ -11,7 +11,7 @@ const OPTIONS = {
   contractAddress: '0x1c44616CdB7FAe1ba69004ce6010248147CE019e',
   name: 'BTC / USD',
   valuePrefix: '$',
-  network: 'ropsten'
+  network: 'ropsten',
 }
 
 const NetworkPage = ({ initContract, clearState }) => {
@@ -27,8 +27,7 @@ const NetworkPage = ({ initContract, clearState }) => {
     return () => {
       clearState()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [initContract, setInit, clearState])
 
   return (
     <div className="page-wrapper network-page">
@@ -38,16 +37,9 @@ const NetworkPage = ({ initContract, clearState }) => {
   )
 }
 
-const mapStateToProps = state => ({})
-
 const mapDispatchToProps = {
   initContract: aggregationOperations.initContract,
-  clearState: aggregationOperations.clearState
+  clearState: aggregationOperations.clearState,
 }
 
-export default compose(
-  connect(
-    mapStateToProps,
-    mapDispatchToProps
-  )
-)(NetworkPage)
+export default compose(connect(null, mapDispatchToProps))(NetworkPage)

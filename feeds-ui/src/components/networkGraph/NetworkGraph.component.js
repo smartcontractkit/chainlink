@@ -10,7 +10,7 @@ const NetworkGraph = ({
   options,
   pendingAnswerId,
   fetchJobId,
-  updateHeight
+  updateHeight,
 }) => {
   const [nodeModalVisible, setNodeModalVisile] = useState(false)
   const [nodeModalData, setNodeModalData] = useState()
@@ -18,7 +18,7 @@ const NetworkGraph = ({
   const [contractModalVisible, setContractModalVisile] = useState(false)
   const [contractModalData, setContractModalData] = useState()
 
-  let graph = useRef()
+  const graph = useRef()
 
   useEffect(() => {
     graph.current = new NetworkGraphD3(options)
@@ -40,7 +40,7 @@ const NetworkGraph = ({
     }
   }, [networkGraphState, pendingAnswerId])
 
-  const showNodeInfo = async node => {
+  async function showNodeInfo(node) {
     setNodeModalData(node)
     setNodeModalVisile(true)
 
@@ -54,7 +54,7 @@ const NetworkGraph = ({
     setNodeModalJobId(null)
   }
 
-  const showContractInfo = contract => {
+  function showContractInfo(contract) {
     setContractModalData(contract)
     setContractModalVisile(true)
   }

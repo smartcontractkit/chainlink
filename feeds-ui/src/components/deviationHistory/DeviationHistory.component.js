@@ -3,7 +3,7 @@ import DeviationHistoryD3 from './DeviationGraph.d3'
 import { Icon } from 'antd'
 
 function DeviationHistory({ answerHistory, options }) {
-  let graph = useRef()
+  const graph = useRef()
 
   useEffect(() => {
     graph.current = new DeviationHistoryD3(options)

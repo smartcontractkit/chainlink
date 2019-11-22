@@ -7,7 +7,7 @@ const infuraKey = process.env.REACT_APP_INFURA_KEY
 
 const createInfuraProvider = (network = 'mainnet') => {
   const provider = new ethers.providers.JsonRpcProvider(
-    `https://${network}.infura.io/v3/${infuraKey}`
+    `https://${network}.infura.io/v3/${infuraKey}`,
   )
   provider.pollingInterval = 8000
 
@@ -20,7 +20,7 @@ const createContract = (address, provider) =>
 export default class AggregationContract {
   oracleResponseEvent = {
     filter: {},
-    listener: {}
+    listener: {},
   }
   answerIdInterval
 
@@ -39,14 +39,16 @@ export default class AggregationContract {
       clearInterval(this.answerIdInterval)
       this.removeListener(
         this.oracleResponseEvent.filter,
-        this.oracleResponseEvent.listener
+        this.oracleResponseEvent.listener,
       )
       this.contract = null
       this.name = null
       this.symbol = null
       this.address = null
       this.alive = false
-    } catch (error) {}
+    } catch (error) {
+      //
+    }
   }
 
   removeListener(filter, eventListener) {
@@ -73,7 +75,9 @@ export default class AggregationContract {
     try {
       const jobIds = await this.contract.jobIds(index)
       return ethers.utils.toUtf8String(jobIds)
-    } catch (error) {}
+    } catch (error) {
+      //
+    }
   }
 
   async currentAnswer() {
@@ -86,7 +90,7 @@ export default class AggregationContract {
     const block = await this.provider.getBlock(updatedHeight.toNumber())
     return {
       block: updatedHeight.toNumber(),
-      timestamp: block.timestamp
+      timestamp: block.timestamp,
     }
   }
 
@@ -129,21 +133,21 @@ export default class AggregationContract {
     const oracleResponseByIdFilter = {
       ...this.contract.filters.ResponseReceived(null, answerIdHex, null),
       fromBlock,
-      toBlock: 'latest'
+      toBlock: 'latest',
     }
 
     const logs = await getLogs(
       {
         provider: this.provider,
         filter: oracleResponseByIdFilter,
-        eventInterface: this.contract.interface.events.ResponseReceived
+        eventInterface: this.contract.interface.events.ResponseReceived,
       },
       decodedLog => ({
         responseFormatted: formatEthPrice(decodedLog.response),
         response: Number(decodedLog.response),
         answerId: Number(decodedLog.answerId),
-        sender: decodedLog.sender
-      })
+        sender: decodedLog.sender,
+      }),
     )
 
     return logs
@@ -157,13 +161,13 @@ export default class AggregationContract {
     const chainlinkRequestedFilter = {
       ...this.contract.filters.ChainlinkRequested(null),
       fromBlock,
-      toBlock: 'latest'
+      toBlock: 'latest',
     }
 
     const logs = await getLogs({
       provider: this.provider,
       filter: chainlinkRequestedFilter,
-      eventInterface: this.contract.interface.events.ChainlinkRequested
+      eventInterface: this.contract.interface.events.ChainlinkRequested,
     })
 
     return logs
@@ -182,11 +186,11 @@ export default class AggregationContract {
 
     this.removeListener(
       this.oracleResponseEvent.filter,
-      this.oracleResponseEvent.listener
+      this.oracleResponseEvent.listener,
     )
 
     this.oracleResponseEvent.filter = {
-      ...this.contract.filters.ResponseReceived(null, null, null)
+      ...this.contract.filters.ResponseReceived(null, null, null),
     }
 
     return this.provider.on(
@@ -195,18 +199,18 @@ export default class AggregationContract {
         const logged = decodeLog(
           {
             log,
-            eventInterface: this.contract.interface.events.ResponseReceived
+            eventInterface: this.contract.interface.events.ResponseReceived,
           },
           decodedLog => ({
             responseFormatted: formatEthPrice(decodedLog.response),
             response: Number(decodedLog.response),
             answerId: Number(decodedLog.answerId),
-            sender: decodedLog.sender
-          })
+            sender: decodedLog.sender,
+          }),
         )
         const logWithTimestamp = await this.addBlockTimestampToLogs([logged])
         return callback ? callback(logWithTimestamp[0]) : logWithTimestamp[0]
-      })
+      }),
     )
   }
 
@@ -214,20 +218,20 @@ export default class AggregationContract {
     const answerUpdatedFilter = {
       ...this.contract.filters.AnswerUpdated(null, null),
       fromBlock,
-      toBlock: 'latest'
+      toBlock: 'latest',
     }
 
     const logs = await getLogs(
       {
         provider: this.provider,
         filter: answerUpdatedFilter,
-        eventInterface: this.contract.interface.events.AnswerUpdated
+        eventInterface: this.contract.interface.events.AnswerUpdated,
       },
       decodedLog => ({
         responseFormatted: formatEthPrice(decodedLog.current),
         response: Number(decodedLog.current),
-        answerId: Number(decodedLog.answerId)
-      })
+        answerId: Number(decodedLog.answerId),
+      }),
     )
 
     return logs

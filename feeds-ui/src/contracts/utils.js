@@ -3,13 +3,13 @@ import { ethers } from 'ethers'
 export function formatEthPrice(value) {
   return ethers.utils.formatEther(value.mul(10000000000), {
     commify: true,
-    pad: true
+    pad: true,
   })
 }
 
 export async function getLogs(
   { provider, filter, eventInterface },
-  cb = () => {}
+  cb = () => {},
 ) {
   const logs = await provider.getLogs(filter)
   const result = logs
@@ -24,11 +24,11 @@ export function decodeLog({ log, eventInterface }, cb = () => {}) {
   const decodedLog = eventInterface.decode(log.data, log.topics)
   const meta = {
     blockNumber: log.blockNumber,
-    transactionHash: log.transactionHash
+    transactionHash: log.transactionHash,
   }
   const result = {
     ...{ meta },
-    ...cb(decodedLog)
+    ...cb(decodedLog),
   }
 
   return result
