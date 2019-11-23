@@ -1,6 +1,3 @@
-type CypressChild = Cypress.Chainable<JQuery<any>>
-type CypressChildFunction = (subject: CypressChild, options: {}) => CypressChild
-
 // Cypress doesn't always click buttons because it thinks they are hidden (when they are not)
 Cypress.Commands.overwrite(
   'click',
@@ -102,3 +99,6 @@ Cypress.Commands.add('reloadUntilFound', (selector, options = {}) => {
     cy.reloadUntilFound(selector, options)
   }
 })
+
+type CypressChild = Cypress.Chainable<JQuery<any>>
+type CypressChildFunction = (subject: CypressChild, options: {}) => CypressChild
