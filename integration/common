@@ -34,106 +34,17 @@ waitForResponse () {
   title "Service on $1 is ready."
 }
 
-launch_gethnet() {
-  printf -- "\033[34m%-50s\033[0m" "Checking for running ethereum node"
-  if curl -s $ETH_HTTP_URL >/dev/null; then
-    printf -- "[\033[32mrunning\033[0m]\n"
-    return
-  fi
-  printf -- "[\033[31mstopped\033[0m]\n"
-
-  title "Starting geth..."
-  $SRCROOT/tools/bin/gethnet &>$SRCROOT/integration/logs/gethnet.log &
-  waitForResponse $ETH_HTTP_URL
-  title "Geth is running."
-}
-
-launch_parity() {
-  printf -- "\033[34m%-50s\033[0m" "Checking for running ethereum node"
-  if curl -s $ETH_HTTP_URL >/dev/null; then
-    printf -- "[\033[32mrunning\033[0m]\n"
-    return
-  fi
-  printf -- "[\033[31mstopped\033[0m]\n"
-
-  title "Starting parity..."
-  $SRCROOT/tools/bin/devnet &>$SRCROOT/integration/logs/devnet.log &
-  waitForResponse $ETH_HTTP_URL
-  title "Parity is running."
-}
-
-install_chainlink() {
-  if [ -x "$(which chainlink)" ]; then
-    return
-  fi
-
-  title "Making chainlink..."
-  make install &>$SRCROOT/integration/logs/make.log
-}
-
 launch_chainlink() {
-  chainlink_url="http://127.0.0.1:6688"
-  printf -- "\033[34m%-50s\033[0m" "Checking for local chainlink"
-  if curl -s $chainlink_url >/dev/null; then
-    printf -- "[\033[32mrunning\033[0m]\n"
-    return
-  fi
-  printf -- "[\033[31mstopped\033[0m]\n"
-
-  install_chainlink
-
-  title "Starting chainlink..."
-
-  clroot=$(mktemp -d)
-  trap "rm -rf $clroot" EXIT HUP TERM INT
-  cp $SRCROOT/tools/clroot/{password.txt,apicredentials} $clroot/
-  echo running chainlink from ${clroot}
-  chainlink node start -d -p $clroot/password.txt -a $clroot/apicredentials &>$SRCROOT/integration/logs/chainlink.log &
-
-  waitForResponse $chainlink_url
+  waitForResponse $CHAINLINK_URL
   title "Chainlink is running."
 
-  waitFor "grep 'Unlocked account' '$SRCROOT/integration/logs/chainlink.log'" 10
-  export CHAINLINK_NODE_ADDRESS=`cat $SRCROOT/integration/logs/chainlink.log | grep 'Unlocked account' | awk '{print$5}'`
+  pushd tools/docker
+  # Grab logs from our node service and find the unlocked account
+  waitFor "docker-compose  -f docker-compose.yaml -f docker-compose.paritynet.yaml -f docker-compose.integration.yaml logs | grep 'Unlocked account'" 10
+  export CHAINLINK_NODE_ADDRESS=`docker-compose  -f docker-compose.yaml -f docker-compose.paritynet.yaml -f docker-compose.integration.yaml logs | grep 'Unlocked account' | awk '{print$7}'`
+  popd 
 
-  yarn workspace @chainlink/integration-scripts fund-address > $SRCROOT/integration/logs/fund_address.log
-}
-
-explorer_url="http://127.0.0.1:8080"
-
-launch_explorer() {
-  printf -- "\033[34m%-50s\033[0m" "Checking for explorer"
-  if curl -s $explorer_url >/dev/null; then
-    printf -- "[\033[32mrunning\033[0m]\n"
-    return
-  fi
-  printf -- "[\033[31mstopped\033[0m]\n"
-  title "Starting explorer..."
-
-  yarn workspace @chainlink/json-api-client run build &>$SRCROOT/integration/logs/explorer-json-api-client.log
-  yarn workspace @chainlink/redux run build &>$SRCROOT/integration/logs/explorer-redux.log
-  yarn workspace @chainlink/explorer run build &>$SRCROOT/integration/logs/explorer-yarn.log
-  yarn workspace @chainlink/explorer run prod &>$SRCROOT/integration/logs/explorer.log & waitForResponse $explorer_url
-  title "Explorer is running."
-}
-
-add_clnode_to_explorer() {
-  title "Adding CL Node to Explorer..."
-
-  yarn workspace @chainlink/explorer admin:seed test-admin test-admin-password
-  clnode_name="test-$(date +%s)"
-  response=`EXPLORER_BASE_URL=$explorer_url EXPLORER_ADMIN_USERNAME=test-admin EXPLORER_ADMIN_PASSWORD=test-admin-password yarn workspace @chainlink/explorer run admin:clnodes:add $clnode_name`
-  export EXPLORER_ACCESS_KEY=$(echo $response | grep -o "AccessKey [a-zA-Z0-9]*" | awk '{print $2}')
-  export EXPLORER_SECRET=$(echo $response | grep -o "Secret [a-zA-Z0-9]*" | awk '{print $2}')
-  export EXPLORER_URL="ws://localhost:8080"
-  title "Added CL Node $clnode_name to Explorer."
-}
-
-setup_scripts() {
-  yarn --no-progress install &>$SRCROOT/integration/logs/yarn.log
-  yarn workspace chainlinkv0.5 build
-  yarn workspace chainlink build
-  yarn workspace @chainlink/integration-scripts setup
+  yarn workspace @chainlink/integration-scripts fund-address
 }
 
 deploy_contracts() {
@@ -141,59 +52,27 @@ deploy_contracts() {
   pushd integration >/dev/null
 
   # run migrations
-  yarn workspace @chainlink/integration-scripts deploy-contracts | tee $SRCROOT/integration/logs/deploy.log
-  export LINK_TOKEN_ADDRESS=`cat $SRCROOT/integration/logs/deploy.log | grep 'Deployed LinkToken at:' | awk '{print$4}'`
-  export ORACLE_CONTRACT_ADDRESS=`cat $SRCROOT/integration/logs/deploy.log | grep 'Deployed Oracle at:' | awk '{print$4}'`
-  export ETH_LOG_ADDRESS=`cat $SRCROOT/integration/logs/deploy.log | grep 'Deployed EthLog at:' | awk '{print$4}'`
-  export RUN_LOG_ADDRESS=`cat $SRCROOT/integration/logs/deploy.log | grep 'Deployed RunLog at:' | awk '{print$4}'`
+  yarn workspace @chainlink/integration-scripts deploy-contracts | tee /chainlink/integration/logs/deploy.log
+  export LINK_TOKEN_ADDRESS=`cat /chainlink/integration/logs/deploy.log | grep 'Deployed LinkToken at:' | awk '{print$4}'`
+  export ORACLE_CONTRACT_ADDRESS=`cat /chainlink/integration/logs/deploy.log | grep 'Deployed Oracle at:' | awk '{print$4}'`
+  export ETH_LOG_ADDRESS=`cat /chainlink/integration/logs/deploy.log | grep 'Deployed EthLog at:' | awk '{print$4}'`
+  export RUN_LOG_ADDRESS=`cat /chainlink/integration/logs/deploy.log | grep 'Deployed RunLog at:' | awk '{print$4}'`
 
   echo "RunLog address: $RUN_LOG_ADDRESS"
   popd >/dev/null
   title "Migration complete."
 }
+
 deploy_v05_contracts() {
-    log_path=$SRCROOT/integration/logs/initiate-service-agreement.log
+    log_path=/chainlink/integration/logs/initiate-service-agreement.log
     yarn workspace @chainlink/integration-scripts deploy-v0.5-contracts | tee $log_path
     export LINK_TOKEN_ADDRESS=`cat $log_path | grep 'Deployed LinkToken at:' | awk '{print$4}'`
     export COORDINATOR_ADDRESS=`cat $log_path | grep 'Deployed Coordinator at:' | awk '{print$4}'`
     export MEAN_AGGREGATOR_ADDRESS=`cat $log_path | grep 'Deployed MeanAggregator at:' | awk '{print$4}'`
 }
-launch_echo_server() {
-  printf -- "\033[34m%-50s\033[0m" "Checking for local echo server"
-  if curl -s $ECHO_SERVER_URL >/dev/null; then
-    printf -- "[\033[32mrunning\033[0m]\n"
-    return
-  fi
-  printf -- "[\033[31mstopped\033[0m]\n"
-
-  title "Starting echo server..."
-  pushd integration >/dev/null
-
-  yarn workspace @chainlink/integration-scripts start-echo-server "$ECHO_SERVER_PORT" &>$SRCROOT/integration/logs/echo-server.log &
-  waitForResponse $ECHO_SERVER_URL
-
-  popd >/dev/null
-  title "Echo server is running."
-}
-
-launch_cypress_job_server() {
-  printf -- "\033[34m%-50s\033[0m" "Checking for cypress job server"
-  if curl -s $CYPRESS_JOB_SERVER_URL >/dev/null; then
-    printf -- "[\033[32mrunning\033[0m]\n"
-    return
-  fi
-  printf -- "[\033[31mstopped\033[0m]\n"
-
-  title "Starting job server..."
-
-  yarn workspace @chainlink/integration cypressJobServer '{"last": "3843.95"}' &>/dev/null &
-  waitForResponse $CYPRESS_JOB_SERVER_URL
-
-  title "Job server is running."
-}
 
 print_logs() {
-  for log in $(find "$SRCROOT/integration" -maxdepth 1 -type f -iname '*.log'); do
+  for log in $(find "/chainlink/integration" -maxdepth 1 -type f -iname '*.log'); do
     heading "$log"
     cat $log
   done
@@ -205,18 +84,9 @@ exit_handler() {
   if [ $errno -ne 0 ]; then
     title "ABORTING TEST"
     printf -- "Exited with code $errno\n"
-    print_logs
+    # print_logs
   fi
   exit $errno
-}
-
-cleanup() {
-  if [ -n "$CIRCLECI" ]; then
-    return
-  fi
-
-  # Kill all child subprocesses
-  pkill -P $$
 }
 
 title() {
