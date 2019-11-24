@@ -2,7 +2,7 @@ pragma solidity ^0.5.0;
 
 import "../Median.sol";
 
-contract ConcreteMedian {
+contract MedianTestHelper {
 
   function publicGet(int256[] memory _list)
     public
