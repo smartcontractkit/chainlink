@@ -430,7 +430,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   }
 
   modifier onlyEnabledAddress(address _oracle) {
-    require(oracles[_oracle].startingRound != 0, "Address is not an oracle");
+    require(oracles[_oracle].startingRound != 0, "Address is not a whitelisted oracle");
     _;
   }
 

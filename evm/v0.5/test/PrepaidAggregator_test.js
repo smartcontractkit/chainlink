@@ -675,7 +675,7 @@ contract('PrepaidAggregator', () => {
           aggregator.removeOracle(personas.Neil, minAns, maxAns, rrDelay, {
             from: personas.Carol,
           }),
-          'Address is not an oracle',
+          'Address is not a whitelisted oracle',
         )
       })
     })
