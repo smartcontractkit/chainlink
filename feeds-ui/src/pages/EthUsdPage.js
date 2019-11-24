@@ -17,6 +17,7 @@ const OPTIONS = {
   counter: 300,
   network: 'mainnet',
   history: true,
+  bollinger: false,
 }
 
 const NetworkPage = ({ initContract, clearState }) => {
