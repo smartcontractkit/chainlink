@@ -2,7 +2,7 @@ pragma solidity ^0.5.0;
 
 import "../Chainlink.sol";
 
-contract ConcreteChainlink {
+contract ChainlinkTestHelper {
   using Chainlink for Chainlink.Request;
   using CBOR_Chainlink for Buffer_Chainlink.buffer;
 

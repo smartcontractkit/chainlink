@@ -1,7 +1,7 @@
 import { assertBigNum } from './support/matchers'
 
 contract('Median', () => {
-  const Median = artifacts.require('ConcreteMedian.sol')
+  const Median = artifacts.require('MedianTestHelper.sol')
   let median
 
   beforeEach(async () => {
