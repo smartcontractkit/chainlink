@@ -85,6 +85,10 @@ const NODE_NAMES = [
     address: '0x78E76126719715Eddf107cD70f3A31dddF31f85A',
     name: 'Honeycomb.market',
   },
+  {
+    address: '0x24A718307Ce9B2420962fd5043fb876e17430934',
+    name: 'Infinity Stones',
+  },
 ]
 
 const oracles = state => state.aggregation.oracles

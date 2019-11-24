@@ -21522,7 +21522,10 @@ hr {
   font-weight: 600;
 }
 .answer-history {
-  margin: 60px 0;
+  margin: 120px 0;
+}
+.answer-history svg {
+  overflow: visible;
 }
 .answer-history .x-axis .domain,
 .answer-history .y-axis .domain,
@@ -21534,10 +21537,21 @@ hr {
 .answer-history .y-axis text {
   color: #a0a0a0;
 }
+.answer-history .bollinger-ma {
+  fill: none;
+  stroke: #d6dae2;
+  stroke-width: 1.5px;
+}
+.answer-history .bollinger-area {
+  fill: #e2e5ec;
+  opacity: 1;
+}
 .answer-history-header {
   font-weight: 200;
-  top: 20px;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 .answer-history-graph--timestamp,
 .answer-history-graph--price {
@@ -21546,6 +21560,9 @@ hr {
 }
 .deviation-history {
   margin: 60px 0;
+}
+.deviation-history svg {
+  overflow: visible;
 }
 .deviation-history .x-axis .domain,
 .deviation-history .y-axis .domain,
@@ -21559,7 +21576,6 @@ hr {
 }
 .deviation-history-header {
   font-weight: 200;
-  top: 20px;
   position: relative;
 }
 .deviation-history-graph--timestamp,

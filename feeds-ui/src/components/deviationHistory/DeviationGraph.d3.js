@@ -3,8 +3,8 @@ import { humanizeUnixTimestamp } from 'utils'
 
 export default class DeviationGraph {
   margin = { top: 30, right: 30, bottom: 30, left: 50 }
-  width = 1200
-  height = 200
+  width = 1300
+  height = 250
   svg
   path
   tooltip
@@ -29,7 +29,12 @@ export default class DeviationGraph {
     this.svg = d3
       .select('.deviation-history-graph')
       .append('svg')
-      .attr('viewBox', `0 0 ${1300} ${400}`)
+      .attr(
+        'viewBox',
+        `0 0 ${this.width} ${this.height +
+          this.margin.top +
+          this.margin.bottom}`,
+      )
 
     this.path = this.svg
       .append('g')
@@ -65,19 +70,19 @@ export default class DeviationGraph {
     this.tooltipPercentage = this.info
       .append('text')
       .attr('class', 'deviation-history-graph--percentage')
-      .attr('x', '10')
+      .attr('x', '0')
       .attr('y', '0')
 
     this.tooltipPrice = this.info
       .append('text')
       .attr('class', 'deviation-history-graph--price')
-      .attr('x', '10')
+      .attr('x', '0')
       .attr('y', '15')
 
     this.tooltipTimestamp = this.info
       .append('text')
       .attr('class', 'deviation-history-graph--timestamp')
-      .attr('x', '10')
+      .attr('x', '0')
       .attr('y', '30')
 
     this.overlay = this.svg
