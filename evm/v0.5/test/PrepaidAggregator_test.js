@@ -258,7 +258,7 @@ contract('PrepaidAggregator', () => {
         })
         const log = tx.receipt.rawLogs[0]
         const roundNumber = h.bigNum(log.topics[1])
-        const startedBy = h.toAddress(log.topics[2])
+        const startedBy = h.evmWordToAddress(log.topics[2])
 
         assert.equal(nextRound, roundNumber.toNumber())
         assert.equal(startedBy, personas.Neil)
@@ -488,7 +488,7 @@ contract('PrepaidAggregator', () => {
         },
       )
 
-      const added = h.toAddress(tx.receipt.rawLogs[0].topics[1])
+      const added = h.evmWordToAddress(tx.receipt.rawLogs[0].topics[1])
       assertBigNum(added, personas.Neil)
     })
 
@@ -659,7 +659,7 @@ contract('PrepaidAggregator', () => {
         },
       )
 
-      const added = h.toAddress(tx.receipt.rawLogs[0].topics[1])
+      const added = h.evmWordToAddress(tx.receipt.rawLogs[0].topics[1])
       assertBigNum(added, personas.Neil)
     })
 
