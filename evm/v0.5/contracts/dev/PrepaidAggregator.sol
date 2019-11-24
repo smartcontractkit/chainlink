@@ -4,6 +4,7 @@ import "../Median.sol";
 import "../vendor/Ownable.sol";
 import "../vendor/SafeMath.sol";
 import "./SafeMath128.sol";
+import "./SafeMath32.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
 
@@ -18,6 +19,7 @@ import "../interfaces/WithdrawalInterface.sol";
 contract PrepaidAggregator is Ownable, WithdrawalInterface {
   using SafeMath for uint256;
   using SafeMath128 for uint128;
+  using SafeMath32 for uint32;
 
   struct Round {
     int256 answer;
@@ -27,44 +29,44 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
 
   struct RoundDetails {
     int256[] answers;
-    uint64 maxAnswers;
-    uint64 minAnswers;
+    uint32 maxAnswers;
+    uint32 minAnswers;
     uint128 paymentAmount;
   }
 
   struct OracleStatus {
     uint128 withdrawable;
-    uint128 startingRound;
-    uint128 endingRound;
-    uint128 lastReportedRound;
-    uint128 lastStartedRound;
+    uint32 startingRound;
+    uint32 endingRound;
+    uint32 lastReportedRound;
+    uint32 lastStartedRound;
     int256 latestAnswer;
   }
 
-  uint128 public latestRound;
-  uint128 public currentRound;
+  uint32 public latestRound;
+  uint32 public currentRound;
   uint128 public allocatedFunds;
   uint128 public availableFunds;
 
   // Round related params
   uint128 public paymentAmount;
-  uint64 public oracleCount;
-  uint64 public maxAnswerCount;
-  uint64 public minAnswerCount;
-  uint64 public restartDelay;
+  uint32 public oracleCount;
+  uint32 public maxAnswerCount;
+  uint32 public minAnswerCount;
+  uint32 public restartDelay;
 
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
-  mapping(uint128 => Round) private rounds;
+  mapping(uint32 => Round) private rounds;
 
-  event NewRound(uint128 indexed number, address indexed startedBy);
-  event AnswerUpdated(int256 indexed current, uint128 indexed round);
+  event NewRound(uint32 indexed number, address indexed startedBy);
+  event AnswerUpdated(int256 indexed current, uint32 indexed round);
   event AvailableFundsUpdated(uint256 indexed amount);
   event RoundDetailsUpdated(
     uint128 indexed paymentAmount,
-    uint64 indexed minAnswerCount,
-    uint64 indexed maxAnswerCount,
-    uint64 restartDelay
+    uint32 indexed minAnswerCount,
+    uint32 indexed maxAnswerCount,
+    uint32 restartDelay
   );
   event OracleAdded(address indexed oracle);
   event OracleRemoved(address indexed oracle);
@@ -85,7 +87,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    * @param _round is the ID of the round this answer pertains to
    * @param _answer is the updated data that the oracle is submitting
    */
-  function updateAnswer(uint128 _round, int256 _answer)
+  function updateAnswer(uint32 _round, int256 _answer)
     external
     onlyValidRoundId(_round)
     onlyValidOracleRound(_round)
@@ -108,9 +110,9 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    */
   function addOracle(
     address _oracle,
-    uint64 _minAnswers,
-    uint64 _maxAnswers,
-    uint64 _restartDelay
+    uint32 _minAnswers,
+    uint32 _maxAnswers,
+    uint32 _restartDelay
   )
     external
     onlyOwner()
@@ -137,9 +139,9 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    */
   function removeOracle(
     address _oracle,
-    uint64 _minAnswers,
-    uint64 _maxAnswers,
-    uint64 _restartDelay
+    uint32 _minAnswers,
+    uint32 _maxAnswers,
+    uint32 _restartDelay
   )
     external
     onlyOwner()
@@ -165,9 +167,9 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    */
   function updateFutureRounds(
     uint128 _newPaymentAmount,
-    uint64 _minAnswers,
-    uint64 _maxAnswers,
-    uint64 _restartDelay
+    uint32 _minAnswers,
+    uint32 _maxAnswers,
+    uint32 _restartDelay
   )
     public
     onlyOwner()
@@ -234,7 +236,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    * @notice get past rounds answers
    * @param _id the round number to retrieve the answer for
    */
-  function getAnswer(uint128 _id)
+  function getAnswer(uint32 _id)
     public
     view
     returns (int256)
@@ -246,7 +248,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    * @notice get timestamp when an answer was last updated
    * @param _id the round number to retrieve the updated timestamp for
    */
-  function getUpdatedTimestamp(uint128 _id)
+  function getUpdatedTimestamp(uint32 _id)
     public
     view
     returns (uint256)
@@ -302,7 +304,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    * Private
    */
 
-  function startNewRound(uint128 _id)
+  function startNewRound(uint32 _id)
     private
     onlyOnNewRound(_id)
     onlyIfDelayed(_id)
@@ -317,7 +319,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     emit NewRound(_id, msg.sender);
   }
 
-  function updateRoundAnswer(uint128 _id)
+  function updateRoundAnswer(uint32 _id)
     private
     onlyIfMinAnswersReceived(_id)
   {
@@ -329,7 +331,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     emit AnswerUpdated(newAnswer, _id);
   }
 
-  function payOracle(uint128 _id)
+  function payOracle(uint32 _id)
     private
   {
     uint128 payment = rounds[_id].details.paymentAmount;
@@ -342,7 +344,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     emit AvailableFundsUpdated(available);
   }
 
-  function recordSubmission(int256 _answer, uint128 _id)
+  function recordSubmission(int256 _answer, uint32 _id)
     private
     onlyIfAcceptingAnswers(_id)
   {
@@ -351,7 +353,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     oracles[msg.sender].latestAnswer = _answer;
   }
 
-  function deleteRound(uint128 _id)
+  function deleteRound(uint32 _id)
     private
     onlyIfMaxAnswersReceived(_id)
   {
@@ -362,12 +364,12 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    * Modifiers
    */
 
-  modifier onlyValidOracleRound(uint128 _id) {
-    uint128 endingRound = oracles[msg.sender].endingRound;
+  modifier onlyValidOracleRound(uint32 _id) {
+    uint32 endingRound = oracles[msg.sender].endingRound;
     if (endingRound > 0) {
       require(endingRound >= _id, "Oracle has been removed from whitelist");
     } else {
-      uint128 startingRound = oracles[msg.sender].startingRound;
+      uint32 startingRound = oracles[msg.sender].startingRound;
       require(startingRound != 0, "Only updatable by whitelisted oracles");
       require(startingRound <= _id, "New oracles cannot participate in in-progress rounds");
     }
@@ -376,37 +378,37 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     _;
   }
 
-  modifier onlyIfMinAnswersReceived(uint128 _id) {
+  modifier onlyIfMinAnswersReceived(uint32 _id) {
     if (rounds[_id].details.answers.length >= rounds[_id].details.minAnswers) {
       _;
     }
   }
 
-  modifier onlyIfMaxAnswersReceived(uint128 _id) {
+  modifier onlyIfMaxAnswersReceived(uint32 _id) {
     if (rounds[_id].details.answers.length == rounds[_id].details.maxAnswers) {
       _;
     }
   }
 
-  modifier onlyIfAcceptingAnswers(uint128 _id) {
+  modifier onlyIfAcceptingAnswers(uint32 _id) {
     require(rounds[_id].details.maxAnswers != 0, "Max responses reached for round");
     _;
   }
 
-  modifier onlyOnNewRound(uint128 _id) {
+  modifier onlyOnNewRound(uint32 _id) {
     if (_id == currentRound.add(1)) {
       _;
     }
   }
 
-  modifier onlyIfDelayed(uint128 _id) {
+  modifier onlyIfDelayed(uint32 _id) {
     uint256 lastStarted = oracles[msg.sender].lastStartedRound;
     if (_id > lastStarted + restartDelay) {
       _;
     }
   }
 
-  modifier onlyValidRoundId(uint128 _id) {
+  modifier onlyValidRoundId(uint32 _id) {
     require(_id == currentRound || _id == currentRound.add(1), "Must report on current round");
     if (_id > 1) {
       require(rounds[_id.sub(1)].updatedTimestamp > 0, "Cannot bump round until previous round has an answer");
@@ -414,8 +416,8 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     _;
   }
 
-  modifier onlyValidRange(uint64 _min, uint64 _max, uint64 _restartDelay) {
-    uint64 oracleNum = oracleCount; // Save on storage reads
+  modifier onlyValidRange(uint32 _min, uint32 _max, uint32 _restartDelay) {
+    uint32 oracleNum = oracleCount; // Save on storage reads
     require(oracleNum >= _max, "Cannot have the answer max higher oracle count");
     require(_max >= _min, "Cannot have the answer minimum higher the max");
     if (oracleNum > 0) {
