@@ -346,7 +346,8 @@ export function abiEncode(types: any, values: any): string {
   return abi.rawEncode(types, values).toString('hex')
 }
 
-export function toAddress(hex: string): string {
+export function evmWordToAddress(hex: string): string {
+  assert.equal(hex.slice(0, 26), "0x000000000000000000000000")
   return web3.utils.toChecksumAddress(hex.slice(26))
 }
 
