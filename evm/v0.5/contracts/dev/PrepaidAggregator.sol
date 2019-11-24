@@ -77,7 +77,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    */
   constructor(address _link, uint128 _paymentAmount) public {
     LINK = LinkTokenInterface(_link);
-    updateFutureRounds(_paymentAmount, 0, 0, 0);
+    paymentAmount = _paymentAmount;
   }
 
   /**
