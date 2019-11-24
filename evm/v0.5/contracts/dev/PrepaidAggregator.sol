@@ -71,6 +71,8 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   event OracleAdded(address indexed oracle);
   event OracleRemoved(address indexed oracle);
 
+  uint32 constant private ROUND_MAX = 2**32-1;
+
   /**
    * @notice Deploy with the address of the LINK token and initial payment amount
    * @dev Sets the LinkToken address and amount of LINK paid
@@ -120,7 +122,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   {
     require(oracleCount < 42, "cannot add more than 42 oracles");
     oracles[_oracle].startingRound = currentRound.add(1);
-    oracles[_oracle].endingRound = 0;
+    oracles[_oracle].endingRound = ROUND_MAX;
     oracleCount += 1;
 
     emit OracleAdded(_oracle);
@@ -148,7 +150,6 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     onlyEnabledAddress(_oracle)
   {
     oracleCount -= 1;
-    oracles[_oracle].startingRound = 0;
     oracles[_oracle].endingRound = currentRound;
 
     emit OracleRemoved(_oracle);
@@ -365,16 +366,11 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
    */
 
   modifier onlyValidOracleRound(uint32 _id) {
-    uint32 endingRound = oracles[msg.sender].endingRound;
-    if (endingRound > 0) {
-      require(endingRound >= _id, "Oracle has been removed from whitelist");
-    } else {
-      uint32 startingRound = oracles[msg.sender].startingRound;
-      require(startingRound != 0, "Only updatable by whitelisted oracles");
-      require(startingRound <= _id, "New oracles cannot participate in in-progress rounds");
-    }
-
-    require(_id > oracles[msg.sender].lastReportedRound, "Cannot update round reports");
+    uint32 startingRound = oracles[msg.sender].startingRound;
+    require(startingRound != 0, "Only updatable by whitelisted oracles");
+    require(startingRound <= _id, "New oracles cannot participate in in-progress rounds");
+    require(oracles[msg.sender].endingRound >= _id, "Oracle has been removed from whitelist");
+    require(oracles[msg.sender].lastReportedRound < _id, "Cannot update round reports");
     _;
   }
 
@@ -427,12 +423,12 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   }
 
   modifier onlyUnenabledAddress(address _oracle) {
-    require(oracles[_oracle].startingRound == 0, "Address is already recorded as an oracle");
+    require(oracles[_oracle].endingRound != ROUND_MAX, "Address is already recorded as an oracle");
     _;
   }
 
   modifier onlyEnabledAddress(address _oracle) {
-    require(oracles[_oracle].startingRound != 0, "Address is not a whitelisted oracle");
+    require(oracles[_oracle].endingRound == ROUND_MAX, "Address is not a whitelisted oracle");
     _;
   }
 
