@@ -25,7 +25,7 @@ type ConnectionStatus string
 
 const (
 	// ConnectionStatusDisconnected is the default state
-	ConnectionStatusDisconnected = ConnectionStatus("")
+	ConnectionStatusDisconnected = ConnectionStatus("disconnected")
 	// ConnectionStatusConnected is used when the client is successfully connected
 	ConnectionStatusConnected = ConnectionStatus("connected")
 	// ConnectionStatusError is used when there is an error
@@ -75,6 +75,7 @@ func NewWebSocketClient(url *url.URL, accessKey, secret string) WebSocketClient 
 		receive:   make(chan []byte),
 		boot:      &sync.Mutex{},
 		sleeper:   utils.NewBackoffSleeper(),
+		status:    ConnectionStatusDisconnected,
 		accessKey: accessKey,
 		secret:    secret,
 	}
