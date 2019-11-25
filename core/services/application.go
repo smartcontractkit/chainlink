@@ -6,6 +6,7 @@ import (
 	"sync"
 	"syscall"
 
+	"chainlink/core/gracefulpanic"
 	"chainlink/core/logger"
 	"chainlink/core/store"
 	strpkg "chainlink/core/store"
@@ -63,13 +64,13 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
 
 	app := &ChainlinkApplication{
-		JobSubscriber: jobSubscriber,
-		RunManager:    runManager,
-		RunQueue:      runQueue,
-		Scheduler:     NewScheduler(store, runManager),
-		Store:         store,
-		SessionReaper: NewStoreReaper(store),
-		Exiter:        os.Exit,
+		JobSubscriber:            jobSubscriber,
+		RunManager:               runManager,
+		RunQueue:                 runQueue,
+		Scheduler:                NewScheduler(store, runManager),
+		Store:                    store,
+		SessionReaper:            NewStoreReaper(store),
+		Exiter:                   os.Exit,
 		pendingConnectionResumer: pendingConnectionResumer,
 	}
 
@@ -98,7 +99,10 @@ func (app *ChainlinkApplication) Start() error {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-sigs
+		select {
+		case <-sigs:
+		case <-gracefulpanic.Wait():
+		}
 		app.Stop()
 		app.Exiter(0)
 	}()

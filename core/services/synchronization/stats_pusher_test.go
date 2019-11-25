@@ -8,6 +8,7 @@ import (
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 
+	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -61,7 +62,9 @@ func TestStatsPusher_ClockTrigger(t *testing.T) {
 	pusher.Start()
 	defer pusher.Close()
 
-	err := store.DB.Save(&models.SyncEvent{Body: string("")}).Error
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Save(&models.SyncEvent{Body: string("")}).Error
+	})
 	require.NoError(t, err)
 
 	clock.Trigger()
@@ -128,7 +131,7 @@ func TestStatsPusher_BadSyncLeavesEvent(t *testing.T) {
 }
 
 func lenSyncEvents(t *testing.T, orm *orm.ORM) int {
-	var count int
-	require.NoError(t, orm.DB.Model(&models.SyncEvent{}).Count(&count).Error)
+	count, err := orm.CountOf(&models.SyncEvent{})
+	require.NoError(t, err)
 	return count
 }

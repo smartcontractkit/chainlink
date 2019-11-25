@@ -65,7 +65,7 @@ assert_testing_correct_artifact() {
 search_chainlink_logs() {
 	echo "searching for \"$1\" ... "
 	check_count=0;
-	TIMEOUT=30
+	TIMEOUT=60
 	until ( docker-compose logs chainlink | grep "$1" > /dev/null) ; do
     if [ $check_count -gt $TIMEOUT ]; then
       printf "\n"

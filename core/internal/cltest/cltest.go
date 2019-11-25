@@ -34,6 +34,7 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
+	"github.com/jinzhu/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -865,8 +866,8 @@ func WaitForSyncEventCount(
 ) {
 	t.Helper()
 	gomega.NewGomegaWithT(t).Eventually(func() int {
-		var count int
-		assert.NoError(t, orm.DB.Model(&models.SyncEvent{}).Count(&count).Error)
+		count, err := orm.CountOf(&models.SyncEvent{})
+		assert.NoError(t, err)
 		return count
 	}).Should(gomega.Equal(want))
 }
@@ -880,8 +881,8 @@ func AssertSyncEventCountStays(
 ) {
 	t.Helper()
 	gomega.NewGomegaWithT(t).Consistently(func() int {
-		var count int
-		assert.NoError(t, orm.DB.Model(&models.SyncEvent{}).Count(&count).Error)
+		count, err := orm.CountOf(&models.SyncEvent{})
+		assert.NoError(t, err)
 		return count
 	}).Should(gomega.Equal(want))
 }
@@ -1070,7 +1071,9 @@ func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalI
 	t.Helper()
 
 	var all []models.ExternalInitiator
-	err := store.ORM.DB.Find(&all).Error
+	err := store.RawDB(func(db *gorm.DB) error {
+		return db.Find(&all).Error
+	})
 	require.NoError(t, err)
 	return all
 }
@@ -1079,7 +1082,9 @@ func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {
 	t.Helper()
 
 	var all []models.JobSpec
-	err := store.ORM.DB.Find(&all).Error
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Find(&all).Error
+	})
 	require.NoError(t, err)
 	return all
 }
@@ -1100,7 +1105,9 @@ func GetLastTxAttempt(t testing.TB, store *strpkg.Store) models.TxAttempt {
 
 	var attempt models.TxAttempt
 	var count int
-	err := store.ORM.DB.Order("created_at desc").First(&attempt).Count(&count).Error
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Order("created_at desc").First(&attempt).Count(&count).Error
+	})
 	require.NoError(t, err)
 	require.NotEqual(t, 0, count)
 	return attempt
