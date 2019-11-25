@@ -597,22 +597,6 @@ export const constructStructArgs = (
   return args
 }
 
-// ABI specification for the given argument of the given contract method
-const getMethodArg = (
-  contract: any,
-  methodName: string,
-  argName: string,
-): ParamType => {
-  const fqName = `${contract.contractName}.${methodName}`
-  const methodABI = getMethod(contract, methodName)
-  let eMsg = `${fqName} is not a method: ${methodABI}`
-  assert.equal(methodABI.type, 'function', eMsg)
-  const argMatches = methodABI.inputs.filter((a: any) => a.name == argName)
-  eMsg = `${fqName} has no argument ${argName}, or name is ambiguous`
-  assert.equal(argMatches.length, 1, eMsg)
-  return argMatches[0]
-}
-
 const SERVICE_AGREEMENT_TYPES = [
   'uint256',
   'uint256',
