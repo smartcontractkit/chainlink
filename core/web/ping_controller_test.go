@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"chainlink/core/internal/cltest"
@@ -23,7 +24,8 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 	resp, cleanup := client.Get("/v2/ping")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
-	require.Equal(t, `{"message":"pong"}`, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	require.Equal(t, `{"message":"pong"}`, strings.TrimSpace(body))
 }
 
 func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
@@ -61,7 +63,8 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	defer resp.Body.Close()
 
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
-	require.Equal(t, `{"message":"pong"}`, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	require.Equal(t, `{"message":"pong"}`, strings.TrimSpace(body))
 }
 
 func TestPingController_Show_NoCredentials(t *testing.T) {

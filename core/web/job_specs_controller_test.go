@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -289,7 +290,8 @@ func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"idonotexist is not a supported adapter type"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	assert.Equal(t, expected, strings.TrimSpace(body))
 }
 
 func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
@@ -307,7 +309,8 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"RunAt must have a time"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	assert.Equal(t, expected, strings.TrimSpace(body))
 }
 
 func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
@@ -325,7 +328,8 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"Cron: Failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	assert.Equal(t, expected, strings.TrimSpace(body))
 }
 
 func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
@@ -343,7 +347,8 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"Must have at least one Initiator and one Task"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	assert.Equal(t, expected, strings.TrimSpace(body))
 }
 
 func TestJobSpecsController_Create_Task_Only(t *testing.T) {
@@ -361,7 +366,8 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"Must have at least one Initiator and one Task"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	assert.Equal(t, expected, strings.TrimSpace(body))
 }
 
 func BenchmarkJobSpecsController_Show(b *testing.B) {
