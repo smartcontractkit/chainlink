@@ -143,7 +143,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     registerOracleSignatures(
       serviceAgreementID,
       _agreement.oracles,
-      _oracleSignaturesData
+      _signatures
     );
 
     serviceAgreements[serviceAgreementID] = _agreement;
@@ -170,16 +170,16 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    * @dev Validates that each signer address matches for the given oracles
    * @param _serviceAgreementID Service agreement ID
    * @param _oracles Array of oracle addresses which agreed to the service agreement
-   * @param _oracleSignaturesData contains the collected parts(v, r, and s) of each oracle's signature.
+   * @param _signatures contains the collected parts(v, r, and s) of each oracle's signature.
    */
   function registerOracleSignatures(
     bytes32 _serviceAgreementID,
     address[] memory _oracles,
-    bytes memory _oracleSignaturesData
+    OracleSignatures memory _signatures
   )
     private
   {
-    OracleSignatures memory _signatures = Decoder.decodeOracleSignatures(_oracleSignaturesData);
+    // OracleSignatures memory _signatures = Decoder.decodeOracleSignatures(_oracleSignaturesData);
     for (uint i = 0; i < _oracles.length; i++) {
       address signer = getOracleAddressFromSASignature(
         _serviceAgreementID,
