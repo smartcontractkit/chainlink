@@ -49,7 +49,11 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 	if _, err := models.NewTaskType(bt.Name.String()); err != nil {
 		fe.Merge(err)
 	}
-	if _, err := url.Parse(bt.URL.String()); err != nil {
+	u := bt.URL.String()
+	if len(strings.TrimSpace(u)) == 0 {
+		fe.Add("URL must be present")
+	}
+	if _, err := url.Parse(u); err != nil {
 		fe.Add("Invalid URL format")
 		fe.Merge(err)
 	}
