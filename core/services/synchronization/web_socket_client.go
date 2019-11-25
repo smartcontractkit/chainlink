@@ -45,8 +45,7 @@ type WebSocketClient interface {
 
 type noopWebSocketClient struct{}
 
-func (noopWebSocketClient) Url() url.URL { return url.URL{} }
-
+func (noopWebSocketClient) Url() url.URL                             { return url.URL{} }
 func (noopWebSocketClient) Status() ConnectionStatus                 { return ConnectionStatusDisconnected }
 func (noopWebSocketClient) Start() error                             { return nil }
 func (noopWebSocketClient) Close() error                             { return nil }
