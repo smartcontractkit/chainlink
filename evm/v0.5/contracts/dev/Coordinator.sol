@@ -179,7 +179,6 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   )
     private
   {
-    // OracleSignatures memory _signatures = Decoder.decodeOracleSignatures(_oracleSignaturesData);
     for (uint i = 0; i < _oracles.length; i++) {
       address signer = getOracleAddressFromSASignature(
         _serviceAgreementID,
