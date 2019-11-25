@@ -406,9 +406,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
 
   modifier onlyValidRoundId(uint32 _id) {
     require(_id == currentRound || _id == currentRound.add(1), "Must report on current round");
-    if (_id > 1) {
-      require(rounds[_id.sub(1)].updatedTimestamp > 0, "Cannot bump round until previous round has an answer");
-    }
+    require(rounds[_id.sub(1)].updatedTimestamp > 0 || _id == 1, "Cannot bump round until previous round has an answer");
     _;
   }
 
@@ -416,9 +414,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     uint32 oracleNum = oracleCount; // Save on storage reads
     require(oracleNum >= _max, "Cannot have the answer max higher oracle count");
     require(_max >= _min, "Cannot have the answer minimum higher the max");
-    if (oracleNum > 0) {
-      require(oracleNum > _restartDelay, "Restart delay must be less than oracle count");
-    }
+    require(oracleNum == 0 || oracleNum > _restartDelay, "Restart delay must be less than oracle count");
     _;
   }
 
