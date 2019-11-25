@@ -20,6 +20,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v3"
@@ -43,9 +44,7 @@ func TestORM_AllNotFound(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	var jobs []models.JobSpec
-	err := store.ORM.DB.Find(&jobs).Error
-	assert.NoError(t, err)
+	jobs := cltest.AllJobs(t, store)
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
 }
 
@@ -73,11 +72,18 @@ func TestORM_Unscoped(t *testing.T) {
 
 	orm := store.ORM
 	job := cltest.NewJob()
-	require.NoError(t, orm.CreateJob(&job))
-	require.NoError(t, orm.DB.Delete(&job).Error)
-	require.Error(t, orm.DB.First(&job).Error)
-	orm = store.ORM.Unscoped()
-	require.NoError(t, orm.DB.First(&job).Error)
+	err := orm.RawDB(func(db *gorm.DB) error {
+		require.NoError(t, orm.CreateJob(&job))
+		require.NoError(t, db.Delete(&job).Error)
+		require.Error(t, db.First(&job).Error)
+		err := store.ORM.Unscoped().RawDB(func(db *gorm.DB) error {
+			require.NoError(t, db.First(&job).Error)
+			return nil
+		})
+		require.NoError(t, err)
+		return nil
+	})
+	require.NoError(t, err)
 }
 
 func TestORM_ArchiveJob(t *testing.T) {
@@ -113,8 +119,7 @@ func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 	jr := job.NewRun(job.Initiators[0])
 	require.NoError(t, store.CreateJobRun(&jr))
 
-	var requestCount int
-	err := store.ORM.DB.Model(&models.RunRequest{}).Count(&requestCount).Error
+	requestCount, err := store.ORM.CountOf(&models.RunRequest{})
 	assert.NoError(t, err)
 	assert.Equal(t, 1, requestCount)
 }
@@ -841,12 +846,6 @@ func TestORM_FindUser(t *testing.T) {
 func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	user := cltest.MustUser("have@email", "password")
-	require.NoError(t, store.SaveUser(&user))
-
 	tests := []struct {
 		name            string
 		sessionID       string
@@ -862,6 +861,12 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+
+			user := cltest.MustUser("have@email", "password")
+			require.NoError(t, store.SaveUser(&user))
+
 			prevSession := cltest.NewSession("correctID")
 			prevSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "2m"))
 			require.NoError(t, store.SaveSession(&prevSession))
@@ -874,7 +879,9 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				var bumpedSession models.Session
-				err = store.ORM.DB.First(&bumpedSession, "ID = ?", prevSession.ID).Error
+				err = store.ORM.RawDB(func(db *gorm.DB) error {
+					return db.First(&bumpedSession, "ID = ?", prevSession.ID).Error
+				})
 				require.NoError(t, err)
 				assert.Equal(t, expectedTime[0:13], utils.ISO8601UTC(bumpedSession.LastUsed)[0:13]) // only compare up to the hour
 			}
@@ -922,12 +929,6 @@ func TestORM_DeleteUserSession(t *testing.T) {
 func TestORM_CreateSession(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	initial := cltest.MustUser(cltest.APIEmail, cltest.Password)
-	require.NoError(t, store.SaveUser(&initial))
-
 	tests := []struct {
 		name        string
 		email       string
@@ -942,6 +943,12 @@ func TestORM_CreateSession(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+
+			initial := cltest.MustUser(cltest.APIEmail, cltest.Password)
+			require.NoError(t, store.SaveUser(&initial))
+
 			sessionRequest := models.SessionRequest{
 				Email:    test.email,
 				Password: test.password,
@@ -1015,73 +1022,77 @@ func TestBulkDeleteRuns(t *testing.T) {
 	defer cleanup()
 
 	orm := store.ORM
-	db := orm.DB
-	job := cltest.NewJobWithWebInitiator()
-	job.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeNoOp}}
-	require.NoError(t, store.ORM.CreateJob(&job))
-	initiator := job.Initiators[0]
 
-	// bulk delete should not delete these because they match the updated before
-	// but none of the statuses
-	oldIncompleteRun := job.NewRun(initiator)
-	oldIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 17}`)}
-	oldIncompleteRun.Status = models.RunStatusInProgress
-	err := orm.CreateJobRun(&oldIncompleteRun)
-	require.NoError(t, err)
-	db.Model(&oldIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
+	err := orm.RawDB(func(db *gorm.DB) error {
+		job := cltest.NewJobWithWebInitiator()
+		job.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeNoOp}}
+		require.NoError(t, store.ORM.CreateJob(&job))
+		initiator := job.Initiators[0]
 
-	// bulk delete *SHOULD* delete these because they match one of the statuses
-	// and the updated before
-	oldCompletedRun := job.NewRun(initiator)
-	oldCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 19}`)}
-	oldCompletedRun.Status = models.RunStatusCompleted
-	err = orm.CreateJobRun(&oldCompletedRun)
-	require.NoError(t, err)
-	db.Model(&oldCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
+		// bulk delete should not delete these because they match the updated before
+		// but none of the statuses
+		oldIncompleteRun := job.NewRun(initiator)
+		oldIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 17}`)}
+		oldIncompleteRun.Status = models.RunStatusInProgress
+		err := orm.CreateJobRun(&oldIncompleteRun)
+		require.NoError(t, err)
+		db.Model(&oldIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
 
-	// bulk delete should not delete these because they match one of the
-	// statuses but not the updated before
-	newCompletedRun := job.NewRun(initiator)
-	newCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 23}`)}
-	newCompletedRun.Status = models.RunStatusCompleted
-	err = orm.CreateJobRun(&newCompletedRun)
-	require.NoError(t, err)
-	db.Model(&newCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
+		// bulk delete *SHOULD* delete these because they match one of the statuses
+		// and the updated before
+		oldCompletedRun := job.NewRun(initiator)
+		oldCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 19}`)}
+		oldCompletedRun.Status = models.RunStatusCompleted
+		err = orm.CreateJobRun(&oldCompletedRun)
+		require.NoError(t, err)
+		db.Model(&oldCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
 
-	// bulk delete should not delete these because none of their attributes match
-	newIncompleteRun := job.NewRun(initiator)
-	newIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 71}`)}
-	newIncompleteRun.Status = models.RunStatusCompleted
-	err = orm.CreateJobRun(&newIncompleteRun)
-	require.NoError(t, err)
-	db.Model(&newIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
+		// bulk delete should not delete these because they match one of the
+		// statuses but not the updated before
+		newCompletedRun := job.NewRun(initiator)
+		newCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 23}`)}
+		newCompletedRun.Status = models.RunStatusCompleted
+		err = orm.CreateJobRun(&newCompletedRun)
+		require.NoError(t, err)
+		db.Model(&newCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
 
-	err = store.ORM.BulkDeleteRuns(&models.BulkDeleteRunRequest{
-		Status:        []models.RunStatus{models.RunStatusCompleted},
-		UpdatedBefore: cltest.ParseISO8601(t, "2018-01-15T00:00:00Z"),
+		// bulk delete should not delete these because none of their attributes match
+		newIncompleteRun := job.NewRun(initiator)
+		newIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 71}`)}
+		newIncompleteRun.Status = models.RunStatusCompleted
+		err = orm.CreateJobRun(&newIncompleteRun)
+		require.NoError(t, err)
+		db.Model(&newIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
+
+		err = store.ORM.BulkDeleteRuns(&models.BulkDeleteRunRequest{
+			Status:        []models.RunStatus{models.RunStatusCompleted},
+			UpdatedBefore: cltest.ParseISO8601(t, "2018-01-15T00:00:00Z"),
+		})
+
+		require.NoError(t, err)
+
+		var runCount int
+		err = db.Model(&models.JobRun{}).Count(&runCount).Error
+		assert.NoError(t, err)
+		assert.Equal(t, 3, runCount)
+
+		var taskCount int
+		err = db.Model(&models.TaskRun{}).Count(&taskCount).Error
+		assert.NoError(t, err)
+		assert.Equal(t, 3, taskCount)
+
+		var resultCount int
+		err = db.Model(&models.RunResult{}).Count(&resultCount).Error
+		assert.NoError(t, err)
+		assert.Equal(t, 3, resultCount)
+
+		var requestCount int
+		err = db.Model(&models.RunRequest{}).Count(&requestCount).Error
+		assert.NoError(t, err)
+		assert.Equal(t, 3, requestCount)
+		return nil
 	})
-
 	require.NoError(t, err)
-
-	var runCount int
-	err = db.Model(&models.JobRun{}).Count(&runCount).Error
-	assert.NoError(t, err)
-	assert.Equal(t, 3, runCount)
-
-	var taskCount int
-	err = db.Model(&models.TaskRun{}).Count(&taskCount).Error
-	assert.NoError(t, err)
-	assert.Equal(t, 3, taskCount)
-
-	var resultCount int
-	err = db.Model(&models.RunResult{}).Count(&resultCount).Error
-	assert.NoError(t, err)
-	assert.Equal(t, 3, resultCount)
-
-	var requestCount int
-	err = db.Model(&models.RunRequest{}).Count(&requestCount).Error
-	assert.NoError(t, err)
-	assert.Equal(t, 3, requestCount)
 }
 
 func TestORM_FindTxAttempt_CurrentAttempt(t *testing.T) {
@@ -1330,7 +1341,9 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 		tx.Attempts[2].GasPrice = models.NewBig(big.NewInt(3333))
 		tx.Attempts[3].GasPrice = models.NewBig(big.NewInt(4444))
 
-		err = store.ORM.DB.Save(&tx).Error
+		err = store.ORM.RawDB(func(db *gorm.DB) error {
+			return db.Save(&tx).Error
+		})
 		require.NoError(t, err)
 	}
 
@@ -1366,7 +1379,9 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 		tx.Attempts[1].GasPrice = models.NewBig(big.NewInt(6666))
 		tx.Attempts[2].GasPrice = models.NewBig(big.NewInt(7777))
 
-		err = store.ORM.DB.Save(&tx).Error
+		err = store.ORM.RawDB(func(db *gorm.DB) error {
+			return db.Save(&tx).Error
+		})
 		require.NoError(t, err)
 	}
 
@@ -1398,7 +1413,9 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 		// This tx's attempts should not appear in the results
 		tx.Confirmed = true
 
-		err = store.ORM.DB.Save(&tx).Error
+		err = store.ORM.RawDB(func(db *gorm.DB) error {
+			return db.Save(&tx).Error
+		})
 		require.NoError(t, err)
 	}
 
