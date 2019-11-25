@@ -1,6 +1,7 @@
 pragma solidity 0.4.24;
 
 import "./ChainlinkClient.sol";
+import "./interfaces/AggregatorInterface.sol";
 import "./vendor/SignedSafeMath.sol";
 import "./vendor/Ownable.sol";
 
@@ -10,7 +11,7 @@ import "./vendor/Ownable.sol";
  * requests to multiple Chainlink nodes and running aggregation
  * as the contract receives answers.
  */
-contract Aggregator is ChainlinkClient, Ownable {
+contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
   using SignedSafeMath for int256;
 
   struct Answer {
