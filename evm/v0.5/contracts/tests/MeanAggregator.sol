@@ -1,7 +1,7 @@
 pragma solidity 0.5.0;
-pragma experimental ABIEncoderV2;
 
 import "../dev/CoordinatorInterface.sol";
+import "../dev/Decoder.sol";
 
 /// Computes the mean of the values the oracles pass it via fulfill method
 contract MeanAggregator {
@@ -20,18 +20,35 @@ contract MeanAggregator {
   mapping(bytes32 /* request ID */ => uint256) remainder;
 
   function initiateJob(
-    bytes32 _sAId, CoordinatorInterface.ServiceAgreement memory _sa)
+    bytes32 _sAId, bytes memory _serviceAgreementData)
     public returns (bool success, bytes memory message) {
+      CoordinatorInterface.ServiceAgreement memory serviceAgreement;
+      serviceAgreement = Decoder.decodeServiceAgreement(_serviceAgreementData);
+
       if (oracles[_sAId].length != 0) {
         return (false, bytes("job already initiated"));
       }
-      if (_sa.oracles.length == 0) {
+      if (serviceAgreement.oracles.length == 0) {
         return (false, bytes("must depend on at least one oracle"));
       }
-      oracles[_sAId] = _sa.oracles;
-      payment[_sAId] = _sa.payment;
+      oracles[_sAId] = serviceAgreement.oracles;
+      payment[_sAId] = serviceAgreement.payment;
       success = true;
     }
+
+  // function initiateJob(
+  //   bytes32 _sAId, CoordinatorInterface.ServiceAgreement memory _sa)
+  //   public returns (bool success, bytes memory message) {
+  //     if (oracles[_sAId].length != 0) {
+  //       return (false, bytes("job already initiated"));
+  //     }
+  //     if (_sa.oracles.length == 0) {
+  //       return (false, bytes("must depend on at least one oracle"));
+  //     }
+  //     oracles[_sAId] = _sa.oracles;
+  //     payment[_sAId] = _sa.payment;
+  //     success = true;
+  //   }
 
   function fulfill(bytes32 _requestId, bytes32 _sAId, address _oracle,
     bytes32 _value) public
