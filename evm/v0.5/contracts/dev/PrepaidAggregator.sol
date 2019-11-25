@@ -296,7 +296,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   function latestSubmission(address _oracle)
     external
     view
-    returns (int256, uint256)
+    returns (int256, uint32)
   {
     return (oracles[_oracle].latestAnswer, oracles[_oracle].lastReportedRound);
   }
