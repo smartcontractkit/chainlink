@@ -18,7 +18,7 @@ describe('utils/status', () => {
     const taskRuns: TaskRun[] = [COMPLETED_ETHTX_WITHOUT_STATUS]
     const jobRun = partialAsFull<JobRun>({
       status: 'in_progress',
-      taskRuns: taskRuns,
+      taskRuns,
     })
 
     const [text, unfulfilledEthTx] = status(jobRun)
@@ -30,7 +30,7 @@ describe('utils/status', () => {
     const taskRuns: TaskRun[] = [COMPLETED_ETHTX_WITH_STATUS]
     const jobRun = partialAsFull<JobRun>({
       status: 'in_progress',
-      taskRuns: taskRuns,
+      taskRuns,
     })
 
     const [text, unfulfilledEthTx] = status(jobRun)
@@ -50,7 +50,7 @@ describe('utils/status', () => {
     const taskRuns: TaskRun[] = [COMPLETED_ETHTX_WITHOUT_STATUS]
     const jobRun = partialAsFull<JobRun>({
       status: 'error',
-      taskRuns: taskRuns,
+      taskRuns,
     })
 
     const [text, unfulfilledEthTx] = status(jobRun)
@@ -62,7 +62,7 @@ describe('utils/status', () => {
     const taskRuns: TaskRun[] = [COMPLETED_ETHTX_WITH_STATUS]
     const jobRun = partialAsFull<JobRun>({
       status: 'error',
-      taskRuns: taskRuns,
+      taskRuns,
     })
 
     const [text, unfulfilledEthTx] = status(jobRun)
@@ -82,7 +82,7 @@ describe('utils/status', () => {
     const taskRuns: TaskRun[] = [COMPLETED_ETHTX_WITHOUT_STATUS]
     const jobRun = partialAsFull<JobRun>({
       status: 'completed',
-      taskRuns: taskRuns,
+      taskRuns,
     })
 
     const [text, unfulfilledEthTx] = status(jobRun)
@@ -94,7 +94,7 @@ describe('utils/status', () => {
     const taskRuns: TaskRun[] = [COMPLETED_ETHTX_WITH_STATUS]
     const jobRun = partialAsFull<JobRun>({
       status: 'completed',
-      taskRuns: taskRuns,
+      taskRuns,
     })
 
     const [text, unfulfilledEthTx] = status(jobRun)
