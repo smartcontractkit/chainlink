@@ -354,6 +354,8 @@ github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3 h1:Is9lt18DCzmbgaX
 github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3/go.mod h1:mnPT77IAdsi/kV7+Es7y+pXALeV3h7G6dQF6mNYjcLA=
 github.com/urfave/cli v1.22.1 h1:+mkCCcOFKPnCmVYVcURKps1Xe+3zP90gSYGNfRkjoIY=
 github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
+github.com/urfave/cli v1.22.2 h1:gsqYFH8bb9ekPA12kRo0hfjngWQjkJPlN9R0N78BoUo=
+github.com/urfave/cli v1.22.2/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
 github.com/willf/pad v0.0.0-20190207183901-eccfe5d84172 h1:fXKBlHDmlnhSIrZos0W9Qwh/ISUdxUckckjHO//2G3c=
 github.com/willf/pad v0.0.0-20190207183901-eccfe5d84172/go.mod h1:+pVHwmjc9CH7ugBFxESIwQkXkVj0gUj4cFp63TLwP1Y=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
