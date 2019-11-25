@@ -634,7 +634,6 @@ export const structAsTuple = (
 }
 
 export const initiateServiceAgreementArgs = (
-  coordinator: TruffleContract,
   serviceAgreement: ServiceAgreement,
 ): any[] => {
   const signatures = {
@@ -642,9 +641,50 @@ export const initiateServiceAgreementArgs = (
     rs: serviceAgreement.oracleSignatures.map(os => os.r),
     ss: serviceAgreement.oracleSignatures.map(os => os.s),
   }
-  const tup = (s: any, n: any) =>
-    structAsTuple(s, coordinator, 'initiateServiceAgreement', n).struct
-  return [tup(serviceAgreement, '_agreement'), tup(signatures, '_signatures')]
+
+  // return encoded agreement struct and signatures struct
+  const serviceAgreementTypes = [
+    'uint256',
+    'uint256',
+    'uint256',
+    'address[]',
+    'bytes32',
+    'address',
+    'bytes4',
+    'bytes4',
+  ]
+
+  const serviceAgreementParameters = [
+    serviceAgreement.payment.toString(),
+    serviceAgreement.expiration.toString(),
+    serviceAgreement.endAt.toString(),
+    serviceAgreement.oracles,
+    serviceAgreement.requestDigest,
+    serviceAgreement.aggregator,
+    serviceAgreement.aggInitiateJobSelector,
+    serviceAgreement.aggFulfillSelector,
+  ]
+
+  const OracleSignaturesTypes = ['uint8[]', 'bytes32[]', 'bytes32[]']
+
+  const OracleSignaturesParameters = [
+    signatures.vs,
+    signatures.rs,
+    signatures.ss,
+  ]
+
+  const encodedServiceAgreementParams = web3.eth.abi.encodeParameters(
+    serviceAgreementTypes,
+    serviceAgreementParameters,
+  )
+  const encodedOracleSignaturesParams = web3.eth.abi.encodeParameters(
+    OracleSignaturesTypes,
+    OracleSignaturesParameters,
+  )
+
+  return [encodedServiceAgreementParams, encodedOracleSignaturesParams]
+
+  // return [tup(serviceAgreement, '_agreement'), tup(signatures, '_signatures')]
 }
 
 // Call coordinator contract to initiate the specified service agreement, and
@@ -654,7 +694,7 @@ export const initiateServiceAgreementCall = async (
   serviceAgreement: ServiceAgreement,
 ) =>
   await coordinator.initiateServiceAgreement.call(
-    ...initiateServiceAgreementArgs(coordinator, serviceAgreement),
+    ...initiateServiceAgreementArgs(serviceAgreement),
   )
 
 /** Call coordinator contract to initiate the specified service agreement. */
@@ -663,7 +703,7 @@ export const initiateServiceAgreement = async (
   serviceAgreement: ServiceAgreement,
 ) =>
   coordinator.initiateServiceAgreement(
-    ...initiateServiceAgreementArgs(coordinator, serviceAgreement),
+    ...initiateServiceAgreementArgs(serviceAgreement),
   )
 
 /** Check that the given service agreement was stored at the correct location */
