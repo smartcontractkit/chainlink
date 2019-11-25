@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/eslint-config",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Shared eslint configs for the chainlink project",
   "main": "base.js",
   "repository": "https://github.com/smartcontractkit/chainlink",
