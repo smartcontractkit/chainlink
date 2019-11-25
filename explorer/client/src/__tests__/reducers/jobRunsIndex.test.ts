@@ -22,7 +22,7 @@ describe('reducers/jobRunsIndex', () => {
         type: 'FETCH_JOB_RUNS_SUCCEEDED',
         data: {
           chainlinkNodes: [],
-          jobRuns: jobRuns,
+          jobRuns,
           meta: {
             currentPageJobRuns: {
               data: jobRuns,
@@ -51,7 +51,7 @@ describe('reducers/jobRunsIndex', () => {
       })
       const action: FetchJobRunSucceededAction = {
         type: 'FETCH_JOB_RUN_SUCCEEDED',
-        data: data,
+        data,
       }
       const state = reducer(INITIAL_STATE, action)
 

@@ -38,7 +38,7 @@ describe('reducers/jobRuns', () => {
       })
       const action: FetchJobRunsSucceededAction = {
         type: 'FETCH_JOB_RUNS_SUCCEEDED',
-        data: data,
+        data,
       }
       const state = reducer(INITIAL_STATE, action)
 
@@ -66,7 +66,7 @@ describe('reducers/jobRuns', () => {
       })
       const action: FetchJobRunSucceededAction = {
         type: 'FETCH_JOB_RUN_SUCCEEDED',
-        data: data,
+        data,
       }
       const state = reducer(INITIAL_STATE, action)
 

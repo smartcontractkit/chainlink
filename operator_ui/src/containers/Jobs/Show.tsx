@@ -188,7 +188,7 @@ export const Show = useHooks(
       document.title = 'Show Job'
       fetchJob(jobSpecId)
       fetchJobRuns({
-        jobSpecId: jobSpecId,
+        jobSpecId,
         page: DEFAULT_PAGE,
         size: RECENT_RUNS_COUNT,
       })
