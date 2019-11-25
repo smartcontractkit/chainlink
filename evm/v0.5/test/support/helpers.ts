@@ -618,47 +618,20 @@ const getMethodArg = (
   return argMatches[0]
 }
 
-// Struct as mapping => tuple representation of struct, for use in truffle call
-//
-// TODO(alx): This does not deal with nested structs. It may be possible to do
-// that by making an AbiCoder with a custom CoerceFunc which, given a tuple
-// type, checks whether the input value is a map or a sequence, and if a map,
-// converts it to a sequence as I'm doing here.
-export const structAsTuple = (
-  struct: { [fieldName: string]: any },
-  contract: TruffleContract,
-  methodName: string,
-  argName: string,
-): { abi: ParamType; struct: ArrayLike<any> } => {
-  const abi: ParamType = getMethodArg(contract, methodName, argName)
-  const eMsg =
-    `${contract.contractName}.${methodName}'s argument ${argName} ` +
-    `is not a struct: ${abi}`
-  assert.equal(abi.type, 'tuple', eMsg)
-  return { abi, struct: abi.components.map(({ name }) => struct[name]) }
-}
+const SERVICE_AGREEMENT_TYPES = [
+  'uint256',
+  'uint256',
+  'uint256',
+  'address[]',
+  'bytes32',
+  'address',
+  'bytes4',
+  'bytes4',
+]
 
-export const initiateServiceAgreementArgs = (
-  serviceAgreement: ServiceAgreement,
-): any[] => {
-  const signatures = {
-    vs: serviceAgreement.oracleSignatures.map(os => os.v),
-    rs: serviceAgreement.oracleSignatures.map(os => os.r),
-    ss: serviceAgreement.oracleSignatures.map(os => os.s),
-  }
+const ORACLE_SIGNATURE_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
 
-  // return encoded agreement struct and signatures struct
-  const serviceAgreementTypes = [
-    'uint256',
-    'uint256',
-    'uint256',
-    'address[]',
-    'bytes32',
-    'address',
-    'bytes4',
-    'bytes4',
-  ]
-
+export const encodedServiceAgreement = serviceAgreement => {
   const serviceAgreementParameters = [
     serviceAgreement.payment.toString(),
     serviceAgreement.expiration.toString(),
@@ -670,26 +643,38 @@ export const initiateServiceAgreementArgs = (
     serviceAgreement.aggFulfillSelector,
   ]
 
-  const OracleSignaturesTypes = ['uint8[]', 'bytes32[]', 'bytes32[]']
-
-  const OracleSignaturesParameters = [
-    signatures.vs,
-    signatures.rs,
-    signatures.ss,
-  ]
-
-  const encodedServiceAgreementParams = web3.eth.abi.encodeParameters(
-    serviceAgreementTypes,
+  return web3.eth.abi.encodeParameters(
+    SERVICE_AGREEMENT_TYPES,
     serviceAgreementParameters,
   )
-  const encodedOracleSignaturesParams = web3.eth.abi.encodeParameters(
-    OracleSignaturesTypes,
+}
+
+export const encodedOracleSignatures = oracleSignatures => {
+  const OracleSignaturesParameters = [
+    oracleSignatures.vs,
+    oracleSignatures.rs,
+    oracleSignatures.ss,
+  ]
+
+  return web3.eth.abi.encodeParameters(
+    ORACLE_SIGNATURE_TYPES,
     OracleSignaturesParameters,
   )
+}
 
-  return [encodedServiceAgreementParams, encodedOracleSignaturesParams]
+export const initiateServiceAgreementArgs = (
+  serviceAgreement: ServiceAgreement,
+): any[] => {
+  const signatures = {
+    vs: serviceAgreement.oracleSignatures.map(os => os.v),
+    rs: serviceAgreement.oracleSignatures.map(os => os.r),
+    ss: serviceAgreement.oracleSignatures.map(os => os.s),
+  }
 
-  // return [tup(serviceAgreement, '_agreement'), tup(signatures, '_signatures')]
+  return [
+    encodedServiceAgreement(serviceAgreement),
+    encodedOracleSignatures(signatures),
+  ]
 }
 
 // Call coordinator contract to initiate the specified service agreement, and

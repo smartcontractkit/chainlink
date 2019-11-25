@@ -22,8 +22,8 @@ contract MeanAggregator {
   function initiateJob(
     bytes32 _sAId, bytes memory _serviceAgreementData)
     public returns (bool success, bytes memory message) {
-      CoordinatorInterface.ServiceAgreement memory serviceAgreement;
-      serviceAgreement = Decoder.decodeServiceAgreement(_serviceAgreementData);
+      CoordinatorInterface.ServiceAgreement memory serviceAgreement =
+        Decoder.decodeServiceAgreement(_serviceAgreementData);
 
       if (oracles[_sAId].length != 0) {
         return (false, bytes("job already initiated"));
@@ -35,20 +35,6 @@ contract MeanAggregator {
       payment[_sAId] = serviceAgreement.payment;
       success = true;
     }
-
-  // function initiateJob(
-  //   bytes32 _sAId, CoordinatorInterface.ServiceAgreement memory _sa)
-  //   public returns (bool success, bytes memory message) {
-  //     if (oracles[_sAId].length != 0) {
-  //       return (false, bytes("job already initiated"));
-  //     }
-  //     if (_sa.oracles.length == 0) {
-  //       return (false, bytes("must depend on at least one oracle"));
-  //     }
-  //     oracles[_sAId] = _sa.oracles;
-  //     payment[_sAId] = _sa.payment;
-  //     success = true;
-  //   }
 
   function fulfill(bytes32 _requestId, bytes32 _sAId, address _oracle,
     bytes32 _value) public
