@@ -218,18 +218,20 @@ contract Aggregator is ChainlinkClient, Ownable {
   {
     uint256 responseLength = answers[_answerId].responses.length;
     uint256 middleIndex = responseLength.div(2);
+    int256 currentAnswerTemp;
     if (responseLength % 2 == 0) {
       int256 median1 = quickselect(answers[_answerId].responses, middleIndex);
       int256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
-      currentAnswerValue = median1.add(median2) / 2; // signed integers are not supported by SafeMath
+      currentAnswerTemp = median1.add(median2) / 2; // signed integers are not supported by SafeMath
     } else {
-      currentAnswerValue = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
+      currentAnswerTemp = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
     }
+    currentAnswerValue = currentAnswerTemp;
     latestCompletedAnswer = _answerId;
     updatedTimestampValue = now;
     updatedTimestamps[_answerId] = now;
-    currentAnswers[_answerId] = currentAnswerValue;
-    emit AnswerUpdated(currentAnswerValue, _answerId);
+    currentAnswers[_answerId] = currentAnswerTemp;
+    emit AnswerUpdated(currentAnswerTemp, _answerId);
   }
 
   /**
