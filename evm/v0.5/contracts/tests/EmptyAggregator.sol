@@ -1,18 +1,18 @@
 pragma solidity 0.5.0;
-pragma experimental ABIEncoderV2;
 
 import "../dev/CoordinatorInterface.sol";
+import "../dev/Decoder.sol";
 
 /// Used to check the basic aggregator/coordinator interactions. It does nothing
 /// but emit its messages as certain types of events.
 contract EmptyAggregator {
 
-  event InitiatedJob(bytes32 said, CoordinatorInterface.ServiceAgreement sa);
+  event InitiatedJob(bytes32 said);
 
   function initiateJob(
-    bytes32 _saId, CoordinatorInterface.ServiceAgreement memory _sa)
-    public returns (bool success, bytes memory response) {
-      emit InitiatedJob(_saId, _sa);
+    bytes32 _saId, bytes memory _serviceAgreementData)
+    public returns (bool success, bytes memory _) {
+      emit InitiatedJob(_saId);
       success = true;
     }
 

@@ -53,9 +53,34 @@ contract('Coordinator', () => {
         requestDigest:
           '0x85820c5ec619a1f517ee6cfeff545ec0ca1a90206e1a38c47f016d4137e801dd',
       })
-      const sAAsTuple = h.structAsTuple(sA, coordinator, 'getId', '_agreement')
-        .struct
-      const result = await coordinator.getId.call(sAAsTuple)
+      // const sAAsTuple = h.structAsTuple(sA, coordinator, 'getId', '_agreement')
+      //   .struct
+      // const result = await coordinator.getId.call(sAAsTuple)
+
+      const types = [
+        'uint256',
+        'uint256',
+        'uint256',
+        'address[]',
+        'bytes32',
+        'address',
+        'bytes4',
+        'bytes4',
+      ]
+
+      const parameters = [
+        sA.payment.toString(),
+        sA.expiration.toString(),
+        sA.endAt.toString(),
+        sA.oracles,
+        sA.requestDigest,
+        sA.aggregator,
+        sA.aggInitiateJobSelector,
+        sA.aggFulfillSelector,
+      ]
+
+      const sAAsData = web3.eth.abi.encodeParameters(types, parameters)
+      const result = await coordinator.getId.call(sAAsData)
       assert.equal(result.toLowerCase(), sA.id)
     })
   })

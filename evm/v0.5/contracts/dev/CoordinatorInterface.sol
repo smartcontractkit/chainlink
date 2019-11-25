@@ -1,5 +1,4 @@
 pragma solidity 0.5.0;
-pragma experimental ABIEncoderV2;
 
 contract CoordinatorInterface {
 
@@ -32,8 +31,8 @@ contract CoordinatorInterface {
   }
 
   function initiateServiceAgreement(
-    ServiceAgreement memory _agreement,
-    OracleSignatures memory _signatures)
+    bytes memory _serviceAgreementData,
+    bytes memory _oracleSignaturesData)
     public returns (bytes32);
 
   function fulfillOracleRequest(
