@@ -53,7 +53,7 @@ func TestSessionsController_Create(t *testing.T) {
 				require.Equal(t, http.StatusOK, resp.StatusCode)
 
 				cookies := resp.Cookies()
-				sessionCookie := web.FindSession(cookies)
+				sessionCookie := web.FindSessionCookie(cookies)
 				require.NotNil(t, sessionCookie)
 
 				decrypted, err := cltest.DecodeSessionCookie(sessionCookie.Value)

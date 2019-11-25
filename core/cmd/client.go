@@ -265,7 +265,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest models.SessionR
 	if len(cookies) == 0 {
 		return nil, errors.New("Did not receive cookie with session id")
 	}
-	sc := web.FindSession(cookies)
+	sc := web.FindSessionCookie(cookies)
 	return sc, t.store.Save(sc)
 }
 
