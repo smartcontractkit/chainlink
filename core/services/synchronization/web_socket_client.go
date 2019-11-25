@@ -80,12 +80,12 @@ func NewWebSocketClient(url *url.URL, accessKey, secret string) WebSocketClient 
 	}
 }
 
-// Url dereferences the URL the client was initialized with
+// Url returns the URL the client was initialized with
 func (w *websocketClient) Url() url.URL {
 	return *w.url
 }
 
-// Status returns the private attribute
+// Status returns the current connection status
 func (w *websocketClient) Status() ConnectionStatus {
 	return w.status
 }
