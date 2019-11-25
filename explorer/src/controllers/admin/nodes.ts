@@ -41,7 +41,7 @@ router.post('/nodes', async (req, res) => {
       return res.status(httpStatus.CREATED).json({
         id: savedNode.id,
         accessKey: savedNode.accessKey,
-        secret: secret,
+        secret,
       })
     } catch (e) {
       if (

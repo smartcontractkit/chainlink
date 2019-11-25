@@ -12,7 +12,7 @@ const chainlinkNodesSerializer = (
   const opts = {
     attributes: BASE_ATTRIBUTES,
     keyForAttribute: 'camelCase',
-    meta: { count: count },
+    meta: { count },
   } as SerializerOptions
 
   return new JSONAPISerializer('chainlink_nodes', opts).serialize(

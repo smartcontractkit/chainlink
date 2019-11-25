@@ -68,7 +68,7 @@ export function request<
           } else {
             dispatch({
               type: 'NOTIFY_ERROR',
-              error: error,
+              error,
             })
           }
         })

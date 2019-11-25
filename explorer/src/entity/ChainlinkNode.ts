@@ -106,7 +106,7 @@ export const deleteChainlinkNode = async (db: Connection, name: string) => {
     .delete()
     .from(ChainlinkNode)
     .where('name = :name', {
-      name: name,
+      name,
     })
     .execute()
 }

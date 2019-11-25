@@ -249,7 +249,7 @@ const RegionalNav = ({
                   <Button
                     href={{
                       pathname: '/jobs/new',
-                      state: { definition: definition },
+                      state: { definition },
                     }}
                     component={BaseLink}
                     className={classes.duplicate}

@@ -242,7 +242,7 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
     id: toHex(requestId),
     jobId: log.topics[1],
     payment: toHex(payment),
-    requester: requester,
+    requester,
     topic: log.topics[0],
   }
 }
