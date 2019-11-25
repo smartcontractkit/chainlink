@@ -16,6 +16,7 @@ module.exports = {
     'prettier/@typescript-eslint',
   ],
   rules: {
+    'object-shorthand': ['error', 'always'],
     'prettier/prettier': [
       'error',
       {},

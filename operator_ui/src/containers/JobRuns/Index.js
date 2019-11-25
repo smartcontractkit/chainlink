@@ -81,10 +81,10 @@ export const Index = useHooks(props => {
       ? parseInt(props.match.params.jobRunsPage, 10) || FIRST_PAGE
       : FIRST_PAGE
     setPage(queryPage)
-    fetchJobRuns({ jobSpecId: jobSpecId, page: queryPage, size: pageSize })
+    fetchJobRuns({ jobSpecId, page: queryPage, size: pageSize })
   }, [])
   const handleChangePage = (_, pageNum) => {
-    fetchJobRuns({ jobSpecId: jobSpecId, page: pageNum, size: pageSize })
+    fetchJobRuns({ jobSpecId, page: pageNum, size: pageSize })
     setPage(pageNum)
   }
 
