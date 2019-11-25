@@ -456,7 +456,7 @@ contract('PrepaidAggregator', () => {
     })
   })
 
-  describe('#addOrace', async () => {
+  describe('#addOracle', async () => {
     it('increases the oracle count', async () => {
       const pastCount = await aggregator.oracleCount.call()
       await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
