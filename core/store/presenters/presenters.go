@@ -671,7 +671,7 @@ type ExplorerStatus struct {
 	Url    string `json:"url"`
 }
 
-// NewExplorerStatus initializes the struct with the connections endpoint & current status
+// NewExplorerStatus returns an initialized ExplorerStatus from the store
 func NewExplorerStatus(store *store.Store) ExplorerStatus {
 	client := store.StatsPusher.WSClient
 	url := client.Url()
