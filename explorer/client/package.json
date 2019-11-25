@@ -27,8 +27,8 @@
     "format": "prettier --write \"**/*\"",
     "setup": "echo \"No setup required for @chainlink/explorer-client\"",
     "test": "jest",
-    "test-ci": "CI=true jest --runInBand --detectOpenHandles",
-    "test-ci:silent": "yarn test-ci --silent --runInBand --detectOpenHandles",
+    "test-ci": "CI=true jest --maxWorkers=50% --detectOpenHandles",
+    "test-ci:silent": "yarn test-ci --silent --maxWorkers=50% --detectOpenHandles",
     "depcheck": "echo \"@chainlink/explorer-client\" && depcheck --ignore-dirs=public || true"
   },
   "main": "app.js",
