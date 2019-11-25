@@ -10,7 +10,7 @@ library Decoder {
     pure
     returns(CoordinatorInterface.ServiceAgreement memory)
   {
-
+    // solhint-disable indent
     CoordinatorInterface.ServiceAgreement memory agreement;
 
     ( agreement.payment,
@@ -20,7 +20,8 @@ library Decoder {
       agreement.requestDigest,
       agreement.aggregator,
       agreement.aggInitiateJobSelector,
-      agreement.aggFulfillSelector) = abi.decode(
+      agreement.aggFulfillSelector) =
+      abi.decode(
         _serviceAgreementData,
         ( uint256,
         uint256,
@@ -42,16 +43,10 @@ library Decoder {
     pure
     returns(CoordinatorInterface.OracleSignatures memory)
   {
-
+    // solhint-disable indent
     CoordinatorInterface.OracleSignatures memory signatures;
-
-    ( signatures.vs,
-      signatures.rs,
-      signatures.ss) = abi.decode(
-        _oracleSignaturesData,
-        ( uint8[], bytes32[], bytes32[] )
-      );
-
+    ( signatures.vs, signatures.rs, signatures.ss) =
+      abi.decode(_oracleSignaturesData, ( uint8[], bytes32[], bytes32[] ));
     return signatures;
   }
 }
