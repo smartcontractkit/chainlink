@@ -60,7 +60,14 @@ contract('PrepaidAggregator', () => {
     ])
   })
 
-  describe.only('#constructor', async () => {
+  describe('#constructor', async () => {
+    it('sets the paymentAmount', async () => {
+      assertBigNum(
+        h.bigNum(paymentAmount),
+        await aggregator.paymentAmount.call(),
+      )
+    })
+
     it('sets the timeout', async () => {
       assertBigNum(h.bigNum(timeout), await aggregator.timeout.call())
     })
