@@ -54,7 +54,7 @@
     "yargs": "^13.2.2"
   },
   "devDependencies": {
-    "@chainlink/eslint-config": "0.0.2",
+    "@chainlink/eslint-config": "0.0.3",
     "@chainlink/prettier-config": "0.0.2",
     "@types/bcrypt": "^3.0.0",
     "@types/cookie-session": "^2.0.37",

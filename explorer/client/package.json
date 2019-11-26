@@ -54,7 +54,7 @@
     "redux-thunk": "^2.3.0"
   },
   "devDependencies": {
-    "@chainlink/eslint-config": "0.0.2",
+    "@chainlink/eslint-config": "0.0.3",
     "@chainlink/prettier-config": "0.0.2",
     "@craco/craco": "^5.5.0",
     "@types/classnames": "^2.2.7",
