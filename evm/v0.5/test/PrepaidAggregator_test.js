@@ -450,7 +450,7 @@ contract('PrepaidAggregator', () => {
 
       for (let i = 1; i < nextRound; i++) {
         const currentTimestamp = await aggregator.getUpdatedTimestamp.call(i)
-        assert.isAbove(currentTimestamp.toNumber(), lastTimestamp.toNumber())
+        assert.isAtLeast(currentTimestamp.toNumber(), lastTimestamp.toNumber())
         lastTimestamp = currentTimestamp
       }
     })
