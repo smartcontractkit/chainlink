@@ -25,7 +25,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
 
   int256 private currentAnswerValue;
   uint256 private updatedTimestampValue;
-  uint256 public latestCompletedAnswer;
+  uint256 private latestCompletedAnswer;
   uint128 public paymentAmount;
   uint128 public minimumResponses;
   bytes32[] public jobIds;
@@ -279,6 +279,13 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     returns (uint256)
   {
     return updatedTimestamps[_id];
+  }
+
+  /**
+   * @notice get the latest completed round where the answer was updated
+   */
+  function latestRound() external view returns (uint256) {
+    return latestCompletedAnswer;
   }
 
   /**

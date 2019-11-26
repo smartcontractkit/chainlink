@@ -58,6 +58,7 @@ describe('AggregatorProxy', () => {
     h.checkPublicABI(aggregatorProxyFactory, [
       'aggregator',
       'currentAnswer',
+      'latestRound',
       'destroy',
       'setAggregator',
       'updatedTimestamp',
