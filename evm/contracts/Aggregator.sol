@@ -144,8 +144,8 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     public
     onlyOwner()
   {
-    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-    require(link.transfer(_recipient, _amount), "LINK transfer failed");
+    LinkTokenInterface linkToken = LinkTokenInterface(chainlinkTokenAddress());
+    require(linkToken.transfer(_recipient, _amount), "LINK transfer failed");
   }
 
   /**
@@ -201,8 +201,8 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     external
     onlyOwner()
   {
-    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-    transferLINK(owner, link.balanceOf(address(this)));
+    LinkTokenInterface linkToken = LinkTokenInterface(chainlinkTokenAddress());
+    transferLINK(owner, linkToken.balanceOf(address(this)));
     selfdestruct(owner);
   }
 
