@@ -55,6 +55,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   uint32 public maxAnswerCount;
   uint32 public minAnswerCount;
   uint32 public restartDelay;
+  uint32 public timeout;
 
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
@@ -78,9 +79,10 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
    * @param _link The address of the LINK token
    * @param _paymentAmount The amount paid of LINK paid to each oracle per response
    */
-  constructor(address _link, uint128 _paymentAmount) public {
+  constructor(address _link, uint128 _paymentAmount, uint32 _timeout) public {
     LINK = LinkTokenInterface(_link);
     paymentAmount = _paymentAmount;
+    timeout = _timeout;
   }
 
   /**
