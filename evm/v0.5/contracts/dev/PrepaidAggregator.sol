@@ -231,7 +231,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (uint256)
   {
-    return getUpdatedTimestamp(latestRoundValue);
+    return rounds[latestRoundValue].updatedTimestamp;
   }
 
   /**
@@ -261,12 +261,12 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
    * @notice get timestamp when an answer was last updated
    * @param _id the round number to retrieve the updated timestamp for
    */
-  function getUpdatedTimestamp(uint32 _id)
-    public
+  function getUpdatedTimestamp(uint256 _id)
+    external
     view
     returns (uint256)
   {
-    return rounds[_id].updatedTimestamp;
+    return rounds[uint32(_id)].updatedTimestamp;
   }
 
   /**

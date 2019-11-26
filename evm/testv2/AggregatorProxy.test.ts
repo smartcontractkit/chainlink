@@ -63,6 +63,7 @@ describe('AggregatorProxy', () => {
       'destroy',
       'setAggregator',
       'updatedTimestamp',
+      'getUpdatedTimestamp',
       // Ownable methods:
       'owner',
       'renounceOwnership',
