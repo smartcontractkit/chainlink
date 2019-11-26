@@ -12,12 +12,13 @@ contract('PrepaidAggregator', () => {
   const minAns = 1
   const maxAns = 1
   const rrDelay = 0
+  const timeout = 1800
 
   let aggregator, link, nextRound, oracles
 
   beforeEach(async () => {
     link = await h.linkContract(personas.defaultAccount)
-    aggregator = await Aggregator.new(link.address, paymentAmount, {
+    aggregator = await Aggregator.new(link.address, paymentAmount, timeout, {
       from: personas.Carol,
     })
     await link.transfer(aggregator.address, deposit)
@@ -44,6 +45,7 @@ contract('PrepaidAggregator', () => {
       'paymentAmount',
       'removeOracle',
       'restartDelay',
+      'timeout',
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
@@ -56,6 +58,12 @@ contract('PrepaidAggregator', () => {
       'owner',
       'transferOwnership',
     ])
+  })
+
+  describe.only('#constructor', async () => {
+    it('sets the timeout', async () => {
+      assertBigNum(h.bigNum(timeout), await aggregator.timeout.call())
+    })
   })
 
   describe('#updateAnswer', async () => {
