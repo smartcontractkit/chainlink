@@ -64,7 +64,7 @@ describe('Aggregator', () => {
       'getAnswer',
       'destroy',
       'jobIds',
-      'latestCompletedAnswer',
+      'latestRound',
       'minimumResponses',
       'oracles',
       'paymentAmount',
@@ -110,7 +110,7 @@ describe('Aggregator', () => {
 
         assertBigNum(response, current)
 
-        const answerId = await rate.latestCompletedAnswer()
+        const answerId = await rate.latestRound()
         const currentMappingValue = await rate.getAnswer(answerId)
 
         assertBigNum(current, currentMappingValue)
@@ -128,7 +128,7 @@ describe('Aggregator', () => {
         updatedAt = await rate.updatedTimestamp()
         assert.notEqual('0', updatedAt.toString())
 
-        const answerId = await rate.latestCompletedAnswer()
+        const answerId = await rate.latestRound()
         const timestampMappingValue = await rate.getUpdatedTimestamp(answerId)
 
         assertBigNum(updatedAt, timestampMappingValue)
@@ -212,7 +212,7 @@ describe('Aggregator', () => {
         const current = await rate.currentAnswer()
         assertBigNum(h.numToBytes32(77), current)
 
-        const answerId = await rate.latestCompletedAnswer()
+        const answerId = await rate.latestRound()
         const currentMappingValue = await rate.getAnswer(answerId)
 
         assertBigNum(current, currentMappingValue)

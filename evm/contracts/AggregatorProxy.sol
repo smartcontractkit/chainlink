@@ -40,6 +40,17 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
   }
 
   /**
+   * @notice get the latest completed round where the answer was updated
+   */
+  function latestRound()
+    external
+    view
+    returns (uint256)
+  {
+    return aggregator.latestRound();
+  }
+
+  /**
    * @notice Allows the owner to update the aggregator address.
    * @param _aggregator The new address for the aggregator contract
    */
