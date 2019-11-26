@@ -442,11 +442,8 @@ contract('PrepaidAggregator', () => {
           await aggregator.updateAnswer(nextRound, answer, { from: oracle })
         }
         nextRound++
-        for (const oracle of oracles) {
-          await aggregator.updateAnswer(nextRound, answer, { from: oracle })
-        }
 
-        assert.equal(nextRound, await aggregator.currentRound.call())
+        // let first round pass and reorder oracle list to meet delay requirements
         await aggregator.updateFutureRounds(
           paymentAmount,
           newTimeout,
@@ -457,7 +454,22 @@ contract('PrepaidAggregator', () => {
             from: personas.Carol,
           },
         )
-        await h.sleepSeconds(delay)
+        oracles = [personas.Ned, personas.Neil, personas.Nelly]
+
+        for (const oracle of oracles) {
+          await aggregator.updateAnswer(nextRound, answer, { from: oracle })
+        }
+        nextRound++
+
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Neil,
+        })
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Nelly,
+        })
+        assert.equal(nextRound, await aggregator.currentRound.call())
+
+        await h.sleepSeconds(delay + 1) // +1 for buffer
 
         nextRound++
       })
@@ -466,6 +478,23 @@ contract('PrepaidAggregator', () => {
         await aggregator.updateAnswer(nextRound, answer, {
           from: personas.Nelly,
         })
+      })
+
+      it('sets the info for the previous round', async () => {
+        const previousRound = nextRound - 1
+        let updated = await aggregator.getUpdatedTimestamp.call(previousRound)
+        let answer = await aggregator.getAnswer.call(previousRound)
+        assert.equal(0, updated)
+        assert.equal(0, answer)
+
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Nelly,
+        })
+
+        updated = await aggregator.getUpdatedTimestamp.call(previousRound)
+        answer = await aggregator.getAnswer.call(previousRound)
+        assert.notEqual(0, updated)
+        assert.notEqual(0, answer)
       })
 
       it('still respects the delay restriction', async () => {

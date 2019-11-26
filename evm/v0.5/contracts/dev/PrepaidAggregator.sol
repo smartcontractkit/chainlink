@@ -339,6 +339,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     onlyOnNewRound(_id)
     onlyIfDelayedOrOwner(_id)
   {
+    updateSkippedRoundInfo(_id);
     currentRound = _id;
     rounds[_id].details.maxAnswers = maxAnswerCount;
     rounds[_id].details.minAnswers = minAnswerCount;
@@ -347,6 +348,14 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     recordStartedRound(_id);
 
     emit NewRound(uint256(_id), msg.sender);
+  }
+
+  function updateSkippedRoundInfo(uint32 _id)
+    private
+    onlyIfTimedout(_id)
+  {
+    rounds[_id - 1].answer = rounds[_id - 2].answer;
+    rounds[_id - 1].updatedTimestamp = block.timestamp;
   }
 
   function recordStartedRound(uint32 _id)
@@ -395,6 +404,13 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     onlyIfMaxAnswersReceived(_id)
   {
     delete rounds[_id].details;
+  }
+
+  function timedout(uint32 _id) private returns(bool) {
+    if (_id < 3) {
+      return false;
+    }
+    return rounds[_id - 2].updatedTimestamp < block.timestamp - timeout;
   }
 
   /**
@@ -449,11 +465,10 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     _;
   }
 
-  function timedout(uint32 _id) private returns(bool) {
-    if (_id < 3) {
-      return false;
+  modifier onlyIfTimedout(uint32 _id) {
+    if (timedout(_id)) {
+      _;
     }
-    return rounds[_id - 2].updatedTimestamp < block.timestamp - timeout;
   }
 
   modifier onlyValidRange(uint32 _min, uint32 _max, uint32 _restartDelay) {
