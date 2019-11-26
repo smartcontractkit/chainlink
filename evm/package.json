@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@0x/sol-compiler": "^3.1.15",
-    "@chainlink/eslint-config": "0.0.2",
+    "@chainlink/eslint-config": "0.0.3",
     "@chainlink/prettier-config": "0.0.2",
     "@types/cbor": "^2.0.0",
     "@types/chai": "^4.2.4",

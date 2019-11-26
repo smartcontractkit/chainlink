@@ -35,7 +35,7 @@
     "@babel/preset-env": "^7.6.0",
     "@babel/preset-typescript": "^7.1.0",
     "@babel/register": "^7.6.2",
-    "@chainlink/eslint-config": "0.0.2",
+    "@chainlink/eslint-config": "0.0.3",
     "@chainlink/prettier-config": "0.0.2",
     "@machinomy/types-truffle-contract": "^0.2.0",
     "@types/cbor": "^2.0.0",
