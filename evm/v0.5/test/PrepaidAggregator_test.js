@@ -430,6 +430,53 @@ contract('PrepaidAggregator', () => {
         })
       },
     )
+
+    context('when the price is not updated for a round', async () => {
+      beforeEach(async () => {
+        const newTimeout = 1
+        const min = 3
+        const max = 3
+        const delay = 1
+
+        for (const oracle of oracles) {
+          await aggregator.updateAnswer(nextRound, answer, { from: oracle })
+        }
+        nextRound++
+        for (const oracle of oracles) {
+          await aggregator.updateAnswer(nextRound, answer, { from: oracle })
+        }
+
+        assert.equal(nextRound, await aggregator.currentRound.call())
+        await aggregator.updateFutureRounds(
+          paymentAmount,
+          newTimeout,
+          min,
+          max,
+          delay,
+          {
+            from: personas.Carol,
+          },
+        )
+        await h.sleepSeconds(delay)
+
+        nextRound++
+      })
+
+      it('allows a new round to be started', async () => {
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Nelly,
+        })
+      })
+
+      it('still respects the delay restriction', async () => {
+        await expectRevert(
+          aggregator.updateAnswer(nextRound, answer, {
+            from: personas.Neil,
+          }),
+          'Max responses reached for round',
+        )
+      })
+    })
   })
 
   describe('#getAnswer', async () => {

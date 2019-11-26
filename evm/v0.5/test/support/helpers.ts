@@ -801,3 +801,11 @@ export const parseAggregatorRoundLog = (log: any): object => {
     timeout: data[1],
   }
 }
+
+export const sleep = (ms: number): Promise<any> => {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export const sleepSeconds = (seconds: number): Promise<any> => {
+    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+}

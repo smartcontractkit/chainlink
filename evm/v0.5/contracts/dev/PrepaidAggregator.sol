@@ -442,8 +442,18 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   modifier onlyValidRoundId(uint32 _id) {
     require(_id == currentRound || _id == currentRound.add(1), "Must report on current round");
-    require(rounds[_id.sub(1)].updatedTimestamp > 0 || _id == 1, "Cannot bump round until previous round has an answer");
+    bool firstRound = _id == 1;
+    bool lastCompleted = rounds[_id.sub(1)].updatedTimestamp > 0;
+    bool t = timedout(_id);
+    require(lastCompleted || t || firstRound, "Cannot bump round until previous round has an answer");
     _;
+  }
+
+  function timedout(uint32 _id) private returns(bool) {
+    if (_id < 3) {
+      return false;
+    }
+    return rounds[_id - 2].updatedTimestamp < block.timestamp - timeout;
   }
 
   modifier onlyValidRange(uint32 _min, uint32 _max, uint32 _restartDelay) {
