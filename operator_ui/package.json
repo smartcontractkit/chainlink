@@ -3,6 +3,9 @@
   "version": "0.6.0",
   "private": true,
   "license": "MIT",
+  "engines": {
+    "node": "10.16.3"
+  },
   "scripts": {
     "start": "react-static start",
     "build": "yarn build:tsc && react-static build",
