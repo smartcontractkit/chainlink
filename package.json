@@ -10,6 +10,7 @@
     "tools/local-storage",
     "tools/json-api-client",
     "tools/prettier-config",
+    "tools/redux",
     "operator_ui",
     "integration",
     "styleguide",
