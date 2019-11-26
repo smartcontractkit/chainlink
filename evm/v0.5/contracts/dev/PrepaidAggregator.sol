@@ -302,22 +302,42 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   }
 
   /**
+   * @notice allows the owner to force a new round if the old round could not
+   * be completed
+   */
+  function forceNewRound()
+    external
+    onlyOwner()
+  {
+    uint32 id = currentRound;
+    rounds[id].updatedTimestamp = block.timestamp;
+    startNewRound(id + 1);
+  }
+
+  /**
    * Private
    */
 
   function startNewRound(uint32 _id)
     private
     onlyOnNewRound(_id)
-    onlyIfDelayed(_id)
+    onlyIfDelayedOrOwner(_id)
   {
     currentRound = _id;
     rounds[_id].details.maxAnswers = maxAnswerCount;
     rounds[_id].details.minAnswers = minAnswerCount;
     rounds[_id].details.paymentAmount = paymentAmount;
 
-    oracles[msg.sender].lastStartedRound = _id;
+    recordStartedRound(_id);
 
     emit NewRound(_id, msg.sender);
+  }
+
+  function recordStartedRound(uint32 _id)
+    private
+    onlyNonOwner()
+  {
+    oracles[msg.sender].lastStartedRound = _id;
   }
 
   function updateRoundAnswer(uint32 _id)
@@ -397,9 +417,9 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     }
   }
 
-  modifier onlyIfDelayed(uint32 _id) {
+  modifier onlyIfDelayedOrOwner(uint32 _id) {
     uint256 lastStarted = oracles[msg.sender].lastStartedRound;
-    if (_id > lastStarted + restartDelay) {
+    if (_id > lastStarted + restartDelay || isOwner()) {
       _;
     }
   }
@@ -426,6 +446,12 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   modifier onlyEnabledAddress(address _oracle) {
     require(oracles[_oracle].endingRound == ROUND_MAX, "Address is not a whitelisted oracle");
     _;
+  }
+
+  modifier onlyNonOwner() {
+    if (!isOwner()) {
+      _;
+    }
   }
 
 }

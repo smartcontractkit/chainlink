@@ -33,6 +33,7 @@ contract('PrepaidAggregator', () => {
       'availableFunds',
       'currentAnswer',
       'currentRound',
+      'forceNewRound',
       'getAnswer',
       'getUpdatedTimestamp',
       'latestRound',
@@ -992,6 +993,47 @@ contract('PrepaidAggregator', () => {
             from: personas.Neil,
           }),
           'Insufficient balance',
+        )
+      })
+    })
+  })
+
+  describe('#forceNewRound', async () => {
+    beforeEach(async () => {
+      await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
+        from: personas.Carol,
+      })
+      await aggregator.addOracle(personas.Ned, 2, 2, rrDelay, {
+        from: personas.Carol,
+      })
+
+      // round gets stuck when Ned can't answer
+      await aggregator.updateAnswer(nextRound, answer, {
+        from: personas.Neil,
+      })
+    })
+
+    context('when called by the owner', async () => {
+      it('starts a new round', async () => {
+        const tx = await aggregator.forceNewRound({ from: personas.Carol })
+        const log = tx.receipt.rawLogs[0]
+        const newRoundNumber = h.bigNum(log.topics[1])
+        const startedBy = h.evmWordToAddress(log.topics[2])
+
+        assert.equal(nextRound + 1, newRoundNumber.toNumber())
+        assert.equal(startedBy, personas.Carol)
+
+        await aggregator.updateAnswer(newRoundNumber, answer, {
+          from: personas.Neil,
+        })
+      })
+    })
+
+    context('when called by anyone other than the owner', async () => {
+      it('reverts', async () => {
+        await expectRevert(
+          aggregator.forceNewRound({ from: personas.Neil }),
+          'Ownable: caller is not the owner',
         )
       })
     })
