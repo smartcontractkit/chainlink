@@ -1327,6 +1327,18 @@
     lodash "^4.17.13"
     to-fast-properties "^2.0.0"
 
+"@chainlink/eslint-config@0.0.2":
+  version "0.0.2"
+  resolved "https://registry.npmjs.org/@chainlink/eslint-config/-/eslint-config-0.0.2.tgz#92159f4682b42d8d9a1940600764170de245ca43"
+  integrity sha512-SlpjwuZ5V45lv/IktDmIvDqHPmvwGa0AxZjqGtYG/5K+zQbzvCRWZ8Ko5MmuIucPraKxmE7F3L+HBwPjj1LG1Q==
+  dependencies:
+    "@typescript-eslint/eslint-plugin" "^2.1.0"
+    "@typescript-eslint/parser" "^2.6.1"
+    eslint-config-prettier "^6.2.0"
+    eslint-plugin-prettier "^3.1.0"
+    eslint-plugin-react "^7.14.3"
+    eslint-plugin-react-hooks "^2.3.0"
+
 "@chainlink/prettier-config@^0.0.1":
   version "0.0.1"
   resolved "https://registry.yarnpkg.com/@chainlink/prettier-config/-/prettier-config-0.0.1.tgz#3705a3b07c6100139d7bee2c99a97ae29009518e"
@@ -8956,7 +8968,7 @@ eslint-plugin-react@7.14.3:
     prop-types "^15.7.2"
     resolve "^1.10.1"
 
-eslint-plugin-react@^7.16.0:
+eslint-plugin-react@^7.14.3, eslint-plugin-react@^7.16.0:
   version "7.16.0"
   resolved "https://registry.yarnpkg.com/eslint-plugin-react/-/eslint-plugin-react-7.16.0.tgz#9928e4f3e2122ed3ba6a5b56d0303ba3e41d8c09"
   integrity sha512-GacBAATewhhptbK3/vTP09CbFrgUJmBSaaRcWdbQLFvUZy9yVcQxigBNHGPU/KE2AyHpzj3AWXpxoMTsIDiHug==

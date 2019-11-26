@@ -23,6 +23,7 @@
   "dependencies": {
     "@babel/polyfill": "^7.2.5",
     "@chainlink/local-storage": "0.0.1",
+    "@chainlink/redux": "0.0.1",
     "@chainlink/styleguide": "0.0.1",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^4.5.1",
