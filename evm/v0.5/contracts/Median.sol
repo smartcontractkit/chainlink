@@ -3,17 +3,38 @@ pragma solidity ^0.5.0;
 import "./vendor/SafeMath.sol";
 import "./vendor/SignedSafeMath.sol";
 
-library Quickselect {
+library Median {
   using SafeMath for uint256;
   using SignedSafeMath for int256;
-    /**
+
+  /**
+   * @dev Returns the sorted middle, or the average of the two middle indexed 
+   * items if the array has an even number of elements
+   * @param _list The list of elements to compare
+   */
+  function calculate(int256[] memory _list)
+    internal
+    returns (int256)
+  {
+    uint256 answerLength = _list.length;
+    uint256 middleIndex = answerLength.div(2);
+    if (answerLength % 2 == 0) {
+      int256 median1 = quickselect(copy(_list), middleIndex);
+      int256 median2 = quickselect(_list, middleIndex.add(1)); // quickselect is 1 indexed
+      return median1.add(median2) / 2; // signed integers are not supported by SafeMath
+    } else {
+      return quickselect(_list, middleIndex.add(1)); // quickselect is 1 indexed
+    }
+  }
+
+  /**
    * @dev Returns the kth value of the ordered array
    * See: http://www.cs.yale.edu/homes/aspnes/pinewiki/QuickSelect.html
    * @param _a The list of elements to pull from
    * @param _k The index, 1 based, of the elements you want to pull from when ordered
    */
   function quickselect(int256[] memory _a, uint256 _k)
-    internal
+    private
     pure
     returns (int256)
   {
@@ -65,4 +86,21 @@ library Quickselect {
   {
     return (_b, _a);
   }
+
+  /**
+   * @dev Makes an in memory copy of the array passed in
+   * @param _list The pointer to the array to be copied
+   */
+  function copy(int256[] memory _list)
+    private
+    pure
+    returns(int256[] memory)
+  {
+    int256[] memory list2 = new int256[](_list.length);
+    for (uint256 i = 0; i < _list.length; i++) {
+      list2[i] = _list[i];
+    }
+    return list2;
+  }
+
 }
