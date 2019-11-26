@@ -40,6 +40,18 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
   }
 
   /**
+   * @notice get past rounds answers
+   * @param _id the answer number to retrieve the answer for
+   */
+  function getAnswer(uint256 _id)
+    external
+    view
+    returns (int256)
+  {
+    return aggregator.getAnswer(_id);
+  }
+
+  /**
    * @notice get the latest completed round where the answer was updated
    */
   function latestRound()
