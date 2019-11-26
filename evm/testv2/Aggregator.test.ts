@@ -61,9 +61,10 @@ describe('Aggregator', () => {
       'cancelRequest',
       'chainlinkCallback',
       'currentAnswer',
+      'getAnswer',
       'destroy',
       'jobIds',
-      'latestCompletedAnswer',
+      'latestRound',
       'minimumResponses',
       'oracles',
       'paymentAmount',
@@ -71,7 +72,8 @@ describe('Aggregator', () => {
       'setAuthorization',
       'transferLINK',
       'updateRequestDetails',
-      'updatedHeight',
+      'updatedTimestamp',
+      'getUpdatedTimestamp',
       // Ownable methods:
       'owner',
       'renounceOwnership',
@@ -107,10 +109,15 @@ describe('Aggregator', () => {
         const current = await rate.currentAnswer()
 
         assertBigNum(response, current)
+
+        const answerId = await rate.latestRound()
+        const currentMappingValue = await rate.getAnswer(answerId)
+
+        assertBigNum(current, currentMappingValue)
       })
 
       it('change the updatedAt record', async () => {
-        let updatedAt = await rate.updatedHeight()
+        let updatedAt = await rate.updatedTimestamp()
         assert.equal('0', updatedAt.toString())
 
         const requestTx = await rate.requestRateUpdate()
@@ -118,8 +125,13 @@ describe('Aggregator', () => {
         const request = h.decodeRunRequest(receipt.logs![3])
         await h.fulfillOracleRequest(oc1, request, response)
 
-        updatedAt = await rate.updatedHeight()
+        updatedAt = await rate.updatedTimestamp()
         assert.notEqual('0', updatedAt.toString())
+
+        const answerId = await rate.latestRound()
+        const timestampMappingValue = await rate.getUpdatedTimestamp(answerId)
+
+        assertBigNum(updatedAt, timestampMappingValue)
       })
 
       it('emits a log with the response, answer ID, and sender', async () => {
@@ -199,6 +211,18 @@ describe('Aggregator', () => {
 
         const current = await rate.currentAnswer()
         assertBigNum(h.numToBytes32(77), current)
+
+        const answerId = await rate.latestRound()
+        const currentMappingValue = await rate.getAnswer(answerId)
+
+        assertBigNum(current, currentMappingValue)
+
+        const updatedAt = await rate.updatedTimestamp()
+        assert.notEqual('0', updatedAt.toString())
+
+        const timestampMappingValue = await rate.getUpdatedTimestamp(answerId)
+
+        assertBigNum(updatedAt, timestampMappingValue)
       })
 
       it('does not accept old responses', async () => {

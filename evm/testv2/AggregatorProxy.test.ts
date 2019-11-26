@@ -58,9 +58,10 @@ describe('AggregatorProxy', () => {
     h.checkPublicABI(aggregatorProxyFactory, [
       'aggregator',
       'currentAnswer',
+      'latestRound',
       'destroy',
       'setAggregator',
-      'updatedHeight',
+      'updatedTimestamp',
       // Ownable methods:
       'owner',
       'renounceOwnership',
@@ -107,21 +108,21 @@ describe('AggregatorProxy', () => {
     })
   })
 
-  describe('#updatedHeight', () => {
+  describe('#updatedTimestamp', () => {
     beforeEach(async () => {
       const requestTx = await aggregator.requestRateUpdate()
       const receipt = await requestTx.wait()
       const request = h.decodeRunRequest(receipt.logs![3])
 
       await h.fulfillOracleRequest(oc1, request, response)
-      const height = await aggregator.updatedHeight()
+      const height = await aggregator.updatedTimestamp()
       assert.notEqual('0', height.toString())
     })
 
     it('pulls the height from the aggregator', async () => {
       assertBigNum(
-        await aggregator.updatedHeight(),
-        await proxy.updatedHeight(),
+        await aggregator.updatedTimestamp(),
+        await proxy.updatedTimestamp(),
       )
     })
 
@@ -137,10 +138,10 @@ describe('AggregatorProxy', () => {
         const request = h.decodeRunRequest(receipt.logs![3])
 
         await h.fulfillOracleRequest(oc1, request, response2)
-        const height2 = await aggregator2.updatedHeight()
+        const height2 = await aggregator2.updatedTimestamp()
         assert.notEqual('0', height2.toString())
 
-        const height1 = await aggregator.updatedHeight()
+        const height1 = await aggregator.updatedTimestamp()
         assert.notEqual(height1.toString(), height2.toString())
 
         await proxy.setAggregator(aggregator2.address)
@@ -148,8 +149,8 @@ describe('AggregatorProxy', () => {
 
       it('pulls the height from the new aggregator', async () => {
         assertBigNum(
-          await aggregator2.updatedHeight(),
-          await proxy.updatedHeight(),
+          await aggregator2.updatedTimestamp(),
+          await proxy.updatedTimestamp(),
         )
       })
     })
