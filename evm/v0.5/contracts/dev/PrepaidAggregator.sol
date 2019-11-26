@@ -66,7 +66,8 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     uint128 indexed paymentAmount,
     uint32 indexed minAnswerCount,
     uint32 indexed maxAnswerCount,
-    uint32 restartDelay
+    uint32 restartDelay,
+    uint32 timeout
   );
   event OracleAdded(address indexed oracle);
   event OracleRemoved(address indexed oracle);
@@ -128,7 +129,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
     emit OracleAdded(_oracle);
 
-    updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay);
+    updateFutureRounds(paymentAmount, timeout, _minAnswers, _maxAnswers, _restartDelay);
   }
 
   /**
@@ -155,7 +156,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
     emit OracleRemoved(_oracle);
 
-    updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay);
+    updateFutureRounds(paymentAmount, timeout, _minAnswers, _maxAnswers, _restartDelay);
   }
 
   /**
@@ -169,6 +170,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
    */
   function updateFutureRounds(
     uint128 _newPaymentAmount,
+    uint32 _timeout,
     uint32 _minAnswers,
     uint32 _maxAnswers,
     uint32 _restartDelay
@@ -181,12 +183,14 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     minAnswerCount = _minAnswers;
     maxAnswerCount = _maxAnswers;
     restartDelay = _restartDelay;
+    timeout = _timeout;
 
     emit RoundDetailsUpdated(
       paymentAmount,
       _minAnswers,
       _maxAnswers,
-      _restartDelay
+      _restartDelay,
+      _timeout
     );
   }
 

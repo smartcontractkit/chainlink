@@ -792,10 +792,12 @@ export const encodeAddress = (a: string): string => {
 }
 
 export const parseAggregatorRoundLog = (log: any): object => {
+  const data = abi.rawDecode(['uint32', 'uint32'], util.toBuffer(log.data))
   return {
     paymentAmount: bigNum(log.topics[1]),
     minAnswerCount: bigNum(log.topics[2]),
     maxAnswerCount: bigNum(log.topics[3]),
-    restartDelay: bigNum(log.data),
+    restartDelay: data[0],
+    timeout: data[1],
   }
 }
