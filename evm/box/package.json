@@ -23,7 +23,7 @@
     "openzeppelin-solidity": "^1.12.0"
   },
   "devDependencies": {
-    "@chainlink/eslint-config": "0.0.2",
+    "@chainlink/eslint-config": "0.0.3",
     "@chainlink/prettier-config": "0.0.2",
     "chai": "^4.2.0",
     "depcheck": "^0.8.3",
