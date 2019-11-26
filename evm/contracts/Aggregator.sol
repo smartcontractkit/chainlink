@@ -257,7 +257,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     view
     returns (uint256)
   {
-    return getUpdatedTimestamp(latestCompletedAnswer);
+    return updatedTimestamps[latestCompletedAnswer];
   }
 
   /**
@@ -277,7 +277,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
    * @param _id the answer number to retrieve the updated timestamp for
    */
   function getUpdatedTimestamp(uint256 _id)
-    public
+    external
     view
     returns (uint256)
   {

@@ -52,6 +52,18 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
   }
 
   /**
+   * @notice get block timestamp when an answer was last updated
+   * @param _id the answer number to retrieve the updated timestamp for
+   */
+  function getUpdatedTimestamp(uint256 _id)
+    external
+    view
+    returns (uint256)
+  {
+    return aggregator.getUpdatedTimestamp(_id);
+  }
+
+  /**
    * @notice get the latest completed round where the answer was updated
    */
   function latestRound()
