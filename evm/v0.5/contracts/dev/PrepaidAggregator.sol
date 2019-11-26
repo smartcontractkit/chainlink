@@ -60,7 +60,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) private rounds;
 
-  event NewRound(uint32 indexed number, address indexed startedBy);
+  event NewRound(uint256 indexed number, address indexed startedBy);
   event AnswerUpdated(int256 indexed current, uint256 indexed round, uint256 timestamp);
   event AvailableFundsUpdated(uint256 indexed amount);
   event RoundDetailsUpdated(
@@ -342,7 +342,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
     recordStartedRound(_id);
 
-    emit NewRound(_id, msg.sender);
+    emit NewRound(uint256(_id), msg.sender);
   }
 
   function recordStartedRound(uint32 _id)
