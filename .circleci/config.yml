@@ -242,7 +242,7 @@ jobs:
     resource_class: large
     working_directory: ~/chainlink
     docker:
-      - image: circleci/node:10-browsers
+      - image: circleci/node:10.16.3-browsers
         environment:
           TYPEORM_NAME: ci
       - image: circleci/postgres:11-alpine
@@ -255,13 +255,13 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}-node:10-browsers
+          key: v{{ checksum "cache.version" }}-yarn-vendor-node:10.16.3-browsers-{{ checksum "yarn.lock" }}
       - run:
           name: Install New Packages
           command: yarn install
       - save_cache:
           name: Save Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}-node:10-browsers
+          key: v{{ checksum "cache.version" }}-yarn-vendor-node:10.16.3-browsers-{{ checksum "yarn.lock" }}
           paths:
             - ~/.cache/yarn
             - /usr/local/share/.cache/yarn
