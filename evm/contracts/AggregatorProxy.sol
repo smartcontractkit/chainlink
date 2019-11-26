@@ -31,12 +31,23 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
   /**
    * @notice Reads the last updated height from aggregator delegated to.
    */
-  function updatedHeight()
+  function updatedTimestamp()
     external
     view
     returns (uint256)
   {
-    return aggregator.updatedHeight();
+    return aggregator.updatedTimestamp();
+  }
+
+  /**
+   * @notice get the latest completed round where the answer was updated
+   */
+  function latestRound()
+    external
+    view
+    returns (uint256)
+  {
+    return aggregator.latestRound();
   }
 
   /**

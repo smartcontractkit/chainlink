@@ -1,6 +1,7 @@
 pragma solidity 0.4.24;
 
 import "./ChainlinkClient.sol";
+import "./interfaces/AggregatorInterface.sol";
 import "./vendor/SignedSafeMath.sol";
 import "./vendor/Ownable.sol";
 
@@ -10,7 +11,7 @@ import "./vendor/Ownable.sol";
  * requests to multiple Chainlink nodes and running aggregation
  * as the contract receives answers.
  */
-contract Aggregator is ChainlinkClient, Ownable {
+contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
   using SignedSafeMath for int256;
 
   struct Answer {
@@ -22,9 +23,9 @@ contract Aggregator is ChainlinkClient, Ownable {
   event ResponseReceived(int256 indexed response, uint256 indexed answerId, address indexed sender);
   event AnswerUpdated(int256 indexed current, uint256 indexed answerId);
 
-  int256 public currentAnswer;
-  uint256 public latestCompletedAnswer;
-  uint256 public updatedHeight;
+  int256 private currentAnswerValue;
+  uint256 private updatedTimestampValue;
+  uint256 private latestCompletedAnswer;
   uint128 public paymentAmount;
   uint128 public minimumResponses;
   bytes32[] public jobIds;
@@ -34,6 +35,8 @@ contract Aggregator is ChainlinkClient, Ownable {
   mapping(address => bool) public authorizedRequesters;
   mapping(bytes32 => uint256) private requestAnswers;
   mapping(uint256 => Answer) private answers;
+  mapping(uint256 => int256) private currentAnswers;
+  mapping(uint256 => uint256) private updatedTimestamps;
 
   uint256 constant private MAX_ORACLE_COUNT = 45;
 
@@ -141,8 +144,8 @@ contract Aggregator is ChainlinkClient, Ownable {
     public
     onlyOwner()
   {
-    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-    require(link.transfer(_recipient, _amount), "LINK transfer failed");
+    LinkTokenInterface linkToken = LinkTokenInterface(chainlinkTokenAddress());
+    require(linkToken.transfer(_recipient, _amount), "LINK transfer failed");
   }
 
   /**
@@ -178,16 +181,16 @@ contract Aggregator is ChainlinkClient, Ownable {
     uint256 answerId = requestAnswers[_requestId];
     require(answerId < latestCompletedAnswer, "Cannot modify an in-progress answer");
 
+    delete requestAnswers[_requestId];
+    answers[answerId].responses.push(0);
+    deleteAnswer(answerId);
+
     cancelChainlinkRequest(
       _requestId,
       _payment,
       this.chainlinkCallback.selector,
       _expiration
     );
-
-    delete requestAnswers[_requestId];
-    answers[answerId].responses.push(0);
-    deleteAnswer(answerId);
   }
 
   /**
@@ -198,8 +201,8 @@ contract Aggregator is ChainlinkClient, Ownable {
     external
     onlyOwner()
   {
-    LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-    transferLINK(owner, link.balanceOf(address(this)));
+    LinkTokenInterface linkToken = LinkTokenInterface(chainlinkTokenAddress());
+    transferLINK(owner, linkToken.balanceOf(address(this)));
     selfdestruct(owner);
   }
 
@@ -216,16 +219,73 @@ contract Aggregator is ChainlinkClient, Ownable {
   {
     uint256 responseLength = answers[_answerId].responses.length;
     uint256 middleIndex = responseLength.div(2);
+    int256 currentAnswerTemp;
     if (responseLength % 2 == 0) {
       int256 median1 = quickselect(answers[_answerId].responses, middleIndex);
       int256 median2 = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
-      currentAnswer = median1.add(median2) / 2; // signed integers are not supported by SafeMath
+      currentAnswerTemp = median1.add(median2) / 2; // signed integers are not supported by SafeMath
     } else {
-      currentAnswer = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
+      currentAnswerTemp = quickselect(answers[_answerId].responses, middleIndex.add(1)); // quickselect is 1 indexed
     }
+    currentAnswerValue = currentAnswerTemp;
     latestCompletedAnswer = _answerId;
-    updatedHeight = block.number;
-    emit AnswerUpdated(currentAnswer, _answerId);
+    updatedTimestampValue = now;
+    updatedTimestamps[_answerId] = now;
+    currentAnswers[_answerId] = currentAnswerTemp;
+    emit AnswerUpdated(currentAnswerTemp, _answerId);
+  }
+
+  /**
+   * @notice get the most recently reported answer
+   */
+  function currentAnswer()
+    external
+    view
+    returns (int256)
+  {
+    return getAnswer(latestCompletedAnswer);
+  }
+
+  /**
+   * @notice get the last updated at block timestamp
+   */
+  function updatedTimestamp()
+    external
+    view
+    returns (uint256)
+  {
+    return getUpdatedTimestamp(latestCompletedAnswer);
+  }
+
+  /**
+   * @notice get past rounds answers
+   * @param _id the answer number to retrieve the answer for
+   */
+  function getAnswer(uint256 _id)
+    public
+    view
+    returns (int256)
+  {
+    return currentAnswers[_id];
+  }
+
+  /**
+   * @notice get block timestamp when an answer was last updated
+   * @param _id the answer number to retrieve the updated timestamp for
+   */
+  function getUpdatedTimestamp(uint256 _id)
+    public
+    view
+    returns (uint256)
+  {
+    return updatedTimestamps[_id];
+  }
+
+  /**
+   * @notice get the latest completed round where the answer was updated
+   */
+  function latestRound() external view returns (uint256) {
+    return latestCompletedAnswer;
   }
 
   /**
