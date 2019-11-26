@@ -181,16 +181,16 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     uint256 answerId = requestAnswers[_requestId];
     require(answerId < latestCompletedAnswer, "Cannot modify an in-progress answer");
 
+    delete requestAnswers[_requestId];
+    answers[answerId].responses.push(0);
+    deleteAnswer(answerId);
+
     cancelChainlinkRequest(
       _requestId,
       _payment,
       this.chainlinkCallback.selector,
       _expiration
     );
-
-    delete requestAnswers[_requestId];
-    answers[answerId].responses.push(0);
-    deleteAnswer(answerId);
   }
 
   /**
