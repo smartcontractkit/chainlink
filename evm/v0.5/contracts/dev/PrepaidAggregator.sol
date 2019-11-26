@@ -326,7 +326,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   {
     int256 newAnswer = Median.calculate(rounds[_id].details.answers);
     rounds[_id].answer = newAnswer;
-    rounds[_id].updatedTimestamp = block.number;
+    rounds[_id].updatedTimestamp = block.timestamp;
     latestRound = _id;
 
     emit AnswerUpdated(newAnswer, _id);
