@@ -144,7 +144,7 @@ jobs:
       - store_artifacts:
           path: ./integration/logs
   parity-postgres:
-    resource_class: xlarge
+    resource_class: large
     machine:
       image: ubuntu-1604:201903-01
       docker_layer_caching: true
