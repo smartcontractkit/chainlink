@@ -21,7 +21,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
   }
 
   event ResponseReceived(int256 indexed response, uint256 indexed answerId, address indexed sender);
-  event AnswerUpdated(int256 indexed current, uint256 indexed answerId);
+  event AnswerUpdated(int256 indexed current, uint256 indexed answerId, uint256 timestamp);
 
   int256 private currentAnswerValue;
   uint256 private updatedTimestampValue;
@@ -232,7 +232,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     updatedTimestampValue = now;
     updatedTimestamps[_answerId] = now;
     currentAnswers[_answerId] = currentAnswerTemp;
-    emit AnswerUpdated(currentAnswerTemp, _answerId);
+    emit AnswerUpdated(currentAnswerTemp, _answerId, now);
   }
 
   /**
