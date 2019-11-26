@@ -220,7 +220,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (int256)
   {
-    return getAnswer(latestRoundValue);
+    return rounds[latestRoundValue].answer;
   }
 
   /**
@@ -249,12 +249,12 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
    * @notice get past rounds answers
    * @param _id the round number to retrieve the answer for
    */
-  function getAnswer(uint32 _id)
-    public
+  function getAnswer(uint256 _id)
+    external
     view
     returns (int256)
   {
-    return rounds[_id].answer;
+    return rounds[uint32(_id)].answer;
   }
 
   /**

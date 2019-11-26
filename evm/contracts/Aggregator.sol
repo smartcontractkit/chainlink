@@ -243,7 +243,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     view
     returns (int256)
   {
-    return getAnswer(latestCompletedAnswer);
+    return currentAnswers[latestCompletedAnswer];
   }
 
   /**
@@ -262,7 +262,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
    * @param _id the answer number to retrieve the answer for
    */
   function getAnswer(uint256 _id)
-    public
+    external
     view
     returns (int256)
   {
