@@ -62,7 +62,7 @@ Using network 'live'.
 Funding contract: 0x972DB80842Fdaf6015d80954949dBE0A1700705E
 0xd81fcf7bfaf8660149041c823e843f0b2409137a1809a0319d26db9ceaeef650
 Truffle v5.0.25 (core: 5.0.25)
-Node v10.15.1
+Node v10.16.3
 ```
 
 In the `request-data.js` script, example parameters are provided for you. You can change the oracle address, Job ID, and parameters based on the information available on [our documentation](https://docs.chain.link/docs/testnet-oracles).
@@ -79,7 +79,7 @@ Using network 'live'.
 Creating request on contract: 0x972DB80842Fdaf6015d80954949dBE0A1700705E
 0x828f256109f22087b0804a4d1a5c25e8ce9e5ac4bbc777b5715f5f9e5b181a4b
 Truffle v5.0.25 (core: 5.0.25)
-Node v10.15.1
+Node v10.16.3
 ```
 
 After creating a request on a live network, you will want to wait 3 blocks for the Chainlink node to respond. Then call the `read-contract.js` script to read the contract's state.
@@ -95,5 +95,5 @@ Using network 'live'.
 
 21568
 Truffle v5.0.25 (core: 5.0.25)
-Node v10.15.1
+Node v10.16.3
 ```
