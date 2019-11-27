@@ -476,7 +476,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   modifier ifDelayedOrOwner(uint32 _id) {
     uint256 lastStarted = oracles[msg.sender].lastStartedRound;
-    if (_id > lastStarted + restartDelay || isOwner()) {
+    if (_id > lastStarted + restartDelay || lastStarted == 0 || isOwner()) {
       _;
     }
   }
