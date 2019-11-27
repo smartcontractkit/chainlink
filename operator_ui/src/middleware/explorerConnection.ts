@@ -27,7 +27,7 @@ export function createExplorerConnectionMiddleware(
         try {
           const json = JSON.parse(cookies.explorer)
 
-          if (isErrorStatus(json.status)) {
+          if (json.status === 'error') {
             const msg = formatMsg(json.url)
             next({ type: 'NOTIFY_ERROR_MSG', msg })
           }
@@ -49,8 +49,4 @@ function formatMsg(url: string) {
   }
 
   return `${msg}. You must use a websocket.`
-}
-
-function isErrorStatus(status: string) {
-  return status === 'error'
 }
