@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	"chainlink/core/store/assets"
 	"chainlink/core/utils"
@@ -64,8 +65,8 @@ var (
 )
 
 type logRequestParser interface {
-	parseJSON(Log) (JSON, error)
-	parseRequestID(Log) string
+	parseJSON(eth.Log) (JSON, error)
+	parseRequestID(eth.Log) string
 }
 
 // topicFactoryMap maps the log topic to a factory method that returns an
@@ -129,7 +130,7 @@ func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error
 // types of LogEvents.
 // i.e. EthLogEvent, RunLogEvent, ServiceAgreementLogEvent, OracleLogEvent
 type LogRequest interface {
-	GetLog() Log
+	GetLog() eth.Log
 	GetJobSpecID() *ID
 	GetInitiator() Initiator
 
@@ -146,7 +147,7 @@ type LogRequest interface {
 // InitiatorSubscription.
 type InitiatorLogEvent struct {
 	JobSpecID ID
-	Log       Log
+	Log       eth.Log
 	Initiator Initiator
 }
 
@@ -166,7 +167,7 @@ func (le InitiatorLogEvent) LogRequest() LogRequest {
 }
 
 // GetLog returns the log.
-func (le InitiatorLogEvent) GetLog() Log {
+func (le InitiatorLogEvent) GetLog() eth.Log {
 	return le.Log
 }
 
@@ -270,8 +271,8 @@ func (le RunLogEvent) Validate() bool {
 }
 
 // ContractPayment returns the amount attached to a contract to pay the Oracle upon fulfillment.
-func contractPayment(log Log) (*assets.Link, error) {
-	version, err := log.getTopic(0)
+func contractPayment(log eth.Log) (*assets.Link, error) {
+	version, err := log.GetTopic(0)
 	if err != nil {
 		return nil, fmt.Errorf("Missing RunLogEvent Topic#0: %v", err)
 	}
@@ -313,7 +314,7 @@ func (le RunLogEvent) ValidateRequester() error {
 
 // Requester pulls the requesting address out of the LogEvent's topics.
 func (le RunLogEvent) Requester() common.Address {
-	version, err := le.Log.getTopic(0)
+	version, err := le.Log.GetTopic(0)
 	if err != nil {
 		return common.Address{}
 	}
@@ -355,10 +356,10 @@ func (le RunLogEvent) JSON() (JSON, error) {
 	return ParseRunLog(le.Log)
 }
 
-func parserFromLog(log Log) (logRequestParser, error) {
-	topic, err := log.getTopic(0)
+func parserFromLog(log eth.Log) (logRequestParser, error) {
+	topic, err := log.GetTopic(0)
 	if err != nil {
-		return nil, errors.Wrap(err, "log#getTopic(0)")
+		return nil, errors.Wrap(err, "log#GetTopic(0)")
 	}
 	parser, ok := topicFactoryMap[topic]
 	if !ok {
@@ -368,7 +369,7 @@ func parserFromLog(log Log) (logRequestParser, error) {
 }
 
 // ParseRunLog decodes the CBOR in the ABI of the log event.
-func ParseRunLog(log Log) (JSON, error) {
+func ParseRunLog(log eth.Log) (JSON, error) {
 	parser, err := parserFromLog(log)
 	if err != nil {
 		return JSON{}, err
@@ -380,7 +381,7 @@ func ParseRunLog(log Log) (JSON, error) {
 // It responds with only the request ID and data.
 type parseRunLog0original struct{}
 
-func (p parseRunLog0original) parseJSON(log Log) (JSON, error) {
+func (p parseRunLog0original) parseJSON(log eth.Log) (JSON, error) {
 	data := log.Data
 	start := idSize + versionSize + dataLocationSize + dataLengthSize
 
@@ -401,7 +402,7 @@ func (p parseRunLog0original) parseJSON(log Log) (JSON, error) {
 	return js.Add("functionSelector", OracleFullfillmentFunctionID0original)
 }
 
-func (parseRunLog0original) parseRequestID(log Log) string {
+func (parseRunLog0original) parseRequestID(log eth.Log) string {
 	return common.BytesToHash(log.Data[:idSize]).Hex()
 }
 
@@ -411,7 +412,7 @@ func (parseRunLog0original) parseRequestID(log Log) string {
 // in addition to the request ID and data.
 type parseRunLog20190123withFulfillmentParams struct{}
 
-func (parseRunLog20190123withFulfillmentParams) parseJSON(log Log) (JSON, error) {
+func (parseRunLog20190123withFulfillmentParams) parseJSON(log eth.Log) (JSON, error) {
 	data := log.Data
 	cborStart := idSize + versionSize + callbackAddrSize + callbackFuncSize + expirationSize + dataLocationSize + dataLengthSize
 
@@ -438,7 +439,7 @@ func (parseRunLog20190123withFulfillmentParams) parseJSON(log Log) (JSON, error)
 	return js.Add("functionSelector", OracleFulfillmentFunctionID20190123withFulfillmentParams)
 }
 
-func (parseRunLog20190123withFulfillmentParams) parseRequestID(log Log) string {
+func (parseRunLog20190123withFulfillmentParams) parseRequestID(log eth.Log) string {
 	return common.BytesToHash(log.Data[:idSize]).Hex()
 }
 
@@ -449,7 +450,7 @@ func (parseRunLog20190123withFulfillmentParams) parseRequestID(log Log) string {
 // payment amount, callback, expiration, and data.
 type parseRunLog20190207withoutIndexes struct{}
 
-func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
+func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 	data := log.Data
 	idStart := requesterSize
 	expirationEnd := idStart + idSize + paymentSize + callbackAddrSize + callbackFuncSize + expirationSize
@@ -472,7 +473,7 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
 	return js.Add("functionSelector", OracleFulfillmentFunctionID20190128withoutCast)
 }
 
-func (parseRunLog20190207withoutIndexes) parseRequestID(log Log) string {
+func (parseRunLog20190207withoutIndexes) parseRequestID(log eth.Log) string {
 	start := requesterSize
 	return common.BytesToHash(log.Data[start : start+idSize]).Hex()
 }

@@ -12,13 +12,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/utils"
 
-	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -35,12 +35,6 @@ const nonceReloadLimit int = 1
 
 // ErrPendingConnection is the error returned if TxManager is not connected.
 var ErrPendingConnection = errors.New("Cannot talk to chain, pending connection")
-
-// LogSubscriber encapsulates only the methods needed for subscribing to ethereum log events.
-type LogSubscriber interface {
-	SubscribeToLogs(channel chan<- models.Log, q ethereum.FilterQuery) (models.EthSubscription, error)
-	GetLogs(q ethereum.FilterQuery) ([]models.Log, error)
-}
 
 // TxManager represents an interface for interacting with the blockchain
 type TxManager interface {
@@ -61,9 +55,9 @@ type TxManager interface {
 	NextActiveAccount() *ManagedAccount
 
 	GetEthBalance(address common.Address) (*assets.Eth, error)
-	SubscribeToNewHeads(channel chan<- models.BlockHeader) (models.EthSubscription, error)
+	SubscribeToNewHeads(channel chan<- models.BlockHeader) (eth.EthSubscription, error)
 	GetBlockByNumber(hex string) (models.BlockHeader, error)
-	LogSubscriber
+	eth.LogSubscriber
 	GetTxReceipt(common.Hash) (*models.TxReceipt, error)
 	GetChainID() (*big.Int, error)
 }

@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"time"
 
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
@@ -116,7 +117,7 @@ func NewInitiatorSubscription(
 	return sub, nil
 }
 
-func (sub InitiatorSubscription) dispatchLog(log models.Log) {
+func (sub InitiatorSubscription) dispatchLog(log eth.Log) {
 	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %s", sub.Initiator.Type, sub.JobSpecID.String()),
 		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.JobSpecID.String())
 
@@ -185,20 +186,20 @@ func runJob(store *strpkg.Store, runManager RunManager, le models.LogRequest, da
 // ManagedSubscription encapsulates the connecting, backfilling, and clean up of an
 // ethereum node subscription.
 type ManagedSubscription struct {
-	logSubscriber   strpkg.LogSubscriber
-	logs            chan models.Log
-	ethSubscription models.EthSubscription
-	callback        func(models.Log)
+	logSubscriber   eth.LogSubscriber
+	logs            chan eth.Log
+	ethSubscription eth.EthSubscription
+	callback        func(eth.Log)
 }
 
 // NewManagedSubscription subscribes to the ethereum node with the passed filter
 // and delegates incoming logs to callback.
 func NewManagedSubscription(
-	logSubscriber strpkg.LogSubscriber,
+	logSubscriber eth.LogSubscriber,
 	filter ethereum.FilterQuery,
-	callback func(models.Log),
+	callback func(eth.Log),
 ) (*ManagedSubscription, error) {
-	logs := make(chan models.Log)
+	logs := make(chan eth.Log)
 	es, err := logSubscriber.SubscribeToLogs(logs, filter)
 	if err != nil {
 		return nil, err

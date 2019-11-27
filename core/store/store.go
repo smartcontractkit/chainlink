@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	"chainlink/core/services/synchronization"
 	"chainlink/core/store/migrations"
@@ -95,7 +96,7 @@ func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...i
 	return wrapper.client.Call(result, method, args...)
 }
 
-func (wrapper *lazyRPCWrapper) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (models.EthSubscription, error) {
+func (wrapper *lazyRPCWrapper) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (eth.EthSubscription, error) {
 	err := wrapper.lazyDialInitializer()
 	if err != nil {
 		return nil, err

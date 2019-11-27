@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
 	"chainlink/core/services"
@@ -91,8 +92,8 @@ func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 
 	eth := cltest.MockEthOnStore(t, store)
-	eth.Register("eth_getLogs", []models.Log{})
-	eth.Register("eth_getLogs", []models.Log{})
+	eth.Register("eth_getLogs", []ethpkg.Log{})
+	eth.Register("eth_getLogs", []ethpkg.Log{})
 
 	jobSpec1 := cltest.NewJobWithLogInitiator()
 	jobSpec2 := cltest.NewJobWithLogInitiator()

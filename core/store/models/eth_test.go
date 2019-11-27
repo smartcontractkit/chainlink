@@ -33,7 +33,7 @@ func TestLog_UnmarshalEmptyTxHash(t *testing.T) {
 		"transactionLogIndex": "0x3"
 	}`
 
-	var log models.Log
+	var log eth.Log
 	err := json.Unmarshal([]byte(input), &log)
 	assert.NoError(t, err)
 }

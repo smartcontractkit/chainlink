@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
@@ -20,7 +21,7 @@ import (
 type HeadTracker struct {
 	callbacks             []strpkg.HeadTrackable
 	headers               chan models.BlockHeader
-	headSubscription      models.EthSubscription
+	headSubscription      eth.EthSubscription
 	store                 *strpkg.Store
 	head                  *models.Head
 	headMutex             sync.RWMutex
