@@ -31,11 +31,11 @@ contract('PrepaidAggregator', () => {
       'addOracle',
       'allocatedFunds',
       'availableFunds',
-      'currentAnswer',
+      'latestAnswer',
       'currentRound',
       'forceNewRound',
       'getAnswer',
-      'getUpdatedTimestamp',
+      'getTimestamp',
       'latestRound',
       'latestSubmission',
       'maxAnswerCount',
@@ -47,7 +47,7 @@ contract('PrepaidAggregator', () => {
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
-      'updatedTimestamp',
+      'latestTimestamp',
       'withdraw',
       'withdrawFunds',
       'withdrawable',
@@ -126,7 +126,7 @@ contract('PrepaidAggregator', () => {
       })
 
       it('does not update the answer', async () => {
-        assert.equal(0, await aggregator.currentAnswer.call())
+        assert.equal(0, await aggregator.latestAnswer.call())
 
         // Not updated because of changes by the owner setting minAnswerCount to 3
         await aggregator.updateAnswer(nextRound, answer, { from: personas.Ned })
@@ -134,7 +134,7 @@ contract('PrepaidAggregator', () => {
           from: personas.Nelly,
         })
 
-        assert.equal(0, await aggregator.currentAnswer.call())
+        assert.equal(0, await aggregator.latestAnswer.call())
       })
     })
 
@@ -169,27 +169,27 @@ contract('PrepaidAggregator', () => {
       })
 
       it('updates the answer with the median', async () => {
-        assert.equal(0, await aggregator.currentAnswer.call())
+        assert.equal(0, await aggregator.latestAnswer.call())
 
         await aggregator.updateAnswer(nextRound, 99, { from: personas.Ned })
-        assert.equal(99, await aggregator.currentAnswer.call()) // ((100+99) / 2).to_i
+        assert.equal(99, await aggregator.latestAnswer.call()) // ((100+99) / 2).to_i
 
         await aggregator.updateAnswer(nextRound, 101, {
           from: personas.Nelly,
         })
 
-        assert.equal(100, await aggregator.currentAnswer.call())
+        assert.equal(100, await aggregator.latestAnswer.call())
       })
 
       it('updates the updated timestamp', async () => {
-        const originalTimestamp = await aggregator.updatedTimestamp.call()
+        const originalTimestamp = await aggregator.latestTimestamp.call()
         assert.equal(0, originalTimestamp.toNumber())
 
         await aggregator.updateAnswer(nextRound, answer, {
           from: personas.Nelly,
         })
 
-        const currentTimestamp = await aggregator.updatedTimestamp.call()
+        const currentTimestamp = await aggregator.latestTimestamp.call()
         assert.isAbove(
           currentTimestamp.toNumber(),
           originalTimestamp.toNumber(),
@@ -432,7 +432,7 @@ contract('PrepaidAggregator', () => {
     })
   })
 
-  describe('#getUpdatedTimestamp', async () => {
+  describe('#getTimestamp', async () => {
     beforeEach(async () => {
       await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
         from: personas.Carol,
@@ -450,7 +450,7 @@ contract('PrepaidAggregator', () => {
       let lastTimestamp = h.bigNum(0)
 
       for (let i = 1; i < nextRound; i++) {
-        const currentTimestamp = await aggregator.getUpdatedTimestamp.call(i)
+        const currentTimestamp = await aggregator.getTimestamp.call(i)
         assert.isAtLeast(currentTimestamp.toNumber(), lastTimestamp.toNumber())
         lastTimestamp = currentTimestamp
       }
