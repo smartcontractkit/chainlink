@@ -326,7 +326,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     onlyOwner()
   {
     uint32 id = currentRound;
-    rounds[id].updatedTimestamp = block.timestamp;
+    updateSkippedRoundInfo(id);
     startNewRound(id + 1);
   }
 
@@ -336,10 +336,11 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   function startNewRound(uint32 _id)
     private
-    onlyOnNewRound(_id)
-    onlyIfDelayedOrOwner(_id)
+    ifNewRound(_id)
+    ifDelayedOrOwner(_id)
   {
-    updateSkippedRoundInfo(_id);
+    updateTimedOutRoundInfo(_id.sub(1));
+
     currentRound = _id;
     rounds[_id].details.maxAnswers = maxAnswerCount;
     rounds[_id].details.minAnswers = minAnswerCount;
@@ -349,25 +350,39 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
     emit NewRound(uint256(_id), msg.sender);
   }
+  event Here(bool timedout, uint32 id, uint256 timestamp);
+
+  function updateTimedOutRoundInfo(uint32 _prevId)
+    private
+    ifTimedOut(_prevId)
+  {
+    copyPreviousAnswer(_prevId);
+  }
 
   function updateSkippedRoundInfo(uint32 _id)
     private
-    onlyIfTimedout(_id)
+    ifUnanswered(_id)
   {
-    rounds[_id - 1].answer = rounds[_id - 2].answer;
-    rounds[_id - 1].updatedTimestamp = block.timestamp;
+    copyPreviousAnswer(_id);
+  }
+
+  function copyPreviousAnswer(uint32 _id)
+    private
+  {
+    rounds[_id].answer = rounds[_id.sub(1)].answer;
+    rounds[_id].updatedTimestamp = block.timestamp;
   }
 
   function recordStartedRound(uint32 _id)
     private
-    onlyNonOwner()
+    ifNonOwner()
   {
     oracles[msg.sender].lastStartedRound = _id;
   }
 
   function updateRoundAnswer(uint32 _id)
     private
-    onlyIfMinAnswersReceived(_id)
+    ifMinAnswersReceived(_id)
   {
     int256 newAnswer = Median.calculate(rounds[_id].details.answers);
     rounds[_id].answer = newAnswer;
@@ -392,7 +407,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   function recordSubmission(int256 _answer, uint32 _id)
     private
-    onlyIfAcceptingAnswers(_id)
+    onlyWhenAcceptingAnswers(_id)
   {
     rounds[_id].details.answers.push(_answer);
     oracles[msg.sender].lastReportedRound = _id;
@@ -401,16 +416,26 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   function deleteRound(uint32 _id)
     private
-    onlyIfMaxAnswersReceived(_id)
+    ifMaxAnswersReceived(_id)
   {
     delete rounds[_id].details;
   }
 
-  function timedout(uint32 _id) private returns(bool) {
-    if (_id < 3) {
+  function timedOut(uint32 _id)
+    private
+    returns (bool)
+  {
+    if (_id <= 1) { // must have at least one round of history
       return false;
     }
-    return rounds[_id - 2].updatedTimestamp < block.timestamp - timeout;
+    return getUpdatedTimestamp(_id - 1) < block.timestamp - timeout;
+  }
+
+  function answered(uint32 _id)
+    private
+    returns (bool)
+  {
+    return getUpdatedTimestamp(_id) > 0;
   }
 
   /**
@@ -426,30 +451,30 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     _;
   }
 
-  modifier onlyIfMinAnswersReceived(uint32 _id) {
+  modifier ifMinAnswersReceived(uint32 _id) {
     if (rounds[_id].details.answers.length >= rounds[_id].details.minAnswers) {
       _;
     }
   }
 
-  modifier onlyIfMaxAnswersReceived(uint32 _id) {
+  modifier ifMaxAnswersReceived(uint32 _id) {
     if (rounds[_id].details.answers.length == rounds[_id].details.maxAnswers) {
       _;
     }
   }
 
-  modifier onlyIfAcceptingAnswers(uint32 _id) {
+  modifier onlyWhenAcceptingAnswers(uint32 _id) {
     require(rounds[_id].details.maxAnswers != 0, "Max responses reached for round");
     _;
   }
 
-  modifier onlyOnNewRound(uint32 _id) {
+  modifier ifNewRound(uint32 _id) {
     if (_id == currentRound.add(1)) {
       _;
     }
   }
 
-  modifier onlyIfDelayedOrOwner(uint32 _id) {
+  modifier ifDelayedOrOwner(uint32 _id) {
     uint256 lastStarted = oracles[msg.sender].lastStartedRound;
     if (_id > lastStarted + restartDelay || isOwner()) {
       _;
@@ -458,15 +483,12 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   modifier onlyValidRoundId(uint32 _id) {
     require(_id == currentRound || _id == currentRound.add(1), "Must report on current round");
-    bool firstRound = _id == 1;
-    bool lastCompleted = rounds[_id.sub(1)].updatedTimestamp > 0;
-    bool t = timedout(_id);
-    require(lastCompleted || t || firstRound, "Cannot bump round until previous round has an answer");
+    require(_id == 1 || answered(_id.sub(1)) || timedOut(_id.sub(1)), "Cannot bump round until previous round has an answer");
     _;
   }
 
-  modifier onlyIfTimedout(uint32 _id) {
-    if (timedout(_id)) {
+  modifier ifTimedOut(uint32 _id) {
+    if (timedOut(_id)) {
       _;
     }
   }
@@ -489,8 +511,20 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     _;
   }
 
-  modifier onlyNonOwner() {
+  modifier ifOwner() {
+    if (isOwner()) {
+      _;
+    }
+  }
+
+  modifier ifNonOwner() {
     if (!isOwner()) {
+      _;
+    }
+  }
+
+  modifier ifUnanswered(uint32 _id) {
+    if (!answered(_id)) {
       _;
     }
   }
