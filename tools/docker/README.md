@@ -21,7 +21,7 @@ The following commands assume that you're executing `docker-compose` commands wi
 A full description of how to run `docker-compose` can be found in its [web documentation](https://docs.docker.com/compose/).
 
 ## Build
-Before being able to run our docker containers, we'll need to build their corresponding images. Make sure to re-build your images to reflect repository changes.
+Before being able to run our docker containers, we'll need to build their corresponding images. Make sure to re-build your images to reflect repository changes.  You can update to the latest version with 'git pull --rebase'.
 
 ### Building all images
 The following command will build all internal images, one by one. Any external images will instead be fetched.
