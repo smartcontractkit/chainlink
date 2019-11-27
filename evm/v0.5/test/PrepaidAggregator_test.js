@@ -368,6 +368,30 @@ contract('PrepaidAggregator', () => {
       })
     })
 
+    context("when delay is on and it's an oralce's 1st round", async () => {
+      beforeEach(async () => {
+        const minMax = oracles.length
+        const delay = 1
+
+        await aggregator.updateFutureRounds(
+          paymentAmount,
+          timeout,
+          minMax,
+          minMax,
+          delay,
+          {
+            from: personas.Carol,
+          },
+        )
+      })
+
+      it('does not revert', async () => {
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Neil,
+        })
+      })
+    })
+
     context(
       'when an oracle starts a round before the restart delay is over',
       async () => {
@@ -439,11 +463,6 @@ contract('PrepaidAggregator', () => {
 
       context('on the third round or later', async () => {
         beforeEach(async () => {
-          for (const oracle of oracles) {
-            await aggregator.updateAnswer(nextRound, answer, { from: oracle })
-          }
-          nextRound++
-          // FIXME: must get one round in before setting the delay above 0
           await aggregator.updateFutureRounds(
             paymentAmount,
             newTimeout,
@@ -454,6 +473,11 @@ contract('PrepaidAggregator', () => {
               from: personas.Carol,
             },
           )
+
+          for (const oracle of oracles) {
+            await aggregator.updateAnswer(nextRound, answer, { from: oracle })
+          }
+          nextRound++
 
           await aggregator.updateAnswer(nextRound, answer, {
             from: personas.Ned,
