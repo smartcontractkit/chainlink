@@ -60,8 +60,6 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) private rounds;
 
-  event NewRound(uint256 indexed number, address indexed startedBy);
-  event AnswerUpdated(int256 indexed current, uint256 indexed round, uint256 timestamp);
   event AvailableFundsUpdated(uint256 indexed amount);
   event RoundDetailsUpdated(
     uint128 indexed paymentAmount,

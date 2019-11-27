@@ -21,8 +21,6 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
   }
 
   event ResponseReceived(int256 indexed response, uint256 indexed answerId, address indexed sender);
-  event AnswerUpdated(int256 indexed current, uint256 indexed answerId, uint256 timestamp);
-  event NewRound(uint256 indexed number, address indexed startedBy);
 
   int256 private currentAnswerValue;
   uint256 private updatedTimestampValue;
