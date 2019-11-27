@@ -20,47 +20,47 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
   /**
    * @notice Reads the current answer from aggregator delegated to.
    */
-  function currentAnswer()
+  function latestAnswer()
     external
     view
     returns (int256)
   {
-    return aggregator.currentAnswer();
+    return aggregator.latestAnswer();
   }
 
   /**
    * @notice Reads the last updated height from aggregator delegated to.
    */
-  function updatedTimestamp()
+  function latestTimestamp()
     external
     view
     returns (uint256)
   {
-    return aggregator.updatedTimestamp();
+    return aggregator.latestTimestamp();
   }
 
   /**
    * @notice get past rounds answers
-   * @param _id the answer number to retrieve the answer for
+   * @param _roundId the answer number to retrieve the answer for
    */
-  function getAnswer(uint256 _id)
+  function getAnswer(uint256 _roundId)
     external
     view
     returns (int256)
   {
-    return aggregator.getAnswer(_id);
+    return aggregator.getAnswer(_roundId);
   }
 
   /**
    * @notice get block timestamp when an answer was last updated
-   * @param _id the answer number to retrieve the updated timestamp for
+   * @param _roundId the answer number to retrieve the updated timestamp for
    */
-  function getUpdatedTimestamp(uint256 _id)
+  function getTimestamp(uint256 _roundId)
     external
     view
     returns (uint256)
   {
-    return aggregator.getUpdatedTimestamp(_id);
+    return aggregator.getTimestamp(_roundId);
   }
 
   /**

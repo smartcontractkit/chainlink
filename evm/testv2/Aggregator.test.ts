@@ -60,7 +60,7 @@ describe('Aggregator', () => {
       'authorizedRequesters',
       'cancelRequest',
       'chainlinkCallback',
-      'currentAnswer',
+      'latestAnswer',
       'getAnswer',
       'destroy',
       'jobIds',
@@ -72,8 +72,8 @@ describe('Aggregator', () => {
       'setAuthorization',
       'transferLINK',
       'updateRequestDetails',
-      'updatedTimestamp',
-      'getUpdatedTimestamp',
+      'latestTimestamp',
+      'getTimestamp',
       // Ownable methods:
       'owner',
       'renounceOwnership',
@@ -92,7 +92,7 @@ describe('Aggregator', () => {
 
         await link.transfer(rate.address, deposit)
 
-        const current = await rate.currentAnswer()
+        const current = await rate.latestAnswer()
         assertBigNum(ethers.constants.Zero, current)
       })
 
@@ -106,7 +106,7 @@ describe('Aggregator', () => {
 
         await h.fulfillOracleRequest(oc1, request, response)
 
-        const current = await rate.currentAnswer()
+        const current = await rate.latestAnswer()
 
         assertBigNum(response, current)
 
@@ -117,7 +117,7 @@ describe('Aggregator', () => {
       })
 
       it('change the updatedAt record', async () => {
-        let updatedAt = await rate.updatedTimestamp()
+        let updatedAt = await rate.latestTimestamp()
         assert.equal('0', updatedAt.toString())
 
         const requestTx = await rate.requestRateUpdate()
@@ -125,11 +125,11 @@ describe('Aggregator', () => {
         const request = h.decodeRunRequest(receipt.logs![3])
         await h.fulfillOracleRequest(oc1, request, response)
 
-        updatedAt = await rate.updatedTimestamp()
+        updatedAt = await rate.latestTimestamp()
         assert.notEqual('0', updatedAt.toString())
 
         const answerId = await rate.latestRound()
-        const timestampMappingValue = await rate.getUpdatedTimestamp(answerId)
+        const timestampMappingValue = await rate.getTimestamp(answerId)
 
         assertBigNum(updatedAt, timestampMappingValue)
       })
@@ -190,7 +190,7 @@ describe('Aggregator', () => {
 
         await link.transfer(rate.address, deposit)
 
-        const current = await rate.currentAnswer()
+        const current = await rate.latestAnswer()
         assertBigNum(ethers.constants.Zero, current)
       })
 
@@ -209,7 +209,7 @@ describe('Aggregator', () => {
           await h.fulfillOracleRequest(oracle, request, responses[i])
         }
 
-        const current = await rate.currentAnswer()
+        const current = await rate.latestAnswer()
         assertBigNum(h.numToBytes32(77), current)
 
         const answerId = await rate.latestRound()
@@ -217,10 +217,10 @@ describe('Aggregator', () => {
 
         assertBigNum(current, currentMappingValue)
 
-        const updatedAt = await rate.updatedTimestamp()
+        const updatedAt = await rate.latestTimestamp()
         assert.notEqual('0', updatedAt.toString())
 
-        const timestampMappingValue = await rate.getUpdatedTimestamp(answerId)
+        const timestampMappingValue = await rate.getTimestamp(answerId)
 
         assertBigNum(updatedAt, timestampMappingValue)
       })
@@ -246,13 +246,13 @@ describe('Aggregator', () => {
           const request = h.decodeRunRequest(log)
           await h.fulfillOracleRequest(oracles[i], request, response2)
         }
-        assertBigNum(response2, await rate.currentAnswer())
+        assertBigNum(response2, await rate.latestAnswer())
 
         for (let i = 0; i < oracles.length; i++) {
           await h.fulfillOracleRequest(oracles[i], requests[i], response1)
         }
 
-        assertBigNum(response2, await rate.currentAnswer())
+        assertBigNum(response2, await rate.latestAnswer())
       })
     })
 
@@ -271,7 +271,7 @@ describe('Aggregator', () => {
 
         await link.transfer(rate.address, deposit)
 
-        const current = await rate.currentAnswer()
+        const current = await rate.latestAnswer()
         assertBigNum(ethers.constants.Zero, current)
       })
 
@@ -290,7 +290,7 @@ describe('Aggregator', () => {
           await h.fulfillOracleRequest(oracle, request, responses[i])
         }
 
-        const current = await rate.currentAnswer()
+        const current = await rate.latestAnswer()
         assertBigNum(77, current)
       })
     })
@@ -305,7 +305,7 @@ describe('Aggregator', () => {
       oc2 = await oracleFactory.connect(defaultAccount).deploy(link.address)
       await link.transfer(rate.address, deposit)
 
-      const current = await rate.currentAnswer()
+      const current = await rate.latestAnswer()
       assertBigNum(ethers.constants.Zero, current)
     })
 
@@ -338,7 +338,7 @@ describe('Aggregator', () => {
 
         const response1 = h.numToBytes32(100)
         await h.fulfillOracleRequest(oc1, request1, response1)
-        assertBigNum(response1, await rate.currentAnswer())
+        assertBigNum(response1, await rate.latestAnswer())
 
         const response2 = h.numToBytes32(200)
         await h.fulfillOracleRequest(oc2, request2, response2)
@@ -347,7 +347,7 @@ describe('Aggregator', () => {
         const response2Bn = ethers.utils.bigNumberify(response2)
         const expected = response1Bn.add(response2Bn).div(2)
 
-        assert.isTrue(expected.eq(await rate.currentAnswer()))
+        assert.isTrue(expected.eq(await rate.latestAnswer()))
       })
 
       describe('and the number of jobs does not match number of oracles', () => {
@@ -425,13 +425,13 @@ describe('Aggregator', () => {
         // fulfill request 1
         const response1 = h.numToBytes32(100)
         await h.fulfillOracleRequest(oc1, request1, response1)
-        assertBigNum(response1, await rate.currentAnswer())
+        assertBigNum(response1, await rate.latestAnswer())
 
         // fulfill request 2
         const responses2 = [202, 222].map(h.numToBytes32)
         await h.fulfillOracleRequest(oc2, request2, responses2[0])
         await h.fulfillOracleRequest(oc3, request3, responses2[1])
-        assertBigNum(212, await rate.currentAnswer())
+        assertBigNum(212, await rate.latestAnswer())
       })
     })
 
@@ -772,7 +772,7 @@ describe('Aggregator', () => {
           await h.fulfillOracleRequest(oracle, request, responses[i])
         }
 
-        assertBigNum(test.want, await rate.currentAnswer())
+        assertBigNum(test.want, await rate.latestAnswer())
       })
     }
   })
