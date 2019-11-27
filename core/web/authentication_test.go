@@ -15,15 +15,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func authError(_ *store.Store, _ *gin.Context) error {
+func authError(*store.Store, *gin.Context) error {
 	return errors.New("random error")
 }
 
-func authFailure(_ *store.Store, _ *gin.Context) error {
+func authFailure(*store.Store, *gin.Context) error {
 	return auth.ErrorAuthFailed
 }
 
-func authSuccess(_ *store.Store, _ *gin.Context) error {
+func authSuccess(*store.Store, *gin.Context) error {
 	return nil
 }
 
