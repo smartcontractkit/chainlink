@@ -1,18 +1,24 @@
 package models
 
 import (
-	"errors"
+	"crypto/subtle"
 	"regexp"
 	"time"
 
+	"chainlink/core/auth"
 	"chainlink/core/utils"
+
+	"github.com/pkg/errors"
 )
 
 // User holds the credentials for API user.
 type User struct {
-	Email          string    `json:"email" gorm:"primary_key"`
-	HashedPassword string    `json:"hashedPassword"`
-	CreatedAt      time.Time `json:"createdAt" gorm:"index"`
+	Email             string    `json:"email" gorm:"primary_key"`
+	HashedPassword    string    `json:"hashedPassword"`
+	CreatedAt         time.Time `json:"createdAt" gorm:"index"`
+	TokenKey          string    `json:"tokenKey"`
+	TokenSalt         string    `json:"-"`
+	TokenHashedSecret string    `json:"-"`
 }
 
 // https://davidcel.is/posts/stop-validating-email-addresses-with-regex/
@@ -70,4 +76,46 @@ func NewSession() Session {
 type ChangePasswordRequest struct {
 	OldPassword string `json:"oldPassword"`
 	NewPassword string `json:"newPassword"`
+}
+
+// Changeauth.TokenRequest is sent when updating a User's authentication token.
+type ChangeAuthTokenRequest struct {
+	Password string `json:"password"`
+}
+
+// GenerateAuthToken randomly generates and sets the users Authentication
+// Token.
+func (u *User) GenerateAuthToken() (*auth.Token, error) {
+	token := auth.NewToken()
+	return token, u.SetAuthToken(token)
+}
+
+// DeleteAuthToken clears and disables the users Authentication Token.
+func (u *User) DeleteAuthToken() {
+	u.TokenKey = ""
+	u.TokenSalt = ""
+	u.TokenHashedSecret = ""
+}
+
+// SetAuthToken updates the user to use the given Authentication Token.
+func (u *User) SetAuthToken(token *auth.Token) error {
+	salt := utils.NewSecret(utils.DefaultSecretSize)
+	hashedSecret, err := auth.HashedSecret(token, salt)
+	if err != nil {
+		return errors.Wrap(err, "user")
+	}
+	u.TokenSalt = salt
+	u.TokenKey = token.AccessKey
+	u.TokenHashedSecret = hashedSecret
+	return nil
+}
+
+// AuthenticateUserByToken returns true on successful authentication of the
+// user against the given Authentication Token.
+func AuthenticateUserByToken(token *auth.Token, user *User) (bool, error) {
+	hashedSecret, err := auth.HashedSecret(token, user.TokenSalt)
+	if err != nil {
+		return false, err
+	}
+	return subtle.ConstantTimeCompare([]byte(hashedSecret), []byte(user.TokenHashedSecret)) == 1, nil
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"chainlink/core/adapters"
+	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
@@ -228,7 +229,7 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 		Name: "someCoin",
 		URL:  &url,
 	}
-	eia := models.NewExternalInitiatorAuthentication()
+	eia := auth.NewToken()
 	ei, err := models.NewExternalInitiator(eia, &eir)
 	require.NoError(t, err)
 	err = app.GetStore().CreateExternalInitiator(ei)

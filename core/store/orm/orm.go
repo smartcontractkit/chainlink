@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"chainlink/core/auth"
 	"chainlink/core/gracefulpanic"
 	"chainlink/core/logger"
 	"chainlink/core/store/assets"
@@ -377,7 +378,9 @@ func (orm *ORM) DeleteExternalInitiator(accessKey string) error {
 }
 
 // FindExternalInitiator finds an external initiator given an authentication request
-func (orm *ORM) FindExternalInitiator(eia *models.ExternalInitiatorAuthentication) (*models.ExternalInitiator, error) {
+func (orm *ORM) FindExternalInitiator(
+	eia *auth.Token,
+) (*models.ExternalInitiator, error) {
 	orm.MustEnsureAdvisoryLock()
 	initiator := &models.ExternalInitiator{}
 	err := orm.db.Where("access_key = ?", eia.AccessKey).Find(initiator).Error
