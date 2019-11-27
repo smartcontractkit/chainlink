@@ -818,11 +818,6 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 	return orm.FindUser()
 }
 
-// AuthorizedUserWithToken ...
-func (orm *ORM) AuthorizedUserWithToken(tokenSecret string) (models.User, error) {
-	return models.User{}, errors.New("not implemented")
-}
-
 // DeleteUser will delete the API User in the db.
 func (orm *ORM) DeleteUser() (models.User, error) {
 	orm.MustEnsureAdvisoryLock()
