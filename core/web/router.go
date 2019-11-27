@@ -47,7 +47,7 @@ const (
 	SessionIDKey = "clsession_id"
 	// SessionUserKey is the User key in the session map
 	SessionUserKey = "user"
-	// SessionExternalInitiatorKey is the Externale Initiator key in the session map
+	// SessionExternalInitiatorKey is the External Initiator key in the session map
 	SessionExternalInitiatorKey = "external_initiator"
 )
 
