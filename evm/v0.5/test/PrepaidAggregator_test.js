@@ -32,13 +32,14 @@ contract('PrepaidAggregator', () => {
       'addOracle',
       'allocatedFunds',
       'availableFunds',
-      'latestAnswer',
       'currentRound',
       'forceNewRound',
       'getAnswer',
       'getTimestamp',
+      'latestAnswer',
       'latestRound',
       'latestSubmission',
+      'latestTimestamp',
       'maxAnswerCount',
       'minAnswerCount',
       'oracleCount',
@@ -49,7 +50,6 @@ contract('PrepaidAggregator', () => {
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
-      'latestTimestamp',
       'withdraw',
       'withdrawFunds',
       'withdrawable',
@@ -473,12 +473,10 @@ contract('PrepaidAggregator', () => {
               from: personas.Carol,
             },
           )
-
           for (const oracle of oracles) {
             await aggregator.updateAnswer(nextRound, answer, { from: oracle })
           }
           nextRound++
-
           await aggregator.updateAnswer(nextRound, answer, {
             from: personas.Ned,
           })
@@ -486,9 +484,7 @@ contract('PrepaidAggregator', () => {
             from: personas.Nelly,
           })
           assert.equal(nextRound, await aggregator.currentRound.call())
-
           await h.sleepSeconds(delay + 1) // +1 for buffer
-
           nextRound++
         })
 
@@ -500,7 +496,7 @@ contract('PrepaidAggregator', () => {
 
         it('sets the info for the previous round', async () => {
           const previousRound = nextRound - 1
-          let updated = await aggregator.getUpdatedTimestamp.call(previousRound)
+          let updated = await aggregator.getTimestamp.call(previousRound)
           let answer = await aggregator.getAnswer.call(previousRound)
           assert.equal(0, updated)
           assert.equal(0, answer)
@@ -509,7 +505,7 @@ contract('PrepaidAggregator', () => {
             from: personas.Nelly,
           })
 
-          updated = await aggregator.getUpdatedTimestamp.call(previousRound)
+          updated = await aggregator.getTimestamp.call(previousRound)
           answer = await aggregator.getAnswer.call(previousRound)
           assert.notEqual(0, updated)
           assert.notEqual(0, answer)
@@ -1205,15 +1201,12 @@ contract('PrepaidAggregator', () => {
 
         it('sets the info for the skipped round', async () => {
           assert.equal(0, await aggregator.getAnswer.call(nextRound))
-          assert.equal(0, await aggregator.getUpdatedTimestamp.call(nextRound))
+          assert.equal(0, await aggregator.getTimestamp.call(nextRound))
 
           await aggregator.forceNewRound({ from: personas.Carol })
 
           assert.equal(answer, await aggregator.getAnswer.call(nextRound))
-          assert.notEqual(
-            0,
-            await aggregator.getUpdatedTimestamp.call(nextRound),
-          )
+          assert.notEqual(0, await aggregator.getTimestamp.call(nextRound))
         })
       })
     })
