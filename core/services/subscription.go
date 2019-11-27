@@ -106,7 +106,7 @@ func NewInitiatorSubscription(
 		callback:   callback,
 	}
 
-	managedSub, err := NewManagedSubscription(store, filter, sub.dispatchLog)
+	managedSub, err := NewManagedSubscription(store.TxManager, filter, sub.dispatchLog)
 	if err != nil {
 		return sub, errors.Wrap(err, "NewInitiatorSubscription#NewManagedSubscription")
 	}
@@ -185,7 +185,7 @@ func runJob(store *strpkg.Store, runManager RunManager, le models.LogRequest, da
 // ManagedSubscription encapsulates the connecting, backfilling, and clean up of an
 // ethereum node subscription.
 type ManagedSubscription struct {
-	store           *strpkg.Store
+	logSubscriber   strpkg.LogSubscriber
 	logs            chan models.Log
 	ethSubscription models.EthSubscription
 	callback        func(models.Log)
@@ -194,18 +194,18 @@ type ManagedSubscription struct {
 // NewManagedSubscription subscribes to the ethereum node with the passed filter
 // and delegates incoming logs to callback.
 func NewManagedSubscription(
-	store *strpkg.Store,
+	logSubscriber strpkg.LogSubscriber,
 	filter ethereum.FilterQuery,
 	callback func(models.Log),
 ) (*ManagedSubscription, error) {
 	logs := make(chan models.Log)
-	es, err := store.TxManager.SubscribeToLogs(logs, filter)
+	es, err := logSubscriber.SubscribeToLogs(logs, filter)
 	if err != nil {
 		return nil, err
 	}
 
 	sub := &ManagedSubscription{
-		store:           store,
+		logSubscriber:   logSubscriber,
 		callback:        callback,
 		logs:            logs,
 		ethSubscription: es,
@@ -267,7 +267,7 @@ func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]b
 		return backfilledSet
 	}
 
-	logs, err := sub.store.TxManager.GetLogs(q)
+	logs, err := sub.logSubscriber.GetLogs(q)
 	if err != nil {
 		logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 		return backfilledSet

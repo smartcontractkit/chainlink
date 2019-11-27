@@ -36,6 +36,12 @@ const nonceReloadLimit int = 1
 // ErrPendingConnection is the error returned if TxManager is not connected.
 var ErrPendingConnection = errors.New("Cannot talk to chain, pending connection")
 
+// LogSubscriber encapsulates only the methods needed for subscribing to ethereum log events.
+type LogSubscriber interface {
+	SubscribeToLogs(channel chan<- models.Log, q ethereum.FilterQuery) (models.EthSubscription, error)
+	GetLogs(q ethereum.FilterQuery) ([]models.Log, error)
+}
+
 // TxManager represents an interface for interacting with the blockchain
 type TxManager interface {
 	HeadTrackable
@@ -57,8 +63,7 @@ type TxManager interface {
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	SubscribeToNewHeads(channel chan<- models.BlockHeader) (models.EthSubscription, error)
 	GetBlockByNumber(hex string) (models.BlockHeader, error)
-	SubscribeToLogs(channel chan<- models.Log, q ethereum.FilterQuery) (models.EthSubscription, error)
-	GetLogs(q ethereum.FilterQuery) ([]models.Log, error)
+	LogSubscriber
 	GetTxReceipt(common.Hash) (*models.TxReceipt, error)
 	GetChainID() (*big.Int, error)
 }
