@@ -86,6 +86,8 @@ describe('AggregatorProxy', () => {
 
     it('pulls the rate from the aggregator', async () => {
       assertBigNum(response, await proxy.currentAnswer())
+      const latestRound = await proxy.latestRound()
+      assertBigNum(response, await proxy.getAnswer(latestRound))
     })
 
     describe('after being updated to another contract', () => {
@@ -106,6 +108,8 @@ describe('AggregatorProxy', () => {
 
       it('pulls the rate from the new aggregator', async () => {
         assertBigNum(response2, await proxy.currentAnswer())
+        const latestRound = await proxy.latestRound()
+        assertBigNum(response2, await proxy.getAnswer(latestRound))
       })
     })
   })
@@ -125,6 +129,11 @@ describe('AggregatorProxy', () => {
       assertBigNum(
         await aggregator.updatedTimestamp(),
         await proxy.updatedTimestamp(),
+      )
+      const latestRound = await proxy.latestRound()
+      assertBigNum(
+        await aggregator.updatedTimestamp(),
+        await proxy.getUpdatedTimestamp(latestRound),
       )
     })
 
@@ -154,47 +163,11 @@ describe('AggregatorProxy', () => {
           await aggregator2.updatedTimestamp(),
           await proxy.updatedTimestamp(),
         )
-      })
-    })
-  })
-
-  describe('#getAnswer', () => {
-    beforeEach(async () => {
-      const requestTx = await aggregator.requestRateUpdate()
-      const receipt = await requestTx.wait()
-
-      const request = h.decodeRunRequest(receipt.logs![3])
-      await h.fulfillOracleRequest(oc1, request, response)
-      assertBigNum(
-        ethers.utils.bigNumberify(response),
-        await aggregator.currentAnswer(),
-      )
-    })
-
-    it('pulls the rate from the aggregator for the given round', async () => {
-      const latestRound = await proxy.latestRound()
-      assertBigNum(response, await proxy.getAnswer(latestRound))
-    })
-
-    describe('after being updated to another contract', () => {
-      beforeEach(async () => {
-        aggregator2 = await aggregatorFactory
-          .connect(defaultAccount)
-          .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
-        await link.transfer(aggregator2.address, deposit)
-        const requestTx = await aggregator2.requestRateUpdate()
-        const receipt = await requestTx.wait()
-        const request = h.decodeRunRequest(receipt.logs![3])
-
-        await h.fulfillOracleRequest(oc1, request, response2)
-        assertBigNum(response2, await aggregator2.currentAnswer())
-
-        await proxy.setAggregator(aggregator2.address)
-      })
-
-      it('pulls the rate from the new aggregator for the given round', async () => {
         const latestRound = await proxy.latestRound()
-        assertBigNum(response2, await proxy.getAnswer(latestRound))
+        assertBigNum(
+          await aggregator2.updatedTimestamp(),
+          await proxy.getUpdatedTimestamp(latestRound),
+        )
       })
     })
   })
