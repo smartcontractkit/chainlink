@@ -21,7 +21,7 @@ func TestParseRunLog(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         eth.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -77,7 +77,7 @@ func TestEthLogEvent_JSON(t *testing.T) {
 	exampleLog := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 	tests := []struct {
 		name        string
-		el          models.Log
+		el          eth.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -162,7 +162,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		name       string
 		job        models.JobSpec
 		requester  common.Address
-		logFactory (func(*testing.T, *models.ID, common.Address, common.Address, int, string) models.Log)
+		logFactory (func(*testing.T, *models.ID, common.Address, common.Address, int, string) eth.Log)
 		wantStatus models.RunStatus
 	}{
 		{
@@ -201,7 +201,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			defer cleanup()
 
 			eth := app.MockEthCallerSubscriber()
-			logs := make(chan models.Log, 1)
+			logs := make(chan eth.Log, 1)
 			eth.Context("app.Start()", func(eth *cltest.EthMock) {
 				eth.Register("eth_getTransactionCount", "0x1")
 				eth.RegisterSubscription("logs", logs)
@@ -360,7 +360,7 @@ func TestRunLogEvent_ContractPayment(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         eth.Log
 		wantErrored bool
 		want        *assets.Link
 	}{
@@ -401,7 +401,7 @@ func TestRunLogEvent_Requester(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         eth.Log
 		wantErrored bool
 		want        common.Address
 	}{
@@ -441,7 +441,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		log           models.Log
+		log           eth.Log
 		wantRequestID string
 		wantTxHash    string
 		wantBlockHash string

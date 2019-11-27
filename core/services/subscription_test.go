@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/mock/gomock"
 
+	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
 	"chainlink/core/services"
@@ -33,7 +34,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
 	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
-	eth.Register("eth_getLogs", []models.Log{log})
+	eth.Register("eth_getLogs", []ethpkg.Log{log})
 	eth.RegisterSubscription("logs")
 
 	var count int32
@@ -84,8 +85,8 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	initr := job.Initiators[0]
 
 	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
-	eth.Register("eth_getLogs", []models.Log{log}) // backfill
-	logsChan := make(chan models.Log)
+	eth.Register("eth_getLogs", []ethpkg.Log{log}) // backfill
+	logsChan := make(chan ethpkg.Log)
 	eth.RegisterSubscription("logs", logsChan)
 
 	var count int32
@@ -118,7 +119,7 @@ func TestServices_ReceiveLogRequest_IgnoredLogWithRemovedFlag(t *testing.T) {
 
 	log := models.InitiatorLogEvent{
 		JobSpecID: *jobSpec.ID,
-		Log: models.Log{
+		Log: ethpkg.Log{
 			Removed: true,
 		},
 	}
@@ -212,8 +213,8 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			defer cleanup()
 
 			eth := cltest.MockEthOnStore(t, store)
-			eth.Register("eth_getLogs", []models.Log{})
-			logChan := make(chan models.Log, 1)
+			eth.Register("eth_getLogs", []ethpkg.Log{})
+			logChan := make(chan ethpkg.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 
 			job := cltest.NewJob()
@@ -235,7 +236,7 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotNil(t, subscription)
 
-			logChan <- models.Log{
+			logChan <- ethpkg.Log{
 				Address: test.logAddr,
 				Data:    test.data,
 				Topics: []common.Hash{
@@ -280,8 +281,8 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 			defer cleanup()
 
 			eth := cltest.MockEthOnStore(t, store)
-			eth.Register("eth_getLogs", []models.Log{})
-			logChan := make(chan models.Log, 1)
+			eth.Register("eth_getLogs", []ethpkg.Log{})
+			logChan := make(chan ethpkg.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 
 			job := cltest.NewJob()
@@ -296,7 +297,7 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotNil(t, subscription)
 
-			logChan <- models.Log{
+			logChan <- ethpkg.Log{
 				Address: sharedAddr,
 				Data:    test.data,
 				Topics: []common.Hash{
@@ -355,7 +356,7 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 			log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 
 			txManager.On("SubscribeToLogs", mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
-			txManager.On("GetLogs", expectedQuery).Return([]models.Log{log}, nil)
+			txManager.On("GetLogs", expectedQuery).Return([]ethpkg.Log{log}, nil)
 
 			executeJobChannel := make(chan struct{})
 
@@ -418,7 +419,7 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 			log.Topics[1] = models.IDToTopic(job.ID)
 
 			txmMock.On("SubscribeToLogs", mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
-			txmMock.On("GetLogs", expectedQuery).Return([]models.Log{log}, nil)
+			txmMock.On("GetLogs", expectedQuery).Return([]ethpkg.Log{log}, nil)
 
 			executeJobChannel := make(chan struct{})
 

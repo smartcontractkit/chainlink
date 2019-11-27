@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"chainlink/core/cmd"
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	"chainlink/core/services"
 	"chainlink/core/store"
@@ -248,7 +249,7 @@ func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) 
 func channelFromSubscriptionName(name string) interface{} {
 	switch name {
 	case "logs":
-		return make(chan models.Log)
+		return make(chan eth.Log)
 	case "newHeads":
 		return make(chan models.BlockHeader)
 	default:
@@ -261,14 +262,14 @@ func (mock *EthMock) EthSubscribe(
 	ctx context.Context,
 	channel interface{},
 	args ...interface{},
-) (models.EthSubscription, error) {
+) (eth.EthSubscription, error) {
 	mock.mutex.Lock()
 	defer mock.mutex.Unlock()
 	for i, sub := range mock.Subscriptions {
 		if sub.name == args[0] {
 			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)
 			switch channel.(type) {
-			case chan<- models.Log:
+			case chan<- eth.Log:
 				fwdLogs(channel, sub.channel)
 			case chan<- models.BlockHeader:
 				fwdHeaders(channel, sub.channel)
@@ -284,7 +285,7 @@ func (mock *EthMock) EthSubscribe(
 	} else if args[0] == "logs" && !mock.logsCalled {
 		mock.logsCalled = true
 		return MockSubscription{
-			channel: make(chan models.Log),
+			channel: make(chan eth.Log),
 			Errors:  make(chan error),
 		}, nil
 	} else if args[0] == "newHeads" {
@@ -308,8 +309,8 @@ func (mock *EthMock) RegisterNewHead(blockNumber int64) chan models.BlockHeader 
 }
 
 func fwdLogs(actual, mock interface{}) {
-	logChan := actual.(chan<- models.Log)
-	mockChan := mock.(chan models.Log)
+	logChan := actual.(chan<- eth.Log)
+	mockChan := mock.(chan eth.Log)
 	go func() {
 		for e := range mockChan {
 			logChan <- e
@@ -347,8 +348,8 @@ func (mes MockSubscription) Unsubscribe() {
 	switch mes.channel.(type) {
 	case chan struct{}:
 		close(mes.channel.(chan struct{}))
-	case chan models.Log:
-		close(mes.channel.(chan models.Log))
+	case chan eth.Log:
+		close(mes.channel.(chan eth.Log))
 	case chan models.BlockHeader:
 		close(mes.channel.(chan models.BlockHeader))
 	default:

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"chainlink/core/auth"
+	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
@@ -264,7 +265,7 @@ func TestIntegration_EthLog(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthCallerSubscriber()
-	logs := make(chan models.Log, 1)
+	logs := make(chan ethpkg.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.Register("eth_chainId", app.Store.Config.ChainID())
 		eth.RegisterSubscription("logs", logs)
@@ -315,7 +316,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			defer cleanup()
 
 			eth := app.MockEthCallerSubscriber()
-			logs := make(chan models.Log, 1)
+			logs := make(chan ethpkg.Log, 1)
 			newHeads := eth.RegisterNewHeads()
 			eth.Context("app.Start()", func(eth *cltest.EthMock) {
 				eth.RegisterSubscription("logs", logs)
@@ -392,7 +393,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 
 	eth := app.MockEthCallerSubscriber()
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	logs := make(chan models.Log, 1)
+	logs := make(chan ethpkg.Log, 1)
 	newHeads := make(chan models.BlockHeader, 10)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
@@ -552,7 +553,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 
 	eth := app.MockEthCallerSubscriber()
 	eth.RegisterNewHead(1)
-	logs := make(chan models.Log, 1)
+	logs := make(chan ethpkg.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.Register("eth_chainId", app.Config.ChainID())
 		eth.RegisterSubscription("logs", logs)
@@ -666,7 +667,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	defer cleanup()
 
 	eth := app.MockEthCallerSubscriber()
-	logs := make(chan models.Log, 1)
+	logs := make(chan ethpkg.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 		eth.Register("eth_getTransactionCount", `0x100`)
