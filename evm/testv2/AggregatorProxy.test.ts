@@ -59,9 +59,11 @@ describe('AggregatorProxy', () => {
       'aggregator',
       'currentAnswer',
       'latestRound',
+      'getAnswer',
       'destroy',
       'setAggregator',
       'updatedTimestamp',
+      'getUpdatedTimestamp',
       // Ownable methods:
       'owner',
       'renounceOwnership',
@@ -84,6 +86,8 @@ describe('AggregatorProxy', () => {
 
     it('pulls the rate from the aggregator', async () => {
       assertBigNum(response, await proxy.currentAnswer())
+      const latestRound = await proxy.latestRound()
+      assertBigNum(response, await proxy.getAnswer(latestRound))
     })
 
     describe('after being updated to another contract', () => {
@@ -104,6 +108,8 @@ describe('AggregatorProxy', () => {
 
       it('pulls the rate from the new aggregator', async () => {
         assertBigNum(response2, await proxy.currentAnswer())
+        const latestRound = await proxy.latestRound()
+        assertBigNum(response2, await proxy.getAnswer(latestRound))
       })
     })
   })
@@ -123,6 +129,11 @@ describe('AggregatorProxy', () => {
       assertBigNum(
         await aggregator.updatedTimestamp(),
         await proxy.updatedTimestamp(),
+      )
+      const latestRound = await proxy.latestRound()
+      assertBigNum(
+        await aggregator.updatedTimestamp(),
+        await proxy.getUpdatedTimestamp(latestRound),
       )
     })
 
@@ -151,6 +162,11 @@ describe('AggregatorProxy', () => {
         assertBigNum(
           await aggregator2.updatedTimestamp(),
           await proxy.updatedTimestamp(),
+        )
+        const latestRound = await proxy.latestRound()
+        assertBigNum(
+          await aggregator2.updatedTimestamp(),
+          await proxy.getUpdatedTimestamp(latestRound),
         )
       })
     })
