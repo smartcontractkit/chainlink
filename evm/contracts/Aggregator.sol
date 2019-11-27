@@ -21,7 +21,6 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
   }
 
   event ResponseReceived(int256 indexed response, uint256 indexed answerId, address indexed sender);
-  event AnswerUpdated(int256 indexed current, uint256 indexed answerId);
 
   int256 private currentAnswerValue;
   uint256 private updatedTimestampValue;
@@ -85,6 +84,8 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     answers[answerCounter].minimumResponses = minimumResponses;
     answers[answerCounter].maxResponses = uint128(oracles.length);
     answerCounter = answerCounter.add(1);
+
+    emit NewRound(answerCounter, msg.sender);
   }
 
   /**
@@ -232,7 +233,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     updatedTimestampValue = now;
     updatedTimestamps[_answerId] = now;
     currentAnswers[_answerId] = currentAnswerTemp;
-    emit AnswerUpdated(currentAnswerTemp, _answerId);
+    emit AnswerUpdated(currentAnswerTemp, _answerId, now);
   }
 
   /**
@@ -243,7 +244,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     view
     returns (int256)
   {
-    return getAnswer(latestCompletedAnswer);
+    return currentAnswers[latestCompletedAnswer];
   }
 
   /**
@@ -254,7 +255,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     view
     returns (uint256)
   {
-    return getUpdatedTimestamp(latestCompletedAnswer);
+    return updatedTimestamps[latestCompletedAnswer];
   }
 
   /**
@@ -262,7 +263,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
    * @param _id the answer number to retrieve the answer for
    */
   function getAnswer(uint256 _id)
-    public
+    external
     view
     returns (int256)
   {
@@ -274,7 +275,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
    * @param _id the answer number to retrieve the updated timestamp for
    */
   function getUpdatedTimestamp(uint256 _id)
-    public
+    external
     view
     returns (uint256)
   {

@@ -7,6 +7,7 @@ import "./SafeMath128.sol";
 import "./SafeMath32.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
+import "./AggregatorInterface.sol";
 
 /**
  * @title The Prepaid Aggregator contract
@@ -16,7 +17,7 @@ import "../interfaces/WithdrawalInterface.sol";
  * single answer. The latest aggregated answer is exposed as well as historical
  * answers and their updated at timestamp.
  */
-contract PrepaidAggregator is Ownable, WithdrawalInterface {
+contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface {
   using SafeMath for uint256;
   using SafeMath128 for uint128;
   using SafeMath32 for uint32;
@@ -43,7 +44,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     int256 latestAnswer;
   }
 
-  uint32 public latestRound;
+  uint32 private latestRoundValue;
   uint32 public currentRound;
   uint128 public allocatedFunds;
   uint128 public availableFunds;
@@ -59,8 +60,6 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) private rounds;
 
-  event NewRound(uint32 indexed number, address indexed startedBy);
-  event AnswerUpdated(int256 indexed current, uint32 indexed round);
   event AvailableFundsUpdated(uint256 indexed amount);
   event RoundDetailsUpdated(
     uint128 indexed paymentAmount,
@@ -219,7 +218,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     view
     returns (int256)
   {
-    return getAnswer(latestRound);
+    return rounds[latestRoundValue].answer;
   }
 
   /**
@@ -230,31 +229,42 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     view
     returns (uint256)
   {
-    return getUpdatedTimestamp(latestRound);
+    return rounds[latestRoundValue].updatedTimestamp;
+  }
+
+  /**
+   * @notice get the last updated round
+   */
+  function latestRound()
+    external
+    view
+    returns (uint256)
+  {
+    return uint256(latestRoundValue);
   }
 
   /**
    * @notice get past rounds answers
    * @param _id the round number to retrieve the answer for
    */
-  function getAnswer(uint32 _id)
-    public
+  function getAnswer(uint256 _id)
+    external
     view
     returns (int256)
   {
-    return rounds[_id].answer;
+    return rounds[uint32(_id)].answer;
   }
 
   /**
    * @notice get timestamp when an answer was last updated
    * @param _id the round number to retrieve the updated timestamp for
    */
-  function getUpdatedTimestamp(uint32 _id)
-    public
+  function getUpdatedTimestamp(uint256 _id)
+    external
     view
     returns (uint256)
   {
-    return rounds[_id].updatedTimestamp;
+    return rounds[uint32(_id)].updatedTimestamp;
   }
 
   /**
@@ -330,7 +340,7 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
 
     recordStartedRound(_id);
 
-    emit NewRound(_id, msg.sender);
+    emit NewRound(uint256(_id), msg.sender);
   }
 
   function recordStartedRound(uint32 _id)
@@ -347,9 +357,9 @@ contract PrepaidAggregator is Ownable, WithdrawalInterface {
     int256 newAnswer = Median.calculate(rounds[_id].details.answers);
     rounds[_id].answer = newAnswer;
     rounds[_id].updatedTimestamp = block.timestamp;
-    latestRound = _id;
+    latestRoundValue = _id;
 
-    emit AnswerUpdated(newAnswer, _id);
+    emit AnswerUpdated(newAnswer, uint256(_id), now);
   }
 
   function payOracle(uint32 _id)
