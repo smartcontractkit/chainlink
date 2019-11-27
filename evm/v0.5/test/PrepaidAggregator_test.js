@@ -1150,17 +1150,46 @@ contract('PrepaidAggregator', () => {
     })
 
     context('when called by the owner', async () => {
-      it('starts a new round', async () => {
+      it('starts a newly updatable round round', async () => {
         const tx = await aggregator.forceNewRound({ from: personas.Carol })
         const log = tx.receipt.rawLogs[0]
         const newRoundNumber = h.bigNum(log.topics[1])
         const startedBy = h.evmWordToAddress(log.topics[2])
 
-        assert.equal(nextRound + 1, newRoundNumber.toNumber())
         assert.equal(startedBy, personas.Carol)
+        assert.equal(nextRound + 1, newRoundNumber.toNumber())
+        assert.equal(nextRound + 1, await aggregator.currentRound.call())
 
         await aggregator.updateAnswer(newRoundNumber, answer, {
           from: personas.Neil,
+        })
+      })
+
+      context('with a previous answer', async () => {
+        beforeEach(async () => {
+          // complete last round
+          await aggregator.updateAnswer(nextRound, answer, {
+            from: personas.Ned,
+          })
+          nextRound++
+
+          // start new round
+          await aggregator.updateAnswer(nextRound, answer, {
+            from: personas.Neil,
+          })
+        })
+
+        it('sets the info for the skipped round', async () => {
+          assert.equal(0, await aggregator.getAnswer.call(nextRound))
+          assert.equal(0, await aggregator.getUpdatedTimestamp.call(nextRound))
+
+          await aggregator.forceNewRound({ from: personas.Carol })
+
+          assert.equal(answer, await aggregator.getAnswer.call(nextRound))
+          assert.notEqual(
+            0,
+            await aggregator.getUpdatedTimestamp.call(nextRound),
+          )
         })
       })
     })
