@@ -57,13 +57,13 @@ describe('AggregatorProxy', () => {
   it('has a limited public interface', () => {
     h.checkPublicABI(aggregatorProxyFactory, [
       'aggregator',
-      'currentAnswer',
+      'latestAnswer',
       'latestRound',
       'getAnswer',
       'destroy',
       'setAggregator',
-      'updatedTimestamp',
-      'getUpdatedTimestamp',
+      'latestTimestamp',
+      'getTimestamp',
       // Ownable methods:
       'owner',
       'renounceOwnership',
@@ -71,7 +71,7 @@ describe('AggregatorProxy', () => {
     ])
   })
 
-  describe('#currentAnswer', () => {
+  describe('#latestAnswer', () => {
     beforeEach(async () => {
       const requestTx = await aggregator.requestRateUpdate()
       const receipt = await requestTx.wait()
@@ -80,12 +80,12 @@ describe('AggregatorProxy', () => {
       await h.fulfillOracleRequest(oc1, request, response)
       assertBigNum(
         ethers.utils.bigNumberify(response),
-        await aggregator.currentAnswer(),
+        await aggregator.latestAnswer(),
       )
     })
 
     it('pulls the rate from the aggregator', async () => {
-      assertBigNum(response, await proxy.currentAnswer())
+      assertBigNum(response, await proxy.latestAnswer())
       const latestRound = await proxy.latestRound()
       assertBigNum(response, await proxy.getAnswer(latestRound))
     })
@@ -101,39 +101,39 @@ describe('AggregatorProxy', () => {
         const request = h.decodeRunRequest(receipt.logs![3])
 
         await h.fulfillOracleRequest(oc1, request, response2)
-        assertBigNum(response2, await aggregator2.currentAnswer())
+        assertBigNum(response2, await aggregator2.latestAnswer())
 
         await proxy.setAggregator(aggregator2.address)
       })
 
       it('pulls the rate from the new aggregator', async () => {
-        assertBigNum(response2, await proxy.currentAnswer())
+        assertBigNum(response2, await proxy.latestAnswer())
         const latestRound = await proxy.latestRound()
         assertBigNum(response2, await proxy.getAnswer(latestRound))
       })
     })
   })
 
-  describe('#updatedTimestamp', () => {
+  describe('#latestTimestamp', () => {
     beforeEach(async () => {
       const requestTx = await aggregator.requestRateUpdate()
       const receipt = await requestTx.wait()
       const request = h.decodeRunRequest(receipt.logs![3])
 
       await h.fulfillOracleRequest(oc1, request, response)
-      const height = await aggregator.updatedTimestamp()
+      const height = await aggregator.latestTimestamp()
       assert.notEqual('0', height.toString())
     })
 
     it('pulls the height from the aggregator', async () => {
       assertBigNum(
-        await aggregator.updatedTimestamp(),
-        await proxy.updatedTimestamp(),
+        await aggregator.latestTimestamp(),
+        await proxy.latestTimestamp(),
       )
       const latestRound = await proxy.latestRound()
       assertBigNum(
-        await aggregator.updatedTimestamp(),
-        await proxy.getUpdatedTimestamp(latestRound),
+        await aggregator.latestTimestamp(),
+        await proxy.getTimestamp(latestRound),
       )
     })
 
@@ -149,10 +149,10 @@ describe('AggregatorProxy', () => {
         const request = h.decodeRunRequest(receipt.logs![3])
 
         await h.fulfillOracleRequest(oc1, request, response2)
-        const height2 = await aggregator2.updatedTimestamp()
+        const height2 = await aggregator2.latestTimestamp()
         assert.notEqual('0', height2.toString())
 
-        const height1 = await aggregator.updatedTimestamp()
+        const height1 = await aggregator.latestTimestamp()
         assert.notEqual(height1.toString(), height2.toString())
 
         await proxy.setAggregator(aggregator2.address)
@@ -160,13 +160,13 @@ describe('AggregatorProxy', () => {
 
       it('pulls the height from the new aggregator', async () => {
         assertBigNum(
-          await aggregator2.updatedTimestamp(),
-          await proxy.updatedTimestamp(),
+          await aggregator2.latestTimestamp(),
+          await proxy.latestTimestamp(),
         )
         const latestRound = await proxy.latestRound()
         assertBigNum(
-          await aggregator2.updatedTimestamp(),
-          await proxy.getUpdatedTimestamp(latestRound),
+          await aggregator2.latestTimestamp(),
+          await proxy.getTimestamp(latestRound),
         )
       })
     })

@@ -213,7 +213,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   /**
    * @notice get the most recently reported answer
    */
-  function currentAnswer()
+  function latestAnswer()
     external
     view
     returns (int256)
@@ -224,7 +224,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   /**
    * @notice get the last updated at timestamp
    */
-  function updatedTimestamp()
+  function latestTimestamp()
     external
     view
     returns (uint256)
@@ -245,26 +245,26 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   /**
    * @notice get past rounds answers
-   * @param _id the round number to retrieve the answer for
+   * @param _roundId the round number to retrieve the answer for
    */
-  function getAnswer(uint256 _id)
+  function getAnswer(uint256 _roundId)
     external
     view
     returns (int256)
   {
-    return rounds[uint32(_id)].answer;
+    return rounds[uint32(_roundId)].answer;
   }
 
   /**
    * @notice get timestamp when an answer was last updated
-   * @param _id the round number to retrieve the updated timestamp for
+   * @param _roundId the round number to retrieve the updated timestamp for
    */
-  function getUpdatedTimestamp(uint256 _id)
+  function getTimestamp(uint256 _roundId)
     external
     view
     returns (uint256)
   {
-    return rounds[uint32(_id)].updatedTimestamp;
+    return rounds[uint32(_roundId)].updatedTimestamp;
   }
 
   /**
