@@ -138,6 +138,11 @@ func (c Config) Dev() bool {
 	return c.viper.GetBool(EnvVarName("Dev"))
 }
 
+// FeatureExternalInitiators enables the External Initiator feature.
+func (c Config) FeatureExternalInitiators() bool {
+	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
+}
+
 // MaxRPCCallsPerSecond returns the rate at which RPC calls can be fired
 func (c Config) MaxRPCCallsPerSecond() uint64 {
 	return c.viper.GetUint64(EnvVarName("MaxRPCCallsPerSecond"))
