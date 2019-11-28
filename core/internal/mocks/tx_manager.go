@@ -28,15 +28,15 @@ type TxManager struct {
 }
 
 // BumpGasUntilSafe provides a mock function with given fields: hash
-func (_m *TxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, store.AttemptState, error) {
+func (_m *TxManager) BumpGasUntilSafe(hash common.Hash) (*eth.TxReceipt, store.AttemptState, error) {
 	ret := _m.Called(hash)
 
-	var r0 *models.TxReceipt
-	if rf, ok := ret.Get(0).(func(common.Hash) *models.TxReceipt); ok {
+	var r0 *eth.TxReceipt
+	if rf, ok := ret.Get(0).(func(common.Hash) *eth.TxReceipt); ok {
 		r0 = rf(hash)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*models.TxReceipt)
+			r0 = ret.Get(0).(*eth.TxReceipt)
 		}
 	}
 
@@ -58,15 +58,15 @@ func (_m *TxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, stor
 }
 
 // CheckAttempt provides a mock function with given fields: txAttempt, blockHeight
-func (_m *TxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*models.TxReceipt, store.AttemptState, error) {
+func (_m *TxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*eth.TxReceipt, store.AttemptState, error) {
 	ret := _m.Called(txAttempt, blockHeight)
 
-	var r0 *models.TxReceipt
-	if rf, ok := ret.Get(0).(func(*models.TxAttempt, uint64) *models.TxReceipt); ok {
+	var r0 *eth.TxReceipt
+	if rf, ok := ret.Get(0).(func(*models.TxAttempt, uint64) *eth.TxReceipt); ok {
 		r0 = rf(txAttempt, blockHeight)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*models.TxReceipt)
+			r0 = ret.Get(0).(*eth.TxReceipt)
 		}
 	}
 
@@ -211,14 +211,14 @@ func (_m *TxManager) Disconnect() {
 }
 
 // GetBlockByNumber provides a mock function with given fields: hex
-func (_m *TxManager) GetBlockByNumber(hex string) (models.BlockHeader, error) {
+func (_m *TxManager) GetBlockByNumber(hex string) (eth.BlockHeader, error) {
 	ret := _m.Called(hex)
 
-	var r0 models.BlockHeader
-	if rf, ok := ret.Get(0).(func(string) models.BlockHeader); ok {
+	var r0 eth.BlockHeader
+	if rf, ok := ret.Get(0).(func(string) eth.BlockHeader); ok {
 		r0 = rf(hex)
 	} else {
-		r0 = ret.Get(0).(models.BlockHeader)
+		r0 = ret.Get(0).(eth.BlockHeader)
 	}
 
 	var r1 error
@@ -324,15 +324,15 @@ func (_m *TxManager) GetLogs(q ethereum.FilterQuery) ([]eth.Log, error) {
 }
 
 // GetTxReceipt provides a mock function with given fields: _a0
-func (_m *TxManager) GetTxReceipt(_a0 common.Hash) (*models.TxReceipt, error) {
+func (_m *TxManager) GetTxReceipt(_a0 common.Hash) (*eth.TxReceipt, error) {
 	ret := _m.Called(_a0)
 
-	var r0 *models.TxReceipt
-	if rf, ok := ret.Get(0).(func(common.Hash) *models.TxReceipt); ok {
+	var r0 *eth.TxReceipt
+	if rf, ok := ret.Get(0).(func(common.Hash) *eth.TxReceipt); ok {
 		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*models.TxReceipt)
+			r0 = ret.Get(0).(*eth.TxReceipt)
 		}
 	}
 
@@ -396,11 +396,11 @@ func (_m *TxManager) SubscribeToLogs(channel chan<- eth.Log, q ethereum.FilterQu
 }
 
 // SubscribeToNewHeads provides a mock function with given fields: channel
-func (_m *TxManager) SubscribeToNewHeads(channel chan<- models.BlockHeader) (eth.EthSubscription, error) {
+func (_m *TxManager) SubscribeToNewHeads(channel chan<- eth.BlockHeader) (eth.EthSubscription, error) {
 	ret := _m.Called(channel)
 
 	var r0 eth.EthSubscription
-	if rf, ok := ret.Get(0).(func(chan<- models.BlockHeader) eth.EthSubscription); ok {
+	if rf, ok := ret.Get(0).(func(chan<- eth.BlockHeader) eth.EthSubscription); ok {
 		r0 = rf(channel)
 	} else {
 		if ret.Get(0) != nil {
@@ -409,7 +409,7 @@ func (_m *TxManager) SubscribeToNewHeads(channel chan<- models.BlockHeader) (eth
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(chan<- models.BlockHeader) error); ok {
+	if rf, ok := ret.Get(1).(func(chan<- eth.BlockHeader) error); ok {
 		r1 = rf(channel)
 	} else {
 		r1 = ret.Error(1)

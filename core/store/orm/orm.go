@@ -612,9 +612,9 @@ func (orm *ORM) CreateTx(
 		tx.To = *ethTx.To()
 		tx.Nonce = ethTx.Nonce()
 		tx.Data = ethTx.Data()
-		tx.Value = models.NewBig(ethTx.Value())
+		tx.Value = utils.NewBig(ethTx.Value())
 		tx.GasLimit = ethTx.Gas()
-		tx.GasPrice = models.NewBig(ethTx.GasPrice())
+		tx.GasPrice = utils.NewBig(ethTx.GasPrice())
 		tx.Hash = ethTx.Hash()
 		tx.SentAt = sentAt
 		tx.SignedRawTx = signedRawTx
@@ -654,7 +654,7 @@ func (orm *ORM) UpdateTx(
 
 	tx.From = *from
 	tx.Nonce = ethTx.Nonce()
-	tx.GasPrice = models.NewBig(ethTx.GasPrice())
+	tx.GasPrice = utils.NewBig(ethTx.GasPrice())
 	tx.Hash = ethTx.Hash()
 	tx.SentAt = sentAt
 	tx.SignedRawTx = signedRawTx
@@ -736,7 +736,7 @@ func (orm *ORM) AddTxAttempt(
 
 	txAttempt := &models.TxAttempt{
 		Hash:        etx.Hash(),
-		GasPrice:    models.NewBig(etx.GasPrice()),
+		GasPrice:    utils.NewBig(etx.GasPrice()),
 		TxID:        tx.ID,
 		SentAt:      blkNum,
 		SignedRawTx: signedRawTx,

@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"time"
 
-	"chainlink/core/eth"
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -38,12 +37,12 @@ type Tx struct {
 	To       common.Address `gorm:"not null"`
 	Data     []byte         `gorm:"not null"`
 	Nonce    uint64         `gorm:"index;not null"`
-	Value    *Big           `gorm:"type:varchar(78);not null"`
+	Value    *utils.Big     `gorm:"type:varchar(78);not null"`
 	GasLimit uint64         `gorm:"not null"`
 
 	// TxAttempt fields manually included; can't embed another primary_key
 	Hash        common.Hash `gorm:"not null"`
-	GasPrice    *Big        `gorm:"type:varchar(78);not null"`
+	GasPrice    *utils.Big  `gorm:"type:varchar(78);not null"`
 	Confirmed   bool        `gorm:"not null"`
 	SentAt      uint64      `gorm:"not null"`
 	SignedRawTx string      `gorm:"type:text;not null"`
@@ -85,7 +84,7 @@ type TxAttempt struct {
 	CreatedAt time.Time `gorm:"index;not null"`
 
 	Hash        common.Hash `gorm:"index;not null"`
-	GasPrice    *Big        `gorm:"type:varchar(78);not null"`
+	GasPrice    *utils.Big  `gorm:"type:varchar(78);not null"`
 	Confirmed   bool        `gorm:"not null"`
 	SentAt      uint64      `gorm:"not null"`
 	SignedRawTx string      `gorm:"type:text;not null"`
@@ -225,44 +224,6 @@ func (f FunctionSelector) Scan(value interface{}) error {
 	return nil
 }
 
-// BlockHeader represents a block header in the Ethereum blockchain.
-// Deliberately does not have required fields because some fields aren't
-// present depending on the Ethereum node.
-// i.e. Parity does not always send mixHash
-type BlockHeader struct {
-	ParentHash  common.Hash      `json:"parentHash"`
-	UncleHash   common.Hash      `json:"sha3Uncles"`
-	Coinbase    common.Address   `json:"miner"`
-	Root        common.Hash      `json:"stateRoot"`
-	TxHash      common.Hash      `json:"transactionsRoot"`
-	ReceiptHash common.Hash      `json:"receiptsRoot"`
-	Bloom       types.Bloom      `json:"logsBloom"`
-	Difficulty  hexutil.Big      `json:"difficulty"`
-	Number      hexutil.Big      `json:"number"`
-	GasLimit    hexutil.Uint64   `json:"gasLimit"`
-	GasUsed     hexutil.Uint64   `json:"gasUsed"`
-	Time        hexutil.Big      `json:"timestamp"`
-	Extra       hexutil.Bytes    `json:"extraData"`
-	Nonce       types.BlockNonce `json:"nonce"`
-	GethHash    common.Hash      `json:"mixHash"`
-	ParityHash  common.Hash      `json:"hash"`
-}
-
-var emptyHash = common.Hash{}
-
-// Hash will return GethHash if it exists otherwise it returns the ParityHash
-func (h BlockHeader) Hash() common.Hash {
-	if h.GethHash != emptyHash {
-		return h.GethHash
-	}
-	return h.ParityHash
-}
-
-// ToHead converts a given BlockHeader to a Head instance.
-func (h BlockHeader) ToHead() *Head {
-	return NewHead(h.Number.ToInt(), h.Hash())
-}
-
 // Head represents a BlockNumber, BlockHash.
 type Head struct {
 	ID     uint64      `gorm:"primary_key;auto_increment"`
@@ -363,27 +324,4 @@ func NewKeyFromFile(path string) (*Key, error) {
 // WriteToDisk writes this key to disk at the passed path.
 func (k *Key) WriteToDisk(path string) error {
 	return ioutil.WriteFile(path, []byte(k.JSON.String()), 0700)
-}
-
-// TxReceipt holds the block number and the transaction hash of a signed
-// transaction that has been written to the blockchain.
-type TxReceipt struct {
-	BlockNumber *Big         `json:"blockNumber"`
-	BlockHash   *common.Hash `json:"blockHash"`
-	Hash        common.Hash  `json:"transactionHash"`
-	Logs        []eth.Log    `json:"logs"`
-}
-
-// Unconfirmed returns true if the transaction is not confirmed.
-func (txr *TxReceipt) Unconfirmed() bool {
-	return txr.Hash == emptyHash || txr.BlockNumber == nil
-}
-
-func (txr TxReceipt) FulfilledRunLog() bool {
-	for _, log := range txr.Logs {
-		if log.Topics[0] == ChainlinkFulfilledTopic {
-			return true
-		}
-	}
-	return false
 }

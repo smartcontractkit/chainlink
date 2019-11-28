@@ -14,6 +14,7 @@ import (
 	"chainlink/core/services"
 	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
+	"chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -168,7 +169,7 @@ func TestRunExecutor_InitialTaskLacksConfirmations(t *testing.T) {
 	txHash := cltest.NewHash()
 	run.RunRequest.TxHash = &txHash
 	run.TaskRuns[0].MinimumConfirmations = null.Uint32From(10)
-	run.CreationHeight = models.NewBig(big.NewInt(0))
+	run.CreationHeight = utils.NewBig(big.NewInt(0))
 	run.ObservedHeight = run.CreationHeight
 	require.NoError(t, store.CreateJobRun(&run))
 	require.NoError(t, runExecutor.Execute(run.ID))

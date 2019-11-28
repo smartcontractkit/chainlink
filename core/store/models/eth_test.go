@@ -7,9 +7,11 @@ import (
 	"sort"
 	"testing"
 
+	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -47,7 +49,7 @@ func TestReceipt_UnmarshalEmptyBlockHash(t *testing.T) {
 		"blockHash": null
 	}`
 
-	var receipt models.TxReceipt
+	var receipt eth.TxReceipt
 	err := json.Unmarshal([]byte(input), &receipt)
 	require.NoError(t, err)
 }
@@ -114,7 +116,7 @@ func TestModels_Header_UnmarshalJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var header models.BlockHeader
+			var header eth.BlockHeader
 
 			data := cltest.MustReadFile(t, test.path)
 			value := gjson.Get(string(data), "params.result")
@@ -191,10 +193,10 @@ func TestTx_PresenterMatchesHex(t *testing.T) {
 		To:          common.HexToAddress("0x70"),
 		Data:        []byte(`{"data": "is wilding out"}`),
 		Nonce:       0x8008,
-		Value:       models.NewBig(big.NewInt(777)),
+		Value:       utils.NewBig(big.NewInt(777)),
 		GasLimit:    1999,
 		Hash:        common.HexToHash("0x0"),
-		GasPrice:    models.NewBig(big.NewInt(333)),
+		GasPrice:    utils.NewBig(big.NewInt(333)),
 		Confirmed:   true,
 		SentAt:      1745,
 		SignedRawTx: "signed",
@@ -220,13 +222,13 @@ func TestTx_PresenterMatchesHex(t *testing.T) {
 
 func TestHighestPricedTxAttemptPerTx(t *testing.T) {
 	items := []models.TxAttempt{
-		{TxID: 1, GasPrice: models.NewBig(big.NewInt(5555))},
-		{TxID: 1, GasPrice: models.NewBig(big.NewInt(444))},
-		{TxID: 1, GasPrice: models.NewBig(big.NewInt(2))},
-		{TxID: 1, GasPrice: models.NewBig(big.NewInt(33333))},
-		{TxID: 2, GasPrice: models.NewBig(big.NewInt(4444))},
-		{TxID: 2, GasPrice: models.NewBig(big.NewInt(999))},
-		{TxID: 2, GasPrice: models.NewBig(big.NewInt(12211))},
+		{TxID: 1, GasPrice: utils.NewBig(big.NewInt(5555))},
+		{TxID: 1, GasPrice: utils.NewBig(big.NewInt(444))},
+		{TxID: 1, GasPrice: utils.NewBig(big.NewInt(2))},
+		{TxID: 1, GasPrice: utils.NewBig(big.NewInt(33333))},
+		{TxID: 2, GasPrice: utils.NewBig(big.NewInt(4444))},
+		{TxID: 2, GasPrice: utils.NewBig(big.NewInt(999))},
+		{TxID: 2, GasPrice: utils.NewBig(big.NewInt(12211))},
 	}
 
 	items = models.HighestPricedTxAttemptPerTx(items)

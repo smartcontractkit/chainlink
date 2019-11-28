@@ -41,10 +41,10 @@ func LogFromFixture(t *testing.T, path string) eth.Log {
 }
 
 // TxReceiptFromFixture create ethtypes.log from file path
-func TxReceiptFromFixture(t *testing.T, path string) models.TxReceipt {
+func TxReceiptFromFixture(t *testing.T, path string) eth.TxReceipt {
 	jsonStr := JSONFromFixture(t, path).Get("result").String()
 
-	var receipt models.TxReceipt
+	var receipt eth.TxReceipt
 	err := json.Unmarshal([]byte(jsonStr), &receipt)
 	require.NoError(t, err)
 

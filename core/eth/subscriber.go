@@ -3,9 +3,12 @@ package eth
 import (
 	"fmt"
 
+	"chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 // LogSubscriber encapsulates only the methods needed for subscribing to ethereum log events.
@@ -72,4 +75,67 @@ type logMarshaling struct {
 	BlockNumber hexutil.Uint64
 	TxIndex     hexutil.Uint
 	Index       hexutil.Uint
+}
+
+// BlockHeader represents a block header in the Ethereum blockchain.
+// Deliberately does not have required fields because some fields aren't
+// present depending on the Ethereum node.
+// i.e. Parity does not always send mixHash
+type BlockHeader struct {
+	ParentHash  common.Hash      `json:"parentHash"`
+	UncleHash   common.Hash      `json:"sha3Uncles"`
+	Coinbase    common.Address   `json:"miner"`
+	Root        common.Hash      `json:"stateRoot"`
+	TxHash      common.Hash      `json:"transactionsRoot"`
+	ReceiptHash common.Hash      `json:"receiptsRoot"`
+	Bloom       types.Bloom      `json:"logsBloom"`
+	Difficulty  hexutil.Big      `json:"difficulty"`
+	Number      hexutil.Big      `json:"number"`
+	GasLimit    hexutil.Uint64   `json:"gasLimit"`
+	GasUsed     hexutil.Uint64   `json:"gasUsed"`
+	Time        hexutil.Big      `json:"timestamp"`
+	Extra       hexutil.Bytes    `json:"extraData"`
+	Nonce       types.BlockNonce `json:"nonce"`
+	GethHash    common.Hash      `json:"mixHash"`
+	ParityHash  common.Hash      `json:"hash"`
+}
+
+var emptyHash = common.Hash{}
+
+// Hash will return GethHash if it exists otherwise it returns the ParityHash
+func (h BlockHeader) Hash() common.Hash {
+	if h.GethHash != emptyHash {
+		return h.GethHash
+	}
+	return h.ParityHash
+}
+
+// TxReceipt holds the block number and the transaction hash of a signed
+// transaction that has been written to the blockchain.
+type TxReceipt struct {
+	BlockNumber *utils.Big   `json:"blockNumber"`
+	BlockHash   *common.Hash `json:"blockHash"`
+	Hash        common.Hash  `json:"transactionHash"`
+	Logs        []Log        `json:"logs"`
+}
+
+// Unconfirmed returns true if the transaction is not confirmed.
+func (txr *TxReceipt) Unconfirmed() bool {
+	return txr.Hash == emptyHash || txr.BlockNumber == nil
+}
+
+// ChainlinkFulfilledTopic is the signature for the event emitted after calling
+// ChainlinkClient.validateChainlinkCallback(requestId).
+// https://chainlink/blob/master/evm/contracts/ChainlinkClient.sol
+var ChainlinkFulfilledTopic = utils.MustHash("ChainlinkFulfilled(bytes32)")
+
+// FulfilledRunLog returns true if this tx receipt is the result of a
+// fulfilled run log.
+func (txr TxReceipt) FulfilledRunLog() bool {
+	for _, log := range txr.Logs {
+		if log.Topics[0] == ChainlinkFulfilledTopic {
+			return true
+		}
+	}
+	return false
 }

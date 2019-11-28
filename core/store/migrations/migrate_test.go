@@ -80,13 +80,12 @@ func TestMigrate_Migration1560791143(t *testing.T) {
 		tx := migration0.Tx{
 			ID:       1337,
 			Data:     make([]byte, 10),
-			Value:    models.NewBig(big.NewInt(1)),
-			GasPrice: models.NewBig(big.NewInt(127)),
+			Value:    utils.NewBig(big.NewInt(1)),
+			GasPrice: utils.NewBig(big.NewInt(127)),
 		}
 		require.NoError(t, db.Create(&tx).Error)
 
 		require.NoError(t, migrations.MigrateTo(db, "1559081901"))
-
 		txFound := models.Tx{}
 		require.NoError(t, db.Where("id = ?", tx.ID).Find(&txFound).Error)
 
@@ -94,8 +93,8 @@ func TestMigrate_Migration1560791143(t *testing.T) {
 
 		txNoID := models.Tx{
 			Data:     make([]byte, 10),
-			Value:    models.NewBig(big.NewInt(2)),
-			GasPrice: models.NewBig(big.NewInt(119)),
+			Value:    utils.NewBig(big.NewInt(2)),
+			GasPrice: utils.NewBig(big.NewInt(119)),
 		}
 		require.NoError(t, db.Create(&txNoID).Error)
 		assert.Equal(t, uint64(1338), txNoID.ID)

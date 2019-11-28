@@ -144,7 +144,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 		From:     from,
 		Nonce:    0,
 		Data:     []byte{},
-		Value:    models.NewBig(big.NewInt(0)),
+		Value:    utils.NewBig(big.NewInt(0)),
 		GasLimit: 250000,
 		SentAt:   sentAt,
 	}
@@ -400,19 +400,19 @@ func BigHexInt(val interface{}) hexutil.Big {
 	}
 }
 
-func Int(val interface{}) *models.Big {
+func Int(val interface{}) *utils.Big {
 	switch x := val.(type) {
 	case int:
-		return (*models.Big)(big.NewInt(int64(x)))
+		return (*utils.Big)(big.NewInt(int64(x)))
 	case uint32:
-		return (*models.Big)(big.NewInt(int64(x)))
+		return (*utils.Big)(big.NewInt(int64(x)))
 	case uint64:
-		return (*models.Big)(big.NewInt(int64(x)))
+		return (*utils.Big)(big.NewInt(int64(x)))
 	case int64:
-		return (*models.Big)(big.NewInt(x))
+		return (*utils.Big)(big.NewInt(x))
 	default:
-		logger.Panicf("Could not convert %v of type %T to models.Big", val, val)
-		return &models.Big{}
+		logger.Panicf("Could not convert %v of type %T to utils.Big", val, val)
+		return &utils.Big{}
 	}
 }
 
