@@ -6,9 +6,9 @@ import (
 
 	"math/big"
 
+	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	strpkg "chainlink/core/store"
-	"chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +46,7 @@ func TestTxReceipt_UnmarshalJSON(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			jsonStr := cltest.JSONFromFixture(t, test.path).Get("result").String()
-			var receipt models.TxReceipt
+			var receipt eth.TxReceipt
 			err := json.Unmarshal([]byte(jsonStr), &receipt)
 			require.NoError(t, err)
 

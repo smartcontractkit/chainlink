@@ -6,6 +6,7 @@ import (
 
 	clnull "chainlink/core/null"
 	"chainlink/core/store/assets"
+	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	null "gopkg.in/guregu/null.v3"
@@ -27,8 +28,8 @@ type JobRun struct {
 	UpdatedAt      time.Time    `json:"updatedAt"`
 	Initiator      Initiator    `json:"initiator" gorm:"association_autoupdate:false;association_autocreate:false"`
 	InitiatorID    uint         `json:"-"`
-	CreationHeight *Big         `json:"creationHeight"`
-	ObservedHeight *Big         `json:"observedHeight"`
+	CreationHeight *utils.Big   `json:"creationHeight"`
+	ObservedHeight *utils.Big   `json:"observedHeight"`
 	Overrides      JSON         `json:"overrides"`
 	DeletedAt      null.Time    `json:"-" gorm:"index"`
 	Payment        *assets.Link `json:"payment,omitempty"`

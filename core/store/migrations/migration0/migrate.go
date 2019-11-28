@@ -6,12 +6,12 @@ import (
 	clnull "chainlink/core/null"
 	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
+	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v3"
-
 )
 
 // Migrate runs the initial migration
@@ -90,11 +90,11 @@ type Tx struct {
 	From      common.Address `gorm:"index;not null"`
 	To        common.Address `gorm:"not null"`
 	Data      []byte
-	Nonce     uint64      `gorm:"index"`
-	Value     *models.Big `gorm:"type:varchar(255)"`
+	Nonce     uint64     `gorm:"index"`
+	Value     *utils.Big `gorm:"type:varchar(255)"`
 	GasLimit  uint64
 	Hash      common.Hash
-	GasPrice  *models.Big `gorm:"type:varchar(255)"`
+	GasPrice  *utils.Big `gorm:"type:varchar(255)"`
 	Confirmed bool
 	Hex       string `gorm:"type:text"`
 	SentAt    uint64
@@ -104,7 +104,7 @@ type Tx struct {
 type TxAttempt struct {
 	Hash      common.Hash `gorm:"primary_key;not null"`
 	TxID      uint64      `gorm:"index"`
-	GasPrice  *models.Big `gorm:"type:varchar(255)"`
+	GasPrice  *utils.Big  `gorm:"type:varchar(255)"`
 	Confirmed bool
 	Hex       string `gorm:"type:text"`
 	SentAt    uint64

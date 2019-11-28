@@ -251,7 +251,7 @@ func channelFromSubscriptionName(name string) interface{} {
 	case "logs":
 		return make(chan eth.Log)
 	case "newHeads":
-		return make(chan models.BlockHeader)
+		return make(chan eth.BlockHeader)
 	default:
 		return make(chan struct{})
 	}
@@ -271,7 +271,7 @@ func (mock *EthMock) EthSubscribe(
 			switch channel.(type) {
 			case chan<- eth.Log:
 				fwdLogs(channel, sub.channel)
-			case chan<- models.BlockHeader:
+			case chan<- eth.BlockHeader:
 				fwdHeaders(channel, sub.channel)
 			default:
 				return nil, errors.New("Channel type not supported by ethMock")
@@ -295,16 +295,16 @@ func (mock *EthMock) EthSubscribe(
 }
 
 // RegisterNewHeads registers a newheads subscription
-func (mock *EthMock) RegisterNewHeads() chan models.BlockHeader {
-	newHeads := make(chan models.BlockHeader, 10)
+func (mock *EthMock) RegisterNewHeads() chan eth.BlockHeader {
+	newHeads := make(chan eth.BlockHeader, 10)
 	mock.RegisterSubscription("newHeads", newHeads)
 	return newHeads
 }
 
 // RegisterNewHead register new head at given blocknumber
-func (mock *EthMock) RegisterNewHead(blockNumber int64) chan models.BlockHeader {
+func (mock *EthMock) RegisterNewHead(blockNumber int64) chan eth.BlockHeader {
 	newHeads := mock.RegisterNewHeads()
-	newHeads <- models.BlockHeader{Number: BigHexInt(blockNumber)}
+	newHeads <- eth.BlockHeader{Number: BigHexInt(blockNumber)}
 	return newHeads
 }
 
@@ -319,8 +319,8 @@ func fwdLogs(actual, mock interface{}) {
 }
 
 func fwdHeaders(actual, mock interface{}) {
-	logChan := actual.(chan<- models.BlockHeader)
-	mockChan := mock.(chan models.BlockHeader)
+	logChan := actual.(chan<- eth.BlockHeader)
+	mockChan := mock.(chan eth.BlockHeader)
 	go func() {
 		for e := range mockChan {
 			logChan <- e
@@ -350,8 +350,8 @@ func (mes MockSubscription) Unsubscribe() {
 		close(mes.channel.(chan struct{}))
 	case chan eth.Log:
 		close(mes.channel.(chan eth.Log))
-	case chan models.BlockHeader:
-		close(mes.channel.(chan models.BlockHeader))
+	case chan eth.BlockHeader:
+		close(mes.channel.(chan eth.BlockHeader))
 	default:
 		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
 	}

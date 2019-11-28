@@ -20,7 +20,7 @@ import (
 // store on reboot.
 type HeadTracker struct {
 	callbacks             []strpkg.HeadTrackable
-	headers               chan models.BlockHeader
+	headers               chan eth.BlockHeader
 	headSubscription      eth.EthSubscription
 	store                 *strpkg.Store
 	head                  *models.Head
@@ -207,7 +207,7 @@ func (ht *HeadTracker) receiveHeaders() error {
 			if !open {
 				return errors.New("HeadTracker headers prematurely closed")
 			}
-			head := block.ToHead()
+			head := models.NewHead(block.Number.ToInt(), block.Hash())
 			logger.Debugw(
 				fmt.Sprintf("Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
 				"blockHeight", head.ToInt(),
@@ -235,7 +235,7 @@ func (ht *HeadTracker) subscribeToHead() error {
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
 
-	ht.headers = make(chan models.BlockHeader)
+	ht.headers = make(chan eth.BlockHeader)
 	sub, err := ht.store.TxManager.SubscribeToNewHeads(ht.headers)
 	if err != nil {
 		return errors.Wrap(err, "TxManager#SubscribeToNewHeads")

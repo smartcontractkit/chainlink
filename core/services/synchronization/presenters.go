@@ -3,6 +3,7 @@ package synchronization
 import (
 	"encoding/json"
 
+	"chainlink/core/eth"
 	clnull "chainlink/core/null"
 	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
@@ -97,7 +98,7 @@ func fetchLatestOutgoingTxHash(tr models.TaskRun) (*syncReceiptPresenter, error)
 }
 
 func formatEthereumReceipt(str string) (*syncReceiptPresenter, error) {
-	var receipt models.TxReceipt
+	var receipt eth.TxReceipt
 	err := json.Unmarshal([]byte(str), &receipt)
 	if err != nil {
 		return nil, err
@@ -125,7 +126,7 @@ const (
 	StatusNoFulfilledRunLog = "noFulfilledRunLog"
 )
 
-func runLogStatusPresenter(receipt models.TxReceipt) TxStatus {
+func runLogStatusPresenter(receipt eth.TxReceipt) TxStatus {
 	if receipt.FulfilledRunLog() {
 		return StatusFulfilledRunLog
 	}

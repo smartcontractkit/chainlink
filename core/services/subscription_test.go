@@ -16,6 +16,7 @@ import (
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
+	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
@@ -320,15 +321,15 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 	cases := []struct {
 		name                string
 		currentHead         int
-		initrParamFromBlock *models.Big
+		initrParamFromBlock *utils.Big
 		wantFromBlock       *big.Int
 	}{
 		{"head < ReplayFromBlock, no initr fromBlock", 5, nil, big.NewInt(10)},
 		{"head > ReplayFromBlock, no initr fromBlock", 14, nil, big.NewInt(10)},
-		{"head < ReplayFromBlock, initr fromBlock > ReplayFromBlock", 5, models.NewBig(big.NewInt(12)), big.NewInt(12)},
-		{"head < ReplayFromBlock, initr fromBlock < ReplayFromBlock", 5, models.NewBig(big.NewInt(8)), big.NewInt(10)},
-		{"head > ReplayFromBlock, initr fromBlock > ReplayFromBlock", 14, models.NewBig(big.NewInt(12)), big.NewInt(12)},
-		{"head > ReplayFromBlock, initr fromBlock < ReplayFromBlock", 14, models.NewBig(big.NewInt(8)), big.NewInt(10)},
+		{"head < ReplayFromBlock, initr fromBlock > ReplayFromBlock", 5, utils.NewBig(big.NewInt(12)), big.NewInt(12)},
+		{"head < ReplayFromBlock, initr fromBlock < ReplayFromBlock", 5, utils.NewBig(big.NewInt(8)), big.NewInt(10)},
+		{"head > ReplayFromBlock, initr fromBlock > ReplayFromBlock", 14, utils.NewBig(big.NewInt(12)), big.NewInt(12)},
+		{"head > ReplayFromBlock, initr fromBlock < ReplayFromBlock", 14, utils.NewBig(big.NewInt(8)), big.NewInt(10)},
 	}
 
 	for _, test := range cases {

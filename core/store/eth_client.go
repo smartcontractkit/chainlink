@@ -22,12 +22,12 @@ type EthClient interface {
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	SendRawTx(hex string) (common.Hash, error)
-	GetTxReceipt(hash common.Hash) (*models.TxReceipt, error)
-	GetBlockByNumber(hex string) (models.BlockHeader, error)
+	GetTxReceipt(hash common.Hash) (*eth.TxReceipt, error)
+	GetBlockByNumber(hex string) (eth.BlockHeader, error)
 	GetLogs(q ethereum.FilterQuery) ([]eth.Log, error)
 	GetChainID() (*big.Int, error)
 	SubscribeToLogs(channel chan<- eth.Log, q ethereum.FilterQuery) (eth.EthSubscription, error)
-	SubscribeToNewHeads(channel chan<- models.BlockHeader) (eth.EthSubscription, error)
+	SubscribeToNewHeads(channel chan<- eth.BlockHeader) (eth.EthSubscription, error)
 }
 
 // EthCallerSubscriber holds the CallerSubscriber interface for the Ethereum blockchain.
@@ -98,15 +98,15 @@ func (ecs *EthCallerSubscriber) SendRawTx(hex string) (common.Hash, error) {
 }
 
 // GetTxReceipt returns the transaction receipt for the given transaction hash.
-func (ecs *EthCallerSubscriber) GetTxReceipt(hash common.Hash) (*models.TxReceipt, error) {
-	receipt := models.TxReceipt{}
+func (ecs *EthCallerSubscriber) GetTxReceipt(hash common.Hash) (*eth.TxReceipt, error) {
+	receipt := eth.TxReceipt{}
 	err := ecs.Call(&receipt, "eth_getTransactionReceipt", hash.String())
 	return &receipt, err
 }
 
 // GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".
-func (ecs *EthCallerSubscriber) GetBlockByNumber(hex string) (models.BlockHeader, error) {
-	var header models.BlockHeader
+func (ecs *EthCallerSubscriber) GetBlockByNumber(hex string) (eth.BlockHeader, error) {
+	var header eth.BlockHeader
 	err := ecs.Call(&header, "eth_getBlockByNumber", hex, false)
 	return header, err
 }
@@ -120,7 +120,7 @@ func (ecs *EthCallerSubscriber) GetLogs(q ethereum.FilterQuery) ([]eth.Log, erro
 
 // GetChainID returns the ethereum ChainID.
 func (ecs *EthCallerSubscriber) GetChainID() (*big.Int, error) {
-	value := new(models.Big)
+	value := new(utils.Big)
 	err := ecs.Call(value, "eth_chainId")
 	return value.ToInt(), err
 }
@@ -139,7 +139,7 @@ func (ecs *EthCallerSubscriber) SubscribeToLogs(
 
 // SubscribeToNewHeads registers a subscription for push notifications of new blocks.
 func (ecs *EthCallerSubscriber) SubscribeToNewHeads(
-	channel chan<- models.BlockHeader,
+	channel chan<- eth.BlockHeader,
 ) (eth.EthSubscription, error) {
 	ctx := context.Background()
 	sub, err := ecs.EthSubscribe(ctx, channel, "newHeads")

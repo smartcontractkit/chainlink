@@ -6,6 +6,7 @@ import (
 	"net"
 	"regexp"
 
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	"chainlink/core/store"
 	strpkg "chainlink/core/store"
@@ -31,7 +32,7 @@ type EthTx struct {
 	FunctionSelector models.FunctionSelector `json:"functionSelector"`
 	DataPrefix       hexutil.Bytes           `json:"dataPrefix"`
 	DataFormat       string                  `json:"format"`
-	GasPrice         *models.Big             `json:"gasPrice" gorm:"type:numeric"`
+	GasPrice         *utils.Big              `json:"gasPrice" gorm:"type:numeric"`
 	GasLimit         uint64                  `json:"gasLimit"`
 }
 
@@ -78,7 +79,7 @@ func getTxData(e *EthTx, input models.RunInput) ([]byte, error) {
 
 func createTxRunResult(
 	address common.Address,
-	gasPrice *models.Big,
+	gasPrice *utils.Big,
 	gasLimit uint64,
 	data []byte,
 	input models.RunInput,
@@ -177,11 +178,11 @@ func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutpu
 }
 
 func addReceiptToResult(
-	receipt *models.TxReceipt,
+	receipt *eth.TxReceipt,
 	input models.RunInput,
 	data models.JSON,
 ) models.RunOutput {
-	receipts := []models.TxReceipt{}
+	receipts := []eth.TxReceipt{}
 
 	ethereumReceipts := input.Data().Get("ethereumReceipts").String()
 	if ethereumReceipts != "" {

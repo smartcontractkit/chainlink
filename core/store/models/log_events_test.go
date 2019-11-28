@@ -5,9 +5,11 @@ import (
 	"strings"
 	"testing"
 
+	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
+	"chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -200,12 +202,12 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithKey(t)
 			defer cleanup()
 
-			eth := app.MockEthCallerSubscriber()
+			ethMock := app.MockEthCallerSubscriber()
 			logs := make(chan eth.Log, 1)
-			eth.Context("app.Start()", func(eth *cltest.EthMock) {
-				eth.Register("eth_getTransactionCount", "0x1")
-				eth.RegisterSubscription("logs", logs)
-				eth.Register("eth_chainId", app.Store.Config.ChainID())
+			ethMock.Context("app.Start()", func(meth *cltest.EthMock) {
+				meth.Register("eth_getTransactionCount", "0x1")
+				meth.RegisterSubscription("logs", logs)
+				meth.Register("eth_chainId", app.Store.Config.ChainID())
 			})
 			assert.NoError(t, app.StartAndConnect())
 
@@ -214,7 +216,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			require.NoError(t, app.AddJob(js))
 
 			logs <- test.logFactory(t, js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
-			eth.EventuallyAllCalled(t)
+			ethMock.EventuallyAllCalled(t)
 
 			gomega.NewGomegaWithT(t).Eventually(func() []models.JobRun {
 				runs, err := app.Store.JobRunsFor(js.ID)
@@ -241,8 +243,8 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 			Type: models.InitiatorEthLog,
 			InitiatorParams: models.InitiatorParams{
 				Address:   common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-				FromBlock: models.NewBig(big.NewInt(123)),
-				ToBlock:   models.NewBig(big.NewInt(456)),
+				FromBlock: utils.NewBig(big.NewInt(123)),
+				ToBlock:   utils.NewBig(big.NewInt(456)),
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
@@ -276,8 +278,8 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 			Type: models.InitiatorEthLog,
 			InitiatorParams: models.InitiatorParams{
 				Address:   common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-				FromBlock: models.NewBig(big.NewInt(123)),
-				ToBlock:   models.NewBig(big.NewInt(456)),
+				FromBlock: utils.NewBig(big.NewInt(123)),
+				ToBlock:   utils.NewBig(big.NewInt(456)),
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
@@ -310,8 +312,8 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 			Type: models.InitiatorEthLog,
 			InitiatorParams: models.InitiatorParams{
 				Address:   common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-				FromBlock: models.NewBig(big.NewInt(123)),
-				ToBlock:   models.NewBig(big.NewInt(456)),
+				FromBlock: utils.NewBig(big.NewInt(123)),
+				ToBlock:   utils.NewBig(big.NewInt(456)),
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),

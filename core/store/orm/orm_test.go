@@ -1336,10 +1336,10 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 		_, err = store.AddTxAttempt(tx, ethTx, 3)
 		require.NoError(t, err)
 
-		tx.Attempts[0].GasPrice = models.NewBig(big.NewInt(1111))
-		tx.Attempts[1].GasPrice = models.NewBig(big.NewInt(2222))
-		tx.Attempts[2].GasPrice = models.NewBig(big.NewInt(3333))
-		tx.Attempts[3].GasPrice = models.NewBig(big.NewInt(4444))
+		tx.Attempts[0].GasPrice = utils.NewBig(big.NewInt(1111))
+		tx.Attempts[1].GasPrice = utils.NewBig(big.NewInt(2222))
+		tx.Attempts[2].GasPrice = utils.NewBig(big.NewInt(3333))
+		tx.Attempts[3].GasPrice = utils.NewBig(big.NewInt(4444))
 
 		err = store.ORM.RawDB(func(db *gorm.DB) error {
 			return db.Save(&tx).Error
@@ -1375,9 +1375,9 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 		_, err = store.AddTxAttempt(tx, ethTx, 2)
 		require.NoError(t, err)
 
-		tx.Attempts[0].GasPrice = models.NewBig(big.NewInt(5555))
-		tx.Attempts[1].GasPrice = models.NewBig(big.NewInt(6666))
-		tx.Attempts[2].GasPrice = models.NewBig(big.NewInt(7777))
+		tx.Attempts[0].GasPrice = utils.NewBig(big.NewInt(5555))
+		tx.Attempts[1].GasPrice = utils.NewBig(big.NewInt(6666))
+		tx.Attempts[2].GasPrice = utils.NewBig(big.NewInt(7777))
 
 		err = store.ORM.RawDB(func(db *gorm.DB) error {
 			return db.Save(&tx).Error

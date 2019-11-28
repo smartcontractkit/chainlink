@@ -62,13 +62,13 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	config := app.Config
 	eth := app.MockEthCallerSubscriber(cltest.Strict)
 
-	newHeads := make(chan models.BlockHeader)
+	newHeads := make(chan ethpkg.BlockHeader)
 	attempt1Hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold() + 1
 	safe := confirmed + config.MinOutgoingConfirmations() - 1
-	unconfirmedReceipt := models.TxReceipt{}
-	confirmedReceipt := models.TxReceipt{
+	unconfirmedReceipt := ethpkg.TxReceipt{}
+	confirmedReceipt := ethpkg.TxReceipt{
 		Hash:        attempt1Hash,
 		BlockNumber: cltest.Int(confirmed),
 	}
@@ -98,7 +98,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		eth.Register("eth_getBalance", "0x0100")
 		eth.Register("eth_call", "0x0100")
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
 	eth.EventuallyAllCalled(t)
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
@@ -124,7 +124,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	attempt2Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000002")
 	attempt3Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000003")
 
-	unconfirmedReceipt := models.TxReceipt{}
+	unconfirmedReceipt := ethpkg.TxReceipt{}
 
 	// Enumerate the different block heights at which various state changes
 	// happen for the transaction attempts created during this test
@@ -138,13 +138,13 @@ func TestIntegration_FeeBump(t *testing.T) {
 
 	thirdTxSentAt := secondTxGasBumpAt
 	thirdTxConfirmedAt := thirdTxSentAt + 1
-	thirdTxConfirmedReceipt := models.TxReceipt{
+	thirdTxConfirmedReceipt := ethpkg.TxReceipt{
 		Hash:        attempt1Hash,
 		BlockNumber: cltest.Int(thirdTxConfirmedAt),
 	}
 	thirdTxSafeAt := thirdTxSentAt + config.MinOutgoingConfirmations()
 
-	newHeads := make(chan models.BlockHeader)
+	newHeads := make(chan ethpkg.BlockHeader)
 	eth := app.MockEthCallerSubscriber(cltest.Strict)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
@@ -171,7 +171,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth.Context("ethTx.Perform()#2", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(firstTxRemainsUnconfirmedAt)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(firstTxRemainsUnconfirmedAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
@@ -182,7 +182,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_sendRawTransaction", attempt2Hash)
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(firstTxGasBumpAt)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(firstTxGasBumpAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 2)
@@ -193,7 +193,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(secondTxRemainsUnconfirmedAt)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(secondTxRemainsUnconfirmedAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
@@ -204,7 +204,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_sendRawTransaction", attempt3Hash)
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(secondTxGasBumpAt)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(secondTxGasBumpAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 3)
@@ -214,7 +214,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth.Context("ethTx.Perform()#6", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(thirdTxConfirmedAt)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(thirdTxConfirmedAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
@@ -225,7 +225,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getBalance", "0x100")
 		eth.Register("eth_call", "0x100")
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(thirdTxSafeAt)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(thirdTxSafeAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
@@ -345,14 +345,14 @@ func TestIntegration_RunLog(t *testing.T) {
 
 			blockIncrease := app.Store.Config.MinIncomingConfirmations()
 			minGlobalHeight := creationHeight + blockIncrease
-			newHeads <- models.BlockHeader{Number: cltest.BigHexInt(minGlobalHeight)}
+			newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(minGlobalHeight)}
 			<-time.After(time.Second)
 			jr = cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
 			assert.Equal(t, uint32(creationHeight+blockIncrease), jr.TaskRuns[0].Confirmations.Uint32)
 
 			safeNumber := creationHeight + requiredConfs
-			newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
-			confirmedReceipt := models.TxReceipt{
+			newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
+			confirmedReceipt := ethpkg.TxReceipt{
 				Hash:        runlog.TxHash,
 				BlockHash:   &test.receiptBlockHash,
 				BlockNumber: cltest.Int(creationHeight),
@@ -394,7 +394,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	eth := app.MockEthCallerSubscriber()
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	logs := make(chan ethpkg.Log, 1)
-	newHeads := make(chan models.BlockHeader, 10)
+	newHeads := make(chan ethpkg.BlockHeader, 10)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 		eth.RegisterSubscription("newHeads", newHeads)
@@ -417,10 +417,10 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 8)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 8)}
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
-	confirmedReceipt := models.TxReceipt{
+	confirmedReceipt := ethpkg.TxReceipt{
 		Hash:        runlog.TxHash,
 		BlockHash:   &runlog.BlockHash,
 		BlockNumber: cltest.Int(logBlockNumber),
@@ -429,7 +429,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 	})
 
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 9)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 9)}
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
@@ -623,7 +623,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
 
 	eth := app.MockEthCallerSubscriber()
-	newHeads := make(chan models.BlockHeader)
+	newHeads := make(chan ethpkg.BlockHeader)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
@@ -639,7 +639,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 
 		eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
 			eth.Register("eth_sendRawTransaction", hash)
-			eth.Register("eth_getTransactionReceipt", models.TxReceipt{
+			eth.Register("eth_getTransactionReceipt", ethpkg.TxReceipt{
 				Hash:        hash,
 				BlockNumber: cltest.Int(confirmedBlockNumber),
 			})
@@ -656,7 +656,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 
 	createCompletedJobRun(100, uint64(0x100))
 
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(200)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(200)}
 	createCompletedJobRun(200, uint64(0x101))
 }
 
