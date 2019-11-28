@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"testing"
 
+	"chainlink/core/assets"
 	"chainlink/core/internal/cltest"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 

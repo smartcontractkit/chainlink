@@ -3,8 +3,8 @@ package migration0
 import (
 	"time"
 
+	"chainlink/core/assets"
 	clnull "chainlink/core/null"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 

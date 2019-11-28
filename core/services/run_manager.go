@@ -5,10 +5,10 @@ import (
 	"math/big"
 
 	"chainlink/core/adapters"
+	"chainlink/core/assets"
 	"chainlink/core/logger"
 	clnull "chainlink/core/null"
 	"chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/utils"

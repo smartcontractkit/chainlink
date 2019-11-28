@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"testing"
 
+	"chainlink/core/assets"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"

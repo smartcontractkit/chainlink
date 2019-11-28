@@ -17,12 +17,12 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/assets"
 	"chainlink/core/auth"
 	"chainlink/core/cmd"
 	"chainlink/core/logger"
 	"chainlink/core/services"
 	strpkg "chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"

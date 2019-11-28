@@ -8,8 +8,8 @@ import (
 	"math/big"
 	"time"
 
+	"chainlink/core/assets"
 	"chainlink/core/eth"
-	"chainlink/core/store/assets"
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"

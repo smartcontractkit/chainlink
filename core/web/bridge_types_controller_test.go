@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"testing"
 
+	"chainlink/core/assets"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/web"
 

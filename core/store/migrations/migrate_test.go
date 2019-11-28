@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/assets"
 	"chainlink/core/internal/cltest"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/migrations"
 	"chainlink/core/store/migrations/migration0"
 	"chainlink/core/store/migrations/migration1560881855"

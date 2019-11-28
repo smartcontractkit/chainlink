@@ -3,9 +3,9 @@ package synchronization
 import (
 	"encoding/json"
 
+	"chainlink/core/assets"
 	"chainlink/core/eth"
 	clnull "chainlink/core/null"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 

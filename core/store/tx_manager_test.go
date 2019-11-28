@@ -6,12 +6,12 @@ import (
 	"math/big"
 	"testing"
 
+	"chainlink/core/assets"
 	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
 	"chainlink/core/store"
 	strpkg "chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/utils"

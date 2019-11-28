@@ -3,8 +3,8 @@
 package mocks
 
 import (
+	assets "chainlink/core/assets"
 	eth "chainlink/core/eth"
-	assets "chainlink/core/store/assets"
 	big "math/big"
 
 	accounts "github.com/ethereum/go-ethereum/accounts"

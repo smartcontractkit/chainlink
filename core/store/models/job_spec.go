@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"chainlink/core/assets"
 	clnull "chainlink/core/null"
-	"chainlink/core/store/assets"
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"

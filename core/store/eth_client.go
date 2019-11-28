@@ -4,8 +4,8 @@ import (
 	"context"
 	"math/big"
 
+	"chainlink/core/assets"
 	"chainlink/core/eth"
-	"chainlink/core/store/assets"
 	"chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"

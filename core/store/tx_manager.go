@@ -12,9 +12,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 
+	"chainlink/core/assets"
 	"chainlink/core/eth"
 	"chainlink/core/logger"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/utils"

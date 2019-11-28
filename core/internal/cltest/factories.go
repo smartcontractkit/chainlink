@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"chainlink/core/adapters"
+	"chainlink/core/assets"
 	"chainlink/core/eth"
 	"chainlink/core/logger"
 	"chainlink/core/store"
 	strpkg "chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 

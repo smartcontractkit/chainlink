@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"chainlink/core/assets"
 	"chainlink/core/auth"
 	"chainlink/core/gracefulpanic"
 	"chainlink/core/logger"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/dbutil"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
