@@ -318,19 +318,6 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
 
   /**
-   * @notice allows the owner to force a new round if the old round could not
-   * be completed
-   */
-  function forceNewRound()
-    external
-    onlyOwner()
-  {
-    uint32 id = reportingRound;
-    updateSkippedRoundInfo(id);
-    startNewRound(id + 1);
-  }
-
-  /**
    * Private
    */
 
@@ -352,25 +339,12 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
   event Here(bool timedout, uint32 id, uint256 timestamp);
 
-  function updateTimedOutRoundInfo(uint32 _prevId)
+  function updateTimedOutRoundInfo(uint32 _timedOutId)
     private
-    ifTimedOut(_prevId)
+    ifTimedOut(_timedOutId)
   {
-    copyPreviousAnswer(_prevId);
-  }
-
-  function updateSkippedRoundInfo(uint32 _id)
-    private
-    ifUnanswered(_id)
-  {
-    copyPreviousAnswer(_id);
-  }
-
-  function copyPreviousAnswer(uint32 _id)
-    private
-  {
-    rounds[_id].answer = rounds[_id.sub(1)].answer;
-    rounds[_id].updatedTimestamp = block.timestamp;
+    rounds[_timedOutId].answer = rounds[_timedOutId.sub(1)].answer;
+    rounds[_timedOutId].updatedTimestamp = block.timestamp;
   }
 
   function recordStartedRound(uint32 _id)
@@ -512,12 +486,6 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   modifier ifNonOwner() {
     if (!isOwner()) {
-      _;
-    }
-  }
-
-  modifier ifUnanswered(uint32 _id) {
-    if (!answered(_id)) {
       _;
     }
   }

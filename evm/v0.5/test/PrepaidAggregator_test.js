@@ -32,7 +32,6 @@ contract('PrepaidAggregator', () => {
       'addOracle',
       'allocatedFunds',
       'availableFunds',
-      'forceNewRound',
       'getAnswer',
       'getTimestamp',
       'latestAnswer',
@@ -1137,73 +1136,6 @@ contract('PrepaidAggregator', () => {
             from: personas.Neil,
           }),
           'Insufficient balance',
-        )
-      })
-    })
-  })
-
-  describe('#forceNewRound', async () => {
-    beforeEach(async () => {
-      await aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
-        from: personas.Carol,
-      })
-      await aggregator.addOracle(personas.Ned, 2, 2, rrDelay, {
-        from: personas.Carol,
-      })
-
-      // round gets stuck when Ned can't answer
-      await aggregator.updateAnswer(nextRound, answer, {
-        from: personas.Neil,
-      })
-    })
-
-    context('when called by the owner', async () => {
-      it('starts a newly updatable round round', async () => {
-        const tx = await aggregator.forceNewRound({ from: personas.Carol })
-        const log = tx.receipt.rawLogs[0]
-        const newRoundNumber = h.bigNum(log.topics[1])
-        const startedBy = h.evmWordToAddress(log.topics[2])
-
-        assert.equal(startedBy, personas.Carol)
-        assert.equal(nextRound + 1, newRoundNumber.toNumber())
-        assert.equal(nextRound + 1, await aggregator.reportingRound.call())
-
-        await aggregator.updateAnswer(newRoundNumber, answer, {
-          from: personas.Neil,
-        })
-      })
-
-      context('with a previous answer', async () => {
-        beforeEach(async () => {
-          // complete last round
-          await aggregator.updateAnswer(nextRound, answer, {
-            from: personas.Ned,
-          })
-          nextRound++
-
-          // start new round
-          await aggregator.updateAnswer(nextRound, answer, {
-            from: personas.Neil,
-          })
-        })
-
-        it('sets the info for the skipped round', async () => {
-          assert.equal(0, await aggregator.getAnswer.call(nextRound))
-          assert.equal(0, await aggregator.getTimestamp.call(nextRound))
-
-          await aggregator.forceNewRound({ from: personas.Carol })
-
-          assert.equal(answer, await aggregator.getAnswer.call(nextRound))
-          assert.notEqual(0, await aggregator.getTimestamp.call(nextRound))
-        })
-      })
-    })
-
-    context('when called by anyone other than the owner', async () => {
-      it('reverts', async () => {
-        await expectRevert(
-          aggregator.forceNewRound({ from: personas.Neil }),
-          'Ownable: caller is not the owner',
         )
       })
     })
