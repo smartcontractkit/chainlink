@@ -15,6 +15,7 @@ services:
       - echo-server
       - cypress-job-server
     environment:
+      - GETH_MODE
       - CHAINLINK_DEV=TRUE # need this for service agreements subcommand
       - CHAINLINK_URL
       - ETH_HTTP_URL
