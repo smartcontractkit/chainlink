@@ -108,41 +108,14 @@ jobs:
       - run: make enclave
       - run: ./tools/ci/sgx_test
   geth-postgres:
-    resource_class: xlarge
-    docker:
-      - image: smartcontract/builder:1.0.25
-        environment:
-          TYPEORM_NAME: ci
-          TYPEORM_HOST: explorerdb
-      - image: circleci/postgres:11
-        environment:
-          POSTGRES_USER: circleci_postgres
-          POSTGRES_DB: circleci_test
-          POSTGRES_INITDB_ARGS: "--lc-collate=C --lc-ctype=C"
-      - image: circleci/postgres:11
-        name: explorerdb
-        environment:
-          POSTGRES_USER: root
-          POSTGRES_DB: explorer_test
-          POSTGRES_INITDB_ARGS: "--lc-collate=C --lc-ctype=C"
-    environment:
-      DATABASE_URL: postgres://circleci_postgres@localhost:5432/circleci_test?sslmode=disable
+    resource_class: large
+    machine:
+      image: ubuntu-1604:201903-01
+      docker_layer_caching: true
+    working_directory: ~/chainlink
     steps:
       - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-          paths:
-            - "/go/pkg/mod"
-      - run: ./tools/ci/ethereum_test
-      - store_artifacts:
-          path: ./integration/cypress/screenshots
-      - store_artifacts:
-          path: ./integration/logs
+      - run: cd ./tools/docker && ./geth_postgres_test.sh
   parity-postgres:
     resource_class: large
     machine:
