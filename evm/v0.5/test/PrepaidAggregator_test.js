@@ -168,7 +168,7 @@ contract('PrepaidAggregator', () => {
           aggregator.updateAnswer(nextRound + 1, answer, {
             from: personas.Neil,
           }),
-          'Cannot bump round until previous round has an answer',
+          'Cannot bump round until previous round has an answer or timed out',
         )
       })
     })
@@ -553,7 +553,7 @@ contract('PrepaidAggregator', () => {
             aggregator.updateAnswer(nextRound, answer, {
               from: personas.Nelly,
             }),
-            'Cannot bump round until previous round has an answer',
+            'Cannot bump round until previous round has an answer or timed out',
           )
         })
       })

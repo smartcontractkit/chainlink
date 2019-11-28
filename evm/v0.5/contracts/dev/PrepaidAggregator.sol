@@ -425,7 +425,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     private
     returns (bool)
   {
-    if (_id <= 1) { // must have at least one round of history
+    if (_id < 2) { // must have at least one round of history
       return false;
     }
     return rounds[_id - 1].updatedTimestamp < block.timestamp - timeout;
@@ -483,7 +483,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   modifier onlyValidRoundId(uint32 _id) {
     require(_id == currentRound || _id == currentRound.add(1), "Must report on current round");
-    require(_id == 1 || answered(_id.sub(1)) || timedOut(_id.sub(1)), "Cannot bump round until previous round has an answer");
+    require(_id == 1 || answered(_id.sub(1)) || timedOut(_id.sub(1)), "Cannot bump round until previous round has an answer or timed out");
     _;
   }
 
