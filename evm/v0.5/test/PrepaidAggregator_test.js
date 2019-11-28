@@ -230,7 +230,10 @@ contract('PrepaidAggregator', () => {
           from: personas.Nelly,
         })
 
-        assert.isFalse(await aggregator.getTimedOut.call(nextRound))
+        assert.equal(
+          nextRound,
+          await aggregator.getAnsweredInRound.call(nextRound),
+        )
       })
     })
 
@@ -531,6 +534,10 @@ contract('PrepaidAggregator', () => {
           })
 
           assert.isTrue(await aggregator.getTimedOut.call(previousRound))
+          assert.equal(
+            previousRound - 1,
+            await aggregator.getAnsweredInRound.call(previousRound),
+          )
         })
 
         it('still respects the delay restriction', async () => {
