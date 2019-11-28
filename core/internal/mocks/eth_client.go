@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	assets "chainlink/core/store/assets"
+	assets "chainlink/core/assets"
 	big "math/big"
 
 	ethereum "github.com/ethereum/go-ethereum"

@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"chainlink/core/adapters"
+	"chainlink/core/assets"
 	"chainlink/core/internal/cltest"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"

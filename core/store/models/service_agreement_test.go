@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"chainlink/core/assets"
 	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 

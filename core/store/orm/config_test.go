@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/store/assets"
+	"chainlink/core/assets"
 	"chainlink/core/store/migrations/migration1564007745"
 
 	"github.com/ethereum/go-ethereum/common"

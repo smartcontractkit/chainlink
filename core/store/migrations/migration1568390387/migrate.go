@@ -3,7 +3,7 @@ package migration1568390387
 import (
 	"time"
 
-	"chainlink/core/store/assets"
+	"chainlink/core/assets"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"

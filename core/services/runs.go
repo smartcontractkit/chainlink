@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"math/big"
 
+	"chainlink/core/assets"
 	"chainlink/core/eth"
 	"chainlink/core/logger"
 	clnull "chainlink/core/null"
 	"chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 )
