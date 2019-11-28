@@ -1,7 +1,7 @@
 import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
 
-import { expectRevert } from 'openzeppelin-test-helpers'
+import { expectRevert, time } from 'openzeppelin-test-helpers'
 
 contract('PrepaidAggregator', () => {
   const Aggregator = artifacts.require('PrepaidAggregator.sol')
@@ -456,23 +456,21 @@ contract('PrepaidAggregator', () => {
     )
 
     context('when the price is not updated for a round', async () => {
-      const newTimeout = 1
-      const min = 3
-      const max = 3
-      const delay = 1
-
       context('on the third round or later', async () => {
+        const delay = 1
+
         beforeEach(async () => {
           await aggregator.updateFutureRounds(
             paymentAmount,
-            newTimeout,
-            min,
-            max,
+            timeout,
+            oracles.length,
+            oracles.length,
             delay,
             {
               from: personas.Carol,
             },
           )
+
           for (const oracle of oracles) {
             await aggregator.updateAnswer(nextRound, answer, { from: oracle })
           }
@@ -484,7 +482,8 @@ contract('PrepaidAggregator', () => {
             from: personas.Nelly,
           })
           assert.equal(nextRound, await aggregator.currentRound.call())
-          await h.sleepSeconds(delay + 1) // +1 for buffer
+
+          await time.increase(time.duration.seconds(timeout + 1))
           nextRound++
         })
 
@@ -532,18 +531,7 @@ contract('PrepaidAggregator', () => {
           })
           assert.equal(nextRound, await aggregator.currentRound.call())
 
-          await aggregator.updateFutureRounds(
-            paymentAmount,
-            newTimeout,
-            min,
-            max,
-            delay,
-            {
-              from: personas.Carol,
-            },
-          )
-
-          await h.sleepSeconds(delay + 1) // +1 for buffer
+          await time.increase(time.duration.seconds(timeout + 1))
 
           nextRound++
         })
