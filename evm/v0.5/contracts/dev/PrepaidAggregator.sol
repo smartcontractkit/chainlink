@@ -4,6 +4,7 @@ import "../Median.sol";
 import "../vendor/Ownable.sol";
 import "../vendor/SafeMath.sol";
 import "./SafeMath128.sol";
+import "./SafeMath64.sol";
 import "./SafeMath32.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
@@ -20,11 +21,12 @@ import "./AggregatorInterface.sol";
 contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface {
   using SafeMath for uint256;
   using SafeMath128 for uint128;
+  using SafeMath64 for uint64;
   using SafeMath32 for uint32;
 
   struct Round {
     int256 answer;
-    uint256 updatedTimestamp;
+    uint64 updatedTimestamp;
     bool timedOut;
     RoundDetails details;
   }
@@ -238,7 +240,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (uint256)
   {
-    return rounds[latestRoundValue].updatedTimestamp;
+    return uint256(rounds[latestRoundValue].updatedTimestamp);
   }
 
   /**
@@ -284,7 +286,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (uint256)
   {
-    return rounds[uint32(_roundId)].updatedTimestamp;
+    return uint256(rounds[uint32(_roundId)].updatedTimestamp);
   }
 
   /**
@@ -369,7 +371,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     ifTimedOut(_timedOutId)
   {
     rounds[_timedOutId].answer = rounds[_timedOutId.sub(1)].answer;
-    rounds[_timedOutId].updatedTimestamp = block.timestamp;
+    rounds[_timedOutId].updatedTimestamp = uint64(block.timestamp);
     rounds[_timedOutId].timedOut = true;
   }
 
@@ -386,7 +388,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   {
     int256 newAnswer = Median.calculate(rounds[_id].details.answers);
     rounds[_id].answer = newAnswer;
-    rounds[_id].updatedTimestamp = block.timestamp;
+    rounds[_id].updatedTimestamp = uint64(block.timestamp);
     latestRoundValue = _id;
 
     emit AnswerUpdated(newAnswer, uint256(_id), now);
@@ -425,9 +427,9 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     private
     returns (bool)
   {
-    uint256 previousUpdatedAt = rounds[_id - 1].updatedTimestamp;
+    uint64 previousUpdatedAt = rounds[_id - 1].updatedTimestamp;
     bool previousAnswered = previousUpdatedAt > 0;
-    return previousAnswered && previousUpdatedAt + timeout < block.timestamp;
+    return previousAnswered && previousUpdatedAt.add(timeout) < block.timestamp;
   }
 
   function finished(uint32 _id)
