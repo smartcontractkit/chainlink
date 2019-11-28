@@ -423,12 +423,11 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   function timedOut(uint32 _id)
     private
-    ifAfterFirstRound(_id)
     returns (bool)
   {
-    uint256 previousUpdatedAt = rounds[_id.sub(1)].updatedTimestamp;
+    uint256 previousUpdatedAt = rounds[_id - 1].updatedTimestamp;
     bool previousAnswered = previousUpdatedAt > 0;
-    return previousAnswered ||  previousUpdatedAt + timeout < block.timestamp;
+    return previousAnswered && previousUpdatedAt + timeout < block.timestamp;
   }
 
   function answered(uint32 _id)
@@ -487,12 +486,6 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     _;
   }
 
-  modifier ifTimedOut(uint32 _id) {
-    if (timedOut(_id)) {
-      _;
-    }
-  }
-
   modifier onlyValidRange(uint32 _min, uint32 _max, uint32 _restartDelay) {
     uint32 oracleNum = oracleCount; // Save on storage reads
     require(oracleNum >= _max, "Cannot have the answer max higher oracle count");
@@ -529,8 +522,8 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     }
   }
 
-  modifier ifAfterFirstRound(uint32 _id) {
-    if (_id >= 2) {
+  modifier ifTimedOut(uint32 _id) {
+    if (timedOut(_id)) {
       _;
     }
   }
