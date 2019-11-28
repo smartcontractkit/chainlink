@@ -803,9 +803,9 @@ export const parseAggregatorRoundLog = (log: any): object => {
 }
 
 export const sleep = (ms: number): Promise<any> => {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 export const sleepSeconds = (seconds: number): Promise<any> => {
-    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+  return new Promise(resolve => setTimeout(resolve, seconds * 1000))
 }
