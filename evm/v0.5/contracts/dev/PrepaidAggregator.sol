@@ -25,6 +25,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   struct Round {
     int256 answer;
     uint256 updatedTimestamp;
+    bool timedOut;
     RoundDetails details;
   }
 
@@ -228,7 +229,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
 
   /**
-   * @notice get the last updated at timestamp
+   * @notice get the most recent updated at timestamp
    */
   function latestTimestamp()
     external
@@ -236,6 +237,17 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     returns (uint256)
   {
     return rounds[latestRoundValue].updatedTimestamp;
+  }
+
+  /**
+   * @notice get the most recent timed out flag
+   */
+  function latestTimedOut()
+    external
+    view
+    returns (bool)
+  {
+    return rounds[latestRoundValue].timedOut;
   }
 
   /**
@@ -271,6 +283,18 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     returns (uint256)
   {
     return rounds[uint32(_roundId)].updatedTimestamp;
+  }
+
+  /**
+   * @notice get the timed out status of a given round
+   * @param _roundId the round number to retrieve the timed out status for
+   */
+  function getTimedOut(uint256 _roundId)
+    external
+    view
+    returns (bool)
+  {
+    return rounds[uint32(_roundId)].timedOut;
   }
 
   /**
@@ -344,6 +368,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   {
     rounds[_timedOutId].answer = rounds[_timedOutId.sub(1)].answer;
     rounds[_timedOutId].updatedTimestamp = block.timestamp;
+    rounds[_timedOutId].timedOut = true;
   }
 
   function recordStartedRound(uint32 _id)

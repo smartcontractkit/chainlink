@@ -34,9 +34,11 @@ contract('PrepaidAggregator', () => {
       'availableFunds',
       'getAnswer',
       'getTimestamp',
+      'getTimedOut',
       'latestAnswer',
       'latestRound',
       'latestSubmission',
+      'latestTimedOut',
       'latestTimestamp',
       'maxAnswerCount',
       'minAnswerCount',
@@ -218,6 +220,16 @@ contract('PrepaidAggregator', () => {
         const newAnswer = h.bigNum(log.topics[1])
 
         assert.equal(answer, newAnswer.toNumber())
+      })
+
+      it('does not set the timedout flag', async () => {
+        assert.isFalse(await aggregator.getTimedOut.call(nextRound))
+
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Nelly,
+        })
+
+        assert.isFalse(await aggregator.getTimedOut.call(nextRound))
       })
     })
 
@@ -495,18 +507,29 @@ contract('PrepaidAggregator', () => {
         it('sets the info for the previous round', async () => {
           const previousRound = nextRound - 1
           let updated = await aggregator.getTimestamp.call(previousRound)
-          let answer = await aggregator.getAnswer.call(previousRound)
+          let ans = await aggregator.getAnswer.call(previousRound)
           assert.equal(0, updated)
-          assert.equal(0, answer)
+          assert.equal(0, ans)
 
           await aggregator.updateAnswer(nextRound, answer, {
             from: personas.Nelly,
           })
 
           updated = await aggregator.getTimestamp.call(previousRound)
-          answer = await aggregator.getAnswer.call(previousRound)
+          ans = await aggregator.getAnswer.call(previousRound)
           assert.notEqual(0, updated)
-          assert.notEqual(0, answer)
+          assert.notEqual(0, ans)
+        })
+
+        it('sets the previous round as timed out', async () => {
+          const previousRound = nextRound - 1
+          assert.isFalse(await aggregator.getTimedOut.call(previousRound))
+
+          await aggregator.updateAnswer(nextRound, answer, {
+            from: personas.Nelly,
+          })
+
+          assert.isTrue(await aggregator.getTimedOut.call(previousRound))
         })
 
         it('still respects the delay restriction', async () => {
