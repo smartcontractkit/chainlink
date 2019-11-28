@@ -337,7 +337,6 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
     emit NewRound(uint256(_id), msg.sender);
   }
-  event Here(bool timedout, uint32 id, uint256 timestamp);
 
   function updateTimedOutRoundInfo(uint32 _timedOutId)
     private
@@ -404,7 +403,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     return previousAnswered && previousUpdatedAt + timeout < block.timestamp;
   }
 
-  function answered(uint32 _id)
+  function finished(uint32 _id)
     private
     returns (bool)
   {
@@ -456,7 +455,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   modifier onlyValidRoundId(uint32 _id) {
     require(_id == reportingRound || _id == reportingRound.add(1), "Must report on current round");
-    require(_id == 1 || answered(_id.sub(1)) || timedOut(_id.sub(1)), "Cannot bump round until previous round has an answer or timed out");
+    require(_id == 1 || finished(_id.sub(1)) || timedOut(_id.sub(1)), "Cannot bump round until previous round has an answer or timed out");
     _;
   }
 
