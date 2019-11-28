@@ -45,14 +45,93 @@
   }
 }
 
+.network-graph-legend {
+  margin: 60px 0;
+
+  &__title {
+    font-size: 14px;
+    margin-bottom: 5px;
+    color: #848484;
+  }
+
+  &__item {
+    display: flex;
+    margin: 20px 0;
+  }
+
+  &__description {
+    display: flex;
+    align-items: center;
+  }
+
+  &__symbol {
+    width: 40px;
+    display: flex;
+    justify-content: center;
+  }
+
+  &__sc {
+    font-size: 21px;
+  }
+
+  &__oracle {
+    &--fetching {
+      width: 20px;
+      height: 20px;
+      border: 1px solid #8e8e8e;
+      border-radius: 20px;
+      background: transparent;
+    }
+
+    &--fulfilled {
+      width: 20px;
+      height: 20px;
+      border-radius: 20px;
+      background: #2e2a2b;
+      border: 1px solid #2e2a2b;
+    }
+  }
+
+  &__line {
+    &--fetching {
+      animation: dash-animation 60s infinite linear;
+      stroke-dasharray: 2, 6;
+      stroke-width: 2;
+      stroke-dashoffset: -2;
+      stroke-linecap: round;
+      stroke: #a0a0a0;
+    }
+
+    &--fulfilled {
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke: #a0a0a0;
+    }
+  }
+}
+
 .network-graph {
   width: 1200px;
-  height: 600px;
+  height: 700px;
   margin: 0 auto;
   position: relative;
 
+  &__node__oracle.fulfilled {
+    fill: #2d2a2b;
+    stroke: #2d2a2b;
+  }
+
+  &__node__oracle.fetching {
+    fill: #f1f1f1;
+    stroke: #8e8e8e;
+  }
+
   &__node__oracle {
     cursor: pointer;
+    -webkit-transition: all 250ms ease;
+    -moz-transition: all 250ms ease;
+    -o-transition: all 250ms ease;
+    transition: all 250ms ease;
 
     &:hover {
       fill: #2a59da;
@@ -146,6 +225,10 @@
     margin: 10px 0;
     font-size: 12px;
     line-height: 1.5;
+  }
+
+  &__node-group--contract {
+    cursor: pointer;
   }
 }
 
