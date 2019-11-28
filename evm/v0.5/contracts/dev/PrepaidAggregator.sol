@@ -68,7 +68,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     uint32 indexed minAnswerCount,
     uint32 indexed maxAnswerCount,
     uint32 restartDelay,
-    uint32 timeout
+    uint32 timeout // measured in seconds
   );
   event OracleAdded(address indexed oracle);
   event OracleRemoved(address indexed oracle);
@@ -80,6 +80,8 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
    * @dev Sets the LinkToken address and amount of LINK paid
    * @param _link The address of the LINK token
    * @param _paymentAmount The amount paid of LINK paid to each oracle per response
+   * @param _timeout is the number of seconds after the previous round that are
+   * allowed to lapse before allowing an oracle to skip an unfinished round
    */
   constructor(address _link, uint128 _paymentAmount, uint32 _timeout) public {
     LINK = LinkTokenInterface(_link);
