@@ -45,7 +45,7 @@ type lazyRPCWrapper struct {
 	limiter     *rate.Limiter
 }
 
-func newLazyRPCWrapper(urlString string, limiter *rate.Limiter) (CallerSubscriber, error) {
+func newLazyRPCWrapper(urlString string, limiter *rate.Limiter) (eth.CallerSubscriber, error) {
 	parsed, err := url.ParseRequestURI(urlString)
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func (wrapper *lazyRPCWrapper) EthSubscribe(ctx context.Context, channel interfa
 
 // Dialer implements Dial which is a function that creates a client for that url
 type Dialer interface {
-	Dial(string) (CallerSubscriber, error)
+	Dial(string) (eth.CallerSubscriber, error)
 }
 
 // EthDialer is Dialer which accesses rpc urls
@@ -122,7 +122,7 @@ func NewEthDialer(rateLimit uint64) *EthDialer {
 }
 
 // Dial will dial the given url and return a CallerSubscriber
-func (ed *EthDialer) Dial(urlString string) (CallerSubscriber, error) {
+func (ed *EthDialer) Dial(urlString string) (eth.CallerSubscriber, error) {
 	return newLazyRPCWrapper(urlString, ed.limiter)
 }
 
@@ -157,7 +157,7 @@ func NewStoreWithDialer(config *orm.Config, dialer Dialer) *Store {
 		Config:      config,
 		KeyStore:    keyStore,
 		ORM:         orm,
-		TxManager:   NewEthTxManager(&EthCallerSubscriber{ethrpc}, config, keyStore, orm),
+		TxManager:   NewEthTxManager(&eth.EthCallerSubscriber{ethrpc}, config, keyStore, orm),
 		StatsPusher: synchronization.NewStatsPusher(orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret()),
 	}
 	return store

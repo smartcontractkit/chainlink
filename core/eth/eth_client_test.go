@@ -1,4 +1,4 @@
-package store_test
+package eth_test
 
 import (
 	"encoding/json"

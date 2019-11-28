@@ -51,7 +51,7 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 			mock.strict = true
 		}
 	}
-	eth := &store.EthCallerSubscriber{CallerSubscriber: mock}
+	eth := &eth.EthCallerSubscriber{CallerSubscriber: mock}
 	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
 		txm.EthClient = eth
 	} else {
@@ -73,7 +73,7 @@ type EthMock struct {
 }
 
 // Dial mock dial
-func (mock *EthMock) Dial(url string) (store.CallerSubscriber, error) {
+func (mock *EthMock) Dial(url string) (eth.CallerSubscriber, error) {
 	return mock, nil
 }
 
@@ -706,7 +706,7 @@ func (m mockSecretGenerator) Generate(orm.Config) ([]byte, error) {
 // queried by the message in the given call to an ERC20 contract, which is
 // interpreted as a callArgs.
 func extractERC20BalanceTargetAddress(args interface{}) (common.Address, bool) {
-	call, ok := (args).(store.CallArgs)
+	call, ok := (args).(eth.CallArgs)
 	if !ok {
 		return common.Address{}, false
 	}
