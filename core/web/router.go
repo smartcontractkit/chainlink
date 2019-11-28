@@ -18,6 +18,7 @@ import (
 	"chainlink/core/logger"
 	"chainlink/core/services"
 	"chainlink/core/store/orm"
+	"chainlink/core/store/presenters"
 
 	helmet "github.com/danielkov/gin-helmet"
 	"github.com/gin-contrib/cors"
@@ -51,6 +52,19 @@ const (
 	SessionExternalInitiatorKey = "external_initiator"
 )
 
+func explorerStatus(app services.Application) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		es := presenters.NewExplorerStatus(app.GetStore())
+		b, err := json.Marshal(es)
+		if err != nil {
+			panic(err)
+		}
+
+		c.SetCookie("explorer", (string)(b), 0, "", "", false, false)
+		c.Next()
+	}
+}
+
 // Router listens and responds to requests to the node for valid paths.
 func Router(app services.Application) *gin.Engine {
 	engine := gin.New()
@@ -77,6 +91,7 @@ func Router(app services.Application) *gin.Engine {
 		"/",
 		rateLimiter(1*time.Minute, 1000),
 		sessions.Sessions(SessionName, sessionStore),
+		explorerStatus(app),
 	)
 
 	metricRoutes(app, api)

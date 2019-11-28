@@ -1,4 +1,4 @@
-import { AppState } from 'connectors/redux/reducers'
+import { AppState } from 'src/reducers'
 import { JobRun } from 'operator_ui'
 import build from 'redux-object'
 

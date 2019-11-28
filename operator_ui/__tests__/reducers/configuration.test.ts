@@ -1,6 +1,6 @@
-import reducer from '../../../src/connectors/redux/reducers'
+import reducer from 'reducers'
 
-describe('connectors/reducers/configuration', () => {
+describe('reducers/configuration', () => {
   it('returns the initial state', () => {
     const state = reducer(undefined, {})
 

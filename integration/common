@@ -111,6 +111,7 @@ launch_explorer() {
   title "Starting explorer..."
 
   yarn workspace @chainlink/json-api-client run build &>$SRCROOT/integration/logs/explorer-json-api-client.log
+  yarn workspace @chainlink/redux run build &>$SRCROOT/integration/logs/explorer-redux.log
   yarn workspace @chainlink/explorer run build &>$SRCROOT/integration/logs/explorer-yarn.log
   yarn workspace @chainlink/explorer run prod &>$SRCROOT/integration/logs/explorer.log & waitForResponse $explorer_url
   title "Explorer is running."

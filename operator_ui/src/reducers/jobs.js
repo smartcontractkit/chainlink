@@ -1,4 +1,4 @@
-import { RECEIVE_DELETE_SUCCESS } from '../../../actions'
+import { RECEIVE_DELETE_SUCCESS } from 'actions'
 import pickBy from 'lodash/pickBy'
 
 const initialState = {

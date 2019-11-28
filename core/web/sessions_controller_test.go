@@ -10,6 +10,7 @@ import (
 
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
+	"chainlink/core/web"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -50,9 +51,12 @@ func TestSessionsController_Create(t *testing.T) {
 
 			if test.wantSession {
 				require.Equal(t, http.StatusOK, resp.StatusCode)
+
 				cookies := resp.Cookies()
-				require.Equal(t, 1, len(cookies))
-				decrypted, err := cltest.DecodeSessionCookie(cookies[0].Value)
+				sessionCookie := web.FindSessionCookie(cookies)
+				require.NotNil(t, sessionCookie)
+
+				decrypted, err := cltest.DecodeSessionCookie(sessionCookie.Value)
 				require.NoError(t, err)
 				user, err := app.Store.AuthorizedUserWithSession(decrypted)
 				assert.NoError(t, err)

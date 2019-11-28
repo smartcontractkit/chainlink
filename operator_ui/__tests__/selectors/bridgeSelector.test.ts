@@ -1,4 +1,4 @@
-import { AppState } from 'connectors/redux/reducers'
+import { AppState } from 'reducers'
 import bridgeSelector from 'selectors/bridge'
 
 describe('selectors - bridge', () => {

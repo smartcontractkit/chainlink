@@ -1,7 +1,7 @@
-import reducer from 'connectors/redux/reducers'
-import { UPSERT_ACCOUNT_BALANCE } from 'connectors/redux/reducers/accountBalances'
+import reducer from 'reducers'
+import { UPSERT_ACCOUNT_BALANCE } from 'reducers/accountBalances'
 
-describe('connectors/reducers/accountBalances', () => {
+describe('reducers/accountBalances', () => {
   it('returns the initial state', () => {
     const state = reducer(undefined, {})
 
