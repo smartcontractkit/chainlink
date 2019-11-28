@@ -3,6 +3,8 @@ import moment from 'moment'
 import { Icon } from 'antd'
 
 import CountDown from './CountDown.component'
+import Legend from './Legend.component'
+import TooltipQuestion from 'components/shared/TooltipQuestion'
 
 function NetworkGraphInfo({
   currentAnswer,
@@ -45,14 +47,19 @@ function NetworkGraphInfo({
               <Icon type="warning" /> {options.network.toUpperCase()} NETWORK
             </div>
           )}
-
-          {options.contractAddress}
+          {options.contractAddress}{' '}
+          <TooltipQuestion title={'Ethereum contract address'} />
         </h4>
         <h2 className="network-graph-info__title--name">{options.name}</h2>
       </div>
 
       <div className="network-graph-info__item">
-        <div className="network-graph-info__item--label">Latest answer</div>
+        <div className="network-graph-info__item--label">
+          Latest and trusted answer{' '}
+          <TooltipQuestion
+            title={`Answers are calculated in smart contract by Quickselect algorithm based on minimum ${minimumResponses} oracle answers`}
+          />
+        </div>
         <h2 className="network-graph-info__item--value">
           {options.valuePrefix || ''} {currentAnswer || '...'}
         </h2>
@@ -61,7 +68,10 @@ function NetworkGraphInfo({
       {options.counter && (
         <div className="network-graph-info__item">
           <div className="network-graph-info__item--label">
-            Next aggregation starts in
+            Next aggregation starts in{' '}
+            <TooltipQuestion
+              title={`Every ${options.counter} seconds, aggregator smart contract calls oracles to get the new trusted answer`}
+            />
           </div>
           <h2 className="network-graph-info__item--value">
             <CountDown requestTime={requestTime} counter={options.counter} />
@@ -69,31 +79,29 @@ function NetworkGraphInfo({
         </div>
       )}
 
-      {/* <div className="network-graph-info__item">
-        <div className="network-graph-info__item--label">
-          Current aggregation
-        </div>
-        <h2 className="network-graph-info__item--value">
-          {currentAnswerId || '...'}
-        </h2>
-      </div> */}
-
       <div className="network-graph-info__item">
         <div className="network-graph-info__item--label">
-          Oracle responses (minimum {minimumResponses || '...'})
+          Oracle responses (minimum {minimumResponses || '...'}){' '}
+          <TooltipQuestion
+            title={`Smart contract is connected to ${oracles &&
+              oracles.length} oracles. Each aggregation requires at least ${minimumResponses} oracle responses to be able to calculate trusted answer`}
+          />
         </div>
         <h2 className="network-graph-info__item--value">
-          {/* {responses} */}
           {getCurrentResponses()}
         </h2>
       </div>
 
       <div className="network-graph-info__item">
         <div className="network-graph-info__item--label">
-          Update date {updateDate}
+          Update date {updateDate}{' '}
+          <TooltipQuestion
+            title={`Date of updated smart contract with new trusted answer`}
+          />
         </div>
         <h2 className="network-graph-info__item--value">{updateTime}</h2>
       </div>
+      <Legend />
     </div>
   )
 }

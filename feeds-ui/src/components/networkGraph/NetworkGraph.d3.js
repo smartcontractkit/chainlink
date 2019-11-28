@@ -54,7 +54,10 @@ export default class NetworkGraph {
     const nodesEnter = updateData
       .enter()
       .append('g')
-      .attr('class', 'network-graph__node-group')
+      .attr(
+        'class',
+        d => `network-graph__node-group network-graph__node-group--${d.type}`,
+      )
       .on('click', d => {
         if (this.onNodeClick && d.type === 'oracle') {
           this.onNodeClick(d)
@@ -73,9 +76,7 @@ export default class NetworkGraph {
       return 'translate(' + d.x + ',' + d.y + ')'
     })
 
-    const oracles = this.nodes.filter(d => {
-      return d.type !== 'contract'
-    })
+    const oracles = this.nodes.filter(d => d.type !== 'contract')
 
     oracles.attr('transform', (d, i) => {
       const size = oracles.size()
@@ -94,27 +95,25 @@ export default class NetworkGraph {
       .append('circle')
       .attr('class', d => `network-graph__node__${d.type}`)
       .attr('r', d => d.radius)
-      .attr('fill', '#f1f1f1')
-      .attr('stroke', '#8e8e8e')
+
+    nodesEnter
+      .filter(d => d.type === 'contract')
+      .append('g')
+      .attr('transform', 'translate(-15,-35)')
+      .append('path')
+      .attr(
+        'd',
+        'M866.9 169.9L527.1 54.1C523 52.7 517.5 52 512 52s-11 .7-15.1 2.1L157.1 169.9c-8.3 2.8-15.1 12.4-15.1 21.2v482.4c0 8.8 5.7 20.4 12.6 25.9L499.3 968c3.5 2.7 8 4.1 12.6 4.1s9.2-1.4 12.6-4.1l344.7-268.6c6.9-5.4 12.6-17 12.6-25.9V191.1c.2-8.8-6.6-18.3-14.9-21.2zM810 654.3L512 886.5 214 654.3V226.7l298-101.6 298 101.6v427.6zm-405.8-201c-3-4.1-7.8-6.6-13-6.6H336c-6.5 0-10.3 7.4-6.5 12.7l126.4 174a16.1 16.1 0 0 0 26 0l212.6-292.7c3.8-5.3 0-12.7-6.5-12.7h-55.2c-5.1 0-10 2.5-13 6.6L468.9 542.4l-64.7-89.1z',
+      )
+      .attr('transform', 'scale(0.03)')
 
     nodesEnter
       .selectAll('.network-graph__node__oracle')
-      .on('mouseover', d => this.setOracleTooltip(d))
-      .on('mouseout', () => {
-        this.oracleTooltip.style('opacity', 0)
-      })
-
-    nodesEnter
-      .selectAll('.network-graph__node__contract')
-      .on('mouseover', d => this.setContractTooltip(d))
-      .on('mouseout', () => {
-        this.contractTooltip.style('opacity', 0)
-      })
+      .on('mouseover', this.setOracleTooltip.bind(this))
+      .on('mouseout', this.setOpacity.bind(this.oracleTooltip, 0))
 
     const label = nodesEnter
-      .filter(d => {
-        return d.type !== 'contract'
-      })
+      .filter(d => d.type !== 'contract')
       .append('g')
       .attr('class', 'network-graph__node__oracle-label')
 
@@ -127,9 +126,7 @@ export default class NetworkGraph {
       .transition()
       .duration(600)
       .attr('opacity', 1)
-      .text(d => {
-        return d.name
-      })
+      .text(d => d.name)
 
     label
       .append('text')
@@ -138,9 +135,11 @@ export default class NetworkGraph {
       .attr('x', '20')
       .attr('y', '10')
 
-    const contract = nodesEnter.filter(d => {
-      return d.type === 'contract'
-    })
+    const contract = nodesEnter.filter(d => d.type === 'contract')
+
+    contract
+      .on('mouseover', this.setContractTooltip.bind(this))
+      .on('mouseout', this.setOpacity.bind(this.contractTooltip, 0))
 
     const contractLabel = contract
       .append('g')
@@ -152,7 +151,7 @@ export default class NetworkGraph {
       .transition()
       .style('opacity', 1)
       .attr('class', 'network-graph__node__contract-label--price')
-      .attr('y', '5')
+      .attr('y', '15')
       .attr('text-anchor', 'middle')
       .text('Loading...')
 
@@ -163,9 +162,7 @@ export default class NetworkGraph {
       return 'network-graph__node__contract wait'
     })
 
-    this.links = this.links.data(nodes, d => {
-      return d
-    })
+    this.links = this.links.data(nodes, d => d)
 
     this.links.exit().remove()
 
@@ -193,24 +190,32 @@ export default class NetworkGraph {
     this.oracleTooltip.select('.date').text('')
     this.oracleTooltip.select('.block').text('')
 
-    this.oracleTooltip.select('.name').text(() => {
-      return d.name
-    })
+    this.oracleTooltip.select('.name').text(() => d.name)
 
     if (d.state) {
-      this.oracleTooltip.select('.price').text(() => {
-        return `${this.options.valuePrefix || ''} ${d.state.responseFormatted}`
-      })
+      this.oracleTooltip
+        .select('.price')
+        .text(
+          () =>
+            `${this.options.valuePrefix || ''} ${d.state.responseFormatted}`,
+        )
 
-      this.oracleTooltip.select('.date').text(() => {
-        return `Date: ${moment
-          .unix(d.state.meta.timestamp)
-          .format('DD/MM/YY h:mm:ss A')}`
-      })
-      this.oracleTooltip.select('.block').text(() => {
-        return `Block: ${d.state.meta.blockNumber}`
-      })
+      this.oracleTooltip
+        .select('.date')
+        .text(
+          () =>
+            `Date: ${moment
+              .unix(d.state.meta.timestamp)
+              .format('DD/MM/YY h:mm:ss A')}`,
+        )
+      this.oracleTooltip
+        .select('.block')
+        .text(() => `Block: ${d.state.meta.blockNumber}`)
     }
+  }
+
+  setOpacity(opacity) {
+    return this.style('opacity', opacity)
   }
 
   setContractTooltip(d) {
@@ -228,9 +233,11 @@ export default class NetworkGraph {
     this.contractTooltip.select('.block').text('')
 
     if (d.state && d.type === 'contract') {
-      this.contractTooltip.select('.price').text(() => {
-        return `${this.options.valuePrefix || ''} ${d.state.currentAnswer}`
-      })
+      this.contractTooltip
+        .select('.price')
+        .text(
+          () => `${this.options.valuePrefix || ''} ${d.state.currentAnswer}`,
+        )
     }
   }
 
@@ -243,50 +250,43 @@ export default class NetworkGraph {
       .select('.network-graph__node__oracle-label--name')
       .transition()
       .duration(600)
-      .style('opacity', d => {
-        return this.isPendingAnswered(d) ? 1 : 0.6
-      })
-      .text(d => {
-        return d.name
-      })
+      .style('opacity', d => (this.isPendingAnswered(d) ? 1 : 0.6))
+      .text(d => d.name)
 
     nodeGroup
       .select('.network-graph__node__oracle-label--price')
-      .text(d => {
-        return hasPrice(d)
+      .text(d =>
+        hasPrice(d)
           ? `${this.options.valuePrefix || ''} ${d.state.responseFormatted}`
-          : ''
-      })
+          : '',
+      )
       .transition()
       .duration(600)
-      .style('opacity', d => {
-        return this.isPendingAnswered(d) ? 1 : 0.6
-      })
+      .style('opacity', d => (this.isPendingAnswered(d) ? 1 : 0.6))
 
     nodeGroup
-      .select('circle')
-      .transition()
-      .duration(1000)
-      .attr('fill', d => {
-        return this.isPendingAnswered(d) ? '#2d2a2b' : '#f1f1f1'
-      })
-      .attr('stroke', d => {
-        return this.isPendingAnswered(d) ? '#2d2a2b' : '#8e8e8e'
-      })
+      .select('.network-graph__node__oracle')
+      .attr('class', d =>
+        this.isPendingAnswered(d)
+          ? 'network-graph__node__oracle fulfilled'
+          : 'network-graph__node__oracle fetching',
+      )
 
-    nodeGroup.select('.network-graph__node__contract-label--price').text(d => {
-      return d.state && d.state.currentAnswer
-        ? `${this.options.valuePrefix || ''} ${d.state.currentAnswer}`
-        : ''
-    })
+    nodeGroup
+      .select('.network-graph__node__contract-label--price')
+      .text(d =>
+        d.state && d.state.currentAnswer
+          ? `${this.options.valuePrefix || ''} ${d.state.currentAnswer}`
+          : '',
+      )
   }
 
   updateLinksState() {
-    this.links.attr('class', d => {
-      return this.isPendingAnswered(d)
+    this.links.attr('class', d =>
+      this.isPendingAnswered(d)
         ? 'network-graph__line--success'
-        : 'network-graph__line--wait'
-    })
+        : 'network-graph__line--wait',
+    )
   }
 
   updateState(state, pendingAnswerId) {
