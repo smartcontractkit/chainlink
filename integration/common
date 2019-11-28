@@ -40,11 +40,19 @@ launch_chainlink() {
 
   pushd tools/docker
   # Grab logs from our node service and find the unlocked account
-  waitFor "docker-compose -f docker-compose.yaml -f docker-compose.paritynet.yaml -f docker-compose.integration.yaml logs node | grep 'Unlocked account'" 10
-  export CHAINLINK_NODE_ADDRESS=`docker-compose -f docker-compose.yaml -f docker-compose.paritynet.yaml -f docker-compose.integration.yaml logs node | grep 'Unlocked account' | awk '{print$7}'`
+  waitFor "docker logs chainlink-node 2>&1 | grep 'Unlocked account'" 10
+  export CHAINLINK_NODE_ADDRESS=`docker logs chainlink-node 2>&1 | grep 'Unlocked account' | awk '{print$5}'`
+
+  # If we're using geth for this test
+  # then we need to fund our hardcoded devnet address with the developer account given by geth
+  if [ $GETH_MODE ]
+  then
+    export DEVELOPER_ACCOUNT=`docker logs geth 2>&1 | grep "Using developer account" | awk -F "=" '{print$2}'`
+    yarn workspace @chainlink/integration-scripts fund-address
+  fi
   popd 
 
-  yarn workspace @chainlink/integration-scripts fund-address
+  
 }
 
 deploy_contracts() {
