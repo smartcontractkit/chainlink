@@ -67,7 +67,7 @@ type TxManager interface {
 // EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
 type EthTxManager struct {
-	EthClient
+	eth.EthClient
 	keyStore            *KeyStore
 	config              orm.ConfigReader
 	orm                 *orm.ORM
@@ -81,7 +81,7 @@ type EthTxManager struct {
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
 // initializing internal variables.
-func NewEthTxManager(client EthClient, config orm.ConfigReader, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
+func NewEthTxManager(client eth.EthClient, config orm.ConfigReader, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
 	return &EthTxManager{
 		EthClient:     client,
 		config:        config,

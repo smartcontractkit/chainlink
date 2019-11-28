@@ -1,11 +1,10 @@
-package store
+package eth
 
 import (
 	"context"
 	"math/big"
 
 	"chainlink/core/assets"
-	"chainlink/core/eth"
 	"chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -21,12 +20,12 @@ type EthClient interface {
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	SendRawTx(hex string) (common.Hash, error)
-	GetTxReceipt(hash common.Hash) (*eth.TxReceipt, error)
-	GetBlockByNumber(hex string) (eth.BlockHeader, error)
-	GetLogs(q ethereum.FilterQuery) ([]eth.Log, error)
+	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
+	GetBlockByNumber(hex string) (BlockHeader, error)
+	GetLogs(q ethereum.FilterQuery) ([]Log, error)
 	GetChainID() (*big.Int, error)
-	SubscribeToLogs(channel chan<- eth.Log, q ethereum.FilterQuery) (eth.EthSubscription, error)
-	SubscribeToNewHeads(channel chan<- eth.BlockHeader) (eth.EthSubscription, error)
+	SubscribeToLogs(channel chan<- Log, q ethereum.FilterQuery) (EthSubscription, error)
+	SubscribeToNewHeads(channel chan<- BlockHeader) (EthSubscription, error)
 }
 
 // EthCallerSubscriber holds the CallerSubscriber interface for the Ethereum blockchain.
@@ -38,7 +37,7 @@ type EthCallerSubscriber struct {
 // a JSON-RPC call with the given arguments and EthSubscribe registers a subscription.
 type CallerSubscriber interface {
 	Call(result interface{}, method string, args ...interface{}) error
-	EthSubscribe(context.Context, interface{}, ...interface{}) (eth.EthSubscription, error)
+	EthSubscribe(context.Context, interface{}, ...interface{}) (EthSubscription, error)
 }
 
 // GetNonce returns the nonce (transaction count) for a given address.
@@ -75,7 +74,7 @@ type CallArgs struct {
 func (ecs *EthCallerSubscriber) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
 	result := ""
 	numLinkBigInt := new(big.Int)
-	functionSelector := eth.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+	functionSelector := HexToFunctionSelector("0x70a08231") // balanceOf(address)
 	data := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(address.Bytes(), utils.EVMWordByteLen))
 	args := CallArgs{
 		To:   contractAddress,
@@ -97,22 +96,22 @@ func (ecs *EthCallerSubscriber) SendRawTx(hex string) (common.Hash, error) {
 }
 
 // GetTxReceipt returns the transaction receipt for the given transaction hash.
-func (ecs *EthCallerSubscriber) GetTxReceipt(hash common.Hash) (*eth.TxReceipt, error) {
-	receipt := eth.TxReceipt{}
+func (ecs *EthCallerSubscriber) GetTxReceipt(hash common.Hash) (*TxReceipt, error) {
+	receipt := TxReceipt{}
 	err := ecs.Call(&receipt, "eth_getTransactionReceipt", hash.String())
 	return &receipt, err
 }
 
 // GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".
-func (ecs *EthCallerSubscriber) GetBlockByNumber(hex string) (eth.BlockHeader, error) {
-	var header eth.BlockHeader
+func (ecs *EthCallerSubscriber) GetBlockByNumber(hex string) (BlockHeader, error) {
+	var header BlockHeader
 	err := ecs.Call(&header, "eth_getBlockByNumber", hex, false)
 	return header, err
 }
 
 // GetLogs returns all logs that respect the passed filter query.
-func (ecs *EthCallerSubscriber) GetLogs(q ethereum.FilterQuery) ([]eth.Log, error) {
-	var results []eth.Log
+func (ecs *EthCallerSubscriber) GetLogs(q ethereum.FilterQuery) ([]Log, error) {
+	var results []Log
 	err := ecs.Call(&results, "eth_getLogs", utils.ToFilterArg(q))
 	return results, err
 }
@@ -127,9 +126,9 @@ func (ecs *EthCallerSubscriber) GetChainID() (*big.Int, error) {
 // SubscribeToLogs registers a subscription for push notifications of logs
 // from a given address.
 func (ecs *EthCallerSubscriber) SubscribeToLogs(
-	channel chan<- eth.Log,
+	channel chan<- Log,
 	q ethereum.FilterQuery,
-) (eth.EthSubscription, error) {
+) (EthSubscription, error) {
 	// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
 	ctx := context.Background()
 	sub, err := ecs.EthSubscribe(ctx, channel, "logs", utils.ToFilterArg(q))
@@ -138,8 +137,8 @@ func (ecs *EthCallerSubscriber) SubscribeToLogs(
 
 // SubscribeToNewHeads registers a subscription for push notifications of new blocks.
 func (ecs *EthCallerSubscriber) SubscribeToNewHeads(
-	channel chan<- eth.BlockHeader,
-) (eth.EthSubscription, error) {
+	channel chan<- BlockHeader,
+) (EthSubscription, error) {
 	ctx := context.Background()
 	sub, err := ecs.EthSubscribe(ctx, channel, "newHeads")
 	return sub, err
