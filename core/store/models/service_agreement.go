@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"time"
 
+	"chainlink/core/eth"
 	"chainlink/core/store/assets"
 	"chainlink/core/utils"
 
@@ -31,9 +32,9 @@ type Encumbrance struct {
 	// Address of aggregator contract
 	Aggregator EIP55Address `json:"aggregator" gorm:"not null"`
 	// selector for initialization method on aggregator contract
-	AggInitiateJobSelector FunctionSelector `json:"aggInitiateJobSelector" gorm:"not null"`
+	AggInitiateJobSelector eth.FunctionSelector `json:"aggInitiateJobSelector" gorm:"not null"`
 	// selector for fulfillment (oracle reporting) method on aggregator contract
-	AggFulfillSelector FunctionSelector `json:"aggFulfillSelector" gorm:"not null"`
+	AggFulfillSelector eth.FunctionSelector `json:"aggFulfillSelector" gorm:"not null"`
 }
 
 // UnsignedServiceAgreement contains the information to sign a service agreement
@@ -65,8 +66,8 @@ type ServiceAgreementRequest struct {
 	EndAt                  AnyTime                `json:"endAt"`
 	Oracles                EIP55AddressCollection `json:"oracles"`
 	Aggregator             EIP55Address           `json:"aggregator"`
-	AggInitiateJobSelector FunctionSelector       `json:"aggInitiateJobSelector"`
-	AggFulfillSelector     FunctionSelector       `json:"aggFulfillSelector"`
+	AggInitiateJobSelector eth.FunctionSelector   `json:"aggInitiateJobSelector"`
+	AggFulfillSelector     eth.FunctionSelector   `json:"aggFulfillSelector"`
 	StartAt                AnyTime                `json:"startAt"`
 }
 
