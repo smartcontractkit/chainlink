@@ -665,3 +665,20 @@ func (ei *ExternalInitiatorAuthentication) SetID(name string) error {
 	ei.Name = name
 	return nil
 }
+
+// ExplorerStatus represents the connected server and status of the connection
+type ExplorerStatus struct {
+	Status string `json:"status"`
+	Url    string `json:"url"`
+}
+
+// NewExplorerStatus returns an initialized ExplorerStatus from the store
+func NewExplorerStatus(store *store.Store) ExplorerStatus {
+	client := store.StatsPusher.WSClient
+	url := client.Url()
+
+	return ExplorerStatus{
+		Status: string(client.Status()),
+		Url:    url.String(),
+	}
+}

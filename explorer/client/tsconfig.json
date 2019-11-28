@@ -1,10 +1,7 @@
 {
   "compilerOptions": {
     "target": "es6",
-    "lib": [
-      "es6",
-      "dom"
-    ],
+    "lib": ["es6", "dom"],
     "module": "esnext",
     "moduleResolution": "node",
     "incremental": true,
@@ -21,14 +18,11 @@
     "sourceMap": true,
     "jsx": "react"
   },
-  "include": [
-    "src",
-    "@types",
-    "test",
-  ],
+
+  "include": ["src", "@types", "test"],
+
   "references": [
-    {
-      "path": "../../tools/json-api-client"
-    }
+    { "path": "../../tools/json-api-client" },
+    { "path": "../../tools/redux" }
   ]
 }

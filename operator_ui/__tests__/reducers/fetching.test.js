@@ -1,5 +1,5 @@
 import { RouterActionType } from 'actions'
-import reducer from 'connectors/redux/reducers'
+import reducer from 'reducers'
 
 describe('connectors/reducers/fetching', () => {
   it('should return the initial state', () => {

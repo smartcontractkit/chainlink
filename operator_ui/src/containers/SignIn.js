@@ -11,6 +11,7 @@ import { Grid } from '@material-ui/core'
 import { useHooks, useState } from 'use-react-hooks'
 import { hot } from 'react-hot-loader'
 import { submitSignIn } from 'actions'
+import { renderNotification } from 'containers/Notifications'
 import HexagonLogo from 'components/Logos/Hexagon'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { getPersistUrl } from '../utils/storage'
@@ -82,7 +83,7 @@ export const SignIn = useHooks(props => {
                 </Grid>
 
                 {errors.length > 0 &&
-                  errors.map(({ props }, idx) => {
+                  errors.map((notification, idx) => {
                     return (
                       <Grid item xs={12} key={idx}>
                         <Card raised={false} className={classes.error}>
@@ -91,7 +92,7 @@ export const SignIn = useHooks(props => {
                               variant="body1"
                               className={classes.errorText}
                             >
-                              {props.msg}
+                              {renderNotification(notification)}
                             </Typography>
                           </CardContent>
                         </Card>

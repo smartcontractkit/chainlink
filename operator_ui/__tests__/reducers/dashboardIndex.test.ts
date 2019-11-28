@@ -1,5 +1,5 @@
-import reducer from '../../../src/connectors/redux/reducers'
-import { Action } from '../../../src/connectors/redux/reducers/dashboardIndex'
+import reducer from 'reducers'
+import { Action } from 'reducers/dashboardIndex'
 
 describe('connectors/reducers/dashboardIndex', () => {
   it('returns an initial state', () => {

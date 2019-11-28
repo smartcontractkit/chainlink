@@ -1,4 +1,4 @@
-import createStore from 'connectors/redux'
+import createStore from 'createStore'
 import { ConnectedShow as Show } from 'containers/Jobs/Show'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
 import jsonApiJobSpecRunsFactory from 'factories/jsonApiJobSpecRuns'

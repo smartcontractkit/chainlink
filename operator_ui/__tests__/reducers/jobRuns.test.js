@@ -1,7 +1,7 @@
-import reducer from 'connectors/redux/reducers'
-import { RECEIVE_DELETE_SUCCESS } from '../../../src/actions'
+import reducer from 'reducers'
+import { RECEIVE_DELETE_SUCCESS } from 'actions'
 
-describe('connectors/reducers/jobRuns', () => {
+describe('reducers/jobRuns', () => {
   it('should return the initial state', () => {
     const state = reducer(undefined, {})
 

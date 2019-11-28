@@ -1,7 +1,7 @@
 import { RouterActionType } from 'actions'
-import reducer from 'connectors/redux/reducers'
+import reducer from 'reducers'
 
-describe('connectors/reducers/redirect', () => {
+describe('reducers/redirect', () => {
   it('should return the initial state', () => {
     const state = reducer(undefined, {})
 

@@ -5,7 +5,7 @@ import * as presenters from 'core/store/presenters'
 import normalize from 'json-api-normalizer'
 import { Action, Dispatch } from 'redux'
 import { ThunkAction } from 'redux-thunk'
-import { AppState } from './connectors/redux/reducers'
+import { AppState } from './reducers'
 
 export type GetNormalizedData<T extends AnyFunc> = ReturnType<
   T
