@@ -428,7 +428,13 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     if (_id < 2) { // must have at least one round of history
       return false;
     }
-    return rounds[_id - 1].updatedTimestamp < block.timestamp - timeout;
+
+    uint256 previousUpdatedAt = rounds[_id.sub(1)].updatedTimestamp;
+    if (previousUpdatedAt == 0) {
+      return false;
+    }
+
+    return previousUpdatedAt < block.timestamp - timeout;
   }
 
   function answered(uint32 _id)
