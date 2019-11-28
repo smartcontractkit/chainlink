@@ -33,6 +33,7 @@ contract('PrepaidAggregator', () => {
       'allocatedFunds',
       'availableFunds',
       'getAnswer',
+      'getAnsweredInRound',
       'getTimestamp',
       'getTimedOut',
       'latestAnswer',

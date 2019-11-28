@@ -27,7 +27,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   struct Round {
     int256 answer;
     uint64 updatedTimestamp;
-    bool timedOut;
+    uint32 originallyAnsweredInRound;
     RoundDetails details;
   }
 
@@ -251,7 +251,9 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (bool)
   {
-    return rounds[latestRoundValue].timedOut;
+    uint32 roundId = latestRoundValue;
+    uint32 answeredIn = rounds[roundId].originallyAnsweredInRound;
+    return answeredIn > 0 && answeredIn != roundId;
   }
 
   /**
@@ -298,7 +300,21 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (bool)
   {
-    return rounds[uint32(_roundId)].timedOut;
+    uint32 roundId = uint32(_roundId);
+    uint32 answeredIn = rounds[roundId].originallyAnsweredInRound;
+    return answeredIn > 0 && answeredIn != roundId;
+  }
+
+  /**
+   * @notice get the round ID of that an answer came from
+   * @param _roundId the round number to retrieve the answer for
+   */
+  function getAnsweredInRound(uint256 _roundId)
+    external
+    view
+    returns (uint32)
+  {
+    return rounds[uint32(_roundId)].originallyAnsweredInRound;
   }
 
   /**
@@ -366,13 +382,14 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     emit NewRound(uint256(_id), msg.sender);
   }
 
-  function updateTimedOutRoundInfo(uint32 _timedOutId)
+  function updateTimedOutRoundInfo(uint32 _id)
     private
-    ifTimedOut(_timedOutId)
+    ifTimedOut(_id)
   {
-    rounds[_timedOutId].answer = rounds[_timedOutId.sub(1)].answer;
-    rounds[_timedOutId].updatedTimestamp = uint64(block.timestamp);
-    rounds[_timedOutId].timedOut = true;
+    uint32 prevId = _id.sub(1);
+    rounds[_id].answer = rounds[prevId].answer;
+    rounds[_id].updatedTimestamp = uint64(block.timestamp);
+    rounds[_id].originallyAnsweredInRound = rounds[prevId].originallyAnsweredInRound;
   }
 
   function recordStartedRound(uint32 _id)
@@ -389,6 +406,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     int256 newAnswer = Median.calculate(rounds[_id].details.answers);
     rounds[_id].answer = newAnswer;
     rounds[_id].updatedTimestamp = uint64(block.timestamp);
+    rounds[_id].originallyAnsweredInRound = _id;
     latestRoundValue = _id;
 
     emit AnswerUpdated(newAnswer, uint256(_id), now);
