@@ -32,7 +32,6 @@ contract('PrepaidAggregator', () => {
       'addOracle',
       'allocatedFunds',
       'availableFunds',
-      'currentRound',
       'forceNewRound',
       'getAnswer',
       'getTimestamp',
@@ -45,6 +44,7 @@ contract('PrepaidAggregator', () => {
       'oracleCount',
       'paymentAmount',
       'removeOracle',
+      'reportingRound',
       'restartDelay',
       'timeout',
       'updateAnswer',
@@ -266,13 +266,13 @@ contract('PrepaidAggregator', () => {
 
     context('when a new highest round number is passed in', async () => {
       it('increments the answer round', async () => {
-        assert.equal(0, await aggregator.currentRound.call())
+        assert.equal(0, await aggregator.reportingRound.call())
 
         for (const oracle of oracles) {
           await aggregator.updateAnswer(nextRound, answer, { from: oracle })
         }
 
-        assert.equal(1, await aggregator.currentRound.call())
+        assert.equal(1, await aggregator.reportingRound.call())
       })
 
       it('announces a new round by emitting a log', async () => {
@@ -481,7 +481,7 @@ contract('PrepaidAggregator', () => {
           await aggregator.updateAnswer(nextRound, answer, {
             from: personas.Nelly,
           })
-          assert.equal(nextRound, await aggregator.currentRound.call())
+          assert.equal(nextRound, await aggregator.reportingRound.call())
 
           await time.increase(time.duration.seconds(timeout + 1))
           nextRound++
@@ -529,7 +529,7 @@ contract('PrepaidAggregator', () => {
           await aggregator.updateAnswer(nextRound, answer, {
             from: personas.Nelly,
           })
-          assert.equal(nextRound, await aggregator.currentRound.call())
+          assert.equal(nextRound, await aggregator.reportingRound.call())
 
           await time.increase(time.duration.seconds(timeout + 1))
 
@@ -1166,7 +1166,7 @@ contract('PrepaidAggregator', () => {
 
         assert.equal(startedBy, personas.Carol)
         assert.equal(nextRound + 1, newRoundNumber.toNumber())
-        assert.equal(nextRound + 1, await aggregator.currentRound.call())
+        assert.equal(nextRound + 1, await aggregator.reportingRound.call())
 
         await aggregator.updateAnswer(newRoundNumber, answer, {
           from: personas.Neil,

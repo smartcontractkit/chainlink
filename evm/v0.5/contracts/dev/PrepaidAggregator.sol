@@ -45,7 +45,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
 
   uint32 private latestRoundValue;
-  uint32 public currentRound;
+  uint32 public reportingRound;
   uint128 public allocatedFunds;
   uint128 public availableFunds;
 
@@ -123,7 +123,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     onlyUnenabledAddress(_oracle)
   {
     require(oracleCount < 42, "cannot add more than 42 oracles");
-    oracles[_oracle].startingRound = currentRound.add(1);
+    oracles[_oracle].startingRound = reportingRound.add(1);
     oracles[_oracle].endingRound = ROUND_MAX;
     oracleCount += 1;
 
@@ -152,7 +152,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     onlyEnabledAddress(_oracle)
   {
     oracleCount -= 1;
-    oracles[_oracle].endingRound = currentRound;
+    oracles[_oracle].endingRound = reportingRound;
 
     emit OracleRemoved(_oracle);
 
@@ -325,7 +325,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     external
     onlyOwner()
   {
-    uint32 id = currentRound;
+    uint32 id = reportingRound;
     updateSkippedRoundInfo(id);
     startNewRound(id + 1);
   }
@@ -341,7 +341,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   {
     updateTimedOutRoundInfo(_id.sub(1));
 
-    currentRound = _id;
+    reportingRound = _id;
     rounds[_id].details.maxAnswers = maxAnswerCount;
     rounds[_id].details.minAnswers = minAnswerCount;
     rounds[_id].details.paymentAmount = paymentAmount;
@@ -468,7 +468,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
 
   modifier ifNewRound(uint32 _id) {
-    if (_id == currentRound.add(1)) {
+    if (_id == reportingRound.add(1)) {
       _;
     }
   }
@@ -481,7 +481,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
 
   modifier onlyValidRoundId(uint32 _id) {
-    require(_id == currentRound || _id == currentRound.add(1), "Must report on current round");
+    require(_id == reportingRound || _id == reportingRound.add(1), "Must report on current round");
     require(_id == 1 || answered(_id.sub(1)) || timedOut(_id.sub(1)), "Cannot bump round until previous round has an answer or timed out");
     _;
   }
