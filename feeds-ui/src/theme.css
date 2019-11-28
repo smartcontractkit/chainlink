@@ -21409,14 +21409,77 @@ hr {
   margin: 0;
   font-weight: 600;
 }
+.network-graph-legend {
+  margin: 60px 0;
+}
+.network-graph-legend__title {
+  font-size: 14px;
+  margin-bottom: 5px;
+  color: #848484;
+}
+.network-graph-legend__item {
+  display: flex;
+  margin: 20px 0;
+}
+.network-graph-legend__description {
+  display: flex;
+  align-items: center;
+}
+.network-graph-legend__symbol {
+  width: 40px;
+  display: flex;
+  justify-content: center;
+}
+.network-graph-legend__sc {
+  font-size: 21px;
+}
+.network-graph-legend__oracle--fetching {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #8e8e8e;
+  border-radius: 20px;
+  background: transparent;
+}
+.network-graph-legend__oracle--fulfilled {
+  width: 20px;
+  height: 20px;
+  border-radius: 20px;
+  background: #2e2a2b;
+  border: 1px solid #2e2a2b;
+}
+.network-graph-legend__line--fetching {
+  animation: dash-animation 60s infinite linear;
+  stroke-dasharray: 2, 6;
+  stroke-width: 2;
+  stroke-dashoffset: -2;
+  stroke-linecap: round;
+  stroke: #a0a0a0;
+}
+.network-graph-legend__line--fulfilled {
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke: #a0a0a0;
+}
 .network-graph {
   width: 1200px;
-  height: 600px;
+  height: 700px;
   margin: 0 auto;
   position: relative;
 }
+.network-graph__node__oracle.fulfilled {
+  fill: #2d2a2b;
+  stroke: #2d2a2b;
+}
+.network-graph__node__oracle.fetching {
+  fill: #f1f1f1;
+  stroke: #8e8e8e;
+}
 .network-graph__node__oracle {
   cursor: pointer;
+  -webkit-transition: all 250ms ease;
+  -moz-transition: all 250ms ease;
+  -o-transition: all 250ms ease;
+  transition: all 250ms ease;
 }
 .network-graph__node__oracle:hover {
   fill: #2a59da;
@@ -21494,6 +21557,9 @@ hr {
   margin: 10px 0;
   font-size: 12px;
   line-height: 1.5;
+}
+.network-graph__node-group--contract {
+  cursor: pointer;
 }
 .network-graph__node-details__item {
   margin-bottom: 20px;
