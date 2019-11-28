@@ -56,20 +56,20 @@ func TestReceipt_UnmarshalEmptyBlockHash(t *testing.T) {
 
 func TestModels_HexToFunctionSelector(t *testing.T) {
 	t.Parallel()
-	fid := models.HexToFunctionSelector("0xb3f98adc")
+	fid := eth.HexToFunctionSelector("0xb3f98adc")
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
 func TestModels_HexToFunctionSelectorOverflow(t *testing.T) {
 	t.Parallel()
-	fid := models.HexToFunctionSelector("0xb3f98adc123456")
+	fid := eth.HexToFunctionSelector("0xb3f98adc123456")
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
 func TestModels_FunctionSelectorUnmarshalJSON(t *testing.T) {
 	t.Parallel()
 	bytes := []byte(`"0xb3f98adc"`)
-	var fid models.FunctionSelector
+	var fid eth.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
 	assert.NoError(t, err)
 	assert.Equal(t, "0xb3f98adc", fid.String())
@@ -78,7 +78,7 @@ func TestModels_FunctionSelectorUnmarshalJSON(t *testing.T) {
 func TestModels_FunctionSelectorUnmarshalJSONLiteral(t *testing.T) {
 	t.Parallel()
 	literalSelectorBytes := []byte(`"setBytes(bytes)"`)
-	var fid models.FunctionSelector
+	var fid eth.FunctionSelector
 	err := json.Unmarshal(literalSelectorBytes, &fid)
 	assert.NoError(t, err)
 	assert.Equal(t, "0xda359dc8", fid.String())
@@ -87,7 +87,7 @@ func TestModels_FunctionSelectorUnmarshalJSONLiteral(t *testing.T) {
 func TestModels_FunctionSelectorUnmarshalJSONError(t *testing.T) {
 	t.Parallel()
 	bytes := []byte(`"0xb3f98adc123456"`)
-	var fid models.FunctionSelector
+	var fid eth.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
 	assert.Error(t, err)
 }

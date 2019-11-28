@@ -6,7 +6,6 @@ import (
 
 	"chainlink/core/eth"
 	"chainlink/core/store/assets"
-	"chainlink/core/store/models"
 	"chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -76,7 +75,7 @@ type CallArgs struct {
 func (ecs *EthCallerSubscriber) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
 	result := ""
 	numLinkBigInt := new(big.Int)
-	functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+	functionSelector := eth.HexToFunctionSelector("0x70a08231") // balanceOf(address)
 	data := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(address.Bytes(), utils.EVMWordByteLen))
 	args := CallArgs{
 		To:   contractAddress,

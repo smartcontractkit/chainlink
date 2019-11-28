@@ -1,19 +1,15 @@
 package models
 
 import (
-	"database/sql/driver"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
-	"regexp"
 	"time"
 
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
 	"github.com/tidwall/gjson"
@@ -134,94 +130,6 @@ func HighestPricedTxAttemptPerTx(items []TxAttempt) []TxAttempt {
 		i++
 	}
 	return highestPriced
-}
-
-// FunctionSelector is the first four bytes of the call data for a
-// function call and specifies the function to be called.
-type FunctionSelector [FunctionSelectorLength]byte
-
-// FunctionSelectorLength should always be a length of 4 as a byte.
-const FunctionSelectorLength = 4
-
-// BytesToFunctionSelector converts the given bytes to a FunctionSelector.
-func BytesToFunctionSelector(b []byte) FunctionSelector {
-	var f FunctionSelector
-	f.SetBytes(b)
-	return f
-}
-
-// HexToFunctionSelector converts the given string to a FunctionSelector.
-func HexToFunctionSelector(s string) FunctionSelector {
-	return BytesToFunctionSelector(common.FromHex(s))
-}
-
-// String returns the FunctionSelector as a string type.
-func (f FunctionSelector) String() string { return hexutil.Encode(f[:]) }
-
-// Bytes returns the FunctionSelector as a byte slice
-func (f FunctionSelector) Bytes() []byte { return f[:] }
-
-// WithoutPrefix returns the FunctionSelector as a string without the '0x' prefix.
-func (f FunctionSelector) WithoutPrefix() string { return f.String()[2:] }
-
-// SetBytes sets the FunctionSelector to that of the given bytes (will trim).
-func (f *FunctionSelector) SetBytes(b []byte) { copy(f[:], b[:FunctionSelectorLength]) }
-
-var hexRegexp *regexp.Regexp = regexp.MustCompile("^[0-9a-fA-F]*$")
-
-func unmarshalFromString(s string, f *FunctionSelector) error {
-	if utils.HasHexPrefix(s) {
-		if !hexRegexp.Match([]byte(s)[2:]) {
-			return fmt.Errorf("function selector %s must be 0x-hex encoded", s)
-		}
-		bytes := common.FromHex(s)
-		if len(bytes) != FunctionSelectorLength {
-			return errors.New("Function ID must be 4 bytes in length")
-		}
-		f.SetBytes(bytes)
-	} else {
-		bytes, err := utils.Keccak256([]byte(s))
-		if err != nil {
-			return err
-		}
-		f.SetBytes(bytes[0:4])
-	}
-	return nil
-}
-
-// UnmarshalJSON parses the raw FunctionSelector and sets the FunctionSelector
-// type to the given input.
-func (f *FunctionSelector) UnmarshalJSON(input []byte) error {
-	var s string
-	err := json.Unmarshal(input, &s)
-	if err != nil {
-		return err
-	}
-	return unmarshalFromString(s, f)
-}
-
-// MarshalJSON returns the JSON encoding of f
-func (f FunctionSelector) MarshalJSON() ([]byte, error) {
-	return json.Marshal(f.String())
-}
-
-// Value returns this instance serialized for database storage
-func (f FunctionSelector) Value() (driver.Value, error) {
-	return f.Bytes(), nil
-}
-
-// Scan returns the selector from its serialization in the database
-func (f FunctionSelector) Scan(value interface{}) error {
-	temp, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("unable to convent %v of type %T to FunctionSelector", value, value)
-	}
-	if len(temp) != FunctionSelectorLength {
-		return fmt.Errorf("function selector %v should have length %d, but has length %d",
-			temp, FunctionSelectorLength, len(temp))
-	}
-	copy(f[:], temp)
-	return nil
 }
 
 // Head represents a BlockNumber, BlockHash.

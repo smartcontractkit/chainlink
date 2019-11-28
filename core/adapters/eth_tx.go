@@ -28,12 +28,12 @@ const (
 // EthTx holds the Address to send the result to and the FunctionSelector
 // to execute.
 type EthTx struct {
-	Address          common.Address          `json:"address"`
-	FunctionSelector models.FunctionSelector `json:"functionSelector"`
-	DataPrefix       hexutil.Bytes           `json:"dataPrefix"`
-	DataFormat       string                  `json:"format"`
-	GasPrice         *utils.Big              `json:"gasPrice" gorm:"type:numeric"`
-	GasLimit         uint64                  `json:"gasLimit"`
+	Address          common.Address       `json:"address"`
+	FunctionSelector eth.FunctionSelector `json:"functionSelector"`
+	DataPrefix       hexutil.Bytes        `json:"dataPrefix"`
+	DataFormat       string               `json:"format"`
+	GasPrice         *utils.Big           `json:"gasPrice" gorm:"type:numeric"`
+	GasLimit         uint64               `json:"gasLimit"`
 }
 
 // Perform creates the run result for the transaction if the existing run result
