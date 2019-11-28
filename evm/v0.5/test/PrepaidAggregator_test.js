@@ -162,7 +162,7 @@ contract('PrepaidAggregator', () => {
         })
       })
 
-      it('pays the oracles that have reported', async () => {
+      it('reverts', async () => {
         await expectRevert(
           aggregator.updateAnswer(nextRound + 1, answer, {
             from: personas.Neil,
