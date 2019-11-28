@@ -423,18 +423,12 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   function timedOut(uint32 _id)
     private
+    ifAfterFirstRound(_id)
     returns (bool)
   {
-    if (_id < 2) { // must have at least one round of history
-      return false;
-    }
-
     uint256 previousUpdatedAt = rounds[_id.sub(1)].updatedTimestamp;
-    if (previousUpdatedAt == 0) {
-      return false;
-    }
-
-    return previousUpdatedAt < block.timestamp - timeout;
+    bool previousAnswered = previousUpdatedAt > 0;
+    return previousAnswered ||  previousUpdatedAt + timeout < block.timestamp;
   }
 
   function answered(uint32 _id)
@@ -531,6 +525,12 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   modifier ifUnanswered(uint32 _id) {
     if (!answered(_id)) {
+      _;
+    }
+  }
+
+  modifier ifAfterFirstRound(uint32 _id) {
+    if (_id >= 2) {
       _;
     }
   }
