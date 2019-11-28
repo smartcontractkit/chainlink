@@ -1,4 +1,4 @@
-version: "3.1"
+version: '3.1'
 
 services:
   node:
@@ -7,7 +7,7 @@ services:
     depends_on:
       - devnet
   devnet:
-    container_name: parity-node
+    container_name: parity
     image: smartcontract/devnet
     networks:
       - ethereum-node

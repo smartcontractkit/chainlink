@@ -1,4 +1,4 @@
-version: "3.1"
+version: '3.1'
 
 services:
   integration:
@@ -10,17 +10,13 @@ services:
     volumes:
       # Forwards the local Docker socket to the container.
       - /var/run/docker.sock:/var/run/docker.sock
-      # REMOVE: this is for debugging purposes only
-      - ../../integration:/chainlink/integration 
-      # REMOVE: this is for debugging purposes only
-      - ../ci/ethereum_test:/chainlink/tools/ci/ethereum_test
     depends_on:
       - node
       - echo-server
       - cypress-job-server
-    environment: 
+    environment:
       - CHAINLINK_DEV=TRUE # need this for service agreements subcommand
-      - CHAINLINK_URL 
+      - CHAINLINK_URL
       - ETH_HTTP_URL
       - ECHO_SERVER_URL
       - CLIENT_NODE_URL # used to send remote commands
@@ -55,14 +51,14 @@ services:
       dockerfile: tools/docker/cypress-job-server.Dockerfile
     command: '{\"last\":\ \"3843.95\"}'
     ports:
-      - "6692:6692"
+      - '6692:6692'
     environment:
       - JOB_SERVER_PORT=$CYPRESS_JOB_SERVER_PORT
     networks:
       - integration-internal
 
   node:
-    entrypoint: ""
+    entrypoint: ''
     command: /bin/sh -c "chainlink node import /run/secrets/keystore && chainlink node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     environment:
       ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688,http://integration:3000,http://integration:6688,http://node:3000,http://node:6688
