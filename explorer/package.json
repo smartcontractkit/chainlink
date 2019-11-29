@@ -6,6 +6,9 @@
   "author": "Chainlink Dev Team",
   "license": "MIT",
   "keywords": [],
+  "engines": {
+    "node": "10.16.3"
+  },
   "scripts": {
     "admin:seed": "ts-node src/bin/admin.ts seed",
     "admin:clnodes:add": "ts-node src/bin/clnodes.ts add",
