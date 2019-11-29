@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"chainlink/core/assets"
 	clnull "chainlink/core/null"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"

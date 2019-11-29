@@ -5,8 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"chainlink/core/assets"
+	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 
@@ -184,8 +185,8 @@ func TestEncumbrance_ABI(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			fs := func(s string) models.FunctionSelector {
-				return models.BytesToFunctionSelector(hexutil.MustDecode(s))
+			fs := func(s string) eth.FunctionSelector {
+				return eth.BytesToFunctionSelector(hexutil.MustDecode(s))
 			}
 			enc := models.Encumbrance{
 				Payment:                test.payment,

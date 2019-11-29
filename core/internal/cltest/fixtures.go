@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"chainlink/core/eth"
 	"chainlink/core/store/models"
 
 	"github.com/stretchr/testify/require"
@@ -31,19 +32,19 @@ func JSONResultFromFixture(t *testing.T, path string) models.JSON {
 }
 
 // LogFromFixture create ethtypes.log from file path
-func LogFromFixture(t *testing.T, path string) models.Log {
+func LogFromFixture(t *testing.T, path string) eth.Log {
 	value := gjson.Get(string(MustReadFile(t, path)), "params.result")
-	var el models.Log
+	var el eth.Log
 	require.NoError(t, json.Unmarshal([]byte(value.String()), &el))
 
 	return el
 }
 
 // TxReceiptFromFixture create ethtypes.log from file path
-func TxReceiptFromFixture(t *testing.T, path string) models.TxReceipt {
+func TxReceiptFromFixture(t *testing.T, path string) eth.TxReceipt {
 	jsonStr := JSONFromFixture(t, path).Get("result").String()
 
-	var receipt models.TxReceipt
+	var receipt eth.TxReceipt
 	err := json.Unmarshal([]byte(jsonStr), &receipt)
 	require.NoError(t, err)
 

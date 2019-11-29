@@ -5,10 +5,10 @@ import (
 	"math/big"
 
 	"chainlink/core/adapters"
+	"chainlink/core/assets"
 	"chainlink/core/logger"
 	clnull "chainlink/core/null"
 	"chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/utils"
@@ -86,8 +86,8 @@ func newRun(
 
 	run := job.NewRun(*initiator)
 	run.Overrides = *data
-	run.CreationHeight = models.NewBig(currentHeight)
-	run.ObservedHeight = models.NewBig(currentHeight)
+	run.CreationHeight = utils.NewBig(currentHeight)
+	run.ObservedHeight = utils.NewBig(currentHeight)
 
 	if !MeetsMinimumPayment(&job.MinPayment, payment) {
 		logger.Infow("Rejecting run with insufficient payment",
@@ -246,7 +246,7 @@ func (jm *runManager) ResumeAllConfirming(currentBlockHeight *big.Int) error {
 			return
 		}
 
-		run.ObservedHeight = models.NewBig(currentBlockHeight)
+		run.ObservedHeight = utils.NewBig(currentBlockHeight)
 		logger.Debugw(fmt.Sprintf("New head #%s resuming run", currentBlockHeight), run.ForLogger()...)
 
 		validateMinimumConfirmations(run, currentTaskRun, run.ObservedHeight, jm.txManager)

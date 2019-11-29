@@ -1,11 +1,9 @@
-package models
+package utils
 
 import (
 	"database/sql/driver"
 	"fmt"
 	"math/big"
-
-	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
@@ -34,9 +32,9 @@ func (b *Big) MarshalJSON() ([]byte, error) {
 
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (b *Big) UnmarshalText(input []byte) error {
-	input = utils.RemoveQuotes(input)
+	input = RemoveQuotes(input)
 	str := string(input)
-	if utils.HasHexPrefix(str) {
+	if HasHexPrefix(str) {
 		decoded, err := hexutil.DecodeBig(str)
 		if err != nil {
 			return err

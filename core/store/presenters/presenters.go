@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"chainlink/core/assets"
 	"chainlink/core/auth"
 	"chainlink/core/logger"
 	"chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/utils"

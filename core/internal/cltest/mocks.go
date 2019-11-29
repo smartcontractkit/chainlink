@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"chainlink/core/cmd"
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	"chainlink/core/services"
 	"chainlink/core/store"
@@ -34,8 +35,8 @@ import (
 // Strict flag makes the mock eth client panic if an unexpected call is made
 const Strict = "strict"
 
-// MockEthCallerSubscriber create new EthMock Client
-func (ta *TestApplication) MockEthCallerSubscriber(flags ...string) *EthMock {
+// MockCallerSubscriberClient create new EthMock Client
+func (ta *TestApplication) MockCallerSubscriberClient(flags ...string) *EthMock {
 	if ta.ChainlinkApplication.HeadTracker.Connected() {
 		logger.Panic("Cannot mock eth client after being connected")
 	}
@@ -50,9 +51,9 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 			mock.strict = true
 		}
 	}
-	eth := &store.EthCallerSubscriber{CallerSubscriber: mock}
+	eth := &eth.CallerSubscriberClient{CallerSubscriber: mock}
 	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
-		txm.EthClient = eth
+		txm.Client = eth
 	} else {
 		log.Panic("MockEthOnStore only works on EthTxManager")
 	}
@@ -72,7 +73,7 @@ type EthMock struct {
 }
 
 // Dial mock dial
-func (mock *EthMock) Dial(url string) (store.CallerSubscriber, error) {
+func (mock *EthMock) Dial(url string) (eth.CallerSubscriber, error) {
 	return mock, nil
 }
 
@@ -248,29 +249,29 @@ func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) 
 func channelFromSubscriptionName(name string) interface{} {
 	switch name {
 	case "logs":
-		return make(chan models.Log)
+		return make(chan eth.Log)
 	case "newHeads":
-		return make(chan models.BlockHeader)
+		return make(chan eth.BlockHeader)
 	default:
 		return make(chan struct{})
 	}
 }
 
-// EthSubscribe registers a subscription to the channel
-func (mock *EthMock) EthSubscribe(
+// Subscribe registers a subscription to the channel
+func (mock *EthMock) Subscribe(
 	ctx context.Context,
 	channel interface{},
 	args ...interface{},
-) (models.EthSubscription, error) {
+) (eth.Subscription, error) {
 	mock.mutex.Lock()
 	defer mock.mutex.Unlock()
 	for i, sub := range mock.Subscriptions {
 		if sub.name == args[0] {
 			mock.Subscriptions = append(mock.Subscriptions[:i], mock.Subscriptions[i+1:]...)
 			switch channel.(type) {
-			case chan<- models.Log:
+			case chan<- eth.Log:
 				fwdLogs(channel, sub.channel)
-			case chan<- models.BlockHeader:
+			case chan<- eth.BlockHeader:
 				fwdHeaders(channel, sub.channel)
 			default:
 				return nil, errors.New("Channel type not supported by ethMock")
@@ -284,32 +285,32 @@ func (mock *EthMock) EthSubscribe(
 	} else if args[0] == "logs" && !mock.logsCalled {
 		mock.logsCalled = true
 		return MockSubscription{
-			channel: make(chan models.Log),
+			channel: make(chan eth.Log),
 			Errors:  make(chan error),
 		}, nil
 	} else if args[0] == "newHeads" {
 		return nil, errors.New("newHeads subscription only expected once, please register another mock subscription if more are needed")
 	}
-	return nil, errors.New("Must RegisterSubscription before EthSubscribe")
+	return nil, errors.New("Must RegisterSubscription before Subscribe")
 }
 
 // RegisterNewHeads registers a newheads subscription
-func (mock *EthMock) RegisterNewHeads() chan models.BlockHeader {
-	newHeads := make(chan models.BlockHeader, 10)
+func (mock *EthMock) RegisterNewHeads() chan eth.BlockHeader {
+	newHeads := make(chan eth.BlockHeader, 10)
 	mock.RegisterSubscription("newHeads", newHeads)
 	return newHeads
 }
 
 // RegisterNewHead register new head at given blocknumber
-func (mock *EthMock) RegisterNewHead(blockNumber int64) chan models.BlockHeader {
+func (mock *EthMock) RegisterNewHead(blockNumber int64) chan eth.BlockHeader {
 	newHeads := mock.RegisterNewHeads()
-	newHeads <- models.BlockHeader{Number: BigHexInt(blockNumber)}
+	newHeads <- eth.BlockHeader{Number: BigHexInt(blockNumber)}
 	return newHeads
 }
 
 func fwdLogs(actual, mock interface{}) {
-	logChan := actual.(chan<- models.Log)
-	mockChan := mock.(chan models.Log)
+	logChan := actual.(chan<- eth.Log)
+	mockChan := mock.(chan eth.Log)
 	go func() {
 		for e := range mockChan {
 			logChan <- e
@@ -318,8 +319,8 @@ func fwdLogs(actual, mock interface{}) {
 }
 
 func fwdHeaders(actual, mock interface{}) {
-	logChan := actual.(chan<- models.BlockHeader)
-	mockChan := mock.(chan models.BlockHeader)
+	logChan := actual.(chan<- eth.BlockHeader)
+	mockChan := mock.(chan eth.BlockHeader)
 	go func() {
 		for e := range mockChan {
 			logChan <- e
@@ -347,10 +348,10 @@ func (mes MockSubscription) Unsubscribe() {
 	switch mes.channel.(type) {
 	case chan struct{}:
 		close(mes.channel.(chan struct{}))
-	case chan models.Log:
-		close(mes.channel.(chan models.Log))
-	case chan models.BlockHeader:
-		close(mes.channel.(chan models.BlockHeader))
+	case chan eth.Log:
+		close(mes.channel.(chan eth.Log))
+	case chan eth.BlockHeader:
+		close(mes.channel.(chan eth.BlockHeader))
 	default:
 		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
 	}
@@ -705,7 +706,7 @@ func (m mockSecretGenerator) Generate(orm.Config) ([]byte, error) {
 // queried by the message in the given call to an ERC20 contract, which is
 // interpreted as a callArgs.
 func extractERC20BalanceTargetAddress(args interface{}) (common.Address, bool) {
-	call, ok := (args).(store.CallArgs)
+	call, ok := (args).(eth.CallArgs)
 	if !ok {
 		return common.Address{}, false
 	}

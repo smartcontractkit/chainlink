@@ -17,12 +17,12 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/assets"
 	"chainlink/core/auth"
 	"chainlink/core/cmd"
 	"chainlink/core/logger"
 	"chainlink/core/services"
 	strpkg "chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
@@ -282,7 +282,7 @@ func (ta *TestApplication) WaitForConnection() error {
 }
 
 func (ta *TestApplication) MockStartAndConnect() (*EthMock, error) {
-	ethMock := ta.MockEthCallerSubscriber()
+	ethMock := ta.MockCallerSubscriberClient()
 	ethMock.Context("TestApplication#MockStartAndConnect()", func(ethMock *EthMock) {
 		ethMock.Register("eth_chainId", ta.Config.ChainID())
 		ethMock.Register("eth_getTransactionCount", `0x0`)

@@ -80,7 +80,7 @@ func TestUserController_AccountBalances_Success(t *testing.T) {
 	app.AddUnlockedKey()
 	client := app.NewHTTPClient()
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("first wallet", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getBalance", "0x0100")
 		ethMock.Register("eth_call", "0x0100")
@@ -116,7 +116,7 @@ func TestUserController_NewAPIToken(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 	})
@@ -143,7 +143,7 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 	})
@@ -164,7 +164,7 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 	})
@@ -186,7 +186,7 @@ func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 	})

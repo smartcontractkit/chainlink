@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"chainlink/core/assets"
 	"chainlink/core/services"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
 	"chainlink/core/utils"

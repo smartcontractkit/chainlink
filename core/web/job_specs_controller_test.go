@@ -221,7 +221,7 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
