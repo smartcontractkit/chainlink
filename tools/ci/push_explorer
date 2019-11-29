@@ -25,7 +25,9 @@ tag_and_push() {
   # ie: docker tag and push smartcontract/explorer:0.9.1, since DOCKER_TAG=0.9.1
   export DOCKER_TAG=$1
   (set -x; docker tag smartcontract/explorer:circleci smartcontract/explorer:${DOCKER_TAG})
-  cd explorer && make dockerpush
+  cd explorer
+  make dockerpush
+  cd ..
 }
 
 branch_tag=`tools/ci/branch2tag ${circle_branch}` # ie: develop, latest, candidate-*, etc.
