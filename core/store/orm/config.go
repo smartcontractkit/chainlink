@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"time"
 
+	"chainlink/core/assets"
 	"chainlink/core/logger"
-	"chainlink/core/store/assets"
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"

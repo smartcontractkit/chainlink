@@ -6,11 +6,13 @@ import (
 	"time"
 
 	"chainlink/core/adapters"
+	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
 	clnull "chainlink/core/null"
 	"chainlink/core/services"
 	"chainlink/core/store/models"
+	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -144,7 +146,7 @@ func TestRunManager_ResumeAllConfirming(t *testing.T) {
 		assert.Equal(t, models.RunStatusErrored, run.Status)
 	})
 
-	creationHeight := models.NewBig(big.NewInt(0))
+	creationHeight := utils.NewBig(big.NewInt(0))
 
 	t.Run("leave in pending if not enough confirmations have been met yet", func(t *testing.T) {
 		run := models.JobRun{
@@ -264,7 +266,7 @@ func TestRunManager_ResumeAllConnecting_NotEnoughConfirmations(t *testing.T) {
 	initiator := job.Initiators[0]
 	run := job.NewRun(initiator)
 	run.Status = models.RunStatusPendingConnection
-	run.CreationHeight = models.NewBig(big.NewInt(0))
+	run.CreationHeight = utils.NewBig(big.NewInt(0))
 	run.ObservedHeight = run.CreationHeight
 	run.TaskRuns[0].MinimumConfirmations = clnull.Uint32From(807)
 	run.TaskRuns[0].Status = models.RunStatusPendingConnection
@@ -307,8 +309,8 @@ func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	defer cleanup()
 
 	store := app.Store
-	eth := cltest.MockEthOnStore(t, store)
-	eth.Register("eth_chainId", store.Config.ChainID())
+	mocketh := cltest.MockEthOnStore(t, store)
+	mocketh.Register("eth_chainId", store.Config.ChainID())
 
 	app.Start()
 
@@ -366,10 +368,10 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithConfig(t, config)
 			defer cleanup()
 
-			eth := app.MockEthCallerSubscriber()
+			mocketh := app.MockCallerSubscriberClient()
 			store := app.GetStore()
-			eth.Context("app.Start()", func(eth *cltest.EthMock) {
-				eth.Register("eth_chainId", store.Config.ChainID())
+			mocketh.Context("app.Start()", func(meth *cltest.EthMock) {
+				meth.Register("eth_chainId", store.Config.ChainID())
 			})
 			app.Start()
 
@@ -392,13 +394,13 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			assert.Equal(t, models.RunStatusPendingConfirmations, run.TaskRuns[0].Status)
 			assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
 
-			confirmedReceipt := models.TxReceipt{
+			confirmedReceipt := eth.TxReceipt{
 				Hash:        initiatingTxHash,
 				BlockHash:   &test.receiptBlockHash,
 				BlockNumber: cltest.Int(3),
 			}
-			eth.Context("validateOnMainChain", func(eth *cltest.EthMock) {
-				eth.Register("eth_getTransactionReceipt", confirmedReceipt)
+			mocketh.Context("validateOnMainChain", func(meth *cltest.EthMock) {
+				meth.Register("eth_getTransactionReceipt", confirmedReceipt)
 			})
 
 			err = app.RunManager.ResumeAllConfirming(big.NewInt(2))
@@ -410,7 +412,7 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			assert.Equal(t, minimumConfirmations, run.TaskRuns[0].Confirmations.Uint32, "task run should track its current confirmations")
 			assert.True(t, run.TaskRuns[0].Confirmations.Valid)
 
-			assert.True(t, eth.AllCalled(), eth.Remaining())
+			assert.True(t, mocketh.AllCalled(), mocketh.Remaining())
 		})
 	}
 }
@@ -428,7 +430,7 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 
-	eth := app.MockEthCallerSubscriber()
+	eth := app.MockCallerSubscriberClient()
 	app.MockStartAndConnect()
 
 	store := app.GetStore()

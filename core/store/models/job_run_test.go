@@ -6,9 +6,10 @@ import (
 	"math/big"
 	"testing"
 
+	"chainlink/core/assets"
 	"chainlink/core/internal/cltest"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
+	"chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -152,8 +153,8 @@ func TestJobRun_ForLogger(t *testing.T) {
 	assert.Equal(t, logsAfterCompletion[6], "link_earned")
 	assert.Equal(t, logsAfterCompletion[7], linkReward)
 
-	jr.CreationHeight = models.NewBig(big.NewInt(5))
-	jr.ObservedHeight = models.NewBig(big.NewInt(10))
+	jr.CreationHeight = utils.NewBig(big.NewInt(5))
+	jr.ObservedHeight = utils.NewBig(big.NewInt(10))
 	logsWithBlockHeights := jr.ForLogger()
 	require.Len(t, logsWithBlockHeights, 12)
 	assert.Equal(t, logsWithBlockHeights[6], "creation_height")

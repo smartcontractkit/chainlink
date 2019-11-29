@@ -15,10 +15,11 @@ import (
 	"time"
 
 	"chainlink/core/adapters"
+	"chainlink/core/assets"
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	"chainlink/core/store"
 	strpkg "chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 
@@ -143,7 +144,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 		From:     from,
 		Nonce:    0,
 		Data:     []byte{},
-		Value:    models.NewBig(big.NewInt(0)),
+		Value:    utils.NewBig(big.NewInt(0)),
 		GasLimit: 250000,
 		SentAt:   sentAt,
 	}
@@ -248,7 +249,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 	return json
 }
 
-// NewRunLog create models.Log for given jobid, address, block, and json
+// NewRunLog create eth.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
 	jobID *models.ID,
@@ -256,8 +257,8 @@ func NewRunLog(
 	requester common.Address,
 	blk int,
 	json string,
-) models.Log {
-	return models.Log{
+) eth.Log {
+	return eth.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        StringToVersionedLogData20190207withoutIndexes(t, "internalID", requester, json),
@@ -280,8 +281,8 @@ func NewServiceAgreementExecutionLog(
 	executionRequester common.Address,
 	blockHeight int,
 	serviceAgreementJSON string,
-) models.Log {
-	return models.Log{
+) eth.Log {
+	return eth.Log{
 		Address:     logEmitter,
 		BlockNumber: uint64(blockHeight),
 		Data:        StringToVersionedLogData0(t, "internalID", serviceAgreementJSON),
@@ -399,19 +400,19 @@ func BigHexInt(val interface{}) hexutil.Big {
 	}
 }
 
-func Int(val interface{}) *models.Big {
+func Int(val interface{}) *utils.Big {
 	switch x := val.(type) {
 	case int:
-		return (*models.Big)(big.NewInt(int64(x)))
+		return (*utils.Big)(big.NewInt(int64(x)))
 	case uint32:
-		return (*models.Big)(big.NewInt(int64(x)))
+		return (*utils.Big)(big.NewInt(int64(x)))
 	case uint64:
-		return (*models.Big)(big.NewInt(int64(x)))
+		return (*utils.Big)(big.NewInt(int64(x)))
 	case int64:
-		return (*models.Big)(big.NewInt(x))
+		return (*utils.Big)(big.NewInt(x))
 	default:
-		logger.Panicf("Could not convert %v of type %T to models.Big", val, val)
-		return &models.Big{}
+		logger.Panicf("Could not convert %v of type %T to utils.Big", val, val)
+		return &utils.Big{}
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 	"os"
 	"strconv"
 
-	"chainlink/core/store/assets"
+	"chainlink/core/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
 	"chainlink/core/utils"

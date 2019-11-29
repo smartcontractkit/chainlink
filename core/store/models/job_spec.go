@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"chainlink/core/assets"
 	clnull "chainlink/core/null"
-	"chainlink/core/store/assets"
+	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
@@ -256,8 +257,8 @@ type InitiatorParams struct {
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
 	Name       string            `json:"name,omitempty"`
 	Params     string            `json:"-"`
-	FromBlock  *Big              `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
-	ToBlock    *Big              `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
+	FromBlock  *utils.Big        `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
+	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
 	Topics     Topics            `json:"topics,omitempty" gorm:"type:text"`
 }
 

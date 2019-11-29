@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"chainlink/core/store/assets"
+	"chainlink/core/assets"
 
 	"github.com/ethereum/go-ethereum/common"
 )

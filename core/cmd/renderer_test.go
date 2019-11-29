@@ -12,6 +12,7 @@ import (
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
 	"chainlink/core/web"
 
 	"github.com/stretchr/testify/assert"
@@ -210,7 +211,7 @@ func TestRendererTable_Render_TxAttempts(t *testing.T) {
 		models.TxAttempt{
 			Hash:      cltest.NewHash(),
 			TxID:      1,
-			GasPrice:  models.NewBig(big.NewInt(1)),
+			GasPrice:  utils.NewBig(big.NewInt(1)),
 			Confirmed: false,
 			SentAt:    1,
 		},

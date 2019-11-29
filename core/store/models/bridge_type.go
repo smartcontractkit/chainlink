@@ -4,7 +4,7 @@ import (
 	"crypto/subtle"
 	"fmt"
 
-	"chainlink/core/store/assets"
+	"chainlink/core/assets"
 	"chainlink/core/utils"
 )
 
