@@ -14,36 +14,49 @@ import (
 
 //go:generate mockery -name Client -output ../internal/mocks/ -case=underscore
 
-// Client is the interface supplied by EthCallerSubscriber
+// Client is the interface used to interact with an ethereum node.
 type Client interface {
+	LogSubscriber
 	GetNonce(address common.Address) (uint64, error)
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	SendRawTx(hex string) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
 	GetBlockByNumber(hex string) (BlockHeader, error)
-	GetLogs(q ethereum.FilterQuery) ([]Log, error)
 	GetChainID() (*big.Int, error)
-	SubscribeToLogs(channel chan<- Log, q ethereum.FilterQuery) (Subscription, error)
 	SubscribeToNewHeads(channel chan<- BlockHeader) (Subscription, error)
 }
 
-// EthCallerSubscriber holds the CallerSubscriber interface for the Ethereum blockchain.
-type EthCallerSubscriber struct {
+// LogSubscriber encapsulates only the methods needed for subscribing to ethereum log events.
+type LogSubscriber interface {
+	GetLogs(q ethereum.FilterQuery) ([]Log, error)
+	SubscribeToLogs(channel chan<- Log, q ethereum.FilterQuery) (Subscription, error)
+}
+
+// Subscription holds the methods for an ethereum log subscription.
+type Subscription interface {
+	Err() <-chan error
+	Unsubscribe()
+}
+
+// CallerSubscriberClient implements the ethereum Client interface using a
+// CallerSubscriber instance.
+type CallerSubscriberClient struct {
 	CallerSubscriber
 }
 
-// CallerSubscriber implements the Call and EthSubscribe functions. Call performs
-// a JSON-RPC call with the given arguments and EthSubscribe registers a subscription.
+// CallerSubscriber implements the Call and Subscribe functions. Call performs
+// a JSON-RPC call with the given arguments and Subscribe registers a subscription,
+// using an open stream to receive updates from ethereum node.
 type CallerSubscriber interface {
 	Call(result interface{}, method string, args ...interface{}) error
-	EthSubscribe(context.Context, interface{}, ...interface{}) (Subscription, error)
+	Subscribe(context.Context, interface{}, ...interface{}) (Subscription, error)
 }
 
 // GetNonce returns the nonce (transaction count) for a given address.
-func (ecs *EthCallerSubscriber) GetNonce(address common.Address) (uint64, error) {
+func (client *CallerSubscriberClient) GetNonce(address common.Address) (uint64, error) {
 	result := ""
-	err := ecs.Call(&result, "eth_getTransactionCount", address.Hex(), "latest")
+	err := client.Call(&result, "eth_getTransactionCount", address.Hex(), "latest")
 	if err != nil {
 		return 0, err
 	}
@@ -51,10 +64,10 @@ func (ecs *EthCallerSubscriber) GetNonce(address common.Address) (uint64, error)
 }
 
 // GetEthBalance returns the balance of the given addresses in Ether.
-func (ecs *EthCallerSubscriber) GetEthBalance(address common.Address) (*assets.Eth, error) {
+func (client *CallerSubscriberClient) GetEthBalance(address common.Address) (*assets.Eth, error) {
 	result := ""
 	amount := new(assets.Eth)
-	err := ecs.Call(&result, "eth_getBalance", address.Hex(), "latest")
+	err := client.Call(&result, "eth_getBalance", address.Hex(), "latest")
 	if err != nil {
 		return amount, err
 	}
@@ -71,7 +84,7 @@ type CallArgs struct {
 }
 
 // GetERC20Balance returns the balance of the given address for the token contract address.
-func (ecs *EthCallerSubscriber) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
+func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
 	result := ""
 	numLinkBigInt := new(big.Int)
 	functionSelector := HexToFunctionSelector("0x70a08231") // balanceOf(address)
@@ -80,7 +93,7 @@ func (ecs *EthCallerSubscriber) GetERC20Balance(address common.Address, contract
 		To:   contractAddress,
 		Data: data,
 	}
-	err := ecs.Call(&result, "eth_call", args, "latest")
+	err := client.Call(&result, "eth_call", args, "latest")
 	if err != nil {
 		return numLinkBigInt, err
 	}
@@ -89,57 +102,57 @@ func (ecs *EthCallerSubscriber) GetERC20Balance(address common.Address, contract
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
-func (ecs *EthCallerSubscriber) SendRawTx(hex string) (common.Hash, error) {
+func (client *CallerSubscriberClient) SendRawTx(hex string) (common.Hash, error) {
 	result := common.Hash{}
-	err := ecs.Call(&result, "eth_sendRawTransaction", hex)
+	err := client.Call(&result, "eth_sendRawTransaction", hex)
 	return result, err
 }
 
 // GetTxReceipt returns the transaction receipt for the given transaction hash.
-func (ecs *EthCallerSubscriber) GetTxReceipt(hash common.Hash) (*TxReceipt, error) {
+func (client *CallerSubscriberClient) GetTxReceipt(hash common.Hash) (*TxReceipt, error) {
 	receipt := TxReceipt{}
-	err := ecs.Call(&receipt, "eth_getTransactionReceipt", hash.String())
+	err := client.Call(&receipt, "eth_getTransactionReceipt", hash.String())
 	return &receipt, err
 }
 
 // GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".
-func (ecs *EthCallerSubscriber) GetBlockByNumber(hex string) (BlockHeader, error) {
+func (client *CallerSubscriberClient) GetBlockByNumber(hex string) (BlockHeader, error) {
 	var header BlockHeader
-	err := ecs.Call(&header, "eth_getBlockByNumber", hex, false)
+	err := client.Call(&header, "eth_getBlockByNumber", hex, false)
 	return header, err
 }
 
 // GetLogs returns all logs that respect the passed filter query.
-func (ecs *EthCallerSubscriber) GetLogs(q ethereum.FilterQuery) ([]Log, error) {
+func (client *CallerSubscriberClient) GetLogs(q ethereum.FilterQuery) ([]Log, error) {
 	var results []Log
-	err := ecs.Call(&results, "eth_getLogs", utils.ToFilterArg(q))
+	err := client.Call(&results, "eth_getLogs", utils.ToFilterArg(q))
 	return results, err
 }
 
 // GetChainID returns the ethereum ChainID.
-func (ecs *EthCallerSubscriber) GetChainID() (*big.Int, error) {
+func (client *CallerSubscriberClient) GetChainID() (*big.Int, error) {
 	value := new(utils.Big)
-	err := ecs.Call(value, "eth_chainId")
+	err := client.Call(value, "eth_chainId")
 	return value.ToInt(), err
 }
 
 // SubscribeToLogs registers a subscription for push notifications of logs
 // from a given address.
-func (ecs *EthCallerSubscriber) SubscribeToLogs(
+func (client *CallerSubscriberClient) SubscribeToLogs(
 	channel chan<- Log,
 	q ethereum.FilterQuery,
 ) (Subscription, error) {
 	// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
 	ctx := context.Background()
-	sub, err := ecs.EthSubscribe(ctx, channel, "logs", utils.ToFilterArg(q))
+	sub, err := client.Subscribe(ctx, channel, "logs", utils.ToFilterArg(q))
 	return sub, err
 }
 
 // SubscribeToNewHeads registers a subscription for push notifications of new blocks.
-func (ecs *EthCallerSubscriber) SubscribeToNewHeads(
+func (client *CallerSubscriberClient) SubscribeToNewHeads(
 	channel chan<- BlockHeader,
 ) (Subscription, error) {
 	ctx := context.Background()
-	sub, err := ecs.EthSubscribe(ctx, channel, "newHeads")
+	sub, err := client.Subscribe(ctx, channel, "newHeads")
 	return sub, err
 }

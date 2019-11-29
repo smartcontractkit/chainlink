@@ -96,7 +96,7 @@ func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...i
 	return wrapper.client.Call(result, method, args...)
 }
 
-func (wrapper *lazyRPCWrapper) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (eth.Subscription, error) {
+func (wrapper *lazyRPCWrapper) Subscribe(ctx context.Context, channel interface{}, args ...interface{}) (eth.Subscription, error) {
 	err := wrapper.lazyDialInitializer()
 	if err != nil {
 		return nil, err
@@ -157,7 +157,7 @@ func NewStoreWithDialer(config *orm.Config, dialer Dialer) *Store {
 		Config:      config,
 		KeyStore:    keyStore,
 		ORM:         orm,
-		TxManager:   NewEthTxManager(&eth.EthCallerSubscriber{ethrpc}, config, keyStore, orm),
+		TxManager:   NewEthTxManager(&eth.CallerSubscriberClient{ethrpc}, config, keyStore, orm),
 		StatsPusher: synchronization.NewStatsPusher(orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret()),
 	}
 	return store
