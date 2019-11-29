@@ -92,7 +92,7 @@ exit_handler() {
   if [ $errno -ne 0 ]; then
     title "ABORTING TEST"
     printf -- "Exited with code $errno\n"
-    # print_logs
+    print_logs
   fi
   exit $errno
 }
