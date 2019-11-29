@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEthCallerSubscriber_GetTxReceipt(t *testing.T) {
+func TestCallerSubscriberClient_GetTxReceipt(t *testing.T) {
 	response := cltest.MustReadFile(t, "testdata/getTransactionReceipt.json")
 	mockServer, wsCleanup := cltest.NewWSServer(string(response))
 	defer wsCleanup()
@@ -74,13 +74,13 @@ func TestTxReceipt_FulfilledRunlog(t *testing.T) {
 	}
 }
 
-func TestEthCallerSubscriber_GetNonce(t *testing.T) {
+func TestCallerSubscriberClient_GetNonce(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
 	ethMock.Register("eth_getTransactionCount", "0x0100")
 	result, err := ethClientObject.GetNonce(cltest.NewAddress())
@@ -89,13 +89,13 @@ func TestEthCallerSubscriber_GetNonce(t *testing.T) {
 	assert.Equal(t, result, expected)
 }
 
-func TestEthCallerSubscriber_SendRawTx(t *testing.T) {
+func TestCallerSubscriberClient_SendRawTx(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
 	ethMock.Register("eth_sendRawTransaction", common.Hash{1})
 	result, err := ethClientObject.SendRawTx("test")
@@ -103,7 +103,7 @@ func TestEthCallerSubscriber_SendRawTx(t *testing.T) {
 	assert.Equal(t, result, common.Hash{1})
 }
 
-func TestEthCallerSubscriber_GetEthBalance(t *testing.T) {
+func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
@@ -120,7 +120,7 @@ func TestEthCallerSubscriber_GetEthBalance(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ethMock := app.MockEthCallerSubscriber()
+			ethMock := app.MockCallerSubscriberClient()
 			ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
 
 			ethMock.Register("eth_getBalance", test.input)
@@ -131,13 +131,13 @@ func TestEthCallerSubscriber_GetEthBalance(t *testing.T) {
 	}
 }
 
-func TestEthCallerSubscriber_GetERC20Balance(t *testing.T) {
+func TestCallerSubscriberClient_GetERC20Balance(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
 
 	ethMock.Register("eth_call", "0x0100") // 256

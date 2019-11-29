@@ -9,23 +9,10 @@ import (
 
 	"chainlink/core/utils"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 )
-
-// LogSubscriber encapsulates only the methods needed for subscribing to ethereum log events.
-type LogSubscriber interface {
-	GetLogs(q ethereum.FilterQuery) ([]Log, error)
-	SubscribeToLogs(channel chan<- Log, q ethereum.FilterQuery) (Subscription, error)
-}
-
-// Subscription holds the methods for an ethereum log subscription.
-type Subscription interface {
-	Err() <-chan error
-	Unsubscribe()
-}
 
 //go:generate gencodec -type Log -field-override logMarshaling -out gen_log_json.go
 

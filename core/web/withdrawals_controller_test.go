@@ -84,7 +84,7 @@ func TestWithdrawalsController_BalanceTooLow(t *testing.T) {
 		Amount:             assets.NewLink(1000000000000000000),
 	}
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")

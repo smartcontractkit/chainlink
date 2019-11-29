@@ -779,7 +779,7 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 	manager := store.TxManager
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	one := uint64(1)
 
 	ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(one))

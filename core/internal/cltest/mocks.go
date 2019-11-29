@@ -35,8 +35,8 @@ import (
 // Strict flag makes the mock eth client panic if an unexpected call is made
 const Strict = "strict"
 
-// MockEthCallerSubscriber create new EthMock Client
-func (ta *TestApplication) MockEthCallerSubscriber(flags ...string) *EthMock {
+// MockCallerSubscriberClient create new EthMock Client
+func (ta *TestApplication) MockCallerSubscriberClient(flags ...string) *EthMock {
 	if ta.ChainlinkApplication.HeadTracker.Connected() {
 		logger.Panic("Cannot mock eth client after being connected")
 	}
@@ -51,7 +51,7 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 			mock.strict = true
 		}
 	}
-	eth := &eth.EthCallerSubscriber{CallerSubscriber: mock}
+	eth := &eth.CallerSubscriberClient{CallerSubscriber: mock}
 	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
 		txm.Client = eth
 	} else {
@@ -257,8 +257,8 @@ func channelFromSubscriptionName(name string) interface{} {
 	}
 }
 
-// EthSubscribe registers a subscription to the channel
-func (mock *EthMock) EthSubscribe(
+// Subscribe registers a subscription to the channel
+func (mock *EthMock) Subscribe(
 	ctx context.Context,
 	channel interface{},
 	args ...interface{},
@@ -291,7 +291,7 @@ func (mock *EthMock) EthSubscribe(
 	} else if args[0] == "newHeads" {
 		return nil, errors.New("newHeads subscription only expected once, please register another mock subscription if more are needed")
 	}
-	return nil, errors.New("Must RegisterSubscription before EthSubscribe")
+	return nil, errors.New("Must RegisterSubscription before Subscribe")
 }
 
 // RegisterNewHeads registers a newheads subscription

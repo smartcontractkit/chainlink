@@ -202,7 +202,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithKey(t)
 			defer cleanup()
 
-			ethMock := app.MockEthCallerSubscriber()
+			ethMock := app.MockCallerSubscriberClient()
 			logs := make(chan eth.Log, 1)
 			ethMock.Context("app.Start()", func(meth *cltest.EthMock) {
 				meth.Register("eth_getTransactionCount", "0x1")

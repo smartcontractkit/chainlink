@@ -368,7 +368,7 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithConfig(t, config)
 			defer cleanup()
 
-			mocketh := app.MockEthCallerSubscriber()
+			mocketh := app.MockCallerSubscriberClient()
 			store := app.GetStore()
 			mocketh.Context("app.Start()", func(meth *cltest.EthMock) {
 				meth.Register("eth_chainId", store.Config.ChainID())
@@ -430,7 +430,7 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 
-	eth := app.MockEthCallerSubscriber()
+	eth := app.MockCallerSubscriberClient()
 	app.MockStartAndConnect()
 
 	store := app.GetStore()
