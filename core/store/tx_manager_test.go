@@ -31,7 +31,7 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ethClient := new(mocks.EthClient)
+	ethClient := new(mocks.Client)
 
 	config := cltest.NewTestConfig(t)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())
@@ -76,7 +76,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ethClient := new(mocks.EthClient)
+	ethClient := new(mocks.Client)
 
 	config := cltest.NewTestConfig(t)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())
@@ -146,7 +146,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ethClient := new(mocks.EthClient)
+	ethClient := new(mocks.Client)
 
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
@@ -866,7 +866,7 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 func TestTxManager_ReloadNonce(t *testing.T) {
 	t.Parallel()
 
-	ethClient := new(mocks.EthClient)
+	ethClient := new(mocks.Client)
 	txm := store.NewEthTxManager(
 		ethClient,
 		orm.NewConfig(),
@@ -997,7 +997,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ethClient := new(mocks.EthClient)
+	ethClient := new(mocks.Client)
 
 	config := cltest.NewTestConfig(t)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())
@@ -1188,7 +1188,7 @@ func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ethClient := new(mocks.EthClient)
+	ethClient := new(mocks.Client)
 
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)

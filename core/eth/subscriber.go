@@ -18,11 +18,11 @@ import (
 // LogSubscriber encapsulates only the methods needed for subscribing to ethereum log events.
 type LogSubscriber interface {
 	GetLogs(q ethereum.FilterQuery) ([]Log, error)
-	SubscribeToLogs(channel chan<- Log, q ethereum.FilterQuery) (EthSubscription, error)
+	SubscribeToLogs(channel chan<- Log, q ethereum.FilterQuery) (Subscription, error)
 }
 
-// EthSubscription holds the methods for an ethereum log subscription.
-type EthSubscription interface {
+// Subscription holds the methods for an ethereum log subscription.
+type Subscription interface {
 	Err() <-chan error
 	Unsubscribe()
 }

@@ -53,7 +53,7 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 	}
 	eth := &eth.EthCallerSubscriber{CallerSubscriber: mock}
 	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
-		txm.EthClient = eth
+		txm.Client = eth
 	} else {
 		log.Panic("MockEthOnStore only works on EthTxManager")
 	}
@@ -262,7 +262,7 @@ func (mock *EthMock) EthSubscribe(
 	ctx context.Context,
 	channel interface{},
 	args ...interface{},
-) (eth.EthSubscription, error) {
+) (eth.Subscription, error) {
 	mock.mutex.Lock()
 	defer mock.mutex.Unlock()
 	for i, sub := range mock.Subscriptions {

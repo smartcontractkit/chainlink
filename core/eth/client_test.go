@@ -16,14 +16,14 @@ import (
 )
 
 func TestEthCallerSubscriber_GetTxReceipt(t *testing.T) {
-	response := cltest.MustReadFile(t, "../internal/fixtures/eth/getTransactionReceipt.json")
+	response := cltest.MustReadFile(t, "testdata/getTransactionReceipt.json")
 	mockServer, wsCleanup := cltest.NewWSServer(string(response))
 	defer wsCleanup()
 	config := cltest.NewConfigWithWSServer(t, mockServer)
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 
-	ec := store.TxManager.(*strpkg.EthTxManager).EthClient
+	ec := store.TxManager.(*strpkg.EthTxManager).Client
 
 	hash := common.HexToHash("0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238")
 	receipt, err := ec.GetTxReceipt(hash)
@@ -81,7 +81,7 @@ func TestEthCallerSubscriber_GetNonce(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	ethMock := app.MockEthCallerSubscriber()
-	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
+	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
 	ethMock.Register("eth_getTransactionCount", "0x0100")
 	result, err := ethClientObject.GetNonce(cltest.NewAddress())
 	assert.NoError(t, err)
@@ -96,7 +96,7 @@ func TestEthCallerSubscriber_SendRawTx(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	ethMock := app.MockEthCallerSubscriber()
-	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
+	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
 	ethMock.Register("eth_sendRawTransaction", common.Hash{1})
 	result, err := ethClientObject.SendRawTx("test")
 	assert.NoError(t, err)
@@ -121,7 +121,7 @@ func TestEthCallerSubscriber_GetEthBalance(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ethMock := app.MockEthCallerSubscriber()
-			ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
+			ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
 
 			ethMock.Register("eth_getBalance", test.input)
 			result, err := ethClientObject.GetEthBalance(cltest.NewAddress())
@@ -138,7 +138,7 @@ func TestEthCallerSubscriber_GetERC20Balance(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	ethMock := app.MockEthCallerSubscriber()
-	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).EthClient
+	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
 
 	ethMock.Register("eth_call", "0x0100") // 256
 	result, err := ethClientObject.GetERC20Balance(cltest.NewAddress(), cltest.NewAddress())
