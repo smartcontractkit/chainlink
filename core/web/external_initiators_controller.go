@@ -20,8 +20,11 @@ type ExternalInitiatorsController struct {
 // Create builds and saves a new service agreement record.
 func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 	eir := &models.ExternalInitiatorRequest{}
-	if !eic.App.GetStore().Config.Dev() {
-		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("External Initiators are currently under development and not yet usable outside of development mode"))
+	if !eic.App.GetStore().Config.Dev() && !eic.App.GetStore().Config.FeatureExternalInitiators() {
+		jsonAPIError(c,
+			http.StatusMethodNotAllowed,
+			errors.New("The External Initiator feature is disabled by configuration"),
+		)
 		return
 	}
 

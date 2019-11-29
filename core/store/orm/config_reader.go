@@ -22,6 +22,7 @@ type ConfigReader interface {
 	DatabaseURL() string
 	DefaultHTTPLimit() int64
 	Dev() bool
+	FeatureExternalInitiators() bool
 	MaximumServiceDuration() time.Duration
 	MinimumServiceDuration() time.Duration
 	EthGasBumpThreshold() uint64
