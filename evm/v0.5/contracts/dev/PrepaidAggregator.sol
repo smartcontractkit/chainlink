@@ -369,7 +369,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   function startNewRound(uint32 _id)
     private
     ifNewRound(_id)
-    ifDelayedOrOwner(_id)
+    ifDelayed(_id)
   {
     updateTimedOutRoundInfo(_id.sub(1));
 
@@ -379,26 +379,22 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     rounds[_id].details.paymentAmount = paymentAmount;
     rounds[_id].startedAt = uint64(block.timestamp);
 
-    recordStartedRound(_id);
+    oracles[msg.sender].lastStartedRound = _id;
 
     emit NewRound(uint256(_id), msg.sender);
   }
 
   function updateTimedOutRoundInfo(uint32 _id)
     private
-    ifTimedOut(_id)
+    ifTimeOutable(_id)
+    onlyWithPreviousAnswer(_id)
   {
     uint32 prevId = _id.sub(1);
     rounds[_id].answer = rounds[prevId].answer;
-    rounds[_id].updatedAt = uint64(block.timestamp);
     rounds[_id].answeredInRound = rounds[prevId].answeredInRound;
-  }
+    rounds[_id].updatedAt = uint64(block.timestamp);
 
-  function recordStartedRound(uint32 _id)
-    private
-    ifNonOwner()
-  {
-    oracles[msg.sender].lastStartedRound = _id;
+    delete rounds[_id].details;
   }
 
   function updateRoundAnswer(uint32 _id)
@@ -447,9 +443,8 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     private
     returns (bool)
   {
-    uint64 previousUpdatedAt = rounds[_id - 1].updatedAt;
-    bool previousAnswered = previousUpdatedAt > 0;
-    return previousAnswered && previousUpdatedAt.add(timeout) < block.timestamp;
+    uint64 startedAt = rounds[_id].startedAt;
+    return startedAt > 0 && startedAt.add(timeout) < block.timestamp;
   }
 
   function finished(uint32 _id)
@@ -495,9 +490,9 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     }
   }
 
-  modifier ifDelayedOrOwner(uint32 _id) {
+  modifier ifDelayed(uint32 _id) {
     uint256 lastStarted = oracles[msg.sender].lastStartedRound;
-    if (_id > lastStarted + restartDelay || lastStarted == 0 || isOwner()) {
+    if (_id > lastStarted + restartDelay || lastStarted == 0) {
       _;
     }
   }
@@ -526,22 +521,15 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     _;
   }
 
-  modifier ifOwner() {
-    if (isOwner()) {
+  modifier ifTimeOutable(uint32 _id) {
+    if (_id > 0 && timedOut(_id)) {
       _;
     }
   }
 
-  modifier ifNonOwner() {
-    if (!isOwner()) {
-      _;
-    }
-  }
-
-  modifier ifTimedOut(uint32 _id) {
-    if (timedOut(_id)) {
-      _;
-    }
+  modifier onlyWithPreviousAnswer(uint32 _id) {
+    require(rounds[_id.sub(1)].updatedAt != 0, "Must have a previous answer to pull from");
+    _;
   }
 
 }

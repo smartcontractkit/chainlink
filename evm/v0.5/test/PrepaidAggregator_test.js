@@ -564,14 +564,15 @@ contract('PrepaidAggregator', () => {
           await time.increase(time.duration.seconds(timeout + 1))
 
           nextRound++
+          assert.equal(2, nextRound)
         })
 
-        it('still respects the delay restriction', async () => {
+        it('does not allow a round to be started', async () => {
           await expectRevert(
             aggregator.updateAnswer(nextRound, answer, {
               from: personas.Nelly,
             }),
-            'Cannot bump round until previous round has an answer or timed out',
+            'Must have a previous answer to pull from',
           )
         })
       })
