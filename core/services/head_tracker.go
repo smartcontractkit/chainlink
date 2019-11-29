@@ -21,7 +21,7 @@ import (
 type HeadTracker struct {
 	callbacks             []strpkg.HeadTrackable
 	headers               chan eth.BlockHeader
-	headSubscription      eth.EthSubscription
+	headSubscription      eth.Subscription
 	store                 *strpkg.Store
 	head                  *models.Head
 	headMutex             sync.RWMutex

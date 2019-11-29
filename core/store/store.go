@@ -96,7 +96,7 @@ func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...i
 	return wrapper.client.Call(result, method, args...)
 }
 
-func (wrapper *lazyRPCWrapper) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (eth.EthSubscription, error) {
+func (wrapper *lazyRPCWrapper) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (eth.Subscription, error) {
 	err := wrapper.lazyDialInitializer()
 	if err != nil {
 		return nil, err

@@ -55,7 +55,7 @@ type TxManager interface {
 	NextActiveAccount() *ManagedAccount
 
 	GetEthBalance(address common.Address) (*assets.Eth, error)
-	SubscribeToNewHeads(channel chan<- eth.BlockHeader) (eth.EthSubscription, error)
+	SubscribeToNewHeads(channel chan<- eth.BlockHeader) (eth.Subscription, error)
 	GetBlockByNumber(hex string) (eth.BlockHeader, error)
 	eth.LogSubscriber
 	GetTxReceipt(common.Hash) (*eth.TxReceipt, error)
@@ -67,7 +67,7 @@ type TxManager interface {
 // EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
 type EthTxManager struct {
-	eth.EthClient
+	eth.Client
 	keyStore            *KeyStore
 	config              orm.ConfigReader
 	orm                 *orm.ORM
@@ -81,9 +81,9 @@ type EthTxManager struct {
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
 // initializing internal variables.
-func NewEthTxManager(client eth.EthClient, config orm.ConfigReader, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
+func NewEthTxManager(client eth.Client, config orm.ConfigReader, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
 	return &EthTxManager{
-		EthClient:     client,
+		Client:        client,
 		config:        config,
 		keyStore:      keyStore,
 		orm:           orm,

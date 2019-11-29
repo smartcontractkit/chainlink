@@ -188,7 +188,7 @@ func runJob(store *strpkg.Store, runManager RunManager, le models.LogRequest, da
 type ManagedSubscription struct {
 	logSubscriber   eth.LogSubscriber
 	logs            chan eth.Log
-	ethSubscription eth.EthSubscription
+	ethSubscription eth.Subscription
 	callback        func(eth.Log)
 }
 

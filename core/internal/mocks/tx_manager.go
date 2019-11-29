@@ -373,15 +373,15 @@ func (_m *TxManager) Register(_a0 []accounts.Account) {
 }
 
 // SubscribeToLogs provides a mock function with given fields: channel, q
-func (_m *TxManager) SubscribeToLogs(channel chan<- eth.Log, q ethereum.FilterQuery) (eth.EthSubscription, error) {
+func (_m *TxManager) SubscribeToLogs(channel chan<- eth.Log, q ethereum.FilterQuery) (eth.Subscription, error) {
 	ret := _m.Called(channel, q)
 
-	var r0 eth.EthSubscription
-	if rf, ok := ret.Get(0).(func(chan<- eth.Log, ethereum.FilterQuery) eth.EthSubscription); ok {
+	var r0 eth.Subscription
+	if rf, ok := ret.Get(0).(func(chan<- eth.Log, ethereum.FilterQuery) eth.Subscription); ok {
 		r0 = rf(channel, q)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(eth.EthSubscription)
+			r0 = ret.Get(0).(eth.Subscription)
 		}
 	}
 
@@ -396,15 +396,15 @@ func (_m *TxManager) SubscribeToLogs(channel chan<- eth.Log, q ethereum.FilterQu
 }
 
 // SubscribeToNewHeads provides a mock function with given fields: channel
-func (_m *TxManager) SubscribeToNewHeads(channel chan<- eth.BlockHeader) (eth.EthSubscription, error) {
+func (_m *TxManager) SubscribeToNewHeads(channel chan<- eth.BlockHeader) (eth.Subscription, error) {
 	ret := _m.Called(channel)
 
-	var r0 eth.EthSubscription
-	if rf, ok := ret.Get(0).(func(chan<- eth.BlockHeader) eth.EthSubscription); ok {
+	var r0 eth.Subscription
+	if rf, ok := ret.Get(0).(func(chan<- eth.BlockHeader) eth.Subscription); ok {
 		r0 = rf(channel)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(eth.EthSubscription)
+			r0 = ret.Get(0).(eth.Subscription)
 		}
 	}
 
