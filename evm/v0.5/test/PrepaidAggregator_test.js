@@ -490,6 +490,7 @@ contract('PrepaidAggregator', () => {
             await aggregator.updateAnswer(nextRound, answer, { from: oracle })
           }
           nextRound++
+
           await aggregator.updateAnswer(nextRound, answer, {
             from: personas.Ned,
           })
@@ -548,6 +549,23 @@ contract('PrepaidAggregator', () => {
             }),
             'Max responses reached for round',
           )
+        })
+
+        it('uses the timeout set at the beginning of the round', async () => {
+          await aggregator.updateFutureRounds(
+            paymentAmount,
+            timeout + 100000,
+            oracles.length,
+            oracles.length,
+            delay,
+            {
+              from: personas.Carol,
+            },
+          )
+
+          await aggregator.updateAnswer(nextRound, answer, {
+            from: personas.Nelly,
+          })
         })
       })
 

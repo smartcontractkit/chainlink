@@ -36,6 +36,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     int256[] answers;
     uint32 maxAnswers;
     uint32 minAnswers;
+    uint32 timeOut;
     uint128 paymentAmount;
   }
 
@@ -377,6 +378,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     rounds[_id].details.maxAnswers = maxAnswerCount;
     rounds[_id].details.minAnswers = minAnswerCount;
     rounds[_id].details.paymentAmount = paymentAmount;
+    rounds[_id].details.timeOut = timeout;
     rounds[_id].startedAt = uint64(block.timestamp);
 
     oracles[msg.sender].lastStartedRound = _id;
@@ -444,7 +446,8 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     returns (bool)
   {
     uint64 startedAt = rounds[_id].startedAt;
-    return startedAt > 0 && startedAt.add(timeout) < block.timestamp;
+    uint32 roundTimeOut = rounds[_id].details.timeOut;
+    return startedAt > 0 && roundTimeOut > 0 && startedAt.add(roundTimeOut) < block.timestamp;
   }
 
   function finished(uint32 _id)
