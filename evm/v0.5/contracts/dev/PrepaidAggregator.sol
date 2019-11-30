@@ -49,7 +49,6 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     int256 latestAnswer;
   }
 
-  uint32 public reportingRound;
   uint128 public allocatedFunds;
   uint128 public availableFunds;
 
@@ -61,6 +60,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   uint32 public restartDelay;
   uint32 public timeout;
 
+  uint32 private reportingRoundId;
   uint32 private latestRoundId;
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
@@ -98,16 +98,16 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
    * @param _round is the ID of the round this answer pertains to
    * @param _answer is the updated data that the oracle is submitting
    */
-  function updateAnswer(uint32 _round, int256 _answer)
+  function updateAnswer(uint256 _round, int256 _answer)
     external
-    onlyValidRoundId(_round)
-    onlyValidOracleRound(_round)
+    onlyValidRoundId(uint32(_round))
+    onlyValidOracleRound(uint32(_round))
   {
-    startNewRound(_round);
-    recordSubmission(_answer, _round);
-    updateRoundAnswer(_round);
-    payOracle(_round);
-    deleteRound(_round);
+    startNewRound(uint32(_round));
+    recordSubmission(_answer, uint32(_round));
+    updateRoundAnswer(uint32(_round));
+    payOracle(uint32(_round));
+    deleteRound(uint32(_round));
   }
 
   /**
@@ -130,7 +130,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     onlyUnenabledAddress(_oracle)
   {
     require(oracleCount < 42, "cannot add more than 42 oracles");
-    oracles[_oracle].startingRound = reportingRound.add(1);
+    oracles[_oracle].startingRound = reportingRoundId.add(1);
     oracles[_oracle].endingRound = ROUND_MAX;
     oracleCount += 1;
 
@@ -159,7 +159,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     onlyEnabledAddress(_oracle)
   {
     oracleCount -= 1;
-    oracles[_oracle].endingRound = reportingRound;
+    oracles[_oracle].endingRound = reportingRoundId;
 
     emit OracleRemoved(_oracle);
 
@@ -259,7 +259,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
 
   /**
-   * @notice get the last updated round
+   * @notice get the ID of the last updated round
    */
   function latestRound()
     external
@@ -267,6 +267,17 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     returns (uint256)
   {
     return uint256(latestRoundId);
+  }
+
+  /**
+   * @notice get the ID of the round most recently reported on
+   */
+  function reportingRound()
+    external
+    view
+    returns (uint256)
+  {
+    return uint256(reportingRoundId);
   }
 
   /**
@@ -314,9 +325,9 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   function getAnsweredInRound(uint256 _roundId)
     external
     view
-    returns (uint32)
+    returns (uint256)
   {
-    return rounds[uint32(_roundId)].answeredInRound;
+    return uint256(rounds[uint32(_roundId)].answeredInRound);
   }
 
   /**
@@ -358,7 +369,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   function latestSubmission(address _oracle)
     external
     view
-    returns (int256, uint32)
+    returns (int256, uint256)
   {
     return (oracles[_oracle].latestAnswer, oracles[_oracle].lastReportedRound);
   }
@@ -374,7 +385,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   {
     updateTimedOutRoundInfo(_id.sub(1));
 
-    reportingRound = _id;
+    reportingRoundId = _id;
     rounds[_id].details.maxAnswers = maxAnswerCount;
     rounds[_id].details.minAnswers = minAnswerCount;
     rounds[_id].details.paymentAmount = paymentAmount;
@@ -383,7 +394,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
     oracles[msg.sender].lastStartedRound = _id;
 
-    emit NewRound(uint256(_id), msg.sender);
+    emit NewRound(_id, msg.sender);
   }
 
   function updateTimedOutRoundInfo(uint32 _id)
@@ -409,7 +420,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     rounds[_id].answeredInRound = _id;
     latestRoundId = _id;
 
-    emit AnswerUpdated(newAnswer, uint256(_id), now);
+    emit AnswerUpdated(newAnswer, _id, now);
   }
 
   function payOracle(uint32 _id)
@@ -488,7 +499,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
 
   modifier ifNewRound(uint32 _id) {
-    if (_id == reportingRound.add(1)) {
+    if (_id == reportingRoundId.add(1)) {
       _;
     }
   }
@@ -501,7 +512,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
 
   modifier onlyValidRoundId(uint32 _id) {
-    require(_id == reportingRound || _id == reportingRound.add(1), "Must report on current round");
+    require(_id == reportingRoundId || _id == reportingRoundId.add(1), "Must report on current round");
     require(_id == 1 || finished(_id.sub(1)) || timedOut(_id.sub(1)), "Cannot bump round until previous round has an answer or timed out");
     _;
   }
