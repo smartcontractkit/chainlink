@@ -4,6 +4,7 @@ import "./ChainlinkClient.sol";
 import "./LinkTokenReceiver.sol";
 import "./Median.sol";
 import "./vendor/Ownable.sol";
+import "./vendor/SafeMath.sol";
 
 /**
  * @title PreCoordinator is a contract that builds on-chain service agreements
@@ -12,6 +13,7 @@ import "./vendor/Ownable.sol";
  * the corresponding list of oracles to create distinct requests to each one.
  */
 contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, LinkTokenReceiver {
+  using SafeMath for uint256;
 
   uint256 constant private MAX_ORACLE_COUNT = 45;
 
@@ -63,7 +65,6 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
    * their own payment amount.
    * @dev The globalNonce keeps service agreement IDs unique. Assume one cannot
    * create the max uint256 number of service agreements in the same block.
-   * @param _totalPayment The sum of the _payments array. Compute this off-chain.
    * @param _minResponses The minimum number of responses before the requesting
    * contract is called with the response data.
    * @param _oracles The list of oracle contract addresses.
@@ -71,7 +72,6 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
    * @param _payments The corresponding list of payment amounts.
    */
   function createServiceAgreement(
-    uint256 _totalPayment,
     uint256 _minResponses,
     address[] calldata _oracles,
     bytes32[] calldata _jobIds,
@@ -82,12 +82,16 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     require(_oracles.length == _jobIds.length && _oracles.length == _payments.length, "Unmet length");
     require(_oracles.length <= MAX_ORACLE_COUNT, "Cannot have more than 45 oracles");
     require(_oracles.length >= _minResponses, "Invalid min responses");
+    uint256 totalPayment;
+    for (uint i = 0; i < _payments.length; i++) {
+      totalPayment = totalPayment.add(_payments[i]);
+    }
     saId = keccak256(abi.encodePacked(globalNonce, now));
     globalNonce++; // yes, let it overflow
     // Manually calculate total payment off-chain
-    serviceAgreements[saId] = ServiceAgreement(_totalPayment, _minResponses, _oracles, _jobIds, _payments);
+    serviceAgreements[saId] = ServiceAgreement(totalPayment, _minResponses, _oracles, _jobIds, _payments);
 
-    emit NewServiceAgreement(saId, _totalPayment, _minResponses);
+    emit NewServiceAgreement(saId, totalPayment, _minResponses);
   }
 
   /**

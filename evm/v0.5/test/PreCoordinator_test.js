@@ -61,7 +61,6 @@ contract('PreCoordinator', accounts => {
     context('when called by the owner', () => {
       it('emits the NewServiceAgreement log', async () => {
         const { logs } = await pc.createServiceAgreement(
-          totalPayment,
           3,
           [oc1.address, oc2.address, oc3.address, oc4.address],
           [job1, job2, job3, job4],
@@ -73,7 +72,6 @@ contract('PreCoordinator', accounts => {
 
       it('creates a service agreement', async () => {
         const tx = await pc.createServiceAgreement(
-          totalPayment,
           3,
           [oc1.address, oc2.address, oc3.address, oc4.address],
           [job1, job2, job3, job4],
@@ -104,7 +102,6 @@ contract('PreCoordinator', accounts => {
       it('reverts', async () => {
         await expectRevert.unspecified(
           pc.createServiceAgreement(
-            totalPayment,
             3,
             [oc1.address, oc2.address, oc3.address, oc4.address],
             [job1, job2, job3, job4],
@@ -119,7 +116,6 @@ contract('PreCoordinator', accounts => {
       it('reverts', async () => {
         await expectRevert(
           pc.createServiceAgreement(
-            totalPayment,
             3,
             [oc1.address, oc2.address, oc3.address, oc4.address],
             [job1, job2, job3],
@@ -135,7 +131,6 @@ contract('PreCoordinator', accounts => {
       it('reverts', async () => {
         await expectRevert(
           pc.createServiceAgreement(
-            totalPayment,
             5,
             [oc1.address, oc2.address, oc3.address, oc4.address],
             [job1, job2, job3, job4],
@@ -153,7 +148,6 @@ contract('PreCoordinator', accounts => {
 
     beforeEach(async () => {
       const tx = await pc.createServiceAgreement(
-        totalPayment,
         3,
         [oc1.address, oc2.address, oc3.address, oc4.address],
         [job1, job2, job3, job4],
@@ -189,7 +183,6 @@ contract('PreCoordinator', accounts => {
       it('reverts', async () => {
         const notLink = await h.linkContract(defaultAccount)
         const saId = await pc.createServiceAgreement.call(
-          totalPayment,
           3,
           [oc1.address, oc2.address, oc3.address, oc4.address],
           [job1, job2, job3, job4],
@@ -217,7 +210,6 @@ contract('PreCoordinator', accounts => {
       let saId
       beforeEach(async () => {
         const tx = await pc.createServiceAgreement(
-          totalPayment,
           3,
           [oc1.address, oc2.address, oc3.address, oc4.address],
           [job1, job2, job3, job4],
@@ -299,7 +291,6 @@ contract('PreCoordinator', accounts => {
 
     beforeEach(async () => {
       const tx = await pc.createServiceAgreement(
-        totalPayment,
         3,
         [oc1.address, oc2.address, oc3.address, oc4.address],
         [job1, job2, job3, job4],
@@ -428,7 +419,6 @@ contract('PreCoordinator', accounts => {
 
     beforeEach(async () => {
       const tx = await pc.createServiceAgreement(
-        totalPayment,
         3,
         [oc1.address, oc2.address, oc3.address, oc4.address],
         [job1, job2, job3, job4],
