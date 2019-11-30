@@ -157,7 +157,7 @@ contract('PrepaidAggregator', () => {
 
     context('when an oracle prematurely bumps the round', async () => {
       beforeEach(async () => {
-        await aggregator.updateFutureRounds(paymentAmount, timeout, 2, 3, 0, {
+        await aggregator.updateFutureRounds(paymentAmount, 2, 3, 0, timeout, {
           from: personas.Carol,
         })
         await aggregator.updateAnswer(nextRound, answer, {
@@ -177,7 +177,7 @@ contract('PrepaidAggregator', () => {
 
     context('when the minimum number of oracles have reported', async () => {
       beforeEach(async () => {
-        await aggregator.updateFutureRounds(paymentAmount, timeout, 2, 3, 0, {
+        await aggregator.updateFutureRounds(paymentAmount, 2, 3, 0, timeout, {
           from: personas.Carol,
         })
         await aggregator.updateAnswer(nextRound, answer, {
@@ -256,10 +256,10 @@ contract('PrepaidAggregator', () => {
       beforeEach(async () => {
         await aggregator.updateFutureRounds(
           paymentAmount,
-          timeout,
           1,
           1,
           rrDelay,
+          timeout,
           {
             from: personas.Carol,
           },
@@ -361,10 +361,10 @@ contract('PrepaidAggregator', () => {
 
         await aggregator.updateFutureRounds(
           newAmount,
-          timeout,
           minMax,
           minMax,
           rrDelay,
+          timeout,
           { from: personas.Carol },
         )
 
@@ -390,10 +390,10 @@ contract('PrepaidAggregator', () => {
 
         await aggregator.updateFutureRounds(
           paymentAmount,
-          timeout,
           minMax,
           minMax,
           delay,
+          timeout,
           {
             from: personas.Carol,
           },
@@ -411,7 +411,7 @@ contract('PrepaidAggregator', () => {
       'when an oracle starts a round before the restart delay is over',
       async () => {
         beforeEach(async () => {
-          await aggregator.updateFutureRounds(paymentAmount, timeout, 1, 1, 0, {
+          await aggregator.updateFutureRounds(paymentAmount, 1, 1, 0, timeout, {
             from: personas.Carol,
           })
 
@@ -429,10 +429,10 @@ contract('PrepaidAggregator', () => {
           // started the last two rounds.
           await aggregator.updateFutureRounds(
             paymentAmount,
-            timeout,
             1,
             oracles.length,
             newDelay,
+            timeout,
             {
               from: personas.Carol,
             },
@@ -477,10 +477,10 @@ contract('PrepaidAggregator', () => {
         beforeEach(async () => {
           await aggregator.updateFutureRounds(
             paymentAmount,
-            timeout,
             oracles.length,
             oracles.length,
             delay,
+            timeout,
             {
               from: personas.Carol,
             },
@@ -554,10 +554,10 @@ contract('PrepaidAggregator', () => {
         it('uses the timeout set at the beginning of the round', async () => {
           await aggregator.updateFutureRounds(
             paymentAmount,
-            timeout + 100000,
             oracles.length,
             oracles.length,
             delay,
+            timeout + 100000,
             {
               from: personas.Carol,
             },
@@ -1011,10 +1011,10 @@ contract('PrepaidAggregator', () => {
     it('updates the min and max answer counts', async () => {
       await aggregator.updateFutureRounds(
         newPaymentAmount,
-        timeout,
         newMin,
         newMax,
         newDelay,
+        timeout,
         {
           from: personas.Carol,
         },
@@ -1029,10 +1029,10 @@ contract('PrepaidAggregator', () => {
     it('emits a log announcing the new round details', async () => {
       const tx = await aggregator.updateFutureRounds(
         paymentAmount,
-        timeout,
         newMin,
         newMax,
         newDelay,
+        timeout,
         {
           from: personas.Carol,
         },
@@ -1052,10 +1052,10 @@ contract('PrepaidAggregator', () => {
         await expectRevert(
           aggregator.updateFutureRounds(
             paymentAmount,
-            timeout,
             minAnswerCount,
             4,
             rrDelay,
+            timeout,
             {
               from: personas.Carol,
             },
@@ -1068,7 +1068,7 @@ contract('PrepaidAggregator', () => {
     context('when it sets the min higher than the max', async () => {
       it('reverts', async () => {
         await expectRevert(
-          aggregator.updateFutureRounds(paymentAmount, timeout, 3, 2, rrDelay, {
+          aggregator.updateFutureRounds(paymentAmount, 3, 2, rrDelay, timeout, {
             from: personas.Carol,
           }),
           'Cannot have the answer minimum higher the max',
@@ -1079,7 +1079,7 @@ contract('PrepaidAggregator', () => {
     context('when delay equal or greater the oracle count', async () => {
       it('reverts', async () => {
         await expectRevert(
-          aggregator.updateFutureRounds(paymentAmount, timeout, 1, 1, 3, {
+          aggregator.updateFutureRounds(paymentAmount, 1, 1, 3, timeout, {
             from: personas.Carol,
           }),
           'Restart delay must be less than oracle count',
@@ -1090,7 +1090,7 @@ contract('PrepaidAggregator', () => {
     context('when called by anyone but the owner', async () => {
       it('reverts', async () => {
         await expectRevert(
-          aggregator.updateFutureRounds(paymentAmount, timeout, 1, 3, rrDelay, {
+          aggregator.updateFutureRounds(paymentAmount, 1, 3, rrDelay, timeout, {
             from: personas.Ned,
           }),
           'caller is not the owner',

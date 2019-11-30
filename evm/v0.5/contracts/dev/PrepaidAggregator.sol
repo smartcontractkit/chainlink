@@ -136,7 +136,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
     emit OracleAdded(_oracle);
 
-    updateFutureRounds(paymentAmount, timeout, _minAnswers, _maxAnswers, _restartDelay);
+    updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay, timeout);
   }
 
   /**
@@ -163,7 +163,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
     emit OracleRemoved(_oracle);
 
-    updateFutureRounds(paymentAmount, timeout, _minAnswers, _maxAnswers, _restartDelay);
+    updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay, timeout);
   }
 
   /**
@@ -177,10 +177,10 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
    */
   function updateFutureRounds(
     uint128 _newPaymentAmount,
-    uint32 _timeout,
     uint32 _minAnswers,
     uint32 _maxAnswers,
-    uint32 _restartDelay
+    uint32 _restartDelay,
+    uint32 _timeout
   )
     public
     onlyOwner()
