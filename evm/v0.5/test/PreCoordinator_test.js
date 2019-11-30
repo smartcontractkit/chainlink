@@ -1,6 +1,6 @@
 import cbor from 'cbor'
 import * as h from './support/helpers'
-import { expectEvent, expectRevert, time } from 'openzeppelin-test-helpers'
+import { BN, expectEvent, expectRevert, time } from 'openzeppelin-test-helpers'
 
 contract('PreCoordinator', accounts => {
   const Oracle = artifacts.require('Oracle.sol')
@@ -176,6 +176,25 @@ contract('PreCoordinator', accounts => {
         assert.deepEqual(sa.payments, [])
       })
     })
+
+    context('when the service agreement is still active', () => {
+      beforeEach(async () => {
+        rc = await RequesterConsumer.new(link.address, pc.address, saId, {
+          from: consumer,
+        })
+        await link.transfer(rc.address, totalPayment)
+        await rc.requestEthereumPrice(currency, totalPayment, {
+          from: consumer,
+        })
+      })
+
+      it('reverts', async () => {
+        await expectRevert(
+          pc.deleteServiceAgreement(saId, { from: defaultAccount }),
+          'Cannot delete while active',
+        )
+      })
+    })
   })
 
   describe('#onTokenTransfer', () => {
@@ -252,6 +271,8 @@ contract('PreCoordinator', accounts => {
         assert.deepEqual(expected, await cbor.decodeFirst(request2.data))
         assert.deepEqual(expected, await cbor.decodeFirst(request3.data))
         assert.deepEqual(expected, await cbor.decodeFirst(request4.data))
+        const serviceAgreement = await pc.getServiceAgreement(saId)
+        assert.isTrue(new BN(1).eq(serviceAgreement.activeRequests))
       })
 
       context('when insufficient payment is supplied', () => {
