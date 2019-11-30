@@ -46,6 +46,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
 
   event NewServiceAgreement(bytes32 indexed saId, uint256 payment, uint256 minresponses);
   event ServiceAgreementRequest(bytes32 saId, uint256 payment);
+  event ServiceAgreementDeleted(bytes32 indexed saId);
 
   /**
    * @notice Deploy the contract with a specified address for the LINK
@@ -138,6 +139,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     whenNotActive(_saId)
   {
     delete serviceAgreements[_saId];
+    emit ServiceAgreementDeleted(_saId);
   }
 
   /**
