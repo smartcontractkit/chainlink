@@ -29,6 +29,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
 
   struct Requester {
     bytes4 callbackFunctionId;
+    address sender;
     address callbackAddress;
     int256[] responses;
   }
@@ -171,7 +172,8 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     require(_payment >= totalPayment, "Insufficient payment");
     bytes32 callbackRequestId = keccak256(abi.encodePacked(_sender, _nonce));
     requesters[callbackRequestId].callbackFunctionId = _callbackFunctionId;
-    requesters[callbackRequestId].callbackAddress = _sender;
+    requesters[callbackRequestId].callbackAddress = _callbackAddress;
+    requesters[callbackRequestId].sender = _sender;
     createRequests(_saId, callbackRequestId, _data);
     if (_payment > totalPayment) {
       uint256 overage = _payment.sub(totalPayment);
@@ -261,7 +263,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     delete requesters[cbRequestId];
     cancelChainlinkRequest(_requestId, _payment, _callbackFunctionId, _expiration);
     LinkTokenInterface _link = LinkTokenInterface(chainlinkTokenAddress());
-    require(_link.transfer(req.callbackAddress, _payment), "Unable to transfer");
+    require(_link.transfer(req.sender, _payment), "Unable to transfer");
   }
 
   /**
