@@ -130,7 +130,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     onlyUnenabledAddress(_oracle)
   {
     require(oracleCount < 42, "cannot add more than 42 oracles");
-    oracles[_oracle].startingRound = reportingRoundId.add(1);
+    oracles[_oracle].startingRound = getStartingRound(_oracle);
     oracles[_oracle].endingRound = ROUND_MAX;
     oracleCount += 1;
 
@@ -466,6 +466,17 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     returns (bool)
   {
     return rounds[_id].updatedAt > 0;
+  }
+
+  function getStartingRound(address _oracle)
+    private
+    returns (uint32)
+  {
+    uint32 currentRound = reportingRoundId;
+    if (currentRound != 0 && currentRound == oracles[_oracle].endingRound) {
+      return currentRound;
+    }
+    return currentRound.add(1);
   }
 
   /**

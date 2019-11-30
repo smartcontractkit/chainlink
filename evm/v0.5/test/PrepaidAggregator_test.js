@@ -750,8 +750,8 @@ contract('PrepaidAggregator', () => {
       })
     })
 
-    context('when an oracle is added after being removed', async () => {
-      beforeEach(async () => {
+    context('when an oracle is added after removed for a round', async () => {
+      it('allows the oracle to update', async () => {
         oracles = [personas.Neil, personas.Nelly]
         for (let i = 0; i < oracles.length; i++) {
           await aggregator.addOracle(oracles[i], i + 1, i + 1, rrDelay, {
@@ -775,9 +775,7 @@ contract('PrepaidAggregator', () => {
           from: personas.Neil,
         })
         nextRound++
-      })
 
-      it('is allowed to update answers again', async () => {
         await aggregator.addOracle(personas.Nelly, 1, 1, rrDelay, {
           from: personas.Carol,
         })
@@ -787,6 +785,35 @@ contract('PrepaidAggregator', () => {
         })
       })
     })
+
+    context(
+      'when an oracle is added and immediately removed mid-round',
+      async () => {
+        it('allows the oracle to update', async () => {
+          oracles = [personas.Neil, personas.Nelly]
+          for (let i = 0; i < oracles.length; i++) {
+            await aggregator.addOracle(oracles[i], i + 1, i + 1, rrDelay, {
+              from: personas.Carol,
+            })
+          }
+
+          await aggregator.updateAnswer(nextRound, answer, {
+            from: personas.Neil,
+          })
+
+          await aggregator.removeOracle(personas.Nelly, 1, 1, rrDelay, {
+            from: personas.Carol,
+          })
+          await aggregator.addOracle(personas.Nelly, 1, 1, rrDelay, {
+            from: personas.Carol,
+          })
+
+          await aggregator.updateAnswer(nextRound, answer, {
+            from: personas.Nelly,
+          })
+        })
+      },
+    )
 
     const limit = 42
     context(`when adding more than ${limit} oracles`, async () => {
