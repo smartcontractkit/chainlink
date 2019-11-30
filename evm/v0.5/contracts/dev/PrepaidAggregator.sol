@@ -36,7 +36,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     int256[] answers;
     uint32 maxAnswers;
     uint32 minAnswers;
-    uint32 timeOut;
+    uint32 timeout;
     uint128 paymentAmount;
   }
 
@@ -378,7 +378,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     rounds[_id].details.maxAnswers = maxAnswerCount;
     rounds[_id].details.minAnswers = minAnswerCount;
     rounds[_id].details.paymentAmount = paymentAmount;
-    rounds[_id].details.timeOut = timeout;
+    rounds[_id].details.timeout = timeout;
     rounds[_id].startedAt = uint64(block.timestamp);
 
     oracles[msg.sender].lastStartedRound = _id;
@@ -388,7 +388,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   function updateTimedOutRoundInfo(uint32 _id)
     private
-    ifTimeOutable(_id)
+    ifTimeoutable(_id)
     onlyWithPreviousAnswer(_id)
   {
     uint32 prevId = _id.sub(1);
@@ -446,8 +446,8 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     returns (bool)
   {
     uint64 startedAt = rounds[_id].startedAt;
-    uint32 roundTimeOut = rounds[_id].details.timeOut;
-    return startedAt > 0 && roundTimeOut > 0 && startedAt.add(roundTimeOut) < block.timestamp;
+    uint32 roundTimeout = rounds[_id].details.timeout;
+    return startedAt > 0 && roundTimeout > 0 && startedAt.add(roundTimeout) < block.timestamp;
   }
 
   function finished(uint32 _id)
@@ -524,7 +524,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     _;
   }
 
-  modifier ifTimeOutable(uint32 _id) {
+  modifier ifTimeoutable(uint32 _id) {
     if (_id > 0 && timedOut(_id)) {
       _;
     }
