@@ -96,6 +96,19 @@ contract('PreCoordinator', accounts => {
           payment,
         ])
       })
+
+      it('does not allow service agreements with 0 minResponses', async () => {
+        await expectRevert(
+          pc.createServiceAgreement(
+            0,
+            [oc1.address, oc2.address, oc3.address, oc4.address],
+            [job1, job2, job3, job4],
+            [payment, payment, payment, payment],
+            { from: defaultAccount },
+          ),
+          'Min responses must be > 0',
+        )
+      })
     })
 
     context('when called by a stranger', () => {
