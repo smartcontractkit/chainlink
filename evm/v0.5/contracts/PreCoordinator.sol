@@ -178,6 +178,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     // this revert message does not bubble up
     require(_payment >= totalPayment, "Insufficient payment");
     bytes32 callbackRequestId = keccak256(abi.encodePacked(_sender, _nonce));
+    require(requesters[callbackRequestId].sender == address(0), "Nonce already in-use");
     requesters[callbackRequestId].callbackFunctionId = _callbackFunctionId;
     requesters[callbackRequestId].callbackAddress = _callbackAddress;
     requesters[callbackRequestId].sender = _sender;
