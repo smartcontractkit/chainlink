@@ -195,22 +195,22 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
    * @dev Creates Chainlink requests to each oracle in the service agreement with the
    * same data payload supplied by the requester
    * @param _saId The service agreement ID
-   * @param _requestId The requester-supplied request ID
+   * @param _incomingRequestId The requester-supplied request ID
    * @param _data The data payload (request parameters) to send to each oracle
    */
-  function createRequests(bytes32 _saId, bytes32 _requestId, bytes memory _data) private {
+  function createRequests(bytes32 _saId, bytes32 _incomingRequestId, bytes memory _data) private {
     ServiceAgreement memory sa = serviceAgreements[_saId];
     require(sa.minResponses > 0, "Invalid service agreement");
     Chainlink.Request memory request;
-    bytes32 requestId;
+    bytes32 outoingRequestId;
     serviceAgreements[_saId].activeRequests = serviceAgreements[_saId].activeRequests.add(1);
     emit ServiceAgreementRequest(_saId, sa.totalPayment);
     for (uint i = 0; i < sa.oracles.length; i++) {
       request = buildChainlinkRequest(sa.jobIds[i], address(this), this.chainlinkCallback.selector);
       request.setBuffer(_data);
-      requestId = sendChainlinkRequestTo(sa.oracles[i], request, sa.payments[i]);
-      requests[requestId] = _requestId;
-      serviceAgreementRequests[requestId] = _saId;
+      outoingRequestId = sendChainlinkRequestTo(sa.oracles[i], request, sa.payments[i]);
+      requests[outoingRequestId] = _incomingRequestId;
+      serviceAgreementRequests[outoingRequestId] = _saId;
     }
   }
 
