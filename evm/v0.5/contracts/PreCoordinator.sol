@@ -22,6 +22,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
   struct ServiceAgreement {
     uint256 totalPayment;
     uint256 minResponses;
+    uint256 activeRequests;
     address[] oracles;
     bytes32[] jobIds;
     uint256[] payments;
@@ -90,7 +91,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     saId = keccak256(abi.encodePacked(globalNonce, now));
     globalNonce++; // yes, let it overflow
     // Manually calculate total payment off-chain
-    serviceAgreements[saId] = ServiceAgreement(totalPayment, _minResponses, _oracles, _jobIds, _payments);
+    serviceAgreements[saId] = ServiceAgreement(totalPayment, _minResponses, 0, _oracles, _jobIds, _payments);
 
     emit NewServiceAgreement(saId, totalPayment, _minResponses);
   }
@@ -106,6 +107,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
   (
     uint256 totalPayment,
     uint256 minResponses,
+    uint256 activeRequests,
     address[] memory oracles,
     bytes32[] memory jobIds,
     uint256[] memory payments
@@ -115,6 +117,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     (
       serviceAgreements[_saId].totalPayment,
       serviceAgreements[_saId].minResponses,
+      serviceAgreements[_saId].activeRequests,
       serviceAgreements[_saId].oracles,
       serviceAgreements[_saId].jobIds,
       serviceAgreements[_saId].payments
@@ -128,7 +131,11 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
    * for the ServiceAgreementRequest event.
    * @param _saId The service agreement ID
    */
-  function deleteServiceAgreement(bytes32 _saId) external onlyOwner {
+  function deleteServiceAgreement(bytes32 _saId)
+    external
+    onlyOwner
+    whenNotActive(_saId)
+  {
     delete serviceAgreements[_saId];
   }
 
@@ -193,6 +200,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     ServiceAgreement memory sa = serviceAgreements[_saId];
     Chainlink.Request memory request;
     bytes32 requestId;
+    serviceAgreements[_saId].activeRequests = serviceAgreements[_saId].activeRequests.add(1);
     emit ServiceAgreementRequest(_saId, sa.minResponses);
     for (uint i = 0; i < sa.oracles.length; i++) {
       request = buildChainlinkRequest(sa.jobIds[i], address(this), this.chainlinkCallback.selector);
@@ -217,9 +225,11 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
   {
     uint256 minResponses = serviceAgreements[serviceAgreementRequests[_requestId]].minResponses;
     bytes32 cbRequestId = requests[_requestId];
+    bytes32 saId = serviceAgreementRequests[_requestId];
     delete requests[_requestId];
     delete serviceAgreementRequests[_requestId];
     if (requesters[cbRequestId].responses.push(_data) == minResponses) {
+      serviceAgreements[saId].activeRequests = serviceAgreements[saId].activeRequests.sub(1);
       Requester memory req = requesters[cbRequestId];
       delete requesters[cbRequestId];
       int256 result = Median.calculate(req.responses);
@@ -264,6 +274,15 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     cancelChainlinkRequest(_requestId, _payment, _callbackFunctionId, _expiration);
     LinkTokenInterface _link = LinkTokenInterface(chainlinkTokenAddress());
     require(_link.transfer(req.sender, _payment), "Unable to transfer");
+  }
+
+  /**
+   * @dev Reverts if the Service Agreement has active callbacks
+   * @param _saId The service agreement ID
+   */
+  modifier whenNotActive(bytes32 _saId) {
+    require(serviceAgreements[_saId].activeRequests == 0, "Cannot delete while active");
+    _;
   }
 
   /**
