@@ -200,10 +200,11 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
    */
   function createRequests(bytes32 _saId, bytes32 _requestId, bytes memory _data) private {
     ServiceAgreement memory sa = serviceAgreements[_saId];
+    require(sa.minResponses > 0, "Invalid service agreement");
     Chainlink.Request memory request;
     bytes32 requestId;
     serviceAgreements[_saId].activeRequests = serviceAgreements[_saId].activeRequests.add(1);
-    emit ServiceAgreementRequest(_saId, sa.minResponses);
+    emit ServiceAgreementRequest(_saId, sa.totalPayment);
     for (uint i = 0; i < sa.oracles.length; i++) {
       request = buildChainlinkRequest(sa.jobIds[i], address(this), this.chainlinkCallback.selector);
       request.setBuffer(_data);
