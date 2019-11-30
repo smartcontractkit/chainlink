@@ -49,7 +49,6 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     int256 latestAnswer;
   }
 
-  uint32 private latestRoundValue;
   uint32 public reportingRound;
   uint128 public allocatedFunds;
   uint128 public availableFunds;
@@ -62,6 +61,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   uint32 public restartDelay;
   uint32 public timeout;
 
+  uint32 private latestRoundId;
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) private rounds;
@@ -231,7 +231,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (int256)
   {
-    return rounds[latestRoundValue].answer;
+    return rounds[latestRoundId].answer;
   }
 
   /**
@@ -242,7 +242,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (uint256)
   {
-    return uint256(rounds[latestRoundValue].updatedAt);
+    return uint256(rounds[latestRoundId].updatedAt);
   }
 
   /**
@@ -253,7 +253,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (bool)
   {
-    uint32 roundId = latestRoundValue;
+    uint32 roundId = latestRoundId;
     uint32 answeredIn = rounds[roundId].answeredInRound;
     return answeredIn > 0 && answeredIn != roundId;
   }
@@ -266,7 +266,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (uint256)
   {
-    return uint256(latestRoundValue);
+    return uint256(latestRoundId);
   }
 
   /**
@@ -407,7 +407,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     rounds[_id].answer = newAnswer;
     rounds[_id].updatedAt = uint64(block.timestamp);
     rounds[_id].answeredInRound = _id;
-    latestRoundValue = _id;
+    latestRoundId = _id;
 
     emit AnswerUpdated(newAnswer, uint256(_id), now);
   }
