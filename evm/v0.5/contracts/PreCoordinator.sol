@@ -275,6 +275,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     delete requests[_requestId];
     delete serviceAgreementRequests[_requestId];
     Requester memory req = requesters[cbRequestId];
+    require(req.sender == msg.sender, "Only requester can cancel");
     delete requesters[cbRequestId];
     cancelChainlinkRequest(_requestId, _payment, _callbackFunctionId, _expiration);
     LinkTokenInterface _link = LinkTokenInterface(chainlinkTokenAddress());

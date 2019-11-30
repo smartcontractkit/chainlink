@@ -490,8 +490,11 @@ contract('PreCoordinator', accounts => {
     })
 
     context('after the minimum required time', () => {
-      it('allows the requester to cancel', async () => {
+      beforeEach(async () => {
         await time.increase(300)
+      })
+
+      it('allows the requester to cancel', async () => {
         await rc.cancelRequest(
           pc.address,
           request.id,
@@ -504,17 +507,17 @@ contract('PreCoordinator', accounts => {
         assert.equal(balance.toString(), payment)
       })
 
-      it('allows others to call with the balance sent to the requester', async () => {
-        await time.increase(300)
-        await pc.cancelOracleRequest(
-          request.id,
-          request.payment,
-          request.callbackFunc,
-          request.expiration,
-          { from: stranger },
+      it.only('does not allow others to call', async () => {
+        await expectRevert(
+          pc.cancelOracleRequest(
+            request.id,
+            request.payment,
+            request.callbackFunc,
+            request.expiration,
+            { from: stranger },
+          ),
+          'Only requester can cancel',
         )
-        const balance = await link.balanceOf(rc.address)
-        assert.equal(balance.toString(), payment)
       })
     })
   })
