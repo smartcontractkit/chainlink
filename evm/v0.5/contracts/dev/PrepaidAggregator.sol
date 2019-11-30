@@ -388,7 +388,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   function updateTimedOutRoundInfo(uint32 _id)
     private
-    ifTimeoutable(_id)
+    ifTimedOut(_id)
     onlyWithPreviousAnswer(_id)
   {
     uint32 prevId = _id.sub(1);
@@ -524,8 +524,8 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     _;
   }
 
-  modifier ifTimeoutable(uint32 _id) {
-    if (_id > 0 && timedOut(_id)) {
+  modifier ifTimedOut(uint32 _id) {
+    if (timedOut(_id)) {
       _;
     }
   }
