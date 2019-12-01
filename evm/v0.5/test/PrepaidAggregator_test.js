@@ -382,7 +382,7 @@ contract('PrepaidAggregator', () => {
       })
     })
 
-    context("when delay is on and it's an oralce's 1st round", async () => {
+    context("when delay is on and it's an oracle's 1st round", async () => {
       beforeEach(async () => {
         const minMax = oracles.length
         const delay = 1

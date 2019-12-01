@@ -511,7 +511,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
 
   modifier onlyValidRoundId(uint32 _id) {
     require(_id == reportingRoundId || _id == reportingRoundId.add(1), "Must report on current round");
-    require(_id == 1 || finished(_id.sub(1)) || timedOut(_id.sub(1)), "Cannot bump round until previous round has an answer or timed out");
+    require(_id == 1 || finished(_id.sub(1)) || timedOut(_id.sub(1)), "Not eligible to bump round");
     _;
   }
 
