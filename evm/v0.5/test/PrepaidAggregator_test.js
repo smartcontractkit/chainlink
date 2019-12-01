@@ -34,12 +34,12 @@ contract('PrepaidAggregator', () => {
       'availableFunds',
       'getAnswer',
       'getOriginatingRoundOfAnswer',
+      'getTimedOutStatus',
       'getTimestamp',
-      'getTimedOut',
       'latestAnswer',
       'latestRound',
       'latestSubmission',
-      'latestTimedOut',
+      'latestTimedOutStatus',
       'latestTimestamp',
       'maxAnswerCount',
       'minAnswerCount',
@@ -224,7 +224,7 @@ contract('PrepaidAggregator', () => {
       })
 
       it('does not set the timedout flag', async () => {
-        assert.isFalse(await aggregator.getTimedOut.call(nextRound))
+        assert.isFalse(await aggregator.getTimedOutStatus.call(nextRound))
 
         await aggregator.updateAnswer(nextRound, answer, {
           from: personas.Nelly,
@@ -528,13 +528,13 @@ contract('PrepaidAggregator', () => {
 
         it('sets the previous round as timed out', async () => {
           const previousRound = nextRound - 1
-          assert.isFalse(await aggregator.getTimedOut.call(previousRound))
+          assert.isFalse(await aggregator.getTimedOutStatus.call(previousRound))
 
           await aggregator.updateAnswer(nextRound, answer, {
             from: personas.Nelly,
           })
 
-          assert.isTrue(await aggregator.getTimedOut.call(previousRound))
+          assert.isTrue(await aggregator.getTimedOutStatus.call(previousRound))
           assert.equal(
             previousRound - 1,
             await aggregator.getOriginatingRoundOfAnswer.call(previousRound),

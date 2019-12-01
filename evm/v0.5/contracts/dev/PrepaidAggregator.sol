@@ -246,9 +246,9 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
 
   /**
-   * @notice get the most recent timed out flag
+   * @notice true if latest round has timed out
    */
-  function latestTimedOut()
+  function latestTimedOutStatus()
     external
     view
     returns (bool)
@@ -308,7 +308,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
    * @notice get the timed out status of a given round
    * @param _roundId the round number to retrieve the timed out status for
    */
-  function getTimedOut(uint256 _roundId)
+  function getTimedOutStatus(uint256 _roundId)
     external
     view
     returns (bool)
