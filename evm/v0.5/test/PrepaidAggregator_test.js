@@ -382,7 +382,7 @@ contract('PrepaidAggregator', () => {
       })
     })
 
-    context("when delay is on and it's an oracle's 1st round", async () => {
+    context('when delay is on', async () => {
       beforeEach(async () => {
         const minMax = oracles.length
         const delay = 1
@@ -399,10 +399,28 @@ contract('PrepaidAggregator', () => {
         )
       })
 
-      it('does not revert', async () => {
+      it("does not revert on the oracle's first round", async () => {
+        // Since lastUpdatedRound defaults to zero and that's the only
+        // indication that an oracle hasn't responded, this test guards against
+        // the situation where we don't check that and no one can start a round.
         await aggregator.updateAnswer(nextRound, answer, {
           from: personas.Neil,
         })
+      })
+
+      it('does revert before the delay', async () => {
+        await aggregator.updateAnswer(nextRound, answer, {
+          from: personas.Neil,
+        })
+
+        nextRound++
+
+        await expectRevert(
+          aggregator.updateAnswer(nextRound, answer, {
+            from: personas.Neil,
+          }),
+          'Not eligible to bump round',
+        )
       })
     })
 
@@ -470,6 +488,12 @@ contract('PrepaidAggregator', () => {
     )
 
     context('when the price is not updated for a round', async () => {
+      // For a round to timeout, it needs a previous round to pull an answer
+      // from, so the second round is the earliest round that can timeout,
+      // pulling its answer from the first. The start of the third round is
+      // the trigger that timesout the second round, so the start of the
+      // third round is the earliest we can test a timeout.
+
       context('on the third round or later', async () => {
         const delay = 1
 
