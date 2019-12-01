@@ -39,7 +39,6 @@ contract('PrepaidAggregator', () => {
       'latestAnswer',
       'latestRound',
       'latestSubmission',
-      'latestTimedOutStatus',
       'latestTimestamp',
       'maxAnswerCount',
       'minAnswerCount',
