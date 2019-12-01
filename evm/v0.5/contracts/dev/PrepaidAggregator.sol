@@ -60,6 +60,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   uint32 public restartDelay;
   uint32 public timeout;
   uint8 public decimals;
+  bytes32 public description;
 
   uint32 private reportingRoundId;
   uint32 private latestRoundId;
@@ -92,12 +93,14 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     address _link,
     uint128 _paymentAmount,
     uint32 _timeout,
-    uint8 _decimals
+    uint8 _decimals,
+    bytes32 _description
   ) public {
     LINK = LinkTokenInterface(_link);
     paymentAmount = _paymentAmount;
     timeout = _timeout;
     decimals = _decimals;
+    description = _description;
   }
 
   /**

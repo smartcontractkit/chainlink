@@ -14,6 +14,7 @@ contract('PrepaidAggregator', () => {
   const rrDelay = 0
   const timeout = 1800
   const decimals = 18
+  const description = 'LINK/USD'
 
   let aggregator, link, nextRound, oracles
 
@@ -24,6 +25,7 @@ contract('PrepaidAggregator', () => {
       paymentAmount,
       timeout,
       decimals,
+      h.toHex(description),
       {
         from: personas.Carol,
       },
@@ -39,6 +41,7 @@ contract('PrepaidAggregator', () => {
       'addOracle',
       'allocatedFunds',
       'availableFunds',
+      'description',
       'getAnswer',
       'getOriginatingRoundOfAnswer',
       'getTimedOutStatus',
@@ -83,6 +86,13 @@ contract('PrepaidAggregator', () => {
 
     it('sets the decimals', async () => {
       assertBigNum(h.bigNum(decimals), await aggregator.decimals.call())
+    })
+
+    it('sets the description', async () => {
+      assert.equal(
+        description,
+        web3.utils.toUtf8(await aggregator.description.call()),
+      )
     })
   })
 
