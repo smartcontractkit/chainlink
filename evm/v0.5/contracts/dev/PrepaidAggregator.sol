@@ -246,19 +246,6 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
 
   /**
-   * @notice true if latest round has timed out
-   */
-  function latestTimedOutStatus()
-    external
-    view
-    returns (bool)
-  {
-    uint32 roundId = latestRoundId;
-    uint32 answeredIn = rounds[roundId].answeredInRound;
-    return answeredIn > 0 && answeredIn != roundId;
-  }
-
-  /**
    * @notice get the ID of the last updated round
    */
   function latestRound()
