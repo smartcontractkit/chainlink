@@ -59,6 +59,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   uint32 public minAnswerCount;
   uint32 public restartDelay;
   uint32 public timeout;
+  uint8 public decimals;
 
   uint32 private reportingRoundId;
   uint32 private latestRoundId;
@@ -87,10 +88,16 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
    * @param _timeout is the number of seconds after the previous round that are
    * allowed to lapse before allowing an oracle to skip an unfinished round
    */
-  constructor(address _link, uint128 _paymentAmount, uint32 _timeout) public {
+  constructor(
+    address _link,
+    uint128 _paymentAmount,
+    uint32 _timeout,
+    uint8 _decimals
+  ) public {
     LINK = LinkTokenInterface(_link);
     paymentAmount = _paymentAmount;
     timeout = _timeout;
+    decimals = _decimals;
   }
 
   /**

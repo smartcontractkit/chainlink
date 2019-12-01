@@ -13,14 +13,21 @@ contract('PrepaidAggregator', () => {
   const maxAns = 1
   const rrDelay = 0
   const timeout = 1800
+  const decimals = 18
 
   let aggregator, link, nextRound, oracles
 
   beforeEach(async () => {
     link = await h.linkContract(personas.defaultAccount)
-    aggregator = await Aggregator.new(link.address, paymentAmount, timeout, {
-      from: personas.Carol,
-    })
+    aggregator = await Aggregator.new(
+      link.address,
+      paymentAmount,
+      timeout,
+      decimals,
+      {
+        from: personas.Carol,
+      },
+    )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
     assertBigNum(deposit, await link.balanceOf.call(aggregator.address))
@@ -44,6 +51,7 @@ contract('PrepaidAggregator', () => {
       'minAnswerCount',
       'oracleCount',
       'paymentAmount',
+      'decimals',
       'removeOracle',
       'reportingRound',
       'restartDelay',
@@ -71,6 +79,10 @@ contract('PrepaidAggregator', () => {
 
     it('sets the timeout', async () => {
       assertBigNum(h.bigNum(timeout), await aggregator.timeout.call())
+    })
+
+    it('sets the decimals', async () => {
+      assertBigNum(h.bigNum(decimals), await aggregator.decimals.call())
     })
   })
 
