@@ -273,7 +273,7 @@ contract('PrepaidAggregator', () => {
           aggregator.updateAnswer(nextRound, answer, {
             from: personas.Ned,
           }),
-          'Max responses reached for round',
+          'Round not currently eligible for reporting',
         )
       })
     })
@@ -473,14 +473,14 @@ contract('PrepaidAggregator', () => {
               aggregator.updateAnswer(nextRound, answer, {
                 from: personas.Ned,
               }),
-              'Max responses reached for round',
+              'Round not currently eligible for reporting',
             )
 
             await expectRevert(
               aggregator.updateAnswer(nextRound, answer, {
                 from: personas.Nelly,
               }),
-              'Max responses reached for round',
+              'Round not currently eligible for reporting',
             )
           })
         })
@@ -571,7 +571,7 @@ contract('PrepaidAggregator', () => {
             aggregator.updateAnswer(nextRound, answer, {
               from: personas.Ned,
             }),
-            'Max responses reached for round',
+            'Round not currently eligible for reporting',
           )
         })
 

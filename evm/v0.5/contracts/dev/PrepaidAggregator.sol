@@ -492,7 +492,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
 
   modifier onlyWhenAcceptingAnswers(uint32 _id) {
-    require(rounds[_id].details.maxAnswers != 0, "Max responses reached for round");
+    require(rounds[_id].details.maxAnswers != 0, "Round not currently eligible for reporting");
     _;
   }
 
