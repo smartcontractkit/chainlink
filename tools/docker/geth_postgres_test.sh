@@ -5,6 +5,7 @@ export GETH_MODE=TRUE
 all_files="-f docker-compose.yaml -f docker-compose.gethnet.yaml -f docker-compose.postgres.yaml -f docker-compose.integration.yaml"
 base="docker-compose $all_files"
 dev="$base -f docker-compose.dev.yaml"
+deps="$base -f docker-compose.deps.yaml"
 usage="geth_postgres_test -- run the integration test suite against geth as the ethereum node, and postgres as the backing database for chainlink
 
 Commands:
@@ -17,6 +18,7 @@ Commands:
     up          Brings up all services.
     up:dev      Brings up all services, and bind-mounts source files for quick changes without rebuilding a container. 
                 See docker-compose.dev.yaml for the list of bind-mounted folders per service.
+    up:deps     Brings up all dependencies that must be started before our integration suite can run.
     build       Builds all images in parallel.
     test        Runs the test suite, exiting on any failures."
 
@@ -36,6 +38,9 @@ case "$1" in
   up)
     $base up
     ;;
+  up:deps)
+    $deps up --exit-code-from wait-db wait-db 
+    ;;
   up:dev)
     $dev up
     ;;
@@ -47,6 +52,7 @@ case "$1" in
     ;;
   *)
     ./geth_postgres_test.sh build
+    ./geth_postgres_test.sh up:deps
     ./geth_postgres_test.sh test
     ;;
 esac
