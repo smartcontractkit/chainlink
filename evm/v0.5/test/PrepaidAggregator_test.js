@@ -33,7 +33,7 @@ contract('PrepaidAggregator', () => {
       'allocatedFunds',
       'availableFunds',
       'getAnswer',
-      'getAnsweredInRound',
+      'getOriginatingRoundOfAnswer',
       'getTimestamp',
       'getTimedOut',
       'latestAnswer',
@@ -232,7 +232,7 @@ contract('PrepaidAggregator', () => {
 
         assert.equal(
           nextRound,
-          await aggregator.getAnsweredInRound.call(nextRound),
+          await aggregator.getOriginatingRoundOfAnswer.call(nextRound),
         )
       })
     })
@@ -537,7 +537,7 @@ contract('PrepaidAggregator', () => {
           assert.isTrue(await aggregator.getTimedOut.call(previousRound))
           assert.equal(
             previousRound - 1,
-            await aggregator.getAnsweredInRound.call(previousRound),
+            await aggregator.getOriginatingRoundOfAnswer.call(previousRound),
           )
         })
 
