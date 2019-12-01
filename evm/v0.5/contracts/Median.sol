@@ -21,7 +21,8 @@ library Median {
     if (answerLength % 2 == 0) {
       int256 median1 = quickselect(copy(_list), middleIndex);
       int256 median2 = quickselect(_list, middleIndex.add(1)); // quickselect is 1 indexed
-      return median1.add(median2) / 2; // signed integers are not supported by SafeMath
+      int256 remainder = (median1 % 2 + median2 % 2) / 2;
+      return (median1 / 2).add(median2 / 2).add(remainder); // signed integers are not supported by SafeMath
     } else {
       return quickselect(_list, middleIndex.add(1)); // quickselect is 1 indexed
     }
