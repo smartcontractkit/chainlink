@@ -220,7 +220,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (uint256)
   {
-    return uint256(oracles[msg.sender].withdrawable);
+    return oracles[msg.sender].withdrawable;
   }
 
   /**
@@ -242,7 +242,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (uint256)
   {
-    return uint256(rounds[latestRoundId].updatedAt);
+    return rounds[latestRoundId].updatedAt;
   }
 
   /**
@@ -253,7 +253,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (uint256)
   {
-    return uint256(latestRoundId);
+    return latestRoundId;
   }
 
   /**
@@ -264,7 +264,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (uint256)
   {
-    return uint256(reportingRoundId);
+    return reportingRoundId;
   }
 
   /**
@@ -288,7 +288,7 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
     view
     returns (uint256)
   {
-    return uint256(rounds[uint32(_roundId)].updatedAt);
+    return rounds[uint32(_roundId)].updatedAt;
   }
 
   /**
