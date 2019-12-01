@@ -319,15 +319,15 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
 
   /**
-   * @notice get the round ID of that an answer came from
+   * @notice get the round ID that an answer was originally reported in
    * @param _roundId the round number to retrieve the answer for
    */
-  function getAnsweredInRound(uint256 _roundId)
+  function getOriginatingRoundOfAnswer(uint256 _roundId)
     external
     view
     returns (uint256)
   {
-    return uint256(rounds[uint32(_roundId)].answeredInRound);
+    return rounds[uint32(_roundId)].answeredInRound;
   }
 
   /**
