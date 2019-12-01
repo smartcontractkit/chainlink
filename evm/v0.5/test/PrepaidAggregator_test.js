@@ -113,7 +113,7 @@ contract('PrepaidAggregator', () => {
 
       latest = await aggregator.latestSubmission.call(personas.Neil)
       assert.equal(newAnswer, latest[0])
-      assert.notEqual(0, latest[1])
+      assert.equal(nextRound, latest[1])
     })
 
     context('when the minimum oracles have not reported', async () => {
@@ -169,7 +169,7 @@ contract('PrepaidAggregator', () => {
           aggregator.updateAnswer(nextRound + 1, answer, {
             from: personas.Neil,
           }),
-          'Cannot bump round until previous round has an answer or timed out',
+          'Not eligible to bump round',
         )
       })
     })
@@ -539,14 +539,15 @@ contract('PrepaidAggregator', () => {
           assert.equal(0, updated)
           assert.equal(0, ans)
 
-          await aggregator.updateAnswer(nextRound, answer, {
+          const tx = await aggregator.updateAnswer(nextRound, answer, {
             from: personas.Nelly,
           })
+          const block = await web3.eth.getBlock(tx.receipt.blockHash)
 
           updated = await aggregator.getTimestamp.call(previousRound)
           ans = await aggregator.getAnswer.call(previousRound)
-          assert.notEqual(0, updated)
-          assert.notEqual(0, ans)
+          assertBigNum(h.bigNum(block.timestamp), updated)
+          assert.equal(answer, ans)
         })
 
         it('sets the previous round as timed out', async () => {
