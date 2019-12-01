@@ -372,6 +372,14 @@ contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface 
   }
 
   /**
+   * @notice called through LINK's transferAndCall to update available funds
+   * in the same transaction as the funds were transfered to the aggregator
+   */
+  function onTokenTransfer(address, uint256, bytes memory) public {
+    updateAvailableFunds();
+  }
+
+  /**
    * Private
    */
 

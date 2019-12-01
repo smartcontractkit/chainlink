@@ -52,6 +52,7 @@ contract('PrepaidAggregator', () => {
       'latestTimestamp',
       'maxAnswerCount',
       'minAnswerCount',
+      'onTokenTransfer',
       'oracleCount',
       'paymentAmount',
       'decimals',
@@ -1261,6 +1262,23 @@ contract('PrepaidAggregator', () => {
           'Insufficient balance',
         )
       })
+    })
+  })
+
+  describe('#onTokenTransfer', async () => {
+    it('updates the available balance', async () => {
+      const originalBalance = await aggregator.availableFunds.call()
+
+      await aggregator.updateAvailableFunds()
+
+      assertBigNum(originalBalance, await aggregator.availableFunds.call())
+
+      await link.transferAndCall(aggregator.address, deposit, '0x', {
+        value: 0,
+      })
+
+      const newBalance = await aggregator.availableFunds.call()
+      assertBigNum(originalBalance.add(deposit), newBalance)
     })
   })
 })
