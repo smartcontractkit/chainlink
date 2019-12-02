@@ -1,6 +1,7 @@
 import React from 'react'
 import { Drawer, Button } from 'antd'
 import moment from 'moment'
+import { etherscanAddress } from 'utils'
 
 const NodeDetailsModal = ({
   onClose,
@@ -59,34 +60,38 @@ const NodeDetailsContent = ({ data = {}, jobId, options }) => {
 
       <div>
         <h4>Find out more in:</h4>
-        <Button
-          style={{ marginRight: 10 }}
-          ghost
-          type="primary"
-          disabled={!jobId}
-        >
-          <a
-            target="_BLANK"
-            rel="noopener noreferrer"
-            href={`https://explorer.chain.link/job-runs?search=${jobId}`}
-          >
-            Chainlink Explorer
-          </a>
-        </Button>
-        <Button style={{ marginRight: 10 }} ghost type="primary">
-          <a
-            target="_BLANK"
-            rel="noopener noreferrer"
-            href={`https://market.link/search/nodes?&name=${data.name}`}
-          >
-            Market.link
-          </a>
-        </Button>
+        {options.network === 'mainnet' && (
+          <>
+            <Button
+              style={{ marginRight: 10 }}
+              ghost
+              type="primary"
+              disabled={!jobId}
+            >
+              <a
+                target="_BLANK"
+                rel="noopener noreferrer"
+                href={`https://explorer.chain.link/job-runs?search=${jobId}`}
+              >
+                Chainlink Explorer
+              </a>
+            </Button>
+            <Button style={{ marginRight: 10 }} ghost type="primary">
+              <a
+                target="_BLANK"
+                rel="noopener noreferrer"
+                href={`https://market.link/search/nodes?&name=${data.name}`}
+              >
+                Market.link
+              </a>
+            </Button>{' '}
+          </>
+        )}
         <Button ghost type="primary">
           <a
             target="_BLANK"
             rel="noopener noreferrer"
-            href={`https://etherscan.io/address/${data.address}`}
+            href={etherscanAddress(options.network, data.address)}
           >
             Etherscan
           </a>

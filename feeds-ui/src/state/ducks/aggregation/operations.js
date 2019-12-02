@@ -2,8 +2,10 @@ import * as actions from './actions'
 import _ from 'lodash'
 import moment from 'moment'
 import { ethers } from 'ethers'
-
+import AggregationAbi from 'contracts/AggregationAbi.json'
+import AggregationAbiV2 from 'contracts/AggregationAbi.v2.json'
 import AggregationContract from 'contracts/AggregationContract'
+import AggregationContractV2 from 'contracts/AggregationContractV2'
 
 let contractInstance
 
@@ -15,8 +17,8 @@ const fetchOracles = () => {
     try {
       const payload = await contractInstance.oracles()
       dispatch(actions.setOracles(payload))
-    } catch (error) {
-      //
+    } catch {
+      console.error('Could not fetch oracles ')
     }
   }
 }
@@ -27,8 +29,8 @@ const fetchLatestCompletedAnswerId = () => {
       const payload = await contractInstance.latestCompletedAnswer()
       dispatch(actions.setLatestCompletedAnswerId(payload))
       return payload
-    } catch (error) {
-      //
+    } catch {
+      console.error('Could not fetch latest completed answer id')
     }
   }
 }
@@ -38,8 +40,8 @@ const fetchCurrentAnswer = () => {
     try {
       const payload = await contractInstance.currentAnswer()
       dispatch(actions.setCurrentAnswer(payload))
-    } catch (error) {
-      //
+    } catch {
+      console.error('Could not fetch latest completed answer id')
     }
   }
 }
@@ -50,8 +52,8 @@ const fetchUpdateHeight = () => {
       const payload = await contractInstance.updateHeight()
       dispatch(actions.setUpdateHeight(payload))
       return payload || {}
-    } catch (error) {
-      return {}
+    } catch {
+      console.error('Could not fetch update height')
     }
   }
 }
@@ -69,16 +71,18 @@ const fetchOracleResponseById = request => {
       })
 
       dispatch(actions.setOracleResponse(uniquePayload))
-    } catch (error) {
-      //
+    } catch {
+      console.error('Could not fetch oracle responses')
     }
   }
 }
 
-const fetchRequestTime = () => {
+const fetchRequestTime = options => {
   return async dispatch => {
     try {
-      const logs = await contractInstance.chainlinkRequestedLogs()
+      // calculate last update time
+      const pastBlocks = options.counter ? Math.floor(options.counter / 13) : 40
+      const logs = await contractInstance.chainlinkRequestedLogs(pastBlocks)
       const latestLog = logs.length && logs[logs.length - 1].meta.blockNumber
 
       const block = latestLog
@@ -86,8 +90,8 @@ const fetchRequestTime = () => {
         : null
 
       dispatch(actions.setRequestTime(block ? block.timestamp : null))
-    } catch (error) {
-      //
+    } catch {
+      console.error('Could not fetch request time')
     }
   }
 }
@@ -97,8 +101,8 @@ const fetchMinimumResponses = () => {
     try {
       const payload = await contractInstance.minimumResponses()
       dispatch(actions.setMinumumResponses(payload))
-    } catch (error) {
-      //
+    } catch {
+      console.error('Could not fetch minimum responses')
     }
   }
 }
@@ -114,21 +118,27 @@ const fetchAnswerHistory = () => {
       const uniquePayload = _.uniqBy(payload, e => {
         return e.answerId
       })
-      const withTimestamp = await contractInstance.addBlockTimestampToLogs(
-        uniquePayload,
-      )
 
-      const formattedPayload = withTimestamp.map(e => ({
-        answerId: e.answerId,
-        response: e.response,
-        responseFormatted: e.responseFormatted,
-        blockNumber: e.meta.blockNumber,
-        timestamp: e.meta.timestamp,
-      }))
+      let history
 
-      dispatch(actions.setAnswerHistory(formattedPayload))
-    } catch (error) {
-      //
+      if (contractInstance.options.contractVersion === 2) {
+        history = uniquePayload
+      } else {
+        const withTimestamp = await contractInstance.addBlockTimestampToLogs(
+          uniquePayload,
+        )
+
+        history = withTimestamp.map(e => ({
+          answerId: e.answerId,
+          response: e.response,
+          responseFormatted: e.responseFormatted,
+          timestamp: e.meta.timestamp,
+        }))
+      }
+
+      dispatch(actions.setAnswerHistory(history))
+    } catch {
+      console.error('Could not fetch answer history')
     }
   }
 }
@@ -199,9 +209,11 @@ const initContract = options => {
     dispatch(actions.clearState())
 
     try {
-      contractInstance.kill()
-    } catch (error) {
-      //
+      if (contractInstance) {
+        contractInstance.kill()
+      }
+    } catch {
+      console.error('Could not close the contract instance')
     }
 
     try {
@@ -213,12 +225,11 @@ const initContract = options => {
     dispatch(actions.setOptions(options))
     dispatch(actions.setContractAddress(options.contractAddress))
 
-    contractInstance = new AggregationContract(
-      options.contractAddress,
-      options.name,
-      options.valuePrefix,
-      options.network,
-    )
+    if (options.contractVersion === 2) {
+      contractInstance = new AggregationContractV2(options, AggregationAbiV2)
+    } else {
+      contractInstance = new AggregationContract(options, AggregationAbi)
+    }
 
     // Oracle addresses
 
@@ -257,7 +268,7 @@ const initContract = options => {
 
     // Initial request time
 
-    fetchRequestTime()(dispatch)
+    fetchRequestTime(options)(dispatch)
 
     // Latest completed answer id
 
@@ -281,8 +292,8 @@ const clearState = () => {
   return async dispatch => {
     try {
       contractInstance.kill()
-    } catch (error) {
-      //
+    } catch {
+      console.error('Could not clear state')
     }
 
     dispatch(actions.clearState())
@@ -295,8 +306,8 @@ const fetchJobId = address => {
     try {
       const index = oracles.indexOf(address)
       return contractInstance.jobId(index)
-    } catch (error) {
-      //
+    } catch {
+      console.error('Could not fetch a job id')
     }
   }
 }

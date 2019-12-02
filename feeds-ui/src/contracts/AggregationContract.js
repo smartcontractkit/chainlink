@@ -1,21 +1,12 @@
 import { ethers } from 'ethers'
-import { getLogs, formatEthPrice, decodeLog } from './utils'
-import AggregationAbi from 'contracts/AggregationAbi.json'
+import {
+  getLogs,
+  formatEthPrice,
+  decodeLog,
+  createContract,
+  createInfuraProvider,
+} from './utils'
 import _ from 'lodash'
-
-const infuraKey = process.env.REACT_APP_INFURA_KEY
-
-const createInfuraProvider = (network = 'mainnet') => {
-  const provider = new ethers.providers.JsonRpcProvider(
-    `https://${network}.infura.io/v3/${infuraKey}`,
-  )
-  provider.pollingInterval = 8000
-
-  return provider
-}
-
-const createContract = (address, provider) =>
-  new ethers.Contract(address, AggregationAbi, provider)
 
 export default class AggregationContract {
   oracleResponseEvent = {
@@ -23,14 +14,16 @@ export default class AggregationContract {
     listener: {},
   }
   answerIdInterval
+  provider
+  contract
 
-  constructor(address, name, symbol, network) {
-    this.provider = createInfuraProvider(network)
-    this.contract = createContract(address, this.provider)
-    this.name = name
-    this.symbol = symbol
-    this.address = address
+  constructor(options, abi) {
+    this.provider = createInfuraProvider(options.network)
+    this.contract = createContract(options.contractAddress, this.provider, abi)
+    this.address = options.contractAddress
     this.alive = true
+    this.abi = abi
+    this.options = options
   }
 
   kill() {
@@ -42,10 +35,9 @@ export default class AggregationContract {
         this.oracleResponseEvent.listener,
       )
       this.contract = null
-      this.name = null
-      this.symbol = null
       this.address = null
       this.alive = false
+      this.options = null
     } catch (error) {
       //
     }
@@ -75,7 +67,7 @@ export default class AggregationContract {
     try {
       const jobIds = await this.contract.jobIds(index)
       return ethers.utils.toUtf8String(jobIds)
-    } catch (error) {
+    } catch {
       //
     }
   }
@@ -87,28 +79,25 @@ export default class AggregationContract {
 
   async updateHeight() {
     const updatedHeight = await this.contract.updatedHeight()
-    const block = await this.provider.getBlock(updatedHeight.toNumber())
-    return {
-      block: updatedHeight.toNumber(),
-      timestamp: block.timestamp,
-    }
+    const block = await this.provider.getBlock(Number(updatedHeight))
+    return block.timestamp
   }
 
   async nextAnswerId() {
     if (!this.alive) return
     const answerCounter = await this.provider.getStorageAt(this.address, 13)
     const bigNumberify = ethers.utils.bigNumberify(answerCounter)
-    return bigNumberify.toNumber()
+    return Number(bigNumberify)
   }
 
   async latestCompletedAnswer() {
     const currentAnswer = await this.contract.latestCompletedAnswer()
-    return currentAnswer.toNumber()
+    return Number(currentAnswer)
   }
 
   async minimumResponses() {
     const minimumResponses = await this.contract.minimumResponses()
-    return minimumResponses.toNumber()
+    return Number(minimumResponses)
   }
 
   async addBlockTimestampToLogs(logs) {

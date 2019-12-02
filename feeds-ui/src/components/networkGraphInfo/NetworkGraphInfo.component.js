@@ -16,15 +16,13 @@ function NetworkGraphInfo({
   options,
   pendingAnswerId,
 }) {
-  const updateTime =
-    updateHeight && updateHeight.timestamp
-      ? moment.unix(updateHeight.timestamp).format('hh:mm:ss A')
-      : '...'
+  const updateTime = updateHeight
+    ? moment.unix(updateHeight).format('hh:mm:ss A')
+    : '...'
 
-  const updateDate =
-    updateHeight && updateHeight.timestamp
-      ? moment.unix(updateHeight.timestamp).format('MMM Do YYYY')
-      : '...'
+  const updateDate = updateHeight
+    ? moment.unix(updateHeight).format('MMM Do YYYY')
+    : '...'
 
   const getCurrentResponses = () => {
     if (!oracleResponse) {

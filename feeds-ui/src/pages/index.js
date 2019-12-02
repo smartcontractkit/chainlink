@@ -6,6 +6,7 @@ import EthUsdPage from './EthUsdPage'
 import Testnet from './Testnet'
 import CreatePage from './Create'
 import CustomPage from './Custom'
+import RopstenPage from './Ropsten'
 
 const AppRoutes = () => {
   return (
@@ -15,6 +16,7 @@ const AppRoutes = () => {
       <Route exact path="/testnet" component={Testnet} />
       <Route exact path="/create" component={CreatePage} />
       <Route exact path="/custom" component={CustomPage} />
+      <Route path="/ropsten/:address" component={RopstenPage} />
     </BrowserRouter>
   )
 }
