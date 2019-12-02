@@ -38,7 +38,7 @@
     "formik": "^1.0.3",
     "humps": "^2.0.1",
     "isomorphic-unfetch": "^3.0.0",
-    "javascript-stringify": "^2.0.0",
+    "javascript-stringify": "^2.0.1",
     "json-api-normalizer": "^0.4.13",
     "json-pretty-html": "^1.1.2",
     "local-storage-fallback": "^4.1.1",
