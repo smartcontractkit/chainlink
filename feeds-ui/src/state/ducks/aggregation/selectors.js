@@ -89,6 +89,97 @@ const NODE_NAMES = [
     address: '0x24A718307Ce9B2420962fd5043fb876e17430934',
     name: 'Infinity Stones',
   },
+
+  // ROPSTEN
+
+  {
+    address: '0x83F00b902cbf06E316C95F51cbEeD9D2572a349a',
+    name: 'LinkPool',
+  },
+  {
+    address: '0xc2e33121d00064841e844EB068221803e140f496',
+    name: 'stake.fish',
+  },
+  {
+    address: '0x6E6F16B7C0A00A2aC1136b3aE3E4641f1FAF8D7f',
+    name: 'Chainlayer',
+  },
+  {
+    address: '0x90eeb07A0DdB176D4c60deC3a146e2289DCB2674',
+    name: 'Cosmostation',
+  },
+  {
+    address: '0x1041F70920ec1d0A10C53a3cA1235d5971d0a0ED',
+    name: 'Prophet',
+  },
+  {
+    address: '0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1',
+    name: 'Simply VC',
+  },
+  {
+    address: '0x4a3FBbB385b5eFEB4BC84a25AaADcD644Bd09721',
+    name: 'Honeycomb.market',
+  },
+  {
+    address: '0x3a44681bdEDa78F2C901161d9ADCcFd23b6DaA36',
+    name: 'Newroad',
+  },
+  {
+    address: '0x1948C20CC492539968BB9b041F96D6556B4b7001',
+    name: 'Fiews',
+  },
+  {
+    address: '0x4105d850E9Aea215f9350C9E46Bb73FC0448C20a',
+    name: 'LinkForest',
+  },
+  {
+    address: '0xfe08369B2021c194C86cb05aF0D15f837561E09b',
+    name: 'Figment Networks',
+  },
+  {
+    address: '0xfc1dA11c2477a6c398E9e595ACE8a09064636e9D',
+    name: 'Validation Capital',
+  },
+  {
+    address: '0x80DAD789487f9EF2d139C8AFD18a6Ac5f5530e28',
+    name: 'Wetez',
+  },
+  {
+    address: '0xA3Ce768F041d136E8d57fD24372E5fB510b797ec',
+    name: 'Certus One',
+  },
+  {
+    address: '0x83dA1beEb89Ffaf56d0B7C50aFB0A66Fb4DF8cB1',
+    name: 'Omniscience',
+  },
+  {
+    address: '0xAB59b29D018a522da92761af759BEa2c272C0c41',
+    name: 'Ztake.org',
+  },
+  {
+    address: '0xa0BfFBdf2c440D6c76af13c30d9B320F9d2DeA6A',
+    name: 'Secure Data Links',
+  },
+  {
+    address: '0xc99B3D447826532722E41bc36e644ba3479E4365',
+    name: 'Chainlink',
+  },
+  {
+    address: '0x948374A346fDf2F73545864fAb6e3488Ed125961',
+    name: 'Infinity Stones',
+  },
+  {
+    address: '0x2c3E0524d8B9601916A29A114a150610EB1653ce',
+    name: 'SNZPool',
+  },
+  {
+    address: '0xb36d3709e22f7c708348e225b20b13ea546e6d9c',
+    name: 'Alpha Vantage',
+  },
+  {
+    address: '0xa8EE2a4a0F010E66A0f1C4321865D3dbeE3070Cb',
+    name: 'Kaiko',
+  },
 ]
 
 const oracles = state => state.aggregation.oracles

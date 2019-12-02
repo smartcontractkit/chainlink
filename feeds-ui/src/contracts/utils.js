@@ -1,5 +1,18 @@
 import { ethers } from 'ethers'
 
+export function createContract(address, provider, abi) {
+  return new ethers.Contract(address, abi, provider)
+}
+
+export function createInfuraProvider(network = 'mainnet') {
+  const provider = new ethers.providers.JsonRpcProvider(
+    `https://${network}.infura.io/v3/${process.env.REACT_APP_INFURA_KEY}`,
+  )
+  provider.pollingInterval = 8000
+
+  return provider
+}
+
 export function formatEthPrice(value) {
   return ethers.utils.formatEther(value.mul(10000000000), {
     commify: true,
