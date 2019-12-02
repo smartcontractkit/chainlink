@@ -100,11 +100,10 @@ export default class HistoryGraph {
       .on('mouseout', () => this.tooltip.style('display', 'none'))
   }
 
-  update(updatedData) {
-    if (!updatedData) {
+  update(data) {
+    if (!data) {
       return
     }
-    const data = JSON.parse(JSON.stringify(updatedData))
 
     this.x = d3
       .scaleLinear()
@@ -216,13 +215,12 @@ export default class HistoryGraph {
   updateMa(data) {
     const n = 20 // n-period of moving average
     const k = 2 // k times n-period standard deviation above/below moving average
-
+    const bandsData = this.getBollingerBands(n, k, data)
     const x = d3.scaleTime().range([0, this.width - this.margin.left])
     const y = d3.scaleLinear().range([this.height, 0])
-    const bandsData = this.getBollingerBands(n, k, data)
 
     x.domain(d3.extent(data, d => d.timestamp))
-    y.domain([d3.min(bandsData, d => d.low), d3.max(bandsData, d => d.high)])
+    y.domain(d3.extent(data, d => d.response))
 
     const ma = d3
       .line()
