@@ -32,7 +32,7 @@
     "@0x/sol-compiler": "^3.1.15",
     "@babel/plugin-proposal-class-properties": "^7.7.4",
     "@babel/polyfill": "^7.2.5",
-    "@babel/preset-env": "^7.6.0",
+    "@babel/preset-env": "^7.7.4",
     "@babel/preset-typescript": "^7.1.0",
     "@babel/register": "^7.6.2",
     "@chainlink/eslint-config": "0.0.3",
