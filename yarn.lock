@@ -1327,18 +1327,6 @@
     lodash "^4.17.13"
     to-fast-properties "^2.0.0"
 
-"@chainlink/eslint-config@0.0.2":
-  version "0.0.2"
-  resolved "https://registry.npmjs.org/@chainlink/eslint-config/-/eslint-config-0.0.2.tgz#92159f4682b42d8d9a1940600764170de245ca43"
-  integrity sha512-SlpjwuZ5V45lv/IktDmIvDqHPmvwGa0AxZjqGtYG/5K+zQbzvCRWZ8Ko5MmuIucPraKxmE7F3L+HBwPjj1LG1Q==
-  dependencies:
-    "@typescript-eslint/eslint-plugin" "^2.1.0"
-    "@typescript-eslint/parser" "^2.6.1"
-    eslint-config-prettier "^6.2.0"
-    eslint-plugin-prettier "^3.1.0"
-    eslint-plugin-react "^7.14.3"
-    eslint-plugin-react-hooks "^2.3.0"
-
 "@chainlink/prettier-config@^0.0.1":
   version "0.0.1"
   resolved "https://registry.yarnpkg.com/@chainlink/prettier-config/-/prettier-config-0.0.1.tgz#3705a3b07c6100139d7bee2c99a97ae29009518e"
@@ -5856,10 +5844,10 @@ buffer-xor@^1.0.3:
   resolved "https://registry.npmjs.org/buffer-xor/-/buffer-xor-1.0.3.tgz#26e61ed1422fb70dd42e6e36729ed51d855fe8d9"
   integrity sha1-JuYe0UIvtw3ULm42cp7VHYVf6Nk=
 
-buffer@5.4.0, buffer@^5.0.5, buffer@^5.1.0, buffer@^5.2.1:
-  version "5.4.0"
-  resolved "https://registry.yarnpkg.com/buffer/-/buffer-5.4.0.tgz#33294f5c1f26e08461e528b69fa06de3c45cbd8c"
-  integrity sha512-Xpgy0IwHK2N01ncykXTy6FpCWuM+CJSHoPVBLyNqyrWxsedpLvwsYUhf0ME3WRFNUhos0dMamz9cOS/xRDtU5g==
+buffer@5.4.3:
+  version "5.4.3"
+  resolved "https://registry.yarnpkg.com/buffer/-/buffer-5.4.3.tgz#3fbc9c69eb713d323e3fc1a895eee0710c072115"
+  integrity sha512-zvj65TkFeIt3i6aj5bIvJDzjjQQGs4o/sNoezg1F1kYap9Nu2jcUdpwzRSJTHMMzG0H7bZkn4rNQpImhuxWX2A==
   dependencies:
     base64-js "^1.0.2"
     ieee754 "^1.1.4"
@@ -5872,6 +5860,14 @@ buffer@^4.3.0:
     base64-js "^1.0.2"
     ieee754 "^1.1.4"
     isarray "^1.0.0"
+
+buffer@^5.0.5, buffer@^5.1.0, buffer@^5.2.1:
+  version "5.4.0"
+  resolved "https://registry.yarnpkg.com/buffer/-/buffer-5.4.0.tgz#33294f5c1f26e08461e528b69fa06de3c45cbd8c"
+  integrity sha512-Xpgy0IwHK2N01ncykXTy6FpCWuM+CJSHoPVBLyNqyrWxsedpLvwsYUhf0ME3WRFNUhos0dMamz9cOS/xRDtU5g==
+  dependencies:
+    base64-js "^1.0.2"
+    ieee754 "^1.1.4"
 
 builtin-modules@^3.0.0:
   version "3.1.0"
@@ -8968,7 +8964,7 @@ eslint-plugin-react@7.14.3:
     prop-types "^15.7.2"
     resolve "^1.10.1"
 
-eslint-plugin-react@^7.14.3, eslint-plugin-react@^7.16.0:
+eslint-plugin-react@^7.16.0:
   version "7.16.0"
   resolved "https://registry.yarnpkg.com/eslint-plugin-react/-/eslint-plugin-react-7.16.0.tgz#9928e4f3e2122ed3ba6a5b56d0303ba3e41d8c09"
   integrity sha512-GacBAATewhhptbK3/vTP09CbFrgUJmBSaaRcWdbQLFvUZy9yVcQxigBNHGPU/KE2AyHpzj3AWXpxoMTsIDiHug==
@@ -15080,10 +15076,10 @@ mock-fs@^4.1.0:
   resolved "https://registry.npmjs.org/mock-fs/-/mock-fs-4.8.0.tgz#eb0784ceba4b34c91a924a5112eeb36e1b5a9e29"
   integrity sha512-Gwj4KnJOW15YeTJKO5frFd/WDO5Mc0zxXqL9oHx3+e9rBqW8EVARqQHSaIXznUdljrD6pvbNGW2ZGXKPEfYJfw==
 
-mock-local-storage@^1.0.5:
-  version "1.1.8"
-  resolved "https://registry.npmjs.org/mock-local-storage/-/mock-local-storage-1.1.8.tgz#82a3f7c666bf955d64b286cb71207478f1a29bf7"
-  integrity sha512-x/LPtSBqSROQGjJn60Fp0+rgOHZuuQZysgeSYfhG2l/moD0LLW60bKi4KpmCnNs9S3l0cbS5cmzQFzeKDL7RaQ==
+mock-local-storage@^1.1.11:
+  version "1.1.11"
+  resolved "https://registry.yarnpkg.com/mock-local-storage/-/mock-local-storage-1.1.11.tgz#2a36faeb30f76ef3c5005460b6bbf12f19555811"
+  integrity sha512-71sytP93tB0CkPbacafcP1iTVj9ssXU+ztRmx1MrS488JpO0az5d2sx+SNuvhGVSW56XO5M0f82uFhxteZEp9w==
   dependencies:
     core-js "^0.8.3"
     global "^4.3.2"
@@ -19762,11 +19758,11 @@ sha.js@^2.4.0, sha.js@^2.4.8:
     safe-buffer "^5.0.1"
 
 sha3@^1.2.2, sha3@^2.0.7:
-  version "2.0.7"
-  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.0.7.tgz#02ed270099647cbcc681b064ba091af72f561f35"
-  integrity sha512-7Qsj/0J3pxCWfmyuDbTZWoKNSKY/rg2eecNRvTYE4EAPJ11Uh6xuEObyCG295AqgrtOjzdDbfwtGLDY52h11tA==
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.1.0.tgz#d9432c115145e6685bed794a1f6c7a3bfdc9bf09"
+  integrity sha512-9j55sakgCgQ0/Y9Ez3fyHUVcKrl1gyTptt6QJVmg97JqZCoWofIkzpDH61brpHdfx3LWHk8bXiLPj44kS6bbpA==
   dependencies:
-    buffer "5.4.0"
+    buffer "5.4.3"
 
 shallow-clone@^0.1.2:
   version "0.1.2"
