@@ -296,6 +296,22 @@ contract('PreCoordinator', accounts => {
         })
       })
 
+      context('when the same nonce is used twice', () => {
+        const nonce = 1
+        const fHash = '0xabcd1234'
+        let args
+        beforeEach(async () => {
+          args = h.requestDataBytes(saId, rc.address, fHash, nonce, '')
+          await h.requestDataFrom(pc, link, totalPayment, args)
+        })
+
+        it('reverts', async () => {
+          await expectRevert.unspecified(
+            h.requestDataFrom(pc, link, totalPayment, args),
+          )
+        })
+      })
+
       context('when too much payment is supplied', () => {
         it('sends the extra back to the requester', async () => {
           await link.transfer(rc.address, payment)
@@ -486,6 +502,15 @@ contract('PreCoordinator', accounts => {
             request3.expiration,
             response3,
             { from: oracleNode3 },
+          )
+          await oc4.fulfillOracleRequest(
+            request4.id,
+            request4.payment,
+            request4.callbackAddr,
+            request4.callbackFunc,
+            request4.expiration,
+            response4,
+            { from: oracleNode4 },
           )
         })
 
