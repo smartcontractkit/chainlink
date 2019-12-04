@@ -336,92 +336,161 @@ contract('PreCoordinator', accounts => {
         from: consumer,
       })
       await link.transfer(rc.address, totalPayment)
-
-      const reqTx = await rc.requestEthereumPrice(currency, totalPayment, {
-        from: consumer,
-      })
-      const log1 = reqTx.receipt.rawLogs[7]
-      request1 = h.decodeRunRequest(log1)
-      const log2 = reqTx.receipt.rawLogs[11]
-      request2 = h.decodeRunRequest(log2)
-      const log3 = reqTx.receipt.rawLogs[15]
-      request3 = h.decodeRunRequest(log3)
-      const log4 = reqTx.receipt.rawLogs[19]
-      request4 = h.decodeRunRequest(log4)
     })
 
-    context('when called by a stranger', () => {
-      it('reverts', async () => {
-        await expectRevert(
-          pc.chainlinkCallback(saId, response1),
-          'Source must be the oracle of the request',
-        )
-      })
-    })
-
-    context('when called by the oracle contract', () => {
-      it('records the answer', async () => {
-        const tx = await oc1.fulfillOracleRequest(
-          request1.id,
-          request1.payment,
-          request1.callbackAddr,
-          request1.callbackFunc,
-          request1.expiration,
-          response1,
-          { from: oracleNode1 },
-        )
-        assert.equal(tx.receipt.rawLogs[0].topics[0], fulfilledEventSig)
-      })
-    })
-
-    context('when the minimum number of responses have returned', () => {
+    context('when the requester and consumer are the same', () => {
       beforeEach(async () => {
-        await oc1.fulfillOracleRequest(
-          request1.id,
-          request1.payment,
-          request1.callbackAddr,
-          request1.callbackFunc,
-          request1.expiration,
-          response1,
-          { from: oracleNode1 },
-        )
-        await oc2.fulfillOracleRequest(
-          request2.id,
-          request2.payment,
-          request2.callbackAddr,
-          request2.callbackFunc,
-          request2.expiration,
-          response2,
-          { from: oracleNode2 },
-        )
-        await oc3.fulfillOracleRequest(
-          request3.id,
-          request3.payment,
-          request3.callbackAddr,
-          request3.callbackFunc,
-          request3.expiration,
-          response3,
-          { from: oracleNode3 },
-        )
+        const reqTx = await rc.requestEthereumPrice(currency, totalPayment, {
+          from: consumer,
+        })
+        const log1 = reqTx.receipt.rawLogs[7]
+        request1 = h.decodeRunRequest(log1)
+        const log2 = reqTx.receipt.rawLogs[11]
+        request2 = h.decodeRunRequest(log2)
+        const log3 = reqTx.receipt.rawLogs[15]
+        request3 = h.decodeRunRequest(log3)
+        const log4 = reqTx.receipt.rawLogs[19]
+        request4 = h.decodeRunRequest(log4)
       })
 
-      it('returns the median to the requesting contract', async () => {
-        const currentPrice = await rc.currentPrice.call()
-        assert.equal(currentPrice.toString(), expected2)
-      })
-
-      context('when an oracle responds after aggregation', () => {
-        it('does not update the requesting contract', async () => {
-          await oc4.fulfillOracleRequest(
-            request4.id,
-            request4.payment,
-            request4.callbackAddr,
-            request4.callbackFunc,
-            request4.expiration,
-            response4,
-            { from: oracleNode4 },
+      context('when called by a stranger', () => {
+        it('reverts', async () => {
+          await expectRevert(
+            pc.chainlinkCallback(saId, response1),
+            'Source must be the oracle of the request',
           )
+        })
+      })
+
+      context('when called by the oracle contract', () => {
+        it('records the answer', async () => {
+          const tx = await oc1.fulfillOracleRequest(
+            request1.id,
+            request1.payment,
+            request1.callbackAddr,
+            request1.callbackFunc,
+            request1.expiration,
+            response1,
+            { from: oracleNode1 },
+          )
+          assert.equal(tx.receipt.rawLogs[0].topics[0], fulfilledEventSig)
+        })
+      })
+
+      context('when the minimum number of responses have returned', () => {
+        beforeEach(async () => {
+          await oc1.fulfillOracleRequest(
+            request1.id,
+            request1.payment,
+            request1.callbackAddr,
+            request1.callbackFunc,
+            request1.expiration,
+            response1,
+            { from: oracleNode1 },
+          )
+          await oc2.fulfillOracleRequest(
+            request2.id,
+            request2.payment,
+            request2.callbackAddr,
+            request2.callbackFunc,
+            request2.expiration,
+            response2,
+            { from: oracleNode2 },
+          )
+          await oc3.fulfillOracleRequest(
+            request3.id,
+            request3.payment,
+            request3.callbackAddr,
+            request3.callbackFunc,
+            request3.expiration,
+            response3,
+            { from: oracleNode3 },
+          )
+        })
+
+        it('returns the median to the requesting contract', async () => {
           const currentPrice = await rc.currentPrice.call()
+          assert.equal(currentPrice.toString(), expected2)
+        })
+
+        context('when an oracle responds after aggregation', () => {
+          it('does not update the requesting contract', async () => {
+            await oc4.fulfillOracleRequest(
+              request4.id,
+              request4.payment,
+              request4.callbackAddr,
+              request4.callbackFunc,
+              request4.expiration,
+              response4,
+              { from: oracleNode4 },
+            )
+            const currentPrice = await rc.currentPrice.call()
+            assert.equal(currentPrice.toString(), expected2)
+          })
+        })
+      })
+    })
+
+    context('when consumer is different than requester', () => {
+      let cc, request1, request2, request3, request4, localRequestId
+      beforeEach(async () => {
+        cc = await RequesterConsumer.new(link.address, pc.address, saId, {
+          from: consumer,
+        })
+        const reqTx = await rc.requestEthereumPriceByCallback(
+          currency,
+          totalPayment,
+          cc.address,
+          { from: consumer },
+        )
+        localRequestId = reqTx.logs[0].args.id
+        const log1 = reqTx.receipt.rawLogs[7]
+        request1 = h.decodeRunRequest(log1)
+        const log2 = reqTx.receipt.rawLogs[11]
+        request2 = h.decodeRunRequest(log2)
+        const log3 = reqTx.receipt.rawLogs[15]
+        request3 = h.decodeRunRequest(log3)
+        const log4 = reqTx.receipt.rawLogs[19]
+        request4 = h.decodeRunRequest(log4)
+
+        await cc.addExternalRequest(pc.address, localRequestId, {
+          from: consumer,
+        })
+      })
+
+      context('and the number of responses have been met', () => {
+        beforeEach(async () => {
+          await oc1.fulfillOracleRequest(
+            request1.id,
+            request1.payment,
+            request1.callbackAddr,
+            request1.callbackFunc,
+            request1.expiration,
+            response1,
+            { from: oracleNode1 },
+          )
+          await oc2.fulfillOracleRequest(
+            request2.id,
+            request2.payment,
+            request2.callbackAddr,
+            request2.callbackFunc,
+            request2.expiration,
+            response2,
+            { from: oracleNode2 },
+          )
+          await oc3.fulfillOracleRequest(
+            request3.id,
+            request3.payment,
+            request3.callbackAddr,
+            request3.callbackFunc,
+            request3.expiration,
+            response3,
+            { from: oracleNode3 },
+          )
+        })
+
+        it('sends the answer to the consumer', async () => {
+          const currentPrice = await cc.currentPrice.call()
           assert.equal(currentPrice.toString(), expected2)
         })
       })
@@ -507,7 +576,7 @@ contract('PreCoordinator', accounts => {
         assert.equal(balance.toString(), payment)
       })
 
-      it.only('does not allow others to call', async () => {
+      it('does not allow others to call', async () => {
         await expectRevert(
           pc.cancelOracleRequest(
             request.id,
