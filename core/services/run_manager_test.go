@@ -418,6 +418,56 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 	}
 }
 
+func TestRunManager_Create_fromRunLogWithZeroPayment(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+
+	mocketh := app.MockCallerSubscriberClient()
+	store := app.GetStore()
+	mocketh.Context("app.Start()", func(meth *cltest.EthMock) {
+		meth.Register("eth_chainId", store.Config.ChainID())
+	})
+	app.Start()
+
+	job := cltest.NewJobWithRunLogInitiator()
+	job.MinPayment = *assets.NewLink(0)
+	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
+	require.NoError(t, store.CreateJob(&job))
+	initiator := job.Initiators[0]
+
+	data := cltest.JSONFromString(t, `{"random": "input"}`)
+	creationHeight := big.NewInt(1)
+
+	t.Run("zero payment", func(t *testing.T) {
+		rr := models.NewRunRequest()
+		rr.Payment = assets.NewLink(0)
+
+		run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
+		require.NoError(t, err)
+		assert.Equal(t, models.RunStatusInProgress, run.Status)
+	})
+
+	t.Run("minimal payment", func(t *testing.T) {
+		rr := models.NewRunRequest()
+		rr.Payment = assets.NewLink(1)
+
+		run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
+		require.NoError(t, err)
+		assert.Equal(t, models.RunStatusInProgress, run.Status)
+	})
+
+	t.Run("excess payment", func(t *testing.T) {
+		rr := models.NewRunRequest()
+		rr.Payment = assets.NewLink(2)
+
+		run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
+		require.NoError(t, err)
+		assert.Equal(t, models.RunStatusInProgress, run.Status)
+	})
+}
+
 func TestRunManager_Create_fromRunLogWithMinPayment(t *testing.T) {
 	t.Parallel()
 
