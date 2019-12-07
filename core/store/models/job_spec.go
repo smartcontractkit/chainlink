@@ -132,29 +132,14 @@ func (j JobSpec) Archived() bool {
 // NewRun initializes the job by creating the IDs for the job
 // and all associated tasks, and setting the CreatedAt field.
 func (j JobSpec) NewRun(i Initiator) JobRun {
-	jrid := NewID()
-	taskRuns := make([]TaskRun, len(j.Tasks))
-	for i, task := range j.Tasks {
-		trid := NewID()
-		taskRuns[i] = TaskRun{
-			ID:       trid,
-			JobRunID: jrid,
-			TaskSpec: task,
-		}
-	}
-
-	runRequest := NewRunRequest()
 	now := time.Now()
 	return JobRun{
-		ID:          jrid,
+		ID:          NewID(),
 		JobSpecID:   j.ID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
-		TaskRuns:    taskRuns,
-		RunRequest:  *runRequest,
 		Initiator:   i,
 		InitiatorID: i.ID,
-		Status:      RunStatusUnstarted,
 	}
 }
 

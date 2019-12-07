@@ -65,54 +65,34 @@ func newRun(
 	initiator *models.Initiator,
 	data *models.JSON,
 	currentHeight *big.Int,
-	payment *assets.Link,
+	runRequest *models.RunRequest,
 	config orm.ConfigReader,
 	orm *orm.ORM,
-	clock utils.AfterNower,
 	txManager store.TxManager) (*models.JobRun, error) {
 
-	now := clock.Now()
-	if !job.Started(now) {
-		return nil, RecurringScheduleJobError{
-			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
-		}
-	}
-
-	if job.Ended(now) {
-		return nil, RecurringScheduleJobError{
-			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
-		}
-	}
-
 	run := job.NewRun(*initiator)
+	run.TaskRuns = make([]models.TaskRun, len(job.Tasks))
+	run.Initiator = *initiator
+	run.Status = models.RunStatusInProgress
 	run.Overrides = *data
 	run.CreationHeight = utils.NewBig(currentHeight)
 	run.ObservedHeight = utils.NewBig(currentHeight)
-	run.Status = models.RunStatusInProgress
-
-	if !MeetsMinimumPayment(&job.MinPayment, payment) {
-		logger.Infow("Rejecting run with insufficient payment",
-			run.ForLogger(
-				"input_payment", payment,
-				"required_payment", job.MinPayment)...)
-
-		err := fmt.Errorf(
-			"Rejecting job %s with payment %s below job-specific-minimum threshold (%s)",
-			job.ID,
-			payment,
-			job.MinPayment.Text(10))
-		run.SetError(err)
-		return &run, nil
-	}
+	run.RunRequest = *runRequest
+	run.Payment = runRequest.Payment
 
 	cost := &assets.Link{}
 	cost.Set(&job.MinPayment)
-	for i, taskRun := range run.TaskRuns {
-		adapter, err := adapters.For(taskRun.TaskSpec, config, orm)
-
+	for i, task := range job.Tasks {
+		adapter, err := adapters.For(task, config, orm)
 		if err != nil {
 			run.SetError(err)
 			return &run, nil
+		}
+
+		taskRun := models.TaskRun{
+			ID:       models.NewID(),
+			JobRunID: run.ID,
+			TaskSpec: task,
 		}
 
 		if job.MinPayment.IsZero() {
@@ -123,35 +103,42 @@ func newRun(
 		}
 
 		if currentHeight != nil {
-			run.TaskRuns[i].MinimumConfirmations = clnull.Uint32From(
+			taskRun.MinimumConfirmations = clnull.Uint32From(
 				utils.MaxUint32(
 					config.MinIncomingConfirmations(),
 					taskRun.TaskSpec.Confirmations.Uint32,
 					adapter.MinConfs()),
 			)
 		}
+
+		run.TaskRuns[i] = taskRun
+	}
+
+	if !MeetsMinimumPayment(&job.MinPayment, run.Payment) {
+		logger.Infow("Rejecting run with insufficient payment",
+			run.ForLogger("required_payment", job.MinPayment)...)
+
+		err := fmt.Errorf(
+			"Rejecting job %s with payment %s below job-specific-minimum threshold (%s)",
+			job.ID,
+			run.Payment,
+			job.MinPayment.Text(10))
+		run.SetError(err)
+		return &run, nil
 	}
 
 	// payment is only present for runs triggered by runlogs
-	if payment != nil {
-		if cost.Cmp(payment) > 0 {
-			logger.Debugw("Rejecting run with insufficient payment",
-				run.ForLogger(
-					"input_payment", payment,
-					"required_payment", cost)...)
+	if run.Payment != nil && cost.Cmp(run.Payment) > 0 {
+		logger.Debugw("Rejecting run with insufficient payment",
+			run.ForLogger("required_payment", cost)...)
 
-			err := fmt.Errorf(
-				"Rejecting job %s with payment %s below minimum threshold (%s)",
-				job.ID,
-				payment,
-				config.MinimumContractPayment().Text(10))
-			run.SetError(err)
-			return &run, nil
-		}
-	}
-
-	if len(run.TaskRuns) == 0 {
-		run.SetError(fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID))
+		err := fmt.Errorf(
+			"Rejecting job %s with payment %s below minimum threshold (%s)",
+			job.ID,
+			run.Payment,
+			config.MinimumContractPayment().Text(10))
+		run.SetError(err)
+		return &run, nil
 	}
 
 	return &run, nil
@@ -215,22 +202,37 @@ func (jm *runManager) Create(
 		}
 	}
 
-	run, err := newRun(&job, initiator, data, creationHeight, runRequest.Payment, jm.config, jm.orm, jm.clock, jm.txManager)
+	now := jm.clock.Now()
+	if !job.Started(now) {
+		return nil, RecurringScheduleJobError{
+			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
+		}
+	}
+
+	if job.Ended(now) {
+		return nil, RecurringScheduleJobError{
+			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
+		}
+	}
+
+	if len(job.Tasks) == 0 {
+		return nil, fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID)
+	}
+
+	run, err := newRun(&job, initiator, data, creationHeight, runRequest, jm.config, jm.orm, jm.txManager)
 	if err != nil {
 		return nil, errors.Wrap(err, "newRun failed")
 	}
-
-	run.RunRequest = *runRequest
 
 	if err := jm.orm.CreateJobRun(run); err != nil {
 		return nil, errors.Wrap(err, "CreateJobRun failed")
 	}
 
-	logger.Debugw(
-		fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
-		run.ForLogger()...,
-	)
 	if run.Status.Runnable() {
+		logger.Debugw(
+			fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
+			run.ForLogger()...,
+		)
 		jm.runQueue.Run(run)
 	}
 	return run, nil
