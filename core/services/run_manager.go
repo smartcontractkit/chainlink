@@ -88,6 +88,7 @@ func newRun(
 	run.Overrides = *data
 	run.CreationHeight = utils.NewBig(currentHeight)
 	run.ObservedHeight = utils.NewBig(currentHeight)
+	run.Status = models.RunStatusInProgress
 
 	if !MeetsMinimumPayment(&job.MinPayment, payment) {
 		logger.Infow("Rejecting run with insufficient payment",
@@ -101,6 +102,7 @@ func newRun(
 			payment,
 			job.MinPayment.Text(10))
 		run.SetError(err)
+		return &run, nil
 	}
 
 	cost := &assets.Link{}
@@ -144,15 +146,12 @@ func newRun(
 				payment,
 				config.MinimumContractPayment().Text(10))
 			run.SetError(err)
+			return &run, nil
 		}
 	}
 
 	if len(run.TaskRuns) == 0 {
 		run.SetError(fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID))
-	}
-
-	if !run.Status.Runnable() {
-		return &run, nil
 	}
 
 	return &run, nil
@@ -222,7 +221,6 @@ func (jm *runManager) Create(
 	}
 
 	run.RunRequest = *runRequest
-	run.Status = models.RunStatusInProgress
 
 	if err := jm.orm.CreateJobRun(run); err != nil {
 		return nil, errors.Wrap(err, "CreateJobRun failed")
@@ -232,7 +230,9 @@ func (jm *runManager) Create(
 		fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
 		run.ForLogger()...,
 	)
-	jm.runQueue.Run(run)
+	if run.Status.Runnable() {
+		jm.runQueue.Run(run)
+	}
 	return run, nil
 }
 
