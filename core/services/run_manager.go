@@ -80,8 +80,13 @@ func newRun(
 	run.RunRequest = *runRequest
 	run.Payment = runRequest.Payment
 
+	minimumPayment := job.MinPayment
+	if config.MinimumContractPayment() != nil {
+		minimumPayment = *config.MinimumContractPayment()
+	}
+
 	cost := &assets.Link{}
-	cost.Set(&job.MinPayment)
+	cost.Set(&minimumPayment)
 	for i, task := range job.Tasks {
 		adapter, err := adapters.For(task, config, orm)
 		if err != nil {
@@ -95,7 +100,7 @@ func newRun(
 			TaskSpec: task,
 		}
 
-		if job.MinPayment.IsZero() {
+		if minimumPayment.IsZero() {
 			mp := adapter.MinContractPayment()
 			if mp != nil {
 				cost.Add(cost, mp)
@@ -109,20 +114,21 @@ func newRun(
 					taskRun.TaskSpec.Confirmations.Uint32,
 					adapter.MinConfs()),
 			)
+			logger.Debug("taskRun.MinimumConfirmations", taskRun.MinimumConfirmations)
 		}
 
 		run.TaskRuns[i] = taskRun
 	}
 
-	if !MeetsMinimumPayment(&job.MinPayment, run.Payment) {
+	if !MeetsMinimumPayment(&minimumPayment, run.Payment) {
 		logger.Infow("Rejecting run with insufficient payment",
-			run.ForLogger("required_payment", job.MinPayment)...)
+			run.ForLogger("required_payment", minimumPayment)...)
 
 		err := fmt.Errorf(
 			"Rejecting job %s with payment %s below job-specific-minimum threshold (%s)",
 			job.ID,
 			run.Payment,
-			job.MinPayment.Text(10))
+			minimumPayment.Text(10))
 		run.SetError(err)
 		return &run, nil
 	}
