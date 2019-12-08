@@ -65,8 +65,9 @@ const fetchOracleResponseById = request => {
 
       const logs = await contractInstance.oracleResponseLogs(request)
       const withTimestamp = await contractInstance.addBlockTimestampToLogs(logs)
+      const withGas = await contractInstance.addGasPriceToLogs(withTimestamp)
 
-      const uniquePayload = _.uniqBy([...withTimestamp, ...currentLogs], l => {
+      const uniquePayload = _.uniqBy([...withGas, ...currentLogs], l => {
         return l.sender
       })
 
@@ -312,4 +313,16 @@ const fetchJobId = address => {
   }
 }
 
-export { initContract, clearState, fetchJobId }
+const fetchEthGasPrice = () => {
+  return async dispatch => {
+    try {
+      const data = await fetch('https://ethgasstation.info/json/ethgasAPI.json')
+      const jsonData = await data.json()
+      dispatch(actions.setEthGasPrice(jsonData))
+    } catch {
+      console.error('Could not fetch gas price')
+    }
+  }
+}
+
+export { initContract, clearState, fetchJobId, fetchEthGasPrice }

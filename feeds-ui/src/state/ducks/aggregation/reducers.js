@@ -13,6 +13,7 @@ export const initialState = {
   minimumResponses: null,
   updateHeight: null,
   answerHistory: null,
+  ethGasPrice: null,
 }
 
 function clearState(state) {
@@ -99,6 +100,12 @@ const reducer = (state = initialState, action) => {
       return {
         ...state,
         answerHistory: action.payload,
+      }
+
+    case types.ETHGAS_PRICE:
+      return {
+        ...state,
+        ethGasPrice: action.payload,
       }
 
     default:
