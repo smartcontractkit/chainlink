@@ -1,5 +1,5 @@
 # Build Chainlink with SGX
-FROM smartcontract/builder:1.0.25 as builder
+FROM smartcontract/builder:1.0.26 as builder
 
 # Have to reintroduce ENV vars from builder image
 ENV PATH /root/.cargo/bin:/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/sgxsdk/bin:/opt/sgxsdk/bin/x64
@@ -10,10 +10,16 @@ WORKDIR /chainlink
 COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
 
-# Install yarn dependencies
+# Do dep ensure in a cacheable step
+ADD go.* ./
+RUN go mod download
+
+# And yarn likewise
 COPY yarn.lock package.json ./
 COPY operator_ui/package.json ./operator_ui/
 COPY styleguide/package.json ./styleguide/
+COPY tools/prettier-config/package.json ./tools/prettier-config/
+COPY tools/eslint-config/package.json ./tools/eslint-config/
 COPY tools/json-api-client/package.json ./tools/json-api-client/
 COPY tools/local-storage/package.json ./tools/local-storage/
 COPY tools/redux/package.json ./tools/redux/
@@ -24,6 +30,7 @@ COPY evm-test-helpers/package.json ./evm-test-helpers/
 COPY evm-contracts/package.json ./evm-contracts/
 RUN make yarndep
 
+<<<<<<< HEAD
 # Do go mod download in a cacheable step
 ADD go.mod go.sum ./
 RUN go mod download

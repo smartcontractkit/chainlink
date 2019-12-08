@@ -10,10 +10,10 @@ keywords = ["mathematics", "numerics", "decimal", "arbitrary-precision", "floati
 license = "MIT/Apache-2.0"
 
 [dependencies]
-num-bigint = { path = "/opt/rust-sgx-sdk/third_party/num/bigint/" }
-num-integer = { path = "/opt/rust-sgx-sdk/third_party/num/integer/" }
-num-traits = { path = "/opt/rust-sgx-sdk/third_party/num/traits/" }
-serde = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/serde/serde" }
+num-bigint = { git = "https://github.com/mesalock-linux/num-bigint-sgx.git" }
+num-integer = { git = "https://github.com/mesalock-linux/num-integer-sgx.git" }
+num-traits = { git = "https://github.com/mesalock-linux/num-traits-sgx.git" }
+serde = { git = "https://github.com/mesalock-linux/serde-sgx.git" }
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
 sgx_tstd = { path = "/opt/rust-sgx-sdk/sgx_tstd" }

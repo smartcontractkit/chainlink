@@ -11,15 +11,14 @@ crate-type = ["staticlib"]
 default = []
 
 [dependencies]
-base64 = { path = "/opt/rust-sgx-sdk/third_party/rust-base64" }
+base64 = { git = "https://github.com/mesalock-linux/rust-base64-sgx.git" }
 bigdecimal = { path = "../bigdecimal-rs" }
-num = { path = "/opt/rust-sgx-sdk/third_party/num" }
-serde = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/serde/serde" }
-serde_derive = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/serde/serde_derive" }
-serde_json = { path = "/opt/rust-sgx-sdk/third_party/serde-rs/json"}
+num = { git = "https://github.com/mesalock-linux/num-sgx.git" }
+serde = { git = "https://github.com/mesalock-linux/serde-sgx.git" }
+serde_json = { git = "https://github.com/mesalock-linux/serde-json-sgx.git"}
 utils = { path = "../utils", default-features = false }
-wabt-core = { path = "/opt/rust-sgx-sdk/third_party/wabt-rs-core" }
-wasmi = { path = "/opt/rust-sgx-sdk/third_party/wasmi" }
+wabt = { git = "https://github.com/mesalock-linux/wabt-rs-sgx.git" }
+wasmi = { git = "https://github.com/mesalock-linux/wasmi-sgx.git" }
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
 sgx_rand = { path = "/opt/rust-sgx-sdk/sgx_rand" }
