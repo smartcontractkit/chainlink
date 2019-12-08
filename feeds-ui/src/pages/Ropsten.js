@@ -6,7 +6,6 @@ import { NetworkGraphInfo } from 'components/networkGraphInfo'
 import { AnswerHistory } from 'components/answerHistory'
 import { DeviationHistory } from 'components/deviationHistory'
 import withRopsten from 'enhancers/withRopsten'
-import { OracleTable } from 'components/oracleTable'
 
 const NetworkPage = ({ initContract, clearState, options }) => {
   useEffect(() => {
@@ -26,7 +25,6 @@ const NetworkPage = ({ initContract, clearState, options }) => {
       <NetworkGraphInfo options={options} />
       <AnswerHistory options={options} />
       <DeviationHistory options={options} />
-      <OracleTable />
     </div>
   )
 }

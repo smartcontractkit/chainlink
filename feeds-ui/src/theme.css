@@ -17338,7 +17338,7 @@ span.ant-radio + * {
   color: rgba(0, 0, 0, 0.85);
   font-weight: 500;
   text-align: left;
-  background: #f1f1f1;
+  background: #fafafa;
   border-bottom: 1px solid #e8e8e8;
   transition: background 0.3s ease;
 }
@@ -17424,12 +17424,12 @@ span.ant-radio + * {
 .ant-table-thead > tr > th.ant-table-column-has-actions.ant-table-column-has-filters .anticon-filter.ant-table-filter-open,
 .ant-table-thead > tr > th.ant-table-column-has-actions.ant-table-column-has-filters .ant-table-filter-icon.ant-table-filter-open {
   color: rgba(0, 0, 0, 0.45);
-  background: #dddddd;
+  background: #e5e5e5;
 }
 .ant-table-thead > tr > th.ant-table-column-has-actions.ant-table-column-has-filters:hover .anticon-filter:hover,
 .ant-table-thead > tr > th.ant-table-column-has-actions.ant-table-column-has-filters:hover .ant-table-filter-icon:hover {
   color: rgba(0, 0, 0, 0.45);
-  background: #dddddd;
+  background: #e5e5e5;
 }
 .ant-table-thead > tr > th.ant-table-column-has-actions.ant-table-column-has-filters:hover .anticon-filter:active,
 .ant-table-thead > tr > th.ant-table-column-has-actions.ant-table-column-has-filters:hover .ant-table-filter-icon:active {
@@ -17439,11 +17439,11 @@ span.ant-radio + * {
   cursor: pointer;
 }
 .ant-table-thead > tr > th.ant-table-column-has-actions.ant-table-column-has-sorters:hover {
-  background: #e9e9e9;
+  background: #f2f2f2;
 }
 .ant-table-thead > tr > th.ant-table-column-has-actions.ant-table-column-has-sorters:hover .anticon-filter,
 .ant-table-thead > tr > th.ant-table-column-has-actions.ant-table-column-has-sorters:hover .ant-table-filter-icon {
-  background: #e9e9e9;
+  background: #f2f2f2;
 }
 .ant-table-thead > tr > th.ant-table-column-has-actions.ant-table-column-has-sorters:active .ant-table-column-sorter-up:not(.on),
 .ant-table-thead > tr > th.ant-table-column-has-actions.ant-table-column-has-sorters:active .ant-table-column-sorter-down:not(.on) {
@@ -17500,11 +17500,11 @@ span.ant-radio + * {
 .ant-table-tbody > tr.ant-table-row-hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > td,
 .ant-table-thead > tr:hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > td,
 .ant-table-tbody > tr:hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > td {
-  background: #e6e6e6;
+  background: #f0f6ff;
 }
 .ant-table-thead > tr.ant-table-row-selected > td.ant-table-column-sort,
 .ant-table-tbody > tr.ant-table-row-selected > td.ant-table-column-sort {
-  background: #e6e6e6;
+  background: #fafafa;
 }
 .ant-table-thead > tr:hover.ant-table-row-selected > td,
 .ant-table-tbody > tr:hover.ant-table-row-selected > td {
@@ -17512,7 +17512,7 @@ span.ant-radio + * {
 }
 .ant-table-thead > tr:hover.ant-table-row-selected > td.ant-table-column-sort,
 .ant-table-tbody > tr:hover.ant-table-row-selected > td.ant-table-column-sort {
-  background: #e6e6e6;
+  background: #fafafa;
 }
 .ant-table-thead > tr:hover {
   background: none;
@@ -17570,7 +17570,7 @@ span.ant-radio + * {
   background: #fafafa;
 }
 .ant-table-thead > tr > th.ant-table-column-sort {
-  background: #f1f1f1;
+  background: #f5f5f5;
 }
 .ant-table-tbody > tr > td.ant-table-column-sort {
   background: rgba(0, 0, 0, 0.01);
@@ -17587,7 +17587,7 @@ span.ant-radio + * {
 }
 .ant-table-header {
   overflow: hidden;
-  background: #f1f1f1;
+  background: #fafafa;
 }
 .ant-table-header table {
   border-radius: 4px 4px 0 0;
@@ -19531,7 +19531,7 @@ textarea.ant-time-picker-input {
   border-radius: 0;
 }
 .ant-transfer-customize-list .ant-table-wrapper .ant-table-small > .ant-table-content > .ant-table-body > table > .ant-table-thead > tr > th {
-  background: #f1f1f1;
+  background: #fafafa;
 }
 .ant-transfer-customize-list .ant-table-wrapper .ant-table-small > .ant-table-content .ant-table-row:last-child td {
   border-bottom: 1px solid #e8e8e8;
@@ -21650,23 +21650,4 @@ hr {
   text-anchor: end;
   font-size: 12px;
   font-weight: 200;
-}
-.oracle-table {
-  margin: 120px 0;
-}
-.oracle-table-header {
-  font-weight: 200;
-  position: relative;
-}
-.oracle-table .ant-table-placeholder {
-  background: transparent;
-}
-.oracle-table .gas-price-info {
-  padding: 20px;
-  margin: 20px 0;
-  border: 1px solid #d0d0d0;
-  font-size: 16px;
-}
-.oracle-table .gas-price-info h4 {
-  margin: 0;
 }
