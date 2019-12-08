@@ -8,8 +8,6 @@ extern crate bigdecimal;
 extern crate num;
 extern crate serde;
 #[macro_use]
-extern crate serde_derive;
-#[macro_use]
 extern crate serde_json;
 extern crate sgx_rand;
 #[cfg(not(target_env = "sgx"))]

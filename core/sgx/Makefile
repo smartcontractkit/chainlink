@@ -41,7 +41,7 @@ INCLUDES := -I$(SGX_SDK)/include -I$(SGX_RUST_SDK)/edl
 CC_FLAGS := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(INCLUDES)
 
 ENCLAVE_RS_INCLUDE := -I$(SGX_RUST_SDK)/common/inc -I$(SGX_RUST_SDK)/edl -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I$(SGX_SDK)/include/epid
-ENCLAVE_RS_LIBS := -L./target/$(ENVIRONMENT) -lcompiler-rt-patch -lenclave
+ENCLAVE_RS_LIBS := -L./target/$(ENVIRONMENT) -lenclave
 ENCLAVE_RS_FLAGS := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(ENCLAVE_RS_INCLUDE)
 ENCLAVE_RS_LD_FLAGS := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(TRTS_LIB) -l$(SERVICE_LIB) -Wl,--no-whole-archive \
@@ -65,8 +65,6 @@ LIBADAPTERS := target/$(ENVIRONMENT)/libadapters.so
 
 UNTRUSTED_EDL_FILES := target/$(ENVIRONMENT)/enclave_u.c target/$(ENVIRONMENT)/enclave_u.h
 TRUSTED_EDL_FILES := target/$(ENVIRONMENT)/enclave_t.c target/$(ENVIRONMENT)/enclave_t.h
-
-RT_PATCH := target/$(ENVIRONMENT)/libcompiler-rt-patch.a
 
 #
 # Targets ---------------
@@ -96,11 +94,6 @@ $(LIBADAPTERS): libadapters/Cargo.toml $(wildcard libadapters/src/*.rs) $(ENCLAV
 
 # Enclave ---------------
 
-$(RT_PATCH):
-	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
-	$(MAKE) -C $(SGX_RUST_SDK)/compiler-rt/
-	cp $(SGX_RUST_SDK)/compiler-rt/libcompiler-rt-patch.a $@
-
 $(ENCLAVE): enclave/Cargo.toml $(wildcard enclave/src/*.rs)
 	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
 	SGX_SIMULATION=$(SGX_SIMULATION) ENVIRONMENT=$(ENVIRONMENT) SGX_SDK=$(SGX_SDK) $(CARGO) build $(RUST_FLAGS) --manifest-path $<
@@ -109,7 +102,7 @@ $(TRUSTED_EDL_FILES): $(SGX_EDGER8R) enclave/enclave.edl
 	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
 	$(SGX_EDGER8R) --trusted enclave/enclave.edl --search-path $(SGX_SDK)/include --search-path $(SGX_RUST_SDK)/edl --trusted-dir $(@D)
 
-target/$(ENVIRONMENT)/enclave_t.o: $(TRUSTED_EDL_FILES) $(ENCLAVE) $(RT_PATCH)
+target/$(ENVIRONMENT)/enclave_t.o: $(TRUSTED_EDL_FILES) $(ENCLAVE) 
 	@printf -- '\nBuilding \e[1;36m$@\e[0m\n\n'
 	$(CC) $(ENCLAVE_RS_FLAGS) -c $< -o $@
 
