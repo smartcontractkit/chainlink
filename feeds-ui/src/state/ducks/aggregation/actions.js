@@ -63,8 +63,3 @@ export const setOptions = payload => ({
 export const clearState = () => ({
   type: types.CLEAR_STATE,
 })
-
-export const setEthGasPrice = payload => ({
-  type: types.ETHGAS_PRICE,
-  payload,
-})
