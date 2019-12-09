@@ -110,10 +110,9 @@ func TestJobSpec_NewRun(t *testing.T) {
 	defer cleanup()
 
 	job := cltest.NewJobWithSchedule("1 * * * *")
-	initr := job.Initiators[0]
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp", `{"a":1}`)}
 
-	run := job.NewRun(initr)
+	run := cltest.NewJobRun(job)
 
 	assert.Equal(t, job.ID, run.JobSpecID)
 	assert.Equal(t, 1, len(run.TaskRuns))
@@ -124,7 +123,7 @@ func TestJobSpec_NewRun(t *testing.T) {
 	assert.NotNil(t, adapter)
 	assert.JSONEq(t, `{"type":"NoOp","a":1}`, taskRun.TaskSpec.Params.String())
 
-	assert.Equal(t, initr, run.Initiator)
+	assert.Equal(t, job.Initiators[0], run.Initiator)
 }
 
 func TestJobEnded(t *testing.T) {
