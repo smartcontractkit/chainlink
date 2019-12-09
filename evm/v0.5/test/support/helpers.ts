@@ -476,7 +476,6 @@ interface Signature {
 }
 
 interface ServiceAgreement {
-  // Corresponds to ServiceAgreement struct in CoordinatorInterface.sol
   payment: BN // uint256
   expiration: BN // uint256
   endAt: BN // uint256
@@ -489,6 +488,12 @@ interface ServiceAgreement {
   // part of the solidity struct
   id: string // ServiceAgreement Id (sAId)
   oracleSignatures: Signature[]
+}
+
+export interface OracleSignatures {
+  vs: number[] // uint8[]
+  rs: string[] // bytes32[]
+  ss: string[] // bytes32[]
 }
 
 export const generateSAID = (sa: ServiceAgreement): Uint8Array => {
@@ -614,36 +619,18 @@ const SERVICE_AGREEMENT_TYPES = [
 ]
 
 export const encodeServiceAgreement = (serviceAgreement: ServiceAgreement) => {
-  const serviceAgreementParameters = [
-    serviceAgreement.payment.toString(),
-    serviceAgreement.expiration.toString(),
-    serviceAgreement.endAt.toString(),
-    serviceAgreement.oracles,
-    serviceAgreement.requestDigest,
-    serviceAgreement.aggregator,
-    serviceAgreement.aggInitiateJobSelector,
-    serviceAgreement.aggFulfillSelector,
-  ]
-
   return web3.eth.abi.encodeParameters(
     SERVICE_AGREEMENT_TYPES,
-    serviceAgreementParameters,
+    Object.values(serviceAgreement),
   )
 }
 
 const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
 
-// TODO - add typing
-export const encodeOracleSignatures = oracleSignatures => {
-  const OracleSignaturesParameters = [
-    oracleSignatures.vs,
-    oracleSignatures.rs,
-    oracleSignatures.ss,
-  ]
-
+export const encodeOracleSignatures = (oracleSignatures: OracleSignatures) => {
   return web3.eth.abi.encodeParameters(
     ORACLE_SIGNATURES_TYPES,
-    OracleSignaturesParameters,
+    Object.values(oracleSignatures),
   )
 }
 
