@@ -31,7 +31,7 @@
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^4.5.1",
     "bignumber.js": "^9.0.0",
-    "change-case": "^3.0.2",
+    "change-case": "^4.1.0",
     "classnames": "^2.2.6",
     "core-js": "^3.4.0",
     "cookie": "^0.4.0",
