@@ -35,6 +35,36 @@ interface RolesAndPersonas {
   personas: Personas
 }
 
+export interface ServiceAgreement {
+  payment: ethers.utils.BigNumberish // uint256
+  expiration: ethers.utils.BigNumberish // uint256
+  endAt: ethers.utils.BigNumberish // uint256
+  oracles: string[] // 0x hex representation of oracle addresses (uint160's)
+  requestDigest: string // 0x hex representation of bytes32
+  aggregator: string // 0x hex representation of aggregator address
+  aggInitiateJobSelector: string // 0x hex representation of aggregator.initiateAggregatorForJob function selector (uint32)
+  aggFulfillSelector: string // function selector for aggregator.fulfill
+}
+
+export interface OracleSignatures {
+  vs: number[] // uint8[]
+  rs: string[] // bytes32[]
+  ss: string[] // bytes32[]
+}
+
+const SERVICE_AGREEMENT_TYPES = [
+  'uint256',
+  'uint256',
+  'uint256',
+  'address[]',
+  'bytes32',
+  'address',
+  'bytes4',
+  'bytes4',
+]
+
+const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
+
 /**
  * This helper function allows us to make use of ganache snapshots,
  * which allows us to snapshot one state instance and revert back to it.
@@ -461,68 +491,18 @@ export function hexToBuf(hexstr: string): Buffer {
 
 const { CoordinatorFactory } = chainlinkv05
 type Hash = ReturnType<typeof ethers.utils.keccak256>
-type uintValue = ethers.utils.BigNumber | number | string
-
-export interface ServiceAgreement {
-  // Corresponds to ServiceAgreement struct in CoordinatorInterface.sol
-  payment: uintValue // uint256
-  expiration: uintValue // uint256
-  endAt: uintValue // uint256
-  oracles: string[] // 0x hex representation of oracle addresses (uint160's)
-  requestDigest: string // 0x hex representation of bytes32
-  aggregator: string // 0x hex representation of aggregator address
-  aggInitiateJobSelector: string // 0x hex representation of aggregator.initiateAggregatorForJob function selector (uint32)
-  aggFulfillSelector: string // function selector for aggregator.fulfill
-}
-
-export interface OracleSignatures {
-  vs: number[]
-  rs: string[]
-  ss: string[]
-}
-
-const SERVICE_AGREEMENT_TYPES = [
-  'uint256',
-  'uint256',
-  'uint256',
-  'address[]',
-  'bytes32',
-  'address',
-  'bytes4',
-  'bytes4',
-]
-
-const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
 
 export const encodeServiceAgreement = (serviceAgreement: ServiceAgreement) => {
-  const serviceAgreementParameters = [
-    serviceAgreement.payment,
-    serviceAgreement.expiration,
-    serviceAgreement.endAt,
-    serviceAgreement.oracles,
-    serviceAgreement.requestDigest,
-    serviceAgreement.aggregator,
-    serviceAgreement.aggInitiateJobSelector,
-    serviceAgreement.aggFulfillSelector,
-  ]
-
   return ethers.utils.defaultAbiCoder.encode(
     SERVICE_AGREEMENT_TYPES,
-    serviceAgreementParameters,
+    Object.values(serviceAgreement),
   )
 }
 
-// TODO - add typing
 export const encodeOracleSignatures = (oracleSignatures: OracleSignatures) => {
-  const OracleSignaturesParameters = [
-    oracleSignatures.vs,
-    oracleSignatures.rs,
-    oracleSignatures.ss,
-  ]
-
   return ethers.utils.defaultAbiCoder.encode(
     ORACLE_SIGNATURES_TYPES,
-    OracleSignaturesParameters,
+    Object.values(oracleSignatures),
   )
 }
 
