@@ -613,7 +613,7 @@ const SERVICE_AGREEMENT_TYPES = [
   'bytes4',
 ]
 
-export const encodedServiceAgreement = (serviceAgreement: ServiceAgreement) => {
+export const encodeServiceAgreement = (serviceAgreement: ServiceAgreement) => {
   const serviceAgreementParameters = [
     serviceAgreement.payment.toString(),
     serviceAgreement.expiration.toString(),
@@ -631,10 +631,10 @@ export const encodedServiceAgreement = (serviceAgreement: ServiceAgreement) => {
   )
 }
 
-const ORACLE_SIGNATURE_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
+const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
 
 // TODO - add typing
-export const encodedOracleSignatures = oracleSignatures => {
+export const encodeOracleSignatures = oracleSignatures => {
   const OracleSignaturesParameters = [
     oracleSignatures.vs,
     oracleSignatures.rs,
@@ -642,7 +642,7 @@ export const encodedOracleSignatures = oracleSignatures => {
   ]
 
   return web3.eth.abi.encodeParameters(
-    ORACLE_SIGNATURE_TYPES,
+    ORACLE_SIGNATURES_TYPES,
     OracleSignaturesParameters,
   )
 }
@@ -657,8 +657,8 @@ export const initiateServiceAgreementArgs = (
   }
 
   return [
-    encodedServiceAgreement(serviceAgreement),
-    encodedOracleSignatures(signatures),
+    encodeServiceAgreement(serviceAgreement),
+    encodeOracleSignatures(signatures),
   ]
 }
 

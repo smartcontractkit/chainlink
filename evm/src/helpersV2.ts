@@ -475,6 +475,12 @@ export interface ServiceAgreement {
   aggFulfillSelector: string // function selector for aggregator.fulfill
 }
 
+export interface OracleSignatures {
+  vs: number[]
+  rs: string[]
+  ss: string[]
+}
+
 const SERVICE_AGREEMENT_TYPES = [
   'uint256',
   'uint256',
@@ -485,6 +491,40 @@ const SERVICE_AGREEMENT_TYPES = [
   'bytes4',
   'bytes4',
 ]
+
+const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
+
+export const encodeServiceAgreement = (serviceAgreement: ServiceAgreement) => {
+  const serviceAgreementParameters = [
+    serviceAgreement.payment,
+    serviceAgreement.expiration,
+    serviceAgreement.endAt,
+    serviceAgreement.oracles,
+    serviceAgreement.requestDigest,
+    serviceAgreement.aggregator,
+    serviceAgreement.aggInitiateJobSelector,
+    serviceAgreement.aggFulfillSelector,
+  ]
+
+  return ethers.utils.defaultAbiCoder.encode(
+    SERVICE_AGREEMENT_TYPES,
+    serviceAgreementParameters,
+  )
+}
+
+// TODO - add typing
+export const encodeOracleSignatures = (oracleSignatures: OracleSignatures) => {
+  const OracleSignaturesParameters = [
+    oracleSignatures.vs,
+    oracleSignatures.rs,
+    oracleSignatures.ss,
+  ]
+
+  return ethers.utils.defaultAbiCoder.encode(
+    ORACLE_SIGNATURES_TYPES,
+    OracleSignaturesParameters,
+  )
+}
 
 /**
  * Digest of the ServiceAgreement.
