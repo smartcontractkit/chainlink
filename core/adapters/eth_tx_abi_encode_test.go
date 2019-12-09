@@ -63,7 +63,7 @@ func TestEthTxABIEncodeAdapter_UnmarshallJSON(t *testing.T) {
 }
 
 func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
-	uint256Type, err := abi.NewType("uint256", []abi.ArgumentMarshaling{})
+	uint256Type, err := abi.NewType("uint256", "", []abi.ArgumentMarshaling{})
 	var adapterUnderTest = adapters.EthTxABIEncode{
 		Address: common.HexToAddress(
 			"0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
