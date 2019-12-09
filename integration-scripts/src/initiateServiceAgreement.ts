@@ -8,13 +8,19 @@ import {
   createProvider,
 } from './common'
 import { ethers } from 'ethers'
+import {
+  encodeServiceAgreement,
+  encodeOracleSignatures,
+  OracleSignatures,
+  ServiceAgreement,
+} from '../../evm/src/helpersV2'
 const { CoordinatorFactory } = chainlink
 
 type CoordinatorParams = Parameters<
   contract.Instance<chainlink.CoordinatorFactory>['initiateServiceAgreement']
 >
-type ServiceAgreement = CoordinatorParams[0]
-type OracleSignatures = CoordinatorParams[1]
+// type ServiceAgreement = CoordinatorParams[0]
+// type OracleSignatures = CoordinatorParams[1]
 
 /**
  * This json definition may be missing types, it was generated from a fixture.
@@ -115,9 +121,11 @@ async function initiateServiceAgreement({
     ss: [sig.s],
     vs: [sig.v],
   }
+  const encodedSignatures = encodeOracleSignatures(oracleSignatures)
 
   const said = helpers.generateSAID(sa)
-  const ssaid = await coordinator.getId(sa)
+  const encodedSA = encodeServiceAgreement(sa)
+  const ssaid = await coordinator.getId(encodedSA)
   if (said != ssaid) {
     throw Error(`sAId mismatch. javascript: ${said} solidity: ${ssaid}`)
   }
@@ -132,7 +140,10 @@ async function initiateServiceAgreement({
     ...sig,
   })
 
-  const tx = await coordinator.initiateServiceAgreement(sa, oracleSignatures)
+  const tx = await coordinator.initiateServiceAgreement(
+    encodedSA,
+    encodedSignatures,
+  )
   console.log(tx)
   const iSAreceipt = await tx.wait()
   console.log('initiateServiceAgreement receipt', iSAreceipt)

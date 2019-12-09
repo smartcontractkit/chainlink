@@ -53,7 +53,7 @@ contract('Coordinator', () => {
         requestDigest:
           '0x85820c5ec619a1f517ee6cfeff545ec0ca1a90206e1a38c47f016d4137e801dd',
       })
-      const sAAsData = h.encodedServiceAgreement(sA)
+      const sAAsData = h.encodeServiceAgreement(sA)
       const result = await coordinator.getId.call(sAAsData)
       assert.equal(result.toLowerCase(), sA.id)
     })
