@@ -531,7 +531,6 @@ export const encodeOracleSignatures = (oracleSignatures: OracleSignatures) => {
  */
 export const generateSAID = (sa: ServiceAgreement): Hash => {
   const [saParam] = new CoordinatorFactory().interface.functions.getId.inputs
-  debugger
   if (saParam.name !== '_agreementData' || saParam.type !== 'bytes') {
     throw Error(
       `extracted wrong params: ${saParam} from coordinatorFactory.interface.functions.getId`,
