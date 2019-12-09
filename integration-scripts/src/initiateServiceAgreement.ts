@@ -1,5 +1,4 @@
 import { generated as chainlink } from 'chainlinkv0.5'
-import { contract } from 'chainlink'
 import { helpers } from 'chainlink'
 import {
   getArgs,
