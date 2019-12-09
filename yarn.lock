@@ -3947,14 +3947,14 @@ arg@^4.1.0:
   resolved "https://registry.npmjs.org/arg/-/arg-4.1.1.tgz#485f8e7c390ce4c5f78257dbea80d4be11feda4c"
   integrity sha512-SlmP3fEA88MBv0PypnXZ8ZfJhwmDeIE3SP71j37AiXQBXYosPV0x6uISAaHYSlSVhmHOVkomen0tbGk6Anlebw==
 
-argon2@^0.24.1:
-  version "0.24.1"
-  resolved "https://registry.npmjs.org/argon2/-/argon2-0.24.1.tgz#3a925ae4483efc5e1013fe651fc036905a6e66d7"
-  integrity sha512-2S677iO18I+SQEUONkpvyagF9BJDYdiT82KqSMPQ2zP0oIYagVIPM0Y8T5pJ/4F4CrnN9PTCGA+ye1S0KupW3g==
+argon2@^0.25.1:
+  version "0.25.1"
+  resolved "https://registry.yarnpkg.com/argon2/-/argon2-0.25.1.tgz#7c6b1d41d8bca66ac966a8703131503ee830171b"
+  integrity sha512-DGm6Wp6csT7Xmlny1gB5qHW+f6aNlEFzhfNaEH2HMmUT7Eymf+68HznvZH4cW9+8fdyBmkoIC+GDV74P14k1zw==
   dependencies:
     "@phc/format" "^0.5.0"
     node-addon-api "^1.7.1"
-    node-gyp-build "^4.1.0"
+    node-pre-gyp "^0.13.0"
 
 argparse@^1.0.7:
   version "1.0.10"
@@ -15358,11 +15358,6 @@ node-forge@0.8.2:
   resolved "https://registry.npmjs.org/node-forge/-/node-forge-0.8.2.tgz#b4bcc59fb12ce77a8825fc6a783dfe3182499c5a"
   integrity sha512-mXQ9GBq1N3uDCyV1pdSzgIguwgtVpM7f5/5J4ipz12PKWElmPpVWLDuWl8iXmhysr21+WmX/OJ5UKx82wjomgg==
 
-node-gyp-build@^4.1.0:
-  version "4.1.1"
-  resolved "https://registry.npmjs.org/node-gyp-build/-/node-gyp-build-4.1.1.tgz#d7270b5d86717068d114cc57fff352f96d745feb"
-  integrity sha512-dSq1xmcPDKPZ2EED2S6zw/b9NKsqzXRE6dVr8TVQnI3FJOTteUMuqF3Qqs6LZg+mLGYJWqQzMbIjMtJqTv87nQ==
-
 node-hid@^0.7.9:
   version "0.7.9"
   resolved "https://registry.yarnpkg.com/node-hid/-/node-hid-0.7.9.tgz#cc0cdf1418a286a7667f0b63642b5eeb544ccd05"
@@ -15426,6 +15421,22 @@ node-pre-gyp@^0.12.0:
   version "0.12.0"
   resolved "https://registry.npmjs.org/node-pre-gyp/-/node-pre-gyp-0.12.0.tgz#39ba4bb1439da030295f899e3b520b7785766149"
   integrity sha512-4KghwV8vH5k+g2ylT+sLTjy5wmUOb9vPhnM8NHvRf9dHmnW/CndrFXy2aRPaPST6dugXSdHXfeaHQm77PIz/1A==
+  dependencies:
+    detect-libc "^1.0.2"
+    mkdirp "^0.5.1"
+    needle "^2.2.1"
+    nopt "^4.0.1"
+    npm-packlist "^1.1.6"
+    npmlog "^4.0.2"
+    rc "^1.2.7"
+    rimraf "^2.6.1"
+    semver "^5.3.0"
+    tar "^4"
+
+node-pre-gyp@^0.13.0:
+  version "0.13.0"
+  resolved "https://registry.yarnpkg.com/node-pre-gyp/-/node-pre-gyp-0.13.0.tgz#df9ab7b68dd6498137717838e4f92a33fc9daa42"
+  integrity sha512-Md1D3xnEne8b/HGVQkZZwV27WUi1ZRuZBij24TNaZwUPU3ZAFtvT6xxJGaUVillfmMKnn5oD1HoGsp2Ftik7SQ==
   dependencies:
     detect-libc "^1.0.2"
     mkdirp "^0.5.1"
@@ -19790,9 +19801,9 @@ sha.js@^2.4.0, sha.js@^2.4.8:
     safe-buffer "^5.0.1"
 
 sha3@^1.2.2, sha3@^2.0.7:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.1.0.tgz#d9432c115145e6685bed794a1f6c7a3bfdc9bf09"
-  integrity sha512-9j55sakgCgQ0/Y9Ez3fyHUVcKrl1gyTptt6QJVmg97JqZCoWofIkzpDH61brpHdfx3LWHk8bXiLPj44kS6bbpA==
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.1.1.tgz#488c0f978a73ea540cc4f4a2235a77aed095c031"
+  integrity sha512-hj6dCLbWByenZarg2gb2VFD9zoY5kr/FMriDcbtVDLJ5geOWGOJCI0jQUjAzoY/ZHlkt8BSEbh9KJEDT8AGuJQ==
   dependencies:
     buffer "5.4.3"
 
