@@ -2759,10 +2759,10 @@
     "@types/express-serve-static-core" "*"
     "@types/serve-static" "*"
 
-"@types/fetch-mock@^7.3.1":
-  version "7.3.1"
-  resolved "https://registry.yarnpkg.com/@types/fetch-mock/-/fetch-mock-7.3.1.tgz#df7421e8bcb351b430bfbfa5c52bb353826ac94f"
-  integrity sha512-2U4vZWHNbsbK7TRmizgr/pbKe0FKopcxu+hNDtIBDiM1wvrKRItybaYj7VQ6w/hZJStU/JxRiNi5ww4YDEvKbA==
+"@types/fetch-mock@^7.3.2":
+  version "7.3.2"
+  resolved "https://registry.yarnpkg.com/@types/fetch-mock/-/fetch-mock-7.3.2.tgz#58805ba36a9357be92cc8c008dbfda937e9f7d8f"
+  integrity sha512-NCEfv49jmDsBAixjMjEHKVgmVQlJ+uK56FOc+2roYPExnXCZDpi6mJOHQ3v23BiO84hBDStND9R2itJr7PNoow==
 
 "@types/ganache-core@^2.7.0":
   version "2.7.0"
@@ -19790,9 +19790,9 @@ sha.js@^2.4.0, sha.js@^2.4.8:
     safe-buffer "^5.0.1"
 
 sha3@^1.2.2, sha3@^2.0.7:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.1.0.tgz#d9432c115145e6685bed794a1f6c7a3bfdc9bf09"
-  integrity sha512-9j55sakgCgQ0/Y9Ez3fyHUVcKrl1gyTptt6QJVmg97JqZCoWofIkzpDH61brpHdfx3LWHk8bXiLPj44kS6bbpA==
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.1.1.tgz#488c0f978a73ea540cc4f4a2235a77aed095c031"
+  integrity sha512-hj6dCLbWByenZarg2gb2VFD9zoY5kr/FMriDcbtVDLJ5geOWGOJCI0jQUjAzoY/ZHlkt8BSEbh9KJEDT8AGuJQ==
   dependencies:
     buffer "5.4.3"
 
