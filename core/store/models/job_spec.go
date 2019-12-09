@@ -30,29 +30,7 @@ type JobSpecRequest struct {
 // InitiatorRequest represents a schema for incoming initiator requests as used by the API.
 type InitiatorRequest struct {
 	Type            string `json:"type"`
-	Name            string `json:"name,omitempty"`
 	InitiatorParams `json:"params,omitempty"`
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (i *InitiatorRequest) UnmarshalJSON(buf []byte) error {
-	type Alias InitiatorRequest
-	temp := struct {
-		*Alias
-		Params json.RawMessage `json:"params"`
-	}{
-		Alias: (*Alias)(i),
-	}
-	if err := json.Unmarshal(buf, &temp); err != nil {
-		return err
-	}
-	if temp.Type == InitiatorExternal {
-		temp.InitiatorParams.Params = string(temp.Params)
-	}
-	if len(temp.Params) == 0 {
-		return nil
-	}
-	return json.Unmarshal(temp.Params, &temp.Alias.InitiatorParams)
 }
 
 // TaskSpecRequest represents a schema for incoming TaskSpec requests as used by the API.
@@ -256,7 +234,7 @@ type InitiatorParams struct {
 	Address    common.Address    `json:"address,omitempty" gorm:"index"`
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
 	Name       string            `json:"name,omitempty"`
-	Params     string            `json:"-"`
+	Body       *JSON             `json:"body,omitempty" gorm:"column:params"`
 	FromBlock  *utils.Big        `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
 	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
 	Topics     Topics            `json:"topics,omitempty" gorm:"type:text"`
@@ -301,7 +279,6 @@ func NewInitiatorFromRequest(
 		Type:            strings.ToLower(initr.Type),
 		InitiatorParams: initr.InitiatorParams,
 	}
-	ret.InitiatorParams.Name = initr.Name
 	return ret
 }
 
