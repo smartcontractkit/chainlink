@@ -72,7 +72,6 @@ func TestRunExecutor_Execute_Pending(t *testing.T) {
 	assert.NoError(t, store.CreateJob(&j))
 
 	run := cltest.NewJobRun(j)
-	run.Payment = assets.NewLink(9117)
 	require.NoError(t, store.CreateJobRun(&run))
 
 	err := runExecutor.Execute(run.ID)
@@ -122,7 +121,6 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 	assert.NoError(t, store.CreateJob(&j))
 
 	run := cltest.NewJobRun(j)
-	run.Payment = assets.NewLink(19238)
 	require.NoError(t, store.CreateJobRun(&run))
 
 	go func() {
