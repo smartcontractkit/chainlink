@@ -1,4 +1,4 @@
-pragma solidity 0.5.0;
+pragma solidity ^0.5.0;
 
 interface AggregatorInterface {
   function latestAnswer() external view returns (int256);
