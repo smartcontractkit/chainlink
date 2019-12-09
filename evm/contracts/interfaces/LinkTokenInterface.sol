@@ -1,4 +1,4 @@
-pragma solidity 0.4.24;
+pragma solidity ^0.4.24;
 
 interface LinkTokenInterface {
   function allowance(address owner, address spender) external returns (uint256 remaining);
