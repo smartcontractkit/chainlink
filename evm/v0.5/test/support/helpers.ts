@@ -613,9 +613,7 @@ const SERVICE_AGREEMENT_TYPES = [
   'bytes4',
 ]
 
-const ORACLE_SIGNATURE_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
-
-export const encodedServiceAgreement = serviceAgreement => {
+export const encodedServiceAgreement = (serviceAgreement: ServiceAgreement) => {
   const serviceAgreementParameters = [
     serviceAgreement.payment.toString(),
     serviceAgreement.expiration.toString(),
@@ -633,6 +631,9 @@ export const encodedServiceAgreement = serviceAgreement => {
   )
 }
 
+const ORACLE_SIGNATURE_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
+
+// TODO - add typing
 export const encodedOracleSignatures = oracleSignatures => {
   const OracleSignaturesParameters = [
     oracleSignatures.vs,
