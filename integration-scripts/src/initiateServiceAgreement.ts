@@ -16,12 +16,6 @@ import {
 } from '../../evm/src/helpersV2'
 const { CoordinatorFactory } = chainlink
 
-type CoordinatorParams = Parameters<
-  contract.Instance<chainlink.CoordinatorFactory>['initiateServiceAgreement']
->
-// type ServiceAgreement = CoordinatorParams[0]
-// type OracleSignatures = CoordinatorParams[1]
-
 /**
  * This json definition may be missing types, it was generated from a fixture.
  */
