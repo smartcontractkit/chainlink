@@ -2,21 +2,21 @@ pragma solidity 0.5.0;
 
 library OracleSignatures {
 
-  struct Signatures {
+  struct Instance {
     uint8[] vs;
     bytes32[] rs;
     bytes32[] ss;
   }
 
-  function decodeOracleSignatures(
+  function decode(
     bytes memory _oracleSignaturesData
   )
     internal
     pure
-    returns(Signatures memory)
+    returns(Instance memory)
   {
     // solhint-disable indent
-    Signatures memory signatures;
+    Instance memory signatures;
     ( signatures.vs, signatures.rs, signatures.ss) =
       abi.decode(_oracleSignaturesData, ( uint8[], bytes32[], bytes32[] ));
     return signatures;
