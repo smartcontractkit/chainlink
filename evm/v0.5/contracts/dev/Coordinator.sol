@@ -4,7 +4,9 @@ import "./CoordinatorInterface.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../vendor/SafeMath.sol";
-import "./Decoder.sol";
+import "./ServiceAgreement.sol";
+import "./OracleSignatures.sol";
+
 
 /**
  * @title The Chainlink Coordinator handles oracle service aggreements between one or more oracles
@@ -27,7 +29,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
 
   mapping(bytes32 => Callback) private callbacks;
   mapping(bytes32 => mapping(address => bool)) private allowedOracles;
-  mapping(bytes32 => ServiceAgreement) public serviceAgreements;
+  mapping(bytes32 => ServiceAgreement.Instance) public serviceAgreements;
   mapping(address => uint256) public withdrawableTokens;
 
   /**
@@ -124,8 +126,8 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     returns (bytes32 serviceAgreementID)
   {
 
-    ServiceAgreement memory _agreement = Decoder.decodeServiceAgreement(_serviceAgreementData);
-    OracleSignatures memory _signatures = Decoder.decodeOracleSignatures(_oracleSignaturesData);
+    ServiceAgreement.Instance memory _agreement = ServiceAgreement.decode(_serviceAgreementData);
+    OracleSignatures.Instance memory _signatures = OracleSignatures.decode(_oracleSignaturesData);
 
     require(
       _agreement.oracles.length == _signatures.vs.length &&
@@ -175,7 +177,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
   function registerOracleSignatures(
     bytes32 _serviceAgreementID,
     address[] memory _oracles,
-    OracleSignatures memory _signatures
+    OracleSignatures.Instance memory _signatures
   )
     private
   {
@@ -225,7 +227,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
     bytes32 _data
   ) external isValidRequest(_requestId) returns (bool) {
     Callback memory callback = callbacks[_requestId];
-    ServiceAgreement memory sA = serviceAgreements[callback.sAId];
+    ServiceAgreement.Instance memory sA = serviceAgreements[callback.sAId];
     // solhint-disable-next-line avoid-low-level-calls
     (bool ok, bytes memory aggResponse) = sA.aggregator.call(
       abi.encodeWithSelector(
@@ -301,11 +303,11 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    */
   function getId(bytes memory _agreementData) public pure returns (bytes32)
   {
-    ServiceAgreement memory _agreement = Decoder.decodeServiceAgreement(_agreementData);
+    ServiceAgreement.Instance memory _agreement = ServiceAgreement.decode(_agreementData);
     return getId(_agreement);
   }
 
-  function getId(ServiceAgreement memory _agreement) internal pure returns (bytes32)
+  function getId(ServiceAgreement.Instance memory _agreement) internal pure returns (bytes32)
   {
     return keccak256(
       abi.encodePacked(

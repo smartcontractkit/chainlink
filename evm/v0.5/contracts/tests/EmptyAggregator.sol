@@ -1,7 +1,6 @@
 pragma solidity 0.5.0;
 
 import "../dev/CoordinatorInterface.sol";
-import "../dev/Decoder.sol";
 
 /// Used to check the basic aggregator/coordinator interactions. It does nothing
 /// but emit its messages as certain types of events.

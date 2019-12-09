@@ -2,7 +2,7 @@ pragma solidity 0.5.0;
 
 library ServiceAgreement {
 
-  struct Agreement {
+  struct Instance {
     uint256 payment;
     uint256 expiration;
     uint256 endAt;
@@ -24,15 +24,15 @@ library ServiceAgreement {
     bytes4 aggFulfillSelector;
   }
 
-  function decodeServiceAgreement(
+  function decode(
     bytes memory _serviceAgreementData
   )
     internal
     pure
-    returns(Agreement memory)
+    returns(Instance memory)
   {
     // solhint-disable indent
-    Agreement memory agreement;
+    Instance memory agreement;
 
     ( agreement.payment,
       agreement.expiration,

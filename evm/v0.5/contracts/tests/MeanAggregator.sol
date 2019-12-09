@@ -1,7 +1,7 @@
 pragma solidity 0.5.0;
 
 import "../dev/CoordinatorInterface.sol";
-import "../dev/Decoder.sol";
+import "../dev/ServiceAgreement.sol";
 
 /// Computes the mean of the values the oracles pass it via fulfill method
 contract MeanAggregator {
@@ -22,8 +22,7 @@ contract MeanAggregator {
   function initiateJob(
     bytes32 _sAId, bytes memory _serviceAgreementData)
     public returns (bool success, bytes memory message) {
-      CoordinatorInterface.ServiceAgreement memory serviceAgreement =
-        Decoder.decodeServiceAgreement(_serviceAgreementData);
+      ServiceAgreement.Instance memory serviceAgreement = ServiceAgreement.decode(_serviceAgreementData);
 
       if (oracles[_sAId].length != 0) {
         return (false, bytes("job already initiated"));
