@@ -39,7 +39,7 @@ require (
 	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mrwonko/cron v0.0.0-20180828170130-e0ddd0f7e7db
-	github.com/olekukonko/tablewriter v0.0.3
+	github.com/olekukonko/tablewriter v0.0.4
 	github.com/onsi/gomega v1.7.1
 	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709 // indirect
 	github.com/pkg/errors v0.8.1
