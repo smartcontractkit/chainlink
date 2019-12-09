@@ -461,33 +461,53 @@ export function hexToBuf(hexstr: string): Buffer {
 
 const { CoordinatorFactory } = chainlinkv05
 type Hash = ReturnType<typeof ethers.utils.keccak256>
-type Coordinator = ReturnType<chainlinkv05.CoordinatorFactory['attach']>
-type ServiceAgreement = Parameters<Coordinator['initiateServiceAgreement']>[0]
+type uintValue = ethers.utils.BigNumber | number | string
+
+export interface ServiceAgreement {
+  // Corresponds to ServiceAgreement struct in CoordinatorInterface.sol
+  payment: uintValue // uint256
+  expiration: uintValue // uint256
+  endAt: uintValue // uint256
+  oracles: string[] // 0x hex representation of oracle addresses (uint160's)
+  requestDigest: string // 0x hex representation of bytes32
+  aggregator: string // 0x hex representation of aggregator address
+  aggInitiateJobSelector: string // 0x hex representation of aggregator.initiateAggregatorForJob function selector (uint32)
+  aggFulfillSelector: string // function selector for aggregator.fulfill
+}
+
+const SERVICE_AGREEMENT_TYPES = [
+  'uint256',
+  'uint256',
+  'uint256',
+  'address[]',
+  'bytes32',
+  'address',
+  'bytes4',
+  'bytes4',
+]
 
 /**
  * Digest of the ServiceAgreement.
  */
 export const generateSAID = (sa: ServiceAgreement): Hash => {
   const [saParam] = new CoordinatorFactory().interface.functions.getId.inputs
-  if (
-    saParam.name !== '_agreement' ||
-    saParam.type !== 'tuple' ||
-    !saParam.components
-  ) {
+  debugger
+  if (saParam.name !== '_agreementData' || saParam.type !== 'bytes') {
     throw Error(
-      `extracted wrong version of struct tuple: ${saParam} from coordinatorFactory.interface.functions.getId`,
+      `extracted wrong params: ${saParam} from coordinatorFactory.interface.functions.getId`,
     )
   }
 
-  const abiValues = saParam.components.reduce(
-    (prev, next) => {
-      prev.types.push(next.type)
-      prev.values.push(sa[next.name as keyof ServiceAgreement])
+  const values = [
+    sa.payment,
+    sa.expiration,
+    sa.endAt,
+    sa.oracles,
+    sa.requestDigest,
+    sa.aggregator,
+    sa.aggInitiateJobSelector,
+    sa.aggFulfillSelector,
+  ]
 
-      return prev
-    },
-    { types: [], values: [] },
-  )
-
-  return ethers.utils.solidityKeccak256(abiValues.types, abiValues.values)
+  return ethers.utils.solidityKeccak256(SERVICE_AGREEMENT_TYPES, values)
 }
