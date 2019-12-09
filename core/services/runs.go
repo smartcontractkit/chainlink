@@ -23,7 +23,7 @@ func MeetsMinimumPayment(
 	if actualRunPayment == nil || expectedMinJobPayment.IsZero() {
 		return true
 	}
-	return expectedMinJobPayment.Cmp(actualRunPayment) > 1
+	return expectedMinJobPayment.Cmp(actualRunPayment) <= 0
 }
 
 func validateMinimumConfirmations(run *models.JobRun, taskRun *models.TaskRun, currentHeight *utils.Big, txManager store.TxManager) {
