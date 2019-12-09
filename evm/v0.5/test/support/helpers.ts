@@ -491,6 +491,25 @@ interface ServiceAgreement {
   oracleSignatures: Signature[]
 }
 
+export interface OracleSignatures {
+  vs: number[] // uint8[]
+  rs: string[] // bytes32[]
+  ss: string[] // bytes32[]
+}
+
+const SERVICE_AGREEMENT_TYPES = [
+  'uint256',
+  'uint256',
+  'uint256',
+  'address[]',
+  'bytes32',
+  'address',
+  'bytes4',
+  'bytes4',
+]
+
+const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
+
 export const generateSAID = (sa: ServiceAgreement): Uint8Array => {
   const serviceAgreementIDInput = concatUint8Arrays(
     BNtoUint8Array(sa.payment),
@@ -602,17 +621,6 @@ export const constructStructArgs = (
   return args
 }
 
-const SERVICE_AGREEMENT_TYPES = [
-  'uint256',
-  'uint256',
-  'uint256',
-  'address[]',
-  'bytes32',
-  'address',
-  'bytes4',
-  'bytes4',
-]
-
 export const encodeServiceAgreement = (serviceAgreement: ServiceAgreement) => {
   const serviceAgreementParameters = [
     serviceAgreement.payment.toString(),
@@ -631,19 +639,11 @@ export const encodeServiceAgreement = (serviceAgreement: ServiceAgreement) => {
   )
 }
 
-const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
-
 // TODO - add typing
-export const encodeOracleSignatures = oracleSignatures => {
-  const OracleSignaturesParameters = [
-    oracleSignatures.vs,
-    oracleSignatures.rs,
-    oracleSignatures.ss,
-  ]
-
+export const encodeOracleSignatures = (oracleSignatures: OracleSignatures) => {
   return web3.eth.abi.encodeParameters(
     ORACLE_SIGNATURES_TYPES,
-    OracleSignaturesParameters,
+    Object.values(oracleSignatures),
   )
 }
 
