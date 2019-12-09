@@ -57,29 +57,6 @@ interface Initiator {
   type: string
 }
 
-async function main() {
-  registerPromiseHandler()
-
-  const args = getArgs([
-    'COORDINATOR_ADDRESS',
-    'MEAN_AGGREGATOR_ADDRESS',
-    'ORACLE_SIGNATURE',
-    'NORMALIZED_REQUEST',
-    'SERVICE_AGREEMENT',
-    'CHAINLINK_NODE_ADDRESS',
-  ])
-
-  await initiateServiceAgreement({
-    coordinatorAddress: args.COORDINATOR_ADDRESS,
-    meanAggregatorAddress: args.MEAN_AGGREGATOR_ADDRESS,
-    normalizedRequest: args.NORMALIZED_REQUEST,
-    oracleSignature: args.ORACLE_SIGNATURE,
-    saJson: JSON.parse(args.SERVICE_AGREEMENT),
-    expectedAddress: args.CHAINLINK_NODE_ADDRESS,
-  })
-}
-main()
-
 interface Args {
   coordinatorAddress: string
   meanAggregatorAddress: string
@@ -116,13 +93,13 @@ const encodeOracleSignatures = (oracleSignatures: OracleSignatures) => {
   )
 }
 
-async function initiateServiceAgreement({
+const initiateServiceAgreement = async ({
   coordinatorAddress,
   normalizedRequest,
   oracleSignature,
   saJson,
   expectedAddress,
-}: Args) {
+}: Args) => {
   const provider = createProvider()
   const signer = provider.getSigner(DEVNET_ADDRESS)
   const coordinatorFactory = new CoordinatorFactory(signer)
@@ -179,3 +156,26 @@ async function initiateServiceAgreement({
   const iSAreceipt = await tx.wait()
   console.log('initiateServiceAgreement receipt', iSAreceipt)
 }
+
+const main = async () => {
+  registerPromiseHandler()
+
+  const args = getArgs([
+    'COORDINATOR_ADDRESS',
+    'MEAN_AGGREGATOR_ADDRESS',
+    'ORACLE_SIGNATURE',
+    'NORMALIZED_REQUEST',
+    'SERVICE_AGREEMENT',
+    'CHAINLINK_NODE_ADDRESS',
+  ])
+
+  await initiateServiceAgreement({
+    coordinatorAddress: args.COORDINATOR_ADDRESS,
+    meanAggregatorAddress: args.MEAN_AGGREGATOR_ADDRESS,
+    normalizedRequest: args.NORMALIZED_REQUEST,
+    oracleSignature: args.ORACLE_SIGNATURE,
+    saJson: JSON.parse(args.SERVICE_AGREEMENT),
+    expectedAddress: args.CHAINLINK_NODE_ADDRESS,
+  })
+}
+main()
