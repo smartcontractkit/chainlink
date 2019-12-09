@@ -45,7 +45,9 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
   mapping(bytes32 => bytes32) internal requests;
 
   event NewServiceAgreement(bytes32 indexed saId, uint256 payment, uint256 minresponses);
-  event ServiceAgreementRequest(bytes32 saId, uint256 payment);
+  event ServiceAgreementRequested(bytes32 indexed saId, bytes32 indexed requestId, uint256 payment);
+  event ServiceAgreementResponseReceived(bytes32 indexed saId, bytes32 indexed requestId, address indexed oracle, int256 answer);
+  event ServiceAgreementAnswerUpdated(bytes32 indexed saId, bytes32 indexed requestId, int256 answer);
   event ServiceAgreementDeleted(bytes32 indexed saId);
 
   /**
@@ -92,7 +94,6 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     }
     saId = keccak256(abi.encodePacked(globalNonce, now));
     globalNonce++; // yes, let it overflow
-    // Manually calculate total payment off-chain
     serviceAgreements[saId] = ServiceAgreement(totalPayment, _minResponses, 0, _oracles, _jobIds, _payments);
 
     emit NewServiceAgreement(saId, totalPayment, _minResponses);
@@ -130,7 +131,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
    * @notice Deletes a service agreement from storage
    * @dev Use this with caution since there may be responses waiting to come
    * back for a service agreement. This can be monitored off-chain by looking
-   * for the ServiceAgreementRequest event.
+   * for the ServiceAgreementRequested event.
    * @param _saId The service agreement ID
    */
   function deleteServiceAgreement(bytes32 _saId)
@@ -204,15 +205,15 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     ServiceAgreement memory sa = serviceAgreements[_saId];
     require(sa.minResponses > 0, "Invalid service agreement");
     Chainlink.Request memory request;
-    bytes32 outoingRequestId;
+    bytes32 outgoingRequestId;
     serviceAgreements[_saId].activeRequests = serviceAgreements[_saId].activeRequests.add(1);
-    emit ServiceAgreementRequest(_saId, sa.totalPayment);
+    emit ServiceAgreementRequested(_saId, _incomingRequestId, sa.totalPayment);
     for (uint i = 0; i < sa.oracles.length; i++) {
       request = buildChainlinkRequest(sa.jobIds[i], address(this), this.chainlinkCallback.selector);
       request.setBuffer(_data);
-      outoingRequestId = sendChainlinkRequestTo(sa.oracles[i], request, sa.payments[i]);
-      requests[outoingRequestId] = _incomingRequestId;
-      serviceAgreementRequests[outoingRequestId] = _saId;
+      outgoingRequestId = sendChainlinkRequestTo(sa.oracles[i], request, sa.payments[i]);
+      requests[outgoingRequestId] = _incomingRequestId;
+      serviceAgreementRequests[outgoingRequestId] = _saId;
     }
   }
 
@@ -233,11 +234,13 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     bytes32 saId = serviceAgreementRequests[_requestId];
     delete requests[_requestId];
     delete serviceAgreementRequests[_requestId];
+    emit ServiceAgreementResponseReceived(saId, cbRequestId, msg.sender, _data);
     if (requesters[cbRequestId].responses.push(_data) == minResponses) {
       serviceAgreements[saId].activeRequests = serviceAgreements[saId].activeRequests.sub(1);
       Requester memory req = requesters[cbRequestId];
       delete requesters[cbRequestId];
       int256 result = Median.calculate(req.responses);
+      emit ServiceAgreementAnswerUpdated(saId, cbRequestId, result);
       // solhint-disable-next-line avoid-low-level-calls
       (bool success, ) = req.callbackAddress.call(abi.encodeWithSelector(req.callbackFunctionId, cbRequestId, result));
       return success;
