@@ -619,10 +619,8 @@ const SERVICE_AGREEMENT_TYPES = [
 ]
 
 export const encodeServiceAgreement = (serviceAgreement: ServiceAgreement) => {
-  return web3.eth.abi.encodeParameters(
-    SERVICE_AGREEMENT_TYPES,
-    Object.values(serviceAgreement),
-  )
+  const saValues = Object.values(serviceAgreement).slice(0, -2)
+  return web3.eth.abi.encodeParameters(SERVICE_AGREEMENT_TYPES, saValues)
 }
 
 const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
