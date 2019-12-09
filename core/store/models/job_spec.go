@@ -107,20 +107,6 @@ func (j JobSpec) Archived() bool {
 	return j.DeletedAt.Valid
 }
 
-// NewRun initializes the job by creating the IDs for the job
-// and all associated tasks, and setting the CreatedAt field.
-func (j JobSpec) NewRun(i Initiator) JobRun {
-	now := time.Now()
-	return JobRun{
-		ID:          NewID(),
-		JobSpecID:   j.ID,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		Initiator:   i,
-		InitiatorID: i.ID,
-	}
-}
-
 // InitiatorsFor returns an array of Initiators for the given list of
 // Initiator types.
 func (j JobSpec) InitiatorsFor(types ...string) []Initiator {

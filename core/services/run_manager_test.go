@@ -264,8 +264,7 @@ func TestRunManager_ResumeAllConnecting_NotEnoughConfirmations(t *testing.T) {
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
 	require.NoError(t, store.CreateJob(&job))
 
-	initiator := job.Initiators[0]
-	run := job.NewRun(initiator)
+	run := cltest.NewJobRun(job)
 	run.Status = models.RunStatusPendingConnection
 	run.CreationHeight = utils.NewBig(big.NewInt(0))
 	run.ObservedHeight = run.CreationHeight
@@ -294,11 +293,11 @@ func TestRunManager_Create(t *testing.T) {
 	require.NoError(t, store.CreateJob(&job))
 
 	requestID := "RequestID"
-	initr := job.Initiators[0]
+	initiator := job.Initiators[0]
 	rr := models.NewRunRequest()
 	rr.RequestID = &requestID
 	data := cltest.JSONFromString(t, `{"random": "input"}`)
-	jr, err := app.RunManager.Create(job.ID, &initr, &data, nil, rr)
+	jr, err := app.RunManager.Create(job.ID, &initiator, &data, nil, rr)
 	require.NoError(t, err)
 	updatedJR := cltest.WaitForJobRunToComplete(t, store, *jr)
 	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
@@ -319,9 +318,9 @@ func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
 	require.NoError(t, store.CreateJob(&job))
 
-	initr := job.Initiators[0]
+	initiator := job.Initiators[0]
 	data := cltest.JSONFromString(t, `{"random": "input"}`)
-	jr, err := app.RunManager.Create(job.ID, &initr, &data, nil, &models.RunRequest{})
+	jr, err := app.RunManager.Create(job.ID, &initiator, &data, nil, &models.RunRequest{})
 	require.NoError(t, err)
 	cltest.WaitForJobRunToComplete(t, store, *jr)
 
@@ -382,13 +381,13 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 
 			creationHeight := big.NewInt(1)
 			requestID := "RequestID"
-			initr := job.Initiators[0]
+			initiator := job.Initiators[0]
 			rr := models.NewRunRequest()
 			rr.RequestID = &requestID
 			rr.TxHash = &initiatingTxHash
 			rr.BlockHash = &test.logBlockHash
 			data := cltest.JSONFromString(t, `{"random": "input"}`)
-			jr, err := app.RunManager.Create(job.ID, &initr, &data, creationHeight, rr)
+			jr, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
 			require.NoError(t, err)
 
 			run := cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
@@ -579,7 +578,7 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	require.NoError(t, store.CreateJob(&job))
 
 	requestID := "RequestID"
-	initr := job.Initiators[0]
+	initiator := job.Initiators[0]
 	rr := models.NewRunRequest()
 	rr.RequestID = &requestID
 	rr.TxHash = &initiatingTxHash
@@ -589,7 +588,7 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	pastCurrentHeight := big.NewInt(1)
 
 	data := cltest.JSONFromString(t, `{"random": "input"}`)
-	jr, err := app.RunManager.Create(job.ID, &initr, &data, futureCreationHeight, rr)
+	jr, err := app.RunManager.Create(job.ID, &initiator, &data, futureCreationHeight, rr)
 	require.NoError(t, err)
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
 
@@ -618,8 +617,7 @@ func TestRunManager_ResumeConfirmingTasks(t *testing.T) {
 
 			job := cltest.NewJobWithWebInitiator()
 			require.NoError(t, store.CreateJob(&job))
-			initr := job.Initiators[0]
-			run := job.NewRun(initr)
+			run := cltest.NewJobRun(job)
 			run.Status = test.status
 			require.NoError(t, store.CreateJobRun(&run))
 
@@ -651,8 +649,7 @@ func TestRunManager_ResumeAllInProgress(t *testing.T) {
 
 			job := cltest.NewJobWithWebInitiator()
 			require.NoError(t, store.CreateJob(&job))
-			initr := job.Initiators[0]
-			run := job.NewRun(initr)
+			run := cltest.NewJobRun(job)
 			run.Status = test.status
 			require.NoError(t, store.CreateJobRun(&run))
 
@@ -685,8 +682,7 @@ func TestRunManager_ResumeAllInProgress_Archived(t *testing.T) {
 
 			job := cltest.NewJobWithWebInitiator()
 			require.NoError(t, store.CreateJob(&job))
-			initr := job.Initiators[0]
-			run := job.NewRun(initr)
+			run := cltest.NewJobRun(job)
 			run.Status = test.status
 			run.DeletedAt = null.TimeFrom(time.Now())
 			require.NoError(t, store.CreateJobRun(&run))
@@ -722,8 +718,7 @@ func TestRunManager_ResumeAllInProgress_NotInProgress(t *testing.T) {
 
 			job := cltest.NewJobWithWebInitiator()
 			require.NoError(t, store.CreateJob(&job))
-			initr := job.Initiators[0]
-			run := job.NewRun(initr)
+			run := cltest.NewJobRun(job)
 			run.Status = test.status
 			require.NoError(t, store.CreateJobRun(&run))
 
@@ -758,8 +753,7 @@ func TestRunManager_ResumeAllInProgress_NotInProgressAndArchived(t *testing.T) {
 
 			job := cltest.NewJobWithWebInitiator()
 			require.NoError(t, store.CreateJob(&job))
-			initr := job.Initiators[0]
-			run := job.NewRun(initr)
+			run := cltest.NewJobRun(job)
 			run.Status = test.status
 			run.DeletedAt = null.TimeFrom(time.Now())
 			require.NoError(t, store.CreateJobRun(&run))

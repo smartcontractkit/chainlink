@@ -36,7 +36,7 @@ func TestRunExecutor_Execute(t *testing.T) {
 	}
 	assert.NoError(t, store.CreateJob(&j))
 
-	run := j.NewRun(i)
+	run := cltest.NewJobRun(j)
 	run.Payment = assets.NewLink(9117)
 	require.NoError(t, store.CreateJobRun(&run))
 
@@ -71,7 +71,7 @@ func TestRunExecutor_Execute_Pending(t *testing.T) {
 	}
 	assert.NoError(t, store.CreateJob(&j))
 
-	run := j.NewRun(i)
+	run := cltest.NewJobRun(j)
 	run.Payment = assets.NewLink(9117)
 	require.NoError(t, store.CreateJobRun(&run))
 
@@ -121,7 +121,7 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 	}
 	assert.NoError(t, store.CreateJob(&j))
 
-	run := j.NewRun(i)
+	run := cltest.NewJobRun(j)
 	run.Payment = assets.NewLink(19238)
 	require.NoError(t, store.CreateJobRun(&run))
 
@@ -165,7 +165,7 @@ func TestRunExecutor_InitialTaskLacksConfirmations(t *testing.T) {
 	j.Tasks = []models.TaskSpec{cltest.NewTask(t, "noop")}
 	assert.NoError(t, store.CreateJob(&j))
 
-	run := j.NewRun(j.Initiators[0])
+	run := cltest.NewJobRun(j)
 	txHash := cltest.NewHash()
 	run.RunRequest.TxHash = &txHash
 	run.TaskRuns[0].MinimumConfirmations = null.Uint32From(10)
@@ -194,8 +194,7 @@ func TestJobRunner_prioritizeSpecParamsOverRequestParams(t *testing.T) {
 	taskParams := cltest.JSONFromString(t, fmt.Sprintf(`{"times":%v}`, specParameter))
 	j.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeMultiply, Params: taskParams}}
 	assert.NoError(t, store.CreateJob(&j))
-	initr := j.Initiators[0]
-	run := j.NewRun(initr)
+	run := cltest.NewJobRun(j)
 	run.Overrides = cltest.JSONFromString(t, fmt.Sprintf(`{"times":%v, "result": %v}`, requestParameter, requestBase))
 	assert.NoError(t, store.CreateJobRun(&run))
 

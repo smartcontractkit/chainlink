@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"math/big"
+	"time"
 
 	"chainlink/core/adapters"
 	"chainlink/core/assets"
@@ -60,25 +61,32 @@ type runManager struct {
 	clock     utils.AfterNower
 }
 
-func newRun(
+// NewRun returns a complete run from a JobSpec
+func NewRun(
 	job *models.JobSpec,
 	initiator *models.Initiator,
 	data *models.JSON,
 	currentHeight *big.Int,
 	runRequest *models.RunRequest,
 	config orm.ConfigReader,
-	orm *orm.ORM,
-	txManager store.TxManager) (*models.JobRun, error) {
+	orm *orm.ORM) (*models.JobRun, *assets.Link, *assets.Link) {
 
-	run := job.NewRun(*initiator)
-	run.TaskRuns = make([]models.TaskRun, len(job.Tasks))
-	run.Initiator = *initiator
-	run.Status = models.RunStatusInProgress
-	run.Overrides = *data
-	run.CreationHeight = utils.NewBig(currentHeight)
-	run.ObservedHeight = utils.NewBig(currentHeight)
-	run.RunRequest = *runRequest
-	run.Payment = runRequest.Payment
+	now := time.Now()
+	run := models.JobRun{
+		ID:             models.NewID(),
+		JobSpecID:      job.ID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+		Initiator:      *initiator,
+		InitiatorID:    initiator.ID,
+		TaskRuns:       make([]models.TaskRun, len(job.Tasks)),
+		Status:         models.RunStatusInProgress,
+		Overrides:      *data,
+		CreationHeight: utils.NewBig(currentHeight),
+		ObservedHeight: utils.NewBig(currentHeight),
+		RunRequest:     *runRequest,
+		Payment:        runRequest.Payment,
+	}
 
 	minimumPayment := job.MinPayment
 	if config.MinimumContractPayment() != nil {
@@ -94,7 +102,7 @@ func newRun(
 		adapter, err := adapters.For(task, config, orm)
 		if err != nil {
 			run.SetError(err)
-			return &run, nil
+			break
 		}
 
 		taskRun := models.TaskRun{
@@ -122,17 +130,23 @@ func newRun(
 		run.TaskRuns[i] = taskRun
 	}
 
-	if !MeetsMinimumPayment(&minimumPayment, run.Payment) {
+	return &run, &minimumPayment, cost
+}
+
+// ValidateRun ensures that a run's initial preconditions have been met
+func ValidateRun(run *models.JobRun, minimumPayment *assets.Link, cost *assets.Link) {
+
+	if !MeetsMinimumPayment(minimumPayment, run.Payment) {
 		logger.Infow("Rejecting run with insufficient payment",
 			run.ForLogger("required_payment", minimumPayment.String())...)
 
 		err := fmt.Errorf(
 			"Rejecting job %s with payment %s below job-specific-minimum threshold (%s)",
-			job.ID,
+			run.JobSpecID,
 			run.Payment,
 			minimumPayment.Text(10))
 		run.SetError(err)
-		return &run, nil
+		return
 	}
 
 	// payment is only present for runs triggered by runlogs
@@ -142,14 +156,12 @@ func newRun(
 
 		err := fmt.Errorf(
 			"Rejecting job %s with payment %s below minimum threshold (%s)",
-			job.ID,
+			run.JobSpecID,
 			run.Payment,
-			config.MinimumContractPayment().Text(10))
+			cost.Text(10))
 		run.SetError(err)
-		return &run, nil
+		return
 	}
-
-	return &run, nil
 }
 
 // NewRunManager returns a new job manager
@@ -180,7 +192,14 @@ func (jm *runManager) CreateErrored(
 		return nil, errors.Wrap(err, "failed to find job spec")
 	}
 
-	run := job.NewRun(initiator)
+	now := time.Now()
+	run := models.JobRun{
+		ID:          models.NewID(),
+		JobSpecID:   job.ID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		InitiatorID: initiator.ID,
+	}
 	run.SetError(runErr)
 	return &run, jm.orm.CreateJobRun(&run)
 }
@@ -227,10 +246,15 @@ func (jm *runManager) Create(
 		return nil, fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID)
 	}
 
-	run, err := newRun(&job, initiator, data, creationHeight, runRequest, jm.config, jm.orm, jm.txManager)
-	if err != nil {
-		return nil, errors.Wrap(err, "newRun failed")
-	}
+	run, minimumPayment, cost := NewRun(
+		&job,
+		initiator,
+		data,
+		creationHeight,
+		runRequest,
+		jm.config,
+		jm.orm)
+	ValidateRun(run, minimumPayment, cost)
 
 	if err := jm.orm.CreateJobRun(run); err != nil {
 		return nil, errors.Wrap(err, "CreateJobRun failed")
