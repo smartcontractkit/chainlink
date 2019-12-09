@@ -18324,10 +18324,10 @@ react-snapshot@^1.3.0:
     mkdirp "^0.5.1"
     safe-commander "^2.11.1"
 
-react-static-plugin-jss@^6.3.0:
-  version "6.3.0"
-  resolved "https://registry.npmjs.org/react-static-plugin-jss/-/react-static-plugin-jss-6.3.0.tgz#ebc0e10b043c4f691589e4a9dadde5bc99d57183"
-  integrity sha512-dr7106pf5OcKj6aAuA8pMdb+8J2qcGSX8GeQjaRZm2Z+Hh8QyP1zzFtS81z6lsLscf/1SDVjeSEq2Xh13G7bTA==
+react-static-plugin-jss@^7.2.2:
+  version "7.2.2"
+  resolved "https://registry.yarnpkg.com/react-static-plugin-jss/-/react-static-plugin-jss-7.2.2.tgz#2fdcbf7f0c3d16fde049c0adddf3e974ea43ccff"
+  integrity sha512-x43basLVmvQ/6fdagHN8I/nMpkkw0E04mtzM3lItnQyM+l4dmjiPTI9fnqPot/C+sCaLoiiTB+DCuwzo6u/WQQ==
 
 react-static-plugin-react-router@^6.3.4:
   version "6.3.4"
@@ -19790,9 +19790,9 @@ sha.js@^2.4.0, sha.js@^2.4.8:
     safe-buffer "^5.0.1"
 
 sha3@^1.2.2, sha3@^2.0.7:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.1.0.tgz#d9432c115145e6685bed794a1f6c7a3bfdc9bf09"
-  integrity sha512-9j55sakgCgQ0/Y9Ez3fyHUVcKrl1gyTptt6QJVmg97JqZCoWofIkzpDH61brpHdfx3LWHk8bXiLPj44kS6bbpA==
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.1.1.tgz#488c0f978a73ea540cc4f4a2235a77aed095c031"
+  integrity sha512-hj6dCLbWByenZarg2gb2VFD9zoY5kr/FMriDcbtVDLJ5geOWGOJCI0jQUjAzoY/ZHlkt8BSEbh9KJEDT8AGuJQ==
   dependencies:
     buffer "5.4.3"
 
