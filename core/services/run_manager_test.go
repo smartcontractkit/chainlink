@@ -418,156 +418,143 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 	}
 }
 
-func TestRunManager_Create_fromRunLogWithZeroPayment(t *testing.T) {
+func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	defer cleanup()
+	tests := []struct {
+		name                 string
+		jobMinimumPayment    *assets.Link
+		configMinimumPayment *assets.Link
+		inputPayment         *assets.Link
+		jobStatus            models.RunStatus
+	}{
+		{
+			name:                 "no payment required and none given",
+			jobMinimumPayment:    assets.NewLink(0),
+			configMinimumPayment: assets.NewLink(0),
+			inputPayment:         assets.NewLink(0),
+			jobStatus:            models.RunStatusInProgress,
+		},
+		{
+			name:                 "no payment required and some given",
+			jobMinimumPayment:    assets.NewLink(0),
+			configMinimumPayment: assets.NewLink(0),
+			inputPayment:         assets.NewLink(13),
+			jobStatus:            models.RunStatusInProgress,
+		},
+		{
+			name:                 "configuration payment required and none given",
+			jobMinimumPayment:    assets.NewLink(0),
+			configMinimumPayment: assets.NewLink(13),
+			inputPayment:         assets.NewLink(0),
+			jobStatus:            models.RunStatusErrored,
+		},
+		{
+			name:                 "configuration payment required and insufficient given",
+			jobMinimumPayment:    assets.NewLink(0),
+			configMinimumPayment: assets.NewLink(13),
+			inputPayment:         assets.NewLink(7),
+			jobStatus:            models.RunStatusErrored,
+		},
+		{
+			name:                 "configuration payment required and exact amount given",
+			jobMinimumPayment:    assets.NewLink(0),
+			configMinimumPayment: assets.NewLink(13),
+			inputPayment:         assets.NewLink(13),
+			jobStatus:            models.RunStatusInProgress,
+		},
+		{
+			name:                 "configuration payment required and excess amount given",
+			jobMinimumPayment:    assets.NewLink(0),
+			configMinimumPayment: assets.NewLink(13),
+			inputPayment:         assets.NewLink(17),
+			jobStatus:            models.RunStatusInProgress,
+		},
+		{
+			name:                 "job payment required and none given",
+			jobMinimumPayment:    assets.NewLink(13),
+			configMinimumPayment: assets.NewLink(0),
+			inputPayment:         assets.NewLink(0),
+			jobStatus:            models.RunStatusErrored,
+		},
+		{
+			name:                 "job payment required and insufficient given",
+			jobMinimumPayment:    assets.NewLink(13),
+			configMinimumPayment: assets.NewLink(0),
+			inputPayment:         assets.NewLink(7),
+			jobStatus:            models.RunStatusErrored,
+		},
+		{
+			name:                 "job payment required and exact amount given",
+			jobMinimumPayment:    assets.NewLink(13),
+			configMinimumPayment: assets.NewLink(0),
+			inputPayment:         assets.NewLink(13),
+			jobStatus:            models.RunStatusInProgress,
+		},
+		{
+			name:                 "job payment required and excess amount given",
+			jobMinimumPayment:    assets.NewLink(13),
+			configMinimumPayment: assets.NewLink(0),
+			inputPayment:         assets.NewLink(17),
+			jobStatus:            models.RunStatusInProgress,
+		},
+		{
+			name:                 "both payments required and no payment given",
+			jobMinimumPayment:    assets.NewLink(13),
+			configMinimumPayment: assets.NewLink(11),
+			inputPayment:         assets.NewLink(0),
+			jobStatus:            models.RunStatusErrored,
+		},
+		{
+			name:                 "both payments required and lower amount given",
+			jobMinimumPayment:    assets.NewLink(13),
+			configMinimumPayment: assets.NewLink(11),
+			inputPayment:         assets.NewLink(11),
+			jobStatus:            models.RunStatusErrored,
+		},
+		{
+			name:                 "both payments required and exact amount given",
+			jobMinimumPayment:    assets.NewLink(13),
+			configMinimumPayment: assets.NewLink(11),
+			inputPayment:         assets.NewLink(13),
+			jobStatus:            models.RunStatusInProgress,
+		},
+	}
 
-	mocketh := app.MockCallerSubscriberClient()
-	store := app.GetStore()
-	mocketh.Context("app.Start()", func(meth *cltest.EthMock) {
-		meth.Register("eth_chainId", store.Config.ChainID())
-	})
-	app.Start()
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			config, configCleanup := cltest.NewConfig(t)
+			defer configCleanup()
+			config.Set("MINIMUM_CONTRACT_PAYMENT", test.configMinimumPayment.Text(10))
+			app, cleanup := cltest.NewApplicationWithConfig(t, config)
+			defer cleanup()
 
-	job := cltest.NewJobWithRunLogInitiator()
-	job.MinPayment = *assets.NewLink(0)
-	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
-	require.NoError(t, store.CreateJob(&job))
-	initiator := job.Initiators[0]
+			mocketh := app.MockCallerSubscriberClient()
+			store := app.GetStore()
+			mocketh.Context("app.Start()", func(meth *cltest.EthMock) {
+				meth.Register("eth_chainId", store.Config.ChainID())
+			})
+			app.Start()
 
-	data := cltest.JSONFromString(t, `{"random": "input"}`)
-	creationHeight := big.NewInt(1)
+			job := cltest.NewJobWithRunLogInitiator()
+			job.MinPayment = *test.jobMinimumPayment
+			job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
+			require.NoError(t, store.CreateJob(&job))
+			initiator := job.Initiators[0]
 
-	t.Run("zero payment", func(t *testing.T) {
-		rr := models.NewRunRequest()
-		rr.Payment = assets.NewLink(0)
+			data := cltest.JSONFromString(t, `{"random": "input"}`)
+			creationHeight := big.NewInt(1)
 
-		run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
-		require.NoError(t, err)
-		assert.Equal(t, models.RunStatusInProgress, run.Status)
-	})
+			runRequest := models.NewRunRequest()
+			runRequest.Payment = test.inputPayment
 
-	t.Run("minimal payment", func(t *testing.T) {
-		rr := models.NewRunRequest()
-		rr.Payment = assets.NewLink(1)
+			run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, runRequest)
+			require.NoError(t, err)
 
-		run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
-		require.NoError(t, err)
-		assert.Equal(t, models.RunStatusInProgress, run.Status)
-	})
-
-	t.Run("excess payment", func(t *testing.T) {
-		rr := models.NewRunRequest()
-		rr.Payment = assets.NewLink(2)
-
-		run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
-		require.NoError(t, err)
-		assert.Equal(t, models.RunStatusInProgress, run.Status)
-	})
-}
-
-func TestRunManager_Create_fromRunLogWithMinPayment(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t)
-	defer cleanup()
-
-	mocketh := app.MockCallerSubscriberClient()
-	store := app.GetStore()
-	mocketh.Context("app.Start()", func(meth *cltest.EthMock) {
-		meth.Register("eth_chainId", store.Config.ChainID())
-	})
-	app.Start()
-
-	job := cltest.NewJobWithRunLogInitiator()
-	job.MinPayment = *assets.NewLink(1)
-	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
-	require.NoError(t, store.CreateJob(&job))
-	initiator := job.Initiators[0]
-
-	data := cltest.JSONFromString(t, `{"random": "input"}`)
-	creationHeight := big.NewInt(1)
-
-	t.Run("zero payment", func(t *testing.T) {
-		rr := models.NewRunRequest()
-		rr.Payment = assets.NewLink(0)
-
-		run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
-		require.NoError(t, err)
-		assert.Equal(t, models.RunStatusErrored, run.Status)
-	})
-
-	t.Run("minimal payment", func(t *testing.T) {
-		rr := models.NewRunRequest()
-		rr.Payment = assets.NewLink(1)
-
-		run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
-		require.NoError(t, err)
-		assert.Equal(t, models.RunStatusInProgress, run.Status)
-	})
-
-	t.Run("excess payment", func(t *testing.T) {
-		rr := models.NewRunRequest()
-		rr.Payment = assets.NewLink(2)
-
-		run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
-		require.NoError(t, err)
-		assert.Equal(t, models.RunStatusInProgress, run.Status)
-	})
-}
-
-func TestRunManager_Create_fromRunLogWithConfiguredPayment(t *testing.T) {
-	t.Parallel()
-
-	config, configCleanup := cltest.NewConfig(t)
-	defer configCleanup()
-	config.Set("MINIMUM_CONTRACT_PAYMENT", 1)
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
-	defer cleanup()
-
-	mocketh := app.MockCallerSubscriberClient()
-	store := app.GetStore()
-	mocketh.Context("app.Start()", func(meth *cltest.EthMock) {
-		meth.Register("eth_chainId", store.Config.ChainID())
-	})
-	app.Start()
-
-	job := cltest.NewJobWithRunLogInitiator()
-	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
-	require.NoError(t, store.CreateJob(&job))
-	initiator := job.Initiators[0]
-
-	data := cltest.JSONFromString(t, `{"random": "input"}`)
-	creationHeight := big.NewInt(1)
-
-	t.Run("zero payment", func(t *testing.T) {
-		rr := models.NewRunRequest()
-		rr.Payment = assets.NewLink(0)
-
-		run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
-		require.NoError(t, err)
-		assert.Equal(t, models.RunStatusErrored, run.Status)
-	})
-
-	t.Run("minimal payment", func(t *testing.T) {
-		rr := models.NewRunRequest()
-		rr.Payment = assets.NewLink(1)
-
-		run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
-		require.NoError(t, err)
-		assert.Equal(t, models.RunStatusInProgress, run.Status)
-	})
-
-	t.Run("excess payment", func(t *testing.T) {
-		rr := models.NewRunRequest()
-		rr.Payment = assets.NewLink(2)
-
-		run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
-		require.NoError(t, err)
-		assert.Equal(t, models.RunStatusInProgress, run.Status)
-	})
+			assert.Equal(t, test.jobStatus, run.Status)
+		})
+	}
 }
 
 func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
