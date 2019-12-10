@@ -116,6 +116,19 @@ export default class AggregationContract {
     })
   }
 
+  async addGasPriceToLogs(logs) {
+    if (!logs) return logs
+
+    const logsWithGasPriceOps = logs.map(async log => {
+      const tx = await this.provider.getTransaction(log.meta.transactionHash)
+      // eslint-disable-next-line require-atomic-updates
+      log.meta.gasPrice = ethers.utils.formatUnits(tx.gasPrice, 'gwei')
+      return log
+    })
+
+    return Promise.all(logsWithGasPriceOps)
+  }
+
   async oracleResponseLogs({ answerId, fromBlock }) {
     const answerIdHex = ethers.utils.hexlify(answerId)
 
@@ -198,7 +211,11 @@ export default class AggregationContract {
           }),
         )
         const logWithTimestamp = await this.addBlockTimestampToLogs([logged])
-        return callback ? callback(logWithTimestamp[0]) : logWithTimestamp[0]
+        const logWithGasPrice = await this.addGasPriceToLogs(
+          logWithTimestamp,
+        ).then(l => l[0])
+
+        return callback ? callback(logWithGasPrice) : logWithGasPrice
       }),
     )
   }
