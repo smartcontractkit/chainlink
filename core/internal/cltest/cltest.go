@@ -401,7 +401,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
 	cleanupDB := PrepareTestDB(config)
-	s := strpkg.NewStore(config.Config)
+	s := strpkg.NewInsecureStore(config.Config)
 	return s, func() {
 		cleanUpStore(config.t, s)
 		cleanupDB()

@@ -28,12 +28,14 @@ type KeyStore struct {
 
 // NewKeyStore creates a keystore for the given directory.
 func NewKeyStore(keyDir string) *KeyStore {
-	ks := keystore.NewKeyStore(
-		keyDir,
-		keystore.StandardScryptN,
-		keystore.StandardScryptP,
-	)
+	ks := keystore.NewKeyStore(keyDir, keystore.StandardScryptN, keystore.StandardScryptP)
+	return &KeyStore{ks}
+}
 
+// NewInsecureKeyStore creates an *INSECURE* keystore for the given directory.
+// NOTE: Should only be used for testing!
+func NewInsecureKeyStore(keyDir string) *KeyStore {
+	ks := keystore.NewKeyStore(keyDir, keystore.LightScryptN, keystore.LightScryptP)
 	return &KeyStore{ks}
 }
 

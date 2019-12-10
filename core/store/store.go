@@ -135,6 +135,20 @@ func NewStore(config *orm.Config) *Store {
 
 // NewStoreWithDialer creates a new store with the given config and dialer
 func NewStoreWithDialer(config *orm.Config, dialer Dialer) *Store {
+	keyStore := NewKeyStore(config.KeysDir())
+	return newStoreWithDialerAndKeyStore(config, dialer, keyStore)
+}
+
+// NewInsecureStore creates a new store with the given config and
+// dialer, using an insecure keystore.
+// NOTE: Should only be used for testing!
+func NewInsecureStore(config *orm.Config) *Store {
+	dialer := NewEthDialer(config.MaxRPCCallsPerSecond())
+	keyStore := NewInsecureKeyStore(config.KeysDir())
+	return newStoreWithDialerAndKeyStore(config, dialer, keyStore)
+}
+
+func newStoreWithDialerAndKeyStore(config *orm.Config, dialer Dialer, keyStore *KeyStore) *Store {
 	err := os.MkdirAll(config.RootDir(), os.FileMode(0700))
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
@@ -150,14 +164,13 @@ func NewStoreWithDialer(config *orm.Config, dialer Dialer) *Store {
 	if err := orm.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", err))
 	}
-	keyStore := NewKeyStore(config.KeysDir())
-
+	callerSubscriberClient := &eth.CallerSubscriberClient{CallerSubscriber: ethrpc}
 	store := &Store{
 		Clock:       utils.Clock{},
 		Config:      config,
 		KeyStore:    keyStore,
 		ORM:         orm,
-		TxManager:   NewEthTxManager(&eth.CallerSubscriberClient{ethrpc}, config, keyStore, orm),
+		TxManager:   NewEthTxManager(callerSubscriberClient, config, keyStore, orm),
 		StatsPusher: synchronization.NewStatsPusher(orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret()),
 	}
 	return store
