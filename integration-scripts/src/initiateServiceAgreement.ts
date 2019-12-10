@@ -66,33 +66,6 @@ interface Args {
   expectedAddress: string
 }
 
-const SERVICE_AGREEMENT_TYPES = [
-  'uint256',
-  'uint256',
-  'uint256',
-  'address[]',
-  'bytes32',
-  'address',
-  'bytes4',
-  'bytes4',
-]
-
-const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
-
-const encodeServiceAgreement = (serviceAgreement: ServiceAgreement) => {
-  return ethers.utils.defaultAbiCoder.encode(
-    SERVICE_AGREEMENT_TYPES,
-    Object.values(serviceAgreement),
-  )
-}
-
-const encodeOracleSignatures = (oracleSignatures: OracleSignatures) => {
-  return ethers.utils.defaultAbiCoder.encode(
-    ORACLE_SIGNATURES_TYPES,
-    Object.values(oracleSignatures),
-  )
-}
-
 const initiateServiceAgreement = async ({
   coordinatorAddress,
   normalizedRequest,
@@ -129,10 +102,10 @@ const initiateServiceAgreement = async ({
     ss: [sig.s],
     vs: [sig.v],
   }
-  const encodedSignatures = encodeOracleSignatures(oracleSignatures)
+  const encodedSignatures = helpers.encodeOracleSignatures(oracleSignatures)
 
   const said = helpers.generateSAID(sa)
-  const encodedSA = encodeServiceAgreement(sa)
+  const encodedSA = helpers.encodeServiceAgreement(sa)
   const ssaid = await coordinator.getId(encodedSA)
   if (said != ssaid) {
     throw Error(`sAId mismatch. javascript: ${said} solidity: ${ssaid}`)
