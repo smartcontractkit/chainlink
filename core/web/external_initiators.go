@@ -21,14 +21,13 @@ type JobSpecNotice struct {
 
 // NewJobSpecNotice returns a new JobSpec.
 func NewJobSpecNotice(initiator models.Initiator, js models.JobSpec) (*JobSpecNotice, error) {
-	params, err := models.ParseJSON([]byte(initiator.Params))
-	if err != nil {
-		return nil, errors.Wrap(err, "external initiator params")
+	if initiator.Body == nil {
+		return nil, errors.New("body must be defined")
 	}
 	return &JobSpecNotice{
 		JobID:  js.ID,
 		Type:   initiator.Type,
-		Params: params,
+		Params: *initiator.Body,
 	}, nil
 }
 

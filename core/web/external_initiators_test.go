@@ -14,6 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func JSONFromString(t *testing.T, arg string) *models.JSON {
+	if arg == "" {
+		return nil
+	}
+	ret := cltest.JSONFromString(t, arg)
+	return &ret
+}
+
 func TestNotifyExternalInitiator_Notified(t *testing.T) {
 	tests := []struct {
 		Name          string
@@ -32,8 +40,8 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 					models.Initiator{
 						Type: models.InitiatorExternal,
 						InitiatorParams: models.InitiatorParams{
-							Name:   "somecoin",
-							Params: `{"foo":"bar"}`,
+							Name: "somecoin",
+							Body: JSONFromString(t, `{"foo":"bar"}`),
 						},
 					},
 				},
@@ -60,15 +68,15 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 					models.Initiator{
 						Type: models.InitiatorExternal,
 						InitiatorParams: models.InitiatorParams{
-							Name:   "somecoin",
-							Params: `{"foo":"bar"}`,
+							Name: "somecoin",
+							Body: JSONFromString(t, `{"foo":"bar"}`),
 						},
 					},
 				},
 			},
 			web.JobSpecNotice{
 				Type:   models.InitiatorExternal,
-				Params: cltest.JSONFromString(t, `{"foo":"bar"}`),
+				Params: *JSONFromString(t, `{"foo":"bar"}`),
 			},
 		},
 	}
