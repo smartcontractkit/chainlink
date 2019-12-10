@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -e
+LDFLAGS="`tools/bin/ldflags`"
+
+# TODO: dedupe this
+go run -ldflags "$LDFLAGS" ./core/main.go --  node import /run/secrets/keystore
+go run -ldflags "$LDFLAGS" ./core/main.go --  node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
