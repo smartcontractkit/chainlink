@@ -115,16 +115,18 @@ jobs:
     working_directory: ~/chainlink
     steps:
       - checkout
-      - run: cd ./tools/docker && ./geth_postgres_test.sh
+      - run: cd ./tools/docker && ./compose test
   parity-postgres:
     resource_class: large
     machine:
       image: ubuntu-1604:201903-01
       docker_layer_caching: true
     working_directory: ~/chainlink
+    environment:
+      GETH_MODE: true
     steps:
       - checkout
-      - run: cd ./tools/docker && ./parity_postgres_test.sh
+      - run: cd ./tools/docker && ./compose test
   truffle:
     resource_class: large
     docker:
