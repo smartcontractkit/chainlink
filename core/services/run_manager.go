@@ -91,8 +91,10 @@ func NewRun(
 	minimumPayment := assets.NewLink(0)
 	if job.MinPayment != nil {
 		minimumPayment = job.MinPayment
+		logger.Debugw("Using job's minimum payment", "required_payment", minimumPayment)
 	} else if config.MinimumContractPayment() != nil {
 		minimumPayment = config.MinimumContractPayment()
+		logger.Debugw("Using configured minimum payment", "required_payment", minimumPayment)
 	}
 
 	cost := &assets.Link{}

@@ -423,91 +423,91 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 	tests := []struct {
 		name                 string
 		jobMinimumPayment    *assets.Link
-		configMinimumPayment *assets.Link
+		configMinimumPayment string
 		inputPayment         *assets.Link
 		jobStatus            models.RunStatus
 	}{
 		{
 			name:                 "no payment required and none given",
 			jobMinimumPayment:    nil,
-			configMinimumPayment: assets.NewLink(0),
+			configMinimumPayment: "0",
 			inputPayment:         assets.NewLink(0),
 			jobStatus:            models.RunStatusInProgress,
 		},
 		{
 			name:                 "no payment required and some given",
 			jobMinimumPayment:    nil,
-			configMinimumPayment: assets.NewLink(0),
+			configMinimumPayment: "0",
 			inputPayment:         assets.NewLink(13),
 			jobStatus:            models.RunStatusInProgress,
 		},
 		{
 			name:                 "configuration payment required and none given",
 			jobMinimumPayment:    nil,
-			configMinimumPayment: assets.NewLink(13),
+			configMinimumPayment: "13",
 			inputPayment:         assets.NewLink(0),
 			jobStatus:            models.RunStatusErrored,
 		},
 		{
 			name:                 "configuration payment required and insufficient given",
 			jobMinimumPayment:    nil,
-			configMinimumPayment: assets.NewLink(13),
+			configMinimumPayment: "13",
 			inputPayment:         assets.NewLink(7),
 			jobStatus:            models.RunStatusErrored,
 		},
 		{
 			name:                 "configuration payment required and exact amount given",
 			jobMinimumPayment:    nil,
-			configMinimumPayment: assets.NewLink(13),
+			configMinimumPayment: "13",
 			inputPayment:         assets.NewLink(13),
 			jobStatus:            models.RunStatusInProgress,
 		},
 		{
 			name:                 "configuration payment required and excess amount given",
 			jobMinimumPayment:    nil,
-			configMinimumPayment: assets.NewLink(13),
+			configMinimumPayment: "13",
 			inputPayment:         assets.NewLink(17),
 			jobStatus:            models.RunStatusInProgress,
 		},
 		{
 			name:                 "job payment required and none given",
 			jobMinimumPayment:    assets.NewLink(13),
-			configMinimumPayment: assets.NewLink(0),
+			configMinimumPayment: "0",
 			inputPayment:         assets.NewLink(0),
 			jobStatus:            models.RunStatusErrored,
 		},
 		{
 			name:                 "job payment required and insufficient given",
 			jobMinimumPayment:    assets.NewLink(13),
-			configMinimumPayment: assets.NewLink(0),
+			configMinimumPayment: "0",
 			inputPayment:         assets.NewLink(7),
 			jobStatus:            models.RunStatusErrored,
 		},
 		{
 			name:                 "job payment required and exact amount given",
 			jobMinimumPayment:    assets.NewLink(13),
-			configMinimumPayment: assets.NewLink(0),
+			configMinimumPayment: "0",
 			inputPayment:         assets.NewLink(13),
 			jobStatus:            models.RunStatusInProgress,
 		},
 		{
 			name:                 "job payment required and excess amount given",
 			jobMinimumPayment:    assets.NewLink(13),
-			configMinimumPayment: assets.NewLink(0),
+			configMinimumPayment: "0",
 			inputPayment:         assets.NewLink(17),
 			jobStatus:            models.RunStatusInProgress,
 		},
 		{
 			name:                 "both payments required and no payment given",
 			jobMinimumPayment:    assets.NewLink(11),
-			configMinimumPayment: assets.NewLink(13),
+			configMinimumPayment: "13",
 			inputPayment:         assets.NewLink(0),
 			jobStatus:            models.RunStatusErrored,
 		},
 		{
 			name:                 "both payments required and job payment amount given",
 			jobMinimumPayment:    assets.NewLink(11),
-			configMinimumPayment: assets.NewLink(13),
+			configMinimumPayment: "13",
 			inputPayment:         assets.NewLink(11),
 			jobStatus:            models.RunStatusInProgress,
 		},
@@ -518,7 +518,7 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			config, configCleanup := cltest.NewConfig(t)
 			defer configCleanup()
-			config.Set("MINIMUM_CONTRACT_PAYMENT", test.configMinimumPayment.Text(10))
+			config.Set("MINIMUM_CONTRACT_PAYMENT", test.configMinimumPayment)
 			app, cleanup := cltest.NewApplicationWithConfig(t, config)
 			defer cleanup()
 
