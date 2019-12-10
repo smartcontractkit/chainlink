@@ -3,5 +3,5 @@ version: '3.1'
 services:
   integration:
     volumes:
-      - ../../integration:/chainlink/integration
-      - ../ci/ethereum_test:/chainlink/tools/ci/ethereum_test
+      - ../../integration:$SRCROOT/integration
+      - ../ci/ethereum_test:$SRCROOT/tools/ci/ethereum_test

@@ -1,25 +1,28 @@
 version: '3.1'
-
 services:
   integration:
     volumes:
-      - ../../integration:/chainlink/integration
-      - ../ci/ethereum_test:/chainlink/tools/ci/ethereum_test
+      - ../../integration:$SRCROOT/integration
+      - ../ci/ethereum_test:$SRCROOT/tools/ci/ethereum_test
   node:
     entrypoint: '/bin/sh -c "while sleep 1000; do :; done"'
     build:
       context: ../../
       dockerfile: tools/docker/cldev.Dockerfile
+      args:
+        - SRCROOT
     command: ''
     image: smartcontract/chainlink-dev
     volumes:
-      - ../..:/chainlink
+      - ../..:$SRCROOT
   operator-ui:
     container_name: operator-ui
     image: smartcontract/operator-ui
     build:
       context: ../../
       dockerfile: tools/docker/operatorui.Dockerfile
+      args:
+        - SRCROOT
     entrypoint: /bin/sh -c 'yarn && yarn setup && yarn workspace @chainlink/operator-ui start'
     environment: 
       - CHAINLINK_PORT
@@ -27,6 +30,6 @@ services:
       - 3000:3000
       - 4000:4000
     volumes: 
-      - ../..:/chainlink
+      - ../..:$SRCROOT
     depends_on:
       - node

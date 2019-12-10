@@ -1,7 +1,9 @@
 FROM node:10.15 
 
+ARG SRCROOT=/usr/local/src/chainlink
+WORKDIR ${SRCROOT}
+
 # Copy only what we neeed
-WORKDIR /chainlink
 COPY yarn.lock package.json ./
 COPY evm/package.json evm/
 COPY evm/v0.5/package.json evm/v0.5/
