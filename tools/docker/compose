@@ -1,0 +1,67 @@
+#!/bin/bash
+set -e
+
+# Enable buildkit support
+export COMPOSE_DOCKER_CLI_BUILD=1
+export DOCKER_BUILDKIT=1
+
+all_files="-f docker-compose.yaml -f docker-compose.postgres.yaml -f docker-compose.integration.yaml"
+if [ $GETH_MODE ]; then
+  all_files="$all_files -f docker-compose.gethnet.yaml"
+else 
+  all_files="$all_files -f docker-compose.paritynet.yaml"
+fi
+
+base="docker-compose $all_files"
+dev="$base -f docker-compose.dev.yaml"
+dev_integration="$base -f docker-compose.dev-integration.yaml"
+deps="$base -f docker-compose.deps.yaml"
+usage="compose -- A helper script for running common docker-compose commands\
+
+Commands:
+    help        Displays this help menu
+    cld         Runs the chainlink node container in dev mode
+    cldo        cld in addition to operator-ui in dev mode
+    clean       Remove any containers and volumes related to compose files
+    test        Run the integration test suite
+    test:dev    Run the integration test suite with /tools/ci/ethereum_test and /integration bind-mounted
+    dev         Run docker-compose with our dev configuration
+    *           Run docker-compose with our base configuration"
+
+case "$1" in
+  help)
+    echo "$usage"
+    ;;
+  cld)
+    $dev up -d node
+    docker exec -it chainlink-node bash
+    $dev down -v
+    ;;
+  cldo)
+    $dev up -d operator-ui
+    docker exec -it chainlink-node bash
+    $dev down -v
+    ;;
+  clean)
+    $deps down -v
+    $dev down -v
+    ;;
+  test)
+    $base build
+    $deps up --exit-code-from wait-db wait-db 
+    $base up --exit-code-from integration
+    $base down -v
+    ;;
+  test:dev)
+    $dev_integration build
+    $deps up --exit-code-from wait-db wait-db 
+    $dev_integration up --exit-code-from integration
+    $dev_integration down -v
+    ;;
+  dev)
+    $dev ${@:2}
+    ;;
+  *)
+    $base $@
+    ;;
+esac
