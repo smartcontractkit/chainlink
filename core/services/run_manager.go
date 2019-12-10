@@ -97,8 +97,6 @@ func NewRun(
 		logger.Debugw("Using configured minimum payment", "required_payment", minimumPayment)
 	}
 
-	cost := &assets.Link{}
-	cost.Set(minimumPayment)
 	for i, task := range job.Tasks {
 		adapter, err := adapters.For(task, config, orm)
 		if err != nil {
@@ -110,13 +108,6 @@ func NewRun(
 			ID:       models.NewID(),
 			JobRunID: run.ID,
 			TaskSpec: task,
-		}
-
-		if minimumPayment.IsZero() {
-			mp := adapter.MinContractPayment()
-			if mp != nil {
-				cost.Add(cost, mp)
-			}
 		}
 
 		if currentHeight != nil {
@@ -131,7 +122,7 @@ func NewRun(
 		run.TaskRuns[i] = taskRun
 	}
 
-	return &run, cost
+	return &run, minimumPayment
 }
 
 // ValidateRun ensures that a run's initial preconditions have been met
