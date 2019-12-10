@@ -16,6 +16,7 @@ const MAINNET_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'AUD',
     counter: 3600,
+    path: 'aud-usd',
   },
   {
     contractAddress: '0xa18e0bf319a1316984c9fc9aba850e2a915cce0e',
@@ -23,6 +24,7 @@ const MAINNET_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'EUR',
     counter: 3600,
+    path: 'eur-usd',
   },
   {
     contractAddress: '0xb405aa39dca6ecf18691cd638a98c090c477dcf9',
@@ -30,6 +32,7 @@ const MAINNET_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'CHF',
     counter: 3600,
+    path: 'chf-usd',
   },
   {
     contractAddress: '0xf277717f64815b17aa687cce701fa154185db4d9',
@@ -37,6 +40,7 @@ const MAINNET_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'GBP',
     counter: 3600,
+    path: 'gbp-usd',
   },
   {
     contractAddress: '0x8C4a5746d70C1aCeD6c3feB0915f59e3faBb18c3',
@@ -44,6 +48,7 @@ const MAINNET_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'JPY',
     counter: 3600,
+    path: 'jpy-usd',
   },
   {
     contractAddress: '0xe1ec292422194cfa6bb6089566af3019803b1af2',
@@ -51,6 +56,7 @@ const MAINNET_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'XAG',
     counter: 3600,
+    path: 'xag-usd',
   },
   {
     contractAddress: '0x121df6cfe2426e6c9ae1b273f2e38d0c362c03fa',
@@ -58,6 +64,7 @@ const MAINNET_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'XAU',
     counter: 3600,
+    path: 'xau-usd',
   },
   {
     contractAddress: '0xF5fff180082d6017036B771bA883025c654BC935',
@@ -65,6 +72,16 @@ const MAINNET_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'BTC',
     counter: 600,
+    path: 'btc-usd',
+  },
+  {
+    contractVersion: 1,
+    contractAddress: '0x79fEbF6B9F76853EDBcBc913e6aAE8232cFB9De9',
+    name: 'ETH / USD aggregation',
+    valuePrefix: '$',
+    answerName: 'ETH',
+    counter: 600,
+    path: 'eth-usd',
   },
 ]
 
@@ -75,8 +92,7 @@ const withMainnet = BaseComponent => {
   const Mainnet = props => {
     const { params } = props.match
     const hasContract = MAINNET_CONTRACTS.filter(
-      contract =>
-        contract.contractAddress.toLowerCase() === params.address.toLowerCase(),
+      contract => contract.path.toLowerCase() === params.pair.toLowerCase(),
     )
 
     if (!hasContract.length) {
