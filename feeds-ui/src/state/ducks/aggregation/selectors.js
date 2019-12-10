@@ -89,6 +89,10 @@ const NODE_NAMES = [
     address: '0x24A718307Ce9B2420962fd5043fb876e17430934',
     name: 'Infinity Stones',
   },
+  {
+    address: '0x72f3dFf4CD17816604dd2df6C2741e739484CA62',
+    name: 'Alpha Vantage',
+  },
 
   // ROPSTEN
 

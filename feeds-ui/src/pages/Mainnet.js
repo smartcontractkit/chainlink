@@ -5,7 +5,7 @@ import { NetworkGraph } from 'components/networkGraph'
 import { NetworkGraphInfo } from 'components/networkGraphInfo'
 import { AnswerHistory } from 'components/answerHistory'
 import { DeviationHistory } from 'components/deviationHistory'
-import withRopsten from 'enhancers/withRopsten'
+import withMainnet from 'enhancers/withMainnet'
 import { OracleTable } from 'components/oracleTable'
 
 const NetworkPage = ({ initContract, clearState, options }) => {
@@ -32,4 +32,4 @@ const mapDispatchToProps = {
   clearState: aggregationOperations.clearState,
 }
 
-export default connect(null, mapDispatchToProps)(withRopsten(NetworkPage))
+export default connect(null, mapDispatchToProps)(withMainnet(NetworkPage))

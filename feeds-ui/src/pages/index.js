@@ -7,6 +7,7 @@ import Testnet from './Testnet'
 import CreatePage from './Create'
 import CustomPage from './Custom'
 import RopstenPage from './Ropsten'
+import MainnetPage from './Mainnet'
 
 const AppRoutes = () => {
   return (
@@ -17,6 +18,7 @@ const AppRoutes = () => {
       <Route exact path="/create" component={CreatePage} />
       <Route exact path="/custom" component={CustomPage} />
       <Route path="/ropsten/:address" component={RopstenPage} />
+      <Route path="/mainnet/:address" component={MainnetPage} />
     </BrowserRouter>
   )
 }
