@@ -280,7 +280,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			ethClient := new(mocks.EthClient)
+			ethClient := new(mocks.Client)
 			config := cltest.NewTestConfig(t)
 			require.NoError(t, utils.JustError(store.KeyStore.NewAccount(cltest.Password)))
 			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
@@ -321,7 +321,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ethClient := new(mocks.EthClient)
+	ethClient := new(mocks.Client)
 
 	config := cltest.NewTestConfig(t)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())
