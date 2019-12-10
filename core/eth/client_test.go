@@ -2,6 +2,7 @@ package eth_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"math/big"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -153,4 +155,36 @@ func TestCallerSubscriberClient_GetERC20Balance(t *testing.T) {
 	expected.SetString("100000000000000000000000000000000000000", 10)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)
+}
+
+func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	caller, ethClient := cltest.MockeryStoreEth(t, store)
+	address := cltest.NewAddress()
+
+	tests := []struct {
+		response    string
+		precision   int
+		expectation float64
+	}{
+		{"0x0100", 2, 2.56},
+		{"10000000000000", 11, 100},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%f", test.expectation), func(t *testing.T) {
+			caller.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").
+				Return(func(result interface{}, method string, args ...interface{}) error {
+					res := result.(*string)
+					*res = test.response
+					return nil
+				})
+			result, err := ethClient.GetAggregatorPrice(address, test.precision)
+			require.NoError(t, err)
+			assert.Equal(t, test.expectation, result)
+			caller.AssertExpectations(t)
+		})
+	}
 }
