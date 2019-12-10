@@ -88,16 +88,15 @@ func NewRun(
 		Payment:        runRequest.Payment,
 	}
 
-	minimumPayment := job.MinPayment
-	if config.MinimumContractPayment() != nil {
-		minimumPayment = assets.Link(*utils.MaxBigs(
-			config.MinimumContractPayment().ToInt(),
-			job.MinPayment.ToInt(),
-		))
+	minimumPayment := assets.NewLink(0)
+	if job.MinPayment != nil {
+		minimumPayment = job.MinPayment
+	} else if config.MinimumContractPayment() != nil {
+		minimumPayment = config.MinimumContractPayment()
 	}
 
 	cost := &assets.Link{}
-	cost.Set(&minimumPayment)
+	cost.Set(minimumPayment)
 	for i, task := range job.Tasks {
 		adapter, err := adapters.For(task, config, orm)
 		if err != nil {
