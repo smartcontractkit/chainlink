@@ -2,14 +2,15 @@
 
 set -e
 
-source ./common
+source $SRCROOT/integration/common
 
 title 'Service Agreement test.'
 
 deploy_v05_contracts
 
-template_path=/chainlink/integration-scripts/src/fixtures/agreement_template.json
-current_spec_path=/chainlink/integration-scripts/src/fixtures/agreement.json
+fixtures_path=$SRCROOT/integration-scripts/src/fixtures
+template_path=$fixtures_path/agreement_template.json
+current_spec_path=$fixtures_path/agreement.json
 # Read in the spec template, and point it to the mean aggregator contract.
 jq ".aggregator=\"$MEAN_AGGREGATOR_ADDRESS\" | .oracles=[\"$CHAINLINK_NODE_ADDRESS\"]" < $template_path > $current_spec_path
 

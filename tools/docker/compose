@@ -29,7 +29,8 @@ Commands:
     build       Build all required base images
     test        Run the integration test suite
     test:dev    Run the integration test suite with /tools/ci/ethereum_test and /integration bind-mounted
-    dev         Run docker-compose with our dev configuration
+    dev         Run docker-compose with our dev configuration for the core node and operator-ui
+    dev:integ   Run docker-compose with out dev configuration for integration tests
     *           Run docker-compose with our base configuration"
 
 case "$1" in
@@ -64,10 +65,12 @@ case "$1" in
     $base down -v
     ;;
   test:dev)
-    $dev_integration build
     $deps up --exit-code-from wait-db wait-db 
     $dev_integration up --exit-code-from integration
     $dev_integration down -v
+    ;;
+  dev:integ)
+    $dev_integration ${@:2}
     ;;
   dev)
     $dev ${@:2}

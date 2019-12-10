@@ -2,7 +2,7 @@
 
 set -e
 
-source ./integration/common
+source $SRCROOT/integration/common
 
 trap exit_handler EXIT
 
@@ -20,7 +20,7 @@ launch_chainlink
 deploy_contracts
 
 heading 'Running tests...'
-cd /chainlink/integration
+cd $SRCROOT/integration
 
 ./runlog_test
 ./ethlog_test
