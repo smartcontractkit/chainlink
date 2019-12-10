@@ -20,6 +20,7 @@ import (
 
 	"chainlink/core/cmd"
 	"chainlink/core/eth"
+	"chainlink/core/internal/mocks"
 	"chainlink/core/logger"
 	"chainlink/core/services"
 	"chainlink/core/store"
@@ -58,6 +59,19 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 		log.Panic("MockEthOnStore only works on EthTxManager")
 	}
 	return mock
+}
+
+// MockeryStoreEth returns a mockery CallerSubscriber and an eth.Client used said mockery for
+// the passed Store.
+func MockeryStoreEth(t testing.TB, s *store.Store) (*mocks.CallerSubscriber, eth.Client) {
+	mockCaller := new(mocks.CallerSubscriber)
+	eth := &eth.CallerSubscriberClient{CallerSubscriber: mockCaller}
+	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
+		txm.Client = eth
+	} else {
+		log.Panic("MockeryStoreEth only works on EthTxManager")
+	}
+	return mockCaller, eth
 }
 
 // EthMock is a mock ethereum client
