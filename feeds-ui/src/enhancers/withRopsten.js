@@ -15,6 +15,7 @@ const ROPSTEN_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'BNB',
     counter: 1800,
+    path: 'bnb-usd',
   },
   {
     contractAddress: '0x1c44616CdB7FAe1ba69004ce6010248147CE019e',
@@ -22,6 +23,7 @@ const ROPSTEN_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'BTC',
     counter: 3600,
+    path: 'btc-usd',
   },
   {
     contractAddress: '0x46aD082e62D86089b7365320081685115F50d8B3',
@@ -29,6 +31,7 @@ const ROPSTEN_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'SNX',
     counter: 1800,
+    path: 'snx-usd',
   },
   {
     contractVersion: 2,
@@ -37,12 +40,14 @@ const ROPSTEN_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'XTZ',
     counter: 1800,
+    path: 'xtz-usd',
   },
   {
     contractAddress: '0x0Be00A19538Fac4BE07AC360C69378B870c412BF',
     name: 'ETH / USD aggregation',
     valuePrefix: '$',
     answerName: 'ETH',
+    path: 'eth-usd',
   },
   {
     contractVersion: 2,
@@ -51,6 +56,7 @@ const ROPSTEN_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'MKR',
     counter: 1800,
+    path: 'mkr-usd',
   },
   {
     contractVersion: 2,
@@ -59,6 +65,7 @@ const ROPSTEN_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'TRX',
     counter: 1800,
+    path: 'trx-usd',
   },
   {
     contractVersion: 2,
@@ -67,6 +74,7 @@ const ROPSTEN_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'AUD',
     counter: 3600,
+    path: 'aud-usd',
   },
   {
     contractVersion: 2,
@@ -75,6 +83,7 @@ const ROPSTEN_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'XAG',
     counter: 3600,
+    path: 'xag-usd',
   },
   {
     contractVersion: 2,
@@ -83,6 +92,7 @@ const ROPSTEN_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'CHF',
     counter: 3600,
+    path: 'chf-usd',
   },
   {
     contractVersion: 2,
@@ -91,6 +101,7 @@ const ROPSTEN_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'GBP',
     counter: 3600,
+    path: 'gbp-usd',
   },
   {
     contractVersion: 2,
@@ -99,6 +110,7 @@ const ROPSTEN_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'XAU',
     counter: 3600,
+    path: 'xau-usd',
   },
   {
     contractVersion: 2,
@@ -107,6 +119,7 @@ const ROPSTEN_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'EUR',
     counter: 3600,
+    path: 'eur-usd',
   },
   {
     contractVersion: 2,
@@ -115,6 +128,7 @@ const ROPSTEN_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'JPY',
     counter: 3600,
+    path: 'jpy-usd',
   },
 ]
 
@@ -125,8 +139,7 @@ const withRopsten = BaseComponent => {
   const Ropsten = props => {
     const { params } = props.match
     const hasContract = ROPSTEN_CONTRACTS.filter(
-      contract =>
-        contract.contractAddress.toLowerCase() === params.address.toLowerCase(),
+      contract => contract.path.toLowerCase() === params.pair.toLowerCase(),
     )
 
     if (!hasContract.length) {
