@@ -98,9 +98,9 @@ const initiateServiceAgreement = async ({
   }
 
   const oracleSignatures: OracleSignatures = {
+    vs: [sig.v],
     rs: [sig.r],
     ss: [sig.s],
-    vs: [sig.v],
   }
   const encodedSignatures = helpers.encodeOracleSignatures(oracleSignatures)
 
@@ -124,6 +124,9 @@ const initiateServiceAgreement = async ({
   const tx = await coordinator.initiateServiceAgreement(
     encodedSA,
     encodedSignatures,
+    {
+      gasLimit: 6082534,
+    },
   )
   console.log(tx)
   const iSAreceipt = await tx.wait()
