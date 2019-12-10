@@ -15,7 +15,7 @@ const OPTIONS = {
   name: 'ETH / USD aggregation',
   valuePrefix: '$',
   answerName: 'ETH',
-  counter: 300,
+  counter: 600,
   network: 'mainnet',
   history: true,
   bollinger: false,
