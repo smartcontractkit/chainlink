@@ -69,7 +69,7 @@ func NewRun(
 	currentHeight *big.Int,
 	runRequest *models.RunRequest,
 	config orm.ConfigReader,
-	orm *orm.ORM) (*models.JobRun, *assets.Link, *assets.Link) {
+	orm *orm.ORM) (*models.JobRun, *assets.Link) {
 
 	now := time.Now()
 	run := models.JobRun{
@@ -130,35 +130,22 @@ func NewRun(
 		run.TaskRuns[i] = taskRun
 	}
 
-	return &run, &minimumPayment, cost
+	return &run, cost
 }
 
 // ValidateRun ensures that a run's initial preconditions have been met
-func ValidateRun(run *models.JobRun, minimumPayment *assets.Link, cost *assets.Link) {
-
-	if !MeetsMinimumPayment(minimumPayment, run.Payment) {
-		logger.Infow("Rejecting run with insufficient payment",
-			run.ForLogger("required_payment", minimumPayment.String())...)
-
-		err := fmt.Errorf(
-			"Rejecting job %s with payment %s below job-specific-minimum threshold (%s)",
-			run.JobSpecID,
-			run.Payment,
-			minimumPayment.Text(10))
-		run.SetError(err)
-		return
-	}
+func ValidateRun(run *models.JobRun, contractCost *assets.Link) {
 
 	// payment is only present for runs triggered by runlogs
-	if run.Payment != nil && cost.Cmp(run.Payment) > 0 {
+	if run.Payment != nil && contractCost.Cmp(run.Payment) > 0 {
 		logger.Debugw("Rejecting run with insufficient payment",
-			run.ForLogger("required_payment", cost.String())...)
+			run.ForLogger("required_payment", contractCost.String())...)
 
 		err := fmt.Errorf(
 			"Rejecting job %s with payment %s below minimum threshold (%s)",
 			run.JobSpecID,
 			run.Payment,
-			cost.Text(10))
+			contractCost.Text(10))
 		run.SetError(err)
 		return
 	}
@@ -246,15 +233,8 @@ func (jm *runManager) Create(
 		return nil, fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID)
 	}
 
-	run, minimumPayment, cost := NewRun(
-		&job,
-		initiator,
-		data,
-		creationHeight,
-		runRequest,
-		jm.config,
-		jm.orm)
-	ValidateRun(run, minimumPayment, cost)
+	run, contractCost := NewRun(&job, initiator, data, creationHeight, runRequest, jm.config, jm.orm)
+	ValidateRun(run, contractCost)
 
 	if err := jm.orm.CreateJobRun(run); err != nil {
 		return nil, errors.Wrap(err, "CreateJobRun failed")
