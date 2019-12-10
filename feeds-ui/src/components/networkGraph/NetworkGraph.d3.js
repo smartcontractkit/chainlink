@@ -40,7 +40,11 @@ export default class NetworkGraph {
       .style('opacity', 0)
   }
 
-  updateNodes(nodes) {
+  updateNodes(updatedNodes) {
+    // Prevent from update redux store
+    // Fix it after D3 refactor
+    const nodes = JSON.parse(JSON.stringify(updatedNodes))
+
     const updateData = this.svg
       .select('.network-graph__nodes')
       .selectAll('g.network-graph__node-group')
@@ -189,6 +193,7 @@ export default class NetworkGraph {
     this.oracleTooltip.select('.price').text('')
     this.oracleTooltip.select('.date').text('')
     this.oracleTooltip.select('.block').text('')
+    this.oracleTooltip.select('.gas').text('')
 
     this.oracleTooltip.select('.name').text(() => d.name)
 
@@ -211,6 +216,10 @@ export default class NetworkGraph {
       this.oracleTooltip
         .select('.block')
         .text(() => `Block: ${d.state.meta.blockNumber}`)
+
+      this.oracleTooltip
+        .select('.gas')
+        .text(() => `Gas Price (Gwei): ${d.state.meta.gasPrice}`)
     }
   }
 

@@ -81,6 +81,7 @@ const NetworkGraph = ({
           <div className="details">
             <div className="date"></div>
             <div className="block"></div>
+            <div className="gas"></div>
           </div>
         </div>
 
