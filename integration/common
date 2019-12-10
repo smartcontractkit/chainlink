@@ -51,8 +51,6 @@ launch_chainlink() {
     yarn workspace @chainlink/integration-scripts fund-address
   fi
   popd 
-
-  
 }
 
 deploy_contracts() {
