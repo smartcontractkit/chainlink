@@ -26,7 +26,9 @@ RUN dpkg -i google-chrome-stable_current_amd64.deb
 ENV PATH=/chainlink/tools/bin:./node_modules/.bin:$PATH
 
 # Copy only what we neeed
-WORKDIR /chainlink
+ARG SRCROOT=/usr/local/src/chainlink
+WORKDIR ${SRCROOT}
+
 COPY yarn.lock package.json ./
 COPY evm/package.json evm/
 COPY evm/v0.5/package.json evm/v0.5/

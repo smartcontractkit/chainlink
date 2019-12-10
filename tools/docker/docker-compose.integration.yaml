@@ -7,6 +7,8 @@ services:
     build:
       context: ../../
       dockerfile: tools/docker/integration.Dockerfile
+      args:
+        - SRCROOT
     volumes:
       # Forwards the local Docker socket to the container.
       - /var/run/docker.sock:/var/run/docker.sock
@@ -15,6 +17,7 @@ services:
       - echo-server
       - cypress-job-server
     environment:
+      - SRCROOT
       - GETH_MODE
       - CHAINLINK_DEV=TRUE # need this for service agreements subcommand
       - CHAINLINK_URL
@@ -39,6 +42,8 @@ services:
     build:
       context: ../../
       dockerfile: tools/docker/echo-server.Dockerfile
+      args:
+        - SRCROOT
     environment:
       - PORT=$ECHO_SERVER_PORT
     networks:
@@ -50,6 +55,8 @@ services:
     build:
       context: ../../
       dockerfile: tools/docker/cypress-job-server.Dockerfile
+      args:
+        - SRCROOT
     command: '{\"last\":\ \"3843.95\"}'
     ports:
       - '6692:6692'

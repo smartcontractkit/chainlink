@@ -1,5 +1,8 @@
 #!/bin/bash
 
+LOG_PATH=/var/log/chainlink/integration/logs
+mkdir -p $LOG_PATH
+
 assert () {
   sleepCount=0
   while [ "$sleepCount" -le "30" ] && output=`eval $2`; do
@@ -58,11 +61,12 @@ deploy_contracts() {
   pushd integration >/dev/null
 
   # run migrations
-  yarn workspace @chainlink/integration-scripts deploy-contracts | tee /chainlink/integration/logs/deploy.log
-  export LINK_TOKEN_ADDRESS=`cat /chainlink/integration/logs/deploy.log | grep 'Deployed LinkToken at:' | awk '{print$4}'`
-  export ORACLE_CONTRACT_ADDRESS=`cat /chainlink/integration/logs/deploy.log | grep 'Deployed Oracle at:' | awk '{print$4}'`
-  export ETH_LOG_ADDRESS=`cat /chainlink/integration/logs/deploy.log | grep 'Deployed EthLog at:' | awk '{print$4}'`
-  export RUN_LOG_ADDRESS=`cat /chainlink/integration/logs/deploy.log | grep 'Deployed RunLog at:' | awk '{print$4}'`
+  local log=$LOG_PATH/deploy.log
+  yarn workspace @chainlink/integration-scripts deploy-contracts | tee $log
+  export LINK_TOKEN_ADDRESS=`cat $log | grep 'Deployed LinkToken at:' | awk '{print$4}'`
+  export ORACLE_CONTRACT_ADDRESS=`cat $log | grep 'Deployed Oracle at:' | awk '{print$4}'`
+  export ETH_LOG_ADDRESS=`cat $log | grep 'Deployed EthLog at:' | awk '{print$4}'`
+  export RUN_LOG_ADDRESS=`cat $log | grep 'Deployed RunLog at:' | awk '{print$4}'`
 
   echo "RunLog address: $RUN_LOG_ADDRESS"
   popd >/dev/null
@@ -70,15 +74,15 @@ deploy_contracts() {
 }
 
 deploy_v05_contracts() {
-    log_path=/chainlink/integration/logs/initiate-service-agreement.log
-    yarn workspace @chainlink/integration-scripts deploy-v0.5-contracts | tee $log_path
-    export LINK_TOKEN_ADDRESS=`cat $log_path | grep 'Deployed LinkToken at:' | awk '{print$4}'`
-    export COORDINATOR_ADDRESS=`cat $log_path | grep 'Deployed Coordinator at:' | awk '{print$4}'`
-    export MEAN_AGGREGATOR_ADDRESS=`cat $log_path | grep 'Deployed MeanAggregator at:' | awk '{print$4}'`
+    local log=$LOG_PATH/initiate-service-agreement.log
+    yarn workspace @chainlink/integration-scripts deploy-v0.5-contracts | tee log
+    export LINK_TOKEN_ADDRESS=`cat log | grep 'Deployed LinkToken at:' | awk '{print$4}'`
+    export COORDINATOR_ADDRESS=`cat log | grep 'Deployed Coordinator at:' | awk '{print$4}'`
+    export MEAN_AGGREGATOR_ADDRESS=`cat log | grep 'Deployed MeanAggregator at:' | awk '{print$4}'`
 }
 
 print_logs() {
-  for log in $(find "/chainlink/integration" -maxdepth 1 -type f -iname '*.log'); do
+  for log in $(find "$LOG_PATH" -maxdepth 1 -type f -iname '*.log'); do
     heading "$log"
     cat $log
   done
