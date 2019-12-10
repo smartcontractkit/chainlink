@@ -126,8 +126,7 @@ const withRopsten = BaseComponent => {
     const { params } = props.match
     const hasContract = ROPSTEN_CONTRACTS.filter(
       contract =>
-        contract.contractAddress.toLocaleLowerCase() ===
-        params.address.toLocaleLowerCase(),
+        contract.contractAddress.toLowerCase() === params.address.toLowerCase(),
     )
 
     if (!hasContract.length) {
