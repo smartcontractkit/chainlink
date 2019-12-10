@@ -492,20 +492,24 @@ export function hexToBuf(hexstr: string): Buffer {
 const { CoordinatorFactory } = chainlinkv05
 type Hash = ReturnType<typeof ethers.utils.keccak256>
 
-export const encodeServiceAgreement = (serviceAgreement: ServiceAgreement) => {
-  return ethers.utils.defaultAbiCoder.encode(
-    SERVICE_AGREEMENT_TYPES,
-    Object.values(serviceAgreement),
-  )
+export const encodeServiceAgreement = (sa: ServiceAgreement) => {
+  const saParams = [
+    sa.payment,
+    sa.expiration,
+    sa.endAt,
+    sa.oracles,
+    sa.requestDigest,
+    sa.aggregator,
+    sa.aggInitiateJobSelector,
+    sa.aggFulfillSelector,
+  ]
+  return ethers.utils.defaultAbiCoder.encode(SERVICE_AGREEMENT_TYPES, saParams)
 }
 
-export const encodeOracleSignatures = (oracleSignatures: OracleSignatures) => {
-  return ethers.utils.defaultAbiCoder.encode(
-    ORACLE_SIGNATURES_TYPES,
-    Object.values(oracleSignatures),
-  )
+export const encodeOracleSignatures = (os: OracleSignatures) => {
+  const osParams = [os.vs, os.rs, os.ss]
+  return ethers.utils.defaultAbiCoder.encode(ORACLE_SIGNATURES_TYPES, osParams)
 }
-
 /**
  * Digest of the ServiceAgreement.
  */
