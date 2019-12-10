@@ -109,14 +109,15 @@ jobs:
       - run: ./tools/ci/sgx_test
   geth-postgres:
     resource_class: large
+    environment:
+      GETH_MODE: true
     machine:
       image: ubuntu-1604:201903-01
       docker_layer_caching: true
     working_directory: ~/chainlink
     steps:
-      - run: sudo curl -L "https://github.com/docker/compose/releases/download/1.25.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-      - run: sudo chmod +x /usr/local/bin/docker-compose
       - checkout
+      - run: cd ./tools/docker && ./compose build
       - run: cd ./tools/docker && ./compose test
   parity-postgres:
     resource_class: large
@@ -124,12 +125,9 @@ jobs:
       image: ubuntu-1604:201903-01
       docker_layer_caching: true
     working_directory: ~/chainlink
-    environment:
-      GETH_MODE: true
     steps:
-      - run: sudo curl -L "https://github.com/docker/compose/releases/download/1.25.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-      - run: sudo chmod +x /usr/local/bin/docker-compose
       - checkout
+      - run: cd ./tools/docker && ./compose build
       - run: cd ./tools/docker && ./compose test
   truffle:
     resource_class: large
