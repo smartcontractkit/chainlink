@@ -60,7 +60,7 @@ const MAINNET_CONTRACTS = [
     counter: 3600,
   },
   {
-    contractAddress: '',
+    contractAddress: '0xF5fff180082d6017036B771bA883025c654BC935',
     name: 'BTC / USD aggregation',
     valuePrefix: '$',
     answerName: 'BTC',
