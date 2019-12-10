@@ -187,7 +187,7 @@ func generateSAID(e Encumbrance, digest common.Hash) (common.Hash, error) {
 func (e Encumbrance) ABI(digest common.Hash) ([]byte, error) {
 	buffer := bytes.Buffer{}
 	var paymentHash common.Hash
-	if !e.Payment.IsZero() {
+	if e.Payment != nil {
 		paymentHash = e.Payment.ToHash()
 	}
 	_, err := buffer.Write(paymentHash.Bytes())

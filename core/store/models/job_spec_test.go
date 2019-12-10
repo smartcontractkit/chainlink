@@ -61,7 +61,7 @@ func TestNewJobFromRequest(t *testing.T) {
 		Tasks:      cltest.BuildTaskRequests(t, j1.Tasks),
 		StartAt:    j1.StartAt,
 		EndAt:      j1.EndAt,
-		MinPayment: *assets.NewLink(5),
+		MinPayment: assets.NewLink(5),
 	}
 
 	j2 := models.NewJobFromRequest(jsr)
@@ -71,13 +71,13 @@ func TestNewJobFromRequest(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, fetched1.Initiators, 1)
 	assert.Len(t, fetched1.Tasks, 1)
-	assert.Equal(t, fetched1.MinPayment, *assets.NewLink(0))
+	assert.Nil(t, fetched1.MinPayment)
 
 	fetched2, err := store.FindJob(j2.ID)
 	assert.NoError(t, err)
 	assert.Len(t, fetched2.Initiators, 1)
 	assert.Len(t, fetched2.Tasks, 1)
-	assert.Equal(t, fetched2.MinPayment, *assets.NewLink(5))
+	assert.Equal(t, assets.NewLink(5), fetched2.MinPayment)
 }
 
 func TestJobSpec_Save(t *testing.T) {
