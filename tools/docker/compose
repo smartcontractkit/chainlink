@@ -1,11 +1,14 @@
 #!/bin/bash
 set -e
 
-# Enable buildkit support
+# Enable buildkit support locally
+if [ -z $CI ]; then
 export COMPOSE_DOCKER_CLI_BUILD=1
 export DOCKER_BUILDKIT=1
+fi
 
 all_files="-f docker-compose.yaml -f docker-compose.postgres.yaml -f docker-compose.integration.yaml"
+# Allow for choosing between geth or parity
 if [ $GETH_MODE ]; then
   all_files="$all_files -f docker-compose.gethnet.yaml"
 else 
@@ -23,6 +26,7 @@ Commands:
     cld         Runs the chainlink node container in dev mode
     cldo        cld in addition to operator-ui in dev mode
     clean       Remove any containers and volumes related to compose files
+    build       Build all required base images
     test        Run the integration test suite
     test:dev    Run the integration test suite with /tools/ci/ethereum_test and /integration bind-mounted
     dev         Run docker-compose with our dev configuration
@@ -46,8 +50,15 @@ case "$1" in
     $deps down -v
     $dev down -v
     ;;
+  build)
+    if [ $CI ]; then
+      # parallel builds are supported for legacy (not buildkit) docker build backends
+      $base build --parallel
+    else
+      $base build
+    fi
+    ;;
   test)
-    $base build
     $deps up --exit-code-from wait-db wait-db 
     $base up --exit-code-from integration
     $base down -v
