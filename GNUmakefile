@@ -30,6 +30,9 @@ TAGGED_REPO := $(REPO):$(DOCKER_TAG)
 
 .PHONY: install
 install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
+
+.PHONY: install-git-hooks
+install-git-hooks:
 	git config core.hooksPath .githooks
 
 .PHONY: install-chainlink-autoinstall
