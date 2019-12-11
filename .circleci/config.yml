@@ -117,7 +117,6 @@ jobs:
     working_directory: ~/chainlink
     steps:
       - checkout
-      - run: cd ./tools/docker && ./compose build
       - run: cd ./tools/docker && ./compose test
   parity-postgres:
     resource_class: large
@@ -127,7 +126,6 @@ jobs:
     working_directory: ~/chainlink
     steps:
       - checkout
-      - run: cd ./tools/docker && ./compose build
       - run: cd ./tools/docker && ./compose test
   truffle:
     resource_class: large
