@@ -30,7 +30,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
-	null "gopkg.in/guregu/null.v3"
 )
 
 // NewJob return new NoOp JobSpec
@@ -152,6 +151,34 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	return tx
 }
 
+func NewTransaction(nonce uint64, sentAtV ...uint64) *models.Tx {
+	from := common.HexToAddress("0xf208000000000000000000000000000000000000")
+	to := common.HexToAddress("0x7000000000000000000000000000000000000000")
+
+	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
+	gasLimit := uint64(50000)
+	data := hexutil.MustDecode("0xda7ada7a")
+
+	sentAt := uint64(0)
+	if len(sentAtV) > 0 {
+		sentAt = sentAtV[0]
+	}
+
+	transaction := types.NewTransaction(nonce, to, value, gasLimit, new(big.Int), data)
+	return &models.Tx{
+		From:        from,
+		SentAt:      sentAt,
+		To:          *transaction.To(),
+		Nonce:       transaction.Nonce(),
+		Data:        transaction.Data(),
+		Value:       utils.NewBig(transaction.Value()),
+		GasLimit:    transaction.Gas(),
+		GasPrice:    utils.NewBig(transaction.GasPrice()),
+		Hash:        transaction.Hash(),
+		SignedRawTx: "signed-raw",
+	}
+}
+
 // CreateTx creates a Tx from a specified address, and sentAt
 func CreateTx(
 	t testing.TB,
@@ -172,10 +199,53 @@ func CreateTxWithNonce(
 ) *models.Tx {
 	data := make([]byte, 36)
 	binary.LittleEndian.PutUint64(data, sentAt)
-	ethTx := types.NewTransaction(nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), data)
-	tx, err := store.CreateTx(null.String{}, ethTx, &from, sentAt)
+
+	transaction := types.NewTransaction(nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), data)
+	tx := &models.Tx{
+		From:        from,
+		SentAt:      sentAt,
+		To:          *transaction.To(),
+		Nonce:       transaction.Nonce(),
+		Data:        transaction.Data(),
+		Value:       utils.NewBig(transaction.Value()),
+		GasLimit:    transaction.Gas(),
+		GasPrice:    utils.NewBig(transaction.GasPrice()),
+		Hash:        transaction.Hash(),
+		SignedRawTx: "signed-raw-attempt 1",
+	}
+
+	tx, err := store.CreateTx(tx)
+	require.NoError(t, err)
+	_, err = store.AddTxAttempt(tx, tx)
 	require.NoError(t, err)
 	return tx
+}
+
+func AddTxAttempt(
+	t testing.TB,
+	store *strpkg.Store,
+	tx *models.Tx,
+	etx *types.Transaction,
+	blkNum uint64,
+) *models.TxAttempt {
+	transaction := types.NewTransaction(tx.Nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), tx.Data)
+
+	newTxAttempt := &models.Tx{
+		From:        tx.From,
+		SentAt:      blkNum,
+		To:          *transaction.To(),
+		Nonce:       transaction.Nonce(),
+		Data:        transaction.Data(),
+		Value:       utils.NewBig(transaction.Value()),
+		GasLimit:    transaction.Gas(),
+		GasPrice:    utils.NewBig(transaction.GasPrice()),
+		Hash:        transaction.Hash(),
+		SignedRawTx: fmt.Sprintf("signed-raw-attempt %d", len(tx.Attempts)+1),
+	}
+
+	txAttempt, err := store.AddTxAttempt(tx, newTxAttempt)
+	require.NoError(t, err)
+	return txAttempt
 }
 
 // NewHash return random Keccak256

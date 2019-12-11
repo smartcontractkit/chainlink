@@ -1,7 +1,6 @@
 package orm_test
 
 import (
-	"encoding/hex"
 	"io"
 	"math/big"
 	"os"
@@ -18,8 +17,6 @@ import (
 	"chainlink/core/store/orm"
 	"chainlink/core/utils"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -467,41 +464,24 @@ func TestORM_CreateTx(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
-	to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
-	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
-	nonce := uint64(1232421)
-	gasLimit := uint64(50000)
-	data, err := hex.DecodeString("0987612345abcdef")
-	assert.NoError(t, err)
+	transaction := cltest.NewTransaction(9182731)
 
-	ethTx := types.NewTransaction(
-		nonce,
-		to,
-		value,
-		gasLimit,
-		new(big.Int),
-		data,
-	)
-
-	tx, err := store.CreateTx(null.String{}, ethTx, &from, 0)
+	tx, err := store.CreateTx(transaction)
 	require.NoError(t, err)
-
-	// CreateTx should also include an initial attempt
-	assert.Len(t, tx.Attempts, 1)
+	assert.Len(t, tx.Attempts, 0)
 
 	txs := []models.Tx{}
-	assert.NoError(t, store.Where("Nonce", nonce, &txs))
+	assert.NoError(t, store.Where("Nonce", transaction.Nonce, &txs))
 	require.Len(t, txs, 1)
 	ntx := txs[0]
 
 	assert.NotNil(t, ntx.ID)
-	assert.Equal(t, from, ntx.From)
-	assert.Equal(t, to, ntx.To)
-	assert.Equal(t, data, ntx.Data)
-	assert.Equal(t, nonce, ntx.Nonce)
-	assert.Equal(t, value, ntx.Value.ToInt())
-	assert.Equal(t, gasLimit, ntx.GasLimit)
+	assert.NotEmpty(t, ntx.From)
+	assert.NotEmpty(t, ntx.To)
+	assert.NotEmpty(t, ntx.Data)
+	assert.NotEmpty(t, ntx.Nonce)
+	assert.NotEmpty(t, ntx.Value.ToInt())
+	assert.NotEmpty(t, ntx.GasLimit)
 }
 
 func TestORM_CreateTx_WithSurrogateIDIsIdempotent(t *testing.T) {
@@ -509,99 +489,24 @@ func TestORM_CreateTx_WithSurrogateIDIsIdempotent(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
-	to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
-	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
-	nonce := uint64(1232421)
-	gasLimit := uint64(50000)
-	data, err := hex.DecodeString("0987612345abcdef")
+	transaction := cltest.NewTransaction(0)
+	transaction.SurrogateID = null.StringFrom("9182323")
+	tx1, err := store.CreateTx(transaction)
 	assert.NoError(t, err)
 
-	surrogateID := null.StringFrom("1")
-
-	ethTx := types.NewTransaction(
-		nonce,
-		to,
-		value,
-		gasLimit,
-		new(big.Int),
-		data,
-	)
-
-	tx1, err := store.CreateTx(surrogateID, ethTx, &from, 0)
-	assert.NoError(t, err)
-
-	ethTxWithNewNonce := types.NewTransaction(
-		nonce+1,
-		to,
-		value,
-		gasLimit,
-		new(big.Int),
-		data,
-	)
-
-	tx2, err := store.CreateTx(surrogateID, ethTxWithNewNonce, &from, 0)
+	transaction2 := cltest.NewTransaction(1)
+	transaction2.SurrogateID = null.StringFrom("9182323")
+	tx2, err := store.CreateTx(transaction2)
 	assert.NoError(t, err)
 
 	// IDs should be the same because only record should ever be created
 	assert.Equal(t, tx1.ID, tx2.ID)
 
 	// New nonce should be saved
-	assert.NotEqual(t, tx1.Nonce, tx2.Nonce)
+	assert.Equal(t, transaction2.Nonce, tx2.Nonce)
 
-	// New nonce should change the signature generated and hash
-	assert.NotEqual(t, tx1.SignedRawTx, tx2.SignedRawTx)
-	assert.NotEqual(t, tx1.Hash, tx2.Hash)
-}
-
-func TestORM_UpdateTx(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
-	to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
-	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
-	nonce := uint64(1232421)
-	gasLimit := uint64(50000)
-	data, err := hex.DecodeString("0987612345abcdef")
-	assert.NoError(t, err)
-
-	ethTx := types.NewTransaction(
-		nonce,
-		to,
-		value,
-		gasLimit,
-		new(big.Int),
-		data,
-	)
-
-	tx, err := store.CreateTx(null.String{}, ethTx, &from, 0)
-	assert.NoError(t, err)
-
-	oldNonce := tx.Nonce
-	oldHash := tx.Hash
-	oldSignedRawTx := tx.SignedRawTx
-
-	ethTxWithNewNonce := types.NewTransaction(
-		nonce+1,
-		to,
-		value,
-		gasLimit,
-		new(big.Int),
-		data,
-	)
-
-	err = store.UpdateTx(tx, ethTxWithNewNonce, &from, 0)
-	assert.NoError(t, err)
-
-	// tx fields are updated to match new ethTx
-	assert.NotEqual(t, tx.Nonce, oldNonce)
-	assert.NotEqual(t, tx.SignedRawTx, oldSignedRawTx)
-	assert.NotEqual(t, tx.Hash, oldHash)
-
-	// No additional attempts are created
-	assert.Len(t, tx.Attempts, 1)
+	// New nonce should change the hash
+	assert.Equal(t, transaction2.Hash, tx2.Hash)
 }
 
 func TestORM_AddTxAttempt(t *testing.T) {
@@ -609,40 +514,21 @@ func TestORM_AddTxAttempt(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
-	to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
-	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
-	nonce := uint64(1232421)
-	gasLimit := uint64(50000)
-	data, err := hex.DecodeString("0987612345abcdef")
+	transaction := cltest.NewTransaction(0)
+
+	tx, err := store.CreateTx(transaction)
 	assert.NoError(t, err)
 
-	ethTx := types.NewTransaction(
-		nonce,
-		to,
-		value,
-		gasLimit,
-		new(big.Int),
-		data,
-	)
-
-	tx, err := store.CreateTx(null.String{}, ethTx, &from, 0)
+	txAttempt, err := store.AddTxAttempt(tx, transaction)
 	assert.NoError(t, err)
+	require.Len(t, tx.Attempts, 1)
+	assert.Equal(t, tx.ID, txAttempt.TxID)
+	assert.Equal(t, tx.Attempts[0], txAttempt)
 
-	ethTxWithNewNonce := types.NewTransaction(
-		nonce+1,
-		to,
-		value,
-		gasLimit,
-		new(big.Int),
-		data,
-	)
-
-	// New EthTx generates a new attempt record
-	txAttempt, err := store.AddTxAttempt(tx, ethTxWithNewNonce, 1)
+	transaction = cltest.NewTransaction(1)
+	txAttempt, err = store.AddTxAttempt(tx, transaction)
 	assert.NoError(t, err)
-
-	assert.Len(t, tx.Attempts, 2)
+	require.Len(t, tx.Attempts, 2)
 	assert.Equal(t, tx.ID, txAttempt.TxID)
 	assert.Equal(t, tx.Attempts[1], txAttempt)
 
@@ -651,27 +537,20 @@ func TestORM_AddTxAttempt(t *testing.T) {
 	assert.Equal(t, tx.Hash, txAttempt.Hash)
 
 	// Another attempt with exact same EthTx still generates a new attempt record
-	txAttempt, err = store.AddTxAttempt(tx, ethTxWithNewNonce, 1)
+	txAttempt, err = store.AddTxAttempt(tx, transaction)
 	assert.NoError(t, err)
 
-	assert.Len(t, tx.Attempts, 3)
+	require.Len(t, tx.Attempts, 3)
 	assert.Equal(t, tx.ID, txAttempt.TxID)
 	assert.Equal(t, tx.Attempts[2], txAttempt)
 
-	ethTxWithNewGasLimit := types.NewTransaction(
-		nonce+1,
-		to,
-		value,
-		gasLimit+1,
-		new(big.Int),
-		data,
-	)
+	transaction = cltest.NewTransaction(3)
 
 	// Another attempt with new EthTx updates Tx hash/rawTx etc.
-	txAttempt, err = store.AddTxAttempt(tx, ethTxWithNewGasLimit, 1)
+	txAttempt, err = store.AddTxAttempt(tx, transaction)
 	assert.NoError(t, err)
 
-	assert.Len(t, tx.Attempts, 4)
+	require.Len(t, tx.Attempts, 4)
 	assert.Equal(t, tx.ID, txAttempt.TxID)
 	assert.Equal(t, tx.Attempts[3], txAttempt)
 	assert.Equal(t, tx.Hash, txAttempt.Hash)
@@ -974,12 +853,12 @@ func TestORM_DeleteTransaction(t *testing.T) {
 
 	from := cltest.GetAccountAddress(t, store)
 	tx := cltest.CreateTx(t, store, from, 1)
-	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
-	require.NoError(t, err)
+	transaction := cltest.NewTransaction(0)
+	require.NoError(t, utils.JustError(store.AddTxAttempt(tx, transaction)))
 
 	require.NoError(t, store.DeleteTransaction(tx))
 
-	tx, err = store.FindTx(tx.ID)
+	_, err = store.FindTx(tx.ID)
 	require.Error(t, err)
 }
 
@@ -1013,7 +892,7 @@ func TestORM_AllSyncEvents(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.Len(t, events, 2)
+	require.Len(t, events, 2)
 	assert.Greater(t, events[1].ID, events[0].ID)
 }
 
@@ -1127,8 +1006,8 @@ func TestORM_FindTxAttempt_PastAttempt(t *testing.T) {
 
 	from := cltest.GetAccountAddress(t, store)
 	tx := cltest.CreateTx(t, store, from, 1)
-	_, err = store.AddTxAttempt(tx, tx.EthTx(big.NewInt(3)), 3)
-	require.NoError(t, err)
+	transaction := cltest.NewTransaction(0)
+	require.NoError(t, utils.JustError(store.AddTxAttempt(tx, transaction)))
 
 	txAttempt, err := store.FindTxAttempt(tx.Attempts[0].Hash)
 	require.NoError(t, err)
@@ -1183,8 +1062,9 @@ func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
 	from := cltest.GetAccountAddress(t, store)
 	createdTx := cltest.CreateTx(t, store, from, 1)
 	pastTxAttempt := createdTx.Attempts[0]
-	_, err = store.AddTxAttempt(createdTx, createdTx.EthTx(big.NewInt(3)), 3)
-	require.NoError(t, err)
+
+	transaction := cltest.NewTransaction(0)
+	require.NoError(t, utils.JustError(store.AddTxAttempt(createdTx, transaction)))
 
 	fetchedTx, pastTxAttempt, err := store.FindTxByAttempt(pastTxAttempt.Hash)
 	require.NoError(t, err)
@@ -1250,11 +1130,11 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 
 	dbkeys, err := store.Keys()
 	require.NoError(t, err)
-	assert.Len(t, dbkeys, 1)
+	require.Len(t, dbkeys, 1)
 
 	diskkeys, err := utils.FilesInDir(keysDir)
 	require.NoError(t, err)
-	assert.Len(t, diskkeys, 1)
+	require.Len(t, diskkeys, 1)
 
 	key := dbkeys[0]
 	content, err := utils.FileContents(filepath.Join(keysDir, diskkeys[0]))
@@ -1305,36 +1185,27 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	// tx #1, 4 attempts
-	{
-		from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
-		to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
-		value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
-		nonce := uint64(1232421)
-		gasLimit := uint64(50000)
-		data, err := hex.DecodeString("0987612345abcdef")
-		assert.NoError(t, err)
-
-		ethTx := types.NewTransaction(
-			nonce,
-			to,
-			value,
-			gasLimit,
-			new(big.Int),
-			data,
-		)
-
-		tx, err := store.CreateTx(null.String{}, ethTx, &from, 0)
+	t.Run("tx #1, 4 attempts", func(t *testing.T) {
+		transaction := cltest.NewTransaction(0, 0)
+		transaction.SurrogateID = null.StringFrom("0")
+		tx, err := store.CreateTx(transaction)
 		require.NoError(t, err)
 
-		_, err = store.AddTxAttempt(tx, ethTx, 1)
+		_, err = store.AddTxAttempt(tx, transaction)
 		require.NoError(t, err)
 
-		_, err = store.AddTxAttempt(tx, ethTx, 2)
+		transaction = cltest.NewTransaction(0, 1)
+		_, err = store.AddTxAttempt(tx, transaction)
 		require.NoError(t, err)
 
-		_, err = store.AddTxAttempt(tx, ethTx, 3)
+		transaction = cltest.NewTransaction(0, 2)
+		_, err = store.AddTxAttempt(tx, transaction)
 		require.NoError(t, err)
+
+		transaction = cltest.NewTransaction(0, 3)
+		_, err = store.AddTxAttempt(tx, transaction)
+		require.NoError(t, err)
+		require.Len(t, tx.Attempts, 4)
 
 		tx.Attempts[0].GasPrice = utils.NewBig(big.NewInt(1111))
 		tx.Attempts[1].GasPrice = utils.NewBig(big.NewInt(2222))
@@ -1345,35 +1216,25 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 			return db.Save(&tx).Error
 		})
 		require.NoError(t, err)
-	}
+	})
 
-	// tx #2, 3 attempts
-	{
-		from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
-		to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
-		value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
-		nonce := uint64(33322211)
-		gasLimit := uint64(50000)
-		data, err := hex.DecodeString("0987612345abcdef")
-		assert.NoError(t, err)
-
-		ethTx := types.NewTransaction(
-			nonce,
-			to,
-			value,
-			gasLimit,
-			new(big.Int),
-			data,
-		)
-
-		tx, err := store.CreateTx(null.String{}, ethTx, &from, 0)
+	t.Run("tx #2, 3 attempts", func(t *testing.T) {
+		transaction := cltest.NewTransaction(0)
+		transaction.SurrogateID = null.StringFrom("1")
+		tx, err := store.CreateTx(transaction)
 		require.NoError(t, err)
 
-		_, err = store.AddTxAttempt(tx, ethTx, 1)
+		_, err = store.AddTxAttempt(tx, transaction)
 		require.NoError(t, err)
 
-		_, err = store.AddTxAttempt(tx, ethTx, 2)
+		transaction = cltest.NewTransaction(0, 1)
+		_, err = store.AddTxAttempt(tx, transaction)
 		require.NoError(t, err)
+
+		transaction = cltest.NewTransaction(0, 2)
+		_, err = store.AddTxAttempt(tx, transaction)
+		require.NoError(t, err)
+		require.Len(t, tx.Attempts, 3)
 
 		tx.Attempts[0].GasPrice = utils.NewBig(big.NewInt(5555))
 		tx.Attempts[1].GasPrice = utils.NewBig(big.NewInt(6666))
@@ -1383,31 +1244,19 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 			return db.Save(&tx).Error
 		})
 		require.NoError(t, err)
-	}
+	})
 
-	// tx #3, 2 attempts
-	{
-		from := common.HexToAddress("0x2C83ACd90367e7E0D3762eA31aC77F18faecE874")
-		to := common.HexToAddress("0x4A7d17De4B3eC94c59BF07764d9A6e97d92A547A")
-		value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
-		nonce := uint64(432211)
-		gasLimit := uint64(50000)
-		data, err := hex.DecodeString("0987612345abcdef")
-		assert.NoError(t, err)
-
-		ethTx := types.NewTransaction(
-			nonce,
-			to,
-			value,
-			gasLimit,
-			new(big.Int),
-			data,
-		)
-
-		tx, err := store.CreateTx(null.String{}, ethTx, &from, 0)
+	t.Run("tx #2, 2 attempts", func(t *testing.T) {
+		transaction := cltest.NewTransaction(0)
+		transaction.SurrogateID = null.StringFrom("2")
+		tx, err := store.CreateTx(transaction)
 		require.NoError(t, err)
 
-		_, err = store.AddTxAttempt(tx, ethTx, 1)
+		_, err = store.AddTxAttempt(tx, transaction)
+		require.NoError(t, err)
+
+		transaction = cltest.NewTransaction(0, 1)
+		_, err = store.AddTxAttempt(tx, transaction)
 		require.NoError(t, err)
 
 		// This tx's attempts should not appear in the results
@@ -1417,7 +1266,7 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 			return db.Save(&tx).Error
 		})
 		require.NoError(t, err)
-	}
+	})
 
 	attempts, err := store.ORM.UnconfirmedTxAttempts()
 	require.NoError(t, err)
