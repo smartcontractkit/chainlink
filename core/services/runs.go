@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"chainlink/core/assets"
 	"chainlink/core/eth"
 	"chainlink/core/logger"
 	clnull "chainlink/core/null"
@@ -12,19 +11,6 @@ import (
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 )
-
-// MeetsMinimumPayment is a helper that returns true if jobrun received
-// sufficient payment (more than jobspec's MinimumPayment) to be considered successful
-func MeetsMinimumPayment(
-	expectedMinJobPayment *assets.Link,
-	actualRunPayment *assets.Link) bool {
-
-	// expectedMinJobPayment (input.Payment) is always present for runs triggered by ethlogs
-	if actualRunPayment == nil || expectedMinJobPayment.IsZero() {
-		return true
-	}
-	return expectedMinJobPayment.Cmp(actualRunPayment) <= 0
-}
 
 func validateMinimumConfirmations(run *models.JobRun, taskRun *models.TaskRun, currentHeight *utils.Big, txManager store.TxManager) {
 	updateTaskRunConfirmations(currentHeight, run, taskRun)
