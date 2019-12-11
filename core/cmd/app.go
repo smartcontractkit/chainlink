@@ -314,24 +314,26 @@ func NewApp(client *Client) *cli.App {
 				Name:   "createextrakey",
 				Usage:  "Create a key in the node's keystore alongside the existing key; to create an original key, just run the node",
 				Action: client.CreateExtraKey,
-			},
-
-			cli.Command{
-				Name:  "initiators",
-				Usage: "Commands for managing External Initiators",
-				Subcommands: []cli.Command{
-					{
-						Name:   "create",
-						Usage:  "Create an authentication key for a user of External Initiators",
-						Action: client.CreateExternalInitiator,
-					},
-					{
-						Name:   "destroy",
-						Usage:  "Remove an authentication key",
-						Action: client.DeleteExternalInitiator,
-					},
-				},
 			})
+	}
+
+	if client.Config.Dev() || client.Config.FeatureExternalInitiators() {
+		app.Commands = append(app.Commands, cli.Command{
+			Name:  "initiators",
+			Usage: "Commands for managing External Initiators",
+			Subcommands: []cli.Command{
+				{
+					Name:   "create",
+					Usage:  "Create an authentication key for a user of External Initiators",
+					Action: client.CreateExternalInitiator,
+				},
+				{
+					Name:   "destroy",
+					Usage:  "Remove an authentication key",
+					Action: client.DeleteExternalInitiator,
+				},
+			},
+		})
 	}
 
 	return app
