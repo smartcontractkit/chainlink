@@ -93,6 +93,10 @@ const NODE_NAMES = [
     address: '0x72f3dFf4CD17816604dd2df6C2741e739484CA62',
     name: 'Alpha Vantage',
   },
+  {
+    address: '0x29e3b3c76e7ae0d681bf1a6BceE1c0E7d17DBAA9',
+    name: 'P2P.org',
+  },
 
   // ROPSTEN
 
