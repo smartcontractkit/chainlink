@@ -21,7 +21,7 @@ interface ServiceAgreement {
 }
 
 interface OracleSignatures {
-  vs: number[] // uint8[]
+  vs: ethers.utils.BigNumberish[] // uint8[]
   rs: string[] // bytes32[]
   ss: string[] // bytes32[]
 }
@@ -124,9 +124,6 @@ const initiateServiceAgreement = async ({
   const tx = await coordinator.initiateServiceAgreement(
     encodedSA,
     encodedSignatures,
-    {
-      gasLimit: 6082534,
-    },
   )
   console.log(tx)
   const iSAreceipt = await tx.wait()
