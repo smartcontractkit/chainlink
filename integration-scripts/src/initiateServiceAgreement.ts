@@ -8,23 +8,8 @@ import {
 } from './common'
 import { ethers } from 'ethers'
 const { CoordinatorFactory } = chainlink
-
-interface ServiceAgreement {
-  payment: ethers.utils.BigNumberish // uint256
-  expiration: ethers.utils.BigNumberish // uint256
-  endAt: ethers.utils.BigNumberish // uint256
-  oracles: string[] // 0x hex representation of oracle addresses (uint160's)
-  requestDigest: string // 0x hex representation of bytes32
-  aggregator: string // 0x hex representation of aggregator address
-  aggInitiateJobSelector: string // 0x hex representation of aggregator.initiateAggregatorForJob function selector (uint32)
-  aggFulfillSelector: string // function selector for aggregator.fulfill
-}
-
-interface OracleSignatures {
-  vs: ethers.utils.BigNumberish[] // uint8[]
-  rs: string[] // bytes32[]
-  ss: string[] // bytes32[]
-}
+type OracleSignatures = helpers.OracleSignatures
+type ServiceAgreement = helpers.ServiceAgreement
 
 /**
  * This json definition may be missing types, it was generated from a fixture.
