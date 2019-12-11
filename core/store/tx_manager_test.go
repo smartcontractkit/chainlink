@@ -42,11 +42,10 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 
 	from := account.Address
 	to := cltest.NewAddress()
-	data, err := hex.DecodeString("0000abcdef")
+	data := hexutil.MustDecode("0x0000abcdef")
 	nonce := uint64(256)
 
 	manager.Register(keyStore.Accounts())
-	require.NoError(t, err)
 
 	ethClient.On("GetNonce", from).Return(nonce, nil)
 
@@ -187,7 +186,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	assert.Len(t, ntx.Attempts, 1)
 
 	manager.OnNewHead(cltest.Head(bumpAt))
-	ethClient.On("GetTxReceipt", mock.Anything).Return(&eth.TxReceipt{}, nil)
+	ethClient.On("GetTxReceipt", mock.Anything).Once().Return(&eth.TxReceipt{}, nil)
 	ethClient.On("SendRawTx", mock.Anything).Return(tx.Attempts[0].Hash, nil)
 
 	receipt, state, err := manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
@@ -196,8 +195,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	assert.Equal(t, strpkg.Unconfirmed, state)
 
 	manager.OnNewHead(cltest.Head(bumpAgainAt))
-	ethClient.On("GetTxReceipt", mock.Anything).Return(&eth.TxReceipt{}, nil)
-	ethClient.On("GetTxReceipt", mock.Anything).Return(&eth.TxReceipt{}, nil)
+	ethClient.On("GetTxReceipt", mock.Anything).Twice().Return(&eth.TxReceipt{}, nil)
 
 	receipt, state, err = manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	require.NoError(t, err)
@@ -244,12 +242,6 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, txs, 1)
 
-	txAttempts, _, err := store.TxAttempts(0, 100)
-	assert.NoError(t, err)
-	assert.Len(t, txAttempts, 1)
-
-	assert.Equal(t, txs[0].Hash, txAttempts[0].Hash)
-
 	hash := cltest.NewHash()
 	ethMock.Context("manager.CreateTx#2", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_sendRawTransaction", hash)
@@ -282,39 +274,31 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 		{"parity", "Transaction with the same hash was already imported"},
 	}
 
-	for _, test := range tests {
+	for _, tt := range tests {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
-			app, cleanup := cltest.NewApplicationWithKey(t)
+			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
-			store := app.Store
-			manager := store.TxManager
+
+			ethClient := new(mocks.Client)
+			config := cltest.NewTestConfig(t)
+			require.NoError(t, utils.JustError(store.KeyStore.NewAccount(cltest.Password)))
+			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+			manager := strpkg.NewEthTxManager(ethClient, config, store.KeyStore, store.ORM)
+			manager.Register(store.KeyStore.Accounts())
 
 			from := cltest.GetAccountAddress(t, store)
 			to := cltest.NewAddress()
-			data, err := hex.DecodeString("0000abcdef")
-			assert.NoError(t, err)
-			ethMock := app.MockCallerSubscriberClient()
+			data := hexutil.MustDecode("0x0000abcdef")
 
-			nonce1 := uint64(256)
-			ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
-				ethMock.Register("eth_chainId", store.Config.ChainID())
-				ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce1))
-			})
-			sentAt := uint64(23456)
-			require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(sentAt)))
-			assert.NoError(t, app.StartAndConnect())
+			nonce := uint64(256)
+			ethClient.On("GetNonce", from).Once().Return(nonce, nil)
+			require.NoError(t, manager.Connect(cltest.Head(nonce)))
 
-			ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
-				ethMock.RegisterError("eth_sendRawTransaction", test.ethClientErrorMsg)
-			})
-
-			hash := cltest.NewHash()
+			ethClient.On("SendRawTx", mock.Anything).Once().Return(nil, errors.New("nonce is too low"))
 			nonce2 := uint64(257)
-			ethMock.Context("manager.CreateTx#2", func(ethMock *cltest.EthMock) {
-				ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce2))
-				ethMock.Register("eth_sendRawTransaction", hash)
-			})
+			ethClient.On("GetNonce", from).Once().Return(nonce2, nil)
+			ethClient.On("SendRawTx", mock.Anything).Once().Return(nil, nil)
 
 			a, err := manager.CreateTx(to, data)
 			require.NoError(t, err)
@@ -326,50 +310,42 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 			assert.Equal(t, from, tx.From)
 			assert.Len(t, tx.Attempts, 1)
 
-			ethMock.EventuallyAllCalled(t)
+			ethClient.AssertExpectations(t)
 		})
 	}
 }
 
 func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
+
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store := app.Store
-	manager := store.TxManager
+
+	ethClient := new(mocks.Client)
+
+	config := cltest.NewTestConfig(t)
+	keyStore := strpkg.NewKeyStore(config.KeysDir())
+	account, err := keyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+	require.NoError(t, keyStore.Unlock(cltest.Password))
+	manager := strpkg.NewEthTxManager(ethClient, config, keyStore, store.ORM)
+
+	manager.Register(keyStore.Accounts())
+
+	from := account.Address
+	nonce := uint64(256)
+	ethClient.On("GetNonce", from).Return(nonce, nil)
+	err = manager.Connect(cltest.Head(nonce))
+	require.NoError(t, err)
+
+	ethClient.On("SendRawTx", mock.Anything).Twice().Return(nil, errors.New("nonce is too low"))
 
 	to := cltest.NewAddress()
-	data, err := hex.DecodeString("0000abcdef")
-	assert.NoError(t, err)
-	ethMock := app.MockCallerSubscriberClient()
-
-	nonce1 := uint64(256)
-	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce1))
-		ethMock.Register("eth_chainId", store.Config.ChainID())
-	})
-	sentAt := uint64(23456)
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(sentAt)))
-	assert.NoError(t, app.StartAndConnect())
-
-	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
-		ethMock.RegisterError("eth_sendRawTransaction", "nonce is too low")
-	})
-
-	nonce2 := uint64(257)
-	ethMock.Context("manager.CreateTx#2", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce2))
-		ethMock.RegisterError("eth_sendRawTransaction", "nonce is too low")
-	})
-
+	data := hexutil.MustDecode("0x0000abcdef")
 	_, err = manager.CreateTx(to, data)
-	assert.EqualError(
-		t,
-		err,
-		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: 1",
-	)
+	assert.EqualError(t, err, "Transaction reattempt limit reached for 'nonce is too low' error. Limit: 1")
 
-	ethMock.EventuallyAllCalled(t)
+	ethClient.AssertExpectations(t)
 }
 
 func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
@@ -607,7 +583,9 @@ func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
 	sentAt := uint64(12345)
 
 	tx1 := cltest.CreateTxWithNonce(t, store, from, sentAt, 1)
+	require.Len(t, tx1.Attempts, 1)
 	tx2 := cltest.CreateTxWithNonce(t, store, from, sentAt, 2)
+	require.Len(t, tx2.Attempts, 1)
 
 	etm := txm.(*strpkg.EthTxManager)
 	aa := etm.GetAvailableAccount(from)
@@ -694,9 +672,9 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			store := app.Store
 			txm := store.TxManager
 			from := cltest.GetAccountAddress(t, store)
+
 			tx := cltest.CreateTx(t, store, from, sentAt1)
-			a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt2)
-			assert.NoError(t, err)
+			a := cltest.AddTxAttempt(t, store, tx, tx.EthTx(big.NewInt(2)), sentAt2)
 
 			ethMock := app.MockCallerSubscriberClient(cltest.Strict)
 			ethMock.ShouldCall(test.mockSetup).During(func() {
@@ -1199,11 +1177,10 @@ func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 	manager := strpkg.NewEthTxManager(ethClient, config, keyStore, store.ORM)
 
 	to := cltest.NewAddress()
-	data, err := hex.DecodeString("0000abcdef")
+	data := hexutil.MustDecode("0x0000abcdef")
 	sentAt := uint64(1)
 
 	manager.Register(keyStore.Accounts())
-	require.NoError(t, err)
 
 	ethClient.On("GetNonce", mock.Anything).Times(2).Return(uint64(0), nil)
 

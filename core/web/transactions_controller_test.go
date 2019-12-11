@@ -1,13 +1,13 @@
 package web_test
 
 import (
-	"math/big"
 	"net/http"
 	"testing"
 
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
 	"chainlink/core/web"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -32,8 +32,8 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 	from := cltest.GetAccountAddress(t, store)
 	tx1 := cltest.CreateTx(t, store, from, 1)
-	_, err := store.AddTxAttempt(tx1, tx1.EthTx(big.NewInt(2)), 2)
-	require.NoError(t, err)
+	transaction := cltest.NewTransaction(0)
+	require.NoError(t, utils.JustError(store.AddTxAttempt(tx1, transaction)))
 	cltest.CreateTx(t, store, from, 3)
 	cltest.CreateTx(t, store, from, 4)
 	_, count, err := store.Transactions(0, 100)
@@ -79,6 +79,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 
 	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 		ethMock.Register("eth_getTransactionCount", "0x100")
 	})
 
@@ -86,10 +87,12 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	store := app.GetStore()
 	client := app.NewHTTPClient()
 	from := cltest.GetAccountAddress(t, store)
+
 	tx := cltest.CreateTx(t, store, from, 1)
 	tx1 := *tx
-	_, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), 2)
-	require.NoError(t, err)
+
+	transaction := cltest.NewTransaction(2)
+	require.NoError(t, utils.JustError(store.AddTxAttempt(tx, transaction)))
 	tx2 := *tx
 
 	tests := []struct {
@@ -101,7 +104,8 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 		{"current hash", tx2.Hash.String(), tx2},
 	}
 
-	for _, test := range tests {
+	for _, tt := range tests {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			resp, cleanup := client.Get("/v2/transactions/" + test.hash)
 			defer cleanup()
@@ -116,7 +120,6 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 			assert.Equal(t, txp.GasLimit, ptx.GasLimit)
 			assert.Equal(t, txp.GasPrice, ptx.GasPrice)
 			assert.Equal(t, txp.Hash, ptx.Hash)
-			assert.Equal(t, txp.Nonce, ptx.Nonce)
 			assert.Equal(t, txp.SentAt, ptx.SentAt)
 			assert.Equal(t, txp.To, ptx.To)
 			assert.Equal(t, txp.Value, ptx.Value)

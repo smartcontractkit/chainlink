@@ -3,7 +3,6 @@
 package utils
 
 import (
-	"bytes"
 	"chainlink/core/logger"
 	"crypto/rand"
 	"encoding/base64"
@@ -66,16 +65,6 @@ func HexToUint64(hex string) (uint64, error) {
 // Uint64ToHex converts the given uint64 value to a hex-value string.
 func Uint64ToHex(i uint64) string {
 	return fmt.Sprintf("0x%x", i)
-}
-
-// EncodeTxToHex converts the given Ethereum Transaction type and
-// returns its hex-value string.
-func EncodeTxToHex(tx *types.Transaction) (string, error) {
-	rlp := new(bytes.Buffer)
-	if err := tx.EncodeRLP(rlp); err != nil {
-		return "", err
-	}
-	return hexutil.Encode(rlp.Bytes()), nil
 }
 
 // ISO8601UTC formats given time to ISO8601.
