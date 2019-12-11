@@ -35,6 +35,7 @@ interface RolesAndPersonas {
   personas: Personas
 }
 
+// duplicated in evm/v0.5/test/support/helpers.ts (kinda)
 export interface ServiceAgreement {
   payment: ethers.utils.BigNumberish // uint256
   expiration: ethers.utils.BigNumberish // uint256
@@ -46,12 +47,14 @@ export interface ServiceAgreement {
   aggFulfillSelector: string // function selector for aggregator.fulfill
 }
 
+// duplicated in evm/v0.5/test/support/helpers.ts
 export interface OracleSignatures {
   vs: ethers.utils.BigNumberish[] // uint8[]
   rs: string[] // bytes32[]
   ss: string[] // bytes32[]
 }
 
+// duplicated in evm/v0.5/test/support/helpers.ts
 const SERVICE_AGREEMENT_TYPES = [
   'uint256',
   'uint256',
@@ -63,6 +66,7 @@ const SERVICE_AGREEMENT_TYPES = [
   'bytes4',
 ]
 
+// duplicated in evm/v0.5/test/support/helpers.ts
 const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
 
 /**
@@ -505,21 +509,22 @@ const serviceAgreementValues = (sa: ServiceAgreement) => {
   ]
 }
 
-export const encodeServiceAgreement = (sa: ServiceAgreement) => {
+export function encodeServiceAgreement(sa: ServiceAgreement) {
   return ethers.utils.defaultAbiCoder.encode(
     SERVICE_AGREEMENT_TYPES,
     serviceAgreementValues(sa),
   )
 }
 
-export const encodeOracleSignatures = (os: OracleSignatures) => {
+export function encodeOracleSignatures(os: OracleSignatures) {
   const osValues = [os.vs, os.rs, os.ss]
   return ethers.utils.defaultAbiCoder.encode(ORACLE_SIGNATURES_TYPES, osValues)
 }
+
 /**
  * Digest of the ServiceAgreement.
  */
-export const generateSAID = (sa: ServiceAgreement): Hash => {
+export function generateSAID(sa: ServiceAgreement): Hash {
   const [saParam] = new CoordinatorFactory().interface.functions.getId.inputs
   if (saParam.name !== '_agreementData' || saParam.type !== 'bytes') {
     throw Error(
