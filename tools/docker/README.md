@@ -4,77 +4,169 @@ The docker-compose configuration present in this directory allows for a user to 
 # Requirements
 - [docker-compose](https://docs.docker.com/compose/install/)
 
-# Services
-The following services are exposed by the docker-compose configuration, and are referred to by `<service name>` in consequent descriptions.
+# Using the compose script
+Inside the `chainlink/tools/docker` directory, there is a helper script that is included which should cover all cases of integration / acceptance / development needs acroos multiple services. To see a list of available commands, perform the following:
 
-## node
-The `node` service is the chainlink node, configured to run in development mode by default. When running, you can access the node's front end by navigating to `localhost:6688` and using the credentials defined in `../secrets/apicredentials`.  The first line is the username, the second is the password.
-
-## devnet
-The `devnet` service spins up an ethereum blockchain in development mode, it's used by the `node` service to do blockchain interactions.
-
-## explorer
-The `explorer` service contains the Chainlink Explorer, a service that allows users to search and discover chainlink specific transactions, jobs, and more. The served explorer site is accessible from `localhost:3000`. 
-
-# Setup
-The following commands assume that you're executing `docker-compose` commands with the current working directory being `tools/docker`.
-A full description of how to run `docker-compose` can be found in its [web documentation](https://docs.docker.com/compose/).
-
-## Build
-Before being able to run our docker containers, we'll need to build their corresponding images. Make sure to re-build your images to reflect repository changes.  You can update to the latest version with 'git pull --rebase'.
-
-### Building all images
-The following command will build all internal images, one by one. Any external images will instead be fetched.
 ```sh
-docker-compose build
+$ cd tools/docker
+$ ./compose help
 ```
 
-You can build images in parallel to speed up build times with the `--parallel` flag.
+## Examples
+### Acceptance testing
+Acceptance can be accomplished by using the `acceptance` command.
 ```sh
-docker-compose build --parallel
+./compose acceptance
 ```
+- The explorer can be reached at `http://localhost:3001`
+- The chainlink node can be reached at `http://localhost:6688`
 
-### Build a single image
-The following command will build a single image, along with all of its dependent images.
+Credentials for logging into the operator-ui can be found [here](../secrets/apicredentals)
+
+### 
+### Doing local development on the core node
+Doing quick, iterative changes on the core codebase can still be achieved within the compose setup with the `cld` or `cldo` commands.
+The `cld` command will bring up the services that a chainlink node needs to connect to (explorer, parity/geth, postgres), and then attach the users terminal to a docker container containing the host's chainlink repostiory bind-mounted inside the container at `/usr/local/src/chainlink`. What this means is that any changes made within the host's repository will be synchronized to the container, and vice versa for changes made within the container at `/usr/local/src/chainlink`.
+
+This enables a user to make quick changes on either the container or the host, run `cldev` within the attached container, check the new behaviour of the re-built node, and repeat this process until the desired results are achieved.
+
 ```sh
-docker-compose build <service name>
+$ ./compose cld
+#
+# $$ denotes that we're now in the chainlink container
+$$ cldev # cldev without the "core" postfix simply calls the core node cli
+#
+# NAME:
+#    main - CLI for Chainlink
+# 
+# USAGE:
+#    main [global options] command [command options] [arguments...]
+# 
+# VERSION:
+#    unset@unset
+# 
+# COMMANDS:
+#    admin              Commands for remotely taking admin related actions
+#    bridges            Commands for Bridges communicating with External Adapters
+#    config             Commands for the node's configuration
+#    jobs               Commands for managing Jobs
+#    node, local        Commands for admin actions that must be run locally
+#    runs               Commands for managing Runs
+#    txs                Commands for handling Ethereum transactions
+#    agreements, agree  Commands for handling service agreements
+#    attempts, txas     Commands for managing Ethereum Transaction Attempts
+#    createextrakey     Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
+#    initiators         Commands for managing External Initiators
+#    help, h            Shows a list of commands or help for one command
+# 
+# GLOBAL OPTIONS:
+#    --json, -j     json output as opposed to table
+#    --help, -h     show help
+#    --version, -v  print the version
+$$
+$$ cldev core # import our testing key and api credentials, then start the node
+# 
+# ** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f
+# 2019-12-11T20:31:18Z [INFO]  Locking postgres for exclusive access with 500ms timeout orm/orm.go:74        #   
+# 2019-12-11T20:31:18Z [WARN]  pq: relation "migrations" does not exist           migrations/migrate.go:149 
+# ** Running node
+# 2019-12-11T20:31:20Z [INFO]  Starting Chainlink Node 0.7.0 at commit 7324e9c476ed6b5c0a08d5a38779d4a6bfbb3880 cmd/local_client.go:27  
+# 2019-12-11T20:31:20Z [INFO]  SGX enclave *NOT* loaded                           cmd/enclave.go:11       
+# 2019-12-11T20:31:20Z [INFO]  This version of chainlink was not built with support for SGX tasks cmd/enclave.go:12       
+# ...
+# ...
 ```
 
-## Run
-Running a service is the process of launching a process for a built image, allowing us to interact with it. Docker compose lets up run multiple interdependent services in a fashion where they are launched in the correct order.
+`cldo` allows the user to perform the same actions above, but also applied to the operator-ui codebase and the core codebase. The operator-ui will be hosted in hot-reload/development mode at `http://localhost//3000`. To see the build progress of operator-ui, we can open another terminal to watch its output while we can mess around with the core node in the original terminal.
 
-### Run all services
-The following command will run up all services and their dependent child services.
-```sh 
-docker-compose up
-```
-
-Adding the `-d` flag will detach the spun up services from your terminal.
-```sh 
-docker-compose up -d
-```
-
-### Run a single service
-The following command will run up a single service along with any service dependencies it has.
+In the first terminal:
 ```sh
-docker-compose up <service name>
+$ ./compose cldo
+#
+# $$ denotes that we're now in the chainlink container
+$$ cldev # cldev without the "core" postfix simply calls the core node cli
+#
+# NAME:
+#    main - CLI for Chainlink
+# 
+# USAGE:
+#    main [global options] command [command options] [arguments...]
+# 
+# VERSION:
+#    unset@unset
+# 
+# COMMANDS:
+#    admin              Commands for remotely taking admin related actions
+#    bridges            Commands for Bridges communicating with External Adapters
+#    config             Commands for the node's configuration
+#    jobs               Commands for managing Jobs
+#    node, local        Commands for admin actions that must be run locally
+#    runs               Commands for managing Runs
+#    txs                Commands for handling Ethereum transactions
+#    agreements, agree  Commands for handling service agreements
+#    attempts, txas     Commands for managing Ethereum Transaction Attempts
+#    createextrakey     Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
+#    initiators         Commands for managing External Initiators
+#    help, h            Shows a list of commands or help for one command
+# 
+# GLOBAL OPTIONS:
+#    --json, -j     json output as opposed to table
+#    --help, -h     show help
+#    --version, -v  print the version
+$$
+$$ cldev core # import our testing key and api credentials, then start the node
+# 
+# ** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f
+# 2019-12-11T20:31:18Z [INFO]  Locking postgres for exclusive access with 500ms timeout orm/orm.go:74        #   
+# 2019-12-11T20:31:18Z [WARN]  pq: relation "migrations" does not exist           migrations/migrate.go:149 
+# ** Running node
+# 2019-12-11T20:31:20Z [INFO]  Starting Chainlink Node 0.7.0 at commit 7324e9c476ed6b5c0a08d5a38779d4a6bfbb3880 cmd/local_client.go:27  
+# 2019-12-11T20:31:20Z [INFO]  SGX enclave *NOT* loaded                           cmd/enclave.go:11       
+# 2019-12-11T20:31:20Z [INFO]  This version of chainlink was not built with support for SGX tasks cmd/enclave.go:12       
+# ...
+# ...
 ```
 
-Adding the `-d` flag will detach the spun up services from your terminal.
+In a new terminal:
 ```sh
-docker-compose up -d
+docker logs operator-ui -f
+```
+You'll now have two terminals, one with the core node, one with operator-ui, with both being able to react to code changes without rebuilding their respective images.
+
+### Running integration test suites
+The integration test suite will run against a parity node by default. You can run the integration test suite with the following command:
+```sh
+$ ./compose test
 ```
 
-## Teardown
-### Shutdown running services
+If you want to run the test suite against a geth node, you can set the `GETH_MODE` environment variable.
 ```sh
-docker-compose down
+$ GETH_MODE=true ./compose test
 ```
 
-### Shutdown running services along with their volumes
-This will remove all volumes of the spun-up services. Useful if you want to completely wipe state before running them again (database state, blockchain state, etc).
+If we want to quickly test new changes we make to `integration/` or `tools/ci/ethereum_test` without re-building our images, we can use the `test:dev` command which will reflect those changes from the host file system without rebuilding those containers.
 ```sh
-docker-compose down -v
+$ ./compose test:dev
+```
+
+### Cleaning up
+To remove any containers, volumes, and networks related to our docker-compose setup, we can run the `clean` command:
+```sh
+./compose clean
+```
+
+### Running your own commands based off of docker-compose
+The following commands allow you do just about anything:
+```sh
+$ ./compose <subcommand>
+$ ./compose integ <subcommand>
+$ ./compose dev:integ <subcommand>
+$ ./compose dev <subcommand>
+```
+For example, to see what our compose configuration looks like:
+```sh
+$ ./compose config # base config
+$ ./compose dev:integ # development integration test config
 ```
 
 # Environment Variables
@@ -86,7 +178,7 @@ The existing variables listed under the `environment` key in each service can be
 
 ```sh
 export ETH_CHAIN_ID=1337
-docker-compose up # ETH_CHAIN_ID now has the value of 1337, instead of the default value of 34055
+./compose acceptance # ETH_CHAIN_ID now has the value of 1337, instead of the default value of 34055
 ```
 
 ## Adding new environment variables
@@ -100,5 +192,5 @@ For example, lets say we want to pass the variable `ALLOW_ORIGINS` defined in `s
 echo "ALLOW_ORIGINS=http://localhost:1337" > chainlink-variables.env
 
 # now the node will allow requests from the origin of http://localhost:1337 rather than the default value of http://localhost:3000,http://localhost:6688
-docker-compose up 
+./compose acceptance
 ```
