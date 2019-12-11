@@ -2,11 +2,11 @@ import * as h from './support/helpers'
 import { assertBigNum } from './support/matchers'
 const Coordinator = artifacts.require('Coordinator.sol')
 const MeanAggregator = artifacts.require('MeanAggregator.sol')
-const ServiceAgreementConsumer = artifacts.require(
-  'ServiceAgreementConsumer.sol',
+const BasicServiceAgreementConsumer = artifacts.require(
+  'BasicServiceAgreementConsumer.sol',
 )
 
-contract('ServiceAgreementConsumer', () => {
+contract('BasicServiceAgreementConsumer', () => {
   const currency = h.toHex('USD')
   let link, coord, cc, agreement
 
@@ -24,7 +24,7 @@ contract('ServiceAgreementConsumer', () => {
     link = await h.linkContract()
     coord = await Coordinator.new(link.address)
     await h.initiateServiceAgreement(coord, agreement)
-    cc = await ServiceAgreementConsumer.new(
+    cc = await BasicServiceAgreementConsumer.new(
       link.address,
       coord.address,
       agreement.id,
