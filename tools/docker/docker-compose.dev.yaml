@@ -1,9 +1,5 @@
 version: '3.1'
 services:
-  integration:
-    volumes:
-      - ../../integration:$SRCROOT/integration
-      - ../ci/ethereum_test:$SRCROOT/tools/ci/ethereum_test
   node:
     entrypoint: '/bin/sh -c "while sleep 1000; do :; done"'
     build:
