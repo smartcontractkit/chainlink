@@ -2,7 +2,7 @@ pragma solidity 0.5.0;
 
 import "../ChainlinkClient.sol";
 
-contract ServiceAgreementConsumer is ChainlinkClient {
+contract BasicServiceAgreementConsumer is ChainlinkClient {
   uint256 constant private ORACLE_PAYMENT = 1 * LINK;
 
   bytes32 internal sAId;
