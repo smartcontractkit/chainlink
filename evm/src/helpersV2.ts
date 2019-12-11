@@ -492,8 +492,8 @@ export function hexToBuf(hexstr: string): Buffer {
 const { CoordinatorFactory } = chainlinkv05
 type Hash = ReturnType<typeof ethers.utils.keccak256>
 
-export const encodeServiceAgreement = (sa: ServiceAgreement) => {
-  const saParams = [
+const serviceAgreementValues = (sa: ServiceAgreement) => {
+  return [
     sa.payment,
     sa.expiration,
     sa.endAt,
@@ -503,12 +503,18 @@ export const encodeServiceAgreement = (sa: ServiceAgreement) => {
     sa.aggInitiateJobSelector,
     sa.aggFulfillSelector,
   ]
-  return ethers.utils.defaultAbiCoder.encode(SERVICE_AGREEMENT_TYPES, saParams)
+}
+
+export const encodeServiceAgreement = (sa: ServiceAgreement) => {
+  return ethers.utils.defaultAbiCoder.encode(
+    SERVICE_AGREEMENT_TYPES,
+    serviceAgreementValues(sa),
+  )
 }
 
 export const encodeOracleSignatures = (os: OracleSignatures) => {
-  const osParams = [os.vs, os.rs, os.ss]
-  return ethers.utils.defaultAbiCoder.encode(ORACLE_SIGNATURES_TYPES, osParams)
+  const osValues = [os.vs, os.rs, os.ss]
+  return ethers.utils.defaultAbiCoder.encode(ORACLE_SIGNATURES_TYPES, osValues)
 }
 /**
  * Digest of the ServiceAgreement.
@@ -520,17 +526,8 @@ export const generateSAID = (sa: ServiceAgreement): Hash => {
       `extracted wrong params: ${saParam} from coordinatorFactory.interface.functions.getId`,
     )
   }
-
-  const values = [
-    sa.payment,
-    sa.expiration,
-    sa.endAt,
-    sa.oracles,
-    sa.requestDigest,
-    sa.aggregator,
-    sa.aggInitiateJobSelector,
-    sa.aggFulfillSelector,
-  ]
-
-  return ethers.utils.solidityKeccak256(SERVICE_AGREEMENT_TYPES, values)
+  return ethers.utils.solidityKeccak256(
+    SERVICE_AGREEMENT_TYPES,
+    serviceAgreementValues(sa),
+  )
 }
