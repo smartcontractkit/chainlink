@@ -61,6 +61,18 @@ type runManager struct {
 	clock     utils.AfterNower
 }
 
+func runMinimumPayment(job *models.JobSpec, config orm.ConfigReader) *assets.Link {
+	minimumPayment := assets.NewLink(0)
+	if job.MinPayment != nil {
+		minimumPayment = job.MinPayment
+		logger.Debugw("Using job's minimum payment", "required_payment", minimumPayment)
+	} else if config.MinimumContractPayment() != nil {
+		minimumPayment = config.MinimumContractPayment()
+		logger.Debugw("Using configured minimum payment", "required_payment", minimumPayment)
+	}
+	return minimumPayment
+}
+
 // NewRun returns a complete run from a JobSpec
 func NewRun(
 	job *models.JobSpec,
@@ -88,14 +100,7 @@ func NewRun(
 		Payment:        runRequest.Payment,
 	}
 
-	minimumPayment := assets.NewLink(0)
-	if job.MinPayment != nil {
-		minimumPayment = job.MinPayment
-		logger.Debugw("Using job's minimum payment", "required_payment", minimumPayment)
-	} else if config.MinimumContractPayment() != nil {
-		minimumPayment = config.MinimumContractPayment()
-		logger.Debugw("Using configured minimum payment", "required_payment", minimumPayment)
-	}
+	minimumPayment := runMinimumPayment(job, config)
 
 	for i, task := range job.Tasks {
 		adapter, err := adapters.For(task, config, orm)
