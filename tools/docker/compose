@@ -7,67 +7,83 @@ export COMPOSE_DOCKER_CLI_BUILD=1
 export DOCKER_BUILDKIT=1
 fi
 
-all_files="-f docker-compose.yaml -f docker-compose.postgres.yaml -f docker-compose.integration.yaml"
+base_files="-f docker-compose.yaml -f docker-compose.postgres.yaml"
 # Allow for choosing between geth or parity
 if [ $GETH_MODE ]; then
-  all_files="$all_files -f docker-compose.gethnet.yaml"
+  base_files="$base_files -f docker-compose.gethnet.yaml"
 else 
-  all_files="$all_files -f docker-compose.paritynet.yaml"
+  base_files="$base_files -f docker-compose.paritynet.yaml"
 fi
 
-base="docker-compose $all_files"
-dev="$base -f docker-compose.dev.yaml"
-dev_integration="$base -f docker-compose.dev-integration.yaml"
-deps="$base -f docker-compose.deps.yaml"
+base="docker-compose $base_files" # base config, used standalone for acceptance
+dev="$base -f docker-compose.dev.yaml" # config for cldev
+test="$base -f docker-compose.integration.yaml" # config to run integration tests
+deps="$test -f docker-compose.deps.yaml" # config to bring up integration test dependencies
+dev_integration="$test -f docker-compose.dev-integration.yaml" # config to run integration tests in dev mode
+
 usage="compose -- A helper script for running common docker-compose commands\
 
 Commands:
     help        Displays this help menu
+    clean       Remove any containers and volumes related to compose files
+
     cld         Runs the chainlink node container in dev mode
     cldo        cld in addition to operator-ui in dev mode
-    clean       Remove any containers and volumes related to compose files
-    build       Build all required base images
-    test        Run the integration test suite
-    test:dev    Run the integration test suite with /tools/ci/ethereum_test and /integration bind-mounted
-    dev         Run docker-compose with our dev configuration for the core node and operator-ui
-    dev:integ   Run docker-compose with out dev configuration for integration tests
-    *           Run docker-compose with our base configuration"
+    
+    acceptance  Run the services required to perform an acceptance test
+
+    test        Run integration test suite
+    test:dev    Run integration test suite with /tools/ci/ethereum_test and /integration bind-mounted
+
+    integ       Run docker-compose with config for integration tests
+    dev:integ   Run docker-compose with dev config for integration tests
+    dev         Run docker-compose with dev config for the core node and operator-ui
+    *           Run docker-compose with base config"
 
 case "$1" in
   help)
     echo "$usage"
     ;;
+  clean)
+    $base down -v
+    $dev down -v
+    $test down -v
+    $deps down -v
+    $dev_integration down -v
+    ;;
+          
   cld)
+    $dev build
     $dev up -d node
     docker exec -it chainlink-node bash
     $dev down -v
     ;;
   cldo)
+    $dev build
     $dev up -d operator-ui
     docker exec -it chainlink-node bash
     $dev down -v
     ;;
-  clean)
-    $deps down -v
-    $dev down -v
+
+  acceptance)
+    $base build --parallel
+    $base up
     ;;
-  build)
-    if [ $CI ]; then
-      # parallel builds are supported for legacy (not buildkit) docker build backends
-      $base build --parallel
-    else
-      $base build
-    fi
-    ;;
+
   test)
+    $test build --parallel
     $deps up --exit-code-from wait-db wait-db 
-    $base up --exit-code-from integration
-    $base down -v
+    $test up --exit-code-from integration
+    $test down -v
     ;;
   test:dev)
     $deps up --exit-code-from wait-db wait-db 
     $dev_integration up --exit-code-from integration
     $dev_integration down -v
+    ;;
+
+  integ)
+    $test ${@:2}
     ;;
   dev:integ)
     $dev_integration ${@:2}
