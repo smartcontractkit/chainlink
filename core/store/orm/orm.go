@@ -25,7 +25,6 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"   // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"gopkg.in/guregu/null.v3"
 )
 
 var (
@@ -582,37 +581,20 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 
 // CreateTx returns a transaction by its surrogate key, if it exists, or
 // creates it
-func (orm *ORM) CreateTx(
-	transaction *models.Transaction,
-	surrogateID null.String,
-) (*models.Tx, error) {
+func (orm *ORM) CreateTx(tx *models.Tx) (*models.Tx, error) {
 	orm.MustEnsureAdvisoryLock()
 
-	tx := &models.Tx{}
 	err := orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		var err error
-		if surrogateID.Valid {
-			err = dbtx.First(tx, "surrogate_id = ?", surrogateID.ValueOrZero()).Error
+		if tx.SurrogateID.Valid {
+			err = dbtx.First(tx, "surrogate_id = ?", tx.SurrogateID.ValueOrZero()).Error
 		} else {
-			err = dbtx.First(tx, "hash = ?", transaction.Hash()).Error
+			err = dbtx.First(tx, "hash = ?", tx.Hash).Error
 		}
 
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return errors.Wrap(err, "CreateTx#First failed")
 		}
-
-		newTx := transaction.Tx()
-		tx.SurrogateID = surrogateID
-		tx.From = newTx.From
-		tx.To = newTx.To
-		tx.Nonce = newTx.Nonce
-		tx.Data = newTx.Data
-		tx.Value = newTx.Value
-		tx.GasLimit = newTx.GasLimit
-		tx.GasPrice = newTx.GasPrice
-		tx.Hash = newTx.Hash
-		tx.SentAt = newTx.SentAt
-		tx.SignedRawTx = newTx.SignedRawTx
 
 		if err == gorm.ErrRecordNotFound {
 			return dbtx.Create(tx).Error
@@ -626,21 +608,20 @@ func (orm *ORM) CreateTx(
 }
 
 // AddTxAttempt attaches a new attempt to a Tx, after the attempt has been sent to the chain
-func (orm *ORM) AddTxAttempt(tx *models.Tx, transaction *models.Transaction) (*models.TxAttempt, error) {
+func (orm *ORM) AddTxAttempt(tx *models.Tx, newTxAttempt *models.Tx) (*models.TxAttempt, error) {
 	orm.MustEnsureAdvisoryLock()
 
-	newTx := transaction.Tx()
-	tx.From = newTx.From
-	tx.Nonce = newTx.Nonce
-	tx.GasPrice = newTx.GasPrice
-	tx.Hash = newTx.Hash
-	tx.SentAt = newTx.SentAt
-	tx.SignedRawTx = newTx.SignedRawTx
+	tx.From = newTxAttempt.From
+	tx.Nonce = newTxAttempt.Nonce
+	tx.GasPrice = newTxAttempt.GasPrice
+	tx.Hash = newTxAttempt.Hash
+	tx.SentAt = newTxAttempt.SentAt
+	tx.SignedRawTx = newTxAttempt.SignedRawTx
 	txAttempt := &models.TxAttempt{
-		Hash:        tx.Hash,
-		GasPrice:    tx.GasPrice,
-		SentAt:      tx.SentAt,
-		SignedRawTx: tx.SignedRawTx,
+		Hash:        newTxAttempt.Hash,
+		GasPrice:    newTxAttempt.GasPrice,
+		SentAt:      newTxAttempt.SentAt,
+		SignedRawTx: newTxAttempt.SignedRawTx,
 	}
 	tx.Attempts = append(tx.Attempts, txAttempt)
 

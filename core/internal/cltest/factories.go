@@ -30,7 +30,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v3"
 )
 
 // NewJob return new NoOp JobSpec
@@ -152,7 +151,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	return tx
 }
 
-func NewTransaction(nonce uint64, sentAtV ...uint64) *models.Transaction {
+func NewTransaction(nonce uint64, sentAtV ...uint64) *models.Tx {
 	from := common.HexToAddress("0xf208000000000000000000000000000000000000")
 	to := common.HexToAddress("0x7000000000000000000000000000000000000000")
 
@@ -165,8 +164,19 @@ func NewTransaction(nonce uint64, sentAtV ...uint64) *models.Transaction {
 		sentAt = sentAtV[0]
 	}
 
-	ethTx := types.NewTransaction(nonce, to, value, gasLimit, new(big.Int), data)
-	return &models.Transaction{Transaction: *ethTx, From: from, SentAt: sentAt, SignedRaw: "signed-raw"}
+	transaction := types.NewTransaction(nonce, to, value, gasLimit, new(big.Int), data)
+	return &models.Tx{
+		From:        from,
+		SentAt:      sentAt,
+		To:          *transaction.To(),
+		Nonce:       transaction.Nonce(),
+		Data:        transaction.Data(),
+		Value:       utils.NewBig(transaction.Value()),
+		GasLimit:    transaction.Gas(),
+		GasPrice:    utils.NewBig(transaction.GasPrice()),
+		Hash:        transaction.Hash(),
+		SignedRawTx: "signed-raw",
+	}
 }
 
 // CreateTx creates a Tx from a specified address, and sentAt
@@ -189,13 +199,24 @@ func CreateTxWithNonce(
 ) *models.Tx {
 	data := make([]byte, 36)
 	binary.LittleEndian.PutUint64(data, sentAt)
-	ethTx := types.NewTransaction(nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), data)
 
-	transaction := &models.Transaction{Transaction: *ethTx, From: from, SentAt: sentAt, SignedRaw: "signed-raw-tx"}
+	transaction := types.NewTransaction(nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), data)
+	tx := &models.Tx{
+		From:        from,
+		SentAt:      sentAt,
+		To:          *transaction.To(),
+		Nonce:       transaction.Nonce(),
+		Data:        transaction.Data(),
+		Value:       utils.NewBig(transaction.Value()),
+		GasLimit:    transaction.Gas(),
+		GasPrice:    utils.NewBig(transaction.GasPrice()),
+		Hash:        transaction.Hash(),
+		SignedRawTx: "signed-raw-attempt 1",
+	}
 
-	tx, err := store.CreateTx(transaction, null.String{})
+	tx, err := store.CreateTx(tx)
 	require.NoError(t, err)
-	_, err = store.AddTxAttempt(tx, transaction)
+	_, err = store.AddTxAttempt(tx, tx)
 	require.NoError(t, err)
 	return tx
 }
@@ -207,11 +228,22 @@ func AddTxAttempt(
 	etx *types.Transaction,
 	blkNum uint64,
 ) *models.TxAttempt {
-	ethTx := types.NewTransaction(tx.Nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), tx.Data)
+	transaction := types.NewTransaction(tx.Nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), tx.Data)
 
-	transaction := &models.Transaction{Transaction: *ethTx, From: tx.From, SentAt: blkNum, SignedRaw: "signed-raw-tx-attempt"}
+	newTxAttempt := &models.Tx{
+		From:        tx.From,
+		SentAt:      blkNum,
+		To:          *transaction.To(),
+		Nonce:       transaction.Nonce(),
+		Data:        transaction.Data(),
+		Value:       utils.NewBig(transaction.Value()),
+		GasLimit:    transaction.Gas(),
+		GasPrice:    utils.NewBig(transaction.GasPrice()),
+		Hash:        transaction.Hash(),
+		SignedRawTx: fmt.Sprintf("signed-raw-attempt %d", len(tx.Attempts)+1),
+	}
 
-	txAttempt, err := store.AddTxAttempt(tx, transaction)
+	txAttempt, err := store.AddTxAttempt(tx, newTxAttempt)
 	require.NoError(t, err)
 	return txAttempt
 }
