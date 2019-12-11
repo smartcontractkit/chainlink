@@ -20,6 +20,6 @@
   "oracles": ["{{ $ORACLE_ADDRESS }}"],
   "endAt": "2020-10-19T22:17:19Z",
   "aggregator": "{{ $AGGREGATOR_ADDRESS }}",
-  "aggInitiateJobSelector": "0xe16c4c94",
+  "aggInitiateJobSelector": "0xd43a12f6",
   "aggFulfillSelector": "0x9760168f"
 }
