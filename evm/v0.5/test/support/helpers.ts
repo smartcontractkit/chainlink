@@ -491,10 +491,11 @@ interface ServiceAgreement {
   oracleSignatures: Signature[]
 }
 
+// TODO: export necessary?
 export interface OracleSignatures {
   vs: number[] // uint8[]
-  rs: string[] // bytes32[]
-  ss: string[] // bytes32[]
+  rs: Uint8Array[] // bytes32[]
+  ss: Uint8Array[] // bytes32[]
 }
 
 const SERVICE_AGREEMENT_TYPES = [
@@ -621,30 +622,23 @@ export const constructStructArgs = (
   return args
 }
 
-export const encodeServiceAgreement = (serviceAgreement: ServiceAgreement) => {
-  const serviceAgreementParameters = [
-    serviceAgreement.payment.toString(),
-    serviceAgreement.expiration.toString(),
-    serviceAgreement.endAt.toString(),
-    serviceAgreement.oracles,
-    serviceAgreement.requestDigest,
-    serviceAgreement.aggregator,
-    serviceAgreement.aggInitiateJobSelector,
-    serviceAgreement.aggFulfillSelector,
+export const encodeServiceAgreement = (sa: ServiceAgreement) => {
+  const saParams = [
+    sa.payment.toString(),
+    sa.expiration.toString(),
+    sa.endAt.toString(),
+    sa.oracles,
+    sa.requestDigest,
+    sa.aggregator,
+    sa.aggInitiateJobSelector,
+    sa.aggFulfillSelector,
   ]
-
-  return web3.eth.abi.encodeParameters(
-    SERVICE_AGREEMENT_TYPES,
-    serviceAgreementParameters,
-  )
+  return web3.eth.abi.encodeParameters(SERVICE_AGREEMENT_TYPES, saParams)
 }
 
-// TODO - add typing
-export const encodeOracleSignatures = (oracleSignatures: OracleSignatures) => {
-  return web3.eth.abi.encodeParameters(
-    ORACLE_SIGNATURES_TYPES,
-    Object.values(oracleSignatures),
-  )
+export const encodeOracleSignatures = (os: OracleSignatures) => {
+  const osParams = [os.vs, os.rs, os.ss]
+  return web3.eth.abi.encodeParameters(ORACLE_SIGNATURES_TYPES, osParams)
 }
 
 export const initiateServiceAgreementArgs = (

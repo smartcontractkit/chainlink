@@ -47,7 +47,7 @@ export interface ServiceAgreement {
 }
 
 export interface OracleSignatures {
-  vs: number[] // uint8[]
+  vs: ethers.utils.BigNumberish[] // uint8[]
   rs: string[] // bytes32[]
   ss: string[] // bytes32[]
 }
