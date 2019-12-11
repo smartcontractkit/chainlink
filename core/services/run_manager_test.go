@@ -422,93 +422,181 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 
 	tests := []struct {
 		name                 string
+		inputPayment         *assets.Link
 		jobMinimumPayment    *assets.Link
 		configMinimumPayment string
-		inputPayment         *assets.Link
+		bridgePayment        *assets.Link
 		jobStatus            models.RunStatus
 	}{
+		// no payments required
 		{
 			name:                 "no payment required and none given",
+			inputPayment:         assets.NewLink(0),
 			jobMinimumPayment:    nil,
 			configMinimumPayment: "0",
-			inputPayment:         assets.NewLink(0),
+			bridgePayment:        assets.NewLink(0),
 			jobStatus:            models.RunStatusInProgress,
 		},
 		{
 			name:                 "no payment required and some given",
+			inputPayment:         assets.NewLink(13),
 			jobMinimumPayment:    nil,
 			configMinimumPayment: "0",
-			inputPayment:         assets.NewLink(13),
+			bridgePayment:        assets.NewLink(0),
 			jobStatus:            models.RunStatusInProgress,
 		},
+
+		// configuration payments only
 		{
 			name:                 "configuration payment required and none given",
+			inputPayment:         assets.NewLink(0),
 			jobMinimumPayment:    nil,
 			configMinimumPayment: "13",
-			inputPayment:         assets.NewLink(0),
+			bridgePayment:        assets.NewLink(0),
 			jobStatus:            models.RunStatusErrored,
 		},
 		{
 			name:                 "configuration payment required and insufficient given",
+			inputPayment:         assets.NewLink(7),
 			jobMinimumPayment:    nil,
 			configMinimumPayment: "13",
-			inputPayment:         assets.NewLink(7),
+			bridgePayment:        assets.NewLink(0),
 			jobStatus:            models.RunStatusErrored,
 		},
 		{
 			name:                 "configuration payment required and exact amount given",
+			inputPayment:         assets.NewLink(13),
 			jobMinimumPayment:    nil,
 			configMinimumPayment: "13",
-			inputPayment:         assets.NewLink(13),
+			bridgePayment:        assets.NewLink(0),
 			jobStatus:            models.RunStatusInProgress,
 		},
 		{
 			name:                 "configuration payment required and excess amount given",
+			inputPayment:         assets.NewLink(17),
 			jobMinimumPayment:    nil,
 			configMinimumPayment: "13",
-			inputPayment:         assets.NewLink(17),
+			bridgePayment:        assets.NewLink(0),
 			jobStatus:            models.RunStatusInProgress,
 		},
+
+		// job payments only
 		{
 			name:                 "job payment required and none given",
+			inputPayment:         assets.NewLink(0),
 			jobMinimumPayment:    assets.NewLink(13),
 			configMinimumPayment: "0",
-			inputPayment:         assets.NewLink(0),
+			bridgePayment:        assets.NewLink(0),
 			jobStatus:            models.RunStatusErrored,
 		},
 		{
 			name:                 "job payment required and insufficient given",
+			inputPayment:         assets.NewLink(7),
 			jobMinimumPayment:    assets.NewLink(13),
 			configMinimumPayment: "0",
-			inputPayment:         assets.NewLink(7),
+			bridgePayment:        assets.NewLink(0),
 			jobStatus:            models.RunStatusErrored,
 		},
 		{
 			name:                 "job payment required and exact amount given",
+			inputPayment:         assets.NewLink(13),
 			jobMinimumPayment:    assets.NewLink(13),
 			configMinimumPayment: "0",
-			inputPayment:         assets.NewLink(13),
+			bridgePayment:        assets.NewLink(0),
 			jobStatus:            models.RunStatusInProgress,
 		},
 		{
 			name:                 "job payment required and excess amount given",
+			inputPayment:         assets.NewLink(17),
 			jobMinimumPayment:    assets.NewLink(13),
 			configMinimumPayment: "0",
-			inputPayment:         assets.NewLink(17),
+			bridgePayment:        assets.NewLink(0),
+			jobStatus:            models.RunStatusInProgress,
+		},
+
+		// bridge payments only
+		{
+			name:                 "bridge payment required and none given",
+			inputPayment:         assets.NewLink(0),
+			jobMinimumPayment:    assets.NewLink(0),
+			configMinimumPayment: "0",
+			bridgePayment:        assets.NewLink(13),
+			jobStatus:            models.RunStatusErrored,
+		},
+		{
+			name:                 "bridge payment required and insufficient given",
+			inputPayment:         assets.NewLink(7),
+			jobMinimumPayment:    assets.NewLink(0),
+			configMinimumPayment: "0",
+			bridgePayment:        assets.NewLink(13),
+			jobStatus:            models.RunStatusErrored,
+		},
+		{
+			name:                 "bridge payment required and exact amount given",
+			inputPayment:         assets.NewLink(13),
+			jobMinimumPayment:    assets.NewLink(0),
+			configMinimumPayment: "0",
+			bridgePayment:        assets.NewLink(13),
 			jobStatus:            models.RunStatusInProgress,
 		},
 		{
+			name:                 "bridge payment required and excess amount given",
+			inputPayment:         assets.NewLink(17),
+			jobMinimumPayment:    assets.NewLink(0),
+			configMinimumPayment: "0",
+			bridgePayment:        assets.NewLink(13),
+			jobStatus:            models.RunStatusInProgress,
+		},
+
+		// job and bridge payments
+		{
+			name:                 "job and bridge payment required and none given",
+			inputPayment:         assets.NewLink(0),
+			jobMinimumPayment:    assets.NewLink(11),
+			configMinimumPayment: "0",
+			bridgePayment:        assets.NewLink(13),
+			jobStatus:            models.RunStatusErrored,
+		},
+		{
+			name:                 "job and bridge payment required and insufficient given",
+			inputPayment:         assets.NewLink(11),
+			jobMinimumPayment:    assets.NewLink(11),
+			configMinimumPayment: "0",
+			bridgePayment:        assets.NewLink(13),
+			jobStatus:            models.RunStatusErrored,
+		},
+		{
+			name:                 "job and bridge payment required and exact amount given",
+			inputPayment:         assets.NewLink(24),
+			jobMinimumPayment:    assets.NewLink(11),
+			configMinimumPayment: "0",
+			bridgePayment:        assets.NewLink(13),
+			jobStatus:            models.RunStatusInProgress,
+		},
+		{
+			name:                 "job and bridge payment required and excess amount given",
+			inputPayment:         assets.NewLink(25),
+			jobMinimumPayment:    assets.NewLink(11),
+			configMinimumPayment: "0",
+			bridgePayment:        assets.NewLink(13),
+			jobStatus:            models.RunStatusInProgress,
+		},
+
+		// config and job payments (uses job minimum payment)
+		{
 			name:                 "both payments required and no payment given",
+			inputPayment:         assets.NewLink(0),
 			jobMinimumPayment:    assets.NewLink(11),
 			configMinimumPayment: "13",
-			inputPayment:         assets.NewLink(0),
+			bridgePayment:        assets.NewLink(0),
 			jobStatus:            models.RunStatusErrored,
 		},
 		{
 			name:                 "both payments required and job payment amount given",
+			inputPayment:         assets.NewLink(11),
 			jobMinimumPayment:    assets.NewLink(11),
 			configMinimumPayment: "13",
-			inputPayment:         assets.NewLink(11),
+			bridgePayment:        assets.NewLink(0),
 			jobStatus:            models.RunStatusInProgress,
 		},
 	}
@@ -529,9 +617,20 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 			})
 			app.Start()
 
+			bt := &models.BridgeType{
+				Name:                   models.MustNewTaskType("expensiveBridge"),
+				URL:                    cltest.WebURL(t, "https://testing.com/bridges"),
+				Confirmations:          0,
+				MinimumContractPayment: test.bridgePayment,
+			}
+			require.NoError(t, store.CreateBridgeType(bt))
+
 			job := cltest.NewJobWithRunLogInitiator()
 			job.MinPayment = test.jobMinimumPayment
-			job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
+			job.Tasks = []models.TaskSpec{
+				cltest.NewTask(t, "NoOp"),
+				cltest.NewTask(t, bt.Name.String()),
+			}
 			require.NoError(t, store.CreateJob(&job))
 			initiator := job.Initiators[0]
 

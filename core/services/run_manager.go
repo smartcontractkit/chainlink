@@ -62,15 +62,15 @@ type runManager struct {
 }
 
 func runMinimumPayment(job *models.JobSpec, config orm.ConfigReader) *assets.Link {
-	minimumPayment := assets.NewLink(0)
+	minimumRunPayment := assets.NewLink(0)
 	if job.MinPayment != nil {
-		minimumPayment = job.MinPayment
-		logger.Debugw("Using job's minimum payment", "required_payment", minimumPayment)
+		minimumRunPayment = job.MinPayment
+		logger.Debugw("Using job's minimum payment", "required_payment", minimumRunPayment)
 	} else if config.MinimumContractPayment() != nil {
-		minimumPayment = config.MinimumContractPayment()
-		logger.Debugw("Using configured minimum payment", "required_payment", minimumPayment)
+		minimumRunPayment = config.MinimumContractPayment()
+		logger.Debugw("Using configured minimum payment", "required_payment", minimumRunPayment)
 	}
-	return minimumPayment
+	return minimumRunPayment
 }
 
 // NewRun returns a complete run from a JobSpec
@@ -100,7 +100,7 @@ func NewRun(
 		Payment:        runRequest.Payment,
 	}
 
-	minimumPayment := runMinimumPayment(job, config)
+	minimumRunPayment := runMinimumPayment(job, config)
 
 	for i, task := range job.Tasks {
 		adapter, err := adapters.For(task, config, orm)
@@ -115,6 +115,11 @@ func NewRun(
 			TaskSpec: task,
 		}
 
+		minimumPayment := adapter.MinPayment()
+		if minimumPayment != nil {
+			minimumRunPayment = assets.NewLink(0).Add(minimumRunPayment, minimumPayment)
+		}
+
 		if currentHeight != nil {
 			taskRun.MinimumConfirmations = clnull.Uint32From(
 				utils.MaxUint32(
@@ -127,7 +132,7 @@ func NewRun(
 		run.TaskRuns[i] = taskRun
 	}
 
-	return &run, minimumPayment
+	return &run, minimumRunPayment
 }
 
 // ValidateRun ensures that a run's initial preconditions have been met
