@@ -179,6 +179,9 @@ const (
 	InitiatorServiceAgreementExecutionLog = "execagreement"
 	// InitiatorExternal for tasks in a job to be trigger by an external party.
 	InitiatorExternal = "external"
+	// InitiatorFluxMonitor for tasks in a job to be run on price deviation
+	// or request for a new round of prices.
+	InitiatorFluxMonitor = "fluxmonitor"
 )
 
 // Initiator could be thought of as a trigger, defines how a Job can be
@@ -208,6 +211,11 @@ type InitiatorParams struct {
 	FromBlock  *utils.Big        `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
 	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
 	Topics     Topics            `json:"topics,omitempty" gorm:"type:text"`
+
+	RequestData JSON    `json:"requestData,omitempty" gorm:"type:text"`
+	Feeds       Feeds   `json:"feeds,omitempty" gorm:"type:text"`
+	Threshold   float32 `json:"threshold,omitempty" gorm:"type:float"`
+	Precision   int     `json:"precision,omitempty" gorm:"type:smallint"`
 }
 
 type Topics [][]common.Hash
@@ -232,6 +240,35 @@ func (t Topics) Value() (driver.Value, error) {
 		return nil, err
 	}
 	return string(j), nil
+}
+
+// Feeds holds all flux monitor feed URLs, serializing into the db
+// with ; delimited strings.
+type Feeds []string
+
+// Scan hydrates the current Feeds value with the passed in value, usually a
+// string from an underlying database.
+func (f *Feeds) Scan(value interface{}) error {
+	str, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to Feeds", value, value)
+	}
+
+	arr := strings.Split(str, ";")
+	collection := []string{}
+	for _, entry := range arr {
+		if entry != "" {
+			collection = append(collection, entry)
+		}
+	}
+	*f = collection
+	return nil
+}
+
+// Value returns this instance serialized for database storage.
+func (f Feeds) Value() (driver.Value, error) {
+	str := strings.Join(f, ";")
+	return str, nil
 }
 
 // NewInitiatorFromRequest creates an Initiator from the corresponding
