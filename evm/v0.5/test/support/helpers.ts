@@ -491,8 +491,7 @@ interface ServiceAgreement {
   oracleSignatures: Signature[]
 }
 
-// TODO: export necessary?
-export interface OracleSignatures {
+interface OracleSignatures {
   vs: number[] // uint8[]
   rs: Uint8Array[] // bytes32[]
   ss: Uint8Array[] // bytes32[]
