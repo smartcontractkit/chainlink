@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"chainlink/core/logger"
 	"chainlink/core/store"
@@ -125,6 +126,11 @@ func (r *Recurring) Stop() {
 func (r *Recurring) AddJob(job models.JobSpec) {
 	for _, initr := range job.InitiatorsFor(models.InitiatorCron) {
 		r.Cron.AddFunc(string(initr.Schedule), func() {
+			now := time.Now()
+			if !job.Started(now) || job.Ended(now) {
+				return
+			}
+
 			_, err := r.runManager.Create(job.ID, &initr, &models.JSON{}, nil, &models.RunRequest{})
 			if err != nil && !expectedRecurringScheduleJobError(err) {
 				logger.Errorw(err.Error())
@@ -170,11 +176,17 @@ func (ot *OneTime) RunJobAt(initiator models.Initiator, job models.JobSpec) {
 	select {
 	case <-ot.done:
 	case <-ot.Clock.After(utils.DurationFromNow(initiator.Time.Time)):
+		now := time.Now()
+		if !job.Started(now) || job.Ended(now) {
+			return
+		}
+
 		_, err := ot.RunManager.Create(job.ID, &initiator, &models.JSON{}, nil, &models.RunRequest{})
-		if err != nil {
+		if err != nil && !expectedRecurringScheduleJobError(err) {
 			logger.Error(err.Error())
 			return
 		}
+
 		if err := ot.Store.MarkRan(&initiator, true); err != nil {
 			logger.Error(err.Error())
 		}
