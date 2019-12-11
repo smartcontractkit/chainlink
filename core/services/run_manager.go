@@ -69,9 +69,9 @@ func NewRun(
 	currentHeight *big.Int,
 	runRequest *models.RunRequest,
 	config orm.ConfigReader,
-	orm *orm.ORM) (*models.JobRun, *assets.Link) {
+	orm *orm.ORM,
+	now time.Time) (*models.JobRun, *assets.Link) {
 
-	now := time.Now()
 	run := models.JobRun{
 		ID:             models.NewID(),
 		JobSpecID:      job.ID,
@@ -225,7 +225,7 @@ func (jm *runManager) Create(
 		return nil, fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID)
 	}
 
-	run, contractCost := NewRun(&job, initiator, data, creationHeight, runRequest, jm.config, jm.orm)
+	run, contractCost := NewRun(&job, initiator, data, creationHeight, runRequest, jm.config, jm.orm, now)
 	ValidateRun(run, contractCost)
 
 	if err := jm.orm.CreateJobRun(run); err != nil {
