@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"chainlink/core/assets"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -55,7 +56,8 @@ type BaseAdapter interface {
 // PipelineAdapter wraps a BaseAdapter with requirements for execution in the pipeline.
 type PipelineAdapter struct {
 	BaseAdapter
-	minConfs uint32
+	minConfs   uint32
+	minPayment *assets.Link
 }
 
 // MinConfs returns the private attribute
@@ -63,11 +65,17 @@ func (p PipelineAdapter) MinConfs() uint32 {
 	return p.minConfs
 }
 
+// MinPayment returns the payment for this adapter (defaults to none)
+func (p PipelineAdapter) MinPayment() *assets.Link {
+	return p.minPayment
+}
+
 // For determines the adapter type to use for a given task.
 func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*PipelineAdapter, error) {
 	var ba BaseAdapter
 	var err error
 	mic := config.MinIncomingConfirmations()
+	var mp *assets.Link
 
 	switch task.Type {
 	case TaskTypeCopy:
@@ -128,12 +136,14 @@ func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*Pipeline
 		}
 		b := Bridge{BridgeType: bt, Params: task.Params}
 		ba = &b
+		mp = bt.MinimumContractPayment
 		mic = b.Confirmations
 	}
 
 	pa := &PipelineAdapter{
 		BaseAdapter: ba,
 		minConfs:    mic,
+		minPayment:  mp,
 	}
 
 	return pa, err
