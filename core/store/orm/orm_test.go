@@ -466,12 +466,12 @@ func TestORM_CreateTx(t *testing.T) {
 
 	transaction := cltest.NewTransaction(9182731)
 
-	tx, err := store.CreateTx(transaction, null.String{})
+	tx, err := store.CreateTx(transaction)
 	require.NoError(t, err)
 	assert.Len(t, tx.Attempts, 0)
 
 	txs := []models.Tx{}
-	assert.NoError(t, store.Where("Nonce", transaction.Transaction.Nonce(), &txs))
+	assert.NoError(t, store.Where("Nonce", transaction.Nonce, &txs))
 	require.Len(t, txs, 1)
 	ntx := txs[0]
 
@@ -490,24 +490,23 @@ func TestORM_CreateTx_WithSurrogateIDIsIdempotent(t *testing.T) {
 	defer cleanup()
 
 	transaction := cltest.NewTransaction(0)
-
-	surrogateID := null.StringFrom("9182323")
-	tx1, err := store.CreateTx(transaction, surrogateID)
+	transaction.SurrogateID = null.StringFrom("9182323")
+	tx1, err := store.CreateTx(transaction)
 	assert.NoError(t, err)
 
-	transaction = cltest.NewTransaction(1)
-
-	tx2, err := store.CreateTx(transaction, surrogateID)
+	transaction2 := cltest.NewTransaction(1)
+	transaction2.SurrogateID = null.StringFrom("9182323")
+	tx2, err := store.CreateTx(transaction2)
 	assert.NoError(t, err)
 
 	// IDs should be the same because only record should ever be created
 	assert.Equal(t, tx1.ID, tx2.ID)
 
 	// New nonce should be saved
-	assert.NotEqual(t, tx1.Nonce, tx2.Nonce)
+	assert.Equal(t, transaction2.Nonce, tx2.Nonce)
 
 	// New nonce should change the hash
-	assert.NotEqual(t, tx1.Hash, tx2.Hash)
+	assert.Equal(t, transaction2.Hash, tx2.Hash)
 }
 
 func TestORM_AddTxAttempt(t *testing.T) {
@@ -517,7 +516,7 @@ func TestORM_AddTxAttempt(t *testing.T) {
 
 	transaction := cltest.NewTransaction(0)
 
-	tx, err := store.CreateTx(transaction, null.String{})
+	tx, err := store.CreateTx(transaction)
 	assert.NoError(t, err)
 
 	txAttempt, err := store.AddTxAttempt(tx, transaction)
@@ -1188,7 +1187,8 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 
 	t.Run("tx #1, 4 attempts", func(t *testing.T) {
 		transaction := cltest.NewTransaction(0, 0)
-		tx, err := store.CreateTx(transaction, null.StringFrom("0"))
+		transaction.SurrogateID = null.StringFrom("0")
+		tx, err := store.CreateTx(transaction)
 		require.NoError(t, err)
 
 		_, err = store.AddTxAttempt(tx, transaction)
@@ -1220,7 +1220,8 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 
 	t.Run("tx #2, 3 attempts", func(t *testing.T) {
 		transaction := cltest.NewTransaction(0)
-		tx, err := store.CreateTx(transaction, null.StringFrom("1"))
+		transaction.SurrogateID = null.StringFrom("1")
+		tx, err := store.CreateTx(transaction)
 		require.NoError(t, err)
 
 		_, err = store.AddTxAttempt(tx, transaction)
@@ -1247,7 +1248,8 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 
 	t.Run("tx #2, 2 attempts", func(t *testing.T) {
 		transaction := cltest.NewTransaction(0)
-		tx, err := store.CreateTx(transaction, null.StringFrom("2"))
+		transaction.SurrogateID = null.StringFrom("2")
+		tx, err := store.CreateTx(transaction)
 		require.NoError(t, err)
 
 		_, err = store.AddTxAttempt(tx, transaction)
