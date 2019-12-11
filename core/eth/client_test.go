@@ -175,11 +175,10 @@ func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%f", test.expectation), func(t *testing.T) {
-			caller.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").
-				Return(func(result interface{}, method string, args ...interface{}) error {
-					res := result.(*string)
+			caller.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil).
+				Run(func(args mock.Arguments) {
+					res := args.Get(0).(*string)
 					*res = test.response
-					return nil
 				})
 			result, err := ethClient.GetAggregatorPrice(address, test.precision)
 			require.NoError(t, err)
