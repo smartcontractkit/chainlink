@@ -207,3 +207,69 @@ func TestNewTaskType(t *testing.T) {
 		})
 	}
 }
+
+func TestFeeds_Value(t *testing.T) {
+	tests := []struct {
+		name        string
+		in          []string
+		expectation string
+	}{
+		{
+			"single",
+			[]string{"https://lambda.staging.devnet.tools/bnc/call"},
+			"https://lambda.staging.devnet.tools/bnc/call",
+		},
+		{
+			"double",
+			[]string{"https://lambda.staging.devnet.tools/bnc/call", "https://lambda.staging.devnet.tools/cc/call"},
+			"https://lambda.staging.devnet.tools/bnc/call;https://lambda.staging.devnet.tools/cc/call",
+		},
+		{
+			"empty",
+			[]string{},
+			"",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			feeds := models.Feeds(test.in)
+			val, err := feeds.Value()
+			require.NoError(t, err)
+			assert.Equal(t, test.expectation, val.(string))
+		})
+	}
+}
+
+func TestFeeds_Scan(t *testing.T) {
+	tests := []struct {
+		name        string
+		in          string
+		expectation models.Feeds
+	}{
+		{
+			"single",
+			"https://lambda.staging.devnet.tools/bnc/call",
+			models.Feeds([]string{"https://lambda.staging.devnet.tools/bnc/call"}),
+		},
+		{
+			"double",
+			"https://lambda.staging.devnet.tools/bnc/call;https://lambda.staging.devnet.tools/cc/call",
+			models.Feeds([]string{"https://lambda.staging.devnet.tools/bnc/call", "https://lambda.staging.devnet.tools/cc/call"}),
+		},
+		{
+			"empty",
+			"",
+			models.Feeds([]string{}),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			feeds := &models.Feeds{}
+			err := feeds.Scan(test.in)
+			require.NoError(t, err)
+			assert.Equal(t, test.expectation, *feeds)
+		})
+	}
+}

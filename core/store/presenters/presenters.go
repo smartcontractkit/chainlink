@@ -377,6 +377,14 @@ func initiatorParams(i Initiator) (interface{}, error) {
 		return struct {
 			Name string `json:"name"`
 		}{i.Name}, nil
+	case models.InitiatorFluxMonitor:
+		return struct {
+			Address     common.Address `json:"address"`
+			RequestData models.JSON    `json:"requestData"`
+			Feeds       models.Feeds   `json:"feeds"`
+			Threshold   float32        `json:"threshold"`
+			Precision   int            `json:"precision"`
+		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.Precision}, nil
 	default:
 		return nil, fmt.Errorf("Cannot marshal unsupported initiator type '%v'", i.Type)
 	}
