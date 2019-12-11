@@ -11,7 +11,7 @@ const DEFAULT_OPTIONS = {
 
 const MAINNET_CONTRACTS = [
   {
-    contractAddress: '0x9ab9ee9a5ac8aa4be93345877966b727777501b3',
+    contractAddress: '0x05cf62c4ba0ccea3da680f9a8744ac51116d6231',
     name: 'AUD / USD aggregation',
     valuePrefix: '$',
     answerName: 'AUD',
@@ -19,7 +19,7 @@ const MAINNET_CONTRACTS = [
     path: 'aud-usd',
   },
   {
-    contractAddress: '0xa18e0bf319a1316984c9fc9aba850e2a915cce0e',
+    contractAddress: '0x25Fa978ea1a7dc9bDc33a2959B9053EaE57169B5',
     name: 'EUR / USD aggregation',
     valuePrefix: '$',
     answerName: 'EUR',
@@ -27,7 +27,7 @@ const MAINNET_CONTRACTS = [
     path: 'eur-usd',
   },
   {
-    contractAddress: '0xb405aa39dca6ecf18691cd638a98c090c477dcf9',
+    contractAddress: '0x02d5c618dbc591544b19d0bf13543c0728a3c4ec',
     name: 'CHF / USD aggregation',
     valuePrefix: '$',
     answerName: 'CHF',
@@ -35,7 +35,7 @@ const MAINNET_CONTRACTS = [
     path: 'chf-usd',
   },
   {
-    contractAddress: '0xf277717f64815b17aa687cce701fa154185db4d9',
+    contractAddress: '0x151445852b0cfdf6a4cc81440f2af99176e8ad08',
     name: 'GBP / USD aggregation',
     valuePrefix: '$',
     answerName: 'GBP',
@@ -43,7 +43,7 @@ const MAINNET_CONTRACTS = [
     path: 'gbp-usd',
   },
   {
-    contractAddress: '0x8C4a5746d70C1aCeD6c3feB0915f59e3faBb18c3',
+    contractAddress: '0xe1407BfAa6B5965BAd1C9f38316A3b655A09d8A6',
     name: 'JPY / USD aggregation',
     valuePrefix: '$',
     answerName: 'JPY',
@@ -51,7 +51,7 @@ const MAINNET_CONTRACTS = [
     path: 'jpy-usd',
   },
   {
-    contractAddress: '0xe1ec292422194cfa6bb6089566af3019803b1af2',
+    contractAddress: '0x8946a183bfafa95becf57c5e08fe5b7654d2807b',
     name: 'XAG / USD aggregation',
     valuePrefix: '$',
     answerName: 'XAG',
@@ -59,7 +59,7 @@ const MAINNET_CONTRACTS = [
     path: 'xag-usd',
   },
   {
-    contractAddress: '0x121df6cfe2426e6c9ae1b273f2e38d0c362c03fa',
+    contractAddress: '0xafce0c7b7fe3425adb3871eae5c0ec6d93e01935',
     name: 'XAU / USD aggregation',
     valuePrefix: '$',
     answerName: 'XAU',
