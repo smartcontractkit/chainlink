@@ -25,28 +25,30 @@ function AnswerHistory({ answerHistory, options }) {
       <div className="answer-history">
         <div className="answer-history-header">
           <h2>24h Price history {!answerHistory && <Icon type="loading" />}</h2>
-          <div className="answer-history-options">
-            <Tooltip
-              title={
-                <>
-                  Statistical chart characterizing the prices and volatility
-                  over time.
-                  <br />
-                  <a
-                    style={{ color: 'white', fontWeight: 'bold' }}
-                    target="_BLANK"
-                    rel="noopener noreferrer"
-                    href={`https://en.wikipedia.org/wiki/Bollinger_Bands`}
-                  >
-                    Read more.
-                  </a>
-                </>
-              }
-            >
-              Moving min max averages{' '}
-              <Switch defaultChecked={options.bollinger} onChange={onChange} />
-            </Tooltip>
-          </div>
+          {options.bollinger && (
+            <div className="answer-history-options">
+              <Tooltip
+                title={
+                  <>
+                    Statistical chart characterizing the prices and volatility
+                    over time.
+                    <br />
+                    <a
+                      style={{ color: 'white', fontWeight: 'bold' }}
+                      target="_BLANK"
+                      rel="noopener noreferrer"
+                      href={`https://en.wikipedia.org/wiki/Bollinger_Bands`}
+                    >
+                      Read more.
+                    </a>
+                  </>
+                }
+              >
+                Moving min max averages{' '}
+                <Switch defaultChecked={true} onChange={onChange} />
+              </Tooltip>
+            </div>
+          )}
         </div>
         <div className="answer-history-graph"></div>
       </div>
