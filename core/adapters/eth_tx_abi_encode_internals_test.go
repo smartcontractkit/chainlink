@@ -52,7 +52,7 @@ var isSupportedABITypeTests = []struct {
 
 func TestEthTxABIEncodeAdapter_isSupportedABIType(t *testing.T) {
 	for _, test := range isSupportedABITypeTests {
-		typ, err := abi.NewType(test.typeString, []abi.ArgumentMarshaling{})
+		typ, err := abi.NewType(test.typeString, "", []abi.ArgumentMarshaling{})
 		assert.NoError(t, err)
 
 		require.Equal(t, test.valid, isSupportedABIType(&typ), "failed for %s", test.typeString)
