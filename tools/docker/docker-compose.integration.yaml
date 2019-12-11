@@ -73,15 +73,9 @@ services:
     networks:
       - node-external
       - integration-internal # needed this for echo-server, and cypress-job-server
-    secrets:
-      - keystore
 
 networks:
   node-external:
     driver: bridge
   integration-internal:
     driver: bridge
-
-secrets:
-  keystore:
-    file: ../secrets/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json

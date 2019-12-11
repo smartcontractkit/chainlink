@@ -33,6 +33,7 @@ services:
     secrets:
       - node_password
       - apicredentials
+      - keystore
 
   explorer:
     container_name: chainlink-explorer
@@ -78,6 +79,8 @@ secrets:
     file: ../clroot/password.txt
   apicredentials:
     file: ../clroot/apicredentials
+  keystore:
+    file: ../secrets/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json
 
 volumes:
   explorer-db-data:
