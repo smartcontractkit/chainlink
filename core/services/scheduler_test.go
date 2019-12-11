@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v3"
 )
 
 func TestScheduler_Start_LoadingRecurringJobs(t *testing.T) {
@@ -116,6 +117,37 @@ func TestOneTime_AddJob(t *testing.T) {
 	go clock.Trigger()
 
 	// Sleep for some time to make sure another call isn't made
+	time.Sleep(1 * time.Second)
+
+	ot.Stop()
+
+	runManager.AssertExpectations(t)
+}
+
+func TestOneTime_AddJob_PastJobEnd(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	runManager := new(mocks.RunManager)
+
+	clock := cltest.NewTriggerClock(t)
+
+	ot := services.OneTime{
+		Clock:      clock,
+		Store:      store,
+		RunManager: runManager,
+	}
+	require.NoError(t, ot.Start())
+
+	j := cltest.NewJobWithRunAtInitiator(time.Now())
+	j.EndAt = null.TimeFrom(clock.Now().Add(-1 * time.Second))
+	require.Nil(t, store.CreateJob(&j))
+
+	ot.AddJob(j)
+
+	clock.Trigger()
+
+	// Sleep for some time to make sure no calls are made
 	time.Sleep(1 * time.Second)
 
 	ot.Stop()
