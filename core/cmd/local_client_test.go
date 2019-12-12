@@ -150,6 +150,40 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 	}
 }
 
+func TestClient_RunNode(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	_, err := store.KeyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+
+	store, cleanup = cltest.NewStore(t)
+	defer cleanup()
+
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+	app.On("Start").Maybe().Return(nil)
+	app.On("Stop").Maybe().Return(nil)
+
+	enteredStrings := []string{cltest.Password}
+	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
+	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: prompter}
+	apiPrompt := &cltest.MockAPIInitializer{}
+
+	client := cmd.Client{
+		Config:                 store.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
+		KeyStoreAuthenticator:  auth,
+		FallbackAPIInitializer: apiPrompt,
+		Runner:                 cltest.EmptyRunner{},
+	}
+
+	set := flag.NewFlagSet("", 0)
+	c := cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.RunNode(c))
+}
+
 func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 	t.Parallel()
 
