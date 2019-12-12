@@ -1,5 +1,4 @@
 import { generated as chainlink } from 'chainlinkv0.5'
-import { contract } from 'chainlink'
 import { helpers } from 'chainlink'
 import {
   getArgs,
@@ -9,12 +8,8 @@ import {
 } from './common'
 import { ethers } from 'ethers'
 const { CoordinatorFactory } = chainlink
-
-type CoordinatorParams = Parameters<
-  contract.Instance<chainlink.CoordinatorFactory>['initiateServiceAgreement']
->
-type ServiceAgreement = CoordinatorParams[0]
-type OracleSignatures = CoordinatorParams[1]
+type OracleSignatures = helpers.OracleSignatures
+type ServiceAgreement = helpers.ServiceAgreement
 
 /**
  * This json definition may be missing types, it was generated from a fixture.
@@ -111,13 +106,15 @@ async function initiateServiceAgreement({
   }
 
   const oracleSignatures: OracleSignatures = {
+    vs: [sig.v],
     rs: [sig.r],
     ss: [sig.s],
-    vs: [sig.v],
   }
+  const encodedSignatures = helpers.encodeOracleSignatures(oracleSignatures)
 
   const said = helpers.generateSAID(sa)
-  const ssaid = await coordinator.getId(sa)
+  const encodedSA = helpers.encodeServiceAgreement(sa)
+  const ssaid = await coordinator.getId(encodedSA)
   if (said != ssaid) {
     throw Error(`sAId mismatch. javascript: ${said} solidity: ${ssaid}`)
   }
@@ -132,7 +129,10 @@ async function initiateServiceAgreement({
     ...sig,
   })
 
-  const tx = await coordinator.initiateServiceAgreement(sa, oracleSignatures)
+  const tx = await coordinator.initiateServiceAgreement(
+    encodedSA,
+    encodedSignatures,
+  )
   console.log(tx)
   const iSAreceipt = await tx.wait()
   console.log('initiateServiceAgreement receipt', iSAreceipt)

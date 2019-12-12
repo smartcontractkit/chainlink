@@ -6236,17 +6236,6 @@ chainlink@0.7.5:
     truffle-contract "^4.0.31"
     web3 "^1.2.0"
 
-chainlink@0.7.8:
-  version "0.7.8"
-  resolved "https://registry.yarnpkg.com/chainlink/-/chainlink-0.7.8.tgz#4b7f93d629bb35d7201155e30bb587b56579f848"
-  integrity sha512-S8oCmasY95irJouUKBA02RhX4bSaE4hJ81HMeiF7Cg/GYAkoUg1L2umRc1WLc+3pDg7udMt2pRDmEmx3tpCIpQ==
-  dependencies:
-    cbor "^4.1.1"
-    chainlinkv0.5 "0.0.2"
-    ethers "^4.0.37"
-    link_token "^1.0.6"
-    openzeppelin-solidity "^1.12.0"
-
 chalk@2.4.1:
   version "2.4.1"
   resolved "https://registry.npmjs.org/chalk/-/chalk-2.4.1.tgz#18c49ab16a037b6eb0152cc83e3471338215b66e"

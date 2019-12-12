@@ -1,24 +1,8 @@
-import { generateSAID } from './helpersV2'
+import { generateSAID, ServiceAgreement } from './helpersV2'
 
 describe('generateSAID test', () => {
   it('should the hashed result of the abi encoded service agreement', () => {
-    const sa = {
-      initiators: [{ type: 'execagreement' }],
-      tasks: [
-        {
-          type: 'HttpGet',
-          params: { get: 'https://bitstamp.net/api/ticker/' },
-        },
-        { type: 'JsonParse', params: { path: ['last'] } },
-        { type: 'EthBytes32' },
-        {
-          type: 'EthTx',
-          params: {
-            address: '0x356a04bce728ba4c62a30294a55e6a8600a320b3',
-            functionSelector: '0x609ff1bd',
-          },
-        },
-      ],
+    const sa: ServiceAgreement = {
       payment: '1000000000000000000',
       expiration: 300,
       oracles: ['0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'],
