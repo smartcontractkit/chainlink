@@ -585,13 +585,15 @@ func (orm *ORM) CreateTx(tx *models.Tx) (*models.Tx, error) {
 	orm.MustEnsureAdvisoryLock()
 
 	err := orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		var err error
+		var query *gorm.DB
 		if tx.SurrogateID.Valid {
-			err = dbtx.First(tx, "surrogate_id = ?", tx.SurrogateID.ValueOrZero()).Error
+			query = dbtx.First(&models.Tx{}, "surrogate_id = ?", tx.SurrogateID.ValueOrZero())
 		} else {
-			err = dbtx.First(tx, "hash = ?", tx.Hash).Error
+			query = dbtx.First(&models.Tx{}, "hash = ?", tx.Hash)
 		}
 
+		ids := []uint64{}
+		err := query.Pluck("id", &ids).Error
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return errors.Wrap(err, "CreateTx#First failed")
 		}
@@ -599,6 +601,7 @@ func (orm *ORM) CreateTx(tx *models.Tx) (*models.Tx, error) {
 		if err == gorm.ErrRecordNotFound {
 			return dbtx.Create(tx).Error
 		}
+		tx.ID = ids[0]
 		return dbtx.Save(tx).Error
 	})
 	if err != nil {
