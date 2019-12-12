@@ -7,8 +7,8 @@
   "scripts": {
     "generate-typings": "typechain --target ethers --outDir src/generated \"{test/support/LinkToken*,dist/artifacts/*}\"",
     "postgenerate-typings": "yarn workspace chainlink export-typings v0.5/src/generated v0.5/dist/src/generated",
-    "build:windows": "truffle.cmd build && yarn generate-typings && (tsc || true)",
-    "build": "sol-compiler && yarn generate-typings && (tsc || true)",
+    "build:windows": "truffle.cmd build && yarn generate-typings && tsc",
+    "build": "sol-compiler && yarn generate-typings && tsc",
     "depcheck": "echo \"chainlinkv0.5\" && depcheck --ignore-dirs=build/contracts || true",
     "eslint": "eslint --ext .ts,.js test",
     "solhint": "solhint ./contracts/**/*.sol",
@@ -17,7 +17,7 @@
     "slither": "truffle compile --quiet && slither . && rimraf dist/artifacts",
     "setup": "ts-node ./scripts/build",
     "prepublishOnly": "yarn setup && yarn lint && yarn test",
-    "test": "(tsc || true) && truffle test ./dist/test/*_test.js",
+    "test": "tsc && truffle test ./dist/test/*_test.js",
     "test:v2": "jest --testTimeout 80000",
     "tsc": "tsc"
   },
