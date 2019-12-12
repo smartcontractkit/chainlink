@@ -61,7 +61,7 @@ type runManager struct {
 	clock     utils.AfterNower
 }
 
-func runMinimumPayment(job *models.JobSpec, config orm.ConfigReader) *assets.Link {
+func runCost(job *models.JobSpec, config orm.ConfigReader, adapters []*adapters.PipelineAdapter) *assets.Link {
 	minimumRunPayment := assets.NewLink(0)
 	if job.MinPayment != nil {
 		minimumRunPayment = job.MinPayment
@@ -70,6 +70,14 @@ func runMinimumPayment(job *models.JobSpec, config orm.ConfigReader) *assets.Lin
 		minimumRunPayment = config.MinimumContractPayment()
 		logger.Debugw("Using configured minimum payment", "required_payment", minimumRunPayment)
 	}
+
+	for _, adapter := range adapters {
+		minimumPayment := adapter.MinPayment()
+		if minimumPayment != nil {
+			minimumRunPayment = assets.NewLink(0).Add(minimumRunPayment, minimumPayment)
+		}
+	}
+
 	return minimumRunPayment
 }
 
@@ -82,7 +90,7 @@ func NewRun(
 	runRequest *models.RunRequest,
 	config orm.ConfigReader,
 	orm *orm.ORM,
-	now time.Time) (*models.JobRun, *assets.Link) {
+	now time.Time) (*models.JobRun, []*adapters.PipelineAdapter) {
 
 	run := models.JobRun{
 		ID:             models.NewID(),
@@ -100,8 +108,7 @@ func NewRun(
 		Payment:        runRequest.Payment,
 	}
 
-	minimumRunPayment := runMinimumPayment(job, config)
-
+	runAdapters := []*adapters.PipelineAdapter{}
 	for i, task := range job.Tasks {
 		adapter, err := adapters.For(task, config, orm)
 		if err != nil {
@@ -109,30 +116,27 @@ func NewRun(
 			break
 		}
 
-		taskRun := models.TaskRun{
-			ID:       models.NewID(),
-			JobRunID: run.ID,
-			TaskSpec: task,
-		}
+		runAdapters = append(runAdapters, adapter)
 
-		minimumPayment := adapter.MinPayment()
-		if minimumPayment != nil {
-			minimumRunPayment = assets.NewLink(0).Add(minimumRunPayment, minimumPayment)
-		}
-
+		minimumConfirmations := clnull.Uint32{}
 		if currentHeight != nil {
-			taskRun.MinimumConfirmations = clnull.Uint32From(
+			minimumConfirmations = clnull.Uint32From(
 				utils.MaxUint32(
 					config.MinIncomingConfirmations(),
-					taskRun.TaskSpec.Confirmations.Uint32,
+					task.Confirmations.Uint32,
 					adapter.MinConfs()),
 			)
 		}
 
-		run.TaskRuns[i] = taskRun
+		run.TaskRuns[i] = models.TaskRun{
+			ID:                   models.NewID(),
+			JobRunID:             run.ID,
+			TaskSpec:             task,
+			MinimumConfirmations: minimumConfirmations,
+		}
 	}
 
-	return &run, minimumRunPayment
+	return &run, runAdapters
 }
 
 // ValidateRun ensures that a run's initial preconditions have been met
@@ -235,8 +239,9 @@ func (jm *runManager) Create(
 		return nil, fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID)
 	}
 
-	run, contractCost := NewRun(&job, initiator, data, creationHeight, runRequest, jm.config, jm.orm, now)
-	ValidateRun(run, contractCost)
+	run, adapters := NewRun(&job, initiator, data, creationHeight, runRequest, jm.config, jm.orm, now)
+	runCost := runCost(&job, jm.config, adapters)
+	ValidateRun(run, runCost)
 
 	if err := jm.orm.CreateJobRun(run); err != nil {
 		return nil, errors.Wrap(err, "CreateJobRun failed")
