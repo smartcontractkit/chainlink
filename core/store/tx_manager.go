@@ -249,7 +249,7 @@ func (txm *EthTxManager) createTx(
 			return nil, errors.Wrap(err, "TxManager#retryInitialTx sendInitialTx")
 		}
 
-		logger.Warnw("Tx #0: nonce too low, retrying with network nonce")
+		logger.Warnw("Tx #0: nonce too low, retrying with network nonce", "nonce", tx.Nonce)
 
 		err = ma.ReloadNonce(txm)
 		if err != nil {
@@ -802,6 +802,7 @@ func (a *ManagedAccount) ReloadNonce(txm *EthTxManager) error {
 	if err != nil {
 		return fmt.Errorf("TxManager ReloadNonce: %v", err)
 	}
+	logger.Debugw("Got new network nonce", "nonce", nonce)
 	a.nonce = nonce
 	return nil
 }
