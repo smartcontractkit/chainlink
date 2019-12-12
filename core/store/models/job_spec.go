@@ -215,7 +215,7 @@ type InitiatorParams struct {
 	RequestData JSON    `json:"requestData,omitempty" gorm:"type:text"`
 	Feeds       Feeds   `json:"feeds,omitempty" gorm:"type:text"`
 	Threshold   float32 `json:"threshold,omitempty" gorm:"type:float"`
-	Precision   int     `json:"precision,omitempty" gorm:"type:smallint"`
+	Precision   int32   `json:"precision,omitempty" gorm:"type:smallint"`
 }
 
 type Topics [][]common.Hash

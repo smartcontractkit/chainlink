@@ -383,7 +383,7 @@ func initiatorParams(i Initiator) (interface{}, error) {
 			RequestData models.JSON    `json:"requestData"`
 			Feeds       models.Feeds   `json:"feeds"`
 			Threshold   float32        `json:"threshold"`
-			Precision   int            `json:"precision"`
+			Precision   int32          `json:"precision"`
 		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.Precision}, nil
 	default:
 		return nil, fmt.Errorf("Cannot marshal unsupported initiator type '%v'", i.Type)

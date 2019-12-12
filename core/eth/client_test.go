@@ -13,6 +13,7 @@ import (
 	strpkg "chainlink/core/store"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -165,15 +166,15 @@ func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
 
 	tests := []struct {
 		response    string
-		precision   int
-		expectation float64
+		precision   int32
+		expectation decimal.Decimal
 	}{
-		{"0x0100", 2, 2.56},
-		{"10000000000000", 11, 100},
+		{"0x0100", 2, decimal.NewFromFloat(2.56)},
+		{"10000000000000", 11, decimal.NewFromInt(100)},
 	}
 
 	for _, test := range tests {
-		t.Run(fmt.Sprintf("%f", test.expectation), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%v", test.expectation), func(t *testing.T) {
 			caller.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil).
 				Run(func(args mock.Arguments) {
 					res := args.Get(0).(*string)
@@ -181,7 +182,7 @@ func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
 				})
 			result, err := ethClient.GetAggregatorPrice(address, test.precision)
 			require.NoError(t, err)
-			assert.Equal(t, test.expectation, result)
+			assert.True(t, test.expectation.Equal(result))
 			caller.AssertExpectations(t)
 		})
 	}

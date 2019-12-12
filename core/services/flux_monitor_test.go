@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -110,21 +111,21 @@ func TestPollingDeviationChecker_Happy(t *testing.T) {
 
 	checker, err := services.NewPollingDeviationChecker(context.Background(), initr, rm)
 	require.NoError(t, err)
-	assert.Equal(t, 0.0, checker.PreviousPrice())
+	assert.Equal(t, decimal.NewFromInt(0), checker.PreviousPrice())
 
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
-		Return(100.0, nil)
+		Return(decimal.NewFromInt(100), nil)
 
 	require.NoError(t, checker.Initialize(ethClient))
 	ethClient.AssertExpectations(t)
-	assert.Equal(t, 100.0, checker.PreviousPrice())
+	assert.Equal(t, decimal.NewFromInt(100), checker.PreviousPrice())
 
 	assert.NoError(t, checker.Run())
 
 	serverAssert()
 	rm.AssertExpectations(t)
-	assert.Equal(t, 102.0, checker.PreviousPrice())
+	assert.Equal(t, decimal.NewFromInt(102), checker.PreviousPrice())
 }
 
 func TestPollingDeviationChecker_InitializeError(t *testing.T) {
@@ -135,7 +136,7 @@ func TestPollingDeviationChecker_InitializeError(t *testing.T) {
 
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
-		Return(0.0, errors.New("deliberate test error"))
+		Return(decimal.NewFromInt(0), errors.New("deliberate test error"))
 
 	checker, err := services.NewPollingDeviationChecker(context.Background(), initr, rm)
 	require.NoError(t, err)
