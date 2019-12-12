@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"chainlink/core/adapters"
+	"chainlink/core/assets"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/services"
 	"chainlink/core/store/models"
@@ -104,6 +105,91 @@ func TestValidateAdapter(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	tests := []struct {
+		description string
+		request     models.BridgeTypeRequest
+		want        error
+	}{
+		{
+			"no adapter name",
+			models.BridgeTypeRequest{
+				URL: cltest.WebURL(t, "https://denergy.eth"),
+			},
+			models.NewJSONAPIErrorsWith("No name specified"),
+		},
+		{
+			"invalid adapter name",
+			models.BridgeTypeRequest{
+				Name: "invalid/adapter",
+				URL:  cltest.WebURL(t, "https://denergy.eth"),
+			},
+			models.NewJSONAPIErrorsWith("Task Type validation: name invalid/adapter contains invalid characters"),
+		},
+		{
+			"invalid with blank url",
+			models.BridgeTypeRequest{
+				Name: "validadaptername",
+				URL:  cltest.WebURL(t, ""),
+			},
+			models.NewJSONAPIErrorsWith("URL must be present"),
+		},
+		{
+			"valid url",
+			models.BridgeTypeRequest{
+				Name: "adapterwithvalidurl",
+				URL:  cltest.WebURL(t, "//denergy"),
+			},
+			nil,
+		},
+		{
+			"valid docker url",
+			models.BridgeTypeRequest{
+				Name: "adapterwithdockerurl",
+				URL:  cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
+			},
+			nil,
+		},
+		{
+			"valid MinimumContractPayment positive",
+			models.BridgeTypeRequest{
+				Name:                   "adapterwithdockerurl",
+				URL:                    cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
+				MinimumContractPayment: assets.NewLink(1),
+			},
+			nil,
+		},
+		{
+			"invalid MinimumContractPayment negative",
+			models.BridgeTypeRequest{
+				Name:                   "adapterwithdockerurl",
+				URL:                    cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
+				MinimumContractPayment: assets.NewLink(-1),
+			},
+			models.NewJSONAPIErrorsWith("MinimumContractPayment must be positive"),
+		},
+		{
+			"new external adapter",
+			models.BridgeTypeRequest{
+				Name: "gdaxprice",
+				URL:  cltest.WebURL(t, "https://denergy.eth"),
+			},
+			nil,
+		}}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			result := services.ValidateBridgeType(&test.request, store)
+			assert.Equal(t, test.want, result)
+		})
+	}
+}
+
+func TestValidateBridgeNotExist(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
 	// Create a duplicate
 	bt := models.BridgeType{}
 	bt.Name = models.MustNewTaskType("solargridreporting")
@@ -112,59 +198,28 @@ func TestValidateAdapter(t *testing.T) {
 
 	tests := []struct {
 		description string
-		name        string
-		url         models.WebURL
+		request     models.BridgeTypeRequest
 		want        error
 	}{
 		{
 			"existing external adapter",
-			"solargridreporting",
-			bt.URL,
+			models.BridgeTypeRequest{
+				Name: "solargridreporting",
+			},
 			models.NewJSONAPIErrorsWith("Adapter solargridreporting already exists"),
 		},
 		{
 			"existing core adapter",
-			"ethtx",
-			bt.URL,
+			models.BridgeTypeRequest{
+				Name: "ethtx",
+			},
 			models.NewJSONAPIErrorsWith("Adapter ethtx already exists"),
 		},
-		{
-			"no adapter name",
-			"",
-			bt.URL,
-			models.NewJSONAPIErrorsWith("No name specified"),
-		},
-		{
-			"invalid adapter name",
-			"invalid/adapter",
-			bt.URL,
-			models.NewJSONAPIErrorsWith("Task Type validation: name invalid/adapter contains invalid characters"),
-		},
-		{
-			"invalid with blank url",
-			"validadaptername",
-			cltest.WebURL(t, ""),
-			models.NewJSONAPIErrorsWith("URL must be present"),
-		},
-		{
-			"valid url",
-			"adapterwithvalidurl",
-			cltest.WebURL(t, "//denergy"),
-			nil,
-		},
-		{
-			"valid docker url",
-			"adapterwithdockerurl",
-			cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
-			nil,
-		},
-		{"new external adapter", "gdaxprice", bt.URL, nil},
 	}
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			btr := &models.BridgeTypeRequest{Name: models.TaskType(test.name), URL: test.url}
-			result := services.ValidateBridgeType(btr, store)
+			result := services.ValidateBridgeTypeNotExist(&test.request, store)
 			assert.Equal(t, test.want, result)
 		})
 	}
