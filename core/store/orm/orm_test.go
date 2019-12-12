@@ -489,12 +489,14 @@ func TestORM_CreateTx_WithSurrogateIDIsIdempotent(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	transaction := cltest.NewTransaction(0)
+	newNonce := uint64(13)
+
+	transaction := cltest.NewTransaction(11)
 	transaction.SurrogateID = null.StringFrom("9182323")
 	tx1, err := store.CreateTx(transaction)
 	assert.NoError(t, err)
 
-	transaction2 := cltest.NewTransaction(1)
+	transaction2 := cltest.NewTransaction(newNonce)
 	transaction2.SurrogateID = null.StringFrom("9182323")
 	tx2, err := store.CreateTx(transaction2)
 	assert.NoError(t, err)
@@ -503,7 +505,7 @@ func TestORM_CreateTx_WithSurrogateIDIsIdempotent(t *testing.T) {
 	assert.Equal(t, tx1.ID, tx2.ID)
 
 	// New nonce should be saved
-	assert.Equal(t, transaction2.Nonce, tx2.Nonce)
+	assert.Equal(t, newNonce, tx2.Nonce)
 
 	// New nonce should change the hash
 	assert.Equal(t, transaction2.Hash, tx2.Hash)
