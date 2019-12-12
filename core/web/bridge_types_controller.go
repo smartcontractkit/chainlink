@@ -27,6 +27,8 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		jsonAPIError(c, StatusCodeForError(err), err)
 	} else if err := services.ValidateBridgeType(btr, btc.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
+	} else if err := services.ValidateBridgeTypeNotExist(btr, btc.App.GetStore()); err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if err := btc.App.GetStore().CreateBridgeType(bt); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
@@ -67,6 +69,8 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else if err := c.ShouldBindJSON(btr); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+	} else if err := services.ValidateBridgeType(btr, btc.App.GetStore()); err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if err := btc.App.GetStore().UpdateBridgeType(&bt, btr); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
