@@ -9,6 +9,7 @@ import (
 
 	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/internal/mocks"
 	strpkg "chainlink/core/store"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -158,10 +159,8 @@ func TestCallerSubscriberClient_GetERC20Balance(t *testing.T) {
 }
 
 func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	caller, ethClient := cltest.MockeryStoreEth(t, store)
+	caller := new(mocks.CallerSubscriber)
+	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
 	address := cltest.NewAddress()
 
 	tests := []struct {
