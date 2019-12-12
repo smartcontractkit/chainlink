@@ -267,6 +267,9 @@ func (f *Feeds) Scan(value interface{}) error {
 
 // Value returns this instance serialized for database storage.
 func (f Feeds) Value() (driver.Value, error) {
+	if len(f) == 0 {
+		return nil, nil
+	}
 	str := strings.Join(f, ";")
 	return str, nil
 }

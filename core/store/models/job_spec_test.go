@@ -1,6 +1,7 @@
 package models_test
 
 import (
+	"database/sql/driver"
 	"testing"
 	"time"
 
@@ -212,7 +213,7 @@ func TestFeeds_Value(t *testing.T) {
 	tests := []struct {
 		name        string
 		in          []string
-		expectation string
+		expectation driver.Value
 	}{
 		{
 			"single",
@@ -227,7 +228,7 @@ func TestFeeds_Value(t *testing.T) {
 		{
 			"empty",
 			[]string{},
-			"",
+			nil,
 		},
 	}
 
@@ -236,7 +237,7 @@ func TestFeeds_Value(t *testing.T) {
 			feeds := models.Feeds(test.in)
 			val, err := feeds.Value()
 			require.NoError(t, err)
-			assert.Equal(t, test.expectation, val.(string))
+			assert.Equal(t, test.expectation, val)
 		})
 	}
 }
