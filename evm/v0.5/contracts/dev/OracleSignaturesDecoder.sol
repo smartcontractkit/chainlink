@@ -1,6 +1,6 @@
 pragma solidity 0.5.0;
 
-contract OracleSignaturesConsumer {
+contract OracleSignaturesDecoder {
 
   struct OracleSignatures {
     uint8[] vs;

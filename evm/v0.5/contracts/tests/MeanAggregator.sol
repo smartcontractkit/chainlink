@@ -1,10 +1,10 @@
 pragma solidity 0.5.0;
 
 import "../dev/CoordinatorInterface.sol";
-import "../dev/ServiceAgreementConsumer.sol";
+import "../dev/ServiceAgreementDecoder.sol";
 
 /// Computes the mean of the values the oracles pass it via fulfill method
-contract MeanAggregator is ServiceAgreementConsumer {
+contract MeanAggregator is ServiceAgreementDecoder {
 
   // Relies on Coordinator's authorization of the oracles (no need to track
   // oracle authorization in this contract.)
