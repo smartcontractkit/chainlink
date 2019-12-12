@@ -18,10 +18,9 @@ import (
 )
 
 func TestChainlinkApplication_SignalShutdown(t *testing.T) {
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	app, appCleanUp := cltest.NewApplicationWithConfig(t, config)
+	app, appCleanUp := cltest.NewApplication(t)
 	defer appCleanUp()
+
 	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 
@@ -30,7 +29,7 @@ func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 		completed.Set()
 	}
 
-	require.NoError(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
 	syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
