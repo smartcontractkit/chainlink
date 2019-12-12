@@ -4,14 +4,14 @@ import "./CoordinatorInterface.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../vendor/SafeMath.sol";
-import "./ServiceAgreementConsumer.sol";
-import "./OracleSignaturesConsumer.sol";
+import "./ServiceAgreementDecoder.sol";
+import "./OracleSignaturesDecoder.sol";
 
 
 /**
  * @title The Chainlink Coordinator handles oracle service aggreements between one or more oracles
  */
-contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface, ServiceAgreementConsumer, OracleSignaturesConsumer {
+contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface, ServiceAgreementDecoder, OracleSignaturesDecoder {
   using SafeMath for uint256;
 
   uint256 constant public EXPIRY_TIME = 5 minutes;
