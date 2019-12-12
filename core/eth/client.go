@@ -106,11 +106,15 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 	return numLinkBigInt, nil
 }
 
+const aggregatorAnswerFunctionID = "7e1b4cb0"
+
+var (
+	dec10            = decimal.NewFromInt(10)
+	functionSelector = HexToFunctionSelector(aggregatorAnswerFunctionID)
+)
+
 // GetAggregatorPrice returns the current price at the given address.
 func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
-	const currentAnswerFunctionID = "7e1b4cb0"
-	functionSelector := HexToFunctionSelector(currentAnswerFunctionID)
-
 	var result string
 	args := CallArgs{
 		To:   address,
@@ -124,7 +128,7 @@ func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address,
 	if err != nil {
 		return decimal.NewFromInt(0), errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
 	}
-	precisionDivisor := decimal.NewFromInt(10).Pow(decimal.NewFromInt32(precision))
+	precisionDivisor := dec10.Pow(decimal.NewFromInt32(precision))
 	return decimal.NewFromInt(i).Div(precisionDivisor), nil
 }
 
