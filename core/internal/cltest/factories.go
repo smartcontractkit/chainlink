@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
 )
@@ -132,6 +133,23 @@ func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 		Type:      models.InitiatorRunAt,
 		InitiatorParams: models.InitiatorParams{
 			Time: models.NewAnyTime(t),
+		},
+	}}
+	return j
+}
+
+// NewJobWithFluxMonitorInitiator create new Job with FluxMonitor inititaor
+func NewJobWithFluxMonitorInitiator() models.JobSpec {
+	j := NewJob()
+	j.Initiators = []models.Initiator{{
+		JobSpecID: j.ID,
+		Type:      models.InitiatorFluxMonitor,
+		InitiatorParams: models.InitiatorParams{
+			Address:     NewAddress(),
+			RequestData: models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:       []string{"https://lambda.staging.devnet.tools/bnc/call"},
+			Threshold:   0.5,
+			Precision:   2,
 		},
 	}}
 	return j

@@ -41,6 +41,7 @@ type ChainlinkApplication struct {
 	RunManager
 	RunQueue                 RunQueue
 	JobSubscriber            JobSubscriber
+	FluxMonitor              FluxMonitor
 	Scheduler                *Scheduler
 	Store                    *store.Store
 	SessionReaper            SleeperTask
@@ -60,11 +61,13 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	runQueue := NewRunQueue(runExecutor)
 	runManager := NewRunManager(runQueue, config, store.ORM, store.TxManager, store.Clock)
 	jobSubscriber := NewJobSubscriber(store, runManager)
+	fluxMonitor := NewFluxMonitor(store, runManager)
 
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
 
 	app := &ChainlinkApplication{
 		JobSubscriber:            jobSubscriber,
+		FluxMonitor:              fluxMonitor,
 		RunManager:               runManager,
 		RunQueue:                 runQueue,
 		Scheduler:                NewScheduler(store, runManager),
@@ -78,6 +81,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		store.TxManager,
 		jobSubscriber,
 		pendingConnectionResumer,
+		fluxMonitor,
 	}
 	for _, onConnectCallback := range onConnectCallbacks {
 		headTrackable := &headTrackableCallback{func() {
@@ -113,7 +117,7 @@ func (app *ChainlinkApplication) Start() error {
 		app.RunManager.ResumeAllInProgress(),
 
 		// HeadTracker deliberately started after
-		// RunQueue#resumeRunsSinceLastShutdown since it Connects JobSubscriber
+		// RunManager.ResumeAllInProgress since it Connects JobSubscriber
 		// which leads to writes of JobRuns RunStatus to the db.
 		// https://www.pivotaltracker.com/story/show/162230780
 		app.HeadTracker.Start(),
@@ -160,12 +164,14 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	}
 
 	app.Scheduler.AddJob(job)
+	_ = app.FluxMonitor.AddJob(job)
 	return app.JobSubscriber.AddJob(job, nil) // nil for latest
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.
 func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
 	_ = app.JobSubscriber.RemoveJob(ID)
+	app.FluxMonitor.RemoveJob(ID)
 	return app.Store.ArchiveJob(ID)
 }
 
@@ -178,6 +184,7 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 	}
 
 	app.Scheduler.AddJob(sa.JobSpec)
+	app.FluxMonitor.AddJob(sa.JobSpec)
 	return app.JobSubscriber.AddJob(sa.JobSpec, nil) // nil for latest
 }
 

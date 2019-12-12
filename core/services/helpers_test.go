@@ -12,6 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func ExportedSetCheckerFactory(fm FluxMonitor, fac DeviationCheckerFactory) {
+	impl := fm.(*concreteFluxMonitor)
+	impl.checkerFactory = fac
+}
+
 func mustReadFile(t testing.TB, file string) string {
 	t.Helper()
 

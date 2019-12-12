@@ -47,9 +47,14 @@ func TestChainlinkApplication_AddJob(t *testing.T) {
 	jobSubscriber.On("AddJob", mock.Anything, (*models.Head)(nil)).Return(nil, nil)
 	app.ChainlinkApplication.JobSubscriber = jobSubscriber
 
+	fluxMonitor := new(mocks.FluxMonitor)
+	fluxMonitor.On("AddJob", mock.Anything).Return(nil)
+	app.ChainlinkApplication.FluxMonitor = fluxMonitor
+
 	app.AddJob(cltest.NewJob())
 
 	jobSubscriber.AssertExpectations(t)
+	fluxMonitor.AssertExpectations(t)
 }
 
 func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {

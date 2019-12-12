@@ -873,3 +873,32 @@ func TestIntegration_AuthToken(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 }
+
+func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
+	app.StartAndConnect()
+
+	// 1. FM gets initial price on chain.
+	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
+		mock.Register("eth_call", "10000") // 10,000 cents
+	})
+
+	// 2. FM checks price adapter for deviation, and gets a price with enough deviation.
+	priceResponse := `{"data":{"result": 102}}`
+	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", priceResponse)
+	defer assertCalled()
+
+	// 3. Create FM Job, and wait for job run to start because the above criteria initiates a run.
+	payload := string(cltest.MustReadFile(t, "testdata/flux_monitor_job.json"))
+	payload = strings.ReplaceAll(payload, "REPLACE_ME_WITH_LOCAL_HTTP", mockServer.URL)
+	j := cltest.CreateSpecViaWeb(t, app, payload)
+	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
+
+	// 4. Check the FM price on completed run output
+	jr := cltest.WaitForJobRunToComplete(t, app.GetStore(), jrs[0])
+	assert.Equal(t, "102", cltest.MustResultString(t, jr.Result))
+}
