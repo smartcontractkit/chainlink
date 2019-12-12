@@ -249,7 +249,10 @@ func (txm *EthTxManager) createTx(
 			return nil, errors.Wrap(err, "TxManager#retryInitialTx sendInitialTx")
 		}
 
-		logger.Warnw("Tx #0: nonce too low, retrying with network nonce", "nonce", tx.Nonce)
+		logger.Warnw(
+			"Tx #0: nonce too low, retrying with network nonce",
+			"nonce", tx.Nonce, "error", err.Error(),
+		)
 
 		err = ma.ReloadNonce(txm)
 		if err != nil {
