@@ -5,6 +5,7 @@ package mocks
 import assets "chainlink/core/assets"
 import big "math/big"
 import common "github.com/ethereum/go-ethereum/common"
+import decimal "github.com/shopspring/decimal"
 import eth "chainlink/core/eth"
 import ethereum "github.com/ethereum/go-ethereum"
 import mock "github.com/stretchr/testify/mock"
@@ -15,18 +16,18 @@ type Client struct {
 }
 
 // GetAggregatorPrice provides a mock function with given fields: address, precision
-func (_m *Client) GetAggregatorPrice(address common.Address, precision int) (float64, error) {
+func (_m *Client) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
 	ret := _m.Called(address, precision)
 
-	var r0 float64
-	if rf, ok := ret.Get(0).(func(common.Address, int) float64); ok {
+	var r0 decimal.Decimal
+	if rf, ok := ret.Get(0).(func(common.Address, int32) decimal.Decimal); ok {
 		r0 = rf(address, precision)
 	} else {
-		r0 = ret.Get(0).(float64)
+		r0 = ret.Get(0).(decimal.Decimal)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(common.Address, int) error); ok {
+	if rf, ok := ret.Get(1).(func(common.Address, int32) error); ok {
 		r1 = rf(address, precision)
 	} else {
 		r1 = ret.Error(1)

@@ -7,12 +7,12 @@ import (
 	"chainlink/core/store/models"
 	"context"
 	"fmt"
-	"math"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 )
 
@@ -152,9 +152,9 @@ type PollingDeviationChecker struct {
 	address       common.Address
 	requestData   models.JSON
 	threshold     float64
-	precision     int
+	precision     int32
 	runManager    RunManager
-	previousPrice float64
+	previousPrice decimal.Decimal
 	fetcher       fetcher
 	ctx           context.Context
 	cancel        context.CancelFunc
@@ -182,7 +182,7 @@ func NewPollingDeviationChecker(parentCtx context.Context, initr models.Initiato
 		threshold:     float64(initr.InitiatorParams.Threshold),
 		precision:     initr.InitiatorParams.Precision,
 		runManager:    runManager,
-		previousPrice: 0,
+		previousPrice: decimal.NewFromInt(0),
 		ctx:           ctx,
 		cancel:        cancel,
 		fetcher:       fetcher,
@@ -216,7 +216,7 @@ func (p *PollingDeviationChecker) Stop() {
 }
 
 // PreviousPrice returns the price used to check deviations against.
-func (p *PollingDeviationChecker) PreviousPrice() float64 {
+func (p *PollingDeviationChecker) PreviousPrice() decimal.Decimal {
 	return p.previousPrice
 }
 
@@ -264,29 +264,29 @@ func newRailwayExit(reason string) *railwayExit {
 }
 
 func (p *PollingDeviationChecker) fetchPrices(d *data) (*railwayExit, error) {
-	var err error
-	d.MedianPrice, err = p.fetcher.Fetch()
+	median, err := p.fetcher.Fetch()
+	d.MedianPrice = decimal.NewFromFloat(median)
 	return nil, errors.Wrap(err, "unable to fetch median price")
 }
 
 func (p *PollingDeviationChecker) checkIfOutsideDeviation(d *data) (*railwayExit, error) {
 	prevPrice := d.PreviousPrice
-	diff := math.Abs(prevPrice - d.MedianPrice)
-	perc := diff / prevPrice * 100
+	diff := prevPrice.Sub(d.MedianPrice).Abs()
+	perc := diff.Div(prevPrice).Mul(decimal.NewFromInt(100))
 	logger.Infow(
-		fmt.Sprintf("deviation of %f%% for threshold %f%% with %s", perc, p.threshold, d),
+		fmt.Sprintf("deviation of %v%% for threshold %f%% with %s", perc, p.threshold, d),
 		"threshold", p.threshold,
 		"deviation", perc,
 	)
-	if perc < p.threshold {
-		reason := fmt.Sprintf("difference is %f%%, deviation threshold of %f%% not met", perc, p.threshold)
+	if perc.LessThan(decimal.NewFromFloat(p.threshold)) {
+		reason := fmt.Sprintf("difference is %v%%, deviation threshold of %f%% not met", perc, p.threshold)
 		return newRailwayExit(reason), nil
 	}
 	return nil, nil
 }
 
 func (p *PollingDeviationChecker) createJobRun(d *data) (*railwayExit, error) {
-	runData, err := models.JSON{}.Add("result", fmt.Sprintf("%f", d.MedianPrice))
+	runData, err := models.JSON{}.Add("result", fmt.Sprintf("%v", d.MedianPrice))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to start chainlink run")
 	}
@@ -300,16 +300,16 @@ func (p *PollingDeviationChecker) updatePreviousPrice(d *data) (*railwayExit, er
 }
 
 type data struct {
-	MedianPrice   float64
-	PreviousPrice float64
+	MedianPrice   decimal.Decimal
+	PreviousPrice decimal.Decimal
 }
 
-func newData(previousPrice float64) *data {
+func newData(previousPrice decimal.Decimal) *data {
 	return &data{
 		PreviousPrice: previousPrice,
 	}
 }
 
 func (d *data) String() string {
-	return fmt.Sprintf("previous: %v, current median: %f", d.PreviousPrice, d.MedianPrice)
+	return fmt.Sprintf("previous: %v, current median: %v", d.PreviousPrice, d.MedianPrice)
 }

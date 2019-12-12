@@ -3,7 +3,6 @@ package eth
 import (
 	"context"
 	"fmt"
-	"math"
 	"math/big"
 	"strconv"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 )
 
 //go:generate mockery -name Client -output ../internal/mocks/ -case=underscore
@@ -24,7 +24,7 @@ type Client interface {
 	GetNonce(address common.Address) (uint64, error)
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
-	GetAggregatorPrice(address common.Address, precision int) (float64, error)
+	GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error)
 	SendRawTx(hex string) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
 	GetBlockByNumber(hex string) (BlockHeader, error)
@@ -107,7 +107,7 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 }
 
 // GetAggregatorPrice returns the current price at the given address.
-func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address, precision int) (float64, error) {
+func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
 	const currentAnswerFunctionID = "7e1b4cb0"
 	functionSelector := HexToFunctionSelector(currentAnswerFunctionID)
 
@@ -118,15 +118,14 @@ func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address,
 	}
 	err := client.Call(&result, "eth_call", args, "latest")
 	if err != nil {
-		return 0, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
+		return decimal.NewFromInt(0), errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
 	}
 	i, err := strconv.ParseInt(result, 0, 64)
 	if err != nil {
-		return 0, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
+		return decimal.NewFromInt(0), errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
 	}
-	precisionDivisor := math.Pow10(precision)
-	price := float64(i) / precisionDivisor
-	return price, nil
+	precisionDivisor := decimal.NewFromInt(10).Pow(decimal.NewFromInt32(precision))
+	return decimal.NewFromInt(i).Div(precisionDivisor), nil
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
