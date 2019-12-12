@@ -35,6 +35,40 @@ interface RolesAndPersonas {
   personas: Personas
 }
 
+// duplicated in evm/v0.5/test/support/helpers.ts (kinda)
+export interface ServiceAgreement {
+  payment: ethers.utils.BigNumberish // uint256
+  expiration: ethers.utils.BigNumberish // uint256
+  endAt: ethers.utils.BigNumberish // uint256
+  oracles: string[] // 0x hex representation of oracle addresses (uint160's)
+  requestDigest: string // 0x hex representation of bytes32
+  aggregator: string // 0x hex representation of aggregator address
+  aggInitiateJobSelector: string // 0x hex representation of aggregator.initiateAggregatorForJob function selector (uint32)
+  aggFulfillSelector: string // function selector for aggregator.fulfill
+}
+
+// duplicated in evm/v0.5/test/support/helpers.ts
+export interface OracleSignatures {
+  vs: ethers.utils.BigNumberish[] // uint8[]
+  rs: string[] // bytes32[]
+  ss: string[] // bytes32[]
+}
+
+// duplicated in evm/v0.5/test/support/helpers.ts
+const SERVICE_AGREEMENT_TYPES = [
+  'uint256',
+  'uint256',
+  'uint256',
+  'address[]',
+  'bytes32',
+  'address',
+  'bytes4',
+  'bytes4',
+]
+
+// duplicated in evm/v0.5/test/support/helpers.ts
+const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
+
 /**
  * This helper function allows us to make use of ganache snapshots,
  * which allows us to snapshot one state instance and revert back to it.
@@ -461,33 +495,44 @@ export function hexToBuf(hexstr: string): Buffer {
 
 const { CoordinatorFactory } = chainlinkv05
 type Hash = ReturnType<typeof ethers.utils.keccak256>
-type Coordinator = ReturnType<chainlinkv05.CoordinatorFactory['attach']>
-type ServiceAgreement = Parameters<Coordinator['initiateServiceAgreement']>[0]
+
+const serviceAgreementValues = (sa: ServiceAgreement) => {
+  return [
+    sa.payment,
+    sa.expiration,
+    sa.endAt,
+    sa.oracles,
+    sa.requestDigest,
+    sa.aggregator,
+    sa.aggInitiateJobSelector,
+    sa.aggFulfillSelector,
+  ]
+}
+
+export function encodeServiceAgreement(sa: ServiceAgreement) {
+  return ethers.utils.defaultAbiCoder.encode(
+    SERVICE_AGREEMENT_TYPES,
+    serviceAgreementValues(sa),
+  )
+}
+
+export function encodeOracleSignatures(os: OracleSignatures) {
+  const osValues = [os.vs, os.rs, os.ss]
+  return ethers.utils.defaultAbiCoder.encode(ORACLE_SIGNATURES_TYPES, osValues)
+}
 
 /**
  * Digest of the ServiceAgreement.
  */
-export const generateSAID = (sa: ServiceAgreement): Hash => {
+export function generateSAID(sa: ServiceAgreement): Hash {
   const [saParam] = new CoordinatorFactory().interface.functions.getId.inputs
-  if (
-    saParam.name !== '_agreement' ||
-    saParam.type !== 'tuple' ||
-    !saParam.components
-  ) {
+  if (saParam.name !== '_agreementData' || saParam.type !== 'bytes') {
     throw Error(
-      `extracted wrong version of struct tuple: ${saParam} from coordinatorFactory.interface.functions.getId`,
+      `extracted wrong params: ${saParam} from coordinatorFactory.interface.functions.getId`,
     )
   }
-
-  const abiValues = saParam.components.reduce(
-    (prev, next) => {
-      prev.types.push(next.type)
-      prev.values.push(sa[next.name as keyof ServiceAgreement])
-
-      return prev
-    },
-    { types: [], values: [] },
+  return ethers.utils.solidityKeccak256(
+    SERVICE_AGREEMENT_TYPES,
+    serviceAgreementValues(sa),
   )
-
-  return ethers.utils.solidityKeccak256(abiValues.types, abiValues.values)
 }

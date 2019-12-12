@@ -28,7 +28,7 @@
     "@0x/sol-trace": "^2.0.20",
     "@chainlink/prettier-config": "^0.0.1",
     "body-parser": "^1.18.3",
-    "chainlink": "0.7.8",
+    "chainlink": "0.7.10",
     "chainlinkv0.5": "0.0.2",
     "chalk": "^2.4.2",
     "ethers": "^4.0.37",
