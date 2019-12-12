@@ -135,7 +135,7 @@ func NewStore(config *orm.Config) *Store {
 
 // NewStoreWithDialer creates a new store with the given config and dialer
 func NewStoreWithDialer(config *orm.Config, dialer Dialer) *Store {
-	keyStore := NewKeyStore(config.KeysDir())
+	keyStore := func() *KeyStore { return NewKeyStore(config.KeysDir()) }
 	return newStoreWithDialerAndKeyStore(config, dialer, keyStore)
 }
 
@@ -144,11 +144,15 @@ func NewStoreWithDialer(config *orm.Config, dialer Dialer) *Store {
 // NOTE: Should only be used for testing!
 func NewInsecureStore(config *orm.Config) *Store {
 	dialer := NewEthDialer(config.MaxRPCCallsPerSecond())
-	keyStore := NewInsecureKeyStore(config.KeysDir())
+	keyStore := func() *KeyStore { return NewInsecureKeyStore(config.KeysDir()) }
 	return newStoreWithDialerAndKeyStore(config, dialer, keyStore)
 }
 
-func newStoreWithDialerAndKeyStore(config *orm.Config, dialer Dialer, keyStore *KeyStore) *Store {
+func newStoreWithDialerAndKeyStore(
+	config *orm.Config,
+	dialer Dialer,
+	keyStoreGenerator func() *KeyStore) *Store {
+
 	err := os.MkdirAll(config.RootDir(), os.FileMode(0700))
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
@@ -164,14 +168,20 @@ func newStoreWithDialerAndKeyStore(config *orm.Config, dialer Dialer, keyStore *
 	if err := orm.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", err))
 	}
+
+	keyStore := keyStoreGenerator()
 	callerSubscriberClient := &eth.CallerSubscriberClient{CallerSubscriber: ethrpc}
+	txManager := NewEthTxManager(callerSubscriberClient, config, keyStore, orm)
+	statsPusher := synchronization.NewStatsPusher(
+		orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret(),
+	)
 	store := &Store{
 		Clock:       utils.Clock{},
 		Config:      config,
 		KeyStore:    keyStore,
 		ORM:         orm,
-		TxManager:   NewEthTxManager(callerSubscriberClient, config, keyStore, orm),
-		StatsPusher: synchronization.NewStatsPusher(orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret()),
+		TxManager:   txManager,
+		StatsPusher: statsPusher,
 	}
 	return store
 }
