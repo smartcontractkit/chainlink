@@ -20,6 +20,7 @@ import (
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
 
+	"github.com/chenjiandongx/ginprom"
 	helmet "github.com/danielkov/gin-helmet"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/expvar"
@@ -27,6 +28,7 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -147,6 +149,8 @@ func secureMiddleware(config orm.ConfigReader) gin.HandlerFunc {
 	return secureFunc
 }
 func metricRoutes(app services.Application, r *gin.RouterGroup) {
+	r.GET("/metrics", ginprom.PromHandler(promhttp.Handler()))
+
 	group := r.Group("/debug", RequireAuth(app.GetStore(), AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
 

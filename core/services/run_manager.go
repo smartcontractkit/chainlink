@@ -15,6 +15,23 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	runsExecuted = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "run_manager_runs_started",
+		Help: "The total number of runs that have run",
+	})
+	runsResumed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "run_manager_runs_resumed",
+		Help: "The total number of run resumptions",
+	})
+	runsCancelled = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "run_manager_runs_cancelled",
+		Help: "The total number of run cancellations",
+	})
 )
 
 // RecurringScheduleJobError contains the field for the error message.
@@ -253,6 +270,7 @@ func (jm *runManager) Create(
 			run.ForLogger()...,
 		)
 		jm.runQueue.Run(run)
+		runsExecuted.Inc()
 	}
 	return run, nil
 }
@@ -359,6 +377,7 @@ func (jm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
 	}
 
 	run.Cancel()
+	runsCancelled.Inc()
 	return &run, jm.orm.SaveJobRun(&run)
 }
 
@@ -378,6 +397,7 @@ func (jm *runManager) updateAndTrigger(run *models.JobRun) error {
 		return err
 	}
 	if run.Status == models.RunStatusInProgress {
+		runsResumed.Inc()
 		jm.runQueue.Run(run)
 	}
 	return nil
