@@ -6,11 +6,12 @@ import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import { titleCase } from 'title-case'
+import { noCase } from 'change-case'
 import React from 'react'
 import { CardTitle } from './Cards/Title'
 
 const renderKey = (k: string, titleize: boolean) =>
-  titleize ? titleCase(k) : k
+  titleize ? titleCase(noCase(k)) : k
 
 const renderEntries = (entries: Array<Array<string>>, titleize: boolean) =>
   entries.map(([k, v]) => (
