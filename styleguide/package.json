@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@material-ui/core": "^3.9.2",
+    "change-case": "^4.1.0",
     "core-js": "^3.4.0",
     "javascript-time-ago": "^2.0.1",
     "moment": "^2.24.0",
