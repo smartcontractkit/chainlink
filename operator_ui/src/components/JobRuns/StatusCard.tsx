@@ -2,7 +2,8 @@ import { PaddedCard } from '@chainlink/styleguide'
 import { Grid } from '@material-ui/core'
 import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
-import { titleCase } from 'change-case'
+import { titleCase } from 'title-case'
+import { noCase } from 'change-case'
 import classNames from 'classnames'
 import { JobRun } from 'operator_ui'
 import React from 'react'
@@ -92,7 +93,7 @@ const StatusCard = useHooks(({ title, classes, children, jobRun }: Props) => {
         <Grid container alignItems="center" className={classes.statusRoot}>
           <Grid item xs={9}>
             <Typography className={classes.statusText} variant="h5">
-              {titleCase(title)}
+              {titleCase(noCase(title))}
             </Typography>
             {
               <ElapsedTime
