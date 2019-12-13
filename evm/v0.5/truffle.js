@@ -1,8 +1,3 @@
-require('@babel/register')({
-  extensions: ['.es6', '.es', '.jsx', '.js', '.mjs', '.ts'],
-})
-require('@babel/polyfill')
-
 module.exports = {
   contracts_build_directory: 'dist/artifacts',
   compilers: {

@@ -1,4 +1,4 @@
-import { BN } from 'bn.js'
+import BN from 'bn.js'
 import cbor from 'cbor'
 import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
@@ -76,7 +76,7 @@ export const wrappedERC20 = (contract: any): any => ({
     ),
 })
 
-export const linkContract = async (account: any): Promise<any> => {
+export const linkContract = async (account?: any): Promise<any> => {
   account = account || defaultAccount
   const receipt = await web3.eth.sendTransaction({
     data: linkToken.bytecode,
@@ -739,7 +739,7 @@ export const newServiceAgreement = async (
   return agreement as ServiceAgreement
 }
 
-export function sixMonthsFromNow(): number {
+export function sixMonthsFromNow(): BN {
   return new BN(Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60)
 }
 
