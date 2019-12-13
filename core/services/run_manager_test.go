@@ -619,7 +619,7 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 
 			bt := &models.BridgeType{
 				Name:                   models.MustNewTaskType("expensiveBridge"),
-				URL:                    cltest.WebURL(t, "https://testing.com/bridges"),
+				URL:                    cltest.WebURL(t, "https://localhost:80"),
 				Confirmations:          0,
 				MinimumContractPayment: test.bridgePayment,
 			}
