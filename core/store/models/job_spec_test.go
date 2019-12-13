@@ -61,7 +61,7 @@ func TestNewJobFromRequest(t *testing.T) {
 		Tasks:      cltest.BuildTaskRequests(t, j1.Tasks),
 		StartAt:    j1.StartAt,
 		EndAt:      j1.EndAt,
-		MinPayment: *assets.NewLink(5),
+		MinPayment: assets.NewLink(5),
 	}
 
 	j2 := models.NewJobFromRequest(jsr)
@@ -71,13 +71,13 @@ func TestNewJobFromRequest(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, fetched1.Initiators, 1)
 	assert.Len(t, fetched1.Tasks, 1)
-	assert.Equal(t, fetched1.MinPayment, *assets.NewLink(0))
+	assert.Nil(t, fetched1.MinPayment)
 
 	fetched2, err := store.FindJob(j2.ID)
 	assert.NoError(t, err)
 	assert.Len(t, fetched2.Initiators, 1)
 	assert.Len(t, fetched2.Tasks, 1)
-	assert.Equal(t, fetched2.MinPayment, *assets.NewLink(5))
+	assert.Equal(t, assets.NewLink(5), fetched2.MinPayment)
 }
 
 func TestJobSpec_Save(t *testing.T) {
@@ -110,10 +110,9 @@ func TestJobSpec_NewRun(t *testing.T) {
 	defer cleanup()
 
 	job := cltest.NewJobWithSchedule("1 * * * *")
-	initr := job.Initiators[0]
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp", `{"a":1}`)}
 
-	run := job.NewRun(initr)
+	run := cltest.NewJobRun(job)
 
 	assert.Equal(t, job.ID, run.JobSpecID)
 	assert.Equal(t, 1, len(run.TaskRuns))
@@ -124,7 +123,7 @@ func TestJobSpec_NewRun(t *testing.T) {
 	assert.NotNil(t, adapter)
 	assert.JSONEq(t, `{"type":"NoOp","a":1}`, taskRun.TaskSpec.Params.String())
 
-	assert.Equal(t, initr, run.Initiator)
+	assert.Equal(t, job.Initiators[0], run.Initiator)
 }
 
 func TestJobEnded(t *testing.T) {

@@ -72,6 +72,8 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 
 	if jr.Status.Completed() {
 		output = append(output, "link_earned", jr.Payment)
+	} else {
+		output = append(output, "input_amount", jr.Payment)
 	}
 
 	return append(kvs, output...)

@@ -104,17 +104,17 @@ func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication)
 
 	now := time.Now()
 
-	runA := j1.NewRun(j1.Initiators[0])
+	runA := cltest.NewJobRun(j1)
 	runA.ID = models.NewID()
 	runA.CreatedAt = now.Add(-2 * time.Second)
 	assert.Nil(t, app.Store.CreateJobRun(&runA))
 
-	runB := j1.NewRun(j1.Initiators[0])
+	runB := cltest.NewJobRun(j1)
 	runB.ID = models.NewID()
 	runB.CreatedAt = now.Add(-time.Second)
 	assert.Nil(t, app.Store.CreateJobRun(&runB))
 
-	runC := j2.NewRun(j2.Initiators[0])
+	runC := cltest.NewJobRun(j2)
 	runC.ID = models.NewID()
 	runC.CreatedAt = now
 	assert.Nil(t, app.Store.CreateJobRun(&runC))
@@ -312,7 +312,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 			j := cltest.NewJobWithWebInitiator()
 			j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 			require.NoError(t, app.Store.CreateJob(&j))
-			jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
+			jr := cltest.NewJobRunPendingBridge(j)
 			require.NoError(t, app.Store.CreateJobRun(&jr))
 
 			if test.archived {
@@ -350,7 +350,7 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.CreateJob(&j))
-	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
+	jr := cltest.NewJobRunPendingBridge(j)
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID.String())
@@ -375,7 +375,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.CreateJob(&j))
-	jr := j.NewRun(j.Initiators[0])
+	jr := cltest.NewJobRun(j)
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID.String())
@@ -397,7 +397,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.CreateJob(&j))
-	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
+	jr := cltest.NewJobRunPendingBridge(j)
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","error":"stack overflow","data":{"result": "0"}}`, jr.ID.String())
@@ -426,7 +426,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.CreateJob(&j))
-	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
+	jr := cltest.NewJobRunPendingBridge(j)
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
 	body := fmt.Sprint(`{`, jr.ID.String())
@@ -450,7 +450,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.Nil(t, app.Store.CreateJob(&j))
-	jr := cltest.MarkJobRunPendingBridge(j.NewRun(j.Initiators[0]), 0)
+	jr := cltest.NewJobRunPendingBridge(j)
 	assert.Nil(t, app.Store.CreateJobRun(&jr))
 
 	body := fmt.Sprintf(`{"id":"%v","data":{"result": "100"}}`, jr.ID.String())
@@ -473,7 +473,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.CreateJob(&j)
 
-	jr := j.NewRun(j.Initiators[0])
+	jr := cltest.NewJobRun(j)
 	assert.NoError(t, app.Store.CreateJobRun(&jr))
 
 	resp, cleanup := client.Get("/v2/runs/" + jr.ID.String())
@@ -543,7 +543,7 @@ func TestJobRunsController_Cancel(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, app.Store.CreateJob(&job))
-	run := job.NewRun(job.Initiators[0])
+	run := cltest.NewJobRun(job)
 	require.NoError(t, app.Store.CreateJobRun(&run))
 
 	t.Run("valid run", func(t *testing.T) {

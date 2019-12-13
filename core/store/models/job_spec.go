@@ -24,7 +24,7 @@ type JobSpecRequest struct {
 	Tasks      []TaskSpecRequest  `json:"tasks"`
 	StartAt    null.Time          `json:"startAt"`
 	EndAt      null.Time          `json:"endAt"`
-	MinPayment assets.Link        `json:"minPayment"`
+	MinPayment *assets.Link       `json:"minPayment,omitempty"`
 }
 
 // InitiatorRequest represents a schema for incoming initiator requests as used by the API.
@@ -44,14 +44,14 @@ type TaskSpecRequest struct {
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID         *ID         `json:"id,omitempty" gorm:"primary_key;not null"`
-	CreatedAt  time.Time   `json:"createdAt" gorm:"index"`
-	Initiators []Initiator `json:"initiators"`
-	MinPayment assets.Link `json:"minPayment" gorm:"type:varchar(255)"`
-	Tasks      []TaskSpec  `json:"tasks"`
-	StartAt    null.Time   `json:"startAt" gorm:"index"`
-	EndAt      null.Time   `json:"endAt" gorm:"index"`
-	DeletedAt  null.Time   `json:"-" gorm:"index"`
+	ID         *ID          `json:"id,omitempty" gorm:"primary_key;not null"`
+	CreatedAt  time.Time    `json:"createdAt" gorm:"index"`
+	Initiators []Initiator  `json:"initiators"`
+	MinPayment *assets.Link `json:"minPayment,omitempty" gorm:"type:varchar(255)"`
+	Tasks      []TaskSpec   `json:"tasks"`
+	StartAt    null.Time    `json:"startAt" gorm:"index"`
+	EndAt      null.Time    `json:"endAt" gorm:"index"`
+	DeletedAt  null.Time    `json:"-" gorm:"index"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -73,9 +73,8 @@ func (j *JobSpec) SetID(value string) error {
 // the CreatedAt field to the time of invokation.
 func NewJob() JobSpec {
 	return JobSpec{
-		ID:         NewID(),
-		CreatedAt:  time.Now(),
-		MinPayment: *assets.NewLink(0),
+		ID:        NewID(),
+		CreatedAt: time.Now(),
 	}
 }
 
@@ -105,35 +104,6 @@ func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 // Archived returns true if the job spec has been soft deleted
 func (j JobSpec) Archived() bool {
 	return j.DeletedAt.Valid
-}
-
-// NewRun initializes the job by creating the IDs for the job
-// and all associated tasks, and setting the CreatedAt field.
-func (j JobSpec) NewRun(i Initiator) JobRun {
-	jrid := NewID()
-	taskRuns := make([]TaskRun, len(j.Tasks))
-	for i, task := range j.Tasks {
-		trid := NewID()
-		taskRuns[i] = TaskRun{
-			ID:       trid,
-			JobRunID: jrid,
-			TaskSpec: task,
-		}
-	}
-
-	runRequest := NewRunRequest()
-	now := time.Now()
-	return JobRun{
-		ID:          jrid,
-		JobSpecID:   j.ID,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		TaskRuns:    taskRuns,
-		RunRequest:  *runRequest,
-		Initiator:   i,
-		InitiatorID: i.ID,
-		Status:      RunStatusUnstarted,
-	}
 }
 
 // InitiatorsFor returns an array of Initiators for the given list of

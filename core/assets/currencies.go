@@ -43,6 +43,11 @@ func (l *Link) SetInt64(w int64) *Link {
 	return (*Link)((*big.Int)(l).SetInt64(w))
 }
 
+// ToInt returns the Link value as a *big.Int.
+func (l *Link) ToInt() *big.Int {
+	return (*big.Int)(l)
+}
+
 // ToHash returns a 32 byte representation of this value
 func (l *Link) ToHash() common.Hash {
 	return common.BigToHash((*big.Int)(l))

@@ -22,7 +22,7 @@ type Encumbrance struct {
 	// Corresponds to requestDigest in solidity ServiceAgreement struct
 	ID uint `json:"-" gorm:"primary_key;auto_increment"`
 	// Price to request a report based on this agreement
-	Payment assets.Link `json:"payment" gorm:"type:varchar(255)"`
+	Payment *assets.Link `json:"payment,omitempty" gorm:"type:varchar(255)"`
 	// Expiration is the amount of time an oracle has to answer a request
 	Expiration uint64 `json:"expiration"`
 	// Agreement is valid until this time
@@ -61,7 +61,7 @@ type ServiceAgreement struct {
 type ServiceAgreementRequest struct {
 	Initiators             []InitiatorRequest     `json:"initiators"`
 	Tasks                  []TaskSpecRequest      `json:"tasks"`
-	Payment                assets.Link            `json:"payment"`
+	Payment                *assets.Link           `json:"payment,omitempty"`
 	Expiration             uint64                 `json:"expiration"`
 	EndAt                  AnyTime                `json:"endAt"`
 	Oracles                EIP55AddressCollection `json:"oracles"`
@@ -187,7 +187,7 @@ func generateSAID(e Encumbrance, digest common.Hash) (common.Hash, error) {
 func (e Encumbrance) ABI(digest common.Hash) ([]byte, error) {
 	buffer := bytes.Buffer{}
 	var paymentHash common.Hash
-	if !e.Payment.IsZero() {
+	if e.Payment != nil {
 		paymentHash = e.Payment.ToHash()
 	}
 	_, err := buffer.Write(paymentHash.Bytes())

@@ -56,8 +56,8 @@ type BaseAdapter interface {
 // PipelineAdapter wraps a BaseAdapter with requirements for execution in the pipeline.
 type PipelineAdapter struct {
 	BaseAdapter
-	minConfs           uint32
-	minContractPayment *assets.Link
+	minConfs   uint32
+	minPayment *assets.Link
 }
 
 // MinConfs returns the private attribute
@@ -65,9 +65,9 @@ func (p PipelineAdapter) MinConfs() uint32 {
 	return p.minConfs
 }
 
-// MinContractPayment returns the private attribute
-func (p PipelineAdapter) MinContractPayment() *assets.Link {
-	return p.minContractPayment
+// MinPayment returns the payment for this adapter (defaults to none)
+func (p PipelineAdapter) MinPayment() *assets.Link {
+	return p.minPayment
 }
 
 // For determines the adapter type to use for a given task.
@@ -75,7 +75,7 @@ func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*Pipeline
 	var ba BaseAdapter
 	var err error
 	mic := config.MinIncomingConfirmations()
-	mcp := assets.NewLink(0)
+	var mp *assets.Link
 
 	switch task.Type {
 	case TaskTypeCopy:
@@ -95,11 +95,9 @@ func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*Pipeline
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeEthTx:
 		ba = &EthTx{}
-		mcp = config.MinimumContractPayment()
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeEthTxABIEncode:
 		ba = &EthTxABIEncode{}
-		mcp = config.MinimumContractPayment()
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeHTTPGet:
 		ba = &HTTPGet{}
@@ -138,14 +136,14 @@ func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*Pipeline
 		}
 		b := Bridge{BridgeType: bt, Params: task.Params}
 		ba = &b
+		mp = bt.MinimumContractPayment
 		mic = b.Confirmations
-		mcp = bt.MinimumContractPayment
 	}
 
 	pa := &PipelineAdapter{
-		BaseAdapter:        ba,
-		minConfs:           mic,
-		minContractPayment: mcp,
+		BaseAdapter: ba,
+		minConfs:    mic,
+		minPayment:  mp,
 	}
 
 	return pa, err
