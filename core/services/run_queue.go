@@ -7,6 +7,20 @@ import (
 
 	"chainlink/core/logger"
 	"chainlink/core/store/models"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	runsQueued = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "run_queue_runs_queued",
+		Help: "The total number of runs that have been queued",
+	})
+	runQueueSize = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "run_queue_queue_size",
+		Help: "The size of the run queue",
+	})
 )
 
 //go:generate mockery -name RunQueue -output ../internal/mocks/ -case=underscore
@@ -72,6 +86,8 @@ func (rq *runQueue) Stop() {
 func (rq *runQueue) Run(run *models.JobRun) {
 	runID := run.ID.String()
 
+	defer runsQueued.Inc()
+
 	rq.workersMutex.Lock()
 	if queueCount, present := rq.workers[runID]; present {
 		rq.runsQueued += 1
@@ -81,6 +97,7 @@ func (rq *runQueue) Run(run *models.JobRun) {
 	}
 	rq.runsExecuted += 1
 	rq.workers[runID] = 1
+	runQueueSize.Set(float64(len(rq.workers)))
 	rq.workersMutex.Unlock()
 
 	rq.workersWg.Add(1)
