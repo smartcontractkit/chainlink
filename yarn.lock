@@ -2911,11 +2911,6 @@
   dependencies:
     "@types/node" "*"
 
-"@types/mocha@^5.2.7":
-  version "5.2.7"
-  resolved "https://registry.npmjs.org/@types/mocha/-/mocha-5.2.7.tgz#315d570ccb56c53452ff8638738df60726d5b6ea"
-  integrity sha512-NYrtPht0wGzhwe9+/idPaBB+TqkY9AhTvOLMkThm0IoEfLaiVQZwBwyJ5puCkO3AUCWrmcoePjp2mbFocKy4SQ==
-
 "@types/node-fetch@^2.5.0":
   version "2.5.2"
   resolved "https://registry.npmjs.org/@types/node-fetch/-/node-fetch-2.5.2.tgz#76906dea5b3d6901e50e63e15249c9bcd6e9676e"
@@ -2929,9 +2924,9 @@
   integrity sha512-LC8ALj/24PhByn39nr5jnTvpE7MujK8y7LQmV74kHYF5iQ0odCPkMH4IZNZw+cobKfSXqaC8GgegcbIsQpffdA==
 
 "@types/node@^10.3.2":
-  version "10.14.4"
-  resolved "https://registry.npmjs.org/@types/node/-/node-10.14.4.tgz#1c586b991457cbb58fef51bc4e0cfcfa347714b5"
-  integrity sha512-DT25xX/YgyPKiHFOpNuANIQIVvYEwCWXgK2jYYwqgaMrYE6+tq+DtmMwlD3drl6DJbUwtlIDnn0d7tIn/EbXBg==
+  version "10.17.9"
+  resolved "https://registry.npmjs.org/@types/node/-/node-10.17.9.tgz#4f251a1ed77ac7ef09d456247d67fc8173f6b9da"
+  integrity sha512-+6VygF9LbG7Gaqeog2G7u1+RUcmo0q1rI+2ZxdIg2fAUngk5Vz9fOCHXdloNUOHEPd1EuuOpL5O0CdgN9Fx5UQ==
 
 "@types/node@^11.11.3", "@types/node@^11.9.5":
   version "11.13.20"
@@ -9602,7 +9597,7 @@ ethers@4.0.0-beta.3:
     uuid "2.0.1"
     xmlhttprequest "1.8.0"
 
-ethers@^4.0.0-beta.1, ethers@^4.0.32, ethers@^4.0.37:
+ethers@^4.0.0-beta.1, ethers@^4.0.32:
   version "4.0.37"
   resolved "https://registry.npmjs.org/ethers/-/ethers-4.0.37.tgz#dfa70d59498663878c5e4a977d14356660ca5b90"
   integrity sha512-B7bDdyQ45A5lPr6k2HOkEKMtYOuqlfy+nNf8glnRvWidkDQnToKw1bv7UyrwlbsIgY2mE03UxTVtouXcT6Vvcw==
@@ -9618,7 +9613,7 @@ ethers@^4.0.0-beta.1, ethers@^4.0.32, ethers@^4.0.37:
     uuid "2.0.1"
     xmlhttprequest "1.8.0"
 
-ethers@^4.0.40:
+ethers@^4.0.37, ethers@^4.0.40:
   version "4.0.40"
   resolved "https://registry.npmjs.org/ethers/-/ethers-4.0.40.tgz#6e1963d10b5d336a13cd81b519c230cc17624653"
   integrity sha512-MC9BtV7Hpq4dgFONEfanx9aU9GhhoWU270F+/wegHZXA7FR+2KXFdt36YIQYLmVY5ykUWswDxd+f9EVkIa7JOA==
@@ -23609,7 +23604,7 @@ xmlhttprequest-ssl@~1.5.4:
 
 xmlhttprequest@1.8.0:
   version "1.8.0"
-  resolved "https://registry.yarnpkg.com/xmlhttprequest/-/xmlhttprequest-1.8.0.tgz#67fe075c5c24fef39f9d65f5f7b7fe75171968fc"
+  resolved "https://registry.npmjs.org/xmlhttprequest/-/xmlhttprequest-1.8.0.tgz#67fe075c5c24fef39f9d65f5f7b7fe75171968fc"
   integrity sha1-Z/4HXFwk/vOfnWX197f+dRcZaPw=
 
 xregexp@4.0.0:
