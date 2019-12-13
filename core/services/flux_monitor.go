@@ -107,6 +107,10 @@ func (fm *concreteFluxMonitor) OnNewHead(*models.Head) {}
 // AddJob created a DeviationChecker for any job initiators of type
 // InitiatorFluxMonitor.
 func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
+	if !job.IsFluxMonitorInitiated() {
+		return nil
+	}
+
 	// non-blocking send is ignored if actionConsumer isn't consuming,
 	// such as when disconnected.
 	rchan := make(chan error)
