@@ -145,6 +145,17 @@ func (j JobSpec) IsLogInitiated() bool {
 	return false
 }
 
+// IsFluxMonitorInitiated returns true if any of the job's initiators are
+// triggered by flux monitor.
+func (j JobSpec) IsFluxMonitorInitiated() bool {
+	for _, initr := range j.Initiators {
+		if initr.Type == InitiatorFluxMonitor {
+			return true
+		}
+	}
+	return false
+}
+
 // Ended returns true if the job has ended.
 func (j JobSpec) Ended(t time.Time) bool {
 	if !j.EndAt.Valid {
