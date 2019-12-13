@@ -1,5 +1,5 @@
 import * as h from '../src/helpers'
-import { assertBigNum } from '../src/matchersV2'
+import { assertBigNum } from '../src/matchers'
 import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
 import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
 import { MaliciousRequesterFactory } from '../src/generated/MaliciousRequesterFactory'
