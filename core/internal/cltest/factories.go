@@ -55,7 +55,7 @@ func NewTask(t *testing.T, taskType string, json ...string) models.TaskSpec {
 	}
 }
 
-// NewJobWithExternalInitiator creates new Job with external inititaor
+// NewJobWithExternalInitiator creates new Job with external initiator
 func NewJobWithExternalInitiator(ei *models.ExternalInitiator) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -81,7 +81,7 @@ func NewJobWithSchedule(sched string) models.JobSpec {
 	return j
 }
 
-// NewJobWithWebInitiator create new Job with web inititaor
+// NewJobWithWebInitiator create new Job with web initiator
 func NewJobWithWebInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -91,7 +91,7 @@ func NewJobWithWebInitiator() models.JobSpec {
 	return j
 }
 
-// NewJobWithLogInitiator create new Job with ethlog inititaor
+// NewJobWithLogInitiator create new Job with ethlog initiator
 func NewJobWithLogInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -125,7 +125,7 @@ func NewJobWithSALogInitiator() models.JobSpec {
 	return j
 }
 
-// NewJobWithRunAtInitiator create new Job with RunAt inititaor
+// NewJobWithRunAtInitiator create new Job with RunAt initiator
 func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -138,7 +138,7 @@ func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 	return j
 }
 
-// NewJobWithFluxMonitorInitiator create new Job with FluxMonitor inititaor
+// NewJobWithFluxMonitorInitiator create new Job with FluxMonitor initiator
 func NewJobWithFluxMonitorInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
