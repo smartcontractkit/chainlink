@@ -1,4 +1,4 @@
-import * as h from '../src/helpersV2'
+import * as h from '../src/helpers'
 import { ConcreteChainlinkFactory } from '../src/generated/ConcreteChainlinkFactory'
 import { Instance } from '../src/contract'
 import { ethers } from 'ethers'

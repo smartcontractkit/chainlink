@@ -1,5 +1,5 @@
-import * as h from '../src/helpersV2'
-import { assertBigNum } from '../src/matchersV2'
+import * as h from '../src/helpers'
+import { assertBigNum } from '../src/matchers'
 import { ENSRegistryFactory } from '../src/generated/ENSRegistryFactory'
 import { PublicResolverFactory } from '../src/generated/PublicResolverFactory'
 import { UpdatableConsumerFactory } from '../src/generated/UpdatableConsumerFactory'
