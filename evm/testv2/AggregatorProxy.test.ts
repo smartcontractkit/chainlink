@@ -1,5 +1,5 @@
 import * as h from '../src/helpers'
-import { assertBigNum } from '../src/matchersV2'
+import { assertBigNum } from '../src/matchers'
 import { ethers } from 'ethers'
 import { Instance } from '../src/contract'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
