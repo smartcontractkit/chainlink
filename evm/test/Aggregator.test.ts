@@ -6,7 +6,7 @@ import { OracleFactory } from '../src/generated/OracleFactory'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { AggregatorFactory } from '../src/generated/AggregatorFactory'
 import { assert } from 'chai'
-import ganache from 'ganache-core'
+import { makeTestProvider } from '../src/provider'
 
 const aggregatorFactory = new AggregatorFactory()
 const oracleFactory = new OracleFactory()
@@ -14,7 +14,7 @@ const linkTokenFactory = new LinkTokenFactory()
 
 let personas: h.Personas
 let defaultAccount: ethers.Wallet
-const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
+const provider = makeTestProvider()
 
 beforeAll(async () => {
   const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)

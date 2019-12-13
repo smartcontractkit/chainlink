@@ -8,7 +8,7 @@ import { assert } from 'chai'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
 import { Instance } from '../src/contract'
-import ganache from 'ganache-core'
+import { makeTestProvider } from '../src/provider'
 
 const linkTokenFactory = new LinkTokenFactory()
 const ensRegistryFactory = new ENSRegistryFactory()
@@ -16,7 +16,7 @@ const oracleFactory = new OracleFactory()
 const publicResolverFacotory = new PublicResolverFactory()
 const updatableConsumerFactory = new UpdatableConsumerFactory()
 
-const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
+const provider = makeTestProvider()
 
 let roles: h.Roles
 

@@ -7,14 +7,14 @@ import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
 import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
 import { Instance } from '../src/contract'
-import ganache from 'ganache-core'
+import { makeTestProvider } from '../src/provider'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const oracleFactory = new OracleFactory()
 const linkTokenFactory = new LinkTokenFactory()
 
 // create ethers provider from that web3js instance
-const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
+const provider = makeTestProvider()
 
 let roles: h.Roles
 
