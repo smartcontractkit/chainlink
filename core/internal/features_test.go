@@ -893,9 +893,13 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	defer assertCalled()
 
 	// 3. Create FM Job, and wait for job run to start because the above criteria initiates a run.
-	payload := string(cltest.MustReadFile(t, "testdata/flux_monitor_job.json"))
-	payload = strings.ReplaceAll(payload, "REPLACE_ME_WITH_LOCAL_HTTP", mockServer.URL)
-	j := cltest.CreateSpecViaWeb(t, app, payload)
+	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
+	var job models.JobSpec
+	err := json.Unmarshal(buffer, &job)
+	require.NoError(t, err)
+	job.Initiators[0].InitiatorParams.Feeds = models.Feeds([]string{mockServer.URL})
+
+	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 
 	// 4. Check the FM price on completed run output

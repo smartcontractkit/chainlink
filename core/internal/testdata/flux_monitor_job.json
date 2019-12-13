@@ -6,7 +6,7 @@
       "requestdata": {
         "data":{"coin":"ETH","market":"USD"}
       },
-      "feeds": [ "REPLACE_ME_WITH_LOCAL_HTTP" ],
+      "feeds": [ "https://lambda.staging.devnet.tools/bnc/call" ],
       "threshold": 0.5,
       "precision": 2
     }
