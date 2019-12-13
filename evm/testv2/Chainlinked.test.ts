@@ -1,4 +1,4 @@
-import { checkPublicABI } from '../src/helpersV2'
+import { checkPublicABI } from '../src/helpers'
 import { ChainlinkedFactory } from '../src/generated/ChainlinkedFactory'
 
 const chainlinkedFactory = new ChainlinkedFactory()

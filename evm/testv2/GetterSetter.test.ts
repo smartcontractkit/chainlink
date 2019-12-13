@@ -1,4 +1,4 @@
-import * as h from '../src/helpersV2'
+import * as h from '../src/helpers'
 import { ethers } from 'ethers'
 import { assert } from 'chai'
 import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'

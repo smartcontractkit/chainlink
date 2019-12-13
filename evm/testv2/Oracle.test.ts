@@ -1,4 +1,4 @@
-import * as h from '../src/helpersV2'
+import * as h from '../src/helpers'
 import { assertBigNum } from '../src/matchersV2'
 import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
 import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
