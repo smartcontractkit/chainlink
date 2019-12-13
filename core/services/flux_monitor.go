@@ -7,7 +7,6 @@ import (
 	"chainlink/core/store/models"
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,12 +26,17 @@ type FluxMonitor interface {
 type concreteFluxMonitor struct {
 	store          *store.Store
 	runManager     RunManager
-	jobs           map[string]models.JobSpec
-	checkers       map[uint]DeviationChecker
-	checkersMutex  *sync.RWMutex
+	checkers       map[string][]DeviationChecker
 	checkerFactory DeviationCheckerFactory
+	adds           chan addEntry
+	removes        chan *models.ID
 	ctx            context.Context
 	cancel         context.CancelFunc
+}
+
+type addEntry struct {
+	job   *models.JobSpec
+	rchan chan error
 }
 
 // NewFluxMonitor creates a service that manages a collection of DeviationCheckers,
@@ -41,9 +45,6 @@ func NewFluxMonitor(store *store.Store, runManager RunManager) FluxMonitor {
 	return &concreteFluxMonitor{
 		store:          store,
 		runManager:     runManager,
-		jobs:           map[string]models.JobSpec{},
-		checkers:       map[uint]DeviationChecker{},
-		checkersMutex:  &sync.RWMutex{},
 		checkerFactory: pollingDeviationCheckerFactory{},
 	}
 }
@@ -51,26 +52,53 @@ func NewFluxMonitor(store *store.Store, runManager RunManager) FluxMonitor {
 // Connect adds all persisted jobs and starts deviation checkers for each
 // flux monitor initiator.
 func (fm *concreteFluxMonitor) Connect(*models.Head) error {
-	fm.checkersMutex.Lock()
 	fm.ctx, fm.cancel = context.WithCancel(context.Background())
-	fm.checkersMutex.Unlock()
+	fm.adds = make(chan addEntry)
+	fm.removes = make(chan *models.ID)
 
-	var merr error
+	go fm.actionConsumer(fm.ctx, fm.adds, fm.removes) // start single goroutine consumer
+
+	// enqueue addJob actions
+	rchan := make(chan error, 1)
+	count := 0
 	err := fm.store.Jobs(func(j *models.JobSpec) bool { // improve scoping of sql query
-		merr = multierr.Combine(merr, fm.AddJob(*j))
+		fm.adds <- addEntry{j, rchan}
+		count++
 		return true
 	})
+
+	// Block until jobs have been added, returning errors if any.
+	var merr error
+	for i := 0; i < count; i++ {
+		merr = multierr.Combine(merr, <-rchan)
+	}
 	return multierr.Append(err, merr)
+}
+
+// actionConsumer is run on the single goroutine to coordinate the
+// collection of DeviationCheckers in a thread safe fashion.
+// Deliberately without shared variables besides channels and a context, all
+// thread safe.
+func (fm *concreteFluxMonitor) actionConsumer(ctx context.Context, adds chan addEntry, removes chan *models.ID) {
+	fm.checkers = map[string][]DeviationChecker{}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case entry := <-adds:
+			entry.rchan <- fm.produceJobAction(entry.job)
+		case jobID := <-removes:
+			for _, checker := range fm.checkers[jobID.String()] {
+				checker.Stop()
+			}
+			delete(fm.checkers, jobID.String())
+		}
+	}
 }
 
 // Disconnect cleans up running deviation checkers.
 func (fm *concreteFluxMonitor) Disconnect() {
-	fm.checkersMutex.Lock()
-	defer fm.checkersMutex.Unlock()
-
-	fm.cancel() // parent context stops all deviation checkers.
-	fm.jobs = map[string]models.JobSpec{}
-	fm.checkers = map[uint]DeviationChecker{}
+	fm.cancel()
 }
 
 // OnNewHead is a noop.
@@ -79,14 +107,22 @@ func (fm *concreteFluxMonitor) OnNewHead(*models.Head) {}
 // AddJob created a DeviationChecker for any job initiators of type
 // InitiatorFluxMonitor.
 func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
-	fm.checkersMutex.Lock()
-	defer fm.checkersMutex.Unlock()
+	// non-blocking send is ignored if actionConsumer isn't consuming,
+	// such as when disconnected.
+	rchan := make(chan error)
+	select {
+	case fm.adds <- addEntry{&job, rchan}:
+		return <-rchan
+	default:
+		return nil
+	}
+}
 
-	if _, ok := fm.jobs[job.ID.String()]; ok {
+func (fm *concreteFluxMonitor) produceJobAction(job *models.JobSpec) error {
+	if _, ok := fm.checkers[job.ID.String()]; ok {
 		return fmt.Errorf("job %s has already been added to flux monitor", job.ID.String())
 	}
-
-	validCheckers := map[uint]DeviationChecker{}
+	validCheckers := []DeviationChecker{}
 	for _, initr := range job.InitiatorsFor(models.InitiatorFluxMonitor) {
 		checker, err := fm.checkerFactory.New(fm.ctx, initr, fm.runManager)
 		if err != nil {
@@ -96,33 +132,23 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 		if err != nil {
 			return err
 		}
-		validCheckers[initr.ID] = checker
+		validCheckers = append(validCheckers, checker)
 	}
-
-	for id, checker := range validCheckers {
-		fm.checkers[id] = checker
+	for _, checker := range validCheckers {
 		go checker.Start()
 	}
-
-	fm.jobs[job.ID.String()] = job
+	fm.checkers[job.ID.String()] = validCheckers
 	return nil
 }
 
 // RemoveJob stops and removes the checker for all Flux Monitor initiators belonging
 // to the passed job ID.
 func (fm *concreteFluxMonitor) RemoveJob(ID *models.ID) {
-	fm.checkersMutex.Lock()
-	defer fm.checkersMutex.Unlock()
-
-	job, ok := fm.jobs[ID.String()]
-	if !ok {
-		return
-	}
-	delete(fm.jobs, ID.String())
-	for _, initr := range job.InitiatorsFor(models.InitiatorFluxMonitor) {
-		checker := fm.checkers[initr.ID]
-		delete(fm.checkers, initr.ID)
-		checker.Stop()
+	// non-blocking send is ignored if actionConsumer isn't consuming,
+	// such as when disconnected.
+	select {
+	case fm.removes <- ID:
+	default:
 	}
 }
 
