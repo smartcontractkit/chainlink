@@ -61,7 +61,7 @@ func (s *Scheduler) Start() error {
 	return s.store.Jobs(func(j *models.JobSpec) bool {
 		s.addJob(j)
 		return true
-	})
+	}, models.InitiatorCron, models.InitiatorRunAt)
 }
 
 // Stop is the governing function for both Recurring and OneTime

@@ -65,7 +65,7 @@ func (fm *concreteFluxMonitor) Connect(*models.Head) error {
 		fm.adds <- addEntry{j, rchan}
 		count++
 		return true
-	})
+	}, models.InitiatorFluxMonitor)
 
 	// Block until jobs have been added, returning errors if any.
 	var merr error
