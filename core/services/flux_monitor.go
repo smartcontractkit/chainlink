@@ -114,7 +114,7 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 	case fm.adds <- addEntry{&job, rchan}:
 		return <-rchan
 	default:
-		return nil
+		return fmt.Errorf("unable to add job %s to flux monitor, flux monitor disconnected", job.ID.String())
 	}
 }
 
@@ -226,7 +226,7 @@ func (p *PollingDeviationChecker) Initialize(client eth.Client) error {
 // Start begins a loop polling the price adapters set in the InitiatorFluxMonitor.
 func (p *PollingDeviationChecker) Start() {
 	for {
-		logger.ErrorIf(p.Run())
+		logger.ErrorIf(p.Poll())
 
 		select {
 		case <-p.ctx.Done():
@@ -246,10 +246,10 @@ func (p *PollingDeviationChecker) PreviousPrice() decimal.Decimal {
 	return p.previousPrice
 }
 
-// Run walks through the steps to check for a deviation, early exiting if any particular
+// Poll walks through the steps to check for a deviation, early exiting if any particular
 // step fails, or triggering a new job run.
 // Uses a railway paradigm: https://fsharpforfunandprofit.com/rop/
-func (p *PollingDeviationChecker) Run() error {
+func (p *PollingDeviationChecker) Poll() error {
 	_, err := railway(
 		newData(p.previousPrice),
 		railwayStep{"fetch current prices", p.fetchPrices},

@@ -67,6 +67,19 @@ func TestConcreteFluxMonitor_AddJobError(t *testing.T) {
 	dc.AssertExpectations(t)
 }
 
+func TestConcreteFluxMonitor_AddJobDisconnected(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	runManager := new(mocks.RunManager)
+	checkerFactory := new(mocks.DeviationCheckerFactory)
+	fm := services.NewFluxMonitor(store, runManager)
+	services.ExportedSetCheckerFactory(fm, checkerFactory)
+
+	require.Error(t, fm.AddJob(job))
+}
+
 func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -125,7 +138,7 @@ func TestPollingDeviationChecker_Happy(t *testing.T) {
 	ethClient.AssertExpectations(t)
 	assert.Equal(t, decimal.NewFromInt(100), checker.PreviousPrice())
 
-	assert.NoError(t, checker.Run())
+	assert.NoError(t, checker.Poll())
 
 	serverAssert()
 	rm.AssertExpectations(t)
