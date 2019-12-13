@@ -39,7 +39,6 @@
     "@types/chai": "^4.2.7",
     "@types/ethereumjs-abi": "^0.6.3",
     "@types/ganache-core": "^2.7.0",
-    "@types/mocha": "^5.2.7",
     "chai": "^4.2.0",
     "cross-env": "^6.0.3",
     "depcheck": "^0.8.3",
