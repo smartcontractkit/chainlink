@@ -1,5 +1,5 @@
 import * as contract from './contract'
-import * as helpers from './helpersV2'
+import * as helpers from './helpers'
 import * as debug from './debug'
 import LinkToken from './LinkToken.json'
 import * as wallet from './wallet'

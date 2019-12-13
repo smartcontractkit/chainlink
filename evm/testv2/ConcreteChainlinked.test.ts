@@ -1,4 +1,4 @@
-import * as h from '../src/helpersV2'
+import * as h from '../src/helpers'
 import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
 import { EmptyOracleFactory } from '../src/generated/EmptyOracleFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
