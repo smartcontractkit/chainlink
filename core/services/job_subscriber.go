@@ -105,7 +105,7 @@ func (js *jobSubscriber) Connect(bn *models.Head) error {
 	err := js.store.Jobs(func(j *models.JobSpec) bool {
 		merr = multierr.Append(merr, js.AddJob(*j, bn))
 		return true
-	})
+	}, models.InitiatorEthLog, models.InitiatorRunLog, models.InitiatorServiceAgreementExecutionLog)
 	return multierr.Append(merr, err)
 }
 
