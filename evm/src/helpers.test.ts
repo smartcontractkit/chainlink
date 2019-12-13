@@ -1,4 +1,4 @@
-import { generateSAID, ServiceAgreement } from './helpersV2'
+import { generateSAID, ServiceAgreement } from './helpers'
 
 describe('generateSAID test', () => {
   it('should the hashed result of the abi encoded service agreement', () => {

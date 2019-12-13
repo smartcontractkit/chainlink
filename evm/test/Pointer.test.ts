@@ -1,4 +1,4 @@
-import * as h from '../src/helpersV2'
+import * as h from '../src/helpers'
 import { assert } from 'chai'
 import { PointerFactory } from '../src/generated/PointerFactory'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
