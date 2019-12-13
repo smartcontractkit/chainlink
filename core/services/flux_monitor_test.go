@@ -35,13 +35,15 @@ func TestConcreteFluxMonitor_AddJobHappy(t *testing.T) {
 	checkerFactory.On("New", mock.Anything, job.Initiators[0], runManager).Return(dc, nil)
 	fm := services.NewFluxMonitor(store, runManager)
 	services.ExportedSetCheckerFactory(fm, checkerFactory)
+	require.NoError(t, fm.Connect(nil))
+	defer fm.Disconnect()
 
 	require.NoError(t, fm.AddJob(job))
 
-	checkerFactory.AssertExpectations(t)
 	cltest.CallbackOrTimeout(t, "deviation checker started", func() {
 		<-started
 	})
+	checkerFactory.AssertExpectations(t)
 	dc.AssertExpectations(t)
 }
 
@@ -57,6 +59,8 @@ func TestConcreteFluxMonitor_AddJobError(t *testing.T) {
 	checkerFactory.On("New", mock.Anything, job.Initiators[0], runManager).Return(dc, nil)
 	fm := services.NewFluxMonitor(store, runManager)
 	services.ExportedSetCheckerFactory(fm, checkerFactory)
+	require.NoError(t, fm.Connect(nil))
+	defer fm.Disconnect()
 
 	require.Error(t, fm.AddJob(job))
 	checkerFactory.AssertExpectations(t)
