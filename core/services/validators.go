@@ -44,7 +44,7 @@ func ValidateBridgeTypeNotExist(bt *models.BridgeTypeRequest, store *store.Store
 	fe := models.NewJSONAPIErrors()
 	ts := models.TaskSpec{Type: bt.Name}
 	if a, _ := adapters.For(ts, store.Config, store.ORM); a != nil {
-		fe.Add(fmt.Sprintf("Adapter %v already exists", bt.Name))
+		fe.Add(fmt.Sprintf("Bridge Type %v already exists", bt.Name))
 	}
 	return fe.CoerceEmptyToNil()
 }

@@ -99,7 +99,7 @@ func TestValidateJob_DevRejectsSleepAdapter(t *testing.T) {
 	assert.Error(t, services.ValidateJob(sleepingJob, store))
 }
 
-func TestValidateAdapter(t *testing.T) {
+func TestValidateBridgeType(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -206,14 +206,14 @@ func TestValidateBridgeNotExist(t *testing.T) {
 			models.BridgeTypeRequest{
 				Name: "solargridreporting",
 			},
-			models.NewJSONAPIErrorsWith("Adapter solargridreporting already exists"),
+			models.NewJSONAPIErrorsWith("Bridge Type solargridreporting already exists"),
 		},
 		{
 			"existing core adapter",
 			models.BridgeTypeRequest{
 				Name: "ethtx",
 			},
-			models.NewJSONAPIErrorsWith("Adapter ethtx already exists"),
+			models.NewJSONAPIErrorsWith("Bridge Type ethtx already exists"),
 		},
 	}
 
