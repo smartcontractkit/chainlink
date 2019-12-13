@@ -27,7 +27,7 @@ func TestStatsPusher(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&j))
 
-	jr := j.NewRun(j.Initiators[0])
+	jr := cltest.NewJobRun(j)
 	require.NoError(t, store.CreateJobRun(&jr))
 
 	assert.Equal(t, 1, lenSyncEvents(t, store.ORM), "jobrun sync event should be created")
@@ -91,7 +91,7 @@ func TestStatsPusher_NoAckLeavesEvent(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&j))
 
-	jr := j.NewRun(j.Initiators[0])
+	jr := cltest.NewJobRun(j)
 	require.NoError(t, store.CreateJobRun(&jr))
 
 	assert.Equal(t, 1, lenSyncEvents(t, store.ORM), "jobrun sync event should be created")
@@ -117,7 +117,7 @@ func TestStatsPusher_BadSyncLeavesEvent(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&j))
 
-	jr := j.NewRun(j.Initiators[0])
+	jr := cltest.NewJobRun(j)
 	require.NoError(t, store.CreateJobRun(&jr))
 
 	assert.Equal(t, 1, lenSyncEvents(t, store.ORM), "jobrun sync event should be created")

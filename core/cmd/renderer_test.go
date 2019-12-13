@@ -73,7 +73,7 @@ func TestRenderer_RenderJobRun(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			job := cltest.NewJobWithWebInitiator()
-			run := job.NewRun(job.Initiators[0])
+			run := cltest.NewJobRun(job)
 			assert.NoError(t, test.renderer.Render(&presenters.JobRun{run}))
 		})
 	}

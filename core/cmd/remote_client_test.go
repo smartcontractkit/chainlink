@@ -109,10 +109,10 @@ func TestClient_IndexJobRuns(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, app.Store.CreateJob(&j))
 
-	jr0 := j.NewRun(j.Initiators[0])
+	jr0 := cltest.NewJobRun(j)
 	jr0.Result.Data = cltest.JSONFromString(t, `{"a":"b"}`)
 	require.NoError(t, app.Store.CreateJobRun(&jr0))
-	jr1 := j.NewRun(j.Initiators[0])
+	jr1 := cltest.NewJobRun(j)
 	jr1.Result.Data = cltest.JSONFromString(t, `{"x":"y"}`)
 	require.NoError(t, app.Store.CreateJobRun(&jr1))
 
@@ -897,7 +897,7 @@ func TestClient_CancelJobRun(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, app.Store.CreateJob(&job))
-	run := job.NewRun(job.Initiators[0])
+	run := cltest.NewJobRun(job)
 	require.NoError(t, app.Store.CreateJobRun(&run))
 
 	client, _ := app.NewClientAndRenderer()
