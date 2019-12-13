@@ -137,8 +137,9 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	bt := &models.BridgeType{
-		Name: models.MustNewTaskType("BRidgea"),
-		URL:  cltest.WebURL(t, "http://mybridge"),
+		Name:                   models.MustNewTaskType("BRidgea"),
+		URL:                    cltest.WebURL(t, "http://mybridge"),
+		MinimumContractPayment: assets.NewLink(1),
 	}
 	require.NoError(t, app.GetStore().CreateBridgeType(bt))
 
@@ -150,6 +151,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	ubt, err := app.Store.FindBridge(bt.Name)
 	assert.NoError(t, err)
 	assert.Equal(t, cltest.WebURL(t, "http://yourbridge"), ubt.URL)
+	assert.Equal(t, assets.NewLink(1), ubt.MinimumContractPayment)
 }
 
 func TestBridgeController_Show(t *testing.T) {
