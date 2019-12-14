@@ -425,9 +425,12 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 		jobs := []models.JobSpec{}
 		scope := orm.preloadJobs().Limit(limit).Offset(offset)
 		if len(initrTypes) > 0 {
-			scope = scope.
-				Joins("JOIN initiators ON initiators.job_spec_id = job_specs.id").
-				Where("initiators.type IN (?)", initrTypes)
+			scope = scope.Where("initiators.type IN (?)", initrTypes)
+			if dbutil.IsPostgres(orm.db) {
+				scope = scope.Joins("JOIN initiators ON initiators.job_spec_id::uuid = job_specs.id")
+			} else {
+				scope = scope.Joins("JOIN initiators ON initiators.job_spec_id = job_specs.id")
+			}
 		}
 		err := scope.Find(&jobs).Error
 		if err != nil {
