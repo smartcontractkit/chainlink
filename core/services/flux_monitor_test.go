@@ -6,7 +6,6 @@ import (
 	"chainlink/core/services"
 	"chainlink/core/store/models"
 	"context"
-	"net/http"
 	"testing"
 	"time"
 
@@ -18,7 +17,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestConcreteFluxMonitor_AddJobHappy(t *testing.T) {
+func TestConcreteFluxMonitor_AddJobRemoveJobHappy(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -39,12 +38,24 @@ func TestConcreteFluxMonitor_AddJobHappy(t *testing.T) {
 	require.NoError(t, fm.Connect(nil))
 	defer fm.Disconnect()
 
+	// 1. Add Job
 	require.NoError(t, fm.AddJob(job))
 
 	cltest.CallbackOrTimeout(t, "deviation checker started", func() {
 		<-started
 	})
 	checkerFactory.AssertExpectations(t)
+	dc.AssertExpectations(t)
+
+	// 2. Remove Job
+	removed := make(chan struct{})
+	dc.On("Stop").Return().Run(func(mock.Arguments) {
+		removed <- struct{}{}
+	})
+	fm.RemoveJob(job.ID)
+	cltest.CallbackOrTimeout(t, "deviation checker stopped", func() {
+		<-removed
+	})
 	dc.AssertExpectations(t)
 }
 
@@ -112,14 +123,13 @@ func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 	dc.AssertExpectations(t)
 }
 
-func TestPollingDeviationChecker_Happy(t *testing.T) {
-	priceResponse := `{"data":{"result": 102}}` // enough to trigger a deviation
-	mockServer, serverAssert := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", priceResponse)
+func TestPollingDeviationChecker_PollHappy(t *testing.T) {
+	fetcher := new(mocks.Fetcher)
+	fetcher.On("Fetch").Return(102.0, nil)
 
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
 	initr.ID = 1
-	initr.InitiatorParams.Feeds = models.Feeds([]string{mockServer.URL})
 
 	rm := new(mocks.RunManager)
 	run := cltest.NewJobRun(job)
@@ -127,7 +137,7 @@ func TestPollingDeviationChecker_Happy(t *testing.T) {
 	rm.On("Create", job.ID, &initr, &data, mock.Anything, mock.Anything).
 		Return(&run, nil)
 
-	checker, err := services.NewPollingDeviationChecker(context.Background(), initr, rm, time.Second)
+	checker, err := services.NewPollingDeviationChecker(context.Background(), initr, rm, fetcher, time.Second)
 	require.NoError(t, err)
 	assert.Equal(t, decimal.NewFromInt(0), checker.CurrentPrice())
 
@@ -135,13 +145,13 @@ func TestPollingDeviationChecker_Happy(t *testing.T) {
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
 
-	require.NoError(t, checker.Initialize(ethClient))
+	require.NoError(t, checker.Initialize(ethClient)) // setup
 	ethClient.AssertExpectations(t)
 	assert.Equal(t, decimal.NewFromInt(100), checker.CurrentPrice())
 
-	assert.NoError(t, checker.Poll())
+	require.NoError(t, checker.Poll()) // main entry point
 
-	serverAssert()
+	fetcher.AssertExpectations(t)
 	rm.AssertExpectations(t)
 	assert.Equal(t, decimal.NewFromInt(102), checker.CurrentPrice())
 }
@@ -156,25 +166,72 @@ func TestPollingDeviationChecker_InitializeError(t *testing.T) {
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(0), errors.New("deliberate test error"))
 
-	checker, err := services.NewPollingDeviationChecker(context.Background(), initr, rm, time.Second)
+	checker, err := services.NewPollingDeviationChecker(context.Background(), initr, rm, nil, time.Second)
 	require.NoError(t, err)
 	require.Error(t, checker.Initialize(ethClient))
 }
 
-func TestPollingDeviationChecker_NoDeviationLoopsThenCancels(t *testing.T) {
-	// 1. Set up external adapter to mark when polled
-	priceResponse := `{"data":{"result": 100}}`
-	polled := make(chan struct{})
-	mockServer, serverAssert := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", priceResponse, func(http.Header, string) {
-		polled <- struct{}{}
+func TestPollingDeviationChecker_StartStop(t *testing.T) {
+	// 1. Set up fetcher to mark when polled
+	fetcher := new(mocks.Fetcher)
+	started := make(chan struct{})
+	fetcher.On("Fetch").Return(100.0, nil).Maybe().Run(func(mock.Arguments) {
+		select {
+		case started <- struct{}{}:
+		default:
+		}
 	})
-	defer serverAssert()
+	// can be called an arbitrary # of times
+	defer fetcher.AssertExpectations(t)
 
 	// 2. Prepare initialization to 100, which matches external adapter, so no deviation
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
 	initr.ID = 1
-	initr.InitiatorParams.Feeds = models.Feeds([]string{mockServer.URL})
+
+	ethClient := new(mocks.Client)
+	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
+		Return(decimal.NewFromInt(100), nil)
+
+	// 3. Start() with no delay to speed up test and polling.
+	rm := new(mocks.RunManager)
+	checker, err := services.NewPollingDeviationChecker(context.Background(), initr, rm, fetcher, 0)
+	require.NoError(t, err)
+	require.NoError(t, checker.Initialize(ethClient))
+
+	done := make(chan struct{})
+	go func() {
+		checker.Start() // Start() polling
+		done <- struct{}{}
+	}()
+
+	cltest.CallbackOrTimeout(t, "Start() starts", func() {
+		<-started
+	})
+
+	// 4. Stop stops
+	checker.Stop()
+	cltest.CallbackOrTimeout(t, "Stop() unblocks Start()", func() {
+		<-done
+	})
+}
+
+func TestPollingDeviationChecker_NoDeviationLoopsCanBeCanceled(t *testing.T) {
+	// 1. Set up fetcher to mark when polled
+	fetcher := new(mocks.Fetcher)
+	polled := make(chan struct{})
+	fetcher.On("Fetch").Return(100.0, nil).Run(func(mock.Arguments) {
+		select { // don't block if test isn't listening
+		case polled <- struct{}{}:
+		default:
+		}
+	})
+	defer fetcher.AssertExpectations(t)
+
+	// 2. Prepare initialization to 100, which matches external adapter, so no deviation
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	initr.ID = 1
 
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
@@ -183,7 +240,7 @@ func TestPollingDeviationChecker_NoDeviationLoopsThenCancels(t *testing.T) {
 	// 3. Start() with no delay to speed up test and polling.
 	rm := new(mocks.RunManager)
 	parentCtx, cancel := context.WithCancel(context.Background())
-	checker, err := services.NewPollingDeviationChecker(parentCtx, initr, rm, 0)
+	checker, err := services.NewPollingDeviationChecker(parentCtx, initr, rm, fetcher, 0)
 	require.NoError(t, err)
 	require.NoError(t, checker.Initialize(ethClient))
 
