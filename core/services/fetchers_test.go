@@ -186,12 +186,12 @@ func TestMedianFetcher_MajorityFetches(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		fetchers []fetcher
+		fetchers []Fetcher
 	}{
-		{"2/3", []fetcher{hf, hf, ef}},
-		{"3/3", []fetcher{hf, hf, hf}},
-		{"3/4", []fetcher{hf, hf, hf, ef}},
-		{"3/5", []fetcher{hf, hf, hf, ef, ef}},
+		{"2/3", []Fetcher{hf, hf, ef}},
+		{"3/3", []Fetcher{hf, hf, hf}},
+		{"3/4", []Fetcher{hf, hf, hf, ef}},
+		{"3/5", []Fetcher{hf, hf, hf, ef, ef}},
 	}
 
 	for _, test := range tests {
@@ -212,12 +212,12 @@ func TestMedianFetcher_MinorityErrors(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		fetchers []fetcher
+		fetchers []Fetcher
 	}{
-		{"1/2", []fetcher{hf, ef}},
-		{"1/3", []fetcher{hf, ef, ef}},
-		{"2/4", []fetcher{hf, hf, ef, ef}},
-		{"2/5", []fetcher{hf, hf, ef, ef, ef}},
+		{"1/2", []Fetcher{hf, ef}},
+		{"1/3", []Fetcher{hf, ef, ef}},
+		{"2/4", []Fetcher{hf, hf, ef, ef}},
+		{"2/5", []Fetcher{hf, hf, ef, ef, ef}},
 	}
 
 	for _, test := range tests {

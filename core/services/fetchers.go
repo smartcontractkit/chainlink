@@ -16,9 +16,9 @@ import (
 	"go.uber.org/multierr"
 )
 
-// fetcher is the interface encapsulating all functionality needed to retrieve
+// Fetcher is the interface encapsulating all functionality needed to retrieve
 // a price.
-type fetcher interface {
+type Fetcher interface {
 	Fetch() (float64, error)
 }
 
@@ -33,7 +33,7 @@ func newHTTPFetcher(
 	timeout time.Duration,
 	requestData,
 	urlStr string,
-) (fetcher, error) {
+) (Fetcher, error) {
 	u, err := url.ParseRequestURI(urlStr)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (pr adapterResponse) Result() *float64 {
 // medianFetcher fetches from all fetchers, and returns the median value, or
 // average if even number of results.
 type medianFetcher struct {
-	fetchers []fetcher
+	fetchers []Fetcher
 }
 
 // newMedianFetcherFromURLs creates a median fetcher that retrieves a price
@@ -110,8 +110,8 @@ func newMedianFetcherFromURLs(
 	timeout time.Duration,
 	requestData string,
 	priceURLs ...string,
-) (fetcher, error) {
-	fetchers := []fetcher{}
+) (Fetcher, error) {
+	fetchers := []Fetcher{}
 	for _, url := range priceURLs {
 		ps, err := newHTTPFetcher(timeout, requestData, url)
 		if err != nil {
@@ -129,7 +129,7 @@ func newMedianFetcherFromURLs(
 	return medianFetcher, nil
 }
 
-func newMedianFetcher(fetchers ...fetcher) (fetcher, error) {
+func newMedianFetcher(fetchers ...Fetcher) (Fetcher, error) {
 	if len(fetchers) == 0 {
 		return nil, errors.New("must pass in at least one price fetcher to newMedianFetcher")
 	}

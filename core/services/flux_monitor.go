@@ -165,7 +165,16 @@ type DeviationCheckerFactory interface {
 type pollingDeviationCheckerFactory struct{}
 
 func (f pollingDeviationCheckerFactory) New(parentCtx context.Context, initr models.Initiator, runManager RunManager) (DeviationChecker, error) {
-	return NewPollingDeviationChecker(parentCtx, initr, runManager, 1*time.Second)
+	fetcher, err := newMedianFetcherFromURLs(
+		defaultHTTPTimeout,
+		initr.InitiatorParams.RequestData.String(),
+		initr.InitiatorParams.Feeds...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return NewPollingDeviationChecker(parentCtx, initr, runManager, fetcher, 1*time.Second)
 }
 
 // DeviationChecker encapsulate methods needed to initialize and check prices
@@ -185,7 +194,7 @@ type PollingDeviationChecker struct {
 	precision    int32
 	runManager   RunManager
 	currentPrice decimal.Decimal
-	fetcher      fetcher
+	fetcher      Fetcher
 	ctx          context.Context
 	cancel       context.CancelFunc
 	delay        time.Duration
@@ -195,16 +204,13 @@ type PollingDeviationChecker struct {
 const defaultHTTPTimeout = 5 * time.Second
 
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
-func NewPollingDeviationChecker(parentCtx context.Context, initr models.Initiator, runManager RunManager, delay time.Duration) (*PollingDeviationChecker, error) {
-	fetcher, err := newMedianFetcherFromURLs(
-		defaultHTTPTimeout,
-		initr.InitiatorParams.RequestData.String(),
-		initr.InitiatorParams.Feeds...)
-
-	if err != nil {
-		return nil, err
-	}
-
+func NewPollingDeviationChecker(
+	parentCtx context.Context,
+	initr models.Initiator,
+	runManager RunManager,
+	fetcher Fetcher,
+	delay time.Duration,
+) (*PollingDeviationChecker, error) {
 	ctx, cancel := context.WithCancel(parentCtx)
 	return &PollingDeviationChecker{
 		initr:        initr,
