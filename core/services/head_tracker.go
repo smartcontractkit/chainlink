@@ -13,6 +13,15 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	headsReceived = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "head_tracker_heads_received",
+		Help: "The total number of heads seen",
+	})
 )
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
@@ -151,6 +160,8 @@ func (ht *HeadTracker) disconnect() {
 }
 
 func (ht *HeadTracker) onNewHead(head *models.Head) {
+	headsReceived.Inc()
+
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
 
