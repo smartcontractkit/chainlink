@@ -8,6 +8,8 @@ import (
 	"chainlink/core/internal/mocks"
 	"chainlink/core/services"
 
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v3"
@@ -234,4 +236,11 @@ func TestOneTime_AddJob_BeforeStart(t *testing.T) {
 	ot.Stop()
 
 	runManager.AssertExpectations(t)
+}
+
+func TestExpectedRecurringScheduleJobError(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, services.ExpectedRecurringScheduleJobError(services.RecurringScheduleJobError{}))
+	assert.False(t, services.ExpectedRecurringScheduleJobError(errors.New("recurring scheduler job error, but wrong type")))
 }
