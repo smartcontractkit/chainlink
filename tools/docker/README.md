@@ -157,14 +157,14 @@ To remove any containers, volumes, and networks related to our docker-compose se
 The following commands allow you do just about anything:
 ```sh
 $ ./compose <subcommand>
-$ ./compose integ <subcommand>
-$ ./compose dev:integ <subcommand>
+$ ./compose integration <subcommand> # or ./compose i
+$ ./compose dev:integration <subcommand> # or ./compose di
 $ ./compose dev <subcommand>
 ```
 For example, to see what our compose configuration looks like:
 ```sh
 $ ./compose config # base config
-$ ./compose dev:integ # development integration test config
+$ ./compose dev:integration # development integration test config
 ```
 
 Or, to run just an ethereum node:
