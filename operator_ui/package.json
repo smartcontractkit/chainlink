@@ -12,10 +12,6 @@
     "build:tsc": "tsc -b",
     "build:tsc:clean": "tsc -b --clean",
     "serve": "serve dist -p 3000",
-    "prelint": "yarn build:tsc",
-    "eslint": "eslint --ext .js,.ts,.tsx,.jsx .",
-    "lint": "tsc --noEmit && yarn eslint",
-    "format": "prettier --write \"**/*\"",
     "pretest": "yarn build:tsc",
     "test": "jest",
     "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%",
@@ -72,8 +68,6 @@
     "@babel/preset-env": "^7.6.0",
     "@babel/preset-react": "^7.0.0",
     "@babel/preset-typescript": "^7.1.0",
-    "@chainlink/eslint-config": "0.0.3",
-    "@chainlink/prettier-config": "0.0.2",
     "@types/classnames": "^2.2.8",
     "@types/cookie": "^0.3.3",
     "@types/enzyme": "^3.10.3",
@@ -93,12 +87,10 @@
     "depcheck": "^0.8.3",
     "enzyme": "^3.10.0",
     "enzyme-adapter-react-16": "^1.15.1",
-    "eslint": "^6.7.2",
     "fetch-mock": "^7.3.1",
     "jest": "^24.9.0",
     "jest-silent-reporter": "^0.1.2",
     "mock-local-storage": "^1.1.11",
-    "prettier": "^1.18.2",
     "react-hot-loader": "^4.12.18",
     "react-static": "^6.3.8",
     "react-static-plugin-jss": "^7.2.2",
@@ -108,6 +100,5 @@
     "redux-mock-store": "^1.5.3",
     "serve": "^11.2.0",
     "typescript": "^3.6.3"
-  },
-  "prettier": "@chainlink/prettier-config"
+  }
 }

@@ -8,9 +8,6 @@
     "start": "start-storybook -p 9001",
     "build-storybook": "build-storybook",
     "build": "rimraf -rf dist && tsc",
-    "eslint": "eslint --ext .js,.jsx,.ts,.tsx src stories @types",
-    "lint": "tsc --noEmit && yarn eslint",
-    "format": "prettier --write \"**/*\"",
     "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true",
     "setup": "yarn build"
   },
@@ -33,8 +30,6 @@
     "@babel/preset-env": "^7.6.0",
     "@babel/preset-react": "^7.0.0",
     "@babel/preset-typescript": "^7.1.0",
-    "@chainlink/eslint-config": "0.0.3",
-    "@chainlink/prettier-config": "0.0.2",
     "@storybook/addon-actions": "^5.1.10",
     "@storybook/addon-info": "^5.2.8",
     "@storybook/addon-links": "^5.2.5",
@@ -46,11 +41,8 @@
     "@types/storybook__react": "^4.0.2",
     "babel-loader": "^8.0.6",
     "depcheck": "^0.8.3",
-    "eslint": "^6.7.2",
-    "prettier": "^1.18.2",
     "react-docgen-typescript-loader": "^3.1.0",
     "rimraf": "^3.0.0",
     "webpack": "^4.41.2"
-  },
-  "prettier": "@chainlink/prettier-config"
+  }
 }
