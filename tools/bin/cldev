@@ -4,7 +4,7 @@ set -e
 LDFLAGS="`tools/bin/ldflags`"
 
 case "$1" in
-    core)
+    node | core | n)
         echo "** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
         go run -ldflags "$LDFLAGS" ./core/main.go --  node import /run/secrets/keystore
         echo "** Running node"
