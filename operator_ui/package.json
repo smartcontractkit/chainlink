@@ -46,7 +46,7 @@
     "moment": "^2.24.0",
     "normalize-url": "^4.5.0",
     "numeral": "^2.0.6",
-    "path-to-regexp": "^3.0.0",
+    "path-to-regexp": "^6.1.0",
     "promise.prototype.finally": "^3.1.0",
     "prop-types": "^15.6.2",
     "react": "^16.7.0",
