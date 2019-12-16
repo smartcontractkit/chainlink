@@ -1,7 +1,6 @@
 package services
 
 import (
-	"errors"
 	"sync"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/mrwonko/cron"
+	"github.com/pkg/errors"
 )
 
 // Scheduler contains fields for Recurring and OneTime for occurrences,
@@ -194,8 +194,8 @@ func (ot *OneTime) RunJobAt(initiator models.Initiator, job models.JobSpec) {
 }
 
 func expectedRecurringScheduleJobError(err error) bool {
-	switch err.(type) {
-	case RecurringScheduleJobError:
+	switch errors.Cause(err).(type) {
+	case *RecurringScheduleJobError:
 		return true
 	default:
 		return false
