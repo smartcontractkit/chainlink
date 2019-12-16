@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -229,8 +230,11 @@ type InitiatorParams struct {
 	Precision   int32   `json:"precision,omitempty" gorm:"type:smallint"`
 }
 
+// Topics handle the serialization of ethereum log topics to and from the data store.
 type Topics [][]common.Hash
 
+// Scan coerces the value returned from the data store to the proper data
+// in this instance.
 func (t Topics) Scan(value interface{}) error {
 	jsonStr, ok := value.(string)
 	if !ok {
@@ -265,15 +269,9 @@ func (f *Feeds) Scan(value interface{}) error {
 		return fmt.Errorf("Unable to convert %v of %T to Feeds", value, value)
 	}
 
-	arr := strings.Split(str, ";")
-	collection := []string{}
-	for _, entry := range arr {
-		if entry != "" {
-			collection = append(collection, entry)
-		}
-	}
+	collection, err := splitAndValidateFeedStrings(str)
 	*f = collection
-	return nil
+	return err
 }
 
 // Value returns this instance serialized for database storage.
@@ -281,8 +279,42 @@ func (f Feeds) Value() (driver.Value, error) {
 	if len(f) == 0 {
 		return nil, nil
 	}
-	str := strings.Join(f, ";")
-	return str, nil
+	return strings.Join(f, ";"), nil
+}
+
+func splitAndValidateFeedStrings(str string) ([]string, error) {
+	arr := strings.Split(str, ";")
+	collection := []string{}
+	for _, entry := range arr {
+		if entry != "" {
+			_, err := url.ParseRequestURI(entry)
+			if err != nil {
+				return []string{}, err
+			}
+			collection = append(collection, entry)
+		}
+	}
+	return collection, nil
+}
+
+// UnmarshalJSON deserializes the json input into this instance.
+func (f *Feeds) UnmarshalJSON(input []byte) error {
+	arr := []string{}
+	err := json.Unmarshal(input, &arr)
+	if err != nil {
+		return err
+	}
+	for _, entry := range arr {
+		if entry == "" {
+			return errors.New("can't have an empty string as a feed")
+		}
+		_, err := url.ParseRequestURI(entry)
+		if err != nil {
+			return err
+		}
+	}
+	*f = arr
+	return nil
 }
 
 // NewInitiatorFromRequest creates an Initiator from the corresponding

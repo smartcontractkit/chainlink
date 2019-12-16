@@ -2,6 +2,7 @@ package models_test
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -271,6 +272,60 @@ func TestFeeds_Scan(t *testing.T) {
 			err := feeds.Scan(test.in)
 			require.NoError(t, err)
 			assert.Equal(t, test.expectation, *feeds)
+		})
+	}
+}
+
+func TestFeeds_UnmarshalJSON_String(t *testing.T) {
+	bytes := []byte(`[
+		"https://lambda.staging.devnet.tools/bnc/call",
+		"https://lambda.staging.devnet.tools/cc/call"
+	]`)
+	feeds := models.Feeds{}
+	err := json.Unmarshal(bytes, &feeds)
+	assert.NoError(t, err)
+
+	expectation := models.Feeds([]string{"https://lambda.staging.devnet.tools/bnc/call", "https://lambda.staging.devnet.tools/cc/call"})
+	assert.Equal(t, expectation, feeds)
+}
+
+func TestFeeds_UnmarshalJSON_Object(t *testing.T) {
+	jstr := `{"feeds":[
+		"https://lambda.staging.devnet.tools/bnc/call",
+		"https://lambda.staging.devnet.tools/cc/call"
+	]}`
+	bytes := []byte(jstr)
+	temp := struct {
+		Feeds models.Feeds `json:"feeds"`
+	}{}
+
+	err := json.Unmarshal(bytes, &temp)
+	assert.NoError(t, err)
+
+	expectation := models.Feeds([]string{
+		"https://lambda.staging.devnet.tools/bnc/call",
+		"https://lambda.staging.devnet.tools/cc/call",
+	})
+	assert.Equal(t, expectation, temp.Feeds)
+}
+
+func TestFeeds_UnmarshalJSON_Errors(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{"single", `["brokenURL"]`},
+		{"double", `["notURL","httpbrokescheme:/test"]`},
+		{"malformed", `["notURL",]`},
+		{"db string", `https://lambda.staging.devnet.tools/bnc/call;https://lambda.staging.devnet.tools/cc/call`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bytes := []byte(test.in)
+			feeds := models.Feeds{}
+			err := json.Unmarshal(bytes, &feeds)
+			require.Error(t, err)
 		})
 	}
 }
