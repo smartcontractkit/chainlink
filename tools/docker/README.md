@@ -63,7 +63,6 @@ $$ cldev # cldev without the "core" postfix simply calls the core node cli
 #    --json, -j     json output as opposed to table
 #    --help, -h     show help
 #    --version, -v  print the version
-$$
 $$ cldev core # import our testing key and api credentials, then start the node
 # 
 # ** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f
@@ -113,7 +112,6 @@ $$ cldev # cldev without the "core" postfix simply calls the core node cli
 #    --json, -j     json output as opposed to table
 #    --help, -h     show help
 #    --version, -v  print the version
-$$
 $$ cldev core # import our testing key and api credentials, then start the node
 # 
 # ** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f
