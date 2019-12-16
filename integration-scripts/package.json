@@ -46,7 +46,7 @@
     "@types/express": "^4.17.1",
     "@types/shelljs": "^0.8.5",
     "debug": "4.1.1",
-    "eslint": "6.3.0",
+    "eslint": "6.7.2",
     "typechain": "1.0.3",
     "typechain-target-ethers": "^1.0.1",
     "typescript": "^3.6.3"
