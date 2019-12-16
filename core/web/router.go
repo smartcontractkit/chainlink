@@ -86,6 +86,7 @@ func Router(app services.Application) *gin.Engine {
 		gin.Recovery(),
 		cors,
 		secureMiddleware(config),
+		ginprom.PromMiddleware(&ginprom.PromOpts{}),
 	)
 	engine.Use(helmet.Default())
 
