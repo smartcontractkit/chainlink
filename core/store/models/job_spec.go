@@ -261,17 +261,19 @@ func (t Topics) Value() (driver.Value, error) {
 // with ; delimited strings.
 type Feeds []string
 
-// Scan hydrates the current Feeds value with the passed in value, usually a
+// Scan populates the current Feeds value with the passed in value, usually a
 // string from an underlying database.
 func (f *Feeds) Scan(value interface{}) error {
+	if value == nil {
+		*f = []string{}
+		return nil
+	}
 	str, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("Unable to convert %v of %T to Feeds", value, value)
 	}
 
-	collection, err := splitAndValidateFeedStrings(str)
-	*f = collection
-	return err
+	return f.UnmarshalJSON([]byte(str))
 }
 
 // Value returns this instance serialized for database storage.
@@ -279,22 +281,14 @@ func (f Feeds) Value() (driver.Value, error) {
 	if len(f) == 0 {
 		return nil, nil
 	}
-	return strings.Join(f, ";"), nil
+
+	bytes, err := f.MarshalJSON()
+	return string(bytes), err
 }
 
-func splitAndValidateFeedStrings(str string) ([]string, error) {
-	arr := strings.Split(str, ";")
-	collection := []string{}
-	for _, entry := range arr {
-		if entry != "" {
-			_, err := url.ParseRequestURI(entry)
-			if err != nil {
-				return []string{}, err
-			}
-			collection = append(collection, entry)
-		}
-	}
-	return collection, nil
+// MarshalJSON marshals this instance to JSON as an array of strings.
+func (f Feeds) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]string(f))
 }
 
 // UnmarshalJSON deserializes the json input into this instance.
