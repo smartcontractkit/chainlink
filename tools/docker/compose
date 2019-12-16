@@ -24,21 +24,21 @@ dev_integration="$test -f docker-compose.dev-integration.yaml" # config to run i
 usage="compose -- A helper script for running common docker-compose commands\
 
 Commands:
-    help        Displays this help menu
-    clean       Remove any containers and volumes related to compose files
+    help                  Displays this help menu
+    clean                 Remove any containers and volumes related to compose files
 
-    cld         Runs the chainlink node container in dev mode
-    cldo        cld in addition to operator-ui in dev mode
+    cld                   Runs the chainlink node container in dev mode
+    cldo                  cld in addition to operator-ui in dev mode
     
-    acceptance  Run the services required to perform an acceptance test
+    acceptance            Run the services required to perform an acceptance test
 
-    test        Run integration test suite
-    test:dev    Run integration test suite with /tools/ci/ethereum_test and /integration bind-mounted
+    test                  Run integration test suite
+    test:dev              Run integration test suite with /tools/ci/ethereum_test and /integration bind-mounted
 
-    integ       Run docker-compose with config for integration tests
-    dev:integ   Run docker-compose with dev config for integration tests
-    dev         Run docker-compose with dev config for the core node and operator-ui
-    *           Run docker-compose with base config"
+    integration | i       Run docker-compose with config for integration tests
+    dev:integration | di  Run docker-compose with dev config for integration tests
+    dev                   Run docker-compose with dev config for the core node and operator-ui
+    *                     Run docker-compose with base config"
 
 case "$1" in
   help)
@@ -82,10 +82,10 @@ case "$1" in
     $dev_integration down -v
     ;;
 
-  integ)
+  integration | i)
     $test ${@:2}
     ;;
-  dev:integ)
+  dev:integ | di)
     $dev_integration ${@:2}
     ;;
   dev)
