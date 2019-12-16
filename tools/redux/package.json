@@ -6,8 +6,6 @@
   "types": "./dist/src",
   "scripts": {
     "build": "rimraf -rf dist && tsc",
-    "lint": "eslint --ext .ts .",
-    "format": "prettier --write \"*.ts\"",
     "setup": "yarn build"
   },
   "peerDependencies": {},

@@ -1,5 +1,12 @@
-coverage
-styleguide
-operator_ui/dist
-tools/gethnet
-vendor
+**/coverage/**
+**/node_modules/**
+**/generated/**
+core/
+**/dist/**
+**/artifacts/**
+**/public/**
+**/build/**
+truffle-config.js
+truffle.js
+gethload.js
+craco.config.js

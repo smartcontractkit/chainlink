@@ -6,9 +6,6 @@
   "scripts": {
     "cypressJobServer": "cross-env ts-node cypress/support/cypressJobServer.ts",
     "depcheck": "echo '@chainlink/integration' && depcheck || true",
-    "eslint": "eslint --ext .js,.ts .",
-    "format": "prettier --write \"**/*.{ts,js,jsx,tsx}\"",
-    "lint": "yarn eslint",
     "setup": "echo \"No setup required for @chainlink/integration\"",
     "test": "yarn test:cypress && yarn test:forks",
     "test:cypress": "cross-env NODE_ENV=test cypress run --browser=chrome",
@@ -16,18 +13,13 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@chainlink/eslint-config": "0.0.3",
-    "@chainlink/prettier-config": "0.0.2",
     "@cypress/webpack-preprocessor": "^4.1.0",
     "cross-env": "^6.0.3",
     "cypress": "^3.4.1",
     "depcheck": "^0.8.3",
-    "eslint": "^6.7.2",
-    "prettier": "^1.18.2",
     "ts-loader": "^6.2.1",
     "ts-node": "^8.4.1",
     "typescript": "^3.6.3",
     "webpack": "^4.41.2"
-  },
-  "prettier": "@chainlink/prettier-config"
+  }
 }

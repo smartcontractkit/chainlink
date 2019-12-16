@@ -11,8 +11,6 @@
     "postgenerate-typings": "yarn workspace chainlink export-typings ../integration-scripts/src/generated ../integration-scripts/dist/src/generated",
     "build": "sol-compiler && yarn generate-typings && tsc",
     "setup": "yarn build",
-    "format": "prettier --write \"src/**/*\"",
-    "lint": "eslint --ext .ts src",
     "count-transaction-events": "node ./dist/countTransactionEvents",
     "send-runlog-transaction": "node ./dist/sendRunlogTransaction",
     "send-ethlog-transaction": "node ./dist/sendEthlogTransaction",
@@ -26,7 +24,6 @@
   "dependencies": {
     "@0x/sol-compiler": "^3.1.15",
     "@0x/sol-trace": "^2.0.20",
-    "@chainlink/prettier-config": "^0.0.1",
     "body-parser": "^1.18.3",
     "chainlink": "0.7.10",
     "chainlinkv0.5": "0.0.2",
@@ -40,16 +37,12 @@
   },
   "devDependencies": {
     "@0x/sol-compiler": "^3.1.15",
-    "@chainlink/eslint-config": "0.0.3",
-    "@chainlink/prettier-config": "^0.0.1",
     "@types/body-parser": "^1.17.1",
     "@types/express": "^4.17.1",
     "@types/shelljs": "^0.8.5",
     "debug": "4.1.1",
-    "eslint": "6.7.2",
     "typechain": "1.0.3",
     "typechain-target-ethers": "^1.0.1",
     "typescript": "^3.6.3"
-  },
-  "prettier": "@chainlink/prettier-config"
+  }
 }

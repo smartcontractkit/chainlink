@@ -5,21 +5,14 @@
   "license": "MIT",
   "scripts": {
     "depcheck": "echo \"@chainlink/example-testnet\" && depcheck --ignore-dirs=contracts || true",
-    "eslint": "eslint --ext .js,.ts .",
     "solhint": "solhint ./contracts/**/*.sol",
-    "lint": "yarn eslint && yarn solhint",
-    "format": "prettier --write \"**/*\"",
+    "lint": "yarn solhint",
     "setup": "echo \"No setup required for @chainlink/example-testnet\""
   },
   "devDependencies": {
-    "@chainlink/eslint-config": "0.0.3",
-    "@chainlink/prettier-config": "0.0.2",
     "depcheck": "^0.8.3",
-    "eslint": "^6.7.2",
-    "prettier": "^1.18.2",
     "solc": "0.4.24",
     "solhint": "^2.1.0",
     "truffle": "^5.0.25"
-  },
-  "prettier": "@chainlink/prettier-config"
+  }
 }
