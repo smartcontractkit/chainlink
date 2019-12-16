@@ -370,8 +370,7 @@ func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitia
 func (orm *ORM) DeleteExternalInitiator(accessKey string) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.
-		Where("access_key = ?", accessKey).
-		Delete(&models.ExternalInitiator{}).
+		Delete(&models.ExternalInitiator{}, "access_key = ?", accessKey).
 		Error
 }
 

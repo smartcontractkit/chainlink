@@ -3,11 +3,11 @@ package models
 import (
 	"crypto/subtle"
 	"strings"
+	"time"
 
 	"chainlink/core/auth"
 	"chainlink/core/utils"
 
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 )
 
@@ -19,7 +19,6 @@ type ExternalInitiatorRequest struct {
 
 // ExternalInitiator represents a user that can initiate runs remotely
 type ExternalInitiator struct {
-	*gorm.Model
 	Name           string  `gorm:"not null;unique"`
 	URL            *WebURL `gorm:"url,omitempty"`
 	AccessKey      string  `gorm:"not null"`
@@ -27,6 +26,9 @@ type ExternalInitiator struct {
 	HashedSecret   string  `gorm:"not null"`
 	OutgoingSecret string  `gorm:"not null"`
 	OutgoingToken  string  `gorm:"not null"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // NewExternalInitiator generates an ExternalInitiator from an

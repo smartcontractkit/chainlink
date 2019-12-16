@@ -10,6 +10,7 @@ import (
 
 	"chainlink/core/adapters"
 	"chainlink/core/assets"
+	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/services"
 	"chainlink/core/services/synchronization"
@@ -81,6 +82,30 @@ func TestORM_Unscoped(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func TestORM_DeleteExternalInitiator(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	token := auth.NewToken()
+	req := models.ExternalInitiatorRequest{
+		Name: "externalinitiator",
+	}
+	exi, err := models.NewExternalInitiator(token, &req)
+	require.NoError(t, err)
+	require.NoError(t, store.CreateExternalInitiator(exi))
+
+	_, err = store.FindExternalInitiator(token)
+	require.NoError(t, err)
+
+	err = store.DeleteExternalInitiator(exi.AccessKey)
+	require.NoError(t, err)
+
+	_, err = store.FindExternalInitiator(token)
+	require.Error(t, err)
+
+	require.NoError(t, store.CreateExternalInitiator(exi))
 }
 
 func TestORM_ArchiveJob(t *testing.T) {
