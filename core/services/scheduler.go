@@ -1,7 +1,6 @@
 package services
 
 import (
-	"errors"
 	"sync"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/mrwonko/cron"
+	"github.com/pkg/errors"
 )
 
 // Scheduler contains fields for Recurring and OneTime for occurrences,
@@ -132,7 +132,7 @@ func (r *Recurring) AddJob(job models.JobSpec) {
 			}
 
 			_, err := r.runManager.Create(job.ID, &initr, &models.JSON{}, nil, &models.RunRequest{})
-			if err != nil && !expectedRecurringScheduleJobError(err) {
+			if err != nil && !ExpectedRecurringScheduleJobError(err) {
 				logger.Errorw(err.Error())
 			}
 		})
@@ -182,7 +182,7 @@ func (ot *OneTime) RunJobAt(initiator models.Initiator, job models.JobSpec) {
 		}
 
 		_, err := ot.RunManager.Create(job.ID, &initiator, &models.JSON{}, nil, &models.RunRequest{})
-		if err != nil && !expectedRecurringScheduleJobError(err) {
+		if err != nil && !ExpectedRecurringScheduleJobError(err) {
 			logger.Error(err.Error())
 			return
 		}
@@ -193,8 +193,8 @@ func (ot *OneTime) RunJobAt(initiator models.Initiator, job models.JobSpec) {
 	}
 }
 
-func expectedRecurringScheduleJobError(err error) bool {
-	switch err.(type) {
+func ExpectedRecurringScheduleJobError(err error) bool {
+	switch errors.Cause(err).(type) {
 	case RecurringScheduleJobError:
 		return true
 	default:
