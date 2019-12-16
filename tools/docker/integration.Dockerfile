@@ -15,13 +15,11 @@ RUN apt-get update \
     && chmod +x /usr/local/bin/docker-compose \
     #
     # Install jq
-    && apt-get -y install jq
-    
-# Install dependencies needed to run cypress with chrome
-RUN apt-get update && apt-get install -y xvfb libgtk-3-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 fonts-liberation libappindicator3-1 xdg-utils
+    && apt-get -y install jq \
+    # Install dependencies needed to run cypress with chrome
+    && apt-get install -y xvfb libgtk-3-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 fonts-liberation libappindicator3-1 xdg-utils
 RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 RUN dpkg -i google-chrome-stable_current_amd64.deb
-
 
 ENV PATH=/chainlink/tools/bin:./node_modules/.bin:$PATH
 
