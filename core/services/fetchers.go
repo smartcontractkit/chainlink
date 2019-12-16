@@ -12,7 +12,6 @@ import (
 
 	"github.com/guregu/null"
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 )
 
@@ -39,9 +38,6 @@ func newHTTPFetcher(
 		return nil, err
 	}
 
-	if !gjson.Valid(requestData) {
-		return nil, errors.New("unable to parse request data JSON")
-	}
 	return &httpFetcher{
 		client:      &http.Client{Timeout: timeout},
 		url:         u,
