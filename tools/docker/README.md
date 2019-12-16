@@ -167,6 +167,14 @@ $ ./compose config # base config
 $ ./compose dev:integ # development integration test config
 ```
 
+Or, to run just an ethereum node:
+```sh
+$ ./compose up devnet # start a parity devnet node
+```
+```sh
+$ GETH_MODE=true ./compose up devnet # start a geth devnet node
+```
+
 # Environment Variables
 For more information regarding environment variables, the docker [documentation](https://docs.docker.com/compose/environment-variables/) explains it in great detail.
 All of the environment variables listed under the `environment` key in each service contains a default entry under the `.env` file of this directory. Additional environment variables can be added by using the `chainlink-variables.env` file. Both files are further expanded upon below.
