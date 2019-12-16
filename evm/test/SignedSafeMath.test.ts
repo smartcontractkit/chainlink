@@ -4,10 +4,10 @@ import { ethers } from 'ethers'
 import { createFundedWallet } from '../src/wallet'
 import { ConcreteSignedSafeMathFactory } from '../src/generated/ConcreteSignedSafeMathFactory'
 import { Instance } from '../src/contract'
-import ganache from 'ganache-core'
+import { makeTestProvider } from '../src/provider'
 
 const concreteSignedSafeMathFactory = new ConcreteSignedSafeMathFactory()
-const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
+const provider = makeTestProvider()
 
 let defaultAccount: ethers.Wallet
 
