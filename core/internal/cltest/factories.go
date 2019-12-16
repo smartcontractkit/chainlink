@@ -456,12 +456,12 @@ func StringToVersionedLogData20190207withoutIndexes(
 // BigHexInt create hexutil.Big value from given value
 func BigHexInt(val interface{}) hexutil.Big {
 	switch x := val.(type) {
-	case int:
+	case int: // Single case allows compiler to narrow x's type.
 		return hexutil.Big(*big.NewInt(int64(x)))
 	case uint32:
 		return hexutil.Big(*big.NewInt(int64(x)))
 	case uint64:
-		return hexutil.Big(*big.NewInt(int64(x)))
+		return hexutil.Big(*big.NewInt(0).SetUint64(x))
 	case int64:
 		return hexutil.Big(*big.NewInt(x))
 	default:
