@@ -15,6 +15,15 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	eventsSent = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "stats_pusher_events_sent",
+		Help: "The number of events pushed up to explorer",
+	})
 )
 
 // StatsPusher polls for events and pushes them via a WebSocketClient
@@ -160,6 +169,7 @@ func (sp *StatsPusher) pushEvents() error {
 
 func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
 	sp.WSClient.Send([]byte(event.Body))
+	eventsSent.Inc()
 
 	message, err := sp.WSClient.Receive()
 	if err != nil {
