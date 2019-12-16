@@ -882,12 +882,13 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.StartAndConnect()
 
-	// 1. FM gets initial price on chain.
+	// 1. Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
 		mock.Register("eth_call", "10000") // 10,000 cents
 	})
 
-	// 2. FM checks price adapter for deviation, and gets a price with enough deviation.
+	// 2. Have server respond with 102 for price when FM checks external price
+	// adapter for deviation. 102 is enough deviation to trigger a job run.
 	priceResponse := `{"data":{"result": 102}}`
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", priceResponse)
 	defer assertCalled()
