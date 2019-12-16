@@ -46,7 +46,7 @@
     "@types/storybook__react": "^4.0.2",
     "babel-loader": "^8.0.6",
     "depcheck": "^0.8.3",
-    "eslint": "^6.3.0",
+    "eslint": "^6.7.2",
     "prettier": "^1.18.2",
     "react-docgen-typescript-loader": "^3.1.0",
     "rimraf": "^3.0.0",

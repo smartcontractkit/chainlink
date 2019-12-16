@@ -93,7 +93,7 @@
     "depcheck": "^0.8.3",
     "enzyme": "^3.10.0",
     "enzyme-adapter-react-16": "^1.15.1",
-    "eslint": "^6.3.0",
+    "eslint": "^6.7.2",
     "fetch-mock": "^7.3.1",
     "jest": "^24.9.0",
     "jest-silent-reporter": "^0.1.2",
