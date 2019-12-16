@@ -3,12 +3,11 @@ import { assert } from 'chai'
 import { PointerFactory } from '../src/generated/PointerFactory'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { Instance } from '../src/contract'
-import ganache from 'ganache-core'
-import { ethers } from 'ethers'
+import { makeTestProvider } from '../src/provider'
 
 const pointerFactory = new PointerFactory()
 const linkTokenFactory = new LinkTokenFactory()
-const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
+const provider = makeTestProvider()
 
 let roles: h.Roles
 

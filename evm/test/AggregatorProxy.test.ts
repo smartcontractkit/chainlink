@@ -7,12 +7,12 @@ import { AggregatorFactory } from '../src/generated/AggregatorFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
 import { AggregatorProxyFactory } from '../src/generated/AggregatorProxyFactory'
 import { assert } from 'chai'
-import ganache from 'ganache-core'
+import { makeTestProvider } from '../src/provider'
 
 let personas: h.Personas
 let defaultAccount: ethers.Wallet
 
-const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
+const provider = makeTestProvider()
 const linkTokenFactory = new LinkTokenFactory()
 const aggregatorFactory = new AggregatorFactory()
 const oracleFactory = new OracleFactory()

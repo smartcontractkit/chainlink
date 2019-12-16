@@ -3,10 +3,10 @@ import { ethers } from 'ethers'
 import { assert } from 'chai'
 import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
 import { Instance } from '../src/contract'
-import ganache from 'ganache-core'
+import { makeTestProvider } from '../src/provider'
 
 const GetterSetterContract = new GetterSetterFactory()
-const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
+const provider = makeTestProvider()
 
 let roles: h.Roles
 

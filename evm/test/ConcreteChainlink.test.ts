@@ -4,9 +4,9 @@ import { Instance } from '../src/contract'
 import { ethers } from 'ethers'
 import { assert } from 'chai'
 import { makeDebug } from '../src/debug'
-import ganache from 'ganache-core'
+import { makeTestProvider } from '../src/provider'
 
-const provider = new ethers.providers.Web3Provider(ganache.provider() as any)
+const provider = makeTestProvider()
 const concreteChainlinkFactory = new ConcreteChainlinkFactory()
 const debug = makeDebug('ConcreteChainlink')
 
