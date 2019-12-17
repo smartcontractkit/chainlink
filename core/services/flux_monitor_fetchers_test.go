@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/guregu/null"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,12 +20,35 @@ const ethUSDPairing = `{"data":{"coin":"ETH","market":"USD"}}`
 func TestNewMedianFetcherFromURLs_Happy(t *testing.T) {
 	tests := []struct {
 		name   string
-		prices []float64
-		expect float64
+		prices []decimal.Decimal
+		expect string
 	}{
-		{"single", []float64{101}, 101},
-		{"odd", []float64{101, 102, 103}, 102},
-		{"even", []float64{101, 102, 103, 104}, 102.5},
+		{
+			"single",
+			[]decimal.Decimal{
+				decimal.NewFromInt(101),
+			},
+			"101",
+		},
+		{
+			"odd",
+			[]decimal.Decimal{
+				decimal.NewFromInt(101),
+				decimal.NewFromInt(102),
+				decimal.NewFromInt(103),
+			},
+			"102",
+		},
+		{
+			"even",
+			[]decimal.Decimal{
+				decimal.NewFromInt(101),
+				decimal.NewFromInt(102),
+				decimal.NewFromInt(103),
+				decimal.NewFromInt(104),
+			},
+			"102.5",
+		},
 	}
 
 	for _, test := range tests {
@@ -41,13 +65,13 @@ func TestNewMedianFetcherFromURLs_Happy(t *testing.T) {
 
 			medianPrice, err := medianFetcher.Fetch()
 			assert.NoError(t, err)
-			assert.Equal(t, test.expect, medianPrice)
+			assert.Equal(t, test.expect, medianPrice.String())
 		})
 	}
 }
 
 func TestNewMedianFetcherFromURLs_Error(t *testing.T) {
-	s1 := httptest.NewServer(fakePriceResponder(t, ethUSDPairing, 101))
+	s1 := httptest.NewServer(fakePriceResponder(t, ethUSDPairing, decimal.NewFromInt(101)))
 	defer s1.Close()
 
 	_, err := newMedianFetcherFromURLs(defaultHTTPTimeout, ethUSDPairing, s1.URL, "garbage")
@@ -56,14 +80,14 @@ func TestNewMedianFetcherFromURLs_Error(t *testing.T) {
 
 func TestHTTPFetcher_Happy(t *testing.T) {
 	btcUSDPairing := `{"data":{"coin":"BTC","market":"USD"}}`
-	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, 9700))
+	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700)))
 	defer s1.Close()
 
 	fetcher, err := newHTTPFetcher(defaultHTTPTimeout, btcUSDPairing, s1.URL)
 	require.NoError(t, err)
 	price, err := fetcher.Fetch()
 	assert.NoError(t, err)
-	assert.Equal(t, float64(9700), price)
+	assert.Equal(t, decimal.NewFromInt(9700), price)
 }
 
 func TestHTTPFetcher_ErrorMessage(t *testing.T) {
@@ -84,7 +108,7 @@ func TestHTTPFetcher_ErrorMessage(t *testing.T) {
 	require.NoError(t, err)
 	price, err := fetcher.Fetch()
 	assert.Error(t, err)
-	assert.Equal(t, float64(0), price)
+	assert.Equal(t, decimal.NewFromInt(0).String(), price.String())
 	assert.Contains(t, err.Error(), "could not hit data fetcher")
 }
 
@@ -103,7 +127,7 @@ func TestHTTPFetcher_OnlyErrorMessage(t *testing.T) {
 	require.NoError(t, err)
 	price, err := fetcher.Fetch()
 	assert.Error(t, err)
-	assert.Equal(t, float64(0), price)
+	assert.Equal(t, decimal.NewFromInt(0).String(), price.String())
 	assert.Contains(t, err.Error(), "RequestId")
 }
 
@@ -121,7 +145,7 @@ func TestHTTPFetcher_NoResultNorErrorMessage(t *testing.T) {
 	require.NoError(t, err)
 	price, err := fetcher.Fetch()
 	assert.Error(t, err)
-	assert.Equal(t, float64(0), price)
+	assert.True(t, decimal.NewFromInt(0).Equal(price))
 }
 
 // Sample input taken from
@@ -129,12 +153,12 @@ func TestHTTPFetcher_NoResultNorErrorMessage(t *testing.T) {
 func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 	tests := []struct {
 		name, content string
-		expect        float64
+		expect        decimal.Decimal
 	}{
-		{"basic", `{"data":{"result":123.4567890},"jobRunID":"1","statusCode":200}`, 123.456789},
-		{"bravenewcoin", mustReadFile(t, "testdata/bravenewcoin.json"), 306.52036004},
-		{"coinmarketcap", mustReadFile(t, "testdata/coinmarketcap.json"), 305.5574615},
-		{"cryptocompare", mustReadFile(t, "testdata/cryptocompare.json"), 305.76},
+		{"basic", `{"data":{"result":123.4567890},"jobRunID":"1","statusCode":200}`, decimal.NewFromFloat(123.456789)},
+		{"bravenewcoin", mustReadFile(t, "testdata/bravenewcoin.json"), decimal.NewFromFloat(306.52036004)},
+		{"coinmarketcap", mustReadFile(t, "testdata/coinmarketcap.json"), decimal.NewFromFloat(305.5574615)},
+		{"cryptocompare", mustReadFile(t, "testdata/cryptocompare.json"), decimal.NewFromFloat(305.76)},
 	}
 
 	for _, test := range tests {
@@ -143,26 +167,9 @@ func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 			err := json.Unmarshal([]byte(test.content), &response)
 			assert.NoError(t, err)
 			result := response.Result()
-			assert.Equal(t, test.expect, *result)
+			assert.Equal(t, test.expect.String(), result.String())
 		})
 	}
-}
-
-func TestAdapterResponse_Result_float(t *testing.T) {
-	var pr adapterResponse
-	input := `{"data":{"result":100.1}}`
-	assert.NoError(t, json.Unmarshal([]byte(input), &pr))
-
-	result := pr.Result()
-	assert.Equal(t, 100.1, *result)
-}
-
-func TestAdapterResponse_Result_empty(t *testing.T) {
-	var pr adapterResponse
-	input := `{"data":{"other":"100.1"}}`
-	assert.NoError(t, json.Unmarshal([]byte(input), &pr))
-
-	assert.Nil(t, pr.Result())
 }
 
 func TestNewMedianFetcher_EmptyFetchersError(t *testing.T) {
@@ -171,18 +178,18 @@ func TestNewMedianFetcher_EmptyFetchersError(t *testing.T) {
 }
 
 func TestMedianFetcher_FetchError(t *testing.T) {
-	s1 := newFixedPricedFetcher(102)
+	s1 := newFixedPricedFetcher(decimal.NewFromInt(102))
 	s2 := newErroringPricedFetcher()
 	medianFetcher, err := newMedianFetcher(s1, s2)
 	require.NoError(t, err)
 	price, err := medianFetcher.Fetch()
 	assert.Error(t, err)
-	assert.Equal(t, float64(0), price)
+	assert.Equal(t, decimal.NewFromInt(0).String(), price.String())
 }
 
 func TestMedianFetcher_MajorityFetches(t *testing.T) {
-	hf := newFixedPricedFetcher(100) // healthy fetcher
-	ef := newErroringPricedFetcher() // erroring fetcher
+	hf := newFixedPricedFetcher(decimal.NewFromInt(100)) // healthy fetcher)
+	ef := newErroringPricedFetcher()                     // erroring fetcher
 
 	tests := []struct {
 		name     string
@@ -201,14 +208,14 @@ func TestMedianFetcher_MajorityFetches(t *testing.T) {
 
 			medianPrice, err := medianFetcher.Fetch()
 			assert.NoError(t, err)
-			assert.Equal(t, float64(100), medianPrice)
+			assert.True(t, decimal.NewFromInt(100).Equal(medianPrice))
 		})
 	}
 }
 
 func TestMedianFetcher_MinorityErrors(t *testing.T) {
-	hf := newFixedPricedFetcher(100) // healthy fetcher
-	ef := newErroringPricedFetcher() // erroring fetcher
+	hf := newFixedPricedFetcher(decimal.NewFromInt(100)) // healthy fetcher
+	ef := newErroringPricedFetcher()                     // erroring fetcher
 
 	tests := []struct {
 		name     string
@@ -227,7 +234,7 @@ func TestMedianFetcher_MinorityErrors(t *testing.T) {
 
 			medianPrice, err := medianFetcher.Fetch()
 			assert.Error(t, err)
-			assert.Equal(t, float64(0), medianPrice)
+			assert.True(t, decimal.NewFromInt(0).Equal(medianPrice))
 		})
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,14 +27,14 @@ func mustReadFile(t testing.TB, file string) string {
 }
 
 type fixedFetcher struct {
-	price float64
+	price decimal.Decimal
 }
 
-func newFixedPricedFetcher(price float64) *fixedFetcher {
+func newFixedPricedFetcher(price decimal.Decimal) *fixedFetcher {
 	return &fixedFetcher{price: price}
 }
 
-func (ps *fixedFetcher) Fetch() (float64, error) {
+func (ps *fixedFetcher) Fetch() (decimal.Decimal, error) {
 	return ps.price, nil
 }
 
@@ -43,11 +44,11 @@ func newErroringPricedFetcher() *erroringFetcher {
 	return &erroringFetcher{}
 }
 
-func (*erroringFetcher) Fetch() (float64, error) {
-	return 0, errors.New("failed to fetch; I always error")
+func (*erroringFetcher) Fetch() (decimal.Decimal, error) {
+	return decimal.NewFromInt(0), errors.New("failed to fetch; I always error")
 }
 
-func fakePriceResponder(t *testing.T, requestData string, result float64) http.Handler {
+func fakePriceResponder(t *testing.T, requestData string, result decimal.Decimal) http.Handler {
 	t.Helper()
 
 	response := adapterResponse{Data: dataWithResult(t, result)}
@@ -62,7 +63,7 @@ func fakePriceResponder(t *testing.T, requestData string, result float64) http.H
 	})
 }
 
-func dataWithResult(t *testing.T, result float64) adapterResponseData {
+func dataWithResult(t *testing.T, result decimal.Decimal) adapterResponseData {
 	t.Helper()
 	var data adapterResponseData
 	body := []byte(fmt.Sprintf(`{"result":%v}`, result))

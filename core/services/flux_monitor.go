@@ -310,7 +310,7 @@ func (p *PollingDeviationChecker) Poll() error {
 
 func (p *PollingDeviationChecker) fetchPrices() (decimal.Decimal, error) {
 	median, err := p.fetcher.Fetch()
-	return decimal.NewFromFloat(median), errors.Wrap(err, "unable to fetch median price")
+	return median, errors.Wrap(err, "unable to fetch median price")
 }
 
 var dec0 = decimal.NewFromInt(0)
