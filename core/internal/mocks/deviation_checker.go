@@ -2,6 +2,7 @@
 
 package mocks
 
+import context "context"
 import eth "chainlink/core/eth"
 import mock "github.com/stretchr/testify/mock"
 
@@ -24,9 +25,9 @@ func (_m *DeviationChecker) Initialize(_a0 eth.Client) error {
 	return r0
 }
 
-// Start provides a mock function with given fields:
-func (_m *DeviationChecker) Start() {
-	_m.Called()
+// Start provides a mock function with given fields: _a0
+func (_m *DeviationChecker) Start(_a0 context.Context) {
+	_m.Called(_a0)
 }
 
 // Stop provides a mock function with given fields:
