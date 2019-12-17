@@ -19,14 +19,7 @@ app.all('*', function(req, res) {
   res.json({ headers, body })
 })
 
-let port = parseInt(process.argv[2])
-if (!port) {
-  port = 6690
-  console.log(
-    chalk.yellow(`No port given as argument, defaulting to port:${port}`),
-  )
-}
-
+const port = parseInt(process.env.PORT!) || 6690
 app.listen(port, function() {
   console.log(chalk.green(`echo_server listening on port ${port}`))
 })

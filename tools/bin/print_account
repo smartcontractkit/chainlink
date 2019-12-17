@@ -1,9 +1,0 @@
-#!/bin/bash
-
-cd "$(dirname "$0")"
-
-echo Account
-echo address: 0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f
-echo key: 34d2ee6c703f755f9a205e322c68b8ff3425d915072ca7483190ac69684e548c
-echo "password: $(cat ../clroot/password.txt)"
-echo
