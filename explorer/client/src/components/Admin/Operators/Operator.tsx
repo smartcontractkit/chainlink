@@ -4,6 +4,7 @@ import Hidden from '@material-ui/core/Hidden'
 import Table, { ChangePageEvent } from '../../Table'
 import { LinkColumn, TextColumn, TimeAgoColumn } from '../../Table/TableCell'
 import { ChainlinkNode } from 'explorer/models'
+import { KeyValueList } from '@chainlink/styleguide'
 
 const HEADERS = ['Name']
 
@@ -78,7 +79,14 @@ const Operator: React.FC<Props> = ({
   return (
     // <Paper className={className}>
     <Paper>
-      <Hidden xsDown>
+      <KeyValueList
+        title={operator.name}
+        entries={[['hey', 'yo']]}
+        showHead
+        titleize
+      />
+
+      {/* <Hidden xsDown>
         <Table
           headers={HEADERS}
           currentPage={1}
@@ -88,7 +96,7 @@ const Operator: React.FC<Props> = ({
           // loadingMsg={loadingMsg}
           // emptyMsg={emptyMsg}
         />
-      </Hidden>
+      </Hidden> */}
     </Paper>
   )
 }
