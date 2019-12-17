@@ -134,7 +134,7 @@ func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 
 func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 	fetcher := new(mocks.Fetcher)
-	fetcher.On("Fetch").Return(102.0, nil)
+	fetcher.On("Fetch").Return(decimal.NewFromInt(102), nil)
 
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
@@ -185,7 +185,7 @@ func TestPollingDeviationChecker_StartStop(t *testing.T) {
 	// 1. Set up fetcher to mark when polled
 	fetcher := new(mocks.Fetcher)
 	started := make(chan struct{})
-	fetcher.On("Fetch").Return(100.0, nil).Maybe().Run(func(mock.Arguments) {
+	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Maybe().Run(func(mock.Arguments) {
 		select {
 		case started <- struct{}{}:
 		default:
@@ -230,7 +230,7 @@ func TestPollingDeviationChecker_NoDeviationLoopsCanBeCanceled(t *testing.T) {
 	// 1. Set up fetcher to mark when polled
 	fetcher := new(mocks.Fetcher)
 	polled := make(chan struct{})
-	fetcher.On("Fetch").Return(100.0, nil).Run(func(mock.Arguments) {
+	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Run(func(mock.Arguments) {
 		select { // don't block if test isn't listening
 		case polled <- struct{}{}:
 		default:

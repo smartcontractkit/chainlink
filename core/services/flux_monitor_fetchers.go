@@ -12,13 +12,14 @@ import (
 
 	"github.com/guregu/null"
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 )
 
 // Fetcher is the interface encapsulating all functionality needed to retrieve
 // a price.
 type Fetcher interface {
-	Fetch() (float64, error)
+	Fetch() (decimal.Decimal, error)
 }
 
 // httpFetcher retrieves data via HTTP from an external price adapter source.
@@ -45,30 +46,30 @@ func newHTTPFetcher(
 	}, err
 }
 
-func (p *httpFetcher) Fetch() (float64, error) {
+func (p *httpFetcher) Fetch() (decimal.Decimal, error) {
 	r, err := p.client.Post(p.url.String(), "application/json", strings.NewReader(p.requestData))
 	if err != nil {
-		return 0, errors.Wrap(err, fmt.Sprintf("unable to fetch price from %s with payload '%s'", p.url.String(), p.requestData))
+		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch price from %s with payload '%s'", p.url.String(), p.requestData))
 	}
 
 	defer r.Body.Close()
 	target := adapterResponse{}
 	if err = json.NewDecoder(r.Body).Decode(&target); err != nil {
-		return 0, errors.Wrap(err, fmt.Sprintf("unable to decode price from %s", p.url.String()))
+		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to decode price from %s", p.url.String()))
 	}
 	if target.ErrorMessage.Valid {
-		return 0, errors.Wrap(errors.New(target.ErrorMessage.String), fmt.Sprintf("price fetcher %s returned error", p.url.String()))
+		return decimal.Decimal{}, errors.Wrap(errors.New(target.ErrorMessage.String), fmt.Sprintf("price fetcher %s returned error", p.url.String()))
 	}
 	if r.StatusCode >= 400 {
-		return 0, fmt.Errorf("status code: %d, no error message; unable to retrieve price from %s", r.StatusCode, p.url.String())
+		return decimal.Decimal{}, fmt.Errorf("status code: %d, no error message; unable to retrieve price from %s", r.StatusCode, p.url.String())
 	}
 
 	result := target.Result()
 	if result == nil {
-		return 0, errors.Wrap(errors.New("no result returned"), fmt.Sprintf("unable to fetch price from %s", p.url.String()))
+		return decimal.Decimal{}, errors.Wrap(errors.New("no result returned"), fmt.Sprintf("unable to fetch price from %s", p.url.String()))
 	}
 	logger.Debugw(
-		fmt.Sprintf("fetched price %f from %s", *result, p.url.String()),
+		fmt.Sprintf("fetched price %v from %s", *result, p.url.String()),
 		"price", result,
 		"url", p.url.String(),
 	)
@@ -80,7 +81,7 @@ func (p *httpFetcher) String() string {
 }
 
 type adapterResponseData struct {
-	Result *float64 `json:"result"`
+	Result *decimal.Decimal `json:"result"`
 }
 
 // adapterResponse is the HTTP response as defined by the external adapter:
@@ -90,7 +91,7 @@ type adapterResponse struct {
 	ErrorMessage null.String         `json:"errorMessage"`
 }
 
-func (pr adapterResponse) Result() *float64 {
+func (pr adapterResponse) Result() *decimal.Decimal {
 	return pr.Data.Result
 }
 
@@ -134,9 +135,9 @@ func newMedianFetcher(fetchers ...Fetcher) (Fetcher, error) {
 	}, nil
 }
 
-func (m *medianFetcher) Fetch() (float64, error) {
+func (m *medianFetcher) Fetch() (decimal.Decimal, error) {
 	var err error
-	prices := make([]float64, len(m.fetchers))
+	prices := make([]decimal.Decimal, len(m.fetchers))
 	fetchErrors := []error{}
 	for i, fetcher := range m.fetchers {
 		prices[i], err = fetcher.Fetch()
@@ -148,15 +149,17 @@ func (m *medianFetcher) Fetch() (float64, error) {
 
 	errorRate := float64(len(fetchErrors)) / float64(len(m.fetchers))
 	if errorRate >= 0.5 {
-		return 0, errors.Wrap(multierr.Combine(fetchErrors...), "majority of fetchers in median failed")
+		return decimal.Decimal{}, errors.Wrap(multierr.Combine(fetchErrors...), "majority of fetchers in median failed")
 	}
 
-	sort.Float64s(prices)
+	sort.Slice(prices, func(i, j int) bool {
+		return prices[i].LessThan(prices[j])
+	})
 	k := len(prices) / 2
 	if len(prices)%2 == 1 {
 		return prices[k], nil
 	}
-	return (prices[k] + prices[k-1]) / 2, nil
+	return prices[k].Add(prices[k-1]).Div(decimal.NewFromInt(2)), nil
 }
 
 func (m *medianFetcher) String() string {
