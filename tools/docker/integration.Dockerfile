@@ -32,8 +32,6 @@ COPY evm/package.json evm/
 COPY evm/v0.5/package.json evm/v0.5/
 COPY integration/package.json integration/
 COPY integration-scripts/package.json integration-scripts/
-COPY tools/prettier-config/package.json tools/prettier-config/
-COPY tools/eslint-config/package.json tools/eslint-config/
 
 # install deps for our integration scripts
 RUN yarn
@@ -46,8 +44,6 @@ COPY tools/docker tools/docker/
 COPY evm evm
 COPY integration integration
 COPY integration-scripts integration-scripts
-COPY tools/prettier-config tools/prettier-config
-COPY tools/eslint-config tools/eslint-config
 
 # setup our integration testing scripts
 RUN yarn workspace chainlinkv0.5 setup
