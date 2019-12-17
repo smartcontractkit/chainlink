@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 )
 
 func TestConcreteFluxMonitor_AddJobRemoveJobHappy(t *testing.T) {
@@ -133,7 +132,8 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 
 	rm := new(mocks.RunManager)
 	run := cltest.NewJobRun(job)
-	data := models.JSON{Result: gjson.Parse(`{"result":"102"}`)}
+	data, err := models.ParseJSON([]byte(`{"result":"102"}`))
+	require.NoError(t, err)
 	rm.On("Create", job.ID, &initr, &data, mock.Anything, mock.Anything).
 		Return(&run, nil)
 
