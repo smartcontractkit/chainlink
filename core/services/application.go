@@ -107,14 +107,16 @@ func (app *ChainlinkApplication) Start() error {
 		case <-sigs:
 		case <-gracefulpanic.Wait():
 		}
-		app.Stop()
+		logger.ErrorIf(app.Stop())
 		app.Exiter(0)
 	}()
 
+	// XXX: Change to exit on first encountered error.
 	return multierr.Combine(
 		app.Store.Start(),
 		app.RunQueue.Start(),
 		app.RunManager.ResumeAllInProgress(),
+		app.FluxMonitor.Start(),
 
 		// HeadTracker deliberately started after
 		// RunManager.ResumeAllInProgress since it Connects JobSubscriber
@@ -137,6 +139,7 @@ func (app *ChainlinkApplication) Stop() error {
 
 		app.Scheduler.Stop()
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
+		app.FluxMonitor.Stop()
 		app.RunQueue.Stop()
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		merr = multierr.Append(merr, app.Store.Close())
@@ -164,8 +167,13 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	}
 
 	app.Scheduler.AddJob(job)
-	_ = app.FluxMonitor.AddJob(job)
-	return app.JobSubscriber.AddJob(job, nil) // nil for latest
+
+	// XXX: Add mechanism to asynchronously communicate when a job spec has
+	// an ethereum interaction error.
+	// https://www.pivotaltracker.com/story/show/170349568
+	logger.ErrorIf(app.FluxMonitor.AddJob(job))
+	logger.ErrorIf(app.JobSubscriber.AddJob(job, nil))
+	return nil
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.
@@ -184,8 +192,13 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 	}
 
 	app.Scheduler.AddJob(sa.JobSpec)
-	app.FluxMonitor.AddJob(sa.JobSpec)
-	return app.JobSubscriber.AddJob(sa.JobSpec, nil) // nil for latest
+
+	// XXX: Add mechanism to asynchronously communicate when a job spec has
+	// an ethereum interaction error.
+	// https://www.pivotaltracker.com/story/show/170349568
+	logger.ErrorIf(app.FluxMonitor.AddJob(sa.JobSpec))
+	logger.ErrorIf(app.JobSubscriber.AddJob(sa.JobSpec, nil))
+	return nil
 }
 
 // NewBox returns the packr.Box instance that holds the static assets to

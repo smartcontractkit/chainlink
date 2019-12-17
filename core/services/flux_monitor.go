@@ -21,17 +21,19 @@ type FluxMonitor interface {
 	store.HeadTrackable // (Dis)Connect methods handle initial boot and intermittent connectivity.
 	AddJob(models.JobSpec) error
 	RemoveJob(*models.ID)
+	Start() error
+	Stop()
 }
 
 type concreteFluxMonitor struct {
-	store          *store.Store
-	runManager     RunManager
-	checkers       map[string][]DeviationChecker
-	checkerFactory DeviationCheckerFactory
-	adds           chan addEntry
-	removes        chan *models.ID
-	ctx            context.Context
-	cancel         context.CancelFunc
+	store               *store.Store
+	runManager          RunManager
+	checkerFactory      DeviationCheckerFactory
+	adds                chan addEntry
+	removes             chan *models.ID
+	connect, disconnect chan struct{}
+	ctx                 context.Context
+	cancel              context.CancelFunc
 }
 
 type addEntry struct {
@@ -49,19 +51,18 @@ func NewFluxMonitor(store *store.Store, runManager RunManager) FluxMonitor {
 	}
 }
 
-// Connect adds all persisted jobs and starts deviation checkers for each
-// flux monitor initiator.
-func (fm *concreteFluxMonitor) Connect(*models.Head) error {
+func (fm *concreteFluxMonitor) Start() error {
 	fm.ctx, fm.cancel = context.WithCancel(context.Background())
 	fm.adds = make(chan addEntry)
 	fm.removes = make(chan *models.ID)
+	fm.connect = make(chan struct{})
+	fm.disconnect = make(chan struct{})
 
-	go fm.actionConsumer(fm.ctx, fm.adds, fm.removes) // start single goroutine consumer
+	go fm.actionConsumer(fm.ctx) // start single goroutine consumer
 
-	// enqueue addJob actions
 	rchan := make(chan error, 1)
 	count := 0
-	err := fm.store.Jobs(func(j *models.JobSpec) bool { // improve scoping of sql query
+	err := fm.store.Jobs(func(j *models.JobSpec) bool { // add persisted jobs
 		fm.adds <- addEntry{j, rchan}
 		count++
 		return true
@@ -75,29 +76,52 @@ func (fm *concreteFluxMonitor) Connect(*models.Head) error {
 	return multierr.Append(err, merr)
 }
 
-// actionConsumer is run on the single goroutine to coordinate the
-// collection of DeviationCheckers in a thread safe fashion.
-// Deliberately without shared variables besides channels and a context, all
-// thread safe.
-func (fm *concreteFluxMonitor) actionConsumer(ctx context.Context, adds chan addEntry, removes chan *models.ID) {
-	fm.checkers = map[string][]DeviationChecker{}
+// Connect initializes all DeviationCheckers and starts their listening.
+func (fm *concreteFluxMonitor) Connect(*models.Head) error {
+	fm.connect <- struct{}{}
+	return nil
+}
+
+// actionConsumer is the CSP consumer. It's run on a single goroutine to
+// coordinate the collection of DeviationCheckers in a thread-safe fashion.
+func (fm *concreteFluxMonitor) actionConsumer(ctx context.Context) {
+	jobMap := map[string][]DeviationChecker{}
+
+	// init w a noop cancel, so we never have to deal with nils
+	connectionCtx, cancelConnection := context.WithCancel(ctx)
+	var connected bool
+
 	for {
 		select {
 		case <-ctx.Done():
+			cancelConnection()
 			return
-		case entry := <-adds:
-			entry.rchan <- fm.produceJobAction(entry.job)
-		case jobID := <-removes:
-			for _, checker := range fm.checkers[jobID.String()] {
+		case <-fm.connect:
+			// every connection, create a new ctx for canceling on disconnect.
+			connectionCtx, cancelConnection = context.WithCancel(ctx)
+			connectCheckers(connectionCtx, jobMap, fm.store.TxManager)
+			connected = true
+		case <-fm.disconnect:
+			cancelConnection()
+			connected = false
+		case entry := <-fm.adds:
+			entry.rchan <- fm.addAction(connectionCtx, connected, entry.job, jobMap)
+		case jobID := <-fm.removes:
+			for _, checker := range jobMap[jobID.String()] {
 				checker.Stop()
 			}
-			delete(fm.checkers, jobID.String())
+			delete(jobMap, jobID.String())
 		}
 	}
 }
 
 // Disconnect cleans up running deviation checkers.
 func (fm *concreteFluxMonitor) Disconnect() {
+	fm.disconnect <- struct{}{}
+}
+
+// Disconnect cleans up running deviation checkers.
+func (fm *concreteFluxMonitor) Stop() {
 	fm.cancel()
 }
 
@@ -111,60 +135,68 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 		return nil
 	}
 
-	// non-blocking send is ignored if actionConsumer isn't consuming,
-	// such as when disconnected.
 	rchan := make(chan error)
-	select {
-	case fm.adds <- addEntry{&job, rchan}:
-		return <-rchan
-	default:
-		return fmt.Errorf("unable to add job %s to flux monitor, flux monitor disconnected", job.ID.String())
+	fm.adds <- addEntry{&job, rchan}
+	return <-rchan
+}
+
+func connectCheckers(ctx context.Context, jobMap map[string][]DeviationChecker, client eth.Client) {
+	for _, checkers := range jobMap {
+		for _, checker := range checkers {
+			// XXX: Add mechanism to asynchronously communicate when a job spec has
+			// an ethereum interaction error.
+			// https://www.pivotaltracker.com/story/show/170349568
+			logger.ErrorIf(connectSingleChecker(ctx, checker, client))
+		}
 	}
 }
 
-func (fm *concreteFluxMonitor) produceJobAction(job *models.JobSpec) error {
-	if _, ok := fm.checkers[job.ID.String()]; ok {
+func (fm *concreteFluxMonitor) addAction(ctx context.Context, connected bool, job *models.JobSpec, jobMap map[string][]DeviationChecker) error {
+	if _, ok := jobMap[job.ID.String()]; ok {
 		return fmt.Errorf("job %s has already been added to flux monitor", job.ID.String())
 	}
 	validCheckers := []DeviationChecker{}
 	for _, initr := range job.InitiatorsFor(models.InitiatorFluxMonitor) {
-		checker, err := fm.checkerFactory.New(fm.ctx, initr, fm.runManager)
+		checker, err := fm.checkerFactory.New(initr, fm.runManager)
 		if err != nil {
 			return err
 		}
-		err = checker.Initialize(fm.store.TxManager)
-		if err != nil {
-			return err
+		if connected {
+			err := connectSingleChecker(ctx, checker, fm.store.TxManager)
+			if err != nil {
+				return err
+			}
 		}
 		validCheckers = append(validCheckers, checker)
 	}
-	for _, checker := range validCheckers {
-		go checker.Start()
+	jobMap[job.ID.String()] = validCheckers
+	return nil
+}
+
+func connectSingleChecker(ctx context.Context, checker DeviationChecker, client eth.Client) error {
+	err := checker.Initialize(client)
+	if err != nil {
+		return err
 	}
-	fm.checkers[job.ID.String()] = validCheckers
+	go checker.Start(ctx)
 	return nil
 }
 
 // RemoveJob stops and removes the checker for all Flux Monitor initiators belonging
 // to the passed job ID.
 func (fm *concreteFluxMonitor) RemoveJob(ID *models.ID) {
-	// non-blocking send is ignored if actionConsumer isn't consuming,
-	// such as when disconnected.
-	select {
-	case fm.removes <- ID:
-	default:
-	}
+	fm.removes <- ID
 }
 
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
-	New(context.Context, models.Initiator, RunManager) (DeviationChecker, error)
+	New(models.Initiator, RunManager) (DeviationChecker, error)
 }
 
 type pollingDeviationCheckerFactory struct{}
 
-func (f pollingDeviationCheckerFactory) New(parentCtx context.Context, initr models.Initiator, runManager RunManager) (DeviationChecker, error) {
+func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager RunManager) (DeviationChecker, error) {
 	fetcher, err := newMedianFetcherFromURLs(
 		defaultHTTPTimeout,
 		initr.InitiatorParams.RequestData.String(),
@@ -174,14 +206,14 @@ func (f pollingDeviationCheckerFactory) New(parentCtx context.Context, initr mod
 		return nil, err
 	}
 
-	return NewPollingDeviationChecker(parentCtx, initr, runManager, fetcher, 1*time.Second)
+	return NewPollingDeviationChecker(initr, runManager, fetcher, 1*time.Second)
 }
 
 // DeviationChecker encapsulate methods needed to initialize and check prices
 // for deviations, or swings.
 type DeviationChecker interface {
 	Initialize(eth.Client) error
-	Start()
+	Start(context.Context)
 	Stop()
 }
 
@@ -195,9 +227,8 @@ type PollingDeviationChecker struct {
 	runManager   RunManager
 	currentPrice decimal.Decimal
 	fetcher      Fetcher
-	ctx          context.Context
-	cancel       context.CancelFunc
 	delay        time.Duration
+	cancel       context.CancelFunc
 }
 
 // defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
@@ -205,13 +236,11 @@ const defaultHTTPTimeout = 5 * time.Second
 
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
 func NewPollingDeviationChecker(
-	parentCtx context.Context,
 	initr models.Initiator,
 	runManager RunManager,
 	fetcher Fetcher,
 	delay time.Duration,
 ) (*PollingDeviationChecker, error) {
-	ctx, cancel := context.WithCancel(parentCtx)
 	return &PollingDeviationChecker{
 		initr:        initr,
 		address:      initr.InitiatorParams.Address,
@@ -220,8 +249,6 @@ func NewPollingDeviationChecker(
 		precision:    initr.InitiatorParams.Precision,
 		runManager:   runManager,
 		currentPrice: decimal.NewFromInt(0),
-		ctx:          ctx,
-		cancel:       cancel,
 		fetcher:      fetcher,
 		delay:        delay,
 	}, nil
@@ -236,12 +263,14 @@ func (p *PollingDeviationChecker) Initialize(client eth.Client) error {
 }
 
 // Start begins a loop polling the price adapters set in the InitiatorFluxMonitor.
-func (p *PollingDeviationChecker) Start() {
+func (p *PollingDeviationChecker) Start(ctx context.Context) {
+	pollingCtx, cancel := context.WithCancel(ctx)
+	p.cancel = cancel
 	for {
 		logger.ErrorIf(p.Poll())
 
 		select {
-		case <-p.ctx.Done():
+		case <-pollingCtx.Done():
 			return
 		case <-time.After(p.delay):
 		}

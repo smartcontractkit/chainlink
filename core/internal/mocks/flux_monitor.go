@@ -52,3 +52,22 @@ func (_m *FluxMonitor) OnNewHead(_a0 *models.Head) {
 func (_m *FluxMonitor) RemoveJob(_a0 *models.ID) {
 	_m.Called(_a0)
 }
+
+// Start provides a mock function with given fields:
+func (_m *FluxMonitor) Start() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Stop provides a mock function with given fields:
+func (_m *FluxMonitor) Stop() {
+	_m.Called()
+}
