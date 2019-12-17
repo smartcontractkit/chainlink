@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strconv"
 
 	"chainlink/core/assets"
 	"chainlink/core/utils"
@@ -126,12 +125,21 @@ func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address,
 	if err != nil {
 		return decimal.NewFromInt(0), errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
 	}
-	i, err := strconv.ParseInt(result, 0, 64)
+	raw, err := parseHexOrDecimal(result)
 	if err != nil {
 		return decimal.NewFromInt(0), errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
 	}
 	precisionDivisor := dec10.Pow(decimal.NewFromInt32(precision))
-	return decimal.NewFromInt(i).Div(precisionDivisor), nil
+	return raw.Div(precisionDivisor), nil
+}
+
+func parseHexOrDecimal(input string) (decimal.Decimal, error) {
+	if utils.HasHexPrefix(input) {
+		if value, ok := (&big.Int{}).SetString(input[2:], 16); ok {
+			return decimal.NewFromString(value.Text(10))
+		}
+	}
+	return decimal.NewFromString(input)
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
