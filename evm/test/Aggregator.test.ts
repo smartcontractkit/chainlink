@@ -178,15 +178,13 @@ describe('Aggregator', () => {
 
     describe('with multiple oracles', () => {
       beforeEach(async () => {
-        rate = await aggregatorFactory
-          .connect(defaultAccount)
-          .deploy(
-            link.address,
-            basePayment,
-            oracles.length,
-            oracles.map(o => o.address),
-            [jobId1, jobId2, jobId3],
-          )
+        rate = await aggregatorFactory.connect(defaultAccount).deploy(
+          link.address,
+          basePayment,
+          oracles.length,
+          oracles.map(o => o.address),
+          [jobId1, jobId2, jobId3],
+        )
 
         await link.transfer(rate.address, deposit)
 
@@ -259,15 +257,13 @@ describe('Aggregator', () => {
     describe('with an even number of oracles', () => {
       beforeEach(async () => {
         oracles = [oc1, oc2, oc3, oc4]
-        rate = await aggregatorFactory
-          .connect(defaultAccount)
-          .deploy(
-            link.address,
-            basePayment,
-            oracles.length,
-            oracles.map(o => o.address),
-            [jobId1, jobId2, jobId3, jobId4],
-          )
+        rate = await aggregatorFactory.connect(defaultAccount).deploy(
+          link.address,
+          basePayment,
+          oracles.length,
+          oracles.map(o => o.address),
+          [jobId1, jobId2, jobId3, jobId4],
+        )
 
         await link.transfer(rate.address, deposit)
 
@@ -451,14 +447,12 @@ describe('Aggregator', () => {
         assert.equal(maxOracleCount, oracles.length)
         assert.equal(maxOracleCount, jobIds.length)
 
-        await rate
-          .connect(personas.Carol)
-          .updateRequestDetails(
-            basePayment,
-            maxOracleCount,
-            oracles.map(o => o.address),
-            jobIds,
-          )
+        await rate.connect(personas.Carol).updateRequestDetails(
+          basePayment,
+          maxOracleCount,
+          oracles.map(o => o.address),
+          jobIds,
+        )
       })
 
       it(`reverts with more than ${maxOracleCount} oracles`, async () => {
@@ -472,14 +466,12 @@ describe('Aggregator', () => {
         assert.equal(overMaxOracles, jobIds.length)
 
         await h.assertActionThrows(async () => {
-          await rate
-            .connect(personas.Carol)
-            .updateRequestDetails(
-              basePayment,
-              overMaxOracles,
-              oracles.map(o => o.address),
-              jobIds,
-            )
+          await rate.connect(personas.Carol).updateRequestDetails(
+            basePayment,
+            overMaxOracles,
+            oracles.map(o => o.address),
+            jobIds,
+          )
         })
       })
     })

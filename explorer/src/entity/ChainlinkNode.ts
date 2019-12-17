@@ -59,9 +59,13 @@ export class ChainlinkNode {
   @Column()
   createdAt: Date
 
-  @OneToMany(() => JobRun, jobRun => jobRun.chainlinkNode, {
-    onDelete: 'CASCADE',
-  })
+  @OneToMany(
+    () => JobRun,
+    jobRun => jobRun.chainlinkNode,
+    {
+      onDelete: 'CASCADE',
+    },
+  )
   jobRuns: Array<JobRun>
 
   public present(): ChainlinkNodePresenter {

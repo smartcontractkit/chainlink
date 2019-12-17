@@ -16,7 +16,10 @@ describe('selectors - bridges', () => {
     }
 
     const selected = bridgesSelector(state)
-    expect(selected).toEqual([{ id: 'c', name: 'C' }, { id: 'a', name: 'A' }])
+    expect(selected).toEqual([
+      { id: 'c', name: 'C' },
+      { id: 'a', name: 'A' },
+    ])
   })
 
   it('does not return items that cannot be found', () => {

@@ -16,7 +16,4 @@ SignOut.propTypes = {
   receiveSignoutSuccess: PropTypes.func.isRequired,
 }
 
-export default connect(
-  null,
-  { receiveSignoutSuccess },
-)(SignOut)
+export default connect(null, { receiveSignoutSuccess })(SignOut)

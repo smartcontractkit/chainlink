@@ -1,8 +1,0 @@
-.prettierignore
-.gitignore
-**/*.sol
-common
-ethlog_test
-runlog_test
-forks
-*.log

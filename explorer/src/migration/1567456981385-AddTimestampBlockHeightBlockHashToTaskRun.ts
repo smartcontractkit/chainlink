@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner, TableColumn, Column } from 'typeorm'
+import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm'
 
 const TABLE_NAME = 'task_run'
 

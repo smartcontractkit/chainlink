@@ -143,9 +143,6 @@ const mapDispatchToProps: MapDispatchToProps<
   OwnProps
 > = dispatch => bindActionCreators({ fetchJobRun }, dispatch)
 
-const ConnectedShow = connect(
-  mapStateToProps,
-  mapDispatchToProps,
-)(Show)
+const ConnectedShow = connect(mapStateToProps, mapDispatchToProps)(Show)
 
 export default withStyles(styles)(ConnectedShow)

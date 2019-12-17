@@ -119,9 +119,6 @@ const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
   fetchJobRuns,
 }
 
-const ConnectedIndex = connect(
-  mapStateToProps,
-  mapDispatchToProps,
-)(Index)
+const ConnectedIndex = connect(mapStateToProps, mapDispatchToProps)(Index)
 
 export default ConnectedIndex

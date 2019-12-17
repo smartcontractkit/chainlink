@@ -23,6 +23,7 @@ function remapAbi() {
   const jsons = ls(artifacts)
   jsons.forEach(j => {
     const jsonPath = resolve(join(artifacts, j))
+    /* eslint-disable-next-line @typescript-eslint/no-var-requires */
     const json = require(jsonPath)
     const { abi } = json
     const newJson = { compilerOutput: { abi }, ...json }
