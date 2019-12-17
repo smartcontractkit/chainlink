@@ -2,17 +2,17 @@ import React from 'react'
 // import React, { useState, useEffect } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { RouteComponentProps } from '@reach/router'
-// import build from 'redux-object'
+import build from 'redux-object'
 import {
   createStyles,
   withStyles,
   Theme,
   WithStyles,
 } from '@material-ui/core/styles'
-// import Grid from '@material-ui/core/Grid'
-// import { ChainlinkNode } from 'explorer/models'
-// import Title from '../../../components/Title'
-// import List from '../../../components/Admin/Operators/List'
+import Grid from '@material-ui/core/Grid'
+import { ChainlinkNode } from 'explorer/models'
+import Title from '../../../components/Title'
+import Operator from '../../../components/Admin/Operators/Operator'
 // import { ChangePageEvent } from '../../../components/Table'
 // import { fetchAdminOperators } from '../../../actions/adminOperators'
 import { AppState } from '../../../reducers'
@@ -32,13 +32,14 @@ const styles = ({ breakpoints, spacing }: Theme) =>
     // },
   })
 
-interface OwnProps {
+interface OwnProps extends RouteComponentProps<{ operatorId: string }> {
   // rowsPerPage?: number
+  // operatorId: string
 }
 
 interface StateProps {
-  // adminOperators?: ChainlinkNode[]
-  // count: AppState['adminOperatorsIndex']['count']
+  operator: ChainlinkNode
+  // operator: any
 }
 
 interface DispatchProps {
@@ -54,6 +55,7 @@ interface Props
 
 export const Show: React.FC<Props> = ({
   classes,
+  operator,
   //   adminOperators,
   //   fetchAdminOperators,
   //   count,
@@ -68,51 +70,42 @@ export const Show: React.FC<Props> = ({
   //     fetchAdminOperators(currentPage + 1, rowsPerPage)
   //   }, [rowsPerPage])
   return (
-    <>
-      <h1>Show Page</h1>
-    </>
-    //     <Grid
-    //       container
-    //       spacing={24}
-    //       alignItems="center"
-    //       className={classes.container}
-    //     >
-    //       <Grid item xs={12}>
-    //         <Title>Endorsed Operators</Title>
-    //         <List
-    //           currentPage={currentPage}
-    //           operators={adminOperators}
-    //           count={count}
-    //           onChangePage={onChangePage}
-    //           emptyMsg={EMPTY_MSG}
-    //           loadingMsg={LOADING_MSG}
-    //         />
-    //       </Grid>
-    //     </Grid>
+    <Grid
+      container
+      spacing={24}
+      alignItems="center"
+      // className={classes.container}
+    >
+      <Grid item xs={12}>
+        <Title>Operator Show</Title>
+        <Operator
+          // currentPage={currentPage}
+          operator={operator}
+          // count={count}
+          // onChangePage={onChangePage}
+          // emptyMsg={EMPTY_MSG}
+          // loadingMsg={LOADING_MSG}
+        />
+      </Grid>
+    </Grid>
   )
 }
 
-// const adminOperatorsSelector = ({
-//   adminOperatorsIndex,
-//   adminOperators,
-// }: AppState): ChainlinkNode[] | undefined => {
-//   if (adminOperatorsIndex.items) {
-//     return adminOperatorsIndex.items.map(id =>
-//       build({ adminOperators: adminOperators.items }, 'adminOperators', id),
-//     )
-//   }
-// }
+const adminOperatorSelector = (
+  operatorId: string | undefined,
+  state: AppState,
+): ChainlinkNode => {
+  return build(state.adminOperators, 'items', operatorId)
+}
 
-const mapStateToProps: MapStateToProps<
-  StateProps,
-  OwnProps,
-  AppState
-> = state => ({
-  //   return {
-  //     adminOperators: adminOperatorsSelector(state),
-  // count: state.adminOperatorsIndex.count,
-  // }
-})
+const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (
+  state,
+  ownProps,
+) => {
+  return {
+    operator: adminOperatorSelector(ownProps.operatorId, state),
+  }
+}
 
 const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
   //   fetchAdminOperators,
