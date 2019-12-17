@@ -272,3 +272,24 @@ func TestPollingDeviationChecker_NoDeviationLoopsCanBeCanceled(t *testing.T) {
 		<-done
 	})
 }
+
+func TestOutsideDeviation(t *testing.T) {
+	tests := []struct {
+		name                string
+		curPrice, nextPrice decimal.Decimal
+		threshold           float64 // in percentage
+		expectation         bool
+	}{
+		{"0 current price", decimal.NewFromInt(0), decimal.NewFromInt(100), 2, true},
+		{"inside deviation", decimal.NewFromInt(100), decimal.NewFromInt(101), 2, false},
+		{"equal to deviation", decimal.NewFromInt(100), decimal.NewFromInt(102), 2, true},
+		{"outside deviation", decimal.NewFromInt(100), decimal.NewFromInt(103), 2, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := services.OutsideDeviation(test.curPrice, test.nextPrice, test.threshold)
+			assert.Equal(t, test.expectation, actual)
+		})
+	}
+}

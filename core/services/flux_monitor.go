@@ -295,12 +295,7 @@ func (p *PollingDeviationChecker) Poll() error {
 		return err
 	}
 
-	deviated, err := p.checkIfOutsideDeviation(nextPrice)
-	if err != nil {
-		return err
-	}
-
-	if !deviated {
+	if !OutsideDeviation(p.currentPrice, nextPrice, p.threshold) {
 		return nil // early exit since deviation criteria not met.
 	}
 
@@ -318,20 +313,27 @@ func (p *PollingDeviationChecker) fetchPrices() (decimal.Decimal, error) {
 	return decimal.NewFromFloat(median), errors.Wrap(err, "unable to fetch median price")
 }
 
-func (p *PollingDeviationChecker) checkIfOutsideDeviation(nextPrice decimal.Decimal) (bool, error) {
-	curPrice := p.currentPrice
+var dec0 = decimal.NewFromInt(0)
+
+// OutsideDeviation checks whether the next price is outside the threshold.
+func OutsideDeviation(curPrice, nextPrice decimal.Decimal, threshold float64) bool {
+	if curPrice.Equal(dec0) {
+		logger.Infow("current price is 0, deviation automatically met")
+		return true
+	}
+
 	diff := curPrice.Sub(nextPrice).Abs()
-	perc := diff.Div(curPrice).Mul(decimal.NewFromInt(100))
-	if perc.LessThan(decimal.NewFromFloat(p.threshold)) {
-		logger.Debug(fmt.Sprintf("difference is %v%%, deviation threshold of %f%% not met", perc, p.threshold))
-		return false, nil
+	percentage := diff.Div(curPrice).Mul(decimal.NewFromInt(100))
+	if percentage.LessThan(decimal.NewFromFloat(threshold)) {
+		logger.Debug(fmt.Sprintf("difference is %v%%, deviation threshold of %f%% not met", percentage, threshold))
+		return false
 	}
 	logger.Infow(
-		fmt.Sprintf("deviation of %v%% for threshold %f%% with previous price %v next price %v", perc, p.threshold, curPrice, nextPrice),
-		"threshold", p.threshold,
-		"deviation", perc,
+		fmt.Sprintf("deviation of %v%% for threshold %f%% with previous price %v next price %v", percentage, threshold, curPrice, nextPrice),
+		"threshold", threshold,
+		"deviation", percentage,
 	)
-	return true, nil
+	return true
 }
 
 func (p *PollingDeviationChecker) createJobRun(nextPrice decimal.Decimal) error {
