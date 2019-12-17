@@ -307,9 +307,10 @@ const mapStateToProps = (state: any) => ({
   url: state.notifications.currentUrl,
 })
 
-export const ConnectedRegionalNav = connect(
-  mapStateToProps,
-  { fetchJobRuns, createJobRun, deleteJobSpec },
-)(RegionalNav)
+export const ConnectedRegionalNav = connect(mapStateToProps, {
+  fetchJobRuns,
+  createJobRun,
+  deleteJobSpec,
+})(RegionalNav)
 
 export default withStyles(styles)(ConnectedRegionalNav)
