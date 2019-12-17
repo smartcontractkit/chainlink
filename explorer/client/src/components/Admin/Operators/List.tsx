@@ -7,10 +7,11 @@ import { ChainlinkNode } from 'explorer/models'
 
 const HEADERS = ['Name', 'URL', 'Created At']
 
-function buildNameCol(operator: ChainlinkNode): TextColumn {
+function buildNameCol(operator: ChainlinkNode): UrlColumn {
   return {
-    type: 'text',
+    type: 'link',
     text: operator.name,
+    to: `/admin/operators/${operator.id}`, // TODO
   }
 }
 
@@ -37,7 +38,7 @@ function buildCreatedAtCol(operator: ChainlinkNode): TimeAgoColumn {
 
 function rows(
   operators?: ChainlinkNode[],
-): [TextColumn, UrlColumn, TimeAgoColumn][] | undefined {
+): [UrlColumn, UrlColumn, TimeAgoColumn][] | undefined {
   if (operators) {
     return operators.map(o => {
       return [buildNameCol(o), buildUrlCol(o), buildCreatedAtCol(o)]
