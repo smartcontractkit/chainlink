@@ -131,7 +131,7 @@ func TestJSON_ParseJSON(t *testing.T) {
 		wantErrored bool
 	}{
 		{"basic", `{"num": 100}`, cltest.JSONFromString(t, `{"num": 100}`), false},
-		{"empty string", ``, cltest.JSONFromString(t, `{}`), false},
+		{"empty string", ``, models.JSON{}, false},
 		{"invalid JSON", `{`, models.JSON{}, true},
 	}
 
