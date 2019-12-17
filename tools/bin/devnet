@@ -1,6 +1,0 @@
-#!/bin/bash
-
-cd "$(dirname "$0")"
-./print_account
-docker pull smartcontract/devnet:latest
-docker run -p 18545:8545 -p 18546:8546 smartcontract/devnet:latest

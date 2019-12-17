@@ -2,54 +2,25 @@
 
 set -e
 
-GIT_ROOT=`git rev-parse --show-toplevel`
+source $SRCROOT/integration/common
 
-export SRCROOT=`pwd`
-export PATH=$SRCROOT/tools/bin:./node_modules/.bin:$PATH
-
-export ROOT="$SRCROOT/tools/clroot"
-
-export ECHO_SERVER_PORT=6690
-export ECHO_SERVER_URL=http://127.0.0.1:$ECHO_SERVER_PORT/count
-
-export CHAINLINK_PORT=6688
-export CHAINLINK_URL=http://127.0.0.1:$CHAINLINK_PORT/
-
-export MIN_OUTGOING_CONFIRMATIONS=1
-export MIN_INCOMING_CONFIRMATIONS=1
-
-export CYPRESS_JOB_SERVER_PORT=6692
-export CYPRESS_JOB_SERVER_URL=http://127.0.0.1:$CYPRESS_JOB_SERVER_PORT/
-
-pushd $SRCROOT >/dev/null
-
-source ./integration/common
-source ./tools/bin/clenv
-
-trap cleanup EXIT SIGTERM SIGINT
 trap exit_handler EXIT
 
 heading 'Setup...'
 
-if [ "$1" == "parity" ]; then
-  export ETH_CHAIN_ID=34055
-  launch_parity
-else
-  export ETH_CHAIN_ID=1337
-  launch_gethnet
-fi
-
-setup_scripts
-launch_explorer
-add_clnode_to_explorer
+echo 'logging in..'
+# we do this at run-time instead of build time
+# to eliminate the risk of copying over a stale chainlink binary
+# if we had instead copied over the binary from the built chainlink 
+# base image
+# we could also try mounting a volume instead, or using docker-exec
+docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink
+chainlink admin login --file /run/secrets/apicredentials
 launch_chainlink
 deploy_contracts
-launch_echo_server
-chainlink admin login --file ./tools/clroot/apicredentials
 
 heading 'Running tests...'
-
-pushd integration >/dev/null
+cd $SRCROOT/integration
 
 ./runlog_test
 ./ethlog_test
@@ -57,13 +28,5 @@ pushd integration >/dev/null
 
 title 'End to end tests.'
 
-launch_cypress_job_server
-
-set -o pipefail
-yarn workspace @chainlink/integration test:cypress | tee $SRCROOT/integration/logs/e2e.tests.log
-set +o pipefail
-
+yarn workspace @chainlink/integration test:cypress 
 title 'All tests passed.'
-
-# Return to caller's PWD
-popd >/dev/null

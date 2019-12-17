@@ -2,23 +2,19 @@
 
 set -e
 
-source ./common
+source $SRCROOT/integration/common
 
 title 'Service Agreement test.'
 
 deploy_v05_contracts
 
-if ! [ -x "$(command -v jq)" ]; then
-  echo 'Error: jq is not installed.' >&2
-  exit 1
-fi
-
-template_path=$SRCROOT/integration-scripts/src/fixtures/agreement_template.json
-current_spec_path=$SRCROOT/integration-scripts/src/fixtures/agreement.json
+fixtures_path=$SRCROOT/integration-scripts/src/fixtures
+template_path=$fixtures_path/agreement_template.json
+current_spec_path=$fixtures_path/agreement.json
 # Read in the spec template, and point it to the mean aggregator contract.
 jq ".aggregator=\"$MEAN_AGGREGATOR_ADDRESS\" | .oracles=[\"$CHAINLINK_NODE_ADDRESS\"]" < $template_path > $current_spec_path
-# FIXME use chainlink instead of cldev
-create_sa="$SRCROOT/tools/bin/cldev -j agreements create $current_spec_path"
+
+create_sa="chainlink -j agreements create $current_spec_path"
 agreement_response=$($create_sa)
 
 function query_agreement() {

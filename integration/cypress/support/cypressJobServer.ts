@@ -4,7 +4,7 @@ import net from 'net'
   const [customResponse] = process.argv.slice(2)
   const defaultResponse = '{"last": "3843.95"}'
   const response = customResponse || defaultResponse
-  const port = process.env.CYPRESS_JOB_SERVER_PORT || 6692
+  const port = process.env.JOB_SERVER_PORT || 6692
 
   const server = new net.Server((socket: net.Socket) => {
     socket.on('data', () => {
@@ -20,7 +20,7 @@ ${response}`)
     server.unref()
   })
 
-  const endpoint = await server.listen(port)
+  const endpoint = server.listen(port)
   const address = endpoint.address()
   if (address && typeof address != 'string') {
     console.log(`Job Server listening on port ${address.port}`)

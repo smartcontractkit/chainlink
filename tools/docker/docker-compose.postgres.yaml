@@ -1,0 +1,25 @@
+version: '3.1'
+
+services:
+  node:
+    depends_on:
+      - node-db
+    networks:
+      - node-internal
+    environment:
+      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db:5432/$CHAINLINK_DB_NAME?sslmode=disable
+  node-db:
+    container_name: chainlink-db
+    image: circleci/postgres:11-alpine
+    networks:
+      - node-internal
+    volumes:
+      - node-db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: $CHAINLINK_DB_NAME
+      POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD
+networks:
+  node-internal:
+    driver: bridge
+volumes:
+  node-db-data:

@@ -1,6 +1,3 @@
-type CypressChild = Cypress.Chainable<JQuery<any>>
-type CypressChildFunction = (subject: CypressChild, options: {}) => CypressChild
-
 // Cypress doesn't always click buttons because it thinks they are hidden (when they are not)
 Cypress.Commands.overwrite(
   'click',
@@ -39,8 +36,9 @@ Cypress.Commands.add(
 
 Cypress.Commands.add('getJobJson', () => {
   cy.fixture('job').then(job => {
-    const port = Cypress.env('JOB_SERVER_PORT')
-    job.tasks[0].params.get = `http://localhost:${port}`
+    const host = Cypress.env('JOB_SERVER_HOST') || 'localhost'
+    const port = Cypress.env('JOB_SERVER_PORT') || '6692'
+    job.tasks[0].params.get = `http://${host}:${port}`
     cy.wrap(JSON.stringify(job, null, 4))
   })
 })
@@ -63,7 +61,8 @@ Cypress.Commands.add('forceVisit', url => {
 Cypress.Commands.add(
   'login',
   (email = 'notreal@fakeemail.ch', password = 'twochains') => {
-    cy.visit('http://localhost:6688')
+    const url = Cypress.env('CHAINLINK_URL') || 'http://localhost:6688'
+    cy.visit(url)
     cy.contains('Chainlink').should('exist')
     cy.get('form input[id=email]').type(email)
     cy.get('form input[id=password]').type(password)
@@ -100,3 +99,6 @@ Cypress.Commands.add('reloadUntilFound', (selector, options = {}) => {
     cy.reloadUntilFound(selector, options)
   }
 })
+
+type CypressChild = Cypress.Chainable<JQuery<any>>
+type CypressChildFunction = (subject: CypressChild, options: {}) => CypressChild

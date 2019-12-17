@@ -1,7 +1,4 @@
 {
   "chromeWebSecurity": false,
-  "video": false,
-  "env": {
-    "JOB_SERVER_PORT": 6692
-  }
+  "video": false
 }
