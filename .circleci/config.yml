@@ -366,7 +366,7 @@ jobs:
           name: Restore Yarn Package Cache
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
       - run: yarn install
-      - run: yarn lint --cache .
+      - run: yarn lint
       - save_cache:
           name: Save Yarn Package Cache
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
