@@ -6,10 +6,8 @@
     "evm/box",
     "evm/v0.5",
     "tools",
-    "tools/eslint-config",
     "tools/local-storage",
     "tools/json-api-client",
-    "tools/prettier-config",
     "tools/redux",
     "operator_ui",
     "integration",
@@ -20,16 +18,21 @@
     "integration-scripts"
   ],
   "scripts": {
-    "lint": "yarn workspaces run lint",
-    "format": "yarn workspaces run format",
+    "lint": "eslint  --ext js,jsx,ts,tsx .",
     "setup": "yarn workspace chainlinkv0.5 setup && yarn workspaces run setup"
   },
-  "devDependencies": {},
-  "resolutions": {
-    "**/react-scripts/**/eslint": "6.3.0",
-    "**/sha3": "^2.0.7"
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^2.12.0",
+    "@typescript-eslint/parser": "^2.12.0",
+    "eslint": "^6.7.2",
+    "eslint-config-prettier": "^6.7.0",
+    "eslint-plugin-prettier": "^3.1.2",
+    "eslint-plugin-react": "^7.17.0",
+    "eslint-plugin-react-hooks": "^2.3.0",
+    "prettier": "^1.19.1",
+    "typescript": "^3.7.3"
   },
-  "comments": {
-    "resolutions-eslint": "Locking eslint to >5 so that our module resolution patch within @chainlink/eslint/resolve.js works properly"
+  "resolutions": {
+    "**/sha3": "^2.0.7"
   }
 }

@@ -10,10 +10,8 @@
     "build:windows": "truffle.cmd build && yarn generate-typings && tsc",
     "build": "sol-compiler && yarn generate-typings && tsc",
     "depcheck": "echo \"chainlinkv0.5\" && depcheck --ignore-dirs=build/contracts || true",
-    "eslint": "eslint --ext .ts,.js test",
     "solhint": "solhint ./contracts/**/*.sol",
-    "lint": "yarn eslint && yarn solhint",
-    "format": "prettier --write \"{src,test}/**/*\"",
+    "lint": "yarn solhint",
     "slither": "truffle compile --quiet && slither . && rimraf dist/artifacts",
     "setup": "ts-node ./scripts/build",
     "prepublishOnly": "yarn setup && yarn lint && yarn test",
@@ -32,8 +30,6 @@
   },
   "devDependencies": {
     "@0x/sol-compiler": "^3.1.15",
-    "@chainlink/eslint-config": "0.0.3",
-    "@chainlink/prettier-config": "0.0.2",
     "@types/bn.js": "^4.11.5",
     "@types/cbor": "^2.0.0",
     "@types/chai": "^4.2.7",
@@ -42,12 +38,10 @@
     "chai": "^4.2.0",
     "cross-env": "^6.0.3",
     "depcheck": "^0.8.3",
-    "eslint": "^6.7.2",
     "execa": "^3.2.0",
     "jest": "^24.9.0",
     "jest-circus": "^24.9.0",
     "openzeppelin-test-helpers": "^0.4.3",
-    "prettier": "^1.18.2",
     "solhint": "^2.1.0",
     "truffle": "^5.0.25",
     "ts-jest": "^24.2.0",
@@ -58,6 +52,5 @@
   "files": [
     "contracts",
     "dist"
-  ],
-  "prettier": "@chainlink/prettier-config"
+  ]
 }

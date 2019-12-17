@@ -21,8 +21,6 @@ COPY explorer/client/package.json ./explorer/client/
 COPY explorer/package.json ./explorer/
 COPY operator_ui/package.json ./operator_ui/
 COPY styleguide/package.json ./styleguide/
-COPY tools/prettier-config/package.json ./tools/prettier-config/
-COPY tools/eslint-config/package.json ./tools/eslint-config/
 COPY tools/json-api-client/package.json ./tools/json-api-client/
 COPY tools/local-storage/package.json ./tools/local-storage/
 COPY tools/redux/package.json ./tools/redux/

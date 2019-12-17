@@ -1,6 +1,6 @@
-let MyContract = artifacts.require('MyContract')
-let LinkToken = artifacts.require('LinkToken')
-let Oracle = artifacts.require('Oracle')
+const MyContract = artifacts.require('MyContract')
+const LinkToken = artifacts.require('LinkToken')
+const Oracle = artifacts.require('Oracle')
 
 module.exports = (deployer, network) => {
   // Local (development) networks need their own deployment of the LINK

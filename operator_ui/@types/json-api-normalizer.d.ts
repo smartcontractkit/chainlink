@@ -9,7 +9,7 @@ declare module 'json-api-normalizer' {
       | ResourceObject<any, any, any, any>[]
       | ResourceObject<any, any, any, any>,
     TError extends ErrorsObject[] = ErrorsObject[],
-    TIncluded extends (ResourceObject<any, any, any, any>[]) | never = never,
+    TIncluded extends ResourceObject<any, any, any, any>[] | never = never,
     TMeta extends Record<string, any> | never = never,
     TLinks extends LinksObject | never = never
   > {

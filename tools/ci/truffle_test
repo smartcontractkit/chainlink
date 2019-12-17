@@ -2,7 +2,9 @@
 
 set -e
 
-yarn workspaces run lint
+yarn workspace chainlink run lint
+yarn workspace chainlinkv0.5 run lint
+yarn workspace @chainlink/box run lint
 
 # We should merge these into the lint commands too
 yarn workspace chainlink run slither

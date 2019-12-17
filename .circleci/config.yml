@@ -211,9 +211,6 @@ jobs:
           paths:
             - ~/.cache/yarn
             - /usr/local/share/.cache/yarn
-      - run:
-          name: Run Lint
-          command: yarn workspace @chainlink/explorer run lint
       - run: yarn workspace @chainlink/explorer run test:migration:run
       - run:
           name: Run Server Tests
@@ -303,6 +300,24 @@ jobs:
       - checkout
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/report_coverage
+  lint:
+    resource_class: large
+    working_directory: ~/chainlink
+    docker:
+      - image: smartcontract/builder:1.0.25
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - run: yarn lint
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
   prepublish_npm:
     resource_class: large
     docker:
@@ -361,6 +376,10 @@ workflows:
           filters: # all branches, and /^explorer-v../ tags for build-publish...
             tags:
               only: /^explorer-v.*/
+      - lint:
+          filters:
+            tags:
+              only: /^v.*/
       - prepublish_npm:
           filters:
             tags:
