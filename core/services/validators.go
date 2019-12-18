@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"chainlink/core/adapters"
+	"chainlink/core/assets"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -38,6 +39,16 @@ func ValidateJob(j models.JobSpec, store *store.Store) error {
 	return fe.CoerceEmptyToNil()
 }
 
+// ValidateBridgeTypeNotExist checks that a bridge has not already been created
+func ValidateBridgeTypeNotExist(bt *models.BridgeTypeRequest, store *store.Store) error {
+	fe := models.NewJSONAPIErrors()
+	ts := models.TaskSpec{Type: bt.Name}
+	if a, _ := adapters.For(ts, store.Config, store.ORM); a != nil {
+		fe.Add(fmt.Sprintf("Bridge Type %v already exists", bt.Name))
+	}
+	return fe.CoerceEmptyToNil()
+}
+
 // ValidateBridgeType checks that the bridge type doesn't have a duplicate
 // or invalid name or invalid url
 func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error {
@@ -52,9 +63,9 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 	if len(strings.TrimSpace(u)) == 0 {
 		fe.Add("URL must be present")
 	}
-	ts := models.TaskSpec{Type: bt.Name}
-	if a, _ := adapters.For(ts, store.Config, store.ORM); a != nil {
-		fe.Add(fmt.Sprintf("Adapter %v already exists", bt.Name))
+	if bt.MinimumContractPayment != nil &&
+		bt.MinimumContractPayment.Cmp(assets.NewLink(0)) < 0 {
+		fe.Add("MinimumContractPayment must be positive")
 	}
 	return fe.CoerceEmptyToNil()
 }

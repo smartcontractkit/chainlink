@@ -34,7 +34,9 @@ require (
 	github.com/gorilla/websocket v1.4.1
 	github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
+	github.com/lib/pq v1.1.1
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
+	github.com/mattn/go-sqlite3 v1.11.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mrwonko/cron v0.0.0-20180828170130-e0ddd0f7e7db
 	github.com/olekukonko/tablewriter v0.0.4
