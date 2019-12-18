@@ -5,13 +5,9 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
-	"strings"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 
 	"chainlink/core/assets"
 	"chainlink/core/eth"
@@ -471,7 +467,7 @@ func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*assets.
 // configured withdrawal address. If wr.ContractAddress is empty (zero address),
 // funds are withdrawn from configured OracleContractAddress.
 func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error) {
-	oracle, err := GetContract("Oracle")
+	oracle, err := eth.GetContract("Oracle")
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -828,33 +824,4 @@ func (a *ManagedAccount) updateLastSafeNonce(latest uint64) {
 	if latest > a.lastSafeNonce {
 		a.lastSafeNonce = latest
 	}
-}
-
-// Contract holds the solidity contract's parsed ABI
-type Contract struct {
-	ABI abi.ABI
-}
-
-// GetContract loads the contract JSON file from ../evm/dist/artifacts
-// and parses the ABI JSON contents into an abi.ABI object
-func GetContract(name string) (*Contract, error) {
-	box := packr.NewBox("../../evm/dist/artifacts")
-	jsonFile, err := box.Find(name + ".json")
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to read contract JSON")
-	}
-
-	abiBytes := gjson.GetBytes(jsonFile, "compilerOutput.abi")
-	abiParsed, err := abi.JSON(strings.NewReader(abiBytes.Raw))
-	if err != nil {
-		return nil, err
-	}
-
-	return &Contract{abiParsed}, nil
-}
-
-// EncodeMessageCall encodes method name and arguments into a byte array
-// to conform with the contract's ABI
-func (contract *Contract) EncodeMessageCall(method string, args ...interface{}) ([]byte, error) {
-	return contract.ABI.Pack(method, args...)
 }
