@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	headsReceived = promauto.NewCounter(prometheus.CounterOpts{
+	numberHeadsReceived = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "head_tracker_heads_received",
 		Help: "The total number of heads seen",
 	})
@@ -160,7 +160,7 @@ func (ht *HeadTracker) disconnect() {
 }
 
 func (ht *HeadTracker) onNewHead(head *models.Head) {
-	headsReceived.Inc()
+	numberHeadsReceived.Inc()
 
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()

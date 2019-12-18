@@ -20,15 +20,15 @@ import (
 )
 
 var (
-	runsExecuted = promauto.NewCounter(prometheus.CounterOpts{
+	numberRunsExecuted = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "run_manager_runs_started",
 		Help: "The total number of runs that have run",
 	})
-	runsResumed = promauto.NewCounter(prometheus.CounterOpts{
+	numberRunsResumed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "run_manager_runs_resumed",
 		Help: "The total number of run resumptions",
 	})
-	runsCancelled = promauto.NewCounter(prometheus.CounterOpts{
+	numberRunsCancelled = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "run_manager_runs_cancelled",
 		Help: "The total number of run cancellations",
 	})
@@ -270,7 +270,7 @@ func (jm *runManager) Create(
 			run.ForLogger()...,
 		)
 		jm.runQueue.Run(run)
-		runsExecuted.Inc()
+		numberRunsExecuted.Inc()
 	}
 	return run, nil
 }
@@ -377,7 +377,7 @@ func (jm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
 	}
 
 	run.Cancel()
-	runsCancelled.Inc()
+	numberRunsCancelled.Inc()
 	return &run, jm.orm.SaveJobRun(&run)
 }
 
@@ -397,7 +397,7 @@ func (jm *runManager) updateAndTrigger(run *models.JobRun) error {
 		return err
 	}
 	if run.Status == models.RunStatusInProgress {
-		runsResumed.Inc()
+		numberRunsResumed.Inc()
 		jm.runQueue.Run(run)
 	}
 	return nil

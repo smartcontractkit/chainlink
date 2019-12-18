@@ -13,11 +13,11 @@ import (
 )
 
 var (
-	runsQueued = promauto.NewCounter(prometheus.CounterOpts{
+	numberRunsQueued = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "run_queue_runs_queued",
 		Help: "The total number of runs that have been queued",
 	})
-	runQueueSize = promauto.NewGauge(prometheus.GaugeOpts{
+	numberRunQueueWorkers = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "run_queue_queue_size",
 		Help: "The size of the run queue",
 	})
@@ -86,7 +86,7 @@ func (rq *runQueue) Stop() {
 func (rq *runQueue) Run(run *models.JobRun) {
 	runID := run.ID.String()
 
-	defer runsQueued.Inc()
+	defer numberRunsQueued.Inc()
 
 	rq.workersMutex.Lock()
 	if queueCount, present := rq.workers[runID]; present {
@@ -97,7 +97,7 @@ func (rq *runQueue) Run(run *models.JobRun) {
 	}
 	rq.runsExecuted += 1
 	rq.workers[runID] = 1
-	runQueueSize.Set(float64(len(rq.workers)))
+	numberRunQueueWorkers.Set(float64(len(rq.workers)))
 	rq.workersMutex.Unlock()
 
 	rq.workersWg.Add(1)

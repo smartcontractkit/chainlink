@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	jobSubscriptions = promauto.NewGauge(prometheus.GaugeOpts{
+	numberJobSubscriptions = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "job_subscriber_subscriptions",
 		Help: "The number of job subscriptions currently active",
 	})
@@ -69,7 +69,7 @@ func (js *jobSubscriber) RemoveJob(ID *models.ID) error {
 	js.jobsMutex.Lock()
 	sub, ok := js.jobSubscriptions[ID.String()]
 	delete(js.jobSubscriptions, ID.String())
-	jobSubscriptions.Set(float64(len(js.jobSubscriptions)))
+	numberJobSubscriptions.Set(float64(len(js.jobSubscriptions)))
 	js.jobsMutex.Unlock()
 
 	if !ok {
@@ -96,7 +96,7 @@ func (js *jobSubscriber) addSubscription(sub JobSubscription) {
 	defer js.jobsMutex.Unlock()
 
 	js.jobSubscriptions[sub.Job.ID.String()] = sub
-	jobSubscriptions.Set(float64(len(js.jobSubscriptions)))
+	numberJobSubscriptions.Set(float64(len(js.jobSubscriptions)))
 }
 
 // Connect connects the jobs to the ethereum node by creating corresponding subscriptions.
