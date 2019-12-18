@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 
 	"chainlink/core/services"
 	"chainlink/core/store/models"
@@ -10,6 +11,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+)
+
+var (
+	// uniqueConstraintRegex helps make sql error messages more user
+	// friendly.
+	uniqueConstraintRegex = regexp.MustCompile(`UNIQUE constraint`)
 )
 
 // BridgeTypesController manages BridgeType requests in the node.
@@ -31,6 +38,8 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if err := btc.App.GetStore().CreateBridgeType(bt); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
+	} else if err != nil && uniqueConstraintRegex.MatchString(err.Error()) {
+		jsonAPIError(c, http.StatusConflict, fmt.Errorf("Bridge Type %v already exists", bt.Name))
 	} else {
 		jsonAPIResponse(c, bta, "bridge")
 	}
