@@ -84,6 +84,20 @@ func TestORM_Unscoped(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestORM_CreateExternalInitiator(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	token := auth.NewToken()
+	req := models.ExternalInitiatorRequest{
+		Name: "externalinitiator",
+	}
+	exi, err := models.NewExternalInitiator(token, &req)
+	require.NoError(t, err)
+	require.NoError(t, store.CreateExternalInitiator(exi))
+	require.Equal(t, store.CreateExternalInitiator(exi), orm.ErrorConflict)
+}
+
 func TestORM_DeleteExternalInitiator(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
