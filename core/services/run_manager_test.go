@@ -250,7 +250,6 @@ func TestRunManager_ResumeAllConnecting(t *testing.T) {
 }
 
 func TestRunManager_ResumeAllConnecting_NotEnoughConfirmations(t *testing.T) {
-	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
@@ -279,6 +278,7 @@ func TestRunManager_ResumeAllConnecting_NotEnoughConfirmations(t *testing.T) {
 
 func TestRunManager_Create(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
@@ -305,6 +305,7 @@ func TestRunManager_Create(t *testing.T) {
 
 func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	t.Parallel()
+
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
@@ -332,8 +333,6 @@ func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 }
 
 func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
-	t.Parallel()
-
 	initiatingTxHash := cltest.NewHash()
 	triggeringBlockHash := cltest.NewHash()
 	otherBlockHash := cltest.NewHash()
@@ -649,8 +648,6 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 }
 
 func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
-	t.Parallel()
-
 	initiatingTxHash := cltest.NewHash()
 	triggeringBlockHash := cltest.NewHash()
 
@@ -693,8 +690,6 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 }
 
 func TestRunManager_ResumeConfirmingTasks(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		status models.RunStatus
 	}{
@@ -725,8 +720,6 @@ func TestRunManager_ResumeConfirmingTasks(t *testing.T) {
 }
 
 func TestRunManager_ResumeAllInProgress(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		status models.RunStatus
 	}{
@@ -758,8 +751,6 @@ func TestRunManager_ResumeAllInProgress(t *testing.T) {
 
 // XXX: In progress tasks that are archived should still be run as they have been paid for
 func TestRunManager_ResumeAllInProgress_Archived(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		status models.RunStatus
 	}{
@@ -791,8 +782,6 @@ func TestRunManager_ResumeAllInProgress_Archived(t *testing.T) {
 }
 
 func TestRunManager_ResumeAllInProgress_NotInProgress(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		status models.RunStatus
 	}{
@@ -826,8 +815,6 @@ func TestRunManager_ResumeAllInProgress_NotInProgress(t *testing.T) {
 }
 
 func TestRunManager_ResumeAllInProgress_NotInProgressAndArchived(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		status models.RunStatus
 	}{
