@@ -2,7 +2,7 @@ import React from 'react'
 import Paper from '@material-ui/core/Paper'
 import Hidden from '@material-ui/core/Hidden'
 import { ChainlinkNode } from 'explorer/models'
-import { KeyValueList } from '@chainlink/styleguide'
+import { KeyValueList } from '../../KeyValueList'
 
 interface Props {
   operator: ChainlinkNode
