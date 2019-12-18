@@ -300,6 +300,14 @@ jobs:
       - checkout
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/report_coverage
+  check_if_rebase_needed:
+    resource_class: small
+    working_directory: ~/chainlink
+    docker:
+      - image: alpine/git
+    steps:
+      - checkout
+      - run: tools/bin/check_if_rebase_needed
   lint:
     resource_class: large
     working_directory: ~/chainlink
@@ -340,6 +348,10 @@ workflows:
   version: 2
   test:
     jobs:
+      - check_if_rebase_needed:
+          filters: # all branches, and /^v../ tags for build-publish...
+            tags:
+              only: /^v.*/
       - go-sqlite:
           filters: # all branches, and /^v../ tags for build-publish...
             tags:
