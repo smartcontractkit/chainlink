@@ -12,4 +12,12 @@ contract OwnedTestHelper is Owned {
   {
     emit Here();
   }
+
+  function modifierIfOwner()
+    public
+    ifOwner()
+  {
+    emit Here();
+  }
+
 }

@@ -15,6 +15,7 @@ contract('Owned', () => {
     checkPublicABI(Owned, [
       'owner',
       // test helper public methods
+      'modifierIfOwner',
       'modifierOnlyOwner',
     ])
   })
@@ -25,7 +26,23 @@ contract('Owned', () => {
     })
   })
 
-  describe('#modifierOnlyOwner', () => {
+  describe('#ifOwner modifier', () => {
+    context('when called by an owner', () => {
+      it('successfully calls the method', async () => {
+        const { logs } = await owned.modifierIfOwner({ from: owner })
+        expectEvent.inLogs(logs, 'Here')
+      })
+    })
+
+    context('when called by anyone but the owner', () => {
+      it('successfully calls the method', async () => {
+        const { logs } = await owned.modifierIfOwner({ from: nonOwner })
+        assert.equal(0, logs.length)
+      })
+    })
+  })
+
+  describe('#onlyOwner modifier', () => {
     context('when called by an owner', () => {
       it('successfully calls the method', async () => {
         const { logs } = await owned.modifierOnlyOwner({ from: owner })
@@ -33,7 +50,7 @@ contract('Owned', () => {
       })
     })
 
-    context('when called by an owner', () => {
+    context('when called by anyone but the owner', () => {
       it('successfully calls the method', async () => {
         expectRevert(
           owned.modifierOnlyOwner({ from: nonOwner }),
