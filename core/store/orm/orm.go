@@ -23,6 +23,8 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 	_ "github.com/jinzhu/gorm/dialects/sqlite"   // http://doc.gorm.io/database.html#connecting-to-a-database
+	"github.com/lib/pq"
+	"github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
@@ -30,6 +32,7 @@ import (
 var (
 	// ErrorNotFound is returned when finding a single value fails.
 	ErrorNotFound = gorm.ErrRecordNotFound
+	ErrorConflict = errors.New("record already exists")
 )
 
 // DialectName is a compiler enforced type used that maps to gorm's dialect
@@ -56,6 +59,17 @@ var (
 	ErrNoAdvisoryLock    = errors.New("can't acquire advisory lock")
 	ErrReleaseLockFailed = errors.New("advisory lock release failed")
 )
+
+// mapError tries to coerce the error into package defined errors.
+func mapError(err error) error {
+	err = errors.Cause(err)
+	if v, ok := err.(sqlite3.Error); ok && v.Code == sqlite3.ErrConstraint {
+		return ErrorConflict
+	} else if v, ok := err.(*pq.Error); ok && v.Code.Class() == "23" {
+		return ErrorConflict
+	}
+	return err
+}
 
 // NewORM initializes a new database file at the configured uri.
 func NewORM(uri string, timeout time.Duration) (*ORM, error) {
@@ -363,7 +377,8 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 // CreateExternalInitiator inserts a new external initiator
 func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitiator) error {
 	orm.MustEnsureAdvisoryLock()
-	return orm.db.Create(externalInitiator).Error
+	err := orm.db.Create(externalInitiator).Error
+	return mapError(err)
 }
 
 // DeleteExternalInitiator removes an external initiator
