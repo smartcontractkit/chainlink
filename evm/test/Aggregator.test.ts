@@ -432,7 +432,7 @@ describe('Aggregator', () => {
     })
 
     describe('when calling with a large number of oracles', () => {
-      const maxOracleCount = 45
+      const maxOracleCount = 28
 
       beforeEach(() => {
         oracles = []
