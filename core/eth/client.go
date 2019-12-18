@@ -105,13 +105,13 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 	return numLinkBigInt, nil
 }
 
-// aggregatorAnswerFunctionID is the first 4 bytes of the keccak256 of
+// aggregatorLatestAnswerID is the first 4 bytes of the keccak256 of
 // Chainlink's aggregator smart contract answer function.
-const aggregatorAnswerFunctionID = "7e1b4cb0"
+const aggregatorLatestAnswerID = "50d25bcd"
 
 var (
-	dec10                      = decimal.NewFromInt(10)
-	aggregatorFunctionSelector = HexToFunctionSelector(aggregatorAnswerFunctionID)
+	dec10                          = decimal.NewFromInt(10)
+	aggregatorLatestAnswerSelector = HexToFunctionSelector(aggregatorLatestAnswerID)
 )
 
 // GetAggregatorPrice returns the current price at the given address.
@@ -119,7 +119,7 @@ func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address,
 	var result string
 	args := CallArgs{
 		To:   address,
-		Data: aggregatorFunctionSelector.Bytes(),
+		Data: aggregatorLatestAnswerSelector.Bytes(),
 	}
 	err := client.Call(&result, "eth_call", args, "latest")
 	if err != nil {
