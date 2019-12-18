@@ -19,13 +19,13 @@ services:
       dockerfile: tools/docker/operatorui.Dockerfile
       args:
         - SRCROOT
-    entrypoint: /bin/sh -c 'yarn && yarn setup && yarn workspace @chainlink/operator-ui start'
-    environment: 
+    entrypoint: /bin/sh -c 'yarn && yarn workspace @chainlink/operator-ui start'
+    environment:
       - CHAINLINK_PORT
     ports:
       - 3000:3000
       - 4000:4000
-    volumes: 
+    volumes:
       - ../..:$SRCROOT
     depends_on:
       - node
