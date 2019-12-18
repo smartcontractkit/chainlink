@@ -41,7 +41,7 @@ services:
     image: smartcontract/echo-server
     build:
       context: ../../
-      dockerfile: tools/docker/echo-server.Dockerfile
+      dockerfile: tools/echo-server/Dockerfile
       args:
         - SRCROOT
     environment:
@@ -54,7 +54,7 @@ services:
     image: smartcontract/cypress-job-server
     build:
       context: ../../
-      dockerfile: tools/docker/cypress-job-server.Dockerfile
+      dockerfile: tools/cypress-job-server/Dockerfile
       args:
         - SRCROOT
     command: '{\"last\":\ \"3843.95\"}'

@@ -9,6 +9,8 @@
     "tools/local-storage",
     "tools/json-api-client",
     "tools/redux",
+    "tools/echo-server",
+    "tools/cypress-job-server",
     "operator_ui",
     "integration",
     "styleguide",
