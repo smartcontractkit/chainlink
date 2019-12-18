@@ -7,7 +7,7 @@
     "node": "10.16.3"
   },
   "scripts": {
-    "start": "react-static start",
+    "start": "yarn build:tsc && react-static start",
     "build": "yarn build:tsc && react-static build",
     "build:tsc": "tsc -b",
     "build:tsc:clean": "tsc -b --clean",
