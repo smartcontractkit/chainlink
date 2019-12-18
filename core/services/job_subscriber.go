@@ -8,7 +8,16 @@ import (
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
+)
+
+var (
+	numberJobSubscriptions = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "job_subscriber_subscriptions",
+		Help: "The number of job subscriptions currently active",
+	})
 )
 
 //go:generate mockery -name JobSubscriber  -output ../internal/mocks/ -case=underscore
@@ -60,6 +69,7 @@ func (js *jobSubscriber) RemoveJob(ID *models.ID) error {
 	js.jobsMutex.Lock()
 	sub, ok := js.jobSubscriptions[ID.String()]
 	delete(js.jobSubscriptions, ID.String())
+	numberJobSubscriptions.Set(float64(len(js.jobSubscriptions)))
 	js.jobsMutex.Unlock()
 
 	if !ok {
@@ -86,6 +96,7 @@ func (js *jobSubscriber) addSubscription(sub JobSubscription) {
 	defer js.jobsMutex.Unlock()
 
 	js.jobSubscriptions[sub.Job.ID.String()] = sub
+	numberJobSubscriptions.Set(float64(len(js.jobSubscriptions)))
 }
 
 // Connect connects the jobs to the ethereum node by creating corresponding subscriptions.
