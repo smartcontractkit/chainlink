@@ -1,6 +1,7 @@
 import { toBuffer } from 'ethereumjs-util'
 import abi from 'ethereumjs-abi'
 import { checkPublicABI, decodeDietCBOR, toHex } from './support/helpers'
+import { ethers } from 'ethers'
 const Chainlink = artifacts.require('ChainlinkTestHelper.sol')
 
 contract('Chainlink', () => {
@@ -95,11 +96,11 @@ contract('Chainlink', () => {
     })
 
     it('handles strings', async () => {
-      await cl.addBytes('first', toHex('apple'))
+      await cl.addBytes('first', ethers.utils.toUtf8Bytes('apple'))
       const tx = await cl.closeEvent()
       const [payload] = parseCLEvent(tx)
       const decoded = await decodeDietCBOR(payload)
-      const expected = toBuffer('apple')
+      const expected = ethers.utils.toUtf8Bytes('apple')
       assert.deepEqual(decoded, { first: expected })
     })
   })
