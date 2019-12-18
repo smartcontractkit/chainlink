@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	eventsSent = promauto.NewCounter(prometheus.CounterOpts{
+	numberEventsSent = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "stats_pusher_events_sent",
 		Help: "The number of events pushed up to explorer",
 	})
@@ -169,7 +169,7 @@ func (sp *StatsPusher) pushEvents() error {
 
 func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
 	sp.WSClient.Send([]byte(event.Body))
-	eventsSent.Inc()
+	numberEventsSent.Inc()
 
 	message, err := sp.WSClient.Receive()
 	if err != nil {
