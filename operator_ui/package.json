@@ -20,7 +20,7 @@
     "depcheck": "echo '@chainlink/operator-ui' && depcheck --ignore-dirs=dist || true"
   },
   "dependencies": {
-    "@babel/polyfill": "^7.2.5",
+    "@babel/polyfill": "7.2.5",
     "@chainlink/local-storage": "0.0.1",
     "@chainlink/redux": "0.0.1",
     "@chainlink/styleguide": "0.0.1",
@@ -64,10 +64,10 @@
     "uuid": "^3.3.2"
   },
   "devDependencies": {
-    "@babel/core": "^7.7.4",
-    "@babel/preset-env": "^7.6.0",
-    "@babel/preset-react": "^7.0.0",
-    "@babel/preset-typescript": "^7.1.0",
+    "@babel/core": "7.7.4",
+    "@babel/preset-env": "7.6.0",
+    "@babel/preset-react": "7.0.0",
+    "@babel/preset-typescript": "7.1.0",
     "@types/classnames": "^2.2.8",
     "@types/cookie": "^0.3.3",
     "@types/enzyme": "^3.10.3",
