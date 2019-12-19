@@ -443,6 +443,7 @@ workflows:
             - json-api-client
             - operator-ui
             - rust
+            - sgx
           filters:
             branches:
               only:
