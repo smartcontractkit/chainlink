@@ -18,7 +18,7 @@ tools/clroot/db.bolt
 tools/clroot/*.jsonl
 tools/clroot/tempkeys
 
-sgx/target/
+core/sgx/target/
 
 operator_ui/dist/
 operator_ui/artifacts/

@@ -64,10 +64,10 @@ COPY --from=builder /opt/intel/ /opt/intel/
 ARG ENVIRONMENT
 COPY --from=builder /go/bin/chainlink /usr/local/bin/
 COPY --from=builder \
-  /chainlink/sgx/target/$ENVIRONMENT/libadapters.so \
+  /chainlink/core/sgx/target/$ENVIRONMENT/libadapters.so \
   /usr/lib/
 COPY --from=builder \
-  /chainlink/sgx/target/$ENVIRONMENT/enclave.signed.so \
+  /chainlink/core/sgx/target/$ENVIRONMENT/enclave.signed.so \
   /root/
 
 # Launch chainlink via a small script that watches AESM + Chainlink
