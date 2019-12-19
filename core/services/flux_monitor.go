@@ -7,6 +7,7 @@ import (
 	"chainlink/core/store/models"
 	"context"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -227,6 +228,7 @@ type PollingDeviationChecker struct {
 	precision    int32
 	runManager   RunManager
 	currentPrice decimal.Decimal
+	currentRound *big.Int
 	fetcher      Fetcher
 	delay        time.Duration
 	cancel       context.CancelFunc
@@ -250,6 +252,7 @@ func NewPollingDeviationChecker(
 		precision:    initr.InitiatorParams.Precision,
 		runManager:   runManager,
 		currentPrice: decimal.NewFromInt(0),
+		currentRound: big.NewInt(0),
 		fetcher:      fetcher,
 		delay:        delay,
 	}, nil
@@ -259,8 +262,17 @@ func NewPollingDeviationChecker(
 // the deviation from.
 func (p *PollingDeviationChecker) Initialize(client eth.Client) error {
 	price, err := client.GetAggregatorPrice(p.address, p.precision)
+	if err != nil {
+		return err
+	}
 	p.currentPrice = price
-	return err
+
+	round, err := client.GetAggregatorRound(p.address)
+	if err != nil {
+		return err
+	}
+	p.currentRound = round
+	return nil
 }
 
 // Start begins a loop polling the price adapters set in the InitiatorFluxMonitor.
@@ -290,6 +302,11 @@ func (p *PollingDeviationChecker) CurrentPrice() decimal.Decimal {
 	return p.currentPrice
 }
 
+// CurrentRound returns the latest round.
+func (p *PollingDeviationChecker) CurrentRound() *big.Int {
+	return new(big.Int).Set(p.currentRound)
+}
+
 // Poll walks through the steps to check for a deviation, early exiting if deviation
 // is not met, or triggering a new job run if deviation is met.
 func (p *PollingDeviationChecker) Poll() error {
@@ -302,12 +319,14 @@ func (p *PollingDeviationChecker) Poll() error {
 		return nil // early exit since deviation criteria not met.
 	}
 
-	err = p.createJobRun(nextPrice)
+	nextRound := new(big.Int).Add(p.currentRound, big.NewInt(1))
+	err = p.createJobRun(nextPrice, nextRound)
 	if err != nil {
 		return err
 	}
 
 	p.currentPrice = nextPrice
+	p.currentRound = nextRound
 	return nil
 }
 
@@ -339,7 +358,7 @@ func OutsideDeviation(curPrice, nextPrice decimal.Decimal, threshold float64) bo
 	return true
 }
 
-func (p *PollingDeviationChecker) createJobRun(nextPrice decimal.Decimal) error {
+func (p *PollingDeviationChecker) createJobRun(nextPrice decimal.Decimal, nextRound *big.Int) error {
 	runData, err := models.JSON{}.Add("result", fmt.Sprintf("%v", nextPrice))
 	if err != nil {
 		return errors.Wrap(err, "unable to start chainlink run")
