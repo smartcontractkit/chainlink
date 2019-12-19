@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"net/http"
 	"testing"
 
 	"chainlink/core/internal/cltest"
@@ -25,7 +26,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 		bytes.NewBufferString(`{"name":"bitcoin","url":"http://without.a.name"}`),
 	)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 201)
+	cltest.AssertServerResponse(t, resp, http.StatusCreated)
 	ei := &presenters.ExternalInitiatorAuthentication{}
 	err := cltest.ParseJSONAPIResponse(t, resp, ei)
 	require.NoError(t, err)
@@ -77,10 +78,30 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
 	)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 400)
+	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
 
 func TestExternalInitiatorsController_Delete(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	exi := models.ExternalInitiator{
+		Name: "abracadabra",
+	}
+	err := app.GetStore().CreateExternalInitiator(&exi)
+	require.NoError(t, err)
+
+	client := app.NewHTTPClient()
+
+	resp, cleanup := client.Delete("/v2/external_initiators/" + exi.Name)
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, http.StatusNoContent)
+}
+
+func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
@@ -91,24 +112,5 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 
 	resp, cleanup := client.Delete("/v2/external_initiators")
 	defer cleanup()
-	assert.Equal(t, 404, resp.StatusCode)
-}
-
-func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	err := app.GetStore().CreateExternalInitiator(&models.ExternalInitiator{
-		AccessKey: "abracadabra",
-	})
-	require.NoError(t, err)
-
-	client := app.NewHTTPClient()
-
-	resp, cleanup := client.Delete("/v2/external_initiators/abracadabra")
-	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 204)
+	assert.Equal(t, http.StatusText(http.StatusNotFound), http.StatusText(resp.StatusCode))
 }
