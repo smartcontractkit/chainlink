@@ -28,11 +28,6 @@ services:
       - CYPRESS_JOB_SERVER_HOST
       - CYPRESS_EXPLORER_URL
       - CYPRESS_CHAINLINK_URL=$CHAINLINK_URL
-    networks:
-      - explorer-external
-      - node-external
-      - ethereum-node
-      - integration-internal
     secrets:
       - apicredentials
 
@@ -46,8 +41,6 @@ services:
         - SRCROOT
     environment:
       - PORT=$ECHO_SERVER_PORT
-    networks:
-      - integration-internal
 
   cypress-job-server:
     container_name: cypress-job-server
@@ -62,20 +55,9 @@ services:
       - '6692:6692'
     environment:
       - JOB_SERVER_PORT=$CYPRESS_JOB_SERVER_PORT
-    networks:
-      - integration-internal
 
   node:
     entrypoint: ''
     command: /bin/sh -c "chainlink node import /run/secrets/keystore && chainlink node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     environment:
       ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688,http://integration:3000,http://integration:6688,http://node:3000,http://node:6688
-    networks:
-      - node-external
-      - integration-internal # needed this for echo-server, and cypress-job-server
-
-networks:
-  node-external:
-    driver: bridge
-  integration-internal:
-    driver: bridge
