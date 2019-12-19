@@ -131,10 +131,6 @@ func (fm *concreteFluxMonitor) OnNewHead(*models.Head) {}
 // AddJob created a DeviationChecker for any job initiators of type
 // InitiatorFluxMonitor.
 func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
-	if !job.IsFluxMonitorInitiated() {
-		return nil
-	}
-
 	rchan := make(chan error)
 	fm.adds <- addEntry{&job, rchan}
 	return <-rchan
@@ -169,7 +165,10 @@ func (fm *concreteFluxMonitor) addAction(ctx context.Context, connected bool, jo
 		}
 		validCheckers = append(validCheckers, checker)
 	}
-	jobMap[job.ID.String()] = validCheckers
+
+	if len(validCheckers) > 0 {
+		jobMap[job.ID.String()] = validCheckers
+	}
 	return nil
 }
 
