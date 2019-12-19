@@ -17,6 +17,9 @@ contract Owned {
     address indexed to,
     address from
   );
+  event OwnershipRenounced(
+    address indexed by
+  );
 
   constructor() public {
     owner = msg.sender;
@@ -48,6 +51,18 @@ contract Owned {
     pendingOwner = address(0);
 
     emit OwnershipTransfered(msg.sender, oldOwner);
+  }
+
+  /**
+   * @dev Renounces ownership so that no one owns the contract.
+   */
+  function renounceOwnership()
+    public
+    onlyOwner()
+  {
+    emit OwnershipRenounced(msg.sender);
+
+    owner = address(0);
   }
 
   /**
