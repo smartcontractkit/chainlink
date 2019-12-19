@@ -1,5 +1,4 @@
-import React from 'react'
-// import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { RouteComponentProps } from '@reach/router'
 import build from 'redux-object'
@@ -14,9 +13,9 @@ import { ChainlinkNode } from 'explorer/models'
 import Title from '../../../components/Title'
 import Operator from '../../../components/Admin/Operators/Operator'
 // import { ChangePageEvent } from '../../../components/Table'
-// import { fetchAdminOperators } from '../../../actions/adminOperators'
+import { fetchAdminOperator } from '../../../actions/adminOperators'
 import { AppState } from '../../../reducers'
-// import { DispatchBinding } from '../../../utils/types'
+import { DispatchBinding } from '../../../utils/types'
 
 // const LOADING_MSG = 'Loading operators...'
 // const EMPTY_MSG = 'There are no operators added to the Explorer yet.'
@@ -32,18 +31,14 @@ const styles = ({ breakpoints, spacing }: Theme) =>
     // },
   })
 
-interface OwnProps extends RouteComponentProps<{ operatorId: string }> {
-  // rowsPerPage?: number
-  // operatorId: string
-}
+interface OwnProps extends RouteComponentProps<{ operatorId: string }> {}
 
 interface StateProps {
   operator: ChainlinkNode
-  // operator: any
 }
 
 interface DispatchProps {
-  // fetchAdminOperators: DispatchBinding<typeof fetchAdminOperators>
+  fetchAdminOperator: DispatchBinding<typeof fetchAdminOperator>
 }
 
 interface Props
@@ -53,22 +48,18 @@ interface Props
     DispatchProps,
     OwnProps {}
 
-export const Show: React.FC<Props> = ({
+const Show: React.FC<Props> = ({
   classes,
   operator,
-  //   adminOperators,
-  //   fetchAdminOperators,
-  //   count,
-  // rowsPerPage = 10,
+  operatorId,
+  fetchAdminOperator,
 }) => {
-  //   const [currentPage, setCurrentPage] = useState(0)
-  //   const onChangePage = (_event: ChangePageEvent, page: number) => {
-  //     setCurrentPage(page)
-  //     fetchAdminOperators(page + 1, rowsPerPage)
-  //   }
-  //   useEffect(() => {
-  //     fetchAdminOperators(currentPage + 1, rowsPerPage)
-  //   }, [rowsPerPage])
+  useEffect(() => {
+    if (operatorId) {
+      fetchAdminOperator(operatorId)
+    }
+  }, [operatorId])
+
   return (
     <Grid
       container
@@ -77,15 +68,8 @@ export const Show: React.FC<Props> = ({
       // className={classes.container}
     >
       <Grid item xs={12}>
-        <Title>Operator Show</Title>
-        <Operator
-          // currentPage={currentPage}
-          operator={operator}
-          // count={count}
-          // onChangePage={onChangePage}
-          // emptyMsg={EMPTY_MSG}
-          // loadingMsg={LOADING_MSG}
-        />
+        <Title>Operator Details</Title>
+        <Operator operator={operator} />
       </Grid>
     </Grid>
   )
@@ -108,22 +92,13 @@ const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (
 }
 
 const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
-  //   fetchAdminOperators,
+  fetchAdminOperator,
 }
 
-export const ConnectedShow = connect(
+const ConnectedShow = connect(
   mapStateToProps,
   mapDispatchToProps,
 )(Show)
+const StyledShow = withStyles(styles)(ConnectedShow)
 
-export default withStyles(styles)(ConnectedShow)
-
-// const Show = () => {
-//   return (
-//     <>
-//       <h1>Operator Show</h1>
-//     </>
-//   )
-// }
-
-// export default Show
+export default StyledShow

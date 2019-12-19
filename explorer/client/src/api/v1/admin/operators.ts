@@ -23,3 +23,17 @@ export function getOperators(
 ): Promise<jsonapi.PaginatedApiResponse<models.ChainlinkNode[]>> {
   return index({ page, size })
 }
+
+interface ShowPathParams {
+  id: string
+}
+const SHOW_ENDPOINT = '/api/v1/admin/nodes/:id'
+const show = jsonapi.fetchResource<{}, models.ChainlinkNode, ShowPathParams>(
+  SHOW_ENDPOINT,
+)
+
+export function getOperator(
+  id: string,
+): Promise<jsonapi.ApiResponse<models.ChainlinkNode>> {
+  return show({}, { id })
+}

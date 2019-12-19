@@ -58,13 +58,13 @@ export const Index: React.FC<Props> = ({
   count,
   rowsPerPage = 10,
 }) => {
-  const [currentPage, setCurrentPage] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1)
   const onChangePage = (_event: ChangePageEvent, page: number) => {
     setCurrentPage(page)
   }
 
   useEffect(() => {
-    fetchAdminOperators(currentPage + 1, rowsPerPage)
+    fetchAdminOperators(currentPage, rowsPerPage)
   }, [rowsPerPage, currentPage])
 
   return (

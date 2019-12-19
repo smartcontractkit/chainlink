@@ -10,8 +10,17 @@ import { parseParams } from '../../utils/pagination'
 import { getCustomRepository } from 'typeorm'
 import { ChainlinkNodeRepository } from '../../repositories/ChainlinkNodeRepository'
 import chainlinkNodesSerializer from '../../serializers/chainlinkNodesSerializer'
+import chainlinkNodeSerializer from '../../serializers/chainlinkNodeSerializer'
 
 const router = Router()
+
+router.get('/nodes/:id', async (req, res) => {
+  const { id } = req.params
+  const db = await getDb()
+  const node = await db.getRepository(ChainlinkNode).findOne(id)
+  const json = chainlinkNodeSerializer(node)
+  return res.send(json)
+})
 
 router.get('/nodes', async (req, res) => {
   const params = parseParams(req.query)

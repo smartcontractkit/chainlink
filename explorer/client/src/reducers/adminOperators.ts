@@ -15,6 +15,8 @@ export const adminOperators: Reducer<State, Actions> = (
   switch (action.type) {
     case 'FETCH_ADMIN_OPERATORS_SUCCEEDED':
       return { items: { ...action.data.chainlinkNodes } }
+    case 'FETCH_ADMIN_OPERATOR_SUCCEEDED':
+      return { items: action.data.chainlinkNodes }
     default:
       return state
   }
