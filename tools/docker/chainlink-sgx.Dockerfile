@@ -44,17 +44,17 @@ COPY --from=builder /opt/intel/ /opt/intel/
 ARG ENVIRONMENT
 COPY --from=builder /go/bin/chainlink /usr/local/bin/
 COPY --from=builder \
-  /go/src/github.com/smartcontractkit/chainlink/sgx/target/$ENVIRONMENT/libadapters.so \
+  /chainlink/sgx/target/$ENVIRONMENT/libadapters.so \
   /usr/lib/
 COPY --from=builder \
-  /go/src/github.com/smartcontractkit/chainlink/sgx/target/$ENVIRONMENT/enclave.signed.so \
+  /chainlink/sgx/target/$ENVIRONMENT/enclave.signed.so \
   /root/
 
 # Launch chainlink via a small script that watches AESM + Chainlink
 ARG SGX_SIMULATION
 ENV SGX_SIMULATION $SGX_SIMULATION
 WORKDIR /root
-COPY ./chainlink-launcher-sgx.sh /root
+COPY tools/docker/chainlink-launcher-sgx.sh /root
 RUN chmod +x ./chainlink-launcher-sgx.sh
 
 EXPOSE 6688

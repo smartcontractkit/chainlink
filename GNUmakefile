@@ -8,7 +8,7 @@ VERSION = $(shell cat VERSION)
 GOBIN ?= $(GOPATH)/bin
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
-DOCKERFILE := Dockerfile
+DOCKERFILE := tools/docker/chainlink.Dockerfile
 DOCKER_TAG ?= latest
 
 # SGX is disabled by default, but turned on when building from Docker
@@ -20,7 +20,7 @@ SGX_TARGET := ./sgx/target/$(ENVIRONMENT)/
 ifneq (,$(filter yes true,$(SGX_ENABLED)))
 	GOFLAGS += -tags=sgx_enclave
 	SGX_BUILD_ENCLAVE := $(SGX_ENCLAVE)
-	DOCKERFILE := Dockerfile-sgx
+	DOCKERFILE := tools/docker/chainlink-sgx.Dockerfile
 	REPO := $(REPO)-sgx
 else
 	SGX_BUILD_ENCLAVE :=
