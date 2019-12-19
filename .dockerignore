@@ -24,8 +24,7 @@ operator_ui/dist/
 operator_ui/artifacts/
 *-packr.go
 
-Dockerfile
-Dockerfile-sgx
+core/*.Dockerfile
 chainlink
 
 # codeship
