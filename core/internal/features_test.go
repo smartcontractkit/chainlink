@@ -248,13 +248,12 @@ func TestIntegration_RunAt(t *testing.T) {
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.InstantClock()
 
+	require.NoError(t, app.Start())
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/run_at_job.json")
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorRunAt, initr.Type)
 	assert.Equal(t, "2018-01-08T18:12:01Z", utils.ISO8601UTC(initr.Time.Time))
-
-	app.Start()
 
 	cltest.WaitForRuns(t, j, app.Store, 1)
 }
@@ -270,7 +269,7 @@ func TestIntegration_EthLog(t *testing.T) {
 		eth.Register("eth_chainId", app.Store.Config.ChainID())
 		eth.RegisterSubscription("logs", logs)
 	})
-	app.Start()
+	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/eth_log_job.json")
 	address := common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
@@ -322,7 +321,7 @@ func TestIntegration_RunLog(t *testing.T) {
 				eth.RegisterSubscription("logs", logs)
 			})
 			eth.Register("eth_chainId", config.ChainID())
-			app.Start()
+			require.NoError(t, app.Start())
 
 			j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
 			requiredConfs := uint32(100)
@@ -376,7 +375,7 @@ func TestIntegration_StartAt(t *testing.T) {
 	defer cleanup()
 	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/start_at_job.json")
 	startAt := cltest.ParseISO8601(t, "1970-01-01T00:00:00.000Z")
@@ -399,7 +398,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		eth.RegisterSubscription("logs", logs)
 		eth.RegisterSubscription("newHeads", newHeads)
 	})
-	app.Start()
+	require.NoError(t, app.Start())
 
 	eaValue := "87698118359"
 	eaExtra := "other values to be used by external adapters"
@@ -453,7 +452,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	bridgeURL := cltest.WebURL(t, "https://test.chain.link/always")
 	app.Store.Config.Set("BRIDGE_RESPONSE_URL", bridgeURL)
-	app.Start()
+	require.NoError(t, app.Start())
 
 	eaPrice := "1234"
 	eaQuote := "USD"
@@ -503,7 +502,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	defer cleanup()
 	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	bta := &models.BridgeTypeAuthentication{}
 	var j models.JobSpec
@@ -568,13 +567,14 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 		})
 	defer cleanup()
 
+	require.NoError(t, app.Start())
+
 	j := cltest.NewJobWithLogInitiator()
 	post := cltest.NewTask(t, "httppost", fmt.Sprintf(`{"url":"%v"}`, mockServer.URL))
 	tasks := []models.TaskSpec{post}
 	j.Tasks = tasks
 	j = cltest.CreateJobSpecViaWeb(t, app, j)
 
-	app.Start()
 	logs <- log
 
 	jobRuns := cltest.WaitForRuns(t, j, app.Store, 1)
@@ -586,7 +586,7 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 	defer cleanup()
 	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/int256_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"-10221.30"}`)
@@ -601,7 +601,7 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 	defer cleanup()
 	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/uint256_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"10221.30"}`)
@@ -620,8 +620,6 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	config, configCleanup := cltest.NewConfig(t)
 	defer configCleanup()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
-
 	eth := app.MockCallerSubscriberClient()
 	newHeads := make(chan ethpkg.BlockHeader)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
@@ -632,6 +630,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(100)))
 	require.NoError(t, app.StartAndConnect())
 
+	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 
 	createCompletedJobRun := func(blockNumber uint64, expectedNonce uint64) {
@@ -716,7 +715,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 
 	app.InstantClock()
 	app.Store.StatsPusher.Period = 300 * time.Millisecond
-	app.Start()
+	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/run_at_job.json")
 
@@ -743,7 +742,7 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	defer cleanup()
 	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/sleep_job.json")
 
@@ -762,7 +761,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	defer cleanup()
 	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	exInitr := struct {
 		Header http.Header
@@ -825,7 +824,7 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	defer cleanup()
 	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	eiCreate := map[string]string{
 		"name": "someCoin",
@@ -858,7 +857,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 
 	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	// set up user
 	app.MustSeedUserAPIKey()
@@ -880,7 +879,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.StartAndConnect()
+	require.NoError(t, app.StartAndConnect())
 
 	// 1. Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
