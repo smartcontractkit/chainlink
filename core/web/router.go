@@ -209,7 +209,7 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 
 		eia := ExternalInitiatorsController{app}
 		authv2.POST("/external_initiators", eia.Create)
-		authv2.DELETE("/external_initiators/:AccessKey", eia.Destroy)
+		authv2.DELETE("/external_initiators/:Name", eia.Destroy)
 
 		authv2.POST("/specs", j.Create)
 		authv2.GET("/specs", paginatedRequest(j.Index))
