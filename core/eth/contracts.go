@@ -56,3 +56,21 @@ func GetV5Contract(name string) (*Contract, error) {
 func (contract *Contract) EncodeMessageCall(method string, args ...interface{}) ([]byte, error) {
 	return contract.ABI.Pack(method, args...)
 }
+
+// GetMethodID returns the first 4 bytes of the keccak256 hash of the method
+// signature. The passed method is simply the method name, not the parameters,
+// as defined by go-ethereum ABI Methods
+//
+// e.g.
+// There are two functions have same name:
+// * foo(int,int)
+// * foo(uint,uint)
+// The method name of the first one will be resolved as foo while the second one
+// will be resolved as foo0.
+func (contract *Contract) GetMethodID(method string) ([]byte, error) {
+	mabi, found := contract.ABI.Methods[method]
+	if !found {
+		return []byte{}, errors.New("unable to find contract method " + method)
+	}
+	return mabi.ID(), nil
+}

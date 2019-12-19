@@ -15,6 +15,11 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+const (
+	// PrepaidAggregatorName is the string name of said contract.
+	PrepaidAggregatorName = "PrepaidAggregator"
+)
+
 //go:generate mockery -name Client -output ../internal/mocks/ -case=underscore
 
 // Client is the interface used to interact with an ethereum node.
@@ -110,7 +115,7 @@ var dec10 = decimal.NewFromInt(10)
 
 // GetAggregatorPrice returns the current price at the given address.
 func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
-	aggregator, err := GetV5Contract("PrepaidAggregator")
+	aggregator, err := GetV5Contract(PrepaidAggregatorName)
 	if err != nil {
 		return decimal.Decimal{}, err
 	}
@@ -147,7 +152,7 @@ func parseHexOrDecimal(input string) (decimal.Decimal, error) {
 
 // GetAggregatorRound returns the latest round at the given address.
 func (client *CallerSubscriberClient) GetAggregatorRound(address common.Address) (*big.Int, error) {
-	aggregator, err := GetV5Contract("PrepaidAggregator")
+	aggregator, err := GetV5Contract(PrepaidAggregatorName)
 	if err != nil {
 		return nil, err
 	}
