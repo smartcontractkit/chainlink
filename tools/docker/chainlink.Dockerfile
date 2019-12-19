@@ -11,10 +11,6 @@ WORKDIR /chainlink
 COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
 
-# Do dep ensure in a cacheable step
-ADD go.* ./
-RUN go mod download
-
 # And yarn likewise
 COPY yarn.lock package.json ./
 COPY explorer/client/package.json ./explorer/client/
@@ -25,6 +21,10 @@ COPY tools/json-api-client/package.json ./tools/json-api-client/
 COPY tools/local-storage/package.json ./tools/local-storage/
 COPY tools/redux/package.json ./tools/redux/
 RUN make yarndep
+
+# Do dep ensure in a cacheable step
+ADD go.mod go.sum ./
+RUN go mod download
 
 # Install chainlink
 ADD . ./
