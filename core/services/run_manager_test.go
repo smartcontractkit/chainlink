@@ -258,7 +258,7 @@ func TestRunManager_ResumeAllConnecting_NotEnoughConfirmations(t *testing.T) {
 	eth := cltest.MockEthOnStore(t, store)
 	eth.Register("eth_chainId", store.Config.ChainID())
 
-	app.Start()
+	app.StartAndConnect()
 
 	job := cltest.NewJobWithRunLogInitiator()
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
