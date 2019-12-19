@@ -79,7 +79,7 @@ const adminOperatorSelector = (
   operatorId: string | undefined,
   state: AppState,
 ): ChainlinkNode => {
-  return build(state.adminOperators, 'items', operatorId)
+  return build(state, 'adminOperatorsShow', operatorId)
 }
 
 const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (
