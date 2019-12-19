@@ -163,6 +163,16 @@ func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
 	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
 	address := cltest.NewAddress()
 
+	// aggregatorLatestAnswerID is the first 4 bytes of the keccak256 of
+	// Chainlink's aggregator latestAnswer function.
+	const aggregatorLatestAnswerID = "50d25bcd"
+	aggregatorLatestAnswerSelector := eth.HexToFunctionSelector(aggregatorLatestAnswerID)
+
+	expectedCallArgs := eth.CallArgs{
+		To:   address,
+		Data: aggregatorLatestAnswerSelector.Bytes(),
+	}
+
 	tests := []struct {
 		name, response string
 		precision      int32
@@ -175,7 +185,7 @@ func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			caller.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil).
+			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
 				Run(func(args mock.Arguments) {
 					res := args.Get(0).(*string)
 					*res = test.response
