@@ -7,8 +7,16 @@ pragma solidity 0.5.0;
 contract Owned {
 
   address public owner;
+  address private pendingOwner;
 
-  event OwnershipTransferRequested(address to, address from);
+  event OwnershipTransferRequested(
+    address indexed to,
+    address from
+  );
+  event OwnershipTransfered(
+    address indexed to,
+    address from
+  );
 
   constructor() public {
     owner = msg.sender;
@@ -18,7 +26,21 @@ contract Owned {
     public
     onlyOwner()
   {
+    pendingOwner = _to;
+
     emit OwnershipTransferRequested(_to, owner);
+  }
+
+  function acceptOwnership()
+    public
+  {
+    require(msg.sender == pendingOwner, "Must be requested to accept ownership");
+
+    address oldOwner = owner;
+    owner = msg.sender;
+    pendingOwner = address(0);
+
+    emit OwnershipTransfered(msg.sender, oldOwner);
   }
 
   modifier onlyOwner() {
