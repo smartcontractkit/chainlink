@@ -12,6 +12,6 @@
     }
   }],
   "tasks": [{
-    "type": "noop"
+    "type": "ethtx"
   }]
 }
