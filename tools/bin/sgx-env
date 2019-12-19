@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 workdir="/chainlink"
-image_tag=`cat tools/docker/chainlink-sgx.Dockerfile | grep FROM | grep builder | awk '{print$2}'`
+image_tag=`cat core/chainlink-sgx.Dockerfile | grep FROM | grep builder | awk '{print$2}'`
 docker run \
   --volume "$PWD:$workdir" \
   --workdir="$workdir" \
