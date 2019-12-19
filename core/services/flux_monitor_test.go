@@ -99,6 +99,21 @@ func TestConcreteFluxMonitor_AddJobDisconnected(t *testing.T) {
 	require.NoError(t, fm.AddJob(job))
 }
 
+func TestConcreteFluxMonitor_AddJobNonFluxMonitor(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJobWithRunLogInitiator()
+	runManager := new(mocks.RunManager)
+	checkerFactory := new(mocks.DeviationCheckerFactory)
+	fm := services.NewFluxMonitor(store, runManager)
+	services.ExportedSetCheckerFactory(fm, checkerFactory)
+	require.NoError(t, fm.Start())
+	defer fm.Stop()
+
+	require.NoError(t, fm.AddJob(job))
+}
+
 func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()

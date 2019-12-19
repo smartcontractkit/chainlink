@@ -353,11 +353,3 @@ func TestFeeds_UnmarshalJSON_Errors(t *testing.T) {
 		})
 	}
 }
-
-func TestIsFluxMonitorInitiated(t *testing.T) {
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	assert.True(t, job.IsFluxMonitorInitiated())
-
-	job = cltest.NewJobWithRunLogInitiator()
-	assert.False(t, job.IsFluxMonitorInitiated())
-}
