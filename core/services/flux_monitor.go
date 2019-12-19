@@ -122,7 +122,9 @@ func (fm *concreteFluxMonitor) Disconnect() {
 
 // Disconnect cleans up running deviation checkers.
 func (fm *concreteFluxMonitor) Stop() {
-	fm.cancel()
+	if fm.cancel != nil {
+		fm.cancel()
+	}
 }
 
 // OnNewHead is a noop.
@@ -278,7 +280,9 @@ func (p *PollingDeviationChecker) Start(ctx context.Context) {
 
 // Stop stops this instance from polling, cleaning up resources.
 func (p *PollingDeviationChecker) Stop() {
-	p.cancel()
+	if p.cancel != nil {
+		p.cancel()
+	}
 }
 
 // CurrentPrice returns the price used to check deviations against.

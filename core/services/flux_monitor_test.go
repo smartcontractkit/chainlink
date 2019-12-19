@@ -147,6 +147,16 @@ func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 	dc.AssertExpectations(t)
 }
 
+func TestConcreteFluxMonitor_StopWithoutStart(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	runManager := new(mocks.RunManager)
+
+	fm := services.NewFluxMonitor(store, runManager)
+	fm.Stop()
+}
+
 func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 	fetcher := new(mocks.Fetcher)
 	fetcher.On("Fetch").Return(decimal.NewFromInt(102), nil)
@@ -286,6 +296,17 @@ func TestPollingDeviationChecker_NoDeviationLoopsCanBeCanceled(t *testing.T) {
 	cltest.CallbackOrTimeout(t, "Start() unblocks and is done", func() {
 		<-done
 	})
+}
+
+func TestPollingDeviationChecker_StopWithoutStart(t *testing.T) {
+	rm := new(mocks.RunManager)
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	initr.ID = 1
+
+	checker, err := services.NewPollingDeviationChecker(initr, rm, nil, time.Second)
+	require.NoError(t, err)
+	checker.Stop()
 }
 
 func TestOutsideDeviation(t *testing.T) {
