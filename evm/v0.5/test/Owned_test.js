@@ -53,8 +53,13 @@ contract('Owned', () => {
   describe('#transferOwnership', () => {
     context('when called by an owner', () => {
       it('emits a log', async () => {
-        const { logs } = await owned.transferOwnership(newOwner, { from: owner })
-        expectEvent.inLogs(logs, 'OwnershipTransferRequested', {to: newOwner, from: owner})
+        const { logs } = await owned.transferOwnership(newOwner, {
+          from: owner,
+        })
+        expectEvent.inLogs(logs, 'OwnershipTransferRequested', {
+          to: newOwner,
+          from: owner,
+        })
       })
     })
 
@@ -76,7 +81,10 @@ contract('Owned', () => {
 
       it('allows the recipient to call it', async () => {
         const { logs } = await owned.acceptOwnership({ from: newOwner })
-        expectEvent.inLogs(logs, 'OwnershipTransfered', {to: newOwner, from: owner})
+        expectEvent.inLogs(logs, 'OwnershipTransfered', {
+          to: newOwner,
+          from: owner,
+        })
       })
 
       it('does not allow a non-recipient to call it', async () => {
@@ -92,7 +100,7 @@ contract('Owned', () => {
     context('when called by an owner', () => {
       it('emits a log', async () => {
         const { logs } = await owned.renounceOwnership({ from: owner })
-        expectEvent.inLogs(logs, 'OwnershipRenounced', {by: owner})
+        expectEvent.inLogs(logs, 'OwnershipRenounced', { by: owner })
       })
 
       it('changes the owner to the zero address', async () => {
