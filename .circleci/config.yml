@@ -432,6 +432,7 @@ workflows:
                 - develop
                 - /^release\/.*/
                 - master
+      - build-chainlink-sgx
       - build-publish-chainlink:
           requires:
             - go-sqlite
