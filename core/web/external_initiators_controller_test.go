@@ -87,20 +87,6 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	client := app.NewHTTPClient()
-
-	resp, cleanup := client.Delete("/v2/external_initiators")
-	defer cleanup()
-	assert.Equal(t, 404, resp.StatusCode)
-}
-
-func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
 	exi := models.ExternalInitiator{
 		Name: "abracadabra",
 	}
@@ -112,4 +98,18 @@ func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 	resp, cleanup := client.Delete("/v2/external_initiators/" + exi.Name)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 204)
+}
+
+func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	resp, cleanup := client.Delete("/v2/external_initiators")
+	defer cleanup()
+	assert.Equal(t, 404, resp.StatusCode)
 }
