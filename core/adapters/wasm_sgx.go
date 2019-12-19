@@ -3,8 +3,8 @@
 package adapters
 
 /*
-#cgo LDFLAGS: -L../../sgx/target/ -ladapters
-#include "../../sgx/libadapters/adapters.h"
+#cgo LDFLAGS: -L../sgx/target/ -ladapters
+#include "../sgx/libadapters/adapters.h"
 #include "stdlib.h"
 */
 import "C"
