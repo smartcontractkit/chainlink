@@ -2,8 +2,6 @@ version: '3.1'
 
 services:
   node:
-    networks:
-      - ethereum-node
     environment:
       - ETH_CHAIN_ID=1337
     depends_on:
@@ -14,8 +12,3 @@ services:
     image: smartcontract/gethnet
     secrets:
       - node_password
-    networks:
-      - ethereum-node
-networks:
-  ethereum-node:
-    driver: bridge

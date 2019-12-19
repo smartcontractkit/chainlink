@@ -24,8 +24,6 @@ services:
       - CHAINLINK_TLS_PORT
     env_file:
       - chainlink-variables.env
-    networks:
-      - explorer-external
     ports:
       - 6688:6688
     depends_on:
@@ -43,9 +41,6 @@ services:
       dockerfile: explorer/Dockerfile
     entrypoint: yarn workspace @chainlink/explorer dev:compose
     restart: always
-    networks:
-      - explorer-external
-      - explorer-internal
     ports:
       - 3001:3001
     depends_on:
@@ -60,19 +55,11 @@ services:
   explorer-db:
     container_name: chainlink-explorer-db
     image: postgres:11.5
-    networks:
-      - explorer-internal
     volumes:
       - explorer-db-data:/var/lib/postgresql/data
     environment:
       POSTGRES_DB: $EXPLORER_DB_NAME
       POSTGRES_PASSWORD: $EXPLORER_PGPASSWORD
-
-networks:
-  explorer-external:
-    driver: bridge
-  explorer-internal:
-    driver: bridge
 
 secrets:
   node_password:
