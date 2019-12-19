@@ -74,7 +74,7 @@ COPY --from=builder \
 ARG SGX_SIMULATION
 ENV SGX_SIMULATION $SGX_SIMULATION
 WORKDIR /root
-COPY core/chainlink-launcher-sgx.sh /root
+COPY core/chainlink-launcher-sgx.sh .
 RUN chmod +x ./chainlink-launcher-sgx.sh
 
 EXPOSE 6688
