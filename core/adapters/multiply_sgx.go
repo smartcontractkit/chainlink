@@ -5,7 +5,7 @@ package adapters
 /*
 #cgo LDFLAGS: -L../sgx/target/ -ladapters
 #include <stdlib.h>
-#include "../../sgx/libadapters/adapters.h"
+#include "../sgx/libadapters/adapters.h"
 */
 import "C"
 
@@ -18,6 +18,8 @@ import (
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
+
+	"github.com/pkg/errors"
 )
 
 // Multiplier represents the number to multiply by in Multiply adapter.
@@ -77,5 +79,8 @@ func (ma *Multiply) Perform(input models.RunInput, _ *store.Store) models.RunOut
 		return models.NewRunOutputError(fmt.Errorf("unmarshaling SGX result: %v", err))
 	}
 
-	return result
+	if result.ErrorMessage.Valid {
+		return models.NewRunOutputError(errors.New(result.ErrorMessage.String))
+	}
+	return models.NewRunOutputComplete(result.Data)
 }

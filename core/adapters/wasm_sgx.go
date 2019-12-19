@@ -3,8 +3,8 @@
 package adapters
 
 /*
-#cgo LDFLAGS: -L../../sgx/target/ -ladapters
-#include "../../sgx/libadapters/adapters.h"
+#cgo LDFLAGS: -L../sgx/target/ -ladapters
+#include "../sgx/libadapters/adapters.h"
 #include "stdlib.h"
 */
 import "C"
@@ -16,6 +16,8 @@ import (
 
 	"chainlink/core/store"
 	"chainlink/core/store/models"
+
+	"github.com/pkg/errors"
 )
 
 // Wasm represents a wasm binary encoded as base64 or wasm encoded as text (a lisp like language).
@@ -47,7 +49,7 @@ func (wasm *Wasm) Perform(input models.RunInput, _ *store.Store) models.RunOutpu
 
 	_, err = C.wasm(cAdapter, cInput, output, bufferCapacity, outputLenPtr)
 	if err != nil {
-		return models.NewRunOutputError(fmt.Errorf("SGX wasm: %v", err)))
+		return models.NewRunOutputError(fmt.Errorf("SGX wasm: %v", err))
 	}
 
 	sgxResult := C.GoStringN(output, outputLen)
@@ -56,5 +58,8 @@ func (wasm *Wasm) Perform(input models.RunInput, _ *store.Store) models.RunOutpu
 		return models.NewRunOutputError(fmt.Errorf("unmarshaling SGX result: %v", err))
 	}
 
-	return result
+	if result.ErrorMessage.Valid {
+		return models.NewRunOutputError(errors.New(result.ErrorMessage.String))
+	}
+	return models.NewRunOutputComplete(result.Data)
 }

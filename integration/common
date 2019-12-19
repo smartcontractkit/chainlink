@@ -53,7 +53,7 @@ launch_chainlink() {
     export DEVELOPER_ACCOUNT=`docker logs geth 2>&1 | grep "Using developer account" | awk -F "=" '{print$2}'`
     yarn workspace @chainlink/integration-scripts fund-address
   fi
-  popd 
+  popd
 }
 
 deploy_contracts() {
