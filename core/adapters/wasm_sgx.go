@@ -47,7 +47,7 @@ func (wasm *Wasm) Perform(input models.RunInput, _ *store.Store) models.RunOutpu
 
 	_, err = C.wasm(cAdapter, cInput, output, bufferCapacity, outputLenPtr)
 	if err != nil {
-		return models.NewRunOutputError(fmt.Errorf("SGX wasm: %v", err)))
+		return models.NewRunOutputError(fmt.Errorf("SGX wasm: %v", err))
 	}
 
 	sgxResult := C.GoStringN(output, outputLen)
