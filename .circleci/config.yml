@@ -396,6 +396,10 @@ workflows:
           filters:
             tags:
               only: /^v.*/
+      - sgx:
+          filters:
+            tags:
+              only: /^v.*/
       - explorer:
           filters: # all branches, and /^explorer-v../ tags for build-publish...
             tags:
@@ -432,7 +436,10 @@ workflows:
                 - develop
                 - /^release\/.*/
                 - master
-      - build-chainlink-sgx
+      - build-chainlink-sgx:
+          filters:
+            tags:
+              only: /^v.*/
       - build-publish-chainlink:
           requires:
             - go-sqlite
