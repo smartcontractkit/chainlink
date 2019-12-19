@@ -382,12 +382,10 @@ func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitia
 }
 
 // DeleteExternalInitiator removes an external initiator
-func (orm *ORM) DeleteExternalInitiator(accessKey string) error {
+func (orm *ORM) DeleteExternalInitiator(name string) error {
 	orm.MustEnsureAdvisoryLock()
-	return orm.db.
-		Where("access_key = ?", accessKey).
-		Delete(&models.ExternalInitiator{}).
-		Error
+	err := orm.db.Delete(&models.ExternalInitiator{Name: name}).Error
+	return mapError(err)
 }
 
 // FindExternalInitiator finds an external initiator given an authentication request

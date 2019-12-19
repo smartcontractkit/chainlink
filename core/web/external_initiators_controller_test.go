@@ -101,14 +101,15 @@ func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	err := app.GetStore().CreateExternalInitiator(&models.ExternalInitiator{
-		AccessKey: "abracadabra",
-	})
+	exi := models.ExternalInitiator{
+		Name: "abracadabra",
+	}
+	err := app.GetStore().CreateExternalInitiator(&exi)
 	require.NoError(t, err)
 
 	client := app.NewHTTPClient()
 
-	resp, cleanup := client.Delete("/v2/external_initiators/abracadabra")
+	resp, cleanup := client.Delete("/v2/external_initiators/" + exi.Name)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, 204)
 }
