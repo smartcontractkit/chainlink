@@ -52,12 +52,7 @@ type TxManager interface {
 	GetLINKBalance(address common.Address) (*assets.Link, error)
 	NextActiveAccount() *ManagedAccount
 
-	GetEthBalance(address common.Address) (*assets.Eth, error)
-	SubscribeToNewHeads(channel chan<- eth.BlockHeader) (eth.Subscription, error)
-	GetBlockByNumber(hex string) (eth.BlockHeader, error)
-	eth.LogSubscriber
-	GetTxReceipt(common.Hash) (*eth.TxReceipt, error)
-	GetChainID() (*big.Int, error)
+	eth.Client
 }
 
 //go:generate mockery -name TxManager -output ../internal/mocks/ -case=underscore

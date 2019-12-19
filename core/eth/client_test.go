@@ -8,10 +8,13 @@ import (
 
 	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/internal/mocks"
 	strpkg "chainlink/core/store"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -153,4 +156,44 @@ func TestCallerSubscriberClient_GetERC20Balance(t *testing.T) {
 	expected.SetString("100000000000000000000000000000000000000", 10)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)
+}
+
+func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
+	caller := new(mocks.CallerSubscriber)
+	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
+	address := cltest.NewAddress()
+
+	// aggregatorLatestAnswerID is the first 4 bytes of the keccak256 of
+	// Chainlink's aggregator latestAnswer function.
+	const aggregatorLatestAnswerID = "50d25bcd"
+	aggregatorLatestAnswerSelector := eth.HexToFunctionSelector(aggregatorLatestAnswerID)
+
+	expectedCallArgs := eth.CallArgs{
+		To:   address,
+		Data: aggregatorLatestAnswerSelector.Bytes(),
+	}
+
+	tests := []struct {
+		name, response string
+		precision      int32
+		expectation    decimal.Decimal
+	}{
+		{"hex", "0x0100", 2, decimal.NewFromFloat(2.56)},
+		{"decimal", "10000000000000", 11, decimal.NewFromInt(100)},
+		{"large decimal", "52050000000000000000", 11, decimal.RequireFromString("520500000")},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
+				Run(func(args mock.Arguments) {
+					res := args.Get(0).(*string)
+					*res = test.response
+				})
+			result, err := ethClient.GetAggregatorPrice(address, test.precision)
+			require.NoError(t, err)
+			assert.True(t, test.expectation.Equal(result))
+			caller.AssertExpectations(t)
+		})
+	}
 }

@@ -132,7 +132,7 @@ type JSON struct {
 func (j JSON) Value() (driver.Value, error) {
 	s := j.String()
 	if len(s) == 0 {
-		return "{}", nil
+		return nil, nil
 	}
 	return s, nil
 }
@@ -154,7 +154,7 @@ func ParseJSON(b []byte) (JSON, error) {
 	var j JSON
 	str := string(b)
 	if len(str) == 0 {
-		str = `{}`
+		return j, nil
 	}
 	return j, json.Unmarshal([]byte(str), &j)
 }

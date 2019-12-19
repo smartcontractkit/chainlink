@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
 )
@@ -54,7 +55,7 @@ func NewTask(t *testing.T, taskType string, json ...string) models.TaskSpec {
 	}
 }
 
-// NewJobWithExternalInitiator creates new Job with external inititaor
+// NewJobWithExternalInitiator creates new Job with external initiator
 func NewJobWithExternalInitiator(ei *models.ExternalInitiator) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -80,7 +81,7 @@ func NewJobWithSchedule(sched string) models.JobSpec {
 	return j
 }
 
-// NewJobWithWebInitiator create new Job with web inititaor
+// NewJobWithWebInitiator create new Job with web initiator
 func NewJobWithWebInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -90,7 +91,7 @@ func NewJobWithWebInitiator() models.JobSpec {
 	return j
 }
 
-// NewJobWithLogInitiator create new Job with ethlog inititaor
+// NewJobWithLogInitiator create new Job with ethlog initiator
 func NewJobWithLogInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -124,7 +125,7 @@ func NewJobWithSALogInitiator() models.JobSpec {
 	return j
 }
 
-// NewJobWithRunAtInitiator create new Job with RunAt inititaor
+// NewJobWithRunAtInitiator create new Job with RunAt initiator
 func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -132,6 +133,23 @@ func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 		Type:      models.InitiatorRunAt,
 		InitiatorParams: models.InitiatorParams{
 			Time: models.NewAnyTime(t),
+		},
+	}}
+	return j
+}
+
+// NewJobWithFluxMonitorInitiator create new Job with FluxMonitor initiator
+func NewJobWithFluxMonitorInitiator() models.JobSpec {
+	j := NewJob()
+	j.Initiators = []models.Initiator{{
+		JobSpecID: j.ID,
+		Type:      models.InitiatorFluxMonitor,
+		InitiatorParams: models.InitiatorParams{
+			Address:     NewAddress(),
+			RequestData: models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:       []string{"https://lambda.staging.devnet.tools/bnc/call"},
+			Threshold:   0.5,
+			Precision:   2,
 		},
 	}}
 	return j

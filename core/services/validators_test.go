@@ -362,3 +362,51 @@ func TestValidateServiceAgreement(t *testing.T) {
 		})
 	}
 }
+
+const validInitiator = `{
+	"type": "fluxmonitor",
+	"params": {
+		"address": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
+		"requestdata": {
+			"data":{"coin":"ETH","market":"USD"}
+		},
+		"feeds": [
+			"https://lambda.staging.devnet.tools/bnc/call",
+			"https://lambda.staging.devnet.tools/cc/call",
+			"https://lambda.staging.devnet.tools/cmc/call"
+		],
+		"threshold": 0.5,
+		"precision": 2
+	}
+}`
+
+func TestValidateInitiator_FluxMonitorHappy(t *testing.T) {
+	job := cltest.NewJob()
+	var initr models.Initiator
+	require.NoError(t, json.Unmarshal([]byte(validInitiator), &initr))
+	err := services.ValidateInitiator(initr, job)
+	require.NoError(t, err)
+}
+
+func TestValidateInitiator_FluxMonitorErrors(t *testing.T) {
+	job := cltest.NewJob()
+	tests := []struct {
+		Field   string
+		JSONStr string
+	}{
+		{"address", cltest.MustJSONDel(t, validInitiator, "params.address")},
+		{"feeds", cltest.MustJSONSet(t, validInitiator, "params.feeds", []string{})},
+		{"threshold", cltest.MustJSONDel(t, validInitiator, "params.threshold")},
+		{"threshold", cltest.MustJSONSet(t, validInitiator, "params.threshold", -5)},
+		{"requestdata", cltest.MustJSONDel(t, validInitiator, "params.requestdata")},
+	}
+	for _, test := range tests {
+		t.Run("bad "+test.Field, func(t *testing.T) {
+			var initr models.Initiator
+			require.NoError(t, json.Unmarshal([]byte(test.JSONStr), &initr))
+			err := services.ValidateInitiator(initr, job)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.Field)
+		})
+	}
+}
