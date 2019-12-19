@@ -83,9 +83,10 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     }
     answers[answerCounter].minimumResponses = minimumResponses;
     answers[answerCounter].maxResponses = uint128(oracles.length);
-    answerCounter = answerCounter.add(1);
 
     emit NewRound(answerCounter, msg.sender);
+
+    answerCounter = answerCounter.add(1);
   }
 
   /**
