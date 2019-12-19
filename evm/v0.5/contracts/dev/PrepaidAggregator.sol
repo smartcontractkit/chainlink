@@ -1,7 +1,6 @@
 pragma solidity 0.5.0;
 
 import "../Median.sol";
-import "../vendor/Ownable.sol";
 import "../vendor/SafeMath.sol";
 import "./SafeMath128.sol";
 import "./SafeMath64.sol";
@@ -9,6 +8,7 @@ import "./SafeMath32.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
 import "./AggregatorInterface.sol";
+import "./Owned.sol";
 
 /**
  * @title The Prepaid Aggregator contract
@@ -18,7 +18,7 @@ import "./AggregatorInterface.sol";
  * single answer. The latest aggregated answer is exposed as well as historical
  * answers and their updated at timestamp.
  */
-contract PrepaidAggregator is AggregatorInterface, Ownable, WithdrawalInterface {
+contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   using SafeMath for uint256;
   using SafeMath128 for uint128;
   using SafeMath64 for uint64;
