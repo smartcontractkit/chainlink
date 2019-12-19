@@ -8,14 +8,34 @@ interface Props {
   operator: ChainlinkNode
 }
 
+enum operatorProperties {
+  url = 'url',
+  createdAt = 'createdAt',
+}
+
+const OPERATOR_PROPERTIES: operatorProperties[] = [
+  operatorProperties.url,
+  operatorProperties.createdAt,
+]
+
+const entries = (operator: ChainlinkNode): [string, string][] => {
+  return OPERATOR_PROPERTIES.map(property => [
+    property.toString(),
+    operator[property] || '', // TODO defult value?
+  ])
+}
+
 const Operator: React.FC<Props> = ({ operator }) => {
+  const title = operator ? operator.name : 'Loading...'
+  const _entries = operator ? entries(operator) : []
+  // TODO refactor ^
   return (
     // <Paper className={className}>
     <Paper>
       <KeyValueList
-        title={operator.name}
-        entries={[['foo', 'bar']]}
-        showHead
+        title={title}
+        entries={_entries}
+        showHead={false}
         titleize
       />
     </Paper>
