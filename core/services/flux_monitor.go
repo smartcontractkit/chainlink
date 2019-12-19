@@ -5,12 +5,14 @@ import (
 	"chainlink/core/logger"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
+	"chainlink/core/utils"
 	"context"
 	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
@@ -359,9 +361,33 @@ func OutsideDeviation(curPrice, nextPrice decimal.Decimal, threshold float64) bo
 }
 
 func (p *PollingDeviationChecker) createJobRun(nextPrice decimal.Decimal, nextRound *big.Int) error {
-	runData, err := models.JSON{}.Add("result", fmt.Sprintf("%v", nextPrice))
+	aggregatorContract, err := eth.GetV5Contract(eth.PrepaidAggregatorName)
 	if err != nil {
-		return errors.Wrap(err, "unable to start chainlink run")
+		return err
+	}
+	methodID, err := aggregatorContract.GetMethodID("updateAnswer")
+	if err != nil {
+		return err
+	}
+
+	nextRoundData, err := utils.EVMWordBigInt(nextRound)
+	if err != nil {
+		return err
+	}
+	payload := fmt.Sprintf(`{
+			"result": "%s",
+			"address": "%s",
+			"functionSelector": "%s",
+			"dataPrefix": "%s"
+	}`,
+		nextPrice.String(),
+		p.address.Hex(),
+		hexutil.Encode(methodID),
+		hexutil.Encode(nextRoundData))
+
+	runData, err := models.ParseJSON([]byte(payload))
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("unable to start chainlink run with payload %s", payload))
 	}
 	_, err = p.runManager.Create(p.initr.JobSpecID, &p.initr, &runData, nil, models.NewRunRequest())
 	return err

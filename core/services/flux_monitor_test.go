@@ -6,6 +6,7 @@ import (
 	"chainlink/core/services"
 	"chainlink/core/store/models"
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -168,7 +169,12 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 
 	rm := new(mocks.RunManager)
 	run := cltest.NewJobRun(job)
-	data, err := models.ParseJSON([]byte(`{"result":"102"}`))
+	data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
+			"result": "102",
+			"address": "%s",
+			"functionSelector": "0xe6330cf7",
+			"dataPrefix": "0x0000000000000000000000000000000000000000000000000000000000000002"
+	}`, initr.InitiatorParams.Address.Hex())))
 	require.NoError(t, err)
 	rm.On("Create", job.ID, &initr, &data, mock.Anything, mock.Anything).
 		Return(&run, nil)
