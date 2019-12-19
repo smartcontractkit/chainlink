@@ -1,5 +1,5 @@
 # Build Chainlink with SGX
-FROM smartcontract/builder:1.0.20 as builder
+FROM smartcontract/builder:1.0.25 as builder
 
 # Have to reintroduce ENV vars from builder image
 ENV PATH /root/.cargo/bin:/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/sgxsdk/bin:/opt/sgxsdk/bin/x64
@@ -11,9 +11,28 @@ ARG ENVIRONMENT
 ENV SGX_ENABLED yes
 ARG SGX_SIMULATION
 
-WORKDIR /go/src/github.com/smartcontractkit/chainlink
+WORKDIR /chainlink
+COPY GNUmakefile VERSION ./
+COPY tools/bin/ldflags ./tools/bin/
+
+# Do dep ensure in a cacheable step
+ADD go.* ./
+RUN go mod download
+
+# And yarn likewise
+COPY yarn.lock package.json ./
+COPY explorer/client/package.json ./explorer/client/
+COPY explorer/package.json ./explorer/
+COPY operator_ui/package.json ./operator_ui/
+COPY styleguide/package.json ./styleguide/
+COPY tools/json-api-client/package.json ./tools/json-api-client/
+COPY tools/local-storage/package.json ./tools/local-storage/
+COPY tools/redux/package.json ./tools/redux/
+RUN make yarndep
+
+# Install chainlink
 ADD . ./
-RUN make install
+RUN make install-chainlink
 
 # Final layer: ubuntu with aesm and chainlink binaries (executable + enclave)
 FROM ubuntu:18.04
