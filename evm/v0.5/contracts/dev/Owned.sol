@@ -22,6 +22,10 @@ contract Owned {
     owner = msg.sender;
   }
 
+  /**
+   * @dev Allows an owner to begin transferring ownership to a new address,
+   * pending.
+   */
   function transferOwnership(address _to)
     public
     onlyOwner()
@@ -31,6 +35,9 @@ contract Owned {
     emit OwnershipTransferRequested(_to, owner);
   }
 
+  /**
+   * @dev Allows an ownership transfer to be completed by the recipient.
+   */
   function acceptOwnership()
     public
   {
@@ -43,6 +50,9 @@ contract Owned {
     emit OwnershipTransfered(msg.sender, oldOwner);
   }
 
+  /**
+   * @dev Reverts if called by anyone other than the contract owner.
+   */
   modifier onlyOwner() {
     require(msg.sender == owner, "Only callable by owner");
     _;
