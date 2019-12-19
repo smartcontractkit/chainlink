@@ -11,7 +11,7 @@ base_files="-f docker-compose.yaml -f docker-compose.postgres.yaml"
 # Allow for choosing between geth or parity
 if [ $GETH_MODE ]; then
   base_files="$base_files -f docker-compose.gethnet.yaml"
-else 
+else
   base_files="$base_files -f docker-compose.paritynet.yaml"
 fi
 
@@ -72,12 +72,12 @@ case "$1" in
 
   test)
     $test build --parallel
-    $deps up --exit-code-from wait-db wait-db 
+    $deps up --exit-code-from wait-db wait-db
     $test up --exit-code-from integration
     $test down -v
     ;;
   test:dev)
-    $deps up --exit-code-from wait-db wait-db 
+    $deps up --exit-code-from wait-db wait-db
     $dev_integration up --exit-code-from integration
     $dev_integration down -v
     ;;

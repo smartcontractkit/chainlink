@@ -8,19 +8,19 @@ VERSION = $(shell cat VERSION)
 GOBIN ?= $(GOPATH)/bin
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
-DOCKERFILE := Dockerfile
+DOCKERFILE := core/chainlink.Dockerfile
 DOCKER_TAG ?= latest
 
 # SGX is disabled by default, but turned on when building from Docker
 SGX_ENABLED ?= no
 SGX_SIMULATION ?= yes
 SGX_ENCLAVE := enclave.signed.so
-SGX_TARGET := ./sgx/target/$(ENVIRONMENT)/
+SGX_TARGET := ./core/sgx/target/$(ENVIRONMENT)/
 
 ifneq (,$(filter yes true,$(SGX_ENABLED)))
 	GOFLAGS += -tags=sgx_enclave
 	SGX_BUILD_ENCLAVE := $(SGX_ENCLAVE)
-	DOCKERFILE := Dockerfile-sgx
+	DOCKERFILE := core/chainlink-sgx.Dockerfile
 	REPO := $(REPO)-sgx
 else
 	SGX_BUILD_ENCLAVE :=
@@ -79,8 +79,8 @@ dockerpush: ## Push the docker image to dockerhub
 
 .PHONY: $(SGX_ENCLAVE)
 $(SGX_ENCLAVE):
-	@ENVIRONMENT=$(ENVIRONMENT) SGX_ENABLED=$(SGX_ENABLED) SGX_SIMULATION=$(SGX_SIMULATION) make -C sgx/
-	@ln -f $(SGX_TARGET)/libadapters.so sgx/target/libadapters.so
+	@ENVIRONMENT=$(ENVIRONMENT) SGX_ENABLED=$(SGX_ENABLED) SGX_SIMULATION=$(SGX_SIMULATION) make -C core/sgx/
+	@ln -f $(SGX_TARGET)/libadapters.so core/sgx/target/libadapters.so
 
 .PHONY: enclave
 enclave: $(SGX_ENCLAVE)

@@ -4,16 +4,9 @@ FROM smartcontract/builder:1.0.25 as builder
 # Have to reintroduce ENV vars from builder image
 ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-ARG COMMIT_SHA
-ARG ENVIRONMENT
-
 WORKDIR /chainlink
 COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
-
-# Do dep ensure in a cacheable step
-ADD go.* ./
-RUN go mod download
 
 # And yarn likewise
 COPY yarn.lock package.json ./
@@ -25,6 +18,14 @@ COPY tools/json-api-client/package.json ./tools/json-api-client/
 COPY tools/local-storage/package.json ./tools/local-storage/
 COPY tools/redux/package.json ./tools/redux/
 RUN make yarndep
+
+# Do go mod download in a cacheable step
+ADD go.mod go.sum ./
+RUN go mod download
+
+# Env vars needed for chainlink build
+ARG COMMIT_SHA
+ARG ENVIRONMENT
 
 # Install chainlink
 ADD . ./

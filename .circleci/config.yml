@@ -85,28 +85,6 @@ jobs:
           paths:
             - "/go/pkg/mod"
       - run: ./tools/ci/rust_test
-  sgx:
-    docker:
-      - image: smartcontract/builder:1.0.25
-    environment:
-      SGX_ENABLED: yes
-      # XXX: These are set in the base image but circleci seems to wipe them out
-      PATH: "/root/.cargo/bin:/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/sgxsdk/bin:/opt/sgxsdk/bin/x64"
-      LD_LIBRARY_PATH: "/opt/sgxsdk/sdk_libs"
-      SGX_SDK: "/opt/sgxsdk"
-    steps:
-      - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-          paths:
-            - "/go/pkg/mod"
-      - run: make enclave
-      - run: ./tools/ci/sgx_test
   geth-postgres:
     resource_class: large
     environment:
@@ -293,6 +271,18 @@ jobs:
           name: Docker build
           command: |
             DOCKER_TAG=circleci make docker
+  build-chainlink-sgx:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: |
+            SGX_ENABLED=yes DOCKER_TAG=circleci make docker
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -420,6 +410,10 @@ workflows:
                 - develop
                 - /^release\/.*/
                 - master
+      - build-chainlink-sgx:
+          filters:
+            tags:
+              only: /^v.*/
       - build-publish-chainlink:
           requires:
             - go-sqlite
