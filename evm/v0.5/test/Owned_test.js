@@ -8,7 +8,7 @@ contract.only('Owned', () => {
   before(async () => {
     owner = personas.Carol
     nonOwner = personas.Neil
-    newOwner = personas.Neil
+    newOwner = personas.Ned
   })
 
   beforeEach(async () => {
@@ -17,6 +17,7 @@ contract.only('Owned', () => {
 
   it('has a limited public interface', () => {
     checkPublicABI(Owned, [
+      'acceptOwnership',
       'owner',
       'transferOwnership',
       // test helper public methods
@@ -57,7 +58,7 @@ contract.only('Owned', () => {
 
     context('when called by anyone but the owner', () => {
       it('reverts', async () => {
-        expectRevert(
+        await expectRevert(
           owned.modifierOnlyOwner({ from: nonOwner }),
           'Only callable by owner',
         )
@@ -75,9 +76,29 @@ contract.only('Owned', () => {
 
     context('when called by anyone but the owner', () => {
       it('successfully calls the method', async () => {
-        expectRevert(
+        await expectRevert(
           owned.transferOwnership(newOwner, { from: nonOwner }),
           'Only callable by owner',
+        )
+      })
+    })
+  })
+
+  describe('#acceptOwnership', () => {
+    context('after #transferOwnership has been called', () => {
+      beforeEach(async () => {
+        await owned.transferOwnership(newOwner, { from: owner })
+      })
+
+      it('allows the recipient to call it', async () => {
+        const { logs } = await owned.acceptOwnership({ from: newOwner })
+        expectEvent.inLogs(logs, 'OwnershipTransfered', {to: newOwner, from: owner})
+      })
+
+      it('does not allow a non-recipient to call it', async () => {
+        await expectRevert(
+          owned.acceptOwnership({ from: nonOwner }),
+          'Must be requested to accept ownership',
         )
       })
     })
