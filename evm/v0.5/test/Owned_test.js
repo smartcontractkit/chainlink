@@ -35,7 +35,7 @@ contract('Owned', () => {
     })
 
     context('when called by anyone but the owner', () => {
-      it('successfully calls the method', async () => {
+      it('reverts', async () => {
         const { logs } = await owned.modifierIfOwner({ from: nonOwner })
         assert.equal(0, logs.length)
       })
@@ -51,7 +51,7 @@ contract('Owned', () => {
     })
 
     context('when called by anyone but the owner', () => {
-      it('successfully calls the method', async () => {
+      it('reverts', async () => {
         expectRevert(
           owned.modifierOnlyOwner({ from: nonOwner }),
           'Only callable by owner',
