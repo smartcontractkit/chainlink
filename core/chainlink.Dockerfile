@@ -19,7 +19,7 @@ COPY tools/local-storage/package.json ./tools/local-storage/
 COPY tools/redux/package.json ./tools/redux/
 RUN make yarndep
 
-# Do dep ensure in a cacheable step
+# Do go mod download in a cacheable step
 ADD go.mod go.sum ./
 RUN go mod download
 
