@@ -24,6 +24,7 @@ type Client interface {
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error)
+	GetAggregatorRound(address common.Address) (*big.Int, error)
 	SendRawTx(hex string) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
 	GetBlockByNumber(hex string) (BlockHeader, error)
@@ -142,6 +143,33 @@ func parseHexOrDecimal(input string) (decimal.Decimal, error) {
 		}
 	}
 	return decimal.NewFromString(input)
+}
+
+// GetAggregatorRound returns the latest round at the given address.
+func (client *CallerSubscriberClient) GetAggregatorRound(address common.Address) (*big.Int, error) {
+	aggregator, err := GetV5Contract("PrepaidAggregator")
+	if err != nil {
+		return nil, err
+	}
+	data, err := aggregator.EncodeMessageCall("latestRound")
+	if err != nil {
+		return nil, err
+	}
+
+	var result string
+	args := CallArgs{To: address, Data: data}
+	err = client.Call(&result, "eth_call", args, "latest")
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator round from %s", address.Hex()))
+	}
+
+	round, ok := new(big.Int).SetString(result, 0)
+	if !ok {
+		return nil, errors.Wrap(
+			fmt.Errorf("unable to parse int from %s", result),
+			fmt.Sprintf("unable to fetch aggregator round from %s", address.Hex()))
+	}
+	return round, nil
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
