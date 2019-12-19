@@ -197,3 +197,42 @@ func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
 		})
 	}
 }
+
+func TestCallerSubscriberClient_GetAggregatorRound(t *testing.T) {
+	caller := new(mocks.CallerSubscriber)
+	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
+	address := cltest.NewAddress()
+
+	const aggregatorLatestRoundID = "668a0f02"
+	aggregatorLatestRoundSelector := eth.HexToFunctionSelector(aggregatorLatestRoundID)
+
+	expectedCallArgs := eth.CallArgs{
+		To:   address,
+		Data: aggregatorLatestRoundSelector.Bytes(),
+	}
+	large, ok := new(big.Int).SetString("52050000000000000000", 10)
+	require.True(t, ok)
+
+	tests := []struct {
+		name, response string
+		expectation    *big.Int
+	}{
+		{"zero", "0", big.NewInt(0)},
+		{"small", "12", big.NewInt(12)},
+		{"large", "52050000000000000000", large},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
+				Run(func(args mock.Arguments) {
+					res := args.Get(0).(*string)
+					*res = test.response
+				})
+			result, err := ethClient.GetAggregatorRound(address)
+			require.NoError(t, err)
+			assert.Equal(t, test.expectation, result)
+			caller.AssertExpectations(t)
+		})
+	}
+}
