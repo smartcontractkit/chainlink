@@ -98,7 +98,6 @@ func TestPostgresLockingStrategy_Lock(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -125,7 +124,6 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -152,7 +150,6 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 }
 
 func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) {
-	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
