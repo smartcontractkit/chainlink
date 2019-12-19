@@ -92,6 +92,7 @@ contract('PrepaidAggregator', () => {
       // Owned methods:
       'acceptOwnership',
       'owner',
+      'renounceOwnership',
       'transferOwnership',
     ])
   })

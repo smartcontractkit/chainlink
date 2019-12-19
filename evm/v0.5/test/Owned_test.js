@@ -19,6 +19,7 @@ contract('Owned', () => {
     checkPublicABI(Owned, [
       'acceptOwnership',
       'owner',
+      'renounceOwnership',
       'transferOwnership',
       // test helper public methods
       'modifierOnlyOwner',
@@ -82,6 +83,32 @@ contract('Owned', () => {
         await expectRevert(
           owned.acceptOwnership({ from: nonOwner }),
           'Must be requested to accept ownership',
+        )
+      })
+    })
+  })
+
+  describe('#renounceOwnership', () => {
+    context('when called by an owner', () => {
+      it('emits a log', async () => {
+        const { logs } = await owned.renounceOwnership({ from: owner })
+        expectEvent.inLogs(logs, 'OwnershipRenounced', {by: owner})
+      })
+
+      it('changes the owner to the zero address', async () => {
+        assert.notEqual(0, await owned.owner.call())
+
+        await owned.renounceOwnership({ from: owner })
+
+        assert.equal(0, await owned.owner.call())
+      })
+    })
+
+    context('when called by anyone but the owner', () => {
+      it('successfully calls the method', async () => {
+        await expectRevert(
+          owned.renounceOwnership({ from: nonOwner }),
+          'Only callable by owner',
         )
       })
     })
