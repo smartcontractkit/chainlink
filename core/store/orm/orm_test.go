@@ -113,7 +113,7 @@ func TestORM_DeleteExternalInitiator(t *testing.T) {
 	_, err = store.FindExternalInitiator(token)
 	require.NoError(t, err)
 
-	err = store.DeleteExternalInitiator(exi.AccessKey)
+	err = store.DeleteExternalInitiator(exi.Name)
 	require.NoError(t, err)
 
 	_, err = store.FindExternalInitiator(token)
