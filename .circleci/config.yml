@@ -293,6 +293,18 @@ jobs:
           name: Docker build
           command: |
             DOCKER_TAG=circleci make docker
+  build-chainlink-sgx:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: |
+            SGX_ENABLED=yes DOCKER_TAG=circleci make docker
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.25
