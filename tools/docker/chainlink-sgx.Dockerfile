@@ -6,11 +6,6 @@ ENV PATH /root/.cargo/bin:/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/b
 ENV LD_LIBRARY_PATH /opt/sgxsdk/sdk_libs
 ENV SGX_SDK /opt/sgxsdk
 
-ARG COMMIT_SHA
-ARG ENVIRONMENT
-ENV SGX_ENABLED yes
-ARG SGX_SIMULATION
-
 WORKDIR /chainlink
 COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
@@ -29,6 +24,12 @@ RUN make yarndep
 # Do dep ensure in a cacheable step
 ADD go.mod go.sum ./
 RUN go mod download
+
+# Env vars needed for chainlink sgx build
+ARG COMMIT_SHA
+ARG ENVIRONMENT
+ENV SGX_ENABLED yes
+ARG SGX_SIMULATION
 
 # Install chainlink
 ADD . ./
