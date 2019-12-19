@@ -1301,3 +1301,48 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 
 	assert.Len(t, attempts, 7)
 }
+
+func TestJobs_All(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	fmJob := cltest.NewJobWithFluxMonitorInitiator()
+	runlogJob := cltest.NewJobWithRunLogInitiator()
+
+	require.NoError(t, store.CreateJob(&fmJob))
+	require.NoError(t, store.CreateJob(&runlogJob))
+
+	var actual []string
+	err := store.Jobs(func(j *models.JobSpec) bool {
+		actual = append(actual, j.ID.String())
+		return true
+	})
+	require.NoError(t, err)
+
+	var expectation []string
+	for _, js := range cltest.AllJobs(t, store) {
+		expectation = append(expectation, js.ID.String())
+	}
+	assert.ElementsMatch(t, expectation, actual)
+}
+
+func TestJobs_ScopedInitiator(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	fmJob := cltest.NewJobWithFluxMonitorInitiator()
+	runlogJob := cltest.NewJobWithRunLogInitiator()
+
+	require.NoError(t, store.CreateJob(&fmJob))
+	require.NoError(t, store.CreateJob(&runlogJob))
+
+	var actual []string
+	err := store.Jobs(func(j *models.JobSpec) bool {
+		actual = append(actual, j.ID.String())
+		return true
+	}, models.InitiatorFluxMonitor)
+	require.NoError(t, err)
+
+	expectation := []string{fmJob.ID.String()}
+	assert.ElementsMatch(t, expectation, actual)
+}

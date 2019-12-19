@@ -10,6 +10,7 @@ import (
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
+	"chainlink/core/utils"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/pkg/errors"
@@ -108,6 +109,8 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 		return validateServiceAgreementInitiator(i, j)
 	case models.InitiatorRunLog:
 		return validateRunLogInitiator(i, j)
+	case models.InitiatorFluxMonitor:
+		return validateFluxMonitor(i, j)
 	case models.InitiatorWeb:
 		return nil
 	case models.InitiatorEthLog:
@@ -115,6 +118,24 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 	default:
 		return models.NewJSONAPIErrorsWith(fmt.Sprintf("type %v does not exist", i.Type))
 	}
+}
+
+func validateFluxMonitor(i models.Initiator, j models.JobSpec) error {
+	fe := models.NewJSONAPIErrors()
+	if i.Address == utils.ZeroAddress {
+		fe.Add("unable to create job config, no address")
+	}
+	if len(i.Feeds) == 0 {
+		fe.Add("unable to create job config, no feeds")
+	}
+	if i.Threshold <= 0 {
+		fe.Add("unable to create job config, bad threshold")
+	}
+	if i.RequestData.String() == "" {
+		fe.Add("unable to create job config, no requestdata")
+	}
+
+	return fe.CoerceEmptyToNil()
 }
 
 func validateRunLogInitiator(i models.Initiator, j models.JobSpec) error {

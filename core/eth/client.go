@@ -2,6 +2,7 @@ package eth
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"chainlink/core/assets"
@@ -10,6 +11,8 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 )
 
 //go:generate mockery -name Client -output ../internal/mocks/ -case=underscore
@@ -20,6 +23,7 @@ type Client interface {
 	GetNonce(address common.Address) (uint64, error)
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
+	GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error)
 	SendRawTx(hex string) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
 	GetBlockByNumber(hex string) (BlockHeader, error)
@@ -99,6 +103,45 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 	}
 	numLinkBigInt.SetString(result, 0)
 	return numLinkBigInt, nil
+}
+
+var dec10 = decimal.NewFromInt(10)
+
+// GetAggregatorPrice returns the current price at the given address.
+func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
+	aggregator, err := GetV5Contract("PrepaidAggregator")
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	data, err := aggregator.EncodeMessageCall("latestAnswer")
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+
+	var result string
+	args := CallArgs{
+		To:   address,
+		Data: data,
+	}
+	err = client.Call(&result, "eth_call", args, "latest")
+	if err != nil {
+		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
+	}
+	raw, err := parseHexOrDecimal(result)
+	if err != nil {
+		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
+	}
+	precisionDivisor := dec10.Pow(decimal.NewFromInt32(precision))
+	return raw.Div(precisionDivisor), nil
+}
+
+func parseHexOrDecimal(input string) (decimal.Decimal, error) {
+	if utils.HasHexPrefix(input) {
+		if value, ok := (&big.Int{}).SetString(input[2:], 16); ok {
+			return decimal.NewFromString(value.Text(10))
+		}
+	}
+	return decimal.NewFromString(input)
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
