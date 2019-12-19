@@ -48,10 +48,4 @@ contract Owned {
     _;
   }
 
-  modifier ifOwner() {
-    if (msg.sender == owner) {
-      _;
-    }
-  }
-
 }

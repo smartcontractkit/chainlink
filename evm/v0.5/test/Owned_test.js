@@ -1,7 +1,7 @@
 import { personas, checkPublicABI } from './support/helpers'
 import { expectEvent, expectRevert } from 'openzeppelin-test-helpers'
 
-contract.only('Owned', () => {
+contract('Owned', () => {
   const Owned = artifacts.require('OwnedTestHelper.sol')
   let owned, owner, nonOwner, newOwner
 
@@ -21,7 +21,6 @@ contract.only('Owned', () => {
       'owner',
       'transferOwnership',
       // test helper public methods
-      'modifierIfOwner',
       'modifierOnlyOwner',
     ])
   })
@@ -29,22 +28,6 @@ contract.only('Owned', () => {
   describe('#constructor', () => {
     it('assigns ownership to the deployer', async () => {
       assert.equal(owner, await owned.owner.call())
-    })
-  })
-
-  describe('#ifOwner modifier', () => {
-    context('when called by an owner', () => {
-      it('successfully calls the method', async () => {
-        const { logs } = await owned.modifierIfOwner({ from: owner })
-        expectEvent.inLogs(logs, 'Here')
-      })
-    })
-
-    context('when called by anyone but the owner', () => {
-      it('reverts', async () => {
-        const { logs } = await owned.modifierIfOwner({ from: nonOwner })
-        assert.equal(0, logs.length)
-      })
     })
   })
 
