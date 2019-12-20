@@ -157,43 +157,42 @@ func ZqHash(q *big.Int, msg []byte) (*big.Int, error) {
 	return rv, nil
 }
 
-// HashToCurve is a one-way hash function onto the curve
-func HashToCurve(p kyber.Point, input *big.Int) (kyber.Point, error) {
-	if !(secp256k1.ValidPublicKey(p) && input.BitLen() <= 32) {
+func initialXOrdinate(p kyber.Point, input *big.Int) (*big.Int, error) {
+	if !(secp256k1.ValidPublicKey(p) && input.BitLen() <= 256) {
 		return nil, fmt.Errorf("bad input to vrf.HashToCurve")
 	}
 	iHash, err := utils.Keccak256(
 		append(secp256k1.LongMarshal(p), asUint256(input)...))
 	if err != nil {
-		panic(errors.Wrap(err, "while attempting initial hash"))
+		return nil, errors.Wrap(err, "while attempting initial hash")
 	}
 	x, err := ZqHash(P, iHash)
 	if err != nil {
 		return nil, errors.Wrap(err, "vrf.HashToCurve#ZqHash")
 	}
-	count := 0
+	return x, nil
+}
+
+// HashToCurve is a one-way hash function onto the curve
+func HashToCurve(p kyber.Point, input *big.Int) (kyber.Point, error) {
+	x, err := initialXOrdinate(p, input)
+	if err != nil {
+		return nil, err
+	}
 	for !IsCurveXOrdinate(x) { // Hash recursively until x^3+7 is a square
-		count += 1
-		if count >= 10 {
-			panic("done")
-		}
 		nHash, err := utils.Keccak256(asUint256(x))
 		if err != nil {
-			panic(errors.Wrap(err, "while attempting to rehash x"))
+			return nil, errors.Wrap(err, "while attempting to rehash x")
 		}
 		nx, err := ZqHash(P, nHash)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		x.Set(nx)
 	}
-	rv := secp256k1.SetCoordinates(x, SquareRoot(YSquared(x)))
-	// Two possible y ordinates for this x ordinate; pick one "randomly"
-	nhash, err := HashUint256s(x, input) // nhash is the random value
-	if err != nil {
-		return nil, errors.Wrap(err, "vrf.HashToCurve#HashUint256s")
-	}
-	if i().Mod(nhash, two).Cmp(zero) == 0 { // Negate response if nhash even
+	y := SquareRoot(YSquared(x))
+	rv := secp256k1.SetCoordinates(x, y)
+	if i().Mod(y, two).Cmp(one) == 0 { // Negate response if y odd
 		rv = rv.Neg(rv)
 	}
 	return rv, nil
