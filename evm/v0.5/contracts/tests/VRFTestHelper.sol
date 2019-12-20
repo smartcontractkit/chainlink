@@ -45,6 +45,6 @@ contract VRFTestHelper is VRF {
     uint256 seed, address uWitness, uint256[2] memory cGammaWitness,
     uint256[2] memory sHashWitness, uint256 zInv)
     public view {
-    super.verifyVRFProof(pk, gamma, c, s, seed, uWitness, cGammaWitness, sHashWitness, zInv);
-  }
+      super.verifyVRFProof(pk, gamma, c, s, seed, uWitness, cGammaWitness, sHashWitness, zInv);
+    }
 }

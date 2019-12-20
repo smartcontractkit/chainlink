@@ -6,23 +6,24 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/kyber/v3"
 
 	"chainlink/core/services/signatures/secp256k1"
 	"chainlink/core/utils"
 )
 
 func TestVRF_IsSquare(t *testing.T) {
-	assert.True(t, IsSquare(big.NewInt(4)))
-	minusOneModP := new(big.Int).Sub(P, big.NewInt(1))
+	assert.True(t, IsSquare(four))
+	minusOneModP := new(big.Int).Sub(P, one)
 	assert.False(t, IsSquare(minusOneModP))
 }
 
 func TestVRF_SquareRoot(t *testing.T) {
-	assert.Equal(t, big.NewInt(2), SquareRoot(big.NewInt(4)))
+	assert.Equal(t, two, SquareRoot(four))
 }
 
 func TestVRF_YSquared(t *testing.T) {
-	assert.Equal(t, big.NewInt(15), YSquared(two))
+	assert.Equal(t, add(mul(two, mul(two, two)), seven), YSquared(two)) // 2³+7
 }
 
 func TestVRF_IsCurveXOrdinate(t *testing.T) {
@@ -63,31 +64,38 @@ func TestVRF_HashToCurve(t *testing.T) {
 	x, err := ZqHash(P, iHash)
 	require.NoError(t, err)
 	assert.False(t, IsCurveXOrdinate(x),
-		`need an example where first hash is not an x-ordinate for any point on the curve, to exercise rehash logic.`)
+		"need an example where first hash is not an x-ordinate for any point on "+
+			"the curve, to exercise rehash logic.")
 	p, err := HashToCurve(Generator, reHashTriggeringInput)
 	if err != nil {
 		panic(err)
 	}
 	x, y := secp256k1.Coordinates(p)
-	// See 'Hashes to the curve with the same results as the golang code' in Curve.js
+	// See 'Hashes to the curve with the same results as the golang code' in VRF_test.js
 	eX := "530fddd863609aa12030a07c5fdb323bb392a88343cea123b7f074883d2654c4"
 	eY := "6fd4ee394bf2a3de542c0e5f3c86fc8f75b278a017701a59d69bdf5134dd6b70"
 	assert.Equal(t, bigFromHex(eX), x)
 	assert.Equal(t, bigFromHex(eY), y)
 }
 
+func address(t *testing.T, p kyber.Point) [20]byte {
+	a, err := secp256k1.EthereumAddress(p)
+	require.NoError(t, err)
+	return a
+}
+
 func TestVRF_ScalarFromCurvePoints(t *testing.T) {
 	g := Generator
-	ga, err := secp256k1.EthereumAddress(g)
-	require.NoError(t, err)
+	ga := address(t, g)
 	s := ScalarFromCurvePoints(g, g, g, ga, g)
 	eS := "2b1049accb1596a24517f96761b22600a690ee5c6b6cadae3fa522e7d95ba338"
-	// See 'Computes the same hashed scalar from curve points as the golang code' in Curve.js
+	// See 'Computes the same hashed scalar from curve points as the golang code'
+	// in VRF_test.js
 	assert.Equal(t, bigFromHex(eS), s)
 }
 
 func TestVRF_GenerateProof(t *testing.T) {
-	secretKeyHaHaNeverDoThis := big.NewInt(1)
+	secretKeyHaHaNeverDoThis := one
 	seed := one
 	nonce := one
 	// Can't test c & s: They vary from run to run.
@@ -97,8 +105,7 @@ func TestVRF_GenerateProof(t *testing.T) {
 		secp256k1.IntToScalar(secretKeyHaHaNeverDoThis), Generator)
 	assert.True(t, publicKey.Equal(proof.PublicKey))
 	gammaX, gammaY := secp256k1.Coordinates(proof.Gamma)
-	// See 'Accepts a valid VRF proof' in VRF.js. These outputs are used there
-	require.NoError(t, err)
+	// Get these outputs from 'Knows a good VRF proof from bad' in VRF_test.js
 	gX := "530fddd863609aa12030a07c5fdb323bb392a88343cea123b7f074883d2654c4"
 	gY := "6fd4ee394bf2a3de542c0e5f3c86fc8f75b278a017701a59d69bdf5134dd6b70"
 	assert.Equal(t, bigFromHex(gX), gammaX)
