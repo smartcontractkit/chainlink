@@ -12,9 +12,9 @@ import Grid from '@material-ui/core/Grid'
 import { ChainlinkNode } from 'explorer/models'
 import Title from '../../../components/Title'
 import Operator from '../../../components/Admin/Operators/Operator'
-// import { ChangePageEvent } from '../../../components/Table'
 import { fetchAdminOperator } from '../../../actions/adminOperators'
 import { AppState } from '../../../reducers'
+import { OperatorShowData } from '../../../reducers/adminOperatorsShow'
 import { DispatchBinding } from '../../../utils/types'
 
 // const LOADING_MSG = 'Loading operators...'
@@ -34,7 +34,7 @@ const styles = ({ breakpoints, spacing }: Theme) =>
 interface OwnProps extends RouteComponentProps<{ operatorId: string }> {}
 
 interface StateProps {
-  operator: ChainlinkNode
+  operatorData: OperatorShowData
 }
 
 interface DispatchProps {
@@ -50,7 +50,7 @@ interface Props
 
 const Show: React.FC<Props> = ({
   classes,
-  operator,
+  operatorData,
   operatorId,
   fetchAdminOperator,
 }) => {
@@ -69,7 +69,7 @@ const Show: React.FC<Props> = ({
     >
       <Grid item xs={12}>
         <Title>Operator Details</Title>
-        <Operator operator={operator} />
+        <Operator operatorData={operatorData} />
       </Grid>
     </Grid>
   )
@@ -78,7 +78,7 @@ const Show: React.FC<Props> = ({
 const adminOperatorSelector = (
   operatorId: string | undefined,
   state: AppState,
-): ChainlinkNode => {
+): OperatorShowData => {
   return build(state, 'adminOperatorsShow', operatorId)
 }
 
@@ -87,7 +87,7 @@ const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (
   ownProps,
 ) => {
   return {
-    operator: adminOperatorSelector(ownProps.operatorId, state),
+    operatorData: adminOperatorSelector(ownProps.operatorId, state),
   }
 }
 
@@ -95,10 +95,7 @@ const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
   fetchAdminOperator,
 }
 
-const ConnectedShow = connect(
-  mapStateToProps,
-  mapDispatchToProps,
-)(Show)
+const ConnectedShow = connect(mapStateToProps, mapDispatchToProps)(Show)
 const StyledShow = withStyles(styles)(ConnectedShow)
 
 export default StyledShow

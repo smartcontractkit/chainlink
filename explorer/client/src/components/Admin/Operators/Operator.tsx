@@ -1,33 +1,26 @@
 import React from 'react'
 import Paper from '@material-ui/core/Paper'
-import Hidden from '@material-ui/core/Hidden'
-import { ChainlinkNode } from 'explorer/models'
 import { KeyValueList } from '../../KeyValueList'
+import { OperatorShowData } from '../../../reducers/adminOperatorsShow'
 
 interface Props {
-  operator: ChainlinkNode
+  operatorData: OperatorShowData
 }
 
-enum operatorProperties {
-  url = 'url',
-  createdAt = 'createdAt',
+const entries = (operatorData: OperatorShowData): [string, string][] => {
+  return [
+    ['url', operatorData.url || ''],
+    ['uptime', operatorData.uptime.toString()],
+    ['job runs completed', operatorData.jobCounts.completed.toString()],
+    ['job runs errored', operatorData.jobCounts.errored.toString()],
+    ['job runs in progress', operatorData.jobCounts.inProgress.toString()],
+    ['total job runs', operatorData.jobCounts.total.toString()],
+  ]
 }
 
-const OPERATOR_PROPERTIES: operatorProperties[] = [
-  operatorProperties.url,
-  operatorProperties.createdAt,
-]
-
-const entries = (operator: ChainlinkNode): [string, string][] => {
-  return OPERATOR_PROPERTIES.map(property => [
-    property.toString(),
-    operator[property] || '', // TODO defult value?
-  ])
-}
-
-const Operator: React.FC<Props> = ({ operator }) => {
-  const title = operator ? operator.name : 'Loading...'
-  const _entries = operator ? entries(operator) : []
+const Operator: React.FC<Props> = ({ operatorData }) => {
+  const title = operatorData ? operatorData.name : 'Loading...'
+  const _entries = operatorData ? entries(operatorData) : []
   // TODO refactor ^
   return (
     // <Paper className={className}>

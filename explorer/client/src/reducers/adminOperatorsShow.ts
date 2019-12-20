@@ -1,14 +1,23 @@
 import { Actions } from './actions'
 import { Reducer } from 'redux'
 
+export interface OperatorShowData {
+  id: string
+  name: string
+  url?: string
+  createdAt: string
+  uptime: number
+  jobCounts: {
+    completed: number
+    errored: number
+    inProgress: number
+    total: number
+  }
+}
+
 interface State {
   id?: {
-    attributes: {
-      id: string
-      name: string
-      url?: string
-      createdAt: string
-    }
+    attributes: OperatorShowData
   }
 }
 
