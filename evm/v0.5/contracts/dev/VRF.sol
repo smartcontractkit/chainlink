@@ -424,46 +424,46 @@ contract VRF {
       require(c == scalarFromCurve(hash, pk, gamma, uWitness, v), "invalid proof");
     }
 
-  /** **************************************************************************
-      @notice isValidVRFOutput returns true iff the proof can be verified as
-      showing that output was generated as mandated.
+  // Length of proof marshaled to bytes array. Shows layout of proof
+  uint private constant PROOF_LENGTH = 64 + // PublicKey (uncompressed format.)
+    64 + // Gamma
+    32 + // C
+    32 + // S
+    32 + // Seed
+    32 + // uWitness (gets padded to 256 bits, even though it's only 160)
+    64 + // cGammaWitness
+    64 + // sHashWitness
+    32; // zInv  (Leave Output out, because that can be efficiently calculated)
 
-      @dev See the invocation of verifyVRFProof in VRF.js, for an example.
-      **************************************************************************
-      @dev Let x be the secret key associated with the public key pk (which is
-           known as y in section 5.3 of the IETF draft.)
+  /*****************************************************************************
+   * @notice Returns proof's output, if proof is valid. Otherwise reverts
 
-      @param pk Affine coordinates of the secp256k1 public key for this VRF.
-      @param gamma Intermediate output of the VRF as an affine secp256k1 point
-      @param c The challenge value for proof that gamma = x*hashToCurve(seed)
-              See the variable c on  p. oeuta28 of
-              https://www.cs.bu.edu/~gold-be/papers/VRF_ietf99_print.pdf
-      @param s The response value for the proof. See s on p. 28
-      @param seed The input seed from which the VRF output is computed. Also
-             known as alpha in the IETF draft, section 5.3
-      @param uWitness The ethereum address of c*pk + s*<generator>, in
-             elliptic-curve arithmetic. This corresponds to u in section 5.3 of
-             the IETF draft, but there it as an elliptic curve point, not an
-             address.
-      @param cGammaWitness c*gamma on the elliptic-curve
-      @param sHashWitness s*hashToCurve(seed) on the elliptic-curve
-      @param zInv Inverse of the third ordinate of the return value from
-             projectiveECAdd(c*gamma, s*hashToCurve(seed)). Passed in here
-             to save gas, because computing modular inverses is expensive in the
-             EVM.
-      @param output The actual output of the VRF. Known as beta in the
-             IETF standard, section 5.3
-      **************************************************************************
-      @return True iff all the above parameters are correct
-  */
-  function isValidVRFOutput(
-    uint256[2] calldata pk, uint256[2] calldata gamma, uint256 c, uint256 s,
-    uint256 seed, address uWitness, uint256[2] calldata cGammaWitness,
-    uint256[2] calldata sHashWitness, uint256 zInv, uint256 output)
-    external view returns (bool) {
-      return verifyVRFProof(
-        pk, gamma, c, s, seed, uWitness, cGammaWitness, sHashWitness,
-        zInv) &&
-        (uint256(keccak256(abi.encodePacked(gamma))) == output);
+   * @param proof A binary-encoded proof, as output by vrf.Proof.MarshalForSolidityVerifier
+   * @return proof's output, if proof is correct. (Otherwise returns false.)
+   *****************************************************************************
+   * @dev This is public rather than external, because the input needs to be in
+   * @dev memory, not in calldata, so that we can pull out the uint256 values.
+
+   * @dev See the calculation of PROOF_LENGTH for the binary layout of proof.
+   * @dev Proofs from the golang function vrf.GenerateProof can be marshaled to
+   * @dev this format with vrf.Proof#MarshalForSolidityVerifier.
+   */
+  function randomValueFromVRFProof(bytes memory proof)
+    public view returns (uint256 output) {
+      require(proof.length == PROOF_LENGTH, "wrong proof length");
+
+      uint256[2] memory pk; // parse proof contents into these variables
+      uint256[2] memory gamma;
+      uint256[3] memory cSSeed; // c, s and seed combined (prevents stack overflow)
+      address uWitness;
+      uint256[2] memory cGammaWitness;
+      uint256[2] memory sHashWitness;
+      uint256 zInv;
+      (pk, gamma, cSSeed, uWitness, cGammaWitness, sHashWitness, zInv) = abi.decode(
+        proof, (uint256[2], uint256[2], uint256[3], address, uint256[2],
+                uint256[2], uint256));
+      verifyVRFProof(pk, gamma, cSSeed[0], cSSeed[1], cSSeed[2], uWitness,
+        cGammaWitness, sHashWitness, zInv);
+      output = uint256(keccak256(abi.encode(gamma)));
     }
 }

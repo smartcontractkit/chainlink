@@ -1,8 +1,9 @@
 import { assertBigNum } from './support/matchers'
-import { bigNum } from './support/helpers'
+import { bigNum, assertActionThrows } from './support/helpers'
 import { pubToAddress, keccak256 } from 'ethereumjs-util'
+import * as ethers from 'ethers'
 
-const VRFContract = artifacts.require('VRF.sol')
+const VRFContract = artifacts.require('tests/VRFTestHelper.sol')
 
 // Group elements are {(x,y) in GF(fieldSize)^2 | y^2=x^3+3}, where
 // GF(fieldSize) is arithmetic modulo fieldSize on {0, 1, ..., fieldSize-1}
@@ -45,14 +46,18 @@ const big1 = bigNum(1)
 const big2 = bigNum(2)
 const big3 = bigNum(3)
 
-const assertPointsEqual = (x, y) => {
-  assertBigNum(x[0], y[0])
-  assertBigNum(x[1], y[1])
+const assertPointsEqual = (x, y, msg) => {
+  assertBigNum(x[0], y[0], msg)
+  assertBigNum(x[1], y[1], msg)
 }
+
+const bNToHex = n => '0x' + n.toString(16)
 
 // Returns the EIP55-capitalized ethereum address for this secp256k1 public key
 const toAddress = k => {
-  return pubToAddress(Buffer.concat(k.map(v => v.toBuffer()))).toString('hex')
+  return (
+    '0x' + pubToAddress(Buffer.concat(k.map(v => v.toBuffer()))).toString('hex')
+  )
 }
 
 contract('VRF', () => {
@@ -66,27 +71,27 @@ contract('VRF', () => {
     assertBigNum(value, rawExp)
   })
   it('accurately calculates the sum of g and 2g (i.e., 3g)', async () => {
-    const projectiveResult = await VRF.projectiveECAdd(
+    const projectiveResult = await VRF.projectiveECAdd_(
       generator[0],
       generator[1],
       twiceGenerator[0],
       twiceGenerator[1],
     )
-    const zInv = projectiveResult.z3.invm(fieldSize)
-    const affineResult = await VRF.affineECAdd(generator, twiceGenerator, zInv)
+    const zInv = projectiveResult[2].invm(fieldSize)
+    const affineResult = await VRF.affineECAdd_(generator, twiceGenerator, zInv)
     assertPointsEqual(thriceGenerator, affineResult)
   })
   it('Accurately verifies multiplication of a point by a scalar', async () => {
-    assert(await VRF.ecmulVerify(generator, 2, twiceGenerator))
+    assert(await VRF.ecmulVerify_(generator, 2, twiceGenerator))
   })
   it('Can compute square roots', async () => {
-    assertBigNum(2, await VRF.squareRoot(4), '4=2^2') // 4**((fieldSize-1)/2)
+    assertBigNum(2, await VRF.squareRoot_(4), '4=2^2') // 4**((fieldSize-1)/2)
   })
   it('Can compute the square of the y ordinate given the x ordinate', async () => {
-    assertBigNum(8, await VRF.ySquared(1), '8=1^3+7')
+    assertBigNum(8, await VRF.ySquared_(1), '8=1^3+7')
   })
   it('Hashes to the curve with the same results as the golang code', async () => {
-    let result = await VRF.hashToCurve(generator, 1)
+    let result = await VRF.hashToCurve_(generator, 1)
     assertBigNum(
       bigNum(result[0])
         .pow(big3)
@@ -98,7 +103,7 @@ contract('VRF', () => {
       'y^2=x^3+7',
     )
     // See golang code
-    result = await VRF.hashToCurve(generator, 1)
+    result = await VRF.hashToCurve_(generator, 1)
     assertBigNum(
       result[0],
       '0x530fddd863609aa12030a07c5fdb323bb392a88343cea123b7f074883d2654c4',
@@ -112,7 +117,7 @@ contract('VRF', () => {
   })
   it('Correctly verifies linear combinations with generator', async () => {
     assert(
-      await VRF.verifyLinearCombinationWithGenerator(
+      await VRF.verifyLinearCombinationWithGenerator_(
         5,
         twiceGenerator,
         7,
@@ -122,7 +127,7 @@ contract('VRF', () => {
     )
   })
   it('Correctly computes full linear combinations', async () => {
-    const projSum = await VRF.projectiveECAdd(
+    const projSum = await VRF.projectiveECAdd_(
       eightTimesGenerator[0],
       eightTimesGenerator[1],
       nineTimesGenerator[0],
@@ -131,7 +136,7 @@ contract('VRF', () => {
     const zInv = projSum[2].invm(fieldSize)
     assertPointsEqual(
       seventeenTimesGenerator,
-      await VRF.linearCombination(
+      await VRF.linearCombination_(
         4,
         twiceGenerator,
         eightTimesGenerator,
@@ -145,7 +150,7 @@ contract('VRF', () => {
   })
 
   it('Computes the same hashed scalar from curve points as the golang code', async () => {
-    const scalar = await VRF.scalarFromCurve(
+    const scalar = await VRF.scalarFromCurve_(
       generator,
       generator,
       generator,
@@ -162,12 +167,12 @@ contract('VRF', () => {
     const x = big1 // "secret" key in Goldberg's notation
     const pk = generator
     const seed = 1
-    const hash = await VRF.hashToCurve(pk, seed)
+    const hash = await VRF.hashToCurve_(pk, seed)
     const gamma = hash // Since gamma = x * hash = hash
     const k = big1 // "Random" nonce, ha ha
     const u = generator // Since u = k * generator = generator
     const v = hash // Since v = k * hash = hash
-    const c = await VRF.scalarFromCurve(hash, pk, gamma, toAddress(u), v)
+    const c = await VRF.scalarFromCurve_(hash, pk, gamma, toAddress(u), v)
     const s = k.sub(c.mul(x)).umod(groupOrder) // s = k - c * x mod group size
     const cGamma = [
       // >>> print("'0x%x',\n'0x%x'" % tuple(s.multiply(gamma, c)))
@@ -179,28 +184,43 @@ contract('VRF', () => {
       '0xf82b4f9161ab41ae7c11e7deb628024ef9f5e9a0bca029f0ccb5cb534c70be31',
       '0xf26e7c0b4f039ca54cfa100b3457b301acb3e0b6c690d7ea5a86f8e1c481057e',
     ].map(bigNum)
-    const projSum = await VRF.projectiveECAdd(
+    const projSum = await VRF.projectiveECAdd_(
       cGamma[0],
       cGamma[1],
       sHash[0],
       sHash[1],
     )
     const zInv = projSum[2].invm(fieldSize)
-    const commonArgs = [
-      pk,
-      gamma,
-      c,
-      s,
+    // Render proof in binary-blob format expected by randomValueFromVRFProof
+    const verifyArgs = [
+      pk.map(bNToHex),
+      gamma.map(bNToHex),
+      bNToHex(c),
+      bNToHex(s),
       seed,
       toAddress(u),
-      cGamma,
-      sHash,
-      zInv,
+      cGamma.map(bNToHex),
+      sHash.map(bNToHex),
+      bNToHex(zInv),
     ]
-    const checkOutput = async o => VRF.isValidVRFOutput(...commonArgs, o)
-    assert(!(await checkOutput(0)), 'accepted a bad proof')
+    const verifyABI = VRF.abi.filter(e => e.name == 'verifyVRFProof_')[0]
+    const proofBlob = ethers.utils.defaultAbiCoder.encode(
+      verifyABI.inputs,
+      verifyArgs,
+    )
+    const actualOutput = await VRF.randomValueFromVRFProof(proofBlob)
     const bOutput = keccak256(Buffer.concat(gamma.map(v => v.toBuffer())))
-    const output = bigNum('0x' + bOutput.toString('hex'))
-    assert(await checkOutput(output), 'rejected good proof')
+    const expectedOutput = bigNum('0x' + bOutput.toString('hex'))
+    assertBigNum(
+      expectedOutput,
+      actualOutput,
+      'accepted proof yet gave wrong output',
+    )
+    // Check that it rejects with corrupted public key
+    verifyArgs[0] = cGamma // eslint-disable-line require-atomic-updates
+    assertActionThrows(
+      async () => await VRF.verifyVRFProof_(...verifyArgs),
+      'addr(c*pk+s*g)≠_uWitness',
+    )
   })
 })
