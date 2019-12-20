@@ -178,7 +178,9 @@ contract VRF {
 
   function ySquared(uint256 x) public view returns (uint256) {
     // Curve is y^2=x^3+7. See section 2.4.1 of https://www.secg.org/sec2-v2.pdf
-    return (bigModExp(x, 3, FIELD_SIZE) + 7) % FIELD_SIZE;
+    uint256 xCubed = mulmod(x, mulmod(x, x, FIELD_SIZE), FIELD_SIZE);
+    return addmod(xCubed, 7, FIELD_SIZE);
+  }
   }
 
   // Hash x uniformly into {0, ..., q-1}.
