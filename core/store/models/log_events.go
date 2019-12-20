@@ -480,6 +480,16 @@ func (parseRunLog20190207withoutIndexes) parseRequestID(log eth.Log) string {
 	return common.BytesToHash(log.Data[start : start+idSize]).Hex()
 }
 
+// ParseNewRoundLog pulls the round from the aggregator log event.
+func ParseNewRoundLog(log eth.Log) (*big.Int, error) {
+	encodedRound := log.Topics[NewRoundTopicRoundID]
+	round, ok := new(big.Int).SetString(encodedRound.Hex(), 0)
+	if !ok {
+		return nil, fmt.Errorf("unable to parse new round log from %s", encodedRound.Hex())
+	}
+	return round, nil
+}
+
 func bytesToHex(data []byte) string {
 	return utils.AddHexPrefix(hex.EncodeToString(data))
 }
