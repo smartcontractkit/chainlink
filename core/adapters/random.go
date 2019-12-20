@@ -1,23 +1,102 @@
 package adapters
 
 import (
-	"crypto/rand"
+	"fmt"
 	"math/big"
 
 	"chainlink/core/store"
 	"chainlink/core/store/models"
+	"chainlink/core/store/models/vrf_key"
+	"chainlink/core/utils"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
 )
 
-// Random adapter type holds no fields
-type Random struct{}
+// Random adapter type implements VRF calculation in its Perform method.
+//
+// The VRFCoordinator.sol contract and its integration with the chainlink node
+// will handle interaction with the Random adapter, but if you need to interact
+// with it directly, its input to should be a JSON object with "seed" and
+// "keyHash" fields containing the input seed as a hex-represented uint256, and
+// the keccak256 hash of the public key E.g., given the input
+//
+//   {
+//     "seed":
+//       "0x0000000000000000000000000000000000000000000000000000000000000001",
+//     "keyHash":
+//       "0xc0a6c424ac7157ae408398df7e5f4552091a69125d5dfcb7b8c2659029395bdf",
+//   }
+//
+// the adapter will return a proof for the VRF output given seed 1, as long as
+// the keccak256 hash of its public key matches the hash in the input.
+// Otherwise, it will error.
+//
+// The adapter returns the hex representation of a solidity bytes array which
+// can be verified on-chain by VRF.sol#randomValueFromVRFProof. (I.e., it is the
+// proof expected by that method, prepended by its length as a uint256.)
+type Random struct {
+	// PublicKey used in Random's VRF proofs, 0x-hex uncompressed representation.
+	// Do not prefix it by 0x04.
+	PublicKey string `json:"publicKey"`
+}
 
-// Perform returns a random uint256 number in 0 | 2**256-1 range
-func (ra *Random) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
-	b := make([]byte, 32)
-	_, err := rand.Read(b)
+// Perform returns the the proof for the VRF output given seed, or an error.
+func (ra *Random) Perform(input models.RunInput, store *store.Store) models.RunOutput {
+	key, err := getKey(ra, input)
+	if err != nil {
+		return models.NewRunOutputError(errors.Wrapf(err, "bad key for vrf task"))
+	}
+	seed, err := getSeed(input)
+	if err != nil {
+		return models.NewRunOutputError(errors.Wrap(err, "bad seed for vrf task"))
+	}
+	ran, err := store.VRFKeyStore.GenerateProof(key, seed)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	ran := new(big.Int).SetBytes(b)
-	return models.NewRunOutputCompleteWithResult(ran.String())
+	ethereumByteArray := fmt.Sprintf("0x%x", utils.EVMEncodeBytes(ran[:]))
+	return models.NewRunOutputCompleteWithResult(ethereumByteArray)
+}
+
+// getSeed returns the numeric seed for the vrf task, or an error
+func getSeed(input models.RunInput) (*big.Int, error) {
+	rawSeed, err := extractHex(input, "seed")
+	if err != nil {
+		return nil, err
+	}
+	seed := big.NewInt(0).SetBytes(rawSeed)
+	if err := utils.CheckUint256(seed); err != nil {
+		return nil, err
+	}
+	return seed, nil
+}
+
+// getKey returns the public key for the VRF, or an error.
+func getKey(ra *Random, input models.RunInput) (*vrf_key.PublicKey, error) {
+	hash, err := extractHex(input, "keyHash")
+	if err != nil {
+		return nil, err
+	}
+	key, err := vrf_key.NewPublicKeyFromHex(ra.PublicKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not parse %v as public key", ra.PublicKey)
+	}
+	if key.Hash() != common.BytesToHash(hash) {
+		return nil, fmt.Errorf(
+			"this task's keyHash %x does not match the input hash %x", key.Hash(), hash)
+	}
+	return key, nil
+}
+
+// extractHex returns the bytes corresponding to the string input at the key
+// field, or an error.
+func extractHex(input models.RunInput, key string) ([]byte, error) {
+	rawValue := input.Data().Get(key)
+	if rawValue.Type != gjson.String {
+		return nil, fmt.Errorf("%s %#+v is not a hex string", key, rawValue)
+	}
+	return hexutil.Decode(rawValue.String())
 }
