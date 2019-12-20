@@ -194,6 +194,7 @@ const oracles = state => state.aggregation.oracles
 const oracleResponse = state => state.aggregation.oracleResponse
 const currentAnswer = state => state.aggregation.currentAnswer
 const contractAddress = state => state.aggregation.contractAddress
+const pendingAnswerId = state => state.aggregation.pendingAnswerId
 
 const oraclesList = createSelector([oracles], list => {
   if (!list) return []
@@ -251,4 +252,19 @@ const networkGraphState = createSelector(
   },
 )
 
-export { oraclesList, networkGraphNodes, networkGraphState }
+const oraclesData = createSelector(
+  [oraclesList, oracleResponse, pendingAnswerId],
+  (list, response, pendingAnswerId) => {
+    if (!list) return []
+
+    const data = list.map((o, id) => {
+      const state = response && response.filter(r => r.sender === o.address)[0]
+      const isFulfilled = state && state.answerId >= pendingAnswerId
+      return { ...o, ...state, id, isFulfilled }
+    })
+
+    return data
+  },
+)
+
+export { oraclesList, networkGraphNodes, networkGraphState, oraclesData }

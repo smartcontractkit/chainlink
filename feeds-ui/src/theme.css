@@ -21460,107 +21460,6 @@ hr {
   stroke-linecap: round;
   stroke: #a0a0a0;
 }
-.network-graph {
-  width: 1200px;
-  height: 700px;
-  margin: 0 auto;
-  position: relative;
-}
-.network-graph__node__oracle.fulfilled {
-  fill: #2d2a2b;
-  stroke: #2d2a2b;
-}
-.network-graph__node__oracle.fetching {
-  fill: #f1f1f1;
-  stroke: #8e8e8e;
-}
-.network-graph__node__oracle {
-  cursor: pointer;
-  -webkit-transition: all 250ms ease;
-  -moz-transition: all 250ms ease;
-  -o-transition: all 250ms ease;
-  transition: all 250ms ease;
-}
-.network-graph__node__oracle:hover {
-  fill: #2a59da;
-  stroke: #2a59da;
-}
-.network-graph__node__oracle-label--name,
-.network-graph__node__oracle-label--price {
-  fill: #505050;
-  font-size: 12px;
-  cursor: pointer;
-}
-.network-graph__node__oracle-label--name {
-  text-decoration: underline;
-}
-.network-graph__node__contract--label--price {
-  fill: #505050;
-  font-size: 12px;
-}
-.network-graph__node__contract {
-  cursor: pointer;
-  fill: #f1f1f1;
-  stroke: #8e8e8e;
-}
-.network-graph__node__contract.wait {
-  animation: dash-animation 20s infinite linear;
-  stroke-dasharray: 1, 8;
-  stroke-width: 2;
-  stroke-dashoffset: 0;
-  stroke-linecap: round;
-  stroke: #a0a0a0;
-}
-.network-graph__line--wait {
-  animation: dash-animation 20s infinite linear;
-  stroke-dasharray: 1, 8;
-  stroke-width: 2;
-  stroke-dashoffset: 0;
-  stroke-linecap: round;
-  stroke: #a0a0a0;
-}
-.network-graph__line--success {
-  stroke: #bdbdbd;
-  stroke-width: 1;
-}
-.network-graph__node-group .oracle:hover {
-  fill: #2a59da;
-  stroke: #2a59da;
-}
-.network-graph__tooltip--oracle,
-.network-graph__tooltip--contract {
-  opacity: 0;
-  position: absolute;
-  padding: 15px 20px;
-  background: white;
-  border: 1px solid #ececec;
-  pointer-events: none;
-  min-width: 120px;
-  color: #2d2a2b;
-}
-.network-graph__tooltip--oracle .type,
-.network-graph__tooltip--contract .type {
-  text-transform: capitalize;
-  color: #939598;
-  margin-bottom: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #bcbec0;
-  font-size: 14px;
-}
-.network-graph__tooltip--oracle .oracle,
-.network-graph__tooltip--oracle .contract {
-  margin: 10px 0;
-  font-size: 16px;
-  line-height: 1.5;
-}
-.network-graph__tooltip--oracle .details {
-  margin: 10px 0;
-  font-size: 12px;
-  line-height: 1.5;
-}
-.network-graph__node-group--contract {
-  cursor: pointer;
-}
 .network-graph__node-details__item {
   margin-bottom: 20px;
 }
@@ -21669,4 +21568,79 @@ hr {
 }
 .oracle-table .gas-price-info h4 {
   margin: 0;
+}
+.vis__wrapper {
+  width: 1200px;
+  height: 700px;
+  margin: 0 auto;
+  position: relative;
+}
+.vis__oracle {
+  fill: #f1f1f1;
+  stroke: #8e8e8e;
+  cursor: pointer;
+  -webkit-transition: all 250ms ease;
+  -moz-transition: all 250ms ease;
+  -o-transition: all 250ms ease;
+  transition: all 250ms ease;
+}
+.vis__oracle:hover {
+  fill: #2a59da;
+  stroke: #2a59da;
+}
+.vis__oracle--pending {
+  fill: #f1f1f1;
+  stroke: #8e8e8e;
+}
+.vis__oracle--fulfilled {
+  fill: #2d2a2b;
+  stroke: #2d2a2b;
+}
+.vis__oracle-label {
+  fill: #505050;
+  font-size: 12px;
+}
+.vis__tooltip {
+  position: absolute;
+  padding: 15px 20px;
+  background: white;
+  border: 1px solid #ececec;
+  pointer-events: none;
+  min-width: 120px;
+  color: #2d2a2b;
+}
+.vis__tooltip .type {
+  text-transform: capitalize;
+  color: #939598;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #bcbec0;
+  font-size: 14px;
+}
+.vis__tooltip .data {
+  margin: 10px 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.vis__tooltip .meta {
+  margin: 10px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.vis__contract {
+  cursor: pointer;
+  fill: #f1f1f1;
+  stroke: #8e8e8e;
+}
+.vis__line {
+  stroke: #bdbdbd;
+  stroke-width: 1;
+}
+.vis__line--pending {
+  animation: dash-animation 20s infinite linear;
+  stroke-dasharray: 1, 8;
+  stroke-width: 2;
+  stroke-dashoffset: 0;
+  stroke-linecap: round;
+  stroke: #a0a0a0;
 }

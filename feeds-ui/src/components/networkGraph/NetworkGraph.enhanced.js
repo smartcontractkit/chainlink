@@ -1,5 +1,4 @@
 import NetworkGraph from './NetworkGraph.component'
-import { compose } from 'recompose'
 import { connect } from 'react-redux'
 
 import {
@@ -8,16 +7,13 @@ import {
 } from 'state/ducks/aggregation'
 
 const mapStateToProps = state => ({
-  networkGraphNodes: aggregationSelectors.networkGraphNodes(state),
-  networkGraphState: aggregationSelectors.networkGraphState(state),
-  pendingAnswerId: state.aggregation.pendingAnswerId,
   updateHeight: state.aggregation.updateHeight,
+  oraclesData: aggregationSelectors.oraclesData(state),
+  currentAnswer: state.aggregation.currentAnswer,
 })
 
 const mapDispatchToProps = {
   fetchJobId: aggregationOperations.fetchJobId,
 }
 
-export default compose(connect(mapStateToProps, mapDispatchToProps))(
-  NetworkGraph,
-)
+export default connect(mapStateToProps, mapDispatchToProps)(NetworkGraph)
