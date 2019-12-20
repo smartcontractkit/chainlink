@@ -117,11 +117,11 @@ var dec10 = decimal.NewFromInt(10)
 func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
 	aggregator, err := GetV5Contract(PrepaidAggregatorName)
 	if err != nil {
-		return decimal.Decimal{}, err
+		return decimal.Decimal{}, errors.Wrap(err, "unable to get contract "+PrepaidAggregatorName)
 	}
 	data, err := aggregator.EncodeMessageCall("latestAnswer")
 	if err != nil {
-		return decimal.Decimal{}, err
+		return decimal.Decimal{}, errors.Wrap(err, "unable to encode latestAnswer message for contract "+PrepaidAggregatorName)
 	}
 
 	var result string
@@ -154,11 +154,11 @@ func parseHexOrDecimal(input string) (decimal.Decimal, error) {
 func (client *CallerSubscriberClient) GetAggregatorRound(address common.Address) (*big.Int, error) {
 	aggregator, err := GetV5Contract(PrepaidAggregatorName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to get contract "+PrepaidAggregatorName)
 	}
 	data, err := aggregator.EncodeMessageCall("latestRound")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator round from %s", address.Hex()))
 	}
 
 	var result string

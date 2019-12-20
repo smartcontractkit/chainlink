@@ -160,12 +160,12 @@ func (fm *concreteFluxMonitor) addAction(ctx context.Context, connected bool, jo
 	for _, initr := range job.InitiatorsFor(models.InitiatorFluxMonitor) {
 		checker, err := fm.checkerFactory.New(initr, fm.runManager)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "factory unable to create checker")
 		}
 		if connected {
 			err := connectSingleChecker(ctx, checker, fm.store.TxManager)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "unable to connect checker")
 			}
 		}
 		validCheckers = append(validCheckers, checker)
@@ -180,7 +180,7 @@ func (fm *concreteFluxMonitor) addAction(ctx context.Context, connected bool, jo
 func connectSingleChecker(ctx context.Context, checker DeviationChecker, client eth.Client) error {
 	err := checker.Initialize(client)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to initialize flux monitor checker")
 	}
 	go checker.Start(ctx)
 	return nil
