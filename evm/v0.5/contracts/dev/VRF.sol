@@ -319,11 +319,11 @@ contract VRF {
 
   // Returns p1+p2, as affine points on secp256k1.
   //
-  // invZ must be the inverse of the z returned by projectiveECAdd(p1, p2). It
-  // is computed off-chain to save gas.
+  // invZ must be the inverse of the z returned by projectiveECAdd(p1, p2).
+  // It is computed off-chain to save gas.
   //
-  // It must not be the case that p1 == p2, because projectiveECAdd doesn't
-  // handle point doubling.
+  // p1 and p2 must be distinct, because projectiveECAdd doesn't handle
+  // point doubling.
   function affineECAdd(
     uint256[2] memory p1, uint256[2] memory p2,
     uint256 invZ) public pure returns (uint256[2] memory) {
@@ -345,8 +345,8 @@ contract VRF {
       require(lcWitness != address(0), "bad witness");
       // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
       // The point corresponding to the address returned by
-      // ecrecover(-s*p[0],v,_p[0],_c*p[0]) is
-      // (p[0]⁻¹ mod GROUP_ORDER)*(c*p[0]-(-s)*p[0]*g)=_c*p+s*g, where v
+      // ecrecover(-s*p[0],v,p[0],c*p[0]) is
+      // (p[0]⁻¹ mod GROUP_ORDER)*(c*p[0]-(-s)*p[0]*g)=c*p+s*g, where v
       // is the parity of p[1]. See https://crypto.stackexchange.com/a/18106
       bytes32 pseudoHash = bytes32(GROUP_ORDER - mulmod(p[0], s, GROUP_ORDER));
       // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
@@ -356,11 +356,12 @@ contract VRF {
       return computed == lcWitness;
     }
 
-  // c*p1 + s*p2. Requires cp1Witness=c*p1 and sp2Witness=s*p2. Also requires
-  // cp1Witness != sp2Witness (which is fine for this application, since it is
-  // cryptographically impossible for them to be equal. A prover should verify
-  // that that's the case before publishing, and retry with a different nonce if
-  // they're equal.)
+  // c*p1 + s*p2. Requires cp1Witness=c*p1 and sp2Witness=s*p2. Also
+  // requires cp1Witness != sp2Witness (which is fine for this application,
+  // since it is cryptographically impossible for them to be equal. In the
+  // (cryptographically impossible) case that a prover accidentally derives
+  // a proof with equal c*p1 and s*p2, they should retry with a different
+  // proof nonce.) Assumes that all points are on secp256k1.
   function linearCombination(
     uint256 c, uint256[2] memory p1, uint256[2] memory cp1Witness,
     uint256 s, uint256[2] memory p2, uint256[2] memory sp2Witness,
@@ -373,13 +374,12 @@ contract VRF {
       return affineECAdd(cp1Witness, sp2Witness, zInv);
     }
 
-  // Pseudo-random number from inputs. Corresponds to vrf.go/scalarFromCurve,
-  // and section 5.4.2 of the IETF draft. However, the draft calls (in section
-  // 5.3 step 5 and section 5.4.2 steps 3-5) for taking the first hash without
-  // checking that it corresponds to a number less than the group order (which
-  // is the context in which the resulting scalar is used.) Here we avoid that
-  // slight bias by recursively hashing until we have something less than
-  // GROUP_ORDER in zqHash.)
+  // Pseudo-random number from inputs. Matches vrf.go/scalarFromCurve, and
+  // https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.2 . It
+  // draft calls (in section 5.3 step 5 and section 5.4.2 steps 3-5) for
+  // taking the first hash without checking that it corresponds to a number
+  // less than the group order, which will lead to a slight bias in the
+  // sample.
   function scalarFromCurve(
     uint256[2] memory hash, uint256[2] memory pk, uint256[2] memory gamma,
     address uWitness, uint256[2] memory v)
@@ -392,6 +392,15 @@ contract VRF {
   // and seed. zInv must be the inverse of the third ordinate from
   // projectiveECAdd applied to cGammaWitness and sHashWitness. Corresponds to
   // section 5.3 of the IETF draft.
+  //
+  // TODO(alx): Since I'm only using pk in the ecrecover call, I could only pass
+  // the x ordinate, and the parity of the y ordinate in the top bit of uWitness
+  // (which I could make a uint256 without using any extra space.) Would save
+  // about 2000 gas. (Roughly 2.5%.)
+  //
+  // TODO(alx): It would probably also be fine to only pass the address
+  // witnesses for cGammaWitness and sHashWitness, which would save another 4000
+  // gas.
   function verifyVRFProof(
     uint256[2] memory pk, uint256[2] memory gamma, uint256 c, uint256 s,
     uint256 seed, address uWitness, uint256[2] memory cGammaWitness,
