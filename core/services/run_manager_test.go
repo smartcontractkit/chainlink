@@ -373,7 +373,7 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			mocketh.Context("app.Start()", func(meth *cltest.EthMock) {
 				meth.Register("eth_chainId", store.Config.ChainID())
 			})
-			app.Start()
+			app.StartAndConnect()
 
 			job := cltest.NewJobWithRunLogInitiator()
 			job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
