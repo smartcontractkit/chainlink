@@ -53,8 +53,7 @@ var P = bigFromHex(
 	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F")
 
 // Order is the number of rational points on the curve in GF(P) (group size)
-var Order = bigFromHex(
-	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141")
+var Order = secp256k1.GroupOrder
 
 // Compensate for awkward big.Int API.
 var bi = big.NewInt
