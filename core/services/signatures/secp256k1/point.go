@@ -357,6 +357,29 @@ func LongMarshal(p kyber.Point) []byte {
 	return append(xMarshal[:], yMarshal[:]...)
 }
 
+// LongUnmarshal returns the secp256k1 point represented by m, as a concatenated
+// pair of uint256's
+func LongUnmarshal(m []byte) (kyber.Point, error) {
+	if len(m) != 64 {
+		return nil, fmt.Errorf(
+			"0x%x does not represent an uncompressed secp256k1Point. Should be length 64, but is length %d",
+			m, len(m))
+	}
+	p := newPoint()
+	p.X.SetInt(big.NewInt(0).SetBytes(m[:32]))
+	p.Y.SetInt(big.NewInt(0).SetBytes(m[32:]))
+	if !ValidPublicKey(p) {
+		return nil, fmt.Errorf("%s is not a valid secp256k1 point", p)
+	}
+	return p, nil
+}
+
+// ScalarToPublicPoint returns the public secp256k1 point associated to s
+func ScalarToPublicPoint(s kyber.Scalar) kyber.Point {
+	publicPoint := (&Secp256k1{}).Point()
+	return publicPoint.Mul(s, nil)
+}
+
 // SetCoordinates returns the point (x,y), or panics if an invalid secp256k1Point
 func SetCoordinates(x, y *big.Int) kyber.Point {
 	rv := newPoint()
