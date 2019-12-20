@@ -126,20 +126,19 @@ pragma solidity 0.5.0;
 contract VRF {
 
   // See https://www.secg.org/sec2-v2.pdf, section 2.4.1, for these constants.
-  uint256 constant public GROUP_ORDER = // Number of points in Secp256k1
+  uint256 constant private GROUP_ORDER = // Number of points in Secp256k1
     // solium-disable-next-line indentation
     0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
   // Prime characteristic of the galois field over which Secp256k1 is defined
-  // solium-disable-next-line zeppelin/no-arithmetic-operations
-  uint256 constant public FIELD_SIZE =
+  uint256 constant private FIELD_SIZE =
     // solium-disable-next-line indentation
     0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
-  uint256 constant public WORD_LENGTH_BYTES = 0x20;
+  uint256 constant private WORD_LENGTH_BYTES = 0x20;
 
   // (base^exponent) % FIELD_SIZE
   // Cribbed from https://medium.com/@rbkhmrcr/precompiles-solidity-e5d29bd428c4
-    public view returns (uint256 exponentiation) {
   function bigModExp(uint256 base, uint256 exponent)
+    internal view returns (uint256 exponentiation) {
       uint256 callResult;
       uint256[6] memory bigModExpContractInputs;
       bigModExpContractInputs[0] = WORD_LENGTH_BYTES;  // Length of base
@@ -165,14 +164,14 @@ contract VRF {
 
   // Let q=FIELD_SIZE. q % 4 = 3, ∴ p≡r^2 mod q ⇒ p^SQRT_POWER≡m±r mod q.  See
   // https://en.wikipedia.org/wiki/Modular_square_root#Prime_or_prime_power_modulus
-  uint256 constant public SQRT_POWER = (FIELD_SIZE + 1) >> 2;
+  uint256 constant private SQRT_POWER = (FIELD_SIZE + 1) >> 2;
 
   // Computes a s.t. a^2 = x in the field. Assumes a exists
-  function squareRoot(uint256 x) public view returns (uint256) {
+  function squareRoot(uint256 x) internal view returns (uint256) {
     return bigModExp(x, SQRT_POWER);
   }
 
-  function ySquared(uint256 x) public view returns (uint256) {
+  function ySquared(uint256 x) internal pure returns (uint256) {
     // Curve is y^2=x^3+7. See section 2.4.1 of https://www.secg.org/sec2-v2.pdf
     uint256 xCubed = mulmod(x, mulmod(x, x, FIELD_SIZE), FIELD_SIZE);
     return addmod(xCubed, 7, FIELD_SIZE);
@@ -222,7 +221,7 @@ contract VRF {
   //
   // scalar must be non-zero
   function ecmulVerify(uint256[2] memory x, uint256 scalar, uint256[2] memory q)
-    public pure returns(bool) {
+    internal pure returns(bool) {
       require(scalar != 0); // Rules out an ecrecover failure case
       // This ecrecover returns the address associated with c*R. See
       // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
@@ -237,7 +236,7 @@ contract VRF {
 
   // Returns x1/z1-x2/z2=(x1z2+x2z1)/(z1z2) in projective coordinates on P¹(𝔽ₙ)
   function projectiveSub(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
-    public pure returns(uint256 x3, uint256 z3) {
+    internal pure returns(uint256 x3, uint256 z3) {
       uint256 num1 = mulmod(z2, x1, FIELD_SIZE);
       uint256 num2 = mulmod(FIELD_SIZE - x2, z1, FIELD_SIZE);
       (x3, z3) = (addmod(num1, num2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
@@ -245,7 +244,7 @@ contract VRF {
 
   // Returns x1/z1*x2/z2=(x1x2)/(z1z2), in projective coordinates on P¹(𝔽ₙ)
   function projectiveMul(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
-    public pure returns(uint256 x3, uint256 z3) {
+    internal pure returns(uint256 x3, uint256 z3) {
       (x3, z3) = (mulmod(x1, x2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
     }
 
@@ -278,7 +277,7 @@ contract VRF {
       @return [px,py,1]+[qx,qy,1] as points on secp256k1, in P²(𝔽ₙ)
   */
   function projectiveECAdd(uint256 px, uint256 py, uint256 qx, uint256 qy)
-    public pure returns(uint256 x3, uint256 y3, uint256 z3) {
+    internal pure returns(uint256 sx, uint256 sy, uint256 sz) {
       // See "Group law for E/K : y^2 = x^3 + ax + b", in section 3.1.2, p. 80,
       // "Guide to Elliptic Curve Cryptography" by Hankerson, Menezes and Vanstone
       // We take the equations there for (sx,sy), and homogenize them to
@@ -326,7 +325,7 @@ contract VRF {
   // point doubling.
   function affineECAdd(
     uint256[2] memory p1, uint256[2] memory p2,
-    uint256 invZ) public pure returns (uint256[2] memory) {
+    uint256 invZ) internal pure returns (uint256[2] memory) {
     uint256 x;
     uint256 y;
     uint256 z;
@@ -340,7 +339,7 @@ contract VRF {
   // Returns true iff address(c*p+s*g) == lcWitness, where g is generator.
   function verifyLinearCombinationWithGenerator(
     uint256 c, uint256[2] memory p, uint256 s, address lcWitness)
-    public pure returns (bool) {
+    internal pure returns (bool) {
       // Rule out ecrecover failure modes which return address 0.
       require(lcWitness != address(0), "bad witness");
       // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
@@ -366,7 +365,7 @@ contract VRF {
     uint256 c, uint256[2] memory p1, uint256[2] memory cp1Witness,
     uint256 s, uint256[2] memory p2, uint256[2] memory sp2Witness,
     uint256 zInv)
-    public pure returns (uint256[2] memory) {
+    internal pure returns (uint256[2] memory) {
       require((cp1Witness[0] - sp2Witness[0]) % FIELD_SIZE != 0,
               "points in sum must be distinct");
       require(ecmulVerify(p1, c, cp1Witness), "First multiplication check failed");
@@ -383,7 +382,7 @@ contract VRF {
   function scalarFromCurve(
     uint256[2] memory hash, uint256[2] memory pk, uint256[2] memory gamma,
     address uWitness, uint256[2] memory v)
-    public pure returns (uint256 s) {
+    internal pure returns (uint256 s) {
       return uint256(
         keccak256(abi.encodePacked(hash, pk, gamma, v, uWitness)));
     }
@@ -405,7 +404,7 @@ contract VRF {
     uint256[2] memory pk, uint256[2] memory gamma, uint256 c, uint256 s,
     uint256 seed, address uWitness, uint256[2] memory cGammaWitness,
     uint256[2] memory sHashWitness, uint256 zInv)
-    public view returns (bool) {
+    internal view {
       require(isOnCurve(pk), "public key is not on curve");
       require(isOnCurve(gamma), "gamma is not on curve");
       require(isOnCurve(cGammaWitness), "cGammaWitness is not on curve");
