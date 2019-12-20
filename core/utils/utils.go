@@ -3,7 +3,6 @@
 package utils
 
 import (
-	"chainlink/core/logger"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -15,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"chainlink/core/logger"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
