@@ -331,7 +331,7 @@ contract VRF {
     uint256 y;
     uint256 z;
     (x, y, z) = projectiveECAdd(p1[0], p1[1], p2[0], p2[1]);
-    require(mulmod(z, invZ, FIELD_SIZE) == 1, "_invZ must be inverse of z");
+    require(mulmod(z, invZ, FIELD_SIZE) == 1, "invZ must be inverse of z");
     // Clear the z ordinate of the projective representation by dividing through
     // by it, to obtain the affine representation
     return [mulmod(x, invZ, FIELD_SIZE), mulmod(y, invZ, FIELD_SIZE)];
@@ -368,7 +368,7 @@ contract VRF {
     uint256 zInv)
     public pure returns (uint256[2] memory) {
       require((cp1Witness[0] - sp2Witness[0]) % FIELD_SIZE != 0,
-              "points must differ in sum");
+              "points in sum must be distinct");
       require(ecmulVerify(p1, c, cp1Witness), "First multiplication check failed");
       require(ecmulVerify(p2, s, sp2Witness), "Second multiplication check failed");
       return affineECAdd(cp1Witness, sp2Witness, zInv);
@@ -414,7 +414,7 @@ contract VRF {
       // we use the hash of u instead of u itself.)
       require(
         verifyLinearCombinationWithGenerator(c, pk, s, uWitness),
-        "Could not verify that address(c*pk+s*generator)=_uWitness"
+        "addr(c*pk+s*g)≠_uWitness"
       );
       // Step 5. of IETF draft section 5.3 (pk corresponds to y, seed to beta)
       uint256[2] memory hash = hashToCurve(pk, seed);
@@ -422,7 +422,7 @@ contract VRF {
       uint256[2] memory v = linearCombination(
         c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
       // Steps 7. and 8. of IETF draft section 5.3
-      return (c == scalarFromCurve(hash, pk, gamma, uWitness, v));
+      require(c == scalarFromCurve(hash, pk, gamma, uWitness, v), "invalid proof");
     }
 
   /** **************************************************************************
