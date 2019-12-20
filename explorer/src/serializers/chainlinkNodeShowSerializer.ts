@@ -8,6 +8,7 @@ export const ATTRIBUTES: Array<string> = [
   'id',
   'name',
   'url',
+  'createdAt',
   'jobCounts',
   'uptime',
 ]
@@ -16,6 +17,7 @@ interface ChainlinkNodeShowData {
   id: number
   name: string
   url?: string
+  createdAt: Date
   jobCounts: JobCountReport
   uptime: number
 }

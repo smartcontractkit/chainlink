@@ -30,6 +30,7 @@ router.get('/nodes/:id', async (req, res) => {
     id: node.id,
     name: node.name,
     url: node.url,
+    createdAt: node.createdAt,
     jobCounts,
     uptime,
   }
