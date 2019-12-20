@@ -6,11 +6,12 @@ yarn workspace chainlink run lint
 yarn workspace chainlinkv0.5 run lint
 yarn workspace @chainlink/box run lint
 
-# We should merge these into the lint commands too
-yarn workspace chainlink run slither
+# FIXME: turn slither linting back on and merge these into the linting task
+#yarn workspace chainlink run slither
 # if the above fails, you can mark it in the db by running:
 #   `cd evm && yarn build && slither --triage-mode .`
-yarn workspace chainlinkv0.5 run slither
+
+#yarn workspace chainlinkv0.5 run slither
 # if the above fails, you can mark it in the db by running:
 #   `cd evm/v0.5 && yarn build && slither --triage-mode .`
 
