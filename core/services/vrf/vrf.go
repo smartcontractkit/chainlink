@@ -244,6 +244,12 @@ type Proof struct {
 	Output    *big.Int // verifiable random function output;, uniform uint256 sample
 }
 
+func (p *Proof) String() string {
+	return fmt.Sprintf(
+		"vrf.Proof{PublicKey: %s, Gamma: %s, C: %x, S: %x, Seed: %x, Output: %x}",
+		p.PublicKey, p.Gamma, p.C, p.S, p.Seed, p.Output)
+}
+
 func (p *Proof) WellFormed() bool {
 	return (secp256k1.ValidPublicKey(p.PublicKey) && secp256k1.ValidPublicKey(p.Gamma) &&
 		secp256k1.RepresentsScalar(p.C) && secp256k1.RepresentsScalar(p.S) &&
