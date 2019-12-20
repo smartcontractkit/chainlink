@@ -250,10 +250,24 @@ func (p *Proof) String() string {
 		p.PublicKey, p.Gamma, p.C, p.S, p.Seed, p.Output)
 }
 
+// WellFormed is true iff p's attributes satisfy basic domain checks
 func (p *Proof) WellFormed() bool {
-	return (secp256k1.ValidPublicKey(p.PublicKey) && secp256k1.ValidPublicKey(p.Gamma) &&
-		secp256k1.RepresentsScalar(p.C) && secp256k1.RepresentsScalar(p.S) &&
-		p.Output.BitLen() <= 256)
+	return (secp256k1.ValidPublicKey(p.PublicKey) &&
+		secp256k1.ValidPublicKey(p.Gamma) && secp256k1.RepresentsScalar(p.C) &&
+		secp256k1.RepresentsScalar(p.S) && p.Output.BitLen() <= 256)
+}
+
+// checkCGammaNotEqualToSHash checks c*gamma ≠ s*hash, as required by solidity
+// verifier
+func checkCGammaNotEqualToSHash(c *big.Int, gamma kyber.Point, s *big.Int,
+	hash kyber.Point) error {
+	cGamma := rcurve.Point().Mul(secp256k1.IntToScalar(c), gamma)
+	sHash := rcurve.Point().Mul(secp256k1.IntToScalar(s), hash)
+	if cGamma.Equal(sHash) {
+		return fmt.Errorf(
+			"pick a different nonce; c*gamma = s*hash, with this one")
+	}
+	return nil
 }
 
 // VerifyProof is true iff gamma was generated in the mandated way from the
