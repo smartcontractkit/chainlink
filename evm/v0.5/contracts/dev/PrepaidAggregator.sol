@@ -217,9 +217,14 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   function updateAvailableFunds()
     public
   {
+    uint128 pastAvailableFunds = availableFunds;
+
     uint256 available = LINK.balanceOf(address(this)).sub(allocatedFunds);
     availableFunds = uint128(available);
-    emit AvailableFundsUpdated(available);
+
+    if (pastAvailableFunds != available) {
+      emit AvailableFundsUpdated(available);
+    }
   }
 
   /**
