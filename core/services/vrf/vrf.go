@@ -236,8 +236,12 @@ func linearCombination(c *big.Int, p1 kyber.Point,
 //
 // N.B.: The kyber.Point fields must contain secp256k1.secp256k1Point values
 type Proof struct {
-	PublicKey, Gamma   kyber.Point
-	C, S, Seed, Output *big.Int
+	PublicKey kyber.Point // secp256k1 public key of private key used in proof
+	Gamma     kyber.Point
+	C         *big.Int
+	S         *big.Int
+	Seed      *big.Int // Seed input to verifiable random function
+	Output    *big.Int // verifiable random function output;, uniform uint256 sample
 }
 
 func (p *Proof) WellFormed() bool {
