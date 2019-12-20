@@ -249,69 +249,71 @@ contract VRF {
       (x3, z3) = (mulmod(x1, x2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
     }
 
-  /** **************************************************************************
+  /** *********************************************************************
       @notice Computes elliptic-curve sum, in projective co-ordinates
 
       @dev Using projective coordinates avoids costly divisions
 
-      @dev To use this with x and y in affine coordinates, compute
-           projectiveECAdd(x[0], x[1], 1, y[0], y[1], 1)
+      @dev To use this with p and p in affine coordinates, call
+      @dev projectiveECAdd(px, py, qx, qy). This will return
+      @dev the addition of (px, py, 1) and (qx, qy, 1), in the
+      @dev secp256k1 group.
 
-      @dev This can be used to calculate the z which is the inverse to zInv in
-           isValidVRFOutput. But consider using a faster re-implementation.
+      @dev This can be used to calculate the z which is the inverse to zInv
+      @dev in isValidVRFOutput. But consider using a faster
+      @dev re-implementation.
 
-      @dev This function assumes [x1,y1,z1],[x2,y2,z2] are valid projective
+      @dev This function assumes [px,py,1],[qx,qy,1] are valid projective
            coordinates of secp256k1 points. That is safe in this contract,
            because this method is only used by linearCombination, which checks
-           points are on the curve via ecrecover, and ensures valid projective
-           coordinates by passing z1=z2=1.
+           points are on the curve via ecrecover.
       **************************************************************************
-      @param x1 The first affine coordinate of the first summand
-      @param y1 The second affine coordinate of the first summand
-      @param x2 The first affine coordinate of the second summand
-      @param y2 The second affine coordinate of the second summand
+      @param px The first affine coordinate of the first summand
+      @param py The second affine coordinate of the first summand
+      @param qx The first affine coordinate of the second summand
+      @param qy The second affine coordinate of the second summand
 
-      (x1, y1) must be a different point from (x2, y2).
+      (px,py) and (qx,qy) must be distinct, valid secp256k1 points.
       **************************************************************************
-      @return [x1,y1,z1]+[x2,y2,z2] as points on secp256k1, in P²(𝔽ₙ)
+      @return [px,py,1]+[qx,qy,1] as points on secp256k1, in P²(𝔽ₙ)
   */
-  function projectiveECAdd(uint256 x1, uint256 y1, uint256 x2, uint256 y2)
+  function projectiveECAdd(uint256 px, uint256 py, uint256 qx, uint256 qy)
     public pure returns(uint256 x3, uint256 y3, uint256 z3) {
       // See "Group law for E/K : y^2 = x^3 + ax + b", in section 3.1.2, p. 80,
       // "Guide to Elliptic Curve Cryptography" by Hankerson, Menezes and Vanstone
-      // We take the equations there for (x3,y3), and homogenize them to
+      // We take the equations there for (sx,sy), and homogenize them to
       // projective coordinates. That way, no inverses are required, here, and we
       // only need the one inverse in affineECAdd.
-      
+
       // We only need the "point addition" equations from Hankerson et al. Can
       // skip the "point doubling" equations because p1 == p2 is cryptographically
       // impossible, and require'd not to be the case in linearCombination.
-      
+
       // Add extra "projective coordinate" to the two points
       (uint256 z1, uint256 z2) = (1, 1);
-      
-      // (lx, lz) = (y2-y1)/(x2-x1), i.e., gradient of secant line.
-      uint256 lx = addmod(y2, FIELD_SIZE - y1, FIELD_SIZE);
-      uint256 lz = addmod(x2, FIELD_SIZE - x1, FIELD_SIZE);
-      
-      uint256 dx; // Accumulates denominator from x3 calculation
-      // x3=((y2-y1)/(x2-x1))^2-x1-x2
-      (x3, dx) = projectiveMul(lx, lz, lx, lz); // ((y2-y1)/(x2-x1))^2
-      (x3, dx) = projectiveSub(x3, dx, x1, z1); // ((y2-y1)/(x2-x1))^2-x1
-      (x3, dx) = projectiveSub(x3, dx, x2, z2); // ((y2-y1)/(x2-x1))^2-x1-x2
-      
-      uint256 dy; // Accumulates denominator from y3 calculation
-      // y3=((y2-y1)/(x2-x1))(x1-x3)-y1
-      (y3, dy) = projectiveSub(x1, z1, x3, dx); // x1-x3
-      (y3, dy) = projectiveMul(y3, dy, lx, lz); // ((y2-y1)/(x2-x1))(x1-x3)
-      (y3, dy) = projectiveSub(y3, dy, y1, z1); // ((y2-y1)/(x2-x1))(x1-x3)-y1
-      
+
+      // (lx, lz) = (qy-py)/(qx-px), i.e., gradient of secant line.
+      uint256 lx = addmod(qy, FIELD_SIZE - py, FIELD_SIZE);
+      uint256 lz = addmod(qx, FIELD_SIZE - px, FIELD_SIZE);
+
+      uint256 dx; // Accumulates denominator from sx calculation
+      // sx=((qy-py)/(qx-px))^2-px-qx
+      (sx, dx) = projectiveMul(lx, lz, lx, lz); // ((qy-py)/(qx-px))^2
+      (sx, dx) = projectiveSub(sx, dx, px, z1); // ((qy-py)/(qx-px))^2-px
+      (sx, dx) = projectiveSub(sx, dx, qx, z2); // ((qy-py)/(qx-px))^2-px-qx
+
+      uint256 dy; // Accumulates denominator from sy calculation
+      // sy=((qy-py)/(qx-px))(px-sx)-py
+      (sy, dy) = projectiveSub(px, z1, sx, dx); // px-sx
+      (sy, dy) = projectiveMul(sy, dy, lx, lz); // ((qy-py)/(qx-px))(px-sx)
+      (sy, dy) = projectiveSub(sy, dy, py, z1); // ((qy-py)/(qx-px))(px-sx)-py
+
       if (dx != dy) { // Cross-multiply to put everything over a common denominator
-        x3 = mulmod(x3, dy, FIELD_SIZE);
-        y3 = mulmod(y3, dx, FIELD_SIZE);
-        z3 = mulmod(dx, dy, FIELD_SIZE);
-      } else {
-        z3 = dx;
+        sx = mulmod(sx, dy, FIELD_SIZE);
+        sy = mulmod(sy, dx, FIELD_SIZE);
+        sz = mulmod(dx, dy, FIELD_SIZE);
+      } else { // Already over a common denominator, use that for z ordinate
+        sz = dx;
       }
     }
 
