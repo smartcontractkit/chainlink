@@ -140,10 +140,10 @@ contract VRF {
   uint256 constant public MULTIPLICATIVE_GROUP_ORDER = FIELD_SIZE - 1;
   uint256 constant public WORD_LENGTH_BYTES = 0x20;
 
-  // (base^exponent) % modulus
+  // (base^exponent) % FIELD_SIZE
   // Cribbed from https://medium.com/@rbkhmrcr/precompiles-solidity-e5d29bd428c4
-  function bigModExp(uint256 base, uint256 exponent, uint256 modulus)
     public view returns (uint256 exponentiation) {
+  function bigModExp(uint256 base, uint256 exponent)
       uint256 callResult;
       uint256[6] memory bigModExpContractInputs;
       bigModExpContractInputs[0] = WORD_LENGTH_BYTES;  // Length of base
@@ -151,7 +151,7 @@ contract VRF {
       bigModExpContractInputs[2] = WORD_LENGTH_BYTES;  // Length of modulus
       bigModExpContractInputs[3] = base;
       bigModExpContractInputs[4] = exponent;
-      bigModExpContractInputs[5] = modulus;
+      bigModExpContractInputs[5] = FIELD_SIZE;
       uint256[1] memory output;
       assembly { // solhint-disable-line no-inline-assembly
       callResult := staticcall(
@@ -173,7 +173,7 @@ contract VRF {
 
   // Computes a s.t. a^2 = x in the field. Assumes a exists
   function squareRoot(uint256 x) public view returns (uint256) {
-    return bigModExp(x, SQRT_POWER, FIELD_SIZE);
+    return bigModExp(x, SQRT_POWER);
   }
 
   function ySquared(uint256 x) public view returns (uint256) {
