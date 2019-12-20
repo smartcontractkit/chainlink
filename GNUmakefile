@@ -56,12 +56,13 @@ install-chainlink: chainlink ## Install the chainlink binary.
 	cp $< $(GOBIN)/chainlink
 
 chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
+	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/eth" ## embed contracts in .go file
 	go build $(GOFLAGS) -o $@ ./core/
 
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui run build
-	CGO_ENABLED=0 go run operator_ui/main.go "${CURDIR}/core/services"
+	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
 
 .PHONY: docker
 docker: ## Build the docker image.
