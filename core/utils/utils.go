@@ -68,6 +68,23 @@ func Uint64ToHex(i uint64) string {
 	return fmt.Sprintf("0x%x", i)
 }
 
+var maxUint256 = big.NewInt(0).Sub( // 2**256-1
+	big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0)),
+	big.NewInt(1),
+)
+
+// Uint256ToBytes(x) is x represented as the bytes of a uint256
+func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
+	if x.Cmp(maxUint256) > 0 {
+		return nil, fmt.Errorf("too large to convert to uint256")
+	}
+	uint256 = common.LeftPadBytes(x.Bytes(), EVMWordByteLen)
+	if x.Cmp(big.NewInt(0).SetBytes(uint256)) != 0 {
+		panic("failed to round-trip uint256 back to source big.Int")
+	}
+	return uint256, err
+}
+
 // ISO8601UTC formats given time to ISO8601.
 func ISO8601UTC(t time.Time) string {
 	return logger.ISO8601UTC(t)
@@ -468,4 +485,37 @@ func FileContents(path string) (string, error) {
 // JustError takes a tuple and returns the last entry, the error.
 func JustError(_ interface{}, err error) error {
 	return err
+}
+
+var zero = big.NewInt(0)
+
+// CheckUint256(n) returns an error if n is out of bounds for a uint256
+func CheckUint256(n *big.Int) error {
+	if n.Cmp(zero) < 0 || n.Cmp(maxUint256) >= 0 {
+		return fmt.Errorf("number out of range for uint256")
+	}
+	return nil
+}
+
+// HexToUint256 returns the uint256 represented by s, or an error if it doesn't
+// represent one.
+func HexToUint256(s string) (*big.Int, error) {
+	rawNum, err := hexutil.Decode(s)
+	if err != nil {
+		return nil, errors.Wrapf(err, "while parsing %s as hex: ", s)
+	}
+	rv := big.NewInt(0).SetBytes(rawNum) // can't be negative number
+	if err := CheckUint256(rv); err != nil {
+		return nil, err
+	}
+	return rv, nil
+}
+
+// Uint256ToHex returns the hex representation of n, or error if out of bounds
+func Uint256ToHex(n *big.Int) (string, error) {
+	if err := CheckUint256(n); err != nil {
+		return "", err
+	}
+	rv := hex.EncodeToString(n.Bytes())
+	return "0x" + strings.Repeat("0", 64-len(rv)) + rv, nil
 }
