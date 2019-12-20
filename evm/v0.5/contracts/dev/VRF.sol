@@ -181,6 +181,9 @@ contract VRF {
     uint256 xCubed = mulmod(x, mulmod(x, x, FIELD_SIZE), FIELD_SIZE);
     return addmod(xCubed, 7, FIELD_SIZE);
   }
+
+  function isOnCurve(uint256[2] memory p) internal pure returns (bool) {
+    return ySquared(p[0]) == mulmod(p[1], p[1], FIELD_SIZE);
   }
 
   // Hash x uniformly into {0, ..., q-1}.
@@ -400,9 +403,10 @@ contract VRF {
     uint256 seed, address uWitness, uint256[2] memory cGammaWitness,
     uint256[2] memory sHashWitness, uint256 zInv)
     public view returns (bool) {
-      // NB: Curve operations already check that (pkX, pkY), (gammaX, gammaY)
-      // are valid curve points. No need to do that explicitly.
-      //
+      require(isOnCurve(pk), "public key is not on curve");
+      require(isOnCurve(gamma), "gamma is not on curve");
+      require(isOnCurve(cGammaWitness), "cGammaWitness is not on curve");
+      require(isOnCurve(sHashWitness), "sHashWitness is not on curve");
       // Step 4. of IETF draft section 5.3 (pk corresponds to 5.3's y, and here
       // we use the hash of u instead of u itself.)
       require(
