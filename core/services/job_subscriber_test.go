@@ -11,6 +11,7 @@ import (
 	"chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,9 +24,43 @@ func TestJobSubscriber_OnNewHead(t *testing.T) {
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 
-	runManager.On("ResumeAllConfirming", big.NewInt(1337)).Return(nil)
+	resumeJobChannel := make(chan struct{})
 
+	runManager.On("ResumeAllConfirming", big.NewInt(1337)).
+		Return(nil).
+		Run(func(mock.Arguments) {
+			resumeJobChannel <- struct{}{}
+		})
 	jobSubscriber.OnNewHead(cltest.Head(1337))
+
+	// JobSubscriber on new head channel is blocked
+	runManager.On("ResumeAllConfirming", big.NewInt(1338)).
+		Return(nil).
+		Run(func(mock.Arguments) {
+			resumeJobChannel <- struct{}{}
+		})
+	jobSubscriber.OnNewHead(cltest.Head(1338))
+
+	// This head should get dropped
+	jobSubscriber.OnNewHead(cltest.Head(1339))
+
+	// Unblock the channel
+	cltest.CallbackOrTimeout(t, "ResumeAllConfirming", func() {
+		<-resumeJobChannel
+		<-resumeJobChannel
+	})
+
+	// Make sure after dropping a head (because of congestion) that it resumes again
+	runManager.On("ResumeAllConfirming", big.NewInt(1340)).
+		Return(nil).
+		Run(func(mock.Arguments) {
+			resumeJobChannel <- struct{}{}
+		})
+	jobSubscriber.OnNewHead(cltest.Head(1340))
+
+	cltest.CallbackOrTimeout(t, "ResumeAllConfirming #2", func() {
+		<-resumeJobChannel
+	})
 
 	runManager.AssertExpectations(t)
 }
