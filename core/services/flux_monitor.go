@@ -207,7 +207,7 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 		return nil, err
 	}
 
-	return NewPollingDeviationChecker(initr, runManager, fetcher, 1*time.Second)
+	return NewPollingDeviationChecker(initr, runManager, fetcher, 1*time.Minute)
 }
 
 // DeviationChecker encapsulate methods needed to initialize and check prices
