@@ -30,7 +30,7 @@ contract Owned {
    * pending.
    */
   function transferOwnership(address _to)
-    public
+    external
     onlyOwner()
   {
     pendingOwner = _to;
@@ -42,7 +42,7 @@ contract Owned {
    * @dev Allows an ownership transfer to be completed by the recipient.
    */
   function acceptOwnership()
-    public
+    external
   {
     require(msg.sender == pendingOwner, "Must be requested to accept ownership");
 
@@ -57,7 +57,7 @@ contract Owned {
    * @dev Renounces ownership so that no one owns the contract.
    */
   function renounceOwnership()
-    public
+    external
     onlyOwner()
   {
     emit OwnershipRenounced(msg.sender);
