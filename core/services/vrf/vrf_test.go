@@ -91,7 +91,7 @@ func TestVRF_GenerateProof(t *testing.T) {
 	seed := one
 	nonce := one
 	// Can't test c & s: They vary from run to run.
-	proof, err := GenerateProof(secretKeyHaHaNeverDoThis, seed, nonce)
+	proof, err := generateProofWithNonce(secretKeyHaHaNeverDoThis, seed, nonce)
 	require.NoError(t, err)
 	publicKey := rcurve.Point().Mul(
 		secp256k1.IntToScalar(secretKeyHaHaNeverDoThis), Generator)

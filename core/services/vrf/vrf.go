@@ -303,12 +303,8 @@ func (proof *Proof) Verify() (bool, error) {
 		nil
 }
 
-// GenerateProof returns gamma, plus proof that gamma was constructed from seed
-// as mandated from the given secretKey, with public key secretKey*Generator
-// Proof is constructed using nonce as the ephemeral key. If provided, it must
-// be treated as key material (cryptographically-securely randomly generated,
-// kept confidential or just forgotten.) If it's nil, it will be generated here.
-func GenerateProof(secretKey, seed, nonce *big.Int) (*Proof, error) {
+// generateProofWithNonce allows external nonce generation for testing purposes
+func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 	if !(secp256k1.RepresentsScalar(secretKey) && seed.BitLen() <= 256) {
 		return nil, fmt.Errorf("badly-formatted key or seed")
 	}
@@ -318,12 +314,6 @@ func GenerateProof(secretKey, seed, nonce *big.Int) (*Proof, error) {
 		return &Proof{}, errors.Wrap(err, "vrf.makeProof#HashToCurve")
 	}
 	gamma := rcurve.Point().Mul(secp256k1.IntToScalar(secretKey), h)
-	if nonce == nil {
-		nonce, err = rand.Int(rand.Reader, Order)
-		if err != nil {
-			return &Proof{}, errors.Wrap(err, "vrf.makeProof#rand.Int")
-		}
-	}
 	sm := secp256k1.IntToScalar(nonce)
 	u := rcurve.Point().Mul(sm, Generator)
 	uWitness, err := secp256k1.EthereumAddress(u)
@@ -332,8 +322,10 @@ func GenerateProof(secretKey, seed, nonce *big.Int) (*Proof, error) {
 	}
 	v := rcurve.Point().Mul(sm, h)
 	c := ScalarFromCurvePoints(h, publicKey, gamma, uWitness, v)
-	// s = (m - c*secretKey) % Order
-	s := mod(sub(nonce, mul(c, secretKey)), Order)
+	s := mod(sub(nonce, mul(c, secretKey)), Order) // (m - c*secretKey) % Order
+	if err := checkCGammaNotEqualToSHash(c, gamma, s, h); err != nil {
+		return nil, err
+	}
 	outputHash, err := utils.Keccak256(secp256k1.LongMarshal(gamma))
 	if err != nil {
 		panic("failed to hash gamma")
@@ -351,4 +343,24 @@ func GenerateProof(secretKey, seed, nonce *big.Int) (*Proof, error) {
 		panic("constructed invalid proof")
 	}
 	return &rv, nil
+}
+
+// GenerateProof returns gamma, plus proof that gamma was constructed from seed
+// as mandated from the given secretKey, with public key secretKey*Generator
+//
+// secretKey and seed must be less than secp256k1 group order. (Without this
+// constraint on the seed, the samples and the possible public keys would
+// deviate very slightly from uniform distribution.)
+func GenerateProof(secretKey, seed *big.Int) (*Proof, error) {
+	if secretKey.Cmp(zero) == -1 || seed.Cmp(zero) == -1 {
+		return nil, fmt.Errorf("seed and/or secret key must be non-negative")
+	}
+	if secretKey.Cmp(Order) != -1 || seed.Cmp(Order) != -1 {
+		return nil, fmt.Errorf("seed and/or secret key must be less than group order")
+	}
+	nonce, err := rand.Int(rand.Reader, Order)
+	if err != nil {
+		return nil, err
+	}
+	return generateProofWithNonce(secretKey, seed, nonce)
 }
