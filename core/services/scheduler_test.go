@@ -166,7 +166,7 @@ func TestOneTime_AddJob(t *testing.T) {
 	}, 3*time.Second)
 
 	// This should block because if OneTime works it won't listen on the channel again
-	go clock.Trigger()
+	go clock.TriggerWithoutTimeout()
 
 	// Sleep for some time to make sure another call isn't made
 	time.Sleep(1 * time.Second)
