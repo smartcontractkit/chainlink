@@ -1,116 +1,81 @@
-import React, { useEffect, useRef, useState } from 'react'
-import NetworkGraphD3 from './NetworkGraph.d3'
+import React, { useEffect, useState } from 'react'
+import Tooltip from './Tooltip'
+import Oracle from './Oracle'
+import Contract from './Contract'
+import Line from './Line'
+import SideDrawer from './SideDrawer'
 
-import NodeDetailsModal from './NodeDetailsModal'
-import ContractDetailsModal from './ContractDetailsModal'
+const getPositions = (width, height, oracles) => {
+  return oracles.map((_, i) => {
+    const angle = (i / (oracles.length / 2)) * Math.PI
+    const x = (20 - height / 2) * Math.cos(angle) + width / 2
+    const y = (20 - height / 2) * Math.sin(angle) + height / 2
+    return { x, y }
+  })
+}
 
-const NetworkGraph = ({
-  networkGraphNodes,
-  networkGraphState,
-  options,
-  pendingAnswerId,
-  fetchJobId,
+const AggregationGraph = ({
+  oraclesData,
+  currentAnswer,
   updateHeight,
+  options,
+  fetchJobId,
 }) => {
-  const [nodeModalVisible, setNodeModalVisile] = useState(false)
-  const [nodeModalData, setNodeModalData] = useState()
-  const [nodeModalJobId, setNodeModalJobId] = useState()
-  const [contractModalVisible, setContractModalVisile] = useState(false)
-  const [contractModalData, setContractModalData] = useState()
-
-  const graph = useRef()
+  const [oracles, setOracles] = useState([])
+  const [positions, setPositions] = useState([])
+  const [svgSize] = useState({ width: 1200, height: 600 })
 
   useEffect(() => {
-    graph.current = new NetworkGraphD3(options)
-    graph.current.onNodeClick = showNodeInfo
-    graph.current.onContractClick = showContractInfo
-    graph.current.build()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    setPositions(getPositions(svgSize.width, svgSize.height, oraclesData))
+  }, [oraclesData, svgSize.width, svgSize.height])
 
   useEffect(() => {
-    if (networkGraphNodes) {
-      graph.current.updateNodes(networkGraphNodes)
-    }
-  }, [networkGraphNodes])
-
-  useEffect(() => {
-    if (networkGraphState) {
-      graph.current.updateState(networkGraphState, pendingAnswerId)
-    }
-  }, [networkGraphState, pendingAnswerId])
-
-  async function showNodeInfo(node) {
-    setNodeModalData(node)
-    setNodeModalVisile(true)
-
-    const jobId = await fetchJobId(node.address)
-    setNodeModalJobId(jobId)
-  }
-
-  const closeNodeInfo = () => {
-    setNodeModalVisile(false)
-    setNodeModalData({})
-    setNodeModalJobId(null)
-  }
-
-  function showContractInfo(contract) {
-    setContractModalData(contract)
-    setContractModalVisile(true)
-  }
-
-  const closeContractInfo = () => {
-    setContractModalVisile(false)
-    setContractModalData({})
-  }
+    setOracles(oraclesData)
+  }, [oraclesData])
 
   return (
-    <>
-      <div className="network-graph">
-        <svg className="network-graph__svg">
-          <g className="network-graph__links"></g>
-          <g className="network-graph__nodes"></g>
-        </svg>
+    <div className="vis__wrapper">
+      <Tooltip options={options} />
+      <svg
+        viewBox={`0 0 ${svgSize.width} ${svgSize.height}`}
+        width={svgSize.width}
+        height={svgSize.height}
+        preserveAspectRatio="xMidYMid meet"
+      >
+        {oracles.map((o, i) => (
+          <Line
+            key={o.id}
+            data={oraclesData[i]}
+            position={{
+              x1: svgSize.width / 2,
+              y1: svgSize.height / 2,
+              x2: positions[i].x,
+              y2: positions[i].y,
+            }}
+          />
+        ))}
 
-        <div className="network-graph__tooltip--oracle">
-          <div className="type">Oracle</div>
-          <div className="oracle">
-            <div className="name"></div>
-            <div className="price"></div>
-          </div>
-          <div className="details">
-            <div className="date"></div>
-            <div className="block"></div>
-            <div className="gas"></div>
-          </div>
-        </div>
+        {oracles.map((o, i) => (
+          <Oracle
+            key={o.id}
+            index={i}
+            position={positions[i]}
+            data={oraclesData[i]}
+            options={options}
+          />
+        ))}
 
-        <div className="network-graph__tooltip--contract">
-          <div className="type">Contract</div>
-          <div className="contract">
-            <div className="name">Aggregation Contract</div>
-            <div className="price"></div>
-          </div>
-        </div>
-      </div>
-      <NodeDetailsModal
-        onClose={closeNodeInfo}
-        visible={nodeModalVisible}
-        data={nodeModalData}
-        pendingAnswerId={pendingAnswerId}
-        jobId={nodeModalJobId}
-        options={options}
-      />
-      <ContractDetailsModal
-        updateHeight={updateHeight}
-        onClose={closeContractInfo}
-        visible={contractModalVisible}
-        data={contractModalData}
-        pendingAnswerId={pendingAnswerId}
-        options={options}
-      />
-    </>
+        <Contract
+          currentAnswer={currentAnswer}
+          updateHeight={updateHeight}
+          position={{ x: svgSize.width / 2, y: svgSize.height / 2 }}
+          options={options}
+        />
+      </svg>
+
+      <SideDrawer options={options} fetchJobId={fetchJobId} />
+    </div>
   )
 }
 
-export default NetworkGraph
+export default AggregationGraph
