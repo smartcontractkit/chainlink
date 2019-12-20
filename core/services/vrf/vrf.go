@@ -14,14 +14,16 @@
 // -----
 //
 // A secret key sk should be securely sampled uniformly from {0, ..., Order}.
-// The public key associated with it can be calculated from it by XXX
+// The public key associated with it can be calculated from it by
+//
+//   secp256k1.Secp256k1{}.Point().Mul(secureKey, Generator)
 //
 // To generate random output from a big.Int seed, pass sk and the seed to
 // GenerateProof, and use the Output field of the returned Proof object.
 //
-// To verify a Proof object p, run p.Verify(), or pass its fields to the
-// corresponding arguments of isValidVRFOutput on the VRF solidity contract, to
-// verify it on-chain.
+// To verify a Proof object p, run p.Verify(); or to verify it on-chain pass
+// p.MarshalForSolidityVerifier() to randomValueFromVRFProof on the VRF solidity
+// contract.
 package vrf
 
 import (
