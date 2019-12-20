@@ -219,8 +219,11 @@ contract VRF {
 
   // Returns true iff q==scalar*x, with cryptographically high probability.
   // Based on Vitalik Buterin's idea in ethresear.ch post mentioned below.
+  //
+  // scalar must be non-zero
   function ecmulVerify(uint256[2] memory x, uint256 scalar, uint256[2] memory q)
     public pure returns(bool) {
+      require(scalar != 0); // Rules out an ecrecover failure case
       // This ecrecover returns the address associated with c*R. See
       // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
       // The point corresponding to the address returned by ecrecover(0,v,r,s=c*r)
@@ -336,7 +339,7 @@ contract VRF {
   function verifyLinearCombinationWithGenerator(
     uint256 c, uint256[2] memory p, uint256 s, address lcWitness)
     public pure returns (bool) {
-      // ecrecover returns 0x0 in certain failure modes. Ensure witness differs.
+      // Rule out ecrecover failure modes which return address 0.
       require(lcWitness != address(0), "bad witness");
       // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
       // The point corresponding to the address returned by
