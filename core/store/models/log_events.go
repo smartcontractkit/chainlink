@@ -149,7 +149,6 @@ type LogRequest interface {
 // InitiatorLogEvent encapsulates all information as a result of a received log from an
 // InitiatorSubscription.
 type InitiatorLogEvent struct {
-	JobSpecID ID
 	Log       eth.Log
 	Initiator Initiator
 }
@@ -176,7 +175,7 @@ func (le InitiatorLogEvent) GetLog() eth.Log {
 
 // GetJobSpecID returns the associated JobSpecID
 func (le InitiatorLogEvent) GetJobSpecID() *ID {
-	return &le.JobSpecID
+	return le.Initiator.JobSpecID
 }
 
 // GetInitiator returns the initiator.
@@ -188,7 +187,7 @@ func (le InitiatorLogEvent) GetInitiator() Initiator {
 // formatting in logs (trace statements, not ethereum events).
 func (le InitiatorLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
-		"job", le.JobSpecID.String(),
+		"job", le.Initiator.JobSpecID.String(),
 		"log", le.Log.BlockNumber,
 		"initiator", le.Initiator,
 	}
@@ -263,11 +262,11 @@ type RunLogEvent struct {
 // Validate returns whether or not the contained log has a properly encoded
 // job id.
 func (le RunLogEvent) Validate() bool {
-	jobSpecID := &le.JobSpecID
+	jobSpecID := le.Initiator.JobSpecID
 	topic := le.Log.Topics[RequestLogTopicJobID]
 
 	if IDToTopic(jobSpecID) != topic && IDToHexTopic(jobSpecID) != topic {
-		logger.Errorw("Run Log didn't have matching job ID", le.ForLogger("id", le.JobSpecID.String())...)
+		logger.Errorw("Run Log didn't have matching job ID", le.ForLogger("id", jobSpecID.String())...)
 		return false
 	}
 	return true
