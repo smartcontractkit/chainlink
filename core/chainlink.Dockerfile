@@ -17,6 +17,9 @@ COPY styleguide/package.json ./styleguide/
 COPY tools/json-api-client/package.json ./tools/json-api-client/
 COPY tools/local-storage/package.json ./tools/local-storage/
 COPY tools/redux/package.json ./tools/redux/
+COPY evm/v0.5/package.json ./evm/v0.5/
+COPY evm/package.json ./evm/
+
 RUN make yarndep
 
 # Do go mod download in a cacheable step
