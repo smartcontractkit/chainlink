@@ -286,7 +286,7 @@ func TestRunManager_Create(t *testing.T) {
 	eth := cltest.MockEthOnStore(t, store)
 	eth.Register("eth_chainId", store.Config.ChainID())
 
-	app.Start()
+	app.StartAndConnect()
 
 	job := cltest.NewJobWithRunLogInitiator()
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
@@ -312,7 +312,7 @@ func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	mocketh := cltest.MockEthOnStore(t, store)
 	mocketh.Register("eth_chainId", store.Config.ChainID())
 
-	app.Start()
+	app.StartAndConnect()
 
 	job := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
@@ -615,7 +615,7 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 			mocketh.Context("app.Start()", func(meth *cltest.EthMock) {
 				meth.Register("eth_chainId", store.Config.ChainID())
 			})
-			app.Start()
+			app.StartAndConnect()
 
 			bt := &models.BridgeType{
 				Name:                   models.MustNewTaskType("expensiveBridge"),
