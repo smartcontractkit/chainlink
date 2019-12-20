@@ -280,6 +280,10 @@ func (proof *Proof) Verify() (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	err = checkCGammaNotEqualToSHash(proof.C, proof.Gamma, proof.S, h)
+	if err != nil {
+		return false, fmt.Errorf("c*γ = s*hash (disallowed in solidity verifier)")
+	}
 	// publicKey = secretKey*Generator. See GenerateProof for u, v, m, s
 	// c*secretKey*Generator + (m - c*secretKey)*Generator = m*Generator = u
 	uPrime := linearCombination(proof.C, proof.PublicKey, proof.S, Generator)
