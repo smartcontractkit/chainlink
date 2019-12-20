@@ -415,6 +415,12 @@ func (t *TriggerClock) Trigger() {
 	}
 }
 
+// TriggerWithoutTimeout is a special case where we know the trigger might
+// block but don't care
+func (t *TriggerClock) TriggerWithoutTimeout() {
+	t.triggers <- time.Now()
+}
+
 // Now returns the current local time
 func (t TriggerClock) Now() time.Time {
 	return time.Now()
