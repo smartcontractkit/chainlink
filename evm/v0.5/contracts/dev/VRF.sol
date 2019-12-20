@@ -134,10 +134,6 @@ contract VRF {
   uint256 constant public FIELD_SIZE =
     // solium-disable-next-line indentation
     0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
-
-  // solium-disable zeppelin/no-arithmetic-operations
-  uint256 constant public MINUS_ONE = FIELD_SIZE - 1;
-  uint256 constant public MULTIPLICATIVE_GROUP_ORDER = FIELD_SIZE - 1;
   uint256 constant public WORD_LENGTH_BYTES = 0x20;
 
   // (base^exponent) % FIELD_SIZE
