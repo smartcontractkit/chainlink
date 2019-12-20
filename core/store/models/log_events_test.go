@@ -72,6 +72,30 @@ func TestParseRunLog(t *testing.T) {
 	}
 }
 
+func TestParseNewRoundLog(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		log  eth.Log
+		want *big.Int
+	}{
+		{
+			name: "round 1",
+			log:  cltest.LogFromFixture(t, "testdata/newRoundLog.json"),
+			want: big.NewInt(1),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			output, err := models.ParseNewRoundLog(test.log)
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, output)
+		})
+	}
+}
+
 func TestEthLogEvent_JSON(t *testing.T) {
 	t.Parallel()
 
