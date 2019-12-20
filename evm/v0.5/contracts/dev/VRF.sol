@@ -384,8 +384,8 @@ contract VRF {
     uint256[2] memory hash, uint256[2] memory pk, uint256[2] memory gamma,
     address uWitness, uint256[2] memory v)
     public pure returns (uint256 s) {
-      bytes32 iHash = keccak256(abi.encodePacked(hash, pk, gamma, v, uWitness));
-      return zqHash(GROUP_ORDER, uint256(iHash));
+      return uint256(
+        keccak256(abi.encodePacked(hash, pk, gamma, v, uWitness)));
     }
 
   // True if (gamma, c, s) is a correctly constructed randomness proof from pk
