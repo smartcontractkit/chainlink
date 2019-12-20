@@ -7,6 +7,7 @@ import (
 	"chainlink/core/auth"
 	"chainlink/core/services"
 	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
 
 	"github.com/gin-gonic/gin"
@@ -50,8 +51,10 @@ func (eic *ExternalInitiatorsController) Destroy(c *gin.Context) {
 		return
 	}
 
-	id := c.Param("AccessKey")
-	if err := eic.App.GetStore().DeleteExternalInitiator(id); err != nil {
+	name := c.Param("Name")
+	if exi, err := eic.App.GetStore().FindExternalInitiatorByName(name); err == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, err)
+	} else if err := eic.App.GetStore().DeleteExternalInitiator(exi.Name); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponseWithStatus(c, nil, "external initiator", http.StatusNoContent)
