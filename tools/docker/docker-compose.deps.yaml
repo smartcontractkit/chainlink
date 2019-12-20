@@ -7,12 +7,7 @@ services:
       context: .
       dockerfile: wait-postgres.Dockerfile
     command: '-h node-db -p 5432 -U postgres -d $CHAINLINK_DB_NAME --timeout=150'
-    networks:
-      - node-internal
     depends_on:
       - node-db
-networks:
-  node-internal:
-    driver: bridge
 volumes:
   node-db-data:
