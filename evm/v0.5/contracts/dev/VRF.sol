@@ -229,9 +229,9 @@ contract VRF {
       // The point corresponding to the address returned by ecrecover(0,v,r,s=c*r)
       // is (r⁻¹ mod Q) * (c*r * R - 0 * g) = c * R, where R is the point
       // specified by (v, r). See https://crypto.stackexchange.com/a/18106
-      bytes32 cTimesX0 = bytes32(mulmod(scalar, x[0], GROUP_ORDER));
+      bytes32 scalarTimesX0 = bytes32(mulmod(scalar, x[0], GROUP_ORDER));
       uint8 parity = x[1] % 2 != 0 ? 28 : 27;
-      return ecrecover(bytes32(0), parity, bytes32(x[0]), cTimesX0) ==
+      return ecrecover(bytes32(0), parity, bytes32(x[0]), scalarTimesX0) ==
         address(uint256(keccak256(abi.encodePacked(q)))); // Takes bottom 160 bits
     }
 
