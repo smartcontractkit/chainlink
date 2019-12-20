@@ -37,15 +37,32 @@ type jobSubscriber struct {
 	jobSubscriptions map[string]JobSubscription
 	jobsMutex        *sync.RWMutex
 	runManager       RunManager
+	headChannel      chan *models.Head
 }
 
 // NewJobSubscriber returns a new job subscriber.
 func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
-	return &jobSubscriber{
+	js := &jobSubscriber{
 		store:            store,
 		runManager:       runManager,
 		jobSubscriptions: map[string]JobSubscription{},
 		jobsMutex:        &sync.RWMutex{},
+		headChannel:      make(chan *models.Head, 1),
+	}
+	go js.jobLoop()
+	return js
+}
+
+// jobLoop is a long running goroutine which handles new heads
+func (js *jobSubscriber) jobLoop() {
+	for {
+		select {
+		case head := <-js.headChannel:
+			err := js.runManager.ResumeAllConfirming(head.ToInt())
+			if err != nil {
+				logger.Errorw("Failed to resume confirming tasks on new head", "error", err)
+			}
+		}
 	}
 }
 
@@ -123,8 +140,9 @@ func (js *jobSubscriber) Disconnect() {
 
 // OnNewHead resumes all pending job runs based on the new head activity.
 func (js *jobSubscriber) OnNewHead(head *models.Head) {
-	err := js.runManager.ResumeAllConfirming(head.ToInt())
-	if err != nil {
-		logger.Errorw("Failed to resume confirming tasks on new head", "error", err)
+	// Drop the head if it cannot be queued
+	select {
+	case js.headChannel <- head:
+	default:
 	}
 }
