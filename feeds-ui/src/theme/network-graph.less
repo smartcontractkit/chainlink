@@ -110,128 +110,6 @@
   }
 }
 
-.network-graph {
-  width: 1200px;
-  height: 700px;
-  margin: 0 auto;
-  position: relative;
-
-  &__node__oracle.fulfilled {
-    fill: #2d2a2b;
-    stroke: #2d2a2b;
-  }
-
-  &__node__oracle.fetching {
-    fill: #f1f1f1;
-    stroke: #8e8e8e;
-  }
-
-  &__node__oracle {
-    cursor: pointer;
-    -webkit-transition: all 250ms ease;
-    -moz-transition: all 250ms ease;
-    -o-transition: all 250ms ease;
-    transition: all 250ms ease;
-
-    &:hover {
-      fill: #2a59da;
-      stroke: #2a59da;
-    }
-  }
-
-  &__node__oracle-label {
-    &--name,
-    &--price {
-      fill: #505050;
-      font-size: 12px;
-      cursor: pointer;
-    }
-    &--name {
-      text-decoration: underline;
-    }
-  }
-
-  &__node__contract--label {
-    &--price {
-      fill: #505050;
-      font-size: 12px;
-    }
-  }
-
-  &__node__contract {
-    cursor: pointer;
-    fill: #f1f1f1;
-    stroke: #8e8e8e;
-
-    &.wait {
-      animation: dash-animation 20s infinite linear;
-      stroke-dasharray: 1, 8;
-      stroke-width: 2;
-      stroke-dashoffset: 0;
-      stroke-linecap: round;
-      stroke: #a0a0a0;
-    }
-  }
-
-  &__line--wait {
-    animation: dash-animation 20s infinite linear;
-    stroke-dasharray: 1, 8;
-    stroke-width: 2;
-    stroke-dashoffset: 0;
-    stroke-linecap: round;
-    stroke: #a0a0a0;
-  }
-
-  &__line--success {
-    stroke: #bdbdbd;
-    stroke-width: 1;
-  }
-
-  &__node-group .oracle:hover {
-    fill: #2a59da;
-    stroke: #2a59da;
-  }
-
-  &__tooltip--oracle,
-  &__tooltip--contract {
-    opacity: 0;
-    position: absolute;
-    padding: 15px 20px;
-    background: white;
-    border: 1px solid #ececec;
-    pointer-events: none;
-    min-width: 120px;
-    color: #2d2a2b;
-  }
-
-  &__tooltip--oracle .type,
-  &__tooltip--contract .type {
-    text-transform: capitalize;
-    color: #939598;
-    margin-bottom: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #bcbec0;
-    font-size: 14px;
-  }
-
-  &__tooltip--oracle .oracle,
-  &__tooltip--oracle .contract {
-    margin: 10px 0;
-    font-size: 16px;
-    line-height: 1.5;
-  }
-
-  &__tooltip--oracle .details {
-    margin: 10px 0;
-    font-size: 12px;
-    line-height: 1.5;
-  }
-
-  &__node-group--contract {
-    cursor: pointer;
-  }
-}
-
 .network-graph__node-details {
   &__item {
     margin-bottom: 20px;
@@ -365,6 +243,96 @@
     font-size: 16px;
     h4 {
       margin: 0;
+    }
+  }
+}
+
+.vis__wrapper {
+  width: 1200px;
+  height: 700px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.vis {
+  &__oracle {
+    fill: #f1f1f1;
+    stroke: #8e8e8e;
+    cursor: pointer;
+
+    -webkit-transition: all 250ms ease;
+    -moz-transition: all 250ms ease;
+    -o-transition: all 250ms ease;
+    transition: all 250ms ease;
+
+    &:hover {
+      fill: #2a59da;
+      stroke: #2a59da;
+    }
+
+    &--pending {
+      fill: #f1f1f1;
+      stroke: #8e8e8e;
+    }
+
+    &--fulfilled {
+      fill: #2d2a2b;
+      stroke: #2d2a2b;
+    }
+  }
+
+  &__oracle-label {
+    fill: #505050;
+    font-size: 12px;
+  }
+
+  &__tooltip {
+    position: absolute;
+    padding: 15px 20px;
+    background: white;
+    border: 1px solid #ececec;
+    pointer-events: none;
+    min-width: 120px;
+    color: #2d2a2b;
+
+    .type {
+      text-transform: capitalize;
+      color: #939598;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #bcbec0;
+      font-size: 14px;
+    }
+
+    .data {
+      margin: 10px 0;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .meta {
+      margin: 10px 0;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+  }
+
+  &__contract {
+    cursor: pointer;
+    fill: #f1f1f1;
+    stroke: #8e8e8e;
+  }
+
+  &__line {
+    stroke: #bdbdbd;
+    stroke-width: 1;
+    &--pending {
+      animation: dash-animation 20s infinite linear;
+      stroke-dasharray: 1, 8;
+      stroke-width: 2;
+      stroke-dashoffset: 0;
+      stroke-linecap: round;
+      stroke: #a0a0a0;
     }
   }
 }
