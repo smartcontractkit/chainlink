@@ -58,6 +58,9 @@ var (
 	// OracleFulfillmentFunctionID20190128withoutCast is the function selector for fulfilling Ethereum requests,
 	// as updated on 2019-01-28, removing the cast to uint256 for the requestId.
 	OracleFulfillmentFunctionID20190128withoutCast = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
+	// AggregatorNewRoundLogTopic20191220 is the NewRound filter topic for
+	// the PrepaidAggregator as of Dec. 20th 2019.
+	AggregatorNewRoundLogTopic20191220 = utils.MustHash("NewRound(uint256,address)")
 )
 
 type logRequestParser interface {
@@ -115,6 +118,10 @@ func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error
 	case InitiatorServiceAgreementExecutionLog:
 		topics := []common.Hash{ServiceAgreementExecutionLogTopic}
 		q.Topics = TopicFiltersForRunLog(topics, i.JobSpecID)
+		return q, nil
+
+	case InitiatorFluxMonitor:
+		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220}}
 		return q, nil
 
 	default:
