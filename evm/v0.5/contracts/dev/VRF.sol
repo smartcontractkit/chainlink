@@ -4,138 +4,124 @@ pragma solidity 0.5.0;
 //       XXX: Do not use in production until this code has been audited.
 ////////////////////////////////////////////////////////////////////////////////
 
-/** ***********************************************************************
-    @notice On-chain verification of verifiable-random-function (VRF) 
-    @notice proofs as described in
-    @notice https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.3
-    @notice and https://eprint.iacr.org/2017/099.pdf (security proofs) 
+/** ****************************************************************************
+  * @notice On-chain verification of verifiable-random-function (VRF) proofs as
+  * @notice described in
+  * @notice https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.3 and
+  * @notice https://eprint.iacr.org/2017/099.pdf (security proofs)
 
-    @dev Links into to the above documents are given below for convenience,
-    @dev but in case they die here are the bibliographic references:
+  * @dev Bibliographic references:
 
-    @dev Goldberg, et al., "Verifiable Random Functions (VRFs)", Internet
-    @dev Draft draft-irtf-cfrg-vrf-05, IETF, Aug 11 2019,
-    @dev https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05
+  * @dev Goldberg, et al., "Verifiable Random Functions (VRFs)", Internet Draft
+  * @dev draft-irtf-cfrg-vrf-05, IETF, Aug 11 2019,
+  * @dev https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05
 
-    @dev Papadopoulos, et al., "Making NSEC5 Practical for DNSSEC",
-    @dev Cryptology ePrint Archive, Report 2017/099, 2017
-    ***********************************************************************
-    @dev PURPOSE
+  * @dev Papadopoulos, et al., "Making NSEC5 Practical for DNSSEC", Cryptology
+  * @dev ePrint Archive, Report 2017/099, 2017
+  * ****************************************************************************
+  * @dev USAGE
 
-    @dev Reggie the Random Oracle (not his real job) wants to provide
-    @dev randomness to Vera the verifier in such a way that Vera can be
-    @dev sure he's not making his output up to suit himself. Reggie
-    @dev provides Vera a public key to which he knows the secret key. Each
-    @dev time Vera provides a seed to Reggie, he gives back a value which
-    @dev is computed completely deterministically from the seed and the
-    @dev secret key.
+  * @dev The main entry point is randomValueFromVRFProof. See its docstring.
+  * ****************************************************************************
+  * @dev PURPOSE
 
-    @dev Reggie provides a proof by which Vera can verify that the output
-    @dev was correctly computed once Reggie tells it to her, but without
-    @dev that proof, the output is indistinguishable to her from a uniform
-    @dev random sample from the output space.
+  * @dev Reggie the Random Oracle (not his real job) wants to provide randomness
+  * @dev to Vera the verifier in such a way that Vera can be sure he's not
+  * @dev making his output up to suit himself. Reggie provides Vera a public key
+  * @dev to which he knows the secret key. Each time Vera provides a seed to
+  * @dev Reggie, he gives back a value which is computed completely
+  * @dev deterministically from the seed and the secret key.
 
-    @dev The purpose of this contract is to perform that verification.
-    ***********************************************************************
-    @dev USAGE
+  * @dev Reggie provides a proof by which Vera can verify that the output was
+  * @dev correctly computed once Reggie tells it to her, but without that proof,
+  * @dev the output is indistinguishable to her from a uniform random sample
+  * @dev from the output space.
 
-    @dev The main entry point is isValidVRFOutput. See its docstring.
-    ***********************************************************************
-    @dev DESIGN NOTES
+  * @dev The purpose of this contract is to perform that verification.
+  * ****************************************************************************
+  * @dev DESIGN NOTES
 
-    @dev The VRF algorithm verified here satisfies the full unqiqueness,
-    @dev full collision resistance, and full pseudorandomness security
-    @dev properties. See "SECURITY PROPERTIES" below, and
-    @dev https://tools.ietf.org/html/draft-goldbe-vrf-01#section-3
+  * @dev The VRF algorithm verified here satisfies the full unqiqueness, full
+  * @dev collision resistance, and full pseudorandomness security properties.
+  * @dev See "SECURITY PROPERTIES" below, and
+  * @dev https://tools.ietf.org/html/draft-goldbe-vrf-01#section-3
 
-    @dev An elliptic curve point is generally represented in the solidity
-    @dev code as a uint256[2], corresponding to its affine coordinates in
-    @dev GF(FIELD_SIZE).
+  * @dev An elliptic curve point is generally represented in the solidity code
+  * @dev as a uint256[2], corresponding to its affine coordinates in
+  * @dev GF(FIELD_SIZE).
 
-    @dev For the sake of efficiency, this implementation deviates from the
-    @dev spec in some minor ways:
+  * @dev For the sake of efficiency, this implementation deviates from the spec
+  * @dev in some minor ways:
 
-    @dev - Keccak hash rather than SHA256, as recommended in
-    @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.5 . 
-    @dev   This is because keccak costs much less gas on the EVM. The 
-    @dev   impact onsecurity should be minor.
+  * @dev - Keccak hash rather than the SHA256 hash recommended in
+  * @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.5 . This is
+  * @dev   because keccak costs much less gas on the EVM. The impact onsecurity
+  * @dev   should be minor.
 
-    @dev - Secp256k1 curve instead of P-256 or ED25519 as recommended in
-    @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.5 .
-    @dev   This is because it's much cheaper to abuse ECRECOVER for the
-    @dev   most expensive ECC arithmetic, when computing in the EVM.
+  * @dev - Secp256k1 curve instead of the P-256 or ED25519 curves recommended in
+  * @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.5 . This is
+  * @dev   because it's much cheaper to abuse ECRECOVER for the most expensive
+  * @dev   ECC arithmetic, when computing in the EVM.
 
-    @dev - scalarFromCurve recursively hashes until it finds an output
-    @dev   which is less than the group order when represented as a 
-    @dev   uint256. (See function zqHash.) This results in uniform sampling
-    @dev   over the the possible values scalarFromCurve could take. 
-    @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.2 ,
-    @dev   steps 3-5, recommends just using the first hash output as a
-    @dev   uint256, which is a slightly biased sample.
-    @dev   
+  * @dev - hashToCurve recursively hashes until it finds a curve
+  * @dev   x-ordinate. On the EVM, this is slightly more efficient than the
+  * @dev   recommendation in
+  * @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.1.1 step
+  * @dev   4 to concatenate with a nonce then hash, and rehash with the nonce
+  * @dev   updated until a valid x-ordinate is found.
 
-    @dev - hashToCurve recursively hashes until it finds a curve
-    @dev   x-ordinate. On the EVM, this is slightly more efficient than the
-    @dev   recommendation in
-    @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.1.1
-    @dev   step 4 to concatenate with a nonce then hash, and rehash with
-    @dev   the nonce updated until a valid x-ordinate is found.
+  * @dev - In the calculation of the challenge value "c", the "u" value
+  * @dev   (i.e. the value computed by Reggie as the nonce times the secp256k1
+  * @dev   generator point, see steps 4 and 7 of
+  * @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.3) is
+  * @dev   replaced by its ethereum address of the point, which is the lower 160
+  * @dev   bits of the keccak hash of the original u. This is because we only
+  * @dev   verify the calculation of u up to its address, by abusing ECRECOVER.
+  * ****************************************************************************
+  * @dev SECURITY PROPERTIES
 
-    @dev - In the calculation of the challenge value "c", the "u" value
-    @dev   (i.e. the value computed by Reggie as the nonce times the
-    @dev   secp256k1 generator point, see steps 4 and 7 of
-    @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.3) is
-    @dev   replaced by its ethereum address of the point, which is the
-    @dev   lower 160 bits of the keccak hash of the original u. This is
-    @dev   because we only verify the calculation of u up to its address,
-    @dev   by abusing ECRECOVER.
-    ****************************************************************************
-    @dev SECURITY PROPERTIES
+  * @dev Here are the security properties for this VRF:
 
-    @dev Here are the security properties for this VRF:
+  * @dev Full uniqueness: For any seed and valid VRF public key, there is
+  * @dev   exactly one VRF output which can be proved to come from that seed, in
+  * @dev   the sense that the proof will pass verifyVRFProof.
 
-    @dev Full uniqueness: For any seed and valid VRF public key, there is
-    @dev   exactly one VRF output which can be proved to come from that 
-    @dev   seed, in the sense that the proof will pass isValidVRFOutput. 
+  * @dev Full collision resistance: It's cryptographically infeasible to find
+  * @dev   two seeds with same VRF output from a fixed, valid VRF key
 
-    @dev Full collision resistance: It's cryptographically infeasible to
-    @dev   find two seeds with same VRF output from a fixed, valid VRF key
+  * @dev Full pseudorandomness: Absent the proofs that the VRF outputs are
+  * @dev   derived from a given seed, the outputs are computationally
+  * @dev   indistinguishable from randomness.
 
-    @dev Full pseudorandomness: Absent the proofs that the VRF outputs are
-    @dev   derived from a given seed, the outputs are computationally
-    @dev   indistinguishable from randomness.
+  * @dev https://eprint.iacr.org/2017/099.pdf, Appendix B contains the proofs
+  * @dev for these properties. The introduction to
+  * @dev https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5 is very
+  * @dev conservative about the security properties it claims, but is implicitly
+  * @dev stronger in its claims for the specific cipher suites described in
+  * @dev section 5.5. The reason for this is given in the "NOTE" at the bottom
+  * @dev of section 5.5, namely, to quote Appendix B:
 
-    @dev https://eprint.iacr.org/2017/099.pdf, Appendix B contains the
-    @dev proofs for these properties. The introduction to
-    @dev https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5 is
-    @dev very conservative about the security properties it claims, but is
-    @dev implicitly stronger in its claims for the specific cipher suites
-    @dev described in section 5.5. The reason for this is given in the 
-    @dev "NOTE" at the bottom of section 5.5, namely, to quote Appendix B:
+  * @dev    If the group E is fixed and trusted to have been correctly
+  * @dev    generated (i.e., E is known to have a subgroup of prime order q),
+  * @dev    and the generator g is known to be in G − {1}, then the verifier
+  * @dev    just needs to check that [VRF public key] PK ∈ E. (This is the only
+  * @dev    requirement on PK in the proof [of trusted uniqueness] above.)
 
-    @dev     If the group E is fixed and trusted to have been correctly
-    @dev     generated (i.e., E is known to have a subgroup of prime order
-    @dev     q), and the generator g is known to be in G − {1}, then the
-    @dev     verifier just needs to check that [VRF public key] PK ∈ E.
-    @dev     (This is the only requirement on PK in the proof [of trusted 
-    @dev     uniqueness] above.)
+  * @dev A similar note is on the proof for trusted collision-resistance:
 
-    @dev A similar note is on the proof for trusted collision-resistance:
+  * @dev     **Collision resistance without trusting the key**. Similarly
+  * @dev     to the case with uniqueness, our VRF can be modified the same way
+  * @dev     to attain collision resistance without needing to trust the key
+  * @dev     generation. The modifications are the same as in the case of
+  * @dev     uniqueness (to ensure that F_{SK} is uniquely defined), with the
+  * @dev     additional check that PK^f≠1 to ensure that x is not divisible by q
 
-    @dev     **Collision resistance without trusting the key**. Similarly
-    @dev     to the case with uniqueness, our VRF can be modified the same
-    @dev     way to attain collision resistance without needing to trust
-    @dev     the key generation. The modifications are the same as in the
-    @dev     case of uniqueness (to ensure that F_{SK} is uniquely 
-    @dev     defined), with the additional check that PK^f≠1 to ensure that
-    @dev     x is not divisible by q.
+  * @dev (For secp256k1, f, the cofactor of the subgroup, is 1)
 
-    @dev (For secp256k1, f, the cofactor of the subgroup, is 1)
-
-    @dev Thus, here we rely on the fact that the secp256k1 parameters are
-    @dev correct, and we can check that the VRF public key lies on
-    @dev secp256k1 and is not the generator or the zero point, so we do not
-    @dev have to trust in correct key generation.
+  * @dev Thus, here we rely on the fact that the secp256k1 parameters are
+  * @dev correct, and we can check that the VRF public key lies on secp256k1 and
+  * @dev is not the generator or the zero point, so we do not have to trust in
+  * @dev correct key generation.
 */
 contract VRF {
 
