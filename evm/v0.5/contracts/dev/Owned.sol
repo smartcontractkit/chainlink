@@ -10,12 +10,12 @@ contract Owned {
   address private pendingOwner;
 
   event OwnershipTransferRequested(
-    address indexed to,
-    address from
+    address indexed from,
+    address indexed to
   );
   event OwnershipTransfered(
-    address indexed to,
-    address from
+    address indexed from,
+    address indexed to
   );
   event OwnershipRenounced(
     address indexed by
@@ -35,7 +35,7 @@ contract Owned {
   {
     pendingOwner = _to;
 
-    emit OwnershipTransferRequested(_to, owner);
+    emit OwnershipTransferRequested(owner, _to);
   }
 
   /**
@@ -50,7 +50,7 @@ contract Owned {
     owner = msg.sender;
     pendingOwner = address(0);
 
-    emit OwnershipTransfered(msg.sender, oldOwner);
+    emit OwnershipTransfered(oldOwner, msg.sender);
   }
 
   /**
