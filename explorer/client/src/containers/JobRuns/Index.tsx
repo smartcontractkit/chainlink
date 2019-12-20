@@ -10,7 +10,7 @@ import build from 'redux-object'
 import { JobRun } from 'explorer/models'
 import { fetchJobRuns } from '../../actions/jobRuns'
 import List from '../../components/JobRuns/List'
-import { ChangePageEvent } from '../../components/Table'
+import { ChangePageEvent } from '@chainlink/styleguide'
 import { AppState } from '../../reducers'
 import { DispatchBinding } from '../../utils/types'
 

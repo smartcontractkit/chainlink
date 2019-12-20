@@ -37,6 +37,7 @@
   "dependencies": {
     "@chainlink/json-api-client": "0.0.1",
     "@chainlink/redux": "0.0.1",
+    "@chainlink/styleguide": "0.0.1",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^4.5.1",
     "@reach/router": "^1.2.1",

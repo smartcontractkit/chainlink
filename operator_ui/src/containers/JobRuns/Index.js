@@ -2,17 +2,14 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
-import Card from '@material-ui/core/Card'
-import TablePagination from '@material-ui/core/TablePagination'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { fetchJobRuns } from 'actions'
 import jobRunsSelector from 'selectors/jobRuns'
 import jobRunsCountSelector from 'selectors/jobRunsCount'
-import List from 'components/JobRuns/List'
-import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
+import { FIRST_PAGE, GenericList } from 'components/GenericList'
 import Title from 'components/Title'
-import Content from 'components/Content'
 import { useHooks, useEffect, useState } from 'use-react-hooks'
+import Content from 'components/Content'
 
 const styles = theme => ({
   breadcrumb: {
@@ -21,78 +18,48 @@ const styles = theme => ({
   },
 })
 
-const renderLatestRuns = (props, state, handleChangePage) => {
-  const { jobSpecId, latestJobRuns, jobRunsCount, pageSize } = props
-  const pagePath = props.pagePath.replace(':jobSpecId', jobSpecId)
-
-  const TableButtonsWithProps = () => (
-    <TableButtons
-      history={props.history}
-      count={jobRunsCount}
-      onChangePage={handleChangePage}
-      page={state.page}
-      specID={jobSpecId}
-      rowsPerPage={pageSize}
-      replaceWith={pagePath}
-    />
-  )
-  return (
-    <Card>
-      <List
-        jobSpecId={jobSpecId}
-        runs={latestJobRuns}
-        showJobRunsCount={jobRunsCount}
-      />
-      <TablePagination
-        component="div"
-        count={jobRunsCount}
-        rowsPerPage={pageSize}
-        rowsPerPageOptions={[pageSize]}
-        page={state.page - 1}
-        onChangePage={
-          () => {} /* handler required by component, so make it a no-op */
-        }
-        onChangeRowsPerPage={
-          () => {} /* handler required by component, so make it a no-op */
-        }
-        ActionsComponent={TableButtonsWithProps}
-      />
-    </Card>
-  )
-}
-
-const Fetching = () => <div>Fetching...</div>
-
-const renderDetails = (props, state, handleChangePage) => {
-  if (props.latestJobRuns) {
-    return renderLatestRuns(props, state, handleChangePage)
-  } else {
-    return <Fetching />
-  }
-}
+const buildItems = runs =>
+  runs.map(r => [
+    { type: 'link', text: r.id, to: `/jobs/${r.jobId}/runs/id/${r.id}` },
+    { type: 'time_ago', text: r.createdAt },
+    { type: 'status', text: r.status },
+  ])
 
 export const Index = useHooks(props => {
   const { jobSpecId, fetchJobRuns, pageSize } = props
   const [page, setPage] = useState(FIRST_PAGE)
-
   useEffect(() => {
     document.title = 'Job Runs'
     const queryPage = props.match
       ? parseInt(props.match.params.jobRunsPage, 10) || FIRST_PAGE
       : FIRST_PAGE
-    setPage(queryPage)
+    setPage(queryPage - 1)
     fetchJobRuns({ jobSpecId, page: queryPage, size: pageSize })
   }, [])
-  const handleChangePage = (_, pageNum) => {
-    fetchJobRuns({ jobSpecId, page: pageNum, size: pageSize })
-    setPage(pageNum)
+  const handleChangePage = (e, pageNum) => {
+    if (e) {
+      setPage(pageNum)
+      fetchJobRuns({ jobSpecId, page: pageNum + 1, size: pageSize })
+      if (props.history)
+        props.history.push(`/jobs/${jobSpecId}/runs/page/${pageNum + 1}`)
+    }
   }
-
   return (
     <Content>
       <Title>Runs</Title>
-
-      {renderDetails(props, { page }, handleChangePage)}
+      {props.latestJobRuns ? (
+        <GenericList
+          emptyMsg="No jobs have been run yet"
+          headers={['Id', 'Created', 'Status']}
+          items={buildItems(props.latestJobRuns)}
+          onChangePage={handleChangePage}
+          count={props.jobRunsCount}
+          currentPage={page}
+          rowsPerPage={pageSize}
+        />
+      ) : (
+        <div>Fetching...</div>
+      )}
     </Content>
   )
 })

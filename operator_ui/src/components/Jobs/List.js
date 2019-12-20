@@ -1,132 +1,42 @@
-import { TimeAgo } from '@chainlink/styleguide'
-import Card from '@material-ui/core/Card'
-import Table from '@material-ui/core/Table'
-import TableBody from '@material-ui/core/TableBody'
-import TableCell from '@material-ui/core/TableCell'
-import TableHead from '@material-ui/core/TableHead'
-import TablePagination from '@material-ui/core/TablePagination'
-import TableRow from '@material-ui/core/TableRow'
-import Typography from '@material-ui/core/Typography'
-import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
-import PropTypes from 'prop-types'
 import React from 'react'
+import PropTypes from 'prop-types'
 import { useEffect, useHooks, useState } from 'use-react-hooks'
 import { formatInitiators } from 'utils/jobSpecInitiators'
-import Link from '../Link'
+import { FIRST_PAGE, GenericList } from '../GenericList'
 
-const renderBody = (jobs, error) => {
-  if (error) {
-    return (
-      <TableRow>
-        <TableCell component="th" scope="row" colSpan={3}>
-          {error}
-        </TableCell>
-      </TableRow>
-    )
-  } else if (jobs && jobs.length === 0) {
-    return (
-      <TableRow>
-        <TableCell component="th" scope="row" colSpan={3}>
-          You haven’t created any jobs yet. Create a new job{' '}
-          <Link href={`/jobs/new`}>here</Link>
-        </TableCell>
-      </TableRow>
-    )
-  } else if (jobs) {
-    return jobs.map(j => (
-      <TableRow key={j.id}>
-        <TableCell component="th" scope="row">
-          <Link href={`/jobs/${j.id}`}>{j.id}</Link>
-        </TableCell>
-        <TableCell>
-          <Typography variant="body1">
-            <TimeAgo tooltip>{j.createdAt}</TimeAgo>
-          </Typography>
-        </TableCell>
-        <TableCell>
-          <Typography variant="body1">
-            {formatInitiators(j.initiators)}
-          </Typography>
-        </TableCell>
-      </TableRow>
-    ))
-  }
-
-  return (
-    <TableRow>
-      <TableCell component="th" scope="row" colSpan={3}>
-        Loading...
-      </TableCell>
-    </TableRow>
-  )
-}
+const buildItems = jobs =>
+  jobs.map(j => [
+    { type: 'link', text: j.id, to: `/jobs/${j.id}` },
+    { type: 'time_ago', text: j.createdAt },
+    { type: 'text', text: formatInitiators(j.initiators) },
+  ])
 
 export const List = useHooks(props => {
-  const { jobs, jobCount, fetchJobs, pageSize, error } = props
+  const { jobs, jobCount, fetchJobs, pageSize } = props
   const [page, setPage] = useState(FIRST_PAGE)
-
   useEffect(() => {
     const queryPage =
       (props.match && parseInt(props.match.params.jobPage, 10)) || FIRST_PAGE
-    setPage(queryPage)
+    setPage(queryPage - 1)
     fetchJobs(queryPage, pageSize)
   }, [])
-
   const handleChangePage = (e, page) => {
-    fetchJobs(page, pageSize)
-    setPage(page)
+    if (e) {
+      setPage(page)
+      fetchJobs(page + 1, pageSize)
+      if (props.history) props.history.push(`/jobs/page/${page + 1}`)
+    }
   }
-
-  const TableButtonsWithProps = () => (
-    <TableButtons
-      {...props}
-      count={jobCount}
-      onChangePage={handleChangePage}
-      rowsPerPage={pageSize}
-      page={page}
-      replaceWith={`/jobs/page`}
-    />
-  )
-
   return (
-    <Card>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>
-              <Typography variant="body1" color="textSecondary">
-                ID
-              </Typography>
-            </TableCell>
-            <TableCell>
-              <Typography variant="body1" color="textSecondary">
-                Created
-              </Typography>
-            </TableCell>
-            <TableCell>
-              <Typography variant="body1" color="textSecondary">
-                Initiator
-              </Typography>
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>{renderBody(jobs, error)}</TableBody>
-      </Table>
-      <TablePagination
-        component="div"
-        count={jobCount}
-        rowsPerPage={pageSize}
-        rowsPerPageOptions={[pageSize]}
-        page={page - 1}
-        onChangePage={
-          () => {} /* handler required by component, so make it a no-op */
-        }
-        onChangeRowsPerPage={
-          () => {} /* handler required by component, so make it a no-op */
-        }
-        ActionsComponent={TableButtonsWithProps}
-      />
-    </Card>
+    <GenericList
+      emptyMsg="You haven’t created any jobs yet. Create a new job"
+      headers={['ID', 'Created', 'Initiator']}
+      items={jobs && buildItems(jobs)}
+      onChangePage={handleChangePage}
+      count={jobCount}
+      rowsPerPage={pageSize}
+      currentPage={page}
+    />
   )
 })
 

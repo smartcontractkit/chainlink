@@ -1,7 +1,8 @@
 import React from 'react'
 import MuiTableCell from '@material-ui/core/TableCell'
 import Link from '../Link'
-import TimeAgo from '../TimeAgo'
+import { TimeAgo } from '../TimeAgo'
+import { StatusText } from './StatusText'
 
 export interface TextColumn {
   type: 'text'
@@ -16,7 +17,13 @@ export interface LinkColumn {
   text: string | number
   to: string
 }
-export type Column = TextColumn | LinkColumn | TimeAgoColumn
+
+export interface StatusColumn {
+  type: 'status'
+  text: 'complete' | 'error' | 'pending'
+}
+
+export type Column = TextColumn | LinkColumn | TimeAgoColumn | StatusColumn
 
 interface Props {
   column: Column
@@ -25,16 +32,16 @@ interface Props {
 const renderCol = (col: Column) => {
   switch (col.type) {
     case 'link':
-      return <Link to={col.to}>{col.text}</Link>
+      return <Link href={col.to}>{col.text}</Link>
     case 'time_ago':
       return <TimeAgo tooltip>{col.text}</TimeAgo>
     case 'text':
       return col.text
+    case 'status':
+      return <StatusText status={col.text} />
   }
 }
 
-const TableCell = ({ column }: Props) => {
+export const TableCell = ({ column }: Props) => {
   return <MuiTableCell>{renderCol(column)}</MuiTableCell>
 }
-
-export default TableCell

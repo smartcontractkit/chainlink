@@ -2,8 +2,13 @@ import React from 'react'
 import Paper from '@material-ui/core/Paper'
 import Hidden from '@material-ui/core/Hidden'
 import { join } from 'path'
-import Table, { ChangePageEvent } from '../../Table'
-import { LinkColumn, TextColumn, TimeAgoColumn } from '../../Table/TableCell'
+import {
+  Table,
+  ChangePageEvent,
+  LinkColumn,
+  TextColumn,
+  TimeAgoColumn,
+} from '@chainlink/styleguide'
 import { ChainlinkNode } from 'explorer/models'
 
 const HEADERS = ['Name', 'URL', 'Created At']

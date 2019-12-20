@@ -10,13 +10,10 @@ import TableBody from '@material-ui/core/TableBody'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import MuiTableCell from '@material-ui/core/TableCell'
-import TableCell, { Column } from './Table/TableCell'
+import { TableCell, Column } from './TableCell'
 import TablePagination from '@material-ui/core/TablePagination'
 import Paper from '@material-ui/core/Paper'
-import PaginationActions from './Table/PaginationActions'
-
-export const DEFAULT_ROWS_PER_PAGE = 10
-export const DEFAULT_CURRENT_PAGE = 0
+import { PaginationActions } from './PaginationActions'
 
 interface LoadingProps {
   colCount: number
@@ -63,7 +60,7 @@ const styles = (theme: Theme) =>
     },
   })
 
-export type ChangePageEvent = React.MouseEvent<HTMLButtonElement> | null
+type ChangePageEvent = React.MouseEvent<HTMLButtonElement> | null
 
 interface Props extends WithStyles<typeof styles> {
   headers: string[]
@@ -120,10 +117,13 @@ const Table = (props: Props) => {
     </Paper>
   )
 }
+export const DEFAULT_ROWS_PER_PAGE = 10
+export const DEFAULT_CURRENT_PAGE = 0
 
 Table.defaultProps = {
   rowsPerPage: DEFAULT_ROWS_PER_PAGE,
   currentPage: DEFAULT_CURRENT_PAGE,
 }
 
-export default withStyles(styles)(Table)
+const StyledTable = withStyles(styles)(Table)
+export { ChangePageEvent, StyledTable as Table }

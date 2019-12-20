@@ -96,4 +96,7 @@ class PaginationActions extends React.Component<Props> {
   }
 }
 
-export default withStyles(styles, { withTheme: true })(PaginationActions)
+const StyledPaginationActions = withStyles(styles, { withTheme: true })(
+  PaginationActions,
+)
+export { StyledPaginationActions as PaginationActions }

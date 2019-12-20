@@ -12,7 +12,7 @@
     "module": "es2015",
     "lib": ["es2018", "dom"],
     "outDir": "./dist",
-    "jsx": "preserve",
+    "jsx": "react",
     "sourceMap": true,
     "removeComments": false
   },

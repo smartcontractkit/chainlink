@@ -14,6 +14,8 @@ import theme from './theme'
 JavascriptTimeAgo.locale(en)
 moment.defaultFormat = 'YYYY-MM-DD h:mm:ss A'
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+// @ts-ignore
 const muiTheme = createMuiTheme(theme)
 const store = createStore()
 
