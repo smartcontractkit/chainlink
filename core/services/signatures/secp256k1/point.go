@@ -357,6 +357,16 @@ func LongMarshal(p kyber.Point) []byte {
 	return append(xMarshal[:], yMarshal[:]...)
 }
 
+func LongUnmarshal(m []byte) (kyber.Point, error) {
+	p := newPoint()
+	p.X.SetInt(big.NewInt(0).SetBytes(m[:32]))
+	p.Y.SetInt(big.NewInt(0).SetBytes(m[32:]))
+	if !ValidPublicKey(p) {
+		return nil, fmt.Errorf("%s is not a valid secp256k1 point", p)
+	}
+	return p, nil
+}
+
 // SetCoordinates returns the point (x,y), or panics if an invalid secp256k1Point
 func SetCoordinates(x, y *big.Int) kyber.Point {
 	rv := newPoint()
