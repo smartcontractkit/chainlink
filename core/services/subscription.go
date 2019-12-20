@@ -100,7 +100,6 @@ func NewInitiatorSubscription(
 	}
 
 	sub := InitiatorSubscription{
-		JobSpecID:  *job.ID,
 		runManager: runManager,
 		Initiator:  initr,
 		store:      store,
@@ -118,11 +117,10 @@ func NewInitiatorSubscription(
 }
 
 func (sub InitiatorSubscription) dispatchLog(log eth.Log) {
-	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %s", sub.Initiator.Type, sub.JobSpecID.String()),
-		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.JobSpecID.String())
+	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %s", sub.Initiator.Type, sub.Initiator.JobSpecID.String()),
+		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Initiator.JobSpecID.String())
 
 	base := models.InitiatorLogEvent{
-		JobSpecID: sub.JobSpecID,
 		Initiator: sub.Initiator,
 		Log:       log,
 	}
