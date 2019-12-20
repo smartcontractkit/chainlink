@@ -213,7 +213,7 @@ contract VRF {
       // definition. Together, these specify that the y ordinate must be
       // even.
       if (rv[1] % 2 == 1) {
-        rv[1] = -rv[1];
+        rv[1] = FIELD_SIZE - rv[1];
       }
     }
 
