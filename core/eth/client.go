@@ -105,25 +105,23 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 	return numLinkBigInt, nil
 }
 
-var dec10 = decimal.NewFromInt(10)
+// aggregatorLatestAnswerID is the first 4 bytes of the keccak256 of
+// Chainlink's aggregator smart contract answer function.
+const aggregatorLatestAnswerID = "50d25bcd"
+
+var (
+	dec10                          = decimal.NewFromInt(10)
+	aggregatorLatestAnswerSelector = HexToFunctionSelector(aggregatorLatestAnswerID)
+)
 
 // GetAggregatorPrice returns the current price at the given address.
 func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
-	aggregator, err := GetV5Contract("PrepaidAggregator")
-	if err != nil {
-		return decimal.Decimal{}, err
-	}
-	data, err := aggregator.EncodeMessageCall("latestAnswer")
-	if err != nil {
-		return decimal.Decimal{}, err
-	}
-
 	var result string
 	args := CallArgs{
 		To:   address,
-		Data: data,
+		Data: aggregatorLatestAnswerSelector.Bytes(),
 	}
-	err = client.Call(&result, "eth_call", args, "latest")
+	err := client.Call(&result, "eth_call", args, "latest")
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
 	}
