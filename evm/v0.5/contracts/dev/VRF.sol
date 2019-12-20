@@ -186,31 +186,27 @@ contract VRF {
     return ySquared(p[0]) == mulmod(p[1], p[1], FIELD_SIZE);
   }
 
-  // Hash x uniformly into {0, ..., q-1}.
-  function zqHash(uint256 q, bytes memory m) public pure returns (uint256 x_) {
-    x_ = uint256(keccak256(m));
-    // When q is FIELD_SIZE, rejecting if x >= q corresponds to step 1 in
-    // section 2.3.6 of http://www.secg.org/sec1-v2.pdf , which is part of the
-    // definition of RS2ECP via section 2.3.4 via OS2ECP via
+  // Hash x uniformly into {0, ..., FIELD_SIZE-1}.
+  function zqHash(uint256 x) internal pure returns (uint256 x_) {
+    x_ = x;
+    // Rejecting if x >= q corresponds to step 1 in section 2.3.6 of
+    // http://www.secg.org/sec1-v2.pdf , which is part of the definition of
+    // RS2ECP via section 2.3.4 via OS2ECP via
     // https://tools.ietf.org/html/rfc8032#section-5.1.3
-    //
-    // When q is GROUP_ORDER, this is is a deviation from the spec, but
-    // does result in a uniform distribution in {0, ..., GROUP_ORDER-1}.
-    while (x_ >= q) {
+    while (x_ >= FIELD_SIZE) {
       x_ = uint256(keccak256(abi.encodePacked(x_)));
     }
   }
 
   // One-way hash function onto the curve.
-  function hashToCurve(uint256[2] memory k, uint256 input)
-    public view returns (uint256[2] memory rv) {
-      rv[0] = zqHash(abi.encodePacked(k, input));
-      while (true) {
-        rv[0] = zqHash(keccak256(abi.encodePacked(rv[0])));
+  function hashToCurve(uint256[2] memory pk, uint256 input)
+    internal view returns (uint256[2] memory rv) {
+      rv[0] = zqHash(uint256(keccak256(abi.encodePacked(pk, input))));
+      rv[1] = squareRoot(ySquared(rv[0]));
+      // Keep re-hashing until rv[1]^2 = rv[0]^3 + 7 mod P
+      while (mulmod(rv[1], rv[1], FIELD_SIZE) != ySquared(rv[0])) {
+        rv[0] = zqHash(uint256(keccak256(abi.encodePacked(rv[0]))));
         rv[1] = squareRoot(ySquared(rv[0]));
-        if (mulmod(rv[1], rv[1], FIELD_SIZE) == ySquared(rv[0])) {
-          break;
-        }
       }
       // See
       // https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.1.1
