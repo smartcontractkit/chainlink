@@ -55,10 +55,10 @@ var P = bigFromHex(
 // Order is the number of rational points on the curve in GF(P) (group size)
 var Order = secp256k1.GroupOrder
 
-// Compensate for awkward big.Int API.
 var bi = big.NewInt
 var zero, one, two, three, four, seven = bi(0), bi(1), bi(2), bi(3), bi(4), bi(7)
 
+// Compensate for awkward big.Int API. Can cause an extra allocation or two.
 func i() *big.Int                                    { return new(big.Int) }
 func add(addend1, addend2 *big.Int) *big.Int         { return i().Add(addend1, addend2) }
 func div(dividend, divisor *big.Int) *big.Int        { return i().Div(dividend, divisor) }
@@ -96,6 +96,7 @@ func IsCurveXOrdinate(x *big.Int) bool {
 	return IsSquare(YSquared(x))
 }
 
+// packUint256s returns xs serialized as concatenated uint256s, or an error
 func packUint256s(xs ...*big.Int) ([]byte, error) {
 	mem := []byte{}
 	for _, x := range xs {
@@ -113,9 +114,7 @@ type curveT *secp256k1.Secp256k1
 var curve = secp256k1.Secp256k1{}
 var rcurve = &curve
 
-// Generator is a specific generator of the curve group. Any non-zero point will
-// do, since the group order is prime. But one must be specified as part of the
-// protocol.
+// Generator is the generator point of secp256k1
 var Generator = rcurve.Point().Base()
 
 // CoordsFromPoint returns the (x, y) coordinates of p
@@ -218,6 +217,7 @@ func ScalarFromCurvePoints(
 		secp256k1.ValidPublicKey(gamma) && secp256k1.ValidPublicKey(v)) {
 		panic("bad arguments to vrf.ScalarFromCurvePoints")
 	}
+	// msg will contain abi.encodePacked(hash, pk, gamma, v, uWitness)
 	msg := secp256k1.LongMarshal(hash)
 	msg = append(msg, secp256k1.LongMarshal(pk)...)
 	msg = append(msg, secp256k1.LongMarshal(gamma)...)
@@ -258,7 +258,7 @@ func (p *Proof) WellFormed() bool {
 }
 
 // VerifyProof is true iff gamma was generated in the mandated way from the
-// given publicKey and seed
+// given publicKey and seed, and no error was encountered
 func (proof *Proof) Verify() (bool, error) {
 	if !proof.WellFormed() {
 		return false, fmt.Errorf("badly-formatted proof")
