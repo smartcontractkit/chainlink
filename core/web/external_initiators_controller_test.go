@@ -110,7 +110,24 @@ func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	resp, cleanup := client.Delete("/v2/external_initiators")
-	defer cleanup()
-	assert.Equal(t, http.StatusText(http.StatusNotFound), http.StatusText(resp.StatusCode))
+	tests := []struct {
+		Name string
+		URL  string
+	}{
+		{
+			Name: "No external initiator specified",
+			URL:  "/v2/external_initiators",
+		},
+		{
+			Name: "Unknown initiator",
+			URL:  "/v2/external_initiators/not-exist",
+		},
+	}
+
+	for _, test := range tests {
+		t.Log(test.Name)
+		resp, cleanup := client.Delete(test.URL)
+		defer cleanup()
+		assert.Equal(t, http.StatusText(http.StatusNotFound), http.StatusText(resp.StatusCode))
+	}
 }
