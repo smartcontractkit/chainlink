@@ -48,7 +48,7 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 	}
 
 	for _, initr := range initrs {
-		unsubscriber, err := NewInitiatorSubscription(initr, job, store, runManager, nextHead, ReceiveLogRequest)
+		unsubscriber, err := NewInitiatorSubscription(initr, store.TxManager, runManager, nextHead, ReceiveLogRequest)
 		if err == nil {
 			unsubscribers = append(unsubscribers, unsubscriber)
 		} else {
@@ -77,21 +77,18 @@ func (js JobSubscription) Unsubscribe() {
 type InitiatorSubscription struct {
 	*ManagedSubscription
 	runManager RunManager
-	JobSpecID  models.ID
 	Initiator  models.Initiator
-	store      *strpkg.Store
-	callback   func(*strpkg.Store, RunManager, models.LogRequest)
+	callback   func(RunManager, models.LogRequest)
 }
 
 // NewInitiatorSubscription creates a new InitiatorSubscription that feeds received
 // logs to the callback func parameter.
 func NewInitiatorSubscription(
 	initr models.Initiator,
-	job models.JobSpec,
-	store *strpkg.Store,
+	client eth.Client,
 	runManager RunManager,
 	nextHead *big.Int,
-	callback func(*strpkg.Store, RunManager, models.LogRequest),
+	callback func(RunManager, models.LogRequest),
 ) (InitiatorSubscription, error) {
 
 	filter, err := models.FilterQueryFactory(initr, nextHead)
@@ -102,11 +99,10 @@ func NewInitiatorSubscription(
 	sub := InitiatorSubscription{
 		runManager: runManager,
 		Initiator:  initr,
-		store:      store,
 		callback:   callback,
 	}
 
-	managedSub, err := NewManagedSubscription(store.TxManager, filter, sub.dispatchLog)
+	managedSub, err := NewManagedSubscription(client, filter, sub.dispatchLog)
 	if err != nil {
 		return sub, errors.Wrap(err, "NewInitiatorSubscription#NewManagedSubscription")
 	}
@@ -124,7 +120,7 @@ func (sub InitiatorSubscription) dispatchLog(log eth.Log) {
 		Initiator: sub.Initiator,
 		Log:       log,
 	}
-	sub.callback(sub.store, sub.runManager, base.LogRequest())
+	sub.callback(sub.runManager, base.LogRequest())
 }
 
 func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
@@ -134,7 +130,7 @@ func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 
 // ReceiveLogRequest parses the log and runs the job indicated by a RunLog or
 // ServiceAgreementExecutionLog. (Both log events have the same format.)
-func ReceiveLogRequest(store *strpkg.Store, runManager RunManager, le models.LogRequest) {
+func ReceiveLogRequest(runManager RunManager, le models.LogRequest) {
 	if !le.Validate() {
 		return
 	}
@@ -151,10 +147,10 @@ func ReceiveLogRequest(store *strpkg.Store, runManager RunManager, le models.Log
 		return
 	}
 
-	runJob(store, runManager, le, data)
+	runJob(runManager, le, data)
 }
 
-func runJob(store *strpkg.Store, runManager RunManager, le models.LogRequest, data models.JSON) {
+func runJob(runManager RunManager, le models.LogRequest, data models.JSON) {
 	jobSpecID := le.GetJobSpecID()
 	initiator := le.GetInitiator()
 
