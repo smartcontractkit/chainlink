@@ -217,9 +217,6 @@ contract VRF {
       }
     }
 
-  // Bits used in Ethereum address
-  uint256 constant public BOTTOM_160_BITS = 2**161 - 1;
-
   // Returns true iff q==scalar*x, with cryptographically high probability.
   // Based on Vitalik Buterin's idea in ethresear.ch post mentioned below.
   function ecmulVerify(uint256[2] memory x, uint256 scalar, uint256[2] memory q)
@@ -232,7 +229,7 @@ contract VRF {
       bytes32 cTimesX0 = bytes32(mulmod(scalar, x[0], GROUP_ORDER));
       uint8 parity = x[1] % 2 != 0 ? 28 : 27;
       return ecrecover(bytes32(0), parity, bytes32(x[0]), cTimesX0) ==
-        address(uint256(keccak256(abi.encodePacked(q))) & BOTTOM_160_BITS);
+        address(uint256(keccak256(abi.encodePacked(q)))); // Takes bottom 160 bits
     }
 
   // Returns x1/z1-x2/z2=(x1z2+x2z1)/(z1z2) in projective coordinates on P¹(𝔽ₙ)
