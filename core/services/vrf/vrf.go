@@ -109,18 +109,11 @@ func packUint256s(xs ...*big.Int) ([]byte, error) {
 	return mem, nil
 }
 
-type curveT *secp256k1.Secp256k1
-
 var curve = secp256k1.Secp256k1{}
 var rcurve = &curve
 
 // Generator is the generator point of secp256k1
 var Generator = rcurve.Point().Base()
-
-// CoordsFromPoint returns the (x, y) coordinates of p
-func CoordsFromPoint(p kyber.Point) (*big.Int, *big.Int) {
-	return secp256k1.Coordinates(p)
-}
 
 // HashUint256s returns a uint256 representing the hash of the concatenated byte
 // representations of the inputs
@@ -142,9 +135,6 @@ func asUint256(x *big.Int) []byte {
 	}
 	return common.LeftPadBytes(x.Bytes(), 32)
 }
-
-var numWords = lsh(two, 256)
-var mask = sub(numWords, one)
 
 // ZqHash hashes xs uniformly into {0, ..., q-1}. q must be 256 bits long, and
 // msg is assumed to already be a 256-bit hash
