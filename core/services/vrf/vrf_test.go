@@ -1,7 +1,6 @@
 package vrf
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -32,7 +31,7 @@ func TestVRF_IsCurveXOrdinate(t *testing.T) {
 }
 
 func TestVRF_CoordsFromPoint(t *testing.T) {
-	x, y := CoordsFromPoint(Generator)
+	x, y := secp256k1.Coordinates(Generator)
 	assert.Equal(t, x, bigFromHex(
 		"79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798"))
 	assert.Equal(t, y, bigFromHex(
@@ -69,7 +68,7 @@ func TestVRF_HashToCurve(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	x, y := CoordsFromPoint(p)
+	x, y := secp256k1.Coordinates(p)
 	// See 'Hashes to the curve with the same results as the golang code' in Curve.js
 	eX := "530fddd863609aa12030a07c5fdb323bb392a88343cea123b7f074883d2654c4"
 	eY := "6fd4ee394bf2a3de542c0e5f3c86fc8f75b278a017701a59d69bdf5134dd6b70"
@@ -97,12 +96,9 @@ func TestVRF_GenerateProof(t *testing.T) {
 	publicKey := rcurve.Point().Mul(
 		secp256k1.IntToScalar(secretKeyHaHaNeverDoThis), Generator)
 	assert.True(t, publicKey.Equal(proof.PublicKey))
-	gammaX, gammaY := CoordsFromPoint(proof.Gamma)
+	gammaX, gammaY := secp256k1.Coordinates(proof.Gamma)
 	// See 'Accepts a valid VRF proof' in VRF.js. These outputs are used there
-	fmt.Printf("cGamma %+v\n", rcurve.Point().Mul(secp256k1.IntToScalar(proof.C), proof.Gamma))
-	h, err := HashToCurve(publicKey, seed)
 	require.NoError(t, err)
-	fmt.Printf("sHash %+v\n", rcurve.Point().Mul(secp256k1.IntToScalar(proof.S), h))
 	gX := "530fddd863609aa12030a07c5fdb323bb392a88343cea123b7f074883d2654c4"
 	gY := "6fd4ee394bf2a3de542c0e5f3c86fc8f75b278a017701a59d69bdf5134dd6b70"
 	assert.Equal(t, bigFromHex(gX), gammaX)
