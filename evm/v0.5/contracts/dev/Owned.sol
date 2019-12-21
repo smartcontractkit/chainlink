@@ -60,9 +60,10 @@ contract Owned {
     external
     onlyOwner()
   {
-    emit OwnershipRenounced(msg.sender);
-
+    address oldOwner = owner;
     owner = address(0);
+
+    emit OwnershipTransfered(oldOwner, address(0));
   }
 
   /**
