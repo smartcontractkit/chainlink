@@ -100,7 +100,10 @@ contract('Owned', () => {
     context('when called by an owner', () => {
       it('emits a log', async () => {
         const { logs } = await owned.renounceOwnership({ from: owner })
-        expectEvent.inLogs(logs, 'OwnershipRenounced', { by: owner })
+        expectEvent.inLogs(logs, 'OwnershipTransfered', {
+          from: owner,
+          to: '0x0000000000000000000000000000000000000000',
+        })
       })
 
       it('changes the owner to the zero address', async () => {
