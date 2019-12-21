@@ -18,6 +18,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func fakeSubscription() *mocks.Subscription {
+	sub := new(mocks.Subscription)
+	sub.On("Unsubscribe").Return()
+	sub.On("Err").Return(nil)
+	return sub
+}
+
 func TestConcreteFluxMonitor_AddJobRemoveJobHappy(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -189,6 +196,8 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 		Return(decimal.NewFromInt(100), nil)
 	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+		Return(fakeSubscription(), nil)
 
 	require.NoError(t, checker.Initialize(ethClient)) // setup
 	ethClient.AssertExpectations(t)
@@ -241,6 +250,8 @@ func TestPollingDeviationChecker_StartStop(t *testing.T) {
 		Return(decimal.NewFromInt(100), nil)
 	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+		Return(fakeSubscription(), nil)
 
 	// 3. Start() with no delay to speed up test and polling.
 	rm := new(mocks.RunManager)
@@ -287,6 +298,8 @@ func TestPollingDeviationChecker_NoDeviationLoopsCanBeCanceled(t *testing.T) {
 		Return(decimal.NewFromInt(100), nil)
 	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+		Return(fakeSubscription(), nil)
 
 	// 3. Start() with no delay to speed up test and polling.
 	rm := new(mocks.RunManager)
