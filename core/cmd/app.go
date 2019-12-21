@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
 
 	"chainlink/core/store"
 
@@ -251,6 +252,44 @@ func NewApp(client *Client) *cli.App {
 					Usage:  "Run the chainlink node",
 					Action: client.RunNode,
 				},
+				cli.Command{
+					Name: "vrf",
+					Usage: format(`Local commands for administering the database of VRF proof
+           keys. These commands will not affect the extant in-memory keys of
+           any live node.`),
+					Hidden: !client.Config.Dev(),
+					Subcommands: cli.Commands{
+						{
+							Name: "create",
+							Usage: format(`Create a VRF key, encrypted with password from the
+               password file, and store it in the database.`),
+							Flags:  flags("password, p"),
+							Action: client.CreateVRFKey,
+						},
+						{
+							Name:   "import",
+							Usage:  "Import key from keyfile.",
+							Flags:  append(flags("password, p"), flags("file, f")...),
+							Action: client.ImportVRFKey,
+						},
+						{
+							Name:   "export",
+							Usage:  "Export key to keyfile.",
+							Flags:  append(flags("file, f"), flags("publicKey, pk")...),
+							Action: client.ExportVRFKey,
+						},
+						{
+							Name:   "delete",
+							Usage:  "Remove key from database, if present",
+							Flags:  flags("publicKey, pk"),
+							Action: client.DeleteVRFKey,
+						},
+						{
+							Name: "list", Usage: "List the public keys in the db",
+							Action: client.ListKeys,
+						},
+					},
+				},
 			},
 		},
 
@@ -346,6 +385,15 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 	}...)
-
 	return app
 }
+
+var whitespace = regexp.MustCompile(`\s+`)
+
+// format returns result of replacing all whitespace in s with a single space
+func format(s string) string {
+	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
+}
+
+// flags is an abbreviated way to express a CLI flag
+func flags(s string) []cli.Flag { return []cli.Flag{cli.StringFlag{Name: s}} }
