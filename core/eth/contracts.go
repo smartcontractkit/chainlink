@@ -1,9 +1,12 @@
 package eth
 
 import (
+	"chainlink/core/logger"
+	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -73,4 +76,19 @@ func (contract *Contract) GetMethodID(method string) ([]byte, error) {
 		return []byte{}, errors.New("unable to find contract method " + method)
 	}
 	return mabi.ID(), nil
+}
+
+// MustGetV5ContractEventID finds the event for the given contract by searching
+// embedded contract assets from evm/, or panics if not found.
+func MustGetV5ContractEventID(name, eventName string) common.Hash {
+	contract, err := GetV5Contract(name)
+	if err != nil {
+		logger.Panic(fmt.Errorf("unable to find contract %s", name))
+	}
+
+	event, found := contract.ABI.Events[eventName]
+	if !found {
+		logger.Panic(fmt.Errorf("unable to find event %s for contract %s", eventName, name))
+	}
+	return event.ID()
 }
