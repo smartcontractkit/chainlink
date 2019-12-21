@@ -223,17 +223,19 @@ type DeviationChecker interface {
 
 // PollingDeviationChecker polls external price adapters via HTTP to check for price swings.
 type PollingDeviationChecker struct {
-	initr        models.Initiator
-	address      common.Address
-	requestData  models.JSON
-	threshold    float64
-	precision    int32
-	runManager   RunManager
-	currentPrice decimal.Decimal
-	currentRound *big.Int
-	fetcher      Fetcher
-	delay        time.Duration
-	cancel       context.CancelFunc
+	initr             models.Initiator
+	address           common.Address
+	requestData       models.JSON
+	threshold         float64
+	precision         int32
+	runManager        RunManager
+	currentPrice      decimal.Decimal
+	currentRound      *big.Int
+	fetcher           Fetcher
+	delay             time.Duration
+	cancel            context.CancelFunc
+	newRounds         chan models.LogRequest
+	roundSubscription eth.Subscription
 }
 
 // defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
@@ -257,6 +259,7 @@ func NewPollingDeviationChecker(
 		currentRound: big.NewInt(0),
 		fetcher:      fetcher,
 		delay:        delay,
+		newRounds:    make(chan models.LogRequest),
 	}, nil
 }
 
@@ -274,19 +277,32 @@ func (p *PollingDeviationChecker) Initialize(client eth.Client) error {
 		return err
 	}
 	p.currentRound = round
+
+	subscription, err := NewInitiatorSubscription(p.initr, client, p.runManager, nil, p.receiveNewRound)
+	if err != nil {
+		return err
+	}
+	p.roundSubscription = subscription.ethSubscription
 	return nil
 }
 
-// Start begins a loop polling the price adapters set in the InitiatorFluxMonitor.
+// Start begins the CSP consumer in a single goroutine to
+// poll the price adapters and listen // to NewRound events.
 func (p *PollingDeviationChecker) Start(ctx context.Context) {
 	pollingCtx, cancel := context.WithCancel(ctx)
 	p.cancel = cancel
+	defer p.roundSubscription.Unsubscribe()
+
 	for {
-		logger.ErrorIf(p.Poll())
+		logger.ErrorIf(p.Poll(), "checker unable to poll")
 
 		select {
 		case <-pollingCtx.Done():
 			return
+		case err := <-p.roundSubscription.Err():
+			logger.Error(errors.Wrap(err, "checker lost subscription to NewRound log events"))
+		case logRequest := <-p.newRounds:
+			logger.ErrorIf(p.RespondToNewRound(logRequest), "checker unable to respond to new round")
 		case <-time.After(p.delay):
 		}
 	}
@@ -309,8 +325,47 @@ func (p *PollingDeviationChecker) CurrentRound() *big.Int {
 	return new(big.Int).Set(p.currentRound)
 }
 
+func (p *PollingDeviationChecker) receiveNewRound(_ RunManager, lr models.LogRequest) {
+	p.newRounds <- lr // msg single go routine consumer for thread safety
+}
+
+// RespondToNewRound takes the round broadcasted in the log event, and responds
+// on-chain with an updated price.
+// Only invoked by the CSP consumer on the single goroutine for thread safety.
+func (p *PollingDeviationChecker) RespondToNewRound(logRequest models.LogRequest) error {
+	requestedRound, err := models.ParseNewRoundLog(logRequest.GetLog())
+	if err != nil {
+		return err
+	}
+
+	// skip if requested is not greater than current.
+	if requestedRound.Cmp(p.currentRound) < 1 {
+		logger.Info(
+			"deviation checker ignoring new round request: requested %s <= current %s",
+			requestedRound.String(),
+			p.currentRound.String())
+		return nil
+	}
+
+	p.currentRound = requestedRound
+
+	nextPrice, err := p.fetchPrices()
+	if err != nil {
+		return err
+	}
+
+	err = p.createJobRun(nextPrice, requestedRound)
+	if err != nil {
+		return err
+	}
+
+	p.currentPrice = nextPrice
+	return nil
+}
+
 // Poll walks through the steps to check for a deviation, early exiting if deviation
 // is not met, or triggering a new job run if deviation is met.
+// Only invoked by the CSP consumer on the single goroutine for thread safety.
 func (p *PollingDeviationChecker) Poll() error {
 	nextPrice, err := p.fetchPrices()
 	if err != nil {
@@ -321,7 +376,7 @@ func (p *PollingDeviationChecker) Poll() error {
 		return nil // early exit since deviation criteria not met.
 	}
 
-	nextRound := new(big.Int).Add(p.currentRound, big.NewInt(1))
+	nextRound := new(big.Int).Add(p.currentRound, big.NewInt(1)) // start new round
 	err = p.createJobRun(nextPrice, nextRound)
 	if err != nil {
 		return err
