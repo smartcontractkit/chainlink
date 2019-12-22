@@ -170,8 +170,6 @@ func (le InitiatorLogEvent) LogRequest() LogRequest {
 		fallthrough
 	case InitiatorRunLog:
 		return RunLogEvent{le}
-	case InitiatorFluxMonitor:
-		return NewRoundLogEvent{le}
 	}
 	logger.Warnw("LogRequest: Unable to discern initiator type for log request", le.ForLogger()...)
 	return EthLogEvent{InitiatorLogEvent: le}
@@ -487,12 +485,6 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 func (parseRunLog20190207withoutIndexes) parseRequestID(log eth.Log) string {
 	start := requesterSize
 	return common.BytesToHash(log.Data[start : start+idSize]).Hex()
-}
-
-// NewRoundLogEvent provides functionality specific to a log event emitted
-// by the PrepaidAggregator#NewRound.
-type NewRoundLogEvent struct {
-	InitiatorLogEvent
 }
 
 // ParseNewRoundLog pulls the round from the aggregator log event.
