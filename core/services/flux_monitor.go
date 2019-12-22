@@ -235,7 +235,7 @@ type PollingDeviationChecker struct {
 	fetcher           Fetcher
 	delay             time.Duration
 	cancel            context.CancelFunc
-	newRounds         chan models.LogRequest
+	newRounds         chan eth.Log
 	roundSubscription eth.Subscription
 }
 
@@ -260,7 +260,7 @@ func NewPollingDeviationChecker(
 		currentRound: big.NewInt(0),
 		fetcher:      fetcher,
 		delay:        delay,
-		newRounds:    make(chan models.LogRequest),
+		newRounds:    make(chan eth.Log),
 	}, nil
 }
 
@@ -279,11 +279,16 @@ func (p *PollingDeviationChecker) Initialize(client eth.Client) error {
 	}
 	p.currentRound = round
 
-	subscription, err := NewInitiatorSubscription(p.initr, client, p.runManager, nil, p.receiveNewRound)
+	filterQuery, err := models.FilterQueryFactory(p.initr, nil)
 	if err != nil {
 		return err
 	}
-	p.roundSubscription = subscription.ethSubscription
+
+	subscription, err := client.SubscribeToLogs(p.newRounds, filterQuery)
+	if err != nil {
+		return err
+	}
+	p.roundSubscription = subscription
 	return nil
 }
 
@@ -302,8 +307,8 @@ func (p *PollingDeviationChecker) Start(ctx context.Context) {
 			return
 		case err := <-p.roundSubscription.Err():
 			logger.Error(errors.Wrap(err, "checker lost subscription to NewRound log events"))
-		case logRequest := <-p.newRounds:
-			logger.ErrorIf(p.RespondToNewRound(logRequest), "checker unable to respond to new round")
+		case log := <-p.newRounds:
+			logger.ErrorIf(p.RespondToNewRound(log), "checker unable to respond to new round")
 		case <-time.After(p.delay):
 		}
 	}
@@ -326,15 +331,11 @@ func (p *PollingDeviationChecker) CurrentRound() *big.Int {
 	return new(big.Int).Set(p.currentRound)
 }
 
-func (p *PollingDeviationChecker) receiveNewRound(_ RunManager, lr models.LogRequest) {
-	p.newRounds <- lr // msg single go routine consumer for thread safety
-}
-
 // RespondToNewRound takes the round broadcasted in the log event, and responds
 // on-chain with an updated price.
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
-func (p *PollingDeviationChecker) RespondToNewRound(logRequest models.LogRequest) error {
-	requestedRound, err := models.ParseNewRoundLog(logRequest.GetLog())
+func (p *PollingDeviationChecker) RespondToNewRound(log eth.Log) error {
+	requestedRound, err := models.ParseNewRoundLog(log)
 	if err != nil {
 		return err
 	}
