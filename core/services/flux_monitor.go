@@ -29,14 +29,15 @@ type FluxMonitor interface {
 }
 
 type concreteFluxMonitor struct {
-	store               *store.Store
-	runManager          RunManager
-	checkerFactory      DeviationCheckerFactory
-	adds                chan addEntry
-	removes             chan *models.ID
-	connect, disconnect chan struct{}
-	ctx                 context.Context
-	cancel              context.CancelFunc
+	store          *store.Store
+	runManager     RunManager
+	checkerFactory DeviationCheckerFactory
+	adds           chan addEntry
+	removes        chan *models.ID
+	connect        chan *models.Head
+	disconnect     chan struct{}
+	ctx            context.Context
+	cancel         context.CancelFunc
 }
 
 type addEntry struct {
@@ -58,7 +59,7 @@ func (fm *concreteFluxMonitor) Start() error {
 	fm.ctx, fm.cancel = context.WithCancel(context.Background())
 	fm.adds = make(chan addEntry)
 	fm.removes = make(chan *models.ID)
-	fm.connect = make(chan struct{})
+	fm.connect = make(chan *models.Head)
 	fm.disconnect = make(chan struct{})
 
 	go fm.actionConsumer(fm.ctx) // start single goroutine consumer
@@ -80,8 +81,8 @@ func (fm *concreteFluxMonitor) Start() error {
 }
 
 // Connect initializes all DeviationCheckers and starts their listening.
-func (fm *concreteFluxMonitor) Connect(*models.Head) error {
-	fm.connect <- struct{}{}
+func (fm *concreteFluxMonitor) Connect(head *models.Head) error {
+	fm.connect <- head
 	return nil
 }
 
