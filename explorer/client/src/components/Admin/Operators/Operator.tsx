@@ -21,7 +21,6 @@ const entries = (operatorData: OperatorShowData): [string, string][] => {
 const Operator: React.FC<Props> = ({ operatorData, loadingMessage }) => {
   const title = operatorData ? operatorData.name : loadingMessage
   const _entries = operatorData ? entries(operatorData) : []
-  // TODO refactor ^
   return (
     <KeyValueList title={title} entries={_entries} showHead={false} titleize />
   )
