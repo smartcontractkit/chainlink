@@ -199,13 +199,13 @@ async function currentUptime(db: Connection, id: number): Promise<number> {
   const { seconds } = await db
     .createQueryBuilder()
     .select(
-      `FLOOR(
+      `FLOOR(SUM(
         (31536000 * DATE_PART('year', now() - session.createdAt)) +
         (86400 * DATE_PART('day', now() - session.createdAt)) +
         (3600 * DATE_PART('hour', now() - session.createdAt)) +
         (60 * DATE_PART('minute', now() - session.createdAt)) +
         (DATE_PART('second', now() - session.createdAt))
-      ) as seconds`,
+      )) as seconds`,
     )
     .from(Session, 'session')
     .where({ chainlinkNodeId: id })
