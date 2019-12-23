@@ -22,7 +22,7 @@
   "dependencies": {
     "cbor": "^5.0.1",
     "chainlinkv0.5": "0.0.2",
-    "ethers": "^4.0.40",
+    "ethers": "^4.0.41",
     "link_token": "^1.0.6",
     "openzeppelin-solidity": "^1.12.0"
   },
