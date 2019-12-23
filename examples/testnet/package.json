@@ -11,7 +11,7 @@
   },
   "devDependencies": {
     "depcheck": "^0.9.1",
-    "solc": "0.4.24",
+    "solc": "0.6.0",
     "solhint": "^2.1.0",
     "truffle": "^5.0.25"
   }
