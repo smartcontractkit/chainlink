@@ -6,7 +6,7 @@ import {
   hashCredentials,
   uptime,
 } from '../../entity/ChainlinkNode'
-import { Session, createSession, closeSession } from '../../entity/Session'
+import { createSession, closeSession } from '../../entity/Session'
 import { closeDbConnection, getDb } from '../../database'
 
 async function wait(sec: number) {
@@ -62,13 +62,13 @@ describe('hashCredentials', () => {
 
 describe('uptime', () => {
   it('returns 0 when no sessions exist', async () => {
-    const [node, _] = await createChainlinkNode(db, 'chainlink-node')
+    const [node] = await createChainlinkNode(db, 'chainlink-node')
     const initialUptime = await uptime(db, node)
     expect(initialUptime).toEqual(0)
   })
 
   it('calculates uptime based on open and closed sessions', async () => {
-    const [node, _] = await createChainlinkNode(db, 'chainlink-node')
+    const [node] = await createChainlinkNode(db, 'chainlink-node')
     const session = await createSession(db, node)
     await wait(1)
     await closeSession(db, session)
