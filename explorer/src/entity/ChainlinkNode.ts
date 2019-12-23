@@ -174,6 +174,7 @@ export async function uptime(db: Connection, node: ChainlinkNode | number) {
   return (await historicUptime(db, id)) + (await currentUptime(db, id))
 }
 
+// uptime from completed sessions
 async function historicUptime(db: Connection, id: number): Promise<number> {
   const { seconds } = await db
     .createQueryBuilder()
@@ -193,17 +194,18 @@ async function historicUptime(db: Connection, id: number): Promise<number> {
   return parseInt(seconds) || 0
 }
 
+// uptime from current open session
 async function currentUptime(db: Connection, id: number): Promise<number> {
   const { seconds } = await db
     .createQueryBuilder()
     .select(
-      `FLOOR(SUM(
+      `FLOOR(
         (31536000 * DATE_PART('year', now() - session.createdAt)) +
         (86400 * DATE_PART('day', now() - session.createdAt)) +
         (3600 * DATE_PART('hour', now() - session.createdAt)) +
         (60 * DATE_PART('minute', now() - session.createdAt)) +
         (DATE_PART('second', now() - session.createdAt))
-      )) as seconds`,
+      ) as seconds`,
     )
     .from(Session, 'session')
     .where({ chainlinkNodeId: id })
