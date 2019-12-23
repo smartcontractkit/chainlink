@@ -19784,16 +19784,19 @@ sockjs@0.3.19:
     faye-websocket "^0.10.0"
     uuid "^3.0.1"
 
-solc@0.4.24:
-  version "0.4.24"
-  resolved "https://registry.npmjs.org/solc/-/solc-0.4.24.tgz#354f14b269b38cbaa82a47d1ff151723502b954e"
-  integrity sha512-2xd7Cf1HeVwrIb6Bu1cwY2/TaLRodrppCq3l7rhLimFQgmxptXhTC3+/wesVLpB09F1A2kZgvbMOgH7wvhFnBQ==
+solc@0.6.0:
+  version "0.6.0"
+  resolved "https://registry.yarnpkg.com/solc/-/solc-0.6.0.tgz#061a36075087b5ca16e1c4fc4fad565aa2851fe4"
+  integrity sha512-fYVRKbJLbg0oETBuAJN/ts0X/hj2YgOAl3ly3nrm/qhleVr22ecl3OSXW3hRmOWvH81hJ2KHRYRQWgqioK6d0A==
   dependencies:
+    command-exists "^1.2.8"
+    commander "3.0.2"
     fs-extra "^0.30.0"
+    js-sha3 "0.8.0"
     memorystream "^0.3.1"
-    require-from-string "^1.1.0"
-    semver "^5.3.0"
-    yargs "^4.7.1"
+    require-from-string "^2.0.0"
+    semver "^5.5.0"
+    tmp "0.0.33"
 
 solc@^0.4.20:
   version "0.4.26"
