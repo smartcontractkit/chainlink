@@ -61,6 +61,8 @@ var (
 	// RandomnessRequestLogTopic is the signature for the event log
 	// VRFCoordinator.RandomnessRequest.
 	RandomnessRequestLogTopic = vrf.RandomnessRequestLogTopic()
+	// RandomnessRequestFullfillSelector is the signature for the method randomnessRequestFul
+	RandomnessRequestFullfillSelector = vrf.FulfillSelector
 	// OracleFullfillmentFunctionID0original is the original function selector for fulfilling Ethereum requests.
 	OracleFullfillmentFunctionID0original = utils.MustHash("fulfillData(uint256,bytes32)").Hex()[:10]
 	// OracleFulfillmentFunctionID20190123withFulfillmentParams is the function selector for fulfilling Ethereum requests,
@@ -87,6 +89,7 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 	RunLogTopic0original:                      parseRunLog0original{},
 	RunLogTopic20190123withFullfillmentParams: parseRunLog20190123withFulfillmentParams{},
 	RunLogTopic20190207withoutIndexes:         parseRunLog20190207withoutIndexes{},
+	RandomnessRequestLogTopic:                 parseRandomnessRequest{},
 }
 
 // TopicFiltersForRunLog generates the two variations of RunLog IDs that could
@@ -130,11 +133,13 @@ func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error
 		topics := []common.Hash{ServiceAgreementExecutionLogTopic}
 		q.Topics = TopicFiltersForRunLog(topics, i.JobSpecID)
 		return q, nil
-
 	case InitiatorFluxMonitor:
 		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220}}
 		return q, nil
-
+	case InitiatorRandomnessLog:
+		topics := []common.Hash{RandomnessRequestLogTopic}
+		q.Topics = TopicFiltersForRunLog(topics, i.JobSpecID)
+		return q, nil // XXX:  DRY this up
 	default:
 		return ethereum.FilterQuery{}, fmt.Errorf("Cannot generate a FilterQuery for initiator of type %T", i)
 	}
@@ -164,6 +169,8 @@ type InitiatorLogEvent struct {
 	Initiator Initiator
 }
 
+var _ LogRequest = InitiatorLogEvent{}
+
 // LogRequest is a factory method that coerces this log event to the correct
 // type based on Initiator.Type, exposed by the LogRequest interface.
 func (le InitiatorLogEvent) LogRequest() LogRequest {
@@ -174,6 +181,8 @@ func (le InitiatorLogEvent) LogRequest() LogRequest {
 		fallthrough
 	case InitiatorRunLog:
 		return RunLogEvent{le}
+	case InitiatorRandomnessLog:
+		return RandomnessLogEvent{le}
 	}
 	logger.Warnw("LogRequest: Unable to discern initiator type for log request", le.ForLogger()...)
 	return EthLogEvent{InitiatorLogEvent: le}
