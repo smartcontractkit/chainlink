@@ -288,6 +288,8 @@ func (p *PollingDeviationChecker) Initialize(client eth.Client) error {
 	if err != nil {
 		return err
 	}
+
+	logger.Infof("Flux Monitor Initiator subscribing to new rounds on %s", p.initr.Address.Hex())
 	p.roundSubscription = subscription
 	return nil
 }
@@ -298,10 +300,9 @@ func (p *PollingDeviationChecker) Start(ctx context.Context) {
 	pollingCtx, cancel := context.WithCancel(ctx)
 	p.cancel = cancel
 	defer p.roundSubscription.Unsubscribe()
+	logger.ErrorIf(p.Poll(), "checker unable to poll")
 
 	for {
-		logger.ErrorIf(p.Poll(), "checker unable to poll")
-
 		select {
 		case <-pollingCtx.Done():
 			return
@@ -310,6 +311,7 @@ func (p *PollingDeviationChecker) Start(ctx context.Context) {
 		case log := <-p.newRounds:
 			logger.ErrorIf(p.RespondToNewRound(log), "checker unable to respond to new round")
 		case <-time.After(p.delay):
+			logger.ErrorIf(p.Poll(), "checker unable to poll")
 		}
 	}
 }
@@ -342,15 +344,24 @@ func (p *PollingDeviationChecker) RespondToNewRound(log eth.Log) error {
 
 	// skip if requested is not greater than current.
 	if requestedRound.Cmp(p.currentRound) < 1 {
-		logger.Info(
+		logger.Infow(fmt.Sprintf(
 			"deviation checker ignoring new round request: requested %s <= current %s",
 			requestedRound.String(),
-			p.currentRound.String())
+			p.currentRound.String()),
+			"address", log.Address.Hex(),
+			"jobID", p.initr.JobSpecID,
+		)
 		return nil
 	}
 
+	logger.Infow(fmt.Sprintf(
+		"deviation checker responding to new round request: requested %s > current %s",
+		requestedRound.String(),
+		p.currentRound.String()),
+		"address", log.Address.Hex(),
+		"jobID", p.initr.JobSpecID,
+	)
 	p.currentRound = requestedRound
-
 	nextPrice, err := p.fetchPrices()
 	if err != nil {
 		return err
@@ -379,6 +390,11 @@ func (p *PollingDeviationChecker) Poll() error {
 	}
 
 	nextRound := new(big.Int).Add(p.currentRound, big.NewInt(1)) // start new round
+	logger.Infow("checker detected change outside deviation, starting new round",
+		"round", nextRound,
+		"address", p.initr.Address.Hex(),
+		"jobID", p.initr.JobSpecID,
+	)
 	err = p.createJobRun(nextPrice, nextRound)
 	if err != nil {
 		return err
