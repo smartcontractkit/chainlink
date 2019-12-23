@@ -76,7 +76,7 @@ describe('AggregatorProxy', () => {
       const requestTx = await aggregator.requestRateUpdate()
       const receipt = await requestTx.wait()
 
-      const request = h.decodeRunRequest(receipt.logs![3])
+      const request = h.decodeRunRequest(receipt.logs?.[3])
       await h.fulfillOracleRequest(oc1, request, response)
       assertBigNum(
         ethers.utils.bigNumberify(response),
@@ -98,7 +98,7 @@ describe('AggregatorProxy', () => {
         await link.transfer(aggregator2.address, deposit)
         const requestTx = await aggregator2.requestRateUpdate()
         const receipt = await requestTx.wait()
-        const request = h.decodeRunRequest(receipt.logs![3])
+        const request = h.decodeRunRequest(receipt.logs?.[3])
 
         await h.fulfillOracleRequest(oc1, request, response2)
         assertBigNum(response2, await aggregator2.latestAnswer())
@@ -118,7 +118,7 @@ describe('AggregatorProxy', () => {
     beforeEach(async () => {
       const requestTx = await aggregator.requestRateUpdate()
       const receipt = await requestTx.wait()
-      const request = h.decodeRunRequest(receipt.logs![3])
+      const request = h.decodeRunRequest(receipt.logs?.[3])
 
       await h.fulfillOracleRequest(oc1, request, response)
       const height = await aggregator.latestTimestamp()
@@ -146,7 +146,7 @@ describe('AggregatorProxy', () => {
 
         const requestTx = await aggregator2.requestRateUpdate()
         const receipt = await requestTx.wait()
-        const request = h.decodeRunRequest(receipt.logs![3])
+        const request = h.decodeRunRequest(receipt.logs?.[3])
 
         await h.fulfillOracleRequest(oc1, request, response2)
         const height2 = await aggregator2.latestTimestamp()

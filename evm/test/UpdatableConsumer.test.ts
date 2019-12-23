@@ -152,7 +152,7 @@ describe('UpdatableConsumer', () => {
         h.toHex(ethers.utils.toUtf8Bytes(currency)),
       )
       const receipt = await tx.wait()
-      request = h.decodeRunRequest(receipt.logs![3])
+      request = h.decodeRunRequest(receipt.logs?.[3])
     })
 
     it('records the data given to it by the oracle', async () => {

@@ -38,10 +38,10 @@ describe('ConcreteChainlink', () => {
 
   async function parseCCLEvent(tx: ethers.providers.TransactionResponse) {
     const receipt = await tx.wait()
-    const data = receipt.logs![0].data
+    const data = receipt.logs?.[0].data
     const d = debug.extend('parseCCLEvent')
     d('data %s', data)
-    return ethers.utils.defaultAbiCoder.decode(['bytes'], data)
+    return ethers.utils.defaultAbiCoder.decode(['bytes'], data ?? '')
   }
 
   describe('#close', () => {

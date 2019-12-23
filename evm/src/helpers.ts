@@ -186,7 +186,7 @@ export async function assertActionThrows(action: AsyncFunction) {
 
   const ERROR_MESSAGES = ['invalid opcode', 'revert']
   const hasErrored = ERROR_MESSAGES.reduce(
-    (prev, next) => prev || e!.message.includes(next),
+    (prev, next) => (prev || e?.message?.includes(next)) ?? true,
     false,
   )
 
