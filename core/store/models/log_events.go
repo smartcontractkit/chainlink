@@ -390,6 +390,15 @@ func ParseRunLog(log eth.Log) (JSON, error) {
 	return parser.parseJSON(log)
 }
 
+func mustAdd(object JSON, key string, value string) JSON {
+	rv, err := object.Add(key, value)
+	if err != nil {
+		panic(errors.Wrapf(err, "could not add %s under key %s in object %#+v",
+			value, key, object))
+	}
+	return rv
+}
+
 // parseRunLog0original parses the original OracleRequest log format.
 // It responds with only the request ID and data.
 type parseRunLog0original struct{}
@@ -402,17 +411,9 @@ func (p parseRunLog0original) parseJSON(log eth.Log) (JSON, error) {
 	if err != nil {
 		return js, err
 	}
-	js, err = js.Add("address", log.Address.String())
-	if err != nil {
-		return js, err
-	}
-
-	js, err = js.Add("dataPrefix", bytesToHex(data[:idSize]))
-	if err != nil {
-		return js, err
-	}
-
-	return js.Add("functionSelector", OracleFullfillmentFunctionID0original)
+	js = mustAdd(js, "address", log.Address.String())
+	js = mustAdd(js, "dataPrefix", bytesToHex(data[:idSize]))
+	return mustAdd(js, "functionSelector", OracleFullfillmentFunctionID0original), nil
 }
 
 func (parseRunLog0original) parseRequestID(log eth.Log) string {
@@ -433,23 +434,15 @@ func (parseRunLog20190123withFulfillmentParams) parseJSON(log eth.Log) (JSON, er
 	if err != nil {
 		return js, err
 	}
-
-	js, err = js.Add("address", log.Address.String())
-	if err != nil {
-		return js, err
-	}
-
+	js = mustAdd(js, "address", log.Address.String())
 	callbackAndExpStart := idSize + versionSize
 	callbackAndExpEnd := callbackAndExpStart + callbackAddrSize + callbackFuncSize + expirationSize
 	dataPrefix := bytesToHex(append(append(data[:idSize],
 		log.Topics[RequestLogTopicPayment].Bytes()...),
 		data[callbackAndExpStart:callbackAndExpEnd]...))
-	js, err = js.Add("dataPrefix", dataPrefix)
-	if err != nil {
-		return js, err
-	}
-
-	return js.Add("functionSelector", OracleFulfillmentFunctionID20190123withFulfillmentParams)
+	js = mustAdd(js, "dataPrefix", dataPrefix)
+	return mustAdd(js, "functionSelector",
+		OracleFulfillmentFunctionID20190123withFulfillmentParams), nil
 }
 
 func (parseRunLog20190123withFulfillmentParams) parseRequestID(log eth.Log) string {
@@ -472,18 +465,9 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 	if err != nil {
 		return js, fmt.Errorf("Error parsing CBOR: %v", err)
 	}
-
-	js, err = js.Add("address", log.Address.String())
-	if err != nil {
-		return js, err
-	}
-
-	js, err = js.Add("dataPrefix", bytesToHex(data[idStart:expirationEnd]))
-	if err != nil {
-		return js, err
-	}
-
-	return js.Add("functionSelector", OracleFulfillmentFunctionID20190128withoutCast)
+	js = mustAdd(js, "address", log.Address.String())
+	js = mustAdd(js, "dataPrefix", bytesToHex(data[idStart:expirationEnd]))
+	return mustAdd(js, "functionSelector", OracleFulfillmentFunctionID20190128withoutCast), nil
 }
 
 func (parseRunLog20190207withoutIndexes) parseRequestID(log eth.Log) string {
