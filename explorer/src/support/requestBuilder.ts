@@ -26,9 +26,11 @@ export function requestBuilder(server: Server): RequestBuilder {
     path: string,
     username: string,
     password: string,
+    data?: object,
   ) {
     return request(server)
       [method](path)
+      .send(data)
       .set('Accept', 'application/json')
       .set('Content-Type', 'application/json')
       .set(ADMIN_USERNAME_HEADER, username)
@@ -39,7 +41,8 @@ export function requestBuilder(server: Server): RequestBuilder {
     path: string,
     username: string,
     password: string,
-  ) => sendRequest(method, path, username, password)
+    data?: object,
+  ) => sendRequest(method, path, username, password, data)
 
   return {
     sendGet: buildRequestMethod('get'),
