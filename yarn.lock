@@ -9276,10 +9276,10 @@ ethers@4.0.0-beta.3:
     uuid "2.0.1"
     xmlhttprequest "1.8.0"
 
-ethers@^4.0.0-beta.1, ethers@^4.0.32, ethers@^4.0.37, ethers@^4.0.40, ethers@~4.0.4:
-  version "4.0.40"
-  resolved "https://registry.npmjs.org/ethers/-/ethers-4.0.40.tgz#6e1963d10b5d336a13cd81b519c230cc17624653"
-  integrity sha512-MC9BtV7Hpq4dgFONEfanx9aU9GhhoWU270F+/wegHZXA7FR+2KXFdt36YIQYLmVY5ykUWswDxd+f9EVkIa7JOA==
+ethers@^4.0.0-beta.1, ethers@^4.0.32, ethers@^4.0.37, ethers@^4.0.41, ethers@~4.0.4:
+  version "4.0.41"
+  resolved "https://registry.yarnpkg.com/ethers/-/ethers-4.0.41.tgz#a0cff526f08c2e08c525cf82ef4483f6333b8000"
+  integrity sha512-QpW2CPZajquwiA7rVDozMksOuvdUBKIruamAakt0++EKBB/VWtLB9zSRZDInLDpp9fZYgOT/0trPD38r6CzLIg==
   dependencies:
     aes-js "3.0.0"
     bn.js "^4.4.0"

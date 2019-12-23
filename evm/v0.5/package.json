@@ -25,7 +25,7 @@
     "cbor": "^5.0.1",
     "ethereumjs-abi": "^0.6.8",
     "ethereumjs-util": "^6.1.0",
-    "ethers": "^4.0.40",
+    "ethers": "^4.0.41",
     "truffle-contract": "^4.0.31",
     "typescript": "^3.7.0"
   },
