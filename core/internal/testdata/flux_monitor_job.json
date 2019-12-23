@@ -11,7 +11,23 @@
       "precision": 2
     }
   }],
-  "tasks": [{
-    "type": "ethtx"
-  }]
+  "tasks": [
+    {
+      "type": "multiply",
+      "confirmations": null,
+      "params": {
+        "times": 100
+      }
+    },
+    {
+      "type": "ethint256",
+      "confirmations": null,
+      "params": {}
+    },
+    {
+      "type": "ethtx",
+      "confirmations": null,
+      "params": {}
+    }
+  ]
 }

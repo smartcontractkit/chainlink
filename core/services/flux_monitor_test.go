@@ -5,12 +5,14 @@ import (
 	"chainlink/core/internal/mocks"
 	"chainlink/core/services"
 	"chainlink/core/store/models"
+	"chainlink/core/utils"
 	"context"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -336,6 +338,69 @@ func TestPollingDeviationChecker_StopWithoutStart(t *testing.T) {
 	checker, err := services.NewPollingDeviationChecker(initr, rm, nil, time.Second)
 	require.NoError(t, err)
 	checker.Stop()
+}
+
+func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
+	currentRound := int64(5)
+
+	// 1. Set up fetcher for 100
+	fetcher := new(mocks.Fetcher)
+	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Maybe()
+	defer fetcher.AssertExpectations(t)
+
+	// 2. Prepare on-chain initialization to 100, which matches external adapter,
+	// so no deviation
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	initr.ID = 1
+
+	ethClient := new(mocks.Client)
+	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
+		Return(decimal.NewFromInt(100), nil)
+	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+		Return(big.NewInt(currentRound), nil)
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+		Return(fakeSubscription(), nil)
+
+	// 3. Initialize
+	rm := new(mocks.RunManager)
+	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Minute)
+	require.NoError(t, err)
+	require.NoError(t, checker.Initialize(ethClient))
+	ethClient.AssertExpectations(t)
+
+	// 5. Send rounds less than or equal to current, sequentially
+	tests := []struct {
+		name  string
+		round uint64
+	}{
+		{"less than", 4},
+		{"equal", 5},
+	}
+
+	for _, test := range tests {
+		log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
+		log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(test.round))
+		require.NoError(t, checker.RespondToNewRound(log))
+		rm.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	}
+
+	// 6. Send log greater than current
+	data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
+			"result": "100",
+			"address": "%s",
+			"functionSelector": "0xe6330cf7",
+			"dataPrefix": "0x0000000000000000000000000000000000000000000000000000000000000006"
+	}`, initr.InitiatorParams.Address.Hex()))) // dataPrefix has currentRound + 1
+	require.NoError(t, err)
+
+	rm.On("Create", mock.Anything, mock.Anything, &data, mock.Anything, mock.Anything).
+		Return(nil, nil) // only round 6 triggers run.
+
+	log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
+	log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(6))
+	require.NoError(t, checker.RespondToNewRound(log))
+	rm.AssertExpectations(t)
 }
 
 func TestOutsideDeviation(t *testing.T) {
