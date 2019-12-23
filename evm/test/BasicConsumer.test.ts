@@ -128,14 +128,10 @@ describe('BasicConsumer', () => {
       let otherRequest: h.RunRequest
 
       beforeEach(async () => {
-        const funcSig = ethers.utils
-          .id('fulfill(bytes32,bytes32)')
-          .slice(2)
-          .slice(0, 8)
         const args = h.requestDataBytes(
           specId,
           cc.address,
-          `0x${funcSig}`,
+          basicConsumerFactory.interface.functions.fulfill.sighash,
           43,
           '0x0',
         )
