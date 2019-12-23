@@ -1,8 +1,10 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
+
+	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"chainlink/core/store"
 )
@@ -49,7 +51,8 @@ func (auth TerminalKeyStoreAuthenticator) authenticateWithPwd(store *store.Store
 }
 
 func checkPassword(store *store.Store, phrase string) error {
-	return store.KeyStore.Unlock(phrase)
+	_, err := store.VRFKeyStore.Unlock(phrase)
+	return multierr.Append(err, store.KeyStore.Unlock(phrase))
 }
 
 func (auth TerminalKeyStoreAuthenticator) promptAndCheckPasswordLoop(store *store.Store) string {
@@ -77,10 +80,11 @@ func (auth TerminalKeyStoreAuthenticator) promptAndCreateAccount(store *store.St
 func createAccount(store *store.Store, password string) error {
 	_, err := store.KeyStore.NewAccount(password)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "while creating ethereum keys")
 	}
-	if err := store.SyncDiskKeyStoreToDB(); err != nil {
-		return err
+	_, err = store.VRFKeyStore.CreateKey(password)
+	if err != nil {
+		return errors.Wrapf(err, "while creating vrf keys")
 	}
 	return checkPassword(store, password)
 }
