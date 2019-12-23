@@ -10,6 +10,6 @@
     "axios": "^0.19.0"
   },
   "devDependencies": {
-    "depcheck": "^0.8.3"
+    "depcheck": "^0.9.1"
   }
 }
