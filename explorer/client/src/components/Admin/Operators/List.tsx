@@ -1,6 +1,7 @@
 import React from 'react'
 import Paper from '@material-ui/core/Paper'
 import Hidden from '@material-ui/core/Hidden'
+import { join } from 'path'
 import Table, { ChangePageEvent } from '../../Table'
 import { LinkColumn, TextColumn, TimeAgoColumn } from '../../Table/TableCell'
 import { ChainlinkNode } from 'explorer/models'
@@ -11,7 +12,7 @@ function buildNameCol(operator: ChainlinkNode): UrlColumn {
   return {
     type: 'link',
     text: operator.name,
-    to: `/admin/operators/${operator.id}`, // TODO
+    to: join('/', 'admin', 'operators', operator.id.toString()),
   }
 }
 
