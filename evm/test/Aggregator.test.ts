@@ -100,8 +100,8 @@ describe('Aggregator', () => {
         const requestTx = await rate.requestRateUpdate()
         const receipt = await requestTx.wait()
 
-        const log = receipt.logs![3]
-        assert.equal(oc1.address, log.address)
+        const log = receipt.logs?.[3]
+        assert.equal(oc1.address, log?.address)
         const request = h.decodeRunRequest(log)
 
         await h.fulfillOracleRequest(oc1, request, response)
@@ -122,7 +122,7 @@ describe('Aggregator', () => {
 
         const requestTx = await rate.requestRateUpdate()
         const receipt = await requestTx.wait()
-        const request = h.decodeRunRequest(receipt.logs![3])
+        const request = h.decodeRunRequest(receipt.logs?.[3])
         await h.fulfillOracleRequest(oc1, request, response)
 
         updatedAt = await rate.latestTimestamp()
@@ -138,7 +138,7 @@ describe('Aggregator', () => {
         const requestTx = await rate.requestRateUpdate()
         const requestTxreceipt = await requestTx.wait()
 
-        const request = h.decodeRunRequest(requestTxreceipt.logs![3])
+        const request = h.decodeRunRequest(requestTxreceipt.logs?.[3])
         const fulfillOracleRequest = await h.fulfillOracleRequest(
           oc1,
           request,
@@ -147,12 +147,14 @@ describe('Aggregator', () => {
         const fulfillOracleRequestReceipt = await fulfillOracleRequest.wait()
         const answerId = h.numToBytes32(1)
 
-        const receivedLog = fulfillOracleRequestReceipt.logs![1]
-        assert.equal(response, receivedLog.topics[1])
-        assert.equal(answerId, receivedLog.topics[2])
+        const receivedLog = fulfillOracleRequestReceipt.logs?.[1]
+        assert.equal(response, receivedLog?.topics?.[1])
+        assert.equal(answerId, receivedLog?.topics?.[2])
         assert.equal(
           oc1.address,
-          ethers.utils.getAddress(receivedLog.topics[3].slice(26, 66)),
+          ethers.utils.getAddress(
+            receivedLog?.topics?.[3]?.slice(26, 66) ?? '',
+          ),
         )
       })
 
@@ -160,7 +162,7 @@ describe('Aggregator', () => {
         const requestTx = await rate.requestRateUpdate()
         const requestReceipt = await requestTx.wait()
 
-        const request = h.decodeRunRequest(requestReceipt.logs![3])
+        const request = h.decodeRunRequest(requestReceipt.logs?.[3])
         const fulfillOracleRequest = await h.fulfillOracleRequest(
           oc1,
           request,
@@ -169,10 +171,10 @@ describe('Aggregator', () => {
         const fulfillOracleRequestReceipt = await fulfillOracleRequest.wait()
 
         const answerId = h.numToBytes32(1)
-        const answerUpdatedLog = fulfillOracleRequestReceipt.logs![2]
-        assert.equal(response, answerUpdatedLog.topics[1])
+        const answerUpdatedLog = fulfillOracleRequestReceipt.logs?.[2]
+        assert.equal(response, answerUpdatedLog?.topics[1])
 
-        assert.equal(answerId, answerUpdatedLog.topics[2])
+        assert.equal(answerId, answerUpdatedLog?.topics[2])
       })
     })
 
@@ -200,8 +202,8 @@ describe('Aggregator', () => {
 
         for (let i = 0; i < oracles.length; i++) {
           const oracle = oracles[i]
-          const log = receipt.logs![i * 4 + 3]
-          assert.equal(oracle.address, log.address)
+          const log = receipt?.logs?.[i * 4 + 3]
+          assert.equal(oracle.address, log?.address)
           const request = h.decodeRunRequest(log)
 
           await h.fulfillOracleRequest(oracle, request, responses[i])
@@ -230,9 +232,9 @@ describe('Aggregator', () => {
         const response1 = h.numToBytes32(100)
 
         const requests = [
-          h.decodeRunRequest(receipt1.logs![3]),
-          h.decodeRunRequest(receipt1.logs![7]),
-          h.decodeRunRequest(receipt1.logs![11]),
+          h.decodeRunRequest(receipt1.logs?.[3]),
+          h.decodeRunRequest(receipt1.logs?.[7]),
+          h.decodeRunRequest(receipt1.logs?.[11]),
         ]
 
         const request2 = await rate.requestRateUpdate()
@@ -240,7 +242,7 @@ describe('Aggregator', () => {
         const response2 = h.numToBytes32(200)
 
         for (let i = 0; i < oracles.length; i++) {
-          const log = receipt2.logs![i * 4 + 3]
+          const log = receipt2.logs?.[i * 4 + 3]
           const request = h.decodeRunRequest(log)
           await h.fulfillOracleRequest(oracles[i], request, response2)
         }
@@ -279,8 +281,8 @@ describe('Aggregator', () => {
 
         for (let i = 0; i < oracles.length; i++) {
           const oracle = oracles[i]
-          const log = receipt.logs![i * 4 + 3]
-          assert.equal(oracle.address, log.address)
+          const log = receipt.logs?.[i * 4 + 3]
+          assert.equal(oracle.address, log?.address)
           const request = h.decodeRunRequest(log)
 
           await h.fulfillOracleRequest(oracle, request, responses[i])
@@ -329,8 +331,8 @@ describe('Aggregator', () => {
 
         const requestTx = await rate.connect(personas.Carol).requestRateUpdate()
         const requestTxReceipt = await requestTx.wait()
-        const request1 = h.decodeRunRequest(requestTxReceipt.logs![3])
-        const request2 = h.decodeRunRequest(requestTxReceipt.logs![7])
+        const request1 = h.decodeRunRequest(requestTxReceipt.logs?.[3])
+        const request2 = h.decodeRunRequest(requestTxReceipt.logs?.[7])
 
         const response1 = h.numToBytes32(100)
         await h.fulfillOracleRequest(oc1, request1, response1)
@@ -402,7 +404,7 @@ describe('Aggregator', () => {
         // make request 1
         const request1Tx = await rate.requestRateUpdate()
         const request1Receipt = await request1Tx.wait()
-        const request1 = h.decodeRunRequest(request1Receipt.logs![3])
+        const request1 = h.decodeRunRequest(request1Receipt.logs?.[3])
 
         // change oracles
         await rate.updateRequestDetails(
@@ -415,8 +417,8 @@ describe('Aggregator', () => {
         // make new request
         const request2Tx = await rate.requestRateUpdate()
         const request2Receipt = await request2Tx.wait()
-        const request2 = h.decodeRunRequest(request2Receipt.logs![3])
-        const request3 = h.decodeRunRequest(request2Receipt.logs![7])
+        const request2 = h.decodeRunRequest(request2Receipt.logs?.[3])
+        const request3 = h.decodeRunRequest(request2Receipt.logs?.[7])
 
         // fulfill request 1
         const response1 = h.numToBytes32(100)
@@ -621,7 +623,7 @@ describe('Aggregator', () => {
 
       const requestTx = await rate.requestRateUpdate()
       const receipt = await requestTx.wait()
-      request = h.decodeRunRequest(receipt.logs![3])
+      request = h.decodeRunRequest(receipt.logs?.[3])
 
       assertBigNum(0, await link.balanceOf(rate.address))
       assertBigNum(basePayment, await link.balanceOf(oc1.address))
@@ -634,7 +636,7 @@ describe('Aggregator', () => {
         await link.transfer(rate.address, basePayment)
         const requestTx2 = await rate.requestRateUpdate()
         const receipt = await requestTx2.wait()
-        const request2 = h.decodeRunRequest(receipt.logs![3])
+        const request2 = h.decodeRunRequest(receipt.logs?.[3])
         await h.fulfillOracleRequest(oc1, request2, '17')
 
         assertBigNum(basePayment.mul(2), await link.balanceOf(oc1.address))
@@ -757,8 +759,8 @@ describe('Aggregator', () => {
         for (let i = 0; i < responses.length; i++) {
           const oracle = oracles[i]
           const receipt = await requestTx.wait()
-          const log = receipt.logs![i * 4 + 3]
-          assert.equal(oracle.address, log.address)
+          const log = receipt.logs?.[i * 4 + 3]
+          assert.equal(oracle.address, log?.address)
           const request = h.decodeRunRequest(log)
 
           await h.fulfillOracleRequest(oracle, request, responses[i])

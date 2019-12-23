@@ -45,9 +45,9 @@ describe('GetterSetter', () => {
       const tx = await gs.connect(roles.stranger).setBytes32(bytes32)
 
       const receipt = await tx.wait()
-      const args: any = receipt.events![0].args
+      const args: any = receipt.events?.[0].args
 
-      assert.equal(1, receipt.events!.length)
+      assert.equal(1, receipt.events?.length)
       assert.equal(
         roles.stranger.address.toLowerCase(),
         args.from.toLowerCase(),
@@ -85,9 +85,9 @@ describe('GetterSetter', () => {
     it('logs an event', async () => {
       const tx = await gs.connect(roles.stranger).setUint256(uint256)
       const receipt = await tx.wait()
-      const args: any = receipt.events![0].args
+      const args: any = receipt.events?.[0].args
 
-      assert.equal(1, receipt.events!.length)
+      assert.equal(1, receipt.events?.length)
       assert.equal(
         roles.stranger.address.toLowerCase(),
         args.from.toLowerCase(),
