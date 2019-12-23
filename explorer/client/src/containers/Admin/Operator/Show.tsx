@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { RouteComponentProps } from '@reach/router'
 import build from 'redux-object'
@@ -9,7 +9,6 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
-import { ChainlinkNode } from 'explorer/models'
 import Title from '../../../components/Title'
 import Operator from '../../../components/Admin/Operators/Operator'
 import { fetchAdminOperator } from '../../../actions/adminOperators'
@@ -17,18 +16,17 @@ import { AppState } from '../../../reducers'
 import { OperatorShowData } from '../../../reducers/adminOperatorsShow'
 import { DispatchBinding } from '../../../utils/types'
 
-// const LOADING_MSG = 'Loading operators...'
-// const EMPTY_MSG = 'There are no operators added to the Explorer yet.'
+const LOADING_MESSAGE = 'Loading operator...'
 
 const styles = ({ breakpoints, spacing }: Theme) =>
   createStyles({
-    // container: {
-    //   overflow: 'hidden',
-    //   padding: spacing.unit * 2,
-    //   [breakpoints.up('sm')]: {
-    //     padding: spacing.unit * 3,
-    //   },
-    // },
+    container: {
+      overflow: 'hidden',
+      padding: spacing.unit * 2,
+      [breakpoints.up('sm')]: {
+        padding: spacing.unit * 3,
+      },
+    },
   })
 
 interface OwnProps extends RouteComponentProps<{ operatorId: string }> {}
@@ -65,11 +63,14 @@ const Show: React.FC<Props> = ({
       container
       spacing={24}
       alignItems="center"
-      // className={classes.container}
+      className={classes.container}
     >
       <Grid item xs={12}>
         <Title>Operator Details</Title>
-        <Operator operatorData={operatorData} />
+        <Operator
+          operatorData={operatorData}
+          loadingMessage={LOADING_MESSAGE}
+        />
       </Grid>
     </Grid>
   )

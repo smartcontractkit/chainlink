@@ -1,10 +1,11 @@
 import React from 'react'
-import Paper from '@material-ui/core/Paper'
+import Grid from '@material-ui/core/Grid'
 import { KeyValueList } from '../../KeyValueList'
 import { OperatorShowData } from '../../../reducers/adminOperatorsShow'
 
 interface Props {
   operatorData: OperatorShowData
+  loadingMessage: string
 }
 
 const entries = (operatorData: OperatorShowData): [string, string][] => {
@@ -18,20 +19,12 @@ const entries = (operatorData: OperatorShowData): [string, string][] => {
   ]
 }
 
-const Operator: React.FC<Props> = ({ operatorData }) => {
-  const title = operatorData ? operatorData.name : 'Loading...'
+const Operator: React.FC<Props> = ({ operatorData, loadingMessage }) => {
+  const title = operatorData ? operatorData.name : loadingMessage
   const _entries = operatorData ? entries(operatorData) : []
   // TODO refactor ^
   return (
-    // <Paper className={className}>
-    <Paper>
-      <KeyValueList
-        title={title}
-        entries={_entries}
-        showHead={false}
-        titleize
-      />
-    </Paper>
+    <KeyValueList title={title} entries={_entries} showHead={false} titleize />
   )
 }
 
