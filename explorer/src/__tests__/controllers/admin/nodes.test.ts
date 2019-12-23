@@ -101,7 +101,7 @@ describe('DELETE /api/v1/admin/nodes/:name', () => {
   })
 })
 
-describe.only('GET /api/v1/admin/nodes/:id', () => {
+describe('GET /api/v1/admin/nodes/:id', () => {
   function path(id: number): string {
     return `${adminNodesPath}/${id}`
   }
