@@ -40,7 +40,7 @@
     "@types/storybook__addon-links": "^3.3.5",
     "@types/storybook__react": "^4.0.2",
     "babel-loader": "^8.0.6",
-    "depcheck": "^0.8.3",
+    "depcheck": "^0.9.1",
     "react-docgen-typescript-loader": "^3.1.0",
     "rimraf": "^3.0.0",
     "webpack": "^4.41.2"

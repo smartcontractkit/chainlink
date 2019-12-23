@@ -17,7 +17,7 @@
     "@types/node": "^12.12.11",
     "cross-env": "^6.0.3",
     "cypress": "^3.4.1",
-    "depcheck": "^0.8.3",
+    "depcheck": "^0.9.1",
     "ts-loader": "^6.2.1",
     "ts-node": "^8.4.1",
     "typescript": "^3.6.3",
