@@ -15,7 +15,8 @@
     "slither": "truffle compile --quiet && slither . && rimraf dist/artifacts",
     "setup": "ts-node ./scripts/build",
     "prepublishOnly": "yarn setup && yarn lint && yarn test",
-    "test": "tsc && truffle test ./dist/test/*_test.js",
+    "test": "yarn test:v1 && yarn test:v2",
+    "test:v1": "tsc && truffle test ./dist/test/*_test.js",
     "test:v2": "jest --testTimeout 80000",
     "tsc": "tsc"
   },
