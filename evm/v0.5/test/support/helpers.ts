@@ -3,6 +3,7 @@ import cbor from 'cbor'
 import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
 import { FunctionFragment } from 'ethers/utils/abi-coder'
+//@ts-ignore
 import TruffleContract from 'truffle-contract'
 import linkToken from './LinkToken.json'
 import { assertBigNum } from './matchers'
@@ -123,6 +124,7 @@ export const toHexWithoutPrefix = (arg: any): string => {
   if (arg instanceof Buffer || arg instanceof BN) {
     return arg.toString('hex')
   } else if (arg instanceof Uint8Array) {
+    //@ts-ignore
     return Array.prototype.reduce.call(
       arg,
       (a: any, v: any) => a + v.toString('16').padStart(2, '0'),
@@ -355,6 +357,7 @@ export const newUint8ArrayFromStr = (str: string): Uint8Array => {
   const codePoints = Array.prototype.map.call(str, (c: string) =>
     c.charCodeAt(0),
   )
+  //@ts-ignore
   return Uint8Array.from(codePoints)
 }
 
