@@ -39,6 +39,7 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 		models.InitiatorEthLog,
 		models.InitiatorRunLog,
 		models.InitiatorServiceAgreementExecutionLog,
+		models.InitiatorRandomnessLog,
 	)
 
 	nextHead := head.NextInt() // Exclude current block from subscription
@@ -132,6 +133,7 @@ func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 // ServiceAgreementExecutionLog. (Both log events have the same format.)
 func ReceiveLogRequest(runManager RunManager, le models.LogRequest) {
 	if !le.Validate() {
+		logger.Debugw("discarding INVALID EVENT LOG", "log", le.GetLog())
 		return
 	}
 

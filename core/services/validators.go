@@ -115,6 +115,8 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 		return nil
 	case models.InitiatorEthLog:
 		return nil
+	case models.InitiatorRandomnessLog:
+		return validateRandomnessLogInitiator(i, j)
 	default:
 		return models.NewJSONAPIErrorsWith(fmt.Sprintf("type %v does not exist", i.Type))
 	}
