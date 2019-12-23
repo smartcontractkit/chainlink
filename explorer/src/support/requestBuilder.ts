@@ -18,43 +18,32 @@ export interface RequestBuilder {
   sendDelete: RequestFunction
 }
 
-export function requestBuilder(server: Server): RequestBuilder {
-  function sendGet(path: string, username: string, password: string) {
-    return request(server)
-      .get(path)
-      .set('Accept', 'application/json')
-      .set('Content-Type', 'application/json')
-      .set(ADMIN_USERNAME_HEADER, username)
-      .set(ADMIN_PASSWORD_HEADER, password)
-  }
+type method = 'get' | 'post' | 'delete'
 
-  function sendPost(
+export function requestBuilder(server: Server): RequestBuilder {
+  function sendRequest(
+    method: method,
     path: string,
     username: string,
     password: string,
-    data?: object,
   ) {
     return request(server)
-      .post(path)
-      .send(data)
+      [method](path)
       .set('Accept', 'application/json')
       .set('Content-Type', 'application/json')
       .set(ADMIN_USERNAME_HEADER, username)
       .set(ADMIN_PASSWORD_HEADER, password)
   }
 
-  function sendDelete(path: string, username: string, password: string) {
-    return request(server)
-      .delete(path)
-      .set('Accept', 'application/json')
-      .set('Content-Type', 'application/json')
-      .set(ADMIN_USERNAME_HEADER, username)
-      .set(ADMIN_PASSWORD_HEADER, password)
-  }
+  const buildRequestMethod = (method: method) => (
+    path: string,
+    username: string,
+    password: string,
+  ) => sendRequest(method, path, username, password)
 
   return {
-    sendGet,
-    sendPost,
-    sendDelete,
+    sendGet: buildRequestMethod('get'),
+    sendPost: buildRequestMethod('post'),
+    sendDelete: buildRequestMethod('delete'),
   }
 }
