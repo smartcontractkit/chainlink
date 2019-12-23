@@ -33,6 +33,15 @@ beforeEach(async () => {
   await createAdmin(db, USERNAME, PASSWORD)
 })
 
+function sendGet(path: string, username: string, password: string) {
+  return request(server)
+    .get(path)
+    .set('Accept', 'application/json')
+    .set('Content-Type', 'application/json')
+    .set(ADMIN_USERNAME_HEADER, username)
+    .set(ADMIN_PASSWORD_HEADER, password)
+}
+
 function sendPost(
   path: string,
   data: object,
@@ -40,7 +49,7 @@ function sendPost(
   password: string,
 ) {
   return request(server)
-    .post(adminNodesPath)
+    .post(path)
     .send(data)
     .set('Accept', 'application/json')
     .set('Content-Type', 'application/json')
@@ -121,6 +130,32 @@ describe('DELETE /api/v1/admin/nodes/:name', () => {
 
   it('returns a 401 unauthorized with invalid admin credentials', done => {
     sendDelete(path('idontexist'), USERNAME, 'invalidpassword')
+      .expect(httpStatus.UNAUTHORIZED)
+      .end(done)
+  })
+})
+
+describe.only('GET /api/v1/admin/nodes/:id', () => {
+  function path(id: number): string {
+    return `${adminNodesPath}/${id}`
+  }
+
+  it('can get a node', async done => {
+    const [node] = await createChainlinkNode(db, 'nodeA')
+
+    sendGet(path(node.id), USERNAME, PASSWORD)
+      .expect(httpStatus.OK)
+      .expect(res => {
+        console.log(res.body)
+        expect(res.body.data.id).toBeDefined()
+      })
+      .end(done)
+  })
+
+  it('returns a 401 unauthorized with invalid admin credentials', async done => {
+    const [node] = await createChainlinkNode(db, 'nodeA')
+    const _nodePath = path(node.id)
+    sendGet(_nodePath, USERNAME, 'invalidpassword')
       .expect(httpStatus.UNAUTHORIZED)
       .end(done)
   })
