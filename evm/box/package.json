@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "chai": "^4.2.0",
-    "depcheck": "^0.8.3",
+    "depcheck": "^0.9.1",
     "openzeppelin-test-helpers": "^0.4.3",
     "solc": "0.4.24",
     "solhint": "^2.1.0",
