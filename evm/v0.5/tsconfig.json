@@ -12,7 +12,12 @@
     "noEmitOnError": false,
     "resolveJsonModule": true,
     "moduleResolution": "node",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
   },
-  "include": ["test", "src", "@types"]
+  "include": ["test", "testv2", "src", "@types"]
 }
