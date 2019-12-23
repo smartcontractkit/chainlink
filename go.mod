@@ -39,7 +39,7 @@ require (
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/json-iterator/go v1.1.8 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
-	github.com/lib/pq v1.1.1
+	github.com/lib/pq v1.3.0
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mattn/go-isatty v0.0.11 // indirect
 	github.com/mattn/go-sqlite3 v1.13.0
