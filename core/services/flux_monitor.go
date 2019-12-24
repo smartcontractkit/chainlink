@@ -295,7 +295,7 @@ func (p *PollingDeviationChecker) Initialize(client eth.Client) error {
 }
 
 // Start begins the CSP consumer in a single goroutine to
-// poll the price adapters and listen // to NewRound events.
+// poll the price adapters and listen to NewRound events.
 func (p *PollingDeviationChecker) Start(ctx context.Context) {
 	pollingCtx, cancel := context.WithCancel(ctx)
 	p.cancel = cancel
