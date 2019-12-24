@@ -336,7 +336,7 @@ func TestPollingDeviationChecker_StopWithoutStart(t *testing.T) {
 	checker.Stop()
 }
 
-func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
+func TestPollingDeviationChecker_RespondToNewRound_Ignore(t *testing.T) {
 	currentRound := int64(5)
 
 	// Set up fetcher for 100
@@ -375,11 +375,43 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
-		log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(test.round))
-		require.NoError(t, checker.RespondToNewRound(log))
-		rm.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		t.Run(test.name, func(t *testing.T) {
+			log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
+			log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(test.round))
+			require.NoError(t, checker.RespondToNewRound(log))
+			rm.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		})
 	}
+}
+
+func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
+	currentRound := int64(5)
+
+	// Set up fetcher for 100
+	fetcher := new(mocks.Fetcher)
+	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Maybe()
+	defer fetcher.AssertExpectations(t)
+
+	// Prepare on-chain initialization to 100, which matches external adapter,
+	// so no deviation
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	initr.ID = 1
+
+	ethClient := new(mocks.Client)
+	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
+		Return(decimal.NewFromInt(100), nil)
+	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+		Return(big.NewInt(currentRound), nil)
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+		Return(fakeSubscription(), nil)
+
+	// Initialize
+	rm := new(mocks.RunManager)
+	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Minute)
+	require.NoError(t, err)
+	require.NoError(t, checker.Initialize(ethClient))
+	ethClient.AssertExpectations(t)
 
 	// Send log greater than current
 	data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
