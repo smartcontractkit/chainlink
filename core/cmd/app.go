@@ -266,7 +266,7 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "destroy",
-					Usage:  "Remove an authentication key",
+					Usage:  "Remove an authentication key by name",
 					Action: client.DeleteExternalInitiator,
 				},
 			},

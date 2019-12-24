@@ -103,7 +103,7 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
 // DeleteExternalInitiator removes an external initiator
 func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) error {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the AccessKey for the external initiator to delete"))
+		return cli.errorOut(errors.New("Must pass the name of the external initiator to delete"))
 	}
 
 	resp, err := cli.HTTP.Delete("/v2/external_initiators/" + c.Args().First())
