@@ -7,6 +7,8 @@ const DEFAULT_OPTIONS = {
   network: 'mainnet',
   history: true,
   bollinger: false,
+  decimalPlaces: 3,
+  multiply: '100000000',
 }
 
 const MAINNET_CONTRACTS = [
@@ -82,6 +84,16 @@ const MAINNET_CONTRACTS = [
     answerName: 'ETH',
     counter: 600,
     path: 'eth-usd',
+  },
+  {
+    contractAddress: '0x8770Afe90c52Fd117f29192866DE705F63e59407',
+    name: 'LRC / ETH aggregation',
+    valuePrefix: 'Ξ',
+    answerName: 'LRC',
+    path: 'lrc-eth',
+    multiply: '1000000000000000000',
+    decimalPlaces: 9,
+    history: false,
   },
 ]
 

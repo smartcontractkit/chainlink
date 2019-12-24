@@ -17,6 +17,8 @@ const OPTIONS = {
   answerName: 'ETH',
   counter: 600,
   network: 'mainnet',
+  decimalPlaces: 3,
+  multiply: '100000000',
   history: true,
   bollinger: false,
 }

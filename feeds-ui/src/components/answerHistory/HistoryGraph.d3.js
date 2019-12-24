@@ -1,5 +1,5 @@
 import * as d3 from 'd3'
-import { formatEthPrice } from 'contracts/utils'
+import { formatAnswer } from 'contracts/utils'
 import { ethers } from 'ethers'
 import { humanizeUnixTimestamp } from 'utils'
 
@@ -119,7 +119,13 @@ export default class HistoryGraph {
       .axisLeft()
       .scale(this.y)
       .ticks(4)
-      .tickFormat(f => formatEthPrice(ethers.utils.bigNumberify(f)))
+      .tickFormat(f =>
+        formatAnswer(
+          ethers.utils.bigNumberify(f),
+          this.options.multiply,
+          this.options.decimalPlaces,
+        ),
+      )
 
     this.svg
       .append('g')
