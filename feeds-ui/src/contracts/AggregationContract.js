@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
 import {
   getLogs,
-  formatEthPrice,
+  formatAnswer,
   decodeLog,
   createContract,
   createInfuraProvider,
@@ -74,7 +74,11 @@ export default class AggregationContract {
 
   async currentAnswer() {
     const currentAnswer = await this.contract.currentAnswer()
-    return formatEthPrice(currentAnswer)
+    return formatAnswer(
+      currentAnswer,
+      this.options.multiply,
+      this.options.decimalPlaces,
+    )
   }
 
   async updateHeight() {
@@ -145,7 +149,11 @@ export default class AggregationContract {
         eventInterface: this.contract.interface.events.ResponseReceived,
       },
       decodedLog => ({
-        responseFormatted: formatEthPrice(decodedLog.response),
+        responseFormatted: formatAnswer(
+          decodedLog.response,
+          this.options.multiply,
+          this.options.decimalPlaces,
+        ),
         response: Number(decodedLog.response),
         answerId: Number(decodedLog.answerId),
         sender: decodedLog.sender,
@@ -204,7 +212,11 @@ export default class AggregationContract {
             eventInterface: this.contract.interface.events.ResponseReceived,
           },
           decodedLog => ({
-            responseFormatted: formatEthPrice(decodedLog.response),
+            responseFormatted: formatAnswer(
+              decodedLog.response,
+              this.options.multiply,
+              this.options.decimalPlaces,
+            ),
             response: Number(decodedLog.response),
             answerId: Number(decodedLog.answerId),
             sender: decodedLog.sender,
@@ -234,7 +246,11 @@ export default class AggregationContract {
         eventInterface: this.contract.interface.events.AnswerUpdated,
       },
       decodedLog => ({
-        responseFormatted: formatEthPrice(decodedLog.current),
+        responseFormatted: formatAnswer(
+          decodedLog.current,
+          this.options.multiply,
+          this.options.decimalPlaces,
+        ),
         response: Number(decodedLog.current),
         answerId: Number(decodedLog.answerId),
       }),

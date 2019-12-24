@@ -1,10 +1,9 @@
 import React from 'react'
-import moment from 'moment'
 import { Icon } from 'antd'
-
 import CountDown from './CountDown.component'
 import Legend from './Legend.component'
 import TooltipQuestion from 'components/shared/TooltipQuestion'
+import { humanizeUnixTimestamp } from 'utils'
 
 function NetworkGraphInfo({
   currentAnswer,
@@ -17,11 +16,11 @@ function NetworkGraphInfo({
   pendingAnswerId,
 }) {
   const updateTime = updateHeight
-    ? moment.unix(updateHeight).format('hh:mm:ss A')
+    ? humanizeUnixTimestamp(updateHeight, 'h:mm A')
     : '...'
 
   const updateDate = updateHeight
-    ? moment.unix(updateHeight).format('MMM Do YYYY')
+    ? humanizeUnixTimestamp(updateHeight, 'MMM Do YYYY')
     : '...'
 
   const getCurrentResponses = () => {

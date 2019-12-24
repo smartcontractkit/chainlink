@@ -1,11 +1,15 @@
-import { getLogs, formatEthPrice } from './utils'
+import { getLogs, formatAnswer } from './utils'
 
 import AggregationContract from './AggregationContract'
 
 export default class AggregationContractV2 extends AggregationContract {
   async currentAnswer() {
     const latestAnswer = await this.contract.latestAnswer()
-    return formatEthPrice(latestAnswer)
+    return formatAnswer(
+      latestAnswer,
+      this.options.multiply,
+      this.options.decimalPlaces,
+    )
   }
 
   async updateHeight() {
@@ -32,7 +36,11 @@ export default class AggregationContractV2 extends AggregationContract {
         eventInterface: this.contract.interface.events.AnswerUpdated,
       },
       decodedLog => ({
-        responseFormatted: formatEthPrice(decodedLog.current),
+        responseFormatted: formatAnswer(
+          decodedLog.current,
+          this.options.multiply,
+          this.options.decimalPlaces,
+        ),
         response: Number(decodedLog.current),
         answerId: Number(decodedLog.roundId),
         timestamp: Number(decodedLog.timestamp),

@@ -55,7 +55,7 @@ const NodeDetailsContent = ({ data = {}, jobId, options }) => {
           Response date
         </div>
         <h3 className="network-graph__node-details__item--value">
-          {data.meta && humanizeUnixTimestamp(data.meta.timestamp)}
+          {data.meta && humanizeUnixTimestamp(data.meta.timestamp, 'LLL')}
         </h3>
       </div>
 
@@ -134,7 +134,7 @@ const ContractDetailsContent = ({ data = {}, options }) => {
           Response date
         </div>
         <h3 className="network-graph__contract-details__item--value">
-          {humanizeUnixTimestamp(data.updateHeight)}
+          {humanizeUnixTimestamp(data.updateHeight, 'LLL')}
         </h3>
       </div>
 
