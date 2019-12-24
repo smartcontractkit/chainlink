@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"testing"
 
@@ -16,6 +17,20 @@ import (
 func ExportedSetCheckerFactory(fm FluxMonitor, fac DeviationCheckerFactory) {
 	impl := fm.(*concreteFluxMonitor)
 	impl.checkerFactory = fac
+}
+
+// ExportedCurrentPrice returns the private current price for assertions;
+// technically thread unsafe because it can be set in parallel from
+// the CSP consumer.
+func (p *PollingDeviationChecker) ExportedCurrentPrice() decimal.Decimal {
+	return p.currentPrice
+}
+
+// ExportedCurrentRound returns the private current round for assertions;
+// technically thread unsafe because it can be set in parallel from
+// the CSP consumer.
+func (p *PollingDeviationChecker) ExportedCurrentRound() *big.Int {
+	return new(big.Int).Set(p.currentRound)
 }
 
 func mustReadFile(t testing.TB, file string) string {

@@ -224,21 +224,19 @@ type DeviationChecker interface {
 
 // PollingDeviationChecker polls external price adapters via HTTP to check for price swings.
 type PollingDeviationChecker struct {
-	initr               models.Initiator
-	address             common.Address
-	requestData         models.JSON
-	threshold           float64
-	precision           int32
-	runManager          RunManager
-	currentPrice        decimal.Decimal
-	currentRound        *big.Int
-	fetcher             Fetcher
-	delay               time.Duration
-	cancel              context.CancelFunc
-	newRounds           chan eth.Log
-	currentPriceRequest chan chan decimal.Decimal
-	currentRoundRequest chan chan *big.Int
-	roundSubscription   eth.Subscription
+	initr             models.Initiator
+	address           common.Address
+	requestData       models.JSON
+	threshold         float64
+	precision         int32
+	runManager        RunManager
+	currentPrice      decimal.Decimal
+	currentRound      *big.Int
+	fetcher           Fetcher
+	delay             time.Duration
+	cancel            context.CancelFunc
+	newRounds         chan eth.Log
+	roundSubscription eth.Subscription
 }
 
 // defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
@@ -252,19 +250,17 @@ func NewPollingDeviationChecker(
 	delay time.Duration,
 ) (*PollingDeviationChecker, error) {
 	return &PollingDeviationChecker{
-		initr:               initr,
-		address:             initr.InitiatorParams.Address,
-		requestData:         initr.InitiatorParams.RequestData,
-		threshold:           float64(initr.InitiatorParams.Threshold),
-		precision:           initr.InitiatorParams.Precision,
-		runManager:          runManager,
-		currentPrice:        decimal.NewFromInt(0),
-		currentRound:        big.NewInt(0),
-		fetcher:             fetcher,
-		delay:               delay,
-		newRounds:           make(chan eth.Log),
-		currentPriceRequest: make(chan chan decimal.Decimal),
-		currentRoundRequest: make(chan chan *big.Int),
+		initr:        initr,
+		address:      initr.InitiatorParams.Address,
+		requestData:  initr.InitiatorParams.RequestData,
+		threshold:    float64(initr.InitiatorParams.Threshold),
+		precision:    initr.InitiatorParams.Precision,
+		runManager:   runManager,
+		currentPrice: decimal.NewFromInt(0),
+		currentRound: big.NewInt(0),
+		fetcher:      fetcher,
+		delay:        delay,
+		newRounds:    make(chan eth.Log),
 	}, nil
 }
 
@@ -310,10 +306,6 @@ func (p *PollingDeviationChecker) Start(ctx context.Context) {
 		select {
 		case <-pollingCtx.Done():
 			return
-		case rchan := <-p.currentPriceRequest:
-			rchan <- p.currentPrice
-		case rchan := <-p.currentRoundRequest:
-			rchan <- new(big.Int).Set(p.currentRound)
 		case err := <-p.roundSubscription.Err():
 			logger.Error(errors.Wrap(err, "checker lost subscription to NewRound log events"))
 		case log := <-p.newRounds:
@@ -329,20 +321,6 @@ func (p *PollingDeviationChecker) Stop() {
 	if p.cancel != nil {
 		p.cancel()
 	}
-}
-
-// CurrentPrice returns the price used to check deviations against.
-func (p *PollingDeviationChecker) CurrentPrice() decimal.Decimal {
-	rchan := make(chan decimal.Decimal)
-	p.currentPriceRequest <- rchan
-	return <-rchan
-}
-
-// CurrentRound returns the latest round.
-func (p *PollingDeviationChecker) CurrentRound() *big.Int {
-	rchan := make(chan *big.Int)
-	p.currentRoundRequest <- rchan
-	return <-rchan
 }
 
 // RespondToNewRound takes the round broadcasted in the log event, and responds
