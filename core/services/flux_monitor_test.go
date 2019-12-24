@@ -190,8 +190,6 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 
 	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Second)
 	require.NoError(t, err)
-	assert.Equal(t, decimal.NewFromInt(0), checker.CurrentPrice())
-	assert.Equal(t, big.NewInt(0), checker.CurrentRound())
 
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
@@ -203,15 +201,15 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 
 	require.NoError(t, checker.Initialize(ethClient)) // setup
 	ethClient.AssertExpectations(t)
-	assert.Equal(t, decimal.NewFromInt(100), checker.CurrentPrice())
-	assert.Equal(t, big.NewInt(1), checker.CurrentRound())
+	assert.Equal(t, decimal.NewFromInt(100), checker.ExportedCurrentPrice())
+	assert.Equal(t, big.NewInt(1), checker.ExportedCurrentRound())
 
 	require.NoError(t, checker.Poll()) // main entry point
 
 	fetcher.AssertExpectations(t)
 	rm.AssertExpectations(t)
-	assert.Equal(t, decimal.NewFromInt(102), checker.CurrentPrice())
-	assert.Equal(t, big.NewInt(2), checker.CurrentRound())
+	assert.Equal(t, decimal.NewFromInt(102), checker.ExportedCurrentPrice())
+	assert.Equal(t, big.NewInt(2), checker.ExportedCurrentRound())
 }
 
 func TestPollingDeviationChecker_InitializeError(t *testing.T) {
