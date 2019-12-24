@@ -171,9 +171,9 @@ func (client *CallerSubscriberClient) GetAggregatorRound(address common.Address)
 
 	round, ok := new(big.Int).SetString(result, 0)
 	if !ok {
-		return nil, errors.Wrap(
+		return nil, errors.Wrapf(
 			fmt.Errorf("unable to parse int from %s", result),
-			fmt.Sprintf("unable to fetch aggregator round from %s", address.Hex()))
+			"unable to fetch aggregator round from %s", address.Hex())
 	}
 	return round, nil
 }
