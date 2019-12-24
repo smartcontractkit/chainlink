@@ -13,11 +13,18 @@ export function createInfuraProvider(network = 'mainnet') {
   return provider
 }
 
-export function formatEthPrice(value) {
-  return ethers.utils.formatEther(value.mul(10000000000), {
-    commify: true,
-    pad: true,
-  })
+/**
+ * @dev Format an aggregator answer
+ * @param value The Big Number to format
+ * @param multiply The number to divide the result by. See Multiply adapter in Chainlink Job Specification -  https://docs.chain.link/docs/job-specifications
+ * @param decimalPlaces The number to show decimal places
+ */
+
+export function formatAnswer(value, multiply, decimalPlaces) {
+  const decimals = 10 ** decimalPlaces
+  const divided = value.mul(decimals).div(multiply)
+  const formatted = ethers.utils.formatUnits(divided, decimalPlaces)
+  return formatted.toString()
 }
 
 export async function getLogs(

@@ -20,8 +20,8 @@ const NetworkPage = ({ initContract, clearState, options }) => {
     <div className="page-wrapper network-page">
       <NetworkGraph options={options} />
       <NetworkGraphInfo options={options} />
-      <AnswerHistory options={options} />
-      <DeviationHistory options={options} />
+      {options.history && <AnswerHistory options={options} />}
+      {options.history && <DeviationHistory options={options} />}
       <OracleTable />
     </div>
   )

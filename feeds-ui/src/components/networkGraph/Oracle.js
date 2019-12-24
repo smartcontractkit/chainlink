@@ -25,8 +25,7 @@ const Oracle = ({ data, position, options, setTooltip, setDrawer }) => {
         </text>
         {data.responseFormatted && (
           <text className="vis__oracle-label--price" x="20" y="10">
-            {options.valuePrefix}{' '}
-            {parseFloat(data.responseFormatted).toFixed(2)}
+            {options.valuePrefix} {data.responseFormatted}
           </text>
         )}
       </g>
