@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	// PrepaidAggregatorName is the string name of said contract.
+	// PrepaidAggregatorName is the name of Chainlink's Ethereum contract for
+	// aggregating numerical data such as prices.
 	PrepaidAggregatorName = "PrepaidAggregator"
 )
 
