@@ -53,7 +53,7 @@ func (eic *ExternalInitiatorsController) Destroy(c *gin.Context) {
 
 	name := c.Param("Name")
 	if exi, err := eic.App.GetStore().FindExternalInitiatorByName(name); err == orm.ErrorNotFound {
-		jsonAPIError(c, http.StatusNotFound, err)
+		jsonAPIError(c, http.StatusNotFound, errors.New("external initiator not found"))
 	} else if err := eic.App.GetStore().DeleteExternalInitiator(exi.Name); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
