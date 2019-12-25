@@ -33,11 +33,10 @@ func TestConcreteFluxMonitor_AddJobRemoveJobHappy(t *testing.T) {
 
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	runManager := new(mocks.RunManager)
-	started := make(chan struct{})
+	started := make(chan struct{}, 1)
 
 	dc := new(mocks.DeviationChecker)
-	dc.On("Initialize", mock.Anything).Return(nil)
-	dc.On("Start", mock.Anything).Return().Run(func(mock.Arguments) {
+	dc.On("Start", mock.Anything, mock.Anything).Return(nil).Run(func(mock.Arguments) {
 		started <- struct{}{}
 	})
 
@@ -78,7 +77,7 @@ func TestConcreteFluxMonitor_AddJobError(t *testing.T) {
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	runManager := new(mocks.RunManager)
 	dc := new(mocks.DeviationChecker)
-	dc.On("Initialize", mock.Anything).Return(errors.New("deliberate test error"))
+	dc.On("Start", mock.Anything, mock.Anything).Return(errors.New("deliberate test error"))
 	checkerFactory := new(mocks.DeviationCheckerFactory)
 	checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
 	fm := services.NewFluxMonitor(store, runManager)
@@ -139,8 +138,7 @@ func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 	started := make(chan struct{})
 
 	dc := new(mocks.DeviationChecker)
-	dc.On("Initialize", mock.Anything).Return(nil)
-	dc.On("Start", mock.Anything).Return().Run(func(mock.Arguments) {
+	dc.On("Start", mock.Anything, mock.Anything).Return(nil).Run(func(mock.Arguments) {
 		started <- struct{}{}
 	})
 
@@ -196,15 +194,13 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 		Return(decimal.NewFromInt(100), nil)
 	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
-	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
-		Return(fakeSubscription(), nil)
 
-	require.NoError(t, checker.Initialize(ethClient)) // setup
+	require.NoError(t, checker.ExportedFetchAggregatorData(ethClient)) // setup
 	ethClient.AssertExpectations(t)
 	assert.Equal(t, decimal.NewFromInt(100), checker.ExportedCurrentPrice())
 	assert.Equal(t, big.NewInt(1), checker.ExportedCurrentRound())
 
-	require.NoError(t, checker.Poll()) // main entry point
+	require.NoError(t, checker.ExportedPoll()) // main entry point
 
 	fetcher.AssertExpectations(t)
 	rm.AssertExpectations(t)
@@ -212,7 +208,7 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 	assert.Equal(t, big.NewInt(2), checker.ExportedCurrentRound())
 }
 
-func TestPollingDeviationChecker_InitializeError(t *testing.T) {
+func TestPollingDeviationChecker_StartError(t *testing.T) {
 	rm := new(mocks.RunManager)
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
@@ -224,7 +220,7 @@ func TestPollingDeviationChecker_InitializeError(t *testing.T) {
 
 	checker, err := services.NewPollingDeviationChecker(initr, rm, nil, time.Second)
 	require.NoError(t, err)
-	require.Error(t, checker.Initialize(ethClient))
+	require.Error(t, checker.Start(context.Background(), ethClient))
 }
 
 func TestPollingDeviationChecker_StartStop(t *testing.T) {
@@ -254,13 +250,12 @@ func TestPollingDeviationChecker_StartStop(t *testing.T) {
 
 	// Start() with no delay to speed up test and polling.
 	rm := new(mocks.RunManager)
-	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, 0)
+	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Millisecond)
 	require.NoError(t, err)
-	require.NoError(t, checker.Initialize(ethClient))
 
 	done := make(chan struct{})
 	go func() {
-		checker.Start(context.Background()) // Start() polling
+		checker.Start(context.Background(), ethClient) // Start() polling
 		done <- struct{}{}
 	}()
 
@@ -274,7 +269,7 @@ func TestPollingDeviationChecker_StartStop(t *testing.T) {
 	})
 }
 
-func TestPollingDeviationChecker_NoDeviationLoopsCanBeCanceled(t *testing.T) {
+func TestPollingDeviationChecker_NoDeviation_CanBeCanceled(t *testing.T) {
 	// Set up fetcher to mark when polled
 	fetcher := new(mocks.Fetcher)
 	polled := make(chan struct{})
@@ -300,22 +295,21 @@ func TestPollingDeviationChecker_NoDeviationLoopsCanBeCanceled(t *testing.T) {
 		Return(fakeSubscription(), nil)
 
 	// Start() with no delay to speed up test and polling.
-	rm := new(mocks.RunManager)
-	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, 0)
+	rm := new(mocks.RunManager) // No mocks assert no runs are created
+	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Millisecond)
 	require.NoError(t, err)
-	require.NoError(t, checker.Initialize(ethClient))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		checker.Start(ctx) // Start() polling and delaying until cancel() from parent ctx.
+		checker.Start(ctx, ethClient) // Start() polling until cancel()
 		done <- struct{}{}
 	}()
 
 	// Check if Polled
 	cltest.CallbackOrTimeout(t, "start repeatedly polls external adapter", func() {
-		<-polled // launched at the beginning of Start before delay
-		<-polled // need two hits
+		<-polled // launched at the beginning of Start
+		<-polled // launched after time.After
 	})
 
 	// Cancel parent context and ensure Start() stops.
@@ -355,14 +349,12 @@ func TestPollingDeviationChecker_RespondToNewRound_Ignore(t *testing.T) {
 		Return(decimal.NewFromInt(100), nil)
 	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(currentRound), nil)
-	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
-		Return(fakeSubscription(), nil)
 
 	// Initialize
 	rm := new(mocks.RunManager)
 	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Minute)
 	require.NoError(t, err)
-	require.NoError(t, checker.Initialize(ethClient))
+	require.NoError(t, checker.ExportedFetchAggregatorData(ethClient))
 	ethClient.AssertExpectations(t)
 
 	// Send rounds less than or equal to current, sequentially
@@ -378,7 +370,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Ignore(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
 			log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(test.round))
-			require.NoError(t, checker.RespondToNewRound(log))
+			require.NoError(t, checker.ExportedRespondToNewRound(log))
 			rm.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 		})
 	}
@@ -403,14 +395,12 @@ func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
 		Return(decimal.NewFromInt(100), nil)
 	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(currentRound), nil)
-	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
-		Return(fakeSubscription(), nil)
 
 	// Initialize
 	rm := new(mocks.RunManager)
 	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Minute)
 	require.NoError(t, err)
-	require.NoError(t, checker.Initialize(ethClient))
+	require.NoError(t, checker.ExportedFetchAggregatorData(ethClient))
 	ethClient.AssertExpectations(t)
 
 	// Send log greater than current
@@ -427,7 +417,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
 
 	log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
 	log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(6))
-	require.NoError(t, checker.RespondToNewRound(log))
+	require.NoError(t, checker.ExportedRespondToNewRound(log))
 	rm.AssertExpectations(t)
 }
 
