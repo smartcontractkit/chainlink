@@ -1,6 +1,7 @@
 package services
 
 import (
+	"chainlink/core/eth"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -17,6 +18,18 @@ import (
 func ExportedSetCheckerFactory(fm FluxMonitor, fac DeviationCheckerFactory) {
 	impl := fm.(*concreteFluxMonitor)
 	impl.checkerFactory = fac
+}
+
+func (p *PollingDeviationChecker) ExportedFetchAggregatorData(client eth.Client) error {
+	return p.fetchAggregatorData(client)
+}
+
+func (p *PollingDeviationChecker) ExportedRespondToNewRound(log eth.Log) error {
+	return p.respondToNewRound(log)
+}
+
+func (p *PollingDeviationChecker) ExportedPoll() error {
+	return p.poll()
 }
 
 // ExportedCurrentPrice returns the private current price for assertions;

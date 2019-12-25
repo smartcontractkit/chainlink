@@ -179,12 +179,7 @@ func (fm *concreteFluxMonitor) addAction(ctx context.Context, connected bool, jo
 }
 
 func connectSingleChecker(ctx context.Context, checker DeviationChecker, client eth.Client) error {
-	err := checker.Initialize(client)
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize flux monitor checker")
-	}
-	go checker.Start(ctx)
-	return nil
+	return checker.Start(ctx, client)
 }
 
 // RemoveJob stops and removes the checker for all Flux Monitor initiators belonging
@@ -215,28 +210,26 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 }
 
 // DeviationChecker encapsulate methods needed to initialize and check prices
-// for deviations, or swings.
+// for price deviations.
 type DeviationChecker interface {
-	Initialize(eth.Client) error
-	Start(context.Context)
+	Start(context.Context, eth.Client) error
 	Stop()
 }
 
 // PollingDeviationChecker polls external price adapters via HTTP to check for price swings.
 type PollingDeviationChecker struct {
-	initr             models.Initiator
-	address           common.Address
-	requestData       models.JSON
-	threshold         float64
-	precision         int32
-	runManager        RunManager
-	currentPrice      decimal.Decimal
-	currentRound      *big.Int
-	fetcher           Fetcher
-	delay             time.Duration
-	cancel            context.CancelFunc
-	newRounds         chan eth.Log
-	roundSubscription eth.Subscription
+	initr        models.Initiator
+	address      common.Address
+	requestData  models.JSON
+	threshold    float64
+	precision    int32
+	runManager   RunManager
+	currentPrice decimal.Decimal
+	currentRound *big.Int
+	fetcher      Fetcher
+	delay        time.Duration
+	cancel       context.CancelFunc
+	newRounds    chan eth.Log
 }
 
 // defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
@@ -264,54 +257,41 @@ func NewPollingDeviationChecker(
 	}, nil
 }
 
-// Initialize retrieves the price that's on-chain, with which we must check
-// the deviation from.
-func (p *PollingDeviationChecker) Initialize(client eth.Client) error {
-	price, err := client.GetAggregatorPrice(p.address, p.precision)
-	if err != nil {
-		return err
-	}
-	p.currentPrice = price
-
-	round, err := client.GetAggregatorRound(p.address)
-	if err != nil {
-		return err
-	}
-	p.currentRound = round
-
-	filterQuery, err := models.FilterQueryFactory(p.initr, nil)
+// Start begins the CSP consumer in a single goroutine to
+// poll the price adapters and listen to NewRound events.
+func (p *PollingDeviationChecker) Start(ctx context.Context, client eth.Client) error {
+	err := p.fetchAggregatorData(client)
 	if err != nil {
 		return err
 	}
 
-	subscription, err := client.SubscribeToLogs(p.newRounds, filterQuery)
+	roundSubscription, err := p.subscribeToNewRounds(client)
 	if err != nil {
 		return err
 	}
 
-	logger.Infof("Flux Monitor Initiator subscribing to new rounds on %s", p.initr.Address.Hex())
-	p.roundSubscription = subscription
+	err = p.poll()
+	if err != nil {
+		return err
+	}
+
+	ctx, p.cancel = context.WithCancel(ctx)
+	go p.consume(ctx, roundSubscription)
 	return nil
 }
 
-// Start begins the CSP consumer in a single goroutine to
-// poll the price adapters and listen to NewRound events.
-func (p *PollingDeviationChecker) Start(ctx context.Context) {
-	pollingCtx, cancel := context.WithCancel(ctx)
-	p.cancel = cancel
-	defer p.roundSubscription.Unsubscribe()
-	logger.ErrorIf(p.Poll(), "checker unable to poll")
-
+func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription eth.Subscription) {
+	defer roundSubscription.Unsubscribe()
 	for {
 		select {
-		case <-pollingCtx.Done():
+		case <-ctx.Done():
 			return
-		case err := <-p.roundSubscription.Err():
+		case err := <-roundSubscription.Err():
 			logger.Error(errors.Wrap(err, "checker lost subscription to NewRound log events"))
 		case log := <-p.newRounds:
-			logger.ErrorIf(p.RespondToNewRound(log), "checker unable to respond to new round")
+			logger.ErrorIf(p.respondToNewRound(log), "checker unable to respond to new round")
 		case <-time.After(p.delay):
-			logger.ErrorIf(p.Poll(), "checker unable to poll")
+			logger.ErrorIf(p.poll(), "checker unable to poll")
 		}
 	}
 }
@@ -323,10 +303,42 @@ func (p *PollingDeviationChecker) Stop() {
 	}
 }
 
-// RespondToNewRound takes the round broadcasted in the log event, and responds
+// fetchAggregatorData retrieves the price that's on-chain, with which we check
+// the deviation against.
+func (p *PollingDeviationChecker) fetchAggregatorData(client eth.Client) error {
+	price, err := client.GetAggregatorPrice(p.address, p.precision)
+	if err != nil {
+		return err
+	}
+	p.currentPrice = price
+
+	round, err := client.GetAggregatorRound(p.address)
+	if err != nil {
+		return err
+	}
+	p.currentRound = round
+	return nil
+}
+
+func (p *PollingDeviationChecker) subscribeToNewRounds(client eth.Client) (eth.Subscription, error) {
+	filterQuery, err := models.FilterQueryFactory(p.initr, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	subscription, err := client.SubscribeToLogs(p.newRounds, filterQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Infof("Flux Monitor Initiator subscribing to new rounds on %s", p.initr.Address.Hex())
+	return subscription, nil
+}
+
+// respondToNewRound takes the round broadcasted in the log event, and responds
 // on-chain with an updated price.
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
-func (p *PollingDeviationChecker) RespondToNewRound(log eth.Log) error {
+func (p *PollingDeviationChecker) respondToNewRound(log eth.Log) error {
 	requestedRound, err := models.ParseNewRoundLog(log)
 	if err != nil {
 		return err
@@ -366,10 +378,10 @@ func (p *PollingDeviationChecker) RespondToNewRound(log eth.Log) error {
 	return nil
 }
 
-// Poll walks through the steps to check for a deviation, early exiting if deviation
+// poll walks through the steps to check for a deviation, early exiting if deviation
 // is not met, or triggering a new job run if deviation is met.
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
-func (p *PollingDeviationChecker) Poll() error {
+func (p *PollingDeviationChecker) poll() error {
 	nextPrice, err := p.fetchPrices()
 	if err != nil {
 		return err
@@ -398,29 +410,6 @@ func (p *PollingDeviationChecker) Poll() error {
 func (p *PollingDeviationChecker) fetchPrices() (decimal.Decimal, error) {
 	median, err := p.fetcher.Fetch()
 	return median, errors.Wrap(err, "unable to fetch median price")
-}
-
-var dec0 = decimal.NewFromInt(0)
-
-// OutsideDeviation checks whether the next price is outside the threshold.
-func OutsideDeviation(curPrice, nextPrice decimal.Decimal, threshold float64) bool {
-	if curPrice.Equal(dec0) {
-		logger.Infow("current price is 0, deviation automatically met")
-		return true
-	}
-
-	diff := curPrice.Sub(nextPrice).Abs()
-	percentage := diff.Div(curPrice).Mul(decimal.NewFromInt(100))
-	if percentage.LessThan(decimal.NewFromFloat(threshold)) {
-		logger.Debug(fmt.Sprintf("difference is %v%%, deviation threshold of %f%% not met", percentage, threshold))
-		return false
-	}
-	logger.Infow(
-		fmt.Sprintf("deviation of %v%% for threshold %f%% with previous price %v next price %v", percentage, threshold, curPrice, nextPrice),
-		"threshold", threshold,
-		"deviation", percentage,
-	)
-	return true
 }
 
 func (p *PollingDeviationChecker) createJobRun(nextPrice decimal.Decimal, nextRound *big.Int) error {
@@ -454,4 +443,27 @@ func (p *PollingDeviationChecker) createJobRun(nextPrice decimal.Decimal, nextRo
 	}
 	_, err = p.runManager.Create(p.initr.JobSpecID, &p.initr, &runData, nil, models.NewRunRequest())
 	return err
+}
+
+var dec0 = decimal.NewFromInt(0)
+
+// OutsideDeviation checks whether the next price is outside the threshold.
+func OutsideDeviation(curPrice, nextPrice decimal.Decimal, threshold float64) bool {
+	if curPrice.Equal(dec0) {
+		logger.Infow("current price is 0, deviation automatically met")
+		return true
+	}
+
+	diff := curPrice.Sub(nextPrice).Abs()
+	percentage := diff.Div(curPrice).Mul(decimal.NewFromInt(100))
+	if percentage.LessThan(decimal.NewFromFloat(threshold)) {
+		logger.Debug(fmt.Sprintf("difference is %v%%, deviation threshold of %f%% not met", percentage, threshold))
+		return false
+	}
+	logger.Infow(
+		fmt.Sprintf("deviation of %v%% for threshold %f%% with previous price %v next price %v", percentage, threshold, curPrice, nextPrice),
+		"threshold", threshold,
+		"deviation", percentage,
+	)
+	return true
 }
