@@ -72,6 +72,30 @@ func TestParseRunLog(t *testing.T) {
 	}
 }
 
+func TestParseNewRoundLog(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		log  eth.Log
+		want *big.Int
+	}{
+		{
+			name: "round 1",
+			log:  cltest.LogFromFixture(t, "testdata/newRoundLog.json"),
+			want: big.NewInt(1),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			output, err := models.ParseNewRoundLog(test.log)
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, output)
+		})
+	}
+}
+
 func TestEthLogEvent_JSON(t *testing.T) {
 	t.Parallel()
 
@@ -142,10 +166,10 @@ func TestRequestLogEvent_Validate(t *testing.T) {
 			}
 
 			logRequest := models.InitiatorLogEvent{
-				JobSpecID: *job.ID,
-				Log:       log,
+				Log: log,
 				Initiator: models.Initiator{
-					Type: models.InitiatorRunLog,
+					JobSpecID: job.ID,
+					Type:      models.InitiatorRunLog,
 					InitiatorParams: models.InitiatorParams{
 						Requesters: test.initiatorRequesters,
 					},
@@ -351,6 +375,30 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 			}, {
 				common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
 				common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
+			},
+		},
+	}
+	assert.Equal(t, want, filter)
+}
+
+func TestFilterQueryFactory_InitiatorFluxMonitor(t *testing.T) {
+	t.Parallel()
+
+	id, err := models.NewIDFromString("4a1eb0e8df314cb894024a38991cff0f")
+	require.NoError(t, err)
+	i := models.Initiator{
+		Type:      models.InitiatorFluxMonitor,
+		JobSpecID: id,
+	}
+	fromBlock := big.NewInt(42)
+	filter, err := models.FilterQueryFactory(i, fromBlock)
+	assert.NoError(t, err)
+
+	want := ethereum.FilterQuery{
+		FromBlock: fromBlock.Add(fromBlock, big.NewInt(1)),
+		Topics: [][]common.Hash{
+			{
+				models.AggregatorNewRoundLogTopic20191220,
 			},
 		},
 	}

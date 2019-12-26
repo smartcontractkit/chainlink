@@ -15,6 +15,12 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+const (
+	// PrepaidAggregatorName is the name of Chainlink's Ethereum contract for
+	// aggregating numerical data such as prices.
+	PrepaidAggregatorName = "PrepaidAggregator"
+)
+
 //go:generate mockery -name Client -output ../internal/mocks/ -case=underscore
 
 // Client is the interface used to interact with an ethereum node.
@@ -24,6 +30,7 @@ type Client interface {
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error)
+	GetAggregatorRound(address common.Address) (*big.Int, error)
 	SendRawTx(hex string) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
 	GetBlockByNumber(hex string) (BlockHeader, error)
@@ -109,13 +116,13 @@ var dec10 = decimal.NewFromInt(10)
 
 // GetAggregatorPrice returns the current price at the given address.
 func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
-	aggregator, err := GetV5Contract("PrepaidAggregator")
+	aggregator, err := GetV5Contract(PrepaidAggregatorName)
 	if err != nil {
-		return decimal.Decimal{}, err
+		return decimal.Decimal{}, errors.Wrap(err, "unable to get contract "+PrepaidAggregatorName)
 	}
 	data, err := aggregator.EncodeMessageCall("latestAnswer")
 	if err != nil {
-		return decimal.Decimal{}, err
+		return decimal.Decimal{}, errors.Wrap(err, "unable to encode latestAnswer message for contract "+PrepaidAggregatorName)
 	}
 
 	var result string
@@ -142,6 +149,33 @@ func parseHexOrDecimal(input string) (decimal.Decimal, error) {
 		}
 	}
 	return decimal.NewFromString(input)
+}
+
+// GetAggregatorRound returns the latest round at the given address.
+func (client *CallerSubscriberClient) GetAggregatorRound(address common.Address) (*big.Int, error) {
+	aggregator, err := GetV5Contract(PrepaidAggregatorName)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get contract "+PrepaidAggregatorName)
+	}
+	data, err := aggregator.EncodeMessageCall("latestRound")
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator round from %s", address.Hex()))
+	}
+
+	var result string
+	args := CallArgs{To: address, Data: data}
+	err = client.Call(&result, "eth_call", args, "latest")
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator round from %s", address.Hex()))
+	}
+
+	round, ok := new(big.Int).SetString(result, 0)
+	if !ok {
+		return nil, errors.Wrapf(
+			fmt.Errorf("unable to parse int from %s", result),
+			"unable to fetch aggregator round from %s", address.Hex())
+	}
+	return round, nil
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
