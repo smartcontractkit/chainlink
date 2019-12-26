@@ -1312,12 +1312,19 @@ func TestJobs_All(t *testing.T) {
 	require.NoError(t, store.CreateJob(&fmJob))
 	require.NoError(t, store.CreateJob(&runlogJob))
 
-	var actual []string
+	var returned []*models.JobSpec
 	err := store.Jobs(func(j *models.JobSpec) bool {
-		actual = append(actual, j.ID.String())
+		// deliberately take pointer to ensure we receive new one per callback
+		// checking against go gotcha:
+		// https://github.com/golang/go/wiki/CommonMistakes#using-reference-to-loop-iterator-variable
+		returned = append(returned, j)
 		return true
 	})
 	require.NoError(t, err)
+	var actual []string
+	for _, j := range returned {
+		actual = append(actual, j.ID.String())
+	}
 
 	var expectation []string
 	for _, js := range cltest.AllJobs(t, store) {
