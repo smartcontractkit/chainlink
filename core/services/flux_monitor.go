@@ -155,13 +155,14 @@ func connectCheckers(ctx context.Context, jobMap map[string][]DeviationChecker, 
 
 func (fm *concreteFluxMonitor) addAction(ctx context.Context, connected bool, job *models.JobSpec, jobMap map[string][]DeviationChecker) error {
 	if _, ok := jobMap[job.ID.String()]; ok {
-		return fmt.Errorf("job %s has already been added to flux monitor", job.ID.String())
+		return fmt.Errorf("job %s has already been added to flux monitor", job.ID)
 	}
 	validCheckers := []DeviationChecker{}
 	for _, initr := range job.InitiatorsFor(models.InitiatorFluxMonitor) {
-		logger.Debugw(
-			fmt.Sprintf("adding job %s initr %d to flux monitor", job.ID.String(), initr.ID),
-			"job", job.ID.String())
+		logger.Debugw("Adding job to flux monitor",
+			"job", job.ID.String(),
+			"initr", initr.ID,
+		)
 		checker, err := fm.checkerFactory.New(initr, fm.runManager)
 		if err != nil {
 			return errors.Wrap(err, "factory unable to create checker")
@@ -263,9 +264,9 @@ func NewPollingDeviationChecker(
 // Start begins the CSP consumer in a single goroutine to
 // poll the price adapters and listen to NewRound events.
 func (p *PollingDeviationChecker) Start(ctx context.Context, client eth.Client) error {
-	logger.Debugw(
-		fmt.Sprintf("starting checker for job %s initr %d", p.initr.JobSpecID.String(), p.initr.ID),
-		"job", p.initr.JobSpecID.String())
+	logger.Debugw("Starting checker for job",
+		"job", p.initr.JobSpecID.String(),
+		"initr", p.initr.ID)
 	err := p.fetchAggregatorData(client)
 	if err != nil {
 		return err
@@ -337,7 +338,9 @@ func (p *PollingDeviationChecker) subscribeToNewRounds(client eth.Client) (eth.S
 		return nil, err
 	}
 
-	logger.Infof("Flux Monitor Initiator subscribing to new rounds on %s", p.initr.Address.Hex())
+	logger.Infow(
+		"Flux Monitor Initiator subscribing to new rounds",
+		"address", p.initr.Address.Hex())
 	return subscription, nil
 }
 
@@ -352,20 +355,20 @@ func (p *PollingDeviationChecker) respondToNewRound(log eth.Log) error {
 
 	// skip if requested is not greater than current.
 	if requestedRound.Cmp(p.currentRound) < 1 {
-		logger.Infow(fmt.Sprintf(
-			"deviation checker ignoring new round request: requested %s <= current %s",
-			requestedRound.String(),
-			p.currentRound.String()),
+		logger.Infow(
+			fmt.Sprintf("Ignoring new round request: requested %s <= current %s", requestedRound, p.currentRound),
+			"requestedRound", requestedRound,
+			"currentRound", p.currentRound,
 			"address", log.Address.Hex(),
 			"jobID", p.initr.JobSpecID,
 		)
 		return nil
 	}
 
-	logger.Infow(fmt.Sprintf(
-		"deviation checker responding to new round request: requested %s > current %s",
-		requestedRound.String(),
-		p.currentRound.String()),
+	logger.Infow(
+		fmt.Sprintf("Responding to new round request: requested %s > current %s", requestedRound, p.currentRound),
+		"requestedRound", requestedRound,
+		"currentRound", p.currentRound,
 		"address", log.Address.Hex(),
 		"jobID", p.initr.JobSpecID,
 	)
@@ -398,7 +401,7 @@ func (p *PollingDeviationChecker) poll() error {
 	}
 
 	nextRound := new(big.Int).Add(p.currentRound, big.NewInt(1)) // start new round
-	logger.Infow("checker detected change outside deviation, starting new round",
+	logger.Infow("Detected change outside threshold, starting new round",
 		"round", nextRound,
 		"address", p.initr.Address.Hex(),
 		"jobID", p.initr.JobSpecID,
@@ -438,7 +441,7 @@ func (p *PollingDeviationChecker) createJobRun(nextPrice decimal.Decimal, nextRo
 			"functionSelector": "%s",
 			"dataPrefix": "%s"
 	}`,
-		nextPrice.String(),
+		nextPrice,
 		p.address.Hex(),
 		hexutil.Encode(methodID),
 		hexutil.Encode(nextRoundData))
@@ -456,20 +459,27 @@ var dec0 = decimal.NewFromInt(0)
 // OutsideDeviation checks whether the next price is outside the threshold.
 func OutsideDeviation(curPrice, nextPrice decimal.Decimal, threshold float64) bool {
 	if curPrice.Equal(dec0) {
-		logger.Infow("current price is 0, deviation automatically met")
+		logger.Infow("Current price is 0, deviation automatically met", "currentPrice", dec0)
 		return true
 	}
 
 	diff := curPrice.Sub(nextPrice).Abs()
 	percentage := diff.Div(curPrice).Mul(decimal.NewFromInt(100))
 	if percentage.LessThan(decimal.NewFromFloat(threshold)) {
-		logger.Debug(fmt.Sprintf("difference is %v%%, deviation threshold of %f%% not met", percentage, threshold))
+		logger.Debugw(
+			"Deviation threshold not met",
+			"difference", percentage,
+			"threshold", threshold,
+			"currentPrice", curPrice,
+			"nextPrice", nextPrice)
 		return false
 	}
 	logger.Infow(
-		fmt.Sprintf("deviation of %v%% for threshold %f%% with previous price %v next price %v", percentage, threshold, curPrice, nextPrice),
+		"Deviation threshold met",
+		"difference", percentage,
 		"threshold", threshold,
-		"deviation", percentage,
+		"currentPrice", curPrice,
+		"nextPrice", nextPrice,
 	)
 	return true
 }
