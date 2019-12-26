@@ -574,17 +574,23 @@ func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun), statuses ...m
 		return fmt.Errorf("error finding job ids %v", err)
 	}
 
-	for _, id := range runIDs {
-		var run models.JobRun
-		err := orm.Unscoped().preloadJobRuns().First(&run, "id = ?", id).Error
+	return Batch(100, func(offset, limit uint) (uint, error) {
+		batchIDs := runIDs[offset:utils.MinUint(limit, uint(len(runIDs)))]
+		var runs []models.JobRun
+		err := orm.Unscoped().
+			preloadJobRuns().
+			Order("job_runs.created_at asc").
+			Find(&runs, "job_runs.id IN (?)", batchIDs).Error
 		if err != nil {
-			return fmt.Errorf("error finding job run %v", err)
+			return 0, fmt.Errorf("error fetching job run batch: %v", err)
 		}
 
-		cb(&run)
-	}
-
-	return nil
+		for _, run := range runs {
+			r := run
+			cb(&r)
+		}
+		return uint(len(batchIDs)), nil
+	})
 }
 
 // AnyJobWithType returns true if there is at least one job associated with
