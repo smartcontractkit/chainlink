@@ -445,7 +445,8 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 			return 0, err
 		}
 		for _, j := range jobs {
-			if !cb(&j) {
+			temp := j
+			if !cb(&temp) {
 				return 0, nil
 			}
 		}
