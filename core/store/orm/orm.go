@@ -435,7 +435,12 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 			return 0, err
 		}
 
+		distincts := map[string]bool{}
 		for _, j := range jobs {
+			if distincts[j.ID.String()] {
+				continue
+			}
+			distincts[j.ID.String()] = true
 			if !cb(&j) {
 				return 0, nil
 			}

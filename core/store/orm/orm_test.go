@@ -1332,9 +1332,13 @@ func TestJobs_ScopedInitiator(t *testing.T) {
 
 	fmJob := cltest.NewJobWithFluxMonitorInitiator()
 	runlogJob := cltest.NewJobWithRunLogInitiator()
+	twoInitrJob := cltest.NewJobWithFluxMonitorInitiator()
+	nextinitr := cltest.NewJobWithFluxMonitorInitiator().Initiators[0]
+	twoInitrJob.Initiators = append(twoInitrJob.Initiators, nextinitr)
 
 	require.NoError(t, store.CreateJob(&fmJob))
 	require.NoError(t, store.CreateJob(&runlogJob))
+	require.NoError(t, store.CreateJob(&twoInitrJob))
 
 	var actual []string
 	err := store.Jobs(func(j *models.JobSpec) bool {
@@ -1343,6 +1347,6 @@ func TestJobs_ScopedInitiator(t *testing.T) {
 	}, models.InitiatorFluxMonitor)
 	require.NoError(t, err)
 
-	expectation := []string{fmJob.ID.String()}
+	expectation := []string{fmJob.ID.String(), twoInitrJob.ID.String()}
 	assert.ElementsMatch(t, expectation, actual)
 }
