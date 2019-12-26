@@ -245,10 +245,7 @@ func TestPollingDeviationChecker_StartStop(t *testing.T) {
 	// Set up fetcher to mark when polled
 	started := make(chan struct{})
 	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Maybe().Run(func(mock.Arguments) {
-		select {
-		case started <- struct{}{}:
-		default:
-		}
+		started <- struct{}{}
 	})
 
 	// Start() with no delay to speed up test and polling.
@@ -274,10 +271,7 @@ func TestPollingDeviationChecker_NoDeviation_CanBeCanceled(t *testing.T) {
 	fetcher := new(mocks.Fetcher)
 	polled := make(chan struct{})
 	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Run(func(mock.Arguments) {
-		select { // don't block if test isn't listening
-		case polled <- struct{}{}:
-		default:
-		}
+		polled <- struct{}{}
 	})
 
 	// Prepare initialization to 100, which matches external adapter, so no deviation
