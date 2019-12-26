@@ -57,7 +57,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 			models.RunStatusCompleted,
 		},
 		{
-			"confirmd",
+			"confirmed",
 			"0x19999990",
 			"",
 			strpkg.Confirmed,
@@ -65,7 +65,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 			models.RunStatusPendingConfirmations,
 		},
 		{
-			"confirmd with bytes format",
+			"confirmed with bytes format",
 			"cönfirmed",
 			"bytes",
 			strpkg.Confirmed,
