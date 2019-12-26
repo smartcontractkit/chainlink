@@ -159,6 +159,9 @@ func (fm *concreteFluxMonitor) addAction(ctx context.Context, connected bool, jo
 	}
 	validCheckers := []DeviationChecker{}
 	for _, initr := range job.InitiatorsFor(models.InitiatorFluxMonitor) {
+		logger.Debugw(
+			fmt.Sprintf("adding job %s initr %d to flux monitor", job.ID.String(), initr.ID),
+			"job", job.ID.String())
 		checker, err := fm.checkerFactory.New(initr, fm.runManager)
 		if err != nil {
 			return errors.Wrap(err, "factory unable to create checker")
@@ -260,6 +263,9 @@ func NewPollingDeviationChecker(
 // Start begins the CSP consumer in a single goroutine to
 // poll the price adapters and listen to NewRound events.
 func (p *PollingDeviationChecker) Start(ctx context.Context, client eth.Client) error {
+	logger.Debugw(
+		fmt.Sprintf("starting checker for job %s initr %d", p.initr.JobSpecID.String(), p.initr.ID),
+		"job", p.initr.JobSpecID.String())
 	err := p.fetchAggregatorData(client)
 	if err != nil {
 		return err
