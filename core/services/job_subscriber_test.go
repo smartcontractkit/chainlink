@@ -28,20 +28,20 @@ func TestJobSubscriber_OnNewHead(t *testing.T) {
 
 	runManager.On("ResumeAllConfirming", big.NewInt(1337)).
 		Return(nil).
+		Once().
+		Run(func(mock.Arguments) {
+			resumeJobChannel <- struct{}{}
+		})
+	runManager.On("ResumeAllConfirming", big.NewInt(1338)).
+		Return(nil).
+		Once().
 		Run(func(mock.Arguments) {
 			resumeJobChannel <- struct{}{}
 		})
 	jobSubscriber.OnNewHead(cltest.Head(1337))
-
-	// JobSubscriber on new head channel is blocked
-	runManager.On("ResumeAllConfirming", big.NewInt(1338)).
-		Return(nil).
-		Run(func(mock.Arguments) {
-			resumeJobChannel <- struct{}{}
-		})
 	jobSubscriber.OnNewHead(cltest.Head(1338))
 
-	// This head should get dropped
+	// JobSubscriber on new head channel is now blocked, this head should get dropped
 	jobSubscriber.OnNewHead(cltest.Head(1339))
 
 	// Unblock the channel
@@ -53,6 +53,7 @@ func TestJobSubscriber_OnNewHead(t *testing.T) {
 	// Make sure after dropping a head (because of congestion) that it resumes again
 	runManager.On("ResumeAllConfirming", big.NewInt(1340)).
 		Return(nil).
+		Once().
 		Run(func(mock.Arguments) {
 			resumeJobChannel <- struct{}{}
 		})
