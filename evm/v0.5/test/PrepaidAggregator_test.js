@@ -1175,7 +1175,7 @@ contract('PrepaidAggregator', () => {
     })
 
     context('when the available funds have not changed', () => {
-      it('emits a log', async () => {
+      it('does not emit a log', async () => {
         const tx = await aggregator.updateAvailableFunds()
 
         assert.equal(0, tx.receipt.rawLogs.length)
