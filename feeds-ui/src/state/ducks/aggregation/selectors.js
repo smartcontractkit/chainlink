@@ -97,6 +97,10 @@ const NODE_NAMES = [
     address: '0x29e3b3c76e7ae0d681bf1a6BceE1c0E7d17DBAA9',
     name: 'P2P.org',
   },
+  {
+    address: '0x9308B0Bd23794063423f484Cd21c59eD38898108',
+    name: 'Anyblock',
+  },
 
   // ROPSTEN
 
