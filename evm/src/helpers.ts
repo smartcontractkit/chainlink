@@ -185,10 +185,7 @@ export async function assertActionThrows(action: AsyncFunction) {
   assert(e.message, 'Expected an error to contain a message')
 
   const ERROR_MESSAGES = ['invalid opcode', 'revert']
-  const hasErrored = ERROR_MESSAGES.reduce(
-    (prev, next) => (prev || e?.message?.includes(next)) ?? true,
-    false,
-  )
+  const hasErrored = ERROR_MESSAGES.some(msg => e?.message?.includes(msg))
 
   assert(
     hasErrored,

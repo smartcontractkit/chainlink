@@ -50,10 +50,10 @@ Cypress.Commands.add('getJobJson', () => {
 Cypress.Commands.add('forceVisit', url => {
   cy.get('body').then(body$ => {
     const appWindow = body$[0].ownerDocument?.defaultView
-    const appIframe = appWindow?.parent?.document?.querySelector('iframe')
+    const appIframe = appWindow?.parent.document.querySelector('iframe')
     return new Promise(resolve => {
-      appIframe?.appIframe?.onload = () => resolve()
-      appWindow?.appIframe?.location = url
+      if (appIframe) appIframe.onload = () => resolve()
+      if (appWindow) appWindow.location = url
     })
   })
 })
