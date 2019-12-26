@@ -5,10 +5,14 @@ import (
 	"chainlink/core/internal/mocks"
 	"chainlink/core/services"
 	"chainlink/core/store/models"
+	"chainlink/core/utils"
 	"context"
+	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -16,17 +20,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func fakeSubscription() *mocks.Subscription {
+	sub := new(mocks.Subscription)
+	sub.On("Unsubscribe").Return()
+	sub.On("Err").Return(nil)
+	return sub
+}
+
 func TestConcreteFluxMonitor_AddJobRemoveJobHappy(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	runManager := new(mocks.RunManager)
-	started := make(chan struct{})
+	started := make(chan struct{}, 1)
 
 	dc := new(mocks.DeviationChecker)
-	dc.On("Initialize", mock.Anything).Return(nil)
-	dc.On("Start", mock.Anything).Return().Run(func(mock.Arguments) {
+	dc.On("Start", mock.Anything, mock.Anything).Return(nil).Run(func(mock.Arguments) {
 		started <- struct{}{}
 	})
 
@@ -39,7 +49,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJobHappy(t *testing.T) {
 	require.NoError(t, fm.Connect(nil))
 	defer fm.Disconnect()
 
-	// 1. Add Job
+	// Add Job
 	require.NoError(t, fm.AddJob(job))
 
 	cltest.CallbackOrTimeout(t, "deviation checker started", func() {
@@ -48,7 +58,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJobHappy(t *testing.T) {
 	checkerFactory.AssertExpectations(t)
 	dc.AssertExpectations(t)
 
-	// 2. Remove Job
+	// Remove Job
 	removed := make(chan struct{})
 	dc.On("Stop").Return().Run(func(mock.Arguments) {
 		removed <- struct{}{}
@@ -67,7 +77,7 @@ func TestConcreteFluxMonitor_AddJobError(t *testing.T) {
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	runManager := new(mocks.RunManager)
 	dc := new(mocks.DeviationChecker)
-	dc.On("Initialize", mock.Anything).Return(errors.New("deliberate test error"))
+	dc.On("Start", mock.Anything, mock.Anything).Return(errors.New("deliberate test error"))
 	checkerFactory := new(mocks.DeviationCheckerFactory)
 	checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
 	fm := services.NewFluxMonitor(store, runManager)
@@ -128,8 +138,7 @@ func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 	started := make(chan struct{})
 
 	dc := new(mocks.DeviationChecker)
-	dc.On("Initialize", mock.Anything).Return(nil)
-	dc.On("Start", mock.Anything).Return().Run(func(mock.Arguments) {
+	dc.On("Start", mock.Anything, mock.Anything).Return(nil).Run(func(mock.Arguments) {
 		started <- struct{}{}
 	})
 
@@ -167,31 +176,39 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 
 	rm := new(mocks.RunManager)
 	run := cltest.NewJobRun(job)
-	data, err := models.ParseJSON([]byte(`{"result":"102"}`))
+	data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
+			"result": "102",
+			"address": "%s",
+			"functionSelector": "0xe6330cf7",
+			"dataPrefix": "0x0000000000000000000000000000000000000000000000000000000000000002"
+	}`, initr.InitiatorParams.Address.Hex())))
 	require.NoError(t, err)
 	rm.On("Create", job.ID, &initr, &data, mock.Anything, mock.Anything).
 		Return(&run, nil)
 
 	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Second)
 	require.NoError(t, err)
-	assert.Equal(t, decimal.NewFromInt(0), checker.CurrentPrice())
 
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
+	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+		Return(big.NewInt(1), nil)
 
-	require.NoError(t, checker.Initialize(ethClient)) // setup
+	require.NoError(t, checker.ExportedFetchAggregatorData(ethClient)) // setup
 	ethClient.AssertExpectations(t)
-	assert.Equal(t, decimal.NewFromInt(100), checker.CurrentPrice())
+	assert.Equal(t, decimal.NewFromInt(100), checker.ExportedCurrentPrice())
+	assert.Equal(t, big.NewInt(1), checker.ExportedCurrentRound())
 
-	require.NoError(t, checker.Poll()) // main entry point
+	require.NoError(t, checker.ExportedPoll()) // main entry point
 
 	fetcher.AssertExpectations(t)
 	rm.AssertExpectations(t)
-	assert.Equal(t, decimal.NewFromInt(102), checker.CurrentPrice())
+	assert.Equal(t, decimal.NewFromInt(102), checker.ExportedCurrentPrice())
+	assert.Equal(t, big.NewInt(2), checker.ExportedCurrentRound())
 }
 
-func TestPollingDeviationChecker_InitializeError(t *testing.T) {
+func TestPollingDeviationChecker_StartError(t *testing.T) {
 	rm := new(mocks.RunManager)
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
@@ -203,23 +220,11 @@ func TestPollingDeviationChecker_InitializeError(t *testing.T) {
 
 	checker, err := services.NewPollingDeviationChecker(initr, rm, nil, time.Second)
 	require.NoError(t, err)
-	require.Error(t, checker.Initialize(ethClient))
+	require.Error(t, checker.Start(context.Background(), ethClient))
 }
 
 func TestPollingDeviationChecker_StartStop(t *testing.T) {
-	// 1. Set up fetcher to mark when polled
-	fetcher := new(mocks.Fetcher)
-	started := make(chan struct{})
-	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Maybe().Run(func(mock.Arguments) {
-		select {
-		case started <- struct{}{}:
-		default:
-		}
-	})
-	// can be called an arbitrary # of times
-	defer fetcher.AssertExpectations(t)
-
-	// 2. Prepare initialization to 100, which matches external adapter, so no deviation
+	// Prepare initialization to 100, which matches external adapter, so no deviation
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
 	initr.ID = 1
@@ -227,43 +232,49 @@ func TestPollingDeviationChecker_StartStop(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
+	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+		Return(big.NewInt(1), nil)
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+		Return(fakeSubscription(), nil)
 
-	// 3. Start() with no delay to speed up test and polling.
 	rm := new(mocks.RunManager)
-	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, 0)
+	fetcher := new(mocks.Fetcher)
+	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Millisecond)
 	require.NoError(t, err)
-	require.NoError(t, checker.Initialize(ethClient))
 
+	// Set up fetcher to mark when polled
+	started := make(chan struct{})
+	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Maybe().Run(func(mock.Arguments) {
+		started <- struct{}{}
+	})
+
+	// Start() with no delay to speed up test and polling.
 	done := make(chan struct{})
 	go func() {
-		checker.Start(context.Background()) // Start() polling
+		checker.Start(context.Background(), ethClient) // Start() polling
 		done <- struct{}{}
 	}()
 
 	cltest.CallbackOrTimeout(t, "Start() starts", func() {
 		<-started
 	})
+	fetcher.AssertExpectations(t)
 
-	// 4. Stop stops
 	checker.Stop()
 	cltest.CallbackOrTimeout(t, "Stop() unblocks Start()", func() {
 		<-done
 	})
 }
 
-func TestPollingDeviationChecker_NoDeviationLoopsCanBeCanceled(t *testing.T) {
-	// 1. Set up fetcher to mark when polled
+func TestPollingDeviationChecker_NoDeviation_CanBeCanceled(t *testing.T) {
+	// Set up fetcher to mark when polled
 	fetcher := new(mocks.Fetcher)
 	polled := make(chan struct{})
 	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Run(func(mock.Arguments) {
-		select { // don't block if test isn't listening
-		case polled <- struct{}{}:
-		default:
-		}
+		polled <- struct{}{}
 	})
-	defer fetcher.AssertExpectations(t)
 
-	// 2. Prepare initialization to 100, which matches external adapter, so no deviation
+	// Prepare initialization to 100, which matches external adapter, so no deviation
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
 	initr.ID = 1
@@ -271,27 +282,31 @@ func TestPollingDeviationChecker_NoDeviationLoopsCanBeCanceled(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
+	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+		Return(big.NewInt(1), nil)
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+		Return(fakeSubscription(), nil)
 
-	// 3. Start() with no delay to speed up test and polling.
-	rm := new(mocks.RunManager)
-	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, 0)
+	// Start() with no delay to speed up test and polling.
+	rm := new(mocks.RunManager) // No mocks assert no runs are created
+	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Millisecond)
 	require.NoError(t, err)
-	require.NoError(t, checker.Initialize(ethClient))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		checker.Start(ctx) // Start() polling and delaying until cancel() from parent ctx.
+		checker.Start(ctx, ethClient) // Start() polling until cancel()
 		done <- struct{}{}
 	}()
 
-	// 4. Check if Polled
+	// Check if Polled
 	cltest.CallbackOrTimeout(t, "start repeatedly polls external adapter", func() {
-		<-polled // launched at the beginning of Start before delay
-		<-polled // need two hits
+		<-polled // launched at the beginning of Start
+		<-polled // launched after time.After
 	})
+	fetcher.AssertExpectations(t)
 
-	// 5. Cancel parent context and ensure Start() stops.
+	// Cancel parent context and ensure Start() stops.
 	cancel()
 	cltest.CallbackOrTimeout(t, "Start() unblocks and is done", func() {
 		<-done
@@ -307,6 +322,92 @@ func TestPollingDeviationChecker_StopWithoutStart(t *testing.T) {
 	checker, err := services.NewPollingDeviationChecker(initr, rm, nil, time.Second)
 	require.NoError(t, err)
 	checker.Stop()
+}
+
+func TestPollingDeviationChecker_RespondToNewRound_Ignore(t *testing.T) {
+	currentRound := int64(5)
+
+	// Prepare on-chain initialization to 100
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	initr.ID = 1
+
+	ethClient := new(mocks.Client)
+	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
+		Return(decimal.NewFromInt(100), nil)
+	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+		Return(big.NewInt(currentRound), nil)
+
+	// Initialize
+	rm := new(mocks.RunManager)
+	fetcher := new(mocks.Fetcher)
+	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Minute)
+	require.NoError(t, err)
+	require.NoError(t, checker.ExportedFetchAggregatorData(ethClient))
+	ethClient.AssertExpectations(t)
+
+	// Send rounds less than or equal to current, sequentially
+	tests := []struct {
+		name  string
+		round uint64
+	}{
+		{"less than", 4},
+		{"equal", 5},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
+			log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(test.round))
+			require.NoError(t, checker.ExportedRespondToNewRound(log))
+			rm.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		})
+	}
+}
+
+func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
+	currentRound := int64(5)
+
+	// Prepare on-chain initialization to 100, which matches external adapter,
+	// so no deviation
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	initr.ID = 1
+
+	ethClient := new(mocks.Client)
+	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
+		Return(decimal.NewFromInt(100), nil)
+	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+		Return(big.NewInt(currentRound), nil)
+
+	// Initialize
+	rm := new(mocks.RunManager)
+	fetcher := new(mocks.Fetcher)
+	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Minute)
+	require.NoError(t, err)
+	require.NoError(t, checker.ExportedFetchAggregatorData(ethClient))
+	ethClient.AssertExpectations(t)
+
+	// Send log greater than current
+	data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
+			"result": "100",
+			"address": "%s",
+			"functionSelector": "0xe6330cf7",
+			"dataPrefix": "0x0000000000000000000000000000000000000000000000000000000000000006"
+	}`, initr.InitiatorParams.Address.Hex()))) // dataPrefix has currentRound + 1
+	require.NoError(t, err)
+
+	// Set up fetcher for 100; even if within deviation, forces the creation of run.
+	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Maybe()
+
+	rm.On("Create", mock.Anything, mock.Anything, &data, mock.Anything, mock.Anything).
+		Return(nil, nil) // only round 6 triggers run.
+
+	log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
+	log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(6))
+	require.NoError(t, checker.ExportedRespondToNewRound(log))
+	fetcher.AssertExpectations(t)
+	rm.AssertExpectations(t)
 }
 
 func TestOutsideDeviation(t *testing.T) {

@@ -1,9 +1,12 @@
 package eth
 
 import (
+	"chainlink/core/logger"
+	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -55,4 +58,37 @@ func GetV5Contract(name string) (*Contract, error) {
 // to conform with the contract's ABI
 func (contract *Contract) EncodeMessageCall(method string, args ...interface{}) ([]byte, error) {
 	return contract.ABI.Pack(method, args...)
+}
+
+// GetMethodID returns the first 4 bytes of the keccak256 hash of the method
+// signature. The passed method is simply the method name, not the parameters,
+// as defined by go-ethereum ABI Methods
+//
+// e.g.
+// There are two functions have same name:
+// * foo(int,int)
+// * foo(uint,uint)
+// The method name of the first one will be resolved as foo while the second one
+// will be resolved as foo0.
+func (contract *Contract) GetMethodID(method string) ([]byte, error) {
+	mabi, found := contract.ABI.Methods[method]
+	if !found {
+		return []byte{}, errors.New("unable to find contract method " + method)
+	}
+	return mabi.ID(), nil
+}
+
+// MustGetV5ContractEventID finds the event for the given contract by searching
+// embedded contract assets from evm/, or panics if not found.
+func MustGetV5ContractEventID(name, eventName string) common.Hash {
+	contract, err := GetV5Contract(name)
+	if err != nil {
+		logger.Panic(fmt.Errorf("unable to find contract %s", name))
+	}
+
+	event, found := contract.ABI.Events[eventName]
+	if !found {
+		logger.Panic(fmt.Errorf("unable to find event %s for contract %s", eventName, name))
+	}
+	return event.ID()
 }

@@ -420,23 +420,33 @@ func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error)
 func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error {
 	orm.MustEnsureAdvisoryLock()
 	return Batch(1000, func(offset, limit uint) (uint, error) {
-		jobs := []models.JobSpec{}
-		scope := orm.preloadJobs().Limit(limit).Offset(offset)
+		scope := orm.db.Limit(limit).Offset(offset)
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
 			if dbutil.IsPostgres(orm.db) {
-				scope = scope.Joins("JOIN initiators ON initiators.job_spec_id::uuid = job_specs.id")
+				scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id::uuid")
 			} else {
-				scope = scope.Joins("JOIN initiators ON initiators.job_spec_id = job_specs.id")
+				scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id")
 			}
 		}
-		err := scope.Find(&jobs).Error
+		var ids []string
+		err := scope.Table("job_specs").Pluck("job_specs.id", &ids).Error
 		if err != nil {
 			return 0, err
 		}
 
+		if len(ids) == 0 {
+			return 0, nil
+		}
+
+		jobs := []models.JobSpec{}
+		err = orm.preloadJobs().Find(&jobs, "id IN (?)", ids).Error
+		if err != nil {
+			return 0, err
+		}
 		for _, j := range jobs {
-			if !cb(&j) {
+			temp := j
+			if !cb(&temp) {
 				return 0, nil
 			}
 		}

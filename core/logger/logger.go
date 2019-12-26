@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/fatih/color"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -167,9 +168,13 @@ func WarnIf(err error) {
 }
 
 // ErrorIf logs the error if present.
-func ErrorIf(err error) {
+func ErrorIf(err error, optionalMsg ...string) {
 	if err != nil {
-		logger.Error(err)
+		if len(optionalMsg) > 0 {
+			logger.Error(errors.Wrap(err, optionalMsg[0]))
+		} else {
+			logger.Error(err)
+		}
 	}
 }
 
