@@ -2,6 +2,7 @@ import { combineReducers } from 'redux'
 import adminAuth from './reducers/adminAuth'
 import adminOperators from './reducers/adminOperators'
 import adminOperatorsIndex from './reducers/adminOperatorsIndex'
+import adminOperatorsShow from './reducers/adminOperatorsShow'
 import chainlinkNodes from './reducers/chainlinkNodes'
 import config from './reducers/config'
 import jobRuns from './reducers/jobRuns'
@@ -14,6 +15,7 @@ const reducer = combineReducers({
   adminAuth,
   adminOperators,
   adminOperatorsIndex,
+  adminOperatorsShow,
   chainlinkNodes,
   config,
   jobRuns,

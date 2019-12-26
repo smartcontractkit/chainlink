@@ -1,16 +1,20 @@
 import React from 'react'
 import Paper from '@material-ui/core/Paper'
 import Hidden from '@material-ui/core/Hidden'
+import { join } from 'path'
 import Table, { ChangePageEvent } from '../../Table'
 import { LinkColumn, TextColumn, TimeAgoColumn } from '../../Table/TableCell'
 import { ChainlinkNode } from 'explorer/models'
 
 const HEADERS = ['Name', 'URL', 'Created At']
+const LOADING_MSG = 'Loading operators...'
+const EMPTY_MSG = 'There are no operators added to the Explorer yet.'
 
-function buildNameCol(operator: ChainlinkNode): TextColumn {
+function buildNameCol(operator: ChainlinkNode): UrlColumn {
   return {
-    type: 'text',
+    type: 'link',
     text: operator.name,
+    to: join('/', 'admin', 'operators', operator.id.toString()),
   }
 }
 
@@ -37,12 +41,10 @@ function buildCreatedAtCol(operator: ChainlinkNode): TimeAgoColumn {
 
 function rows(
   operators?: ChainlinkNode[],
-): [TextColumn, UrlColumn, TimeAgoColumn][] | undefined {
-  if (operators) {
-    return operators.map(o => {
-      return [buildNameCol(o), buildUrlCol(o), buildCreatedAtCol(o)]
-    })
-  }
+): [UrlColumn, UrlColumn, TimeAgoColumn][] | undefined {
+  return operators?.map(o => {
+    return [buildNameCol(o), buildUrlCol(o), buildCreatedAtCol(o)]
+  })
 }
 
 interface Props {
@@ -50,8 +52,6 @@ interface Props {
   onChangePage: (event: ChangePageEvent, page: number) => void
   operators?: ChainlinkNode[]
   count?: number
-  loadingMsg: string
-  emptyMsg: string
   className?: string
 }
 
@@ -61,8 +61,6 @@ const List: React.FC<Props> = ({
   currentPage,
   className,
   onChangePage,
-  loadingMsg,
-  emptyMsg,
 }) => {
   return (
     <Paper className={className}>
@@ -73,8 +71,8 @@ const List: React.FC<Props> = ({
           rows={rows(operators)}
           count={count}
           onChangePage={onChangePage}
-          loadingMsg={loadingMsg}
-          emptyMsg={emptyMsg}
+          loadingMsg={LOADING_MSG}
+          emptyMsg={EMPTY_MSG}
         />
       </Hidden>
     </Paper>
