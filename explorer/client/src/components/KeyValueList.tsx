@@ -1,3 +1,4 @@
+// REMOVE ME in favor of importing directly from @chainlink/styleguide
 import Card from '@material-ui/core/Card'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'

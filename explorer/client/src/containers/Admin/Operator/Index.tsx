@@ -17,9 +17,6 @@ import { fetchAdminOperators } from '../../../actions/adminOperators'
 import { AppState } from '../../../reducers'
 import { DispatchBinding } from '../../../utils/types'
 
-const LOADING_MSG = 'Loading operators...'
-const EMPTY_MSG = 'There are no operators added to the Explorer yet.'
-
 const styles = ({ breakpoints, spacing }: Theme) =>
   createStyles({
     container: {
@@ -82,8 +79,6 @@ export const Index: React.FC<Props> = ({
           operators={adminOperators}
           count={count}
           onChangePage={onChangePage}
-          emptyMsg={EMPTY_MSG}
-          loadingMsg={LOADING_MSG}
         />
       </Grid>
     </Grid>
