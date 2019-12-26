@@ -3,13 +3,19 @@ import { Connection } from 'typeorm'
 import { validate } from 'class-validator'
 import httpStatus from 'http-status-codes'
 import { getDb } from '../../database'
-import { buildChainlinkNode, ChainlinkNode } from '../../entity/ChainlinkNode'
+import {
+  buildChainlinkNode,
+  ChainlinkNode,
+  jobCountReport,
+  uptime as nodeUptime,
+} from '../../entity/ChainlinkNode'
 import { PostgresErrorCode } from '../../utils/constants'
 import { isPostgresError } from '../../utils/errors'
 import { parseParams } from '../../utils/pagination'
 import { getCustomRepository } from 'typeorm'
 import { ChainlinkNodeRepository } from '../../repositories/ChainlinkNodeRepository'
 import chainlinkNodesSerializer from '../../serializers/chainlinkNodesSerializer'
+import chainlinkNodeShowSerializer from '../../serializers/chainlinkNodeShowSerializer'
 
 const router = Router()
 
@@ -64,6 +70,26 @@ router.post('/nodes', async (req, res) => {
   return res
     .status(httpStatus.UNPROCESSABLE_ENTITY)
     .send({ errors: jsonApiErrors })
+})
+
+router.get('/nodes/:id', async (req, res) => {
+  const { id } = req.params
+  const db = await getDb()
+  const node = await db.getRepository(ChainlinkNode).findOne(id)
+  const uptime = await nodeUptime(db, node)
+  const jobCounts = await jobCountReport(db, node)
+
+  const data = {
+    id: node.id,
+    name: node.name,
+    url: node.url,
+    createdAt: node.createdAt,
+    jobCounts,
+    uptime,
+  }
+
+  const json = chainlinkNodeShowSerializer(data)
+  return res.send(json)
 })
 
 router.delete('/nodes/:name', async (req, res) => {
