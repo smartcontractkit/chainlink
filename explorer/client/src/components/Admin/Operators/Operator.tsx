@@ -2,14 +2,15 @@ import React from 'react'
 import { KeyValueList } from '../../KeyValueList'
 import { OperatorShowData } from '../../../reducers/adminOperatorsShow'
 
+const LOADING_MESSAGE = 'Loading operator...'
+
 interface Props {
-  operatorData: OperatorShowData
-  loadingMessage: string
+  operatorData?: OperatorShowData
 }
 
 const entries = (operatorData: OperatorShowData): [string, string][] => {
   return [
-    ['url', operatorData.url || ''],
+    ['url', operatorData.url ?? ''],
     ['uptime', operatorData.uptime.toString()],
     ['job runs completed', operatorData.jobCounts.completed.toString()],
     ['job runs errored', operatorData.jobCounts.errored.toString()],
@@ -18,8 +19,8 @@ const entries = (operatorData: OperatorShowData): [string, string][] => {
   ]
 }
 
-const Operator: React.FC<Props> = ({ operatorData, loadingMessage }) => {
-  const title = operatorData ? operatorData.name : loadingMessage
+const Operator: React.FC<Props> = ({ operatorData }) => {
+  const title = operatorData ? operatorData.name : LOADING_MESSAGE
   const _entries = operatorData ? entries(operatorData) : []
   return (
     <KeyValueList title={title} entries={_entries} showHead={false} titleize />

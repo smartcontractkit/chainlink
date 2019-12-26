@@ -16,8 +16,6 @@ import { AppState } from '../../../reducers'
 import { OperatorShowData } from '../../../reducers/adminOperatorsShow'
 import { DispatchBinding } from '../../../utils/types'
 
-const LOADING_MESSAGE = 'Loading operator...'
-
 const styles = ({ breakpoints, spacing }: Theme) =>
   createStyles({
     container: {
@@ -67,10 +65,7 @@ const Show: React.FC<Props> = ({
     >
       <Grid item xs={12}>
         <Title>Operator Details</Title>
-        <Operator
-          operatorData={operatorData}
-          loadingMessage={LOADING_MESSAGE}
-        />
+        <Operator operatorData={operatorData} />
       </Grid>
     </Grid>
   )
