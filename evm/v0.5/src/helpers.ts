@@ -7,6 +7,7 @@ import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
 import { OracleFactory } from './generated/OracleFactory'
+import BN from 'bn.js'
 
 const debug = makeDebug('helpers')
 
@@ -220,6 +221,7 @@ export function checkPublicABI(
 }
 
 export const { utils } = ethers
+export const bigOne = new BN(1)
 /**
  * Convert a value to a hex string
  * @param args Value to convert to a hex string
@@ -533,4 +535,32 @@ export function generateSAID(sa: ServiceAgreement): Hash {
     SERVICE_AGREEMENT_TYPES,
     serviceAgreementValues(sa),
   )
+}
+
+/**
+ * Construct BN from hex
+ */
+export function hexToBN(s: string): BN {
+  return new BN(s.replace(/^0[xX]/, ''), 16)
+}
+
+/**
+ * Returns d as a 0x-hex string, left-padded with zeros to l bits
+ */
+export function toPaddedHex(d: BN, l: number) {
+  return ethers.utils
+    .hexZeroPad(d.toString(16), l / 4)
+    .replace(/^(0[xX])*/, '0x')
+}
+
+/**
+ * Returns the EIP55-capitalized ethereum address for this secp256k1 public key
+ */
+export function toAddress(x: BN, y: BN) {
+  const k256 = ethers.utils.solidityKeccak256(
+    ['string', 'string'],
+    [toPaddedHex(x, 256), toPaddedHex(y, 256)],
+  )
+  console.log('k256', k256)
+  return k256
 }
