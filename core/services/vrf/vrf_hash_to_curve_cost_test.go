@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"chainlink/core/services/signatures/secp256k1"
+	"chainlink/core/services/vrf/generated/solidity_verifier_wrapper"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -41,10 +42,10 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 	parsed, err := abi.JSON(strings.NewReader(
-		VRFTestHelperABI))
+		solidity_verifier_wrapper.VRFTestHelperABI))
 	require.NoError(t, err)
 	address, _, vRFContract, err := bind.DeployContract(auth, parsed,
-		common.FromHex(VRFTestHelperBin), backend)
+		common.FromHex(solidity_verifier_wrapper.VRFTestHelperBin), backend)
 	require.NoError(t, err)
 	backend.Commit()
 	return contract{vRFContract, address, &parsed, backend}, crypto.PubkeyToAddress(
@@ -65,7 +66,7 @@ func measureHashToCurveGasCost(t *testing.T, contract contract,
 	return estimate, numOrdinates
 }
 
-var baseCost uint64 = 22500
+var baseCost uint64 = 24000
 var marginalCost uint64 = 15555
 
 func HashToCurveGasCostBound(numOrdinates uint64) uint64 {
@@ -79,5 +80,5 @@ func TestMeasureHashToCurveGasCost(t *testing.T) {
 		gasCost, numOrdinates := measureHashToCurveGasCost(t, contract, owner, i)
 		require.Less(t, gasCost, HashToCurveGasCostBound(numOrdinates))
 	}
-	require.Less(t, HashToCurveGasCostBound(128), uint64(2.014e6))
+	require.Less(t, HashToCurveGasCostBound(128), uint64(2.016e6))
 }
