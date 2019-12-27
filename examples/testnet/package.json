@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.6.0",
   "license": "MIT",
+  "engines": {
+    "node": "~10.16"
+  },
   "scripts": {
     "depcheck": "echo \"@chainlink/example-testnet\" && depcheck --ignore-dirs=contracts || true",
     "solhint": "solhint ./contracts/**/*.sol",
