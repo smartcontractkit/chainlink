@@ -119,8 +119,8 @@ $ ./chainlink
 2. Build contracts:
 
 ```bash
-$ cd evm
-$ yarn build
+$ yarn
+$ make contracts
 ```
 
 3. Ready for testing:
