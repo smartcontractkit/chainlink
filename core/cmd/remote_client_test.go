@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/auth"
 	"chainlink/core/cmd"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
@@ -286,6 +287,46 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 			assert.Len(t, exis, 0)
 		})
 	}
+}
+
+func TestClient_DestroyExternalInitiator(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	token := auth.NewToken()
+	exi, err := models.NewExternalInitiator(token,
+		&models.ExternalInitiatorRequest{Name: "name"},
+	)
+	require.NoError(t, err)
+	err = app.Store.CreateExternalInitiator(exi)
+	require.NoError(t, err)
+
+	client, r := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{exi.Name})
+	c := cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.DeleteExternalInitiator(c))
+	assert.Empty(t, r.Renders)
+}
+
+func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client, r := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{"bogus-ID"})
+	c := cli.NewContext(nil, set, nil)
+	assert.Error(t, client.DeleteExternalInitiator(c))
+	assert.Empty(t, r.Renders)
 }
 
 func TestClient_CreateJobSpec(t *testing.T) {
