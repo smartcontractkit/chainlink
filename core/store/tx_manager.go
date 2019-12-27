@@ -34,6 +34,8 @@ const nonceReloadLimit int = 1
 // ErrPendingConnection is the error returned if TxManager is not connected.
 var ErrPendingConnection = errors.New("Cannot talk to chain, pending connection")
 
+//go:generate mockery -name TxManager -output ../internal/mocks/ -case=underscore
+
 // TxManager represents an interface for interacting with the blockchain
 type TxManager interface {
 	HeadTrackable
@@ -54,8 +56,6 @@ type TxManager interface {
 
 	eth.Client
 }
-
-//go:generate mockery -name TxManager -output ../internal/mocks/ -case=underscore
 
 // EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.

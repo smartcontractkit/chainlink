@@ -18,6 +18,8 @@ import (
 	"go.uber.org/multierr"
 )
 
+//go:generate mockery -name FluxMonitor -output ../internal/mocks/ -case=underscore
+
 // FluxMonitor is the interface encapsulating all functionality
 // needed to listen to price deviations and new round requests.
 type FluxMonitor interface {
@@ -192,6 +194,8 @@ func (fm *concreteFluxMonitor) RemoveJob(ID *models.ID) {
 	fm.removes <- ID
 }
 
+//go:generate mockery -name DeviationCheckerFactory -output ../internal/mocks/ -case=underscore
+
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
@@ -212,6 +216,8 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 
 	return NewPollingDeviationChecker(initr, runManager, fetcher, 1*time.Minute)
 }
+
+//go:generate mockery -name DeviationChecker -output ../internal/mocks/ -case=underscore
 
 // DeviationChecker encapsulate methods needed to initialize and check prices
 // for price deviations.
