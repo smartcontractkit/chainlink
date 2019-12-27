@@ -89,7 +89,7 @@ contract('Owned', () => {
       it('does not allow a non-recipient to call it', async () => {
         await expectRevert(
           owned.acceptOwnership({ from: nonOwner }),
-          'Must be requested to accept ownership',
+          'Must be proposed owner',
         )
       })
     })
