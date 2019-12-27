@@ -41,7 +41,7 @@ contract Owned {
   function acceptOwnership()
     external
   {
-    require(msg.sender == pendingOwner, "Must be requested to accept ownership");
+    require(msg.sender == pendingOwner, "Must be proposed owner");
 
     address oldOwner = owner;
     owner = msg.sender;
