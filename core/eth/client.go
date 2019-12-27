@@ -44,6 +44,8 @@ type LogSubscriber interface {
 	SubscribeToLogs(channel chan<- Log, q ethereum.FilterQuery) (Subscription, error)
 }
 
+//go:generate mockery -name Subscription -output ../internal/mocks/ -case=underscore
+
 // Subscription holds the methods for an ethereum log subscription.
 type Subscription interface {
 	Err() <-chan error
@@ -55,6 +57,8 @@ type Subscription interface {
 type CallerSubscriberClient struct {
 	CallerSubscriber
 }
+
+//go:generate mockery -name CallerSubscriber -output ../internal/mocks/ -case=underscore
 
 // CallerSubscriber implements the Call and Subscribe functions. Call performs
 // a JSON-RPC call with the given arguments and Subscribe registers a subscription,
