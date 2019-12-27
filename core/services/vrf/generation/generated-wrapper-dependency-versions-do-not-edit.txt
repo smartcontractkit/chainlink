@@ -1,0 +1,2 @@
+GETH_VERSION: 1.9.9
+solidity_verifier_wrapper: ../../../evm/v0.5/dist/artifacts/VRFTestHelper.json e61a271e80a21fddb66808dc4aaa7f1c

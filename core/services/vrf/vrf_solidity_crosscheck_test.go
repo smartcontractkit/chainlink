@@ -20,6 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v3"
 
+	"chainlink/core/services/vrf/generated/solidity_verifier_wrapper"
+
 	"chainlink/core/services/signatures/secp256k1"
 )
 
@@ -30,7 +32,7 @@ import (
 // can help to quickly locate any disparity between the solidity and golang
 // implementations.
 
-var verifier *VRFTestHelper // Wrapper of EVM verifier contract
+var verifier *solidity_verifier_wrapper.VRFTestHelper
 
 // init initializes the wrapper of the EVM verifier contract.
 //
@@ -46,7 +48,7 @@ func init() {
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 	var err error // Without this, golang infers local scope for verifier below
-	_, _, verifier, err = DeployVRFTestHelper(auth, backend)
+	_, _, verifier, err = solidity_verifier_wrapper.DeployVRFTestHelper(auth, backend)
 	if err != nil {
 		panic(errors.Wrapf(err, "while initializing EVM contract wrapper"))
 	}
