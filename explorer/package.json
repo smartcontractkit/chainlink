@@ -7,7 +7,7 @@
   "license": "MIT",
   "keywords": [],
   "engines": {
-    "node": "~10.16.3"
+    "node": "~10.16"
   },
   "scripts": {
     "admin:seed": "ts-node src/bin/admin.ts seed",
