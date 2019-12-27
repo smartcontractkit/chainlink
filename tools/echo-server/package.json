@@ -5,6 +5,9 @@
   "main": "dist/index.js",
   "repository": "https://github.com/smartcontractkit/chainlink",
   "license": "MIT",
+  "engines": {
+    "node": "~10.16"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node ."
