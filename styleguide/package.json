@@ -4,6 +4,9 @@
   "version": "0.0.1",
   "main": "./dist/src",
   "types": "./dist/src",
+  "engines": {
+    "node": "~10.16"
+  },
   "scripts": {
     "start": "start-storybook -p 9001",
     "build-storybook": "build-storybook",
