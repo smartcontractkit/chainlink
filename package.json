@@ -19,6 +19,9 @@
     "explorer",
     "integration-scripts"
   ],
+  "engines": {
+    "node": "~10.16"
+  },
   "scripts": {
     "lint": "eslint  --ext js,jsx,ts,tsx .",
     "setup": "yarn workspace chainlinkv0.5 setup && yarn workspaces run setup"
