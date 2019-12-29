@@ -46,6 +46,13 @@ func (ks *VRFKeyStore) Store(key *vrfkey.PrivateKey, phrase string,
 	return nil
 }
 
+// StoreInMemoryXXXTestingOnly memorizes key, only in in-memory store.
+func (ks *VRFKeyStore) StoreInMemoryXXXTestingOnly(key *vrfkey.PrivateKey) {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	ks.keys[key.PublicKey] = *key
+}
+
 var zeroPublicKey = vrfkey.PublicKey{}
 
 // Delete removes keys with this public key from the keystore and the DB, if present.

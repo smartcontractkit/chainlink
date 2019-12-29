@@ -1,0 +1,21 @@
+{
+  "initiators": [{ "type": "randomnesslog" }],
+  "tasks": [
+    {
+      "type": "random",
+      "params": {
+        "publicKey":
+        "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8",
+        "_comment2": "corresponds to a secret key of 1",
+        "_comment": "XXX: Use a public key the node actually knows the secret key for"
+      }
+    },
+    {
+      "type": "ethtx",
+      "params": {
+        "format": "preformatted",
+        "_comment": "XXX: Fill these params in with the values for the oracle and fulfillOracleRequest"
+      }
+    }
+  ]
+}

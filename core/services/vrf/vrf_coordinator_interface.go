@@ -52,7 +52,7 @@ func checkUint256(n *big.Int) {
 	}
 }
 
-// RawLog returns the raw bytes corresponding to l in a solidity log
+// RawData returns the raw bytes corresponding to l in a solidity log
 //
 // This serialization does not include the JobID, because that's an indexed field.
 func (l *RandomnessRequestLog) RawData() ([]byte, error) {
