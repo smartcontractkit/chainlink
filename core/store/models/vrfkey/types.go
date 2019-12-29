@@ -30,9 +30,7 @@ type PublicKey [UncompressedPublicKeyLength]byte
 // EncryptedSecretKey contains encrypted private key to be serialized to DB
 //
 // We could re-use geth's key handling, here, but this makes it much harder to
-// misuse VRF proving keys as ethereum keys or vice versa. Also, geth's use of
-// pbkdf2 is getting a bit long in the tooth, and the map[string]interface{} it
-// uses for its KDF parameters is a static-typing nightmare.
+// misuse VRF proving keys as ethereum keys or vice versa.
 type EncryptedSecretKey struct {
 	PublicKey PublicKey     `gorm:"primary_key;type:varchar(130)"`
 	VRFKey    gethKeyStruct `json:"vrf_key" gorm:"type:text"`
