@@ -1154,6 +1154,29 @@ func (orm *ORM) FirstOrCreateKey(k *models.Key) error {
 	return orm.db.FirstOrCreate(k).Error
 }
 
+// FirstOrCreateEncryptedSecretKey returns the first key found or creates a new one in the orm.
+func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *models.EncryptedSecretVRFKey) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.db.FirstOrCreate(k).Error
+}
+
+// DeleteEncryptedSecretKey deletes k from the encrypted keys table, or errors
+func (orm *ORM) DeleteEncryptedSecretVRFKey(k *models.EncryptedSecretVRFKey) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.db.Delete(k).Error
+}
+
+// FindEncryptedSecretKeys retrieves matches to where from the encrypted keys table, or errors
+func (orm *ORM) FindEncryptedSecretVRFKeys(where ...models.EncryptedSecretVRFKey) (
+	retrieved []*models.EncryptedSecretVRFKey, err error) {
+	orm.MustEnsureAdvisoryLock()
+	var anonWhere []interface{} // Find needs "where" contents coerced to interface{}
+	for _, constraint := range where {
+		anonWhere = append(anonWhere, &constraint)
+	}
+	return retrieved, orm.db.Find(&retrieved, anonWhere...).Error
+}
+
 // ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to
 // the keys folder on disk, deleting anything there prior.
 func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
