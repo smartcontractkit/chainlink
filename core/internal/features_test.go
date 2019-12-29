@@ -6,20 +6,27 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"chainlink/core/assets"
 	"chainlink/core/auth"
 	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/services/vrf"
 	"chainlink/core/store/models"
+	"chainlink/core/store/models/vrfkey"
 	"chainlink/core/utils"
 	"chainlink/core/web"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -1003,4 +1010,68 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 	_ = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jrs[0])
 	eth.EventuallyAllCalled(t)
+}
+
+// Copied and modified from TestIntegration_RunLog
+func TestIntegration_RandomnessRequest(t *testing.T) {
+	triggeringBlockHash := cltest.NewHash()
+
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	eth := app.MockCallerSubscriberClient()
+	logs := make(chan ethpkg.Log, 1)
+	txHash := cltest.NewHash()
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("logs", logs)
+		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
+		eth.Register("eth_sendRawTransaction", txHash)
+		eth.Register("eth_getTransactionReceipt", ethpkg.TxReceipt{
+			Hash:        cltest.NewHash(),
+			BlockNumber: cltest.Int(10),
+		})
+	})
+	eth.Register("eth_chainId", config.ChainID())
+	app.Start()
+	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/randomness_job.json")
+
+	// Secret key of 1 corresponds to public key in randomness_job.json
+	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(1))
+	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
+	rawID := []byte(j.ID.String()) // Chainlink requires ASCII encoding of jobID
+	r := vrf.RandomnessRequestLog{
+		KeyHash: provingKey.PublicKey.Hash(),
+		Seed:    big.NewInt(1),
+		JobID:   common.BytesToHash(rawID),
+		Sender:  cltest.NewAddress(),
+		Fee:     assets.NewLink(100),
+	}
+	requestlog := cltest.NewRandomnessRequestLog(t, r, cltest.NewAddress(), 1)
+	requestlog.BlockHash = triggeringBlockHash
+
+	logs <- requestlog
+	cltest.WaitForRuns(t, j, app.Store, 1)
+	runs, err := app.Store.JobRunsFor(j.ID)
+	assert.NoError(t, err)
+	jr := runs[0]
+	require.Len(t, jr.TaskRuns, 2)
+	assert.False(t, jr.TaskRuns[0].Confirmations.Valid)
+	attempts := cltest.WaitForTxAttemptCount(t, app.Store, 1)
+	require.True(t, eth.AllCalled(), eth.Remaining())
+	require.Len(t, attempts, 1)
+
+	rawTx, err := hexutil.Decode(attempts[0].SignedRawTx)
+	require.NoError(t, err)
+	var tx *types.Transaction
+	require.NoError(t, rlp.DecodeBytes(rawTx, &tx))
+	payload := tx.Data()
+	require.Equal(t, hexutil.Encode(payload[:4]), vrf.FulfillSelector)
+	proofContainer := make(map[string]interface{})
+	err = vrf.FulfillMethod.Inputs.UnpackIntoMap(proofContainer, payload[4:])
+	require.NoError(t, err)
+	proof, ok := proofContainer["_proof"].([]byte)
+	require.True(t, ok)
+	require.Len(t, proof, vrf.ProofLength)
+	require.Equal(t, proof[:64], provingKey.PublicKey[:])
 }
