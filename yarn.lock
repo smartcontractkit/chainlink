@@ -8036,10 +8036,10 @@ duplexify@^3.4.2, duplexify@^3.5.0, duplexify@^3.6.0:
     readable-stream "^2.0.0"
     stream-shift "^1.0.0"
 
-dynamic-cdn-webpack-plugin@^4.0.0:
-  version "4.0.0"
-  resolved "https://registry.npmjs.org/dynamic-cdn-webpack-plugin/-/dynamic-cdn-webpack-plugin-4.0.0.tgz#eaba0ae02fe05d34043e50f777edede5af11092d"
-  integrity sha512-S32m0JNEWYab5W0FF8v/DcKxVzHvI+G4xfPuJrIdjRRqVrAT2YoqP4AFYWfXu7Y6fP/hYlHhBVHs31UqEdDkmw==
+dynamic-cdn-webpack-plugin@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/dynamic-cdn-webpack-plugin/-/dynamic-cdn-webpack-plugin-5.0.0.tgz#0e327299528fb9c2e6f709eb0046e6a554161aff"
+  integrity sha512-VxVHpGusEuqbnbB/r3FFUAb2kT0K6B5ZGK9FzXVxdx2f2X3RpTMKfMjehe+vTY6PqnlCvcrUekDsuYfnubs2hA==
   dependencies:
     html-webpack-include-assets-plugin "^1.0.4"
     read-pkg-up "^4.0.0"
