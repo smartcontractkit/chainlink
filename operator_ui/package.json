@@ -31,7 +31,7 @@
     "classnames": "^2.2.6",
     "cookie": "^0.4.0",
     "core-js": "^3.4.0",
-    "formik": "^1.0.3",
+    "formik": "^2.0.8",
     "humps": "^2.0.1",
     "isomorphic-unfetch": "^3.0.0",
     "javascript-stringify": "^2.0.1",
