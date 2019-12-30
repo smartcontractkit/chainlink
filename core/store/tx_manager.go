@@ -410,7 +410,7 @@ func (txm *EthTxManager) checkAccountForConfirmation(tx *models.Tx) (*eth.TxRece
 		if err := txm.orm.SaveTx(tx); err != nil {
 			return nil, Safe, fmt.Errorf("BumpGasUntilSafe error saving Tx confirmation to the database")
 		}
-		return nil, Safe, fmt.Errorf("BumpGasUntilSafe a version of the Ethereum Transaction from %v with nonce %v", tx.From, tx.Nonce)
+		return nil, Safe, fmt.Errorf("BumpGasUntilSafe a version of the Ethereum Transaction from %v with nonce %v was not recorded in the database", tx.From, tx.Nonce)
 	}
 
 	return nil, Unconfirmed, nil
