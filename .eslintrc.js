@@ -23,7 +23,6 @@ module.exports = {
       },
     ],
     '@typescript-eslint/no-empty-function': 'off',
-
     '@typescript-eslint/no-unused-vars': 'error',
     '@typescript-eslint/no-empty-interface': 'off',
     '@typescript-eslint/explicit-function-return-type': 'off',
