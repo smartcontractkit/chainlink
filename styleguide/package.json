@@ -38,7 +38,7 @@
     "@storybook/addon-links": "^5.2.5",
     "@storybook/addons": "^5.2.1",
     "@storybook/react": "^5.1.10",
-    "@types/react": "^16.9.5",
+    "@types/react": "^16.9.17",
     "@types/react-dom": "^16.7.0",
     "@types/storybook__addon-links": "^3.3.5",
     "@types/storybook__react": "^4.0.2",
