@@ -43,8 +43,10 @@ describe('BasicConsumer', () => {
   })
 
   it('has a predictable gas price', async () => {
-    const rec = await provider.getTransactionReceipt(cc.deployTransaction.hash!)
-    assert.isBelow(rec.gasUsed!.toNumber(), 1700000)
+    const rec = await provider.getTransactionReceipt(
+      cc?.deployTransaction?.hash ?? '',
+    )
+    assert.isBelow(rec?.gasUsed?.toNumber() ?? 0, 1700000)
   })
 
   describe('#requestEthereumPrice', () => {
@@ -64,8 +66,8 @@ describe('BasicConsumer', () => {
       it('triggers a log event in the Oracle contract', async () => {
         const tx = await cc.requestEthereumPrice(currency)
         const receipt = await tx.wait()
-        const log = receipt.logs![3]
-        assert.equal(log.address, oc.address)
+        const log = receipt?.logs?.[3]
+        assert.equal(log?.address ?? '', oc.address)
 
         const request = h.decodeRunRequest(log)
         const expected = {
@@ -84,7 +86,7 @@ describe('BasicConsumer', () => {
       it('has a reasonable gas cost', async () => {
         const tx = await cc.requestEthereumPrice(currency)
         const receipt = await tx.wait()
-        assert.isBelow(receipt.gasUsed!.toNumber(), 120000)
+        assert.isBelow(receipt.gasUsed?.toNumber() ?? 0, 120000)
       })
     })
   })
@@ -97,7 +99,7 @@ describe('BasicConsumer', () => {
       await link.transfer(cc.address, h.toWei('1'))
       const tx = await cc.requestEthereumPrice(currency)
       const receipt = await tx.wait()
-      request = h.decodeRunRequest(receipt.logs![3])
+      request = h.decodeRunRequest(receipt.logs?.[3])
     })
 
     it('records the data given to it by the oracle', async () => {
@@ -118,10 +120,10 @@ describe('BasicConsumer', () => {
         response,
       )
       const receipt = await tx.wait()
-      assert.equal(2, receipt.logs!.length)
-      const log = receipt.logs![1]
+      assert.equal(2, receipt.logs?.length)
+      const log = receipt.logs?.[1]
 
-      assert.equal(log.topics[2], response)
+      assert.equal(log?.topics[2], response)
     })
 
     describe('when the consumer does not recognize the request ID', () => {
@@ -137,7 +139,7 @@ describe('BasicConsumer', () => {
         )
         const tx = await h.requestDataFrom(oc, link, 0, args)
         const receipt = await tx.wait()
-        otherRequest = h.decodeRunRequest(receipt.logs![2])
+        otherRequest = h.decodeRunRequest(receipt.logs?.[2])
       })
 
       it('does not accept the data provided', async () => {
@@ -173,7 +175,7 @@ describe('BasicConsumer', () => {
       await link.transfer(cc.address, depositAmount)
       const tx = await cc.requestEthereumPrice(currency)
       const receipt = await tx.wait()
-      request = h.decodeRunRequest(receipt.logs![3])
+      request = h.decodeRunRequest(receipt.logs?.[3])
     })
 
     describe('before 5 minutes', () => {
