@@ -24,7 +24,7 @@
     "chainlinkv0.5": "0.0.2",
     "ethers": "^4.0.41",
     "link_token": "^1.0.6",
-    "openzeppelin-solidity": "^1.12.0"
+    "openzeppelin-solidity": "^2.4.0"
   },
   "devDependencies": {
     "@0x/sol-compiler": "^3.1.15",
