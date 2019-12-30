@@ -27,7 +27,7 @@
     "ethereumjs-util": "^6.1.0",
     "ethers": "^4.0.41",
     "truffle-contract": "^4.0.31",
-    "typescript": "^3.7.0"
+    "typescript": "^3.7.4"
   },
   "devDependencies": {
     "@0x/sol-compiler": "^3.1.15",

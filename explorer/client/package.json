@@ -87,7 +87,7 @@
     "redux-logger": "^3.0.6",
     "rimraf": "^3.0.0",
     "ts-jest": "^24.1.0",
-    "typescript": "^3.6.3",
+    "typescript": "^3.7.4",
     "webpack": "4.41.2"
   }
 }
