@@ -10,6 +10,7 @@
     "tools/json-api-client",
     "tools/redux",
     "tools/echo-server",
+    "tools/external-adapter",
     "tools/cypress-job-server",
     "operator_ui",
     "integration",
