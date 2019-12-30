@@ -101,8 +101,8 @@ describe('Aggregator', () => {
         const receipt = await requestTx.wait()
 
         const answerId = h.numToBytes32(1)
-        const newRoundLog = receipt.logs![receipt.logs!.length - 1]
-        assert.equal(answerId, newRoundLog.topics[1])
+        const newRoundLog = receipt.logs?.[receipt.logs.length - 1]
+        assert.equal(answerId, newRoundLog?.topics[1])
       })
 
       it('trigger a request to the oracle and accepts a response', async () => {
