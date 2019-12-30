@@ -42,6 +42,6 @@
     "debug": "4.1.1",
     "typechain": "1.0.3",
     "typechain-target-ethers": "^1.0.1",
-    "typescript": "^3.6.3"
+    "typescript": "^3.7.4"
   }
 }
