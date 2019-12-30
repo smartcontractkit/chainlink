@@ -49,11 +49,11 @@ Cypress.Commands.add('getJobJson', () => {
 // https://github.com/cypress-io/cypress/issues/944
 Cypress.Commands.add('forceVisit', url => {
   cy.get('body').then(body$ => {
-    const appWindow = body$[0].ownerDocument!.defaultView
-    const appIframe = appWindow!.parent.document.querySelector('iframe')
+    const appWindow = body$[0].ownerDocument?.defaultView
+    const appIframe = appWindow?.parent.document.querySelector('iframe')
     return new Promise(resolve => {
-      appIframe!.onload = () => resolve()
-      appWindow!.location = url
+      if (appIframe) appIframe.onload = () => resolve()
+      if (appWindow) appWindow.location = url
     })
   })
 })
