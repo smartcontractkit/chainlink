@@ -1,5 +1,4 @@
-import tests from './tests'
-import dssTest from './dssTest'
+import { dssTest, tests } from './fixtures'
 
 const SchnorrSECP256K1 = artifacts.require('SchnorrSECP256K1')
 
