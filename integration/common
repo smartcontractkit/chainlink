@@ -74,11 +74,12 @@ deploy_contracts() {
 }
 
 deploy_v05_contracts() {
-    local log=$LOG_PATH/initiate-service-agreement.log
+    local log=$LOG_PATH/deployv0.5.log
     yarn workspace @chainlink/integration-scripts deploy-v0.5-contracts | tee log
     export LINK_TOKEN_ADDRESS=`cat log | grep 'Deployed LinkToken at:' | awk '{print$4}'`
     export COORDINATOR_ADDRESS=`cat log | grep 'Deployed Coordinator at:' | awk '{print$4}'`
     export MEAN_AGGREGATOR_ADDRESS=`cat log | grep 'Deployed MeanAggregator at:' | awk '{print$4}'`
+    export PREPAID_AGGREGATOR_ADDRESS=`cat log | grep 'Deployed PrepaidAggregator at:' | awk '{print$4}'`
 }
 
 print_logs() {
