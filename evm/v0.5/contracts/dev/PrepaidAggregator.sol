@@ -347,7 +347,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     oracles[msg.sender].withdrawable = available.sub(amount);
     allocatedFunds = allocatedFunds.sub(amount);
 
-    assert(LINK.transfer(_recipient, _amount));
+    assert(LINK.transfer(_recipient, uint256(amount)));
   }
 
   /**
