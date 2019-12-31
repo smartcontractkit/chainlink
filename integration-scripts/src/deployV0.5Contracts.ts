@@ -6,7 +6,11 @@ import {
   deployContract,
 } from './common'
 import { deployLinkTokenContract } from './deployLinkTokenContract'
-const { CoordinatorFactory, MeanAggregatorFactory } = chainlink
+const {
+  CoordinatorFactory,
+  MeanAggregatorFactory,
+  PrepaidAggregatorFactory,
+} = chainlink
 
 async function main() {
   registerPromiseHandler()
@@ -36,9 +40,20 @@ export async function deployContracts() {
     name: 'MeanAggregator',
   })
 
+  // deploy PrepaidAggregator
+  const prepaidAggregator = await deployContract(
+    { Factory: PrepaidAggregatorFactory, signer, name: 'PrepaidAggregator' },
+    linkToken.address,
+    1,
+    60,
+    1,
+    'PrepaidAggregator for flux monitor test',
+  )
+
   return {
     linkToken,
     coordinator,
     meanAggregator,
+    prepaidAggregator,
   }
 }
