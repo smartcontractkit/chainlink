@@ -1,0 +1,40 @@
+{
+  "initiators": [
+    {
+      "type": "fluxmonitor",
+      "params": {
+        "address": "0xceaa86879ef8f4d0171b252ec9e2dda6854027c9",
+        "requestData": {
+          "data": {
+            "coin": "ETH",
+            "market": "USD"
+          }
+        },
+        "feeds": ["http://localhost:6644"],
+        "threshold": 1,
+        "precision": 2
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "type": "multiply",
+      "confirmations": null,
+      "params": {
+        "times": 100
+      }
+    },
+    {
+      "type": "ethint256",
+      "confirmations": null,
+      "params": {}
+    },
+    {
+      "type": "ethtx",
+      "confirmations": null,
+      "params": {}
+    }
+  ],
+  "startAt": null,
+  "endAt": null
+}
