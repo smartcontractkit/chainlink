@@ -23,6 +23,7 @@ services:
       - CHAINLINK_URL
       - ETH_HTTP_URL
       - ECHO_SERVER_URL
+      - EXTERNAL_ADAPTER_URL
       - CLIENT_NODE_URL # used to send remote commands
       - CYPRESS_JOB_SERVER_PORT
       - CYPRESS_JOB_SERVER_HOST

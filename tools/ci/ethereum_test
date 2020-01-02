@@ -26,6 +26,7 @@ cd $SRCROOT/integration
 ./runlog_test
 ./ethlog_test
 ./service_agreement_test
+./flux_monitor_test
 
 title 'End to end tests.'
 
