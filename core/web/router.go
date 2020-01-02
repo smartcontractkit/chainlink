@@ -17,10 +17,10 @@ import (
 
 	"chainlink/core/logger"
 	"chainlink/core/services"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
+	"chainlink/core/store/presenters"
 
+	"github.com/chenjiandongx/ginprom"
 	helmet "github.com/danielkov/gin-helmet"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/expvar"
@@ -28,7 +28,7 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
-	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -50,22 +50,22 @@ const (
 	SessionIDKey = "clsession_id"
 	// SessionUserKey is the User key in the session map
 	SessionUserKey = "user"
-	// SessionExternalInitiator is the Externale Initiator key in the session map
+	// SessionExternalInitiatorKey is the External Initiator key in the session map
 	SessionExternalInitiatorKey = "external_initiator"
-	// ExternalInitiatorAccessKeyHeader is the header name for the access key
-	// used by external initiators to authenticate
-	ExternalInitiatorAccessKeyHeader = "X-Chainlink-EA-AccessKey"
-	// ExternalInitiatorSecretHeader is the header name for the secret used by
-	// external initiators to authenticate
-	ExternalInitiatorSecretHeader = "X-Chainlink-EA-Secret"
 )
 
-var (
-	// ErrorAuthFailed is a generic authentication failed - but not because of
-	// some system failure on our behalf (i.e. HTTP 5xx), more detail is not
-	// given
-	ErrorAuthFailed = errors.New("Authentication failed")
-)
+func explorerStatus(app services.Application) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		es := presenters.NewExplorerStatus(app.GetStore())
+		b, err := json.Marshal(es)
+		if err != nil {
+			panic(err)
+		}
+
+		c.SetCookie("explorer", (string)(b), 0, "", "", false, false)
+		c.Next()
+	}
+}
 
 // Router listens and responds to requests to the node for valid paths.
 func Router(app services.Application) *gin.Engine {
@@ -86,6 +86,7 @@ func Router(app services.Application) *gin.Engine {
 		gin.Recovery(),
 		cors,
 		secureMiddleware(config),
+		ginprom.PromMiddleware(&ginprom.PromOpts{}),
 	)
 	engine.Use(helmet.Default())
 
@@ -93,6 +94,7 @@ func Router(app services.Application) *gin.Engine {
 		"/",
 		rateLimiter(1*time.Minute, 1000),
 		sessions.Sessions(SessionName, sessionStore),
+		explorerStatus(app),
 	)
 
 	metricRoutes(app, api)
@@ -147,94 +149,10 @@ func secureMiddleware(config orm.ConfigReader) gin.HandlerFunc {
 
 	return secureFunc
 }
-
-func sessionAuth(store *store.Store, c *gin.Context) error {
-	session := sessions.Default(c)
-	sessionID, ok := session.Get(SessionIDKey).(string)
-	if !ok {
-		return ErrorAuthFailed
-	}
-
-	user, err := store.AuthorizedUserWithSession(sessionID)
-	if err != nil {
-		return err
-	}
-	c.Set(SessionUserKey, &user)
-	return nil
-}
-
-func authenticatedUser(c *gin.Context) (*models.User, bool) {
-	obj, ok := c.Get(SessionUserKey)
-	if !ok {
-		return nil, false
-	}
-	return obj.(*models.User), ok
-}
-
-func tokenAuth(store *store.Store, c *gin.Context) error {
-	eia := &models.ExternalInitiatorAuthentication{
-		AccessKey: c.GetHeader(ExternalInitiatorAccessKeyHeader),
-		Secret:    c.GetHeader(ExternalInitiatorSecretHeader),
-	}
-
-	ei, err := store.FindExternalInitiator(eia)
-	if errors.Cause(err) == orm.ErrorNotFound {
-		return ErrorAuthFailed
-	} else if err != nil {
-		return errors.Wrap(err, "finding external intiator")
-	}
-
-	ok, err := models.AuthenticateExternalInitiator(eia, ei)
-	if err != nil {
-		return err
-	}
-
-	if !ok {
-		return ErrorAuthFailed
-	}
-	c.Set(SessionExternalInitiatorKey, ei)
-
-	return nil
-}
-
-func authenticatedEI(c *gin.Context) (*models.ExternalInitiator, bool) {
-	obj, ok := c.Get(SessionExternalInitiatorKey)
-	if !ok {
-		return nil, false
-	}
-	return obj.(*models.ExternalInitiator), ok
-}
-
-func sessionAuthRequired(store *store.Store) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		err := sessionAuth(store, c)
-		if err != nil {
-			c.AbortWithStatus(http.StatusUnauthorized)
-		} else {
-			c.Next()
-		}
-	}
-}
-
-// sessionOrTokenAuthRequired first tries session authentication, then falls back to
-// token authentication, strictly for External Initiators
-func sessionOrTokenAuthRequired(store *store.Store) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		err := sessionAuth(store, c)
-		if err == ErrorAuthFailed {
-			err = tokenAuth(store, c)
-		}
-
-		if err != nil {
-			c.AbortWithStatus(http.StatusUnauthorized)
-		} else {
-			c.Next()
-		}
-	}
-}
-
 func metricRoutes(app services.Application, r *gin.RouterGroup) {
-	group := r.Group("/debug", sessionAuthRequired(app.GetStore()))
+	r.GET("/metrics", ginprom.PromHandler(promhttp.Handler()))
+
+	group := r.Group("/debug", RequireAuth(app.GetStore(), AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
 
 	if app.GetStore().Config.Dev() {
@@ -266,7 +184,7 @@ func sessionRoutes(app services.Application, r *gin.RouterGroup) {
 	unauth := r.Group("/", rateLimiter(20*time.Second, 5))
 	sc := SessionsController{app}
 	unauth.POST("/sessions", sc.Create)
-	auth := r.Group("/", sessionAuthRequired(app.GetStore()))
+	auth := r.Group("/", RequireAuth(app.GetStore(), AuthenticateBySession))
 	auth.DELETE("/sessions", sc.Destroy)
 }
 
@@ -281,15 +199,17 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 
 	j := JobSpecsController{app}
 
-	authv2 := r.Group("/v2", sessionAuthRequired(app.GetStore()))
+	authv2 := r.Group("/v2", RequireAuth(app.GetStore(), AuthenticateByToken, AuthenticateBySession))
 	{
 		uc := UserController{app}
 		authv2.PATCH("/user/password", uc.UpdatePassword)
 		authv2.GET("/user/balances", uc.AccountBalances)
+		authv2.POST("/user/token", uc.NewAPIToken)
+		authv2.POST("/user/token/delete", uc.DeleteAPIToken)
 
 		eia := ExternalInitiatorsController{app}
 		authv2.POST("/external_initiators", eia.Create)
-		authv2.DELETE("/external_initiators/:AccessKey", eia.Destroy)
+		authv2.DELETE("/external_initiators/:Name", eia.Destroy)
 
 		authv2.POST("/specs", j.Create)
 		authv2.GET("/specs", paginatedRequest(j.Index))
@@ -336,9 +256,13 @@ func v2Routes(app services.Application, r *gin.RouterGroup) {
 	}
 
 	ping := PingController{app}
-	sotAuth := r.Group("/v2", sessionOrTokenAuthRequired(app.GetStore()))
-	sotAuth.POST("/specs/:SpecID/runs", jr.Create)
-	sotAuth.GET("/ping", ping.Show)
+	userOrEI := r.Group("/v2", RequireAuth(app.GetStore(),
+		AuthenticateExternalInitiator,
+		AuthenticateByToken,
+		AuthenticateBySession,
+	))
+	userOrEI.POST("/specs/:SpecID/runs", jr.Create)
+	userOrEI.GET("/ping", ping.Show)
 }
 
 func guiAssetRoutes(box packr.Box, engine *gin.Engine) {

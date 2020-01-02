@@ -4,12 +4,14 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
 
+	"chainlink/core/assets"
 	clnull "chainlink/core/null"
-	"chainlink/core/store/assets"
+	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
@@ -23,35 +25,13 @@ type JobSpecRequest struct {
 	Tasks      []TaskSpecRequest  `json:"tasks"`
 	StartAt    null.Time          `json:"startAt"`
 	EndAt      null.Time          `json:"endAt"`
-	MinPayment assets.Link        `json:"minPayment"`
+	MinPayment *assets.Link       `json:"minPayment,omitempty"`
 }
 
 // InitiatorRequest represents a schema for incoming initiator requests as used by the API.
 type InitiatorRequest struct {
 	Type            string `json:"type"`
-	Name            string `json:"name,omitempty"`
 	InitiatorParams `json:"params,omitempty"`
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (i *InitiatorRequest) UnmarshalJSON(buf []byte) error {
-	type Alias InitiatorRequest
-	temp := struct {
-		*Alias
-		Params json.RawMessage `json:"params"`
-	}{
-		Alias: (*Alias)(i),
-	}
-	if err := json.Unmarshal(buf, &temp); err != nil {
-		return err
-	}
-	if temp.Type == InitiatorExternal {
-		temp.InitiatorParams.Params = string(temp.Params)
-	}
-	if len(temp.Params) == 0 {
-		return nil
-	}
-	return json.Unmarshal(temp.Params, &temp.Alias.InitiatorParams)
 }
 
 // TaskSpecRequest represents a schema for incoming TaskSpec requests as used by the API.
@@ -65,14 +45,14 @@ type TaskSpecRequest struct {
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID         *ID         `json:"id,omitempty" gorm:"primary_key;not null"`
-	CreatedAt  time.Time   `json:"createdAt" gorm:"index"`
-	Initiators []Initiator `json:"initiators"`
-	MinPayment assets.Link `json:"minPayment" gorm:"type:varchar(255)"`
-	Tasks      []TaskSpec  `json:"tasks"`
-	StartAt    null.Time   `json:"startAt" gorm:"index"`
-	EndAt      null.Time   `json:"endAt" gorm:"index"`
-	DeletedAt  null.Time   `json:"-" gorm:"index"`
+	ID         *ID          `json:"id,omitempty" gorm:"primary_key;not null"`
+	CreatedAt  time.Time    `json:"createdAt" gorm:"index"`
+	Initiators []Initiator  `json:"initiators"`
+	MinPayment *assets.Link `json:"minPayment,omitempty" gorm:"type:varchar(255)"`
+	Tasks      []TaskSpec   `json:"tasks"`
+	StartAt    null.Time    `json:"startAt" gorm:"index"`
+	EndAt      null.Time    `json:"endAt" gorm:"index"`
+	DeletedAt  null.Time    `json:"-" gorm:"index"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -94,9 +74,8 @@ func (j *JobSpec) SetID(value string) error {
 // the CreatedAt field to the time of invokation.
 func NewJob() JobSpec {
 	return JobSpec{
-		ID:         NewID(),
-		CreatedAt:  time.Now(),
-		MinPayment: *assets.NewLink(0),
+		ID:        NewID(),
+		CreatedAt: time.Now(),
 	}
 }
 
@@ -126,35 +105,6 @@ func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 // Archived returns true if the job spec has been soft deleted
 func (j JobSpec) Archived() bool {
 	return j.DeletedAt.Valid
-}
-
-// NewRun initializes the job by creating the IDs for the job
-// and all associated tasks, and setting the CreatedAt field.
-func (j JobSpec) NewRun(i Initiator) JobRun {
-	jrid := NewID()
-	taskRuns := make([]TaskRun, len(j.Tasks))
-	for i, task := range j.Tasks {
-		trid := NewID()
-		taskRuns[i] = TaskRun{
-			ID:       trid,
-			JobRunID: jrid,
-			TaskSpec: task,
-		}
-	}
-
-	runRequest := NewRunRequest()
-	now := time.Now()
-	return JobRun{
-		ID:          jrid,
-		JobSpecID:   j.ID,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		TaskRuns:    taskRuns,
-		RunRequest:  *runRequest,
-		Initiator:   i,
-		InitiatorID: i.ID,
-		Status:      RunStatusUnstarted,
-	}
 }
 
 // InitiatorsFor returns an array of Initiators for the given list of
@@ -230,6 +180,9 @@ const (
 	InitiatorServiceAgreementExecutionLog = "execagreement"
 	// InitiatorExternal for tasks in a job to be trigger by an external party.
 	InitiatorExternal = "external"
+	// InitiatorFluxMonitor for tasks in a job to be run on price deviation
+	// or request for a new round of prices.
+	InitiatorFluxMonitor = "fluxmonitor"
 )
 
 // Initiator could be thought of as a trigger, defines how a Job can be
@@ -255,14 +208,22 @@ type InitiatorParams struct {
 	Address    common.Address    `json:"address,omitempty" gorm:"index"`
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
 	Name       string            `json:"name,omitempty"`
-	Params     string            `json:"-"`
-	FromBlock  *Big              `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
-	ToBlock    *Big              `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
+	Body       *JSON             `json:"body,omitempty" gorm:"column:params"`
+	FromBlock  *utils.Big        `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
+	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
 	Topics     Topics            `json:"topics,omitempty" gorm:"type:text"`
+
+	RequestData JSON    `json:"requestData,omitempty" gorm:"type:text"`
+	Feeds       Feeds   `json:"feeds,omitempty" gorm:"type:text"`
+	Threshold   float32 `json:"threshold,omitempty" gorm:"type:float"`
+	Precision   int32   `json:"precision,omitempty" gorm:"type:smallint"`
 }
 
+// Topics handle the serialization of ethereum log topics to and from the data store.
 type Topics [][]common.Hash
 
+// Scan coerces the value returned from the data store to the proper data
+// in this instance.
 func (t Topics) Scan(value interface{}) error {
 	jsonStr, ok := value.(string)
 	if !ok {
@@ -285,6 +246,60 @@ func (t Topics) Value() (driver.Value, error) {
 	return string(j), nil
 }
 
+// Feeds holds all flux monitor feed URLs, serializing into the db
+// with ; delimited strings.
+type Feeds []string
+
+// Scan populates the current Feeds value with the passed in value, usually a
+// string from an underlying database.
+func (f *Feeds) Scan(value interface{}) error {
+	if value == nil {
+		*f = []string{}
+		return nil
+	}
+	str, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("Unable to convert %v of %T to Feeds", value, value)
+	}
+
+	return f.UnmarshalJSON([]byte(str))
+}
+
+// Value returns this instance serialized for database storage.
+func (f Feeds) Value() (driver.Value, error) {
+	if len(f) == 0 {
+		return nil, nil
+	}
+
+	bytes, err := f.MarshalJSON()
+	return string(bytes), err
+}
+
+// MarshalJSON marshals this instance to JSON as an array of strings.
+func (f Feeds) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]string(f))
+}
+
+// UnmarshalJSON deserializes the json input into this instance.
+func (f *Feeds) UnmarshalJSON(input []byte) error {
+	arr := []string{}
+	err := json.Unmarshal(input, &arr)
+	if err != nil {
+		return err
+	}
+	for _, entry := range arr {
+		if entry == "" {
+			return errors.New("can't have an empty string as a feed")
+		}
+		_, err := url.ParseRequestURI(entry)
+		if err != nil {
+			return err
+		}
+	}
+	*f = arr
+	return nil
+}
+
 // NewInitiatorFromRequest creates an Initiator from the corresponding
 // parameters in a InitiatorRequest
 func NewInitiatorFromRequest(
@@ -300,7 +315,6 @@ func NewInitiatorFromRequest(
 		Type:            strings.ToLower(initr.Type),
 		InitiatorParams: initr.InitiatorParams,
 	}
-	ret.InitiatorParams.Name = initr.Name
 	return ret
 }
 

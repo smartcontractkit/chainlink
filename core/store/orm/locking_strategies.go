@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gofrs/flock"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
 
@@ -29,7 +30,7 @@ func NewLockingStrategy(dialect DialectName, dbpath string) (LockingStrategy, er
 // resource for exclusive access, usually a file or database.
 type LockingStrategy interface {
 	Lock(timeout time.Duration) error
-	Unlock() error
+	Unlock(timeout time.Duration) error
 }
 
 // FileLockingStrategy uses a file lock on disk to ensure exclusive access.
@@ -78,7 +79,7 @@ func normalizedTimeout(timeout time.Duration) <-chan time.Time {
 }
 
 // Unlock is a noop.
-func (s *FileLockingStrategy) Unlock() error {
+func (s *FileLockingStrategy) Unlock(timeout time.Duration) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 	return s.fileLock.Unlock()
@@ -87,10 +88,10 @@ func (s *FileLockingStrategy) Unlock() error {
 // PostgresLockingStrategy uses a postgres advisory lock to ensure exclusive
 // access.
 type PostgresLockingStrategy struct {
-	db     *sql.DB
-	path   string
-	m      *sync.Mutex
-	locked bool
+	db   *sql.DB
+	conn *sql.Conn
+	path string
+	m    *sync.Mutex
 }
 
 // NewPostgresLockingStrategy returns a new instance of the PostgresLockingStrategy.
@@ -109,40 +110,59 @@ func (s *PostgresLockingStrategy) Lock(timeout time.Duration) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	if s.locked {
-		return nil
-	}
-
-	db, err := sql.Open(string(DialectPostgres), s.path)
-	if err != nil {
-		return err
-	}
-	s.db = db
-
 	ctx := context.Background()
 	if timeout != 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
-	_, err = s.db.ExecContext(ctx, "SELECT pg_advisory_lock($1)", postgresAdvisoryLockID)
-	if err != nil {
-		return multierr.Append(
-			fmt.Errorf("postgres advisory locking strategy failed, timeout set to %v", displayTimeout(timeout)),
-			err)
+
+	if s.conn == nil {
+		db, err := sql.Open(string(DialectPostgres), s.path)
+		if err != nil {
+			return err
+		}
+		s.db = db
+
+		// `database/sql`.DB does opaque connection pooling, but PG advisory locks are per-connection
+		conn, err := db.Conn(ctx)
+		if err != nil {
+			return err
+		}
+
+		s.conn = conn
 	}
-	s.locked = true
+
+	_, err := s.conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", postgresAdvisoryLockID)
+	if err != nil {
+		return errors.Wrapf(ErrNoAdvisoryLock, "postgres advisory locking strategy failed on .Lock, timeout set to %v: %v", displayTimeout(timeout), err)
+	}
 	return nil
 }
 
 // Unlock unlocks the locked postgres advisory lock.
-func (s *PostgresLockingStrategy) Unlock() error {
+func (s *PostgresLockingStrategy) Unlock(timeout time.Duration) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	s.locked = false
-	if s.db != nil {
-		return s.db.Close()
+	if s.conn == nil {
+		return nil
 	}
-	return nil
+
+	connErr := s.conn.Close()
+	if connErr == sql.ErrConnDone {
+		connErr = nil
+	}
+	dbErr := s.db.Close()
+	if dbErr == sql.ErrConnDone {
+		dbErr = nil
+	}
+
+	s.db = nil
+	s.conn = nil
+
+	return multierr.Combine(
+		connErr,
+		dbErr,
+	)
 }

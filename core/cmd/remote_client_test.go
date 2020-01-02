@@ -28,7 +28,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Register("eth_getBalance", "0x0100")
 	ethMock.Register("eth_call", "0x0100")
 
@@ -109,10 +109,10 @@ func TestClient_IndexJobRuns(t *testing.T) {
 	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, app.Store.CreateJob(&j))
 
-	jr0 := j.NewRun(j.Initiators[0])
+	jr0 := cltest.NewJobRun(j)
 	jr0.Result.Data = cltest.JSONFromString(t, `{"a":"b"}`)
 	require.NoError(t, app.Store.CreateJobRun(&jr0))
-	jr1 := j.NewRun(j.Initiators[0])
+	jr1 := cltest.NewJobRun(j)
 	jr1.Result.Data = cltest.JSONFromString(t, `{"x":"y"}`)
 	require.NoError(t, app.Store.CreateJobRun(&jr1))
 
@@ -224,6 +224,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 	}{
 		{"create external initiator", []string{"exi", "http://testing.com/external_initiators"}},
 		{"create external initiator w/ query params", []string{"exiqueryparams", "http://testing.com/external_initiators?query=param"}},
+		{"create external initiator w/o url", []string{"exi_no_url"}},
 	}
 
 	for _, tt := range tests {
@@ -246,7 +247,9 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			err = app.Store.ORM.Where("name", test.args[0], &exi)
 			require.NoError(t, err)
 
-			assert.Equal(t, test.args[1], exi.URL.String())
+			if len(test.args) > 1 {
+				assert.Equal(t, test.args[1], exi.URL.String())
+			}
 		})
 	}
 }
@@ -259,7 +262,6 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 		args []string
 	}{
 		{"no arguments", []string{}},
-		{"not enough arguments", []string{"bitcoin"}},
 		{"too many arguments", []string{"bitcoin", "https://valid.url", "extra arg"}},
 		{"invalid url", []string{"bitcoin", "not a url"}},
 	}
@@ -629,7 +631,7 @@ func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func(),
 
 	hash := cltest.NewHash()
 	nonce := "0x100"
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", nonce)
@@ -886,7 +888,7 @@ func TestClient_CancelJobRun(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", 0)
 		ethMock.Register("eth_chainId", app.Config.ChainID())
@@ -895,7 +897,7 @@ func TestClient_CancelJobRun(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, app.Store.CreateJob(&job))
-	run := job.NewRun(job.Initiators[0])
+	run := cltest.NewJobRun(job)
 	require.NoError(t, app.Store.CreateJobRun(&run))
 
 	client, _ := app.NewClientAndRenderer()

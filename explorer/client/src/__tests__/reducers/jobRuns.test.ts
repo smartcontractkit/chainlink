@@ -1,39 +1,46 @@
-import reducer, { State } from '../../reducers'
-import { JobRunsAction } from '../../reducers/jobRuns'
+import reducer, {
+  INITIAL_STATE as initialRootState,
+  AppState,
+} from '../../reducers'
+import {
+  JobRunsNormalizedData,
+  JobRunNormalizedData,
+  FetchJobRunsSucceededAction,
+  FetchJobRunSucceededAction,
+} from '../../reducers/actions'
+import { JobRun } from 'explorer/models'
+import { partialAsFull } from '../support/mocks'
 
-const STATE = {
+const INITIAL_JOB_RUN = { id: 'replace-me' } as JobRun
+
+const INITIAL_STATE: AppState = {
+  ...initialRootState,
   jobRuns: {
-    items: { 'replace-me': { id: 'replace-me' } },
+    items: { 'replace-me': INITIAL_JOB_RUN },
   },
 }
 
 describe('reducers/jobRuns', () => {
-  it('returns the current state for other actions', () => {
-    const action = {} as JobRunsAction
-    const state = reducer(STATE, action) as State
-
-    expect(state.jobRuns).toEqual(STATE.jobRuns)
-  })
-
-  describe('UPSERT_JOB_RUNS', () => {
+  describe('FETCH_JOB_RUNS_SUCCEEDED', () => {
     it('can replace items', () => {
-      const normalizedJobRuns = {
-        '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
-          id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e',
-        },
-      }
-      const orderedJobRuns = [{ id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e' }]
-      const data = {
-        jobRuns: normalizedJobRuns,
-        meta: {
-          jobRuns: {
-            data: orderedJobRuns,
-            meta: {},
+      const data = partialAsFull<JobRunsNormalizedData>({
+        jobRuns: {
+          '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
+            id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e',
           },
         },
+        meta: {
+          currentPageJobRuns: {
+            data: [{ id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e' }],
+            meta: { count: 100 },
+          },
+        },
+      })
+      const action: FetchJobRunsSucceededAction = {
+        type: 'FETCH_JOB_RUNS_SUCCEEDED',
+        data,
       }
-      const action = { type: 'UPSERT_JOB_RUNS', data: data } as JobRunsAction
-      const state = reducer(STATE, action) as State
+      const state = reducer(INITIAL_STATE, action)
 
       expect(state.jobRuns).toEqual({
         items: {
@@ -45,21 +52,23 @@ describe('reducers/jobRuns', () => {
     })
   })
 
-  describe('UPSERT_JOB_RUN', () => {
+  describe('FETCH_JOB_RUN_SUCCEEDED', () => {
     it('can replace items', () => {
-      const normalizedJobRuns = {
-        '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
-          id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e',
+      const data = partialAsFull<JobRunNormalizedData>({
+        jobRuns: {
+          '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e': {
+            id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e',
+          },
         },
-      }
-      const data = {
-        jobRuns: normalizedJobRuns,
         meta: {
           jobRun: { meta: {} },
         },
+      })
+      const action: FetchJobRunSucceededAction = {
+        type: 'FETCH_JOB_RUN_SUCCEEDED',
+        data,
       }
-      const action = { type: 'UPSERT_JOB_RUN', data: data } as JobRunsAction
-      const state = reducer(STATE, action) as State
+      const state = reducer(INITIAL_STATE, action)
 
       expect(state.jobRuns).toEqual({
         items: {

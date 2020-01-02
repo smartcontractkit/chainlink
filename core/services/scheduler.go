@@ -1,8 +1,8 @@
 package services
 
 import (
-	"errors"
 	"sync"
+	"time"
 
 	"chainlink/core/logger"
 	"chainlink/core/store"
@@ -10,6 +10,7 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/mrwonko/cron"
+	"github.com/pkg/errors"
 )
 
 // Scheduler contains fields for Recurring and OneTime for occurrences,
@@ -60,7 +61,7 @@ func (s *Scheduler) Start() error {
 	return s.store.Jobs(func(j *models.JobSpec) bool {
 		s.addJob(j)
 		return true
-	})
+	}, models.InitiatorCron, models.InitiatorRunAt)
 }
 
 // Stop is the governing function for both Recurring and OneTime
@@ -125,8 +126,13 @@ func (r *Recurring) Stop() {
 func (r *Recurring) AddJob(job models.JobSpec) {
 	for _, initr := range job.InitiatorsFor(models.InitiatorCron) {
 		r.Cron.AddFunc(string(initr.Schedule), func() {
+			now := time.Now()
+			if !job.Started(now) || job.Ended(now) {
+				return
+			}
+
 			_, err := r.runManager.Create(job.ID, &initr, &models.JSON{}, nil, &models.RunRequest{})
-			if err != nil && !expectedRecurringScheduleJobError(err) {
+			if err != nil && !ExpectedRecurringScheduleJobError(err) {
 				logger.Errorw(err.Error())
 			}
 		})
@@ -170,19 +176,25 @@ func (ot *OneTime) RunJobAt(initiator models.Initiator, job models.JobSpec) {
 	select {
 	case <-ot.done:
 	case <-ot.Clock.After(utils.DurationFromNow(initiator.Time.Time)):
+		now := time.Now()
+		if !job.Started(now) || job.Ended(now) {
+			return
+		}
+
 		_, err := ot.RunManager.Create(job.ID, &initiator, &models.JSON{}, nil, &models.RunRequest{})
-		if err != nil {
+		if err != nil && !ExpectedRecurringScheduleJobError(err) {
 			logger.Error(err.Error())
 			return
 		}
+
 		if err := ot.Store.MarkRan(&initiator, true); err != nil {
 			logger.Error(err.Error())
 		}
 	}
 }
 
-func expectedRecurringScheduleJobError(err error) bool {
-	switch err.(type) {
+func ExpectedRecurringScheduleJobError(err error) bool {
+	switch errors.Cause(err).(type) {
 	case RecurringScheduleJobError:
 		return true
 	default:

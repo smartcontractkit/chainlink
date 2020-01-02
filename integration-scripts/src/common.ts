@@ -151,17 +151,14 @@ class MissingEnvVarError extends Error {
  * @param keys The keys of the environment variables to fetch
  */
 export function getArgs<T extends string>(keys: T[]): { [K in T]: string } {
-  return keys.reduce<{ [K in T]: string }>(
-    (prev, next) => {
-      const envVar = process.env[next]
-      if (!envVar) {
-        throw new MissingEnvVarError(next)
-      }
-      prev[next] = envVar
-      return prev
-    },
-    {} as { [K in T]: string },
-  )
+  return keys.reduce<{ [K in T]: string }>((prev, next) => {
+    const envVar = process.env[next]
+    if (!envVar) {
+      throw new MissingEnvVarError(next)
+    }
+    prev[next] = envVar
+    return prev
+  }, {} as { [K in T]: string })
 }
 
 /**

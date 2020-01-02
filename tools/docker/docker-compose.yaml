@@ -1,0 +1,75 @@
+version: '3.1'
+
+services:
+  node:
+    container_name: chainlink-node
+    image: smartcontract/chainlink
+    build:
+      context: ../../
+      dockerfile: core/chainlink.Dockerfile
+    command: node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
+    restart: always
+    environment:
+      - ETH_CHAIN_ID
+      - LOG_LEVEL
+      - ROOT
+      - ETH_URL
+      - MIN_OUTGOING_CONFIRMATIONS
+      - MIN_INCOMING_CONFIRMATIONS
+      - MINIMUM_CONTRACT_PAYMENT
+      - RUST_BACKTRACE
+      - CHAINLINK_DEV
+      - EXPLORER_URL
+      - EXPLORER_ACCESS_KEY
+      - EXPLORER_SECRET
+      - SECURE_COOKIES
+      - CHAINLINK_TLS_PORT
+    env_file:
+      - chainlink-variables.env
+    ports:
+      - 6688:6688
+    depends_on:
+      - explorer
+    secrets:
+      - node_password
+      - apicredentials
+      - keystore
+
+  explorer:
+    container_name: chainlink-explorer
+    image: chainlink/explorer
+    build:
+      context: ../../
+      dockerfile: explorer/Dockerfile
+    entrypoint: yarn workspace @chainlink/explorer dev:compose
+    restart: always
+    ports:
+      - 3001:3001
+    depends_on:
+      - explorer-db
+    environment:
+      - SERVER_PORT=$EXPLORER_SERVER_PORT
+      - TYPEORM_DATABASE
+      - TYPEORM_USERNAME
+      - TYPEORM_HOST
+      - PGPASSWORD=$EXPLORER_PGPASSWORD
+
+  explorer-db:
+    container_name: chainlink-explorer-db
+    image: postgres:11.5
+    volumes:
+      - explorer-db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: $EXPLORER_DB_NAME
+      POSTGRES_PASSWORD: $EXPLORER_PGPASSWORD
+
+secrets:
+  node_password:
+    file: ../clroot/password.txt
+  apicredentials:
+    file: ../clroot/apicredentials
+  keystore:
+    file: ../secrets/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json
+
+volumes:
+  explorer-db-data:

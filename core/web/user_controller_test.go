@@ -2,10 +2,13 @@ package web_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"testing"
 
+	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
 
 	"github.com/stretchr/testify/assert"
@@ -77,7 +80,7 @@ func TestUserController_AccountBalances_Success(t *testing.T) {
 	app.AddUnlockedKey()
 	client := app.NewHTTPClient()
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("first wallet", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getBalance", "0x0100")
 		ethMock.Register("eth_call", "0x0100")
@@ -105,4 +108,96 @@ func TestUserController_AccountBalances_Success(t *testing.T) {
 	assert.Equal(t, expectedAccounts[1].Address.Hex(), second.Address)
 	assert.Equal(t, "0.000000000000000001", second.EthBalance.String())
 	assert.Equal(t, "0.000000000000000001", second.LinkBalance.String())
+}
+
+func TestUserController_NewAPIToken(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	ethMock := app.MockCallerSubscriberClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
+	})
+
+	client := app.NewHTTPClient()
+	req, err := json.Marshal(models.ChangeAuthTokenRequest{
+		Password: cltest.Password,
+	})
+	require.NoError(t, err)
+	resp, cleanup := client.Post("/v2/user/token", bytes.NewBuffer(req))
+	defer cleanup()
+
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var authToken auth.Token
+	err = cltest.ParseJSONAPIResponse(t, resp, &authToken)
+	require.NoError(t, err)
+	assert.NotEmpty(t, authToken.AccessKey)
+	assert.NotEmpty(t, authToken.Secret)
+}
+
+func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	ethMock := app.MockCallerSubscriberClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
+	})
+
+	client := app.NewHTTPClient()
+	req, err := json.Marshal(models.ChangeAuthTokenRequest{
+		Password: "wrong-password",
+	})
+	require.NoError(t, err)
+	resp, cleanup := client.Post("/v2/user/token", bytes.NewBuffer(req))
+	defer cleanup()
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+func TestUserController_DeleteAPIKey(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	ethMock := app.MockCallerSubscriberClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
+	})
+
+	client := app.NewHTTPClient()
+	req, err := json.Marshal(models.ChangeAuthTokenRequest{
+		Password: cltest.Password,
+	})
+	require.NoError(t, err)
+	resp, cleanup := client.Post("/v2/user/token/delete", bytes.NewBuffer(req))
+	defer cleanup()
+
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+}
+
+func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	ethMock := app.MockCallerSubscriberClient()
+	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
+	})
+
+	client := app.NewHTTPClient()
+	req, err := json.Marshal(models.ChangeAuthTokenRequest{
+		Password: "wrong-password",
+	})
+	require.NoError(t, err)
+	resp, cleanup := client.Post("/v2/user/token/delete", bytes.NewBuffer(req))
+	defer cleanup()
+
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 
@@ -18,10 +19,10 @@ func TestKeysController_CreateSuccess(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+		ethMock.Register("eth_getBlockByNumber", eth.BlockHeader{})
 		ethMock.Register("eth_chainId", config.ChainID())
 	})
 
@@ -51,10 +52,10 @@ func TestKeysController_InvalidPassword(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+		ethMock.Register("eth_getBlockByNumber", eth.BlockHeader{})
 		ethMock.Register("eth_chainId", config.ChainID())
 	})
 
@@ -84,10 +85,10 @@ func TestKeysController_JSONBindingError(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+		ethMock.Register("eth_getBlockByNumber", eth.BlockHeader{})
 		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 

@@ -6,8 +6,6 @@
   "types": "./dist/src",
   "scripts": {
     "build": "rimraf -rf dist && tsc",
-    "lint": "eslint --ext .ts .",
-    "format": "prettier --write \"*.ts\"",
     "setup": "yarn build",
     "test": "jest",
     "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%"
@@ -18,10 +16,7 @@
     "typescript": "^3.6.3"
   },
   "devDependencies": {
-    "@chainlink/eslint-config": "0.0.1",
-    "@chainlink/prettier-config": "0.0.1",
     "@types/jest": "^24.0.18",
-    "eslint": "^6.3.0",
     "jest": "^24.9.0",
     "rimraf": "^3.0.0",
     "ts-jest": "^24.0.0"

@@ -17,11 +17,12 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/assets"
+	"chainlink/core/auth"
 	"chainlink/core/cmd"
 	"chainlink/core/logger"
 	"chainlink/core/services"
 	strpkg "chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
@@ -34,6 +35,7 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
+	"github.com/jinzhu/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -48,6 +50,10 @@ const (
 	RootDir = "/tmp/chainlink_test"
 	// APIEmail of the API user
 	APIEmail = "email@test.net"
+	// APIKey of the API user
+	APIKey = "2d25e62eaf9143e993acaf48691564b2"
+	// APISecret of the API user.
+	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
 	// Password the password
 	Password = "password"
 	// APISessionID ID for API user
@@ -276,7 +282,7 @@ func (ta *TestApplication) WaitForConnection() error {
 }
 
 func (ta *TestApplication) MockStartAndConnect() (*EthMock, error) {
-	ethMock := ta.MockEthCallerSubscriber()
+	ethMock := ta.MockCallerSubscriberClient()
 	ethMock.Context("TestApplication#MockStartAndConnect()", func(ethMock *EthMock) {
 		ethMock.Register("eth_chainId", ta.Config.ChainID())
 		ethMock.Register("eth_getTransactionCount", `0x0`)
@@ -317,6 +323,16 @@ func (ta *TestApplication) MustSeedUserSession() models.User {
 	require.NoError(ta.t, ta.Store.SaveUser(&mockUser))
 	session := NewSession(APISessionID)
 	require.NoError(ta.t, ta.Store.SaveSession(&session))
+	return mockUser
+}
+
+// MustSeedUserAPIKey creates and returns a User with their API Token Key and
+// Secret generated.
+func (ta *TestApplication) MustSeedUserAPIKey() models.User {
+	mockUser := MustUser(APIEmail, Password)
+	apiToken := auth.Token{APIKey, APISecret}
+	require.NoError(ta.t, mockUser.SetAuthToken(&apiToken))
+	require.NoError(ta.t, ta.Store.SaveUser(&mockUser))
 	return mockUser
 }
 
@@ -385,7 +401,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
 	cleanupDB := PrepareTestDB(config)
-	s := strpkg.NewStore(config.Config)
+	s := strpkg.NewInsecureStore(config.Config)
 	return s, func() {
 		cleanUpStore(config.t, s)
 		cleanupDB()
@@ -603,7 +619,7 @@ func CreateJobRunViaExternalInitiator(
 	t testing.TB,
 	app *TestApplication,
 	j models.JobSpec,
-	eia models.ExternalInitiatorAuthentication,
+	eia auth.Token,
 	body string,
 ) models.JobRun {
 	t.Helper()
@@ -865,8 +881,8 @@ func WaitForSyncEventCount(
 ) {
 	t.Helper()
 	gomega.NewGomegaWithT(t).Eventually(func() int {
-		var count int
-		assert.NoError(t, orm.DB.Model(&models.SyncEvent{}).Count(&count).Error)
+		count, err := orm.CountOf(&models.SyncEvent{})
+		assert.NoError(t, err)
 		return count
 	}).Should(gomega.Equal(want))
 }
@@ -880,8 +896,8 @@ func AssertSyncEventCountStays(
 ) {
 	t.Helper()
 	gomega.NewGomegaWithT(t).Consistently(func() int {
-		var count int
-		assert.NoError(t, orm.DB.Model(&models.SyncEvent{}).Count(&count).Error)
+		count, err := orm.CountOf(&models.SyncEvent{})
+		assert.NoError(t, err)
 		return count
 	}).Should(gomega.Equal(want))
 }
@@ -958,7 +974,7 @@ func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode 
 		return
 	}
 
-	t.Logf("expected status code %d got %d", expectedStatusCode, resp.StatusCode)
+	t.Logf("expected status code %s got %s", http.StatusText(expectedStatusCode), http.StatusText(resp.StatusCode))
 
 	if resp.StatusCode >= 300 && resp.StatusCode < 600 {
 		b, err := ioutil.ReadAll(resp.Body)
@@ -1070,7 +1086,9 @@ func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalI
 	t.Helper()
 
 	var all []models.ExternalInitiator
-	err := store.ORM.DB.Find(&all).Error
+	err := store.RawDB(func(db *gorm.DB) error {
+		return db.Find(&all).Error
+	})
 	require.NoError(t, err)
 	return all
 }
@@ -1079,7 +1097,9 @@ func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {
 	t.Helper()
 
 	var all []models.JobSpec
-	err := store.ORM.DB.Find(&all).Error
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Find(&all).Error
+	})
 	require.NoError(t, err)
 	return all
 }
@@ -1100,7 +1120,9 @@ func GetLastTxAttempt(t testing.TB, store *strpkg.Store) models.TxAttempt {
 
 	var attempt models.TxAttempt
 	var count int
-	err := store.ORM.DB.Order("created_at desc").First(&attempt).Count(&count).Error
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Order("created_at desc").First(&attempt).Count(&count).Error
+	})
 	require.NoError(t, err)
 	require.NotEqual(t, 0, count)
 	return attempt

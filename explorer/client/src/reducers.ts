@@ -1,32 +1,19 @@
 import { combineReducers } from 'redux'
-import adminAuth, { State as AdminAuthState } from './reducers/adminAuth'
-import chainlinkNodes, {
-  State as ChainlinkNodesState,
-} from './reducers/chainlinkNodes'
-import config, { State as ConfigState } from './reducers/config'
-import jobRuns, { State as JobRunsState } from './reducers/jobRuns'
-import jobRunsIndex, {
-  State as JobRunsIndexState,
-} from './reducers/jobRunsIndex'
-import notifications, {
-  State as NotificationsState,
-} from './reducers/notifications'
-import search, { State as SearchState } from './reducers/search'
-import taskRuns, { State as TaskRunsState } from './reducers/taskRuns'
-
-export interface State {
-  adminAuth: AdminAuthState
-  chainlinkNodes: ChainlinkNodesState
-  config: ConfigState
-  jobRuns: JobRunsState
-  jobRunsIndex: JobRunsIndexState
-  notifications: NotificationsState
-  search: SearchState
-  taskRuns: TaskRunsState
-}
+import adminAuth from './reducers/adminAuth'
+import adminOperators from './reducers/adminOperators'
+import adminOperatorsIndex from './reducers/adminOperatorsIndex'
+import chainlinkNodes from './reducers/chainlinkNodes'
+import config from './reducers/config'
+import jobRuns from './reducers/jobRuns'
+import jobRunsIndex from './reducers/jobRunsIndex'
+import notifications from './reducers/notifications'
+import search from './reducers/query'
+import taskRuns from './reducers/taskRuns'
 
 const reducer = combineReducers({
   adminAuth,
+  adminOperators,
+  adminOperatorsIndex,
   chainlinkNodes,
   config,
   jobRuns,
@@ -35,5 +22,8 @@ const reducer = combineReducers({
   search,
   taskRuns,
 })
+
+export const INITIAL_STATE = reducer(undefined, { type: 'initial_state' })
+export type AppState = typeof INITIAL_STATE
 
 export default reducer

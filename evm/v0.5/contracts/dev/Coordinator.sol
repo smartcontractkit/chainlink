@@ -1,15 +1,17 @@
 pragma solidity 0.5.0;
-pragma experimental ABIEncoderV2;
 
 import "./CoordinatorInterface.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../vendor/SafeMath.sol";
+import "./ServiceAgreementDecoder.sol";
+import "./OracleSignaturesDecoder.sol";
+
 
 /**
  * @title The Chainlink Coordinator handles oracle service aggreements between one or more oracles
  */
-contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
+contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface, ServiceAgreementDecoder, OracleSignaturesDecoder {
   using SafeMath for uint256;
 
   uint256 constant public EXPIRY_TIME = 5 minutes;
@@ -114,17 +116,19 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
    * @notice Stores a Service Agreement which has been signed by the given oracles
    * @dev Validates that each oracle has a valid signature.
    * Emits NewServiceAgreement event.
-   * @param _agreement The Service Agreement to be initiated
-   * @param _signatures The signatures of the oracles in the agreement
    * @return The Service Agreement ID
    */
   function initiateServiceAgreement(
-    ServiceAgreement memory _agreement,
-    OracleSignatures memory _signatures
+    bytes memory _serviceAgreementData,
+    bytes memory _oracleSignaturesData
   )
     public
     returns (bytes32 serviceAgreementID)
   {
+
+    ServiceAgreement memory _agreement = decodeServiceAgreement(_serviceAgreementData);
+    OracleSignatures memory _signatures = decodeOracleSignatures(_oracleSignaturesData);
+
     require(
       _agreement.oracles.length == _signatures.vs.length &&
       _signatures.vs.length == _signatures.rs.length &&
@@ -151,7 +155,7 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
       abi.encodeWithSelector(
         _agreement.aggInitiateJobSelector,
         serviceAgreementID,
-        _agreement
+        _serviceAgreementData
       )
     );
     require(ok, "Aggregator failed to initiate Service Agreement");
@@ -294,10 +298,16 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface {
 
   /**
    * @notice Retrieve the Service Agreement ID for the given parameters
-   * @param _agreement contains all of the terms of the service agreement that can be verified on-chain.
+   * @param _agreementData contains all of the terms of the service agreement that can be verified on-chain.
    * @return The Service Agreement ID, a keccak256 hash of the input params
    */
-  function getId(ServiceAgreement memory _agreement) public pure returns (bytes32)
+  function getId(bytes memory _agreementData) public pure returns (bytes32)
+  {
+    ServiceAgreement memory _agreement = decodeServiceAgreement(_agreementData);
+    return getId(_agreement);
+  }
+
+  function getId(ServiceAgreement memory _agreement) internal pure returns (bytes32)
   {
     return keccak256(
       abi.encodePacked(

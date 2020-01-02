@@ -5,9 +5,11 @@ import (
 	"strings"
 	"testing"
 
+	"chainlink/core/assets"
+	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
+	"chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,7 +23,7 @@ func TestParseRunLog(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         eth.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -77,7 +79,7 @@ func TestEthLogEvent_JSON(t *testing.T) {
 	exampleLog := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 	tests := []struct {
 		name        string
-		el          models.Log
+		el          eth.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -162,7 +164,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		name       string
 		job        models.JobSpec
 		requester  common.Address
-		logFactory (func(*testing.T, *models.ID, common.Address, common.Address, int, string) models.Log)
+		logFactory (func(*testing.T, *models.ID, common.Address, common.Address, int, string) eth.Log)
 		wantStatus models.RunStatus
 	}{
 		{
@@ -200,12 +202,12 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithKey(t)
 			defer cleanup()
 
-			eth := app.MockEthCallerSubscriber()
-			logs := make(chan models.Log, 1)
-			eth.Context("app.Start()", func(eth *cltest.EthMock) {
-				eth.Register("eth_getTransactionCount", "0x1")
-				eth.RegisterSubscription("logs", logs)
-				eth.Register("eth_chainId", app.Store.Config.ChainID())
+			ethMock := app.MockCallerSubscriberClient()
+			logs := make(chan eth.Log, 1)
+			ethMock.Context("app.Start()", func(meth *cltest.EthMock) {
+				meth.Register("eth_getTransactionCount", "0x1")
+				meth.RegisterSubscription("logs", logs)
+				meth.Register("eth_chainId", app.Store.Config.ChainID())
 			})
 			assert.NoError(t, app.StartAndConnect())
 
@@ -214,7 +216,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			require.NoError(t, app.AddJob(js))
 
 			logs <- test.logFactory(t, js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
-			eth.EventuallyAllCalled(t)
+			ethMock.EventuallyAllCalled(t)
 
 			gomega.NewGomegaWithT(t).Eventually(func() []models.JobRun {
 				runs, err := app.Store.JobRunsFor(js.ID)
@@ -241,8 +243,8 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 			Type: models.InitiatorEthLog,
 			InitiatorParams: models.InitiatorParams{
 				Address:   common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-				FromBlock: models.NewBig(big.NewInt(123)),
-				ToBlock:   models.NewBig(big.NewInt(456)),
+				FromBlock: utils.NewBig(big.NewInt(123)),
+				ToBlock:   utils.NewBig(big.NewInt(456)),
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
@@ -276,8 +278,8 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 			Type: models.InitiatorEthLog,
 			InitiatorParams: models.InitiatorParams{
 				Address:   common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-				FromBlock: models.NewBig(big.NewInt(123)),
-				ToBlock:   models.NewBig(big.NewInt(456)),
+				FromBlock: utils.NewBig(big.NewInt(123)),
+				ToBlock:   utils.NewBig(big.NewInt(456)),
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
@@ -310,8 +312,8 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 			Type: models.InitiatorEthLog,
 			InitiatorParams: models.InitiatorParams{
 				Address:   common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-				FromBlock: models.NewBig(big.NewInt(123)),
-				ToBlock:   models.NewBig(big.NewInt(456)),
+				FromBlock: utils.NewBig(big.NewInt(123)),
+				ToBlock:   utils.NewBig(big.NewInt(456)),
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
@@ -360,7 +362,7 @@ func TestRunLogEvent_ContractPayment(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         eth.Log
 		wantErrored bool
 		want        *assets.Link
 	}{
@@ -401,7 +403,7 @@ func TestRunLogEvent_Requester(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         eth.Log
 		wantErrored bool
 		want        common.Address
 	}{
@@ -441,7 +443,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		log           models.Log
+		log           eth.Log
 		wantRequestID string
 		wantTxHash    string
 		wantBlockHash string

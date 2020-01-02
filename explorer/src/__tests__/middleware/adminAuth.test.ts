@@ -1,4 +1,5 @@
 import express from 'express'
+import bodyParser from 'body-parser'
 import request from 'supertest'
 import http from 'http'
 import httpStatus from 'http-status-codes'
@@ -12,6 +13,8 @@ import adminAuth from '../../middleware/adminAuth'
 import {
   ADMIN_USERNAME_HEADER,
   ADMIN_PASSWORD_HEADER,
+  ADMIN_USERNAME_PARAM,
+  ADMIN_PASSWORD_PARAM,
 } from '../../utils/constants'
 
 const USERNAME = 'myadmin'
@@ -20,6 +23,7 @@ const ADMIN_PATH = '/api/v1/admin'
 const ROUTE_PATH = `${ADMIN_PATH}/test-route`
 
 const app = express()
+app.use(bodyParser.json())
 app.use(
   cookieSession({
     name: 'explorer',
@@ -44,40 +48,70 @@ beforeEach(async () => {
   await createAdmin(db, USERNAME, PASSWORD)
 })
 
-function sendPost(
-  path: string,
-  data: object,
-  username: string,
-  password: string,
-) {
+function sendPostHeaders(path: string, username: string, password: string) {
   return request(server)
     .post(path)
-    .send(data)
+    .send({})
     .set('Accept', 'application/json')
     .set('Content-Type', 'application/json')
     .set(ADMIN_USERNAME_HEADER, username)
     .set(ADMIN_PASSWORD_HEADER, password)
 }
 
-describe('adminAuth middleware', () => {
+function sendPostBody(path: string, username: string, password: string) {
+  return request(server)
+    .post(path)
+    .send({
+      [ADMIN_USERNAME_PARAM]: username,
+      [ADMIN_PASSWORD_PARAM]: password,
+    })
+    .set('Accept', 'application/json')
+    .set('Content-Type', 'application/json')
+}
+
+describe('adminAuth middleware headers', () => {
   it('executes the next middleware when authentication is successful', done => {
-    sendPost(ROUTE_PATH, {}, USERNAME, PASSWORD)
+    sendPostHeaders(ROUTE_PATH, USERNAME, PASSWORD)
       .expect(httpStatus.OK)
       .end(done)
   })
 
   it('responds with a 401 when there is no username or password', done => {
-    sendPost(ROUTE_PATH, {}, '', PASSWORD)
+    sendPostHeaders(ROUTE_PATH, '', PASSWORD)
       .expect(httpStatus.UNAUTHORIZED)
       .end(done)
 
-    sendPost(ROUTE_PATH, {}, USERNAME, '')
+    sendPostHeaders(ROUTE_PATH, USERNAME, '')
       .expect(httpStatus.UNAUTHORIZED)
       .end(done)
   })
 
   it('responds with a 401 when the password is invalid', done => {
-    sendPost(ROUTE_PATH, {}, USERNAME, 'invalidpassword')
+    sendPostHeaders(ROUTE_PATH, USERNAME, 'invalidpassword')
+      .expect(httpStatus.UNAUTHORIZED)
+      .end(done)
+  })
+})
+
+describe('adminAuth middleware body', () => {
+  it('executes the next middleware when authentication is successful', done => {
+    sendPostBody(ROUTE_PATH, USERNAME, PASSWORD)
+      .expect(httpStatus.OK)
+      .end(done)
+  })
+
+  it('responds with a 401 when there is no username or password', done => {
+    sendPostBody(ROUTE_PATH, '', PASSWORD)
+      .expect(httpStatus.UNAUTHORIZED)
+      .end(done)
+
+    sendPostBody(ROUTE_PATH, USERNAME, '')
+      .expect(httpStatus.UNAUTHORIZED)
+      .end(done)
+  })
+
+  it('responds with a 401 when the password is invalid', done => {
+    sendPostBody(ROUTE_PATH, USERNAME, 'invalidpassword')
       .expect(httpStatus.UNAUTHORIZED)
       .end(done)
   })

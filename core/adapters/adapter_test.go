@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"chainlink/core/adapters"
+	"chainlink/core/assets"
 	"chainlink/core/internal/cltest"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
@@ -33,17 +33,16 @@ func TestAdapterFor(t *testing.T) {
 	assert.Nil(t, store.CreateBridgeType(bt))
 
 	cases := []struct {
-		name                   string
-		bridgeName             string
-		wantType               string
-		wantMinContractPayment *assets.Link
-		wantErrored            bool
+		name        string
+		bridgeName  string
+		wantType    string
+		wantErrored bool
 	}{
-		{"adapter not found", "nonExistent", "<nil>", nil, true},
-		{"noop", "NoOp", "*adapters.NoOp", assets.NewLink(0), false},
-		{"ethtx", "EthTx", "*adapters.EthTx", store.Config.MinimumContractPayment(), false},
-		{"bridge mixed case", "rideShare", "*adapters.Bridge", assets.NewLink(10), false},
-		{"bridge lower case", "rideshare", "*adapters.Bridge", assets.NewLink(10), false},
+		{"adapter not found", "nonExistent", "<nil>", true},
+		{"noop", "NoOp", "*adapters.NoOp", false},
+		{"ethtx", "EthTx", "*adapters.EthTx", false},
+		{"bridge mixed case", "rideShare", "*adapters.Bridge", false},
+		{"bridge lower case", "rideshare", "*adapters.Bridge", false},
 	}
 
 	for _, test := range cases {
@@ -55,7 +54,6 @@ func TestAdapterFor(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, test.wantType, reflect.TypeOf(adapter.BaseAdapter).String())
-				assert.Equal(t, test.wantMinContractPayment, adapter.MinContractPayment())
 			}
 		})
 	}

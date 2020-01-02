@@ -1,10 +1,10 @@
 pragma solidity 0.5.0;
-pragma experimental ABIEncoderV2;
 
 import "../dev/CoordinatorInterface.sol";
+import "../dev/ServiceAgreementDecoder.sol";
 
 /// Computes the mean of the values the oracles pass it via fulfill method
-contract MeanAggregator {
+contract MeanAggregator is ServiceAgreementDecoder {
 
   // Relies on Coordinator's authorization of the oracles (no need to track
   // oracle authorization in this contract.)
@@ -20,16 +20,18 @@ contract MeanAggregator {
   mapping(bytes32 /* request ID */ => uint256) remainder;
 
   function initiateJob(
-    bytes32 _sAId, CoordinatorInterface.ServiceAgreement memory _sa)
+    bytes32 _sAId, bytes memory _serviceAgreementData)
     public returns (bool success, bytes memory message) {
+      ServiceAgreement memory serviceAgreement = decodeServiceAgreement(_serviceAgreementData);
+
       if (oracles[_sAId].length != 0) {
         return (false, bytes("job already initiated"));
       }
-      if (_sa.oracles.length == 0) {
+      if (serviceAgreement.oracles.length == 0) {
         return (false, bytes("must depend on at least one oracle"));
       }
-      oracles[_sAId] = _sa.oracles;
-      payment[_sAId] = _sa.payment;
+      oracles[_sAId] = serviceAgreement.oracles;
+      payment[_sAId] = serviceAgreement.payment;
       success = true;
     }
 

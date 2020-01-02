@@ -1,0 +1,9 @@
+version: '3.1'
+
+services:
+  node:
+    depends_on:
+      - devnet
+  devnet:
+    container_name: parity
+    image: smartcontract/devnet

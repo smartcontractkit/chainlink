@@ -9,6 +9,17 @@ import (
 	"github.com/urfave/cli"
 )
 
+func removeHidden(cmds ...cli.Command) []cli.Command {
+	var ret []cli.Command
+	for _, cmd := range cmds {
+		if cmd.Hidden {
+			continue
+		}
+		ret = append(ret, cmd)
+	}
+	return ret
+}
+
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(client *Client) *cli.App {
 	app := cli.NewApp()
@@ -26,7 +37,7 @@ func NewApp(client *Client) *cli.App {
 		}
 		return nil
 	}
-	app.Commands = []cli.Command{
+	app.Commands = removeHidden([]cli.Command{
 		{
 			Name:  "admin",
 			Usage: "Commands for remotely taking admin related actions",
@@ -63,6 +74,40 @@ func NewApp(client *Client) *cli.App {
 						},
 					},
 					Action: client.Withdraw,
+				},
+			},
+		},
+
+		cli.Command{
+			Name:    "agreements",
+			Aliases: []string{"agree"},
+			Usage:   "Commands for handling service agreements",
+			Hidden:  !client.Config.Dev(),
+			Subcommands: []cli.Command{
+				{
+					Name:   "create",
+					Usage:  "Creates a Service Agreement",
+					Action: client.CreateServiceAgreement,
+				},
+			},
+		},
+
+		cli.Command{
+			Name:    "attempts",
+			Aliases: []string{"txas"},
+			Usage:   "Commands for managing Ethereum Transaction Attempts",
+			Hidden:  !client.Config.Dev(),
+			Subcommands: []cli.Command{
+				{
+					Name:   "list",
+					Usage:  "List the Transaction Attempts in descending order",
+					Action: client.IndexTxAttempts,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:  "page",
+							Usage: "page of results to display",
+						},
+					},
 				},
 			},
 		},
@@ -121,6 +166,13 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 			},
+		},
+
+		cli.Command{
+			Name:   "createextrakey",
+			Usage:  "Create a key in the node's keystore alongside the existing key; to create an original key, just run the node",
+			Hidden: !client.Config.Dev(),
+			Action: client.CreateExtraKey,
 		},
 
 		{
@@ -202,6 +254,24 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 
+		cli.Command{
+			Name:   "initiators",
+			Usage:  "Commands for managing External Initiators",
+			Hidden: !client.Config.Dev() && !client.Config.FeatureExternalInitiators(),
+			Subcommands: []cli.Command{
+				{
+					Name:   "create",
+					Usage:  "Create an authentication key for a user of External Initiators",
+					Action: client.CreateExternalInitiator,
+				},
+				{
+					Name:   "destroy",
+					Usage:  "Remove an authentication key by name",
+					Action: client.DeleteExternalInitiator,
+				},
+			},
+		},
+
 		{
 			Name:  "runs",
 			Usage: "Commands for managing Runs",
@@ -275,64 +345,7 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 		},
-	}
-
-	if client.Config.Dev() {
-		app.Commands = append(app.Commands, cli.Command{
-			Name:    "agreements",
-			Aliases: []string{"agree"},
-			Usage:   "Commands for handling service agreements",
-			Subcommands: []cli.Command{
-				{
-					Name:   "create",
-					Usage:  "Creates a Service Agreement",
-					Action: client.CreateServiceAgreement,
-				},
-			},
-		},
-
-			cli.Command{
-				Name:    "attempts",
-				Aliases: []string{"txas"},
-				Usage:   "Commands for managing Ethereum Transaction Attempts",
-				Subcommands: []cli.Command{
-					{
-						Name:   "list",
-						Usage:  "List the Transaction Attempts in descending order",
-						Action: client.IndexTxAttempts,
-						Flags: []cli.Flag{
-							cli.IntFlag{
-								Name:  "page",
-								Usage: "page of results to display",
-							},
-						},
-					},
-				},
-			},
-
-			cli.Command{
-				Name:   "createextrakey",
-				Usage:  "Create a key in the node's keystore alongside the existing key; to create an original key, just run the node",
-				Action: client.CreateExtraKey,
-			},
-
-			cli.Command{
-				Name:  "initiators",
-				Usage: "Commands for managing External Initiators",
-				Subcommands: []cli.Command{
-					{
-						Name:   "create",
-						Usage:  "Create an authentication key for a user of External Initiators",
-						Action: client.CreateExternalInitiator,
-					},
-					{
-						Name:   "destroy",
-						Usage:  "Remove an authentication key",
-						Action: client.DeleteExternalInitiator,
-					},
-				},
-			})
-	}
+	}...)
 
 	return app
 }

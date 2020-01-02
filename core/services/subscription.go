@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"time"
 
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
@@ -40,8 +41,14 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 		models.InitiatorServiceAgreementExecutionLog,
 	)
 
+	nextHead := head.NextInt() // Exclude current block from subscription
+	if replayFromBlock := store.Config.ReplayFromBlock(); replayFromBlock >= 0 {
+		replayFromBlockBN := big.NewInt(replayFromBlock)
+		nextHead = replayFromBlockBN
+	}
+
 	for _, initr := range initrs {
-		unsubscriber, err := NewInitiatorSubscription(initr, job, store, runManager, head, ReceiveLogRequest)
+		unsubscriber, err := NewInitiatorSubscription(initr, job, store, runManager, nextHead, ReceiveLogRequest)
 		if err == nil {
 			unsubscribers = append(unsubscribers, unsubscriber)
 		} else {
@@ -83,16 +90,9 @@ func NewInitiatorSubscription(
 	job models.JobSpec,
 	store *strpkg.Store,
 	runManager RunManager,
-	head *models.Head,
+	nextHead *big.Int,
 	callback func(*strpkg.Store, RunManager, models.LogRequest),
 ) (InitiatorSubscription, error) {
-	nextHead := head.NextInt() // Exclude current block from subscription
-	if replayFromBlock := store.Config.ReplayFromBlock(); replayFromBlock >= 0 {
-		replayFromBlockBN := big.NewInt(replayFromBlock)
-		if nextHead.Cmp(replayFromBlockBN) < 0 {
-			nextHead = big.NewInt(0).Add(replayFromBlockBN, big.NewInt(1))
-		}
-	}
 
 	filter, err := models.FilterQueryFactory(initr, nextHead)
 	if err != nil {
@@ -107,7 +107,7 @@ func NewInitiatorSubscription(
 		callback:   callback,
 	}
 
-	managedSub, err := NewManagedSubscription(store, filter, sub.dispatchLog)
+	managedSub, err := NewManagedSubscription(store.TxManager, filter, sub.dispatchLog)
 	if err != nil {
 		return sub, errors.Wrap(err, "NewInitiatorSubscription#NewManagedSubscription")
 	}
@@ -117,7 +117,7 @@ func NewInitiatorSubscription(
 	return sub, nil
 }
 
-func (sub InitiatorSubscription) dispatchLog(log models.Log) {
+func (sub InitiatorSubscription) dispatchLog(log eth.Log) {
 	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %s", sub.Initiator.Type, sub.JobSpecID.String()),
 		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.JobSpecID.String())
 
@@ -186,27 +186,27 @@ func runJob(store *strpkg.Store, runManager RunManager, le models.LogRequest, da
 // ManagedSubscription encapsulates the connecting, backfilling, and clean up of an
 // ethereum node subscription.
 type ManagedSubscription struct {
-	store           *strpkg.Store
-	logs            chan models.Log
-	ethSubscription models.EthSubscription
-	callback        func(models.Log)
+	logSubscriber   eth.LogSubscriber
+	logs            chan eth.Log
+	ethSubscription eth.Subscription
+	callback        func(eth.Log)
 }
 
 // NewManagedSubscription subscribes to the ethereum node with the passed filter
 // and delegates incoming logs to callback.
 func NewManagedSubscription(
-	store *strpkg.Store,
+	logSubscriber eth.LogSubscriber,
 	filter ethereum.FilterQuery,
-	callback func(models.Log),
+	callback func(eth.Log),
 ) (*ManagedSubscription, error) {
-	logs := make(chan models.Log)
-	es, err := store.TxManager.SubscribeToLogs(logs, filter)
+	logs := make(chan eth.Log)
+	es, err := logSubscriber.SubscribeToLogs(logs, filter)
 	if err != nil {
 		return nil, err
 	}
 
 	sub := &ManagedSubscription{
-		store:           store,
+		logSubscriber:   logSubscriber,
 		callback:        callback,
 		logs:            logs,
 		ethSubscription: es,
@@ -268,7 +268,7 @@ func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]b
 		return backfilledSet
 	}
 
-	logs, err := sub.store.TxManager.GetLogs(q)
+	logs, err := sub.logSubscriber.GetLogs(q)
 	if err != nil {
 		logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 		return backfilledSet

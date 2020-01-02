@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"chainlink/core/services"
-	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,7 +29,7 @@ func (cc *ConfigController) Show(c *gin.Context) {
 }
 
 type configPatchRequest struct {
-	EthGasPriceDefault *models.Big `json:"ethGasPriceDefault"`
+	EthGasPriceDefault *utils.Big `json:"ethGasPriceDefault"`
 }
 
 // ConfigPatchResponse represents the change to the configuration made due to a

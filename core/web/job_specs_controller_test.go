@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"chainlink/core/adapters"
+	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
@@ -219,15 +221,16 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
+	url := cltest.WebURL(t, eiMockServer.URL)
 	eir := models.ExternalInitiatorRequest{
 		Name: "someCoin",
-		URL:  cltest.WebURL(t, eiMockServer.URL),
+		URL:  &url,
 	}
-	eia := models.NewExternalInitiatorAuthentication()
+	eia := auth.NewToken()
 	ei, err := models.NewExternalInitiator(eia, &eir)
 	require.NoError(t, err)
 	err = app.GetStore().CreateExternalInitiator(ei)
@@ -288,7 +291,8 @@ func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"idonotexist is not a supported adapter type"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	assert.Equal(t, expected, strings.TrimSpace(body))
 }
 
 func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
@@ -306,7 +310,8 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"RunAt must have a time"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	assert.Equal(t, expected, strings.TrimSpace(body))
 }
 
 func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
@@ -324,7 +329,8 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"Cron: Failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	assert.Equal(t, expected, strings.TrimSpace(body))
 }
 
 func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
@@ -342,7 +348,8 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"Must have at least one Initiator and one Task"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	assert.Equal(t, expected, strings.TrimSpace(body))
 }
 
 func TestJobSpecsController_Create_Task_Only(t *testing.T) {
@@ -360,7 +367,8 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
 	expected := `{"errors":[{"detail":"Must have at least one Initiator and one Task"}]}`
-	assert.Equal(t, expected, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	assert.Equal(t, expected, strings.TrimSpace(body))
 }
 
 func BenchmarkJobSpecsController_Show(b *testing.B) {
@@ -403,13 +411,10 @@ func TestJobSpecsController_Show(t *testing.T) {
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
 	j := cltest.NewJobWithSchedule("9 9 9 9 6")
 	app.Store.CreateJob(&j)
-	initr := j.Initiators[0]
 
-	jr1 := j.NewRun(initr)
-	jr1.ID = models.NewID()
+	jr1 := cltest.NewJobRun(j)
 	assert.Nil(t, app.Store.CreateJobRun(&jr1))
-	jr2 := j.NewRun(initr)
-	jr2.ID = models.NewID()
+	jr2 := cltest.NewJobRun(j)
 	jr2.CreatedAt = jr1.CreatedAt.Add(time.Second)
 	assert.Nil(t, app.Store.CreateJobRun(&jr2))
 

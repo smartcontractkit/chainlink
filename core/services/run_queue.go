@@ -3,10 +3,23 @@ package services
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"chainlink/core/logger"
 	"chainlink/core/store/models"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	numberRunsQueued = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "run_queue_runs_queued",
+		Help: "The total number of runs that have been queued",
+	})
+	numberRunQueueWorkers = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "run_queue_queue_size",
+		Help: "The size of the run queue",
+	})
 )
 
 //go:generate mockery -name RunQueue -output ../internal/mocks/ -case=underscore
@@ -26,16 +39,11 @@ type runQueue struct {
 	workersWg    sync.WaitGroup
 
 	runExecutor RunExecutor
-
-	runsQueued   uint
-	runsExecuted uint
-	quit         chan struct{}
 }
 
 // NewRunQueue initializes a RunQueue.
 func NewRunQueue(runExecutor RunExecutor) RunQueue {
 	return &runQueue{
-		quit:        make(chan struct{}),
 		workers:     make(map[string]int),
 		runExecutor: runExecutor,
 	}
@@ -43,28 +51,11 @@ func NewRunQueue(runExecutor RunExecutor) RunQueue {
 
 // Start prepares the job runner for accepting runs to execute.
 func (rq *runQueue) Start() error {
-	go rq.statisticsLogger()
 	return nil
-}
-
-func (rq *runQueue) statisticsLogger() {
-	ticker := time.NewTicker(5 * time.Minute)
-	for {
-		select {
-		case <-ticker.C:
-			rq.workersMutex.RLock()
-			logger.Debugw("Run queue statistics", "runs_executed", rq.runsExecuted, "runs_queued", rq.runsQueued, "worker_count", len(rq.workers))
-			rq.workersMutex.RUnlock()
-		case <-rq.quit:
-			ticker.Stop()
-			return
-		}
-	}
 }
 
 // Stop closes all open worker channels.
 func (rq *runQueue) Stop() {
-	rq.quit <- struct{}{}
 	rq.workersWg.Wait()
 }
 
@@ -72,15 +63,16 @@ func (rq *runQueue) Stop() {
 func (rq *runQueue) Run(run *models.JobRun) {
 	runID := run.ID.String()
 
+	defer numberRunsQueued.Inc()
+
 	rq.workersMutex.Lock()
 	if queueCount, present := rq.workers[runID]; present {
-		rq.runsQueued += 1
 		rq.workers[runID] = queueCount + 1
 		rq.workersMutex.Unlock()
 		return
 	}
-	rq.runsExecuted += 1
 	rq.workers[runID] = 1
+	numberRunQueueWorkers.Set(float64(len(rq.workers)))
 	rq.workersMutex.Unlock()
 
 	rq.workersWg.Add(1)

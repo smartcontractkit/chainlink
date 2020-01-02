@@ -2,19 +2,21 @@ package services_test
 
 import (
 	"math/big"
-	"sync"
 	"sync/atomic"
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/golang/mock/gomock"
 
+	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
 	"chainlink/core/services"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
+	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
@@ -33,14 +35,14 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
 	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
-	eth.Register("eth_getLogs", []models.Log{log})
+	eth.Register("eth_getLogs", []ethpkg.Log{log})
 	eth.RegisterSubscription("logs")
 
 	var count int32
 	callback := func(*strpkg.Store, services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	fromBlock := cltest.Head(0)
 	jm := new(mocks.RunManager)
-	sub, err := services.NewInitiatorSubscription(initr, job, store, jm, fromBlock, callback)
+	sub, err := services.NewInitiatorSubscription(initr, job, store, jm, fromBlock.NextInt(), callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
@@ -84,15 +86,15 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	initr := job.Initiators[0]
 
 	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
-	eth.Register("eth_getLogs", []models.Log{log}) // backfill
-	logsChan := make(chan models.Log)
+	eth.Register("eth_getLogs", []ethpkg.Log{log}) // backfill
+	logsChan := make(chan ethpkg.Log)
 	eth.RegisterSubscription("logs", logsChan)
 
 	var count int32
 	callback := func(*strpkg.Store, services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	head := cltest.Head(0)
 	jm := new(mocks.RunManager)
-	sub, err := services.NewInitiatorSubscription(initr, job, store, jm, head, callback)
+	sub, err := services.NewInitiatorSubscription(initr, job, store, jm, head.NextInt(), callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
@@ -118,13 +120,12 @@ func TestServices_ReceiveLogRequest_IgnoredLogWithRemovedFlag(t *testing.T) {
 
 	log := models.InitiatorLogEvent{
 		JobSpecID: *jobSpec.ID,
-		Log: models.Log{
+		Log: ethpkg.Log{
 			Removed: true,
 		},
 	}
 
-	originalCount := 0
-	err := store.ORM.DB.Model(&models.JobRun{}).Count(&originalCount).Error
+	_, err := store.ORM.CountOf(&models.JobRun{})
 	require.NoError(t, err)
 
 	jm := new(mocks.RunManager)
@@ -213,8 +214,8 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			defer cleanup()
 
 			eth := cltest.MockEthOnStore(t, store)
-			eth.Register("eth_getLogs", []models.Log{})
-			logChan := make(chan models.Log, 1)
+			eth.Register("eth_getLogs", []ethpkg.Log{})
+			logChan := make(chan ethpkg.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 
 			job := cltest.NewJob()
@@ -236,7 +237,7 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotNil(t, subscription)
 
-			logChan <- models.Log{
+			logChan <- ethpkg.Log{
 				Address: test.logAddr,
 				Data:    test.data,
 				Topics: []common.Hash{
@@ -281,8 +282,8 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 			defer cleanup()
 
 			eth := cltest.MockEthOnStore(t, store)
-			eth.Register("eth_getLogs", []models.Log{})
-			logChan := make(chan models.Log, 1)
+			eth.Register("eth_getLogs", []ethpkg.Log{})
+			logChan := make(chan ethpkg.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 
 			job := cltest.NewJob()
@@ -297,7 +298,7 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotNil(t, subscription)
 
-			logChan <- models.Log{
+			logChan <- ethpkg.Log{
 				Address: sharedAddr,
 				Data:    test.data,
 				Topics: []common.Hash{
@@ -314,69 +315,129 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 	}
 }
 
-func TestServices_NewInitiatorSubscription_ReplayFromBlock(t *testing.T) {
+func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) {
 	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	txManager := new(mocks.TxManager)
-	store.TxManager = txManager
 
 	cases := []struct {
 		name                string
 		currentHead         int
-		initrParamFromBlock *models.Big
+		initrParamFromBlock *utils.Big
 		wantFromBlock       *big.Int
 	}{
-		{"head < ReplayFromBlock, no initr fromBlock", 5, nil, big.NewInt(11)},
-		{"head > ReplayFromBlock, no initr fromBlock", 14, nil, big.NewInt(15)},
-		{"head < ReplayFromBlock, initr fromBlock > ReplayFromBlock", 5, models.NewBig(big.NewInt(12)), big.NewInt(12)},
-		{"head < ReplayFromBlock, initr fromBlock < ReplayFromBlock", 5, models.NewBig(big.NewInt(9)), big.NewInt(11)},
-		{"head > ReplayFromBlock, initr fromBlock > ReplayFromBlock", 14, models.NewBig(big.NewInt(12)), big.NewInt(15)},
-		{"head > ReplayFromBlock, initr fromBlock < ReplayFromBlock", 14, models.NewBig(big.NewInt(9)), big.NewInt(15)},
+		{"head < ReplayFromBlock, no initr fromBlock", 5, nil, big.NewInt(10)},
+		{"head > ReplayFromBlock, no initr fromBlock", 14, nil, big.NewInt(10)},
+		{"head < ReplayFromBlock, initr fromBlock > ReplayFromBlock", 5, utils.NewBig(big.NewInt(12)), big.NewInt(12)},
+		{"head < ReplayFromBlock, initr fromBlock < ReplayFromBlock", 5, utils.NewBig(big.NewInt(8)), big.NewInt(10)},
+		{"head > ReplayFromBlock, initr fromBlock > ReplayFromBlock", 14, utils.NewBig(big.NewInt(12)), big.NewInt(12)},
+		{"head > ReplayFromBlock, initr fromBlock < ReplayFromBlock", 14, utils.NewBig(big.NewInt(8)), big.NewInt(10)},
 	}
 
 	for _, test := range cases {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+
+			txManager := new(mocks.TxManager)
+			store.TxManager = txManager
+
 			currentHead := cltest.Head(test.currentHead)
 
 			store.Config.Set(orm.EnvVarName("ReplayFromBlock"), 10)
 
 			job := cltest.NewJobWithLogInitiator()
-			initr := job.Initiators[0]
-			initr.InitiatorParams.FromBlock = test.initrParamFromBlock
+			job.Initiators[0].InitiatorParams.FromBlock = test.initrParamFromBlock
 
 			expectedQuery := ethereum.FilterQuery{
 				FromBlock: test.wantFromBlock,
-				Addresses: []common.Address{initr.InitiatorParams.Address},
+				Addresses: []common.Address{job.Initiators[0].InitiatorParams.Address},
 				Topics:    [][]common.Hash{},
 			}
 
 			log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 
 			txManager.On("SubscribeToLogs", mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
-			txManager.On("GetLogs", expectedQuery).Return([]models.Log{log}, nil)
+			txManager.On("GetLogs", expectedQuery).Return([]ethpkg.Log{log}, nil)
 
 			executeJobChannel := make(chan struct{})
 
 			runManager := new(mocks.RunManager)
-			runManager.On("Create", job.ID, mock.Anything, mock.Anything, big.NewInt(0), mock.Anything).
+			runManager.On("Create", job.ID, mock.Anything, mock.Anything, big.NewInt(int64(log.BlockNumber)), mock.Anything).
 				Return(nil, nil).
 				Run(func(mock.Arguments) {
 					executeJobChannel <- struct{}{}
 				})
 
-			var wg sync.WaitGroup
-			wg.Add(1)
-			callback := func(*strpkg.Store, services.RunManager, models.LogRequest) { wg.Done() }
-
-			_, err := services.NewInitiatorSubscription(initr, job, store, runManager, currentHead, callback)
+			_, err := services.StartJobSubscription(job, currentHead, store, runManager)
 			require.NoError(t, err)
 
-			wg.Wait()
+			<-executeJobChannel
 
 			txManager.AssertExpectations(t)
+			runManager.AssertExpectations(t)
+		})
+	}
+}
+
+func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name          string
+		currentHead   int
+		wantFromBlock *big.Int
+	}{
+		{"head < ReplayFromBlock", 5, big.NewInt(10)},
+		{"head > ReplayFromBlock", 14, big.NewInt(10)},
+	}
+
+	for _, test := range cases {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			txmMock := new(mocks.TxManager)
+			store.TxManager = txmMock
+
+			currentHead := cltest.Head(test.currentHead)
+
+			store.Config.Set(orm.EnvVarName("ReplayFromBlock"), 10)
+
+			job := cltest.NewJobWithRunLogInitiator()
+			initr := job.Initiators[0]
+
+			expectedQuery := ethereum.FilterQuery{
+				FromBlock: test.wantFromBlock,
+				Addresses: []common.Address{initr.InitiatorParams.Address},
+				Topics:    models.TopicFiltersForRunLog([]common.Hash{models.RunLogTopic20190207withoutIndexes, models.RunLogTopic20190123withFullfillmentParams, models.RunLogTopic0original}, initr.JobSpecID),
+			}
+
+			receipt := cltest.TxReceiptFromFixture(t, "../eth/testdata/runlogReceipt.json")
+			log := receipt.Logs[3]
+			log.Topics[1] = models.IDToTopic(job.ID)
+
+			txmMock.On("SubscribeToLogs", mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
+			txmMock.On("GetLogs", expectedQuery).Return([]ethpkg.Log{log}, nil)
+
+			executeJobChannel := make(chan struct{})
+
+			runManager := new(mocks.RunManager)
+			runManager.On("Create", job.ID, mock.Anything, mock.Anything, big.NewInt(int64(log.BlockNumber)), mock.Anything).
+				Return(nil, nil).
+				Run(func(mock.Arguments) {
+					executeJobChannel <- struct{}{}
+				})
+
+			_, err := services.StartJobSubscription(job, currentHead, store, runManager)
+			require.NoError(t, err)
+
+			<-executeJobChannel
+
+			runManager.AssertExpectations(t)
+			txmMock.AssertExpectations(t)
 		})
 	}
 }

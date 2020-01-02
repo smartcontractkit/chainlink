@@ -4,27 +4,15 @@ import (
 	"fmt"
 	"math/big"
 
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	clnull "chainlink/core/null"
 	"chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 )
 
-// MeetsMinimumPayment is a helper that returns true if jobrun received
-// sufficient payment (more than jobspec's MinimumPayment) to be considered successful
-func MeetsMinimumPayment(
-	expectedMinJobPayment *assets.Link,
-	actualRunPayment *assets.Link) bool {
-	// input.Payment is always present for runs triggered by ethlogs
-	if actualRunPayment == nil || expectedMinJobPayment.IsZero() {
-		return true
-	}
-	return expectedMinJobPayment.Cmp(actualRunPayment) < 1
-}
-
-func validateMinimumConfirmations(run *models.JobRun, taskRun *models.TaskRun, currentHeight *models.Big, txManager store.TxManager) {
+func validateMinimumConfirmations(run *models.JobRun, taskRun *models.TaskRun, currentHeight *utils.Big, txManager store.TxManager) {
 	updateTaskRunConfirmations(currentHeight, run, taskRun)
 
 	if !meetsMinimumConfirmations(run, taskRun, run.ObservedHeight) {
@@ -68,7 +56,7 @@ func validateOnMainChain(run *models.JobRun, taskRun *models.TaskRun, txManager 
 	return nil
 }
 
-func updateTaskRunConfirmations(currentHeight *models.Big, jr *models.JobRun, taskRun *models.TaskRun) {
+func updateTaskRunConfirmations(currentHeight *utils.Big, jr *models.JobRun, taskRun *models.TaskRun) {
 	if !taskRun.MinimumConfirmations.Valid || jr.CreationHeight == nil || currentHeight == nil {
 		return
 	}
@@ -81,7 +69,7 @@ func updateTaskRunConfirmations(currentHeight *models.Big, jr *models.JobRun, ta
 	taskRun.Confirmations = clnull.Uint32From(uint32(diff.Int64()))
 }
 
-func invalidRequest(request models.RunRequest, receipt *models.TxReceipt) bool {
+func invalidRequest(request models.RunRequest, receipt *eth.TxReceipt) bool {
 	return receipt.Unconfirmed() ||
 		(request.BlockHash != nil && *request.BlockHash != *receipt.BlockHash)
 }
@@ -89,7 +77,7 @@ func invalidRequest(request models.RunRequest, receipt *models.TxReceipt) bool {
 func meetsMinimumConfirmations(
 	run *models.JobRun,
 	taskRun *models.TaskRun,
-	currentHeight *models.Big) bool {
+	currentHeight *utils.Big) bool {
 	if !taskRun.MinimumConfirmations.Valid || run.CreationHeight == nil || currentHeight == nil {
 		return true
 	}
@@ -98,7 +86,7 @@ func meetsMinimumConfirmations(
 	return diff.Cmp(big.NewInt(int64(taskRun.MinimumConfirmations.Uint32))) >= 0
 }
 
-func blockConfirmations(currentHeight, creationHeight *models.Big) *big.Int {
+func blockConfirmations(currentHeight, creationHeight *utils.Big) *big.Int {
 	bigDiff := new(big.Int).Sub(currentHeight.ToInt(), creationHeight.ToInt())
 	confs := bigDiff.Add(bigDiff, big.NewInt(1)) // creation of runlog alone warrants 1 confirmation
 	if confs.Cmp(big.NewInt(0)) < 0 {            // negative, so floor at 0

@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"time"
 
-	"chainlink/core/store/assets"
+	"chainlink/core/assets"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/contrib/sessions"
@@ -22,6 +22,7 @@ type ConfigReader interface {
 	DatabaseURL() string
 	DefaultHTTPLimit() int64
 	Dev() bool
+	FeatureExternalInitiators() bool
 	MaximumServiceDuration() time.Duration
 	MinimumServiceDuration() time.Duration
 	EthGasBumpThreshold() uint64

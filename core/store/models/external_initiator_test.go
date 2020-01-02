@@ -3,6 +3,7 @@ package models_test
 import (
 	"testing"
 
+	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 
@@ -10,13 +11,14 @@ import (
 )
 
 func TestNewExternalInitiator(t *testing.T) {
-	eia := models.NewExternalInitiatorAuthentication()
+	eia := auth.NewToken()
 	assert.Len(t, eia.AccessKey, 32)
 	assert.Len(t, eia.Secret, 64)
 
+	url := cltest.WebURL(t, "http://localhost:8888")
 	eir := &models.ExternalInitiatorRequest{
 		Name: "bitcoin",
-		URL:  cltest.WebURL(t, "http://localhost:8888"),
+		URL:  &url,
 	}
 	ei, err := models.NewExternalInitiator(eia, eir)
 	assert.NoError(t, err)

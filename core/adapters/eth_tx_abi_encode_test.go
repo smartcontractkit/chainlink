@@ -16,8 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"chainlink/core/adapters"
+	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
 	"chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -63,7 +63,7 @@ func TestEthTxABIEncodeAdapter_UnmarshallJSON(t *testing.T) {
 }
 
 func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
-	uint256Type, err := abi.NewType("uint256", []abi.ArgumentMarshaling{})
+	uint256Type, err := abi.NewType("uint256", "", []abi.ArgumentMarshaling{})
 	var adapterUnderTest = adapters.EthTxABIEncode{
 		Address: common.HexToAddress(
 			"0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
@@ -91,7 +91,7 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 			},
 			Outputs: []abi.Argument{},
 		},
-		GasPrice: models.NewBig(big.NewInt(1 << 44)), // ~20k Gwei
+		GasPrice: utils.NewBig(big.NewInt(1 << 44)), // ~20k Gwei
 		GasLimit: 500000,
 	}
 
@@ -146,7 +146,7 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 			assert.Equal(t, expectedAsHex, hexutil.Encode(tx.Data()))
 			return nil
 		})
-	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
+	receipt := ethpkg.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
 	ethMock.Register("eth_getTransactionReceipt", receipt)
 	input := cltest.NewRunInputWithString(t, rawInput)
 	responseData := adapterUnderTest.Perform(input, store)

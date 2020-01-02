@@ -36,6 +36,9 @@ const styles = ({ palette, spacing }: Theme) =>
     errorText: {
       color: palette.error.main,
     },
+    button: {
+      marginTop: spacing.unit * 2,
+    },
   })
 
 interface Props extends WithStyles<typeof styles> {
@@ -128,7 +131,11 @@ export const SignIn = withStyles(styles)(
                 <Grid item xs={12}>
                   <Grid container spacing={0} justify="center">
                     <Grid item>
-                      <Button type="submit" variant="primary">
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        className={classes.button}
+                      >
                         Access Account
                       </Button>
                     </Grid>

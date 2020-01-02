@@ -1,26 +1,24 @@
 package store
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"regexp"
-	"strings"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 
+	"chainlink/core/assets"
+	"chainlink/core/eth"
 	"chainlink/core/logger"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/utils"
 
-	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
@@ -45,22 +43,16 @@ type TxManager interface {
 	CreateTx(to common.Address, data []byte) (*models.Tx, error)
 	CreateTxWithGas(surrogateID null.String, to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
 	CreateTxWithEth(from, to common.Address, value *assets.Eth) (*models.Tx, error)
-	CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*models.TxReceipt, AttemptState, error)
+	CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*eth.TxReceipt, AttemptState, error)
 
-	BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, AttemptState, error)
+	BumpGasUntilSafe(hash common.Hash) (*eth.TxReceipt, AttemptState, error)
 
 	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
 	GetLINKBalance(address common.Address) (*assets.Link, error)
 	NextActiveAccount() *ManagedAccount
 
-	GetEthBalance(address common.Address) (*assets.Eth, error)
-	SubscribeToNewHeads(channel chan<- models.BlockHeader) (models.EthSubscription, error)
-	GetBlockByNumber(hex string) (models.BlockHeader, error)
-	SubscribeToLogs(channel chan<- models.Log, q ethereum.FilterQuery) (models.EthSubscription, error)
-	GetLogs(q ethereum.FilterQuery) ([]models.Log, error)
-	GetTxReceipt(common.Hash) (*models.TxReceipt, error)
-	GetChainID() (*big.Int, error)
+	eth.Client
 }
 
 //go:generate mockery -name TxManager -output ../internal/mocks/ -case=underscore
@@ -68,7 +60,7 @@ type TxManager interface {
 // EthTxManager contains fields for the Ethereum client, the KeyStore,
 // the local Config for the application, and the database.
 type EthTxManager struct {
-	EthClient
+	eth.Client
 	keyStore            *KeyStore
 	config              orm.ConfigReader
 	orm                 *orm.ORM
@@ -82,9 +74,9 @@ type EthTxManager struct {
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
 // initializing internal variables.
-func NewEthTxManager(client EthClient, config orm.ConfigReader, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
+func NewEthTxManager(client eth.Client, config orm.ConfigReader, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
 	return &EthTxManager{
-		EthClient:     client,
+		Client:        client,
 		config:        config,
 		keyStore:      keyStore,
 		orm:           orm,
@@ -238,22 +230,31 @@ func (txm *EthTxManager) createTx(
 	gasLimit uint64,
 	value *assets.Eth) (*models.Tx, error) {
 
-	tx, err := txm.sendInitialTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, value)
-	for nrc := 0; isNonceTooLowError(err); nrc++ {
-		logger.Warnw("Tx #0: nonce too low, retrying with network nonce")
-
-		if nrc >= nonceReloadLimit {
-			err = fmt.Errorf(
-				"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v",
-				nonceReloadLimit,
-			)
-			return nil, err
+	for nrc := 0; nrc <= nonceReloadLimit; nrc++ {
+		tx, err := txm.sendInitialTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, value)
+		if err == nil {
+			return tx, nil
 		}
 
-		err = txm.retryInitialTx(tx, ma, gasPriceWei)
+		if !isNonceTooLowError(err) {
+			return nil, errors.Wrap(err, "TxManager#retryInitialTx sendInitialTx")
+		}
+
+		logger.Warnw(
+			"Tx #0: nonce too low, retrying with network nonce",
+			"nonce", tx.Nonce, "error", err.Error(),
+		)
+
+		err = ma.ReloadNonce(txm)
+		if err != nil {
+			return nil, errors.Wrap(err, "TxManager#retryInitialTx ReloadNonce")
+		}
 	}
 
-	return tx, err
+	return nil, fmt.Errorf(
+		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v",
+		nonceReloadLimit,
+	)
 }
 
 // sendInitialTx creates the initial Tx record + attempt for an Ethereum Tx,
@@ -267,86 +268,48 @@ func (txm *EthTxManager) sendInitialTx(
 	gasLimit uint64,
 	value *assets.Eth) (*models.Tx, error) {
 
+	var err error
 	var tx *models.Tx
-	err := ma.GetAndIncrementNonce(func(nonce uint64) error {
-		ethTx, err := txm.newEthTx(
+
+	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
+		blockHeight := uint64(txm.currentHead.Number)
+		tx, err = txm.newTx(
 			ma.Account,
 			nonce,
 			to,
 			value.ToInt(),
 			gasLimit,
 			gasPriceWei,
-			data)
+			data,
+			&ma.Address,
+			blockHeight,
+		)
 		if err != nil {
-			return errors.Wrap(err, "TxManager#sendInitialTx newEthTx")
+			return errors.Wrap(err, "TxManager#sendInitialTx newTx")
 		}
 
-		blockHeight := uint64(txm.currentHead.Number)
-		tx, err = txm.orm.CreateTx(surrogateID, ethTx, &ma.Address, blockHeight)
+		tx.SurrogateID = surrogateID
+		tx, err = txm.orm.CreateTx(tx)
 		if err != nil {
 			return errors.Wrap(err, "TxManager#sendInitialTx CreateTx")
 		}
-
-		logger.Debugw(fmt.Sprintf("Adding Tx attempt #%d", 0), "txID", tx.ID)
 
 		_, err = txm.SendRawTx(tx.SignedRawTx)
 		if err != nil {
 			return errors.Wrap(err, "TxManager#sendInitialTx SendRawTx")
 		}
 
+		txAttempt, err := txm.orm.AddTxAttempt(tx, tx)
+		if err != nil {
+			return errors.Wrap(err, "TxManager#sendInitialTx AddTxAttempt")
+		}
+
+		logger.Debugw("Added Tx attempt #0", "txID", tx.ID, "txAttemptID", txAttempt.ID)
+
 		return nil
 	})
 
-	// XXX: Small subtlety here: return the tx as it is initialized and is passed to retryInitialTx
-	if err != nil {
-		err = errors.Wrap(err, "TxManager#sendInitialTx ma#GetAndIncrementNonce")
-	}
 	return tx, err
-}
-
-// retryInitialTx is used to update the Tx record and attempt for an Ethereum
-// Tx when a Tx is reattempted because of a nonce too low error
-func (txm *EthTxManager) retryInitialTx(
-	tx *models.Tx,
-	ma *ManagedAccount,
-	gasPriceWei *big.Int) error {
-
-	err := ma.ReloadNonce(txm)
-	if err != nil {
-		return errors.Wrap(err, "TxManager#retryInitialTx ReloadNonce")
-	}
-
-	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
-		ethTx, err := txm.newEthTx(
-			ma.Account,
-			nonce,
-			tx.To,
-			tx.Value.ToInt(),
-			tx.GasLimit,
-			gasPriceWei,
-			tx.Data)
-		if err != nil {
-			return errors.Wrap(err, "TxManager#retryInitialTx newEthTx")
-		}
-
-		blockHeight := uint64(txm.currentHead.Number)
-		err = txm.orm.UpdateTx(tx, ethTx, &ma.Address, blockHeight)
-		if err != nil {
-			return errors.Wrap(err, "TxManager#retryInitialTx UpdateTx")
-		}
-
-		_, err = txm.SendRawTx(tx.SignedRawTx)
-		if err != nil {
-			return errors.Wrap(err, "TxManager#retryInitialTx SendRawTx")
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return errors.Wrap(err, "TxManager#retryInitialTx ma#GetAndIncrementNonce")
-	}
-	return nil
 }
 
 var (
@@ -357,24 +320,42 @@ func isNonceTooLowError(err error) bool {
 	return err != nil && nonceTooLowRegex.MatchString(err.Error())
 }
 
-// newEthTx returns a newly signed Ethereum Transaction
-func (txm *EthTxManager) newEthTx(
+// newTx returns a newly signed Ethereum Transaction
+func (txm *EthTxManager) newTx(
 	account accounts.Account,
 	nonce uint64,
 	to common.Address,
 	amount *big.Int,
 	gasLimit uint64,
 	gasPrice *big.Int,
-	data []byte) (*types.Transaction, error) {
+	data []byte,
+	from *common.Address,
+	sentAt uint64) (*models.Tx, error) {
 
-	ethTx := types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data)
+	transaction := types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data)
 
-	ethTx, err := txm.keyStore.SignTx(account, ethTx, txm.config.ChainID())
+	transaction, err := txm.keyStore.SignTx(account, transaction, txm.config.ChainID())
 	if err != nil {
-		return nil, errors.Wrap(err, "TxManager keyStore.SignTx")
+		return nil, errors.Wrap(err, "TxManager newTx.SignTx")
 	}
 
-	return ethTx, nil
+	rlp := new(bytes.Buffer)
+	if err := transaction.EncodeRLP(rlp); err != nil {
+		return nil, errors.Wrap(err, "TxManager newTx.EncodeRLP")
+	}
+
+	return &models.Tx{
+		From:        *from,
+		SentAt:      sentAt,
+		To:          *transaction.To(),
+		Nonce:       transaction.Nonce(),
+		Data:        transaction.Data(),
+		Value:       utils.NewBig(transaction.Value()),
+		GasLimit:    transaction.Gas(),
+		GasPrice:    utils.NewBig(transaction.GasPrice()),
+		Hash:        transaction.Hash(),
+		SignedRawTx: hexutil.Encode(rlp.Bytes()),
+	}, nil
 }
 
 // GetLINKBalance returns the balance of LINK at the given address
@@ -389,7 +370,7 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 
 // BumpGasUntilSafe process a collection of related TxAttempts, trying to get
 // at least one TxAttempt into a safe state, bumping gas if needed
-func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, AttemptState, error) {
+func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*eth.TxReceipt, AttemptState, error) {
 	tx, _, err := txm.orm.FindTxByAttempt(hash)
 	if err != nil {
 		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe FindTxByAttempt")
@@ -403,7 +384,7 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, 
 	return txm.checkAccountForConfirmation(tx)
 }
 
-func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
+func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*eth.TxReceipt, AttemptState, error) {
 	blockHeight := uint64(txm.currentHead.Number)
 
 	var merr error
@@ -420,7 +401,7 @@ func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*models.TxRec
 	return nil, Unconfirmed, merr
 }
 
-func (txm *EthTxManager) checkAccountForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
+func (txm *EthTxManager) checkAccountForConfirmation(tx *models.Tx) (*eth.TxReceipt, AttemptState, error) {
 	ma := txm.GetAvailableAccount(tx.From)
 
 	if ma != nil && ma.lastSafeNonce > tx.Nonce {
@@ -481,7 +462,7 @@ func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*assets.
 // configured withdrawal address. If wr.ContractAddress is empty (zero address),
 // funds are withdrawn from configured OracleContractAddress.
 func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error) {
-	oracle, err := GetContract("Oracle")
+	oracle, err := eth.GetContract("Oracle")
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -510,7 +491,7 @@ func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash,
 
 // CheckAttempt retrieves a receipt for a TxAttempt, and check if it meets the
 // minimum number of confirmations
-func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*models.TxReceipt, AttemptState, error) {
+func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*eth.TxReceipt, AttemptState, error) {
 	receipt, err := txm.GetTxReceipt(txAttempt.Hash)
 	if err != nil {
 		return nil, Unknown, errors.Wrap(err, "CheckAttempt GetTxReceipt failed")
@@ -571,7 +552,7 @@ func (txm *EthTxManager) processAttempt(
 	tx *models.Tx,
 	attemptIndex int,
 	blockHeight uint64,
-) (*models.TxReceipt, AttemptState, error) {
+) (*eth.TxReceipt, AttemptState, error) {
 	txAttempt := tx.Attempts[attemptIndex]
 
 	receipt, state, err := txm.CheckAttempt(txAttempt, blockHeight)
@@ -718,22 +699,32 @@ func (txm *EthTxManager) createAttempt(
 	if ma == nil {
 		return nil, fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", tx.From.Hex())
 	}
-	etx := tx.EthTx(gasPriceWei)
-	etx, err := txm.keyStore.SignTx(ma.Account, etx, txm.config.ChainID())
+
+	newTxAttempt, err := txm.newTx(
+		ma.Account,
+		tx.Nonce,
+		tx.To,
+		tx.Value.ToInt(),
+		tx.GasLimit,
+		gasPriceWei,
+		tx.Data,
+		&ma.Address,
+		blockHeight,
+	)
 	if err != nil {
-		return nil, errors.Wrap(err, "createAttempt#SignTx failed")
+		return nil, errors.Wrap(err, "createAttempt#newTx failed")
 	}
 
-	logger.Debugw(fmt.Sprintf("Adding Tx attempt #%d", len(tx.Attempts)+1), "txID", tx.ID)
+	if _, err = txm.SendRawTx(newTxAttempt.SignedRawTx); err != nil {
+		return nil, errors.Wrap(err, "createAttempt#SendRawTx failed")
+	}
 
-	txAttempt, err := txm.orm.AddTxAttempt(tx, etx, blockHeight)
+	txAttempt, err := txm.orm.AddTxAttempt(tx, newTxAttempt)
 	if err != nil {
 		return nil, errors.Wrap(err, "createAttempt#AddTxAttempt failed")
 	}
 
-	if _, err = txm.SendRawTx(txAttempt.SignedRawTx); err != nil {
-		return nil, errors.Wrap(err, "createAttempt#SendRawTx failed")
-	}
+	logger.Debugw(fmt.Sprintf("Added Tx attempt #%d", len(tx.Attempts)+1), "txID", tx.ID, "txAttemptID", txAttempt.ID)
 
 	return txAttempt, nil
 }
@@ -805,6 +796,7 @@ func (a *ManagedAccount) ReloadNonce(txm *EthTxManager) error {
 	if err != nil {
 		return fmt.Errorf("TxManager ReloadNonce: %v", err)
 	}
+	logger.Debugw("Got new network nonce", "nonce", nonce)
 	a.nonce = nonce
 	return nil
 }
@@ -827,33 +819,4 @@ func (a *ManagedAccount) updateLastSafeNonce(latest uint64) {
 	if latest > a.lastSafeNonce {
 		a.lastSafeNonce = latest
 	}
-}
-
-// Contract holds the solidity contract's parsed ABI
-type Contract struct {
-	ABI abi.ABI
-}
-
-// GetContract loads the contract JSON file from ../evm/dist/artifacts
-// and parses the ABI JSON contents into an abi.ABI object
-func GetContract(name string) (*Contract, error) {
-	box := packr.NewBox("../../evm/dist/artifacts")
-	jsonFile, err := box.Find(name + ".json")
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to read contract JSON")
-	}
-
-	abiBytes := gjson.GetBytes(jsonFile, "compilerOutput.abi")
-	abiParsed, err := abi.JSON(strings.NewReader(abiBytes.Raw))
-	if err != nil {
-		return nil, err
-	}
-
-	return &Contract{abiParsed}, nil
-}
-
-// EncodeMessageCall encodes method name and arguments into a byte array
-// to conform with the contract's ABI
-func (contract *Contract) EncodeMessageCall(method string, args ...interface{}) ([]byte, error) {
-	return contract.ABI.Pack(method, args...)
 }

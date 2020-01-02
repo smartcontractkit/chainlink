@@ -19,29 +19,31 @@
       "last 1 safari version"
     ]
   },
+  "engines": {
+    "node": "~10.16.3"
+  },
   "scripts": {
     "start": "cross-env PORT=3001 craco start",
     "build:clean": "rimraf -rf build",
-    "prebuild": "yarn install",
     "build": "craco build",
-    "lint": "eslint --ext .js,.ts,.tsx,.jsx src",
-    "format": "prettier --write \"**/*\"",
     "setup": "echo \"No setup required for @chainlink/explorer-client\"",
-    "test": "react-scripts test",
-    "test-ci": "CI=true react-scripts test",
-    "test-ci:silent": "yarn test-ci --silent",
+    "test": "jest",
+    "test-ci": "CI=true jest --maxWorkers=50% --detectOpenHandles",
+    "test-ci:silent": "yarn test-ci --silent --maxWorkers=50% --detectOpenHandles",
     "depcheck": "echo \"@chainlink/explorer-client\" && depcheck --ignore-dirs=public || true"
   },
   "main": "app.js",
   "proxy": "http://localhost:8080",
   "dependencies": {
+    "@chainlink/json-api-client": "0.0.1",
+    "@chainlink/redux": "0.0.1",
     "@material-ui/core": "^3.9.2",
-    "@material-ui/icons": "^3.0.2",
+    "@material-ui/icons": "^4.5.1",
     "@reach/router": "^1.2.1",
-    "change-case": "^3.1.0",
+    "change-case": "^4.1.0",
     "classnames": "^2.2.6",
     "jsbi": "^3.1.1",
-    "json-api-normalizer": "^0.4.14",
+    "json-api-normalizer": "^0.4.16",
     "moment": "^2.24.0",
     "react": "^16.8.4",
     "react-dom": "^16.8.4",
@@ -51,11 +53,10 @@
     "react-time-ago": "^5.0.7",
     "redux": "^4.0.0",
     "redux-object": "^0.5.9",
-    "redux-thunk": "^2.3.0"
+    "redux-thunk": "^2.3.0",
+    "title-case": "^3.0.2"
   },
   "devDependencies": {
-    "@chainlink/eslint-config": "0.0.1",
-    "@chainlink/prettier-config": "0.0.1",
     "@craco/craco": "^5.5.0",
     "@types/classnames": "^2.2.7",
     "@types/enzyme": "^3.9.1",
@@ -73,21 +74,20 @@
     "brotli-webpack-plugin": "^1.1.0",
     "compression-webpack-plugin": "^3.0.0",
     "cross-env": "^6.0.3",
-    "depcheck": "^0.8.3",
+    "depcheck": "^0.9.1",
     "dynamic-cdn-webpack-plugin": "^4.0.0",
     "enzyme": "^3.10.0",
-    "enzyme-adapter-react-16": "^1.11.2",
-    "eslint": "^6.3.0",
+    "enzyme-adapter-react-16": "^1.15.1",
     "html-webpack-plugin": "4.0.0-beta.5",
+    "jest": "^24.9.0",
     "module-to-cdn": "^3.1.2",
-    "prettier": "^1.18.2",
-    "react-hot-loader": "^4.12.16",
+    "react-hot-loader": "^4.12.18",
     "react-scripts": "^3.1.0",
     "redux-devtools-extension": "^2.13.8",
     "redux-logger": "^3.0.6",
     "rimraf": "^3.0.0",
+    "ts-jest": "^24.1.0",
     "typescript": "^3.6.3",
-    "webpack": "4.41.1"
-  },
-  "prettier": "@chainlink/prettier-config"
+    "webpack": "4.41.2"
+  }
 }

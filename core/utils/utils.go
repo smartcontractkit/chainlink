@@ -3,7 +3,7 @@
 package utils
 
 import (
-	"bytes"
+	"chainlink/core/logger"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -67,19 +67,9 @@ func Uint64ToHex(i uint64) string {
 	return fmt.Sprintf("0x%x", i)
 }
 
-// EncodeTxToHex converts the given Ethereum Transaction type and
-// returns its hex-value string.
-func EncodeTxToHex(tx *types.Transaction) (string, error) {
-	rlp := new(bytes.Buffer)
-	if err := tx.EncodeRLP(rlp); err != nil {
-		return "", err
-	}
-	return hexutil.Encode(rlp.Bytes()), nil
-}
-
 // ISO8601UTC formats given time to ISO8601.
 func ISO8601UTC(t time.Time) string {
-	return t.UTC().Format(time.RFC3339)
+	return logger.ISO8601UTC(t)
 }
 
 // NullISO8601UTC returns formatted time if valid, empty string otherwise.
@@ -130,7 +120,7 @@ func RemoveHexPrefix(str string) string {
 
 // HasHexPrefix returns true if the string starts with 0x.
 func HasHexPrefix(str string) bool {
-	return len(str) >= 2 && str[0] == '0' && str[1] == 'x'
+	return len(str) >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')
 }
 
 // DecodeEthereumTx takes an RLP hex encoded Ethereum transaction and
@@ -270,8 +260,8 @@ func MaxBigs(first *big.Int, bigs ...*big.Int) *big.Int {
 }
 
 // MaxUint32 finds the maximum value of a list of uint32s.
-func MaxUint32(uints ...uint32) uint32 {
-	var max uint32
+func MaxUint32(first uint32, uints ...uint32) uint32 {
+	max := first
 	for _, n := range uints {
 		if n > max {
 			max = n
@@ -281,14 +271,25 @@ func MaxUint32(uints ...uint32) uint32 {
 }
 
 // MaxInt finds the maximum value of a list of ints.
-func MaxInt(ints ...int) int {
-	var max int
+func MaxInt(first int, ints ...int) int {
+	max := first
 	for _, n := range ints {
 		if n > max {
 			max = n
 		}
 	}
 	return max
+}
+
+// MinUint finds the minimum value of a list of uints.
+func MinUint(first uint, vals ...uint) uint {
+	min := first
+	for _, n := range vals {
+		if n < min {
+			min = n
+		}
+	}
+	return min
 }
 
 // CoerceInterfaceMapToStringMap converts map[interface{}]interface{} (interface maps) to

@@ -1,5 +1,5 @@
 import React from 'react'
-import createStore from 'connectors/redux'
+import createStore from 'createStore'
 import syncFetch from 'test-helpers/syncFetch'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRun'
 import { Provider } from 'react-redux'
@@ -52,7 +52,7 @@ describe('containers/JobRuns/Show/Overview', () => {
     global.fetch.getOnce(globPath(`/v2/runs/${jobRunId}`), jobRunResponse)
 
     const props = {
-      match: { params: { jobSpecId: jobSpecId, jobRunId: jobRunId } },
+      match: { params: { jobSpecId, jobRunId } },
     }
     const wrapper = mountShow(props)
 

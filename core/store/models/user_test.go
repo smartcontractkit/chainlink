@@ -7,6 +7,7 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewUser(t *testing.T) {
@@ -38,4 +39,26 @@ func TestNewUser(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUserGenerateAuthToken(t *testing.T) {
+	var user models.User
+	token, err := user.GenerateAuthToken()
+	require.NoError(t, err)
+	assert.Equal(t, token.AccessKey, user.TokenKey)
+	assert.NotEqual(t, token.Secret, user.TokenHashedSecret)
+}
+
+func TestAuthenticateUserByToken(t *testing.T) {
+	var user models.User
+
+	token, err := user.GenerateAuthToken()
+	ok, err := models.AuthenticateUserByToken(token, &user)
+	require.NoError(t, err)
+	assert.True(t, ok, "authentication must be successful")
+
+	_, err = user.GenerateAuthToken()
+	ok, err = models.AuthenticateUserByToken(token, &user)
+	require.NoError(t, err)
+	assert.False(t, ok, "authentication must fail with past token")
 }

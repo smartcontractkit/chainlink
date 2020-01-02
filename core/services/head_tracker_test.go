@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
 	"chainlink/core/services"
@@ -126,21 +127,21 @@ func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(t, store)
+	mocketh := cltest.MockEthOnStore(t, store)
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
-	headers := make(chan models.BlockHeader)
-	eth.RegisterSubscription("newHeads", headers)
-	eth.Register("eth_chainId", store.Config.ChainID())
+	headers := make(chan eth.BlockHeader)
+	mocketh.RegisterSubscription("newHeads", headers)
+	mocketh.Register("eth_chainId", store.Config.ChainID())
 
 	assert.Nil(t, ht.Start())
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
 	assert.Equal(t, int32(0), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewHeadCount())
 
-	headers <- models.BlockHeader{Number: cltest.BigHexInt(1)}
+	headers <- eth.BlockHeader{Number: cltest.BigHexInt(1)}
 	g.Eventually(func() int32 { return checker.OnNewHeadCount() }).Should(gomega.Equal(int32(1)))
 	assert.Equal(t, int32(1), checker.ConnectedCount())
 	assert.Equal(t, int32(0), checker.DisconnectedCount())
@@ -192,10 +193,10 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(t, store)
-	headers := make(chan models.BlockHeader)
-	eth.RegisterSubscription("newHeads", headers)
-	eth.Register("eth_chainId", store.Config.ChainID())
+	mocketh := cltest.MockEthOnStore(t, store)
+	headers := make(chan eth.BlockHeader)
+	mocketh.RegisterSubscription("newHeads", headers)
+	mocketh.Register("eth_chainId", store.Config.ChainID())
 
 	lastSavedBN := big.NewInt(1)
 	currentBN := big.NewInt(2)
@@ -209,7 +210,7 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	require.NoError(t, ht.Save(models.NewHead(lastSavedBN, cltest.NewHash())))
 
 	assert.Nil(t, ht.Start())
-	headers <- models.BlockHeader{Number: hexutil.Big(*currentBN)}
+	headers <- eth.BlockHeader{Number: hexutil.Big(*currentBN)}
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
 
 	connectedBN := connectedValue.Load().(*big.Int)

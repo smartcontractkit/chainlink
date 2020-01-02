@@ -1,6 +1,0 @@
-public/
-.prettierignore
-.gitignore
-.env
-src/images
-build/

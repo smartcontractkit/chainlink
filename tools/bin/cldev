@@ -1,56 +1,17 @@
 #!/bin/bash
 
-# Runs a Chainlink (CL) node preconfigured to communicate with gethnet.
-# Steps:
-# 1. ./tools/bin/gethnet
-# 2. yarn install
-# 3. yarn workspace chainlink run truffle:migrate:cldev
-# 4. ./tools/bin/cldev
-
 set -e
-
-GIT_ROOT=`git rev-parse --show-toplevel`
-PROJECT_ROOT=${TRAVIS_BUILD_DIR:-$GIT_ROOT}
-LDFLAGS="`$PROJECT_ROOT/tools/bin/ldflags`"
-
-pushd $PROJECT_ROOT >/dev/null
-source tools/bin/clenv
-export ROOT=$PROJECT_ROOT/tools/clroot
-DEFAULT_KEY_PATH=$ROOT/keys/UTC--2017-01-05T20-42-24.637Z--9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f
-
-mainexec() {
-  mkdir -p tmp
-  rm -f core/services/*-packr.go
-  go build -o tmp/cldevbuild -ldflags "$LDFLAGS" ./core/main.go
-  tmp/cldevbuild $@
-}
-
-if [ "$#" == 0 ]; then
-  ## Build React GUI and then run CL node
-  CHAINLINK_VERSION="$(mainexec --version)"
-  export CHAINLINK_VERSION
-
-  yarn install --no-progress | cat                        # ensure latest dependencies
-  yarn setup                                              # ensure latest build steps for dependencies 
-  yarn workspace @chainlink/operator-ui run build | cat
-
-  mainexec local import $DEFAULT_KEY_PATH
-  mainexec local node -d -p $ROOT/password.txt -a $ROOT/apicredentials
-  exit
-fi
+LDFLAGS="`tools/bin/ldflags`"
 
 case "$1" in
-  node | core | n)
-    echo "** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
-    mainexec local import $DEFAULT_KEY_PATH
-    echo "** Running node"
-    mainexec local node -d -p $ROOT/password.txt -a $ROOT/apicredentials ${@:2}
-    ;;
-  clean)
-    rm -f $ROOT/db.sqlite3 $ROOT/log.jsonl
-    rm -f tmp/cldevbuild
-    ;;
-  *)
-    mainexec $@
-    ;;
+    node | core | n)
+        echo "** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f"
+        go run -ldflags "$LDFLAGS" ./core/main.go --  node import /run/secrets/keystore
+        echo "** Running node"
+        go run -ldflags "$LDFLAGS" ./core/main.go --  node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
+        ;;
+    *)
+        echo "Building chainlink node..."
+        go run ./core/main.go -- $@
+        ;;
 esac

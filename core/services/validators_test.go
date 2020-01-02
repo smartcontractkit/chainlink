@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"chainlink/core/adapters"
+	"chainlink/core/assets"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/services"
 	"chainlink/core/store/models"
@@ -54,6 +55,21 @@ func TestValidateJob(t *testing.T) {
 			cltest.MustReadFile(t, "testdata/task_only_job.json"),
 			models.NewJSONAPIErrorsWith("Must have at least one Initiator and one Task"),
 		},
+		{
+			"runlog and ethtx with an address",
+			cltest.MustReadFile(t, "testdata/runlog_ethtx_w_address_job.json"),
+			models.NewJSONAPIErrorsWith("Cannot set EthTx Task's address parameter with a RunLog Initiator"),
+		},
+		{
+			"runlog and ethtx with a function selector",
+			cltest.MustReadFile(t, "testdata/runlog_ethtx_w_funcselector_job.json"),
+			models.NewJSONAPIErrorsWith("Cannot set EthTx Task's function selector parameter with a RunLog Initiator"),
+		},
+		{
+			"runlog with two ethtx tasks",
+			cltest.MustReadFile(t, "testdata/runlog_2_ethlogs_job.json"),
+			models.NewJSONAPIErrorsWith("Cannot RunLog initiated jobs cannot have more than one EthTx Task"),
+		},
 	}
 
 	store, cleanup := cltest.NewStore(t)
@@ -83,7 +99,92 @@ func TestValidateJob_DevRejectsSleepAdapter(t *testing.T) {
 	assert.Error(t, services.ValidateJob(sleepingJob, store))
 }
 
-func TestValidateAdapter(t *testing.T) {
+func TestValidateBridgeType(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	tests := []struct {
+		description string
+		request     models.BridgeTypeRequest
+		want        error
+	}{
+		{
+			"no adapter name",
+			models.BridgeTypeRequest{
+				URL: cltest.WebURL(t, "https://denergy.eth"),
+			},
+			models.NewJSONAPIErrorsWith("No name specified"),
+		},
+		{
+			"invalid adapter name",
+			models.BridgeTypeRequest{
+				Name: "invalid/adapter",
+				URL:  cltest.WebURL(t, "https://denergy.eth"),
+			},
+			models.NewJSONAPIErrorsWith("Task Type validation: name invalid/adapter contains invalid characters"),
+		},
+		{
+			"invalid with blank url",
+			models.BridgeTypeRequest{
+				Name: "validadaptername",
+				URL:  cltest.WebURL(t, ""),
+			},
+			models.NewJSONAPIErrorsWith("URL must be present"),
+		},
+		{
+			"valid url",
+			models.BridgeTypeRequest{
+				Name: "adapterwithvalidurl",
+				URL:  cltest.WebURL(t, "//denergy"),
+			},
+			nil,
+		},
+		{
+			"valid docker url",
+			models.BridgeTypeRequest{
+				Name: "adapterwithdockerurl",
+				URL:  cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
+			},
+			nil,
+		},
+		{
+			"valid MinimumContractPayment positive",
+			models.BridgeTypeRequest{
+				Name:                   "adapterwithdockerurl",
+				URL:                    cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
+				MinimumContractPayment: assets.NewLink(1),
+			},
+			nil,
+		},
+		{
+			"invalid MinimumContractPayment negative",
+			models.BridgeTypeRequest{
+				Name:                   "adapterwithdockerurl",
+				URL:                    cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
+				MinimumContractPayment: assets.NewLink(-1),
+			},
+			models.NewJSONAPIErrorsWith("MinimumContractPayment must be positive"),
+		},
+		{
+			"new external adapter",
+			models.BridgeTypeRequest{
+				Name: "gdaxprice",
+				URL:  cltest.WebURL(t, "https://denergy.eth"),
+			},
+			nil,
+		}}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			result := services.ValidateBridgeType(&test.request, store)
+			assert.Equal(t, test.want, result)
+		})
+	}
+}
+
+func TestValidateBridgeNotExist(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -97,53 +198,28 @@ func TestValidateAdapter(t *testing.T) {
 
 	tests := []struct {
 		description string
-		name        string
-		url         models.WebURL
+		request     models.BridgeTypeRequest
 		want        error
 	}{
 		{
 			"existing external adapter",
-			"solargridreporting",
-			bt.URL,
-			models.NewJSONAPIErrorsWith("Adapter solargridreporting already exists"),
+			models.BridgeTypeRequest{
+				Name: "solargridreporting",
+			},
+			models.NewJSONAPIErrorsWith("Bridge Type solargridreporting already exists"),
 		},
 		{
 			"existing core adapter",
-			"ethtx",
-			bt.URL,
-			models.NewJSONAPIErrorsWith("Adapter ethtx already exists"),
+			models.BridgeTypeRequest{
+				Name: "ethtx",
+			},
+			models.NewJSONAPIErrorsWith("Bridge Type ethtx already exists"),
 		},
-		{
-			"no adapter name",
-			"",
-			bt.URL,
-			models.NewJSONAPIErrorsWith("No name specified"),
-		},
-		{
-			"invalid adapter name",
-			"invalid/adapter",
-			bt.URL,
-			models.NewJSONAPIErrorsWith("Task Type validation: name invalid/adapter contains invalid characters"),
-		},
-		{
-			"valid url",
-			"adapterwithvalidurl",
-			cltest.WebURL(t, "//denergy"),
-			nil,
-		},
-		{
-			"valid docker url",
-			"adapterwithdockerurl",
-			cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
-			nil,
-		},
-		{"new external adapter", "gdaxprice", bt.URL, nil},
 	}
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			btr := &models.BridgeTypeRequest{Name: models.TaskType(test.name), URL: test.url}
-			result := services.ValidateBridgeType(btr, store)
+			result := services.ValidateBridgeTypeNotExist(&test.request, store)
 			assert.Equal(t, test.want, result)
 		})
 	}
@@ -155,8 +231,14 @@ func TestValidateExternalInitiator(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	url := cltest.WebURL(t, "https://a.web.url")
+
 	//  Add duplicate
-	exi := models.ExternalInitiator{Name: "duplicate", URL: cltest.WebURL(t, "https://a.web.url")}
+	exi := models.ExternalInitiator{
+		Name: "duplicate",
+		URL:  &url,
+	}
+
 	assert.NoError(t, store.CreateExternalInitiator(&exi))
 
 	tests := []struct {
@@ -166,11 +248,11 @@ func TestValidateExternalInitiator(t *testing.T) {
 	}{
 		{"basic", `{"name":"bitcoin","url":"https://test.url"}`, false},
 		{"basic w/ underscore", `{"name":"bit_coin","url":"https://test.url"}`, false},
+		{"missing url", `{"name":"missing_url"}`, false},
 		{"bad url", `{"name":"bitcoin","url":"//test.url"}`, true},
 		{"duplicate name", `{"name":"duplicate","url":"https://test.url"}`, true},
 		{"invalid name characters", `{"name":"<invalid>","url":"https://test.url"}`, true},
 		{"missing name", `{"url":"https://test.url"}`, true},
-		{"missing url", `{"name":"bitcoin"}`, true},
 	}
 
 	for _, test := range tests {
@@ -277,6 +359,54 @@ func TestValidateServiceAgreement(t *testing.T) {
 			result := services.ValidateServiceAgreement(sa, store)
 
 			cltest.AssertError(t, test.wantError, result)
+		})
+	}
+}
+
+const validInitiator = `{
+	"type": "fluxmonitor",
+	"params": {
+		"address": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
+		"requestdata": {
+			"data":{"coin":"ETH","market":"USD"}
+		},
+		"feeds": [
+			"https://lambda.staging.devnet.tools/bnc/call",
+			"https://lambda.staging.devnet.tools/cc/call",
+			"https://lambda.staging.devnet.tools/cmc/call"
+		],
+		"threshold": 0.5,
+		"precision": 2
+	}
+}`
+
+func TestValidateInitiator_FluxMonitorHappy(t *testing.T) {
+	job := cltest.NewJob()
+	var initr models.Initiator
+	require.NoError(t, json.Unmarshal([]byte(validInitiator), &initr))
+	err := services.ValidateInitiator(initr, job)
+	require.NoError(t, err)
+}
+
+func TestValidateInitiator_FluxMonitorErrors(t *testing.T) {
+	job := cltest.NewJob()
+	tests := []struct {
+		Field   string
+		JSONStr string
+	}{
+		{"address", cltest.MustJSONDel(t, validInitiator, "params.address")},
+		{"feeds", cltest.MustJSONSet(t, validInitiator, "params.feeds", []string{})},
+		{"threshold", cltest.MustJSONDel(t, validInitiator, "params.threshold")},
+		{"threshold", cltest.MustJSONSet(t, validInitiator, "params.threshold", -5)},
+		{"requestdata", cltest.MustJSONDel(t, validInitiator, "params.requestdata")},
+	}
+	for _, test := range tests {
+		t.Run("bad "+test.Field, func(t *testing.T) {
+			var initr models.Initiator
+			require.NoError(t, json.Unmarshal([]byte(test.JSONStr), &initr))
+			err := services.ValidateInitiator(initr, job)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.Field)
 		})
 	}
 }

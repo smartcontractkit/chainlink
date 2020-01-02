@@ -13,9 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"chainlink/core/assets"
+	"chainlink/core/auth"
 	"chainlink/core/logger"
 	"chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/utils"
@@ -376,6 +377,14 @@ func initiatorParams(i Initiator) (interface{}, error) {
 		return struct {
 			Name string `json:"name"`
 		}{i.Name}, nil
+	case models.InitiatorFluxMonitor:
+		return struct {
+			Address     common.Address `json:"address"`
+			RequestData models.JSON    `json:"requestData"`
+			Feeds       models.Feeds   `json:"feeds"`
+			Threshold   float32        `json:"threshold"`
+			Precision   int32          `json:"precision"`
+		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.Precision}, nil
 	default:
 		return nil, fmt.Errorf("Cannot marshal unsupported initiator type '%v'", i.Type)
 	}
@@ -633,16 +642,19 @@ type ExternalInitiatorAuthentication struct {
 // NewExternalInitiatorAuthentication creates an instance of ExternalInitiatorAuthentication.
 func NewExternalInitiatorAuthentication(
 	ei models.ExternalInitiator,
-	eia models.ExternalInitiatorAuthentication,
+	eia auth.Token,
 ) *ExternalInitiatorAuthentication {
-	return &ExternalInitiatorAuthentication{
+	var result = &ExternalInitiatorAuthentication{
 		Name:           ei.Name,
-		URL:            ei.URL,
 		AccessKey:      ei.AccessKey,
 		Secret:         eia.Secret,
 		OutgoingToken:  ei.OutgoingToken,
 		OutgoingSecret: ei.OutgoingSecret,
 	}
+	if ei.URL != nil {
+		result.URL = *ei.URL
+	}
+	return result
 }
 
 // GetID returns the jsonapi ID.
@@ -660,4 +672,21 @@ func (*ExternalInitiatorAuthentication) GetName() string {
 func (ei *ExternalInitiatorAuthentication) SetID(name string) error {
 	ei.Name = name
 	return nil
+}
+
+// ExplorerStatus represents the connected server and status of the connection
+type ExplorerStatus struct {
+	Status string `json:"status"`
+	Url    string `json:"url"`
+}
+
+// NewExplorerStatus returns an initialized ExplorerStatus from the store
+func NewExplorerStatus(store *store.Store) ExplorerStatus {
+	client := store.StatsPusher.WSClient
+	url := client.Url()
+
+	return ExplorerStatus{
+		Status: string(client.Status()),
+		Url:    url.String(),
+	}
 }

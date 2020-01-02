@@ -2,17 +2,19 @@ package services
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
 	"chainlink/core/adapters"
+	"chainlink/core/assets"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
+	"chainlink/core/utils"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
 )
 
 // ValidateJob checks the job and its associated Initiators and Tasks for any
@@ -38,6 +40,16 @@ func ValidateJob(j models.JobSpec, store *store.Store) error {
 	return fe.CoerceEmptyToNil()
 }
 
+// ValidateBridgeTypeNotExist checks that a bridge has not already been created
+func ValidateBridgeTypeNotExist(bt *models.BridgeTypeRequest, store *store.Store) error {
+	fe := models.NewJSONAPIErrors()
+	ts := models.TaskSpec{Type: bt.Name}
+	if a, _ := adapters.For(ts, store.Config, store.ORM); a != nil {
+		fe.Add(fmt.Sprintf("Bridge Type %v already exists", bt.Name))
+	}
+	return fe.CoerceEmptyToNil()
+}
+
 // ValidateBridgeType checks that the bridge type doesn't have a duplicate
 // or invalid name or invalid url
 func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error {
@@ -48,13 +60,13 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 	if _, err := models.NewTaskType(bt.Name.String()); err != nil {
 		fe.Merge(err)
 	}
-	if _, err := url.Parse(bt.URL.String()); err != nil {
-		fe.Add("Invalid URL format")
-		fe.Merge(err)
+	u := bt.URL.String()
+	if len(strings.TrimSpace(u)) == 0 {
+		fe.Add("URL must be present")
 	}
-	ts := models.TaskSpec{Type: bt.Name}
-	if a, _ := adapters.For(ts, store.Config, store.ORM); a != nil {
-		fe.Add(fmt.Sprintf("Adapter %v already exists", bt.Name))
+	if bt.MinimumContractPayment != nil &&
+		bt.MinimumContractPayment.Cmp(assets.NewLink(0)) < 0 {
+		fe.Add("MinimumContractPayment must be positive")
 	}
 	return fe.CoerceEmptyToNil()
 }
@@ -75,8 +87,11 @@ func ValidateExternalInitiator(
 	} else if err != orm.ErrorNotFound {
 		return errors.Wrap(err, "validating external initiator")
 	}
-	if isURL := govalidator.IsURL(exi.URL.String()); !isURL {
-		fe.Add("Invalid URL format")
+	// only validate URL if present
+	if exi.URL != nil {
+		if isURL := govalidator.IsURL((*exi.URL).String()); !isURL {
+			fe.Add("Invalid URL format")
+		}
 	}
 	return fe.CoerceEmptyToNil()
 }
@@ -92,15 +107,59 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 		return validateExternalInitiator(i)
 	case models.InitiatorServiceAgreementExecutionLog:
 		return validateServiceAgreementInitiator(i, j)
-	case models.InitiatorWeb:
-		fallthrough
 	case models.InitiatorRunLog:
-		fallthrough
+		return validateRunLogInitiator(i, j)
+	case models.InitiatorFluxMonitor:
+		return validateFluxMonitor(i, j)
+	case models.InitiatorWeb:
+		return nil
 	case models.InitiatorEthLog:
 		return nil
 	default:
 		return models.NewJSONAPIErrorsWith(fmt.Sprintf("type %v does not exist", i.Type))
 	}
+}
+
+func validateFluxMonitor(i models.Initiator, j models.JobSpec) error {
+	fe := models.NewJSONAPIErrors()
+	if i.Address == utils.ZeroAddress {
+		fe.Add("unable to create job config, no address")
+	}
+	if len(i.Feeds) == 0 {
+		fe.Add("unable to create job config, no feeds")
+	}
+	if i.Threshold <= 0 {
+		fe.Add("unable to create job config, bad threshold")
+	}
+	if i.RequestData.String() == "" {
+		fe.Add("unable to create job config, no requestdata")
+	}
+
+	return fe.CoerceEmptyToNil()
+}
+
+func validateRunLogInitiator(i models.Initiator, j models.JobSpec) error {
+	fe := models.NewJSONAPIErrors()
+	ethTxCount := 0
+	for _, task := range j.Tasks {
+		if task.Type == adapters.TaskTypeEthTx {
+			ethTxCount += 1
+
+			task.Params.ForEach(func(k, _ gjson.Result) bool {
+				key := strings.ToLower(k.String())
+				if key == "functionselector" {
+					fe.Add("Cannot set EthTx Task's function selector parameter with a RunLog Initiator")
+				} else if key == "address" {
+					fe.Add("Cannot set EthTx Task's address parameter with a RunLog Initiator")
+				}
+				return true
+			})
+		}
+	}
+	if ethTxCount > 1 {
+		fe.Add("Cannot RunLog initiated jobs cannot have more than one EthTx Task")
+	}
+	return fe.CoerceEmptyToNil()
 }
 
 func validateRunAtInitiator(i models.Initiator, j models.JobSpec) error {
@@ -155,7 +214,7 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 	fe := models.NewJSONAPIErrors()
 	config := store.Config
 
-	if sa.Encumbrance.Payment.IsZero() {
+	if sa.Encumbrance.Payment == nil {
 		fe.Add("Service agreement encumbrance error: No payment amount set")
 	} else if sa.Encumbrance.Payment.Cmp(config.MinimumContractPayment()) == -1 {
 		fe.Add(fmt.Sprintf("Service agreement encumbrance error: Payment amount is below minimum %v", config.MinimumContractPayment().String()))

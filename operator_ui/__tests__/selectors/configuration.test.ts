@@ -1,4 +1,4 @@
-import { AppState } from 'connectors/redux/reducers'
+import { AppState } from 'reducers'
 import configurationSelector from 'selectors/configuration'
 
 describe('selectors - configs', () => {
@@ -12,7 +12,10 @@ describe('selectors - configs', () => {
       },
     }
 
-    const expectation = [['CAMEL_CASED', 'value'], ['KEY', 'value']]
+    const expectation = [
+      ['CAMEL_CASED', 'value'],
+      ['KEY', 'value'],
+    ]
     expect(configurationSelector(state)).toEqual(expectation)
   })
 })

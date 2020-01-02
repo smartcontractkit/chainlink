@@ -1,4 +1,6 @@
-import { titleCase } from 'change-case'
+import { titleCase } from 'title-case'
+import { noCase } from 'change-case'
+import { JobRun, TaskRun } from 'explorer/models'
 
 const hasUnfulfilledEthTx = (jobRun: JobRun) => {
   return (jobRun.taskRuns || []).some((tr: TaskRun) => {
@@ -24,7 +26,7 @@ export default (jobRun: JobRun): [string, boolean] => {
     text = 'Complete'
     unfulfilledEthTx = hasUnfulfilledEthTx(jobRun)
   } else {
-    text = titleCase(jobRun.status)
+    text = titleCase(noCase(jobRun.status))
   }
 
   return [text, unfulfilledEthTx]
