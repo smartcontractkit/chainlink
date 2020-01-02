@@ -36,7 +36,7 @@ Cypress.Commands.add(
 
 Cypress.Commands.add('getJobJson', () => {
   cy.fixture('job').then(job => {
-    const host = Cypress.env('JOB_SERVER_HOST') || 'localhost'
+    const host = Cypress.env('JOB_SERVER_HOST') || 'cypress-job-server'
     const port = Cypress.env('JOB_SERVER_PORT') || '6692'
     job.tasks[0].params.get = `http://${host}:${port}`
     cy.wrap(JSON.stringify(job, null, 4))
