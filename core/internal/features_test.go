@@ -1005,3 +1005,18 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	_ = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jrs[0])
 	eth.EventuallyAllCalled(t)
 }
+
+func TestCreateAndRunJob(t *testing.T) {
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
+	require.NoError(t, app.Start())
+
+	// create job
+
+	// run job
+
+	// check completion
+}
