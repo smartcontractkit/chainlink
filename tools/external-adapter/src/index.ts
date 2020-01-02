@@ -1,16 +1,13 @@
 import express from 'express'
 import bodyParser from 'body-parser'
+import morganBody from 'morgan-body'
 
 const app = express()
+
 app.use(bodyParser.json())
+morganBody(app)
 
-app.use((req, _, next) => {
-  console.log(`Requested ${req.method} to ${req.path}`)
-  console.log('Request Data:', req.body)
-  next()
-})
-
-let result = 100.0
+let result = 0
 
 app.post('/', (req, res) => {
   const jobRunID = req.body.id
