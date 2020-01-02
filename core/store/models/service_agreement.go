@@ -8,7 +8,8 @@ import (
 	"math/big"
 	"time"
 
-	"chainlink/core/store/assets"
+	"chainlink/core/assets"
+	"chainlink/core/eth"
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,7 +22,7 @@ type Encumbrance struct {
 	// Corresponds to requestDigest in solidity ServiceAgreement struct
 	ID uint `json:"-" gorm:"primary_key;auto_increment"`
 	// Price to request a report based on this agreement
-	Payment assets.Link `json:"payment" gorm:"type:varchar(255)"`
+	Payment *assets.Link `json:"payment,omitempty" gorm:"type:varchar(255)"`
 	// Expiration is the amount of time an oracle has to answer a request
 	Expiration uint64 `json:"expiration"`
 	// Agreement is valid until this time
@@ -31,9 +32,9 @@ type Encumbrance struct {
 	// Address of aggregator contract
 	Aggregator EIP55Address `json:"aggregator" gorm:"not null"`
 	// selector for initialization method on aggregator contract
-	AggInitiateJobSelector FunctionSelector `json:"aggInitiateJobSelector" gorm:"not null"`
+	AggInitiateJobSelector eth.FunctionSelector `json:"aggInitiateJobSelector" gorm:"not null"`
 	// selector for fulfillment (oracle reporting) method on aggregator contract
-	AggFulfillSelector FunctionSelector `json:"aggFulfillSelector" gorm:"not null"`
+	AggFulfillSelector eth.FunctionSelector `json:"aggFulfillSelector" gorm:"not null"`
 }
 
 // UnsignedServiceAgreement contains the information to sign a service agreement
@@ -60,13 +61,13 @@ type ServiceAgreement struct {
 type ServiceAgreementRequest struct {
 	Initiators             []InitiatorRequest     `json:"initiators"`
 	Tasks                  []TaskSpecRequest      `json:"tasks"`
-	Payment                assets.Link            `json:"payment"`
+	Payment                *assets.Link           `json:"payment,omitempty"`
 	Expiration             uint64                 `json:"expiration"`
 	EndAt                  AnyTime                `json:"endAt"`
 	Oracles                EIP55AddressCollection `json:"oracles"`
 	Aggregator             EIP55Address           `json:"aggregator"`
-	AggInitiateJobSelector FunctionSelector       `json:"aggInitiateJobSelector"`
-	AggFulfillSelector     FunctionSelector       `json:"aggFulfillSelector"`
+	AggInitiateJobSelector eth.FunctionSelector   `json:"aggInitiateJobSelector"`
+	AggFulfillSelector     eth.FunctionSelector   `json:"aggFulfillSelector"`
 	StartAt                AnyTime                `json:"startAt"`
 }
 
@@ -186,7 +187,7 @@ func generateSAID(e Encumbrance, digest common.Hash) (common.Hash, error) {
 func (e Encumbrance) ABI(digest common.Hash) ([]byte, error) {
 	buffer := bytes.Buffer{}
 	var paymentHash common.Hash
-	if !e.Payment.IsZero() {
+	if e.Payment != nil {
 		paymentHash = e.Payment.ToHash()
 	}
 	_, err := buffer.Write(paymentHash.Bytes())

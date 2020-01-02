@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"time"
 
+	"chainlink/core/assets"
 	"chainlink/core/logger"
-	"chainlink/core/store/assets"
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -136,6 +136,11 @@ func (c Config) DefaultHTTPLimit() int64 {
 // Dev configures "development" mode for chainlink.
 func (c Config) Dev() bool {
 	return c.viper.GetBool(EnvVarName("Dev"))
+}
+
+// FeatureExternalInitiators enables the External Initiator feature.
+func (c Config) FeatureExternalInitiators() bool {
+	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
 }
 
 // MaxRPCCallsPerSecond returns the rate at which RPC calls can be fired

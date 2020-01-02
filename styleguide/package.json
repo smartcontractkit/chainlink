@@ -8,15 +8,12 @@
     "start": "start-storybook -p 9001",
     "build-storybook": "build-storybook",
     "build": "rimraf -rf dist && tsc",
-    "eslint": "eslint --ext .js,.jsx,.ts,.tsx src stories @types",
-    "lint": "tsc --noEmit && yarn eslint",
-    "format": "prettier --write \"**/*\"",
     "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true",
     "setup": "yarn build"
   },
   "dependencies": {
     "@material-ui/core": "^3.9.2",
-    "change-case": "^3.0.2",
+    "change-case": "^4.1.0",
     "core-js": "^3.4.0",
     "javascript-time-ago": "^2.0.1",
     "moment": "^2.24.0",
@@ -25,17 +22,16 @@
     "react-dom": "^16.7.0",
     "react-time-ago": "^5.0.7",
     "storybook-addon-material-ui": "^0.9.0-alpha.16",
+    "title-case": "^3.0.2",
     "typescript": "^3.6.3"
   },
   "devDependencies": {
-    "@babel/core": "^7.6.4",
-    "@babel/preset-env": "^7.6.0",
-    "@babel/preset-react": "^7.0.0",
-    "@babel/preset-typescript": "^7.1.0",
-    "@chainlink/eslint-config": "0.0.1",
-    "@chainlink/prettier-config": "0.0.1",
+    "@babel/core": "7.7.4",
+    "@babel/preset-env": "7.6.0",
+    "@babel/preset-react": "7.0.0",
+    "@babel/preset-typescript": "7.1.0",
     "@storybook/addon-actions": "^5.1.10",
-    "@storybook/addon-info": "^5.2.4",
+    "@storybook/addon-info": "^5.2.8",
     "@storybook/addon-links": "^5.2.5",
     "@storybook/addons": "^5.2.1",
     "@storybook/react": "^5.1.10",
@@ -44,12 +40,9 @@
     "@types/storybook__addon-links": "^3.3.5",
     "@types/storybook__react": "^4.0.2",
     "babel-loader": "^8.0.6",
-    "depcheck": "^0.8.3",
-    "eslint": "^6.3.0",
-    "prettier": "^1.18.2",
+    "depcheck": "^0.9.1",
     "react-docgen-typescript-loader": "^3.1.0",
     "rimraf": "^3.0.0",
-    "webpack": "^4.41.1"
-  },
-  "prettier": "@chainlink/prettier-config"
+    "webpack": "^4.41.2"
+  }
 }

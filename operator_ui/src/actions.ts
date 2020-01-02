@@ -5,7 +5,7 @@ import * as presenters from 'core/store/presenters'
 import normalize from 'json-api-normalizer'
 import { Action, Dispatch } from 'redux'
 import { ThunkAction } from 'redux-thunk'
-import { AppState } from './connectors/redux/reducers'
+import { AppState } from './reducers'
 
 export type GetNormalizedData<T extends AnyFunc> = ReturnType<
   T
@@ -19,10 +19,10 @@ type Errors =
   | jsonapi.ServerError
   | jsonapi.UnknownResponseError
 
-const createAction = (type: string) => ({ type: type })
+const createAction = (type: string) => ({ type })
 
 const createErrorAction = (error: Error, type: string) => ({
-  type: type,
+  type,
   error: error.stack,
 })
 
@@ -56,7 +56,7 @@ interface Match {
 export const matchRoute = (match: Match) => {
   return {
     type: RouterActionType.MATCH_ROUTE,
-    match: match,
+    match,
   }
 }
 
@@ -65,8 +65,8 @@ export const NOTIFY_SUCCESS = 'NOTIFY_SUCCESS'
 export const notifySuccess = (component: React.ReactNode, props: object) => {
   return {
     type: NOTIFY_SUCCESS,
-    component: component,
-    props: props,
+    component,
+    props,
   }
 }
 
@@ -74,8 +74,8 @@ export const NOTIFY_ERROR = 'NOTIFY_ERROR'
 
 export const notifyError = (component: React.ReactNode, error: Error) => ({
   type: NOTIFY_ERROR,
-  component: component,
-  error: error,
+  component,
+  error,
 })
 
 export const REQUEST_SIGNIN = 'REQUEST_SIGNIN'
@@ -161,7 +161,7 @@ export const RECEIVE_DELETE_ERROR = 'RECEIVE_DELETE_ERROR'
 
 const receiveDeleteSuccess = (id: string) => ({
   type: RECEIVE_DELETE_SUCCESS,
-  id: id,
+  id,
 })
 
 export const REQUEST_UPDATE = 'REQUEST_UPDATE'
@@ -170,7 +170,7 @@ export const RECEIVE_UPDATE_ERROR = 'RECEIVE_UPDATE_ERROR'
 
 const receiveUpdateSuccess = (response: Response) => ({
   type: RECEIVE_UPDATE_SUCCESS,
-  response: response,
+  response,
 })
 
 export const submitSignIn = (data: Parameter<typeof api.createSession>) =>

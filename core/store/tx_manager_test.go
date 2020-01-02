@@ -6,11 +6,12 @@ import (
 	"math/big"
 	"testing"
 
+	"chainlink/core/assets"
+	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
 	"chainlink/core/store"
 	strpkg "chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/utils"
@@ -30,7 +31,7 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ethClient := new(mocks.EthClient)
+	ethClient := new(mocks.Client)
 
 	config := cltest.NewTestConfig(t)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())
@@ -41,11 +42,10 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 
 	from := account.Address
 	to := cltest.NewAddress()
-	data, err := hex.DecodeString("0000abcdef")
+	data := hexutil.MustDecode("0x0000abcdef")
 	nonce := uint64(256)
 
 	manager.Register(keyStore.Accounts())
-	require.NoError(t, err)
 
 	ethClient.On("GetNonce", from).Return(nonce, nil)
 
@@ -75,7 +75,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ethClient := new(mocks.EthClient)
+	ethClient := new(mocks.Client)
 
 	config := cltest.NewTestConfig(t)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())
@@ -113,7 +113,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	assert.Len(t, ntx.Attempts, 1)
 
 	manager.OnNewHead(cltest.Head(bumpAt))
-	ethClient.On("GetTxReceipt", createdTx1.Attempts[0].Hash).Return(&models.TxReceipt{}, nil)
+	ethClient.On("GetTxReceipt", createdTx1.Attempts[0].Hash).Return(&eth.TxReceipt{}, nil)
 	ethClient.On("SendRawTx", mock.Anything).Return(cltest.NewHash(), nil)
 
 	// bump gas
@@ -145,7 +145,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ethClient := new(mocks.EthClient)
+	ethClient := new(mocks.Client)
 
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
@@ -186,7 +186,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	assert.Len(t, ntx.Attempts, 1)
 
 	manager.OnNewHead(cltest.Head(bumpAt))
-	ethClient.On("GetTxReceipt", mock.Anything).Return(&models.TxReceipt{}, nil)
+	ethClient.On("GetTxReceipt", mock.Anything).Once().Return(&eth.TxReceipt{}, nil)
 	ethClient.On("SendRawTx", mock.Anything).Return(tx.Attempts[0].Hash, nil)
 
 	receipt, state, err := manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
@@ -195,8 +195,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	assert.Equal(t, strpkg.Unconfirmed, state)
 
 	manager.OnNewHead(cltest.Head(bumpAgainAt))
-	ethClient.On("GetTxReceipt", mock.Anything).Return(&models.TxReceipt{}, nil)
-	ethClient.On("GetTxReceipt", mock.Anything).Return(&models.TxReceipt{}, nil)
+	ethClient.On("GetTxReceipt", mock.Anything).Twice().Return(&eth.TxReceipt{}, nil)
 
 	receipt, state, err = manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	require.NoError(t, err)
@@ -224,7 +223,7 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 	assert.NoError(t, err)
 	sentAt := uint64(23456)
 	nonce := uint64(256)
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 		ethMock.Register("eth_chainId", store.Config.ChainID())
@@ -242,12 +241,6 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 	txs, _, err := store.Transactions(0, 10)
 	assert.NoError(t, err)
 	assert.Len(t, txs, 1)
-
-	txAttempts, _, err := store.TxAttempts(0, 100)
-	assert.NoError(t, err)
-	assert.Len(t, txAttempts, 1)
-
-	assert.Equal(t, txs[0].Hash, txAttempts[0].Hash)
 
 	hash := cltest.NewHash()
 	ethMock.Context("manager.CreateTx#2", func(ethMock *cltest.EthMock) {
@@ -281,39 +274,31 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 		{"parity", "Transaction with the same hash was already imported"},
 	}
 
-	for _, test := range tests {
+	for _, tt := range tests {
+		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
-			app, cleanup := cltest.NewApplicationWithKey(t)
+			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
-			store := app.Store
-			manager := store.TxManager
+
+			ethClient := new(mocks.Client)
+			config := cltest.NewTestConfig(t)
+			require.NoError(t, utils.JustError(store.KeyStore.NewAccount(cltest.Password)))
+			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+			manager := strpkg.NewEthTxManager(ethClient, config, store.KeyStore, store.ORM)
+			manager.Register(store.KeyStore.Accounts())
 
 			from := cltest.GetAccountAddress(t, store)
 			to := cltest.NewAddress()
-			data, err := hex.DecodeString("0000abcdef")
-			assert.NoError(t, err)
-			ethMock := app.MockEthCallerSubscriber()
+			data := hexutil.MustDecode("0x0000abcdef")
 
-			nonce1 := uint64(256)
-			ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
-				ethMock.Register("eth_chainId", store.Config.ChainID())
-				ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce1))
-			})
-			sentAt := uint64(23456)
-			require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(sentAt)))
-			assert.NoError(t, app.StartAndConnect())
+			nonce := uint64(256)
+			ethClient.On("GetNonce", from).Once().Return(nonce, nil)
+			require.NoError(t, manager.Connect(cltest.Head(nonce)))
 
-			ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
-				ethMock.RegisterError("eth_sendRawTransaction", test.ethClientErrorMsg)
-			})
-
-			hash := cltest.NewHash()
+			ethClient.On("SendRawTx", mock.Anything).Once().Return(nil, errors.New("nonce is too low"))
 			nonce2 := uint64(257)
-			ethMock.Context("manager.CreateTx#2", func(ethMock *cltest.EthMock) {
-				ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce2))
-				ethMock.Register("eth_sendRawTransaction", hash)
-			})
+			ethClient.On("GetNonce", from).Once().Return(nonce2, nil)
+			ethClient.On("SendRawTx", mock.Anything).Once().Return(nil, nil)
 
 			a, err := manager.CreateTx(to, data)
 			require.NoError(t, err)
@@ -325,50 +310,42 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 			assert.Equal(t, from, tx.From)
 			assert.Len(t, tx.Attempts, 1)
 
-			ethMock.EventuallyAllCalled(t)
+			ethClient.AssertExpectations(t)
 		})
 	}
 }
 
 func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
+
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	store := app.Store
-	manager := store.TxManager
+
+	ethClient := new(mocks.Client)
+
+	config := cltest.NewTestConfig(t)
+	keyStore := strpkg.NewKeyStore(config.KeysDir())
+	account, err := keyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+	require.NoError(t, keyStore.Unlock(cltest.Password))
+	manager := strpkg.NewEthTxManager(ethClient, config, keyStore, store.ORM)
+
+	manager.Register(keyStore.Accounts())
+
+	from := account.Address
+	nonce := uint64(256)
+	ethClient.On("GetNonce", from).Return(nonce, nil)
+	err = manager.Connect(cltest.Head(nonce))
+	require.NoError(t, err)
+
+	ethClient.On("SendRawTx", mock.Anything).Twice().Return(nil, errors.New("nonce is too low"))
 
 	to := cltest.NewAddress()
-	data, err := hex.DecodeString("0000abcdef")
-	assert.NoError(t, err)
-	ethMock := app.MockEthCallerSubscriber()
-
-	nonce1 := uint64(256)
-	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce1))
-		ethMock.Register("eth_chainId", store.Config.ChainID())
-	})
-	sentAt := uint64(23456)
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(sentAt)))
-	assert.NoError(t, app.StartAndConnect())
-
-	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
-		ethMock.RegisterError("eth_sendRawTransaction", "nonce is too low")
-	})
-
-	nonce2 := uint64(257)
-	ethMock.Context("manager.CreateTx#2", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce2))
-		ethMock.RegisterError("eth_sendRawTransaction", "nonce is too low")
-	})
-
+	data := hexutil.MustDecode("0x0000abcdef")
 	_, err = manager.CreateTx(to, data)
-	assert.EqualError(
-		t,
-		err,
-		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: 1",
-	)
+	assert.EqualError(t, err, "Transaction reattempt limit reached for 'nonce is too low' error. Limit: 1")
 
-	ethMock.EventuallyAllCalled(t)
+	ethClient.AssertExpectations(t)
 }
 
 func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
@@ -398,7 +375,7 @@ func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(23456)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
-	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
+	ethMock := app.MockCallerSubscriberClient(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold-1)))
@@ -407,7 +384,7 @@ func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
+	ethMock.Register("eth_getTransactionReceipt", eth.TxReceipt{})
 
 	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	assert.NoError(t, err)
@@ -434,7 +411,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(23456)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
-	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
+	ethMock := app.MockCallerSubscriberClient(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold)))
@@ -443,7 +420,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
+	ethMock.Register("eth_getTransactionReceipt", eth.TxReceipt{})
 	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
 	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
@@ -471,7 +448,7 @@ func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(23456)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
-	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
+	ethMock := app.MockCallerSubscriberClient(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold+1)))
@@ -480,7 +457,7 @@ func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 	tx := cltest.CreateTx(t, store, from, sentAt)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
+	ethMock.Register("eth_getTransactionReceipt", eth.TxReceipt{})
 	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
 	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
@@ -517,7 +494,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	tx := cltest.CreateTxWithNonce(t, store, from, sentAt, nonce)
 	require.Greater(t, len(tx.Attempts), 0)
 
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
+	ethMock.Register("eth_getTransactionReceipt", eth.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
 
 	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	assert.NoError(t, err)
@@ -569,7 +546,7 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 			tx := cltest.CreateTxWithNonce(t, store, from, sentAt, nonce)
 			require.Greater(t, len(tx.Attempts), 0)
 
-			ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
+			ethMock.Register("eth_getTransactionReceipt", eth.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
 			ethMock.Register("eth_getBalance", "0x100")
 			ethMock.Register("eth_call", "0x100")
 
@@ -606,13 +583,15 @@ func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
 	sentAt := uint64(12345)
 
 	tx1 := cltest.CreateTxWithNonce(t, store, from, sentAt, 1)
+	require.Len(t, tx1.Attempts, 1)
 	tx2 := cltest.CreateTxWithNonce(t, store, from, sentAt, 2)
+	require.Len(t, tx2.Attempts, 1)
 
 	etm := txm.(*strpkg.EthTxManager)
 	aa := etm.GetAvailableAccount(from)
 	aa.SetLastSafeNonce(tx2.Nonce)
 
-	ethMock.Register("eth_getTransactionReceipt", models.TxReceipt{})
+	ethMock.Register("eth_getTransactionReceipt", eth.TxReceipt{})
 
 	receipt, state, err := txm.BumpGasUntilSafe(tx1.Attempts[0].Hash)
 	assert.Nil(t, receipt)
@@ -639,8 +618,8 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	confirmedAt := sentAt2 + 1
 	safeAt := confirmedAt + config.MinOutgoingConfirmations()
 
-	nonConfedReceipt := models.TxReceipt{}
-	confedReceipt := models.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(confirmedAt)}
+	nonConfedReceipt := eth.TxReceipt{}
+	confedReceipt := eth.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(confirmedAt)}
 
 	tests := []struct {
 		name        string
@@ -693,11 +672,11 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			store := app.Store
 			txm := store.TxManager
 			from := cltest.GetAccountAddress(t, store)
-			tx := cltest.CreateTx(t, store, from, sentAt1)
-			a, err := store.AddTxAttempt(tx, tx.EthTx(big.NewInt(2)), sentAt2)
-			assert.NoError(t, err)
 
-			ethMock := app.MockEthCallerSubscriber(cltest.Strict)
+			tx := cltest.CreateTx(t, store, from, sentAt1)
+			a := cltest.AddTxAttempt(t, store, tx, tx.EthTx(big.NewInt(2)), sentAt2)
+
+			ethMock := app.MockCallerSubscriberClient(cltest.Strict)
 			ethMock.ShouldCall(test.mockSetup).During(func() {
 				require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(test.blockHeight)))
 				ethMock.Register("eth_chainId", store.Config.ChainID())
@@ -723,7 +702,7 @@ func TestTxManager_CheckAttempt(t *testing.T) {
 	store := app.Store
 	config := store.Config
 
-	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
+	ethMock := app.MockCallerSubscriberClient(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
 	require.NoError(t, app.StartAndConnect())
@@ -739,7 +718,7 @@ func TestTxManager_CheckAttempt(t *testing.T) {
 	require.Len(t, tx.Attempts, 1)
 
 	// Initial check, no receipt, no change of the block height
-	retrievedReceipt := models.TxReceipt{}
+	retrievedReceipt := eth.TxReceipt{}
 	ethMock.Register("eth_getTransactionReceipt", retrievedReceipt)
 
 	receipt, state, err := txm.CheckAttempt(tx.Attempts[0], sentAt)
@@ -750,7 +729,7 @@ func TestTxManager_CheckAttempt(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 
 	// A receipt is found, but is not yet safe
-	retrievedReceipt = models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(sentAt)}
+	retrievedReceipt = eth.TxReceipt{Hash: hash, BlockNumber: cltest.Int(sentAt)}
 	ethMock.Register("eth_getTransactionReceipt", retrievedReceipt)
 
 	receipt, state, err = txm.CheckAttempt(tx.Attempts[0], sentAt)
@@ -778,7 +757,7 @@ func TestTxManager_CheckAttempt_error(t *testing.T) {
 	defer cleanup()
 
 	store := app.Store
-	ethMock := app.MockEthCallerSubscriber(cltest.Strict)
+	ethMock := app.MockCallerSubscriberClient(cltest.Strict)
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", store.Config.ChainID())
 	require.NoError(t, app.StartAndConnect())
@@ -807,7 +786,7 @@ func TestTxManager_Register(t *testing.T) {
 
 	ethMock := &cltest.EthMock{}
 	txm := strpkg.NewEthTxManager(
-		&strpkg.EthCallerSubscriber{CallerSubscriber: ethMock},
+		&eth.CallerSubscriberClient{CallerSubscriber: ethMock},
 		orm.NewConfig(),
 		nil,
 		store.ORM,
@@ -832,7 +811,7 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 
 	ethMock := &cltest.EthMock{}
 	txm := strpkg.NewEthTxManager(
-		&strpkg.EthCallerSubscriber{CallerSubscriber: ethMock},
+		&eth.CallerSubscriberClient{CallerSubscriber: ethMock},
 		orm.NewConfig(),
 		nil,
 		store.ORM,
@@ -865,7 +844,7 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 func TestTxManager_ReloadNonce(t *testing.T) {
 	t.Parallel()
 
-	ethClient := new(mocks.EthClient)
+	ethClient := new(mocks.Client)
 	txm := store.NewEthTxManager(
 		ethClient,
 		orm.NewConfig(),
@@ -905,7 +884,7 @@ func TestTxManager_WithdrawLink_HappyPath(t *testing.T) {
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
 	nonce := uint64(256)
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 		ethMock.Register("eth_chainId", config.ChainID())
@@ -940,7 +919,7 @@ func TestTxManager_WithdrawLink_Unconfigured_Oracle(t *testing.T) {
 	defer cleanup()
 
 	nonce := uint64(256)
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
@@ -996,7 +975,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ethClient := new(mocks.EthClient)
+	ethClient := new(mocks.Client)
 
 	config := cltest.NewTestConfig(t)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())
@@ -1034,7 +1013,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	assert.Equal(t, nonce, ntx.Nonce)
 	assert.Len(t, ntx.Attempts, 1)
 
-	confirmedReceipt := models.TxReceipt{
+	confirmedReceipt := eth.TxReceipt{
 		Hash:        tx.Attempts[0].Hash,
 		BlockNumber: cltest.Int(sentAt),
 	}
@@ -1064,7 +1043,7 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 	data, err := hex.DecodeString("0000abcdef")
 	assert.NoError(t, err)
 	nonce := uint64(256)
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 		ethMock.Register("eth_chainId", config.ChainID())
@@ -1072,17 +1051,17 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(1)))
 	assert.NoError(t, app.StartAndConnect())
 
-	customGasPrice := models.NewBig(big.NewInt(1337))
+	customGasPrice := utils.NewBig(big.NewInt(1337))
 	customGasLimit := uint64(10009)
 
-	defaultGasPrice := models.NewBig(config.EthGasPriceDefault())
+	defaultGasPrice := utils.NewBig(config.EthGasPriceDefault())
 
 	tests := []struct {
 		name             string
 		dev              bool
-		gasPrice         *models.Big
+		gasPrice         *utils.Big
 		gasLimit         uint64
-		expectedGasPrice *models.Big
+		expectedGasPrice *utils.Big
 		expectedGasLimit uint64
 	}{
 		{"dev", true, customGasPrice, customGasLimit, customGasPrice, customGasLimit},
@@ -1111,83 +1090,13 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 	}
 }
 
-func TestGetContract(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		contract  string
-		expectErr bool
-	}{
-		{"Get Oracle contract", "Oracle", false},
-		{"Get non-existent contract", "not-a-contract", true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			contract, err := strpkg.GetContract(test.contract)
-			if test.expectErr {
-				assert.Error(t, err)
-				assert.Nil(t, contract)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, contract)
-			}
-		})
-	}
-}
-
-// XXX: This test needs a compiled oracle contract, which can be built with
-// `yarn workspace chainlink run setup` in the base project directory.
-func TestContract_EncodeMessageCall(t *testing.T) {
-	t.Parallel()
-
-	// Test with the Oracle contract
-	oracle, err := strpkg.GetContract("Oracle")
-	require.NoError(t, err)
-	require.NotNil(t, oracle)
-
-	data, err := oracle.EncodeMessageCall("withdraw", cltest.NewAddress(), (*big.Int)(assets.NewLink(10)))
-	assert.NoError(t, err)
-	assert.NotNil(t, data)
-}
-
-// XXX: As above
-func TestContract_EncodeMessageCall_errors(t *testing.T) {
-	t.Parallel()
-
-	// Test with the Oracle contract
-	oracle, err := strpkg.GetContract("Oracle")
-	require.NoError(t, err)
-	require.NotNil(t, oracle)
-
-	tests := []struct {
-		name   string
-		method string
-		args   []interface{}
-	}{
-		{"Non-existent method", "not-a-method", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10))}},
-		{"Too few arguments", "withdraw", []interface{}{cltest.NewAddress()}},
-		{"Too many arguments", "withdraw", []interface{}{cltest.NewAddress(), (*big.Int)(assets.NewLink(10)), (*big.Int)(assets.NewLink(10))}},
-		{"Incorrect argument types", "withdraw", []interface{}{(*big.Int)(assets.NewLink(10)), cltest.NewAddress()}},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			data, err := oracle.EncodeMessageCall(test.method, test.args...)
-			assert.Error(t, err)
-			assert.Nil(t, data)
-		})
-	}
-}
-
 func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ethClient := new(mocks.EthClient)
+	ethClient := new(mocks.Client)
 
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
@@ -1198,11 +1107,10 @@ func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 	manager := strpkg.NewEthTxManager(ethClient, config, keyStore, store.ORM)
 
 	to := cltest.NewAddress()
-	data, err := hex.DecodeString("0000abcdef")
+	data := hexutil.MustDecode("0x0000abcdef")
 	sentAt := uint64(1)
 
 	manager.Register(keyStore.Accounts())
-	require.NoError(t, err)
 
 	ethClient.On("GetNonce", mock.Anything).Times(2).Return(uint64(0), nil)
 

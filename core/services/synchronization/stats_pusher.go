@@ -15,6 +15,15 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	numberEventsSent = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "stats_pusher_events_sent",
+		Help: "The number of events pushed up to explorer",
+	})
 )
 
 // StatsPusher polls for events and pushes them via a WebSocketClient
@@ -57,8 +66,11 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters
 	if url != nil {
 		sp.WSClient = NewWebSocketClient(url, accessKey, secret)
 		gormCallbacksMutex.Lock()
-		orm.DB.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp))
-		orm.DB.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp))
+		_ = orm.RawDB(func(db *gorm.DB) error {
+			db.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp, orm))
+			db.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp, orm))
+			return nil
+		})
 		gormCallbacksMutex.Unlock()
 	}
 	return sp
@@ -82,9 +94,11 @@ func (sp *StatsPusher) Close() error {
 		sp.cancel()
 	}
 	gormCallbacksMutex.Lock()
-	callbacks := sp.ORM.DB.Callback()
-	callbacks.Create().Remove(createCallbackName)
-	callbacks.Update().Remove(updateCallbackName)
+	_ = sp.ORM.RawDB(func(db *gorm.DB) error {
+		db.Callback().Create().Remove(createCallbackName)
+		db.Callback().Update().Remove(updateCallbackName)
+		return nil
+	})
 	gormCallbacksMutex.Unlock()
 	return sp.WSClient.Close()
 }
@@ -102,6 +116,7 @@ type response struct {
 }
 
 func (sp *StatsPusher) eventLoop(parentCtx context.Context) {
+	logger.Debugw("Entered StatsPusher event loop")
 	for {
 		err := sp.pusherLoop(parentCtx)
 		if err == nil {
@@ -154,6 +169,7 @@ func (sp *StatsPusher) pushEvents() error {
 
 func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
 	sp.WSClient.Send([]byte(event.Body))
+	numberEventsSent.Inc()
 
 	message, err := sp.WSClient.Receive()
 	if err != nil {
@@ -170,7 +186,9 @@ func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
 		return errors.New("event not created")
 	}
 
-	err = sp.ORM.DB.Delete(event).Error
+	err = sp.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Delete(event).Error
+	})
 	if err != nil {
 		return errors.Wrap(err, "syncEvent#DB.Delete failed")
 	}
@@ -178,7 +196,7 @@ func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
 	return nil
 }
 
-func createSyncEventWithStatsPusher(sp *StatsPusher) func(*gorm.Scope) {
+func createSyncEventWithStatsPusher(sp *StatsPusher, orm *orm.ORM) func(*gorm.Scope) {
 	return func(scope *gorm.Scope) {
 		if scope.HasError() {
 			return
@@ -193,6 +211,8 @@ func createSyncEventWithStatsPusher(sp *StatsPusher) func(*gorm.Scope) {
 			logger.Error("Invariant violated scope.Value is not type *models.JobRun, but TableName was job_runes")
 			return
 		}
+
+		orm.MustEnsureAdvisoryLock()
 
 		presenter := SyncJobRunPresenter{run}
 		bodyBytes, err := json.Marshal(presenter)

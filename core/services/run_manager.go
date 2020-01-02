@@ -3,17 +3,35 @@ package services
 import (
 	"fmt"
 	"math/big"
+	"time"
 
 	"chainlink/core/adapters"
+	"chainlink/core/assets"
 	"chainlink/core/logger"
 	clnull "chainlink/core/null"
 	"chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/utils"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	numberRunsExecuted = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "run_manager_runs_started",
+		Help: "The total number of runs that have run",
+	})
+	numberRunsResumed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "run_manager_runs_resumed",
+		Help: "The total number of run resumptions",
+	})
+	numberRunsCancelled = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "run_manager_runs_cancelled",
+		Help: "The total number of run cancellations",
+	})
 )
 
 // RecurringScheduleJobError contains the field for the error message.
@@ -60,102 +78,100 @@ type runManager struct {
 	clock     utils.AfterNower
 }
 
-func newRun(
+func runCost(job *models.JobSpec, config orm.ConfigReader, adapters []*adapters.PipelineAdapter) *assets.Link {
+	minimumRunPayment := assets.NewLink(0)
+	if job.MinPayment != nil {
+		minimumRunPayment = job.MinPayment
+		logger.Debugw("Using job's minimum payment", "required_payment", minimumRunPayment)
+	} else if config.MinimumContractPayment() != nil {
+		minimumRunPayment = config.MinimumContractPayment()
+		logger.Debugw("Using configured minimum payment", "required_payment", minimumRunPayment)
+	}
+
+	for _, adapter := range adapters {
+		minimumPayment := adapter.MinPayment()
+		if minimumPayment != nil {
+			minimumRunPayment = assets.NewLink(0).Add(minimumRunPayment, minimumPayment)
+		}
+	}
+
+	return minimumRunPayment
+}
+
+// NewRun returns a complete run from a JobSpec
+func NewRun(
 	job *models.JobSpec,
 	initiator *models.Initiator,
 	data *models.JSON,
 	currentHeight *big.Int,
-	payment *assets.Link,
+	runRequest *models.RunRequest,
 	config orm.ConfigReader,
 	orm *orm.ORM,
-	clock utils.AfterNower,
-	txManager store.TxManager) (*models.JobRun, error) {
+	now time.Time) (*models.JobRun, []*adapters.PipelineAdapter) {
 
-	now := clock.Now()
-	if !job.Started(now) {
-		return nil, RecurringScheduleJobError{
-			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
-		}
+	run := models.JobRun{
+		ID:             models.NewID(),
+		JobSpecID:      job.ID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+		Initiator:      *initiator,
+		InitiatorID:    initiator.ID,
+		TaskRuns:       make([]models.TaskRun, len(job.Tasks)),
+		Status:         models.RunStatusInProgress,
+		Overrides:      *data,
+		CreationHeight: utils.NewBig(currentHeight),
+		ObservedHeight: utils.NewBig(currentHeight),
+		RunRequest:     *runRequest,
+		Payment:        runRequest.Payment,
 	}
 
-	if job.Ended(now) {
-		return nil, RecurringScheduleJobError{
-			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
-		}
-	}
-
-	run := job.NewRun(*initiator)
-	run.Overrides = *data
-	run.CreationHeight = models.NewBig(currentHeight)
-	run.ObservedHeight = models.NewBig(currentHeight)
-
-	if !MeetsMinimumPayment(&job.MinPayment, payment) {
-		logger.Infow("Rejecting run with insufficient payment",
-			run.ForLogger(
-				"input_payment", payment,
-				"required_payment", job.MinPayment)...)
-
-		err := fmt.Errorf(
-			"Rejecting job %s with payment %s below job-specific-minimum threshold (%s)",
-			job.ID,
-			payment,
-			job.MinPayment.Text(10))
-		run.SetError(err)
-	}
-
-	cost := &assets.Link{}
-	cost.Set(&job.MinPayment)
-	for i, taskRun := range run.TaskRuns {
-		adapter, err := adapters.For(taskRun.TaskSpec, config, orm)
-
+	runAdapters := []*adapters.PipelineAdapter{}
+	for i, task := range job.Tasks {
+		adapter, err := adapters.For(task, config, orm)
 		if err != nil {
 			run.SetError(err)
-			return &run, nil
+			break
 		}
 
-		if job.MinPayment.IsZero() {
-			mp := adapter.MinContractPayment()
-			if mp != nil {
-				cost.Add(cost, mp)
-			}
-		}
+		runAdapters = append(runAdapters, adapter)
 
+		minimumConfirmations := clnull.Uint32{}
 		if currentHeight != nil {
-			run.TaskRuns[i].MinimumConfirmations = clnull.Uint32From(
+			minimumConfirmations = clnull.Uint32From(
 				utils.MaxUint32(
 					config.MinIncomingConfirmations(),
-					taskRun.TaskSpec.Confirmations.Uint32,
+					task.Confirmations.Uint32,
 					adapter.MinConfs()),
 			)
 		}
-	}
 
-	// payment is only present for runs triggered by runlogs
-	if payment != nil {
-		if cost.Cmp(payment) > 0 {
-			logger.Debugw("Rejecting run with insufficient payment",
-				run.ForLogger(
-					"input_payment", payment,
-					"required_payment", cost)...)
-
-			err := fmt.Errorf(
-				"Rejecting job %s with payment %s below minimum threshold (%s)",
-				job.ID,
-				payment,
-				config.MinimumContractPayment().Text(10))
-			run.SetError(err)
+		run.TaskRuns[i] = models.TaskRun{
+			ID:                   models.NewID(),
+			JobRunID:             run.ID,
+			TaskSpec:             task,
+			MinimumConfirmations: minimumConfirmations,
 		}
 	}
 
-	if len(run.TaskRuns) == 0 {
-		run.SetError(fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID))
-	}
+	return &run, runAdapters
+}
 
-	if !run.Status.Runnable() {
-		return &run, nil
-	}
+// ValidateRun ensures that a run's initial preconditions have been met
+func ValidateRun(run *models.JobRun, contractCost *assets.Link) {
 
-	return &run, nil
+	// payment is only present for runs triggered by runlogs
+	if run.Payment != nil && contractCost.Cmp(run.Payment) > 0 {
+		logger.Debugw("Rejecting run with insufficient payment",
+			run.ForLogger("required_payment", contractCost.String())...)
+
+		err := fmt.Errorf(
+			"Rejecting job %s with payment %s below minimum threshold (%s)",
+			run.JobSpecID,
+			run.Payment,
+			contractCost.Text(10))
+		run.SetError(err)
+		return
+	}
 }
 
 // NewRunManager returns a new job manager
@@ -186,7 +202,14 @@ func (jm *runManager) CreateErrored(
 		return nil, errors.Wrap(err, "failed to find job spec")
 	}
 
-	run := job.NewRun(initiator)
+	now := time.Now()
+	run := models.JobRun{
+		ID:          models.NewID(),
+		JobSpecID:   job.ID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		InitiatorID: initiator.ID,
+	}
 	run.SetError(runErr)
 	return &run, jm.orm.CreateJobRun(&run)
 }
@@ -216,23 +239,39 @@ func (jm *runManager) Create(
 		}
 	}
 
-	run, err := newRun(&job, initiator, data, creationHeight, runRequest.Payment, jm.config, jm.orm, jm.clock, jm.txManager)
-	if err != nil {
-		return nil, errors.Wrap(err, "newRun failed")
+	now := jm.clock.Now()
+	if !job.Started(now) {
+		return nil, RecurringScheduleJobError{
+			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
+		}
 	}
 
-	run.RunRequest = *runRequest
-	run.Status = models.RunStatusInProgress
+	if job.Ended(now) {
+		return nil, RecurringScheduleJobError{
+			msg: fmt.Sprintf("Job runner: Job %v ended: %v past job's end time %v", job.ID, now, job.EndAt),
+		}
+	}
+
+	if len(job.Tasks) == 0 {
+		return nil, fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID)
+	}
+
+	run, adapters := NewRun(&job, initiator, data, creationHeight, runRequest, jm.config, jm.orm, now)
+	runCost := runCost(&job, jm.config, adapters)
+	ValidateRun(run, runCost)
 
 	if err := jm.orm.CreateJobRun(run); err != nil {
 		return nil, errors.Wrap(err, "CreateJobRun failed")
 	}
 
-	logger.Debugw(
-		fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
-		run.ForLogger()...,
-	)
-	jm.runQueue.Run(run)
+	if run.Status.Runnable() {
+		logger.Debugw(
+			fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
+			run.ForLogger()...,
+		)
+		jm.runQueue.Run(run)
+		numberRunsExecuted.Inc()
+	}
 	return run, nil
 }
 
@@ -246,7 +285,7 @@ func (jm *runManager) ResumeAllConfirming(currentBlockHeight *big.Int) error {
 			return
 		}
 
-		run.ObservedHeight = models.NewBig(currentBlockHeight)
+		run.ObservedHeight = utils.NewBig(currentBlockHeight)
 		logger.Debugw(fmt.Sprintf("New head #%s resuming run", currentBlockHeight), run.ForLogger()...)
 
 		validateMinimumConfirmations(run, currentTaskRun, run.ObservedHeight, jm.txManager)
@@ -338,6 +377,7 @@ func (jm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
 	}
 
 	run.Cancel()
+	numberRunsCancelled.Inc()
 	return &run, jm.orm.SaveJobRun(&run)
 }
 
@@ -357,6 +397,7 @@ func (jm *runManager) updateAndTrigger(run *models.JobRun) error {
 		return err
 	}
 	if run.Status == models.RunStatusInProgress {
+		numberRunsResumed.Inc()
 		jm.runQueue.Run(run)
 	}
 	return nil

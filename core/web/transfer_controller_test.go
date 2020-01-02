@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"testing"
 
+	"chainlink/core/assets"
+	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,10 +23,10 @@ func TestTransfersController_CreateSuccess(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+		ethMock.Register("eth_getBlockByNumber", eth.BlockHeader{})
 		ethMock.Register("eth_chainId", config.ChainID())
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 	})
@@ -59,10 +60,10 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+		ethMock.Register("eth_getBlockByNumber", eth.BlockHeader{})
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 	})
@@ -97,10 +98,10 @@ func TestTransfersController_TransferError(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+		ethMock.Register("eth_getBlockByNumber", eth.BlockHeader{})
 		ethMock.Register("eth_chainId", config.ChainID())
 		ethMock.RegisterError("eth_sendRawTransaction", "No dice")
 	})
@@ -132,10 +133,10 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 	defer cleanup()
 
-	ethMock := app.MockEthCallerSubscriber()
+	ethMock := app.MockCallerSubscriberClient()
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_getBlockByNumber", models.BlockHeader{})
+		ethMock.Register("eth_getBlockByNumber", eth.BlockHeader{})
 		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 

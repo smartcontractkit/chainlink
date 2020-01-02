@@ -26,9 +26,9 @@ type EthTxABIEncode struct {
 	// Ethereum address of the contract this task calls
 	Address common.Address `json:"address"`
 	// ABI of contract function this task calls
-	FunctionABI abi.Method  `json:"functionABI"`
-	GasPrice    *models.Big `json:"gasPrice" gorm:"type:numeric"`
-	GasLimit    uint64      `json:"gasLimit"`
+	FunctionABI abi.Method `json:"functionABI"`
+	GasPrice    *utils.Big `json:"gasPrice" gorm:"type:numeric"`
+	GasLimit    uint64     `json:"gasLimit"`
 }
 
 // UnmarshalJSON for custom JSON unmarshal that is strict, i.e. doesn't
@@ -42,7 +42,7 @@ func (etx *EthTxABIEncode) UnmarshalJSON(data []byte) error {
 			Name   string
 			Inputs abi.Arguments
 		}
-		GasPrice *models.Big
+		GasPrice *utils.Big
 		GasLimit uint64
 	}
 

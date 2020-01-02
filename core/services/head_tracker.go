@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
@@ -12,6 +13,15 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	numberHeadsReceived = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "head_tracker_heads_received",
+		Help: "The total number of heads seen",
+	})
 )
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
@@ -19,8 +29,8 @@ import (
 // store on reboot.
 type HeadTracker struct {
 	callbacks             []strpkg.HeadTrackable
-	headers               chan models.BlockHeader
-	headSubscription      models.EthSubscription
+	headers               chan eth.BlockHeader
+	headSubscription      eth.Subscription
 	store                 *strpkg.Store
 	head                  *models.Head
 	headMutex             sync.RWMutex
@@ -150,6 +160,8 @@ func (ht *HeadTracker) disconnect() {
 }
 
 func (ht *HeadTracker) onNewHead(head *models.Head) {
+	numberHeadsReceived.Inc()
+
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
 
@@ -206,7 +218,7 @@ func (ht *HeadTracker) receiveHeaders() error {
 			if !open {
 				return errors.New("HeadTracker headers prematurely closed")
 			}
-			head := block.ToHead()
+			head := models.NewHead(block.Number.ToInt(), block.Hash())
 			logger.Debugw(
 				fmt.Sprintf("Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
 				"blockHeight", head.ToInt(),
@@ -234,7 +246,7 @@ func (ht *HeadTracker) subscribeToHead() error {
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
 
-	ht.headers = make(chan models.BlockHeader)
+	ht.headers = make(chan eth.BlockHeader)
 	sub, err := ht.store.TxManager.SubscribeToNewHeads(ht.headers)
 	if err != nil {
 		return errors.Wrap(err, "TxManager#SubscribeToNewHeads")

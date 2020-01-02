@@ -1,0 +1,16 @@
+{
+  "name": "@chainlink/cypress-job-server",
+  "version": "0.0.1",
+  "description": "A simple server that has a predefined response for integration tests",
+  "main": "dist/index.js",
+  "repository": "https://github.com/smartcontractkit/chainlink",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "start": "node ."
+  },
+  "devDependencies": {
+    "@types/node": "^12.12.20",
+    "typescript": "^3.7.3"
+  }
+}

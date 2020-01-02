@@ -15,10 +15,11 @@ import (
 	"time"
 
 	"chainlink/core/adapters"
+	"chainlink/core/assets"
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	"chainlink/core/store"
 	strpkg "chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 
@@ -27,9 +28,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
-	null "gopkg.in/guregu/null.v3"
 )
 
 // NewJob return new NoOp JobSpec
@@ -54,7 +55,7 @@ func NewTask(t *testing.T, taskType string, json ...string) models.TaskSpec {
 	}
 }
 
-// NewJobWithExternalInitiator creates new Job with external inititaor
+// NewJobWithExternalInitiator creates new Job with external initiator
 func NewJobWithExternalInitiator(ei *models.ExternalInitiator) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -80,7 +81,7 @@ func NewJobWithSchedule(sched string) models.JobSpec {
 	return j
 }
 
-// NewJobWithWebInitiator create new Job with web inititaor
+// NewJobWithWebInitiator create new Job with web initiator
 func NewJobWithWebInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -90,7 +91,7 @@ func NewJobWithWebInitiator() models.JobSpec {
 	return j
 }
 
-// NewJobWithLogInitiator create new Job with ethlog inititaor
+// NewJobWithLogInitiator create new Job with ethlog initiator
 func NewJobWithLogInitiator() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -124,7 +125,7 @@ func NewJobWithSALogInitiator() models.JobSpec {
 	return j
 }
 
-// NewJobWithRunAtInitiator create new Job with RunAt inititaor
+// NewJobWithRunAtInitiator create new Job with RunAt initiator
 func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -137,18 +138,63 @@ func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 	return j
 }
 
+// NewJobWithFluxMonitorInitiator create new Job with FluxMonitor initiator
+func NewJobWithFluxMonitorInitiator() models.JobSpec {
+	j := NewJob()
+	j.Initiators = []models.Initiator{{
+		JobSpecID: j.ID,
+		Type:      models.InitiatorFluxMonitor,
+		InitiatorParams: models.InitiatorParams{
+			Address:     NewAddress(),
+			RequestData: models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:       []string{"https://lambda.staging.devnet.tools/bnc/call"},
+			Threshold:   0.5,
+			Precision:   2,
+		},
+	}}
+	return j
+}
+
 // NewTx returns a Tx using a specified from address and sentAt
 func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	tx := &models.Tx{
 		From:     from,
 		Nonce:    0,
 		Data:     []byte{},
-		Value:    models.NewBig(big.NewInt(0)),
+		Value:    utils.NewBig(big.NewInt(0)),
 		GasLimit: 250000,
 		SentAt:   sentAt,
 	}
 	copy(tx.Hash[:], randomBytes(common.HashLength))
 	return tx
+}
+
+func NewTransaction(nonce uint64, sentAtV ...uint64) *models.Tx {
+	from := common.HexToAddress("0xf208000000000000000000000000000000000000")
+	to := common.HexToAddress("0x7000000000000000000000000000000000000000")
+
+	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
+	gasLimit := uint64(50000)
+	data := hexutil.MustDecode("0xda7ada7a")
+
+	sentAt := uint64(0)
+	if len(sentAtV) > 0 {
+		sentAt = sentAtV[0]
+	}
+
+	transaction := types.NewTransaction(nonce, to, value, gasLimit, new(big.Int), data)
+	return &models.Tx{
+		From:        from,
+		SentAt:      sentAt,
+		To:          *transaction.To(),
+		Nonce:       transaction.Nonce(),
+		Data:        transaction.Data(),
+		Value:       utils.NewBig(transaction.Value()),
+		GasLimit:    transaction.Gas(),
+		GasPrice:    utils.NewBig(transaction.GasPrice()),
+		Hash:        transaction.Hash(),
+		SignedRawTx: "signed-raw",
+	}
 }
 
 // CreateTx creates a Tx from a specified address, and sentAt
@@ -171,10 +217,53 @@ func CreateTxWithNonce(
 ) *models.Tx {
 	data := make([]byte, 36)
 	binary.LittleEndian.PutUint64(data, sentAt)
-	ethTx := types.NewTransaction(nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), data)
-	tx, err := store.CreateTx(null.String{}, ethTx, &from, sentAt)
+
+	transaction := types.NewTransaction(nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), data)
+	tx := &models.Tx{
+		From:        from,
+		SentAt:      sentAt,
+		To:          *transaction.To(),
+		Nonce:       transaction.Nonce(),
+		Data:        transaction.Data(),
+		Value:       utils.NewBig(transaction.Value()),
+		GasLimit:    transaction.Gas(),
+		GasPrice:    utils.NewBig(transaction.GasPrice()),
+		Hash:        transaction.Hash(),
+		SignedRawTx: "signed-raw-attempt 1",
+	}
+
+	tx, err := store.CreateTx(tx)
+	require.NoError(t, err)
+	_, err = store.AddTxAttempt(tx, tx)
 	require.NoError(t, err)
 	return tx
+}
+
+func AddTxAttempt(
+	t testing.TB,
+	store *strpkg.Store,
+	tx *models.Tx,
+	etx *types.Transaction,
+	blkNum uint64,
+) *models.TxAttempt {
+	transaction := types.NewTransaction(tx.Nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), tx.Data)
+
+	newTxAttempt := &models.Tx{
+		From:        tx.From,
+		SentAt:      blkNum,
+		To:          *transaction.To(),
+		Nonce:       transaction.Nonce(),
+		Data:        transaction.Data(),
+		Value:       utils.NewBig(transaction.Value()),
+		GasLimit:    transaction.Gas(),
+		GasPrice:    utils.NewBig(transaction.GasPrice()),
+		Hash:        transaction.Hash(),
+		SignedRawTx: fmt.Sprintf("signed-raw-attempt %d", len(tx.Attempts)+1),
+	}
+
+	txAttempt, err := store.AddTxAttempt(tx, newTxAttempt)
+	require.NoError(t, err)
+	return txAttempt
 }
 
 // NewHash return random Keccak256
@@ -248,7 +337,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 	return json
 }
 
-// NewRunLog create models.Log for given jobid, address, block, and json
+// NewRunLog create eth.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
 	jobID *models.ID,
@@ -256,8 +345,8 @@ func NewRunLog(
 	requester common.Address,
 	blk int,
 	json string,
-) models.Log {
-	return models.Log{
+) eth.Log {
+	return eth.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        StringToVersionedLogData20190207withoutIndexes(t, "internalID", requester, json),
@@ -280,8 +369,8 @@ func NewServiceAgreementExecutionLog(
 	executionRequester common.Address,
 	blockHeight int,
 	serviceAgreementJSON string,
-) models.Log {
-	return models.Log{
+) eth.Log {
+	return eth.Log{
 		Address:     logEmitter,
 		BlockNumber: uint64(blockHeight),
 		Data:        StringToVersionedLogData0(t, "internalID", serviceAgreementJSON),
@@ -385,12 +474,12 @@ func StringToVersionedLogData20190207withoutIndexes(
 // BigHexInt create hexutil.Big value from given value
 func BigHexInt(val interface{}) hexutil.Big {
 	switch x := val.(type) {
-	case int:
+	case int: // Single case allows compiler to narrow x's type.
 		return hexutil.Big(*big.NewInt(int64(x)))
 	case uint32:
 		return hexutil.Big(*big.NewInt(int64(x)))
 	case uint64:
-		return hexutil.Big(*big.NewInt(int64(x)))
+		return hexutil.Big(*big.NewInt(0).SetUint64(x))
 	case int64:
 		return hexutil.Big(*big.NewInt(x))
 	default:
@@ -399,27 +488,20 @@ func BigHexInt(val interface{}) hexutil.Big {
 	}
 }
 
-func Int(val interface{}) *models.Big {
+func Int(val interface{}) *utils.Big {
 	switch x := val.(type) {
 	case int:
-		return (*models.Big)(big.NewInt(int64(x)))
+		return (*utils.Big)(big.NewInt(int64(x)))
 	case uint32:
-		return (*models.Big)(big.NewInt(int64(x)))
+		return (*utils.Big)(big.NewInt(int64(x)))
 	case uint64:
-		return (*models.Big)(big.NewInt(int64(x)))
+		return (*utils.Big)(big.NewInt(int64(x)))
 	case int64:
-		return (*models.Big)(big.NewInt(x))
+		return (*utils.Big)(big.NewInt(x))
 	default:
-		logger.Panicf("Could not convert %v of type %T to models.Big", val, val)
-		return &models.Big{}
+		logger.Panicf("Could not convert %v of type %T to utils.Big", val, val)
+		return &utils.Big{}
 	}
-}
-
-// MarkJobRunPendingBridge marks the jobrun as Pending Bridge Status
-func MarkJobRunPendingBridge(jr models.JobRun, i int) models.JobRun {
-	jr.Status = models.RunStatusPendingBridge
-	jr.TaskRuns[i].Status = models.RunStatusPendingBridge
-	return jr
 }
 
 type MockSigner struct{}
@@ -441,9 +523,41 @@ func EmptyCLIContext() *cli.Context {
 	return cli.NewContext(nil, set, nil)
 }
 
-func CreateJobRunWithStatus(t testing.TB, store *store.Store, j models.JobSpec, status models.RunStatus) models.JobRun {
-	initr := j.Initiators[0]
-	run := j.NewRun(initr)
+// NewJobRun returns a newly initialized job run for test purposes only
+func NewJobRun(job models.JobSpec) models.JobRun {
+	initiator := job.Initiators[0]
+	now := time.Now()
+	run := models.JobRun{
+		ID:          models.NewID(),
+		JobSpecID:   job.ID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Initiator:   initiator,
+		InitiatorID: initiator.ID,
+		Status:      models.RunStatusInProgress,
+		TaskRuns:    make([]models.TaskRun, len(job.Tasks)),
+	}
+	for i, task := range job.Tasks {
+		run.TaskRuns[i] = models.TaskRun{
+			ID:       models.NewID(),
+			JobRunID: run.ID,
+			TaskSpec: task,
+		}
+	}
+	return run
+}
+
+// NewJobRunPendingBridge returns a new job run in the pending bridge state
+func NewJobRunPendingBridge(job models.JobSpec) models.JobRun {
+	run := NewJobRun(job)
+	run.Status = models.RunStatusPendingBridge
+	run.TaskRuns[0].Status = models.RunStatusPendingBridge
+	return run
+}
+
+// CreateJobRunWithStatus returns a new job run with the specified status that has been persisted
+func CreateJobRunWithStatus(t testing.TB, store *store.Store, job models.JobSpec, status models.RunStatus) models.JobRun {
+	run := NewJobRun(job)
 	run.Status = status
 	require.NoError(t, store.CreateJobRun(&run))
 	return run

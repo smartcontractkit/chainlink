@@ -1,4 +1,4 @@
-import createStore from 'connectors/redux'
+import createStore from 'createStore'
 import { ConnectedIndex as Index } from 'containers/JobRuns/Index'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRuns'
 import React from 'react'
@@ -35,7 +35,7 @@ describe('containers/JobRuns/Index', () => {
     const runsResponse = jsonApiJobSpecRunFactory([{ jobId: jobSpecId }])
     global.fetch.getOnce(globPath('/v2/runs'), runsResponse)
 
-    const props = { match: { params: { jobSpecId: jobSpecId } } }
+    const props = { match: { params: { jobSpecId } } }
     const wrapper = mountIndex(props)
 
     await syncFetch(wrapper)
@@ -52,7 +52,7 @@ describe('containers/JobRuns/Index', () => {
     )
     global.fetch.getOnce(globPath('/v2/runs'), pageOneResponse)
 
-    const props = { match: { params: { jobSpecId: jobSpecId } }, pageSize: 1 }
+    const props = { match: { params: { jobSpecId } }, pageSize: 1 }
     const wrapper = mountIndex(props)
 
     await syncFetch(wrapper)
@@ -104,7 +104,7 @@ describe('containers/JobRuns/Index', () => {
     const runsResponse = jsonApiJobSpecRunFactory([])
     await global.fetch.getOnce(globPath('/v2/runs'), runsResponse)
 
-    const props = { match: { params: { jobSpecId: jobSpecId } } }
+    const props = { match: { params: { jobSpecId } } }
     const wrapper = mountIndex(props)
 
     await syncFetch(wrapper)

@@ -8,19 +8,19 @@ VERSION = $(shell cat VERSION)
 GOBIN ?= $(GOPATH)/bin
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
-DOCKERFILE := Dockerfile
+DOCKERFILE := core/chainlink.Dockerfile
 DOCKER_TAG ?= latest
 
 # SGX is disabled by default, but turned on when building from Docker
 SGX_ENABLED ?= no
 SGX_SIMULATION ?= yes
 SGX_ENCLAVE := enclave.signed.so
-SGX_TARGET := ./sgx/target/$(ENVIRONMENT)/
+SGX_TARGET := ./core/sgx/target/$(ENVIRONMENT)/
 
 ifneq (,$(filter yes true,$(SGX_ENABLED)))
 	GOFLAGS += -tags=sgx_enclave
 	SGX_BUILD_ENCLAVE := $(SGX_ENCLAVE)
-	DOCKERFILE := Dockerfile-sgx
+	DOCKERFILE := core/chainlink-sgx.Dockerfile
 	REPO := $(REPO)-sgx
 else
 	SGX_BUILD_ENCLAVE :=
@@ -30,6 +30,10 @@ TAGGED_REPO := $(REPO):$(DOCKER_TAG)
 
 .PHONY: install
 install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
+
+.PHONY: install-git-hooks
+install-git-hooks:
+	git config core.hooksPath .githooks
 
 .PHONY: install-chainlink-autoinstall
 install-chainlink-autoinstall: | gomod install-chainlink
@@ -51,13 +55,19 @@ yarndep: ## Ensure the frontend's dependencies are installed.
 install-chainlink: chainlink ## Install the chainlink binary.
 	cp $< $(GOBIN)/chainlink
 
-chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
+chainlink: $(SGX_BUILD_ENCLAVE) operator-ui contracts ## Build the chainlink binary.
+	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/eth" ## embed contracts in .go file
 	go build $(GOFLAGS) -o $@ ./core/
+
+.PHONY: contracts 
+contracts: # build the required evm contracts
+	yarn workspace chainlinkv0.5 setup
+	yarn workspace chainlink setup
 
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui run build
-	CGO_ENABLED=0 go run operator_ui/main.go "${CURDIR}/core/services"
+	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
 
 .PHONY: docker
 docker: ## Build the docker image.
@@ -75,8 +85,8 @@ dockerpush: ## Push the docker image to dockerhub
 
 .PHONY: $(SGX_ENCLAVE)
 $(SGX_ENCLAVE):
-	@ENVIRONMENT=$(ENVIRONMENT) SGX_ENABLED=$(SGX_ENABLED) SGX_SIMULATION=$(SGX_SIMULATION) make -C sgx/
-	@ln -f $(SGX_TARGET)/libadapters.so sgx/target/libadapters.so
+	@ENVIRONMENT=$(ENVIRONMENT) SGX_ENABLED=$(SGX_ENABLED) SGX_SIMULATION=$(SGX_SIMULATION) make -C core/sgx/
+	@ln -f $(SGX_TARGET)/libadapters.so core/sgx/target/libadapters.so
 
 .PHONY: enclave
 enclave: $(SGX_ENCLAVE)

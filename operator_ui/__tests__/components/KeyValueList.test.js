@@ -19,7 +19,10 @@ describe('components/KeyValueList', () => {
   })
 
   it('renders entry pairs', () => {
-    const entries = [['CHAINLINK_DEV', 'true'], ['DATABASE_TIMEOUT', 1000]]
+    const entries = [
+      ['CHAINLINK_DEV', 'true'],
+      ['DATABASE_TIMEOUT', 1000],
+    ]
 
     const wrapper = render(<KeyValueList entries={entries} />)
     expect(wrapper.text()).toContain('CHAINLINK_DEV')
@@ -29,7 +32,10 @@ describe('components/KeyValueList', () => {
   })
 
   it('can titleize keys', () => {
-    const entries = [['gasLimit', 50000], ['hash', 'abc123']]
+    const entries = [
+      ['gasLimit', 50000],
+      ['hash', 'abc123'],
+    ]
 
     const withoutTitleize = render(<KeyValueList entries={entries} />)
     expect(withoutTitleize.text()).toContain('gasLimit')

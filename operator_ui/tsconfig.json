@@ -25,6 +25,7 @@
   "references": [
     { "path": "../styleguide" },
     { "path": "../tools/json-api-client" },
-    { "path": "../tools/local-storage" }
+    { "path": "../tools/local-storage" },
+    { "path": "../tools/redux" }
   ]
 }

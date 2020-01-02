@@ -1,6 +1,7 @@
 package internal_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/auth"
+	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
@@ -27,7 +30,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
@@ -57,15 +60,15 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	config := app.Config
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 
-	newHeads := make(chan models.BlockHeader)
+	newHeads := make(chan ethpkg.BlockHeader)
 	attempt1Hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold() + 1
 	safe := confirmed + config.MinOutgoingConfirmations() - 1
-	unconfirmedReceipt := models.TxReceipt{}
-	confirmedReceipt := models.TxReceipt{
+	unconfirmedReceipt := ethpkg.TxReceipt{}
+	confirmedReceipt := ethpkg.TxReceipt{
 		Hash:        attempt1Hash,
 		BlockNumber: cltest.Int(confirmed),
 	}
@@ -95,7 +98,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		eth.Register("eth_getBalance", "0x0100")
 		eth.Register("eth_call", "0x0100")
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
 	eth.EventuallyAllCalled(t)
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
@@ -121,7 +124,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	attempt2Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000002")
 	attempt3Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000003")
 
-	unconfirmedReceipt := models.TxReceipt{}
+	unconfirmedReceipt := ethpkg.TxReceipt{}
 
 	// Enumerate the different block heights at which various state changes
 	// happen for the transaction attempts created during this test
@@ -135,14 +138,14 @@ func TestIntegration_FeeBump(t *testing.T) {
 
 	thirdTxSentAt := secondTxGasBumpAt
 	thirdTxConfirmedAt := thirdTxSentAt + 1
-	thirdTxConfirmedReceipt := models.TxReceipt{
+	thirdTxConfirmedReceipt := ethpkg.TxReceipt{
 		Hash:        attempt1Hash,
 		BlockNumber: cltest.Int(thirdTxConfirmedAt),
 	}
 	thirdTxSafeAt := thirdTxSentAt + config.MinOutgoingConfirmations()
 
-	newHeads := make(chan models.BlockHeader)
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	newHeads := make(chan ethpkg.BlockHeader)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_chainId", config.ChainID())
@@ -168,7 +171,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth.Context("ethTx.Perform()#2", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(firstTxRemainsUnconfirmedAt)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(firstTxRemainsUnconfirmedAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
@@ -179,7 +182,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_sendRawTransaction", attempt2Hash)
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(firstTxGasBumpAt)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(firstTxGasBumpAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 2)
@@ -190,7 +193,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(secondTxRemainsUnconfirmedAt)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(secondTxRemainsUnconfirmedAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
@@ -201,7 +204,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_sendRawTransaction", attempt3Hash)
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(secondTxGasBumpAt)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(secondTxGasBumpAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 3)
@@ -211,7 +214,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth.Context("ethTx.Perform()#6", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(thirdTxConfirmedAt)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(thirdTxConfirmedAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
@@ -222,7 +225,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getBalance", "0x100")
 		eth.Register("eth_call", "0x100")
 	})
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(thirdTxSafeAt)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(thirdTxSafeAt)}
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
@@ -241,17 +244,16 @@ func TestIntegration_RunAt(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.InstantClock()
 
+	require.NoError(t, app.Start())
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/run_at_job.json")
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorRunAt, initr.Type)
 	assert.Equal(t, "2018-01-08T18:12:01Z", utils.ISO8601UTC(initr.Time.Time))
-
-	app.Start()
 
 	cltest.WaitForRuns(t, j, app.Store, 1)
 }
@@ -261,13 +263,13 @@ func TestIntegration_EthLog(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
-	eth := app.MockEthCallerSubscriber()
-	logs := make(chan models.Log, 1)
+	eth := app.MockCallerSubscriberClient()
+	logs := make(chan ethpkg.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.Register("eth_chainId", app.Store.Config.ChainID())
 		eth.RegisterSubscription("logs", logs)
 	})
-	app.Start()
+	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/eth_log_job.json")
 	address := common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
@@ -312,14 +314,14 @@ func TestIntegration_RunLog(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithConfig(t, config)
 			defer cleanup()
 
-			eth := app.MockEthCallerSubscriber()
-			logs := make(chan models.Log, 1)
+			eth := app.MockCallerSubscriberClient()
+			logs := make(chan ethpkg.Log, 1)
 			newHeads := eth.RegisterNewHeads()
 			eth.Context("app.Start()", func(eth *cltest.EthMock) {
 				eth.RegisterSubscription("logs", logs)
 			})
 			eth.Register("eth_chainId", config.ChainID())
-			app.Start()
+			require.NoError(t, app.Start())
 
 			j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
 			requiredConfs := uint32(100)
@@ -342,14 +344,14 @@ func TestIntegration_RunLog(t *testing.T) {
 
 			blockIncrease := app.Store.Config.MinIncomingConfirmations()
 			minGlobalHeight := creationHeight + blockIncrease
-			newHeads <- models.BlockHeader{Number: cltest.BigHexInt(minGlobalHeight)}
+			newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(minGlobalHeight)}
 			<-time.After(time.Second)
 			jr = cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
 			assert.Equal(t, uint32(creationHeight+blockIncrease), jr.TaskRuns[0].Confirmations.Uint32)
 
 			safeNumber := creationHeight + requiredConfs
-			newHeads <- models.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
-			confirmedReceipt := models.TxReceipt{
+			newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
+			confirmedReceipt := ethpkg.TxReceipt{
 				Hash:        runlog.TxHash,
 				BlockHash:   &test.receiptBlockHash,
 				BlockNumber: cltest.Int(creationHeight),
@@ -371,9 +373,9 @@ func TestIntegration_StartAt(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/start_at_job.json")
 	startAt := cltest.ParseISO8601(t, "1970-01-01T00:00:00.000Z")
@@ -388,15 +390,15 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
-	eth := app.MockEthCallerSubscriber()
+	eth := app.MockCallerSubscriberClient()
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	logs := make(chan models.Log, 1)
-	newHeads := make(chan models.BlockHeader, 10)
+	logs := make(chan ethpkg.Log, 1)
+	newHeads := make(chan ethpkg.BlockHeader, 10)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 		eth.RegisterSubscription("newHeads", newHeads)
 	})
-	app.Start()
+	require.NoError(t, app.Start())
 
 	eaValue := "87698118359"
 	eaExtra := "other values to be used by external adapters"
@@ -414,10 +416,10 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 8)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 8)}
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 
-	confirmedReceipt := models.TxReceipt{
+	confirmedReceipt := ethpkg.TxReceipt{
 		Hash:        runlog.TxHash,
 		BlockHash:   &runlog.BlockHash,
 		BlockNumber: cltest.Int(logBlockNumber),
@@ -426,7 +428,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 	})
 
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 9)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 9)}
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
@@ -446,11 +448,11 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	bridgeURL := cltest.WebURL(t, "https://test.chain.link/always")
 	app.Store.Config.Set("BRIDGE_RESPONSE_URL", bridgeURL)
-	app.Start()
+	require.NoError(t, app.Start())
 
 	eaPrice := "1234"
 	eaQuote := "USD"
@@ -498,9 +500,9 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	bta := &models.BridgeTypeAuthentication{}
 	var j models.JobSpec
@@ -548,9 +550,9 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
-	eth := app.MockEthCallerSubscriber()
+	eth := app.MockCallerSubscriberClient()
 	eth.RegisterNewHead(1)
-	logs := make(chan models.Log, 1)
+	logs := make(chan ethpkg.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.Register("eth_chainId", app.Config.ChainID())
 		eth.RegisterSubscription("logs", logs)
@@ -565,13 +567,14 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 		})
 	defer cleanup()
 
+	require.NoError(t, app.Start())
+
 	j := cltest.NewJobWithLogInitiator()
 	post := cltest.NewTask(t, "httppost", fmt.Sprintf(`{"url":"%v"}`, mockServer.URL))
 	tasks := []models.TaskSpec{post}
 	j.Tasks = tasks
 	j = cltest.CreateJobSpecViaWeb(t, app, j)
 
-	app.Start()
 	logs <- log
 
 	jobRuns := cltest.WaitForRuns(t, j, app.Store, 1)
@@ -581,9 +584,9 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 func TestIntegration_MultiplierInt256(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/int256_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"-10221.30"}`)
@@ -596,9 +599,9 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 func TestIntegration_MultiplierUint256(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/uint256_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"10221.30"}`)
@@ -617,10 +620,8 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	config, configCleanup := cltest.NewConfig(t)
 	defer configCleanup()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
-
-	eth := app.MockEthCallerSubscriber()
-	newHeads := make(chan models.BlockHeader)
+	eth := app.MockCallerSubscriberClient()
+	newHeads := make(chan ethpkg.BlockHeader)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
@@ -629,6 +630,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(100)))
 	require.NoError(t, app.StartAndConnect())
 
+	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 
 	createCompletedJobRun := func(blockNumber uint64, expectedNonce uint64) {
@@ -636,7 +638,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 
 		eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
 			eth.Register("eth_sendRawTransaction", hash)
-			eth.Register("eth_getTransactionReceipt", models.TxReceipt{
+			eth.Register("eth_getTransactionReceipt", ethpkg.TxReceipt{
 				Hash:        hash,
 				BlockNumber: cltest.Int(confirmedBlockNumber),
 			})
@@ -653,7 +655,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 
 	createCompletedJobRun(100, uint64(0x100))
 
-	newHeads <- models.BlockHeader{Number: cltest.BigHexInt(200)}
+	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(200)}
 	createCompletedJobRun(200, uint64(0x101))
 }
 
@@ -663,8 +665,8 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
-	eth := app.MockEthCallerSubscriber()
-	logs := make(chan models.Log, 1)
+	eth := app.MockCallerSubscriberClient()
+	logs := make(chan ethpkg.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 		eth.Register("eth_getTransactionCount", `0x100`)
@@ -677,7 +679,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	assert.NotEqual(t, "", sa.ID)
 	j := cltest.FindJob(t, app.Store, sa.JobSpecID)
 
-	assert.Equal(t, *cltest.NewLink(t, "1000000000000000000"), sa.Encumbrance.Payment)
+	assert.Equal(t, cltest.NewLink(t, "1000000000000000000"), sa.Encumbrance.Payment)
 	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)
 
 	assert.Equal(t, endAt, sa.Encumbrance.EndAt.Time)
@@ -708,12 +710,12 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	config.Set("EXPLORER_URL", wsserver.URL.String())
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", config.ChainID())
 
 	app.InstantClock()
 	app.Store.StatsPusher.Period = 300 * time.Millisecond
-	app.Start()
+	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/run_at_job.json")
 
@@ -738,9 +740,9 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	sleepSeconds := 4
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/sleep_job.json")
 
@@ -757,9 +759,9 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	eth := app.MockEthCallerSubscriber(cltest.Strict)
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	app.Start()
+	require.NoError(t, app.Start())
 
 	exInitr := struct {
 		Header http.Header
@@ -782,7 +784,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	require.NoError(t, err)
 	eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
 
-	eia := &models.ExternalInitiatorAuthentication{
+	eia := &auth.Token{
 		AccessKey: eip.AccessKey,
 		Secret:    eip.Secret,
 	}
@@ -813,4 +815,94 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.ID)
 	assert.NoError(t, err)
+}
+
+func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
+	require.NoError(t, app.Start())
+
+	eiCreate := map[string]string{
+		"name": "someCoin",
+	}
+	eiCreateJSON, err := json.Marshal(eiCreate)
+	require.NoError(t, err)
+	eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
+
+	eia := &auth.Token{
+		AccessKey: eip.AccessKey,
+		Secret:    eip.Secret,
+	}
+	ei, err := app.Store.FindExternalInitiator(eia)
+	require.NoError(t, err)
+
+	require.Equal(t, strings.ToLower(eiCreate["name"]), ei.Name)
+	require.Equal(t, eip.AccessKey, ei.AccessKey)
+	require.Equal(t, eip.OutgoingSecret, ei.OutgoingSecret)
+
+	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
+
+	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
+	_, err = app.Store.JobRunsFor(jobRun.ID)
+	assert.NoError(t, err)
+}
+
+func TestIntegration_AuthToken(t *testing.T) {
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
+	require.NoError(t, app.Start())
+
+	// set up user
+	app.MustSeedUserAPIKey()
+
+	url := app.Config.ClientNodeURL() + "/v2/config"
+	headers := make(map[string]string)
+	headers[web.APIKey] = cltest.APIKey
+	headers[web.APISecret] = cltest.APISecret
+	buf := bytes.NewBufferString(`{"ethGasPriceDefault":15000000}`)
+
+	resp, cleanup := cltest.UnauthenticatedPatch(t, url, buf, headers)
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
+}
+
+func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+
+	eth := app.MockCallerSubscriberClient(cltest.Strict)
+	eth.Register("eth_chainId", app.Store.Config.ChainID())
+	require.NoError(t, app.StartAndConnect())
+
+	// 1. Configure fake Eth Node to return 10,000 cents when FM initiates price.
+	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
+		mock.Register("eth_call", "10000") // 10,000 cents
+	})
+
+	// 2. Have server respond with 102 for price when FM checks external price
+	// adapter for deviation. 102 is enough deviation to trigger a job run.
+	priceResponse := `{"data":{"result": 102}}`
+	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", priceResponse)
+	defer assertCalled()
+
+	// 3. Create FM Job, and wait for job run to start because the above criteria initiates a run.
+	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
+	var job models.JobSpec
+	err := json.Unmarshal(buffer, &job)
+	require.NoError(t, err)
+	job.Initiators[0].InitiatorParams.Feeds = models.Feeds([]string{mockServer.URL})
+
+	j := cltest.CreateJobSpecViaWeb(t, app, job)
+	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
+
+	// 4. Check the FM price on completed run output
+	jr := cltest.WaitForJobRunToComplete(t, app.GetStore(), jrs[0])
+	assert.Equal(t, "102", cltest.MustResultString(t, jr.Result))
 }

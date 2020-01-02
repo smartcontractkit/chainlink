@@ -1,5 +1,5 @@
 import React from 'react'
-import createStore from 'connectors/redux'
+import createStore from 'createStore'
 import syncFetch from 'test-helpers/syncFetch'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'

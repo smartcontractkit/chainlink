@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/web"
@@ -12,6 +13,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func JSONFromString(t *testing.T, arg string) *models.JSON {
+	if arg == "" {
+		return nil
+	}
+	ret := cltest.JSONFromString(t, arg)
+	return &ret
+}
 
 func TestNotifyExternalInitiator_Notified(t *testing.T) {
 	tests := []struct {
@@ -31,8 +40,8 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 					models.Initiator{
 						Type: models.InitiatorExternal,
 						InitiatorParams: models.InitiatorParams{
-							Name:   "somecoin",
-							Params: `{"foo":"bar"}`,
+							Name: "somecoin",
+							Body: JSONFromString(t, `{"foo":"bar"}`),
 						},
 					},
 				},
@@ -59,15 +68,15 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 					models.Initiator{
 						Type: models.InitiatorExternal,
 						InitiatorParams: models.InitiatorParams{
-							Name:   "somecoin",
-							Params: `{"foo":"bar"}`,
+							Name: "somecoin",
+							Body: JSONFromString(t, `{"foo":"bar"}`),
 						},
 					},
 				},
 			},
 			web.JobSpecNotice{
 				Type:   models.InitiatorExternal,
-				Params: cltest.JSONFromString(t, `{"foo":"bar"}`),
+				Params: *JSONFromString(t, `{"foo":"bar"}`),
 			},
 		},
 	}
@@ -89,8 +98,9 @@ func TestNotifyExternalInitiator_Notified(t *testing.T) {
 			)
 			defer assertCalled()
 
-			test.ExInitr.URL = cltest.WebURL(t, eiMockServer.URL)
-			eia := models.NewExternalInitiatorAuthentication()
+			url := cltest.WebURL(t, eiMockServer.URL)
+			test.ExInitr.URL = &url
+			eia := auth.NewToken()
 			ei, err := models.NewExternalInitiator(eia, &test.ExInitr)
 			require.NoError(t, err)
 			err = store.CreateExternalInitiator(ei)
@@ -162,8 +172,9 @@ func TestNotifyExternalInitiator_NotNotified(t *testing.T) {
 			)
 			defer eiMockServer.Close()
 
-			test.ExInitr.URL = cltest.WebURL(t, eiMockServer.URL)
-			eia := models.NewExternalInitiatorAuthentication()
+			url := cltest.WebURL(t, eiMockServer.URL)
+			test.ExInitr.URL = &url
+			eia := auth.NewToken()
 			ei, err := models.NewExternalInitiator(eia, &test.ExInitr)
 			require.NoError(t, err)
 			err = store.CreateExternalInitiator(ei)

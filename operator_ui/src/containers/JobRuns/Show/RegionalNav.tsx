@@ -145,9 +145,8 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }: Props) => {
   )
 }
 
-export const ConnectedRegionalNav = connect(
-  null,
-  { fetchJob, createJobRun },
-)(RegionalNav)
+export const ConnectedRegionalNav = connect(null, { fetchJob, createJobRun })(
+  RegionalNav,
+)
 
 export default withStyles(styles)(ConnectedRegionalNav)

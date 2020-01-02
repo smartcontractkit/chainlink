@@ -1,13 +1,14 @@
 package models_test
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 	"testing"
 	"time"
 
 	"chainlink/core/adapters"
+	"chainlink/core/assets"
 	"chainlink/core/internal/cltest"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
@@ -25,21 +26,6 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 		jobSpec  models.JobSpec
 		want     models.Initiator
 	}{
-		{
-			name: models.InitiatorExternal,
-			initrReq: models.InitiatorRequest{
-				Type: models.InitiatorExternal,
-				Name: "somecoin",
-			},
-			jobSpec: job,
-			want: models.Initiator{
-				Type:      models.InitiatorExternal,
-				JobSpecID: job.ID,
-				InitiatorParams: models.InitiatorParams{
-					Name: "somecoin",
-				},
-			},
-		},
 		{
 			name: models.InitiatorWeb,
 			initrReq: models.InitiatorRequest{
@@ -64,61 +50,6 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 	}
 }
 
-func TestUnmarshalInitiatorRequest(t *testing.T) {
-	tests := []struct {
-		Name   string
-		JSON   map[string]interface{}
-		Expect models.InitiatorRequest
-	}{
-		{
-			Name: "ExternalInitiator",
-			JSON: map[string]interface{}{
-				"type": "external",
-				"name": "somecoin",
-				"params": map[string]string{
-					"foo":  "bar",
-					"name": "bitcoin",
-				},
-			},
-			Expect: models.InitiatorRequest{
-				Type: models.InitiatorExternal,
-				Name: "somecoin",
-				InitiatorParams: models.InitiatorParams{
-					Name:   "bitcoin",
-					Params: `{"foo":"bar","name":"bitcoin"}`,
-				},
-			},
-		},
-		{
-			Name: "CronInitiator",
-			JSON: map[string]interface{}{
-				"type": "cron",
-				"params": map[string]string{
-					"schedule": "* * * * *",
-				},
-			},
-			Expect: models.InitiatorRequest{
-				Type: models.InitiatorCron,
-				InitiatorParams: models.InitiatorParams{
-					Schedule: "* * * * *",
-				},
-			},
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
-			buf, err := json.Marshal(test.JSON)
-			require.NoError(t, err)
-
-			var i models.InitiatorRequest
-			err = json.Unmarshal(buf, &i)
-			require.NoError(t, err)
-
-			assert.Equal(t, test.Expect, i)
-		})
-	}
-}
-
 func TestNewJobFromRequest(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
@@ -132,7 +63,7 @@ func TestNewJobFromRequest(t *testing.T) {
 		Tasks:      cltest.BuildTaskRequests(t, j1.Tasks),
 		StartAt:    j1.StartAt,
 		EndAt:      j1.EndAt,
-		MinPayment: *assets.NewLink(5),
+		MinPayment: assets.NewLink(5),
 	}
 
 	j2 := models.NewJobFromRequest(jsr)
@@ -142,13 +73,13 @@ func TestNewJobFromRequest(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, fetched1.Initiators, 1)
 	assert.Len(t, fetched1.Tasks, 1)
-	assert.Equal(t, fetched1.MinPayment, *assets.NewLink(0))
+	assert.Nil(t, fetched1.MinPayment)
 
 	fetched2, err := store.FindJob(j2.ID)
 	assert.NoError(t, err)
 	assert.Len(t, fetched2.Initiators, 1)
 	assert.Len(t, fetched2.Tasks, 1)
-	assert.Equal(t, fetched2.MinPayment, *assets.NewLink(5))
+	assert.Equal(t, assets.NewLink(5), fetched2.MinPayment)
 }
 
 func TestJobSpec_Save(t *testing.T) {
@@ -181,10 +112,9 @@ func TestJobSpec_NewRun(t *testing.T) {
 	defer cleanup()
 
 	job := cltest.NewJobWithSchedule("1 * * * *")
-	initr := job.Initiators[0]
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp", `{"a":1}`)}
 
-	run := job.NewRun(initr)
+	run := cltest.NewJobRun(job)
 
 	assert.Equal(t, job.ID, run.JobSpecID)
 	assert.Equal(t, 1, len(run.TaskRuns))
@@ -195,7 +125,7 @@ func TestJobSpec_NewRun(t *testing.T) {
 	assert.NotNil(t, adapter)
 	assert.JSONEq(t, `{"type":"NoOp","a":1}`, taskRun.TaskSpec.Params.String())
 
-	assert.Equal(t, initr, run.Initiator)
+	assert.Equal(t, job.Initiators[0], run.Initiator)
 }
 
 func TestJobEnded(t *testing.T) {
@@ -276,6 +206,150 @@ func TestNewTaskType(t *testing.T) {
 				assert.Equal(t, models.TaskType(test.want), got)
 				assert.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestFeeds_Value(t *testing.T) {
+	tests := []struct {
+		name        string
+		in          []string
+		expectation driver.Value
+	}{
+		{
+			"single",
+			[]string{"https://lambda.staging.devnet.tools/bnc/call"},
+			`["https://lambda.staging.devnet.tools/bnc/call"]`,
+		},
+		{
+			"double",
+			[]string{"https://lambda.staging.devnet.tools/bnc/call", "https://lambda.staging.devnet.tools/cc/call"},
+			`["https://lambda.staging.devnet.tools/bnc/call","https://lambda.staging.devnet.tools/cc/call"]`,
+		},
+		{
+			"empty",
+			[]string{},
+			nil,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			feeds := models.Feeds(test.in)
+			val, err := feeds.Value()
+			require.NoError(t, err)
+			assert.Equal(t, test.expectation, val)
+		})
+	}
+}
+
+func TestFeeds_ScanHappy(t *testing.T) {
+	tests := []struct {
+		name        string
+		in          interface{}
+		expectation models.Feeds
+	}{
+		{
+			"single",
+			`["https://lambda.staging.devnet.tools/bnc/call"]`,
+			models.Feeds([]string{"https://lambda.staging.devnet.tools/bnc/call"}),
+		},
+		{
+			"double",
+			`["https://lambda.staging.devnet.tools/bnc/call","https://lambda.staging.devnet.tools/cc/call"]`,
+			models.Feeds([]string{"https://lambda.staging.devnet.tools/bnc/call", "https://lambda.staging.devnet.tools/cc/call"}),
+		},
+		{
+			"empty",
+			"[]",
+			models.Feeds([]string{}),
+		},
+		{
+			"nil",
+			nil,
+			models.Feeds([]string{}),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			feeds := &models.Feeds{}
+			err := feeds.Scan(test.in)
+			require.NoError(t, err)
+			assert.Equal(t, test.expectation, *feeds)
+		})
+	}
+}
+
+func TestFeeds_ScanErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{"empty", ""},
+		{"malformed", "[,"},
+		{"string", "http://localhost"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			feeds := &models.Feeds{}
+			err := feeds.Scan(test.in)
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestFeeds_UnmarshalJSON_String(t *testing.T) {
+	bytes := []byte(`[
+		"https://lambda.staging.devnet.tools/bnc/call",
+		"https://lambda.staging.devnet.tools/cc/call"
+	]`)
+	feeds := models.Feeds{}
+	err := json.Unmarshal(bytes, &feeds)
+	assert.NoError(t, err)
+
+	expectation := models.Feeds([]string{"https://lambda.staging.devnet.tools/bnc/call", "https://lambda.staging.devnet.tools/cc/call"})
+	assert.Equal(t, expectation, feeds)
+}
+
+func TestFeeds_UnmarshalJSON_Object(t *testing.T) {
+	jstr := `{"feeds":[
+		"https://lambda.staging.devnet.tools/bnc/call",
+		"https://lambda.staging.devnet.tools/cc/call"
+	]}`
+	bytes := []byte(jstr)
+	temp := struct {
+		Feeds models.Feeds `json:"feeds"`
+	}{}
+
+	err := json.Unmarshal(bytes, &temp)
+	assert.NoError(t, err)
+
+	expectation := models.Feeds([]string{
+		"https://lambda.staging.devnet.tools/bnc/call",
+		"https://lambda.staging.devnet.tools/cc/call",
+	})
+	assert.Equal(t, expectation, temp.Feeds)
+}
+
+func TestFeeds_UnmarshalJSON_Errors(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{"single", `["brokenURL"]`},
+		{"double", `["notURL","httpbrokescheme:/test"]`},
+		{"malformed", `["notURL",]`},
+		{"db string", `https://lambda.staging.devnet.tools/bnc/call;https://lambda.staging.devnet.tools/cc/call`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bytes := []byte(test.in)
+			feeds := models.Feeds{}
+			err := json.Unmarshal(bytes, &feeds)
+			require.Error(t, err)
 		})
 	}
 }

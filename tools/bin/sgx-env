@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
-workdir="/go/src/github.com/smartcontractkit/chainlink"
-image_tag=`cat Dockerfile-sgx | grep FROM | grep builder | awk '{print$2}'`
+workdir="/chainlink"
+image_tag=`cat core/chainlink-sgx.Dockerfile | grep FROM | grep builder | awk '{print$2}'`
 docker run \
   --volume "$PWD:$workdir" \
   --workdir="$workdir" \

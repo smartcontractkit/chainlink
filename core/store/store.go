@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"chainlink/core/eth"
 	"chainlink/core/logger"
 	"chainlink/core/services/synchronization"
 	"chainlink/core/store/migrations"
@@ -17,6 +18,7 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
@@ -32,6 +34,7 @@ type Store struct {
 	KeyStore    *KeyStore
 	TxManager   TxManager
 	StatsPusher *synchronization.StatsPusher
+	closeOnce   sync.Once
 }
 
 type lazyRPCWrapper struct {
@@ -42,7 +45,7 @@ type lazyRPCWrapper struct {
 	limiter     *rate.Limiter
 }
 
-func newLazyRPCWrapper(urlString string, limiter *rate.Limiter) (CallerSubscriber, error) {
+func newLazyRPCWrapper(urlString string, limiter *rate.Limiter) (eth.CallerSubscriber, error) {
 	parsed, err := url.ParseRequestURI(urlString)
 	if err != nil {
 		return nil, err
@@ -93,7 +96,7 @@ func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...i
 	return wrapper.client.Call(result, method, args...)
 }
 
-func (wrapper *lazyRPCWrapper) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (models.EthSubscription, error) {
+func (wrapper *lazyRPCWrapper) Subscribe(ctx context.Context, channel interface{}, args ...interface{}) (eth.Subscription, error) {
 	err := wrapper.lazyDialInitializer()
 	if err != nil {
 		return nil, err
@@ -103,7 +106,7 @@ func (wrapper *lazyRPCWrapper) EthSubscribe(ctx context.Context, channel interfa
 
 // Dialer implements Dial which is a function that creates a client for that url
 type Dialer interface {
-	Dial(string) (CallerSubscriber, error)
+	Dial(string) (eth.CallerSubscriber, error)
 }
 
 // EthDialer is Dialer which accesses rpc urls
@@ -119,7 +122,7 @@ func NewEthDialer(rateLimit uint64) *EthDialer {
 }
 
 // Dial will dial the given url and return a CallerSubscriber
-func (ed *EthDialer) Dial(urlString string) (CallerSubscriber, error) {
+func (ed *EthDialer) Dial(urlString string) (eth.CallerSubscriber, error) {
 	return newLazyRPCWrapper(urlString, ed.limiter)
 }
 
@@ -132,6 +135,24 @@ func NewStore(config *orm.Config) *Store {
 
 // NewStoreWithDialer creates a new store with the given config and dialer
 func NewStoreWithDialer(config *orm.Config, dialer Dialer) *Store {
+	keyStore := func() *KeyStore { return NewKeyStore(config.KeysDir()) }
+	return newStoreWithDialerAndKeyStore(config, dialer, keyStore)
+}
+
+// NewInsecureStore creates a new store with the given config and
+// dialer, using an insecure keystore.
+// NOTE: Should only be used for testing!
+func NewInsecureStore(config *orm.Config) *Store {
+	dialer := NewEthDialer(config.MaxRPCCallsPerSecond())
+	keyStore := func() *KeyStore { return NewInsecureKeyStore(config.KeysDir()) }
+	return newStoreWithDialerAndKeyStore(config, dialer, keyStore)
+}
+
+func newStoreWithDialerAndKeyStore(
+	config *orm.Config,
+	dialer Dialer,
+	keyStoreGenerator func() *KeyStore) *Store {
+
 	err := os.MkdirAll(config.RootDir(), os.FileMode(0700))
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
@@ -147,15 +168,20 @@ func NewStoreWithDialer(config *orm.Config, dialer Dialer) *Store {
 	if err := orm.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", err))
 	}
-	keyStore := NewKeyStore(config.KeysDir())
 
+	keyStore := keyStoreGenerator()
+	callerSubscriberClient := &eth.CallerSubscriberClient{CallerSubscriber: ethrpc}
+	txManager := NewEthTxManager(callerSubscriberClient, config, keyStore, orm)
+	statsPusher := synchronization.NewStatsPusher(
+		orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret(),
+	)
 	store := &Store{
 		Clock:       utils.Clock{},
 		Config:      config,
 		KeyStore:    keyStore,
 		ORM:         orm,
-		TxManager:   NewEthTxManager(&EthCallerSubscriber{ethrpc}, config, keyStore, orm),
-		StatsPusher: synchronization.NewStatsPusher(orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret()),
+		TxManager:   txManager,
+		StatsPusher: statsPusher,
 	}
 	return store
 }
@@ -171,10 +197,12 @@ func (s *Store) Start() error {
 
 // Close shuts down all of the working parts of the store.
 func (s *Store) Close() error {
-	return multierr.Combine(
-		s.ORM.Close(),
-		s.StatsPusher.Close(),
-	)
+	var err1, err2 error
+	s.closeOnce.Do(func() {
+		err1 = s.StatsPusher.Close()
+		err2 = s.ORM.Close()
+	})
+	return multierr.Combine(err1, err2)
 }
 
 // Unscoped returns a shallow copy of the store, with an unscoped ORM allowing
@@ -221,7 +249,10 @@ func initializeORM(config *orm.Config) (*orm.ORM, error) {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
 	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
-	if err = migrations.Migrate(orm.DB); err != nil {
+	err = orm.RawDB(func(db *gorm.DB) error {
+		return migrations.Migrate(db)
+	})
+	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#Migrate")
 	}
 	orm.SetLogging(config.LogSQLStatements())

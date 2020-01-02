@@ -1,8 +1,9 @@
-import { BN } from 'bn.js'
+import BN from 'bn.js'
 import cbor from 'cbor'
 import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
-import { FunctionFragment, ParamType } from 'ethers/utils/abi-coder'
+import { FunctionFragment } from 'ethers/utils/abi-coder'
+//@ts-ignore
 import TruffleContract from 'truffle-contract'
 import linkToken from './LinkToken.json'
 import { assertBigNum } from './matchers'
@@ -76,7 +77,7 @@ export const wrappedERC20 = (contract: any): any => ({
     ),
 })
 
-export const linkContract = async (account: any): Promise<any> => {
+export const linkContract = async (account?: any): Promise<any> => {
   account = account || defaultAccount
   const receipt = await web3.eth.sendTransaction({
     data: linkToken.bytecode,
@@ -123,6 +124,7 @@ export const toHexWithoutPrefix = (arg: any): string => {
   if (arg instanceof Buffer || arg instanceof BN) {
     return arg.toString('hex')
   } else if (arg instanceof Uint8Array) {
+    //@ts-ignore
     return Array.prototype.reduce.call(
       arg,
       (a: any, v: any) => a + v.toString('16').padStart(2, '0'),
@@ -346,10 +348,16 @@ export function abiEncode(types: any, values: any): string {
   return abi.rawEncode(types, values).toString('hex')
 }
 
+export function evmWordToAddress(hex: string): string {
+  assert.equal(hex.slice(0, 26), '0x000000000000000000000000')
+  return web3.utils.toChecksumAddress(hex.slice(26))
+}
+
 export const newUint8ArrayFromStr = (str: string): Uint8Array => {
   const codePoints = Array.prototype.map.call(str, (c: string) =>
     c.charCodeAt(0),
   )
+  //@ts-ignore
   return Uint8Array.from(codePoints)
 }
 
@@ -486,6 +494,25 @@ interface ServiceAgreement {
   oracleSignatures: Signature[]
 }
 
+interface OracleSignatures {
+  vs: number[] // uint8[]
+  rs: Uint8Array[] // bytes32[]
+  ss: Uint8Array[] // bytes32[]
+}
+
+const SERVICE_AGREEMENT_TYPES = [
+  'uint256',
+  'uint256',
+  'uint256',
+  'address[]',
+  'bytes32',
+  'address',
+  'bytes4',
+  'bytes4',
+]
+
+const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
+
 export const generateSAID = (sa: ServiceAgreement): Uint8Array => {
   const serviceAgreementIDInput = concatUint8Arrays(
     BNtoUint8Array(sa.payment),
@@ -597,44 +624,26 @@ export const constructStructArgs = (
   return args
 }
 
-// ABI specification for the given argument of the given contract method
-const getMethodArg = (
-  contract: any,
-  methodName: string,
-  argName: string,
-): ParamType => {
-  const fqName = `${contract.contractName}.${methodName}`
-  const methodABI = getMethod(contract, methodName)
-  let eMsg = `${fqName} is not a method: ${methodABI}`
-  assert.equal(methodABI.type, 'function', eMsg)
-  const argMatches = methodABI.inputs.filter((a: any) => a.name == argName)
-  eMsg = `${fqName} has no argument ${argName}, or name is ambiguous`
-  assert.equal(argMatches.length, 1, eMsg)
-  return argMatches[0]
+export const encodeServiceAgreement = (sa: ServiceAgreement) => {
+  const saParams = [
+    sa.payment.toString(),
+    sa.expiration.toString(),
+    sa.endAt.toString(),
+    sa.oracles,
+    sa.requestDigest,
+    sa.aggregator,
+    sa.aggInitiateJobSelector,
+    sa.aggFulfillSelector,
+  ]
+  return web3.eth.abi.encodeParameters(SERVICE_AGREEMENT_TYPES, saParams)
 }
 
-// Struct as mapping => tuple representation of struct, for use in truffle call
-//
-// TODO(alx): This does not deal with nested structs. It may be possible to do
-// that by making an AbiCoder with a custom CoerceFunc which, given a tuple
-// type, checks whether the input value is a map or a sequence, and if a map,
-// converts it to a sequence as I'm doing here.
-export const structAsTuple = (
-  struct: { [fieldName: string]: any },
-  contract: TruffleContract,
-  methodName: string,
-  argName: string,
-): { abi: ParamType; struct: ArrayLike<any> } => {
-  const abi: ParamType = getMethodArg(contract, methodName, argName)
-  const eMsg =
-    `${contract.contractName}.${methodName}'s argument ${argName} ` +
-    `is not a struct: ${abi}`
-  assert.equal(abi.type, 'tuple', eMsg)
-  return { abi, struct: abi.components.map(({ name }) => struct[name]) }
+export const encodeOracleSignatures = (os: OracleSignatures) => {
+  const osParams = [os.vs, os.rs, os.ss]
+  return web3.eth.abi.encodeParameters(ORACLE_SIGNATURES_TYPES, osParams)
 }
 
 export const initiateServiceAgreementArgs = (
-  coordinator: TruffleContract,
   serviceAgreement: ServiceAgreement,
 ): any[] => {
   const signatures = {
@@ -642,9 +651,11 @@ export const initiateServiceAgreementArgs = (
     rs: serviceAgreement.oracleSignatures.map(os => os.r),
     ss: serviceAgreement.oracleSignatures.map(os => os.s),
   }
-  const tup = (s: any, n: any) =>
-    structAsTuple(s, coordinator, 'initiateServiceAgreement', n).struct
-  return [tup(serviceAgreement, '_agreement'), tup(signatures, '_signatures')]
+
+  return [
+    encodeServiceAgreement(serviceAgreement),
+    encodeOracleSignatures(signatures),
+  ]
 }
 
 // Call coordinator contract to initiate the specified service agreement, and
@@ -654,7 +665,7 @@ export const initiateServiceAgreementCall = async (
   serviceAgreement: ServiceAgreement,
 ) =>
   await coordinator.initiateServiceAgreement.call(
-    ...initiateServiceAgreementArgs(coordinator, serviceAgreement),
+    ...initiateServiceAgreementArgs(serviceAgreement),
   )
 
 /** Call coordinator contract to initiate the specified service agreement. */
@@ -663,7 +674,7 @@ export const initiateServiceAgreement = async (
   serviceAgreement: ServiceAgreement,
 ) =>
   coordinator.initiateServiceAgreement(
-    ...initiateServiceAgreementArgs(coordinator, serviceAgreement),
+    ...initiateServiceAgreementArgs(serviceAgreement),
   )
 
 /** Check that the given service agreement was stored at the correct location */
@@ -731,7 +742,7 @@ export const newServiceAgreement = async (
   return agreement as ServiceAgreement
 }
 
-export function sixMonthsFromNow(): number {
+export function sixMonthsFromNow(): BN {
   return new BN(Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60)
 }
 
@@ -784,4 +795,23 @@ export const encodeInt256 = (int: numeric): string =>
 export const encodeAddress = (a: string): string => {
   assert(Ox(a).length <= 40, `${a} is too long to be an address`)
   return Ox(strip0x(a).padStart(40, '0'))
+}
+
+export const parseAggregatorRoundLog = (log: any): object => {
+  const data = abi.rawDecode(['uint32', 'uint32'], util.toBuffer(log.data))
+  return {
+    paymentAmount: bigNum(log.topics[1]),
+    minAnswerCount: bigNum(log.topics[2]),
+    maxAnswerCount: bigNum(log.topics[3]),
+    restartDelay: data[0],
+    timeout: data[1],
+  }
+}
+
+export const sleep = (ms: number): Promise<any> => {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+export const sleepSeconds = (seconds: number): Promise<any> => {
+  return new Promise(resolve => setTimeout(resolve, seconds * 1000))
 }

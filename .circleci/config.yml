@@ -85,102 +85,26 @@ jobs:
           paths:
             - "/go/pkg/mod"
       - run: ./tools/ci/rust_test
-  sgx:
-    docker:
-      - image: smartcontract/builder:1.0.25
-    environment:
-      SGX_ENABLED: yes
-      # XXX: These are set in the base image but circleci seems to wipe them out
-      PATH: "/root/.cargo/bin:/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/sgxsdk/bin:/opt/sgxsdk/bin/x64"
-      LD_LIBRARY_PATH: "/opt/sgxsdk/sdk_libs"
-      SGX_SDK: "/opt/sgxsdk"
-    steps:
-      - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-          paths:
-            - "/go/pkg/mod"
-      - run: make enclave
-      - run: ./tools/ci/sgx_test
   geth-postgres:
-    resource_class: xlarge
-    docker:
-      - image: smartcontract/builder:1.0.25
-        environment:
-          TYPEORM_NAME: ci
-          TYPEORM_HOST: explorerdb
-      - image: circleci/postgres:11
-        environment:
-          POSTGRES_USER: circleci_postgres
-          POSTGRES_DB: circleci_test
-          POSTGRES_INITDB_ARGS: "--lc-collate=C --lc-ctype=C"
-      - image: circleci/postgres:11
-        name: explorerdb
-        environment:
-          POSTGRES_USER: root
-          POSTGRES_DB: explorer_test
-          POSTGRES_INITDB_ARGS: "--lc-collate=C --lc-ctype=C"
+    resource_class: large
     environment:
-      DATABASE_URL: postgres://circleci_postgres@localhost:5432/circleci_test?sslmode=disable
+      GETH_MODE: true
+    machine:
+      image: ubuntu-1604:201903-01
+      docker_layer_caching: true
+    working_directory: ~/chainlink
     steps:
       - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-          paths:
-            - "/go/pkg/mod"
-      - run: ./tools/ci/ethereum_test
-      - store_artifacts:
-          path: ./integration/cypress/screenshots
-      - store_artifacts:
-          path: ./integration/logs
+      - run: cd ./tools/docker && ./compose test
   parity-postgres:
-    resource_class: xlarge
-    docker:
-      - image: smartcontract/builder:1.0.25
-        environment:
-          TYPEORM_NAME: ci
-          TYPEORM_HOST: explorerdb
-      - image: circleci/postgres:11-alpine
-        environment:
-          POSTGRES_USER: circleci_postgres
-          POSTGRES_DB: circleci_test
-      - image: circleci/postgres:11-alpine
-        name: explorerdb
-        environment:
-          POSTGRES_USER: root
-          POSTGRES_DB: explorer_test
-      - image: smartcontract/devnet:latest
-    environment:
-      DATABASE_URL: postgres://circleci_postgres@localhost:5432/circleci_test?sslmode=disable
-      ETH_WS_PORT: 8546
-      ETH_HTTP_PORT: 8545
-      MIN_OUTGOING_CONFIRMATIONS: 1
+    resource_class: large
+    machine:
+      image: ubuntu-1604:201903-01
+      docker_layer_caching: true
+    working_directory: ~/chainlink
     steps:
       - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-          paths:
-            - "/go/pkg/mod"
-      - run: ./tools/ci/ethereum_test parity
-      - store_artifacts:
-          path: ./integration/cypress/screenshots
-      - store_artifacts:
-          path: ./integration/logs
+      - run: cd ./tools/docker && ./compose test
   truffle:
     resource_class: large
     docker:
@@ -239,9 +163,10 @@ jobs:
       - store_artifacts:
           path: ./integration/logs
   explorer:
+    resource_class: xlarge
     working_directory: ~/chainlink
     docker:
-      - image: circleci/node:10-browsers
+      - image: circleci/node:10.16.3-browsers
         environment:
           TYPEORM_NAME: ci
       - image: circleci/postgres:11-alpine
@@ -254,23 +179,23 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}-node:10-browsers
+          key: v{{ checksum "cache.version" }}-yarn-vendor-node:10.16.3-browsers-{{ checksum "yarn.lock" }}
       - run:
           name: Install New Packages
           command: yarn install
       - save_cache:
           name: Save Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}-node:10-browsers
+          key: v{{ checksum "cache.version" }}-yarn-vendor-node:10.16.3-browsers-{{ checksum "yarn.lock" }}
           paths:
             - ~/.cache/yarn
             - /usr/local/share/.cache/yarn
-      - run:
-          name: Run Lint
-          command: yarn workspace @chainlink/explorer run lint
       - run: yarn workspace @chainlink/explorer run test:migration:run
       - run:
           name: Run Server Tests
           command: yarn workspace @chainlink/explorer run test-ci:silent
+      - run:
+          name: Build json-api-client package
+          command: yarn workspace @chainlink/json-api-client run build
       - run:
           name: Run Client Tests
           command: yarn workspace @chainlink/explorer-client run test-ci:silent
@@ -346,6 +271,18 @@ jobs:
           name: Docker build
           command: |
             DOCKER_TAG=circleci make docker
+  build-chainlink-sgx:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: |
+            SGX_ENABLED=yes DOCKER_TAG=circleci make docker
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -353,6 +290,32 @@ jobs:
       - checkout
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/report_coverage
+  check_if_rebase_needed:
+    resource_class: small
+    working_directory: ~/chainlink
+    docker:
+      - image: alpine/git
+    steps:
+      - checkout
+      - run: tools/bin/check_if_rebase_needed
+  lint:
+    resource_class: large
+    working_directory: ~/chainlink
+    docker:
+      - image: smartcontract/builder:1.0.25
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - run: yarn lint
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
   prepublish_npm:
     resource_class: large
     docker:
@@ -375,12 +338,12 @@ workflows:
   version: 2
   test:
     jobs:
-      - go-sqlite:
+      - check_if_rebase_needed:
           filters: # all branches, and /^v../ tags for build-publish...
             tags:
               only: /^v.*/
-      - go-sqlite-race:
-          filters:
+      - go-sqlite:
+          filters: # all branches, and /^v../ tags for build-publish...
             tags:
               only: /^v.*/
       - go-postgres:
@@ -415,15 +378,7 @@ workflows:
           filters: # all branches, and /^explorer-v../ tags for build-publish...
             tags:
               only: /^explorer-v.*/
-      - forks:
-          filters:
-            tags:
-              only: /^v.*/
-      - build-chainlink:
-          filters:
-            tags:
-              only: /^v.*/
-      - build-explorer:
+      - lint:
           filters:
             tags:
               only: /^v.*/
@@ -431,6 +386,13 @@ workflows:
           filters:
             tags:
               only: /^v.*/
+      - build-explorer:
+          filters:
+            branches:
+              ignore:
+                - develop
+                - /^release\/.*/
+                - master
       - build-publish-explorer:
           requires:
             - explorer
@@ -441,6 +403,17 @@ workflows:
                 - /^release\/.*/
             tags:
               only: /^explorer-v.*/ # handles final versioned releases
+      - build-chainlink:
+          filters:
+            branches:
+              ignore:
+                - develop
+                - /^release\/.*/
+                - master
+      - build-chainlink-sgx:
+          filters:
+            tags:
+              only: /^v.*/
       - build-publish-chainlink:
           requires:
             - go-sqlite

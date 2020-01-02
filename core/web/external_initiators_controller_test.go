@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"net/http"
 	"testing"
 
 	"chainlink/core/internal/cltest"
@@ -25,13 +26,39 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 		bytes.NewBufferString(`{"name":"bitcoin","url":"http://without.a.name"}`),
 	)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 201)
+	cltest.AssertServerResponse(t, resp, http.StatusCreated)
 	ei := &presenters.ExternalInitiatorAuthentication{}
 	err := cltest.ParseJSONAPIResponse(t, resp, ei)
 	require.NoError(t, err)
 
 	assert.Equal(t, "bitcoin", ei.Name)
 	assert.Equal(t, "http://without.a.name", ei.URL.String())
+	assert.NotEmpty(t, ei.AccessKey)
+	assert.NotEmpty(t, ei.Secret)
+	assert.NotEmpty(t, ei.OutgoingToken)
+	assert.NotEmpty(t, ei.OutgoingSecret)
+}
+
+func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	resp, cleanup := client.Post("/v2/external_initiators",
+		bytes.NewBufferString(`{"name":"no-url"}`),
+	)
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, 201)
+	ei := &presenters.ExternalInitiatorAuthentication{}
+	err := cltest.ParseJSONAPIResponse(t, resp, ei)
+	require.NoError(t, err)
+
+	assert.Equal(t, "no-url", ei.Name)
+	assert.Equal(t, "", ei.URL.String())
 	assert.NotEmpty(t, ei.AccessKey)
 	assert.NotEmpty(t, ei.Secret)
 	assert.NotEmpty(t, ei.OutgoingToken)
@@ -51,7 +78,7 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
 	)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 400)
+	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
 
 func TestExternalInitiatorsController_Delete(t *testing.T) {
@@ -61,11 +88,17 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
+	exi := models.ExternalInitiator{
+		Name: "abracadabra",
+	}
+	err := app.GetStore().CreateExternalInitiator(&exi)
+	require.NoError(t, err)
+
 	client := app.NewHTTPClient()
 
-	resp, cleanup := client.Delete("/v2/external_initiators")
+	resp, cleanup := client.Delete("/v2/external_initiators/" + exi.Name)
 	defer cleanup()
-	assert.Equal(t, 404, resp.StatusCode)
+	cltest.AssertServerResponse(t, resp, http.StatusNoContent)
 }
 
 func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
@@ -75,14 +108,26 @@ func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	err := app.GetStore().CreateExternalInitiator(&models.ExternalInitiator{
-		AccessKey: "abracadabra",
-	})
-	require.NoError(t, err)
-
 	client := app.NewHTTPClient()
 
-	resp, cleanup := client.Delete("/v2/external_initiators/abracadabra")
-	defer cleanup()
-	cltest.AssertServerResponse(t, resp, 204)
+	tests := []struct {
+		Name string
+		URL  string
+	}{
+		{
+			Name: "No external initiator specified",
+			URL:  "/v2/external_initiators",
+		},
+		{
+			Name: "Unknown initiator",
+			URL:  "/v2/external_initiators/not-exist",
+		},
+	}
+
+	for _, test := range tests {
+		t.Log(test.Name)
+		resp, cleanup := client.Delete(test.URL)
+		defer cleanup()
+		assert.Equal(t, http.StatusText(http.StatusNotFound), http.StatusText(resp.StatusCode))
+	}
 }

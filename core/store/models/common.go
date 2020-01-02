@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"chainlink/core/store/assets"
+	"chainlink/core/assets"
 
 	"github.com/araddon/dateparse"
 	"github.com/jinzhu/gorm"
@@ -132,7 +132,7 @@ type JSON struct {
 func (j JSON) Value() (driver.Value, error) {
 	s := j.String()
 	if len(s) == 0 {
-		return "{}", nil
+		return nil, nil
 	}
 	return s, nil
 }
@@ -154,7 +154,7 @@ func ParseJSON(b []byte) (JSON, error) {
 	var j JSON
 	str := string(b)
 	if len(str) == 0 {
-		str = `{}`
+		return j, nil
 	}
 	return j, json.Unmarshal([]byte(str), &j)
 }
@@ -242,6 +242,11 @@ func (w *WebURL) UnmarshalJSON(j []byte) error {
 	if err != nil {
 		return err
 	}
+	// handle no url case
+	if len(v) == 0 {
+		return nil
+	}
+
 	u, err := url.ParseRequestURI(v)
 	if err != nil {
 		return err

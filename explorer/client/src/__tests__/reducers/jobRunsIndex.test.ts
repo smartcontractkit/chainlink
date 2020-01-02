@@ -1,30 +1,38 @@
-import reducer, { State } from '../../reducers'
-import { JobRunsAction } from '../../reducers/jobRuns'
+import reducer, {
+  INITIAL_STATE as initialRootState,
+  AppState,
+} from '../../reducers'
+import {
+  FetchJobRunsSucceededAction,
+  FetchJobRunSucceededAction,
+  JobRunNormalizedData,
+} from '../../reducers/actions'
+import { partialAsFull } from '../support/mocks'
 
-const STATE = { jobRunsIndex: { items: ['replace-me'] } }
+const INITIAL_STATE: AppState = {
+  ...initialRootState,
+  jobRunsIndex: { items: ['replace-me'] },
+}
 
 describe('reducers/jobRunsIndex', () => {
-  it('returns the current state for other actions', () => {
-    const action = {} as JobRunsAction
-    const state = reducer(STATE, action) as State
-
-    expect(state.jobRunsIndex).toEqual(STATE.jobRunsIndex)
-  })
-
-  describe('UPSERT_JOB_RUNS', () => {
+  describe('FETCH_JOB_RUNS_SUCCEEDED', () => {
     it('can replace items', () => {
       const jobRuns = [{ id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e' }]
-      const data = {
-        meta: {
-          jobRuns: {
-            data: jobRuns,
-            meta: { count: 100 },
+      const action: FetchJobRunsSucceededAction = {
+        type: 'FETCH_JOB_RUNS_SUCCEEDED',
+        data: {
+          chainlinkNodes: [],
+          jobRuns,
+          meta: {
+            currentPageJobRuns: {
+              data: jobRuns,
+              meta: { count: 100 },
+            },
           },
         },
-        entities: {},
       }
-      const action = { type: 'UPSERT_JOB_RUNS', data: data } as JobRunsAction
-      const state = reducer(STATE, action) as State
+
+      const state = reducer(INITIAL_STATE, action)
 
       expect(state.jobRunsIndex).toEqual({
         items: ['9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'],
@@ -33,16 +41,19 @@ describe('reducers/jobRunsIndex', () => {
     })
   })
 
-  describe('UPSERT_JOB_RUN', () => {
+  describe('FETCH_JOB_RUN_SUCCEEDED', () => {
     it('clears items', () => {
-      const data = {
+      const data = partialAsFull<JobRunNormalizedData>({
         jobRuns: {},
         meta: {
           jobRun: { meta: {} },
         },
+      })
+      const action: FetchJobRunSucceededAction = {
+        type: 'FETCH_JOB_RUN_SUCCEEDED',
+        data,
       }
-      const action = { type: 'UPSERT_JOB_RUN', data: data } as JobRunsAction
-      const state = reducer(STATE, action) as State
+      const state = reducer(INITIAL_STATE, action)
 
       expect(state.jobRunsIndex).toEqual({
         items: undefined,

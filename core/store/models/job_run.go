@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"time"
 
+	"chainlink/core/assets"
 	clnull "chainlink/core/null"
-	"chainlink/core/store/assets"
+	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	null "gopkg.in/guregu/null.v3"
@@ -27,8 +28,8 @@ type JobRun struct {
 	UpdatedAt      time.Time    `json:"updatedAt"`
 	Initiator      Initiator    `json:"initiator" gorm:"association_autoupdate:false;association_autocreate:false"`
 	InitiatorID    uint         `json:"-"`
-	CreationHeight *Big         `json:"creationHeight"`
-	ObservedHeight *Big         `json:"observedHeight"`
+	CreationHeight *utils.Big   `json:"creationHeight"`
+	ObservedHeight *utils.Big   `json:"observedHeight"`
 	Overrides      JSON         `json:"overrides"`
 	DeletedAt      null.Time    `json:"-" gorm:"index"`
 	Payment        *assets.Link `json:"payment,omitempty"`
@@ -71,6 +72,8 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 
 	if jr.Status.Completed() {
 		output = append(output, "link_earned", jr.Payment)
+	} else {
+		output = append(output, "input_amount", jr.Payment)
 	}
 
 	return append(kvs, output...)

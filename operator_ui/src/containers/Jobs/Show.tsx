@@ -12,7 +12,7 @@ import { fetchJob, fetchJobRuns } from 'actions'
 import Content from 'components/Content'
 import JobRunsList from 'components/JobRuns/List'
 import TaskList from 'components/Jobs/TaskList'
-import { AppState } from 'connectors/redux/reducers'
+import { AppState } from 'src/reducers'
 import { JobRuns, JobSpec } from 'operator_ui'
 import React from 'react'
 import { connect } from 'react-redux'
@@ -188,7 +188,7 @@ export const Show = useHooks(
       document.title = 'Show Job'
       fetchJob(jobSpecId)
       fetchJobRuns({
-        jobSpecId: jobSpecId,
+        jobSpecId,
         page: DEFAULT_PAGE,
         size: RECENT_RUNS_COUNT,
       })

@@ -25,14 +25,14 @@ export default (jobs, count) => {
 
       return {
         type: 'specs',
-        id: id,
+        id,
         attributes: {
-          initiators: initiators,
-          id: id,
-          tasks: tasks,
+          initiators,
+          id,
+          tasks,
           minPayment: minPay,
-          createdAt: createdAt,
-          earnings: earnings,
+          createdAt,
+          earnings,
           runs: runs.map(r =>
             Object.assign(
               {},

@@ -56,9 +56,16 @@ export class ChainlinkNode {
   @Column()
   salt: string
 
-  @OneToMany(() => JobRun, jobRun => jobRun.chainlinkNode, {
-    onDelete: 'CASCADE',
-  })
+  @Column()
+  createdAt: Date
+
+  @OneToMany(
+    () => JobRun,
+    jobRun => jobRun.chainlinkNode,
+    {
+      onDelete: 'CASCADE',
+    },
+  )
   jobRuns: Array<JobRun>
 
   public present(): ChainlinkNodePresenter {
@@ -103,7 +110,7 @@ export const deleteChainlinkNode = async (db: Connection, name: string) => {
     .delete()
     .from(ChainlinkNode)
     .where('name = :name', {
-      name: name,
+      name,
     })
     .execute()
 }

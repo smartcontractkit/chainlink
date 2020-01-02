@@ -1,9 +1,0 @@
-.prettierignore
-.gitignore
-main.go
-public/
-src/images
-artifacts/
-.eslintignore
-coverage/
-dist/

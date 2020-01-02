@@ -1,4 +1,4 @@
-import createStore from 'connectors/redux'
+import createStore from 'createStore'
 import { ConnectedShow as Show } from 'containers/Jobs/Show'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
 import jsonApiJobSpecRunsFactory from 'factories/jsonApiJobSpecRuns'
@@ -45,7 +45,7 @@ describe('containers/Jobs/Show', () => {
     ])
     global.fetch.getOnce(globPath('/v2/runs'), jobRunResponse)
 
-    const props = { match: { params: { jobSpecId: jobSpecId } } }
+    const props = { match: { params: { jobSpecId } } }
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)
@@ -75,7 +75,7 @@ describe('containers/Jobs/Show', () => {
     global.fetch.getOnce(globPath(`/v2/specs/${jobSpecId}`), jobSpecResponse)
     global.fetch.getOnce(globPath('/v2/runs'), jobRunsResponse)
 
-    const props = { match: { params: { jobSpecId: jobSpecId } } }
+    const props = { match: { params: { jobSpecId } } }
     const wrapper = mountShow(props)
 
     await syncFetch(wrapper)

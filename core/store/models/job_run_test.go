@@ -6,9 +6,10 @@ import (
 	"math/big"
 	"testing"
 
+	"chainlink/core/assets"
 	"chainlink/core/internal/cltest"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
+	"chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,7 @@ func TestJobRun_RetrievingFromDBWithError(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
-	jr := job.NewRun(job.Initiators[0])
+	jr := cltest.NewJobRun(job)
 	jr.JobSpecID = job.ID
 	jr.Result.ErrorMessage = null.StringFrom("bad idea")
 	err := store.CreateJobRun(&jr)
@@ -41,10 +42,9 @@ func TestJobRun_RetrievingFromDBWithData(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	err := store.CreateJob(&job)
-	initr := job.Initiators[0]
 	assert.NoError(t, err)
 
-	jr := job.NewRun(initr)
+	jr := cltest.NewJobRun(job)
 	data := `{"result":"11850.00"}`
 	jr.Result = models.RunResult{Data: cltest.JSONFromString(t, data)}
 	err = store.CreateJobRun(&jr)
@@ -65,10 +65,9 @@ func TestJobRun_SavesASyncEvent(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	err := store.CreateJob(&job)
-	initr := job.Initiators[0]
 	assert.NoError(t, err)
 
-	jr := job.NewRun(initr)
+	jr := cltest.NewJobRun(job)
 	err = store.CreateJobRun(&jr)
 	assert.NoError(t, err)
 
@@ -104,10 +103,9 @@ func TestJobRun_SkipsEventSaveIfURLBlank(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	err := store.CreateJob(&job)
-	initr := job.Initiators[0]
 	assert.NoError(t, err)
 
-	jr := job.NewRun(initr)
+	jr := cltest.NewJobRun(job)
 	data := `{"result":"921.02"}`
 	jr.Result = models.RunResult{Data: cltest.JSONFromString(t, data)}
 	err = store.CreateJobRun(&jr)
@@ -124,19 +122,20 @@ func TestJobRun_SkipsEventSaveIfURLBlank(t *testing.T) {
 
 func TestJobRun_ForLogger(t *testing.T) {
 	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
-	jr := job.NewRun(job.Initiators[0])
+	jr := cltest.NewJobRun(job)
 	jr.JobSpecID = job.ID
 	linkReward := assets.NewLink(5)
 
 	jr.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result":"11850.00"}`)}
 	jr.Payment = linkReward
 	logsBeforeCompletion := jr.ForLogger()
-	require.Len(t, logsBeforeCompletion, 6)
+	require.Len(t, logsBeforeCompletion, 8)
 	assert.Equal(t, logsBeforeCompletion[0], "job")
 	assert.Equal(t, logsBeforeCompletion[1], jr.JobSpecID.String())
 	assert.Equal(t, logsBeforeCompletion[2], "run")
@@ -152,8 +151,8 @@ func TestJobRun_ForLogger(t *testing.T) {
 	assert.Equal(t, logsAfterCompletion[6], "link_earned")
 	assert.Equal(t, logsAfterCompletion[7], linkReward)
 
-	jr.CreationHeight = models.NewBig(big.NewInt(5))
-	jr.ObservedHeight = models.NewBig(big.NewInt(10))
+	jr.CreationHeight = utils.NewBig(big.NewInt(5))
+	jr.ObservedHeight = utils.NewBig(big.NewInt(10))
 	logsWithBlockHeights := jr.ForLogger()
 	require.Len(t, logsWithBlockHeights, 12)
 	assert.Equal(t, logsWithBlockHeights[6], "creation_height")
@@ -161,11 +160,11 @@ func TestJobRun_ForLogger(t *testing.T) {
 	assert.Equal(t, logsWithBlockHeights[8], "observed_height")
 	assert.Equal(t, logsWithBlockHeights[9], big.NewInt(10))
 
-	run := job.NewRun(job.Initiators[0])
+	run := cltest.NewJobRun(job)
 	run.Status = models.RunStatusErrored
 	run.Result.ErrorMessage = null.StringFrom("bad idea")
 	logsWithErr := run.ForLogger()
-	require.Len(t, logsWithErr, 8)
+	require.Len(t, logsWithErr, 10)
 	assert.Equal(t, logsWithErr[6], "job_error")
 	assert.Equal(t, logsWithErr[7], run.ErrorString())
 }
@@ -174,7 +173,8 @@ func TestJobRun_ApplyOutput_CompletedWithNoTasksRemaining(t *testing.T) {
 	t.Parallel()
 
 	job := cltest.NewJobWithWebInitiator()
-	jobRun := job.NewRun(job.Initiators[0])
+	jobRun := cltest.NewJobRun(job)
+	jobRun.TaskRuns = []models.TaskRun{models.TaskRun{}}
 
 	result := models.NewRunOutputComplete(models.JSON{})
 	jobRun.TaskRuns[0].ApplyOutput(result)
@@ -186,7 +186,7 @@ func TestJobRun_ApplyOutput_CompletedWithTasksRemaining(t *testing.T) {
 	t.Parallel()
 
 	job := cltest.NewJobWithWebInitiator()
-	jobRun := job.NewRun(job.Initiators[0])
+	jobRun := cltest.NewJobRun(job)
 
 	result := models.NewRunOutputComplete(models.JSON{})
 	jobRun.ApplyOutput(result)
@@ -198,7 +198,7 @@ func TestJobRun_ApplyOutput_ErrorSetsFinishedAt(t *testing.T) {
 	t.Parallel()
 
 	job := cltest.NewJobWithWebInitiator()
-	jobRun := job.NewRun(job.Initiators[0])
+	jobRun := cltest.NewJobRun(job)
 	jobRun.Status = models.RunStatusErrored
 
 	result := models.NewRunOutputError(errors.New("oh futz"))

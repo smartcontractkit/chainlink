@@ -12,6 +12,7 @@ import (
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
 	"chainlink/core/web"
 
 	"github.com/stretchr/testify/assert"
@@ -72,7 +73,7 @@ func TestRenderer_RenderJobRun(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			job := cltest.NewJobWithWebInitiator()
-			run := job.NewRun(job.Initiators[0])
+			run := cltest.NewJobRun(job)
 			assert.NoError(t, test.renderer.Render(&presenters.JobRun{run}))
 		})
 	}
@@ -210,7 +211,7 @@ func TestRendererTable_Render_TxAttempts(t *testing.T) {
 		models.TxAttempt{
 			Hash:      cltest.NewHash(),
 			TxID:      1,
-			GasPrice:  models.NewBig(big.NewInt(1)),
+			GasPrice:  utils.NewBig(big.NewInt(1)),
 			Confirmed: false,
 			SentAt:    1,
 		},

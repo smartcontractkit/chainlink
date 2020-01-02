@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"testing"
 
+	"chainlink/core/assets"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store"
-	"chainlink/core/store/assets"
 	"chainlink/core/store/models"
 	"chainlink/core/web"
 
@@ -142,7 +142,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	}
 	require.NoError(t, app.GetStore().CreateBridgeType(bt))
 
-	ud := bytes.NewBuffer([]byte(`{"url":"http://yourbridge"}`))
+	ud := bytes.NewBuffer([]byte(`{"name": "BRidgea","url":"http://yourbridge"}`))
 	resp, cleanup := client.Patch("/v2/bridge_types/bridgea", ud)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)

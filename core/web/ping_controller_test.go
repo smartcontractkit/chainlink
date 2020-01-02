@@ -2,8 +2,10 @@ package web_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
+	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/web"
@@ -23,7 +25,8 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 	resp, cleanup := client.Get("/v2/ping")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
-	require.Equal(t, `{"message":"pong"}`, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	require.Equal(t, `{"message":"pong"}`, strings.TrimSpace(body))
 }
 
 func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
@@ -33,13 +36,14 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	eia := &models.ExternalInitiatorAuthentication{
+	eia := &auth.Token{
 		AccessKey: "abracadabra",
 		Secret:    "opensesame",
 	}
+	eir_url := cltest.WebURL(t, "http://localhost:8888")
 	eir := &models.ExternalInitiatorRequest{
 		Name: "bitcoin",
-		URL:  cltest.WebURL(t, "http://localhost:8888"),
+		URL:  &eir_url,
 	}
 
 	ei, err := models.NewExternalInitiator(eia, eir)
@@ -60,7 +64,8 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	defer resp.Body.Close()
 
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
-	require.Equal(t, `{"message":"pong"}`, string(cltest.ParseResponseBody(t, resp)))
+	body := string(cltest.ParseResponseBody(t, resp))
+	require.Equal(t, `{"message":"pong"}`, strings.TrimSpace(body))
 }
 
 func TestPingController_Show_NoCredentials(t *testing.T) {

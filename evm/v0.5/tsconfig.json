@@ -13,7 +13,11 @@
     "resolveJsonModule": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "typeRoots": ["src/generated"]
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
   },
-  "include": ["test", "src"]
+  "include": ["test", "testv2", "src", "@types"]
 }

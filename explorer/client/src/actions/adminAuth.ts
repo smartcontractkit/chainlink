@@ -1,39 +1,15 @@
-import { Action, Dispatch } from 'redux'
-import { ThunkAction } from 'redux-thunk'
-import httpStatus from 'http-status-codes'
+import normalize from 'json-api-normalizer'
 import * as api from '../api'
-import { State as AppState } from '../reducers'
+import { request } from './helpers'
 
-export function signIn(
-  username: string,
-  password: string,
-): ThunkAction<Promise<void>, AppState, void, Action<string>> {
-  return (dispatch: Dispatch) => {
-    return api.signIn(username, password).then(status => {
-      if (status === httpStatus.OK) {
-        dispatch({ type: 'ADMIN_SIGNIN_SUCCEEDED' })
-      } else if (status === httpStatus.UNAUTHORIZED) {
-        dispatch({ type: 'ADMIN_SIGNIN_FAILED' })
-        dispatch({
-          type: 'NOTIFY_ERROR',
-          text: 'Invalid username and password.',
-        })
-      } else {
-        dispatch({ type: 'ADMIN_SIGNIN_ERROR' })
-      }
-    })
-  }
-}
+export const signIn = request(
+  'ADMIN_SIGNIN',
+  api.v1.adminAuth.signIn,
+  normalize,
+)
 
-export function signOut(): ThunkAction<
-  Promise<void>,
-  AppState,
-  void,
-  Action<string>
-> {
-  return (dispatch: Dispatch) => {
-    return api.signOut().then(() => {
-      dispatch({ type: 'ADMIN_SIGNOUT_SUCCEEDED' })
-    })
-  }
-}
+export const signOut = request(
+  'ADMIN_SIGNOUT',
+  api.v1.adminAuth.signOut,
+  normalize,
+)

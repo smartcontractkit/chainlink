@@ -4,8 +4,10 @@ import (
 	"errors"
 	"net/http"
 
+	"chainlink/core/auth"
 	"chainlink/core/services"
 	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
 
 	"github.com/gin-gonic/gin"
@@ -19,12 +21,15 @@ type ExternalInitiatorsController struct {
 // Create builds and saves a new service agreement record.
 func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 	eir := &models.ExternalInitiatorRequest{}
-	if !eic.App.GetStore().Config.Dev() {
-		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("External Initiators are currently under development and not yet usable outside of development mode"))
+	if !eic.App.GetStore().Config.Dev() && !eic.App.GetStore().Config.FeatureExternalInitiators() {
+		jsonAPIError(c,
+			http.StatusMethodNotAllowed,
+			errors.New("The External Initiator feature is disabled by configuration"),
+		)
 		return
 	}
 
-	eia := models.NewExternalInitiatorAuthentication()
+	eia := auth.NewToken()
 	if err := c.ShouldBindJSON(eir); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 	} else if ei, err := models.NewExternalInitiator(eia, eir); err != nil {
@@ -46,8 +51,10 @@ func (eic *ExternalInitiatorsController) Destroy(c *gin.Context) {
 		return
 	}
 
-	id := c.Param("AccessKey")
-	if err := eic.App.GetStore().DeleteExternalInitiator(id); err != nil {
+	name := c.Param("Name")
+	if exi, err := eic.App.GetStore().FindExternalInitiatorByName(name); err == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("external initiator not found"))
+	} else if err := eic.App.GetStore().DeleteExternalInitiator(exi.Name); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponseWithStatus(c, nil, "external initiator", http.StatusNoContent)

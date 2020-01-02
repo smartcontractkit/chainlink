@@ -1,5 +1,5 @@
 import React from 'react'
-import createStore from 'connectors/redux'
+import createStore from 'createStore'
 import syncFetch from 'test-helpers/syncFetch'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
@@ -68,13 +68,7 @@ describe('containers/SignIn', () => {
 
     const newState = store.getState()
     expect(newState.notifications).toEqual({
-      errors: [
-        {
-          props: {
-            msg: 'Your email or password is incorrect. Please try again',
-          },
-        },
-      ],
+      errors: ['Your email or password is incorrect. Please try again'],
       successes: [],
       currentUrl: '/signin',
     })

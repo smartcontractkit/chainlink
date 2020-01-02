@@ -8,7 +8,10 @@ export class TaskRun {
   @PrimaryGeneratedColumn()
   id: number
 
-  @ManyToOne(() => JobRun, jobRun => jobRun.taskRuns)
+  @ManyToOne(
+    () => JobRun,
+    jobRun => jobRun.taskRuns,
+  )
   jobRun: JobRun
 
   @Column()

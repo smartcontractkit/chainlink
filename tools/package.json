@@ -4,19 +4,12 @@
   "license": "MIT",
   "scripts": {
     "depcheck": "echo '@chainlink/tools' && depcheck || true",
-    "format": "prettier --write \"**/*\"",
-    "lint": "eslint --ext .js,.ts .",
     "setup": "echo \"No setup required for @chainlink/tools\""
   },
   "dependencies": {
     "axios": "^0.19.0"
   },
   "devDependencies": {
-    "@chainlink/eslint-config": "0.0.1",
-    "@chainlink/prettier-config": "0.0.1",
-    "depcheck": "^0.8.3",
-    "eslint": "^6.3.0",
-    "prettier": "^1.18.2"
-  },
-  "prettier": "@chainlink/prettier-config"
+    "depcheck": "^0.9.1"
+  }
 }

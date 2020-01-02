@@ -10,7 +10,6 @@ import { withFormik, FormikProps, Form as FormikForm } from 'formik'
 import normalizeUrl from 'normalize-url'
 import React from 'react'
 import { Prompt } from 'react-router-dom'
-import isEmpty from 'lodash/isEmpty'
 import isEqual from 'lodash/isEqual'
 import Button from 'components/Button'
 
@@ -70,21 +69,25 @@ function submitError(callback: Function, values: FormValues) {
   }
 }
 
-function initialValues({
-  name,
-  url,
-  minimumContractPayment,
-  confirmations,
-}: OwnProps): FormValues {
-  const unsavedBridge = storage.getJson(UNSAVED_BRIDGE)
-  const propValues = {
-    name: name || '',
-    url: url || '',
-    minimumContractPayment: minimumContractPayment || '0',
-    confirmations: confirmations || 0,
-  }
+const DEFAULT_VALUES: FormValues = {
+  name: '',
+  url: '',
+  minimumContractPayment: '0',
+  confirmations: 0,
+}
 
-  return isEmpty(unsavedBridge) ? propValues : unsavedBridge
+function getValue(ownProps: OwnProps, key: keyof FormValues) {
+  const unsavedBridge = storage.getJson(UNSAVED_BRIDGE)
+  return ownProps[key] || unsavedBridge[key] || DEFAULT_VALUES[key]
+}
+
+function initialValues(props: OwnProps): FormValues {
+  return {
+    name: getValue(props, 'name'),
+    url: getValue(props, 'url'),
+    minimumContractPayment: getValue(props, 'minimumContractPayment'),
+    confirmations: getValue(props, 'confirmations'),
+  }
 }
 
 function isDirty(props: Props): boolean {
