@@ -1,3 +1,4 @@
+import { ethers } from 'ethers'
 import { generated as chainlink } from 'chainlinkv0.5'
 import {
   registerPromiseHandler,
@@ -47,7 +48,7 @@ export async function deployContracts() {
     1,
     60,
     1,
-    'PrepaidAggregator for flux monitor test',
+    ethers.utils.formatBytes32String('USD/ETH'),
   )
 
   return {
