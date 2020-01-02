@@ -1014,9 +1014,10 @@ func TestCreateAndRunJob(t *testing.T) {
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	require.NoError(t, app.Start())
 
-	// create job
+	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "../../integration/cypress/fixtures/job.json")
 
-	// run job
+	jobRun := cltest.CreateJobRunViaWeb(t, app, jobSpec)
 
-	// check completion
+	// this should not complete
+	cltest.WaitForJobRunToComplete(t, app.GetStore(), jobRun)
 }
