@@ -1006,7 +1006,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 }
 
-func testCreateAndRunJob(t *testing.T) {
+func TestCreateAndRunJob(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
@@ -1014,7 +1014,15 @@ func testCreateAndRunJob(t *testing.T) {
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	require.NoError(t, app.Start())
 
-	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "../../integration/cypress/fixtures/job.json")
+	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
+	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", tickerResponse)
+	defer assertCalled()
+
+	time.Sleep(time.Second)
+
+	payload := cltest.MustReadFile(t, "../../integration/cypress/fixtures/job2.json")
+	toSend := strings.Replace(string(payload), "url", mockServer.URL, -1)
+	jobSpec := cltest.CreateSpecViaWeb2(t, app, []byte(toSend))
 
 	jobRun := cltest.CreateJobRunViaWeb(t, app, jobSpec)
 

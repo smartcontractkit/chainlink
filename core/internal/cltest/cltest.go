@@ -595,6 +595,20 @@ func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.Jo
 	return createdJob
 }
 
+func CreateSpecViaWeb2(t testing.TB, app *TestApplication, spec []byte) models.JobSpec {
+	t.Helper()
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(spec))
+	defer cleanup()
+	AssertServerResponse(t, resp, http.StatusOK)
+
+	var createdJob models.JobSpec
+	err := ParseJSONAPIResponse(t, resp, &createdJob)
+	require.NoError(t, err)
+	return createdJob
+}
+
 // CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
 func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
 	t.Helper()
