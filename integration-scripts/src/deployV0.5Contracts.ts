@@ -5,6 +5,7 @@ import {
   DEVNET_ADDRESS,
   createProvider,
   deployContract,
+  getArgs,
 } from './common'
 import { deployLinkTokenContract } from './deployLinkTokenContract'
 const {
@@ -46,10 +47,12 @@ export async function deployContracts() {
     { Factory: PrepaidAggregatorFactory, signer, name: 'PrepaidAggregator' },
     linkToken.address,
     1,
-    60,
+    3,
     1,
-    ethers.utils.formatBytes32String('USD/ETH'),
+    ethers.utils.formatBytes32String('ETH/USD'),
   )
+  const { CHAINLINK_NODE_ADDRESS } = getArgs(['CHAINLINK_NODE_ADDRESS'])
+  await prepaidAggregator.addOracle(CHAINLINK_NODE_ADDRESS, 1, 1, 0)
 
   return {
     linkToken,

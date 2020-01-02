@@ -3,14 +3,14 @@
     {
       "type": "fluxmonitor",
       "params": {
-        "address": "0xceaa86879ef8f4d0171b252ec9e2dda6854027c9",
+        "address": "0x0000000000000000000000000000000000000000",
         "requestData": {
           "data": {
             "coin": "ETH",
             "market": "USD"
           }
         },
-        "feeds": ["http://localhost:6644"],
+        "feeds": ["http://external-adapter:6644"],
         "threshold": 1,
         "precision": 2
       }
