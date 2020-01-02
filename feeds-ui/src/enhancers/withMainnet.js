@@ -50,6 +50,7 @@ const MAINNET_CONTRACTS = [
     valuePrefix: '$',
     answerName: 'JPY',
     counter: 3600,
+    decimalPlaces: 9,
     path: 'jpy-usd',
   },
   {
