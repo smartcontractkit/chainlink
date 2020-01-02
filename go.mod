@@ -3,6 +3,7 @@ module chainlink
 go 1.12
 
 require (
+	cloud.google.com/go v0.37.4 // indirect
 	github.com/araddon/dateparse v0.0.0-20190622164848-0fb0a474d195
 	github.com/aristanetworks/goarista v0.0.0-20190204200901-2166578f3448 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
@@ -35,13 +36,13 @@ require (
 	github.com/gorilla/sessions v1.2.0
 	github.com/gorilla/websocket v1.4.1
 	github.com/guregu/null v3.4.0+incompatible
-	github.com/jinzhu/gorm v1.9.11
+	github.com/jinzhu/gorm v1.9.12-0.20191206142228-79a77d771dee
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/lib/pq v1.3.0
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mattn/go-isatty v0.0.11 // indirect
-	github.com/mattn/go-sqlite3 v1.13.0
+	github.com/mattn/go-sqlite3 v2.0.1+incompatible
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mrwonko/cron v0.0.0-20180828170130-e0ddd0f7e7db
 	github.com/olekukonko/tablewriter v0.0.4
@@ -69,7 +70,7 @@ require (
 	go.dedis.ch/kyber/v3 v3.0.11
 	go.uber.org/multierr v1.4.0
 	go.uber.org/zap v1.13.0
-	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
+	golang.org/x/crypto v0.0.0-20191205180655-e7c4368fe9dd
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
