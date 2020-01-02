@@ -12,6 +12,7 @@ services:
     volumes:
       # Forwards the local Docker socket to the container.
       - /var/run/docker.sock:/var/run/docker.sock
+      - /home/chainlink/log:/var/log
     depends_on:
       - node
       - echo-server
