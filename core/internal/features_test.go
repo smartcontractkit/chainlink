@@ -1006,7 +1006,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 }
 
-func TestCreateAndRunJob(t *testing.T) {
+func testCreateAndRunJob(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 

@@ -8,7 +8,7 @@ services:
       - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db:5432/$CHAINLINK_DB_NAME?sslmode=disable
   node-db:
     container_name: chainlink-db
-    image: postgres:11.6
+    image: circleci/postgres:11.5
     volumes:
       - node-db-data:/var/lib/postgresql/data
     environment:
