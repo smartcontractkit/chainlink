@@ -35,7 +35,7 @@ require (
 	github.com/gorilla/sessions v1.2.0
 	github.com/gorilla/websocket v1.4.1
 	github.com/guregu/null v3.4.0+incompatible
-	github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2
+	github.com/jinzhu/gorm v1.9.11
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/lib/pq v1.3.0
@@ -49,6 +49,7 @@ require (
 	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709 // indirect
 	github.com/pkg/errors v0.9.0
 	github.com/prometheus/client_golang v1.3.0
+	github.com/prometheus/tsdb v0.7.1 // indirect
 	github.com/rjeczalik/notify v0.9.2 // indirect
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/satori/go.uuid v1.2.0
