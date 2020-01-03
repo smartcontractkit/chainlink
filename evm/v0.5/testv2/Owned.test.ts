@@ -1,4 +1,4 @@
-import { personas, checkPublicABI } from './support/helpers'
+import { personas, checkPublicABI } from '../test/support/helpers'
 import { expectEvent, expectRevert } from 'openzeppelin-test-helpers'
 
 contract('Owned', () => {
