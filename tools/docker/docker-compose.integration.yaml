@@ -23,6 +23,7 @@ services:
       - CHAINLINK_URL
       - ETH_HTTP_URL
       - ECHO_SERVER_URL
+      - EXTERNAL_ADAPTER_URL
       - CLIENT_NODE_URL # used to send remote commands
       - CYPRESS_JOB_SERVER_PORT
       - CYPRESS_JOB_SERVER_HOST
@@ -55,6 +56,17 @@ services:
       - '6692:6692'
     environment:
       - JOB_SERVER_PORT=$CYPRESS_JOB_SERVER_PORT
+
+  external-adapter:
+    container_name: external-adapter
+    image: smartcontract/external-adapter
+    build:
+      context: ../../
+      dockerfile: tools/external-adapter/Dockerfile
+    ports:
+      - '6644:6644'
+    environment:
+      - EXTERNAL_ADAPTER_PORT=$EXTERNAL_ADAPTER_PORT
 
   node:
     entrypoint: ''
