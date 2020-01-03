@@ -6,54 +6,47 @@ title 'Flux Monitor test.'
 
 flux_monitor_test() {
   expected_job_count=$(expr $(chainlink -j jobs list | jq length) + 1)
-  current_job_run_count=$(expr $(chainlink -j runs list | jq length))
-  expected_job_run_count=$((current_job_run_count + 1))
+  initial_job_run_count=$(expr $(chainlink -j runs list | jq length))
+  first_job_run_count=$((initial_job_run_count + 1))
+  second_job_run_count=$((first_job_run_count + 1))
   local log=$LOG_PATH/flux_monitor.log
 
   # add flux monitor job to CL node
-  FLUX_MONITOR_JOB=`cat flux_monitor/fixtures/job.json`
+  FLUX_MONITOR_JOB=$(cat flux_monitor/fixtures/job.json | jq --arg address $PREPAID_AGGREGATOR_ADDRESS '.initiators[0].params.address = $address')
   chainlink jobs create "$FLUX_MONITOR_JOB"
 
   # Check job counts
   assert "Jobs count" "chainlink -j jobs list | jq length" $expected_job_count
 
-  # Assert no jobs ran yet
-  assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $current_job_run_count
+  # Assert one job ran to update price
+  assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
 
-  echo "\n"
-  echo "URLS:"
-  echo "$EXTERNAL_ADAPTER_URL"
-  echo "$ECHO_SERVER_URL"
+  # TODO - once FM's check feed interval is configurable, update this test to change the
+  # feed's price and ensure FM initiates additional job run
+
+  # nominally change price feed
+  # curl \
+  #   -H "Content-Type: application/json" \
+  #   --request PATCH \
+  #   --data '{"result":101}' \
+  #   "$EXTERNAL_ADAPTER_URL/result"
+
+  # sleep 20
+
+  # Assert no jobs ran after nominal update
+  # assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
 
   # change price feed
-  curl \
-    -H "Content-Type: application/json" \
-    --request PATCH \
-    --data '{"result":110}' \
-    "$EXTERNAL_ADAPTER_URL/result"
+  # curl \
+  #   -H "Content-Type: application/json" \
+  #   --request PATCH \
+  #   --data '{"result":110}' \
+  #   "$EXTERNAL_ADAPTER_URL/result"
 
-  sleep 5
+  # sleep 20
 
   # Assert job ran
-  assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $expected_job_run_count
-
-
-
-  # yarn workspace @chainlink/integration-scripts send-ethlog-transaction | tee $log
-
-  # jid=`cat $log | grep Job | awk '{print$4}'`
-
-  # # Check echo count
-  # assert "Echo count" "curl -sS $ECHO_SERVER_URL" $expected_echo_count
-
-  # # Check job counts
-  # assert "Jobs count" "chainlink -j jobs list | jq length" $expected_job_count
-
-  # # Check job runs
-  # assert "EthLog Runs count" "chainlink -j runs list --jobid $jid | jq length" 1
-
-  # # Check that the run completed
-  # assert "Run completed" 'chainlink -j runs list --jobid $jid | jq ".[].status" | sed s/\"//g' completed
+  # assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $second_job_run_count
 }
 
 flux_monitor_test
