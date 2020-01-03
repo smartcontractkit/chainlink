@@ -7,7 +7,8 @@ app.use(bodyParser.json())
 
 app.use((req, _, next) => {
   console.log(`${req.method} request made to ${req.originalUrl}`)
-  console.log(`Request body: ${JSON.stringify(req.body)}`)
+  console.log('Request body...')
+  console.log(JSON.stringify(req.body, null, 2))
   next()
 })
 
@@ -23,7 +24,8 @@ app.post('/', (req, res) => {
     error: null,
   }
   res.json(responseBody)
-  console.log(`Response: ${JSON.stringify(responseBody)}`)
+  console.log('Response body...')
+  console.log(JSON.stringify(responseBody, null, 2))
 })
 
 app.patch('/result', (req, res) => {
