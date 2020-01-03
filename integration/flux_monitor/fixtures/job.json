@@ -11,7 +11,7 @@
           }
         },
         "feeds": ["http://external-adapter:6644"],
-        "threshold": 1,
+        "threshold": 5,
         "precision": 2
       }
     }
