@@ -1,5 +1,5 @@
-import * as h from './support/helpers'
-import { assertBigNum } from './support/matchers'
+import * as h from '../test/support/helpers'
+import { assertBigNum } from '../test/support/matchers'
 
 contract('Median', () => {
   const Median = artifacts.require('MedianTestHelper.sol')
