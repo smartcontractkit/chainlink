@@ -14774,14 +14774,7 @@ module-to-cdn@^3.1.2:
   dependencies:
     semver "^6.0.0"
 
-moment-timezone@^0.5.13:
-  version "0.5.27"
-  resolved "https://registry.yarnpkg.com/moment-timezone/-/moment-timezone-0.5.27.tgz#73adec8139b6fe30452e78f210f27b1f346b8877"
-  integrity sha512-EIKQs7h5sAsjhPCqN6ggx6cEbs94GK050254TIJySD1bzoM5JTYDwAU1IoVOeTOL6Gm27kYJ51/uuvq1kIlrbw==
-  dependencies:
-    moment ">= 2.9.0"
-
-moment@2.24.0, "moment@>= 2.9.0", moment@^2.24.0:
+moment@2.24.0, moment@^2.24.0:
   version "2.24.0"
   resolved "https://registry.npmjs.org/moment/-/moment-2.24.0.tgz#0d055d53f5052aa653c9f6eb68bb5d12bf5c2b5b"
   integrity sha512-bV7f+6l2QigeBBZSM/6yTNq4P2fNpSWj/0e7jQcy87A8e7o2nAfP/34/2ky5Vw4B9S446EtIhodAzkFCcR4dQg==
@@ -14790,15 +14783,6 @@ moo@^0.4.3:
   version "0.4.3"
   resolved "https://registry.npmjs.org/moo/-/moo-0.4.3.tgz#3f847a26f31cf625a956a87f2b10fbc013bfd10e"
   integrity sha512-gFD2xGCl8YFgGHsqJ9NKRVdwlioeW3mI1iqfLNYQOv0+6JRwG58Zk9DIGQgyIaffSYaO1xsKnMaYzzNr1KyIAw==
-
-morgan-body@^2.4.8:
-  version "2.4.8"
-  resolved "https://registry.yarnpkg.com/morgan-body/-/morgan-body-2.4.8.tgz#9164d7fefd886bdd013bfa54caf6574f86024006"
-  integrity sha512-IK014ZNP3CjkJ5kf4Qb9E3cT6wprUI1EH4OygYrckTXQFwkfeX/Z0kyHRfdTZm/0KBD1v2NcckdXroU5ACrqBQ==
-  dependencies:
-    moment-timezone "^0.5.13"
-    on-finished "^2.3.0"
-    on-headers "^1.0.1"
 
 move-concurrently@^1.0.1:
   version "1.0.1"
@@ -15450,14 +15434,14 @@ obuf@^1.0.0, obuf@^1.1.2:
   resolved "https://registry.npmjs.org/obuf/-/obuf-1.1.2.tgz#09bea3343d41859ebd446292d11c9d4db619084e"
   integrity sha512-PX1wu0AmAdPqOL1mWhqmlOd8kOIZQwGZw6rh7uby9fTc5lhaOWFLX3I6R1hrF9k3zUY40e6igsLGkDXK92LJNg==
 
-on-finished@^2.3.0, on-finished@~2.3.0:
+on-finished@~2.3.0:
   version "2.3.0"
   resolved "https://registry.npmjs.org/on-finished/-/on-finished-2.3.0.tgz#20f1336481b083cd75337992a16971aa2d906947"
   integrity sha1-IPEzZIGwg811M3mSoWlxqi2QaUc=
   dependencies:
     ee-first "1.1.1"
 
-on-headers@^1.0.1, on-headers@~1.0.1, on-headers@~1.0.2:
+on-headers@~1.0.1, on-headers@~1.0.2:
   version "1.0.2"
   resolved "https://registry.npmjs.org/on-headers/-/on-headers-1.0.2.tgz#772b0ae6aaa525c399e489adfad90c403eb3c28f"
   integrity sha512-pZAE+FJLoyITytdqK0U5s+FIpjN0JP3OzFi/u8Rx+EV5/W+JTWGXG8xFzevE7AjBfDqHv/8vL8qQsIhHnqRkrA==
