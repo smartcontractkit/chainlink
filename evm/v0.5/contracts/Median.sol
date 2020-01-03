@@ -14,6 +14,7 @@ library Median {
    */
   function calculate(int256[] memory _list)
     internal
+    pure
     returns (int256)
   {
     uint256 answerLength = _list.length;
