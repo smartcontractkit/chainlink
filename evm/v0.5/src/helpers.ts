@@ -531,3 +531,17 @@ export function generateSAID(sa: ServiceAgreement): Hash {
     serviceAgreementValues(sa),
   )
 }
+
+/**
+ * Turn a [x,y] coordinate into an ethereum address
+ * @param pubkey The x,y coordinate to turn into an ethereum address
+ */
+export function pubkeyToAddress(pubkey: ethers.utils.BigNumber[]) {
+  // transform the value according to what ethers expects as a value
+  const concatResult = `0x04${pubkey
+    .map(coord => coord.toHexString())
+    .join('')
+    .replace(/0x/gi, '')}`
+
+  return ethers.utils.computeAddress(concatResult)
+}
