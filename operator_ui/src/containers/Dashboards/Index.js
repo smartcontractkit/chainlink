@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
@@ -17,9 +17,8 @@ import accountBalanceSelector from 'selectors/accountBalance'
 import dashboardJobRunsCountSelector from 'selectors/dashboardJobRunsCount'
 import recentJobRunsSelector from 'selectors/recentJobRuns'
 import recentlyCreatedJobsSelector from 'selectors/recentlyCreatedJobs'
-import { useHooks, useEffect } from 'use-react-hooks'
 
-export const Index = useHooks(props => {
+export const Index = props => {
   useEffect(() => {
     document.title = 'Dashboard'
     props.fetchAccountBalance()
@@ -60,7 +59,7 @@ export const Index = useHooks(props => {
       <Footer />
     </Content>
   )
-})
+}
 
 Index.propTypes = {
   accountBalance: PropTypes.object,

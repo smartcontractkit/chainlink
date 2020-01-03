@@ -6,8 +6,7 @@ import { titleCase } from 'title-case'
 import { noCase } from 'change-case'
 import classNames from 'classnames'
 import { JobRun } from 'operator_ui'
-import React from 'react'
-import { useEffect, useHooks, useState } from 'use-react-hooks'
+import React, { useState, useEffect } from 'react'
 import ElapsedTime from '../ElapsedTime'
 import StatusIcon from '../JobRuns/StatusIcon'
 
@@ -72,7 +71,7 @@ const EarnedLink = ({
   )
 }
 
-const StatusCard = useHooks(({ title, classes, children, jobRun }: Props) => {
+const StatusCard = ({ title, classes, children, jobRun }: Props) => {
   const statusClass = classes[title as keyof typeof classes] || classes.pending
   const { status, createdAt, finishedAt } = jobRun || {
     status: '',
@@ -113,6 +112,6 @@ const StatusCard = useHooks(({ title, classes, children, jobRun }: Props) => {
       {children}
     </PaddedCard>
   )
-})
+}
 
 export default withStyles(styles)(StatusCard)

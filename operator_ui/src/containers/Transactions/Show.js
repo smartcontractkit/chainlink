@@ -2,13 +2,12 @@ import { KeyValueList } from '@chainlink/styleguide'
 import { fetchTransaction } from 'actions'
 import Content from 'components/Content'
 import PropTypes from 'prop-types'
-import React from 'react'
+import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
 import transactionSelector from 'selectors/transaction'
-import { useEffect, useHooks } from 'use-react-hooks'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
-export const Show = useHooks(props => {
+export const Show = props => {
   useEffect(() => {
     props.fetchTransaction(props.transactionId)
   }, [])
@@ -25,7 +24,7 @@ export const Show = useHooks(props => {
       )}
     </Content>
   )
-})
+}
 
 Show.propTypes = {
   classes: PropTypes.object.isRequired,
