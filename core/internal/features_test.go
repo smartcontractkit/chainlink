@@ -13,14 +13,18 @@ import (
 	"time"
 
 	"chainlink/core/auth"
+	"chainlink/core/eth"
 	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/internal/mocks"
+	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 	"chainlink/core/web"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -1010,13 +1014,34 @@ func TestCreateAndRunJob(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
-	eth.Register("eth_chainId", app.Store.Config.ChainID())
+	eth1 := app.MockCallerSubscriberClient(cltest.Strict)
+	eth1.Register("eth_chainId", app.Store.Config.ChainID())
 	require.NoError(t, app.Start())
 
-	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
-	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", tickerResponse)
+	response := `{"last":"3843.95"}`
+	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", response)
 	defer assertCalled()
+
+	// Interaction with Ethereum is required as the error appears triggered around the eth-tx adapater.
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(true)
+
+	// parameters are taken from TestEthTxAdapter_Perform
+	//gasPrice := utils.NewBig(big.NewInt(187))
+	//gasLimit := uint64(911)
+	//
+	//	output := "0x" +
+	//		"00000000" + // function selector
+	//		"0000000000000000000000000000000000000000000000000000000000000020" + // offset
+	//		"000000000000000000000000000000000000000000000000000000000000000a" + // length in bytes = 10, umlaut = 2 bytes
+	//		"63c3b66e6669726d656400000000000000000000000000000000000000000000" // encoded string left padded
+	//	txData := hexutil.MustDecode(output)
+	receiptState := store.Safe
+
+	tx := &models.Tx{Attempts: []*models.TxAttempt{&models.TxAttempt{}}}
+	txManager.On("CreateTxWithGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Once().Return(tx, nil)
+	txManager.On("CheckAttempt", mock.Anything, mock.Anything).Once().Return(&eth.TxReceipt{}, receiptState, nil)
+	app.GetStore().TxManager = txManager
 
 	time.Sleep(time.Second)
 
