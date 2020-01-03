@@ -1,6 +1,9 @@
 {
   "initiators": [{ "type": "web" }],
   "tasks": [
-    { "type": "NoOP" }
+    {
+      "type": "httpget",
+      "params": { "get": "" }
+    }
   ]
 }
