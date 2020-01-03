@@ -24,23 +24,19 @@ export async function deployContracts() {
   const provider = createProvider()
   const signer = provider.getSigner(DEVNET_ADDRESS)
 
-  // deploy LINK token
   const linkToken = await deployLinkTokenContract()
 
-  // deploy Coordinator
   const coordinator = await deployContract(
     { Factory: CoordinatorFactory, signer, name: 'Coordinator' },
     linkToken.address,
   )
 
-  // deploy MeanAggregator
   const meanAggregator = await deployContract({
     Factory: MeanAggregatorFactory,
     signer,
     name: 'MeanAggregator',
   })
 
-  // deploy PrepaidAggregator
   const prepaidAggregator = await deployContract(
     { Factory: PrepaidAggregatorFactory, signer, name: 'PrepaidAggregator' },
     linkToken.address,
