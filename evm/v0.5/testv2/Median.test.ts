@@ -1,12 +1,24 @@
-import * as h from '../test/support/helpers'
-import { assertBigNum } from '../test/support/matchers'
+import * as h from '../src/helpers'
+import { MedianTestHelperFactory } from '../src/generated'
+import { makeTestProvider } from '../src/provider'
+import { Instance } from '../src/contract'
+import { ethers } from 'ethers'
+import { assertBigNum } from '../src/matchers'
 
-contract('Median', () => {
-  const Median = artifacts.require('MedianTestHelper.sol')
-  let median
+const medianTestHelperFactory = new MedianTestHelperFactory()
+const provider = makeTestProvider()
+
+let defaultAccount: ethers.Wallet
+beforeAll(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  defaultAccount = rolesAndPersonas.roles.defaultAccount
+})
+
+describe('Median', () => {
+  let median: Instance<MedianTestHelperFactory>
 
   beforeEach(async () => {
-    median = await Median.new()
+    median = await medianTestHelperFactory.connect(defaultAccount).deploy()
   })
 
   describe('testing various lists', () => {
@@ -64,37 +76,36 @@ contract('Median', () => {
       {
         name: 'overflowing numbers',
         responses: [
-          h.bigNum(
+          ethers.utils.bigNumberify(
             '57896044618658097711785492504343953926634992332820282019728792003956564819967',
           ),
-          h.bigNum(
+          ethers.utils.bigNumberify(
             '57896044618658097711785492504343953926634992332820282019728792003956564819967',
           ),
         ],
-        want: h.bigNum(
+        want: ethers.utils.bigNumberify(
           '57896044618658097711785492504343953926634992332820282019728792003956564819967',
         ),
       },
       {
         name: 'overflowing numbers',
         responses: [
-          h.bigNum(
+          ethers.utils.bigNumberify(
             '57896044618658097711785492504343953926634992332820282019728792003956564819967',
           ),
-          h.bigNum(
+          ethers.utils.bigNumberify(
             '57896044618658097711785492504343953926634992332820282019728792003956564819966',
           ),
         ],
-        want: h.bigNum(
+        want: ethers.utils.bigNumberify(
           '57896044618658097711785492504343953926634992332820282019728792003956564819966',
         ),
       },
     ]
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const test of tests) {
       it(test.name, async () => {
-        assertBigNum(test.want, await median.publicGet.call(test.responses))
+        assertBigNum(test.want, await median.publicGet(test.responses))
       })
     }
   })
