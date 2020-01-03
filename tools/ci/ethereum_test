@@ -11,7 +11,7 @@ heading 'Setup...'
 echo 'logging in..'
 # we do this at run-time instead of build time
 # to eliminate the risk of copying over a stale chainlink binary
-# if we had instead copied over the binary from the built chainlink 
+# if we had instead copied over the binary from the built chainlink
 # base image
 # we could also try mounting a volume instead, or using docker-exec
 docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink
@@ -24,9 +24,11 @@ cd $SRCROOT/integration
 
 ./runlog_test
 ./ethlog_test
+deploy_v05_contracts
 ./service_agreement_test
+./flux_monitor_test
 
 title 'End to end tests.'
 
-yarn workspace @chainlink/integration test:cypress 
+yarn workspace @chainlink/integration test:cypress
 title 'All tests passed.'

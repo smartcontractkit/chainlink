@@ -2,25 +2,30 @@ import express from 'express'
 import bodyParser from 'body-parser'
 
 const app = express()
+
 app.use(bodyParser.json())
 
 app.use((req, _, next) => {
-  console.log(`Requested ${req.method} to ${req.path}`)
-  console.log('Request Data:', req.body)
+  console.log(`${req.method} request made to ${req.originalUrl}`)
+  console.log('Request body...')
+  console.log(JSON.stringify(req.body, null, 2))
   next()
 })
 
-let result = 100.0
+let result = 100
 
 app.post('/', (req, res) => {
   const jobRunID = req.body.id
-  res.status(200).json({
+  const responseBody = {
     jobRunID,
     data: {
       result,
     },
     error: null,
-  })
+  }
+  res.json(responseBody)
+  console.log('Response body...')
+  console.log(JSON.stringify(responseBody, null, 2))
 })
 
 app.patch('/result', (req, res) => {
