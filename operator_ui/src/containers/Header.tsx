@@ -17,11 +17,10 @@ import Toolbar from '@material-ui/core/Toolbar'
 import Typography from '@material-ui/core/Typography'
 import MenuIcon from '@material-ui/icons/Menu'
 import classNames from 'classnames'
-import React from 'react'
+import React, { useState } from 'react'
 import { connect } from 'react-redux'
 import ReactResizeDetector from 'react-resize-detector'
 import { bindActionCreators, Dispatch } from 'redux'
-import { useHooks, useState } from 'use-react-hooks'
 import { submitSignOut } from '../actions'
 import AvatarMenu from '../components/AvatarMenu'
 import BaseLink from '../components/BaseLink'
@@ -194,68 +193,63 @@ interface Props extends WithStyles<typeof styles> {
   url?: string
 }
 
-const Header = useHooks(
-  ({
-    authenticated,
-    classes,
-    fetchCount,
-    url,
-    drawerContainer,
-    onResize,
-    submitSignOut,
-  }: Props) => {
-    const [drawerOpen, setDrawerOpen] = useState(false)
-    const toggleDrawer = () => setDrawerOpen(!drawerOpen)
+const Header = ({
+  authenticated,
+  classes,
+  fetchCount,
+  url,
+  drawerContainer,
+  onResize,
+  submitSignOut,
+}: Props) => {
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const toggleDrawer = () => setDrawerOpen(!drawerOpen)
 
-    return (
-      <AppBar className={classes.appBar} color="default" position="absolute">
-        <ReactResizeDetector
-          refreshMode="debounce"
-          refreshRate={200}
-          onResize={onResize}
-          handleHeight
-        >
-          <LoadingBar fetchCount={fetchCount} />
+  return (
+    <AppBar className={classes.appBar} color="default" position="absolute">
+      <ReactResizeDetector
+        refreshMode="debounce"
+        refreshRate={200}
+        onResize={onResize}
+        handleHeight
+      >
+        <LoadingBar fetchCount={fetchCount} />
 
-          <Toolbar className={classes.toolbar}>
-            <Grid container alignItems="center">
-              <Grid item xs={11} sm={6} md={4}>
-                <BaseLink href="/">
-                  <MainLogo width={200} />
-                </BaseLink>
-              </Grid>
-              <Grid item xs={1} sm={6} md={8}>
-                <Grid container justify="flex-end">
-                  <Grid item>
-                    <Hidden mdUp>
-                      <IconButton
-                        aria-label="open drawer"
-                        onClick={toggleDrawer}
-                      >
-                        <MenuIcon />
-                      </IconButton>
-                    </Hidden>
-                    <Hidden smDown>
-                      <Nav authenticated={authenticated} url={url} />
-                    </Hidden>
-                  </Grid>
+        <Toolbar className={classes.toolbar}>
+          <Grid container alignItems="center">
+            <Grid item xs={11} sm={6} md={4}>
+              <BaseLink href="/">
+                <MainLogo width={200} />
+              </BaseLink>
+            </Grid>
+            <Grid item xs={1} sm={6} md={8}>
+              <Grid container justify="flex-end">
+                <Grid item>
+                  <Hidden mdUp>
+                    <IconButton aria-label="open drawer" onClick={toggleDrawer}>
+                      <MenuIcon />
+                    </IconButton>
+                  </Hidden>
+                  <Hidden smDown>
+                    <Nav authenticated={authenticated} url={url} />
+                  </Hidden>
                 </Grid>
               </Grid>
             </Grid>
-          </Toolbar>
-        </ReactResizeDetector>
-        <Portal container={drawerContainer}>
-          <Drawer
-            toggleDrawer={toggleDrawer}
-            drawerOpen={drawerOpen}
-            authenticated={authenticated}
-            submitSignOut={submitSignOut}
-          />
-        </Portal>
-      </AppBar>
-    )
-  },
-)
+          </Grid>
+        </Toolbar>
+      </ReactResizeDetector>
+      <Portal container={drawerContainer}>
+        <Drawer
+          toggleDrawer={toggleDrawer}
+          drawerOpen={drawerOpen}
+          authenticated={authenticated}
+          submitSignOut={submitSignOut}
+        />
+      </Portal>
+    </AppBar>
+  )
+}
 
 const mapStateToProps = (state: any) => ({
   authenticated: state.authentication.allowed,

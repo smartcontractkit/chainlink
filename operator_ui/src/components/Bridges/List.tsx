@@ -8,9 +8,8 @@ import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import Link from 'components/Link'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { RouteComponentProps } from 'react-router'
-import { useEffect, useHooks, useState } from 'use-react-hooks'
 
 const renderFetching = () => (
   <TableRow>
@@ -74,7 +73,7 @@ type RouteProps = RouteComponentProps<{
 type Props = OwnProps & RouteProps
 
 // FIXME - remove unused export?
-export const BridgeList = useHooks<Props>(props => {
+export const BridgeList = (props: Props) => {
   const {
     bridges,
     bridgeCount,
@@ -153,6 +152,6 @@ export const BridgeList = useHooks<Props>(props => {
       />
     </Card>
   )
-})
+}
 
 export default BridgeList

@@ -9,10 +9,9 @@ import Button from 'components/Button'
 import Content from 'components/Content'
 import { AppState } from 'src/reducers'
 import { BridgeType } from 'operator_ui'
-import React from 'react'
+import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
 import bridgeSelector from 'selectors/bridge'
-import { useEffect, useHooks } from 'use-react-hooks'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
 const Loading = () => <div>Loading...</div>
@@ -56,7 +55,7 @@ interface Props {
   bridge?: BridgeType
 }
 
-export const Show = useHooks(({ bridge, fetchBridgeSpec, match }: Props) => {
+export const Show = ({ bridge, fetchBridgeSpec, match }: Props) => {
   useEffect(() => {
     document.title = 'Show Bridge'
     fetchBridgeSpec(match.params.bridgeId)
@@ -100,7 +99,7 @@ export const Show = useHooks(({ bridge, fetchBridgeSpec, match }: Props) => {
       </Grid>
     </Content>
   )
-})
+}
 
 const mapStateToProps = (state: AppState, ownProps: Props) => ({
   bridge: bridgeSelector(state, ownProps.match.params.bridgeId),

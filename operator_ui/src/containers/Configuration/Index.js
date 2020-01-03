@@ -5,16 +5,15 @@ import { fetchConfiguration } from 'actions'
 import Content from 'components/Content'
 import DeleteJobRuns from 'containers/Configuration/DeleteJobRuns'
 import PropTypes from 'prop-types'
-import React from 'react'
+import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
 import configurationSelector from 'selectors/configuration'
-import { useEffect, useHooks } from 'use-react-hooks'
 import extractBuildInfo from 'utils/extractBuildInfo'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
 const buildInfo = extractBuildInfo()
 
-export const Configuration = useHooks(props => {
+export const Configuration = props => {
   useEffect(() => {
     document.title = 'Configuration'
     props.fetchConfiguration()
@@ -56,7 +55,7 @@ export const Configuration = useHooks(props => {
       </Grid>
     </Content>
   )
-})
+}
 
 Configuration.propTypes = {
   data: PropTypes.array.isRequired,

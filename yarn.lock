@@ -2858,21 +2858,6 @@
     hoist-non-react-statics "^3.3.0"
     redux "^4.0.0"
 
-"@types/react-redux@~6.0.0":
-  version "6.0.14"
-  resolved "https://registry.npmjs.org/@types/react-redux/-/react-redux-6.0.14.tgz#8ffeb52c4f4d578bf74418d9aff5af7289924e4f"
-  integrity sha512-bvpWqBOvz2V+EfZ9Qu1d3gFKYCIn/BYoGWAVt1c526tbiI9rtfaBbjutbbapmtEZaEfLuHj3Ljg9qho0SBSwUg==
-  dependencies:
-    "@types/react" "*"
-    redux "^4.0.0"
-
-"@types/react-resize-detector@^3.1.1":
-  version "3.1.1"
-  resolved "https://registry.npmjs.org/@types/react-resize-detector/-/react-resize-detector-3.1.1.tgz#06e6ff328703607462cbc435193a59a01db23a24"
-  integrity sha512-3FVExywb3kC0p+dKRd2IC6wmUlfurx/9J0b1mtHd0rigwZWNJC79fnbTJaMmLNM8PhhgqDwaNOhFdv0u9YGAzA==
-  dependencies:
-    "@types/react" "*"
-
 "@types/react-resize-detector@^4.0.1":
   version "4.2.0"
   resolved "https://registry.npmjs.org/@types/react-resize-detector/-/react-resize-detector-4.2.0.tgz#ee8802e25cfb34439aa7f52626932ea62dc5792e"
@@ -17963,7 +17948,7 @@ react-popper@^1.3.6:
     typed-styles "^0.0.7"
     warning "^4.0.2"
 
-react-redux@^6.0.1, react-redux@~6.0.0:
+react-redux@^6.0.1:
   version "6.0.1"
   resolved "https://registry.npmjs.org/react-redux/-/react-redux-6.0.1.tgz#0d423e2c1cb10ada87293d47e7de7c329623ba4d"
   integrity sha512-T52I52Kxhbqy/6TEfBv85rQSDz6+Y28V/pf52vDWs1YRXG19mcFOGfHnY2HsNFHyhP+ST34Aih98fvt6tqwVcQ==
@@ -18506,7 +18491,7 @@ redux-mock-store@^1.5.3:
   dependencies:
     lodash.isplainobject "^4.0.6"
 
-redux-object@^0.5.6, redux-object@^0.5.9:
+redux-object@^0.5.9:
   version "0.5.10"
   resolved "https://registry.npmjs.org/redux-object/-/redux-object-0.5.10.tgz#20013b59f946b4a7262a69cedf83feb5dc3cae9b"
   integrity sha512-MzAPCIvJW5jtVW1JiIQTGJHi38cSKzrLStszInVcPspjIyvzZDsZ4RWoGzJl57GsDN1ftSNdL9NcaPAY08mxQQ==
