@@ -1,23 +1,29 @@
 import express from 'express'
 import bodyParser from 'body-parser'
-import morganBody from 'morgan-body'
 
 const app = express()
 
 app.use(bodyParser.json())
-morganBody(app)
 
-let result = 0
+app.use((req, _, next) => {
+  console.log(`${req.method} request made to ${req.originalUrl}`)
+  console.log(`Request body: ${JSON.stringify(req.body)}`)
+  next()
+})
+
+let result = 100
 
 app.post('/', (req, res) => {
   const jobRunID = req.body.id
-  res.status(200).json({
+  const responseBody = {
     jobRunID,
     data: {
       result,
     },
     error: null,
-  })
+  }
+  res.json(responseBody)
+  console.log(`Response: ${JSON.stringify(responseBody)}`)
 })
 
 app.patch('/result', (req, res) => {
