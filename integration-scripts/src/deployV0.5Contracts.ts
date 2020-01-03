@@ -16,12 +16,10 @@ const {
 
 async function main() {
   registerPromiseHandler()
-
   await deployContracts()
 }
 main()
 
-// export async function deployContracts(provider: ethers.providers.JsonRpcProvider, DEVNET_ADDRESS: string) {
 export async function deployContracts() {
   const provider = createProvider()
   const signer = provider.getSigner(DEVNET_ADDRESS)
