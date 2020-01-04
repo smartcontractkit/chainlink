@@ -8,6 +8,7 @@ ADD . .
 
 RUN yarn install
 RUN yarn workspace @chainlink/json-api-client run build
+RUN yarn workspace @chainlink/styleguide run build
 RUN yarn workspace @chainlink/redux run build
 RUN yarn workspace @chainlink/explorer run build
 
