@@ -20,7 +20,7 @@ import BaseLink from '../BaseLink'
 import Button from '../Button'
 import StatusIcon from '../JobRuns/StatusIcon'
 import Link from '../Link'
-import NoContentLogo from '../Logos/NoContent'
+import { NoContent as NoContentLogo } from '@chainlink/styleguide'
 
 const noActivityStyles = ({ palette, spacing }: Theme) =>
   createStyles({
@@ -38,7 +38,7 @@ const NoActivity = withStyles(noActivityStyles)(
       <Card elevation={0} className={classes.noActivity}>
         <Grid container alignItems="center" spacing={16}>
           <Grid item>
-            <NoContentLogo width={40} />
+            <NoContentLogo href="/" width={40} />
           </Grid>
           <Grid item>
             <Typography variant="body1" color="textPrimary" inline>

@@ -11,7 +11,7 @@ import { Grid } from '@material-ui/core'
 import { hot } from 'react-hot-loader'
 import { submitSignIn } from 'actions'
 import { renderNotification } from 'containers/Notifications'
-import HexagonLogo from 'components/Logos/Hexagon'
+import { HexagonLogo } from '@chainlink/styleguide'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { getPersistUrl } from '../utils/storage'
 

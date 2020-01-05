@@ -10,7 +10,7 @@
   "scripts": {
     "start": "start-storybook -p 9001",
     "build-storybook": "build-storybook",
-    "build": "rimraf -rf dist && tsc",
+    "build": "rimraf -rf dist && tsc && cp ./src/components/Logos/*.svg ./dist/src/components/Logos",
     "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true",
     "setup": "yarn build"
   },

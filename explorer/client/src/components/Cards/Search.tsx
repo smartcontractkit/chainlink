@@ -9,7 +9,7 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import TermsOfUse from '../TermsOfUse'
-import { PublicLogo } from '../Logos/Public'
+import { PublicLogo } from '@chainlink/styleguide'
 import SearchBox from '../SearchBox'
 import SearchForm from '../SearchForm'
 

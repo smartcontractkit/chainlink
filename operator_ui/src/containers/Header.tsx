@@ -22,11 +22,11 @@ import { connect } from 'react-redux'
 import ReactResizeDetector from 'react-resize-detector'
 import { bindActionCreators, Dispatch } from 'redux'
 import { submitSignOut } from '../actions'
-import AvatarMenu from '../components/AvatarMenu'
 import BaseLink from '../components/BaseLink'
 import LoadingBar from '../components/LoadingBar'
-import MainLogo from '../components/Logos/Main'
+import { Main as MainLogo } from '@chainlink/styleguide'
 import fetchCountSelector from '../selectors/fetchCount'
+import AvatarMenu from '../components/AvatarMenu'
 
 const SHARED_NAV_ITEMS = [
   ['/jobs', 'Jobs'],
@@ -236,9 +236,7 @@ class Header extends React.Component<Props, State> {
           <Toolbar className={classes.toolbar}>
             <Grid container alignItems="center">
               <Grid item xs={11} sm={6} md={4}>
-                <BaseLink href="/">
-                  <MainLogo width={200} />
-                </BaseLink>
+                <MainLogo href="/" width={200} />
               </Grid>
               <Grid item xs={1} sm={6} md={8}>
                 <Grid container justify="flex-end">

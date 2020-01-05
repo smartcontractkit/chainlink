@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { Redirect, RouteComponentProps } from '@reach/router'
-import { SignIn as SignInForm } from '../../components/Forms/SignIn'
+import { SignIn as SignInForm } from '@chainlink/styleguide'
 import { signIn } from '../../actions/adminAuth'
 import { AppState } from '../../reducers'
 import { DispatchBinding } from '../../utils/types'

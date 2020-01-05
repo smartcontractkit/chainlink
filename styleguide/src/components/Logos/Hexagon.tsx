@@ -1,6 +1,6 @@
 import React from 'react'
-import Logo from '../Logo'
-import src from './public.svg'
+import Logo from './Logo'
+import src from './hexagon.svg'
 
 interface Props {
   href: string
@@ -10,6 +10,6 @@ interface Props {
   alt?: string
 }
 
-export const PublicLogo: React.FC<Props> = props => {
+export const HexagonLogo: React.FC<Props> = props => {
   return <Logo src={src} {...props} />
 }

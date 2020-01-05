@@ -8,9 +8,9 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
-import { AdminLogo } from '../../components/Logos/Admin'
+import { AdminLogo } from '@chainlink/styleguide'
 import Header from '../../components/Header'
-import AvatarMenu from '../../components/AvatarMenu'
+import { AvatarMenu } from '@chainlink/styleguide'
 import AvatarMenuItem from '../../components/AvatarMenuItem'
 import { AppState } from '../../reducers'
 

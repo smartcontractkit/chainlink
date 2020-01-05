@@ -1,5 +1,5 @@
 import React from 'react'
-import logo from './admin.svg'
+import logo from './explorer-admin.svg'
 
 interface Props {
   className?: string

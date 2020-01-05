@@ -13,7 +13,7 @@ import ClickAwayListener from '@material-ui/core/ClickAwayListener'
 import MenuList from '@material-ui/core/MenuList'
 import Avatar from '@material-ui/core/Avatar'
 import classNames from 'classnames'
-import face from './face.svg'
+import face from './Logos/face.svg'
 
 const styles = ({ spacing, palette }: Theme) =>
   createStyles({
@@ -39,7 +39,11 @@ interface Props extends WithStyles<typeof styles> {
   className?: string
 }
 
-const AvatarMenu: React.FC<Props> = ({ classes, className, children }) => {
+const UnstyledAvatarMenu: React.FC<Props> = ({
+  classes,
+  className,
+  children,
+}) => {
   const anchorEl = useRef<HTMLElement>(null)
   const [open, setOpenState] = useState(false)
   const handleToggle = () => setOpenState(!open)
@@ -80,4 +84,4 @@ const AvatarMenu: React.FC<Props> = ({ classes, className, children }) => {
   )
 }
 
-export default withStyles(styles)(AvatarMenu)
+export const AvatarMenu = withStyles(styles)(UnstyledAvatarMenu)

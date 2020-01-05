@@ -19,7 +19,7 @@
     "jsx": "react"
   },
 
-  "include": ["src", "@types", "test"],
+  "include": ["src", "@types", "test", "../../styleguide"],
 
   "references": [
     { "path": "../../tools/json-api-client" },

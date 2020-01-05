@@ -9,7 +9,7 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Header from '../components/Header'
-import { PublicLogo } from '../components/Logos/Public'
+import { PublicLogo } from '@chainlink/styleguide'
 import SearchForm from '../components/SearchForm'
 import SearchBox from '../components/SearchBox'
 import { AppState } from '../reducers'

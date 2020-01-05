@@ -59,13 +59,14 @@ chainlink: $(SGX_BUILD_ENCLAVE) operator-ui contracts ## Build the chainlink bin
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/eth" ## embed contracts in .go file
 	go build $(GOFLAGS) -o $@ ./core/
 
-.PHONY: contracts 
+.PHONY: contracts
 contracts: # build the required evm contracts
 	yarn workspace chainlinkv0.5 setup
 	yarn workspace chainlink setup
 
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.
+	yarn workspace @chainlink/styleguide run build
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui run build
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
 
