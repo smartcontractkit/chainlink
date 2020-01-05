@@ -10,7 +10,7 @@ import { withFormik, FormikProps, Form as FormikForm } from 'formik'
 import * as storage from '@chainlink/local-storage'
 import { Prompt } from 'react-router-dom'
 import isEqual from 'lodash/isEqual'
-import Button from 'components/Button'
+import { Button } from '@chainlink/styleguide'
 
 const styles = (theme: Theme) =>
   createStyles({

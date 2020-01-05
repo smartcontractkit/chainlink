@@ -11,7 +11,7 @@ import normalizeUrl from 'normalize-url'
 import React from 'react'
 import { Prompt } from 'react-router-dom'
 import isEqual from 'lodash/isEqual'
-import Button from 'components/Button'
+import { Button } from '@chainlink/styleguide'
 
 const styles = (theme: Theme) =>
   createStyles({

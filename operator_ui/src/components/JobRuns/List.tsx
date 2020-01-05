@@ -11,7 +11,7 @@ import { JobRun, JobRuns } from 'operator_ui'
 import React from 'react'
 import titleize from '../../utils/titleize'
 import BaseLink from '../BaseLink'
-import Button from '../Button'
+import { Button } from '@chainlink/styleguide'
 import Link from '../Link'
 
 const styles = (theme: any) =>

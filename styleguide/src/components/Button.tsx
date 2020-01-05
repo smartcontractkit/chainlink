@@ -98,7 +98,7 @@ interface Props extends WithStyles<typeof styles> {
   href?: any
 }
 
-const Button: React.FC<Props> = ({
+const UnstyledButton: React.FC<Props> = ({
   variant = 'default',
   disabled,
   type,
@@ -122,4 +122,4 @@ const Button: React.FC<Props> = ({
   )
 }
 
-export default withStyles(styles)(Button)
+export const Button = withStyles(styles)(UnstyledButton)

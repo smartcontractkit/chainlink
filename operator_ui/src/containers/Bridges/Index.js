@@ -10,7 +10,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import bridgesSelector from 'selectors/bridges'
 import { fetchBridges } from 'actions'
 import Content from 'components/Content'
-import Button from 'components/Button'
+import { Button } from '@chainlink/styleguide'
 
 export const Index = props => {
   document.title = 'Bridges'
