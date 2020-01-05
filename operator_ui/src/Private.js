@@ -48,7 +48,10 @@ const TransactionsShow = universal(
   import('./containers/Transactions/Show'),
   uniOpts,
 )
-const Configuration = universal(import('./containers/Configuration'), uniOpts)
+const Configuration = universal(
+  import('./containers/Configuration/Index'),
+  uniOpts,
+)
 const NotFound = universal(import('./containers/NotFound'), uniOpts)
 
 const styles = theme => {
