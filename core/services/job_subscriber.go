@@ -30,6 +30,7 @@ type JobSubscriber interface {
 	AddJob(job models.JobSpec, bn *models.Head) error
 	RemoveJob(ID *models.ID) error
 	Jobs() []models.JobSpec
+	Stop() error
 }
 
 // jobSubscriber implementation
