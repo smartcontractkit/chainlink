@@ -40,6 +40,7 @@ type EthTx struct {
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
 func (etx *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+	logger.Info("ethTX.Perform", "runInput", fmt.Sprintf("%#v", input))
 	if !store.TxManager.Connected() {
 		return pendingConfirmationsOrConnection(input)
 	}
@@ -55,7 +56,9 @@ func (etx *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.Run
 	}
 
 	data := utils.ConcatBytes(etx.FunctionSelector.Bytes(), etx.DataPrefix, value)
-	return createTxRunResult(etx.Address, etx.GasPrice, etx.GasLimit, data, input, store)
+	ret := createTxRunResult(etx.Address, etx.GasPrice, etx.GasLimit, data, input, store)
+	logger.Info("ethTX.Perform", "runOutput", fmt.Sprintf("%#v", ret))
+	return ret
 }
 
 // getTxData returns the data to save against the callback encoded according to
