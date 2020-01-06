@@ -76,6 +76,10 @@ func (jr JobRun) ForLogger(kvs ...interface{}) []interface{} {
 		output = append(output, "input_amount", jr.Payment)
 	}
 
+	if jr.RunRequest.RequestID != nil {
+		output = append(output, "external_id", jr.RunRequest.RequestID)
+	}
+
 	return append(kvs, output...)
 }
 
