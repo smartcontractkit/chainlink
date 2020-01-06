@@ -46,6 +46,6 @@
     "depcheck": "^0.9.1",
     "react-docgen-typescript-loader": "^3.1.0",
     "rimraf": "^3.0.0",
-    "webpack": "^4.41.2"
+    "webpack": "^4.41.5"
   }
 }
