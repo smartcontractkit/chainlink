@@ -76,7 +76,7 @@
     "cross-env": "^6.0.3",
     "depcheck": "^0.9.1",
     "dynamic-cdn-webpack-plugin": "^5.0.0",
-    "enzyme": "^3.10.0",
+    "enzyme": "^3.11.0",
     "enzyme-adapter-react-16": "^1.15.1",
     "html-webpack-plugin": "4.0.0-beta.5",
     "jest": "^24.9.0",
