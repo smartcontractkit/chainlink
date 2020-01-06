@@ -264,6 +264,10 @@ func (jm *runManager) Create(
 		return nil, errors.Wrap(err, "CreateJobRun failed")
 	}
 
+	if runRequest.RequestID != nil {
+		logger.Infow("Run created with external ID", "run", run.ID, "externalID", *runRequest.RequestID)
+	}
+
 	if run.Status.Runnable() {
 		logger.Debugw(
 			fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
