@@ -10,7 +10,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node ."
+    "start": "node .",
+    "setup": "echo \"No setup required for @chainlink/cypress-job-server\""
   },
   "devDependencies": {
     "@types/node": "^12.12.20",

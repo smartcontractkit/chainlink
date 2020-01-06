@@ -7,7 +7,8 @@
   "license": "MIT",
   "scripts": {
     "build": "tsc",
-    "start": "node ."
+    "start": "node .",
+    "setup": "echo \"No setup required for @chainlink/external-adapter\""
   },
   "devDependencies": {
     "@types/body-parser": "^1.17.1",
