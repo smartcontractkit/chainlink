@@ -2,8 +2,8 @@ package services_test
 
 import (
 	"math/big"
+	"sync"
 	"testing"
-	"time"
 
 	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
@@ -25,12 +25,15 @@ func TestJobSubscriber_OnNewHead(t *testing.T) {
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	resumeJobChannel := make(chan struct{})
 
 	runManager.On("ResumeAllConfirming", big.NewInt(1337)).
 		Return(nil).
 		Once().
 		Run(func(mock.Arguments) {
+			wg.Done()
 			resumeJobChannel <- struct{}{}
 		})
 	runManager.On("ResumeAllConfirming", big.NewInt(1339)).
@@ -40,9 +43,14 @@ func TestJobSubscriber_OnNewHead(t *testing.T) {
 			resumeJobChannel <- struct{}{}
 		})
 	jobSubscriber.OnNewHead(cltest.Head(1337))
-	time.Sleep(1 * time.Second)
+
+	// Make sure ResumeAllConfirming is reached before sending the next head
+	wg.Wait()
+
+	// This head should get dropped
 	jobSubscriber.OnNewHead(cltest.Head(1338))
-	time.Sleep(1 * time.Second)
+
+	// This head should get processed
 	jobSubscriber.OnNewHead(cltest.Head(1339))
 
 	// Unblock the channel
