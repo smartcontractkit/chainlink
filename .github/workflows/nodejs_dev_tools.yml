@@ -1,0 +1,40 @@
+name: NodeJS Dev Tools
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  check_setup:
+    runs-on: ubuntu-latest
+    name: Check Setup with NodeJS ${{matrix.node}}
+
+    strategy:
+      matrix:
+        node: [10.16.x]
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - uses: actions/setup-node@v1
+        with:
+          node-version: ${{matrix.node}}
+
+      - name: Cache Dependencies
+        uses: actions/cache@v1
+        with:
+          path: deps
+          key: deps-nodejs-${{matrix.node}}-${{runner.os}}-${{hashFiles('yarn.lock')}}-${{github.ref}}
+          restore-keys: |
+            deps-nodejs-${{matrix.node}}-${{runner.os}}-${{hashFiles('yarn.lock')}}-${{github.ref}}
+            deps-nodejs-${{matrix.node}}-${{runner.os}}-${{hashFiles('yarn.lock')}}-
+
+      - name: Install Dependencies
+        run: yarn install
+
+      - name: Check yarn setup task
+        run: yarn setup

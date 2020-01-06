@@ -10,7 +10,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node ."
+    "start": "node .",
+    "setup": "echo \"No setup required for @chainlink/echo-server\""
   },
   "devDependencies": {
     "@types/body-parser": "^1.17.1",
