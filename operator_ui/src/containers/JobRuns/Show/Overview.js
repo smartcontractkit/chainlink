@@ -38,19 +38,15 @@ const renderDetails = ({ fetching, jobRun }) => {
 }
 
 export const Show = props => {
+  const { fetchJobRun, jobRunId } = props
   useEffect(() => {
     document.title = 'Show Job Run'
-    props.fetchJobRun(props.jobRunId)
-  }, [])
+    fetchJobRun(jobRunId)
+  }, [fetchJobRun, jobRunId])
 
   return (
     <div>
-      <RegionalNav
-        jobSpecId={props.jobSpecId}
-        jobRunId={props.jobRunId}
-        jobRun={props.jobRun}
-      />
-
+      <RegionalNav {...props} />
       <Content>{renderDetails(props)}</Content>
     </div>
   )

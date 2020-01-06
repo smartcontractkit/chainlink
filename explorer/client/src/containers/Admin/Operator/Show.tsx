@@ -54,7 +54,7 @@ const Show: React.FC<Props> = ({
     if (operatorId) {
       fetchAdminOperator(operatorId)
     }
-  }, [operatorId])
+  }, [fetchAdminOperator, operatorId])
 
   return (
     <Grid

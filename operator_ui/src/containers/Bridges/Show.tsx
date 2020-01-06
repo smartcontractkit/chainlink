@@ -59,7 +59,7 @@ export const Show = ({ bridge, fetchBridgeSpec, match }: Props) => {
   useEffect(() => {
     document.title = 'Show Bridge'
     fetchBridgeSpec(match.params.bridgeId)
-  }, [])
+  }, [fetchBridgeSpec, match])
 
   return (
     <Content>

@@ -7,11 +7,10 @@ import { connect } from 'react-redux'
 import transactionSelector from 'selectors/transaction'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
-export const Show = props => {
+export const Show = ({ fetchTransaction, transaction, transactionId }) => {
   useEffect(() => {
-    props.fetchTransaction(props.transactionId)
-  }, [])
-  const { transaction } = props
+    fetchTransaction(transactionId)
+  }, [fetchTransaction, transactionId])
 
   return (
     <Content>

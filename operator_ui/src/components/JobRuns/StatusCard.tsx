@@ -82,7 +82,7 @@ const StatusCard = ({ title, classes, children, jobRun }: Props) => {
   const [liveTime, setLiveTime] = useState(Date.now())
   useEffect(() => {
     if (stillPending) setInterval(() => setLiveTime(Date.now()), 1000)
-  }, [])
+  }, [stillPending])
   const endDate = stillPending ? liveTime.toString() : finishedAt
 
   return (

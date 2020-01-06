@@ -190,7 +190,7 @@ export const Show = ({
       page: DEFAULT_PAGE,
       size: RECENT_RUNS_COUNT,
     })
-  }, [])
+  }, [fetchJob, fetchJobRuns, jobSpecId])
   return (
     <div>
       {/* TODO: Regional nav should handle job = undefined */}
