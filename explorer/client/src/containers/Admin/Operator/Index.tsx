@@ -62,7 +62,7 @@ export const Index: React.FC<Props> = ({
 
   useEffect(() => {
     fetchAdminOperators(currentPage, rowsPerPage)
-  }, [rowsPerPage, currentPage])
+  }, [rowsPerPage, currentPage, fetchAdminOperators])
 
   return (
     <Grid

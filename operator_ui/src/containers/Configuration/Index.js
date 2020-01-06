@@ -13,17 +13,17 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 
 const buildInfo = extractBuildInfo()
 
-export const Configuration = props => {
+export const Configuration = ({ fetchConfiguration, data }) => {
   useEffect(() => {
     document.title = 'Configuration'
-    props.fetchConfiguration()
-  }, [])
+    fetchConfiguration()
+  }, [fetchConfiguration])
 
   return (
     <Content>
       <Grid container>
         <Grid item sm={12} md={8}>
-          <KeyValueList title="Configuration" entries={props.data} showHead />
+          <KeyValueList title="Configuration" entries={data} showHead />
         </Grid>
         <Grid item sm={12} md={4}>
           <Grid container>

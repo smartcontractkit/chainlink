@@ -64,7 +64,7 @@ interface Props {
 const ShowErrorLog = ({ jobRunId, jobSpecId, jobRun, fetchJobRun }: Props) => {
   useEffect(() => {
     fetchJobRun(jobRunId)
-  }, [jobRunId])
+  }, [fetchJobRun, jobRunId])
 
   return (
     <div>

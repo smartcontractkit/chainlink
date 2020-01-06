@@ -53,7 +53,7 @@ const Definition = props => {
   useEffect(() => {
     document.title = 'Job Definition'
     props.fetchJob(props.jobSpecId)
-  }, [])
+  }, [props])
   const { jobSpecId, job } = props
 
   return (

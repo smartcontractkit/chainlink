@@ -3,11 +3,11 @@ import PropTypes from 'prop-types'
 import { receiveSignoutSuccess } from 'actions'
 import { connect } from 'react-redux'
 
-export const SignOut = props => {
+export const SignOut = ({ receiveSignoutSuccess }) => {
   useEffect(() => {
     document.title = 'Sign Out'
-    props.receiveSignoutSuccess()
-  }, [])
+    receiveSignoutSuccess()
+  }, [receiveSignoutSuccess])
   return <React.Fragment />
 }
 

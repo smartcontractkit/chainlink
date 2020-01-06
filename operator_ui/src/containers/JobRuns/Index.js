@@ -71,17 +71,15 @@ const renderDetails = (props, state, handleChangePage) => {
 }
 
 export const Index = props => {
-  const { jobSpecId, fetchJobRuns, pageSize } = props
+  const { jobSpecId, fetchJobRuns, pageSize, match } = props
   const [page, setPage] = useState(FIRST_PAGE)
 
   useEffect(() => {
     document.title = 'Job Runs'
-    const queryPage = props.match
-      ? parseInt(props.match.params.jobRunsPage, 10) || FIRST_PAGE
-      : FIRST_PAGE
+    const queryPage = parseInt(match?.params.jobRunsPage, 10) || FIRST_PAGE
     setPage(queryPage)
     fetchJobRuns({ jobSpecId, page: queryPage, size: pageSize })
-  }, [])
+  }, [fetchJobRuns, jobSpecId, pageSize, match])
   const handleChangePage = (_, pageNum) => {
     fetchJobRuns({ jobSpecId, page: pageNum, size: pageSize })
     setPage(pageNum)

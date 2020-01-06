@@ -62,11 +62,10 @@ export const List = props => {
 
   useEffect(() => {
     const queryPage =
-      (props.match && parseInt(props.match.params.transactionsPage, 10)) ||
-      FIRST_PAGE
+      parseInt(props.match?.params.transactionsPage, 10) || FIRST_PAGE
     setPage(queryPage)
     fetchTransactions(queryPage, pageSize)
-  }, [])
+  }, [fetchTransactions, pageSize, props.match])
 
   const handleChangePage = (e, page) => {
     fetchTransactions(page, pageSize)

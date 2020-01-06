@@ -65,11 +65,10 @@ export const List = props => {
   const [page, setPage] = useState(FIRST_PAGE)
 
   useEffect(() => {
-    const queryPage =
-      (props.match && parseInt(props.match.params.jobPage, 10)) || FIRST_PAGE
+    const queryPage = parseInt(props.match?.params.jobPage, 10) || FIRST_PAGE
     setPage(queryPage)
     fetchJobs(queryPage, pageSize)
-  }, [])
+  }, [fetchJobs, pageSize, props.match])
 
   const handleChangePage = (e, page) => {
     fetchJobs(page, pageSize)

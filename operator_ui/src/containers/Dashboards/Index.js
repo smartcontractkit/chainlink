@@ -18,22 +18,38 @@ import dashboardJobRunsCountSelector from 'selectors/dashboardJobRunsCount'
 import recentJobRunsSelector from 'selectors/recentJobRuns'
 import recentlyCreatedJobsSelector from 'selectors/recentlyCreatedJobs'
 
-export const Index = props => {
+export const Index = ({
+  accountBalance,
+  fetchAccountBalance,
+  fetchRecentJobRuns,
+  fetchRecentlyCreatedJobs,
+  jobRunsCount,
+  recentJobRuns,
+  recentJobRunsCount,
+  recentlyCreatedJobs,
+  recentlyCreatedPageSize,
+}) => {
   useEffect(() => {
     document.title = 'Dashboard'
-    props.fetchAccountBalance()
-    props.fetchRecentJobRuns(props.recentJobRunsCount)
-    props.fetchRecentlyCreatedJobs(props.recentlyCreatedPageSize)
-  }, [])
+    fetchAccountBalance()
+    fetchRecentJobRuns(recentJobRunsCount)
+    fetchRecentlyCreatedJobs(recentlyCreatedPageSize)
+  }, [
+    fetchAccountBalance,
+    fetchRecentJobRuns,
+    fetchRecentlyCreatedJobs,
+    recentJobRunsCount,
+    recentlyCreatedPageSize,
+  ])
 
   return (
     <Content>
       <Grid container>
         <Grid item xs={9}>
           <Activity
-            runs={props.recentJobRuns}
-            pageSize={props.recentJobRunsCount}
-            count={props.jobRunsCount}
+            runs={recentJobRuns}
+            pageSize={recentJobRunsCount}
+            count={jobRunsCount}
           />
         </Grid>
         <Grid item xs={3}>
@@ -41,17 +57,17 @@ export const Index = props => {
             <Grid item xs={12}>
               <TokenBalanceCard
                 title="Link Balance"
-                value={props.accountBalance && props.accountBalance.linkBalance}
+                value={accountBalance?.linkBalance}
               />
             </Grid>
             <Grid item xs={12}>
               <TokenBalanceCard
                 title="Ether Balance"
-                value={props.accountBalance && props.accountBalance.ethBalance}
+                value={accountBalance?.ethBalance}
               />
             </Grid>
             <Grid item xs={12}>
-              <RecentlyCreatedJobs jobs={props.recentlyCreatedJobs} />
+              <RecentlyCreatedJobs jobs={recentlyCreatedJobs} />
             </Grid>
           </Grid>
         </Grid>
