@@ -52,7 +52,7 @@
     "react-redux": "~6.0.0",
     "react-resize-detector": "^4.2.1",
     "react-router": "^4.3.1",
-    "react-router-dom": "^4.3.1",
+    "react-router-dom": "^5.1.2",
     "react-universal-component": "^4.0.0",
     "redux": "^4.0.0",
     "redux-logger": "^3.0.6",
