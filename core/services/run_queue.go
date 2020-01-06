@@ -82,6 +82,7 @@ func (rq *runQueue) Run(run *models.JobRun) {
 			queueCount := rq.workers[runID]
 			if queueCount <= 0 {
 				delete(rq.workers, runID)
+				numberRunQueueWorkers.Set(float64(len(rq.workers)))
 				rq.workersMutex.Unlock()
 				break
 			}
