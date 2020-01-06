@@ -1,5 +1,5 @@
 /* eslint-env jest */
-import { ConnectedConfiguration as Configuration } from 'containers/Configuration'
+import { ConnectedConfiguration as Configuration } from 'containers/Configuration/Index'
 import configurationFactory from 'factories/configuration'
 import React from 'react'
 import mountWithinStoreAndRouter from 'test-helpers/mountWithinStoreAndRouter'
