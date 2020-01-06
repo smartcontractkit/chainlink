@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"math/big"
 	"sync"
 
 	"chainlink/core/logger"
@@ -37,33 +38,41 @@ type jobSubscriber struct {
 	jobSubscriptions map[string]JobSubscription
 	jobsMutex        *sync.RWMutex
 	runManager       RunManager
-	headChannel      chan *models.Head
+	jobResumer       SleeperTask
+	runWorker        *runWorker
+}
+
+type runWorker struct {
+	runManager RunManager
+	head       big.Int
+}
+
+func (rw *runWorker) Work() {
+	logger.Debugw("Received head", "head", rw.head.Text(10))
+	err := rw.runManager.ResumeAllConfirming(&rw.head)
+	if err != nil {
+		logger.Errorw("Failed to resume confirming tasks on new head", "error", err)
+	}
+	logger.Debugw("Finished work")
 }
 
 // NewJobSubscriber returns a new job subscriber.
 func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
+	rw := &runWorker{runManager: runManager}
 	js := &jobSubscriber{
 		store:            store,
 		runManager:       runManager,
 		jobSubscriptions: map[string]JobSubscription{},
 		jobsMutex:        &sync.RWMutex{},
-		headChannel:      make(chan *models.Head, 1),
+		jobResumer:       NewSleeperTask(rw),
+		runWorker:        rw,
 	}
-	go js.jobLoop()
+	js.jobResumer.Start()
 	return js
 }
 
-// jobLoop is a long running goroutine which handles new heads
-func (js *jobSubscriber) jobLoop() {
-	for {
-		select {
-		case head := <-js.headChannel:
-			err := js.runManager.ResumeAllConfirming(head.ToInt())
-			if err != nil {
-				logger.Errorw("Failed to resume confirming tasks on new head", "error", err)
-			}
-		}
-	}
+func (js *jobSubscriber) Stop() error {
+	return js.jobResumer.Stop()
 }
 
 // AddJob subscribes to ethereum log events for each "runlog" and "ethlog"
@@ -140,9 +149,6 @@ func (js *jobSubscriber) Disconnect() {
 
 // OnNewHead resumes all pending job runs based on the new head activity.
 func (js *jobSubscriber) OnNewHead(head *models.Head) {
-	// Drop the head if it cannot be queued
-	select {
-	case js.headChannel <- head:
-	default:
-	}
+	js.runWorker.head = *head.ToInt()
+	js.jobResumer.WakeUp()
 }

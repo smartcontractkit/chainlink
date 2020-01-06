@@ -3,6 +3,7 @@ package services_test
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
@@ -32,16 +33,16 @@ func TestJobSubscriber_OnNewHead(t *testing.T) {
 		Run(func(mock.Arguments) {
 			resumeJobChannel <- struct{}{}
 		})
-	runManager.On("ResumeAllConfirming", big.NewInt(1338)).
+	runManager.On("ResumeAllConfirming", big.NewInt(1339)).
 		Return(nil).
 		Once().
 		Run(func(mock.Arguments) {
 			resumeJobChannel <- struct{}{}
 		})
 	jobSubscriber.OnNewHead(cltest.Head(1337))
+	time.Sleep(1 * time.Second)
 	jobSubscriber.OnNewHead(cltest.Head(1338))
-
-	// JobSubscriber on new head channel is now blocked, this head should get dropped
+	time.Sleep(1 * time.Second)
 	jobSubscriber.OnNewHead(cltest.Head(1339))
 
 	// Unblock the channel
@@ -88,7 +89,6 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 	assert.Len(t, jobSubscriber.Jobs(), 0)
 
 	runManager.AssertExpectations(t)
-
 }
 
 func TestJobSubscriber_AddJob_NotLogInitiatedError(t *testing.T) {
