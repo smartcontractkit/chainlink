@@ -20,7 +20,7 @@
     "depcheck": "echo '@chainlink/operator-ui' && depcheck --ignore-dirs=dist || true"
   },
   "dependencies": {
-    "@babel/polyfill": "7.2.5",
+    "@babel/polyfill": "7.7.0",
     "@chainlink/local-storage": "0.0.1",
     "@chainlink/redux": "0.0.1",
     "@chainlink/styleguide": "0.0.1",
