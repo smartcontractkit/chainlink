@@ -72,17 +72,16 @@ type RouteProps = RouteComponentProps<{
 
 type Props = OwnProps & RouteProps
 
-// FIXME - remove unused export?
-export const BridgeList = (props: Props) => {
-  const {
-    bridges,
-    bridgeCount,
-    error,
-    fetchBridges,
-    fetching,
-    match,
-    pageSize,
-  } = props
+export const BridgeList: React.FC<Props> = ({
+  bridges,
+  bridgeCount,
+  error,
+  fetchBridges,
+  fetching,
+  history,
+  match,
+  pageSize,
+}) => {
   const [page, setPage] = useState(FIRST_PAGE)
 
   useEffect(() => {
@@ -98,7 +97,7 @@ export const BridgeList = (props: Props) => {
 
   const TableButtonsWithProps = () => (
     <TableButtons
-      history={props.history}
+      history={history}
       count={bridgeCount}
       onChangePage={handleChangePage}
       rowsPerPage={pageSize}

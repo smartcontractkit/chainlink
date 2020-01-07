@@ -61,7 +61,12 @@ interface Props {
   fetchJobRun: (id: string) => Promise<any>
 }
 
-const ShowErrorLog = ({ jobRunId, jobSpecId, jobRun, fetchJobRun }: Props) => {
+const ShowErrorLog: React.FC<Props> = ({
+  jobRunId,
+  jobSpecId,
+  jobRun,
+  fetchJobRun,
+}) => {
   useEffect(() => {
     fetchJobRun(jobRunId)
   }, [fetchJobRun, jobRunId])
