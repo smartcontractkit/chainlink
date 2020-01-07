@@ -1,6 +1,8 @@
 package services_test
 
 import (
+	"fmt"
+
 	"math/big"
 	"testing"
 	"time"
@@ -859,4 +861,27 @@ func TestRunManager_ResumeAllInProgress_NotInProgressAndArchived(t *testing.T) {
 			runQueue.AssertExpectations(t)
 		})
 	}
+}
+
+func TestRunManager_ValidateRun_PaymentAboveThreshold(t *testing.T) {
+	jobSpecID := cltest.NewJob().ID
+	run := &models.JobRun{ID: models.NewID(), JobSpecID: jobSpecID, Payment: assets.NewLink(2)}
+	contractCost := assets.NewLink(1)
+
+	services.ValidateRun(run, contractCost)
+
+	assert.Equal(t, models.RunStatus(""), run.Status)
+}
+
+func TestRunManager_ValidateRun_PaymentBelowThreshold(t *testing.T) {
+	jobSpecID := cltest.NewJob().ID
+	run := &models.JobRun{ID: models.NewID(), JobSpecID: jobSpecID, Payment: assets.NewLink(1)}
+	contractCost := assets.NewLink(2)
+
+	services.ValidateRun(run, contractCost)
+
+	assert.Equal(t, models.RunStatusErrored, run.Status)
+
+	expectedErrorMsg := fmt.Sprintf("Rejecting job %s with payment 1 below minimum threshold (2)", jobSpecID)
+	assert.Equal(t, expectedErrorMsg, run.Result.ErrorMessage.String)
 }
