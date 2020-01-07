@@ -2858,6 +2858,13 @@
     hoist-non-react-statics "^3.3.0"
     redux "^4.0.0"
 
+"@types/react-resize-detector@^3.1.1":
+  version "3.1.1"
+  resolved "https://registry.yarnpkg.com/@types/react-resize-detector/-/react-resize-detector-3.1.1.tgz#06e6ff328703607462cbc435193a59a01db23a24"
+  integrity sha512-3FVExywb3kC0p+dKRd2IC6wmUlfurx/9J0b1mtHd0rigwZWNJC79fnbTJaMmLNM8PhhgqDwaNOhFdv0u9YGAzA==
+  dependencies:
+    "@types/react" "*"
+
 "@types/react-resize-detector@^4.0.1":
   version "4.2.0"
   resolved "https://registry.npmjs.org/@types/react-resize-detector/-/react-resize-detector-4.2.0.tgz#ee8802e25cfb34439aa7f52626932ea62dc5792e"
