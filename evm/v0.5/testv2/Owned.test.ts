@@ -1,22 +1,36 @@
-import { personas, checkPublicABI } from '../test/support/helpers'
-import { expectEvent, expectRevert } from 'openzeppelin-test-helpers'
+import * as h from '../src/helpers'
+import { OwnedTestHelperFactory } from '../src/generated'
+import { makeTestProvider } from '../src/provider'
+import { Instance } from '../src/contract'
+import { ethers } from 'ethers'
+import { assert } from 'chai'
 
-contract('Owned', () => {
-  const Owned = artifacts.require('OwnedTestHelper.sol')
-  let owned, owner, nonOwner, newOwner
+const ownedTestHelperFactory = new OwnedTestHelperFactory()
+const provider = makeTestProvider()
 
-  before(async () => {
-    owner = personas.Carol
-    nonOwner = personas.Neil
-    newOwner = personas.Ned
-  })
+let personas: h.Personas
+let owner: ethers.Wallet
+let nonOwner: ethers.Wallet
+let newOwner: ethers.Wallet
+
+beforeAll(async () => {
+  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  personas = rolesAndPersonas.personas
+  owner = personas.Carol
+  nonOwner = personas.Neil
+  newOwner = personas.Ned
+})
+
+describe('Owned', () => {
+  let owned: Instance<OwnedTestHelperFactory>
+  const ownedEvents = ownedTestHelperFactory.interface.events
 
   beforeEach(async () => {
-    owned = await Owned.new({ from: owner })
+    owned = await ownedTestHelperFactory.connect(owner).deploy()
   })
 
   it('has a limited public interface', () => {
-    checkPublicABI(Owned, [
+    h.checkPublicABI(ownedTestHelperFactory, [
       'acceptOwnership',
       'owner',
       'transferOwnership',
@@ -27,70 +41,79 @@ contract('Owned', () => {
 
   describe('#constructor', () => {
     it('assigns ownership to the deployer', async () => {
-      assert.equal(owner, await owned.owner.call())
+      const [actual, expected] = await Promise.all([
+        owner.getAddress(),
+        owned.owner(),
+      ])
+
+      assert.equal(actual, expected)
     })
   })
 
   describe('#onlyOwner modifier', () => {
-    context('when called by an owner', () => {
+    describe('when called by an owner', () => {
       it('successfully calls the method', async () => {
-        const { logs } = await owned.modifierOnlyOwner({ from: owner })
-        expectEvent.inLogs(logs, 'Here')
+        const tx = await owned.connect(owner).modifierOnlyOwner()
+        const receipt = await tx.wait()
+
+        expect(h.findEventIn(receipt, ownedEvents.Here)).toBeDefined()
       })
     })
 
-    context('when called by anyone but the owner', () => {
+    describe('when called by anyone but the owner', () => {
       it('reverts', async () => {
-        await expectRevert(
-          owned.modifierOnlyOwner({ from: nonOwner }),
-          'Only callable by owner',
-        )
+        await h.assertActionThrows(async () => {
+          await owned.connect(nonOwner).modifierOnlyOwner()
+        })
       })
     })
   })
 
   describe('#transferOwnership', () => {
-    context('when called by an owner', () => {
+    describe('when called by an owner', () => {
       it('emits a log', async () => {
-        const { logs } = await owned.transferOwnership(newOwner, {
-          from: owner,
-        })
-        expectEvent.inLogs(logs, 'OwnershipTransferRequested', {
-          to: newOwner,
-          from: owner,
-        })
+        const tx = await owned
+          .connect(owner)
+          .transferOwnership(newOwner.address)
+        const receipt = await tx.wait()
+
+        const event = h.findEventIn(
+          receipt,
+          ownedEvents.OwnershipTransferRequested,
+        )
+        expect(h.eventArgs(event).to).toEqual(newOwner.address)
+        expect(h.eventArgs(event).from).toEqual(owner.address)
       })
     })
+  })
 
-    context('when called by anyone but the owner', () => {
-      it('successfully calls the method', async () => {
-        await expectRevert(
-          owned.transferOwnership(newOwner, { from: nonOwner }),
-          'Only callable by owner',
-        )
+  describe('when called by anyone but the owner', () => {
+    it('successfully calls the method', async () => {
+      await h.assertActionThrows(async () => {
+        await owned.connect(nonOwner).transferOwnership(newOwner.address)
       })
     })
   })
 
   describe('#acceptOwnership', () => {
-    context('after #transferOwnership has been called', () => {
+    describe('after #transferOwnership has been called', () => {
       beforeEach(async () => {
-        await owned.transferOwnership(newOwner, { from: owner })
+        await owned.connect(owner).transferOwnership(newOwner.address)
       })
 
       it('allows the recipient to call it', async () => {
-        const { logs } = await owned.acceptOwnership({ from: newOwner })
-        expectEvent.inLogs(logs, 'OwnershipTransfered', {
-          to: newOwner,
-          from: owner,
-        })
+        const tx = await owned.connect(newOwner).acceptOwnership()
+        const receipt = await tx.wait()
+
+        const event = h.findEventIn(receipt, ownedEvents.OwnershipTransfered)
+        expect(h.eventArgs(event).to).toEqual(newOwner.address)
+        expect(h.eventArgs(event).from).toEqual(owner.address)
       })
 
       it('does not allow a non-recipient to call it', async () => {
-        await expectRevert(
-          owned.acceptOwnership({ from: nonOwner }),
-          'Must be proposed owner',
-        )
+        await h.assertActionThrows(async () => {
+          await owned.connect(nonOwner).acceptOwnership()
+        })
       })
     })
   })
