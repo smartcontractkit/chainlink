@@ -71,7 +71,7 @@ const EarnedLink = ({
   )
 }
 
-const StatusCard = ({ title, classes, children, jobRun }: Props) => {
+const StatusCard: React.FC<Props> = ({ title, classes, children, jobRun }) => {
   const statusClass = classes[title as keyof typeof classes] || classes.pending
   const { status, createdAt, finishedAt } = jobRun || {
     status: '',

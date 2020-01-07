@@ -55,7 +55,7 @@ interface Props {
   bridge?: BridgeType
 }
 
-export const Show = ({ bridge, fetchBridgeSpec, match }: Props) => {
+export const Show: React.FC<Props> = ({ bridge, fetchBridgeSpec, match }) => {
   useEffect(() => {
     document.title = 'Show Bridge'
     fetchBridgeSpec(match.params.bridgeId)

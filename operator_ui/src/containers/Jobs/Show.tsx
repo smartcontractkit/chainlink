@@ -96,12 +96,12 @@ const ChartArea = withStyles(chartCardStyles)(
   ),
 )
 
-const RecentJobRuns = ({
+const RecentJobRuns: React.FC<RecentJobRunsProps> = ({
   job,
   recentRuns,
   recentRunsCount,
   showJobRunsCount,
-}: RecentJobRunsProps) => {
+}) => {
   return (
     <Card>
       <CardTitle divider>Recent Job Runs</CardTitle>
@@ -123,12 +123,12 @@ interface DetailsProps {
   showJobRunsCount: number
 }
 
-const Details = ({
+const Details: React.FC<DetailsProps> = ({
   job,
   recentRuns,
   recentRunsCount,
   showJobRunsCount,
-}: DetailsProps) => {
+}) => {
   if (job) {
     return (
       <Grid container spacing={24}>
@@ -173,7 +173,7 @@ interface Props {
 const DEFAULT_PAGE = 1
 const RECENT_RUNS_COUNT = 5
 
-export const Show = ({
+export const Show: React.FC<Props> = ({
   jobSpecId,
   job,
   fetchJob,
@@ -181,7 +181,7 @@ export const Show = ({
   recentRunsCount,
   recentRuns = [],
   showJobRunsCount = 2,
-}: Props) => {
+}) => {
   useEffect(() => {
     document.title = 'Show Job'
     fetchJob(jobSpecId)
