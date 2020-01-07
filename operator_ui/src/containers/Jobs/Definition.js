@@ -50,11 +50,12 @@ const renderDetails = ({ job, classes }) => {
 }
 
 const Definition = props => {
+  const { fetchJob, job, jobSpecId } = props
+
   useEffect(() => {
     document.title = 'Job Definition'
-    props.fetchJob(props.jobSpecId)
-  }, [props])
-  const { jobSpecId, job } = props
+    fetchJob(jobSpecId)
+  }, [fetchJob, jobSpecId])
 
   return (
     <div>
