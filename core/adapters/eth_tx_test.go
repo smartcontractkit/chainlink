@@ -297,6 +297,26 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 	txManager.AssertExpectations(t)
 }
 
+func TestEthTxAdapter_Perform_NotConnectedWhenPendingConfirmations(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(false)
+	store.TxManager = txManager
+
+	adapter := adapters.EthTx{}
+	input := *models.NewRunInput(models.NewID(), models.JSON{}, models.RunStatusPendingConfirmations)
+	data := adapter.Perform(input, store)
+
+	require.NoError(t, data.Error())
+	assert.Equal(t, models.RunStatusPendingConfirmations, data.Status())
+
+	txManager.AssertExpectations(t)
+}
+
 func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 	t.Parallel()
 
