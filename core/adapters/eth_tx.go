@@ -41,7 +41,7 @@ type EthTx struct {
 // the blockchain.
 func (etx *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
 	if !store.TxManager.Connected() {
-		return models.NewRunOutputPendingConnection()
+		return pendingConfirmationsOrConnection(input)
 	}
 
 	if input.Status().PendingConfirmations() {
@@ -229,4 +229,13 @@ var (
 // eventually return a transaction receipt.
 func IsClientEmptyError(err error) bool {
 	return err != nil && parityEmptyResponseRegex.MatchString(err.Error())
+}
+
+func pendingConfirmationsOrConnection(input models.RunInput) models.RunOutput {
+	// If the input is not pending confirmations next time it may, then it may
+	// submit a new transaction.
+	if input.Status().PendingConfirmations() {
+		return models.NewRunOutputPendingConfirmations()
+	}
+	return models.NewRunOutputPendingConnection()
 }
