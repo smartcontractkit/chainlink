@@ -9,7 +9,7 @@ import App from './App'
 import createStore from './createStore'
 import './index.css'
 import * as serviceWorker from './serviceWorker'
-import theme from './theme'
+import { theme } from '@chainlink/styleguide'
 
 JavascriptTimeAgo.locale(en)
 moment.defaultFormat = 'YYYY-MM-DD h:mm:ss A'
