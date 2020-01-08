@@ -249,6 +249,16 @@ const MAINNET_CONTRACTS = [
     decimalPlaces: 9,
     history: false,
   },
+  {
+    contractAddress: '0xE23d1142dE4E83C08bb048bcab54d50907390828',
+    name: 'SNX / ETH aggregation',
+    valuePrefix: 'Ξ',
+    answerName: 'SNX',
+    path: 'snx-eth',
+    multiply: '1000000000000000000',
+    decimalPlaces: 9,
+    history: false,
+  },
 ]
 
 /**
