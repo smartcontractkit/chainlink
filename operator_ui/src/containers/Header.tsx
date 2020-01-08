@@ -21,7 +21,6 @@ import React from 'react'
 import { connect } from 'react-redux'
 import ReactResizeDetector from 'react-resize-detector'
 import { bindActionCreators, Dispatch } from 'redux'
-import { useHooks, useState } from 'use-react-hooks'
 import { submitSignOut } from '../actions'
 import AvatarMenu from '../components/AvatarMenu'
 import BaseLink from '../components/BaseLink'
@@ -194,18 +193,35 @@ interface Props extends WithStyles<typeof styles> {
   url?: string
 }
 
-const Header = useHooks(
-  ({
-    authenticated,
-    classes,
-    fetchCount,
-    url,
-    drawerContainer,
-    onResize,
-    submitSignOut,
-  }: Props) => {
-    const [drawerOpen, setDrawerOpen] = useState(false)
-    const toggleDrawer = () => setDrawerOpen(!drawerOpen)
+interface State {
+  drawerOpen: boolean
+}
+
+class Header extends React.Component<Props, State> {
+  constructor(props: Props) {
+    super(props)
+    this.state = {
+      drawerOpen: false,
+    }
+    this.toggleDrawer = this.toggleDrawer.bind(this)
+  }
+
+  toggleDrawer() {
+    this.setState({
+      drawerOpen: !this.state.drawerOpen,
+    })
+  }
+
+  render() {
+    const {
+      authenticated,
+      classes,
+      fetchCount,
+      url,
+      drawerContainer,
+      onResize,
+      submitSignOut,
+    } = this.props
 
     return (
       <AppBar className={classes.appBar} color="default" position="absolute">
@@ -230,7 +246,7 @@ const Header = useHooks(
                     <Hidden mdUp>
                       <IconButton
                         aria-label="open drawer"
-                        onClick={toggleDrawer}
+                        onClick={this.toggleDrawer}
                       >
                         <MenuIcon />
                       </IconButton>
@@ -246,16 +262,16 @@ const Header = useHooks(
         </ReactResizeDetector>
         <Portal container={drawerContainer}>
           <Drawer
-            toggleDrawer={toggleDrawer}
-            drawerOpen={drawerOpen}
+            toggleDrawer={this.toggleDrawer}
+            drawerOpen={this.state.drawerOpen}
             authenticated={authenticated}
             submitSignOut={submitSignOut}
           />
         </Portal>
       </AppBar>
     )
-  },
-)
+  }
+}
 
 const mapStateToProps = (state: any) => ({
   authenticated: state.authentication.allowed,
@@ -266,9 +282,6 @@ const mapStateToProps = (state: any) => ({
 const mapDispatchToProps = (dispatch: Dispatch) =>
   bindActionCreators({ submitSignOut }, dispatch)
 
-export const ConnectedHeader = connect(
-  mapStateToProps,
-  mapDispatchToProps,
-)(Header)
+const ConnectedHeader = connect(mapStateToProps, mapDispatchToProps)(Header)
 
 export default withStyles(styles)(ConnectedHeader)

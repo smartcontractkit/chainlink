@@ -6,10 +6,9 @@ import Content from 'components/Content'
 import StatusCard from 'components/JobRuns/StatusCard'
 import { AppState } from 'src/reducers'
 import { JobRun, TaskRun } from 'operator_ui'
-import React from 'react'
+import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
 import jobRunSelector from 'selectors/jobRun'
-import { useEffect, useHooks } from 'use-react-hooks'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import RegionalNav from './RegionalNav'
 
@@ -62,27 +61,26 @@ interface Props {
   fetchJobRun: (id: string) => Promise<any>
 }
 
-const ShowErrorLog = useHooks(
-  ({ jobRunId, jobSpecId, jobRun, fetchJobRun }: Props) => {
-    useEffect(() => {
-      fetchJobRun(jobRunId)
-    }, [jobRunId])
+const ShowErrorLog: React.FC<Props> = ({
+  jobRunId,
+  jobSpecId,
+  jobRun,
+  fetchJobRun,
+}) => {
+  useEffect(() => {
+    fetchJobRun(jobRunId)
+  }, [fetchJobRun, jobRunId])
 
-    return (
-      <div>
-        <RegionalNav
-          jobSpecId={jobSpecId}
-          jobRunId={jobRunId}
-          jobRun={jobRun}
-        />
+  return (
+    <div>
+      <RegionalNav jobSpecId={jobSpecId} jobRunId={jobRunId} jobRun={jobRun} />
 
-        <Content>
-          <Details jobRun={jobRun} />
-        </Content>
-      </div>
-    )
-  },
-)
+      <Content>
+        <Details jobRun={jobRun} />
+      </Content>
+    </div>
+  )
+}
 
 interface Match {
   params: {

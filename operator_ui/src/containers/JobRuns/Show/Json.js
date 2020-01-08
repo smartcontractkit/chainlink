@@ -4,10 +4,9 @@ import { fetchJobRun } from 'actions'
 import Content from 'components/Content'
 import StatusCard from 'components/JobRuns/StatusCard'
 import PrettyJson from 'components/PrettyJson'
-import React from 'react'
+import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
 import jobRunSelector from 'selectors/jobRun'
-import { useEffect, useHooks } from 'use-react-hooks'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import RegionalNav from './RegionalNav'
 
@@ -30,23 +29,20 @@ const renderDetails = ({ fetching, jobRun }) => {
   )
 }
 
-const Show = useHooks(props => {
+const Show = props => {
+  const { fetchJobRun, jobRunId } = props
+
   useEffect(() => {
-    props.fetchJobRun(props.jobRunId)
-  }, [])
+    fetchJobRun(jobRunId)
+  }, [fetchJobRun, jobRunId])
 
   return (
     <div>
-      <RegionalNav
-        jobSpecId={props.jobSpecId}
-        jobRunId={props.jobRunId}
-        jobRun={props.jobRun}
-      />
-
+      <RegionalNav {...props} />
       <Content>{renderDetails(props)}</Content>
     </div>
   )
-})
+}
 
 const mapStateToProps = (state, ownProps) => {
   const { jobSpecId, jobRunId } = ownProps.match.params
