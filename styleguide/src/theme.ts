@@ -51,6 +51,14 @@ export const theme: ThemeOptions = {
     MuiGrid: {
       spacing: spacing.unit * 3,
     },
+    MuiButton: {
+      style: {
+        paddingTop: spacing.unit,
+        paddingBottom: spacing.unit,
+        paddingLeft: spacing.unit * 5,
+        paddingRight: spacing.unit * 5,
+      },
+    },
   },
   palette: {
     action: {
@@ -119,6 +127,10 @@ export const theme: ThemeOptions = {
       'Arial',
       'sans-serif',
     ].join(','),
+    button: {
+      textTransform: 'none',
+      fontSize: '1.2em',
+    },
     body1: {
       fontSize: '1.0rem',
       fontWeight: 400,

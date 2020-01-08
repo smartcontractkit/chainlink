@@ -1,5 +1,5 @@
 import React from 'react'
-import { KeyValueList } from '../../KeyValueList'
+import { KeyValueList } from '@chainlink/styleguide'
 import { OperatorShowData } from '../../../reducers/adminOperatorsShow'
 
 const LOADING_MESSAGE = 'Loading operator...'
