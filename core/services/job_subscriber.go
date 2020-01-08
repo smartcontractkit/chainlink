@@ -35,20 +35,20 @@ type JobSubscriber interface {
 
 // jobSubscriber implementation
 type jobSubscriber struct {
-	store            *store.Store
-	jobSubscriptions map[string]JobSubscription
-	jobsMutex        *sync.RWMutex
-	runManager       RunManager
-	jobResumer       SleeperTask
-	runWorker        *runWorker
+	store                     *store.Store
+	jobSubscriptions          map[string]JobSubscription
+	jobsMutex                 *sync.RWMutex
+	runManager                RunManager
+	jobResumer                SleeperTask
+	resumeRunsOnNewHeadWorker *resumeRunsOnNewHeadWorker
 }
 
-type runWorker struct {
+type resumeRunsOnNewHeadWorker struct {
 	runManager RunManager
 	head       big.Int
 }
 
-func (rw *runWorker) Work() {
+func (rw *resumeRunsOnNewHeadWorker) Work() {
 	logger.Debugw("Received head", "head", rw.head.Text(10))
 	err := rw.runManager.ResumeAllConfirming(&rw.head)
 	if err != nil {
@@ -59,14 +59,14 @@ func (rw *runWorker) Work() {
 
 // NewJobSubscriber returns a new job subscriber.
 func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
-	rw := &runWorker{runManager: runManager}
+	rw := &resumeRunsOnNewHeadWorker{runManager: runManager}
 	js := &jobSubscriber{
-		store:            store,
-		runManager:       runManager,
-		jobSubscriptions: map[string]JobSubscription{},
-		jobsMutex:        &sync.RWMutex{},
-		jobResumer:       NewSleeperTask(rw),
-		runWorker:        rw,
+		store:                     store,
+		runManager:                runManager,
+		jobSubscriptions:          map[string]JobSubscription{},
+		jobsMutex:                 &sync.RWMutex{},
+		jobResumer:                NewSleeperTask(rw),
+		resumeRunsOnNewHeadWorker: rw,
 	}
 	js.jobResumer.Start()
 	return js
@@ -150,6 +150,6 @@ func (js *jobSubscriber) Disconnect() {
 
 // OnNewHead resumes all pending job runs based on the new head activity.
 func (js *jobSubscriber) OnNewHead(head *models.Head) {
-	js.runWorker.head = *head.ToInt()
+	js.resumeRunsOnNewHeadWorker.head = *head.ToInt()
 	js.jobResumer.WakeUp()
 }
