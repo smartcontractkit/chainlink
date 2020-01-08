@@ -2,11 +2,12 @@ import { ethers } from 'ethers'
 import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
 import { Oracle } from './generated/Oracle'
-import { CoordinatorFactory } from './generated'
+import { CoordinatorFactory, TypedEventDescription } from './generated'
 import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
 import { OracleFactory } from './generated/OracleFactory'
+import { ContractReceipt } from 'ethers/contract'
 
 const debug = makeDebug('helpers')
 
@@ -544,4 +545,30 @@ export function pubkeyToAddress(pubkey: ethers.utils.BigNumber[]) {
     .replace(/0x/gi, '')}`
 
   return ethers.utils.computeAddress(concatResult)
+}
+
+interface EventArgsArray extends Array<any> {
+  [key: string]: any
+}
+/**
+ * Typecast an ethers event to its proper type, until
+ * https://github.com/ethers-io/ethers.js/pull/698 is addressed
+ *
+ * @param event The event to typecast
+ */
+export function eventArgs(event?: ethers.Event) {
+  return (event?.args as any) as EventArgsArray
+}
+
+/**
+ * Find an event within a transaction receipt by its event description
+ *
+ * @param receipt The events array to search through
+ * @param eventDescription The event description to pass to check its name by
+ */
+export function findEventIn(
+  receipt: ContractReceipt,
+  eventDescription: TypedEventDescription<any>,
+): ethers.Event | undefined {
+  return receipt.events?.find(e => e.event === eventDescription.name)
 }
