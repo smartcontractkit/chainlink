@@ -9,8 +9,7 @@ import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import PropTypes from 'prop-types'
-import React from 'react'
-import { useEffect, useHooks, useState } from 'use-react-hooks'
+import React, { useState, useEffect } from 'react'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import Link from '../Link'
 
@@ -61,16 +60,15 @@ const renderBody = (jobs, error) => {
   )
 }
 
-export const List = useHooks(props => {
+export const List = props => {
   const { jobs, jobCount, fetchJobs, pageSize, error } = props
   const [page, setPage] = useState(FIRST_PAGE)
 
   useEffect(() => {
-    const queryPage =
-      (props.match && parseInt(props.match.params.jobPage, 10)) || FIRST_PAGE
+    const queryPage = parseInt(props.match?.params.jobPage, 10) || FIRST_PAGE
     setPage(queryPage)
     fetchJobs(queryPage, pageSize)
-  }, [])
+  }, [fetchJobs, pageSize, props.match])
 
   const handleChangePage = (e, page) => {
     fetchJobs(page, pageSize)
@@ -128,7 +126,7 @@ export const List = useHooks(props => {
       />
     </Card>
   )
-})
+}
 
 List.propTypes = {
   jobs: PropTypes.array,
