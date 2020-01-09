@@ -1,19 +1,14 @@
-import reducer from 'reducers'
+import reducer, { INITIAL_STATE } from '../../src/reducers'
+import {
+  UpsertBridgeAction,
+  UpsertBridgesAction,
+  ResourceActionType,
+} from '../../src/reducers/actions'
 
 describe('reducers/bridges', () => {
-  it('returns the initial state', () => {
-    const state = reducer(undefined, {})
-
-    expect(state.bridges).toEqual({
-      items: {},
-      currentPage: [],
-      count: 0,
-    })
-  })
-
   it('UPSERT_BRIDGES stores the bridge items, current page & count', () => {
-    const action = {
-      type: 'UPSERT_BRIDGES',
+    const action: UpsertBridgesAction = {
+      type: ResourceActionType.UPSERT_BRIDGES,
       data: {
         bridges: {
           a: { id: 'a', name: 'A' },
@@ -38,8 +33,8 @@ describe('reducers/bridges', () => {
   })
 
   it('UPSERT_BRIDGE stores the bridge item', () => {
-    const action = {
-      type: 'UPSERT_BRIDGE',
+    const action: UpsertBridgeAction = {
+      type: ResourceActionType.UPSERT_BRIDGE,
       data: {
         bridges: {
           a: {
@@ -51,10 +46,7 @@ describe('reducers/bridges', () => {
         },
       },
     }
-    const previousState = {
-      bridges: { items: {} },
-    }
-    const state = reducer(previousState, action)
+    const state = reducer(INITIAL_STATE, action)
 
     expect(state.bridges.items.a).toEqual({
       id: 'a',

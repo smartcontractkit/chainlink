@@ -1,6 +1,6 @@
 import * as jsonapi from '@chainlink/json-api-client'
+import { partialAsFull } from '@chainlink/ts-test-helpers'
 import reducer, { INITIAL_STATE } from '../../reducers'
-import { partialAsFull } from '../support/mocks'
 import { FetchAdminSigninErrorAction } from '../../reducers/actions'
 
 describe('reducers/jobRuns', () => {
