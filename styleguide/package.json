@@ -12,7 +12,9 @@
     "build-storybook": "build-storybook",
     "build": "rimraf -rf dist && tsc",
     "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true",
-    "setup": "yarn build"
+    "setup": "yarn build",
+    "test": "jest",
+    "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%"
   },
   "dependencies": {
     "@material-ui/core": "^3.9.2",
@@ -38,14 +40,19 @@
     "@storybook/addon-links": "^5.2.5",
     "@storybook/addons": "^5.2.1",
     "@storybook/react": "^5.1.10",
+    "@testing-library/jest-dom": "^4.2.4",
+    "@testing-library/react": "^9.4.0",
     "@types/react": "^16.9.17",
     "@types/react-dom": "^16.7.0",
     "@types/storybook__addon-links": "^3.3.5",
     "@types/storybook__react": "^4.0.2",
     "babel-loader": "^8.0.6",
     "depcheck": "^0.9.1",
+    "jest": "^24.9.0",
+    "jest-silent-reporter": "^0.1.2",
     "react-docgen-typescript-loader": "^3.1.0",
     "rimraf": "^3.0.0",
+    "ts-jest": "^24.1.0",
     "webpack": "^4.41.5"
   }
 }

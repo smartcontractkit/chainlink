@@ -52,7 +52,7 @@ describe('components/JobRuns/StatusCard', () => {
 
     expect(erroredStatus.text()).toContain('1m')
     expect(completedStatus.text()).toContain('1m')
-    expect(pendingStatus.html()).toContain('id="elapsedTime"')
+    expect(pendingStatus.html()).toContain('role="elapsedduration"')
   })
 
   it('can display link earned for completed jobs', () => {
