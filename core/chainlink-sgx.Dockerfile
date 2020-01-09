@@ -10,7 +10,7 @@ WORKDIR /chainlink
 COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
 
-# And yarn likewise
+# Install yarn dependencies
 COPY yarn.lock package.json ./
 COPY explorer/client/package.json ./explorer/client/
 COPY explorer/package.json ./explorer/
@@ -21,7 +21,6 @@ COPY tools/local-storage/package.json ./tools/local-storage/
 COPY tools/redux/package.json ./tools/redux/
 COPY evm/v0.5/package.json ./evm/v0.5/
 COPY evm/package.json ./evm/
-
 RUN make yarndep
 
 # Do go mod download in a cacheable step

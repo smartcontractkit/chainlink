@@ -1,19 +1,10 @@
-import reducer from 'reducers'
-import { UPSERT_TRANSACTIONS } from 'reducers/transactionsIndex'
+import reducer, { INITIAL_STATE } from '../../src/reducers'
+import { ResourceActionType } from '../../src/reducers/actions'
 
 describe('reducers/transactionsIndex', () => {
-  it('should return the initial state', () => {
-    const state = reducer(undefined, {})
-
-    expect(state.transactionsIndex).toEqual({
-      currentPage: null,
-      count: 0,
-    })
-  })
-
   it('UPSERT_TRANSACTIONS updates the current page & count from meta', () => {
     const action = {
-      type: UPSERT_TRANSACTIONS,
+      type: ResourceActionType.UPSERT_TRANSACTIONS,
       data: {
         meta: {
           currentPageTransactions: {
@@ -25,7 +16,7 @@ describe('reducers/transactionsIndex', () => {
         },
       },
     }
-    const state = reducer(undefined, action)
+    const state = reducer(INITIAL_STATE, action)
 
     expect(state.transactionsIndex.count).toEqual(10)
     expect(state.transactionsIndex.currentPage).toEqual(['b', 'a'])

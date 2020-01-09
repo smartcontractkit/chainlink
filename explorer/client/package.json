@@ -27,6 +27,8 @@
     "build:clean": "rimraf -rf build",
     "build": "craco build",
     "setup": "echo \"No setup required for @chainlink/explorer-client\"",
+    "setup:test": "yarn workspace @chainlink/ts-test-helpers run setup && yarn workspace @chainlink/explorer-client run setup:dependencies",
+    "setup:dependencies": "yarn workspace @chainlink/json-api-client run build && yarn workspace @chainlink/redux run build && yarn workspace @chainlink/styleguide run build",
     "test": "jest",
     "test-ci": "CI=true jest --maxWorkers=50% --detectOpenHandles",
     "test-ci:silent": "yarn test-ci --silent --maxWorkers=50% --detectOpenHandles",
@@ -57,6 +59,7 @@
     "title-case": "^3.0.2"
   },
   "devDependencies": {
+    "@chainlink/ts-test-helpers": "0.0.1",
     "@craco/craco": "^5.5.0",
     "@types/classnames": "^2.2.7",
     "@types/enzyme": "^3.9.1",

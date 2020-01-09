@@ -1,20 +1,15 @@
-import reducer from 'reducers'
-import { RECEIVE_DELETE_SUCCESS } from 'actions'
+import reducer, { INITIAL_STATE } from '../../src/reducers'
+import {
+  UpsertJobRunAction,
+  UpsertJobRunsAction,
+  UpsertRecentJobRunsAction,
+  ResourceActionType,
+} from '../../src/reducers/actions'
 
 describe('reducers/jobRuns', () => {
-  it('should return the initial state', () => {
-    const state = reducer(undefined, {})
-
-    expect(state.jobRuns).toEqual({
-      currentPage: undefined,
-      currentJobRunsCount: undefined,
-      items: {},
-    })
-  })
-
   it('UPSERT_JOB_RUNS upserts items along with the current page and count', () => {
-    const action = {
-      type: 'UPSERT_JOB_RUNS',
+    const action: UpsertJobRunsAction = {
+      type: ResourceActionType.UPSERT_JOB_RUNS,
       data: {
         runs: {
           a: { id: 'a' },
@@ -30,7 +25,7 @@ describe('reducers/jobRuns', () => {
         },
       },
     }
-    const state = reducer(undefined, action)
+    const state = reducer(INITIAL_STATE, action)
 
     expect(state.jobRuns.items).toEqual({
       a: { id: 'a' },
@@ -41,16 +36,19 @@ describe('reducers/jobRuns', () => {
   })
 
   it('UPSERT_RECENT_JOB_RUNS upserts items', () => {
-    const action = {
-      type: 'UPSERT_RECENT_JOB_RUNS',
+    const action: UpsertRecentJobRunsAction = {
+      type: ResourceActionType.UPSERT_RECENT_JOB_RUNS,
       data: {
         runs: { a: { id: 'a' } },
         meta: {
-          recentJobRuns: { data: [], meta: {} },
+          recentJobRuns: {
+            data: [{ id: 'a' }],
+            meta: { count: 1 },
+          },
         },
       },
     }
-    const state = reducer(undefined, action)
+    const state = reducer(INITIAL_STATE, action)
 
     expect(state.jobRuns.items).toEqual({
       a: { id: 'a' },
@@ -58,15 +56,15 @@ describe('reducers/jobRuns', () => {
   })
 
   it('UPSERT_JOB_RUN upserts items', () => {
-    const action = {
-      type: 'UPSERT_JOB_RUN',
+    const action: UpsertJobRunAction = {
+      type: ResourceActionType.UPSERT_JOB_RUN,
       data: {
         runs: {
           a: { id: 'a' },
         },
       },
     }
-    const state = reducer(undefined, action)
+    const state = reducer(INITIAL_STATE, action)
 
     expect(state.jobRuns.items).toEqual({
       a: { id: 'a' },
@@ -74,22 +72,24 @@ describe('reducers/jobRuns', () => {
   })
 
   it('RECEIVE_DELETE_SUCCESS deletes jobrun associations', () => {
-    const upsertAction = {
-      type: 'UPSERT_JOB_RUN',
+    const upsertAction: UpsertJobRunAction = {
+      type: ResourceActionType.UPSERT_JOB_RUN,
       data: {
         runs: {
           b: { attributes: { jobId: 'b' } },
         },
       },
     }
-    const preDeleteState = reducer(undefined, upsertAction)
+    const deleteAction = {
+      type: ResourceActionType.RECEIVE_DELETE_SUCCESS,
+      response: 'b',
+    }
+
+    const preDeleteState = reducer(INITIAL_STATE, upsertAction)
     expect(preDeleteState.jobRuns.items).toEqual({
       b: { attributes: { jobId: 'b' } },
     })
-    const deleteAction = {
-      type: RECEIVE_DELETE_SUCCESS,
-      response: 'b',
-    }
+
     const postDeleteState = reducer(preDeleteState, deleteAction)
     expect(postDeleteState.jobRuns.items).toEqual({})
   })

@@ -1,19 +1,14 @@
-import reducer from 'reducers'
-import { UPSERT_ACCOUNT_BALANCE } from 'reducers/accountBalances'
+import { partialAsFull } from '@chainlink/ts-test-helpers'
+import reducer, { INITIAL_STATE } from '../../src/reducers'
+import {
+  UpsertAccountBalanceAction,
+  ResourceActionType,
+} from '../../src/reducers/actions'
 
 describe('reducers/accountBalances', () => {
-  it('returns the initial state', () => {
-    const state = reducer(undefined, {})
-
-    expect(state.accountBalances).toEqual({})
-  })
-
   it('UPSERT_ACCOUNT_BALANCE assigns the eth & link balance', () => {
-    const previousState = {
-      accountBalances: {},
-    }
-    const action = {
-      type: UPSERT_ACCOUNT_BALANCE,
+    const action = partialAsFull<UpsertAccountBalanceAction>({
+      type: ResourceActionType.UPSERT_ACCOUNT_BALANCE,
       data: {
         accountBalances: {
           '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f': {
@@ -24,8 +19,8 @@ describe('reducers/accountBalances', () => {
           },
         },
       },
-    }
-    const state = reducer(previousState, action)
+    })
+    const state = reducer(INITIAL_STATE, action)
 
     const balance =
       state.accountBalances['0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f']
