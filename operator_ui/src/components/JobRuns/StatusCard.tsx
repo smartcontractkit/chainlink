@@ -7,7 +7,7 @@ import { noCase } from 'change-case'
 import classNames from 'classnames'
 import { JobRun } from 'operator_ui'
 import React, { useState, useEffect } from 'react'
-import ElapsedTime from '../ElapsedTime'
+import { ElapsedDuration } from '@chainlink/styleguide'
 import StatusIcon from '../JobRuns/StatusIcon'
 
 const styles = (theme: any) =>
@@ -95,7 +95,7 @@ const StatusCard: React.FC<Props> = ({ title, classes, children, jobRun }) => {
               {titleCase(noCase(title))}
             </Typography>
             {
-              <ElapsedTime
+              <ElapsedDuration
                 start={createdAt}
                 end={endDate}
                 className={classes.elapsedText}
