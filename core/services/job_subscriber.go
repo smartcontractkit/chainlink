@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"math/big"
 	"sync"
 
 	"chainlink/core/logger"
@@ -29,24 +30,50 @@ type JobSubscriber interface {
 	AddJob(job models.JobSpec, bn *models.Head) error
 	RemoveJob(ID *models.ID) error
 	Jobs() []models.JobSpec
+	Stop() error
 }
 
 // jobSubscriber implementation
 type jobSubscriber struct {
-	store            *store.Store
-	jobSubscriptions map[string]JobSubscription
-	jobsMutex        *sync.RWMutex
-	runManager       RunManager
+	store                     *store.Store
+	jobSubscriptions          map[string]JobSubscription
+	jobsMutex                 *sync.RWMutex
+	runManager                RunManager
+	jobResumer                SleeperTask
+	resumeRunsOnNewHeadWorker *resumeRunsOnNewHeadWorker
+}
+
+type resumeRunsOnNewHeadWorker struct {
+	runManager RunManager
+	head       big.Int
+}
+
+func (rw *resumeRunsOnNewHeadWorker) Work() {
+	logger.Debugw("Received head", "head", rw.head.Text(10))
+	err := rw.runManager.ResumeAllConfirming(&rw.head)
+	if err != nil {
+		logger.Errorw("Failed to resume confirming tasks on new head", "error", err)
+	}
+	logger.Debugw("Finished work")
 }
 
 // NewJobSubscriber returns a new job subscriber.
 func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
-	return &jobSubscriber{
-		store:            store,
-		runManager:       runManager,
-		jobSubscriptions: map[string]JobSubscription{},
-		jobsMutex:        &sync.RWMutex{},
+	rw := &resumeRunsOnNewHeadWorker{runManager: runManager}
+	js := &jobSubscriber{
+		store:                     store,
+		runManager:                runManager,
+		jobSubscriptions:          map[string]JobSubscription{},
+		jobsMutex:                 &sync.RWMutex{},
+		jobResumer:                NewSleeperTask(rw),
+		resumeRunsOnNewHeadWorker: rw,
 	}
+	js.jobResumer.Start()
+	return js
+}
+
+func (js *jobSubscriber) Stop() error {
+	return js.jobResumer.Stop()
 }
 
 // AddJob subscribes to ethereum log events for each "runlog" and "ethlog"
@@ -123,8 +150,6 @@ func (js *jobSubscriber) Disconnect() {
 
 // OnNewHead resumes all pending job runs based on the new head activity.
 func (js *jobSubscriber) OnNewHead(head *models.Head) {
-	err := js.runManager.ResumeAllConfirming(head.ToInt())
-	if err != nil {
-		logger.Errorw("Failed to resume confirming tasks on new head", "error", err)
-	}
+	js.resumeRunsOnNewHeadWorker.head = *head.ToInt()
+	js.jobResumer.WakeUp()
 }
