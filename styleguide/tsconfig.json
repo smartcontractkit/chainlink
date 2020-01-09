@@ -3,6 +3,7 @@
     "composite": true,
     "declaration": true,
     "declarationMap": true,
+    "esModuleInterop": true,
     "strict": true,
     "skipLibCheck": true,
     "noEmitOnError": true,
