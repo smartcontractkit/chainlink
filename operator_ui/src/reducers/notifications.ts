@@ -1,3 +1,4 @@
+import { Reducer } from 'redux'
 import * as jsonapi from '@chainlink/json-api-client'
 import { Actions, NotifyErrorAction } from 'reducers/actions'
 
@@ -7,27 +8,18 @@ export interface State {
   currentUrl?: string
 }
 
-const initialState: State = {
+const INITIAL_STATE: State = {
   errors: [],
   successes: [],
   currentUrl: undefined,
 }
 
-export type TextNotification = string
-
-export interface ComponentNotification {
-  component: React.FC<any>
-  props: any
-}
-
-export type Notification = TextNotification | ComponentNotification
-
-export default function(state: State = initialState, action: Actions) {
+const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
     case 'MATCH_ROUTE': {
       if (action.match && state.currentUrl !== action.match.url) {
         return {
-          ...initialState,
+          ...INITIAL_STATE,
           currentUrl: action.match.url,
         }
       }
@@ -54,7 +46,8 @@ export default function(state: State = initialState, action: Actions) {
       }
     }
     case 'NOTIFY_ERROR': {
-      const notifications = action.error.errors.map(e =>
+      const errors = action.error.errors
+      const notifications = errors.map(e =>
         buildJsonApiErrorNotification(action, e),
       )
 
@@ -83,6 +76,15 @@ export default function(state: State = initialState, action: Actions) {
   }
 }
 
+export type TextNotification = string
+
+export interface ComponentNotification {
+  component: React.FC<any>
+  props: any
+}
+
+export type Notification = TextNotification | ComponentNotification
+
 function buildJsonApiErrorNotification(
   action: NotifyErrorAction,
   e: jsonapi.ErrorItem,
@@ -92,3 +94,5 @@ function buildJsonApiErrorNotification(
     props: { msg: e.detail },
   }
 }
+
+export default reducer
