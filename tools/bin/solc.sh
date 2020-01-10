@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 # Run dockerized solc as if it were local solc. Specifically targets usage by
 # abigen's --solc option. No warranty for other usages!
 #
