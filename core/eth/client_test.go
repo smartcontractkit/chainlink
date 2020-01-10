@@ -178,6 +178,7 @@ func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
 		precision      int32
 		expectation    decimal.Decimal
 	}{
+		{"hex - Zero", "0x", 2, decimal.NewFromFloat(0)},
 		{"hex", "0x0100", 2, decimal.NewFromFloat(2.56)},
 		{"decimal", "10000000000000", 11, decimal.NewFromInt(100)},
 		{"large decimal", "52050000000000000000", 11, decimal.RequireFromString("520500000")},
