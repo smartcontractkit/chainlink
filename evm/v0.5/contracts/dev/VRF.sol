@@ -396,10 +396,6 @@ contract VRF {
   // the x ordinate, and the parity of the y ordinate in the top bit of uWitness
   // (which I could make a uint256 without using any extra space.) Would save
   // about 2000 gas. (Roughly 2.5%.)
-  //
-  // TODO(alx): It would probably also be fine to only pass the address
-  // witnesses for cGammaWitness and sHashWitness, which would save another 4000
-  // gas.
   function verifyVRFProof(
     uint256[2] memory pk, uint256[2] memory gamma, uint256 c, uint256 s,
     uint256 seed, address uWitness, uint256[2] memory cGammaWitness,
