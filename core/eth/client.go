@@ -148,9 +148,13 @@ func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address,
 
 func parseHexOrDecimal(input string) (decimal.Decimal, error) {
 	if utils.HasHexPrefix(input) {
-		if value, ok := (&big.Int{}).SetString(input[2:], 16); ok {
+		if len([]rune(input)) == 2 {
+			input = "0x0"
+		}
+		if value, ok := (&big.Int{}).SetString(input, 0); ok {
 			return decimal.NewFromString(value.Text(10))
 		}
+
 	}
 	return decimal.NewFromString(input)
 }
