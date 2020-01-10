@@ -23,7 +23,7 @@ Acceptance can be accomplished by using the `acceptance` command.
 
 Credentials for logging into the operator-ui can be found [here](../secrets/apicredentals)
 
-### 
+###
 ### Doing local development on the core node
 Doing quick, iterative changes on the core codebase can still be achieved within the compose setup with the `cld` or `cldo` commands.
 The `cld` command will bring up the services that a chainlink node needs to connect to (explorer, parity/geth, postgres), and then attach the users terminal to a docker container containing the host's chainlink repostiory bind-mounted inside the container at `/usr/local/src/chainlink`. What this means is that any changes made within the host's repository will be synchronized to the container, and vice versa for changes made within the container at `/usr/local/src/chainlink`.
@@ -38,13 +38,13 @@ $$ cldev # cldev without the "core" postfix simply calls the core node cli
 #
 # NAME:
 #    main - CLI for Chainlink
-# 
+#
 # USAGE:
 #    main [global options] command [command options] [arguments...]
-# 
+#
 # VERSION:
 #    unset@unset
-# 
+#
 # COMMANDS:
 #    admin              Commands for remotely taking admin related actions
 #    bridges            Commands for Bridges communicating with External Adapters
@@ -58,20 +58,20 @@ $$ cldev # cldev without the "core" postfix simply calls the core node cli
 #    createextrakey     Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
 #    initiators         Commands for managing External Initiators
 #    help, h            Shows a list of commands or help for one command
-# 
+#
 # GLOBAL OPTIONS:
 #    --json, -j     json output as opposed to table
 #    --help, -h     show help
 #    --version, -v  print the version
 $$ cldev core # import our testing key and api credentials, then start the node
-# 
+#
 # ** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f
-# 2019-12-11T20:31:18Z [INFO]  Locking postgres for exclusive access with 500ms timeout orm/orm.go:74        #   
-# 2019-12-11T20:31:18Z [WARN]  pq: relation "migrations" does not exist           migrations/migrate.go:149 
+# 2019-12-11T20:31:18Z [INFO]  Locking postgres for exclusive access with 500ms timeout orm/orm.go:74        #
+# 2019-12-11T20:31:18Z [WARN]  pq: relation "migrations" does not exist           migrations/migrate.go:149
 # ** Running node
-# 2019-12-11T20:31:20Z [INFO]  Starting Chainlink Node 0.7.0 at commit 7324e9c476ed6b5c0a08d5a38779d4a6bfbb3880 cmd/local_client.go:27  
-# 2019-12-11T20:31:20Z [INFO]  SGX enclave *NOT* loaded                           cmd/enclave.go:11       
-# 2019-12-11T20:31:20Z [INFO]  This version of chainlink was not built with support for SGX tasks cmd/enclave.go:12       
+# 2019-12-11T20:31:20Z [INFO]  Starting Chainlink Node 0.7.0 at commit 7324e9c476ed6b5c0a08d5a38779d4a6bfbb3880 cmd/local_client.go:27
+# 2019-12-11T20:31:20Z [INFO]  SGX enclave *NOT* loaded                           cmd/enclave.go:11
+# 2019-12-11T20:31:20Z [INFO]  This version of chainlink was not built with support for SGX tasks cmd/enclave.go:12
 # ...
 # ...
 ```
@@ -87,13 +87,13 @@ $$ cldev # cldev without the "core" postfix simply calls the core node cli
 #
 # NAME:
 #    main - CLI for Chainlink
-# 
+#
 # USAGE:
 #    main [global options] command [command options] [arguments...]
-# 
+#
 # VERSION:
 #    unset@unset
-# 
+#
 # COMMANDS:
 #    admin              Commands for remotely taking admin related actions
 #    bridges            Commands for Bridges communicating with External Adapters
@@ -107,20 +107,20 @@ $$ cldev # cldev without the "core" postfix simply calls the core node cli
 #    createextrakey     Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
 #    initiators         Commands for managing External Initiators
 #    help, h            Shows a list of commands or help for one command
-# 
+#
 # GLOBAL OPTIONS:
 #    --json, -j     json output as opposed to table
 #    --help, -h     show help
 #    --version, -v  print the version
 $$ cldev core # import our testing key and api credentials, then start the node
-# 
+#
 # ** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f
-# 2019-12-11T20:31:18Z [INFO]  Locking postgres for exclusive access with 500ms timeout orm/orm.go:74        #   
-# 2019-12-11T20:31:18Z [WARN]  pq: relation "migrations" does not exist           migrations/migrate.go:149 
+# 2019-12-11T20:31:18Z [INFO]  Locking postgres for exclusive access with 500ms timeout orm/orm.go:74        #
+# 2019-12-11T20:31:18Z [WARN]  pq: relation "migrations" does not exist           migrations/migrate.go:149
 # ** Running node
-# 2019-12-11T20:31:20Z [INFO]  Starting Chainlink Node 0.7.0 at commit 7324e9c476ed6b5c0a08d5a38779d4a6bfbb3880 cmd/local_client.go:27  
-# 2019-12-11T20:31:20Z [INFO]  SGX enclave *NOT* loaded                           cmd/enclave.go:11       
-# 2019-12-11T20:31:20Z [INFO]  This version of chainlink was not built with support for SGX tasks cmd/enclave.go:12       
+# 2019-12-11T20:31:20Z [INFO]  Starting Chainlink Node 0.7.0 at commit 7324e9c476ed6b5c0a08d5a38779d4a6bfbb3880 cmd/local_client.go:27
+# 2019-12-11T20:31:20Z [INFO]  SGX enclave *NOT* loaded                           cmd/enclave.go:11
+# 2019-12-11T20:31:20Z [INFO]  This version of chainlink was not built with support for SGX tasks cmd/enclave.go:12
 # ...
 # ...
 ```
@@ -179,7 +179,7 @@ $ GETH_MODE=true ./compose up devnet # start a geth devnet node
 For more information regarding environment variables, the docker [documentation](https://docs.docker.com/compose/environment-variables/) explains it in great detail.
 All of the environment variables listed under the `environment` key in each service contains a default entry under the `.env` file of this directory. Additional environment variables can be added by using the `chainlink-variables.env` file. Both files are further expanded upon below.
 
-## Overriding existing variables 
+## Overriding existing variables
 The existing variables listed under the `environment` key in each service can be overridden by setting a shell environment variable of the same key. For example, referring to `ETH_CHAIN_ID` variable under the `node` service, the default value of `ETH_CHAIN_ID` in `.env` is `34055`. If we wanted to change this to `1337`, we could set a shell variable to override this value.
 
 ```sh
@@ -216,4 +216,13 @@ The default configuration tries to build everything in parallel.  You can avoid 
 ```
 # Use docker compose's default build configuration
 export DOCKER_COMPOSE_BUILD_OPTS=""
+```
+
+## Logging into via the frontend results in HTTP Status Forbidden (403)
+
+This is most likely due to the (Allow Origins access policy](https://docs.chain.link/docs/configuration-variables#section-allow-origins).  Make sure you are using 'http://localhost' (not 127.0.0.1), or try disabling ALLOW_ORIGINS.
+
+```
+# Disable ALLOW_ORIGINS for testing
+echo "ALLOW_ORIGINS=*" >> chainlink-variables.env
 ```
