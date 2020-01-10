@@ -184,7 +184,7 @@ contract VRF {
   // Hash x uniformly into {0, ..., FIELD_SIZE-1}.
   function zqHash(uint256 x) internal pure returns (uint256 x_) {
     x_ = x;
-    // Rejecting if x >= q corresponds to step 1 in section 2.3.6 of
+    // Rejecting if x >= FIELD_SIZE corresponds to step 1 in section 2.3.6 of
     // http://www.secg.org/sec1-v2.pdf , which is part of the definition of
     // RS2ECP via section 2.3.4 via OS2ECP via
     // https://tools.ietf.org/html/rfc8032#section-5.1.3
