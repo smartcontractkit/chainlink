@@ -9,7 +9,9 @@ import (
 )
 
 // This file contains golang re-implementations of functions on the VRF solidity
-// contract
+// contract. They are used to verify correct operation of those functions, and
+// also to efficiently compute zInv off-chain, which makes computing the linear
+// combination of c*gamma+s*hash onchain much more efficient.
 
 type fieldElt = *big.Int
 
