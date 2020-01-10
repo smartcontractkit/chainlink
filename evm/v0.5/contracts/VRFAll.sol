@@ -1,5 +1,7 @@
 pragma solidity 0.5.0;
 
+// This file simplifies the //go:generate command for the vrf package.
+
 import "./dev/VRF.sol";
 import "./tests/VRFTestHelper.sol";
 
