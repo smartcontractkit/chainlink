@@ -458,8 +458,17 @@ contract VRF {
       (pk, gamma, cSSeed, uWitness, cGammaWitness, sHashWitness, zInv) = abi.decode(
         proof, (uint256[2], uint256[2], uint256[3], address, uint256[2],
                 uint256[2], uint256));
-      verifyVRFProof(pk, gamma, cSSeed[0], cSSeed[1], cSSeed[2], uWitness,
-        cGammaWitness, sHashWitness, zInv);
+      verifyVRFProof(
+        pk,
+        gamma,
+        cSSeed[0], // c
+        cSSeed[1], // s
+        cSSeed[2], // seed
+        uWitness,
+        cGammaWitness,
+        sHashWitness,
+        zInv
+      );
       output = uint256(keccak256(abi.encode(gamma)));
     }
 }
