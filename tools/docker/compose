@@ -41,6 +41,10 @@ Commands:
     integration | i       Run docker-compose with config for integration tests
     dev:integration | di  Run docker-compose with dev config for integration tests
     dev                   Run docker-compose with dev config for the core node and operator-ui
+
+    eth:clean             Reset blockchain data to genesis state
+    cl:clean              Reset chainlink database
+
     *                     Run docker-compose with base config"
 
 case "$1" in
@@ -93,6 +97,24 @@ case "$1" in
     ;;
   dev)
     $dev ${@:2}
+    ;;
+
+  eth:restart)
+    $base rm --force --stop devnet
+    if [ $GETH_MODE ]; then
+      docker volume rm --force docker_geth-db-data
+    else
+      docker volume rm --force docker_parity-db-data
+    fi
+    $base up -d devnet
+    ;;
+  cl:restart)
+    $base stop node
+    $base rm --force --stop node-db
+    docker volume rm --force docker_node-db-data
+    ./compose eth:restart
+    $deps up --exit-code-from wait-db wait-db
+    $base start node
     ;;
   *)
     $base $@
