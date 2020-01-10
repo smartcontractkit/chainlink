@@ -45,8 +45,8 @@ set -e
 solcVersion=0.5.0
 dockerImg="ethereum/solc:$solcVersion"
 
-lastArg=${@: -1} # Whitespace is critical, here
-if [ $lastArg == "--version" ]; then
+lastArg=${*: -1} # Whitespace is critical, here
+if [ "$lastArg" == "--version" ]; then
     # Stubbed out because docker startup is s l o w.
     echo "solc, the solidity compiler commandline interface"
     echo "Version: $solcVersion"
