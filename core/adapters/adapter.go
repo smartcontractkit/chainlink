@@ -45,6 +45,8 @@ var (
 	TaskTypeRandom = models.MustNewTaskType("random")
 	// TaskTypeCompare is the identifier for the Compare adapter.
 	TaskTypeCompare = models.MustNewTaskType("compare")
+	// TaskTypeQuotient is the identifier for the Quotient adapter.
+	TaskTypeQuotient = models.MustNewTaskType("quotient")
 )
 
 // BaseAdapter is the minimum interface required to create an adapter. Only core
@@ -128,6 +130,9 @@ func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*Pipeline
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeCompare:
 		ba = &Compare{}
+		err = unmarshalParams(task.Params, ba)
+	case TaskTypeQuotient:
+		ba = &Quotient{}
 		err = unmarshalParams(task.Params, ba)
 	default:
 		bt, err := orm.FindBridge(task.Type)
