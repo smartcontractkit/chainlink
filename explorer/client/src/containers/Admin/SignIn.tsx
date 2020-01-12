@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { Redirect, RouteComponentProps } from '@reach/router'
-import { SignIn as SignInForm } from '@chainlink/styleguide'
+import { SignInForm } from '@chainlink/styleguide'
 import { signIn } from '../../actions/adminAuth'
 import { AppState } from '../../reducers'
 import { DispatchBinding } from '../../utils/types'
@@ -27,7 +27,11 @@ export const SignIn: React.FC<Props> = ({ authenticated, errors, signIn }) => {
   return authenticated ? (
     <Redirect to="/admin" noThrow />
   ) : (
-    <SignInForm onSubmit={signIn} errors={errors} />
+    <SignInForm
+      title="Explorer Admin"
+      onSubmitExplorer={signIn}
+      errors={errors}
+    />
   )
 }
 

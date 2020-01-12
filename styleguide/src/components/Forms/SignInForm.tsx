@@ -40,19 +40,22 @@ const styles = ({ palette, spacing }: Theme) =>
       marginTop: spacing.unit * 2,
     },
   })
-
 interface Props extends WithStyles<typeof styles> {
-  onSubmit: (username: string, password: string) => void
+  onSubmitExplorer?: (username: string, password: string) => void
+  onSubmitOperator?: (props: { email: string; password: string }) => void
   errors?: string[]
   usernameLabel?: string
   passwordLabel?: string
+  title: string
 }
 
-export const SignIn = withStyles(styles)(
+export const SignInForm = withStyles(styles)(
   ({
     classes,
-    onSubmit,
+    onSubmitExplorer,
+    onSubmitOperator,
     errors = [],
+    title,
     usernameLabel = 'Username',
     passwordLabel = 'Password',
   }: Props) => {
@@ -60,7 +63,8 @@ export const SignIn = withStyles(styles)(
     const [password, setPassword] = useState('')
 
     function submitForm(e: FormEvent) {
-      onSubmit(username, password)
+      if (onSubmitOperator) onSubmitOperator({ email: username, password })
+      if (onSubmitExplorer) onSubmitExplorer(username, password)
       e.preventDefault()
     }
 
@@ -83,7 +87,7 @@ export const SignIn = withStyles(styles)(
                         <HexagonLogo href="/admin/signin" width={50} />
                       </Grid>
                       <Grid item xs={12} className={classes.headerRow}>
-                        <Typography variant="h5">Explorer Admin</Typography>
+                        <Typography variant="h5">{title}</Typography>
                       </Grid>
                     </Grid>
                   </Grid>
@@ -109,6 +113,7 @@ export const SignIn = withStyles(styles)(
 
                 <Grid item xs={12}>
                   <TextField
+                    id="email"
                     label={usernameLabel}
                     onChange={e => setUsername(e.target.value)}
                     margin="normal"
@@ -118,6 +123,7 @@ export const SignIn = withStyles(styles)(
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
+                    id="password"
                     label={passwordLabel}
                     onChange={e => setPassword(e.target.value)}
                     type="password"
