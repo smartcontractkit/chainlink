@@ -45,10 +45,14 @@ const UnstyledAvatarMenu: React.FC<Props> = ({
   children,
 }) => {
   const anchorEl = useRef<HTMLElement>(null)
-  const [open, setOpenState] = useState(false)
-  const handleToggle = () => setOpenState(!open)
-  const handleClose = () => setOpenState(false)
-
+  const [open, setOpen] = useState(false)
+  const handleClick = () => setOpen(open => !open)
+  const handleClickAway = (event: React.ChangeEvent<{}>) => {
+    if (anchorEl?.current?.contains(event.target as HTMLElement)) {
+      return
+    }
+    setOpen(false)
+  }
   return (
     <>
       <Fab
@@ -59,7 +63,7 @@ const UnstyledAvatarMenu: React.FC<Props> = ({
         buttonRef={anchorEl}
         aria-owns={open ? 'menu-list-grow' : undefined}
         aria-haspopup="true"
-        onClick={handleToggle}
+        onClick={handleClick}
       >
         <Avatar alt="Profile" src={face} className={classes.avatar} />
       </Fab>
@@ -73,7 +77,7 @@ const UnstyledAvatarMenu: React.FC<Props> = ({
             }}
           >
             <Paper square={false}>
-              <ClickAwayListener onClickAway={handleClose}>
+              <ClickAwayListener onClickAway={handleClickAway}>
                 <MenuList className={classes.menuListGrow}>{children}</MenuList>
               </ClickAwayListener>
             </Paper>

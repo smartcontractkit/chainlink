@@ -10,8 +10,7 @@ import {
 import Grid from '@material-ui/core/Grid'
 import { AdminLogo } from '@chainlink/styleguide'
 import Header from '../../components/Header'
-import { AvatarMenu } from '@chainlink/styleguide'
-import AvatarMenuItem from '../../components/AvatarMenuItem'
+import { AvatarMenu, AvatarMenuItem } from '@chainlink/styleguide'
 import { AppState } from '../../reducers'
 
 const styles = ({ palette, spacing }: Theme) =>

@@ -19,8 +19,8 @@ const styles = ({ palette }: Theme) =>
 
 interface Props extends WithStyles<typeof styles> {}
 
-const AvatarMenuItem: React.FC<Props> = ({ classes, children }) => {
+const UnstyledAvatarMenuItem: React.FC<Props> = ({ classes, children }) => {
   return <MenuItem className={classes.menuItem}>{children}</MenuItem>
 }
 
-export default withStyles(styles)(AvatarMenuItem)
+export const AvatarMenuItem = withStyles(styles)(UnstyledAvatarMenuItem)

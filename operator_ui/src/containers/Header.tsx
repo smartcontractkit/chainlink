@@ -24,9 +24,13 @@ import { bindActionCreators, Dispatch } from 'redux'
 import { submitSignOut } from '../actions'
 import BaseLink from '../components/BaseLink'
 import LoadingBar from '../components/LoadingBar'
-import { Main as MainLogo } from '@chainlink/styleguide'
+import {
+  AvatarMenu,
+  AvatarMenuItem,
+  Main as MainLogo,
+} from '@chainlink/styleguide'
 import fetchCountSelector from '../selectors/fetchCount'
-import AvatarMenu from '../components/AvatarMenu'
+import { grey } from '@material-ui/core/colors'
 
 const SHARED_NAV_ITEMS = [
   ['/jobs', 'Jobs'],
@@ -133,6 +137,13 @@ const navStyles = ({ palette, spacing }: Theme) =>
       color: palette.primary.main,
       borderBottomColor: palette.primary.main,
     },
+    dropdownLink: {
+      color: palette.common.white,
+      textDecoration: 'none',
+      '&:hover': {
+        color: grey[200],
+      },
+    },
   })
 
 const isNavActive = (current?: string, to?: string) =>
@@ -163,7 +174,13 @@ const Nav = withStyles(navStyles)(
           ))}
           {authenticated && (
             <ListItem className={classes.horizontalNavItem}>
-              <AvatarMenu />
+              <AvatarMenu>
+                <AvatarMenuItem>
+                  <a href="/signout" className={classes.dropdownLink}>
+                    Sign Out
+                  </a>
+                </AvatarMenuItem>
+              </AvatarMenu>
             </ListItem>
           )}
         </List>

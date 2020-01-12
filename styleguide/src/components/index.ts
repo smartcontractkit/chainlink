@@ -1,4 +1,5 @@
 export * from './AvatarMenu'
+export * from './AvatarMenuItem'
 export * from './Button'
 export * from './Cards'
 export * from './Forms'
