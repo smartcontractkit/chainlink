@@ -5756,6 +5756,14 @@ buffer-xor@^1.0.3:
   resolved "https://registry.npmjs.org/buffer-xor/-/buffer-xor-1.0.3.tgz#26e61ed1422fb70dd42e6e36729ed51d855fe8d9"
   integrity sha1-JuYe0UIvtw3ULm42cp7VHYVf6Nk=
 
+buffer@5.4.3, buffer@^5.0.5, buffer@^5.2.1:
+  version "5.4.3"
+  resolved "https://registry.yarnpkg.com/buffer/-/buffer-5.4.3.tgz#3fbc9c69eb713d323e3fc1a895eee0710c072115"
+  integrity sha512-zvj65TkFeIt3i6aj5bIvJDzjjQQGs4o/sNoezg1F1kYap9Nu2jcUdpwzRSJTHMMzG0H7bZkn4rNQpImhuxWX2A==
+  dependencies:
+    base64-js "^1.0.2"
+    ieee754 "^1.1.4"
+
 buffer@^4.3.0:
   version "4.9.2"
   resolved "https://registry.npmjs.org/buffer/-/buffer-4.9.2.tgz#230ead344002988644841ab0244af8c44bbe3ef8"
@@ -5764,14 +5772,6 @@ buffer@^4.3.0:
     base64-js "^1.0.2"
     ieee754 "^1.1.4"
     isarray "^1.0.0"
-
-buffer@^5.0.5, buffer@^5.2.1:
-  version "5.4.3"
-  resolved "https://registry.yarnpkg.com/buffer/-/buffer-5.4.3.tgz#3fbc9c69eb713d323e3fc1a895eee0710c072115"
-  integrity sha512-zvj65TkFeIt3i6aj5bIvJDzjjQQGs4o/sNoezg1F1kYap9Nu2jcUdpwzRSJTHMMzG0H7bZkn4rNQpImhuxWX2A==
-  dependencies:
-    base64-js "^1.0.2"
-    ieee754 "^1.1.4"
 
 buffer@^5.1.0:
   version "5.4.0"
@@ -6839,10 +6839,10 @@ concat-stream@1.6.2, concat-stream@^1.5.0, concat-stream@^1.5.1, concat-stream@^
     readable-stream "^2.2.2"
     typedarray "^0.0.6"
 
-concurrently@^5.0.0:
-  version "5.0.1"
-  resolved "https://registry.npmjs.org/concurrently/-/concurrently-5.0.1.tgz#9d15e0e7bb7ebe5c3bcd86deb8393501c35dd003"
-  integrity sha512-fPKUlOAXEXpktp3z7RqIvzTSCowfDo8oQbdKoGKGZVm+G2hGFbIIAFm4qwWcGl/sIHmpMSgPqeCbjld3kdPXvA==
+concurrently@^5.0.2:
+  version "5.0.2"
+  resolved "https://registry.yarnpkg.com/concurrently/-/concurrently-5.0.2.tgz#4d2911018c0f15ddec34a8e668fc48dced7f3b1e"
+  integrity sha512-iUNVI6PzKO0RVXV9pHWM0khvEbELxf3XLIoChaV6hHyoIaJuxQWZiOwlNysnJX5khsfvIK66+OJqRdbYrdsR1g==
   dependencies:
     chalk "^2.4.2"
     date-fns "^2.0.1"
@@ -6851,7 +6851,7 @@ concurrently@^5.0.0:
     rxjs "^6.5.2"
     spawn-command "^0.0.2-1"
     supports-color "^6.1.0"
-    tree-kill "^1.2.1"
+    tree-kill "^1.2.2"
     yargs "^13.3.0"
 
 config-chain@^1.1.11, config-chain@^1.1.12:
@@ -19684,12 +19684,12 @@ sha.js@^2.4.0, sha.js@^2.4.8:
     inherits "^2.0.1"
     safe-buffer "^5.0.1"
 
-sha3@^1.2.2:
-  version "1.2.6"
-  resolved "https://registry.npmjs.org/sha3/-/sha3-1.2.6.tgz#102aa3e47dc793e2357902c3cce8760822f9e905"
-  integrity sha512-KgLGmJGrmNB4JWVsAV11Yk6KbvsAiygWJc7t5IebWva/0NukNrjJqhtKhzy3Eiv2AKuGvhZZt7dt1mDo7HkoiQ==
+sha3@^1.2.2, sha3@^2.0.7:
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.1.1.tgz#488c0f978a73ea540cc4f4a2235a77aed095c031"
+  integrity sha512-hj6dCLbWByenZarg2gb2VFD9zoY5kr/FMriDcbtVDLJ5geOWGOJCI0jQUjAzoY/ZHlkt8BSEbh9KJEDT8AGuJQ==
   dependencies:
-    nan "2.13.2"
+    buffer "5.4.3"
 
 shallow-clone@^0.1.2:
   version "0.1.2"
@@ -21218,7 +21218,7 @@ tr46@~0.0.3:
   resolved "https://registry.npmjs.org/tr46/-/tr46-0.0.3.tgz#8184fd347dac9cdc185992f3a6622e14b9d9ab6a"
   integrity sha1-gYT9NH2snNwYWZLzpmIuFLnZq2o=
 
-tree-kill@^1.2.1:
+tree-kill@^1.2.1, tree-kill@^1.2.2:
   version "1.2.2"
   resolved "https://registry.npmjs.org/tree-kill/-/tree-kill-1.2.2.tgz#4ca09a9092c88b73a7cdc5e8a01b507b0790a0cc"
   integrity sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A==
