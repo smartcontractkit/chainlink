@@ -47,7 +47,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/onsi/gomega v1.8.1
 	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709 // indirect
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.9.0
 	github.com/prometheus/client_golang v1.3.0
 	github.com/rjeczalik/notify v0.9.2 // indirect
 	github.com/rs/cors v1.6.0 // indirect
