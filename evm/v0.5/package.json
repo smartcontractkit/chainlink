@@ -33,7 +33,7 @@
   "devDependencies": {
     "@0x/sol-compiler": "^4.0.3",
     "@0x/sol-trace": "^3.0.3",
-    "@types/bn.js": "^4.11.5",
+    "@types/bn.js": "^4.11.6",
     "@types/cbor": "^2.0.0",
     "@types/chai": "^4.2.7",
     "@types/ethereumjs-abi": "^0.6.3",
