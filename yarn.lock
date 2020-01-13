@@ -2690,10 +2690,10 @@
     "@types/connect" "*"
     "@types/node" "*"
 
-"@types/cbor@^2.0.0":
-  version "2.0.0"
-  resolved "https://registry.npmjs.org/@types/cbor/-/cbor-2.0.0.tgz#c627afc2ee22f23f2337fecb34628a4f97c6afbb"
-  integrity sha1-xievwu4i8j8jN/7LNGKKT5fGr7s=
+"@types/cbor@^5.0.0":
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/@types/cbor/-/cbor-5.0.0.tgz#b48dcc5f75191399ed6ea7cef862ef38a0945fa0"
+  integrity sha512-9HFbkKNnQUn8bseuoggKdgynqAuM31Bf5IPMlPFh7SOKApjMFG1M+yoIrVbXOo/ohzovKkFW14zsDGlnuBofqA==
   dependencies:
     "@types/node" "*"
 

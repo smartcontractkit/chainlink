@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "@0x/sol-compiler": "^4.0.3",
-    "@types/cbor": "^2.0.0",
+    "@types/cbor": "^5.0.0",
     "@types/chai": "^4.2.4",
     "@types/debug": "^4.1.5",
     "@types/ganache-core": "^2.7.0",
