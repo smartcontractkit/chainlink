@@ -122,6 +122,25 @@ pragma solidity 0.5.0;
   * @dev correct, and we can check that the VRF public key lies on secp256k1 and
   * @dev is not the generator or the zero point, so we do not have to trust in
   * @dev correct key generation.
+  * ****************************************************************************
+  * @dev OTHER SECURITY CONSIDERATIONS
+  *
+  * @dev The seed input to the VRF could in principle force an arbitrary amount
+  * @dev of work in hashToCurve, by requiring extra rounds of hashing and
+  * @dev checking whether that's yielded the x ordinate of a secp256k1 point.
+  * @dev However, under the Random Oracle Model the probability of choosing a
+  * @dev point which forces n extra rounds in hashToCurve is 2⁻ⁿ. Each round
+  * @dev costs about 16,000 gas, so to find a seed for which hashToCurve would
+  * @dev cost more than 2,000,000 gas, one would have to try, in expectation,
+  * @dev about 2¹²⁵ seeds, which is infeasible for any forseeable computational
+  * @dev resources. (2,000,000/16,000=125)
+
+  * @dev Since the gas block limit for the Ethereum main net is 10,000,000 gas,
+  * @dev this means it is infeasibly for an adversary to prevent correct
+  * @dev operation of this contract by choosing an adverse seed.
+
+  * @dev (See TestMeasureHashToCurveGasCost for verification of the gas cost for
+  * @dev hashToCurve.)
 */
 contract VRF {
 
