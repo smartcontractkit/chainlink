@@ -46,7 +46,7 @@ func (p *Proof) SolidityPrecalculations() (*SolidityProof, error) {
 		return nil, err
 	}
 	rv.CGammaWitness = point().Mul(c, p.Gamma)
-	hash, err := HashToCurve(p.PublicKey, p.Seed)
+	hash, err := HashToCurve(p.PublicKey, p.Seed, func(*big.Int) {})
 	if err != nil {
 		return nil, err
 	}

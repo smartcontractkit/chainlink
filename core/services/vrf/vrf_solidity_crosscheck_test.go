@@ -156,7 +156,7 @@ func TestVRF_CompareHashToCurve(t *testing.T) {
 		actual, err := verifier.HashToCurve(nil, pubKeyCoords, input)
 		require.NoError(t, err)
 		pubKeyPoint := secp256k1.SetCoordinates(cKey.X, cKey.Y)
-		expected, err := HashToCurve(pubKeyPoint, input)
+		expected, err := HashToCurve(pubKeyPoint, input, func(*big.Int) {})
 		require.NoError(t, err)
 		require.Equal(t, expected, secp256k1.SetCoordinates(actual[0], actual[1]))
 	}
@@ -167,7 +167,7 @@ func TestVRF_CompareHashToCurve(t *testing.T) {
 //
 // Never use this if cryptographic security is required
 func randomPoint(t *testing.T, r *mrand.Rand) kyber.Point {
-	p, err := HashToCurve(Generator, randomUint256(t, r))
+	p, err := HashToCurve(Generator, randomUint256(t, r), func(*big.Int) {})
 	require.NoError(t, err)
 	if r.Int63n(2) == 1 { // Uniform sample of ±p
 		p.Neg(p)
