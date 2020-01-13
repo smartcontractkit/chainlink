@@ -173,7 +173,7 @@ contract('Coordinator', () => {
         )
 
         // If updating this test, be sure to update
-        // services.ServiceAgreementExecutionLogTopic. (Which see for the
+        // services.RunLogTopic20190207withoutIndexes. (Which see for the
         // calculation of this hash.)
         const eventSignature =
           '0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65'
