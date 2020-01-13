@@ -66,7 +66,7 @@ func TestVRF_HashToCurve(t *testing.T) {
 	assert.False(t, IsCurveXOrdinate(x),
 		"need an example where first hash is not an x-ordinate for any point on "+
 			"the curve, to exercise rehash logic.")
-	p, err := HashToCurve(Generator, reHashTriggeringInput)
+	p, err := HashToCurve(Generator, reHashTriggeringInput, func(*big.Int) {})
 	if err != nil {
 		panic(err)
 	}

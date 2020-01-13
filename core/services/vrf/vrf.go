@@ -173,12 +173,16 @@ func initialXOrdinate(p kyber.Point, input *big.Int) (*big.Int, error) {
 	return x, nil
 }
 
-// HashToCurve is a one-way hash function onto the curve
-func HashToCurve(p kyber.Point, input *big.Int) (kyber.Point, error) {
+// HashToCurve is a one-way hash function onto the curve. Returns the curve
+// point and the y-ordinates computed in the process of finding the point, or an
+// error. It passes each candidate x ordinate to ordinates.
+func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
+) (kyber.Point, error) {
 	x, err := initialXOrdinate(p, input)
 	if err != nil {
 		return nil, err
 	}
+	ordinates(x)
 	for !IsCurveXOrdinate(x) { // Hash recursively until x^3+7 is a square
 		nHash, err := utils.Keccak256(asUint256(x))
 		if err != nil {
@@ -189,6 +193,7 @@ func HashToCurve(p kyber.Point, input *big.Int) (kyber.Point, error) {
 			return nil, err
 		}
 		x.Set(nx)
+		ordinates(x)
 	}
 	y := SquareRoot(YSquared(x))
 	rv := secp256k1.SetCoordinates(x, y)
@@ -276,7 +281,7 @@ func (proof *Proof) Verify() (bool, error) {
 	if !proof.WellFormed() {
 		return false, fmt.Errorf("badly-formatted proof")
 	}
-	h, err := HashToCurve(proof.PublicKey, proof.Seed)
+	h, err := HashToCurve(proof.PublicKey, proof.Seed, func(*big.Int) {})
 	if err != nil {
 		return false, err
 	}
@@ -309,7 +314,7 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 		return nil, fmt.Errorf("badly-formatted key or seed")
 	}
 	publicKey := rcurve.Point().Mul(secp256k1.IntToScalar(secretKey), nil)
-	h, err := HashToCurve(publicKey, seed)
+	h, err := HashToCurve(publicKey, seed, func(*big.Int) {})
 	if err != nil {
 		return &Proof{}, errors.Wrap(err, "vrf.makeProof#HashToCurve")
 	}
