@@ -464,6 +464,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
 
   function timedOut(uint32 _id)
     private
+    view
     returns (bool)
   {
     uint64 startedAt = rounds[_id].startedAt;
@@ -473,6 +474,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
 
   function finished(uint32 _id)
     private
+    view
     returns (bool)
   {
     return rounds[_id].updatedAt > 0;
@@ -480,6 +482,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
 
   function getStartingRound(address _oracle)
     private
+    view
     returns (uint32)
   {
     uint32 currentRound = reportingRoundId;
