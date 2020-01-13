@@ -208,3 +208,12 @@ echo "ALLOW_ORIGINS=http://localhost:1337" > chainlink-variables.env
 ```
 docker system prune
 ```
+
+## The build process takes up a lot of resources / brings my computer to a halt
+
+The default configuration tries to build everything in parallel.  You can avoid this by clearing the Docker Compose build options.
+
+```
+# Use docker compose's default build configuration
+export DOCKER_COMPOSE_BUILD_OPTS=""
+```
