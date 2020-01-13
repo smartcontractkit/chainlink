@@ -69,7 +69,7 @@
     "@types/uuid": "^3.4.6",
     "@types/ws": "^6.0.1",
     "@types/yargs": "^13.0.3",
-    "concurrently": "^5.0.0",
+    "concurrently": "^5.0.2",
     "cross-env": "^6.0.3",
     "depcheck": "^0.9.1",
     "http-status-codes": "^1.3.2",
