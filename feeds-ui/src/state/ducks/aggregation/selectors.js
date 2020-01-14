@@ -192,6 +192,10 @@ const NODE_NAMES = [
     address: '0xa8EE2a4a0F010E66A0f1C4321865D3dbeE3070Cb',
     name: 'Kaiko',
   },
+  {
+    address: '0x85aEace84a130bC1AcCcE2a9F4F933F6765b0B9B',
+    name: 'Everstake',
+  },
 ]
 
 const oracles = state => state.aggregation.oracles
