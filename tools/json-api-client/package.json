@@ -11,7 +11,7 @@
     "build": "rimraf -rf dist && tsc",
     "setup": "yarn build",
     "test": "jest",
-    "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%"
+    "test:ci": "yarn test --coverage --maxWorkers=50%"
   },
   "peerDependencies": {},
   "dependencies": {

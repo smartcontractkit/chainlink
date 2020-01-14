@@ -14,7 +14,7 @@
     "serve": "serve dist -p 3000",
     "pretest": "yarn build:tsc",
     "test": "jest",
-    "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%",
+    "test:ci": "yarn test --coverage --maxWorkers=50%",
     "watch": "yarn test --watchAll --notify",
     "setup": "echo \"No setup required for @chainlink/operator-ui\"",
     "depcheck": "echo '@chainlink/operator-ui' && depcheck --ignore-dirs=dist || true"
@@ -88,7 +88,6 @@
     "enzyme-adapter-react-16": "^1.15.1",
     "fetch-mock": "^7.3.1",
     "jest": "^24.9.0",
-    "jest-silent-reporter": "^0.1.2",
     "mock-local-storage": "^1.1.11",
     "react-hot-loader": "^4.12.18",
     "react-static": "^6.3.8",

@@ -14,7 +14,7 @@
     "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true",
     "setup": "yarn build",
     "test": "jest",
-    "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%"
+    "test:ci": "yarn test --coverage --maxWorkers=50%"
   },
   "dependencies": {
     "@material-ui/core": "^3.9.2",
@@ -49,7 +49,6 @@
     "babel-loader": "^8.0.6",
     "depcheck": "^0.9.1",
     "jest": "^24.9.0",
-    "jest-silent-reporter": "^0.1.2",
     "react-docgen-typescript-loader": "^3.1.0",
     "rimraf": "^3.0.0",
     "ts-jest": "^24.1.0",

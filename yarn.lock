@@ -6340,7 +6340,7 @@ chalk@2.4.1:
     escape-string-regexp "^1.0.5"
     supports-color "^5.3.0"
 
-chalk@2.4.2, chalk@^2.0.0, chalk@^2.0.1, chalk@^2.1.0, chalk@^2.3.0, chalk@^2.3.1, chalk@^2.3.2, chalk@^2.4.1, chalk@^2.4.2:
+chalk@2.4.2, chalk@^2.0.0, chalk@^2.0.1, chalk@^2.1.0, chalk@^2.3.0, chalk@^2.3.2, chalk@^2.4.1, chalk@^2.4.2:
   version "2.4.2"
   resolved "https://registry.npmjs.org/chalk/-/chalk-2.4.2.tgz#cd42541677a54333cf541a49108c1432b44c9424"
   integrity sha512-Mti+f9lpJNcwF4tWV8/OrTTtF1gZi+f8FqlyAdouralcFWFQWF2+NgCHShjkCb+IFBLq9buZwE1xckQU4peSuQ==
@@ -13343,14 +13343,6 @@ jest-serializer@^24.9.0:
   resolved "https://registry.npmjs.org/jest-serializer/-/jest-serializer-24.9.0.tgz#e6d7d7ef96d31e8b9079a714754c5d5c58288e73"
   integrity sha512-DxYipDr8OvfrKH3Kel6NdED3OXxjvxXZ1uIY2I9OFbGg+vUkkg7AGvi65qbhbWNPvDckXmzMPbK3u3HaDO49bQ==
 
-jest-silent-reporter@^0.1.2:
-  version "0.1.2"
-  resolved "https://registry.npmjs.org/jest-silent-reporter/-/jest-silent-reporter-0.1.2.tgz#9d797c0b509e1def16647a07daf25f014c50b333"
-  integrity sha512-w/qc9NvWqdX0vZv6TUG4EE15d72+JxQJYh+3hqq8cTi3BnfBOtwNtL3T6TwkZSy/sfc3REW5niz0eSBPTIvWnA==
-  dependencies:
-    chalk "^2.3.1"
-    jest-util "^24.0.0"
-
 jest-snapshot@^24.9.0:
   version "24.9.0"
   resolved "https://registry.npmjs.org/jest-snapshot/-/jest-snapshot-24.9.0.tgz#ec8e9ca4f2ec0c5c87ae8f925cf97497b0e951ba"
@@ -13370,7 +13362,7 @@ jest-snapshot@^24.9.0:
     pretty-format "^24.9.0"
     semver "^6.2.0"
 
-jest-util@^24.0.0, jest-util@^24.5.0, jest-util@^24.9.0:
+jest-util@^24.5.0, jest-util@^24.9.0:
   version "24.9.0"
   resolved "https://registry.npmjs.org/jest-util/-/jest-util-24.9.0.tgz#7396814e48536d2e85a37de3e4c431d7cb140162"
   integrity sha512-x+cZU8VRmOJxbA1K5oDBdxQmdq0OIdADarLxk0Mq+3XS4jgvhG/oKGWcIDCtPG0HgjxOYvF+ilPJQsAyXfbNOg==
