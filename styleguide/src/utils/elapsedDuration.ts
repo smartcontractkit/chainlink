@@ -21,6 +21,6 @@ function elapsedSeconds(createdAt: Date, finishedAt: Date): number {
   )
 }
 
-function format(hours: number, minutes: number, seconds: number) {
+function format(hours: number, minutes: number, seconds: number): string {
   return `${hours ? `${hours}h` : ''}${minutes ? `${minutes}m` : ''}${seconds}s`
 }
