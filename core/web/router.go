@@ -363,11 +363,8 @@ func uiCorsHandler(config orm.ConfigReader) gin.HandlerFunc {
 	}
 	if config.AllowOrigins() == "*" {
 		c.AllowAllOrigins = true
-	} else {
-		allowOrigins := strings.Split(config.AllowOrigins(), ",")
-		if len(allowOrigins) > 0 {
-			c.AllowOrigins = allowOrigins
-		}
+	} else if allowOrigins := strings.Split(config.AllowOrigins(), ","); len(allowOrigins) > 0 {
+		c.AllowOrigins = allowOrigins
 	}
 	return cors.New(c)
 }
