@@ -2,7 +2,16 @@ const MS_IN_SECOND = 1000
 const SECONDS_IN_MINUTE = 60
 const SECONDS_IN_HOUR = 3600
 
+/**
+ * A string, or a number that can be converted to a Date using `new Date(...)` e.g.
+ *
+ * string: 2020-01-03T22:45:00.166261Z
+ * number: 1578091500166
+ *
+ * @typedef {(number|string)} DateValue
+ */
 export type DateValue = string | number
+
 export type FinishedAt = DateValue | null
 
 export function elapsedDuration(
