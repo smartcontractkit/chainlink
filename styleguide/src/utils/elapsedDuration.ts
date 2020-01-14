@@ -3,7 +3,7 @@ const SECONDS_IN_MINUTE = 60
 const SECONDS_IN_HOUR = 3600
 
 export function elapsedDuration(createdAt: string, finishedAt: string): string {
-  if (!createdAt && !finishedAt) {
+  if (createdAt === '' && finishedAt === '') {
     return ''
   }
 
