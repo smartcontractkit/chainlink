@@ -7,3 +7,5 @@ services:
   devnet:
     container_name: parity
     image: smartcontract/devnet
+    ports:
+      - 8545:8545
