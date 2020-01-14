@@ -10,5 +10,7 @@ services:
     build: ../gethnet
     container_name: geth
     image: smartcontract/gethnet
+    ports:
+      - 8545:8545
     secrets:
       - node_password
