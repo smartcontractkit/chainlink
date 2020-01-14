@@ -83,7 +83,7 @@ const StatusCard: React.FC<Props> = ({ title, classes, children, jobRun }) => {
   useEffect(() => {
     if (stillPending) setInterval(() => setLiveTime(Date.now()), 1000)
   }, [stillPending])
-  const endDate = stillPending ? liveTime.toString() : finishedAt
+  const endDate = stillPending ? liveTime : finishedAt
 
   return (
     <PaddedCard className={classNames(classes.statusCard, statusClass)}>

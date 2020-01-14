@@ -1,29 +1,30 @@
 import React from 'react'
 import StatusCard from 'components/JobRuns/StatusCard'
 import mountWithTheme from 'test-helpers/mountWithTheme'
-import { MINUTE_MS, TWO_MINUTES_MS } from 'test-helpers/isoDate'
 
 describe('components/JobRuns/StatusCard', () => {
+  const start = '2020-01-03T22:45:00.166261Z'
+  const end1m = '2020-01-03T22:46:00.166261Z'
   const pendingRun = {
     id: 'runA',
     status: 'pending',
     result: {},
-    createdAt: MINUTE_MS,
+    createdAt: start,
     finishedAt: null,
   }
   const completedRun = {
     id: 'runA',
     status: 'completed',
-    createdAt: TWO_MINUTES_MS,
-    finishedAt: MINUTE_MS,
+    createdAt: start,
+    finishedAt: end1m,
     payment: 2000000000000000000,
   }
   const erroredRun = {
     id: 'runA',
     status: 'errored',
     result: {},
-    createdAt: TWO_MINUTES_MS,
-    finishedAt: MINUTE_MS,
+    createdAt: start,
+    finishedAt: end1m,
   }
   it('converts the given title to title case', () => {
     const component = mountWithTheme(
@@ -39,20 +40,30 @@ describe('components/JobRuns/StatusCard', () => {
     expect(withChildren.text()).toContain('I am a child')
   })
 
-  it('can display the elapsed time for jobruns', () => {
+  it('can display the elapsed time for finished jobruns', () => {
     const erroredStatus = mountWithTheme(
       <StatusCard title="errored" jobRun={erroredRun} />,
     )
     const completedStatus = mountWithTheme(
       <StatusCard title="completed" jobRun={completedRun} />,
     )
+
+    expect(erroredStatus.text()).toContain('1m')
+    expect(completedStatus.text()).toContain('1m')
+  })
+
+  it('displays a live elapsed time for pending job runs', () => {
+    const now2m = '2020-01-03T22:47:00.166261Z'
+
+    jest
+      .spyOn(Date, 'now')
+      .mockImplementationOnce(() => new Date(now2m).valueOf())
+
     const pendingStatus = mountWithTheme(
       <StatusCard title="pending" jobRun={pendingRun} />,
     )
 
-    expect(erroredStatus.text()).toContain('1m')
-    expect(completedStatus.text()).toContain('1m')
-    expect(pendingStatus.html()).toContain('role="elapsedduration"')
+    expect(pendingStatus.html()).toContain('2m')
   })
 
   it('can display link earned for completed jobs', () => {
