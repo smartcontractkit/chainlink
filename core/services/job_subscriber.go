@@ -49,12 +49,10 @@ type resumeRunsOnNewHeadWorker struct {
 }
 
 func (rw *resumeRunsOnNewHeadWorker) Work() {
-	logger.Debugw("Received head", "head", rw.head.Text(10))
 	err := rw.runManager.ResumeAllConfirming(&rw.head)
 	if err != nil {
 		logger.Errorw("Failed to resume confirming tasks on new head", "error", err)
 	}
-	logger.Debugw("Finished work")
 }
 
 // NewJobSubscriber returns a new job subscriber.
