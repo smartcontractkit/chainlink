@@ -23,6 +23,7 @@ type ConfigSchema struct {
 	DefaultHTTPLimit          int64          `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
 	Dev                       bool           `env:"CHAINLINK_DEV" default:"false"`
 	FeatureExternalInitiators bool           `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
+	FeatureFluxMonitor        bool           `env:"FEATURE_FLUX_MONITOR" default:"false"`
 	MaximumServiceDuration    time.Duration  `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
 	MinimumServiceDuration    time.Duration  `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
 	EthGasBumpThreshold       uint64         `env:"ETH_GAS_BUMP_THRESHOLD" default:"12" `
