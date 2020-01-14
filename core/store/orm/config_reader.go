@@ -23,6 +23,7 @@ type ConfigReader interface {
 	DefaultHTTPLimit() int64
 	Dev() bool
 	FeatureExternalInitiators() bool
+	FeatureFluxMonitor() bool
 	MaximumServiceDuration() time.Duration
 	MinimumServiceDuration() time.Duration
 	EthGasBumpThreshold() uint64
