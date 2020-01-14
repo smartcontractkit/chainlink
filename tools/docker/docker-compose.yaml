@@ -56,7 +56,7 @@ services:
 
   explorer-db:
     container_name: chainlink-explorer-db
-    image: postgres:11.5
+    image: postgres:11.6
     volumes:
       - explorer-db-data:/var/lib/postgresql/data
     environment:
