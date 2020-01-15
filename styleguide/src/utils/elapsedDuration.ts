@@ -12,30 +12,20 @@ const SECONDS_IN_HOUR = 3600
  */
 export type DateValue = string | number
 
-export type FinishedAt = DateValue | null
-
 export function elapsedDuration(
   createdAt: DateValue,
-  finishedAt: FinishedAt,
+  finishedAt: DateValue,
 ): string {
   if (createdAt === '' && finishedAt === '') {
     return ''
   }
 
-  const es = elapsedSeconds(new Date(createdAt), endAt(finishedAt))
+  const es = elapsedSeconds(new Date(createdAt), new Date(finishedAt))
   const hours = Math.floor(es / SECONDS_IN_HOUR)
   const minutes = Math.floor((es % SECONDS_IN_HOUR) / SECONDS_IN_MINUTE)
   const seconds = Math.ceil((es % SECONDS_IN_HOUR) % SECONDS_IN_MINUTE)
 
   return format(hours, minutes, seconds)
-}
-
-function endAt(finishedAt: FinishedAt): Date {
-  if (finishedAt === null) {
-    return new Date(Date.now())
-  }
-
-  return new Date(finishedAt)
 }
 
 function elapsedSeconds(from: Date, to: Date): number {
