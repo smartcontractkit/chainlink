@@ -125,6 +125,22 @@ jobs:
       - run: ./tools/ci/truffle_test
       - store_artifacts:
           path: ./integration/logs
+  styleguide:
+    docker:
+      - image: smartcontract/builder:1.0.25
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - run: yarn workspace @chainlink/styleguide run test
   json-api-client:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -140,9 +156,7 @@ jobs:
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
           paths:
             - /usr/local/share/.cache/yarn
-      - run: yarn workspace @chainlink/json-api-client
-      - store_artifacts:
-          path: ./integration/logs
+      - run: yarn workspace @chainlink/json-api-client run test
   operator-ui:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -362,6 +376,10 @@ workflows:
           filters:
             tags:
               only: /^v.*/
+      - styleguide:
+          filters:
+            tags:
+              only: /^v.*/
       - json-api-client:
           filters:
             tags:
@@ -395,6 +413,8 @@ workflows:
                 - master
       - build-publish-explorer:
           requires:
+            - styleguide
+            - json-api-client
             - explorer
           filters:
             branches:
@@ -421,6 +441,7 @@ workflows:
             - truffle
             - geth-postgres
             - parity-postgres
+            - styleguide
             - json-api-client
             - operator-ui
             - rust

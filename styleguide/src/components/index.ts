@@ -1,4 +1,5 @@
 export * from './Cards'
+export * from './ElapsedDuration'
 export * from './Image'
 export * from './KeyValueList'
 export * from './Logo'
