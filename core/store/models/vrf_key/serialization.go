@@ -1,7 +1,6 @@
 package vrf_key
 
 import (
-	"bytes"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -39,7 +38,7 @@ func (k *PrivateKey) Encrypt(auth string, p ...ScryptParams,
 	default:
 		return nil, fmt.Errorf("can take at most one set of ScryptParams")
 	}
-	keyJSON, err := keystore.EncryptKey(k.GethKey(), adulteratedPassword(auth),
+	keyJSON, err := keystore.EncryptKey(k.gethKey(), adulteratedPassword(auth),
 		scryptParams.N, scryptParams.P)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not encrypt vrf key")
@@ -53,8 +52,7 @@ func (k *PrivateKey) Encrypt(auth string, p ...ScryptParams,
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not decrypt just-encrypted key!")
 	}
-	if !roundTripKey.k.Equal(k.k) || roundTripKey.PublicKey != k.PublicKey ||
-		!bytes.Equal(roundTripKey.ID, k.ID) {
+	if !roundTripKey.k.Equal(k.k) || roundTripKey.PublicKey != k.PublicKey {
 		panic(fmt.Errorf("roundtrip of key resulted in different value"))
 	}
 	return &rv, nil
@@ -79,7 +77,7 @@ func (e *EncryptedSecretKey) Decrypt(auth string) (*PrivateKey, error) {
 		return nil, errors.Wrapf(err, "could not decrypt key %s",
 			e.PublicKey.String())
 	}
-	return FromGethKey(gethKey), nil
+	return fromGethKey(gethKey), nil
 }
 
 func (e *EncryptedSecretKey) WriteToDisk(path string) error {

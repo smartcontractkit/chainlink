@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
 )
 
@@ -32,7 +31,6 @@ func newPrivateKey(rawKey *big.Int) (*PrivateKey, error) {
 	if l := copy(sk.PublicKey[:], pk[:]); l != UncompressedPublicKeyLength {
 		panic(fmt.Errorf("failed to copy correct length in serialized public key"))
 	}
-	sk.ID = uuid.NewUUID()
 	return sk, nil
 }
 
@@ -50,18 +48,22 @@ func (k *PrivateKey) MarshaledProof(seed *big.Int) (vrf.MarshaledProof, error) {
 	return rv, nil
 }
 
-// GethKey returns the geth keystore representation of k
-func (k *PrivateKey) GethKey() *keystore.Key {
-	d := secp256k1.ToInt(k.k)
-	return &keystore.Key{k.ID, k.PublicKey.Address(), &ecdsa.PrivateKey{D: d}}
+// gethKey returns the geth keystore representation of k. Do not abuse this to
+// convert a VRF key to an ethereum key!
+func (k *PrivateKey) gethKey() *keystore.Key {
+	return &keystore.Key{
+		Address:    k.PublicKey.Address(),
+		PrivateKey: &ecdsa.PrivateKey{D: secp256k1.ToInt(k.k)},
+	}
 }
 
-// FromGethKey returns the vrf_key representation of gethKey
-func FromGethKey(gethKey *keystore.Key) *PrivateKey {
+// fromGethKey returns the vrf_key representation of gethKey. Do not abuse this
+// to convert an ethereum key into a VRF key!
+func fromGethKey(gethKey *keystore.Key) *PrivateKey {
 	k := secp256k1.IntToScalar(gethKey.PrivateKey.D)
 	var publicKey PublicKey
 	copy(publicKey[:], secp256k1.LongMarshal(secp256k1.ScalarToPublicPoint(k)))
-	return &PrivateKey{k, publicKey, gethKey.Id}
+	return &PrivateKey{k, publicKey}
 }
 
 // CreateKey makes a new VRF proving key from cryptographically secure entropy
