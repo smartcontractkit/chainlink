@@ -8,7 +8,6 @@ package vrf_key
 
 import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/pborman/uuid"
 	"go.dedis.ch/kyber/v3"
 )
 
@@ -23,7 +22,6 @@ import (
 type PrivateKey struct {
 	k         kyber.Scalar
 	PublicKey PublicKey
-	ID        uuid.UUID // For compatibilty with go-ethereum/accounts.keystore.Key
 }
 
 // PublicKey is a secp256k1 point in uncompressed format
