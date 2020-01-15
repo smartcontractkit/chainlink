@@ -34,14 +34,4 @@ describe('elapsedDuration', () => {
   it('returns an empty string when start and end are blank', () => {
     expect(elapsedDuration('', '')).toEqual('')
   })
-
-  test('uses current time when finishedAt is not provided', () => {
-    const end = '2020-01-03T22:47:00.166261Z'
-
-    jest
-      .spyOn(Date, 'now')
-      .mockImplementationOnce(() => new Date(end).valueOf())
-
-    expect(elapsedDuration(START, null)).toEqual('2m0s')
-  })
 })

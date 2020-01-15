@@ -1,10 +1,10 @@
 import React from 'react'
 import { Typography } from '@material-ui/core'
-import { elapsedDuration, FinishedAt } from '../utils/elapsedDuration'
+import { elapsedDuration, DateValue } from '../utils/elapsedDuration'
 
 interface Props {
   start: string
-  end: FinishedAt
+  end: DateValue
   className?: string
 }
 
