@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// XXX: Remove before merging. See
+// https://github.com/smartcontractkit/chainlink-private/pull/17#discussion_r366448801
 func TestImportVRFKeyFixture(t *testing.T) {
 	rawPassword, err := ioutil.ReadFile("../../tools/clroot/password.txt")
 	require.NoError(t, err)
