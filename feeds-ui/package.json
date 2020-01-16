@@ -39,7 +39,8 @@
     "watch-theme": "less-watch-compiler --enable-js src/theme src theme.less",
     "server": "node server",
     "lint": "eslint --ext .js,.ts,.tsx,.jsx src",
-    "format": "prettier --write \"**/*\" "
+    "format": "prettier --write \"**/*\" ",
+    "postbuild": "./postbuild.sh"
   },
   "browserslist": {
     "production": [
