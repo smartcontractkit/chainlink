@@ -1,6 +1,13 @@
+import { PropsWithChildren } from 'react'
 import { Reducer } from 'redux'
 import * as jsonapi from '@chainlink/json-api-client'
-import { Actions, NotifyErrorAction } from 'reducers/actions'
+import {
+  Actions,
+  NotifyErrorAction,
+  AuthActionType,
+  RouterActionType,
+  NotifyActionType,
+} from 'reducers/actions'
 
 export interface State {
   errors: Notification[]
@@ -16,7 +23,7 @@ const INITIAL_STATE: State = {
 
 const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
-    case 'MATCH_ROUTE': {
+    case RouterActionType.MATCH_ROUTE: {
       if (action.match && state.currentUrl !== action.match.url) {
         return {
           ...INITIAL_STATE,
@@ -26,7 +33,7 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
 
       return state
     }
-    case 'NOTIFY_SUCCESS': {
+    case NotifyActionType.NOTIFY_SUCCESS: {
       const success: ComponentNotification = {
         component: action.component,
         props: action.props,
@@ -38,14 +45,14 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
         errors: [],
       }
     }
-    case 'NOTIFY_SUCCESS_MSG': {
+    case NotifyActionType.NOTIFY_SUCCESS_MSG: {
       return {
         ...state,
         successes: [action.msg],
         errors: [],
       }
     }
-    case 'NOTIFY_ERROR': {
+    case NotifyActionType.NOTIFY_ERROR: {
       const errors = action.error.errors
       const notifications = errors.map(e =>
         buildJsonApiErrorNotification(action, e),
@@ -57,14 +64,14 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
         errors: notifications,
       }
     }
-    case 'NOTIFY_ERROR_MSG': {
+    case NotifyActionType.NOTIFY_ERROR_MSG: {
       return {
         ...state,
         successes: [],
         errors: [action.msg],
       }
     }
-    case 'RECEIVE_SIGNIN_FAIL': {
+    case AuthActionType.RECEIVE_SIGNIN_FAIL: {
       return {
         ...state,
         successes: [],
@@ -80,7 +87,7 @@ export type TextNotification = string
 
 export interface ComponentNotification {
   component: React.FC<any>
-  props: any
+  props: PropsWithChildren<{ msg?: string }>
 }
 
 export type Notification = TextNotification | ComponentNotification

@@ -6,14 +6,14 @@ import {
 
 describe('reducers/configuration', () => {
   it('UPSERT_CONFIGURATION sets the config attributes', () => {
-    const response = {
+    const data = {
       configWhitelists: {
         idA: { attributes: { attributeA: 'ValueA' } },
       },
     }
     const action: UpsertConfigurationAction = {
       type: ResourceActionType.UPSERT_CONFIGURATION,
-      data: response,
+      data,
     }
     const state = reducer(INITIAL_STATE, action)
 

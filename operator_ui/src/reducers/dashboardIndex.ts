@@ -1,5 +1,5 @@
 import { Reducer } from 'redux'
-import { Actions } from './actions'
+import { Actions, ResourceActionType } from './actions'
 
 export interface State {
   recentJobRuns?: string[]
@@ -13,7 +13,7 @@ const INITIAL_STATE: State = {
 
 const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
-    case 'UPSERT_RECENT_JOB_RUNS': {
+    case ResourceActionType.UPSERT_RECENT_JOB_RUNS: {
       const recent = action.data.meta.recentJobRuns
       const recentJobRuns = recent.data.map(r => r.id)
       const jobRunsCount = recent.meta.count

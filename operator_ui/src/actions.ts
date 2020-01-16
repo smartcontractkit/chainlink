@@ -1,6 +1,6 @@
 import * as jsonapi from '@chainlink/json-api-client'
 import * as api from './api'
-import * as models from 'core/store/models'
+import { RunStatus } from './core/store/models'
 import * as presenters from 'core/store/presenters'
 import normalize from 'json-api-normalizer'
 import { Action, Dispatch } from 'redux'
@@ -404,14 +404,14 @@ export const deleteCompletedJobRuns = (updatedBefore: string) =>
     'DELETE_COMPLETED_JOB_RUNS',
     api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
     normalize,
-  )({ status: [models.RunStatus.COMPLETED], updatedBefore })
+  )({ status: [RunStatus.COMPLETED], updatedBefore })
 
 export const deleteErroredJobRuns = (updatedBefore: string) =>
   request(
     'DELETE_ERRORED_JOB_RUNS',
     api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
     normalize,
-  )({ status: [models.RunStatus.ERRORED], updatedBefore })
+  )({ status: [RunStatus.ERRORED], updatedBefore })
 
 export const fetchTransactions = request(
   'TRANSACTIONS',

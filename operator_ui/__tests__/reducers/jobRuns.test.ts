@@ -3,6 +3,7 @@ import {
   UpsertJobRunAction,
   UpsertJobRunsAction,
   UpsertRecentJobRunsAction,
+  ReceiveDeleteSuccessAction,
   ResourceActionType,
 } from '../../src/reducers/actions'
 
@@ -80,9 +81,9 @@ describe('reducers/jobRuns', () => {
         },
       },
     }
-    const deleteAction = {
+    const deleteAction: ReceiveDeleteSuccessAction = {
       type: ResourceActionType.RECEIVE_DELETE_SUCCESS,
-      response: 'b',
+      id: 'b',
     }
 
     const preDeleteState = reducer(INITIAL_STATE, upsertAction)

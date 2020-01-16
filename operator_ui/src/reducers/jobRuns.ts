@@ -1,6 +1,6 @@
 import { Reducer } from 'redux'
 import pickBy from 'lodash/pickBy'
-import { Actions } from './actions'
+import { Actions, ResourceActionType } from './actions'
 
 export interface State {
   items: Record<string, any>
@@ -16,7 +16,7 @@ const INITIAL_STATE: State = {
 
 const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
-    case 'UPSERT_JOB_RUNS': {
+    case ResourceActionType.UPSERT_JOB_RUNS: {
       const data = action.data
       const metaCurrentPage = data.meta.currentPageJobRuns
 
@@ -27,17 +27,17 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
         currentJobRunsCount: metaCurrentPage.meta.count,
       }
     }
-    case 'UPSERT_RECENT_JOB_RUNS':
-    case 'UPSERT_JOB_RUN': {
+    case ResourceActionType.UPSERT_RECENT_JOB_RUNS:
+    case ResourceActionType.UPSERT_JOB_RUN: {
       return {
         ...state,
         items: { ...state.items, ...action.data.runs },
       }
     }
-    case 'RECEIVE_DELETE_SUCCESS': {
+    case ResourceActionType.RECEIVE_DELETE_SUCCESS: {
       const remainingItems = pickBy(
         state.items,
-        ({ attributes }) => attributes.jobId !== action.response,
+        ({ attributes }) => attributes.jobId !== action.id,
       )
       return { ...state, items: remainingItems }
     }

@@ -1,11 +1,24 @@
 import { partialAsFull } from '@chainlink/ts-test-helpers'
 import reducer, { INITIAL_STATE } from '../../src/reducers'
-import { RedirectAction, RouterActionType } from '../../src/reducers/actions'
+import {
+  RedirectAction,
+  RouterActionType,
+  ResourceActionType,
+  RequestCreateAction,
+  ReceiveCreateSuccessAction,
+  ResponseAccountBalanceAction,
+} from '../../src/reducers/actions'
 
 describe('connectors/reducers/fetching', () => {
-  const incrementAction = { type: 'REQUEST_FOO' }
-  const receiveDecrementAction = { type: 'RECEIVE_FOO' }
-  const responseDecrementAction = { type: 'RESPONSE_FOO' }
+  const incrementAction: RequestCreateAction = {
+    type: ResourceActionType.REQUEST_CREATE,
+  }
+  const receiveDecrementAction: ReceiveCreateSuccessAction = {
+    type: ResourceActionType.RECEIVE_CREATE_SUCCESS,
+  }
+  const responseDecrementAction: ResponseAccountBalanceAction = {
+    type: ResourceActionType.RESPONSE_ACCOUNT_BALANCE,
+  }
 
   it('increments count when type starts with REQUEST_ & decrements with RECEIVE_ or RESPONSE_', () => {
     let state = reducer(INITIAL_STATE, incrementAction)
