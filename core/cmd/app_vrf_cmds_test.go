@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"chainlink/core/store/models/vrf_key"
+	"chainlink/core/store/models/vrfkey"
 
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +19,7 @@ func TestImportVRFKeyFixture(t *testing.T) {
 	password := strings.TrimSpace(string(rawPassword))
 	keyfile, err := ioutil.ReadFile("../../tools/clroot/vrfkey.json")
 	require.NoError(t, err)
-	encKey := vrf_key.EncryptedSecretKey{}
+	encKey := vrfkey.EncryptedSecretKey{}
 	require.NoError(t, json.Unmarshal(keyfile, &encKey))
 	_, err = encKey.Decrypt(password)
 	require.NoError(t, err)
