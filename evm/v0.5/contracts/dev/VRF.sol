@@ -394,7 +394,7 @@ contract VRF {
     }
 
   // Pseudo-random number from inputs. Matches vrf.go/scalarFromCurve, and
-  // https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.2 . It
+  // https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.2 . The
   // draft calls (in section 5.3 step 5 and section 5.4.2 steps 3-5) for
   // taking the first hash without checking that it corresponds to a number
   // less than the group order, which will lead to a slight bias in the
