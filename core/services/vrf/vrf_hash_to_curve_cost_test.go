@@ -29,7 +29,7 @@ type contract struct {
 
 // deployVRFContract operates like
 // solidity_verifier_wrapper.DeployVRFTestHelper, except that it exposes the
-// actual contract.
+// actual contract, which is useful for gas measurements.
 func deployVRFContract(t *testing.T) (contract, common.Address) {
 	x, y := secp256k1.Coordinates(Generator)
 	key := ecdsa.PrivateKey{
