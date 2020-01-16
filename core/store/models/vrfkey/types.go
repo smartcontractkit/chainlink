@@ -1,10 +1,10 @@
-// package vrf_key tracks the secret keys associated with VRF proofs. It
+// package vrfkey tracks the secret keys associated with VRF proofs. It
 // is a separate package from ../store to increase encapsulation of the keys,
 // and reduce the risk of them leaking.
 //
 // The three types, PrivateKey, PublicKey and EncryptedSecretKey are all aspects
 // of the one keypair.
-package vrf_key
+package vrfkey
 
 import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
