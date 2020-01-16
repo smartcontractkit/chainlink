@@ -1,7 +1,8 @@
 import { bindActionCreators, Middleware } from 'redux'
 import configureStore from 'redux-mock-store'
 import thunk from 'redux-thunk'
-import * as actions from 'actions'
+import * as actionCreators from '../src/actions'
+import { ResourceActionType } from '../src/reducers/actions'
 import jsonApiJobSpecFactory from '../support/factories/jsonApiJobSpec'
 import jsonApiJobSpecRunFactory from '../support/factories/jsonApiJobSpecRun'
 import isoDate, { MINUTE_MS } from '../support/test-helpers/isoDate'
@@ -34,7 +35,7 @@ describe('fetchJob', () => {
     const testMiddleware: Middleware = () => next => action => {
       next(action)
 
-      if (action.type === 'UPSERT_JOB') {
+      if (action.type === ResourceActionType.UPSERT_JOB) {
         const task = action.data.specs[jobSpecId].attributes.tasks[0]
         expect(task).toEqual(expectedTask)
         done()
@@ -44,7 +45,7 @@ describe('fetchJob', () => {
     const middlewares = [thunk, testMiddleware]
     const mockStore = configureStore(middlewares)
     const store = mockStore({})
-    const fetchJob = bindActionCreators(actions.fetchJob, store.dispatch)
+    const fetchJob = bindActionCreators(actionCreators.fetchJob, store.dispatch)
 
     fetchJob(jobSpecId)
   })
@@ -76,7 +77,7 @@ describe('fetchJobRun', () => {
     const testMiddleware: Middleware = () => next => action => {
       next(action)
 
-      if (action.type === 'UPSERT_JOB_RUN') {
+      if (action.type === ResourceActionType.UPSERT_JOB_RUN) {
         const run = action.data.runs[id]
         const task = run.attributes.taskRuns[0].task
         expect(task).toEqual(expectedTask)
@@ -86,7 +87,10 @@ describe('fetchJobRun', () => {
     const middlewares = [thunk, testMiddleware]
     const mockStore = configureStore(middlewares)
     const store = mockStore({})
-    const fetchJobRun = bindActionCreators(actions.fetchJobRun, store.dispatch)
+    const fetchJobRun = bindActionCreators(
+      actionCreators.fetchJobRun,
+      store.dispatch,
+    )
 
     fetchJobRun(id)
   })
