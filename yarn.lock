@@ -13734,10 +13734,10 @@ json5@^1.0.1:
   dependencies:
     minimist "^1.2.0"
 
-jsonapi-serializer@^3.6.4:
-  version "3.6.5"
-  resolved "https://registry.npmjs.org/jsonapi-serializer/-/jsonapi-serializer-3.6.5.tgz#8e61c8062affc748732857b5c8646d6d0f75503a"
-  integrity sha512-UmBU9JnWVi2H2vZcPTSsPsA7+SUIkuGXwjXbx2GWW7crbZr/pYgQPUH3MSmOQYvpAIYlg5oIomnS4F9eM8g5cQ==
+jsonapi-serializer@^3.6.6:
+  version "3.6.6"
+  resolved "https://registry.yarnpkg.com/jsonapi-serializer/-/jsonapi-serializer-3.6.6.tgz#662744144a5a13cd59763b55ef61d13f74524bde"
+  integrity sha512-HFNeG5CNj83kt0llneV68dQ3khlU+n8amMaTJs/6dI78iRIntHY+vmcTvnnnQM/2HfqOKq11Q+ghAyCbP7N+xA==
   dependencies:
     inflected "^1.1.6"
     lodash "^4.16.3"
