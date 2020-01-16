@@ -7,7 +7,6 @@ module.exports = {
     '<rootDir>/__tests__',
   ],
   setupFiles: ['<rootDir>/jest.setup.js'],
-  transformIgnorePatterns: ['node_modules/(?!(@chainlink/json-api-client)/)'],
   testPathIgnorePatterns: [
     '<rootDir>/dist/',
     '<rootDir>/tmp/',
