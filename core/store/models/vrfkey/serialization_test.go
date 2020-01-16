@@ -1,4 +1,4 @@
-package vrf_key
+package vrfkey
 
 import (
 	"testing"

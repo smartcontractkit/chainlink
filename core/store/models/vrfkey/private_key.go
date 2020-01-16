@@ -1,4 +1,4 @@
-package vrf_key
+package vrfkey
 
 import (
 	"crypto/ecdsa"
@@ -57,7 +57,7 @@ func (k *PrivateKey) gethKey() *keystore.Key {
 	}
 }
 
-// fromGethKey returns the vrf_key representation of gethKey. Do not abuse this
+// fromGethKey returns the vrfkey representation of gethKey. Do not abuse this
 // to convert an ethereum key into a VRF key!
 func fromGethKey(gethKey *keystore.Key) *PrivateKey {
 	k := secp256k1.IntToScalar(gethKey.PrivateKey.D)
