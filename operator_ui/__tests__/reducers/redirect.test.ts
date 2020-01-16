@@ -14,7 +14,7 @@ describe('reducers/redirect', () => {
 
   it('MATCH_ROUTE clears "to"', () => {
     let state = reducer(INITIAL_STATE, redirectAction)
-    expect(state.redirect.to).not.toBeUndefined()
+    expect(state.redirect.to).toBeDefined()
 
     state = reducer(state, { type: RouterActionType.MATCH_ROUTE })
     expect(state.redirect.to).toBeUndefined()
